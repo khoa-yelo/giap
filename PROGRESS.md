@@ -3,7 +3,8 @@ _Last updated: 2026-10-14 · session https://claude.ai/code/session_01LEyHKvwXcv
 
 ## Current milestone
 M0: Scaffold. Status: done (PR #1, merged 2026-10-14 under ADR-0004)
-M1: Inputs and preflight. Status: in progress — 9 of 12 issues merged (M1-01…09 incl. this PR); M1-10…12 left
+M1: Inputs and preflight. Status: 11 of 12 merged; M1-12 (`giap preflight`, PR #14) in review fixes
+M2–M4: designed (docs/specs/M{2,3,4}-index.md with lead decisions); wave 2 started
 
 ## Done (with evidence)
 - [M0] `gh` authenticated as khoa-yelo (SSH protocol); repository is public (Actions minutes unlimited).
@@ -17,18 +18,13 @@ M1: Inputs and preflight. Status: in progress — 9 of 12 issues merged (M1-01�
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
-- Merged to main (squash, one commit per PR): #1 M0, #2 M1-01, #3 M1-02, #4 M1-03, #5 M1-04,
-  #6 M1-09, #7 M1-06, #8 M1-05, #9 M1-08; this PR: M1-07 (`giap convert --from generic|diann`).
-- Untracked specs M1-10, M1-11, M1-12 in the main checkout's docs/specs/ (commit with each PR).
-- Slurm jobs: `giap-fetch-bakta-db` (scripts/slurm/fetch_bakta_db.sbatch; log local/logs/giap-fetch-bakta-db.<id>.out).
-- Lessons:
-  - Review fixes can contradict older tests → the test-author lists and aligns them first; the
-    implementer never edits tests and stops on contradictions.
-  - Subagents must never run `uv sync` / `pip install`: the venv is shared, and an install in a
-    worktree repoints the editable `giap` at that worktree. Always set
-    `PYTHONPATH=$PWD/src:$PWD/tests/sim` when running tests.
-  - Merging a stack of squash-merged PRs: retarget the PR to main *before* pushing the rebased
-    branch, and merge only from one snapshot showing every check present and passed.
+- PR #14 `m1/preflight-cli` (M1-12): review findings pinned by tests; implementer next.
+- Wave 2 worktrees (local/worktrees/<name>, branch from main, each issue: test-author → implementer → reviewer):
+  `m2/tool-envs` (M2-01), `m2/step-registry` (M2-02), `m3/gene-model` (M3-01, shared with M2-03),
+  `m3/sixframe` (M3-02), `m4/stats-core` (M4-01, reused by M3-10).
+- Slurm: `giap-fetch-bakta-db` (job 1845787) downloading Bakta DB v6.0 light then full into local/db/bakta.
+- Lessons (keep): test-author aligns contradicted older tests before the implementer starts; subagents
+  never install packages; retarget before pushing rebased stacks; merge only on one all-green snapshot.
 
 ## Next actions (ordered)
 Parallel orchestration (Khoa, 2026-10-14: "design Mx in parallel to speed up development"):
@@ -55,6 +51,7 @@ Parallel orchestration (Khoa, 2026-10-14: "design Mx in parallel to speed up dev
 ## Questions for Khoa
 | # | Question | Options | Default if no answer | Asked |
 |---|---|---|---|---|
+| 5 | M3-13: tblastn HSP chaining needs two parameters (max gap 300 nt, query overlap ≤ 10 aa). New config keys, or fixed constants documented in the methods note? | config keys (ADR) / constants / other | M3-13 waits | to ask when M3-13 starts |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;
