@@ -1,23 +1,46 @@
-"""M0 simulator: one circular chromosome with protein-coding genes grouped in TUs (spec §11.3)."""
+"""giapsim: genomes with genes in TUs, planted features, signals and precomputed layers (§11.3).
+
+M0 skeleton, M3-18 features (plasmids, RNA genes, pseudogenes, sORFs, strains) and the M2-05
+simulator v2 (signals, CRISPR/oriC/prophage/BGC blocks, precomputed layers and their truth). All
+v2 fields default to off; the output is then byte-identical to M0/M3-18 (``truth/features.tsv``
+gains its ``anticodon`` column only with ``write_precomputed`` or ``real_rrna_trna``).
+
+Accepted choices (M2-05 review): plasmids are ``plasmid_<n>`` (tests also accept ``p<n>``);
+with v2 signals, intra-TU gaps of 8-10 bp become 11-13 bp (no RBS spacer fits them); genes with
+an N-terminal extension get no planted RBS; signals are planted at their strengths even when
+``write_precomputed`` is off (no truth tables are then written).
+"""
 
 from __future__ import annotations
 
 import csv
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from giap.io.gff3 import GffFeature, write_gff3
+from giap.io.tsv import write_tsv
 from giap.model.coords import Interval, Replicon
+from giapsim import blocks as v2blocks
+from giapsim import layers
 from giapsim.codons import SENSE_USAGE, STOPS, revcomp
 from giapsim.features import NOVEL_CLASSES, Block, Feat, coding, make_blocks, novel_orfs
+from giapsim.signals import TuPlan, apply_plan, plan_tu, plant_gene_rbs
 from giapsim.strain import StrainConfig, derive_reference
 
-__all__ = ["SimConfig", "SimResult", "StrainConfig", "revcomp", "simulate"]
+__all__ = [
+    "SIM100K",
+    "SIM100K_SEED",
+    "SimConfig",
+    "SimResult",
+    "StrainConfig",
+    "revcomp",
+    "simulate",
+]
 _SENSE = np.array(list(SENSE_USAGE), dtype="<U3")
 _MAX_OVERLAP_TRIES = 200
 #: Overlaps (bp) for which a stop codon of the upstream gene can share bases with the
@@ -70,6 +93,27 @@ class SimConfig:
     n_nterm_extensions: int = 0  # annotated start moved 3·k nt downstream (k in [5, 30])
     n_novel_orfs: tuple[tuple[str, int], ...] = ()  # (class, count) pairs
     strain: StrainConfig | None = None
+    # M2-05 (simulator v2); all off by default
+    real_rrna_trna: bool = False  # bundled E. coli MG1655 rrnB / tRNA genes (data/PROVENANCE.md)
+    crispr: bool = False
+    oric: bool = False  # oriC-like region next to mnmG
+    prophage_bp: int = 0
+    bgc_bp: int = 0
+    prophage_gc_shift: float = -0.08  # prophage GC minus the rest of the chromosome
+    rbs_strength: float = 0.0  # per-gene probability of a planted AGGAGG
+    promoter_strength: float = 0.0  # per-TU probability of a planted sigma-70 promoter
+    terminator_strength: float = 0.0  # per-TU probability of a planted terminator
+    layer_false_positive_rate: float = 0.05  # expected false rows per true row of a layer
+    write_precomputed: bool = False
+
+    @property
+    def v2(self) -> bool:
+        """Any simulator-v2 feature on (TUs then carry leaders/trailers for signals)."""
+        return bool(
+            self.real_rrna_trna or self.crispr or self.oric or self.prophage_bp or self.bgc_bp
+            or self.rbs_strength or self.promoter_strength or self.terminator_strength
+            or self.write_precomputed
+        )  # fmt: skip
 
     def __post_init__(self) -> None:
         for name in ("start_codons", "stop_codons", "overlap_bp", "n_novel_orfs"):
@@ -99,6 +143,10 @@ class SimResult:
     reference_fasta: Path | None = None
     reference_json: Path | None = None
     strain_truth: Path | None = None
+    gff3: Path | None = None
+    config_yaml: Path | None = None
+    precomputed: Mapping[str, Path] = field(default_factory=dict)
+    truth: Mapping[str, Path] = field(default_factory=dict)
 
 
 @dataclass
@@ -108,6 +156,7 @@ class _Gene:
     strand: str = "+"
     start: int = 0  # 0-based half-open genome coordinates
     end: int = 0
+    feat: Feat | None = None
 
     @property
     def nt(self) -> str:
@@ -115,9 +164,13 @@ class _Gene:
 
 
 class _Sim:
-    def __init__(self, cfg: SimConfig, rng: np.random.Generator) -> None:
+    def __init__(
+        self, cfg: SimConfig, rng: np.random.Generator, srng: np.random.Generator | None = None
+    ) -> None:
         self.cfg = cfg
         self.rng = rng
+        self.srng = srng  # v2 signals; TUs get leaders/trailers when set
+        self.plans: list[TuPlan] = []
         self.sense_cum = _cum(list(SENSE_USAGE.values()))
         self.starts = [k for k, _ in cfg.start_codons]
         self.start_cum = _cum([w for _, w in cfg.start_codons])
@@ -180,7 +233,10 @@ class _Sim:
                         k = 0
                 cursor -= k
                 if not k:
-                    cursor += int(rng.integers(cfg.intra_tu_gap_bp[0], cfg.intra_tu_gap_bp[1] + 1))
+                    gap = int(rng.integers(cfg.intra_tu_gap_bp[0], cfg.intra_tu_gap_bp[1] + 1))
+                    if self.srng is not None and 8 <= gap <= 10:
+                        gap += 3  # no RBS spacer fits gaps of 8-10 bp (see signals.py)
+                    cursor += gap
             g.tu, g.strand, g.start = tu_id, strand, cursor
             cursor += 3 * len(g.codons)
             g.end = cursor
@@ -192,9 +248,11 @@ class _Sim:
         targets: Sequence[int] = (),
         lead: int = 0,
         tail: int = 0,
+        max_genes: int | None = None,
     ) -> tuple[list[_Gene], list[tuple[int, Block]]]:
         """TUs from ``lead`` to ``genome_length - tail``; each block goes in once ``pos`` passes
-        its target. Returns the genes and the block positions."""
+        its target. Returns the genes and the block positions. With ``srng`` set, each TU's
+        signals are planned (``self.plans``)."""
         cfg, rng = self.cfg, self.rng
         lo, hi = cfg.inter_tu_gap_bp
         limit = cfg.genome_length - tail
@@ -220,9 +278,21 @@ class _Sim:
             while pending and pos >= pending[0][0]:
                 place(pending.pop(0)[1])
             genes, length = self.tu(strand, tu_id + 1)
+            if max_genes is not None:
+                if len(placed) >= max_genes:
+                    break
+                genes = genes[: max_genes - len(placed)]
+                length = genes[-1].end
+            plan = None
+            if self.srng is not None:
+                plan = plan_tu(self.srng, cfg, genes, length)
+                length = plan.length
             if pos + length + lo + reserve > limit:  # no gene crosses the origin
                 break
             tu_id += 1
+            if plan is not None:
+                plan.pos = pos
+                self.plans.append(plan)
             for g in genes:
                 g.start, g.end = (
                     (pos + g.start, pos + g.end)
@@ -250,16 +320,21 @@ def _write_genes(genome: bytearray, genes: list[_Gene]) -> list[Feat]:
     for g in genes:
         nt = g.nt if g.strand == "+" else revcomp(g.nt)
         genome[g.start : g.end] = nt.encode()
-    return [_gene_feat(g) for g in genes]
+        g.feat = _gene_feat(g)
+    return [g.feat for g in genes if g.feat is not None]
 
 
 def _extra_contig(
-    cfg: SimConfig, rng: np.random.Generator, length: int
-) -> tuple[bytearray, list[Feat]]:
-    sim = _Sim(replace(cfg, genome_length=length), rng)
-    genes, _ = sim.layout()
+    cfg: SimConfig,
+    rng: np.random.Generator,
+    length: int,
+    srng: np.random.Generator | None = None,
+    max_genes: int | None = None,
+) -> tuple[bytearray, list[Feat], list[TuPlan]]:
+    sim = _Sim(replace(cfg, genome_length=length), rng, srng)
+    genes, _ = sim.layout(max_genes=max_genes)
     genome = sim.background()
-    return genome, _write_genes(genome, genes)
+    return genome, _write_genes(genome, genes), sim.plans
 
 
 def _tsv(path: Path, header: list[str], rows: Sequence[Sequence[Any]]) -> None:
@@ -278,7 +353,19 @@ def _write_fasta(path: Path, contigs: list[tuple[str, str, str]], seqs: dict[str
     path.write_text("".join(parts))
 
 
-def _json_feature(f: Feat, length: int) -> dict[str, Any]:
+_JSON_TYPE = {"oric": "oriC"}
+_GFF_TYPE = {"crispr": "repeat_region", "oric": "origin_of_replication"}
+_VERSION = {"bakta": "sim", "db": {"version": "sim", "type": "sim"}}
+
+
+def _slice(seq: str, f: Feat) -> str:
+    n = len(seq)
+    s = seq[f.start : f.end] if f.end <= n else seq[f.start :] + seq[: f.end - n]
+    return revcomp(s) if f.strand == "-" else s
+
+
+def _json_feature(f: Feat, length: int, seq: str | None = None) -> dict[str, Any]:
+    """One feature; ``seq`` (the contig) given selects Bakta 1.12 field names (simulator v2)."""
     d: dict[str, Any] = {
         "type": f.kind,
         "contig": f.contig,
@@ -292,13 +379,28 @@ def _json_feature(f: Feat, length: int) -> dict[str, Any]:
         d |= {"nt": f.nt, "aa": f.aa}
     else:
         d["id"] = f.locus
+    if seq is None:
+        return d
+    d["sequence"] = d.pop("contig")
+    d["type"] = _JSON_TYPE.get(f.kind, f.kind)
+    if f.kind in ("cds", "sorf"):
+        d = {"gene": None, "product": "hypothetical protein", "db_xrefs": []} | d
+    else:
+        d["nt"] = _slice(seq, f)
+        if f.strand == ".":
+            d["strand"] = "?"
     return d
 
 
 def _write_json(
-    path: Path, contigs: list[tuple[str, str, str]], seqs: dict[str, str], feats: list[Feat]
+    path: Path,
+    contigs: list[tuple[str, str, str]],
+    seqs: dict[str, str],
+    feats: list[Feat],
+    bakta: bool = False,
 ) -> None:
-    data = {
+    key = "nt" if bakta else "sequence"
+    data: dict[str, Any] = {
         "sequences": [
             {
                 "id": cid,
@@ -306,12 +408,16 @@ def _write_json(
                 "topology": topology,
                 "complete": topology == "circular",
                 "length": len(seqs[cid]),
-                "sequence": seqs[cid],
+                key: seqs[cid],
             }
             for cid, kind, topology in contigs
         ],
-        "features": [_json_feature(f, len(seqs[f.contig])) for f in feats],
+        "features": [
+            _json_feature(f, len(seqs[f.contig]), seqs[f.contig] if bakta else None) for f in feats
+        ],
     }
+    if bakta:
+        data["version"] = _VERSION
     path.write_text(json.dumps(data, sort_keys=True, indent=1) + "\n")
 
 
@@ -325,6 +431,7 @@ def _write_gff3(
     out = []
     for f in feats:
         gtype = "pseudogene" if f.pseudo_reason else "CDS" if f.kind in ("cds", "sorf") else f.kind
+        gtype = _GFF_TYPE.get(gtype, gtype)
         attrs = {"ID": f.locus, "locus_tag": f.locus}
         if f.extra.get("product"):
             attrs["product"] = f.extra["product"]
@@ -336,11 +443,86 @@ def _write_gff3(
     write_gff3(path, out, reps)
 
 
+@dataclass
+class _V2:
+    """Simulator-v2 state gathered before loci are assigned."""
+
+    plans: dict[str, list[TuPlan]]
+    rbs: list[tuple[Feat, int]] = field(default_factory=list)  # genes outside TUs
+    blocks: list[tuple[str, int, int]] = field(default_factory=list)  # kind, start, end on chr
+
+
+def _plant_signals(
+    cfg: SimConfig,
+    srng: np.random.Generator,
+    seqs: dict[str, bytearray],
+    feats: list[Feat],
+    st: _V2,
+    chrom: str,
+    put: list[tuple[int, Block]],
+) -> list[Feat]:
+    """Apply TU signals, plant RBSs of block genes and fill the prophage; returns new feats."""
+    for cid, plans in st.plans.items():
+        for p in plans:
+            apply_plan(seqs[cid], p)
+    for f in feats:
+        # genes with an N-terminal extension (``true_start`` set) get no RBS
+        if f.kind in ("cds", "sorf") and not f.tu and f.true_start is None:
+            sp = plant_gene_rbs(srng, cfg.rbs_strength, seqs[f.contig], f.start, f.end, f.strand)
+            if sp is not None:
+                st.rbs.append((f, sp))
+    new: list[Feat] = []
+    for pos, b in put:
+        if b.kind in ("prophage", "bgc"):
+            st.blocks.append((b.kind, pos, pos + len(b.seq)))
+        if b.kind != "prophage":
+            continue
+        g = seqs[chrom]
+        rest = g[:pos] + g[pos + len(b.seq) :]
+        target = v2blocks.gc_of(rest) + cfg.prophage_gc_shift
+        strand = "+" if srng.random() < 0.5 else "-"
+        pfeats, rbs = v2blocks.fill_prophage(_Sim(cfg, srng), g, pos, len(b.seq), strand, target)
+        for f in pfeats:
+            f.contig = chrom
+        st.rbs += rbs
+        new += pfeats
+    return new
+
+
+def _signal_truth(st: _V2, chrom: str, feats: list[Feat], seqs: dict[str, str]) -> layers.Truth:
+    t = layers.Truth()
+    for cid, plans in st.plans.items():
+        for p in plans:
+            gf = [g.feat for g in p.genes if g.feat is not None]
+            tss = None if p.tss is None else p.span(p.tss, p.tss + 1)[0] + 1
+            term = None if p.term is None else p.span(*p.term)
+            t.tus.append([
+                gf[0].tu, cid, min(f.start for f in gf) + 1, max(f.end for f in gf), p.strand,
+                [f.locus for f in gf], tss is not None, tss, term is not None,
+            ])  # fmt: skip
+            if tss is not None:
+                t.promoters.append((cid, p.strand, tss))
+            if term is not None:
+                t.terminators.append((cid, term[0] + 1, term[1], p.strand))
+            t.rbs += [(g.feat.locus, sp, g.feat.extra["start_type"]) for g, sp in p.rbs if g.feat]
+    t.rbs += [(f.locus, sp, f.extra["start_type"]) for f, sp in st.rbs]
+    for kind, s, e in st.blocks:
+        t.regions.append((kind, chrom, s + 1, e))
+    for f in feats:
+        if f.kind == "crispr":
+            t.regions.append(("crispr", f.contig, f.start + 1, f.end))
+    for cid, n in ((c, len(s)) for c, s in seqs.items()):
+        if cid.startswith("plasmid_"):
+            t.regions.append(("plasmid", cid, 1, n))
+    return t
+
+
 def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     """Simulate a genome with ``config`` and ``seed``; write inputs and truth under ``outdir``."""
     rng = np.random.default_rng(seed)
     frng = np.random.default_rng([seed, 1])  # M3-18 features; M0 defaults never draw from it
-    sim, fsim = _Sim(config, rng), _Sim(config, frng)
+    srng = np.random.default_rng([seed, 2]) if config.v2 else None  # M2-05 signals and layers
+    sim, fsim = _Sim(config, rng, srng), _Sim(config, frng)
     length, chrom = config.genome_length, config.contig_id
     origin, lead, tail = None, 0, 0
     if config.origin_crossing_gene:
@@ -370,6 +552,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         f.contig = chrom
     contigs = [(chrom, "chromosome", "circular")]
     seqs = {chrom: genome}
+    st = _V2({chrom: sim.plans})
     extra = [
         ("plasmid", "circular", int(frng.integers(*config.plasmid_length, endpoint=True)))
         for _ in range(config.n_plasmids)
@@ -377,10 +560,15 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     if config.linear_contig_length:
         extra.append(("contig", "linear", config.linear_contig_length))
     for i, (kind, topology, n_bp) in enumerate(extra):
-        cid = f"plasmid_{i + 1}" if kind == "plasmid" else "linear_1"
-        seqs[cid], fs = _extra_contig(config, frng, n_bp)
+        cid = f"plasmid_{i + 1}" if kind == "plasmid" else "linear_1"  # tests also accept p1
+        max_genes = int(srng.integers(1, 4)) if srng is not None and kind == "plasmid" else None
+        seqs[cid], fs, st.plans[cid] = _extra_contig(config, frng, n_bp, srng, max_genes)
         contigs.append((cid, kind, topology))
-        feats += [replace(f, contig=cid, tu=f"{cid}:{f.tu}") for f in fs]
+        for f in fs:
+            f.contig, f.tu = cid, f"{cid}:{f.tu}"
+        feats += fs
+    if srng is not None:
+        feats += _plant_signals(config, srng, seqs, feats, st, chrom, put)
     order = {cid: k for k, (cid, _, _) in enumerate(contigs)}
     feats.sort(key=lambda f: (order[f.contig], f.start, f.end))
     for i, f in enumerate(feats):
@@ -392,7 +580,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     (out / "truth").mkdir(parents=True, exist_ok=True)
     fasta, bakta, gff = out / "genome.fasta", out / "bakta_like.json", out / "annotation.gff3"
     _write_fasta(fasta, contigs, text)
-    _write_json(bakta, contigs, text, feats)
+    _write_json(bakta, contigs, text, feats, bakta=config.v2)
     _write_gff3(gff, contigs, text, feats)
     novel_truth = out / "truth" / "novel_orfs.tsv"
     _tsv(novel_truth, ["orf_id", "class", "contig", "start", "end", "strand", "aa"], novel)
@@ -408,13 +596,16 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         ],
     )
     ref_pseudo: dict[str, bool] = {}
-    res = SimResult(out, fasta, bakta, truth, len(genes), gff, feat_truth, novel_truth)
+    res = SimResult(
+        out, fasta, bakta, truth, len(genes), gff, feat_truth, novel_truth, gff3=gff,
+        truth={"genes": truth, "features": feat_truth},
+    )  # fmt: skip
     if config.strain is not None:
         ref_seqs, lifted, rows = derive_reference(config.strain, seed, text, feats)
         ref_fasta, ref_json = out / "reference.fasta", out / "reference_bakta_like.json"
         strain_truth = out / "truth" / "strain_differences.tsv"
         _write_fasta(ref_fasta, contigs, ref_seqs)
-        _write_json(ref_json, contigs, ref_seqs, lifted)
+        _write_json(ref_json, contigs, ref_seqs, lifted, bakta=config.v2)
         header = [
             "contig",
             "pos_sample",
@@ -430,19 +621,13 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         res = replace(
             res, reference_fasta=ref_fasta, reference_json=ref_json, strain_truth=strain_truth
         )
+    # ``anticodon`` only with v2 output, so M0/M3-18 truth stays byte-identical
+    anticodon = config.write_precomputed or config.real_rrna_trna
+    header = ["feature_id", "type", "contig", "start", "end", "strand", "true_start"]
+    header += ["pseudo_reason", "ref_pseudo", *(["anticodon"] if anticodon else [])]
     _tsv(
         feat_truth,
-        [
-            "feature_id",
-            "type",
-            "contig",
-            "start",
-            "end",
-            "strand",
-            "true_start",
-            "pseudo_reason",
-            "ref_pseudo",
-        ],
+        header,
         [
             [
                 f.locus,
@@ -454,8 +639,58 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
                 f.true_start or "",
                 f.pseudo_reason,
                 "" if f.locus not in ref_pseudo else str(ref_pseudo[f.locus]).lower(),
+                *([f.extra.get("anti_codon", "")] if anticodon else []),
             ]
             for f in feats
         ],
     )
+    if srng is not None and config.write_precomputed:
+        res = _write_v2(out, config, srng, st, chrom, feats, text, bakta, res)
     return res
+
+
+def _write_v2(
+    out: Path,
+    cfg: SimConfig,
+    srng: np.random.Generator,
+    st: _V2,
+    chrom: str,
+    feats: list[Feat],
+    text: dict[str, str],
+    bakta: Path,
+    res: SimResult,
+) -> SimResult:
+    t = _signal_truth(st, chrom, feats, text)
+    tus = out / "truth" / "tus.tsv"
+    write_tsv(tus, layers.TUS_COLUMNS, t.tus)
+    lengths = {c: len(s) for c, s in text.items()}
+    coding = [f for f in feats if f.kind in ("cds", "sorf")]
+    rows = layers.build(srng, cfg.layer_false_positive_rate, t, lengths, coding)
+    pre, tru = layers.write(out, rows)
+    cfg_yaml = out / "config.yaml"
+    layers.write_config(cfg_yaml, bakta, pre)
+    return replace(
+        res, config_yaml=cfg_yaml, precomputed=pre, truth={**res.truth, "tus": tus, **tru}
+    )
+
+
+#: The 100-kb genome of M2-05 (recorded with real tools by M2-10).
+SIM100K = SimConfig(
+    genome_length=100_000,
+    n_plasmids=1,
+    plasmid_length=(8_000, 8_000),
+    n_rrna_operons=1,
+    n_trna=10,
+    real_rrna_trna=True,
+    crispr=True,
+    oric=True,
+    prophage_bp=12_000,
+    bgc_bp=10_000,
+    n_pseudogenes=2,
+    n_sorfs=3,
+    rbs_strength=0.8,
+    promoter_strength=0.8,
+    terminator_strength=0.8,
+    write_precomputed=True,
+)
+SIM100K_SEED = 20261014

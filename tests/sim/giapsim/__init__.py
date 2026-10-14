@@ -4,7 +4,7 @@ M0 skeleton: one circular chromosome, protein-coding genes in transcription unit
 JSON annotation and a gene truth table.
 """
 
-from giapsim.simulate import SimConfig, SimResult, simulate
+from giapsim.simulate import SIM100K, SIM100K_SEED, SimConfig, SimResult, simulate
 from giapsim.strain import StrainConfig
 
-__all__ = ["SimConfig", "SimResult", "StrainConfig", "simulate"]
+__all__ = ["SIM100K", "SIM100K_SEED", "SimConfig", "SimResult", "StrainConfig", "simulate"]

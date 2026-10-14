@@ -69,6 +69,7 @@ class Feat:
 class Block:
     seq: str  # + strand
     feats: list[Feat]
+    kind: str = ""  # v2 blocks: crispr | oric | bgc | prophage
 
 
 def _block(parts: list[tuple[str, Feat | None]], strand: str) -> Block:
@@ -147,22 +148,37 @@ def nterm_extension(sim: _Sim) -> list[tuple[str, Feat | None]]:
 
 
 def make_blocks(sim: _Sim) -> list[Block]:
+    from giapsim import blocks as v2  # simulator v2 (M2-05)
+
     cfg, rng = sim.cfg, sim.rng
+    rrna: Callable[[], list[tuple[str, Feat | None]]] = lambda: rrna_operon(sim)  # noqa: E731
+    trnas: list[Callable[[], list[tuple[str, Feat | None]]]] = [lambda: trna(sim)] * cfg.n_trna
+    if cfg.real_rrna_trna:
+        rrna = lambda: v2.real_rrna_operon(sim)  # noqa: E731
+        trnas = [lambda i=i: v2.real_trna(i) for i in v2.trna_picks(rng, cfg.n_trna)]  # type: ignore[misc]
     makers: list[Callable[[], list[tuple[str, Feat | None]]]] = [
-        *[lambda: rrna_operon(sim)] * cfg.n_rrna_operons,
-        *[lambda: trna(sim)] * cfg.n_trna,
+        *[rrna] * cfg.n_rrna_operons,
+        *trnas,
         *[lambda: sorf(sim)] * cfg.n_sorfs,
         *[lambda: nterm_extension(sim)] * cfg.n_nterm_extensions,
     ]
     r0 = int(rng.integers(2))
     reasons = [("internal_stop", "frameshift")[(i + r0) % 2] for i in range(cfg.n_pseudogenes)]
     makers += [lambda r=r: pseudogene(sim, r) for r in reasons]  # type: ignore[misc]
+    kinds = [""] * len(makers)
+    for kind, maker in v2.v2_makers(sim):
+        makers.append(maker)
+        kinds.append(kind)
     blocks = []
     for j in rng.permutation(len(makers)):
         strand = "+" if rng.random() < 0.5 else "-"
         b = _block(makers[int(j)](), strand)
+        b.kind = kinds[int(j)]
+        for f in b.feats:
+            if f.kind in ("crispr", "oric"):
+                f.strand = "."
         for f in b.feats:  # N-terminal extension: true start at the block's 5' end
-            if f.kind == "cds" and not f.pseudo_reason and len(f.nt) < len(b.seq):
+            if f.kind == "cds" and not f.pseudo_reason and not b.kind and len(f.nt) < len(b.seq):
                 f.true_start = 1 if strand == "+" else len(b.seq)
         blocks.append(b)
     return blocks

@@ -59,6 +59,8 @@ M0_SHA256 = {
     "genome.fasta": "698373a45c787caa64c01d7050dd1d2a7b31e03771e4e389056ca510c6df1971",
     "bakta_like.json": "d312420eb3d404cb1abbb6d07844cccbc83c0ce5e9c912d3a02aa17da6c49064",
     "truth/genes.tsv": "9c2c98152eed218d3855ccddf478bf49ea42bc69727fce466111f704e0387b0f",
+    # main at 42b9412 (M2-05 review decision 2: no ``anticodon`` column without v2 output)
+    "truth/features.tsv": "14c5e4866fe3beb761ec7652455e4cc90e7496ac3370b6def7eb1c0fc03c6075",
 }
 
 FEATURES_COLUMNS = [

@@ -103,3 +103,24 @@ amino_acid`; `version: {bakta: "sim", db: {version: "sim", type: "sim"}}`), `ann
 2. Non-empty geNOMAD/antiSMASH fixtures cannot come from synthetic blocks. **Proposed default:** the
    sim100k recordings may be empty for those tools; non-empty contract fixtures come from K-12 and
    Nissle (M2-10).
+
+## Lead decisions after code review (PR #38, changes requested)
+1. Truth bug: `signals.get()` on the − strand returns the reverse complement in reading order (complement
+   AND reverse is wrong for in-place checks; use the strand's reading order consistently with `put`), so
+   the "no second AGGAGG within 5–10 nt" clean-up runs on − strand genes too. Test: over many seeds, no
+   − strand (or + strand) gene has a second Shine–Dalgarno core within the spacer window besides the true RBS.
+2. `truth/features.tsv` stays byte-identical for M0/M3-18 configs: the `anticodon` column is written only
+   when v2 output is on (`write_precomputed` or `real_rrna_trna`). Add `truth/features.tsv` to the M0 and
+   M3-18 hash tests.
+3. Layer values match what the parse steps will write (the layers are what M2-12…M2-20 tests compare
+   against): region ids `<kind>_<n>` (e.g. `prophage_1`, `bgc_1`) as in docs/specs/M2-19-regions.md;
+   tool/source names with the official casing of docs/specs/M2-15-terminators.md and M2-18/M2-19
+   (`TerminatorNet`, `TransTermHP`, `geNOMAD`, `antiSMASH`, `Bakta`); BGC score NA; false-positive regions
+   list the genes they overlap like true ones. Where the M2-12…M2-20 specs define a value, the simulator
+   follows them; the implementer reads those specs.
+4. Tests kill the surviving mutants: terminator truth start ±1, U-tract change, terminator offset range,
+   `tus.tsv` start ±1, region membership boundary, TSS +1 (each checked against the genome sequence).
+5. Distances in `layers.py` exponentials are clipped (no overflow warning on gaps > 10 kb).
+6. Accepted implementer choices (record in docstrings): plasmid id `plasmid_1` (tests accept `p1`); intra-TU
+   gaps of 8–10 bp become 11–13 (no RBS spacer fits); no RBS planted for N-terminal-extension genes;
+   signals are planted without truth tables when `write_precomputed=False`.
