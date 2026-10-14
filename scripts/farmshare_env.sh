@@ -1,4 +1,5 @@
 # GIAP environment on FarmShare. Source it; never execute it.
+unset PYTHONHOME PYTHONSTARTUP     # a user-profile PYTHONHOME can stop the venv Python from starting
 export GIAP_REPO="${GIAP_REPO:-/home/classes/bios/270/khoa/giap}"
 export GIAP_ROOT="$GIAP_REPO/local"                   # gitignored; all data and environments live here
 export GIAP_DB_DIR="$GIAP_ROOT/db"
