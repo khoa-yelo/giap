@@ -93,3 +93,16 @@ def render_preflight_md(r: PreflightReport) -> str: ...
    (the full path goes to `run_manifest.json`), keeping `preflight.json` reproducible.
 4. `jsonschema` is only a transitive dependency (via `frictionless`, dev extra). **Proposed default:**
    validation happens in tests only (dev extra); the runtime writer does not import `jsonschema`.
+
+## Lead decisions after code review
+- Tool versions: the installed major.minor must equal the pinned one and the patch must be ≥ the pin
+  (Bakta 1.12.x with x ≥ 2); a pre-release suffix (`rc1`, `-pre`, `a1`, `b2`, `.dev`) ranks below the
+  release. Databases must match the pin to the precision it is written with (Bakta DB "6" → major 6;
+  geNOMAD DB "1.9" → 1.9).
+- The writer converts numpy scalars in every field (not only `value`/`routing`); dict keys that
+  collide after conversion to strings raise `ValueError`.
+- Per-check `exit_code`: 1 for input errors, 2 for environment errors, 0 otherwise (schema allows 0/1/2).
+- `routing` in the schema has `additionalProperties: false`.
+- Markdown escaping also covers backticks and `<`.
+- "Probe raises / capabilities.json missing → one `environment.tools` error" moves to M1-12, which
+  implements the real probe.
