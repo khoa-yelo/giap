@@ -324,4 +324,5 @@ def test_100kb_genome_is_fast(tmp_path: Path) -> None:
 
     t0 = time.perf_counter()
     giapsim.simulate(giapsim.SimConfig(genome_length=100_000), seed=5, outdir=tmp_path)
-    assert time.perf_counter() - t0 < 2.0
+    # loose 10x guard; the 2 s budget is enforced in benchmarks/test_giapsim.py
+    assert time.perf_counter() - t0 < 20.0

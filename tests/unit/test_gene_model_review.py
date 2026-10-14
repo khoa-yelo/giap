@@ -232,7 +232,8 @@ def _time_queries(model: GeneModel, queries: list[Interval]) -> float:
 def test_overlapping_100k_queries_fast() -> None:
     model, queries = _big_model(with_gap=False), _queries()
     elapsed = _time_queries(model, queries)
-    assert elapsed < 1.5, f"100k overlapping queries took {elapsed:.2f} s (limit 1.5 s)"
+    # loose 10x guard; the 1.5 s budget is enforced in benchmarks/test_gene_model.py
+    assert elapsed < 15.0, f"100k overlapping queries took {elapsed:.2f} s (guard 15 s)"
 
 
 def test_overlapping_100k_queries_fast_with_1mb_gap() -> None:
@@ -241,4 +242,5 @@ def test_overlapping_100k_queries_fast_with_1mb_gap() -> None:
     hits = model.overlapping(Interval("chr1", 2_500_000, 2_500_001, "."))
     assert any(isinstance(h, NcFeature) and h.id == "gap1" for h in hits)
     elapsed = _time_queries(model, queries)
-    assert elapsed < 3.0, f"100k overlapping queries with a 1-Mb gap took {elapsed:.2f} s"
+    # loose 10x guard; the 3 s budget is enforced in benchmarks/test_gene_model.py
+    assert elapsed < 30.0, f"100k overlapping queries with a 1-Mb gap took {elapsed:.2f} s"

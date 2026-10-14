@@ -332,4 +332,5 @@ def test_large_parquet_converts_quickly(tmp_path: Path) -> None:
     assert len(res.peptides) == 500_000
     assert res.abundance is not None and len(res.abundance) > 0
     assert not any(math.isnan(v) for v in res.abundance["maxlfq"])
-    assert elapsed < 15, f"conversion took {elapsed:.1f} s"
+    # loose 10x guard; the 15 s budget is enforced in benchmarks/test_converters.py
+    assert elapsed < 150, f"conversion took {elapsed:.1f} s"

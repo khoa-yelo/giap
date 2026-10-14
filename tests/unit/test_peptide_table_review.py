@@ -355,4 +355,5 @@ def test_200k_rows_under_10s(tmp_path: Path) -> None:
     assert len(df) == 200_000
     assert 39_000 <= len(agg) <= 40_000
     assert int(runs["n_rows"].sum()) == 200_000
-    assert elapsed < 10.0, f"read+validate+aggregate took {elapsed:.1f} s"
+    # loose 10x guard; the 10 s budget is enforced in benchmarks/test_peptide_table.py
+    assert elapsed < 100.0, f"read+validate+aggregate took {elapsed:.1f} s"
