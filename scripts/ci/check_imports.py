@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Fail if src/ imports a GPL, AGPL or unlicensed tool (GIAP_SPEC.md R5, §14.6)."""
+"""Fail if src/ imports an external tool (GIAP_SPEC.md R5, §14.6).
+
+Forbidden: GPL, AGPL, non-commercial or unlicensed tools, and tools that run only as separate
+processes (design rule 4), e.g. TerminatorNet (MIT) and BacTermFinder (GPL-3.0).
+"""
 
 from __future__ import annotations
 
@@ -17,6 +21,8 @@ FORBIDDEN = {
     "uniop",
     "transterm",
     "genomad",
+    "terminatornet",
+    "bactermfinder",
 }
 
 

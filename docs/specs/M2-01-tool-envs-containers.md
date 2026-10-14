@@ -118,3 +118,18 @@ also `apptainer pull` of every pinned image into `$NXF_APPTAINER_CACHEDIR`); `sc
    and `containers.yml` is added in M2-21; nightly runs `farmshare,apptainer` for the rest.
 4. `check_imports.py` does not list `terminatornet`/`bactermfinder` (unlicensed). **Proposed
    default:** add both names (one-line change, not a protected file).
+
+## Lead decisions after code review
+1. Lock files also capture pip packages: `micromamba run -n <env> pip freeze` → `workflow/envs/locks/<tool>.pip.txt`;
+   the manifest's lock hash covers both files.
+2. A successful build writes `<env>/.giap-built` holding the env yml's sha256; a missing or different marker
+   triggers a clean rebuild (half-built envs and changed ymls are repaired).
+3. The version command runs as its own step; failure or a mismatch with the registry version (or commit SHA
+   for git tools) fails the build for that tool, and no lock file is written.
+4. `all` builds conda envs only for tools without a pinned container, and skips opt-in tools (bactermfinder);
+   `build_envs.sh <tool>` still builds any env explicitly (conda profile on demand). §3.9 disk budget.
+5. The Apptainer cache file name matches Nextflow's own naming for the pinned Nextflow version (verify in its
+   source/docs); if uncertain, let Nextflow pull and skip the manual pull.
+6. `tests/integration/test_envs_built.py` (marker `needs_conda`) checks each built env's version command and
+   lock files.
+7. The `farmshare_env.sh` comment says worktree jobs share the main `local/` only when `GIAP_ROOT` is exported.

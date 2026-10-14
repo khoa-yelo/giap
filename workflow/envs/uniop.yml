@@ -1,0 +1,11 @@
+# UniOP (no licence file; never vendored, R5/§2.1 decision 18). Source cloned by
+# scripts/build_envs.sh at commit 3ed14dfc2a5d69b993d99a26e50c1f8e9723c087 (ADR-0008) into
+# $CONDA_PREFIX/share/uniop. README: "implemented in Python 3.11.5"; needs pandas, numpy,
+# scikit-learn; Prodigal only for FASTA input (GIAP passes a GFF).
+name: giap-uniop
+channels: [conda-forge, bioconda]
+dependencies:
+  - python=3.11.5
+  - pandas=2.1.1
+  - numpy=1.26.0
+  - scikit-learn=1.3.0

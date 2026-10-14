@@ -1,0 +1,10 @@
+# OSTIR 1.1.3 (GPL-3.0): ViennaRNA from bioconda + `pip install ostir==1.1.3` (§7.1.1).
+name: giap-ostir
+channels: [conda-forge, bioconda]
+dependencies:
+  - python=3.10.14
+  - pip=24.2
+  - numpy=1.26.4
+  - viennarna=2.6.4
+  - pip:
+    - ostir==1.1.3

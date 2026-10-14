@@ -1,0 +1,5 @@
+# miniprot 0.18 (MIT).
+name: giap-miniprot
+channels: [conda-forge, bioconda]
+dependencies:
+  - miniprot=0.18
