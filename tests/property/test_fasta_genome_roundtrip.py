@@ -6,9 +6,10 @@ import gzip
 import tempfile
 from pathlib import Path
 
-from giap.io.fasta import SAFE_ID, invalid_letters, read_genome_fasta, sanitize_id, write_fasta
 from hypothesis import given, settings
 from hypothesis import strategies as st
+
+from giap.io.fasta import SAFE_ID, invalid_letters, read_genome_fasta, sanitize_id, write_fasta
 
 FAST = settings(max_examples=150, deadline=None)
 SAFE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"

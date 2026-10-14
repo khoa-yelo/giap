@@ -8,6 +8,8 @@ import io
 from pathlib import Path
 
 import pytest
+
+import giapsim
 from giap.io._open import open_text
 from giap.io.fasta import (
     IUPAC_DNA,
@@ -19,8 +21,6 @@ from giap.io.fasta import (
     sanitize_id,
     write_fasta,
 )
-
-import giapsim
 
 EX1 = ">chr1 Escherichia coli circular=true\nACGT\nacgn\n"
 
