@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import csv
 import json
-from collections.abc import Sequence
-from dataclasses import dataclass, field, replace
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -47,16 +47,14 @@ class SimConfig:
     gene_len_median_aa: float = 280.0  # log-normal gene lengths
     gene_len_sigma: float = 0.45
     gene_len_range_aa: tuple[int, int] = (50, 1500)
-    start_codons: dict[str, float] = field(
-        default_factory=lambda: {"ATG": 0.90, "GTG": 0.08, "TTG": 0.02}
-    )
-    stop_codons: dict[str, float] = field(
-        default_factory=lambda: {"TAA": 0.61, "TGA": 0.30, "TAG": 0.09}
-    )
+    # weight tables are tuples of (key, weight) pairs so the config stays hashable; a mapping
+    # passed in is converted
+    start_codons: tuple[tuple[str, float], ...] = (("ATG", 0.90), ("GTG", 0.08), ("TTG", 0.02))
+    stop_codons: tuple[tuple[str, float], ...] = (("TAA", 0.61), ("TGA", 0.30), ("TAG", 0.09))
     p_intra_tu_overlap: float = 0.3  # otherwise a gap drawn from intra_tu_gap_bp
-    overlap_bp: dict[int, float] = field(
-        default_factory=lambda: {1: 0.3, 4: 0.5, 8: 0.1, 11: 0.04, 14: 0.03, 17: 0.02, 20: 0.01}
-    )
+    overlap_bp: tuple[tuple[int, float], ...] = (
+        (1, 0.3), (4, 0.5), (8, 0.1), (11, 0.04), (14, 0.03), (17, 0.02), (20, 0.01)
+    )  # fmt: skip
     intra_tu_gap_bp: tuple[int, int] = (0, 40)
     inter_tu_gap_bp: tuple[int, int] = (50, 300)
     intergenic_at: float = 0.65  # AT fraction of non-coding sequence
@@ -70,13 +68,18 @@ class SimConfig:
     n_pseudogenes: int = 0
     n_sorfs: int = 0
     n_nterm_extensions: int = 0  # annotated start moved 3·k nt downstream (k in [5, 30])
-    n_novel_orfs: dict[str, int] = field(default_factory=dict)
+    n_novel_orfs: tuple[tuple[str, int], ...] = ()  # (class, count) pairs
     strain: StrainConfig | None = None
 
     def __post_init__(self) -> None:
-        if set(self.n_novel_orfs) - set(NOVEL_CLASSES):
+        for name in ("start_codons", "stop_codons", "overlap_bp", "n_novel_orfs"):
+            v = getattr(self, name)
+            object.__setattr__(
+                self, name, tuple(v.items() if isinstance(v, Mapping) else map(tuple, v))
+            )
+        if set(dict(self.n_novel_orfs)) - set(NOVEL_CLASSES):
             raise ValueError(f"n_novel_orfs keys must be among {NOVEL_CLASSES}")
-        bad = set(self.overlap_bp) - _FEASIBLE_OVERLAPS
+        bad = set(dict(self.overlap_bp)) - _FEASIBLE_OVERLAPS
         if bad:
             raise ValueError(
                 f"infeasible overlaps {sorted(bad)}; allowed {sorted(_FEASIBLE_OVERLAPS)}"
@@ -116,12 +119,12 @@ class _Sim:
         self.cfg = cfg
         self.rng = rng
         self.sense_cum = _cum(list(SENSE_USAGE.values()))
-        self.starts = list(cfg.start_codons)
-        self.start_cum = _cum(list(cfg.start_codons.values()))
-        self.stops = list(cfg.stop_codons)
-        self.stop_cum = _cum(list(cfg.stop_codons.values()))
-        self.overlaps = list(cfg.overlap_bp)
-        self.overlap_cum = _cum(list(cfg.overlap_bp.values()))
+        self.starts = [k for k, _ in cfg.start_codons]
+        self.start_cum = _cum([w for _, w in cfg.start_codons])
+        self.stops = [k for k, _ in cfg.stop_codons]
+        self.stop_cum = _cum([w for _, w in cfg.stop_codons])
+        self.overlaps = [k for k, _ in cfg.overlap_bp]
+        self.overlap_cum = _cum([w for _, w in cfg.overlap_bp])
 
     def sense(self, n: int) -> list[str]:
         out: list[str] = _SENSE[_draw(self.rng, self.sense_cum, n)].tolist()
@@ -239,7 +242,8 @@ class _Sim:
 
 
 def _gene_feat(g: _Gene) -> Feat:
-    return coding("cds", g.codons, start=g.start, end=g.end, strand=g.strand)
+    tu = f"TU_{g.tu}" if g.tu else ""
+    return coding("cds", g.codons, start=g.start, end=g.end, strand=g.strand, tu=tu)
 
 
 def _write_genes(genome: bytearray, genes: list[_Gene]) -> list[Feat]:
@@ -324,6 +328,8 @@ def _write_gff3(
         attrs = {"ID": f.locus, "locus_tag": f.locus}
         if f.extra.get("product"):
             attrs["product"] = f.extra["product"]
+        if f.kind == "sorf":  # Bakta writes sORFs as CDS
+            attrs["sorf"] = "true"
         iv = Interval(f.contig, f.start, f.end, f.strand)  # type: ignore[arg-type]
         phase = 0 if gtype == "CDS" else None
         out.append(GffFeature(iv, "giapsim", gtype, phase=phase, attributes=attrs))
@@ -359,6 +365,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         nt = (origin.nt if origin.strand == "+" else revcomp(origin.nt)).encode()
         genome[origin.start :], genome[:lead] = nt[:tail], nt[tail:]
         feats.append(_gene_feat(origin))
+        feats[-1].extra["edge"] = True  # Bakta's flag for a feature crossing the origin
     for f in feats:
         f.contig = chrom
     contigs = [(chrom, "chromosome", "circular")]
@@ -373,12 +380,12 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         cid = f"plasmid_{i + 1}" if kind == "plasmid" else "linear_1"
         seqs[cid], fs = _extra_contig(config, frng, n_bp)
         contigs.append((cid, kind, topology))
-        feats += [replace(f, contig=cid) for f in fs]
+        feats += [replace(f, contig=cid, tu=f"{cid}:{f.tu}") for f in fs]
     order = {cid: k for k, (cid, _, _) in enumerate(contigs)}
     feats.sort(key=lambda f: (order[f.contig], f.start, f.end))
     for i, f in enumerate(feats):
         f.locus = f"{config.locus_prefix}_{5 * (i + 1):05d}"
-    novel = novel_orfs(fsim, config.n_novel_orfs, seqs, feats) if config.n_novel_orfs else []
+    novel = novel_orfs(fsim, dict(config.n_novel_orfs), seqs, feats) if config.n_novel_orfs else []
     text = {cid: s.decode() for cid, s in seqs.items()}
 
     out = Path(outdir)
@@ -387,46 +394,68 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     _write_fasta(fasta, contigs, text)
     _write_json(bakta, contigs, text, feats)
     _write_gff3(gff, contigs, text, feats)
-    truth = out / "truth" / "genes.tsv"
+    novel_truth = out / "truth" / "novel_orfs.tsv"
+    _tsv(novel_truth, ["orf_id", "class", "contig", "start", "end", "strand", "aa"], novel)
+    truth, feat_truth = out / "truth" / "genes.tsv", out / "truth" / "features.tsv"
+    # every CDS (pseudogenes included); ``end`` unwrapped (> contig length across the origin)
     _tsv(
         truth,
         ["locus_tag", "tu_id", "start", "end", "strand", "start_codon", "length_aa"],
         [
-            [f.locus, f"TU_{g.tu}", g.start + 1, g.end, g.strand, g.codons[0], len(g.codons) - 1]
-            for g, f in zip(genes, gene_feats, strict=True)
+            [f.locus, f.tu, f.start + 1, f.end, f.strand, f.extra["start_type"], len(f.aa)]
+            for f in feats
+            if f.kind == "cds"
         ],
     )
-    feat_truth = out / "truth" / "features.tsv"
+    ref_pseudo: dict[str, bool] = {}
+    res = SimResult(out, fasta, bakta, truth, len(genes), gff, feat_truth, novel_truth)
+    if config.strain is not None:
+        ref_seqs, lifted, rows = derive_reference(config.strain, seed, text, feats)
+        ref_fasta, ref_json = out / "reference.fasta", out / "reference_bakta_like.json"
+        strain_truth = out / "truth" / "strain_differences.tsv"
+        _write_fasta(ref_fasta, contigs, ref_seqs)
+        _write_json(ref_json, contigs, ref_seqs, lifted)
+        header = [
+            "contig",
+            "pos_sample",
+            "pos_reference",
+            "ref",
+            "alt",
+            "type",
+            "gene",
+            "aa_change",
+        ]
+        _tsv(strain_truth, header, rows)
+        ref_pseudo = {g.locus: bool(g.extra.get("pseudo")) for g in lifted}
+        res = replace(
+            res, reference_fasta=ref_fasta, reference_json=ref_json, strain_truth=strain_truth
+        )
     _tsv(
         feat_truth,
-        ["feature_id", "type", "contig", "start", "end", "strand", "true_start", "pseudo_reason"],
+        [
+            "feature_id",
+            "type",
+            "contig",
+            "start",
+            "end",
+            "strand",
+            "true_start",
+            "pseudo_reason",
+            "ref_pseudo",
+        ],
         [
             [
                 f.locus,
                 f.kind,
                 f.contig,
-                d["start"],
-                d["stop"],
+                f.start + 1,
+                f.end,
                 f.strand,
                 f.true_start or "",
                 f.pseudo_reason,
+                "" if f.locus not in ref_pseudo else str(ref_pseudo[f.locus]).lower(),
             ]
             for f in feats
-            for d in [_json_feature(f, len(text[f.contig]))]
         ],
     )
-    novel_truth = out / "truth" / "novel_orfs.tsv"
-    _tsv(novel_truth, ["orf_id", "class", "contig", "start", "end", "strand", "aa"], novel)
-    res = SimResult(out, fasta, bakta, truth, len(genes), gff, feat_truth, novel_truth)
-    if config.strain is None:
-        return res
-    ref_seqs, lifted, rows = derive_reference(config.strain, seed, text, feats)
-    ref_fasta, ref_json = out / "reference.fasta", out / "reference_bakta_like.json"
-    strain_truth = out / "truth" / "strain_differences.tsv"
-    _write_fasta(ref_fasta, contigs, ref_seqs)
-    _write_json(ref_json, contigs, ref_seqs, lifted)
-    header = ["contig", "pos_sample", "pos_reference", "ref", "alt", "type", "gene", "aa_change"]
-    _tsv(strain_truth, header, rows)
-    return replace(
-        res, reference_fasta=ref_fasta, reference_json=ref_json, strain_truth=strain_truth
-    )
+    return res

@@ -48,6 +48,7 @@ class Feat:
     true_start: int | None = None  # 1-based first base of the true start codon
     pseudo_reason: str = ""
     locus: str = ""
+    tu: str = ""  # transcription unit of a laid-out gene (truth/genes.tsv); "" for planted ones
 
     def placed(self, contig: str, offset: int) -> Feat:
         ts = None if self.true_start is None else self.true_start + offset

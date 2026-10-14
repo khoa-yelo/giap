@@ -2,7 +2,11 @@
 
 The simulated ``genome.fasta`` is the sample; the reference is the sample with the differences
 applied, annotation lifted. Truth rows follow VCF orientation: ``ref`` is the reference allele at
-``pos_reference``, ``alt`` the sample allele at ``pos_sample`` (``-`` = empty allele).
+``pos_reference``, ``alt`` the sample allele at ``pos_sample``. Indels are left-normalized and
+anchored as in VCF: ``pos_*`` is the 1-based position of the base before the event and both
+alleles include that anchor base. ``aa_change`` reads ``<reference residue><codon><sample
+residue>`` for a non-synonymous SNV and ``<reference residues><position><sample residues>``
+(``-`` = none) for an in-frame indel, from the translated proteins (codon 1 reads as M).
 """
 
 from __future__ import annotations
@@ -13,8 +17,8 @@ from typing import Any
 
 import numpy as np
 
-from giapsim.codons import CODE_11, STOPS, codons_of, revcomp, translate_cds
-from giapsim.features import Feat, random_seq
+from giapsim.codons import CODE_11, STOPS, codons_of, revcomp
+from giapsim.features import STARTS, Feat, random_seq
 
 _SPACING = 12  # minimum distance between two differences
 _BOUNDARY_GAP = 10  # indels stay this far from feature ends (coordinates lift cleanly)
@@ -53,31 +57,83 @@ def _gene_at(p: int, length: int, genes: list[Feat], starts: list[int], max_len:
     return None, p
 
 
-def _aa_change(f: Feat, q: int, ref_base: str) -> str:
-    o = q - f.start if f.strand == "+" else f.end - 1 - q
-    ci, k = divmod(o, 3)
-    codon = f.nt[3 * ci : 3 * ci + 3]
-    if len(codon) < 3:
+def _offset(f: Feat, q: int) -> int:
+    """Offset of (unwrapped) position ``q`` in ``f`` in transcription direction."""
+    return q - f.start if f.strand == "+" else f.end - 1 - q
+
+
+def _residue(codon: str, index: int) -> str:
+    """Table-11 residue of codon ``index`` (0-based); a valid start codon 1 reads as M."""
+    return "M" if index == 0 and codon in STARTS else CODE_11[codon]
+
+
+def protein(nt: str) -> str:
+    """Translation of ``nt`` up to its first stop (codon 1 as M when it is a valid start)."""
+    out = []
+    for i, c in enumerate(codons_of(nt)):
+        if c in STOPS:
+            break
+        out.append(_residue(c, i))
+    return "".join(out)
+
+
+def is_clean(nt: str) -> bool:
+    """Valid start, length a multiple of 3, a final stop and no internal stop."""
+    cod = codons_of(nt)
+    return (
+        len(nt) % 3 == 0
+        and len(cod) >= 2
+        and cod[0] in STARTS
+        and cod[-1] in STOPS
+        and not STOPS.intersection(cod[1:-1])
+    )
+
+
+def _snv_change(f: Feat, q: int, g: Feat, qr: int) -> str:
+    """``<reference residue><codon number><sample residue>`` for a SNV, "" when synonymous."""
+    cs, cr = divmod(_offset(f, q), 3)[0], divmod(_offset(g, qr), 3)[0]
+    a, b = f.nt[3 * cs : 3 * cs + 3], g.nt[3 * cr : 3 * cr + 3]
+    if len(a) < 3 or len(b) < 3:
         return ""
-    b = ref_base if f.strand == "+" else _COMP[ref_base]
-    return f"{CODE_11[codon[:k] + b + codon[k + 1 :]]}{ci + 1}{CODE_11[codon]}"
+    ra, rb = _residue(b, cr), _residue(a, cs)
+    return "" if ra == rb else f"{ra}{cs + 1}{rb}"
+
+
+def _indel_change(f: Feat, g: Feat) -> str:
+    """Protein difference ``<reference residues><first position><sample residues>`` (``-`` =
+    none) for an in-frame indel, from the two translated proteins."""
+    a, b = protein(g.nt), protein(f.nt)
+    i = 0
+    while i < min(len(a), len(b)) and a[i] == b[i]:
+        i += 1
+    j = 0
+    while j < min(len(a), len(b)) - i and a[-1 - j] == b[-1 - j]:
+        j += 1
+    ra, rb = a[i : len(a) - j], b[i : len(b) - j]
+    return f"{ra or '-'}{i + 1}{rb or '-'}"
+
+
+def _normalize(s: str, p: int, seq: str) -> tuple[int, str]:
+    """Shift an event inserting ``seq`` before sample position ``p`` as far left as possible."""
+    while p > 2 and s[p - 1] == seq[-1]:
+        p, seq = p - 1, s[p - 1] + seq[:-1]
+    return p, seq
 
 
 def derive_reference(
     cfg: StrainConfig, seed: int, seqs: dict[str, str], feats: list[Feat]
 ) -> tuple[dict[str, str], list[Feat], list[list[Any]]]:
-    """Reference sequences, lifted features and ``strain_differences.tsv`` rows."""
+    """Reference sequences, lifted features and ``strain_differences.tsv`` rows.
+
+    Indels are left-normalized and written VCF-style: ``pos`` is the base before the event and
+    both alleles start with it.
+    """
     rng = np.random.default_rng([seed, 2, cfg.seed_offset])
-    ref_seqs, lifts, rows = {}, {}, []
+    ref_seqs, lifts, all_events = {}, {}, {}
     for cid, s in seqs.items():
         length = len(s)
         on = [f for f in feats if f.contig == cid]
         bounds = sorted({p % length for f in on for p in (f.start, f.end)})
-        genes = sorted(
-            (f for f in on if f.kind == "cds" and not f.pseudo_reason), key=lambda f: f.start
-        )
-        starts = [f.start for f in genes]
-        max_len = max((f.end - f.start for f in genes), default=0)
         n_snv = int(rng.poisson(cfg.snv_rate_per_kb * length / 1000))
         n_ind = int(rng.poisson(cfg.indel_rate_per_kb * length / 1000))
         n = min(n_snv + n_ind, max(0, (length - 40) // (2 * _SPACING)))
@@ -89,32 +145,56 @@ def derive_reference(
                 continue
             if indel:
                 k = int(rng.integers(cfg.indel_len[0], cfg.indel_len[1] + 1))
-                i = bisect_left(bounds, p - _BOUNDARY_GAP)
-                if i < len(bounds) and bounds[i] <= p + k + _BOUNDARY_GAP:
+                if rng.random() < 0.5:  # sample carries k extra bases s[p:p+k]
+                    typ, ref = "ins", ""
+                    q, alt = _normalize(s, p, s[p : p + k])
+                else:  # the reference carries k extra bases before sample position p
+                    typ, alt = "del", ""
+                    q, ref = _normalize(s, p, random_seq(rng, k))
+                if q - 1 - last < _SPACING:
                     continue
-                if rng.random() < 0.5:  # sample carries k extra bases
-                    typ, ref, alt, shift = "ins", "", s[p : p + k], (p + k, -k)
-                else:
-                    typ, ref, alt, shift = "del", random_seq(rng, k), "", (p, k)
-                shifts.append(shift)
+                i = bisect_left(bounds, q - 1 - _BOUNDARY_GAP)
+                if i < len(bounds) and bounds[i] <= q + k + _BOUNDARY_GAP:
+                    continue
+                p = q
+                shifts.append((p + k, -k) if typ == "ins" else (p, k))
             else:
                 typ, alt = "snv", s[p]
                 ref = "ACGT".replace(alt, "")[int(rng.integers(3))]
             out.append(s[cursor:p] + ref)
             cursor = p + len(alt)
             events.append((p, typ, ref, alt))
-            last = p
+            last = p + len(alt)
         out.append(s[cursor:])
         ref_seqs[cid] = "".join(out)
         lifts[cid] = _Lift(shifts)
-        for p, typ, ref, alt in events:
-            f, q = _gene_at(p, length, genes, starts, max_len)
-            change = _aa_change(f, q, ref) if f is not None and typ == "snv" else ""
-            pr = lifts[cid](p) - len(ref) if typ == "del" else lifts[cid](p)
-            rows.append(
-                [cid, p + 1, pr + 1, ref or "-", alt or "-", typ, f.locus if f else "", change]
-            )
+        all_events[cid] = events
     lifted = [_lift(f, lifts[f.contig], len(seqs[f.contig]), ref_seqs[f.contig]) for f in feats]
+    by_locus = {g.locus: g for g in lifted}
+    rows = []
+    for cid, events in all_events.items():
+        s, length, lift, rlen = seqs[cid], len(seqs[cid]), lifts[cid], len(ref_seqs[cid])
+        genes = sorted(
+            (f for f in feats if f.contig == cid and f.kind == "cds" and not f.pseudo_reason),
+            key=lambda f: f.start,
+        )
+        starts = [f.start for f in genes]
+        max_len = max((f.end - f.start for f in genes), default=0)
+        for p, typ, ref, alt in events:
+            a = p if typ == "snv" else p - 1  # 0-based sample position of the row (anchor)
+            if typ != "snv":
+                ref, alt = s[a] + ref, s[a] + alt
+            f, q = _gene_at(a, length, genes, starts, max_len)
+            pr = lift(a)
+            change = ""
+            if f is not None:
+                g = by_locus[f.locus]
+                qr = pr + (rlen if q != a else 0)
+                if typ == "snv":
+                    change = _snv_change(f, q, g, qr)
+                elif (len(ref) - len(alt)) % 3 == 0:
+                    change = _indel_change(f, g)
+            rows.append([cid, a + 1, pr + 1, ref, alt, typ, f.locus if f else "", change])
     return ref_seqs, lifted, rows
 
 
@@ -126,11 +206,8 @@ def _lift(f: Feat, lift: _Lift, length: int, ref: str) -> Feat:
         return g
     seg = ref[rs:re] if re <= len(ref) else ref[rs:] + ref[: re - len(ref)]
     g.nt = seg if f.strand == "+" else revcomp(seg)
-    cod = codons_of(g.nt)
-    clean = len(g.nt) % 3 == 0 and cod[-1] in STOPS and not STOPS.intersection(cod[1:-1])
     g.extra["start_type"] = g.nt[:3]
-    if clean and not f.pseudo_reason:
-        g.aa = translate_cds(cod)
-    else:
+    g.aa = protein(g.nt)  # never a protein the reference ``nt`` does not encode
+    if f.pseudo_reason or not is_clean(g.nt):
         g.extra["pseudo"] = True
     return g
