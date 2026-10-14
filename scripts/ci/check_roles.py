@@ -15,7 +15,10 @@ from collections import defaultdict
 
 CODE = ("src/", "workflow/")
 TESTS = ("tests/",)
-EXEMPT_TESTS = ("tests/data/recorded/",)  # implementers may add recorded fixtures
+EXEMPT_TESTS = (
+    "tests/data/recorded/",  # implementers may add recorded fixtures
+    "tests/sim/",  # the simulator (giapsim) is tooling the implementer owns, not tests
+)
 
 
 def git(*args: str) -> str:

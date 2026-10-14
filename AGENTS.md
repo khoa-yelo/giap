@@ -27,6 +27,7 @@ sbatch scripts/slurm/giap_setup.sbatch        # giap setup --bakta light,full --
 - 0-based half-open coordinates internally; convert only in writers (spec §6.5).
 - Randomness only through giap.rng.for_step(step_name, seed) (spec §6.6).
 - Never import GPL/AGPL/unlicensed tools (scripts/ci/check_imports.py).
+- The simulator in tests/sim/ (giapsim) is tooling: the implementer writes it, the test-author tests it.
 - Commit trailer `Agent-Role: <role>`; conventional commits; PRs ≤ ~400 lines.
 - Shared cluster (R14): jobs named `giap-*`, ≤ 128 CPUs / 4 GPUs / 20 jobs, large files only under $GIAP_ROOT.
 

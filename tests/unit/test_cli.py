@@ -30,9 +30,8 @@ def test_main_entry_point_exists() -> None:
 
 
 def test_version_option_prints_package_version(runner: CliRunner) -> None:
-    from giap.cli import cli
-
     import giap
+    from giap.cli import cli
 
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
@@ -65,9 +64,8 @@ def test_hidden_step_command_is_registered() -> None:
 
 
 def test_version_json_has_giap_and_python(runner: CliRunner) -> None:
-    from giap.cli import cli
-
     import giap
+    from giap.cli import cli
 
     result = runner.invoke(cli, ["version", "--json"])
     assert result.exit_code == 0
