@@ -29,7 +29,7 @@ UPPER = re.compile(r"^[A-Z]*$")
         ("PEPM+16IDEK", "PEPMIDEK"),
         ("n[42]PEPTIDEK", "PEPTIDEK"),
         ("PEPTIDEKc[-0.984]", "PEPTIDEK"),
-        ("K.PEPTIDEK.R", "KPEPTIDEKR"),
+        ("K.PEPTIDEK.R", "PEPTIDEK"),  # flanks removed (M1-07 review)
         ("PEPTIDEK", "PEPTIDEK"),
         ("", ""),
         ("pepTIDEk", "TIDE"),
