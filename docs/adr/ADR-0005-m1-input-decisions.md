@@ -1,8 +1,8 @@
 # ADR-0005: Decisions on M1 input handling left open by the spec
-- Status: accepted (items 1–3); items 4 proposed, needs Khoa
+- Status: accepted (items 1–3); item 4 rejected by Khoa (2026-10-14)
 - Date: 2026-10-14
 - Spec sections: §5.3, §5.4, §7.0, §9.2
-- Needs Khoa: yes for item 4 only (new warning thresholds, added as new config keys)
+- Needs Khoa: answered: item 4 rejected
 
 ## Context
 The M1 issue specs (`docs/specs/M1-*.md`) list "Questions for the lead". The lead accepts the
@@ -47,7 +47,9 @@ spec-writer's proposed defaults (R10) and records them here.
    `--outdir`, preflight prints its summary and writes nothing. A missing `db_manifest.json` is
    info under `giap preflight` and an error under `giap run` until M2 lands. Proteins of 7–40 aa
    become peptide rows.
-4. **New warning thresholds (proposed; additive keys in `defaults.yaml`, Khoa to accept):**
+4. **New warning thresholds: rejected by Khoa (2026-10-14).** No new config keys. The decoy share and
+   free RAM/disk are reported as Info only; the only resource warning is §7.0's ≥ 24 GB for genome-wide
+   Promotech; "no row passes `input.q_value_max`" stays a warning (existing key). Original proposal:
    `preflight.decoy_share_warn: 0.5` (warn when ≥ half the peptide rows are decoys);
    warn when no row passes `input.q_value_max` (no new key);
    `preflight.min_free_ram_gb: 8` (24 GB is already implied for genome-wide Promotech, §7.0);
@@ -57,5 +59,4 @@ spec-writer's proposed defaults (R10) and records them here.
 Unit tests per issue (T-PRE-* rules); no defaults change for existing keys.
 
 ## Consequences
-Item 4 lands with M1-10/M1-11; those PRs carry the `needs-khoa` label until this ADR's item 4 is
-accepted.
+M1-10/M1-11 implement the Info-only behaviour above.
