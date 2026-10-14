@@ -14,16 +14,18 @@ export TMPDIR="$(mktemp -d /tmp/giap.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
 cd "$GIAP_REPO"
 if [ "$#" -eq 0 ]; then set -- all; fi
 SECONDS=0
-bash scripts/build_envs.sh "$@"
+status=0
+bash scripts/build_envs.sh "$@" || status=$?
 
 module load apptainer 2>/dev/null || true
 mkdir -p "$NXF_APPTAINER_CACHEDIR"
 grep -o "docker://[^'\"]*@sha256:[0-9a-f]\{64\}" workflow/conf/containers.config | sort -u |
 while read -r ref; do
-  # Nextflow's cache naming: '/', ':' and '@' become '-'.
-  sif="$NXF_APPTAINER_CACHEDIR/$(echo "${ref#docker://}" | tr '/:@' '---').img"
+  # Nextflow 26.10 SingularityCache.simpleName: scheme stripped, ':' and '/' become '-', '@' kept.
+  sif="$NXF_APPTAINER_CACHEDIR/$(echo "${ref#docker://}" | tr '/:' '--').img"
   if [ -s "$sif" ]; then echo "present: $sif"; else apptainer pull "$sif" "$ref"; fi
 done
 
 echo "wall time: ${SECONDS}s"
 du -sh "$MAMBA_ROOT_PREFIX"/envs/giap-* "$NXF_APPTAINER_CACHEDIR" 2>/dev/null || true
+exit "$status"
