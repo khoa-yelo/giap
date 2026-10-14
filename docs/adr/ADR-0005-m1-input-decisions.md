@@ -14,6 +14,8 @@ spec-writer's proposed defaults (R10) and records them here.
    joined by `;`; `O`, digits and `-` are counted as "other" with a warning. proBed missing values
    are `.`; a BED score outside 0–1000 raises. VCF header `##reference=sha256:<hex>`; a codon
    crossing the origin raises in the VCF writer (M7 decides how to report it).
+   GFF3: every replicon gets a `##sequence-region` pragma; only circular replicons also get a
+   `region` feature with `Is_circular=true`; `read_gff3` skips GIAP's own region lines.
 2. **Peptide and abundance tables.** Median across runs uses only runs where the peptide was
    quantified. The generic reader warns and drops rows with modification syntax (stripping is
    `giap convert`'s job) and peptides > 40 aa. Mixed `source` for one peptide: `database` wins,
