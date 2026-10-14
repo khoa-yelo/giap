@@ -42,12 +42,15 @@ def feature(draw: st.DrawFn, reps: list[Replicon], n: int) -> GffFeature:
     max_len = rep.length if rep.topology == "circular" else rep.length - start
     end = start + draw(st.integers(1, max_len))
     extra = draw(st.dictionaries(KEY, VALUE, max_size=3))
+    ftype = draw(st.sampled_from(["CDS", "gene", "tRNA", "ncRNA", "repeat_region"]))
+    # The writer requires a phase on CDS (ADR-0005 item 1); other types may omit it.
+    phase_st = st.integers(0, 2) if ftype == "CDS" else st.one_of(st.none(), st.integers(0, 2))
     return GffFeature(
         Interval(rep.id, start, end, draw(st.sampled_from(["+", "-", "."]))),
         draw(st.sampled_from(["giap", "Prodigal", "Bakta"])),
-        draw(st.sampled_from(["CDS", "gene", "tRNA", "ncRNA", "repeat_region"])),
+        ftype,
         score=draw(SCORE),
-        phase=draw(st.one_of(st.none(), st.integers(0, 2))),
+        phase=draw(phase_st),
         attributes={"ID": f"f{n}", **extra},
     )
 

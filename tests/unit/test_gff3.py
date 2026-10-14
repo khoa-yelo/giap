@@ -64,14 +64,16 @@ def test_example_01_linear_full_file(tmp_path) -> None:
 
 
 def test_example_02_origin_crossing_full_file(tmp_path) -> None:
-    f = GffFeature(Interval("chr", 1950, 2050, "-"), "giap", "CDS", attributes={"ID": "g2"})
+    f = GffFeature(
+        Interval("chr", 1950, 2050, "-"), "giap", "CDS", phase=0, attributes={"ID": "g2"}
+    )
     p = tmp_path / "a.gff3"
     write_gff3(p, [f], [C])
     assert p.read_text() == (
         "##gff-version 3\n"
         "##sequence-region chr 1 2000\n"
         f"{REGION_C}\n"
-        "chr\tgiap\tCDS\t1951\t2050\t.\t-\t.\tID=g2\n"
+        "chr\tgiap\tCDS\t1951\t2050\t.\t-\t0\tID=g2\n"
     )
 
 
@@ -158,6 +160,7 @@ def test_list_values_joined_by_comma_after_escaping(tmp_path) -> None:
         Interval("chr", 9, 90, "+"),
         "giap",
         "CDS",
+        phase=0,
         attributes={"ID": "c1", "Dbxref": ["EC:1.2", "a,b"]},
     )
     p = tmp_path / "a.gff3"
@@ -169,7 +172,7 @@ def test_list_values_joined_by_comma_after_escaping(tmp_path) -> None:
 
 def test_attribute_insertion_order_kept(tmp_path) -> None:
     attrs = {"ID": "c1", "zeta": "1", "alpha": "2", "Name": "x"}
-    f = GffFeature(Interval("chr", 9, 90, "+"), "giap", "CDS", attributes=attrs)
+    f = GffFeature(Interval("chr", 9, 90, "+"), "giap", "CDS", phase=0, attributes=attrs)
     p = tmp_path / "a.gff3"
     write_gff3(p, [f], [L])
     assert _feature_lines(p)[0].endswith("\tID=c1;zeta=1;alpha=2;Name=x")
@@ -184,17 +187,19 @@ def test_attribute_insertion_order_kept(tmp_path) -> None:
     ("score", "col"), [(None, "."), (12.5, "12.5"), (0.123456789, "0.123457"), (1e-10, "1e-10")]
 )
 def test_score_column(tmp_path, score, col) -> None:
-    f = GffFeature(Interval("chr", 0, 9, "+"), "giap", "CDS", score=score, attributes={"ID": "x"})
+    f = GffFeature(
+        Interval("chr", 0, 9, "+"), "giap", "CDS", score=score, phase=0, attributes={"ID": "x"}
+    )
     p = tmp_path / "a.gff3"
     write_gff3(p, [f], [L])
     assert _feature_lines(p)[0].split("\t")[5] == col
 
 
-def test_cds_phase_none_written_dot(tmp_path) -> None:
+def test_cds_phase_none_raises_on_write(tmp_path) -> None:
+    # ADR-0005 item 1 (after the M1-05 review): a CDS must carry a phase (GFF3 3.1.26).
     f = GffFeature(Interval("chr", 0, 9, "+"), "giap", "CDS", attributes={"ID": "x"})
-    p = tmp_path / "a.gff3"
-    write_gff3(p, [f], [L])
-    assert _feature_lines(p)[0].split("\t")[7] == "."
+    with pytest.raises(ValueError):
+        write_gff3(tmp_path / "a.gff3", [f], [L])
 
 
 @pytest.mark.parametrize("phase", [0, 1, 2])
@@ -236,13 +241,13 @@ def test_features_sorted_by_contig_order_then_start(tmp_path) -> None:
 
 
 def test_writer_unknown_contig_raises(tmp_path) -> None:
-    f = GffFeature(Interval("nope", 0, 9, "+"), "giap", "CDS", attributes={"ID": "x"})
+    f = GffFeature(Interval("nope", 0, 9, "+"), "giap", "CDS", phase=0, attributes={"ID": "x"})
     with pytest.raises(ValueError):
         write_gff3(tmp_path / "a.gff3", [f], [C])
 
 
 def test_writer_linear_overrun_raises(tmp_path) -> None:
-    f = GffFeature(Interval("chr", 1950, 2050, "+"), "giap", "CDS", attributes={"ID": "x"})
+    f = GffFeature(Interval("chr", 1950, 2050, "+"), "giap", "CDS", phase=0, attributes={"ID": "x"})
     with pytest.raises(ValueError):
         write_gff3(tmp_path / "a.gff3", [f], [L])
 
@@ -266,7 +271,7 @@ def test_no_features_linear(tmp_path) -> None:
 def test_fasta_section_at_end(tmp_path) -> None:
     seq = "ACGT" * 75
     p = tmp_path / "a.gff3"
-    feat = GffFeature(Interval("lin", 0, 9, "+"), "giap", "CDS", attributes={"ID": "x"})
+    feat = GffFeature(Interval("lin", 0, 9, "+"), "giap", "CDS", phase=0, attributes={"ID": "x"})
     write_gff3(p, [feat], [LIN], fasta={"lin": seq})
     lines = _lines(p)
     i = lines.index("##FASTA")
@@ -300,7 +305,9 @@ def test_example_04_round_trip(tmp_path) -> None:
 
 def test_two_writes_identical_bytes(tmp_path) -> None:
     feats = [
-        GffFeature(Interval("chr", 1950, 2050, "-"), "giap", "CDS", attributes={"ID": "g2"}),
+        GffFeature(
+            Interval("chr", 1950, 2050, "-"), "giap", "CDS", phase=0, attributes={"ID": "g2"}
+        ),
         _g1(),
     ]
     a, b = tmp_path / "a.gff3", tmp_path / "b.gff3"

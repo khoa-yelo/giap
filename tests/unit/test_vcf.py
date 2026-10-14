@@ -132,12 +132,27 @@ def test_example_06_appendix_b7_record(tmp_path) -> None:
 
 
 def test_example_06_full_file_with_b7_record(tmp_path) -> None:
-    p = _write(tmp_path / "v.vcf", [_b7()], info_fields=[], format_fields=[])
+    # INFO/FORMAT keys must be declared (ADR-0005 item 1, after the M1-05 review).
+    p = _write(tmp_path / "v.vcf", [_b7()])
     assert p.read_text() == (
         "##fileformat=VCFv4.3\n"
         "##source=giap-0.1.0\n"
         f"##reference=sha256:{SHA}\n"
         "##contig=<ID=chr,length=2000>\n"
+        '##INFO=<ID=GENE,Number=1,Type=String,Description="Locus tag">\n'
+        '##INFO=<ID=AA_POS,Number=1,Type=Integer,Description="Residue position in the protein">\n'
+        '##INFO=<ID=AA_REF,Number=1,Type=String,Description="Reference residue">\n'
+        '##INFO=<ID=AA_ALT,Number=A,Type=String,Description="Alternative residue(s)">\n'
+        '##INFO=<ID=CALL,Number=1,Type=String,Description="Call">\n'
+        '##INFO=<ID=CONF,Number=1,Type=String,Description="Confidence">\n'
+        '##INFO=<ID=NT_CHANGES,Number=A,Type=Integer,Description="Nucleotide changes">\n'
+        '##INFO=<ID=ALT_TYPE,Number=1,Type=String,Description="ALT type">\n'
+        '##INFO=<ID=FLAGS,Number=1,Type=String,Description="Flags joined by |">\n'
+        '##INFO=<ID=CLASS_ERR,Number=1,Type=String,Description="Class error rate">\n'
+        '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n'
+        '##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Distinct peptides for REF and each '
+        'ALT">\n'
+        '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total distinct peptides">\n'
         f"{CHROM_LINE}\n"
         f"{B7_LINE}\n"
     )
