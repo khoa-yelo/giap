@@ -19,5 +19,6 @@ export NXF_APPTAINER_CACHEDIR="$GIAP_ROOT/containers"
 export NXF_CONDA_CACHEDIR="$MAMBA_ROOT_PREFIX/nxf-envs"
 export NXF_WORK="$GIAP_ROOT/work"
 export NXF_OPTS="-Xms512m -Xmx4g"
+export NUMBA_CACHE_DIR="/tmp/giap-numba-${USER}"     # node-local; NFS caches are shared across nodes
 export PATH="$GIAP_ROOT/bin:$MAMBA_ROOT_PREFIX/envs/giap-wf/bin:$HOME/.local/bin:$PATH"
 module load apptainer/1.4.4 >/dev/null 2>&1 || true
