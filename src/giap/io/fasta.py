@@ -6,16 +6,15 @@ invalid letters and "at least one record" are applied by preflight checks (M1-09
 
 from __future__ import annotations
 
-import gzip
 import re
 import string
-import zlib
 from collections import Counter
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from giap.io._open import open_binary, open_text_write
+from giap.io._lines import FastaFormatError, read_lines
+from giap.io._open import open_text_write
 
 IUPAC_DNA: frozenset[str] = frozenset("ACGTNRYSWKMBDHV")
 SAFE_ID = re.compile(r"[A-Za-z0-9._-]")
@@ -28,13 +27,16 @@ _CIRCULAR_TAG = re.compile(
 _ASCII_UPPER = str.maketrans(string.ascii_lowercase, string.ascii_uppercase)
 _WHITESPACE = re.compile(r"\s+")
 
-
-class FastaFormatError(ValueError):
-    """Malformed FASTA input; ``line_no`` is the 1-based line where the problem was found."""
-
-    def __init__(self, message: str, line_no: int) -> None:
-        super().__init__(f"line {line_no}: {message}")
-        self.line_no = line_no
+__all__ = [
+    "IUPAC_DNA",
+    "SAFE_ID",
+    "FastaFormatError",
+    "GenomeRecord",
+    "invalid_letters",
+    "read_genome_fasta",
+    "sanitize_id",
+    "write_fasta",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,25 +58,6 @@ def invalid_letters(seq: str) -> dict[str, int]:
     return dict(Counter(c for c in seq if c not in IUPAC_DNA))
 
 
-def _lines(path: Path) -> Iterator[tuple[int, str]]:
-    """Yield ``(line_no, line)`` with line endings removed; read errors become format errors.
-
-    Lines are decoded one at a time (UTF-8, leading BOM dropped) so a decoding error reports
-    the line that holds the bad bytes.
-    """
-    line_no = 0
-    try:
-        with open_binary(path) as fh:
-            for chunk in fh:
-                for raw in chunk.splitlines():
-                    line_no += 1
-                    yield line_no, raw.decode("utf-8-sig" if line_no == 1 else "utf-8")
-    except UnicodeDecodeError as exc:
-        raise FastaFormatError(f"cannot decode {path}: {exc}", line_no) from exc
-    except (EOFError, gzip.BadGzipFile, zlib.error) as exc:
-        raise FastaFormatError(f"cannot read {path}: {exc}", line_no + 1) from exc
-
-
 def _make_record(header: str, chunks: list[str]) -> GenomeRecord:
     original_id = header.split(maxsplit=1)[0]
     return GenomeRecord(
@@ -91,7 +74,7 @@ def read_genome_fasta(path: Path) -> list[GenomeRecord]:
     records: list[GenomeRecord] = []
     header: str | None = None
     chunks: list[str] = []
-    for line_no, line in _lines(path):
+    for line_no, line in read_lines(path):
         if line.startswith(">"):
             if header is not None:
                 records.append(_make_record(header, chunks))
