@@ -64,7 +64,6 @@ CHECKS: dict[str, Callable[[], bool]] = {
 }
 
 _cache: dict[str, bool] = {}
-_skipped: list[tuple[str, str]] = []
 
 
 def _have(name: str) -> bool:
@@ -102,7 +101,6 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         if base & required:
             continue  # not skipped: pytest_runtest_setup fails it
         item.add_marker(pytest.mark.skip(reason=reason))
-        _skipped.append((item.nodeid, reason))
 
 
 def pytest_runtest_setup(item: pytest.Item) -> None:
@@ -117,10 +115,17 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
 
 
 def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
-    if _skipped:
+    # Read the reports, not module state, so the summary also works under pytest-xdist
+    lines = []
+    for rep in terminalreporter.stats.get("skipped", []):
+        longrepr = getattr(rep, "longrepr", None)
+        reason = longrepr[2] if isinstance(longrepr, tuple) else str(longrepr)
+        if "missing capability" in reason:
+            lines.append(f"{rep.nodeid}: {reason.removeprefix('Skipped: ')}")
+    if lines:
         terminalreporter.section("skipped for missing capabilities (GIAP_SPEC §3.6)")
-        for nodeid, reason in _skipped:
-            terminalreporter.write_line(f"{nodeid}: {reason}")
+        for line in sorted(lines):
+            terminalreporter.write_line(line)
 
 
 @pytest.fixture(scope="session")

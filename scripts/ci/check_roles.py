@@ -37,19 +37,21 @@ def main() -> int:
             errors.append(f"{sha[:8]}: missing Agent-Role trailer")
             continue
         role = m.group(1)
-        status = git("diff-tree", "--no-commit-id", "--name-status", "-r", sha).splitlines()
+        status = git("diff-tree", "--no-commit-id", "--name-status", "-r", "-M", sha).splitlines()
         for line in status:
-            kind, path = line.split("\t")[0], line.split("\t")[-1]
-            is_code = path.startswith(CODE)
-            is_test = path.startswith(TESTS) and not path.startswith(EXEMPT_TESTS)
-            if is_code:
-                touched[role].add("code")
-            if is_test:
-                touched[role].add("tests")
-            if role == "implementer" and is_test and kind.startswith("M"):
-                errors.append(f"{sha[:8]}: implementer modified existing test {path}")
-            if role == "test-author" and is_code:
-                errors.append(f"{sha[:8]}: test-author touched {path}")
+            fields = line.split("\t")
+            kind, paths = fields[0], fields[1:]
+            for path in paths:  # a rename lists the old and the new path
+                is_code = path.startswith(CODE)
+                is_test = path.startswith(TESTS) and not path.startswith(EXEMPT_TESTS)
+                if is_code:
+                    touched[role].add("code")
+                if is_test:
+                    touched[role].add("tests")
+                if role == "implementer" and is_test and kind[:1] in {"M", "D", "R", "T"}:
+                    errors.append(f"{sha[:8]}: implementer changed existing test {path} ({kind})")
+                if role == "test-author" and is_code:
+                    errors.append(f"{sha[:8]}: test-author touched {path}")
     for role, kinds in touched.items():
         if kinds == {"code", "tests"} and role not in {"lead"}:
             errors.append(f"role {role} changed both code and tests in this PR")

@@ -85,6 +85,7 @@ jobs:
           # exit code 5 = no tests collected (allowed until the first calibration suite exists)
           if [ $code -ne 0 ] && [ $code -ne 5 ]; then exit $code; fi
       - name: coverage gate
+        shell: bash   # -eo pipefail, so the pytest exit status survives the pipe into tee
         run: |
           min=$(awk '/^coverage_min:/ {print $2*100}' ci/gates.yaml)
           uv run --no-sync pytest -n auto -m "not slow and not calibration_full and not e2e" \

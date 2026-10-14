@@ -100,6 +100,12 @@ def allocation() -> dict[str, object]:
     }
     mem_per_cpu = os.environ.get("SLURM_MEM_PER_CPU")
     mem_node = os.environ.get("SLURM_MEM_PER_NODE")
+    try:
+        pages, page_size = os.sysconf("SC_PHYS_PAGES"), os.sysconf("SC_PAGE_SIZE")
+        info["node_mem_gb"] = round(pages * page_size / 1024**3, 1)
+    except (ValueError, OSError):
+        info["node_mem_gb"] = None
+    info["node_cpus"] = os.cpu_count()
     if mem_node:
         info["mem_gb"] = round(int(mem_node) / 1024, 1)
     elif mem_per_cpu:
@@ -117,10 +123,16 @@ def slurm() -> dict[str, object]:
     _, queue = run(["squeue", "--me", "-h", "-o", "%i %j %T %M %l"])
     giap_jobs = [line for line in queue.splitlines() if " giap-" in f" {line.split(' ', 1)[-1]}"]
     _, parts = run(["sinfo", "-h", "-o", "%P"])
+    _, qos = run(["sacctmgr", "-nP", "show", "qos", "format=name,maxwall,maxtrespu,maxjobspu"])
+    qos_limits = {}
+    for line in qos.splitlines():
+        name, maxwall, maxtres, maxjobs = [*line.split("|"), "", "", ""][:4]
+        qos_limits[name] = {"max_wall": maxwall, "max_tres_per_user": maxtres, "max_jobs": maxjobs}
     return {
         "sbatch_ok": code == 0,
-        "gpu_partition": "gpu" in parts.split(),
+        "gpu_partition": "gpu" in parts.replace("*", "").split(),
         "giap_jobs": giap_jobs,
+        "qos_limits": qos_limits,
     }
 
 
