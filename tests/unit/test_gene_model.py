@@ -102,6 +102,7 @@ def test_literal_vocabularies() -> None:
 def test_gene_fields_and_defaults() -> None:
     iv = Interval("chr1", 100, 400, "+")
     g = Gene("GSIM_00005", "cds", iv, "MA", "ATGGCTTAA", "ATG")
+    # M2-03 extends the M3-01 model with defaulted fields (M2 index: M2-03 extends M3-01).
     assert [f.name for f in dataclasses.fields(Gene)] == [
         "locus_tag",
         "feature_type",
@@ -114,6 +115,7 @@ def test_gene_fields_and_defaults() -> None:
         "partial",
         "hypothetical",
         "db_xrefs",
+        "expert",
     ]
     assert g.gene is None
     assert g.product == ""
@@ -132,7 +134,16 @@ def test_gene_and_ncfeature_frozen_slots() -> None:
         nc.id = "x"  # type: ignore[misc]
     assert not hasattr(g, "__dict__")
     assert not hasattr(nc, "__dict__")
-    assert [f.name for f in dataclasses.fields(NcFeature)] == ["id", "type", "interval"]
+    assert [f.name for f in dataclasses.fields(NcFeature)] == [
+        "id",
+        "type",
+        "interval",
+        "gene",
+        "product",
+        "amino_acid",
+        "anticodon",
+        "nt",
+    ]
     assert hash(g) == hash(dataclasses.replace(g))
 
 
@@ -306,14 +317,14 @@ def test_optional_fields(tmp_path: Path) -> None:
         db_xrefs=["UniRef:UniRef90_P0A7S3", "SO:0001217"],
     )
     del f["start_type"]
-    del f["nt"]
     (g,) = _load(tmp_path, [f]).genes
     assert g.gene == "rpsL"
     assert g.product == "30S ribosomal protein S12"
     assert g.db_xrefs == ("UniRef:UniRef90_P0A7S3", "SO:0001217")
     assert isinstance(g.db_xrefs, tuple)
-    assert g.start_codon is None
-    assert g.nt is None
+    # M2-03 review decision 3: one parser; a missing start_type falls back to nt[:3]
+    assert g.start_codon == "ATG"
+    assert g.nt == "ATG" + "GCT" * 98 + "TAA"
     assert g.hypothetical is False
 
 
