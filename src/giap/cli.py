@@ -1,7 +1,8 @@
 """``giap`` command line (GIAP_SPEC.md §5.1).
 
 Every subcommand resolves the configuration first (an unknown key is exit code 1). ``preflight``
-is implemented (M1-12); the others report that they are not implemented yet (exit code 5).
+(M1-12), ``_step`` and ``run --executor local`` (M2-02) are implemented; the other commands report
+that they are not implemented yet (exit code 5).
 """
 
 from __future__ import annotations
@@ -219,6 +220,8 @@ def run(
     seed: int | None,
     parquet: bool | None,
     sensitivity: str | None,
+    outdir: Path,
+    executor: str,
     **_: Any,
 ) -> None:
     """Run the analysis."""
@@ -236,8 +239,31 @@ def run(
         "output.parquet": parquet,
         "output.sensitivity": sensitivity,
     }
-    _resolve(config_file, sets, log_level, flags, publication)
+    cfg = _resolve(config_file, sets, log_level, flags, publication)
+    if executor == "local":
+        _run_local(cfg, outdir / "work")
     _not_implemented("run", "M2")
+
+
+def _run_local(cfg: GiapConfig, workdir: Path) -> None:
+    """``--executor local`` (§6.4): every registered step as target; exits when done."""
+    from giap.runner import local
+    from giap.steps import registry as reg
+
+    targets = [s.name for s in reg.all_steps()]
+    try:
+        local.plan_local(cfg, targets)
+        local.run_local(cfg, workdir, targets)
+    except local.LayerMissing as exc:
+        click.echo(f"giap run: error: {exc}", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
+    except reg.StepError as exc:
+        click.echo(f"giap run: {exc}", err=True)
+        sys.exit(ExitCode.STEP_FAILED)
+    except reg.WiringError as exc:
+        click.echo(f"giap run: internal error: {exc}", err=True)
+        sys.exit(ExitCode.INTERNAL)
+    sys.exit(ExitCode.SUCCESS)
 
 
 # ---------------------------------------------------------------- makedb
@@ -359,10 +385,42 @@ def report(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_:
 @click.option("--in", "inputs", multiple=True, metavar="KEY=PATH")
 @click.option("--out", "outputs", multiple=True, metavar="KEY=PATH")
 @shared_options
-def step(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_: Any) -> None:
+def step(
+    config_file: Path | None,
+    sets: tuple[str, ...],
+    log_level: str,
+    name: str,
+    inputs: tuple[str, ...],
+    outputs: tuple[str, ...],
+    **_: Any,
+) -> None:
     """Run one pipeline step (used by Nextflow)."""
-    _resolve(config_file, sets, log_level)
-    _not_implemented("_step", "M2")
+    from giap.steps import registry as reg
+
+    cfg = _resolve(config_file, sets, log_level)
+    try:
+        ins = _key_paths(name, "--in", inputs)
+        outs = _key_paths(name, "--out", outputs)
+        reg.run_step(name, cfg, ins, outs)
+    except reg.StepError as exc:
+        click.echo(f"giap _step: {exc} (see logs/{name}.log)", err=True)
+        sys.exit(ExitCode.STEP_FAILED)
+    except reg.WiringError as exc:
+        click.echo(f"giap _step: internal error: {exc}", err=True)
+        sys.exit(ExitCode.INTERNAL)
+
+
+def _key_paths(name: str, flag: str, items: Sequence[str]) -> dict[str, Path]:
+    """Parse repeatable ``KEY=PATH`` options; a malformed or repeated key is a wiring error."""
+    from giap.steps.registry import WiringError
+
+    out: dict[str, Path] = {}
+    for item in items:
+        key, sep, path = item.partition("=")
+        if not sep or not key or not path or key in out:
+            raise WiringError(f"step '{name}': bad or repeated {flag} {item!r}")
+        out[key] = Path(path)
+    return out
 
 
 @cli.command(hidden=True)
