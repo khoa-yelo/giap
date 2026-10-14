@@ -1,8 +1,9 @@
 """Abundance table reader and scale detection (issue M1-08; GIAP_SPEC.md §5.3, §7.0; ADR-0005/6).
 
 Tables are literal TSV text written to ``tmp_path`` (``|`` in the helpers stands for a tab).
-``_load`` runs ``read_abundance`` and, when a table comes back, ``validate_abundance`` on the
-auto-resolved scale, and returns the issues of both steps, so a check may live in either one.
+``_load`` runs ``read_abundance`` and, when a table comes back, ``validate_abundance`` with the
+requested scale (lead decision after review), and returns the issues of both steps, so a check
+may live in either one.
 """
 
 from __future__ import annotations
@@ -54,18 +55,25 @@ def _load(
     table, issues = _read(tmp_path, text, name)
     if table is None:
         return None, issues
-    scale = resolve_scale(table.values, requested)  # type: ignore[arg-type]
-    return table, [*issues, *validate_abundance(table, scale, WARN_FRAC)]
+    return table, [*issues, *validate_abundance(table, requested, WARN_FRAC)]  # type: ignore[arg-type]
 
 
 def _table(values: list[float | None], ids: list[str] | None = None) -> AbundanceTable:
     ids = ids or [f"P{i}" for i in range(1, len(values) + 1)]
+    fields = {f.name for f in dataclasses.fields(AbundanceTable)}
+    extra: dict[str, object] = {}
+    # raw_ids / bad_rows per the review decisions (pinned in test_abundance_review.py).
+    if "raw_ids" in fields:
+        extra["raw_ids"] = tuple(ids)
+    if "bad_rows" in fields:
+        extra["bad_rows"] = tuple(False for _ in values)
     return AbundanceTable(
         id_column="protein_id",
         value_column="v",
         ids=tuple(ids),
         values=tuple(values),
         ignored_columns=(),
+        **extra,  # type: ignore[arg-type]
     )
 
 
@@ -87,13 +95,15 @@ def _errors(issues: list[Issue]) -> list[Issue]:
 
 
 def test_dataclasses_are_frozen_with_spec_fields() -> None:
-    assert [f.name for f in dataclasses.fields(AbundanceTable)] == [
+    assert {f.name for f in dataclasses.fields(AbundanceTable)} >= {
         "id_column",
         "value_column",
+        "raw_ids",
         "ids",
         "values",
+        "bad_rows",
         "ignored_columns",
-    ]
+    }
     assert [f.name for f in dataclasses.fields(AbundanceStats)] == [
         "n_rows",
         "n_na",
@@ -320,7 +330,7 @@ def test_duplicate_ids_are_error(tmp_path: Path) -> None:
     _, issues = _load(tmp_path, _tsv("protein_id|v", "P1|1e6", "P2|2e6", "P1|3e6"))
     err = _issue(issues, "duplicate_ids")
     assert err.severity == "error"
-    assert "3" in err.examples
+    assert err.examples == ("3",)
 
 
 def test_empty_id_is_error(tmp_path: Path) -> None:
@@ -344,10 +354,12 @@ def test_non_finite_text_is_error_not_float_or_missing(tmp_path: Path, text: str
     assert bad, f"no bad_value/non_finite issue in {[i.code for i in issues]}"
     assert bad[0].severity == "error"
     assert bad[0].examples == ("2",)
-    if table is not None:
-        # Neither kept as a non-finite float nor counted as missing (NA).
-        assert all(v is None or math.isfinite(v) for v in table.values)
-        assert abundance_stats(table).n_na == 0
+    # Valid shape: the table is still returned; the bad cell is None, flagged, not missing.
+    assert table is not None
+    assert table.values == (1e6, None, 2e6)
+    assert all(v is None or math.isfinite(v) for v in table.values)
+    assert tuple(table.bad_rows) == (False, True, False)
+    assert abundance_stats(table).n_na == 0
 
 
 @pytest.mark.parametrize("missing", ["NA", ""])
