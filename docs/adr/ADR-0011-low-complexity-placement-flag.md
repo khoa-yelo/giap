@@ -1,5 +1,5 @@
 # ADR-0011: `low_complexity` placement flag (M3-10)
-- Status: proposed
+- Status: accepted-by-khoa (2026-10-14, in session: "Accept as proposed")
 - Date: 2026-10-14
 - Spec sections: §9.4 (placement flags), §7.2.5; M3-index lead decision (M3-10 `low_complexity`)
 - Needs Khoa: yes (adds a value to an output vocabulary)

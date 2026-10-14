@@ -137,7 +137,6 @@ or c never lowers a q".
 2. `pi_wrong_database` is computed over database rows that stay in the stratum-0 lists:
    `df[is_db & ~same_exact]` (same peptides as c). Single-`search_db` inputs are unchanged.
    The statistician's attack tests/calibration/attacks/test_attack_placement_same_db.py must pass.
-3. `low_complexity` is added to the §9.4 placement flag vocabulary by ADR-0011 (pending Khoa: it changes
-   an output vocabulary). Until accepted, the implementation keeps the flag; the PR does not merge
-   before ADR-0011 is accepted.
+3. `low_complexity` is added to the §9.4 placement flag vocabulary by ADR-0011 (accepted by Khoa 2026-10-14; it changes
+   an output vocabulary).
 4. Unresolved `search_db = auto` is treated as `other` (conservative); M3-17 resolves `auto` before M3-10.
