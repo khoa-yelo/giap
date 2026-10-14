@@ -20,11 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync --frozen --all-extras --python 3.12
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy src/giap
-      - run: uv run python scripts/ci/check_imports.py src
+      - run: uv sync --frozen --all-extras
+      - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync ruff format --check .
+      - run: uv run --no-sync mypy src/giap
+      - run: uv run --no-sync python scripts/ci/check_imports.py src
+      - run: uv run --no-sync python scripts/write_config_schema.py --check
 
   guards:
     if: github.event_name == 'pull_request'
@@ -57,14 +58,17 @@ jobs:
           - {os: ubuntu-latest, python: "3.13"}
           - {os: macos-latest, python: "3.12"}
     runs-on: ${{ matrix.os }}
+    env:
+      UV_PYTHON: ${{ matrix.python }}   # overrides .python-version, so uv never rebuilds the venv
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync --frozen --all-extras --python ${{ matrix.python }}
+      - run: uv sync --frozen --all-extras
       - name: unit, property, golden, contract, snapshot
+        # whole tests/ tree minus the slow layers; empty layer directories are not tracked by git
         run: >
-          uv run pytest -n auto -m "not slow and not calibration and not calibration_full and not e2e"
-          tests/unit tests/property tests/golden tests/contract tests/snapshot
+          uv run --no-sync pytest -n auto -m "not slow and not calibration and not calibration_full and not e2e"
+          tests --ignore=tests/calibration --ignore=tests/integration --ignore=tests/e2e
           --junitxml=junit.xml
 
   calibration-and-coverage:
@@ -72,18 +76,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync --frozen --all-extras --python 3.12
+      - run: uv sync --frozen --all-extras
       - name: fast calibration subset
         run: |
           set +e
-          uv run pytest -n auto -m "calibration and not calibration_full" tests/calibration
+          uv run --no-sync pytest -n auto -m "calibration and not calibration_full" tests/calibration
           code=$?
           # exit code 5 = no tests collected (allowed until the first calibration suite exists)
           if [ $code -ne 0 ] && [ $code -ne 5 ]; then exit $code; fi
       - name: coverage gate
         run: |
           min=$(awk '/^coverage_min:/ {print $2*100}' ci/gates.yaml)
-          uv run pytest -n auto -m "not slow and not calibration_full and not e2e" \
+          uv run --no-sync pytest -n auto -m "not slow and not calibration_full and not e2e" \
             --cov=giap --cov-report=term-missing:skip-covered --cov-report=xml \
             --cov-fail-under="$min" | tee coverage.txt
       - uses: actions/upload-artifact@v4
