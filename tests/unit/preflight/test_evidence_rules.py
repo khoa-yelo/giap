@@ -5,7 +5,7 @@ T-PRE-11 … T-PRE-22 each have a passing and a failing example. All inputs are 
 (records, DataFrames, Issues); the rules are pure functions.
 
 Lead decisions used here: ADR-0005 item 4's decoy-share threshold was declined, so the decoy share
-is reported as its own Info check (``peptides.decoy_share``, value = the share) and never warns;
+is an Info value inside ``peptides.content`` (no separate rule) and never warns;
 "no row passes ``input.q_value_max``" warns (existing key). The abundance join runs only when
 ≥ 1 abundance ID matches a protein (else info "deferred", ADR-0005 item 3).
 """
@@ -305,10 +305,11 @@ def test_T_PRE_17_pass() -> None:
     checks = pepchecks(
         cfg(), peptide=["PEPTIDEK", "ELVISLIVESK", "SAMPLERK"], q_value=[0.001, 0.005, 0.01]
     )
-    assert checks["peptides.content"].level == "ok"
-    share = checks["peptides.decoy_share"]
-    assert share.level == "info"
-    assert share.value == 0.0
+    c = checks["peptides.content"]
+    assert c.level == "ok"
+    assert isinstance(c.value, dict)
+    assert c.value["decoy_share"] == 0.0
+    assert "peptides.decoy_share" not in checks
 
 
 def test_T_PRE_17_fail_dropped_rows() -> None:
@@ -353,10 +354,11 @@ def test_T_PRE_17_decoy_share_is_info_and_never_warns(decoys: list[bool], share:
         is_decoy=decoys,
         protein_ids=["P1"] * 4,
     )
-    c = checks["peptides.decoy_share"]
-    assert c.level == "info"
-    assert c.value == pytest.approx(share)
-    assert checks["peptides.content"].level == "ok"
+    c = checks["peptides.content"]
+    assert c.level == "ok"
+    assert isinstance(c.value, dict)
+    assert c.value["decoy_share"] == pytest.approx(share)
+    assert "peptides.decoy_share" not in checks
 
 
 def test_decoy_share_is_over_validated_rows() -> None:
@@ -366,8 +368,9 @@ def test_decoy_share_is_over_validated_rows() -> None:
         peptide=["PEPTIDEK", "SAMPLERK", "PEPK"],
         is_decoy=[True, False, True],
         protein_ids=["P1", "P1", "P1"],
-    )["peptides.decoy_share"]
-    assert c.value == pytest.approx(0.5)
+    )["peptides.content"]
+    assert isinstance(c.value, dict)
+    assert c.value["decoy_share"] == pytest.approx(0.5)
 
 
 def test_no_decoy_share_key_in_config() -> None:
