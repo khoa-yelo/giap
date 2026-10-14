@@ -61,9 +61,14 @@ error. Empty ID → `empty_id` error. `detect_scale` ignores NA; all-NA → `lin
 
 - Header only → `empty_table` error. A single column → `no_value_column` error.
 - `0` on a log2 scale is a valid value (log2 abundance 0); on linear it is counted in `n_zero`.
-- Scientific notation and `inf` parse as floats; `inf`/`nan` written as text count as non-numeric
-  except `NA`/`nan`/empty which are missing (`nan` → missing).
-- IDs are kept as written (no UniProt resolution here; joins are M1-10).
+- Scientific notation parses as a float. Non-finite text (`inf`, `INF`, `-inf`, `nan`, `NaN`, and
+  overflow such as `1e400`) is an error (`non_finite`); only `NA` or an empty cell is missing
+  (ADR-0006; lead decision after review).
+- IDs are resolved as in `proteins.faa` (ADR-0005); the IDs as written are kept in `raw_ids`.
+  Protein groups keep their written order (`P2;P3` and `P3;P2` are different IDs).
+- A table with valid shape is always returned; cells with numeric errors become `None` and are
+  flagged in `bad_rows`, so preflight still reports counts and scale. Only shape errors return no
+  table.
 
 ## Acceptance criteria
 
@@ -74,7 +79,7 @@ error. Empty ID → `empty_id` error. `detect_scale` ignores NA; all-NA → `lin
 ## Questions for the lead
 
 1. Does a UniProt-style ID (`sp|P1|X`) in the abundance file resolve to `P1` like in `proteins.faa`?
-   **Proposed default:** yes, using `resolve_protein_id` from M1-03, so joins succeed; the raw ID is kept.
+   **Decision:** yes, using `resolve_protein_id` from M1-03, so joins succeed; the IDs as written are kept in `raw_ids`.
 2. Linear zeros: count as missing for the 20 % rule? **Proposed default:** no; only NA/empty are
    missing (§7.0 says "zeros and NA counted" separately). Zeros are reported in `preflight.json`.
 3. Header required? **Proposed default:** yes, the first line is always the header.
