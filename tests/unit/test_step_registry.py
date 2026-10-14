@@ -12,7 +12,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from giap.config import GiapConfig
+from giap.config import GiapConfig, resolve_config
 from giap.rng import for_step
 
 
@@ -215,20 +215,13 @@ CONTRACT: list[tuple[str, str, list[str], list[str], list[str], str, str | None]
 ]  # fmt: skip
 
 
-def _register_contract(reg: ModuleType) -> None:
-    for name, kind, ins, opt, outs, module, pre in CONTRACT:
+def _register_contract(reg: ModuleType, rows: list[Any] = CONTRACT) -> None:
+    for name, kind, ins, opt, outs, module, pre in rows:
+        kwargs = dict(inputs=ins, outputs=outs, optional_inputs=opt, module=module, precomputed=pre)
         if kind == "py":
-            reg.step(
-                name,
-                inputs=ins,
-                outputs=outs,
-                optional_inputs=opt,
-                module=module,
-                precomputed=pre,
-            )(_noop)
+            reg.step(name, **kwargs)(_noop)
         else:
-            assert not opt
-            reg.external(name, inputs=ins, outputs=outs, module=module, precomputed=pre)
+            reg.external(name, **kwargs)
 
 
 def test_every_contract_step_registers_without_conflict(registry: ModuleType) -> None:
@@ -261,20 +254,44 @@ def test_contract_topo_order_is_deterministic(registry: ModuleType) -> None:
     first = registry.topo_order(names)
     assert registry.topo_order(list(reversed(names))) == first
     with fresh_registry() as other:
-        for row in reversed(CONTRACT):
-            name, kind, ins, opt, outs, module, pre = row
-            if kind == "py":
-                other.step(
-                    name,
-                    inputs=ins,
-                    outputs=outs,
-                    optional_inputs=opt,
-                    module=module,
-                    precomputed=pre,
-                )(_noop)
-            else:
-                other.external(name, inputs=ins, outputs=outs, module=module, precomputed=pre)
+        _register_contract(other, list(reversed(CONTRACT)))
         assert other.topo_order(sorted(names)) == first
+
+
+def _register_bakta_like(reg: ModuleType, with_producer: bool) -> None:
+    if with_producer:
+        reg.step("make_regions", inputs=[], outputs=["regions.gff3"])(_noop)
+    reg.external(
+        "bakta",
+        inputs=["genome.norm.fa"],
+        outputs=["bakta.json"],
+        optional_inputs=["regions.gff3"],
+        precomputed="bakta_json",
+    )
+    reg.step("parse", inputs=["bakta.json"], outputs=["genes.parquet"])(_noop)
+
+
+@pytest.mark.parametrize("with_producer", [True, False])
+def test_external_optional_input_plans_with_and_without_producer(
+    with_producer: bool, tmp_path: Path
+) -> None:
+    from giap.runner.local import LayerMissing, plan_local
+
+    with fresh_registry() as reg:
+        _register_bakta_like(reg, with_producer)
+        spec = reg.get("bakta")
+        assert spec.kind == "ext" and spec.func is None
+        assert spec.inputs == ("genome.norm.fa",)
+        assert spec.optional_inputs == ("regions.gff3",)
+        names = ["parse", "bakta", *(["make_regions"] if with_producer else [])]
+        expected = [*(["make_regions"] if with_producer else []), "bakta", "parse"]
+        assert reg.topo_order(names) == expected
+        with pytest.raises(LayerMissing):
+            plan_local(GiapConfig(), ["parse"])
+        layer = tmp_path / "bakta.json"
+        layer.write_text("{}")
+        cfg = resolve_config(None, [f"annotation.precomputed.bakta_json={layer}"])
+        assert plan_local(cfg, ["parse"]) == ["parse"]
 
 
 # ---------------------------------------------------------------- run_step
