@@ -16,7 +16,9 @@ exact optimum without a traceback: with base ``B`` the key is
 ``cost·B³ + (n_swap + n_block + n_near)·B² + (n_block + n_near)·B + n_near``.
 
 Every window inside one ``±2`` band overlaps the others for queries of more than four residues,
-so a call reports at most one alignment (one locus per candidate diagonal).
+so a call reports at most one alignment (one locus per candidate diagonal). Queries of at most
+``2·BAND`` (4) residues are rejected: the band can then hold two disjoint best windows (``AK`` in
+``AKGAK``); callers with such short pieces need their own anchored check (M3-08).
 """
 
 from __future__ import annotations
@@ -128,15 +130,15 @@ def _verify_kernel(
         row = i * nd
         prow = row - nd
         prow2 = row - 2 * nd
-        q1 = q[i - 1]
-        q0 = q[i - 2] if i >= 2 else nres
+        q1 = int(q[i - 1])  # Python int: uint8 arithmetic overflows without numba
+        q0 = int(q[i - 2]) if i >= 2 else nres
         for dd in range(nd):
             j = i + lo + dd
             best = big
             bs = 0
             if 1 <= j <= n:
-                t1 = frame[j - 1]
-                t0 = frame[j - 2] if j >= 2 else nres
+                t1 = int(frame[j - 1])
+                t0 = int(frame[j - 2]) if j >= 2 else nres
                 if t1 < nres:
                     # match / substitution from (i-1, j-1)
                     pk = key[prow + dd]
@@ -152,7 +154,7 @@ def _verify_kernel(
                             w = big
                             if q0 != q1 and q0 == t1 and q1 == t0:
                                 w = w_swap
-                            r = ex[off22 + ((q0 * nres + q1) * nres + t0) * nres + t1]
+                            r = int(ex[off22 + ((q0 * nres + q1) * nres + t0) * nres + t1])
                             if r >= 0:
                                 rw = _rank_weight(r, b)
                                 if rw < w:
@@ -167,7 +169,7 @@ def _verify_kernel(
                     if dd >= 1 and t0 < nres and q1 < nres:
                         pk = key[prow + dd - 1]
                         if pk < big:
-                            r = ex[(q1 * nres + t0) * nres + t1]
+                            r = int(ex[(q1 * nres + t0) * nres + t1])
                             if r >= 0:
                                 c = pk + _rank_weight(r, b)
                                 s = st[prow + dd - 1]
@@ -178,7 +180,7 @@ def _verify_kernel(
                     if i >= 2 and dd + 1 < nd and q0 < nres and q1 < nres:
                         pk = key[prow2 + dd + 1]
                         if pk < big:
-                            r = ex[off21 + (q0 * nres + q1) * nres + t1]
+                            r = int(ex[off21 + (q0 * nres + q1) * nres + t1])
                             if r >= 0:
                                 c = pk + _rank_weight(r, b)
                                 s = st[prow2 + dd + 1]
@@ -242,16 +244,27 @@ def verify(
     :func:`~giap.mapping.sixframe.encode_target`); ``d0`` is the candidate diagonal (target
     position of query residue 0). Returns ``[]`` when the minimum exceeds ``k``, otherwise one
     :class:`Alignment` (see the module docstring for the tie-breaks).
+
+    Inputs of any integer dtype or stride are normalised to C-contiguous ``uint8`` so that a
+    single compiled kernel specialisation serves every call.
+
+    Raises:
+        ValueError: if ``len(query) <= 2 * BAND`` (4 residues): the ``±2`` band can then hold
+            two disjoint equally good windows, so one diagonal no longer identifies one locus.
     """
     L = query.shape[0]
-    if L == 0 or k < 0:
+    if L <= 2 * BAND:
+        raise ValueError(f"query of {L} residues is too short: verify needs more than {2 * BAND}")
+    if k < 0:
         return []
     if k > L:
         k = L  # every operation consumes a query residue
     if k >= _BASE:  # pragma: no cover - queries are far shorter than 2**15
         raise ValueError("k must be below 32768")
-    key, s, e = _verify_kernel(query, frame, _lookup_for(tables), d0, k)
+    q = np.ascontiguousarray(query, dtype=np.uint8)
+    f = np.ascontiguousarray(frame, dtype=np.uint8)
+    key, s, e = _verify_kernel(q, f, _lookup_for(tables), int(d0), int(k))
     if key < 0:
         return []
-    cost, types = _decode_key(key)
-    return [Alignment(cost, s, e, types)]
+    cost, types = _decode_key(int(key))
+    return [Alignment(cost, int(s), int(e), types)]  # plain ints also when run without numba
