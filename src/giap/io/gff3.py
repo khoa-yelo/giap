@@ -8,11 +8,11 @@ ones also a ``region`` feature with ``Is_circular=true``, which :func:`read_gff3
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
-from urllib.parse import unquote
 
 from giap.io._open import open_text, open_text_write
 from giap.io.tsv import format_value
@@ -22,6 +22,9 @@ AttrValue = str | Sequence[str]
 
 _RESERVED = frozenset(";=&,%")
 _FASTA_WIDTH = 80
+_SAFE_ID = re.compile(r"[A-Za-z0-9._-]+")
+_DIGITS = re.compile(r"[0-9]+")
+_ESCAPE = re.compile(r"%([0-9A-Fa-f]{2})")
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +52,29 @@ def _check_field(name: str, value: str) -> str:
     return value
 
 
+def _check_seqid(seqid: str) -> str:
+    if not _SAFE_ID.fullmatch(seqid):
+        raise ValueError(f"GFF3 seqid must match [A-Za-z0-9._-]+, got {seqid!r}")
+    return seqid
+
+
+def unescape_attr(text: str) -> str:
+    """Decode ``%XX`` escapes as strict UTF-8; a ``%`` not followed by two hex digits raises."""
+    out = bytearray()
+    pos = 0
+    for m in _ESCAPE.finditer(text):
+        out += text[pos : m.start()].encode()
+        out.append(int(m.group(1), 16))
+        pos = m.end()
+    out += text[pos:].encode()
+    if "%" in _ESCAPE.sub("", text):
+        raise ValueError(f"invalid percent-escape in {text!r}")
+    try:
+        return out.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"percent-escapes in {text!r} are not valid UTF-8") from exc
+
+
 def _attr_column(attrs: Mapping[str, AttrValue]) -> str:
     parts = []
     for key, value in attrs.items():
@@ -67,6 +93,8 @@ def _feature_line(f: GffFeature, replicon: Replicon) -> str:
         raise ValueError(f"GFF3 score must be finite, got {f.score!r}")
     if f.phase is not None and f.phase not in (0, 1, 2):
         raise ValueError(f"GFF3 phase must be 0, 1 or 2, got {f.phase!r}")
+    if f.type == "CDS" and f.phase is None:
+        raise ValueError(f"{f.interval.contig}:{f.interval.start}: CDS needs a phase (GFF3 spec)")
     iv = f.interval
     return "\t".join(
         [
@@ -94,7 +122,7 @@ def write_gff3(
     fasta: Mapping[str, str] | None = None,
 ) -> None:
     """Write sorted GFF3 (§6.5 order) with pragmas, region lines and an optional ``##FASTA``."""
-    by_id = {r.id: r for r in replicons}
+    by_id = {_check_seqid(r.id): r for r in replicons}
     order = {r.id: i for i, r in enumerate(replicons)}
     keyed = []
     for f in features:
@@ -130,8 +158,14 @@ def _parse_attrs(col: str, where: str) -> dict[str, AttrValue]:
         key, sep, raw = part.partition("=")
         if not sep or not key:
             raise ValueError(f"{where}: malformed attribute {part!r}")
-        values = [unquote(v) for v in raw.split(",")]
-        attrs[unquote(key)] = values[0] if len(values) == 1 else tuple(values)
+        try:
+            values = [unescape_attr(v) for v in raw.split(",")]
+            name = unescape_attr(key)
+        except ValueError as exc:
+            raise ValueError(f"{where}: {exc}") from exc
+        if name in attrs:
+            raise ValueError(f"{where}: duplicate attribute key {name!r}")
+        attrs[name] = values[0] if len(values) == 1 else tuple(values)
     return attrs
 
 
@@ -143,6 +177,8 @@ def _parse_line(line: str, replicons: Mapping[str, Replicon], where: str) -> Gff
     rep = replicons.get(seqid)
     if rep is None:
         raise ValueError(f"{where}: unknown seqid {seqid!r}")
+    if not (_DIGITS.fullmatch(start_s) and _DIGITS.fullmatch(end_s)):
+        raise ValueError(f"{where}: start/end must be plain digits, got {start_s!r}, {end_s!r}")
     try:
         start, end = int(start_s), int(end_s)
         score = None if score_s == "." else float(score_s)
@@ -151,6 +187,8 @@ def _parse_line(line: str, replicons: Mapping[str, Replicon], where: str) -> Gff
         raise ValueError(f"{where}: {exc}") from exc
     if start < 1 or start > end:
         raise ValueError(f"{where}: need 1 <= start <= end, got {start}-{end}")
+    if strand == "?":
+        strand = "."
     if strand not in ("+", "-", "."):
         raise ValueError(f"{where}: invalid strand {strand!r}")
     if phase is not None and phase not in (0, 1, 2):
