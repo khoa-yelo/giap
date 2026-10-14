@@ -44,7 +44,9 @@ def test_standard_sequence_has_no_counts(seq: str) -> None:
 def test_resolve_protein_id_is_idempotent(token: str) -> None:
     group_id, members = resolve_protein_id(token)
     assert group_id == ";".join(members)
-    assert len(members) == token.count(";") + 1
+    # members are de-duplicated after resolution, first occurrence kept (lead decision, M1-03 review)
+    assert len(members) == len(set(members))
+    assert len(members) <= token.count(";") + 1
     assert all("|" not in m and m for m in members)
     assert resolve_protein_id(group_id) == (group_id, members)
 
