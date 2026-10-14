@@ -140,7 +140,7 @@ Open alignment items: pseudogene assignment (M3-14 Q3 says no, M4-06 Q3 says yes
 - The sensitivity framework is built in M4 (regions family only), off the gate path (M4-19 Q1).
 - Steps register with M2-02's `@step` registry if merged, else in M4-20 (M4-15 Q1); schemas go to
   `src/giap/schemas/tables/` like M3-16 (M4-15 Q2).
-- `poisson_binomial_*` is owned by M3-09 (`stats/poibin.py`); M3-10 should reuse `tda_qvalues` (M4-01 Q3);
+- `poisson_binomial_*` is owned by M3-09 (`stats/poisson_binomial.py`); M3-10 should reuse `tda_qvalues` (M4-01 Q3);
   M3-19 and M4-09 share one score/PEP/q helper (M4-09 Q3).
 
 ## Lead decisions on the questions (2026-10-14)
