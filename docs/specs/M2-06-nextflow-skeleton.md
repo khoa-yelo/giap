@@ -83,3 +83,11 @@ def run_nextflow(cmd: Sequence[str], outdir: Path) -> ExitCode    # 0, or 4 with
 2. Stubs for Parquet outputs: an empty file is not valid Parquet. **Proposed default:** `giap _step
    NAME --stub` writes schema-valid empty outputs (zero-row Parquet with the declared columns); it
    needs GIAP in the stub environment, which the `GIAP_STEP` process always has.
+
+## Lead decisions (implementation, accepted)
+1. `resolved_config.yaml` is written to `OUT/` (next to the results), not `OUT/work`.
+2. `params.memory` defaults to `"64 GB"` (the CLI default; defaults.yaml has no memory key).
+3. The `GIAP_STEP` stub only `touch`es declared outputs (CI runners have no `giap`); the `smoke` step
+   behind main.nf exists only under `-stub-run` until real registry steps are wired (M2-07).
+4. The farmshare_local warning prints via an Elvis-chain `println` because Nextflow 26's config parser
+   rejects `if` in config files.
