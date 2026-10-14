@@ -12,6 +12,7 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+
 from giap.io.tsv import COLUMN_NAME, NA, format_value, read_tsv, write_tsv
 
 # --- Examples 1-4, 9 ----------------------------------------------------------------------------

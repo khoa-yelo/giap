@@ -6,9 +6,9 @@ Always BED12 + 13 columns (25 fields); missing proBed values are ``.`` (not ``NA
 from __future__ import annotations
 
 import pytest
+
 from giap.io.bed import BedRecord
 from giap.io.probed import PROBED_EXTRA, ProBedRecord, write_probed
-
 from giap.model import Interval, Replicon
 
 C = Replicon("c1", 1000, "circular")

@@ -7,8 +7,8 @@ Origin-crossing features on circular replicons become two records ``_part1`` / `
 from __future__ import annotations
 
 import pytest
-from giap.io.bed import BedRecord, bed_lines, write_bed
 
+from giap.io.bed import BedRecord, bed_lines, write_bed
 from giap.model import Interval, Replicon
 
 C = Replicon("c1", 1000, "circular")

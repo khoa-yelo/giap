@@ -5,12 +5,12 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from giap.io.bed import BedRecord, bed_lines
-from giap.io.probed import PROBED_EXTRA, ProBedRecord, write_probed
-from giap.io.tsv import format_value, read_tsv, write_tsv
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from giap.io.bed import BedRecord, bed_lines
+from giap.io.probed import PROBED_EXTRA, ProBedRecord, write_probed
+from giap.io.tsv import format_value, read_tsv, write_tsv
 from giap.model import Interval, Replicon
 
 FAST = settings(max_examples=150, deadline=None)
