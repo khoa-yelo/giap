@@ -4,11 +4,18 @@ Each layer lists the true elements planted by the simulator plus false positives
 with ``n`` true rows, ``Poisson(rate * n)`` false rows drawn with the simulator's RNG. The truth
 table of a layer has the layer's columns plus ``true_element`` and exactly the layer's rows.
 Coordinates are 1-based closed (M2-02); operon-pair probabilities are a logistic function of
-the intergenic distance plus noise (UniOP-like: high within TUs, low between them).
+the intergenic distance (clipped to +-1 kb) plus noise (UniOP-like: high within TUs, low between).
+
+Values follow what the parse steps write (M2-12, M2-15, M2-18, M2-19): terminators from
+``TerminatorNet``; regions ``<type>_<n>`` numbered per type in contig order, then start and end;
+prophages ``geNOMAD``, BGCs ``antiSMASH`` (score ``NA``), CRISPR arrays ``Bakta`` (score ``NA``,
+no ``cas`` genes), plasmids ``Bakta+geNOMAD`` (the whole replicon). Every region with an interval,
+false positives included, lists the genes with >= 50 % of their CDS inside (M2-19 membership).
 """
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from itertools import pairwise
@@ -33,7 +40,7 @@ class Truth:
     promoters: list[tuple[str, str, int]] = field(default_factory=list)  # contig, strand, tss
     terminators: list[tuple[str, int, int, str]] = field(default_factory=list)
     rbs: list[tuple[str, int, str]] = field(default_factory=list)  # locus, spacer, start codon
-    regions: list[tuple[str, str, int, int, list[str]]] = field(default_factory=list)
+    regions: list[tuple[str, str, int, int]] = field(default_factory=list)  # kind, contig, a, b
 
 
 def _site(rng: np.random.Generator, lengths: Mapping[str, int], width: int) -> tuple[str, int]:
@@ -72,12 +79,12 @@ def build(
     out["promoters"] = prom
     out["tx_rates"] = [[c, s, p, _r(rng.lognormal(0.0, 1.0))] for c, s, p, _, _ in prom]
 
-    term: list[list[Any]] = [[c, a, b, s, _r(rng.uniform(0.6, 1.0)), "terminatornet", True]
+    term: list[list[Any]] = [[c, a, b, s, _r(rng.uniform(0.6, 1.0)), "TerminatorNet", True]
             for c, a, b, s in truth.terminators]  # fmt: skip
     for _ in range(int(rng.poisson(rate * len(term)))):
         c, p = _site(rng, lengths, _TERM_LEN)
         term.append([c, p, p + _TERM_LEN - 1, _strand(rng), _r(rng.uniform(0.5, 0.9)),
-                     "terminatornet", False])  # fmt: skip
+                     "TerminatorNet", False])  # fmt: skip
     term.sort(key=lambda r: (order[r[0]], r[1], r[3]))
     out["terminators"] = term
 
@@ -101,24 +108,57 @@ def build(
     out["rbs"] = rbs
 
     regions: list[list[Any]] = [
-        [kind, c, a, b, _TOOLS[kind], _r(rng.uniform(0.7, 1.0)), loci or None, None, True]
-        for kind, c, a, b, loci in truth.regions
+        [kind, c, a, b, _TOOLS[kind], _score(rng, kind, 0.7, 1.0), None, None, True]
+        for kind, c, a, b in truth.regions
     ]
     for _ in range(int(rng.poisson(rate * len(regions)))):
         kind = ("prophage", "bgc")[int(rng.integers(2))]
         width = int(rng.integers(5_000, 15_001))
         c, p = _site(rng, lengths, min(width, min(lengths.values())))
         b = min(lengths[c], p + width - 1)
-        regions.append([kind, c, p, b, _TOOLS[kind], _r(rng.uniform(0.3, 0.7)), None, None,
+        regions.append([kind, c, p, b, _TOOLS[kind], _score(rng, kind, 0.3, 0.7), None, None,
                         False])  # fmt: skip
     regions.sort(key=lambda r: (order[r[1]], r[2], r[3], r[0]))
-    out["regions"] = [[f"region_{k + 1}", *r] for k, r in enumerate(regions)]
+    numbered: Counter[str] = Counter()
+    out["regions"] = []
+    for r in regions:
+        numbered[r[0]] += 1
+        if r[0] != "crispr":
+            r[6] = members(genes, r[1], r[2] - 1, r[3], lengths[r[1]]) or None
+        out["regions"].append([f"{r[0]}_{numbered[r[0]]}", *r])
 
     out["operon_pairs"] = _operon_pairs(rng, genes, order)
     return out
 
 
-_TOOLS = {"prophage": "genomad", "plasmid": "genomad", "bgc": "antismash", "crispr": "bakta"}
+_TOOLS = {
+    "prophage": "geNOMAD",
+    "plasmid": "Bakta+geNOMAD",
+    "bgc": "antiSMASH",
+    "crispr": "Bakta",
+}
+_NO_SCORE = frozenset({"bgc", "crispr"})
+_MAX_DIST = 1_000.0  # operon-pair distances are clipped before the exponential
+
+
+def _score(rng: np.random.Generator, kind: str, lo: float, hi: float) -> float | None:
+    """Region score in ``[lo, hi)``; ``None`` (NA) for types whose tool reports none. The draw
+    is made either way, so the RNG stream does not depend on the type."""
+    x = _r(rng.uniform(lo, hi))
+    return None if kind in _NO_SCORE else x
+
+
+def members(genes: Sequence[Any], contig: str, r0: int, r1: int, n: int) -> list[str]:
+    """Loci of ``genes`` with >= 50 % of their CDS in ``[r0, r1)`` (0-based) on ``contig`` of
+    length ``n``; gene ends may exceed ``n`` (origin-crossing genes)."""
+    out = []
+    for g in genes:
+        if g.contig != contig:
+            continue
+        ov = sum(max(0, min(g.end, r1 + k) - max(g.start, r0 + k)) for k in (-n, 0, n))
+        if 2 * ov >= g.end - g.start:
+            out.append(g.locus)
+    return out
 
 
 def _operon_pairs(
@@ -130,7 +170,8 @@ def _operon_pairs(
         if a.contig != b.contig or a.strand != b.strand:
             continue
         d = b.start - a.end
-        p = 1.0 / (1.0 + np.exp((d - 60.0) / 15.0)) + rng.normal(0.0, 0.08)
+        x = float(np.clip(d, -_MAX_DIST, _MAX_DIST))
+        p = 1.0 / (1.0 + np.exp((x - 60.0) / 15.0)) + rng.normal(0.0, 0.08)
         rows.append([a.locus, b.locus, _r(min(0.999, max(0.001, p))), "uniop"])
     return rows
 

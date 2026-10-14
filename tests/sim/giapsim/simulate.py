@@ -2,7 +2,13 @@
 
 M0 skeleton, M3-18 features (plasmids, RNA genes, pseudogenes, sORFs, strains) and the M2-05
 simulator v2 (signals, CRISPR/oriC/prophage/BGC blocks, precomputed layers and their truth). All
-v2 fields default to off; the output is then byte-identical to M0/M3-18.
+v2 fields default to off; the output is then byte-identical to M0/M3-18 (``truth/features.tsv``
+gains its ``anticodon`` column only with ``write_precomputed`` or ``real_rrna_trna``).
+
+Accepted choices (M2-05 review): plasmids are ``plasmid_<n>`` (tests also accept ``p<n>``);
+with v2 signals, intra-TU gaps of 8-10 bp become 11-13 bp (no RBS spacer fits them); genes with
+an N-terminal extension get no planted RBS; signals are planted at their strengths even when
+``write_precomputed`` is off (no truth tables are then written).
 """
 
 from __future__ import annotations
@@ -460,6 +466,7 @@ def _plant_signals(
         for p in plans:
             apply_plan(seqs[cid], p)
     for f in feats:
+        # genes with an N-terminal extension (``true_start`` set) get no RBS
         if f.kind in ("cds", "sorf") and not f.tu and f.true_start is None:
             sp = plant_gene_rbs(srng, cfg.rbs_strength, seqs[f.contig], f.start, f.end, f.strand)
             if sp is not None:
@@ -499,19 +506,14 @@ def _signal_truth(st: _V2, chrom: str, feats: list[Feat], seqs: dict[str, str]) 
                 t.terminators.append((cid, term[0] + 1, term[1], p.strand))
             t.rbs += [(g.feat.locus, sp, g.feat.extra["start_type"]) for g, sp in p.rbs if g.feat]
     t.rbs += [(f.locus, sp, f.extra["start_type"]) for f, sp in st.rbs]
-    coding = [f for f in feats if f.kind in ("cds", "sorf")]
-
-    def inside(cid: str, s: int, e: int) -> list[str]:
-        return [f.locus for f in coding if f.contig == cid and s <= f.start and f.end <= e]
-
     for kind, s, e in st.blocks:
-        t.regions.append((kind, chrom, s + 1, e, inside(chrom, s, e)))
+        t.regions.append((kind, chrom, s + 1, e))
     for f in feats:
         if f.kind == "crispr":
-            t.regions.append(("crispr", f.contig, f.start + 1, f.end, []))
+            t.regions.append(("crispr", f.contig, f.start + 1, f.end))
     for cid, n in ((c, len(s)) for c, s in seqs.items()):
         if cid.startswith("plasmid_"):
-            t.regions.append(("plasmid", cid, 1, n, inside(cid, 0, n)))
+            t.regions.append(("plasmid", cid, 1, n))
     return t
 
 
@@ -558,7 +560,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     if config.linear_contig_length:
         extra.append(("contig", "linear", config.linear_contig_length))
     for i, (kind, topology, n_bp) in enumerate(extra):
-        cid = f"plasmid_{i + 1}" if kind == "plasmid" else "linear_1"
+        cid = f"plasmid_{i + 1}" if kind == "plasmid" else "linear_1"  # tests also accept p1
         max_genes = int(srng.integers(1, 4)) if srng is not None and kind == "plasmid" else None
         seqs[cid], fs, st.plans[cid] = _extra_contig(config, frng, n_bp, srng, max_genes)
         contigs.append((cid, kind, topology))
@@ -619,20 +621,13 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         res = replace(
             res, reference_fasta=ref_fasta, reference_json=ref_json, strain_truth=strain_truth
         )
+    # ``anticodon`` only with v2 output, so M0/M3-18 truth stays byte-identical
+    anticodon = config.write_precomputed or config.real_rrna_trna
+    header = ["feature_id", "type", "contig", "start", "end", "strand", "true_start"]
+    header += ["pseudo_reason", "ref_pseudo", *(["anticodon"] if anticodon else [])]
     _tsv(
         feat_truth,
-        [
-            "feature_id",
-            "type",
-            "contig",
-            "start",
-            "end",
-            "strand",
-            "true_start",
-            "pseudo_reason",
-            "ref_pseudo",
-            "anticodon",
-        ],
+        header,
         [
             [
                 f.locus,
@@ -644,7 +639,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
                 f.true_start or "",
                 f.pseudo_reason,
                 "" if f.locus not in ref_pseudo else str(ref_pseudo[f.locus]).lower(),
-                f.extra.get("anti_codon", ""),
+                *([f.extra.get("anti_codon", "")] if anticodon else []),
             ]
             for f in feats
         ],
