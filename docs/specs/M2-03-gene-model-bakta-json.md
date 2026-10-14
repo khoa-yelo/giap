@@ -144,3 +144,6 @@ Parsing rules (each a test):
    de-duplication and `source` fallback, `light` name heuristic, `sequence`/`contig` and
    `sequences`/`contigs` precedence).
 7. ncRNA `class` is not kept in M2-03; M2-04 decides whether `bakta_layers` needs it.
+8. Accepted after implementation: `GeneModel` compares by value (`==`), so the reader and the parser give
+   equal models; a gene with no `nt` whose contig has no sequence (only when `replicons` is given without
+   a covering genome) gets `nt = None`, `start_codon = None` instead of raising (M3-01 lenient reader).
