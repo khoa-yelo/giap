@@ -13,7 +13,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_DIR = ROOT / "src" / "giap" / "schemas"
-SCHEMAS = ["run_manifest.schema.json", "config.schema.json"]
+SCHEMAS = ["run_manifest.schema.json", "config.schema.json", "preflight.schema.json"]
 
 
 def _load(name: str) -> dict[str, Any]:

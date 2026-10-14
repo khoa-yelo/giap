@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/khoa-yelo/giap/schemas/preflight.schema.json",
+  "title": "GIAP preflight report",
+  "description": "preflight/preflight.json written by giap preflight and giap run (GIAP_SPEC.md section 7.0).",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "giap_version",
+    "inputs",
+    "checks",
+    "summary",
+    "evidence_tier",
+    "routing",
+    "replicons",
+    "contig_map"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"type": "string"},
+    "giap_version": {"type": "string"},
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role", "file", "sha256", "size"],
+        "additionalProperties": false,
+        "properties": {
+          "role": {"type": "string"},
+          "file": {"type": "string", "description": "File name only, no directory.", "pattern": "^[^/]+$"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "size": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "input", "level", "rule", "value", "message", "exit_code"],
+        "additionalProperties": false,
+        "properties": {
+          "rule_id": {"type": "string", "pattern": "^[a-z]+\\.[a-z_]+$"},
+          "input": {
+            "enum": ["inputs", "genome", "proteins", "peptides", "abundance", "environment"]
+          },
+          "level": {"enum": ["ok", "info", "warn", "error"]},
+          "rule": {"type": "string"},
+          "value": {"description": "Any JSON value measured by the rule."},
+          "message": {"type": "string"},
+          "exit_code": {"enum": [0, 1, 2]}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["n_error", "n_warn", "n_info", "n_ok"],
+      "additionalProperties": false,
+      "properties": {
+        "n_error": {"type": "integer", "minimum": 0},
+        "n_warn": {"type": "integer", "minimum": 0},
+        "n_info": {"type": "integer", "minimum": 0},
+        "n_ok": {"type": "integer", "minimum": 0}
+      }
+    },
+    "evidence_tier": {"enum": ["decoy_picked", "mayu", "two_peptide", "protein_list"]},
+    "routing": {
+      "type": "object",
+      "required": [
+        "n_proteins_long",
+        "n_proteins_peptide_path",
+        "n_proteins_dropped",
+        "n_peptides",
+        "abundance_used",
+        "abundance_scale"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "n_proteins_long": {"type": "integer", "minimum": 0},
+        "n_proteins_peptide_path": {"type": "integer", "minimum": 0},
+        "n_proteins_dropped": {"type": "integer", "minimum": 0},
+        "n_peptides": {"type": "integer", "minimum": 0},
+        "abundance_used": {"type": "boolean"},
+        "abundance_scale": {"enum": ["log2", "linear", null]}
+      }
+    },
+    "replicons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "length", "topology", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"},
+          "length": {"type": "integer", "minimum": 0},
+          "topology": {"enum": ["circular", "linear"]},
+          "kind": {"enum": ["chromosome", "plasmid", "unknown"]}
+        }
+      }
+    },
+    "contig_map": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "original_id"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"},
+          "original_id": {"type": "string"}
+        }
+      }
+    }
+  }
+}
