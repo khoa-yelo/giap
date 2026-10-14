@@ -14,8 +14,10 @@ Conventions these tests pin down where the spec is silent (see the PR descriptio
   ``NA`` or ``.``;
 * ``truth/strain_differences.tsv`` follows VCF orientation: ``ref`` is the allele in
   ``reference.fasta`` at ``pos_reference``, ``alt`` the allele in ``genome.fasta`` (the sample) at
-  ``pos_sample``; ``ins`` means ``alt`` is longer than ``ref``; ``-`` or ``.`` denote an empty
-  allele.
+  ``pos_sample``; ``ins`` means ``alt`` is longer than ``ref``. Indels are left-normalized and
+  anchored VCF-style (``pos`` is the base before the event, both alleles include it; review
+  decision 3, pinned in test_sim_features_review.py); ``-`` or ``.`` (an empty allele) are still
+  tolerated by the helpers here.
 """
 
 from __future__ import annotations
@@ -240,7 +242,7 @@ def all_options(genome_length: int) -> dict[str, Any]:
         "n_pseudogenes": 3,
         "n_sorfs": 4,
         "n_nterm_extensions": 3,
-        "n_novel_orfs": {"intergenic": 2, "cds_outframe": 2, "antisense": 2},
+        "n_novel_orfs": (("intergenic", 2), ("cds_outframe", 2), ("antisense", 2)),
         "strain": strain_config(snv_rate_per_kb=1.0, indel_rate_per_kb=0.2),
     }
 
@@ -489,7 +491,7 @@ def _check_orf(run: Run, r: dict[str, str]) -> tuple[Interval, str]:
 
 
 def test_example8_antisense_orfs(mk: Any) -> None:
-    run = mk("antisense", n_novel_orfs={"antisense": 2})
+    run = mk("antisense", n_novel_orfs=(("antisense", 2),))
     rows = _novel(run, "antisense")
     assert len(rows) == 2 and len(run.truth("novel_orfs.tsv")[1]) == 2
     for r in rows:
@@ -503,7 +505,9 @@ def test_example8_antisense_orfs(mk: Any) -> None:
 
 
 def test_novel_orf_classes(mk: Any) -> None:
-    run = mk("novel", seed=5, n_novel_orfs={"intergenic": 3, "cds_outframe": 3, "antisense": 2})
+    run = mk(
+        "novel", seed=5, n_novel_orfs=(("intergenic", 3), ("cds_outframe", 3), ("antisense", 2))
+    )
     _, all_rows = run.truth("novel_orfs.tsv")
     assert Counter(r["class"] for r in all_rows) == {
         "intergenic": 3,
@@ -644,7 +648,7 @@ def test_full_run_gff3_readable(full: Run) -> None:
 
 def test_full_run_features_truth(full: Run) -> None:
     header, rows = full.truth("features.tsv")
-    assert header == FEATURES_COLUMNS
+    assert header[: len(FEATURES_COLUMNS)] == FEATURES_COLUMNS  # + ref_pseudo (review decision 2)
     ids = [r["feature_id"] for r in rows]
     assert len(ids) == len(set(ids))
     types = Counter(r["type"].lower() for r in rows)
@@ -654,7 +658,8 @@ def test_full_run_features_truth(full: Run) -> None:
     for r in rows:
         f = full.feature(r["feature_id"])
         assert r["contig"] == fcontig(f) and r["strand"] == f["strand"]
-        assert (int(r["start"]), int(r["end"])) == (int(f["start"]), int(f["stop"]))
+        iv = full.interval(f)  # ``end`` unwrapped (> length across the origin; decision 5)
+        assert (int(r["start"]), int(r["end"])) == (iv.start + 1, iv.end)
 
 
 def test_full_run_novel_orfs_and_strain_tables(full: Run) -> None:
