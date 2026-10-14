@@ -28,23 +28,26 @@ _TIE_RTOL = 1e-12
 
 
 def _tol(*scale: float) -> float:
-    """Float-tie tolerance ``1e-12 * max(1, |x|)``."""
-    return _TIE_RTOL * max(1.0, *(abs(s) for s in scale))
+    """Float-tie tolerance ``1e-12 * max(1, |x|)`` over the finite scales."""
+    return _TIE_RTOL * max(1.0, *(abs(s) for s in scale if np.isfinite(s)))
 
 
 def perm_p(obs: float, null: ArrayLike, alternative: Alternative = "two-sided") -> float:
     """Permutation p-value with the +1 rule, p = (1 + b)/(1 + B).
 
-    NaN entries of ``null`` are dropped (B counts finite values); NaN ``obs`` or B = 0 gives NaN.
-    The two-sided p is centred on the null mean. Values within ``1e-12 * max(1, |x|)`` count as
-    ties, i.e. as exceedances (conservative).
+    NaN entries of ``null`` are absent (dropped; B counts the rest); NaN ``obs`` or B = 0 gives
+    NaN. +-inf null values are kept: they count in B and as extreme in their direction (+inf for
+    "greater", -inf for "less", both for "two-sided"). The two-sided p is centred on the pooled
+    mean ``(sum(null) + obs)/(B + 1)`` of the finite values, which keeps it exactly valid under
+    exchangeability. Values within ``1e-12 * max(1, |x|)`` count as ties, i.e. as exceedances
+    (conservative).
 
     Raises:
         ValueError: on an unknown ``alternative``.
     """
     o = float(obs)
     z = np.asarray(null, dtype=np.float64).ravel()
-    z = z[np.isfinite(z)]
+    z = z[~np.isnan(z)]
     B = z.size
     if np.isnan(o) or B == 0:
         return float("nan")
@@ -53,7 +56,9 @@ def perm_p(obs: float, null: ArrayLike, alternative: Alternative = "two-sided") 
     elif alternative == "less":
         b = int(np.count_nonzero(z <= o + _tol(o)))
     elif alternative == "two-sided":
-        centre = float(z.mean())
+        fin = z[np.isfinite(z)]
+        pooled = fin if not np.isfinite(o) else np.append(fin, o)
+        centre = float(pooled.mean()) if pooled.size else 0.0
         d_obs = abs(o - centre)
         b = int(np.count_nonzero(np.abs(z - centre) >= d_obs - _tol(d_obs, centre)))
     else:
@@ -102,13 +107,16 @@ def choose_shifts(
     """Shifts to evaluate and whether they are exhaustive.
 
     All of ``valid`` when ``n <= n_max_exhaustive``; otherwise ``B`` shifts drawn without
-    replacement from ``valid`` (all of them when ``B >= len(valid)``). Returned sorted.
+    replacement from ``valid`` (all of them when ``B >= len(valid)``). Returned sorted. The flag is
+    True whenever every valid shift is used (``valid`` non-empty, or ``n`` under the threshold).
     """
     v = np.unique(np.asarray(valid, dtype=np.int64).ravel())
     if n <= n_max_exhaustive:
         return v, True
-    if v.size == 0 or v.size <= B:
+    if v.size == 0:
         return v, False
+    if v.size <= B:
+        return v, True
     picked = rng.choice(v, size=int(B), replace=False)
     return np.sort(picked).astype(np.int64), False
 
