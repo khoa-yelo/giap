@@ -248,9 +248,14 @@ def run(
 def _run_local(cfg: GiapConfig, workdir: Path) -> None:
     """``--executor local`` (§6.4): every registered step as target; exits when done."""
     from giap.runner import local
+    from giap.steps import load_step_modules
     from giap.steps import registry as reg
 
+    load_step_modules()
     targets = [s.name for s in reg.all_steps()]
+    if not targets:
+        click.echo("giap run --executor local: not implemented (no steps registered)", err=True)
+        sys.exit(ExitCode.INTERNAL)
     try:
         local.plan_local(cfg, targets)
         local.run_local(cfg, workdir, targets)
@@ -258,7 +263,8 @@ def _run_local(cfg: GiapConfig, workdir: Path) -> None:
         click.echo(f"giap run: error: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
     except reg.StepError as exc:
-        click.echo(f"giap run: {exc}", err=True)
+        log = exc.write_log(workdir.parent / "logs")
+        click.echo(f"giap run: {exc} (see {log})", err=True)
         sys.exit(ExitCode.STEP_FAILED)
     except reg.WiringError as exc:
         click.echo(f"giap run: internal error: {exc}", err=True)
@@ -399,10 +405,11 @@ def step(
 
     cfg = _resolve(config_file, sets, log_level)
     try:
-        ins = _key_paths(name, "--in", inputs)
+        ins = _in_paths(name, inputs)
         outs = _key_paths(name, "--out", outputs)
         reg.run_step(name, cfg, ins, outs)
     except reg.StepError as exc:
+        exc.write_log(Path("logs"))
         click.echo(f"giap _step: {exc} (see logs/{name}.log)", err=True)
         sys.exit(ExitCode.STEP_FAILED)
     except reg.WiringError as exc:
@@ -420,6 +427,25 @@ def _key_paths(name: str, flag: str, items: Sequence[str]) -> dict[str, Path]:
         if not sep or not key or not path or key in out:
             raise WiringError(f"step '{name}': bad or repeated {flag} {item!r}")
         out[key] = Path(path)
+    return out
+
+
+def _in_paths(name: str, items: Sequence[str]) -> dict[str, Path | list[Path]]:
+    """Parse ``--in KEY=PATH``; a repeated key collects a list of paths (in the given order)."""
+    from giap.steps.registry import WiringError
+
+    out: dict[str, Path | list[Path]] = {}
+    for item in items:
+        key, sep, path = item.partition("=")
+        if not sep or not key or not path:
+            raise WiringError(f"step '{name}': bad --in {item!r}")
+        prev = out.get(key)
+        if prev is None:
+            out[key] = Path(path)
+        elif isinstance(prev, list):
+            prev.append(Path(path))
+        else:
+            out[key] = [prev, Path(path)]
     return out
 
 

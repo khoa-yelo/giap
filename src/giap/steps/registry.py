@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import heapq
 import logging
+import shutil
+import traceback
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +25,7 @@ from giap.rng import for_step
 
 StepKind = Literal["py", "ext"]
 StepModule = Literal["core", "mobile", "bgc", "function", "opt_in"]
+InputPath = Path | list[Path]  # a repeated ``--in key=...`` gives a list (e.g. Promotech chunks)
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,7 +33,7 @@ class StepContext:
     """What a Python step sees: config, its declared files, its own RNG stream and a logger."""
 
     cfg: GiapConfig
-    inputs: Mapping[str, Path]
+    inputs: Mapping[str, InputPath]
     outputs: Mapping[str, Path]
     rng: np.random.Generator
     log: logging.Logger
@@ -58,6 +61,14 @@ class StepError(Exception):
         super().__init__(f"step '{name}' failed: {type(cause).__name__}: {cause}")
         self.name = name
         self.cause = cause
+        self.traceback = "".join(traceback.format_exception(cause))
+
+    def write_log(self, log_dir: Path) -> Path:
+        """Write ``log_dir/<step>.log`` with the traceback; returns its path."""
+        log_dir.mkdir(parents=True, exist_ok=True)
+        path = log_dir / f"{self.name}.log"
+        path.write_text(f"{self}\n\n{self.traceback}")
+        return path
 
 
 class WiringError(Exception):
@@ -70,6 +81,13 @@ _REGISTRY: dict[str, StepSpec] = {}
 def _register(spec: StepSpec) -> None:
     if spec.name in _REGISTRY:
         raise ValueError(f"step '{spec.name}' already registered")
+    for other in _REGISTRY.values():
+        dup = sorted(set(spec.outputs) & set(other.outputs))
+        if dup:
+            raise ValueError(
+                f"step '{spec.name}': output key {', '.join(dup)} already declared by "
+                f"step '{other.name}'"
+            )
     _REGISTRY[spec.name] = spec
 
 
@@ -175,7 +193,9 @@ def topo_order(names: Iterable[str]) -> list[str]:
     return order
 
 
-def _check_keys(spec: StepSpec, inputs: Mapping[str, Path], outputs: Mapping[str, Path]) -> None:
+def _check_keys(
+    spec: StepSpec, inputs: Mapping[str, InputPath], outputs: Mapping[str, Path]
+) -> None:
     allowed_in = set(spec.inputs) | set(spec.optional_inputs)
     for key in inputs:
         if key not in allowed_in:
@@ -186,19 +206,34 @@ def _check_keys(spec: StepSpec, inputs: Mapping[str, Path], outputs: Mapping[str
     for key in spec.inputs:
         if key not in inputs:
             raise WiringError(f"step '{spec.name}': required input '{key}' not given")
-    for key, path in inputs.items():
-        if not path.exists():
-            raise WiringError(f"step '{spec.name}': input '{key}' does not exist: {path}")
+    for key, given in inputs.items():
+        for path in given if isinstance(given, list) else [given]:
+            if not path.exists():
+                raise WiringError(f"step '{spec.name}': input '{key}' does not exist: {path}")
     for key in spec.outputs:
         if key not in outputs:
             raise WiringError(f"step '{spec.name}': output '{key}' not given")
 
 
+def _remove(path: Path) -> None:
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path)
+    else:
+        path.unlink(missing_ok=True)
+
+
+def _tmp_path(name: str, path: Path) -> Path:
+    """Temporary sibling of ``path`` (same file system, same suffix) for an atomic rename."""
+    return path.with_name(f".tmp.{name}.{path.name}")
+
+
 def run_step(
-    name: str, cfg: GiapConfig, inputs: Mapping[str, Path], outputs: Mapping[str, Path]
+    name: str, cfg: GiapConfig, inputs: Mapping[str, InputPath], outputs: Mapping[str, Path]
 ) -> None:
     """Run the Python step ``name`` on the given files (§6.2).
 
+    Declared outputs are removed first, so a stale file never passes the output check; the step
+    writes temporary paths that are renamed into place only when it succeeds and wrote them all.
     Wiring problems (unknown step, undeclared key, missing input, missing output after the run,
     an external step) raise ``WiringError``; an exception from the step raises ``StepError``.
     """
@@ -208,19 +243,31 @@ def run_step(
     if spec.func is None:
         raise WiringError(f"step '{name}' is external and has no Python function")
     _check_keys(spec, inputs, outputs)
-    for path in outputs.values():
+    tmp = {key: _tmp_path(name, path) for key, path in outputs.items()}
+    for key, path in outputs.items():
         path.parent.mkdir(parents=True, exist_ok=True)
+        _remove(path)
+        _remove(tmp[key])
     ctx = StepContext(
         cfg=cfg,
         inputs=dict(inputs),
-        outputs=dict(outputs),
+        outputs=dict(tmp),
         rng=for_step(name, cfg.seed),
         log=logging.getLogger(f"giap.steps.{name}"),
     )
     try:
-        spec.func(ctx)
-    except Exception as exc:
-        raise StepError(name, exc) from exc
-    for key, path in outputs.items():
-        if not path.exists():
-            raise WiringError(f"step '{name}': declared output '{key}' was not written: {path}")
+        try:
+            spec.func(ctx)
+        except Exception as exc:
+            raise StepError(name, exc) from exc
+        for key, path in tmp.items():
+            if not path.exists():
+                raise WiringError(
+                    f"step '{name}': declared output '{key}' was not written: {outputs[key]}"
+                )
+    except BaseException:
+        for path in tmp.values():
+            _remove(path)
+        raise
+    for key, path in tmp.items():
+        path.replace(outputs[key])

@@ -3,12 +3,14 @@
 ``giap run --executor local`` runs the Python steps in topological order in one process. External
 steps never run here: each must be replaced by its ``annotation.precomputed`` layer, and a missing
 layer is an error naming the key, raised before any step runs. Every step key is stored at
-``workdir / key``; a consumer of an output of a replaced step receives the precomputed file itself.
+``workdir / key``; a consumer of an output of a replaced step receives the precomputed file itself,
+even when an older ``workdir / key`` exists. Opt-in steps run only when their configuration enables
+them (e.g. ``annotation.terminators.bactermfinder``).
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from giap.config import GiapConfig
@@ -28,9 +30,16 @@ def _layer(cfg: GiapConfig, key: str) -> Path | None:
     return path
 
 
-def _enabled(cfg: GiapConfig, spec: reg.StepSpec, targets: Sequence[str]) -> bool:
+# Opt-in steps follow configuration, not the target list; an unknown opt-in step stays off.
+_OPT_IN: dict[str, Callable[[GiapConfig], bool]] = {
+    "bactermfinder": lambda cfg: cfg.annotation.terminators.bactermfinder,
+}
+
+
+def _enabled(cfg: GiapConfig, spec: reg.StepSpec) -> bool:
     if spec.module == "opt_in":
-        return spec.name in targets
+        flag = _OPT_IN.get(spec.name)
+        return flag is not None and bool(flag(cfg))
     return spec.module in cfg.modules
 
 
@@ -51,7 +60,7 @@ def _walk(cfg: GiapConfig, targets: Sequence[str]) -> tuple[list[str], dict[str,
             continue
         seen.add(name)
         spec = reg.get(name)
-        if not _enabled(cfg, spec, targets):
+        if not _enabled(cfg, spec):
             continue
         layer = _layer(cfg, spec.precomputed) if spec.precomputed else None
         if layer is not None:
@@ -79,11 +88,10 @@ def run_local(cfg: GiapConfig, workdir: Path, targets: Sequence[str]) -> None:
     workdir.mkdir(parents=True, exist_ok=True)
     for name in order:
         spec = reg.get(name)
-        inputs: dict[str, Path] = {}
+        inputs: dict[str, reg.InputPath] = {}
         for key in (*spec.inputs, *spec.optional_inputs):
-            path = workdir / key
-            if not path.exists() and key in supplied:
-                path = supplied[key]
+            # a configured layer always wins over a stale ``workdir / key`` from an earlier run
+            path = supplied.get(key, workdir / key)
             if key in spec.inputs or path.exists():
                 inputs[key] = path
         outputs = {key: workdir / key for key in spec.outputs}
