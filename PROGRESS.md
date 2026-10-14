@@ -20,7 +20,7 @@ M1: Inputs and preflight. Status: in progress — 9 of 12 issues merged (M1-01�
 - Merged to main (squash, one commit per PR): #1 M0, #2 M1-01, #3 M1-02, #4 M1-03, #5 M1-04,
   #6 M1-09, #7 M1-06, #8 M1-05, #9 M1-08; this PR: M1-07 (`giap convert --from generic|diann`).
 - Untracked specs M1-10, M1-11, M1-12 in the main checkout's docs/specs/ (commit with each PR).
-- Slurm jobs: none running.
+- Slurm jobs: `giap-fetch-bakta-db` (scripts/slurm/fetch_bakta_db.sbatch; log local/logs/giap-fetch-bakta-db.<id>.out).
 - Lessons:
   - Review fixes can contradict older tests → the test-author lists and aligns them first; the
     implementer never edits tests and stops on contradictions.
@@ -31,10 +31,17 @@ M1: Inputs and preflight. Status: in progress — 9 of 12 issues merged (M1-01�
     branch, and merge only from one snapshot showing every check present and passed.
 
 ## Next actions (ordered)
-1. M1-10 (proteins, peptides, abundance, evidence-tier rules T-PRE-11…22) — needs ADR-0005
-   item 4 thresholds (decoy share 0.5, free RAM 8 GB, free disk 10 GB) accepted by Khoa.
-2. M1-11 (environment rules, preflight.schema.json, preflight.json/.md), M1-12 (`giap preflight`).
-3. M1 gate: every preflight rule unit-tested; preflight.json validated against its schema.
+Parallel orchestration (Khoa, 2026-10-14: "design Mx in parallel to speed up development"):
+- Wave 1 (now): finish M1-10/11/12 (sequential: 11 builds on 10, 12 on 11). In parallel:
+  spec-writers for M2, M3, M4 (design only, docs/specs/M{2,3,4}-*), and the long-latency
+  Slurm prefetch of the Bakta light+full DB (job `giap-fetch-bakta-db`).
+- Wave 2: implement M2 and M3 side by side, each split into parallel tracks from its index
+  (one worktree per track, test-author → implementer → code-reviewer per issue); M4 issues that
+  only need the stats engine or fixtures start alongside.
+- Wave 3: M4 integration, then M5–M8 in parallel (§13), each with its own spec-writer first.
+- Concurrency limits: ≤ 6 subagents at once; inside the 8-CPU session allocation, subagents run
+  targeted tests with `-n 2` and the full suite once before committing; anything long → sbatch.
+  R14 caps apply to GIAP's Slurm jobs (≤ 128 CPUs, ≤ 20 jobs); the account already runs other work.
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
