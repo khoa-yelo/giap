@@ -2,8 +2,9 @@
 
 ``hodges_lehmann(x, y)`` = median of all pairwise differences x_i - y_j; the median of an even
 count is the mean of the two middle values. Exact on both paths: direct enumeration for
-m*n <= 1e6, bisection on sorted y above (it must equal the direct median bit for bit). Empty
-input gives NaN; NaN in the input raises ValueError (callers drop missing abundances first).
+m*n <= 5e4 (_DIRECT_MAX, lead decision after review), bisection on sorted y above (it must equal
+the direct median bit for bit). Empty input gives NaN; NaN or +-inf in the input raises
+ValueError (callers drop missing abundances first); see test_robust_review.py.
 """
 
 from __future__ import annotations
@@ -39,7 +40,7 @@ def test_example_2_single_pair_and_empty() -> None:
 def test_example_3_large_path_equals_direct_median_exactly() -> None:
     rng = for_step("test.hodges_lehmann", 3)
     x = rng.normal(1.0, 1.0, 2000)
-    y = rng.normal(0.0, 1.0, 3000)  # 6e6 pairs > 1e6: bisection path
+    y = rng.normal(0.0, 1.0, 3000)  # 6e6 pairs > 5e4: bisection path
     expected = float(np.median(np.subtract.outer(x, y)))
     got = hodges_lehmann(x, y)
     assert isinstance(got, float)
