@@ -78,3 +78,15 @@ when any member matches. If peptides carry intensities, `abundance.scale` adds
 3. Abundance IDs may be locus tags or gene IDs (§5.3), unknown before annotation. **Proposed default:**
    join warnings only when ≥ 1 abundance ID matches a protein ID (otherwise the table is assumed to be
    keyed by locus tags and the join is deferred as `info`).
+
+## Lead decisions after code review
+- Peptides given but every row dropped, and no proteins file → `inputs.present` error "no usable evidence"
+  (the `protein_list` tier means a proteins file and no peptides, §7.3.2).
+- `decoy_picked` needs decoy rows **and** a ranking column (q_value, pep or score); decoy rows without
+  one fall back to the next tier, with a warning naming the reason (§7.3.2 picking ranks by q, PEP, score).
+- "No row passes `input.q_value_max`" counts target rows only.
+- No separate `peptides.decoy_share` rule; the share stays an Info value inside `peptides.content`.
+- `peptides.schema` is only for errors; `unknown_column` and other warn-level findings go to
+  `peptides.content`.
+- Protein records whose groups share a member are listed as Info under `proteins.ids` (capped).
+- `abundance_checks` resolves the scale once and reports that one value.
