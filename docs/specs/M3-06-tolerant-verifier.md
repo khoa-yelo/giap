@@ -90,3 +90,17 @@ when the minimum exceeds `k`.
    tolerant hits.
 2. Tie-break precedence when two explanations of one window have equal cost. **Proposed
    default:** the precedence above (simplest explanation first).
+
+## Lead decisions after code review (PR #39, changes requested)
+1. `verify` raises `ValueError` for queries with L ≤ 2·BAND (= 4 aa): the ±2 band can then hold two
+   disjoint best windows. Documented in the docstring. M3-08 (`min_side_aa: 4`) must not call `verify`
+   with sides of ≤ 4 aa — recorded for M3-08 (use its own anchored check for such sides).
+2. Tests for the stop/X/NOMATCH guards: a stop or X in each target slot and `#` in each query slot of every
+   block shape (1↔1, 1↔2, 2↔1, 2↔2) is never consumed (e.g. `P` vs `*G`, `GS` vs `*S` are not blocks).
+3. The kernel runs without numba: index values are cast to Python int (`int(q[i-1])`), and a test runs a
+   representative subset with `NUMBA_DISABLE_JIT=1` in a subprocess, agreeing with the jitted results.
+4. `verify` normalises inputs (C-contiguous uint8 via `np.ascontiguousarray(..., dtype=np.uint8)`) so other
+   dtypes/strides never trigger a recompile. Test: int64 and strided inputs give the same result.
+5. Test the `t_end` tie-break (equal cost, equal t_start → smallest t_end).
+6. Deferred to the consuming issues (not in this PR): a public njit batch entry point for M3-07's `prange`,
+   and anchored window ends for M3-08; each issue specifies its interface.
