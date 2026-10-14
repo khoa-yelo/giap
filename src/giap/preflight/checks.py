@@ -23,7 +23,11 @@ LIST_CAP = 1000
 
 @dataclass(frozen=True, slots=True)
 class Check:
-    """One evaluated preflight rule."""
+    """One evaluated preflight rule.
+
+    ``exit_code`` is 1 for an input error, 2 for an environment error and 0 otherwise; an error
+    created with the default 0 gets the code its ``input`` implies.
+    """
 
     rule_id: str
     input: InputName
@@ -32,6 +36,11 @@ class Check:
     value: JsonValue
     message: str = ""
     exit_code: int = 0
+
+    def __post_init__(self) -> None:
+        # An error left at the default 0 takes the code its input implies (ADR-0005 item 3).
+        if self.level == "error" and self.exit_code == 0:
+            object.__setattr__(self, "exit_code", 2 if self.input == "environment" else 1)
 
 
 def worst(checks: Iterable[Check]) -> Level:

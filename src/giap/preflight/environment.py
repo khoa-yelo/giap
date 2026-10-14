@@ -51,11 +51,12 @@ class EnvProbe:
     total_ram_bytes: int
 
 
-# (name, kind, minimum version) per module; versions pinned in §3.2 and §7.1.1.
+# (name, kind, pinned version) per module; versions pinned in §3.2 and §7.1.1. A tool matches its
+# pin's major.minor with patch >= the pin's; a database matches the pin to its written precision.
 _ROWS: dict[str, tuple[tuple[str, Kind, str | None], ...]] = {
     "core": (
-        ("bakta", "binary", "1.12"),
-        ("bakta_db", "db", "6.0"),
+        ("bakta", "binary", "1.12.2"),
+        ("bakta_db", "db", "6"),
         ("miniprot", "binary", "0.18"),
         ("tblastn", "binary", None),
         ("uniop", "env", None),
@@ -92,18 +93,45 @@ def resource_needs(promoters_mode: str) -> tuple[int, int]:
     return 0, GENOME_PROMOTECH_RAM_BYTES if promoters_mode == "genome" else 0
 
 
-def _version(v: str) -> tuple[int, ...]:
-    return tuple(int(x) for x in re.findall(r"\d+", v))
+_VERSION = re.compile(r"\s*v?(\d+(?:\.\d+)*)(.*)")
+
+
+def _version(v: str) -> tuple[tuple[int, ...], bool] | None:
+    """``(release numbers, is_final)``; any suffix but ``+local`` marks a pre-release."""
+    m = _VERSION.fullmatch(v)
+    if m is None:
+        return None
+    suffix = m.group(2).strip()
+    return tuple(int(x) for x in m.group(1).split(".")), suffix == "" or suffix.startswith("+")
+
+
+def _pad(t: tuple[int, ...], n: int = 3) -> tuple[int, ...]:
+    return t + (0,) * (n - len(t))
 
 
 def _version_problem(req: Requirement, found: str) -> str | None:
-    """Why ``found`` does not satisfy ``req`` (databases need the same major version)."""
-    if req.min_version is None:
+    """Why ``found`` does not satisfy the pinned ``req.min_version``, or ``None``.
+
+    Tools: same major.minor as the pin, patch >= the pin's, a pre-release ranking below its
+    release. Databases: equal to the pin over the components the pin is written with.
+    """
+    pin = req.min_version
+    if pin is None:
         return None
-    need, have = _version(req.min_version), _version(found)
+    need, have = _version(pin), _version(found)
+    if need is None:
+        raise ValueError(f"unparseable pinned version {pin!r} for {req.name}")
+    n = need[0]
     if req.kind == "db":
-        return None if have[:1] == need[:1] else f"{found} (need {need[0]}.x)"
-    return None if have >= need else f"{found} (need >= {req.min_version})"
+        ok = have is not None and have[0][: len(n)] == n
+        return None if ok else f"{found} (need {pin}.x)"
+    ok = (
+        have is not None
+        and _pad(have[0])[:2] == _pad(n)[:2]
+        and (_pad(have[0]), have[1]) >= (_pad(n), need[1])
+    )
+    n2 = _pad(n)
+    return None if ok else f"{found} (need {n2[0]}.{n2[1]}.x >= {pin})"
 
 
 def _gib(n: int) -> int | float:

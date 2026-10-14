@@ -48,7 +48,7 @@
           "rule": {"type": "string"},
           "value": {"description": "Any JSON value measured by the rule."},
           "message": {"type": "string"},
-          "exit_code": {"enum": [0, 2]}
+          "exit_code": {"enum": [0, 1, 2]}
         }
       }
     },
@@ -74,6 +74,7 @@
         "abundance_used",
         "abundance_scale"
       ],
+      "additionalProperties": false,
       "properties": {
         "n_proteins_long": {"type": "integer", "minimum": 0},
         "n_proteins_peptide_path": {"type": "integer", "minimum": 0},

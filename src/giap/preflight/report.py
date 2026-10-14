@@ -66,7 +66,10 @@ class PreflightReport:
 
 
 def _jsonable(v: object) -> JsonValue:
-    """``v`` as plain JSON: numpy scalars converted, floats to 6 significant digits, NaN → null."""
+    """``v`` as plain JSON: numpy scalars converted, floats to 6 significant digits, NaN → null.
+
+    Mapping keys become strings; keys that collide once converted raise ``ValueError``.
+    """
     if v is None or isinstance(v, str):
         return v
     if isinstance(v, bool | np.bool_):
@@ -77,7 +80,13 @@ def _jsonable(v: object) -> JsonValue:
         f = float(v)
         return float(f"{f:.6g}") if math.isfinite(f) else None
     if isinstance(v, Mapping):
-        return {str(k): _jsonable(x) for k, x in sorted(v.items(), key=lambda kv: str(kv[0]))}
+        out: dict[str, JsonValue] = {}
+        for k, x in v.items():
+            key = k if isinstance(k, str) else str(_jsonable(k))
+            if key in out:
+                raise ValueError(f"keys collide as {key!r} in preflight.json")
+            out[key] = _jsonable(x)
+        return dict(sorted(out.items()))
     if isinstance(v, list | tuple):
         return [_jsonable(x) for x in v]
     raise TypeError(f"cannot write {type(v).__name__} value {v!r} to preflight.json")
@@ -89,20 +98,20 @@ def _counts(r: PreflightReport) -> dict[str, int]:
 
 
 def to_json_dict(r: PreflightReport) -> dict[str, JsonValue]:
-    """The ``preflight.json`` document as plain JSON values."""
+    """The ``preflight.json`` document as plain JSON values (numpy scalars converted throughout)."""
     checks: list[JsonValue] = [
         {
             "rule_id": c.rule_id,
             "input": c.input,
             "level": c.level,
             "rule": c.rule,
-            "value": _jsonable(c.value),
+            "value": c.value,
             "message": c.message,
             "exit_code": c.exit_code,
         }
         for c in r.checks
     ]
-    return {
+    doc = {
         "schema_version": SCHEMA_VERSION,
         "giap_version": r.giap_version,
         "inputs": [
@@ -111,13 +120,17 @@ def to_json_dict(r: PreflightReport) -> dict[str, JsonValue]:
         "checks": checks,
         "summary": dict(_counts(r)),
         "evidence_tier": r.evidence_tier,
-        "routing": _jsonable(r.routing),
+        "routing": r.routing,
         "replicons": [
             {"id": x.id, "length": x.length, "topology": x.topology, "kind": x.kind}
             for x in r.replicons
         ],
         "contig_map": [{"id": a, "original_id": b} for a, b in r.contig_map],
     }
+    out = _jsonable(doc)
+    if not isinstance(out, dict):  # pragma: no cover - doc is a dict
+        raise TypeError("preflight document is not an object")
+    return out
 
 
 def write_preflight_json(path: Path, r: PreflightReport) -> None:
@@ -138,7 +151,9 @@ def _cell(v: JsonValue) -> str:
     text = " ".join(text.split())
     if len(text) > _MD_CELL_MAX:
         text = text[: _MD_CELL_MAX - 1] + "…"
-    return text.replace("\\", "\\\\").replace("|", "\\|")
+    for ch in "\\|`":
+        text = text.replace(ch, "\\" + ch)
+    return text.replace("&", "&amp;").replace("<", "&lt;")
 
 
 def render_preflight_md(r: PreflightReport) -> str:
