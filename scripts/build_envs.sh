@@ -17,12 +17,19 @@ set -euo pipefail
 
 GIAP_REPO="${GIAP_REPO:-/home/classes/bios/270/khoa/giap}"
 ENV_DIR="$GIAP_REPO/workflow/envs"
-mapfile -t VALID < <(find "$ENV_DIR" -maxdepth 1 -name '*.yml' -printf '%f\n' | sed 's/\.yml$//' | sort)
+# Portable to bash 3.2 (macOS CI): no mapfile, associative arrays or GNU-only find/sha256sum.
+VALID=""
+for f in "$ENV_DIR"/*.yml; do
+  [ -e "$f" ] || continue
+  b="${f##*/}"
+  VALID="$VALID ${b%.yml}"
+done
+VALID="${VALID# }"
 
-usage() { echo "usage: build_envs.sh <tool>... | all   (valid: ${VALID[*]})" >&2; }
+usage() { echo "usage: build_envs.sh <tool>... | all   (valid: $VALID)" >&2; }
 [ "$#" -gt 0 ] || { usage; exit 2; }
 for tool in "$@"; do
-  if [ "$tool" != "all" ] && [[ ! " ${VALID[*]} " == *" $tool "* ]]; then
+  if [ "$tool" != "all" ] && [[ ! " $VALID " == *" $tool "* ]]; then
     echo "unknown tool: $tool" >&2
     usage
     exit 2
@@ -37,7 +44,8 @@ mkdir -p "$LOCKS"
 
 # `all`: conda tools that have no pinned container and are not opt-in (decision 4).
 if [ "$1" = "all" ]; then
-  mapfile -t ALL < <(PYTHONPATH="$GIAP_REPO/src" "$PY" - "$GIAP_REPO" <<'PYEOF'
+  all_tools() {
+    PYTHONPATH="$GIAP_REPO/src" "$PY" - "$GIAP_REPO" <<'PYEOF'
 import sys
 from pathlib import Path
 from giap.annotate.tools import TOOLS, read_containers_config
@@ -46,31 +54,35 @@ for name, t in sorted(TOOLS.items()):
     if not t.in_process and t.module != "opt_in" and name not in pinned:
         print(name)
 PYEOF
-)
-  set -- "${ALL[@]}"
-  echo "all: ${*}"
+  }
+  ALL="$(all_tools)"
+  # shellcheck disable=SC2086  # tool names are plain words
+  set -- $ALL
+  echo "all: $*"
 fi
 
 # Registry fields (single source of truth: src/giap/annotate/tools.py), one per line.
 registry() {
-  PYTHONPATH="$GIAP_REPO/src" "$PY" - "$1" <<'PYEOF'
-import shlex, sys
+  PYTHONPATH="$GIAP_REPO/src" "$PY" - "$1" "$ENV_DIR" <<'PYEOF'
+import hashlib, shlex, sys
+from pathlib import Path
 from giap.annotate.tools import TOOLS
 t = TOOLS[sys.argv[1]]
 print(t.env_name)
 print(t.version)
 print(t.source_repo or "")
 print(shlex.join(t.version_cmd))
+print(hashlib.sha256((Path(sys.argv[2]) / f"{sys.argv[1]}.yml").read_bytes()).hexdigest())
 PYEOF
 }
 
 build_one() {
   local tool="$1" reg env_name version repo version_cmd prefix marker want sha src out
-  mapfile -t reg < <(registry "$tool")
-  env_name="${reg[0]}" version="${reg[1]}" repo="${reg[2]}" version_cmd="${reg[3]}"
+  reg="$(registry "$tool")" || return 1
+  { IFS= read -r env_name; IFS= read -r version; IFS= read -r repo
+    IFS= read -r version_cmd; IFS= read -r want; } <<< "$reg"
   prefix="$MAMBA_ROOT_PREFIX/envs/$env_name"
   marker="$prefix/.giap-built"
-  want="$(sha256sum "$ENV_DIR/$tool.yml" | awk '{print $1}')"
   rm -f "$LOCKS/$tool.explicit.txt" "$LOCKS/$tool.pip.txt"
 
   if [ -d "$prefix" ] && [ "$(cat "$marker" 2>/dev/null || true)" = "$want" ]; then
@@ -115,16 +127,16 @@ build_one() {
   echo "$want" > "$marker"
 }
 
-failed=()
+failed=
 for tool in "$@"; do
   if ! build_one "$tool"; then
     rm -f "$LOCKS/$tool".*.tmp "$LOCKS/$tool.explicit.txt" "$LOCKS/$tool.pip.txt"
-    failed+=("$tool")
+    failed="$failed $tool"
     echo "FAILED: $tool" >&2
   fi
 done
 micromamba clean -a -y > /dev/null
-if [ "${#failed[@]}" -gt 0 ]; then
-  echo "build failed for: ${failed[*]}" >&2
+if [ -n "$failed" ]; then
+  echo "build failed for:$failed" >&2
   exit 1
 fi
