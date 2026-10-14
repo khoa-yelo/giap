@@ -80,3 +80,19 @@ strain: StrainConfig | None = None       # snv_rate_per_kb, indel_rate_per_kb, s
    `genome_relation = related` and tolerant hits.
 2. Should this issue also add the M2-facing signals (promoters, terminators, RBS, oriC, prophage
    and BGC blocks)? **Proposed default:** no; whichever milestone needs them first adds them.
+
+## Lead decisions after code review (PR #25)
+1. A lifted CDS is "clean" only with a valid start codon (ATG/GTG/TTG) as well as no frameshift, no stop
+   gained and no stop lost.
+2. A CDS that is not clean in the reference gets its reference `aa` from its own reference `nt`
+   (translated to the first stop, table 11) and `ref_pseudo = true` in truth; no protein is ever listed
+   that its `nt` does not encode.
+3. Indels are left-normalized and written VCF-style: anchored `pos` (1-based, the base before the event),
+   `ref` and `alt` both include the anchor base; `strain_differences.tsv` documents this convention.
+4. `aa_change` is computed from the translated proteins (codon 1 reads as M) and accounts for in-frame
+   indels in the same gene.
+5. `truth/genes.tsv` covers every CDS including origin-crossing, plasmid, linear-replicon and planted ones;
+   `features.tsv` `end` is the unwrapped end (> length for origin-crossing features), documented.
+6. The origin-crossing gene carries Bakta's `edge: true`; sORFs stay `CDS` in GFF3 (as Bakta writes them)
+   with an `sorf=true` attribute.
+7. `SimConfig` stays hashable (tuple of pairs instead of a dict).
