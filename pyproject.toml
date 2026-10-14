@@ -107,7 +107,7 @@ files = ["src/giap"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["ahocorasick", "numba.*", "scipy.*", "sklearn.*", "statsmodels.*", "lightgbm.*", "pycirclize.*", "pygenomeviz.*", "upsetplot.*", "plotly.*", "goatools.*", "codonbias.*", "Bio.*"]
+module = ["ahocorasick", "numba.*", "scipy.*", "sklearn.*", "statsmodels.*", "lightgbm.*", "pycirclize.*", "pygenomeviz.*", "upsetplot.*", "plotly.*", "goatools.*", "codonbias.*", "Bio.*", "pandas.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
