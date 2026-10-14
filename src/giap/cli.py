@@ -252,10 +252,52 @@ def makedb(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_:
 @click.option("--source", type=click.Choice(["database", "denovo"]))
 @click.option("--search-db", type=click.Choice(["same", "other"]))
 @shared_options
-def convert(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_: Any) -> None:
+def convert(
+    config_file: Path | None,
+    sets: tuple[str, ...],
+    log_level: str,
+    inputs: tuple[Path, ...],
+    engine: str,
+    out: Path,
+    abundance_out: Path | None,
+    source: str | None,
+    search_db: str | None,
+    **_: Any,
+) -> None:
     """Convert search-engine output to the generic peptide table."""
-    _resolve(config_file, sets, log_level)
-    _not_implemented("convert", "M1")
+    from giap.io.converters import CONVERTERS
+    from giap.io.issues import Issue
+    from giap.io.tsv import write_tsv
+
+    cfg = _resolve(config_file, sets, log_level)
+    if engine not in CONVERTERS:
+        click.echo(f"giap convert --from {engine}: not implemented (not in M1)", err=True)
+        sys.exit(ExitCode.INTERNAL)
+    if engine == "generic":
+        res = CONVERTERS[engine](list(inputs), source=source, search_db=search_db, cfg=cfg.input)
+    elif source == "denovo":
+        click.echo(
+            f"giap convert: error: --source denovo is invalid with --from {engine}", err=True
+        )
+        sys.exit(ExitCode.INVALID_INPUT)
+    else:
+        res = CONVERTERS[engine](list(inputs), search_db=search_db, cfg=cfg.input)
+    issues = list(res.issues)
+    if abundance_out is not None and res.abundance is None:
+        issues.append(Issue("no_abundance", "error", f"--from {engine} gives no abundance table"))
+    for issue in issues:
+        examples = f" (e.g. rows {', '.join(issue.examples)})" if issue.examples else ""
+        click.echo(
+            f"giap convert: {issue.severity}: {issue.code}: {issue.message}{examples}", err=True
+        )
+    if any(i.severity == "error" for i in issues):
+        sys.exit(ExitCode.INVALID_INPUT)
+    peptides = res.peptides
+    write_tsv(out, list(peptides.columns), peptides.itertuples(index=False, name=None))
+    if abundance_out is not None and res.abundance is not None:
+        ab = res.abundance
+        write_tsv(abundance_out, list(ab.columns), ab.itertuples(index=False, name=None))
+        click.echo(f"wrote {abundance_out}; use --abundance-type maxlfq with it")
 
 
 # ---------------------------------------------------------------- compare
