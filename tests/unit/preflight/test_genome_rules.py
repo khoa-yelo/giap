@@ -194,7 +194,8 @@ def test_summarize_genome_fields() -> None:
     assert s.circular_tags == (True, False)
     assert s.acgt == 12
     assert s.gc == 6
-    assert s.ambiguous == (("chr_1", 4, "R"), ("chr_1", 5, "R"))
+    # merged runs, 0-based half-open internally (§6.5; M1-09 review decision)
+    assert s.ambiguous == (("chr_1", 4, 6, "R"),)
     assert s.n_runs == ()
     assert dict(s.invalid) == {}
     assert s.empty_records == ()
@@ -419,10 +420,10 @@ def test_T_PRE_07_fail() -> None:
     assert c.value == [{"contig": "c", "start": 4, "end": 13}]  # 1-based closed in results
 
     records = [rec("c", "ACRT")]
-    assert summary(records).ambiguous == (("c", 2, "R"),)
+    assert summary(records).ambiguous == (("c", 2, 3, "R"),)
     c = check(records, "genome.gaps")
     assert c.level == "warn"
-    assert c.value == [{"contig": "c", "pos": 3, "code": "R"}]
+    assert c.value == [{"contig": "c", "start": 3, "end": 3, "code": "R"}]
 
 
 def test_n_run_min_bp_from_config() -> None:
@@ -449,7 +450,7 @@ def test_n_run_at_origin_of_circular_contig_reported_as_two_runs() -> None:
 
 def test_gap_positions_use_safe_ids() -> None:
     c = check([rec("chr:1", "ACRT")], "genome.gaps")
-    assert c.value == [{"contig": "chr_1", "pos": 3, "code": "R"}]
+    assert c.value == [{"contig": "chr_1", "start": 3, "end": 3, "code": "R"}]
 
 
 # ---------------------------------------------------------------- T-PRE-08 genome.gc
