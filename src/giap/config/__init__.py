@@ -17,7 +17,10 @@ PUBLICATION_RESAMPLES = 10000
 
 
 def _load_yaml_mapping(text: str, source: str) -> dict[str, Any]:
-    data = yaml.safe_load(text)
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"{source}: malformed YAML: {exc}") from exc
     if data is None:
         return {}
     if not isinstance(data, dict):
@@ -52,7 +55,10 @@ def _set_dotted(data: dict[str, Any], override: str) -> None:
         if not isinstance(child, dict):
             raise ValueError(f"--set {key}: {part!r} is not a section")
         node = child
-    node[leaf] = yaml.safe_load(raw)
+    try:
+        node[leaf] = yaml.safe_load(raw)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"--set {key}: malformed YAML value {raw!r}: {exc}") from exc
 
 
 def resolve_config(
