@@ -66,6 +66,7 @@ class Gene:
     partial: bool = False
     hypothetical: bool = False
     db_xrefs: tuple[str, ...] = ()
+    expert: tuple[str, ...] = ()  # expert-system sources, e.g. ("amrfinder",) (M2-03)
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +76,11 @@ class NcFeature:
     id: str
     type: NcType
     interval: Interval
+    gene: str | None = None
+    product: str = ""
+    amino_acid: str | None = None  # tRNA
+    anticodon: str | None = None  # tRNA, DNA alphabet, upper case
+    nt: str | None = None  # rRNA (16S -> anti-SD)
 
 
 _Item = Gene | NcFeature
