@@ -95,3 +95,17 @@ def test_modules_with_spaces_reach_the_stub(genome: Path, peptides: Path, tmp_pa
         "core, mobile",
     ]
     assert _exit_code(argv) == ExitCode.INTERNAL
+
+
+def test_preflight_is_not_a_stub(
+    genome: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """M1-12: preflight runs its rules; warnings alone exit 0, ``--strict`` turns them into 3."""
+    (tmp_path / "db_empty").mkdir()
+    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
+    prot = tmp_path / "p.faa"
+    prot.write_text(">P1\nMKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA\n")
+    argv = ["preflight", "--genome", str(genome), "--proteins", str(prot)]
+    assert _exit_code(argv) == ExitCode.SUCCESS
+    assert _exit_code([*argv, "--strict"]) == ExitCode.WARNINGS_STRICT
+    assert _exit_code(["preflight", "--genome", str(genome)]) == ExitCode.INVALID_INPUT
