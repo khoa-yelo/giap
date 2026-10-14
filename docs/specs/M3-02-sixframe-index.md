@@ -109,3 +109,14 @@ Genome `g = ATGGCTAAAATTCTGTGGTAACGTNNA` (27 nt, linear contig `c1`):
 2. `wrap_nt` larger than `3 × max_len` would be needed for frameshift splits spanning the origin
    (40 aa + 1 nt = 121 nt). **Proposed default:** keep 120 (spec value); a frameshifted peptide
    whose split point is within 1 nt of the 120-nt edge is missed and listed as a known limitation.
+
+## Lead decisions after code review (M3-02b, same PR)
+- NOMATCH decodes to `#` (outside the protein alphabet), never `X`, so a query can never match a target X.
+- `Frame.offset` is relative to the extended (wrapped) sequence; M3-04 uses `frame_label(iv)`, never
+  `offset`; the docstring says so.
+- `to_interval` rejects an interval longer than the replicon (`3*(b-a) > L`) with ValueError.
+- The wall-clock/memory budget moves to `benchmarks/test_sixframe.py` (as the issue says), measuring peak
+  memory portably (`ru_maxrss` is KiB on Linux, bytes on macOS — or use tracemalloc); it is not part of
+  the per-commit suite.
+- Missing tests: lowercase queries, the `i` → L fold, `errors="replace"` keeping coordinates for
+  non-ASCII bytes, `dedupe_loci` with unwrapped starts ≥ L, the decode clamp.
