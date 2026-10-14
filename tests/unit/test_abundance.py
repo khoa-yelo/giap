@@ -366,14 +366,16 @@ def test_non_numeric_examples_list_every_bad_row(tmp_path: Path) -> None:
 
 
 def test_uniprot_ids_resolve_like_proteins_faa(tmp_path: Path) -> None:
-    table, issues = _load(tmp_path, _tsv("protein_id|v", "sp|P0A7V8|RS4_ECOLI|1e6", "tr|Q1|X|2e6"))
+    # literal tabs: _tsv() would turn the UniProt "|" separators into tabs
+    text = "protein_id\tv\nsp|P0A7V8|RS4_ECOLI\t1e6\ntr|Q1|X\t2e6\n"
+    table, issues = _load(tmp_path, text)
     assert table is not None
     assert table.ids == ("P0A7V8", "Q1")
     assert _errors(issues) == []
 
 
 def test_ids_after_resolution_collide_as_duplicates(tmp_path: Path) -> None:
-    _, issues = _load(tmp_path, _tsv("protein_id|v", "sp|P1|A_ECOLI|1e6", "P1|2e6"))
+    _, issues = _load(tmp_path, "protein_id\tv\nsp|P1|A_ECOLI\t1e6\nP1\t2e6\n")
     assert "duplicate_ids" in _codes(issues)
 
 
