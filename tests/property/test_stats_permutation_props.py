@@ -105,6 +105,8 @@ def test_choose_shifts_sorted_unique_subset(valid: list[int], n: int, B: int, se
         assert s == sorted(valid)
     else:
         assert len(s) == min(B, len(valid))
+        if valid:  # lead decision 3: exhaustive whenever every valid shift is used
+            assert bool(exhaustive) is (len(valid) <= B)
 
 
 # ---------------------------------------------------------------------------- perm_p

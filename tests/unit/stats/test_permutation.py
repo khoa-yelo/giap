@@ -2,8 +2,9 @@
 §8.2, §8.3, decision 14, Appendix B.4).
 
 Conventions pinned here: the +1 rule p = (1 + b)/(1 + B); NaN nulls are dropped; two-sided p is
-centred on the null mean; ties (within 1e-12 * max(1, |x|)) count as exceedances; linear contigs
-keep only non-wrapping translations; Besag-Clifford stops at the h-th null >= obs with p = h / L.
+centred on the pooled mean (sum(null) + obs)/(B + 1) (lead decision 1, PR #23); ties (within
+1e-12 * max(1, |x|)) count as exceedances; linear contigs keep only non-wrapping translations;
+Besag-Clifford stops at the h-th null >= obs with p = h / L.
 """
 
 from __future__ import annotations
@@ -84,10 +85,11 @@ def test_signatures_are_pinned() -> None:
 # ---------------------------------------------------------------------------- perm_p examples
 
 
-def test_example1_two_sided_centred_on_null_mean() -> None:
+def test_example1_two_sided_centred_on_pooled_mean() -> None:
+    # centre = (15 + 5.5)/6 = 3.41667; |obs dev| = 2.0833; null |dev| 2.4167 is the only one >= it
     p = perm_p(5.5, [1, 2, 3, 4, 5])
     assert isinstance(p, float)
-    close(p, 1 / 6)
+    close(p, 2 / 6)
 
 
 def test_example2_two_sided_counts_equal_deviations() -> None:
@@ -118,7 +120,8 @@ def test_example4_appendix_b4_end_to_end_on_100_gene_replicon() -> None:
     assert ints(shifts2) == list(range(1, 100))
     obs = float(x[idx].sum())
     null = np.array([x[apply_shift(idx, int(k), n)].sum() for k in shifts2])
-    assert (np.abs(null - null.mean()) < abs(obs - null.mean())).all()
+    centre = (null.sum() + obs) / (len(null) + 1)
+    assert (np.abs(null - centre) < abs(obs - centre)).all()
     close(perm_p(obs, null), 0.01)
 
 
@@ -143,7 +146,7 @@ def test_float_noise_counts_as_tie() -> None:
     close(perm_p(a, [b], "greater"), 1.0)
     close(perm_p(b, [a], "less"), 1.0)
     # two-sided: obs deviation equal to a null deviation up to float noise
-    null = np.array([0.0, b, -a])  # mean ~ 0, |dev| of b and -a equal to obs's up to noise
+    null = np.array([0.0, b, -a])  # centre = b/4 = 0.15; |dev| of b equals obs's up to noise
     close(perm_p(a, null), 3 / 4)
 
 
@@ -157,7 +160,7 @@ def test_tie_tolerance_is_relative_to_magnitude() -> None:
 
 def test_nan_null_entries_are_dropped() -> None:
     close(perm_p(4, [1, 2, NAN, 3, 4, 5, NAN], "greater"), 0.5)
-    close(perm_p(5.5, [NAN, 1, 2, 3, 4, 5]), 1 / 6)
+    close(perm_p(5.5, [NAN, 1, 2, 3, 4, 5]), 2 / 6)
 
 
 @pytest.mark.parametrize("alt", ["two-sided", "greater", "less"])
@@ -170,8 +173,8 @@ def test_nan_obs_or_empty_null_gives_nan(alt: str) -> None:
 def test_single_null_value() -> None:
     close(perm_p(2.0, [1.0], "greater"), 0.5)
     close(perm_p(0.0, [1.0], "greater"), 1.0)
-    # two-sided with one null: mean = null, |dev null| = 0 <= any |dev obs|
-    close(perm_p(7.0, [1.0]), 0.5)
+    # two-sided with one null: centre = (1 + 7)/2 = 4, both |dev| = 3 -> tie -> p = 1
+    close(perm_p(7.0, [1.0]), 1.0)
 
 
 def test_accepts_numpy_input() -> None:
