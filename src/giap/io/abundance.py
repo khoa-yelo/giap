@@ -3,6 +3,13 @@
 The first line is the header; column 1 holds protein IDs (UniProt ``sp|ACC|NAME`` resolves to
 ``ACC`` as in ``proteins.faa``, ADR-0005 item 2), column 2 the values, later columns are ignored
 with a warning. ``NA`` and empty cells are missing; ``inf``/``nan`` text is an error.
+
+A table with valid shape is always returned (M1-08 review): a cell with a numeric error
+(``non_numeric_values``/``non_finite``) becomes ``None`` and is flagged in ``bad_rows``. Bad cells
+are neither missing (``n_na`` counts only ``NA``/empty) nor used for scale detection, which sees
+only good finite values. A table whose every value is bad therefore reports ``n_na == 0`` (not
+all-missing); with ``auto`` its scale is undetermined (``linear`` assumed) and the
+``scale_undetermined`` warning says no usable value was found.
 """
 
 from __future__ import annotations
@@ -39,12 +46,18 @@ _NAN_TEXT = frozenset({"nan", "+nan", "-nan"})
 
 @dataclass(frozen=True, slots=True)
 class AbundanceTable:
-    """Parsed abundance table; ``values[i]`` is ``None`` when row ``i`` is ``NA``/empty."""
+    """Parsed abundance table, one entry per data row in every per-row tuple.
+
+    ``raw_ids`` are the IDs as written, ``ids`` the resolved ones (ADR-0005). ``values[i]`` is
+    ``None`` when row ``i`` is ``NA``/empty or its cell is bad; ``bad_rows[i]`` tells the two apart.
+    """
 
     id_column: str
     value_column: str
+    raw_ids: tuple[str, ...]
     ids: tuple[str, ...]
     values: tuple[float | None, ...]
+    bad_rows: tuple[bool, ...]
     ignored_columns: tuple[str, ...]
 
 
@@ -63,7 +76,7 @@ def _rows(mask: np.ndarray) -> list[int]:
 
 
 def read_abundance(path: Path) -> tuple[AbundanceTable | None, list[Issue]]:
-    """Read an abundance TSV; the table is ``None`` when its shape or values are unusable."""
+    """Read an abundance TSV; the table is ``None`` only when its shape is unusable."""
     try:
         header, rows = read_tsv(path)
     except ValueError as exc:
@@ -98,7 +111,6 @@ def read_abundance(path: Path) -> tuple[AbundanceTable | None, list[Issue]]:
     nan_text = text.str.strip().str.lower().isin(_NAN_TEXT).to_numpy()
     unparsed = ~missing & np.isnan(parsed) & ~nan_text
     non_finite = ~missing & ~unparsed & ~np.isfinite(parsed)
-    bad_values = False
     for code, mask, msg in (
         ("non_numeric_values", unparsed, f"non-numeric value in {header[1]!r}"),
         ("non_finite", non_finite, f"inf/nan value in {header[1]!r} (write NA for missing)"),
@@ -106,13 +118,19 @@ def read_abundance(path: Path) -> tuple[AbundanceTable | None, list[Issue]]:
         issue = row_issue(code, "error", msg, _rows(mask))
         if issue is not None:
             issues.append(issue)
-            bad_values = True
-    if bad_values:
-        return None, issues
 
+    bad = unparsed | non_finite
     # ``float`` on the original text keeps exact round-trip parsing.
-    values = tuple(None if s is None else float(s) for s in text)
-    table = AbundanceTable(header[0], header[1], tuple(ids), values, ignored)
+    values = tuple(None if s is None or b else float(s) for s, b in zip(text, bad, strict=True))
+    table = AbundanceTable(
+        id_column=header[0],
+        value_column=header[1],
+        raw_ids=tuple("" if s is None else str(s) for s in raw_ids),
+        ids=tuple(ids),
+        values=values,
+        bad_rows=tuple(bool(b) for b in bad),
+        ignored_columns=ignored,
+    )
     return table, issues
 
 
@@ -121,7 +139,10 @@ def _present(values: Sequence[float | None]) -> np.ndarray:
 
 
 def detect_scale(values: Sequence[float | None]) -> Scale:
-    """``log2`` if any value is negative or all are ≤ 50; NA ignored; all-NA → ``linear``."""
+    """``log2`` if any value is negative or all are ≤ 50; ``None`` (missing or bad) ignored.
+
+    With no usable value the scale cannot be detected and ``linear`` is returned.
+    """
     arr = _present(values)
     if arr.size and ((arr < 0).any() or (arr <= LOG2_MAX).all()):
         return "log2"
@@ -136,9 +157,10 @@ def resolve_scale(
 
 
 def abundance_stats(table: AbundanceTable) -> AbundanceStats:
+    """Row counts; ``n_na`` counts only ``NA``/empty cells, not bad cells (``bad_rows``)."""
     n_rows = len(table.values)
     arr = _present(table.values)
-    n_na = n_rows - arr.size
+    n_na = sum(v is None and not b for v, b in zip(table.values, table.bad_rows, strict=True))
     return AbundanceStats(
         n_rows=n_rows,
         n_na=n_na,
@@ -149,13 +171,23 @@ def abundance_stats(table: AbundanceTable) -> AbundanceStats:
 
 
 def validate_abundance(
-    table: AbundanceTable, scale: Scale, missing_warn_frac: float
+    table: AbundanceTable,
+    requested: Literal["auto", "log2", "linear"],
+    missing_warn_frac: float,
 ) -> list[Issue]:
-    """Scale-dependent checks: undetermined scale, negatives on linear, too many missing."""
+    """Scale-dependent checks: undetermined scale, negatives on linear, too many missing.
+
+    ``requested`` is the user's scale; ``auto`` is resolved by :func:`detect_scale` and only then
+    can ``scale_undetermined`` be raised (no good finite value: all missing and/or bad).
+    """
     issues: list[Issue] = []
     stats = abundance_stats(table)
-    if stats.n_na == stats.n_rows:
-        msg = "every abundance value is missing; scale cannot be detected (linear assumed)"
+    scale = resolve_scale(table.values, requested)
+    if requested == "auto" and not _present(table.values).size:
+        if stats.n_na == stats.n_rows:
+            msg = "every abundance value is missing; scale cannot be detected (linear assumed)"
+        else:
+            msg = "no usable abundance value; scale cannot be detected (linear assumed)"
         issues.append(Issue("scale_undetermined", "warn", msg, stats.n_rows))
     if scale == "linear":
         vals = np.array([np.nan if v is None else v for v in table.values], dtype=np.float64)
