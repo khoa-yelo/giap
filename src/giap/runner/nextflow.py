@@ -2,7 +2,14 @@
 
 Python validates everything and writes ``OUT/work/params.json`` plus ``OUT/resolved_config.yaml``;
 Nextflow only reads the params file. A failed run maps to exit code 4 naming the failed step and the
-``.command.log`` of its task directory (read from ``OUT/logs/trace.tsv``).
+``.command.log`` of its task directory (read from ``OUT/logs/trace.tsv``). All runner messages go to
+stderr.
+
+Resources: the user's ``--threads``/``--memory`` (``params.threads``/``params.memory``) and the
+profile's limits combine as the minimum of the two, never a silent override: e.g. under
+``farmshare`` a task gets at most ``min(16, threads)`` CPUs and ``min(64 GB, memory)``, under
+``farmshare_local`` at most ``min(SLURM_CPUS_PER_TASK, threads)`` CPUs and
+``min(SLURM_MEM_PER_NODE - 2 GB, memory)``.
 """
 
 from __future__ import annotations
@@ -22,6 +29,7 @@ from giap.exitcodes import ExitCode
 
 DEFAULT_MEMORY = "64 GB"  # §5.1 `giap run --memory 64.GB`, written in a Nextflow-parseable form
 _FAILED = {"FAILED", "ABORTED"}
+_EMPTY = {"", "-"}
 _NAME = re.compile(r"(?P<proc>[^ ]+)(?: \((?P<tag>.*)\))?")
 
 
@@ -60,18 +68,45 @@ def launch_command(
     return [*cmd, "-resume"] if resume else cmd
 
 
+def _step_name(name: str) -> str:
+    """Step of a trace task name: the process name, or the tag for ``GIAP_STEP``."""
+    m = _NAME.fullmatch(name.strip())
+    proc, tag = (m["proc"], m["tag"]) if m else (name, None)
+    step = proc.split(":")[-1].lower()
+    return tag if step == "giap_step" and tag else step
+
+
+def _task_dir(row: Mapping[str, str | None], work: Path) -> str:
+    """The ``workdir`` column, else the task directory matching the abbreviated ``hash``."""
+    workdir = (row.get("workdir") or "").strip()
+    if workdir not in _EMPTY:
+        return workdir
+    hash_ = (row.get("hash") or "").strip()
+    if "/" not in hash_:
+        return str(work)
+    prefix, rest = hash_.split("/", 1)
+    hits = sorted((work / prefix).glob(rest + "*")) if (work / prefix).is_dir() else []
+    return str(hits[0] if hits else work / hash_)
+
+
 def failed_step(trace_tsv: Path) -> tuple[str, str] | None:
-    """``(step, workdir)`` of the first FAILED or ABORTED task in a Nextflow trace, else None."""
-    with Path(trace_tsv).open(newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh, delimiter="\t"):
-            if row.get("status") not in _FAILED:
-                continue
-            m = _NAME.fullmatch(row["name"].strip())
-            proc, tag = (m["proc"], m["tag"]) if m else (row["name"], None)
-            step = proc.split(":")[-1].lower()
-            if step == "giap_step" and tag:
-                step = tag
-            return step, row["workdir"]
+    """``(step, workdir)`` of the last FAILED/ABORTED task whose name has no later COMPLETED row.
+
+    A retried-then-succeeded attempt never counts. Without a ``workdir`` column (Nextflow's default
+    trace fields) the task directory is rebuilt from ``hash`` under ``OUT/work`` (the trace lives in
+    ``OUT/logs``).
+    """
+    trace_tsv = Path(trace_tsv)
+    with trace_tsv.open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh, delimiter="\t"))
+    completed: set[str] = set()
+    for row in reversed(rows):
+        name = (row.get("name") or "").strip()
+        status = (row.get("status") or "").strip()
+        if status == "COMPLETED":
+            completed.add(name)
+        elif status in _FAILED and name not in completed:
+            return _step_name(name), _task_dir(row, trace_tsv.parent.parent / "work")
     return None
 
 

@@ -40,6 +40,7 @@ Follow-ups queued:
 - Skip pip freeze for pip-less envs when built by name (transtermhp, blast, miniprot).
 - `_step` failure test should chdir to tmp_path; sixframe index save/load placement (revisit at M3-17).
 - waitmerge.sh should read the PR head commit's check runs directly.
+- M2-07 wires `giap run` to `giap.runner.nextflow` (M2-06 review decision 7); `giap_run.sbatch` stays.
 - From reviews: M3-21 calibrates placement FDR with real protein-derived wrong peptides; M3-10 adds a
   `low_complexity` flag and calibrates π̂ for wrong placements; M4-12 implements ADR-0009 with
   10/20/30 % decoy-loss calibration.
