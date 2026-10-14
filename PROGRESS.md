@@ -17,17 +17,21 @@ M1: Inputs and preflight. Status: in progress (12 issues, docs/specs/M1-index.md
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
-- PR #1 `m0/scaffold` (M0): all CI green except PR size (8,585 > 800) → ADR-0004 Q1.
-- PR #2 `m1/coordinates` (M1-01, base m0/scaffold): reviewed, findings fixed; 206 tests.
-- PR #3 `m1/genome-fasta` (M1-02, base m1/coordinates): in code review.
-- `m1/tsv-io` (M1-04, worktree local/worktrees/tsv-io): implementer working; rebase onto m1/coordinates before PR.
-- `m1/protein-fasta` (M1-03, worktree local/worktrees/protein-fasta, base m1/genome-fasta): test-author working.
-- Untracked specs M1-05…M1-12 in the main checkout's docs/specs/ (committed with each issue's PR).
-- Worktrees share the venv; set `PYTHONPATH=$PWD/src:$PWD/tests/sim` inside a worktree.
+Stack (each PR's base is the previous branch): #1 m0/scaffold → #2 m1/coordinates (M1-01) →
+#3 m1/genome-fasta (M1-02) → #4 m1/protein-fasta (M1-03) → #5 m1/tsv-io (M1-04) →
+{#6 m1/preflight-genome (M1-09), #7 m1/peptide-table (M1-06), #8 m1/gff3-vcf (M1-05)} (siblings on m1/tsv-io).
+- #2–#6: reviewed, findings fixed, done.
+- #7 M1-06 and #8 M1-05: review findings pinned by tests; implementers fixing.
+- Worktrees: local/worktrees/<topic> per branch; shared venv; inside a worktree set
+  `GIAP_REPO=/home/classes/bios/270/khoa/giap PYTHONPATH=$PWD/src:$PWD/tests/sim`.
+- Untracked specs M1-07, 08, 10, 11, 12 in the main checkout's docs/specs/.
 - Slurm jobs: none running.
+- Lessons: review fixes can contradict older tests → the test-author lists and aligns them before
+  the implementer starts; the implementer never edits tests and stops on contradictions.
 
 ## Next actions (ordered)
-1. Finish M1-02/03/04 loops (review → fixes → PR); then M1-05 (after 04), M1-06 → 07/08, M1-09 (after 02).
+1. Finish #7/#8 fixes; then M1-07 (convert generic/DIA-NN) and M1-08 (abundance) on m1/peptide-table;
+   then M1-10 (needs 03, 06, 08, 09), M1-11, M1-12.
 2. When Khoa answers ADR-0004: merge #1, retarget and merge the stacked PRs in order.
 3. M1-10/11 need ADR-0005 item 4 (new preflight thresholds) accepted by Khoa.
 
