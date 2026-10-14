@@ -114,3 +114,17 @@ def load_precomputed(key: str, path: Path, replicons: Mapping[str, Replicon]) ->
    no tool is missing; `giap run` validation catches it before any step runs.
 3. New step names beyond §6.2 (`uniop_input`, `promoter_layer`, …). **Proposed default:** allowed
    without ADR (internal plumbing; no output changes); listed in `docs/methods/annotation_steps.md`.
+
+## Lead decisions after code review
+1. `giap run --executor local` imports the step modules through a loader (every module under
+   `giap.steps`); with no steps registered it exits 5 ("not implemented"), never 0 with empty output.
+2. `regions.tsv` rows with `region_type = amr` may have NA `start`/`end` (M2 index decision 6).
+3. Declared outputs are written to temporary paths and renamed into place on success (atomic); outputs
+   are removed before a step runs, so a stale file never passes the output check.
+4. Opt-in steps follow configuration (e.g. `--add-bactermfinder`, `annotation.terminators.bactermfinder`),
+   not the target list.
+5. A configured precomputed layer always wins over a stale `workdir/key` on rerun.
+6. Registration rejects two steps declaring the same output key.
+7. A failing step writes `logs/<step>.log` with the traceback; stderr points to it.
+8. A repeated `--in key=path` collects a list of paths (needed for Promotech chunks).
+9. Parse errors in precomputed layers name the key, column and 1-based row.
