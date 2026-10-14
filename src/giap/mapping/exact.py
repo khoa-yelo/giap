@@ -68,11 +68,16 @@ def match_exact(
     max_len: int = 40,
 ) -> pd.DataFrame:
     """Exact target and decoy hits of every query of ``min_len..max_len`` aa (``HIT_COLUMNS``)."""
+    for pep, kind in sorted(decoy_of.items()):
+        if kind not in decoys:
+            raise ValueError(f"decoy type {kind!r} of peptide {pep!r} has no decoy frames")
     keys: dict[str, int] = {}
     peptides_of: list[list[str]] = []
     for pep in sorted(set(queries)):
         if not min_len <= len(pep) <= max_len:
             continue
+        if pep not in decoy_of:
+            raise ValueError(f"peptide {pep!r} has no decoy type in decoy_of")
         q = _normalise(pep)
         if q is None:
             continue
