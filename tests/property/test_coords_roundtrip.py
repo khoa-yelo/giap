@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import get_args
 
-from giap.model.coords import Strand
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
@@ -17,6 +16,7 @@ from giap.model import (
     to_one_based_closed,
     wrap_position,
 )
+from giap.model.coords import Strand
 
 FAST = settings(max_examples=200, deadline=None)
 STRANDS = st.sampled_from(["+", "-", "."])
