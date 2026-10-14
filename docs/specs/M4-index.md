@@ -160,3 +160,9 @@ Open alignment items: pseudogene assignment (M3-14 Q3 says no, M4-06 Q3 says yes
    Detectability gate uses the mean calibration slope. Accepted.
 7. M4 gate: one green full calibration run on main, submitted as a Slurm job until Khoa installs the
    nightly scrontab entry; sensitivity built but off the gate path. Accepted.
+
+8. (Khoa, 2026-10-14; ADR-0009) Picked gene-level FDR rescales decoy wins by the paired share
+   (1/f, f = paired decoys / all decoys); the 20 % MAYU fallback stays as an upper guard. M4-12 adds
+   calibration under 10/20/30 % random decoy loss.
+9. From the M4-01 statistician review: M3-10's π̂ for wrong placements needs its own calibration in the
+   placement suite (an underestimated π inflates FDR).
