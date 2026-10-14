@@ -2,8 +2,8 @@
 
 ``GeneModel`` is the API through which every M3 module consumes the annotation; parquet is only
 its serialisation. M2's ``parse_bakta`` MUST construct this same type (the contract test lives
-with M2 against the recorded Bakta 1.12.2 JSON). ``gene_model_from_bakta_json`` is the minimal
-reader for the Bakta-like JSON of giapsim (§11.3).
+with M2 against the recorded Bakta 1.12.2 JSON). ``gene_model_from_bakta_json`` delegates to
+``giap.annotate.bakta.parse_bakta_json`` (M2-03 review decision 3).
 
 Coordinates are 0-based half-open; origin-crossing features on circular replicons are stored
 unwrapped (``end > length``) and linear contigs never wrap (see ``giap.model.coords``).
@@ -11,22 +11,13 @@ unwrapped (``end > length``) and linear contigs never wrap (see ``giap.model.coo
 
 from __future__ import annotations
 
-import re
 from bisect import bisect_left
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Literal
 
-from giap.io._open import read_json
-from giap.model.coords import (
-    Interval,
-    Replicon,
-    Strand,
-    from_one_based_closed,
-    interval_sort_key,
-    split_at_origin,
-)
+from giap.model.coords import Interval, Replicon, split_at_origin
 
 if TYPE_CHECKING:  # ``giap.model`` does no file I/O itself; reading goes through ``giap.io``.
     from _typeshed import StrPath
@@ -48,7 +39,6 @@ _NC_TYPES: dict[str, NcType] = {
     "oriv": "oriv",
     "gap": "gap",
 }
-_HYPOTHETICAL = re.compile(r"^hypothetical protein")
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,7 +101,8 @@ class GeneModel:
     """Genes (sorted by ``interval_sort_key`` then locus tag) and non-coding features.
 
     ``replicons`` is copied into a read-only mapping (the caller's dict is not aliased).
-    Equality is identity and instances are unhashable (``eq=False``, ``__hash__ = None``).
+    Equality compares replicons, genes and features (not the derived indexes); instances are
+    unhashable (``__hash__ = None``).
     """
 
     __hash__ = None  # type: ignore[assignment]
@@ -139,6 +130,15 @@ class GeneModel:
         object.__setattr__(self, "_by_locus", by_locus)
         object.__setattr__(self, "_index", {c: _buckets(s) for c, s in segs.items()})
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, GeneModel):
+            return NotImplemented
+        return (
+            dict(self.replicons) == dict(other.replicons)
+            and self.genes == other.genes
+            and self.features == other.features
+        )
+
     def _replicon(self, contig: str) -> Replicon:
         try:
             return self.replicons[contig]
@@ -165,76 +165,12 @@ class GeneModel:
         return [items[k] for k in sorted(hits)]
 
 
-def _strip_stop(aa: str) -> str:
-    return aa[:-1] if aa.endswith("*") else aa
-
-
-def _parse_interval(
-    f: Mapping[str, Any], name: str, replicons: Mapping[str, Replicon], *, coding: bool
-) -> Interval:
-    contig = f.get("sequence", f.get("contig"))
-    if contig not in replicons:
-        raise ValueError(f"feature {name!r}: unknown contig {contig!r}")
-    raw = f.get("strand")
-    if raw is None or raw == "?":
-        if coding:
-            raise ValueError(f"feature {name!r}: missing or unknown strand {raw!r}")
-        raw = "."
-    strand = cast(Strand, raw)
-    try:
-        return from_one_based_closed(
-            contig, int(f["start"]), int(f["stop"]), strand, replicons[contig]
-        )
-    except (ValueError, TypeError, KeyError) as exc:
-        raise ValueError(f"feature {name!r}: {exc}") from exc
-
-
-def _parse_gene(f: Mapping[str, Any], replicons: Mapping[str, Replicon]) -> Gene:
-    if not f.get("locus"):
-        raise ValueError(f"{f.get('type')} feature without locus: {f!r:.200}")
-    locus = str(f["locus"])
-    xrefs = f.get("db_xrefs") or []
-    if not isinstance(xrefs, list | tuple):
-        raise ValueError(f"feature {locus!r}: db_xrefs must be a list, got {xrefs!r}")
-    ftype: GeneType = cast(GeneType, str(f["type"]).lower())
-    if ftype == "cds" and (f.get("pseudo") or "pseudogene" in f):
-        ftype = "pseudogene"
-    product = f.get("product") or ""
-    hypothetical = (
-        bool(f["hypothetical"]) if "hypothetical" in f else bool(_HYPOTHETICAL.match(product))
-    )
-    return Gene(
-        locus_tag=locus,
-        feature_type=ftype,
-        interval=_parse_interval(f, locus, replicons, coding=True),
-        aa=_strip_stop(f.get("aa") or ""),
-        nt=f.get("nt"),
-        start_codon=f.get("start_type"),
-        gene=f.get("gene"),
-        product=product,
-        partial=bool(f.get("truncated")),
-        hypothetical=hypothetical,
-        db_xrefs=tuple(str(x) for x in xrefs),
-    )
-
-
 def gene_model_from_bakta_json(path: StrPath, replicons: Mapping[str, Replicon]) -> GeneModel:
-    """Read a Bakta-like JSON (§11.3); unknown feature types are skipped (no Issue returned)."""
-    data = read_json(path)
-    if not isinstance(data, dict):
-        raise ValueError(f"{path}: top-level JSON must be an object, got {type(data).__name__}")
-    order = {c: k for k, c in enumerate(replicons)}
-    genes: list[Gene] = []
-    features: list[NcFeature] = []
-    for f in data.get("features", []):
-        t = str(f.get("type", "")).lower()
-        if t in ("cds", "sorf"):
-            genes.append(_parse_gene(f, replicons))
-        elif t in _NC_TYPES:
-            fid = str(f.get("id", ""))
-            features.append(
-                NcFeature(fid, _NC_TYPES[t], _parse_interval(f, fid, replicons, coding=False))
-            )
-    genes.sort(key=lambda g: interval_sort_key(g.interval, order, g.locus_tag))
-    features.sort(key=lambda x: interval_sort_key(x.interval, order, x.id))
-    return GeneModel(replicons=replicons, genes=tuple(genes), features=tuple(features))
+    """Read a Bakta(-like) JSON (§11.3) via M2-03's parser: one parser, identical results.
+
+    Unknown feature types are skipped; malformed input raises ``BaktaParseError``
+    (a ``ValueError``).
+    """
+    from giap.annotate.bakta import parse_bakta_json  # lazy: giap.annotate builds on giap.model
+
+    return parse_bakta_json(path, replicons).model

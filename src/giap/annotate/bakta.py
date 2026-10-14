@@ -64,6 +64,15 @@ def _slice(seq: str, iv: Interval) -> str:
     return _revcomp(s) if iv.strand == "-" else s
 
 
+def _record_nt(rec: Mapping[str, Any], cid: str) -> str | None:
+    nt = rec.get("nt")
+    if nt is None:
+        nt = rec.get("sequence")
+    if nt is not None and not isinstance(nt, str):
+        raise BaktaParseError(f"sequence {cid!r}: nt must be a string, got {type(nt).__name__}")
+    return nt or None
+
+
 def _replicons_from_json(
     records: list[Any],
     replicons: Mapping[str, Replicon] | None,
@@ -75,34 +84,73 @@ def _replicons_from_json(
         if not isinstance(rec, dict) or not rec.get("id"):
             raise BaktaParseError(f"sequence record without id: {rec!r:.200}")
         cid = str(rec["id"])
-        nt = rec.get("nt") or rec.get("sequence")
-        if not nt:
-            if genome is None or cid not in genome:
-                raise BaktaParseError(
-                    f"sequence {cid!r} has no nucleotides in the JSON and no genome was given"
-                )
+        nt = _record_nt(rec, cid)
+        if replicons is not None and cid not in replicons:
+            raise BaktaParseError(f"sequence {cid!r} is not among the given replicons")
+        if nt is None and genome is not None and cid in genome:
             nt = genome[cid]
-        seqs[cid] = str(nt)
+        if nt is not None:
+            seqs[cid] = nt
+        elif replicons is None:
+            raise BaktaParseError(
+                f"sequence {cid!r} has no nucleotides in the JSON and no genome was given"
+            )
         kind = str(rec.get("type", "")).lower()
         topology = str(rec.get("topology") or "linear").lower()
         if topology not in ("circular", "linear"):
             raise BaktaParseError(f"sequence {cid!r}: unknown topology {topology!r}")
+        length = replicons[cid].length if replicons is not None else len(seqs[cid])
+        declared = rec.get("length")
+        if declared is not None and declared != length:
+            raise BaktaParseError(
+                f"sequence {cid!r}: JSON length {declared!r} != genome sequence length {length}"
+            )
+        if cid in seqs and len(seqs[cid]) != length:
+            raise BaktaParseError(
+                f"sequence {cid!r}: nucleotide length {len(seqs[cid])} != replicon length {length}"
+            )
         reps[cid] = Replicon(
             cid,
-            len(seqs[cid]),
+            length,
             "circular" if topology == "circular" else "linear",
             cast(RepliconKind, kind if kind in ("chromosome", "plasmid") else "unknown"),
         )
     if replicons is None:
         return reps, seqs
-    for cid, rep in replicons.items():
-        if cid in reps and reps[cid].length != rep.length:
-            raise BaktaParseError(
-                f"sequence {cid!r}: JSON length {reps[cid].length} != replicon length {rep.length}"
-            )
+    for cid in replicons:
         if cid not in seqs and genome is not None and cid in genome:
             seqs[cid] = genome[cid]
     return dict(replicons), seqs
+
+
+def _int(f: Mapping[str, Any], key: str, name: str) -> int:
+    v = f.get(key)
+    if isinstance(v, bool) or not isinstance(v, int):
+        raise BaktaParseError(f"feature {name!r}: {key} must be an int, got {v!r}")
+    return v
+
+
+def _opt_str(f: Mapping[str, Any], key: str, name: str) -> str | None:
+    v = f.get(key)
+    if v is not None and not isinstance(v, str):
+        raise BaktaParseError(f"feature {name!r}: {key} must be a string, got {type(v).__name__}")
+    return v
+
+
+def _expert(f: Mapping[str, Any], name: str) -> tuple[str, ...]:
+    raw = f.get("expert")
+    if raw is None:
+        return ()
+    if not isinstance(raw, list) or not all(isinstance(e, dict) for e in raw):
+        raise BaktaParseError(
+            f"feature {name!r}: expert must be a list of objects, got {raw!r:.200}"
+        )
+    out: list[str] = []
+    for e in raw:
+        src = e.get("type") or e.get("source")
+        if src and str(src) not in out:
+            out.append(str(src))
+    return tuple(out)
 
 
 def _interval(
@@ -118,11 +166,10 @@ def _interval(
         if coding or raw not in (None, "?", "."):
             raise BaktaParseError(f"feature {name!r}: invalid strand {raw!r}")
         raw = "."
+    start, stop = _int(f, "start", name), _int(f, "stop", name)
     try:
-        return from_one_based_closed(
-            contig, int(f["start"]), int(f["stop"]), cast(Strand, raw), replicons[contig]
-        )
-    except (ValueError, TypeError, KeyError) as exc:
+        return from_one_based_closed(contig, start, stop, cast(Strand, raw), replicons[contig])
+    except ValueError as exc:
         raise BaktaParseError(f"feature {name!r}: {exc}") from exc
 
 
@@ -137,36 +184,30 @@ def _gene(f: Mapping[str, Any], replicons: Mapping[str, Replicon], seqs: Mapping
     xrefs = f.get("db_xrefs") or []
     if not isinstance(xrefs, list | tuple):
         raise BaktaParseError(f"feature {locus!r}: db_xrefs must be a list, got {xrefs!r}")
-    nt = f.get("nt")
-    if not nt:
-        if iv.contig not in seqs:
-            raise BaktaParseError(f"feature {locus!r}: no nt and no sequence for {iv.contig!r}")
-        nt = _slice(seqs[iv.contig], iv)
+    nt = _opt_str(f, "nt", locus) or (_slice(seqs[iv.contig], iv) if iv.contig in seqs else None)
     product = f.get("product") or ""
     hypothetical = (
         bool(f["hypothetical"]) if "hypothetical" in f else bool(_HYPOTHETICAL.match(product))
     )
     rep = replicons[iv.contig]
     at_end = rep.topology == "linear" and (iv.start == 0 or iv.end == rep.length)
-    aa = f.get("aa") or ""
-    expert: list[str] = []
-    for e in f.get("expert") or []:
-        src = e.get("type") or e.get("source") if isinstance(e, dict) else None
-        if src and str(src) not in expert:
-            expert.append(str(src))
+    aa = _opt_str(f, "aa", locus) or ""
+    start_type = f.get("start_type")
+    # Pyrodigal partial start ("Edge") is not a start codon (M3-01 Q3).
+    start_codon = None if start_type == "Edge" else start_type or (nt[:3] if nt else None)
     return Gene(
         locus_tag=locus,
         feature_type=ftype,
         interval=iv,
         aa=aa[:-1] if aa.endswith("*") else aa,
         nt=nt,
-        start_codon=f.get("start_type") or nt[:3],
+        start_codon=start_codon,
         gene=f.get("gene"),
         product=product,
         partial=bool(f.get("truncated")) or at_end,
         hypothetical=hypothetical,
         db_xrefs=tuple(str(x) for x in xrefs),
-        expert=tuple(expert),
+        expert=_expert(f, locus),
     )
 
 
@@ -181,7 +222,7 @@ def _nc(f: Mapping[str, Any], replicons: Mapping[str, Replicon]) -> NcFeature:
         product=f.get("product") or "",
         amino_acid=f.get("amino_acid"),
         anticodon=str(anticodon).upper().replace("U", "T") if anticodon else None,
-        nt=f.get("nt"),
+        nt=_opt_str(f, "nt", fid),
     )
 
 
