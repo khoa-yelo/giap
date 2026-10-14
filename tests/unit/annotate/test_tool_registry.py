@@ -147,10 +147,15 @@ def test_toolspec_is_frozen(tools) -> None:  # type: ignore[no-untyped-def]
         tools["bakta"].version = "0"
 
 
-def test_registry_agrees_with_bakta_prefetch_job(tools) -> None:  # type: ignore[no-untyped-def]
+def test_bakta_prefetch_job_uses_the_pinned_container() -> None:
+    # The prefetch job installs the DB with the image pinned for BAKTA (not a separate conda env).
+    from giap.annotate.tools import read_containers_config
+
+    pinned = read_containers_config(REPO / "workflow" / "conf" / "containers.config")["BAKTA"]
     text = (REPO / "scripts" / "slurm" / "fetch_bakta_db.sbatch").read_text()
-    assert tools["bakta"].env_name in text
-    assert tools["bakta"].env_file in text
+    assert pinned.startswith("docker://oschwengers/bakta@sha256:")
+    assert "withName: 'BAKTA'" in text
+    assert "oschwengers-bakta@sha256-$DIGEST.img" in text
 
 
 # ---------------------------------------------------------------- required_tools (examples 5-7)

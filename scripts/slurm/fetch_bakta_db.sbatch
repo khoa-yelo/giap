@@ -23,7 +23,11 @@ declare -A MD5=(
 )
 declare -A DIR=([db-light.tar.xz]=db-light [db.tar.xz]=db)
 OUT="$GIAP_DB_DIR/bakta"
-IMG=$(ls "$GIAP_ROOT"/containers/oschwengers-bakta@sha256-*.img | head -1)
+# The image pinned for the BAKTA process (workflow/conf/containers.config), as pulled by build_envs.
+DIGEST=$(grep -oP "withName: 'BAKTA' \\{ container = 'docker://oschwengers/bakta@sha256:\\K[0-9a-f]{64}" \
+  workflow/conf/containers.config)
+IMG="$GIAP_ROOT/containers/oschwengers-bakta@sha256-$DIGEST.img"
+[ -f "$IMG" ] || { echo "missing $IMG: run scripts/slurm/build_envs.sbatch first" >&2; exit 1; }
 mkdir -p "$OUT"
 
 for f in db-light.tar.xz db.tar.xz; do
