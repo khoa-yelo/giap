@@ -93,3 +93,12 @@ The HL shift and its exact computation go in `docs/methods/region-tests.md` (M4-
 1. Percentile CIs (as §8.3 says) rather than BCa? **Proposed default:** percentile, with the recorded
    coverage check above; BCa is a later improvement if coverage is poor.
 2. Minimum valid replicates before reporting a CI: B/2? **Proposed default:** yes; otherwise CI = NA.
+
+## Lead decisions after statistician review (PR #31, BLOCK)
+1. `hodges_lehmann` raises `ValueError` on any non-finite input (NaN, ±inf) on both paths, and falls
+   back to direct enumeration (or raises if that is too large) when the bisection bounds overflow
+   (|differences| near the float64 limit); it never loops. Regression tests above `_DIRECT_MAX`.
+2. The direct-enumeration threshold is m·n ≤ 5×10⁴ (`_DIRECT_MAX`), replacing 10⁶: the bisection path is
+   bit-identical to the median of all pairwise differences (statistician verified) and ~6× faster.
+3. Forwarded to M4-17: percentile CIs under-cover with few TUs (0.86 / 0.89 at 5 / 10 TUs); report
+   `n_tu` and flag CIs from fewer than 10 TUs (docs/methods/bootstrap.md).
