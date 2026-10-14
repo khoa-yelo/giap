@@ -22,8 +22,11 @@ spec-writer's proposed defaults (R10) and records them here.
    After the M1-06 review: rows with any error-level issue (bad type, out of range, `nan`/`inf`
    text in q_value, pep or intensity) are dropped from the evidence frame and `peptide_runs`, and
    the issue is still reported, so a malformed q-value can never pass as evidence. Rows sharing
-   (run, spectrum_id, modified form, charge) are de-duplicated before intensities are summed,
-   with the warning `duplicate_spectrum_row`. `protein_ids` entries are stripped. Precedence when
+   (run, spectrum_id, stripped peptide, charge) are one spectrum's evidence: de-duplicated before
+   intensities are summed (first row kept), with the warning `duplicate_spectrum_row`; different
+   modified forms of one stripped peptide on one spectrum count once. `duplicate_spectrum_id`
+   (error; rows dropped) fires only when one (run, spectrum_id) carries different stripped
+   peptides. Summing modified forms (§5.3) applies across different spectra. `protein_ids` entries are stripped. Precedence when
    rows disagree: `search_db` same > other > auto; `source` database > denovo > auto. Abundance IDs resolve UniProt accessions as in
    `proteins.faa`; linear zeros are not "missing"; a header row is required.
 3. **Preflight.** Every evaluated rule is recorded (`level: ok` when it passes); coordinates in
