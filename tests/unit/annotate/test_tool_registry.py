@@ -37,7 +37,7 @@ VERSIONS = {
     "antismash": "8.0.4",
     "miniprot": "0.18",
 }
-# R5 / NOTICE.md / check_imports.py ("GPL, AGPL or unlicensed").
+# R5 / NOTICE.md (licences verified upstream at the pinned commits).
 LICENCES = {
     "bakta": "GPL-3.0",
     "antismash": "AGPL-3.0",
@@ -45,8 +45,8 @@ LICENCES = {
     "miniprot": "MIT",
     "codon_bias": "MIT",
     "uniop": "unlicensed",
-    "terminatornet": "unlicensed",
-    "bactermfinder": "unlicensed",
+    "terminatornet": "MIT",
+    "bactermfinder": "GPL-3.0",
 }
 GPL_FAMILY = {"promotech", "promoter_calculator", "transtermhp", "ostir"}
 MODULES = {

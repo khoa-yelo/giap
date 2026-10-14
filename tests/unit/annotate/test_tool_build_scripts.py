@@ -146,7 +146,7 @@ def _run_check(root: Path) -> subprocess.CompletedProcess[str]:
 @pytest.mark.parametrize(
     "source", ["import terminatornet\n", "from bactermfinder.model import predict\n"]
 )
-def test_check_imports_forbids_unlicensed_tools(tmp_path: Path, source: str) -> None:
+def test_check_imports_forbids_separate_process_tools(tmp_path: Path, source: str) -> None:
     (tmp_path / "pkg").mkdir()
     (tmp_path / "pkg" / "mod.py").write_text(source)
     proc = _run_check(tmp_path)
