@@ -57,7 +57,7 @@ def _revcomp(s: str) -> str:
     return s.translate(_COMP)[::-1]
 
 
-def _slice(seq: str, iv: Interval) -> str:
+def interval_nt(seq: str, iv: Interval) -> str:
     """Strand-aware, origin-aware nucleotides of ``iv`` (``end`` may exceed ``len(seq)``)."""
     n = len(seq)
     s = seq[iv.start : iv.end] if iv.end <= n else seq[iv.start :] + seq[: iv.end - n]
@@ -184,7 +184,9 @@ def _gene(f: Mapping[str, Any], replicons: Mapping[str, Replicon], seqs: Mapping
     xrefs = f.get("db_xrefs") or []
     if not isinstance(xrefs, list | tuple):
         raise BaktaParseError(f"feature {locus!r}: db_xrefs must be a list, got {xrefs!r}")
-    nt = _opt_str(f, "nt", locus) or (_slice(seqs[iv.contig], iv) if iv.contig in seqs else None)
+    nt = _opt_str(f, "nt", locus) or (
+        interval_nt(seqs[iv.contig], iv) if iv.contig in seqs else None
+    )
     product = f.get("product") or ""
     hypothetical = (
         bool(f["hypothetical"]) if "hypothetical" in f else bool(_HYPOTHETICAL.match(product))

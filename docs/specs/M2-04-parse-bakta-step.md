@@ -89,3 +89,16 @@ Output files (work dir, internal; 0-based half-open in Parquet):
 2. `annotation_source = user` is undefined. **Proposed default:** `bakta_full`/`bakta_light` from the
    JSON DB type whether Bakta ran or the JSON was supplied; `user` only when the DB type is unknown
    (e.g. the simulator JSON or a non-Bakta source).
+
+## Lead decisions (test-author questions)
+1. Q1 accepted as proposed: the anti-SD override must match `^[ACGT]{9}$`, else `ValueError`.
+2. Unknown Bakta feature types are counted in `annotation_meta.json` key `skipped_types` (type → count,
+   `{}` when none) and each is named in a WARNING. ncRNA `class` is not carried (M2-03 decision 7).
+
+## Lead decisions after code review (PR #36, approved)
+1. Tests pin: genes/features ordered by FASTA replicon order, then start; "Putative 30S ribosomal
+   protein" is not ribosomal (product match anchored at the start); a tRNA without anticodon writes no
+   anticodon row; `nearest_genes` ties keep input order; parquet columns carry no statistics; the 16S
+   tail is upper-cased.
+2. The deterministic parquet writer moves to `giap.io` (public, reusable by later steps); steps import
+   no private helpers (`_slice` becomes public or moves with it).
