@@ -130,3 +130,14 @@ second target π̂ 0.6: q = [0.3, 0.3, 0.366667], fdr_stratum 0.366667, pi_wrong
 `test_constant_pi_equals_m4_tda_qvalues` → decoy weights `np.full(ed.size, pi)`, c = pi; property tests
 take per-decoy π̂ and scalar c ≥ max weight, permute weights with decoys, and add "raising any weight
 or c never lowers a q".
+
+## Lead decisions after statistician review (PR #41, BLOCK)
+1. The same-strain shortcut applies to database rows only: `same_exact = is_db & (search_db == "same") &
+   (m_t == 0)`. De novo rows never get it, whatever `search_db` the input reader filled in.
+2. `pi_wrong_database` is computed over database rows that stay in the stratum-0 lists:
+   `df[is_db & ~same_exact]` (same peptides as c). Single-`search_db` inputs are unchanged.
+   The statistician's attack tests/calibration/attacks/test_attack_placement_same_db.py must pass.
+3. `low_complexity` is added to the §9.4 placement flag vocabulary by ADR-0011 (pending Khoa: it changes
+   an output vocabulary). Until accepted, the implementation keeps the flag; the PR does not merge
+   before ADR-0011 is accepted.
+4. Unresolved `search_db = auto` is treated as `other` (conservative); M3-17 resolves `auto` before M3-10.
