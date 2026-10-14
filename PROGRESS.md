@@ -2,8 +2,8 @@
 _Last updated: 2026-10-14 · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
 
 ## Current milestone
-M0: Scaffold. Status: gate pending (PR #1 green except the PR-size guard; ADR-0004 awaits Khoa)
-M1: Inputs and preflight. Status: in progress (12 issues, docs/specs/M1-index.md)
+M0: Scaffold. Status: done (PR #1, merged 2026-10-14 under ADR-0004)
+M1: Inputs and preflight. Status: in progress — 9 of 12 issues merged (M1-01…09 incl. this PR); M1-10…12 left
 
 ## Done (with evidence)
 - [M0] `gh` authenticated as khoa-yelo (SSH protocol); repository is public (Actions minutes unlimited).
@@ -17,23 +17,24 @@ M1: Inputs and preflight. Status: in progress (12 issues, docs/specs/M1-index.md
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
-Stack (each PR's base is the previous branch): #1 m0/scaffold → #2 m1/coordinates (M1-01) →
-#3 m1/genome-fasta (M1-02) → #4 m1/protein-fasta (M1-03) → #5 m1/tsv-io (M1-04) →
-{#6 m1/preflight-genome (M1-09), #7 m1/peptide-table (M1-06), #8 m1/gff3-vcf (M1-05)} (siblings on m1/tsv-io).
-- #2–#6: reviewed, findings fixed, done.
-- #7 M1-06 and #8 M1-05: review findings pinned by tests; implementers fixing.
-- Worktrees: local/worktrees/<topic> per branch; shared venv; inside a worktree set
-  `GIAP_REPO=/home/classes/bios/270/khoa/giap PYTHONPATH=$PWD/src:$PWD/tests/sim`.
-- Untracked specs M1-07, 08, 10, 11, 12 in the main checkout's docs/specs/.
+- Merged to main (squash, one commit per PR): #1 M0, #2 M1-01, #3 M1-02, #4 M1-03, #5 M1-04,
+  #6 M1-09, #7 M1-06, #8 M1-05, #9 M1-08; this PR: M1-07 (`giap convert --from generic|diann`).
+- Untracked specs M1-10, M1-11, M1-12 in the main checkout's docs/specs/ (commit with each PR).
 - Slurm jobs: none running.
-- Lessons: review fixes can contradict older tests → the test-author lists and aligns them before
-  the implementer starts; the implementer never edits tests and stops on contradictions.
+- Lessons:
+  - Review fixes can contradict older tests → the test-author lists and aligns them first; the
+    implementer never edits tests and stops on contradictions.
+  - Subagents must never run `uv sync` / `pip install`: the venv is shared, and an install in a
+    worktree repoints the editable `giap` at that worktree. Always set
+    `PYTHONPATH=$PWD/src:$PWD/tests/sim` when running tests.
+  - Merging a stack of squash-merged PRs: retarget the PR to main *before* pushing the rebased
+    branch, and merge only from one snapshot showing every check present and passed.
 
 ## Next actions (ordered)
-1. Finish #7/#8 fixes; then M1-07 (convert generic/DIA-NN) and M1-08 (abundance) on m1/peptide-table;
-   then M1-10 (needs 03, 06, 08, 09), M1-11, M1-12.
-2. When Khoa answers ADR-0004: merge #1, retarget and merge the stacked PRs in order.
-3. M1-10/11 need ADR-0005 item 4 (new preflight thresholds) accepted by Khoa.
+1. M1-10 (proteins, peptides, abundance, evidence-tier rules T-PRE-11…22) — needs ADR-0005
+   item 4 thresholds (decoy share 0.5, free RAM 8 GB, free disk 10 GB) accepted by Khoa.
+2. M1-11 (environment rules, preflight.schema.json, preflight.json/.md), M1-12 (`giap preflight`).
+3. M1 gate: every preflight rule unit-tested; preflight.json validated against its schema.
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
@@ -46,6 +47,7 @@ Stack (each PR's base is the previous branch): #1 m0/scaffold → #2 m1/coordina
 ## Questions for Khoa
 | # | Question | Options | Default if no answer | Asked |
 |---|---|---|---|---|
+| 4 | ADR-0005 item 4: accept the new preflight warning thresholds (decoy share ≥ 0.5; free RAM < 8 GB; free disk < 10 GB) as new config keys? | yes / other values | M1-10/11 PRs carry `needs-khoa` until answered | 2026-10-14 |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;
