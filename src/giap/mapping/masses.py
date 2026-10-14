@@ -54,8 +54,11 @@ class MassEquivalence:
 
     left: str
     right: str
-    delta_da: float  # |m(left) - m(right)|
+    delta_da: float  # |m(left) - m(right)|, rounded to 6 decimals
     kind: EquivalenceKind
+
+
+DELTA_DECIMALS = 6
 
 
 def composition_mass(side: str) -> float:
@@ -67,8 +70,10 @@ def composition_mass(side: str) -> float:
 
 
 def _entry(left: str, right: str, kind: EquivalenceKind, tol_da: float) -> MassEquivalence | None:
-    delta = abs(composition_mass(left) - composition_mass(right))
-    return MassEquivalence(left, right, delta, kind) if delta <= tol_da else None
+    raw = abs(composition_mass(left) - composition_mass(right))
+    delta = round(raw, DELTA_DECIMALS)
+    # Inclusive tolerance on either the raw or the rounded delta (lead decisions 1 and 4).
+    return MassEquivalence(left, right, delta, kind) if min(raw, delta) <= tol_da else None
 
 
 def _composition_kind(left: str, right: str) -> EquivalenceKind:
@@ -84,8 +89,12 @@ def mass_equivalents(tol_da: float = DEFAULT_TOL_DA) -> list[MassEquivalence]:
     Over the 20 standard residues (I and L merged; U and O excluded): 1<->1 substitutions,
     1<->2 and 2<->2 composition exchanges (2<->2 pairs sharing a residue are reducible to a
     1<->1 substitution and are skipped), and residue + modification <-> residue. Compositions are
-    written with sorted letters, the shorter side on the left. The result is sorted by
-    (kind, delta_da, left, right).
+    written with sorted letters, the shorter side on the left. ``delta_da`` is rounded to
+    ``DELTA_DECIMALS`` (6) decimals before sorting and output, so the order carries no
+    floating-point noise. The result is sorted by (kind, delta_da, left, right).
+
+    The ``kind`` here (``block``/``near_block`` by delta against ``BLOCK_DELTA_DA``) is a label
+    of this list only; it is independent of the DP's ``BLOCKS`` set (M3-06).
     """
     comps = list(STANDARD_RESIDUES) + [
         "".join(p) for p in combinations_with_replacement(STANDARD_RESIDUES, 2)

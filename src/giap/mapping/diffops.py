@@ -51,6 +51,9 @@ class BlockTables:
 
     ``left``/``right`` are ``(n, 2)`` M3-02 codes padded with 255; ``left_len``/``right_len`` hold
     1 or 2; ``kind`` is ``BLOCK_KIND`` or ``NEAR_BLOCK_KIND``. All arrays are C-contiguous uint8.
+
+    Rows are directional (``left`` -> ``right``): each exchange is stored in one orientation only,
+    and the M3-06 DP tries both orientations when matching a block.
     """
 
     left: np.ndarray
