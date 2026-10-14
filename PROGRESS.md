@@ -23,27 +23,40 @@ M2–M4: designed (docs/specs/M{2,3,4}-index.md); wave 2 implementation in progr
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
-Merged in wave 2: M2-01 tool envs (#21, pins in ADR-0008), M2-02 step registry (#20), M3-01 gene model
-(#18), M3-02 six-frame index (#17), M4-01 BH/TDA/picked FDR (#19), ADR-0009 (#22).
-Open (run `bash scripts/resume_status.sh` for each branch's next step):
-- #23 `m4/permutation` (M4-03): statistician BLOCKED (two-sided centring); tests pinned; implementer
-  fixing; then statistician re-check and merge.
-- #24 `m3/decoys` (M3-03): statistician reviewing; writing docs/methods/placement-fdr.md (decoy part).
-- #25 `m3/sim-features` (M3-18): review findings pinned by tests (start codons, reference aa, VCF-style
-  indels); implementer next.
-Slurm: `giap-build-envs` (job 1845936; all 12 envs created incl. Promotech TF 2.1.0, now pulling images;
-rerun with the merged script afterwards to get pip locks and markers); `giap-fetch-bakta-db` (job 1845787;
-light DB nearly done; full DB ~14 h at Zenodo's ~0.7 MB/s; resubmit if it times out — it skips present DBs).
-Follow-ups queued: skip pip freeze for pip-less envs (transtermhp, blast, miniprot) when built by name;
-`_step` failure test should chdir to tmp_path; index save/load lives in sixframe.py (revisit at M3-17);
-waitmerge.sh should read check runs of the PR head commit directly.
+Merged in wave 2: M2-01 (#21), M2-02 (#20), M3-01 (#18), M3-02 (#17), M3-03 (#24), M3-18 (#25),
+M4-01 (#19), M4-03 (#23), ADR-0009 (#22). Run `bash scripts/resume_status.sh` for each branch's next step.
+Open:
+- #27 `m3/exact-matcher` (M3-04): implemented (100k peptides × 5 Mb: 4.5 s, 452 MiB); code review running.
+- #28 `m3/chance-hits` (M3-09): implemented (B.2 reproduced); statistician reviewing (stats).
+- `m2/bakta-json` (M2-03): implemented; lead updated M3-01 field pins for the extension; implementer
+  committing; then PR + code review.
+- `m4/bootstrap` (M4-04): tests pushed; implementer running; then PR + statistician.
+Slurm: `giap-build-envs` resubmitted as job 1846047 from the main checkout (the first run, 1845936, built
+all 12 envs but died when its worktree was removed); `giap-fetch-bakta-db` (job 1845787): light DB done,
+full DB downloading at ~0.7 MB/s (~14 h; resubmit if it times out — it skips present DBs).
+Follow-ups queued:
+- Commit `workflow/envs/locks/` after the rebuild (integration tests `test_envs_built.py` read them; today
+  they exist only untracked in the main checkout, so worktrees fail those tests).
+- Skip pip freeze for pip-less envs when built by name (transtermhp, blast, miniprot).
+- `_step` failure test should chdir to tmp_path; sixframe index save/load placement (revisit at M3-17).
+- waitmerge.sh should read the PR head commit's check runs directly.
+- From reviews: M3-21 calibrates placement FDR with real protein-derived wrong peptides; M3-10 adds a
+  `low_complexity` flag and calibrates π̂ for wrong placements; M4-12 implements ADR-0009 with
+  10/20/30 % decoy-loss calibration.
+Lessons (keep):
+- Slurm jobs run from the main checkout only; never remove a worktree a job may be using.
+- Clean up a worktree only after a confirmed merge.
+- Rebase conflicts are resolved one file at a time by reading them; never take one side blindly.
+- Subagents never install packages; set PYTHONPATH per worktree; unset PYTHONHOME after sourcing the env.
 
 ## Next actions (ordered)
-1. Finish #23, #24, #25 (loops above) and merge on green.
-2. Next parallel issues (specs on main): M3-04 exact matcher (needs 02, 03), M3-05…08 tolerant matcher
-   track, M3-09 chance-hit model, M2-03 Bakta JSON parser (extends M3-01), M2-05 simulator layers (needs
-   M3-18), M2-06/07 Nextflow skeleton, M4-02 MAYU, M4-04 bootstrap, M4-07…09 simulator.
-3. Ask Khoa when M3-13 starts: tblastn HSP-chaining parameters (question 5).
+1. Finish #27, #28, M2-03, M4-04 (review → fixes → merge on green).
+2. Next parallel issues (specs on main): M3-05…08 tolerant-matcher track, M3-10 placement FDR (needs 03,
+   04, 09; statistician-heavy), M3-12/13 protein routes (ask Khoa question 5 at M3-13), M2-04 Bakta layers,
+   M2-05 simulator layers, M2-06/07 Nextflow skeleton, M4-02 MAYU (uses giap.stats.poisson_binomial),
+   M4-07…09 expression/proteomics simulator.
+3. After the env rebuild: commit lock files; run `pytest tests/integration -m needs_conda` from the main
+   checkout.
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
