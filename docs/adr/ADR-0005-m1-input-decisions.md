@@ -18,7 +18,13 @@ spec-writer's proposed defaults (R10) and records them here.
    quantified. The generic reader warns and drops rows with modification syntax (stripping is
    `giap convert`'s job) and peptides > 40 aa. Mixed `source` for one peptide: `database` wins,
    with a warning. DIA-NN `PG.MaxLFQ` is collapsed across runs by median; intensity 0 → NA; the
-   user passes `--abundance-type maxlfq`. Abundance IDs resolve UniProt accessions as in
+   user passes `--abundance-type maxlfq`.
+   After the M1-06 review: rows with any error-level issue (bad type, out of range, `nan`/`inf`
+   text in q_value, pep or intensity) are dropped from the evidence frame and `peptide_runs`, and
+   the issue is still reported, so a malformed q-value can never pass as evidence. Rows sharing
+   (run, spectrum_id, modified form, charge) are de-duplicated before intensities are summed,
+   with the warning `duplicate_spectrum_row`. `protein_ids` entries are stripped. Precedence when
+   rows disagree: `search_db` same > other > auto; `source` database > denovo > auto. Abundance IDs resolve UniProt accessions as in
    `proteins.faa`; linear zeros are not "missing"; a header row is required.
 3. **Preflight.** Every evaluated rule is recorded (`level: ok` when it passes); coordinates in
    `preflight.json` are 1-based closed; exit-code precedence 1 > 2 > 3. The chromosome-size
