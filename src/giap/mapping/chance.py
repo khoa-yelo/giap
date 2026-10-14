@@ -33,18 +33,24 @@ class ResidueFreqs:
 
 
 def _core_residues(frame: Frame, length: int) -> np.ndarray:
-    """Residues of ``frame`` whose first nucleotide lies in the replicon (no circular wrap)."""
+    """Residues of ``frame`` that are distinct searchable positions of the replicon.
+
+    A plus-strand codon is kept when its first nucleotide lies in the replicon. A minus-strand codon
+    is kept when its lowest coordinate (``first_nt - 2``) does, so codons crossing the origin of a
+    circular replicon count once: a stop-free circular replicon of length n gives exactly 2n.
+    """
     k = np.arange(len(frame.aa))
     if frame.strand == "+":
-        first_nt = frame.offset + 3 * k
+        keep = frame.offset + 3 * k < length
     else:
         first_nt = frame.ext_nt - frame.offset - 3 * k - 1
-    out: np.ndarray = frame.aa[first_nt < length]
+        keep = first_nt - 2 < length
+    out: np.ndarray = frame.aa[keep]
     return out
 
 
 def residue_freqs(index: SixFrameIndex) -> ResidueFreqs:
-    """Residue frequencies and N over the target frames, circular extension excluded."""
+    """Residue frequencies and N over the target frames, circular-extension duplicates excluded."""
     counts = np.zeros(_N_RES, dtype=np.int64)
     n = 0
     for frame in index.frames:
