@@ -107,6 +107,7 @@ def external(
     *,
     inputs: Sequence[str],
     outputs: Sequence[str],
+    optional_inputs: Sequence[str] = (),
     module: StepModule = "core",
     precomputed: str | None = None,
 ) -> None:
@@ -117,7 +118,7 @@ def external(
             kind="ext",
             inputs=tuple(inputs),
             outputs=tuple(outputs),
-            optional_inputs=(),
+            optional_inputs=tuple(optional_inputs),
             module=module,
             precomputed=precomputed,
             func=None,
