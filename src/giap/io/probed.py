@@ -11,8 +11,9 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from giap.io._open import open_text_write
 from giap.io.bed import BedRecord, bed_parts, sorted_lines
-from giap.io.tsv import NA, Cell, format_value, write_text
+from giap.io.tsv import NA, Cell, format_value, join_list
 from giap.model import Interval, Replicon
 
 PROBED_EXTRA = (
@@ -48,7 +49,13 @@ def _extra_fields(extra: Mapping[str, Cell], genome_version: str) -> list[str]:
     values = {"genomeReferenceVersion": genome_version, **extra}
     out = []
     for key in PROBED_EXTRA:
-        s = format_value(values.get(key))
+        v = values.get(key)
+        # proBed separates modifications with "," (ADR-0006 item 2).
+        s = (
+            join_list(v, ",")
+            if key == "modifications" and isinstance(v, list | tuple)
+            else format_value(v)
+        )
         out.append("." if s in (NA, "") else s)
     return out
 
@@ -68,5 +75,5 @@ def write_probed(
         extra = _extra_fields(rec.extra, genome_version)
         for piv, fields in bed_parts(bed, replicons[bed.interval.contig]):
             parts.append((piv, fields + extra))
-    lines = [HEADER, *sorted_lines(parts, replicons)]
-    write_text(path, "".join(line + "\n" for line in lines))
+    with open_text_write(path) as fh:
+        fh.writelines(line + "\n" for line in [HEADER, *sorted_lines(parts, replicons)])

@@ -1,26 +1,28 @@
 """TSV conventions (GIAP_SPEC.md §6.6, §9.2, §9.3).
 
-UTF-8, one header row, snake_case column names, ``NA`` for missing, floats ``%.6g``, integers as
-integers, booleans ``true``/``false``, lists ``;``-joined, ``\\n`` line endings. A path ending in
-``.gz`` is written with a fixed gzip header (``mtime=0``, no file name) so bytes are reproducible.
+UTF-8, one header row, snake_case column names, ``NA`` for missing and NaN, floats ``%.6g``
+(``INF``/``-INF`` for infinities, ADR-0006), integers as integers, booleans ``true``/``false``,
+lists ``;``-joined (items may not contain ``;`` or be missing), ``\\n`` line endings. A path
+ending in ``.gz`` is written with a fixed gzip header (``mtime=0``, no file name).
 """
 
 from __future__ import annotations
 
-import gzip
-import io
 import math
 import numbers
 import re
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
+import numpy as np
+
+from giap.io._open import open_text, open_text_write
+
 NA = "NA"
 COLUMN_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 Cell = str | int | float | bool | None | Sequence[str]
 
 _FORBIDDEN = re.compile(r"[\t\n\r]")
-_GZIP_MAGIC = b"\x1f\x8b"
 
 
 def _is_missing(v: object) -> bool:
@@ -36,7 +38,7 @@ def format_value(v: object) -> str:
         if _FORBIDDEN.search(v):
             raise ValueError(f"tab or newline inside TSV cell: {v!r}")
         return v
-    if isinstance(v, bool):
+    if isinstance(v, bool | np.bool_):
         return "true" if v else "false"
     if isinstance(v, numbers.Integral):
         return str(int(v))
@@ -44,34 +46,30 @@ def format_value(v: object) -> str:
         f = float(v)
         if math.isnan(f):
             return NA
+        if math.isinf(f):
+            return "INF" if f > 0 else "-INF"
         if f == 0:
             return "0"
         return f"{f:.6g}"
     if isinstance(v, list | tuple):
-        return ";".join(format_value(x) for x in v) if v else NA
+        return join_list(v, ";")
     raise TypeError(f"cannot format {type(v).__name__} value {v!r} as a TSV cell")
 
 
-def write_text(path: Path, text: str) -> None:
-    """Write UTF-8 ``text``; a ``.gz`` path gets a reproducible gzip header."""
-    data = text.encode("utf-8")
-    if path.name.endswith(".gz"):
-        with (
-            path.open("wb") as raw,
-            gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz,
-        ):
-            gz.write(data)
-    else:
-        path.write_bytes(data)
-
-
-def open_text(path: Path) -> io.TextIOWrapper:
-    """Open ``path`` for UTF-8 reading, decompressing gzip detected by magic bytes."""
-    with path.open("rb") as fh:
-        magic = fh.read(2)
-    # The caller owns the returned handle (used as a context manager).
-    raw = gzip.open(path, "rb") if magic == _GZIP_MAGIC else path.open("rb")  # noqa: SIM115
-    return io.TextIOWrapper(raw, encoding="utf-8-sig", newline="")
+def join_list(items: Sequence[object], sep: str) -> str:
+    """Join list items with ``sep`` (``NA`` if empty); a missing item or one containing ``sep``
+    raises ``ValueError`` (ADR-0006 item 2)."""
+    if not items:
+        return NA
+    out = []
+    for x in items:
+        s = format_value(x)
+        if s == NA and not isinstance(x, str):
+            raise ValueError(f"missing item in list cell {items!r}")
+        if sep in s:
+            raise ValueError(f"list item {s!r} contains the separator {sep!r}")
+        out.append(s)
+    return sep.join(out)
 
 
 def write_tsv(path: Path, columns: Sequence[str], rows: Iterable[Sequence[object]]) -> None:
@@ -85,7 +83,8 @@ def write_tsv(path: Path, columns: Sequence[str], rows: Iterable[Sequence[object
         if len(row) != width:
             raise ValueError(f"row {i} has {len(row)} cells, header has {width}")
         lines.append("\t".join(format_value(v) for v in row))
-    write_text(path, "\n".join(lines) + "\n")
+    with open_text_write(path) as fh:
+        fh.write("\n".join(lines) + "\n")
 
 
 def read_tsv(path: Path) -> tuple[list[str], list[list[str | None]]]:
@@ -93,7 +92,7 @@ def read_tsv(path: Path) -> tuple[list[str], list[list[str | None]]]:
 
     Lines are split on ``\\n`` only, so other Unicode line separators stay inside cells.
     """
-    with open_text(path) as fh:
+    with open_text(path, encoding="utf-8-sig", newline="") as fh:
         text = fh.read()
     lines = text.split("\n")
     if lines and lines[-1] == "":

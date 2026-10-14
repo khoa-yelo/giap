@@ -19,9 +19,12 @@ def open_binary(path: Path) -> IO[bytes]:
     return path.open("rb")
 
 
-def open_text(path: Path) -> TextIO:
-    """Open ``path`` for reading as UTF-8 text (a leading BOM is dropped); gzip by magic bytes."""
-    return io.TextIOWrapper(open_binary(path), encoding="utf-8-sig")
+def open_text(path: Path, *, encoding: str = "utf-8-sig", newline: str | None = None) -> TextIO:
+    """Open ``path`` for reading as UTF-8 text (a leading BOM is dropped); gzip by magic bytes.
+
+    ``encoding`` and ``newline`` are passed to :class:`io.TextIOWrapper`.
+    """
+    return io.TextIOWrapper(open_binary(path), encoding=encoding, newline=newline)
 
 
 def open_text_write(path: Path, *, compress: bool | None = None) -> TextIO:
