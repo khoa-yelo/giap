@@ -8,19 +8,24 @@ from __future__ import annotations
 
 import gzip
 import re
+import string
 import zlib
 from collections import Counter
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from giap.io._open import open_text
+from giap.io._open import open_binary, open_text_write
 
 IUPAC_DNA: frozenset[str] = frozenset("ACGTNRYSWKMBDHV")
 SAFE_ID = re.compile(r"[A-Za-z0-9._-]")
 
 _UNSAFE_ID = re.compile(r"[^A-Za-z0-9._-]")
-_CIRCULAR_TAG = re.compile(r"(?:^|\s)circular=true(?=\s|$)|\[topology=circular\]", re.IGNORECASE)
+_SAFE_ID_FULL = re.compile(r"[A-Za-z0-9._-]+")
+_CIRCULAR_TAG = re.compile(
+    r"(?:^|(?<=[\s\[]))circular=true(?=$|[\s;,\]])|\[topology=circular\]", re.IGNORECASE
+)
+_ASCII_UPPER = str.maketrans(string.ascii_lowercase, string.ascii_uppercase)
 _WHITESPACE = re.compile(r"\s+")
 
 
@@ -52,13 +57,21 @@ def invalid_letters(seq: str) -> dict[str, int]:
 
 
 def _lines(path: Path) -> Iterator[tuple[int, str]]:
-    """Yield ``(line_no, line)`` with line endings removed; decoding errors become format errors."""
+    """Yield ``(line_no, line)`` with line endings removed; read errors become format errors.
+
+    Lines are decoded one at a time (UTF-8, leading BOM dropped) so a decoding error reports
+    the line that holds the bad bytes.
+    """
     line_no = 0
     try:
-        with open_text(path) as fh:
-            for line_no, line in enumerate(fh, start=1):
-                yield line_no, line.rstrip("\r\n")
-    except (EOFError, gzip.BadGzipFile, zlib.error, UnicodeDecodeError) as exc:
+        with open_binary(path) as fh:
+            for chunk in fh:
+                for raw in chunk.splitlines():
+                    line_no += 1
+                    yield line_no, raw.decode("utf-8-sig" if line_no == 1 else "utf-8")
+    except UnicodeDecodeError as exc:
+        raise FastaFormatError(f"cannot decode {path}: {exc}", line_no) from exc
+    except (EOFError, gzip.BadGzipFile, zlib.error) as exc:
         raise FastaFormatError(f"cannot read {path}: {exc}", line_no + 1) from exc
 
 
@@ -68,7 +81,7 @@ def _make_record(header: str, chunks: list[str]) -> GenomeRecord:
         id=sanitize_id(original_id),
         original_id=original_id,
         header=header,
-        sequence="".join(chunks).upper(),
+        sequence="".join(chunks).translate(_ASCII_UPPER),
         circular_tag=_CIRCULAR_TAG.search(header) is not None,
     )
 
@@ -98,11 +111,18 @@ def read_genome_fasta(path: Path) -> list[GenomeRecord]:
 
 
 def write_fasta(path: Path, records: Iterable[tuple[str, str]], width: int = 80) -> None:
-    """Write ``(id, sequence)`` pairs as uncompressed FASTA wrapped at ``width`` columns."""
+    """Write ``(id, sequence)`` pairs as uncompressed FASTA wrapped at ``width`` columns.
+
+    IDs must consist only of ``[A-Za-z0-9._-]`` and sequences must not contain line breaks.
+    """
     if width < 1:
         raise ValueError(f"width must be >= 1, got {width}")
-    with path.open("w", encoding="utf-8", newline="\n") as fh:
+    with open_text_write(path, compress=False) as fh:
         for rec_id, seq in records:
+            if not _SAFE_ID_FULL.fullmatch(rec_id):
+                raise ValueError(f"unsafe FASTA ID {rec_id!r}; expected [A-Za-z0-9._-]+")
+            if "\n" in seq or "\r" in seq:
+                raise ValueError(f"sequence for {rec_id!r} contains a line break")
             fh.write(f">{rec_id}\n")
             for start in range(0, len(seq), width):
                 fh.write(seq[start : start + width])
