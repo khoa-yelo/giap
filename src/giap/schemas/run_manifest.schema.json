@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/khoa-yelo/giap/schemas/run_manifest.schema.json",
+  "title": "GIAP run manifest",
+  "description": "run_manifest.json written by every giap run (GIAP_SPEC.md section 6.7). M0 skeleton.",
+  "type": "object",
+  "required": ["giap_version", "config", "inputs", "schema_version"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "giap_version": {"type": "string"},
+    "git_commit": {"type": ["string", "null"]},
+    "command_line": {"type": "array", "items": {"type": "string"}},
+    "publication": {"type": "boolean"},
+    "config": {"type": "object", "description": "The resolved configuration (config.schema.json)."},
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256", "size"],
+        "properties": {
+          "role": {"type": "string"},
+          "path": {"type": "string"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "size": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "version"],
+        "properties": {
+          "name": {"type": "string"},
+          "version": {"type": "string"},
+          "container_digest": {"type": ["string", "null"]},
+          "conda_lock_hash": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "databases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "version"],
+        "properties": {
+          "name": {"type": "string"},
+          "version": {"type": "string"},
+          "checksum": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "seeds": {"type": "object", "additionalProperties": {"type": "integer"}},
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string"},
+          "wall_time_s": {"type": "number", "minimum": 0},
+          "cpu_time_s": {"type": "number", "minimum": 0},
+          "peak_rss_bytes": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "flags": {"type": "array", "items": {"type": "string"}},
+    "layers_missing": {"type": "array", "items": {"type": "string"}},
+    "sensitivity": {"type": "object"}
+  }
+}
