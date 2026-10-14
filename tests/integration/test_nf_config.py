@@ -29,7 +29,8 @@ _UNITS = {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40}
 
 
 def _env(**extra: str) -> dict[str, str]:
-    env = {k: v for k, v in os.environ.items() if k != "SLURM_CPUS_ON_NODE"}
+    drop = {"SLURM_CPUS_ON_NODE", "SLURM_CPUS_PER_TASK", "SLURM_MEM_PER_NODE", "SLURM_MEM_PER_CPU"}
+    env = {k: v for k, v in os.environ.items() if k not in drop}
     env["NXF_ANSI_LOG"] = "false"
     env.update(extra)
     return env
@@ -88,12 +89,13 @@ def test_farmshare_profile_example_5() -> None:
     assert _executor(flat) == "slurm"
     assert _unq(flat["process.queue"]) == "normal"
     assert _unq(flat["process.clusterOptions"]) == "--qos=normal"
-    assert _get(flat, "executor.queueSize", "executor.$slurm.queueSize") == "20"
+    # review decision 3 (R14): queueSize 8 x resourceLimits.cpus 16 <= 128 (was 20 / 64 / 240 GB)
+    assert _get(flat, "executor.queueSize", "executor.$slurm.queueSize") == "8"
     rate = _get(flat, "executor.submitRateLimit", "executor.$slurm.submitRateLimit")
     assert _unq(rate) == "10/1min"
     assert _unq(flat["process.scratch"]) == "/tmp"
-    assert flat["process.resourceLimits.cpus"] == "64"
-    assert _mem(flat["process.resourceLimits.memory"]) == 240 * 2**30
+    assert flat["process.resourceLimits.cpus"] == "16"
+    assert _mem(flat["process.resourceLimits.memory"]) == 64 * 2**30
     assert _hours(flat["process.resourceLimits.time"]) == 48
 
 
@@ -114,19 +116,26 @@ def test_farmshare_with_apptainer_resolves() -> None:
 # ---------------------------------------------------------------- example 6: farmshare_local
 
 
+# Review decision 4: farmshare_local follows SLURM_CPUS_PER_TASK / SLURM_MEM_PER_NODE - 2 GB via
+# executor.cpus/memory (was SLURM_CPUS_ON_NODE via resourceLimits); the limits never exceed them.
+
+
 def test_farmshare_local_profile_example_6() -> None:
-    flat, _ = _config("farmshare_local", SLURM_CPUS_ON_NODE="8")
+    flat, _ = _config("farmshare_local", SLURM_CPUS_PER_TASK="8", SLURM_MEM_PER_NODE="32768")
     assert _executor(flat) == "local"
-    assert flat["process.resourceLimits.cpus"] == "8"
-    assert _mem(flat["process.resourceLimits.memory"]) == 30 * 2**30
+    assert _get(flat, "executor.cpus", "executor.$local.cpus") == "8"
+    assert _mem(_get(flat, "executor.memory", "executor.$local.memory")) == 30 * 2**30
+    assert int(flat["process.resourceLimits.cpus"]) <= 8
+    assert _mem(flat["process.resourceLimits.memory"]) <= 30 * 2**30
 
 
-def test_farmshare_local_without_slurm_cpus_falls_back_to_4_and_warns() -> None:
-    flat, output = _config("farmshare_local")
+def test_farmshare_local_without_slurm_vars_falls_back_to_4_cpus_30_gb() -> None:
+    flat, _ = _config("farmshare_local")
     assert _executor(flat) == "local"
-    assert flat["process.resourceLimits.cpus"] == "4"
-    assert _mem(flat["process.resourceLimits.memory"]) == 30 * 2**30
-    assert "SLURM_CPUS_ON_NODE" in output, "no warning about the missing SLURM_CPUS_ON_NODE"
+    assert _get(flat, "executor.cpus", "executor.$local.cpus") == "4"
+    assert _mem(_get(flat, "executor.memory", "executor.$local.memory")) == 30 * 2**30
+    assert int(flat["process.resourceLimits.cpus"]) <= 4
+    assert _mem(flat["process.resourceLimits.memory"]) <= 30 * 2**30
 
 
 # ---------------------------------------------------------------- other profiles

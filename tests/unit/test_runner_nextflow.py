@@ -9,7 +9,8 @@ Conventions assumed here (M2-06 public interface):
   what ``GIAP_STEP`` passes to ``giap _step --config``).
 - ``params.json`` carries ``threads``, ``memory``, ``outdir``, ``modules`` and ``annotation``
   (the ``nextflow.config`` params), and every input path as given (absolute).
-- ``failed_step`` names the step by the process name's last ``:`` component, lower-cased
+- ``failed_step`` returns the last FAILED row whose task has no later COMPLETED row (review
+  decision 2) and names the step by the process name's last ``:`` component, lower-cased
   (``ANNOTATE:TERMINATORNET (chr1)`` -> ``terminatornet``); for the generic ``GIAP_STEP`` process
   the tag (the Python step name) is the step. The work directory is the absolute task directory
   ``OUT/work/<hash dir>``.
@@ -273,7 +274,8 @@ def test_failed_step_none_when_all_completed(tmp_path: Path) -> None:
     assert _nf().failed_step(trace) is None
 
 
-def test_failed_step_first_failed_or_aborted_row(tmp_path: Path) -> None:
+def test_failed_step_last_unrecovered_failed_row(tmp_path: Path) -> None:
+    """Review decision 2 (was: the first FAILED/ABORTED row, i.e. genomad)."""
     out = tmp_path / "OUT"
     trace = _trace(
         out,
@@ -283,7 +285,7 @@ def test_failed_step_first_failed_or_aborted_row(tmp_path: Path) -> None:
             _row(out, 3, "6d/bbbbbb", "ANNOTATE:TERMINATORNET (chr1)", "FAILED", "1"),
         ],
     )
-    assert _nf().failed_step(trace) == ("genomad", _workdir(out, "5c/aaaaaa"))
+    assert _nf().failed_step(trace) == ("terminatornet", _workdir(out, "6d/bbbbbb"))
 
 
 def test_failed_step_giap_step_uses_tag(tmp_path: Path) -> None:
@@ -320,4 +322,4 @@ def test_run_nextflow_example_4_returns_4_and_names_step(
     assert int(code) == 4
     cap = capfd.readouterr()
     msg = f"step terminatornet failed; log: {_workdir(out, '7f/9e8d7c')}/.command.log"
-    assert msg in cap.out + cap.err
+    assert msg in cap.err  # review decision 6: messages on stderr
