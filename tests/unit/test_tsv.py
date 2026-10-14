@@ -100,8 +100,8 @@ def test_na_constant() -> None:
         (123456.7, "123457"),
         (np.float32(0.1), "0.1"),
         (np.float64(2.5), "2.5"),
-        (float("inf"), "inf"),
-        (float("-inf"), "-inf"),
+        (float("inf"), "INF"),  # ADR-0006
+        (float("-inf"), "-INF"),  # ADR-0006
         (math.nan, "NA"),
         (np.nan, "NA"),
         (pd.NA, "NA"),

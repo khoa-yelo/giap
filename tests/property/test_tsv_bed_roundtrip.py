@@ -25,7 +25,8 @@ CELL = st.one_of(
     st.integers(min_value=-(2**63), max_value=2**63),
     st.floats(allow_nan=True, allow_infinity=True),
     TEXT,
-    st.lists(TEXT.filter(lambda s: s != ""), max_size=4),
+    # ADR-0006: list items may not be empty or contain the ";" separator
+    st.lists(TEXT.filter(lambda s: s != "" and ";" not in s), max_size=4),
 )
 COLUMN = st.from_regex(r"[a-z][a-z0-9_]{0,10}", fullmatch=True)
 
