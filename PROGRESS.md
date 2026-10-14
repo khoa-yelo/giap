@@ -23,41 +23,43 @@ M2–M4: designed (docs/specs/M{2,3,4}-index.md); wave 2 implementation in progr
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
-Merged in wave 2: M2-01 (#21), M2-02 (#20), M3-01 (#18), M3-02 (#17), M3-03 (#24), M3-18 (#25),
-M4-01 (#19), M4-03 (#23), ADR-0009 (#22). Run `bash scripts/resume_status.sh` for each branch's next step.
+Merged since wave 2: M3-04 (#27), M3-09 (#28), M2-03 (#30), M4-04 (#31), env locks (#32), resumable Bakta
+download (#33), M4-02 (#34), M3-05 (#35), M2-04 (#36), M2-06 (#37), M2-05 (#38), M3-06 (#39), role guard
+fix (#40), M3-11 (#42), timing budgets → benchmarks (#43). Run `bash scripts/resume_status.sh` for each
+branch's next step.
 Open:
-- #27 `m3/exact-matcher` (M3-04): implemented (100k peptides × 5 Mb: 4.5 s, 452 MiB); code review running.
-- #28 `m3/chance-hits` (M3-09): implemented (B.2 reproduced); statistician reviewing (stats).
-- `m2/bakta-json` (M2-03): implemented; lead updated M3-01 field pins for the extension; implementer
-  committing; then PR + code review.
-- `m4/bootstrap` (M4-04): tests pushed; implementer running; then PR + statistician.
-Slurm: `giap-build-envs` resubmitted as job 1846047 from the main checkout (the first run, 1845936, built
-all 12 envs but died when its worktree was removed); `giap-fetch-bakta-db` (job 1845787): light DB done,
-full DB downloading at ~0.7 MB/s (~14 h; resubmit if it times out — it skips present DBs).
+- #41 `m3/placement-fdr` (M3-10, ADR-0010 + ADR-0011): statistician BLOCK fixed (same_db shortcut for
+  database rows only; π̂ over remaining rows); statistician re-check running.
+- `m2/nf-tools` (M2-07): tests + lead CLI test update pushed; implementer running.
+- `m3/tolerant-seeds` (M3-07), `m3/miniprot` (M3-12), `m4/input-contract` (M4-06), `m2/uniop-tus` (M2-12):
+  test-authors running.
+Slurm: `giap-fetch-bakta-db` job 1846085 (aria2c, resumable, md5-checked, then `bakta_db install` in the
+pinned container); resubmit `scripts/slurm/fetch_bakta_db.sbatch` if it times out.
 Follow-ups queued:
-- Commit `workflow/envs/locks/` after the rebuild (integration tests `test_envs_built.py` read them; today
-  they exist only untracked in the main checkout, so worktrees fail those tests).
-- Skip pip freeze for pip-less envs when built by name (transtermhp, blast, miniprot).
-- `_step` failure test should chdir to tmp_path; sixframe index save/load placement (revisit at M3-17).
-- waitmerge.sh should read the PR head commit's check runs directly.
-- M2-07 wires `giap run` to `giap.runner.nextflow` (M2-06 review decision 7); `giap_run.sbatch` stays.
-- From reviews: M3-21 calibrates placement FDR with real protein-derived wrong peptides; M3-10 adds a
-  `low_complexity` flag and calibrates π̂ for wrong placements; M4-12 implements ADR-0009 with
-  10/20/30 % decoy-loss calibration.
+- M3-21: measure c_ref − c_true (reference vs searched de novo precision) and the target-vs-decoy chance
+  rate of wrong peptides; minimum reference peptides per class (or resample c_ℓ); count unreportable
+  bootstrap resamples as precision 0 (M3-11 statistician). Measure the PEP–length correlation for the
+  database π̂ (ADR-0010).
+- M4-12: M4-02 forwarded items (input validation, report fp/n_genes, unspecific-search warning, `fdr_2pep`
+  label); M4-17: report n_tu and flag bootstrap CIs from < 10 TUs (M4-04).
+- M3-08: never call `verify` with sides ≤ 4 aa (M3-06 decision 1); anchored ends defined in M3-08.
+- M3-07: specifies a public njit batch entry point over `tolerant_dp` (M3-06 decision 6).
+- M3-06 benchmark at 3.7–4.2 s of the 5 s budget after input normalisation — watch in the speed loop.
+- Skip pip freeze for pip-less envs when built by name; `_step` failure test should chdir to tmp_path;
+  waitmerge.sh should read the PR head commit's check runs directly; background merges must use the tool's
+  background mode (a plain `&` job dies with its shell).
 Lessons (keep):
 - Slurm jobs run from the main checkout only; never remove a worktree a job may be using.
-- Clean up a worktree only after a confirmed merge.
-- Rebase conflicts are resolved one file at a time by reading them; never take one side blindly.
+- Clean up a worktree only after a confirmed merge; resolve rebase conflicts file by file.
 - Subagents never install packages; set PYTHONPATH per worktree; unset PYTHONHOME after sourcing the env.
+- Wall-clock budgets live in benchmarks/, unit tests keep only loose 10× guards.
 
 ## Next actions (ordered)
-1. Finish #27, #28, M2-03, M4-04 (review → fixes → merge on green).
-2. Next parallel issues (specs on main): M3-05…08 tolerant-matcher track, M3-10 placement FDR (needs 03,
-   04, 09; statistician-heavy), M3-12/13 protein routes (ask Khoa question 5 at M3-13), M2-04 Bakta layers,
-   M2-05 simulator layers, M2-06/07 Nextflow skeleton, M4-02 MAYU (uses giap.stats.poisson_binomial),
-   M4-07…09 expression/proteomics simulator.
-3. After the env rebuild: commit lock files; run `pytest tests/integration -m needs_conda` from the main
-   checkout.
+1. Finish #41 (statistician re-check → merge), M2-07, M3-07, M3-12, M4-06, M2-12.
+2. Then: M3-08 frameshifts (after M3-07), M3-13 tblastn (after M3-12; HSP limits are constants — Khoa),
+   M3-14 loci (after M3-10), M3-19 sim peptides, M4-05 calibration harness, M4-07…09 simulator (after
+   M4-06), M2-08 setup core, M2-11 user annotation, M2-13…M2-20 tool layers (after M2-07/M2-12).
+3. After the Bakta full DB installs: `giap setup` verification (M2-08) and recorded runs (M2-10).
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
@@ -65,6 +67,10 @@ Lessons (keep):
 | 2026-10-14 | RegulonDB v12 download (needed at M6) | `regulondb.ccg.unam.mx` unreachable from FarmShare (probe) | nothing yet; retry at M6, then ask |
 
 ## Answered by Khoa
+- 2026-10-14: ADR-0011 (`low_complexity` placement flag) accepted as proposed.
+- 2026-10-14: M3-13 tblastn HSP chaining limits (max gap 300 nt, query overlap ≤ 10 aa) are fixed
+  constants documented in the methods note — no config keys.
+- 2026-10-14: replace the slow Bakta full-DB download with a resumable one (done, #33).
 - 2026-10-14: §7.3.2 picked FDR rescales decoy wins by the paired share (ADR-0009, accepted-by-khoa).
 - 2026-10-14: subagent commit blocked by the permission system → Khoa approved the lead committing the M2-02 test fix.
 - 2026-10-14: ADR-0005 item 4 (new preflight warning thresholds) rejected: decoy share and free RAM/disk are Info only.
@@ -73,7 +79,6 @@ Lessons (keep):
 ## Questions for Khoa
 | # | Question | Options | Default if no answer | Asked |
 |---|---|---|---|---|
-| 5 | M3-13: tblastn HSP chaining needs two parameters (max gap 300 nt, query overlap ≤ 10 aa). New config keys, or fixed constants documented in the methods note? | config keys (ADR) / constants / other | M3-13 waits | to ask when M3-13 starts |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;
