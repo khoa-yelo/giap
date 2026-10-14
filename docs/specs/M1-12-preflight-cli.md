@@ -82,3 +82,18 @@ else `strict` and any `warn` → 3; else 0. CLI: `preflight` in `src/giap/cli.py
    default:** as written; the M2 Bakta contract test confirms the format.
 3. Should proteins of 7–40 aa really become peptide rows (with `source` from config)? **Proposed
    default:** yes, per §5.3 routing; their `protein_ids` keeps the protein ID so gene pairing works.
+
+## Lead decisions after code review
+- Outputs are atomic: every run first removes a stale `work/preflight/`; files are written into a
+  temporary directory under `--outdir` and moved into place with `os.replace`; `preflight/preflight.json`
+  is written last as the completion marker. A run with errors leaves no normalised inputs behind.
+- Resources are probed live (`shutil.disk_usage(outdir)`; Slurm/cgroup memory limit, else total RAM),
+  not from `.giap/capabilities.json`. `preflight.json` keeps only the outcome (`level`, and for
+  `environment.resources` the needed vs. available verdict without raw numbers), so it is identical
+  across nodes (§6.6). The raw numbers go to `logs/events.jsonl` (§6.7).
+- Protein FASTA headers are written as safe IDs (`write_fasta` default); `work/preflight/protein_map.tsv`
+  maps safe IDs to the original IDs and group members (§5.3 "mapping saved"). `safe_ids=False` is removed.
+- `--outdir` pointing at an existing file exits 1 (invalid input), not 5.
+- `db_manifest.json` (provisional): `{"<name>": {"version": "<v>", "sha256": "<hex>", ...}}`; M2's
+  `giap setup` pins it with `src/giap/schemas/db_manifest.schema.json`.
+- The probe code lives in `giap.preflight.environment`; `route_by_length` runs once.
