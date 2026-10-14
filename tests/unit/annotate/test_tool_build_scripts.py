@@ -98,10 +98,21 @@ def test_dockerfile_clones_pinned_commit(tool: str) -> None:
 
 
 def test_no_tool_source_vendored() -> None:
-    names = {"terminatornet.py", "promotech.py", "uniop", "bactermfinder.py"}
+    """R5/R11: per-tool folders are allowed; tool source or model files inside them are not."""
+    source_names = {"terminatornet.py", "promotech.py", "uniop", "uniop.py", "bactermfinder.py"}
+    model_suffixes = {".pkl", ".model", ".joblib", ".h5", ".pt", ".sav", ".onnx"}
     for top in ("src", "workflow", "scripts"):
         for path in (REPO / top).rglob("*"):
-            assert path.name.lower() not in names, path
+            if path.is_file():
+                assert path.name.lower() not in source_names, path
+                assert path.suffix.lower() not in model_suffixes, path
+    allowed = {"Dockerfile", "main.nf", "meta.yml", ".dockerignore"}
+    for tree in (REPO / "workflow" / "containers", REPO / "workflow" / "modules" / "local"):
+        if not tree.is_dir():
+            continue
+        for path in tree.rglob("*"):
+            if path.is_file():
+                assert path.name in allowed or path.suffix in {".yml", ".config"}, path
 
 
 # ---------------------------------------------------------------- NOTICE.md
