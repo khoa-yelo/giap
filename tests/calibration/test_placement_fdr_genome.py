@@ -6,7 +6,8 @@ giapsim genome (M3-18 simulator); correct peptides are the tryptic peptides (7-2
 annotated genes; wrong peptides are i.i.d. 7- and 8-mers drawn from the genome's six-frame residue
 frequencies (``residue_freqs``), minus any that equal a correct peptide. All are database input
 (reverse decoys, ``search_db = other``) and every PEP equals the known wrong share, so pi_wrong is
-exact. The full chain runs: ``build_sixframe`` -> ``build_decoys`` -> ``match_exact`` ->
+exact and constant (ADR-0010 then reduces to the §7.2.5 formula pi (D + 1)/T). The full chain
+runs: ``build_sixframe`` -> ``build_decoys`` -> ``match_exact`` ->
 ``best_costs`` -> ``placement``. Criterion (§8.4 "FDR"): mean FDP over R <= q + k SE(FDP) at every
 level in ``levels``. The genome-level suite with tolerant hits and de novo errors is M3-21.
 """

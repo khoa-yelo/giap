@@ -1,10 +1,14 @@
-"""Hypothesis properties of placement q-values (issue M3-10; GIAP_SPEC.md §7.2.5, §8.3).
+"""Hypothesis properties of placement q-values (issue M3-10; GIAP_SPEC.md §7.2.5, §8.3; ADR-0010).
 
-- ``stratum_qvalues``: q in [0, 1]; q non-decreasing in E; adding a decoy never lowers any q;
-  invariant to input order; equals M4-01 ``tda_qvalues(-E_T, -E_D, pi)`` for constant pi;
-  invariant to a strictly increasing transform of E (E is a ranking score only);
+- ``stratum_qvalues(e_target, e_decoy, pi_decoy, pi_plus)``, one weight per decoy and a scalar
+  c = ``pi_plus`` >= max weight (as ``placement`` passes it): q in [0, 1]; q non-decreasing in E;
+  adding a decoy (weight <= c) never lowers any q; raising any decoy weight or c never lowers
+  any q; invariant to input order (weights permuted with their decoys); equals M4-01
+  ``tda_qvalues(-E_T, -E_D, pi)`` for constant pi (weights pi, c = pi); invariant to a strictly
+  increasing transform of E (E is a ranking score only);
 - ``placement``: q in [0, 1] (0 for ``same_db`` exact), adding a decoy-only peptide never lowers
-  any q, row order never changes the result.
+  any q, raising any peptide's ``pi_denovo`` never lowers any q, row order never changes the
+  result.
 """
 
 from __future__ import annotations
@@ -29,17 +33,21 @@ PI = st.one_of(st.just(1.0), st.floats(0.001, 1.0, allow_nan=False))
 ALPHABET19 = "ACDEFGHKLMNPQRSTVWY"
 
 
+Stratum = tuple[np.ndarray, np.ndarray, np.ndarray, float]
+
+
 @st.composite
-def stratum(draw: st.DrawFn) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def stratum(draw: st.DrawFn) -> Stratum:
     et = draw(st.lists(E, min_size=1, max_size=40))
     ed = draw(st.lists(E, max_size=40))
-    pi = draw(st.lists(PI, min_size=len(et), max_size=len(et)))
-    return np.array(et), np.array(ed, dtype=float), np.array(pi)
+    w = draw(st.lists(PI, min_size=len(ed), max_size=len(ed)))
+    c = max([draw(PI), *w])
+    return np.array(et), np.array(ed, dtype=float), np.array(w, dtype=float), c
 
 
 @FAST
 @given(stratum())
-def test_q_in_unit_interval(s: tuple[np.ndarray, np.ndarray, np.ndarray]) -> None:
+def test_q_in_unit_interval(s: Stratum) -> None:
     q = stratum_qvalues(*s)
     assert q.shape == s[0].shape
     assert np.all((q >= 0.0) & (q <= 1.0))
@@ -47,7 +55,7 @@ def test_q_in_unit_interval(s: tuple[np.ndarray, np.ndarray, np.ndarray]) -> Non
 
 @FAST
 @given(stratum())
-def test_q_monotone_in_e(s: tuple[np.ndarray, np.ndarray, np.ndarray]) -> None:
+def test_q_monotone_in_e(s: Stratum) -> None:
     et = s[0]
     q = stratum_qvalues(*s)
     order = np.argsort(et, kind="stable")
@@ -58,53 +66,66 @@ def test_q_monotone_in_e(s: tuple[np.ndarray, np.ndarray, np.ndarray]) -> None:
 
 
 @FAST
-@given(stratum(), E)
-def test_adding_a_decoy_never_lowers_q(
-    s: tuple[np.ndarray, np.ndarray, np.ndarray], extra: float
-) -> None:
-    et, ed, pi = s
-    before = stratum_qvalues(et, ed, pi)
-    after = stratum_qvalues(et, np.append(ed, extra), pi)
+@given(stratum(), E, st.floats(0.0, 1.0))
+def test_adding_a_decoy_never_lowers_q(s: Stratum, extra: float, frac: float) -> None:
+    et, ed, w, c = s
+    before = stratum_qvalues(et, ed, w, c)
+    w_new = max(frac * c, 1e-3)
+    after = stratum_qvalues(et, np.append(ed, extra), np.append(w, w_new), c)
     assert np.all(after >= before - EPS)
 
 
 @FAST
+@given(stratum(), st.integers(0, 39), st.floats(0.0, 1.0), st.floats(0.0, 1.0))
+def test_raising_a_decoy_weight_or_c_never_lowers_q(
+    s: Stratum, i: int, up_w: float, up_c: float
+) -> None:
+    """ADR-0010 / methods "pi_wrong in the stratum FDR": FDR is non-decreasing in every pi."""
+    et, ed, w, c = s
+    before = stratum_qvalues(et, ed, w, c)
+    w2 = w.copy()
+    if w2.size:
+        j = i % w2.size
+        w2[j] = w2[j] + up_w * (1.0 - w2[j])
+    c2 = max(c + up_c * (1.0 - c), *w2) if w2.size else c + up_c * (1.0 - c)
+    assert np.all(stratum_qvalues(et, ed, w2, c) >= before - EPS)
+    assert np.all(stratum_qvalues(et, ed, w, c2) >= before - EPS)
+    assert np.all(stratum_qvalues(et, ed, w2, c2) >= before - EPS)
+
+
+@FAST
 @given(stratum(), st.randoms(use_true_random=False))
-def test_input_order_invariant(s: tuple[np.ndarray, np.ndarray, np.ndarray], rnd: Any) -> None:
-    et, ed, pi = s
+def test_input_order_invariant(s: Stratum, rnd: Any) -> None:
+    et, ed, w, c = s
     pt = list(range(et.size))
     pd_ = list(range(ed.size))
     rnd.shuffle(pt)
     rnd.shuffle(pd_)
-    q = stratum_qvalues(et, ed, pi)
-    q2 = stratum_qvalues(et[pt], ed[pd_], pi[pt])
+    q = stratum_qvalues(et, ed, w, c)
+    q2 = stratum_qvalues(et[pt], ed[pd_], w[pd_], c)
     np.testing.assert_allclose(q2, q[pt], rtol=1e-12, atol=EPS)
 
 
 @FAST
 @given(stratum(), PI)
-def test_constant_pi_equals_tda_qvalues(
-    s: tuple[np.ndarray, np.ndarray, np.ndarray], pi: float
-) -> None:
-    et, ed, _ = s
-    q = stratum_qvalues(et, ed, np.full(et.size, pi))
+def test_constant_pi_equals_tda_qvalues(s: Stratum, pi: float) -> None:
+    et, ed, _, _ = s
+    q = stratum_qvalues(et, ed, np.full(ed.size, pi), pi)
     np.testing.assert_allclose(q, tda_qvalues(-et, -ed, pi=pi, plus_one=True), rtol=1e-12)
 
 
 @FAST
 @given(stratum(), st.sampled_from([2.0**-7, 2.0**10]))
-def test_e_is_a_ranking_score_only(
-    s: tuple[np.ndarray, np.ndarray, np.ndarray], scale: float
-) -> None:
+def test_e_is_a_ranking_score_only(s: Stratum, scale: float) -> None:
     """Lead decision (M3-09 review): E only ranks; rescaling target and decoy E alike (exactly,
     by a power of two) leaves every q unchanged (no absolute reading of E)."""
-    et, ed, pi = s
+    et, ed, w, c = s
 
     def f(x: np.ndarray) -> np.ndarray:
         return scale * x
 
     np.testing.assert_allclose(
-        stratum_qvalues(f(et), f(ed), pi), stratum_qvalues(et, ed, pi), rtol=1e-12, atol=EPS
+        stratum_qvalues(f(et), f(ed), w, c), stratum_qvalues(et, ed, w, c), rtol=1e-12, atol=EPS
     )
 
 
@@ -185,6 +206,26 @@ def test_placement_adding_a_decoy_never_lowers_q(
         "pi_denovo": None,
     }  # fmt: skip
     after = _q([*rows, extra])
+    for p, q in before.items():
+        assert after[p] >= q - EPS
+
+
+@FAST
+@given(costs(), st.integers(0, 29), PI)
+def test_placement_raising_pi_denovo_never_lowers_q(
+    rows: list[dict[str, Any]], i: int, new_pi: float
+) -> None:
+    """ADR-0010: a peptide's pi enters only as its decoy weight and through c = max pi, so
+    raising it (a missing pi counts as 1) never lowers any q."""
+    denovo = [k for k, r in enumerate(rows) if r["source"] == "denovo"]
+    if not denovo:
+        return
+    k = denovo[i % len(denovo)]
+    old = rows[k]["pi_denovo"]
+    raised = 1.0 if old is None else max(float(old), new_pi)
+    rows2 = [dict(r) for r in rows]
+    rows2[k]["pi_denovo"] = raised
+    before, after = _q(rows), _q(rows2)
     for p, q in before.items():
         assert after[p] >= q - EPS
 

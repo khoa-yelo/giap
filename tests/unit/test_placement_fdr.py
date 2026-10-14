@@ -2,9 +2,14 @@
 §7.2.5 steps 1-6, §8.1, §9.3, Appendix B.6).
 
 Conventions pinned here (docs/specs/M3-10-placement-fdr.md, lead decisions in M3-index.md):
-- ``stratum_qvalues``: T(e) = #targets with E <= e, D(e) = #decoys with E <= e (a decoy tied with a
-  target counts at that threshold), FDR(e) = mean(pi over targets with E <= e) * (D(e) + 1) / T(e)
-  evaluated at every target E, q_i = min over e >= E_i, clipped to <= 1; output in input order.
+- ``stratum_qvalues(e_target, e_decoy, pi_decoy, pi_plus)`` (ADR-0010, supersedes M3-10 Q2):
+  T(e) = #targets with E <= e, W(e) = sum of the decoy weights ``pi_decoy`` over decoys with
+  E <= e (a decoy tied with a target counts at that threshold), c = ``pi_plus``,
+  FDR(e) = (W(e) + c) / T(e) evaluated at every target E, q_i = min over e >= E_i, clipped to
+  <= 1; output in input order. Constant pi: weights pi, c = pi -> pi (D(e) + 1) / T(e) (§7.2.5).
+- ``placement``: each decoy hit carries its own peptide's pi; c = max pi over the searched
+  peptides of the decoy type (all its rows except ``same_db`` exact peptides in stratum 0; 1 if
+  none; m >= 1 -> 1).
 - pi_wrong: database m = 0 -> ``pi_wrong_database`` (mean PEP over peptides with PEP, else max
   q <= ``input.q_value_max``, else 1); de novo m = 0 -> the peptide's ``pi_denovo`` (1 if missing);
   m >= 1 -> 1.
@@ -13,8 +18,9 @@ Conventions pinned here (docs/specs/M3-10-placement-fdr.md, lead decisions in M3
   stratum-0 target and decoy lists.
 - No target hit: no placement_q (absent from the per-peptide table, or NaN and not accepted).
 - ``mapping_fdr`` rows: decoy_type x n_diff x length class (labels ``7``, ``8``, ``9``, ``10-11``,
-  ``12-14``, ``15-19``, ``20-40``) plus ``all``; ``fdr_stratum`` NA when T = 0; ``section =
-  placement``.
+  ``12-14``, ``15-19``, ``20-40``) plus ``all``; ``decoys`` = D, ``fdr_stratum`` = (W + c)/T
+  (W over the class's decoy hits, c of the stratum; NA when T = 0), ``pi_wrong`` = (W + c)/(D + 1);
+  ``section = placement``.
 - Accept when q <= ``stats.alpha.placement`` (inclusive).
 - ``low_complexity`` placement flag (lead decision 11, M3-03 statistician review): set on a
   dipeptide repeat / homopolymer peptide, never on an ordinary peptide.
@@ -154,66 +160,80 @@ def unplaced(per: pd.DataFrame, peptide: str) -> bool:
 
 def test_example1_b6_150_targets_before_first_decoy() -> None:
     et = np.linspace(1e-6, 1e-3, 150)
-    q = stratum_qvalues(et, np.array([0.5]), np.ones(150))
+    q = stratum_qvalues(et, np.array([0.5]), np.ones(1), 1.0)
     np.testing.assert_allclose(q, 1 / 150, rtol=1e-12)
     assert round(float(q[0]), 5) == 0.00667
 
 
 def test_example2_b6_50_targets_no_decoys() -> None:
-    q = stratum_qvalues(np.linspace(1e-6, 1e-3, 50), np.array([]), np.ones(50))
+    q = stratum_qvalues(np.linspace(1e-6, 1e-3, 50), np.array([]), np.array([]), 1.0)
     np.testing.assert_allclose(q, 0.02, rtol=1e-12)
 
 
 def test_example3_stratum1_pi_one() -> None:
-    q = stratum_qvalues(np.array([0.001, 0.002, 0.003]), np.array([0.0025]), np.ones(3))
+    q = stratum_qvalues(np.array([0.001, 0.002, 0.003]), np.array([0.0025]), np.ones(1), 1.0)
     np.testing.assert_allclose(q, [0.5, 0.5, 2 / 3], rtol=1e-12)
 
 
 def test_example3_input_order_preserved() -> None:
-    q = stratum_qvalues(np.array([0.003, 0.001, 0.002]), np.array([0.0025]), np.ones(3))
+    q = stratum_qvalues(np.array([0.003, 0.001, 0.002]), np.array([0.0025]), np.ones(1), 1.0)
     np.testing.assert_allclose(q, [2 / 3, 0.5, 0.5], rtol=1e-12)
 
 
 def test_example4_stratum0_pi_002() -> None:
-    q = stratum_qvalues(np.array([0.001, 0.002, 0.003]), np.array([0.0025]), np.full(3, 0.02))
+    et, ed = np.array([0.001, 0.002, 0.003]), np.array([0.0025])
+    q = stratum_qvalues(et, ed, np.full(1, 0.02), 0.02)
     np.testing.assert_allclose(q, [0.01, 0.01, 0.02 * 2 / 3], rtol=1e-12)
 
 
 def test_tie_between_target_and_decoy_counts_the_decoy() -> None:
     # at e = 2: T = 4, D = 1 (tied decoy counted) -> 2/4; without the tie it would be 1/4
-    q = stratum_qvalues(np.array([1.0, 2.0, 2.0, 2.0]), np.array([2.0]), np.ones(4))
+    q = stratum_qvalues(np.array([1.0, 2.0, 2.0, 2.0]), np.array([2.0]), np.ones(1), 1.0)
     np.testing.assert_allclose(q, [0.5, 0.5, 0.5, 0.5], rtol=1e-12)
 
 
 def test_tied_targets_share_one_threshold() -> None:
-    q = stratum_qvalues(np.array([1.0, 1.0, 3.0]), np.array([2.0]), np.ones(3))
+    q = stratum_qvalues(np.array([1.0, 1.0, 3.0]), np.array([2.0]), np.ones(1), 1.0)
     # FDR(1) = 1/2, FDR(3) = 2/3
     np.testing.assert_allclose(q, [0.5, 0.5, 2 / 3], rtol=1e-12)
 
 
 def test_fdr_above_one_is_clipped() -> None:
-    q = stratum_qvalues(np.array([1.0]), np.array([0.1, 0.2, 0.3]), np.ones(1))
+    q = stratum_qvalues(np.array([1.0]), np.array([0.1, 0.2, 0.3]), np.ones(3), 1.0)
     np.testing.assert_allclose(q, [1.0])
 
 
 def test_empty_target_list() -> None:
-    q = stratum_qvalues(np.array([]), np.array([0.1, 0.2]), np.array([]))
+    q = stratum_qvalues(np.array([]), np.array([0.1, 0.2]), np.ones(2), 1.0)
     assert q.shape == (0,)
 
 
 def test_per_target_pi_uses_mean_over_targets_up_to_e() -> None:
-    """Lead decision M3-10 Q2: FDR(e) = mean pi of targets with E <= e times (D + 1)/T."""
-    q = stratum_qvalues(np.array([1.0, 2.0, 3.0]), np.array([2.5]), np.array([0.5, 1.0, 0.3]))
-    # FDR(1) = 0.5 * 1/1, FDR(2) = 0.75 * 1/2, FDR(3) = 0.6 * 2/3
-    np.testing.assert_allclose(q, [0.375, 0.375, 0.4], rtol=1e-12)
+    """ADR-0010 (supersedes M3-10 Q2): decoys carry their own pi, FDR(e) = (W(e) + c) / T(e)."""
+    q = stratum_qvalues(np.array([1.0, 2.0, 3.0]), np.array([2.5]), np.array([0.5]), 0.6)
+    # FDR(1) = 0.6/1, FDR(2) = 0.6/2, FDR(3) = (0.5 + 0.6)/3
+    np.testing.assert_allclose(q, [0.3, 0.3, 1.1 / 3], rtol=1e-12)
+    assert np.round(q, 6).tolist() == [0.3, 0.3, 0.366667]
+
+
+def test_decoy_weights_sum_up_to_e_and_c_is_added_once() -> None:
+    # decoys E = 0.5 (w 0.2), 1.5 (w 0.4), 9 (w 1.0); c = 1
+    # FDR(1) = (0.2 + 1)/1, FDR(2) = (0.6 + 1)/2 = 0.8, FDR(3) = 1.6/3
+    q = stratum_qvalues(
+        np.array([1.0, 2.0, 3.0]), np.array([9.0, 0.5, 1.5]), np.array([1.0, 0.2, 0.4]), 1.0
+    )
+    np.testing.assert_allclose(q, [1.6 / 3, 1.6 / 3, 1.6 / 3], rtol=1e-12)
+    q = stratum_qvalues(np.array([1.0, 2.0]), np.array([0.5, 1.5]), np.array([0.2, 0.4]), 0.5)
+    # FDR(1) = 0.7, FDR(2) = 1.1/2 = 0.55
+    np.testing.assert_allclose(q, [0.55, 0.55], rtol=1e-12)
 
 
 def test_q_depends_on_e_only_through_the_ranking() -> None:
     """E is a ranking score only (M3-09 lead decision): monotone transforms of E change no q."""
-    et, ed, pi = np.array([0.001, 0.002, 0.003]), np.array([0.0025]), np.full(3, 0.02)
-    q = stratum_qvalues(et, ed, pi)
-    np.testing.assert_allclose(stratum_qvalues(np.log(et), np.log(ed), pi), q, rtol=1e-12)
-    np.testing.assert_allclose(stratum_qvalues(1e6 * et, 1e6 * ed, pi), q, rtol=1e-12)
+    et, ed, w = np.array([0.001, 0.002, 0.003]), np.array([0.0025]), np.full(1, 0.02)
+    q = stratum_qvalues(et, ed, w, 0.02)
+    np.testing.assert_allclose(stratum_qvalues(np.log(et), np.log(ed), w, 0.02), q, rtol=1e-12)
+    np.testing.assert_allclose(stratum_qvalues(1e6 * et, 1e6 * ed, w, 0.02), q, rtol=1e-12)
 
 
 @pytest.mark.parametrize("pi", [1.0, 0.3, 0.02])
@@ -221,7 +241,7 @@ def test_constant_pi_equals_m4_tda_qvalues(pi: float) -> None:
     rng = np.random.default_rng(7)
     et = np.round(rng.exponential(1.0, 300), 2)  # rounding makes ties
     ed = np.round(rng.exponential(2.0, 200), 2)
-    q = stratum_qvalues(et, ed, np.full(et.size, pi))
+    q = stratum_qvalues(et, ed, np.full(ed.size, pi), pi)
     np.testing.assert_allclose(q, tda_qvalues(-et, -ed, pi=pi, plus_one=True), rtol=1e-12)
 
 
@@ -545,16 +565,75 @@ def test_lists_are_per_decoy_type() -> None:
 
 
 def test_denovo_stratum0_uses_per_peptide_pi() -> None:
+    """ADR-0010: the decoy hit weighs its own pi (0.5), c = max pi of the searched de novo
+    peptides (0.6); the targets' pi enters only through c."""
     t = [
         {"peptide": pep_of(i, 7), "source": "denovo", "m_target": 0, "e_target": e, "pi_denovo": p}
-        for i, (e, p) in enumerate([(1.0, 0.5), (2.0, 1.0), (3.0, 0.3)])
+        for i, (e, p) in enumerate([(1.0, 0.5), (2.0, 0.6), (3.0, 0.3)])
     ]
     dec = decoys([2.5], 0, length=7, source="denovo", pi_denovo=0.5)
     per, fdr = run(t + dec)
-    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in t]), [0.375, 0.375, 0.4])
-    r = fdr_row(fdr, 0, "7", "shuffle")
-    assert float(r["pi_wrong"]) == pytest.approx(0.6, rel=1e-12)
-    assert float(r["fdr_stratum"]) == pytest.approx(0.6 * 2 / 3, rel=1e-12)
+    # FDR = 0.6/1, 0.6/2, (0.5 + 0.6)/3
+    np.testing.assert_allclose(
+        q_of(per, [r["peptide"] for r in t]), [0.3, 0.3, 1.1 / 3], rtol=1e-12
+    )
+    for cls in ("7", "all"):
+        r = fdr_row(fdr, 0, cls, "shuffle")
+        assert int(r["targets"]) == 3 and int(r["decoys"]) == 1
+        assert float(r["fdr_stratum"]) == pytest.approx(1.1 / 3, rel=1e-12)
+        assert float(r["pi_wrong"]) == pytest.approx(0.55, rel=1e-12)
+
+
+def test_denovo_c_is_max_pi_over_all_searched_peptides() -> None:
+    """c counts every searched de novo peptide, also one with no stratum-0 hit (here a target
+    hit at m = 1 with pi 0.9); stratum 1 has pi = 1 and c = 1 regardless."""
+    t = [
+        {"peptide": pep_of(i, 7), "source": "denovo", "m_target": 0, "e_target": e, "pi_denovo": p}
+        for i, (e, p) in enumerate([(1.0, 0.1), (2.0, 0.2), (3.0, 0.1), (4.0, 0.1)])
+    ]
+    other = {
+        "peptide": pep_of(50, 7), "source": "denovo", "m_target": 1, "e_target": 1.0,
+        "pi_denovo": 0.9,
+    }  # fmt: skip
+    per, fdr = run([*t, other])
+    # no stratum-0 decoys: FDR(e_k) = 0.9 / k -> q = 0.9/4
+    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in t]), 0.225, rtol=1e-12)
+    r0 = fdr_row(fdr, 0, "all", "shuffle")
+    assert float(r0["pi_wrong"]) == pytest.approx(0.9, rel=1e-12)
+    assert float(r0["fdr_stratum"]) == pytest.approx(0.225, rel=1e-12)
+    assert float(by_peptide(per)[other["peptide"]]["placement_q"]) == pytest.approx(1.0)
+
+
+def test_denovo_c_is_one_when_a_searched_peptide_lacks_pi() -> None:
+    t = targets([1.0, 2.0, 3.0, 4.0], 0, length=7, source="denovo", pi_denovo=0.1)
+    no_pi = {"peptide": pep_of(60, 7), "source": "denovo", "m_decoy": 1, "e_decoy": 1.0}
+    per, fdr = run([*t, no_pi])
+    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in t]), 0.25, rtol=1e-12)
+    assert float(fdr_row(fdr, 0, "all", "shuffle")["pi_wrong"]) == pytest.approx(1.0)
+
+
+def test_mapping_fdr_class_rows_use_class_w_and_stratum_c() -> None:
+    """Rows: fdr_stratum = (W + c)/T with W over the class's decoy hits and the stratum's c;
+    pi_wrong = (W + c)/(D + 1)."""
+    t7 = targets([1.0, 3.0], 0, length=7, source="denovo", pi_denovo=0.2)
+    t8 = targets([2.0], 0, start=10, length=8, source="denovo", pi_denovo=0.8)
+    d7 = decoys([1.5], 0, length=7, source="denovo", pi_denovo=0.4)
+    per, fdr = run(t7 + t8 + d7)
+    c = 0.8
+    r7, r8, ra = (fdr_row(fdr, 0, k, "shuffle") for k in ("7", "8", "all"))
+    assert float(r7["fdr_stratum"]) == pytest.approx((0.4 + c) / 2, rel=1e-12)
+    assert float(r7["pi_wrong"]) == pytest.approx((0.4 + c) / 2, rel=1e-12)
+    assert float(r8["fdr_stratum"]) == pytest.approx(c / 1, rel=1e-12)
+    assert float(r8["pi_wrong"]) == pytest.approx(c, rel=1e-12)
+    assert float(ra["fdr_stratum"]) == pytest.approx((0.4 + c) / 3, rel=1e-12)
+    assert float(ra["pi_wrong"]) == pytest.approx((0.4 + c) / 2, rel=1e-12)
+    for r in (r7, r8, ra):
+        assert float(r["fdr_stratum"]) == pytest.approx(
+            float(r["pi_wrong"]) * (int(r["decoys"]) + 1) / int(r["targets"]), rel=1e-12
+        )
+    # one list per stratum: FDR = 0.8/1, (0.4 + 0.8)/2, 1.2/3 -> q = 0.4, 0.4, 0.4
+    names = [r["peptide"] for r in t7 + t8]
+    np.testing.assert_allclose(q_of(per, names), 0.4, rtol=1e-12)
 
 
 def test_denovo_missing_pi_is_one_and_m1_ignores_pi() -> None:

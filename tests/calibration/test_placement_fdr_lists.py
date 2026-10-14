@@ -21,8 +21,10 @@ pi-estimation route of §7.2.5 step 4 has its own calibration scenario:
 - ``calibrated_pep``: per-peptide PEP ~ Beta, wrong ~ Bernoulli(PEP) -> pi = mean PEP;
 - ``max_q``: no PEP, q-values up to ``input.q_value_max`` that bound the wrong share;
 - ``denovo_bins``: de novo peptides in 10 score bins with different wrong rates, ``pi_denovo`` = the
-  true per-bin wrong rate (the most favourable case for lead decision M3-10 Q2, mean pi over
-  targets with E <= e).
+  true per-bin wrong rate; per-peptide pi enters as decoy weights, FDR(e) = (W(e) + c)/T(e) with
+  c = max pi (ADR-0010; docs/methods/placement-fdr.md "pi_wrong in the stratum FDR", where this
+  scenario gave mean FDP 0.0095 / 0.050 / 0.100 at R = 300).
+With constant pi (the first three scenarios) ADR-0010 reduces to the §7.2.5 formula.
 """
 
 from __future__ import annotations
