@@ -84,3 +84,13 @@ Rows are sorted by peptide, search, contig order, start, end, strand.
    **Proposed default:** yes; every peptide is first searched exactly (target and decoy). The
    tolerant route runs only for target leftovers, but the **decoy** tolerant search runs for every
    peptide ≥ 10 aa (see M3-10 Q1).
+
+## Lead decisions after code review (PR #27)
+1. `match_exact` validates up front: every value of `decoy_of` must be a key of `decoys`, and every searched
+   peptide must be in `decoy_of`; otherwise `ValueError` naming the peptide or decoy type (a silent missing
+   decoy search would make placement FDR optimistic).
+2. Tests: two I/L-twin peptides sharing one automaton key with different decoy types; the replicon-length
+   guard on a ~30-nt circular replicon; a `U` query is never added to the automaton.
+3. `benchmarks/__init__.py` makes benchmark modules a package, so `pytest tests benchmarks` collects
+   `benchmarks/test_exact.py` next to `tests/unit/test_exact.py` without an import-file mismatch.
+4. `search`/`decoy_type` stay object columns for now; categorical dtypes are decided with M3-07/08 output.
