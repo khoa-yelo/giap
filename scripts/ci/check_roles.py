@@ -14,7 +14,7 @@ import sys
 from collections import defaultdict
 
 CODE = ("src/", "workflow/")
-TESTS = ("tests/",)
+TESTS = ("tests/", "workflow/tests/")  # nf-test specs must live under workflow/tests/
 EXEMPT_TESTS = (
     "tests/data/recorded/",  # implementers may add recorded fixtures
     "tests/sim/",  # the simulator (giapsim) is tooling the implementer owns, not tests
@@ -42,8 +42,9 @@ def main() -> int:
             fields = line.split("\t")
             kind, paths = fields[0], fields[1:]
             for path in paths:  # a rename lists the old and the new path
-                is_code = path.startswith(CODE)
-                is_test = path.startswith(TESTS) and not path.startswith(EXEMPT_TESTS)
+                is_test_path = path.startswith(TESTS)
+                is_code = path.startswith(CODE) and not is_test_path
+                is_test = is_test_path and not path.startswith(EXEMPT_TESTS)
                 if is_code:
                     touched[role].add("code")
                 if is_test:
