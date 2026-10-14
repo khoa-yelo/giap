@@ -80,3 +80,11 @@ calibration comes from the decoys (M3-10), which the methods note states.
 1. Should E count the extra explanations available to the tolerant matcher (swaps, blocks), not
    just substitutions? **Proposed default:** no, as the spec defines it (substitutions only); it is
    a ranking score and the decoy search, which uses all operations, calibrates the FDR.
+
+## Lead decisions after statistician review (PR #28, approved)
+1. On a circular replicon N counts the minus-strand codons that cross the origin: the searchable six-frame
+   positions of a circular replicon of length n with no stops/X total exactly 2·n (not 2·n − 2). Keep a
+   minus-strand codon when `first_nt - 2 < length`. Tests pin N exactly for a stop-free circular replicon.
+2. Forwarded to M3-10: E is a ranking score only (decoys calibrate FDR); never report E as an absolute
+   expectation without a stop-free-window correction; simple-sequence repeats support the
+   `low_complexity` flag (see docs/methods/placement-fdr.md, chance-hit section).

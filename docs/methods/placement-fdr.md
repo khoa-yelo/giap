@@ -6,7 +6,7 @@ B.2/B.6. Issues: M3-03 (decoys, this section), M3-09 (chance hits), M3-10 (strat
 M3-21 (genome-level calibration). Engine for the q-values: `docs/methods/target-decoy.md`.
 
 Sections: Genome decoys (M3-03, **signed off below**); Chance hits and the ranking score (M3-09,
-*to be completed*); Strata and ranking (M3-10, *to be completed*); π̂_wrong (M3-10, *to be
+**signed off below**); Strata and ranking (M3-10, *to be completed*); π̂_wrong (M3-10, *to be
 completed*); Same-strain input (M3-10, *to be completed*); Calibration incl. attack 5 (M3-10/M3-21,
 *to be completed*).
 
@@ -176,7 +176,7 @@ Exploratory runs, 1-Mb synthetic genomes, 4 × 10⁵ sampled 7-mers each:
   decoy E computed by the same function from the same genome frequencies, since decoys have the
   target's composition). FDR_m(e) = π̂_wrong (D_m(e) + 1)/T_m(e), q by `tda_qvalues(−E_T, −E_D, π̂)`;
   ties counted against the target. Lists are per `decoy_type`.
-- *To be completed with M3-09/M3-10:* the E-ranking justification; π̂_wrong (mean PEP, max q, de
+- *To be completed with M3-10:* π̂_wrong (mean PEP, max q, de
   novo lower bound; per-bin π̂ as the mean over targets with E ≤ e, lead decision M3-10 Q2);
   `same_db`; the B.6 example; the list-level calibration (exchangeable target/decoy E, FDR ≤ q +
   2 SE) and the genome-level calibration and attack 5 (M3-21).
@@ -187,3 +187,171 @@ Statistician (M3-03 review, 2026-10-14): **approved** for `reverse_frame`, `shuf
 `build_decoys`, `mirror_aa` and the `sixframe_index` work file as implemented on `m3/decoys`.
 Forwarded: the Markov-structure caveat to M3-21 (real-protein calibration), the low-complexity
 recommendation to M3-10, and the repeat over-count of the shuffle (power, not validity).
+
+## Chance hits and the ranking score (M3-09)
+
+### The model
+
+A wrong peptide of length L is modelled as L residues drawn independently from the genome's
+six-frame composition f, and every searchable target window as L residues drawn independently from
+the same f, independently of the peptide. Then one position matches with probability
+s = Σ_a f_a², a window is within ≤ m substitutions with probability
+Σ_{j≤m} C(L, j)(1 − s)^j s^(L−j) (j mismatching positions out of L, each mismatching with
+probability 1 − s), and the expected number of chance windows is
+
+E(L, m) = N Σ_{j≤m} C(L, j)(1 − s)^j s^(L−j)  (§7.2.5, B.2; `expected_hits_uniform`).
+
+The per-peptide ranking score E_i (`expected_hits`) conditions on the peptide's residues: position i
+mismatches a random target residue with probability 1 − f_{a_i}, the mismatch count is
+Poisson-binomial, and E_i = N · P(≤ m mismatches). Averaged over i.i.d.-f peptides, E_i equals
+E(L, m) exactly (positions are independent and E_f[1 − f_a] = 1 − s); the calibration test
+confirms it by simulation at L = 8.
+
+**Composition f** (`residue_freqs`): counts of the 19 residue codes over the target frames, I and L
+merged (the frames are I→L folded before anything else, so neither target nor decoy can match I/L
+differently); `*` and X are excluded from f. Query letters outside the 19 (U, O, B, Z, J, X) get
+f = 0: they never match, so they always count as a mismatch.
+
+**N** (`n_positions`) is the number of six-frame codon positions whose first nucleotide lies in the
+replicon: for a circular replicon one per nucleotide and strand (≈ 2 × genome length), the 120-nt
+circular extension excluded, but every position near the origin still starts a full window that
+reads through the extension (origin-crossing windows are searchable and counted once); for a linear
+contig the last ≤ L − 1 positions of each frame have no full window but are counted (negligible).
+As the spec defines it, N counts **all** positions, including `*` and X and windows that contain
+them. Those windows can never match, so the number of searchable windows is W_L < N (next section).
+
+**Substitutions only.** E counts substitution neighbours. The tolerant matcher also accepts
+adjacent swaps and mass-equivalent blocks at cost 1, so the true cost-≤ m neighbourhood is larger
+than E assumes (lead default, M3-09 Q1). This does not matter for validity: E is a **ranking
+score**, not an FDR estimate. Target and decoy E are computed by the same function from the
+peptide sequence and the same genome f (decoys keep the target composition exactly, see Genome
+decoys), so E is exchangeable between a wrong peptide's target and decoy hits; the decoy count D
+(which uses all operations) calibrates the FDR. An error in E costs power (a worse ordering), never
+validity. E also counts hit *positions* with multiplicity, whereas a peptide counts once in the
+strata: P(≥ 1 hit) ≤ E, ≈ E when E ≪ 1, which is the range that is accepted.
+
+### Reproduction of B.2
+
+`expected_hits_uniform(L, m, 0.069, 1e7)` against exact rational arithmetic: relative error
+≤ 1.3 × 10⁻¹⁵ in all 21 cells; every cell rounds to the B.2 table (e.g. (7, 0) 0.0744635,
+(8, 1) 0.559742, (9, 2) 2.36692, (10, 1) 0.00332505, (12, 2) 0.00141835, (14, 1) 1.05295 × 10⁻⁷;
+L = 6: 1.08, 88.4, 3.04 × 10³). Monte Carlo (`tests/calibration/test_chance_hits.py`, random
+19-letter target of 10⁶ residues with Σf² = 0.069, scaled to N = 10⁷, ≤ 1 substitution):
+
+| L | simulated (± SE) | E(L, 1) | ratio | B.2 ≤ 1 |
+|---|---|---|---|---|
+| 8 | 0.561 ± 0.006 | 0.5597 | 1.002 | 0.56 |
+| 9 | 0.0440 ± 0.0007 | 0.0434 | 1.015 | 0.043 |
+| 10 | 0.00339 ± 0.00009 | 0.00333 | 1.020 | 0.0033 |
+
+All within the 20 % gate with SE ≤ 2.7 %. The counting kernel is checked against brute force. This
+reproduces the *formula*; it says nothing about real six-frame translations, which the attack below
+measures.
+
+### When the independence assumption fails
+
+Attack `tests/calibration/attacks/test_attack_chance_hits.py` (statistician). For a peptide drawn
+i.i.d. from the genome's own f, the exact expected number of hit windows is
+Σ_{searchable windows t} P(≤ m mismatches | t), mismatch probability 1 − f(t_j) at position j
+(closed form for m ≤ 2; no peptide sampling, cross-checked against sampled exact hits). It is
+compared with E(L, m) computed by `residue_freqs` + `expected_hits_uniform` on genomes built through
+`build_sixframe` (circular, 100 kb, R = 8 per family, seeds from `calibration_base`). Ratios:
+stop = W_L / N; cond = observed / (W_L × tail), the error given the stop correction;
+total = observed / E = stop × cond. Mean over replicates, m = 0 / 1 / 2:
+
+| Genome | L | stop | cond (m = 0 / 1 / 2) | total (m = 0 / 1 / 2) |
+|---|---|---|---|---|
+| i.i.d. nucleotides, GC 50 % | 8 | 0.681 | 0.999 / 0.999 / 0.999 | 0.681 / 0.681 / 0.681 |
+| | 12 | 0.562 | 0.988 / 0.991 / 0.994 | 0.555 / 0.557 / 0.559 |
+| i.i.d. nucleotides, GC 75 % (s ≈ 0.10) | 8 | 0.895 | 0.993 / 0.995 / 0.997 | 0.889 / 0.891 / 0.893 |
+| | 12 | 0.847 | 0.989 / 0.992 / 0.994 | 0.838 / 0.840 / 0.842 |
+| giapsim (genes, codon structure, AT-rich intergenic) | 7 | 0.748 | 1.019 / 1.012 / 1.006 | 0.762 / 0.757 / 0.752 |
+| | 8 | 0.719 | 1.027 / 1.018 / 1.011 | 0.739 / 0.732 / 0.727 |
+| | 10 | 0.666 | 1.047 / 1.036 / 1.025 | 0.697 / 0.690 / 0.683 |
+| | 12 | 0.618 | 1.068 / 1.055 / 1.043 | 0.660 / 0.652 / 0.644 |
+| giapsim + 24 simple-sequence repeats of 360 nt (≈ 9 %) | 7 | 0.766 | 1.82 / 1.42 / 1.21 | 1.39 / 1.09 / 0.93 |
+| | 8 | 0.740 | 2.54 / 1.80 / 1.41 | 1.88 / 1.33 / 1.04 |
+| | 10 | 0.691 | 6.7 / 3.9 / 2.5 | 4.6 / 2.7 / 1.7 |
+| | 12 | 0.647 | 22.6 / 11.7 / 6.4 | 14.6 / 7.6 / 4.1 |
+
+(Replicate SE of cond on the i.i.d. genomes ≈ 0.3–0.6 % at L = 8–12; the 1 % deviations at L = 12
+are within 2 SE, confirmed with R = 30 at GC 75 %: 0.998 ± 0.002 at L = 8, 0.999 ± 0.005 at L = 12.)
+
+Three effects, with their directions:
+
+1. **Stops and X** (factor W_L / N ≈ (1 − p_stop)^L, here 0.56–0.91; p_stop ≈ 3/64 for GC 50 %): N counts positions that
+   cannot start a match. E **over**-states the absolute chance count — conservative — by a factor 1.1–1.8,
+   more for longer L and AT-rich genomes (more stop codons in non-coding frames). With i.i.d.
+   codons this is the only error (cond = 1 at any composition, including a strongly skewed GC 75 %
+   genome: the model handles composition skew through f).
+2. **Heterogeneous composition and dipeptide structure.** Coding, antisense and intergenic frames
+   have different residue laws g_k; for an i.i.d.-f peptide E[Π f(t_j)] = Σ_k w_k (Σ_a f_a g_k(a))^L
+   ≥ s^L by Jensen, and codon/dipeptide structure inside genes adds to it. E **under**-states the
+   conditional count by 2–7 % (growing with L, shrinking with m). On realistic genomes the stop
+   factor dominates, so E stays conservative overall (total 0.64–0.76).
+3. **Low complexity.** Simple-sequence repeats put long runs of a few abundant residues into the
+   target (poly-A, poly-P, (AR)n, …); windows there have Π f(t_j) ≫ s^L. E **under**-states the
+   absolute count, strongly and increasingly with L (×1.9 at L = 8, ×15 at L = 12, exact matches).
+   By construction the excess comes from peptides that are themselves rich in the repeat
+   residues (an exact or 1-substitution match to a repeat window needs a near-repeat peptide):
+   those hit far more often than their E_i says, while typical peptides are barely affected. This is the same structure that made the shuffled decoy
+   anti-conservative for periodic wrong peptides (Genome decoys › Limitations, D/T 0.88) and that
+   the reverse decoy preserves exactly.
+
+**Consequence.** Since E is only a ranking score, none of these errors affects FDR validity as long
+as the decoy is a valid null (reverse: exact for any i.i.d. law on any genome; shuffle: see Genome
+decoys). They affect (a) power, through the ordering: the stop factor varies with L, so pooling
+lengths within a stratum (G3) ranks long peptides slightly too pessimistically relative to short
+ones (≈ 3–5 % per residue against a factor ≈ 1/s ≈ 14 per residue in E itself: immaterial);
+low-complexity peptides are ranked too optimistically, which is the case for the `low_complexity`
+placement flag recommended to M3-10; (b) any *absolute* reading of E (a reported "expected chance
+hits" column, or the §7.2.5 table read as a property of a real genome): E over-states real
+genomes by 1.3–1.8× and under-states low-complexity peptides by up to an order of magnitude. If E is
+ever reported as an absolute expectation, use W_L instead of N and flag low-complexity peptides.
+
+### Numerical accuracy of the Poisson-binomial
+
+`giap.stats.poisson_binomial` (shared with M4-02) computes the pmf by the standard DP
+pmf_{i+1}[j] = pmf_i[j](1 − p_i) + pmf_i[j − 1] p_i, O(n²) time, O(n) memory. Every step is a
+convex combination of non-negative numbers, so there is no cancellation: each entry has relative
+error ≤ ≈ 2n·u (u = 1.1 × 10⁻¹⁶) whatever its size, and tiny tails stay exact to relative precision
+rather than to absolute 10⁻¹⁶. The cdf and sf are summed directly from the pmf (never 1 − the
+other), as §8.3 requires. Checks (review, 2026-10-14):
+
+- brute-force enumeration of all 2ⁿ outcomes, n = 0–12, 260 random p vectors including
+  p^20-skewed ones: max relative pmf error 2.5 × 10⁻¹⁵; cdf and sf for every k ∈ [−1, n + 1] within
+  10⁻¹⁴ absolute;
+- exact rational arithmetic, n = 60, p ∈ [0, 0.1]: max relative error 6.0 × 10⁻¹⁶ over the whole
+  pmf, including the extreme tail P(X = 60) = 4.75 × 10⁻⁸³;
+- n = 5,000 (M4-02 scale): Σ pmf − 1 = 4 × 10⁻¹⁶, 36 ms;
+- E at L = 40, m = 0 stays positive (7 × 10⁻⁴⁵ for a uniform-f poly-A query at N = 10⁷).
+
+Limits (outside the peptide range, documented only): entries below ≈ 10⁻³⁰⁸ underflow to 0 (n ≳ 230
+at p = 0.05 for P(X = n)); `expected_hits_uniform` uses exact integer binomial coefficients and
+raises `OverflowError` for L ≳ 1,000 with m ≈ L/2. The vectorised in-place update reads its
+right-hand side before assigning, so there is no aliasing.
+
+### Review findings (M3-09, `src/giap/mapping/chance.py`, `src/giap/stats/poisson_binomial.py`)
+
+- B.2: all 21 cells exact to 1.3 × 10⁻¹⁵; examples 1–8 of the issue pass; Poisson-binomial correct
+  against brute force and exact arithmetic (above). Edge cases: m ∉ [0, L] and p ∉ [0, 1] or NaN
+  raise; empty p gives pmf [1]; k < 0 gives cdf 0 and sf 1; k > n gives cdf 1 and sf 0.
+- **Origin off-by-two (minor, requested fix).** `_core_residues` keeps a minus-strand codon when its
+  first (5′-on-minus, highest-coordinate) nucleotide is < replicon length. The two minus-strand
+  codons whose 5′ nucleotide is replicon position 0 or 1 lie wholly in the extension in the frame
+  coordinates and are dropped, although they are unique origin-crossing codons, so a circular
+  replicon gets N = 2·length − 2 instead of 2·length (checked at length 9, 10, 11, 300 and 100 kb).
+  Fix: keep a minus-strand codon when its lowest coordinate, `first_nt − 2`, is < length. Effect on
+  E and f: relative 10⁻⁵, none on rankings or q-values (target and decoy share N). The attack
+  accepts either value until fixed.
+- N includes `*`/X positions as the spec defines it; documented above with its direction
+  (conservative ×0.56–0.91), not a defect.
+
+### Sign-off (Chance hits)
+
+Statistician (M3-09 review, 2026-10-14): **approved** for `expected_hits_uniform`,
+`expected_hits`, `residue_freqs` and `giap.stats.poisson_binomial` as implemented on
+`m3/chance-hits`, with the origin off-by-two to be fixed (non-blocking: no effect on any statistical
+output). Forwarded to M3-10: E is a ranking score only (never report it as an absolute expectation
+without the W_L correction); low-complexity peptides are ranked too optimistically by E, which
+reinforces the `low_complexity` placement flag.
