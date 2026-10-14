@@ -276,10 +276,12 @@ def placement(costs: pd.DataFrame, cfg: GiapConfig) -> tuple[pd.DataFrame, pd.Da
     e_t = df["e_target"].to_numpy()
     e_d = df["e_decoy"].to_numpy()
     src = df["source"].to_numpy()
-    same_exact = (df["search_db"].to_numpy() == "same") & (m_t == 0)
     cls = _class_index(df["length"].to_numpy(), classes)
     is_db = src == "database"
-    pi_db = pi_wrong_database(df[is_db], float(cfg.input.q_value_max))
+    # Same-strain shortcut: database rows only; de novo rows never (M3-10 lead decision 1).
+    same_exact = is_db & (df["search_db"].to_numpy() == "same") & (m_t == 0)
+    # π̂ over the database rows that stay in the stratum-0 lists (M3-10 lead decision 2).
+    pi_db = pi_wrong_database(df[is_db & ~same_exact], float(cfg.input.q_value_max))
     pi_dn = df["pi_denovo"].to_numpy()
     pi_dn = np.where(np.isnan(pi_dn), 1.0, np.clip(pi_dn, 0.0, 1.0))
     pi0 = np.where(is_db, pi_db, pi_dn)
