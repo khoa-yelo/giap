@@ -149,7 +149,8 @@ def test_alternating_ry_5mb_is_fast_and_capped() -> None:
     s = summarize_genome([rec("a", "RY" * (n // 2))], config.preflight.n_run_min_bp)
     out = {c.rule_id: c for c in genome_checks(s, config)}
     elapsed = time.perf_counter() - t0
-    assert elapsed < 2.0, f"took {elapsed:.2f} s"
+    # loose 10x guard; the 2 s budget is enforced in benchmarks/test_preflight_genome.py
+    assert elapsed < 20.0, f"took {elapsed:.2f} s"
     assert len(s.ambiguous) <= LIST_CAP
     c = out["genome.gaps"]
     assert c.level == "warn"

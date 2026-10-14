@@ -751,7 +751,8 @@ def test_100kb_all_options_under_1s(tmp_path: Path) -> None:
         t0 = time.perf_counter()
         giapsim.simulate(cfg, seed=9, outdir=tmp_path / str(i))
         best = min(best, time.perf_counter() - t0)
-    assert best < 1.0, best
+    # loose 10x guard; the 1 s budget is enforced in benchmarks/test_giapsim.py
+    assert best < 10.0, best
 
 
 @pytest.mark.slow
@@ -762,7 +763,8 @@ def test_example10_5mb_all_options_under_30s(tmp_path: Path) -> None:
     cfg = giapsim.SimConfig(**opts)
     t0 = time.perf_counter()
     giapsim.simulate(cfg, seed=10, outdir=tmp_path)
-    assert time.perf_counter() - t0 < 30.0
+    # loose 10x guard; the 30 s budget is enforced in benchmarks/test_giapsim.py
+    assert time.perf_counter() - t0 < 300.0
     run = Run(tmp_path)
     assert len(run.genomes[run.data["sequences"][0]["id"]]) == 5_000_000
     assert sum(x.type == "trna" for x in run.model.features) == 86
