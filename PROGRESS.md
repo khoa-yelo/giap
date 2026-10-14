@@ -8,8 +8,8 @@ _Last updated: 2026-10-14 · session https://claude.ai/code/session_01LEyHKvwXcv
 
 ## Current milestone
 M0: Scaffold. Status: done (PR #1, merged 2026-10-14 under ADR-0004)
-M1: Inputs and preflight. Status: 11 of 12 merged; M1-12 (`giap preflight`, PR #14) in review fixes
-M2–M4: designed (docs/specs/M{2,3,4}-index.md with lead decisions); wave 2 started
+M1: Inputs and preflight. Status: done (12 issues; PRs #2–#11, #13, #14)
+M2–M4: designed (docs/specs/M{2,3,4}-index.md); wave 2 implementation in progress
 
 ## Done (with evidence)
 - [M0] `gh` authenticated as khoa-yelo (SSH protocol); repository is public (Actions minutes unlimited).
@@ -23,26 +23,27 @@ M2–M4: designed (docs/specs/M{2,3,4}-index.md with lead decisions); wave 2 sta
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
-- PR #14 `m1/preflight-cli` (M1-12): review findings pinned by tests; implementer next.
-- Wave 2 worktrees (local/worktrees/<name>, branch from main, each issue: test-author → implementer → reviewer):
-  `m2/tool-envs` (M2-01), `m2/step-registry` (M2-02), `m3/gene-model` (M3-01, shared with M2-03),
-  `m3/sixframe` (M3-02), `m4/stats-core` (M4-01, reused by M3-10).
-- Slurm: `giap-fetch-bakta-db` (job 1845787) downloading Bakta DB v6.0 light then full into local/db/bakta.
-- Lessons (keep): test-author aligns contradicted older tests before the implementer starts; subagents
-  never install packages; retarget before pushing rebased stacks; merge only on one all-green snapshot.
+Merged in wave 2: M2-01 tool envs (#21, pins in ADR-0008), M2-02 step registry (#20), M3-01 gene model
+(#18), M3-02 six-frame index (#17), M4-01 BH/TDA/picked FDR (#19), ADR-0009 (#22).
+Open (run `bash scripts/resume_status.sh` for each branch's next step):
+- #23 `m4/permutation` (M4-03): statistician BLOCKED (two-sided centring); tests pinned; implementer
+  fixing; then statistician re-check and merge.
+- #24 `m3/decoys` (M3-03): statistician reviewing; writing docs/methods/placement-fdr.md (decoy part).
+- #25 `m3/sim-features` (M3-18): review findings pinned by tests (start codons, reference aa, VCF-style
+  indels); implementer next.
+Slurm: `giap-build-envs` (job 1845936; all 12 envs created incl. Promotech TF 2.1.0, now pulling images;
+rerun with the merged script afterwards to get pip locks and markers); `giap-fetch-bakta-db` (job 1845787;
+light DB nearly done; full DB ~14 h at Zenodo's ~0.7 MB/s; resubmit if it times out — it skips present DBs).
+Follow-ups queued: skip pip freeze for pip-less envs (transtermhp, blast, miniprot) when built by name;
+`_step` failure test should chdir to tmp_path; index save/load lives in sixframe.py (revisit at M3-17);
+waitmerge.sh should read check runs of the PR head commit directly.
 
 ## Next actions (ordered)
-Parallel orchestration (Khoa, 2026-10-14: "design Mx in parallel to speed up development"):
-- Wave 1 (now): finish M1-10/11/12 (sequential: 11 builds on 10, 12 on 11). In parallel:
-  spec-writers for M2, M3, M4 (design only, docs/specs/M{2,3,4}-*), and the long-latency
-  Slurm prefetch of the Bakta light+full DB (job `giap-fetch-bakta-db`).
-- Wave 2: implement M2 and M3 side by side, each split into parallel tracks from its index
-  (one worktree per track, test-author → implementer → code-reviewer per issue); M4 issues that
-  only need the stats engine or fixtures start alongside.
-- Wave 3: M4 integration, then M5–M8 in parallel (§13), each with its own spec-writer first.
-- Concurrency limits: ≤ 6 subagents at once; inside the 8-CPU session allocation, subagents run
-  targeted tests with `-n 2` and the full suite once before committing; anything long → sbatch.
-  R14 caps apply to GIAP's Slurm jobs (≤ 128 CPUs, ≤ 20 jobs); the account already runs other work.
+1. Finish #23, #24, #25 (loops above) and merge on green.
+2. Next parallel issues (specs on main): M3-04 exact matcher (needs 02, 03), M3-05…08 tolerant matcher
+   track, M3-09 chance-hit model, M2-03 Bakta JSON parser (extends M3-01), M2-05 simulator layers (needs
+   M3-18), M2-06/07 Nextflow skeleton, M4-02 MAYU, M4-04 bootstrap, M4-07…09 simulator.
+3. Ask Khoa when M3-13 starts: tblastn HSP-chaining parameters (question 5).
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
