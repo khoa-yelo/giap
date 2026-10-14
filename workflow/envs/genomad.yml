@@ -1,0 +1,5 @@
+# geNOMAD 1.12.0 (non-commercial use only, R5). DB v1.9 (Zenodo record 14886553).
+name: giap-genomad
+channels: [conda-forge, bioconda]
+dependencies:
+  - genomad=1.12.0

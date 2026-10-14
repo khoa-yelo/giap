@@ -1,0 +1,19 @@
+# BacTermFinder (GPL-3.0), opt-in. Source cloned at commit
+# 024870447f6288ebc9d29b314e957a6dfdfeb5f6 (ADR-0008) into $CONDA_PREFIX/share/bactermfinder.
+# README: Python 3.9; versions below are the ones its requirements.txt pins for the packages
+# genome_scan.py and iLearnPlus/util/FileProcessing.py import.
+name: giap-bactermfinder
+channels: [conda-forge, bioconda]
+dependencies:
+  - python=3.9.19
+  - pip=24.2
+  - numpy=1.23.0
+  - pandas=1.5.0
+  - biopython=1.81
+  - h5py=3.7.0
+  - joblib=1.2.0
+  - tqdm=4.64.1
+  - pip:
+    - tensorflow==2.8.0
+    - keras==2.8.0
+    - protobuf==3.20.0

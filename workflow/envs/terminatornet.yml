@@ -1,0 +1,12 @@
+# TerminatorNet (MIT). Source cloned at commit 72180309545988dba63b8bd5db5d0b09bf4dba70
+# (ADR-0008) into $CONDA_PREFIX/share/terminatornet. G12: scikit-learn is pinned to the version
+# that pickled model.pkl. Found on 2026-10-14 by disassembling model.pkl at that commit with
+# `pickletools.dis` (no unpickling): the MLPClassifier state holds `_sklearn_version` = '1.1.2'.
+# numpy/scipy are versions contemporary with scikit-learn 1.1.2 (numpy.core pickle paths).
+name: giap-terminatornet
+channels: [conda-forge, bioconda]
+dependencies:
+  - python=3.10.14
+  - numpy=1.23.5
+  - scipy=1.9.3
+  - scikit-learn=1.1.2

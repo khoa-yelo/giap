@@ -1,0 +1,13 @@
+# Promoter Calculator 1.2.4 (Barrick Lab fork; PyPI `promotercalculator`, GPL-3.0-or-later).
+# The wheel declares biopython, numpy, scikit-learn and scipy without versions; pinned here.
+name: giap-promoter_calculator
+channels: [conda-forge, bioconda]
+dependencies:
+  - python=3.10.14
+  - pip=24.2
+  - biopython=1.84
+  - numpy=1.26.4
+  - scipy=1.14.1
+  - scikit-learn=1.5.2
+  - pip:
+    - promotercalculator==1.2.4
