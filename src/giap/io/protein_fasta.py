@@ -7,19 +7,14 @@ preflight checks (M1-10).
 
 from __future__ import annotations
 
-import gzip
 import re
 import string
-import zlib
 from collections import Counter
-from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from types import MappingProxyType
 from typing import Literal
 
-from giap.io._open import open_text
-from giap.io.fasta import FastaFormatError
+from giap.io._lines import FastaFormatError, read_lines
 
 STANDARD_AA: frozenset[str] = frozenset("ACDEFGHIKLMNPQRSTVWYU")
 COUNTED_AA: frozenset[str] = frozenset("XBZJ")
@@ -31,26 +26,40 @@ _ASCII_UPPER = str.maketrans(string.ascii_lowercase, string.ascii_uppercase)
 _WHITESPACE = re.compile(r"\s+")
 
 
+class LetterCounts(tuple[tuple[str, int], ...]):
+    """Hashable sorted ``(letter, count)`` pairs; ``dict(counts)`` gives the mapping view."""
+
+    __slots__ = ()
+
+    def values(self) -> tuple[int, ...]:
+        return tuple(n for _, n in self)
+
+
 @dataclass(frozen=True, slots=True)
 class ProteinRecord:
+    """One protein record; ``nonstandard``/``other`` are sorted ``(letter, count)`` pairs."""
+
     id: str
     members: tuple[str, ...]
     header: str
     sequence: str
     internal_stops: int
-    nonstandard: Mapping[str, int]
-    other: Mapping[str, int]
+    nonstandard: LetterCounts
+    other: LetterCounts
 
 
 def resolve_protein_id(token: str) -> tuple[str, tuple[str, ...]]:
-    """Split a protein group on ``;`` and resolve UniProt ``sp|ACC|NAME`` / ``tr|ACC|NAME``."""
+    """Split a protein group on ``;`` and resolve UniProt ``sp|ACC|NAME`` / ``tr|ACC|NAME``.
+
+    Empty and repeated members are dropped; the first occurrence keeps its position.
+    """
     members: list[str] = []
     for part in token.split(";"):
         part = part.strip()
         match = _UNIPROT.match(part)
         if match is not None:
             part = match.group(2).strip()
-        if part:
+        if part and part not in members:
             members.append(part)
     return ";".join(members), tuple(members)
 
@@ -65,17 +74,6 @@ def route_by_length(length_aa: int, peptide_len: tuple[int, int] = (7, 40)) -> R
     return "protein"
 
 
-def _lines(path: Path) -> Iterator[tuple[int, str]]:
-    """Yield ``(line_no, line)`` with line endings removed; decoding errors become format errors."""
-    line_no = 0
-    try:
-        with open_text(path) as fh:
-            for line_no, line in enumerate(fh, start=1):
-                yield line_no, line.rstrip("\r\n")
-    except (EOFError, gzip.BadGzipFile, zlib.error, UnicodeDecodeError) as exc:
-        raise FastaFormatError(f"cannot read {path}: {exc}", line_no + 1) from exc
-
-
 def _make_record(header: str, chunks: list[str], line_no: int) -> ProteinRecord:
     tokens = header.split(maxsplit=1)
     group_id, members = resolve_protein_id(tokens[0] if tokens else "")
@@ -86,16 +84,18 @@ def _make_record(header: str, chunks: list[str], line_no: int) -> ProteinRecord:
         sequence = sequence[:-1]
     counts = Counter(sequence)
     stops = counts.pop("*", 0)
-    nonstandard = {c: n for c, n in counts.items() if c in COUNTED_AA}
-    other = {c: n for c, n in counts.items() if c not in STANDARD_AA and c not in COUNTED_AA}
+    nonstandard = LetterCounts(sorted((c, n) for c, n in counts.items() if c in COUNTED_AA))
+    other = LetterCounts(
+        sorted((c, n) for c, n in counts.items() if c not in STANDARD_AA and c not in COUNTED_AA)
+    )
     return ProteinRecord(
         id=group_id,
         members=members,
         header=header,
         sequence=sequence,
         internal_stops=stops,
-        nonstandard=MappingProxyType(nonstandard),
-        other=MappingProxyType(other),
+        nonstandard=nonstandard,
+        other=other,
     )
 
 
@@ -105,7 +105,7 @@ def read_protein_fasta(path: Path) -> list[ProteinRecord]:
     header: str | None = None
     header_line = 0
     chunks: list[str] = []
-    for line_no, line in _lines(path):
+    for line_no, line in read_lines(path):
         if line.startswith(">"):
             if header is not None:
                 records.append(_make_record(header, chunks, header_line))
