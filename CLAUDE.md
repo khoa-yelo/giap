@@ -14,4 +14,7 @@
   push of its branch; subagents commit and push themselves. Parallel work lives in
   `local/worktrees/<topic>` (one branch each); in a worktree set
   `PYTHONPATH=$PWD/src:$PWD/tests/sim` and never install packages (shared venv).
+- Merging: `scripts/dev/waitmerge.sh PR TITLE` squash-merges only when every CI check is present and
+  passed (one snapshot); `scripts/dev/replant.sh WORKTREE FORKPOINT PR` moves a stacked branch onto main
+  (retargets the PR before pushing).
 - End every work unit: update PROGRESS.md, commit, push.
