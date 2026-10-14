@@ -108,11 +108,12 @@ HL(y, x) = −HL(x, y).
   use the very same float differences as enumeration and the result is bit-identical to it. The
   spec's threshold is 10⁶; 5 × 10⁴ was verified by the statistician (below) and is ~6× faster at the
   M4-17 size (m = 200, n = 4500: 2.0 ms vs 12.4 ms).
-- **Non-finite values** (±inf, from log2(0)) must be rejected or routed to enumeration; see review.
+- **Non-finite values** (NaN, ±inf from log2(0)) raise `ValueError` on both paths. Differences that
+  overflow float64 fall back to enumeration up to m·n = 2 × 10⁷, else raise.
 
 ## Statistician sign-off (M4-04, PR #31)
 
-Verified on branch m4/bootstrap (commit 75d7a92):
+Verified on branch m4/bootstrap (commit 75d7a92; re-verified at 5850e09). **APPROVED.**
 
 1. Bisection HL vs `np.median(np.subtract.outer)` with the threshold forced to 0: 297 cases
    (sizes 1×1 … 1000×999; normal, integer ties, decimal ties, 70 % one-value ties, Cauchy × 10⁶,
@@ -124,7 +125,12 @@ Verified on branch m4/bootstrap (commit 75d7a92):
    overflow (|values| ~ 1e308) or inf on both sides: infinite loop (mid = NaN, `lo`/`hi` never
    move). The direct path is fine. Fix: raise `ValueError` on non-finite input (like NaN), and fall
    back to enumeration (or raise) when `x.min() − y.max()` or `x.max() − y.min()` is not finite;
-   add a regression test above the threshold.
+   add a regression test above the threshold. **Resolved in 5850e09**: all four reproducers now
+   raise or match enumeration (overflow 400×400 → 0.0 = enumeration; 2.5 × 10⁷ overflowing pairs
+   → ValueError). Exactness re-run: 264 forced-bisection cases + 10 × (200×4500) all equal;
+   200×4500 takes 1.9 ms vs 12.2 ms by enumeration. Nit (not blocking): with only ±0.0 inputs the
+   result can be −0.0 where `np.median` gives 0.0 (equal as numbers; "bit-identical" holds up
+   to the sign of zero).
 3. TU blocks: never split, internal order kept, stratum counts preserved (code + property tests);
    circular blocks wrap modulo n; RNG only from the caller's `Generator`. Correct.
 4. Small-TU bias of the percentile CI: tracks c(n), documented above; callers flag < 10 TUs.
