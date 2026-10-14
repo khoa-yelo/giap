@@ -88,3 +88,12 @@ def pi_wrong_denovo(bins: Sequence[BinPrecision], bin_of_peptide: np.ndarray) ->
 2. Bootstrap: resample `c_ℓ` (reference peptides) too? **Proposed default:** no, "resamples
    within the bin" — c is held fixed; its uncertainty is small with hundreds of reference
    peptides.
+
+## Lead decisions (test-author questions)
+1. A length class with no reference peptides has no c_ℓ: its bins are not reportable and their π̂ = 1
+   (conservative, ADR-0010). The class still appears in the output with c_ℓ = NA.
+2. Accepted: M3-10's length-class labels; `c_by_class` reads `peptide`, `q_value` (≤ 0.01 counts),
+   `is_decoy`, `target_exact`; peptides with no score get a negative bin and π̂ = 1; c − r = 0.05 exactly
+   is reported; bin labels need not be consecutive; π̂ = 1 − ci_low (ADR-0010: conservative bound).
+3. The calibration file is `tests/calibration/test_denovo_precision_calibration.py` (pytest cannot
+   import two test modules with the same basename).
