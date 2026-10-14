@@ -16,7 +16,9 @@ JsonValue: TypeAlias = "str | int | float | bool | list[JsonValue] | dict[str, J
 LEVEL_ORDER: tuple[Level, ...] = ("ok", "info", "warn", "error")
 _RANK: dict[str, int] = {lv: i for i, lv in enumerate(LEVEL_ORDER)}
 
-__all__ = ["LEVEL_ORDER", "Check", "InputName", "JsonValue", "Level", "worst"]
+__all__ = ["LEVEL_ORDER", "LIST_CAP", "Check", "InputName", "JsonValue", "Level", "capped", "worst"]
+
+LIST_CAP = 1000
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,3 +41,10 @@ def worst(checks: Iterable[Check]) -> Level:
         if _RANK[c.level] > _RANK[level]:
             level = c.level
     return level
+
+
+def capped(items: list[JsonValue]) -> tuple[list[JsonValue], str]:
+    """At most ``LIST_CAP`` items, plus a message giving the total when the list was cut."""
+    if len(items) <= LIST_CAP:
+        return items, ""
+    return items[:LIST_CAP], f"{len(items)} entries in total; first {LIST_CAP} listed"

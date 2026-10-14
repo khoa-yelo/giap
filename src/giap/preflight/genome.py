@@ -17,7 +17,7 @@ from typing import Literal
 from giap.config import GiapConfig
 from giap.io.fasta import IUPAC_DNA, GenomeRecord
 from giap.model import Replicon, RepliconKind, Topology
-from giap.preflight.checks import Check, JsonValue, Level
+from giap.preflight.checks import LIST_CAP, Check, JsonValue, Level, capped
 
 __all__ = [
     "LIST_CAP",
@@ -29,7 +29,6 @@ __all__ = [
     "summarize_genome",
 ]
 
-LIST_CAP = 1000
 _AMBIGUOUS = "".join(sorted(IUPAC_DNA - set("ACGTN")))
 _AMBIGUOUS_RUN_RE = re.compile(f"([{_AMBIGUOUS}])\\1*")
 _DELETE_IUPAC = str.maketrans("", "", "".join(IUPAC_DNA))
@@ -148,12 +147,6 @@ def classify_replicons(
     return out
 
 
-def _capped(items: list[JsonValue]) -> tuple[list[JsonValue], str]:
-    if len(items) <= LIST_CAP:
-        return items, ""
-    return items[:LIST_CAP], f"{len(items)} entries in total; first {LIST_CAP} listed"
-
-
 def _median(lengths: Sequence[int]) -> int | float:
     m = statistics.median(lengths)
     return int(m) if float(m).is_integer() else float(m)
@@ -211,7 +204,7 @@ def genome_checks(s: GenomeSummary, cfg: GiapConfig, parse_error: str | None = N
         for safe, orig in zip(s.ids, s.original_ids, strict=True)
         if safe != orig
     ]
-    renamed_v, msg = _capped(renamed)
+    renamed_v, msg = capped(renamed)
     out.append(
         _check(
             "genome.ids_renamed",
@@ -294,7 +287,7 @@ def genome_checks(s: GenomeSummary, cfg: GiapConfig, parse_error: str | None = N
     table: list[JsonValue] = [
         {"id": r.id, "length": r.length, "topology": r.topology, "kind": r.kind} for r in reps
     ]
-    table_v, msg = _capped(table)
+    table_v, msg = capped(table)
     out.append(
         _check(
             "genome.topology",
@@ -309,7 +302,7 @@ def genome_checks(s: GenomeSummary, cfg: GiapConfig, parse_error: str | None = N
     small: list[JsonValue] = [
         r.id for r in reps if r.length < p.small_replicon_bp and r.kind != "chromosome"
     ]
-    small_v, msg = _capped(small)
+    small_v, msg = capped(small)
     out.append(
         _check(
             "genome.small_replicons",

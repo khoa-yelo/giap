@@ -49,12 +49,12 @@ Parallel orchestration (Khoa, 2026-10-14: "design Mx in parallel to speed up dev
 | 2026-10-14 | RegulonDB v12 download (needed at M6) | `regulondb.ccg.unam.mx` unreachable from FarmShare (probe) | nothing yet; retry at M6, then ask |
 
 ## Answered by Khoa
+- 2026-10-14: ADR-0005 item 4 (new preflight warning thresholds) rejected: decoy share and free RAM/disk are Info only.
 - 2026-10-14: ADR-0004 (M0 size exemption; hook realpath fix) and ADR-0007 (size guard counts code only) accepted; "merge the stack".
 
 ## Questions for Khoa
 | # | Question | Options | Default if no answer | Asked |
 |---|---|---|---|---|
-| 4 | ADR-0005 item 4: accept the new preflight warning thresholds (decoy share ≥ 0.5; free RAM < 8 GB; free disk < 10 GB) as new config keys? | yes / other values | M1-10/11 PRs carry `needs-khoa` until answered | 2026-10-14 |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;
