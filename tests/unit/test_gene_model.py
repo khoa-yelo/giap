@@ -317,14 +317,14 @@ def test_optional_fields(tmp_path: Path) -> None:
         db_xrefs=["UniRef:UniRef90_P0A7S3", "SO:0001217"],
     )
     del f["start_type"]
-    del f["nt"]
     (g,) = _load(tmp_path, [f]).genes
     assert g.gene == "rpsL"
     assert g.product == "30S ribosomal protein S12"
     assert g.db_xrefs == ("UniRef:UniRef90_P0A7S3", "SO:0001217")
     assert isinstance(g.db_xrefs, tuple)
-    assert g.start_codon is None
-    assert g.nt is None
+    # M2-03 review decision 3: one parser; a missing start_type falls back to nt[:3]
+    assert g.start_codon == "ATG"
+    assert g.nt == "ATG" + "GCT" * 98 + "TAA"
     assert g.hypothetical is False
 
 
