@@ -101,3 +101,15 @@ def assign_alignments(alns: Sequence[ProteinAlignment], gm: GeneModel,
    while the protein still counts as a leftover and goes to tblastn as the spec says.
 2. `Identity` in miniprot is computed over aligned columns; coverage comes from `Target`. Confirm
    no extra penalty for frameshifts. **Proposed default:** none; `fs` is a flag only.
+
+## Lead decisions (test-author questions)
+1. Protein alignments are assigned to CDS or sORF only (spec). Pseudogenes are not assigned by this route;
+   an alignment over a pseudogene stays a leftover (M3-14 decides novel loci). M3-index decision 3
+   concerns peptide placements, not protein alignments. Partial CDS can be assigned.
+2. Q1 and Q2 take the proposed defaults: a gene-NA row while the protein stays a leftover; frameshifts are
+   a flag with no identity penalty.
+3. Accepted test-author choices: builders, `ProteinAlignment` and the parser in `mapping/miniprot.py`;
+   `reciprocal_overlap`, `similarity_class`, `assign_alignments` in `mapping/protein_assign.py`; 0-based
+   half-open start/end; thresholds inclusive (≥), `near` = identity ≥ `near_identity`; largest overlap in bp,
+   ties → lower locus tag; flags `"fs;st"`; row order independent of input order; leftovers are aligned
+   protein IDs only (the caller adds unaligned proteins); a protein ID missing from `protein_len` raises.
