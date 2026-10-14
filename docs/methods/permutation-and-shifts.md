@@ -47,7 +47,9 @@ Small K is routine in GIAP: plasmids with 10–20 genes (K = n − 1) and short 
 (K = n − span). The attack nulls `tiny_circular_n10`, `tiny_circular_n20` and `tiny_linear_n12`
 (tests/calibration/attacks/test_attack_permutation.py) fail with null-only centring (rates 0.14,
 0.064 and 0.126 against bounds 0.109, 0.056, 0.109) and pass with pooled centring (0.104, 0.052,
-0.091). **Required:** `perm_p` two-sided centres on the pooled mean. M4-03 example 1 then becomes
+0.091). **Implemented (5e80944):** `perm_p` two-sided centres on the pooled mean of the finite
+values among T₀, T₁ … T_B; ±inf null values are kept in B and always count as extreme (an infinite
+T₀ is left out of the centre). M4-03 example 1 is now
 `perm_p(5.5, [1, 2, 3, 4, 5]) = 2/6` (pooled centre 3.417; |1 − 3.417| = 2.417 > |5.5 − 3.417|
 = 2.083); examples 2 and 4 and B.4 are unchanged. Centring is translation-equivariant either way,
 so the "invariant to adding a constant" property still holds.
@@ -163,17 +165,22 @@ draft seeded fast and full suites from one stream; the full sampled-AR(1) case t
 α = 0.01 bound by 0.0004 under both centrings (2.5 SE, a chance excursion given the 10⁵ check).
 The streams were split per suite once (`attack.permutation.<name>.<suite>`); no further reseeding.
 
-## Other review findings (non-blocking)
+## Missing and infinite values
 
-- `perm_p` drops ±inf as well as NaN from `null` (spec: NaN only). A +inf null value is more
-  extreme than any finite T₀, so dropping it lowers p (`perm_p(5, [1, 2, inf], "greater")` = 1/3,
-  correct 2/4). Drop NaN only, or count ±inf as exceedances.
-- `choose_shifts` returns `exhaustive=False` when n > n_max but B ≥ K and all shifts are used;
-  reporting it as exhaustive would be more accurate.
+NaN null values are dropped (B counts the rest); NaN T₀ or B = 0 gives NaN. ±inf null values are
+kept in B and count as extreme in their direction (+inf for "greater", −inf for "less", both for
+"two-sided"), so `perm_p(5, [1, 2, inf], "greater")` = 2/4. The first implementation dropped them,
+which lowered p; fixed in 5e80944 (lead decision). `choose_shifts` reports `exhaustive=True`
+whenever every valid shift is used, including n > n_max with B ≥ K.
 
 ## Sign-off
 
-BLOCK pending the pooled two-sided centre (one-line change in `perm_p` plus example 1); the three
-tiny-replicon attacks are the gate. Everything else (+1 rule, one-sided p, tie handling incl. the
-|c| scale, circular/linear shift sets, sampling without replacement, Besag–Clifford, determinism)
-is approved.
+First review (2bee83c): BLOCK on null-only centring. Re-review of 5e80944: **APPROVE**. All 24
+permutation calibration and attack tests pass (fast and full), and 144 unit/property tests pass.
+An independent level check of two-sided `perm_p` (R = 20,000 per cell, iid normal and lognormal
+B + 1 values) gives rates at α = 0.05 / 0.10 of 0.047–0.051 / 0.097–0.102 for B = 19, 0.099–0.102
+at α = 0.10 for B = 9, and 0.0089–0.0098 / 0.049–0.051 / 0.096–0.102 at α = 0.01 / 0.05 / 0.10
+for B = 99. All are within bounds. Approved: the +1 rule, one-sided and pooled two-sided p, tie
+handling including the |c| scale, ±inf handling, circular and linear shift sets, sampling without
+replacement, Besag–Clifford, and determinism. The tie-tolerance limitation above stays open and is
+non-blocking.
