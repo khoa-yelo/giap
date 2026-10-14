@@ -90,3 +90,11 @@ region's position), linear-contig restriction, exhaustive vs random shifts, Besa
    duplicated null draws; for N > 20,000 genes and B = 1,000 the difference is negligible).
 2. Float-tie tolerance `1e-12 · max(1, |x|)` in `perm_p`: acceptable? **Proposed default:** yes; it
    only ever makes p larger (conservative).
+
+## Lead decisions after the statistician's review (PR #23)
+1. Two-sided `perm_p` centres on the mean of the observed AND null values, `(sum(null) + obs)/(B+1)`;
+   centring on the null mean alone is anti-conservative for small B (B=19, α=0.05 → 0.062). Example 1
+   becomes 2/6; examples 2, 4 and Appendix B.4 are unchanged.
+2. ±inf values in the null are kept and count as extreme (never dropped); `perm_p(5, [1, 2, inf], "greater")`
+   is 2/4. NaN stays "absent".
+3. `choose_shifts` reports `exhaustive=True` whenever every possible shift is used.
