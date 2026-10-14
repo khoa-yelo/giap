@@ -18,6 +18,8 @@ from giap.preflight.checks import Check, JsonValue, Level
 __all__ = [
     "GENOME_PROMOTECH_RAM_BYTES",
     "GIB",
+    "RESOURCES_RULE",
+    "TOOLS_RULE",
     "EnvProbe",
     "Requirement",
     "environment_checks",
@@ -28,6 +30,8 @@ __all__ = [
 GIB = 1024**3
 GENOME_PROMOTECH_RAM_BYTES = 24 * GIB
 PROMOTER_MODES = ("targeted", "genome")
+TOOLS_RULE = "binaries, environments and DB versions of enabled modules found → else error (exit 2)"
+RESOURCES_RULE = "RAM ≥ 24 GiB for genome-wide Promotech → else warn; free disk and RAM recorded"
 
 Kind = Literal["binary", "env", "db", "model"]
 
@@ -140,7 +144,7 @@ def _gib(n: int) -> int | float:
 
 
 def _tools_check(reqs: Sequence[Requirement], probe: EnvProbe) -> Check:
-    rule = "binaries, environments and DB versions of enabled modules found → else error (exit 2)"
+    rule = TOOLS_RULE
     missing: list[str] = []
     wrong: dict[str, JsonValue] = {}
     found: dict[str, JsonValue] = {}
@@ -167,7 +171,7 @@ def _tools_check(reqs: Sequence[Requirement], probe: EnvProbe) -> Check:
 
 
 def _resources_check(probe: EnvProbe, need_disk_bytes: int, need_ram_bytes: int) -> Check:
-    rule = "RAM ≥ 24 GiB for genome-wide Promotech → else warn; free disk and RAM recorded"
+    rule = RESOURCES_RULE
     value: dict[str, JsonValue] = {
         "ram_gb": _gib(probe.total_ram_bytes),
         "free_disk_gb": _gib(probe.free_disk_bytes),

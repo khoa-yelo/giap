@@ -1,7 +1,7 @@
 """``giap`` command line (GIAP_SPEC.md §5.1).
 
-M0 skeleton: every subcommand resolves the configuration first (an unknown key is exit code 1),
-then reports that it is not implemented yet (exit code 5).
+Every subcommand resolves the configuration first (an unknown key is exit code 1). ``preflight``
+is implemented (M1-12); the others report that they are not implemented yet (exit code 5).
 """
 
 from __future__ import annotations
@@ -125,10 +125,30 @@ def setup(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_: 
 @click.option("--outdir", type=_out_path, help="Output directory.")
 @click.option("--strict", is_flag=True, help="Treat warnings as errors (exit code 3).")
 @shared_options
-def preflight(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_: Any) -> None:
+def preflight(
+    config_file: Path | None,
+    sets: tuple[str, ...],
+    log_level: str,
+    genome: Path,
+    proteins: Path | None,
+    peptides: Path | None,
+    abundance: Path | None,
+    annotation: Path | None,
+    outdir: Path | None,
+    strict: bool,
+    **_: Any,
+) -> None:
     """Validate inputs only (seconds)."""
-    _resolve(config_file, sets, log_level)
-    _not_implemented("preflight", "M1")
+    from giap.preflight.report import render_preflight_md
+    from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
+
+    cfg = _resolve(config_file, sets, log_level)
+    inp = PreflightInputs(genome, proteins, peptides, abundance, annotation)
+    report, norm = run_preflight(inp, cfg, None, "preflight")
+    if outdir is not None:
+        write_outputs(outdir, report, norm)
+    click.echo(render_preflight_md(report), nl=False)
+    sys.exit(exit_code(report, strict))
 
 
 # ---------------------------------------------------------------- run
