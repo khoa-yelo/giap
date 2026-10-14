@@ -2,10 +2,11 @@
 §7.0 Outputs and Tests, §7.1.2; ADR-0005 item 3).
 
 Inputs are tiny files in ``tmp_path`` (genomes from ``giapsim`` or random ACGT). ``GIAP_DB_DIR``
-points at an empty directory, so ``db_manifest.json`` is missing: under ``giap preflight`` that is
-info, never an environment error (M1-11 question 1), and the exit codes below come from the
-input rules only. §1.1 makes evidence mandatory (``inputs.evidence_present``), so the spec's
-genome-only examples 1-3 add a tiny valid ``--proteins`` file to reach their stated exit code.
+and ``GIAP_REPO`` point at empty directories, so ``db_manifest.json`` is missing: under
+``giap preflight`` that is info, never an environment error (M1-11 question 1), and the exit codes
+below come from the input rules only. §1.1 makes evidence mandatory
+(``inputs.evidence_present``), so the spec's genome-only examples 1-3 add a tiny valid
+``--proteins`` file to reach their stated exit code.
 """
 
 from __future__ import annotations
@@ -47,7 +48,10 @@ LONG_PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPD
 def _no_db_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     db = tmp_path / "db_empty"
     db.mkdir()
+    repo = tmp_path / "repo_empty"
+    repo.mkdir()
     monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIAP_REPO", str(repo))
 
 
 def random_acgt(n: int, seed: int = 0) -> str:
@@ -390,7 +394,7 @@ def test_simulated_genome_with_bakta_annotation_and_evidence(tmp_path: Path) -> 
     assert annotation["sha256"] == hashlib.sha256(sim.bakta_json.read_bytes()).hexdigest()
     assert annotation["size"] == sim.bakta_json.stat().st_size
     work = out / "work" / "preflight"
-    for name in (*WORK_FILES, "proteins.long.faa"):
+    for name in (*WORK_FILES, "proteins.long.faa", "protein_map.tsv"):
         assert (work / name).is_file(), name
     assert (work / "replicons.tsv").read_text() == "chr1\tchr1\tchromosome\tc\t-\n"
 

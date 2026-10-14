@@ -2,10 +2,11 @@
 §7.0) plus the real environment probe left over from M1-11 (question 1 and the "probe raises"
 edge case; ADR-0005 item 3).
 
-The real probe is selected with ``probe=None``; it reads ``.giap/capabilities.json`` and
-``$GIAP_DB_DIR/db_manifest.json``. A missing manifest is info under ``mode="preflight"`` and an
-environment error under ``mode="run"``; a probe failure (here: an unreadable manifest) is exactly
-one ``environment.tools`` error (exit 2) in either mode.
+The real probe is selected with ``probe=None``; it reads ``$GIAP_DB_DIR/db_manifest.json`` and
+probes resources live (never ``.giap/capabilities.json``; M1-12 review). ``GIAP_REPO`` and
+``GIAP_DB_DIR`` point at empty directories in ``tmp_path``. A missing manifest is info under
+``mode="preflight"`` and an environment error under ``mode="run"``; a probe failure (here: an
+unreadable manifest) is exactly one ``environment.tools`` error (exit 2) in either mode.
 """
 
 from __future__ import annotations
@@ -39,7 +40,10 @@ PROTEIN = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA"
 def _empty_db_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     db = tmp_path / "db"
     db.mkdir()
+    repo = tmp_path / "repo"
+    repo.mkdir()
     monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setenv("GIAP_REPO", str(repo))
     return db
 
 
@@ -281,6 +285,7 @@ def test_write_outputs_clean_report_writes_report_and_work_files(tmp_path: Path)
             "genome.norm.fa",
             "peptide_runs.parquet",
             "peptides.norm.parquet",
+            "protein_map.tsv",
             "proteins.long.faa",
             "replicons.tsv",
         ]
