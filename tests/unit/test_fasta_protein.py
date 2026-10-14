@@ -182,7 +182,12 @@ def test_routing_length_excludes_trailing_stop(tmp_path: Path) -> None:
 
 def test_all_counted_letters(tmp_path: Path) -> None:
     (r,) = _read(tmp_path, ">a\nMXXBZJjx\n")
-    assert dict(r.nonstandard) == {"X": 3, "B": 1, "Z": 1, "J": 1}
+    assert dict(r.nonstandard) == {
+        "X": 3,
+        "B": 1,
+        "Z": 1,
+        "J": 2,
+    }  # j is upper-cased (spec: sequence is upper case)
     assert dict(r.other) == {}
 
 
