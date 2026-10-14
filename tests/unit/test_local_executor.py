@@ -123,11 +123,16 @@ def test_run_local_outputs_byte_identical(registry: ModuleType, tmp_path: Path) 
 
 
 def test_cli_run_local_missing_layer_exits_1(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    registry: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     import giap.cli
     from giap.cli import main
 
+    # a registered step: with none, --executor local exits 5 (review decision 1)
+    _terminator_graph(registry, [])
     local = _local()
 
     def boom(*args: Any, **kwargs: Any) -> Any:

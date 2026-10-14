@@ -329,7 +329,9 @@ def test_run_step_context_fields(registry: ModuleType, cfg: GiapConfig, tmp_path
     assert isinstance(ctx, registry.StepContext)
     assert ctx.cfg == cfg
     assert dict(ctx.inputs) == {"a": src}
-    assert dict(ctx.outputs) == {"b": tmp_path / "out.txt"}
+    # outputs are temporary paths renamed into place on success (review decision 3)
+    assert set(ctx.outputs) == {"b"}
+    assert (tmp_path / "out.txt").read_text() == "x"
     assert seen["draw"] == for_step("toy", cfg.seed).random()
     assert hasattr(ctx.log, "info")
 
