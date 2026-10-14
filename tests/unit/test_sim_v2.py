@@ -84,6 +84,8 @@ M318_CONFIG = {
 M318_SHA256 = {
     "genome.fasta": "82985e5898ad793f89410da740e6c23fc3acf6256ebf1b845bbbb22b2789f62a",
     "truth/genes.tsv": "8b35e4e29b19d65ba3941630c7b9407a92ef5b34f8a96ef2c13c3f8bea55c62e",
+    # main at 42b9412 (review decision 2: no ``anticodon`` column without v2 output)
+    "truth/features.tsv": "8149a88ee76437fbaf79f779ab19f2f6131f8138e00c3974a970ed77703b4c5b",
 }
 M318_MODEL_SHA256 = "00267c904e4528bf7a477963782fd87dfe01788808e1dc4ccae340869130a8ee"
 
