@@ -74,3 +74,7 @@ def merge_hsps(hsps: Sequence[Hsp], replicons: Mapping[str, Replicon],
    `hsp_max_q_overlap_aa` (ADR; additive config).
 2. BLAST+ version pin. **Proposed default:** the bioconda `blast` version current when the env is
    built, recorded in `workflow/envs/blast.yml` and an ADR (spec says "pinned" without a number).
+
+## Answered by Khoa (2026-10-14)
+Question 1: `max_gap_nt = 300` and `max_q_overlap_aa = 10` are fixed module constants (keyword defaults of
+the chaining function), documented with their rationale in the methods note; no config keys, no ADR.
