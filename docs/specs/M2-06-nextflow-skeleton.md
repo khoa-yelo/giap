@@ -83,3 +83,32 @@ def run_nextflow(cmd: Sequence[str], outdir: Path) -> ExitCode    # 0, or 4 with
 2. Stubs for Parquet outputs: an empty file is not valid Parquet. **Proposed default:** `giap _step
    NAME --stub` writes schema-valid empty outputs (zero-row Parquet with the declared columns); it
    needs GIAP in the stub environment, which the `GIAP_STEP` process always has.
+
+## Lead decisions (implementation, accepted)
+1. `resolved_config.yaml` is written to `OUT/` (next to the results), not `OUT/work`.
+2. `params.memory` defaults to `"64 GB"` (the CLI default; defaults.yaml has no memory key).
+3. The `GIAP_STEP` stub only `touch`es declared outputs (CI runners have no `giap`); the `smoke` step
+   behind main.nf exists only under `-stub-run` until real registry steps are wired (M2-07).
+4. The farmshare_local warning prints via an Elvis-chain `println` because Nextflow 26's config parser
+   rejects `if` in config files.
+
+## Lead decisions after code review (PR #37, changes requested)
+1. `nextflow.config` sets `trace.fields` explicitly (incl. `task_id,hash,name,tag,status,exit,workdir`);
+   the runner reads rows with `.get` and falls back to building the work dir from `hash` under the
+   run's work dir. A test uses a trace written with Nextflow's DEFAULT field set (no `workdir`), and an
+   integration test drives a real failing stub run through `run_nextflow` (exit 4, step named).
+2. `failed_step` = the last FAILED row whose process name has no later COMPLETED row (a retried-then-
+   succeeded attempt never counts). Test: step A fails once then succeeds, step B fails → B.
+3. R14 under `farmshare`: worst-case concurrent CPUs ≤ 128. `executor.queueSize = 8` and per-task
+   `resourceLimits` cpus ≤ 16, memory ≤ 64 GB; a task's cpus are `max(label cpus, ceil(memory / 4 GB))`
+   (FarmShare MaxMemPerCPU 4000 MB) and stay within the cap after a memory ×2 retry. A unit test parses
+   `nextflow config -profile farmshare` and asserts queueSize × max cpus ≤ 128. Larger-memory steps
+   (bigmem) get their own label with `maxForks 1` when they appear (M2-07+).
+4. `farmshare_local`: `executor { cpus = SLURM_CPUS_PER_TASK (default 4); memory = SLURM_MEM_PER_NODE
+   − 2 GB (default 30 GB) }` so parallel tasks share the allocation, not the host.
+5. User `--threads`/`--memory` and profile limits combine as the minimum of the two (no silent override);
+   documented in the runner docstring and the spec (no ADR: defaults.yaml unchanged).
+6. Tests kill the surviving mutants: input paths absolute in params.json (Nextflow's cwd is OUT),
+   missing-trace guard, runner messages on stderr.
+7. `apptainer.cacheDir` defaults to `$GIAP_ROOT/containers` when `NXF_APPTAINER_CACHEDIR` is unset.
+   Wiring `giap run` to the runner is M2-07 (note in PROGRESS); `giap_run.sbatch` stays.
