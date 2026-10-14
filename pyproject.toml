@@ -1,0 +1,118 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "giap"
+version = "0.0.1"
+description = "GIAP: genome-integrated analysis of proteomics data for bacterial genomes"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "Khoa Hoang" }]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+  "numpy",
+  "pandas",
+  "pyarrow",
+  "numba",
+  "scipy",
+  "scikit-learn",
+  "statsmodels",
+  "lightgbm",
+  "pyahocorasick",
+  "pydantic>=2",
+  "click>=8.1",
+  "pyyaml",
+  "jinja2",
+  "matplotlib",
+  "pycirclize",
+  "pygenomeviz",
+  "upsetplot",
+  "plotly",
+  "goatools",
+  "codon-bias",
+  "biopython",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "hypothesis",
+  "pytest-benchmark",
+  "pytest-mpl",
+  "pytest-xdist",
+  "pytest-cov",
+  "pysam",
+  "frictionless",
+  "mutmut",
+  "ruff",
+  "mypy",
+  "types-PyYAML",
+  "towncrier",
+]
+docs = ["mkdocs-material"]
+
+[project.scripts]
+giap = "giap.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/giap"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests/sim"]
+addopts = "-ra --strict-markers"
+markers = [
+  "needs_apptainer: Apptainer can run a pulled image",
+  "needs_docker: Docker daemon running",
+  "needs_conda: micromamba and the tool environment",
+  "needs_nextflow: nextflow and nf-test on PATH",
+  "needs_slurm: sbatch --test-only succeeds",
+  "needs_gpu: running inside a job with a GPU",
+  "needs_bakta_db: Bakta light or full DB",
+  "needs_bakta_full: Bakta full DB",
+  "needs_genomad_db: geNOMAD DB v1.9",
+  "needs_promotech_models: RF-HOT.model present",
+  "needs_diann: DIA-NN 2.7.0 under GIAP_TOOLS_DIR",
+  "needs_net(host): the named host is reachable",
+  "slow: longer than 60 s",
+  "calibration: fast calibration subset",
+  "calibration_full: full calibration suite",
+  "e2e: end-to-end runs on real genomes",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests/sim"]
+# read-only or protected files that agents may not reformat (R3, R13)
+extend-exclude = ["GIAP_SPEC.md", ".claude/"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "NPY", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/giap"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["ahocorasick", "numba.*", "scipy.*", "sklearn.*", "statsmodels.*", "lightgbm.*", "pycirclize.*", "pygenomeviz.*", "upsetplot.*", "plotly.*", "goatools.*", "codonbias.*", "Bio.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["giap"]
+branch = true
+
+[tool.towncrier]
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+package = "giap"
+package_dir = "src"

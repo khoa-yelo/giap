@@ -1,0 +1,149 @@
+schema_version: "1.0"
+seed: 20261014
+sample_name: auto                                # auto = stem of the peptide (or protein) file
+threads: 16
+modules: [core, mobile, bgc, function]        # core is always on
+genome_relation: related                       # related | same (§7.2.8)
+
+input:
+  peptide_source: auto            # auto | database | denovo; a per-row `source` column wins
+  search_db: auto                 # auto | same | other; auto = same if ≥95 % of protein_ids match the gene model
+  decoy_prefixes: ["rev_", "REV_", "DECOY_", "decoy_", "XXX_", "##"]
+  contaminant_prefixes: ["Cont_", "CON__", "CONT_", "cRAP"]
+  q_value_max: 0.01               # peptides with q above this are not evidence (still used to estimate FDR)
+  peptide_len: [7, 40]            # shorter are dropped; longer protein records go to miniprot
+  i_equals_l: true
+
+preflight:
+  max_contigs_warn: 10
+  min_total_bp_warn: 100000
+  min_n50_warn: 100000
+  min_largest_contig_warn: 1000000
+  small_replicon_bp: 500000
+  gc_range_warn: [0.25, 0.75]
+  n_run_min_bp: 10
+  abundance_missing_warn_frac: 0.20
+
+annotation:
+  bakta: {db: auto, complete: auto, extra_args: []}   # complete=auto: --complete if all contigs circular
+  translation_table: 11
+  start_codons: [ATG, GTG, TTG]
+  region_min_overlap_frac: 0.5                        # gene in region if ≥50 % of its CDS lies inside
+  uniop: {pair_threshold: 0.5, fallback: distance}    # threshold replaced by calibration (§15.4)
+  tu_upstream_bp: [-300, 50]                          # TU upstream region around the first start codon
+  promoters:
+    mode: targeted                                    # targeted | genome
+    window_nt: 40
+    window_3p_range: [-200, 20]                       # 3′ ends of 40-nt windows relative to each start codon
+    promotech_yes: 0.5                                # "promoter between" threshold (Module 4)
+  promoter_calculator: {enabled: true}
+  terminators:
+    tool: terminatornet                               # terminatornet | transtermhp
+    cross_check_transtermhp: true
+    bactermfinder: false
+    terminatornet_yes: 0.5                            # placeholder; replaced by RegulonDB calibration (§15.4)
+  ostir: {upstream_nt: 50, downstream_nt: 50, anti_sd: auto}   # auto = 3′ end of the strain's 16S rRNA
+  codon: {cai_reference: ribosomal_proteins}
+  precomputed:                                        # developer/test injection (§6.4); null = run the tool
+    bakta_json: null
+    operon_pairs: null
+    promoters: null
+    tx_rates: null
+    terminators: null
+    rbs: null
+    regions: null
+
+mapping:
+  exact: {min_len: 7, max_len: 40}
+  proteins:
+    min_identity: 0.80
+    min_coverage: 0.80
+    near_identity: 0.95
+    miniprot_args: "-S -N 5 --outs=0.95"              # -T 11 is applied at indexing time
+    tblastn_args: "-db_gencode 11 -seg no -evalue 1e-5"
+  tolerant:
+    enabled: true
+    min_len: 10
+    max_diff: {"10-11": 1, "12-40": 2}
+    swaps: true
+    mass_equivalents: true
+    frameshift: {enabled: true, min_side_aa: 4}
+  decoys: {database_input: reverse, denovo_input: shuffle, shuffle_window_aa: 50}
+  length_classes: [[7, 7], [8, 8], [9, 9], [10, 11], [12, 14], [15, 19], [20, 40]]
+
+detection:
+  min_peptides_sequences_only: 2
+  mayu_size_bins: 10
+
+abundance:
+  method: ibaq                     # ibaq | top3, when peptide intensities exist
+  type: unknown                    # protein-level input type: ibaq | top3 | maxlfq | intensity | unknown
+  scale: auto                      # auto | log2 | linear
+  missing: median                  # median | exclude | min | zero | mean
+  sensitivity: [min, exclude]
+  enzyme: trypsin_p                # trypsin_p (cleaves before P too; DIA-NN default) | trypsin
+  observable_len: [7, 30]
+  run_aggregation: median          # several runs → median per peptide across runs
+
+detectability:
+  covariates: [n_observable_peptides, length_aa, gravy, pi, tm_segments]
+  spline_knots: 5
+  folds: 5                         # GroupKFold by TU, cross-fitted
+
+stats:
+  alpha:                           # the single source of every significance level
+    identification: 0.01           # gene-level detection q
+    placement: 0.01                # placement q (Module 2)
+    novel_orfs: 0.01
+    variants: 0.01
+    context: 0.05
+    enrichment: 0.05
+    operon_flags: 0.10
+    determinants: 0.05
+  permutations: 1000
+  bootstrap: 1000
+  besag_clifford_h: 10
+
+context:
+  region_types: [prophage, plasmid, bgc, crispr, amr]
+  exhaustive_shift_max_genes: 20000
+  moran_lags: [1, 20]
+  islands: {min_tus: 2, max_tus: 20, detrend_span_frac: 0.10, block_len: auto}
+
+operons:
+  decoys: [convergent, sandwich]                      # sandwich = → ← →
+  distance_bins_bp: [-.inf, 0, 50, 150, 300, .inf]
+  pi0: 1.0
+
+variants:
+  high_min_peptides: 2
+  mass_equivalent_tol_da: 0.05                       # includes K/Q (0.036 Da)
+
+novel_orfs:
+  min_codons: 10
+  min_peptides_without_decoys: 2
+  rbs_min_quantile: 0.10                              # RBS support threshold (§7.6.3)
+
+function:
+  go_slim: generic
+  ora_size: [5, 500]
+  gsea_size: [10, 500]
+  gsea: {sample_size: 101, eps: 0.0, n_perm_simple: 1000}
+
+determinants:
+  outer_folds: 5
+  repeats: 5
+  permutations: 1000
+  lightgbm: {n_estimators: 500, learning_rate: 0.03, num_leaves: 15, min_child_samples: 20,
+             subsample: 0.8, subsample_freq: 1, colsample_bytree: 0.8, deterministic: true}
+  elastic_net: {l1_ratio: [0.1, 0.5, 0.9], inner_folds: 3}
+
+report:
+  interactive: true
+  max_locus_plots: 50
+  formats: [svg, png, pdf]
+  dpi: 300
+
+output:
+  parquet: false
+  sensitivity: basic                # basic | full | off (§8.6)
