@@ -9,8 +9,9 @@ from __future__ import annotations
 import re
 import statistics
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from itertools import islice
 from typing import Literal
 
 from giap.config import GiapConfig
@@ -30,12 +31,19 @@ __all__ = [
 
 LIST_CAP = 1000
 _AMBIGUOUS = "".join(sorted(IUPAC_DNA - set("ACGTN")))
-_AMBIGUOUS_RE = re.compile(f"[{_AMBIGUOUS}]")
+_AMBIGUOUS_RUN_RE = re.compile(f"([{_AMBIGUOUS}])\\1*")
 _DELETE_IUPAC = str.maketrans("", "", "".join(IUPAC_DNA))
 
 
 @dataclass(frozen=True, slots=True)
 class GenomeSummary:
+    """Genome facts; ``n_runs``/``ambiguous`` hold at most ``LIST_CAP`` runs each.
+
+    ``n_runs`` entries are ``(contig, start0, end0)`` and ``ambiguous`` entries are
+    ``(contig, start0, end0, code)`` (0-based half-open, adjacent identical codes merged);
+    ``n_run_total``/``ambiguous_total`` count every run, listed or not.
+    """
+
     ids: tuple[str, ...]
     original_ids: tuple[str, ...]
     lengths: tuple[int, ...]
@@ -43,17 +51,28 @@ class GenomeSummary:
     gc: int
     acgt: int
     n_runs: tuple[tuple[str, int, int], ...]
-    ambiguous: tuple[tuple[str, int, str], ...]
+    ambiguous: tuple[tuple[str, int, int, str], ...]
     invalid: Mapping[str, int]
     empty_records: tuple[str, ...]
+    n_run_min_bp: int
+    n_run_total: int
+    ambiguous_total: int
+
+
+def _first_runs(rx: re.Pattern[str], seq: str, room: int) -> tuple[Iterator[re.Match[str]], int]:
+    """Up to ``room`` leading matches plus the total match count (counted in C via ``subn``)."""
+    total = rx.subn("", seq)[1]
+    return islice(rx.finditer(seq), max(room, 0)), total
 
 
 def summarize_genome(records: Sequence[GenomeRecord], n_run_min_bp: int) -> GenomeSummary:
     """Collect the facts the genome rules need from records in FASTA order."""
-    n_run_re = re.compile(f"N{{{max(n_run_min_bp, 1)},}}")
-    gc = acgt = 0
+    if n_run_min_bp < 1:
+        raise ValueError(f"n_run_min_bp must be >= 1, got {n_run_min_bp}")
+    n_run_re = re.compile(f"N{{{n_run_min_bp},}}")
+    gc = acgt = n_total = amb_total = 0
     n_runs: list[tuple[str, int, int]] = []
-    ambiguous: list[tuple[str, int, str]] = []
+    ambiguous: list[tuple[str, int, int, str]] = []
     invalid: Counter[str] = Counter()
     empty: list[str] = []
     for r in records:
@@ -63,8 +82,12 @@ def summarize_genome(records: Sequence[GenomeRecord], n_run_min_bp: int) -> Geno
         g_c = seq.count("G") + seq.count("C")
         gc += g_c
         acgt += g_c + seq.count("A") + seq.count("T")
-        n_runs.extend((r.id, m.start(), m.end()) for m in n_run_re.finditer(seq))
-        ambiguous.extend((r.id, m.start(), m.group()) for m in _AMBIGUOUS_RE.finditer(seq))
+        matches, count = _first_runs(n_run_re, seq, LIST_CAP - len(n_runs))
+        n_runs.extend((r.id, m.start(), m.end()) for m in matches)
+        n_total += count
+        matches, count = _first_runs(_AMBIGUOUS_RUN_RE, seq, LIST_CAP - len(ambiguous))
+        ambiguous.extend((r.id, m.start(), m.end(), m.group(1)) for m in matches)
+        amb_total += count
         invalid.update(seq.translate(_DELETE_IUPAC))
     return GenomeSummary(
         ids=tuple(r.id for r in records),
@@ -77,6 +100,9 @@ def summarize_genome(records: Sequence[GenomeRecord], n_run_min_bp: int) -> Geno
         ambiguous=tuple(ambiguous),
         invalid=dict(invalid),
         empty_records=tuple(empty),
+        n_run_min_bp=n_run_min_bp,
+        n_run_total=n_total,
+        ambiguous_total=amb_total,
     )
 
 
@@ -234,14 +260,21 @@ def genome_checks(s: GenomeSummary, cfg: GiapConfig, parse_error: str | None = N
     )
 
     gaps: list[JsonValue] = [{"contig": c, "start": a + 1, "end": b} for c, a, b in s.n_runs]
-    gaps.extend({"contig": c, "pos": pos + 1, "code": code} for c, pos, code in s.ambiguous)
-    gaps_v, msg = _capped(gaps)
+    gaps.extend(
+        {"contig": c, "start": a + 1, "end": b, "code": code} for c, a, b, code in s.ambiguous
+    )
+    msg = ""
+    if s.n_run_total > len(s.n_runs) or s.ambiguous_total > len(s.ambiguous):
+        msg = (
+            f"{s.n_run_total} N runs and {s.ambiguous_total} ambiguity-code runs in total;"
+            f" first {LIST_CAP} of each listed"
+        )
     out.append(
         _check(
             "genome.gaps",
             "warn" if gaps else "ok",
-            f"runs of ≥ {p.n_run_min_bp} N or other IUPAC ambiguity codes → warn",
-            gaps_v,
+            f"runs of ≥ {s.n_run_min_bp} N or other IUPAC ambiguity codes → warn",
+            gaps,
             msg,
         )
     )
@@ -274,9 +307,7 @@ def genome_checks(s: GenomeSummary, cfg: GiapConfig, parse_error: str | None = N
     )
 
     small: list[JsonValue] = [
-        rid
-        for rid, length in zip(s.ids, s.lengths, strict=True)
-        if 0 < length < p.small_replicon_bp
+        r.id for r in reps if r.length < p.small_replicon_bp and r.kind != "chromosome"
     ]
     small_v, msg = _capped(small)
     out.append(

@@ -994,6 +994,7 @@
         },
         "n_run_min_bp": {
           "default": 10,
+          "minimum": 1,
           "title": "N Run Min Bp",
           "type": "integer"
         },
