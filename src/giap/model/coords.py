@@ -42,6 +42,13 @@ class Interval:
     strand: Strand = "."
 
     def __post_init__(self) -> None:
+        if type(self.start) is not int or type(self.end) is not int:
+            raise TypeError(
+                f"interval {self.contig}: start/end must be int, "
+                f"got {type(self.start).__name__}/{type(self.end).__name__}"
+            )
+        if self.strand not in _STRAND_RANK:
+            raise ValueError(f"interval {self.contig}: invalid strand {self.strand!r}")
         if not 0 <= self.start < self.end:
             raise ValueError(
                 f"invalid interval {self.contig}:{self.start}-{self.end}: need 0 <= start < end"
@@ -88,6 +95,8 @@ def from_one_based_closed(
     contig: str, start1: int, end1: int, strand: Strand, replicon: Replicon
 ) -> Interval:
     """Convert 1-based closed coordinates; a wrapped ``start1 > end1`` is unwrapped if circular."""
+    if start1 < 1 or end1 < 1:
+        raise ValueError(f"{contig}:{start1}-{end1}: 1-based coordinates must be >= 1")
     end = end1
     if start1 > end1:
         if replicon.topology != "circular":
@@ -115,4 +124,6 @@ def interval_sort_key(
     iv: Interval, contig_order: Mapping[str, int], id_: str = ""
 ) -> tuple[int, int, int, int, str]:
     """Sort key: contig (input FASTA order), start, end, strand (``+ < - < .``), ID."""
+    if iv.contig not in contig_order:
+        raise ValueError(f"unknown contig {iv.contig!r} (not in contig order)")
     return (contig_order[iv.contig], iv.start, iv.end, _STRAND_RANK[iv.strand], id_)
