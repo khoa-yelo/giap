@@ -5,9 +5,9 @@ import fnmatch, json, os, sys
 event = json.load(sys.stdin)
 tool_input = event.get("tool_input") or {}
 path = tool_input.get("file_path") or tool_input.get("notebook_path") or ""
-root = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+root = os.path.realpath(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
 if path:
-    rel = os.path.relpath(os.path.abspath(path), root)
+    rel = os.path.relpath(os.path.realpath(path), root)
     try:
         with open(os.path.join(root, "ci", "protected.txt")) as fh:
             globs = [l.split("#")[0].strip() for l in fh if l.split("#")[0].strip()]

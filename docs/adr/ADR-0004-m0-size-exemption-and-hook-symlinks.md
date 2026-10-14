@@ -1,5 +1,5 @@
 # ADR-0004: One-off PR-size exemption for M0, and symlink-safe path protection
-- Status: proposed
+- Status: accepted-by-khoa (2026-10-14)
 - Date: 2026-10-14
 - Spec sections: §0.2 R3, §14.6, Appendix A.4
 - Needs Khoa: yes (a gate exception and a change to a protected file)

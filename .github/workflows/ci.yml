@@ -39,13 +39,16 @@ jobs:
         run: python3 scripts/ci/check_protected.py origin/${{ github.base_ref }}
       - name: test/implementation roles (R2)
         run: python3 scripts/ci/check_roles.py origin/${{ github.base_ref }}
-      - name: PR size
+      - name: PR size (code only, ADR-0007)
         run: |
-          lines=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- . ':!uv.lock' ':!tests/data/**' \
+          # Only code counts toward the gate; tests, docs, specs, ADRs, locks and fixtures are reported.
+          lines=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- src workflow scripts \
+                  | awk '{s+=$1+$2} END {print s+0}')
+          other=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- . ':!src' ':!workflow' ':!scripts' \
                   | awk '{s+=$1+$2} END {print s+0}')
           warn=$(awk '/^pr_lines_warn:/ {print $2}' ci/gates.yaml)
           fail=$(awk '/^pr_lines_fail:/ {print $2}' ci/gates.yaml)
-          echo "changed lines: $lines (warn $warn, fail $fail)"
+          echo "changed code lines: $lines (warn $warn, fail $fail); other lines (not gated): $other"
           if [ "$lines" -gt "$fail" ]; then echo "::error::PR too large ($lines > $fail)"; exit 1; fi
           if [ "$lines" -gt "$warn" ]; then echo "::warning::PR above $warn lines ($lines)"; fi
 

@@ -29,11 +29,12 @@ M0: Scaffold. Status: in progress
 |---|---|---|---|
 | 2026-10-14 | RegulonDB v12 download (needed at M6) | `regulondb.ccg.unam.mx` unreachable from FarmShare (probe) | nothing yet; retry at M6, then ask |
 
+## Answered by Khoa
+- 2026-10-14: ADR-0004 (M0 size exemption; hook realpath fix) and ADR-0007 (size guard counts code only) accepted; "merge the stack".
+
 ## Questions for Khoa
 | # | Question | Options | Default if no answer | Asked |
 |---|---|---|---|---|
-| 1 | ADR-0004: may PR #1 (M0 scaffold, ~4,800 lines + the spec) merge with the PR-size guard failing, as a one-off? | yes / split into ~6 PRs | wait; no merge of PR #1 | 2026-10-14 |
-| 2 | ADR-0004: may I apply the two-line `realpath` fix to the protected `.claude/hooks/protect_paths.py` (closes a symlink bypass)? | yes / no | leave as is; CI `check_protected.py` still catches protected-file changes | 2026-10-14 |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;
