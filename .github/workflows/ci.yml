@@ -1,0 +1,127 @@
+# Fast checks on every push and pull request (GIAP_SPEC.md §12). Heavy suites run on FarmShare.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras --python 3.12
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src/giap
+      - run: uv run python scripts/ci/check_imports.py src
+
+  guards:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git fetch origin ${{ github.base_ref }}
+      - name: protected files (R3)
+        run: python3 scripts/ci/check_protected.py origin/${{ github.base_ref }}
+      - name: test/implementation roles (R2)
+        run: python3 scripts/ci/check_roles.py origin/${{ github.base_ref }}
+      - name: PR size
+        run: |
+          lines=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- . ':!uv.lock' ':!tests/data/**' \
+                  | awk '{s+=$1+$2} END {print s+0}')
+          warn=$(awk '/^pr_lines_warn:/ {print $2}' ci/gates.yaml)
+          fail=$(awk '/^pr_lines_fail:/ {print $2}' ci/gates.yaml)
+          echo "changed lines: $lines (warn $warn, fail $fail)"
+          if [ "$lines" -gt "$fail" ]; then echo "::error::PR too large ($lines > $fail)"; exit 1; fi
+          if [ "$lines" -gt "$warn" ]; then echo "::warning::PR above $warn lines ($lines)"; fi
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, python: "3.11"}
+          - {os: ubuntu-latest, python: "3.13"}
+          - {os: macos-latest, python: "3.12"}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras --python ${{ matrix.python }}
+      - name: unit, property, golden, contract, snapshot
+        run: >
+          uv run pytest -n auto -m "not slow and not calibration and not calibration_full and not e2e"
+          tests/unit tests/property tests/golden tests/contract tests/snapshot
+          --junitxml=junit.xml
+
+  calibration-and-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras --python 3.12
+      - name: fast calibration subset
+        run: |
+          set +e
+          uv run pytest -n auto -m "calibration and not calibration_full" tests/calibration
+          code=$?
+          # exit code 5 = no tests collected (allowed until the first calibration suite exists)
+          if [ $code -ne 0 ] && [ $code -ne 5 ]; then exit $code; fi
+      - name: coverage gate
+        run: |
+          min=$(awk '/^coverage_min:/ {print $2*100}' ci/gates.yaml)
+          uv run pytest -n auto -m "not slow and not calibration_full and not e2e" \
+            --cov=giap --cov-report=term-missing:skip-covered --cov-report=xml \
+            --cov-fail-under="$min" | tee coverage.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage.xml
+
+  nf-test-stub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: nf-test in stub mode
+        run: |
+          if ! ls workflow/tests/*.nf.test >/dev/null 2>&1; then echo "no nf-test suites yet"; exit 0; fi
+          curl -fsSL https://get.nextflow.io | bash && sudo mv nextflow /usr/local/bin/
+          curl -fsSL https://get.nf-test.com | bash -s 0.9.5 && sudo mv nf-test /usr/local/bin/
+          nf-test test workflow/tests --profile test,stub
+
+  summary:
+    if: always() && github.event_name == 'pull_request'
+    needs: [lint, guards, test, calibration-and-coverage, nf-test-stub]
+    runs-on: ubuntu-latest
+    steps:
+      - name: post result summary as a PR comment (§3.10)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body="**CI summary** for ${{ github.event.pull_request.head.sha }}
+          | job | result |
+          |---|---|
+          | lint | ${{ needs.lint.result }} |
+          | guards | ${{ needs.guards.result }} |
+          | tests | ${{ needs.test.result }} |
+          | calibration + coverage | ${{ needs.calibration-and-coverage.result }} |
+          | nf-test stub | ${{ needs.nf-test-stub.result }} |"
+          gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body "$body"

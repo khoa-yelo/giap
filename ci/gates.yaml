@@ -1,0 +1,13 @@
+coverage_min: 0.90
+coverage_exclude: ["src/giap/annotate/*_cmd.py"]       # thin command builders only
+budgets_s: {unit: 60, property: 120, golden: 120, contract: 60, snapshot: 120,
+            calibration_fast: 600, integration: 1800}
+benchmark_slowdown_max: 0.15
+pr_lines_warn: 400
+pr_lines_fail: 800
+required_capabilities:
+  ci: []
+  farmshare_nightly: [needs_apptainer, needs_conda, needs_nextflow, needs_slurm, needs_bakta_db, needs_bakta_full,
+                      needs_genomad_db, needs_promotech_models]
+  farmshare_weekly: [needs_apptainer, needs_conda, needs_nextflow, needs_slurm, needs_bakta_full]
+farmshare: {max_cpus: 128, max_gpus: 4, max_jobs: 20}

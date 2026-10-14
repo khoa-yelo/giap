@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use GIAP, please cite it as below."
+title: "GIAP: genome-integrated analysis of proteomics data"
+authors:
+  - family-names: Hoang
+    given-names: Khoa
+license: MIT
+repository-code: "https://github.com/khoa-yelo/giap"
+version: 0.0.1
