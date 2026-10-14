@@ -8,7 +8,7 @@ M3-21 (genome-level calibration). Engine for the q-values: `docs/methods/target-
 Sections: Genome decoys (M3-03, **signed off below**); Chance hits and the ranking score (M3-09,
 **signed off below**); π̂_wrong in the stratum FDR (M3-10, **rule signed off below**); Strata and
 ranking, π̂_wrong sources, Same-strain input, Calibration (M3-10, **signed below; implementation
-blocked on two same-strain findings**, see "Implementation review (M3-10)"). Genome-level
+approved at 031378c after two same-strain fixes**, see "Implementation review (M3-10)"). Genome-level
 calibration with tolerant hits and de novo errors, and attack 5, are M3-21.
 
 ## Genome decoys (M3-03)
@@ -595,7 +595,7 @@ Two conditions are needed for the rest of the list to stay valid (attack
    for mixed inputs such as A1 (K-12 search) and A2 (Nissle's own proteins) in one run, which the
    per-row `search_db` column allows.
 
-| Attack (R = 50 fast / 300 full; FDP over list-accepted peptides) | `placement` on `m3/placement-fdr` 9ec53d1 | corrected rule (reference) |
+| Attack (R = 50 fast / 300 full; FDP over list-accepted peptides) | `placement` at 9ec53d1 (before fix) | corrected rule (reference; = `placement` at 031378c) |
 |---|---|---|
 | `denovo_labelled_same`: de novo, π 0.02 / 0.9, every row `search_db = same` | 0.175 / 0.175 / 0.175 (full 0.176) | 0.0097 / 0.049 / 0.097 (full 0.0093 / 0.049 / 0.099) |
 | `mixed_same_other`: 2,000 `same` exact (PEP 0.001) + 2,000 `other` (π = PEP = 0.3) | 0.0196 / 0.097 / 0.097 (full 0.0199 / 0.096 / 0.096) | 0.0098 / 0.050 / 0.097 (full 0.0100 / 0.050 / 0.096) |
@@ -631,7 +631,7 @@ Review run, 9ec53d1, R = 50, mean FDP ± SE at 0.01 / 0.05 / 0.10:
 0.101; two_bins_corr 0.0085 / 0.049 / 0.099; ten_bins_corr 0.0089 / 0.050 / 0.099;
 two_bins_small 0.0063 / 0.045 / 0.095; ten_bins_over 0.0066 / 0.036 / 0.072; constant 0.0093 /
 0.048 / 0.095 (SE ≤ 0.0017 at 0.01). The rejected rules still fail (power check passes). Same-strain
-attack: see the table above (fails at 9ec53d1).
+attack: see the table above (failed at 9ec53d1, passes at 031378c).
 
 **Genome level, exact route** (`tests/calibration/test_placement_fdr_genome.py`): 100-kb giapsim
 genomes, tryptic peptides of annotated genes as correct, 20,000 i.i.d. 7–8-mers from the genome's
@@ -662,15 +662,19 @@ Checked against ADR-0010, the final section of `docs/specs/M3-10-placement-fdr.m
   distinct residues, I = L) is the flag this note recommended (M3-03, M3-09), but it is not in the
   §9.4 placement vocabulary, which may be extended "only through the schema": the lead must add it
   to the schema/ADR (M3-16) before outputs are written. Not a statistical blocker.
-- **Blocking:** the two same-strain conditions above (de novo rows can take the `same_db` shortcut;
-  `pi_wrong_database` averages over the `same_db` exact peptides that left the list).
+- **Blocking at 9ec53d1, fixed in 031378c:** the two same-strain conditions above. The fix is exactly
+  `same_exact = is_db & (search_db == "same") & (m_target == 0)` and
+  `pi_wrong_database(df[is_db & ~same_exact], …)`. Re-run at 1dafac0 (R = 50 / 300, q = 0.01 / 0.05 /
+  0.10): `denovo_labelled_same` 0.0097 / 0.049 / 0.097 (full 0.0093 / 0.049 / 0.099),
+  `mixed_same_other` 0.0098 / 0.050 / 0.097 (full 0.0099 / 0.050 / 0.096). The list, `placement_pi`
+  and genome numbers above are unchanged (single-`search_db` inputs are unaffected). The
+  `low_complexity` flag was accepted by ADR-0011.
 
 ### Sign-off (Strata and ranking, π̂_wrong sources, Same-strain input, Calibration)
 
 Statistician (M3-10 implementation review, 2026-10-14): the four sections above are **signed** as
-the method. The implementation at 9ec53d1 is **blocked** until (1) the `same_db` shortcut requires
-`source = database` and (2) the database π̂ is computed over the stratum-0 population (`same_db`
-exact peptides excluded); `test_attack_placement_same_db.py` must then pass in the fast suite
-(it fails now: FDP 0.175 and 0.0196 at q = 0.01). Everything else in the PR is approved.
+the method. The implementation is **approved** at 031378c (re-verified at 1dafac0): the `same_db` shortcut
+requires `source = database`, the database π̂ is computed over the stratum-0 population, and
+`test_attack_placement_same_db.py` passes (at 9ec53d1 the FDP at q = 0.01 was 0.175 and 0.0196).
 Forwarded to M3-21: Cov(PEP, chance-hit rate) on A2; the list-level calibration of tolerant strata
 with real decoy hits; attack 5.
