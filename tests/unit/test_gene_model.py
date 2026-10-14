@@ -94,6 +94,7 @@ def test_literal_vocabularies() -> None:
         "crispr",
         "oric",
         "orit",
+        "oriv",
         "gap",
     }
 
@@ -261,6 +262,7 @@ def test_nc_type_mapping_case_insensitive(tmp_path: Path) -> None:
         "crispr": "crispr",
         "oriC": "oric",
         "oriT": "orit",
+        "oriV": "oriv",
         "gap": "gap",
     }
     feats = [
