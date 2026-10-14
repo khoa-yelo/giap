@@ -78,3 +78,13 @@ e.g. {A,G} → `AG`, `GA`; {G,L} with L standing for I/L.
    `alt_type` enum{substitution, swap, block, frameshift}). **Proposed default:**
    {`substitution`, `swap`, `block`, `near_block`, `frameshift`}; Module 5 maps `near_block` →
    `block` with the `mass_equivalent` flag.
+
+## Lead decisions after code review (PR #35, approved)
+1. Tolerance is inclusive: an entry with Δ exactly equal to `tol_da` is listed (test at Δ(K,Q)).
+2. 2↔2 pairs that share a residue (e.g. `AK`↔`AQ`) are never listed (they reduce to a 1↔1 entry).
+3. Padded slots in `BlockTables` hold 255 (`_PAD`), never a residue code.
+4. `delta_da` is rounded to 6 decimals before sorting and output (no floating-point noise in the order).
+5. Docstrings: `BlockTables` rows are directional (left → right); M3-06 tries both orientations. The list's
+   `kind` (block/near_block by Δ) is independent of the DP's `BLOCKS` set.
+6. The equivalence list is generated at runtime (this issue), not by a `build_mass_equivalents.py` script
+   writing `mass_equivalents.tsv` as §7.5.3 sketches; M7 docs record this (no ADR needed: same content).
