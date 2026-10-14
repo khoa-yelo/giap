@@ -7,8 +7,8 @@ by stripped ``peptide`` (I/L kept as written) into one row per peptide plus per-
 
 from __future__ import annotations
 
-import math
-from collections.abc import Callable, Iterable, Sequence
+import re
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -62,81 +62,80 @@ AGG_COLUMNS: tuple[str, ...] = (
 PEPTIDE_RUN_COLUMNS: tuple[str, ...] = ("peptide", "run", "intensity", "n_rows")
 
 _FLOAT_COLS = ("q_value", "pep", "score", "intensity")
+# ``nan`` text is an error here (it would otherwise pass as a missing value, ADR-0005).
+_NAN_IS_ERROR = ("q_value", "pep", "intensity")
+_NAN_TEXT = frozenset({"nan", "+nan", "-nan"})
 _INT_COLS = ("charge",)
 _BOOL_COLS = ("is_decoy",)
 _STR = pd.StringDtype()
-_TRUE = frozenset({"true", "TRUE", "True", "1"})
-_FALSE = frozenset({"false", "FALSE", "False", "0"})
+_BOOL_TEXT = {
+    **dict.fromkeys(("true", "TRUE", "True", "1"), True),
+    **dict.fromkeys(("false", "FALSE", "False", "0"), False),
+}
 _ENUMS = {"source": ("database", "denovo"), "search_db": ("same", "other")}
 # Aggregated source/search_db: the first value present in this order wins.
 _PRIORITY = {"source": ("database", "denovo", "auto"), "search_db": ("same", "other", "auto")}
+# Private marker column set by ``read_peptide_table``: the row had an unparseable value.
+_BAD_TYPE = "_bad_type"
 
 
-def _parse_float(s: str) -> float:
-    return float(s)
-
-
-def _parse_int(s: str) -> int:
-    f = float(s)
-    if not f.is_integer():
-        raise ValueError(s)
-    return int(f)
-
-
-def _parse_bool(s: str) -> bool:
-    if s in _TRUE:
-        return True
-    if s in _FALSE:
-        return False
-    raise ValueError(s)
-
-
-def _typed(
-    values: list[str | None], parse: Callable[[str], object], dtype: str, col: str
-) -> tuple[pd.Series, Issue | None]:
-    out: list[object] = []
-    bad: list[int] = []
-    for i, v in enumerate(values, start=1):
-        if v is None:
-            out.append(None)
-            continue
-        try:
-            out.append(parse(v))
-        except ValueError:
-            out.append(None)
-            bad.append(i)
-    issue = row_issue(f"bad_type:{col}", "error", f"{col}: value is not a valid {dtype}", bad)
-    if dtype == "float64":
-        return pd.Series([np.nan if x is None else x for x in out], dtype="float64"), issue
-    return pd.Series(out, dtype=dtype), issue
+def _typed(raw: pd.Series, col: str) -> tuple[pd.Series, np.ndarray]:
+    """Parse one known column; return the typed series and the mask of unparseable cells."""
+    present = raw.notna().to_numpy()
+    if col in _BOOL_COLS:
+        mapped = raw.map(_BOOL_TEXT)
+        bad = present & mapped.isna().to_numpy()
+        return mapped.astype("boolean"), bad
+    num = pd.to_numeric(raw, errors="coerce").astype("float64")
+    parsed = num.notna().to_numpy()
+    if col in _INT_COLS:
+        values = num.to_numpy()
+        integral = parsed & np.isfinite(values)
+        integral[integral] = values[integral] == np.round(values[integral])
+        bad = present & ~integral
+        out = pd.array(np.where(integral, values, 0).astype("int64"), dtype="Int64")
+        out[~integral] = pd.NA
+        return pd.Series(out), bad
+    bad = present & ~parsed
+    if col not in _NAN_IS_ERROR:
+        bad &= ~raw.str.lower().isin(_NAN_TEXT).to_numpy(dtype=bool, na_value=False)
+    return num, bad
 
 
 def read_peptide_table(path: Path) -> tuple[pd.DataFrame, list[Issue]]:
     """Read a (possibly gzipped) peptide TSV; ``NA`` and empty cells are missing.
 
-    Known columns are typed (float64, Int64, boolean, string); unparseable values become missing
-    with a ``bad_type:<col>`` error. Unknown columns are kept as strings (``unknown_column`` info).
+    Known columns are typed (float64, Int64, boolean, string); unparseable values (and ``nan``
+    text in q_value/pep/intensity) become missing with a ``bad_type:<col>`` error, and the row is
+    marked so that ``validate_peptides`` drops it. Unknown columns are kept as strings
+    (``unknown_column`` info).
     """
     header, rows = read_tsv(path)
+    n = len(rows)
+    columns = list(zip(*rows, strict=True)) if rows else [() for _ in header]
     issues: list[Issue] = []
     data: dict[str, pd.Series] = {}
-    for j, col in enumerate(header):
-        values = [r[j] for r in rows]
-        issue: Issue | None = None
-        if col in _FLOAT_COLS:
-            data[col], issue = _typed(values, _parse_float, "float64", col)
-        elif col in _INT_COLS:
-            data[col], issue = _typed(values, _parse_int, "Int64", col)
-        elif col in _BOOL_COLS:
-            data[col], issue = _typed(values, _parse_bool, "boolean", col)
+    any_bad = np.zeros(n, dtype=bool)
+    for col, values in zip(header, columns, strict=True):
+        if col in _FLOAT_COLS or col in _INT_COLS or col in _BOOL_COLS:
+            raw = pd.Series(np.asarray(values, dtype=object), dtype=object)
+            data[col], bad = _typed(raw, col)
+            kind = "float64" if col in _FLOAT_COLS else "Int64" if col in _INT_COLS else "boolean"
+            issue = row_issue(
+                f"bad_type:{col}", "error", f"{col}: value is not a valid {kind}", _rows(bad)
+            )
+            if issue is not None:
+                issues.append(issue)
+            any_bad |= bad
         else:
-            data[col] = pd.Series(values, dtype=_STR)
-        if issue is not None:
-            issues.append(issue)
+            data[col] = pd.Series(np.asarray(values, dtype=object), dtype=_STR)
     unknown = [c for c in header if c not in PEPTIDE_COLUMNS]
     if unknown:
         issues.append(Issue("unknown_column", "info", f"unknown columns kept: {unknown}"))
-    return pd.DataFrame(data, index=pd.RangeIndex(len(rows))), issues
+    df = pd.DataFrame(data, index=pd.RangeIndex(n))
+    if any_bad.any():
+        df[_BAD_TYPE] = any_bad
+    return df, issues
 
 
 def _empty_column(col: str, n: int) -> pd.Series:
@@ -149,23 +148,43 @@ def _empty_column(col: str, n: int) -> pd.Series:
     return pd.Series([None] * n, dtype=_STR)
 
 
-def _all_prefixed(ids: object, prefixes: Sequence[str]) -> bool:
-    """True when every ``;``-separated entry of ``ids`` starts with one of ``prefixes``."""
-    if not isinstance(ids, str):
-        return False
-    entries = [e for e in ids.split(";") if e]
-    return bool(entries) and all(e.startswith(tuple(prefixes)) for e in entries)
+def _all_prefixed(ids: pd.Series, prefixes: Sequence[str]) -> np.ndarray:
+    """True where every ``;``-separated entry of normalised ``ids`` starts with a prefix."""
+    if not prefixes:
+        return np.zeros(len(ids), dtype=bool)
+    alt = "|".join(re.escape(p) for p in prefixes)
+    pattern = rf"(?:{alt})[^;]*(?:;(?:{alt})[^;]*)*"
+    return np.asarray(ids.str.fullmatch(pattern).to_numpy(dtype=bool, na_value=False), dtype=bool)
 
 
-def _rows(mask: Iterable[bool]) -> list[int]:
-    return [i for i, m in enumerate(mask, start=1) if m]
+def _normalise_ids(ids: pd.Series) -> pd.Series:
+    """Strip whitespace around ``;``-separated entries and drop empty entries (empty → NA)."""
+    out = (
+        ids.astype(_STR)
+        .str.replace(r"\s*;\s*", ";", regex=True)
+        .str.replace(r";{2,}", ";", regex=True)
+        .str.strip()
+        .str.strip(";")
+    )
+    return out.mask(out == "")
+
+
+def _rows(mask: np.ndarray | pd.Series) -> np.ndarray:
+    """1-based row numbers where ``mask`` is true."""
+    return np.flatnonzero(np.asarray(mask, dtype=bool)) + 1
+
+
+def _mask(values: pd.Series) -> np.ndarray:
+    return np.asarray(values.to_numpy(dtype=bool, na_value=False), dtype=bool)
 
 
 def validate_peptides(df_raw: pd.DataFrame, cfg: InputConfig) -> tuple[pd.DataFrame, list[Issue]]:
     """Return the evidence-eligible rows (fresh frame, ``RangeIndex``) and the issues found.
 
     Row numbers in issue examples are 1-based positions in ``df_raw``. Rows above
-    ``cfg.q_value_max`` are kept (needed for FDR estimation).
+    ``cfg.q_value_max`` are kept (needed for FDR estimation). Rows with any error-level issue
+    are dropped (the issue is still reported). Rows sharing (run, spectrum_id, peptide, charge)
+    are one spectrum's evidence: only the first is kept (``duplicate_spectrum_row`` warning).
     """
     issues: list[Issue] = []
 
@@ -182,60 +201,49 @@ def validate_peptides(df_raw: pd.DataFrame, cfg: InputConfig) -> tuple[pd.DataFr
     for col in PEPTIDE_COLUMNS:
         if col not in df.columns:
             df[col] = _empty_column(col, n)
+    error = np.zeros(n, dtype=bool)
+    if _BAD_TYPE in df.columns:
+        error |= _mask(df.pop(_BAD_TYPE))
     if issues:
         return _finish(df.iloc[0:0], cfg), issues
 
-    for col, lo, hi in (("q_value", 0, 1), ("pep", 0, 1), ("intensity", 0, math.inf)):
-        v = df[col]
-        add(
-            row_issue(
-                f"out_of_range:{col}",
-                "error",
-                f"{col} outside [{lo}, {hi}]",
-                _rows(v.notna() & ~v.between(lo, hi)),
-            )
-        )
-    charge = df["charge"]
-    add(
-        row_issue(
-            "out_of_range:charge",
-            "error",
-            "charge < 1",
-            _rows((charge.notna() & (charge < 1)).fillna(False)),
-        )
-    )
+    def add_error(code: str, message: str, mask: np.ndarray) -> None:
+        nonlocal error
+        add(row_issue(code, "error", message, _rows(mask)))
+        error |= mask
+
+    for col, hi in (("q_value", "1]"), ("pep", "1]"), ("intensity", "inf)")):
+        v = df[col].to_numpy(dtype="float64", na_value=np.nan)
+        ok = np.isnan(v) | ((v >= 0) & (v <= 1 if hi == "1]" else np.isfinite(v)))
+        add_error(f"out_of_range:{col}", f"{col} outside [0, {hi}", ~ok)
+    add_error("out_of_range:charge", "charge < 1", _mask(df["charge"] < 1))
     for col, allowed in _ENUMS.items():
         v = df[col]
-        add(
-            row_issue(
-                f"bad_enum:{col}",
-                "error",
-                f"{col} not in {list(allowed)}",
-                _rows(v.notna() & ~v.isin(allowed)),
-            )
+        add_error(
+            f"bad_enum:{col}", f"{col} not in {list(allowed)}", _mask(v.notna() & ~v.isin(allowed))
         )
 
-    sid = df[["peptide", "run", "spectrum_id"]].copy()
-    sid["run"] = sid["run"].fillna("")
-    sid = sid[sid["spectrum_id"].notna()]
-    n_pep = sid.groupby(["run", "spectrum_id"])["peptide"].transform("nunique")
-    dup = pd.Series(False, index=df.index)
-    dup.loc[n_pep.index[n_pep > 1]] = True
-    add(
-        row_issue(
-            "duplicate_spectrum_id",
-            "error",
-            "(run, spectrum_id) repeated with different peptides",
-            _rows(dup),
-        )
+    run = df["run"].fillna("")
+    has_sid = _mask(df["spectrum_id"].notna())
+    n_pep = (
+        pd.DataFrame({"run": run, "sid": df["spectrum_id"], "peptide": df["peptide"]})[has_sid]
+        .groupby(["run", "sid"], sort=False)["peptide"]
+        .transform("nunique")
+    )
+    conflict = np.zeros(n, dtype=bool)
+    conflict[n_pep.index[n_pep.to_numpy() > 1]] = True
+    add_error(
+        "duplicate_spectrum_id",
+        "(run, spectrum_id) repeated with different peptides (rows dropped)",
+        conflict,
     )
 
     pep = df["peptide"]
-    letters = pep.str.fullmatch(r"[A-Z]+").fillna(False).astype(bool)
+    letters = _mask(pep.str.fullmatch(r"[A-Z]+"))
     length = pep.str.len()
     lo_len, hi_len = cfg.peptide_len[0], cfg.peptide_len[1]
-    short = letters & (length < lo_len).fillna(False).astype(bool)
-    long = letters & (length > hi_len).fillna(False).astype(bool)
+    short = letters & _mask(length < lo_len)
+    long = letters & _mask(length > hi_len)
     add(
         row_issue(
             "non_letters", "warn", "peptide is not uppercase A-Z only (dropped)", _rows(~letters)
@@ -245,9 +253,9 @@ def validate_peptides(df_raw: pd.DataFrame, cfg: InputConfig) -> tuple[pd.DataFr
         row_issue("short_peptide", "warn", f"peptide shorter than {lo_len} (dropped)", _rows(short))
     )
     add(row_issue("long_peptide", "warn", f"peptide longer than {hi_len} (dropped)", _rows(long)))
-    keep = letters & ~short & ~long
+    keep = letters & ~short & ~long & ~error
 
-    decoy_no_ids = keep & df["is_decoy"].fillna(False).astype(bool) & df["protein_ids"].isna()
+    decoy_no_ids = keep & _mask(df["is_decoy"]) & _mask(df["protein_ids"].isna())
     add(
         row_issue(
             "decoy_without_protein_ids",
@@ -257,13 +265,31 @@ def validate_peptides(df_raw: pd.DataFrame, cfg: InputConfig) -> tuple[pd.DataFr
         )
     )
 
-    sources = df.loc[keep, ["peptide", "source"]].copy()
-    sources["source"] = sources["source"].fillna(cfg.peptide_source)
-    n_src = sources.groupby("peptide")["source"].transform(
-        lambda s: len(set(s) & {"database", "denovo"})
+    key = pd.DataFrame(
+        {"run": run, "sid": df["spectrum_id"], "peptide": pep, "charge": df["charge"]}
     )
-    mixed = pd.Series(False, index=df.index)
-    mixed.loc[n_src.index[n_src > 1]] = True
+    cand = keep & has_sid
+    dup = np.zeros(n, dtype=bool)
+    dup[cand] = key[cand].duplicated(keep="first").to_numpy()
+    add(
+        row_issue(
+            "duplicate_spectrum_row",
+            "warn",
+            "(run, spectrum_id, peptide, charge) repeated; first row kept",
+            _rows(dup),
+        )
+    )
+    keep &= ~dup
+
+    src = df["source"].fillna(cfg.peptide_source)
+    named = keep & _mask(src.isin(("database", "denovo")))
+    n_src = (
+        pd.DataFrame({"peptide": pep, "source": src})[named]
+        .groupby("peptide", sort=False)["source"]
+        .transform("nunique")
+    )
+    mixed = np.zeros(n, dtype=bool)
+    mixed[n_src.index[n_src.to_numpy() > 1]] = True
     add(
         row_issue(
             "mixed_source",
@@ -279,32 +305,50 @@ def validate_peptides(df_raw: pd.DataFrame, cfg: InputConfig) -> tuple[pd.DataFr
 def _finish(df: pd.DataFrame, cfg: InputConfig) -> pd.DataFrame:
     """Derive ``is_decoy``/``is_contaminant`` and fill ``source``/``search_db`` from config."""
     df = df.reset_index(drop=True).copy()
-    ids = df["protein_ids"].astype(object)
-    by_prefix = ids.map(lambda x: _all_prefixed(x, cfg.decoy_prefixes)).astype(bool)
-    df["is_decoy"] = df["is_decoy"].fillna(by_prefix).astype(bool)
-    df["is_contaminant"] = ids.map(lambda x: _all_prefixed(x, cfg.contaminant_prefixes)).astype(
-        bool
-    )
+    df["protein_ids"] = _normalise_ids(df["protein_ids"])
+    ids = df["protein_ids"]
+    by_prefix = pd.Series(_all_prefixed(ids, cfg.decoy_prefixes), index=df.index)
+    df["is_decoy"] = df["is_decoy"].astype("boolean").fillna(by_prefix).astype(bool)
+    df["is_contaminant"] = _all_prefixed(ids, cfg.contaminant_prefixes)
     df["source"] = df["source"].fillna(cfg.peptide_source).astype(_STR)
     df["search_db"] = df["search_db"].fillna(cfg.search_db).astype(_STR)
-    extra = [c for c in df.columns if c not in PEPTIDE_COLUMNS and c != "is_contaminant"]
+    extra = [
+        c for c in df.columns if c not in PEPTIDE_COLUMNS and c not in ("is_contaminant", _BAD_TYPE)
+    ]
     return df[[*PEPTIDE_COLUMNS, "is_contaminant", *extra]]
 
 
-def _union(values: pd.Series, sep: str | None) -> list[str]:
-    out: set[str] = set()
-    for v in values:
-        if isinstance(v, str):
-            out.update(e for e in (v.split(sep) if sep else [v]) if e)
-    return sorted(out)
+def _sorted_union(
+    peptide: pd.Series, values: pd.Series, sep: str | None, peptides: pd.Index
+) -> pd.Series:
+    """Per peptide (in ``peptides`` order), the sorted union of the non-missing entries."""
+    pairs = pd.DataFrame({"peptide": peptide.to_numpy(), "v": values.astype(_STR).to_numpy()})
+    pairs = pairs[pairs["v"].notna()]
+    if sep is not None:
+        pairs = pairs.assign(v=pairs["v"].str.split(sep)).explode("v")
+        pairs = pairs[pairs["v"].notna() & (pairs["v"] != "")]
+    pairs = pairs.drop_duplicates().sort_values(["peptide", "v"])
+    keys = pairs["peptide"].to_numpy(dtype=object)
+    vals = pairs["v"].to_numpy(dtype=object)
+    if not len(keys):
+        return pd.Series([[] for _ in peptides], index=peptides, dtype=object)
+    starts = np.flatnonzero(np.r_[True, keys[1:] != keys[:-1]])
+    chunks = np.split(vals, starts[1:])
+    found = dict(zip(keys[starts], (c.tolist() for c in chunks), strict=True))
+    return pd.Series([found.get(p, []) for p in peptides], index=peptides, dtype=object)
 
 
-def _first_by_priority(values: pd.Series, order: Sequence[str]) -> str:
-    present = set(values.dropna())
-    for v in order:
-        if v in present:
-            return v
-    return min(present) if present else ""
+def _first_by_priority(
+    peptide: pd.Series, values: pd.Series, order: Sequence[str], peptides: pd.Index
+) -> pd.Series:
+    """Per peptide, the present value earliest in ``order`` (unknown values after, sorted)."""
+    present = values.dropna().unique()
+    categories = [*order, *sorted(set(present) - set(order))]
+    codes = pd.Categorical(values, categories=categories).codes.astype("int64")
+    codes[codes < 0] = len(categories)
+    best = pd.Series(codes).groupby(peptide.to_numpy(), sort=True).min().reindex(peptides)
+    lookup = np.array([*categories, ""], dtype=object)
+    return pd.Series(lookup[best.to_numpy()], index=peptides).astype(_STR)
 
 
 def aggregate_peptides(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -329,6 +373,9 @@ def aggregate_peptides(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     runs = runs[list(PEPTIDE_RUN_COLUMNS)].reset_index(drop=True)
 
     g = work.groupby("peptide", sort=True, observed=True)
+    n_rows = g.size().astype("int64")
+    peptides = n_rows.index
+    pep = work["peptide"]
     agg = pd.DataFrame(
         {
             "q_value": g["q_value"].min().astype("float64"),
@@ -336,21 +383,17 @@ def aggregate_peptides(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             "score": g["score"].max().astype("float64"),
             "is_decoy": g["is_decoy"].all().astype(bool),
             "is_contaminant": g["is_contaminant"].all().astype(bool),
-            "protein_ids": g["protein_ids"].agg(lambda s: _union(s, ";")).astype(object),
-            "modified_peptides": g["modified_peptide"]
-            .agg(lambda s: _union(s, None))
-            .astype(object),
-            "n_rows": g.size().astype("int64"),
+            "protein_ids": _sorted_union(pep, work["protein_ids"], ";", peptides),
+            "modified_peptides": _sorted_union(pep, work["modified_peptide"], None, peptides),
+            "n_rows": n_rows,
             "n_runs": g["run"].nunique().astype("int64"),
             "intensity": runs.groupby("peptide", sort=True, observed=True)["intensity"]
             .median()
             .astype("float64"),
-            "source": g["source"]
-            .agg(lambda s: _first_by_priority(s, _PRIORITY["source"]))
-            .astype(_STR),
-            "search_db": g["search_db"]
-            .agg(lambda s: _first_by_priority(s, _PRIORITY["search_db"]))
-            .astype(_STR),
+            "source": _first_by_priority(pep, work["source"], _PRIORITY["source"], peptides),
+            "search_db": _first_by_priority(
+                pep, work["search_db"], _PRIORITY["search_db"], peptides
+            ),
         }
     )
     agg.index.name = "peptide"
