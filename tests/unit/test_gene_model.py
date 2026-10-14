@@ -102,6 +102,7 @@ def test_literal_vocabularies() -> None:
 def test_gene_fields_and_defaults() -> None:
     iv = Interval("chr1", 100, 400, "+")
     g = Gene("GSIM_00005", "cds", iv, "MA", "ATGGCTTAA", "ATG")
+    # M2-03 extends the M3-01 model with defaulted fields (M2 index: M2-03 extends M3-01).
     assert [f.name for f in dataclasses.fields(Gene)] == [
         "locus_tag",
         "feature_type",
@@ -114,6 +115,7 @@ def test_gene_fields_and_defaults() -> None:
         "partial",
         "hypothetical",
         "db_xrefs",
+        "expert",
     ]
     assert g.gene is None
     assert g.product == ""
@@ -132,7 +134,16 @@ def test_gene_and_ncfeature_frozen_slots() -> None:
         nc.id = "x"  # type: ignore[misc]
     assert not hasattr(g, "__dict__")
     assert not hasattr(nc, "__dict__")
-    assert [f.name for f in dataclasses.fields(NcFeature)] == ["id", "type", "interval"]
+    assert [f.name for f in dataclasses.fields(NcFeature)] == [
+        "id",
+        "type",
+        "interval",
+        "gene",
+        "product",
+        "amino_acid",
+        "anticodon",
+        "nt",
+    ]
     assert hash(g) == hash(dataclasses.replace(g))
 
 
