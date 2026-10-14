@@ -23,6 +23,8 @@ spec-writer's proposed defaults (R10) and records them here.
    items are errors; REF/ALT are uppercase `[ACGTN]+`, ALT ≠ REF, same length, GT within the ALT
    count; header text may not contain control characters; contig IDs must be safe IDs. REF is
    checked against the genome only when the caller passes the sequences (optional argument).
+   A FILTER value other than `PASS` gets a generic `##FILTER` header line; M7 replaces these with
+   explicit descriptions when it defines GIAP's filters (docs/backlog.md).
 2. **Peptide and abundance tables.** Median across runs uses only runs where the peptide was
    quantified. The generic reader warns and drops rows with modification syntax (stripping is
    `giap convert`'s job) and peptides > 40 aa. Mixed `source` for one peptide: `database` wins,
