@@ -3,7 +3,9 @@
 
 Readers come from ``giap.io``, rules from ``giap.preflight``; this module wires them together,
 probes the environment and writes ``OUT/preflight/`` plus, when there is no error, the normalised
-work files under ``OUT/work/preflight/``.
+work files under ``OUT/work/preflight/``. Outputs are atomic: a stale ``work/preflight/`` is removed
+first, files are written into a temporary directory under ``OUT`` and moved into place with
+``os.replace``, ``preflight/preflight.json`` last (the completion marker).
 """
 
 from __future__ import annotations
@@ -11,7 +13,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
+import tempfile
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -22,19 +28,28 @@ from giap.config import GiapConfig
 from giap.exitcodes import ExitCode
 from giap.io._open import open_text_write
 from giap.io.abundance import AbundanceTable, read_abundance, resolve_scale
-from giap.io.fasta import FastaFormatError, GenomeRecord, read_genome_fasta, write_fasta
+from giap.io.fasta import (
+    FastaFormatError,
+    GenomeRecord,
+    read_genome_fasta,
+    sanitize_id,
+    write_fasta,
+)
 from giap.io.issues import Issue
 from giap.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
-from giap.io.protein_fasta import ProteinRecord, read_protein_fasta, route_by_length
+from giap.io.protein_fasta import ProteinRecord, Route, read_protein_fasta, route_by_length
 from giap.io.tsv import write_tsv
 from giap.model import Replicon
 from giap.preflight.checks import Check, JsonValue
 from giap.preflight.environment import (
-    GIB,
+    MANIFEST,
     RESOURCES_RULE,
     TOOLS_RULE,
     EnvProbe,
+    ProbeError,
     environment_checks,
+    probe_resources,
+    read_manifest,
     requirements,
     resource_needs,
 )
@@ -62,16 +77,12 @@ from giap.preflight.report import (
 __all__ = [
     "NormalisedInputs",
     "PreflightInputs",
-    "ProbeError",
     "exit_code",
-    "probe_environment",
     "run_preflight",
     "write_outputs",
 ]
 
 Mode = Literal["preflight", "run"]
-MANIFEST = "db_manifest.json"
-CAPABILITIES = Path(".giap") / "capabilities.json"
 ANNOTATION_SUFFIXES = (".json", ".gff3", ".gff", ".gbff", ".gbk")
 _REPLICON_TYPE = {"chromosome": "chromosome", "plasmid": "plasmid", "unknown": "contig"}
 
@@ -95,105 +106,58 @@ class NormalisedInputs:
     peptides: pd.DataFrame | None = None
     peptide_runs: pd.DataFrame | None = None
     abundance: pd.DataFrame | None = None
+    resources: tuple[int, int] | None = None  # live (free_disk, ram) bytes; logged, not reported
 
 
-class ProbeError(Exception):
-    """The environment probe could not read its sources."""
-
-
-# ---------------------------------------------------------------- environment probe
-
-
-def _read_object(path: Path) -> dict[str, object]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError as exc:
-        raise ProbeError(f"{path.name} not found") from exc
-    except (OSError, ValueError) as exc:  # UnicodeDecodeError and JSONDecodeError included
-        raise ProbeError(f"{path.name} is unreadable: {type(exc).__name__}: {exc}") from exc
-    if not isinstance(data, dict):
-        raise ProbeError(f"{path.name} is not a JSON object")
-    return data
-
-
-def _number(doc: dict[str, object], *keys: str) -> float | None:
-    for key in keys:
-        v = doc.get(key)
-        if isinstance(v, int | float) and not isinstance(v, bool):
-            return float(v)
-    return None
-
-
-def _resources(caps: dict[str, object]) -> tuple[int, int]:
-    """``(free_disk_bytes, total_ram_bytes)`` from ``capabilities.json`` (§3.6 probe snapshot)."""
-    alloc = caps.get("allocation")
-    ram = _number(alloc, "mem_gb", "node_mem_gb") if isinstance(alloc, dict) else None
-    disk = _number(caps, "giap_root_free_gb")
-    if ram is None or disk is None:
-        raise ProbeError("capabilities.json lacks allocation memory or giap_root_free_gb")
-    return int(disk * 1e9), int(ram * GIB)
-
-
-def probe_environment() -> EnvProbe | None:
-    """Real probe: versions from ``$GIAP_DB_DIR/db_manifest.json``, resources from
-    ``.giap/capabilities.json`` (under ``$GIAP_REPO``, else the working directory).
-
-    Returns ``None`` when the manifest does not exist; raises :class:`ProbeError` when a source
-    is unreadable. A manifest entry is ``name: "version"`` or ``name: {"version": ...}``.
-    """
-    db_dir = os.environ.get("GIAP_DB_DIR")
-    if not db_dir or not (Path(db_dir) / MANIFEST).exists():
-        return None
-    manifest = _read_object(Path(db_dir) / MANIFEST)
-    found: dict[str, str | None] = {}
-    for name, entry in manifest.items():
-        v = entry.get("version") if isinstance(entry, dict) else entry
-        found[name] = v if isinstance(v, str) else None
-    disk, ram = _resources(_read_object(_capabilities_path()))
-    return EnvProbe(found=found, free_disk_bytes=disk, total_ram_bytes=ram)
-
-
-def _capabilities_path() -> Path:
-    return Path(os.environ.get("GIAP_REPO", ".")) / CAPABILITIES
+# ---------------------------------------------------------------- environment
 
 
 def _tools_error(message: str, value: JsonValue) -> Check:
     return Check("environment.tools", "environment", "error", TOOLS_RULE, value, message, 2)
 
 
-def _missing_manifest_checks(mode: Mode, needs: tuple[int, int]) -> list[Check]:
-    msg = f"{MANIFEST} not found in $GIAP_DB_DIR (written by giap setup)"
-    if mode == "run":
-        return [_tools_error(msg, {MANIFEST: "missing"})]
-    tools = Check(
-        "environment.tools",
-        "environment",
-        "info",
-        TOOLS_RULE,
-        {MANIFEST: "missing"},
-        msg + "; tool and database versions are checked by giap run",
-    )
-    try:
-        disk, ram = _resources(_read_object(_capabilities_path()))
-    except ProbeError as exc:
-        res = Check("environment.resources", "environment", "info", RESOURCES_RULE, None, str(exc))
-        return [tools, res]
-    probe = EnvProbe(found={}, free_disk_bytes=disk, total_ram_bytes=ram)
-    return [tools, environment_checks([], probe, *needs)[1]]
+def _environment(
+    cfg: GiapConfig, probe: EnvProbe | None, mode: Mode, outdir: Path
+) -> tuple[list[Check], tuple[int, int] | None]:
+    """Environment checks and, for the real probe, the raw ``(free_disk, ram)`` bytes to log.
 
-
-def _environment(cfg: GiapConfig, probe: EnvProbe | None, mode: Mode) -> list[Check]:
+    ``probe=None`` selects the real probe: versions from ``$GIAP_DB_DIR/db_manifest.json``
+    (missing: info under ``mode="preflight"``, error under ``mode="run"``; unreadable: one
+    ``environment.tools`` error) and resources probed live where ``outdir`` is.
+    """
     promoters = cfg.annotation.promoters.mode
     reqs = requirements(cfg.modules, promoters)
     needs = resource_needs(promoters)
-    if probe is None:
-        try:
-            probe = probe_environment()
-        except ProbeError as exc:
-            return [_tools_error(f"environment probe failed: {exc}", {"probe_error": str(exc)})]
-        if probe is None:
-            return _missing_manifest_checks(mode, needs)
-    return environment_checks(reqs, probe, *needs)
+    if probe is not None:
+        return environment_checks(reqs, probe, *needs), None
+    try:
+        found = read_manifest(os.environ.get("GIAP_DB_DIR"))
+    except ProbeError as exc:
+        return [_tools_error(f"environment probe failed: {exc}", {"probe_error": str(exc)})], None
+    missing = f"{MANIFEST} not found in $GIAP_DB_DIR (written by giap setup)"
+    if found is None and mode == "run":
+        return [_tools_error(missing, {MANIFEST: "missing"})], None
+    resources: tuple[int, int] | None = None
+    try:
+        resources = probe_resources(outdir)
+    except OSError as exc:
+        res = Check(
+            "environment.resources", "environment", "info", RESOURCES_RULE, None,
+            f"resources could not be probed: {type(exc).__name__}",
+        )  # fmt: skip
+    else:
+        live = EnvProbe(found={}, free_disk_bytes=resources[0], total_ram_bytes=resources[1])
+        res = environment_checks([], live, *needs)[1]
+    if found is None:
+        tools = Check(
+            "environment.tools", "environment", "info", TOOLS_RULE, {MANIFEST: "missing"},
+            missing + "; tool and database versions are checked by giap run",
+        )  # fmt: skip
+    else:
+        tools = environment_checks(
+            reqs, EnvProbe(found=found, free_disk_bytes=0, total_ram_bytes=0), 0, 0
+        )[0]
+    return [tools, res], resources
 
 
 # ---------------------------------------------------------------- inputs
@@ -205,9 +169,9 @@ def _input_ref(role: str, path: Path) -> InputRef:
     return InputRef(role=role, file=path.name, sha256=digest, size=path.stat().st_size)
 
 
-def _scrub(exc: Exception, path: Path) -> str:
-    """The exception text with the input's directory removed (``preflight.json`` holds names)."""
-    return str(exc).replace(str(path), path.name)
+def _scrub(text: object, path: Path) -> str:
+    """``text`` with the input's directory removed (``preflight.json`` holds file names)."""
+    return str(text).replace(str(path), path.name)
 
 
 def _annotation_check(path: Path) -> Check:
@@ -223,10 +187,11 @@ def _annotation_check(path: Path) -> Check:
     )
 
 
-def _short_protein_rows(records: list[ProteinRecord], cfg: GiapConfig) -> pd.DataFrame:
+def _short_protein_rows(
+    records: Sequence[ProteinRecord], routes: Sequence[Route], cfg: GiapConfig
+) -> pd.DataFrame:
     """Proteins of ``peptide_len`` aa as validated peptide rows naming their protein (§5.3)."""
-    lo, hi = cfg.input.peptide_len
-    short = [r for r in records if route_by_length(len(r.sequence), (lo, hi)) == "peptide"]
+    short = [r for r, route in zip(records, routes, strict=True) if route == "peptide"]
     raw = pd.DataFrame(
         {"peptide": [r.sequence for r in short], "protein_ids": [r.id for r in short]},
         dtype=pd.StringDtype(),
@@ -235,9 +200,14 @@ def _short_protein_rows(records: list[ProteinRecord], cfg: GiapConfig) -> pd.Dat
 
 
 def run_preflight(
-    inp: PreflightInputs, cfg: GiapConfig, probe: EnvProbe | None, mode: Mode
+    inp: PreflightInputs,
+    cfg: GiapConfig,
+    probe: EnvProbe | None,
+    mode: Mode,
+    outdir: Path | None = None,
 ) -> tuple[PreflightReport, NormalisedInputs]:
-    """Evaluate every preflight rule; ``probe=None`` selects the real environment probe."""
+    """Evaluate every preflight rule; ``probe=None`` selects the real environment probe, which
+    measures free disk where ``outdir`` is (default: the working directory)."""
     lo, hi = cfg.input.peptide_len
     refs = [_input_ref("genome", inp.genome)]
 
@@ -281,9 +251,10 @@ def run_preflight(
         user_peptides, more = validate_peptides(raw, cfg.input)
         checks_peptides = peptide_checks([*issues, *more], user_peptides, cfg.input)
 
+    routes = [route_by_length(len(r.sequence), (lo, hi)) for r in proteins or []]
     frames = [f for f in (user_peptides,) if f is not None and len(f)]
     if proteins:
-        short = _short_protein_rows(proteins, cfg)
+        short = _short_protein_rows(proteins, routes, cfg)
         if len(short):
             frames.append(short)
     peptides = runs = None
@@ -298,10 +269,7 @@ def run_preflight(
     if inp.abundance is not None:
         refs.append(_input_ref("abundance", inp.abundance))
         table, ab_issues = read_abundance(inp.abundance)
-        where = str(inp.abundance)
-        ab_issues = [
-            replace(i, message=i.message.replace(where, inp.abundance.name)) for i in ab_issues
-        ]
+        ab_issues = [replace(i, message=_scrub(i.message, inp.abundance)) for i in ab_issues]
         resolved = None if table is None else resolve_scale(table.values, cfg.abundance.scale)
         checks_abundance = abundance_checks(
             table,
@@ -318,6 +286,7 @@ def run_preflight(
     if inp.annotation is not None:
         refs.append(_input_ref("annotation", inp.annotation))
 
+    env, resources = _environment(cfg, probe, mode, Path.cwd() if outdir is None else outdir)
     tier = candidate_tier(user_peptides, inp.proteins is not None)
     n_usable = None if user_peptides is None else len(user_peptides)
     checks = [
@@ -330,10 +299,9 @@ def run_preflight(
         *checks_peptides,
         tier_check(tier),
         *checks_abundance,
-        *_environment(cfg, probe, mode),
+        *env,
     ]
 
-    routes = [route_by_length(len(r.sequence), (lo, hi)) for r in proteins or []]
     routing: dict[str, JsonValue] = {
         "n_proteins_long": routes.count("protein"),
         "n_proteins_peptide_path": routes.count("peptide"),
@@ -353,7 +321,7 @@ def run_preflight(
     )
     long = None
     if proteins is not None:
-        long = tuple(r for r in proteins if route_by_length(len(r.sequence), (lo, hi)) == "protein")
+        long = tuple(r for r, route in zip(proteins, routes, strict=True) if route == "protein")
     norm = NormalisedInputs(
         genome=tuple(genome),
         replicons=tuple(replicons),
@@ -361,6 +329,7 @@ def run_preflight(
         peptides=peptides,
         peptide_runs=runs,
         abundance=abundance,
+        resources=resources,
     )
     return report, norm
 
@@ -393,19 +362,40 @@ def exit_code(report: PreflightReport, strict: bool) -> ExitCode:
     return ExitCode.SUCCESS
 
 
-def write_outputs(outdir: Path, report: PreflightReport, norm: NormalisedInputs) -> None:
-    """``OUT/preflight/preflight.{json,md}`` always; ``OUT/work/preflight/`` files (§6.2) only
-    when the report has no error."""
-    rep = outdir / "preflight"
-    rep.mkdir(parents=True, exist_ok=True)
-    write_preflight_json(rep / "preflight.json", report)
-    with open_text_write(rep / "preflight.md") as fh:
-        fh.write(render_preflight_md(report))
-    if any(c.level == "error" for c in report.checks):
-        return
+def _safe_protein_ids(records: Sequence[ProteinRecord]) -> list[str]:
+    """``[A-Za-z0-9._-]`` IDs for ``records``; a collision gets a ``_2``, ``_3``, … suffix."""
+    taken: set[str] = set()
+    out: list[str] = []
+    for r in records:
+        base = sanitize_id(r.id)
+        safe, n = base, 1
+        while safe in taken:
+            n += 1
+            safe = f"{base}_{n}"
+        taken.add(safe)
+        out.append(safe)
+    return out
 
-    work = outdir / "work" / "preflight"
-    work.mkdir(parents=True, exist_ok=True)
+
+def _log_resources(outdir: Path, resources: tuple[int, int]) -> None:
+    """Append the raw probed resources to ``OUT/logs/events.jsonl`` (§6.7)."""
+    disk, ram = resources
+    event = {
+        "ts": datetime.now(UTC).isoformat(timespec="seconds"),
+        "step": "preflight",
+        "level": "INFO",
+        "event": "environment.resources",
+        "data": {"free_disk_bytes": disk, "ram_bytes": ram},
+    }
+    logs = outdir / "logs"
+    logs.mkdir(parents=True, exist_ok=True)
+    with (logs / "events.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(event, sort_keys=True) + "\n")
+
+
+def _write_work(work: Path, norm: NormalisedInputs) -> None:
+    """The normalised work files (§6.2) into ``work``."""
+    work.mkdir()
     write_fasta(work / "genome.norm.fa", ((r.id, r.sequence) for r in norm.genome))
     write_tsv(
         work / "contig_map.tsv",
@@ -417,10 +407,15 @@ def write_outputs(outdir: Path, report: PreflightReport, norm: NormalisedInputs)
             topo = "c" if x.topology == "circular" else "l"
             fh.write(f"{x.id}\t{x.id}\t{_REPLICON_TYPE[x.kind]}\t{topo}\t-\n")
     if norm.proteins_long is not None:
+        safe = _safe_protein_ids(norm.proteins_long)
         write_fasta(
             work / "proteins.long.faa",
-            ((r.id, r.sequence) for r in norm.proteins_long),
-            safe_ids=False,
+            ((s, r.sequence) for s, r in zip(safe, norm.proteins_long, strict=True)),
+        )
+        write_tsv(
+            work / "protein_map.tsv",
+            ["protein_id", "original_id", "members"],
+            [(s, r.id, ";".join(r.members)) for s, r in zip(safe, norm.proteins_long, strict=True)],
         )
     for name, frame in (
         ("peptides.norm.parquet", norm.peptides),
@@ -429,3 +424,33 @@ def write_outputs(outdir: Path, report: PreflightReport, norm: NormalisedInputs)
     ):
         if frame is not None:
             frame.to_parquet(work / name, engine="pyarrow", index=False)
+
+
+def write_outputs(outdir: Path, report: PreflightReport, norm: NormalisedInputs) -> None:
+    """``OUT/preflight/preflight.{json,md}`` always; ``OUT/work/preflight/`` files (§6.2) only
+    when the report has no error.
+
+    Atomic: the previous marker and a stale ``work/preflight/`` are removed first; everything is
+    written into a temporary directory under ``outdir`` and moved into place with ``os.replace``,
+    ``preflight.json`` last. A crash leaves neither the marker nor normalised files behind.
+    """
+    rep, work = outdir / "preflight", outdir / "work" / "preflight"
+    rep.mkdir(parents=True, exist_ok=True)
+    (rep / "preflight.json").unlink(missing_ok=True)
+    shutil.rmtree(work, ignore_errors=True)
+    if norm.resources is not None:
+        _log_resources(outdir, norm.resources)
+    tmp = Path(tempfile.mkdtemp(prefix=".preflight-", dir=outdir))
+    try:
+        if not any(c.level == "error" for c in report.checks):
+            _write_work(tmp / "work", norm)
+        with open_text_write(tmp / "preflight.md") as fh:
+            fh.write(render_preflight_md(report))
+        write_preflight_json(tmp / "preflight.json", report)
+        if (tmp / "work").exists():
+            work.parent.mkdir(exist_ok=True)
+            os.replace(tmp / "work", work)
+        os.replace(tmp / "preflight.md", rep / "preflight.md")
+        os.replace(tmp / "preflight.json", rep / "preflight.json")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)

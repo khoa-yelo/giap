@@ -143,8 +143,11 @@ def preflight(
     from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
 
     cfg = _resolve(config_file, sets, log_level)
+    if outdir is not None and outdir.exists() and not outdir.is_dir():
+        click.echo(f"giap preflight: --outdir {outdir} exists and is not a directory", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
     inp = PreflightInputs(genome, proteins, peptides, abundance, annotation)
-    report, norm = run_preflight(inp, cfg, None, "preflight")
+    report, norm = run_preflight(inp, cfg, None, "preflight", outdir)
     if outdir is not None:
         write_outputs(outdir, report, norm)
     click.echo(render_preflight_md(report), nl=False)

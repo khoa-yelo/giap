@@ -21,7 +21,6 @@ SAFE_ID = re.compile(r"[A-Za-z0-9._-]")
 
 _UNSAFE_ID = re.compile(r"[^A-Za-z0-9._-]")
 _SAFE_ID_FULL = re.compile(r"[A-Za-z0-9._-]+")
-_NO_SPACE_ID = re.compile(r"\S+")
 _CIRCULAR_TAG = re.compile(
     r"(?:^|(?<=[\s\[]))circular=true(?=$|[\s;,\]])|\[topology=circular\]", re.IGNORECASE
 )
@@ -94,21 +93,17 @@ def read_genome_fasta(path: Path) -> list[GenomeRecord]:
     return records
 
 
-def write_fasta(
-    path: Path, records: Iterable[tuple[str, str]], width: int = 80, *, safe_ids: bool = True
-) -> None:
+def write_fasta(path: Path, records: Iterable[tuple[str, str]], width: int = 80) -> None:
     """Write ``(id, sequence)`` pairs as uncompressed FASTA wrapped at ``width`` columns.
 
-    IDs must consist only of ``[A-Za-z0-9._-]`` (with ``safe_ids=False``: any non-empty text
-    without whitespace, e.g. a protein group ``A;B``) and sequences must not contain line breaks.
+    IDs must consist only of ``[A-Za-z0-9._-]`` and sequences must not contain line breaks.
     """
     if width < 1:
         raise ValueError(f"width must be >= 1, got {width}")
-    id_re = _SAFE_ID_FULL if safe_ids else _NO_SPACE_ID
     with open_text_write(path, compress=False) as fh:
         for rec_id, seq in records:
-            if not id_re.fullmatch(rec_id):
-                raise ValueError(f"unsafe FASTA ID {rec_id!r}; expected {id_re.pattern}")
+            if not _SAFE_ID_FULL.fullmatch(rec_id):
+                raise ValueError(f"unsafe FASTA ID {rec_id!r}; expected {_SAFE_ID_FULL.pattern}")
             if "\n" in seq or "\r" in seq:
                 raise ValueError(f"sequence for {rec_id!r} contains a line break")
             fh.write(f">{rec_id}\n")
