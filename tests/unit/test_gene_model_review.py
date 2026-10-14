@@ -173,7 +173,9 @@ def test_direct_construction_does_not_alias_replicons() -> None:
     reps["p9"] = Replicon("p9", 500, "circular", "plasmid")
     assert dict(m.replicons) == CIRC
     assert m.replicons["chr1"].length == 50_000
-    assert m.overlapping(Interval("chr1", 49_990, 110, ".")) == []  # still circular
+    # Still circular: the origin-wrapping query [49_990, 50_110) covers 0..110 and reaches L1
+    # at 100..110; on the aliased 1-kb linear replicon it would be out of bounds instead.
+    assert m.overlapping(Interval("chr1", 49_990, 50_110, ".")) == [g]
 
 
 def test_reader_does_not_alias_replicons(tmp_path: Path) -> None:
