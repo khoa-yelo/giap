@@ -49,8 +49,10 @@ def test_sbatch_header() -> None:
 def test_sbatch_builds_envs_and_pulls_images() -> None:
     text = BUILD_SBATCH.read_text()
     assert "build_envs.sh" in text
-    assert "apptainer pull" in text
-    assert "NXF_APPTAINER_CACHEDIR" in text
+    # Lead decision 5: the manual pull may be dropped (Nextflow pulls); if kept, it targets the
+    # Nextflow cache dir.
+    if "apptainer pull" in text:
+        assert "NXF_APPTAINER_CACHEDIR" in text
 
 
 def test_build_envs_sh_contract() -> None:
