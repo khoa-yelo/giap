@@ -2,7 +2,8 @@
 _Last updated: 2026-10-14 · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
 
 ## Current milestone
-M0: Scaffold. Status: in progress
+M0: Scaffold. Status: gate pending (PR #1 green except the PR-size guard; ADR-0004 awaits Khoa)
+M1: Inputs and preflight. Status: in progress (12 issues, docs/specs/M1-index.md)
 
 ## Done (with evidence)
 - [M0] `gh` authenticated as khoa-yelo (SSH protocol); repository is public (Actions minutes unlimited).
@@ -16,13 +17,19 @@ M0: Scaffold. Status: in progress
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
-- m0/scaffold: failing tests for config, CLI and simulator (test-author), then implementation.
+- PR #1 `m0/scaffold` (M0): all CI green except PR size (8,585 > 800) → ADR-0004 Q1.
+- PR #2 `m1/coordinates` (M1-01, base m0/scaffold): reviewed, findings fixed; 206 tests.
+- PR #3 `m1/genome-fasta` (M1-02, base m1/coordinates): in code review.
+- `m1/tsv-io` (M1-04, worktree local/worktrees/tsv-io): implementer working; rebase onto m1/coordinates before PR.
+- `m1/protein-fasta` (M1-03, worktree local/worktrees/protein-fasta, base m1/genome-fasta): test-author working.
+- Untracked specs M1-05…M1-12 in the main checkout's docs/specs/ (committed with each issue's PR).
+- Worktrees share the venv; set `PYTHONPATH=$PWD/src:$PWD/tests/sim` inside a worktree.
 - Slurm jobs: none running.
 
 ## Next actions (ordered)
-1. Implement config model, CLI skeleton, schema skeleton and simulator skeleton to the M0 tests.
-2. Code review; open the "M0 scaffold" PR once `gh` is authenticated; get CI green.
-3. M1: io/ readers and writers, generic peptide table, `giap convert` (generic, DIA-NN), preflight rules.
+1. Finish M1-02/03/04 loops (review → fixes → PR); then M1-05 (after 04), M1-06 → 07/08, M1-09 (after 02).
+2. When Khoa answers ADR-0004: merge #1, retarget and merge the stacked PRs in order.
+3. M1-10/11 need ADR-0005 item 4 (new preflight thresholds) accepted by Khoa.
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
