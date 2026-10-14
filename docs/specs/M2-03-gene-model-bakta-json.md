@@ -128,3 +128,19 @@ Parsing rules (each a test):
    rule is changed in this PR's follow-up.
 2. Should pseudogenes keep a translated `aa`? **Proposed default:** keep whatever Bakta gives; empty
    string when absent (mapping uses six-frame, not `aa`).
+
+## Lead decisions after code review (PR #30)
+1. `start_type == "Edge"` (Pyrodigal partial start) → `start_codon = None` (settles M3-01 Q3): the first
+   three nucleotides of a partial gene are not a start codon.
+2. Each JSON sequence's `length` must equal the length of the genome sequence used (given `replicons` or
+   JSON `nt`); mismatch → `BaktaParseError` naming the sequence (recorded JSON drops `nt`, M2-10).
+3. `giap.model.genes.gene_model_from_bakta_json` delegates to `parse_bakta_json(path, replicons).model`;
+   one parser, identical results.
+4. Type validation raises `BaktaParseError`: non-string `nt`/`aa`; `start`/`stop` that are not ints
+   (bools and floats rejected); `expert` that is not a list of dicts.
+5. A JSON sequence absent from a given `replicons` set → `BaktaParseError` (wrong genome passed).
+6. Tests kill the surviving mutants listed in the review (pseudogene key, terminal `*` strip, `hypothetical`
+   precedence, topology and nc-strand validation, `db_type` fallback, genome fill from `replicons`, expert
+   de-duplication and `source` fallback, `light` name heuristic, `sequence`/`contig` and
+   `sequences`/`contigs` precedence).
+7. ncRNA `class` is not kept in M2-03; M2-04 decides whether `bakta_layers` needs it.
