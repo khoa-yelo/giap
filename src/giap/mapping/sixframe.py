@@ -66,7 +66,8 @@ _QUERY_LUT = _letter_codes(query=True)
 _TARGET_LUT = _letter_codes(query=False)
 _NT_LUT = _nt_codes()
 _CODON_LUT = _codon_codes()
-_ALPHABET_BYTES = np.frombuffer(ALPHABET.encode("ascii"), dtype=np.uint8)
+_DECODE_LUT = np.full(256, ord("#"), dtype=np.uint8)
+_DECODE_LUT[: len(ALPHABET)] = np.frombuffer(ALPHABET.encode("ascii"), dtype=np.uint8)
 
 
 @njit(cache=True, nogil=True)
@@ -121,9 +122,12 @@ def encode_target(aa: str) -> np.ndarray:
 
 
 def decode(codes: np.ndarray) -> str:
-    """Decode target codes back to letters (``NOMATCH`` is shown as ``X``)."""
-    idx = np.minimum(np.asarray(codes, dtype=np.uint8), AMBIG)
-    return _ALPHABET_BYTES[idx].tobytes().decode("ascii")
+    """Decode codes back to letters; ``AMBIG`` -> ``X``, ``NOMATCH`` and every code >= 21 -> ``#``.
+
+    ``#`` lies outside the protein alphabet, so a decoded query never seems to match a target X.
+    """
+    out: np.ndarray = _DECODE_LUT[np.asarray(codes, dtype=np.uint8)]
+    return out.tobytes().decode("ascii")
 
 
 def translate11(nt: bytes) -> np.ndarray:
@@ -133,7 +137,12 @@ def translate11(nt: bytes) -> np.ndarray:
 
 @dataclass(frozen=True, slots=True)
 class Frame:
-    """One translated frame; ``offset`` (0..2) counts from the strand's 5' end."""
+    """One translated frame of the extended (circularly wrapped) sequence of ``ext_nt`` nucleotides.
+
+    ``offset`` (0..2) counts from the 5' end of the strand of the *extended* sequence, so on the
+    minus strand of a circular replicon it is not the replicon phase. Callers that need the TSV
+    ``frame`` use :meth:`SixFrameIndex.frame_label` on the mapped interval, never ``offset``.
+    """
 
     contig: str
     strand: Literal["+", "-"]
@@ -150,12 +159,21 @@ class SixFrameIndex:
     frames: tuple[Frame, ...]
 
     def to_interval(self, frame_id: int, aa_start: int, aa_end: int) -> Interval:
-        """Map amino acids ``[aa_start, aa_end)`` of a frame to a genomic interval."""
+        """Map amino acids ``[aa_start, aa_end)`` of a frame to a genomic interval.
+
+        Raises ValueError when the window lies outside the frame or spans more than the replicon.
+        """
         frame = self.frames[frame_id]
         if not 0 <= aa_start < aa_end <= len(frame.aa):
             raise ValueError(
                 f"aa window [{aa_start}, {aa_end}) outside frame {frame_id} "
                 f"of length {len(frame.aa)}"
+            )
+        length = self.replicons[frame.contig].length
+        if 3 * (aa_end - aa_start) > length:
+            raise ValueError(
+                f"aa window [{aa_start}, {aa_end}) spans {3 * (aa_end - aa_start)} nt, "
+                f"longer than replicon {frame.contig!r} ({length} nt)"
             )
         if frame.strand == "+":
             start = frame.offset + 3 * aa_start
