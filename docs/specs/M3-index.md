@@ -171,3 +171,9 @@ with the methods note.
 9. M3-23 Q1: `nterm_extension` entry shape as proposed. Accepted.
 10. M3-24: the A2 database is built with `--no-contaminants`, because the DIA-NN template already adds
     `contaminants.fasta` (§15.2) and duplicates would split protein groups. Accepted.
+11. From the M3-03 statistician review (PR #24; docs/methods/placement-fdr.md): neither reversed nor shuffled
+    decoys model wrong peptides that follow the genome's own dipeptide/Markov structure (decoy/target 0.48–0.96
+    at Markov strength 0.4–0.1) → M3-21 must calibrate placement FDR with real protein-derived wrong peptides,
+    not only composition-matched random ones. Shuffled decoys are anti-conservative (≈ 0.88) for
+    repeated-dipeptide peptides → M3-10 adds a `low_complexity` placement flag (§9.4 vocabulary via schema).
+    The window shuffle draws with `rng.integers` (Fisher–Yates); that stream is now part of reproducibility.

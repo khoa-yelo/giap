@@ -9,14 +9,19 @@ deduplicated with :func:`dedupe_loci`.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 from numba import njit
 
 from giap.model.coords import Interval, Replicon, wrap_position
+
+if TYPE_CHECKING:
+    from giap.mapping.decoys import DecoyType
 
 ALPHABET: str = "ACDEFGHKLMNPQRSTVWY*X"  # codes 0..18 residues (L includes I), 19 '*', 20 'X'
 STOP: int = 19
@@ -219,3 +224,61 @@ def dedupe_loci(ivs: Iterable[Interval], replicons: Mapping[str, Replicon]) -> l
         start = wrap_position(iv.start, replicons[iv.contig])
         seen.setdefault(Interval(iv.contig, start, start + iv.length_bp, iv.strand), None)
     return list(seen)
+
+
+_INDEX_FORMAT = 1
+
+
+def _frame_meta(frames: tuple[Frame, ...]) -> list[list[object]]:
+    return [[f.contig, f.strand, f.offset, f.ext_nt] for f in frames]
+
+
+def _pack(frames: tuple[Frame, ...]) -> tuple[np.ndarray, np.ndarray]:
+    bounds = np.zeros(len(frames) + 1, dtype=np.int64)
+    np.cumsum([len(f.aa) for f in frames], out=bounds[1:])
+    aa = np.concatenate([f.aa for f in frames]) if frames else np.zeros(0, dtype=np.uint8)
+    return aa.astype(np.uint8, copy=False), bounds
+
+
+def _unpack(meta: list[list[object]], aa: np.ndarray, bounds: np.ndarray) -> tuple[Frame, ...]:
+    out: list[Frame] = []
+    for i, (contig, strand, offset, ext_nt) in enumerate(meta):
+        lo, hi = int(bounds[i]), int(bounds[i + 1])
+        out.append(Frame(str(contig), strand, int(offset), aa[lo:hi].copy(), int(ext_nt)))  # type: ignore[arg-type,call-overload]
+    return tuple(out)
+
+
+def save_index(
+    path: Path, index: SixFrameIndex, decoys: Mapping[DecoyType, tuple[Frame, ...]]
+) -> None:
+    """Write the ``sixframe_index`` work file (``.npz``): target frames, decoy frames, replicons."""
+    frame_meta = _frame_meta(index.frames)
+    meta = {
+        "format": _INDEX_FORMAT,
+        "replicons": [asdict(r) for r in index.replicons.values()],
+        "frames": frame_meta,
+        "decoys": list(decoys),
+    }
+    arrays: dict[str, np.ndarray] = {"meta": np.array(json.dumps(meta))}
+    arrays["target_aa"], arrays["target_bounds"] = _pack(index.frames)
+    for kind, frames in decoys.items():
+        if _frame_meta(frames) != frame_meta:
+            raise ValueError(f"{kind} decoy frames do not mirror the index frames")
+        arrays[f"{kind}_aa"], arrays[f"{kind}_bounds"] = _pack(frames)
+    with Path(path).open("wb") as fh:
+        np.savez_compressed(fh, **arrays)  # type: ignore[arg-type]
+
+
+def load_index(path: Path) -> tuple[SixFrameIndex, dict[DecoyType, tuple[Frame, ...]]]:
+    """Read a work file written by :func:`save_index`."""
+    with np.load(Path(path), allow_pickle=False) as npz:
+        meta = json.loads(str(npz["meta"]))
+        if meta.get("format") != _INDEX_FORMAT:
+            raise ValueError(f"{path}: unsupported sixframe_index format {meta.get('format')!r}")
+        replicons = {r["id"]: Replicon(**r) for r in meta["replicons"]}
+        frames = _unpack(meta["frames"], npz["target_aa"], npz["target_bounds"])
+        decoys: dict[DecoyType, tuple[Frame, ...]] = {
+            kind: _unpack(meta["frames"], npz[f"{kind}_aa"], npz[f"{kind}_bounds"])
+            for kind in meta["decoys"]
+        }
+    return SixFrameIndex(replicons=replicons, frames=frames), decoys
