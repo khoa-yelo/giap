@@ -200,7 +200,7 @@ def test_T_PRE_25_fail_unknown_level(tmp_path: Path) -> None:
         (("checks", 0, "rule_id"), "Genome.Parse"),
         (("checks", 0, "rule_id"), "genome"),
         (("checks", 0, "input"), "metadata"),
-        (("checks", 0, "exit_code"), 1),
+        (("checks", 0, "exit_code"), 3),
         (("evidence_tier",), "spectral_count"),
         (("summary", "n_error"), "0"),
         (("routing", "abundance_used"), "no"),
