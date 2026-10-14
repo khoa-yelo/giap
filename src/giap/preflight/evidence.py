@@ -2,7 +2,8 @@
 
 GIAP_SPEC.md §1.1, §7.0, §7.3.2, §2.1 decision 3; ADR-0005 items 3-4; ADR-0006. Pure functions
 over parsed records, validated frames and reader ``Issue`` lists; no file I/O. Thresholds come
-only from the config: the decoy share is reported (info) and never warns (ADR-0005 item 4).
+only from the config: the decoy share is a value in ``peptides.content`` and never warns
+(ADR-0005 item 4).
 """
 
 from __future__ import annotations
@@ -16,7 +17,13 @@ import pandas as pd
 
 from giap.config import GiapConfig
 from giap.config.model import AbundanceScale, InputConfig
-from giap.io.abundance import AbundanceTable, Scale, abundance_stats, validate_abundance
+from giap.io.abundance import (
+    AbundanceTable,
+    Scale,
+    abundance_stats,
+    resolve_scale,
+    validate_abundance,
+)
 from giap.io.issues import Issue
 from giap.io.protein_fasta import ProteinRecord, route_by_length
 from giap.preflight.checks import LEVEL_ORDER, Check, InputName, JsonValue, Level, capped
@@ -38,6 +45,8 @@ _NO_MATCH = "deferred: no abundance ID matches a protein; assumed keyed by locus
 _SCALES: tuple[AbundanceScale, ...] = ("auto", "log2", "linear")
 # Peptide content issues whose rows are dropped from the evidence frame.
 _DROPPING = frozenset({"non_letters", "short_peptide", "long_peptide", "duplicate_spectrum_row"})
+# Columns that rank PSMs for target-decoy picking (§7.3.2: q-value, then PEP, then score).
+_RANKING = ("q_value", "pep", "score")
 # Abundance reader/validator issues judged by ``abundance.values``; all others are shape issues.
 _VALUE_CODES = frozenset(
     {"non_numeric_values", "non_finite", "negative_on_linear", "too_many_missing"}
@@ -76,17 +85,28 @@ def _messages(issues: Iterable[Issue]) -> str:
 # ---------------------------------------------------------------- inputs
 
 
-def inputs_checks(has_peptides: bool, has_proteins: bool) -> list[Check]:
-    """§1.1: ``proteins.faa`` is required unless peptides are given."""
-    ok = has_peptides or has_proteins
+def inputs_checks(
+    has_peptides: bool, has_proteins: bool, *, n_usable_peptides: int | None = None
+) -> list[Check]:
+    """§1.1: ``proteins.faa`` is required unless peptides are given; peptides whose every row
+    was dropped by validation (``n_usable_peptides == 0``) do not count as evidence."""
+    value: dict[str, JsonValue] = {"peptides": has_peptides, "proteins": has_proteins}
+    if n_usable_peptides is not None:
+        value["n_usable_peptides"] = n_usable_peptides
+    usable = has_peptides and n_usable_peptides != 0
+    msg = ""
+    if not (has_peptides or has_proteins):
+        msg = "no evidence: give --peptides and/or --proteins"
+    elif not (usable or has_proteins):
+        msg = "no usable evidence: every peptide row was dropped and no --proteins was given"
     return [
         _check(
             "inputs",
             "inputs.evidence_present",
-            "ok" if ok else "error",
-            "--proteins required unless --peptides is given → else error",
-            {"peptides": has_peptides, "proteins": has_proteins},
-            "" if ok else "no evidence: give --peptides and/or --proteins",
+            "error" if msg else "ok",
+            "--proteins required unless --peptides is given with usable rows → else error",
+            value,
+            msg,
         )
     ]
 
@@ -107,16 +127,13 @@ def protein_checks(
     counts = Counter(r.id for r in records)
     dups: list[JsonValue] = [i for i, n in counts.items() if n > 1]
     dups_v, msg = capped(dups)
-    out = [
-        _check(
-            "proteins",
-            "proteins.ids",
-            "error" if dups else "ok",
-            ids_rule,
-            dups_v if dups else len(records),
-            f"duplicate protein IDs {msg}".strip() if dups else "",
+    if dups:
+        ids_check = _check(
+            "proteins", "proteins.ids", "error", ids_rule, dups_v, f"duplicate protein IDs {msg}"
         )
-    ]
+    else:
+        ids_check = _shared_members_check(records, ids_rule)
+    out = [ids_check]
 
     nonstandard: Counter[str] = Counter()
     other: Counter[str] = Counter()
@@ -185,6 +202,32 @@ def protein_checks(
     return out
 
 
+def _shared_members_check(records: Sequence[ProteinRecord], rule: str) -> Check:
+    """``proteins.ids`` for unique IDs: records whose groups share a member are info."""
+    owners: dict[str, list[str]] = {}
+    for r in records:
+        for m in dict.fromkeys(r.members):
+            owners.setdefault(m, []).append(r.id)
+    shared = {m: ids for m, ids in owners.items() if len(ids) > 1}
+    if not shared:
+        return _check("proteins", "proteins.ids", "ok", rule, len(records))
+    sharing: list[JsonValue] = list(dict.fromkeys(i for ids in shared.values() for i in ids))
+    members: list[JsonValue] = [m for m in sorted(shared)]
+    members_v, m_msg = capped(members)
+    records_v, r_msg = capped(sharing)
+    msgs = [f"{len(sharing)} protein records share a group member"]
+    msgs += [f"shared members: {m_msg}"] if m_msg else []
+    msgs += [f"records: {r_msg}"] if r_msg else []
+    return _check(
+        "proteins",
+        "proteins.ids",
+        "info",
+        rule,
+        {"n_records": len(records), "shared_members": members_v, "records": records_v},
+        "; ".join(msgs),
+    )
+
+
 # ---------------------------------------------------------------- peptides
 
 
@@ -195,15 +238,28 @@ def _column_values(df: pd.DataFrame, col: str) -> np.ndarray:
     return v[~np.isnan(v)]
 
 
+def _decoy_with_ids(df: pd.DataFrame) -> bool:
+    """Whether any decoy row names its protein IDs (the column test for ``decoy_picked``)."""
+    if "is_decoy" not in df.columns or "protein_ids" not in df.columns:
+        return False
+    decoy = df["is_decoy"].to_numpy(dtype=bool, na_value=False)
+    ids = df["protein_ids"].notna().to_numpy(dtype=bool)
+    return bool((decoy & ids).any())
+
+
+def _has_ranking(df: pd.DataFrame) -> bool:
+    return any(_column_values(df, col).size for col in _RANKING)
+
+
 def peptide_checks(
     issues: Sequence[Issue], df: pd.DataFrame | None, cfg: InputConfig
 ) -> list[Check]:
-    """Schema, content and decoy-share rules over ``validate_peptides`` output; none without
-    peptides. Error issues and unknown columns are schema findings; other issues are content."""
+    """Schema and content rules over ``validate_peptides`` output; none without peptides.
+    Error issues are schema findings; all other issues are content (§7.0)."""
     if df is None:
         return []
-    schema = [i for i in issues if i.severity == "error" or i.code == "unknown_column"]
-    content = [i for i in issues if i not in schema]
+    schema = [i for i in issues if i.severity == "error"]
+    content = [i for i in issues if i.severity != "error"]
     schema_level = _issue_level(schema)
     out = [
         _check(
@@ -218,27 +274,39 @@ def peptide_checks(
     if schema_level == "error" and df.empty:
         return out
 
-    q = _column_values(df, "q_value")
     n_rows = len(df)
-    decoy_share = float(df["is_decoy"].astype(bool).mean()) if n_rows else None
-    q_fail = bool(q.size) and not bool((q <= cfg.q_value_max).any())
+    decoy = (
+        df["is_decoy"].to_numpy(dtype=bool, na_value=False)
+        if "is_decoy" in df.columns
+        else np.zeros(n_rows, dtype=bool)
+    )
+    q = _column_values(df, "q_value")
+    target_q = _column_values(df.loc[~decoy], "q_value")
+    q_fail = bool(target_q.size) and not bool((target_q <= cfg.q_value_max).any())
+    no_ranking = _decoy_with_ids(df) and not _has_ranking(df)
     level = _issue_level(content)
-    if q_fail and level != "error":
+    if (q_fail or no_ranking) and level != "error":
         level = "warn"
     msgs = [_messages(content)] if content else []
     if q_fail:
-        msgs.append(f"no row has q_value ≤ input.q_value_max ({cfg.q_value_max:g})")
+        msgs.append(f"no target row has q_value ≤ input.q_value_max ({cfg.q_value_max:g})")
+    if no_ranking:
+        msgs.append(
+            "decoy rows but no ranking column (q_value, pep or score): decoy_picked is"
+            " unavailable, the tier falls back"
+        )
     out.append(
         _check(
             "peptides",
             "peptides.content",
             level,
-            "non-letters after stripping or length outside input.peptide_len dropped; no row with"
-            " q_value ≤ input.q_value_max → warn",
+            "non-letters after stripping or length outside input.peptide_len dropped; no target"
+            " row with q_value ≤ input.q_value_max → warn; decoys without a ranking column → warn;"
+            " decoy share reported",
             {
                 "n_rows": n_rows,
                 "n_dropped": sum(i.n_rows for i in content if i.code in _DROPPING),
-                "decoy_share": decoy_share,
+                "decoy_share": float(decoy.mean()) if n_rows else None,
                 "q_min": float(q.min()) if q.size else None,
                 "q_max": float(q.max()) if q.size else None,
                 "issues": _issue_json(content),
@@ -246,27 +314,16 @@ def peptide_checks(
             "; ".join(msgs),
         )
     )
-    out.append(
-        _check(
-            "peptides",
-            "peptides.decoy_share",
-            "info",
-            "share of decoy rows among validated rows (reported only)",
-            decoy_share,
-        )
-    )
     return out
 
 
 def candidate_tier(df: pd.DataFrame | None, has_proteins: bool) -> Tier:
-    """§7.3.2 tier the columns allow; the ≥ 80 % decoy-pairing test is applied in M4."""
+    """§7.3.2 tier the columns allow; the ≥ 80 % decoy-pairing test is applied in M4.
+    ``decoy_picked`` needs decoy rows with protein IDs and a ranking column."""
     if df is None or df.empty:
         return "protein_list"
-    if "is_decoy" in df.columns and "protein_ids" in df.columns:
-        decoy = df["is_decoy"].to_numpy(dtype=bool, na_value=False)
-        ids = df["protein_ids"].notna().to_numpy(dtype=bool)
-        if (decoy & ids).any():
-            return "decoy_picked"
+    if _decoy_with_ids(df) and _has_ranking(df):
+        return "decoy_picked"
     if _column_values(df, "q_value").size or _column_values(df, "pep").size:
         return "mayu"
     return "two_peptide"
@@ -328,7 +385,8 @@ def abundance_checks(
     cfg: GiapConfig,
 ) -> list[Check]:
     """Evaluate every abundance rule over ``read_abundance`` output; only ``abundance.shape``
-    when the table is unusable. ``scale`` is the resolved scale for ``requested_scale``."""
+    when the table is unusable. The scale is resolved once here from ``requested_scale``;
+    ``scale`` is accepted for call compatibility and ignored."""
     if requested_scale not in _SCALES:
         raise ValueError(f"requested_scale must be one of {_SCALES}, got {requested_scale!r}")
     requested: AbundanceScale = requested_scale
@@ -367,6 +425,7 @@ def abundance_checks(
     value_issues = [i for i in issues if i.code in _VALUE_CODES]
     value_issues += [i for i in scale_issues if i.code in _VALUE_CODES]
     stats = abundance_stats(table)
+    resolved = resolve_scale(table.values, requested)
     out.append(
         _check(
             "abundance",
@@ -398,7 +457,7 @@ def abundance_checks(
             "info",
             "log2 or linear auto-detected; --abundance-scale overrides",
             {
-                "scale": scale,
+                "scale": resolved,
                 "source": "auto" if requested == "auto" else "cli",
                 "used": not peptides_have_intensity,
             },
