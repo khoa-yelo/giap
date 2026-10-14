@@ -779,15 +779,25 @@
         },
         "distance_bins_bp": {
           "default": [
-            null,
+            "-inf",
             0,
             50,
             150,
             300,
-            null
+            "inf"
           ],
           "items": {
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "enum": [
+                  "inf",
+                  "-inf"
+                ]
+              }
+            ]
           },
           "title": "Distance Bins Bp",
           "type": "array"

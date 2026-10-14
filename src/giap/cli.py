@@ -40,7 +40,7 @@ def _choice(literal: Any) -> click.Choice[str]:
 
 
 def shared_options(func: F) -> F:
-    """``--config``, ``--set`` and ``--log-level``, shared by every subcommand."""
+    """``--config``, ``--set``, ``--log-level`` and ``--version``, shared by every subcommand."""
     func = click.option(
         "--log-level",
         type=click.Choice(LOG_LEVELS, case_sensitive=False),
@@ -58,6 +58,7 @@ def shared_options(func: F) -> F:
     func = click.option("--config", "config_file", type=_existing_file, help="YAML config file.")(
         func
     )
+    func = click.version_option(giap.__version__, prog_name="giap")(func)
     return func
 
 
@@ -200,7 +201,7 @@ def run(
     """Run the analysis."""
     flags: dict[str, Any] = {
         "threads": threads,
-        "modules": modules.split(",") if modules else None,
+        "modules": [m.strip() for m in modules.split(",") if m.strip()] if modules else None,
         "genome_relation": genome_relation,
         "abundance.missing": abundance_missing,
         "abundance.type": abundance_type,
@@ -311,10 +312,27 @@ def version(as_json: bool) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    """Console-script entry point: uncaught exceptions become exit code 5."""
+    """Console-script entry point (§5.1 exit codes).
+
+    Click usage errors (unknown option, missing file, bad choice) and aborts become exit code 1;
+    exit code 2 is reserved for environment errors. Uncaught exceptions become exit code 5.
+    """
+    args = list(argv) if argv is not None else sys.argv[1:]
+    if not args:
+        args = ["--help"]
     try:
-        cli.main(args=list(argv) if argv is not None else None, prog_name="giap")
+        # Without standalone mode click returns (not raises) the exit code of --help/--version.
+        result = cli.main(args=args, prog_name="giap", standalone_mode=False)
+    except click.exceptions.Exit as exc:
+        sys.exit(exc.exit_code)
+    except click.UsageError as exc:
+        exc.show()
+        sys.exit(ExitCode.INVALID_INPUT)
+    except click.Abort:
+        click.echo("Aborted!", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
     except Exception:
         logging.getLogger("giap").exception("uncaught exception")
         click.echo(REPORT_MESSAGE, err=True)
         sys.exit(ExitCode.INTERNAL)
+    sys.exit(result if isinstance(result, int) else ExitCode.SUCCESS)

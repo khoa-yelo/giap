@@ -7,9 +7,17 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PlainSerializer,
+    SerializationInfo,
+    WithJsonSchema,
+    field_validator,
+)
 
 Module = Literal["core", "mobile", "bgc", "function"]
 GenomeRelation = Literal["related", "same"]
@@ -28,10 +36,29 @@ OperonDecoy = Literal["convergent", "sandwich"]
 PlotFormat = Literal["svg", "png", "pdf"]
 
 
+def _encode_inf(value: float, info: SerializationInfo) -> float | str:
+    """In JSON mode write ±inf as the strings ``"inf"``/``"-inf"`` (strict JSON has no Infinity).
+
+    Pydantic's float validation parses those strings back, so the dump round-trips.
+    """
+    if info.mode_is_json() and math.isinf(value):
+        return "inf" if value > 0 else "-inf"
+    return value
+
+
+ExtendedFloat = Annotated[
+    float,
+    PlainSerializer(_encode_inf, return_type=Any),
+    WithJsonSchema({"anyOf": [{"type": "number"}, {"enum": ["inf", "-inf"]}]}),
+]
+"""A float that may be ±inf; encoded as ``"inf"``/``"-inf"`` in JSON."""
+
+
 class _Strict(BaseModel):
     """Base for every config section: unknown keys are errors."""
 
-    model_config = ConfigDict(extra="forbid")
+    # coerce_numbers_to_str: ``--set sample_name=2024`` parses as YAML int but means "2024".
+    model_config = ConfigDict(extra="forbid", coerce_numbers_to_str=True)
 
 
 # ---------------------------------------------------------------- input / preflight
@@ -239,7 +266,11 @@ class ContextConfig(_Strict):
 
 class OperonsConfig(_Strict):
     decoys: list[OperonDecoy] = ["convergent", "sandwich"]
-    distance_bins_bp: list[float] = [-math.inf, 0, 50, 150, 300, math.inf]
+    distance_bins_bp: list[ExtendedFloat] = Field(
+        default=[-math.inf, 0, 50, 150, 300, math.inf],
+        # Pydantic encodes schema defaults without field serializers (±inf would become null).
+        json_schema_extra={"default": ["-inf", 0, 50, 150, 300, "inf"]},
+    )
     pi0: float = 1.0
 
 
