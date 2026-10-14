@@ -35,3 +35,18 @@ SENSE_USAGE: dict[str, float] = {
 }  # fmt: skip
 
 assert len(SENSE_USAGE) == 61 and not STOPS & SENSE_USAGE.keys()
+
+_COMP = str.maketrans("ACGT", "TGCA")
+
+
+def revcomp(seq: str) -> str:
+    return seq.translate(_COMP)[::-1]
+
+
+def translate_cds(codons: list[str]) -> str:
+    """Protein of a CDS given as codons (start ... stop): initiator read as M, stop dropped."""
+    return "M" + "".join(CODE_11[c] for c in codons[1:-1])
+
+
+def codons_of(nt: str) -> list[str]:
+    return [nt[i : i + 3] for i in range(0, len(nt) - len(nt) % 3, 3)]

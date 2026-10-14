@@ -4,15 +4,20 @@ from __future__ import annotations
 
 import csv
 import json
-from dataclasses import dataclass, field
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from giapsim.codons import CODE_11, SENSE_USAGE, STOPS
+from giap.io.gff3 import GffFeature, write_gff3
+from giap.model.coords import Interval, Replicon
+from giapsim.codons import SENSE_USAGE, STOPS, revcomp
+from giapsim.features import NOVEL_CLASSES, Block, Feat, coding, make_blocks, novel_orfs
+from giapsim.strain import StrainConfig, derive_reference
 
-_COMP = str.maketrans("ACGT", "TGCA")
+__all__ = ["SimConfig", "SimResult", "StrainConfig", "revcomp", "simulate"]
 _SENSE = np.array(list(SENSE_USAGE), dtype="<U3")
 _MAX_OVERLAP_TRIES = 200
 #: Overlaps (bp) for which a stop codon of the upstream gene can share bases with the
@@ -30,10 +35,6 @@ def _draw(rng: np.random.Generator, cum: np.ndarray, size: int) -> np.ndarray:
     return np.minimum(np.searchsorted(cum, rng.random(size), side="right"), len(cum) - 1)
 
 
-def revcomp(seq: str) -> str:
-    return seq.translate(_COMP)[::-1]
-
-
 @dataclass(frozen=True)
 class SimConfig:
     """Simulator knobs (M0 subset of spec §11.3)."""
@@ -46,22 +47,39 @@ class SimConfig:
     gene_len_median_aa: float = 280.0  # log-normal gene lengths
     gene_len_sigma: float = 0.45
     gene_len_range_aa: tuple[int, int] = (50, 1500)
-    start_codons: dict[str, float] = field(
-        default_factory=lambda: {"ATG": 0.90, "GTG": 0.08, "TTG": 0.02}
-    )
-    stop_codons: dict[str, float] = field(
-        default_factory=lambda: {"TAA": 0.61, "TGA": 0.30, "TAG": 0.09}
-    )
+    # weight tables are tuples of (key, weight) pairs so the config stays hashable; a mapping
+    # passed in is converted
+    start_codons: tuple[tuple[str, float], ...] = (("ATG", 0.90), ("GTG", 0.08), ("TTG", 0.02))
+    stop_codons: tuple[tuple[str, float], ...] = (("TAA", 0.61), ("TGA", 0.30), ("TAG", 0.09))
     p_intra_tu_overlap: float = 0.3  # otherwise a gap drawn from intra_tu_gap_bp
-    overlap_bp: dict[int, float] = field(
-        default_factory=lambda: {1: 0.3, 4: 0.5, 8: 0.1, 11: 0.04, 14: 0.03, 17: 0.02, 20: 0.01}
-    )
+    overlap_bp: tuple[tuple[int, float], ...] = (
+        (1, 0.3), (4, 0.5), (8, 0.1), (11, 0.04), (14, 0.03), (17, 0.02), (20, 0.01)
+    )  # fmt: skip
     intra_tu_gap_bp: tuple[int, int] = (0, 40)
     inter_tu_gap_bp: tuple[int, int] = (50, 300)
     intergenic_at: float = 0.65  # AT fraction of non-coding sequence
+    # M3-18 features; all off by default (output then byte-identical to M0)
+    n_plasmids: int = 0
+    plasmid_length: tuple[int, int] = (5_000, 60_000)
+    linear_contig_length: int = 0  # > 0 adds one linear contig (no wrap)
+    origin_crossing_gene: bool = False  # place one gene across the chromosome origin
+    n_rrna_operons: int = 0
+    n_trna: int = 0
+    n_pseudogenes: int = 0
+    n_sorfs: int = 0
+    n_nterm_extensions: int = 0  # annotated start moved 3·k nt downstream (k in [5, 30])
+    n_novel_orfs: tuple[tuple[str, int], ...] = ()  # (class, count) pairs
+    strain: StrainConfig | None = None
 
     def __post_init__(self) -> None:
-        bad = set(self.overlap_bp) - _FEASIBLE_OVERLAPS
+        for name in ("start_codons", "stop_codons", "overlap_bp", "n_novel_orfs"):
+            v = getattr(self, name)
+            object.__setattr__(
+                self, name, tuple(v.items() if isinstance(v, Mapping) else map(tuple, v))
+            )
+        if set(dict(self.n_novel_orfs)) - set(NOVEL_CLASSES):
+            raise ValueError(f"n_novel_orfs keys must be among {NOVEL_CLASSES}")
+        bad = set(dict(self.overlap_bp)) - _FEASIBLE_OVERLAPS
         if bad:
             raise ValueError(
                 f"infeasible overlaps {sorted(bad)}; allowed {sorted(_FEASIBLE_OVERLAPS)}"
@@ -75,6 +93,12 @@ class SimResult:
     bakta_json: Path
     genes_truth: Path
     n_genes: int
+    annotation_gff3: Path | None = None
+    features_truth: Path | None = None
+    novel_orfs_truth: Path | None = None
+    reference_fasta: Path | None = None
+    reference_json: Path | None = None
+    strain_truth: Path | None = None
 
 
 @dataclass
@@ -95,12 +119,12 @@ class _Sim:
         self.cfg = cfg
         self.rng = rng
         self.sense_cum = _cum(list(SENSE_USAGE.values()))
-        self.starts = list(cfg.start_codons)
-        self.start_cum = _cum(list(cfg.start_codons.values()))
-        self.stops = list(cfg.stop_codons)
-        self.stop_cum = _cum(list(cfg.stop_codons.values()))
-        self.overlaps = list(cfg.overlap_bp)
-        self.overlap_cum = _cum(list(cfg.overlap_bp.values()))
+        self.starts = [k for k, _ in cfg.start_codons]
+        self.start_cum = _cum([w for _, w in cfg.start_codons])
+        self.stops = [k for k, _ in cfg.stop_codons]
+        self.stop_cum = _cum([w for _, w in cfg.stop_codons])
+        self.overlaps = [k for k, _ in cfg.overlap_bp]
+        self.overlap_cum = _cum([w for _, w in cfg.overlap_bp])
 
     def sense(self, n: int) -> list[str]:
         out: list[str] = _SENSE[_draw(self.rng, self.sense_cum, n)].tolist()
@@ -114,9 +138,14 @@ class _Sim:
                 round(rng.lognormal(np.log(cfg.gene_len_median_aa), cfg.gene_len_sigma)), lo, hi
             )
         )
-        start = self.starts[int(_draw(rng, self.start_cum, 1)[0])]
-        stop = self.stops[int(_draw(rng, self.stop_cum, 1)[0])]
+        start, stop = self.start_codon(), self.stop_codon()
         return _Gene([start, *self.sense(n_aa - 1), stop])
+
+    def start_codon(self) -> str:
+        return self.starts[int(_draw(self.rng, self.start_cum, 1)[0])]
+
+    def stop_codon(self) -> str:
+        return self.stops[int(_draw(self.rng, self.stop_cum, 1)[0])]
 
     def overlap(self, a: _Gene, b: _Gene, k: int) -> bool:
         """Make the last ``k`` bp of ``a`` equal the first ``k`` bp of ``b`` (same strand).
@@ -157,19 +186,42 @@ class _Sim:
             g.end = cursor
         return genes, cursor
 
-    def layout(self) -> list[_Gene]:
+    def layout(
+        self,
+        blocks: Sequence[Block] = (),
+        targets: Sequence[int] = (),
+        lead: int = 0,
+        tail: int = 0,
+    ) -> tuple[list[_Gene], list[tuple[int, Block]]]:
+        """TUs from ``lead`` to ``genome_length - tail``; each block goes in once ``pos`` passes
+        its target. Returns the genes and the block positions."""
         cfg, rng = self.cfg, self.rng
         lo, hi = cfg.inter_tu_gap_bp
-        pos = int(rng.integers(lo, hi + 1))
+        limit = cfg.genome_length - tail
+        pending = list(zip(targets, blocks, strict=True))
+        reserve = sum(len(b.seq) + hi for b in blocks) + (hi if blocks else 0)
+        put: list[tuple[int, Block]] = []
+        pos = lead + int(rng.integers(lo, hi + 1))
+
+        def place(b: Block) -> None:
+            nonlocal pos, reserve
+            if pos + len(b.seq) + lo > limit:
+                raise ValueError(f"genome_length {cfg.genome_length} too short for the features")
+            put.append((pos, b))
+            pos += len(b.seq) + int(rng.integers(lo, hi + 1))
+            reserve -= len(b.seq) + hi
+
         strand = "+" if rng.random() < 0.5 else "-"
         placed: list[_Gene] = []
         tu_id = 0
         while True:
             if tu_id and rng.random() >= cfg.p_same_strand:
                 strand = "-" if strand == "+" else "+"
+            while pending and pos >= pending[0][0]:
+                place(pending.pop(0)[1])
             genes, length = self.tu(strand, tu_id + 1)
-            if pos + length + lo > cfg.genome_length:  # no gene crosses the origin
-                return placed
+            if pos + length + lo + reserve > limit:  # no gene crosses the origin
+                break
             tu_id += 1
             for g in genes:
                 g.start, g.end = (
@@ -179,6 +231,9 @@ class _Sim:
                 )
             placed.extend(genes)
             pos += length + int(rng.integers(lo, hi + 1))
+        for _, b in pending:
+            place(b)
+        return placed, put
 
     def background(self) -> bytearray:
         at, gc = self.cfg.intergenic_at / 2, (1 - self.cfg.intergenic_at) / 2
@@ -186,65 +241,221 @@ class _Sim:
         return bytearray(np.frombuffer(b"ACGT", dtype=np.uint8)[idx].tobytes())
 
 
-def _translate(codons: list[str]) -> str:
-    return "M" + "".join(CODE_11[c] for c in codons[1:-1])
+def _gene_feat(g: _Gene) -> Feat:
+    tu = f"TU_{g.tu}" if g.tu else ""
+    return coding("cds", g.codons, start=g.start, end=g.end, strand=g.strand, tu=tu)
+
+
+def _write_genes(genome: bytearray, genes: list[_Gene]) -> list[Feat]:
+    for g in genes:
+        nt = g.nt if g.strand == "+" else revcomp(g.nt)
+        genome[g.start : g.end] = nt.encode()
+    return [_gene_feat(g) for g in genes]
+
+
+def _extra_contig(
+    cfg: SimConfig, rng: np.random.Generator, length: int
+) -> tuple[bytearray, list[Feat]]:
+    sim = _Sim(replace(cfg, genome_length=length), rng)
+    genes, _ = sim.layout()
+    genome = sim.background()
+    return genome, _write_genes(genome, genes)
+
+
+def _tsv(path: Path, header: list[str], rows: Sequence[Sequence[Any]]) -> None:
+    with path.open("w", newline="") as fh:
+        w = csv.writer(fh, delimiter="\t", lineterminator="\n")
+        w.writerow(header)
+        w.writerows(rows)
+
+
+def _write_fasta(path: Path, contigs: list[tuple[str, str, str]], seqs: dict[str, str]) -> None:
+    parts = []
+    for cid, _, topology in contigs:
+        s = seqs[cid]
+        lines = [s[i : i + 60] for i in range(0, len(s), 60)]
+        parts.append(f">{cid} [topology={topology}]\n" + "\n".join(lines) + "\n")
+    path.write_text("".join(parts))
+
+
+def _json_feature(f: Feat, length: int) -> dict[str, Any]:
+    d: dict[str, Any] = {
+        "type": f.kind,
+        "contig": f.contig,
+        "start": f.start + 1,
+        "stop": f.end if f.end <= length else f.end - length,  # Bakta-style start > stop
+        "strand": f.strand,
+        "locus": f.locus,
+        **f.extra,
+    }
+    if f.kind in ("cds", "sorf"):
+        d |= {"nt": f.nt, "aa": f.aa}
+    else:
+        d["id"] = f.locus
+    return d
+
+
+def _write_json(
+    path: Path, contigs: list[tuple[str, str, str]], seqs: dict[str, str], feats: list[Feat]
+) -> None:
+    data = {
+        "sequences": [
+            {
+                "id": cid,
+                "type": kind,
+                "topology": topology,
+                "complete": topology == "circular",
+                "length": len(seqs[cid]),
+                "sequence": seqs[cid],
+            }
+            for cid, kind, topology in contigs
+        ],
+        "features": [_json_feature(f, len(seqs[f.contig])) for f in feats],
+    }
+    path.write_text(json.dumps(data, sort_keys=True, indent=1) + "\n")
+
+
+def _write_gff3(
+    path: Path, contigs: list[tuple[str, str, str]], seqs: dict[str, str], feats: list[Feat]
+) -> None:
+    reps = [
+        Replicon(cid, len(seqs[cid]), topology, kind if kind != "contig" else "unknown")  # type: ignore[arg-type]
+        for cid, kind, topology in contigs
+    ]
+    out = []
+    for f in feats:
+        gtype = "pseudogene" if f.pseudo_reason else "CDS" if f.kind in ("cds", "sorf") else f.kind
+        attrs = {"ID": f.locus, "locus_tag": f.locus}
+        if f.extra.get("product"):
+            attrs["product"] = f.extra["product"]
+        if f.kind == "sorf":  # Bakta writes sORFs as CDS
+            attrs["sorf"] = "true"
+        iv = Interval(f.contig, f.start, f.end, f.strand)  # type: ignore[arg-type]
+        phase = 0 if gtype == "CDS" else None
+        out.append(GffFeature(iv, "giapsim", gtype, phase=phase, attributes=attrs))
+    write_gff3(path, out, reps)
 
 
 def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     """Simulate a genome with ``config`` and ``seed``; write inputs and truth under ``outdir``."""
     rng = np.random.default_rng(seed)
-    sim = _Sim(config, rng)
-    genes = sorted(sim.layout(), key=lambda g: (g.start, g.end))
+    frng = np.random.default_rng([seed, 1])  # M3-18 features; M0 defaults never draw from it
+    sim, fsim = _Sim(config, rng), _Sim(config, frng)
+    length, chrom = config.genome_length, config.contig_id
+    origin, lead, tail = None, 0, 0
+    if config.origin_crossing_gene:
+        origin = fsim.gene()
+        n = 3 * len(origin.codons)
+        tail = int(frng.integers(n // 4, 3 * n // 4 + 1))
+        lead = n - tail
+        origin.strand = "+" if frng.random() < 0.5 else "-"
+        origin.start, origin.end = length - tail, length - tail + n
+    blocks = make_blocks(fsim)
+    room = length - tail - sum(len(b.seq) + 300 for b in blocks)
+    targets = sorted(frng.integers(lead, max(lead + 1, room), size=len(blocks)).tolist())
+    genes, put = sim.layout(blocks, targets, lead, tail)
+    genes.sort(key=lambda g: (g.start, g.end))
     genome = sim.background()
-    for g in genes:
-        nt = g.nt if g.strand == "+" else revcomp(g.nt)
-        genome[g.start : g.end] = nt.encode()
-    sequence = genome.decode()
+    gene_feats = _write_genes(genome, genes)
+    feats = list(gene_feats)
+    for pos, b in put:
+        genome[pos : pos + len(b.seq)] = b.seq.encode()
+        feats += [f.placed(chrom, pos) for f in b.feats]
+    if origin is not None:
+        nt = (origin.nt if origin.strand == "+" else revcomp(origin.nt)).encode()
+        genome[origin.start :], genome[:lead] = nt[:tail], nt[tail:]
+        feats.append(_gene_feat(origin))
+        feats[-1].extra["edge"] = True  # Bakta's flag for a feature crossing the origin
+    for f in feats:
+        f.contig = chrom
+    contigs = [(chrom, "chromosome", "circular")]
+    seqs = {chrom: genome}
+    extra = [
+        ("plasmid", "circular", int(frng.integers(*config.plasmid_length, endpoint=True)))
+        for _ in range(config.n_plasmids)
+    ]
+    if config.linear_contig_length:
+        extra.append(("contig", "linear", config.linear_contig_length))
+    for i, (kind, topology, n_bp) in enumerate(extra):
+        cid = f"plasmid_{i + 1}" if kind == "plasmid" else "linear_1"
+        seqs[cid], fs = _extra_contig(config, frng, n_bp)
+        contigs.append((cid, kind, topology))
+        feats += [replace(f, contig=cid, tu=f"{cid}:{f.tu}") for f in fs]
+    order = {cid: k for k, (cid, _, _) in enumerate(contigs)}
+    feats.sort(key=lambda f: (order[f.contig], f.start, f.end))
+    for i, f in enumerate(feats):
+        f.locus = f"{config.locus_prefix}_{5 * (i + 1):05d}"
+    novel = novel_orfs(fsim, dict(config.n_novel_orfs), seqs, feats) if config.n_novel_orfs else []
+    text = {cid: s.decode() for cid, s in seqs.items()}
 
     out = Path(outdir)
     (out / "truth").mkdir(parents=True, exist_ok=True)
-    loci = [f"{config.locus_prefix}_{5 * (i + 1):05d}" for i in range(len(genes))]
-
-    fasta = out / "genome.fasta"
-    lines = [sequence[i : i + 60] for i in range(0, len(sequence), 60)]
-    fasta.write_text(f">{config.contig_id} [topology=circular]\n" + "\n".join(lines) + "\n")
-
-    features = [
-        {
-            "type": "cds",
-            "contig": config.contig_id,
-            "start": g.start + 1,
-            "stop": g.end,
-            "strand": g.strand,
-            "locus": locus,
-            "start_type": g.codons[0],
-            "nt": g.nt,
-            "aa": _translate(g.codons),
-        }
-        for g, locus in zip(genes, loci, strict=True)
-    ]
-    data = {
-        "sequences": [
-            {
-                "id": config.contig_id,
-                "type": "chromosome",
-                "topology": "circular",
-                "complete": True,
-                "length": len(sequence),
-                "sequence": sequence,
-            }
+    fasta, bakta, gff = out / "genome.fasta", out / "bakta_like.json", out / "annotation.gff3"
+    _write_fasta(fasta, contigs, text)
+    _write_json(bakta, contigs, text, feats)
+    _write_gff3(gff, contigs, text, feats)
+    novel_truth = out / "truth" / "novel_orfs.tsv"
+    _tsv(novel_truth, ["orf_id", "class", "contig", "start", "end", "strand", "aa"], novel)
+    truth, feat_truth = out / "truth" / "genes.tsv", out / "truth" / "features.tsv"
+    # every CDS (pseudogenes included); ``end`` unwrapped (> contig length across the origin)
+    _tsv(
+        truth,
+        ["locus_tag", "tu_id", "start", "end", "strand", "start_codon", "length_aa"],
+        [
+            [f.locus, f.tu, f.start + 1, f.end, f.strand, f.extra["start_type"], len(f.aa)]
+            for f in feats
+            if f.kind == "cds"
         ],
-        "features": features,
-    }
-    bakta = out / "bakta_like.json"
-    bakta.write_text(json.dumps(data, sort_keys=True, indent=1) + "\n")
-
-    truth = out / "truth" / "genes.tsv"
-    with truth.open("w", newline="") as fh:
-        w = csv.writer(fh, delimiter="\t", lineterminator="\n")
-        w.writerow(["locus_tag", "tu_id", "start", "end", "strand", "start_codon", "length_aa"])
-        for g, locus in zip(genes, loci, strict=True):
-            w.writerow(
-                [locus, f"TU_{g.tu}", g.start + 1, g.end, g.strand, g.codons[0], len(g.codons) - 1]
-            )
-    return SimResult(out, fasta, bakta, truth, len(genes))
+    )
+    ref_pseudo: dict[str, bool] = {}
+    res = SimResult(out, fasta, bakta, truth, len(genes), gff, feat_truth, novel_truth)
+    if config.strain is not None:
+        ref_seqs, lifted, rows = derive_reference(config.strain, seed, text, feats)
+        ref_fasta, ref_json = out / "reference.fasta", out / "reference_bakta_like.json"
+        strain_truth = out / "truth" / "strain_differences.tsv"
+        _write_fasta(ref_fasta, contigs, ref_seqs)
+        _write_json(ref_json, contigs, ref_seqs, lifted)
+        header = [
+            "contig",
+            "pos_sample",
+            "pos_reference",
+            "ref",
+            "alt",
+            "type",
+            "gene",
+            "aa_change",
+        ]
+        _tsv(strain_truth, header, rows)
+        ref_pseudo = {g.locus: bool(g.extra.get("pseudo")) for g in lifted}
+        res = replace(
+            res, reference_fasta=ref_fasta, reference_json=ref_json, strain_truth=strain_truth
+        )
+    _tsv(
+        feat_truth,
+        [
+            "feature_id",
+            "type",
+            "contig",
+            "start",
+            "end",
+            "strand",
+            "true_start",
+            "pseudo_reason",
+            "ref_pseudo",
+        ],
+        [
+            [
+                f.locus,
+                f.kind,
+                f.contig,
+                f.start + 1,
+                f.end,
+                f.strand,
+                f.true_start or "",
+                f.pseudo_reason,
+                "" if f.locus not in ref_pseudo else str(ref_pseudo[f.locus]).lower(),
+            ]
+            for f in feats
+        ],
+    )
+    return res
