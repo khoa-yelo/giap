@@ -89,3 +89,12 @@ CLI: writes with `write_tsv`; prints issues to stderr; exit 0, or 1 on error iss
 2. Multi-run `PG.MaxLFQ` collapse to one value (v1 allows one value column): median across runs.
    Accept?
 3. DIA-NN `Precursor.Normalised == 0` → NA. Accept?
+
+## Lead decisions after code review
+- Stripping removes `(...)`, `[...]`, `{...}` and `<...>` groups repeatedly until none remain (nested
+  modification names such as MaxQuant's `(Acetyl (Protein N-term))` leave no letters), then
+  flanking residues: a string matching `^[A-Z-]\.(.+)\.[A-Z-]$` keeps only its middle.
+- The DIA-NN reader loads only the mapped columns and converts numbers directly (500k rows < 15 s).
+- MaxLFQ abundance excludes decoy rows and drops protein groups with no value.
+- Converters report `validate_peptides` issues but keep warn-level rows in the output: any error
+  already makes `giap convert` exit 1 without writing, and preflight re-validates the table.
