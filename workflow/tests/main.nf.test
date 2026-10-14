@@ -1,0 +1,48 @@
+// M2-06 example 8: stub run of the skeleton (GIAP_SPEC.md §6.3 "Process conventions").
+// ci.yml runs: nf-test test workflow/tests --profile test,stub
+// "-stub" is set here too, so the suite is in stub mode whatever the profile does.
+nextflow_pipeline {
+
+    name "GIAP skeleton (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "skeleton"
+
+    test("stub run: GIAP_STEP runs, writes its outputs and versions.yml, publishes into outdir") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            def names = workflow.trace.succeeded().collect { it.name.toString() }
+            assert names.any { it.contains("GIAP_STEP") } : "no GIAP_STEP task in ${names}"
+            assert workflow.trace.failed().size() == 0
+
+            // GIAP_STEP stub outputs: a task directory holding versions.yml and at least one
+            // other (non-hidden) output file.
+            def taskDirs = []
+            new File(workDir.toString()).eachDir { a ->
+                a.eachDir { t -> taskDirs << t }
+            }
+            def withVersions = taskDirs.findAll { new File(it, "versions.yml").isFile() }
+            assert withVersions.size() > 0 : "no task emitted versions.yml"
+            assert withVersions.any { t ->
+                t.listFiles().any { f -> !f.name.startsWith(".") && f.name != "versions.yml" }
+            } : "GIAP_STEP stub wrote no output file"
+
+            def versions = new File(withVersions[0], "versions.yml").text
+            assert versions.trim().length() > 0
+            assert versions.contains(":")
+
+            // publishDir (mode copy) puts files into outdir
+            def published = []
+            new File(outputDir.toString()).eachFileRecurse { if (it.isFile()) published << it }
+            assert published.size() > 0 : "nothing published into outdir"
+        }
+    }
+}
