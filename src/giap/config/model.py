@@ -81,7 +81,7 @@ class PreflightConfig(_Strict):
     min_largest_contig_warn: int = 1000000
     small_replicon_bp: int = 500000
     gc_range_warn: list[float] = [0.25, 0.75]
-    n_run_min_bp: int = 10
+    n_run_min_bp: int = Field(default=10, ge=1)
     abundance_missing_warn_frac: float = 0.20
 
 
