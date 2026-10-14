@@ -23,7 +23,7 @@ import pyarrow.parquet as pq  # type: ignore[import-untyped]
 from pandas.api.types import is_bool_dtype, is_numeric_dtype
 
 from giap.config.model import InputConfig
-from giap.io._open import open_text
+from giap.io._open import open_binary, open_text
 from giap.io.converters.base import ConvertResult, finish_peptides
 from giap.io.converters.strip import strip_modifications
 from giap.io.issues import Issue, row_issue
@@ -49,12 +49,34 @@ _TEXT = ("peptide", "modified_peptide", "protein_ids", "run")
 _WANTED = frozenset([n for _, names, _ in _MAP for n in names] + ["Protein.Group", "PG.MaxLFQ"])
 
 
+class _RaggedRow(ValueError):
+    """A TSV data row whose field count differs from the header's."""
+
+
+def _check_fields(path: Path) -> None:
+    """Raise :class:`_RaggedRow` naming the first (1-based) line whose field count differs from
+    the header's; blank lines are skipped as by the reader. Quoting is off, so tabs count fields."""
+    with open_binary(path) as fh:
+        expected = -1
+        for lineno, line in enumerate(fh, 1):
+            if not line.strip(b"\r\n"):
+                continue
+            tabs = line.count(b"\t")
+            if expected < 0:
+                expected = tabs
+            elif tabs != expected:
+                raise _RaggedRow(
+                    f"{path}: line {lineno}: expected {expected + 1} fields, found {tabs + 1}"
+                )
+
+
 def _read(path: Path) -> pd.DataFrame:
     """The mapped columns of one report: parquet columns keep their types, TSV cells are ``str``
     (``None`` for ``NA`` or empty)."""
     if path.suffix == ".parquet":
         names = [c for c in pq.read_schema(path).names if c in _WANTED]
         return pd.read_parquet(path, engine="pyarrow", columns=names)
+    _check_fields(path)
     with open_text(path, encoding="utf-8-sig", newline="") as fh:
         raw = pd.read_csv(
             fh,
@@ -141,6 +163,8 @@ def convert_diann(
     for path in paths:
         try:
             frames.append(_read(path))
+        except _RaggedRow as exc:
+            issues.append(Issue("malformed_table", "error", str(exc)))
         except (OSError, UnicodeDecodeError, ValueError) as exc:
             issues.append(Issue("unreadable", "error", f"{path}: {exc}"))
     if issues:
