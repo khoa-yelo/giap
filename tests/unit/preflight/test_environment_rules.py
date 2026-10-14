@@ -4,9 +4,10 @@
 All probes are fakes (``EnvProbe`` is injected); no real tool is run.
 
 Lead decisions used here: the only resource warning is RAM < 24 GB when ``promoters: genome``
-(the caller passes that need as ``need_ram_bytes``); free RAM and free disk are otherwise recorded
-as values and never warn, whatever ``need_disk_bytes`` says (ADR-0005 item 4). Memory sizes are
-GiB (2**30 bytes), as ``scripts/probe_env.py`` reports Slurm memory.
+(the caller passes that need as ``need_ram_bytes``); free disk never warns, whatever
+``need_disk_bytes`` says (ADR-0005 item 4). Per the M1-12 review the check holds the verdict only,
+no raw RAM/disk numbers, so ``preflight.json`` is identical across machines. Memory sizes are GiB
+(2**30 bytes), as ``scripts/probe_env.py`` reports Slurm memory.
 """
 
 from __future__ import annotations
@@ -197,20 +198,22 @@ def test_T_PRE_24_fail() -> None:
     res = c["environment.resources"]
     assert res.level == "warn"
     assert res.exit_code == 0
-    assert isinstance(res.value, dict)
-    assert res.value["ram_gb"] == 16
-    assert res.value["need_ram_gb"] == 24
     assert c["environment.tools"].level == "ok"
+    # M1-12 lead decision: preflight.json is machine-independent, so the check holds the verdict
+    # only; another machine that also lacks RAM yields the identical check (raw numbers → logs).
+    other = env_checks(reqs, probe(found, ram_gib=20, disk_gib=7), need_ram_bytes=24 * GIB)
+    assert other["environment.resources"] == res
+    assert "16" not in json.dumps(res.value) + res.message
 
 
 @pytest.mark.parametrize("ram_gib", [1, 16, 64])
-def test_T_PRE_24_targeted_mode_records_ram_and_never_warns(ram_gib: int) -> None:
+def test_T_PRE_24_targeted_mode_never_warns_and_omits_raw_numbers(ram_gib: int) -> None:
     reqs = core_reqs()
     found = found_all(reqs, bakta="1.12.2", bakta_db="6.0")
     res = env_checks(reqs, probe(found, ram_gib=ram_gib, disk_gib=1))["environment.resources"]
     assert res.level in ("ok", "info"), res
-    assert isinstance(res.value, dict)
-    assert res.value["ram_gb"] == ram_gib
+    # M1-12 lead decision: no raw RAM/disk numbers in the check (machine-independent report).
+    assert res == env_checks(reqs, probe(found, ram_gib=128, disk_gib=900))["environment.resources"]
 
 
 def test_T_PRE_24_low_free_disk_never_warns() -> None:

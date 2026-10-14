@@ -103,7 +103,7 @@ def write_fasta(path: Path, records: Iterable[tuple[str, str]], width: int = 80)
     with open_text_write(path, compress=False) as fh:
         for rec_id, seq in records:
             if not _SAFE_ID_FULL.fullmatch(rec_id):
-                raise ValueError(f"unsafe FASTA ID {rec_id!r}; expected [A-Za-z0-9._-]+")
+                raise ValueError(f"unsafe FASTA ID {rec_id!r}; expected {_SAFE_ID_FULL.pattern}")
             if "\n" in seq or "\r" in seq:
                 raise ValueError(f"sequence for {rec_id!r} contains a line break")
             fh.write(f">{rec_id}\n")

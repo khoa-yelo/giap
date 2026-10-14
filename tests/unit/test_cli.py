@@ -95,13 +95,28 @@ def test_subcommands_accept_shared_options(runner: CliRunner, name: str) -> None
         assert opt in result.output
 
 
-def test_preflight_not_implemented_exits_internal(runner: CliRunner, genome: Path) -> None:
+@pytest.fixture
+def proteins(tmp_path: Path) -> Path:
+    path = tmp_path / "p.faa"
+    path.write_text(">P1\nMKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDA\n")
+    return path
+
+
+@pytest.fixture(autouse=True)
+def _no_db_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # preflight (M1-12): a missing db_manifest.json is info, so exit codes come from the inputs
+    (tmp_path / "db_empty").mkdir()
+    monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
+
+
+def test_preflight_is_implemented(runner: CliRunner, genome: Path, proteins: Path) -> None:
     from giap.cli import cli
     from giap.exitcodes import ExitCode
 
-    result = runner.invoke(cli, ["preflight", "--genome", str(genome)])
-    assert result.exit_code == ExitCode.INTERNAL
-    assert "not implemented" in result.output.lower()
+    result = runner.invoke(cli, ["preflight", "--genome", str(genome), "--proteins", str(proteins)])
+    # a 200 bp genome only warns (total length, contiguity); warnings exit 0 without --strict
+    assert result.exit_code == ExitCode.SUCCESS, result.output
+    assert "not implemented" not in result.output.lower()
 
 
 def test_unknown_set_key_exits_invalid_input(runner: CliRunner, genome: Path) -> None:
@@ -115,16 +130,14 @@ def test_unknown_set_key_exits_invalid_input(runner: CliRunner, genome: Path) ->
     assert "bogus_key" in result.output
 
 
-def test_valid_set_is_accepted_repeatedly(runner: CliRunner, genome: Path) -> None:
+def test_valid_set_is_accepted_repeatedly(runner: CliRunner, genome: Path, proteins: Path) -> None:
     from giap.cli import cli
     from giap.exitcodes import ExitCode
 
-    result = runner.invoke(
-        cli,
-        ["preflight", "--genome", str(genome), "--set", "seed=1", "--set", "stats.permutations=5"],
-    )
-    # config resolves; command then reports it is not implemented yet (M0)
-    assert result.exit_code == ExitCode.INTERNAL
+    args = ["preflight", "--genome", str(genome), "--proteins", str(proteins)]
+    result = runner.invoke(cli, [*args, "--set", "seed=1", "--set", "stats.permutations=5"])
+    # config resolves; preflight (M1-12) then succeeds with warnings only
+    assert result.exit_code == ExitCode.SUCCESS, result.output
 
 
 def test_config_file_with_unknown_key_exits_invalid_input(
