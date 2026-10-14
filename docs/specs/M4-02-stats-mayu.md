@@ -84,3 +84,11 @@ point FP_b = (N_b − n_b + FP_b)·p_b, binning by rank, the ≥ 2-peptide varia
 2. `mayu_gene_fdr` takes the per-peptide q and PEP arrays rather than §8.3's `(best_q, pep, sizes,
    n_bins)` (F(t) needs every accepted peptide, not one per gene). **Proposed default:** the signature
    above; §8.3's argument list is read as shorthand.
+
+## Statistician review (PR #34, approved) — forwarded to M4-12
+1. Validate inputs at the M4-12 boundary: PEP in [0, 1], finite gene sizes, integer `n_bins` ≥ 1 (a negative
+   PEP would silently lower F).
+2. The estimate has no CI and the base case has no margin at q = 0.01: report `fp` and `n_genes` next to
+   the q threshold; warn for semi-/unspecific searches (wrong hits spread uniformly → FDP ≈ 1.24 × estimate).
+3. `fdr_2pep` is not an FDR for the set of genes with ≥ 2 peptides; never label it as one.
+See docs/methods/mayu-gene-fdr.md and tests/calibration/attacks/test_attack_mayu.py.
