@@ -2,7 +2,7 @@
 
 Bakta JSON plus the normalised genome FASTA become the internal work-directory tables
 (0-based half-open coordinates, §6.5). Parquet is written without statistics and with fixed
-metadata so that reruns are byte-identical (TE7).
+metadata (``giap.io.parquet``) so that reruns are byte-identical (TE7).
 """
 
 from __future__ import annotations
@@ -13,9 +13,8 @@ from pathlib import Path
 from typing import Any
 
 import pyarrow as pa  # type: ignore[import-untyped]
-import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
-from giap.annotate.bakta import BaktaAnnotation, _slice, parse_bakta_json
+from giap.annotate.bakta import BaktaAnnotation, interval_nt, parse_bakta_json
 from giap.annotate.bakta_layers import (
     annotation_source,
     anti_sd,
@@ -25,6 +24,7 @@ from giap.annotate.bakta_layers import (
     trna_counts,
 )
 from giap.io.fasta import read_genome_fasta, write_fasta
+from giap.io.parquet import write_parquet_deterministic
 from giap.io.tsv import write_tsv
 from giap.model.coords import Replicon, interval_sort_key
 from giap.model.genes import Gene, NcFeature
@@ -37,12 +37,6 @@ def _path(p: InputPath) -> Path:
     if isinstance(p, list):
         raise ValueError(f"expected one file, got {len(p)}")
     return p
-
-
-def _write_parquet(path: Path, cols: Sequence[tuple[str, pa.DataType]], rows: list[Any]) -> None:
-    schema = pa.schema([pa.field(name, typ) for name, typ in cols])
-    arrays = [pa.array([r[i] for r in rows], type=t) for i, (_, t) in enumerate(cols)]
-    pq.write_table(pa.Table.from_arrays(arrays, schema=schema), path, write_statistics=False)
 
 
 def _ordered(
@@ -125,19 +119,22 @@ def parse_bakta(ctx: StepContext) -> None:
         ctx.log.warning("parse_bakta: skipped %d Bakta feature(s) of unknown type %r", k, t)
 
     s16 = [
-        (f.id, f.nt or _slice(ann.sequences[f.interval.contig], f.interval)) for f in rrna16s(feats)
+        (f.id, f.nt or interval_nt(ann.sequences[f.interval.contig], f.interval))
+        for f in rrna16s(feats)
     ]
     anti, sd_flags = anti_sd([s for _, s in s16], ctx.cfg.annotation.ostir.anti_sd)
     flags = sorted({*sd_flags, *(["bakta_db_light"] if ann.db_type == "light" else [])})
 
     out = ctx.outputs
-    _write_parquet(out["genes"], _GENE_COLS, [_gene_row(g, reps[g.interval.contig]) for g in genes])
-    _write_parquet(out["features"], _FEATURE_COLS, [_feature_row(f) for f in feats])
+    write_parquet_deterministic(
+        out["genes"], _GENE_COLS, [_gene_row(g, reps[g.interval.contig]) for g in genes]
+    )
+    write_parquet_deterministic(out["features"], _FEATURE_COLS, [_feature_row(f) for f in feats])
     rep_rows = [(r.id, r.length, r.topology, r.kind) for r in reps.values()]
-    _write_parquet(out["replicons"], _REPLICON_COLS, rep_rows)
+    write_parquet_deterministic(out["replicons"], _REPLICON_COLS, rep_rows)
     write_fasta(out["rrna16s"], s16)
     write_tsv(out["trna_counts"], ["anticodon", "amino_acid", "n_copies"], _trna_rows(feats))
-    _write_parquet(out["xrefs"], _XREF_COLS, split_xrefs(genes))
+    write_parquet_deterministic(out["xrefs"], _XREF_COLS, split_xrefs(genes))
     meta: Mapping[str, Any] = {
         "bakta_version": ann.bakta_version,
         "db_version": ann.db_version,
