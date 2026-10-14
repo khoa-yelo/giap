@@ -5,5 +5,6 @@ JSON annotation and a gene truth table.
 """
 
 from giapsim.simulate import SimConfig, SimResult, simulate
+from giapsim.strain import StrainConfig
 
-__all__ = ["SimConfig", "SimResult", "simulate"]
+__all__ = ["SimConfig", "SimResult", "StrainConfig", "simulate"]
