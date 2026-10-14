@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import gzip
 import io
+import json
+import os
 from pathlib import Path
-from typing import IO, TextIO, cast
+from typing import IO, Any, TextIO, cast
 
 GZIP_MAGIC = b"\x1f\x8b"
 
@@ -41,3 +43,9 @@ def open_text_write(path: Path, *, compress: bool | None = None) -> TextIO:
     raw = gzip.GzipFile(filename="", mode="wb", fileobj=fh, mtime=0)
     raw.myfileobj = fh  # GzipFile.close() then also closes the underlying file
     return io.TextIOWrapper(raw, encoding="utf-8", newline="\n")
+
+
+def read_json(path: str | os.PathLike[str]) -> Any:
+    """Parse a (possibly gzip-compressed) UTF-8 JSON file."""
+    with open_text(Path(path)) as fh:
+        return json.load(fh)

@@ -115,3 +115,11 @@ on an unknown contig is an error.
 2. Should the minimal JSON reader stay after M2? **Proposed default:** no; M2's `parse_bakta`
    replaces it, and this function becomes a thin wrapper around it (same tests keep passing).
 3. Bakta `start_type` may be absent for partial genes. **Proposed default:** `None`.
+
+## Lead decision (test-author question)
+The reader keeps its signature (returns only `GeneModel`) because M2-03 shares it; unknown Bakta feature
+types are skipped. Reporting them as Issues is the job of the wrapping parse step (M2-04), which can
+compare the JSON's feature types with the known set.
+- Lead decision (implementer question): the reader takes `path: StrPath` (str or Path) and reads JSON via
+  `giap.io._open.read_json`, because `giap.model` does no file I/O (tests/unit/test_coords.py). M2-03
+  uses the same signature.
