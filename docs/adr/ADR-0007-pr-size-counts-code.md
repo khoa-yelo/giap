@@ -1,5 +1,5 @@
 # ADR-0007: The PR-size guard counts code, not tests or docs
-- Status: proposed
+- Status: accepted-by-khoa (2026-10-14)
 - Date: 2026-10-14
 - Spec sections: §14.2, §14.6 (PR size), `ci/gates.yaml` (`pr_lines_warn`, `pr_lines_fail`)
 - Needs Khoa: yes (changes how a gate is measured; the 400/800 values stay)
