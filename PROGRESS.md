@@ -4,19 +4,19 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-15 00:30 PDT · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
+_Last updated: 2026-10-15 06:30 PDT · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 47/79 done (59 %), 7 running · generated 2026-10-15 00:21 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 57/79 done (72 %), 8 running · generated 2026-10-15 06:29 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
 | M0 Scaffold | 🟩 | 1 | 0 | 0 |
 | M1 Inputs and preflight | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 12 | 0 | 0 |
-| M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 43 % | 9 | 2 | 10 |
-| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜ 71 % | 17 | 3 | 4 |
-| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 38 % | 8 | 2 | 11 |
+| M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜ 67 % | 14 | 2 | 5 |
+| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜ 83 % | 20 | 2 | 2 |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜ 48 % | 10 | 4 | 7 |
 | M5 Autocorrelation and islands | _not designed yet_ | - | - | - |
 | M6 Operons | _not designed yet_ | - | - | - |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
@@ -64,6 +64,14 @@ Follow-ups queued (docs/backlog.md has the full list):
 - M3-21: c_ref − c_true, chance rate of wrong peptides, PEP–length correlation (ADR-0010).
 - M4-12/M4-17 forwarded items; M6: simulate readthrough (cterm_extension).
 Lessons (keep):
+- Real `giap run` (SIM100K, farmshare_local,apptainer, real $GIAP_DB_DIR): preflight ok, BAKTA (13.5 min),
+  GENOMAD, TERMINATORNET ok, `--resume` caches; stops at the first unregistered py step (codon_usage, M2-17).
+- Tests built on invented fixtures hid contract bugs (M4-13, M4-14): fixtures must come from the real
+  producers' outputs. Test module basenames must be unique (scripts/ci/check_test_names.py in CI).
+- Slurm "user env retrieval failed / requeued held" happens repeatedly on batch nodes: release held giap-*
+  jobs (`scontrol release <id>`); a 2-min watchdog does this during sessions.
+- Shared files across tool-layer PRs (tests/unit/test_nf_cmd_sync.py BUILDERS,
+  workflow/tests/data/annotate/step_registry.json): merge main, keep both builders, regenerate the registry.
 - Never rebase + force-push: merge origin/main into the branch and push plainly (force-push is blocked;
   Khoa, 2026-10-15). Recover a locally rebased branch by cherry-picking onto origin's branch.
 - Slurm work dirs live under $GIAP_ROOT (scratch/…), never node-local /tmp or the session scratchpad.
