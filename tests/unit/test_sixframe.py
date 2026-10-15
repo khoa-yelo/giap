@@ -58,7 +58,9 @@ def _frames(idx: SixFrameIndex) -> list[str]:
 def test_alphabet_and_codes() -> None:
     assert ALPHABET == "ACDEFGHKLMNPQRSTVWY*X"
     assert "I" not in ALPHABET
-    assert (STOP, AMBIG, NOMATCH, WRAP_NT) == (19, 20, 21, 120)
+    assert (STOP, AMBIG, NOMATCH) == (19, 20, 21)
+    # M3-07 review: the circular wrap covers a 40-aa peptide with k = 2 (3·(40 + 2) = 126 nt).
+    assert WRAP_NT >= 126
     assert ALPHABET[STOP] == "*" and ALPHABET[AMBIG] == "X"
 
 
