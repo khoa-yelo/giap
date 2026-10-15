@@ -68,8 +68,8 @@ def _unmapped() -> pd.DataFrame:
 
 
 def test_example_6_mismatch_rate_distinct_peptides() -> None:
-    """Aligned (PR #87 decision 6): was ``id_mixups == 3``; the 3 distinct flagged peptides of 6
-    placed same-db target peptides are now ``engine_protein_mismatch_rate = 3 / 6``."""
+    """Aligned (PR #87 decision 6): was ``id_mixups == 3``; 3 distinct flagged peptides of the 5
+    distinct placed peptides (A, C, D, E, F) give ``engine_protein_mismatch_rate = 3 / 5``."""
     hits = fx.hits_frame([
         qc_hit("AAAAAAAK", flags=["engine_protein_mismatch"]),
         qc_hit("AAAAAAAK", flags=["engine_protein_mismatch", "same_db"]),  # same peptide twice
@@ -80,7 +80,7 @@ def test_example_6_mismatch_rate_distinct_peptides() -> None:
     ])  # fmt: skip
     peps = fx.peptides_frame(qc_peptide(p) for p in sorted(set(hits["peptide"])))
     out = _qc(peps, hits, _unmapped())
-    assert _val(out, "engine_protein_mismatch_rate") == pytest.approx(0.5)
+    assert _val(out, "engine_protein_mismatch_rate") == pytest.approx(3 / 5)
     assert math.isnan(_val(out, "id_mixups"))
 
 
