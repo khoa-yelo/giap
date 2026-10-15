@@ -1,0 +1,2 @@
+# genes.coords: record_tools_inputs.py coords sim100k.json
+transterm -p /usr/local/data/expterm.dat genome.fa genes.coords 
