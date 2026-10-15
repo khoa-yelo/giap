@@ -33,6 +33,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "test_criteria_review.py": "regions",
         "test_criteria_pooled.py": "regions",
         "test_denovo_precision_calibration.py": "denovo_precision",
+        "test_detectability.py": "detectability",
         "test_engine_calibration.py": "regions",
         "test_engine_calibration.py::test_bh_fdr": "gene_fdr",
         "test_exact_recall.py": "placement",
