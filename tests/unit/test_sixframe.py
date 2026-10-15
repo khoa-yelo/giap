@@ -280,13 +280,14 @@ def test_circular_shorter_than_wrap_appends_whole_replicon() -> None:
     assert decode(idx.frames[P0].aa) == decode(translate11((seq + seq).encode()))
 
 
-def test_circular_default_wrap_120() -> None:
+def test_circular_default_wrap() -> None:
+    # Default wrap = WRAP_NT (≥ 126 nt since the M3-07 review; was 120).
     rng = np.random.default_rng(7)
     seq = "".join(rng.choice(list("ACGT"), size=500))
     idx = build_sixframe({"c": seq}, {"c": Replicon("c", 500, "circular")})
-    assert all(f.ext_nt == 620 for f in idx.frames)
-    assert decode(idx.frames[P0].aa) == decode(translate11((seq + seq[:120]).encode()))
-    assert decode(idx.frames[M0].aa) == decode(translate11(_rc(seq + seq[:120]).encode()))
+    assert all(f.ext_nt == 500 + WRAP_NT for f in idx.frames)
+    assert decode(idx.frames[P0].aa) == decode(translate11((seq + seq[:WRAP_NT]).encode()))
+    assert decode(idx.frames[M0].aa) == decode(translate11(_rc(seq + seq[:WRAP_NT]).encode()))
 
 
 def test_lower_case_is_upper_cased() -> None:
