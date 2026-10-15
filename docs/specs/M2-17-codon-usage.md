@@ -79,3 +79,12 @@ when ≥ 10 codons exist.
 1. Score codons 2…n−1 (drop start and stop) for every index. **Proposed default:** yes, consistently.
 2. No ribosomal-protein genes found (fragmented draft). **Proposed default:** CAI/Fop `NA` and a run
    flag `cai_reference_missing` (new run flag in the §9.4 vocabulary, added via the schema in M2-20).
+
+## Lead decisions (after the test-author's pass)
+1. Q1/Q2: the proposed defaults are accepted.
+2. The test-author's resolutions are accepted: "< 10 codons" counted on the full CDS; CAI reference = the
+   scored ribosomal genes (`cai_reference`); genome-wide shares and the CPB reference over all scored
+   genes, unseen codons in a present family have share 0.0; `codon.parquet` columns `locus_tag`, the 8
+   fields, `cai_reference`; NaN written as null.
+3. The codon-bias library must pass scripts/ci/check_imports.py (licence) and already be in uv.lock; if
+   not, stop and tell the lead (no new dependencies).
