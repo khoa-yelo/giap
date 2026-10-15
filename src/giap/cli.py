@@ -1,8 +1,8 @@
 """``giap`` command line (GIAP_SPEC.md §5.1).
 
 Every subcommand resolves the configuration first (an unknown key is exit code 1). ``preflight``
-(M1-12), ``_step`` and ``run --executor local`` (M2-02) are implemented; the other commands report
-that they are not implemented yet (exit code 5).
+(M1-12), ``_step``, ``run --executor local`` (M2-02) and ``run`` through Nextflow (M2-07) are
+implemented; the other commands report that they are not implemented yet (exit code 5).
 """
 
 from __future__ import annotations
@@ -157,6 +157,16 @@ def preflight(
 
 # ---------------------------------------------------------------- run
 
+_RUN_INPUTS = [
+    "genome",
+    "peptides",
+    "proteins",
+    "abundance",
+    "annotation",
+    "reference_peptides",
+    "replicon_depth",
+]
+
 
 @cli.command()
 @click.option("--genome", type=_existing_file, required=True, help="Genome FASTA.")
@@ -242,7 +252,25 @@ def run(
     cfg = _resolve(config_file, sets, log_level, flags, publication)
     if executor == "local":
         _run_local(cfg, outdir / "work")
-    _not_implemented("run", "M2")
+    inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
+    _run_nextflow(cfg, outdir, inputs, str(_["memory"]), str(_["profile"]), bool(_["resume"]))
+
+
+def _run_nextflow(
+    cfg: GiapConfig, outdir: Path, inputs: dict[str, Path], memory: str, profile: str, resume: bool
+) -> None:
+    """§6.3 "Launch": params.json + resolved_config.yaml, then ``nextflow run`` in OUT."""
+    import shutil
+
+    from giap.runner import nextflow as nf
+
+    if shutil.which("nextflow") is None:
+        click.echo("giap run: nextflow not found on PATH (see AGENTS.md setup)", err=True)
+        sys.exit(ExitCode.ENVIRONMENT)
+    outdir = outdir.absolute()
+    params, _resolved = nf.write_params(outdir, cfg, inputs, nf.nextflow_memory(memory))
+    cmd = nf.launch_command(nf.workflow_main(), params, profile, outdir, resume)
+    sys.exit(nf.run_nextflow(cmd, outdir))
 
 
 def _run_local(cfg: GiapConfig, workdir: Path) -> None:
