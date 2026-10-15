@@ -137,3 +137,16 @@ Model on circular `chr1` (L = 10,000): G1 cds + `[100,400)`; G2 cds − `[1000,1
    `intergenic`; decoy/contaminant-prefixed protein_ids never clear `engine_protein_mismatch`; unknown
    genome_relation raises ValueError.
 4. Novel-locus clustering is not part of M3-14 (Module 6); `novel_candidate_id` stays NA here.
+
+## Lead decisions after code review (PR #50, changes requested)
+1. In-frame same-strand overlap across a CDS/sORF 3′ end → `cterm_extension` (ADR-0013, accepted by Khoa),
+   assigned to that gene; `same_strand` (→ `cds_outframe`) only when the hit is OUT of frame. Tests: the
+   reviewer's geometries `[370,415)+` on G1, `[2060,2090)+` on the sORF, `[985,1015)−` on G2, and the
+   origin-shifted `[180,210)+` over G0's end.
+2. Loci are `multi_identical` only when both have a non-empty `aa`; pseudogenes (`aa=""`) on two unrelated
+   genes → `shared`.
+3. Tests pin every tie-break (nested same-frame CDSs, two overlapping pseudogenes, two genes sharing a start)
+   and the reviewer's missing cases: stop immediately before the start (both strands), a hit 3 nt past the
+   CDS end, an upstream hit past the end of a short gene, a stop codon split across the origin,
+   `origin_spanning` with `end == L`.
+4. Remove dead `_overlap_shift`; an unknown contig raises ValueError naming it.
