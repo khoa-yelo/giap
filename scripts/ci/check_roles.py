@@ -18,6 +18,9 @@ TESTS = ("tests/", "workflow/tests/")  # nf-test specs must live under workflow/
 EXEMPT_TESTS = (
     "tests/data/recorded/",  # implementers may add recorded fixtures
     "tests/sim/",  # the simulator (giapsim) is tooling the implementer owns, not tests
+    # The calibration harness (M4-05 spec) is tooling the implementer owns, like giapsim.
+    "tests/calibration/_criteria.py",
+    "tests/calibration/conftest.py",
 )
 
 

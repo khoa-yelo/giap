@@ -106,3 +106,20 @@ None (tooling). Documented in `tests/sim/README.md` section "layout" (the implem
    and golden fixtures, and M2 extends it (genome signals, regions) without M4 touching it.
 2. Gene numbers for calibration genomes: 1,000 (fast) and 4,500 (full, E. coli-like)? **Proposed
    default:** yes; per-PR suites must fit 10 minutes on 4 CPUs.
+
+## Lead decisions after code review (PR #62, changes requested)
+1. Circular replicons get the wrap pair (last gene, first gene) in `operon_pairs`, as M2-12 does (layout and
+   M0 adapter); first/last genes then have `uniop_p_prev/next` like production.
+2. A layout option `origin_crossing: bool` (default False, so existing outputs are unchanged) rotates `chr1`
+   so that one gene, one TU and one block region straddle the origin (`crosses_origin` true); M4-11, M4-15
+   and M4-17 calibration configs turn it on.
+3. Tests kill the surviving mutants: adapter pair p 1 within / 0 across TUs; genes without a truth TU become
+   singleton TUs (never merged); region numbering by contig then start (a config with two regions of the same
+   type); `_MIN_AA = 20` (no sORF-sized CDS); `region_ids` sorted and complete; a linear contig is never
+   `kind = chromosome`.
+4. `amr` is written (= membership in an AMR region); `ribosomal_protein` stays unwritten (no M4 consumer).
+   The dead `"p"` fallback in `_uniop_lookup` is removed.
+5. Fix the M0 simulator crash with `real_rrna_trna=True, n_trna=0` (`blocks.trna_picks` on an empty list) and
+   test it.
+6. Deferred to M4-17 (noted in its spec): overlapping regions and per-contig region placement (`RegionSpec.contig`,
+   e.g. a 60-gene plasmid with its own AMR set).
