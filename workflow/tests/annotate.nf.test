@@ -181,12 +181,12 @@ nextflow_pipeline {
 
             def pl = H.stepDirs(work, 'promoter_layer')
             assert pl.size() == 1
-            def chunks = H.staged(pl[0]).collect { new File(it[1]).name }.findAll { it ==~ /promotech_\d{3}/ }.unique()
+            def chunks = H.stepInputs(pl[0]).collect { new File(it[1]).name }.findAll { it ==~ /promotech_\d{3}/ }.unique()
             assert chunks == ['promotech_000', 'promotech_001', 'promotech_002'] : "promoter_layer inputs not sorted: ${chunks}"
 
             def tx = H.stepDirs(work, 'tx_layer')
             assert tx.size() == 1
-            def csvs = H.staged(tx[0]).collect { new File(it[1]).name }.findAll { it.endsWith('.csv') }.unique()
+            def csvs = H.stepInputs(tx[0]).collect { new File(it[1]).name }.findAll { it.endsWith('.csv') }.unique()
             assert csvs.size() == 5 : "tx_layer should gather 5 Promoter Calculator CSVs: ${csvs}"
             assert csvs == csvs.toSorted() : "tx_layer inputs not sorted: ${csvs}"
         }

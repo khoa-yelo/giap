@@ -40,6 +40,13 @@ def procDirs = { String work, String proc ->
         procOf(n) == proc
     }
 }
+// Ordered GIAP_STEP inputs as written by its stub to .giap_inputs ("key=path" per line). Staging
+// (`ln -s`) order in .command.run is Nextflow's, not the channel order, so it cannot show input order.
+def stepInputs = { File dir ->
+    def f = new File(dir, '.giap_inputs')
+    f.isFile() ? f.readLines().findAll { it }.collect { it.split('=', 2) as List } : []
+}
+
 // Staging lines of .command.run in order: [[source, target], ...]
 def staged = { File dir ->
     new File(dir, '.command.run').readLines().collectMany { line ->
@@ -60,4 +67,4 @@ def pySteps = ['parse_bakta', 'uniop_input', 'operon_pairs', 'promoter_windows',
                'codon_usage', 'region_layer', 'context_layers']
 
 return [defaultTools: defaultTools, pySteps: pySteps, procOf: procOf, tagOf: tagOf, names: names, count: count, stepCount: stepCount,
-        taskDirs: taskDirs, stepDirs: stepDirs, procDirs: procDirs, staged: staged, files: files]
+        taskDirs: taskDirs, stepDirs: stepDirs, procDirs: procDirs, staged: staged, stepInputs: stepInputs, files: files]

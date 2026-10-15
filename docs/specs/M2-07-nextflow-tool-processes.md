@@ -84,3 +84,11 @@ Promotech chunks and Promoter Calculator regions scatter with `flatten()` and ga
    both (tool images do not contain GIAP); example 6 keeps them in sync.
 2. Stub Bakta JSON: **Proposed default:** `workflow/assets/stub/bakta.json` = a 3-gene JSON from the
    simulator (≤ 5 kB), so downstream stubs run real parsing in stub mode.
+
+## Lead decisions (implementation)
+1. Example 4's order check cannot read `ln -s` staging lines: Nextflow 26 stages inputs in descending name
+   order regardless of channel order. The `GIAP_STEP` stub writes its `--in` entries in order to
+   `.giap_inputs` (one `key=path` per line); the nf-test reads that (`H.stepInputs`).
+2. ADR-0007 size: 619 code lines → two stacked PRs. PR A: the 10 tool modules (workflow/modules/local/<tool>/
+   incl. meta.yml) + stub asset, with the module lint and cmd-sync tests. PR B: annotate subworkflow,
+   main.nf, giap_step, configs, `giap run` wiring, with the remaining M2-07 tests (stacked on A).
