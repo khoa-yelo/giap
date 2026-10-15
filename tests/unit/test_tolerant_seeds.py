@@ -815,15 +815,45 @@ def test_verify_batch_rejects_queries_of_at_most_four_residues() -> None:
         td.verify_batch(encode_query("AKGA"), frame, np.array([0], dtype=np.int64), 1, ex)
 
 
-def test_driver_compiles_verify_batch_for_uint8_contiguous_only() -> None:
-    from numba import types
+def _assert_codes(arr: object, what: str) -> None:
+    assert isinstance(arr, np.ndarray), (what, type(arr))
+    assert arr.dtype == np.uint8 and arr.ndim == 1 and arr.flags.c_contiguous, (what, arr.dtype)
 
-    td = _batch_api()
+
+def test_driver_passes_uint8_contiguous_codes_to_the_kernels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Lead decision 3 after review: argument types seen at the Python boundary of
+    ``_search_many`` / ``_search_one`` (independent of a cold or warm numba cache)."""
+    from giap.mapping import tolerant
+
     genome, *_ = _example10_genome()
     idx = _index(genome)
-    _run(idx, [W, W_SUB, "MKTWQEPHYDRFAG", "AAAAAAAAAAAA"])
-    sigs = td.verify_batch.signatures
-    assert sigs, "match_tolerant does not use verify_batch"
-    want = types.Array(types.uint8, 1, "C")
-    for sig in sigs:
-        assert sig[0] == want and sig[1] == want, sig
+    queries = [W, W_SUB, "MKTWQEPHYDRF", "AAAAAAAAAAAA"]
+    _run(idx, queries)  # compile (or load) the kernels before they are wrapped
+    calls: dict[str, list[tuple[object, ...]]] = {"many": [], "one": []}
+    many, one = tolerant._search_many, tolerant._search_one
+
+    def spy_many(*args: object) -> object:
+        calls["many"].append(args)
+        return many(*args)
+
+    def spy_one(*args: object) -> object:
+        calls["one"].append(args)
+        return one(*args)
+
+    monkeypatch.setattr(tolerant, "_search_many", spy_many)
+    monkeypatch.setattr(tolerant, "_search_one", spy_one)
+    many_copies = _background(150, 7) + "".join(
+        _nt(W_SUB) + _background(150, 8 + i) for i in range(20)
+    )
+    _run(idx, queries)
+    _run(_index({"m": many_copies}), [W])  # > 16 loci: the serial _search_one path
+    assert calls["many"], "match_tolerant does not call _search_many"
+    assert calls["one"], "more than 16 loci did not take the serial _search_one path"
+    for args in calls["many"]:
+        _assert_codes(args[0], "qcat")
+        _assert_codes(args[7], "text")
+    for args in calls["one"]:
+        _assert_codes(args[0], "query codes")
+        _assert_codes(args[6], "text")

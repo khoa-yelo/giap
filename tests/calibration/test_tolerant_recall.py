@@ -9,12 +9,19 @@ each drawn from substitution, adjacent swap, mass-equivalent block and near-equa
 directions; substitution when the window has no block partner). ``I`` is never used as a
 replacement (I = L is free).
 
-Criteria, per planted peptide with ``n`` planted operations and origin interval ``o``:
+Criteria, per planted peptide with ``n`` planted operations and origin interval ``o``
+(lead decision 6 after code review, PR #48). The *origin cost* ``c_o`` is the oracle cost
+(``oracle_tolerant.align_window``, unbanded, independent of the implementation) of the best
+window of the origin's frame whose ends are within ``k`` residues of the planted ends; the
+*brute-force minimum* ``C`` is the unbanded DP minimum over every window of every target frame
+(``brute_tolerant.semi_global_costs``):
 
-- lossless (exact, no tolerance): a target row exists with minimal cost ``<= n``, and either a
-  reported locus overlaps ``o`` in the same codon phase (free window ends may shift the minimal
-  window by a residue or two at the planted end) or the reported minimal cost is ``< n`` (a
-  strictly cheaper locus elsewhere);
+- planting sanity (exact): ``c_o <= n``;
+- lossless (exact, no tolerance): a target row exists and the reported minimal cost equals ``C``;
+  whenever ``c_o == C`` a reported locus overlaps ``o`` in the same codon phase (free window ends
+  may shift the minimal window by a residue or two). A miss of the origin is allowed only when
+  the oracle shows a strictly cheaper window elsewhere (``C < c_o``), not because of the planted
+  operation count;
 - recall: the share of planted peptides whose origin is reported is ``>= mapping_recall_min``;
 - every difference type was planted (the criterion is not vacuous for any type).
 """
@@ -22,15 +29,20 @@ Criteria, per planted peptide with ``n`` planted operations and origin interval 
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "property"))
+from brute_tolerant import INF, semi_global_costs
+from oracle_tolerant import align_window
+
 from giap.config.model import TolerantConfig
 from giap.io.fasta import read_genome_fasta
 from giap.mapping.decoys import build_decoys
-from giap.mapping.sixframe import build_sixframe
+from giap.mapping.sixframe import build_sixframe, decode, encode_query, translate11
 from giap.mapping.tolerant import match_tolerant
 from giap.model import Interval, Replicon
 from giap.model.genes import gene_model_from_bakta_json
@@ -112,6 +124,35 @@ def _overlaps(o: Interval, f: tuple[str, int, int, str], n: int) -> bool:
     return False
 
 
+_RC = str.maketrans("ACGTN", "TGCAN")
+
+
+def _origin_cost(genome: str, o: Interval, query: str, k: int) -> int:
+    """Oracle cost of the best window whose ends are within ``k`` residues of the origin's."""
+    n = len(genome)
+    a, b = o.start - 3 * k, o.end + 3 * k
+    nt = "".join(genome[x % n] for x in range(a, b))
+    if o.strand == "-":
+        nt = nt.translate(_RC)[::-1]
+    text = decode(translate11(nt.encode("ascii")))
+    q = decode(encode_query(query))
+    m = (o.end - o.start) // 3
+    best = INF
+    for s in range(0, 2 * k + 1):
+        for e in range(k + m - k, min(k + m + k, len(text)) + 1):
+            if e - s < len(q) - k or e - s > len(q) + 2 * k:
+                continue
+            got = align_window(q, text, s, e, None, k)
+            if got is not None:
+                best = min(best, got[0])
+    return best
+
+
+def _brute_min(query: str, frames: tuple, k: int) -> int:  # type: ignore[type-arg]
+    qc = encode_query(query)
+    return min(int(semi_global_costs(qc, f.aa, k).min()) for f in frames)
+
+
 @pytest.mark.parametrize(("length", "i"), [(50_000, 0), (100_000, 1)])
 def test_planted_tolerant_peptide_recall(
     length: int, i: int, tmp_path: Path, tolerances: dict[str, object]
@@ -160,12 +201,22 @@ def test_planted_tolerant_peptide_recall(
             (r.contig, int(r.start) % rep.length, int(r.end) - int(r.start), r.strand)
         )
         cost[r.peptide] = int(r.n_diff)
-    missed, hit = [], 0
+    missed, wrong_min, bad_plant, hit = [], [], [], 0
     for q, (n_ops, o) in planted.items():
-        if any(_overlaps(o, f, rep.length) for f in found.get(q, set())):
+        k_q = 1 if len(q) <= 11 else 2  # k of the query's own length class
+        c_o = _origin_cost(rec.sequence, o, q, k_q)
+        if c_o > n_ops:
+            bad_plant.append((q, n_ops, c_o, o))
+        c_min = _brute_min(q, idx.frames, k_q)
+        if q not in cost or cost[q] != c_min:
+            wrong_min.append((q, cost.get(q), c_min))
+        overlapped = any(_overlaps(o, f, rep.length) for f in found.get(q, set()))
+        if overlapped:
             hit += 1
-        elif q not in cost or cost[q] >= n_ops:
-            missed.append((q, n_ops, o, cost.get(q)))
-    assert not missed, missed[:10]  # lossless: zero false negatives
+        elif c_o == c_min:
+            missed.append((q, n_ops, o, c_o, cost.get(q)))
+    assert not bad_plant, bad_plant[:10]  # the planted window is within n_ops of the query
+    assert not wrong_min, wrong_min[:10]  # reported minimum == brute-force minimum
+    assert not missed, missed[:10]  # lossless: the origin is reported whenever it is minimal
     recall = hit / len(planted)
     assert recall >= float(tolerances["mapping_recall_min"]), (recall, hit, len(planted))  # type: ignore[arg-type]

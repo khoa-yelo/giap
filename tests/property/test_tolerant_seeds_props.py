@@ -38,7 +38,7 @@ from brute_tolerant import (
     semi_global_costs,
     window_interval,
 )
-from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import HealthCheck, assume, example, given, settings
 from hypothesis import strategies as st
 from oracle_tolerant import align_window
 
@@ -452,3 +452,64 @@ def test_thread_count_does_not_change_output() -> None:
     one, four = _run_threads(1), _run_threads(4)
     assert one.strip() and json.loads(one.splitlines()[0])["columns"]
     assert one == four
+
+
+# --- lead decision 2 after review: the circular wrap holds 40-aa windows with k = 2 blocks ------
+
+
+@st.composite
+def origin_blocks(draw: st.DrawFn) -> tuple[str, str, int]:
+    """(window, query, back): up to two ``GG -> N`` blocks, query 12..40 aa, window starting
+    ``back`` (0..12) nt before the origin of a circular replicon."""
+    n_blocks = draw(st.one_of(st.just(2), st.integers(0, 2)))  # bias: the longest windows
+    size = draw(st.one_of(st.just(40), st.integers(12, 40)))
+    cuts = sorted(draw(st.lists(st.integers(1, size - 1), min_size=n_blocks, max_size=n_blocks)))
+    body = draw(st.text(alphabet=RESIDUES, min_size=size, max_size=size))
+    window, query, last = [], [], 0
+    for c in cuts:  # query residue c becomes N, window residues GG
+        window.append(body[last:c])
+        query.append(body[last:c])
+        window.append("GG")
+        query.append("N")
+        last = c + 1
+    window.append(body[last:])
+    query.append(body[last:])
+    w, q = "".join(window), "".join(query)
+    assume(12 <= len(q) <= 40)
+    return w, q, draw(st.integers(0, 12))
+
+
+_WRAP_W = "MKTWYEPHFDGGRCMKHPWYEGGFDKCMHEPWTMKHCYDEFH"  # reviewer wrap.py (missed at back = 3)
+
+
+@SETTINGS
+@given(case=origin_blocks(), seed=st.integers(0, 2**32 - 1))
+@example(case=(_WRAP_W, _WRAP_W.replace("GG", "N"), 3), seed=1)
+@example(case=(_WRAP_W, _WRAP_W.replace("GG", "N"), 0), seed=2)
+@example(case=(_WRAP_W, _WRAP_W.replace("GG", "N"), 5), seed=3)
+def test_windows_crossing_the_origin_are_found(case: tuple[str, str, int], seed: int) -> None:
+    window, query, back = case
+    rng = np.random.default_rng(seed)
+    seg = _back(window, rng)
+    g = seg + "".join(rng.choice(list("ACGT"), size=600))
+    n = len(g)
+    g = g[back:] + g[:back]  # the planted window starts at n - back (mod n)
+    rep = {"g": Replicon("g", n, "circular")}
+    index = build_sixframe({"g": g}, rep)  # type: ignore[arg-type]
+    full = build_sixframe({"g": g}, rep, wrap_nt=n)  # every window of the circle
+    k = _k(len(query))
+    truth = brute_force(query, full.frames, k)
+    at_origin = align_window(decode(encode_query(query)), window, 0, len(window), None, k)
+    assert at_origin is not None and truth.cost is not None
+    decoys = {"reverse": build_decoys(index, "reverse", 50, for_step("sixframe_index", seed))}
+    df = match_tolerant([query], index, decoys, {query: "reverse"}, {query}, CFG)
+    tgt = df[df["search"] == "target"]
+    assert len(tgt) > 0
+    assert int(tgt["n_diff"].min()) == truth.cost
+    if at_origin[0] == truth.cost:
+        o = (n - back) % n
+        assert any(
+            r.strand == "+"
+            and overlaps_mod(o, 3 * len(window), int(r.start) % n, int(r.end) - int(r.start), n)
+            for r in tgt.itertuples(index=False)
+        ), (back, tgt[["start", "end", "strand", "n_diff"]].values.tolist())
