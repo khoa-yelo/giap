@@ -37,6 +37,7 @@ BASIC_METRICS = ("n_genes", "n_detected", "pct_detected", "expected", "o_minus_e
 FEATURE_CLASSES = ("cds", "sorf", "pseudogene", "hypothetical")
 FEW_UNITS_FLAG = "ci_few_units"  # docs/methods/bootstrap.md: CIs from < 10 TUs
 FEW_UNITS_MIN = 10
+REQUIRES_VARIANTS_FLAG = "requires_variants"  # PR #87 lead decision 6: id_mixups deferred to M7
 GENE_COLUMNS = ("locus_tag", "contig", "feature_type", "hypothetical", "partial", "tu_id",
                 "detected", "detection_status", "p_detect", "cog_category")  # fmt: skip
 
@@ -92,7 +93,7 @@ def is_na(v: Any) -> bool:
 
 
 def cog_letters(v: Any) -> list[str]:
-    if is_na(v) or str(v) == "":
+    if is_na(v) or str(v).strip() in ("", "-"):  # PR #87 lead decision 8: "-" / blank -> none
         return ["none"]
     return sorted(set(str(v)))
 
@@ -133,6 +134,11 @@ def point_estimates(genes: pd.DataFrame, mask: np.ndarray) -> dict[str, float]:
         "o_over_e": o / e if e > 0 else math.nan,
         "n_tu": float(len(set(genes["tu_id"].astype(str).to_numpy()[mask]))),
     }
+
+
+def few_units(n_tu: int, expected: float, n_genes: int) -> bool:
+    """``ci_few_units`` rule (PR #87 lead decision 4): < 10 TUs or min(E, n - E) < 10."""
+    return n_tu < FEW_UNITS_MIN or min(expected, n_genes - expected) < FEW_UNITS_MIN
 
 
 def tu_sums(genes: pd.DataFrame, mask: np.ndarray) -> dict[str, float]:

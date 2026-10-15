@@ -7,7 +7,8 @@ genes"), §9.3 (long format), §6.6 (``giap.rng.for_step``).
 Resolved ambiguities (pinned here):
 - Every basic group also reports a metric row ``n_tu`` (distinct TUs of the group's eligible
   genes) and the ``o_minus_e`` row carries the flag ``ci_few_units`` when ``n_tu < 10``
-  (docs/methods/bootstrap.md; M4-04 forwarded item, lead brief), and not otherwise.
+  (docs/methods/bootstrap.md; M4-04 forwarded item, lead brief) or min(E, n_genes - E) < 10
+  (PR #87 lead decision 4; tests in test_detection_summary_review.py), and not otherwise.
 - Rows other than ``o_minus_e`` / ``o_over_e`` carry NA ``ci_low`` / ``ci_high``.
 - ``flags`` may be a ``;``-joined string or a list in memory; compared as a set.
 - Groups are emitted only for categories with >= 1 eligible gene; a COG group label is the letter,
@@ -148,12 +149,14 @@ def test_example_2_few_units_flag_and_n_tu() -> None:
 
 
 def test_no_few_units_flag_with_ten_tus() -> None:
-    rows = [gene(f"G{i}", f"TU{i}", i % 2 == 0, 0.5) for i in range(10)]
+    # 10 TUs of 4 genes, p = 0.5: E = n - E = 20, so only the TU count can set the flag
+    # (PR #87 lead decision 4 added min(E, n - E) < 10; aligned from 10 single-gene TUs).
+    rows = [gene(f"G{i}", f"TU{i // 4}", i % 2 == 0, 0.5) for i in range(40)]
     out = _basic(fx.genes_frame(rows), b=200)
     r = metric(out, "replicon", "chr1", "o_minus_e")
     assert metric(out, "replicon", "chr1", "n_tu")["value"] == 10
     assert fx.FEW_UNITS_FLAG not in fx.flag_set(r["flags"])
-    rows9 = rows[:9]
+    rows9 = rows[:36]
     r9 = metric(_basic(fx.genes_frame(rows9), b=200), "replicon", "chr1", "o_minus_e")
     assert fx.FEW_UNITS_FLAG in fx.flag_set(r9["flags"])
 

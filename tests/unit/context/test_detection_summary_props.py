@@ -119,7 +119,9 @@ def test_point_estimates_and_ci_support(g: pd.DataFrame) -> None:
         lo, hi = k * min(sums) - 1e-9, k * max(sums) + 1e-9
         assert lo <= float(r["ci_low"]) <= float(r["ci_high"]) <= hi, (key, r, sums)
         assert int(r["n"]) == int(mask.sum())
-        assert (fx.FEW_UNITS_FLAG in fx.flag_set(r["flags"])) == (k < fx.FEW_UNITS_MIN)
+        e = float(g["p_detect"].to_numpy()[mask].sum())
+        want_flag = fx.few_units(k, e, int(mask.sum()))  # PR #87 decision 4
+        assert (fx.FEW_UNITS_FLAG in fx.flag_set(r["flags"])) == want_flag
 
 
 @settings(max_examples=15, deadline=None)

@@ -97,10 +97,15 @@ def test_example_8_qc_rows_from_contract_tables(built: tuple[Any, pd.DataFrame, 
     _, table, _ = built
     qc = table[table["section"] == "qc"]
     val = {m: float(v) for m, v in zip(qc["metric"], qc["value"], strict=True)}
-    assert val["id_mixups"] == 2
-    # every target is same-db; only NOWHEREPEPK has no C11 row (all others are placed exactly)
-    n_same = int((~built[0].inputs.peptides["is_decoy"].astype(bool)).sum())
-    assert val["genome_inconsistent_rate"] == pytest.approx(1 / n_same)
+    # PR #87 lead decisions 5-6: id_mixups needs the variant module (NA + requires_variants);
+    # every target is same-db, so genome_inconsistent_rate (search_db = other) is NA; the two
+    # engine/protein mismatches are reported as engine_protein_mismatch_rate.
+    mix = qc[qc["metric"] == "id_mixups"].iloc[0]
+    assert math.isnan(val["id_mixups"])
+    assert fx.REQUIRES_VARIANTS_FLAG in fx.flag_set(mix["flags"])
+    assert math.isnan(val["genome_inconsistent_rate"])
+    n_placed = int(built[0].inputs.peptide_hits["peptide"].astype(str).nunique())
+    assert val["engine_protein_mismatch_rate"] == pytest.approx(2 / n_placed)
     assert val["contaminant_peptides"] == 1 and val["contaminant_proteins"] == 1
     assert val["unmapped_peptides"] == 1 and val["unmapped_proteins"] == 0
 

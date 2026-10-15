@@ -5,13 +5,16 @@ Spec: GIAP_SPEC.md §9.3 (QC rows ``id_mixups``, ``genome_inconsistent_rate``, c
 ``detection_summary``; lead question 1 default for ``genome_inconsistent_rate``).
 
 Resolved ambiguities (pinned here):
-- QC metrics: ``id_mixups``, ``genome_inconsistent_rate``, ``contaminant_peptides``,
-  ``contaminant_proteins``, ``unmapped_peptides``, ``unmapped_proteins`` (one row each, section
-  ``qc``, ``group_type = run``, ``group = all``); C13 counts are rows with that ``label``, by
-  ``kind``.
-- ``genome_inconsistent_rate`` is NA when C9 is absent or has no target ``search_db = same`` rows;
-  decoys and other ``search_db`` values are ignored; a peptide with an exact C11 row is placed
-  exactly even if it also has tolerant rows.
+- QC metrics: ``id_mixups``, ``engine_protein_mismatch_rate``, ``genome_inconsistent_rate``,
+  ``contaminant_peptides``, ``contaminant_proteins``, ``unmapped_peptides``,
+  ``unmapped_proteins`` (one row each, section ``qc``, ``group_type = run``, ``group = all``);
+  C13 counts are rows with that ``label``, by ``kind``.
+- Aligned after the statistician's review (PR #87 lead decisions 5-6; detailed tests in
+  test_detection_summary_review.py): ``genome_inconsistent_rate`` is over target, non-contaminant
+  ``search_db = other`` peptides (NA when C9 is absent or has none; ``same`` rows and decoys are
+  ignored); a peptide with an exact C11 row is placed exactly even if it also has tolerant rows.
+  ``id_mixups`` is NA with flag ``requires_variants``; the distinct ``engine_protein_mismatch``
+  peptides are reported as ``engine_protein_mismatch_rate``.
 - ``detection_summary`` accepts parts carrying only the seven core columns (M4-13 diagnostics and
   M4-12 summary rows have no ``n`` / ``flags``): missing ``n`` becomes NA, missing ``flags`` empty.
   An unknown section or a part without a core column raises ``ValueError``.
@@ -33,8 +36,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import detection_summary_fixture as fx
 from detection_summary_fixture import gene, qc_hit, qc_peptide
 
-QC_METRICS = ("id_mixups", "genome_inconsistent_rate", "contaminant_peptides",
-              "contaminant_proteins", "unmapped_peptides", "unmapped_proteins")  # fmt: skip
+QC_METRICS = ("id_mixups", "engine_protein_mismatch_rate", "genome_inconsistent_rate",
+              "contaminant_peptides", "contaminant_proteins", "unmapped_peptides",
+              "unmapped_proteins")  # fmt: skip
 
 
 def _summary() -> Any:
@@ -63,7 +67,9 @@ def _unmapped() -> pd.DataFrame:
 # --------------------------------------------------------------------------- example 6
 
 
-def test_example_6_id_mixups_distinct_peptides() -> None:
+def test_example_6_mismatch_rate_distinct_peptides() -> None:
+    """Aligned (PR #87 decision 6): was ``id_mixups == 3``; the 3 distinct flagged peptides of 6
+    placed same-db target peptides are now ``engine_protein_mismatch_rate = 3 / 6``."""
     hits = fx.hits_frame([
         qc_hit("AAAAAAAK", flags=["engine_protein_mismatch"]),
         qc_hit("AAAAAAAK", flags=["engine_protein_mismatch", "same_db"]),  # same peptide twice
@@ -74,28 +80,31 @@ def test_example_6_id_mixups_distinct_peptides() -> None:
     ])  # fmt: skip
     peps = fx.peptides_frame(qc_peptide(p) for p in sorted(set(hits["peptide"])))
     out = _qc(peps, hits, _unmapped())
-    assert _val(out, "id_mixups") == 3
+    assert _val(out, "engine_protein_mismatch_rate") == pytest.approx(0.5)
+    assert math.isnan(_val(out, "id_mixups"))
 
 
 # --------------------------------------------------------------------------- example 7
 
 
 def test_example_7_genome_inconsistent_rate() -> None:
+    """Aligned (PR #87 decision 5): the 100 peptides are ``search_db = other`` (was ``same``)."""
     names = [f"PEP{i:03d}K" for i in range(100)]
     hit_rows = [qc_hit(p) for p in names[:97]]
     hit_rows += [qc_hit(names[97], route="tolerant"), qc_hit(names[98], route="tolerant")]
     hit_rows.append(qc_hit(names[0], route="tolerant"))  # exact + tolerant: still exact
-    pep_rows = [qc_peptide(p) for p in names]  # names[99] is absent from C11
-    # ignored: decoys, other databases
-    pep_rows += [qc_peptide(f"DEC{i:03d}K", is_decoy=True) for i in range(20)]
-    pep_rows += [qc_peptide(f"REL{i:03d}K", search_db="related") for i in range(30)]
+    pep_rows = [qc_peptide(p, search_db="other") for p in names]  # names[99] is absent from C11
+    # ignored: decoys, same-database peptides
+    pep_rows += [qc_peptide(f"DEC{i:03d}K", search_db="other", is_decoy=True) for i in range(20)]
+    pep_rows += [qc_peptide(f"SAM{i:03d}K") for i in range(30)]
     out = _qc(fx.peptides_frame(pep_rows), fx.hits_frame(hit_rows), _unmapped())
     assert _val(out, "genome_inconsistent_rate") == pytest.approx(0.03)
 
 
-def test_genome_inconsistent_rate_na_without_same_db() -> None:
-    pep_rows = [qc_peptide(f"REL{i:03d}K", search_db="related") for i in range(5)]
-    hits = fx.hits_frame([qc_hit("REL000K")])
+def test_genome_inconsistent_rate_na_without_other_db() -> None:
+    """Aligned (PR #87 decision 5): NA for ``search_db = same`` (was: NA for non-same)."""
+    pep_rows = [qc_peptide(f"SAM{i:03d}K") for i in range(5)]
+    hits = fx.hits_frame([qc_hit("SAM000K")])
     out = _qc(fx.peptides_frame(pep_rows), hits, _unmapped())
     assert math.isnan(_val(out, "genome_inconsistent_rate"))
     out2 = _qc(None, hits, _unmapped())
@@ -120,7 +129,7 @@ def test_missing_c13_gives_na_counts() -> None:
     for name in ("contaminant_peptides", "contaminant_proteins", "unmapped_peptides",
                  "unmapped_proteins"):  # fmt: skip
         assert math.isnan(_val(out, name)), name
-    assert _val(out, "id_mixups") == 1
+    assert _val(out, "engine_protein_mismatch_rate") == 1  # aligned: was id_mixups == 1
 
 
 def test_qc_rows_shape() -> None:
@@ -130,13 +139,15 @@ def test_qc_rows_shape() -> None:
     assert set(out["section"]) == {"qc"}
     assert set(out["group_type"]) == {"run"} and set(out["group"]) == {"all"}
     assert sorted(out["metric"]) == sorted(QC_METRICS)
-    assert _val(out, "id_mixups") == 0
+    assert _val(out, "engine_protein_mismatch_rate") == 0  # aligned: was id_mixups == 0
 
 
 def test_empty_hits_ok() -> None:
+    """Aligned (PR #87 decisions 5-6): an ``other`` peptide (was ``same``); no C11 peptide gives
+    an NA mismatch rate (was ``id_mixups == 0``)."""
     hits = fx.hits_frame([])
-    out = _qc(fx.peptides_frame([qc_peptide("AAAAAAAK")]), hits, _unmapped())
-    assert _val(out, "id_mixups") == 0
+    out = _qc(fx.peptides_frame([qc_peptide("AAAAAAAK", search_db="other")]), hits, _unmapped())
+    assert math.isnan(_val(out, "engine_protein_mismatch_rate"))
     assert _val(out, "genome_inconsistent_rate") == pytest.approx(1.0)
 
 
