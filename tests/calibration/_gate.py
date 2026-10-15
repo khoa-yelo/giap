@@ -10,11 +10,14 @@ here evaluates a criterion.
 ``Gate.values`` holds the per-replicate outputs of every replicate this process ran, in run order
 (block 1, then block 2 if a level needed it; only the shard's range under ``--shard``; empty for
 checks skipped under ``GIAP_CALIBRATION_CONFIRM``). Suites use it for non-criterion side checks
-(e.g. "something is accepted"), never for the gate itself.
+(e.g. "something is accepted"), never for the gate itself. ``Gate.block_seconds`` is the simulation
+time per block (block 1 = replicates 0..R-1), kept even when a level goes on to block 2 (PR #69
+lead decision 2). ``m=`` is passed to ``calibrate`` (pooled level criterion, decision 1).
 """
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -36,6 +39,7 @@ class Gate:
 
     records: list[dict[str, Any]]
     values: list[np.ndarray] = field(default_factory=list)
+    block_seconds: dict[int, float] = field(default_factory=dict)
 
     @property
     def failed(self) -> list[dict[str, Any]]:
@@ -74,19 +78,26 @@ def calibrate_levels(
     *,
     stream: str,
     log_dir: Path | None = None,
+    m: int | None = None,
 ) -> Gate:
     """``calibrate(suite, criterion, level, ., R, stream=stream)`` for every level in ``levels``.
 
     ``fn(rng)`` simulates one replicate and returns one value per level (or one scalar used at
-    every level, e.g. a p-value). It runs once per replicate however many levels read it.
+    every level, e.g. a p-value). It runs once per replicate however many levels read it; its time
+    is summed per block in ``Gate.block_seconds``. ``m`` selects the pooled level criterion.
     """
     cache: dict[int, np.ndarray] = {}
     order: list[int] = []
+    block1 = {C.suite_seed(stream, i) for i in range(R)}
+    seconds: dict[int, float] = {}
 
     def value(rng: np.random.Generator) -> np.ndarray:
         key = int(rng.bit_generator.seed_seq.entropy)  # = suite_seed(stream, i)
         if key not in cache:
+            t0 = time.perf_counter()
             cache[key] = np.atleast_1d(np.asarray(fn(rng), dtype=float)).ravel()
+            block = 1 if key in block1 else 2
+            seconds[block] = seconds.get(block, 0.0) + time.perf_counter() - t0
             order.append(key)
         return cache[key]
 
@@ -100,7 +111,8 @@ def calibrate_levels(
             R,
             stream=stream,
             log_dir=log_dir,
+            m=m,
         )
         for j, a in enumerate(levels)
     ]
-    return Gate(records, [cache[k] for k in order])
+    return Gate(records, [cache[k] for k in order], seconds)

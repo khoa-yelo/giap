@@ -65,8 +65,8 @@ def _level(
 def _finish(gate: Gate, r: int, full: bool) -> None:
     assert all(rec["R"] == r for rec in gate.records)
     gate.assert_ok()
-    if not full:  # one simulation per replicate, timed in the first level's block-1 record
-        duration = sum(rec["duration"] for rec in gate.records if rec["block"] == 1)
+    if not full:  # one simulation per replicate; block-1 time kept if a level needs block 2
+        duration = gate.block_seconds.get(1, 0.0)
         assert duration < FAST_SECONDS, duration
 
 
