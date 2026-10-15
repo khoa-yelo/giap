@@ -93,3 +93,31 @@ def match_tolerant(queries: Sequence[str], index: SixFrameIndex,
 1. Peptides of 10–11 aa with k = 1 and a frameshift: handled by M3-08, not here. Confirm the
    split. **Proposed default:** yes; `match_tolerant` returns the non-frameshift result and M3-08
    adds frameshift candidates, the minimum of both is taken in M3-10.
+
+## Lead decisions (test-author questions)
+1. Batch entry point (M3-06 decision 6): `tolerant_dp.verify_batch(query, frame, d0s, k, ex)`, a numba
+   dispatcher returning int64 rows (key, t_start, t_end), key −1 when cost > k; public
+   `exchange_lookup(tables)` and `decode_key(key)`. Agrees with `verify` row by row, callable inside an
+   njit `prange`, raises for L ≤ 4; `match_tolerant` compiles it only for uint8 C-contiguous inputs.
+2. Queries of ≤ 4 aa yield no rows and no error, even if the config lowers `min_len`.
+3. Recall: a planted peptide is recalled if a reported locus overlaps its origin in the same codon phase,
+   or a strictly cheaper locus is reported (the planted one is then not the best explanation). Overlap
+   recall must reach `mapping_recall_min`. Code review checks this cannot mask real misses.
+
+## Lead decisions after code review (PR #48, changes requested)
+1. k > BAND (2) is rejected when the tolerant config is parsed (`ValueError`): the lossless q-gram/band
+   guarantee holds only for k ≤ 2. Max-diff values above 2 are a configuration error, not a silent loss.
+2. The circular wrap overlap of the six-frame index (M3-02 `WRAP_NT`) becomes ≥ 3·(max_len + max k) nt
+   (= 126 for 40 aa, k = 2); derive it from those constants. Property case: peptides up to 40 aa with
+   blocks crossing the origin, windows starting 0–12 nt before it.
+3. The cache-dependent test (`verify_batch.signatures` empty when loaded from the numba cache) checks the
+   argument types passed to `_search_one`/`_search_many` instead — passes on cold and warm cache.
+4. Tests kill the surviving mutants: the > 16-loci serial recompute path, `cover = c + 3`, the target and
+   decoy-type filters (I/L-twin peptides with different decoy types / target membership), the replicon-length
+   `>=` check, `k < 0` in `verify_batch`.
+5. Queries longer than `MAX_QUERY` (512) are rejected when the config is parsed (`max_len ≤ MAX_QUERY`),
+   not skipped silently. `cfg.swaps` / `cfg.mass_equivalents` are not used by M3-07 → backlog note.
+6. Recall test tightened (answer to the lead's question A): compute each planted peptide's true cost at its
+   origin with the oracle; require the reported minimum to equal the brute-force minimum, and the origin to
+   overlap a reported locus whenever its cost equals that minimum (the "strictly cheaper" clause then
+   follows from the oracle, not from the planted operation count).

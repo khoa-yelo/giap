@@ -29,11 +29,11 @@ import numpy as np
 from numba import njit
 
 from giap.mapping.diffops import DIFF_TYPES, BlockTables, DiffType
-from giap.mapping.sixframe import STOP
+from giap.mapping.sixframe import MAX_DIFF, STOP
 
-__all__ = ["BAND", "Alignment", "verify"]
+__all__ = ["BAND", "Alignment", "decode_key", "exchange_lookup", "verify", "verify_batch"]
 
-BAND: int = 2
+BAND: int = MAX_DIFF
 _NDIAG: int = 2 * BAND + 1
 _NRES: int = STOP  # residue codes 0..18; every code >= 19 is a stop, X or NOMATCH
 _BASE: int = 1 << 15  # per-component base of the cell key (cost < 2**15)
@@ -58,10 +58,11 @@ class Alignment:
     diff_types: tuple[DiffType, ...]
 
 
-def _exchange_lookup(tables: BlockTables) -> np.ndarray:
+def exchange_lookup(tables: BlockTables) -> np.ndarray:
     """Flat int8 lookup ``(query segment, target segment) -> rank`` (-1 when no exchange).
 
-    ``BlockTables`` rows are directional, so each row is entered in both orientations.
+    ``BlockTables`` rows are directional, so each row is entered in both orientations. This is
+    the ``ex`` argument of :func:`verify_batch`.
     """
     ex = np.full(_EX_SIZE, -1, dtype=np.int8)
     n = _NRES
@@ -104,6 +105,26 @@ def _verify_kernel(
     q: np.ndarray, frame: np.ndarray, ex: np.ndarray, d0: int, k: int
 ) -> tuple[int, int, int]:  # pragma: no cover - compiled by numba; exercised through verify
     """Best ``(key, t_start, t_end)`` in the band; ``(-1, -1, -1)`` when cost > ``k``."""
+    size = (q.shape[0] + 1) * 5
+    key = np.empty(size, dtype=np.int64)
+    st = np.empty(size, dtype=np.int64)
+    return _verify_core(q, frame, ex, d0, k, key, st)
+
+
+@njit(cache=True, nogil=True)
+def _verify_core(
+    q: np.ndarray,
+    frame: np.ndarray,
+    ex: np.ndarray,
+    d0: int,
+    k: int,
+    key: np.ndarray,
+    st: np.ndarray,
+) -> tuple[int, int, int]:  # pragma: no cover - compiled by numba; exercised through verify
+    """:func:`_verify_kernel` on caller-owned DP buffers of ``(len(q) + 1) * 5`` cells each.
+
+    Every cell read is written first, so the buffers may be reused between calls.
+    """
     nres = 19
     nd = 5
     b = 32768
@@ -115,8 +136,6 @@ def _verify_kernel(
     w_swap = _rank_weight(1, b)
     off21 = nres * nres * nres
     off22 = 2 * off21
-    key = np.empty((L + 1) * nd, dtype=np.int64)
-    st = np.empty((L + 1) * nd, dtype=np.int64)
     lo = d0 - 2
     for dd in range(nd):
         j = lo + dd
@@ -212,13 +231,13 @@ def _lookup_for(tables: BlockTables) -> np.ndarray:
     hit = _TABLE_CACHE.get(id(tables))
     if hit is not None and hit[0] is tables:
         return hit[1]
-    ex = _exchange_lookup(tables)
+    ex = exchange_lookup(tables)
     _TABLE_CACHE[id(tables)] = (tables, ex)  # keeps ``tables`` alive, so the id stays unique
     return ex
 
 
-def _decode_key(key: int) -> tuple[int, tuple[DiffType, ...]]:
-    """``(cost, diff_types)`` from a cell key (counts per precedence rank)."""
+def decode_key(key: int) -> tuple[int, tuple[DiffType, ...]]:
+    """``(cost, diff_types)`` from a key of :func:`verify_batch` (counts per precedence rank)."""
     hit = _TYPES_CACHE.get(key)
     if hit is not None:
         return hit
@@ -266,5 +285,43 @@ def verify(
     key, s, e = _verify_kernel(q, f, _lookup_for(tables), int(d0), int(k))
     if key < 0:
         return []
-    cost, types = _decode_key(int(key))
+    cost, types = decode_key(int(key))
     return [Alignment(cost, int(s), int(e), types)]  # plain ints also when run without numba
+
+
+@njit(cache=True, nogil=True)
+def verify_batch(
+    query: np.ndarray, frame: np.ndarray, d0s: np.ndarray, k: int, ex: np.ndarray
+) -> np.ndarray:  # pragma: no cover - compiled by numba; exercised through the tests and M3-07
+    """:func:`verify` for every candidate diagonal of ``d0s``, callable from njit code.
+
+    ``query`` and ``frame`` are C-contiguous ``uint8`` codes, ``d0s`` ``int64`` and ``ex`` the
+    :func:`exchange_lookup` of the block tables. Returns an ``int64`` array of shape
+    ``(len(d0s), 3)``: rows ``(key, t_start, t_end)`` with ``key`` decoded by :func:`decode_key`,
+    or ``(-1, -1, -1)`` when the band holds nothing at cost ``<= k``. Row ``r`` equals
+    ``verify(query, frame, d0s[r], k, tables)``.
+
+    Raises:
+        ValueError: if ``len(query) <= 2 * BAND`` (4 residues), as :func:`verify`, or ``k`` is
+            not below 32768.
+    """
+    L = query.shape[0]
+    if L <= 4:
+        raise ValueError("verify_batch: queries of at most 2 * BAND (4) residues are rejected")
+    if k >= 32768:
+        raise ValueError("verify_batch: k must be below 32768")
+    n = d0s.shape[0]
+    out = np.full((n, 3), -1, dtype=np.int64)
+    if k < 0:
+        return out
+    kk = L if k > L else k  # every operation consumes a query residue
+    size = (L + 1) * 5
+    key = np.empty(size, dtype=np.int64)
+    st = np.empty(size, dtype=np.int64)
+    for r in range(n):
+        c, s, e = _verify_core(query, frame, ex, int(d0s[r]), kk, key, st)
+        if c >= 0:
+            out[r, 0] = c
+            out[r, 1] = s
+            out[r, 2] = e
+    return out

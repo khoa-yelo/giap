@@ -27,7 +27,10 @@ ALPHABET: str = "ACDEFGHKLMNPQRSTVWY*X"  # codes 0..18 residues (L includes I), 
 STOP: int = 19
 AMBIG: int = 20
 NOMATCH: int = 21  # query letters outside the residue alphabet (B J O U X Z *) never match
-WRAP_NT: int = 120
+MAX_PEPTIDE_AA: int = 40  # longest mapped peptide (mapping.exact / tolerant max_diff classes)
+MAX_DIFF: int = 2  # largest tolerant difference budget k (the +-2 band of M3-07)
+# Circular overlap: a window of max_len + k residues crossing the origin (M3-07 review decision 2).
+WRAP_NT: int = 3 * (MAX_PEPTIDE_AA + MAX_DIFF)
 
 _BASES = "ACGT"  # nucleotide codes 0..3; 4 = any other byte
 _NT_OTHER = 4
