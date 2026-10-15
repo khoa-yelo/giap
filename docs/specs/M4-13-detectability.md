@@ -84,7 +84,7 @@ def calibration_diagnostics(d: ArrayLike, p: ArrayLike, n_bins: int = 10) -> pd.
 
 - [ ] `tests/unit/genetable/test_detectability.py`: examples 1–9.
 - [ ] Property: permuting gene row order leaves `p_detect` unchanged (folds depend on TU IDs only).
-- [ ] **Calibration** `tests/calibration/test_detectability.py` (suite `detectability`, R = 20 fast /
+- [ ] **Calibration** `tests/calibration/test_detectability_calibration.py` (suite `detectability`, R = 20 fast /
   100 full): M4-07 layout (2,000 genes fast, 4,500 full) + M4-08 `covariates_only`; fit; the mean
   calibration slope over R lies in `tolerances.detectability_slope` = [0.8, 1.2]; per-replicate
   slopes, intercepts and Brier scores written to the calibration log.
@@ -106,3 +106,47 @@ constant fallback, the calibration diagnostics and the simulation evidence (slop
 2. Inner C selection by log loss (not AUC)? **Proposed default:** log loss, since calibration is the goal.
 3. Spline `extrapolation="linear"` for held-out genes outside the training range? **Proposed
    default:** yes (sklearn's default `constant` flattens tails, hurting short sORFs).
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted (non-eligible genes `<NA>` in a boolean `detected`, NaN
+   p_detect; fold and inner-split RNG order; C chosen by mean per-fold log loss; tolerances to the oracle
+   2e-3 / 1e-3; stable-sort bins; NaN covariates → median of the transformed column).
+2. `too_few_tus` and dropped covariates are reported in the returned diagnostics (machine-readable), and
+   also logged at WARNING — not only as a Python warning.
+3. D1 (§8.4 slope gate, mean cross-fitted slope in the tolerance interval) stays outside `calibrate()`
+   (mean-in-interval is not a `calibrate()` criterion); D2–D4 go through `calibrate()`. The statistician
+   signs off the claims before merge.
+
+## Lead decisions after the statistician's review (changes requested)
+4. D2–D4 are merged into one check (smallest of the three p-values × 3, Bonferroni) through `calibrate()`,
+   to free false-alarm budget (they used ≈ 0.023 of the 0.04/night).
+5. Blocking (§8.5): a subgroup calibration gate in tests/calibration/attacks/ — prophage and
+   shortest-length-decile O−E z through `calibrate` (level check), plus a confirmed fail for a model
+   without size covariates (statistician's draft:
+   /home/classes/bios/270/khoa/giap/local/scratch/review-m4-13/draft_test_attack_detectability.py).
+6. Structural leakage tests stay (example 4; oracle checks on chosen C and p_detect).
+7. `detection_summary` gets Wald 95 % CIs for the slope and intercept in `ci_low`/`ci_high`.
+8. D1 runtime is recorded in benchmarks/baseline.json.
+9. Implementation deviations accepted: `LogisticRegression(l1_ratio=0.0, tol=1e-6)` (sklearn 1.9 deprecates
+   `penalty="l2"`); fits under `threadpoolctl.threadpool_limits(1)` (31 s → 3 s; threadpoolctl is an
+   sklearn dependency — declare it in pyproject at the next lock update, backlog); rows sorted by
+   locus_tag internally.
+
+## Lead decisions after code review (PR #83, changes requested)
+10. Inputs are the real contracts: covariates as returned by M4-10 `covariate_table` and TUs as in C6
+    (`locus_tag` and `tu_id` as COLUMNS) are accepted as-is (or the function takes a `locus_tag` column);
+    duplicate locus_tags or genes missing from the covariates/TUs raise ValueError naming them (no
+    silent median fill, no silent singleton TUs). Tests on the real M4-10/M4-11/C6 tables. The docstring
+    says M4-11 `detected_2pep` needs NA masking of partial genes first.
+11. `_recalibration` returns NaN slope/intercept/CIs when the predicted logits are constant.
+12. (Corrected — the spec rule wins.) Fewer TUs than folds → constant fallback + `too_few_tus` (spec);
+    ValueError only for `folds` < 2 and for too few TUs for the inner C search (not a bare `min()` crash); the constant
+    fallback (< 50 genes) is logged at WARNING and recorded in diagnostics.
+13. `diagnostics` columns have numeric dtypes for value/ci_low/ci_high.
+14. Tests kill the surviving mutants: inner C search must not see the held-out fold; inner folds from
+    the step stream (not `default_rng(0)`); degenerate fold predicts its detected share; `n_tus == k`
+    boundary; convergence-warning filter and its diagnostics row; `dropped_zero_variance` row;
+    missing-TU fallback.
+15. Benchmark: budget set from the measurement (≈ 3× of 1.47 s/replicate); backlog: a CI check that
+    compares benchmarks with baseline.json; add `scikit-learn>=1.8` at the next lock update.
+16. docs/methods/detectability.md (statistician) is required before merge.
