@@ -78,3 +78,12 @@ def merge_hsps(hsps: Sequence[Hsp], replicons: Mapping[str, Replicon],
 ## Answered by Khoa (2026-10-14)
 Question 1: `max_gap_nt = 300` and `max_q_overlap_aa = 10` are fixed module constants (keyword defaults of
 the chaining function), documented with their rationale in the methods note; no config keys, no ADR.
+
+## Lead decisions (test-author questions)
+1. Coverage of a tblastn chain = |union of its HSP query ranges| / qlen (spec), not the span. `ProteinAlignment`
+   (M3-12) gains an optional explicit coverage that M3-13 sets; when absent it stays the span (miniprot's
+   single alignments, unchanged). Test: a chain with a query gap reports the union, not the span.
+2. Accepted: both chaining limits inclusive; genome gap = `next.start − prev.end`, unwrapped across the
+   origin; genome overlap between HSPs allowed (real frameshifts give a few-nt overlap); rank per protein;
+   `alt_start` False; unknown contig → ValueError; process `TBLASTN` with outputs `hits` (tblastn.tsv) and
+   `versions`, its own container selector, `tblastn_args` only via `ext.args`; makeblastdb checked by flags.
