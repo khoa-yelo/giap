@@ -10,23 +10,24 @@ from __future__ import annotations
 
 import dataclasses
 import fcntl
+import http.client
 import os
+import posixpath
 import re
 import shutil
+import ssl
 import subprocess
 import sys
-import urllib.error
-import urllib.request
+import tarfile
 import zipfile
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Protocol
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from giap.exitcodes import ExitCode
 from giap.setupdb.items import (
-    PROMOTECH_ARCHIVE,
     DbItem,
     DbRecord,
     SetupOptions,
@@ -106,18 +107,42 @@ class ToolRunner:
         return subprocess.run(self.command(tool, argv), check=False).returncode
 
 
+_REDIRECTS = frozenset({301, 302, 303, 307, 308})
+
+
 class HttpsFetcher:
-    """Plain HTTPS download of one official URL; no redirects to other schemes, no mirrors."""
+    """HTTPS download of one official URL. Redirects are followed only to https URLs on the same
+    host, checked before the new location is contacted; no other scheme, host or mirror (R6)."""
+
+    max_redirects = 5
 
     def fetch(self, url: str, dest: Path) -> None:
         host = urlparse(url).hostname or url
-        if not url.startswith("https://"):
-            raise SourceError(host, "not an https URL")
-        try:
-            with urllib.request.urlopen(url, timeout=60) as resp, dest.open("wb") as out:
-                shutil.copyfileobj(resp, out, 8 << 20)
-        except (urllib.error.URLError, OSError) as exc:
-            raise SourceError(host, str(exc)) from exc
+        current = url
+        for _ in range(self.max_redirects + 1):
+            parts = urlparse(current)
+            if parts.scheme != "https" or parts.hostname != host:
+                raise SourceError(host, f"refused {current}: only https on {host} is allowed")
+            conn = http.client.HTTPSConnection(
+                host, parts.port, timeout=60, context=ssl.create_default_context()
+            )
+            try:
+                target = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+                conn.request("GET", target, headers={"User-Agent": "giap-setup"})
+                resp = conn.getresponse()
+                if resp.status in _REDIRECTS:
+                    current = urljoin(current, resp.getheader("Location") or "")
+                    continue
+                if resp.status != 200:
+                    raise SourceError(host, f"HTTP {resp.status} for {current}")
+                with dest.open("wb") as out:
+                    shutil.copyfileobj(resp, out, 8 << 20)
+                return
+            except (OSError, http.client.HTTPException) as exc:
+                raise SourceError(host, str(exc)) from exc
+            finally:
+                conn.close()
+        raise SourceError(host, f"more than {self.max_redirects} redirects")
 
 
 def _say(message: str) -> None:
@@ -127,8 +152,6 @@ def _say(message: str) -> None:
 def _argv(item: DbItem, out: Path) -> list[str]:
     if item.check.startswith("bakta:"):
         return ["bakta_db", "download", "--output", str(out), "--type", item.check.split(":")[1]]
-    if item.check == "genomad":
-        return ["genomad", "download-database", str(out)]
     return ["download-antismash-databases", "--database-dir", str(out)]
 
 
@@ -139,19 +162,50 @@ def _absent(item: DbItem, message: str, status: str = "absent") -> DbRecord:
     return dataclasses.replace(rec, status="mismatch") if status == "mismatch" else rec
 
 
+def _safe_name(name: str) -> bool:
+    p = PurePosixPath(name)
+    return bool(name) and not p.is_absolute() and ".." not in p.parts
+
+
+def _safe_member(m: tarfile.TarInfo) -> bool:
+    """Regular files and directories with relative names; links only within the archive."""
+    if not _safe_name(m.name):
+        return False
+    if m.issym():
+        dest = posixpath.normpath(posixpath.join(posixpath.dirname(m.name), m.linkname))
+        return not posixpath.isabs(m.linkname) and dest != ".." and not dest.startswith("../")
+    return m.isfile() or m.isdir() or (m.islnk() and _safe_name(m.linkname))
+
+
+def _unpack(archive: Path, out: Path) -> str | None:
+    """Extract ``archive`` into ``out``, or name the first unsafe member (nothing extracted)."""
+    if archive.suffix == ".zip":
+        with zipfile.ZipFile(archive) as z:
+            bad = next((n for n in z.namelist() if not _safe_name(n)), None)
+            if bad is None:
+                z.extractall(out)
+    else:
+        with tarfile.open(archive) as tar:
+            bad = next((m.name for m in tar.getmembers() if not _safe_member(m)), None)
+            if bad is None:
+                tar.extractall(out, filter="data")
+    return None if bad is None else f"unsafe member {bad!r} in {archive.name}"
+
+
 def _fetch_archive(item: DbItem, out: Path, fetcher: Fetcher) -> DbRecord | None:
-    """HTTPS fetch, checksum, unzip; the archive is kept so ``verify`` can re-hash it."""
-    archive = out / PROMOTECH_ARCHIVE
+    """HTTPS fetch, checksum, safe unpack. The Promotech zip is kept so ``verify`` can re-hash
+    it (lead decision 4); other archives are deleted once unpacked (§3.9)."""
+    archive = out / PurePosixPath(urlparse(item.url).path).name
     fetcher.fetch(item.url, archive)
     got = file_digest(archive, item.checksum.split(":", 1)[0])
     if got != item.checksum:
         return _absent(item, f"checksum mismatch from {item.host}: {got}, pinned {item.checksum}",
                        "mismatch")  # fmt: skip
-    with zipfile.ZipFile(archive) as z:
-        for member in z.namelist():
-            if Path(member).is_absolute() or ".." in Path(member).parts:
-                return _absent(item, f"unsafe path {member!r} in archive", "mismatch")
-        z.extractall(out)
+    unsafe = _unpack(archive, out)
+    if unsafe is not None:
+        return _absent(item, f"{unsafe} from {item.host}", "mismatch")
+    if item.check != "promotech":
+        archive.unlink()
     return None
 
 
@@ -207,19 +261,28 @@ def amrfinder_record(bakta: DbItem, db_dir: Path) -> DbRecord:
     return DbRecord("amrfinderplus", version, AMR_URL, "", 0, today(), path, "ok")
 
 
-def _provenance(rec: DbRecord, old: dict[str, DbRecord], prefetch: dict[str, tuple[str, str]],
-                prefetch_key: str | None) -> DbRecord:  # fmt: skip
-    """Keep the recorded provenance of an item that is already installed (idempotent reruns)."""
+def _provenance(
+    rec: DbRecord,
+    old: dict[str, DbRecord],
+    prefetch: dict[str, tuple[str, str, str]],
+    prefetch_key: str | None,
+) -> DbRecord:
+    """Provenance of an item that is already installed: a prefetch row is adopted only when its
+    checksum and host equal the pin (else ``mismatch``); a previous ``ok`` record is kept
+    (idempotent reruns) only when it carries the pinned URL and checksum (R6)."""
+    row = prefetch.get(prefetch_key) if prefetch_key is not None else None
+    host = urlparse(rec.url).hostname or ""
+    if row is not None and (row[0], row[2]) != (rec.checksum, host):
+        return dataclasses.replace(rec, size_bytes=0, retrieved="", status="mismatch", message=(
+            f"prefetched copy is {row[0]} from {row[2] or 'an unknown host'}, "
+            f"pinned {rec.checksum} from {host}"))  # fmt: skip
     prev = old.get(rec.name)
-    if (
-        prev is not None
-        and prev.status == "ok"
-        and (prev.version, prev.path) == (rec.version, rec.path)
-    ):
+    pinned = (rec.version, rec.path, rec.url, rec.checksum)
+    if prev is not None and prev.status == "ok" and (
+        prev.version, prev.path, prev.url, prev.checksum) == pinned:  # fmt: skip
         return prev
-    if prefetch_key is not None and prefetch_key in prefetch:
-        checksum, date = prefetch[prefetch_key]
-        return dataclasses.replace(rec, checksum=checksum, retrieved=date)
+    if row is not None:
+        return dataclasses.replace(rec, retrieved=row[1])
     return rec
 
 
@@ -276,8 +339,11 @@ def run_setup(opts: SetupOptions, runner: CommandRunner, fetcher: Fetcher) -> Ex
             recs.append(rec)
         status_ok = all(r.status == "ok" for r in recs)
         for item in items:
-            if item.name == "bakta_full":
+            if item.check.startswith("bakta:"):
                 amr = amrfinder_record(item, db)
-                recs.append(_provenance(amr, old, {}, None) if amr.status == "ok" else amr)
+                if amr.status == "ok":
+                    recs.append(_provenance(amr, old, {}, None))
+                elif item.name == "bakta_full":  # the light DB may ship without it
+                    recs.append(amr)
         write_manifest(db, recs)
     return ExitCode.SUCCESS if status_ok else ExitCode.ENVIRONMENT

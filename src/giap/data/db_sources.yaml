@@ -23,7 +23,7 @@ genomad:
   url: https://zenodo.org/records/14886553/files/genomad_db_v1.9.tar.gz
   checksum: md5:67244b528bb8bed464d1ca147136d33e   # ADR-0014 (Zenodo 14886553)
   path: genomad_db
-  tool: genomad
+  tool: null                                         # GIAP fetches the pinned tarball itself (R6)
   check: genomad
   size_gib: 4
   prefetch: genomad_db

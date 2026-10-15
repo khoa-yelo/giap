@@ -14,6 +14,7 @@ import os
 import tempfile
 from collections.abc import Sequence
 from pathlib import Path
+from urllib.parse import urlparse
 
 from giap.setupdb.items import DbRecord
 
@@ -63,15 +64,16 @@ def write_manifest(db_dir: Path, records: Sequence[DbRecord]) -> None:
         raise
 
 
-def read_prefetch(db_dir: Path) -> dict[str, tuple[str, str]]:
-    """``{item: (checksum, ISO date)}`` from ``prefetch_manifest.tsv``; ``{}`` when missing."""
+def read_prefetch(db_dir: Path) -> dict[str, tuple[str, str, str]]:
+    """``{item: (checksum, ISO date, source host)}`` from ``prefetch_manifest.tsv``; ``{}`` when
+    missing."""
     try:
         text = (db_dir / PREFETCH_LOG).read_text(encoding="utf-8")
     except OSError:
         return {}
-    out: dict[str, tuple[str, str]] = {}
+    out: dict[str, tuple[str, str, str]] = {}
     for row in csv.DictReader(text.splitlines(), delimiter="\t"):
         name, checksum, date = row.get("item"), row.get("checksum"), row.get("date")
         if name and checksum and date:
-            out[name] = (checksum, date[:10])
+            out[name] = (checksum, date[:10], urlparse(row.get("source") or "").hostname or "")
     return out
