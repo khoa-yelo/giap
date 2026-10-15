@@ -37,7 +37,8 @@ from giap.exitcodes import ExitCode
 GIB = 1024**3
 BAKTA_LIGHT_MD5 = "md5:4a6e059ded39e9c5537ef4137d2f5648"  # §3.9
 GENOMAD_MD5 = "md5:67244b528bb8bed464d1ca147136d33e"  # Zenodo 14886553 record (prefetch log)
-PROMOTECH_ZIP_SHA256 = (  # first-download pin (M2-08 Q1 default; prefetch_manifest.tsv)
+BAKTA_FULL_MD5 = "md5:4c1115e40abfa2b464ae5dd988bdd88e"  # ADR-0014 (Zenodo 14916843 metadata)
+PROMOTECH_ZIP_SHA256 = (  # ADR-0014 first-download pin of RF-HOT.zip
     "sha256:fcd96ffe5a43b579af965839ee2bb896de94de3601978d88bcabd32c4fb5093f"
 )
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -221,6 +222,8 @@ def test_sources_are_the_official_pinned_ones() -> None:
     assert SOURCES["bakta_light"].checksum == BAKTA_LIGHT_MD5
     assert SOURCES["genomad"].checksum == GENOMAD_MD5
     assert SOURCES["promotech_models"].checksum == PROMOTECH_ZIP_SHA256
+    assert SOURCES["bakta_full"].checksum == BAKTA_FULL_MD5
+    assert SOURCES["genomad"].path == "genomad_db"
     for name in ("bakta_light", "bakta_full"):
         assert SOURCES[name].host == "zenodo.org" and "14916843" in SOURCES[name].url
         assert SOURCES[name].tool == "bakta" and SOURCES[name].version == "6.0"
@@ -538,3 +541,69 @@ def test_concurrent_setup_on_same_dir_exits_2(tmp_path: Path) -> None:
 def test_check_never_writes_item_files(tmp_path: Path) -> None:
     setup(tmp_path, bakta="full", genomad=True, promotech_models=True, check=True)
     assert {p.name for p in tmp_path.iterdir()} <= {"db_manifest.json", ".giap_setup.lock"}
+
+
+def test_adr0014_pins_live_in_db_sources_yaml() -> None:
+    import yaml
+
+    raw = (Path(__file__).resolve().parents[2] / "src/giap/data/db_sources.yaml").read_text()
+    for pin in (BAKTA_FULL_MD5, GENOMAD_MD5, PROMOTECH_ZIP_SHA256):
+        assert pin.split(":", 1)[1] in raw, pin
+    assert isinstance(yaml.safe_load(raw), dict)
+
+
+# ---------------------------------------------------------------- amrfinderplus row (Q2)
+
+
+AMR_VERSION = "2026-08-07.1"
+
+
+def make_amrfinder(db: Path, version: str = AMR_VERSION) -> None:
+    d = db / src_path("bakta_full") / "amrfinderplus-db" / "latest"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "version.txt").write_text(version + "\n")
+
+
+def test_amrfinderplus_row_from_bakta_full_db(tmp_path: Path) -> None:
+    make_bakta(tmp_path, "full")
+    make_amrfinder(tmp_path)
+    assert setup(tmp_path, NoRunner(), bakta="full") == 0
+    got = items(tmp_path)
+    assert got["bakta_full"]["status"] == "ok"
+    amr = got["amrfinderplus"]
+    assert amr["status"] == "ok" and amr["version"] == AMR_VERSION
+    assert amr["path"].startswith("bakta/db/amrfinderplus-db")
+    names = [i["name"] for i in manifest(tmp_path)["items"]]
+    assert names == sorted(names)
+
+
+def test_amrfinderplus_row_absent_without_version_file(tmp_path: Path) -> None:
+    make_bakta(tmp_path, "full")
+    setup(tmp_path, NoRunner(), bakta="full")
+    got = items(tmp_path)
+    assert got["bakta_full"]["status"] == "ok"
+    assert got.get("amrfinderplus", {"status": "absent"})["status"] == "absent"
+
+
+def test_amrfinderplus_version_follows_the_file(tmp_path: Path) -> None:
+    make_bakta(tmp_path, "full")
+    make_amrfinder(tmp_path, "2025-01-01.2")
+    assert setup(tmp_path, NoRunner(), bakta="full") == 0
+    assert items(tmp_path)["amrfinderplus"]["version"] == "2025-01-01.2"
+
+
+def test_amrfinderplus_row_after_full_download(tmp_path: Path) -> None:
+    """The fake ``bakta_db download`` (which runs amrfinder_update) leaves the AMR version file."""
+
+    class AmrRunner(FakeRunner):
+        def run(self, tool: str, argv: Sequence[str]) -> int:
+            code = super().run(tool, argv)
+            out = _out_dir(argv)
+            for d in (out, out / "db"):
+                latest = d / "amrfinderplus-db" / "latest"
+                latest.mkdir(parents=True, exist_ok=True)
+                (latest / "version.txt").write_text(AMR_VERSION + "\n")
+            return code
+
+    assert setup(tmp_path, AmrRunner(), bakta="full") == 0
+    assert items(tmp_path)["amrfinderplus"]["version"] == AMR_VERSION
