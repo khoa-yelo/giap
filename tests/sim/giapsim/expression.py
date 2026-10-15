@@ -16,6 +16,7 @@ import math
 import re
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from itertools import repeat
 from typing import Any, Literal
 
 import numpy as np
@@ -135,7 +136,7 @@ def simple_covariates(aa: str) -> tuple[int, float]:
     """(distinct Trypsin/P peptides of 7-30 aa, no missed cleavage; Kyte-Doolittle GRAVY)."""
     lo, hi = _PEPTIDE_LEN
     n = len({p for p in _TRYPSIN_P.split(aa) if lo <= len(p) <= hi})
-    gravy = sum(KD.get(c, 0.0) for c in aa) / len(aa) if aa else math.nan
+    gravy = sum(map(KD.get, aa, repeat(0.0))) / len(aa) if aa else math.nan
     return n, gravy
 
 
@@ -190,6 +191,7 @@ def _abundance(
             region_tu[i] = sum(cfg.region_effect_log2.get(t, 0.0) for t in shared)
     shift += region_tu
     island_tu = np.zeros(len(tus), dtype=bool)
+    island_of = np.full(len(tus), None, dtype=object)  # island id per TU, None outside islands
     rows = []
     stationary = cfg.tu_sd / math.sqrt(1.0 - cfg.ar1_rho**2)
     for k, isl in enumerate(cfg.islands):
@@ -199,6 +201,7 @@ def _abundance(
         sel = idx[isl.first_tu : isl.first_tu + isl.n_tus]
         shift[sel] += isl.effect * stationary
         island_tu[sel] = True
+        island_of[sel] = f"island_{k + 1}"
         rows.append((f"island_{k + 1}", isl.replicon, isl.first_tu, isl.n_tus, float(isl.effect),
                      float(isl.effect * stationary), str(tus["tu_id"].iloc[sel[0]]),
                      str(tus["tu_id"].iloc[sel[-1]])))  # fmt: skip
@@ -218,7 +221,7 @@ def _abundance(
     ab = tu_g - cfg.position_decay_log2 * pos + stoich + noise + own
     islands = pd.DataFrame(rows, columns=list(ISLAND_COLUMNS))
     return {"tu_log2": tu_g, "abundance": ab, "in_island": island_tu[tu_i],
-            "region_effect": eff}, islands  # fmt: skip
+            "island_id": island_of[tu_i], "region_effect": eff}, islands  # fmt: skip
 
 
 def _gene_region_types(layout: Any) -> dict[str, frozenset[str]]:
@@ -266,6 +269,7 @@ def simulate_expression(layout: Any, cfg: ExpressionConfig, rng: np.random.Gener
             "n_obs_true": n_obs,
             "gravy_true": gravy,
             "in_island": parts["in_island"],
+            "island_id": pd.array(parts["island_id"], dtype="string"),  # NA outside islands
             "region_effect_log2": parts["region_effect"].astype(float),
         }
     )
