@@ -74,9 +74,9 @@ def test_requirement_is_frozen_dataclass() -> None:
         r.name = "x"  # type: ignore[misc]
 
 
-def test_core_requires_bakta_and_bakta_db_v6() -> None:
+def test_core_requires_bakta_db_v6() -> None:
+    # run-wiring decision 4a: the bakta binary comes from the tool registry, not requirements()
     reqs = {r.name: r for r in core_reqs()}
-    assert "bakta" in reqs
     assert "bakta_db" in reqs
     assert reqs["bakta_db"].kind == "db"
     assert reqs["bakta_db"].module == "core"
@@ -158,12 +158,12 @@ def test_T_PRE_23_fail_wrong_db_version() -> None:
 
 def test_T_PRE_23_fail_requirement_absent_from_probe_counts_as_missing() -> None:
     reqs = core_reqs()
-    found = found_all(reqs, bakta="1.12.2", bakta_db="6.0")
-    del found["bakta"]
+    found = found_all(reqs, bakta_db="6.0")
+    del found["promotech"]  # the Promotech model (decision 4b); tools come from the registry
     tools = env_checks(reqs, probe(found))["environment.tools"]
     assert tools.level == "error"
     assert tools.exit_code == 2
-    assert tools.value == {"missing": ["bakta"]}
+    assert tools.value == {"missing": ["promotech"]}
 
 
 def test_T_PRE_23_fail_enabled_optional_module_tool_missing() -> None:
