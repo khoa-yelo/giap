@@ -139,7 +139,8 @@ constant fallback, the calibration diagnostics and the simulation evidence (slop
     silent median fill, no silent singleton TUs). Tests on the real M4-10/M4-11/C6 tables. The docstring
     says M4-11 `detected_2pep` needs NA masking of partial genes first.
 11. `_recalibration` returns NaN slope/intercept/CIs when the predicted logits are constant.
-12. `folds` larger than the number of TUs raises ValueError (not a bare `min()` crash); the constant
+12. (Corrected — the spec rule wins.) Fewer TUs than folds → constant fallback + `too_few_tus` (spec);
+    ValueError only for `folds` < 2 and for too few TUs for the inner C search (not a bare `min()` crash); the constant
     fallback (< 50 genes) is logged at WARNING and recorded in diagnostics.
 13. `diagnostics` columns have numeric dtypes for value/ci_low/ci_high.
 14. Tests kill the surviving mutants: inner C search must not see the held-out fold; inner folds from
