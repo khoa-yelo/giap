@@ -109,11 +109,11 @@ workflow ANNOTATE {
     if (pc.promoters) {
         layers += [pre('promoters')]
     } else {
-        def pw = stepIn('promoter_windows', [genes, kv('genome', genome)])
+        def pw = stepIn('promoter_windows', [genes, reps, kv('genome', genome)])
         PROMOTER_WINDOWS(pw.files, pw.keys, ['windows_map=windows_map.parquet'] +
-            scatterSpec('windows', 'windows_*.fa', params.stub?.windows_chunks ?: 1, false))
+            scatterSpec('windows', 'windows/windows_*.fa', params.stub?.windows_chunks ?: 1, true))
         def W = PROMOTER_WINDOWS.out.outputs
-        def chunks = W.map { s, fs -> fs.findAll { f -> f.name ==~ /windows_\d+\.fa/ } }.flatten()
+        def chunks = inDir(W, 'windows')
         PROMOTECH(chunks.map { f -> [f.baseName.replace('windows', 'promotech'), f] }, db)
         def pl = stepIn('promoter_layer', [kv('windows_map', pick(W, 'windows_map.parquet')),
             kv('promotech', byName(PROMOTECH.out.dir.collect(sort: true)))])
@@ -150,8 +150,8 @@ workflow ANNOTATE {
             BACTERMFINDER(gin)
             tools += [kv('bactermfinder', BACTERMFINDER.out.dir)]
         }
-        def tl = stepIn('terminator_layer', tools)
-        TERMINATOR_LAYER(tl.files, tl.keys, ['terminators=terminators.parquet', 'crosscheck=terminators_crosscheck.tsv'])
+        def tl = stepIn('terminator_layer', [reps] + tools)
+        TERMINATOR_LAYER(tl.files, tl.keys, ['terminators=terminators.parquet', 'terminators_crosscheck=terminators_crosscheck.tsv'])
         layers += [kv('terminators', pick(TERMINATOR_LAYER.out.outputs, 'terminators.parquet'))]
     }
 

@@ -98,3 +98,46 @@ Window geometry (S = first base of the start codon, 0-based; E = gene interval e
    and "3′ end at S + k" means the window's last base is `S + k − 1` (k = 0 ends before the codon).
 2. Genome-wide Promotech mode. **Proposed default:** not in M2 (opt-in, needs ≥ 24 GB and 5.8 GB per
    strand); config value `genome` exits 1 with "not implemented in this version" until an issue adds it.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted (minus-strand `end3p = E−k+1`, BED windows `[p−1, p+39)`,
+   inclusive bounds mirrored on the minus strand, unwrapped origin-crossing record split by the writer).
+2. Errors are `ValueError` (never `AssertionError`): short windows, a Promotech header other than
+   `CHROM SEQ PRED`.
+3. (Corrected — GIAP_SPEC.md §7.1, `promoters.bed`): windows with score ≥ 0.5 that overlap are merged into
+   one record with the maximum score, as in example 9; windows that only touch (end == start) are not merged.
+4. Q2 (revised): `annotation.promoters.mode: genome` is a valid config — `giap preflight` accepts it and
+   checks its resource needs (M1-11/M1-12 tests: exit 0, exit 3 with --strict). It is rejected at run time:
+   `giap run` exits 1 before launching anything ("annotation.promoters.mode: genome is not implemented"),
+   and the `promoter_windows` step raises the same error if reached. Not at config load.
+
+## Lead decisions after code review (PR #76, changes requested)
+5. ANNOTATE wiring (main, after #65): the `promoter_windows` call in annotate.nf passes `replicons` (the step
+   needs it for circular wraps) and collects the chunks with
+   `scatterSpec('windows', 'windows/windows_*.fa', …, true)` + `inDir`; the step writes chunks into the
+   `windows/` directory. The M2-index row is updated. A test runs the step end to end through the
+   registry, and the step-registry fixture (workflow/tests/data/annotate/step_registry.json) is regenerated.
+6. Tests kill the surviving mutants: BED merge across the origin (and its max score); the `gap % n` wrap;
+   circular normalisation in `promoter_between`; the `max(a, 0)` clamp; the `lo1` wrap (a window ending at
+   end3p == n); the pseudogene filter in the step; the header check with a TAB-separated foreign header.
+7. `gene_promoter_features(…, replicons)` requires `replicons` (no silent linear default).
+8. Review finding 5 (`giap _step` never loads step modules) is fixed by the run-wiring PR #78.
+
+### Tests pinning decisions 5–7 (test-author)
+- 5: `tests/unit/test_promoter_review.py::test_promoter_windows_step_end_to_end_through_the_registry`
+  (`run_step` on a circular + a linear contig; chunks only in `windows/windows_000.fa`, pseudogene
+  skipped, map = `gene_windows` in §6.5 order); `workflow/tests/data/annotate/step_registry.json`
+  regenerated (adds `promoter_windows`, `promoter_layer`); `tests/unit/test_nf_cmd_sync.py` BUILDERS
+  gains the `promotech` pair; `tests/unit/test_nf_annotate_registry.py` adds
+  `test_promoter_windows_call_passes_replicons` and
+  `test_promoter_windows_scatters_into_the_windows_directory`; annotate.nf.test example 4 asserts
+  `replicons` in the step's `--in` keys, `windows/windows_00{0,1,2}.fa` inside the task's `windows/`
+  and the three chunks staged into PROMOTECH. annotate.nf must change: `stepIn('promoter_windows',
+  [genes, reps, kv('genome', genome)])`; out spec `scatterSpec('windows', 'windows/windows_*.fa', n,
+  true)`; PROMOTECH chunks from `inDir(W, 'windows')` instead of the name filter.
+- 6: one test per listed mutant in `tests/unit/test_promoter_review.py` (lo1 wrap, gap % n, max(a, 0),
+  promoter_between normalisation, origin merge + max score, touching across the origin, TAB-separated
+  foreign header, pseudogene filter), plus the unlisted survivors 26 (window > 40 nt) and 32 (row
+  field count); 11 and 29 are equivalent mutants. Each verified to kill its mutant on a scratch copy.
+- 7: `test_gene_promoter_features_without_replicons_is_a_type_error`; the existing feature tests
+  pass `replicons=` explicitly.

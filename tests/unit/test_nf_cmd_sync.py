@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 import giap.annotate
-from giap.annotate import bakta_cmd, uniop_cmd
+from giap.annotate import bakta_cmd, promotech_cmd, terminatornet_cmd, transtermhp_cmd, uniop_cmd
 
 REPO = Path(__file__).resolve().parents[2]
 MODULES = REPO / "workflow" / "modules" / "local"
@@ -84,9 +84,40 @@ def _uniop_variants() -> list[list[str]]:
     return [uniop_cmd.uniop_command(Path("uniop_cds.gff"), Path("out"), Path("/opt/uniop"))]
 
 
+def _terminatornet_variants() -> list[list[str]]:
+    home = Path("/opt/terminatornet")
+    return [
+        terminatornet_cmd.terminatornet_command(
+            Path("genome.fa"), Path("terminatornet.tsv"), 1, home
+        ),
+        terminatornet_cmd.terminatornet_command(
+            Path("genome.fa"), Path("terminatornet.tsv"), 8, home
+        ),
+    ]
+
+
+def _transtermhp_variants() -> list[list[str]]:
+    return [
+        transtermhp_cmd.transterm_command(
+            Path("genome.fa"), Path("genes.coords"), Path("/opt/data/expterm.dat")
+        )
+    ]
+
+
+def _promotech_variants() -> list[list[str]]:
+    return [
+        promotech_cmd.promotech_command(
+            Path("windows_000.fa"), Path("promotech_000"), Path("/opt/promotech")
+        )
+    ]
+
+
 BUILDERS: dict[str, Callable[[], list[list[str]]]] = {
     "bakta": _bakta_variants,
     "uniop": _uniop_variants,  # M2-12 (merged before M2-07)
+    "terminatornet": _terminatornet_variants,  # M2-15
+    "transtermhp": _transtermhp_variants,  # M2-15
+    "promotech": _promotech_variants,  # M2-13 (PR #76 review decision 5)
 }
 
 
