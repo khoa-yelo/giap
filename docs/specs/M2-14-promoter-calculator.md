@@ -83,3 +83,10 @@ Region → genome: `+` TU with region `[a, b)`: genome TSS `= a + tss − 1`; `�
 3. Q1: the proposed default (a TU with no kept hit → 0 / 0 / NA).
 4. `write_tu_regions` (M2-12) writes one sequence line per region (= `region_fasta_text`); M2-12's own
    tests stay green.
+
+## Lead decisions after code review (PR #94, changes requested — tests only)
+5. Tests pin the `tx_rate_between` window edges on both strands: a TSS on the first base after the
+   upstream gene's stop is kept; a TSS on the downstream start-codon base is dropped; adjacent or
+   overlapping genes give None (kills the four boundary mutants); `_signed` at exactly half the contig
+   length is pinned (the documented choice).
+6. Re-run the full-genome contract check on Nissle once its recording finishes (backlog).
