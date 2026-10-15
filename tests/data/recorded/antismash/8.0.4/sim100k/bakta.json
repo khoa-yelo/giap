@@ -1,0 +1,25 @@
+{
+ "version": "8.0.4",
+ "input_file": "bakta.gbff",
+ "records": [
+  {
+   "id": "chr1",
+   "name": "chr1",
+   "annotations": {
+    "topology": "circular"
+   },
+   "features": [],
+   "areas": []
+  },
+  {
+   "id": "plasmid_1",
+   "name": "plasmid_1",
+   "annotations": {
+    "topology": "circular"
+   },
+   "features": [],
+   "areas": []
+  }
+ ],
+ "schema": 4
+}

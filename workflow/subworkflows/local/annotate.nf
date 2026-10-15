@@ -180,7 +180,7 @@ workflow ANNOTATE {
             optional += [kv('genomad', GENOMAD.out.dir)]
         }
         if ('bgc' in params.modules && gbff != null) {
-            ANTISMASH(gid.combine(gbff))
+            ANTISMASH(gid.combine(gbff), db)
             optional += [kv('antismash', ANTISMASH.out.dir)]
         } else if ('bgc' in params.modules) {
             println "WARN: layer_missing:antismash: precomputed bakta_json ${pc.bakta_json} has no GBFF next to it; antiSMASH skipped"
