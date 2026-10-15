@@ -87,3 +87,16 @@ the chaining function), documented with their rationale in the methods note; no 
    origin; genome overlap between HSPs allowed (real frameshifts give a few-nt overlap); rank per protein;
    `alt_start` False; unknown contig → ValueError; process `TBLASTN` with outputs `hits` (tblastn.tsv) and
    `versions`, its own container selector, `tblastn_args` only via `ext.args`; makeblastdb checked by flags.
+
+## Lead decisions after code review (PR #53, changes requested)
+1. `makeblastdb` runs WITHOUT `-parse_seqids` (interface amended): with it, BLAST reports accession-style IDs
+   as `gb|U00096.3|` / `ref|NC_000913.3|`, which never match GIAP's contig IDs. Without it BLAST reports the
+   first header token unchanged. Builder, main.nf and tests drop the flag. A recorded fixture with an
+   accession-style contig ID (e.g. a K-12 excerpt named `NC_000913.3`, pinned BLAST image) guards it.
+2. Chaining picks the BEST chain, not the nearest extension: per protein × contig × strand, a dynamic program
+   over compatible HSPs (same strand, query order, gap ≤ 300 nt, query overlap ≤ 10 aa, small genome
+   overlaps allowed, unwrapped across the origin) maximises summed bitscore; ties → larger union coverage,
+   then lower start. Test: the reviewer's A/B/C case → chain A+B, coverage 1.0, gene assigned.
+3. Tests kill the surviving mutants: seed/best-chain choice, a chain exceeding a small circular contig's
+   length (both checks), the `b0 > a0` order check, ValueError for out-of-contig hits and bad query ranges.
+4. The parser rejects rows that do not have exactly 15 columns.
