@@ -121,6 +121,21 @@ def setup(config_file: Path | None, sets: tuple[str, ...], log_level: str, **opt
 
 # ---------------------------------------------------------------- preflight
 
+# Nextflow profiles `giap run --profile` accepts, alone or comma-joined (#78 review 3c).
+_PROFILES = ("farmshare", "farmshare_local", "apptainer", "conda", "docker", "standard")
+
+
+def _check_profile(_ctx: click.Context, _param: click.Parameter, value: str) -> str:
+    """``value`` if every comma-separated name is a known profile, else a usage error."""
+    names = value.split(",")
+    bad = [n for n in names if n not in _PROFILES]
+    if bad:
+        raise click.BadParameter(
+            f"unknown profile(s) {', '.join(repr(n) for n in bad)} in {value!r}; "
+            f"choose comma-joined from: {', '.join(_PROFILES)}"
+        )
+    return value
+
 
 @cli.command()
 @click.option("--genome", type=_existing_file, required=True, help="Genome FASTA.")
@@ -200,18 +215,10 @@ _RUN_INPUTS = [
 @click.option("--strict", is_flag=True, help="Treat warnings as errors (exit code 3).")
 @click.option(
     "--profile",
-    type=click.Choice(
-        [
-            "farmshare,apptainer",
-            "farmshare,conda",
-            "farmshare_local",
-            "apptainer",
-            "conda",
-            "docker",
-        ]
-    ),
+    callback=_check_profile,
     default="farmshare,apptainer",
     show_default=True,
+    help="Comma-joined Nextflow profiles: " + ", ".join(_PROFILES) + ".",
 )
 @click.option("--resume", is_flag=True, help="Resume a previous Nextflow run.")
 @click.option(
@@ -261,10 +268,10 @@ def run(
     env_db = os.environ.get("GIAP_DB_DIR")
     db_dir: Path | None = _.get("db_dir") or (Path(env_db) if env_db else None)
     outdir = outdir.absolute()
+    inputs.update(_run_preflight(cfg, outdir, inputs, db_dir, bool(_["strict"])))
     if shutil.which("nextflow") is None:
         click.echo("giap run: nextflow not found on PATH (see AGENTS.md setup)", err=True)
         sys.exit(ExitCode.ENVIRONMENT)
-    inputs.update(_run_preflight(cfg, outdir, inputs, db_dir, bool(_["strict"])))
     _run_nextflow(
         cfg, outdir, inputs, str(_["memory"]), str(_["profile"]), bool(_["resume"]), db_dir
     )
@@ -288,16 +295,7 @@ def _run_preflight(
         abundance=inputs.get("abundance"),
         annotation=inputs.get("annotation"),
     )
-    saved = os.environ.get("GIAP_DB_DIR")
-    if db_dir is not None:  # preflight reads the manifest from $GIAP_DB_DIR
-        os.environ["GIAP_DB_DIR"] = str(db_dir.absolute())
-    try:
-        report, norm = run_preflight(inp, cfg, None, "run", outdir)
-    finally:
-        if saved is None:
-            os.environ.pop("GIAP_DB_DIR", None)
-        else:
-            os.environ["GIAP_DB_DIR"] = saved
+    report, norm = run_preflight(inp, cfg, None, "run", outdir, db_dir)
     outdir.mkdir(parents=True, exist_ok=True)
     write_outputs(outdir, report, norm)
     code = exit_code(report, strict)
