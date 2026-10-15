@@ -1,0 +1,1 @@
+promoter_sequence,TSS,UP,hex35,spacer,hex10,disc,ITR,dG_total,dG_10,dG_35,dG_disc,dG_ITR,dG_ext10,dG_spacer,dG_bind,dG_UP,Tx_rate,UP_position,hex35_position,spacer_position,hex10_position,disc_position,fraction,strand,drop,length

@@ -1,0 +1,2 @@
+region_id	region_type	contig	start	end	source_tool	score	genes	notes
+R1	prophage	chr1	1001	2000	geNOMAD	0.95	NA	NA

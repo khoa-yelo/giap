@@ -98,3 +98,26 @@ uniqueness handling).
    only q. PEP enters through the tiers (M4-12).
 2. Should `coverage_frac` use only accepted peptides (as above) or all placed peptides? **Proposed
    default:** accepted only, consistent with "evidence".
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted: pseudogene and `cterm_extension` placements count toward
+   detection; NA `placement_q` without `same_db` is rejected; C9 decoy rows yield nothing; C9 wins over C11
+   on q without raising; flags compared as sets; one row per gene in C2 order.
+2. `cterm_extension` placements are not `abundance_eligible` (abundance from the canonical CDS only).
+3. Contaminant-matching peptides that pass the five conditions are accepted; the gene row carries a separate
+   bool column `contaminant_evidence` (accepted rows carry `is_contaminant`), not an `evidence_flags` entry
+   (visible to M4-12/M4-14); M4-12 decides whether they count for tiers.
+4. Several accepted placements of one peptide in one gene keep one row (exact first, then leftmost);
+   coverage uses that row. Without C9, q/pep/score come from C11 (`best_q_input`, `pep_input`,
+   `score_input`) and intensity is NA.
+
+## Lead decisions after code review (PR #74, changes requested — tests)
+5. Coverage follows the spec's union wording: the union of ALL accepted placement intervals of a gene
+   (repeats inside one gene included); decision 4's one-row-per-(gene, peptide) applies to the evidence
+   rows and counts only. Amends decision 4.
+6. Tests kill the surviving mutants: nested intervals ([0,90) [10,20) [30,40)) in the coverage union;
+   cterm_extension rows not abundance-eligible; `contaminant_evidence`/`is_contaminant` true for a
+   contaminant-matching accepted peptide; row choice exact-first then leftmost (tolerant left + exact
+   right; two exact placements); without C9, `best_q_input` 0.02 above the cut-off is rejected; an
+   internal repeat gives union coverage.
+7. `ASSIGNING_CLASSES` is imported from the M4-06 contract module, not duplicated.

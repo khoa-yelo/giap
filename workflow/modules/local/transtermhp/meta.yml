@@ -1,0 +1,7 @@
+name: transtermhp
+description: TransTermHP terminator cross-check (§7.1.1).
+tools:
+  - transtermhp:
+      licence: ["GPL-3.0"]
+      notes: Runs as a separate process from envs/transtermhp.yml or its containers.config pin (R5).
+apptainer: none needed

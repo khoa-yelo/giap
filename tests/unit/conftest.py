@@ -15,7 +15,11 @@ import pytest
 
 @pytest.fixture
 def registry(monkeypatch: pytest.MonkeyPatch) -> Iterator[ModuleType]:
+    from giap.steps import load_step_modules
     from giap.steps import registry as reg
 
+    # Import every real step module first: a module imported for the first time while the registry
+    # is swapped would register into the temporary dict and, being cached, never into the real one.
+    load_step_modules()
     monkeypatch.setattr(reg, "_REGISTRY", {})
     yield reg
