@@ -98,3 +98,11 @@ uniqueness handling).
    only q. PEP enters through the tiers (M4-12).
 2. Should `coverage_frac` use only accepted peptides (as above) or all placed peptides? **Proposed
    default:** accepted only, consistent with "evidence".
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted: pseudogene and `cterm_extension` placements count toward
+   detection; NA `placement_q` without `same_db` is rejected; C9 decoy rows yield nothing; C9 wins over C11
+   on q without raising; flags compared as sets; one row per gene in C2 order.
+2. `cterm_extension` placements are not `abundance_eligible` (abundance from the canonical CDS only).
+3. Contaminant-matching peptides that pass the five conditions are accepted but carry the `contaminant`
+   flag through to the gene row (visible to M4-12/M4-14); M4-12 decides whether they count for tiers.
