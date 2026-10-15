@@ -3,7 +3,8 @@
 ``write_mapping_outputs`` writes ``peptide_hits.tsv``, ``protein_hits.tsv``, ``mappings.probed``,
 ``mappings.bed``, ``mappings.gff3``, ``unmapped.tsv`` and ``mapping_fdr.tsv``. Inputs carry 0-based
 half-open, unwrapped coordinates; the shift to 1-based closed happens here, in the TSV rows, and
-in the M1-04/M1-05 writers (BED/proBed split origin-crossing hits, GFF3 keeps ``end > length``).
+in the M1-04/M1-05 writers (BED/proBed split origin-crossing hits, GFF3 keeps ``end > length``;
+``match_part`` children starting beyond the origin are shifted by -L).
 The row preparation is pure; file I/O is delegated to ``giap.io``.
 """
 
@@ -172,24 +173,67 @@ def _attrs(pairs: Iterable[tuple[str, Any]]) -> dict[str, AttrValue]:
     return out
 
 
+def _wrapped_parts(s: int, e: int, length: int) -> list[tuple[int, int]]:
+    """Unwrapped ``[s, e)`` with ``s >= length`` shifted by -L.
+
+    A block spanning the origin keeps ``end > length`` like every origin-crossing GFF3 feature
+    (§6.5; pinned by tests/unit/test_mapping_outputs_review.py).
+    """
+    if s >= length:
+        return [(s - length, e - length)]
+    return [(s, e)]
+
+
+def _frameshift_base(spec: str, length: int) -> tuple[str, int] | None:
+    """The odd base of a +-1 frameshift as ``(attribute, 1-based position wrapped into [1, L])``.
+
+    ``delta = -1`` (second block starts 1 nt before the first ends): the base read twice;
+    ``delta = +1`` (a 1-nt gap): the base skipped (M3-16 lead decision 2, M3-08 edge cases).
+    """
+    spans = sorted((int(s), int(e)) for s, e in (p.split("-") for p in spec.split(";") if p))
+    if len(spans) != 2:
+        return None
+    (_, e1), (s2, _) = spans
+    if s2 == e1 - 1:
+        return "frameshift_reread", s2 % length + 1
+    if s2 == e1 + 1:
+        return "frameshift_skipped", e1 % length + 1
+    return None
+
+
 def _gff_features(
-    row: Row, fid: str, name: str, extra: Iterable[tuple[str, Any]]
+    row: Row, fid: str, name: str, extra: Iterable[tuple[str, Any]], replicon: Replicon
 ) -> list[GffFeature]:
-    """``nucleotide_to_protein_match`` (SO:0000568), plus ``match_part`` children per block."""
+    """``nucleotide_to_protein_match`` (SO:0000568), plus ``match_part`` children per block.
+
+    The parent keeps ``end > length`` when it crosses the origin; a child starting at or beyond
+    ``length`` is shifted by -L, a child spanning the origin keeps ``end > length``.
+    """
     iv = _interval(row)
-    attrs = _attrs([("ID", fid), ("Name", name), *extra])
-    feats = [GffFeature(iv, "GIAP", "nucleotide_to_protein_match", attributes=attrs)]
     spec = row.get("blocks")
+    odd = None if _missing(spec) else _frameshift_base(str(spec), replicon.length)
+    attrs = _attrs([("ID", fid), ("Name", name), *extra, *([odd] if odd else [])])
+    feats = [GffFeature(iv, "GIAP", "nucleotide_to_protein_match", attributes=attrs)]
     if not _missing(spec):
-        for k, part in enumerate(str(spec).split(";"), start=1):
+        k = 0
+        for part in str(spec).split(";"):
+            if not part:
+                continue
             s, e = (int(x) for x in part.split("-"))
-            child = Interval(iv.contig, s, e, iv.strand)
-            part_attrs = {"ID": f"{fid}.{k}", "Parent": fid, "Name": name}
-            feats.append(GffFeature(child, "GIAP", "match_part", attributes=part_attrs))
+            for ps, pe in _wrapped_parts(s, e, replicon.length):
+                k += 1
+                child = Interval(iv.contig, ps, pe, iv.strand)
+                part_attrs = {"ID": f"{fid}.{k}", "Parent": fid, "Name": name}
+                feats.append(GffFeature(child, "GIAP", "match_part", attributes=part_attrs))
     return feats
 
 
 def _length_class_key(label: object) -> tuple[int, int, str]:
+    """Sort key for M3-10 length-class labels: ``lo-hi`` (numeric ``lo``), then ``all``, then NA.
+
+    Expects M3-10's ``lo-hi`` labels (e.g. ``7-8``, ``9-30``) and the pooled ``all``; any other
+    label sorts by its first integer (0 if none), ties broken by the text.
+    """
     if _missing(label):
         return (2, 0, "")
     text = str(label)
@@ -225,11 +269,16 @@ def _protein_extra(r: Row) -> list[tuple[str, Any]]:
 
 
 def _features(
-    rows: list[Row], prefix: str, id_col: str, extra: Callable[[Row], list[tuple[str, Any]]]
+    rows: list[Row],
+    prefix: str,
+    id_col: str,
+    extra: Callable[[Row], list[tuple[str, Any]]],
+    replicons: Mapping[str, Replicon],
 ) -> list[GffFeature]:
     out: list[GffFeature] = []
     for i, r in enumerate(rows, start=1):
-        out += _gff_features(r, f"{prefix}{i}", str(r[id_col]), extra(r))
+        rep = replicons[str(r["contig"])]
+        out += _gff_features(r, f"{prefix}{i}", str(r[id_col]), extra(r), rep)
     return out
 
 
@@ -294,6 +343,6 @@ def write_mapping_outputs(
         for r, bed in zip(peps, pep_beds, strict=True)
     ]
     write_probed(outdir / "mappings.probed", probed, replicons, f"sha256:{genome_sha256}")
-    features = _features(peps, "peptide_hit_", "peptide", _peptide_extra)
-    features += _features(prots, "protein_hit_", "protein_id", _protein_extra)
+    features = _features(peps, "peptide_hit_", "peptide", _peptide_extra, replicons)
+    features += _features(prots, "protein_hit_", "protein_id", _protein_extra, replicons)
     write_gff3(outdir / "mappings.gff3", features, list(replicons.values()))
