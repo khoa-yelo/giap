@@ -56,13 +56,26 @@ class DetectabilityResult:
     diagnostics: pd.DataFrame  # detection_summary rows, section "detectability"
 
 
-def _row(group_type: str, group: object, metric: str, value: float) -> dict[str, object]:
+Z975 = 1.959963984540054  # standard normal 0.975 quantile (Wald 95 % CI)
+COLUMNS = ["section", "group_type", "group", "metric", "value", "ci_low", "ci_high"]
+_NO_CI = (float("nan"), float("nan"))
+
+
+def _row(
+    group_type: str,
+    group: object,
+    metric: str,
+    value: float,
+    ci: tuple[float, float] = _NO_CI,
+) -> dict[str, object]:
     return {
         "section": SECTION,
         "group_type": group_type,
         "group": str(group),
         "metric": metric,
         "value": float(value),
+        "ci_low": float(ci[0]),
+        "ci_high": float(ci[1]),
     }
 
 
@@ -89,10 +102,15 @@ def tu_folds(tu_ids: Sequence[str], k: int, rng: np.random.Generator) -> dict[st
     return {tus[int(i)]: pos % k for pos, i in enumerate(order)}
 
 
-def _recalibration(d: Array, p: Array) -> tuple[float, float]:
-    """Unpenalised MLE (intercept, slope) of d ~ a + b·logit(clip(p)); NaN if not identifiable."""
+def _recalibration(d: Array, p: Array) -> tuple[float, float, float, float]:
+    """Unpenalised MLE (intercept, slope) of d ~ a + b·logit(clip(p)) and their Wald SEs.
+
+    SEs come from the inverse observed Fisher information X'WX (W = mu(1 - mu)) at the estimate.
+    All four are NaN if the fit is not identifiable; the SEs alone if X'WX is singular.
+    """
+    nan = float("nan")
     if not 0 < d.sum() < d.size:
-        return float("nan"), float("nan")
+        return nan, nan, nan, nan
     z = logit(np.clip(p, CLIP, 1 - CLIP))
     x = np.column_stack([np.ones_like(z), z])
     beta = np.array([0.0, 1.0])
@@ -108,11 +126,21 @@ def _recalibration(d: Array, p: Array) -> tuple[float, float]:
         beta = beta + step
         if np.max(np.abs(step)) < 1e-12:
             break
-    return float(beta[0]), float(beta[1])
+    mu = expit(x @ beta)
+    try:
+        with np.errstate(invalid="ignore"):
+            se = np.sqrt(np.diag(np.linalg.inv(x.T @ (x * (mu * (1 - mu))[:, None]))))
+    except np.linalg.LinAlgError:
+        se = np.array([nan, nan])
+    se = np.where(np.isfinite(se), se, nan)
+    return float(beta[0]), float(beta[1]), float(se[0]), float(se[1])
 
 
 def calibration_diagnostics(d: npt.ArrayLike, p: npt.ArrayLike, n_bins: int = 10) -> pd.DataFrame:
-    """Equal-count bins of p (stable rank order) plus Brier score and recalibration fit."""
+    """Equal-count bins of p (stable rank order) plus Brier score and recalibration fit.
+
+    The intercept and slope rows carry Wald 95 % CIs in ``ci_low``/``ci_high``; other rows NaN.
+    """
     dd = np.asarray(d, dtype=float)
     pp = np.asarray(p, dtype=float)
     rows = []
@@ -121,13 +149,15 @@ def calibration_diagnostics(d: npt.ArrayLike, p: npt.ArrayLike, n_bins: int = 10
         rows.append(_row("bin", i, "mean_p", float(pp[b].mean()) if b.size else np.nan))
         rows.append(_row("bin", i, "observed_rate", float(dd[b].mean()) if b.size else np.nan))
         rows.append(_row("bin", i, "n", b.size))
-    a, s = _recalibration(dd, pp)
+    a, s, se_a, se_s = _recalibration(dd, pp)
     rows.append(_row("overall", OVERALL, "brier", float(np.mean((pp - dd) ** 2))))
-    rows.append(_row("overall", OVERALL, "calibration_intercept", a))
-    rows.append(_row("overall", OVERALL, "calibration_slope", s))
+    ci_a = (a - Z975 * se_a, a + Z975 * se_a)
+    ci_s = (s - Z975 * se_s, s + Z975 * se_s)
+    rows.append(_row("overall", OVERALL, "calibration_intercept", a, ci_a))
+    rows.append(_row("overall", OVERALL, "calibration_slope", s, ci_s))
     rows.append(_row("overall", OVERALL, "n_detected", dd.sum()))
     rows.append(_row("overall", OVERALL, "n_eligible", dd.size))
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=COLUMNS)
 
 
 def _pipeline(cols: Sequence[str], raw: Sequence[str], n_knots: int, c: float) -> Pipeline:
@@ -204,7 +234,8 @@ def _constant(
     p = pd.Series(np.where(elig, rate, np.nan), index=detected.index, dtype=float, name="p_detect")
     extra.append(_row("overall", OVERALL, "detectability_constant", 1.0))
     diag = pd.concat(
-        [calibration_diagnostics(y, np.full(y.size, rate)), pd.DataFrame(extra)], ignore_index=True
+        [calibration_diagnostics(y, np.full(y.size, rate)), pd.DataFrame(extra, columns=COLUMNS)],
+        ignore_index=True,
     )
     return DetectabilityResult(p, True, {}, (), diag)
 
@@ -271,7 +302,7 @@ def fit_detectability(
     diag = pd.concat(
         [
             calibration_diagnostics(detected[elig].astype(bool).to_numpy(), p_ser.loc[order]),
-            pd.DataFrame(extra, columns=["section", "group_type", "group", "metric", "value"]),
+            pd.DataFrame(extra, columns=COLUMNS),
         ],
         ignore_index=True,
     )
