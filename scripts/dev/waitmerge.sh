@@ -7,6 +7,10 @@ cd "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}"
 source scripts/farmshare_env.sh
 sleep 30
 while true; do
+  # A PR that conflicts with its base gets no CI run at all: stop instead of waiting forever.
+  if [ "$(gh pr view "$pr" --json mergeable -q .mergeable 2>/dev/null)" = CONFLICTING ]; then
+    echo "NOT MERGED: Pull Request has merge conflicts (no CI run); merge the base branch first"; exit 1
+  fi
   snap=$(gh pr checks "$pr" 2>/dev/null | cut -f1,2)
   n=$(printf '%s\n' "$snap" | grep -c .)
   if [ "$n" -ge "$expected" ] && ! printf '%s\n' "$snap" | cut -f2 | grep -qE 'pending|queued|in_progress'; then
