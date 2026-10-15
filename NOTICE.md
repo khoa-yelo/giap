@@ -21,4 +21,10 @@ codon-bias (MIT), which runs in-process. Pins, digests and licence checks: docs/
 | codon-bias | MIT | 0.5.0; imported in-process (PyPI) |
 | DIA-NN | proprietary (academic licence) | used only by users' own searches; binaries never redistributed |
 
-Data resources: KEGG (academic use), RegulonDB (not redistributed), Gene Ontology (CC BY 4.0).
+Data resources: KEGG (academic use), RegulonDB (not redistributed), Gene Ontology (CC BY 4.0), NCBI COG 2020
+(NCBI FTP).
+
+Contaminant library: the universal protein contaminant FASTA of Frankenfield et al. 2022
+(HaoGroup-ProtContLib/Protein-Contaminant-Libraries-for-DDA-and-DIA-Proteomics, commit bddf6da9); no licence
+file found in the repository (checked 2026-10-15), so it is downloaded by `giap setup --contaminants` and
+never vendored (R11).
