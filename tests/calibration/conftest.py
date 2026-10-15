@@ -42,6 +42,17 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "test_sim_v2_calibration.py": "missed_operons",
         "test_sim_layout_calibration.py": "missed_operons",
         "test_sim_proteomics_calibration.py": "gene_fdr",
+        "test_sim_expression_calibration.py": "regions",
+        **{
+            f"test_sim_expression_calibration.py::{name}": "detectability"
+            for name in (
+                "test_detection_bernoulli_total",
+                "test_detection_bernoulli_by_decile",
+                "test_covariates_only_detection_independent_of_abundance",
+                "test_bgc_detection_shift",
+                "test_default_detected_share_every_replicate",
+            )
+        },
         "test_stats_bootstrap_calibration.py": "regions",
         "test_stats_fdr_calibration.py": "gene_fdr",
         "test_stats_permutation_calibration.py": "regions",
