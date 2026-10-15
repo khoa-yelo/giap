@@ -232,11 +232,15 @@ def test_run_lists_spec_options(runner: CliRunner) -> None:
         assert opt in result.output, opt
 
 
-def test_run_valid_options_reach_not_implemented(
-    runner: CliRunner, genome: Path, tmp_path: Path
+def test_run_valid_options_reach_the_runner(
+    runner: CliRunner, genome: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # M2-07 wires `giap run` to the Nextflow runner: valid options get past option parsing and
+    # reach the launcher, which reports a missing `nextflow` as an environment error (exit 2).
     from giap.cli import cli
     from giap.exitcodes import ExitCode
+
+    monkeypatch.setenv("PATH", str(tmp_path / "no_nextflow_here"))
 
     result = runner.invoke(
         cli,
@@ -253,5 +257,5 @@ def test_run_valid_options_reach_not_implemented(
             "--publication",
         ],
     )
-    assert result.exit_code == ExitCode.INTERNAL
-    assert "not implemented" in result.output.lower()
+    assert result.exit_code == ExitCode.ENVIRONMENT, result.output
+    assert "not implemented" not in result.output.lower()

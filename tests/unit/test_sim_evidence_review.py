@@ -9,7 +9,7 @@ docs/specs/M4-09-sim-evidence.md, "Lead decisions after code review", items 4-5:
    offset; ``_digest`` against the oracle's ``n_obs`` (the false-target / decoy weights).
 5. ``EvidenceConfig`` rejects ``mu1 <= mu0`` (PEP/q must be monotone in the score).
 
-Expectations come from tests/helpers/evidence_oracle.py (written from the spec).
+Expectations come from tests/helpers/sim_evidence_oracle.py (written from the spec).
 """
 
 from __future__ import annotations

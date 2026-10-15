@@ -1,0 +1,92 @@
+{
+  "operon_pairs": {
+    "inputs": [
+      "genes",
+      "genome",
+      "replicons",
+      "uniop_cds",
+      "uniop_map"
+    ],
+    "optional_inputs": [
+      "uniop_pred"
+    ],
+    "outputs": [
+      "operon_meta",
+      "pairs_raw",
+      "tu_upstream",
+      "tus"
+    ]
+  },
+  "parse_bakta": {
+    "inputs": [
+      "bakta_json",
+      "genome"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "annotation_meta",
+      "features",
+      "genes",
+      "replicons",
+      "rrna16s",
+      "trna_counts",
+      "xrefs"
+    ]
+  },
+  "promoter_layer": {
+    "inputs": [
+      "promotech",
+      "windows_map"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "promoter_windows"
+    ]
+  },
+  "promoter_windows": {
+    "inputs": [
+      "genes",
+      "genome",
+      "replicons"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "windows",
+      "windows_map"
+    ]
+  },
+  "terminator_layer": {
+    "inputs": [
+      "replicons"
+    ],
+    "optional_inputs": [
+      "bactermfinder",
+      "terminatornet",
+      "transtermhp"
+    ],
+    "outputs": [
+      "terminators",
+      "terminators_crosscheck"
+    ]
+  },
+  "transterm_input": {
+    "inputs": [
+      "genes"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "genes_coords"
+    ]
+  },
+  "uniop_input": {
+    "inputs": [
+      "genes",
+      "replicons"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "uniop_cds",
+      "uniop_map"
+    ]
+  }
+}

@@ -1,0 +1,3 @@
+LOCUS       chr1    3000 bp    DNA     circular BCT
+DEFINITION  stub GBFF for annotate.nf.test (precomputed bakta_json with a GBFF).
+//

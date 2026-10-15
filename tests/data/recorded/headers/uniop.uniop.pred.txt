@@ -1,0 +1,2 @@
+operon prediction scores
+Gene A	Gene B	Prediction
