@@ -113,12 +113,25 @@ def _search_many(
 
 
 def _parse_max_diff(max_diff: Mapping[str, int]) -> list[tuple[int, int, int]]:
-    """``[(lo, hi, k)]`` from config keys ``"lo-hi"``."""
+    """``[(lo, hi, k)]`` from config keys ``"lo-hi"``.
+
+    Raises:
+        ValueError: if a key is not ``"lo-hi"``, ``hi`` exceeds ``MAX_QUERY`` (512) or ``k`` is
+            outside ``0 .. BAND`` (2): the q-gram/band search is lossless only for ``k <= 2``.
+    """
     out = []
     for key, k in max_diff.items():
         lo, sep, hi = key.partition("-")
         if not sep or not lo.strip().isdigit() or not hi.strip().isdigit():
             raise ValueError(f"mapping.tolerant.max_diff key {key!r} is not 'lo-hi'")
+        if int(hi) > MAX_QUERY:
+            raise ValueError(
+                f"mapping.tolerant.max_diff class {key!r} exceeds MAX_QUERY = {MAX_QUERY} residues"
+            )
+        if not 0 <= int(k) <= BAND:
+            raise ValueError(
+                f"mapping.tolerant.max_diff[{key!r}] = {k}: k must lie in 0..{BAND} (lossless band)"
+            )
         out.append((int(lo), int(hi), int(k)))
     return sorted(out)
 
@@ -208,7 +221,8 @@ def match_tolerant(
 
     Raises:
         ValueError: if a ``decoy_of`` type has no decoy frames, a searched peptide has no decoy
-            type, or a configured ``k`` leaves no lossless q-gram threshold.
+            type, a ``max_diff`` class ends above ``MAX_QUERY`` (512) residues, or a configured
+            ``k`` lies outside ``0 .. BAND`` (2) or leaves no lossless q-gram threshold.
     """
     for pep, kind in sorted(decoy_of.items()):
         if kind not in decoys:

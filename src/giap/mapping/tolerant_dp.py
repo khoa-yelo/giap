@@ -29,11 +29,11 @@ import numpy as np
 from numba import njit
 
 from giap.mapping.diffops import DIFF_TYPES, BlockTables, DiffType
-from giap.mapping.sixframe import STOP
+from giap.mapping.sixframe import MAX_DIFF, STOP
 
 __all__ = ["BAND", "Alignment", "decode_key", "exchange_lookup", "verify", "verify_batch"]
 
-BAND: int = 2
+BAND: int = MAX_DIFF
 _NDIAG: int = 2 * BAND + 1
 _NRES: int = STOP  # residue codes 0..18; every code >= 19 is a stop, X or NOMATCH
 _BASE: int = 1 << 15  # per-component base of the cell key (cost < 2**15)
