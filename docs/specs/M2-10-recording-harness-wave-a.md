@@ -98,3 +98,16 @@ tests/data/recorded/bactermfinder/<git12>/sim100k/…
    `record_fixture.py --trim antismash` and documented in PROVENANCE.
 3. Budget: JSON+GFF3+GBFF for three genomes ≈ 20 MB. **Proposed default:** GBFF only for sim100k
    (antiSMASH input for real genomes comes from the live run in the recording job).
+
+## Lead decisions (after the test-author's pass)
+1. Topology follows GIAP_SPEC.md (line ~770): only `circular=true`/`[topology=circular]` header tags (or
+   `annotation.bakta.complete: true`) make a replicon circular. The committed fixture genomes
+   (tests/data/genomes/*.fna.gz) carry `[topology=circular]` on the chromosome and the circular plasmids;
+   the sequences equal NCBI's (sha256 of sequences recorded in PROVENANCE.md). The full-DB Bakta
+   recordings are redone from these tagged genomes so replicons are circular and Nissle's plasmids typed
+   `plasmid`. Users with plain NCBI FASTA get a preflight Info (spec) — documented in the user guide later.
+2. GBFF and FAA are committed for all three genomes (each < 5 MB gzipped; G17), overriding lead decision 4
+   (GBFF only for sim100k).
+3. BacTermFinder (opt-in, env not built) and record_fixture.py examples 1–3 are deferred (backlog).
+4. TE6 (§13) requires that one of Bakta's oriC calls on K-12 is the true origin next to mnmG/mioC; the
+   full DB also calls a DnaA-box cluster next to dnaA (3,883,730–3,884,335), which is expected.
