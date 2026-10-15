@@ -436,7 +436,9 @@ def test_no_decoys_with_q_is_mayu() -> None:
 def test_no_decoys_with_pep_only_is_mayu() -> None:
     b = Builder(2)
     b.target(tag(0), None, 0.01, None)
-    assert b.run().det.tier == "mayu"
+    r = b.run()
+    assert r.det.tier == "mayu"
+    assert not fx.is_na(r.row(tag(0))["gene_q_value"]), "lead decision 5: q derived from PEP"
 
 
 def test_decoys_without_protein_ids_do_not_give_picked() -> None:

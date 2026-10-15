@@ -109,3 +109,81 @@ def test_sequences_only_gives_two_peptide(tmp_path: Path, emit: frozenset[str]) 
     assert det.tier == "two_peptide"
     st = set(det.table["detection_status"].astype(str))
     assert st <= {"detected", "not_detected", "single_peptide_unestimated"}
+
+
+# ------------------------------------------------------------- lead decisions 5, 6, 8 (PR #92)
+
+
+def test_pep_only_loaded_tables_detect_genes(tmp_path: Path) -> None:
+    """Decision 5: giapsim without q (PEP only, no decoys) -> ``mayu`` with genes detected.
+
+    giapsim's q is the running mean of target PEP, so the PEP-derived q reproduces it and the
+    detected set matches the q + PEP run of the same replicate up to the acceptance difference
+    (PEP-only rows have no q to filter on)."""
+    pep_dir, q_dir = tmp_path / "pep", tmp_path / "q"
+    pep_dir.mkdir()
+    q_dir.mkdir()
+    inputs, e = _load(pep_dir, pi_wrong=0.01, emit=frozenset({"pep", "intensity", "protein_ids"}))
+    det = _detect(inputs)
+    assert det.tier == "mayu"
+    got = set(det.table.loc[det.table["detected"].astype(bool), "locus_tag"].astype(str))
+    assert got, "PEP-only input must not detect 0 genes silently"
+    q_inputs, _ = _load(q_dir, pi_wrong=0.01,
+                        emit=frozenset({"q_value", "pep", "intensity", "protein_ids"}))  # fmt: skip
+    ref = _detect(q_inputs)
+    want = set(ref.table.loc[ref.table["detected"].astype(bool), "locus_tag"].astype(str))
+    assert len(got) >= 0.8 * len(want), (len(got), len(want))
+    absent = set(e.gene_truth.loc[~e.gene_truth["present"].astype(bool), "locus_tag"].astype(str))
+    assert len(got & absent) <= max(2, 0.05 * len(got))
+
+
+@pytest.mark.parametrize("flag_contaminant", [False, True])
+def test_contaminant_decoys_injected_into_loaded_tables(
+    tmp_path: Path, flag_contaminant: bool
+) -> None:
+    """Decision 6: decoys of contaminants (``rev_CON__...``) added to giapsim's C9 in a number
+    that would push the paired share below 0.8 leave tier, counts and gene q unchanged."""
+    import dataclasses
+
+    import pandas as pd
+
+    inputs, _ = _load(tmp_path, pi_wrong=0.05, emit=SCORED)
+    base = _detect(inputs)
+    assert base.tier == "decoy_picked"
+    peps = inputs.peptides
+    d = peps[peps["is_decoy"].astype(bool) & (peps["q_value"] <= fx.cfg().input.q_value_max)]
+    k = len(d) // 2 + 1
+    extra = d.iloc[np.arange(k) % len(d)].copy()
+    extra["peptide"] = [fx.peptide_name(900_000 + i) for i in range(k)]
+    extra["protein_ids"] = [[f"rev_CON__P{10000 + i}"] for i in range(k)]
+    extra["is_contaminant"] = flag_contaminant
+    inputs2 = dataclasses.replace(inputs, peptides=pd.concat([peps, extra], ignore_index=True))
+    det = _detect(inputs2)
+    assert det.tier == "decoy_picked"
+    assert "decoy_pairing_low" not in det.warnings
+    for m in ("n_decoys_paired", "n_decoys_unpaired"):
+        assert fx.tier_metric(det, m) == fx.tier_metric(base, m), m
+    pd.testing.assert_frame_equal(det.table, base.table)
+
+
+def test_detection_map_matches_detect_inputs_on_foreign_ids(tmp_path: Path) -> None:
+    """Decision 8: ``Detection.protein_gene_map`` is the map ``detect`` built (accepted peptides,
+    configured contaminant prefixes), the one M4-14 reuses."""
+    from giap.genetable.detection import protein_gene_map
+    from giap.genetable.evidence import accepted_peptides
+
+    inputs, _ = _load(tmp_path, pi_wrong=0.05, emit=SCORED, protein_ids="foreign")
+    c = fx.cfg()
+    det = _detect(inputs, c)
+    acc = accepted_peptides(inputs.peptide_hits, inputs.peptides, c)
+    ref = protein_gene_map(inputs.genes, inputs.peptides, inputs.peptide_hits, inputs.protein_hits,
+                           accepted=acc,
+                           contaminant_prefixes=c.input.contaminant_prefixes)  # fmt: skip
+
+    def rows(m: Any) -> set[tuple[str, str, str]]:
+        m = m[m["gene"].notna()]
+        return set(zip(m["protein_id"].astype(str), m["gene"].astype(str),
+                       m["method"].astype(str), strict=True))  # fmt: skip
+
+    assert rows(det.protein_gene_map) == rows(ref)
+    assert any(meth == "peptide_vote" for _, _, meth in rows(det.protein_gene_map))
