@@ -29,11 +29,10 @@ md5ok() { echo "$1  $2" | md5sum -c --status; }
 fail=0
 
 # 1. geNOMAD DB v1.9 (Zenodo 14886553; md5 from the record)
-if [ ! -f "$DB/genomad/genomad_db/version.txt" ] && [ ! -d "$DB/genomad/genomad_db" ]; then
+if [ ! -d "$DB/genomad_db" ]; then  # §7.1.1: DB/genomad_db
   u="https://zenodo.org/records/14886553/files/genomad_db_v1.9.tar.gz?download=1"
-  mkdir -p "$DB/genomad"
-  if fetch "$u" "$DB/genomad" genomad_db_v1.9.tar.gz && md5ok 67244b528bb8bed464d1ca147136d33e "$DB/genomad/genomad_db_v1.9.tar.gz"; then
-    tar -xzf "$DB/genomad/genomad_db_v1.9.tar.gz" -C "$DB/genomad" && rm -f "$DB/genomad/genomad_db_v1.9.tar.gz"
+  if fetch "$u" "$DB" genomad_db_v1.9.tar.gz && md5ok 67244b528bb8bed464d1ca147136d33e "$DB/genomad_db_v1.9.tar.gz"; then
+    tar -xzf "$DB/genomad_db_v1.9.tar.gz" -C "$DB" && rm -f "$DB/genomad_db_v1.9.tar.gz"
     log genomad_db "$u" genomad_db_v1.9.tar.gz md5:67244b528bb8bed464d1ca147136d33e "zenodo md5"
   else echo "BLOCKED genomad_db"; fail=1; fi
 fi
