@@ -39,13 +39,17 @@ jobs:
         run: python3 scripts/ci/check_protected.py origin/${{ github.base_ref }}
       - name: test/implementation roles (R2)
         run: python3 scripts/ci/check_roles.py origin/${{ github.base_ref }}
-      - name: PR size (code only, ADR-0007)
+      - name: PR size (code only, ADR-0007, ADR-0016)
         run: |
-          # Only code counts toward the gate; tests, docs, specs, ADRs, locks and fixtures are reported.
+          # Only code counts toward the gate; tests (incl. workflow/tests, ADR-0016), docs, specs, ADRs,
+          # locks and fixtures are reported.
           lines=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- src workflow scripts \
-                  | awk '{s+=$1+$2} END {print s+0}')
+                  ':!workflow/tests' | awk '{s+=$1+$2} END {print s+0}')
           other=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- . ':!src' ':!workflow' ':!scripts' \
                   | awk '{s+=$1+$2} END {print s+0}')
+          nftests=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- workflow/tests \
+                  | awk '{s+=$1+$2} END {print s+0}')
+          other=$((other + nftests))
           warn=$(awk '/^pr_lines_warn:/ {print $2}' ci/gates.yaml)
           fail=$(awk '/^pr_lines_fail:/ {print $2}' ci/gates.yaml)
           echo "changed code lines: $lines (warn $warn, fail $fail); other lines (not gated): $other"
