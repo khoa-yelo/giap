@@ -63,7 +63,7 @@ def test_m4inputs_fields() -> None:
     assert names == {
         "replicons", "genes", "xrefs", "annotation_source", "tus", "layers", "regions",
         "region_genes", "peptides", "abundance", "peptide_hits", "protein_hits", "unmapped",
-        "id_map",
+        "id_map", "abundance_scale",  # abundance_scale: M4-06 review decision 1
     }  # fmt: skip
 
 
