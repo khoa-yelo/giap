@@ -92,9 +92,8 @@ _FILES: dict[str, str] = {k: f"{k}.parquet" for k in CONTRACT_TYPES}
 
 
 def _uniop_lookup(pairs: pd.DataFrame) -> dict[tuple[str, str], float]:
-    col = "uniop_p" if "uniop_p" in pairs.columns else "p"
     out: dict[tuple[str, str], float] = {}
-    for a, b, p in zip(pairs["gene_a"], pairs["gene_b"], pairs[col], strict=True):
+    for a, b, p in zip(pairs["gene_a"], pairs["gene_b"], pairs["uniop_p"], strict=True):
         out[(a, b)] = out[(b, a)] = float(p)
     return out
 
@@ -116,12 +115,28 @@ def layers_frame(layout: Layout) -> pd.DataFrame:
         regions.setdefault(g, []).append(str(rid))
     pm = _uniop_lookup(layout.operon_pairs)
     contig, strand = genes["contig"].tolist(), genes["strand"].tolist()
+    circular = set(layout.replicons.loc[layout.replicons["topology"] == "circular", "contig"])
     n = len(tags)
+    # genome-order neighbours on the same contig; on a circular contig of > 2 genes the first and
+    # last genes are neighbours too (the wrap pair, M2-12)
+    up_of: list[int | None] = [i - 1 if i > 0 and contig[i - 1] == contig[i] else None
+                               for i in range(n)]  # fmt: skip
+    down_of: list[int | None] = [i + 1 if i + 1 < n and contig[i + 1] == contig[i] else None
+                                 for i in range(n)]  # fmt: skip
+    lo = 0
+    while lo < n:
+        hi = lo
+        while hi + 1 < n and contig[hi + 1] == contig[lo]:
+            hi += 1
+        if contig[lo] in circular and hi - lo + 1 > 2:
+            up_of[lo], down_of[hi] = hi, lo
+        lo = hi + 1
     prev = np.full(n, np.nan)
     nxt = np.full(n, np.nan)
     for i in range(n):
-        up = pm.get((tags[i - 1], tags[i])) if i > 0 and contig[i - 1] == contig[i] else None
-        down = pm.get((tags[i], tags[i + 1])) if i + 1 < n and contig[i + 1] == contig[i] else None
+        u, d = up_of[i], down_of[i]
+        up = None if u is None else pm.get((tags[u], tags[i]))
+        down = None if d is None else pm.get((tags[i], tags[d]))
         first, second = (up, down) if strand[i] == "+" else (down, up)
         prev[i] = np.nan if first is None else first
         nxt[i] = np.nan if second is None else second

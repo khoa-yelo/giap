@@ -71,6 +71,8 @@ def real_trna(i: int) -> Parts:
 
 
 def trna_picks(rng: np.random.Generator, n: int) -> list[int]:
+    if n <= 0:
+        return []
     k = len(bundled()[1])
     return [int(x) for x in np.concatenate([rng.permutation(k) for _ in range(-(-n // k))])[:n]]
 

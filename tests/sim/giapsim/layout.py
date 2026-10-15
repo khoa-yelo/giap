@@ -94,6 +94,8 @@ class LayoutConfig:
     # amino-acid composition as (residue, weight) pairs (a mapping passed in is converted)
     aa_composition: tuple[tuple[str, float], ...] = tuple(ECOLI_AA.items())
     short_genes_in: str | None = None  # attack null 2: region type whose genes are drawn short
+    # rotate chr1 so one gene, its TU and one block region straddle the origin (unwrapped, §6.5)
+    origin_crossing: bool = False
 
     def __post_init__(self) -> None:
         for name in ("plasmids", "linear_contigs", "regions", "uniop_beta_in", "uniop_beta_out"):
@@ -108,9 +110,10 @@ class Layout:
     """Frames of a layout (internal representation: 0-based half-open, Python list cells).
 
     ``replicons``, ``genes``, ``tus``, ``regions``, ``region_genes`` and ``xrefs`` carry the
-    contract columns (C1, C2, C5, C7, C8, C3); ``operon_pairs`` has ``gene_a`` (earlier in genome
-    order), ``gene_b``, ``uniop_p``; ``truth`` has one row per gene (``locus_tag``, ``tu_id``,
-    ``region_ids`` and the ``region_effect`` slot filled by the expression simulator).
+    contract columns (C1, C2, C5, C7, C8, C3; ``genes`` also the optional ``amr``);
+    ``operon_pairs`` has ``gene_a`` (earlier in genome order; the last gene for the wrap pair of a
+    circular replicon), ``gene_b``, ``uniop_p``; ``truth`` has one row per gene (``locus_tag``,
+    ``tu_id``, ``region_ids`` and the ``region_effect`` slot filled by the expression simulator).
     """
 
     replicons: pd.DataFrame
@@ -262,42 +265,78 @@ def _region_frames(
     return regions, region_genes
 
 
+def _span(
+    idx: list[int], start: np.ndarray, end: np.ndarray, length: int | None
+) -> tuple[list[int], int, int]:
+    """Genes ``idx`` (one run of consecutive genes of a contig, possibly wrapping on a circular one
+    of ``length`` bp) in circular genome order with the run's unwrapped bounds (§6.5)."""
+    idx = sorted(idx)
+    brk = [k for k in range(1, len(idx)) if idx[k] != idx[k - 1] + 1]
+    if not brk or length is None:
+        return idx, int(start[idx].min()), int(end[idx].max())
+    hi, lo = idx[brk[0] :], idx[: brk[0]]
+    return hi + lo, int(start[hi].min()), max(int(end[hi].max()), int(end[lo].max()) + length)
+
+
 def _tus_frame(
     tags: list[str], contig: list[str], start: np.ndarray, end: np.ndarray,
-    strand: list[str], tu_index: list[int],
+    strand: list[str], tu_index: list[int], circular: Mapping[str, int],
 ) -> tuple[pd.DataFrame, list[str]]:  # fmt: skip
-    """C5 from genes in genome order and their TU index (TUs consecutive, numbered in order)."""
+    """C5 from genes in genome order and their TU index (TUs consecutive, wrapping across the
+    origin only on contigs in ``circular`` (contig -> length); numbered by contig then start)."""
     members: dict[int, list[int]] = {}
     for i, t in enumerate(tu_index):
         members.setdefault(t, []).append(i)
+    first_of: dict[str, int] = {}
+    for i, c in enumerate(contig):
+        first_of.setdefault(c, i)
+    spans = []
+    for idx in members.values():
+        c = contig[idx[0]]
+        run, s0, e0 = _span(idx, start, end, circular.get(c))
+        spans.append((first_of[c], s0, run[0], c, e0, run))
+    spans.sort(key=lambda r: r[:3])
     rows = []
     gene_tu = [""] * len(tags)
-    for k, t in enumerate(sorted(members, key=lambda t: members[t][0])):
-        idx = members[t]
+    for k, (_, s0, _, c, e0, run) in enumerate(spans):
         tid = f"TU_{k + 1}"
-        for i in idx:
+        for i in run:
             gene_tu[i] = tid
-        s = strand[idx[0]]
-        order = idx if s == "+" else idx[::-1]
-        rows.append((tid, contig[idx[0]], int(start[idx].min()), int(end[idx].max()), s,
-                     [tags[i] for i in order]))  # fmt: skip
+        s = strand[run[0]]
+        order = run if s == "+" else run[::-1]
+        rows.append((tid, c, s0, e0, s, [tags[i] for i in order]))
     tus = pd.DataFrame(rows, columns=list(CONTRACT_COLUMNS["tus"]))
     return tus.astype({"start": "int64", "end": "int64"}), gene_tu
 
 
-def _pairs_frame(
+def _pair_rows(
     tags: list[str], contig: list[str], strand: list[str], gene_tu: list[str],
-    p_of: Any,
-) -> pd.DataFrame:  # fmt: skip
-    """Every adjacent same-strand pair in genome order (no wrap pair); ``p_of(same_tu)`` arrays."""
-    a, b, same = [], [], []
-    for i in range(len(tags) - 1):
-        if contig[i] == contig[i + 1] and strand[i] == strand[i + 1]:
-            a.append(tags[i])
-            b.append(tags[i + 1])
-            same.append(gene_tu[i] == gene_tu[i + 1])
-    p = p_of(np.array(same, dtype=bool))
-    return pd.DataFrame({"gene_a": a, "gene_b": b, "uniop_p": np.asarray(p, dtype=float)})
+    circular: Mapping[str, int],
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:  # fmt: skip
+    """Adjacent same-strand pairs in genome order, plus (after each circular contig's pairs) the
+    wrap pair (last gene, first gene) when both share a strand (M2-12); with ``same`` (same TU)
+    and ``wrap`` masks. ``uniop_p`` is left to the caller."""
+    a, b, same, wrap = [], [], [], []
+    n = len(tags)
+    lo = 0
+    while lo < n:
+        hi = lo
+        while hi + 1 < n and contig[hi + 1] == contig[lo]:
+            hi += 1
+        for i in range(lo, hi):
+            if strand[i] == strand[i + 1]:
+                a.append(tags[i])
+                b.append(tags[i + 1])
+                same.append(gene_tu[i] == gene_tu[i + 1])
+                wrap.append(False)
+        if contig[lo] in circular and hi > lo and strand[hi] == strand[lo]:
+            a.append(tags[hi])
+            b.append(tags[lo])
+            same.append(gene_tu[hi] == gene_tu[lo])
+            wrap.append(True)
+        lo = hi + 1
+    frame = pd.DataFrame({"gene_a": a, "gene_b": b, "uniop_p": np.zeros(len(a))})
+    return frame, np.array(same, dtype=bool), np.array(wrap, dtype=bool)
 
 
 def _xrefs(rng: np.random.Generator, tags: list[str]) -> pd.DataFrame:
@@ -421,7 +460,8 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
     partial = np.zeros(total, dtype=bool)
     g = 0
     for r, (_cid, n, topology, _kind) in enumerate(reps):
-        cursor = int(gap_inter[total + r])
+        # origin_crossing: chr1 starts at 0 so the old origin becomes an ordinary inter-TU gap
+        cursor = 0 if cfg.origin_crossing and r == 0 else int(gap_inter[total + r])
         for j in range(g, g + n):
             if j > g:
                 same = tu_index[j] == tu_index[j - 1]
@@ -432,6 +472,19 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
         if topology == "linear":
             partial[g] = partial[g + n - 1] = True
         g += n
+    crosses = np.zeros(total, dtype=bool)
+    if cfg.origin_crossing:
+        perm, start, end, crosses = _rotate_chr1(rng, placed, cfg.n_genes_chromosome, start, end,
+                                                 span, lengths[0])  # fmt: skip
+        inv = np.empty(total, dtype=np.int64)
+        inv[perm] = np.arange(total)
+        pl = perm.tolist()
+        strand = [strand[i] for i in pl]
+        tu_index = [tu_index[i] for i in pl]
+        ftype, hypothetical, partial = ftype[perm], hypothetical[perm], partial[perm]
+        nts, aas = [nts[i] for i in pl], [aas[i] for i in pl]
+        start_codon = [start_codon[i] for i in pl]
+        placed = [(spec, sorted(int(inv[i]) for i in m)) for spec, m in placed]
 
     tags = [f"GSIM_{5 * (i + 1):05d}" for i in range(total)]
     product = ["hypothetical protein" if h else f"simulated protein {i + 1}"
@@ -447,7 +500,7 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
             "end": end,
             "strand": strand,
             "partial": partial,
-            "crosses_origin": np.zeros(total, dtype=bool),
+            "crosses_origin": crosses,
             "hypothetical": hypothetical,
             "aa": pd.Series(aas, dtype=object),
             "nt": nts,
@@ -460,7 +513,8 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
         columns=list(CONTRACT_COLUMNS["replicons"]),
     ).astype({"length": "int64"})
 
-    tus, gene_tu = _tus_frame(tags, contig, start, end, strand, tu_index)
+    circular = {c: lengths[i] for i, (c, _, topo, _) in enumerate(reps) if topo == "circular"}
+    tus, gene_tu = _tus_frame(tags, contig, start, end, strand, tu_index, circular)
     bi, bo = cfg.uniop_beta_in, cfg.uniop_beta_out
 
     def p_of(same: np.ndarray) -> np.ndarray:
@@ -468,16 +522,18 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
         p_out = rng.beta(bo[0], bo[1], size=len(same))
         return np.where(same, p_in, p_out)
 
-    pairs = _pairs_frame(tags, contig, strand, gene_tu, p_of)
+    pairs, same, wrap = _pair_rows(tags, contig, strand, gene_tu, circular)
+    uniop_p = np.zeros(len(pairs))
+    uniop_p[~wrap] = p_of(same[~wrap])
 
     region_rows: list[tuple[str, str, list[str], int | None, int | None]] = []
     for spec, members in placed:
-        names = [tags[i] for i in members]
         if spec.scattered:
+            names = [tags[i] for i in members]
             region_rows.append((spec.region_type, "chr1", names, None, None))
         else:
-            region_rows.append((spec.region_type, "chr1", names, int(start[members].min()),
-                                int(end[members].max())))  # fmt: skip
+            run, s0, e0 = _span(members, start, end, lengths[0])
+            region_rows.append((spec.region_type, "chr1", [tags[i] for i in run], s0, e0))
     offset = 0
     for cid, n, _, kind in reps:
         if kind == "plasmid":
@@ -486,8 +542,38 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
         offset += n
     regions, region_genes = _region_frames(region_rows, contig_rank, rng)
     xrefs = _xrefs(rng, tags)
+    uniop_p[wrap] = p_of(same[wrap])  # drawn last: the other frames keep their pre-wrap draws
+    pairs["uniop_p"] = uniop_p
+    amr_ids = set(regions.loc[regions["region_type"] == "amr", "region_id"])
+    amr_genes = set(region_genes.loc[region_genes["region_id"].isin(amr_ids), "locus_tag"])
+    genes["amr"] = genes["locus_tag"].isin(amr_genes).astype(bool)
     return Layout(replicons, genes, tus, pairs, regions, region_genes,
                   _truth(tags, gene_tu, region_genes), xrefs)  # fmt: skip
+
+
+def _rotate_chr1(
+    rng: np.random.Generator, placed: list[tuple[RegionSpec, list[int]]], n: int,
+    start: np.ndarray, end: np.ndarray, span: np.ndarray, length: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:  # fmt: skip
+    """Rotate chr1 (genes ``0..n-1``) so the origin falls in the middle of one gene of a block
+    region (any gene without block regions): returns the new-to-old gene permutation and the
+    permuted ``start``, ``end`` and ``crosses_origin`` arrays (crossing gene unwrapped, last)."""
+    blocks = [m for spec, m in placed if not spec.scattered]
+    if blocks:
+        members = blocks[int(rng.integers(len(blocks)))]
+        k = members[int(rng.integers(len(members)))]
+    else:
+        k = int(rng.integers(n))
+    cut = int(start[k]) + int(span[k]) // 2
+    total = len(start)
+    shift = np.where(start < cut, length - cut, -cut)
+    new_start, new_end = start.copy(), end.copy()
+    new_start[:n] = start[:n] + shift[:n]
+    new_end[:n] = end[:n] + shift[:n]
+    perm = np.concatenate([np.arange(k + 1, n), np.arange(0, k + 1), np.arange(n, total)])
+    crosses = np.zeros(total, dtype=bool)
+    crosses[:n] = new_end[:n] > length
+    return perm, new_start[perm], new_end[perm], crosses[perm]
 
 
 # --------------------------------------------------------------------------- M0 adapter
@@ -566,8 +652,11 @@ def layout_from_simulation(sim: Any) -> Layout:
         t = truth_tu.get(g) or f"\0{g}"  # genes without a TU: singletons
         tu_index.append(key.setdefault(f"{c}\0{t}", len(key)))
     start, end = genes["start"].to_numpy(), genes["end"].to_numpy()
-    tus, gene_tu = _tus_frame(tags, contig, start, end, strand, tu_index)
-    pairs = _pairs_frame(tags, contig, strand, gene_tu, lambda same: same.astype(float))
+    circular = {c: n for c, n, topo, _ in reps if topo == "circular"}
+    tus, gene_tu = _tus_frame(tags, contig, start, end, strand, tu_index, circular)
+    pairs, same, _ = _pair_rows(tags, contig, strand, gene_tu, circular)
+    pairs["uniop_p"] = same.astype(float)
+    genes["amr"] = np.zeros(len(genes), dtype=bool)  # no AMR regions until M2 extends M0
     replicons = pd.DataFrame(reps, columns=list(CONTRACT_COLUMNS["replicons"]))
     regions, region_genes = _empty_regions()
     xrefs = pd.DataFrame(xref_rows, columns=list(CONTRACT_COLUMNS["xrefs"]))
