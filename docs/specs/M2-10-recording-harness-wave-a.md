@@ -109,3 +109,5 @@ tests/data/recorded/bactermfinder/<git12>/sim100k/…
 2. GBFF and FAA are committed for all three genomes (each < 5 MB gzipped; G17), overriding lead decision 4
    (GBFF only for sim100k).
 3. BacTermFinder (opt-in, env not built) and record_fixture.py examples 1–3 are deferred (backlog).
+4. TE6 (§13) requires that one of Bakta's oriC calls on K-12 is the true origin next to mnmG/mioC; the
+   full DB also calls a DnaA-box cluster next to dnaA (3,883,730–3,884,335), which is expected.
