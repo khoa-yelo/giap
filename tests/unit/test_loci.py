@@ -12,12 +12,14 @@ placements are assigned to the pseudogene (Q3)):
   G0 out of frame). The origin examples therefore use their own model (G0 alone); examples 1-9 and
   11-15 use the model without G0.
 * ``flags`` is a ``;``-separated string (as M3-10 writes it); the empty string or NA mean "no
-  flag"; order is not pinned. Flags already present on the input (``same_db``) are kept.
+  flag"; flags are joined in alphabetical order (lead decision 1). Flags already present on the
+  input (``same_db``, ``low_complexity``) are kept.
 * ``accepted`` rows carry M3-04 ``HIT_COLUMNS`` plus ``source``, ``placement_q`` and M3-10's
   ``flags``; tolerant hits are recognised by ``route == "tolerant"``. ``peptides`` carries
   ``peptide``, ``protein_ids`` (``;``-separated) and ``search_db``.
 * ``annotate_peptide_hits`` returns one row per input row (rows are matched here by peptide and
-  interval; output order is not pinned); ``gene`` is NA unless set; ``novel_candidate_id`` is NA.
+  interval); output rows are sorted by (peptide, contig, start, strand) (lead decision 1);
+  ``gene`` is NA unless set; ``novel_candidate_id`` is NA.
 * Frameshift ``blocks`` are ``start-end;start-end`` in genome coordinates (M3-08), listed by
   ascending coordinate.
 * The `nterm_extension` stop scan uses table 11 stops (TAA, TAG, TGA) read on the gene's strand;
@@ -631,10 +633,18 @@ MANY = [
 ]
 
 
-def _canon(df: pd.DataFrame) -> pd.DataFrame:
-    d = df.copy()
-    d["flags"] = [";".join(sorted(flags_of(x))) for x in d["flags"]]
-    return d.sort_values(["peptide", "contig", "start", "end", "strand"]).reset_index(drop=True)
+SORT_KEY = ["peptide", "contig", "start", "strand"]
+
+
+def _assert_canonical(df: pd.DataFrame) -> None:
+    """Lead decision 1: rows sorted by (peptide, contig, start, strand), flags alphabetical."""
+    keys = list(zip(*(df[c].tolist() for c in SORT_KEY), strict=True))
+    assert keys == sorted(keys), keys
+    for x in df["flags"]:
+        fl = [] if x is None or (not isinstance(x, str) and pd.isna(x)) else str(x).split(";")
+        fl = [f for f in fl if f]
+        assert fl == sorted(fl), x
+        assert len(fl) == len(set(fl)), x
 
 
 def test_deterministic_and_row_order_invariant() -> None:
@@ -642,6 +652,7 @@ def test_deterministic_and_row_order_invariant() -> None:
 
     p = peps(MANY, {"NT": G2}, search_db="same")
     a = annotate_peptide_hits(acc(MANY), MODEL, GENOME, p, "related")
+    _assert_canonical(a)
     b = annotate_peptide_hits(acc(MANY), MODEL, GENOME, p, "related")
     pd.testing.assert_frame_equal(a, b)
     rng = np.random.default_rng(14)
@@ -649,7 +660,45 @@ def test_deterministic_and_row_order_invariant() -> None:
         perm = [MANY[i] for i in rng.permutation(len(MANY))]
         c = annotate_peptide_hits(acc(perm), MODEL, GENOME, p.sample(frac=1.0, random_state=1),
                                   "related")  # fmt: skip
-        pd.testing.assert_frame_equal(_canon(a)[sorted(a.columns)], _canon(c)[sorted(c.columns)])
+        pd.testing.assert_frame_equal(a.reset_index(drop=True), c.reset_index(drop=True))
+
+
+def test_flags_joined_alphabetically() -> None:
+    from giap.mapping.loci import annotate_peptide_hits
+
+    rows = [
+        hit_row("ZZTOL", 130, 160, "+", route="tolerant", n_diff=1, diff_types="substitution",
+                flags="low_complexity"),
+        hit_row("ZZTOL", 4000, 4030, "+", route="tolerant", n_diff=1, diff_types="substitution",
+                flags="low_complexity"),
+        hit_row("AAORI", 9995, 10025, "-", route="tolerant", n_diff=1, diff_types="substitution"),
+        hit_row("MMNT", 70, 100, "+", flags="same_db"),
+    ]  # fmt: skip
+    p = peps(rows, {"MMNT": G2}, search_db="same")
+    p.loc[p["peptide"] != "MMNT", "search_db"] = "other"
+    out = annotate_peptide_hits(acc(rows), MODEL, GENOME, p, "related")
+    _assert_canonical(out)
+    got = [(r["peptide"], int(r["start"]), r["flags"]) for r in out.to_dict("records")]
+    assert got == [
+        ("AAORI", 9995, "origin_spanning;strain_difference"),
+        ("MMNT", 70, "engine_protein_mismatch;nterm_extension_evidence;same_db"),
+        ("ZZTOL", 130, "low_complexity;multi;strain_difference"),
+        ("ZZTOL", 4000, "low_complexity;multi;strain_difference"),
+    ]
+
+
+def test_rows_sorted_whatever_the_input_order() -> None:
+    from giap.mapping.loci import annotate_peptide_hits
+
+    rows = [
+        hit_row("B", 8240, 8270, "-"),
+        hit_row("A", 4000, 4030, "-"),
+        hit_row("A", 4000, 4030, "+"),
+        hit_row("A", 130, 160, "+"),
+    ]
+    out = annotate_peptide_hits(acc(rows), MODEL, GENOME, peps(rows), "related")
+    got = [(r["peptide"], int(r["start"]), r["strand"]) for r in out.to_dict("records")]
+    assert got == [("A", 130, "+"), ("A", 4000, "+"), ("A", 4000, "-"), ("B", 8240, "-")]
 
 
 def test_inputs_not_mutated() -> None:
@@ -740,10 +789,8 @@ def test_two_proteins_ignores_unassigned_rows() -> None:
 # --- timing guard (the benchmark of the acceptance criteria) -------------------------------
 
 
-@pytest.mark.slow
-def test_500k_hits_on_5mb_model_within_20s() -> None:
-    from giap.mapping.loci import annotate_peptide_hits
-
+def big_case() -> tuple[pd.DataFrame, GeneModel, dict[str, str], pd.DataFrame]:
+    """500,000 hits on a 5-Mb, ~4,500-gene model (shared with benchmarks/test_loci.py)."""
     rng = np.random.default_rng(5)
     n_len = 5_000_000
     reps = {"big": Replicon("big", n_len, "circular", "chromosome")}
@@ -755,12 +802,14 @@ def test_500k_hits_on_5mb_model_within_20s() -> None:
             break
         genes.append(cds(f"B_{k:05d}", "big", pos, pos + ln, "+" if k % 2 else "-"))
         pos += ln
-    genome = {"big": "".join(rng.choice(list("ACGT"), size=n_len))}
+    codes = rng.integers(0, 4, size=n_len, dtype=np.uint8)
+    genome = {"big": np.frombuffer(b"ACGT", dtype=np.uint8)[codes].tobytes().decode("ascii")}
     gm = GeneModel(reps, tuple(genes), ())
     n = 500_000
     starts = rng.integers(0, n_len - 60, size=n)
     strands = np.where(rng.random(n) < 0.5, "+", "-")
     pep_names = [f"P{i % 300_000:06d}" for i in range(n)]
+    frames = np.where(strands == "+", 1 + starts % 3, -(1 + ((n_len - starts - 30) % n_len) % 3))
     df = pd.DataFrame(
         {
             "peptide": pep_names,
@@ -774,10 +823,7 @@ def test_500k_hits_on_5mb_model_within_20s() -> None:
             "start": starts.astype("int64"),
             "end": (starts + 30).astype("int64"),
             "strand": strands,
-            "frame": [
-                frame_of(int(s), int(s) + 30, str(t), n_len)
-                for s, t in zip(starts, strands, strict=True)
-            ],
+            "frame": frames.astype("int64"),
             "route": "exact",
             "n_diff": 0,
             "diff_types": "",
@@ -790,8 +836,22 @@ def test_500k_hits_on_5mb_model_within_20s() -> None:
     p = pd.DataFrame({"peptide": sorted(set(pep_names))})
     p["protein_ids"], p["search_db"], p["source"] = None, "other", "database"
     p["is_decoy"], p["is_contaminant"] = False, False
+    return df, gm, genome, p
+
+
+def time_big_case(case: tuple[pd.DataFrame, GeneModel, dict[str, str], pd.DataFrame]) -> float:
+    from giap.mapping.loci import annotate_peptide_hits
+
+    df, gm, genome, p = case
     t0 = time.perf_counter()
     out = annotate_peptide_hits(df, gm, genome, p, "related")
     secs = time.perf_counter() - t0
-    assert len(out) == n
-    assert secs <= 20.0, f"500k hits took {secs:.1f} s (budget 20 s)"
+    assert len(out) == len(df)
+    return secs
+
+
+@pytest.mark.slow
+def test_500k_hits_loose_guard() -> None:
+    """Loose 10x guard; the 20 s budget itself lives in benchmarks/test_loci.py."""
+    secs = time_big_case(big_case())
+    assert secs <= 200.0, f"500k hits took {secs:.1f} s (10x the 20 s budget)"
