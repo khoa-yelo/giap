@@ -1,0 +1,2 @@
+# ostir_input.csv: record_tools_inputs.py ostir sim100k.json
+ostir -i ostir_input.csv -o ostir.csv -j 9 

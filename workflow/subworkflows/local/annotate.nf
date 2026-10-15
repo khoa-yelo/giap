@@ -158,7 +158,7 @@ workflow ANNOTATE {
     if (pc.rbs) {
         layers += [pre('rbs')]
     } else {
-        def oi = stepIn('ostir_input', [genes, kv('annotation_meta', pick(P, 'annotation_meta.json'))])
+        def oi = stepIn('ostir_input', [genes, kv('annotation_meta', pick(P, 'annotation_meta.json')), reps, kv('genome', genome)])
         OSTIR_INPUT(oi.files, oi.keys, ['ostir_input=ostir_input.csv'])
         def oin = pick(OSTIR_INPUT.out.outputs, 'ostir_input.csv')
         OSTIR(gid.combine(oin))

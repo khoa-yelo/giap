@@ -72,3 +72,10 @@ Sequence geometry (S = first start-codon base, E = interval end, 0-based):
 1. The spec names the id column `id`; OSTIR's documented CSV header may be `name`. **Proposed
    default:** write whatever header OSTIR 1.1.3 accepts (checked once with the env), map it back to
    `id` in GIAP; the recorded fixture fixes it.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted, incl. the M2-index change: `ostir_input` also takes
+   `genome` and `replicons` (annotate.nf `stepIn('ostir_input', [... reps, kv('genome', genome)])`);
+   registry = the regenerated workflow/tests/data/annotate/step_registry.json; `rbs.parquet` = the
+   precomputed `rbs` columns, rows in input order, genes without an OSTIR row left out (yecM in K-12 and
+   Nissle is the real example); start codon from the gene's input row.
