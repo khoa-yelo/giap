@@ -105,55 +105,75 @@ def _to_log2(values: pd.Series, scale: str) -> pd.Series:
     return pd.Series(np.log2(_positive(values).to_numpy()), index=values.index)
 
 
-def _c10_scale(abundance: pd.DataFrame, override: str | None) -> str:
-    if override is not None and override != "auto":
-        return override
+def resolve_c10_scale(
+    abundance: pd.DataFrame, configured: str | None, c10_scale: str | None
+) -> str:
+    """Measurement scale of the C10 values (PR #82 lead decision 1): an explicit
+    ``abundance.scale`` (not ``auto``) first, then the preflight scale (``c10_scale``,
+    ``M4Inputs.abundance_scale``), else ValueError. C10 has no ``scale`` column; an optional one
+    carrying more than one value raises when ``abundance.scale`` is ``auto``."""
+    if configured is not None and configured != "auto":
+        return configured
     if "scale" in abundance.columns:
         scales = set(abundance["scale"].dropna().astype(str))
-        if len(scales) == 1:
-            return str(scales.pop())
-        if not scales and abundance.empty:
-            return "log2"
-        raise ValueError(f"C10 abundance: one measurement scale expected, got {sorted(scales)}")
-    raise ValueError("C10 abundance: scale unknown (no 'scale' column and abundance.scale=auto)")
+        if len(scales) > 1:
+            raise ValueError(f"C10 abundance: one measurement scale expected, got {sorted(scales)}")
+    if c10_scale is not None and c10_scale != "auto":
+        return c10_scale
+    raise ValueError("C10 abundance: scale unknown (abundance.scale=auto and no preflight scale)")
 
 
 def _flags_of(cell: Any) -> list[str]:
     if cell is None or (isinstance(cell, float) and math.isnan(cell)):
         return []
     if isinstance(cell, str):
-        return [cell]
+        return [f for f in cell.split(";") if f]
     return [str(f) for f in cell]
+
+
+def _cross_strain_proteins(protein_hits: pd.DataFrame | None) -> frozenset[str]:
+    """Proteins with ``cross_strain_protein`` on any of their C12 hit rows (M3-16 flags)."""
+    if protein_hits is None or protein_hits.empty or "flags" not in protein_hits.columns:
+        return frozenset()
+    return frozenset(
+        str(p)
+        for p, f in zip(protein_hits["protein_id"], protein_hits["flags"], strict=True)
+        if "cross_strain_protein" in _flags_of(f)
+    )
 
 
 def protein_abundance(
     abundance: pd.DataFrame,
     pmap: pd.DataFrame,
     declared_type: str,
-    scale: str | None = None,
+    scale: str,
+    protein_hits: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """C10 values per gene through the protein -> gene map: ``locus_tag``, ``value_log2`` (the
     largest over the gene's proteins), ``value_raw`` (that protein's input value), ``n_proteins``
-    and ``flags`` (``two_proteins_one_gene``, ``cross_strain_protein``). ``scale`` overrides the
-    C10 ``scale`` column (``abundance.scale`` when not ``auto``)."""
+    and ``flags`` (``two_proteins_one_gene``, ``cross_strain_protein``). ``scale`` is the resolved
+    measurement scale (``resolve_c10_scale``); ``cross_strain_protein`` is set when a protein mapped
+    by ``protein_hit`` carries that flag in the C12 ``protein_hits``. +-inf values become NA."""
     if declared_type not in (*MOLAR_TYPES, "maxlfq", "intensity", "unknown"):
         raise ValueError(f"unknown abundance type {declared_type!r}")
-    sc = _c10_scale(abundance, scale)
+    if scale not in ("log2", "linear"):
+        raise ValueError(f"unknown C10 measurement scale {scale!r}")
+    cross = _cross_strain_proteins(protein_hits)
     prot = pd.DataFrame(
         {
             "protein_id": abundance["protein_id"].astype(str).to_numpy(),
             "value_raw": pd.to_numeric(abundance["value"], errors="coerce").to_numpy("float64"),
         }
     )
-    prot["value_log2"] = _to_log2(prot["value_raw"], sc).to_numpy()
+    prot["value_log2"] = _to_log2(prot["value_raw"], scale).to_numpy()
     pm = pmap.loc[pmap["gene"].notna()]
     pm = pd.DataFrame(
         {
             "protein_id": pm["protein_id"].astype(str).to_numpy(),
             "locus_tag": pm["gene"].astype(str).to_numpy(),
             "cross": [
-                m == "protein_hit" and "cross_strain_protein" in _flags_of(f)
-                for m, f in zip(pm["method"], pm["flags"], strict=True)
+                str(m) == "protein_hit" and str(p) in cross
+                for p, m in zip(pm["protein_id"], pm["method"], strict=True)
             ],
         }
     )
@@ -193,15 +213,26 @@ def _fill_statistic(observed: np.ndarray, policy: str) -> float | None:
 
 
 def impute(
-    log2: pd.Series, detected: pd.Series, policy: AbundanceMissing
+    log2: pd.Series,
+    detected: pd.Series,
+    policy: AbundanceMissing,
+    eligible: pd.Series | None = None,
 ) -> tuple[pd.Series, pd.Series, float | None]:
     """Fill missing ``log2`` of ``detected`` genes with the policy statistic over the observed
-    values of detected genes (median, mean, min, zero = min - 1, exclude = no fill). Returns
-    (filled log2, imputed mask, fill value); undetected genes are never filled."""
+    values of detected ``eligible`` (non-partial; default all) genes (median, mean, min,
+    zero = min - 1, exclude = no fill). Detected partial genes are filled too (PR #82 lead
+    decision 5). Returns (filled log2, imputed mask, fill value); undetected genes are never
+    filled. +-inf counts as missing."""
     values = pd.to_numeric(log2, errors="coerce").astype("float64")
+    values = values.where(np.isfinite(values))
     det = detected.reindex(values.index).fillna(False).astype(bool)
+    elig = (
+        pd.Series(True, index=values.index)
+        if eligible is None
+        else eligible.reindex(values.index).fillna(True).astype(bool)
+    )
     missing = values.isna()
-    fill = _fill_statistic(values[det & ~missing].to_numpy(), policy)
+    fill = _fill_statistic(values[det & elig & ~missing].to_numpy(), policy)
     mask = det & missing if fill is not None else pd.Series(False, index=values.index)
     filled = values.where(~mask, fill if fill is not None else math.nan)
     return filled, mask.astype(bool), fill
@@ -240,10 +271,15 @@ def gene_abundance(
     pmap: pd.DataFrame,
     cfg: GiapConfig,
     policy: AbundanceMissing | None = None,
+    *,
+    c10_scale: str | None = None,
+    protein_hits: pd.DataFrame | None = None,
 ) -> AbundanceResult:
     """§9.3 abundance columns, one row per C2 gene in ``genes`` order. ``detection`` is the M4-12
     ``Detection`` (only ``.table``: locus_tag, detected is read); ``policy`` overrides
-    ``abundance.missing`` (sensitivity reruns)."""
+    ``abundance.missing`` (sensitivity reruns); ``c10_scale`` is the preflight C10 scale
+    (``M4Inputs.abundance_scale``) and ``protein_hits`` the C12 hits (``cross_strain_protein``).
+    Partial genes stay out of the fill statistic but, when detected, are filled."""
     conf = cfg.abundance
     pol: AbundanceMissing = policy if policy is not None else conf.missing
     tags = genes["locus_tag"].astype(str)
@@ -261,7 +297,8 @@ def gene_abundance(
         a_type, a_scale = str(conf.method), "molar"
     elif abundance is not None:
         source = "protein_table"
-        pr = protein_abundance(abundance, pmap, conf.type, conf.scale)
+        sc = resolve_c10_scale(abundance, conf.scale, c10_scale)
+        pr = protein_abundance(abundance, pmap, conf.type, sc, protein_hits)
         pr = pr.set_index("locus_tag").reindex(idx)
         raw = pr["value_raw"].astype("float64")
         log2 = pr["value_log2"].astype("float64")
@@ -276,8 +313,10 @@ def gene_abundance(
     det = pd.Series(det_tab["detected"].astype(bool).to_numpy(), index=det_tab["locus_tag"])
     det = det.reindex(idx).fillna(False).astype(bool)
     if "partial" in genes.columns:
-        det &= ~genes["partial"].astype(bool).to_numpy()
-    filled, mask, fill = impute(log2, det, pol)
+        elig = pd.Series(~genes["partial"].astype(bool).to_numpy(), index=idx)
+    else:
+        elig = pd.Series(True, index=idx)
+    filled, mask, fill = impute(log2, det, pol, elig)
     if fill is None and pol != "exclude" and bool(det.any()):
         _log.warning("no_observed_abundance: no detected gene has an observed abundance")
     imputed = mask.to_numpy(bool)
