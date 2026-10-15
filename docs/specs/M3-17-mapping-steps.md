@@ -77,3 +77,14 @@ def select_queries(peptides: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...
    not need their genomic placement.
 3. `input.peptide_source = auto` with no per-row `source`: **Proposed default:** `database` when
    the table has `q_value` or `pep`, else `denovo` — if M1-12 has not already fixed this.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted (root keys `genome`/`peptides`/`bakta_json`; intermediate keys
+   named after files; Q3 per table; q at the cut-off is mapped; `c_assumed` flag + WARNING; shuffle decoys
+   on the `sixframe_index` stream; MAPPING subworkflow with 5 inputs).
+2. The 20 s timing check goes to benchmarks/ (implementer adds `benchmarks/test_mapping_steps_bench.py`).
+3. Test load: the full suite and calibration run on Slurm; if the fast suite on GitHub CI exceeds its budget
+   because of the chain runs, the implementer reports it and the test-author moves shared chain runs into a
+   module-scoped fixture (follow-up).
+4. If the work exceeds 800 gated lines, split: (a) steps + local-executor staging, (b) MAPPING subworkflow —
+   tell the lead before splitting.
