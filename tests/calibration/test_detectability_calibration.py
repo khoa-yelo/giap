@@ -19,14 +19,15 @@ D1  Cross-fitted slope (the §8.4 gate). Data: M4-07 layout (2,000 chromosome ge
     through ``calibrate``: a mean-in-interval criterion is none of level/uniform/fdr/fwer. Under
     ``--shard`` it runs in the shard holding replicate 0 only (whole R there); under ``--merge``
     confirmation it is skipped.
-D2  Equal-count bins are honest under perfect calibration. p_i = expit(N(0, 1.5²)), d_i ~
-    Bernoulli(p_i), n = 20,000 (example 6 design). From the 10 ``calibration_diagnostics`` bins,
-    H = Σ_b n_b² (observed_rate_b - mean_p_b)² / Σ_{i∈b} p_i(1 - p_i) (variances from the oracle's
-    binning of the same p; bins depend on p only) ~ χ²₁₀; replicate value = χ²₁₀ upper tail of H.
-    ``calibrate``: KS uniformity and the level bound at every alpha in ``levels``.
-D3  ``calibration_slope`` is the recalibration MLE: same data, z = (slope - 1)/SE₁ with SE from
-    the Fisher information at (intercept 0, slope 1); two-sided normal p. Uniform + level.
-D4  Same for ``calibration_intercept``: z = intercept/SE₀. Uniform + level.
+D2  One Bonferroni check under perfect calibration (lead decision 4 after the statistician's
+    review: D2-D4 merged to free false-alarm budget). p_i = expit(N(0, 1.5²)), d_i ~ Bernoulli(p_i),
+    n = 20,000 (example 6 design). Three p-values per replicate from ``calibration_diagnostics``:
+    (a) bins: H = Σ_b n_b² (observed_rate_b - mean_p_b)² / Σ_{i∈b} p_i(1 - p_i) (variances from the
+    oracle's binning of the same p; bins depend on p only) ~ χ²₁₀, p = χ²₁₀ upper tail of H;
+    (b) slope: z = (slope - 1)/SE₁, SE from the Fisher information at (intercept 0, slope 1);
+    (c) intercept: z = intercept/SE₀; (b), (c) two-sided normal. Replicate value
+    min(1, 3 · min(p_a, p_b, p_c)) (Bonferroni; conservative, so level only). ``calibrate``: the
+    level bound at every alpha in ``levels``.
 """
 
 from __future__ import annotations
@@ -93,14 +94,6 @@ def _memo(
     return wrapped
 
 
-def _gate(stream: str, full: bool, fn: Callable[[np.random.Generator], float]) -> None:
-    R = C.replicates(SUITE, full)
-    statuses = [C.calibrate(SUITE, "uniform", 0.0, fn, R, stream=stream)["status"]]
-    for a in C.load_tolerances().levels:
-        statuses.append(C.calibrate(SUITE, "level", a, fn, R, stream=stream)["status"])
-    assert "fail" not in statuses, (stream, statuses)
-
-
 # ----------------------------------------------------------------------------- D1
 
 
@@ -164,10 +157,10 @@ def test_d1_mean_cross_fitted_slope_in_tolerance(full: bool, tolerances: dict[st
     assert ok, f"mean slope {mean:.4f} outside [{lo}, {hi}]; slopes {np.round(slopes, 3)}"
 
 
-# ----------------------------------------------------------------------------- D2-D4
+# ----------------------------------------------------------------------------- D2
 
 
-def _perfect(rng: np.random.Generator) -> dict[str, float]:
+def _perfect(rng: np.random.Generator) -> float:
     p = expit(rng.normal(0.0, 1.5, N_PERFECT))
     d = (rng.random(N_PERFECT) < p).astype(int)
     diag = _mod().calibration_diagnostics(d, p)
@@ -179,28 +172,21 @@ def _perfect(rng: np.random.Generator) -> dict[str, float]:
     se0, se1 = O.recalibration_se_at_truth(p)
     slope = _overall(diag, "calibration_slope")
     icpt = _overall(diag, "calibration_intercept")
-    return {
-        "hl": float(stats.chi2.sf(h, 10)),
-        "slope": float(2 * stats.norm.sf(abs(slope - 1.0) / se1)),
-        "intercept": float(2 * stats.norm.sf(abs(icpt) / se0)),
-    }
+    ps = (
+        float(stats.chi2.sf(h, 10)),
+        float(2 * stats.norm.sf(abs(slope - 1.0) / se1)),
+        float(2 * stats.norm.sf(abs(icpt) / se0)),
+    )
+    return min(1.0, 3.0 * min(ps))
 
 
-def _check(stream: str, full: bool, key: str) -> None:
+@pytest.mark.parametrize("full", MODES)
+def test_d2_bonferroni_bins_slope_intercept_under_perfect_calibration(full: bool) -> None:
+    stream = "detectability.perfect_bonferroni"
+    R = C.replicates(SUITE, full)
     fn = _memo(stream, _perfect)
-    _gate(stream, full, lambda rng: float(fn(rng)[key]))
-
-
-@pytest.mark.parametrize("full", MODES)
-def test_d2_bins_chi2_under_perfect_calibration(full: bool) -> None:
-    _check("detectability.perfect_bins", full, "hl")
-
-
-@pytest.mark.parametrize("full", MODES)
-def test_d3_slope_wald_under_perfect_calibration(full: bool) -> None:
-    _check("detectability.perfect_slope", full, "slope")
-
-
-@pytest.mark.parametrize("full", MODES)
-def test_d4_intercept_wald_under_perfect_calibration(full: bool) -> None:
-    _check("detectability.perfect_intercept", full, "intercept")
+    statuses = [
+        C.calibrate(SUITE, "level", a, fn, R, stream=stream)["status"]
+        for a in C.load_tolerances().levels
+    ]
+    assert "fail" not in statuses, (stream, statuses)
