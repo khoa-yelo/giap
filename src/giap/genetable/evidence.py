@@ -9,7 +9,9 @@ C11 ``best_q_input``; ``nterm_extension`` and ``cterm_extension`` placements are
 ``abundance_eligible``; contaminant peptides passing the five conditions are accepted and carried
 to the gene row as the boolean ``contaminant_evidence`` (and ``is_contaminant`` on accepted rows).
 When a (gene, peptide) pair has several accepted placements the representative row is the exact
-one first, then the leftmost. Everything here is pure and vectorised.
+one first, then the leftmost; every accepted placement of the pair is kept in its ``placements``
+column and ``coverage_frac`` is the union of all accepted placements of the gene (review decision
+5). Everything here is pure and vectorised.
 """
 
 from __future__ import annotations
@@ -19,10 +21,14 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from giap.genetable import contract
+
 if TYPE_CHECKING:
     from giap.config import GiapConfig
 
-ASSIGNING_CLASSES = ("cds_inframe", "sorf", "nterm_extension", "cterm_extension", "pseudogene")
+# The M4-06 assigning classes plus ``pseudogene``, which the contract lets carry a gene and which
+# assigns for detection (lead decision 1); derived from the contract, not duplicated.
+ASSIGNING_CLASSES: tuple[str, ...] = (*contract.ASSIGNING_CLASSES, "pseudogene")
 EXTENSION_CLASSES = ("nterm_extension", "cterm_extension")
 ACCEPTED_COLUMNS = (
     "gene",
@@ -41,6 +47,16 @@ ACCEPTED_COLUMNS = (
     "crosses_origin",
     "is_contaminant",
 )
+# Every accepted placement of the pair as sorted tuples of ``_PLACEMENT_FIELDS`` (decision 5).
+PLACEMENTS_COLUMN = "placements"
+_PLACEMENT_FIELDS: dict[str, Any] = {
+    "contig": str,
+    "start": "int64",
+    "end": "int64",
+    "route": str,
+    "uniqueness": str,
+    "locus_class": str,
+}
 COUNT_COLUMNS = (
     "n_peptides_unique",
     "n_peptides_multi_identical",
@@ -106,7 +122,8 @@ def _c9_values(hits: pd.DataFrame, peptides: pd.DataFrame | None) -> pd.DataFram
 
 
 def _empty_accepted() -> pd.DataFrame:
-    df = pd.DataFrame({c: pd.Series([], dtype=object) for c in ACCEPTED_COLUMNS})
+    cols = (*ACCEPTED_COLUMNS, PLACEMENTS_COLUMN)
+    df = pd.DataFrame({c: pd.Series([], dtype=object) for c in cols})
     return df.astype(_DTYPES)
 
 
@@ -145,8 +162,29 @@ def accepted_peptides(
     )
     sel["_tol"] = sel["route"] != "exact"
     sel = sel.sort_values(["gene", "peptide", "_tol", "start", "end"], kind="mergesort")
+    fields = zip(*(sel[c].astype(t).tolist() for c, t in _PLACEMENT_FIELDS.items()), strict=True)
+    grouped: dict[tuple[str, str], set[tuple[Any, ...]]] = {}
+    for key, pl in zip(zip(sel["gene"], sel["peptide"], strict=True), fields, strict=True):
+        grouped.setdefault(key, set()).add(pl)
     sel = sel.drop_duplicates(["gene", "peptide"]).reset_index(drop=True)
-    return sel[list(ACCEPTED_COLUMNS)].astype(_DTYPES)
+    sel[PLACEMENTS_COLUMN] = [
+        tuple(sorted(grouped[k])) for k in zip(sel["gene"], sel["peptide"], strict=True)
+    ]
+    return sel[[*ACCEPTED_COLUMNS, PLACEMENTS_COLUMN]].astype(_DTYPES)
+
+
+def _placement_rows(accepted: pd.DataFrame) -> pd.DataFrame:
+    """One row per accepted placement (all of a pair's placements); else the accepted rows."""
+    if PLACEMENTS_COLUMN not in accepted.columns or accepted.empty:
+        return accepted
+    ex = accepted[PLACEMENTS_COLUMN].explode().dropna()
+    if ex.empty:
+        return accepted
+    fields = list(_PLACEMENT_FIELDS)
+    rest = [c for c in accepted.columns if c not in (*fields, PLACEMENTS_COLUMN)]
+    out = accepted.loc[ex.index, rest].reset_index(drop=True)
+    parts = pd.DataFrame(ex.tolist(), columns=fields).astype(_PLACEMENT_FIELDS)
+    return pd.concat([out, parts], axis=1)
 
 
 def _wrap(
@@ -224,6 +262,7 @@ def gene_evidence(
     tags = genes["locus_tag"].astype(str)
     pos = pd.Series(np.arange(n), index=tags.to_numpy())
     acc = accepted.astype({"gene": str, "peptide": str}) if len(accepted) else accepted
+    acc = _placement_rows(acc)
     true = pd.Series(True, index=acc.index)
     n_acc = _distinct(acc, true, pos, n)
     n_uni = _distinct(acc, acc["uniqueness"] == "unique", pos, n)
