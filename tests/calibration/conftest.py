@@ -40,6 +40,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "test_placement_fdr_genome.py": "placement",
         "test_placement_fdr_lists.py": "placement",
         "test_sim_v2_calibration.py": "missed_operons",
+        "test_sim_proteomics_calibration.py": "gene_fdr",
         "test_stats_bootstrap_calibration.py": "regions",
         "test_stats_fdr_calibration.py": "gene_fdr",
         "test_stats_permutation_calibration.py": "regions",
