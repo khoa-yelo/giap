@@ -1132,7 +1132,15 @@ def test_contaminant_library_is_not_vendored() -> None:
         dirs[:] = [d for d in dirs if d not in skip]
         hits += [Path(root, n) for n in names if "contaminant" in n.lower()
                  and n.lower().endswith((".fasta", ".fa", ".faa", ".fasta.gz"))]  # fmt: skip
-    assert hits == [], hits
+
+    # Hand-written test excerpts (a few records) are fine; the real library has 381 records (R11).
+    def n_records(path: Path) -> int:
+        if path.suffix == ".gz":
+            return 10**6
+        return path.read_text(encoding="utf-8", errors="replace").count(">")
+
+    vendored = [h for h in hits if n_records(h) > 20]
+    assert vendored == [], vendored
 
 
 def test_giap_setup_sbatch_installs_the_resources() -> None:
