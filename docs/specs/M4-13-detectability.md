@@ -131,3 +131,21 @@ constant fallback, the calibration diagnostics and the simulation evidence (slop
    `penalty="l2"`); fits under `threadpoolctl.threadpool_limits(1)` (31 s → 3 s; threadpoolctl is an
    sklearn dependency — declare it in pyproject at the next lock update, backlog); rows sorted by
    locus_tag internally.
+
+## Lead decisions after code review (PR #83, changes requested)
+10. Inputs are the real contracts: covariates as returned by M4-10 `covariate_table` and TUs as in C6
+    (`locus_tag` and `tu_id` as COLUMNS) are accepted as-is (or the function takes a `locus_tag` column);
+    duplicate locus_tags or genes missing from the covariates/TUs raise ValueError naming them (no
+    silent median fill, no silent singleton TUs). Tests on the real M4-10/M4-11/C6 tables. The docstring
+    says M4-11 `detected_2pep` needs NA masking of partial genes first.
+11. `_recalibration` returns NaN slope/intercept/CIs when the predicted logits are constant.
+12. `folds` larger than the number of TUs raises ValueError (not a bare `min()` crash); the constant
+    fallback (< 50 genes) is logged at WARNING and recorded in diagnostics.
+13. `diagnostics` columns have numeric dtypes for value/ci_low/ci_high.
+14. Tests kill the surviving mutants: inner C search must not see the held-out fold; inner folds from
+    the step stream (not `default_rng(0)`); degenerate fold predicts its detected share; `n_tus == k`
+    boundary; convergence-warning filter and its diagnostics row; `dropped_zero_variance` row;
+    missing-TU fallback.
+15. Benchmark: budget set from the measurement (≈ 3× of 1.47 s/replicate); backlog: a CI check that
+    compares benchmarks with baseline.json; add `scikit-learn>=1.8` at the next lock update.
+16. docs/methods/detectability.md (statistician) is required before merge.
