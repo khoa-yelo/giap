@@ -67,3 +67,12 @@ def count_fasta_records(path: Path) -> int
 2. Contaminant library source repository and commit are not named. **Proposed default:** the
    repository cited by Frankenfield et al. 2022 (J. Proteome Res.), HEAD on the PR date, pinned by
    commit SHA; if its licence allows, still not vendored in v1.
+
+## Lead decisions (after the test-author's pass)
+1. Cross-host redirects: allowed only to hosts on a per-source allowlist of the same organisation's
+   official hosts (GO: purl.obolibrary.org → release.geneontology.org, current.geneontology.org); any other
+   host is a SourceError (R6). Same-host redirects and the redirect cap stay as in M2-08.
+2. A body shorter than Content-Length (truncated transfer) raises SourceError and leaves no file behind.
+3. The test-author's choices are accepted: GO version = release date; both `data-version` header forms are
+   valid; KEGG rows carry checksum "" and `--check` compares with the checksum recorded in the manifest at
+   download (ADR-0014); antiSMASH `url: "image"` is verified by `antismash --check-prereqs` inside the image.
