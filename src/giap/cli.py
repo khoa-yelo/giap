@@ -279,19 +279,62 @@ def _run_local(cfg: GiapConfig, workdir: Path) -> None:
 
 
 @cli.command()
-@click.option("--genome", type=_existing_file, required=True, help="Genome FASTA.")
 @click.option("--annotation", type=_existing_file, help="bakta.json.")
+@click.option("--genome", type=_existing_file, help="Genome FASTA (default: the JSON sequences).")
 @click.option("--outdir", type=_out_path, required=True, help="Output database directory.")
-@click.option("--db-dir", type=_out_path, help="Database directory.")
+@click.option("--db-dir", type=_out_path, help="Database directory (default: $GIAP_DB_DIR).")
 @click.option("--six-frame-orfs", is_flag=True, help="Add six-frame ORFs.")
-@click.option("--min-orf-aa", type=click.IntRange(min=1), default=20, show_default=True)
+@click.option("--min-orf-aa", type=int, default=20, show_default=True)
 @click.option("--patch", type=_existing_file, help="annotation_patch.gff3 from a previous run.")
 @click.option("--no-contaminants", is_flag=True, help="Do not append contaminant proteins.")
 @shared_options
-def makedb(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_: Any) -> None:
+def makedb(
+    config_file: Path | None,
+    sets: tuple[str, ...],
+    log_level: str,
+    annotation: Path | None,
+    genome: Path | None,
+    outdir: Path,
+    db_dir: Path | None,
+    six_frame_orfs: bool,
+    min_orf_aa: int,
+    patch: Path | None,
+    no_contaminants: bool,
+) -> None:
     """Build an optional strain search database (no FDR is built on it)."""
+    import os
+
+    from giap.makedb.build import MakedbOptions, build_strain_db
+
     _resolve(config_file, sets, log_level)
-    _not_implemented("makedb", "M3")
+    if annotation is None:
+        click.echo("giap makedb: no --annotation: Bakta wrapper required (M2)", err=True)
+        sys.exit(ExitCode.ENVIRONMENT)
+    if min_orf_aa < 1:
+        click.echo(f"giap makedb: --min-orf-aa must be >= 1, got {min_orf_aa}", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
+    contaminants: Path | None = None
+    if not no_contaminants:
+        env = os.environ.get("GIAP_DB_DIR")
+        root = db_dir or (Path(env) if env else None)
+        contaminants = root / "contaminants" / "contaminants.fasta" if root else None
+        if contaminants is None or not contaminants.is_file():
+            click.echo(
+                f"giap makedb: contaminant library not found ({contaminants or 'no --db-dir'}); "
+                "run giap setup --contaminants or pass --no-contaminants",
+                err=True,
+            )
+            sys.exit(ExitCode.ENVIRONMENT)
+    opts = MakedbOptions(
+        annotation, genome, outdir, patch, six_frame_orfs, min_orf_aa, contaminants
+    )
+    try:
+        result = build_strain_db(opts)
+    except (ValueError, OSError) as exc:
+        click.echo(f"giap makedb: {exc}", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
+    click.echo(f"giap makedb: wrote {result.fasta} {dict(result.counts)}", err=True)
+    sys.exit(ExitCode.SUCCESS)
 
 
 # ---------------------------------------------------------------- convert
