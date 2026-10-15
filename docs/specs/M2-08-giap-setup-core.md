@@ -103,3 +103,38 @@ Files: `src/giap/setupdb/{items.py,manifest.py,run.py}`, `src/giap/data/db_sourc
    the first download, both recorded in `db_sources.yaml` with an ADR.
 2. Does `amrfinder_update` (pulled by `bakta_db`) need its own manifest row? **Proposed default:**
    yes, `amrfinderplus` with the version from `bakta/db/amrfinderplus-db/latest/version.txt`.
+
+## Lead decisions (questions and test-author notes)
+1. Q1: proposed default accepted — ADR-0014 pins the Bakta full DB MD5 (Zenodo metadata), the geNOMAD MD5
+   and the Promotech RF-HOT.zip first-download SHA-256 in `db_sources.yaml`.
+2. Q2: proposed default accepted — an `amrfinderplus` manifest row with the version from
+   `bakta/db/amrfinderplus-db/latest/version.txt` (currently `2026-08-07.1`), status from its presence.
+3. geNOMAD lives at `DB/genomad_db` (spec §7.1.1); the prefetch data was moved there and the prefetch
+   script fixed. `SOURCES["genomad"].path == "genomad_db"`; no special case for `genomad/genomad_db`.
+4. Accepted test-author choices: `giap.setupdb` module; CLI-named `SetupOptions`; checksum mismatch recorded
+   as `status: "mismatch"` (example 5), never `ok`; adopted prefetched items keep the prefetch checksum and
+   date; preflight maps bakta_* → bakta_db, genomad → genomad_db, antismash → antismash_db, counting `ok`
+   rows only; free disk via `shutil.disk_usage`. The kept `promotech/RF-HOT.zip` is what the SHA-256 pin
+   verifies. antiSMASH `verify` and `--go/--kegg/--cog/--contaminants` are covered by M2-09.
+5. Tool commands inside `giap setup` (`bakta_db`, `amrfinder_update`, `download-antismash-databases`) run
+   through the image pinned in `workflow/conf/containers.config` (Apptainer) for tools without a conda env
+   (M2-01 decision 4: container-run tools have none) — the same images the pipeline uses. A missing image
+   is an environment error (exit 2) naming `scripts/slurm/build_envs.sbatch`.
+6. Tests never reach the network: tests that only exercise option parsing skip every resource (lead fixed
+   two M1 CLI tests that downloaded the 1 GB Promotech zip once `giap setup` became real).
+
+## Lead decisions after code review (PR #57, changes requested)
+1. R6: geNOMAD is fetched by GIAP itself from the pinned Zenodo URL (record 14886553, HTTPS), MD5-checked
+   against ADR-0014, and unpacked with a safe tar extractor (no absolute paths, no `..`, no links outside);
+   `tool: null` — `genomad download-database` (portal.nersc.gov, unchecked) is never used. Any tool-driven
+   download must point at a §3.2 host and be checksummed, or it is not used.
+2. R6: prefetch provenance is adopted only when its checksum equals the pinned checksum AND its host equals
+   the pinned host; otherwise the pin is used for verification and a mismatch is recorded as `mismatch`.
+3. Tests can never reach the network or start tools: an autouse fixture (tests/unit setup tests and CLI
+   tests) makes `ToolRunner.run`, `subprocess.run`/`Popen` and `HttpsFetcher.fetch` raise unless a test
+   injects a fake explicitly.
+4. TLS: redirects are followed only to https URLs on the item's official host; anything else is an error.
+5. Tests kill the surviving mutants: zip-slip check, `ToolRunner` binds / env-vs-image choice / missing image
+   (`ToolRunner.command` tests), https-only check, post-download verification, remove-before-rename order,
+   reuse of previous `ok` provenance; the prefetch-provenance fixture uses an old date (not today).
+6. `amrfinderplus` row also for `bakta_light`. The antiSMASH `url: "image"` case is M2-09's (backlog).

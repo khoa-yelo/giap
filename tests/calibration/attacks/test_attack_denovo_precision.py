@@ -35,7 +35,10 @@ Assumption violations, direction documented (not level gates):
   ``small_bins`` above).
 
 R is ``replicates_fast.placement`` (marker ``calibration``) or ``replicates_full.placement``
-(``calibration_full``); seed ``seeds.calibration_base``; k = ``se_multiplier``.
+(``calibration_full``); seed ``seeds.calibration_base``; k = ``se_multiplier``. The at-level gates
+go through ``_criteria.calibrate`` (ADR-0015 two-block confirmation, sharding; stream
+``placement.attack_denovo_pi.<attack>``, one generator per replicate for the simulation and the
+bootstrap); the documented violations keep their single-stream estimates.
 """
 
 from __future__ import annotations
@@ -45,6 +48,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import pytest
+from _gate import calibrate_levels
 
 from giap.mapping.denovo_precision import denovo_precision, pi_wrong_denovo, score_bins
 from giap.rng import for_step
@@ -168,12 +172,15 @@ def _settings(tolerances: dict[str, object], suite: str) -> tuple[int, int, floa
 def test_denovo_pi_attack_stays_at_level(
     tolerances: dict[str, object], attack: str, suite: str
 ) -> None:
-    r, seed, k, levels = _settings(tolerances, suite)
-    mean, se = _run(AT_LEVEL[attack], r, seed, levels)
-    for j, alpha in enumerate(levels):
-        assert mean[j] <= alpha + k * se[j], (
-            f"{attack}: mean FDP {mean[j]:.4f} > q {alpha} + {k}·SE {se[j]:.4f}"
-        )
+    r, _, _, levels = _settings(tolerances, suite)
+    s = AT_LEVEL[attack]
+
+    def fdp(rng: np.random.Generator) -> np.ndarray:
+        df = _simulate(rng, s)
+        return _fdp(df, _pi_hat(df, s, rng), levels)
+
+    stream = f"placement.attack_denovo_pi.{attack}"
+    calibrate_levels("placement", "fdr", levels, fdp, r, stream=stream).assert_ok()
 
 
 @pytest.mark.parametrize("suite", SUITES)

@@ -1,0 +1,108 @@
+// M3-13: the TBLASTN process (workflow/modules/local/tblastn/main.nf; GIAP_SPEC.md §7.2.3, §6.2
+// step `tblastn`: genome, leftover proteins -> tabular hits). Mirrors the M3-12 MINIPROT tests:
+// - stub run: emits tblastn.tsv (empty: no hits is a valid result) and versions.yml;
+// - module contract: makeblastdb -dbtype nucl (no -parse_seqids: M3-13 review decision 1), then tblastn with task.ext.args and
+//   the 15-column -outfmt of giap.mapping.tblastn.OUTFMT;
+// - pipeline wiring: mapping.proteins.tblastn_args (params.mapping) reaches the command via
+//   ext.args, with no hard-coded default in main.nf.
+// The non-stub tests put fake makeblastdb/tblastn (workflow/tests/bin) on PATH; both record argv.
+// ci.yml runs: nf-test test workflow/tests --profile test,stub
+nextflow_process {
+
+    name "TBLASTN (route 2b)"
+    script "../modules/local/tblastn/main.nf"
+    process "TBLASTN"
+    config "./tblastn.config"
+    tag "tblastn"
+
+    test("stub run writes an empty tabular file and versions.yml") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.hits.size() == 1
+            def tsv = path(process.out.hits[0])
+            assert tsv.fileName.toString() == "tblastn.tsv"
+            assert tsv.text == ""
+            assert process.out.versions.size() == 1
+            def versions = path(process.out.versions[0]).text
+            assert versions.contains("TBLASTN")
+            assert versions.contains("tblastn:")
+        }
+    }
+
+    test("makeblastdb then tblastn; task.ext.args and the 15-column outfmt reach the command") {
+
+        config "./tblastn_extargs.config"
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def tsv = path(process.out.hits[0])
+            def argv = new File(tsv.parent.toFile(), "blast.argv").readLines()
+            assert argv.size() == 2 : "expected makeblastdb + tblastn, got ${argv}"
+            assert argv[0].startsWith("makeblastdb ")
+            assert argv[0] =~ /(^|\s)-dbtype nucl(\s|$)/
+            assert !(argv[0] =~ /(^|\s)-parse_seqids(\s|$)/) : "makeblastdb must not use -parse_seqids"
+            assert argv[0] =~ /(^|\s)-in genome\.fa(\s|$)/
+            assert argv[1].startsWith("tblastn ")
+            assert argv[1] =~ /(^|\s)-query proteins\.faa(\s|$)/
+            assert argv[1] =~ /(^|\s)-num_threads \d+(\s|$)/
+            assert argv[1].contains("-db_gencode 4 -evalue 1e-3")
+            assert !argv[1].contains("-seg no") : "hard-coded default leaked: ${argv[1]}"
+            assert argv[1].contains("-outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen nident positive")
+            def rows = tsv.readLines()
+            assert rows.size() == 1
+            assert rows[0].split("\t").size() == 15
+        }
+    }
+
+    test("mapping.proteins.tblastn_args from params reaches the command via ext.args") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [tblastn_args: "-db_gencode 11 -seg yes -evalue 1e-7"]]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/tblastn/genome.fa")
+                input[2] = file("${moduleTestDir}/data/tblastn/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def argv = new File(path(process.out.hits[0]).parent.toFile(), "blast.argv").readLines()
+            assert argv.size() == 2 : "expected makeblastdb + tblastn, got ${argv}"
+            assert argv[1].contains("-db_gencode 11 -seg yes -evalue 1e-7")
+            assert !argv[1].contains("-seg no") : "hard-coded default leaked: ${argv[1]}"
+            assert !argv[1].contains("1e-5") : "hard-coded default leaked: ${argv[1]}"
+        }
+    }
+}

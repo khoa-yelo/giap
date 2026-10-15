@@ -1,0 +1,125 @@
+##gff-version 3
+##feature-ontology https://github.com/The-Sequence-Ontology/SO-Ontologies/blob/v3.1/so.obo
+# Annotated with Bakta
+# Software: v1.12.2
+# Database: v6.0, full
+# DOI: 10.1099/mgen.0.000685
+# URL: github.com/oschwengers/bakta
+##sequence-region chr1 1 100000
+chr1	Bakta	region	1	100000	.	+	.	ID=chr1;Name=chr1;Is_circular=true
+chr1	Pyrodigal	CDS	288	2231	.	+	0	ID=KABHIH_0001;Name=hypothetical protein;locus_tag=KABHIH_0001;product=hypothetical protein
+chr1	Pyrodigal	CDS	2598	3749	.	+	0	ID=KABHIH_0002;Name=hypothetical protein;locus_tag=KABHIH_0002;product=hypothetical protein
+chr1	Pyrodigal	CDS	3935	4615	.	-	0	ID=KABHIH_0003;Name=hypothetical protein;locus_tag=KABHIH_0003;product=hypothetical protein
+chr1	Pyrodigal	CDS	4628	5329	.	-	0	ID=KABHIH_0004;Name=hypothetical protein;locus_tag=KABHIH_0004;product=hypothetical protein
+chr1	Pyrodigal	CDS	5655	6434	.	-	0	ID=KABHIH_0005;Name=hypothetical protein;locus_tag=KABHIH_0005;product=hypothetical protein
+chr1	Pyrodigal	CDS	6789	7628	.	-	0	ID=KABHIH_0006;Name=hypothetical protein;locus_tag=KABHIH_0006;product=hypothetical protein
+chr1	Pyrodigal	CDS	7628	8185	.	-	0	ID=KABHIH_0007;Name=hypothetical protein;locus_tag=KABHIH_0007;product=hypothetical protein
+chr1	Pyrodigal	CDS	8185	9015	.	-	0	ID=KABHIH_0008;Name=hypothetical protein;locus_tag=KABHIH_0008;product=hypothetical protein
+chr1	Pyrodigal	CDS	9045	10220	.	-	0	ID=KABHIH_0009;Name=hypothetical protein;locus_tag=KABHIH_0009;product=hypothetical protein
+chr1	Pyrodigal	CDS	10531	12420	.	-	0	ID=KABHIH_0010;Name=hypothetical protein;locus_tag=KABHIH_0010;product=hypothetical protein
+chr1	tRNAscan-SE	tRNA	12994	13069	.	-	.	ID=KABHIH_0011;Name=tRNA-Phe(gaa);locus_tag=KABHIH_0011;product=tRNA-Phe(gaa);Dbxref=SO:0000267;gene=trnF;anti_codon=gaa;amino_acid=Phe
+chr1	Pyrodigal	CDS	13194	13823	.	-	0	ID=KABHIH_0012;Name=hypothetical protein;locus_tag=KABHIH_0012;product=hypothetical protein
+chr1	Pyrodigal	CDS	13902	14465	.	-	0	ID=KABHIH_0013;Name=hypothetical protein;locus_tag=KABHIH_0013;product=hypothetical protein
+chr1	Pyrodigal	CDS	14579	16750	.	-	0	ID=KABHIH_0014;Name=hypothetical protein;locus_tag=KABHIH_0014;product=hypothetical protein
+chr1	Pyrodigal	CDS	17195	17794	.	-	0	ID=KABHIH_0015;Name=hypothetical protein;locus_tag=KABHIH_0015;product=hypothetical protein
+chr1	Pyrodigal	CDS	17997	18563	.	-	0	ID=KABHIH_0016;Name=hypothetical protein;locus_tag=KABHIH_0016;product=hypothetical protein
+chr1	Pyrodigal	CDS	18977	19441	.	+	0	ID=KABHIH_0017;Name=hypothetical protein;locus_tag=KABHIH_0017;product=hypothetical protein
+chr1	Pyrodigal	CDS	19453	20040	.	+	0	ID=KABHIH_0018;Name=hypothetical protein;locus_tag=KABHIH_0018;product=hypothetical protein
+chr1	Pyrodigal	CDS	20458	21369	.	+	0	ID=KABHIH_0019;Name=hypothetical protein;locus_tag=KABHIH_0019;product=hypothetical protein
+chr1	Pyrodigal	CDS	21406	22026	.	+	0	ID=KABHIH_0020;Name=hypothetical protein;locus_tag=KABHIH_0020;product=hypothetical protein
+chr1	Pyrodigal	CDS	22242	23459	.	-	0	ID=KABHIH_0021;Name=hypothetical protein;locus_tag=KABHIH_0021;product=hypothetical protein
+chr1	Pyrodigal	CDS	23798	25090	.	+	0	ID=KABHIH_0022;Name=hypothetical protein;locus_tag=KABHIH_0022;product=hypothetical protein
+chr1	Pyrodigal	CDS	25534	26205	.	+	0	ID=KABHIH_0023;Name=hypothetical protein;locus_tag=KABHIH_0023;product=hypothetical protein
+chr1	Pyrodigal	CDS	26384	28369	.	+	0	ID=KABHIH_0024;Name=hypothetical protein;locus_tag=KABHIH_0024;product=hypothetical protein
+chr1	Pyrodigal	CDS	28516	29061	.	+	0	ID=KABHIH_0025;Name=hypothetical protein;locus_tag=KABHIH_0025;product=hypothetical protein
+chr1	Pyrodigal	CDS	29160	29798	.	+	0	ID=KABHIH_0026;Name=hypothetical protein;locus_tag=KABHIH_0026;product=hypothetical protein
+chr1	Pyrodigal	CDS	29918	30646	.	+	0	ID=KABHIH_0027;Name=hypothetical protein;locus_tag=KABHIH_0027;product=hypothetical protein
+chr1	Pyrodigal	CDS	30837	31589	.	+	0	ID=KABHIH_0028;Name=hypothetical protein;locus_tag=KABHIH_0028;product=hypothetical protein
+chr1	Pyrodigal	CDS	31784	33400	.	+	0	ID=KABHIH_0029;Name=hypothetical protein;locus_tag=KABHIH_0029;product=hypothetical protein
+chr1	Pyrodigal	CDS	33523	34029	.	+	0	ID=KABHIH_0030;Name=hypothetical protein;locus_tag=KABHIH_0030;product=hypothetical protein
+chr1	Pyrodigal	CDS	34170	34754	.	+	0	ID=KABHIH_0031;Name=hypothetical protein;locus_tag=KABHIH_0031;product=hypothetical protein
+chr1	tRNAscan-SE	tRNA	35555	35631	.	+	.	ID=KABHIH_0032;Name=tRNA-Met(cat);locus_tag=KABHIH_0032;product=tRNA-Met(cat);Dbxref=SO:0000266;gene=trnM;anti_codon=cat;amino_acid=Met
+chr1	tRNAscan-SE	tRNA	35725	35801	.	-	.	ID=KABHIH_0033;Name=tRNA-Arg(ccg);locus_tag=KABHIH_0033;product=tRNA-Arg(ccg);Dbxref=SO:0001036;gene=trnR;anti_codon=ccg;amino_acid=Arg
+chr1	tRNAscan-SE	tRNA	36305	36380	.	+	.	ID=KABHIH_0034;Name=tRNA-Ala(tgc);locus_tag=KABHIH_0034;product=tRNA-Ala(tgc);Dbxref=SO:0000254;gene=trnA;anti_codon=tgc;amino_acid=Ala
+chr1	Pyrodigal	CDS	36837	37835	.	-	0	ID=KABHIH_0035;Name=hypothetical protein;locus_tag=KABHIH_0035;product=hypothetical protein
+chr1	Pyrodigal	CDS	37944	39545	.	-	0	ID=KABHIH_0036;Name=hypothetical protein;locus_tag=KABHIH_0036;product=hypothetical protein
+chr1	Pyrodigal	CDS	39726	40385	.	-	0	ID=KABHIH_0037;Name=hypothetical protein;locus_tag=KABHIH_0037;product=hypothetical protein
+chr1	Pyrodigal	CDS	40494	41171	.	-	0	ID=KABHIH_0038;Name=hypothetical protein;locus_tag=KABHIH_0038;product=hypothetical protein
+chr1	Pyrodigal	CDS	41362	42279	.	-	0	ID=KABHIH_0039;Name=hypothetical protein;locus_tag=KABHIH_0039;product=hypothetical protein
+chr1	Pyrodigal	CDS	42332	42457	.	-	0	ID=KABHIH_0040;Name=hypothetical protein;locus_tag=KABHIH_0040;product=hypothetical protein
+chr1	Pyrodigal	CDS	42479	43351	.	-	0	ID=KABHIH_0041;Name=hypothetical protein;locus_tag=KABHIH_0041;product=hypothetical protein
+chr1	Pyrodigal	CDS	43535	44671	.	-	0	ID=KABHIH_0042;Name=hypothetical protein;locus_tag=KABHIH_0042;product=hypothetical protein
+chr1	Pyrodigal	CDS	44867	45484	.	-	0	ID=KABHIH_0043;Name=hypothetical protein;locus_tag=KABHIH_0043;product=hypothetical protein
+chr1	Pyrodigal	CDS	45636	46409	.	-	0	ID=KABHIH_0044;Name=hypothetical protein;locus_tag=KABHIH_0044;product=hypothetical protein
+chr1	Pyrodigal	CDS	46566	47315	.	-	0	ID=KABHIH_0045;Name=hypothetical protein;locus_tag=KABHIH_0045;product=hypothetical protein
+chr1	Pyrodigal	CDS	47495	48511	.	-	0	ID=KABHIH_0046;Name=hypothetical protein;locus_tag=KABHIH_0046;product=hypothetical protein
+chr1	tRNAscan-SE	tRNA	48832	48908	.	+	.	ID=KABHIH_0047;Name=tRNA-Ile(gat);locus_tag=KABHIH_0047;product=tRNA-Ile(gat);Dbxref=SO:0000263;gene=trnI;anti_codon=gat;amino_acid=Ile
+chr1	tRNAscan-SE	tRNA	49433	49508	.	-	.	ID=KABHIH_0048;Name=tRNA-Thr(tgt);locus_tag=KABHIH_0048;product=tRNA-Thr(tgt);Dbxref=SO:0000270;gene=trnT;anti_codon=tgt;amino_acid=Thr
+chr1	Pyrodigal	CDS	49916	50707	.	-	0	ID=KABHIH_0049;Name=hypothetical protein;locus_tag=KABHIH_0049;product=hypothetical protein
+chr1	tRNAscan-SE	tRNA	50930	51005	.	-	.	ID=KABHIH_0050;Name=tRNA-Gly(gcc);locus_tag=KABHIH_0050;product=tRNA-Gly(gcc);Dbxref=SO:0000260;gene=trnG;anti_codon=gcc;amino_acid=Gly
+chr1	tRNAscan-SE	tRNA	51146	51222	.	+	.	ID=KABHIH_0051;Name=tRNA-Asp(gtc);locus_tag=KABHIH_0051;product=tRNA-Asp(gtc);Dbxref=SO:0000256;gene=trnD;anti_codon=gtc;amino_acid=Asp
+chr1	tRNAscan-SE	tRNA	51412	51487	.	-	.	ID=KABHIH_0052;Name=tRNA-Val(tac);locus_tag=KABHIH_0052;product=tRNA-Val(tac);Dbxref=SO:0000273;gene=trnV;anti_codon=tac;amino_acid=Val
+chr1	Infernal	rRNA	51564	53105	5.2e-49	+	.	ID=KABHIH_0053;Name=16S ribosomal RNA;locus_tag=KABHIH_0053;gene=rrs;product=16S ribosomal RNA;Dbxref=GO:0005840,GO:0003735,RFAM:RF00177,KEGG:K01977,SO:0001000
+chr1	Infernal	rRNA	53531	56434	3.4e-07	+	.	ID=KABHIH_0054;Name=23S ribosomal RNA;locus_tag=KABHIH_0054;gene=rrl;product=23S ribosomal RNA;Dbxref=GO:0005840,GO:0003735,RFAM:RF02541,KEGG:K01980,SO:0001001
+chr1	Infernal	rRNA	56549	56664	4.5e-16	+	.	ID=KABHIH_0055;Name=5S ribosomal RNA;locus_tag=KABHIH_0055;gene=rrf;product=5S ribosomal RNA;Dbxref=GO:0005840,GO:0003735,RFAM:RF00001,KEGG:K01985,SO:0000652
+chr1	tRNAscan-SE	tRNA	56727	56813	.	+	.	ID=KABHIH_0056;Name=tRNA-Leu(cag);locus_tag=KABHIH_0056;product=tRNA-Leu(cag);Dbxref=SO:0000264;gene=trnL;anti_codon=cag;amino_acid=Leu
+chr1	Pyrodigal	CDS	57047	58960	.	+	0	ID=KABHIH_0057;Name=hypothetical protein;locus_tag=KABHIH_0057;product=hypothetical protein
+chr1	Pyrodigal	CDS	58979	59923	.	+	0	ID=KABHIH_0058;Name=hypothetical protein;locus_tag=KABHIH_0058;product=hypothetical protein
+chr1	Pyrodigal	CDS	59955	62183	.	+	0	ID=KABHIH_0059;Name=hypothetical protein;locus_tag=KABHIH_0059;product=hypothetical protein
+chr1	PILER-CR	CRISPR	62388	62809	.	?	.	ID=KABHIHPBEP_14;Name=CRISPR array with 7 repeats of length 29%2C consensus sequence ATAAGTGGGGTTGTACACCTAACGTTTCG and spacer length 34;product=CRISPR array with 7 repeats of length 29%2C consensus sequence ATAAGTGGGGTTGTACACCTAACGTTTCG and spacer length 34
+chr1	PILER-CR	crispr-repeat	62388	62416	.	?	.	ID=KABHIHPBEP_14_repeat_1;Parent=KABHIHPBEP_14
+chr1	PILER-CR	crispr-spacer	62417	62451	.	?	.	ID=KABHIHPBEP_14_spacer_1;Parent=KABHIHPBEP_14;sequence=GCCGTGCCCGGTAATACGGCGTGTGTACCGTAATG
+chr1	PILER-CR	crispr-repeat	62452	62480	.	?	.	ID=KABHIHPBEP_14_repeat_2;Parent=KABHIHPBEP_14
+chr1	PILER-CR	crispr-spacer	62481	62514	.	?	.	ID=KABHIHPBEP_14_spacer_2;Parent=KABHIHPBEP_14;sequence=ATTTTATATGCCCTTCGGCCATCCAAGAGGAAGG
+chr1	PILER-CR	crispr-repeat	62515	62543	.	?	.	ID=KABHIHPBEP_14_repeat_3;Parent=KABHIHPBEP_14
+chr1	PILER-CR	crispr-spacer	62544	62577	.	?	.	ID=KABHIHPBEP_14_spacer_3;Parent=KABHIHPBEP_14;sequence=GGCAATGCTGAATGCCAGGCAGATGTTGGTCGGA
+chr1	PILER-CR	crispr-repeat	62578	62606	.	?	.	ID=KABHIHPBEP_14_repeat_4;Parent=KABHIHPBEP_14
+chr1	PILER-CR	crispr-spacer	62607	62640	.	?	.	ID=KABHIHPBEP_14_spacer_4;Parent=KABHIHPBEP_14;sequence=CAGTACTTTCCTCACATCAGCTCATATGAGATGA
+chr1	PILER-CR	crispr-repeat	62641	62669	.	?	.	ID=KABHIHPBEP_14_repeat_5;Parent=KABHIHPBEP_14
+chr1	PILER-CR	crispr-spacer	62670	62705	.	?	.	ID=KABHIHPBEP_14_spacer_5;Parent=KABHIHPBEP_14;sequence=CTCCGGAATCAACTTGGCCGAATGAGCTTAAGGTTT
+chr1	PILER-CR	crispr-repeat	62706	62734	.	?	.	ID=KABHIHPBEP_14_repeat_6;Parent=KABHIHPBEP_14
+chr1	PILER-CR	crispr-spacer	62735	62770	.	?	.	ID=KABHIHPBEP_14_spacer_6;Parent=KABHIHPBEP_14;sequence=TATCCGCATTCTAAGAACGCGGGATCTTGAAACAAT
+chr1	PILER-CR	crispr-repeat	62771	62799	.	?	.	ID=KABHIHPBEP_14_repeat_7;Parent=KABHIHPBEP_14
+chr1	PILER-CR	crispr-spacer	62800	62809	.	?	.	ID=KABHIHPBEP_14_spacer_7;Parent=KABHIHPBEP_14;sequence=TTCTCAATTA
+chr1	Pyrodigal	CDS	62951	63484	.	+	0	ID=KABHIH_0060;Name=hypothetical protein;locus_tag=KABHIH_0060;product=hypothetical protein
+chr1	Pyrodigal	CDS	63686	64465	.	-	0	ID=KABHIH_0061;Name=hypothetical protein;locus_tag=KABHIH_0061;product=hypothetical protein
+chr1	Pyrodigal	CDS	64792	65514	.	+	0	ID=KABHIH_0062;Name=hypothetical protein;locus_tag=KABHIH_0062;product=hypothetical protein
+chr1	Pyrodigal	CDS	65928	66716	.	+	0	ID=KABHIH_0063;Name=hypothetical protein;locus_tag=KABHIH_0063;product=hypothetical protein
+chr1	Pyrodigal	CDS	66748	67503	.	+	0	ID=KABHIH_0064;Name=hypothetical protein;locus_tag=KABHIH_0064;product=hypothetical protein
+chr1	Pyrodigal	CDS	67529	68281	.	+	0	ID=KABHIH_0065;Name=hypothetical protein;locus_tag=KABHIH_0065;product=hypothetical protein
+chr1	Pyrodigal	CDS	68668	69771	.	-	0	ID=KABHIH_0066;Name=hypothetical protein;locus_tag=KABHIH_0066;product=hypothetical protein
+chr1	Pyrodigal	CDS	69950	71167	.	-	0	ID=KABHIH_0067;Name=hypothetical protein;locus_tag=KABHIH_0067;product=hypothetical protein
+chr1	Pyrodigal	CDS	71177	71767	.	-	0	ID=KABHIH_0068;Name=hypothetical protein;locus_tag=KABHIH_0068;product=hypothetical protein
+chr1	Pyrodigal	CDS	72019	72432	.	+	0	ID=KABHIH_0069;Name=hypothetical protein;locus_tag=KABHIH_0069;product=hypothetical protein
+chr1	Pyrodigal	CDS	72611	73408	.	+	0	ID=KABHIH_0070;Name=hypothetical protein;locus_tag=KABHIH_0070;product=hypothetical protein
+chr1	Pyrodigal	CDS	73431	74441	.	+	0	ID=KABHIH_0071;Name=hypothetical protein;locus_tag=KABHIH_0071;product=hypothetical protein
+chr1	Pyrodigal	CDS	74425	75165	.	+	0	ID=KABHIH_0072;Name=hypothetical protein;locus_tag=KABHIH_0072;product=hypothetical protein
+chr1	Pyrodigal	CDS	75483	75977	.	+	0	ID=KABHIH_0073;Name=hypothetical protein;locus_tag=KABHIH_0073;product=hypothetical protein
+chr1	Pyrodigal	CDS	76206	76802	.	+	0	ID=KABHIH_0074;Name=hypothetical protein;locus_tag=KABHIH_0074;product=hypothetical protein
+chr1	Pyrodigal	CDS	76780	77466	.	+	0	ID=KABHIH_0075;Name=hypothetical protein;locus_tag=KABHIH_0075;product=hypothetical protein
+chr1	Pyrodigal	CDS	77466	78344	.	+	0	ID=KABHIH_0076;Name=hypothetical protein;locus_tag=KABHIH_0076;product=hypothetical protein
+chr1	Pyrodigal	CDS	78357	78830	.	+	0	ID=KABHIH_0077;Name=hypothetical protein;locus_tag=KABHIH_0077;product=hypothetical protein
+chr1	Pyrodigal	CDS	79109	80311	.	+	0	ID=KABHIH_0078;Name=hypothetical protein;locus_tag=KABHIH_0078;product=hypothetical protein
+chr1	Pyrodigal	CDS	80519	81058	.	+	0	ID=KABHIH_0079;Name=hypothetical protein;locus_tag=KABHIH_0079;product=hypothetical protein
+chr1	Pyrodigal	CDS	81305	82090	.	+	0	ID=KABHIH_0080;Name=hypothetical protein;locus_tag=KABHIH_0080;product=hypothetical protein
+chr1	Pyrodigal	CDS	82106	83767	.	+	0	ID=KABHIH_0081;Name=hypothetical protein;locus_tag=KABHIH_0081;product=hypothetical protein
+chr1	Pyrodigal	CDS	83990	85039	.	+	0	ID=KABHIH_0082;Name=hypothetical protein;locus_tag=KABHIH_0082;product=hypothetical protein
+chr1	Pyrodigal	CDS	85036	85758	.	+	0	ID=KABHIH_0083;Name=hypothetical protein;locus_tag=KABHIH_0083;product=hypothetical protein
+chr1	Pyrodigal	CDS	86104	86517	.	+	0	ID=KABHIH_0084;Name=hypothetical protein;locus_tag=KABHIH_0084;product=hypothetical protein
+chr1	Pyrodigal	CDS	86714	87433	.	-	0	ID=KABHIH_0085;Name=hypothetical protein;locus_tag=KABHIH_0085;product=hypothetical protein
+chr1	Pyrodigal	CDS	87430	87963	.	-	0	ID=KABHIH_0086;Name=hypothetical protein;locus_tag=KABHIH_0086;product=hypothetical protein
+chr1	Pyrodigal	CDS	87960	88883	.	-	0	ID=KABHIH_0087;Name=hypothetical protein;locus_tag=KABHIH_0087;product=hypothetical protein
+chr1	Pyrodigal	CDS	89184	89864	.	-	0	ID=KABHIH_0088;Name=hypothetical protein;locus_tag=KABHIH_0088;product=hypothetical protein
+chr1	Pyrodigal	CDS	89861	90454	.	-	0	ID=KABHIH_0089;Name=hypothetical protein;locus_tag=KABHIH_0089;product=hypothetical protein
+chr1	Pyrodigal	CDS	90459	91349	.	-	0	ID=KABHIH_0090;Name=hypothetical protein;locus_tag=KABHIH_0090;product=hypothetical protein
+chr1	Pyrodigal	CDS	91612	92919	.	-	0	ID=KABHIH_0091;Name=hypothetical protein;locus_tag=KABHIH_0091;product=hypothetical protein
+chr1	Pyrodigal	CDS	92945	94285	.	-	0	ID=KABHIH_0092;Name=hypothetical protein;locus_tag=KABHIH_0092;product=hypothetical protein
+chr1	Pyrodigal	CDS	94501	95373	.	+	0	ID=KABHIH_0093;Name=hypothetical protein;locus_tag=KABHIH_0093;product=hypothetical protein
+chr1	Pyrodigal	CDS	95370	96224	.	+	0	ID=KABHIH_0094;Name=hypothetical protein;locus_tag=KABHIH_0094;product=hypothetical protein
+chr1	Pyrodigal	CDS	96224	97627	.	+	0	ID=KABHIH_0095;Name=hypothetical protein;locus_tag=KABHIH_0095;product=hypothetical protein
+chr1	Pyrodigal	CDS	97823	98221	.	-	0	ID=KABHIH_0096;Name=hypothetical protein;locus_tag=KABHIH_0096;product=hypothetical protein
+chr1	Pyrodigal	CDS	98606	99337	.	+	0	ID=KABHIH_0097;Name=hypothetical protein;locus_tag=KABHIH_0097;product=hypothetical protein
+##sequence-region plasmid_1 1 8000
+plasmid_1	Bakta	region	1	8000	.	+	.	ID=plasmid_1;Name=plasmid_1;Is_circular=true
+plasmid_1	Pyrodigal	CDS	193	1854	.	-	0	ID=KABHIH_0098;Name=hypothetical protein;locus_tag=KABHIH_0098;product=hypothetical protein
+plasmid_1	Pyrodigal	CDS	1859	3070	.	-	0	ID=KABHIH_0099;Name=hypothetical protein;locus_tag=KABHIH_0099;product=hypothetical protein

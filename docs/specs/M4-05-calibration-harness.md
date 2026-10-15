@@ -90,3 +90,31 @@ computed, the discrete-p rule, seed derivation, and how suites map to `tolerance
    than adding keys to a protected file (which needs an ADR).
 2. Results log path `local/logs/calibration/*.jsonl` (gitignored) for PR summaries? **Proposed
    default:** yes.
+
+## Lead decisions after statistician review (PR #54, BLOCK)
+1. Fail closed: `check_level`, `check_fwer` (and `check_fdr` for FDP) raise ValueError on non-finite or
+   out-of-[0,1] input; `check_fdr` rejects R < 2. The statistician's two unmarked tests must pass.
+2. `--shard K/N` is honoured: suites read `GIAP_CALIBRATION_REPLICATES=start:stop` through the harness and
+   run only that range; a merge step (`merge_shards` / `--merge`) combines shard records and evaluates the
+   criterion on the full R. Without the variable, behaviour is unchanged.
+3. ADR-0015 (accepted by Khoa): two-block confirmation — a failing check is re-run on replicates R..2R−1;
+   the gate fails only if both blocks fail; records carry `block` and `status` (pass | unconfirmed | fail).
+4. Suite assignment is explicit (a marker or a registry), not matched by name in source text, so a test runs
+   in exactly one array task.
+5. Sharded runs honour ADR-0015: `--merge` evaluates block 1 from the shard records and, for every check
+   that fails, runs block 2 itself (replicates R..2R−1, sequentially in the merge task) before the verdict;
+   it never reports `fail` without block 2. `--block 2` stays available for manual reruns.
+6. Accepted implementer choices: `check_fwer` accepts only 0/1 outcomes; `check_uniform` fails closed;
+   suite assignment by `SUITE_REGISTRY` or a `calsuite` marker; sim_v2 tests in suite `missed_operons`.
+7. Follow-up (backlog, test-author): migrate the existing calibration tests from direct
+   `run_replicates`/`check_*` calls to `calibrate()`, so ADR-0015 and sharding apply to every suite.
+
+## Lead decisions after statistician review of the migration (PR #69, changes requested)
+1. Pooled permutation attacks (m p-values per replicate) go through `calibrate` too: `_criteria` gains an
+   `m=` option that gates each replicate's rejection share with `level_bound(α, R·m)` (two-block
+   confirmation as usual); the 6 attacks × 3 α use it. Target: nightly false-alarm rate back to ≈ 0.04
+   (statistician re-checks).
+2. `_finish` keeps block-1 timing for levels that go on to block 2.
+3. Teeth tests assert a confirmed `fail` through `calibrate` (naive gene bootstrap, rejected placement
+   rules, BH at 1.5× and 2× q).
+4. Backlog: gate the sim_proteomics q-value FDR check and the one-sided de novo coverage checks.

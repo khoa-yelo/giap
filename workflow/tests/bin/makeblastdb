@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Fake makeblastdb for workflow/tests/tblastn.nf.test (never a real BLAST): records its argv in
+# blast.argv (one invocation per line, shared with the fake tblastn) and creates a DB marker file.
+set -euo pipefail
+if [[ "${1:-}" == "-version" ]]; then echo "makeblastdb: 2.16.0+-fake"; exit 0; fi
+echo "makeblastdb $*" >> blast.argv
+prev=""
+for a in "$@"; do
+    if [[ "$prev" == "-out" ]]; then mkdir -p "$(dirname "$a")"; : > "$a.nsq"; fi
+    prev="$a"
+done

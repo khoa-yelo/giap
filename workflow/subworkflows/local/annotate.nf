@@ -36,9 +36,20 @@ def byName(ch) { ch.map { fs -> fs.toSorted { a, b -> a.name <=> b.name } } }
 
 def pre(String key) { kv(key, channel.value(file(params.annotation.precomputed[key], checkIfExists: true))) }
 
-// Stub runs (-stub-run) emit params.stub.<n> chunk / region files; real runs glob the step's output.
-def scatterSpec(String key, String glob, int n) {
-    workflow.stubRun ? (0..<n).collect { i -> "${key}=${glob.replace('*', String.format('%03d', i))}" } : ["${key}=${glob}"]
+// Stub runs (-stub-run) emit params.stub.<n> chunk / region files; real runs glob the step's output,
+// or (dir = true, glob 'D/pattern') declare the output directory D itself as the key's path.
+def scatterSpec(String key, String glob, int n, boolean dir) {
+    workflow.stubRun ? (0..<n).collect { i -> "${key}=${glob.replace('*', String.format('%03d', i))}" }
+        : [dir ? "${key}=${glob.tokenize('/')[0]}" : "${key}=${glob}"]
+}
+
+// Files of an output directory (real run) or the directory's files themselves (stub run).
+def inDir(ch, String dir) {
+    ch.map { s, fs ->
+        (fs instanceof List ? fs : [fs]).collectMany { f ->
+            f.name == dir && f.isDirectory() ? f.listFiles().toList() : f.parent.name == dir ? [f] : []
+        }.toSorted { a, b -> a.name <=> b.name }
+    }.flatten()
 }
 
 workflow ANNOTATE {
@@ -55,15 +66,16 @@ workflow ANNOTATE {
     def layers = []
 
     def bjson = channel.empty()
-    def gbff = channel.empty()
+    def gbff = null   // null: no GBFF (precomputed bakta_json alone) -> antiSMASH skipped
     if (pc.bakta_json) {
         bjson = channel.value(file(pc.bakta_json, checkIfExists: true))
         def g = file(pc.bakta_json.toString().replaceFirst(/\.json$/, '.gbff'))
-        gbff = g.exists() ? channel.value(g) : genome   // no GBFF: antiSMASH gets the FASTA
+        gbff = g.exists() ? channel.value(g) : null
     } else {
         def light = ann.bakta.db == 'light' || (ann.bakta.db == 'auto' && !file("${db}/bakta/db").exists())
         def bdb = light ? "${db}/bakta/db-light" : ann.bakta.db in ['auto', 'full'] ? "${db}/bakta/db" : ann.bakta.db
-        BAKTA(gin.combine(replicons), bdb, ann.bakta.complete)
+        def rg = params.inputs?.regions_gff3 ? file(params.inputs.regions_gff3, checkIfExists: true) : []
+        BAKTA(gin.combine(replicons), bdb, ann.bakta.complete, rg)
         bjson = BAKTA.out.json
         gbff = BAKTA.out.gbff
     }
@@ -73,20 +85,23 @@ workflow ANNOTATE {
         'xrefs=xrefs.parquet', 'annotation_meta=annotation_meta.json'])
     def P = PARSE_BAKTA.out.outputs
     def genes = kv('genes', pick(P, 'genes.parquet'))
-    def core = [genes, kv('features', pick(P, 'features.parquet')), kv('replicons', pick(P, 'replicons.parquet'))]
+    def reps = kv('replicons', pick(P, 'replicons.parquet'))
+    def core = [genes, kv('features', pick(P, 'features.parquet')), reps]
 
-    def pairs = []
-    if (pc.operon_pairs) {
-        pairs = [pre('operon_pairs')]
-    } else {
-        def ui = stepIn('uniop_input', [genes])
-        UNIOP_INPUT(ui.files, ui.keys, ['uniop_cds=uniop_cds.gff', 'uniop_map=uniop_map.tsv'])
-        UNIOP(gid.combine(pick(UNIOP_INPUT.out.outputs, 'uniop_cds.gff')))
-        pairs = [kv('uniop_pred', UNIOP.out.pred), kv('uniop_map', pick(UNIOP_INPUT.out.outputs, 'uniop_map.tsv'))]
+    // M2-12 registry: operon_pairs always gets uniop_cds / uniop_map; a precomputed operon_pairs
+    // layer (read by the step from the config) replaces only UniOP itself.
+    def ui = stepIn('uniop_input', [genes, reps])
+    UNIOP_INPUT(ui.files, ui.keys, ['uniop_cds=uniop_cds.gff', 'uniop_map=uniop_map.tsv'])
+    def U = UNIOP_INPUT.out.outputs
+    def cds = pick(U, 'uniop_cds.gff')
+    def pairs = [kv('uniop_cds', cds), kv('uniop_map', pick(U, 'uniop_map.tsv'))]
+    if (!pc.operon_pairs) {
+        UNIOP(gid.combine(cds))
+        pairs += [kv('uniop_pred', UNIOP.out.pred)]
     }
-    def op = stepIn('operon_pairs', [genes] + pairs)
-    OPERON_PAIRS(op.files, op.keys, ['pairs_raw=pairs_raw.parquet', 'tus=tus.parquet'] +
-        scatterSpec('tu_upstream', 'tu_upstream/tu*.fa', params.stub?.tu_regions ?: 1))
+    def op = stepIn('operon_pairs', [genes, reps, kv('genome', genome)] + pairs)
+    OPERON_PAIRS(op.files, op.keys, ['pairs_raw=pairs_raw.parquet', 'tus=tus.parquet', 'operon_meta=operon_meta.json'] +
+        scatterSpec('tu_upstream', 'tu_upstream/tu*.fa', params.stub?.tu_regions ?: 1, true))
     def O = OPERON_PAIRS.out.outputs
     def tus = kv('tus', pick(O, 'tus.parquet'))
     layers += [kv('pairs_raw', pick(O, 'pairs_raw.parquet')), tus]
@@ -96,7 +111,7 @@ workflow ANNOTATE {
     } else {
         def pw = stepIn('promoter_windows', [genes, kv('genome', genome)])
         PROMOTER_WINDOWS(pw.files, pw.keys, ['windows_map=windows_map.parquet'] +
-            scatterSpec('windows', 'windows_*.fa', params.stub?.windows_chunks ?: 1))
+            scatterSpec('windows', 'windows_*.fa', params.stub?.windows_chunks ?: 1, false))
         def W = PROMOTER_WINDOWS.out.outputs
         def chunks = W.map { s, fs -> fs.findAll { f -> f.name ==~ /windows_\d+\.fa/ } }.flatten()
         PROMOTECH(chunks.map { f -> [f.baseName.replace('windows', 'promotech'), f] }, db)
@@ -109,7 +124,7 @@ workflow ANNOTATE {
     if (pc.tx_rates) {
         layers += [pre('tx_rates')]
     } else if (ann.promoter_calculator.enabled) {
-        def regions = O.map { s, fs -> fs.findAll { f -> f.parent.name == 'tu_upstream' } }.flatten()
+        def regions = inDir(O, 'tu_upstream')
         PROMOTER_CALCULATOR(regions.map { f -> [f.baseName, f] })
         def tx = stepIn('tx_layer', [kv('pc', byName(PROMOTER_CALCULATOR.out.csv.collect(sort: true))), tus])
         TX_LAYER(tx.files, tx.keys, ['tx_rates=tx_rates.parquet'])
@@ -164,9 +179,11 @@ workflow ANNOTATE {
             GENOMAD(gin, db)
             optional += [kv('genomad', GENOMAD.out.dir)]
         }
-        if ('bgc' in params.modules) {
+        if ('bgc' in params.modules && gbff != null) {
             ANTISMASH(gid.combine(gbff))
             optional += [kv('antismash', ANTISMASH.out.dir)]
+        } else if ('bgc' in params.modules) {
+            println "WARN: layer_missing:antismash: precomputed bakta_json ${pc.bakta_json} has no GBFF next to it; antiSMASH skipped"
         }
         def rg = stepIn('region_layer', core + optional)
         REGION_LAYER(rg.files, rg.keys, ['regions=regions.parquet', 'region_genes=region_genes.parquet'])

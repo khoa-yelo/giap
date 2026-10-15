@@ -9,6 +9,7 @@ process BAKTA {
     tuple val(meta_id), path(genome), path(replicons)
     val(db)
     val(complete)   // true, false or 'auto' (--complete iff every replicon is circular)
+    path(regions)   // inputs.regions_gff3 (staged, part of the task hash), or [] for none
 
     output:
     path "bakta/${meta_id}.json", emit: json
@@ -16,12 +17,12 @@ process BAKTA {
     path 'versions.yml', emit: versions
 
     script:
-    def regions = params.inputs?.regions_gff3 ? "--regions ${params.inputs.regions_gff3}" : ''
+    def reg = regions ? "--regions ${regions}" : ''
     def extra = (params.annotation?.bakta?.extra_args ?: []).join(' ')
     """
     mode="--replicons ${replicons}"
-    if [ "${complete}" = true ] || { [ "${complete}" = auto ] && awk -F'\\t' '\$4 != "circular" { exit 1 }' ${replicons}; }; then mode=--complete; fi
-    bakta --db ${db} --output bakta --prefix ${meta_id} --threads ${task.cpus} --keep-contig-headers \$mode ${regions} ${extra} ${genome}
+    if [ "${complete}" = true ] || { [ "${complete}" = auto ] && awk -F'\\t' '\$4 != "c" { exit 1 }' ${replicons}; }; then mode="--complete \$mode"; fi
+    bakta --db ${db} --output bakta --prefix ${meta_id} --threads ${task.cpus} --keep-contig-headers \$mode ${reg} ${extra} ${genome}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

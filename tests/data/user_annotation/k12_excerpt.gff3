@@ -1,0 +1,12 @@
+##gff-version 3
+##feature-ontology https://github.com/The-Sequence-Ontology/SO-Ontologies/blob/v3.1/so.obo
+# Annotated with Bakta
+# Software: v1.12.2
+# Database: v6.0, full
+# DOI: 10.1099/mgen.0.000685
+# URL: github.com/oschwengers/bakta
+##sequence-region U00096.3 1 4641652
+U00096.3	Bakta	region	1	4641652	.	+	.	ID=U00096.3;Name=U00096.3
+U00096.3	Pyrodigal	CDS	715412	715906	.	+	0	ID=KOIAIB_00744;Name=Uncharacterized lipoprotein YbfP;locus_tag=KOIAIB_00744;product=Uncharacterized lipoprotein YbfP;Dbxref=GO:0005886,RefSeq:WP_000856353.1,SO:0001217,UniParc:UPI000013A326,UniRef:UniRef100_P75737,UniRef:UniRef50_P75737,UniRef:UniRef90_P75737;gene=ybfP
+U00096.3	Pyrodigal	CDS	716388	716597	.	-	0	ID=KOIAIB_00745;Name=DUF2625 domain-containing protein;locus_tag=KOIAIB_00745;product=DUF2625 domain-containing protein;Dbxref=SO:0001217,UniRef:UniRef50_UPI00053ADEF4,UniRef:UniRef90_UPI001C9B7514;pseudogene=unitary
+U00096.3	Pyrodigal	CDS	716946	718265	.	-	0	ID=KOIAIB_00746;Name=putrescine-ornithine antiporter;locus_tag=KOIAIB_00746;product=putrescine-ornithine antiporter;Dbxref=COG:COG0531,COG:E,GO:0005886,GO:0015293,GO:0015496,GO:0015822,GO:0015847,GO:0016020,GO:0055085,RefSeq:WP_000075845.1,SO:0001217,UniParc:UPI0000131F9B,UniRef:UniRef100_P0AAF1,UniRef:UniRef50_P0AAF1,UniRef:UniRef90_P0AAF1;gene=potE

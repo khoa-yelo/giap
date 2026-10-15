@@ -110,10 +110,13 @@ def cli() -> None:
 @click.option("--contaminants", is_flag=True, help="Contaminant protein sequences.")
 @click.option("--check", is_flag=True, help="Only verify what is installed.")
 @shared_options
-def setup(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_: Any) -> None:
+def setup(config_file: Path | None, sets: tuple[str, ...], log_level: str, **opts: Any) -> None:
     """Download databases and models (writes DIR/db_manifest.json)."""
+    from giap.setupdb import HttpsFetcher, SetupOptions, ToolRunner, run_setup
+
     _resolve(config_file, sets, log_level)
-    _not_implemented("setup", "M2")
+    code = run_setup(SetupOptions(**opts), ToolRunner(), HttpsFetcher())
+    sys.exit(int(code))
 
 
 # ---------------------------------------------------------------- preflight

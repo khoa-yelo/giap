@@ -123,3 +123,9 @@ attack-null evidence, power table.
 3. With few shifts (K < 19 the smallest p exceeds 0.05) add a flag? **Proposed default:** add
    `few_shifts` to the §9.4 "Region and context" vocabulary via the schema (needs the lead's OK, as
    §9.4 says "extend only through the schema").
+
+## Note from M4-07 review (lead)
+M4-17 adds overlapping regions and per-contig region placement to the simulator (`RegionSpec.contig`; a 60-gene plasmid with its own AMR set; a gene in two regions as in M2-20 example 4) — M4-07 does not provide them.
+
+## Note from M4-08 review (lead)
+Simulated TU expression follows an AR(1) that restarts per replicon and does not wrap at the origin of circular replicons (one uncorrelated join); this does not affect the level of the circular-shift test.

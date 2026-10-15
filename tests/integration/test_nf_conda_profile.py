@@ -1,11 +1,14 @@
-"""farmshare,apptainer: conda only for the conda-only tools (M2-07 decision 4, PR #65 review).
+"""farmshare,apptainer: conda only for the conda-only tools (M2-07 decisions 4, 12 and 13).
 
-The five tools without an image (uniop, promotech, promoter_calculator, terminatornet, ostir) run
-in the prebuilt micromamba envs under ``$GIAP_ROOT`` (``conda.enabled``, ``conda.useMicromamba``);
-the pinned-container tools (bakta, transtermhp, genomad, antiSMASH) run in their containers with
-conda off. Parses ``nextflow config workflow -flat -profile farmshare,apptainer`` with a fake
-``GIAP_ROOT``; the per-process ``conda`` is the last matching ``withName`` setting (the selector
-is a regex on the process name, ``ANNOTATE:<TOOL>`` in the pipeline), else the module's env file.
+The six tools without an image (uniop, promotech, promoter_calculator, terminatornet, ostir and
+the opt-in bactermfinder, decision 12) run in the prebuilt micromamba envs under ``$GIAP_ROOT``
+(``conda.enabled``, ``conda.useMicromamba``); the pinned-container tools (bakta, transtermhp,
+genomad, antiSMASH) run in their containers with conda off; no conda env is ever built on the fly
+under farmshare or farmshare,apptainer. The ``ps`` shim bound into the bakta/antiSMASH containers
+is read-only (decision 13). Parses ``nextflow config workflow -flat -profile <profile>`` with a
+fake ``GIAP_ROOT``; the per-process ``conda`` is the last matching ``withName`` setting (the
+selector is a regex on the process name, ``ANNOTATE:<TOOL>`` in the pipeline), else the module's
+env file.
 """
 
 from __future__ import annotations
@@ -23,7 +26,15 @@ REPO = Path(__file__).resolve().parents[2]
 WF = REPO / "workflow"
 FAKE_ROOT = "/fake/giap_root"
 
-CONDA_TOOLS = ["UNIOP", "PROMOTECH", "PROMOTER_CALCULATOR", "TERMINATORNET", "OSTIR"]
+CONDA_TOOLS = [
+    "UNIOP",
+    "PROMOTECH",
+    "PROMOTER_CALCULATOR",
+    "TERMINATORNET",
+    "OSTIR",
+    "BACTERMFINDER",
+]
+PROFILES = ["farmshare", "farmshare,apptainer"]
 CONTAINER_TOOLS = ["BAKTA", "TRANSTERMHP", "GENOMAD", "ANTISMASH"]
 _OFF = {"null", "''", '""', "false"}
 
@@ -61,9 +72,18 @@ def _setting(lines: list[str], name: str, directive: str) -> str | None:
     return got
 
 
+_FLAT_CACHE: dict[str, list[str]] = {}
+
+
+def _flat_cached(profile: str) -> list[str]:
+    if profile not in _FLAT_CACHE:
+        _FLAT_CACHE[profile] = _flat(profile)
+    return _FLAT_CACHE[profile]
+
+
 @pytest.fixture(scope="module")
 def flat() -> list[str]:
-    return _flat("farmshare,apptainer")
+    return _flat_cached("farmshare,apptainer")
 
 
 def test_conda_is_enabled_with_micromamba(flat: list[str]) -> None:
@@ -72,8 +92,11 @@ def test_conda_is_enabled_with_micromamba(flat: list[str]) -> None:
     assert _value(flat, "apptainer.enabled") == "true"
 
 
+@pytest.mark.parametrize("profile", PROFILES)
 @pytest.mark.parametrize("tool", CONDA_TOOLS)
-def test_conda_only_tool_uses_the_prebuilt_env_under_giap_root(flat: list[str], tool: str) -> None:
+def test_conda_only_tool_uses_the_prebuilt_env_under_giap_root(profile: str, tool: str) -> None:
+    """Decision 12: all six conda-only tools (bactermfinder included) use a prebuilt env."""
+    flat = _flat_cached(profile)
     value = _setting(flat, f"ANNOTATE:{tool}", "conda")
     assert value is not None, f"{tool}: no withName conda setting (would build the yml env)"
     path = value.strip("'\"")
@@ -91,7 +114,7 @@ def test_container_tool_has_conda_off(flat: list[str], tool: str) -> None:
     assert value in _OFF, f"{tool}: conda {value!r} with conda.enabled (must be off for this tool)"
 
 
-def test_exactly_the_five_tools_get_conda(flat: list[str]) -> None:
+def test_exactly_the_six_tools_get_conda(flat: list[str]) -> None:
     on = sorted(
         t
         for t in CONDA_TOOLS + CONTAINER_TOOLS
@@ -102,3 +125,18 @@ def test_exactly_the_five_tools_get_conda(flat: list[str]) -> None:
 
 def test_stub_profile_keeps_conda_off() -> None:
     assert _value(_flat("test,stub"), "conda.enabled") in {"false", None}
+
+
+def test_bactermfinder_is_one_of_six_conda_only_tools() -> None:
+    """Decision 12: six conda-only tools in total."""
+    assert len(CONDA_TOOLS) == 6 and "BACTERMFINDER" in CONDA_TOOLS
+
+
+@pytest.mark.parametrize("tool", ["BAKTA", "ANTISMASH"])
+def test_ps_shim_bind_is_read_only(flat: list[str], tool: str) -> None:
+    """Decision 13: the /proc-based ps shim is bound read-only over /usr/bin/ps."""
+    opts = _setting(flat, f"ANNOTATE:{tool}", "containerOptions")
+    assert opts, f"{tool}: no containerOptions (ps shim not bound)"
+    m = re.search(r"-B\s+(\S*assets/ps/ps):/usr/bin/ps(:\S+)?", opts.strip("'\""))
+    assert m, f"{tool}: no ps shim bind in {opts}"
+    assert m.group(2) == ":ro", f"{tool}: ps shim bind is not read-only: {m.group(0)}"

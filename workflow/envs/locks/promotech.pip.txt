@@ -62,7 +62,11 @@ pycparser @ file:///home/conda/feedstock_root/build_artifacts/pycparser_16362571
 Pygments @ file:///home/conda/feedstock_root/build_artifacts/pygments_1672682006896/work
 pyOpenSSL @ file:///home/conda/feedstock_root/build_artifacts/pyopenssl_1663846997386/work
 pyparsing @ file:///home/conda/feedstock_root/build_artifacts/pyparsing_1724616129934/work
-pysam==0.21.0
+PyQt5==5.12.3
+PyQt5_sip==4.19.18
+PyQtChart==5.12
+PyQtWebEngine==5.12.1
+pysam==0.16.0.1
 PySocks @ file:///home/conda/feedstock_root/build_artifacts/pysocks_1610291458349/work
 pytest==6.2.5
 python-dateutil @ file:///home/conda/feedstock_root/build_artifacts/python-dateutil_1626286286081/work

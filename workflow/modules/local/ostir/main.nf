@@ -23,7 +23,7 @@ process OSTIR {
 
     stub:
     """
-    echo 'name,start_codon,start_position,dG_total,dG_rRNA:mRNA,dG_mRNA,dG_spacing,dG_standby,dG_start_codon,expression' > ostir.csv
+    echo 'name,start_codon,start_position,expression,RBS_distance_bp,dG_total,dG_rRNA:mRNA,dG_mRNA,dG_spacing,dG_standby,dG_start_codon' > ostir.csv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

@@ -126,6 +126,16 @@ Follow-up PR (stacked, branch m2/run-wiring): `giap run` writes `inputs.replicon
 `params.db_dir` so main.nf takes the ANNOTATE branch (review item 1), and `giap _step` calls
 `load_step_modules()` (item 5, pre-existing). Tests for both.
 
+## Lead decisions after the re-review (PR #65, changes requested)
+11. Bakta always gets `--replicons <replicons.tsv>` when preflight wrote it (its `c`/`l` topology and the
+    replicon types come from that table, so the chromosome is never re-typed by length); `--complete` stays
+    only for the all-circular case per §7.1.1. `bakta_cmd.py` and `bakta/main.nf` agree (cmd-sync test).
+    The real-run comparison includes `sequences[]` types/topology (follow-up harness PR).
+12. BACTERMFINDER (conda-only, opt-in) gets a prebuilt-env entry like the other five conda-only tools
+    (six in total); conda is never built on the fly under farmshare or farmshare,apptainer.
+13. The `ps` shim bind is read-only (`:ro`). Decision 3 is amended: the shim is a `/proc`-based script
+    (`workflow/assets/ps/ps`) printing `pid ppid` for Nextflow's process tree, bound for BAKTA and ANTISMASH.
+
 ### Lead decisions for the run-wiring follow-up (branch m2/run-wiring)
 1. `giap run` runs preflight in full, including the evidence rule (`inputs.evidence_present`): a run with
    neither peptides nor proteins exits 1 before Nextflow starts. Older genome-only `giap run` tests are

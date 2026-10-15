@@ -195,21 +195,29 @@ def test_meta_yml_records_name_and_licence(tool: str) -> None:
 # ---------------------------------------------------------------- registry and containers
 
 
+# Process names that differ from their TOOLS key (BLAST+ is one tool; M3-13 runs its tblastn).
+PROCESS_TOOL = {"tblastn": "blast"}
+
+
+def _tool_key(process: str) -> str:
+    return PROCESS_TOOL.get(process.lower(), process.lower())
+
+
 def test_every_process_maps_to_a_tools_key() -> None:
     procs = _process_names()
     assert set(LABELS) <= {p.lower() for p in procs}, sorted(procs)
     for name, path in procs.items():
         if name == "GIAP_STEP":
             continue
-        assert name.lower() in TOOLS, f"process {name} ({path}) is not a TOOLS key"
-        assert not TOOLS[name.lower()].in_process, f"{name}: in-process tools get no process"
+        assert _tool_key(name) in TOOLS, f"process {name} ({path}) is not a TOOLS key"
+        assert not TOOLS[_tool_key(name)].in_process, f"{name}: in-process tools get no process"
 
 
 def test_every_with_name_in_containers_config_matches_a_process() -> None:
     procs = {p.upper() for p in _process_names()}
     for name in read_containers_config(CONTAINERS):
-        assert name.lower() in TOOLS, f"containers.config withName {name} is not a TOOLS key"
-        if TOOLS[name.lower()].module == "mapping":
+        assert _tool_key(name) in TOOLS, f"containers.config withName {name} is not a TOOLS key"
+        if TOOLS[_tool_key(name)].module == "mapping":
             continue  # miniprot / BLAST processes belong to §7.2 (M3); pins land in M2-01
         assert name in procs, f"containers.config withName {name} matches no process"
 
