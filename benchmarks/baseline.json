@@ -15,7 +15,7 @@
       "note": "duration field of the D1 record in detectability.jsonl; run alone (-n 16, other workers on D2/attack tests); 170.6 s when interleaved with the full suite (job 1848692)"
     },
     "d1_replicate": {
-      "test": "benchmarks/test_detectability.py::test_detectability_d1_replicate_budget",
+      "test": "benchmarks/test_detectability_bench.py::test_detectability_d1_replicate_budget",
       "n_genes": 2000,
       "secs": 1.47,
       "budget_secs": 30.0,
