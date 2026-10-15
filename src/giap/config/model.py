@@ -105,6 +105,17 @@ class PromotersConfig(_Strict):
     window_3p_range: list[int] = [-200, 20]
     promotech_yes: float = 0.5
 
+    @field_validator("mode")
+    @classmethod
+    def _genome_mode_not_implemented(cls, value: PromoterMode) -> PromoterMode:
+        # M2-13 Q2 / lead decision 4: genome-wide Promotech is opt-in and not built yet.
+        if value == "genome":
+            raise ValueError(
+                "annotation.promoters.mode: genome is not implemented in this version "
+                "(use targeted)"
+            )
+        return value
+
 
 class PromoterCalculatorConfig(_Strict):
     enabled: bool = True
