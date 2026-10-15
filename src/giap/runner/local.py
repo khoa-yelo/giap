@@ -26,6 +26,11 @@ class LayerMissing(Exception):
         self.key = key
 
 
+# Root keys a run must stage when a step needs them; other roots (``proteins_long``,
+# ``reference_peptides``, ``contaminants``, ``peptides``) are optional and prune silently.
+REQUIRED_ROOTS: tuple[str, ...] = ("bakta_json",)
+
+
 class ToolUnavailable(reg.WiringError):
     """An external step without a precomputed layer is needed (``giap run`` exit code 4)."""
 
@@ -100,6 +105,7 @@ def _walk(
         for key in s.outputs:
             producers.setdefault(key, []).append(s.name)
     feasible = None if roots is None else _feasible(cfg, specs, producers, roots)
+    pruned: list[str] = []
     planned: set[str] = set()
     supplied: dict[str, Path] = {}
     seen: set[str] = set()
@@ -110,7 +116,10 @@ def _walk(
             continue
         seen.add(name)
         spec = reg.get(name)
-        if not _enabled(cfg, spec) or (feasible is not None and not feasible(name)):
+        if not _enabled(cfg, spec):
+            continue
+        if feasible is not None and not feasible(name):
+            pruned.append(name)
             continue
         layer = _layer(cfg, spec.precomputed) if spec.precomputed else None
         if layer is not None:
@@ -124,7 +133,29 @@ def _walk(
         planned.add(name)
         for key in sorted({*spec.inputs, *spec.optional_inputs}, reverse=True):
             stack.extend(sorted(producers.get(key, ()), reverse=True))
+    if roots is not None:
+        _check_required_roots(cfg, specs, producers, roots, pruned)
     return reg.topo_order(planned), supplied
+
+
+def _check_required_roots(
+    cfg: GiapConfig,
+    specs: Mapping[str, reg.StepSpec],
+    producers: Mapping[str, list[str]],
+    roots: Collection[str],
+    pruned: Sequence[str],
+) -> None:
+    """Raise ``LayerMissing`` when a pruned step would be feasible with one more REQUIRED root
+    (M3-17 decision 13); steps missing an optional root stay pruned."""
+    for key in REQUIRED_ROOTS:
+        if key in roots:
+            continue
+        ok = _feasible(cfg, specs, producers, {*roots, key})
+        for name in sorted(pruned):
+            if ok(name):  # exit 1 naming the key
+                raise LayerMissing(
+                    f"annotation.precomputed.{key} (or --annotation <Bakta JSON>; step {name})"
+                )
 
 
 def plan_local(

@@ -334,6 +334,7 @@ def _local_roots(
 
 def _run_local(cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Path | None]) -> None:
     """``--executor local`` (§6.4): every registered step as target; exits when done."""
+    from giap.io.events import EventsHandler
     from giap.runner import local
     from giap.steps import load_step_modules
     from giap.steps import registry as reg
@@ -345,6 +346,13 @@ def _run_local(cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Pa
         click.echo("giap run --executor local: not implemented (no steps registered)", err=True)
         sys.exit(ExitCode.INTERNAL)
     roots = _local_roots(cfg, outdir, genome, inputs)
+    # step events (e.g. the ``search_db: auto`` resolution) go to OUT/logs/events.jsonl (§6.7)
+    steps_log = logging.getLogger("giap.steps")
+    events = EventsHandler(outdir / "logs")
+    steps_log.addHandler(events)
+    prev_level = steps_log.level
+    if steps_log.getEffectiveLevel() > logging.INFO:
+        steps_log.setLevel(logging.INFO)
     try:
         local.plan_local(cfg, targets, set(roots))
         local.run_local(cfg, workdir, targets, roots)
@@ -362,6 +370,9 @@ def _run_local(cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Pa
     except reg.WiringError as exc:
         click.echo(f"giap run: internal error: {exc}", err=True)
         sys.exit(ExitCode.INTERNAL)
+    finally:
+        steps_log.removeHandler(events)
+        steps_log.setLevel(prev_level)
     sys.exit(ExitCode.SUCCESS)
 
 

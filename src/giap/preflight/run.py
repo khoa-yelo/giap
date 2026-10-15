@@ -11,13 +11,11 @@ first, files are written into a temporary directory under ``OUT`` and moved into
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import shutil
 import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -28,6 +26,7 @@ from giap.config import GiapConfig
 from giap.exitcodes import ExitCode
 from giap.io._open import open_text_write
 from giap.io.abundance import AbundanceTable, read_abundance, resolve_scale
+from giap.io.events import append_event, event_record
 from giap.io.fasta import (
     FastaFormatError,
     GenomeRecord,
@@ -380,17 +379,8 @@ def _safe_protein_ids(records: Sequence[ProteinRecord]) -> list[str]:
 def _log_resources(outdir: Path, resources: tuple[int, int]) -> None:
     """Append the raw probed resources to ``OUT/logs/events.jsonl`` (§6.7)."""
     disk, ram = resources
-    event = {
-        "ts": datetime.now(UTC).isoformat(timespec="seconds"),
-        "step": "preflight",
-        "level": "INFO",
-        "event": "environment.resources",
-        "data": {"free_disk_bytes": disk, "ram_bytes": ram},
-    }
-    logs = outdir / "logs"
-    logs.mkdir(parents=True, exist_ok=True)
-    with (logs / "events.jsonl").open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(event, sort_keys=True) + "\n")
+    data = {"free_disk_bytes": disk, "ram_bytes": ram}
+    append_event(outdir / "logs", event_record("preflight", "environment.resources", data))
 
 
 def _write_work(work: Path, norm: NormalisedInputs) -> None:

@@ -167,8 +167,13 @@ def _resolved_queries(ctx: StepContext, gm: GeneModel) -> pd.DataFrame:
         value = resolve_search_db(table, {g.locus_tag for g in gm.genes})
         queries["search_db"] = value if sdb is None else sdb.astype(object)
         queries.loc[auto, "search_db"] = value
-        ctx.log.info("%s: search_db auto resolved to %s for %d queries",
-                     ctx.log.name.rsplit(".", 1)[-1], value, int(auto.sum()))  # fmt: skip
+        n_auto = int(auto.sum())
+        ctx.log.info(
+            "%s: search_db auto resolved to %s for %d queries",
+            ctx.log.name.rsplit(".", 1)[-1], value, n_auto,
+            extra={"event": "mapping.search_db_resolved",
+                   "data": {"key": "search_db", "search_db": value, "n_queries": n_auto}},
+        )  # fmt: skip
     return queries
 
 
