@@ -1,0 +1,395 @@
+// M2-07 examples 1-5 (+ precomputed terminators/regions): stub runs of the ANNOTATE subworkflow
+// through ../main.nf (M2-06: main.nf calls ANNOTATE once it exists). GIAP_SPEC.md §6.1, §6.3, §6.4.
+// ci.yml runs: nf-test test workflow/tests --profile test,stub ; "-stub" is set here as well.
+//
+// Inputs (data/annotate/, stub mode only): genome.fa (3 kb, one circular contig chr1),
+// replicons.tsv, annotation.json (the default `annotation` section, kept equal to the defaults by
+// tests/unit/test_nf_annotate_fixtures.py), bakta_like.json, terminators.tsv, regions.tsv
+// (precomputed layers in the M2-02 formats).
+//
+// Example 4 needs a known number of Promotech chunks and TU regions, which only the real
+// promoter_windows / operon_pairs steps compute. Test-only parameter (stub runs only):
+//   params.stub = [windows_chunks: N, tu_regions: M]   (both default to 1 when absent)
+// makes the stubbed promoter_windows step emit windows_000.fa … and operon_pairs emit M TU
+// upstream regions.
+//
+// PR #65 review decisions (spec "Lead decisions after code review"): every GIAP_STEP task's --in keys
+// follow the giap.steps registry (data/annotate/step_registry.json, H.registryProblems; decision 1);
+// stub outputs carry the real headers committed in tests/data/recorded/headers (decisions 5-7); a
+// precomputed bakta_json without a GBFF skips antiSMASH with layer_missing (8); the Bakta --regions
+// file is a staged input (9).
+
+nextflow_pipeline {
+
+    name "ANNOTATE subworkflow (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "annotate"
+
+    test("example 1: all modules, nothing precomputed: every tool except BACTERMFINDER once, every py step once") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core', 'mobile', 'bgc', 'function']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            def ran = H.names(workflow.trace)
+            H.defaultTools.each { p ->
+                assert H.count(workflow.trace, p) == 1 : "${p} ran ${H.count(workflow.trace, p)}x; tasks: ${ran}"
+            }
+            assert H.count(workflow.trace, 'BACTERMFINDER') == 0 : "BACTERMFINDER is opt-in: ${ran}"
+            H.pySteps.each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${ran}"
+            }
+
+            // every tool task emits versions.yml keyed by its process name
+            H.defaultTools.each { p ->
+                def dirs = H.procDirs(work, p)
+                assert dirs.size() == 1 : "no task directory for ${p}"
+                def v = new File(dirs[0], 'versions.yml')
+                assert v.isFile() : "${p}: no versions.yml"
+                assert v.text.contains(p) && v.text.contains(':') : "${p} versions.yml: ${v.text}"
+            }
+
+            // stub outputs (spec table "Stub outputs")
+            def bakta = H.procDirs(work, 'BAKTA')[0]
+            def asset = new File("${moduleTestDir}/../assets/stub/bakta.json")
+            assert asset.isFile() : "workflow/assets/stub/bakta.json missing"
+            def bjson = H.files(new File(bakta, 'bakta')).findAll { it.name.endsWith('.json') }
+            assert bjson.size() == 1 : "BAKTA stub: expected one bakta/<P>.json, got ${bjson}"
+            assert bjson[0].text == asset.text : "BAKTA stub JSON is not assets/stub/bakta.json"
+            ['.gff3', '.gbff', '.faa', '.tsv'].each { ext ->
+                assert H.files(new File(bakta, 'bakta')).any { it.name.endsWith(ext) } : "BAKTA stub: no ${ext}"
+            }
+
+            def uniop = H.files(H.procDirs(work, 'UNIOP')[0]).findAll { it.name == 'uniop.pred' }
+            // M2-12 decision 1: the stub writes UniOP's real two-line header (title + column header).
+            assert uniop.size() == 1 && uniop[0].readLines().size() == 2 : "UNIOP stub: uniop.pred real header only"
+
+            def tn = H.files(H.procDirs(work, 'TERMINATORNET')[0]).findAll { !it.path.contains('/in/') && it.name != 'versions.yml' }
+            assert tn.any { it.text.contains('NO TERMINATORS FOUND') } : "TERMINATORNET stub: no 'NO TERMINATORS FOUND' line in ${tn}"
+
+            def tt = H.files(H.procDirs(work, 'TRANSTERMHP')[0]).findAll { it.name.endsWith('.tt') }
+            assert tt.size() == 1 && tt[0].length() == 0 : "TRANSTERMHP stub: one empty .tt"
+
+            def ostir = H.files(H.procDirs(work, 'OSTIR')[0]).findAll { it.name == 'ostir.csv' }
+            assert ostir.size() == 1 && ostir[0].readLines().size() == 1 : "OSTIR stub: header-only ostir.csv"
+
+            def pc = H.files(H.procDirs(work, 'PROMOTER_CALCULATOR')[0]).findAll { it.name.endsWith('.csv') && !it.path.contains('/in/') }
+            assert pc.size() == 1 && pc[0].readLines().size() == 1 : "PROMOTER_CALCULATOR stub: header-only CSV"
+
+            def pt = H.procDirs(work, 'PROMOTECH')[0]
+            assert pt.listFiles().any { it.isDirectory() && it.name ==~ /promotech_\d{3}/ } : "PROMOTECH stub: no promotech_NNN/"
+
+            def gm = H.files(H.procDirs(work, 'GENOMAD')[0]).findAll { it.name.endsWith('.tsv') }
+            assert gm.size() > 0 && gm.every { it.readLines().size() == 1 } : "GENOMAD stub: header-only summary TSVs"
+
+            // decision 1: --in keys follow the step registry
+            def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            // decisions 5-7: stub headers equal the committed real headers
+            def hdr = { String n -> new File("${moduleTestDir}/../../tests/data/recorded/headers/${n}").readLines() }
+            assert ostir[0].readLines() == hdr('ostir.ostir.csv.txt') : "OSTIR stub header: ${ostir[0].readLines()}"
+            assert pc[0].readLines() == hdr('promoter_calculator.csv.txt') : "PROMOTER_CALCULATOR stub header: ${pc[0].readLines()}"
+            def ptd = pt.listFiles().find { it.isDirectory() && it.name ==~ /promotech_\d{3}/ }
+            def ptf = new File(ptd, 'sequences_predictions.csv')
+            assert ptf.isFile() : "PROMOTECH stub: no ${ptd.name}/sequences_predictions.csv (real file name)"
+            assert ptf.readLines() == hdr('promotech.sequences_predictions.csv.txt') : "PROMOTECH stub header: ${ptf.readLines()}"
+            ['virus_summary', 'plasmid_summary', 'virus_genes'].each { k ->
+                def f = gm.find { it.name == "genome_${k}.tsv" }
+                assert f != null : "GENOMAD stub: no genome_${k}.tsv in ${gm*.name}"
+                assert f.readLines() == hdr("genomad.${k}.tsv.txt") : "GENOMAD stub ${k} header: ${f.readLines()}"
+            }
+            def up = uniop[0].readLines()
+            assert up == hdr('uniop.uniop.pred.txt') : "UNIOP stub header: ${up}"
+
+            def as_ = H.files(H.procDirs(work, 'ANTISMASH')[0]).findAll { it.name.endsWith('.json') && !it.path.contains('/in/') }
+            assert as_.any { new groovy.json.JsonSlurper().parse(it) == [records: []] } : "ANTISMASH stub: no {\"records\": []} JSON"
+        }
+    }
+
+    test("example 2: precomputed bakta_json: BAKTA not run, parse_bakta receives that file") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core', 'mobile', 'bgc', 'function']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                ann.precomputed.bakta_json = new File("${d}/bakta_like.json").canonicalPath
+                annotation = ann
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            def want = new File("${moduleTestDir}/data/annotate/bakta_like.json").canonicalPath
+            assert workflow.success
+            assert H.count(workflow.trace, 'BAKTA') == 0 : "BAKTA ran despite precomputed.bakta_json"
+            assert H.stepCount(workflow.trace, 'parse_bakta') == 1
+            def dirs = H.stepDirs(work, 'parse_bakta')
+            assert dirs.size() == 1
+            def sources = H.staged(dirs[0]).collect { new File(it[0]).canonicalPath }
+            assert want in sources : "parse_bakta did not stage ${want}; staged ${sources}"
+            // the rest of the annotation track still runs
+            ['UNIOP', 'TERMINATORNET', 'OSTIR', 'GENOMAD'].each { p ->
+                assert H.count(workflow.trace, p) == 1 : "${p} should still run"
+            }
+            assert H.stepCount(workflow.trace, 'context_layers') == 1
+            def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            // decision 8: bakta_like.json has no bakta_like.gbff next to it -> antiSMASH is skipped
+            // (never fed the FASTA) and layer_missing is recorded; region_layer gets no antismash input
+            assert H.count(workflow.trace, 'ANTISMASH') == 0 : "ANTISMASH ran without a GBFF: ${H.names(workflow.trace)}"
+            def rl = H.stepDirs(work, 'region_layer')
+            assert rl.size() == 1
+            assert !H.stepInputs(rl[0]).any { it[0] == 'antismash' } : "region_layer got an antismash input"
+            def runlog = (workflow.stdout + workflow.stderr).join('\n')
+            assert runlog.readLines().any { it.contains('layer_missing') && it.toLowerCase().contains('antismash') } :
+                "no layer_missing record for antiSMASH in the run log"
+        }
+    }
+
+    test("decision 8: precomputed bakta_json with a GBFF next to it: ANTISMASH runs on that GBFF") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core', 'mobile', 'bgc', 'function']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                ann.precomputed.bakta_json = new File("${d}/with_gbff/bakta_like.json").canonicalPath
+                annotation = ann
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            def want = new File("${moduleTestDir}/data/annotate/with_gbff/bakta_like.gbff").canonicalPath
+            assert workflow.success
+            assert H.count(workflow.trace, 'BAKTA') == 0
+            assert H.count(workflow.trace, 'ANTISMASH') == 1 : H.names(workflow.trace)
+            def dirs = H.procDirs(work, 'ANTISMASH')
+            def sources = H.staged(dirs[0]).collect { new File(it[0]).canonicalPath }
+            assert want in sources : "ANTISMASH did not stage ${want}; staged ${sources}"
+            assert !sources.any { it.endsWith('genome.fa') } : "ANTISMASH got the FASTA: ${sources}"
+        }
+    }
+
+    test("decision 1: precomputed operon_pairs: no UNIOP; operon_pairs gets only registry keys") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core', 'mobile', 'bgc', 'function']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                ann.precomputed.operon_pairs = new File("${d}/operon_pairs.tsv").canonicalPath
+                annotation = ann
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            assert workflow.success
+            assert H.count(workflow.trace, 'UNIOP') == 0 : "UNIOP ran despite precomputed.operon_pairs: ${H.names(workflow.trace)}"
+            assert H.stepCount(workflow.trace, 'operon_pairs') == 1
+            def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+        }
+    }
+
+    test("decision 9: inputs.regions_gff3 is staged into the BAKTA task (part of the task hash)") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString(),
+                          regions_gff3: new File("${d}/regions.gff3").canonicalPath]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            def want = new File("${moduleTestDir}/data/annotate/regions.gff3").canonicalPath
+            assert workflow.success
+            def dirs = H.procDirs(work, 'BAKTA')
+            assert dirs.size() == 1
+            def sources = H.staged(dirs[0]).collect { new File(it[0]).canonicalPath }
+            assert want in sources : "BAKTA did not stage ${want}; staged ${sources}"
+        }
+    }
+
+    test("example 3: modules = [core]: no GENOMAD, no ANTISMASH; region_layer still runs") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            assert workflow.success
+            def ran = H.names(workflow.trace)
+            assert H.count(workflow.trace, 'GENOMAD') == 0 : "GENOMAD ran with modules=[core]: ${ran}"
+            assert H.count(workflow.trace, 'ANTISMASH') == 0 : "ANTISMASH ran with modules=[core]: ${ran}"
+            assert H.count(workflow.trace, 'BAKTA') == 1
+            assert H.stepCount(workflow.trace, 'region_layer') == 1 : "region_layer must run without optional layers"
+            assert H.stepCount(workflow.trace, 'context_layers') == 1
+            // region_layer gets no genomad/antismash input
+            def dirs = H.stepDirs(work, 'region_layer')
+            assert dirs.size() == 1
+            def targets = H.staged(dirs[0]).collect { it[1] }
+            assert !targets.any { it.contains('genomad') || it.contains('antismash') } : "optional inputs staged: ${targets}"
+            def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+        }
+    }
+
+    test("example 4: 3 window chunks and 5 TU regions: PROMOTECH x3, PROMOTER_CALCULATOR x5, gathered sorted") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core', 'mobile', 'bgc', 'function']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                stub = [windows_chunks: 3, tu_regions: 5]
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            assert workflow.success
+            def ran = H.names(workflow.trace)
+            assert H.count(workflow.trace, 'PROMOTECH') == 3 : "PROMOTECH: ${ran}"
+            assert H.count(workflow.trace, 'PROMOTER_CALCULATOR') == 5 : "PROMOTER_CALCULATOR: ${ran}"
+            assert H.stepCount(workflow.trace, 'promoter_layer') == 1
+            assert H.stepCount(workflow.trace, 'tx_layer') == 1
+
+            def pl = H.stepDirs(work, 'promoter_layer')
+            assert pl.size() == 1
+            def chunks = H.stepInputs(pl[0]).collect { new File(it[1]).name }.findAll { it ==~ /promotech_\d{3}/ }.unique()
+            assert chunks == ['promotech_000', 'promotech_001', 'promotech_002'] : "promoter_layer inputs not sorted: ${chunks}"
+
+            def tx = H.stepDirs(work, 'tx_layer')
+            assert tx.size() == 1
+            def csvs = H.stepInputs(tx[0]).collect { new File(it[1]).name }.findAll { it.endsWith('.csv') }.unique()
+            assert csvs.size() == 5 : "tx_layer should gather 5 Promoter Calculator CSVs: ${csvs}"
+            assert csvs == csvs.toSorted() : "tx_layer inputs not sorted: ${csvs}"
+        }
+    }
+
+    test("example 5: terminators.bactermfinder = true: BACTERMFINDER once") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core', 'mobile', 'bgc', 'function']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                ann.terminators.bactermfinder = true
+                annotation = ann
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            assert H.count(workflow.trace, 'BACTERMFINDER') == 1 : H.names(workflow.trace)
+            assert H.count(workflow.trace, 'TERMINATORNET') == 1
+            assert H.stepCount(workflow.trace, 'terminator_layer') == 1
+        }
+    }
+
+    test("precomputed terminators: no terminator tools and no terminator_layer") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core', 'mobile', 'bgc', 'function']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                ann.terminators.bactermfinder = true
+                ann.precomputed.terminators = new File("${d}/terminators.tsv").canonicalPath
+                annotation = ann
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            def want = new File("${moduleTestDir}/data/annotate/terminators.tsv").canonicalPath
+            assert workflow.success
+            def ran = H.names(workflow.trace)
+            ['TERMINATORNET', 'TRANSTERMHP', 'BACTERMFINDER'].each { p ->
+                assert H.count(workflow.trace, p) == 0 : "${p} ran despite precomputed.terminators: ${ran}"
+            }
+            ['transterm_input', 'terminator_layer'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 0 : "${s} ran despite precomputed.terminators: ${ran}"
+            }
+            def cl = H.stepDirs(work, 'context_layers')
+            assert cl.size() == 1
+            def sources = H.staged(cl[0]).collect { new File(it[0]).canonicalPath }
+            assert want in sources : "context_layers did not receive ${want}; staged ${sources}"
+        }
+    }
+
+    test("precomputed regions: no GENOMAD, no ANTISMASH, no region_layer") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core', 'mobile', 'bgc', 'function']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                ann.precomputed.regions = new File("${d}/regions.tsv").canonicalPath
+                annotation = ann
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            def ran = H.names(workflow.trace)
+            assert H.count(workflow.trace, 'GENOMAD') == 0 : ran
+            assert H.count(workflow.trace, 'ANTISMASH') == 0 : ran
+            assert H.stepCount(workflow.trace, 'region_layer') == 0 : ran
+            assert H.stepCount(workflow.trace, 'context_layers') == 1
+        }
+    }
+}

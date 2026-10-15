@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Fake bakta for workflow/tests/annotate_tools.nf.test (never annotates): records its argv in
+# bakta.argv (one token per line) and writes empty <output>/<prefix>.{json,gbff,gff3,faa,tsv}.
+# If --regions is given, the file must exist relative to the task directory.
+set -euo pipefail
+if [[ "${1:-}" == "--version" ]]; then echo "bakta 1.12.2"; exit 0; fi
+printf '%s\n' "$@" > bakta.argv
+out=bakta prefix=genome
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output) out="$2"; shift ;;
+    --prefix) prefix="$2"; shift ;;
+    --regions) [[ -f "$2" ]] || { echo "fake bakta: --regions $2 not found" >&2; exit 2; } ; shift ;;
+  esac
+  shift
+done
+mkdir -p "$out"
+echo '{}' > "$out/$prefix.json"
+for ext in gbff gff3 faa tsv; do : > "$out/$prefix.$ext"; done

@@ -1,0 +1,7 @@
+name: promoter_calculator
+description: Promoter Calculator per TU upstream region (§7.1.1, G11).
+tools:
+  - promoter_calculator:
+      licence: ["GPL-3.0"]
+      notes: Runs as a separate process from envs/promoter_calculator.yml or its containers.config pin (R5).
+apptainer: conda only until a GHCR image exists

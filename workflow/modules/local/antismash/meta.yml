@@ -1,0 +1,11 @@
+name: antismash
+description: antiSMASH biosynthetic gene clusters [bgc] (§7.1.1).
+tools:
+  - antismash:
+      licence: ["AGPL-3.0"]
+      notes: Runs as a separate process from envs/antismash.yml or its containers.config pin (R5).
+apptainer: >-
+  no `ps` in the pinned image (Nextflow task metrics need it and cannot be disabled per process).
+  The host procps ps fails here (needs libproc2 and GLIBC 2.38; the Debian 12 image has 2.36), so
+  the apptainer profile binds workflow/assets/ps/ps (/proc-based, prints pid ppid) to /usr/bin/ps
+  (M2-07 decision 3; verified by the real SIM100K run, PR #65).

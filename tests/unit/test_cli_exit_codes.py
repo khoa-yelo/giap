@@ -82,7 +82,11 @@ def test_version_option_on_every_subcommand(
     assert giap.__version__ in capsys.readouterr().out
 
 
-def test_modules_with_spaces_reach_the_stub(genome: Path, peptides: Path, tmp_path: Path) -> None:
+def test_modules_with_spaces_reach_the_runner(
+    genome: Path, peptides: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # M2-07: `--modules "core, mobile"` parses and reaches the launcher (no nextflow on PATH → 2).
+    monkeypatch.setenv("PATH", str(tmp_path / "no_nextflow_here"))
     argv = [
         "run",
         "--genome",
@@ -94,7 +98,7 @@ def test_modules_with_spaces_reach_the_stub(genome: Path, peptides: Path, tmp_pa
         "--modules",
         "core, mobile",
     ]
-    assert _exit_code(argv) == ExitCode.INTERNAL
+    assert _exit_code(argv) == ExitCode.ENVIRONMENT
 
 
 def test_preflight_is_not_a_stub(
