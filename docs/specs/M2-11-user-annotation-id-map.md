@@ -85,3 +85,11 @@ Rules:
    schema in M2-20.
 2. Should `unmatched` rows try a looser match (same stop, different start)? **Proposed default:** no
    in v1 (spec says "identical CDS coordinates"); the count of unmatched rows goes to the manifest.
+
+## Lead decisions (test-author questions)
+1. Accepted: Bakta's `pseudogene=<type>` (GFF3) and `/pseudogene` (GBFF) count as pseudo, alongside
+   `pseudo=true` / `/pseudo`; fallback IDs for CDS without one start `<contig>_<start>_` and differ by strand;
+   `detect_format` raises ValueError on unrecognised content; `id_map.tsv` has exactly the 7 columns proposed
+   in Q1 and keeps `end > length` for origin-crossing CDS; an origin-crossing CDS is written once in the
+   regions file.
+2. `annotation_source` stays in `bakta_layers` (M2-04); M2-11 defines no separate API for it.
