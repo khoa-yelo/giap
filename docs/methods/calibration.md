@@ -38,9 +38,9 @@ replicate or use a criterion that accounts for within-replicate dependence.
   computed exactly below.
 - **FWER** reuses the level bound with α = 0.05 (the spec's "0.05 + 2 SE"; the nominal binomial SE).
 
-**Inputs.** Empty inputs raise. `check_level` and `check_fwer` must fail closed on non-finite or
-out-of-range inputs (see Review findings); `check_fdr` with R = 1 has SE 0 and is not a test, so
-suites must use R ≥ 2.
+**Inputs (fail closed).** Empty inputs raise. `check_level`, `check_uniform`, `check_fwer` and
+`check_fdr` raise ValueError on any non-finite value or value outside [0, 1]. `check_fwer` accepts
+only 0/1 outcomes, and `check_fdr` requires R ≥ 2, since SE(FDP) is undefined for R = 1.
 
 ## False-alarm rate of each check (procedure exactly at level)
 
@@ -78,16 +78,44 @@ Checks of one stream at three α are positively correlated and most methods are 
 FDR = π₀q), so the real rate is lower, but permutation and shift tests are exact-level and alone
 contribute ≈ 20–40 %.
 
-**This is not acceptable as a hard gate without a confirmation rule.** Seeds are fixed, so an
-unchanged tree gives the same verdict every night; the false alarm appears when a PR changes how a
-method consumes randomness and a correct method lands in the 2–3 % tail (the attack
-`regions.attack_harness_valid` stream did exactly that: 122/1,000 U(0, 1) p ≤ 0.10, P = 0.013).
-Seed-shopping to make such a check green is forbidden. Recommended rule (needs a lead decision or
-ADR, because it changes the gate semantics of §8.4): a red check is re-run on the next disjoint,
-deterministic replicate block (replicates R … 2R − 1 of the same stream) and the failure stands only
-if that block fails too. Per-check false alarm becomes fᵢ² (≤ 0.008), the nightly family rate
-≈ 0.04, and power against 1.5 α at R = 1,000 drops only from 0.92 to 0.85 (α = 0.05) and
-0.998 to 0.996 (α = 0.10).
+A single-block gate with these numbers would not be acceptable. Seeds are fixed, so an unchanged
+tree gives the same verdict every night. The false alarm appears when a PR changes how a method
+consumes randomness and a correct method lands in the 2–3 % tail. The attack stream
+`regions.attack_harness_valid` did exactly that: 122/1,000 U(0, 1) p ≤ 0.10, P = 0.013.
+Seed-shopping to make such a check green is forbidden.
+
+### Two-block confirmation (ADR-0015, accepted)
+
+`calibrate()` runs a check on replicates 0 … R − 1 (block 1). If the check fails there, it is re-run
+on the disjoint, deterministic block R … 2R − 1 of the same stream (block 2). The gate fails only if
+both blocks fail; a block-1 failure that block 2 does not repeat is logged `unconfirmed` (shown in
+the summary, not red). Records carry `block` and `status` (pass | unconfirmed | fail). The two
+blocks are independent, so:
+
+- per-check confirmed false alarm = f² ≤ 0.0081 (worst cell α = 0.01, R = 50), ≈ 0.0008 at R = 1,000;
+- **confirmed family-wise false-alarm rate per nightly run ≈ 0.04** (46 checks all exactly at level,
+  independence; lower in practice), against ≈ 0.75 for a single block;
+- power of a confirmed fail = (single-block power)²: against 1.5 α at R = 1,000 it is 0.85 (α = 0.05)
+  and 0.996 (α = 0.10); against 1.5 q FDR with realistic BH FDP it is 0.36 (q = 0.01) / 1.0 at fast
+  R = 50 and 1.0 at full R = 300;
+- `unconfirmed` occurs at rate ≈ f (≈ 3 % of checks, about one or two per nightly run) and is
+  informative: a method with persistent `unconfirmed` checks on the same stream deserves a look.
+
+Empirical check (attack `test_two_block_confirmed_false_alarm_matches_theory`): 200 streams × 3 α
+of exact U(0, 1) p at R = 1,000 gave 0 confirmed `fail` in 600 checks (expected 0.5) and 24
+`unconfirmed` (5 / 8 / 11 at α = 0.01 / 0.05 / 0.10; expected ≈ 5–6 each, within the 99.9 %
+binomial band). Oracle BH at FDR = 1.5 q is a confirmed `fail` at every q, fast and full.
+
+**Sharded runs.** `--shard K/N` sets `GIAP_CALIBRATION_REPLICATES`; `calibrate()` then runs only
+that range of block 1 and logs a `shard` record with the per-replicate values. `--merge` puts the
+full R back together (refusing gaps or conflicting duplicates), evaluates block 1, and runs block 2
+itself for every failing check. It never reports `fail` from block 1 alone. The merged verdict
+equals the unsharded one (tested).
+
+**Scope.** ADR-0015 and sharding apply only to checks that go through `calibrate()`. Suites that
+still call `run_replicates` / `check_*` directly (today all suites, including the M4-05 engine
+tests) keep single-block semantics until they are migrated (M4-05 lead decision 7, backlog). Until
+then the nightly family-wise false-alarm rate of those checks is the single-block figure above.
 
 ## Power to detect a 1.5× FDR inflation
 
@@ -125,39 +153,38 @@ uint64)`, and replicate `rep` draws from `default_rng(suite_seed(stream, rep))`.
   two tests sharing a stream name share draws.
 - **Sharding.** The seed depends only on (stream, rep), never on the shard, so replicate i is the
   same data whether run alone or in a block, and `shard_replicates(R, n, k)` partitions 0 … R − 1
-  into contiguous blocks (tested). Criteria are only valid on the merged R replicates; see Review
-  findings for the state of `--shard`.
+  into contiguous blocks (tested). Criteria are only valid on the merged R replicates (`--merge`, above).
 - **Fixed seeds** (§8.4): `calibration_base` lives in the protected file; tests are deterministic.
 
 ## Suites and `tolerances.yaml`
 
 Array task i runs the i-th key of `replicates_full` (13 suites → `--array=0-12`); `--fast` uses
 `replicates_fast`. Engine tests reuse `gene_fdr` (BH) and `regions` (permutation, circular shift,
-Besag–Clifford), per M4-index lead decision 6. A test joins a suite through the keyword
-`calsuite_<suite>`, assigned when the suite name appears quoted in the test function's source, else
-anywhere in its module (so a module naming several suites runs in several tasks).
+Besag–Clifford), per M4-index lead decision 6. Each calibration test belongs to exactly one suite.
+The suite comes from a `@pytest.mark.calsuite("<suite>")` marker or from `SUITE_REGISTRY` in
+`tests/calibration/conftest.py` (keyed by function, then file). A test then gets the keyword
+`calsuite_<suite>`, and a unit test checks that every calibration test lands in exactly one array
+task.
 
 ## Review findings (M4-05, statistician)
 
-1. **Blocking.** `check_level` fails open: NaN p and p > 1 count as "not rejected", so 100 NaN
-   p-values pass at α = 0.05 (observed 0, ok = True). A method that returns NaN for every region
-   would pass its level gate. `check_level` and `check_fwer` must raise on non-finite or
-   out-of-[0, 1] input. Attack tests `test_level_check_fails_closed_on_nan` and
-   `..._out_of_range_p` fail until fixed.
-2. **Blocking.** `--shard K/N` exports `GIAP_CALIBRATION_REPLICATES` but no test reads it: every
-   shard runs all R replicates and logs a full-R verdict (N× compute, duplicated records). Either
-   honour the range in `run_replicates`/tests **and** add a merge step that evaluates the criteria on
-   the union, or remove `--shard` until then.
-3. Minor: `check_fdr` accepts R = 1 (SE 0, trivially passes) and FDP outside [0, 1]; require R ≥ 2
-   and 0 ≤ FDP ≤ 1.
-4. Minor: suite tagging by source regex is fragile (a helper naming two suites puts a test in two
-   array tasks); an explicit `@pytest.mark.calsuite("regions")` marker would be exact.
-5. Policy (lead/ADR): adopt the two-block confirmation rule above, or accept a ≈ 50–75 % nightly
-   family false-alarm rate when all methods are at level.
+First review (PR #54, BLOCK), all resolved at head 6fba049:
+
+1. `check_level` failed open on NaN and p > 1. **Fixed:** all checks fail closed. The attack tests
+   `test_level_check_fails_closed_on_nan` and `..._out_of_range_p` pass.
+2. `--shard` was inert. **Fixed:** shards are honoured; `--merge` evaluates the union and runs the
+   confirmation block.
+3. `check_fdr` accepted R = 1 and FDP outside [0, 1]. **Fixed.**
+4. Suite tagging by source regex. **Fixed:** explicit marker or registry.
+5. Family-wise false alarms ≈ 0.75. **Resolved by ADR-0015** (≈ 0.04 confirmed).
+
+Open follow-up (not blocking this PR): migrate the existing suites to `calibrate()` (lead decision
+7). Until then ADR-0015 protects only new suites.
 
 ## Sign-off
 
-Statistician, 2026-10-14 (M4-05 review). Criteria, SE formulas, one-sidedness, k, discrete-p rule
-and seed derivation match §8.4 and the M4-05 spec. The false-alarm and power numbers above are
-exact binomial or simulated as stated. Sign-off on the harness is conditional on findings 1–2;
-finding 5 is a recommendation to the lead.
+Statistician, 2026-10-14 (M4-05 re-review at 6fba049): **signed.** The criteria, SE formulas,
+one-sidedness, k, discrete-p rule, fail-closed inputs, seed derivation, shard partition and merge,
+and ADR-0015 confirmation match §8.4, ADR-0015 and the M4-05 spec with lead decisions 1–7. The
+false-alarm and power numbers above are exact binomial or simulated as stated. The confirmed nightly
+family-wise false-alarm rate is ≈ 0.04 once suites run through `calibrate()`.

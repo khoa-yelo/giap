@@ -17,12 +17,16 @@ the matching exactly-at-level procedure (the worst case for false alarms) passes
   only records alpha = 0.01 and 0.05.
 - NaN guard: a vector of NaN p-values must not pass ``check_level`` (fail closed).
 
+- ADR-0015 (two-block confirmation) through ``calibrate``: exact-level p give a confirmed ``fail``
+  at the rate f^2 over 200 streams, and BH at FDR = 1.5 q is still a confirmed ``fail``.
+
 BH is written out here (not imported from ``giap.stats``) so the attack tests the harness alone.
 """
 
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import _criteria as C
 import numpy as np
@@ -139,3 +143,55 @@ def test_level_check_fails_closed_on_out_of_range_p() -> None:
     except ValueError:
         return
     assert not res.ok, res.detail
+
+
+# --------------------------------------------------------------------------- ADR-0015 (calibrate)
+
+
+@pytest.mark.calibration_full
+def test_two_block_confirmed_false_alarm_matches_theory(tmp_path: Path) -> None:
+    """Exact-level U(0, 1) p through ``calibrate`` over S streams: the share of confirmed ``fail``
+    per alpha stays in the 99.9 % binomial band of f^2 (f = single-block false alarm, ≈ 0.027 at
+    R = 1,000, so f^2 ≈ 0.0008), and ``unconfirmed`` occurs at about f."""
+    r = C.replicates("regions", full=True)
+    for a in C.load_tolerances().levels:
+        status = [
+            C.calibrate(
+                "regions",
+                "level",
+                a,
+                lambda g: g.uniform(),
+                r,
+                stream=f"regions.attack_harness_adr15_{s}",
+                log_dir=tmp_path,
+            )["status"]
+            for s in range(S_STREAMS)
+        ]
+        f = _false_alarm(a, r)
+        assert status.count("fail") <= binom.ppf(0.999, S_STREAMS, f * f), (a, status)
+        n_unconfirmed = status.count("unconfirmed")
+        assert n_unconfirmed <= binom.ppf(0.999, S_STREAMS, f), (a, n_unconfirmed)
+
+
+@pytest.mark.parametrize("full", MODES)
+def test_two_block_confirms_bh_at_one_and_a_half_q(full: bool, tmp_path: Path) -> None:
+    """Confirmation must not rescue an anti-conservative procedure: oracle BH at FDR = 1.5 q is a
+    confirmed ``fail`` at every q, and BH at FDR = q is never a confirmed ``fail``."""
+    levels = C.load_tolerances().levels
+    r = C.replicates("gene_fdr", full=full)
+    for j, q in enumerate(levels):
+        for kind, factor in (("valid", 1.0), ("inflated", INFLATION)):
+            rep = _fdp(levels, factor)
+            rec = C.calibrate(
+                "gene_fdr",
+                "fdr",
+                q,
+                lambda g, rep=rep, j=j: rep(g)[j],
+                r,
+                stream=f"gene_fdr.attack_harness_adr15_{kind}",
+                log_dir=tmp_path,
+            )
+            if kind == "inflated":
+                assert rec["status"] == "fail", rec
+            else:
+                assert rec["status"] != "fail", rec
