@@ -166,3 +166,11 @@ Follow-up PR (stacked, branch m2/run-wiring): `giap run` writes `inputs.replicon
    c. Tests use a manifest in the real `giap setup` format (copy the structure of a real run, versions
       faked) and fake container/env directories; never the real $GIAP_DB_DIR or $GIAP_ROOT.
    d. Acceptance: a real `giap run` on SIM100K via Slurm passes preflight and reaches ANNOTATE.
+5. After the acceptance run (Slurm 1848659: preflight ok, ANNOTATE reached, TERMINATORNET and GENOMAD
+   completed, BAKTA failed in tRNAscan-SE with TMPDIR pointing outside the container binds):
+   a. Container tasks use a per-task temp dir inside the task work dir (`beforeScript`: `mkdir -p tmp;
+      export TMPDIR=$PWD/tmp`) in the apptainer profile, so host `TMPDIR` never leaks into a container.
+   b. The extra check of probe-reported tool versions against registry pins (enabled modules only) is
+      accepted (keeps the older version tests meaningful).
+   c. Acceptance repeated with `--resume` on the same outdir: BAKTA succeeds, TERMINATORNET/GENOMAD are
+      cached, and the run proceeds until the first unregistered py step (expected on main).
