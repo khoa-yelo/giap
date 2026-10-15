@@ -35,7 +35,7 @@ import pytest
 from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
-import evidence_oracle as eo
+import sim_evidence_oracle as eo
 
 MODES = [
     pytest.param(False, marks=pytest.mark.calibration, id="fast"),

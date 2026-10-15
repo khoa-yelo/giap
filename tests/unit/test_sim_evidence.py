@@ -45,7 +45,7 @@ import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
-import evidence_oracle as eo
+import sim_evidence_oracle as eo
 
 REPO = Path(__file__).resolve().parents[2]
 GIAPSIM = REPO / "tests" / "sim" / "giapsim"

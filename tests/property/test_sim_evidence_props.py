@@ -23,7 +23,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
-import evidence_oracle as eo
+import sim_evidence_oracle as eo
 
 SETTINGS = settings(max_examples=25, deadline=None,
                     suppress_health_check=[HealthCheck.too_slow])  # fmt: skip

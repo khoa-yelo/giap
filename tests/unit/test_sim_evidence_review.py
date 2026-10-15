@@ -23,7 +23,7 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
-import evidence_oracle as eo
+import sim_evidence_oracle as eo
 
 
 def _layout(seed: int, **kw: Any) -> Any:
