@@ -1,0 +1,27 @@
+name: miniprot
+description: Align proteins > 40 aa to the genome with miniprot (GIAP_SPEC.md §7.2.3, §7.1.1).
+keywords: [protein, alignment, mapping]
+tools:
+  - miniprot:
+      description: Protein-to-genome aligner (index with -T 11, align with --gff).
+      homepage: https://github.com/lh3/miniprot
+      licence: ["MIT"]
+input:
+  - meta_id:
+      type: string
+      description: Sample ID (the process tag).
+  - genome:
+      type: file
+      description: Normalised genome FASTA.
+  - proteins:
+      type: file
+      description: Protein FASTA (proteins > 40 aa).
+output:
+  - gff:
+      - miniprot.gff:
+          type: file
+          description: miniprot GFF3 (mRNA lines carry Identity, Positive, Rank, Target).
+  - versions:
+      - versions.yml:
+          type: file
+          description: Software versions (nf-core style).

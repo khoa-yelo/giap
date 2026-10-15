@@ -101,3 +101,29 @@ def assign_alignments(alns: Sequence[ProteinAlignment], gm: GeneModel,
    while the protein still counts as a leftover and goes to tblastn as the spec says.
 2. `Identity` in miniprot is computed over aligned columns; coverage comes from `Target`. Confirm
    no extra penalty for frameshifts. **Proposed default:** none; `fs` is a flag only.
+
+## Lead decisions (test-author questions)
+1. Protein alignments are assigned to CDS or sORF only (spec). Pseudogenes are not assigned by this route;
+   an alignment over a pseudogene stays a leftover (M3-14 decides novel loci). M3-index decision 3
+   concerns peptide placements, not protein alignments. Partial CDS can be assigned.
+2. Q1 and Q2 take the proposed defaults: a gene-NA row while the protein stays a leftover; frameshifts are
+   a flag with no identity penalty.
+3. Accepted test-author choices: builders, `ProteinAlignment` and the parser in `mapping/miniprot.py`;
+   `reciprocal_overlap`, `similarity_class`, `assign_alignments` in `mapping/protein_assign.py`; 0-based
+   half-open start/end; thresholds inclusive (≥), `near` = identity ≥ `near_identity`; largest overlap in bp,
+   ties → lower locus tag; flags `"fs;st"`; row order independent of input order; leftovers are aligned
+   protein IDs only (the caller adds unaligned proteins); a protein ID missing from `protein_len` raises.
+
+## Lead decisions after code review (PR #47, changes requested)
+1. Alternative starts: the parser reads the `cs` tag of the `##PAF` line preceding each alignment; a lone
+   `*gtgM` / `*ttgM` (any `*[acgt]tgM`) at query position 0 counts as a match for identity, and
+   `ProteinAlignment.alt_start` (bool) records it. Unit test with GTG and TTG starts; example 10 (≥ 99 %
+   identical) must hold on the recorded SIM100K run.
+2. Record the fixture `tests/data/recorded/miniprot/0.18/sim100k/` with the pinned miniprot image (seconds;
+   implementers may add recorded fixtures) incl. PROVENANCE.md (command, image digest, input sha256).
+3. A real nf-test stub test for `workflow/modules/local/miniprot/` (workflow/tests/miniprot.nf.test);
+   `mapping.proteins.miniprot_args` reaches the process via `ext.args` (no hard-coded default in main.nf).
+4. `assign_alignments` validates canonical intervals (`check_interval`: 0 ≤ start < L, unwrapped end ≤ start + L)
+   and raises ValueError otherwise; M3-13 normalises chains before calling it.
+5. miniprot runs on preflight's `proteins.long.faa`, whose IDs are already made safe (`_safe_protein_ids`);
+   the parser raises ValueError if a `Target` ID contains `;` or `=` (defensive).

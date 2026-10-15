@@ -1,0 +1,329 @@
+##gff-version 3
+##PAF	GSIM_00005	647	0	647	+	chr1	100000	287	2228	1941	1941	0	AS:i:3317	ms:i:3317	np:i:647	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:647M	cs:Z::647
+chr1	miniprot	mRNA	288	2231	3317	+	.	ID=MP000001;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00005 1 647
+chr1	miniprot	CDS	288	2231	3317	+	0	Parent=MP000001;Rank=1;Identity=1.0000;Target=GSIM_00005 1 647
+chr1	miniprot	stop_codon	2229	2231	0	+	0	Parent=MP000001;Rank=1
+##PAF	GSIM_00010	383	0	383	+	chr1	100000	2597	3746	1149	1149	0	AS:i:1992	ms:i:1992	np:i:383	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:383M	cs:Z::383
+chr1	miniprot	mRNA	2598	3749	1992	+	.	ID=MP000002;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00010 1 383
+chr1	miniprot	CDS	2598	3749	1992	+	0	Parent=MP000002;Rank=1;Identity=1.0000;Target=GSIM_00010 1 383
+chr1	miniprot	stop_codon	3747	3749	0	+	0	Parent=MP000002;Rank=1
+##PAF	GSIM_00015	226	0	226	-	chr1	100000	3937	4615	678	678	0	AS:i:1173	ms:i:1173	np:i:226	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:226M	cs:Z::226
+chr1	miniprot	mRNA	3935	4615	1173	-	.	ID=MP000003;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00015 1 226
+chr1	miniprot	CDS	3935	4615	1173	-	0	Parent=MP000003;Rank=1;Identity=1.0000;Target=GSIM_00015 1 226
+chr1	miniprot	stop_codon	3935	3937	0	-	0	Parent=MP000003;Rank=1
+##PAF	GSIM_00020	233	0	233	-	chr1	100000	4630	5329	699	699	0	AS:i:1207	ms:i:1207	np:i:233	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:233M	cs:Z::233
+chr1	miniprot	mRNA	4628	5329	1207	-	.	ID=MP000004;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00020 1 233
+chr1	miniprot	CDS	4628	5329	1207	-	0	Parent=MP000004;Rank=1;Identity=1.0000;Target=GSIM_00020 1 233
+chr1	miniprot	stop_codon	4628	4630	0	-	0	Parent=MP000004;Rank=1
+##PAF	GSIM_00025	259	0	259	-	chr1	100000	5657	6434	774	777	0	AS:i:1340	ms:i:1340	np:i:259	fs:i:0	st:i:0	da:i:-1	do:i:0	cg:Z:259M	cs:Z:*gtgM:258
+chr1	miniprot	mRNA	5655	6434	1340	-	.	ID=MP000005;Rank=1;Identity=0.9961;Positive=1.0000;Target=GSIM_00025 1 259
+chr1	miniprot	CDS	5655	6434	1340	-	0	Parent=MP000005;Rank=1;Identity=0.9961;Target=GSIM_00025 1 259
+chr1	miniprot	stop_codon	5655	5657	0	-	0	Parent=MP000005;Rank=1
+##PAF	GSIM_00030	279	0	279	-	chr1	100000	6791	7628	837	837	0	AS:i:1417	ms:i:1417	np:i:279	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:279M	cs:Z::279
+chr1	miniprot	mRNA	6789	7628	1417	-	.	ID=MP000006;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00030 1 279
+chr1	miniprot	CDS	6789	7628	1417	-	0	Parent=MP000006;Rank=1;Identity=1.0000;Target=GSIM_00030 1 279
+chr1	miniprot	stop_codon	6789	6791	0	-	0	Parent=MP000006;Rank=1
+##PAF	GSIM_00035	185	0	185	-	chr1	100000	7630	8185	555	555	0	AS:i:959	ms:i:959	np:i:185	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:185M	cs:Z::185
+chr1	miniprot	mRNA	7628	8185	959	-	.	ID=MP000007;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00035 1 185
+chr1	miniprot	CDS	7628	8185	959	-	0	Parent=MP000007;Rank=1;Identity=1.0000;Target=GSIM_00035 1 185
+chr1	miniprot	stop_codon	7628	7630	0	-	0	Parent=MP000007;Rank=1
+##PAF	GSIM_00040	276	0	276	-	chr1	100000	8187	9015	828	828	0	AS:i:1437	ms:i:1437	np:i:276	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:276M	cs:Z::276
+chr1	miniprot	mRNA	8185	9015	1437	-	.	ID=MP000008;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00040 1 276
+chr1	miniprot	CDS	8185	9015	1437	-	0	Parent=MP000008;Rank=1;Identity=1.0000;Target=GSIM_00040 1 276
+chr1	miniprot	stop_codon	8185	8187	0	-	0	Parent=MP000008;Rank=1
+##PAF	GSIM_00045	391	0	391	-	chr1	100000	9047	10220	1173	1173	0	AS:i:2011	ms:i:2011	np:i:391	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:391M	cs:Z::391
+chr1	miniprot	mRNA	9045	10220	2011	-	.	ID=MP000009;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00045 1 391
+chr1	miniprot	CDS	9045	10220	2011	-	0	Parent=MP000009;Rank=1;Identity=1.0000;Target=GSIM_00045 1 391
+chr1	miniprot	stop_codon	9045	9047	0	-	0	Parent=MP000009;Rank=1
+##PAF	GSIM_00050	629	0	629	-	chr1	100000	10533	12420	1887	1887	0	AS:i:3326	ms:i:3326	np:i:629	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:629M	cs:Z::629
+chr1	miniprot	mRNA	10531	12420	3326	-	.	ID=MP000010;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00050 1 629
+chr1	miniprot	CDS	10531	12420	3326	-	0	Parent=MP000010;Rank=1;Identity=1.0000;Target=GSIM_00050 1 629
+chr1	miniprot	stop_codon	10531	10533	0	-	0	Parent=MP000010;Rank=1
+##PAF	GSIM_00070	723	0	723	-	chr1	100000	14581	16750	2169	2169	0	AS:i:3749	ms:i:3749	np:i:723	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:723M	cs:Z::723
+chr1	miniprot	mRNA	14579	16750	3749	-	.	ID=MP000011;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00070 1 723
+chr1	miniprot	CDS	14579	16750	3749	-	0	Parent=MP000011;Rank=1;Identity=1.0000;Target=GSIM_00070 1 723
+chr1	miniprot	stop_codon	14579	14581	0	-	0	Parent=MP000011;Rank=1
+##PAF	GSIM_00080	199	0	199	-	chr1	100000	17197	17794	597	597	0	AS:i:1023	ms:i:1023	np:i:199	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:199M	cs:Z::199
+chr1	miniprot	mRNA	17195	17794	1023	-	.	ID=MP000012;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00080 1 199
+chr1	miniprot	CDS	17195	17794	1023	-	0	Parent=MP000012;Rank=1;Identity=1.0000;Target=GSIM_00080 1 199
+chr1	miniprot	stop_codon	17195	17197	0	-	0	Parent=MP000012;Rank=1
+##PAF	GSIM_00085	188	0	188	-	chr1	100000	17999	18563	561	564	0	AS:i:987	ms:i:987	np:i:188	fs:i:0	st:i:0	da:i:-1	do:i:0	cg:Z:188M	cs:Z:*ttgM:187
+chr1	miniprot	mRNA	17997	18563	987	-	.	ID=MP000013;Rank=1;Identity=0.9947;Positive=1.0000;Target=GSIM_00085 1 188
+chr1	miniprot	CDS	17997	18563	987	-	0	Parent=MP000013;Rank=1;Identity=0.9947;Target=GSIM_00085 1 188
+chr1	miniprot	stop_codon	17997	17999	0	-	0	Parent=MP000013;Rank=1
+##PAF	GSIM_00090	154	0	154	+	chr1	100000	18976	19438	459	462	0	AS:i:834	ms:i:834	np:i:154	fs:i:0	st:i:0	da:i:-1	do:i:0	cg:Z:154M	cs:Z:*gtgM:153
+chr1	miniprot	mRNA	18977	19441	834	+	.	ID=MP000014;Rank=1;Identity=0.9935;Positive=1.0000;Target=GSIM_00090 1 154
+chr1	miniprot	CDS	18977	19441	834	+	0	Parent=MP000014;Rank=1;Identity=0.9935;Target=GSIM_00090 1 154
+chr1	miniprot	stop_codon	19439	19441	0	+	0	Parent=MP000014;Rank=1
+##PAF	GSIM_00095	195	0	195	+	chr1	100000	19452	20037	582	585	0	AS:i:968	ms:i:968	np:i:195	fs:i:0	st:i:0	da:i:-1	do:i:0	cg:Z:195M	cs:Z:*gtgM:194
+chr1	miniprot	mRNA	19453	20040	968	+	.	ID=MP000015;Rank=1;Identity=0.9949;Positive=1.0000;Target=GSIM_00095 1 195
+chr1	miniprot	CDS	19453	20040	968	+	0	Parent=MP000015;Rank=1;Identity=0.9949;Target=GSIM_00095 1 195
+chr1	miniprot	stop_codon	20038	20040	0	+	0	Parent=MP000015;Rank=1
+##PAF	GSIM_00100	303	0	303	+	chr1	100000	20457	21366	909	909	0	AS:i:1582	ms:i:1582	np:i:303	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:303M	cs:Z::303
+chr1	miniprot	mRNA	20458	21369	1582	+	.	ID=MP000016;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00100 1 303
+chr1	miniprot	CDS	20458	21369	1582	+	0	Parent=MP000016;Rank=1;Identity=1.0000;Target=GSIM_00100 1 303
+chr1	miniprot	stop_codon	21367	21369	0	+	0	Parent=MP000016;Rank=1
+##PAF	GSIM_00105	206	0	206	+	chr1	100000	21405	22023	618	618	0	AS:i:1058	ms:i:1058	np:i:206	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:206M	cs:Z::206
+chr1	miniprot	mRNA	21406	22026	1058	+	.	ID=MP000017;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00105 1 206
+chr1	miniprot	CDS	21406	22026	1058	+	0	Parent=MP000017;Rank=1;Identity=1.0000;Target=GSIM_00105 1 206
+chr1	miniprot	stop_codon	22024	22026	0	+	0	Parent=MP000017;Rank=1
+##PAF	GSIM_00110	404	0	404	-	chr1	100000	22244	23456	1212	1212	0	AS:i:2080	ms:i:2080	np:i:404	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:404M	cs:Z::404
+chr1	miniprot	mRNA	22242	23456	2080	-	.	ID=MP000018;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00110 1 404
+chr1	miniprot	CDS	22242	23456	2080	-	0	Parent=MP000018;Rank=1;Identity=1.0000;Target=GSIM_00110 1 404
+chr1	miniprot	stop_codon	22242	22244	0	-	0	Parent=MP000018;Rank=1
+##PAF	GSIM_00115	430	0	430	+	chr1	100000	23797	25087	1290	1290	0	AS:i:2219	ms:i:2219	np:i:430	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:430M	cs:Z::430
+chr1	miniprot	mRNA	23798	25090	2219	+	.	ID=MP000019;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00115 1 430
+chr1	miniprot	CDS	23798	25090	2219	+	0	Parent=MP000019;Rank=1;Identity=1.0000;Target=GSIM_00115 1 430
+chr1	miniprot	stop_codon	25088	25090	0	+	0	Parent=MP000019;Rank=1
+##PAF	GSIM_00120	223	0	223	+	chr1	100000	25533	26202	669	669	0	AS:i:1148	ms:i:1148	np:i:223	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:223M	cs:Z::223
+chr1	miniprot	mRNA	25534	26205	1148	+	.	ID=MP000020;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00120 1 223
+chr1	miniprot	CDS	25534	26205	1148	+	0	Parent=MP000020;Rank=1;Identity=1.0000;Target=GSIM_00120 1 223
+chr1	miniprot	stop_codon	26203	26205	0	+	0	Parent=MP000020;Rank=1
+##PAF	GSIM_00125	661	0	661	+	chr1	100000	26383	28366	1983	1983	0	AS:i:3424	ms:i:3424	np:i:661	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:661M	cs:Z::661
+chr1	miniprot	mRNA	26384	28369	3424	+	.	ID=MP000021;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00125 1 661
+chr1	miniprot	CDS	26384	28369	3424	+	0	Parent=MP000021;Rank=1;Identity=1.0000;Target=GSIM_00125 1 661
+chr1	miniprot	stop_codon	28367	28369	0	+	0	Parent=MP000021;Rank=1
+##PAF	GSIM_00130	181	0	181	+	chr1	100000	28515	29058	543	543	0	AS:i:941	ms:i:941	np:i:181	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:181M	cs:Z::181
+chr1	miniprot	mRNA	28516	29061	941	+	.	ID=MP000022;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00130 1 181
+chr1	miniprot	CDS	28516	29061	941	+	0	Parent=MP000022;Rank=1;Identity=1.0000;Target=GSIM_00130 1 181
+chr1	miniprot	stop_codon	29059	29061	0	+	0	Parent=MP000022;Rank=1
+##PAF	GSIM_00135	210	0	210	+	chr1	100000	29165	29795	627	630	0	AS:i:1058	ms:i:1058	np:i:210	fs:i:0	st:i:0	da:i:6	do:i:0	cg:Z:210M	cs:Z:*gtgM:209
+chr1	miniprot	mRNA	29166	29798	1058	+	.	ID=MP000023;Rank=1;Identity=0.9952;Positive=1.0000;Target=GSIM_00135 1 210
+chr1	miniprot	CDS	29166	29798	1058	+	0	Parent=MP000023;Rank=1;Identity=0.9952;Target=GSIM_00135 1 210
+chr1	miniprot	stop_codon	29796	29798	0	+	0	Parent=MP000023;Rank=1
+##PAF	GSIM_00140	242	0	242	+	chr1	100000	29917	30643	726	726	0	AS:i:1254	ms:i:1254	np:i:242	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:242M	cs:Z::242
+chr1	miniprot	mRNA	29918	30646	1254	+	.	ID=MP000024;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00140 1 242
+chr1	miniprot	CDS	29918	30646	1254	+	0	Parent=MP000024;Rank=1;Identity=1.0000;Target=GSIM_00140 1 242
+chr1	miniprot	stop_codon	30644	30646	0	+	0	Parent=MP000024;Rank=1
+##PAF	GSIM_00145	261	0	261	+	chr1	100000	30803	31586	780	783	0	AS:i:1355	ms:i:1355	np:i:261	fs:i:0	st:i:0	da:i:-1	do:i:0	cg:Z:261M	cs:Z:*gtgM:260
+chr1	miniprot	mRNA	30804	31589	1355	+	.	ID=MP000025;Rank=1;Identity=0.9962;Positive=1.0000;Target=GSIM_00145 1 261
+chr1	miniprot	CDS	30804	31589	1355	+	0	Parent=MP000025;Rank=1;Identity=0.9962;Target=GSIM_00145 1 261
+chr1	miniprot	stop_codon	31587	31589	0	+	0	Parent=MP000025;Rank=1
+##PAF	GSIM_00150	538	0	538	+	chr1	100000	31783	33397	1614	1614	0	AS:i:2784	ms:i:2784	np:i:538	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:538M	cs:Z::538
+chr1	miniprot	mRNA	31784	33400	2784	+	.	ID=MP000026;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00150 1 538
+chr1	miniprot	CDS	31784	33400	2784	+	0	Parent=MP000026;Rank=1;Identity=1.0000;Target=GSIM_00150 1 538
+chr1	miniprot	stop_codon	33398	33400	0	+	0	Parent=MP000026;Rank=1
+##PAF	GSIM_00155	168	0	168	+	chr1	100000	33522	34026	504	504	0	AS:i:881	ms:i:881	np:i:168	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:168M	cs:Z::168
+chr1	miniprot	mRNA	33523	34029	881	+	.	ID=MP000027;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00155 1 168
+chr1	miniprot	CDS	33523	34029	881	+	0	Parent=MP000027;Rank=1;Identity=1.0000;Target=GSIM_00155 1 168
+chr1	miniprot	stop_codon	34027	34029	0	+	0	Parent=MP000027;Rank=1
+##PAF	GSIM_00160	194	0	194	+	chr1	100000	34169	34751	582	582	0	AS:i:1002	ms:i:1002	np:i:194	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:194M	cs:Z::194
+chr1	miniprot	mRNA	34170	34754	1002	+	.	ID=MP000028;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00160 1 194
+chr1	miniprot	CDS	34170	34754	1002	+	0	Parent=MP000028;Rank=1;Identity=1.0000;Target=GSIM_00160 1 194
+chr1	miniprot	stop_codon	34752	34754	0	+	0	Parent=MP000028;Rank=1
+##PAF	GSIM_00185	332	0	332	-	chr1	100000	36839	37835	996	996	0	AS:i:1707	ms:i:1707	np:i:332	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:332M	cs:Z::332
+chr1	miniprot	mRNA	36837	37835	1707	-	.	ID=MP000029;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00185 1 332
+chr1	miniprot	CDS	36837	37835	1707	-	0	Parent=MP000029;Rank=1;Identity=1.0000;Target=GSIM_00185 1 332
+chr1	miniprot	stop_codon	36837	36839	0	-	0	Parent=MP000029;Rank=1
+##PAF	GSIM_00190	533	0	533	-	chr1	100000	37946	39545	1599	1599	0	AS:i:2736	ms:i:2736	np:i:533	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:533M	cs:Z::533
+chr1	miniprot	mRNA	37944	39545	2736	-	.	ID=MP000030;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00190 1 533
+chr1	miniprot	CDS	37944	39545	2736	-	0	Parent=MP000030;Rank=1;Identity=1.0000;Target=GSIM_00190 1 533
+chr1	miniprot	stop_codon	37944	37946	0	-	0	Parent=MP000030;Rank=1
+##PAF	GSIM_00195	212	0	212	-	chr1	100000	39728	40364	636	636	0	AS:i:1087	ms:i:1087	np:i:212	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:212M	cs:Z::212
+chr1	miniprot	mRNA	39726	40364	1087	-	.	ID=MP000031;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00195 1 212
+chr1	miniprot	CDS	39726	40364	1087	-	0	Parent=MP000031;Rank=1;Identity=1.0000;Target=GSIM_00195 1 212
+chr1	miniprot	stop_codon	39726	39728	0	-	0	Parent=MP000031;Rank=1
+##PAF	GSIM_00200	225	0	225	-	chr1	100000	40496	41171	675	675	0	AS:i:1152	ms:i:1152	np:i:225	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:225M	cs:Z::225
+chr1	miniprot	mRNA	40494	41171	1152	-	.	ID=MP000032;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00200 1 225
+chr1	miniprot	CDS	40494	41171	1152	-	0	Parent=MP000032;Rank=1;Identity=1.0000;Target=GSIM_00200 1 225
+chr1	miniprot	stop_codon	40494	40496	0	-	0	Parent=MP000032;Rank=1
+##PAF	GSIM_00205	305	0	305	-	chr1	100000	41364	42279	912	915	0	AS:i:1552	ms:i:1552	np:i:305	fs:i:0	st:i:0	da:i:24	do:i:0	cg:Z:305M	cs:Z:*gtgM:304
+chr1	miniprot	mRNA	41362	42279	1552	-	.	ID=MP000033;Rank=1;Identity=0.9967;Positive=1.0000;Target=GSIM_00205 1 305
+chr1	miniprot	CDS	41362	42279	1552	-	0	Parent=MP000033;Rank=1;Identity=0.9967;Target=GSIM_00205 1 305
+chr1	miniprot	stop_codon	41362	41364	0	-	0	Parent=MP000033;Rank=1
+##PAF	GSIM_00210	290	0	290	-	chr1	100000	42481	43351	870	870	0	AS:i:1480	ms:i:1480	np:i:290	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:290M	cs:Z::290
+chr1	miniprot	mRNA	42479	43351	1480	-	.	ID=MP000034;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00210 1 290
+chr1	miniprot	CDS	42479	43351	1480	-	0	Parent=MP000034;Rank=1;Identity=1.0000;Target=GSIM_00210 1 290
+chr1	miniprot	stop_codon	42479	42481	0	-	0	Parent=MP000034;Rank=1
+##PAF	GSIM_00215	378	0	378	-	chr1	100000	43537	44671	1134	1134	0	AS:i:1955	ms:i:1955	np:i:378	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:378M	cs:Z::378
+chr1	miniprot	mRNA	43535	44671	1955	-	.	ID=MP000035;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00215 1 378
+chr1	miniprot	CDS	43535	44671	1955	-	0	Parent=MP000035;Rank=1;Identity=1.0000;Target=GSIM_00215 1 378
+chr1	miniprot	stop_codon	43535	43537	0	-	0	Parent=MP000035;Rank=1
+##PAF	GSIM_00220	205	0	205	-	chr1	100000	44869	45484	615	615	0	AS:i:1067	ms:i:1067	np:i:205	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:205M	cs:Z::205
+chr1	miniprot	mRNA	44867	45484	1067	-	.	ID=MP000036;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00220 1 205
+chr1	miniprot	CDS	44867	45484	1067	-	0	Parent=MP000036;Rank=1;Identity=1.0000;Target=GSIM_00220 1 205
+chr1	miniprot	stop_codon	44867	44869	0	-	0	Parent=MP000036;Rank=1
+##PAF	GSIM_00225	257	0	257	-	chr1	100000	45638	46409	771	771	0	AS:i:1337	ms:i:1337	np:i:257	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:257M	cs:Z::257
+chr1	miniprot	mRNA	45636	46409	1337	-	.	ID=MP000037;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00225 1 257
+chr1	miniprot	CDS	45636	46409	1337	-	0	Parent=MP000037;Rank=1;Identity=1.0000;Target=GSIM_00225 1 257
+chr1	miniprot	stop_codon	45636	45638	0	-	0	Parent=MP000037;Rank=1
+##PAF	GSIM_00230	249	0	249	-	chr1	100000	46568	47315	747	747	0	AS:i:1298	ms:i:1298	np:i:249	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:249M	cs:Z::249
+chr1	miniprot	mRNA	46566	47315	1298	-	.	ID=MP000038;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00230 1 249
+chr1	miniprot	CDS	46566	47315	1298	-	0	Parent=MP000038;Rank=1;Identity=1.0000;Target=GSIM_00230 1 249
+chr1	miniprot	stop_codon	46566	46568	0	-	0	Parent=MP000038;Rank=1
+##PAF	GSIM_00235	338	0	338	-	chr1	100000	47497	48511	1014	1014	0	AS:i:1730	ms:i:1730	np:i:338	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:338M	cs:Z::338
+chr1	miniprot	mRNA	47495	48511	1730	-	.	ID=MP000039;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00235 1 338
+chr1	miniprot	CDS	47495	48511	1730	-	0	Parent=MP000039;Rank=1;Identity=1.0000;Target=GSIM_00235 1 338
+chr1	miniprot	stop_codon	47495	47497	0	-	0	Parent=MP000039;Rank=1
+##PAF	GSIM_00295	637	0	637	+	chr1	100000	57046	58957	1911	1911	0	AS:i:3285	ms:i:3285	np:i:637	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:637M	cs:Z::637
+chr1	miniprot	mRNA	57047	58960	3285	+	.	ID=MP000040;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00295 1 637
+chr1	miniprot	CDS	57047	58960	3285	+	0	Parent=MP000040;Rank=1;Identity=1.0000;Target=GSIM_00295 1 637
+chr1	miniprot	stop_codon	58958	58960	0	+	0	Parent=MP000040;Rank=1
+##PAF	GSIM_00300	314	0	314	+	chr1	100000	58978	59920	942	942	0	AS:i:1651	ms:i:1651	np:i:314	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:314M	cs:Z::314
+chr1	miniprot	mRNA	58979	59923	1651	+	.	ID=MP000041;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00300 1 314
+chr1	miniprot	CDS	58979	59923	1651	+	0	Parent=MP000041;Rank=1;Identity=1.0000;Target=GSIM_00300 1 314
+chr1	miniprot	stop_codon	59921	59923	0	+	0	Parent=MP000041;Rank=1
+##PAF	GSIM_00305	742	0	742	+	chr1	100000	59954	62180	2223	2226	0	AS:i:3836	ms:i:3836	np:i:742	fs:i:0	st:i:0	da:i:78	do:i:0	cg:Z:742M	cs:Z:*ttgM:741
+chr1	miniprot	mRNA	59955	62183	3836	+	.	ID=MP000042;Rank=1;Identity=0.9987;Positive=1.0000;Target=GSIM_00305 1 742
+chr1	miniprot	CDS	59955	62183	3836	+	0	Parent=MP000042;Rank=1;Identity=0.9987;Target=GSIM_00305 1 742
+chr1	miniprot	stop_codon	62181	62183	0	+	0	Parent=MP000042;Rank=1
+##PAF	GSIM_00315	177	0	177	+	chr1	100000	62950	63481	528	531	0	AS:i:914	ms:i:914	np:i:177	fs:i:0	st:i:0	da:i:-1	do:i:0	cg:Z:177M	cs:Z:*gtgM:176
+chr1	miniprot	mRNA	62951	63484	914	+	.	ID=MP000043;Rank=1;Identity=0.9944;Positive=1.0000;Target=GSIM_00315 1 177
+chr1	miniprot	CDS	62951	63484	914	+	0	Parent=MP000043;Rank=1;Identity=0.9944;Target=GSIM_00315 1 177
+chr1	miniprot	stop_codon	63482	63484	0	+	0	Parent=MP000043;Rank=1
+##PAF	GSIM_00320	259	0	259	-	chr1	100000	63688	64465	777	777	0	AS:i:1348	ms:i:1348	np:i:259	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:259M	cs:Z::259
+chr1	miniprot	mRNA	63686	64465	1348	-	.	ID=MP000044;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00320 1 259
+chr1	miniprot	CDS	63686	64465	1348	-	0	Parent=MP000044;Rank=1;Identity=1.0000;Target=GSIM_00320 1 259
+chr1	miniprot	stop_codon	63686	63688	0	-	0	Parent=MP000044;Rank=1
+##PAF	GSIM_00325	240	0	240	+	chr1	100000	64791	65511	720	720	0	AS:i:1247	ms:i:1247	np:i:240	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:240M	cs:Z::240
+chr1	miniprot	mRNA	64792	65514	1247	+	.	ID=MP000045;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00325 1 240
+chr1	miniprot	CDS	64792	65514	1247	+	0	Parent=MP000045;Rank=1;Identity=1.0000;Target=GSIM_00325 1 240
+chr1	miniprot	stop_codon	65512	65514	0	+	0	Parent=MP000045;Rank=1
+##PAF	GSIM_00330	262	0	262	+	chr1	100000	65927	66713	786	786	0	AS:i:1414	ms:i:1414	np:i:262	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:262M	cs:Z::262
+chr1	miniprot	mRNA	65928	66716	1414	+	.	ID=MP000046;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00330 1 262
+chr1	miniprot	CDS	65928	66716	1414	+	0	Parent=MP000046;Rank=1;Identity=1.0000;Target=GSIM_00330 1 262
+chr1	miniprot	stop_codon	66714	66716	0	+	0	Parent=MP000046;Rank=1
+##PAF	GSIM_00335	251	0	251	+	chr1	100000	66747	67500	753	753	0	AS:i:1304	ms:i:1304	np:i:251	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:251M	cs:Z::251
+chr1	miniprot	mRNA	66748	67503	1304	+	.	ID=MP000047;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00335 1 251
+chr1	miniprot	CDS	66748	67503	1304	+	0	Parent=MP000047;Rank=1;Identity=1.0000;Target=GSIM_00335 1 251
+chr1	miniprot	stop_codon	67501	67503	0	+	0	Parent=MP000047;Rank=1
+##PAF	GSIM_00340	250	0	250	+	chr1	100000	67528	68278	750	750	0	AS:i:1305	ms:i:1305	np:i:250	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:250M	cs:Z::250
+chr1	miniprot	mRNA	67529	68281	1305	+	.	ID=MP000048;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00340 1 250
+chr1	miniprot	CDS	67529	68281	1305	+	0	Parent=MP000048;Rank=1;Identity=1.0000;Target=GSIM_00340 1 250
+chr1	miniprot	stop_codon	68279	68281	0	+	0	Parent=MP000048;Rank=1
+##PAF	GSIM_00345	367	0	367	-	chr1	100000	68670	69771	1101	1101	0	AS:i:1911	ms:i:1911	np:i:367	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:367M	cs:Z::367
+chr1	miniprot	mRNA	68668	69771	1911	-	.	ID=MP000049;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00345 1 367
+chr1	miniprot	CDS	68668	69771	1911	-	0	Parent=MP000049;Rank=1;Identity=1.0000;Target=GSIM_00345 1 367
+chr1	miniprot	stop_codon	68668	68670	0	-	0	Parent=MP000049;Rank=1
+##PAF	GSIM_00350	398	0	398	-	chr1	100000	69952	71146	1194	1194	0	AS:i:2056	ms:i:2056	np:i:398	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:398M	cs:Z::398
+chr1	miniprot	mRNA	69950	71146	2056	-	.	ID=MP000050;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00350 1 398
+chr1	miniprot	CDS	69950	71146	2056	-	0	Parent=MP000050;Rank=1;Identity=1.0000;Target=GSIM_00350 1 398
+chr1	miniprot	stop_codon	69950	69952	0	-	0	Parent=MP000050;Rank=1
+##PAF	GSIM_00355	196	0	196	-	chr1	100000	71179	71767	588	588	0	AS:i:1019	ms:i:1019	np:i:196	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:196M	cs:Z::196
+chr1	miniprot	mRNA	71177	71767	1019	-	.	ID=MP000051;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00355 1 196
+chr1	miniprot	CDS	71177	71767	1019	-	0	Parent=MP000051;Rank=1;Identity=1.0000;Target=GSIM_00355 1 196
+chr1	miniprot	stop_codon	71177	71179	0	-	0	Parent=MP000051;Rank=1
+##PAF	GSIM_00360	137	0	137	+	chr1	100000	72018	72429	411	411	0	AS:i:730	ms:i:730	np:i:137	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:137M	cs:Z::137
+chr1	miniprot	mRNA	72019	72432	730	+	.	ID=MP000052;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00360 1 137
+chr1	miniprot	CDS	72019	72432	730	+	0	Parent=MP000052;Rank=1;Identity=1.0000;Target=GSIM_00360 1 137
+chr1	miniprot	stop_codon	72430	72432	0	+	0	Parent=MP000052;Rank=1
+##PAF	GSIM_00365	265	0	265	+	chr1	100000	72610	73405	795	795	0	AS:i:1324	ms:i:1324	np:i:265	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:265M	cs:Z::265
+chr1	miniprot	mRNA	72611	73408	1324	+	.	ID=MP000053;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00365 1 265
+chr1	miniprot	CDS	72611	73408	1324	+	0	Parent=MP000053;Rank=1;Identity=1.0000;Target=GSIM_00365 1 265
+chr1	miniprot	stop_codon	73406	73408	0	+	0	Parent=MP000053;Rank=1
+##PAF	GSIM_00370	336	0	336	+	chr1	100000	73430	74438	1008	1008	0	AS:i:1780	ms:i:1780	np:i:336	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:336M	cs:Z::336
+chr1	miniprot	mRNA	73431	74441	1780	+	.	ID=MP000054;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00370 1 336
+chr1	miniprot	CDS	73431	74441	1780	+	0	Parent=MP000054;Rank=1;Identity=1.0000;Target=GSIM_00370 1 336
+chr1	miniprot	stop_codon	74439	74441	0	+	0	Parent=MP000054;Rank=1
+##PAF	GSIM_00375	246	0	246	+	chr1	100000	74424	75162	738	738	0	AS:i:1275	ms:i:1275	np:i:246	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:246M	cs:Z::246
+chr1	miniprot	mRNA	74425	75165	1275	+	.	ID=MP000055;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00375 1 246
+chr1	miniprot	CDS	74425	75165	1275	+	0	Parent=MP000055;Rank=1;Identity=1.0000;Target=GSIM_00375 1 246
+chr1	miniprot	stop_codon	75163	75165	0	+	0	Parent=MP000055;Rank=1
+##PAF	GSIM_00380	164	0	164	+	chr1	100000	75482	75974	492	492	0	AS:i:830	ms:i:830	np:i:164	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:164M	cs:Z::164
+chr1	miniprot	mRNA	75483	75977	830	+	.	ID=MP000056;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00380 1 164
+chr1	miniprot	CDS	75483	75977	830	+	0	Parent=MP000056;Rank=1;Identity=1.0000;Target=GSIM_00380 1 164
+chr1	miniprot	stop_codon	75975	75977	0	+	0	Parent=MP000056;Rank=1
+##PAF	GSIM_00385	196	0	196	+	chr1	100000	76211	76799	588	588	0	AS:i:1024	ms:i:1024	np:i:196	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:196M	cs:Z::196
+chr1	miniprot	mRNA	76212	76802	1024	+	.	ID=MP000057;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00385 1 196
+chr1	miniprot	CDS	76212	76802	1024	+	0	Parent=MP000057;Rank=1;Identity=1.0000;Target=GSIM_00385 1 196
+chr1	miniprot	stop_codon	76800	76802	0	+	0	Parent=MP000057;Rank=1
+##PAF	GSIM_00390	215	0	215	+	chr1	100000	76818	77463	645	645	0	AS:i:1086	ms:i:1086	np:i:215	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:215M	cs:Z::215
+chr1	miniprot	mRNA	76819	77466	1086	+	.	ID=MP000058;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00390 1 215
+chr1	miniprot	CDS	76819	77466	1086	+	0	Parent=MP000058;Rank=1;Identity=1.0000;Target=GSIM_00390 1 215
+chr1	miniprot	stop_codon	77464	77466	0	+	0	Parent=MP000058;Rank=1
+##PAF	GSIM_00395	292	0	292	+	chr1	100000	77465	78341	876	876	0	AS:i:1513	ms:i:1513	np:i:292	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:292M	cs:Z::292
+chr1	miniprot	mRNA	77466	78344	1513	+	.	ID=MP000059;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00395 1 292
+chr1	miniprot	CDS	77466	78344	1513	+	0	Parent=MP000059;Rank=1;Identity=1.0000;Target=GSIM_00395 1 292
+chr1	miniprot	stop_codon	78342	78344	0	+	0	Parent=MP000059;Rank=1
+##PAF	GSIM_00400	157	0	157	+	chr1	100000	78356	78827	471	471	0	AS:i:831	ms:i:831	np:i:157	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:157M	cs:Z::157
+chr1	miniprot	mRNA	78357	78830	831	+	.	ID=MP000060;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00400 1 157
+chr1	miniprot	CDS	78357	78830	831	+	0	Parent=MP000060;Rank=1;Identity=1.0000;Target=GSIM_00400 1 157
+chr1	miniprot	stop_codon	78828	78830	0	+	0	Parent=MP000060;Rank=1
+##PAF	GSIM_00405	400	0	400	+	chr1	100000	79108	80308	1200	1200	0	AS:i:2079	ms:i:2079	np:i:400	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:400M	cs:Z::400
+chr1	miniprot	mRNA	79109	80311	2079	+	.	ID=MP000061;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00405 1 400
+chr1	miniprot	CDS	79109	80311	2079	+	0	Parent=MP000061;Rank=1;Identity=1.0000;Target=GSIM_00405 1 400
+chr1	miniprot	stop_codon	80309	80311	0	+	0	Parent=MP000061;Rank=1
+##PAF	GSIM_00410	179	0	179	+	chr1	100000	80518	81055	537	537	0	AS:i:943	ms:i:943	np:i:179	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:179M	cs:Z::179
+chr1	miniprot	mRNA	80519	81058	943	+	.	ID=MP000062;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00410 1 179
+chr1	miniprot	CDS	80519	81058	943	+	0	Parent=MP000062;Rank=1;Identity=1.0000;Target=GSIM_00410 1 179
+chr1	miniprot	stop_codon	81056	81058	0	+	0	Parent=MP000062;Rank=1
+##PAF	GSIM_00415	261	0	261	+	chr1	100000	81304	82087	783	783	0	AS:i:1366	ms:i:1366	np:i:261	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:261M	cs:Z::261
+chr1	miniprot	mRNA	81305	82090	1366	+	.	ID=MP000063;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00415 1 261
+chr1	miniprot	CDS	81305	82090	1366	+	0	Parent=MP000063;Rank=1;Identity=1.0000;Target=GSIM_00415 1 261
+chr1	miniprot	stop_codon	82088	82090	0	+	0	Parent=MP000063;Rank=1
+##PAF	GSIM_00420	553	0	553	+	chr1	100000	82105	83764	1659	1659	0	AS:i:2850	ms:i:2850	np:i:553	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:553M	cs:Z::553
+chr1	miniprot	mRNA	82106	83767	2850	+	.	ID=MP000064;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00420 1 553
+chr1	miniprot	CDS	82106	83767	2850	+	0	Parent=MP000064;Rank=1;Identity=1.0000;Target=GSIM_00420 1 553
+chr1	miniprot	stop_codon	83765	83767	0	+	0	Parent=MP000064;Rank=1
+##PAF	GSIM_00425	349	0	349	+	chr1	100000	83989	85036	1047	1047	0	AS:i:1816	ms:i:1816	np:i:349	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:349M	cs:Z::349
+chr1	miniprot	mRNA	83990	85039	1816	+	.	ID=MP000065;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00425 1 349
+chr1	miniprot	CDS	83990	85039	1816	+	0	Parent=MP000065;Rank=1;Identity=1.0000;Target=GSIM_00425 1 349
+chr1	miniprot	stop_codon	85037	85039	0	+	0	Parent=MP000065;Rank=1
+##PAF	GSIM_00430	240	0	240	+	chr1	100000	85035	85755	720	720	0	AS:i:1221	ms:i:1221	np:i:240	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:240M	cs:Z::240
+chr1	miniprot	mRNA	85036	85758	1221	+	.	ID=MP000066;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00430 1 240
+chr1	miniprot	CDS	85036	85758	1221	+	0	Parent=MP000066;Rank=1;Identity=1.0000;Target=GSIM_00430 1 240
+chr1	miniprot	stop_codon	85756	85758	0	+	0	Parent=MP000066;Rank=1
+##PAF	GSIM_00435	137	0	137	+	chr1	100000	86103	86514	411	411	0	AS:i:700	ms:i:700	np:i:137	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:137M	cs:Z::137
+chr1	miniprot	mRNA	86104	86517	700	+	.	ID=MP000067;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00435 1 137
+chr1	miniprot	CDS	86104	86517	700	+	0	Parent=MP000067;Rank=1;Identity=1.0000;Target=GSIM_00435 1 137
+chr1	miniprot	stop_codon	86515	86517	0	+	0	Parent=MP000067;Rank=1
+##PAF	GSIM_00440	239	0	239	-	chr1	100000	86716	87433	717	717	0	AS:i:1232	ms:i:1232	np:i:239	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:239M	cs:Z::239
+chr1	miniprot	mRNA	86714	87433	1232	-	.	ID=MP000068;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00440 1 239
+chr1	miniprot	CDS	86714	87433	1232	-	0	Parent=MP000068;Rank=1;Identity=1.0000;Target=GSIM_00440 1 239
+chr1	miniprot	stop_codon	86714	86716	0	-	0	Parent=MP000068;Rank=1
+##PAF	GSIM_00445	177	0	177	-	chr1	100000	87432	87963	531	531	0	AS:i:909	ms:i:909	np:i:177	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:177M	cs:Z::177
+chr1	miniprot	mRNA	87430	87963	909	-	.	ID=MP000069;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00445 1 177
+chr1	miniprot	CDS	87430	87963	909	-	0	Parent=MP000069;Rank=1;Identity=1.0000;Target=GSIM_00445 1 177
+chr1	miniprot	stop_codon	87430	87432	0	-	0	Parent=MP000069;Rank=1
+##PAF	GSIM_00450	306	0	306	-	chr1	100000	87962	88880	918	918	0	AS:i:1509	ms:i:1509	np:i:306	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:306M	cs:Z::306
+chr1	miniprot	mRNA	87960	88880	1509	-	.	ID=MP000070;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00450 1 306
+chr1	miniprot	CDS	87960	88880	1509	-	0	Parent=MP000070;Rank=1;Identity=1.0000;Target=GSIM_00450 1 306
+chr1	miniprot	stop_codon	87960	87962	0	-	0	Parent=MP000070;Rank=1
+##PAF	GSIM_00455	226	0	226	-	chr1	100000	89186	89864	678	678	0	AS:i:1145	ms:i:1145	np:i:226	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:226M	cs:Z::226
+chr1	miniprot	mRNA	89184	89864	1145	-	.	ID=MP000071;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00455 1 226
+chr1	miniprot	CDS	89184	89864	1145	-	0	Parent=MP000071;Rank=1;Identity=1.0000;Target=GSIM_00455 1 226
+chr1	miniprot	stop_codon	89184	89186	0	-	0	Parent=MP000071;Rank=1
+##PAF	GSIM_00460	197	0	197	-	chr1	100000	89863	90454	591	591	0	AS:i:1017	ms:i:1017	np:i:197	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:197M	cs:Z::197
+chr1	miniprot	mRNA	89861	90454	1017	-	.	ID=MP000072;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00460 1 197
+chr1	miniprot	CDS	89861	90454	1017	-	0	Parent=MP000072;Rank=1;Identity=1.0000;Target=GSIM_00460 1 197
+chr1	miniprot	stop_codon	89861	89863	0	-	0	Parent=MP000072;Rank=1
+##PAF	GSIM_00465	296	0	296	-	chr1	100000	90461	91349	888	888	0	AS:i:1547	ms:i:1547	np:i:296	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:296M	cs:Z::296
+chr1	miniprot	mRNA	90459	91349	1547	-	.	ID=MP000073;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00465 1 296
+chr1	miniprot	CDS	90459	91349	1547	-	0	Parent=MP000073;Rank=1;Identity=1.0000;Target=GSIM_00465 1 296
+chr1	miniprot	stop_codon	90459	90461	0	-	0	Parent=MP000073;Rank=1
+##PAF	GSIM_00470	435	0	435	-	chr1	100000	91614	92919	1305	1305	0	AS:i:2234	ms:i:2234	np:i:435	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:435M	cs:Z::435
+chr1	miniprot	mRNA	91612	92919	2234	-	.	ID=MP000074;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00470 1 435
+chr1	miniprot	CDS	91612	92919	2234	-	0	Parent=MP000074;Rank=1;Identity=1.0000;Target=GSIM_00470 1 435
+chr1	miniprot	stop_codon	91612	91614	0	-	0	Parent=MP000074;Rank=1
+##PAF	GSIM_00475	446	0	446	-	chr1	100000	92947	94285	1338	1338	0	AS:i:2299	ms:i:2299	np:i:446	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:446M	cs:Z::446
+chr1	miniprot	mRNA	92945	94285	2299	-	.	ID=MP000075;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00475 1 446
+chr1	miniprot	CDS	92945	94285	2299	-	0	Parent=MP000075;Rank=1;Identity=1.0000;Target=GSIM_00475 1 446
+chr1	miniprot	stop_codon	92945	92947	0	-	0	Parent=MP000075;Rank=1
+##PAF	GSIM_00480	290	0	290	+	chr1	100000	94500	95370	870	870	0	AS:i:1499	ms:i:1499	np:i:290	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:290M	cs:Z::290
+chr1	miniprot	mRNA	94501	95373	1499	+	.	ID=MP000076;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00480 1 290
+chr1	miniprot	CDS	94501	95373	1499	+	0	Parent=MP000076;Rank=1;Identity=1.0000;Target=GSIM_00480 1 290
+chr1	miniprot	stop_codon	95371	95373	0	+	0	Parent=MP000076;Rank=1
+##PAF	GSIM_00485	283	0	283	+	chr1	100000	95372	96221	849	849	0	AS:i:1468	ms:i:1468	np:i:283	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:283M	cs:Z::283
+chr1	miniprot	mRNA	95373	96224	1468	+	.	ID=MP000077;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00485 1 283
+chr1	miniprot	CDS	95373	96224	1468	+	0	Parent=MP000077;Rank=1;Identity=1.0000;Target=GSIM_00485 1 283
+chr1	miniprot	stop_codon	96222	96224	0	+	0	Parent=MP000077;Rank=1
+##PAF	GSIM_00490	467	0	467	+	chr1	100000	96223	97624	1401	1401	0	AS:i:2386	ms:i:2386	np:i:467	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:467M	cs:Z::467
+chr1	miniprot	mRNA	96224	97627	2386	+	.	ID=MP000078;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00490 1 467
+chr1	miniprot	CDS	96224	97627	2386	+	0	Parent=MP000078;Rank=1;Identity=1.0000;Target=GSIM_00490 1 467
+chr1	miniprot	stop_codon	97625	97627	0	+	0	Parent=MP000078;Rank=1
+##PAF	GSIM_00495	132	0	132	-	chr1	100000	97825	98221	396	396	0	AS:i:674	ms:i:674	np:i:132	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:132M	cs:Z::132
+chr1	miniprot	mRNA	97823	98221	674	-	.	ID=MP000079;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00495 1 132
+chr1	miniprot	CDS	97823	98221	674	-	0	Parent=MP000079;Rank=1;Identity=1.0000;Target=GSIM_00495 1 132
+chr1	miniprot	stop_codon	97823	97825	0	-	0	Parent=MP000079;Rank=1
+##PAF	GSIM_00500	243	0	243	+	chr1	100000	98605	99334	729	729	0	AS:i:1230	ms:i:1230	np:i:243	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:243M	cs:Z::243
+chr1	miniprot	mRNA	98606	99337	1230	+	.	ID=MP000080;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00500 1 243
+chr1	miniprot	CDS	98606	99337	1230	+	0	Parent=MP000080;Rank=1;Identity=1.0000;Target=GSIM_00500 1 243
+chr1	miniprot	stop_codon	99335	99337	0	+	0	Parent=MP000080;Rank=1
+##PAF	GSIM_00505	553	0	553	-	plasmid_1	8000	195	1854	1656	1659	0	AS:i:2872	ms:i:2872	np:i:553	fs:i:0	st:i:0	da:i:-1	do:i:0	cg:Z:553M	cs:Z:*ttgM:552
+plasmid_1	miniprot	mRNA	193	1854	2872	-	.	ID=MP000081;Rank=1;Identity=0.9982;Positive=1.0000;Target=GSIM_00505 1 553
+plasmid_1	miniprot	CDS	193	1854	2872	-	0	Parent=MP000081;Rank=1;Identity=0.9982;Target=GSIM_00505 1 553
+plasmid_1	miniprot	stop_codon	193	195	0	-	0	Parent=MP000081;Rank=1
+##PAF	GSIM_00510	403	0	403	-	plasmid_1	8000	1861	3070	1209	1209	0	AS:i:2043	ms:i:2043	np:i:403	fs:i:0	st:i:0	da:i:0	do:i:0	cg:Z:403M	cs:Z::403
+plasmid_1	miniprot	mRNA	1859	3070	2043	-	.	ID=MP000082;Rank=1;Identity=1.0000;Positive=1.0000;Target=GSIM_00510 1 403
+plasmid_1	miniprot	CDS	1859	3070	2043	-	0	Parent=MP000082;Rank=1;Identity=1.0000;Target=GSIM_00510 1 403
+plasmid_1	miniprot	stop_codon	1859	1861	0	-	0	Parent=MP000082;Rank=1
