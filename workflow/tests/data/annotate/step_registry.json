@@ -77,6 +77,21 @@
       "rbs"
     ]
   },
+  "region_layer": {
+    "inputs": [
+      "features",
+      "genes",
+      "replicons"
+    ],
+    "optional_inputs": [
+      "antismash",
+      "genomad"
+    ],
+    "outputs": [
+      "region_genes",
+      "regions"
+    ]
+  },
   "terminator_layer": {
     "inputs": [
       "replicons"

@@ -1,0 +1,3406 @@
+{
+"version": {
+"bakta": "1.12.2",
+"db": {
+"version": "6.0",
+"type": "full"
+}
+},
+"sequences": [
+{
+"id": "U00096.3",
+"type": "chromosome",
+"topology": "linear",
+"length": 4641652
+}
+],
+"features": [
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 427680,
+"stop": 429494,
+"strand": "+",
+"locus": "KOIAIB_00447",
+"gene": "secD",
+"product": "Protein translocase subunit SecD"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 429505,
+"stop": 430476,
+"strand": "+",
+"locus": "KOIAIB_00448",
+"gene": "secF",
+"product": "Protein translocase subunit SecF"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 430605,
+"stop": 430952,
+"strand": "+",
+"locus": "KOIAIB_00449",
+"gene": "yajD",
+"product": "HNH nuclease YajD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 431129,
+"stop": 432013,
+"strand": "-",
+"locus": "KOIAIB_00450",
+"gene": "tsx",
+"product": "nucleoside-specific channel-forming protein Tsx",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 432312,
+"stop": 432851,
+"strand": "-",
+"locus": "KOIAIB_00451",
+"gene": "yajI",
+"product": "Uncharacterized lipoprotein YajI"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 433002,
+"stop": 433451,
+"strand": "+",
+"locus": "KOIAIB_00452",
+"gene": "nrdR",
+"product": "transcriptional regulator NrdR"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 433455,
+"stop": 434558,
+"strand": "+",
+"locus": "KOIAIB_00453",
+"gene": "ribD",
+"product": "bifunctional diaminohydroxyphosphoribosylaminopyrimidine deaminase/5-amino-6-(5-phosphoribosylamino)uracil reductase RibD"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 434647,
+"stop": 435117,
+"strand": "+",
+"locus": "KOIAIB_00454",
+"gene": "ribE",
+"product": "6,7-dimethyl-8-ribityllumazine synthase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 435137,
+"stop": 435556,
+"strand": "+",
+"locus": "KOIAIB_00455",
+"gene": "nusB",
+"product": "transcription antitermination factor NusB"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 435634,
+"stop": 436611,
+"strand": "+",
+"locus": "KOIAIB_00456",
+"gene": "thiL",
+"product": "thiamine-phosphate kinase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 436589,
+"stop": 437107,
+"strand": "+",
+"locus": "KOIAIB_00457",
+"gene": "pgpA",
+"product": "phosphatidylglycerophosphatase A"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 437161,
+"stop": 438135,
+"strand": "-",
+"locus": "KOIAIB_00458",
+"gene": "yajO",
+"product": "1-deoxyxylulose-5-phosphate synthase YajO",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 438315,
+"stop": 440177,
+"strand": "-",
+"locus": "KOIAIB_00459",
+"gene": "dxs",
+"product": "1-deoxy-D-xylulose-5-phosphate synthase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 440202,
+"stop": 441101,
+"strand": "-",
+"locus": "KOIAIB_00460",
+"gene": "ispA",
+"product": "(2E,6E)-farnesyl diphosphate synthase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 441101,
+"stop": 441343,
+"strand": "-",
+"locus": "KOIAIB_00461",
+"gene": "xseB",
+"product": "exodeoxyribonuclease VII small subunit"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 441549,
+"stop": 442997,
+"strand": "+",
+"locus": "KOIAIB_00462",
+"gene": "thiI",
+"product": "tRNA sulfurtransferase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 443051,
+"stop": 443641,
+"strand": "-",
+"locus": "KOIAIB_00463",
+"gene": "yajL",
+"product": "protein deglycase YajL"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 443604,
+"stop": 444515,
+"strand": "-",
+"locus": "KOIAIB_00464",
+"gene": "panE",
+"product": "2-dehydropantoate 2-reductase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 444683,
+"stop": 445174,
+"strand": "+",
+"locus": "KOIAIB_00465",
+"gene": "yajQ",
+"product": "nucleotide binding protein YajQ",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 445302,
+"stop": 446666,
+"strand": "-",
+"locus": "KOIAIB_00466",
+"gene": "yajR",
+"product": "Inner membrane transport protein YajR"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 446815,
+"stop": 447705,
+"strand": "-",
+"locus": "KOIAIB_00467",
+"gene": "cyoE",
+"product": "heme o synthase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 447717,
+"stop": 448046,
+"strand": "-",
+"locus": "KOIAIB_00468",
+"gene": "cyoD",
+"product": "cytochrome o ubiquinol oxidase subunit III"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 448046,
+"stop": 448660,
+"strand": "-",
+"locus": "KOIAIB_00469",
+"gene": "cyoC",
+"product": "cytochrome o ubiquinol oxidase subunit III"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 448650,
+"stop": 450641,
+"strand": "-",
+"locus": "KOIAIB_00470",
+"gene": "cyoB",
+"product": "cytochrome o ubiquinol oxidase subunit I"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 450663,
+"stop": 451610,
+"strand": "-",
+"locus": "KOIAIB_00471",
+"gene": "cyoA",
+"product": "cytochrome o ubiquinol oxidase subunit II"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 452070,
+"stop": 453545,
+"strand": "-",
+"locus": "KOIAIB_00472",
+"gene": "ampG",
+"product": "muropeptide MFS transporter AmpG"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 563330,
+"stop": 563845,
+"strand": "+",
+"locus": "KOIAIB_00579",
+"gene": "sfmF",
+"product": "fimbria assembly protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 563848,
+"stop": 564480,
+"strand": "-",
+"locus": "KOIAIB_00580",
+"gene": "fimZ",
+"product": "fimbria biosynthesis transcriptional regulator FimZ"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 564815,
+"stop": 565978,
+"strand": "-",
+"locus": "KOIAIB_00582",
+"gene": "intD",
+"product": "Prophage integrase IntD"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 566098,
+"stop": 566361,
+"strand": "-",
+"locus": "KOIAIB_00583",
+"gene": "exo",
+"product": "Exonuclease"
+},
+{
+"type": "sorf",
+"sequence": "U00096.3",
+"start": 566598,
+"stop": 566687,
+"strand": "+",
+"locus": "KOIAIB_00584",
+"product": "Replication protein P"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 566684,
+"stop": 566779,
+"strand": "+",
+"locus": "KOIAIB_00585",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 566842,
+"stop": 567141,
+"strand": "+",
+"locus": "KOIAIB_00586",
+"gene": "tnp",
+"product": "IS3 family IS3 transposase ORF A",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 567138,
+"stop": 568004,
+"strand": "+",
+"locus": "KOIAIB_00587",
+"gene": "tnp",
+"product": "IS3 family IS3 transposase ORF B",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 568315,
+"stop": 568647,
+"strand": "+",
+"locus": "KOIAIB_00588",
+"gene": "emrE",
+"product": "multidrug efflux SMR transporter EmrE",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 568902,
+"stop": 570428,
+"strand": "+",
+"locus": "KOIAIB_00589",
+"gene": "ybcK",
+"product": "Uncharacterized protein YbcK"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 570893,
+"stop": 571444,
+"strand": "+",
+"locus": "KOIAIB_00590",
+"gene": "ybcL",
+"product": "Raf kinase inhibitor-like protein YbcL",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 571454,
+"stop": 572251,
+"strand": "+",
+"locus": "KOIAIB_00591",
+"gene": "ybcM",
+"product": "Uncharacterized HTH-type transcriptional regulator YbcM"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 572466,
+"stop": 572921,
+"strand": "+",
+"locus": "KOIAIB_00592",
+"gene": "ybcN",
+"product": "DNA base-flipping protein YbcN",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 572921,
+"stop": 573091,
+"strand": "+",
+"locus": "KOIAIB_00593",
+"gene": "ninE",
+"product": "Prophage NinE-like protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 573084,
+"stop": 573374,
+"strand": "+",
+"locus": "KOIAIB_00594",
+"gene": "ybcO",
+"product": "Putative nuclease YbcO"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 573371,
+"stop": 573733,
+"strand": "+",
+"locus": "KOIAIB_00595",
+"gene": "rusA",
+"product": "crossover junction endodeoxyribonuclease RusA"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 573733,
+"stop": 573870,
+"strand": "+",
+"locus": "KOIAIB_00596",
+"gene": "ylcG",
+"product": "Uncharacterized protein YlcG"
+},
+{
+"type": "sorf",
+"sequence": "U00096.3",
+"start": 573867,
+"stop": 573893,
+"strand": "+",
+"locus": "KOIAIB_00597",
+"gene": "nmpC",
+"product": "Orf33, orf151, orf56, orf96, rus, orf45, orf8, orf127, and nmpC genes"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 573956,
+"stop": 574339,
+"strand": "+",
+"locus": "KOIAIB_00598",
+"gene": "quuD",
+"product": "antitermination protein QuuD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 574481,
+"stop": 574699,
+"strand": "+",
+"locus": "KOIAIB_00599",
+"product": "Lc -like protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 574737,
+"stop": 575717,
+"strand": "-",
+"locus": "KOIAIB_00600",
+"gene": "tnp",
+"product": "IS5 family IS5 transposase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 575758,
+"stop": 576825,
+"strand": "-",
+"locus": "KOIAIB_00601",
+"product": "Outer membrane porin DLP12 prophage"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 577398,
+"stop": 577613,
+"strand": "+",
+"locus": "KOIAIB_00602",
+"gene": "essD",
+"product": "phage lysis protein EssD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 577613,
+"stop": 578110,
+"strand": "+",
+"locus": "KOIAIB_00603",
+"gene": "rrrD",
+"product": "lysozyme RrrD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 578107,
+"stop": 578568,
+"strand": "+",
+"locus": "KOIAIB_00604",
+"gene": "rzpD",
+"product": "prophage endopeptidase RzpD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 578600,
+"stop": 578893,
+"strand": "-",
+"locus": "KOIAIB_00605",
+"gene": "bor",
+"product": "serum resistance lipoprotein Bor",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 579184,
+"stop": 579594,
+"strand": "-",
+"locus": "KOIAIB_00606",
+"gene": "ybcV",
+"product": "Uncharacterized protein YbcV"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 579880,
+"stop": 580086,
+"strand": "+",
+"locus": "KOIAIB_00607",
+"gene": "ybcW",
+"product": "Uncharacterized protein YbcW"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 580834,
+"stop": 581379,
+"strand": "+",
+"locus": "KOIAIB_00608",
+"gene": "nohD",
+"product": "DNA-packaging protein",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 581354,
+"stop": 582097,
+"strand": "+",
+"locus": "KOIAIB_00609",
+"gene": "tfaD",
+"product": "Protein TfaD"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 582152,
+"stop": 582583,
+"strand": "-",
+"locus": "KOIAIB_00611",
+"product": "class I SAM-dependent methyltransferase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 582875,
+"stop": 583060,
+"strand": "+",
+"locus": "KOIAIB_00612",
+"gene": "tfaX",
+"product": "Protein TfaX"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 583681,
+"stop": 584430,
+"strand": "+",
+"locus": "KOIAIB_00613",
+"gene": "appY",
+"product": "DNA-binding transcriptional activator AppY",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 584680,
+"stop": 585633,
+"strand": "-",
+"locus": "KOIAIB_00614",
+"gene": "ompT",
+"product": "omptin family outer membrane protease OmpT",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 590941,
+"stop": 593178,
+"strand": "-",
+"locus": "KOIAIB_00619",
+"gene": "nrfB",
+"product": "cyclic di-3',5'-guanylate-activated glycosyltransferase NrfB"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 593328,
+"stop": 594770,
+"strand": "-",
+"locus": "KOIAIB_00620",
+"gene": "cusS",
+"product": "Cu(+)/Ag(+) sensor histidine kinase CusS",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 594760,
+"stop": 595443,
+"strand": "-",
+"locus": "KOIAIB_00621",
+"gene": "cusR",
+"product": "copper response regulator transcription factor CusR",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 595600,
+"stop": 596973,
+"strand": "+",
+"locus": "KOIAIB_00622",
+"gene": "cusC",
+"product": "Cu(+)/Ag(+) efflux RND transporter outer membrane channel CusC",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 597131,
+"stop": 597463,
+"strand": "+",
+"locus": "KOIAIB_00623",
+"gene": "cusF",
+"product": "Cu(+)/Ag(+) efflux RND transporter periplasmic metallochaperone CusF",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 597479,
+"stop": 598702,
+"strand": "+",
+"locus": "KOIAIB_00624",
+"gene": "cusB",
+"product": "Cu(+)/Ag(+) efflux RND transporter periplasmic adaptor subunit CusB",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 598714,
+"stop": 601857,
+"strand": "+",
+"locus": "KOIAIB_00625",
+"gene": "cusA",
+"product": "Cu(+)/Ag(+) efflux RND transporter permease subunit CusA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 601959,
+"stop": 603335,
+"strand": "+",
+"locus": "KOIAIB_00626",
+"gene": "pheP",
+"product": "phenylalanine transporter"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 603416,
+"stop": 604663,
+"strand": "-",
+"locus": "KOIAIB_00627",
+"gene": "ybdG",
+"product": "mechanosensitive ion channel YbdG",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 604771,
+"stop": 605424,
+"strand": "-",
+"locus": "KOIAIB_00628",
+"gene": "nfsB",
+"product": "oxygen-insensitive NAD(P)H nitroreductase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 605518,
+"stop": 605886,
+"strand": "-",
+"locus": "KOIAIB_00629",
+"gene": "ybdF",
+"product": "MmcQ/YjbR family DNA-binding protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 605951,
+"stop": 606199,
+"strand": "-",
+"locus": "KOIAIB_00630",
+"gene": "ybdJ",
+"product": "Uncharacterized protein YbdJ"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 606265,
+"stop": 607383,
+"strand": "-",
+"locus": "KOIAIB_00631",
+"gene": "ybdK",
+"product": "YbdK family carboxylate-amine ligase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 607737,
+"stop": 607988,
+"strand": "+",
+"locus": "KOIAIB_00633",
+"gene": "hokE",
+"product": "Toxic protein HokE"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 608065,
+"stop": 609177,
+"strand": "+",
+"locus": "KOIAIB_00634",
+"gene": "tnp",
+"product": "IS4 family IS421 transposase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 609200,
+"stop": 609340,
+"strand": "+",
+"locus": "KOIAIB_00635",
+"gene": "tnp",
+"product": "IS4 family IS186B transposase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 610254,
+"stop": 612494,
+"strand": "-",
+"locus": "KOIAIB_00637",
+"gene": "fepA",
+"product": "siderophore enterobactin receptor FepA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 612737,
+"stop": 613939,
+"strand": "+",
+"locus": "KOIAIB_00638",
+"gene": "fes",
+"product": "enterobactin/ferric enterobactin esterase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 613942,
+"stop": 614160,
+"strand": "+",
+"locus": "KOIAIB_00639",
+"gene": "ybdZ",
+"product": "enterobactin biosynthesis protein YbdZ",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 614157,
+"stop": 618038,
+"strand": "+",
+"locus": "KOIAIB_00640",
+"gene": "entF",
+"product": "enterobactin synthase multienzyme complex component, ATP-dependent",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 618254,
+"stop": 619387,
+"strand": "+",
+"locus": "KOIAIB_00641",
+"gene": "fepE",
+"product": "LPS O-antigen length regulator",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 619384,
+"stop": 620199,
+"strand": "-",
+"locus": "KOIAIB_00642",
+"gene": "fepC",
+"product": "ferrienterobactin ABC transporter ATPase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 620196,
+"stop": 621188,
+"strand": "-",
+"locus": "KOIAIB_00643",
+"gene": "fepG",
+"product": "iron-enterobactin ABC transporter permease",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 621185,
+"stop": 622189,
+"strand": "-",
+"locus": "KOIAIB_00644",
+"gene": "fepD",
+"product": "ferrienterobactin ABC transporter permease",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 622300,
+"stop": 623550,
+"strand": "+",
+"locus": "KOIAIB_00645",
+"gene": "entS",
+"product": "enterobactin exporter, iron-regulated",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 623554,
+"stop": 624510,
+"strand": "-",
+"locus": "KOIAIB_00646",
+"gene": "fepB",
+"product": "ferrienterobactin ABC transporter periplasmic binding protein",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 624885,
+"stop": 626060,
+"strand": "+",
+"locus": "KOIAIB_00647",
+"gene": "entC",
+"product": "isochorismate synthase 1",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 626070,
+"stop": 627680,
+"strand": "+",
+"locus": "KOIAIB_00648",
+"gene": "entE",
+"product": "(2,3-dihydroxybenzoyl)adenylate synthase EntE",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 627694,
+"stop": 628551,
+"strand": "+",
+"locus": "KOIAIB_00649",
+"gene": "entB",
+"product": "enterobactin biosynthesis bifunctional isochorismatase/aryl carrier protein EntB",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 628551,
+"stop": 629297,
+"strand": "+",
+"locus": "KOIAIB_00650",
+"gene": "entA",
+"product": "2,3-dihydro-2,3-dihydroxybenzoate dehydrogenase EntA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 629300,
+"stop": 629713,
+"strand": "+",
+"locus": "KOIAIB_00651",
+"gene": "entH",
+"product": "proofreading thioesterase EntH"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 629894,
+"stop": 631999,
+"strand": "+",
+"locus": "KOIAIB_00652",
+"gene": "cstA",
+"product": "pyruvate/proton symporter CstA"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 632182,
+"stop": 632379,
+"strand": "+",
+"locus": "KOIAIB_00653",
+"gene": "ybdD",
+"product": "Uncharacterized protein YbdD"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 632389,
+"stop": 633477,
+"strand": "-",
+"locus": "KOIAIB_00654",
+"gene": "hcxA",
+"product": "hydroxycarboxylate dehydrogenase HcxA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 633586,
+"stop": 634746,
+"strand": "+",
+"locus": "KOIAIB_00655",
+"gene": "ybdL",
+"product": "methionine-oxo-acid transaminase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 634747,
+"stop": 635376,
+"strand": "-",
+"locus": "KOIAIB_00656",
+"gene": "ybdM",
+"product": "Uncharacterized protein YbdM"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 635349,
+"stop": 636569,
+"strand": "-",
+"locus": "KOIAIB_00657",
+"gene": "ybdN",
+"product": "Uncharacterized protein YbdN"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 636716,
+"stop": 637618,
+"strand": "-",
+"locus": "KOIAIB_00658",
+"gene": "citR",
+"product": "DNA-binding transcriptional repressor CitR"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 637827,
+"stop": 638573,
+"strand": "-",
+"locus": "KOIAIB_00659",
+"gene": "dsbG",
+"product": "thiol:disulfide interchange protein DsbG"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 638945,
+"stop": 639508,
+"strand": "+",
+"locus": "KOIAIB_00660",
+"gene": "ahpC",
+"product": "alkyl hydroperoxide reductase subunit C"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 639723,
+"stop": 641318,
+"strand": "+",
+"locus": "KOIAIB_00661",
+"gene": "ahpF",
+"product": "alkyl hydroperoxide reductase subunit F"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 641439,
+"stop": 641867,
+"strand": "-",
+"locus": "KOIAIB_00662",
+"gene": "uspG",
+"product": "universal stress protein UspG"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 642088,
+"stop": 643326,
+"strand": "+",
+"locus": "KOIAIB_00663",
+"gene": "ybdR",
+"product": "Uncharacterized zinc-type alcohol dehydrogenase-like protein YbdR"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 643330,
+"stop": 643419,
+"strand": "-",
+"locus": "KOIAIB_00664",
+"gene": "yldA",
+"product": "small membrane protein YldA"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 643557,
+"stop": 643967,
+"strand": "-",
+"locus": "KOIAIB_00665",
+"gene": "rnk",
+"product": "nucleoside diphosphate kinase regulator"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 644197,
+"stop": 645003,
+"strand": "-",
+"locus": "KOIAIB_00666",
+"gene": "rna",
+"product": "ribonuclease I"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 645117,
+"stop": 646580,
+"strand": "-",
+"locus": "KOIAIB_00667",
+"gene": "citT",
+"product": "citrate/succinate antiporter CitT",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 646631,
+"stop": 647509,
+"strand": "-",
+"locus": "KOIAIB_00668",
+"gene": "citG",
+"product": "triphosphoribosyl-dephospho-CoA synthase CitG"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 647484,
+"stop": 648035,
+"strand": "-",
+"locus": "KOIAIB_00669",
+"gene": "citX",
+"product": "Apo-citrate lyase phosphoribosyl-dephospho-CoA transferase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 648039,
+"stop": 649571,
+"strand": "-",
+"locus": "KOIAIB_00670",
+"gene": "citF",
+"product": "citrate lyase subunit alpha"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 649582,
+"stop": 650490,
+"strand": "-",
+"locus": "KOIAIB_00671",
+"gene": "citE",
+"product": "citrate (pro-3S)-lyase subunit beta"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 937994,
+"stop": 939337,
+"strand": "+",
+"locus": "KOIAIB_00962",
+"gene": "rarA",
+"product": "replication-associated recombination protein RarA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 939428,
+"stop": 940720,
+"strand": "+",
+"locus": "KOIAIB_00963",
+"gene": "serS",
+"product": "serine--tRNA ligase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 940959,
+"stop": 943403,
+"strand": "+",
+"locus": "KOIAIB_00965",
+"gene": "dmsA",
+"product": "dimethylsulfoxide reductase subunit A"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 943414,
+"stop": 944031,
+"strand": "+",
+"locus": "KOIAIB_00966",
+"gene": "ynfG",
+"product": "DMSO/selenate family reductase complex B subunit"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 944033,
+"stop": 944896,
+"strand": "+",
+"locus": "KOIAIB_00967",
+"gene": "dmsC",
+"product": "dimethyl sulfoxide reductase anchor subunit DmsC",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 944931,
+"stop": 945557,
+"strand": "-",
+"locus": "KOIAIB_00968",
+"gene": "ycaC",
+"product": "isochorismate family cysteine hydrolase YcaC"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 945871,
+"stop": 947019,
+"strand": "+",
+"locus": "KOIAIB_00969",
+"gene": "ycaD",
+"product": "MFS transporter"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 947229,
+"stop": 948659,
+"strand": "+",
+"locus": "KOIAIB_00970",
+"gene": "ycaM",
+"product": "Inner membrane transporter YcaM"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 948660,
+"stop": 949568,
+"strand": "-",
+"locus": "KOIAIB_00971",
+"gene": "ycaN",
+"product": "Uncharacterized HTH-type transcriptional regulator YcaN"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 949668,
+"stop": 950258,
+"strand": "+",
+"locus": "KOIAIB_00972",
+"gene": "ycaK",
+"product": "NAD(P)H oxidoreductase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 950340,
+"stop": 951080,
+"strand": "-",
+"locus": "KOIAIB_00973",
+"gene": "pflA",
+"product": "pyruvate formate lyase 1-activating protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 951272,
+"stop": 953554,
+"strand": "-",
+"locus": "KOIAIB_00974",
+"gene": "pflB",
+"product": "formate C-acetyltransferase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 953609,
+"stop": 954466,
+"strand": "-",
+"locus": "KOIAIB_00975",
+"gene": "focA",
+"product": "formate transporter FocA"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 954872,
+"stop": 956632,
+"strand": "-",
+"locus": "KOIAIB_00976",
+"gene": "ycaO",
+"product": "30S ribosomal protein S12 methylthiotransferase accessory factor YcaO"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 956762,
+"stop": 957454,
+"strand": "+",
+"locus": "KOIAIB_00977",
+"gene": "ycaP",
+"product": "UPF0702 transmembrane protein YcaP"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 957653,
+"stop": 958741,
+"strand": "+",
+"locus": "KOIAIB_00978",
+"gene": "serC",
+"product": "3-phosphoserine/phosphohydroxythreonine transaminase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 958812,
+"stop": 960095,
+"strand": "+",
+"locus": "KOIAIB_00979",
+"gene": "aroA",
+"product": "3-phosphoshikimate 1-carboxyvinyltransferase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 960264,
+"stop": 961028,
+"strand": "+",
+"locus": "KOIAIB_00980",
+"gene": "ycaL",
+"product": "metallopeptidase YcaL",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 961201,
+"stop": 961884,
+"strand": "+",
+"locus": "KOIAIB_00981",
+"gene": "cmk",
+"product": "(d)CMP kinase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 961995,
+"stop": 963668,
+"strand": "+",
+"locus": "KOIAIB_00982",
+"gene": "rpsA",
+"product": "30S ribosomal protein S1"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 963828,
+"stop": 964112,
+"strand": "+",
+"locus": "KOIAIB_00983",
+"gene": "ihfB",
+"product": "integration host factor subunit beta"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 964320,
+"stop": 966584,
+"strand": "+",
+"locus": "KOIAIB_00984",
+"gene": "ycaI",
+"product": "ComEC family protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 966621,
+"stop": 968369,
+"strand": "+",
+"locus": "KOIAIB_00985",
+"gene": "msbA",
+"product": "lipid A ABC transporter ATP-binding protein/permease MsbA"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 968366,
+"stop": 969352,
+"strand": "+",
+"locus": "KOIAIB_00986",
+"gene": "lpxK",
+"product": "tetraacyldisaccharide 4'-kinase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1195123,
+"stop": 1196373,
+"strand": "+",
+"locus": "KOIAIB_01211",
+"gene": "icd",
+"product": "NADP-dependent isocitrate dehydrogenase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1196867,
+"stop": 1197532,
+"strand": "-",
+"locus": "KOIAIB_01212",
+"gene": "ymfD",
+"product": "Uncharacterized protein YmfD"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1197533,
+"stop": 1198228,
+"strand": "-",
+"locus": "KOIAIB_01213",
+"gene": "ymfE",
+"product": "Uncharacterized protein YmfE"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1198695,
+"stop": 1199588,
+"strand": "+",
+"locus": "KOIAIB_01214",
+"gene": "lit",
+"product": "cell death peptidase Lit",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1199679,
+"stop": 1200806,
+"strand": "-",
+"locus": "KOIAIB_01215",
+"gene": "intE",
+"product": "Prophage integrase IntE"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1200787,
+"stop": 1201032,
+"strand": "-",
+"locus": "KOIAIB_01216",
+"gene": "xisE",
+"product": "Prophage excisionase-like protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1201497,
+"stop": 1201838,
+"strand": "+",
+"locus": "KOIAIB_01217",
+"gene": "ymfI",
+"product": "Uncharacterized protein YmfI"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1201776,
+"stop": 1202084,
+"strand": "-",
+"locus": "KOIAIB_01218",
+"gene": "ymfJ",
+"product": "Uncharacterized protein YmfJ"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1202259,
+"stop": 1202933,
+"strand": "-",
+"locus": "KOIAIB_01219",
+"gene": "cohE",
+"product": "Prophage repressor CohE"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1203024,
+"stop": 1203224,
+"strand": "+",
+"locus": "KOIAIB_01220",
+"gene": "croE",
+"product": "Prophage transcriptional regulatory protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1203268,
+"stop": 1203825,
+"strand": "+",
+"locus": "KOIAIB_01221",
+"gene": "ymfL",
+"product": "YmfL family putative regulatory protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1203822,
+"stop": 1204160,
+"strand": "+",
+"locus": "KOIAIB_01222",
+"gene": "ymfM",
+"product": "Uncharacterized protein YmfM"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1204170,
+"stop": 1205537,
+"strand": "+",
+"locus": "KOIAIB_01223",
+"gene": "ymfN",
+"product": "Protein YmfN"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1205549,
+"stop": 1205731,
+"strand": "+",
+"locus": "KOIAIB_01224",
+"gene": "ymfR",
+"product": "Uncharacterized protein YmfR"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1205731,
+"stop": 1206204,
+"strand": "+",
+"locus": "KOIAIB_01225",
+"gene": "beeE",
+"product": "Protein BeeE"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1206173,
+"stop": 1206922,
+"strand": "+",
+"locus": "KOIAIB_01226",
+"gene": "jayE",
+"product": "Putative protein JayE"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1206913,
+"stop": 1207497,
+"strand": "+",
+"locus": "KOIAIB_01227",
+"gene": "ymfQ",
+"product": "Uncharacterized protein YmfQ"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1207501,
+"stop": 1208130,
+"strand": "+",
+"locus": "KOIAIB_01228",
+"gene": "stfP",
+"product": "Uncharacterized protein StfP"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1208171,
+"stop": 1208545,
+"strand": "+",
+"locus": "KOIAIB_01229",
+"gene": "ymfS",
+"product": "Uncharacterized protein YmfS"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1208517,
+"stop": 1209119,
+"strand": "-",
+"locus": "KOIAIB_01230",
+"gene": "tfaE",
+"product": "Prophage tail fiber assembly -like protein TfaE"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1209119,
+"stop": 1209655,
+"strand": "-",
+"locus": "KOIAIB_01231",
+"gene": "stfE",
+"product": "Putative uncharacterized protein StfE"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1209685,
+"stop": 1210239,
+"strand": "+",
+"locus": "KOIAIB_01232",
+"gene": "pinE",
+"product": "site-specific DNA recombinase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1210346,
+"stop": 1211179,
+"strand": "+",
+"locus": "KOIAIB_01233",
+"gene": "mcrA",
+"product": "5-methylcytosine-specific endonuclease McrA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1211413,
+"stop": 1211577,
+"strand": "+",
+"locus": "KOIAIB_01234",
+"gene": "icd",
+"product": "NADP-dependent isocitrate dehydrogenase"
+},
+{
+"type": "sorf",
+"sequence": "U00096.3",
+"start": 1212260,
+"stop": 1212304,
+"strand": "-",
+"locus": "KOIAIB_01235",
+"gene": "ymgK",
+"product": "Protein YmgK"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1212703,
+"stop": 1213107,
+"strand": "-",
+"locus": "KOIAIB_01236",
+"gene": "ycgX",
+"product": "Uncharacterized protein YcgX"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1213328,
+"stop": 1214059,
+"strand": "-",
+"locus": "KOIAIB_01237",
+"gene": "bluR",
+"product": "DNA-binding transcriptional repressor BluR",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1216369,
+"stop": 1216635,
+"strand": "+",
+"locus": "KOIAIB_01240",
+"gene": "ariR",
+"product": "biofilm/acid-resistance regulator AriR",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1411013,
+"stop": 1411948,
+"strand": "-",
+"locus": "KOIAIB_01438",
+"gene": "ttcA",
+"product": "tRNA 2-thiocytidine(32) synthetase TtcA"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1412000,
+"stop": 1413235,
+"strand": "-",
+"locus": "KOIAIB_01439",
+"gene": "intR",
+"product": "Prophage integrase IntR"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1413237,
+"stop": 1413452,
+"strand": "-",
+"locus": "KOIAIB_01440",
+"gene": "xisR",
+"product": "excisionase XisR",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1413531,
+"stop": 1413740,
+"strand": "-",
+"locus": "KOIAIB_01441",
+"gene": "rcbA",
+"product": "double-strand break reduction protein RcbA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1413984,
+"stop": 1414793,
+"strand": "-",
+"locus": "KOIAIB_01443",
+"gene": "recT",
+"product": "recombination protein RecT"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1414786,
+"stop": 1417386,
+"strand": "-",
+"locus": "KOIAIB_01444",
+"gene": "recE",
+"product": "exodeoxyribonuclease VIII"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1417488,
+"stop": 1417763,
+"strand": "-",
+"locus": "KOIAIB_01445",
+"gene": "racC",
+"product": "Protein RacC"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1417838,
+"stop": 1418008,
+"strand": "-",
+"locus": "KOIAIB_01446",
+"gene": "ydaE",
+"product": "Uncharacterized protein YdaE"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1418008,
+"stop": 1418229,
+"strand": "-",
+"locus": "KOIAIB_01447",
+"gene": "kilR",
+"product": "killing protein KilR",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1418548,
+"stop": 1419159,
+"strand": "+",
+"locus": "KOIAIB_01448",
+"gene": "sieB",
+"product": "Superinfection exclusion protein B"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1419156,
+"stop": 1419311,
+"strand": "-",
+"locus": "KOIAIB_01449",
+"gene": "ydaF",
+"product": "Uncharacterized protein YdaF"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1419322,
+"stop": 1419456,
+"strand": "-",
+"locus": "KOIAIB_01450",
+"gene": "ydaG",
+"product": "Uncharacterized protein YdaG"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1419765,
+"stop": 1420241,
+"strand": "-",
+"locus": "KOIAIB_01451",
+"gene": "racR",
+"product": "DNA-binding transcriptional repressor RacR",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1420365,
+"stop": 1420661,
+"strand": "+",
+"locus": "KOIAIB_01452",
+"gene": "ydaS",
+"product": "toxin YdaS",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1420684,
+"stop": 1421106,
+"strand": "+",
+"locus": "KOIAIB_01453",
+"gene": "ydaT",
+"product": "Uncharacterized protein YdaT"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1421119,
+"stop": 1421976,
+"strand": "+",
+"locus": "KOIAIB_01454",
+"gene": "ydaU",
+"product": "Uncharacterized protein YdaU"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1421983,
+"stop": 1422729,
+"strand": "+",
+"locus": "KOIAIB_01455",
+"gene": "ydaV",
+"product": "Uncharacterized protein YdaV"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1422752,
+"stop": 1423312,
+"strand": "+",
+"locus": "KOIAIB_01456",
+"gene": "ydaW",
+"product": "Protein YdaW"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1423345,
+"stop": 1423644,
+"strand": "+",
+"locus": "KOIAIB_01457",
+"gene": "rzpR",
+"product": "Putative endopeptidase RzpR"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1423815,
+"stop": 1425239,
+"strand": "+",
+"locus": "KOIAIB_01458",
+"gene": "trkG",
+"product": "Trk system potassium transporter TrkG",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1425377,
+"stop": 1425640,
+"strand": "+",
+"locus": "KOIAIB_01459",
+"gene": "ynaK",
+"product": "ParB-like nuclease domain-containing protein YnaK"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1425621,
+"stop": 1425980,
+"strand": "+",
+"locus": "KOIAIB_01460",
+"gene": "ydaY",
+"product": "Protein YdaY"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1426454,
+"stop": 1427482,
+"strand": "+",
+"locus": "KOIAIB_01461",
+"gene": "ynaA",
+"product": "Protein YnaA"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1427746,
+"stop": 1428726,
+"strand": "-",
+"locus": "KOIAIB_01462",
+"gene": "tnp",
+"product": "IS5 family ISKpn26 transposase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1429546,
+"stop": 1430283,
+"strand": "-",
+"locus": "KOIAIB_01463",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1430414,
+"stop": 1432411,
+"strand": "+",
+"locus": "KOIAIB_01464",
+"product": "phage tail protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1432411,
+"stop": 1432986,
+"strand": "+",
+"locus": "KOIAIB_01465",
+"gene": "tfaR",
+"product": "Prophage tail fiber assembly -like protein TfaR"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1433084,
+"stop": 1433674,
+"strand": "-",
+"locus": "KOIAIB_01467",
+"gene": "pinR",
+"product": "Serine recombinase PinR"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1433991,
+"stop": 1434224,
+"strand": "-",
+"locus": "KOIAIB_01468",
+"gene": "ydfK",
+"product": "cold shock protein YdfK",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1435185,
+"stop": 1435619,
+"strand": "-",
+"locus": "KOIAIB_01469",
+"gene": "uspF",
+"product": "universal stress protein UspF"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1625335,
+"stop": 1627380,
+"strand": "-",
+"locus": "KOIAIB_01639",
+"gene": "dcp",
+"product": "peptidyl-dipeptidase Dcp"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1627517,
+"stop": 1628263,
+"strand": "+",
+"locus": "KOIAIB_01640",
+"gene": "ydfG",
+"product": "bifunctional NADP-dependent 3-hydroxy acid dehydrogenase/3-hydroxypropionate dehydrogenase YdfG"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1628352,
+"stop": 1629038,
+"strand": "+",
+"locus": "KOIAIB_01641",
+"gene": "ydfH",
+"product": "DNA-binding transcriptional regulator YdfH",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1629215,
+"stop": 1629418,
+"strand": "+",
+"locus": "KOIAIB_01642",
+"gene": "ydfZ",
+"product": "Putative selenoprotein YdfZ"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1629453,
+"stop": 1630913,
+"strand": "-",
+"locus": "KOIAIB_01643",
+"gene": "ydfI",
+"product": "Uncharacterized oxidoreductase YdfI"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1631002,
+"stop": 1632285,
+"strand": "-",
+"locus": "KOIAIB_01644",
+"gene": "ydfJ",
+"product": "Putative transporter YdfJ"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1633072,
+"stop": 1633305,
+"strand": "+",
+"locus": "KOIAIB_01645",
+"gene": "ydfK",
+"product": "cold shock protein YdfK",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1633622,
+"stop": 1634212,
+"strand": "+",
+"locus": "KOIAIB_01646",
+"gene": "pinR",
+"product": "Serine recombinase PinR"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1634310,
+"stop": 1634885,
+"strand": "-",
+"locus": "KOIAIB_01647",
+"gene": "tfaR",
+"product": "Prophage tail fiber assembly -like protein TfaR"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1634885,
+"stop": 1635847,
+"strand": "-",
+"locus": "KOIAIB_01649",
+"gene": "stfQ",
+"product": "Prophage side tail fiber -like protein StfQ"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1635798,
+"stop": 1636367,
+"strand": "-",
+"locus": "KOIAIB_01650",
+"gene": "nohA",
+"product": "DNA-packaging protein",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1637047,
+"stop": 1637457,
+"strand": "+",
+"locus": "KOIAIB_01651",
+"gene": "ydfO",
+"product": "Uncharacterized protein YdfO"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1637609,
+"stop": 1637782,
+"strand": "-",
+"locus": "KOIAIB_01652",
+"gene": "gnsB",
+"product": "Protein GnsB"
+},
+{
+"type": "sorf",
+"sequence": "U00096.3",
+"start": 1638188,
+"stop": 1638253,
+"strand": "-",
+"locus": "KOIAIB_01653",
+"gene": "ynfR",
+"product": "Protein YnfR"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1638455,
+"stop": 1638667,
+"strand": "-",
+"locus": "KOIAIB_01654",
+"gene": "cspI",
+"product": "cold shock protein CspI",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1639030,
+"stop": 1639527,
+"strand": "-",
+"locus": "KOIAIB_01655",
+"gene": "rzpQ",
+"product": "Uncharacterized protein RzpQ"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1639524,
+"stop": 1640057,
+"strand": "-",
+"locus": "KOIAIB_01656",
+"gene": "rrrQ",
+"product": "putative prophage lysozyme"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1640054,
+"stop": 1640365,
+"strand": "-",
+"locus": "KOIAIB_01657",
+"gene": "ydfR",
+"product": "Uncharacterized protein YdfR"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1640370,
+"stop": 1640576,
+"strand": "-",
+"locus": "KOIAIB_01658",
+"gene": "essD",
+"product": "phage lysis protein EssD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1640618,
+"stop": 1640737,
+"strand": "+",
+"locus": "KOIAIB_01659",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1641339,
+"stop": 1641554,
+"strand": "-",
+"locus": "KOIAIB_01660",
+"gene": "cspB",
+"product": "cold shock-like protein CspB",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1641855,
+"stop": 1642067,
+"strand": "+",
+"locus": "KOIAIB_01661",
+"gene": "cspF",
+"product": "Cold shock-like protein CspF"
+},
+{
+"type": "sorf",
+"sequence": "U00096.3",
+"start": 1642122,
+"stop": 1642211,
+"strand": "+",
+"locus": "KOIAIB_01662",
+"gene": "ynfS",
+"product": "Protein YnfS"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1642489,
+"stop": 1643241,
+"strand": "-",
+"locus": "KOIAIB_01663",
+"gene": "quuQ",
+"product": "Prophage antitermination Q-like protein QuuQ"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1643255,
+"stop": 1644304,
+"strand": "-",
+"locus": "KOIAIB_01664",
+"gene": "ydfU",
+"product": "Uncharacterized protein YdfU"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1644651,
+"stop": 1644902,
+"strand": "-",
+"locus": "KOIAIB_01665",
+"gene": "rem",
+"product": "Uncharacterized protein Rem"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1645119,
+"stop": 1645274,
+"strand": "-",
+"locus": "KOIAIB_01666",
+"gene": "hokD",
+"product": "type I toxin-antitoxin system toxin HokD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1645346,
+"stop": 1645633,
+"strand": "-",
+"locus": "KOIAIB_01667",
+"gene": "relE",
+"product": "type II toxin-antitoxin system mRNA interferase RelE",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1645633,
+"stop": 1645872,
+"strand": "-",
+"locus": "KOIAIB_01668",
+"gene": "relB",
+"product": "type II toxin-antitoxin system antitoxin RelB",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1646405,
+"stop": 1646737,
+"strand": "+",
+"locus": "KOIAIB_01669",
+"gene": "flxA",
+"product": "Protein FlxA"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1647122,
+"stop": 1647349,
+"strand": "-",
+"locus": "KOIAIB_01670",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1647346,
+"stop": 1647636,
+"strand": "-",
+"locus": "KOIAIB_01671",
+"gene": "ydfX",
+"product": "Protein YdfX"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1647620,
+"stop": 1647850,
+"strand": "-",
+"locus": "KOIAIB_01672",
+"gene": "dicC",
+"product": "dicB transcriptional regulator DicC",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1647934,
+"stop": 1648341,
+"strand": "+",
+"locus": "KOIAIB_01673",
+"gene": "dicA",
+"product": "DNA-binding transcriptional dual regulator DicA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1648508,
+"stop": 1648663,
+"strand": "+",
+"locus": "KOIAIB_01674",
+"gene": "ydfA",
+"product": "Uncharacterized protein YdfA"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1648665,
+"stop": 1648793,
+"strand": "+",
+"locus": "KOIAIB_01675",
+"gene": "ydfB",
+"product": "Uncharacterized protein YdfB"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1648823,
+"stop": 1649041,
+"strand": "+",
+"locus": "KOIAIB_01676",
+"gene": "ydfC",
+"product": "Uncharacterized protein YdfC"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1649045,
+"stop": 1649209,
+"strand": "-",
+"locus": "KOIAIB_01677",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1649609,
+"stop": 1649797,
+"strand": "+",
+"locus": "KOIAIB_01679",
+"gene": "dicB",
+"product": "cell division inhibition protein DicB",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1649794,
+"stop": 1649985,
+"strand": "+",
+"locus": "KOIAIB_01680",
+"gene": "ydfD",
+"product": "lysis protein YdfD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1650078,
+"stop": 1650998,
+"strand": "+",
+"locus": "KOIAIB_01681",
+"gene": "ydfE",
+"product": "Putative uncharacterized protein YdfE"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1650995,
+"stop": 1651537,
+"strand": "+",
+"locus": "KOIAIB_01682",
+"gene": "tnp",
+"product": "IS3 family transposase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1651512,
+"stop": 1652708,
+"strand": "+",
+"locus": "KOIAIB_01683",
+"gene": "intQ",
+"product": "Putative defective protein IntQ"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1652896,
+"stop": 1653915,
+"strand": "-",
+"locus": "KOIAIB_01684",
+"gene": "rspB",
+"product": "Zn-dependent oxidoreductase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1653927,
+"stop": 1655141,
+"strand": "-",
+"locus": "KOIAIB_01685",
+"gene": "rspA",
+"product": "starvation-sensing protein RspA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1655347,
+"stop": 1655673,
+"strand": "-",
+"locus": "KOIAIB_01686",
+"gene": "ynfA",
+"product": "YnfA family protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1655808,
+"stop": 1656149,
+"strand": "+",
+"locus": "KOIAIB_01687",
+"gene": "ynfB",
+"product": "DUF1283 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1656184,
+"stop": 1656744,
+"strand": "+",
+"locus": "KOIAIB_01688",
+"gene": "speG",
+"product": "spermidine N1-acetyltransferase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 1671376,
+"stop": 1671684,
+"strand": "+",
+"locus": "KOIAIB_01701",
+"gene": "asr",
+"product": "acid resistance repetitive basic protein Asr",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2461306,
+"stop": 2462646,
+"strand": "+",
+"locus": "KOIAIB_02504",
+"gene": "fadL",
+"product": "long-chain fatty acid transporter FadL",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2463012,
+"stop": 2464070,
+"strand": "+",
+"locus": "KOIAIB_02505",
+"gene": "yfdF",
+"product": "Uncharacterized protein YfdF"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2464252,
+"stop": 2465007,
+"strand": "-",
+"locus": "KOIAIB_02506",
+"gene": "mlaA",
+"product": "phospholipid-binding lipoprotein MlaA"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2465301,
+"stop": 2466233,
+"strand": "+",
+"locus": "KOIAIB_02507",
+"gene": "yfdC",
+"product": "Inner membrane protein YfdC"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2466545,
+"stop": 2467702,
+"strand": "+",
+"locus": "KOIAIB_02509",
+"gene": "intS",
+"product": "prophage integrase IntS",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2468214,
+"stop": 2469134,
+"strand": "+",
+"locus": "KOIAIB_02510",
+"gene": "yfdH",
+"product": "bactoprenol glucosyl transferase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2469131,
+"stop": 2470462,
+"strand": "+",
+"locus": "KOIAIB_02511",
+"gene": "yfdI",
+"product": "Uncharacterized protein YfdI"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2470803,
+"stop": 2471105,
+"strand": "+",
+"locus": "KOIAIB_02512",
+"gene": "tfaS",
+"product": "Putative protein TfaS"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2471077,
+"stop": 2471517,
+"strand": "-",
+"locus": "KOIAIB_02513",
+"gene": "yfdK",
+"product": "Uncharacterized protein YfdK"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2471544,
+"stop": 2472146,
+"strand": "-",
+"locus": "KOIAIB_02514",
+"product": "gp53-like domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2472112,
+"stop": 2472387,
+"strand": "-",
+"locus": "KOIAIB_02515",
+"gene": "yfdM",
+"product": "phage N-6-adenine-methyltransferase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2472387,
+"stop": 2472881,
+"strand": "-",
+"locus": "KOIAIB_02516",
+"gene": "yfdN",
+"product": "Uncharacterized protein YfdN"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2472878,
+"stop": 2473246,
+"strand": "-",
+"locus": "KOIAIB_02517",
+"gene": "yfdO",
+"product": "Protein YfdO"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2473604,
+"stop": 2473966,
+"strand": "+",
+"locus": "KOIAIB_02518",
+"gene": "yfdP",
+"product": "Uncharacterized protein YfdP"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2474032,
+"stop": 2474856,
+"strand": "+",
+"locus": "KOIAIB_02519",
+"gene": "yfdQ",
+"product": "Uncharacterized protein YfdQ"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2474984,
+"stop": 2475520,
+"strand": "+",
+"locus": "KOIAIB_02520",
+"gene": "yfdR",
+"product": "5'-deoxynucleotidase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2475511,
+"stop": 2475873,
+"strand": "+",
+"locus": "KOIAIB_02521",
+"gene": "yfdS",
+"product": "Uncharacterized protein YfdS"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2475873,
+"stop": 2476178,
+"strand": "+",
+"locus": "KOIAIB_02522",
+"gene": "yfdT",
+"product": "Uncharacterized protein YfdT"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2476310,
+"stop": 2476510,
+"strand": "+",
+"locus": "KOIAIB_02523",
+"gene": "torI",
+"product": "response regulator inhibitor TorI",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2476694,
+"stop": 2477629,
+"strand": "-",
+"locus": "KOIAIB_02524",
+"gene": "dsdC",
+"product": "DNA-binding transcriptional regulator DsdC"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2873992,
+"stop": 2875419,
+"strand": "-",
+"locus": "KOIAIB_02934",
+"gene": "cysN",
+"product": "sulfate adenylyltransferase subunit CysN"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2875421,
+"stop": 2876329,
+"strand": "-",
+"locus": "KOIAIB_02935",
+"gene": "cysD",
+"product": "sulfate adenylyltransferase subunit CysD"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2876581,
+"stop": 2877618,
+"strand": "+",
+"locus": "KOIAIB_02936",
+"gene": "iap",
+"product": "alkaline phosphatase isozyme conversion aminopeptidase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "crispr",
+"sequence": "U00096.3",
+"start": 2877884,
+"stop": 2878473,
+"strand": "?",
+"id": "KOIAIBGKKO_401",
+"product": "CRISPR array with 10 repeats of length 29, consensus sequence CGGTTTATCCCCGCTGGCGCGGGGAACTC and spacer length 32"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2878569,
+"stop": 2878853,
+"strand": "-",
+"locus": "KOIAIB_02937",
+"product": "CRISPR-associated endoribonuclease Cas2"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2878855,
+"stop": 2879772,
+"strand": "-",
+"locus": "KOIAIB_02938",
+"gene": "cas1e",
+"product": "type I-E CRISPR-associated endonuclease Cas1e"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2879788,
+"stop": 2880387,
+"strand": "-",
+"locus": "KOIAIB_02939",
+"gene": "cas6e",
+"product": "type I-E CRISPR-associated protein Cas6/Cse3/CasE"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2880374,
+"stop": 2881048,
+"strand": "-",
+"locus": "KOIAIB_02940",
+"gene": "cas5e",
+"product": "type I-E CRISPR-associated protein Cas5/CasD"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2881051,
+"stop": 2882142,
+"strand": "-",
+"locus": "KOIAIB_02941",
+"gene": "cas7e",
+"product": "type I-E CRISPR-associated protein Cas7/Cse4/CasC"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2900592,
+"stop": 2901869,
+"strand": "+",
+"locus": "KOIAIB_02958",
+"gene": "yqcE",
+"product": "Inner membrane protein YqcE"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2901896,
+"stop": 2903374,
+"strand": "+",
+"locus": "KOIAIB_02959",
+"gene": "ygcE",
+"product": "Uncharacterized sugar kinase YgcE"
+},
+{
+"type": "crispr",
+"sequence": "U00096.3",
+"start": 2904014,
+"stop": 2904417,
+"strand": "?",
+"id": "KOIAIBGKKO_402",
+"product": "CRISPR array with 7 repeats of length 28, consensus sequence GGTTTATCCCCGCTGGCGCGGGGAACAC and spacer length 33"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2904747,
+"stop": 2905418,
+"strand": "-",
+"locus": "KOIAIB_02960",
+"gene": "queE",
+"product": "7-carboxy-7-deazaguanine synthase QueE"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2905557,
+"stop": 2905697,
+"strand": "+",
+"locus": "KOIAIB_02961",
+"gene": "yqcG",
+"product": "Uncharacterized protein YqcG"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2905711,
+"stop": 2906583,
+"strand": "+",
+"locus": "KOIAIB_02962",
+"gene": "ygcG",
+"product": "UPF0603 protein YgcG"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 2906643,
+"stop": 2907941,
+"strand": "-",
+"locus": "KOIAIB_02963",
+"gene": "eno",
+"product": "phosphopyruvate hydratase"
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 3114550,
+"stop": 3119112,
+"strand": "-",
+"locus": "KOIAIB_03167",
+"gene": "sslE",
+"product": "lipoprotein metalloprotease SslE",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 3415033,
+"stop": 3418137,
+"strand": "+",
+"locus": "KOIAIB_03470",
+"gene": "acrF",
+"product": "multidrug efflux RND transporter permease subunit AcrF",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 3648528,
+"stop": 3648881,
+"strand": "+",
+"locus": "KOIAIB_03716",
+"gene": "arsR",
+"product": "As(III)-sensing metalloregulatory transcriptional repressor ArsR",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 3650237,
+"stop": 3650662,
+"strand": "+",
+"locus": "KOIAIB_03718",
+"gene": "arsC",
+"product": "glutaredoxin-dependent arsenate reductase",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 3853922,
+"stop": 3855106,
+"strand": "+",
+"locus": "KOIAIB_03907",
+"gene": "emrD",
+"product": "multidrug efflux MFS transporter EmrD",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 4106469,
+"stop": 4107371,
+"strand": "+",
+"locus": "KOIAIB_04171",
+"gene": "fieF",
+"product": "CDF family cation-efflux transporter FieF",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 4377811,
+"stop": 4378944,
+"strand": "-",
+"locus": "KOIAIB_04443",
+"gene": "blaEC",
+"product": "BlaEC family class C beta-lactamase",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "U00096.3",
+"start": 4567287,
+"stop": 4568519,
+"strand": "-",
+"locus": "KOIAIB_04642",
+"gene": "mdtM",
+"product": "multidrug efflux MFS transporter MdtM",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+}
+]
+}

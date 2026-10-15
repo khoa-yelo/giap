@@ -24,7 +24,7 @@ SUBWF = REPO / "workflow" / "subworkflows" / "local" / "annotate.nf"
 FIXTURE = REPO / "workflow" / "tests" / "data" / "annotate" / "step_registry.json"
 
 # Steps merged before PR #65 (M2-02, M2-12) and M2-16: the check below must cover at least these.
-MERGED = {"parse_bakta", "uniop_input", "operon_pairs", "ostir_input", "rbs_layer"}  # + M2-16
+MERGED = {"parse_bakta", "uniop_input", "operon_pairs", "ostir_input", "rbs_layer", "region_layer"}
 
 
 def _registry() -> dict[str, dict[str, list[str]]]:
