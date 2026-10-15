@@ -154,3 +154,6 @@ two-peptide and protein-list as `unestimated`, and the calibration evidence (FDP
 10. Backlog: a giapsim mode with decoy-derived q (D/T) so the MAYU PEP/no-PEP claims separate; a calibration
     run with `q_value_max` = 0.1 so the q = 0.10 claim is informative; the "best decoys lost" attack is a
     documented limitation.
+11. (lead, after the implementer's fix f297600) A decoy is a contaminant decoy when ANY of its stripped
+    protein IDs carries a contaminant prefix (it is then out of the pairing counts); PEP-derived q is used
+    only when every accepted q value is missing (mixed input keeps the given q).
