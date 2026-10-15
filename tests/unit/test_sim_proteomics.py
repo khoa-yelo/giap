@@ -26,7 +26,9 @@ Conventions these tests pin where the spec is silent:
   would lie. ``other_strain`` wrong peptides are Trypsin/P products of the reference proteins
   (``reference_bakta_like.json``), i.e. real protein-derived (M3-index lead decision 11).
 * ``n_loci_genome`` is the number of distinct genomic loci whose six-frame translation is the
-  peptide, exact or I/L-equivalent (either is accepted); ``NA``/``0`` for wrong and decoy rows.
+  peptide, exact or I/L-equivalent (either is accepted); ``NA``/``0`` for decoy rows. The
+  review decisions (GIAP's exact matcher with I = L, 0 allowed, wrong rows counted too,
+  ``alt_start_nterm``) are pinned in tests/unit/test_sim_proteomics_review.py.
 * ``abundance.tsv`` has ``locus_tag`` and ``log_abundance`` (natural log) or ``abundance``.
 * ``wrong_source="other_strain"`` without ``SimConfig.strain`` raises ``ValueError``.
 """
@@ -371,9 +373,9 @@ def test_n_loci_genome(complete: Run) -> None:
     topo = complete.topology
     for r in correct_rows(complete)[::7]:
         n = int(r["n_loci_genome"])
-        assert n >= 1, r
         if r["peptide"].startswith("M"):
-            continue  # an initiator M may come from GTG/TTG (not in the six-frame translation)
+            continue  # an initiator M may come from GTG/TTG: 0 loci allowed (review decision 3)
+        assert n >= 1, r
         exact = len(sixframe_loci(r["peptide"], complete.genome, topo, il_equal=False))
         il_eq = len(sixframe_loci(r["peptide"], complete.genome, topo, il_equal=True))
         assert n in (exact, il_eq), (r, exact, il_eq)
@@ -389,7 +391,8 @@ def test_wrong_and_decoy_truth_rows_have_no_coordinates(default: Run) -> None:
             assert truthy(r["is_wrong"]), r
         for c in ("contig", "start", "end", "strand"):
             assert empty(r[c]), r
-        assert empty(r["n_loci_genome"]) or int(r["n_loci_genome"]) == 0, r
+        if r["origin"] == "decoy":
+            assert empty(r["n_loci_genome"]) or int(r["n_loci_genome"]) == 0, r
 
 
 # ---------------------------------------------------------------- example 3: wrong share

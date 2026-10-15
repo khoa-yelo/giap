@@ -324,3 +324,61 @@ def mixture_fdr(s: float, pi: float, mix: tuple[float, float, float, float]) -> 
 
 def fnum(v: Any) -> float | None:
     return None if empty(v) else float(v)
+
+
+# ---------------------------------------------------------------- GIAP's own exact matcher
+
+
+def giap_exact_counts(run: Run, peptides: list[str]) -> dict[str, int]:
+    """Distinct target loci per peptide as GIAP's merged exact matcher (M3-02 six-frame index +
+    ``giap.mapping.exact``, I = L) finds them; origin copies are counted once."""
+    import numpy as np
+
+    from giap.mapping.decoys import build_decoys
+    from giap.mapping.exact import match_exact
+    from giap.mapping.sixframe import build_sixframe
+    from giap.model.coords import Replicon
+
+    reps = {}
+    for s in run.bakta["sequences"]:
+        kind = s.get("type") if s.get("type") in ("chromosome", "plasmid") else "unknown"
+        reps[s["id"]] = Replicon(s["id"], int(s["length"]), s["topology"], kind)
+    idx = build_sixframe(run.genome, reps)
+    dec = {"reverse": build_decoys(idx, "reverse", 0, np.random.default_rng(0))}
+    peps = sorted(set(peptides))
+    hits = match_exact(peps, idx, dec, dict.fromkeys(peps, "reverse"))
+    loci: dict[str, set[tuple[str, int, int, str]]] = {p: set() for p in peps}
+    for h in hits[hits["search"] == "target"].itertuples():
+        n = reps[h.contig].length
+        s = int(h.start) % n if reps[h.contig].topology == "circular" else int(h.start)
+        loci[h.peptide].add((h.contig, s, int(h.end) - int(h.start), h.strand))
+    return {p: len(v) for p, v in loci.items()}
+
+
+def find_truth_meta(out: Path, key: str = "pi_wrong_realised") -> dict[str, Any]:
+    """The truth metadata mapping (JSON or YAML under ``out/truth`` or ``out``) holding ``key``."""
+    import yaml
+
+    def walk(d: Any) -> dict[str, Any] | None:
+        if isinstance(d, dict):
+            if key in d:
+                return d
+            for v in d.values():
+                got = walk(v)
+                if got is not None:
+                    return got
+        return None
+
+    for p in sorted([*(out / "truth").glob("*"), *out.glob("*")]):
+        if p.suffix not in (".json", ".yaml", ".yml") or not p.is_file():
+            continue
+        try:
+            data = (
+                json.loads(p.read_text()) if p.suffix == ".json" else yaml.safe_load(p.read_text())
+            )
+        except Exception:
+            continue
+        got = walk(data)
+        if got is not None:
+            return got
+    raise AssertionError(f"no truth metadata with {key!r} under {out}")
