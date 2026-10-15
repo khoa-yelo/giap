@@ -160,3 +160,12 @@ None (no statistics). The contract is documented in the module docstring and cop
 6. `cog_category` and `gc_local_dev` have no producer in the M2 drafts. **Proposed default:**
    `cog_category` from the COG 2020 definition table when installed (M4-15), else `NA` (M4-16 then
    skips COG rows with a warning); `gc_local_dev` stays `NA` until an issue (M2 or M5) defines it.
+
+## Lead decisions (test-author questions)
+1. C9 / example 10 changed: in the Parquet work tables `peptides.protein_ids` is a native list of strings
+   (as merged M1-12 writes it); a `;`-joined string there is a contract error. The `;` list encoding of
+   ADR-0006 applies to TSV outputs only (writers join on write). Validation also rejects lists containing
+   empty strings or NA elements.
+2. Accepted: unnamed error codes checked by the `contract.<table>.` prefix; `modified_peptides` dtype from
+   `TABLES`; `peptides.norm.parquet` optional (not tested as missing); `gc_local_dev` optional if present;
+   pseudogene placements with a gene are valid; file names pinned, directories not.
