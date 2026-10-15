@@ -96,3 +96,17 @@ how multi-letter COG categories are counted, the QC metrics' definitions.
    table schemas).
 3. Stand-ins for unmerged producers (p_detect, COG, tier/detectability columns) are replaced by the real
    M4-12/M4-13 outputs when those merge (backlog, M4-20).
+
+## Lead decisions after the statistician's review (PR #87, changes requested)
+4. `ci_few_units` is also set when min(E, n − E) < 10 (E = expected detections in the group), in addition
+   to < 10 TUs; a gated attack null for a low-E group (e.g. sORFs) goes to tests/calibration/attacks/.
+5. `genome_inconsistent_rate` follows §7.5.1: computed over `search_db = other` peptides (NA for `same`),
+   contaminant peptides excluded from the denominator.
+6. `id_mixups` (§7.5.1: same-database ALT sites that are not start/stop sites) needs the variant module
+   (M7): reported as NA with flag `requires_variants` until then; the engine/protein mismatch count is
+   reported as its own metric `engine_protein_mismatch_rate` (no ADR — the spec metric is deferred, not
+   changed). Backlog for M7.
+7. Fail closed: NaN `p_detect` on an eligible gene, or an eligible gene without `tu_id`, raises
+   ValueError naming the genes.
+8. COG values `-` and blank map to `none`; `detected` must be boolean dtype (strings raise).
+9. Tests kill the surviving mutants (group order; flag only on `o_minus_e`).
