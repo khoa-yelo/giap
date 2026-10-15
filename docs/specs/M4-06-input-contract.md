@@ -169,3 +169,11 @@ None (no statistics). The contract is documented in the module docstring and cop
 2. Accepted: unnamed error codes checked by the `contract.<table>.` prefix; `modified_peptides` dtype from
    `TABLES`; `peptides.norm.parquet` optional (not tested as missing); `gc_local_dev` optional if present;
    pseudogene placements with a gene are valid; file names pinned, directories not.
+3. Scope: the contract enforces only the checks this spec lists. Checks the implementer added beyond it
+   (decoy rows placed, plasmid region spanning its whole replicon, hits beyond replicon length) are removed
+   unless a test pins them; if they are worth having, propose them for M4-21 conformance.
+4. `default_paths` keeps the flat fixture layout (every file directly in the work dir); M4-21 maps the real
+   M2/M3 step outputs onto these keys.
+5. Size (ci/gates.yaml: warn 400, fail 800 code lines): bring the PR under 800 by removing the unspecced
+   checks and duplicated helpers; if that is not enough, split the loader (`giap.io.work_tables`) into a
+   follow-up PR stacked on the contract.
