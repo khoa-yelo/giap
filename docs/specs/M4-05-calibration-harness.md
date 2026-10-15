@@ -108,3 +108,13 @@ computed, the discrete-p rule, seed derivation, and how suites map to `tolerance
    suite assignment by `SUITE_REGISTRY` or a `calsuite` marker; sim_v2 tests in suite `missed_operons`.
 7. Follow-up (backlog, test-author): migrate the existing calibration tests from direct
    `run_replicates`/`check_*` calls to `calibrate()`, so ADR-0015 and sharding apply to every suite.
+
+## Lead decisions after statistician review of the migration (PR #69, changes requested)
+1. Pooled permutation attacks (m p-values per replicate) go through `calibrate` too: `_criteria` gains an
+   `m=` option that gates each replicate's rejection share with `level_bound(α, R·m)` (two-block
+   confirmation as usual); the 6 attacks × 3 α use it. Target: nightly false-alarm rate back to ≈ 0.04
+   (statistician re-checks).
+2. `_finish` keeps block-1 timing for levels that go on to block 2.
+3. Teeth tests assert a confirmed `fail` through `calibrate` (naive gene bootstrap, rejected placement
+   rules, BH at 1.5× and 2× q).
+4. Backlog: gate the sim_proteomics q-value FDR check and the one-sided de novo coverage checks.

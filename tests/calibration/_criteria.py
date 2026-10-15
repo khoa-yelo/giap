@@ -7,6 +7,8 @@ reads it. Criteria, with k = ``se_multiplier`` and R the number of independent n
 - uniform: KS p-value against U(0, 1) > ``ks_min_p`` (continuous p only; > 5 % ties refused)
 - FDR:     mean FDP <= q + k * sd(FDP, ddof=1) / sqrt(R)
 - FWER:    share of replicates with >= 1 false discovery <= alpha + k * sqrt(alpha (1 - alpha) / R)
+- pooled level (``m=``, PR #69 lead decision 1): each replicate pools m independent p-values and
+  reports its rejection share s_i = #{p <= alpha} / m; sum_i s_i / R <= level_bound(alpha, R m)
 
 Replicate ``rep`` of stream ``suite`` draws from ``default_rng(suite_seed(suite, rep))`` with
 ``suite_seed = SeedSequence([calibration_base, crc32(suite), rep])`` as one uint64, so any shard
@@ -240,6 +242,42 @@ def check_fdr(fdp: ArrayLike, q: float) -> CheckResult:
     )
 
 
+def _valid_m(m: int) -> int:
+    if isinstance(m, bool) or int(m) != m or m < 1:
+        raise ValueError(f"m must be an integer >= 1, got {m!r}")
+    return int(m)
+
+
+def check_level_pooled(shares: ArrayLike, alpha: float, m: int) -> CheckResult:
+    """Pooled level check: replicate i rejects ``shares[i] * m`` of its ``m`` independent p-values.
+
+    The rejection rate over all R m p-values is gated by ``level_bound(alpha, R m)``; ``R`` of the
+    result is the number of replicates. Shares outside [0, 1] or not multiples of 1 / m are refused.
+    """
+    m = _valid_m(m)
+    a = _unit_vector(shares, "check_level_pooled")
+    counts = a * m
+    rounded = np.round(counts)
+    if not np.allclose(counts, rounded, rtol=0.0, atol=1e-9 * m):
+        i = int(np.flatnonzero(~np.isclose(counts, rounded, rtol=0.0, atol=1e-9 * m))[0])
+        raise ValueError(
+            f"check_level_pooled: share {a[i]!r} (index {i}) is not a multiple of 1/m = 1/{m}"
+        )
+    r = int(a.size)
+    n = r * m
+    observed = float(rounded.sum()) / n
+    bound = level_bound(alpha, n)
+    ok = observed <= bound
+    return CheckResult(
+        ok,
+        observed,
+        bound,
+        r,
+        f"level alpha={alpha} pooled m={m}: rate {observed:.6g} vs bound {bound:.6g}"
+        f" (R={r}, R*m={n})",
+    )
+
+
 def check_fwer(any_false: ArrayLike, alpha: float = 0.05) -> CheckResult:
     """Share of replicates with >= 1 false discovery against ``level_bound(alpha, R)``."""
     a = _unit_vector(any_false, "check_fwer")
@@ -365,8 +403,16 @@ def replicate_block() -> int:
     return int(raw)
 
 
-def check(criterion: str, values: ArrayLike, level: float) -> CheckResult:
-    """Apply ``criterion`` (level | uniform | fdr | fwer) at ``level`` to the replicate values."""
+def check(criterion: str, values: ArrayLike, level: float, m: int | None = None) -> CheckResult:
+    """Apply ``criterion`` (level | uniform | fdr | fwer) at ``level`` to the replicate values.
+
+    With ``m`` (level only) the values are per-replicate rejection shares of ``m`` pooled p-values
+    (``check_level_pooled``).
+    """
+    if m is not None:
+        if criterion != "level":
+            raise ValueError(f"m= applies to the level criterion only, not {criterion!r}")
+        return check_level_pooled(values, level, m)
     if criterion == "level":
         return check_level(values, level)
     if criterion == "uniform":
@@ -397,6 +443,7 @@ def _record(
     duration: float,
     result: CheckResult | None,
     status: str,
+    m: int | None = None,
 ) -> dict[str, Any]:
     return {
         "suite": suite,
@@ -414,6 +461,7 @@ def _record(
         "start": int(reps.start),
         "stop": int(reps.stop),
         "values": [float(v) for v in values],
+        "m": m,
     }
 
 
@@ -458,6 +506,7 @@ def calibrate(
     *,
     stream: str | None = None,
     log_dir: Path | None = None,
+    m: int | None = None,
 ) -> dict[str, Any]:
     """Run one calibration check with two-block confirmation (ADR-0015) and log it.
 
@@ -468,12 +517,18 @@ def calibrate(
     (``GIAP_CALIBRATION_REPLICATES`` set): only that range of block ``GIAP_CALIBRATION_BLOCK`` is
     run and logged as a ``shard`` record (no verdict; see ``merge_shards``). Under
     ``GIAP_CALIBRATION_CONFIRM`` (set by ``--merge``) a listed check runs all of block 2 as a
-    ``shard`` record and any other check is ``skipped`` (nothing run or logged).
+    ``shard`` record and any other check is ``skipped`` (nothing run or logged). With ``m``
+    (level only) each replicate value is the rejection share of ``m`` pooled p-values and the
+    criterion is ``check_level_pooled`` (bound ``level_bound(level, R m)``); records carry ``m``.
     """
     if suite not in array_suites():
         raise KeyError(f"unknown calibration suite {suite!r} (not in tolerances.yaml)")
     if criterion not in CRITERIA:
         raise ValueError(f"unknown criterion {criterion!r}; choose from {', '.join(CRITERIA)}")
+    if m is not None:
+        m = _valid_m(m)
+        if criterion != "level":
+            raise ValueError(f"m= applies to the level criterion only, not {criterion!r}")
     name = stream if stream is not None else suite
     confirm = confirm_checks()
     reps = range(R) if confirm is not None else replicate_range(R)
@@ -487,30 +542,34 @@ def calibrate(
 
     if confirm is not None:
         if (name, criterion, float(level), int(R)) not in confirm:
-            return _record(suite, name, criterion, level, R, 1, reps, [], 0.0, None, SKIPPED_STATUS)
+            return _record(
+                suite, name, criterion, level, R, 1, reps, [], 0.0, None, SKIPPED_STATUS, m
+            )
         absolute, values, dt = run(2, reps)
-        rec = _record(suite, name, criterion, level, R, 2, absolute, values, dt, None, "shard")
+        rec = _record(suite, name, criterion, level, R, 2, absolute, values, dt, None, "shard", m)
         _append([rec], suite, log_dir)
         return rec
 
     if reps != range(R):
         block = replicate_block()
         absolute, values, dt = run(block, reps)
-        rec = _record(suite, name, criterion, level, R, block, absolute, values, dt, None, "shard")
+        rec = _record(
+            suite, name, criterion, level, R, block, absolute, values, dt, None, "shard", m
+        )
         _append([rec], suite, log_dir)
         return rec
 
     reps1, v1, dt1 = run(1, reps)
-    r1 = check(criterion, v1, level)
+    r1 = check(criterion, v1, level, m)
     if r1.ok:
-        rec1 = _record(suite, name, criterion, level, R, 1, reps1, v1, dt1, r1, "pass")
+        rec1 = _record(suite, name, criterion, level, R, 1, reps1, v1, dt1, r1, "pass", m)
         _append([rec1], suite, log_dir)
         return rec1
     reps2, v2, dt2 = run(2, reps)
-    r2 = check(criterion, v2, level)
+    r2 = check(criterion, v2, level, m)
     status = _verdict(r1, r2)
-    rec1 = _record(suite, name, criterion, level, R, 1, reps1, v1, dt1, r1, status)
-    rec2 = _record(suite, name, criterion, level, R, 2, reps2, v2, dt2, r2, status)
+    rec1 = _record(suite, name, criterion, level, R, 1, reps1, v1, dt1, r1, status, m)
+    rec2 = _record(suite, name, criterion, level, R, 2, reps2, v2, dt2, r2, status, m)
     _append([rec1, rec2], suite, log_dir)
     return rec2
 
@@ -553,7 +612,8 @@ def merge_shards(suite: str, log_dir: Path | None = None) -> list[dict[str, Any]
     A check is (stream, criterion, level, R). Block 1 must cover replicates 0..R-1 (else
     ValueError); if it fails, block 2 (R..2R-1) decides per ADR-0015; if block 2 was not logged
     the check is ``pending`` (block-1 record, no verdict: never ``fail`` from block 1 alone).
-    Records written by ``log_result`` (no ``values``) are skipped.
+    Records written by ``log_result`` (no ``values``) are skipped. The records of one check must
+    agree on ``m`` (pooled level, else ValueError).
     """
     directory = Path(log_dir) if log_dir is not None else _default_log_dir()
     groups: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
@@ -568,13 +628,17 @@ def merge_shards(suite: str, log_dir: Path | None = None) -> list[dict[str, Any]
         b1 = _collect(group, 1, R, key)
         if b1 is None:
             raise ValueError(f"{key}: no block-1 replicates logged")
-        r1 = check(criterion, b1[0], level)
+        ms = {r.get("m") for r in group}
+        if len(ms) != 1:
+            raise ValueError(f"{key}: records disagree on m ({sorted(map(str, ms))})")
+        (m,) = ms
+        r1 = check(criterion, b1[0], level, m)
         b2 = None if r1.ok else _collect(group, 2, R, key)
-        r2 = None if b2 is None else check(criterion, b2[0], level)
+        r2 = None if b2 is None else check(criterion, b2[0], level, m)
         status = _verdict(r1, r2)
         block, values, dt, res = (1, *b1, r1) if b2 is None or r2 is None else (2, *b2, r2)
         reps = range((block - 1) * R, block * R)
-        rec = _record(suite, stream, criterion, level, R, block, reps, values, dt, res, status)
+        rec = _record(suite, stream, criterion, level, R, block, reps, values, dt, res, status, m)
         out.append(rec)
     return out
 

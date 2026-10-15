@@ -95,3 +95,16 @@ def write_mapping_outputs(outdir: Path, peptide_hits: pd.DataFrame, protein_hits
    this genomic placement); the engine q is in `peptide_hits.tsv` as `best_q_input`.
 3. Should `mappings.*` include protein hits? **Proposed default:** BED and GFF3 yes; proBed is a
    peptide format, so peptides only.
+
+## Lead decisions after code review (PR #68, changes requested)
+1. Origin-crossing frameshift placements: every `match_part` child (and any feature) whose unwrapped start
+   is ≥ L is shifted by −L; a child spanning the origin stays one feature with end > L (§6.5 GFF3
+   convention), like other origin-crossing GFF3 features.
+   GFF3 writing never fails on valid placements. Test incl. L=10000, start=9990, end=10027,
+   blocks "9990-10008;10009-10027".
+2. δ = −1 frameshifts: the parent `match` carries `frameshift_reread=<1-based genome position>` (the base
+   read twice, M3-08 edge case); δ = +1 carries `frameshift_skipped=<pos>`. Test.
+3. Tests kill the surviving mutants: `match_part` strand equals the parent's; tied sort keys in shuffled
+   input give identical output (full-row tie-break); `;`-joined `flags`/`diff_types` round-trip; `[]` is
+   not treated as missing.
+4. `_length_class_key` documents that it expects M3-10's `lo-hi` labels (and `all`).

@@ -1,0 +1,22 @@
+{
+  "name": "mapping_fdr",
+  "description": "Placement FDR strata and de novo precision bins (GIAP_SPEC.md §9.3).",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "length_class", "type": "string", "description": "Peptide length class; 'all' for per-n_diff totals"},
+    {"name": "n_diff", "type": "integer", "description": "Number of differences"},
+    {"name": "targets", "type": "integer", "description": "Target placements"},
+    {"name": "decoys", "type": "integer", "description": "Decoy placements"},
+    {"name": "pi_wrong", "type": "number", "description": "Estimated fraction of wrong placements"},
+    {"name": "fdr_stratum", "type": "number", "description": "Stratum FDR"},
+    {"name": "n_accepted", "type": "integer", "description": "Accepted placements"},
+    {"name": "decoy_type", "type": "string", "description": "Decoy type", "constraints": {"enum": ["reverse", "shuffle"]}},
+    {"name": "section", "type": "string", "description": "Row section", "constraints": {"required": true, "enum": ["placement", "denovo_precision"]}},
+    {"name": "score_bin", "type": "integer", "description": "De novo score bin"},
+    {"name": "precision", "type": "number", "description": "De novo precision"},
+    {"name": "ci_low", "type": "number", "description": "Lower confidence bound of the precision"},
+    {"name": "ci_high", "type": "number", "description": "Upper confidence bound of the precision"},
+    {"name": "c_value", "type": "number", "description": "Confidence level"},
+    {"name": "flags", "type": "string", "description": "Flags (';'-separated list)"}
+  ]
+}

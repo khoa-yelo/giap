@@ -1,0 +1,22 @@
+{
+  "name": "protein_hits",
+  "description": "One row per protein alignment kept by M3-13 (GIAP_SPEC.md §9.3).",
+  "coordinates": "1-based-closed",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "protein_id", "type": "string", "description": "Protein ID", "constraints": {"required": true}},
+    {"name": "protein_len_aa", "type": "integer", "description": "Protein length (aa)"},
+    {"name": "route", "type": "string", "description": "Alignment route", "constraints": {"required": true, "enum": ["miniprot", "tblastn"]}},
+    {"name": "contig", "type": "string", "description": "Replicon ID", "constraints": {"required": true}},
+    {"name": "start", "type": "integer", "description": "Start, 1-based closed", "constraints": {"required": true}},
+    {"name": "end", "type": "integer", "description": "End, 1-based closed; > replicon length for origin-crossing hits", "constraints": {"required": true}},
+    {"name": "strand", "type": "string", "description": "Strand", "constraints": {"required": true, "enum": ["+", "-"]}},
+    {"name": "rank", "type": "integer", "description": "Rank of the alignment for this protein"},
+    {"name": "identity", "type": "number", "description": "Identity (fraction)"},
+    {"name": "query_coverage", "type": "number", "description": "Query coverage (fraction)"},
+    {"name": "reciprocal_overlap", "type": "number", "description": "Reciprocal overlap with the annotated gene (fraction)"},
+    {"name": "class", "type": "string", "description": "Similarity class", "constraints": {"enum": ["identical", "near", "divergent"]}},
+    {"name": "gene", "type": "string", "description": "Assigned gene locus tag"},
+    {"name": "flags", "type": "string", "description": "Flags (';'-separated list)"}
+  ]
+}

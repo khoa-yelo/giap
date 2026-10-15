@@ -1,8 +1,10 @@
 """Realised placement FDR on giapsim genomes, exact route (issue M3-10; GIAP_SPEC.md §7.2.5, §8.4
 "Placement FDR" row, fast tier: 100 kb).
 
-Per replicate i (R = ``replicates_fast.placement``, seed ``seeds.calibration_base`` + i): a 100-kb
-giapsim genome (M3-18 simulator); correct peptides are the tryptic peptides (7-20 aa) of its
+Per replicate i (R = ``replicates_fast.placement``; genome seed drawn from ``replicate_rng`` of
+stream ``placement.genome_exact``, so ``_criteria.calibrate`` gates it with ADR-0015 two-block
+confirmation and sharding): a 100-kb giapsim genome (M3-18 simulator); correct peptides are the
+tryptic peptides (7-20 aa) of its
 annotated genes; wrong peptides are i.i.d. 7- and 8-mers drawn from the genome's six-frame residue
 frequencies (``residue_freqs``), minus any that equal a correct peptide. All are database input
 (reverse decoys, ``search_db = other``) and every PEP equals the known wrong share, so pi_wrong is
@@ -17,9 +19,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import _criteria as C
 import numpy as np
 import pandas as pd
 import pytest
+from _gate import calibrate_levels
 
 from giap.config import GiapConfig
 from giap.io.fasta import read_genome_fasta
@@ -34,6 +38,8 @@ from giap.rng import for_step
 from giapsim.simulate import SimConfig, simulate
 
 pytestmark = pytest.mark.calibration
+
+SUITE = "placement"
 
 GENOME_BP = 100_000
 N_WRONG = 20_000
@@ -78,31 +84,27 @@ def _replicate(seed: int, outdir: Path) -> tuple[pd.DataFrame, set[str], int]:
     return per, wrong, n_wrong_target
 
 
-def test_realised_placement_fdr_on_giapsim(tolerances: dict[str, object], tmp_path: Path) -> None:
-    levels = [float(x) for x in tolerances["levels"]]  # type: ignore[union-attr]
-    reps, seeds = tolerances["replicates_fast"], tolerances["seeds"]
-    assert isinstance(reps, dict) and isinstance(seeds, dict)
-    r, base = int(reps["placement"]), int(seeds["calibration_base"])
-    k = float(tolerances["se_multiplier"])  # type: ignore[arg-type]
-    fdp = np.zeros((r, len(levels)))
-    n_acc = np.zeros(r)
-    n_false_hits = 0
-    for i in range(r):
-        per, wrong, n_wt = _replicate(base + i, tmp_path / f"rep{i}")
-        n_false_hits += n_wt
+def test_realised_placement_fdr_on_giapsim(tmp_path: Path) -> None:
+    levels = C.load_tolerances().levels
+    side: list[tuple[int, int]] = []  # (wrong target hits, accepted at loosest q), replicates run
+
+    def fdp(rng: np.random.Generator) -> np.ndarray:
+        seed = int(rng.integers(0, 2**31 - 1))
+        per, wrong, n_wt = _replicate(seed, tmp_path / f"rep{seed}")
         q = per["placement_q"].astype(float).to_numpy()
         is_wrong = per["peptide"].isin(wrong).to_numpy()
+        out = np.zeros(len(levels))
         for j, a in enumerate(levels):
             called = ~np.isnan(q) & (q <= a)
             n = int(called.sum())
-            fdp[i, j] = (is_wrong & called).sum() / n if n else 0.0
-        n_acc[i] = int((~np.isnan(q) & (q <= levels[-1])).sum())
-    # the null is exercised: wrong peptides do hit the target by chance
-    assert n_false_hits > r
-    assert n_acc.mean() > 100
-    mean = fdp.mean(axis=0)
-    se = fdp.std(axis=0, ddof=1) / np.sqrt(r)
-    for j, a in enumerate(levels):
-        assert mean[j] <= a + k * se[j], (
-            f"q={a}: mean FDP {mean[j]:.4f} > {a} + {k}*{se[j]:.4f} over R={r}"
-        )
+            out[j] = (is_wrong & called).sum() / n if n else 0.0
+        side.append((n_wt, int((~np.isnan(q) & (q <= levels[-1])).sum())))
+        return out
+
+    r = C.replicates(SUITE, full=False)
+    stream = f"{SUITE}.genome_exact"
+    calibrate_levels(SUITE, "fdr", levels, fdp, r, stream=stream).assert_ok()
+    if side:
+        n_wt, n_acc = np.mean(side, axis=0)
+        assert n_wt > 1  # the null is exercised: wrong peptides do hit the target by chance
+        assert n_acc > 100
