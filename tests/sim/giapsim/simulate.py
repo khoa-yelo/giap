@@ -28,6 +28,7 @@ from giap.model.coords import Interval, Replicon
 from giapsim import blocks as v2blocks
 from giapsim import layers
 from giapsim.codons import SENSE_USAGE, STOPS, revcomp
+from giapsim.denovo import DenovoConfig, simulate_denovo
 from giapsim.features import NOVEL_CLASSES, Block, Feat, coding, make_blocks, novel_orfs
 from giapsim.proteomics import ProteomicsConfig, simulate_proteomics
 from giapsim.signals import TuPlan, apply_plan, plan_tu, plant_gene_rbs
@@ -108,6 +109,8 @@ class SimConfig:
     write_precomputed: bool = False
     # M3-19 simulated proteomics (peptides, database errors); None = off
     proteomics: ProteomicsConfig | None = None
+    # M3-20 de novo reads and reference peptides (needs proteomics); None = off
+    denovo: DenovoConfig | None = None
 
     @property
     def v2(self) -> bool:
@@ -124,6 +127,8 @@ class SimConfig:
             object.__setattr__(
                 self, name, tuple(v.items() if isinstance(v, Mapping) else map(tuple, v))
             )
+        if self.denovo is not None and self.proteomics is None:
+            raise ValueError("denovo needs SimConfig.proteomics")
         if set(dict(self.n_novel_orfs)) - set(NOVEL_CLASSES):
             raise ValueError(f"n_novel_orfs keys must be among {NOVEL_CLASSES}")
         bad = set(dict(self.overlap_bp)) - _FEASIBLE_OVERLAPS
@@ -666,6 +671,10 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
             abundance=paths["abundance"],
             truth={**res.truth, "peptides": paths["truth"], "proteomics": paths["truth_meta"]},
         )
+        if config.denovo is not None:
+            dp = simulate_denovo(config.denovo, seed, out)
+            truth = {"denovo": dp["denovo"], "denovo_precision": dp["denovo_precision"]}
+            res = replace(res, truth={**res.truth, **truth})
     return res
 
 
