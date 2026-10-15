@@ -143,3 +143,14 @@ Follow-up PR (stacked, branch m2/run-wiring): `giap run` writes `inputs.replicon
 2. The test-author's interface choices are accepted: absolute `inputs.replicons` in preflight's 5-column
    c/l format matching the normalised genome's IDs (the run passes the normalised genome); `params.db_dir`
    = --db-dir, else $GIAP_DB_DIR; a found step without required `--in` fails exit 5 "required input".
+3. After the code review of #78 (real `giap run`, Slurm 1848591):
+   a. `--resume` must cache: preflight rewrites `work/preflight/*` only when the content changed (unchanged
+      files keep their mtime); a stub test runs `giap run` twice with `--resume` and asserts cached > 0.
+   b. The DB directory is visible in containers: the apptainer profile binds `params.db_dir` read-only
+      (`apptainer.runOptions`/`containerOptions` `-B <db_dir>:<db_dir>:ro`) when set. Config test.
+   c. `--profile` accepts comma-joined known profiles (e.g. `farmshare_local,apptainer`,
+      `farmshare,apptainer`); unknown names still exit 1.
+   d. Order: preflight runs before the `nextflow` presence check (a bad genome exits 1 with a report even
+      without Nextflow).
+   e. `db_dir` is passed to preflight/`read_manifest` explicitly; no `os.environ` mutation.
+   f. Tests: `--strict` warning exits 3 before launch; missing manifest exits 2 with no launch.
