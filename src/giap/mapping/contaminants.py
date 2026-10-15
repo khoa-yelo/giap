@@ -12,8 +12,8 @@ Input frames (M3-15 lead decisions):
 - ``placements``: M3-10 per-peptide frame; presence = a target hit, ``accepted`` = decision;
 - ``protein_state``: ``protein_id``, ``sequence``, ``assigned``, ``has_alignment``.
 
-Accepted placements and assigned proteins never enter the bucket. Rows are sorted by ``kind``
-then ``sequence_id``.
+Engine decoys, peptides with ``q_value > q_value_max``, accepted placements and assigned proteins
+never enter the bucket. Rows are sorted by ``kind`` then ``sequence_id``.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from typing import Literal
 import ahocorasick
 import pandas as pd
 
+from giap.config.model import InputConfig
 from giap.io.protein_fasta import ProteinRecord, resolve_protein_id
 from giap.mapping.tblastn import OUTFMT
 
@@ -37,6 +38,7 @@ Label = Literal["contaminant", "unmapped"]
 
 _N_COLS = len(OUTFMT.split()) - 1
 _COL = {name: i for i, name in enumerate(OUTFMT.split()[1:])}
+_DEFAULT_Q_VALUE_MAX: float = InputConfig().q_value_max
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,7 +136,7 @@ def _parse_blastp_row(cols: list[str], where: str) -> _BlastpHit:
         if qlen <= 0:
             raise ValueError(f"qlen {qlen} <= 0")
         return _BlastpHit(
-            qseqid=cols[_COL["qseqid"]],
+            qseqid=resolve_protein_id(cols[_COL["qseqid"]])[0],
             sseqid=resolve_protein_id(cols[_COL["sseqid"]])[0],
             identity=float(cols[_COL["pident"]]) / 100.0,
             coverage=(abs(qend - qstart) + 1) / qlen,
@@ -220,16 +222,28 @@ def _placement_state(placements: pd.DataFrame) -> dict[str, bool]:
     return state
 
 
+def _searched(peptides: pd.DataFrame, q_value_max: float) -> pd.DataFrame:
+    """Rows that were searched: not an engine decoy and ``q_value <= q_value_max`` or no q.
+
+    M3-15 review decision 1; a missing q-value (NaN) is not above the cut-off.
+    """
+    decoy = peptides["is_decoy"].astype(bool)
+    q = pd.to_numeric(peptides["q_value"], errors="coerce")
+    return peptides[~decoy & ~(q > q_value_max)]
+
+
 def _peptide_rows(
     peptides: pd.DataFrame,
     placements: pd.DataFrame,
     pep_matches: Mapping[str, str],
     prefixes: tuple[str, ...],
     tolerant_min_len: int,
+    q_value_max: float,
 ) -> list[UnmappedRow]:
     state = _placement_state(placements)
+    searched = _searched(peptides, q_value_max)
     ids_of: dict[str, list[str]] = {}
-    for pep, ids in zip(peptides["peptide"], peptides["protein_ids"], strict=True):
+    for pep, ids in zip(searched["peptide"], searched["protein_ids"], strict=True):
         cur = ids_of.setdefault(str(pep), [])
         cur.extend(i for i in _as_ids(ids) if i not in cur)
     rows: list[UnmappedRow] = []
@@ -277,14 +291,17 @@ def unmapped_table(
     contaminant_prefixes: Sequence[str],
     *,
     tolerant_min_len: int = 10,
+    q_value_max: float = _DEFAULT_Q_VALUE_MAX,
 ) -> list[UnmappedRow]:
     """Rows of ``mapping/unmapped.tsv`` for every peptide and protein that landed nowhere.
 
     ``pep_matches``/``prot_matches`` come from :func:`match_contaminant_peptides` and
     :func:`match_contaminant_proteins` (empty when the library is absent); ``tolerant_min_len``
-    is ``mapping.tolerant.min_len``.
+    is ``mapping.tolerant.min_len``. Only searched peptides enter the bucket: engine decoys
+    (``is_decoy``) and peptides with ``q_value > q_value_max`` (``input.q_value_max``) are
+    excluded; ``q_value == q_value_max`` and a missing q-value are kept.
     """
     prefixes = tuple(p for p in contaminant_prefixes if p)
-    rows = _peptide_rows(peptides, placements, pep_matches, prefixes, tolerant_min_len)
+    rows = _peptide_rows(peptides, placements, pep_matches, prefixes, tolerant_min_len, q_value_max)
     rows += _protein_rows(protein_state, prot_matches, prefixes)
     return sorted(rows, key=lambda r: (r.kind, r.sequence_id))
