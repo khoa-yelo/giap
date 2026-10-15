@@ -1,0 +1,7 @@
+name: bactermfinder
+description: BacTermFinder terminators, opt-in (§7.1.1).
+tools:
+  - bactermfinder:
+      licence: ["GPL-3.0"]
+      notes: Runs as a separate process from envs/bactermfinder.yml or its containers.config pin (R5).
+apptainer: conda only until a GHCR image exists

@@ -1,0 +1,7 @@
+name: terminatornet
+description: TerminatorNet genome-wide terminators (§7.1.1).
+tools:
+  - terminatornet:
+      licence: ["MIT"]
+      notes: Runs as a separate process from envs/terminatornet.yml or its containers.config pin (R5).
+apptainer: conda only until a GHCR image exists

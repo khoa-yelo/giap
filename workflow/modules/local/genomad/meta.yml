@@ -1,0 +1,7 @@
+name: genomad
+description: geNOMAD mobile elements [mobile] (§7.1.1).
+tools:
+  - genomad:
+      licence: ["non-commercial"]
+      notes: Runs as a separate process from envs/genomad.yml or its containers.config pin (R5).
+apptainer: none needed

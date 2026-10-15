@@ -1,0 +1,7 @@
+{
+  "genome": {"genus": "Simulatus", "species": "stubensis", "strain": "nf-test"},
+  "sequences": [
+    {"id": "chr1", "orig_id": "chr1", "length": 3000, "type": "chromosome", "topology": "circular"}
+  ],
+  "features": []
+}

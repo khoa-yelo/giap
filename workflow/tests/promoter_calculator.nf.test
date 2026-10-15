@@ -1,0 +1,61 @@
+// M2-07 lead decision 6 after the PR #65 review: when Promoter Calculator finds no promoter it writes
+// no CSV; the process then writes the real 27-column header (tests/data/recorded/headers/
+// promoter_calculator.csv.txt), and the stub writes the same header. Fake promoter-calculator in
+// workflow/tests/bin. ci.yml runs: nf-test test workflow/tests --profile test,stub
+nextflow_process {
+
+    name "PROMOTER_CALCULATOR (fake promoter-calculator)"
+    script "../modules/local/promoter_calculator/main.nf"
+    process "PROMOTER_CALCULATOR"
+    config "./annotate_tools.config"
+    tag "annotate_tools"
+
+    test("no promoter: the tool writes no CSV -> header-only CSV with the real header") {
+        when {
+            params { fake_bin = "${moduleTestDir}/bin" }
+            process {
+                """
+                input[0] = ['tu0002', file("${moduleTestDir}/data/annotate_tools/tu_short.fa")]
+                """
+            }
+        }
+        then {
+            assert process.success
+            def want = new File("${moduleTestDir}/../../tests/data/recorded/headers/promoter_calculator.csv.txt").readLines()
+            def got = path(process.out.csv[0]).readLines().collect { it.replace('\r', '') }
+            assert got == want : "empty-result CSV: ${got}"
+        }
+    }
+
+    test("a promoter: the tool's CSV is emitted unchanged") {
+        when {
+            params { fake_bin = "${moduleTestDir}/bin" }
+            process {
+                """
+                input[0] = ['tu0001', file("${moduleTestDir}/data/annotate_tools/tu_long.fa")]
+                """
+            }
+        }
+        then {
+            assert process.success
+            def lines = path(process.out.csv[0]).readLines().collect { it.replace('\r', '') }
+            assert lines.size() == 2 && lines[1].startsWith('FAKE,') : "tool CSV not passed through: ${lines}"
+        }
+    }
+
+    test("stub: header-only CSV with the real header") {
+        options "-stub"
+        when {
+            process {
+                """
+                input[0] = ['tu0003', file("${moduleTestDir}/data/annotate_tools/tu_short.fa")]
+                """
+            }
+        }
+        then {
+            assert process.success
+            def want = new File("${moduleTestDir}/../../tests/data/recorded/headers/promoter_calculator.csv.txt").readLines()
+            assert path(process.out.csv[0]).readLines() == want
+        }
+    }
+}

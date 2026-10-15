@@ -1,0 +1,2 @@
+contig	start	end	strand	confidence	source
+chr1	101	140	+	0.9	TerminatorNet
