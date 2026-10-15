@@ -22,8 +22,12 @@ Conventions pinned here where the spec is silent (test author; see the PR descri
   distance to the start codon must be measured across the origin. One row per TU, in TU order. The
   first start codon is ``interval.start`` (+) / ``interval.end - 1`` (-) of the TU.
 * ``tx_rate_between``: TSSs strictly between ``up``'s 3' end and ``down``'s start codon in
-  transcription order (TSSs inside either gene are excluded; the exact boundary bases are not
-  pinned); ``None`` when there is none. Circular replicons wrap.
+  transcription order; ``None`` when there is none. Circular replicons wrap. Boundary bases
+  (lead decision 5): the first base after ``up``'s stop is kept, ``up``'s last base and ``down``'s
+  start-codon base are dropped, on both strands; adjacent (gap 0) and overlapping genes give
+  ``None`` without reading the layer.
+* ``_signed`` reduces to ``(-length/2, length/2]``: a distance of exactly half an even contig is
+  positive (upstream), and ``-length/2`` maps to ``+length/2`` (lead decision 5).
 """
 
 from __future__ import annotations
@@ -366,6 +370,140 @@ def test_tx_rate_between_ignores_other_contigs() -> None:
     tx = _tx([("+", 410, 7.0)])
     tx.loc[len(tx)] = ["chr2", "+", 412, 70.0, "TU_y"]
     assert _mod().tx_rate_between(up, down, tx, REPS["chr1"]) == 7.0
+
+
+# Window edges (lead decision 5). + pair: up [100, 400), down [420, 700) → window [400, 420).
+# - pair: up [800, 1000), down [500, 700) → window [700, 800) in forward coordinates, i.e. from
+# 799 (first base after up's stop) down to 700 (base after down's start codon 699).
+_PLUS_PAIR = (("a", 100, 400, "+"), ("b", 420, 700, "+"))
+_MINUS_PAIR = (("a", 800, 1000, "-"), ("b", 500, 700, "-"))
+
+
+@pytest.mark.parametrize(
+    ("pair", "tss", "kept"),
+    [
+        (_PLUS_PAIR, 399, False),  # up's last base
+        (_PLUS_PAIR, 400, True),  # first base after up's stop
+        (_PLUS_PAIR, 419, True),  # last base before down's start codon
+        (_PLUS_PAIR, 420, False),  # down's start-codon base
+        (_MINUS_PAIR, 800, False),  # up's last base (transcription order)
+        (_MINUS_PAIR, 799, True),  # first base after up's stop
+        (_MINUS_PAIR, 700, True),  # last base before down's start codon
+        (_MINUS_PAIR, 699, False),  # down's start-codon base
+    ],
+    ids=[
+        "+up_last",
+        "+first_after_stop",
+        "+before_start",
+        "+start_codon",
+        "-up_last",
+        "-first_after_stop",
+        "-before_start",
+        "-start_codon",
+    ],
+)
+def test_tx_rate_between_window_edges(pair, tss: int, kept: bool) -> None:
+    up, down = (_gene(*g) for g in pair)  # type: ignore[arg-type]
+    strand = up.interval.strand
+    got = _mod().tx_rate_between(up, down, _tx([(strand, tss, 5.0)]), REPS["chr1"])
+    assert got == (5.0 if kept else None)
+
+
+@pytest.mark.parametrize("strand", ["+", "-"])
+@pytest.mark.parametrize("gap", [0, -1, -50])
+def test_tx_rate_between_adjacent_or_overlapping_genes_is_none(strand: str, gap: int) -> None:
+    if strand == "+":
+        up, down = _gene("a", 100, 400, "+"), _gene("b", 400 + gap, 700, "+")
+    else:
+        up, down = _gene("a", 400 + gap, 700, "-"), _gene("b", 100, 400, "-")
+    tx = _tx([(strand, t, 9.0) for t in range(90, 710)])
+    assert _mod().tx_rate_between(up, down, tx, REPS["chr1"]) is None
+
+
+@pytest.mark.parametrize("strand", ["+", "-"])
+def test_tx_rate_between_adjacent_genes_do_not_read_the_layer(strand: str) -> None:
+    """Gap 0 returns ``None`` before touching ``tx`` (``span <= 0``, not ``span < 0``)."""
+    if strand == "+":
+        up, down = _gene("a", 100, 400, "+"), _gene("b", 400, 700, "+")
+    else:
+        up, down = _gene("a", 400, 700, "-"), _gene("b", 100, 400, "-")
+    assert _mod().tx_rate_between(up, down, pd.DataFrame(), REPS["chr1"]) is None
+
+
+@pytest.mark.parametrize("strand", ["+", "-"])
+def test_tx_rate_between_edges_across_the_origin(strand: str) -> None:
+    # + : up [9900, 10000), down [30, 300) → window {0..29}; - : mirror image.
+    if strand == "+":
+        up, down = _gene("a", 9900, 10_000, "+"), _gene("b", 30, 300, "+")
+        inside, outside = [0, 29], [9999, 30]
+    else:
+        up, down = _gene("a", 0, 100, "-"), _gene("b", 9700, 9970, "-")
+        inside, outside = [9999, 9970], [0, 9969]
+    for t in inside:
+        assert _mod().tx_rate_between(up, down, _tx([(strand, t, 2.0)]), REPS["chr1"]) == 2.0, t
+    for t in outside:
+        assert _mod().tx_rate_between(up, down, _tx([(strand, t, 2.0)]), REPS["chr1"]) is None, t
+
+
+@given(
+    strand=st.sampled_from(["+", "-"]),
+    a=st.integers(0, L - 1),
+    gap=st.integers(1, 300),
+    k=st.integers(-3, 303),
+)
+@settings(max_examples=200, deadline=None)
+def test_tx_rate_between_keeps_exactly_the_gap_bases(strand: str, a: int, gap: int, k: int) -> None:
+    """A TSS ``k`` bases past ``up``'s 3' end (transcription order) is kept iff ``0 <= k < gap``."""
+    n = 50  # gene length; genes may not cross the origin (Interval), so skip such placements
+    if strand == "+":
+        us, ds = a, (a + n + gap) % L
+        if us + n > L or ds + n > L:
+            return
+        up, down = _gene("a", us, us + n, "+"), _gene("b", ds, ds + n, "+")
+        t = (us + n + k) % L
+    else:
+        us = a
+        de = (us - gap) % L  # down's end (exclusive); its start codon is de - 1
+        if us + n > L or de - n < 0:
+            return
+        up, down = _gene("a", us, us + n, "-"), _gene("b", de - n, de, "-")
+        t = (us - 1 - k) % L
+    got = _mod().tx_rate_between(up, down, _tx([(strand, t, 1.5)]), REPS["chr1"])
+    assert got == (1.5 if 0 <= k < gap else None)
+
+
+@pytest.mark.parametrize(
+    ("d", "length", "expected"),
+    [
+        (5000, 10_000, 5000),  # exactly half an even contig: positive (upstream)
+        (-5000, 10_000, 5000),  # -length/2 maps to +length/2
+        (5001, 10_000, -4999),
+        (4999, 10_000, 4999),
+        (4999, 9999, 4999),  # odd contig: (-4999.5, 4999.5]
+        (5000, 9999, -4999),
+        (0, 10_000, 0),
+        (10_000, 10_000, 0),
+        (5000, None, 5000),
+        (-7, None, -7),
+    ],
+)
+def test_signed_at_half_the_contig_length(d: int, length: int | None, expected: int) -> None:
+    """``_signed`` maps to ``(-length/2, length/2]``; the tie at exactly half is positive."""
+    assert _mod()._signed(d, length) == expected
+
+
+@pytest.mark.parametrize("strand", ["+", "-"])
+def test_tss_distance_at_exactly_half_the_contig_is_positive(strand: str) -> None:
+    pc = _mod()
+    if strand == "+":  # start codon 5000, TSS 0 → 5000 bp upstream either way round
+        tu = make_tu("TU_h", "chr1", "+", (5000, 5300), (4900, 5050))
+        tx = _tx([("+", 0, 3.0)])
+    else:  # start codon 4999, TSS 9999 → 5000 bp either way round
+        tu = make_tu("TU_h", "chr1", "-", (4700, 5000), (4950, 5100))
+        tx = _tx([("-", 9999, 3.0)])
+    tx["tu_id"] = "TU_h"
+    f = _feat(pc.tu_tx_features([tu], tx, replicons=REPS), "TU_h")
+    assert f["tss_distance_bp"] == 5000
 
 
 # ---------------------------------------------------------------- properties
