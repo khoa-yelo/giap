@@ -122,3 +122,19 @@ Files: `src/giap/setupdb/{items.py,manifest.py,run.py}`, `src/giap/data/db_sourc
    is an environment error (exit 2) naming `scripts/slurm/build_envs.sbatch`.
 6. Tests never reach the network: tests that only exercise option parsing skip every resource (lead fixed
    two M1 CLI tests that downloaded the 1 GB Promotech zip once `giap setup` became real).
+
+## Lead decisions after code review (PR #57, changes requested)
+1. R6: geNOMAD is fetched by GIAP itself from the pinned Zenodo URL (record 14886553, HTTPS), MD5-checked
+   against ADR-0014, and unpacked with a safe tar extractor (no absolute paths, no `..`, no links outside);
+   `tool: null` — `genomad download-database` (portal.nersc.gov, unchecked) is never used. Any tool-driven
+   download must point at a §3.2 host and be checksummed, or it is not used.
+2. R6: prefetch provenance is adopted only when its checksum equals the pinned checksum AND its host equals
+   the pinned host; otherwise the pin is used for verification and a mismatch is recorded as `mismatch`.
+3. Tests can never reach the network or start tools: an autouse fixture (tests/unit setup tests and CLI
+   tests) makes `ToolRunner.run`, `subprocess.run`/`Popen` and `HttpsFetcher.fetch` raise unless a test
+   injects a fake explicitly.
+4. TLS: redirects are followed only to https URLs on the item's official host; anything else is an error.
+5. Tests kill the surviving mutants: zip-slip check, `ToolRunner` binds / env-vs-image choice / missing image
+   (`ToolRunner.command` tests), https-only check, post-download verification, remove-before-rename order,
+   reuse of previous `ok` provenance; the prefetch-provenance fixture uses an old date (not today).
+6. `amrfinderplus` row also for `bakta_light`. The antiSMASH `url: "image"` case is M2-09's (backlog).
