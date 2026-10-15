@@ -89,3 +89,12 @@ wrapper exists, then Bakta runs first.
    part + first 30 aa of the annotated protein, upstream part ≥ 7 aa.
 2. Should A2 (pilot) use `--no-contaminants` because the DIA-NN template already passes
    `--fasta contaminants.fasta`? **Proposed default:** yes, to avoid duplicate entries (M3-24).
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted (missing product → "hypothetical protein"; patched proteins
+   start with M; six-frame ORFs translated codon by codon; db_ids unique, id_map in FASTA order with NA;
+   patched records after CDS/sORF and before ORFs; contaminants from `--db-dir`, exit 2 when missing
+   unless `--no-contaminants`).
+2. nterm_extension entries contain the upstream part plus the first 30 codons of the annotated protein (so
+   peptides spanning the junction are searchable); the header and id_map say so.
+3. An ORF containing X is split at each X; pieces shorter than `min_orf_aa` are dropped.
