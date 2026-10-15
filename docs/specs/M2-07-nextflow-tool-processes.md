@@ -92,3 +92,36 @@ Promotech chunks and Promoter Calculator regions scatter with `flatten()` and ga
 2. ADR-0007 size: 619 code lines → two stacked PRs. PR A: the 10 tool modules (workflow/modules/local/<tool>/
    incl. meta.yml) + stub asset, with the module lint and cmd-sync tests. PR B: annotate subworkflow,
    main.nf, giap_step, configs, `giap run` wiring, with the remaining M2-07 tests (stacked on A).
+
+## Lead decisions after code review (PR #65, changes requested — real-tool run failed)
+Fixed in this PR (#65):
+1. ANNOTATE keys follow the merged M2-12 step registry (`steps/operons.py`): `uniop_input` gets `replicons`;
+   `operon_pairs` gets `uniop_cds`, `replicons`, `genome` and emits `operon_meta`; `tu_upstream` is a
+   directory; the precomputed branch passes only declared keys. A test checks every ANNOTATE `py step` call's
+   inputs/outputs against the step registry (all registered steps, not just M2-12).
+2. Bakta auto `--complete`: replicons.tsv topology column holds `c`/`l` (preflight); the check compares to
+   `c`, and the test fixture uses the real preflight format.
+3. Containers without `ps` (bakta, antiSMASH): Nextflow's task metrics need `ps`. Fix without new images:
+   the apptainer profile binds the host's `ps` (procps) into those two processes only if a test run proves
+   it works; otherwise disable per-task metrics for them (`process.withName` … or trace fields that avoid
+   `ps`) — implementer verifies with a real run on Slurm. `meta.yml` notes updated.
+4. `farmshare,apptainer` turns conda on for the conda-only tools (uniop, promotech, promoter_calculator,
+   terminatornet, ostir), using the prebuilt envs under $GIAP_ROOT (micromamba, `conda.useMicromamba`),
+   and containers for the rest. Config test.
+5. Promotech: the env (workflow/envs/promotech.yml) gains the missing PyQt5 dependency (or the
+   headless equivalent that makes `import PyQt5` succeed), lock updated, env rebuilt via
+   `sbatch scripts/slurm/build_envs.sbatch promotech`. Stub writes `sequences_predictions.csv`
+   (tab, `CHROM SEQ PRED`) like the real tool.
+6. Promoter Calculator: when the tool writes no CSV (no promoter), the process writes the real 27-column
+   header; the stub uses the same header.
+7. Stub headers equal the real outputs (OSTIR incl. `RBS_distance_bp` and order; geNOMAD virus_genes.tsv 20
+   columns) — a test compares stub headers with the recordings under $GIAP_ROOT/recordings (skip if absent)
+   and with a committed copy of each real header.
+8. Precomputed bakta_json without a GBFF: antiSMASH is skipped and `layer_missing` recorded.
+9. Bakta `--regions` file is a staged path input (part of the task hash).
+10. Acceptance: a real-tool ANNOTATE run on SIM100K via Slurm (`scripts/slurm/` script, work dir under
+    $GIAP_ROOT/scratch — never node-local /tmp) completes every enabled tool; Bakta output equals the
+    recording; result noted in the PR.
+Follow-up PR (stacked, branch m2/run-wiring): `giap run` writes `inputs.replicons` (runs preflight) and
+`params.db_dir` so main.nf takes the ANNOTATE branch (review item 1), and `giap _step` calls
+`load_step_modules()` (item 5, pre-existing). Tests for both.
