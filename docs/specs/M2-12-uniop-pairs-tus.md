@@ -104,3 +104,14 @@ distance model with `source = distance_model`. UniOP failure (non-zero exit, mis
 3. `uniop.pred` column names are not documented in the spec. **Proposed default:** the parser keys
    on the recorded header; until recorded, a doc-derived 3-column file (`gene_a gene_b p`) is used in
    unit tests only.
+
+## Lead decisions (test-author questions)
+1. List-valued columns in Parquet work tables are native lists (same rule as M4-06 decision 1): in
+   `tus.parquet`, `genes` is a list of locus tags in TU order; `;`-joining (ADR-0006) only in TSV outputs.
+2. Accepted conventions: replicons as a mapping in FASTA order; a circular contig with two genes has both
+   the forward and the wrap pair; an empty `uniop.pred` is a UniOP failure; nearest-upstream clip =
+   `min(gene end, S)` (Q2); unit-test `uniop.pred` uses the 3-column `gene_a gene_b p` format (Q3);
+   `uniop_map.tsv` header `prodigal_id locus_tag`; 0-based coordinates in Parquet.
+3. With `annotation.precomputed.operon_pairs`, the precomputed layer is read by `operon_pairs` directly
+   (its `source` column kept); exact recovery of simulator `truth/tus.tsv` from 0/1 oracle probabilities
+   is the accuracy check (the spec sets no calibration threshold).
