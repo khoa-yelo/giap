@@ -1,5 +1,6 @@
 // One Python pipeline step through `giap _step` (GIAP_SPEC.md §6.2, §6.3; M2-06).
-// inputs[i] is passed as --in in_keys[i]=<staged path>; out_spec items are "key=file name".
+// inputs[i] is passed as --in in_keys[i]=<staged path>; out_spec items are "key=file name"
+// (a glob such as windows_*.fa names a scattered output; the stub creates the listed files).
 process GIAP_STEP {
     tag "${step}"
     label 'process_single'
@@ -17,7 +18,7 @@ process GIAP_STEP {
     script:
     def files = inputs instanceof List ? inputs : [inputs]
     def ins = [in_keys, files].transpose().collect { k, f -> "--in ${k}=${f}" }.join(' ')
-    def outs = out_spec.collect { "--out ${it}" }.join(' ')
+    def outs = out_spec.collect { "--out '${it}'" }.join(' ')
     def resolved = params.config ?: 'resolved_config.yaml'
     """
     giap _step ${step} --config ${resolved} ${ins} ${outs}
@@ -28,9 +29,12 @@ process GIAP_STEP {
     END_VERSIONS
     """
 
-    stub:
-    def touches = out_spec.collect { "touch ${it.tokenize('=')[1]}" }.join('\n    ')
+    stub:   // .giap_inputs: the --in entries in channel order (staging lines are name-sorted)
+    def files = inputs instanceof List ? inputs : [inputs]
+    def ins = [in_keys, files].transpose().collect { k, f -> "'${k}=${f}'" }.join(' ')
+    def touches = out_spec.collect { o -> def f = o.tokenize('=')[1]; "mkdir -p \$(dirname ${f}) && touch ${f}" }.join('\n    ')
     """
+    printf '%s\\n' ${ins} > .giap_inputs
     ${touches}
 
     cat <<-END_VERSIONS > versions.yml

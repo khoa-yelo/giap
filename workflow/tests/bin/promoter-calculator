@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Fake promoter-calculator for workflow/tests/annotate_tools.nf.test. Like the real 1.2.4: a region
+# shorter than 50 nt has no promoter -> prints "No promotors found." and writes NO CSV; otherwise
+# writes a CRLF CSV with the real 27-column header (tests/data/recorded/headers) and one row.
+set -euo pipefail
+in="" out=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in -i) in="$2"; shift ;; -o) out="$2"; shift ;; esac
+  shift
+done
+len=$(grep -v '^>' "$in" | tr -d '\n' | wc -c)
+echo "Input file is a file. Reading sequence from file."
+echo "Sequence length: $len"
+if (( len < 50 )); then echo "No promotors found."; exit 0; fi
+hdr="$(dirname "$0")/../../../tests/data/recorded/headers/promoter_calculator.csv.txt"
+{ tr -d '\n' < "$hdr"; printf '\r\n'; printf 'FAKE%.0s,' {1..26}; printf 'FAKE\r\n'; } > "$out"
