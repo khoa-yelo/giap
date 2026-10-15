@@ -74,3 +74,30 @@ n_runs: int = 3; proteins: ProteinSimConfig | None = None             # proteins
    `abundance.enzyme: trypsin_p`).
 2. Detectability coefficients are placeholders until M4 defines the detectability truth.
    **Proposed default:** the values above; M4 replaces them.
+
+## Lead decisions (test-author questions)
+1. The independent peptide checker is test code, not simulator tooling: it moves from `tests/sim/peptide_oracle.py`
+   (implementer-owned, role-guard exempt) to `tests/helpers/peptide_oracle.py` so the implementer cannot
+   edit the oracle its output is judged by.
+2. Accepted: API `giapsim.proteomics.{ProteomicsConfig, ProteinSimConfig, digest}`, `SimConfig.proteomics`,
+   `res.truth["peptides"]`; expressed proteins counted from the true start incl. novel ORFs, pseudogenes
+   excluded; wrong peptides match no sample protein (I = L); other-strain wrong peptides are tryptic pieces
+   of reference-strain proteins (no strain → ValueError); `abundance.tsv` has `locus_tag` + `log_abundance`
+   (or `abundance`); `reference_peptides.tsv` is M3-20's.
+3. C-terminal extensions (ADR-0013) are not simulated in M3-19 (no M3-18/M3-19 feature creates them);
+   Module 6 calibration adds readthrough planting — backlog note.
+
+## Lead decisions after code review (PR #55, changes requested)
+1. Wrong-peptide shortfall is never silent: PEP and q are computed from the wrong share actually produced,
+   which is recorded as `pi_wrong_realised` in the truth metadata next to the requested `pi_wrong`; a
+   shortfall emits a WARNING naming both. Test: the reviewer's case (`snv_rate_per_kb=0.5`, `pi_wrong=0.5`)
+   → q calibrated against truth at the realised share.
+2. Decoy sampling uses `cfg.missed_cleavages` everywhere (no default of 1); test with `missed_cleavages=0,
+   digest_len=(20,30)`.
+3. `n_loci_genome` is what GIAP's exact matcher would find: exact six-frame matches with I = L folded, and 0
+   is allowed (no `max(1, …)`). N-terminal peptides of GTG/TTG-start genes (protein starts with M, genome
+   codes V/L) get a truth flag `alt_start_nterm` = true; M3-21's recall gate excludes them (spec TE1
+   treats non-ATG starts as exceptions). Wrong peptides also get `n_loci_genome` (0 for shuffled; the
+   few other-strain matches recorded).
+4. Tests kill the surviving mutants: a tight wrong-share test (catches a dropped 1/(1−π) factor), a peptide
+   starting exactly at the origin, and the charge-2 share.

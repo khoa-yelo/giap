@@ -91,3 +91,17 @@ Part of `docs/methods/detectability.md` (covariate definitions, the pseudogene r
    per-protein property; proteome uniqueness is handled by evidence uniqueness (§7.2.6).
 2. I/L kept distinct when counting distinct peptides? **Proposed default:** yes (as written, matching
    §5.3 "I/L are kept as written; equivalence is applied only in matching").
+
+## Lead decisions (test-author questions)
+1. `length_aa` of an all-`X` protein ("XXX") is 0, as the spec's edge-case example says (explicit example
+   wins over the general "count before cleaning" rule).
+2. Accepted: empty protein → NaN `gravy`, `pi`, `mw_da` (`n_observable_peptides`/`tm_segments` 0); non-standard
+   letters score 0 in TM windows; leading and trailing `*` stripped; `covariate_table` keeps input row order.
+
+## Lead decisions after code review (PR #61, test gaps)
+1. Tests pin: the TM boundary (window mean exactly 1.6 counts: `tm_segments("LWY" + "A"*16) == 1`); an internal
+   X scores 0 in TM windows and stays inside peptides (`covariates()` case); ambiguous codons translate to X
+   (`protein_sequence(None, "ATGNNNGCT", "pseudogene") == "MXA"`); lower-case `nt` is upper-cased;
+   `missed < 0` raises ValueError.
+2. An internal `*` (after stripping leading/trailing ones) raises ValueError: annotated CDS have none and
+   pseudogenes are translated only up to the first stop, so it can only come from malformed input.

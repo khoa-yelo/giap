@@ -1,0 +1,106 @@
+LOCUS       U00096.3             4641652 bp    DNA     linear   BCT 14-OCT-2026
+DEFINITION  chromosome, complete genome.
+ACCESSION   U00096
+VERSION     U00096.3
+KEYWORDS    .
+SOURCE      None
+  ORGANISM  .
+            .
+COMMENT     Annotated with Bakta
+            Software: v1.12.2
+            Database: v6.0, full
+            DOI: 10.1099/mgen.0.000685
+            URL: github.com/oschwengers/bakta
+            
+            ##Genome Annotation Summary:##
+            Annotation Date                :: 10/14/2026, 18:54:14
+            CDSs                           :: 4,372
+            tRNAs                          ::    88
+            tmRNAs                         ::     1
+            rRNAs                          ::    22
+            ncRNAs                         ::   232
+            regulatory ncRNAs              ::    57
+            CRISPR Arrays                  ::     2
+            oriCs/oriVs                    ::     2
+            oriTs                          ::     0
+            gaps                           ::     0
+            pseudogenes                    ::     5
+FEATURES             Location/Qualifiers
+     source          1..4641652
+                     /mol_type="genomic DNA"
+     gene            715412..715906
+                     /locus_tag="KOIAIB_00744"
+                     /gene="ybfP"
+     CDS             715412..715906
+                     /db_xref="GO:0005886"
+                     /db_xref="RefSeq:WP_000856353.1"
+                     /db_xref="SO:0001217"
+                     /db_xref="UniParc:UPI000013A326"
+                     /db_xref="UniRef:UniRef100_P75737"
+                     /db_xref="UniRef:UniRef50_P75737"
+                     /db_xref="UniRef:UniRef90_P75737"
+                     /product="Uncharacterized lipoprotein YbfP"
+                     /locus_tag="KOIAIB_00744"
+                     /protein_id="gnl|Bakta|KOIAIB_00744"
+                     /translation="MKTNRSLVVIVSLITATLLLTACAQPEQSSLAGDWLLTPKDKTRG
+                     LTGSIAVNIAPFRCKTNCRGDNLPDNTRRWQLSGGNEKELTYLHNMSAQEKVGLNPGWQ
+                     CYTSFFMRVCQGKPGTRPIVNEDYVSESGFFGSMMHVGIIELRRCQSENCQQELKAINT
+                     H"
+                     /codon_start=1
+                     /transl_table=11
+                     /inference="ab initio prediction:Prodigal:2.6"
+                     /inference="similar to AA sequence:RefSeq:WP_000856353.1"
+                     /gene="ybfP"
+     gene            complement(716388..>716597)
+                     /locus_tag="KOIAIB_00745"
+                     /pseudogene="unitary"
+     CDS             complement(716388..>716597)
+                     /note="Internal stop codon at 716390. Nonsense mutation
+                     around 716390."
+                     /note="(5' truncated)"
+                     /db_xref="SO:0001217"
+                     /db_xref="UniRef:UniRef50_UPI00053ADEF4"
+                     /db_xref="UniRef:UniRef90_UPI001C9B7514"
+                     /product="DUF2625 domain-containing protein"
+                     /locus_tag="KOIAIB_00745"
+                     /pseudogene="unitary"
+                     /codon_start=1
+                     /transl_table=11
+                     /inference="ab initio prediction:Prodigal:2.6"
+     gene            complement(716946..718265)
+                     /locus_tag="KOIAIB_00746"
+                     /gene="potE"
+     CDS             complement(716946..718265)
+                     /db_xref="COG:COG0531"
+                     /db_xref="COG:E"
+                     /db_xref="GO:0005886"
+                     /db_xref="GO:0015293"
+                     /db_xref="GO:0015496"
+                     /db_xref="GO:0015822"
+                     /db_xref="GO:0015847"
+                     /db_xref="GO:0016020"
+                     /db_xref="GO:0055085"
+                     /db_xref="RefSeq:WP_000075845.1"
+                     /db_xref="SO:0001217"
+                     /db_xref="UniParc:UPI0000131F9B"
+                     /db_xref="UniRef:UniRef100_P0AAF1"
+                     /db_xref="UniRef:UniRef50_P0AAF1"
+                     /db_xref="UniRef:UniRef90_P0AAF1"
+                     /product="putrescine-ornithine antiporter"
+                     /locus_tag="KOIAIB_00746"
+                     /protein_id="gnl|Bakta|KOIAIB_00746"
+                     /translation="MSQAKSNKMGVVQLTILTMVNMMGSGIIMLPTKLAEVGTISIISW
+                     LVTAVGSMALAWAFAKCGMFSRKSGGMGGYAEYAFGKSGNFMANYTYGVSLLIANVAIA
+                     ISAVGYGTELLGASLSPVQIGLATIGVLWICTVANFGGARITGQISSITVWGVIIPVVG
+                     LCIIGWFWFSPTLYVDSWNPHHAPFFSAVGSSIAMTLWAFLGLESACANTDVVENPERN
+                     VPIAVLGGTLGAAVIYIVSTNVIAGIVPNMELANSTAPFGLAFAQMFTPEVGKVIMALM
+                     VMSCCGSLLGWQFTIAQVFKSSSDEGYFPKIFSRVTKVDAPVQGMLTIVIIQSGLALMT
+                     ISPSLNSQFNVLVNLAVVTNIIPYILSMAALVIIQKVANVPPSKAKVANFVAFVGAMYS
+                     FYALYSSGEEAMLYGSIVTFLGWTLYGLVSPRFELKNKHG"
+                     /codon_start=1
+                     /transl_table=11
+                     /inference="ab initio prediction:Prodigal:2.6"
+                     /inference="similar to AA sequence:RefSeq:WP_000075845.1"
+                     /gene="potE"
+ORIGIN
+//

@@ -58,3 +58,21 @@ tooling · pure Python · estimate ≈ 300 lines (not gated by ADR-0007)
 1. Default error-type weights. **Proposed default:** substitution 0.3, block 0.2, swap 0.15,
    near_block 0.05, reversed_stretch 0.1, modification 0.1, random 0.1 (configurable; calibration
    tests sweep them).
+
+## Lead decisions
+1. Default error-type weights accepted as proposed (substitution 0.3, block 0.2, swap 0.15, near_block 0.05,
+   reversed_stretch 0.1, modification 0.1, random 0.1); configurable, calibration sweeps them.
+2. The test-author's API choices are accepted: `giapsim.denovo` (`DenovoConfig`, `ERROR_TYPES`,
+   `DEFAULT_ERROR_WEIGHTS`, `apply_error`), switched on by `SimConfig.denovo` (requires `proteomics`, own RNG
+   stream), deciles pooled over runs, one de novo row per non-decoy database row, `reference_peptides.tsv` =
+   every non-decoy `peptides.tsv` row with `search_db = same`.
+3. The calibration file is registered in the M4-05 SUITE_REGISTRY by the lead once both are on main.
+
+## Lead decisions after code review (PR #66, changes requested — tests only)
+1. Redraw rule: when the drawn type has no site, redraw among the remaining positive-weight types; only if
+   none of them has a site, fall back to `substitution` (always has a site) even when its weight is 0 —
+   documented here, tested.
+2. Tests kill the surviving mutants: wrong-ID spectra's `true_peptide` is a correct peptide ≠ the DB peptide
+   and varies across spectra; with weights {block: 0.5, swap: 0.5} `substitution` never appears; every
+   stretch length 2–6 and both block orders occur; de novo `protein_ids` are NA; the de novo RNG stream is
+   distinct from proteomics (one pinned hash of a de novo output).
