@@ -98,3 +98,18 @@ ID; otherwise, every `protein_ids` entry carrying a contaminant prefix → `cont
 2. `too_short` is not defined by the spec. **Proposed default:** as above (no exact hit and too
    short for tolerant search), which separates "could not be searched tolerantly" from "searched,
    nothing found".
+
+## Lead decisions (test-author questions)
+1. `peptides` is the M1-06/M1-12 aggregated frame with `protein_ids` as a native list of strings (as M1-12
+   writes it; M4-06 decision 1) — `;` joining only in TSV writers.
+2. Several passing contaminant-library hits for one protein: deterministic tie rule — highest bitscore, then
+   highest identity, then highest coverage, then lowest subject ID (lexicographic).
+3. Accepted: `placements` = M3-10 per-peptide frame (presence = target hit); `protein_state` columns
+   `protein_id, sequence, assigned, has_alignment`; `unmapped_table(..., tolerant_min_len=10)` keyword; blastp
+   uses tblastn's 15 outfmt-6 columns; thresholds per HSP, inclusive, identity = pident/100, coverage =
+   (qend−qstart+1)/qlen; a library match beats `contaminant_id` and keeps the mapping reason; every
+   `protein_ids` entry must carry a prefix and the first ID is the match; a protein whose own ID has a
+   contaminant prefix → `contaminant_id`; accepted placements never enter the unmapped bucket; decoy-only
+   peptides → `no_hit` or `too_short`.
+4. The implementer records `tests/data/recorded/blast/2.16.0/contaminants/` with the pinned BLAST image
+   (real blastp output; lead rule for tool wrappers).
