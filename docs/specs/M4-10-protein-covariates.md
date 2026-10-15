@@ -91,3 +91,9 @@ Part of `docs/methods/detectability.md` (covariate definitions, the pseudogene r
    per-protein property; proteome uniqueness is handled by evidence uniqueness (§7.2.6).
 2. I/L kept distinct when counting distinct peptides? **Proposed default:** yes (as written, matching
    §5.3 "I/L are kept as written; equivalence is applied only in matching").
+
+## Lead decisions (test-author questions)
+1. `length_aa` of an all-`X` protein ("XXX") is 0, as the spec's edge-case example says (explicit example
+   wins over the general "count before cleaning" rule).
+2. Accepted: empty protein → NaN `gravy`, `pi`, `mw_da` (`n_observable_peptides`/`tm_segments` 0); non-standard
+   letters score 0 in TM windows; leading and trailing `*` stripped; `covariate_table` keeps input row order.
