@@ -84,7 +84,7 @@ def calibration_diagnostics(d: ArrayLike, p: ArrayLike, n_bins: int = 10) -> pd.
 
 - [ ] `tests/unit/genetable/test_detectability.py`: examples 1–9.
 - [ ] Property: permuting gene row order leaves `p_detect` unchanged (folds depend on TU IDs only).
-- [ ] **Calibration** `tests/calibration/test_detectability.py` (suite `detectability`, R = 20 fast /
+- [ ] **Calibration** `tests/calibration/test_detectability_calibration.py` (suite `detectability`, R = 20 fast /
   100 full): M4-07 layout (2,000 genes fast, 4,500 full) + M4-08 `covariates_only`; fit; the mean
   calibration slope over R lies in `tolerances.detectability_slope` = [0.8, 1.2]; per-replicate
   slopes, intercepts and Brier scores written to the calibration log.
@@ -116,3 +116,18 @@ constant fallback, the calibration diagnostics and the simulation evidence (slop
 3. D1 (§8.4 slope gate, mean cross-fitted slope in the tolerance interval) stays outside `calibrate()`
    (mean-in-interval is not a `calibrate()` criterion); D2–D4 go through `calibrate()`. The statistician
    signs off the claims before merge.
+
+## Lead decisions after the statistician's review (changes requested)
+4. D2–D4 are merged into one check (smallest of the three p-values × 3, Bonferroni) through `calibrate()`,
+   to free false-alarm budget (they used ≈ 0.023 of the 0.04/night).
+5. Blocking (§8.5): a subgroup calibration gate in tests/calibration/attacks/ — prophage and
+   shortest-length-decile O−E z through `calibrate` (level check), plus a confirmed fail for a model
+   without size covariates (statistician's draft:
+   /home/classes/bios/270/khoa/giap/local/scratch/review-m4-13/draft_test_attack_detectability.py).
+6. Structural leakage tests stay (example 4; oracle checks on chosen C and p_detect).
+7. `detection_summary` gets Wald 95 % CIs for the slope and intercept in `ci_low`/`ci_high`.
+8. D1 runtime is recorded in benchmarks/baseline.json.
+9. Implementation deviations accepted: `LogisticRegression(l1_ratio=0.0, tol=1e-6)` (sklearn 1.9 deprecates
+   `penalty="l2"`); fits under `threadpoolctl.threadpool_limits(1)` (31 s → 3 s; threadpoolctl is an
+   sklearn dependency — declare it in pyproject at the next lock update, backlog); rows sorted by
+   locus_tag internally.
