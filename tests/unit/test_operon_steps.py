@@ -16,7 +16,8 @@ Conventions pinned here where the contract table is silent (see the PR descripti
   ``operon_pairs`` itself is not (``precomputed=None``) so TUs are still built from the layer.
 * ``pairs_raw.parquet`` has at least ``gene_a, gene_b, uniop_p, source``; ``tus.parquet`` at least
   ``tu_id, contig, start, end, strand, genes`` with 0-based half-open coordinates (work-directory
-  tables stay internal, §6.5) and ``genes`` as a list or a ``;``-joined string.
+  tables stay internal, §6.5) and ``genes`` as a native Parquet list column of locus tags in TU
+  order (lead decision; ``;`` only in TSV outputs, ADR-0006).
 * The distance-model parameters come from ``calibration.yaml`` (d₀ = 50, s = 20).
 """
 
@@ -31,6 +32,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
@@ -170,12 +172,16 @@ def _pairs(path: Path) -> dict[tuple[str, str], tuple[float, str]]:
 
 
 def _genes_cell(v: Any) -> tuple[str, ...]:
-    return tuple(v.split(";")) if isinstance(v, str) else tuple(v)
+    assert isinstance(v, list), f"tus.parquet genes must be a native list column, got {v!r}"
+    return tuple(v)
 
 
 def _tus(path: Path) -> list[tuple[Any, ...]]:
-    cols = pq.read_table(path).column_names
-    assert {"tu_id", "contig", "start", "end", "strand", "genes"} <= set(cols)
+    schema = pq.read_schema(path)
+    assert {"tu_id", "contig", "start", "end", "strand", "genes"} <= set(schema.names)
+    gt = schema.field("genes").type
+    assert pa.types.is_list(gt) or pa.types.is_large_list(gt), f"genes: {gt}"
+    assert pa.types.is_string(gt.value_type) or pa.types.is_large_string(gt.value_type)
     return [
         (r["tu_id"], r["contig"], r["start"], r["end"], r["strand"], _genes_cell(r["genes"]))
         for r in pq.read_table(path).to_pylist()
