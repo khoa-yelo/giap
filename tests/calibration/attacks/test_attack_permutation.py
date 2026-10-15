@@ -23,7 +23,10 @@ their level check also counts R * REPLICONS independent p-values.
 
 Criterion (§8.4 level): for alpha in ``levels``, rejection rate <= alpha + k sqrt(alpha(1-alpha)/M),
 M independent p-values. R = ``replicates_fast.regions`` (marker ``calibration``) or
-``replicates_full.regions`` (``calibration_full``); seed ``seeds.calibration_base``.
+``replicates_full.regions`` (``calibration_full``); seed ``seeds.calibration_base``. Attacks with
+one p per replicate (``ONE_P``) are gated by ``_criteria.calibrate`` (ADR-0015 two-block
+confirmation, sharding; stream ``regions.attack_permutation.<attack>``); the pooled ones keep
+their own check over M (calibrate takes one scalar per replicate).
 """
 
 from __future__ import annotations
@@ -32,6 +35,7 @@ from collections.abc import Callable
 
 import numpy as np
 import pytest
+from _gate import calibrate_levels
 
 from giap.rng import for_step
 from giap.stats.permutation import (
@@ -134,6 +138,21 @@ ATTACKS: dict[str, Replicate] = {
     "besag_clifford_ties": _bc_ties,
 }
 
+#: attacks with one p per replicate. The others pool CONTIGS / REPLICONS independent p per
+#: replicate (M = R x CONTIGS p-values per check); ``calibrate`` takes one scalar per replicate
+#: with R = the suite's R (shard ranges), so they keep their own level check over M.
+ONE_P = frozenset({"besag_clifford_ties"})
+
+
+def _one_p(rep: Replicate) -> Callable[[np.random.Generator], float]:
+    def fn(rng: np.random.Generator) -> float:
+        (p,) = rep(rng)
+        assert np.isfinite(p) and 0 < p <= 1, p
+        return float(p)
+
+    return fn
+
+
 SUITES = [
     pytest.param("replicates_fast", marks=pytest.mark.calibration, id="fast"),
     pytest.param("replicates_full", marks=pytest.mark.calibration_full, id="full"),
@@ -152,6 +171,11 @@ def _settings(tolerances: dict[str, object], suite: str) -> tuple[list[float], i
 @pytest.mark.parametrize("attack", sorted(ATTACKS))
 def test_attack_stays_at_level(tolerances: dict[str, object], attack: str, suite: str) -> None:
     levels, r, seed, k = _settings(tolerances, suite)
+    if attack in ONE_P:  # one p per replicate: gated by calibrate (ADR-0015, sharding)
+        stream = f"regions.attack_permutation.{attack}"
+        fn = _one_p(ATTACKS[attack])
+        calibrate_levels("regions", "level", levels, fn, r, stream=stream).assert_ok()
+        return
     rng = for_step(f"attack.permutation.{attack}.{suite}", seed)
     p = np.concatenate([ATTACKS[attack](rng) for _ in range(r)])
     assert np.isfinite(p).all() and ((p > 0) & (p <= 1)).all()

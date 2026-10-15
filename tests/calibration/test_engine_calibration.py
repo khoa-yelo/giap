@@ -4,7 +4,9 @@ Each test runs fast (``calibration``, ``replicates_fast``) and full (``calibrati
 ``replicates_full``). Engine tests reuse the R of the closest consumer suite (M4-index lead
 decision 6): ``gene_fdr`` for BH, ``regions`` for permutation, circular shifts and Besag-Clifford.
 Replicate i of stream ``<suite>.<test>`` uses ``_criteria.replicate_rng`` (seed
-``suite_seed(stream, i)``). Every criterion is appended to ``local/logs/calibration/<suite>.jsonl``.
+``suite_seed(stream, i)``). Every level is gated by ``_criteria.calibrate`` (ADR-0015 two-block
+confirmation, sharding) through ``_gate.calibrate_levels``, which logs to
+``local/logs/calibration/<suite>.jsonl``.
 
 - ``test_bh_fdr``: 1,000 p per replicate, 900 U(0, 1) nulls + 100 Beta(0.1, 1) alternatives;
   mean FDP of BH at q <= q + k SE for q in ``levels``.
@@ -23,6 +25,7 @@ from collections.abc import Callable
 import _criteria as C
 import numpy as np
 import pytest
+from _gate import Gate, calibrate_levels
 
 from giap.stats.multitest import bh
 from giap.stats.permutation import (
@@ -50,20 +53,21 @@ def _level(
     suite: str, stream: str, full: bool, replicate: Callable[[np.random.Generator], float]
 ) -> None:
     r = C.replicates(suite, full=full)
-    t0 = time.perf_counter()
-    p = np.asarray(C.run_replicates(stream, replicate, r), dtype=float)
-    duration = time.perf_counter() - t0
-    assert p.shape == (r,)
-    assert ((p > 0) & (p <= 1)).all()
-    failures = []
-    for a in C.load_tolerances().levels:
-        res = C.check_level(p, a)
-        assert r == res.R
-        C.log_result(suite, f"level:{stream}", a, res, C.suite_seed(stream, 0), duration)
-        if not res.ok:
-            failures.append(res.detail)
-    assert not failures, failures
-    if not full:
+
+    def checked(rng: np.random.Generator) -> float:
+        p = replicate(rng)
+        assert 0 < p <= 1, p
+        return p
+
+    gate = calibrate_levels(suite, "level", C.load_tolerances().levels, checked, r, stream=stream)
+    _finish(gate, r, full)
+
+
+def _finish(gate: Gate, r: int, full: bool) -> None:
+    assert all(rec["R"] == r for rec in gate.records)
+    gate.assert_ok()
+    if not full:  # one simulation per replicate, timed in the first level's block-1 record
+        duration = sum(rec["duration"] for rec in gate.records if rec["block"] == 1)
         assert duration < FAST_SECONDS, duration
 
 
