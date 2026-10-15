@@ -24,7 +24,7 @@ Milestone M2 · depends on: M2-04 · estimate ≈ 380 code lines (tests not coun
 
 ## Public interface
 
-`src/giap/annotate/uniop.py`, `src/giap/annotate/uniop_cmd.py`, `src/giap/annotate/operons.py`,
+`src/giap/annotate/uniop_adapter.py`, `src/giap/annotate/uniop_cmd.py`, `src/giap/annotate/operons.py`,
 `src/giap/data/calibration.yaml` (new; `operon_distance: {d0: 50, s: 20, provenance: "GIAP_SPEC §7.1.3 default", calibrated: false}`,
 `terminatornet_yes: {value: 0.5, calibrated: false}`), steps `uniop_input`, `operon_pairs`.
 ```python
@@ -115,3 +115,7 @@ distance model with `source = distance_model`. UniOP failure (non-zero exit, mis
 3. With `annotation.precomputed.operon_pairs`, the precomputed layer is read by `operon_pairs` directly
    (its `source` column kept); exact recovery of simulator `truth/tus.tsv` from 0/1 oracle probabilities
    is the accuracy check (the spec sets no calibration threshold).
+4. The adapter module is `giap.annotate.uniop_adapter` (not `uniop.py`): the vendoring guard
+   (`test_no_tool_source_vendored`) forbids files named after unlicensed tools under src/ (ADR-0008).
+5. Accepted implementation notes: a circular TU is capped at the ring length; the distance-model fallback
+   is logged as a WARNING (and recorded as `operon_source = distance_model` in the manifest).

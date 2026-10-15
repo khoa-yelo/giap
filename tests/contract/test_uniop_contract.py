@@ -40,7 +40,7 @@ def _gff(path: Path) -> list[tuple[str, str, str]]:
 
 @pytest.mark.parametrize("sample", SAMPLES, ids=[p.name for p in SAMPLES])
 def test_recorded_uniop_pred_parses_to_adjacent_pairs(sample: Path) -> None:
-    from giap.annotate.uniop import parse_uniop_pred
+    from giap.annotate.uniop_adapter import parse_uniop_pred
     from giap.io.tsv import read_tsv
 
     gffs = sorted(sample.glob("*.gff"))

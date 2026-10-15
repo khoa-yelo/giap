@@ -42,7 +42,7 @@ from giap.annotate.operons import (
     write_tu_regions,
     write_tus_tsv,
 )
-from giap.annotate.uniop import PairProb
+from giap.annotate.uniop_adapter import PairProb
 from giap.io.tsv import read_tsv
 from giap.model.coords import Interval, Replicon
 from giap.model.genes import Gene

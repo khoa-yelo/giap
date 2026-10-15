@@ -28,7 +28,7 @@ import pytest
 import giapsim
 from giap.annotate.bakta import parse_bakta_json
 from giap.annotate.operons import adjacent_pairs
-from giap.annotate.uniop import PairProb, parse_uniop_pred, write_prodigal_gff
+from giap.annotate.uniop_adapter import PairProb, parse_uniop_pred, write_prodigal_gff
 from giap.annotate.uniop_cmd import uniop_command
 from giap.model.coords import Interval, Replicon
 from giap.model.genes import Gene
@@ -249,7 +249,7 @@ def test_uniop_modules_never_import_uniop() -> None:
     import ast
 
     import giap.annotate.operons as ops
-    import giap.annotate.uniop as uni
+    import giap.annotate.uniop_adapter as uni
     import giap.annotate.uniop_cmd as ucmd
 
     for mod in (uni, ucmd, ops):

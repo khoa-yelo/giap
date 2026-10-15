@@ -25,7 +25,7 @@ from giap.annotate.operons import (
     intergenic_distance,
     tu_upstream,
 )
-from giap.annotate.uniop import PairProb
+from giap.annotate.uniop_adapter import PairProb
 from giap.model.coords import Interval, Replicon
 from giap.model.genes import Gene
 

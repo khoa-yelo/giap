@@ -44,7 +44,7 @@ from giap.annotate.operons import (
     intergenic_distance,
     write_tu_regions,
 )
-from giap.annotate.uniop import PairProb
+from giap.annotate.uniop_adapter import PairProb
 from giap.config import GiapConfig, resolve_config
 from giap.io.fasta import read_genome_fasta
 from giap.io.tsv import read_tsv
