@@ -74,3 +74,14 @@ Sequence `GGCCGGAACCGACCATTGATAGAAAAACTGATGAACGCGTAA` (42 nt, linear `fs1`): fra
 1. Should frameshift loci count toward detection and abundance like other tolerant hits under
    `genome_relation = related`? **Proposed default:** yes, as the spec draws no distinction; they
    also carry `strain_difference` (M3-14).
+
+## Lead decisions (test-author questions)
+1. Accepted: "the non-frameshift explanation wins" is decided inside M3-08 — a split is dropped when the whole
+   query aligns without a frameshift (M3-06/07) at cost ≤ the split's cost on an overlapping interval, same
+   contig and strand.
+2. Accepted: reverse decoys are read in their own direction (reverse-decoy splits of reversed(Q) equal the
+   target splits of Q); shuffle decoys keep the target codons.
+3. Accepted: rows = every split locus at the minimal split cost, one row per interval, type tie-break
+   substitution < swap < block < near_block < frameshift; `blocks` in the same unwrapped coordinates as
+   start/end; `frame` = prefix block's label; target search only for `target_queries`; M3-07 config errors
+   (e.g. k > 2) reused. No recall threshold → no calibration test here (M3-21 measures).
