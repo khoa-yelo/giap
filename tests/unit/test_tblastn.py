@@ -14,9 +14,8 @@ Ambiguities resolved here (spec silent; lead decisions of M3-12/M3-13 applied):
 - Chains are normalised to canonical intervals before ``assign_alignments`` (M3-12 review
   decision 4): ``0 <= start < L``, unwrapped ``end <= start + L``; linear contigs never wrap.
 - Rank is per protein, by summed bitscore, 1 = best.
-- ``query_coverage`` is the ``ProteinAlignment`` span ``(q_end - q_start) / qlen``; the spec's
-  "|union of query ranges|" equals it for every chain tested here (no query gaps), so the
-  union-vs-span question is left open.
+- Coverage of a chain is |union of HSP query ranges| / qlen, set explicitly on
+  ``ProteinAlignment`` (M3-13 lead decision 1); without it ``query_coverage`` stays the span.
 - tblastn cannot see a GTG/TTG start (no genome sequence in ``merge_hsps``): ``alt_start`` is
   False; ``frameshift`` and ``stop_codon`` are 0 (spec).
 - An HSP on a contig absent from ``replicons`` raises ``ValueError`` (contract drift, as in M3-12).
@@ -627,3 +626,61 @@ def test_merge_accepts_tuple_and_does_not_mutate() -> None:
     before = list(hsps)
     _merge(hsps, MINI_REPS)
     assert list(hsps) == before
+
+
+# ---------------------------------------------------------------- lead decision 1: union coverage
+
+
+def test_query_gap_chain_reports_union_coverage() -> None:
+    """Lead decision 1: coverage = |union of HSP query ranges| / qlen, not the span."""
+    hsps = [_hsp((1, 50), (1001, 1150)), _hsp((71, 120), (1211, 1360))]  # 20-aa query gap
+    (a,) = _merge(hsps)
+    assert a.interval == Interval("chr1", 1000, 1360, "+")
+    assert (a.q_start, a.q_end) == (0, 120)
+    assert a.query_coverage == pytest.approx(100 / 120)
+
+
+def test_union_coverage_counts_overlap_once() -> None:
+    hsps = [_hsp((1, 65), (1001, 1195)), _hsp((61, 100), (1199, 1318))]  # 5-aa overlap
+    (a,) = _merge(hsps)
+    assert a.query_coverage == pytest.approx(100 / 120)
+
+
+def test_similarity_class_uses_union_coverage() -> None:
+    """Identity 1.0 with span 1.0 but union 100/120: ``near``, not ``identical``."""
+    hsps = [_hsp((1, 50), (1001, 1150)), _hsp((71, 120), (1211, 1360))]
+    df, left = _assign(_merge(hsps), _model(CIRC, _gene("G1", 1000, 1360)))
+    assert list(df["gene"]) == ["G1"]
+    assert list(df["class"]) == ["near"]
+    assert df["query_coverage"].iloc[0] == pytest.approx(100 / 120)
+    assert left == set()
+
+
+def test_union_coverage_below_threshold_not_assigned() -> None:
+    """Union 80/120 < min_coverage 0.80 although the span is the whole protein."""
+    hsps = [_hsp((1, 40), (1001, 1120)), _hsp((81, 120), (1241, 1360))]
+    alns = _merge(hsps)
+    assert len(alns) == 1 and alns[0].query_coverage == pytest.approx(80 / 120)
+    df, left = _assign(alns, _model(CIRC, _gene("G1", 1000, 1360)))
+    assert df.empty
+    assert left == {"P1"}
+
+
+def test_miniprot_alignment_without_explicit_coverage_reports_span() -> None:
+    """M3-12 unchanged: a ``ProteinAlignment`` built without coverage reports the span."""
+    from giap.mapping.miniprot import ProteinAlignment
+
+    a = ProteinAlignment(
+        protein_id="M1",
+        protein_len_aa=200,
+        route="miniprot",
+        interval=Interval("chr1", 100, 400, "+"),
+        rank=1,
+        identity=1.0,
+        positive=1.0,
+        q_start=50,
+        q_end=150,
+        frameshift=0,
+        stop_codon=0,
+    )
+    assert a.query_coverage == pytest.approx(0.5)
