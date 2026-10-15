@@ -97,3 +97,12 @@ core genes = CDS features in the area whose qualifier `gene_kind` contains `bios
    real runs did. The cmd-sync pair covers it.
 3. No py step in M2-18; M2-19's `region_layer` registers the parsing step and must match annotate.nf's
    `stepIn('region_layer', …)` keys.
+
+## Lead decisions after code review (PR #84, changes requested — tests/API)
+4. `antismash_command(..., databases)` makes `databases` REQUIRED (real runs always need it); spec
+   example 6 is amended accordingly; the cmd-sync pair passes it and the antiSMASH sync checks include
+   `--databases` and `/antismash`.
+5. Tests kill the surviving mutants: a biosynthetic CDS crossing the area's right edge is not a core gene
+   ("wholly inside"); a `join{}` CDS with one part outside the area is excluded (`all`, not `any`); an
+   area with `end > length` on a linear record raises ValueError; `provirus_0_…` naming at position 0.
+6. tests/data/recorded/antismash/PROVENANCE.md is updated (main.nf now passes `--databases`).
