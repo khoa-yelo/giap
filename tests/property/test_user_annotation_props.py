@@ -36,6 +36,7 @@ PL = Replicon("plasmid_1", 6_000, "circular", "plasmid")
 LIN = Replicon("linear_1", 4_000, "linear", "unknown")
 REPS = {r.id: r for r in (CHR, PL, LIN)}
 IDENT = {k: k for k in REPS}
+ORDER = list(REPS)  # input FASTA order (build_id_map requires it)
 
 
 @st.composite
@@ -137,7 +138,7 @@ def test_gbff_read_round_trip(cds: list[UserCds]) -> None:
 def test_id_map_identical_on_same_coordinates(cds: list[UserCds], rnd: object) -> None:
     genes = [_gene(f"LT_{i:05d}", c.interval) for i, c in enumerate(cds)]
     want = {c.source_id: g.locus_tag for c, g in zip(cds, genes, strict=True)}
-    rows = build_id_map(cds, genes)
+    rows = build_id_map(cds, genes, contig_order=ORDER)
     assert len(rows) == len(cds)
     assert all(r.match == "identical" for r in rows)
     assert {r.source_id: r.locus_tag for r in rows} == want
@@ -152,7 +153,7 @@ def test_id_map_identical_on_same_coordinates(cds: list[UserCds], rnd: object) -
     shuffled_c, shuffled_g = list(cds), list(genes)
     rnd.shuffle(shuffled_c)  # type: ignore[attr-defined]
     rnd.shuffle(shuffled_g)  # type: ignore[attr-defined]
-    assert build_id_map(shuffled_c, shuffled_g) == rows
+    assert build_id_map(shuffled_c, shuffled_g, contig_order=ORDER) == rows
 
 
 @FAST
@@ -164,7 +165,7 @@ def test_id_map_shifted_start_is_unmatched(cds: list[UserCds], shift: int) -> No
         for i, c in enumerate(cds)
         if c.interval.length_bp > shift
     ]  # fmt: skip
-    rows = build_id_map(cds, genes)
+    rows = build_id_map(cds, genes, contig_order=ORDER)
     assert len(rows) == len(cds)
     assert all(r.match == "unmatched" and r.locus_tag is None for r in rows)
 
@@ -188,7 +189,7 @@ def test_regions_round_trip_m1_05_reader(cds: list[UserCds]) -> None:
 def test_id_map_tsv_one_based_and_na(cds: list[UserCds], data: st.DataObject) -> None:
     keep = [c for c in cds if data.draw(st.booleans())]
     genes = [_gene(f"LT_{i:05d}", c.interval) for i, c in enumerate(keep)]
-    rows = build_id_map(cds, genes)
+    rows = build_id_map(cds, genes, contig_order=ORDER)
     with tempfile.TemporaryDirectory() as d:
         p = Path(d) / "id_map.tsv"
         write_id_map(p, rows)

@@ -49,6 +49,7 @@ PL = Replicon("plasmid_1", 8_000, "circular", "plasmid")
 LIN = Replicon("linear_1", 5_000, "linear", "unknown")
 REPS = {r.id: r for r in (CHR, PL, LIN)}
 IDENT = {r: r for r in REPS}
+ORDER = list(REPS)  # input FASTA order (build_id_map requires it, review decision 2)
 ID_MAP_HEADER = ["source_id", "locus_tag", "contig", "start", "end", "strand", "match"]
 
 
@@ -224,7 +225,7 @@ def test_origin_crossing_cds_written_once_to_regions(tmp_path: Path) -> None:
 # --------------------------------------------------------------- examples 4-5
 def test_example4_identical_row_and_tsv(tmp_path: Path) -> None:
     cds = [UserCds("ABC_0001", Interval("chr1", 100, 400, "+"), False)]
-    rows = build_id_map(cds, [gene("GSIM_00005", "chr1", 100, 400, "+")])
+    rows = build_id_map(cds, [gene("GSIM_00005", "chr1", 100, 400, "+")], contig_order=ORDER)
     assert rows == [IdMapRow("ABC_0001", "GSIM_00005", "chr1", 100, 400, "+", "identical")]
     out = tmp_path / "id_map.tsv"
     write_id_map(out, rows)
@@ -236,7 +237,7 @@ def test_example4_identical_row_and_tsv(tmp_path: Path) -> None:
 
 def test_example5_start_differs_unmatched(tmp_path: Path) -> None:
     cds = [UserCds("ABC_0001", Interval("chr1", 97, 400, "+"), False)]
-    rows = build_id_map(cds, [gene("GSIM_00005", "chr1", 100, 400, "+")])
+    rows = build_id_map(cds, [gene("GSIM_00005", "chr1", 100, 400, "+")], contig_order=ORDER)
     assert rows == [IdMapRow("ABC_0001", None, "chr1", 97, 400, "+", "unmatched")]
     out = tmp_path / "id_map.tsv"
     write_id_map(out, rows)
@@ -252,7 +253,9 @@ def test_example5_start_differs_unmatched(tmp_path: Path) -> None:
     ],
 )
 def test_only_identical_coordinates_match(iv: Interval) -> None:
-    rows = build_id_map([UserCds("U1", iv, False)], [gene("G1", "chr1", 100, 400, "+")])
+    rows = build_id_map(
+        [UserCds("U1", iv, False)], [gene("G1", "chr1", 100, 400, "+")], contig_order=ORDER
+    )
     assert [(r.locus_tag, r.match) for r in rows] == [(None, "unmatched")]
     assert (rows[0].contig, rows[0].start, rows[0].end, rows[0].strand) == (
         iv.contig,
@@ -273,7 +276,7 @@ def test_one_row_per_user_cds_sorted_and_unused_genes_ignored(tmp_path: Path) ->
         gene("G3", "chr1", 5000, 5300, "-"),
         gene("G1", "chr1", 100, 400, "+"),
     ]
-    rows = build_id_map(cds, genes)
+    rows = build_id_map(cds, genes, contig_order=ORDER)
     assert [(r.source_id, r.locus_tag, r.match) for r in rows] == [
         ("U1", "G1", "identical"),
         ("U2", None, "unmatched"),
@@ -283,7 +286,11 @@ def test_one_row_per_user_cds_sorted_and_unused_genes_ignored(tmp_path: Path) ->
 
 def test_origin_crossing_identical_and_tsv_keeps_unwrapped_end(tmp_path: Path) -> None:
     iv = Interval("chr1", 99900, 100150, "-")
-    rows = build_id_map([UserCds("OX", iv, False)], [gene("G_ORI", "chr1", 99900, 100150, "-")])
+    rows = build_id_map(
+        [UserCds("OX", iv, False)],
+        [gene("G_ORI", "chr1", 99900, 100150, "-")],
+        contig_order=ORDER,
+    )
     assert rows == [IdMapRow("OX", "G_ORI", "chr1", 99900, 100150, "-", "identical")]
     out = tmp_path / "id_map.tsv"
     write_id_map(out, rows)
@@ -526,14 +533,14 @@ def test_empty_gff3(tmp_path: Path) -> None:
     assert lines[0] == "##gff-version 3"
     assert all(ln.startswith("#") for ln in lines)
     idm = tmp_path / "id_map.tsv"
-    write_id_map(idm, build_id_map(cds, [gene("G1", "chr1", 100, 400, "+")]))
+    write_id_map(idm, build_id_map(cds, [gene("G1", "chr1", 100, 400, "+")], contig_order=ORDER))
     assert idm.read_text() == "\t".join(ID_MAP_HEADER) + "\n"
 
 
 def test_duplicate_coordinates_both_map_to_same_locus() -> None:
     iv = Interval("chr1", 100, 400, "+")
     cds = [UserCds("DUP_B", iv, False), UserCds("DUP_A", iv, False)]
-    rows = build_id_map(cds, [gene("G1", "chr1", 100, 400, "+")])
+    rows = build_id_map(cds, [gene("G1", "chr1", 100, 400, "+")], contig_order=ORDER)
     assert len(rows) == 2
     assert {r.source_id for r in rows} == {"DUP_A", "DUP_B"}
     assert {(r.locus_tag, r.match) for r in rows} == {("G1", "identical")}
@@ -602,7 +609,7 @@ def test_real_bakta_gff3_maps_identically_to_its_locus_tags() -> None:
     genes = bakta_tsv_genes(DATA / "sim100k_bakta.tsv")
     assert len(cds) == len(genes) == 86
     assert not any(c.pseudo for c in cds)
-    rows = build_id_map(cds, genes)
+    rows = build_id_map(cds, genes, contig_order=list(SIM_REPS))
     assert len(rows) == 86
     assert all(r.match == "identical" and r.locus_tag == r.source_id for r in rows)
     assert [r.locus_tag for r in rows] == [g.locus_tag for g in genes]  # Bakta TSV is §6.5 order
@@ -640,7 +647,7 @@ def test_writers_are_byte_identical_and_order_independent(tmp_path: Path) -> Non
     for i, (c, g) in enumerate([(cds, genes), (cds, genes), (shuffled, shuffled_genes)]):
         r, m = tmp_path / f"r{i}.gff3", tmp_path / f"m{i}.tsv"
         write_bakta_regions(r, c, list(SIM_REPS.values()))
-        write_id_map(m, build_id_map(c, g))
+        write_id_map(m, build_id_map(c, g, contig_order=list(SIM_REPS)))
         outs.append((r.read_bytes(), m.read_bytes()))
     assert outs[0] == outs[1] == outs[2]
 
@@ -663,7 +670,7 @@ def _sim_round_trip(cfg: object, seed: int, tmp: Path) -> None:
     assert sim.annotation_gff3 is not None
     cds = read_user_cds(sim.annotation_gff3, "gff3", reps, {k: k for k in reps})
     assert cds
-    rows = build_id_map(cds, ann.model.genes)
+    rows = build_id_map(cds, ann.model.genes, contig_order=list(reps))
     assert len(rows) == len(cds)
     assert all(r.match == "identical" for r in rows)
     assert all(r.locus_tag == r.source_id for r in rows)  # giapsim: ID = locus_tag

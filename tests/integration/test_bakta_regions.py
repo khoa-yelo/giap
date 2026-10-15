@@ -79,7 +79,7 @@ def test_bakta_regions_keeps_given_cds(tmp_path: Path) -> None:
     assert proc.returncode == 0, proc.stderr[-4000:]
 
     genes = parse_bakta_json(out / "sim100k.json", reps).model.genes
-    rows = build_id_map(cds, genes)
+    rows = build_id_map(cds, genes, contig_order=list(reps))
     write_id_map(tmp_path / "id_map.tsv", rows)
     identical = sum(r.match == "identical" for r in rows)
     assert len(rows) == len(cds)
