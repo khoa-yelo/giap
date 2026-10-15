@@ -27,7 +27,9 @@ Assumption violations, direction documented (docs/methods/mayu-gene-fdr.md), not
   (ratio ≈ 1.05).
 
 R is ``replicates_fast.gene_fdr`` (marker ``calibration``) or ``replicates_full.gene_fdr``
-(``calibration_full``); seed ``seeds.calibration_base``; k = ``se_multiplier``.
+(``calibration_full``); seed ``seeds.calibration_base``; k = ``se_multiplier``. The level gates go
+through ``_criteria.calibrate`` (ADR-0015 two-block confirmation, sharding; stream
+``gene_fdr.attack_mayu.<attack>``); the violation directions keep their single-stream estimate.
 """
 
 from __future__ import annotations
@@ -36,6 +38,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pytest
+from _gate import calibrate_levels
 
 from giap.stats.mayu import mayu_gene_fdr
 
@@ -141,18 +144,18 @@ def _settings(tolerances: dict[str, object], suite: str) -> tuple[int, int, floa
 @pytest.mark.parametrize("suite", SUITES)
 @pytest.mark.parametrize("attack", sorted(AT_LEVEL))
 def test_mayu_attack_stays_at_level(tolerances: dict[str, object], attack: str, suite: str) -> None:
-    r, seed, k, levels = _settings(tolerances, suite)
-    rng = np.random.default_rng(seed)
-    reps = [_replicate(rng, AT_LEVEL[attack], levels) for _ in range(r)]
-    fdp = np.array([x.fdp for x in reps])
-    mean, se = fdp.mean(axis=0), fdp.std(axis=0, ddof=1) / np.sqrt(r)
-    for j, alpha in enumerate(levels):
-        assert mean[j] <= alpha + k * se[j], (
-            f"{attack} q={alpha}: mean FDP {mean[j]:.4f} > {alpha} + {k}*{se[j]:.4f} over R={r}"
-        )
-    if attack == "long_gene_concentration":  # documented direction: conservative
-        est = np.mean([x.fdr_loose for x in reps])
-        real = np.mean([x.fdp_loose for x in reps])
+    r, _, _, levels = _settings(tolerances, suite)
+    loose: list[tuple[float, float]] = []  # (estimated FDR, realised FDP), replicates run here
+
+    def fdp(rng: np.random.Generator) -> np.ndarray:
+        x = _replicate(rng, AT_LEVEL[attack], levels)
+        loose.append((x.fdr_loose, x.fdp_loose))
+        return x.fdp
+
+    stream = f"gene_fdr.attack_mayu.{attack}"
+    calibrate_levels("gene_fdr", "fdr", levels, fdp, r, stream=stream).assert_ok()
+    if attack == "long_gene_concentration" and loose:  # documented direction: conservative
+        est, real = np.mean(loose, axis=0)
         assert real < est, f"expected conservative: realised {real:.4f} >= estimated {est:.4f}"
 
 

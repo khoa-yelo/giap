@@ -15,15 +15,19 @@ inside the method's stated assumptions (docs/methods/target-decoy.md, multiple-t
 
 Criterion (§8.4): mean FDP <= q + 2 SE(FDP) over R replicates, q in ``levels``. R is
 ``replicates_fast.gene_fdr`` (marker ``calibration``) or ``replicates_full.gene_fdr``
-(marker ``calibration_full``); seed ``seeds.calibration_base``.
+(marker ``calibration_full``). Gated by ``_criteria.calibrate`` (ADR-0015 two-block confirmation,
+sharding); replicate i of stream ``gene_fdr.attack_fdr_engine.<attack>`` draws from
+``replicate_rng(stream, i)`` (seeds from ``seeds.calibration_base``).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
+import _criteria as C
 import numpy as np
 import pytest
+from _gate import calibrate_levels
 from scipy.stats import norm
 
 from giap.stats.multitest import bh
@@ -102,21 +106,18 @@ SUITES = [
 
 @pytest.mark.parametrize("suite", SUITES)
 @pytest.mark.parametrize("attack", sorted(ATTACKS))
-def test_attack_stays_at_level(tolerances: dict[str, object], attack: str, suite: str) -> None:
-    levels = [float(x) for x in tolerances["levels"]]  # type: ignore[union-attr]
-    reps, seeds = tolerances[suite], tolerances["seeds"]
-    assert isinstance(reps, dict) and isinstance(seeds, dict)
-    r, k = int(reps["gene_fdr"]), float(tolerances["se_multiplier"])  # type: ignore[arg-type]
-    rng = np.random.default_rng(int(seeds["calibration_base"]))
-    fdp = np.zeros((r, len(levels)))
-    for i in range(r):
+def test_attack_stays_at_level(attack: str, suite: str) -> None:
+    levels = C.load_tolerances().levels
+    r = C.replicates("gene_fdr", full=suite == "replicates_full")
+
+    def fdp(rng: np.random.Generator) -> np.ndarray:
         q, false = ATTACKS[attack](rng)
+        out = np.zeros(len(levels))
         for j, a in enumerate(levels):
             called = ~np.isnan(q) & (q <= a)
             n = int(called.sum())
-            fdp[i, j] = (false & called).sum() / n if n else 0.0
-    mean, se = fdp.mean(axis=0), fdp.std(axis=0, ddof=1) / np.sqrt(r)
-    for j, a in enumerate(levels):
-        assert mean[j] <= a + k * se[j], (
-            f"{attack} q={a}: mean FDP {mean[j]:.4f} > {a} + {k}*{se[j]:.4f} over R={r}"
-        )
+            out[j] = (false & called).sum() / n if n else 0.0
+        return out
+
+    stream = f"gene_fdr.attack_fdr_engine.{attack}"
+    calibrate_levels("gene_fdr", "fdr", levels, fdp, r, stream=stream).assert_ok()

@@ -7,7 +7,8 @@ the matching exactly-at-level procedure (the worst case for false alarms) passes
 - FDR, stream ``gene_fdr.attack_harness_*``: m = 2,000 p-values, 1,600 U(0, 1) nulls and 400
   Beta(0.05, 1) alternatives; oracle BH (step-up at level t / pi0 with the true pi0 = 0.8). With
   independent p, FDR = pi0 * (t / pi0) = t exactly (Benjamini & Hochberg 1995). ``valid`` uses
-  t = q (FDR = q, on the boundary), ``inflated`` uses t = 1.5 q (FDR = 1.5 q). R =
+  t = q (FDR = q, on the boundary), ``inflated`` uses t = 1.5 q and 2 q, gated through
+  ``calibrate`` and required to be a confirmed ``fail`` (PR #69 decision 3). R =
   ``replicates_fast.gene_fdr`` / ``replicates_full.gene_fdr``.
 - Level, streams ``regions.attack_harness_*``: ``valid`` p ~ U(0, 1) (rate = alpha exactly) over
   200 independent streams, whose failure share must match the exact binomial false-alarm rate;
@@ -31,6 +32,7 @@ from pathlib import Path
 import _criteria as C
 import numpy as np
 import pytest
+from _gate import calibrate_levels
 from scipy.stats import binom
 
 M, M0 = 2000, 1600
@@ -82,12 +84,20 @@ def test_fdr_check_passes_exact_level_bh(full: bool) -> None:
     assert all(x.ok for x in res), [x.detail for x in res]
 
 
+@pytest.mark.parametrize("factor", [INFLATION, 2.0])
 @pytest.mark.parametrize("full", MODES)
-def test_fdr_check_flags_bh_at_one_and_a_half_q(full: bool) -> None:
-    res = _fdr_results(full, "inflated", INFLATION)
-    for x, q in zip(res, C.load_tolerances().levels, strict=True):
-        assert x.observed > q  # the procedure really is anti-conservative
-    assert not any(x.ok for x in res), [x.detail for x in res]
+def test_fdr_check_flags_inflated_bh(full: bool, factor: float, teeth_log: Path) -> None:
+    """Teeth (PR #69 decision 3): oracle BH at FDR = 1.5 q and 2 q is a confirmed ``fail``
+    (both blocks, ADR-0015) through ``calibrate`` at every q."""
+    levels = C.load_tolerances().levels
+    r = C.replicates("gene_fdr", full=full)
+    gate = calibrate_levels(
+        "gene_fdr", "fdr", levels, _fdp(levels, factor), r,
+        stream=f"gene_fdr.attack_harness_inflated_{factor:g}", log_dir=teeth_log,
+    )  # fmt: skip
+    for rec, q in zip(gate.records, levels, strict=True):
+        assert rec["observed"] > q  # the procedure really is anti-conservative
+    assert [rec["status"] for rec in gate.records] == ["fail"] * len(levels), gate.detail()
 
 
 def _level_results(stream: str, divisor: float) -> list[C.CheckResult]:

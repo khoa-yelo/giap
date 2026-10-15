@@ -1,8 +1,9 @@
 """Statistics-only calibration of placement q-values (issue M3-10; GIAP_SPEC.md §7.2.5, §8.4 "FDR").
 
 Criterion: mean FDP over R replicates <= q + k SE(FDP) for q in ``levels``; R =
-``replicates_fast.placement``, k = ``se_multiplier``, seed ``seeds.calibration_base``
-(tests/calibration/tolerances.yaml).
+``replicates_fast.placement``, k = ``se_multiplier`` (tests/calibration/tolerances.yaml). Gated by
+``_criteria.calibrate`` (ADR-0015 two-block confirmation, sharding): replicate i of stream
+``placement.lists.<scenario>`` draws from ``replicate_rng(stream, i)``.
 
 Generator (one replicate, one stratum m): N peptides, each wrong with a known probability.
 - Every peptide (correct or wrong) is searched against the decoy (lead decision M3-10 Q1) and gets a
@@ -31,14 +32,18 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+import _criteria as C
 import numpy as np
 import pandas as pd
 import pytest
+from _gate import calibrate_levels
 
 from giap.config import GiapConfig
 from giap.mapping.placement_fdr import placement
 
 pytestmark = pytest.mark.calibration
+
+SUITE = "placement"
 
 N = 4000
 P_CHANCE = 0.25
@@ -97,81 +102,64 @@ def _replicate(
     return df, wrong
 
 
-def _settings(tolerances: dict[str, object]) -> tuple[list[float], int, int, float]:
-    levels = [float(x) for x in tolerances["levels"]]  # type: ignore[union-attr]
-    reps = tolerances["replicates_fast"]
-    seeds = tolerances["seeds"]
-    assert isinstance(reps, dict) and isinstance(seeds, dict)
-    return (
-        levels,
-        int(reps["placement"]),
-        int(seeds["calibration_base"]),
-        float(tolerances["se_multiplier"]),  # type: ignore[arg-type]
-    )
-
-
 def _check_fdr(
-    tolerances: dict[str, object],
-    make: Callable[[np.random.Generator], tuple[pd.DataFrame, np.ndarray]],
-    salt: int,
-) -> np.ndarray:
-    levels, r, seed, k = _settings(tolerances)
-    rng = np.random.default_rng([seed, salt])
+    name: str, make: Callable[[np.random.Generator], tuple[pd.DataFrame, np.ndarray]]
+) -> None:
+    levels = C.load_tolerances().levels
     cfg = GiapConfig()
-    fdp = np.zeros((r, len(levels)))
-    n_acc = np.zeros((r, len(levels)))
-    for i in range(r):
+    n_acc: list[float] = []  # accepted at the loosest level, per replicate run here
+
+    def fdp(rng: np.random.Generator) -> np.ndarray:
         costs, wrong = make(rng)
         per, _ = placement(costs, cfg)
         q = per.set_index("peptide")["placement_q"].astype(float)
         q = q.reindex(costs["peptide"]).to_numpy()
+        out = np.zeros(len(levels))
         for j, a in enumerate(levels):
             called = ~np.isnan(q) & (q <= a)
             n = int(called.sum())
-            n_acc[i, j] = n
-            fdp[i, j] = (wrong & called).sum() / n if n else 0.0
-    mean = fdp.mean(axis=0)
-    se = fdp.std(axis=0, ddof=1) / np.sqrt(r)
-    for j, a in enumerate(levels):
-        assert mean[j] <= a + k * se[j], (
-            f"q={a}: mean FDP {mean[j]:.4f} > {a} + {k}*{se[j]:.4f} over R={r}"
-        )
+            out[j] = (wrong & called).sum() / n if n else 0.0
+            if j == len(levels) - 1:
+                n_acc.append(n)
+        return out
+
+    r = C.replicates(SUITE, full=False)
+    calibrate_levels(SUITE, "fdr", levels, fdp, r, stream=f"{SUITE}.lists.{name}").assert_ok()
     # non-trivial: something is accepted at the loosest level
-    assert n_acc[:, -1].mean() > 0
-    return mean
+    assert not n_acc or np.mean(n_acc) > 0
 
 
 @pytest.mark.parametrize("m", [0, 1])
-def test_known_pi_controls_fdr(tolerances: dict[str, object], m: int) -> None:
+def test_known_pi_controls_fdr(m: int) -> None:
     pi = 0.3
 
     def make(rng: np.random.Generator) -> tuple[pd.DataFrame, np.ndarray]:
         return _replicate(rng, m, np.full(N, pi), pep=np.full(N, pi))
 
-    _check_fdr(tolerances, make, salt=1 + m)
+    _check_fdr(f"known_pi.m{m}", make)
 
 
-def test_calibrated_pep_controls_fdr(tolerances: dict[str, object]) -> None:
+def test_calibrated_pep_controls_fdr() -> None:
     def make(rng: np.random.Generator) -> tuple[pd.DataFrame, np.ndarray]:
         pep = rng.beta(0.6, 1.4, N)
         return _replicate(rng, 0, pep, pep=pep)
 
-    _check_fdr(tolerances, make, salt=3)
+    _check_fdr("calibrated_pep", make)
 
 
-def test_max_q_route_controls_fdr(tolerances: dict[str, object]) -> None:
+def test_max_q_route_controls_fdr() -> None:
     def make(rng: np.random.Generator) -> tuple[pd.DataFrame, np.ndarray]:
         q = rng.uniform(0.0, 0.01, N)  # max q ~ 0.01 >= the true wrong share 0.008
         return _replicate(rng, 0, np.full(N, 0.008), q_value=q)
 
-    _check_fdr(tolerances, make, salt=4)
+    _check_fdr("max_q", make)
 
 
-def test_denovo_per_bin_pi_controls_fdr(tolerances: dict[str, object]) -> None:
+def test_denovo_per_bin_pi_controls_fdr() -> None:
     rates = np.linspace(0.02, 0.9, 10)
 
     def make(rng: np.random.Generator) -> tuple[pd.DataFrame, np.ndarray]:
         w = rates[rng.integers(0, rates.size, N)]
         return _replicate(rng, 0, w, source="denovo", pi_denovo=w)
 
-    _check_fdr(tolerances, make, salt=5)
+    _check_fdr("denovo_bins", make)
