@@ -77,3 +77,45 @@ def select_queries(peptides: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...
    not need their genomic placement.
 3. `input.peptide_source = auto` with no per-row `source`: **Proposed default:** `database` when
    the table has `q_value` or `pep`, else `denovo` — if M1-12 has not already fixed this.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted (root keys `genome`/`peptides`/`bakta_json`; intermediate keys
+   named after files; Q3 per table; q at the cut-off is mapped; `c_assumed` flag + WARNING; shuffle decoys
+   on the `sixframe_index` stream; MAPPING subworkflow with 5 inputs).
+2. The 20 s timing check goes to benchmarks/ (implementer adds `benchmarks/test_mapping_steps_bench.py`).
+3. Test load: the full suite and calibration run on Slurm; if the fast suite on GitHub CI exceeds its budget
+   because of the chain runs, the implementer reports it and the test-author moves shared chain runs into a
+   module-scoped fixture (follow-up).
+4. If the work exceeds 800 gated lines, split: (a) steps + local-executor staging, (b) MAPPING subworkflow —
+   tell the lead before splitting.
+
+## Lead decisions after code review (PR #77, changes requested)
+5. Split (size): #77 keeps the steps and the local executor; the MAPPING Nextflow subworkflow, the
+   `giap_mapping` module and workflow/tests/mapping.nf.test move to a follow-up PR (branch
+   m3/mapping-nf, after #77), which follows M2-07 (`GIAP_STEP` + `stepIn`, no duplicate processes,
+   real stub headers) and wires `contaminants` (review findings 4 (nf part) and 7).
+6. `search_db: auto` is resolved in the mapping steps (M3-10 decision 4: `same` when ≥ 95 % of peptides'
+   protein_ids are in the database, else `other`), recorded in the run metadata; test.
+7. Pruning removes only optional branches; a missing required root input (no evidence, proteins-only
+   when peptides are required, a GFF3 annotation where Bakta JSON is needed) exits with the documented
+   code and message, never 0 with missing outputs. Tests for the three cases.
+8. Optional inputs come only from this run's staging, never from stale `work/<key>` files (clear or
+   namespace per run); test with a leftover file.
+9. Local `contaminants` staging and wiring (peptide library matching runs when the library exists).
+10. `loci.py` `_engine_ids` accepts list/array `protein_ids` (contract C9), like `contaminants._as_ids`;
+    the `_ids` join workaround in steps/mapping.py is removed. Test.
+11. The local executor publishes mapping outputs to `OUT/mapping` (§9.1), like Nextflow.
+12. Tests kill the surviving mutants (tolerant decoys per query, frameshift wiring, best-cost filter,
+    de novo π̂, tolerant `min_len` boundary, reference peptides, leftover assignment, tblastn leftover
+    filter, protein_ids separator, genome sha); `test_giap_step_cli_exits_4_on_a_corrupt_index` uses
+    `fresh_steps`; tests never read the real $GIAP_DB_DIR (tmp DB dir with a test manifest).
+
+## Lead decisions after the re-review (PR #77)
+13. When an enabled target step is pruned only because a REQUIRED root is missing (e.g. `bakta_json`:
+    `--peptides` without `--annotation` or `annotation.precomputed.bakta_json`), the local run exits 1
+    naming the missing key; optional roots (`reference_peptides`, `contaminants`, `proteins_long`) are
+    still pruned silently. Test for the review's probe E.
+14. The `search_db: auto` resolution is recorded in `logs/events.jsonl` (an event with key and resolved
+    value), not only a log line. Test.
+15. Tests kill N10 (`loci` uses the resolved queries, so `auto` reaches M3-14's `same_db` mismatch
+    check) and M10 (`placed` set).

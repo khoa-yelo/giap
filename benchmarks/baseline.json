@@ -1,0 +1,11 @@
+{
+  "mapping_steps_chain_100kb_5000_peptides": {
+    "benchmark": "benchmarks/test_mapping_steps_bench.py::test_mapping_chain_100kb_5000_peptides_budget",
+    "budget_s": 20.0,
+    "secs": 1.80,
+    "queries": 5000,
+    "node_class": "FarmShare iron (AMD EPYC 7742)",
+    "date": "2026-10-15",
+    "issue": "M3-17"
+  }
+}
