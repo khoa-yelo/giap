@@ -105,3 +105,11 @@ Rules:
 2. `terminators_crosscheck.tsv` columns are not in §9.3. **Proposed default:** the 5 columns above.
 3. `terminator_conf_downstream` window when no next same-strand gene. **Proposed default:** 300 bp
    past the stop (or the contig end on linear contigs).
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions 1–5 are accepted (tab-separated TerminatorNet without header; two-letter
+   `.tt` location codes and integer hp scores; terminators.parquet = primary-tool calls (+ BacTermFinder)
+   only; step keys matched by name; cross-check file may be header-only; per-source BED numbering; windows
+   wrap at the origin on circular contigs).
+2. The manifest `uncalibrated` flag and step-level `cross_check_transtermhp: false` are tested when manifest
+   and optional-output support land (backlog; operon_meta → manifest wiring).
