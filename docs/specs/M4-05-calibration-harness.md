@@ -101,3 +101,10 @@ computed, the discrete-p rule, seed derivation, and how suites map to `tolerance
    the gate fails only if both blocks fail; records carry `block` and `status` (pass | unconfirmed | fail).
 4. Suite assignment is explicit (a marker or a registry), not matched by name in source text, so a test runs
    in exactly one array task.
+5. Sharded runs honour ADR-0015: `--merge` evaluates block 1 from the shard records and, for every check
+   that fails, runs block 2 itself (replicates R..2R−1, sequentially in the merge task) before the verdict;
+   it never reports `fail` without block 2. `--block 2` stays available for manual reruns.
+6. Accepted implementer choices: `check_fwer` accepts only 0/1 outcomes; `check_uniform` fails closed;
+   suite assignment by `SUITE_REGISTRY` or a `calsuite` marker; sim_v2 tests in suite `missed_operons`.
+7. Follow-up (backlog, test-author): migrate the existing calibration tests from direct
+   `run_replicates`/`check_*` calls to `calibrate()`, so ADR-0015 and sharding apply to every suite.
