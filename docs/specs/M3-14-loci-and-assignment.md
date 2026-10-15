@@ -125,3 +125,28 @@ Model on circular `chr1` (L = 10,000): G1 cds + `[100,400)`; G2 cds − `[1000,1
    `genes.tsv` with covariates (§7.3.3), and M4-06 Q3 proposes assigning them. **Proposed
    default:** assign (aligned with M4-06), any frame on the same strand (frameshifted pseudogenes
    have no single frame). If the lead says no, M4 drops pseudogenes from the eligible set.
+
+## Lead decisions (test-author questions)
+1. Deterministic output: rows sorted by (peptide, contig, start, strand); flags are `;`-joined in
+   alphabetical order; input flags (`same_db`, `low_complexity`) are kept.
+2. Timing budget (500k hits ≤ 20 s) lives in benchmarks/; the unit suite keeps at most a loose 10× guard
+   (project rule since the flaky-timing fix).
+3. Accepted: example 10 uses its own G0-only model (the spec's wrapping G0 would break examples 2 and 5);
+   `multi` is a flag on every row of the peptide; one gene hit with two classes = `unique` + `multi`; two
+   intergenic loci = `shared`; pseudogenes assigned in any frame on the same strand, opposite strand =
+   `intergenic`; decoy/contaminant-prefixed protein_ids never clear `engine_protein_mismatch`; unknown
+   genome_relation raises ValueError.
+4. Novel-locus clustering is not part of M3-14 (Module 6); `novel_candidate_id` stays NA here.
+
+## Lead decisions after code review (PR #50, changes requested)
+1. In-frame same-strand overlap across a CDS/sORF 3′ end → `cterm_extension` (ADR-0013, accepted by Khoa),
+   assigned to that gene; `same_strand` (→ `cds_outframe`) only when the hit is OUT of frame. Tests: the
+   reviewer's geometries `[370,415)+` on G1, `[2060,2090)+` on the sORF, `[985,1015)−` on G2, and the
+   origin-shifted `[180,210)+` over G0's end.
+2. Loci are `multi_identical` only when both have a non-empty `aa`; pseudogenes (`aa=""`) on two unrelated
+   genes → `shared`.
+3. Tests pin every tie-break (nested same-frame CDSs, two overlapping pseudogenes, two genes sharing a start)
+   and the reviewer's missing cases: stop immediately before the start (both strands), a hit 3 nt past the
+   CDS end, an upstream hit past the end of a short gene, a stop codon split across the origin,
+   `origin_spanning` with `end == L`.
+4. Remove dead `_overlap_shift`; an unknown contig raises ValueError naming it.
