@@ -28,6 +28,9 @@ HERE = Path(__file__).resolve().parent
 # regions.
 SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
     {
+        "test_abundance_calibration.py": "regions",
+        "test_abundance_calibration.py::test_ibaq_denominator_beats_raw_sum": "regions",
+        "test_abundance_calibration.py::test_teeth_permuted_denominator_fails": "regions",
         "test_chance_hits.py": "placement",
         "test_criteria.py": "regions",
         "test_criteria_review.py": "regions",

@@ -115,3 +115,20 @@ sensitivity policies.
 2. Fill statistic over eligible detected genes only (excluding partial genes)? **Proposed default:** yes.
 3. Undetected genes keep an observed abundance in `genes.tsv` (e.g. single-peptide genes)? **Proposed
    default:** yes; statistics use detected genes only, so this is reporting, not inference.
+
+## Lead decisions after code review (PR #82, changes requested)
+1. Protein-route scale: `gene_abundance(..., c10_scale=...)` — explicit `abundance.scale` (not `auto`)
+   first, then the preflight scale (`M4Inputs.abundance_scale`, M4-06 decision on PR #51: C10 has no
+   `scale` column), else ValueError; mixed scales in C10 raise. Tests use C10 WITHOUT a `scale` column.
+2. `cross_strain_protein` comes from the C12 protein-hit flags (M3-16 outputs), not from a `flags` column
+   on the protein→gene map (M4-12's `protein_gene_map` has only protein_id, gene, method); the
+   condition is "flag present on a `protein_hit` row".
+3. Tests kill the surviving mutants: explicit `abundance.scale` wins (fixtures with different scales in
+   config and preflight); mixed C10 scales raise; the `protein_hit` condition for `cross_strain_protein`;
+   ±inf never survives the log2 route; `no_observed_abundance` logged at WARNING.
+4. The Spearman sanity claim stays, plus a check that the iBAQ denominator matters (on genes with varying
+   n_observable, iBAQ ranks closer to truth than the raw sum, beyond noise); re-run the claim on M4-09's
+   simulator once #80 is merged (backlog).
+5. Detected partial genes with a missing value ARE filled (spec "filled for detected genes"); partial
+   genes stay excluded from the fill statistic.
+6. The statistician writes and signs docs/methods/abundance.md before merge.
