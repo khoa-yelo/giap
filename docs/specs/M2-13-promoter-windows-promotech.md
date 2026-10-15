@@ -106,5 +106,7 @@ Window geometry (S = first base of the start codon, 0-based; E = gene interval e
    `CHROM SEQ PRED`.
 3. (Corrected — GIAP_SPEC.md §7.1, `promoters.bed`): windows with score ≥ 0.5 that overlap are merged into
    one record with the maximum score, as in example 9; windows that only touch (end == start) are not merged.
-4. Q2: `annotation.promoters.mode: genome` is rejected when the config is loaded (config model validation →
-   `giap run`/`giap preflight` exit 1 with "promotech.mode: genome is not implemented"); test it there.
+4. Q2 (revised): `annotation.promoters.mode: genome` is a valid config — `giap preflight` accepts it and
+   checks its resource needs (M1-11/M1-12 tests: exit 0, exit 3 with --strict). It is rejected at run time:
+   `giap run` exits 1 before launching anything ("annotation.promoters.mode: genome is not implemented"),
+   and the `promoter_windows` step raises the same error if reached. Not at config load.
