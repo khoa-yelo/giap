@@ -201,7 +201,7 @@ def test_writer_layout_matches_the_real_promotech_input(tmp_path: Path) -> None:
 
 
 def test_window_shorter_than_40_is_never_written(tmp_path: Path) -> None:
-    with pytest.raises((AssertionError, ValueError)):
+    with pytest.raises(ValueError):
         api("write_chunks")(tmp_path, [[("w0", "ACGT" * 9 + "ACG")]])
 
 
@@ -302,11 +302,15 @@ def _bed(rows: list[tuple[str, str, int, float]], reps: dict | None = None) -> l
     return api("promoters_bed")(_scores(rows), reps or {"chr1": CHR1})
 
 
-def test_example9_overlapping_windows_merge_with_max_score() -> None:
-    (rec,) = _bed([("chr1", "+", 1000, 0.6), ("chr1", "+", 1010, 0.9)])
+def test_example9_overlapping_windows_are_never_merged() -> None:
+    """Lead decision 3 (supersedes the spec's merge): one BED record per window >= yes."""
     from giap.io.bed import bed_lines
 
-    assert bed_lines(rec, CHR1) == ["chr1\t960\t1010\tpromoter_1\t900\t+"]
+    recs = _bed([("chr1", "+", 1000, 0.6), ("chr1", "+", 1010, 0.9)])
+    assert [ln for r in recs for ln in bed_lines(r, CHR1)] == [
+        "chr1\t960\t1000\tpromoter_1\t600\t+",
+        "chr1\t970\t1010\tpromoter_2\t900\t+",
+    ]
 
 
 def test_bed_drops_windows_below_yes_and_keeps_threshold() -> None:
@@ -314,16 +318,20 @@ def test_bed_drops_windows_below_yes_and_keeps_threshold() -> None:
     assert [(r.interval.start, r.interval.end, r.score) for r in recs] == [(960, 1000, 500)]
 
 
-def test_bed_minus_strand_window_interval_and_chained_merge() -> None:
+def test_bed_minus_strand_window_interval_one_record_each() -> None:
     # '-' end3p p -> genome [p - 1, p + 39); 2901 -> [2900, 2940), 2911 -> [2910, 2950)
     recs = _bed([("chr1", "-", 2901, 0.7), ("chr1", "-", 2911, 0.55), ("chr1", "+", 2940, 0.8)])
     got = {(r.interval.start, r.interval.end, r.interval.strand, r.score) for r in recs}
-    assert got == {(2900, 2950, "-", 700), (2900, 2940, "+", 800)}  # strands never merge
+    assert got == {(2900, 2940, "-", 700), (2910, 2950, "-", 550), (2900, 2940, "+", 800)}
 
 
-def test_bed_chain_of_overlaps_is_one_record() -> None:
-    (rec,) = _bed([("chr1", "+", 1000, 0.6), ("chr1", "+", 1030, 0.7), ("chr1", "+", 1060, 0.65)])
-    assert (rec.interval.start, rec.interval.end, rec.score) == (960, 1060, 700)
+def test_bed_touching_and_chained_windows_stay_separate() -> None:
+    recs = _bed([("chr1", "+", 1000, 0.6), ("chr1", "+", 1030, 0.7), ("chr1", "+", 1070, 0.65)])
+    assert [(r.interval.start, r.interval.end, r.score, r.name) for r in recs] == [
+        (960, 1000, 600, "promoter_1"),
+        (990, 1030, 700, "promoter_2"),
+        (1030, 1070, 650, "promoter_3"),  # touches [990, 1030): still its own record
+    ]
 
 
 def test_bed_numbering_follows_genome_order() -> None:

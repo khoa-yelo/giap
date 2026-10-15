@@ -3,7 +3,7 @@
 Module 1 tests: "window generation property tests: count, strand, 3'-end range, origin wrap on
 circular replicons, no wrap on linear contigs". Plus: every window is 40 nt and equals a
 brute-force oracle; ``+``/``-`` revcomp symmetry on the mirrored genome; dedupe/chunk invariants;
-the layer reproduces every map row's score; ``promoters_bed`` covers exactly the windows >= yes.
+the layer reproduces every map row's score; ``promoters_bed`` has one record per window >= yes.
 """
 
 from __future__ import annotations
@@ -193,25 +193,18 @@ def _lo(end3p: int, strand: str) -> int:
 
 @SETTINGS
 @given(score_frames(), st.sampled_from([0.3, 0.5, 0.8]))
-def test_promoters_bed_is_union_of_windows_at_or_above_yes(df: pd.DataFrame, yes: float) -> None:
+def test_promoters_bed_one_record_per_window_at_or_above_yes(df: pd.DataFrame, yes: float) -> None:
+    """Lead decision 3: windows are never merged; numbering follows §6.5 order."""
     rep = Replicon("c1", 2000, "linear")
     recs = api("promoters_bed")(df, {"c1": rep}, yes=yes)
-    for strand in "+-":
-        sub = df[(df["strand"] == strand) & (df["score"] >= yes)]
-        cover: set[int] = set()
-        for p in sub["end3p"]:
-            cover |= set(range(_lo(p, strand), _lo(p, strand) + 40))
-        mine = [r for r in recs if r.interval.strand == strand]
-        got: set[int] = set()
-        for r in mine:
-            span = set(range(r.interval.start, r.interval.end))
-            assert not (got & span)  # merged records never overlap
-            got |= span
-            inside = [
-                x
-                for p, x in zip(sub["end3p"], sub["score"], strict=True)
-                if r.interval.start <= _lo(p, strand) and _lo(p, strand) + 40 <= r.interval.end
-            ]
-            assert r.score == round(1000 * max(inside))
-        assert got == cover
-    assert sorted(r.name for r in recs) == sorted(f"promoter_{i}" for i in range(1, len(recs) + 1))
+    keep = df[df["score"] >= yes]
+    want = sorted(
+        (_lo(p, s), _lo(p, s) + 40, s, round(1000 * x))
+        for s, p, x in zip(keep["strand"], keep["end3p"], keep["score"], strict=True)
+    )
+    got = [(r.interval.start, r.interval.end, r.interval.strand, r.score) for r in recs]
+    assert sorted(got) == want
+    by_name = sorted(recs, key=lambda r: int(r.name.removeprefix("promoter_")))
+    assert [r.name for r in by_name] == [f"promoter_{i}" for i in range(1, len(recs) + 1)]
+    keys = [(r.interval.start, r.interval.end, r.interval.strand != "+") for r in by_name]
+    assert keys == sorted(keys)
