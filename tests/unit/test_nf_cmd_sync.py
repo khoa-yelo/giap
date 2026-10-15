@@ -118,6 +118,12 @@ def _ostir_variants() -> list[list[str]]:
     return [ostir_cmd.ostir_command(Path("ostir_input.csv"), Path("ostir.csv"), 4)]
 
 
+def _promoter_calculator_variants() -> list[list[str]]:
+    from giap.annotate import promoter_calculator_cmd  # M2-14
+
+    return [promoter_calculator_cmd.promoter_calculator_command(Path("TU_1.fa"), Path("TU_1.csv"))]
+
+
 def _genomad_variants() -> list[list[str]]:
     from giap.annotate import genomad_cmd  # M2-18
 
@@ -144,6 +150,7 @@ BUILDERS: dict[str, Callable[[], list[list[str]]]] = {
     "transtermhp": _transtermhp_variants,  # M2-15
     "promotech": _promotech_variants,  # M2-13 (PR #76 review decision 5)
     "ostir": _ostir_variants,  # M2-16
+    "promoter_calculator": _promoter_calculator_variants,  # M2-14
     "genomad": _genomad_variants,  # M2-18
     "antismash": _antismash_variants,  # M2-18
 }
