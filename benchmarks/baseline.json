@@ -18,7 +18,7 @@
       "test": "benchmarks/test_detectability_bench.py::test_detectability_d1_replicate_budget",
       "n_genes": 2000,
       "secs": 1.47,
-      "budget_secs": 30.0,
+      "budget_secs": 4.5,
       "node": "barley-01",
       "cpu": "AMD EPYC 9384X",
       "slurm_job": 1848694,

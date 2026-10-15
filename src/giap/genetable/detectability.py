@@ -106,24 +106,40 @@ def _recalibration(d: Array, p: Array) -> tuple[float, float, float, float]:
     """Unpenalised MLE (intercept, slope) of d ~ a + b·logit(clip(p)) and their Wald SEs.
 
     SEs come from the inverse observed Fisher information X'WX (W = mu(1 - mu)) at the estimate.
-    All four are NaN if the fit is not identifiable; the SEs alone if X'WX is singular.
+    All four are NaN if the fit is not identifiable (one class, or constant logits after
+    clipping); the SEs alone if X'WX is singular.
     """
     nan = float("nan")
     if not 0 < d.sum() < d.size:
         return nan, nan, nan, nan
     z = logit(np.clip(p, CLIP, 1 - CLIP))
+    if np.ptp(z) == 0:  # constant predicted logits: the slope is not identifiable
+        return nan, nan, nan, nan
     x = np.column_stack([np.ones_like(z), z])
+
+    def loglik(b: Array) -> float:
+        eta = x @ b
+        return float(np.sum(d * eta - np.logaddexp(0.0, eta)))
+
     beta = np.array([0.0, 1.0])
-    for _ in range(100):
+    ll = loglik(beta)
+    for _ in range(200):
         mu = expit(x @ beta)
         w = mu * (1 - mu)
         try:  # separated data: the MLE diverges; keep the last finite iterate
             step = np.linalg.solve(x.T @ (x * w[:, None]), x.T @ (d - mu))
         except np.linalg.LinAlgError:
             break
-        if not np.all(np.isfinite(beta + step)):
+        # damped Newton: halve the step until the log-likelihood does not decrease
+        for _ in range(60):
+            cand = beta + step
+            ll_c = loglik(cand) if np.all(np.isfinite(cand)) else -np.inf
+            if ll_c >= ll - 1e-12 * max(1.0, abs(ll)):
+                break
+            step = step / 2
+        else:
             break
-        beta = beta + step
+        beta, ll = cand, ll_c
         if np.max(np.abs(step)) < 1e-12:
             break
     mu = expit(x @ beta)
@@ -157,7 +173,13 @@ def calibration_diagnostics(d: npt.ArrayLike, p: npt.ArrayLike, n_bins: int = 10
     rows.append(_row("overall", OVERALL, "calibration_slope", s, ci_s))
     rows.append(_row("overall", OVERALL, "n_detected", dd.sum()))
     rows.append(_row("overall", OVERALL, "n_eligible", dd.size))
-    return pd.DataFrame(rows, columns=COLUMNS)
+    return _frame(rows)
+
+
+def _frame(rows: Sequence[Mapping[str, object]]) -> pd.DataFrame:
+    """Diagnostics frame with float64 value/ci_low/ci_high whatever the rows (even none)."""
+    out = pd.DataFrame(list(rows), columns=COLUMNS)
+    return out.astype({"value": "float64", "ci_low": "float64", "ci_high": "float64"})
 
 
 def _pipeline(cols: Sequence[str], raw: Sequence[str], n_knots: int, c: float) -> Pipeline:
@@ -231,24 +253,85 @@ def _constant(
     extra: list[dict[str, object]],
 ) -> DetectabilityResult:
     rate = float(y.mean()) if y.size else float("nan")
+    log.warning(
+        "detectability: detectability_constant (p_detect = overall detected share %.4g)", rate
+    )
     p = pd.Series(np.where(elig, rate, np.nan), index=detected.index, dtype=float, name="p_detect")
     extra.append(_row("overall", OVERALL, "detectability_constant", 1.0))
     diag = pd.concat(
-        [calibration_diagnostics(y, np.full(y.size, rate)), pd.DataFrame(extra, columns=COLUMNS)],
-        ignore_index=True,
+        [calibration_diagnostics(y, np.full(y.size, rate)), _frame(extra)], ignore_index=True
     )
     return DetectabilityResult(p, True, {}, (), diag)
+
+
+def _dupes(keys: pd.Index, what: str) -> None:
+    dup = sorted({str(t) for t in keys[keys.duplicated()]})
+    if dup:
+        raise ValueError(f"detectability: duplicate locus_tag in {what}: {', '.join(dup)}")
+
+
+def _keyed_covariates(cov: pd.DataFrame) -> pd.DataFrame:
+    """Covariates keyed by locus_tag (M4-10 ``locus_tag`` column, or an index of locus_tags)."""
+    out = cov.set_index("locus_tag") if "locus_tag" in cov.columns else cov
+    out = out.set_axis(pd.Index(out.index.astype(str), name="locus_tag"), axis=0)
+    _dupes(out.index, "covariates")
+    return out
+
+
+def _keyed_tus(tus: pd.DataFrame | pd.Series) -> pd.Series:
+    """TU IDs keyed by locus_tag (C6 table with ``locus_tag``/``tu_id`` columns, or a Series)."""
+    if isinstance(tus, pd.DataFrame):
+        missing = {"locus_tag", "tu_id"} - set(tus.columns)
+        if missing:
+            raise ValueError(f"detectability: TU table lacks columns {sorted(missing)}")
+        ser = pd.Series(tus["tu_id"].to_numpy(), index=tus["locus_tag"].to_numpy())
+    else:
+        ser = tus
+    ser = ser.set_axis(pd.Index(ser.index.astype(str), name="locus_tag"))
+    _dupes(ser.index, "TUs")
+    return ser
+
+
+def _missing(tags: pd.Index, keys: pd.Index, what: str) -> None:
+    miss = [str(t) for t in tags if t not in keys]
+    if miss:
+        raise ValueError(f"detectability: eligible genes missing from {what}: {', '.join(miss)}")
 
 
 def fit_detectability(
     detected: pd.Series,
     cov: pd.DataFrame,
-    tu_of_gene: pd.Series,
+    tus: pd.DataFrame | pd.Series,
     cfg: DetectabilityConfig,
     rng: np.random.Generator,
 ) -> DetectabilityResult:
-    """Cross-fitted ``p_detect`` (index of ``detected``; ``<NA>`` rows are not eligible → NaN)."""
+    """Cross-fitted ``p_detect`` (index of ``detected``; ``<NA>`` rows are not eligible → NaN).
+
+    ``detected`` is a boolean Series indexed by locus_tag with ``<NA>`` for non-eligible genes.
+    M4-11 ``detected_2pep`` is not usable as-is: the caller must first mask partial genes (and
+    other non-eligible genes, e.g. pseudogenes) to NA. ``cov`` is the M4-10 ``covariate_table``
+    (``locus_tag`` column) or a frame indexed by locus_tag; ``tus`` is the C6 table (``locus_tag``
+    and ``tu_id`` columns) or a Series of TU IDs indexed by locus_tag. Rows are matched by
+    locus_tag. Duplicate locus_tags, eligible genes missing from ``cov``/``tus`` or with a null
+    ``tu_id``, ``folds`` < 2, and too few TUs for the inner C search raise ``ValueError``.
+    """
+    k = int(cfg.folds)
+    if k < 2:
+        raise ValueError(f"detectability: folds must be >= 2 (got {k})")
+    detected = detected.set_axis(pd.Index(detected.index.astype(str), name=detected.index.name))
+    _dupes(detected.index, "detected")
+    cov_k = _keyed_covariates(cov)
+    tu_k = _keyed_tus(tus)
     elig = detected.notna().to_numpy()
+    elig_tags = detected.index[elig]
+    _missing(elig_tags, cov_k.index, "covariates")
+    _missing(elig_tags, tu_k.index, "TUs")
+    tu_null = tu_k.reindex(elig_tags).isna().to_numpy()
+    if tu_null.any():
+        raise ValueError(
+            "detectability: eligible genes with a null tu_id: "
+            + ", ".join(str(t) for t in elig_tags[tu_null])
+        )
     tags = detected.index[elig]
     # canonical row order: results do not depend on the input gene order
     tags = tags[np.argsort(tags.astype(str).to_numpy(), kind="stable")]
@@ -257,16 +340,14 @@ def fit_detectability(
     n_det, n_und = int(y.sum()), int((~y).sum())
     if n_det < MIN_CLASS or n_und < MIN_CLASS:
         return _constant(detected, elig, detected[elig].astype(bool).to_numpy(), extra)
-    tu_raw = tu_of_gene.reindex(tags)
-    tu = np.where(tu_raw.isna(), tags.astype(str), tu_raw.astype(str)).astype(str)
-    k = int(cfg.folds)
+    tu = tu_k.reindex(tags).astype(str).to_numpy().astype(str)
     n_tus = len(set(tu))
     if n_tus < k:
         log.warning("detectability: too_few_tus (%d TUs < %d folds); constant p_detect", n_tus, k)
         extra.append(_row("overall", OVERALL, "too_few_tus", n_tus))
         return _constant(detected, elig, detected[elig].astype(bool).to_numpy(), extra)
 
-    x_all = transform_covariates(cov.reindex(tags), list(cfg.covariates))
+    x_all = transform_covariates(cov_k.loc[tags], list(cfg.covariates))
     cols = [c for c in x_all.columns if float(np.std(x_all[c].to_numpy())) > 0]
     for c in x_all.columns:
         if c not in cols:
@@ -277,6 +358,12 @@ def fit_detectability(
 
     folds = tu_folds(list(tu), k, rng)
     f = np.array([folds[t] for t in tu])
+    fold_sizes = np.bincount(np.array(list(folds.values())), minlength=k)
+    if n_tus - int(fold_sizes.max()) < INNER_K:
+        raise ValueError(
+            f"detectability: {n_tus} TUs are too few for {k} outer folds with an inner "
+            f"{INNER_K}-fold C search (each outer training set needs >= {INNER_K} TUs)"
+        )
     p = np.full(len(tags), np.nan)
     chosen: list[float] = []
     # single-threaded BLAS: the small L-BFGS problems are ~10x slower with thread hand-offs
@@ -302,7 +389,7 @@ def fit_detectability(
     diag = pd.concat(
         [
             calibration_diagnostics(detected[elig].astype(bool).to_numpy(), p_ser.loc[order]),
-            pd.DataFrame(extra, columns=COLUMNS),
+            _frame(extra),
         ],
         ignore_index=True,
     )

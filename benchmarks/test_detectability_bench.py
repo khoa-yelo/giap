@@ -4,8 +4,9 @@ docs/specs/M4-13-detectability.md).
 One replicate = ``detectability_data.sim_geneset`` (M4-07 layout, 2,000 chromosome genes, the D1
 fast size) + ``fit_detectability`` (5 TU folds, inner C search). Only the fit is timed. The accepted
 numbers (per-replicate and the whole fast D1 run, R = 20) live in ``benchmarks/baseline.json``
-under ``detectability``; the budget below is a loose guard. Run with
-``pytest benchmarks --benchmark-only`` (needs ``tests/sim`` on PYTHONPATH for giapsim).
+under ``detectability``; the budget below is about 3 times the measured per-replicate time
+(lead decision 15). Run with ``pytest benchmarks --benchmark-only`` (needs ``tests/sim`` on
+PYTHONPATH for giapsim).
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tests" / "helpe
 import detectability_data as dd
 
 N_GENES = 2000
-BUDGET_S = 30.0
+BUDGET_S = 4.5  # about 3 x the measured 1.47 s/replicate (lead decision 15)
 
 
 def test_detectability_d1_replicate_budget(benchmark: Any) -> None:
