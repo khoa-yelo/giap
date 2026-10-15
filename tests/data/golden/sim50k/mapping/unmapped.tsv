@@ -1,0 +1,14 @@
+sequence_id	sequence	kind	label	reason	contaminant_match
+FPEPEDISTMEWMSILSK	FPEPEDISTMEWMSILSK	peptide	unmapped	no_hit	NA
+IVDPLGDNRLLGLIVR	IVDPLGDNRLLGLIVR	peptide	unmapped	no_hit	NA
+LHAVVEEQMYLTAR	LHAVVEEQMYLTAR	peptide	unmapped	no_hit	NA
+MELIHMSEEKVAK	MELIHMSEEKVAK	peptide	unmapped	rejected_placement_fdr	NA
+MLIQSLSHSQMMGAFLEEQTDK	MLIQSLSHSQMMGAFLEEQTDK	peptide	unmapped	rejected_placement_fdr	NA
+MQGQSPSNPYVIHETK	MQGQSPSNPYVIHETK	peptide	unmapped	rejected_placement_fdr	NA
+MQGQSPSNPYVIHETKAK	MQGQSPSNPYVIHETKAK	peptide	unmapped	rejected_placement_fdr	NA
+NIRLDGLHPK	NIRLDGLHPK	peptide	unmapped	no_hit	NA
+QKDTVDGAGILR	QKDTVDGAGILR	peptide	unmapped	no_hit	NA
+QNYVPKELK	QNYVPKELK	peptide	unmapped	too_short	NA
+SMVFEVTAK	SMVFEVTAK	peptide	unmapped	too_short	NA
+TLSAAKLAK	TLSAAKLAK	peptide	unmapped	too_short	NA
+WTVLTLDQR	WTVLTLDQR	peptide	unmapped	too_short	NA
