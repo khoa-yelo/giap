@@ -639,11 +639,19 @@ def test_layout_outputs_unchanged(tmp_path: Path, name: str) -> None:
     from giapsim.contract_tables import write_contract_tables
 
     lay = layout(1) if name == "default" else layout(1, **MIXED_KW)
+
+    def digests(out: Path) -> dict[str, str]:
+        write_contract_tables(lay, out)
+        return {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(out.iterdir())}
+
+    before = digests(tmp_path / "before")
     express(lay, 1, region_effect_log2={"prophage": -3.0})  # the feature must not touch it
-    write_contract_tables(lay, tmp_path / "w")
-    got = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in
-           sorted((tmp_path / "w").iterdir())}  # fmt: skip
-    assert got == LAYOUT_SHA256[name]
+    after = digests(tmp_path / "after")
+    assert after == before
+    # The pinned digests (written on Linux) guard against layout changes there; Parquet bytes
+    # (float formatting, writer metadata) differ across platforms, so only compare them on Linux.
+    if sys.platform.startswith("linux"):
+        assert after == LAYOUT_SHA256[name]
 
 
 def test_m0_proteomics_outputs_unchanged_with_hook_off(tmp_path: Path) -> None:
