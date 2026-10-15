@@ -1,0 +1,115 @@
+// M3-17 example 4: stub run of the MAPPING subworkflow (workflow/subworkflows/local/mapping.nf;
+// GIAP_SPEC.md §6.1, §6.2, §6.3 "Process conventions", §7.2.9). ci.yml runs:
+// nf-test test workflow/tests --profile test,stub ; "-stub" is set here as well.
+//
+// Interface pinned here (the spec names the file, not the take/emit; ANNOTATE (M2-07) is not
+// merged, so MAPPING takes the work files directly):
+//   take: genome             value channel: genome.norm.fa
+//         peptides           value channel: peptides.norm.parquet
+//         proteins_long      value channel: proteins.long.faa, or channel.empty() when absent
+//         annotation         value channel: [genes.parquet, features.parquet, replicons.parquet]
+//         reference_peptides value channel: reference peptide table, or channel.empty()
+// Python steps run through GIAP_STEP (or giap_mapping/ process modules) calling `giap _step`;
+// MINIPROT / TBLASTN are the M3-12 / M3-13 modules and run only when long proteins exist.
+// Published (publishDir, mode copy): params.outdir/mapping/ with the seven §7.2.9 files; the stub
+// TSVs are header-only with the §9.3 columns (giap.mapping.outputs, giap.mapping.protein_assign).
+// Every task emits versions.yml.
+
+nextflow_workflow {
+
+    name "MAPPING subworkflow (stub)"
+    script "../subworkflows/local/mapping.nf"
+    workflow "MAPPING"
+    options "-stub"
+    tag "mapping"
+
+    test("example 4: peptides only: every process emits its outputs and versions.yml; no protein tools") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                input[0] = channel.value(file("${moduleTestDir}/data/mapping/genome.fa"))
+                input[1] = channel.value(file("${moduleTestDir}/data/mapping/peptides.norm.parquet"))
+                input[2] = channel.empty()
+                input[3] = channel.value([file("${moduleTestDir}/data/mapping/genes.parquet"), file("${moduleTestDir}/data/mapping/features.parquet"), file("${moduleTestDir}/data/mapping/replicons.parquet")])
+                input[4] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def PEPTIDE_HITS = "peptide\tpeptide_len\tsource\tbest_q_input\tpep_input\tscore_input\tcontig\tstart\tend\tstrand\tframe\tcrosses_origin\troute\tn_diff\tdiff_types\tplacement_q\tlength_class\tlocus_class\tuniqueness\tgene\tnovel_candidate_id\tflags"
+            def PROTEIN_HITS = "protein_id\tprotein_len_aa\troute\tcontig\tstart\tend\tstrand\trank\tidentity\tquery_coverage\treciprocal_overlap\tclass\tgene\tflags"
+            def UNMAPPED = "sequence_id\tsequence\tkind\tlabel\treason\tcontaminant_match"
+            def MAPPING_FDR = "length_class\tn_diff\ttargets\tdecoys\tpi_wrong\tfdr_stratum\tn_accepted\tdecoy_type\tsection\tscore_bin\tprecision\tci_low\tci_high\tc_value\tflags"
+            def SEVEN = ['peptide_hits.tsv', 'protein_hits.tsv', 'mappings.probed', 'mappings.bed',
+            'mappings.gff3', 'unmapped.tsv', 'mapping_fdr.tsv']
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def names = workflow.trace.succeeded().collect { it.name.toString() }
+            assert names.size() > 0 : "no task ran"
+            assert !names.any { it.contains('MINIPROT') || it.contains('TBLASTN') } : "protein tools ran without proteins: ${names}"
+
+            def taskDirs = []
+            new File(workDir.toString()).eachDir { a -> a.eachDir { t -> taskDirs << t } }
+            assert taskDirs.size() == names.size() : "task dirs ${taskDirs.size()} != tasks ${names.size()}"
+            taskDirs.each { t ->
+                def v = new File(t, 'versions.yml')
+                assert v.isFile() : "${t}: no versions.yml"
+                assert v.text.contains(':')
+                assert t.listFiles().any { f -> !f.name.startsWith('.') && f.name != 'versions.yml' && f.name != 'in' } : "${t}: no output"
+            }
+
+            def m = new File("${outputDir}/mapping")
+            SEVEN.each { f -> assert new File(m, f).isFile() : "mapping/${f} not published" }
+            assert new File(m, 'peptide_hits.tsv').readLines()[0] == PEPTIDE_HITS
+            assert new File(m, 'protein_hits.tsv').readLines() == [PROTEIN_HITS]
+            assert new File(m, 'unmapped.tsv').readLines()[0] == UNMAPPED
+            assert new File(m, 'mapping_fdr.tsv').readLines()[0] == MAPPING_FDR
+        }
+    }
+
+    test("example 4: with long proteins: MINIPROT and TBLASTN run once each and emit versions.yml") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                input[0] = channel.value(file("${moduleTestDir}/data/mapping/genome.fa"))
+                input[1] = channel.value(file("${moduleTestDir}/data/mapping/peptides.norm.parquet"))
+                input[2] = channel.value(file("${moduleTestDir}/data/mapping/proteins.long.faa"))
+                input[3] = channel.value([file("${moduleTestDir}/data/mapping/genes.parquet"), file("${moduleTestDir}/data/mapping/features.parquet"), file("${moduleTestDir}/data/mapping/replicons.parquet")])
+                input[4] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def PEPTIDE_HITS = "peptide\tpeptide_len\tsource\tbest_q_input\tpep_input\tscore_input\tcontig\tstart\tend\tstrand\tframe\tcrosses_origin\troute\tn_diff\tdiff_types\tplacement_q\tlength_class\tlocus_class\tuniqueness\tgene\tnovel_candidate_id\tflags"
+            def PROTEIN_HITS = "protein_id\tprotein_len_aa\troute\tcontig\tstart\tend\tstrand\trank\tidentity\tquery_coverage\treciprocal_overlap\tclass\tgene\tflags"
+            def UNMAPPED = "sequence_id\tsequence\tkind\tlabel\treason\tcontaminant_match"
+            def MAPPING_FDR = "length_class\tn_diff\ttargets\tdecoys\tpi_wrong\tfdr_stratum\tn_accepted\tdecoy_type\tsection\tscore_bin\tprecision\tci_low\tci_high\tc_value\tflags"
+            def SEVEN = ['peptide_hits.tsv', 'protein_hits.tsv', 'mappings.probed', 'mappings.bed',
+            'mappings.gff3', 'unmapped.tsv', 'mapping_fdr.tsv']
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def names = workflow.trace.succeeded().collect { it.name.toString() }
+            ['MINIPROT', 'TBLASTN'].each { p ->
+                assert names.count { it.tokenize(':').last().startsWith(p) } == 1 : "${p} in ${names}"
+            }
+            def taskDirs = []
+            new File(workDir.toString()).eachDir { a -> a.eachDir { t -> taskDirs << t } }
+            taskDirs.each { t -> assert new File(t, 'versions.yml').isFile() : "${t}: no versions.yml" }
+            ['MINIPROT', 'TBLASTN'].each { p ->
+                assert taskDirs.any { t -> new File(t, 'versions.yml').text.contains(p) } : "no versions.yml for ${p}"
+            }
+            def m = new File("${outputDir}/mapping")
+            SEVEN.each { f -> assert new File(m, f).isFile() : "mapping/${f} not published" }
+        }
+    }
+}
