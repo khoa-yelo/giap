@@ -77,6 +77,29 @@
       "rbs"
     ]
   },
+  "terminator_layer": {
+    "inputs": [
+      "replicons"
+    ],
+    "optional_inputs": [
+      "bactermfinder",
+      "terminatornet",
+      "transtermhp"
+    ],
+    "outputs": [
+      "terminators",
+      "terminators_crosscheck"
+    ]
+  },
+  "transterm_input": {
+    "inputs": [
+      "genes"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "genes_coords"
+    ]
+  },
   "uniop_input": {
     "inputs": [
       "genes",

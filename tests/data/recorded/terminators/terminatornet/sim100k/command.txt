@@ -1,0 +1,2 @@
+# cwd holds model.pkl -> $TERMINATORNET_HOME/model.pkl
+python /home/classes/bios/270/khoa/giap/local/micromamba/envs/giap-terminatornet/share/terminatornet/TerminatorNet.py -f genome.fa -s -n 17 -o terminatornet.tsv 
