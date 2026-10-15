@@ -18,7 +18,7 @@
 
 ## Commands (`-db_gencode 11 -seg no -evalue 1e-5` = default `mapping.proteins.tblastn_args`)
 ```
-makeblastdb -in genome.fa -dbtype nucl -parse_seqids -out db/genome
+makeblastdb -in genome.fa -dbtype nucl -out db/genome
 tblastn -db db/genome -query proteins.faa -num_threads 2 -db_gencode 11 -seg no -evalue 1e-5 -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen nident positive" > tblastn.tsv
 ```
 
@@ -27,3 +27,9 @@ tblastn -db db/genome -query proteins.faa -num_threads 2 -db_gencode 11 -seg no 
   `a4f52649b9e83813338bf8c29764fa629fc7f6e4b8c04ce7dd1659e7332a58f4`.
   After `merge_hsps` + `assign_alignments` (default thresholds) all 82 proteins are assigned
   `divergent` to their own gene (identity 0.818-0.928, coverage >= 0.969).
+
+## Re-record (2026-10-14, M3-13 review decision 1)
+Re-run on iron-01 (Slurm allocation, 2 threads) with the same pinned image and inputs (sha256
+verified) using the current builder command above, i.e. `makeblastdb` WITHOUT `-parse_seqids`.
+`tblastn.tsv` is byte-identical (same sha256 `a4f52649...a58f4`): the simulated contig IDs are
+not accession-style, so the flag never changed them.
