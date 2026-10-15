@@ -16,6 +16,11 @@ recordings themselves and the independent oracles in ``helpers/regions_oracle.py
 * Full recordings under ``$GIAP_ROOT/recordings`` (skipped when missing): the excerpt gives the
   same regions as the full Bakta JSON, and the ``region_layer`` step on the full Nissle run
   (``parse_bakta`` on the recorded genome) meets the acceptance criterion.
+* Lead decision 4 after code review: Nissle has THREE plasmids (CP171243.1 4.5 kb, CP171244.1
+  pMUT1, CP171245.1 pMUT2). The circular-replicon recording (``bakta_full_circ``, M2-10 lead
+  decision 1) types all three ``plasmid`` → three plasmid regions, whole-contig, in FASTA order;
+  CP171243.1 is Bakta-only, the other two Bakta+geNOMAD. The linear excerpt above calls
+  CP171243.1 ``contig`` only for lack of topology tags.
 """
 
 from __future__ import annotations
@@ -230,10 +235,54 @@ def test_full_recordings_match_the_excerpts(sample: str) -> None:
     assert got == want
 
 
+CIRC = FULL / "bakta_full_circ" / "nissle1917"
+CIRC_JSON = CIRC / "bakta" / "nissle1917.json"
+CIRC_GENOME = CIRC / "preflight" / "work" / "preflight" / "genome.norm.fa"
+NISSLE_PLASMIDS = [  # FASTA order; (contig, source_tool, geNOMAD plasmid_score)
+    ("CP171243.1", "Bakta", None),
+    ("CP171244.1", "Bakta+geNOMAD", 0.9951),  # pMUT1
+    ("CP171245.1", "Bakta+geNOMAD", 0.9932),  # pMUT2
+]
+
+
+def _circ_available() -> bool:
+    return full_available("nissle1917") and CIRC_JSON.exists() and CIRC_GENOME.exists()
+
+
+def test_circular_nissle_recording_gives_three_plasmid_regions() -> None:
+    if not _circ_available():
+        pytest.skip(f"circular Nissle recording not under {CIRC}")
+    from giap.annotate.antismash import parse_antismash_json
+    from giap.annotate.bakta import parse_bakta_json
+    from giap.annotate.genomad import parse_genomad
+
+    ann = parse_bakta_json(CIRC_JSON)
+    reps = dict(ann.model.replicons)
+    assert [(c, reps[c].kind) for c, _, _ in NISSLE_PLASMIDS] == [
+        (c, "plasmid") for c, _, _ in NISSLE_PLASMIDS
+    ]
+    gm = parse_genomad(FULL / "genomad" / "nissle1917" / "genomad", "genome", reps)
+    bgc = parse_antismash_json(FULL / "antismash" / "nissle1917" / "antismash" / "bakta.json", reps)
+    genes = list(ann.model.genes)
+    regs, _ = regions.build_regions(genes, list(ann.model.features), reps, gm, bgc,
+                                    resolve_config())  # fmt: skip
+    plasmids = _of(regs, "plasmid")
+    assert [(r.region_id, r.contig) for r in plasmids] == [
+        (f"plasmid_{k}", c) for k, (c, _, _) in enumerate(NISSLE_PLASMIDS, 1)
+    ]
+    for r, (c, tool, score) in zip(plasmids, NISSLE_PLASMIDS, strict=True):
+        assert r.source_tool == tool, c
+        assert r.score == (None if score is None else pytest.approx(score)), c
+        assert (r.interval.start, r.interval.end) == (0, reps[c].length)
+        on = [g.locus_tag for g in genes if g.interval.contig == c]
+        assert on and sorted(r.genes) == sorted(on)
+    assert len(_of(regs, "prophage")) >= 1 and len(_of(regs, "bgc")) >= 1
+
+
 def test_region_layer_step_on_the_full_nissle_run(tmp_path: Path) -> None:
-    genome = FULL / "genomad" / "nissle1917" / "genome.fa"
-    if not (full_available("nissle1917") and genome.exists()):
-        pytest.skip(f"full Nissle recordings not under {FULL}")
+    genome = CIRC_GENOME
+    if not _circ_available():
+        pytest.skip(f"circular Nissle recording not under {CIRC}")
     from giap.steps import load_step_modules
     from giap.steps import registry as reg
 
@@ -247,7 +296,7 @@ def test_region_layer_step_on_the_full_nissle_run(tmp_path: Path) -> None:
             "annotation_meta": "annotation_meta.json",
         }.items()
     }  # fmt: skip
-    bakta = FULL / "bakta_full" / "nissle1917" / "bakta" / "nissle1917.json"
+    bakta = CIRC_JSON
     reg.run_step("parse_bakta", GiapConfig(seed=1), {"bakta_json": bakta, "genome": genome},
                  parse_out)  # fmt: skip
     outs = {"regions": tmp_path / "regions.parquet", "region_genes": tmp_path / "rg.parquet"}
@@ -263,4 +312,4 @@ def test_region_layer_step_on_the_full_nissle_run(tmp_path: Path) -> None:
     types = [r["region_type"] for r in rows]
     assert types.count("prophage") >= 1 and types.count("bgc") >= 1
     plasmids = sorted(r["contig"] for r in rows if r["region_type"] == "plasmid")
-    assert plasmids == ["CP171244.1", "CP171245.1"]
+    assert plasmids == [c for c, _, _ in NISSLE_PLASMIDS]
