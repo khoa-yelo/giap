@@ -141,3 +141,12 @@ Simulated TU expression follows an AR(1) that restarts per replicon and does not
 4. A2 (short prophage genes, gate on M4-13 p_detect) needs PR #83 merged; until then it may be marked
    xfail(strict=False) with reason "needs M4-13 (#83)".
 5. The statistician reviews claims C1–C3, A2, A4 before merge.
+
+## Lead decisions after the statistician's review (PR #89, changes requested)
+6. ADR-0018 (proposed, needs Khoa): residualised HL, studentised O−E, BH within (type, stat). Blocking
+   for merge until accepted.
+7. Gate restructuring (within the M4-05 harness rules, no tolerance change): pool C1 over the four
+   chromosome region types (`check_level_pooled`, m = 4); plasmid AMR gated at α 0.05/0.10 only; O−E at one
+   ρ; A4 becomes a deterministic invariance test (bitwise-identical at copy number 1 and 20).
+8. A2 xfail(strict=False) "needs M4-13 (#83)" until #83 merges; A2 gains the anti-conservative direction.
+9. Tests kill the surviving mutants: `split_contigs`, HL bootstrap strata, start-before-locus_tag sort.
