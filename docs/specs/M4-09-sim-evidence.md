@@ -124,3 +124,11 @@ Described in `docs/methods/detection-tiers.md` (M4-12) as the gene-FDR null; sta
    identical in the layout is deferred to M4-20 (golden integration) — backlog.
 3. The declared abundance type (`maxlfq`) has no C10 column; it is recorded in the run's input metadata by
    M4-14 (abundance) — backlog; untested here.
+
+## Lead decisions after code review (PR #80, changes requested — tests)
+4. Tests kill the surviving mutants: origin wrap in `_span` (deterministic unit test with
+   `origin_crossing=True`, seed 1, GSIM_05000 on −: each hit vs `span_coords` mod length and
+   `crosses_origin`); an sORF peptide fixture (sorf → cds_inframe mapping); mean/SD of the C10 value minus
+   the true log2 abundance; the multi_identical partner offset; `_digest` vs the oracle's n_obs (weights).
+5. `EvidenceConfig.__post_init__` rejects mu1 ≤ mu0 (ValueError) — PEP/q must be monotone.
+6. Backlog (with decision 2): for `shared_frac`, the second hit's sequence is not in that gene's `aa`.
