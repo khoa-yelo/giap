@@ -10,18 +10,20 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def antismash_command(
-    gbff: Path, outdir: Path, threads: int, databases: Path | None = None
-) -> list[str]:
-    """``antismash --genefinding-tool none --minimal [--databases <db>] --cpus <n> --output-dir
-    <outdir> <gbff>``."""
-    db = ["--databases", str(databases)] if databases is not None else []
+def antismash_command(gbff: Path, outdir: Path, threads: int, databases: Path) -> list[str]:
+    """``antismash --genefinding-tool none --minimal --databases <db> --cpus <n> --output-dir
+    <outdir> <gbff>``.
+
+    ``databases`` is required (M2-18 lead decision 4): real runs always need the databases
+    ``giap setup`` installed, and ``main.nf`` always passes them.
+    """
     return [
         "antismash",
         "--genefinding-tool",
         "none",
         "--minimal",
-        *db,
+        "--databases",
+        str(databases),
         "--cpus",
         str(threads),
         "--output-dir",

@@ -37,7 +37,10 @@ def _area_interval(area: Mapping[str, Any], rep: Replicon) -> Interval:
             raise ValueError(f"antiSMASH: area {rep.id}:{start}-{end} wraps on a linear contig")
         end += rep.length
     iv = Interval(rep.id, start, end, ".")
-    check_interval(iv, rep)
+    try:
+        check_interval(iv, rep)
+    except ValueError as exc:
+        raise ValueError(f"antiSMASH: area on contig {rep.id!r} out of range: {exc}") from exc
     return iv
 
 
