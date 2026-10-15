@@ -6,6 +6,7 @@ process PROMOTECH {
 
     input:
     tuple val(meta_id), path(chunk)   // meta_id = promotech_NNN for windows_NNN.fa
+    val(db_dir)                       // RF-HOT.model lives in db_dir/promotech (giap setup)
 
     output:
     path "${meta_id}", emit: dir
@@ -14,6 +15,9 @@ process PROMOTECH {
     script:
     """
     PROMOTECH_HOME=\${PROMOTECH_HOME:-\$CONDA_PREFIX/share/promotech}
+    # Promotech loads models/ from the cwd: the env's models plus RF-HOT.model from the database.
+    mkdir -p models && ln -sf \$PROMOTECH_HOME/models/* models/
+    ln -sf ${db_dir}/promotech/RF-HOT.model models/RF-HOT.model
     export OMP_NUM_THREADS=${task.cpus}   # no thread flag in -s mode; caps the numeric libraries
     python \$PROMOTECH_HOME/promotech.py -s -m RF-HOT -f ${chunk} -o ${meta_id}/
 

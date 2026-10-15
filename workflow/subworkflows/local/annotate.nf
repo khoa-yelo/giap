@@ -99,7 +99,7 @@ workflow ANNOTATE {
             scatterSpec('windows', 'windows_*.fa', params.stub?.windows_chunks ?: 1))
         def W = PROMOTER_WINDOWS.out.outputs
         def chunks = W.map { s, fs -> fs.findAll { f -> f.name ==~ /windows_\d+\.fa/ } }.flatten()
-        PROMOTECH(chunks.map { f -> [f.baseName.replace('windows', 'promotech'), f] })
+        PROMOTECH(chunks.map { f -> [f.baseName.replace('windows', 'promotech'), f] }, db)
         def pl = stepIn('promoter_layer', [kv('windows_map', pick(W, 'windows_map.parquet')),
             kv('promotech', byName(PROMOTECH.out.dir.collect(sort: true)))])
         PROMOTER_LAYER(pl.files, pl.keys, ['promoter_windows=promoter_windows.parquet'])

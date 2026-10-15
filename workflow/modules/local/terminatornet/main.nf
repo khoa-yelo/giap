@@ -15,6 +15,7 @@ process TERMINATORNET {
     script:
     """
     TERMINATORNET_HOME=\${TERMINATORNET_HOME:-\$CONDA_PREFIX/share/terminatornet}
+    ln -sf \$TERMINATORNET_HOME/model.pkl model.pkl   # TerminatorNet loads model.pkl from the cwd
     python \$TERMINATORNET_HOME/TerminatorNet.py -f genome.fa -s -n ${task.cpus} -o terminatornet.tsv
 
     cat <<-END_VERSIONS > versions.yml
