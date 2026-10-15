@@ -79,7 +79,7 @@ fi
 IMG=$(ls "$GIAP_ROOT"/containers/antismash-standalone@sha256-*.img 2>/dev/null | head -1)
 if [ -n "$IMG" ] && [ ! -f "$DB/antismash/.giap-complete" ]; then
   mkdir -p "$DB/antismash"
-  if apptainer exec --bind "$DB/antismash" "$IMG" download-databases --database-dir "$DB/antismash" \
+  if apptainer exec --bind "$DB/antismash" "$IMG" download-antismash-databases --database-dir "$DB/antismash" \
      && apptainer exec --bind "$DB/antismash" "$IMG" antismash --databases "$DB/antismash" --check-prereqs; then
     touch "$DB/antismash/.giap-complete"
     log antismash_dbs "dl.secondarymetabolites.org (download-databases)" "$DB/antismash" "-" "antismash --check-prereqs"
