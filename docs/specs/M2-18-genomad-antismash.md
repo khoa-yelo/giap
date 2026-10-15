@@ -86,3 +86,14 @@ core genes = CDS features in the area whose qualifier `gene_kind` contains `bios
 2. Are geNOMAD gene coordinates relative to the provirus? **Proposed default:** treat them as
    relative for provirus genes (offset by `a−1`) and absolute otherwise; the K-12 contract test
    checks that every virus gene of a provirus lies inside it, which decides the rule.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted (geNOMAD gene coordinates absolute — no a−1 offset; core
+   genes = exactly `biosynthetic`; CDS counted only when wholly inside the area; fuzzy and `join{}`
+   locations parse; `start > end` on a linear contig and unknown contigs raise; `;`-split lists, `NA` →
+   `()`; parsers read `genomad/genome_summary/` and `antismash/<name>.json`).
+2. The ANTISMASH process and `antismash_cmd` pass `--databases <db_dir>/antismash` (the databases
+   `giap setup` installed and verified; the DB directory is bound read-only since #78), as the recorded
+   real runs did. The cmd-sync pair covers it.
+3. No py step in M2-18; M2-19's `region_layer` registers the parsing step and must match annotate.nf's
+   `stepIn('region_layer', …)` keys.
