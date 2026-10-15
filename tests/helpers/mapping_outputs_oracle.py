@@ -112,3 +112,22 @@ def hit_sort_key(
 def fmt6g(x: float) -> str:
     """§9.2 float format (``%.6g``; ``0`` for zero)."""
     return "0" if x == 0 else f"{x:.6g}"
+
+
+def frameshift_base(blocks: str) -> tuple[str, int]:
+    """The GFF3 attribute recording a frameshift's odd base (M3-16 lead decision 2).
+
+    ``δ = -1`` (blocks overlap by 1 nt) -> ``("frameshift_reread", pos)``; ``δ = +1`` (a 1-nt gap)
+    -> ``("frameshift_skipped", pos)``; ``pos`` is the 1-based genome position of that base.
+    """
+    (_, e1), (s2, _) = sorted(tuple(int(x) for x in p.split("-")) for p in blocks.split(";"))
+    if s2 == e1 - 1:
+        return "frameshift_reread", s2 + 1
+    if s2 == e1 + 1:
+        return "frameshift_skipped", e1 + 1
+    raise ValueError(f"not a +-1 frameshift: {blocks!r}")
+
+
+def covered_mod(spans: Sequence[tuple[int, int]], length: int) -> list[int]:
+    """Sorted 0-based genome positions of unwrapped ``[s, e)`` spans, folded mod ``length``."""
+    return sorted({p % length for s, e in spans for p in range(s, e)})
