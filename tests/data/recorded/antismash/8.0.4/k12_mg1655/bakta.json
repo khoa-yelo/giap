@@ -1,0 +1,5150 @@
+{
+ "version": "8.0.4",
+ "input_file": "bakta.gbff",
+ "records": [
+  {
+   "id": "U00096.3",
+   "name": "U00096.3",
+   "annotations": {
+    "topology": "linear"
+   },
+   "features": [
+    {
+     "location": "[427679:429494](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0342",
+       "COG:U",
+       "GO:0005886",
+       "GO:0006605",
+       "GO:0015450",
+       "GO:0043952",
+       "GO:0065002",
+       "RefSeq:WP_001303824.1",
+       "SO:0001217",
+       "UniParc:UPI00005EECCE",
+       "UniRef:UniRef100_P0AG90",
+       "UniRef:UniRef50_P0AG90",
+       "UniRef:UniRef90_P0AG90"
+      ],
+      "gene": [
+       "secD"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001303824.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00447"
+      ],
+      "product": [
+       "Protein translocase subunit SecD"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00447"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[429504:430476](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0341",
+       "COG:U",
+       "GO:0005886",
+       "GO:0006605",
+       "GO:0015031",
+       "GO:0015450",
+       "GO:0016020",
+       "GO:0031522",
+       "GO:0032978",
+       "GO:0043952",
+       "GO:0065002",
+       "RefSeq:WP_000046637.1",
+       "SO:0001217",
+       "UniParc:UPI0000031A3E",
+       "UniRef:UniRef100_P0AG93",
+       "UniRef:UniRef50_P0AG93",
+       "UniRef:UniRef90_P0AG93"
+      ],
+      "gene": [
+       "secF"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000046637.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00448"
+      ],
+      "product": [
+       "Protein translocase subunit SecF"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00448"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[430201:451101](+)",
+     "type": "region",
+     "qualifiers": {
+      "candidate_cluster_numbers": [
+       "1"
+      ],
+      "contig_edge": [
+       "False"
+      ],
+      "product": [
+       "terpene-precursor"
+      ],
+      "region_number": [
+       "1"
+      ],
+      "rules": [
+       "(PT_FPPS_like and not PT_HPP)"
+      ],
+      "subregion_numbers": [],
+      "tool": [
+       "antismash"
+      ]
+     }
+    },
+    {
+     "location": "[430201:451101](+)",
+     "type": "cand_cluster",
+     "qualifiers": {
+      "candidate_cluster_number": [
+       "1"
+      ],
+      "contig_edge": [
+       "False"
+      ],
+      "detection_rules": [
+       "(PT_FPPS_like and not PT_HPP)"
+      ],
+      "kind": [
+       "single"
+      ],
+      "product": [
+       "terpene-precursor"
+      ],
+      "protoclusters": [
+       "1"
+      ],
+      "tool": [
+       "antismash"
+      ]
+     }
+    },
+    {
+     "location": "[430201:451101](+)",
+     "type": "protocluster",
+     "qualifiers": {
+      "aStool": [
+       "rule-based-clusters"
+      ],
+      "category": [
+       "terpene"
+      ],
+      "contig_edge": [
+       "False"
+      ],
+      "core_location": [
+       "[440201:441101](-)"
+      ],
+      "cutoff": [
+       "10000"
+      ],
+      "detection_rule": [
+       "(PT_FPPS_like and not PT_HPP)"
+      ],
+      "neighbourhood": [
+       "10000"
+      ],
+      "product": [
+       "terpene-precursor"
+      ],
+      "protocluster_number": [
+       "1"
+      ],
+      "tool": [
+       "antismash"
+      ]
+     }
+    },
+    {
+     "location": "[430604:430952](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_000974813",
+       "EC:3.1.-.-",
+       "GO:0003676",
+       "GO:0004519",
+       "GO:0005829",
+       "GO:0008270",
+       "RefSeq:WP_000974813.1",
+       "SO:0001217",
+       "UniParc:UPI000013A0F0",
+       "UniRef:UniRef100_P0AAQ2",
+       "UniRef:UniRef50_P0AAQ2",
+       "UniRef:UniRef90_P0AAQ2"
+      ],
+      "gene": [
+       "yajD"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000974813.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00449"
+      ],
+      "product": [
+       "HNH nuclease YajD"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00449"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[431128:432013](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_001295328",
+       "COG:COG3248",
+       "COG:M",
+       "GO:0005337",
+       "GO:0006811",
+       "GO:0009279",
+       "GO:0015288",
+       "GO:0046930",
+       "KEGG:K05517",
+       "RefSeq:WP_001295328.1",
+       "SO:0001217",
+       "UniParc:UPI0000137776",
+       "UniRef:UniRef100_P0A927",
+       "UniRef:UniRef50_P0A927",
+       "UniRef:UniRef90_P0A927"
+      ],
+      "gene": [
+       "tsx"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001295328.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00450"
+      ],
+      "product": [
+       "nucleoside-specific channel-forming protein Tsx"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00450"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[432311:432851](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0005886",
+       "RefSeq:WP_001326929.1",
+       "SO:0001217",
+       "UniParc:UPI000013A0F7",
+       "UniRef:UniRef100_P46122",
+       "UniRef:UniRef50_P46122",
+       "UniRef:UniRef90_P46122"
+      ],
+      "gene": [
+       "yajI"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001326929.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00451"
+      ],
+      "product": [
+       "Uncharacterized lipoprotein YajI"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00451"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[433001:433451](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1327",
+       "COG:K",
+       "GO:0003677",
+       "GO:0005524",
+       "GO:0006355",
+       "GO:0008270",
+       "GO:0045892",
+       "GO:0140110",
+       "RefSeq:WP_000543535.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2AC",
+       "UniRef:UniRef100_P0A8D0",
+       "UniRef:UniRef50_P0A8D0",
+       "UniRef:UniRef90_P0A8D0"
+      ],
+      "gene": [
+       "nrdR"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000543535.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00452"
+      ],
+      "product": [
+       "transcriptional regulator NrdR"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00452"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[433454:434558](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1985",
+       "COG:H",
+       "EC:1.1.1.193",
+       "EC:3.5.4.26",
+       "GO:0008270",
+       "GO:0008703",
+       "GO:0008835",
+       "GO:0009231",
+       "GO:0050661",
+       "KEGG:K11752",
+       "RefSeq:WP_001150457.1",
+       "SO:0001217",
+       "UniParc:UPI000011DD2B",
+       "UniRef:UniRef100_P25539",
+       "UniRef:UniRef50_P25539",
+       "UniRef:UniRef90_P25539"
+      ],
+      "gene": [
+       "ribD"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001150457.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00453"
+      ],
+      "product": [
+       "bifunctional diaminohydroxyphosphoribosylaminopyrimidine deaminase/5-amino-6-(5-phosphoribosylamino)uracil reductase RibD"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00453"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[434646:435117](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0054",
+       "COG:H",
+       "EC:2.5.1.78",
+       "GO:0000906",
+       "GO:0005829",
+       "GO:0009231",
+       "GO:0009349",
+       "KEGG:K00794",
+       "RefSeq:WP_001021161.1",
+       "SO:0001217",
+       "UniParc:UPI00000000D1",
+       "UniRef:UniRef100_A8AK39",
+       "UniRef:UniRef50_P66038",
+       "UniRef:UniRef90_A8AK39"
+      ],
+      "gene": [
+       "ribE"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001021161.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00454"
+      ],
+      "product": [
+       "6,7-dimethyl-8-ribityllumazine synthase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00454"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[435136:435556](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0781",
+       "COG:K",
+       "GO:0003723",
+       "GO:0005829",
+       "GO:0006353",
+       "GO:0031564",
+       "KEGG:K03625",
+       "RefSeq:WP_000801125.1",
+       "SO:0001217",
+       "UniParc:UPI0000111463",
+       "UniRef:UniRef100_P0A780",
+       "UniRef:UniRef50_P0A780",
+       "UniRef:UniRef90_P0A780"
+      ],
+      "gene": [
+       "nusB"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000801125.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00455"
+      ],
+      "product": [
+       "transcription antitermination factor NusB"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00455"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[435633:436611](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0611",
+       "COG:H",
+       "EC:2.7.4.16",
+       "GO:0000287",
+       "GO:0005524",
+       "GO:0009030",
+       "GO:0009228",
+       "GO:0009229",
+       "GO:0046872",
+       "KEGG:K00946",
+       "RefSeq:WP_000742109.1",
+       "SO:0001217",
+       "UniParc:UPI0000136E3F",
+       "UniRef:UniRef100_P0AGG0",
+       "UniRef:UniRef50_P0AGG0",
+       "UniRef:UniRef90_P0AGG0"
+      ],
+      "gene": [
+       "thiL"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000742109.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00456"
+      ],
+      "product": [
+       "thiamine-phosphate kinase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00456"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[436588:437107](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1267",
+       "COG:I",
+       "EC:3.1.3.27",
+       "GO:0005886",
+       "GO:0006629",
+       "GO:0006655",
+       "GO:0008962",
+       "GO:0009395",
+       "GO:0032026",
+       "GO:0042577",
+       "GO:0046474",
+       "GO:0046839",
+       "GO:0046872",
+       "RefSeq:WP_000154044.1",
+       "SO:0001217",
+       "UniParc:UPI000013186B",
+       "UniRef:UniRef100_P18200",
+       "UniRef:UniRef50_P18200",
+       "UniRef:UniRef90_P18200"
+      ],
+      "gene": [
+       "pgpA"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000154044.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00457"
+      ],
+      "product": [
+       "phosphatidylglycerophosphatase A"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00457"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[437160:438135](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_001199800",
+       "COG:COG0667",
+       "COG:HR",
+       "EC:1.1.-.-",
+       "EC:1.17.1.-",
+       "GO:0005829",
+       "GO:0006772",
+       "GO:0016491",
+       "GO:1902767",
+       "RefSeq:WP_001199800.1",
+       "SO:0001217",
+       "UniParc:UPI000013A0F8",
+       "UniRef:UniRef100_P77735",
+       "UniRef:UniRef50_P77735",
+       "UniRef:UniRef90_P77735"
+      ],
+      "gene": [
+       "yajO"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001199800.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00458"
+      ],
+      "product": [
+       "1-deoxyxylulose-5-phosphate synthase YajO"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00458"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[438314:440177](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1154",
+       "COG:HI",
+       "EC:2.2.1.7",
+       "GO:0000287",
+       "GO:0005737",
+       "GO:0005829",
+       "GO:0008615",
+       "GO:0008661",
+       "GO:0009228",
+       "GO:0009240",
+       "GO:0016114",
+       "GO:0019288",
+       "GO:0030976",
+       "GO:0052865",
+       "KEGG:K01662",
+       "RefSeq:WP_000006797.1",
+       "SO:0001217",
+       "UniParc:UPI0000033BED",
+       "UniRef:UniRef100_P77488",
+       "UniRef:UniRef50_P77488",
+       "UniRef:UniRef90_P77488"
+      ],
+      "gene": [
+       "dxs"
+      ],
+      "gene_functions": [
+       "biosynthetic-additional (rule-based-clusters) DXP_synthase_N",
+       "biosynthetic-additional (rule-based-clusters) TPP_enzyme_C"
+      ],
+      "gene_kind": [
+       "biosynthetic-additional"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000006797.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00459"
+      ],
+      "product": [
+       "1-deoxy-D-xylulose-5-phosphate synthase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00459"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[440201:441101](-)",
+     "type": "proto_core",
+     "qualifiers": {
+      "aStool": [
+       "rule-based-clusters"
+      ],
+      "tool": [
+       "antismash"
+      ],
+      "cutoff": [
+       "10000"
+      ],
+      "detection_rule": [
+       "(PT_FPPS_like and not PT_HPP)"
+      ],
+      "neighbourhood": [
+       "10000"
+      ],
+      "product": [
+       "terpene-precursor"
+      ],
+      "protocluster_number": [
+       "1"
+      ]
+     }
+    },
+    {
+     "location": "[440201:441101](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0142",
+       "COG:H",
+       "EC:2.5.1.10",
+       "GO:0004161",
+       "GO:0004337",
+       "GO:0004659",
+       "GO:0005829",
+       "GO:0008299",
+       "GO:0033384",
+       "GO:0045337",
+       "GO:0046872",
+       "RefSeq:WP_000347217.1",
+       "SO:0001217",
+       "UniParc:UPI000012D90E",
+       "UniRef:UniRef100_P22939",
+       "UniRef:UniRef50_P22939",
+       "UniRef:UniRef90_P22939"
+      ],
+      "gene": [
+       "ispA"
+      ],
+      "gene_functions": [
+       "biosynthetic (rule-based-clusters) terpene-precursor: PT_FPPS_like"
+      ],
+      "gene_kind": [
+       "biosynthetic"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000347217.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00460"
+      ],
+      "product": [
+       "(2E,6E)-farnesyl diphosphate synthase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00460"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[441100:441343](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1722",
+       "COG:L",
+       "EC:3.1.11.6",
+       "GO:0005829",
+       "GO:0006308",
+       "GO:0008855",
+       "GO:0009318",
+       "RefSeq:WP_001124935.1",
+       "SO:0001217",
+       "UniParc:UPI00001586B9",
+       "UniRef:UniRef100_P0A8G9",
+       "UniRef:UniRef50_P0A8G9",
+       "UniRef:UniRef90_P0A8G9"
+      ],
+      "gene": [
+       "xseB"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001124935.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00461"
+      ],
+      "product": [
+       "exodeoxyribonuclease VII small subunit"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00461"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[441548:442997](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0607",
+       "COG:P",
+       "EC:2.8.1.4",
+       "GO:0000049",
+       "GO:0002937",
+       "GO:0004810",
+       "GO:0005524",
+       "GO:0005829",
+       "GO:0009228",
+       "GO:0009229",
+       "GO:0052837",
+       "GO:0140741",
+       "KEGG:K03151",
+       "RefSeq:WP_000668662.1",
+       "SO:0001217",
+       "UniParc:UPI0000136E10",
+       "UniRef:UniRef100_P77718",
+       "UniRef:UniRef50_P77718",
+       "UniRef:UniRef90_P77718"
+      ],
+      "gene": [
+       "thiI"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000668662.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00462"
+      ],
+      "product": [
+       "tRNA sulfurtransferase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00462"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[443050:443641](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "EC:3.1.2.-",
+       "EC:3.5.1.-",
+       "EC:3.5.1.124",
+       "GO:0005737",
+       "GO:0006281",
+       "GO:0036524",
+       "RefSeq:WP_001276305.1",
+       "SO:0001217",
+       "UniParc:UPI0000136E2F",
+       "UniRef:UniRef100_Q46948",
+       "UniRef:UniRef50_Q46948",
+       "UniRef:UniRef90_Q46948"
+      ],
+      "gene": [
+       "yajL"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001276305.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00463"
+      ],
+      "product": [
+       "protein deglycase YajL"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00463"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[443603:444515](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1893",
+       "COG:H",
+       "EC:1.1.1.169",
+       "GO:0005737",
+       "GO:0008677",
+       "GO:0015940",
+       "GO:0050661",
+       "RefSeq:WP_000705865.1",
+       "SO:0001217",
+       "UniParc:UPI00001312D1",
+       "UniRef:UniRef100_P0A9J4",
+       "UniRef:UniRef50_P0A9J4",
+       "UniRef:UniRef90_P0A9J4"
+      ],
+      "gene": [
+       "panE"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000705865.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00464"
+      ],
+      "product": [
+       "2-dehydropantoate 2-reductase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00464"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[444682:445174](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_001138904",
+       "COG:COG1666",
+       "COG:T",
+       "GO:0000166",
+       "GO:0005829",
+       "KEGG:K09767",
+       "RefSeq:WP_001138904.1",
+       "SO:0001217",
+       "UniParc:UPI000018F705",
+       "UniRef:UniRef100_P0A8E7",
+       "UniRef:UniRef50_P0A8E7",
+       "UniRef:UniRef90_P0A8E7"
+      ],
+      "gene": [
+       "yajQ"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001138904.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00465"
+      ],
+      "product": [
+       "nucleotide binding protein YajQ"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00465"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[445301:446666](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG2814",
+       "COG:G",
+       "GO:0005886",
+       "GO:0016020",
+       "GO:0022857",
+       "GO:0055085",
+       "RefSeq:WP_001000963.1",
+       "SO:0001217",
+       "UniParc:UPI000013A0FB",
+       "UniRef:UniRef100_P77726",
+       "UniRef:UniRef50_P77726",
+       "UniRef:UniRef90_P77726"
+      ],
+      "gene": [
+       "yajR"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001000963.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00466"
+      ],
+      "product": [
+       "Inner membrane transport protein YajR"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00466"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[446814:447705](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0109",
+       "COG:HI",
+       "EC:2.5.1.141",
+       "GO:0005886",
+       "GO:0008495",
+       "GO:0016020",
+       "GO:0048034",
+       "RefSeq:WP_000971336.1",
+       "SO:0001217",
+       "UniParc:UPI0000128C61",
+       "UniRef:UniRef100_P0AEA5",
+       "UniRef:UniRef50_P0AEA5",
+       "UniRef:UniRef90_P0AEA5"
+      ],
+      "gene": [
+       "cyoE"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000971336.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00467"
+      ],
+      "product": [
+       "heme o synthase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00467"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[447716:448046](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "EC:7.1.1.-",
+       "GO:0004129",
+       "GO:0005886",
+       "GO:0009319",
+       "GO:0009486",
+       "GO:0015078",
+       "GO:0015990",
+       "GO:0019646",
+       "GO:0022904",
+       "RefSeq:WP_000019869.1",
+       "SO:0001217",
+       "UniParc:UPI0000128C5E",
+       "UniRef:UniRef100_P0ABJ6",
+       "UniRef:UniRef50_P0ABJ6",
+       "UniRef:UniRef90_P0ABJ6"
+      ],
+      "gene": [
+       "cyoD"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000019869.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00468"
+      ],
+      "product": [
+       "cytochrome o ubiquinol oxidase subunit III"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00468"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[448045:448660](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:C",
+       "COG:COG1845",
+       "EC:7.1.1.-",
+       "GO:0004129",
+       "GO:0005886",
+       "GO:0009486",
+       "GO:0019646",
+       "GO:0022904",
+       "RefSeq:WP_000179819.1",
+       "SO:0001217",
+       "UniParc:UPI0000111626",
+       "UniRef:UniRef100_P0ABJ3",
+       "UniRef:UniRef50_P0ABJ3",
+       "UniRef:UniRef90_P0ABJ3"
+      ],
+      "gene": [
+       "cyoC"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000179819.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00469"
+      ],
+      "product": [
+       "cytochrome o ubiquinol oxidase subunit III"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00469"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[448649:450641](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:C",
+       "COG:COG0843",
+       "EC:7.1.1.-",
+       "EC:7.1.1.3",
+       "GO:0004129",
+       "GO:0005507",
+       "GO:0005886",
+       "GO:0009055",
+       "GO:0009060",
+       "GO:0009319",
+       "GO:0009486",
+       "GO:0015078",
+       "GO:0015453",
+       "GO:0015990",
+       "GO:0016682",
+       "GO:0019646",
+       "GO:0020037",
+       "GO:0022904",
+       "GO:0048039",
+       "KEGG:K02298",
+       "RefSeq:WP_000467180.1",
+       "SO:0001217",
+       "UniParc:UPI0000111624",
+       "UniRef:UniRef100_P0ABI8",
+       "UniRef:UniRef50_P0ABI8",
+       "UniRef:UniRef90_P0ABI8"
+      ],
+      "gene": [
+       "cyoB"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000467180.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00470"
+      ],
+      "product": [
+       "cytochrome o ubiquinol oxidase subunit I"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00470"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[450662:451610](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:C",
+       "COG:COG1622",
+       "EC:7.1.1.-",
+       "EC:7.1.1.3",
+       "GO:0004129",
+       "GO:0005507",
+       "GO:0005886",
+       "GO:0009055",
+       "GO:0009060",
+       "GO:0009319",
+       "GO:0009486",
+       "GO:0015078",
+       "GO:0015453",
+       "GO:0015990",
+       "GO:0016682",
+       "GO:0019646",
+       "GO:0022900",
+       "GO:0042773",
+       "KEGG:K02297",
+       "RefSeq:WP_001239436.1",
+       "SO:0001217",
+       "UniParc:UPI0000111625",
+       "UniRef:UniRef100_P0ABJ1",
+       "UniRef:UniRef50_P0ABJ1",
+       "UniRef:UniRef90_P0ABJ1"
+      ],
+      "gene": [
+       "cyoA"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001239436.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00471"
+      ],
+      "product": [
+       "cytochrome o ubiquinol oxidase subunit II"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00471"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[452069:453545](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0005886",
+       "GO:0009254",
+       "GO:0015293",
+       "GO:0015647",
+       "GO:0016020",
+       "GO:0022857",
+       "GO:0055085",
+       "GO:0071555",
+       "KEGG:K08218",
+       "RefSeq:WP_000098429.1",
+       "SO:0001217",
+       "UniParc:UPI00001259E6",
+       "UniRef:UniRef100_P0AE16",
+       "UniRef:UniRef50_P0AE16",
+       "UniRef:UniRef90_P0AE16"
+      ],
+      "gene": [
+       "ampG"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000098429.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00472"
+      ],
+      "product": [
+       "muropeptide MFS transporter AmpG"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00472"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[590940:593178](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0005886",
+       "GO:0016757",
+       "GO:0016887",
+       "GO:0035438",
+       "GO:0045226",
+       "KEGG:K11740",
+       "RefSeq:WP_000383932.1",
+       "SO:0001217",
+       "UniParc:UPI000012FFE0",
+       "UniRef:UniRef100_P0AFA5",
+       "UniRef:UniRef50_P0AFA5",
+       "UniRef:UniRef90_P0AFA5"
+      ],
+      "gene": [
+       "nrfB"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000383932.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00619"
+      ],
+      "product": [
+       "cyclic di-3',5'-guanylate-activated glycosyltransferase NrfB"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00619"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[593327:594770](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_000253839",
+       "EC:2.7.13.3",
+       "GO:0000155",
+       "GO:0000160",
+       "GO:0004673",
+       "GO:0005524",
+       "GO:0005886",
+       "GO:0007165",
+       "GO:0016020",
+       "GO:0046872",
+       "GO:0071280",
+       "GO:0071292",
+       "RefSeq:WP_000253839.1",
+       "SO:0001217",
+       "UniParc:UPI00001286FE",
+       "UniRef:UniRef100_P77485",
+       "UniRef:UniRef50_P77485",
+       "UniRef:UniRef90_P77485"
+      ],
+      "gene": [
+       "cusS"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000253839.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00620"
+      ],
+      "product": [
+       "Cu(+)/Ag(+) sensor histidine kinase CusS"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00620"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[594156:638038](+)",
+     "type": "protocluster",
+     "qualifiers": {
+      "aStool": [
+       "rule-based-clusters"
+      ],
+      "category": [
+       "NRPS"
+      ],
+      "contig_edge": [
+       "False"
+      ],
+      "core_location": [
+       "[614156:618038](+)"
+      ],
+      "cutoff": [
+       "20000"
+      ],
+      "detection_rule": [
+       "cds(Condensation and (AMP-binding or A-OX) and not alpha_am_amid)"
+      ],
+      "neighbourhood": [
+       "20000"
+      ],
+      "product": [
+       "NRPS"
+      ],
+      "protocluster_number": [
+       "3"
+      ],
+      "tool": [
+       "antismash"
+      ]
+     }
+    },
+    {
+     "location": "[594156:649297](+)",
+     "type": "region",
+     "qualifiers": {
+      "candidate_cluster_numbers": [
+       "2"
+      ],
+      "contig_edge": [
+       "False"
+      ],
+      "product": [
+       "NRP-metallophore",
+       "NRPS"
+      ],
+      "region_number": [
+       "2"
+      ],
+      "rules": [
+       "(VibH_like or Cy_tandem or (cds(Condensation and AMP-binding) and ((IBH_Asp and not SBH_Asp) or IBH_His or TBH_Asp or CyanoBH_Asp1 or CyanoBH_Asp2 or IPL or SalSyn or (EntA and EntC) or (GrbD and GrbE) or (FbnL and FbnM) or PvdO or PvdP or (Orn_monoox and not (KtzT or MetRS-like)) or Lys_monoox or VbsL)))",
+       "cds(Condensation and (AMP-binding or A-OX) and not alpha_am_amid)"
+      ],
+      "subregion_numbers": [],
+      "tool": [
+       "antismash"
+      ]
+     }
+    },
+    {
+     "location": "[594156:649297](+)",
+     "type": "cand_cluster",
+     "qualifiers": {
+      "candidate_cluster_number": [
+       "2"
+      ],
+      "contig_edge": [
+       "False"
+      ],
+      "detection_rules": [
+       "(VibH_like or Cy_tandem or (cds(Condensation and AMP-binding) and ((IBH_Asp and not SBH_Asp) or IBH_His or TBH_Asp or CyanoBH_Asp1 or CyanoBH_Asp2 or IPL or SalSyn or (EntA and EntC) or (GrbD and GrbE) or (FbnL and FbnM) or PvdO or PvdP or (Orn_monoox and not (KtzT or MetRS-like)) or Lys_monoox or VbsL)))",
+       "cds(Condensation and (AMP-binding or A-OX) and not alpha_am_amid)"
+      ],
+      "kind": [
+       "chemical_hybrid"
+      ],
+      "product": [
+       "NRP-metallophore",
+       "NRPS"
+      ],
+      "protoclusters": [
+       "2",
+       "3"
+      ],
+      "tool": [
+       "antismash"
+      ]
+     }
+    },
+    {
+     "location": "[594156:649297](+)",
+     "type": "protocluster",
+     "qualifiers": {
+      "aStool": [
+       "rule-based-clusters"
+      ],
+      "category": [
+       "NRPS"
+      ],
+      "contig_edge": [
+       "False"
+      ],
+      "core_location": [
+       "[614156:629297](+)"
+      ],
+      "cutoff": [
+       "30000"
+      ],
+      "detection_rule": [
+       "(VibH_like or Cy_tandem or (cds(Condensation and AMP-binding) and ((IBH_Asp and not SBH_Asp) or IBH_His or TBH_Asp or CyanoBH_Asp1 or CyanoBH_Asp2 or IPL or SalSyn or (EntA and EntC) or (GrbD and GrbE) or (FbnL and FbnM) or PvdO or PvdP or (Orn_monoox and not (KtzT or MetRS-like)) or Lys_monoox or VbsL)))"
+      ],
+      "neighbourhood": [
+       "20000"
+      ],
+      "product": [
+       "NRP-metallophore"
+      ],
+      "protocluster_number": [
+       "2"
+      ],
+      "tool": [
+       "antismash"
+      ]
+     }
+    },
+    {
+     "location": "[594759:595443](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_000770953",
+       "COG:COG0745",
+       "COG:TK",
+       "GO:0000156",
+       "GO:0000976",
+       "GO:0003677",
+       "GO:0005829",
+       "GO:0006355",
+       "GO:0032993",
+       "GO:0042802",
+       "GO:0046688",
+       "RefSeq:WP_000770953.1",
+       "SO:0001217",
+       "UniParc:UPI00001286FD",
+       "UniRef:UniRef100_P0ACZ8",
+       "UniRef:UniRef50_P0ACZ8",
+       "UniRef:UniRef90_P0ACZ8"
+      ],
+      "gene": [
+       "cusR"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000770953.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00621"
+      ],
+      "product": [
+       "copper response regulator transcription factor CusR"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00621"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[595599:596973](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_000074234",
+       "GO:0005375",
+       "GO:0005507",
+       "GO:0006878",
+       "GO:0009279",
+       "GO:0009636",
+       "GO:0010272",
+       "GO:0010273",
+       "GO:0015288",
+       "GO:0015562",
+       "GO:0016020",
+       "GO:0019992",
+       "GO:0022857",
+       "GO:0035434",
+       "GO:0042802",
+       "GO:0046688",
+       "GO:0046930",
+       "GO:0055085",
+       "GO:0060003",
+       "GO:0070207",
+       "GO:1902601",
+       "KEGG:K07796",
+       "RefSeq:WP_000074234.1",
+       "SO:0001217",
+       "UniParc:UPI00001286FC",
+       "UniRef:UniRef100_P77211",
+       "UniRef:UniRef50_P77211",
+       "UniRef:UniRef90_P77211"
+      ],
+      "gene": [
+       "cusC"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000074234.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00622"
+      ],
+      "product": [
+       "Cu(+)/Ag(+) efflux RND transporter outer membrane channel CusC"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00622"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[597130:597463](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_000709870",
+       "GO:0005507",
+       "GO:0006878",
+       "GO:0009636",
+       "GO:0010043",
+       "GO:0010272",
+       "GO:0010273",
+       "GO:0016530",
+       "GO:0016531",
+       "GO:0030288",
+       "GO:0035434",
+       "GO:0042597",
+       "GO:0046688",
+       "GO:0046914",
+       "GO:0060003",
+       "GO:1902601",
+       "RefSeq:WP_000709870.1",
+       "SO:0001217",
+       "UniParc:UPI00001286FF",
+       "UniRef:UniRef100_P77239",
+       "UniRef:UniRef50_P77239",
+       "UniRef:UniRef90_P77239"
+      ],
+      "gene": [
+       "cusF"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000709870.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00623"
+      ],
+      "product": [
+       "Cu(+)/Ag(+) efflux RND transporter periplasmic metallochaperone CusF"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00623"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[597478:598702](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_000717162",
+       "GO:0005507",
+       "GO:0006878",
+       "GO:0009636",
+       "GO:0010043",
+       "GO:0010272",
+       "GO:0010273",
+       "GO:0016530",
+       "GO:0016531",
+       "GO:0030288",
+       "GO:0035434",
+       "GO:0042597",
+       "GO:0046688",
+       "GO:0046914",
+       "GO:0060003",
+       "GO:1902601",
+       "RefSeq:WP_000717157.1",
+       "SO:0001217",
+       "UniParc:UPI00001286FB",
+       "UniRef:UniRef100_P77239",
+       "UniRef:UniRef50_P77239",
+       "UniRef:UniRef90_P77239"
+      ],
+      "gene": [
+       "cusB"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000717157.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00624"
+      ],
+      "product": [
+       "Cu(+)/Ag(+) efflux RND transporter periplasmic adaptor subunit CusB"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00624"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[598713:601857](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_000573945",
+       "COG:COG3696",
+       "COG:P",
+       "GO:0005886",
+       "GO:0006825",
+       "GO:0008324",
+       "GO:0042910",
+       "KEGG:K07787",
+       "RefSeq:WP_000573945.1",
+       "SO:0001217",
+       "UniParc:UPI00001286FA",
+       "UniRef:UniRef100_P38054",
+       "UniRef:UniRef50_P38054",
+       "UniRef:UniRef90_P38054"
+      ],
+      "gene": [
+       "cusA"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000573945.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00625"
+      ],
+      "product": [
+       "Cu(+)/Ag(+) efflux RND transporter permease subunit CusA"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00625"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[601958:603335](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1113",
+       "COG:E",
+       "GO:0005886",
+       "GO:0006865",
+       "GO:0015823",
+       "GO:0055085",
+       "KEGG:K11732",
+       "RefSeq:WP_000786319.1",
+       "SO:0001217",
+       "UniParc:UPI0000131958",
+       "UniRef:UniRef100_P24207",
+       "UniRef:UniRef50_P24207",
+       "UniRef:UniRef90_P24207"
+      ],
+      "gene": [
+       "pheP"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000786319.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00626"
+      ],
+      "product": [
+       "phenylalanine transporter"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00626"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[603415:604663](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_001153148",
+       "COG:COG0668",
+       "COG:M",
+       "GO:0005886",
+       "GO:0008381",
+       "GO:0071470",
+       "KEGG:K16053",
+       "RefSeq:WP_001153148.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2EC",
+       "UniRef:UniRef100_P0AAT4",
+       "UniRef:UniRef50_P0AAT4",
+       "UniRef:UniRef90_P0AAT4"
+      ],
+      "gene": [
+       "ybdG"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001153148.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00627"
+      ],
+      "product": [
+       "mechanosensitive ion channel YbdG"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00627"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[604770:605424](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:C",
+       "COG:COG0778",
+       "EC:1.-.-.-",
+       "EC:1.5.1.34",
+       "GO:0003955",
+       "GO:0004155",
+       "GO:0005829",
+       "GO:0010181",
+       "GO:0016020",
+       "GO:0016491",
+       "GO:0042802",
+       "GO:0042803",
+       "GO:0046256",
+       "KEGG:K10679",
+       "RefSeq:WP_000351487.1",
+       "SO:0001217",
+       "UniParc:UPI000002D1FC",
+       "UniRef:UniRef100_P38489",
+       "UniRef:UniRef50_P38489",
+       "UniRef:UniRef90_P38489"
+      ],
+      "gene": [
+       "nfsB"
+      ],
+      "gene_functions": [
+       "biosynthetic-additional (rule-based-clusters) PF00881"
+      ],
+      "gene_kind": [
+       "biosynthetic-additional"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000351487.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00628"
+      ],
+      "product": [
+       "oxygen-insensitive NAD(P)H nitroreductase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00628"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[605517:605886](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG2315",
+       "COG:K",
+       "RefSeq:WP_000360951.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2EB",
+       "UniRef:UniRef100_P0AAT2",
+       "UniRef:UniRef50_P0AAT2",
+       "UniRef:UniRef90_P0AAT2"
+      ],
+      "gene": [
+       "ybdF"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000360951.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00629"
+      ],
+      "product": [
+       "MmcQ/YjbR family DNA-binding protein"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00629"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[605950:606199](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0005886",
+       "RefSeq:WP_000682509.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2EF",
+       "UniRef:UniRef100_P77506",
+       "UniRef:UniRef50_P77506",
+       "UniRef:UniRef90_P77506"
+      ],
+      "gene": [
+       "ybdJ"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000682509.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00630"
+      ],
+      "product": [
+       "Uncharacterized protein YbdJ"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00630"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[606264:607383](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG2170",
+       "COG:O",
+       "EC:6.3.2.2",
+       "GO:0004357",
+       "GO:0005524",
+       "GO:0016879",
+       "GO:0042398",
+       "GO:0042803",
+       "KEGG:K06048",
+       "RefSeq:WP_001130654.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2F2",
+       "UniRef:UniRef100_P77213",
+       "UniRef:UniRef50_P77213",
+       "UniRef:UniRef90_P77213"
+      ],
+      "gene": [
+       "ybdK"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001130654.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00631"
+      ],
+      "product": [
+       "YbdK family carboxylate-amine ligase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00631"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[607736:607988](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0005886",
+       "GO:0006974",
+       "KEGG:K18922",
+       "SO:0001217",
+       "UniParc:UPI000016EEAD",
+       "UniRef:UniRef100_P77091",
+       "UniRef:UniRef50_P77091",
+       "UniRef:UniRef90_P77091"
+      ],
+      "gene": [
+       "hokE"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:UniRef:UniRef100_P77091"
+      ],
+      "locus_tag": [
+       "KOIAIB_00633"
+      ],
+      "product": [
+       "Toxic protein HokE"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00633"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[608064:609177](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0003677",
+       "GO:0004803",
+       "GO:0006313",
+       "IS:IS421",
+       "RefSeq:WP_001300563.1",
+       "SO:0001217",
+       "UniParc:UPI000012D6A8",
+       "UniRef:UniRef100_P0CF91",
+       "UniRef:UniRef50_P0CF91",
+       "UniRef:UniRef90_P0CF91"
+      ],
+      "gene": [
+       "tnp"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001300563.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00634"
+      ],
+      "product": [
+       "IS4 family IS421 transposase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00634"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[609199:609340](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0004803",
+       "SO:0001217",
+       "UniParc:UPI0001A5BC90",
+       "UniRef:UniRef100_A0A1B1IKF1",
+       "UniRef:UniRef50_P0CF91",
+       "UniRef:UniRef90_A0A1B1IKF1"
+      ],
+      "gene": [
+       "tnp"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:UniRef:UniRef100_A0A1B1IKF1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00635"
+      ],
+      "product": [
+       "IS4 family IS186B transposase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00635"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[610253:612494](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_012737617",
+       "BlastRules:WP_111840001",
+       "COG:COG4771",
+       "COG:P",
+       "GO:0006879",
+       "GO:0009279",
+       "GO:0015344",
+       "GO:0015620",
+       "GO:0015685",
+       "GO:0016020",
+       "GO:0019904",
+       "GO:0022834",
+       "GO:0030313",
+       "GO:0033214",
+       "GO:0038023",
+       "GO:0042912",
+       "GO:0042914",
+       "GO:0042930",
+       "GO:0042931",
+       "GO:0044718",
+       "GO:1902495",
+       "GO:1903981",
+       "RefSeq:WP_001034943.1",
+       "SO:0001217",
+       "UniParc:UPI000012A647",
+       "UniRef:UniRef100_P05825",
+       "UniRef:UniRef50_P05825",
+       "UniRef:UniRef90_P05825"
+      ],
+      "gene": [
+       "fepA"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001034943.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00637"
+      ],
+      "product": [
+       "siderophore enterobactin receptor FepA"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00637"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[612736:613939](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG2382",
+       "COG:P",
+       "EC:3.1.1.-",
+       "EC:3.1.1.108",
+       "GO:0005506",
+       "GO:0005737",
+       "GO:0008849",
+       "GO:0033214",
+       "GO:0046214",
+       "KEGG:K07214",
+       "RefSeq:WP_000125843.1",
+       "SO:0001217",
+       "UniParc:UPI000016F5BB",
+       "UniRef:UniRef100_P13039",
+       "UniRef:UniRef50_P13039",
+       "UniRef:UniRef90_P13039",
+       "VFDB:VFC0272",
+       "VFDB:VFG044159"
+      ],
+      "gene": [
+       "fes"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000125843.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00638"
+      ],
+      "product": [
+       "enterobactin/ferric enterobactin esterase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00638"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[613941:614160](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_000885798",
+       "COG:COG3251",
+       "COG:Q",
+       "GO:0005829",
+       "GO:0009239",
+       "GO:0019290",
+       "RefSeq:WP_000885798.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2F8",
+       "UniRef:UniRef100_P18393",
+       "UniRef:UniRef50_P18393",
+       "UniRef:UniRef90_P18393"
+      ],
+      "gene": [
+       "ybdZ"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000885798.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00639"
+      ],
+      "product": [
+       "enterobactin biosynthesis protein YbdZ"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00639"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[614156:618038](+)",
+     "type": "proto_core",
+     "qualifiers": {
+      "aStool": [
+       "rule-based-clusters"
+      ],
+      "tool": [
+       "antismash"
+      ],
+      "cutoff": [
+       "20000"
+      ],
+      "detection_rule": [
+       "cds(Condensation and (AMP-binding or A-OX) and not alpha_am_amid)"
+      ],
+      "neighbourhood": [
+       "20000"
+      ],
+      "product": [
+       "NRPS"
+      ],
+      "protocluster_number": [
+       "3"
+      ]
+     }
+    },
+    {
+     "location": "[614156:618038](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG3319",
+       "COG:Q",
+       "EC:6.3.2.14",
+       "GO:0003824",
+       "GO:0005524",
+       "GO:0005829",
+       "GO:0005886",
+       "GO:0009058",
+       "GO:0009239",
+       "GO:0009366",
+       "GO:0016779",
+       "GO:0031177",
+       "GO:0043041",
+       "GO:0047527",
+       "RefSeq:WP_000077805.1",
+       "SO:0001217",
+       "UniParc:UPI0000129FD4",
+       "UniRef:UniRef100_P11454",
+       "UniRef:UniRef50_P11454",
+       "UniRef:UniRef90_P11454",
+       "VFDB:VFC0272",
+       "VFDB:VFG000930"
+      ],
+      "gene": [
+       "entF"
+      ],
+      "gene_functions": [
+       "biosynthetic (rule-based-clusters) NRP-metallophore: AMP-binding",
+       "biosynthetic (rule-based-clusters) NRP-metallophore: Condensation",
+       "biosynthetic (rule-based-clusters) NRPS: AMP-binding",
+       "biosynthetic (rule-based-clusters) NRPS: Condensation",
+       "biosynthetic-additional (rule-based-clusters) PP-binding",
+       "biosynthetic-additional (rule-based-clusters) Thioesterase"
+      ],
+      "gene_kind": [
+       "biosynthetic"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000077805.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00640"
+      ],
+      "product": [
+       "enterobactin synthase multienzyme complex component, ATP-dependent"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00640"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[614156:629297](+)",
+     "type": "proto_core",
+     "qualifiers": {
+      "aStool": [
+       "rule-based-clusters"
+      ],
+      "tool": [
+       "antismash"
+      ],
+      "cutoff": [
+       "30000"
+      ],
+      "detection_rule": [
+       "(VibH_like or Cy_tandem or (cds(Condensation and AMP-binding) and ((IBH_Asp and not SBH_Asp) or IBH_His or TBH_Asp or CyanoBH_Asp1 or CyanoBH_Asp2 or IPL or SalSyn or (EntA and EntC) or (GrbD and GrbE) or (FbnL and FbnM) or PvdO or PvdP or (Orn_monoox and not (KtzT or MetRS-like)) or Lys_monoox or VbsL)))"
+      ],
+      "neighbourhood": [
+       "20000"
+      ],
+      "product": [
+       "NRP-metallophore"
+      ],
+      "protocluster_number": [
+       "2"
+      ]
+     }
+    },
+    {
+     "location": "[618253:619387](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG3765",
+       "COG:M",
+       "GO:0004713",
+       "GO:0005886",
+       "GO:0009103",
+       "GO:0015620",
+       "GO:0015685",
+       "GO:0016020",
+       "RefSeq:WP_000096692.1",
+       "SO:0001217",
+       "UniParc:UPI000012A64B",
+       "UniRef:UniRef100_P26266",
+       "UniRef:UniRef50_P26266",
+       "UniRef:UniRef90_P26266",
+       "VFDB:VFC0272",
+       "VFDB:VFG000927"
+      ],
+      "gene": [
+       "fepE"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000096692.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00641"
+      ],
+      "product": [
+       "LPS O-antigen length regulator"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00641"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[619383:620199](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1120",
+       "COG:PH",
+       "EC:7.2.2.-",
+       "EC:7.2.2.17",
+       "GO:0005524",
+       "GO:0005886",
+       "GO:0015620",
+       "GO:0015685",
+       "GO:0016020",
+       "GO:0016887",
+       "GO:0033212",
+       "GO:0055052",
+       "RefSeq:WP_000140647.1",
+       "SO:0001217",
+       "UniParc:UPI000012A649",
+       "UniRef:UniRef100_P23878",
+       "UniRef:UniRef50_P23878",
+       "UniRef:UniRef90_P23878",
+       "VFDB:VFC0272",
+       "VFDB:VFG000925"
+      ],
+      "gene": [
+       "fepC"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000140647.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00642"
+      ],
+      "product": [
+       "ferrienterobactin ABC transporter ATPase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00642"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[620195:621188](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG4779",
+       "COG:P",
+       "EC:7.2.2.-",
+       "GO:0005886",
+       "GO:0015620",
+       "GO:0015685",
+       "GO:0016020",
+       "GO:0022857",
+       "GO:0033212",
+       "GO:0033214",
+       "GO:0055052",
+       "RefSeq:WP_000640988.1",
+       "SO:0001217",
+       "UniParc:UPI000012A64C",
+       "UniRef:UniRef100_P23877",
+       "UniRef:UniRef50_P23877",
+       "UniRef:UniRef90_P23877",
+       "VFDB:VFC0272",
+       "VFDB:VFG000928"
+      ],
+      "gene": [
+       "fepG"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000640988.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00643"
+      ],
+      "product": [
+       "iron-enterobactin ABC transporter permease"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00643"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[621184:622189](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0609",
+       "COG:P",
+       "EC:7.2.2.-",
+       "GO:0005886",
+       "GO:0015620",
+       "GO:0015685",
+       "GO:0016020",
+       "GO:0022857",
+       "GO:0033212",
+       "GO:0033214",
+       "GO:0055052",
+       "RefSeq:WP_000016947.1",
+       "SO:0001217",
+       "UniParc:UPI000012A64A",
+       "UniRef:UniRef100_P23876",
+       "UniRef:UniRef50_P23876",
+       "UniRef:UniRef90_P23876",
+       "VFDB:VFC0272",
+       "VFDB:VFG000926"
+      ],
+      "gene": [
+       "fepD"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000016947.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00644"
+      ],
+      "product": [
+       "ferrienterobactin ABC transporter permease"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00644"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[622299:623550](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0005886",
+       "GO:0042930",
+       "GO:0042931",
+       "KEGG:K08225",
+       "RefSeq:WP_001041786.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2E8",
+       "UniRef:UniRef100_P24077",
+       "UniRef:UniRef50_P24077",
+       "UniRef:UniRef90_P24077",
+       "VFDB:VFC0272",
+       "VFDB:VFG044165"
+      ],
+      "gene": [
+       "entS"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001041786.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00645"
+      ],
+      "product": [
+       "enterobactin exporter, iron-regulated"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00645"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[623553:624510](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG4592",
+       "COG:P",
+       "EC:7.2.2.-",
+       "GO:0006974",
+       "GO:0015685",
+       "GO:0016020",
+       "GO:0030288",
+       "GO:0033212",
+       "GO:0055052",
+       "RefSeq:WP_001234311.1",
+       "SO:0001217",
+       "UniParc:UPI000012A648",
+       "UniRef:UniRef100_P0AEL6",
+       "UniRef:UniRef50_P0AEL6",
+       "UniRef:UniRef90_P0AEL6",
+       "VFDB:VFC0272",
+       "VFDB:VFG000924"
+      ],
+      "gene": [
+       "fepB"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001234311.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00646"
+      ],
+      "product": [
+       "ferrienterobactin ABC transporter periplasmic binding protein"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00646"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[624884:626060](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1169",
+       "COG:HQ",
+       "EC:5.4.4.2",
+       "GO:0000287",
+       "GO:0008909",
+       "GO:0009239",
+       "RefSeq:WP_000381303.1",
+       "SO:0001217",
+       "UniParc:UPI0000129FCC",
+       "UniRef:UniRef100_P0AEJ2",
+       "UniRef:UniRef50_P0AEJ2",
+       "UniRef:UniRef90_P0AEJ2",
+       "VFDB:VFC0272",
+       "VFDB:VFG000931"
+      ],
+      "gene": [
+       "entC"
+      ],
+      "gene_functions": [
+       "biosynthetic (rule-based-clusters) NRP-metallophore: EntC"
+      ],
+      "gene_kind": [
+       "biosynthetic"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000381303.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00647"
+      ],
+      "product": [
+       "isochorismate synthase 1"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00647"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[626069:627680](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_000026784",
+       "BlastRules:WP_001222445",
+       "COG:COG1021",
+       "COG:Q",
+       "EC:2.5.1.-",
+       "EC:2.7.7.58",
+       "EC:6.2.1.71",
+       "EC:6.3.2.14",
+       "GO:0005524",
+       "GO:0005829",
+       "GO:0008668",
+       "GO:0009239",
+       "GO:0016020",
+       "GO:0016746",
+       "GO:0019290",
+       "GO:0047527",
+       "RefSeq:WP_000026812.1",
+       "SO:0001217",
+       "UniParc:UPI0000129FD2",
+       "UniRef:UniRef100_P10378",
+       "UniRef:UniRef50_P10378",
+       "UniRef:UniRef90_P10378"
+      ],
+      "gene": [
+       "entE"
+      ],
+      "gene_functions": [
+       "biosynthetic-additional (rule-based-clusters) AMP-binding"
+      ],
+      "gene_kind": [
+       "biosynthetic-additional"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000026812.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00648"
+      ],
+      "product": [
+       "(2,3-dihydroxybenzoyl)adenylate synthase EntE"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00648"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[627693:628551](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_001007138",
+       "BlastRules:WP_004210873",
+       "COG:COG3433",
+       "COG:IQ",
+       "EC:3.3.2.1",
+       "EC:6.3.2.14",
+       "GO:0000287",
+       "GO:0005737",
+       "GO:0008908",
+       "GO:0009239",
+       "GO:0047527",
+       "KEGG:K01252",
+       "RefSeq:WP_001007138.1",
+       "SO:0001217",
+       "UniParc:UPI0000129FCB",
+       "UniRef:UniRef100_P0ADI4",
+       "UniRef:UniRef50_P0ADI4",
+       "UniRef:UniRef90_P0ADI4"
+      ],
+      "gene": [
+       "entB"
+      ],
+      "gene_functions": [
+       "biosynthetic-additional (rule-based-clusters) PP-binding"
+      ],
+      "gene_kind": [
+       "biosynthetic-additional"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001007138.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00649"
+      ],
+      "product": [
+       "enterobactin biosynthesis bifunctional isochorismatase/aryl carrier protein EntB"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00649"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[628550:629297](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "EC:1.3.1.28",
+       "GO:0005829",
+       "GO:0008667",
+       "GO:0009239",
+       "GO:0019290",
+       "GO:0032991",
+       "GO:0042802",
+       "RefSeq:WP_000347651.1",
+       "SO:0001217",
+       "UniParc:UPI0000129FCA",
+       "UniRef:UniRef100_P15047",
+       "UniRef:UniRef50_P15047",
+       "UniRef:UniRef90_P15047",
+       "VFDB:VFC0272",
+       "VFDB:VFG000934"
+      ],
+      "gene": [
+       "entA"
+      ],
+      "gene_functions": [
+       "biosynthetic (rule-based-clusters) NRP-metallophore: EntA"
+      ],
+      "gene_kind": [
+       "biosynthetic"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000347651.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00650"
+      ],
+      "product": [
+       "2,3-dihydro-2,3-dihydroxybenzoate dehydrogenase EntA"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00650"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[629299:629713](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG2050",
+       "COG:Q",
+       "EC:3.1.2.-",
+       "GO:0005829",
+       "GO:0009239",
+       "GO:0061522",
+       "KEGG:K24147",
+       "RefSeq:WP_000637953.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2E9",
+       "UniRef:UniRef100_P0A8Y8",
+       "UniRef:UniRef50_P0A8Y8",
+       "UniRef:UniRef90_P0A8Y8"
+      ],
+      "gene": [
+       "entH"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000637953.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00651"
+      ],
+      "product": [
+       "proofreading thioesterase EntH"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00651"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[629893:631999](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:CE",
+       "COG:COG1966",
+       "GO:0005477",
+       "GO:0005886",
+       "GO:0006849",
+       "GO:0009267",
+       "GO:0015031",
+       "GO:0015833",
+       "GO:0031669",
+       "RefSeq:WP_001043156.1",
+       "SO:0001217",
+       "UniParc:UPI00001285BD",
+       "UniRef:UniRef100_P15078",
+       "UniRef:UniRef50_P39396",
+       "UniRef:UniRef90_P15078"
+      ],
+      "gene": [
+       "cstA"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001043156.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00652"
+      ],
+      "product": [
+       "pyruvate/proton symporter CstA"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00652"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[632181:632379](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG2879",
+       "COG:S",
+       "RefSeq:WP_000460431.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2EA",
+       "UniRef:UniRef100_P0AAS9",
+       "UniRef:UniRef50_P0AAS9",
+       "UniRef:UniRef90_P0AAS9"
+      ],
+      "gene": [
+       "ybdD"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000460431.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00653"
+      ],
+      "product": [
+       "Uncharacterized protein YbdD"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00653"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[632388:633477](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_001120441",
+       "COG:C",
+       "COG:COG0371",
+       "EC:1.1.1.-",
+       "GO:0016491",
+       "GO:0016616",
+       "GO:0042802",
+       "GO:0046872",
+       "GO:0047545",
+       "RefSeq:WP_001120441.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2ED",
+       "UniRef:UniRef100_P45579",
+       "UniRef:UniRef50_P45579",
+       "UniRef:UniRef90_P45579"
+      ],
+      "gene": [
+       "hcxA"
+      ],
+      "gene_functions": [
+       "biosynthetic-additional (rule-based-clusters) Fe-ADH"
+      ],
+      "gene_kind": [
+       "biosynthetic-additional"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001120441.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00654"
+      ],
+      "product": [
+       "hydroxycarboxylate dehydrogenase HcxA"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00654"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[633585:634746](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_000183907",
+       "EC:2.6.1.88",
+       "GO:0005737",
+       "GO:0009058",
+       "GO:0010326",
+       "GO:0016212",
+       "GO:0030170",
+       "GO:0042803",
+       "RefSeq:WP_000183907.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2F3",
+       "UniRef:UniRef100_P77806",
+       "UniRef:UniRef50_P77806",
+       "UniRef:UniRef90_P77806"
+      ],
+      "gene": [
+       "ybdL"
+      ],
+      "gene_functions": [
+       "biosynthetic-additional (rule-based-clusters) Aminotran_1_2",
+       "biosynthetic-additional (rule-based-clusters) DegT_DnrJ_EryC1"
+      ],
+      "gene_kind": [
+       "biosynthetic-additional"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000183907.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00655"
+      ],
+      "product": [
+       "methionine-oxo-acid transaminase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00655"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[634746:635376](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0071453",
+       "RefSeq:WP_000502945.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2F4",
+       "UniRef:UniRef100_P77174",
+       "UniRef:UniRef50_P77174",
+       "UniRef:UniRef90_P77174"
+      ],
+      "gene": [
+       "ybdM"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000502945.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00656"
+      ],
+      "product": [
+       "Uncharacterized protein YbdM"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00656"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[635348:636569](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0003824",
+       "GO:0071453",
+       "RefSeq:WP_000029814.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2F5",
+       "UniRef:UniRef100_P77216",
+       "UniRef:UniRef50_P77216",
+       "UniRef:UniRef90_P77216"
+      ],
+      "gene": [
+       "ybdN"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000029814.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00657"
+      ],
+      "product": [
+       "Uncharacterized protein YbdN"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00657"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[636715:637618](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0003677",
+       "GO:0003700",
+       "GO:0006355",
+       "RefSeq:WP_000002474.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2F6",
+       "UniRef:UniRef100_P77746",
+       "UniRef:UniRef50_P77746",
+       "UniRef:UniRef90_P77746"
+      ],
+      "gene": [
+       "citR"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000002474.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00658"
+      ],
+      "product": [
+       "DNA-binding transcriptional repressor CitR"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00658"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[637826:638573](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "EC:1.8.4.-",
+       "GO:0003756",
+       "GO:0030288",
+       "GO:0042803",
+       "GO:0061077",
+       "KEGG:K03805",
+       "RefSeq:WP_000913829.1",
+       "SO:0001217",
+       "UniParc:UPI00001298ED",
+       "UniRef:UniRef100_P77202",
+       "UniRef:UniRef50_P77202",
+       "UniRef:UniRef90_P77202"
+      ],
+      "gene": [
+       "dsbG"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000913829.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00659"
+      ],
+      "product": [
+       "thiol:disulfide interchange protein DsbG"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00659"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[638944:639508](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0450",
+       "COG:V",
+       "EC:1.11.1.26",
+       "GO:0004601",
+       "GO:0005737",
+       "GO:0005829",
+       "GO:0006979",
+       "GO:0008379",
+       "GO:0009321",
+       "GO:0009970",
+       "GO:0016020",
+       "GO:0016684",
+       "GO:0019290",
+       "GO:0032843",
+       "GO:0033194",
+       "GO:0033195",
+       "GO:0042744",
+       "GO:0042802",
+       "GO:0045454",
+       "GO:0102039",
+       "KEGG:K24119",
+       "RefSeq:WP_000052796.1",
+       "SO:0001217",
+       "UniParc:UPI000016397D",
+       "UniRef:UniRef100_P0AE08",
+       "UniRef:UniRef50_P0AE08",
+       "UniRef:UniRef90_P0AE08"
+      ],
+      "gene": [
+       "ahpC"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000052796.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00660"
+      ],
+      "product": [
+       "alkyl hydroperoxide reductase subunit C"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00660"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[639722:641318](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "EC:1.8.1.-",
+       "GO:0000302",
+       "GO:0004791",
+       "GO:0005829",
+       "GO:0006979",
+       "GO:0008785",
+       "GO:0009321",
+       "GO:0042744",
+       "GO:0045454",
+       "GO:0050660",
+       "GO:0051287",
+       "GO:0071949",
+       "GO:0102039",
+       "RefSeq:WP_000979839.1",
+       "SO:0001217",
+       "UniParc:UPI00000D0561",
+       "UniRef:UniRef100_P35340",
+       "UniRef:UniRef50_P35340",
+       "UniRef:UniRef90_P35340"
+      ],
+      "gene": [
+       "ahpF"
+      ],
+      "gene_functions": [
+       "biosynthetic-additional (rule-based-clusters) Pyr_redox_2"
+      ],
+      "gene_kind": [
+       "biosynthetic-additional"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000979839.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00661"
+      ],
+      "product": [
+       "alkyl hydroperoxide reductase subunit F"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00661"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[641438:641867](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0589",
+       "COG:T",
+       "GO:0004017",
+       "GO:0004672",
+       "GO:0005737",
+       "GO:0006950",
+       "GO:0042803",
+       "GO:0070733",
+       "GO:1902021",
+       "RefSeq:WP_000278509.1",
+       "SO:0001217",
+       "UniParc:UPI0000137CA3",
+       "UniRef:UniRef100_P39177",
+       "UniRef:UniRef50_P39177",
+       "UniRef:UniRef90_P39177"
+      ],
+      "gene": [
+       "uspG"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000278509.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00662"
+      ],
+      "product": [
+       "universal stress protein UspG"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00662"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[642087:643326](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "EC:1.-.-.-",
+       "GO:0008270",
+       "GO:0016491",
+       "RefSeq:WP_000646173.1",
+       "SO:0001217",
+       "UniParc:UPI000013A2F7",
+       "UniRef:UniRef100_P77316",
+       "UniRef:UniRef50_P77316",
+       "UniRef:UniRef90_P77316"
+      ],
+      "gene": [
+       "ybdR"
+      ],
+      "gene_functions": [
+       "biosynthetic-additional (rule-based-clusters) ADH_N",
+       "biosynthetic-additional (rule-based-clusters) ADH_zinc_N"
+      ],
+      "gene_kind": [
+       "biosynthetic-additional"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000646173.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00663"
+      ],
+      "product": [
+       "Uncharacterized zinc-type alcohol dehydrogenase-like protein YbdR"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00663"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[643329:643419](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0005886",
+       "RefSeq:WP_000796528.1",
+       "SO:0001217",
+       "UniParc:UPI00016C8686",
+       "UniRef:UniRef100_P0DPN4",
+       "UniRef:UniRef50_P0DPN4",
+       "UniRef:UniRef90_P0DPN4"
+      ],
+      "gene": [
+       "yldA"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000796528.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00664"
+      ],
+      "product": [
+       "small membrane protein YldA"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00664"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[643556:643967](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0003677",
+       "GO:0006354",
+       "GO:0032784",
+       "GO:0070063",
+       "KEGG:K06140",
+       "RefSeq:WP_000089731.1",
+       "SO:0001217",
+       "UniParc:UPI000013440B",
+       "UniRef:UniRef100_P0AFW4",
+       "UniRef:UniRef50_P0AFW4",
+       "UniRef:UniRef90_P0AFW4"
+      ],
+      "gene": [
+       "rnk"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000089731.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00665"
+      ],
+      "product": [
+       "nucleoside diphosphate kinase regulator"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00665"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[644196:645003](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "EC:4.6.1.21",
+       "GO:0003723",
+       "GO:0005737",
+       "GO:0006401",
+       "GO:0008847",
+       "GO:0030288",
+       "GO:0033897",
+       "KEGG:K01169",
+       "RefSeq:WP_000643397.1",
+       "SO:0001217",
+       "UniParc:UPI00000017F6",
+       "UniRef:UniRef100_P21338",
+       "UniRef:UniRef50_P21338",
+       "UniRef:UniRef90_P21338"
+      ],
+      "gene": [
+       "rna"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000643397.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00666"
+      ],
+      "product": [
+       "ribonuclease I"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00666"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[645116:646580](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_000050323",
+       "GO:0005886",
+       "GO:0015297",
+       "RefSeq:WP_000050323.1",
+       "SO:0001217",
+       "UniParc:UPI0000127A4A",
+       "UniRef:UniRef100_P0AE74",
+       "UniRef:UniRef50_P0AE74",
+       "UniRef:UniRef90_P0AE74"
+      ],
+      "gene": [
+       "citT"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000050323.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00667"
+      ],
+      "product": [
+       "citrate/succinate antiporter CitT"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00667"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[646630:647509](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "EC:2.4.2.52",
+       "GO:0005524",
+       "GO:0046917",
+       "GO:0051191",
+       "RefSeq:WP_000062457.1",
+       "SO:0001217",
+       "UniParc:UPI0000127A40",
+       "UniRef:UniRef100_P77231",
+       "UniRef:UniRef50_P77231",
+       "UniRef:UniRef90_P77231"
+      ],
+      "gene": [
+       "citG"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000062457.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00668"
+      ],
+      "product": [
+       "triphosphoribosyl-dephospho-CoA synthase CitG"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00668"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[647483:648035](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "EC:2.7.7.61",
+       "GO:0050519",
+       "GO:0051191",
+       "RefSeq:WP_000550422.1",
+       "SO:0001217",
+       "UniParc:UPI0000127A4B",
+       "UniRef:UniRef100_P0A6G5",
+       "UniRef:UniRef50_P0A6G5",
+       "UniRef:UniRef90_P0A6G5"
+      ],
+      "gene": [
+       "citX"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000550422.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00669"
+      ],
+      "product": [
+       "Apo-citrate lyase phosphoribosyl-dephospho-CoA transferase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00669"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[648038:649571](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "EC:2.8.3.10",
+       "EC:4.1.3.6",
+       "GO:0005737",
+       "GO:0006084",
+       "GO:0006101",
+       "GO:0006113",
+       "GO:0008814",
+       "GO:0008815",
+       "GO:0009346",
+       "KEGG:K01643",
+       "RefSeq:WP_000192242.1",
+       "SO:0001217",
+       "UniParc:UPI00001279B5",
+       "UniRef:UniRef100_P75726",
+       "UniRef:UniRef50_P75726",
+       "UniRef:UniRef90_P75726"
+      ],
+      "gene": [
+       "citF"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000192242.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00670"
+      ],
+      "product": [
+       "citrate lyase subunit alpha"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00670"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[649581:650490](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "EC:4.1.3.34",
+       "EC:4.1.3.6",
+       "GO:0000287",
+       "GO:0005737",
+       "GO:0006084",
+       "GO:0006101",
+       "GO:0006107",
+       "GO:0006113",
+       "GO:0008815",
+       "GO:0008816",
+       "GO:0009346",
+       "RefSeq:WP_000622357.1",
+       "SO:0001217",
+       "UniParc:UPI00001279B9",
+       "UniRef:UniRef100_P0A9I1",
+       "UniRef:UniRef50_P0A9I1",
+       "UniRef:UniRef90_P0A9I1"
+      ],
+      "gene": [
+       "citE"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000622357.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00671"
+      ],
+      "product": [
+       "citrate (pro-3S)-lyase subunit beta"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00671"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[937993:939337](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_000067755",
+       "COG:COG2256",
+       "COG:L",
+       "GO:0000731",
+       "GO:0003677",
+       "GO:0005524",
+       "GO:0006261",
+       "GO:0006310",
+       "GO:0008047",
+       "GO:0008094",
+       "GO:0016887",
+       "GO:0017116",
+       "GO:0030894",
+       "GO:0042802",
+       "GO:0051289",
+       "KEGG:K07478",
+       "RefSeq:WP_000067755.1",
+       "SO:0001217",
+       "UniParc:UPI000013A58B",
+       "UniRef:UniRef100_P0AAZ4",
+       "UniRef:UniRef50_P0AAZ4",
+       "UniRef:UniRef90_P0AAZ4"
+      ],
+      "gene": [
+       "rarA"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000067755.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00962"
+      ],
+      "product": [
+       "replication-associated recombination protein RarA"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00962"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[939427:940720](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0172",
+       "COG:J",
+       "EC:6.1.1.11",
+       "GO:0000166",
+       "GO:0004828",
+       "GO:0005524",
+       "GO:0005737",
+       "GO:0006434",
+       "GO:0016260",
+       "KEGG:K01875",
+       "RefSeq:WP_000886683.1",
+       "SO:0001217",
+       "UniParc:UPI000013667C",
+       "UniRef:UniRef100_P0A8L1",
+       "UniRef:UniRef50_P0A8L1",
+       "UniRef:UniRef90_P0A8L1"
+      ],
+      "gene": [
+       "serS"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000886683.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00963"
+      ],
+      "product": [
+       "serine--tRNA ligase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00963"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[940339:966632](+)",
+     "type": "region",
+     "qualifiers": {
+      "candidate_cluster_numbers": [
+       "3"
+      ],
+      "contig_edge": [
+       "False"
+      ],
+      "product": [
+       "azole-containing-RiPP"
+      ],
+      "region_number": [
+       "3"
+      ],
+      "rules": [
+       "((YcaO or TIGR03604) and (((thio_amide and (PF06968 or PF04055 or PF07366)) or Lant_dehydr_C or Lant_dehydr_N or (PF06968 or PF04055 or PF07366)) or (goadsporin_like or PF00881 or TIGR03605)) or TIGR03882 or TIGR03603 or thiostrepton or TIGR03602)"
+      ],
+      "subregion_numbers": [],
+      "tool": [
+       "antismash"
+      ]
+     }
+    },
+    {
+     "location": "[940339:966632](+)",
+     "type": "cand_cluster",
+     "qualifiers": {
+      "candidate_cluster_number": [
+       "3"
+      ],
+      "contig_edge": [
+       "False"
+      ],
+      "detection_rules": [
+       "((YcaO or TIGR03604) and (((thio_amide and (PF06968 or PF04055 or PF07366)) or Lant_dehydr_C or Lant_dehydr_N or (PF06968 or PF04055 or PF07366)) or (goadsporin_like or PF00881 or TIGR03605)) or TIGR03882 or TIGR03603 or thiostrepton or TIGR03602)"
+      ],
+      "kind": [
+       "single"
+      ],
+      "product": [
+       "azole-containing-RiPP"
+      ],
+      "protoclusters": [
+       "4"
+      ],
+      "tool": [
+       "antismash"
+      ]
+     }
+    },
+    {
+     "location": "[940339:966632](+)",
+     "type": "protocluster",
+     "qualifiers": {
+      "aStool": [
+       "rule-based-clusters"
+      ],
+      "category": [
+       "RiPP"
+      ],
+      "contig_edge": [
+       "False"
+      ],
+      "core_location": [
+       "[950339:956632](-)"
+      ],
+      "cutoff": [
+       "10000"
+      ],
+      "detection_rule": [
+       "((YcaO or TIGR03604) and (((thio_amide and (PF06968 or PF04055 or PF07366)) or Lant_dehydr_C or Lant_dehydr_N or (PF06968 or PF04055 or PF07366)) or (goadsporin_like or PF00881 or TIGR03605)) or TIGR03882 or TIGR03603 or thiostrepton or TIGR03602)"
+      ],
+      "neighbourhood": [
+       "10000"
+      ],
+      "product": [
+       "azole-containing-RiPP"
+      ],
+      "protocluster_number": [
+       "4"
+      ],
+      "tool": [
+       "antismash"
+      ]
+     }
+    },
+    {
+     "location": "[940958:943403](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:C",
+       "COG:COG0243",
+       "EC:1.8.5.3",
+       "GO:0005886",
+       "GO:0009055",
+       "GO:0009061",
+       "GO:0009389",
+       "GO:0009390",
+       "GO:0018907",
+       "GO:0019645",
+       "GO:0030151",
+       "GO:0030288",
+       "GO:0043546",
+       "GO:0051539",
+       "RefSeq:WP_000850303.1",
+       "SO:0001217",
+       "UniParc:UPI0000129501",
+       "UniRef:UniRef100_P18775",
+       "UniRef:UniRef50_P18775",
+       "UniRef:UniRef90_P18775"
+      ],
+      "gene": [
+       "dmsA"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000850303.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00965"
+      ],
+      "product": [
+       "dimethylsulfoxide reductase subunit A"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00965"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[943413:944031](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:C",
+       "COG:COG0437",
+       "EC:1.8.5.3",
+       "GO:0009061",
+       "GO:0046872",
+       "GO:0051539",
+       "GO:1990204",
+       "RefSeq:WP_000213098.1",
+       "SO:0001217",
+       "UniParc:UPI000016805B",
+       "UniRef:UniRef100_P18776",
+       "UniRef:UniRef50_P18776",
+       "UniRef:UniRef90_P18776"
+      ],
+      "gene": [
+       "ynfG"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000213098.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00966"
+      ],
+      "product": [
+       "DMSO/selenate family reductase complex B subunit"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00966"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[944032:944896](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_000534637",
+       "EC:1.8.5.3",
+       "GO:0005886",
+       "GO:0009061",
+       "GO:0009389",
+       "GO:0009390",
+       "GO:0018907",
+       "GO:0019645",
+       "RefSeq:WP_000534637.1",
+       "SO:0001217",
+       "UniParc:UPI0000129507",
+       "UniRef:UniRef100_P18777",
+       "UniRef:UniRef50_P18777",
+       "UniRef:UniRef90_P18777"
+      ],
+      "gene": [
+       "dmsC"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000534637.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00967"
+      ],
+      "product": [
+       "dimethyl sulfoxide reductase anchor subunit DmsC"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00967"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[944930:945557](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1335",
+       "COG:HR",
+       "EC:4.-.-.-",
+       "GO:0005829",
+       "GO:0016020",
+       "GO:0016787",
+       "GO:0016829",
+       "GO:0042802",
+       "RefSeq:WP_000165879.1",
+       "SO:0001217",
+       "UniParc:UPI000013A587",
+       "UniRef:UniRef100_P21367",
+       "UniRef:UniRef50_P21367",
+       "UniRef:UniRef90_P21367"
+      ],
+      "gene": [
+       "ycaC"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000165879.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00968"
+      ],
+      "product": [
+       "isochorismate family cysteine hydrolase YcaC"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00968"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[945870:947019](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG2814",
+       "COG:G",
+       "GO:0005886",
+       "GO:0022857",
+       "KEGG:K08219",
+       "RefSeq:WP_000109259.1",
+       "SO:0001217",
+       "UniParc:UPI000013A588",
+       "UniRef:UniRef100_P21503",
+       "UniRef:UniRef50_P21503",
+       "UniRef:UniRef90_P21503"
+      ],
+      "gene": [
+       "ycaD"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000109259.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00969"
+      ],
+      "product": [
+       "MFS transporter"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00969"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[947228:948659](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0531",
+       "COG:E",
+       "GO:0005886",
+       "GO:0022857",
+       "RefSeq:WP_000918506.1",
+       "SO:0001217",
+       "UniParc:UPI000013A590",
+       "UniRef:UniRef100_P75835",
+       "UniRef:UniRef50_A2RL65",
+       "UniRef:UniRef90_P75835"
+      ],
+      "gene": [
+       "ycaM"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000918506.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00970"
+      ],
+      "product": [
+       "Inner membrane transporter YcaM"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00970"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[948659:949568](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "GO:0003700",
+       "GO:0006351",
+       "GO:0043565",
+       "RefSeq:WP_001242684.1",
+       "SO:0001217",
+       "UniParc:UPI000013A591",
+       "UniRef:UniRef100_P75836",
+       "UniRef:UniRef50_P75836",
+       "UniRef:UniRef90_P75836"
+      ],
+      "gene": [
+       "ycaN"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001242684.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00971"
+      ],
+      "product": [
+       "Uncharacterized HTH-type transcriptional regulator YcaN"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00971"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[949667:950258](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "EC:1.6.99.-",
+       "GO:0003955",
+       "GO:0005829",
+       "GO:0010181",
+       "RefSeq:WP_001190363.1",
+       "SO:0001217",
+       "UniParc:UPI000013A58E",
+       "UniRef:UniRef100_P43340",
+       "UniRef:UniRef50_P43340",
+       "UniRef:UniRef90_P43340"
+      ],
+      "gene": [
+       "ycaK"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001190363.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00972"
+      ],
+      "product": [
+       "NAD(P)H oxidoreductase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00972"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[950339:951080](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1180",
+       "COG:O",
+       "EC:1.97.1.4",
+       "GO:0005737",
+       "GO:0006006",
+       "GO:0043365",
+       "GO:0046872",
+       "GO:0051539",
+       "RefSeq:WP_000111043.1",
+       "SO:0001217",
+       "UniParc:UPI00001653E2",
+       "UniRef:UniRef100_P0A9N4",
+       "UniRef:UniRef50_P0A9N4",
+       "UniRef:UniRef90_P0A9N4"
+      ],
+      "gene": [
+       "pflA"
+      ],
+      "gene_functions": [
+       "biosynthetic (rule-based-clusters) azole-containing-RiPP: PF04055",
+       "biosynthetic-additional (rule-based-clusters) Fer4_12",
+       "biosynthetic-additional (rule-based-clusters) QueE"
+      ],
+      "gene_kind": [
+       "biosynthetic"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000111043.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00973"
+      ],
+      "product": [
+       "pyruvate formate lyase 1-activating protein"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00973"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[950339:956632](-)",
+     "type": "proto_core",
+     "qualifiers": {
+      "aStool": [
+       "rule-based-clusters"
+      ],
+      "tool": [
+       "antismash"
+      ],
+      "cutoff": [
+       "10000"
+      ],
+      "detection_rule": [
+       "((YcaO or TIGR03604) and (((thio_amide and (PF06968 or PF04055 or PF07366)) or Lant_dehydr_C or Lant_dehydr_N or (PF06968 or PF04055 or PF07366)) or (goadsporin_like or PF00881 or TIGR03605)) or TIGR03882 or TIGR03603 or thiostrepton or TIGR03602)"
+      ],
+      "neighbourhood": [
+       "10000"
+      ],
+      "product": [
+       "azole-containing-RiPP"
+      ],
+      "protocluster_number": [
+       "4"
+      ]
+     }
+    },
+    {
+     "location": "[951271:953554](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:C",
+       "COG:COG1882",
+       "EC:2.3.1.54",
+       "GO:0005737",
+       "GO:0005829",
+       "GO:0005975",
+       "GO:0006006",
+       "GO:0008861",
+       "GO:0016020",
+       "GO:0044814",
+       "KEGG:K00656",
+       "RefSeq:WP_001292822.1",
+       "SO:0001217",
+       "UniParc:UPI00000480DD",
+       "UniRef:UniRef100_P09373",
+       "UniRef:UniRef50_P09373",
+       "UniRef:UniRef90_P09373"
+      ],
+      "gene": [
+       "pflB"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001292822.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00974"
+      ],
+      "product": [
+       "formate C-acetyltransferase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00974"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[953608:954466](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG2116",
+       "COG:P",
+       "GO:0005886",
+       "GO:0010447",
+       "GO:0015499",
+       "GO:0015724",
+       "GO:0019664",
+       "GO:0042802",
+       "KEGG:K06212",
+       "RefSeq:WP_000642546.1",
+       "SO:0001217",
+       "UniParc:UPI000012AB35",
+       "UniRef:UniRef100_P0AC23",
+       "UniRef:UniRef50_P0AC23",
+       "UniRef:UniRef90_P0AC23"
+      ],
+      "gene": [
+       "focA"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000642546.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00975"
+      ],
+      "product": [
+       "formate transporter FocA"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00975"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[954871:956632](-)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1944",
+       "COG:J",
+       "GO:0000287",
+       "GO:0005829",
+       "GO:0047693",
+       "KEGG:K09136",
+       "RefSeq:WP_001295344.1",
+       "SO:0001217",
+       "UniParc:UPI000013A592",
+       "UniRef:UniRef100_P75838",
+       "UniRef:UniRef50_P75838",
+       "UniRef:UniRef90_P75838"
+      ],
+      "gene": [
+       "ycaO"
+      ],
+      "gene_functions": [
+       "biosynthetic (rule-based-clusters) azole-containing-RiPP: YcaO"
+      ],
+      "gene_kind": [
+       "biosynthetic"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001295344.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00976"
+      ],
+      "product": [
+       "30S ribosomal protein S12 methylthiotransferase accessory factor YcaO"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00976"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[956761:957454](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG2323",
+       "COG:S",
+       "GO:0005886",
+       "RefSeq:WP_000642849.1",
+       "SO:0001217",
+       "UniParc:UPI000013A594",
+       "UniRef:UniRef100_P75839",
+       "UniRef:UniRef50_P75839",
+       "UniRef:UniRef90_P75839"
+      ],
+      "gene": [
+       "ycaP"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000642849.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00977"
+      ],
+      "product": [
+       "UPF0702 transmembrane protein YcaP"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00977"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[957652:958741](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1932",
+       "COG:HE",
+       "EC:2.6.1.52",
+       "GO:0003824",
+       "GO:0004648",
+       "GO:0005737",
+       "GO:0006564",
+       "GO:0008615",
+       "GO:0030170",
+       "KEGG:K00831",
+       "RefSeq:WP_000057138.1",
+       "SO:0001217",
+       "UniParc:UPI000016805E",
+       "UniRef:UniRef100_P23721",
+       "UniRef:UniRef50_P23721",
+       "UniRef:UniRef90_P23721"
+      ],
+      "gene": [
+       "serC"
+      ],
+      "gene_functions": [
+       "biosynthetic-additional (rule-based-clusters) Aminotran_5"
+      ],
+      "gene_kind": [
+       "biosynthetic-additional"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000057138.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00978"
+      ],
+      "product": [
+       "3-phosphoserine/phosphohydroxythreonine transaminase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00978"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[958811:960095](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0128",
+       "COG:E",
+       "EC:2.5.1.19",
+       "GO:0003866",
+       "GO:0005737",
+       "GO:0008652",
+       "GO:0009073",
+       "GO:0009423",
+       "RefSeq:WP_000445231.1",
+       "SO:0001217",
+       "UniParc:UPI0000113012",
+       "UniRef:UniRef100_P0A6D3",
+       "UniRef:UniRef50_P0A6D3",
+       "UniRef:UniRef90_P0A6D3"
+      ],
+      "gene": [
+       "aroA"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000445231.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00979"
+      ],
+      "product": [
+       "3-phosphoshikimate 1-carboxyvinyltransferase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00979"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[960263:961028](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "BlastRules:WP_001350496",
+       "COG:COG0501",
+       "COG:O",
+       "EC:3.4.-.-",
+       "GO:0004222",
+       "GO:0005886",
+       "GO:0008237",
+       "GO:0016020",
+       "GO:0046872",
+       "GO:0051603",
+       "KEGG:K07387",
+       "RefSeq:WP_001350496.1",
+       "SO:0001217",
+       "UniParc:UPI000013A58F",
+       "UniRef:UniRef100_P43674",
+       "UniRef:UniRef50_P43674",
+       "UniRef:UniRef90_P43674"
+      ],
+      "gene": [
+       "ycaL"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_001350496.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00980"
+      ],
+      "product": [
+       "metallopeptidase YcaL"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00980"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[961200:961884](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0283",
+       "COG:F",
+       "EC:2.7.4.25",
+       "GO:0004127",
+       "GO:0005524",
+       "GO:0005829",
+       "GO:0006220",
+       "GO:0015949",
+       "GO:0036430",
+       "GO:0036431",
+       "RefSeq:WP_000125016.1",
+       "SO:0001217",
+       "UniParc:UPI0000110D23",
+       "UniRef:UniRef100_P0A6I0",
+       "UniRef:UniRef50_P0A6I0",
+       "UniRef:UniRef90_P0A6I0"
+      ],
+      "gene": [
+       "cmk"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000125016.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00981"
+      ],
+      "product": [
+       "(d)CMP kinase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00981"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[961994:963668](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG0539",
+       "COG:J",
+       "GO:0003723",
+       "GO:0003729",
+       "GO:0003735",
+       "GO:0005840",
+       "GO:0006412",
+       "GO:0022627",
+       "RefSeq:WP_000140327.1",
+       "SO:0001217",
+       "UniParc:UPI0000134E23",
+       "UniRef:UniRef100_P0AG67",
+       "UniRef:UniRef50_P0AG67",
+       "UniRef:UniRef90_P0AG67"
+      ],
+      "gene": [
+       "rpsA"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000140327.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00982"
+      ],
+      "product": [
+       "30S ribosomal protein S1"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00982"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[963827:964112](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:B",
+       "COG:COG0776",
+       "GO:0003677",
+       "GO:0005694",
+       "GO:0005829",
+       "GO:0006310",
+       "GO:0006355",
+       "GO:0006417",
+       "GO:0030527",
+       "GO:0075713",
+       "RefSeq:WP_000167336.1",
+       "SO:0001217",
+       "UniParc:UPI0000111D90",
+       "UniRef:UniRef100_P0A6Y1",
+       "UniRef:UniRef50_P0A6Y1",
+       "UniRef:UniRef90_P0A6Y1"
+      ],
+      "gene": [
+       "ihfB"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000167336.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00983"
+      ],
+      "product": [
+       "integration host factor subunit beta"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00983"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[964319:966584](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG2333",
+       "COG:U",
+       "GO:0005886",
+       "GO:0016020",
+       "GO:0030420",
+       "KEGG:K02238",
+       "RefSeq:WP_000705764.1",
+       "SO:0001217",
+       "UniParc:UPI000013A589",
+       "UniRef:UniRef100_P37443",
+       "UniRef:UniRef50_P37443",
+       "UniRef:UniRef90_P37443"
+      ],
+      "gene": [
+       "ycaI"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000705764.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00984"
+      ],
+      "product": [
+       "ComEC family protein"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00984"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[966620:968369](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1132",
+       "COG:V",
+       "EC:7.5.2.5",
+       "EC:7.5.2.6",
+       "GO:0005524",
+       "GO:0005886",
+       "GO:0015421",
+       "GO:0016020",
+       "GO:0016887",
+       "GO:0034040",
+       "GO:0055085",
+       "GO:0140359",
+       "RefSeq:WP_000551270.1",
+       "SO:0001217",
+       "UniParc:UPI000011202A",
+       "UniRef:UniRef100_P60752",
+       "UniRef:UniRef50_P60752",
+       "UniRef:UniRef90_P60752"
+      ],
+      "gene": [
+       "msbA"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000551270.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00985"
+      ],
+      "product": [
+       "lipid A ABC transporter ATP-binding protein/permease MsbA"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00985"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    },
+    {
+     "location": "[968365:969352](+)",
+     "type": "CDS",
+     "qualifiers": {
+      "codon_start": [
+       "1"
+      ],
+      "db_xref": [
+       "COG:COG1663",
+       "COG:M",
+       "EC:2.7.1.130",
+       "GO:0005524",
+       "GO:0005886",
+       "GO:0009029",
+       "GO:0009244",
+       "GO:0009245",
+       "KEGG:K00912",
+       "RefSeq:WP_000570539.1",
+       "SO:0001217",
+       "UniParc:UPI000012E921",
+       "UniRef:UniRef100_P27300",
+       "UniRef:UniRef50_P27300",
+       "UniRef:UniRef90_P27300"
+      ],
+      "gene": [
+       "lpxK"
+      ],
+      "inference": [
+       "ab initio prediction:Prodigal:2.6",
+       "similar to AA sequence:RefSeq:WP_000570539.1"
+      ],
+      "locus_tag": [
+       "KOIAIB_00986"
+      ],
+      "product": [
+       "tetraacyldisaccharide 4'-kinase"
+      ],
+      "protein_id": [
+       "gnl_Bakta_KOIAIB_00986"
+      ],
+      "transl_table": [
+       "11"
+      ]
+     }
+    }
+   ],
+   "areas": [
+    {
+     "start": 430201,
+     "end": 451101,
+     "products": [
+      "terpene-precursor"
+     ],
+     "protoclusters": {
+      "0": {
+       "category": "terpene",
+       "start": 430201,
+       "end": 451101,
+       "core_start": 440201,
+       "core_end": 441101,
+       "product": "terpene-precursor",
+       "tool": "rule-based-clusters"
+      }
+     },
+     "candidates": [
+      {
+       "start": 430201,
+       "end": 451101,
+       "kind": "single",
+       "protoclusters": [
+        0
+       ]
+      }
+     ],
+     "subregions": []
+    },
+    {
+     "start": 594156,
+     "end": 649297,
+     "products": [
+      "NRP-metallophore",
+      "NRPS"
+     ],
+     "protoclusters": {
+      "0": {
+       "category": "NRPS",
+       "start": 594156,
+       "end": 649297,
+       "core_start": 614156,
+       "core_end": 629297,
+       "product": "NRP-metallophore",
+       "tool": "rule-based-clusters"
+      },
+      "1": {
+       "category": "NRPS",
+       "start": 594156,
+       "end": 638038,
+       "core_start": 614156,
+       "core_end": 618038,
+       "product": "NRPS",
+       "tool": "rule-based-clusters"
+      }
+     },
+     "candidates": [
+      {
+       "start": 594156,
+       "end": 649297,
+       "kind": "chemical_hybrid",
+       "protoclusters": [
+        0,
+        1
+       ]
+      }
+     ],
+     "subregions": []
+    },
+    {
+     "start": 940339,
+     "end": 966632,
+     "products": [
+      "azole-containing-RiPP"
+     ],
+     "protoclusters": {
+      "0": {
+       "category": "RiPP",
+       "start": 940339,
+       "end": 966632,
+       "core_start": 950339,
+       "core_end": 956632,
+       "product": "azole-containing-RiPP",
+       "tool": "rule-based-clusters"
+      }
+     },
+     "candidates": [
+      {
+       "start": 940339,
+       "end": 966632,
+       "kind": "single",
+       "protoclusters": [
+        0
+       ]
+      }
+     ],
+     "subregions": []
+    }
+   ]
+  }
+ ],
+ "schema": 4
+}

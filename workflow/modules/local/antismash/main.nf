@@ -7,6 +7,7 @@ process ANTISMASH {
 
     input:
     tuple val(meta_id), path(gbff)
+    val(db_dir)
 
     output:
     path 'antismash', emit: dir
@@ -14,7 +15,7 @@ process ANTISMASH {
 
     script:
     """
-    antismash --genefinding-tool none --minimal --cpus ${task.cpus} --output-dir antismash ${gbff}
+    antismash --genefinding-tool none --minimal --databases ${db_dir}/antismash --cpus ${task.cpus} --output-dir antismash ${gbff}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
