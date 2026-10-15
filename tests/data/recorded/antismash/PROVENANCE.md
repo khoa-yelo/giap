@@ -5,8 +5,11 @@
 - Recorded on FarmShare (barley-01, 17 CPUs), 2026-10-15, into
   `$GIAP_ROOT/recordings/antismash/{sim100k,k12_mg1655,nissle1917}/`.
 - Command (`command.txt`): `antismash --genefinding-tool none --minimal --cpus 17 --databases
-  <db>/antismash --output-dir antismash bakta.gbff` (the recorder passes `--databases`; the spec
-  command and `workflow/modules/local/antismash/main.nf` do not).
+  <db>/antismash --output-dir antismash bakta.gbff`. The pipeline matches it:
+  `workflow/modules/local/antismash/main.nf` runs `antismash --genefinding-tool none --minimal
+  --databases ${db_dir}/antismash --cpus ${task.cpus} --output-dir antismash ${gbff}` and
+  `giap.annotate.antismash_cmd.antismash_command` requires `databases` (M2-18 lead decisions 2
+  and 4); only the flag order differs from the recorder's (`--cpus` before `--databases`).
 - Input `bakta.gbff`: the recorded Bakta 1.12.2 full-DB GBFF
   (`$GIAP_ROOT/recordings/bakta_full/<sample>/bakta/<sample>.gbff`; sha256 below). Locus tags are Bakta's (`KOIAIB_…`, `JMJJOG_…`).
 - Output JSON is named after the input: `antismash/bakta.json`.

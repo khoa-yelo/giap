@@ -85,17 +85,20 @@ def _write(tmp: Path, records: list[dict[str, Any]]) -> Path:
 
 
 # ---------------------------------------------------------------- example 6: command
+# (amended by M2-18 lead decision 4: ``databases`` is required)
 
 
 def test_example_6_command() -> None:
     from giap.annotate.antismash_cmd import antismash_command
 
-    got = antismash_command(Path("bakta.gbff"), Path("out"), 8)
+    got = antismash_command(Path("bakta.gbff"), Path("out"), 8, Path("/db/antismash"))
     assert got == [
         "antismash",
         "--genefinding-tool",
         "none",
         "--minimal",
+        "--databases",
+        "/db/antismash",
         "--cpus",
         "8",
         "--output-dir",
@@ -109,7 +112,7 @@ def test_example_6_command() -> None:
 def test_command_threads(threads: int) -> None:
     from giap.annotate.antismash_cmd import antismash_command
 
-    got = antismash_command(Path("x/in.gbff"), Path("o"), threads)
+    got = antismash_command(Path("x/in.gbff"), Path("o"), threads, Path("d/antismash"))
     assert got[got.index("--cpus") + 1] == str(threads)
     assert got[-1] == "x/in.gbff"
 

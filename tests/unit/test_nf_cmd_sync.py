@@ -130,7 +130,11 @@ def _genomad_variants() -> list[list[str]]:
 def _antismash_variants() -> list[list[str]]:
     from giap.annotate import antismash_cmd  # M2-18
 
-    return [antismash_cmd.antismash_command(Path("bakta.gbff"), Path("antismash"), 8)]
+    return [
+        antismash_cmd.antismash_command(
+            Path("bakta.gbff"), Path("antismash"), 8, Path("db_dir/antismash")
+        )
+    ]
 
 
 BUILDERS: dict[str, Callable[[], list[list[str]]]] = {
@@ -185,7 +189,8 @@ ESSENTIALS: dict[str, tuple[str, list[str]]] = {
     "transtermhp": (r"\btransterm\b", ["-p"]),
     "ostir": (r"\bostir\b", ["-i", "-o", "-j"]),
     "genomad": (r"\bgenomad\s+end-to-end\b", ["--cleanup", "--splits", "--threads"]),
-    "antismash": (r"\bantismash\b", ["--genefinding-tool", "--minimal", "--cpus", "--output-dir"]),
+    "antismash": (r"\bantismash\b", ["--genefinding-tool", "--minimal", "--databases", "--cpus",
+                                 "--output-dir"]),
 }  # fmt: skip
 
 LITERALS: dict[str, list[str]] = {
@@ -196,7 +201,7 @@ LITERALS: dict[str, list[str]] = {
     "transtermhp": ["genes.coords", "genome.fa"],
     "ostir": ["ostir_input.csv", "ostir.csv"],
     "genomad": ["--splits 8", "genomad_db"],
-    "antismash": ["--genefinding-tool none"],
+    "antismash": ["--genefinding-tool none", "/antismash"],  # M2-18 lead decision 4
     "bakta": ["--keep-contig-headers"],
 }
 
