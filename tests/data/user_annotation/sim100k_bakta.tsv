@@ -1,0 +1,120 @@
+# Annotated with Bakta
+# Software: v1.12.2
+# Database: v6.0, full
+# DOI: 10.1099/mgen.0.000685
+# URL: github.com/oschwengers/bakta
+#Sequence Id	Type	Start	Stop	Strand	Locus Tag	Gene	Product	DbXrefs
+chr1	cds	288	2231	+	KABHIH_0001		hypothetical protein	
+chr1	cds	2598	3749	+	KABHIH_0002		hypothetical protein	
+chr1	cds	3935	4615	-	KABHIH_0003		hypothetical protein	
+chr1	cds	4628	5329	-	KABHIH_0004		hypothetical protein	
+chr1	cds	5655	6434	-	KABHIH_0005		hypothetical protein	
+chr1	cds	6789	7628	-	KABHIH_0006		hypothetical protein	
+chr1	cds	7628	8185	-	KABHIH_0007		hypothetical protein	
+chr1	cds	8185	9015	-	KABHIH_0008		hypothetical protein	
+chr1	cds	9045	10220	-	KABHIH_0009		hypothetical protein	
+chr1	cds	10531	12420	-	KABHIH_0010		hypothetical protein	
+chr1	tRNA	12994	13069	-	KABHIH_0011	trnF	tRNA-Phe(gaa)	SO:0000267
+chr1	cds	13194	13823	-	KABHIH_0012		hypothetical protein	
+chr1	cds	13902	14465	-	KABHIH_0013		hypothetical protein	
+chr1	cds	14579	16750	-	KABHIH_0014		hypothetical protein	
+chr1	cds	17195	17794	-	KABHIH_0015		hypothetical protein	
+chr1	cds	17997	18563	-	KABHIH_0016		hypothetical protein	
+chr1	cds	18977	19441	+	KABHIH_0017		hypothetical protein	
+chr1	cds	19453	20040	+	KABHIH_0018		hypothetical protein	
+chr1	cds	20458	21369	+	KABHIH_0019		hypothetical protein	
+chr1	cds	21406	22026	+	KABHIH_0020		hypothetical protein	
+chr1	cds	22242	23459	-	KABHIH_0021		hypothetical protein	
+chr1	cds	23798	25090	+	KABHIH_0022		hypothetical protein	
+chr1	cds	25534	26205	+	KABHIH_0023		hypothetical protein	
+chr1	cds	26384	28369	+	KABHIH_0024		hypothetical protein	
+chr1	cds	28516	29061	+	KABHIH_0025		hypothetical protein	
+chr1	cds	29160	29798	+	KABHIH_0026		hypothetical protein	
+chr1	cds	29918	30646	+	KABHIH_0027		hypothetical protein	
+chr1	cds	30837	31589	+	KABHIH_0028		hypothetical protein	
+chr1	cds	31784	33400	+	KABHIH_0029		hypothetical protein	
+chr1	cds	33523	34029	+	KABHIH_0030		hypothetical protein	
+chr1	cds	34170	34754	+	KABHIH_0031		hypothetical protein	
+chr1	tRNA	35555	35631	+	KABHIH_0032	trnM	tRNA-Met(cat)	SO:0000266
+chr1	tRNA	35725	35801	-	KABHIH_0033	trnR	tRNA-Arg(ccg)	SO:0001036
+chr1	tRNA	36305	36380	+	KABHIH_0034	trnA	tRNA-Ala(tgc)	SO:0000254
+chr1	cds	36837	37835	-	KABHIH_0035		hypothetical protein	
+chr1	cds	37944	39545	-	KABHIH_0036		hypothetical protein	
+chr1	cds	39726	40385	-	KABHIH_0037		hypothetical protein	
+chr1	cds	40494	41171	-	KABHIH_0038		hypothetical protein	
+chr1	cds	41362	42279	-	KABHIH_0039		hypothetical protein	
+chr1	cds	42332	42457	-	KABHIH_0040		hypothetical protein	
+chr1	cds	42479	43351	-	KABHIH_0041		hypothetical protein	
+chr1	cds	43535	44671	-	KABHIH_0042		hypothetical protein	
+chr1	cds	44867	45484	-	KABHIH_0043		hypothetical protein	
+chr1	cds	45636	46409	-	KABHIH_0044		hypothetical protein	
+chr1	cds	46566	47315	-	KABHIH_0045		hypothetical protein	
+chr1	cds	47495	48511	-	KABHIH_0046		hypothetical protein	
+chr1	tRNA	48832	48908	+	KABHIH_0047	trnI	tRNA-Ile(gat)	SO:0000263
+chr1	tRNA	49433	49508	-	KABHIH_0048	trnT	tRNA-Thr(tgt)	SO:0000270
+chr1	cds	49916	50707	-	KABHIH_0049		hypothetical protein	
+chr1	tRNA	50930	51005	-	KABHIH_0050	trnG	tRNA-Gly(gcc)	SO:0000260
+chr1	tRNA	51146	51222	+	KABHIH_0051	trnD	tRNA-Asp(gtc)	SO:0000256
+chr1	tRNA	51412	51487	-	KABHIH_0052	trnV	tRNA-Val(tac)	SO:0000273
+chr1	rRNA	51564	53105	+	KABHIH_0053	rrs	16S ribosomal RNA	GO:0003735, GO:0005840, KEGG:K01977, RFAM:RF00177, SO:0001000
+chr1	rRNA	53531	56434	+	KABHIH_0054	rrl	23S ribosomal RNA	GO:0003735, GO:0005840, KEGG:K01980, RFAM:RF02541, SO:0001001
+chr1	rRNA	56549	56664	+	KABHIH_0055	rrf	5S ribosomal RNA	GO:0003735, GO:0005840, KEGG:K01985, RFAM:RF00001, SO:0000652
+chr1	tRNA	56727	56813	+	KABHIH_0056	trnL	tRNA-Leu(cag)	SO:0000264
+chr1	cds	57047	58960	+	KABHIH_0057		hypothetical protein	
+chr1	cds	58979	59923	+	KABHIH_0058		hypothetical protein	
+chr1	cds	59955	62183	+	KABHIH_0059		hypothetical protein	
+chr1	crispr	62388	62809	?			CRISPR array with 7 repeats of length 29, consensus sequence ATAAGTGGGGTTGTACACCTAACGTTTCG and spacer length 34	SO:0001459
+chr1	crispr-repeat	62388	62416	?			CRISPR repeat	
+chr1	crispr-spacer	62417	62451	?			CRISPR spacer, sequence GCCGTGCCCGGTAATACGGCGTGTGTACCGTAATG	
+chr1	crispr-repeat	62452	62480	?			CRISPR repeat	
+chr1	crispr-spacer	62481	62514	?			CRISPR spacer, sequence ATTTTATATGCCCTTCGGCCATCCAAGAGGAAGG	
+chr1	crispr-repeat	62515	62543	?			CRISPR repeat	
+chr1	crispr-spacer	62544	62577	?			CRISPR spacer, sequence GGCAATGCTGAATGCCAGGCAGATGTTGGTCGGA	
+chr1	crispr-repeat	62578	62606	?			CRISPR repeat	
+chr1	crispr-spacer	62607	62640	?			CRISPR spacer, sequence CAGTACTTTCCTCACATCAGCTCATATGAGATGA	
+chr1	crispr-repeat	62641	62669	?			CRISPR repeat	
+chr1	crispr-spacer	62670	62705	?			CRISPR spacer, sequence CTCCGGAATCAACTTGGCCGAATGAGCTTAAGGTTT	
+chr1	crispr-repeat	62706	62734	?			CRISPR repeat	
+chr1	crispr-spacer	62735	62770	?			CRISPR spacer, sequence TATCCGCATTCTAAGAACGCGGGATCTTGAAACAAT	
+chr1	crispr-repeat	62771	62799	?			CRISPR repeat	
+chr1	crispr-spacer	62800	62809	?			CRISPR spacer, sequence TTCTCAATTA	
+chr1	cds	62951	63484	+	KABHIH_0060		hypothetical protein	
+chr1	cds	63686	64465	-	KABHIH_0061		hypothetical protein	
+chr1	cds	64792	65514	+	KABHIH_0062		hypothetical protein	
+chr1	cds	65928	66716	+	KABHIH_0063		hypothetical protein	
+chr1	cds	66748	67503	+	KABHIH_0064		hypothetical protein	
+chr1	cds	67529	68281	+	KABHIH_0065		hypothetical protein	
+chr1	cds	68668	69771	-	KABHIH_0066		hypothetical protein	
+chr1	cds	69950	71167	-	KABHIH_0067		hypothetical protein	
+chr1	cds	71177	71767	-	KABHIH_0068		hypothetical protein	
+chr1	cds	72019	72432	+	KABHIH_0069		hypothetical protein	
+chr1	cds	72611	73408	+	KABHIH_0070		hypothetical protein	
+chr1	cds	73431	74441	+	KABHIH_0071		hypothetical protein	
+chr1	cds	74425	75165	+	KABHIH_0072		hypothetical protein	
+chr1	cds	75483	75977	+	KABHIH_0073		hypothetical protein	
+chr1	cds	76206	76802	+	KABHIH_0074		hypothetical protein	
+chr1	cds	76780	77466	+	KABHIH_0075		hypothetical protein	
+chr1	cds	77466	78344	+	KABHIH_0076		hypothetical protein	
+chr1	cds	78357	78830	+	KABHIH_0077		hypothetical protein	
+chr1	cds	79109	80311	+	KABHIH_0078		hypothetical protein	
+chr1	cds	80519	81058	+	KABHIH_0079		hypothetical protein	
+chr1	cds	81305	82090	+	KABHIH_0080		hypothetical protein	
+chr1	cds	82106	83767	+	KABHIH_0081		hypothetical protein	
+chr1	cds	83990	85039	+	KABHIH_0082		hypothetical protein	
+chr1	cds	85036	85758	+	KABHIH_0083		hypothetical protein	
+chr1	cds	86104	86517	+	KABHIH_0084		hypothetical protein	
+chr1	cds	86714	87433	-	KABHIH_0085		hypothetical protein	
+chr1	cds	87430	87963	-	KABHIH_0086		hypothetical protein	
+chr1	cds	87960	88883	-	KABHIH_0087		hypothetical protein	
+chr1	cds	89184	89864	-	KABHIH_0088		hypothetical protein	
+chr1	cds	89861	90454	-	KABHIH_0089		hypothetical protein	
+chr1	cds	90459	91349	-	KABHIH_0090		hypothetical protein	
+chr1	cds	91612	92919	-	KABHIH_0091		hypothetical protein	
+chr1	cds	92945	94285	-	KABHIH_0092		hypothetical protein	
+chr1	cds	94501	95373	+	KABHIH_0093		hypothetical protein	
+chr1	cds	95370	96224	+	KABHIH_0094		hypothetical protein	
+chr1	cds	96224	97627	+	KABHIH_0095		hypothetical protein	
+chr1	cds	97823	98221	-	KABHIH_0096		hypothetical protein	
+chr1	cds	98606	99337	+	KABHIH_0097		hypothetical protein	
+plasmid_1	cds	193	1854	-	KABHIH_0098		hypothetical protein	
+plasmid_1	cds	1859	3070	-	KABHIH_0099		hypothetical protein	
