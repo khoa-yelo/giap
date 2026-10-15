@@ -29,6 +29,7 @@ from giapsim import blocks as v2blocks
 from giapsim import layers
 from giapsim.codons import SENSE_USAGE, STOPS, revcomp
 from giapsim.features import NOVEL_CLASSES, Block, Feat, coding, make_blocks, novel_orfs
+from giapsim.proteomics import ProteomicsConfig, simulate_proteomics
 from giapsim.signals import TuPlan, apply_plan, plan_tu, plant_gene_rbs
 from giapsim.strain import StrainConfig, derive_reference
 
@@ -105,6 +106,8 @@ class SimConfig:
     terminator_strength: float = 0.0  # per-TU probability of a planted terminator
     layer_false_positive_rate: float = 0.05  # expected false rows per true row of a layer
     write_precomputed: bool = False
+    # M3-19 simulated proteomics (peptides, database errors); None = off
+    proteomics: ProteomicsConfig | None = None
 
     @property
     def v2(self) -> bool:
@@ -147,6 +150,9 @@ class SimResult:
     config_yaml: Path | None = None
     precomputed: Mapping[str, Path] = field(default_factory=dict)
     truth: Mapping[str, Path] = field(default_factory=dict)
+    peptides: Path | None = None
+    proteins_faa: Path | None = None
+    abundance: Path | None = None
 
 
 @dataclass
@@ -519,6 +525,9 @@ def _signal_truth(st: _V2, chrom: str, feats: list[Feat], seqs: dict[str, str]) 
 
 def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     """Simulate a genome with ``config`` and ``seed``; write inputs and truth under ``outdir``."""
+    prot = config.proteomics
+    if prot is not None and prot.wrong_source == "other_strain" and config.strain is None:
+        raise ValueError("ProteomicsConfig(wrong_source='other_strain') needs SimConfig.strain")
     rng = np.random.default_rng(seed)
     frng = np.random.default_rng([seed, 1])  # M3-18 features; M0 defaults never draw from it
     srng = np.random.default_rng([seed, 2]) if config.v2 else None  # M2-05 signals and layers
@@ -596,6 +605,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         ],
     )
     ref_pseudo: dict[str, bool] = {}
+    lifted: list[Feat] | None = None
     res = SimResult(
         out, fasta, bakta, truth, len(genes), gff, feat_truth, novel_truth, gff3=gff,
         truth={"genes": truth, "features": feat_truth},
@@ -646,6 +656,16 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     )
     if srng is not None and config.write_precomputed:
         res = _write_v2(out, config, srng, st, chrom, feats, text, bakta, res)
+    if prot is not None:
+        topo_map = {cid: topo for cid, _, topo in contigs}
+        paths = simulate_proteomics(prot, seed, out, feats, novel, text, topo_map, lifted)
+        res = replace(
+            res,
+            peptides=paths["peptides"],
+            proteins_faa=paths["proteins"],
+            abundance=paths["abundance"],
+            truth={**res.truth, "peptides": paths["truth"]},
+        )
     return res
 
 
