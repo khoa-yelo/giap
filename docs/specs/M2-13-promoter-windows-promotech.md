@@ -98,3 +98,12 @@ Window geometry (S = first base of the start codon, 0-based; E = gene interval e
    and "3′ end at S + k" means the window's last base is `S + k − 1` (k = 0 ends before the codon).
 2. Genome-wide Promotech mode. **Proposed default:** not in M2 (opt-in, needs ≥ 24 GB and 5.8 GB per
    strand); config value `genome` exits 1 with "not implemented in this version" until an issue adds it.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted (minus-strand `end3p = E−k+1`, BED windows `[p−1, p+39)`,
+   inclusive bounds mirrored on the minus strand, unwrapped origin-crossing record split by the writer).
+2. Errors are `ValueError` (never `AssertionError`): short windows, a Promotech header other than
+   `CHROM SEQ PRED`.
+3. Touching or overlapping promoter windows are never merged: one record per window.
+4. Q2: `promotech.mode: genome` is rejected when the config is loaded (config model validation →
+   `giap run`/`giap preflight` exit 1 with "promotech.mode: genome is not implemented"); test it there.
