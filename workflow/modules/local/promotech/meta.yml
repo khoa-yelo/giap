@@ -1,0 +1,7 @@
+name: promotech
+description: Promotech RF-HOT promoter scores per window chunk (§7.1.1, §7.1.4).
+tools:
+  - promotech:
+      licence: ["GPL-3.0"]
+      notes: Runs as a separate process from envs/promotech.yml or its containers.config pin (R5).
+apptainer: conda only until a GHCR image exists

@@ -1,0 +1,1 @@
+name,start_codon,start_position,expression,RBS_distance_bp,dG_total,dG_rRNA:mRNA,dG_mRNA,dG_spacing,dG_standby,dG_start_codon

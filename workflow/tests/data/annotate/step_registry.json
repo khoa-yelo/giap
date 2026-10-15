@@ -1,0 +1,47 @@
+{
+  "operon_pairs": {
+    "inputs": [
+      "genes",
+      "genome",
+      "replicons",
+      "uniop_cds",
+      "uniop_map"
+    ],
+    "optional_inputs": [
+      "uniop_pred"
+    ],
+    "outputs": [
+      "operon_meta",
+      "pairs_raw",
+      "tu_upstream",
+      "tus"
+    ]
+  },
+  "parse_bakta": {
+    "inputs": [
+      "bakta_json",
+      "genome"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "annotation_meta",
+      "features",
+      "genes",
+      "replicons",
+      "rrna16s",
+      "trna_counts",
+      "xrefs"
+    ]
+  },
+  "uniop_input": {
+    "inputs": [
+      "genes",
+      "replicons"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "uniop_cds",
+      "uniop_map"
+    ]
+  }
+}
