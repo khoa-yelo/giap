@@ -104,6 +104,7 @@ Window geometry (S = first base of the start codon, 0-based; E = gene interval e
    inclusive bounds mirrored on the minus strand, unwrapped origin-crossing record split by the writer).
 2. Errors are `ValueError` (never `AssertionError`): short windows, a Promotech header other than
    `CHROM SEQ PRED`.
-3. Touching or overlapping promoter windows are never merged: one record per window.
-4. Q2: `promotech.mode: genome` is rejected when the config is loaded (config model validation →
+3. (Corrected — GIAP_SPEC.md §7.1, `promoters.bed`): windows with score ≥ 0.5 that overlap are merged into
+   one record with the maximum score, as in example 9; windows that only touch (end == start) are not merged.
+4. Q2: `annotation.promoters.mode: genome` is rejected when the config is loaded (config model validation →
    `giap run`/`giap preflight` exit 1 with "promotech.mode: genome is not implemented"); test it there.
