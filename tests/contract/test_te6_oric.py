@@ -52,8 +52,9 @@ def test_te6_oric_next_to_mnmg() -> None:
     assert orics, "Bakta called no oriC on K-12"
     genes = list(ann.model.genes)
     gene_name = {g.locus_tag: g.gene for g in genes}
-    # TE6 (§13): Bakta's oriC call next to mnmG/gidA. The full DB also calls a DnaA-box cluster next to
-    # dnaA (3,883,730–3,884,335 on U00096.3); TE6 requires that ONE call is the true origin.
+
+    # TE6 (§13): Bakta's oriC call next to mnmG/gidA. The full DB also calls a DnaA-box cluster
+    # next to dnaA (3,883,730-3,884,335 on U00096.3); TE6 requires that ONE call is the true origin.
     def at_true_origin(oric: object) -> bool:
         rep = ann.model.replicons[oric.interval.contig]  # type: ignore[attr-defined]
         near = nearest_genes(oric, genes, rep, n=20)
