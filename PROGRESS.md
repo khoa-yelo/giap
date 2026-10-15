@@ -51,8 +51,8 @@ CONTEXT_LAYERS (`unknown step 'context_layers'` = M2-20, not built yet) → next
 Long runs on main (all green): calibration_full 89/89 (1849366), integration 90 passed (1849367); real
 per-process arrays K-12 (1849282) and Nissle (1849365): all ok after #97/#98.
 Open PRs (state at 13:48):
-- #98 real Promotech/UniOP inputs + recordings for K-12/Nissle: merging on green CI (then delete the
-  "nf_process_real … PROMOTECH and UNIOP" backlog entry added by #97).
+- #98 real Promotech/UniOP inputs + recordings for K-12/Nissle: merging on green CI (its backlog entry is
+  removed here).
 - #92 M4-12 detection tiers: fixes in (suite 1849404, calibration 1849405 green; decision 11) → needs the
   statistician's sign-off.
 - #89 M4-17 region tests: ADR-0018 (accepted-by-khoa) implemented (1186184) but A2-HL calibration still fails
