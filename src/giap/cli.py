@@ -268,7 +268,7 @@ def run(
     env_db = os.environ.get("GIAP_DB_DIR")
     db_dir: Path | None = _.get("db_dir") or (Path(env_db) if env_db else None)
     outdir = outdir.absolute()
-    inputs.update(_run_preflight(cfg, outdir, inputs, db_dir, bool(_["strict"])))
+    inputs.update(_run_preflight(cfg, outdir, inputs, db_dir, bool(_["strict"]), str(_["profile"])))
     if shutil.which("nextflow") is None:
         click.echo("giap run: nextflow not found on PATH (see AGENTS.md setup)", err=True)
         sys.exit(ExitCode.ENVIRONMENT)
@@ -278,10 +278,16 @@ def run(
 
 
 def _run_preflight(
-    cfg: GiapConfig, outdir: Path, inputs: dict[str, Path], db_dir: Path | None, strict: bool
+    cfg: GiapConfig,
+    outdir: Path,
+    inputs: dict[str, Path],
+    db_dir: Path | None,
+    strict: bool,
+    profile: str,
 ) -> dict[str, Path]:
     """Preflight in run mode (§5.1): exits on an error (or a warning with ``strict``) before
-    Nextflow starts, else returns the normalised ``genome`` and ``replicons`` for params.json."""
+    Nextflow starts, else returns the normalised ``genome`` and ``replicons`` for params.json.
+    Tools are checked for the Nextflow ``profile`` under ``$GIAP_ROOT`` (run-wiring 4a)."""
     from giap.preflight.report import render_preflight_md
     from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
 
@@ -295,7 +301,11 @@ def _run_preflight(
         abundance=inputs.get("abundance"),
         annotation=inputs.get("annotation"),
     )
-    report, norm = run_preflight(inp, cfg, None, "run", outdir, db_dir)
+    root = os.environ.get("GIAP_ROOT")
+    report, norm = run_preflight(
+        inp, cfg, None, "run", outdir, db_dir,
+        giap_root=Path(root) if root else None, profile=profile,
+    )  # fmt: skip
     outdir.mkdir(parents=True, exist_ok=True)
     write_outputs(outdir, report, norm)
     code = exit_code(report, strict)
