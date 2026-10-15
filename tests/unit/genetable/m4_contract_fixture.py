@@ -247,7 +247,8 @@ def build_frames(n_genes: int = 20, tu_sizes: Sequence[int] = (1, 2, 3)) -> dict
             "score": pd.Series([r[3] for r in pep_rows], dtype="float64"),
             "is_decoy": pd.Series([r[4] for r in pep_rows], dtype=bool),
             "is_contaminant": pd.Series([r[5] for r in pep_rows], dtype=bool),
-            "protein_ids": [r[6] for r in pep_rows],
+            # Lead decision 1: native list of strings in Parquet (as M1-12 writes it).
+            "protein_ids": [[r[6]] if r[6] is not None else [] for r in pep_rows],
             "modified_peptides": [_modified_peptides_value(r[0]) for r in pep_rows],
             "n_rows": pd.Series([2, 1, 1, 1], dtype="int64"),
             "n_runs": pd.Series([1, 1, 1, 1], dtype="int64"),

@@ -101,3 +101,61 @@ def test_row_permutation_does_not_change_issue_codes(table: str, seed: int) -> N
     a = sorted((i.code, i.severity) for i in validate_table(table, df))
     b = sorted((i.code, i.severity) for i in validate_table(table, perm))
     assert a == b
+
+
+# C9 ``protein_ids`` (lead decision 1): native list of non-empty, non-NA strings in Parquet.
+_ids = st.text(
+    alphabet=st.characters(min_codepoint=33, max_codepoint=126, exclude_characters=";"),
+    min_size=1,
+    max_size=12,
+)
+_id_lists = st.lists(_ids, max_size=5)
+
+
+def _peptide_issues(protein_ids: list[Any]) -> list[Any]:
+    from giap.genetable.contract import validate_table
+
+    p = build_frames(20)["peptides"]
+    p["protein_ids"] = pd.Series(protein_ids, dtype=object)
+    return [
+        i
+        for i in validate_table("peptides", p)
+        if i.severity == "error" and "protein_ids" in i.message + " ".join(i.examples)
+    ]
+
+
+@SETTINGS
+@given(st.lists(_id_lists, min_size=4, max_size=4), st.booleans())
+def test_protein_ids_lists_of_nonempty_strings_valid(lists: list[list[str]], arrays: bool) -> None:
+    import numpy as np
+
+    cells: list[Any] = [np.array(x, dtype=object) if arrays else x for x in lists]
+    assert _peptide_issues(cells) == []
+
+
+@SETTINGS
+@given(
+    st.lists(_id_lists, min_size=4, max_size=4),
+    st.integers(min_value=0, max_value=3),
+    st.sampled_from(["", None, float("nan"), pd.NA]),
+    st.data(),
+)
+def test_protein_ids_bad_element_anywhere_is_error(
+    lists: list[list[str]], row: int, bad: Any, data: Any
+) -> None:
+    pos = data.draw(st.integers(min_value=0, max_value=len(lists[row])))
+    lists[row] = [*lists[row][:pos], bad, *lists[row][pos:]]
+    assert _peptide_issues(list(lists))
+
+
+@SETTINGS
+@given(st.lists(_id_lists, min_size=4, max_size=4), st.integers(min_value=0, max_value=3))
+def test_protein_ids_joined_string_cell_is_dtype_error(lists: list[list[str]], row: int) -> None:
+    from giap.genetable.contract import validate_table
+
+    cells: list[Any] = list(lists)
+    cells[row] = ";".join(lists[row]) or "GSIM_00005"
+    p = build_frames(20)["peptides"]
+    p["protein_ids"] = pd.Series(cells, dtype=object)
+    hit = [i for i in validate_table("peptides", p) if i.code == "contract.peptides.dtype"]
+    assert hit and all(i.severity == "error" for i in hit)

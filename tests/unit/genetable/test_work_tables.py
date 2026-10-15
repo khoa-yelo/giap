@@ -213,3 +213,61 @@ def test_id_map_absent_leaves_none(tmp_path: Path) -> None:
     """Edge case: C14 absent → ``id_map`` None (``source_id`` NA downstream)."""
     inputs, _ = _load(tmp_path, skip=("id_map",))
     assert inputs.id_map is None
+
+
+# ---------------------------------------------------- C9 protein_ids (lead decision 1)
+
+
+def test_peptides_parquet_protein_ids_is_arrow_list(tmp_path: Path) -> None:
+    """Guard on the fixture: C9 ``protein_ids`` is written as Arrow ``list<string>`` (as M1-12)."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    paths = _wt().default_paths(tmp_path / "work")
+    write_work(build_frames(20), paths)
+    field = pq.read_schema(paths["peptides"]).field("protein_ids")
+    assert pa.types.is_list(field.type) or pa.types.is_large_list(field.type)
+    assert pa.types.is_string(field.type.value_type) or pa.types.is_large_string(
+        field.type.value_type
+    )
+
+
+def test_peptides_protein_ids_load_as_lists(tmp_path: Path) -> None:
+    """Native lists round-trip unchanged: not joined, not split, empty list stays empty."""
+    f = build_frames(20)
+    f["peptides"].at[0, "protein_ids"] = ["GSIM_00025", "GSIM_00030"]
+    inputs, issues = _load(tmp_path, f)
+    assert errors(issues) == []
+    assert inputs.peptides is not None
+    got = {
+        str(pep): [str(x) for x in ids]
+        for pep, ids in zip(inputs.peptides["peptide"], inputs.peptides["protein_ids"], strict=True)
+    }
+    assert got["AAAAAAAK"] == ["GSIM_00025", "GSIM_00030"]
+    assert got["CCCCCCCR"] == []
+    assert got["KAAAAAAA"] == ["rev_" + "GSIM_00005"]
+
+
+def test_peptides_joined_string_on_disk_is_dtype_error(tmp_path: Path) -> None:
+    """A ``;``-joined ``protein_ids`` string in Parquet is a contract error; the loader does not
+    split it (``;`` lists are the TSV encoding only, ADR-0006)."""
+    f = build_frames(20)
+    p = f["peptides"]
+    p["protein_ids"] = [";".join(x) if len(x) else None for x in p["protein_ids"]]
+    p.loc[0, "protein_ids"] = "GSIM_00025;GSIM_00030"
+    _, issues = _load(tmp_path, f)
+    hit = [i for i in errors(issues) if i.code == "contract.peptides.dtype"]
+    assert hit and any("protein_ids" in i.message + " ".join(i.examples) for i in hit)
+
+
+@pytest.mark.parametrize("bad", [["GSIM_00025", ""], ["GSIM_00025", None]], ids=["empty", "na"])
+def test_peptides_bad_list_element_on_disk_is_error(tmp_path: Path, bad: list[Any]) -> None:
+    """After a Parquet round trip (numpy-array cells) empty or NA elements are still errors."""
+    f = build_frames(20)
+    f["peptides"].at[1, "protein_ids"] = bad
+    _, issues = _load(tmp_path, f)
+    assert any(
+        i.code.startswith("contract.peptides.")
+        and "protein_ids" in i.message + " ".join(i.examples)
+        for i in errors(issues)
+    )

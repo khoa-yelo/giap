@@ -117,7 +117,7 @@ PINNED: dict[tuple[str, str], tuple[str, bool | None, tuple[str, ...] | None]] =
     ("peptides", "peptide"): ("str", False, None),
     ("peptides", "q_value"): ("float", None, None),
     ("peptides", "is_decoy"): ("bool", False, None),
-    ("peptides", "protein_ids"): ("str", True, None),
+    ("peptides", "protein_ids"): ("list", None, None),
     ("peptides", "n_rows"): ("int", None, None),
     ("peptides", "intensity"): ("float", True, None),
     ("abundance", "protein_id"): ("str", False, None),
@@ -420,14 +420,72 @@ def test_example9_all_promoter_columns_na_valid(encoding: str) -> None:
     assert errors(c_.validate_inputs(make_inputs(f))) == []
 
 
-def test_example10_protein_ids_list_column() -> None:
+def test_example10_protein_ids_joined_string() -> None:
+    """Example 10 as changed by lead decision 1 (spec "Lead decisions"): in the Parquet work tables
+    ``protein_ids`` is a native list of strings; a ``;``-joined string (the TSV-only encoding of
+    ADR-0006) is error ``contract.peptides.dtype``."""
     f = build_frames(20)
     p = f["peptides"]
-    p["protein_ids"] = [[x] if x is not None else [] for x in p["protein_ids"]]
+    p["protein_ids"] = [";".join(x) if len(x) else None for x in p["protein_ids"]]
+    p.loc[0, "protein_ids"] = "GSIM_00025;GSIM_00030"
     issues = _contract().validate_table("peptides", p)
     hit = with_code(issues, "contract.peptides.dtype")
     assert hit and all(i.severity == "error" for i in hit)
     assert any("protein_ids" in text(i) for i in hit)
+
+
+def test_protein_ids_native_list_valid() -> None:
+    f = build_frames(20)
+    p = f["peptides"]
+    assert all(isinstance(x, list) for x in p["protein_ids"])
+    p.at[0, "protein_ids"] = ["GSIM_00025", "GSIM_00030"]
+    assert errors(_contract().validate_table("peptides", p)) == []
+    p["protein_ids"] = [np.array(x, dtype=object) for x in p["protein_ids"]]  # as read back
+    assert errors(_contract().validate_table("peptides", p)) == []
+
+
+def test_protein_ids_one_joined_cell_is_error() -> None:
+    """A single ``;``-joined string among native lists is still a dtype error naming the column."""
+    f = build_frames(20)
+    p = f["peptides"]
+    p.at[0, "protein_ids"] = "GSIM_00025;GSIM_00030"
+    hit = with_code(_contract().validate_table("peptides", p), "contract.peptides.dtype")
+    assert hit and all(i.severity == "error" for i in hit)
+    assert any("protein_ids" in text(i) for i in hit)
+
+
+def test_protein_ids_empty_list_valid() -> None:
+    """M1-12 writes ``[]`` for a peptide without protein IDs (fixture row ``CCCCCCCR``)."""
+    p = build_frames(20)["peptides"]
+    assert list(p.loc[p["peptide"] == "CCCCCCCR", "protein_ids"].iloc[0]) == []
+    assert errors(_contract().validate_table("peptides", p)) == []
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        ["GSIM_00025", ""],
+        [""],
+        ["GSIM_00025", None],
+        [None],
+        ["GSIM_00025", math.nan],
+        [pd.NA],
+        np.array(["GSIM_00025", ""], dtype=object),
+        np.array(["GSIM_00025", None], dtype=object),
+    ],
+    ids=["empty_str", "only_empty", "none", "only_none", "nan", "pd_na", "np_empty", "np_none"],
+)
+def test_protein_ids_empty_or_na_element_is_error(bad: Any) -> None:
+    """Lead decision 1: lists containing empty strings or NA elements are errors."""
+    f = build_frames(20)
+    p = f["peptides"]
+    p.at[1, "protein_ids"] = bad
+    errs = [
+        i
+        for i in errors(_contract().validate_table("peptides", p))
+        if i.code.startswith("contract.peptides.")
+    ]
+    assert errs and any("protein_ids" in text(i) for i in errs)
 
 
 # --------------------------------------------------------------------------- missing columns
