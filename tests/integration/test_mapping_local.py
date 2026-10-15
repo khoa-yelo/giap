@@ -21,11 +21,17 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
-from helpers.mapping_steps import MAPPING_TSVS, MODULE2_FILES, module2_files
+from helpers.mapping_steps import MAPPING_TSVS, MODULE2_FILES, module2_files, write_test_db
 
 from giap.mapping.outputs import PROTEIN_HITS_COLUMNS
 
 SEED = 7
+
+
+@pytest.fixture(autouse=True)
+def _test_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``giap run`` runs preflight: a test ``$GIAP_DB_DIR``, never the real one (M3-17 rev. 12)."""
+    monkeypatch.setenv("GIAP_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db"))))
 
 
 @pytest.fixture(scope="module")
@@ -82,6 +88,7 @@ def test_local_rerun_is_byte_identical(sim: Any, tmp_path: Path) -> None:
         assert fa[f].read_bytes() == fb[f].read_bytes(), f
 
 
+@pytest.mark.skip(reason="MAPPING subworkflow moves to m3/mapping-nf")
 @pytest.mark.needs_nextflow
 @pytest.mark.slow
 def test_example_5_local_and_nextflow_mapping_tsvs_are_byte_identical(

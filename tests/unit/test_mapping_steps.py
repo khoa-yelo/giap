@@ -715,16 +715,16 @@ def test_peptides_without_a_peptide_column_fail_the_step(
     assert not any(p.exists() for p in outs.values())
 
 
-def test_giap_step_cli_exits_4_on_a_corrupt_index(chain: Chain, tmp_path: Path) -> None:
+def test_giap_step_cli_exits_4_on_a_corrupt_index(
+    steps: ModuleType, chain: Chain, tmp_path: Path
+) -> None:
+    """``steps`` = ``fresh_steps``: the real steps whatever registry an earlier test left behind
+    (M3-17 review decision 12)."""
     from click.testing import CliRunner
 
     from giap.cli import cli
-    from giap.steps import load_step_modules
 
-    load_step_modules()
-    from giap.steps import registry as reg
-
-    spec = reg.get("map_exact")
+    spec = steps.get("map_exact")
     six = key_like(spec.inputs, "sixframe")
     bad = tmp_path / "sixframe.npz"
     bad.write_bytes(b"not an npz")

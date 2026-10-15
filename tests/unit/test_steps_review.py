@@ -63,8 +63,21 @@ def no_step_modules(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     return d
 
 
+@pytest.fixture(autouse=True)
+def _test_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``giap run`` runs preflight: a test ``$GIAP_DB_DIR``, never the real one (M3-17 rev. 12)."""
+    from helpers.mapping_steps import write_test_db
+
+    monkeypatch.setenv("GIAP_DB_DIR", str(write_test_db(tmp_path_factory.mktemp("test_db"))))
+
+
 def _run_argv(genome: Path, outdir: Path, *extra: str) -> list[str]:
-    return ["run", "--genome", str(genome), "--outdir", str(outdir), "--executor", "local", *extra]
+    """``giap run --executor local`` with one peptide as evidence (a run without evidence exits 1,
+    M3-17 review decision 7)."""
+    pep = genome.parent / "evidence_peptides.tsv"
+    pep.write_text("peptide\tprotein_ids\nPEPTIDEK\tP1\n")
+    return ["run", "--genome", str(genome), "--peptides", str(pep), "--outdir", str(outdir),
+            "--executor", "local", *extra]  # fmt: skip
 
 
 # ---------------------------------------------------------------- 1. loader; empty registry

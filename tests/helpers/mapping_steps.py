@@ -22,6 +22,7 @@ gets empty files when its outputs are needed (a tool that found nothing). Tests 
 from __future__ import annotations
 
 import importlib
+import json
 import re
 import shutil
 from collections.abc import Mapping, Sequence
@@ -58,6 +59,7 @@ MAPPING_TSVS: tuple[str, ...] = (
     "mapping_fdr.tsv",
 )
 REPO = Path(__file__).resolve().parents[2]
+CONTAMINANTS_MINI = REPO / "tests/data/contaminants_mini.faa"
 RECORDED_MINIPROT = REPO / "tests/data/recorded/miniprot/0.18/sim100k"
 RECORDED_TBLASTN = REPO / "tests/data/recorded/blast/2.16.0/sim100k"
 
@@ -96,8 +98,36 @@ class SimRun:
     config_yaml: Path
 
 
+def write_test_db(db: Path, contaminants: Path | None = None) -> Path:
+    """A test ``$GIAP_DB_DIR`` (M3-17 review decision 12: tests never read the real one).
+
+    ``db_manifest.json`` in the per-name form ``read_manifest`` accepts (``{"<name>": {"version":
+    ...}}``; the ``giap setup`` item form cannot name the ``genomad``/``antismash`` binaries)
+    lists every requirement of every module at its pinned version (``1.0`` when unpinned). With
+    ``contaminants`` the library is copied to ``contaminants/contaminants.fasta`` (M3-15) and the
+    manifest gets a ``contaminants`` entry with that ``path``.
+    """
+    from giap.preflight.environment import _ROWS
+
+    db.mkdir(parents=True, exist_ok=True)
+    doc: dict[str, dict[str, str]] = {
+        name: {"version": version or "1.0"}
+        for rows in _ROWS.values()
+        for name, _kind, version in rows
+    }
+    if contaminants is not None:
+        rel = "contaminants/contaminants.fasta"
+        (db / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(contaminants, db / rel)
+        doc["contaminants"] = {"version": "bddf6da9", "path": rel}
+    text = json.dumps(dict(sorted(doc.items())), indent=2) + "\n"
+    (db / "db_manifest.json").write_text(text, encoding="utf-8")
+    return db
+
+
 def preflight(res: Any, out: Path, proteins: bool = False) -> SimRun:
-    """``giap preflight`` on the simulator's genome, peptides and Bakta-like JSON."""
+    """``giap preflight`` on the simulator's genome, peptides and Bakta-like JSON (with a test
+    ``$GIAP_DB_DIR`` next to ``out``)."""
     from giap.cli import cli
 
     args = ["preflight", "--genome", str(res.genome_fasta), "--peptides", str(res.peptides)]
@@ -106,7 +136,8 @@ def preflight(res: Any, out: Path, proteins: bool = False) -> SimRun:
         args += ["--config", str(res.config_yaml)]
     if proteins:
         args += ["--proteins", str(res.proteins_faa)]
-    r = CliRunner().invoke(cli, args)
+    db = write_test_db(out.with_name(out.name + "_db"))
+    r = CliRunner().invoke(cli, args, env={"GIAP_DB_DIR": str(db)})
     assert r.exit_code == 0, r.output
     work = out / "work" / "preflight"
     long = work / "proteins.long.faa"
