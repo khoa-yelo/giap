@@ -109,3 +109,13 @@ def select_queries(peptides: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...
     de novo π̂, tolerant `min_len` boundary, reference peptides, leftover assignment, tblastn leftover
     filter, protein_ids separator, genome sha); `test_giap_step_cli_exits_4_on_a_corrupt_index` uses
     `fresh_steps`; tests never read the real $GIAP_DB_DIR (tmp DB dir with a test manifest).
+
+## Lead decisions after the re-review (PR #77)
+13. When an enabled target step is pruned only because a REQUIRED root is missing (e.g. `bakta_json`:
+    `--peptides` without `--annotation` or `annotation.precomputed.bakta_json`), the local run exits 1
+    naming the missing key; optional roots (`reference_peptides`, `contaminants`, `proteins_long`) are
+    still pruned silently. Test for the review's probe E.
+14. The `search_db: auto` resolution is recorded in `logs/events.jsonl` (an event with key and resolved
+    value), not only a log line. Test.
+15. Tests kill N10 (`loci` uses the resolved queries, so `auto` reaches M3-14's `same_db` mismatch
+    check) and M10 (`placed` set).
