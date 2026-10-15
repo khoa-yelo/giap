@@ -85,10 +85,15 @@ external(
 
 
 def _bactermfinder(p: Path, reps: dict[str, Replicon]) -> list[Terminator]:
+    """Provisional (M2-15 review item 5): a directory without a CSV → no calls; exactly one CSV →
+    parse it; several CSVs → ValueError naming them (no arbitrary pick)."""
     if p.is_dir():
-        files = sorted(f for f in p.iterdir() if f.suffix in {".csv", ".tsv"})
+        files = sorted(f for f in p.iterdir() if f.is_file() and f.suffix == ".csv")
         if not files:
-            raise ValueError(f"no BacTermFinder table in {p}")
+            return []
+        if len(files) > 1:
+            names = ", ".join(f.name for f in files)
+            raise ValueError(f"several BacTermFinder tables in {p}: {names}")
         p = files[0]
     return parse_bactermfinder(p, reps)
 
@@ -133,6 +138,6 @@ def terminator_layer(ctx: StepContext) -> None:
         else:
             xc_rows = [
                 (r.contig, r.n_terminatornet, r.n_transtermhp, r.n_matched, r.share_matched)
-                for r in crosscheck(tn, tt)
+                for r in crosscheck(tn, tt, contig_order=list(reps))
             ]
     write_tsv(ctx.outputs["terminators_crosscheck"], _XC_COLS, xc_rows)

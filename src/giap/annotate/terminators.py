@@ -58,13 +58,26 @@ def _strand(s: str, where: str) -> Strand:
     return cast(Strand, s)
 
 
+_TN_HEADER = (
+    "name", "TERM_i", "A_tract", "hairpin", "U_tract", "structure", "GH", "pred", "start", "stop",
+    "strand",
+)  # fmt: skip
+
+
+def _is_tn_header(fields: Sequence[str]) -> bool:
+    """Exactly the documented column names (with or without ``strand``), never a prefix match."""
+    got = tuple(c.strip() for c in fields)
+    return got in (_TN_HEADER, _TN_HEADER[:-1])
+
+
 def parse_terminatornet(path: Path, replicons: Mapping[str, Replicon]) -> list[Terminator]:
-    """TerminatorNet ``-s`` output (TAB, 11 columns, 1-based closed forward coordinates)."""
+    """TerminatorNet ``-s`` output (TAB, 11 columns, 1-based closed forward coordinates). Only
+    blank, ``NO TERMINATORS FOUND`` and exact header lines are skipped (M2-15 review item 4)."""
     out: list[Terminator] = []
     for n, line in enumerate(path.read_text().splitlines(), start=1):
-        if not line.strip() or "NO TERMINATORS FOUND" in line or line.startswith("name"):
-            continue
         f = line.rstrip("\r\n").split("\t")
+        if not line.strip() or "NO TERMINATORS FOUND" in line or _is_tn_header(f):
+            continue
         where = f"{path.name}:{n}"
         if len(f) != 11:
             raise ValueError(f"{where}: expected 11 columns (run with -s), got {len(f)}")
@@ -162,11 +175,17 @@ def _row(contig: str, prim: list[Terminator], oth: list[Terminator], tol: int) -
 
 
 def crosscheck(
-    primary: Sequence[Terminator], other: Sequence[Terminator], tol_bp: int = 20
+    primary: Sequence[Terminator],
+    other: Sequence[Terminator],
+    tol_bp: int = 20,
+    contig_order: Sequence[str] | None = None,
 ) -> list[CrossRow]:
     """Share of primary calls within ``tol_bp`` of an ``other`` call (same contig and strand);
-    one row per contig (sorted) and a last ``all`` row."""
-    contigs = sorted({t.interval.contig for t in (*primary, *other)})
+    one row per contig and a last ``all`` row. Contigs follow ``contig_order`` (FASTA order);
+    contigs absent from it (all of them without an order) follow, sorted by name."""
+    seen = {t.interval.contig for t in (*primary, *other)}
+    first = [c for c in dict.fromkeys(contig_order or ()) if c in seen]
+    contigs = first + sorted(seen.difference(first))
     rows = []
     for c in contigs:
         p = [t for t in primary if t.interval.contig == c]
@@ -223,7 +242,15 @@ def terminator_between(
     slack_bp: int = 50,
     yes: float = 0.5,
 ) -> float | None:
-    """Max confidence ≥ ``yes`` of a primary call between two same-strand adjacent genes."""
+    """Max confidence ≥ ``yes`` of a primary call between two same-strand adjacent genes.
+
+    Raises ValueError unless ``up`` and ``down`` share contig and strand (M2-15 review item 6)."""
+    u, d = up.interval, down.interval
+    if u.contig != d.contig or u.strand != d.strand:
+        raise ValueError(
+            f"terminator_between: {up.locus_tag} ({u.contig} {u.strand}) and {down.locus_tag} "
+            f"({d.contig} {d.strand}) must share contig and strand"
+        )
     lo, hi = _window(up, down, replicon, slack_bp)
     iv = up.interval
     return _max_in(terms, iv.contig, iv.strand, lo, hi, replicon, yes)
