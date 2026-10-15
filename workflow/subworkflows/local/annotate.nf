@@ -150,8 +150,8 @@ workflow ANNOTATE {
             BACTERMFINDER(gin)
             tools += [kv('bactermfinder', BACTERMFINDER.out.dir)]
         }
-        def tl = stepIn('terminator_layer', tools)
-        TERMINATOR_LAYER(tl.files, tl.keys, ['terminators=terminators.parquet', 'crosscheck=terminators_crosscheck.tsv'])
+        def tl = stepIn('terminator_layer', [reps] + tools)
+        TERMINATOR_LAYER(tl.files, tl.keys, ['terminators=terminators.parquet', 'terminators_crosscheck=terminators_crosscheck.tsv'])
         layers += [kv('terminators', pick(TERMINATOR_LAYER.out.outputs, 'terminators.parquet'))]
     }
 
