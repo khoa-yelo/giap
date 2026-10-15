@@ -261,7 +261,7 @@ def run(
         click.echo(f"giap run: error: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
     if executor == "local":
-        keys = ("peptides", "proteins", "annotation", "reference_peptides")
+        keys = ("peptides", "proteins", "annotation", "reference_peptides", "db_dir")
         _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys})
     inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
     _run_nextflow(cfg, outdir, inputs, str(_["memory"]), str(_["profile"]), bool(_["resume"]))
@@ -289,13 +289,15 @@ def _local_roots(
 ) -> dict[str, Path]:
     """Preflight-normalised root work files for the local executor (§6.2, §6.4).
 
-    Without evidence (no peptides or proteins) nothing is staged; a preflight error exits with
-    the preflight exit code.
+    A preflight error (e.g. no evidence) exits with the preflight exit code; a GFF3/GenBank
+    ``--annotation`` without ``annotation.precomputed.bakta_json`` exits 1 naming the key. The
+    contaminant library comes from ``--db-dir`` / ``$GIAP_DB_DIR`` (M3-15).
     """
-    from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
+    import os
 
-    if inputs["peptides"] is None and inputs["proteins"] is None:
-        return {}
+    from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
+    from giap.runner.local import contaminant_library
+
     inp = PreflightInputs(
         genome, inputs["proteins"], inputs["peptides"], None, inputs["annotation"]
     )
@@ -313,10 +315,20 @@ def _local_roots(
     if (work / "proteins.long.faa").is_file():
         roots["proteins_long"] = work / "proteins.long.faa"
     ann, ref = inputs["annotation"], inputs["reference_peptides"]
-    if ann is not None and ann.name.lower().endswith(".json"):
-        roots["bakta_json"] = ann
+    is_json = ann is not None and ann.name.lower().endswith(".json")
+    bakta = ann if is_json else cfg.annotation.precomputed.bakta_json
+    if ann is not None and bakta is None:  # a GFF3/GenBank annotation cannot replace Bakta JSON
+        click.echo("giap run: error: annotation.precomputed.bakta_json is required with "
+                   "--executor local (--annotation is not a Bakta JSON)", err=True)  # fmt: skip
+        sys.exit(ExitCode.INVALID_INPUT)
+    if bakta is not None:
+        roots["bakta_json"] = Path(bakta)
     if ref is not None:
         roots["reference_peptides"] = ref
+    db = inputs["db_dir"] or os.environ.get("GIAP_DB_DIR")
+    lib = contaminant_library(Path(db) if db else None)
+    if lib is not None:
+        roots["contaminants"] = lib
     return roots
 
 
@@ -336,6 +348,7 @@ def _run_local(cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Pa
     try:
         local.plan_local(cfg, targets, set(roots))
         local.run_local(cfg, workdir, targets, roots)
+        local.publish(workdir, outdir)
     except local.LayerMissing as exc:
         click.echo(f"giap run: error: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)

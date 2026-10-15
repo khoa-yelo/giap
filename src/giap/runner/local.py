@@ -154,13 +154,44 @@ def run_local(
     if roots is not None:
         stage_roots(workdir, roots)
     workdir.mkdir(parents=True, exist_ok=True)
+    # with staged roots an optional input is a root of this run or an output of a planned step,
+    # never a stale ``workdir / key`` left by an earlier run (M3-17 review decision 8)
+    fresh = None if roots is None else {*roots, *(k for n in order for k in reg.get(n).outputs)}
     for name in order:
         spec = reg.get(name)
         inputs: dict[str, reg.InputPath] = {}
         for key in (*spec.inputs, *spec.optional_inputs):
             # a configured layer always wins over a stale ``workdir / key`` from an earlier run
             path = supplied.get(key, workdir / key)
-            if key in spec.inputs or path.exists():
+            stale = fresh is not None and key not in supplied and key not in fresh
+            if key in spec.inputs or (path.exists() and not stale):
                 inputs[key] = path
         outputs = {key: workdir / key for key in spec.outputs}
         reg.run_step(name, cfg, inputs, outputs)
+
+
+# §9.1 published directories: work key -> OUT subdirectory
+PUBLISHED: dict[str, str] = {"mapping": "mapping"}
+
+
+def publish(workdir: Path, outdir: Path) -> list[Path]:
+    """Copy the published step outputs of ``workdir`` to ``outdir`` (§9.1), like Nextflow."""
+    done: list[Path] = []
+    for key, sub in sorted(PUBLISHED.items()):
+        src, dst = workdir / key, outdir / sub
+        if src.is_dir():
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+            done.append(dst)
+    return done
+
+
+def contaminant_library(db_dir: Path | None) -> Path | None:
+    """``contaminants/contaminants.fasta`` when ``db_dir``'s manifest lists ``contaminants``
+    (M3-15), else ``None``."""
+    from giap.preflight.environment import read_manifest
+
+    if db_dir is None:
+        return None
+    found = read_manifest(str(db_dir)) or {}
+    lib = db_dir / "contaminants" / "contaminants.fasta"
+    return lib if "contaminants" in found and lib.is_file() else None

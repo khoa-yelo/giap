@@ -318,8 +318,14 @@ def _join_flags(flags: Iterable[str]) -> str:
 def _engine_ids(
     x: object, decoy_prefixes: Sequence[str], contaminant_prefixes: Sequence[str]
 ) -> frozenset[str]:
+    """Engine protein IDs (contract C9 list/array, or a ``;``-joined string) minus decoy and
+    contaminant entries."""
     prefixes = (*decoy_prefixes, *contaminant_prefixes)
-    return frozenset(p for p in _split_flags(x) if not p.startswith(prefixes))
+    if x is None or isinstance(x, str) or not isinstance(x, Iterable):
+        ids = _split_flags(x)
+    else:
+        ids = {str(v) for v in x if v is not None and str(v)}
+    return frozenset(p for p in ids if not p.startswith(prefixes))
 
 
 def _identical_aa(gm: GeneModel, tags: Sequence[str | None]) -> bool:

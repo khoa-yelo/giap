@@ -16,7 +16,7 @@ or, when that is ``auto`` too, ``database`` if the table has any q-value or PEP,
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -118,11 +118,58 @@ def length_label(n: int, classes: Sequence[Sequence[int]]) -> str | None:
     return None
 
 
+SAME_DB_MIN = 0.95  # M3-10 decision 4
+
+
+def _id_list(value: object) -> list[str]:
+    """Engine protein IDs of one row (contract C9 list/array, or a ``;``-joined string)."""
+    if value is None or isinstance(value, float):
+        return []
+    if isinstance(value, str):
+        return [x for x in value.split(";") if x]
+    if isinstance(value, Iterable):
+        return [str(x) for x in value if x is not None and str(x)]
+    return [str(value)]
+
+
+def resolve_search_db(peptides: pd.DataFrame, database_ids: Collection[str]) -> str:
+    """``search_db: auto`` for the table (M3-10 decision 4): ``same`` when at least 95 % of the
+    target peptides with engine protein IDs name an ID in ``database_ids``, else ``other``."""
+    df = peptides
+    if "is_decoy" in df.columns:
+        df = df[~df["is_decoy"].fillna(False).astype(bool)]
+    ids = [_id_list(v) for v in df["protein_ids"]] if "protein_ids" in df.columns else []
+    ids = [i for i in ids if i]
+    if not ids:
+        return "other"
+    hit = sum(any(x in database_ids for x in i) for i in ids)
+    return "same" if hit >= SAME_DB_MIN * len(ids) - 1e-9 else "other"
+
+
 # ---------------------------------------------------------------- work-file readers
 
 
 def _queries(ctx: StepContext) -> pd.DataFrame:
     return select_queries(pd.read_parquet(_path(ctx.inputs["peptides"])), ctx.cfg)
+
+
+def _resolved_queries(ctx: StepContext, gm: GeneModel) -> pd.DataFrame:
+    """Queries with ``search_db: auto`` (or missing) resolved table-wide and logged."""
+    table = pd.read_parquet(_path(ctx.inputs["peptides"]))
+    queries = select_queries(table, ctx.cfg)
+    sdb = queries["search_db"] if "search_db" in queries.columns else None
+    auto = (
+        np.ones(len(queries), dtype=bool)
+        if sdb is None
+        else ~sdb.astype(object).isin(["same", "other"]).to_numpy(dtype=bool)
+    )
+    if auto.any():
+        value = resolve_search_db(table, {g.locus_tag for g in gm.genes})
+        queries["search_db"] = value if sdb is None else sdb.astype(object)
+        queries.loc[auto, "search_db"] = value
+        ctx.log.info("%s: search_db auto resolved to %s for %d queries",
+                     ctx.log.name.rsplit(".", 1)[-1], value, int(auto.sum()))  # fmt: skip
+    return queries
 
 
 def _genome(path: Path) -> dict[str, str]:
@@ -301,13 +348,15 @@ def _denovo(
 
 @step(
     "placement",
-    inputs=["peptides", "sixframe", "hits_exact", "hits_tolerant"],
+    inputs=[
+        "peptides", "sixframe", "hits_exact", "hits_tolerant", "genes", "features", "replicons",
+    ],
     optional_inputs=["reference_peptides"],
     outputs=["placement", "mapping_fdr"],
-)
+)  # fmt: skip
 def placement_step(ctx: StepContext) -> None:
     """Best costs, de novo precision, placement q-values and ``mapping_fdr`` rows (§7.2.5)."""
-    queries = _queries(ctx)
+    queries = _resolved_queries(ctx, _gene_model(ctx))
     index, decoys = load_index(_path(ctx.inputs["sixframe"]))
     exact = pd.read_parquet(_path(ctx.inputs["hits_exact"]))
     queries["pi_denovo"] = np.nan
@@ -388,15 +437,6 @@ def _proteins(ctx: StepContext, gm: GeneModel) -> tuple[pd.DataFrame, pd.DataFra
 # ---------------------------------------------------------------- loci and outputs
 
 
-def _ids(v: object) -> str:
-    """Engine protein IDs as one ``;``-joined string (Parquet gives a list or an array)."""
-    if isinstance(v, str):
-        return v
-    if isinstance(v, Iterable):
-        return ";".join(str(x) for x in v)
-    return ""
-
-
 def _peptide_rows(
     hits: pd.DataFrame, per: pd.DataFrame, queries: pd.DataFrame, cfg: GiapConfig
 ) -> pd.DataFrame:
@@ -429,16 +469,14 @@ def _peptide_rows(
 def loci(ctx: StepContext) -> None:
     """Locus classes and genes, protein assignment, unmapped bucket and the seven §7.2.9 files."""
     cfg = ctx.cfg
-    queries = _queries(ctx)
+    gm = _gene_model(ctx)
+    queries = _resolved_queries(ctx, gm)
     per = pd.read_parquet(_path(ctx.inputs["placement"]))
     gpath = _path(ctx.inputs["genome"])
     genome = _genome(gpath)
-    gm = _gene_model(ctx)
     rows = _peptide_rows(_hits(ctx, "hits_exact", "hits_tolerant"), per, queries, cfg)
-    engine = queries.copy()  # protein_ids: Parquet list -> ";"-joined (M3-14 input)
-    engine["protein_ids"] = [_ids(v) for v in engine["protein_ids"]]
     pep_hits = annotate_peptide_hits(
-        rows, gm, genome, engine, cfg.genome_relation,
+        rows, gm, genome, queries, cfg.genome_relation,
         decoy_prefixes=cfg.input.decoy_prefixes,
         contaminant_prefixes=cfg.input.contaminant_prefixes,
     )  # fmt: skip
