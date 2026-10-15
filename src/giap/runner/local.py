@@ -10,7 +10,8 @@ them (e.g. ``annotation.terminators.bactermfinder``).
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+import shutil
+from collections.abc import Callable, Collection, Mapping, Sequence
 from pathlib import Path
 
 from giap.config import GiapConfig
@@ -23,6 +24,17 @@ class LayerMissing(Exception):
     def __init__(self, key: str) -> None:
         super().__init__(f"{key} is required with --executor local")
         self.key = key
+
+
+class ToolUnavailable(reg.WiringError):
+    """An external step without a precomputed layer is needed (``giap run`` exit code 4)."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__(
+            f"step '{name}' runs the external tool {name}, which --executor local cannot run "
+            "(GIAP_SPEC.md §6.4); use --executor nextflow"
+        )
+        self.name = name
 
 
 def _layer(cfg: GiapConfig, key: str) -> Path | None:
@@ -43,13 +55,51 @@ def _enabled(cfg: GiapConfig, spec: reg.StepSpec) -> bool:
     return spec.module in cfg.modules
 
 
-def _walk(cfg: GiapConfig, targets: Sequence[str]) -> tuple[list[str], dict[str, Path]]:
-    """Planned py steps and the step keys supplied by precomputed layers."""
+def _feasible(
+    cfg: GiapConfig,
+    specs: Mapping[str, reg.StepSpec],
+    producers: Mapping[str, list[str]],
+    roots: Collection[str],
+) -> Callable[[str], bool]:
+    """Whether a step can run: enabled, replaced by a layer, or every required input is a root
+    key or has a feasible producer (e.g. the protein route needs ``proteins_long``)."""
+    memo: dict[str, bool] = {}
+
+    def ok(name: str, stack: frozenset[str] = frozenset()) -> bool:
+        if name in memo:
+            return memo[name]
+        if name in stack:
+            return False
+        spec = specs[name]
+        if not _enabled(cfg, spec):
+            res = False
+        elif spec.precomputed and _layer(cfg, spec.precomputed) is not None:
+            res = True
+        else:
+            res = all(
+                key in roots or any(ok(p, stack | {name}) for p in producers.get(key, ()))
+                for key in spec.inputs
+            )
+        memo[name] = res
+        return res
+
+    return ok
+
+
+def _walk(
+    cfg: GiapConfig, targets: Sequence[str], roots: Collection[str] | None = None
+) -> tuple[list[str], dict[str, Path]]:
+    """Planned py steps and the step keys supplied by precomputed layers.
+
+    With ``roots`` (the staged root keys), steps whose required inputs can be neither staged nor
+    produced are left out instead of failing later.
+    """
     specs = {s.name: s for s in reg.all_steps()}
     producers: dict[str, list[str]] = {}
     for s in specs.values():
         for key in s.outputs:
             producers.setdefault(key, []).append(s.name)
+    feasible = None if roots is None else _feasible(cfg, specs, producers, roots)
     planned: set[str] = set()
     supplied: dict[str, Path] = {}
     seen: set[str] = set()
@@ -60,7 +110,7 @@ def _walk(cfg: GiapConfig, targets: Sequence[str]) -> tuple[list[str], dict[str,
             continue
         seen.add(name)
         spec = reg.get(name)
-        if not _enabled(cfg, spec):
+        if not _enabled(cfg, spec) or (feasible is not None and not feasible(name)):
             continue
         layer = _layer(cfg, spec.precomputed) if spec.precomputed else None
         if layer is not None:
@@ -69,7 +119,7 @@ def _walk(cfg: GiapConfig, targets: Sequence[str]) -> tuple[list[str], dict[str,
             continue
         if spec.kind == "ext":
             if spec.precomputed is None:
-                raise reg.WiringError(f"external step '{name}' cannot run with --executor local")
+                raise ToolUnavailable(name)
             raise LayerMissing(f"annotation.precomputed.{spec.precomputed}")
         planned.add(name)
         for key in sorted({*spec.inputs, *spec.optional_inputs}, reverse=True):
@@ -77,14 +127,32 @@ def _walk(cfg: GiapConfig, targets: Sequence[str]) -> tuple[list[str], dict[str,
     return reg.topo_order(planned), supplied
 
 
-def plan_local(cfg: GiapConfig, targets: Sequence[str]) -> list[str]:
-    """Python steps needed for ``targets``, in run order; raises ``LayerMissing``."""
-    return _walk(cfg, targets)[0]
+def plan_local(
+    cfg: GiapConfig, targets: Sequence[str], roots: Collection[str] | None = None
+) -> list[str]:
+    """Python steps needed for ``targets``, in run order; raises ``LayerMissing`` or
+    ``ToolUnavailable``."""
+    return _walk(cfg, targets, roots)[0]
 
 
-def run_local(cfg: GiapConfig, workdir: Path, targets: Sequence[str]) -> None:
-    """Plan (validating every layer first), then run each Python step under ``workdir``."""
-    order, supplied = _walk(cfg, targets)
+def stage_roots(workdir: Path, roots: Mapping[str, Path]) -> None:
+    """Copy root input files (normalised by preflight) to ``workdir / key``."""
+    workdir.mkdir(parents=True, exist_ok=True)
+    for key, src in sorted(roots.items()):
+        shutil.copyfile(src, workdir / key)
+
+
+def run_local(
+    cfg: GiapConfig,
+    workdir: Path,
+    targets: Sequence[str],
+    roots: Mapping[str, Path] | None = None,
+) -> None:
+    """Plan (validating every layer first), stage ``roots``, then run each Python step under
+    ``workdir``. Without ``roots`` every planned step must find its inputs in ``workdir``."""
+    order, supplied = _walk(cfg, targets, None if roots is None else set(roots))
+    if roots is not None:
+        stage_roots(workdir, roots)
     workdir.mkdir(parents=True, exist_ok=True)
     for name in order:
         spec = reg.get(name)

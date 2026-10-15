@@ -1,0 +1,14 @@
+name: giap_mapping
+description: Mapping Python steps through `giap _step` (GIAP_SPEC.md §6.2, §6.3, §7.2; M3-17).
+keywords: [giap, mapping, step]
+tools:
+  - giap:
+      description: Genome-integrated annotation of proteomics (this package).
+      licence: ["MIT"]
+processes:
+  GIAP_MAPPING:
+    input: "[step, in_keys, inputs (staged under in/), out_spec ('key=file name')]"
+    output: "outputs: [step, files in out_spec order]; versions: versions.yml"
+  GIAP_MAPPING_LOCI:
+    input: "[in_keys, inputs]: the loci step inputs (giap.steps.mapping)"
+    output: "mapping: directory with the seven §7.2.9 files (published to params.outdir); versions: versions.yml"

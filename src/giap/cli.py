@@ -225,6 +225,11 @@ def run(
     sensitivity: str | None,
     outdir: Path,
     executor: str,
+    genome: Path,
+    peptides: Path | None,
+    proteins: Path | None,
+    annotation: Path | None,
+    reference_peptides: Path | None,
     **_: Any,
 ) -> None:
     """Run the analysis."""
@@ -244,27 +249,69 @@ def run(
     }
     cfg = _resolve(config_file, sets, log_level, flags, publication)
     if executor == "local":
-        _run_local(cfg, outdir / "work")
+        inputs = {"peptides": peptides, "proteins": proteins, "annotation": annotation}
+        _run_local(cfg, outdir, genome, inputs | {"reference_peptides": reference_peptides})
     _not_implemented("run", "M2")
 
 
-def _run_local(cfg: GiapConfig, workdir: Path) -> None:
+def _local_roots(
+    cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Path | None]
+) -> dict[str, Path]:
+    """Preflight-normalised root work files for the local executor (§6.2, §6.4).
+
+    Without evidence (no peptides or proteins) nothing is staged; a preflight error exits with
+    the preflight exit code.
+    """
+    from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
+
+    if inputs["peptides"] is None and inputs["proteins"] is None:
+        return {}
+    inp = PreflightInputs(
+        genome, inputs["proteins"], inputs["peptides"], None, inputs["annotation"]
+    )
+    report, norm = run_preflight(inp, cfg, None, "preflight", outdir)
+    write_outputs(outdir, report, norm)
+    code = exit_code(report, False)
+    if code != ExitCode.SUCCESS:
+        for c in report.checks:
+            if c.level == "error":
+                click.echo(f"giap run: preflight error {c.rule_id}: {c.message}", err=True)
+        sys.exit(code)
+    work = outdir / "work" / "preflight"
+    files = {"genome": "genome.norm.fa", "peptides": "peptides.norm.parquet"}
+    roots = {k: work / f for k, f in files.items() if (work / f).is_file()}
+    if (work / "proteins.long.faa").is_file():
+        roots["proteins_long"] = work / "proteins.long.faa"
+    ann, ref = inputs["annotation"], inputs["reference_peptides"]
+    if ann is not None and ann.name.lower().endswith(".json"):
+        roots["bakta_json"] = ann
+    if ref is not None:
+        roots["reference_peptides"] = ref
+    return roots
+
+
+def _run_local(cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Path | None]) -> None:
     """``--executor local`` (§6.4): every registered step as target; exits when done."""
     from giap.runner import local
     from giap.steps import load_step_modules
     from giap.steps import registry as reg
 
+    workdir = outdir / "work"
     load_step_modules()
     targets = [s.name for s in reg.all_steps()]
     if not targets:
         click.echo("giap run --executor local: not implemented (no steps registered)", err=True)
         sys.exit(ExitCode.INTERNAL)
+    roots = _local_roots(cfg, outdir, genome, inputs)
     try:
-        local.plan_local(cfg, targets)
-        local.run_local(cfg, workdir, targets)
+        local.plan_local(cfg, targets, set(roots))
+        local.run_local(cfg, workdir, targets, roots)
     except local.LayerMissing as exc:
         click.echo(f"giap run: error: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
+    except local.ToolUnavailable as exc:
+        click.echo(f"giap run: error: {exc}", err=True)
+        sys.exit(ExitCode.STEP_FAILED)
     except reg.StepError as exc:
         log = exc.write_log(workdir.parent / "logs")
         click.echo(f"giap run: {exc} (see {log})", err=True)
