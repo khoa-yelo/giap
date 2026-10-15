@@ -13,9 +13,22 @@ Replicate ``rep`` of stream ``suite`` draws from ``default_rng(suite_seed(suite,
 reproduces a replicate alone. Results are appended as JSON lines to
 ``local/logs/calibration/<suite>.jsonl`` (``GIAP_CALIBRATION_LOG_DIR`` overrides the directory).
 
+Fail closed (PR #54 lead decision 1): ``check_level`` / ``check_uniform`` / ``check_fdr`` refuse
+non-finite values or values outside [0, 1], ``check_fwer`` refuses anything but 0/1 indicators and
+``check_fdr`` refuses R < 2 (no SE).
+
+``calibrate`` is the gate (ADR-0015, two-block confirmation): replicates 0..R-1 are block 1; if the
+criterion fails there, replicates R..2R-1 (same seed formula) are block 2 and the gate fails only if
+both blocks fail. Records carry ``block`` (1 | 2), ``status`` (pass | unconfirmed | fail) and the
+per-replicate ``values``. Under ``GIAP_CALIBRATION_REPLICATES=start:stop`` (set by ``--shard K/N``)
+``calibrate`` runs only that range of block ``GIAP_CALIBRATION_BLOCK`` (default 1, ``--block``) and
+logs a ``shard`` record; ``merge_shards`` (``--merge``) evaluates the criterion on the full R.
+A merged check whose block 1 fails and whose block 2 was not run is ``fail`` (fail closed) until
+the shards are re-run with ``--block 2``.
+
 Run as a script, this module is the nightly job-array entry point (one suite per task, task i = the
 i-th key of ``replicates_full``): ``python tests/calibration/_criteria.py --task-id I [--fast]
-[--shard K/N] [--dry-run]``.
+[--shard K/N] [--block B] [--merge] [--dry-run]``.
 """
 
 from __future__ import annotations
@@ -27,6 +40,7 @@ import os
 import shlex
 import subprocess
 import sys
+import time
 import zlib
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -45,6 +59,10 @@ REPO = HERE.parents[1]
 TOLERANCES_PATH = HERE / "tolerances.yaml"
 LOG_DIR_ENV = "GIAP_CALIBRATION_LOG_DIR"
 SHARD_ENV = "GIAP_CALIBRATION_REPLICATES"
+BLOCK_ENV = "GIAP_CALIBRATION_BLOCK"
+CRITERIA = ("level", "uniform", "fdr", "fwer")
+STATUSES = ("pass", "unconfirmed", "fail")
+SHARD_STATUS = "shard"  # partial record of one shard; only ``merge_shards`` gives a verdict
 MAX_TIE_SHARE = 0.05  # §8.4 discrete-p rule: more repeated values than this means discrete p
 
 T = TypeVar("T")
@@ -144,6 +162,19 @@ def _vector(x: ArrayLike, what: str) -> np.ndarray:
     return a
 
 
+def _unit_vector(x: ArrayLike, what: str) -> np.ndarray:
+    """``_vector`` that fails closed on non-finite values or values outside [0, 1]."""
+    a = _vector(x, what)
+    bad = ~np.isfinite(a) | (a < 0.0) | (a > 1.0)
+    if bad.any():
+        i = int(np.flatnonzero(bad)[0])
+        raise ValueError(
+            f"{what}: {int(bad.sum())} value(s) non-finite or outside [0, 1] (first: index {i}"
+            f" = {a[i]!r}); a method bug must not pass the gate"
+        )
+    return a
+
+
 def level_bound(alpha: float, R: int) -> float:
     """``alpha + se_multiplier * sqrt(alpha (1 - alpha) / R)``."""
     if R < 1:
@@ -154,7 +185,7 @@ def level_bound(alpha: float, R: int) -> float:
 
 def check_level(p: ArrayLike, alpha: float) -> CheckResult:
     """Null rejection rate (share of p <= alpha) against ``level_bound(alpha, R)``."""
-    a = _vector(p, "check_level")
+    a = _unit_vector(p, "check_level")
     r = int(a.size)
     observed = float(np.count_nonzero(a <= alpha)) / r
     bound = level_bound(alpha, r)
@@ -170,7 +201,7 @@ def check_level(p: ArrayLike, alpha: float) -> CheckResult:
 
 def check_uniform(p: ArrayLike) -> CheckResult:
     """KS test of continuous p against U(0, 1); passes when its p-value exceeds ``ks_min_p``."""
-    a = _vector(p, "check_uniform")
+    a = _unit_vector(p, "check_uniform")
     r = int(a.size)
     tie_share = 1.0 - np.unique(a).size / r
     if tie_share > MAX_TIE_SHARE:
@@ -186,11 +217,13 @@ def check_uniform(p: ArrayLike) -> CheckResult:
 
 
 def check_fdr(fdp: ArrayLike, q: float) -> CheckResult:
-    """Mean FDP against ``q + se_multiplier * sd(FDP, ddof=1) / sqrt(R)``."""
-    a = _vector(fdp, "check_fdr")
+    """Mean FDP against ``q + se_multiplier * sd(FDP, ddof=1) / sqrt(R)``; needs R >= 2."""
+    a = _unit_vector(fdp, "check_fdr")
     r = int(a.size)
+    if r < 2:
+        raise ValueError(f"check_fdr: R = {r} < 2 replicates, so SE(FDP) is undefined")
     observed = float(a.mean())
-    se = float(a.std(ddof=1)) / math.sqrt(r) if r > 1 else 0.0
+    se = float(a.std(ddof=1)) / math.sqrt(r)
     bound = q + load_tolerances().se_multiplier * se
     ok = observed <= bound
     return CheckResult(
@@ -200,7 +233,9 @@ def check_fdr(fdp: ArrayLike, q: float) -> CheckResult:
 
 def check_fwer(any_false: ArrayLike, alpha: float = 0.05) -> CheckResult:
     """Share of replicates with >= 1 false discovery against ``level_bound(alpha, R)``."""
-    a = _vector(any_false, "check_fwer")
+    a = _unit_vector(any_false, "check_fwer")
+    if not np.isin(a, (0.0, 1.0)).all():
+        raise ValueError("check_fwer: indicators must be 0/1 (or bool)")
     r = int(a.size)
     observed = float(np.count_nonzero(a)) / r
     bound = level_bound(alpha, r)
@@ -262,19 +297,250 @@ def read_results(path: Path) -> list[dict[str, Any]]:
         return [json.loads(line) for line in fh if line.strip()]
 
 
+def _fmt(x: Any, spec: str) -> str:
+    return "-" if x is None else format(x, spec)
+
+
 def summary_markdown(records: Sequence[Mapping[str, Any]]) -> str:
-    """Markdown table of results for the PR summary (``pass`` / ``FAIL``)."""
+    """Markdown table of results for the PR summary.
+
+    ``ok`` is the block's own result (``pass`` / ``FAIL``); ``status`` is the gate verdict of the
+    check (pass | unconfirmed | fail, ADR-0015; ``-`` for records without one).
+    """
     lines = [
-        "| suite | criterion | level | observed | bound | R | seed | duration (s) | ok |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| suite | criterion | level | block | observed | bound | R | seed | duration (s) | ok |"
+        " status |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in records:
+        ok = r.get("ok")
         lines.append(
-            f"| {r['suite']} | {r['criterion']} | {r['level']:g} | {r['observed']:.4g} | "
-            f"{r['bound']:.4g} | {r['R']} | {r['seed']} | {r['duration']:.2f} | "
-            f"{'pass' if r['ok'] else 'FAIL'} |"
+            f"| {r['suite']} | {r['criterion']} | {r['level']:g} | {r.get('block', '-')} | "
+            f"{_fmt(r.get('observed'), '.4g')} | {_fmt(r.get('bound'), '.4g')} | {r['R']} | "
+            f"{r['seed']} | {_fmt(r.get('duration'), '.2f')} | "
+            f"{'-' if ok is None else 'pass' if ok else 'FAIL'} | {r.get('status', '-')} |"
         )
     return "\n".join(lines) + "\n"
+
+
+# --------------------------------------------------------------------------- gate (ADR-0015)
+
+
+def replicate_range(R: int) -> range:
+    """``range(start, stop)`` from ``GIAP_CALIBRATION_REPLICATES=start:stop``, else ``range(R)``.
+
+    Requires ``0 <= start < stop <= R``; anything else raises ValueError (fail closed).
+    """
+    if R < 1:
+        raise ValueError(f"R must be >= 1, got {R}")
+    raw = os.environ.get(SHARD_ENV)
+    if raw is None:
+        return range(R)
+    parts = raw.split(":")
+    try:
+        if len(parts) != 2:
+            raise ValueError("expected start:stop")
+        start, stop = int(parts[0]), int(parts[1])
+    except ValueError as exc:
+        raise ValueError(f"{SHARD_ENV}={raw!r}: {exc}") from None
+    if not 0 <= start < stop <= R:
+        raise ValueError(f"{SHARD_ENV}={raw!r}: need 0 <= start < stop <= R = {R}")
+    return range(start, stop)
+
+
+def replicate_block() -> int:
+    """Block of a sharded run: ``GIAP_CALIBRATION_BLOCK`` (1 or 2), default 1."""
+    raw = os.environ.get(BLOCK_ENV, "1")
+    if raw not in ("1", "2"):
+        raise ValueError(f"{BLOCK_ENV}={raw!r}: must be 1 or 2")
+    return int(raw)
+
+
+def check(criterion: str, values: ArrayLike, level: float) -> CheckResult:
+    """Apply ``criterion`` (level | uniform | fdr | fwer) at ``level`` to the replicate values."""
+    if criterion == "level":
+        return check_level(values, level)
+    if criterion == "uniform":
+        return check_uniform(values)
+    if criterion == "fdr":
+        return check_fdr(values, level)
+    if criterion == "fwer":
+        return check_fwer(values, level)
+    raise ValueError(f"unknown criterion {criterion!r}; choose from {', '.join(CRITERIA)}")
+
+
+def _scalar(x: Any, rep: int) -> float:
+    a = np.asarray(x, dtype=float)
+    if a.shape != ():
+        raise ValueError(f"replicate {rep}: fn must return one scalar, got shape {a.shape}")
+    return float(a)
+
+
+def _record(
+    suite: str,
+    stream: str,
+    criterion: str,
+    level: float,
+    R: int,
+    block: int,
+    reps: range,
+    values: Sequence[float],
+    duration: float,
+    result: CheckResult | None,
+    status: str,
+) -> dict[str, Any]:
+    return {
+        "suite": suite,
+        "stream": stream,
+        "criterion": criterion,
+        "level": float(level),
+        "observed": None if result is None else float(result.observed),
+        "bound": None if result is None else float(result.bound),
+        "R": int(R),
+        "seed": suite_seed(stream, (block - 1) * R),  # seed of the block's first replicate
+        "duration": float(duration),
+        "ok": None if result is None else bool(result.ok),
+        "block": int(block),
+        "status": status,
+        "start": int(reps.start),
+        "stop": int(reps.stop),
+        "values": [float(v) for v in values],
+    }
+
+
+def _append(records: Sequence[Mapping[str, Any]], suite: str, log_dir: Path | None) -> None:
+    directory = Path(log_dir) if log_dir is not None else _default_log_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    text = "".join(json.dumps(dict(r)) + "\n" for r in records)
+    with (directory / f"{suite}.jsonl").open("a") as fh:  # one write: safe for xdist workers
+        fh.write(text)
+
+
+def _verdict(r1: CheckResult, r2: CheckResult | None) -> str:
+    """ADR-0015 status: fail only when both blocks fail."""
+    if r1.ok:
+        return "pass"
+    if r2 is None:
+        return "fail"  # confirmation block not run: fail closed
+    return "fail" if not r2.ok else "unconfirmed"
+
+
+def calibrate(
+    suite: str,
+    criterion: str,
+    level: float,
+    fn: Callable[[np.random.Generator], Any],
+    R: int,
+    *,
+    stream: str | None = None,
+    log_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Run one calibration check with two-block confirmation (ADR-0015) and log it.
+
+    Replicate ``i`` is ``fn(replicate_rng(stream or suite, i))`` (one scalar). Unsharded: block 1 is
+    replicates 0..R-1; if ``criterion`` fails there, block 2 (R..2R-1) is run and the check fails
+    only if both blocks fail. Both block records are appended to ``<log_dir>/<suite>.jsonl`` with
+    the final ``status``; the final record (last block run) is returned. Sharded
+    (``GIAP_CALIBRATION_REPLICATES`` set): only that range of block ``GIAP_CALIBRATION_BLOCK`` is
+    run and logged as a ``shard`` record (no verdict; see ``merge_shards``).
+    """
+    if suite not in array_suites():
+        raise KeyError(f"unknown calibration suite {suite!r} (not in tolerances.yaml)")
+    if criterion not in CRITERIA:
+        raise ValueError(f"unknown criterion {criterion!r}; choose from {', '.join(CRITERIA)}")
+    name = stream if stream is not None else suite
+    reps = replicate_range(R)
+
+    def run(block: int, local: range) -> tuple[range, list[float], float]:
+        offset = (block - 1) * R
+        absolute = range(offset + local.start, offset + local.stop)
+        t0 = time.perf_counter()
+        values = [_scalar(fn(replicate_rng(name, i)), i) for i in absolute]
+        return absolute, values, time.perf_counter() - t0
+
+    if reps != range(R):
+        block = replicate_block()
+        absolute, values, dt = run(block, reps)
+        rec = _record(suite, name, criterion, level, R, block, absolute, values, dt, None, "shard")
+        _append([rec], suite, log_dir)
+        return rec
+
+    reps1, v1, dt1 = run(1, reps)
+    r1 = check(criterion, v1, level)
+    if r1.ok:
+        rec1 = _record(suite, name, criterion, level, R, 1, reps1, v1, dt1, r1, "pass")
+        _append([rec1], suite, log_dir)
+        return rec1
+    reps2, v2, dt2 = run(2, reps)
+    r2 = check(criterion, v2, level)
+    status = _verdict(r1, r2)
+    rec1 = _record(suite, name, criterion, level, R, 1, reps1, v1, dt1, r1, status)
+    rec2 = _record(suite, name, criterion, level, R, 2, reps2, v2, dt2, r2, status)
+    _append([rec1, rec2], suite, log_dir)
+    return rec2
+
+
+def _collect(
+    group: Sequence[Mapping[str, Any]], block: int, R: int, key: tuple[Any, ...]
+) -> tuple[list[float], float] | None:
+    """Values of replicates ``(block-1)R .. block R - 1`` from the records of one check."""
+    offset = (block - 1) * R
+    got: dict[int, float] = {}
+    duration = 0.0
+    seen: set[tuple[int, int]] = set()
+    for r in group:
+        if int(r.get("block", 1)) != block or "values" not in r:
+            continue
+        start, stop, values = int(r["start"]), int(r["stop"]), r["values"]
+        if len(values) != stop - start or not (offset <= start < stop <= offset + R):
+            raise ValueError(f"{key}: malformed record for replicates {start}:{stop}")
+        for i, v in zip(range(start, stop), values, strict=True):
+            if i in got and got[i] != float(v):
+                raise ValueError(f"{key}: replicate {i} logged twice with different values")
+            got[i] = float(v)
+        if (start, stop) not in seen:
+            seen.add((start, stop))
+            duration += float(r.get("duration", 0.0))
+    if not got:
+        return None
+    missing = [i for i in range(offset, offset + R) if i not in got]
+    if missing:
+        raise ValueError(
+            f"{key}: block {block} misses {len(missing)} of {R} replicates (first {missing[0]});"
+            " a verdict needs the full R"
+        )
+    return [got[i] for i in range(offset, offset + R)], duration
+
+
+def merge_shards(suite: str, log_dir: Path | None = None) -> list[dict[str, Any]]:
+    """One verdict record per check from the (shard) records in ``<log_dir>/<suite>.jsonl``.
+
+    A check is (stream, criterion, level, R). Block 1 must cover replicates 0..R-1 (else
+    ValueError); if it fails, block 2 (R..2R-1) decides per ADR-0015; if block 2 was not run the
+    check is ``fail`` (fail closed). Records written by ``log_result`` (no ``values``) are skipped.
+    """
+    directory = Path(log_dir) if log_dir is not None else _default_log_dir()
+    groups: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
+    for r in read_results(directory / f"{suite}.jsonl"):
+        if "values" not in r:
+            continue
+        key = (r.get("stream", suite), r["criterion"], float(r["level"]), int(r["R"]))
+        groups.setdefault(key, []).append(r)
+    out: list[dict[str, Any]] = []
+    for key, group in groups.items():
+        stream, criterion, level, R = key
+        b1 = _collect(group, 1, R, key)
+        if b1 is None:
+            raise ValueError(f"{key}: no block-1 replicates logged")
+        r1 = check(criterion, b1[0], level)
+        b2 = None if r1.ok else _collect(group, 2, R, key)
+        r2 = None if b2 is None else check(criterion, b2[0], level)
+        status = _verdict(r1, r2)
+        block, values, dt, res = (1, *b1, r1) if b2 is None or r2 is None else (2, *b2, r2)
+        reps = range((block - 1) * R, block * R)
+        rec = _record(suite, stream, criterion, level, R, block, reps, values, dt, res, status)
+        out.append(rec)
+    return out
 
 
 # --------------------------------------------------------------------------- job array
@@ -317,6 +583,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--suite", default=None, help="suite name instead of a task id")
     ap.add_argument("--fast", action="store_true", help="use replicates_fast")
     ap.add_argument("--shard", default=None, help="K/N: run block K of N replicate blocks")
+    ap.add_argument(
+        "--block", type=int, choices=(1, 2), default=1, help="replicate block of a sharded run"
+    )
+    ap.add_argument(
+        "--merge", action="store_true", help="merge shard records into verdicts (no pytest)"
+    )
     ap.add_argument("--dry-run", action="store_true", help="print the pytest command only")
     ns = ap.parse_args(list(argv) if argv is not None else None)
     if ns.suite is None:
@@ -344,15 +616,36 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return ns
 
 
+def _merge_main(suite: str) -> int:
+    """Merge the shard records of ``suite``; 0 iff no check fails, 2 if nothing to merge."""
+    try:
+        merged = merge_shards(suite)
+    except (OSError, ValueError) as exc:
+        print(f"merge {suite}: {exc}", file=sys.stderr)
+        return 2
+    if not merged:
+        print(f"merge {suite}: no calibrate records in {log_dir()}", file=sys.stderr)
+        return 2
+    path = log_dir() / f"{suite}.merged.jsonl"
+    path.write_text("".join(json.dumps(r) + "\n" for r in merged))
+    print(summary_markdown(merged), end="")
+    return 1 if any(r["status"] == "fail" for r in merged) else 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run (or with ``--dry-run`` print) the pytest command of one suite."""
+    """Run (or with ``--dry-run`` print) the pytest command of one suite; ``--merge`` merges."""
     ns = parse_args(argv)
+    if ns.merge:
+        return _merge_main(ns.suite)
     cmd = [sys.executable, "-m", "pytest", *pytest_args(ns.suite, ns.full)]
-    env = {SHARD_ENV: f"{ns.replicates.start}:{ns.replicates.stop}"}
-    print(" ".join(f"{k}={v}" for k, v in env.items()), shlex.join(cmd))
+    env: dict[str, str] = {}
+    if ns.shard is not None:  # unsharded runs leave the variables unset (behaviour unchanged)
+        env = {SHARD_ENV: f"{ns.replicates.start}:{ns.replicates.stop}", BLOCK_ENV: str(ns.block)}
+    print(" ".join([*(f"{k}={v}" for k, v in env.items()), shlex.join(cmd)]))
     if ns.dry_run:
         return 0
-    return subprocess.run(cmd, env={**os.environ, **env}, check=False).returncode
+    base = {k: v for k, v in os.environ.items() if k not in (SHARD_ENV, BLOCK_ENV)}
+    return subprocess.run(cmd, env={**base, **env}, check=False).returncode
 
 
 if __name__ == "__main__":

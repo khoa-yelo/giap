@@ -1,21 +1,71 @@
 """Calibration harness fixtures and suite selection (issue M4-05; GIAP_SPEC.md §8.4, §11.2).
 
 - ``full``: true for tests marked ``calibration_full`` (nightly R), false otherwise.
-- Every calibration test gets the keyword ``calsuite_<suite>`` for each ``tolerances.yaml`` suite
-  it names (in its own source, else in its module), so the job array selects one suite with
-  ``-k calsuite_<suite>`` (``_criteria.pytest_args``).
-- Results are appended by ``_criteria.log_result`` to ``local/logs/calibration/<suite>.jsonl``.
+- Suite assignment is explicit (PR #54 lead decision 4): every calibration test belongs to exactly
+  one ``tolerances.yaml`` suite, taken from (first match wins) a
+  ``@pytest.mark.calsuite("<suite>")`` marker, ``SUITE_REGISTRY["<file>::<function>"]`` or
+  ``SUITE_REGISTRY["<file>"]`` (paths relative to tests/calibration). The test gets the keyword
+  ``calsuite_<suite>`` so the job array selects one suite with ``-k calsuite_<suite>``
+  (``_criteria.pytest_args``). A calibration test in no entry
+  runs in no array task; ``test_criteria_review.py`` fails on such orphans, so register new files.
+- Results are appended by ``_criteria`` to ``local/logs/calibration/<suite>.jsonl``.
 """
 
 from __future__ import annotations
 
-import inspect
-import re
-from functools import cache
-from types import ModuleType
+from collections.abc import Mapping
+from pathlib import Path
+from types import MappingProxyType
 
 import _criteria as C
 import pytest
+
+HERE = Path(__file__).resolve().parent
+
+# Engine and attack tests use the suite whose R they draw (replicates_fast/full.<suite>); tests
+# with no R of their own sit with their consumer: chance hits and exact recall with placement, the
+# giapsim v2 knobs (promoters, terminators, TUs) with missed_operons, harness self-tests with
+# regions.
+SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
+    {
+        "test_chance_hits.py": "placement",
+        "test_criteria.py": "regions",
+        "test_criteria_review.py": "regions",
+        "test_denovo_precision_calibration.py": "denovo_precision",
+        "test_engine_calibration.py": "regions",
+        "test_engine_calibration.py::test_bh_fdr": "gene_fdr",
+        "test_exact_recall.py": "placement",
+        "test_mayu_calibration.py": "gene_fdr",
+        "test_placement_fdr_genome.py": "placement",
+        "test_placement_fdr_lists.py": "placement",
+        "test_sim_v2_calibration.py": "missed_operons",
+        "test_stats_bootstrap_calibration.py": "regions",
+        "test_stats_fdr_calibration.py": "gene_fdr",
+        "test_stats_permutation_calibration.py": "regions",
+        "attacks/test_attack_bootstrap.py": "regions",
+        "attacks/test_attack_calibration_harness.py": "regions",
+        "attacks/test_attack_calibration_harness.py::test_fdr_check_passes_exact_level_bh": (
+            "gene_fdr"
+        ),
+        "attacks/test_attack_calibration_harness.py::test_fdr_check_flags_bh_at_one_and_a_half_q": (
+            "gene_fdr"
+        ),
+        "attacks/test_attack_chance_hits.py": "placement",
+        "attacks/test_attack_denovo_precision.py": "placement",
+        "attacks/test_attack_fdr_engine.py": "gene_fdr",
+        "attacks/test_attack_genome_decoys.py": "placement",
+        "attacks/test_attack_mayu.py": "gene_fdr",
+        "attacks/test_attack_permutation.py": "regions",
+        "attacks/test_attack_placement_pi.py": "placement",
+        "attacks/test_attack_placement_same_db.py": "placement",
+    }
+)
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers", "calsuite(name): tolerances.yaml suite (array task) of a calibration test"
+    )
 
 
 @pytest.fixture
@@ -24,26 +74,24 @@ def full(request: pytest.FixtureRequest) -> bool:
     return request.node.get_closest_marker("calibration_full") is not None
 
 
-def _named_suites(source: str) -> frozenset[str]:
-    return frozenset(
-        s for s in C.array_suites() if re.search(rf"[\"']{re.escape(s)}[\"'.]", source)
-    )
-
-
-@cache
-def _module_suites(module: ModuleType) -> frozenset[str]:
-    try:
-        return _named_suites(inspect.getsource(module))
-    except (OSError, TypeError):
-        return frozenset()
-
-
-def _item_suites(item: pytest.Function) -> frozenset[str]:
-    try:
-        own = _named_suites(inspect.getsource(item.function))
-    except (OSError, TypeError):
-        own = frozenset()
-    return own or _module_suites(item.module)
+def item_suite(item: pytest.Function) -> str | None:
+    """The one suite of ``item`` (marker, then function entry, then file entry); None if unset."""
+    marker = item.get_closest_marker("calsuite")
+    if marker is not None:
+        suite = str(marker.args[0])
+    else:
+        try:
+            rel = Path(str(item.path)).resolve().relative_to(HERE).as_posix()
+        except ValueError:
+            return None
+        name = item.originalname
+        suite_or_none = SUITE_REGISTRY.get(f"{rel}::{name}", SUITE_REGISTRY.get(rel))
+        if suite_or_none is None:
+            return None
+        suite = suite_or_none
+    if suite not in C.array_suites():
+        raise pytest.UsageError(f"{item.nodeid}: calsuite {suite!r} is not in tolerances.yaml")
+    return suite
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -55,5 +103,6 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             item.iter_markers("calibration_full")
         ):
             continue
-        for suite in _item_suites(item):
+        suite = item_suite(item)
+        if suite is not None:
             item.extra_keyword_matches.add(f"calsuite_{suite}")
