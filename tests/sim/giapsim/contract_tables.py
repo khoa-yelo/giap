@@ -61,7 +61,8 @@ CONTRACT_TYPES: Mapping[str, tuple[tuple[str, str], ...]] = {
     ),
     "regions": (
         ("region_id", "str"), ("region_type", "str"), ("contig", "str"), ("start", "int"),
-        ("end", "int"), ("source_tool", "str"), ("score", "float"),
+        ("end", "int"), ("source_tool", "str"), ("score", "float"), ("genes", "list?"),
+        ("notes", "str?"),
     ),
     "region_genes": (
         ("region_id", "str"), ("locus_tag", "str"), ("overlap_frac", "float"), ("subset", "str"),

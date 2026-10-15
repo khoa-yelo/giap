@@ -183,25 +183,36 @@ def _is_cas(g: Gene) -> bool:
     return bool(re.match("cas", g.gene or "", re.IGNORECASE)) or "CRISPR-associated" in g.product
 
 
+def _cas_shift(a: Interval, g: Interval, rep: Replicon) -> tuple[int, int] | None:
+    """``(gap, shift)`` of the closest copy of ``g`` (shifted by 0 or ±length on a circular
+    replicon) to the array ``a``; ``None`` beyond ``CAS_MAX_GAP``."""
+    shifts = (0, -rep.length, rep.length) if rep.topology == "circular" else (0,)
+    gap, shift = min((max(a.start - (g.end + k), (g.start + k) - a.end, 0), k) for k in shifts)
+    return (gap, shift) if gap <= CAS_MAX_GAP else None
+
+
 def _crisprs(
     features: Sequence[NcFeature], genes: Sequence[Gene], reps: Mapping[str, Replicon], frac: float
 ) -> list[_Draft]:
+    """CRISPR arrays plus the cas genes within ``CAS_MAX_GAP`` (circular distance on circular
+    replicons); the extent stays in one frame (``end > length`` if it crosses the origin)."""
     out: list[_Draft] = []
     for f in features:
         if f.type != "crispr":
             continue
-        a = f.interval
-        cas = [
-            g.interval
-            for g in genes
-            if g.interval.contig == a.contig
-            and _is_cas(g)
-            and max(a.start - g.interval.end, g.interval.start - a.end, 0) <= CAS_MAX_GAP
-        ]
-        start = min([a.start, *(c.start for c in cas)])
-        end = max([a.end, *(c.end for c in cas)])
+        a, rep = f.interval, reps[f.interval.contig]
+        start, end = a.start, a.end
+        for g in genes:
+            if g.interval.contig != a.contig or not _is_cas(g):
+                continue
+            hit = _cas_shift(a, g.interval, rep)
+            if hit is not None:
+                start = min(start, g.interval.start + hit[1])
+                end = max(end, g.interval.end + hit[1])
+        if start < 0:  # extends upstream across the origin: move into the [0, length) frame
+            start, end = start + rep.length, end + rep.length
         iv = Interval(a.contig, start, end, a.strand)
-        out.append((a.contig, iv, "Bakta", None, members(genes, iv, reps[a.contig], frac), ""))
+        out.append((a.contig, iv, "Bakta", None, members(genes, iv, rep, frac), ""))
     return out
 
 
