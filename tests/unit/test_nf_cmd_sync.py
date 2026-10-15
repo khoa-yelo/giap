@@ -118,6 +118,21 @@ def _ostir_variants() -> list[list[str]]:
     return [ostir_cmd.ostir_command(Path("ostir_input.csv"), Path("ostir.csv"), 4)]
 
 
+def _genomad_variants() -> list[list[str]]:
+    from giap.annotate import genomad_cmd  # M2-18
+
+    return [
+        genomad_cmd.genomad_command(Path("genome.fa"), Path("genomad"), Path("db/genomad_db"), 1),
+        genomad_cmd.genomad_command(Path("genome.fa"), Path("genomad"), Path("db/genomad_db"), 16),
+    ]
+
+
+def _antismash_variants() -> list[list[str]]:
+    from giap.annotate import antismash_cmd  # M2-18
+
+    return [antismash_cmd.antismash_command(Path("bakta.gbff"), Path("antismash"), 8)]
+
+
 BUILDERS: dict[str, Callable[[], list[list[str]]]] = {
     "bakta": _bakta_variants,
     "uniop": _uniop_variants,  # M2-12 (merged before M2-07)
@@ -125,6 +140,8 @@ BUILDERS: dict[str, Callable[[], list[list[str]]]] = {
     "transtermhp": _transtermhp_variants,  # M2-15
     "promotech": _promotech_variants,  # M2-13 (PR #76 review decision 5)
     "ostir": _ostir_variants,  # M2-16
+    "genomad": _genomad_variants,  # M2-18
+    "antismash": _antismash_variants,  # M2-18
 }
 
 
