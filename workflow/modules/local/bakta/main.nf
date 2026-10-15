@@ -21,7 +21,7 @@ process BAKTA {
     def extra = (params.annotation?.bakta?.extra_args ?: []).join(' ')
     """
     mode="--replicons ${replicons}"
-    if [ "${complete}" = true ] || { [ "${complete}" = auto ] && awk -F'\\t' '\$4 != "c" { exit 1 }' ${replicons}; }; then mode=--complete; fi
+    if [ "${complete}" = true ] || { [ "${complete}" = auto ] && awk -F'\\t' '\$4 != "c" { exit 1 }' ${replicons}; }; then mode="--complete \$mode"; fi
     bakta --db ${db} --output bakta --prefix ${meta_id} --threads ${task.cpus} --keep-contig-headers \$mode ${reg} ${extra} ${genome}
 
     cat <<-END_VERSIONS > versions.yml
