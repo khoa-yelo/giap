@@ -262,7 +262,8 @@ def build_frames(n_genes: int = 20, tu_sizes: Sequence[int] = (1, 2, 3)) -> dict
         {
             "protein_id": [tag(i) for i in range(min(n_genes, 5))],
             "value": pd.Series([20.0 + i for i in range(min(n_genes, 5))], dtype="float64"),
-            "scale": ["log2"] * min(n_genes, 5),
+            # Merged M1-12 columns; the scale lives in preflight.json (lead decision 1, review).
+            "raw_id": [tag(i) for i in range(min(n_genes, 5))],
         }
     )
 
@@ -321,6 +322,7 @@ def build_frames(n_genes: int = 20, tu_sizes: Sequence[int] = (1, 2, 3)) -> dict
         "genes": genes,
         "xrefs": xrefs,
         "annotation_source": "bakta_full",
+        "abundance_scale": "log2",  # preflight.json routing.abundance_scale (M1-12)
         "tus": tus,
         "layers": layers_df,
         "regions": regions,
@@ -394,8 +396,13 @@ def empty_like(df: pd.DataFrame) -> pd.DataFrame:
 
 def make_inputs(frames: dict[str, Any]) -> Any:
     """``giap.io.work_tables.M4Inputs`` from ``build_frames`` output."""
+    import dataclasses
+
     from giap.io.work_tables import M4Inputs
 
+    # Lead decision 1 after review: the abundance scale (from preflight.json) is an M4Inputs field.
+    names = {f.name for f in dataclasses.fields(M4Inputs)}
+    extra = {"abundance_scale": frames["abundance_scale"]} if "abundance_scale" in names else {}
     return M4Inputs(
         replicons=frames["replicons"],
         genes=frames["genes"],
@@ -407,6 +414,7 @@ def make_inputs(frames: dict[str, Any]) -> Any:
         region_genes=frames["region_genes"],
         peptides=frames["peptides"],
         abundance=frames["abundance"],
+        **extra,
         peptide_hits=frames["peptide_hits"],
         protein_hits=frames["protein_hits"],
         unmapped=frames["unmapped"],
@@ -434,6 +442,12 @@ def write_work(frames: dict[str, Any], paths: dict[str, Path], skip: Sequence[st
     from giap.io.tsv import write_tsv
 
     for key, path in paths.items():
+        if key == "preflight" and key not in skip:
+            # M1-12 report subset the loader reads (lead decision 1 after review).
+            path.parent.mkdir(parents=True, exist_ok=True)
+            report = {"routing": {"abundance_scale": frames["abundance_scale"]}}
+            path.write_text(json.dumps(report, sort_keys=True) + "\n", encoding="utf-8")
+            continue
         if key in skip or key not in FILE_NAMES:
             continue
         path.parent.mkdir(parents=True, exist_ok=True)

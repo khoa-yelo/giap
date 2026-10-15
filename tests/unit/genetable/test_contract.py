@@ -52,13 +52,16 @@ REQUIRED: dict[str, tuple[str, ...]] = {
     "regions": ("region_id", "region_type", "contig", "start", "end", "source_tool", "score"),
     "region_genes": ("region_id", "locus_tag", "overlap_frac", "subset", "core_biosynthetic"),
     "peptides": AGG_COLUMNS,
-    "abundance": ("protein_id", "value", "scale"),
+    "abundance": ("protein_id", "value"),  # lead decision 1 after review: no scale column
     "peptide_hits": PEPTIDE_HITS_COLUMNS,
     "protein_hits": PROTEIN_HITS_COLUMNS,
     "unmapped": UNMAPPED_COLUMNS,
     "id_map": ("source_id", "locus_tag"),
 }  # fmt: skip
-OPTIONAL: dict[str, tuple[str, ...]] = {"genes": ("ribosomal_protein", "amr")}
+OPTIONAL: dict[str, tuple[str, ...]] = {
+    "genes": ("ribosomal_protein", "amr"),
+    "abundance": ("raw_id",),  # merged M1-12 writes it (lead decision 1 after review)
+}
 
 # (table, column) -> (dtype, nullable or None = unpinned, enum or None)
 PINNED: dict[tuple[str, str], tuple[str, bool | None, tuple[str, ...] | None]] = {
@@ -122,7 +125,7 @@ PINNED: dict[tuple[str, str], tuple[str, bool | None, tuple[str, ...] | None]] =
     ("peptides", "intensity"): ("float", True, None),
     ("abundance", "protein_id"): ("str", False, None),
     ("abundance", "value"): ("float", True, None),
-    ("abundance", "scale"): ("str", False, ("log2", "linear")),
+    ("abundance", "raw_id"): ("str", None, None),
     ("peptide_hits", "start"): ("int", False, None),
     ("peptide_hits", "end"): ("int", False, None),
     ("peptide_hits", "strand"): ("str", False, ("+", "-")),
@@ -139,6 +142,7 @@ PINNED: dict[tuple[str, str], tuple[str, bool | None, tuple[str, ...] | None]] =
             "sorf",
             "cds_inframe",
             "nterm_extension",
+            "cterm_extension",  # ADR-0013 (lead decision 2 after review)
             "cds_outframe",
             "antisense",
             "intergenic",
@@ -561,7 +565,6 @@ def test_bad_strand_enum(frames: dict[str, Any]) -> None:
         ("replicons", "kind", "chromid"),
         ("regions", "region_type", "island"),
         ("region_genes", "subset", "tail"),
-        ("abundance", "scale", "log10"),
         ("peptide_hits", "route", "miniprot"),
         ("peptide_hits", "locus_class", "cds"),
         ("peptide_hits", "uniqueness", "razor"),
