@@ -59,11 +59,13 @@ _SOURCE_TOOL = "giapsim"
 
 @dataclass(frozen=True)
 class RegionSpec:
-    """A planted region on the chromosome: a block of consecutive genes, or a scattered set."""
+    """A planted region: a block of consecutive genes, or a scattered set, on ``contig``
+    (a replicon name such as ``p1``; None = the chromosome ``chr1``)."""
 
     region_type: str  # prophage, bgc, crispr, amr
     n_genes: int
     scattered: bool = False
+    contig: str | None = None
 
 
 DEFAULT_REGIONS: tuple[RegionSpec, ...] = (
@@ -175,15 +177,29 @@ def _check(cfg: LayoutConfig) -> None:
         raise ValueError("frac_sorf and frac_pseudogene must be >= 0 with sum <= 1")
     if not 0 <= cfg.frac_hypothetical <= 1:
         raise ValueError(f"frac_hypothetical must be in [0, 1], got {cfg.frac_hypothetical}")
-    n = cfg.n_genes_chromosome
-    block = sum(r.n_genes for r in cfg.regions if not r.scattered)
-    scattered = sum(r.n_genes for r in cfg.regions if r.scattered)
     if any(r.n_genes < 1 for r in cfg.regions):
         raise ValueError("every region needs at least one gene")
-    if block > n or scattered > n - block:
-        raise ValueError(
-            f"regions need {block} block and {scattered} scattered genes; the chromosome has {n}"
-        )
+    sizes = dict(_replicon_sizes(cfg))
+    for r in cfg.regions:
+        if (r.contig or "chr1") not in sizes:
+            raise ValueError(f"region contig {r.contig!r} is not a replicon of the layout")
+    for cid, n in sizes.items():
+        specs = [r for r in cfg.regions if (r.contig or "chr1") == cid]
+        block = sum(r.n_genes for r in specs if not r.scattered)
+        scattered = sum(r.n_genes for r in specs if r.scattered)
+        if block > n or scattered > n - block:
+            raise ValueError(
+                f"regions need {block} block and {scattered} scattered genes; {cid} has {n}"
+            )
+
+
+def _replicon_sizes(cfg: LayoutConfig) -> list[tuple[str, int]]:
+    """(name, genes) of every replicon in layout order: chr1, p<i>, ctg<i>."""
+    return [
+        ("chr1", cfg.n_genes_chromosome),
+        *((f"p{i + 1}", n) for i, n in enumerate(cfg.plasmids)),
+        *((f"ctg{i + 1}", n) for i, n in enumerate(cfg.linear_contigs)),
+    ]
 
 
 # --------------------------------------------------------------------------- pieces
@@ -395,8 +411,16 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
             t += 1
     total = len(contig)
 
-    # regions on the chromosome (gene indices 0..n-1 are the chromosome genes)
-    placed = _place_regions(rng, cfg.n_genes_chromosome, cfg.regions)
+    # regions on the chromosome (gene indices 0..n-1 are the chromosome genes), then on the
+    # other replicons named by ``RegionSpec.contig`` (global gene indices)
+    on_chr = tuple(r for r in cfg.regions if r.contig in (None, "chr1"))
+    placed = _place_regions(rng, cfg.n_genes_chromosome, on_chr)
+    offset = 0
+    for cid, n in _replicon_sizes(cfg):
+        specs = tuple(r for r in cfg.regions if r.contig == cid and cid != "chr1")
+        if specs:
+            placed += [(r, [offset + i for i in m]) for r, m in _place_regions(rng, n, specs)]
+        offset += n
 
     # gene classes and lengths
     u = rng.random(total)
@@ -528,12 +552,13 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
 
     region_rows: list[tuple[str, str, list[str], int | None, int | None]] = []
     for spec, members in placed:
+        cid = spec.contig or "chr1"
         if spec.scattered:
             names = [tags[i] for i in members]
-            region_rows.append((spec.region_type, "chr1", names, None, None))
+            region_rows.append((spec.region_type, cid, names, None, None))
         else:
-            run, s0, e0 = _span(members, start, end, lengths[0])
-            region_rows.append((spec.region_type, "chr1", [tags[i] for i in run], s0, e0))
+            run, s0, e0 = _span(members, start, end, circular.get(cid))
+            region_rows.append((spec.region_type, cid, [tags[i] for i in run], s0, e0))
     offset = 0
     for cid, n, _, kind in reps:
         if kind == "plasmid":
@@ -558,7 +583,7 @@ def _rotate_chr1(
     """Rotate chr1 (genes ``0..n-1``) so the origin falls in the middle of one gene of a block
     region (any gene without block regions): returns the new-to-old gene permutation and the
     permuted ``start``, ``end`` and ``crosses_origin`` arrays (crossing gene unwrapped, last)."""
-    blocks = [m for spec, m in placed if not spec.scattered]
+    blocks = [m for spec, m in placed if not spec.scattered and spec.contig in (None, "chr1")]
     if blocks:
         members = blocks[int(rng.integers(len(blocks)))]
         k = members[int(rng.integers(len(members)))]
