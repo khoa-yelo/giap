@@ -1,15 +1,19 @@
 """`giap makedb`: optional strain search database (issue M3-23; GIAP_SPEC.md §7.9.2, §5.1).
 
 Writes ``strain_db.faa`` (Bakta CDS/sORF proteins, patched proteins, class-tagged six-frame ORFs,
-contaminants; wrapped at 60, no ``*``, no decoys), ``id_map.tsv`` (one row per record, 1-based
+contaminants; wrapped at 60, no ``*``, no decoys), ``db_id_map.tsv`` (one row per record, 1-based
 closed coordinates, unwrapped across the origin) and ``makedb_manifest.json``.
 
 Six-frame ORFs are the maximal stop-to-stop segments of each frame, split at ``X`` (lead decision
-3), translated codon by codon from the genome (no I -> L, no start rule) with the M3-01 kernel.
-An ORF in frame with an annotated CDS/sORF is dropped; each such gene with >= 7 stop-free
-upstream codons gets one ``nterm_extension`` entry = upstream part + the first 30 codons of the
-annotated protein, whose header/id_map interval covers both (lead decision 2). The other ORFs
-take the M3-14 ``classify_locus`` class; ``rna_overlap``/``pseudogene`` ORFs are omitted.
+3), translated codon by codon from the genome (no I -> L, no start rule) with the M3-01
+``translate11_text``. An ORF in frame with an annotated CDS/sORF is dropped; each such gene with
+>= 7 stop-free upstream codons gets one ``nterm_extension`` entry = upstream part + the first 30
+codons of the gene translated from the genome (GTG -> V; review decision 5), whose header/id_map
+interval covers both (lead decision 2). The entry is undefined (not written) when the upstream
+walk runs off a linear contig, meets an ``X`` or finds no stop within one circular turn (review
+decision 4). The other ORFs take the M3-14 ``LocusClassifier`` class; ``rna_overlap``/
+``pseudogene`` ORFs are omitted. A patch CDS with an internal ``*`` and an annotation without
+sequences or features (``{}``) are rejected (ValueError; review decision 7).
 """
 
 from __future__ import annotations
@@ -29,8 +33,8 @@ from giap.io.fasta import read_genome_fasta
 from giap.io.gff3 import AttrValue, read_gff3
 from giap.io.protein_fasta import read_protein_fasta, write_protein_fasta
 from giap.io.tsv import write_tsv
-from giap.mapping.loci import _build_index, _classify, _in_frame, _shifts
-from giap.mapping.sixframe import _BASES, _NT_LUT, _TABLE11_TCAG, SixFrameIndex, _translate_kernel
+from giap.mapping.loci import LocusClassifier, in_frame
+from giap.mapping.sixframe import SixFrameIndex, translate11_text
 from giap.model.coords import Interval, Replicon
 from giap.model.genes import Gene, GeneModel
 
@@ -41,33 +45,11 @@ NTERM_PROTEIN_AA = 30
 NTERM_MIN_UPSTREAM_AA = 7
 ID_MAP_COLUMNS = ("db_id", "kind", "locus_tag", "class", "contig", "start", "end", "strand")
 _CODING = frozenset({"cds", "sorf"})
-_AMBIG = 20  # code written by the M3-01 kernel for a codon with a non-ACGT base
-_STOP = ord("*")
 _COMP = str.maketrans("ACGTacgt", "TGCAtgca")
 
 
-def _ascii_codons() -> np.ndarray:
-    table = np.empty(64, dtype=np.uint8)
-    for i, b0 in enumerate("TCAG"):
-        for j, b1 in enumerate("TCAG"):
-            for k, b2 in enumerate("TCAG"):
-                idx = 16 * _BASES.index(b0) + 4 * _BASES.index(b1) + _BASES.index(b2)
-                table[idx] = ord(_TABLE11_TCAG[16 * i + 4 * j + k])
-    return table
-
-
-_CODON_ASCII = _ascii_codons()
-
-
-def _translate(nt: str, offset: int = 0) -> np.ndarray:
-    """Table 11 codon by codon as ASCII bytes; a non-ACGT codon -> code ``_AMBIG``."""
-    raw = np.frombuffer(nt.encode("ascii", errors="replace"), dtype=np.uint8)
-    out: np.ndarray = _translate_kernel(raw, _NT_LUT, _CODON_ASCII, offset, False)
-    return out
-
-
-def _text(codes: np.ndarray) -> str:
-    return np.where(codes == _AMBIG, ord("X"), codes).astype(np.uint8).tobytes().decode("ascii")
+def _shifts(rep: Replicon) -> tuple[int, ...]:
+    return (0, rep.length, -rep.length) if rep.topology == "circular" else (0,)
 
 
 @dataclass(frozen=True)
@@ -115,8 +97,9 @@ def _strand_runs(t: str, circular: bool, min_aa: int) -> Iterator[tuple[int, int
     n = len(t)
     ext = t + t + t[:6] if circular else t
     for o in range(3):
-        aa = _translate(ext, o)
-        bnd = np.flatnonzero((aa == _STOP) | (aa == _AMBIG))
+        aa = translate11_text(ext, o)
+        codes = np.frombuffer(aa.encode("ascii"), dtype=np.uint8)
+        bnd = np.flatnonzero((codes == ord("*")) | (codes == ord("X")))
         if circular:
             starts, ends = bnd[:-1] + 1, bnd[1:]
             keep = (o + 3 * bnd[:-1] < n) & (3 * (ends - starts) <= n)
@@ -129,7 +112,7 @@ def _strand_runs(t: str, circular: bool, min_aa: int) -> Iterator[tuple[int, int
             s = o + 3 * a
             if s >= n:
                 s -= n
-            yield s, s + 3 * (b - a), _text(aa[a:b])
+            yield s, s + 3 * (b - a), aa[a:b]
 
 
 def _raw_orfs(contig: str, seq: str, rep: Replicon, min_aa: int) -> Iterator[OrfRecord]:
@@ -154,22 +137,29 @@ def _in_frame_coding(orf: OrfRecord, gm: GeneModel, rep: Replicon) -> bool:
             continue
         for d in _shifts(rep):
             a, b = orf.start + d, orf.end + d
-            if max(a, gi.start) < min(b, gi.end) and _in_frame(a, b, gi):
+            if max(a, gi.start) < min(b, gi.end) and in_frame(a, b, gi):
                 return True
     return False
 
 
 def _upstream(seq: str, g: Gene, rep: Replicon) -> tuple[int, int] | None:
-    """In-frame stop/X-free upstream part of ``g`` (unwrapped plus coordinates)."""
+    """In-frame upstream part of ``g`` up to the first stop (unwrapped plus coordinates); None
+    when the walk runs off a linear contig, meets an ``X`` or finds no stop within one turn."""
     n, circ, gi = rep.length, rep.topology == "circular", g.interval
     step = -3 if gi.strand == "+" else 3
-    q = gi.start - 3 if gi.strand == "+" else gi.end
-    while circ or 0 <= q <= n - 3:
-        if abs(q - (gi.start - 3 if gi.strand == "+" else gi.end)) >= n:
+    q0 = gi.start - 3 if gi.strand == "+" else gi.end
+    q = q0
+    while True:
+        if not circ and not 0 <= q <= n - 3:
+            return None
+        if abs(q - q0) >= n:
             return None
         cod = interval_nt(seq, Interval(gi.contig, q % n, q % n + 3, gi.strand))
-        if _translate(cod)[0] in (_STOP, _AMBIG):
+        aa = translate11_text(cod)
+        if aa == "*":
             break
+        if aa == "X":
+            return None
         q += step
     a, b = (q + 3, gi.start) if gi.strand == "+" else (gi.end, q)
     if a < 0:
@@ -189,20 +179,27 @@ def _nterm_entries(gm: GeneModel, genome: Mapping[str, str]) -> Iterator[OrfReco
             continue
         a, b = up
         strand = g.interval.strand
-        up_aa = _text(_translate(interval_nt(seq, Interval(g.interval.contig, a, b, strand))))
+        up_aa = translate11_text(interval_nt(seq, Interval(g.interval.contig, a, b, strand)))
         if len(up_aa) < NTERM_MIN_UPSTREAM_AA:
             continue
-        prot = _protein(g)[:NTERM_PROTEIN_AA]
-        span = 3 * len(prot)
+        gi = g.interval
+        span = 3 * min(NTERM_PROTEIN_AA, (gi.end - gi.start) // 3 - 1)  # junction codons
         if strand == "+":
-            s, e = a, b + span
+            s, e, js, je = a, b + span, gi.start, gi.start + span
         else:
-            s, e = a - span, b
+            s, e, js, je = a - span, b, gi.end - span, gi.end
             if s < 0:
                 s, e = s + rep.length, e + rep.length
-        yield OrfRecord(
-            "nterm_extension", g.interval.contig, s, e, strand, up_aa + prot, g.locus_tag
-        )
+        junction = translate11_text(_strand_nt(seq, js, je, strand, rep.length))
+        yield OrfRecord("nterm_extension", gi.contig, s, e, strand, up_aa + junction, g.locus_tag)
+
+
+def _strand_nt(seq: str, start: int, end: int, strand: str, n: int) -> str:
+    """Nucleotides of unwrapped ``[start, end)`` (modulo ``n``) read on ``strand``."""
+    if start < 0:
+        start, end = start + n, end + n
+    nt = (seq + seq)[start:end] if end > n else seq[start:end]
+    return nt.translate(_COMP)[::-1] if strand == "-" else nt
 
 
 def six_frame_orfs(
@@ -211,14 +208,15 @@ def six_frame_orfs(
     """Class-tagged six-frame ORFs and ``nterm_extension`` entries, sorted (contig, start, end,
     strand). ``index`` (M3-01) supplies the replicons; sequences come from ``genome``."""
     reps = index.replicons
-    loci_index = _build_index(gm)
+    classifier = LocusClassifier(gm, genome)
     out: list[OrfRecord] = list(_nterm_entries(gm, genome))
     for contig, seq in genome.items():
         rep = reps[contig]
         for orf in _raw_orfs(contig, seq, rep, min_aa):
             if _in_frame_coding(orf, gm, rep):
                 continue
-            cls, _ = _classify(contig, orf.start, orf.end, orf.strand, gm, genome, loci_index)
+            iv = Interval(contig, orf.start, orf.end, orf.strand)  # type: ignore[arg-type]
+            cls, _ = classifier.classify(iv)
             if cls in ORF_CLASSES:
                 out.append(OrfRecord(cls, contig, orf.start, orf.end, orf.strand, orf.aa))
     order = {c: k for k, c in enumerate(reps)}
@@ -233,7 +231,7 @@ def _protein(g: Gene) -> str:
     """Annotated protein (Bakta ``aa``), else the table-11 translation with an initiator M."""
     if g.aa:
         return g.aa
-    return ("M" + _text(_translate((g.nt or "")[3:]))).rstrip("*")
+    return ("M" + translate11_text((g.nt or "")[3:])).rstrip("*")
 
 
 def _attr(attrs: Mapping[str, AttrValue], key: str) -> str | None:
@@ -258,11 +256,16 @@ Row = tuple[str, str, str | None, str | None, str | None, int | None, int | None
 
 
 def build_strain_db(opts: MakedbOptions) -> MakedbResult:
-    """Build ``strain_db.faa``, ``id_map.tsv`` and ``makedb_manifest.json`` in ``opts.outdir``."""
+    """Build ``strain_db.faa``, ``db_id_map.tsv`` and ``makedb_manifest.json`` in ``opts.outdir``.
+
+    Raises ValueError on an annotation without sequences or features (e.g. ``{}``), never writing
+    an empty database."""
     if opts.min_orf_aa < 1:
         raise ValueError(f"min_orf_aa must be >= 1, got {opts.min_orf_aa}")
     ann = parse_bakta_json(opts.annotation)
     gm = ann.model
+    if not gm.replicons:
+        raise ValueError(f"{opts.annotation}: annotation has no sequences or features")
     genome = dict(ann.sequences)
     if opts.genome is not None:
         fasta = {r.id: r.sequence for r in read_genome_fasta(opts.genome)}
@@ -294,7 +297,9 @@ def build_strain_db(opts: MakedbOptions) -> MakedbResult:
             rid = f"{pid}_patch" if pid in taken else pid
             taken.add(rid)
             nt = interval_nt(genome[iv.contig], iv)
-            seq = ("M" + _text(_translate(nt[3:]))).rstrip("*")
+            seq = ("M" + translate11_text(nt[3:])).removesuffix("*")
+            if "*" in seq:
+                raise ValueError(f"{opts.patch}: patch CDS {rid} has an internal stop codon")
             product = _attr(f.attributes, "product") or _gene_product(gm, tag)
             row = (rid, "patch", tag, None, iv.contig, iv.start + 1, iv.end, iv.strand)
             add(f"{rid} {product or 'hypothetical protein'}", seq, row)
@@ -317,7 +322,7 @@ def build_strain_db(opts: MakedbOptions) -> MakedbResult:
     out.mkdir(parents=True, exist_ok=True)
     fasta_path, map_path, manifest_path = (
         out / "strain_db.faa",
-        out / "id_map.tsv",
+        out / "db_id_map.tsv",
         out / "makedb_manifest.json",
     )
     write_protein_fasta(fasta_path, records)
