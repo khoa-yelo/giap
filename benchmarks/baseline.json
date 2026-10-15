@@ -1,5 +1,5 @@
 {
-  "_comment": "Accepted runtime and accuracy numbers (GIAP_SPEC.md §12; updates by ADR with before/after numbers). Seconds are wall clock.",
+  "_comment": "Accepted runtime and accuracy numbers (GIAP_SPEC.md \u00a712; updates by ADR with before/after numbers). Seconds are wall clock.",
   "detectability": {
     "source": "docs/specs/M4-13-detectability.md lead decision 8",
     "d1_fast": {
@@ -24,5 +24,14 @@
       "slurm_job": 1848694,
       "commit": "4ff26d3"
     }
+  },
+  "mapping_steps_chain_100kb_5000_peptides": {
+    "benchmark": "benchmarks/test_mapping_steps_bench.py::test_mapping_chain_100kb_5000_peptides_budget",
+    "budget_s": 20.0,
+    "secs": 1.8,
+    "queries": 5000,
+    "node_class": "FarmShare iron (AMD EPYC 7742)",
+    "date": "2026-10-15",
+    "issue": "M3-17"
   }
 }

@@ -143,7 +143,13 @@ def test_cli_run_local_missing_layer_exits_1(
         monkeypatch.setattr(giap.cli, name, boom, raising=False)
     genome = tmp_path / "g.fa"
     genome.write_text(">chr1 [topology=circular]\n" + "ACGT" * 50 + "\n")
-    argv = ["run", "--genome", str(genome), "--outdir", str(tmp_path / "o"), "--executor", "local"]
+    pep = tmp_path / "p.tsv"  # evidence: a run without it exits 1 (M3-17 review decision 7)
+    pep.write_text("peptide\tprotein_ids\nPEPTIDEK\tP1\n")
+    from helpers.mapping_steps import write_test_db
+
+    monkeypatch.setenv("GIAP_DB_DIR", str(write_test_db(tmp_path / "test_db")))
+    argv = ["run", "--genome", str(genome), "--peptides", str(pep), "--outdir", str(tmp_path / "o"),
+            "--executor", "local"]  # fmt: skip
     with pytest.raises(SystemExit) as info:
         main(argv)
     assert info.value.code == ExitCode.INVALID_INPUT
