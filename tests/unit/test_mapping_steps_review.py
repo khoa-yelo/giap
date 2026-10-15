@@ -30,6 +30,12 @@ Conventions pinned here where the decisions are silent:
   leftover filter, M18 ``protein_ids`` separator, M23 genome SHA-256). M05, M06 and M14 use a
   hand-built genome; M07 calls ``giap.steps.mapping._peptide_rows`` (rows, placement, queries,
   config) directly.
+* Re-review decisions 13-15. 13: probe E (``--peptides``, no ``--annotation``, no
+  ``annotation.precomputed.bakta_json``) → exit 1 naming ``bakta_json``; missing optional roots
+  still exit 0 without naming them. 14: ``OUT/logs/events.jsonl`` holds an event whose name or
+  ``data`` keys contain ``search_db`` and whose ``data`` values include the resolved value. 15:
+  N10 (``loci`` uses the resolved queries) and M10 (contaminant matching of every non-accepted
+  query, incl. ``rejected_placement_fdr``) of local/scratch/review-m3-17/r2/mutants2.py.
 
 Every preflight here uses a temporary ``$GIAP_DB_DIR`` with a test manifest
 (``helpers.mapping_steps.write_test_db``).
@@ -685,3 +691,150 @@ def test_item9_contaminant_library_is_staged_and_matched(sim50: Any, tmp_path: P
         assert p in un.index, f"{p} not in unmapped.tsv"
         assert un.loc[p, "label"] == "contaminant", un.loc[p].to_dict()
         assert "P00761" in str(un.loc[p, "contaminant_match"]), un.loc[p].to_dict()
+
+
+# ================================================================ decisions 13-15 (re-review)
+# docs/specs/M3-17-mapping-steps.md, "Lead decisions after the re-review (PR #77)". Probes and
+# mutants: local/scratch/review-m3-17/r2/ (probe E; N10, M10).
+
+
+def _no_bakta_layer(sim: Any, tmp: Path) -> Path:
+    cfg = tmp / "no_bakta_layer.yaml"
+    lines = sim.config_yaml.read_text().splitlines()
+    cfg.write_text("\n".join(ln for ln in lines if "bakta_json" not in ln) + "\n")
+    return cfg
+
+
+def test_d13_peptides_without_bakta_json_exits_1_naming_the_key(sim50: Any, tmp_path: Path) -> None:
+    """Probe E: ``--peptides`` with neither ``--annotation`` nor
+    ``annotation.precomputed.bakta_json``: the mapping targets are pruned only because the
+    REQUIRED root ``bakta_json`` is missing → exit 1 naming it, never a silent exit 0."""
+    out = tmp_path / "OUT"
+    r = _giap_run(
+        sim50, out, write_test_db(tmp_path / "db"), "--peptides", str(sim50.peptides),
+        config=_no_bakta_layer(sim50, tmp_path),
+    )  # fmt: skip
+    assert r.exit_code == 1, r.output
+    assert "bakta_json" in r.output, r.output
+    assert _no_module2(out)
+
+
+def test_d13_missing_optional_roots_are_still_pruned_silently(sim50: Any, tmp_path: Path) -> None:
+    """No ``--proteins`` (``proteins_long``), no contaminant library in ``$GIAP_DB_DIR``
+    (``contaminants``), no reference peptides: exit 0 with the Module 2 files, nothing named."""
+    out = tmp_path / "OUT"
+    r = _peptide_run(sim50, out, write_test_db(tmp_path / "db"))
+    assert r.exit_code == 0, r.output
+    for f in MODULE2_FILES:
+        assert (out / "mapping" / f).is_file(), f"OUT/mapping/{f} missing"
+    for key in ("proteins_long", "contaminants", "reference_peptides"):
+        assert key not in r.output, r.output
+
+
+def _search_db_events(events: Path) -> list[dict[str, Any]]:
+    import json
+
+    found = []
+    for ln in events.read_text(encoding="utf-8").splitlines():
+        if not ln.strip():
+            continue
+        ev = json.loads(ln)
+        data = ev.get("data") if isinstance(ev.get("data"), dict) else {}
+        if "search_db" in str(ev.get("event", "")) or "search_db" in data:
+            found.append(ev)
+    return found
+
+
+def test_d14_search_db_auto_resolution_is_an_event(sim50: Any, tmp_path: Path) -> None:
+    """``search_db`` absent (= ``auto``, C9) on a same-strain search (probe A):
+    ``OUT/logs/events.jsonl`` holds an event naming ``search_db`` (event name or data key) whose
+    data carries the resolved value ``same``."""
+    src = pd.read_csv(sim50.peptides, sep="\t", dtype=str, keep_default_na=False)
+    src = src.drop(columns=["search_db"])
+    peps = tmp_path / "peptides_auto.tsv"
+    src.to_csv(peps, sep="\t", index=False)
+    out = tmp_path / "OUT"
+    r = _peptide_run(sim50, out, write_test_db(tmp_path / "db"), peptides=peps)
+    assert r.exit_code == 0, r.output
+    events = out / "logs" / "events.jsonl"
+    assert events.is_file()
+    evs = _search_db_events(events)
+    assert evs, events.read_text()[-2000:]
+    assert any("same" in {str(v) for v in (e.get("data") or {}).values()} for e in evs), evs
+
+
+N_MISMATCH = 40  # every 40th target peptide (2.5 %): the table still resolves to ``same``
+
+
+@pytest.fixture(scope="module")
+def auto_chain(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+    """Same-strain sim, ``search_db: auto`` on every row; every 40th target peptide's
+    ``protein_ids`` is swapped for another gene-model locus tag (still in the database, so the
+    table resolves to ``same``) → its hits on its true gene are ``engine_protein_mismatch``."""
+    tmp = tmp_path_factory.mktemp("auto_chain")
+    run = preflight(_sim(tmp, SEED, search_db="same"), tmp / "pf")
+    df = pd.read_parquet(run.peptides)
+    df["search_db"] = pd.Series(["auto"] * len(df), dtype="string")
+    tgt = list(df.index[~df["is_decoy"].astype(bool)])
+    ids = {i: [str(x) for x in df.at[i, "protein_ids"]] for i in df.index}
+    swapped: dict[str, set[str]] = {}
+    for k in range(0, len(tgt), N_MISMATCH):
+        i = tgt[k]
+        other = next(
+            (ids[j] for j in tgt[k + 1 :] + tgt[:k] if ids[j] and not set(ids[j]) & set(ids[i])),
+            None,
+        )
+        if other is not None:
+            ids[i] = list(other)
+            swapped[str(df.at[i, "peptide"])] = set(other)
+    df["protein_ids"] = [ids[i] for i in df.index]
+    run = _with_parquet(run, df, tmp / "peptides.auto.parquet")
+    cfg = resolve_config(run.config_yaml, [f"seed={SEED}"])
+    avail, _ = _drive_logged(cfg, tmp / "work", roots_of(run))
+    return {"cfg": cfg, "avail": avail, "tmp": tmp, "swapped": swapped,
+            "files": module2_files(tmp / "work", avail)}  # fmt: skip
+
+
+def test_d15_n10_loci_flags_mismatch_on_auto_resolved_same(auto_chain: dict[str, Any]) -> None:
+    """N10: ``loci`` must use the resolved queries, so ``auto`` → ``same`` reaches M3-14's
+    ``engine_protein_mismatch`` check (a hit gene not among the engine's protein IDs)."""
+    hits = read_tsv_df(auto_chain["files"]["peptide_hits.tsv"])
+    sw = auto_chain["swapped"]
+    rows = hits[hits["peptide"].isin(sw.keys()) & hits["gene"].notna()]
+    rows = rows[[g not in sw[p] for p, g in zip(rows["peptide"], rows["gene"], strict=True)]]
+    assert len(rows) > 0, "no swapped peptide hit a gene"
+    flagged = rows["flags"].map(lambda f: "engine_protein_mismatch" in _flags(f))
+    assert flagged.all(), rows.loc[~flagged, ["peptide", "gene", "flags"]]
+    rest = hits[~hits["peptide"].isin(sw.keys())]
+    assert len(rest) > 0
+
+
+def test_d15_m10_rejected_placements_are_matched_against_contaminants(
+    auto_chain: dict[str, Any],
+) -> None:
+    """M10: every query not ACCEPTED (incl. a target hit rejected by placement FDR) is matched
+    against the contaminant library; such a peptide is labelled ``contaminant`` with reason
+    ``rejected_placement_fdr`` and the library entry in ``contaminant_match``."""
+    avail = auto_chain["avail"]
+    per = pd.read_parquet(avail["placement"])
+    state = per.groupby("peptide")["accepted"].agg(lambda s: bool(s.astype(bool).any()))
+    rejected = [p for p, a in state.items() if not a and len(str(p)) >= 8][:3]
+    assert rejected, "the chain has no target hit rejected by placement FDR"
+    tmp = auto_chain["tmp"] / "m10"
+    tmp.mkdir()
+    lib = tmp / "contaminants.fasta"
+    lib.write_text("".join(f">CONT_{i:02d} test\nGGG{p}GGG\n" for i, p in enumerate(rejected)))
+    with pytest.MonkeyPatch.context() as mp:
+        reg = fresh_steps(mp)
+        spec = reg.get("loci")
+        ins = {k: avail[k] for k in (*spec.inputs, *spec.optional_inputs) if k in avail}
+        ins["contaminants"] = lib
+        (out_key,) = spec.outputs
+        reg.run_step("loci", auto_chain["cfg"], ins, {out_key: tmp / out_key})
+    un = read_tsv_df(module2_files(tmp / out_key)["unmapped.tsv"]).set_index("sequence")
+    for i, p in enumerate(rejected):
+        assert p in un.index, f"{p} not in unmapped.tsv"
+        row = un.loc[p]
+        assert row["label"] == "contaminant", row.to_dict()
+        assert row["reason"] == "rejected_placement_fdr", row.to_dict()
+        assert str(row["contaminant_match"]) == f"CONT_{i:02d}", row.to_dict()
