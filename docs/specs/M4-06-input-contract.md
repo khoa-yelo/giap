@@ -177,3 +177,13 @@ None (no statistics). The contract is documented in the module docstring and cop
 5. Size (ci/gates.yaml: warn 400, fail 800 code lines): bring the PR under 800 by removing the unspecced
    checks and duplicated helpers; if that is not enough, split the loader (`giap.io.work_tables`) into a
    follow-up PR stacked on the contract.
+
+## Lead decisions after code review (PR #51, changes requested)
+1. C10 follows merged M1-12: `abundance.norm.parquet` has `protein_id`, `raw_id` (optional), `value`; the
+   scale is read by the loader from `preflight.json` (`abundance_scale`) into `M4Inputs`, not required as a
+   Parquet column. Test: real M1-12 preflight output passes the contract.
+2. `cterm_extension` (ADR-0013) is in `LOCUS_CLASSES` and `ASSIGNING_CLASSES`. Test with a gene-assigned
+   `cterm_extension` row.
+3. Tests kill the surviving mutants: layers rows for unknown genes; an AMR region with exactly one NA
+   coordinate; `1.5` in an object-dtype int column; TSV bool parsing accepts only `true`/`false`
+   (`TRUE` and `1` → dtype error).
