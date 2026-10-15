@@ -50,8 +50,22 @@ def test_terminatornet_process_passes_exactly_the_builder_flags() -> None:
     assert re.search(r"(?<![\w-])-s(?![\w-])", call), "TerminatorNet must run with -s (G12)"
 
 
+# ``-p`` takes the builder's expterm.dat path or a shell variable resolving it in the env (M2-15
+# review decision 3; e.g. ``-p $EXPTERM`` / ``-p \$EXPTERM`` / ``-p ${EXPTERM}``).
+_VAR = re.compile(r"^\\?\$(\{\w+\}|\w+)$")
+
+
 def test_transtermhp_process_matches_the_builder() -> None:
-    call = _call(_script("transtermhp"), "transterm ")
+    script = re.sub(r"\\\s*\n", " ", _script("transtermhp"))
+    calls = [ln for ln in script.splitlines() if re.match(r"\s*transterm\s", ln)]
+    assert calls, "no line invoking transterm"
+    toks = calls[0].split(">", 1)[0].split()
     argv = transterm_command(Path("genome.fa"), Path("genes.coords"), Path("expterm.dat"))
     assert argv[:2] == ["transterm", "-p"]
-    assert re.search(r"(?<![\w-])-p\s+\S*expterm\.dat", call), call
+    assert toks[:2] == ["transterm", "-p"], calls[0]
+    assert len(toks) == len(argv), calls[0]
+    exp = toks[2]
+    assert exp.endswith("expterm.dat") or _VAR.match(exp), f"-p argument {exp!r}"
+    # positional order genome.fa genes.coords, as the builder
+    assert [Path(t).name for t in toks[3:]] == [Path(a).name for a in argv[3:]], calls[0]
+    assert [Path(a).name for a in argv[3:]] == ["genome.fa", "genes.coords"]
