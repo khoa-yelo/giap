@@ -87,3 +87,12 @@ how multi-letter COG categories are counted, the QC metrics' definitions.
    same-database target peptides not placed exactly), computed only when `search_db = same` rows exist.
 2. Multi-letter COG categories counted in every letter? **Proposed default:** yes (COG convention);
    documented in the methods note.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted (`n_tu` row per group; `ci_few_units` flag on `o_minus_e`
+   with < 10 TUs; missing `n` → NA, missing `flags` → empty; ValueError on an unknown section or a missing
+   core column; `genome_inconsistent_rate` NA without same-database peptides).
+2. The schema is `src/giap/schemas/tables/detection_summary.schema.json` (same convention as the M3-16
+   table schemas).
+3. Stand-ins for unmerged producers (p_detect, COG, tier/detectability columns) are replaced by the real
+   M4-12/M4-13 outputs when those merge (backlog, M4-20).
