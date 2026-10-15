@@ -110,3 +110,15 @@ Window geometry (S = first base of the start codon, 0-based; E = gene interval e
    checks its resource needs (M1-11/M1-12 tests: exit 0, exit 3 with --strict). It is rejected at run time:
    `giap run` exits 1 before launching anything ("annotation.promoters.mode: genome is not implemented"),
    and the `promoter_windows` step raises the same error if reached. Not at config load.
+
+## Lead decisions after code review (PR #76, changes requested)
+5. ANNOTATE wiring (main, after #65): the `promoter_windows` call in annotate.nf passes `replicons` (the step
+   needs it for circular wraps) and collects the chunks with
+   `scatterSpec('windows', 'windows/windows_*.fa', …, true)` + `inDir`; the step writes chunks into the
+   `windows/` directory. The M2-index row is updated. A test runs the step end to end through the
+   registry, and the step-registry fixture (workflow/tests/data/annotate/step_registry.json) is regenerated.
+6. Tests kill the surviving mutants: BED merge across the origin (and its max score); the `gap % n` wrap;
+   circular normalisation in `promoter_between`; the `max(a, 0)` clamp; the `lo1` wrap (a window ending at
+   end3p == n); the pseudogene filter in the step; the header check with a TAB-separated foreign header.
+7. `gene_promoter_features(…, replicons)` requires `replicons` (no silent linear default).
+8. Review finding 5 (`giap _step` never loads step modules) is fixed by the run-wiring PR #78.
