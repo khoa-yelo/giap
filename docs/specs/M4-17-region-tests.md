@@ -150,3 +150,8 @@ Simulated TU expression follows an AR(1) that restarts per replicon and does not
    ρ; A4 becomes a deterministic invariance test (bitwise-identical at copy number 1 and 20).
 8. A2 xfail(strict=False) "needs M4-13 (#83)" until #83 merges; A2 gains the anti-conservative direction.
 9. Tests kill the surviving mutants: `split_contigs`, HL bootstrap strata, start-before-locus_tag sort.
+10. ADR-0018 residualisation (lead confirms the test-author's reading): per replicon, OLS with intercept
+    of log2 abundance on log length_aa, log1p n_observable_peptides and GRAVY (§9.3 genes.tsv covariates),
+    fitted on detected genes; the HL shift, its CI and p are reported on the residual scale (log2 units
+    relative to the covariate expectation; report labels it "detectability-adjusted"); the O−E effect
+    stays raw while its test uses the studentised sum.
