@@ -5,6 +5,9 @@ replicon is its eligible genes (not partial, with a ``p_detect``) in genome orde
 region's index set I is moved to (I + k) mod N for every valid shift k (``circular_shifts``,
 ``choose_shifts``), both statistics are recomputed at each shift and the two-sided centred
 ``perm_p`` is reported with a TU-block bootstrap CI. q-values: BH within (region_type, stat).
+ADR-0018: the O - E test statistic is studentised, sum(d - p) / sqrt(sum p (1 - p)) (the reported
+effect stays O - E), and HL runs on log2 abundance residualised per replicon on the detectability
+covariates (``residualise``; effect, CI and p on the residual scale).
 Pure functions: randomness only from the generator passed in (``for_step("context_stats", seed)``).
 """
 
@@ -25,14 +28,17 @@ from giap.stats.multitest import bh
 from giap.stats.permutation import choose_shifts, circular_shifts, perm_p
 from giap.stats.robust import hodges_lehmann
 
-__all__ = ["REGION_TYPES", "RegionTest", "hl_null", "o_minus_e_null", "replicon_index",
-           "test_all_regions", "test_region"]  # fmt: skip
+__all__ = ["COVARIATES", "REGION_TYPES", "RegionTest", "hl_null", "o_minus_e_null",
+           "replicon_index", "residualise", "studentised_null", "test_all_regions",
+           "test_region"]  # fmt: skip
 
 #: region types tested here (§7.3.5(b)); ``plasmid`` regions belong to M4-18
 REGION_TYPES = ("prophage", "bgc", "crispr", "amr")
 METHOD = {"o_minus_e": "circular_shift_o_minus_e", "hl_shift": "circular_shift_hodges_lehmann"}
 FEW_SHIFTS_K = 19  # K < 19: the smallest attainable p, 1/(1 + K), exceeds 0.05
 SMALL_REGION = 3
+#: detectability covariates of genes.tsv (§9.3) residualised out of HL (ADR-0018, decision 10)
+COVARIATES = ("length_aa", "n_observable_peptides", "gravy")
 _ENUM = 64  # HL null: enumerate a shift's candidate differences once at most this many remain
 _CHUNK = 4_000_000  # HL null: shifts per chunk such that K * m * m stays below this
 
@@ -63,14 +69,18 @@ class RegionTest:
 
 def replicon_index(genes: pd.DataFrame, contig: str) -> pd.DataFrame:
     """Eligible genes of ``contig`` in genome order: ``idx`` (0 ... N - 1), ``locus_tag``,
-    ``tu_id``, ``d`` (detected, 0/1), ``p`` (p_detect) and ``a`` (log2 abundance of detected
-    genes, NaN otherwise). Eligible = not partial and ``p_detect`` present."""
+    ``tu_id``, ``d`` (detected, 0/1), ``p`` (p_detect), ``a`` (log2 abundance of detected
+    genes, NaN otherwise) and the ``COVARIATES`` (NaN when a column is absent). Eligible = not
+    partial and ``p_detect`` present."""
     g = genes[genes["contig"].astype(str) == contig]
     p = pd.to_numeric(g["p_detect"], errors="coerce").astype(float)
     g = g[~g["partial"].astype("boolean").fillna(False).to_numpy(bool) & p.notna().to_numpy()]
     g = g.sort_values(["start", "locus_tag"], kind="mergesort")
     d = g["detected"].astype("boolean").fillna(False).to_numpy(bool)
     a = pd.to_numeric(g["abundance_log2"], errors="coerce").to_numpy(float)
+    nan = np.full(len(g), np.nan)
+    cov = {c: pd.to_numeric(g[c], errors="coerce").to_numpy(float) if c in g else nan
+           for c in COVARIATES}  # fmt: skip
     return pd.DataFrame(
         {
             "idx": np.arange(len(g), dtype=np.int64),
@@ -79,8 +89,39 @@ def replicon_index(genes: pd.DataFrame, contig: str) -> pd.DataFrame:
             "d": d.astype(np.int64),
             "p": pd.to_numeric(g["p_detect"]).to_numpy(float),
             "a": np.where(d, a, np.nan),
+            **cov,
         }
     )
+
+
+def residualise(a: npt.ArrayLike, det: npt.ArrayLike, cov: pd.DataFrame) -> F64:
+    """ADR-0018 decision 1 / M4-17 decision 10: residuals of the OLS (with intercept) of ``a`` on
+    log(length_aa), log1p(n_observable_peptides) and gravy (columns of ``cov``), fitted on the
+    genes detected with a finite ``a``; NaN elsewhere. A non-finite transformed covariate takes
+    that column's median over the fitted genes (0 if none is finite); rank-deficient designs use
+    the minimum-norm least-squares solution, so constant covariates only centre ``a``."""
+    av = np.asarray(a, dtype=np.float64).ravel()
+    ok = np.asarray(det, dtype=bool).ravel() & np.isfinite(av)
+    out = np.full(av.size, np.nan)
+    if not ok.any():
+        return out
+    with np.errstate(divide="ignore", invalid="ignore"):
+        cols = (
+            np.log(cov["length_aa"].to_numpy(float)),
+            np.log1p(cov["n_observable_peptides"].to_numpy(float)),
+            cov["gravy"].to_numpy(float),
+        )
+    design = [np.ones(int(ok.sum()))]
+    for c in cols:
+        x = c[ok].copy()
+        bad = ~np.isfinite(x)
+        if bad.any():
+            x[bad] = float(np.median(x[~bad])) if (~bad).any() else 0.0
+        design.append(x)
+    X = np.column_stack(design)
+    beta = np.linalg.lstsq(X, av[ok], rcond=None)[0]
+    out[ok] = av[ok] - X @ beta
+    return out
 
 
 def _sets(idx: npt.ArrayLike, shifts: npt.ArrayLike, n: int) -> I64:
@@ -93,6 +134,24 @@ def o_minus_e_null(r: npt.ArrayLike, idx: npt.ArrayLike, shifts: npt.ArrayLike) 
     """S_k = sum of ``r = d - p`` over the shifted set (I + k) mod N, for every shift k."""
     rv = np.asarray(r, dtype=np.float64).ravel()
     return np.asarray(rv[_sets(idx, shifts, rv.size)].sum(axis=1), dtype=np.float64)
+
+
+def _student(s: F64, w: F64) -> F64:
+    """s / sqrt(w); w = 0 gives 0 for s = 0 and +-inf otherwise (an extreme value)."""
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t = np.where(w > 0, s / np.sqrt(w), np.where(s == 0, 0.0, np.sign(s) * np.inf))
+    return np.asarray(t, dtype=np.float64)
+
+
+def studentised_null(
+    r: npt.ArrayLike, v: npt.ArrayLike, idx: npt.ArrayLike, shifts: npt.ArrayLike
+) -> F64:
+    """ADR-0018 decision 2: T_k = sum r / sqrt(sum v) over (I + k) mod N, with ``r = d - p`` and
+    ``v = p (1 - p)``, for every shift k."""
+    rv = np.asarray(r, dtype=np.float64).ravel()
+    vv = np.asarray(v, dtype=np.float64).ravel()
+    sets = _sets(idx, shifts, rv.size)
+    return _student(rv[sets].sum(axis=1), vv[sets].sum(axis=1))
 
 
 def hl_null(a: npt.ArrayLike, det: npt.ArrayLike, idx: npt.ArrayLike, shifts: npt.ArrayLike) -> F64:
@@ -228,9 +287,10 @@ def test_region(
     )
     B = cfg.stats.bootstrap
     d, p, a = ix["d"].to_numpy(float), ix["p"].to_numpy(float), ix["a"].to_numpy(float)
-    r = d - p
+    r, v = d - p, p * (1.0 - p)
     s_obs = float(r[idx].sum())
-    p_oe = perm_p(s_obs, o_minus_e_null(r, idx, shifts)) if shifts.size else na
+    t_obs = float(_student(np.array([s_obs]), np.array([v[idx].sum()]))[0])
+    p_oe = perm_p(t_obs, studentised_null(r, v, idx, shifts)) if shifts.size else na
     # bootstrap frames hold one float64 block (TU codes as floats): row takes stay cheap
     tu = pd.factorize(ix["tu_id"])[0].astype(np.float64)
     df = pd.DataFrame({"tu": tu[idx], "r": r[idx]})
@@ -239,6 +299,7 @@ def test_region(
                     ci.ci_low, ci.ci_high, p_oe, int(shifts.size), n_genes, m,
                     _flags(m, int(shifts.size), flags))  # fmt: skip
 
+    a = residualise(a, d > 0, ix)
     ok = (d > 0) & np.isfinite(a)
     hl = hodges_lehmann(a[inside & ok], a[~inside & ok])
     k_hl, p_hl, lo, hi = 0, na, na, na

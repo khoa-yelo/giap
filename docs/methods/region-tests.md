@@ -1,7 +1,7 @@
 # Region tests: O − E and Hodges–Lehmann shift under circular gene-index shifts
 
 Implements `giap.context.regions` (GIAP_SPEC.md §7.3.5(b), §8.1, Appendix B.4; issue M4-17,
-docs/specs/M4-17-region-tests.md). Reuses `giap.stats.permutation` (M4-03), `giap.stats.bootstrap`
+docs/specs/M4-17-region-tests.md, ADR-0018 and lead decisions 6–10). Reuses `giap.stats.permutation` (M4-03), `giap.stats.bootstrap`
 and `giap.stats.robust` (M4-04) and `giap.stats.multitest.bh` (M4-01). Statistician sign-off: see
 the end of this note.
 
@@ -16,12 +16,23 @@ and plasmid) give one test per replicon, each on its own shifts, flagged `split_
 
 ## Statistics
 
-- **O − E** S(I) = Σ_{i∈I} (d_i − p_i); `observed` = Σ d_i, `expected` = Σ p_i, `effect` = S.
-- **HL shift**: the median of all pairwise differences a_i − a_j between the region's detected genes
-  with a finite log2 abundance and the replicon's other such genes (`hodges_lehmann`; mean of the two
+- **O − E** S(I) = Σ_{i∈I} (d_i − p_i); `observed` = Σ d_i, `expected` = Σ p_i, `effect` = S
+  (and its CI) on the O − E scale. The **test statistic** is the studentised sum
+  T(I) = S(I)/√Σ_{i∈I} p_i(1 − p_i) (ADR-0018 decision 2), recomputed at every shift, so a region
+  whose p_detect sits nearer 0.5 than the replicon's is not anti-conservative (Σ p(1 − p) = 0 gives
+  T = 0 for S = 0, ±∞ otherwise). With one p on the whole replicon T and S give the same p.
+- **Residualised abundance** (ADR-0018 decision 1, lead decision 10): per replicon, OLS with an
+  intercept of log2 abundance on log(length_aa), log1p(n_observable_peptides) and GRAVY (the §9.3
+  genes.tsv covariates), fitted on the replicon's indexed genes that are detected with a finite
+  abundance; a non-finite transformed covariate takes that column's median over the fitted genes
+  (minimum-norm solution for rank-deficient designs, so constant covariates only centre a). The
+  residuals ã are fitted once per replicon, so every shift sees the same values.
+- **HL shift**: the median of all pairwise differences ã_i − ã_j between the region's detected genes
+  with a finite residualised log2 abundance and the replicon's other such genes (`hodges_lehmann`; mean of the two
   middle values for an even count). NaN when either side is empty. Detected genes without abundance
   (policy `exclude`) drop out on both sides. Comparing within the replicon only keeps a high-copy
-  plasmid's dosage out of the shift (attack 4).
+  plasmid's dosage out of the shift (attack 4). Effect, CI and p are on the residual scale: log2
+  units relative to the covariate expectation, labelled "detectability-adjusted" in the report.
 
 ## Null: circular gene-index shifts
 
@@ -55,12 +66,13 @@ property suite compares with a naive per-shift loop).
 
 `tu_block_bootstrap`, B = `stats.bootstrap`, 95 % percentile. O − E resamples the region's TUs,
 counting only region members within each TU (a region inside one TU has a degenerate CI). HL
-resamples inside and outside TUs as two strata.
+resamples inside and outside TUs as two strata (on the residualised abundances; the fit is not
+repeated per resample).
 
 ## Multiple testing and flags
 
-BH within each (region_type, stat) family (lead decision 5; detection and abundance answer different
-questions). Flags: `small_region` (< 3 eligible genes; tests still run when K > 0; with 0 eligible
+BH within each (region_type, stat) family (lead decision 5, ADR-0018 decision 3; detection and
+abundance answer different questions; at least as strict as "within type" for each statistic). Flags: `small_region` (< 3 eligible genes; tests still run when K > 0; with 0 eligible
 genes all statistics are NA and `n_perm` = 0), `few_shifts`, `split_contigs`.
 
 ## Calibration evidence
@@ -76,6 +88,15 @@ own AMR set, M4-08 AR(1) ρ = 0.5, no region effects, detection from covariates 
   0.003-0.017 / 0.032-0.077 / 0.072-0.127, also without origin crossing and with ρ = 0):
   the gate failure looks like seed chance, for the statistician to rule on.
 - A2 (short prophage genes) gates on M4-13 cross-fitted `p_detect` and waits for PR #83.
+- ADR-0018 implementation (Slurm 1849426 fast, 1849427 full): A2-mid O − E (studentised) passes at
+  α = 0.05 / 0.10 (0.05 / 0.07, R = 100; α = 0.01 unconfirmed 0.03 / 0.02). **A2-HL still fails**:
+  linear residualisation (lead decision 10) gives 0.07 / 0.04 (fast, α = 0.01), 0.17 / 0.11 (0.05),
+  0.22 / 0.15 (0.10), and 0.052 / 0.144 / 0.221 at α = 0.01 / 0.05 / 0.10 in full mode (R = 1,000 per
+  block). Side runs on the same scenario (600 replicates at 1,000 genes / 200 at 4,500): raw HL
+  0.107 / 0.243 / 0.328 and 0.105 / 0.25 / 0.38, linear 0.033 / 0.112 / 0.185 and
+  0.055 / 0.14 / 0.195, adding (log length)² 0.025 / 0.09 / 0.14 and 0.05 / 0.12 / 0.18.
+  Residualising on covariates halves the bias but does not remove detection selection; open for
+  the statistician and the lead.
 - C3 power (recorded, not gated; BGC O − E, α = 0.05, R = 100): +10 % 0.11, +20 % 0.21,
   +30 % 0.46, +50 % 0.88 (`local/logs/calibration/regions_power.jsonl`).
 
@@ -93,7 +114,7 @@ own AMR set, M4-08 AR(1) ρ = 0.5, no region effects, detection from covariates 
   anti-conservative (synthetic, R = 4,000: replicon p ~ Beta(4, 1.5), 40-gene region p ~ Beta(2, 2)
   gives 0.016 / 0.074 / 0.131 at α = 0.01 / 0.05 / 0.10; replicon Beta(0.3, 0.3), region p = 0.5
   gives 0.074 / 0.212 / 0.303). The studentised shift statistic Σ(d − p)/√Σ p(1 − p), recomputed at
-  each shift, restores level (0.010 / 0.048 / 0.103 and 0.010 / 0.046 / 0.097). The giapsim attack-2
+  each shift, restores level (0.010 / 0.048 / 0.103 and 0.010 / 0.046 / 0.097); adopted (ADR-0018). The giapsim attack-2
   layout (short prophage genes, low p) is the conservative direction (0.004 / 0.019 / 0.047 with
   p_detect_true) and cannot detect this.
   (ii) *detection-selection bias of HL*: HL uses detected genes only. When detection depends on
@@ -101,7 +122,9 @@ own AMR set, M4-08 AR(1) ρ = 0.5, no region effects, detection from covariates 
   only its abundant genes are detected: prophage HL rejects 0.089 / 0.21–0.25 / 0.30–0.35 (R = 2,000,
   mean HL +0.7 to +0.8 log2; control layout without short genes 0.004–0.009 / 0.036–0.048 /
   0.080–0.100). Residualising log2 abundance on detectability covariates among the replicon's
-  detected genes before HL (prototype: quadratic in log length) gives 0.017 / 0.067 / 0.103 (R = 300).
+  detected genes before HL (prototype: quadratic in log length) gives 0.017 / 0.067 / 0.103 (R = 300);
+  adopted as the linear fit above (ADR-0018, lead decision 10). Residualising removes the part of
+  a real region shift that the covariates explain (e.g. a prophage that is both short and silent).
 - **Replication dosage.** Real replicons have an ori → ter gene-dosage gradient (up to ~1–2 log2 in
   fast growth) that giapsim does not model; circular shifts move the region along it, so HL partly
   measures position. Report HL as "relative to random positions on this replicon", not as a
