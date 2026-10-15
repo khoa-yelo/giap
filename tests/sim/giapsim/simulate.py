@@ -664,7 +664,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
             peptides=paths["peptides"],
             proteins_faa=paths["proteins"],
             abundance=paths["abundance"],
-            truth={**res.truth, "peptides": paths["truth"]},
+            truth={**res.truth, "peptides": paths["truth"], "proteomics": paths["truth_meta"]},
         )
     return res
 

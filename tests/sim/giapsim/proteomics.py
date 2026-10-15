@@ -16,6 +16,8 @@ unchanged by the proteomics options. Gene-level abundance is a plain log-normal 
 
 from __future__ import annotations
 
+import json
+import logging
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -27,6 +29,8 @@ from scipy import stats
 
 from giapsim.codons import CODE_11, codons_of, revcomp, translate_cds
 from giapsim.features import Feat
+
+_LOG = logging.getLogger(__name__)
 
 __all__ = [
     "Protein",
@@ -248,8 +252,9 @@ def sixframe_counts(
     peptides: Sequence[str], seqs: dict[str, str], topology: dict[str, str]
 ) -> dict[str, int]:
     """Number of distinct loci (contig, plus-strand start, strand) whose six-frame translation is
-    exactly each peptide; circular contigs are searched across the origin."""
-    peps = sorted({p for p in peptides if len(p) >= _K})
+    exactly each peptide with I = L folded (GIAP's exact matcher); circular contigs are searched
+    across the origin. Peptides without a hit count 0."""
+    peps = sorted({_il(p) for p in peptides if len(p) >= _K})
     by_prefix: dict[int, list[str]] = {}
     for p in peps:
         by_prefix.setdefault(int(_kmer_codes(p[:_K].encode(), _K)[0]), []).append(p)
@@ -263,7 +268,7 @@ def sixframe_counts(
         for strand, src in (("+", ext), ("-", revcomp(ext))):
             raw = src.encode()
             for off in range(3):
-                aa = _translate_np(raw[off:])
+                aa = _translate_np(raw[off:]).replace(b"I", b"L")
                 hits = np.flatnonzero(np.isin(_kmer_codes(aa, _K), keys))
                 text = aa.decode()
                 for i in hits.tolist():
@@ -271,10 +276,7 @@ def sixframe_counts(
                         if text.startswith(p, i):
                             s = off + 3 * i if strand == "+" else len(ext) - off - 3 * (i + len(p))
                             loci[p].add((cid, s % n if circular else s, strand))
-    out = {p: len(v) for p, v in loci.items()}
-    for p in peptides:
-        out.setdefault(p, 0)
-    return out
+    return {p: len(loci.get(_il(p), ())) for p in peptides}
 
 
 # ---------------------------------------------------------------- simulation
@@ -360,6 +362,15 @@ def _wrong_peptides(
     return list(out.items())
 
 
+def _start_codon_aa(seq: str, s0: int, e0: int, strand: str) -> str:
+    """Amino acid that code 11 assigns to the first codon of ``[s0, e0)`` on ``strand`` (the span
+    may run past the end of a circular contig)."""
+    n = len(seq)
+    a = s0 if strand == "+" else e0 - 3
+    a %= n
+    return CODE_11[_slice(seq, a, a + 3, strand)]
+
+
 def _fmt(x: float) -> str:
     return f"{x:.10g}"
 
@@ -417,7 +428,7 @@ PEPTIDE_HEADER = (
 )  # fmt: skip
 TRUTH_HEADER = (
     "peptide", "is_wrong", "origin", "locus_tag", "contig", "start", "end", "strand",
-    "n_loci_genome",
+    "n_loci_genome", "alt_start_nterm",
 )  # fmt: skip
 
 
@@ -444,6 +455,18 @@ def simulate_proteomics(
     pi = cfg.pi_wrong
     n_wrong = round(len(detected) * pi / (1 - pi))
     wrong = _wrong_peptides(cfg, rng, n_wrong, prots, reference or (), hay)
+    # PEP and q follow the wrong share actually produced (spec M3-19, review decision 1)
+    n_all = len(detected) + len(wrong)
+    pi_realised = len(wrong) / n_all if n_all else 0.0
+    if len(wrong) < n_wrong:
+        _LOG.warning(
+            "proteomics: wrong-peptide shortfall: pi_wrong requested %.3f, realised %.3f "
+            "(%d of %d wrong peptides)",
+            pi,
+            pi_realised,
+            len(wrong),
+            n_wrong,
+        )
     origin = "other_strain" if cfg.wrong_source == "other_strain" else "shuffled"
     targets = [
         _Target(
@@ -468,14 +491,16 @@ def simulate_proteomics(
     abund = la[[t.loc for t in targets]] if n_t else np.zeros(0)
     intensity = np.exp(abund + INTENSITY_SD * rng.standard_normal((n_runs, n_t)))
     charge = np.where(rng.random((n_runs, n_t)) < P_CHARGE_2, 2, 3)
-    peps = mixture_pep(scores.ravel(), pi, cfg.score_mixture).reshape(scores.shape)
-    qs = mixture_q(scores.ravel(), pi, cfg.score_mixture).reshape(scores.shape)
+    peps = mixture_pep(scores.ravel(), pi_realised, cfg.score_mixture).reshape(scores.shape)
+    qs = mixture_q(scores.ravel(), pi_realised, cfg.score_mixture).reshape(scores.shape)
 
     # decoy rows: reversed tryptic peptides of expressed proteins, null scores
     n_dec = int(is_wrong.sum()) * n_runs if cfg.n_decoy_rows == "match_wrong" else cfg.n_decoy_rows
     target_set = {t.peptide for t in targets}
     decoys: list[tuple[str, str, int, int]] = []  # peptide, protein_ids, run, charge
-    usable = [k for k, p in enumerate(prots) if digest_spans(p.aa, cfg.digest_len)]
+    usable = [
+        k for k, p in enumerate(prots) if digest_spans(p.aa, cfg.digest_len, cfg.missed_cleavages)
+    ]
     tries = 0
     while usable and len(decoys) < n_dec and tries < 100 * n_dec + 1000:
         tries += 1
@@ -503,10 +528,10 @@ def simulate_proteomics(
             rows.append([*run_rows[i], f"run{r + 1}.{j + 1}", "database", cfg.search_db])
 
     # truth
-    counts = sixframe_counts(detected, seqs, topology)
+    counts = sixframe_counts([*detected, *(w for w, _ in wrong)], seqs, topology)
     truth: list[list[str]] = []
     for pep in detected:
-        n_loci = str(max(1, counts.get(pep, 0)))
+        n_loci = str(counts[pep])
         for k, a in occ[pep]:
             p = prots[k]
             n = len(seqs[p.contig])
@@ -518,13 +543,16 @@ def simulate_proteomics(
                 s0 = e0 - 3 * len(pep)
             if s0 >= n:
                 s0, e0 = s0 - n, e0 - n
-            truth.append(
-                [pep, "false", "gene", p.locus, p.contig, str(s0 + 1), str(e0), p.strand, n_loci]
-            )
+            codon_aa = _start_codon_aa(seqs[p.contig], s0, e0, p.strand)
+            alt = a == 0 and pep[0] == "M" and codon_aa != "M"
+            truth.append([
+                pep, "false", "gene", p.locus, p.contig, str(s0 + 1), str(e0), p.strand, n_loci,
+                "true" if alt else "false",
+            ])  # fmt: skip
     for pep, _loc in wrong:
-        truth.append([pep, "true", origin, _NA, _NA, _NA, _NA, _NA, _NA])
+        truth.append([pep, "true", origin, _NA, _NA, _NA, _NA, _NA, str(counts[pep]), "false"])
     for pep in dict.fromkeys(d[0] for d in decoys):
-        truth.append([pep, "true", "decoy", _NA, _NA, _NA, _NA, _NA, _NA])
+        truth.append([pep, "true", "decoy", _NA, _NA, _NA, _NA, _NA, _NA, _NA])
 
     pseudo = {f.locus for f in feats if f.pseudo_reason or f.extra.get("pseudo")}
     faa = [(loc, aa) for loc, _, aa in annotated if loc not in pseudo]
@@ -540,6 +568,7 @@ def simulate_proteomics(
         "proteins": out / "proteins.faa",
         "abundance": out / "abundance.tsv",
         "truth": out / "truth" / "peptides.tsv",
+        "truth_meta": out / "truth" / "proteomics.json",
     }
     _write_tsv(paths["peptides"], PEPTIDE_HEADER, rows)
     _write_fasta(paths["proteins"], faa)
@@ -549,4 +578,12 @@ def simulate_proteomics(
         [[p.locus, f"{x:.6f}"] for p, x in zip(prots, la.tolist(), strict=True)],
     )
     _write_tsv(paths["truth"], TRUTH_HEADER, truth)
+    meta = {
+        "pi_wrong": pi,
+        "pi_wrong_realised": round(pi_realised, 10),
+        "n_correct": len(detected),
+        "n_wrong": len(wrong),
+        "n_wrong_requested": n_wrong,
+    }
+    paths["truth_meta"].write_text(json.dumps(meta, indent=2) + "\n")
     return paths
