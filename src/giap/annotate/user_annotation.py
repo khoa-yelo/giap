@@ -25,6 +25,8 @@ MatchKind = Literal["identical", "unmatched"]
 
 ID_MAP_COLUMNS = ("source_id", "locus_tag", "contig", "start", "end", "strand", "match")
 _SNIFF_BYTES = 4096
+# Multi-row CDS parts may overlap or be at most this far apart (frameshifts, origin split).
+_MAX_PART_GAP = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,11 +85,15 @@ def _fallback_id(contig: str, start: int, strand: str) -> str:
     return f"{contig}_{start + 1}_{strand}"
 
 
-def _merge_parts(parts: Sequence[tuple[int, int]], rep: Replicon, where: str) -> tuple[int, int]:
+def _merge_parts(
+    parts: Sequence[tuple[int, int]], rep: Replicon, where: str, max_gap: int | None = None
+) -> tuple[int, int]:
     """Merge CDS parts (any order) into one span; parts split at the origin are unwrapped.
 
     On a circular replicon the span is cut at the largest gap between parts, so rows split at
-    the origin (``[s, length)`` and ``[0, e)``) become ``[s, length + e)``.
+    the origin (``[s, length)`` and ``[0, e)``) become ``[s, length + e)``. With ``max_gap``,
+    consecutive parts (after unwrapping) must overlap or leave a gap of at most ``max_gap`` nt,
+    else ``ValueError``; on a linear replicon this also rejects rows split at the origin.
     """
     ordered = sorted(parts)
     if rep.topology == "circular" and len(ordered) > 1:
@@ -101,6 +107,15 @@ def _merge_parts(parts: Sequence[tuple[int, int]], rep: Replicon, where: str) ->
             reach = max(reach, ordered[i][1])
         if cut:
             ordered = ordered[cut:] + [(s + rep.length, e + rep.length) for s, e in ordered[:cut]]
+    if max_gap is not None:
+        reach = ordered[0][1]
+        for s, e in ordered[1:]:
+            if s - reach > max_gap:
+                raise ValueError(
+                    f"{where}: parts {reach}-{s} apart by {s - reach} nt (more than {max_gap} nt"
+                    f" on {rep.topology} contig {rep.id}); not one CDS"
+                )
+            reach = max(reach, e)
     start, end = min(s for s, _ in ordered), max(e for _, e in ordered)
     if start >= end:
         raise ValueError(f"{where}: empty CDS span {start}-{end}")
@@ -185,7 +200,9 @@ def _read_gff3_cds(
         strands = {r[2] for r in rows}
         if len(strands) != 1:
             raise ValueError(f"{path}: CDS {fid} has rows on both strands")
-        start, end = _merge_parts([(r[0], r[1]) for r in rows], rep, f"{path}: CDS {fid}")
+        start, end = _merge_parts(
+            [(r[0], r[1]) for r in rows], rep, f"{path}: CDS {fid}", _MAX_PART_GAP
+        )
         attrs = rows[0][3]
         sid = _attr(attrs, "locus_tag") or fid
         pseudo = any(_gff3_pseudo(r[3]) for r in rows)
@@ -290,22 +307,21 @@ def write_bakta_regions(path: Path, cds: Sequence[UserCds], replicons: Sequence[
 def build_id_map(
     cds: Sequence[UserCds],
     genes: Sequence[Gene],
-    *,
-    contig_order: Mapping[str, int] | None = None,
+    contig_order: Sequence[str],
 ) -> list[IdMapRow]:
     """Map each user CDS to the gene with identical ``(contig, start, end, strand)``.
 
     One row per user CDS; without a match ``locus_tag`` is ``None`` and ``match`` is
-    ``unmatched``. Rows are sorted per §6.5 (contig by ``contig_order``, else by name).
+    ``unmatched``. Rows are sorted per §6.5; ``contig_order`` lists the contig IDs in input
+    FASTA order (required, no alphabetical fallback).
     """
     index: dict[tuple[str, int, int, str], str] = {}
     for g in sorted(genes, key=lambda g: (g.feature_type != "cds", g.locus_tag)):
         iv = g.interval
         index.setdefault((iv.contig, iv.start, iv.end, iv.strand), g.locus_tag)
-    if contig_order is None:
-        contig_order = {c: i for i, c in enumerate(sorted({c.interval.contig for c in cds}))}
+    order = {cid: i for i, cid in enumerate(contig_order)}
     rows = []
-    for c in sorted(cds, key=lambda c: interval_sort_key(c.interval, contig_order, c.source_id)):
+    for c in sorted(cds, key=lambda c: interval_sort_key(c.interval, order, c.source_id)):
         iv = c.interval
         tag = index.get((iv.contig, iv.start, iv.end, iv.strand))
         match: MatchKind = "unmatched" if tag is None else "identical"
