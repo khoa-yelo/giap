@@ -88,3 +88,24 @@ def select_queries(peptides: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...
    module-scoped fixture (follow-up).
 4. If the work exceeds 800 gated lines, split: (a) steps + local-executor staging, (b) MAPPING subworkflow —
    tell the lead before splitting.
+
+## Lead decisions after code review (PR #77, changes requested)
+5. Split (size): #77 keeps the steps and the local executor; the MAPPING Nextflow subworkflow, the
+   `giap_mapping` module and workflow/tests/mapping.nf.test move to a follow-up PR (branch
+   m3/mapping-nf, after #77), which follows M2-07 (`GIAP_STEP` + `stepIn`, no duplicate processes,
+   real stub headers) and wires `contaminants` (review findings 4 (nf part) and 7).
+6. `search_db: auto` is resolved in the mapping steps (M3-10 decision 4: `same` when ≥ 95 % of peptides'
+   protein_ids are in the database, else `other`), recorded in the run metadata; test.
+7. Pruning removes only optional branches; a missing required root input (no evidence, proteins-only
+   when peptides are required, a GFF3 annotation where Bakta JSON is needed) exits with the documented
+   code and message, never 0 with missing outputs. Tests for the three cases.
+8. Optional inputs come only from this run's staging, never from stale `work/<key>` files (clear or
+   namespace per run); test with a leftover file.
+9. Local `contaminants` staging and wiring (peptide library matching runs when the library exists).
+10. `loci.py` `_engine_ids` accepts list/array `protein_ids` (contract C9), like `contaminants._as_ids`;
+    the `_ids` join workaround in steps/mapping.py is removed. Test.
+11. The local executor publishes mapping outputs to `OUT/mapping` (§9.1), like Nextflow.
+12. Tests kill the surviving mutants (tolerant decoys per query, frameshift wiring, best-cost filter,
+    de novo π̂, tolerant `min_len` boundary, reference peptides, leftover assignment, tblastn leftover
+    filter, protein_ids separator, genome sha); `test_giap_step_cli_exits_4_on_a_corrupt_index` uses
+    `fresh_steps`; tests never read the real $GIAP_DB_DIR (tmp DB dir with a test manifest).
