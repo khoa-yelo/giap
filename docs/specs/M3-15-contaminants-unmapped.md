@@ -113,3 +113,15 @@ ID; otherwise, every `protein_ids` entry carrying a contaminant prefix → `cont
    peptides → `no_hit` or `too_short`.
 4. The implementer records `tests/data/recorded/blast/2.16.0/contaminants/` with the pinned BLAST image
    (real blastp output; lead rule for tool wrappers).
+
+## Lead decisions after code review (PR #63, changes requested)
+1. Only peptides that were searched enter the unmapped bucket: engine decoys (`is_decoy`) and peptides with
+   q > `input.q_value_max` (M3-17 Q2) are excluded here, in `unmapped_table` (explicit `q_value_max` parameter,
+   default from config) — not left to the caller. Test incl. the reviewer's `RPLSVTAVK` decoy case.
+2. Both `qseqid` and `sseqid` are resolved with `resolve_protein_id`; a query FASTA with raw `sp|ACC|NAME`
+   headers still matches `protein_state.protein_id`. Test.
+3. blastp keeps `-subject` (reviewer measured: 27.5 s for 2,000 proteins × 381 library entries, identical output
+   to makeblastdb; threads are not needed at this size). Revisit if libraries grow (backlog).
+4. Tests kill the surviving mutants: dedup of repeated proteins, merging `protein_ids` across repeated peptide
+   rows, empty-string prefix rejected, `qlen <= 0` guard (ValueError), `upper()`, the "any row accepted"
+   aggregation.
