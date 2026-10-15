@@ -115,3 +115,12 @@ Described in `docs/methods/detection-tiers.md` (M4-12) as the gene-FDR null; sta
    simulator. **Proposed default:** one shared helper `giapsim/scores.py` (mixture → PEP, q); whichever
    of M3-19 / M4-09 merges first creates it and the other imports it, so both FDR calibrations use
    one error model.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted (emit masks values, unemitted `protein_ids` = [] , PEP with
+   π0 = π_wrong, ln I = abundance·ln 2 + N(0, 0.5²), M3 tables in work/ or work/mapping/, unplaceable false
+   targets → C13, undigestible detected genes present = False).
+2. Example 8 (`multi_identical_pairs`) is checked on C11 only for now; making the paired genes' `aa`
+   identical in the layout is deferred to M4-20 (golden integration) — backlog.
+3. The declared abundance type (`maxlfq`) has no C10 column; it is recorded in the run's input metadata by
+   M4-14 (abundance) — backlog; untested here.
