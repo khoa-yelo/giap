@@ -2,14 +2,14 @@
 
 Contract tables (key: file, producer; invariants checked here):
 
-- C1 ``replicons``: replicons.parquet (M2-04); ``contig`` unique, ``length > 0``.
+- C1 ``replicons``: replicons.parquet (M2-04); ``contig`` unique.
 - C2 ``genes``: genes.parquet (M2-04); ``locus_tag`` unique; ``0 <= start < end``;
   ``end <= length`` unless ``crosses_origin`` (then circular and ``length < end < 2 length``);
   ``aa`` NA only for pseudogenes and without a trailing ``*``.
-- C3 ``xrefs``: xrefs.parquet (M2-04); ``locus_tag`` is a C2 gene.
+- C3 ``xrefs``: xrefs.parquet (M2-04); long format, columns only.
 - C5 ``tus``: tus.parquet (M2-12); every C2 gene in exactly one TU.
 - C6 ``layers``: layers.parquet (M2-20); one row per C2 gene; ``tu_id`` agrees with C5.
-- C7 ``regions``: regions.parquet (M2-19); AMR rows have NA coordinates; plasmid = replicon.
+- C7 ``regions``: regions.parquet (M2-19); AMR rows have NA coordinates.
 - C8 ``region_genes``: region_genes.parquet (M2-19); ``subset`` non-NA iff prophage member.
 - C9 ``peptides``: peptides.norm.parquet (M1-12); one row per peptide; ``protein_ids`` a native
   list of non-empty strings (lead decision 1; ``;``-joined strings are dtype errors).
@@ -96,141 +96,71 @@ _LAYER_FLOATS = (
 )  # fmt: skip
 _CODON_FLOATS = ("cai", "tai", "enc", "fop", "gc3", "cpb", "at_2_10")
 
+# fmt: off
 TABLES: Mapping[str, tuple[Column, ...]] = {
     "replicons": (
-        _s("contig"),
-        _i("length"),
-        _s("topology", enum=("circular", "linear")),
+        _s("contig"), _i("length"), _s("topology", enum=("circular", "linear")),
         _s("kind", enum=("chromosome", "plasmid", "unknown")),
     ),
     "genes": (
-        _s("locus_tag"),
-        _s("gene", True),
-        _s("product", True),
-        _s("feature_type", enum=("cds", "sorf", "pseudogene")),
-        _s("contig"),
-        _i("start"),
-        _i("end"),
-        _s("strand", enum=STRAND),
-        _b("partial"),
-        _b("crosses_origin"),
-        _b("hypothetical"),
-        _s("aa", True),
-        _s("nt"),
-        _s("start_codon", True),
+        _s("locus_tag"), _s("gene", True), _s("product", True),
+        _s("feature_type", enum=("cds", "sorf", "pseudogene")), _s("contig"), _i("start"),
+        _i("end"), _s("strand", enum=STRAND), _b("partial"), _b("crosses_origin"),
+        _b("hypothetical"), _s("aa", True), _s("nt"), _s("start_codon", True),
         Column("ribosomal_protein", "bool", nullable=True, optional=True),
         Column("amr", "bool", nullable=True, optional=True),
     ),
     "xrefs": (_s("locus_tag"), _s("db"), _s("id")),
     "tus": (
-        _s("tu_id"),
-        _s("contig"),
-        _i("start"),
-        _i("end"),
-        _s("strand", enum=STRAND),
+        _s("tu_id"), _s("contig"), _i("start"), _i("end"), _s("strand", enum=STRAND),
         _l("genes"),
     ),
     "layers": (
-        _s("locus_tag"),
-        _s("tu_id"),
-        _i("tu_position"),
-        _i("tu_size"),
-        _f("uniop_p_prev", True),
-        _f("uniop_p_next", True),
-        _l("region_ids"),
-        *(_f(c, True) for c in _LAYER_FLOATS[:2]),
-        _i("n_promoter_windows_tu", True),
-        *(_f(c, True) for c in _LAYER_FLOATS[2:4]),
-        _i("tss_distance_bp", True),
-        *(_f(c, True) for c in _LAYER_FLOATS[4:]),
-        _i("spacer_bp", True),
-        _s("start_codon", True),
-        *(_f(c, True) for c in _CODON_FLOATS),
-        _i("rare_codons_2_10", True),
-        _l("flags"),
+        _s("locus_tag"), _s("tu_id"), _i("tu_position"), _i("tu_size"),
+        _f("uniop_p_prev", True), _f("uniop_p_next", True), _l("region_ids"),
+        *(_f(c, True) for c in _LAYER_FLOATS[:2]), _i("n_promoter_windows_tu", True),
+        *(_f(c, True) for c in _LAYER_FLOATS[2:4]), _i("tss_distance_bp", True),
+        *(_f(c, True) for c in _LAYER_FLOATS[4:]), _i("spacer_bp", True),
+        _s("start_codon", True), *(_f(c, True) for c in _CODON_FLOATS),
+        _i("rare_codons_2_10", True), _l("flags"),
     ),
     "regions": (
-        _s("region_id"),
-        _s("region_type", enum=("prophage", "plasmid", "bgc", "crispr", "amr")),
-        _s("contig"),
-        _i("start", True),
-        _i("end", True),
-        _s("source_tool"),
-        _f("score", True),
+        _s("region_id"), _s("region_type", enum=("prophage", "plasmid", "bgc", "crispr", "amr")),
+        _s("contig"), _i("start", True), _i("end", True), _s("source_tool"), _f("score", True),
     ),
     "region_genes": (
-        _s("region_id"),
-        _s("locus_tag"),
-        _f("overlap_frac"),
+        _s("region_id"), _s("locus_tag"), _f("overlap_frac"),
         _s("subset", True, ("integrase", "repressor", "structural", "lysis", "cargo")),
         _b("core_biosynthetic"),
     ),
     "peptides": (
-        _s("peptide"),
-        _f("q_value", True),
-        _f("pep", True),
-        _f("score", True),
-        _b("is_decoy"),
-        _b("is_contaminant"),
-        _l("protein_ids"),
-        _l("modified_peptides"),
-        _i("n_rows"),
-        _i("n_runs"),
-        _f("intensity", True),
-        _s("source", True),
-        _s("search_db", True),
+        _s("peptide"), _f("q_value", True), _f("pep", True), _f("score", True), _b("is_decoy"),
+        _b("is_contaminant"), _l("protein_ids"), _l("modified_peptides"), _i("n_rows"),
+        _i("n_runs"), _f("intensity", True), _s("source", True), _s("search_db", True),
     ),
     "abundance": (_s("protein_id"), _f("value", True), _s("scale", enum=("log2", "linear"))),
     "peptide_hits": (
-        _s("peptide"),
-        _i("peptide_len"),
-        _s("source", True),
-        _f("best_q_input", True),
-        _f("pep_input", True),
-        _f("score_input", True),
-        _s("contig"),
-        _i("start"),
-        _i("end"),
-        _s("strand", enum=STRAND),
-        _i("frame", True),
-        _b("crosses_origin"),
-        _s("route", enum=("exact", "tolerant")),
-        _i("n_diff", True),
-        _l("diff_types"),
-        _f("placement_q", True),
-        _s("length_class", True),
-        _s("locus_class", enum=LOCUS_CLASSES),
-        _s("uniqueness", enum=("unique", "multi_identical", "shared")),
-        _s("gene", True),
-        _s("novel_candidate_id", True),
-        _l("flags"),
+        _s("peptide"), _i("peptide_len"), _s("source", True), _f("best_q_input", True),
+        _f("pep_input", True), _f("score_input", True), _s("contig"), _i("start"), _i("end"),
+        _s("strand", enum=STRAND), _i("frame", True), _b("crosses_origin"),
+        _s("route", enum=("exact", "tolerant")), _i("n_diff", True), _l("diff_types"),
+        _f("placement_q", True), _s("length_class", True), _s("locus_class", enum=LOCUS_CLASSES),
+        _s("uniqueness", enum=("unique", "multi_identical", "shared")), _s("gene", True),
+        _s("novel_candidate_id", True), _l("flags"),
     ),
     "protein_hits": (
-        _s("protein_id"),
-        _i("protein_len_aa", True),
-        _s("route"),
-        _s("contig"),
-        _i("start"),
-        _i("end"),
-        _s("strand", enum=STRAND),
-        _i("rank"),
-        _f("identity", True),
-        _f("query_coverage", True),
-        _f("reciprocal_overlap", True),
-        _s("class", enum=("identical", "near", "divergent")),
-        _s("gene", True),
-        _l("flags"),
+        _s("protein_id"), _i("protein_len_aa", True), _s("route"), _s("contig"), _i("start"),
+        _i("end"), _s("strand", enum=STRAND), _i("rank"), _f("identity", True),
+        _f("query_coverage", True), _f("reciprocal_overlap", True),
+        _s("class", enum=("identical", "near", "divergent")), _s("gene", True), _l("flags"),
     ),
     "unmapped": (
-        _s("sequence_id"),
-        _s("sequence"),
-        _s("kind"),
-        _s("label", True),
-        _s("reason"),
+        _s("sequence_id"), _s("sequence"), _s("kind"), _s("label", True), _s("reason"),
         _s("contaminant_match", True),
     ),
     "id_map": (_s("source_id"), _s("locus_tag")),
 }
+# fmt: on
 
 #: Column names per table (what giapsim's literal copy must equal).
 CONTRACT_COLUMNS: Mapping[str, tuple[str, ...]] = {
@@ -245,8 +175,6 @@ class InputTables(Protocol):
     def replicons(self) -> pd.DataFrame: ...
     @property
     def genes(self) -> pd.DataFrame: ...
-    @property
-    def xrefs(self) -> pd.DataFrame: ...
     @property
     def tus(self) -> pd.DataFrame: ...
     @property
@@ -413,10 +341,6 @@ def _truthy(s: pd.Series) -> np.ndarray:
     return np.array([bool(v) if isinstance(v, bool | np.bool_) else False for v in s.tolist()])
 
 
-def _str_or_none(v: object) -> str | None:
-    return v if isinstance(v, str) else None
-
-
 def _has(df: pd.DataFrame | None, *cols: str) -> bool:
     return df is not None and all(c in df.columns for c in cols)
 
@@ -424,36 +348,13 @@ def _has(df: pd.DataFrame | None, *cols: str) -> bool:
 # --------------------------------------------------------------------------- per table
 
 
-def _rules_replicons(df: pd.DataFrame) -> list[Issue]:
-    out = (
-        _duplicates("replicons", "contig_unique", df["contig"], "contig")
-        if _has(df, "contig")
-        else []
-    )
-    if _has(df, "length"):
-        bad = _positions(~(_num(df["length"]) > 0))
-        if bad:
-            out.append(_issue("replicons", "length", "length must be > 0", bad))
-    return out
-
-
-def _rules_interval(table: str, df: pd.DataFrame, nullable: bool = False) -> list[Issue]:
-    if not _has(df, "start", "end"):
-        return []
-    start, end = _num(df["start"]), _num(df["end"])
-    present = ~(np.isnan(start) | np.isnan(end))
-    bad = present & ~((start >= 0) & (start < end))
-    if not nullable:
-        bad |= ~present & ~(_na_mask(df["start"]) | _na_mask(df["end"]))
-    rows = _positions(bad)
-    return [_issue(table, "interval", "need 0 <= start < end", rows)] if rows else []
-
-
 def _rules_genes(df: pd.DataFrame) -> list[Issue]:
     out: list[Issue] = []
-    if _has(df, "locus_tag"):
-        out += _duplicates("genes", "locus_tag_unique", df["locus_tag"], "locus_tag")
-    out += _rules_interval("genes", df)
+    if _has(df, "start", "end"):
+        start, end = _num(df["start"]), _num(df["end"])
+        rows = _positions(~((start >= 0) & (start < end)) & ~np.isnan(start) & ~np.isnan(end))
+        if rows:
+            out.append(_issue("genes", "interval", "need 0 <= start < end", rows))
     if _has(df, "aa"):
         aa = df["aa"].tolist()
         stop = [i for i, v in enumerate(aa) if isinstance(v, str) and v.endswith("*")]
@@ -463,61 +364,24 @@ def _rules_genes(df: pd.DataFrame) -> list[Issue]:
             ft = df["feature_type"].tolist()
             miss = [i for i, v in enumerate(aa) if _is_na(v) and ft[i] != "pseudogene"]
             if miss:
-                msg = "aa may be NA only for pseudogenes"
-                tags = df["locus_tag"].iloc[miss].tolist() if _has(df, "locus_tag") else []
-                out.append(_issue("genes", "aa_missing", msg, miss, tags))
+                out.append(_issue("genes", "aa_missing", "aa may be NA only for pseudogenes", miss))
     return out
 
 
 def _rules_regions(df: pd.DataFrame) -> list[Issue]:
-    out: list[Issue] = []
-    if _has(df, "region_id"):
-        out += _duplicates("regions", "region_id_unique", df["region_id"], "region_id")
-    out += _rules_interval("regions", df, nullable=True)
-    if _has(df, "region_type", "start", "end"):
-        amr = np.asarray(df["region_type"].astype(object) == "amr", dtype=bool)
-        coords = ~(_na_mask(df["start"]) & _na_mask(df["end"]))
-        rows = _positions(amr & coords)
-        if rows:
-            out.append(
-                _issue("regions", "amr_coordinates", "AMR regions have NA coordinates", rows)
-            )
-    return out
-
-
-def _rules_region_genes(df: pd.DataFrame) -> list[Issue]:
-    if not _has(df, "overlap_frac"):
+    if not _has(df, "region_type", "start", "end"):
         return []
-    frac = _num(df["overlap_frac"])
-    rows = _positions(~np.isnan(frac) & ((frac < 0) | (frac > 1)))
-    return (
-        [_issue("region_genes", "overlap_frac", "overlap_frac must be in [0, 1]", rows)]
-        if rows
-        else []
-    )
+    amr = np.asarray(df["region_type"].astype(object) == "amr", dtype=bool)
+    rows = _positions(amr & ~(_na_mask(df["start"]) & _na_mask(df["end"])))
+    msg = "AMR regions have NA coordinates"
+    return [_issue("regions", "amr_coordinates", msg, rows)] if rows else []
 
 
+# Columns whose values are unique within the table (rule ``<column>_unique``).
+_UNIQUE = dict(replicons="contig", genes="locus_tag", layers="locus_tag", peptides="peptide")
 _TABLE_RULES: dict[str, Callable[[pd.DataFrame], list[Issue]]] = {
-    "replicons": _rules_replicons,
     "genes": _rules_genes,
-    "tus": lambda df: (
-        (_duplicates("tus", "tu_id_unique", df["tu_id"], "tu_id") if _has(df, "tu_id") else [])
-        + _rules_interval("tus", df)
-    ),
-    "layers": lambda df: (
-        _duplicates("layers", "locus_tag_unique", df["locus_tag"], "locus_tag")
-        if _has(df, "locus_tag")
-        else []
-    ),
     "regions": _rules_regions,
-    "region_genes": _rules_region_genes,
-    "peptides": lambda df: (
-        _duplicates("peptides", "peptide_unique", df["peptide"], "peptide")
-        if _has(df, "peptide")
-        else []
-    ),
-    "peptide_hits": lambda df: _rules_interval("peptide_hits", df),
-    "protein_hits": lambda df: _rules_interval("protein_hits", df),
 }
 
 
@@ -542,6 +406,9 @@ def validate_table(name: str, df: pd.DataFrame) -> list[Issue]:
         out.append(
             _issue(name, "extra_column", "extra columns ignored", values=extra, severity="warn")
         )
+    key = _UNIQUE.get(name)
+    if key is not None and key in df.columns:
+        out += _duplicates(name, f"{key}_unique", df[key], key)
     rules = _TABLE_RULES.get(name)
     if rules is not None:
         out += rules(df)
@@ -549,13 +416,6 @@ def validate_table(name: str, df: pd.DataFrame) -> list[Issue]:
 
 
 # --------------------------------------------------------------------------- cross-table
-
-
-def _tags(df: pd.DataFrame | None, col: str = "locus_tag") -> set[str]:
-    if not _has(df, col):
-        return set()
-    assert df is not None
-    return {v for v in df[col].tolist() if isinstance(v, str)}
 
 
 def _unknown_refs(
@@ -570,31 +430,26 @@ def _unknown_refs(
     return [_issue(table, rule, f"{col} not a known {what}", rows, [vals[i] for i in rows])]
 
 
-def _check_bounds(
-    table: str, df: pd.DataFrame, reps: dict[str, tuple[float, str]], origin_rule: str
-) -> list[Issue]:
+def _check_bounds(genes: pd.DataFrame, reps: dict[str, tuple[float, str]]) -> list[Issue]:
     """``end <= length`` unless ``crosses_origin`` (then circular, ``length < end < 2·length``)."""
-    if not _has(df, "contig", "end"):
+    if not _has(genes, "contig", "end", "crosses_origin"):
         return []
-    contigs = df["contig"].tolist()
-    end = _num(df["end"])
-    cross = _truthy(df["crosses_origin"]) if _has(df, "crosses_origin") else np.zeros(len(df), bool)
+    end, cross = _num(genes["end"]), _truthy(genes["crosses_origin"])
     over, origin = [], []
-    for i, c in enumerate(contigs):
+    for i, c in enumerate(genes["contig"].tolist()):
         if not isinstance(c, str) or c not in reps or np.isnan(end[i]):
             continue
         length, topology = reps[c]
-        if cross[i]:
-            if topology != "circular" or not (length < end[i] < 2 * length):
-                origin.append(i)
-        elif end[i] > length:
+        if cross[i] and (topology != "circular" or not length < end[i] < 2 * length):
+            origin.append(i)
+        elif not cross[i] and end[i] > length:
             over.append(i)
     out = []
     if over:
-        out.append(_issue(table, "bounds", "end beyond replicon length", over))
+        out.append(_issue("genes", "bounds", "end beyond replicon length", over))
     if origin:
         msg = "crosses_origin needs a circular replicon and length < end < 2*length"
-        out.append(_issue(table, origin_rule, msg, origin))
+        out.append(_issue("genes", "origin", msg, origin))
     return out
 
 
@@ -648,7 +503,7 @@ def _check_layers(t: InputTables, genes: set[str]) -> list[Issue]:
         rows = [
             i
             for i, g in enumerate(lay["locus_tag"].tolist())
-            if isinstance(g, str) and g in tu_of and _str_or_none(tus[i]) != tu_of[g]
+            if isinstance(g, str) and g in tu_of and tus[i] != tu_of[g]
         ]
         if rows:
             tags_bad = lay["locus_tag"].iloc[rows].tolist()
@@ -658,60 +513,24 @@ def _check_layers(t: InputTables, genes: set[str]) -> list[Issue]:
     return out
 
 
-def _check_regions(
-    t: InputTables, reps: dict[str, tuple[float, str]], genes: set[str]
-) -> list[Issue]:
-    out: list[Issue] = []
+def _check_subset(t: InputTables) -> list[Issue]:
     reg, rg = t.regions, t.region_genes
-    out += _unknown_refs("regions", "unknown_contig", reg, "contig", set(reps), "replicon")
-    out += _check_bounds("regions", reg, reps, "origin")
-    if _has(reg, "region_type", "contig", "start", "end"):
-        start, end = _num(reg["start"]), _num(reg["end"])
-        rows = [
-            i
-            for i, (ty, c) in enumerate(
-                zip(reg["region_type"].tolist(), reg["contig"].tolist(), strict=True)
-            )
-            if ty == "plasmid"
-            and c in reps
-            and not (np.isnan(start[i]) and np.isnan(end[i]))
-            and (start[i] != 0 or end[i] != reps[c][0])
-        ]
-        if rows:
-            out.append(
-                _issue("regions", "plasmid", "plasmid regions span the whole replicon", rows)
-            )
-    region_type = (
-        dict(zip(reg["region_id"].tolist(), reg["region_type"].tolist(), strict=True))
-        if _has(reg, "region_id", "region_type")
-        else {}
-    )
-    out += _unknown_refs(
-        "region_genes", "unknown_region", rg, "region_id", set(region_type), "region"
-    )
-    out += _unknown_refs("region_genes", "unknown_gene", rg, "locus_tag", genes, "gene")
-    if _has(rg, "region_id", "subset"):
-        subset_na = _na_mask(rg["subset"])
-        rows = [
-            i
-            for i, rid in enumerate(rg["region_id"].tolist())
-            if rid in region_type and (region_type[rid] == "prophage") == bool(subset_na[i])
-        ]
-        if rows:
-            out.append(
-                _issue("region_genes", "subset", "subset is set exactly for prophage members", rows)
-            )
-    return out
+    if not (_has(reg, "region_id", "region_type") and _has(rg, "region_id", "subset")):
+        return []
+    region_type = dict(zip(reg["region_id"].tolist(), reg["region_type"].tolist(), strict=True))
+    subset_na = _na_mask(rg["subset"])
+    rows = [
+        i
+        for i, rid in enumerate(rg["region_id"].tolist())
+        if rid in region_type and (region_type[rid] == "prophage") == bool(subset_na[i])
+    ]
+    msg = "subset is set exactly for prophage members"
+    return [_issue("region_genes", "subset", msg, rows)] if rows else []
 
 
-def _check_peptide_hits(
-    t: InputTables, reps: dict[str, tuple[float, str]], genes: set[str]
-) -> list[Issue]:
+def _check_peptide_hits(t: InputTables, genes: set[str]) -> list[Issue]:
     h = t.peptide_hits
-    out: list[Issue] = []
-    out += _unknown_refs("peptide_hits", "unknown_contig", h, "contig", set(reps), "replicon")
-    out += _check_bounds("peptide_hits", h, reps, "origin")
-    out += _unknown_refs("peptide_hits", "unknown_gene", h, "gene", genes, "C2 locus tag")
+    out = _unknown_refs("peptide_hits", "unknown_gene", h, "gene", genes, "C2 locus tag")
     if _has(h, "locus_class", "gene"):
         gene_na = _na_mask(h["gene"])
         rows = []
@@ -732,16 +551,13 @@ def _check_peptide_hits(
         vals = h["peptide"].tolist()
         rows = [i for i, p in enumerate(vals) if p in decoys]
         if rows:
-            out.append(
-                _issue(
-                    "peptide_hits", "decoy", "decoy peptides placed", rows, [vals[i] for i in rows]
-                )
-            )
+            msg = "decoy peptides placed"
+            out.append(_issue("peptide_hits", "decoy", msg, rows, [vals[i] for i in rows]))
     return out
 
 
 def validate_inputs(t: InputTables) -> list[Issue]:
-    """Cross-table invariants (C2 vs C1, TU partition, layers, regions, mapping genes)."""
+    """Cross-table invariants (C2 vs C1, TU partition, layers, region subsets, mapping genes)."""
     rep = t.replicons
     reps: dict[str, tuple[float, str]] = {}
     if _has(rep, "contig", "length", "topology"):
@@ -750,15 +566,15 @@ def validate_inputs(t: InputTables) -> list[Issue]:
         ):
             if isinstance(c, str) and c not in reps and not np.isnan(n):
                 reps[c] = (float(n), str(topo))
-    genes = _tags(t.genes)
+    tags = t.genes["locus_tag"].tolist() if _has(t.genes, "locus_tag") else []
+    genes = {g for g in tags if isinstance(g, str)}
     out: list[Issue] = []
     out += _unknown_refs("genes", "unknown_contig", t.genes, "contig", set(reps), "replicon")
-    out += _check_bounds("genes", t.genes, reps, "origin")
-    out += _unknown_refs("xrefs", "unknown_gene", t.xrefs, "locus_tag", genes, "gene")
+    out += _check_bounds(t.genes, reps)
     out += _check_tus(t, genes)
     out += _check_layers(t, genes)
-    out += _check_regions(t, reps, genes)
-    out += _check_peptide_hits(t, reps, genes)
+    out += _check_subset(t)
+    out += _check_peptide_hits(t, genes)
     out += _unknown_refs(
         "protein_hits", "unknown_gene", t.protein_hits, "gene", genes, "C2 locus tag"
     )
