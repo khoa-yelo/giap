@@ -267,7 +267,7 @@ def test_sources_are_the_official_pinned_ones() -> None:
     for name, item in SOURCES.items():
         assert isinstance(item, DbItem) and item.name == name
         assert re.fullmatch(r"(md5:[0-9a-f]{32}|sha256:[0-9a-f]{64})", item.checksum) or (
-            name == "antismash"
+            name == "antismash" or name.startswith("kegg_")  # M2-09: KEGG is recorded, not pinned
         ), item
         assert item.url.startswith("https://"), item
         assert urlparse(item.url).hostname == item.host, item
