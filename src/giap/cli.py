@@ -262,6 +262,13 @@ def run(
         "output.sensitivity": sensitivity,
     }
     cfg = _resolve(config_file, sets, log_level, flags, publication)
+    from giap.annotate.promoters import check_promoter_mode
+
+    try:  # before launching anything (M2-13 Q2, revised lead decision 4)
+        check_promoter_mode(cfg.annotation.promoters.mode)
+    except ValueError as exc:
+        click.echo(f"giap run: error: {exc}", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
     if executor == "local":
         _run_local(cfg, outdir / "work")
     inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
