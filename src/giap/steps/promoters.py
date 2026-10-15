@@ -16,7 +16,13 @@ import pandas as pd
 import pyarrow as pa  # type: ignore[import-untyped]
 
 from giap.annotate.promotech_cmd import parse_promotech
-from giap.annotate.promoters import dedupe_and_chunk, gene_windows, promoter_layer, write_chunks
+from giap.annotate.promoters import (
+    check_promoter_mode,
+    dedupe_and_chunk,
+    gene_windows,
+    promoter_layer,
+    write_chunks,
+)
 from giap.annotate.uniop_adapter import genome_order
 from giap.io.fasta import read_genome_fasta
 from giap.io.parquet import write_parquet_deterministic
@@ -44,6 +50,7 @@ def _rows(df: pd.DataFrame) -> list[tuple[object, ...]]:
 def promoter_windows(ctx: StepContext) -> None:
     """Windows of every CDS/sORF start (§6.5 gene order, k ascending), deduplicated and chunked."""
     cfg = ctx.cfg.annotation.promoters
+    check_promoter_mode(cfg.mode)
     reps = _replicons(_path(ctx.inputs["replicons"]))
     genome = {r.id: r.sequence for r in read_genome_fasta(_path(ctx.inputs["genome"]))}
     genes = [g for g in _genes(_path(ctx.inputs["genes"])) if g.feature_type != "pseudogene"]

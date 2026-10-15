@@ -47,6 +47,12 @@ class Window:
     k: int
 
 
+def check_promoter_mode(mode: str) -> None:
+    """Genome-wide Promotech is a valid config but not implemented (M2-13 Q2, revised)."""
+    if mode == "genome":
+        raise ValueError("annotation.promoters.mode: genome is not implemented in this version")
+
+
 def _revcomp(s: str) -> str:
     return s.translate(_COMP)[::-1]
 
