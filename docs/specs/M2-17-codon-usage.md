@@ -88,3 +88,13 @@ when ≥ 10 codons exist.
    fields, `cai_reference`; NaN written as null.
 3. The codon-bias library must pass scripts/ci/check_imports.py (licence) and already be in uv.lock; if
    not, stop and tell the lead (no new dependencies).
+
+## Lead decisions after code review (PR #86, changes requested)
+4. Run flags are stored, not only logged: `cai_reference_missing` (and any other codon-usage run flag)
+   goes into the codon.parquet file metadata (key `giap_flags`, JSON list) so M2-20/report can read it.
+5. Only genetic code 11 is accepted; any other table raises ValueError (table 1 and table 4 tested).
+6. `gc3` returns None (not ZeroDivisionError) when no third position is A/C/G/T.
+7. codon-bias RuntimeWarnings for genes with nothing to weight are suppressed and logged once as a count.
+8. Tests kill the surviving mutants at step level: `cai_reference` excludes partial and pseudogene
+   ribosomal genes; the step reads the gene's real `partial` value; the step uses table 11; the table
+   check; lower-case sequences (`.upper()`).
