@@ -122,14 +122,14 @@ _SETUP_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     *RESOURCES,
     ("promotech", ("promotech_models",)),
 )
-_GROUPED = frozenset(part for _, parts in _SETUP_GROUPS for part in parts)
 
 
 def _setup_manifest(items: list[object]) -> dict[str, str | None]:
     """Versions of the ``status: "ok"`` items of a ``giap setup`` manifest, by requirement name.
 
-    Grouped items (:data:`_SETUP_GROUPS`) count only when every part is ``ok``; the group's
-    version joins the distinct part versions with ``+``.
+    Grouped items (:data:`_SETUP_GROUPS`) also keep their item name; the group's requirement
+    counts only when every part is ``ok``, its version joining the distinct part versions with
+    ``+``.
     """
     ok: dict[str, str | None] = {}
     for item in items:
@@ -138,8 +138,7 @@ def _setup_manifest(items: list[object]) -> dict[str, str | None]:
             ok[str(item.get("name"))] = version if isinstance(version, str) else None
     found: dict[str, str | None] = {}
     for name, version in ok.items():
-        if name not in _GROUPED:
-            found[_SETUP_NAMES.get(name, name)] = version
+        found[_SETUP_NAMES.get(name, name)] = version
     for req, parts in _SETUP_GROUPS:
         if all(part in ok for part in parts):
             versions = [v for v in dict.fromkeys(ok[part] for part in parts) if v is not None]
