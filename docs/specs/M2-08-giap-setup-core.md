@@ -116,3 +116,9 @@ Files: `src/giap/setupdb/{items.py,manifest.py,run.py}`, `src/giap/data/db_sourc
    date; preflight maps bakta_* → bakta_db, genomad → genomad_db, antismash → antismash_db, counting `ok`
    rows only; free disk via `shutil.disk_usage`. The kept `promotech/RF-HOT.zip` is what the SHA-256 pin
    verifies. antiSMASH `verify` and `--go/--kegg/--cog/--contaminants` are covered by M2-09.
+5. Tool commands inside `giap setup` (`bakta_db`, `amrfinder_update`, `download-antismash-databases`) run
+   through the image pinned in `workflow/conf/containers.config` (Apptainer) for tools without a conda env
+   (M2-01 decision 4: container-run tools have none) — the same images the pipeline uses. A missing image
+   is an environment error (exit 2) naming `scripts/slurm/build_envs.sbatch`.
+6. Tests never reach the network: tests that only exercise option parsing skip every resource (lead fixed
+   two M1 CLI tests that downloaded the 1 GB Promotech zip once `giap setup` became real).
