@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import platform
+import shutil
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -119,6 +121,21 @@ def setup(config_file: Path | None, sets: tuple[str, ...], log_level: str, **opt
 
 # ---------------------------------------------------------------- preflight
 
+# Nextflow profiles `giap run --profile` accepts, alone or comma-joined (#78 review 3c).
+_PROFILES = ("farmshare", "farmshare_local", "apptainer", "conda", "docker", "standard")
+
+
+def _check_profile(_ctx: click.Context, _param: click.Parameter, value: str) -> str:
+    """``value`` if every comma-separated name is a known profile, else a usage error."""
+    names = value.split(",")
+    bad = [n for n in names if n not in _PROFILES]
+    if bad:
+        raise click.BadParameter(
+            f"unknown profile(s) {', '.join(repr(n) for n in bad)} in {value!r}; "
+            f"choose comma-joined from: {', '.join(_PROFILES)}"
+        )
+    return value
+
 
 @cli.command()
 @click.option("--genome", type=_existing_file, required=True, help="Genome FASTA.")
@@ -198,18 +215,10 @@ _RUN_INPUTS = [
 @click.option("--strict", is_flag=True, help="Treat warnings as errors (exit code 3).")
 @click.option(
     "--profile",
-    type=click.Choice(
-        [
-            "farmshare,apptainer",
-            "farmshare,conda",
-            "farmshare_local",
-            "apptainer",
-            "conda",
-            "docker",
-        ]
-    ),
+    callback=_check_profile,
     default="farmshare,apptainer",
     show_default=True,
+    help="Comma-joined Nextflow profiles: " + ", ".join(_PROFILES) + ".",
 )
 @click.option("--resume", is_flag=True, help="Resume a previous Nextflow run.")
 @click.option(
@@ -263,22 +272,71 @@ def run(
     if executor == "local":
         _run_local(cfg, outdir / "work")
     inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
-    _run_nextflow(cfg, outdir, inputs, str(_["memory"]), str(_["profile"]), bool(_["resume"]))
-
-
-def _run_nextflow(
-    cfg: GiapConfig, outdir: Path, inputs: dict[str, Path], memory: str, profile: str, resume: bool
-) -> None:
-    """§6.3 "Launch": params.json + resolved_config.yaml, then ``nextflow run`` in OUT."""
-    import shutil
-
-    from giap.runner import nextflow as nf
-
+    env_db = os.environ.get("GIAP_DB_DIR")
+    db_dir: Path | None = _.get("db_dir") or (Path(env_db) if env_db else None)
+    outdir = outdir.absolute()
+    inputs.update(_run_preflight(cfg, outdir, inputs, db_dir, bool(_["strict"]), str(_["profile"])))
     if shutil.which("nextflow") is None:
         click.echo("giap run: nextflow not found on PATH (see AGENTS.md setup)", err=True)
         sys.exit(ExitCode.ENVIRONMENT)
+    _run_nextflow(
+        cfg, outdir, inputs, str(_["memory"]), str(_["profile"]), bool(_["resume"]), db_dir
+    )
+
+
+def _run_preflight(
+    cfg: GiapConfig,
+    outdir: Path,
+    inputs: dict[str, Path],
+    db_dir: Path | None,
+    strict: bool,
+    profile: str,
+) -> dict[str, Path]:
+    """Preflight in run mode (§5.1): exits on an error (or a warning with ``strict``) before
+    Nextflow starts, else returns the normalised ``genome`` and ``replicons`` for params.json.
+    Tools are checked for the Nextflow ``profile`` under ``$GIAP_ROOT`` (run-wiring 4a)."""
+    from giap.preflight.report import render_preflight_md
+    from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
+
+    if outdir.exists() and not outdir.is_dir():
+        click.echo(f"giap run: --outdir {outdir} exists and is not a directory", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
+    inp = PreflightInputs(
+        genome=inputs["genome"],
+        proteins=inputs.get("proteins"),
+        peptides=inputs.get("peptides"),
+        abundance=inputs.get("abundance"),
+        annotation=inputs.get("annotation"),
+    )
+    root = os.environ.get("GIAP_ROOT")
+    report, norm = run_preflight(
+        inp, cfg, None, "run", outdir, db_dir,
+        giap_root=Path(root) if root else None, profile=profile,
+    )  # fmt: skip
+    outdir.mkdir(parents=True, exist_ok=True)
+    write_outputs(outdir, report, norm)
+    code = exit_code(report, strict)
+    if code != ExitCode.SUCCESS:
+        click.echo(render_preflight_md(report), err=True, nl=False)
+        sys.exit(code)
+    work = outdir / "work" / "preflight"
+    return {"genome": work / "genome.norm.fa", "replicons": work / "replicons.tsv"}
+
+
+def _run_nextflow(
+    cfg: GiapConfig,
+    outdir: Path,
+    inputs: dict[str, Path],
+    memory: str,
+    profile: str,
+    resume: bool,
+    db_dir: Path | None = None,
+) -> None:
+    """§6.3 "Launch": params.json (+ ``db_dir``) + resolved_config.yaml, then ``nextflow run``."""
+    from giap.runner import nextflow as nf
+
     outdir = outdir.absolute()
-    params, _resolved = nf.write_params(outdir, cfg, inputs, nf.nextflow_memory(memory))
+    params, _resolved = nf.write_params(outdir, cfg, inputs, nf.nextflow_memory(memory), db_dir)
     cmd = nf.launch_command(nf.workflow_main(), params, profile, outdir, resume)
     sys.exit(nf.run_nextflow(cmd, outdir))
 
@@ -314,19 +372,62 @@ def _run_local(cfg: GiapConfig, workdir: Path) -> None:
 
 
 @cli.command()
-@click.option("--genome", type=_existing_file, required=True, help="Genome FASTA.")
 @click.option("--annotation", type=_existing_file, help="bakta.json.")
+@click.option("--genome", type=_existing_file, help="Genome FASTA (default: the JSON sequences).")
 @click.option("--outdir", type=_out_path, required=True, help="Output database directory.")
-@click.option("--db-dir", type=_out_path, help="Database directory.")
+@click.option("--db-dir", type=_out_path, help="Database directory (default: $GIAP_DB_DIR).")
 @click.option("--six-frame-orfs", is_flag=True, help="Add six-frame ORFs.")
-@click.option("--min-orf-aa", type=click.IntRange(min=1), default=20, show_default=True)
+@click.option("--min-orf-aa", type=int, default=20, show_default=True)
 @click.option("--patch", type=_existing_file, help="annotation_patch.gff3 from a previous run.")
 @click.option("--no-contaminants", is_flag=True, help="Do not append contaminant proteins.")
 @shared_options
-def makedb(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_: Any) -> None:
+def makedb(
+    config_file: Path | None,
+    sets: tuple[str, ...],
+    log_level: str,
+    annotation: Path | None,
+    genome: Path | None,
+    outdir: Path,
+    db_dir: Path | None,
+    six_frame_orfs: bool,
+    min_orf_aa: int,
+    patch: Path | None,
+    no_contaminants: bool,
+) -> None:
     """Build an optional strain search database (no FDR is built on it)."""
+    import os
+
+    from giap.makedb.build import MakedbOptions, build_strain_db
+
     _resolve(config_file, sets, log_level)
-    _not_implemented("makedb", "M3")
+    if annotation is None:
+        click.echo("giap makedb: no --annotation: Bakta wrapper required (M2)", err=True)
+        sys.exit(ExitCode.ENVIRONMENT)
+    if min_orf_aa < 1:
+        click.echo(f"giap makedb: --min-orf-aa must be >= 1, got {min_orf_aa}", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
+    contaminants: Path | None = None
+    if not no_contaminants:
+        env = os.environ.get("GIAP_DB_DIR")
+        root = db_dir or (Path(env) if env else None)
+        contaminants = root / "contaminants" / "contaminants.fasta" if root else None
+        if contaminants is None or not contaminants.is_file():
+            click.echo(
+                f"giap makedb: contaminant library not found ({contaminants or 'no --db-dir'}); "
+                "run giap setup --contaminants or pass --no-contaminants",
+                err=True,
+            )
+            sys.exit(ExitCode.ENVIRONMENT)
+    opts = MakedbOptions(
+        annotation, genome, outdir, patch, six_frame_orfs, min_orf_aa, contaminants
+    )
+    try:
+        result = build_strain_db(opts)
+    except (ValueError, OSError) as exc:
+        click.echo(f"giap makedb: {exc}", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
+    click.echo(f"giap makedb: wrote {result.fasta} {dict(result.counts)}", err=True)
+    sys.exit(ExitCode.SUCCESS)
 
 
 # ---------------------------------------------------------------- convert
@@ -439,8 +540,10 @@ def step(
     **_: Any,
 ) -> None:
     """Run one pipeline step (used by Nextflow)."""
+    from giap.steps import load_step_modules
     from giap.steps import registry as reg
 
+    load_step_modules()
     cfg = _resolve(config_file, sets, log_level)
     try:
         ins = _in_paths(name, inputs)

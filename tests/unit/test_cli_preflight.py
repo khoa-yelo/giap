@@ -52,6 +52,7 @@ def _no_db_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo.mkdir()
     monkeypatch.setenv("GIAP_DB_DIR", str(db))
     monkeypatch.setenv("GIAP_REPO", str(repo))
+    monkeypatch.setenv("GIAP_ROOT", str(repo))  # never the real $GIAP_ROOT (decision 4c)
 
 
 def random_acgt(n: int, seed: int = 0) -> str:

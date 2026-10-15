@@ -70,10 +70,23 @@ def _codon_codes() -> np.ndarray:
     return table
 
 
+def _codon_ascii() -> np.ndarray:
+    """64-entry table (ACGT index as :func:`_codon_codes`) -> ASCII residue letter (no I -> L)."""
+    tcag = "TCAG"
+    table = np.empty(64, dtype=np.uint8)
+    for i, b0 in enumerate(tcag):
+        for j, b1 in enumerate(tcag):
+            for k, b2 in enumerate(tcag):
+                idx = 16 * _BASES.index(b0) + 4 * _BASES.index(b1) + _BASES.index(b2)
+                table[idx] = ord(_TABLE11_TCAG[16 * i + 4 * j + k])
+    return table
+
+
 _QUERY_LUT = _letter_codes(query=True)
 _TARGET_LUT = _letter_codes(query=False)
 _NT_LUT = _nt_codes()
 _CODON_LUT = _codon_codes()
+_CODON_ASCII = _codon_ascii()
 _DECODE_LUT = np.full(256, ord("#"), dtype=np.uint8)
 _DECODE_LUT[: len(ALPHABET)] = np.frombuffer(ALPHABET.encode("ascii"), dtype=np.uint8)
 
@@ -141,6 +154,15 @@ def decode(codes: np.ndarray) -> str:
 def translate11(nt: bytes) -> np.ndarray:
     """Translate ``nt`` in frame 0 with table 11; a trailing partial codon is dropped."""
     return _translate(np.frombuffer(nt, dtype=np.uint8), 0, False)
+
+
+def translate11_text(nt: str, offset: int = 0) -> str:
+    """Table 11 codon by codon from ``offset`` as text: no I -> L, no start-codon rule, ``*`` at
+    stops, a codon with a non-ACGT base -> ``X``; a trailing partial codon is dropped."""
+    raw = np.frombuffer(nt.encode("ascii", errors="replace"), dtype=np.uint8)
+    codes: np.ndarray = _translate_kernel(raw, _NT_LUT, _CODON_ASCII, offset, False)
+    letters = np.where(codes == AMBIG, ord("X"), codes).astype(np.uint8)
+    return letters.tobytes().decode("ascii")
 
 
 @dataclass(frozen=True, slots=True)
