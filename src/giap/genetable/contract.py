@@ -131,6 +131,7 @@ TABLES: Mapping[str, tuple[Column, ...]] = {
     "regions": (
         _s("region_id"), _s("region_type", enum=("prophage", "plasmid", "bgc", "crispr", "amr")),
         _s("contig"), _i("start", True), _i("end", True), _s("source_tool"), _f("score", True),
+        Column("genes", "list", optional=True), Column("notes", "str", True, optional=True),
     ),
     "region_genes": (
         _s("region_id"), _s("locus_tag"), _f("overlap_frac"),

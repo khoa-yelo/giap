@@ -161,6 +161,21 @@
       "rbs"
     ]
   },
+  "region_layer": {
+    "inputs": [
+      "features",
+      "genes",
+      "replicons"
+    ],
+    "optional_inputs": [
+      "antismash",
+      "genomad"
+    ],
+    "outputs": [
+      "region_genes",
+      "regions"
+    ]
+  },
   "sixframe_index": {
     "inputs": [
       "genome",
