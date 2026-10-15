@@ -1,8 +1,11 @@
 """Environment preflight rules (GIAP_SPEC.md §7.0 Environment rows; ADR-0005 items 3-4).
 
 ``environment.tools``: every binary, environment, database and model of the enabled modules is
-found at a usable version → else error (exit 2). ``environment.resources``: the only warning is
-RAM below the 24 GiB that genome-wide Promotech needs (the caller passes it as
+found at a usable version → else error (exit 2). Binaries and environments come from the M2-01 tool
+registry (:func:`missing_tools`: pinned images under ``$GIAP_ROOT/containers``, prebuilt
+micromamba envs with a matching build marker); databases and models from the ``giap setup``
+manifest (:func:`read_manifest`, run-wiring lead decision 4). ``environment.resources``: the only
+warning is RAM below the 24 GiB that genome-wide Promotech needs (the caller passes it as
 ``need_ram_bytes``, see :func:`resource_needs`). The check holds the verdict only, never the raw
 RAM and disk numbers, so ``preflight.json`` is identical across machines (§6.6); the caller logs
 the raw numbers (§6.7). Rules take an injected :class:`EnvProbe`; the real sources are
@@ -11,6 +14,7 @@ read by :func:`read_manifest` (``$GIAP_DB_DIR/db_manifest.json``) and :func:`pro
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -20,7 +24,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from giap.annotate.tools import TOOLS, ToolSpec, read_containers_config
 from giap.preflight.checks import Check, JsonValue, Level
+from giap.runner.nextflow import workflow_main
+from giap.setupdb.items import RESOURCES
 
 __all__ = [
     "GENOME_PROMOTECH_RAM_BYTES",
@@ -32,6 +39,7 @@ __all__ = [
     "ProbeError",
     "Requirement",
     "environment_checks",
+    "missing_tools",
     "probe_resources",
     "read_manifest",
     "requirements",
@@ -109,16 +117,97 @@ def read_manifest(db_dir: str | None) -> dict[str, str | None] | None:
 # `giap setup` item names → requirement names (M2-08 lead decision 4)
 _SETUP_NAMES = {"bakta_light": "bakta_db", "bakta_full": "bakta_db", "genomad": "genomad_db",
                 "antismash": "antismash_db"}  # fmt: skip
+# Item groups → one requirement; every part must be ``ok`` (run-wiring lead decision 4b).
+_SETUP_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    *RESOURCES,
+    ("promotech", ("promotech_models",)),
+)
 
 
 def _setup_manifest(items: list[object]) -> dict[str, str | None]:
-    """Versions of the ``status: "ok"`` items of a ``giap setup`` manifest, by requirement name."""
-    found: dict[str, str | None] = {}
+    """Versions of the ``status: "ok"`` items of a ``giap setup`` manifest, by requirement name.
+
+    Grouped items (:data:`_SETUP_GROUPS`) also keep their item name; the group's requirement
+    counts only when every part is ``ok``, its version joining the distinct part versions with
+    ``+``.
+    """
+    ok: dict[str, str | None] = {}
     for item in items:
         if isinstance(item, dict) and item.get("status") == "ok":
-            name, version = str(item.get("name")), item.get("version")
-            found[_SETUP_NAMES.get(name, name)] = version if isinstance(version, str) else None
+            version = item.get("version")
+            ok[str(item.get("name"))] = version if isinstance(version, str) else None
+    found: dict[str, str | None] = {}
+    for name, version in ok.items():
+        found[_SETUP_NAMES.get(name, name)] = version
+    for req, parts in _SETUP_GROUPS:
+        if all(part in ok for part in parts):
+            versions = [v for v in dict.fromkeys(ok[part] for part in parts) if v is not None]
+            found[req] = "+".join(versions) if versions else None
     return found
+
+
+# ---------------------------------------------------------------- tools from the registry
+
+MARKER = ".giap-built"
+_NO_TOOL_PROFILES = frozenset({"test", "stub"})
+
+
+def _image_file_name(ref: str) -> str:
+    """``docker://a/b@sha256:<d>`` → ``a-b@sha256-<d>.img`` (Nextflow's apptainer cache name)."""
+    return ref.removeprefix("docker://").replace("/", "-").replace(":", "-") + ".img"
+
+
+def _sha256(path: Path) -> str | None:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def _env_built(tool: ToolSpec, giap_root: Path, envs_dir: Path) -> bool:
+    """The prebuilt env's ``.giap-built`` marker equals the sha256 of its env file."""
+    marker = giap_root / "micromamba" / "envs" / tool.env_name / MARKER
+    want = _sha256(envs_dir / f"{tool.name}.yml")
+    try:
+        have = marker.read_text(encoding="utf-8").strip()
+    except OSError:
+        return False
+    return want is not None and have == want
+
+
+def missing_tools(tools: Sequence[ToolSpec], profile: str, giap_root: Path) -> list[str]:
+    """Sorted names of ``tools`` not installed under ``giap_root`` for the Nextflow ``profile``.
+
+    ``profile`` is comma-joined; naming ``test`` or ``stub`` requires no tools. Under an
+    ``apptainer`` profile a tool pinned in ``workflow/conf/containers.config`` needs its image
+    ``<giap_root>/containers/<ref, scheme stripped, '/' and ':' → '-'>.img``; a conda-only tool
+    (no pinned image) needs ``<giap_root>/micromamba/envs/giap-<tool>/.giap-built`` equal to the
+    sha256 of ``workflow/envs/<tool>.yml`` (``scripts/build_envs.sh``) under every profile.
+    In-process tools are never missing.
+    """
+    names = {n.strip() for n in profile.split(",")}
+    if names & _NO_TOOL_PROFILES:
+        return []
+    workflow = workflow_main().parent
+    pinned = {
+        process.lower(): ref
+        for process, ref in read_containers_config(workflow / "conf" / "containers.config").items()
+    }
+    containers = giap_root / "containers"
+    missing: list[str] = []
+    for tool in tools:
+        if tool.in_process:
+            continue
+        ref = pinned.get(tool.name)
+        if ref is None:
+            present = _env_built(tool, giap_root, workflow / "envs")
+        elif "apptainer" in names:
+            present = (containers / _image_file_name(ref)).is_file()
+        else:  # docker/conda/standard: the image or env is resolved by Nextflow itself
+            present = True
+        if not present:
+            missing.append(tool.name)
+    return sorted(set(missing))
 
 
 def _slurm_mem_bytes() -> int | None:
@@ -162,24 +251,13 @@ def probe_resources(outdir: Path) -> tuple[int, int]:
 # ---------------------------------------------------------------- rules
 
 
-# (name, kind, pinned version) per module; versions pinned in §3.2 and §7.1.1. A tool matches its
-# pin's major.minor with patch >= the pin's; a database matches the pin to its written precision.
+# (name, kind, pinned version) per module: databases and models from the `giap setup` manifest;
+# binaries and environments come from the tool registry (:func:`missing_tools`, run-wiring
+# decision 4a). A database matches the pin to its written precision (§3.2, §7.1.1).
 _ROWS: dict[str, tuple[tuple[str, Kind, str | None], ...]] = {
-    "core": (
-        ("bakta", "binary", "1.12.2"),
-        ("bakta_db", "db", "6"),
-        ("miniprot", "binary", "0.18"),
-        ("tblastn", "binary", None),
-        ("uniop", "env", None),
-        ("promotech", "env", None),
-        ("promotech_models", "model", None),
-        ("promoter_calculator", "env", "1.2.4"),
-        ("terminatornet", "env", None),
-        ("transtermhp", "binary", "2.09"),
-        ("ostir", "env", "1.1.3"),
-    ),
-    "mobile": (("genomad", "binary", "1.12.0"), ("genomad_db", "db", "1.9")),
-    "bgc": (("antismash", "binary", "8.0.4"), ("antismash_db", "db", None)),
+    "core": (("bakta_db", "db", "6"), ("promotech", "model", None)),
+    "mobile": (("genomad_db", "db", "1.9"),),
+    "bgc": (("antismash_db", "db", None),),
     "function": (("go", "db", None), ("kegg", "db", None), ("cog", "db", None)),
 }
 
@@ -250,12 +328,30 @@ def _gib(n: int) -> int | float:
     return int(g) if g.is_integer() else g
 
 
-def _tools_check(reqs: Sequence[Requirement], probe: EnvProbe) -> Check:
+def _reported_tools(reqs: Sequence[Requirement], probe: EnvProbe) -> list[Requirement]:
+    """Registry tools of the enabled modules (those of ``reqs``, plus mapping) an injected probe
+    reports (``None``: missing), pinned at their registry version (git pins carry no comparable
+    version); databases come from ``reqs``."""
+    names = {r.name for r in reqs}
+    modules = {r.module for r in reqs} | {"core", "mapping"}
+    out = []
+    for name in probe.found:
+        tool = TOOLS.get(name)
+        if tool is None or tool.in_process or name in names or tool.module not in modules:
+            continue
+        pin = None if _version(tool.version) is None else tool.version
+        out.append(Requirement(name, tool.module, "binary", pin))
+    return out
+
+
+def _tools_check(
+    reqs: Sequence[Requirement], probe: EnvProbe, tools_missing: Sequence[str] = ()
+) -> Check:
     rule = TOOLS_RULE
-    missing: list[str] = []
+    missing: list[str] = list(tools_missing)
     wrong: dict[str, JsonValue] = {}
     found: dict[str, JsonValue] = {}
-    for r in reqs:
+    for r in [*reqs, *_reported_tools(reqs, probe)]:
         v = probe.found.get(r.name)
         if v is None:
             missing.append(r.name)
@@ -269,8 +365,8 @@ def _tools_check(reqs: Sequence[Requirement], probe: EnvProbe) -> Check:
     value: dict[str, JsonValue] = {}
     parts = []
     if missing:
-        value["missing"] = list[JsonValue](sorted(missing))
-        parts.append("missing: " + ", ".join(sorted(missing)))
+        value["missing"] = list[JsonValue](sorted(set(missing)))
+        parts.append("missing: " + ", ".join(sorted(set(missing))))
     if wrong:
         value["wrong_version"] = dict(sorted(wrong.items()))
         parts.append("wrong version: " + ", ".join(f"{k} {v}" for k, v in sorted(wrong.items())))
@@ -294,10 +390,18 @@ def _resources_check(probe: EnvProbe, need_disk_bytes: int, need_ram_bytes: int)
 
 
 def environment_checks(
-    reqs: Sequence[Requirement], probe: EnvProbe, need_disk_bytes: int, need_ram_bytes: int
+    reqs: Sequence[Requirement],
+    probe: EnvProbe,
+    need_disk_bytes: int,
+    need_ram_bytes: int,
+    tools_missing: Sequence[str] = (),
 ) -> list[Check]:
-    """``environment.tools`` and ``environment.resources`` for ``reqs`` against ``probe``.
+    """``environment.tools`` and ``environment.resources`` for ``reqs`` against ``probe``;
+    ``tools_missing`` (from :func:`missing_tools`) are reported missing alongside databases.
 
     Free disk never warns (ADR-0005 item 4): ``need_disk_bytes`` is only recorded.
     """
-    return [_tools_check(reqs, probe), _resources_check(probe, need_disk_bytes, need_ram_bytes)]
+    return [
+        _tools_check(reqs, probe, tools_missing),
+        _resources_check(probe, need_disk_bytes, need_ram_bytes),
+    ]

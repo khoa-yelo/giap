@@ -34,9 +34,14 @@ _NAME = re.compile(r"(?P<proc>[^ ]+)(?: \((?P<tag>.*)\))?")
 
 
 def write_params(
-    outdir: Path, cfg: GiapConfig, inputs: Mapping[str, Path], memory: str = DEFAULT_MEMORY
+    outdir: Path,
+    cfg: GiapConfig,
+    inputs: Mapping[str, Path],
+    memory: str = DEFAULT_MEMORY,
+    db_dir: Path | None = None,
 ) -> tuple[Path, Path]:
-    """Write ``OUT/work/params.json`` and ``OUT/resolved_config.yaml`` deterministically."""
+    """Write ``OUT/work/params.json`` and ``OUT/resolved_config.yaml`` deterministically;
+    ``params.db_dir`` (absolute) only when ``db_dir`` is given."""
     outdir = Path(outdir).absolute()
     resolved = outdir / "resolved_config.yaml"
     params = outdir / "work" / "params.json"
@@ -53,6 +58,8 @@ def write_params(
         "outdir": str(outdir),
         "threads": cfg.threads,
     }
+    if db_dir is not None:
+        data["db_dir"] = str(Path(db_dir).absolute())
     params.write_text(json.dumps(data, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     return params, resolved
 

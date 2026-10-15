@@ -3,9 +3,10 @@
 
 Readers come from ``giap.io``, rules from ``giap.preflight``; this module wires them together,
 probes the environment and writes ``OUT/preflight/`` plus, when there is no error, the normalised
-work files under ``OUT/work/preflight/``. Outputs are atomic: a stale ``work/preflight/`` is removed
-first, files are written into a temporary directory under ``OUT`` and moved into place with
-``os.replace``, ``preflight/preflight.json`` last (the completion marker).
+work files under ``OUT/work/preflight/``. Outputs are atomic: a stale ``work/preflight/`` is moved
+aside first, files are written into a temporary directory under ``OUT`` and moved into place with
+``os.replace``, ``preflight/preflight.json`` last (the completion marker). A work file whose content
+is unchanged keeps the earlier file (and its mtime), so Nextflow ``-resume`` caches (#78 review 3a).
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from typing import Literal
 import pandas as pd
 
 import giap
+from giap.annotate.tools import required_tools
 from giap.config import GiapConfig
 from giap.exitcodes import ExitCode
 from giap.io._open import open_text_write
@@ -48,6 +50,7 @@ from giap.preflight.environment import (
     EnvProbe,
     ProbeError,
     environment_checks,
+    missing_tools,
     probe_resources,
     read_manifest,
     requirements,
@@ -117,13 +120,19 @@ def _tools_error(message: str, value: JsonValue) -> Check:
 
 
 def _environment(
-    cfg: GiapConfig, probe: EnvProbe | None, mode: Mode, outdir: Path
+    cfg: GiapConfig,
+    probe: EnvProbe | None,
+    mode: Mode,
+    outdir: Path,
+    db_dir: str | None,
+    tools_missing: list[str],
 ) -> tuple[list[Check], tuple[int, int] | None]:
     """Environment checks and, for the real probe, the raw ``(free_disk, ram)`` bytes to log.
 
-    ``probe=None`` selects the real probe: versions from ``$GIAP_DB_DIR/db_manifest.json``
+    ``probe=None`` selects the real probe: versions from ``<db_dir>/db_manifest.json``
     (missing: info under ``mode="preflight"``, error under ``mode="run"``; unreadable: one
-    ``environment.tools`` error) and resources probed live where ``outdir`` is.
+    ``environment.tools`` error), ``tools_missing`` registry tools reported with the missing
+    databases, and resources probed live where ``outdir`` is.
     """
     promoters = cfg.annotation.promoters.mode
     reqs = requirements(cfg.modules, promoters)
@@ -131,12 +140,16 @@ def _environment(
     if probe is not None:
         return environment_checks(reqs, probe, *needs), None
     try:
-        found = read_manifest(os.environ.get("GIAP_DB_DIR"))
+        found = read_manifest(db_dir)
     except ProbeError as exc:
         return [_tools_error(f"environment probe failed: {exc}", {"probe_error": str(exc)})], None
     missing = f"{MANIFEST} not found in $GIAP_DB_DIR (written by giap setup)"
     if found is None and mode == "run":
-        return [_tools_error(missing, {MANIFEST: "missing"})], None
+        value: dict[str, JsonValue] = {MANIFEST: "missing"}
+        if tools_missing:
+            value["missing"] = list[JsonValue](tools_missing)
+            missing += "; missing: " + ", ".join(tools_missing)
+        return [_tools_error(missing, value)], None
     resources: tuple[int, int] | None = None
     try:
         resources = probe_resources(outdir)
@@ -155,7 +168,7 @@ def _environment(
         )  # fmt: skip
     else:
         tools = environment_checks(
-            reqs, EnvProbe(found=found, free_disk_bytes=0, total_ram_bytes=0), 0, 0
+            reqs, EnvProbe(found=found, free_disk_bytes=0, total_ram_bytes=0), 0, 0, tools_missing
         )[0]
     return [tools, res], resources
 
@@ -205,9 +218,16 @@ def run_preflight(
     probe: EnvProbe | None,
     mode: Mode,
     outdir: Path | None = None,
+    db_dir: Path | None = None,
+    *,
+    giap_root: Path | None = None,
+    profile: str | None = None,
 ) -> tuple[PreflightReport, NormalisedInputs]:
     """Evaluate every preflight rule; ``probe=None`` selects the real environment probe, which
-    measures free disk where ``outdir`` is (default: the working directory)."""
+    measures free disk where ``outdir`` is (default: the working directory), reads the
+    manifest from ``db_dir`` (default: ``$GIAP_DB_DIR``; the environment is never modified)
+    and, when a Nextflow ``profile`` is given, checks the registry tools the run needs under
+    ``giap_root`` (default: ``$GIAP_ROOT``; unset: every tool missing)."""
     lo, hi = cfg.input.peptide_len
     refs = [_input_ref("genome", inp.genome)]
 
@@ -286,7 +306,15 @@ def run_preflight(
     if inp.annotation is not None:
         refs.append(_input_ref("annotation", inp.annotation))
 
-    env, resources = _environment(cfg, probe, mode, Path.cwd() if outdir is None else outdir)
+    env_db = os.environ.get("GIAP_DB_DIR")
+    db = str(db_dir.absolute()) if db_dir is not None else env_db
+    tools_missing: list[str] = []
+    if probe is None and profile is not None:
+        # unset $GIAP_ROOT: an empty root, so every tool that needs one is reported missing
+        root = giap_root or Path(os.environ.get("GIAP_ROOT") or "/nonexistent/GIAP_ROOT")
+        tools_missing = missing_tools(required_tools(cfg), profile, root)
+    where = Path.cwd() if outdir is None else outdir
+    env, resources = _environment(cfg, probe, mode, where, db, tools_missing)
     tier = candidate_tier(user_peptides, inp.proteins is not None)
     n_usable = None if user_peptides is None else len(user_peptides)
     checks = [
@@ -426,24 +454,41 @@ def _write_work(work: Path, norm: NormalisedInputs) -> None:
             frame.to_parquet(work / name, engine="pyarrow", index=False)
 
 
+def _keep_unchanged(old: Path, new: Path) -> None:
+    """Move each file of ``old`` whose bytes equal its counterpart in ``new`` over that
+    counterpart, so an unchanged work file keeps its mtime (Nextflow hashes path, size, mtime)."""
+    for prev in old.rglob("*"):
+        cur = new / prev.relative_to(old)
+        same_size = prev.is_file() and cur.is_file() and prev.stat().st_size == cur.stat().st_size
+        if same_size and prev.read_bytes() == cur.read_bytes():
+            os.replace(prev, cur)
+
+
 def write_outputs(outdir: Path, report: PreflightReport, norm: NormalisedInputs) -> None:
     """``OUT/preflight/preflight.{json,md}`` always; ``OUT/work/preflight/`` files (§6.2) only
     when the report has no error.
 
-    Atomic: the previous marker and a stale ``work/preflight/`` are removed first; everything is
-    written into a temporary directory under ``outdir`` and moved into place with ``os.replace``,
-    ``preflight.json`` last. A crash leaves neither the marker nor normalised files behind.
+    Atomic: the previous marker is removed and a stale ``work/preflight/`` is moved into a
+    temporary directory under ``outdir`` first; everything is written into that directory and
+    moved into place with ``os.replace``, ``preflight.json`` last. A crash leaves neither the
+    marker nor normalised files behind. Work files with unchanged content are the earlier files
+    (mtime kept), so a ``--resume`` run caches.
     """
     rep, work = outdir / "preflight", outdir / "work" / "preflight"
     rep.mkdir(parents=True, exist_ok=True)
     (rep / "preflight.json").unlink(missing_ok=True)
-    shutil.rmtree(work, ignore_errors=True)
     if norm.resources is not None:
         _log_resources(outdir, norm.resources)
     tmp = Path(tempfile.mkdtemp(prefix=".preflight-", dir=outdir))
     try:
+        if work.is_dir():
+            os.replace(work, tmp / "old")
+        else:
+            shutil.rmtree(work, ignore_errors=True)
         if not any(c.level == "error" for c in report.checks):
             _write_work(tmp / "work", norm)
+            if (tmp / "old").is_dir():
+                _keep_unchanged(tmp / "old", tmp / "work")
         with open_text_write(tmp / "preflight.md") as fh:
             fh.write(render_preflight_md(report))
         write_preflight_json(tmp / "preflight.json", report)

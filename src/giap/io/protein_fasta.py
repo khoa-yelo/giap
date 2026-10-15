@@ -10,11 +10,13 @@ from __future__ import annotations
 import re
 import string
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from giap.io._lines import FastaFormatError, read_lines
+from giap.io._open import open_text_write
 
 STANDARD_AA: frozenset[str] = frozenset("ACDEFGHIKLMNPQRSTVWYU")
 COUNTED_AA: frozenset[str] = frozenset("XBZJ")
@@ -121,3 +123,19 @@ def read_protein_fasta(path: Path) -> list[ProteinRecord]:
     if header is not None:
         records.append(_make_record(header, chunks, header_line))
     return records
+
+
+def write_protein_fasta(path: Path, records: Iterable[tuple[str, str]], width: int = 60) -> None:
+    """Write ``(header, sequence)`` pairs (header without ``>``) wrapped at ``width`` residues."""
+    if width < 1:
+        raise ValueError(f"width must be >= 1, got {width}")
+    lines: list[str] = []
+    for header, seq in records:
+        if not header or "\n" in header or "\r" in header:
+            raise ValueError(f"invalid FASTA header {header!r}")
+        if not seq:
+            raise ValueError(f"empty sequence for {header!r}")
+        lines.append(f">{header}")
+        lines.extend(seq[i : i + width] for i in range(0, len(seq), width))
+    with open_text_write(path, compress=False) as fh:
+        fh.write("".join(f"{line}\n" for line in lines))

@@ -57,6 +57,7 @@ def _isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     )
     monkeypatch.setenv("GIAP_DB_DIR", str(db))
     monkeypatch.setenv("GIAP_REPO", str(repo))
+    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "_db"))  # never the real $GIAP_ROOT (4c)
     return db
 
 

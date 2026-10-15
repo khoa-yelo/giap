@@ -1,0 +1,148 @@
+{
+  "schema_version": "1.0",
+  "items": [
+    {
+      "name": "amrfinderplus",
+      "version": "0.0-fake",
+      "url": "https://example.invalid/giap-test/amrfinderplus",
+      "checksum": "",
+      "size_bytes": 1,
+      "retrieved": "2000-01-01",
+      "path": "fake/bakta/db-light/amrfinderplus-db",
+      "status": "ok",
+      "message": "test fixture (faked versions and paths)"
+    },
+    {
+      "name": "antismash",
+      "version": "0.0-fake",
+      "url": "https://example.invalid/giap-test/antismash",
+      "checksum": "",
+      "size_bytes": 1,
+      "retrieved": "2000-01-01",
+      "path": "fake/antismash",
+      "status": "ok",
+      "message": "test fixture (faked versions and paths)"
+    },
+    {
+      "name": "bakta_full",
+      "version": "6.1",
+      "url": "https://example.invalid/giap-test/bakta_full",
+      "checksum": "",
+      "size_bytes": 1,
+      "retrieved": "2000-01-01",
+      "path": "fake/bakta/db",
+      "status": "ok",
+      "message": "test fixture (faked versions and paths)"
+    },
+    {
+      "name": "bakta_light",
+      "version": "6.1",
+      "url": "https://example.invalid/giap-test/bakta_light",
+      "checksum": "",
+      "size_bytes": 1,
+      "retrieved": "2000-01-01",
+      "path": "fake/bakta/db-light",
+      "status": "ok",
+      "message": "test fixture (faked versions and paths)"
+    },
+    {
+      "name": "cog2020_def",
+      "version": "0.0-fake",
+      "url": "https://example.invalid/giap-test/cog2020_def",
+      "checksum": "",
+      "size_bytes": 1,
+      "retrieved": "2000-01-01",
+      "path": "fake/cog/cog-20.def.tab",
+      "status": "ok",
+      "message": "test fixture (faked versions and paths)"
+    },
+    {
+      "name": "cog2020_fun",
+      "version": "0.0-fake",
+      "url": "https://example.invalid/giap-test/cog2020_fun",
+      "checksum": "",
+      "size_bytes": 1,
+      "retrieved": "2000-01-01",
+      "path": "fake/cog/fun-20.tab",
+      "status": "ok",
+      "message": "test fixture (faked versions and paths)"
+    },
+    {
+      "name": "contaminants",
+      "version": "0.0-fake",
+      "url": "https://example.invalid/giap-test/contaminants",
+      "checksum": "",
+      "size_bytes": 1,
+      "retrieved": "2000-01-01",
+      "path": "fake/contaminants/contaminants.fasta",
+      "status": "ok",
+      "message": "test fixture (faked versions and paths)"
+    },
+    {
+      "name": "genomad",
+      "version": "1.9.7",
+      "url": "https://example.invalid/giap-test/genomad",
+      "checksum": "",
+      "size_bytes": 1,
+      "retrieved": "2000-01-01",
+      "path": "fake/genomad_db",
+      "status": "ok",
+      "message": "test fixture (faked versions and paths)"
+    },
+    {
+      "name": "go_basic",
+      "version": "0.0-fake",
+      "url": "https://example.invalid/giap-test/go_basic",
+      "checksum": "",
+      "size_bytes": 1,
+      "retrieved": "2000-01-01",
+      "path": "fake/go/go-basic.obo",
+      "status": "ok",
+      "message": "test fixture (faked versions and paths)"
+    },
+    {
+      "name": "goslim_generic",
+      "version": "0.0-fake",
+      "url": "https://example.invalid/giap-test/goslim_generic",
+      "checksum": "",
+      "size_bytes": 1,
+      "retrieved": "2000-01-01",
+      "path": "fake/go/goslim_generic.obo",
+      "status": "ok",
+      "message": "test fixture (faked versions and paths)"
+    },
+    {
+      "name": "kegg_ko_pathway",
+      "version": "0.0-fake",
+      "url": "https://example.invalid/giap-test/kegg_ko_pathway",
+      "checksum": "",
+      "size_bytes": 1,
+      "retrieved": "2000-01-01",
+      "path": "fake/kegg/ko_pathway.tsv",
+      "status": "ok",
+      "message": "test fixture (faked versions and paths)"
+    },
+    {
+      "name": "kegg_pathway_names",
+      "version": "0.0-fake",
+      "url": "https://example.invalid/giap-test/kegg_pathway_names",
+      "checksum": "",
+      "size_bytes": 1,
+      "retrieved": "2000-01-01",
+      "path": "fake/kegg/pathway_names.tsv",
+      "status": "ok",
+      "message": "test fixture (faked versions and paths)"
+    },
+    {
+      "name": "promotech_models",
+      "version": "0.0-fake",
+      "url": "https://example.invalid/giap-test/promotech_models",
+      "checksum": "",
+      "size_bytes": 1,
+      "retrieved": "2000-01-01",
+      "path": "fake/promotech",
+      "status": "ok",
+      "message": "test fixture (faked versions and paths)"
+    }
+  ]
+}
