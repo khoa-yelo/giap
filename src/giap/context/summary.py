@@ -18,6 +18,7 @@ from giap.stats.bootstrap import tu_block_bootstrap
 
 __all__ = [
     "FEW_UNITS_FLAG",
+    "REQUIRES_VARIANTS_FLAG",
     "SECTIONS",
     "SUMMARY_COLUMNS",
     "basic_rows",
@@ -33,6 +34,8 @@ FEW_UNITS_FLAG = "ci_few_units"  # docs/methods/bootstrap.md: CI from < 10 resam
 FEW_UNITS_MIN = 10
 FEATURE_CLASSES = ("cds", "sorf", "pseudogene")
 MISMATCH_FLAG = "engine_protein_mismatch"
+REQUIRES_VARIANTS_FLAG = "requires_variants"  # id_mixups (§7.5.1) needs the variant module (M7)
+NO_COG = frozenset({"", "-"})
 
 Row = tuple[str, str, str, str, float, float, float, Any, str]
 
@@ -48,9 +51,12 @@ def _frame(rows: Sequence[Row]) -> pd.DataFrame:
 
 
 def _cog_letters(v: object) -> list[str]:
-    if v is None or (isinstance(v, float) and math.isnan(v)) or v is pd.NA or str(v) == "":
+    if v is None or (isinstance(v, float) and math.isnan(v)) or v is pd.NA:
         return ["none"]
-    return sorted(set(str(v)))
+    s = str(v).strip()
+    if s in NO_COG:
+        return ["none"]
+    return sorted(set(s))
 
 
 def _groups(genes: pd.DataFrame) -> list[tuple[str, str, np.ndarray]]:
@@ -71,18 +77,64 @@ def _sum_v(d: pd.DataFrame) -> float:
     return float(d["v"].sum())
 
 
+def _is_missing(v: object) -> bool:
+    if v is None or v is pd.NA:
+        return True
+    if isinstance(v, float) and math.isnan(v):
+        return True
+    return isinstance(v, str) and v.strip() == ""
+
+
+def _detected(col: pd.Series) -> np.ndarray:
+    """``detected`` as a bool array; strings or other non-boolean values raise ValueError."""
+    if pd.api.types.is_bool_dtype(col.dtype):
+        if col.isna().any():
+            raise ValueError("detected has missing values on eligible genes")
+        return np.asarray(col.to_numpy(dtype=bool), dtype=bool)
+    if col.dtype == object and all(isinstance(v, bool | np.bool_) for v in col):
+        return np.asarray(col.to_numpy(dtype=bool), dtype=bool)
+    raise ValueError(f"detected must be boolean, got dtype {col.dtype}")
+
+
+def _check_eligible(elig: pd.DataFrame) -> None:
+    """Fail closed: every eligible gene needs a finite ``p_detect`` and a ``tu_id``."""
+    tags = elig["locus_tag"].astype(str).to_numpy()
+    p = pd.to_numeric(elig["p_detect"], errors="coerce").astype(float).to_numpy()
+    bad_p = sorted(tags[~np.isfinite(p)].tolist())
+    no_tu = np.array([_is_missing(v) for v in elig["tu_id"]], dtype=bool)
+    bad_tu = sorted(tags[no_tu].tolist()) if len(tags) else []
+    msgs = []
+    if bad_p:
+        msgs.append(f"eligible genes with NaN p_detect: {bad_p}")
+    if bad_tu:
+        msgs.append(f"eligible genes without tu_id: {bad_tu}")
+    if msgs:
+        raise ValueError("; ".join(msgs))
+
+
+def _few_units(n_tu: int, expected: float, n_genes: int) -> bool:
+    """CI flag: < 10 TUs, or min(E, n - E) < 10 (few expected detections or non-detections)."""
+    return n_tu < FEW_UNITS_MIN or min(expected, n_genes - expected) < FEW_UNITS_MIN
+
+
 def basic_rows(genes: pd.DataFrame, B: int, rng: np.random.Generator) -> pd.DataFrame:
     """Basic O - E rows (section ``basic``) per replicon, feature class and COG category.
 
     Eligible genes only (``detection_status != partial_excluded``). Metrics per group:
     ``n_genes``, ``n_detected``, ``pct_detected``, ``expected`` (sum of ``p_detect``),
     ``o_minus_e`` (95 % TU-block bootstrap CI over the group's TUs, flag ``ci_few_units`` with
-    fewer than 10 TUs), ``o_over_e`` (NA when E = 0) and ``n_tu``. ``n`` = n_genes on every row.
-    Groups are processed in sorted order so the draws are reproducible.
+    fewer than 10 TUs or min(E, n_genes - E) < 10), ``o_over_e`` (NA when E = 0) and ``n_tu``.
+    ``n`` = n_genes on every row. Groups are processed in sorted order so the draws are
+    reproducible. COG ``-`` and blank count in ``none``.
+
+    Raises:
+        ValueError: ``detected`` is not boolean, or an eligible gene has NaN ``p_detect`` or no
+            ``tu_id`` (the genes are named).
     """
     elig = genes[genes["detection_status"].astype(str) != "partial_excluded"]
     elig = elig.reset_index(drop=True)
-    det = elig["detected"].astype(bool).to_numpy()
+    det = _detected(elig["detected"])
+    _check_eligible(elig)
     p = elig["p_detect"].astype(float).to_numpy()
     tu = elig["tu_id"].astype(str).to_numpy()
     rows: list[Row] = []
@@ -94,7 +146,7 @@ def basic_rows(genes: pd.DataFrame, B: int, rng: np.random.Generator) -> pd.Data
         tus = pd.DataFrame({"tu": sums.index.astype(str), "v": sums.to_numpy()})
         ci = tu_block_bootstrap(tus, "tu", _sum_v, B, rng)
         n_tu = len(tus)
-        flag = FEW_UNITS_FLAG if n_tu < FEW_UNITS_MIN else ""
+        flag = FEW_UNITS_FLAG if _few_units(n_tu, e, n) else ""
         nan = math.nan
         vals: list[tuple[str, float, float, float, str]] = [
             ("n_genes", float(n), nan, nan, ""),
@@ -120,27 +172,40 @@ def _has_flag(v: object, flag: str) -> bool:
 def qc_rows(
     peptides: pd.DataFrame | None, peptide_hits: pd.DataFrame, unmapped: pd.DataFrame | None
 ) -> pd.DataFrame:
-    """QC rows (section ``qc``, group ``run``/``all``) from C9, C11 and C13.
+    """QC rows (section ``qc``, group ``run``/``all``) from C9, C11 and C13 (§7.5.1, §9.3).
 
-    ``id_mixups``: distinct C11 peptides flagged ``engine_protein_mismatch``.
-    ``genome_inconsistent_rate``: share of C9 target peptides with ``search_db = same`` without an
-    exact C11 placement (NA without such peptides). C13 counts by ``label`` and ``kind`` (NA
+    ``id_mixups``: NA with flag ``requires_variants`` (same-database ALT sites need M7).
+    ``engine_protein_mismatch_rate``: distinct C11 peptides flagged ``engine_protein_mismatch``
+    over distinct placed (C11) peptides; NA without C11 rows.
+    ``genome_inconsistent_rate``: share of distinct C9 target, non-contaminant (``is_contaminant``)
+    peptides with ``search_db = other`` without an exact C11 placement; ``n`` = that denominator
+    (NA without such peptides, e.g. all ``same``). C13 counts by ``label`` and ``kind`` (NA
     without C13).
     """
     hits = peptide_hits
     pep_col = hits["peptide"].astype(str)
-    mixed = [_has_flag(f, MISMATCH_FLAG) for f in hits["flags"]] if "flags" in hits else []
-    id_mixups = float(pep_col[np.asarray(mixed, dtype=bool)].nunique()) if len(hits) else 0.0
+    mm_rate: float = math.nan
+    n_placed: Any = pd.NA
+    if len(hits):
+        if "flags" in hits:
+            mixed = np.array([_has_flag(f, MISMATCH_FLAG) for f in hits["flags"]], dtype=bool)
+        else:
+            mixed = np.zeros(len(hits), dtype=bool)
+        n_placed = int(pep_col.nunique())
+        mm_rate = float(pep_col[mixed].nunique()) / n_placed
 
-    rate, n_same = math.nan, pd.NA
+    rate: float = math.nan
+    n_other: Any = pd.NA
     if peptides is not None and "search_db" in peptides:
-        target = ~peptides["is_decoy"].astype(bool)
-        same = peptides[target & (peptides["search_db"].astype(str) == "same")]
-        if len(same):
+        keep = ~peptides["is_decoy"].astype(bool)
+        if "is_contaminant" in peptides:
+            keep &= ~peptides["is_contaminant"].fillna(False).astype(bool)
+        other = peptides[keep & (peptides["search_db"].astype(str) == "other")]
+        if len(other):
             exact = set(pep_col[hits["route"].astype(str) == "exact"]) if len(hits) else set()
-            uniq = same["peptide"].astype(str).unique()
+            uniq = other["peptide"].astype(str).unique()
             rate = float(np.mean([pe not in exact for pe in uniq]))
-            n_same = len(uniq)
+            n_other = len(uniq)
 
     def count(label: str, kind: str) -> float:
         if unmapped is None:
@@ -149,15 +214,16 @@ def qc_rows(
         return float(sel.sum())
 
     nan = math.nan
-    vals: list[tuple[str, float, Any]] = [
-        ("id_mixups", id_mixups, pd.NA),
-        ("genome_inconsistent_rate", rate, n_same),
-        ("contaminant_peptides", count("contaminant", "peptide"), pd.NA),
-        ("contaminant_proteins", count("contaminant", "protein"), pd.NA),
-        ("unmapped_peptides", count("unmapped", "peptide"), pd.NA),
-        ("unmapped_proteins", count("unmapped", "protein"), pd.NA),
+    vals: list[tuple[str, float, Any, str]] = [
+        ("id_mixups", nan, pd.NA, REQUIRES_VARIANTS_FLAG),
+        ("engine_protein_mismatch_rate", mm_rate, n_placed, ""),
+        ("genome_inconsistent_rate", rate, n_other, ""),
+        ("contaminant_peptides", count("contaminant", "peptide"), pd.NA, ""),
+        ("contaminant_proteins", count("contaminant", "protein"), pd.NA, ""),
+        ("unmapped_peptides", count("unmapped", "peptide"), pd.NA, ""),
+        ("unmapped_proteins", count("unmapped", "protein"), pd.NA, ""),
     ]
-    return _frame([("qc", "run", "all", m, v, nan, nan, n, "") for m, v, n in vals])
+    return _frame([("qc", "run", "all", m, v, nan, nan, n, f) for m, v, n, f in vals])
 
 
 def _flags_str(v: object) -> str:
