@@ -1,4 +1,4 @@
-// M2-07 lead decisions 2 and 9 after the PR #65 review, BAKTA process level with fake tools (workflow/tests/bin;
+// M2-07 lead decisions 2, 9 and 11 after the PR #65 review, BAKTA process level with fake tools (workflow/tests/bin;
 // they record argv, never run the real tool). ci.yml runs: nf-test test workflow/tests --profile test,stub
 // (the "stub" profile only disables conda; these tests run the script: blocks, not the stubs).
 //
@@ -15,7 +15,7 @@ nextflow_process {
     config "./annotate_tools.config"
     tag "annotate_tools"
 
-    test("decision 2: complete = auto and every replicon 'c' (preflight format) -> --complete") {
+    test("decisions 2+11: complete = auto and every replicon 'c' (preflight format) -> --complete and --replicons") {
         when {
             params { fake_bin = "${moduleTestDir}/bin" }
             process {
@@ -31,12 +31,13 @@ nextflow_process {
             assert process.success
             def argv = new File(new File(process.out.json[0].toString()).parentFile.parentFile, 'bakta.argv').readLines()
             assert '--complete' in argv : "no --complete: ${argv}"
-            assert !('--replicons' in argv) : "--replicons with all-circular replicons: ${argv}"
+            def i = argv.indexOf('--replicons')
+            assert i >= 0 && argv[i + 1] == 'replicons_circular.tsv' : "decision 11: no --replicons <staged tsv> with all-circular replicons: ${argv}"
             assert !('--regions' in argv) : "--regions without a regions file: ${argv}"
         }
     }
 
-    test("decision 2: complete = auto and one replicon 'l' -> --replicons, no --complete") {
+    test("decisions 2+11: complete = auto and a mixed c/l table -> --replicons, no --complete") {
         when {
             params { fake_bin = "${moduleTestDir}/bin" }
             process {

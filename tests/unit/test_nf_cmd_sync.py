@@ -64,7 +64,20 @@ def _bakta_variants() -> list[list[str]]:
     return [
         bakta_cmd.bakta_command(**common, complete=True, regions_gff3=None),  # type: ignore[arg-type]
         bakta_cmd.bakta_command(**common, complete=False, regions_gff3=Path("regions.gff3")),  # type: ignore[arg-type]
+        bakta_cmd.bakta_command(
+            **{**common, "all_circular": True},  # type: ignore[arg-type]
+            complete="auto",
+            regions_gff3=None,
+        ),
     ]
+
+
+def test_bakta_script_passes_replicons_unconditionally_decision_11() -> None:
+    """M2-07 decision 11: --replicons is never swapped out for --complete in the BAKTA script."""
+    script = _script("bakta")
+    assert not re.search(r"mode=--complete\b", script), (
+        "BAKTA script replaces --replicons with --complete; decision 11 keeps --replicons always"
+    )
 
 
 def _uniop_variants() -> list[list[str]]:
