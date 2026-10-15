@@ -67,6 +67,8 @@ Lessons (keep):
 | 2026-10-14 | RegulonDB v12 download (needed at M6) | `regulondb.ccg.unam.mx` unreachable from FarmShare (probe) | nothing yet; retry at M6, then ask |
 
 ## Answered by Khoa
+- 2026-10-14: novel ORFs are checked for a nearby promoter and terminator — evidence columns, flags and a
+  ranking key, not a calling requirement (ADR-0012, accepted-by-khoa; implemented in M6).
 - 2026-10-14: ADR-0011 (`low_complexity` placement flag) accepted as proposed.
 - 2026-10-14: M3-13 tblastn HSP chaining limits (max gap 300 nt, query overlap ≤ 10 aa) are fixed
   constants documented in the methods note — no config keys.
