@@ -155,3 +155,11 @@ Simulated TU expression follows an AR(1) that restarts per replicon and does not
     fitted on detected genes; the HL shift, its CI and p are reported on the residual scale (log2 units
     relative to the covariate expectation; report labels it "detectability-adjusted"); the O−E effect
     stays raw while its test uses the studentised sum.
+
+## Open (lead, 12:55): A2-HL still fails after ADR-0018 (implementer 1186184)
+Residualised HL rejects 0.144 at α 0.05 (full mode R=1000, job 1849427; fast 0.17/0.11), against the
+statistician's 0.067 (R=300) with their residualisation. The implementer's side runs: the linear fit
+roughly halves the raw bias (1000 genes 0.24 → 0.11; + (log length)² 0.09). Next (statistician): compare
+their exp.py residualisation with decision 10 as implemented (covariates, fit set: detected-only vs all,
+per-replicon vs pooled, imputation), then either amend decision 10 or the attack scenario; do not change
+tolerances. Branch is not mergeable until A2-HL passes.
