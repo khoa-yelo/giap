@@ -1,0 +1,13 @@
+{
+  "name": "unmapped",
+  "description": "Unmapped and contaminant peptides and proteins (GIAP_SPEC.md §9.3).",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "sequence_id", "type": "string", "description": "Input sequence ID", "constraints": {"required": true}},
+    {"name": "sequence", "type": "string", "description": "Sequence"},
+    {"name": "kind", "type": "string", "description": "Sequence kind", "constraints": {"required": true, "enum": ["peptide", "protein"]}},
+    {"name": "label", "type": "string", "description": "Label", "constraints": {"required": true, "enum": ["contaminant", "unmapped"]}},
+    {"name": "reason", "type": "string", "description": "Reason", "constraints": {"enum": ["no_hit", "rejected_placement_fdr", "below_identity", "too_short", "contaminant_id"]}},
+    {"name": "contaminant_match", "type": "string", "description": "Matching contaminant ID"}
+  ]
+}
