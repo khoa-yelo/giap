@@ -1,9 +1,10 @@
 """TE6: Bakta's oriC call on E. coli K-12 sits next to mnmG (gidA) (M2-04 example 10; §11.6).
 
 "On K-12, Bakta's oriC call sits next to mnmG (gidA): mnmG or mioC is the nearest gene, and mnmG
-is within 2 kb." Runs on the recorded full-DB JSON ``tests/data/recorded/bakta/1.12.2-full/k12/``;
-``pending_sample`` until M2-10 records it. Recorded JSON may lack ``sequences[].nt`` (M2 lead
-decision 4); a genome FASTA in the same directory then supplies the nucleotides.
+is within 2 kb." Runs on the recorded full-DB JSON ``tests/data/recorded/bakta/1.12.2-full/k12/``
+(active since M2-10; the chromosome is circular).
+Recorded JSON may lack ``sequences[].nt`` (M2 lead decision 4); a genome FASTA in the same
+directory, or else ``tests/data/genomes/k12_mg1655.fna.gz``, then supplies the nucleotides.
 """
 
 from __future__ import annotations
@@ -11,14 +12,9 @@ from __future__ import annotations
 import gzip
 from pathlib import Path
 
-import pytest
-
-K12 = Path(__file__).resolve().parents[1] / "data" / "recorded" / "bakta" / "1.12.2-full" / "k12"
-
-pytestmark = [
-    pytest.mark.pending_sample,
-    pytest.mark.skipif(not K12.is_dir(), reason=f"pending_sample: no recorded K-12 run in {K12}"),
-]
+DATA = Path(__file__).resolve().parents[1] / "data"
+K12 = DATA / "recorded" / "bakta" / "1.12.2-full" / "k12"
+K12_GENOME = DATA / "genomes" / "k12_mg1655.fna.gz"
 
 
 def _one(*patterns: str) -> Path | None:
@@ -47,8 +43,11 @@ def test_te6_oric_next_to_mnmg() -> None:
     js = _one("*.json", "*.json.gz")
     assert js is not None, f"no Bakta JSON in {K12}"
     fa = _one("*.fa", "*.fasta", "*.fna", "*.fa.gz", "*.fasta.gz", "*.fna.gz")
+    if fa is None and K12_GENOME.is_file():
+        fa = K12_GENOME
     ann = parse_bakta_json(js, genome=_fasta(fa) if fa else None)
     assert ann.db_type == "full"
+    assert ann.model.replicons["U00096.3"].topology == "circular"
     orics = [f for f in ann.model.features if f.type == "oric"]
     assert orics, "Bakta called no oriC on K-12"
     genes = list(ann.model.genes)
