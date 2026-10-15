@@ -20,17 +20,20 @@ excluded: their q = 0 is a label, not an estimate). Criterion as everywhere: mea
 replicates <= q + k SE at every level in ``levels``. A reference implementation of the corrected
 rule (``stratum_qvalues`` with pi_wrong over the searched population) is checked on the same
 generator, so the attack is known to be passable. R = ``replicates_fast.placement`` (marker
-``calibration``) or ``replicates_full.placement`` (``calibration_full``); seed
-``seeds.calibration_base``; k = ``se_multiplier``.
+``calibration``) or ``replicates_full.placement`` (``calibration_full``); k = ``se_multiplier``.
+Gated by ``_criteria.calibrate`` (ADR-0015 two-block confirmation, sharding): replicate i of
+stream ``placement.attack_same_db.<rule>.<scenario>`` draws from ``replicate_rng(stream, i)``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
+import _criteria as C
 import numpy as np
 import pandas as pd
 import pytest
+from _gate import Gate, calibrate_levels
 
 ALPHABET19 = "ACDEFGHKLMNPQRSTVWY"
 N = 2000
@@ -151,17 +154,16 @@ def _q_reference(costs: pd.DataFrame) -> np.ndarray:
     return q
 
 
-def _fdp(
-    tolerances: dict[str, object], suite: str, scenario: str, q_of: Callable[..., np.ndarray]
-) -> tuple[np.ndarray, np.ndarray, list[float], float]:
-    levels = [float(x) for x in tolerances["levels"]]  # type: ignore[attr-defined]
-    reps, seeds = tolerances[suite], tolerances["seeds"]
-    assert isinstance(reps, dict) and isinstance(seeds, dict)
-    r, k = int(reps["placement"]), float(tolerances["se_multiplier"])  # type: ignore[arg-type]
-    salt = sorted(SCENARIOS).index(scenario)
-    rng = np.random.default_rng([int(seeds["calibration_base"]), 311, salt])
-    fdp = np.zeros((r, len(levels)))
-    for i in range(r):
+SUITES = [
+    pytest.param("replicates_fast", marks=pytest.mark.calibration, id="fast"),
+    pytest.param("replicates_full", marks=pytest.mark.calibration_full, id="full"),
+]
+
+
+def _gate(suite: str, scenario: str, q_of: Callable[..., np.ndarray], rule: str) -> Gate:
+    levels = C.load_tolerances().levels
+
+    def fdp(rng: np.random.Generator) -> np.ndarray:
         costs, wrong = SCENARIOS[scenario](rng)
         q = q_of(costs)
         listed = ~(
@@ -169,40 +171,30 @@ def _fdp(
             & (costs["search_db"] == "same").to_numpy()
             & (costs["m_target"].to_numpy() == 0)
         )
+        out = np.zeros(len(levels))
         for j, a in enumerate(levels):
             called = listed & ~np.isnan(q) & (q <= a)
             n = int(called.sum())
-            fdp[i, j] = (wrong & called).sum() / n if n else 0.0
-    return fdp.mean(axis=0), fdp.std(axis=0, ddof=1) / np.sqrt(r), levels, k
+            out[j] = (wrong & called).sum() / n if n else 0.0
+        return out
 
-
-SUITES = [
-    pytest.param("replicates_fast", marks=pytest.mark.calibration, id="fast"),
-    pytest.param("replicates_full", marks=pytest.mark.calibration_full, id="full"),
-]
-
-
-@pytest.mark.parametrize("suite", SUITES)
-@pytest.mark.parametrize("scenario", sorted(SCENARIOS))
-def test_attack_same_db_shortcut_stays_at_level(
-    tolerances: dict[str, object], scenario: str, suite: str
-) -> None:
-    mean, se, levels, k = _fdp(tolerances, suite, scenario, _q_placement)
-    for j, a in enumerate(levels):
-        assert mean[j] <= a + k * se[j], (
-            f"{scenario} q={a}: mean FDP {mean[j]:.4f} > {a} + {k}*{se[j]:.4f}"
-        )
+    r = C.replicates("placement", full=suite == "replicates_full")
+    stream = f"placement.attack_same_db.{rule}.{scenario}"
+    return calibrate_levels("placement", "fdr", levels, fdp, r, stream=stream)
 
 
 @pytest.mark.parametrize("suite", SUITES)
 @pytest.mark.parametrize("scenario", sorted(SCENARIOS))
-def test_attack_same_db_reference_rule_passes(
-    tolerances: dict[str, object], scenario: str, suite: str
-) -> None:
+def test_attack_same_db_shortcut_stays_at_level(scenario: str, suite: str) -> None:
+    _gate(suite, scenario, _q_placement, "placement").assert_ok()
+
+
+@pytest.mark.parametrize("suite", SUITES)
+@pytest.mark.parametrize("scenario", sorted(SCENARIOS))
+def test_attack_same_db_reference_rule_passes(scenario: str, suite: str) -> None:
     """The corrected rule survives the same attack, and has power (accepts something)."""
-    mean, se, levels, k = _fdp(tolerances, suite, scenario, _q_reference)
-    for j, a in enumerate(levels):
-        assert mean[j] <= a + k * se[j], (
-            f"reference {scenario} q={a}: mean FDP {mean[j]:.4f} > {a} + {k}*{se[j]:.4f}"
-        )
-    assert mean[-1] > 0.5 * levels[-1]
+    gate = _gate(suite, scenario, _q_reference, "reference")
+    gate.assert_ok()
+    mean = gate.mean()  # over the replicates run here (block 1 unsharded)
+    levels = C.load_tolerances().levels
+    assert mean is None or mean[-1] > 0.5 * levels[-1]

@@ -25,7 +25,9 @@ mean pi over targets with E <= e (lead decision M3-10 Q2 as first written) and m
 searched peptides times (D + 1).
 
 R is ``replicates_fast.placement`` (marker ``calibration``) or ``replicates_full.placement``
-(``calibration_full``); seed ``seeds.calibration_base``; k = ``se_multiplier``.
+(``calibration_full``); seed ``seeds.calibration_base``; k = ``se_multiplier``. The at-level gates
+go through ``_criteria.calibrate`` (ADR-0015 two-block confirmation, sharding; stream
+``placement.attack_pi.<scenario>``); the power check keeps its single-stream estimate.
 """
 
 from __future__ import annotations
@@ -36,6 +38,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import pytest
+from _gate import calibrate_levels
 
 ALPHABET19 = "ACDEFGHKLMNPQRSTVWY"
 COLUMNS = [
@@ -193,17 +196,31 @@ SUITES = [
 ]
 
 
+def _replicate_fdp(
+    scenario: str, levels: list[float], q_of: Callable[[Replicate], np.ndarray]
+) -> Callable[[np.random.Generator], np.ndarray]:
+    def fdp(rng: np.random.Generator) -> np.ndarray:
+        rep = _replicate(rng, SCENARIOS[scenario])
+        q = q_of(rep)
+        out = np.zeros(len(levels))
+        for j, a in enumerate(levels):
+            called = ~np.isnan(q) & (q <= a)
+            n = int(called.sum())
+            out[j] = (rep.wrong & called).sum() / n if n else 0.0
+        return out
+
+    return fdp
+
+
 @pytest.mark.parametrize("suite", SUITES)
 @pytest.mark.parametrize("scenario", sorted(SCENARIOS))
 def test_attack_signed_rule_stays_at_level(
     tolerances: dict[str, object], scenario: str, suite: str
 ) -> None:
-    salt = sorted(SCENARIOS).index(scenario)
-    mean, se, levels, k = _fdp(tolerances, suite, scenario, salt, _q_placement)
-    for j, a in enumerate(levels):
-        assert mean[j] <= a + k * se[j], (
-            f"{scenario} q={a}: mean FDP {mean[j]:.4f} > {a} + {k}*{se[j]:.4f}"
-        )
+    levels, r, _, _ = _settings(tolerances, suite)
+    fdp = _replicate_fdp(scenario, levels, _q_placement)
+    stream = f"placement.attack_pi.{scenario}"
+    calibrate_levels("placement", "fdr", levels, fdp, r, stream=stream).assert_ok()
 
 
 @pytest.mark.parametrize("suite", SUITES)
