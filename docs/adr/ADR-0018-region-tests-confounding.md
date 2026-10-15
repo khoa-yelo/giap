@@ -1,6 +1,6 @@
 # ADR-0018: Region tests robust to detectability confounding
 
-- Status: proposed (needs Khoa)
+- Status: accepted-by-khoa (2026-10-15)
 - Date: 2026-10-15
 - Issue: M4-17 (PR #89); statistician review https://github.com/khoa-yelo/giap/pull/89#issuecomment-6198595819
 
@@ -12,7 +12,7 @@ of GIAP_SPEC.md §7.3.5 are anti-conservative (statistician, Slurm runs under lo
   α = 0.05 (A2 only covered the conservative direction).
 Also §8.1 says "BH within type"; the code (and the test-author) use BH within (type, stat).
 
-## Decision (proposed)
+## Decision
 1. §7.3.5(b): abundance is residualised on the M4-13 detectability covariates (log length, n_obs, GRAVY)
    before the HL/circular-shift test (statistician: 0.067 at α = 0.05, R = 300).
 2. The O−E test statistic is the studentised sum Σ(d − p)/√Σ p(1 − p) (0.048 at α = 0.05); the reported
