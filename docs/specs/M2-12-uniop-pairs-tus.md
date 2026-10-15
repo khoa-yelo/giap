@@ -119,3 +119,23 @@ distance model with `source = distance_model`. UniOP failure (non-zero exit, mis
    (`test_no_tool_source_vendored`) forbids files named after unlicensed tools under src/ (ADR-0008).
 5. Accepted implementation notes: a circular TU is capped at the ring length; the distance-model fallback
    is logged as a WARNING (and recorded as `operon_source = distance_model` in the manifest).
+
+## Lead decisions after code review (PR #49, changes requested)
+1. Parser follows the REAL `uniop.pred` format (pin 3ed14dfc): a title line `operon prediction scores`, a
+   header `Gene A\tGene B\tPrediction`, rows of 1-based gene ROW NUMBERS (not IDs); opposite-strand and
+   cross-contig rows have an empty probability and are skipped.
+2. Row numbers index UniOP's own gene order: all genes stable-sorted by start across contigs, as UniOP reads
+   them from the input GFF/Prodigal file. Row k = sorted gene k; gene_b = the next gene ON THE SAME CONTIG.
+   The adapter rebuilds that order from the exact input the builder wrote, requires both genes on the same
+   contig and strand, and maps to locus tags. Unit test on a multi-contig genome.
+3. Record a real UniOP run on SIM100K as `tests/data/recorded/uniop/3ed14dfc/sim100k/` (built `giap-uniop`
+   env; run as a process; PROVENANCE.md with command, env lock and input sha256); the contract test is
+   rewritten to the real format and must pass on it (ID-based assumptions removed).
+4. `workflow/modules/local/uniop/main.nf` creates UniOP's `-t` output directory (`mkdir -p out`).
+5. The distance-model fallback is recorded, not only logged: the operon step declares an output
+   `operon_meta.json` (`operon_source`: `uniop` | `distance_model` | `precomputed`, plus the reason), from
+   which the manifest takes `operon_source` and the run flag `operon_source_distance_model` (§7.1.3, §9.4).
+6. Tests kill the surviving mutants: first gene of a minus-strand multi-gene TU (`run[0]` vs last),
+   WARNING level of the fallback, precomputed `source` kept, d0/s read via `calibration.load()`,
+   `tu_upstream_bp` honoured, the ring-length cap and the ring self-bound.
+Rule from here on (lead): every tool-wrapping issue records a real-tool fixture before its PR is reviewed.
