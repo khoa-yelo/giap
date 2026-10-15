@@ -96,3 +96,6 @@ the statistician reviews this issue because the nulls it produces gate M4.
 2. Examples 3 and 4 (±0.5): one seed's scatter (SD ≈ 0.8) exceeds ±0.5, so the spec's tolerance is tested
    on the mean over 30 seeds, and the exact shift on paired same-seed runs.
 3. The calibration file runs in suite `regions`; its detection checks in `detectability`.
+4. Implementation choices accepted: intercept −8.65 (tuned so the default layout gives ≈ 55 % detected, the
+   spec's target; the spec's −8.9 was an estimate); `log2_abundance` coefficient default 0; island effects
+   scaled by the stationary SD; wiring `expression_for_simulation` into `simulate_proteomics` is M4-20.

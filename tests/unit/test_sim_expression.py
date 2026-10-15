@@ -318,7 +318,7 @@ def test_ar1_restarts_per_replicon_and_single_tu_is_stationary() -> None:
 def test_gene_level_position_decay_and_noise(lay4500: Any) -> None:
     """abundance - tu_log2 = -decay*position + stoichiometry + noise: slope -0.2 per TU position,
     residual SD sqrt(0.7^2 + 0.5^2)."""
-    g = by_tag(express(lay4500, 4).genes)
+    g = by_tag(express(lay4500, 4))
     pos = eo.gene_tu_position(lay4500)
     tags = list(g.index)
     k = np.array([pos[t][1] for t in tags], dtype=float)
@@ -331,7 +331,7 @@ def test_gene_level_position_decay_and_noise(lay4500: Any) -> None:
 
 
 def test_position_decay_knob_honoured(lay4500: Any) -> None:
-    g = by_tag(express(lay4500, 4, position_decay_log2=1.0, stoich_sd=0.1, gene_sd=0.1).genes)
+    g = by_tag(express(lay4500, 4, position_decay_log2=1.0, stoich_sd=0.1, gene_sd=0.1))
     pos = eo.gene_tu_position(lay4500)
     k = np.array([pos[t][1] for t in g.index], dtype=float)
     d = (g["abundance_log2_true"] - g["tu_log2"]).to_numpy(float)
