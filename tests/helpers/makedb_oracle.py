@@ -8,7 +8,10 @@ over each strand, written from docs/specs/M3-23-makedb.md:
   (unwrapped coordinates, ``end > length``); on a linear contig a segment may also end at either
   contig end (truncated ORF, kept only if >= ``min_aa``).
 * An ORF that overlaps an annotated CDS or sORF *in frame* (same strand, same phase) is dropped;
-  its upstream part becomes an ``nterm_extension`` entry (see :func:`nterm_entries`).
+  its upstream part becomes an ``nterm_extension`` entry (see :func:`nterm_entries`): upstream
+  part + the first 30 codons of the CDS translated codon by codon from the genome (lead decision
+  5); header interval = upstream part + those codons (lead decision 9); undefined when the walk
+  runs off a linear contig or meets ``X`` (lead decision 4).
 * Other ORFs take the class of ``giap.mapping.loci.classify_locus``; ``rna_overlap`` and
   ``pseudogene`` ORFs are omitted.
 
@@ -35,7 +38,7 @@ CODE11 = {
     for k, c in enumerate(_BASES)
 }
 ORF_CLASSES = ("intergenic", "cds_outframe", "antisense")
-NTERM_PROTEIN_AA = 30  # lead decision 9 (M3-23 Q1)
+NTERM_PROTEIN_AA = 30  # lead decisions 2 and 5 (M3-23 Q1)
 NTERM_MIN_UPSTREAM_AA = 7
 
 
@@ -170,12 +173,14 @@ class Nterm:
     strand: str
     up_start: int  # 0-based unwrapped interval of the upstream part [up_start, up_end)
     up_end: int
-    aa: str  # upstream translation + first 30 aa of the annotated protein
-    n_protein: int  # residues taken from the annotated protein
+    aa: str  # upstream translation + the first 30 codons of the CDS (translated from the genome)
+    n_protein: int  # residues taken from the annotated CDS (the junction part)
 
 
 def _upstream(seq: str, g: Gene, rep: Replicon) -> tuple[int, int] | None:
-    """Upstream part (unwrapped plus coordinates) or None if it runs off a linear contig."""
+    """Upstream part (unwrapped plus coordinates), or None when it is undefined: the in-frame walk
+    runs off a linear contig, meets a non-ACGT codon (``X``), or finds no stop within one turn of
+    a circular contig (lead decision 4; the last case is degenerate and pinned by a unit test)."""
     n = rep.length
     circ = rep.topology == "circular"
     gi = g.interval
@@ -184,8 +189,11 @@ def _upstream(seq: str, g: Gene, rep: Replicon) -> tuple[int, int] | None:
         while True:
             if not circ and q < 0:
                 return None
-            if strand_nt(seq, q, q + 3, "+") in STOPS:
+            cod = strand_nt(seq, q, q + 3, "+")
+            if cod in STOPS:
                 break
+            if cod not in CODE11:
+                return None
             q -= 3
             if gi.start - q > n:
                 return None
@@ -195,8 +203,11 @@ def _upstream(seq: str, g: Gene, rep: Replicon) -> tuple[int, int] | None:
         while True:
             if not circ and q + 3 > n:
                 return None
-            if strand_nt(seq, q, q + 3, "-") in STOPS:
+            cod = strand_nt(seq, q, q + 3, "-")
+            if cod in STOPS:
                 break
+            if cod not in CODE11:
+                return None
             q += 3
             if q - gi.end > n:
                 return None
@@ -208,11 +219,21 @@ def _upstream(seq: str, g: Gene, rep: Replicon) -> tuple[int, int] | None:
     return a, b
 
 
+def junction(seq: str, g: Gene) -> str:
+    """First ``min(30, protein length)`` codons of the CDS, translated codon by codon from the
+    genome (GTG -> V, TTG -> L; lead decision 5), not copied from Bakta's ``aa``."""
+    gi = g.interval
+    k = min(NTERM_PROTEIN_AA, (gi.end - gi.start) // 3 - 1)
+    if gi.strand == "+":
+        return translate(strand_nt(seq, gi.start, gi.start + 3 * k, "+"))
+    return translate(strand_nt(seq, gi.end - 3 * k, gi.end, "-"))
+
+
 def nterm_entries(gm: GeneModel, genome: Mapping[str, str]) -> tuple[list[Nterm], set[str]]:
     """Expected ``nterm_extension`` entries and the locus tags whose expectation is undefined.
 
-    Undefined (not asserted either way): the in-frame upstream walk runs off a linear contig,
-    or the upstream part contains ``X``.
+    Undefined (not asserted either way; lead decision 4): the in-frame upstream walk runs off a
+    linear contig or meets an ``X`` (or, degenerate, finds no stop within one circular turn).
     """
     out: list[Nterm] = []
     undefined: set[str] = set()
@@ -227,12 +248,9 @@ def nterm_entries(gm: GeneModel, genome: Mapping[str, str]) -> tuple[list[Nterm]
             continue
         a, b = up
         up_aa = translate(strand_nt(seq, a, b, g.interval.strand))
-        if "X" in up_aa:
-            undefined.add(g.locus_tag)
-            continue
         if len(up_aa) < NTERM_MIN_UPSTREAM_AA:
             continue
-        prot = g.aa[:NTERM_PROTEIN_AA]
+        prot = junction(seq, g)
         out.append(
             Nterm(g.locus_tag, g.interval.contig, g.interval.strand, a, b, up_aa + prot, len(prot))
         )
@@ -243,13 +261,14 @@ def orf_header(cls: str, contig: str, start: int, end: int, strand: str) -> str:
     return f"GIAPORF_{cls}_{contig}_{start + 1}_{end}_{'p' if strand == '+' else 'm'}"
 
 
-def nterm_header_options(nt: Nterm, gm: GeneModel) -> set[str]:
-    """Accepted headers: the interval is the upstream part, or upstream + the 30 protein codons."""
+def nterm_header(nt: Nterm, gm: GeneModel) -> str:
+    """The pinned header (lead decision 9): the interval covers the upstream part plus the
+    junction codons (upstream + first 30 codons of the CDS), unwrapped across the origin."""
     span = 3 * nt.n_protein
     if nt.strand == "+":
-        ivs = [(nt.up_start, nt.up_end), (nt.up_start, nt.up_end + span)]
+        a, b = nt.up_start, nt.up_end + span
     else:
         n = gm.replicons[nt.contig].length
         lo = nt.up_start - span
-        ivs = [(nt.up_start, nt.up_end), (lo + n, nt.up_end + n) if lo < 0 else (lo, nt.up_end)]
-    return {orf_header("nterm_extension", nt.contig, a, b, nt.strand) for a, b in ivs}
+        a, b = (lo + n, nt.up_end + n) if lo < 0 else (lo, nt.up_end)
+    return orf_header("nterm_extension", nt.contig, a, b, nt.strand)

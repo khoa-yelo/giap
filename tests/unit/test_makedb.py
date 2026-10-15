@@ -16,10 +16,11 @@ Conventions these tests pin down where the spec is silent (resolved by the test 
 * Patched proteins are translated from the genome with table 11 and, like Bakta proteins, start
   with ``M`` when the first codon is an alternative start (GTG/TTG); six-frame ORFs and the
   upstream part of ``nterm_extension`` entries are translated codon by codon (GTG -> V).
-* ``nterm_extension`` header/id_map interval: either the upstream part alone or the upstream
-  part plus the 30 protein codons; both are accepted. Its ``locus_tag`` is the annotated gene.
-* ``id_map.tsv`` follows the TSV conventions (§6.6): ``NA`` for missing values, strand ``+``/``-``;
-  one row per FASTA record, in FASTA order; ``db_id`` is the first header token and unique.
+* ``nterm_extension`` header/id_map interval: the upstream part plus the 30 junction codons
+  (pinned by lead decision 9). Its ``locus_tag`` is the annotated gene.
+* ``db_id_map.tsv`` (lead decision 8) follows the TSV conventions (§6.6): ``NA`` for missing
+  values, strand ``+``/``-``; one row per FASTA record, in FASTA order; ``db_id`` is the first
+  header token and unique.
 * An ORF containing ``X`` is never written (whether it is dropped or split is not asserted).
 * Patched records follow all CDS/sORF records and precede all ORFs.
 * The CLI finds the contaminant library at ``DB_DIR/contaminants/contaminants.fasta`` (``giap
@@ -247,10 +248,7 @@ def test_min_orf_aa_option_lowers_the_threshold(
 def test_example7_nterm_extension_plus_strand(orf_db: Path, example: ExampleGenome) -> None:
     recs = by_id(orf_db)
     hits = {i: s for i, s in recs.items() if i.startswith("GIAPORF_nterm_extension_chr1_565_")}
-    assert set(hits) <= {
-        "GIAPORF_nterm_extension_chr1_565_600_p",
-        "GIAPORF_nterm_extension_chr1_565_690_p",
-    }
+    assert set(hits) == {"GIAPORF_nterm_extension_chr1_565_690_p"}  # upstream + 30 codons
     assert list(hits.values()) == [example.expect["nterm_plus_aa"]]
     # 12 upstream residues, translated codon by codon (the GTG at 564 stays V), + 30 aa of G1
     seq = next(iter(hits.values()))
@@ -263,8 +261,7 @@ def test_example7_nterm_extension_minus_strand(orf_db: Path, example: ExampleGen
     hits = [
         s
         for i, s in recs.items()
-        if i
-        in {"GIAPORF_nterm_extension_chr1_2301_2330_m", "GIAPORF_nterm_extension_chr1_2211_2330_m"}
+        if i == "GIAPORF_nterm_extension_chr1_2211_2330_m"  # upstream + 30 codons
     ]
     assert hits == [example.expect["nterm_minus_aa"]]
 
@@ -437,7 +434,7 @@ def test_genome_fasta_option_gives_the_same_database(
     a = build_db(example_json, tmp_path / "A", six_frame_orfs=True)
     b = build_db(example_json, tmp_path / "B", six_frame_orfs=True, genome=fa)
     assert (a / "strain_db.faa").read_bytes() == (b / "strain_db.faa").read_bytes()
-    assert (a / "id_map.tsv").read_bytes() == (b / "id_map.tsv").read_bytes()
+    assert (a / "db_id_map.tsv").read_bytes() == (b / "db_id_map.tsv").read_bytes()
 
 
 # ---------------------------------------------------------------- example 8: determinism
@@ -447,7 +444,7 @@ def test_example8_byte_identical_reruns(example_json: Path, tmp_path: Path) -> N
     kw = {"six_frame_orfs": True, "contaminants": CONTAMINANTS}
     a = build_db(example_json, tmp_path / "A", **kw)
     b = build_db(example_json, tmp_path / "B", **kw)
-    for name in ("strain_db.faa", "id_map.tsv"):
+    for name in ("strain_db.faa", "db_id_map.tsv"):
         assert (a / name).read_bytes() == (b / name).read_bytes(), name
     # rerun into the same directory overwrites deterministically
     first = (a / "strain_db.faa").read_bytes()
@@ -550,7 +547,7 @@ def test_manifest_version_inputs_options_counts(patch_db: Path, example_json: Pa
 def test_manifest_written_without_six_frame_orfs(example_json: Path, tmp_path: Path) -> None:
     out = build_db(example_json, tmp_path / "DB")
     assert sorted(p.name for p in out.iterdir()) == [
-        "id_map.tsv",
+        "db_id_map.tsv",
         "makedb_manifest.json",
         "strain_db.faa",
     ]
@@ -678,7 +675,7 @@ def test_cli_makedb_exit_0(example_json: Path, tmp_path: Path) -> None:
     assert _main(argv) == ExitCode.SUCCESS
     assert {p.name for p in out.iterdir()} >= {
         "strain_db.faa",
-        "id_map.tsv",
+        "db_id_map.tsv",
         "makedb_manifest.json",
     }
     assert G1 in by_id(out) and not orf_ids(out)
@@ -708,7 +705,7 @@ def test_cli_matches_the_python_api(
     api = build_db(
         example_json, tmp_path / "API", genome=fa, six_frame_orfs=True, min_orf_aa=19, patch=patch
     )
-    for name in ("strain_db.faa", "id_map.tsv"):
+    for name in ("strain_db.faa", "db_id_map.tsv"):
         assert (tmp_path / "CLI" / name).read_bytes() == (api / name).read_bytes(), name
     assert example.expect["orf19"] in orf_ids(tmp_path / "CLI")
 

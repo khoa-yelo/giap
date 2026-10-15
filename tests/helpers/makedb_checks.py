@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from makedb_oracle import classified_orfs, nterm_entries, nterm_header_options, orf_header
+from makedb_oracle import classified_orfs, nterm_entries, nterm_header, orf_header
 
 from giap.annotate.bakta import parse_bakta_json
 from giap.io.tsv import read_tsv
@@ -43,7 +43,7 @@ def db_id(header: str) -> str:
 
 
 def id_map(outdir: Path) -> list[dict[str, str | None]]:
-    cols, rows = read_tsv(outdir / "id_map.tsv")
+    cols, rows = read_tsv(outdir / "db_id_map.tsv")  # lead decision 8
     assert cols == ID_MAP_COLUMNS
     return [dict(zip(cols, r, strict=True)) for r in rows]
 
@@ -96,5 +96,5 @@ def assert_orfs_match_oracle(
     assert set(got_n) - undefined == {n.locus_tag for n in nterms}
     for n in nterms:
         rid, seq = got_n[n.locus_tag]
-        assert rid in nterm_header_options(n, gm), (rid, nterm_header_options(n, gm))
+        assert rid == nterm_header(n, gm), n.locus_tag
         assert seq == n.aa, n.locus_tag

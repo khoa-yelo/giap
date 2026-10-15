@@ -6,11 +6,11 @@ on circular contigs) and a random ``min_orf_aa``:
 
 1. six-frame ORFs and ``nterm_extension`` entries equal the brute-force oracle
    (``tests/helpers/makedb_oracle.py``), in the spec's order;
-2. annotated proteins are written once each, in gene-model order, and ``id_map.tsv`` describes
+2. annotated proteins are written once each, in gene-model order, and ``db_id_map.tsv`` describes
    every record (one row per record, header coordinates = id_map coordinates);
 3. acceptance criterion: every in-silico tryptic peptide (7-40 aa) of every record, except
    contaminants and the junction part of ``nterm_extension`` entries (and the initiator ``M`` of
-   an alternative start), maps exactly with M3-04 to the locus given in ``id_map.tsv``;
+   an alternative start), maps exactly with M3-04 to the locus given in ``db_id_map.tsv``;
 4. reruns are byte-identical.
 """
 
@@ -187,7 +187,8 @@ def test_tryptic_peptides_map_to_the_id_map_locus(data: Any, min_aa: int) -> Non
         gm, genome = ann.model, dict(ann.sequences)
         idx = build_sixframe(genome, gm.replicons)
         decoys = {"reverse": build_decoys(idx, "reverse", 50, for_step("sixframe_index", 0))}
-        nterm_up = {n.locus_tag: len(n.aa) - n.n_protein for n in nterm_entries(gm, genome)[0]}
+        nterms, undefined = nterm_entries(gm, genome)
+        nterm_up = {n.locus_tag: len(n.aa) - n.n_protein for n in nterms}
         jobs: list[tuple[str, dict[str, str | None]]] = []
         seqs = by_id(out)
         for r in id_map(out):
@@ -200,6 +201,8 @@ def test_tryptic_peptides_map_to_the_id_map_locus(data: Any, min_aa: int) -> Non
                 lo = 0 if g.start_codon == "ATG" else 1  # initiator M of an alternative start
             hi = len(seq)
             if r["class"] == "nterm_extension":
+                if r["locus_tag"] in undefined:  # lead decision 4: not asserted
+                    continue
                 hi = nterm_up[r["locus_tag"] or ""]  # upstream part only (junction excluded)
             pos = 0
             for frag in digest(seq, "trypsin"):
@@ -231,5 +234,5 @@ def test_reruns_are_byte_identical(data: Any, min_aa: int) -> None:
         annotation, _ = _setup(tmp, data)
         a = _build(annotation, tmp / "A", six_frame_orfs=True, min_orf_aa=min_aa)
         b = _build(annotation, tmp / "B", six_frame_orfs=True, min_orf_aa=min_aa)
-        for name in ("strain_db.faa", "id_map.tsv"):
+        for name in ("strain_db.faa", "db_id_map.tsv"):
             assert (a / name).read_bytes() == (b / name).read_bytes()
