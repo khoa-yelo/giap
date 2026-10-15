@@ -154,3 +154,15 @@ Follow-up PR (stacked, branch m2/run-wiring): `giap run` writes `inputs.replicon
       without Nextflow).
    e. `db_dir` is passed to preflight/`read_manifest` explicitly; no `os.environ` mutation.
    f. Tests: `--strict` warning exits 3 before launch; missing manifest exits 2 with no launch.
+4. After the re-review of #78 (real `giap run`, Slurm 1848630: exit 2 at `environment.tools`):
+   a. `environment.tools` checks binaries/environments from the M2-01 tool registry, not from the DB
+      manifest: a tool is present when its pinned container image exists under `$GIAP_ROOT/containers`
+      (apptainer profiles) or, for conda-only tools, its prebuilt micromamba env exists with a build
+      marker matching `workflow/envs/<tool>.yml`; under the `test`/stub profiles tools are not required.
+   b. Databases and models come from the `giap setup` manifest, with item names mapped to requirement
+      names: `cog2020_def`+`cog2020_fun` → `cog`, `go_basic`+`goslim_generic` → `go`, `kegg_*` → `kegg`,
+      `promotech_models` → `promotech` (model), `contaminants` → `contaminants` (all parts of a group
+      must be ok).
+   c. Tests use a manifest in the real `giap setup` format (copy the structure of a real run, versions
+      faked) and fake container/env directories; never the real $GIAP_DB_DIR or $GIAP_ROOT.
+   d. Acceptance: a real `giap run` on SIM100K via Slurm passes preflight and reaches ANNOTATE.
