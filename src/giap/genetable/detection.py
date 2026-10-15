@@ -6,7 +6,9 @@ FDR(t) = (D(t)/f + 1) / T(t) with f the paired share of the decoys passing q <= 
 Lead decisions: the pairing cut-off is max(``mapping.proteins.min_identity``, ``min_coverage``);
 contaminant evidence counts toward detection in every tier; in the ``mayu`` tier a warning
 ``unspecific_search`` fires when more than half of the accepted non-C-terminal peptides do not end
-in K/R. Everything here is pure.
+in K/R. Review decisions 5-8: PEP-only input gets peptide q from the running mean of the sorted
+PEPs; contaminant decoys are neither paired nor unpaired; the longest decoy prefix is stripped
+first; ``Detection.protein_gene_map`` is the map ``detect`` used. Everything here is pure.
 """
 
 from __future__ import annotations
@@ -47,12 +49,14 @@ SUMMARY_COLUMNS = ("section", "group_type", "group", "metric", "value", "ci_low"
 
 @dataclass(frozen=True, slots=True)
 class Detection:
-    """Tier, per-gene detection table (C2 order), ``tier`` summary rows and warnings."""
+    """Tier, per-gene detection table (C2 order), ``tier`` summary rows, warnings and the
+    protein -> gene map (``protein_id``, ``gene``, ``method``) ``detect`` used."""
 
     tier: Tier
     table: pd.DataFrame
     summary_rows: pd.DataFrame
     warnings: tuple[str, ...]
+    protein_gene_map: pd.DataFrame
 
 
 def _ids(cell: Any) -> list[str]:
@@ -65,6 +69,15 @@ def _ids(cell: Any) -> list[str]:
 
 def _is_na(x: Any) -> bool:
     return x is None or x is pd.NA or (isinstance(x, float) and np.isnan(x))
+
+
+def _contaminants(prefixes: Sequence[str] | None) -> tuple[str, ...]:
+    """Configured contaminant prefixes; ``None`` -> ``input.contaminant_prefixes`` default."""
+    if prefixes is None:
+        from giap.config.model import InputConfig
+
+        prefixes = InputConfig().contaminant_prefixes
+    return tuple(prefixes)
 
 
 def protein_gene_map(
@@ -84,11 +97,7 @@ def protein_gene_map(
     Only mapped proteins are returned (columns ``protein_id``, ``gene``, ``method``);
     ``contaminant_prefixes`` defaults to ``input.contaminant_prefixes`` of the default config.
     """
-    if contaminant_prefixes is None:
-        from giap.config.model import InputConfig
-
-        contaminant_prefixes = InputConfig().contaminant_prefixes
-    cont = tuple(contaminant_prefixes)
+    cont = _contaminants(contaminant_prefixes)
     tags = genes["locus_tag"].astype(str).tolist()
     out: dict[str, tuple[str, str]] = {t: (t, "locus_tag") for t in tags if not t.startswith(cont)}
     if len(protein_hits):
@@ -129,7 +138,8 @@ def protein_gene_map(
 
 
 def _strip(pid: str, prefixes: Sequence[str]) -> str:
-    for pre in prefixes:
+    """Remove the longest matching decoy prefix (``REV__X`` -> ``X`` whatever the order)."""
+    for pre in sorted(prefixes, key=len, reverse=True):
         if pid.startswith(pre):
             return pid[len(pre) :]
     return pid
@@ -141,10 +151,12 @@ def pair_decoys(
     decoy_prefixes: Sequence[str],
     *,
     q_value_max: float | None = None,
+    contaminant_prefixes: Sequence[str] | None = None,
 ) -> pd.DataFrame:
     """One row per decoy peptide with ``protein_ids`` (and q <= ``q_value_max`` when both exist):
     ``peptide, q_value, pep, score, gene``; ``gene`` NA when the stripped IDs do not all map to
-    one and the same gene (unpaired)."""
+    one and the same gene (unpaired). Contaminant decoys (a stripped ID starts with a contaminant
+    prefix, default ``input.contaminant_prefixes``) get no row: neither paired nor unpaired."""
     cols = ["peptide", "q_value", "pep", "score", "gene"]
     if peptides is None or not len(peptides):
         return pd.DataFrame({c: pd.Series([], dtype=object) for c in cols})
@@ -153,10 +165,14 @@ def pair_decoys(
     if q_value_max is not None:
         q = d["q_value"].astype("float64")
         d = d[q.isna() | (q <= q_value_max)]
+    cont = _contaminants(contaminant_prefixes)
+    stripped = [[_strip(m, decoy_prefixes) for m in _ids(c)] for c in d["protein_ids"].tolist()]
+    keep = np.array([not any(m.startswith(cont) for m in ms) for ms in stripped], dtype=bool)
+    d = d[keep]
     lookup = dict(zip(pmap["protein_id"].astype(str), pmap["gene"], strict=True))
     genes: list[Any] = []
-    for cell in d["protein_ids"].tolist():
-        hit = [lookup.get(_strip(m, decoy_prefixes)) for m in _ids(cell)]
+    for ms in (s for s, k in zip(stripped, keep, strict=True) if k):
+        hit = [lookup.get(m) for m in ms]
         found = {str(g) for g in hit if not _is_na(g)}
         ok = len(found) == 1 and all(not _is_na(g) for g in hit)
         genes.append(found.pop() if ok else None)
@@ -241,6 +257,19 @@ def _picked_q(
     return q
 
 
+def _pep_q(pep: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Peptide q from PEP (decision 5): mean of the PEPs <= PEP_i over the distinct peptides
+    (the running mean the MAYU-with-PEP path sums); NaN where PEP is NaN."""
+    out = np.full(pep.size, np.nan)
+    ok = ~np.isnan(pep)
+    if not ok.any():
+        return out
+    srt = np.sort(pep[ok])
+    run = np.cumsum(srt) / np.arange(1, srt.size + 1)
+    out[ok] = run[np.searchsorted(srt, pep[ok], side="right") - 1]
+    return out
+
+
 def _unspecific(genes: pd.DataFrame, accepted: pd.DataFrame) -> bool:
     """More than half of accepted peptides (C-terminal placements excepted) not ending in K/R."""
     if not len(accepted):
@@ -288,7 +317,8 @@ def detect(
     pmap = protein_gene_map(genes, peptides, peptide_hits, protein_hits, accepted=accepted,
                             contaminant_prefixes=cfg.input.contaminant_prefixes)  # fmt: skip
     pairing = pair_decoys(peptides, pmap, cfg.input.decoy_prefixes,
-                          q_value_max=cfg.input.q_value_max)  # fmt: skip
+                          q_value_max=cfg.input.q_value_max,
+                          contaminant_prefixes=cfg.input.contaminant_prefixes)  # fmt: skip
     min_pair = max(cfg.mapping.proteins.min_identity, cfg.mapping.proteins.min_coverage)
     tier, warns = choose_tier(peptides, peptide_hits, protein_hits, pairing, accepted=accepted,
                               min_pairing=min_pair)  # fmt: skip
@@ -315,9 +345,15 @@ def detect(
         if np.isnan(pep).any() and not np.isnan(pep).all():
             warns.append("pep_partial")
         use_pep = pep if pep.size and not np.isnan(pep).any() else None
+        pq = uniq["q_value"].astype(float).to_numpy()
         best = ev["best_peptide_q"].astype(float).to_numpy()[eligible]
-        res = mayu_gene_fdr(best, uniq["q_value"].astype(float).to_numpy(), use_pep, a,
-                            cfg.detection.mayu_size_bins)  # fmt: skip
+        if pq.size and np.isnan(pq).all() and not np.isnan(pep).all():
+            pq = _pep_q(pep)  # decision 5: PEP-only input
+            by_pep = dict(zip(uniq["peptide"].astype(str).tolist(), pq.tolist(), strict=True))
+            gq = accepted["peptide"].astype(str).map(by_pep).astype(float)
+            gbest = gq.groupby(accepted["gene"].astype(str).to_numpy()).min()
+            best = gbest.reindex(elig_tags).to_numpy(dtype=np.float64)
+        res = mayu_gene_fdr(best, pq, use_pep, a, cfg.detection.mayu_size_bins)
         q[eligible] = res.gene_q
         for c in CURVE_THRESHOLDS:
             row = res.curve[res.curve["t"] <= c + 1e-12].tail(1)
@@ -359,4 +395,6 @@ def detect(
         _row("tier", tier, "decoy_win_weight", 1.0 / f if f and f > 0 else np.nan),
     ]
     summary = pd.DataFrame([*tier_rows, *curve], columns=list(SUMMARY_COLUMNS))
-    return Detection(tier=tier, table=table, summary_rows=summary, warnings=tuple(warns))
+    return Detection(
+        tier=tier, table=table, summary_rows=summary, warnings=tuple(warns), protein_gene_map=pmap
+    )
