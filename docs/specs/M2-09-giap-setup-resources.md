@@ -76,3 +76,14 @@ def count_fasta_records(path: Path) -> int
 3. The test-author's choices are accepted: GO version = release date; both `data-version` header forms are
    valid; KEGG rows carry checksum "" and `--check` compares with the checksum recorded in the manifest at
    download (ADR-0014); antiSMASH `url: "image"` is verified by `antismash --check-prereqs` inside the image.
+
+## Lead decisions after code review (PR #67, changes requested)
+1. `--check` accepts antiSMASH installed from the image (`url: "image"`): a previous `ok` record with url
+   `image` passes after `antismash --check-prereqs` succeeds in the pinned image. Test.
+2. Live test tests/integration/test_setup_resources_live.py (`needs_net` per host, `slow`; runs only in the
+   weekly Slurm job) downloads each item into a tmp dir and verifies it. Sizes go to PROGRESS.md (lead):
+   go-basic.obo 32.2 MB, KEGG links 2.3 MB, other files < 0.4 MB.
+3. KEGG checksum rule is ADR-0017 (not ADR-0014); decision 3 above is amended accordingly.
+4. A body without Content-Length stops at the item's `size_gib` (or 1 GiB when unset) → SourceError. Test.
+5. `_load_sources` runs every `path` through `_safe_name` (no `..`, no absolute paths). Test.
+6. db_manifest.json is written with mode 0644 (shared DB directory). Test.
