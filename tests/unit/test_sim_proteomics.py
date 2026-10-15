@@ -5,7 +5,8 @@ checks the M3 consumers rely on (M3-10 placement FDR, M3-14 locus classes incl. 
 ``cterm_extension``, M3-21 calibration with real protein-derived wrong peptides), determinism and
 backward compatibility. Statistical claims are in
 tests/calibration/test_sim_proteomics_calibration.py, invariants over random seeds in
-tests/property/test_sim_proteomics_props.py; the independent oracle is tests/sim/peptide_oracle.py.
+tests/property/test_sim_proteomics_props.py; the independent oracle is
+tests/helpers/peptide_oracle.py.
 
 Conventions these tests pin where the spec is silent:
 
@@ -42,14 +43,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
-import giapsim
-from giap.config.model import InputConfig
-from giap.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
-from giap.mapping.loci import classify_locus
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import gene_model_from_bakta_json
-from peptide_oracle import (
+from helpers.peptide_oracle import (
     Run,
     empty,
     fnum,
@@ -64,6 +58,13 @@ from peptide_oracle import (
     trypsin_p,
     trypsin_p_peptides,
 )
+
+import giapsim
+from giap.config.model import InputConfig
+from giap.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
+from giap.mapping.loci import classify_locus
+from giap.model.coords import Interval, Replicon
+from giap.model.genes import gene_model_from_bakta_json
 
 TRUTH_COLUMNS = [
     "peptide", "is_wrong", "origin", "locus_tag", "contig", "start", "end", "strand",

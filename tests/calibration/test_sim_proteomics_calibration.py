@@ -23,10 +23,10 @@ import math
 from typing import Any
 
 import pytest
+from helpers.peptide_oracle import Run, fnum, rows, truthy, trypsin_p
 from scipy import stats
 
 import giapsim
-from peptide_oracle import Run, fnum, rows, truthy, trypsin_p
 
 pytestmark = pytest.mark.calibration
 

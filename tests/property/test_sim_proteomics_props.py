@@ -1,6 +1,6 @@
 """Properties of giapsim's proteomics module (issue M3-19; GIAP_SPEC.md §11.2-§11.3).
 
-* ``digest`` equals the independent Trypsin/P oracle (tests/sim/peptide_oracle.py) for any
+* ``digest`` equals the independent Trypsin/P oracle (tests/helpers/peptide_oracle.py) for any
   protein, length range and number of missed cleavages;
 * for random seeds and feature mixes, the simulated truth agrees with the genome: every correct
   peptide is the translation of its stated span inside its stated true protein, wrong peptides
@@ -18,13 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from hypothesis import HealthCheck, given, settings
-from hypothesis import strategies as st
-
-import giapsim
-from giap.config.model import InputConfig
-from giap.io.peptides import read_peptide_table, validate_peptides
-from peptide_oracle import (
+from helpers.peptide_oracle import (
     Run,
     empty,
     il,
@@ -35,6 +29,12 @@ from peptide_oracle import (
     trypsin_p,
     trypsin_p_peptides,
 )
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
+
+import giapsim
+from giap.config.model import InputConfig
+from giap.io.peptides import read_peptide_table, validate_peptides
 
 AA = "ACDEFGHIKLMNPQRSTVWY"
 
