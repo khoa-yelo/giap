@@ -99,3 +99,11 @@ the statistician reviews this issue because the nulls it produces gate M4.
 4. Implementation choices accepted: intercept −8.65 (tuned so the default layout gives ≈ 55 % detected, the
    spec's target; the spec's −8.9 was an estimate); `log2_abundance` coefficient default 0; island effects
    scaled by the stationary SD; wiring `expression_for_simulation` into `simulate_proteomics` is M4-20.
+
+## Lead decisions after code review (PR #71, approved with test gaps)
+5. Tests kill the surviving mutants: islands at ρ = 0.5 shift by exactly `islands.effect_log2` scaled by the
+   stationary SD (decision 4); an island ending on the last TU is accepted, one TU later raises; TUs
+   straddling a region boundary get the documented effect (`dt == 0` for "some" TUs in example 3);
+   `expression_for_simulation` = abundance × ln 2 of `simulate_expression` with the same rng.
+6. The gene table gains `island_id` (NA outside islands) for M5. The AR(1) restarts per replicon and does
+   not wrap at the origin of circular replicons (one uncorrelated join) — noted in docs/specs/M4-17*.md.
