@@ -43,7 +43,7 @@ def scenarios(draw: st.DrawFn) -> tuple[Any, Any, Any, int]:
     ev, ex, la = _mods()
     lay = la.simulate_layout(
         la.LayoutConfig(
-            n_genes_chromosome=draw(st.integers(80, 300)),
+            n_genes_chromosome=draw(st.integers(81, 300)),  # default regions need 81 genes
             plasmids=tuple(draw(st.lists(st.integers(1, 30), max_size=1))),
             linear_contigs=tuple(draw(st.lists(st.integers(1, 12), max_size=1))),
             frac_sorf=draw(st.sampled_from([0.02, 0.3])),

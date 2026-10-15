@@ -148,13 +148,13 @@ def test_score_components(full: bool, pi: float) -> None:
 
     def true_p(rng: np.random.Generator) -> float:
         s, _, _, bad = _labels(_replicate(rng, pi)[2])
-        return float(stats.kstest(s[~bad], "norm", args=(3.0, 1.0)).pvalue)
+        return float(stats.kstest(s[~bad], stats.norm(3.0, 1.0).cdf).pvalue)
 
     def null_p(rng: np.random.Generator) -> float:
         _, _, e = _replicate(rng, pi)
         s, _, _, bad = _labels(e)
         x = np.concatenate([s[bad], eo.decoys(e.peptides)["score"].to_numpy(float)])
-        return float(stats.kstest(x, "norm", args=(0.0, 1.0)).pvalue)
+        return float(stats.kstest(x, stats.norm(0.0, 1.0).cdf).pvalue)
 
     _gate_p(f"sim_evidence.scores_true.pi{pi}", full, true_p)
     _gate_p(f"sim_evidence.scores_null.pi{pi}", full, null_p)
@@ -206,6 +206,6 @@ def test_intensity_lognormal(full: bool) -> None:
         p = p[p["peptide"].isin(set(gene))]
         x = np.log(p["intensity"].to_numpy(float))
         r = x - np.array([ab[gene[q]] * math.log(2) for q in p["peptide"]])
-        return float(stats.kstest(r, "norm", args=(0.0, 0.5)).pvalue)
+        return float(stats.kstest(r, stats.norm(0.0, 0.5).cdf).pvalue)
 
     _gate_p("sim_evidence.intensity", full, fn)
