@@ -117,3 +117,26 @@ def placement(costs: pd.DataFrame, cfg: GiapConfig) -> tuple[pd.DataFrame, pd.Da
    non-decoy peptides that enter mapping (q ≤ `q_value_max` or q missing).
 4. `length_class` labels in TSV. **Proposed default:** `7`, `8`, `9`, `10-11`, `12-14`, `15-19`,
    `20-40` (single value when lo = hi), plus `all`.
+
+## Lead decision after statistician review (pre-implementation): ADR-0010 supersedes Q2
+Per-peptide π̂: FDR_m(e) = (W_m(e) + c) / T_m(e), W = Σ π̂_j over decoy hits with E ≤ e (own π̂;
+missing → 1; m ≥ 1 → 1), c = max π̂ over searched peptides of that decoy type. Interface
+`stratum_qvalues(e_target, e_decoy, pi_decoy, pi_plus)`. `mapping_fdr`: `fdr_stratum` = (W + c)/T,
+`pi_wrong` = (W + c)/(D + 1). Where this section and earlier bullets (the "mean π̂ over targets" text,
+`pi_wrong` = mean over the class's targets) disagree, this section wins. Test changes as listed by the
+statistician: `test_per_target_pi_uses_mean_over_targets_up_to_e` → targets E = 1, 2, 3, one decoy E =
+2.5 with weight 0.5, c = 0.6 → q = [0.3, 0.3, 0.366667]; `test_denovo_stratum0_uses_per_peptide_pi` →
+second target π̂ 0.6: q = [0.3, 0.3, 0.366667], fdr_stratum 0.366667, pi_wrong 0.55;
+`test_constant_pi_equals_m4_tda_qvalues` → decoy weights `np.full(ed.size, pi)`, c = pi; property tests
+take per-decoy π̂ and scalar c ≥ max weight, permute weights with decoys, and add "raising any weight
+or c never lowers a q".
+
+## Lead decisions after statistician review (PR #41, BLOCK)
+1. The same-strain shortcut applies to database rows only: `same_exact = is_db & (search_db == "same") &
+   (m_t == 0)`. De novo rows never get it, whatever `search_db` the input reader filled in.
+2. `pi_wrong_database` is computed over database rows that stay in the stratum-0 lists:
+   `df[is_db & ~same_exact]` (same peptides as c). Single-`search_db` inputs are unchanged.
+   The statistician's attack tests/calibration/attacks/test_attack_placement_same_db.py must pass.
+3. `low_complexity` is added to the §9.4 placement flag vocabulary by ADR-0011 (accepted by Khoa 2026-10-14; it changes
+   an output vocabulary).
+4. Unresolved `search_db = auto` is treated as `other` (conservative); M3-17 resolves `auto` before M3-10.

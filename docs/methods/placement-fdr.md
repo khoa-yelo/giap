@@ -6,9 +6,10 @@ B.2/B.6. Issues: M3-03 (decoys, this section), M3-09 (chance hits), M3-10 (strat
 M3-21 (genome-level calibration). Engine for the q-values: `docs/methods/target-decoy.md`.
 
 Sections: Genome decoys (M3-03, **signed off below**); Chance hits and the ranking score (M3-09,
-**signed off below**); Strata and ranking (M3-10, *to be completed*); π̂_wrong (M3-10, *to be
-completed*); Same-strain input (M3-10, *to be completed*); Calibration incl. attack 5 (M3-10/M3-21,
-*to be completed*).
+**signed off below**); π̂_wrong in the stratum FDR (M3-10, **rule signed off below**); Strata and
+ranking, π̂_wrong sources, Same-strain input, Calibration (M3-10, **signed below; implementation
+approved at 031378c after two same-strain fixes**, see "Implementation review (M3-10)"). Genome-level
+calibration with tolerant hits and de novo errors, and attack 5, are M3-21.
 
 ## Genome decoys (M3-03)
 
@@ -164,22 +165,9 @@ Exploratory runs, 1-Mb synthetic genomes, 4 × 10⁵ sampled 7-mers each:
 | Periodic wrong peptides (dipeptide repeats XYXY…) on the low-complexity genome | 1.00 | 0.88 | Shuffle is anti-conservative for periodic wrong peptides hitting periodic target repeats (period-3 repeats go the other way, 4.2). Recommendation for M3-10: flag `low_complexity` placements (e.g. ≤ 3 distinct residues in the peptide) and report them separately rather than relying on the shuffle decoy. |
 | De novo reversed stretches with reverse decoys (attack 5) | inflated D | — | Why de novo uses shuffle; quantified in M3-21. |
 
-### How decoy hits enter the q-values (M3-10, *to be completed*)
+### How decoy hits enter the q-values (M3-10)
 
-- Every mapped query peptide is searched against the decoy of its own source (database → reverse,
-  de novo → shuffle; both built for mixed input), exactly as against the target (exact for all,
-  tolerant for all ≥ 10 aa; lead decision M3-10 Q1). Each peptide counts once at its best decoy
-  cost m_D, independently of its target cost m_T (separate search, not competition).
-- Decoy hits are de-duplicated on their mirrored target interval (`mirror_aa`, modulo the
-  replicon), are never placed and never written to `peptide_hits.tsv`.
-- Stratum m: T = peptides with m_T = m, D = peptides with m_D = m, ranked by E (M3-09; target and
-  decoy E computed by the same function from the same genome frequencies, since decoys have the
-  target's composition). FDR_m(e) = π̂_wrong (D_m(e) + 1)/T_m(e), q by `tda_qvalues(−E_T, −E_D, π̂)`;
-  ties counted against the target. Lists are per `decoy_type`.
-- *To be completed with M3-10:* π̂_wrong (mean PEP, max q, de
-  novo lower bound; per-bin π̂ as the mean over targets with E ≤ e, lead decision M3-10 Q2);
-  `same_db`; the B.6 example; the list-level calibration (exchangeable target/decoy E, FDR ≤ q +
-  2 SE) and the genome-level calibration and attack 5 (M3-21).
+Completed in "Strata and ranking" and "π̂_wrong in the stratum FDR" below.
 
 ### Sign-off (Genome decoys)
 
@@ -355,3 +343,338 @@ Statistician (M3-09 review, 2026-10-14): **approved** for `expected_hits_uniform
 output). Forwarded to M3-10: E is a ranking score only (never report it as an absolute expectation
 without the W_L correction); low-complexity peptides are ranked too optimistically by E, which
 reinforces the `low_complexity` placement flag.
+
+## π̂_wrong in the stratum FDR (M3-10)
+
+Scope: how a π̂_wrong that varies between peptides enters FDR_m(e) (§7.2.5 step 3). In practice
+this is de novo input in stratum 0, where π̂ is per score bin (step 4, M3-11). Database input in
+stratum 0 (one π̂ for all) and every stratum m ≥ 1 (π̂ = 1) have a constant π̂, and the rule
+below reduces exactly to the spec formula there. This section **replaces** lead decision M3-10 Q2
+("mean π̂ of the targets with E ≤ e"), which is anti-conservative.
+
+### Model and assumptions
+
+Fix a stratum m and a decoy type. Every mapped query peptide j of that decoy type is searched
+against target and decoy (lead decision M3-10 Q1). Let π_j = P(j wrong | its score bin) and
+π̂_j its estimate.
+
+- **A1 (decoy hit ⇔ chance target hit of the same peptide).** For a wrong peptide j, (target hit at
+  cost m, its E) and (decoy hit at cost m, its E) have the same law: p_j(e) = P(hit with E ≤ e)
+  for both (Genome decoys; E is computed by the same function for both, M3-09).
+- **A2 (decoy hits do not depend on correctness).** The decoy hit of j has the same law p_j(e)
+  whether j is correct or wrong: a correct peptide's decoy hits are chance hits too.
+- **A3 (π̂ is a peptide-level label).** π̂_j depends on the peptide's score bin only, not on its
+  hits; it is the same for the peptide's target and decoy hit.
+
+p_j(e) may vary freely between peptides (length, composition) and may be correlated with π_j.
+
+### Derivation
+
+The number of false targets with E ≤ e is V(e) = Σ_j 1{j wrong} 1{chance target hit of j, E ≤ e},
+so by A1 E[V(e)] = Σ_j π_j p_j(e). Candidate estimators of V(e) and their expectations:
+
+| Estimator of V(e) | Expectation | Unbiased when |
+|---|---|---|
+| Q2 as written: π̄_T(e) · D(e), π̄_T(e) = mean π̂ of targets with E ≤ e | π̄_T(e) Σ_j p_j(e) | π̄_T(e) = Σ π_j p_j / Σ p_j; fails in general |
+| (a) π̄_S · D(e), π̄_S = mean π̂ over all searched peptides | π̄_S Σ_j p_j(e) | Cov_j(π_j, p_j(e)) = 0 |
+| (b) W(e) = Σ_{decoy hits j with E ≤ e} π̂_j | Σ_j π_j p_j(e) (A2, A3) | always (given A1–A3 and π̂ = π) |
+
+Why Q2 fails: a correct peptide always has its target hit, a wrong one only by chance, so the
+targets with small E are mostly correct peptides from the good (low-π) bins and π̄_T(e) is far
+below the decoy-hit-weighted π̄ that D(e) needs; D counts chance hits of *all* searched peptides,
+most of which come from the bad bins. The bias is largest at the top of the list, i.e. at the
+operating point α = 0.01. Why (a) is not enough: chance-hit rates vary by a factor ≈ 14 per
+residue of length (M3-09), and low-score de novo bins plausibly hold shorter peptides, so
+Cov(π, p) > 0 is the realistic case and (a) is then anti-conservative by Σπp / (π̄ Σp).
+
+The "+1" (§7.2.5, B.6) guards the top of the list against D = 0 by pre-counting one decoy. With
+weights, one more decoy hit can weigh up to max π̂, so the pre-count must be c = max π̂. Using the
+mean π̂ instead (c = π̄_S) left a small excess on B.6-sized lists with very unequal bins (mean FDP
+0.0113 ± 0.0004 at q = 0.01, N = 150, π = 0.02 / 0.9, R = 3,000).
+
+### Signed rule
+
+Within stratum m and decoy type, one list ordered by E (unchanged), at every target E = e:
+
+  FDR_m(e) = (W_m(e) + c) / T_m(e),  W_m(e) = Σ over peptides j with a decoy hit at cost m and
+  E_D,j ≤ e of π̂_j,  c = max π̂ over all searched peptides of that decoy type in the stratum's
+  input,
+
+and q_i = min over e ≥ E_i of FDR_m(e), clipped to 1; ties as before (a decoy tied with a target
+counts). Definitions:
+
+- π̂_j is the peptide's own π̂ by the step-4 route, whether it contributes a target, a decoy or
+  both: database m = 0 the one `pi_wrong_database` value; de novo m = 0 its `pi_denovo` (1 if
+  missing); m ≥ 1 always 1. A decoy-only peptide carries its own π̂.
+- "Searched peptides of that decoy type" = every peptide of that source in the costs table that
+  enters the decoy search, i.e. all rows of the source except `same_db` exact peptides in
+  stratum 0 (they leave both stratum-0 lists). If the set is empty, c = 1. Any de novo peptide
+  without π̂ makes c = 1.
+- Constant π̂ = π: W = π D, c = π, FDR = π (D + 1)/T, identical to the spec and to
+  `tda_qvalues(−E_T, −E_D, π, plus_one=True)`.
+- Monotonicity: q is non-decreasing in E within the stratum; adding a decoy hit, raising any π̂_j
+  of a decoy, or raising c never lowers a q.
+- `mapping_fdr` rows (per decoy type × length class × m, no threshold): `decoys` = D (count, as
+  before), `fdr_stratum` = (W + c)/T with W summed over the class's decoy hits and the stratum's
+  c (NA when T = 0), `pi_wrong` = (W + c)/(D + 1), the effective π̂, so `fdr_stratum` =
+  `pi_wrong` (D + 1)/T still holds and `pi_wrong` equals the constant π̂ for database input and
+  m ≥ 1.
+
+Suggested interface (implementer's choice, the semantics above bind):
+`stratum_qvalues(e_target, e_decoy, pi_decoy, pi_plus)`, `pi_decoy` one weight per decoy,
+`pi_plus` = c (scalar in (0, 1]).
+
+### Evidence
+
+Statistics-only simulation (generator of `tests/calibration/test_placement_fdr_lists.py`: every
+peptide draws a chance decoy hit with probability p, wrong peptides a chance target hit from the
+same law, correct peptides a low-E target hit), de novo stratum 0, N = 4,000, R = 300, mean FDP ±
+SE at q = 0.01 / 0.05 / 0.10 (\* = above q + 2 SE); n = mean accepted at q = 0.01.
+
+| Scenario | Q2 (mean over targets) | (a) mean over searched | **(b) signed** | n at 0.01 (b) |
+|---|---|---|---|---|
+| 10 bins π 0.02–0.9, p = 0.25 (calibration test) | 0.0143\* / 0.069\* / 0.130\* | 0.0098 / 0.050 / 0.100 | 0.0095 / 0.050 / 0.100 | 1,063 |
+| 2 bins π 0.02 / 0.9, p = 0.25 | 0.0354\* / 0.119\* / 0.175\* | 0.0097 / 0.050 / 0.100 | 0.0095 / 0.050 / 0.100 | 1,069 |
+| constant π = 0.3 | 0.0100 / 0.050 / 0.097 | identical | identical | 1,932 |
+| 10 bins, p = 0.05 + 0.4 π | 0.0182\* / 0.086\* / 0.159\* | 0.0126\* / 0.065\* / 0.130\* | 0.0094 / 0.050 / 0.100 | 949 |
+| 2 bins, p = 0.05 + 0.4 π | 0.0540\* / 0.168\* / 0.253\* | 0.0163\* / 0.085\* / 0.172\* | 0.0093 / 0.049 / 0.100 | 796 |
+| 10 bins, π̂ = 1.5 π | 0.0099 / 0.049 / 0.094 | 0.0072 / 0.037 / 0.073 | 0.0069 / 0.036 / 0.073 | 878 |
+| 2 bins, π̂ = 1.5 π (capped at 1) | 0.0312\* / 0.108\* / 0.171\* | 0.0086 / 0.045 / 0.089 | 0.0085 / 0.044 / 0.089 | 1,005 |
+| 10 bins, π̂ = 0.5 π | 0.0286\* / 0.130\* / 0.176\* | 0.0199\* / 0.100\* / 0.176\* | 0.0196\* / 0.100\* / 0.176\* | 1,497 |
+| 2 bins, π̂ = 0.5 π | 0.0615\* / 0.175\* / 0.175\* | 0.0198\* / 0.100\* / 0.175\* | 0.0195\* / 0.100\* / 0.175\* | 1,496 |
+
+Small lists (R = 3,000), signed rule: 2 bins N = 150: 0.0000 / 0.044 / 0.095 (n = 0 at 0.01: with
+c ≈ 0.9 no list of ≤ 90 targets can reach 0.01); N = 300: 0.0054 / 0.048 / 0.097 (n = 33);
+10 bins N = 300: 0.0025 / 0.046 / 0.096 (n = 17). With c = mean π̂ instead: 0.0113\* / 0.0099 /
+0.0089 at q = 0.01 for these three, n = 29 / 70 / 65.
+
+**Misestimation.** Under-estimating π by 50 % doubles the FDP for every rule (E[W] = ½ E[V]):
+validity needs π̂ ≥ π, which is why step 4 uses 1 − the *lower* 95 % bound of the de novo
+precision. Over-estimating by 50 % is conservative for (b) (FDP ≈ q/1.5); Q2 is anti-conservative
+even then in the two-bin case.
+
+**Attack** (`tests/calibration/attacks/test_attack_placement_pi.py`, §8.5; N = 2,000 unless noted;
+R = 50 fast / 300 full): two_bins, two_bins_corr, ten_bins_corr, two_bins_small (N = 300),
+ten_bins_over (π̂ = 1.5 π), constant must stay at level through `placement`; a power check asserts
+that Q2 and (a) exceed q + 2 SE at q = 0.01 and 0.05 on two_bins_corr (full suite: Q2 0.053 /
+0.168, (a) 0.016 / 0.085). The signed rule, run on the same generators through a reference
+implementation, gave (full suite, q = 0.01 / 0.05 / 0.10): two_bins 0.0093 / 0.050 / 0.101,
+two_bins_corr 0.0088 / 0.049 / 0.100, ten_bins_corr 0.0086 / 0.050 / 0.100, two_bins_small
+0.0055 / 0.049 / 0.100, ten_bins_over 0.0064 / 0.036 / 0.073, constant 0.0100 / 0.050 / 0.096.
+
+### Alternative considered: separate lists per π̂ value (score bin)
+
+Running stratum 0 separately per score bin (the Q2 alternative) applies the spec formula with a
+constant π̂ in each list. It is also valid in every scenario above (it needs A1–A3 only within a
+bin) and has more power at α = 0.01 on large inputs with unequal bins (N = 4,000: 1,336 vs 1,063
+accepted with 10 bins, 1,969 vs 1,069 with 2 bins), less at q ≥ 0.05 and on small inputs (10 bins
+N = 300 at 0.01: 55 vs 17 for (b), 21 vs 0 at N = 150). It splits a stratum into several lists,
+so q is no longer monotone in E within a stratum (§7.2.5 step 3 and the M3-10 acceptance
+criterion), and `mapping_fdr` would need a bin dimension. It is therefore a spec change for the
+lead (ADR), not the default; if adopted, the attack above applies unchanged.
+
+### Forwarded
+
+- **Database input, mean PEP.** The spec's single π̂ = mean PEP is estimator (a): unbiased only if
+  PEP is uncorrelated with the chance-hit rate. Short peptides have both higher PEP and many more
+  chance hits, so mean PEP can under-state the false-placement share (10-bin correlated scenario:
+  0.0126 at q = 0.01; database PEPs are small, so the absolute effect is bounded by the PEPs). The
+  same weighting (Σ PEP_j over decoy hits + max PEP) removes the bias but departs from the spec
+  text: lead decision / ADR; M3-21 should measure Cov(PEP, chance-hit rate) on A2.
+- **π̂ from the same decoys.** The de novo π̂ (M3-11) uses decoy-match rates r_bℓ of the same
+  shuffle; a bin with many chance decoy hits gets a lower precision and a higher π̂, so W and π̂
+  are positively dependent: conservative.
+
+### Tests that must change (test-author)
+
+1. `tests/unit/test_placement_fdr.py::test_per_target_pi_uses_mean_over_targets_up_to_e` → weights
+   on decoys: targets E = 1, 2, 3; one decoy E = 2.5 with π̂ 0.5; c = 0.6:
+   FDR = 0.6/1, 0.6/2, (0.5 + 0.6)/3 → q = [0.3, 0.3, 0.366667].
+2. `…::test_denovo_stratum0_uses_per_peptide_pi` → de novo m = 0, length 7: targets (E, π̂) =
+   (1, 0.5), (2, 0.6), (3, 0.3); decoy-only peptide E = 2.5, π̂ 0.5; c = max = 0.6:
+   q = [0.3, 0.3, 0.366667]; row (`7`, shuffle): targets 3, decoys 1, `fdr_stratum` = 1.1/3 =
+   0.366667, `pi_wrong` = 1.1/2 = 0.55. (With the old π̂ 1.0 for the second target: c = 1,
+   q = [0.5, 0.5, 0.5], `fdr_stratum` 0.5, `pi_wrong` 0.75.)
+3. `…::test_constant_pi_equals_m4_tda_qvalues` and the module docstring (FDR(e) line): call with
+   decoy weights `np.full(ed.size, pi)` and c = pi; equality with `tda_qvalues` unchanged.
+   Every other unit test (examples 1–10, ties, clipping, π̂ = 1 when missing) is unchanged: their
+   π̂ is constant within the list.
+4. `tests/property/test_placement_fdr_props.py`: the `stratum` strategy draws one π̂ per *decoy*
+   and a scalar c ∈ (0, 1] (≥ max decoy π̂ to mirror `placement`); `test_constant_pi_equals_…`
+   as in 3; `test_input_order_invariant` permutes decoy weights with the decoys; add: raising any
+   decoy π̂ or c never lowers a q. The other properties (q ∈ [0, 1], monotone in E, adding a decoy
+   never lowers q, scale invariance, all `placement` properties) stay.
+5. `tests/calibration/test_placement_fdr_lists.py::test_denovo_per_bin_pi_controls_fdr`: generator
+   unchanged (expected to pass, 0.0095 / 0.050 / 0.100 at R = 300); docstring: drop "most
+   favourable case for … mean pi over targets with E <= e" and cite this section.
+6. Spec text `docs/specs/M3-10-placement-fdr.md` (bullets "π̂ per target" and `mapping_fdr` rows,
+   Q2) and lead decision 2 in `docs/specs/M3-index.md`: lead updates them to this rule.
+
+### Sign-off (π̂_wrong in the stratum FDR)
+
+Statistician (M3-10 pre-implementation decision, 2026-10-14): **signed** for the rule above
+(decoy-weighted W_m(e) + c, c = max π̂ over the searched peptides of the decoy type). Lead
+decision M3-10 Q2 (mean π̂ over targets with E ≤ e) is **rejected** as anti-conservative and
+blocks merge if implemented. The remaining M3-10 sections (strata and ranking, π̂_wrong sources,
+same-strain input, calibration) are signed with the implementation review.
+
+## Strata and ranking (M3-10)
+
+- **Search.** Every mapped query peptide (non-decoy, q ≤ `input.q_value_max` or q missing) is
+  searched against the decoy of its own source (database → reverse, de novo → shuffle; both built
+  for mixed input) exactly as against the target (exact for all, tolerant for all ≥ 10 aa; lead
+  decision M3-10 Q1). Each peptide counts once at its best target cost m_T and, independently,
+  once at its best decoy cost m_D (separate search, not competition: a peptide may be a target in
+  stratum 0 and a decoy in stratum 1). Decoy hits are de-duplicated on their mirrored target
+  interval, never placed and never written to `peptide_hits.tsv`.
+- **Lists.** One list per decoy type × m ∈ {0, 1, 2}: T = peptides with m_T = m, D = peptides with
+  m_D = m, both ranked by E ascending (M3-09; target and decoy E from the same function and the
+  same genome f). Length classes are **pooled** inside a list (G3): E already carries the length
+  (≈ ×14 per residue), so pooling only orders long against short peptides by their chance rate;
+  per-class lists would have small T and a +c that dominates (B.6). The per length class × m rows
+  of `mapping_fdr.tsv` are descriptive: T and D of the class, `fdr_stratum` = (W_class + c)/T_class
+  with the stratum's c, no threshold; they are not the q-values.
+- **FDR and q.** FDR_m(e) = (W_m(e) + c)/T_m(e) at every target E (rule and derivation in
+  "π̂_wrong in the stratum FDR"); q_i = min over e ≥ E_i; ties: all entries with E ≤ e count, so a
+  decoy tied with a target counts against it and tied targets get one q; clipped to [0, 1] by
+  M4-01's `monotone_q`, so with constant π̂ the q-values equal `tda_qvalues(−E_T, −E_D, π̂)`
+  (unit- and property-tested). Accept at q ≤ `stats.alpha.placement` (0.01, inclusive).
+- **Families (§8.1).** Each list is one FDR family: "placed (exact)" = stratum 0, "placed with ≥ 1
+  difference" = strata 1 and 2 with π̂ = 1, separately per decoy type. Each accepted set has FDR
+  ≤ α; their union has marginal FDR E[V]/E[R] ≤ α exactly and FDR ≤ α up to the weighting of the
+  ratios (each list pays its own +c, which makes the union slightly conservative). A peptide accepted in stratum m is accepted at
+  all its loci of cost m: multi-locus ambiguity is uniqueness (M3-14), not FDR.
+- **Effect size.** The per-peptide effect measure next to `placement_q` is the ranking score E
+  (expected chance windows, conservative ×1.3–1.8 on real genomes, see M3-09) and m_T; the list
+  quantities T, D, W, c are in `mapping_fdr.tsv`. A target-decoy q-value has no CI of its own; its
+  uncertainty is the +c pre-count (B.6).
+
+**B.6.** Stratum 1, π̂ = 1 (c = 1): 150 targets before the first decoy give FDR = (0 + 1)/150 =
+0.0067, all 150 accepted at 0.01; 50 targets and no decoys give 1/50 = 0.02, none accepted. With
+per-peptide de novo π̂ the floor is c/T with c = max π̂, so a de novo stratum-0 list needs
+T ≥ c/α targets before the first decoy (90 at c = 0.9): small de novo inputs are conservative by
+design (attack `two_bins_small`: FDP 0.0063 at 0.01).
+
+## π̂_wrong sources (M3-10)
+
+| Input, stratum | π̂_j | Population |
+|---|---|---|
+| database, m = 0 | one value: mean PEP if any PEP; else max q ≤ `input.q_value_max`; else 1 | the database peptides **of the stratum-0 lists**, i.e. all database rows except `same_db` exact peptides (see "Same-strain input") |
+| de novo, m = 0 | `pi_denovo` of the peptide's score bin (1 − lower 95 % precision bound, M3-11); missing → 1 | per peptide |
+| any, m ≥ 1 | 1 | — |
+
+Mean PEP is estimator (a) of the derivation: unbiased when PEP is calibrated and uncorrelated with
+the chance-hit rate (forwarded to M3-21). Max q estimates the FDR of the whole input list at its
+own threshold (≤ `q_value_max`), an estimate of the wrong share of the peptides that enter mapping
+(test `max_q_route`: FDP 0.0020 for a true wrong share 0.008, conservative). π̂ = 0 (all PEPs exactly 0) is allowed by the formula and accepts
+every target; engines report PEP 0 only through underflow, so a mean over thousands of peptides
+is never 0 in practice. c = max π̂ over the same population (1 if empty or any de novo π̂
+missing).
+
+## Same-strain input (M3-10)
+
+§7.2.5 step 5: database peptides from a search against this genome's own proteins
+(`search_db = same`) with an exact target hit get `placement_q = 0` and flag `same_db`, and leave
+both stratum-0 lists. Rationale: the engine's own target-decoy already controls the identification
+error against exactly these sequences, and an exact hit of an own-protein peptide is its source
+locus; the remaining question is uniqueness (M3-14). Their decoy hits at m ≥ 1 still count in D
+(conservative: a correct peptide's decoy hit is a chance hit, A2). Tolerant hits of `same` peptides
+go through steps 1–4 like any other.
+
+Two conditions are needed for the rest of the list to stay valid (attack
+`tests/calibration/attacks/test_attack_placement_same_db.py`):
+
+1. **Database input only.** `search_db` is filled from `input.search_db` for every row, de novo
+   rows included (`io/peptides.py`). A de novo peptide is not from a protein search; the shortcut
+   must require `source = database`, otherwise every exact de novo hit gets q = 0.
+2. **π̂ on the listed population.** The `same_db` exact peptides have left the stratum-0 lists, so
+   they must also leave the mean PEP (and the max-q fallback). They are selected for being correct
+   (an exact hit in their own genome) and carry small PEPs, so averaging them in lowers π̂ for the
+   `other` peptides that remain in the list. This changes nothing for single-`search_db` inputs
+   (all `other`: nothing removed; all `same`: the stratum-0 database target list is empty), only
+   for mixed inputs such as A1 (K-12 search) and A2 (Nissle's own proteins) in one run, which the
+   per-row `search_db` column allows.
+
+| Attack (R = 50 fast / 300 full; FDP over list-accepted peptides) | `placement` at 9ec53d1 (before fix) | corrected rule (reference; = `placement` at 031378c) |
+|---|---|---|
+| `denovo_labelled_same`: de novo, π 0.02 / 0.9, every row `search_db = same` | 0.175 / 0.175 / 0.175 (full 0.176) | 0.0097 / 0.049 / 0.097 (full 0.0093 / 0.049 / 0.099) |
+| `mixed_same_other`: 2,000 `same` exact (PEP 0.001) + 2,000 `other` (π = PEP = 0.3) | 0.0196 / 0.097 / 0.097 (full 0.0199 / 0.096 / 0.096) | 0.0098 / 0.050 / 0.097 (full 0.0100 / 0.050 / 0.096) |
+
+(mean FDP at q = 0.01 / 0.05 / 0.10; SE ≤ 0.0016 fast, ≤ 0.0007 full.) Required fixes:
+`same_exact = is_db & (search_db == "same") & (m_target == 0)` and
+`pi_wrong_database(df[is_db & ~same_exact], …)`.
+
+An unresolved `search_db = auto` reaching `placement` is treated as `other`: valid (conservative,
+the peptide is FDR-controlled), but it loses the `same_db` shortcut; `auto` must be resolved to
+`same`/`other` before mapping (M3-17).
+
+## Calibration (M3-10)
+
+Criterion (§8.4 "FDR"): mean FDP over R replicates ≤ q + 2 SE at q ∈ {0.01, 0.05, 0.10}; R =
+`replicates_fast.placement` (50) per PR, `replicates_full.placement` (300) nightly; seeds from
+`tolerances.yaml`.
+
+**List level** (`tests/calibration/test_placement_fdr_lists.py`, through `placement`): correct
+peptides get a low-E target hit, every peptide a chance decoy hit with probability p and wrong
+peptides an independent chance target hit from the same E law (A1–A2 hold by construction).
+Review run, 9ec53d1, R = 50, mean FDP ± SE at 0.01 / 0.05 / 0.10:
+
+| Scenario | FDP | n accepted at 0.01 |
+|---|---|---|
+| known π = 0.3, m = 0 | 0.0095 ± 0.0003 / 0.049 ± 0.001 / 0.097 ± 0.001 | 1,898 |
+| known π = 0.3, m = 1 (π̂ = 1, conservative) | 0.0026 / 0.015 / 0.030 | 1,001 |
+| calibrated PEP ~ Beta(0.6, 1.4) | 0.0103 ± 0.0004 / 0.050 ± 0.001 / 0.096 ± 0.001 | 1,959 |
+| max-q route (true share 0.008) | 0.0020 / 0.0020 / 0.0020 | 3,977 |
+| de novo, 10 bins | 0.0086 ± 0.0005 / 0.049 ± 0.001 / 0.099 ± 0.001 | 1,037 |
+
+**Attacks** (`test_attack_placement_pi.py`, through `placement`, R = 50): two_bins 0.0080 / 0.050 /
+0.101; two_bins_corr 0.0085 / 0.049 / 0.099; ten_bins_corr 0.0089 / 0.050 / 0.099;
+two_bins_small 0.0063 / 0.045 / 0.095; ten_bins_over 0.0066 / 0.036 / 0.072; constant 0.0093 /
+0.048 / 0.095 (SE ≤ 0.0017 at 0.01). The rejected rules still fail (power check passes). Same-strain
+attack: see the table above (failed at 9ec53d1, passes at 031378c).
+
+**Genome level, exact route** (`tests/calibration/test_placement_fdr_genome.py`): 100-kb giapsim
+genomes, tryptic peptides of annotated genes as correct, 20,000 i.i.d. 7–8-mers from the genome's
+own f as wrong, database input, reverse decoys, PEP = the known wrong share. R = 50: 0.0102 ± 0.0007
+/ 0.0236 ± 0.0009 / 0.0236 ± 0.0009, 592 accepted at 0.01; 719 chance target hits of wrong
+peptides in total (the null is exercised). At 0.05 and 0.10 every target is accepted, so the FDP
+equals the wrong share among targets (0.024 < q). At 0.01 the mean is within 1 SE of q, which is
+expected: with constant π̂ and an exact reverse decoy the estimator is unbiased up to the +1.
+Tolerant strata, de novo errors with shuffle decoys, attack 5 (reversed stretches), 1-Mb genomes
+and real-protein wrong peptides (TE8 proxy) are M3-21.
+
+## Implementation review (M3-10, `src/giap/mapping/placement_fdr.py`, 9ec53d1)
+
+Checked against ADR-0010, the final section of `docs/specs/M3-10-placement-fdr.md` and this note:
+
+- `stratum_qvalues`: T(e) and W(e) by `searchsorted(side="right")` (ties counted against the
+  target, tied targets share one q), `monotone_q` from M4-01 (running minimum from the loose end,
+  clip to [0, 1]); NaN targets → NaN, NaN decoys ignored; weights and c validated in [0, 1].
+  Correct. Reduction to `tda_qvalues` with constant π̂: unit- and property-tested.
+- W and c: per decoy type and stratum; W sums each decoy hit's own π̂ (de novo `pi_denovo`,
+  missing → 1, clipped to [0, 1]; database the one value; m ≥ 1 → 1); c = max π̂ over **all**
+  peptides of the source in the costs table, including peptides without any hit, minus `same_db`
+  exact peptides at m = 0; 1 for m ≥ 1 or an empty population. Correct.
+- `mapping_fdr` rows: decoy type × m × length class plus `all`, `fdr_stratum` = (W + c)/T (NaN at
+  T = 0), `pi_wrong` = (W + c)/(D + 1), `n_accepted` per class; peptides outside every length class
+  count only in `all`. Correct.
+- Flags joined with `;`: matches §9 ("`;`-separated controlled vocabulary"). `low_complexity` (≤ 3
+  distinct residues, I = L) is the flag this note recommended (M3-03, M3-09), but it is not in the
+  §9.4 placement vocabulary, which may be extended "only through the schema": the lead must add it
+  to the schema/ADR (M3-16) before outputs are written. Not a statistical blocker.
+- **Blocking at 9ec53d1, fixed in 031378c:** the two same-strain conditions above. The fix is exactly
+  `same_exact = is_db & (search_db == "same") & (m_target == 0)` and
+  `pi_wrong_database(df[is_db & ~same_exact], …)`. Re-run at 1dafac0 (R = 50 / 300, q = 0.01 / 0.05 /
+  0.10): `denovo_labelled_same` 0.0097 / 0.049 / 0.097 (full 0.0093 / 0.049 / 0.099),
+  `mixed_same_other` 0.0098 / 0.050 / 0.097 (full 0.0099 / 0.050 / 0.096). The list, `placement_pi`
+  and genome numbers above are unchanged (single-`search_db` inputs are unaffected). The
+  `low_complexity` flag was accepted by ADR-0011.
+
+### Sign-off (Strata and ranking, π̂_wrong sources, Same-strain input, Calibration)
+
+Statistician (M3-10 implementation review, 2026-10-14): the four sections above are **signed** as
+the method. The implementation is **approved** at 031378c (re-verified at 1dafac0): the `same_db` shortcut
+requires `source = database`, the database π̂ is computed over the stratum-0 population, and
+`test_attack_placement_same_db.py` passes (at 9ec53d1 the FDP at q = 0.01 was 0.175 and 0.0196).
+Forwarded to M3-21: Cov(PEP, chance-hit rate) on A2; the list-level calibration of tolerant strata
+with real decoy hits; attack 5.

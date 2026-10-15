@@ -137,7 +137,8 @@ translations keep composition" (M3-03).
 - `diff_types` vocabulary {substitution, swap, block, near_block, frameshift} (M3-05 Q1).
 - Decoys are searched for **every** mapped peptide (exact for all, tolerant for all ≥ 10 aa);
   target tolerant search only for exact leftovers (M3-10 Q1).
-- De novo π̂ enters FDR₀(e) as the mean π̂ of targets with E ≤ e (M3-10 Q2).
+- ~~De novo π̂ enters FDR₀(e) as the mean π̂ of targets with E ≤ e (M3-10 Q2).~~ Superseded by
+  ADR-0010: each decoy hit is weighted by its own peptide's π̂; FDR = (W + c)/T, c = max π̂.
 - Only non-decoy peptides with q ≤ `input.q_value_max` (or no q) are mapped (M3-17 Q2).
 - `multi` becomes a placement flag (M3-14 Q1); repeats inside one gene are `unique` (M3-14 Q2).
 - Pseudogene placements assign to the pseudogene (M3-14 Q3, aligned with M4-06 Q3; the spec's
