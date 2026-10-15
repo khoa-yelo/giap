@@ -2,17 +2,21 @@
 // GIAP_SPEC.md §6.1, §6.2, §6.3 "Process conventions", §7.2.9). ci.yml runs:
 // nf-test test workflow/tests --profile test,stub ; "-stub" is set here as well.
 //
-// Interface pinned here (the spec names the file, not the take/emit; ANNOTATE (M2-07) is not
-// merged, so MAPPING takes the work files directly):
+// Interface pinned here (lead decisions 5, 6 after the PR #77 review):
 //   take: genome             value channel: genome.norm.fa
 //         peptides           value channel: peptides.norm.parquet
 //         proteins_long      value channel: proteins.long.faa, or channel.empty() when absent
 //         annotation         value channel: [genes.parquet, features.parquet, replicons.parquet]
 //         reference_peptides value channel: reference peptide table, or channel.empty()
-// Python steps run through GIAP_STEP (or giap_mapping/ process modules) calling `giap _step`;
-// MINIPROT / TBLASTN are the M3-12 / M3-13 modules and run only when long proteins exist.
-// Published (publishDir, mode copy): params.outdir/mapping/ with the seven §7.2.9 files; the stub
-// TSVs are header-only with the §9.3 columns (giap.mapping.outputs, giap.mapping.protein_assign).
+//         contaminants       value channel: contaminant library FASTA, or channel.empty()
+// Decision 5: the subworkflow follows M2-07: every py step of giap.steps.mapping runs through a
+// GIAP_STEP alias named after the step (inputs built by stepIn), so each task's stub writes
+// .giap_inputs and its --in keys follow the registry (data/mapping/step_registry.json, kept equal
+// to giap.steps by tests/unit/test_mapping_nf_registry.py); no GIAP_MAPPING / GIAP_MAPPING_LOCI.
+// The loci stub publishes params.outdir/mapping/ with the seven §7.2.9 files, the TSVs carrying
+// the real §9.3 headers (giap.mapping.outputs, giap.mapping.protein_assign). `contaminants` and
+// `reference_peptides` reach loci / placement when given. Decision 6: placement gets genes,
+// features, replicons (required by the registry). MINIPROT / TBLASTN run only with proteins.
 // Every task emits versions.yml.
 
 nextflow_workflow {
@@ -23,7 +27,7 @@ nextflow_workflow {
     options "-stub"
     tag "mapping"
 
-    test("example 4: peptides only: every process emits its outputs and versions.yml; no protein tools") {
+    test("example 4: peptides only: GIAP_STEP per py step, registry keys, real headers, no protein tools") {
 
         when {
             params {
@@ -36,25 +40,45 @@ nextflow_workflow {
                 input[2] = channel.empty()
                 input[3] = channel.value([file("${moduleTestDir}/data/mapping/genes.parquet"), file("${moduleTestDir}/data/mapping/features.parquet"), file("${moduleTestDir}/data/mapping/replicons.parquet")])
                 input[4] = channel.empty()
+                input[5] = channel.empty()
                 """
             }
         }
 
         then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/mapping/step_registry.json")
             def PEPTIDE_HITS = "peptide\tpeptide_len\tsource\tbest_q_input\tpep_input\tscore_input\tcontig\tstart\tend\tstrand\tframe\tcrosses_origin\troute\tn_diff\tdiff_types\tplacement_q\tlength_class\tlocus_class\tuniqueness\tgene\tnovel_candidate_id\tflags"
             def PROTEIN_HITS = "protein_id\tprotein_len_aa\troute\tcontig\tstart\tend\tstrand\trank\tidentity\tquery_coverage\treciprocal_overlap\tclass\tgene\tflags"
             def UNMAPPED = "sequence_id\tsequence\tkind\tlabel\treason\tcontaminant_match"
             def MAPPING_FDR = "length_class\tn_diff\ttargets\tdecoys\tpi_wrong\tfdr_stratum\tn_accepted\tdecoy_type\tsection\tscore_bin\tprecision\tci_low\tci_high\tc_value\tflags"
             def SEVEN = ['peptide_hits.tsv', 'protein_hits.tsv', 'mappings.probed', 'mappings.bed',
             'mappings.gff3', 'unmapped.tsv', 'mapping_fdr.tsv']
+            def work = workDir.toString()
             assert workflow.success
             assert workflow.trace.failed().size() == 0
-            def names = workflow.trace.succeeded().collect { it.name.toString() }
+            def names = H.names(workflow.trace)
             assert names.size() > 0 : "no task ran"
+            assert !names.any { it.contains('GIAP_MAPPING') } : "decision 5: no GIAP_MAPPING* processes: ${names}"
             assert !names.any { it.contains('MINIPROT') || it.contains('TBLASTN') } : "protein tools ran without proteins: ${names}"
 
-            def taskDirs = []
-            new File(workDir.toString()).eachDir { a -> a.eachDir { t -> taskDirs << t } }
+            ['sixframe_index', 'map_exact', 'map_tolerant', 'placement', 'loci'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${names}"
+                def dirs = H.stepDirs(work, s)
+                assert dirs.size() == 1 : "no task directory for ${s}"
+                assert new File(dirs[0], '.giap_inputs').isFile() : "${s} did not run through GIAP_STEP (no .giap_inputs)"
+            }
+            assert H.stepCount(workflow.trace, 'protein_leftovers') == 0 : "protein_leftovers ran without proteins"
+
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            def pin = H.stepInputs(H.stepDirs(work, 'placement')[0]).collect { it[0] }
+            assert pin.containsAll(['genes', 'features', 'replicons']) : "decision 6: placement inputs ${pin}"
+            assert !('reference_peptides' in pin) : "placement got reference_peptides that were not given"
+            def lin = H.stepInputs(H.stepDirs(work, 'loci')[0]).collect { it[0] }
+            assert !('contaminants' in lin) : "loci got a contaminants input that was not given"
+
+            def taskDirs = H.taskDirs(work)
             assert taskDirs.size() == names.size() : "task dirs ${taskDirs.size()} != tasks ${names.size()}"
             taskDirs.each { t ->
                 def v = new File(t, 'versions.yml')
@@ -64,15 +88,16 @@ nextflow_workflow {
             }
 
             def m = new File("${outputDir}/mapping")
+            assert m.isDirectory() : "mapping/ not published"
             SEVEN.each { f -> assert new File(m, f).isFile() : "mapping/${f} not published" }
-            assert new File(m, 'peptide_hits.tsv').readLines()[0] == PEPTIDE_HITS
+            assert new File(m, 'peptide_hits.tsv').readLines() == [PEPTIDE_HITS]
             assert new File(m, 'protein_hits.tsv').readLines() == [PROTEIN_HITS]
-            assert new File(m, 'unmapped.tsv').readLines()[0] == UNMAPPED
-            assert new File(m, 'mapping_fdr.tsv').readLines()[0] == MAPPING_FDR
+            assert new File(m, 'unmapped.tsv').readLines() == [UNMAPPED]
+            assert new File(m, 'mapping_fdr.tsv').readLines() == [MAPPING_FDR]
         }
     }
 
-    test("example 4: with long proteins: MINIPROT and TBLASTN run once each and emit versions.yml") {
+    test("example 4: proteins, reference peptides and contaminants: protein route runs, optional inputs reach their steps") {
 
         when {
             params {
@@ -84,26 +109,39 @@ nextflow_workflow {
                 input[1] = channel.value(file("${moduleTestDir}/data/mapping/peptides.norm.parquet"))
                 input[2] = channel.value(file("${moduleTestDir}/data/mapping/proteins.long.faa"))
                 input[3] = channel.value([file("${moduleTestDir}/data/mapping/genes.parquet"), file("${moduleTestDir}/data/mapping/features.parquet"), file("${moduleTestDir}/data/mapping/replicons.parquet")])
-                input[4] = channel.empty()
+                input[4] = channel.value(file("${moduleTestDir}/data/mapping/reference_peptides.tsv"))
+                input[5] = channel.value(file("${moduleTestDir}/data/mapping/contaminants.fasta"))
                 """
             }
         }
 
         then {
-            def PEPTIDE_HITS = "peptide\tpeptide_len\tsource\tbest_q_input\tpep_input\tscore_input\tcontig\tstart\tend\tstrand\tframe\tcrosses_origin\troute\tn_diff\tdiff_types\tplacement_q\tlength_class\tlocus_class\tuniqueness\tgene\tnovel_candidate_id\tflags"
-            def PROTEIN_HITS = "protein_id\tprotein_len_aa\troute\tcontig\tstart\tend\tstrand\trank\tidentity\tquery_coverage\treciprocal_overlap\tclass\tgene\tflags"
-            def UNMAPPED = "sequence_id\tsequence\tkind\tlabel\treason\tcontaminant_match"
-            def MAPPING_FDR = "length_class\tn_diff\ttargets\tdecoys\tpi_wrong\tfdr_stratum\tn_accepted\tdecoy_type\tsection\tscore_bin\tprecision\tci_low\tci_high\tc_value\tflags"
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/mapping/step_registry.json")
             def SEVEN = ['peptide_hits.tsv', 'protein_hits.tsv', 'mappings.probed', 'mappings.bed',
             'mappings.gff3', 'unmapped.tsv', 'mapping_fdr.tsv']
+            def work = workDir.toString()
             assert workflow.success
             assert workflow.trace.failed().size() == 0
-            def names = workflow.trace.succeeded().collect { it.name.toString() }
+            def names = H.names(workflow.trace)
+            assert !names.any { it.contains('GIAP_MAPPING') } : "decision 5: no GIAP_MAPPING* processes: ${names}"
             ['MINIPROT', 'TBLASTN'].each { p ->
-                assert names.count { it.tokenize(':').last().startsWith(p) } == 1 : "${p} in ${names}"
+                assert H.count(workflow.trace, p) == 1 : "${p} in ${names}"
             }
-            def taskDirs = []
-            new File(workDir.toString()).eachDir { a -> a.eachDir { t -> taskDirs << t } }
+            ['sixframe_index', 'map_exact', 'map_tolerant', 'placement', 'protein_leftovers', 'loci'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${names}"
+            }
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def pin = H.stepInputs(H.stepDirs(work, 'placement')[0])
+            assert pin.any { it[0] == 'reference_peptides' && it[1].endsWith('reference_peptides.tsv') } : "placement inputs ${pin}"
+            def lin = H.stepInputs(H.stepDirs(work, 'loci')[0])
+            def lkeys = lin.collect { it[0] }
+            assert lin.any { it[0] == 'contaminants' && it[1].endsWith('contaminants.fasta') } : "decision 5: loci inputs ${lin}"
+            assert lkeys.containsAll(['proteins_long', 'miniprot_gff', 'tblastn_tsv']) : "loci inputs ${lkeys}"
+
+            def taskDirs = H.taskDirs(work)
             taskDirs.each { t -> assert new File(t, 'versions.yml').isFile() : "${t}: no versions.yml" }
             ['MINIPROT', 'TBLASTN'].each { p ->
                 assert taskDirs.any { t -> new File(t, 'versions.yml').text.contains(p) } : "no versions.yml for ${p}"
