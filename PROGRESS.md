@@ -4,19 +4,19 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-15 06:30 PDT · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
+_Last updated: 2026-10-15 10:45 PDT · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 57/79 done (72 %), 8 running · generated 2026-10-15 06:29 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 61/79 done (77 %), 10 running · generated 2026-10-15 10:45 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
 | M0 Scaffold | 🟩 | 1 | 0 | 0 |
 | M1 Inputs and preflight | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 12 | 0 | 0 |
-| M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜ 67 % | 14 | 2 | 5 |
-| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜ 83 % | 20 | 2 | 2 |
-| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜ 48 % | 10 | 4 | 7 |
+| M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜ 71 % | 15 | 4 | 2 |
+| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜ 88 % | 21 | 1 | 2 |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜ 57 % | 12 | 5 | 4 |
 | M5 Autocorrelation and islands | _not designed yet_ | - | - | - |
 | M6 Operons | _not designed yet_ | - | - | - |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
@@ -43,27 +43,34 @@ M2–M4: designed (docs/specs/M{2,3,4}-index.md); implementation in progress (�
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
-Merged (all with code review; stats PRs with statistician sign-off): M2-02…M2-06, M2-08 (#57), M2-11 (#64),
-M2-12 (#49), M3-04…M3-15 (incl. #41 placement FDR, #48 tolerant seeds, #50 loci, #53 tblastn, #60
-frameshifts, #63 contaminants), M3-19 (#55), M4-02, M4-04…M4-07 (#51, #54 calibration harness, #62),
-M4-10 (#61), ADR-0016 size gate (#56), Slurm helpers (#46, #58, #59). Run `bash scripts/resume_status.sh`.
-Open PRs:
-- #65 `m2/nf-tools` (M2-07): real-tool run failed review (registry keys, conda off, no `ps`, PyQt5,
-  stub headers); fixes committed locally, real ANNOTATE run = Slurm 1847900; then re-review.
-  Stacked follow-up `m2/run-wiring` (giap run → preflight, replicons, db_dir; `_step` loads steps) pushed.
-- #66 M3-20 sim de novo errors (approved after test pins) — merging. #67 M2-09 setup resources (ADR-0017) —
-  merging. #68 M3-16 mapping outputs — review fixes in progress. #69 calibration migration to
-  `calibrate()` — statistician review.
-- `m4/sim-m4-08` (M4-08 sim expression): test-author.
-Slurm: tool recordings split per tool (giap-rec-*: 1847974 terminatornet, 1847975 genomad, 1847977
-transtermhp, 1847979 promoter_calculator; chained 1847981 antismash, 1847982 ostir, 1847983 promotech);
-the sequential job 1847778 was cancelled (TerminatorNet on K-12 alone took 60 min).
+Merged today (since 00:30): M2-09 (#67), M2-13 (#76), M2-15 (#75), M2-16 (#81), M2-18 (#84), M3-16 (#68),
+M3-17 (#77), M3-20 (#66), M3-23 (#79), M4-07 (#62), M4-08 (#71), M4-09 (#80), M4-11 (#74), M4-14 (#82),
+calibration migration (#69), giap run wiring (#78), per-process real-tool job array (#88), CI: size gate
+ADR-0016 (#73), unique test names (#85), waitmerge conflict stop (#90). Run `bash scripts/resume_status.sh`.
+Open PRs (state at 10:45):
+- Merging on green CI: #83 M4-13 detectability (statistician approved), #86 M2-17 codon usage, #93 M2-10
+  recording harness (circular fixtures).
+- In review/fixes: #87 M4-16 detection summary (statistician changes requested; implementer on fixes),
+  #89 M4-17 region tests (statistician reviewing; C1 crispr/hl_shift at α=0.01 borderline), #91 M2-19
+  regions (implementer on fixes), #92 M4-12 detection tiers (statistician reviewing), #94 M2-14 Promoter
+  Calculator (review: tests-only changes requested, decisions recorded; not yet pinned — light mode).
+- Branch m3/mapping-nf-2: MAPPING subworkflow (implementer running).
+Light mode since 10:45 (Khoa): no new token-heavy agents; long Slurm runs queued (when CPUs allow):
+per-process real-tool array on K-12 and Nissle, calibration_full on main, integration tests on main.
+Real `giap run` status: preflight → ANNOTATE with real tools works (Bakta, geNOMAD, TerminatorNet, resume
+caching); it stops at the first step not yet on main (codon_usage → #86).
+
 Follow-ups queued (docs/backlog.md has the full list):
 - Per-process real-tool Slurm job array for workflow modules (inputs from recordings) — after #65 (Khoa).
 - calibration_full variants for migrated suites (statistician); GO data-version pin (M2-09).
 - M3-21: c_ref − c_true, chance rate of wrong peptides, PEP–length correlation (ADR-0010).
 - M4-12/M4-17 forwarded items; M6: simulate readthrough (cterm_extension).
 Lessons (keep):
+- A PR that conflicts with main gets NO CI run; waitmerge now stops on it (#90). Merge main, then retry.
+- Fixture genomes need `[topology=circular]` (spec §~770); plain NCBI FASTA → linear replicons. Nissle
+  GCA_043228065.1 has 3 plasmids (p15A, pMUT1, pMUT2).
+- Generated golden outputs (tests/data/golden/) are exempt from the role check, like recorded fixtures.
+- Shared test files across tool-layer PRs: scratchpad merge_main_nf.sh resolves BUILDERS + step_registry.
 - Real `giap run` (SIM100K, farmshare_local,apptainer, real $GIAP_DB_DIR): preflight ok, BAKTA (13.5 min),
   GENOMAD, TERMINATORNET ok, `--resume` caches; stops at the first unregistered py step (codon_usage, M2-17).
 - Tests built on invented fixtures hid contract bugs (M4-13, M4-14): fixtures must come from the real
