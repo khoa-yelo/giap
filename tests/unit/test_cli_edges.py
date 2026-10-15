@@ -37,15 +37,19 @@ def test_unexpected_exception_becomes_exit_5_with_report_message(
     assert "internal error" in err.lower()
 
 
+# `giap setup` is real since M2-08: tests that only check option parsing skip every resource.
+_NO_DOWNLOADS = ["--bakta", "skip", "--no-genomad", "--no-antismash", "--no-promotech-models"]
+
+
 def test_empty_config_file_is_accepted(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     from giap.config import resolve_config
 
     cfg = tmp_path / "empty.yaml"
     cfg.write_text("")
     assert resolve_config(cfg) == resolve_config()
-    # Accepted by the CLI: reaches the not-implemented stub (5), not invalid input (1).
-    assert _exit_code(_setup_argv(tmp_path, "--config", str(cfg))) == ExitCode.INTERNAL
-    assert "not implemented" in capsys.readouterr().err
+    # Accepted by the CLI (not invalid input, 1); every resource skipped, so no download.
+    argv = [*_setup_argv(tmp_path, "--config", str(cfg)), *_NO_DOWNLOADS]
+    assert _exit_code(argv) == ExitCode.SUCCESS
 
 
 def test_malformed_yaml_config_exits_1(tmp_path: Path) -> None:
@@ -77,8 +81,8 @@ def test_set_nested_key_is_accepted(tmp_path: Path) -> None:
 
     cfg = resolve_config(None, ["annotation.promoters.mode=targeted"])
     assert cfg.annotation.promoters.mode == "targeted"
-    argv = _setup_argv(tmp_path, "--set", "annotation.promoters.mode=targeted")
-    assert _exit_code(argv) == ExitCode.INTERNAL
+    argv = [*_setup_argv(tmp_path, "--set", "annotation.promoters.mode=targeted"), *_NO_DOWNLOADS]
+    assert _exit_code(argv) == ExitCode.SUCCESS
 
 
 def test_set_value_may_contain_equals() -> None:
