@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.resources import files
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Literal
 from urllib.parse import urlparse
@@ -97,18 +97,28 @@ class SetupOptions:
     contaminants: bool = False
 
 
+def _safe_name(name: str) -> bool:
+    """A non-empty relative POSIX path with no ``..`` component."""
+    p = PurePosixPath(name)
+    return bool(name) and not p.is_absolute() and ".." not in p.parts
+
+
 def _load_sources() -> Mapping[str, DbItem]:
+    """``db_sources.yaml``; every ``path`` must stay inside the DB directory (``ValueError``)."""
     raw = yaml.safe_load(files("giap.data").joinpath("db_sources.yaml").read_text("utf-8"))
     out: dict[str, DbItem] = {}
     for name, row in raw.items():
         url = str(row["url"])
+        path = str(row["path"])
+        if not _safe_name(path):
+            raise ValueError(f"db_sources.yaml: unsafe path {path!r} for {name}")
         out[name] = DbItem(
             name=name,
             version=str(row.get("version") or ""),
             url=url,
             host=urlparse(url).hostname or "",
             checksum=str(row.get("checksum") or ""),
-            path=str(row["path"]),
+            path=path,
             tool=row.get("tool"),
             check=str(row["check"]),
             size_gib=int(row.get("size_gib", 0)),

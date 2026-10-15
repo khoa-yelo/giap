@@ -23,15 +23,17 @@ import zipfile
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
-from typing import Protocol
+from typing import BinaryIO, Protocol
 from urllib.parse import urljoin, urlparse
 
 from giap.exitcodes import ExitCode
 from giap.setupdb.items import (
     FILE_CHECKS,
+    SOURCES,
     DbItem,
     DbRecord,
     SetupOptions,
+    _safe_name,
     check_dir,
     check_file,
     file_digest,
@@ -119,7 +121,9 @@ REDIRECT_HOSTS = {
 class HttpsFetcher:
     """HTTPS download of one official URL. Redirects are followed only to https URLs on the same
     host or on that source's allowlisted official hosts, checked before the new location is
-    contacted; no other scheme, host or mirror (R6). A short body is an error; nothing is left."""
+    contacted; no other scheme, host or mirror (R6). A short body is an error; a body without
+    Content-Length stops at the item's ``size_gib`` (1 GiB when unset or for a URL that is no
+    item) and is an error too; nothing is left."""
 
     max_redirects = 5
 
@@ -151,9 +155,12 @@ class HttpsFetcher:
                 if resp.status != 200:
                     raise SourceError(host, f"HTTP {resp.status} for {current}")
                 want = resp.getheader("Content-Length")
+                cap = None if want is not None and want.isdigit() else _body_cap(url)
                 with dest.open("wb") as out:
-                    shutil.copyfileobj(resp, out, 8 << 20)
-                    got = out.tell()
+                    got = _copy(resp, out, cap)
+                if cap is not None and got > cap:
+                    raise SourceError(host, f"body without Content-Length exceeds {cap} bytes "
+                                            f"from {current}")  # fmt: skip
                 if want is not None and want.isdigit() and got != int(want):
                     raise SourceError(host, f"truncated body: {got} of {want} bytes from {current}")
                 return
@@ -162,6 +169,26 @@ class HttpsFetcher:
             finally:
                 conn.close()
         raise SourceError(host, f"more than {self.max_redirects} redirects")
+
+
+def _body_cap(url: str) -> int:
+    """Byte cap for a body of unknown length: ``size_gib`` of the item(s) at ``url``, else 1 GiB
+    (M2-09 review decision 4)."""
+    gib = max((i.size_gib for i in SOURCES.values() if i.url == url), default=0)
+    return (gib or 1) * GIB
+
+
+def _copy(src: BinaryIO, out: BinaryIO, cap: int | None) -> int:
+    """Copy ``src`` to ``out`` in 8 MiB blocks; with a ``cap``, stop after ``cap + 1`` bytes."""
+    got = 0
+    while cap is None or got <= cap:
+        n = 8 << 20 if cap is None else min(8 << 20, cap + 1 - got)
+        block = src.read(n)
+        if not block:
+            break
+        out.write(block)
+        got += len(block)
+    return got
 
 
 def _say(message: str) -> None:
@@ -179,11 +206,6 @@ def _absent(item: DbItem, message: str, status: str = "absent") -> DbRecord:
         item.name, item.version, item.url, item.checksum, 0, "", item.path, "absent", message
     )
     return dataclasses.replace(rec, status="mismatch") if status == "mismatch" else rec
-
-
-def _safe_name(name: str) -> bool:
-    p = PurePosixPath(name)
-    return bool(name) and not p.is_absolute() and ".." not in p.parts
 
 
 def _safe_member(m: tarfile.TarInfo) -> bool:
@@ -361,6 +383,21 @@ def _report(rec: DbRecord) -> None:
          f"{rec.name}: {rec.message or rec.status}")  # fmt: skip
 
 
+def _check(item: DbItem, db_dir: Path, old: dict[str, DbRecord], runner: CommandRunner) -> DbRecord:
+    """``--check`` of one item. antiSMASH recorded as installed from the image (url "image")
+    passes when ``antismash --check-prereqs`` passes there (M2-09 review decision 1)."""
+    rec = verify(item, db_dir)
+    prev = old.get(item.name)
+    if rec.status == "ok" or item.check != "antismash" or prev is None:
+        return rec
+    if (prev.status, prev.url) != ("ok", "image"):
+        return rec
+    image = _antismash_image(item, runner)
+    if image is None:
+        return dataclasses.replace(rec, message="antismash --check-prereqs fails in the image")
+    return dataclasses.replace(prev, message=image.message)
+
+
 def run_setup(opts: SetupOptions, runner: CommandRunner, fetcher: Fetcher) -> ExitCode:
     """Verify (``--check``) or adopt/download every planned item and update the manifest."""
     items = plan(opts)
@@ -368,7 +405,8 @@ def run_setup(opts: SetupOptions, runner: CommandRunner, fetcher: Fetcher) -> Ex
         return ExitCode.SUCCESS
     db = opts.db_dir
     if opts.check:
-        checked = [verify(i, db) for i in items]
+        old = read_records(db)
+        checked = [_check(i, db, old, runner) for i in items]
         for r in checked:
             _report(r)
         return ExitCode.SUCCESS if all(r.status == "ok" for r in checked) else ExitCode.ENVIRONMENT
