@@ -29,6 +29,7 @@ Unmarked: these run on every commit.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import textwrap
@@ -407,3 +408,165 @@ def test_harness_attack_file_lands_in_one_task(selections: dict[str, dict[str, A
         if "test_fdr_check_passes_exact_level_bh" in nodeid
     }
     assert len(hits) == 1, hits
+
+
+# ------------------------------------------- 5. sharded runs honour ADR-0015 (lead decision 5)
+#
+# ``--merge`` evaluates block 1 from the shard records and, for every failing check, runs block 2
+# itself (replicates R..2R-1, sequentially in the merge task) before the verdict; it never reports
+# ``fail`` without block 2. The merge task selects a suite's tests through ``pytest_args`` (the one
+# hook that maps a suite to pytest arguments), so these tests point it at a tiny probe test file
+# whose replicate function is cheap and deterministic: replicate i returns p = 0.0 (rejected) if
+# i is in block 1 (or in mode "both"), else 0.5. The probe recognises block 1 by its uniform draw.
+
+STREAM_M = "regions.review_merge_block2"
+R_M = 20
+PROBE_MODE_ENV = "GIAP_TEST_MERGE_PROBE_MODE"  # "b1": only block 1 fails; "both": both fail
+PROBE_DRAWS_ENV = "GIAP_TEST_MERGE_PROBE_DRAWS"  # file the probe appends its draws to
+
+_PROBE = textwrap.dedent(
+    f"""
+    import os
+
+    import _criteria as C
+
+    STREAM, R = {STREAM_M!r}, {R_M}
+    B1 = {{float(C.replicate_rng(STREAM, i).uniform()) for i in range(R)}}
+
+
+    def fn(rng):
+        u = float(rng.uniform())
+        with open(os.environ[{PROBE_DRAWS_ENV!r}], "a") as fh:
+            fh.write(repr(u) + "\\n")
+        bad = os.environ[{PROBE_MODE_ENV!r}] == "both" or u in B1
+        return 0.0 if bad else 0.5
+
+
+    def test_probe():
+        C.calibrate("regions", "level", 0.05, fn, R, stream=STREAM)
+    """
+)
+
+
+def _probe_value(mode: str) -> Callable[[int, float], float]:
+    b1 = set(_expected_draws(STREAM_M, range(R_M)))
+    return lambda _i, u: 0.0 if (mode == "both" or u in b1) else 0.5
+
+
+def _block1_shards(log_dir: Path, mode: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Shard records of block 1 only (0:7, 7:20), as the job array writes them."""
+    monkeypatch.delenv(C.BLOCK_ENV, raising=False)
+    for b in ["0:7", "7:20"]:
+        monkeypatch.setenv(C.SHARD_ENV, b)
+        C.calibrate(
+            "regions", "level", 0.05, Recorder(_probe_value(mode)), R_M,
+            stream=STREAM_M, log_dir=log_dir,
+        )  # fmt: skip
+    monkeypatch.delenv(C.SHARD_ENV, raising=False)
+
+
+def _setup_probe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, body: str = _PROBE
+) -> tuple[Path, Path]:
+    log_dir, draws = tmp_path / "logs", tmp_path / "draws.txt"
+    probe_dir = tmp_path / "probe"
+    probe_dir.mkdir()
+    probe = probe_dir / "test_merge_probe.py"
+    probe.write_text(body)
+    draws.write_text("")
+    _block1_shards(log_dir, mode, monkeypatch)
+    cal = str(Path(C.__file__).resolve().parent)
+    monkeypatch.setenv("PYTHONPATH", f"{cal}:{os.environ.get('PYTHONPATH', '')}")
+    monkeypatch.setenv(C.LOG_DIR_ENV, str(log_dir))
+    monkeypatch.setenv(PROBE_MODE_ENV, mode)
+    monkeypatch.setenv(PROBE_DRAWS_ENV, str(draws))
+    monkeypatch.setattr(
+        C, "pytest_args", lambda _suite, _full: [str(probe), "-q", "-p", "no:cacheprovider"]
+    )
+    return log_dir, draws
+
+
+def _merged(log_dir: Path) -> list[dict[str, Any]]:
+    path = log_dir / "regions.merged.jsonl"
+    return C.read_results(path) if path.exists() else []
+
+
+def _reference(tmp_path: Path, mode: str) -> dict[str, Any]:
+    """Unsharded ``calibrate`` of the same check: block 1 fails, so block 2 runs."""
+    return C.calibrate(
+        "regions", "level", 0.05, Recorder(_probe_value(mode)), R_M,
+        stream=STREAM_M, log_dir=tmp_path / "reference",
+    )  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("mode", "status", "code"), [("b1", "unconfirmed", 0), ("both", "fail", 1)]
+)
+def test_merge_runs_block_two_itself(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, status: str, code: int
+) -> None:
+    log_dir, draws = _setup_probe(tmp_path, monkeypatch, mode)
+    assert C.main(["--suite", "regions", "--merge"]) == code
+    got = [float(x) for x in draws.read_text().split()]
+    assert got == _expected_draws(STREAM_M, range(R_M, 2 * R_M)), "block 2 = replicates R..2R-1"
+    merged = [r for r in _merged(log_dir) if r.get("stream") == STREAM_M]
+    assert len(merged) == 1, merged
+    m = merged[0]
+    assert m["status"] == status and m["block"] == 2 and m["R"] == R_M
+    assert m["ok"] is (mode == "b1")
+    ref = _reference(tmp_path, mode)
+    assert ref["status"] == status and ref["block"] == 2
+    assert m["seed"] == ref["seed"] == C.suite_seed(STREAM_M, R_M)
+    assert m["observed"] == pytest.approx(ref["observed"])
+    assert m["bound"] == pytest.approx(ref["bound"])
+
+
+def test_merge_does_not_rerun_passing_checks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Block 1 passes: no block 2 is run and the merged record is block 1, ``pass``."""
+    log_dir, draws = tmp_path / "logs", tmp_path / "draws.txt"
+    monkeypatch.delenv(C.BLOCK_ENV, raising=False)
+    for b in ["0:7", "7:20"]:
+        monkeypatch.setenv(C.SHARD_ENV, b)
+        C.calibrate(
+            "regions", "level", 0.05, Recorder(lambda _i, _u: 0.5), R_M,
+            stream=STREAM_M, log_dir=log_dir,
+        )  # fmt: skip
+    monkeypatch.delenv(C.SHARD_ENV, raising=False)
+    monkeypatch.setenv(C.LOG_DIR_ENV, str(log_dir))
+
+    def no_pytest(*_a: object, **_k: object) -> object:
+        raise AssertionError("a passing block 1 needs no block 2")
+
+    monkeypatch.setattr(C.subprocess, "run", no_pytest)
+    monkeypatch.setattr(C, "pytest_args", no_pytest)
+    assert C.main(["--suite", "regions", "--merge"]) == 0
+    assert not draws.exists()
+    (m,) = _merged(log_dir)
+    assert m["status"] == "pass" and m["block"] == 1
+
+
+def test_merge_never_fails_without_block_two(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If block 2 cannot be run (its tests log nothing), --merge errors instead of saying fail."""
+    empty = "def test_probe():\n    pass\n"
+    log_dir, _draws = _setup_probe(tmp_path, monkeypatch, "both", body=empty)
+    code = C.main(["--suite", "regions", "--merge"])
+    assert code not in (0, 1), "exit 1 means a confirmed fail; 0 means pass"
+    assert all(r.get("status") != "fail" for r in _merged(log_dir))
+    assert all(r.get("status") != "pass" for r in _merged(log_dir))
+
+
+def test_merge_shards_never_reports_fail_from_block_one_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The record-only merge cannot run block 2: it must not turn block 1 alone into ``fail``."""
+    _block1_shards(tmp_path, "both", monkeypatch)
+    try:
+        merged = C.merge_shards("regions", log_dir=tmp_path)
+    except (ValueError, LookupError):
+        return  # refusing to decide is fail closed
+    (m,) = merged
+    assert m["status"] not in ("fail", "pass", "unconfirmed"), m["status"]
