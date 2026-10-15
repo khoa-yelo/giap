@@ -13,7 +13,8 @@ Contract tables (key: file, producer; invariants checked here):
 - C8 ``region_genes``: region_genes.parquet (M2-19); ``subset`` non-NA iff prophage member.
 - C9 ``peptides``: peptides.norm.parquet (M1-12); one row per peptide; ``protein_ids`` a native
   list of non-empty strings (lead decision 1; ``;``-joined strings are dtype errors).
-- C10 ``abundance``: abundance.norm.parquet (M1-12, optional).
+- C10 ``abundance``: abundance.norm.parquet (M1-12, optional); ``raw_id`` optional, no scale
+  column (the loader reads ``routing.abundance_scale`` from preflight.json).
 - C11 ``peptide_hits``: mapping/peptide_hits.tsv (M3-16); ``gene`` set for assigning classes,
   NA for non-assigning ones (pseudogene: either), always a C2 tag; no C9 decoy placed.
 - C12 ``protein_hits``: mapping/protein_hits.tsv (M3-16); ``gene`` a C2 tag when set.
@@ -83,11 +84,14 @@ def _l(name: str) -> Column:
 
 STRAND = ("+", "-")
 LOCUS_CLASSES = (
-    "rna_overlap", "pseudogene", "sorf", "cds_inframe", "nterm_extension", "cds_outframe",
-    "antisense", "intergenic",
+    "rna_overlap", "pseudogene", "sorf", "cds_inframe", "nterm_extension", "cterm_extension",
+    "cds_outframe", "antisense", "intergenic",
 )  # fmt: skip
-# Classes whose placements must carry a gene; ``pseudogene`` may (lead decision 2) but need not.
-ASSIGNING_CLASSES: tuple[str, ...] = ("cds_inframe", "sorf", "nterm_extension")
+# Classes whose placements must carry a gene (``cterm_extension``: ADR-0013); ``pseudogene`` may
+# (lead decision 2) but need not.
+ASSIGNING_CLASSES: tuple[str, ...] = (
+    "cds_inframe", "sorf", "nterm_extension", "cterm_extension",
+)  # fmt: skip
 _MAY_ASSIGN = (*ASSIGNING_CLASSES, "pseudogene")
 
 _LAYER_FLOATS = (
@@ -138,7 +142,7 @@ TABLES: Mapping[str, tuple[Column, ...]] = {
         _b("is_contaminant"), _l("protein_ids"), _l("modified_peptides"), _i("n_rows"),
         _i("n_runs"), _f("intensity", True), _s("source", True), _s("search_db", True),
     ),
-    "abundance": (_s("protein_id"), _f("value", True), _s("scale", enum=("log2", "linear"))),
+    "abundance": (_s("protein_id"), Column("raw_id", "str", optional=True), _f("value", True)),
     "peptide_hits": (
         _s("peptide"), _i("peptide_len"), _s("source", True), _f("best_q_input", True),
         _f("pep_input", True), _f("score_input", True), _s("contig"), _i("start"), _i("end"),
@@ -280,13 +284,8 @@ def _bad_dtype_rows(s: pd.Series, dtype: str, na: np.ndarray) -> list[int]:
 
 def _bad_list_cells(s: pd.Series, na: np.ndarray) -> list[int]:
     """Positions of list cells holding an NA, empty or non-string element."""
-    out = []
-    for i, v in enumerate(s.tolist()):
-        if na[i] or not _is_listlike(v):
-            continue
-        if any(not isinstance(x, str) or x == "" for x in list(v)):
-            out.append(i)
-    return out
+    bad = [_is_listlike(v) and any(not isinstance(x, str) or x == "" for x in list(v)) for v in s]
+    return _positions(~na & np.asarray(bad, dtype=bool))
 
 
 def _check_column(table: str, col: Column, s: pd.Series) -> list[Issue]:
@@ -295,23 +294,13 @@ def _check_column(table: str, col: Column, s: pd.Series) -> list[Issue]:
     bad = _bad_dtype_rows(s, col.dtype, na)
     if bad:
         got = sorted({type(v).__name__ for v in s.iloc[bad[:50]].tolist()})
-        out.append(
-            _issue(
-                table,
-                "dtype",
-                f"column {col.name!r} must be {col.dtype} (dtype {s.dtype}, cell types {got})",
-                bad,
-            )
-        )
+        msg = f"column {col.name!r} must be {col.dtype} (dtype {s.dtype}, cell types {got})"
+        out.append(_issue(table, "dtype", msg, bad))
     if not col.nullable and na.any():
         out.append(_issue(table, "na", f"column {col.name!r} has missing values", _positions(na)))
     if col.enum is not None:
-        allowed = set(col.enum)
-        rows = [
-            i
-            for i, v in enumerate(s.tolist())
-            if not na[i] and isinstance(v, str) and v not in allowed
-        ]
+        enum = set(col.enum)
+        rows = [i for i, v in enumerate(s.tolist()) if isinstance(v, str) and v not in enum]
         if rows:
             values = [s.iloc[i] for i in rows]
             msg = f"column {col.name!r} values not in {list(col.enum)}"

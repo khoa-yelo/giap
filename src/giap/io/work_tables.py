@@ -38,6 +38,7 @@ class M4Inputs:
     region_genes: pd.DataFrame
     peptides: pd.DataFrame | None
     abundance: pd.DataFrame | None
+    abundance_scale: str | None  # preflight.json routing.abundance_scale (M1-12); None if unknown
     peptide_hits: pd.DataFrame
     protein_hits: pd.DataFrame
     unmapped: pd.DataFrame
@@ -140,6 +141,22 @@ def _read_meta(path: Path | None, issues: list[Issue]) -> str:
     return source
 
 
+def _read_scale(path: Path | None, issues: list[Issue]) -> str | None:
+    """``routing.abundance_scale`` of M1-12 preflight.json; ``None`` when not given or unset."""
+    if path is None:
+        return None
+    try:
+        scale = json.loads(path.read_text(encoding="utf-8"))["routing"]["abundance_scale"]
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        msg = f"{path.name}: no routing.abundance_scale ({exc!r})"
+        issues.append(_issue("preflight", "abundance_scale", msg, "warn"))
+        return None
+    if scale in (None, "log2", "linear"):
+        return scale  # type: ignore[no-any-return]
+    issues.append(_issue("preflight", "abundance_scale", f"{path.name}: scale {scale!r} unknown"))
+    return None
+
+
 def _load_table(key: str, path: Path | None, issues: list[Issue]) -> pd.DataFrame | None:
     optional = key in OPTIONAL_KEYS
     if path is None or not path.is_file():
@@ -161,6 +178,7 @@ def _load_table(key: str, path: Path | None, issues: list[Issue]) -> pd.DataFram
 
 def load_m4_inputs(paths: Mapping[str, Path]) -> tuple[M4Inputs, list[Issue]]:
     """Read every contract file in ``paths`` (keys of ``M4_INPUT_KEYS``) and validate it.
+    ``paths["preflight"]`` (M1-12 preflight.json, optional) gives ``abundance_scale``.
 
     Missing required files are errors (an empty frame stands in), missing optional files warnings
     (``None``); per-table and cross-table issues follow. Never raises on content.
@@ -170,6 +188,7 @@ def load_m4_inputs(paths: Mapping[str, Path]) -> tuple[M4Inputs, list[Issue]]:
         key: _load_table(key, paths.get(key), issues) for key in M4_INPUT_KEYS if key in TABLES
     }
     source = _read_meta(paths.get("annotation_meta"), issues)
+    scale = _read_scale(paths.get("preflight"), issues)
 
     def req(key: str) -> pd.DataFrame:
         df = frames[key]
@@ -186,6 +205,7 @@ def load_m4_inputs(paths: Mapping[str, Path]) -> tuple[M4Inputs, list[Issue]]:
         region_genes=req("region_genes"),
         peptides=frames["peptides"],
         abundance=frames["abundance"],
+        abundance_scale=scale,
         peptide_hits=req("peptide_hits"),
         protein_hits=req("protein_hits"),
         unmapped=req("unmapped"),
