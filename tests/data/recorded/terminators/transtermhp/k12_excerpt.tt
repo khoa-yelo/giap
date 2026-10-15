@@ -1,0 +1,63 @@
+TransTermHP v2.09 (built on Oct  8 2025)
+25 bins; sample size is 20000000
+--pval-conf=/usr/local/data/expterm.dat
+
+--gc=-2.3 --au=-0.9 --gu=1.3 --mm=3.5 --gap=6
+--max-len=59 --min-stem=4 --max-loop=13 --min-loop=3
+--uwin-length=6 --uwin-require=3 --max-hp-score=-2 --max-tail-score=-2.5
+--loop-penalty=1,2,3,4,5,6,7,8,9,10,11
+--start-cut=0 --end-cut=25
+
+Genes: 0.479682 %AT, 3961275 nt, 35029 terms.
+Intergenic: 0.564341 %AT, H2T: 452247 nt, 4382 terms; T2T: 137669 nt, 3265 terms; H2H: 190693 nt, 2771 terms. 
+
+Each terminator entry starts in column 3 and is of the form:
+  term #       start - end      +/-  regionconf   hp     tail | notes
+Followed by the sequence of the 5' tail, 5' stem, loop, 3' stem, and 3' tail.
+Genes are interspersed, and start the first column.
+
+
+SEQUENCE U00096.3  (length 4641652)
+
+KOIAIB_00001      190 - 255      + | 
+  TERM 1          280 - 301      + F   100   -13 -6.06723 | opp_overlap 269 280
+  GAAACACAGAAAAAA           GCCCGCAC CTGACA GTGCGGGC            TTTTTTTTTCGACCA
+KOIAIB_00002      337 - 2799     + | 
+KOIAIB_00003     2801 - 3733     + | 
+KOIAIB_00004     3734 - 5020     + | 
+  TERM 2         5044 - 5070     + F    91    -8 -5.24129 | gap 1, opp_overlap 5043
+  CATTATCTCAATCAG        GCCGGGTTTGC TTTTAT GCAG-CCCGGC         TTTTTTATGAAGAAA
+KOIAIB_00005     5234 - 5530     + | 
+  TERM 3         5564 - 5597     + T    79 -11.7 -2.62043 | opp_overlap 5552, overlap 5559 5574
+  CAATCCGGCATTCAG     CGCCTGATGCGACGC TGGC GCGTCTTATCAGGCC      TACGTTAATTCTGCA
+KOIAIB_00279   270278 - 270646   + | 
+  TERM 93      270622 - 270639   + GF   81    -7 -4.64766 | opp_overlap 270624
+  GACGAACATTTACAG             CAGAGG AAAAAG CCTCTG              TTTTTGAACTATGGA
+KOIAIB_00280   270603 - 271754   + | 
+KOIAIB_00373   363179 - 361926   - | 
+  TERM 120     363223 - 363203   - RH  100 -14.7 -3.38046 | opp_overlap 363203 363202 363198, overlap 363201
+  TCCTTACGCGAAATA            CGGGCAGAC ATG GCCTGCCCG            GTTATTATTATTTTT
+KOIAIB_00374   366305 - 363231   - | 
+KOIAIB_02389  2344865 - 2347150  + | 
+  TERM 888    2347220 - 2347177  - Tf  100 -13.3 -3.53811 | opp_overlap 2347169 2347185, overlap 2347217 2347219
+  CGGATGCGGCGTAAA CGCCTTATCCGGCCTAC GGCTCGGTTT GTAGGCCTGATAAGACG CGCCAGCGTCGCATC
+KOIAIB_02391  2347385 - 2347350  - | 
+KOIAIB_04704  4630522 - 4628855  - | 
+KOIAIB_04705  4630733 - 4632670  + | 
+KOIAIB_04706  4632790 - 4633086  + | 
+KOIAIB_04707  4633745 - 4633233  - | 
+KOIAIB_04708  4633797 - 4634444  + | 
+KOIAIB_04709  4635310 - 4634441  - | 
+KOIAIB_04710  4635521 - 4635994  + | 
+KOIAIB_04711  4636007 - 4636696  + | 
+KOIAIB_04712  4636696 - 4638120  + | 
+KOIAIB_04713  4638178 - 4639530  + | 
+  TERM 1845   4639570 - 4639541  - T   100 -13.7 -4.64144 | opp_overlap 4639547, overlap 4639547
+  AATAAGGTTGAAAAA       TAAAAACGGCGCT AAAA AGCGCCGTTTTTT        TTGACGGTGGTAAAG
+  TERM 1846   4639547 - 4639564  + T   100 -12.7 -5.76949 | opp_overlap 4639541 4639547
+  GTTGAAAAATAAAAA             CGGCGCT AAAA AGCGCCG              TTTTTTTTGACGGTG
+  TERM 1847   4639564 - 4639547  - T   100 -12.7 -5.61881 | opp_overlap 4639547, overlap 4639541
+  GTTGAAAAATAAAAA             CGGCGCT AAAA AGCGCCG              TTTTTTTTGACGGTG
+KOIAIB_04714  4640306 - 4639590  - | 
+KOIAIB_04715  4640942 - 4641628  + | 
+

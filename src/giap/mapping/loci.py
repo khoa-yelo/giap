@@ -41,10 +41,12 @@ from giap.model.genes import Gene, GeneModel, NcFeature
 __all__ = [
     "LOCUS_CLASSES",
     "LocusClass",
+    "LocusClassifier",
     "Uniqueness",
     "annotate_peptide_hits",
     "annotate_protein_hits",
     "classify_locus",
+    "in_frame",
 ]
 
 LocusClass = Literal[
@@ -83,7 +85,7 @@ def _cterm(s: int, e: int, g: Interval, shifts: tuple[int, ...]) -> bool:
     fs, fe = g.start, g.end
     for d in shifts:
         a, b = s + d, e + d
-        if max(a, fs) >= min(b, fe) or not _in_frame(a, b, g):
+        if max(a, fs) >= min(b, fe) or not in_frame(a, b, g):
             continue
         if (g.strand == "+" and b > fe) or (g.strand == "-" and a < fs):
             return True
@@ -97,7 +99,9 @@ def _inside_shift(s: int, e: int, fs: int, fe: int, shifts: tuple[int, ...]) -> 
     return None
 
 
-def _in_frame(s: int, e: int, g: Interval) -> bool:
+def in_frame(s: int, e: int, g: Interval) -> bool:
+    """True if ``[s, e)`` (same strand, unshifted) shares the reading frame of ``g``: plus strand
+    by the 5' ``start``, minus strand by the 5' ``end``."""
     if g.strand == "+":
         return (s - g.start) % 3 == 0
     return (g.end - e) % 3 == 0
@@ -268,7 +272,7 @@ def _classify(
             continue
         same_strand = True
         d = _inside_shift(s, e, fi.start, fi.end, shifts)
-        if d is not None and _in_frame(s + d, e + d, fi):
+        if d is not None and in_frame(s + d, e + d, fi):
             (sorf if x.feature_type == "sorf" else inframe).append(x.locus_tag)
         elif _cterm(s, e, fi, shifts):
             cterm.append(x.locus_tag)
@@ -295,11 +299,26 @@ def _classify(
     return "intergenic", None
 
 
+class LocusClassifier:
+    """Classifies many intervals against one gene model, building its N-terminal index once."""
+
+    def __init__(self, gm: GeneModel, genome: Mapping[str, str]) -> None:
+        self._gm = gm
+        self._genome = genome
+        self._index = _build_index(gm)
+
+    def classify(self, iv: Interval) -> tuple[LocusClass, str | None]:
+        """Locus class of ``iv`` and the gene it assigns to (None unless an assigning class)."""
+        return _classify(
+            iv.contig, iv.start, iv.end, iv.strand, self._gm, self._genome, self._index
+        )
+
+
 def classify_locus(
     iv: Interval, gm: GeneModel, genome: Mapping[str, str]
 ) -> tuple[LocusClass, str | None]:
     """Locus class of ``iv`` and the gene it assigns to (None unless an assigning class)."""
-    return _classify(iv.contig, iv.start, iv.end, iv.strand, gm, genome, _build_index(gm))
+    return LocusClassifier(gm, genome).classify(iv)
 
 
 # ---------------------------------------------------------------- peptide hits

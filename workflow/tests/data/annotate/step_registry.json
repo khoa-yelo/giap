@@ -17,6 +17,18 @@
       "tus"
     ]
   },
+  "ostir_input": {
+    "inputs": [
+      "annotation_meta",
+      "genes",
+      "genome",
+      "replicons"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "ostir_input"
+    ]
+  },
   "parse_bakta": {
     "inputs": [
       "bakta_json",
@@ -53,6 +65,39 @@
     "outputs": [
       "windows",
       "windows_map"
+    ]
+  },
+  "rbs_layer": {
+    "inputs": [
+      "ostir",
+      "ostir_input"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "rbs"
+    ]
+  },
+  "terminator_layer": {
+    "inputs": [
+      "replicons"
+    ],
+    "optional_inputs": [
+      "bactermfinder",
+      "terminatornet",
+      "transtermhp"
+    ],
+    "outputs": [
+      "terminators",
+      "terminators_crosscheck"
+    ]
+  },
+  "transterm_input": {
+    "inputs": [
+      "genes"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "genes_coords"
     ]
   },
   "uniop_input": {

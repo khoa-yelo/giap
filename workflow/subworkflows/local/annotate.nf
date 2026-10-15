@@ -150,15 +150,15 @@ workflow ANNOTATE {
             BACTERMFINDER(gin)
             tools += [kv('bactermfinder', BACTERMFINDER.out.dir)]
         }
-        def tl = stepIn('terminator_layer', tools)
-        TERMINATOR_LAYER(tl.files, tl.keys, ['terminators=terminators.parquet', 'crosscheck=terminators_crosscheck.tsv'])
+        def tl = stepIn('terminator_layer', [reps] + tools)
+        TERMINATOR_LAYER(tl.files, tl.keys, ['terminators=terminators.parquet', 'terminators_crosscheck=terminators_crosscheck.tsv'])
         layers += [kv('terminators', pick(TERMINATOR_LAYER.out.outputs, 'terminators.parquet'))]
     }
 
     if (pc.rbs) {
         layers += [pre('rbs')]
     } else {
-        def oi = stepIn('ostir_input', [genes, kv('annotation_meta', pick(P, 'annotation_meta.json'))])
+        def oi = stepIn('ostir_input', [genes, kv('annotation_meta', pick(P, 'annotation_meta.json')), reps, kv('genome', genome)])
         OSTIR_INPUT(oi.files, oi.keys, ['ostir_input=ostir_input.csv'])
         def oin = pick(OSTIR_INPUT.out.outputs, 'ostir_input.csv')
         OSTIR(gid.combine(oin))
