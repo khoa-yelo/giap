@@ -113,3 +113,17 @@ def assign_alignments(alns: Sequence[ProteinAlignment], gm: GeneModel,
    half-open start/end; thresholds inclusive (≥), `near` = identity ≥ `near_identity`; largest overlap in bp,
    ties → lower locus tag; flags `"fs;st"`; row order independent of input order; leftovers are aligned
    protein IDs only (the caller adds unaligned proteins); a protein ID missing from `protein_len` raises.
+
+## Lead decisions after code review (PR #47, changes requested)
+1. Alternative starts: the parser reads the `cs` tag of the `##PAF` line preceding each alignment; a lone
+   `*gtgM` / `*ttgM` (any `*[acgt]tgM`) at query position 0 counts as a match for identity, and
+   `ProteinAlignment.alt_start` (bool) records it. Unit test with GTG and TTG starts; example 10 (≥ 99 %
+   identical) must hold on the recorded SIM100K run.
+2. Record the fixture `tests/data/recorded/miniprot/0.18/sim100k/` with the pinned miniprot image (seconds;
+   implementers may add recorded fixtures) incl. PROVENANCE.md (command, image digest, input sha256).
+3. A real nf-test stub test for `workflow/modules/local/miniprot/` (workflow/tests/miniprot.nf.test);
+   `mapping.proteins.miniprot_args` reaches the process via `ext.args` (no hard-coded default in main.nf).
+4. `assign_alignments` validates canonical intervals (`check_interval`: 0 ≤ start < L, unwrapped end ≤ start + L)
+   and raises ValueError otherwise; M3-13 normalises chains before calling it.
+5. miniprot runs on preflight's `proteins.long.faa`, whose IDs are already made safe (`_safe_protein_ids`);
+   the parser raises ValueError if a `Target` ID contains `;` or `=` (defensive).
