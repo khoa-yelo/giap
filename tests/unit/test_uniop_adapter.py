@@ -5,21 +5,30 @@ tags)").
 Examples 4 and 10 of docs/specs/M2-12-uniop-pairs-tus.md. UniOP has no licence (ADR-0008) and is
 never imported or run here.
 
-Conventions pinned here (spec Q3 and silences):
+Conventions pinned here (lead decisions after code review, PR #49, items 1-2):
 
-* Unit-test ``uniop.pred`` files are the doc-derived 3-column table of Q3: a tab-separated header
-  ``gene_a  gene_b  p`` and one row per pair (the contract test covers the recorded header).
+* ``uniop.pred`` is UniOP's real format (pin 3ed14dfc; excerpt in ``tests/data/uniop/``): a title
+  line ``operon prediction scores``, a header ``Gene A<TAB>Gene B<TAB>Prediction``, then rows of
+  1-based gene ROW NUMBERS ``k<TAB>k+1<TAB>p`` (p printed with a trailing space; blank-padded empty
+  when the pair is on opposite strands or the gene is the last of its contig). Empty rows are
+  skipped.
+* Row numbers index UniOP's own gene order: every GFF gene, stable-sorted by start (1-based column
+  4) across contigs. Row ``k`` is sorted gene ``k`` paired with the NEXT gene ON THE SAME CONTIG
+  (the printed ``Gene B`` number is ``k+1`` and is not used for pairing).
+* ``parse_uniop_pred(pred, gff, id_map)`` rebuilds that order from the exact GFF that
+  ``write_prodigal_gff`` wrote and returns locus-tag pairs in row order. A row with a probability
+  whose partner is missing or on the other strand, a row number outside the gene list, a GFF ID
+  absent from ``id_map``, or a missing title/header raises ``ValueError``. An empty file, or
+  title + header only, parses to ``[]``.
 * ``uniop_map.tsv`` (step ``uniop_input``) has the header ``prodigal_id  locus_tag``.
 * The GFF starts with a ``##gff-version`` line; each gene is one ``CDS`` line with 1-based closed
   coordinates and the attribute column starting with ``ID=<contig>_<k>``.
-* A ``uniop.pred`` row naming a Prodigal ID absent from the map raises ``ValueError``.
 * ``uniop_command`` runs ``python <uniop_home>/src/UniOP`` (entry point ``UniOP`` or ``UniOP.py``,
   "confirm the entry-point name on the pinned commit").
 """
 
 from __future__ import annotations
 
-import itertools
 import re
 from pathlib import Path
 
@@ -50,10 +59,41 @@ def gene(
     )
 
 
-def write_pred(path: Path, rows: list[tuple[str, str, float]]) -> Path:
-    lines = ["gene_a\tgene_b\tp", *(f"{a}\t{b}\t{p}" for a, b, p in rows)]
-    path.write_text("\n".join(lines) + "\n")
+DATA = Path(__file__).resolve().parents[1] / "data" / "uniop"
+TITLE = "operon prediction scores"
+HEADER = "Gene A\tGene B\tPrediction"
+BLANK = " " * 9  # UniOP's empty probability cell
+
+
+def write_gff(path: Path, lines: list[tuple[str, int, int, str, str]]) -> Path:
+    """(contig, start1, end1, strand, id) lines in the given order, Prodigal-style."""
+    body = [f"{c}\tGIAP\tCDS\t{a}\t{b}\t.\t{s}\t0\tID={i}" for c, a, b, s, i in lines]
+    path.write_text("\n".join(["##gff-version 3", *body]) + "\n")
     return path
+
+
+def write_pred(path: Path, rows: list[tuple[int, float | None]]) -> Path:
+    """Real-format ``uniop.pred``: (row number k, p or None for UniOP's empty cell)."""
+    body = [f"{k}\t{k + 1}\t" + (BLANK if p is None else f"{p:.6f} ") for k, p in rows]
+    path.write_text("\n".join([TITLE, HEADER, *body]) + "\n")
+    return path
+
+
+def uniop_like_pred(gff: Path, path: Path, p: float) -> Path:
+    """What UniOP 3ed14dfc writes for ``gff`` (probability ``p`` on every same-strand pair)."""
+    rows = gff_rows(gff)
+    order = sorted(range(len(rows)), key=lambda i: int(rows[i][3]))  # stable
+    out: list[tuple[int, float | None]] = []
+    for k, i in enumerate(order[:-1], start=1):
+        nxt = next((rows[j] for j in order[k:] if rows[j][0] == rows[i][0]), None)
+        out.append((k, p if nxt is not None and nxt[6] == rows[i][6] else None))
+    return write_pred(path, out)
+
+
+def fixture_map() -> dict[str, str]:
+    lines = (DATA / "multicontig_map.tsv").read_text().splitlines()
+    assert lines[0] == "prodigal_id\tlocus_tag"
+    return dict(ln.split("\t") for ln in lines[1:])
 
 
 def gff_rows(path: Path) -> list[list[str]]:
@@ -66,22 +106,90 @@ def gff_id(row: list[str]) -> str:
     return m.group(1)
 
 
-# ---------------------------------------------------------------- example 4
+# ---------------------------------------------------------------- example 4 (real format)
 
 
 def test_example4_pred_row_maps_to_locus_tags(tmp_path: Path) -> None:
-    pred = write_pred(tmp_path / "uniop.pred", [("chr1_1", "chr1_2", 0.91)])
-    got = parse_uniop_pred(pred, {"chr1_1": "GSIM_00005", "chr1_2": "GSIM_00010"})
+    gff = write_gff(
+        tmp_path / "in.gff", [("chr1", 101, 400, "+", "chr1_1"), ("chr1", 421, 700, "+", "chr1_2")]
+    )
+    pred = write_pred(tmp_path / "uniop.pred", [(1, 0.91)])
+    got = parse_uniop_pred(pred, gff, {"chr1_1": "GSIM_00005", "chr1_2": "GSIM_00010"})
     assert got == [PairProb("GSIM_00005", "GSIM_00010", 0.91, "uniop")]
 
 
-def test_pred_with_several_rows_keeps_file_order_and_values(tmp_path: Path) -> None:
+def test_real_uniop_excerpt_maps_rows_through_uniop_gene_order() -> None:
+    """Real SIM100K excerpt: plasmid_1_1 (start 193) sorts before chr1_1 (288), so row 1 is the
+    plasmid pair, row 3 (last plasmid gene) and row 4 (chr1_2 + / chr1_3 -) are empty."""
+    pred = DATA / "multicontig_uniop.pred"
+    lines = pred.read_text().splitlines()
+    assert lines[:2] == [TITLE, HEADER]
+    got = parse_uniop_pred(pred, DATA / "multicontig.gff", fixture_map())
+    assert got == [
+        PairProb("GSIM_00505", "GSIM_00510", 0.735206, "uniop"),
+        PairProb("GSIM_00005", "GSIM_00010", 0.728063, "uniop"),
+        PairProb("GSIM_00015", "GSIM_00020", 0.734771, "uniop"),
+        PairProb("GSIM_00020", "GSIM_00025", 0.728503, "uniop"),
+        PairProb("GSIM_00025", "GSIM_00030", 0.728210, "uniop"),
+    ]
+
+
+def test_real_excerpt_naive_row_mapping_would_be_wrong() -> None:
+    """Guard on the fixture itself: reading row k as GFF line k / k+1 gives other pairs."""
+    ids = [gff_id(r) for r in gff_rows(DATA / "multicontig.gff")]
+    m = fixture_map()
+    naive = (m[ids[0]], m[ids[1]])
+    got = parse_uniop_pred(DATA / "multicontig_uniop.pred", DATA / "multicontig.gff", m)
+    assert (got[0].gene_a, got[0].gene_b) != naive
+    contig = {m[gff_id(r)]: r[0] for r in gff_rows(DATA / "multicontig.gff")}
+    assert all(contig[p.gene_a] == contig[p.gene_b] for p in got)
+
+
+def test_emulator_matches_the_real_excerpt_blank_pattern(tmp_path: Path) -> None:
+    real = (DATA / "multicontig_uniop.pred").read_text().splitlines()
+    fake = uniop_like_pred(DATA / "multicontig.gff", tmp_path / "f.pred", 0.5)
+    fake_lines = fake.read_text().splitlines()
+    assert len(fake_lines) == len(real)
+    for r, f in zip(real[2:], fake_lines[2:], strict=True):
+        assert r.split("\t")[:2] == f.split("\t")[:2]
+        assert (r.split("\t")[2].strip() == "") == (f.split("\t")[2].strip() == "")
+
+
+def test_stable_sort_by_start_across_contigs_with_ties(tmp_path: Path) -> None:
+    """chrA_1 and chrB_1 share start 101: GFF file order breaks the tie (stable sort)."""
+    gff = write_gff(
+        tmp_path / "in.gff",
+        [
+            ("chrA", 101, 300, "+", "chrA_1"),
+            ("chrA", 501, 800, "+", "chrA_2"),
+            ("chrB", 101, 200, "+", "chrB_1"),
+            ("chrB", 301, 400, "+", "chrB_2"),
+        ],
+    )
+    # UniOP order: chrA_1, chrB_1, chrB_2, chrA_2
+    pred = write_pred(tmp_path / "uniop.pred", [(1, 0.9), (2, 0.8), (3, None)])
+    id_map = {"chrA_1": "A1", "chrA_2": "A2", "chrB_1": "B1", "chrB_2": "B2"}
+    got = parse_uniop_pred(pred, gff, id_map)
+    assert got == [PairProb("A1", "A2", 0.9, "uniop"), PairProb("B1", "B2", 0.8, "uniop")]
+
+
+def test_pred_with_several_rows_keeps_row_order_and_values(tmp_path: Path) -> None:
+    gff = write_gff(
+        tmp_path / "in.gff",
+        [
+            ("chr1", 101, 400, "+", "chr1_1"),
+            ("chr1", 421, 700, "+", "chr1_2"),
+            ("chr1", 1001, 1300, "-", "chr1_3"),
+            ("chr1", 1321, 1600, "-", "chr1_4"),
+            ("p2", 2001, 2300, "+", "p2_1"),
+            ("p2", 2401, 2600, "+", "p2_2"),
+        ],
+    )
     pred = write_pred(
-        tmp_path / "uniop.pred",
-        [("chr1_1", "chr1_2", 0.91), ("chr1_3", "chr1_4", 0.0), ("p2_1", "p2_2", 1.0)],
+        tmp_path / "uniop.pred", [(1, 0.91), (2, None), (3, 0.0), (4, None), (5, 1.0)]
     )
     id_map = {"chr1_1": "A", "chr1_2": "B", "chr1_3": "C", "chr1_4": "D", "p2_1": "E", "p2_2": "F"}
-    got = parse_uniop_pred(pred, id_map)
+    got = parse_uniop_pred(pred, gff, id_map)
     assert [(p.gene_a, p.gene_b, p.uniop_p, p.source) for p in got] == [
         ("A", "B", 0.91, "uniop"),
         ("C", "D", 0.0, "uniop"),
@@ -89,10 +197,71 @@ def test_pred_with_several_rows_keeps_file_order_and_values(tmp_path: Path) -> N
     ]
 
 
-def test_pred_unknown_prodigal_id_raises(tmp_path: Path) -> None:
-    pred = write_pred(tmp_path / "uniop.pred", [("chr1_1", "chr1_9", 0.5)])
+@pytest.mark.parametrize(
+    "content", ["", f"{TITLE}\n{HEADER}\n", f"{TITLE}\n{HEADER}\n1\t2\t{BLANK}\n"]
+)
+def test_pred_without_probabilities_parses_to_nothing(tmp_path: Path, content: str) -> None:
+    gff = write_gff(
+        tmp_path / "in.gff", [("chr1", 101, 400, "+", "chr1_1"), ("chr1", 421, 700, "-", "chr1_2")]
+    )
+    pred = tmp_path / "uniop.pred"
+    pred.write_text(content)
+    assert parse_uniop_pred(pred, gff, {"chr1_1": "A", "chr1_2": "B"}) == []
+
+
+def _three_gene_gff(tmp_path: Path) -> Path:
+    return write_gff(
+        tmp_path / "in.gff",
+        [
+            ("chr1", 101, 400, "+", "chr1_1"),
+            ("chr1", 421, 700, "-", "chr1_2"),
+            ("p2", 201, 500, "+", "p2_1"),
+        ],
+    )  # UniOP order: chr1_1 (101), p2_1 (201), chr1_2 (421)
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [(1, 0.5)],  # chr1_1 + -> chr1_2 -: opposite strands cannot carry a probability
+        [(2, 0.5)],  # p2_1 is the last gene of p2: no partner
+        [(3, 0.5)],  # row 3 would name a 4th gene
+        [(7, 0.5)],
+    ],
+    ids=["opposite_strand", "no_partner_on_contig", "last_row_number", "out_of_range"],
+)
+def test_pred_row_without_valid_same_contig_partner_raises(
+    tmp_path: Path, rows: list[tuple[int, float | None]]
+) -> None:
+    pred = write_pred(tmp_path / "uniop.pred", rows)
+    with pytest.raises(ValueError):
+        parse_uniop_pred(
+            pred, _three_gene_gff(tmp_path), {"chr1_1": "A", "chr1_2": "B", "p2_1": "C"}
+        )
+
+
+def test_pred_gff_id_missing_from_map_raises(tmp_path: Path) -> None:
+    gff = write_gff(
+        tmp_path / "in.gff", [("chr1", 101, 400, "+", "chr1_1"), ("chr1", 421, 700, "+", "chr1_9")]
+    )
+    pred = write_pred(tmp_path / "uniop.pred", [(1, 0.5)])
     with pytest.raises(ValueError, match="chr1_9"):
-        parse_uniop_pred(pred, {"chr1_1": "A", "chr1_2": "B"})
+        parse_uniop_pred(pred, gff, {"chr1_1": "A", "chr1_2": "B"})
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["gene_a\tgene_b\tp\nchr1_1\tchr1_2\t0.5\n", f"{HEADER}\n1\t2\t0.5 \n"],
+    ids=["invented_3col", "no_title"],
+)
+def test_pred_not_in_uniop_format_raises(tmp_path: Path, content: str) -> None:
+    gff = write_gff(
+        tmp_path / "in.gff", [("chr1", 101, 400, "+", "chr1_1"), ("chr1", 421, 700, "+", "chr1_2")]
+    )
+    pred = tmp_path / "uniop.pred"
+    pred.write_text(content)
+    with pytest.raises(ValueError):
+        parse_uniop_pred(pred, gff, {"chr1_1": "A", "chr1_2": "B"})
 
 
 def test_pairprob_is_frozen() -> None:
@@ -166,16 +335,6 @@ def _sim_genes(cfg: giapsim.SimConfig, seed: int, out: Path) -> tuple[list[Gene]
     return list(model.genes), list(model.replicons.values())
 
 
-def _pred_from_gff(gff: Path) -> list[tuple[str, str, float]]:
-    """All adjacent same-strand pairs of consecutive GFF lines per contig (UniOP never wraps)."""
-    rows = gff_rows(gff)
-    out = []
-    for r1, r2 in itertools.pairwise(rows):
-        if r1[0] == r2[0] and r1[6] == r2[6]:
-            out.append((gff_id(r1), gff_id(r2), 0.5))
-    return out
-
-
 def _non_wrap(genes: list[Gene], reps: list[Replicon]) -> set[tuple[str, str]]:
     pairs = adjacent_pairs(genes, {r.id: r for r in reps})
     by_contig: dict[str, list[Gene]] = {}
@@ -218,8 +377,8 @@ def test_example10_round_trip(tmp_path: Path, name: str) -> None:
     for pid, _ in id_map:
         contig, k = pid.rsplit("_", 1)
         assert contig in {r.id for r in reps} and int(k) >= 1
-    pred = write_pred(tmp_path / "uniop.pred", _pred_from_gff(gff))
-    got = parse_uniop_pred(pred, dict(id_map))
+    pred = uniop_like_pred(gff, tmp_path / "uniop.pred", 0.5)  # UniOP never wraps
+    got = parse_uniop_pred(pred, gff, dict(id_map))
     assert all(p.source == "uniop" and p.uniop_p == 0.5 for p in got)
     assert {(p.gene_a, p.gene_b) for p in got} == _non_wrap(genes, reps)
     assert len(got) == len(_non_wrap(genes, reps))

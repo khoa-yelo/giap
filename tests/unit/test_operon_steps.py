@@ -18,13 +18,25 @@ Conventions pinned here where the contract table is silent (see the PR descripti
   ``tu_id, contig, start, end, strand, genes`` with 0-based half-open coordinates (work-directory
   tables stay internal, §6.5) and ``genes`` as a native Parquet list column of locus tags in TU
   order (lead decision; ``;`` only in TSV outputs, ADR-0006).
-* The distance-model parameters come from ``calibration.yaml`` (d₀ = 50, s = 20).
+* The distance-model parameters come from ``calibration.yaml`` (d₀ = 50, s = 20), read through
+  ``giap.data.calibration.load()`` at run time (lead decision 6).
+
+Lead decisions after code review (PR #49):
+
+* ``uniop.pred`` is UniOP's real format (title, ``Gene A/Gene B/Prediction`` header, row numbers in
+  UniOP's stable-sort-by-start gene order, empty cells skipped); ``operon_pairs`` therefore also
+  reads ``uniop_cds`` (the exact GFF UniOP ran on), as a required or optional input.
+* ``operon_pairs`` declares a fourth output ``operon_meta`` (``operon_meta.json``): a JSON object
+  with ``operon_source`` in {``uniop``, ``distance_model``, ``precomputed``} and a non-empty
+  ``reason`` string. The fallback is also logged at WARNING level.
+* ``annotation.tu_upstream_bp`` is honoured; a precomputed layer's ``source`` column is kept.
 """
 
 from __future__ import annotations
 
 import importlib
-import itertools
+import json
+import logging
 import math
 import shutil
 from collections.abc import Iterator
@@ -60,12 +72,20 @@ PARSE_OUT = {
     "annotation_meta": "annotation_meta.json",
 }
 UNIOP_IN_OUT = {"uniop_cds": "uniop_cds.gff", "uniop_map": "uniop_map.tsv"}
-PAIRS_OUT = {"pairs_raw": "pairs_raw.parquet", "tus": "tus.parquet", "tu_upstream": "tu_upstream"}
+PAIRS_OUT = {
+    "pairs_raw": "pairs_raw.parquet",
+    "tus": "tus.parquet",
+    "tu_upstream": "tu_upstream",
+    "operon_meta": "operon_meta.json",
+}
+TITLE = "operon prediction scores"
+HEADER = "Gene A\tGene B\tPrediction"
 D0, S = 50.0, 20.0
 
 
-def logistic(d: float) -> float:
-    return 1.0 / (1.0 + math.exp((d - D0) / S))
+def logistic(d: float, d0: float = D0, s: float = S) -> float:
+    z = (d - d0) / s
+    return math.exp(-z) / (1.0 + math.exp(-z)) if z >= 0 else 1.0 / (1.0 + math.exp(z))
 
 
 def _fresh_steps(mp: pytest.MonkeyPatch) -> ModuleType:
@@ -157,12 +177,34 @@ def _gff_ids(gff: Path) -> list[tuple[str, str, str]]:
 
 
 def _fake_pred(gff: Path, path: Path, p: float) -> Path:
-    ids = _gff_ids(gff)
-    rows = [
-        f"{a[0]}\t{b[0]}\t{p}" for a, b in itertools.pairwise(ids) if a[1] == b[1] and a[2] == b[2]
-    ]
-    path.write_text("\n".join(["gene_a\tgene_b\tp", *rows]) + "\n")
+    """What UniOP 3ed14dfc writes for ``gff``: genes stable-sorted by start across contigs; row k
+    pairs sorted gene k with the next gene on its contig; blank cell if absent / other strand."""
+    rows = []
+    for ln in gff.read_text().splitlines():
+        if ln and not ln.startswith("#"):
+            f = ln.split("\t")
+            rows.append((f[0], int(f[3]), f[6]))
+    order = sorted(range(len(rows)), key=lambda i: rows[i][1])
+    body = []
+    for k, i in enumerate(order[:-1], start=1):
+        nxt = next((rows[j] for j in order[k:] if rows[j][0] == rows[i][0]), None)
+        cell = f"{p:.6f} " if nxt is not None and nxt[2] == rows[i][2] else " " * 9
+        body.append(f"{k}\t{k + 1}\t{cell}")
+    path.write_text("\n".join([TITLE, HEADER, *body]) + "\n")
     return path
+
+
+def _uniop_extra(ui: dict[str, Path], pred: Path | None = None) -> dict[str, Path]:
+    extra = {"uniop_map": ui["uniop_map"], "uniop_cds": ui["uniop_cds"]}
+    return extra | ({"uniop_pred": pred} if pred is not None else {})
+
+
+def _meta(path: Path) -> dict[str, Any]:
+    meta = json.loads(path.read_text())
+    assert isinstance(meta, dict)
+    assert meta["operon_source"] in {"uniop", "distance_model", "precomputed"}
+    assert isinstance(meta["reason"], str) and meta["reason"].strip()
+    return meta
 
 
 def _pairs(path: Path) -> dict[tuple[str, str], tuple[float, str]]:
@@ -219,8 +261,10 @@ def test_step_declarations(steps: ModuleType) -> None:
     assert (op.kind, op.module) == ("py", "core")
     assert op.precomputed is None  # "pairs only; TUs still built"
     assert "uniop_pred" in op.optional_inputs and "uniop_pred" not in op.inputs
-    assert {"genes", "uniop_map"} <= set(op.inputs) <= {"genes", "uniop_map", "replicons", "genome"}
-    assert op.outputs == ("pairs_raw", "tus", "tu_upstream")
+    allowed = {"genes", "uniop_map", "uniop_cds", "replicons", "genome"}
+    assert {"genes", "uniop_map"} <= set(op.inputs) <= allowed
+    assert "uniop_cds" in set(op.inputs) | set(op.optional_inputs)  # UniOP's row order source
+    assert op.outputs == ("pairs_raw", "tus", "tu_upstream", "operon_meta")
 
 
 def test_topological_order(steps: ModuleType) -> None:
@@ -258,9 +302,7 @@ def test_operon_pairs_uses_uniop_and_distance_model_for_wrap(
 ) -> None:
     ui = _run_uniop_input(steps, sim, tmp_path / "ui")
     pred = _fake_pred(ui["uniop_cds"], tmp_path / "uniop.pred", 0.9)
-    outs = _run_pairs(
-        steps, sim, tmp_path / "op", {"uniop_map": ui["uniop_map"], "uniop_pred": pred}
-    )
+    outs = _run_pairs(steps, sim, tmp_path / "op", _uniop_extra(ui, pred))
     got = _pairs(outs["pairs_raw"])
     adj = adjacent_pairs(sim.genes, sim.reps)
     assert set(got) == {(a.locus_tag, b.locus_tag) for a, b in adj}
@@ -277,14 +319,13 @@ def test_operon_pairs_uses_uniop_and_distance_model_for_wrap(
             assert (p, src) == (pytest.approx(0.9), "uniop")
     expect_pairs = [PairProb(a, b, p, src) for (a, b), (p, src) in got.items()]  # type: ignore[arg-type]
     assert _tus(outs["tus"]) == _tu_rows(_expected_tus(sim, expect_pairs))
+    assert _meta(outs["operon_meta"])["operon_source"] == "uniop"
 
 
 def test_tu_upstream_fastas_match_library(steps: ModuleType, sim: Sim, tmp_path: Path) -> None:
     ui = _run_uniop_input(steps, sim, tmp_path / "ui")
     pred = _fake_pred(ui["uniop_cds"], tmp_path / "uniop.pred", 0.9)
-    outs = _run_pairs(
-        steps, sim, tmp_path / "op", {"uniop_map": ui["uniop_map"], "uniop_pred": pred}
-    )
+    outs = _run_pairs(steps, sim, tmp_path / "op", _uniop_extra(ui, pred))
     got_pairs = _pairs(outs["pairs_raw"])
     pairs = [PairProb(a, b, p, src) for (a, b), (p, src) in got_pairs.items()]  # type: ignore[arg-type]
     tus = _expected_tus(sim, pairs)
@@ -329,22 +370,22 @@ def test_operon_pairs_without_uniop_pred_falls_back(
     steps: ModuleType, sim: Sim, tmp_path: Path
 ) -> None:
     ui = _run_uniop_input(steps, sim, tmp_path / "ui")
-    outs = _run_pairs(steps, sim, tmp_path / "op", {"uniop_map": ui["uniop_map"]})
+    outs = _run_pairs(steps, sim, tmp_path / "op", _uniop_extra(ui))
     _check_all_distance_model(sim, outs["pairs_raw"])
+    assert _meta(outs["operon_meta"])["operon_source"] == "distance_model"
     assert len(_tus(outs["tus"])) >= 1
 
 
-@pytest.mark.parametrize("content", ["", "gene_a\tgene_b\tp\n"], ids=["empty", "header_only"])
+@pytest.mark.parametrize("content", ["", f"{TITLE}\n{HEADER}\n"], ids=["empty", "header_only"])
 def test_operon_pairs_with_empty_uniop_pred_falls_back(
     steps: ModuleType, sim: Sim, tmp_path: Path, content: str
 ) -> None:
     ui = _run_uniop_input(steps, sim, tmp_path / "ui")
     pred = tmp_path / "uniop.pred"
     pred.write_text(content)
-    outs = _run_pairs(
-        steps, sim, tmp_path / "op", {"uniop_map": ui["uniop_map"], "uniop_pred": pred}
-    )
+    outs = _run_pairs(steps, sim, tmp_path / "op", _uniop_extra(ui, pred))
     _check_all_distance_model(sim, outs["pairs_raw"])
+    assert _meta(outs["operon_meta"])["operon_source"] == "distance_model"
 
 
 def test_operon_pairs_threshold_from_config(steps: ModuleType, sim: Sim, tmp_path: Path) -> None:
@@ -355,7 +396,7 @@ def test_operon_pairs_threshold_from_config(steps: ModuleType, sim: Sim, tmp_pat
         steps,
         sim,
         tmp_path / "op",
-        {"uniop_map": ui["uniop_map"], "uniop_pred": pred},
+        _uniop_extra(ui, pred),
         cfg,
     )
     got = _pairs(outs["pairs_raw"])
@@ -380,7 +421,7 @@ def test_steps_are_byte_reproducible_and_seed_free(
             steps,
             sim,
             d / "op",
-            {"uniop_map": ui["uniop_map"], "uniop_pred": pred},
+            _uniop_extra(ui, pred),
             GiapConfig(seed=seed),
         )
         return d
@@ -423,6 +464,7 @@ def test_precomputed_operon_pairs_layer_still_builds_tus(sim: Sim, tmp_path: Pat
     assert sorted(g for t in tus for g in t[5]) == sorted(g.locus_tag for g in sim.genes)
     assert (work / "tu_upstream").is_dir()
     assert len(list((work / "tu_upstream").glob("*.fa"))) == len(tus)
+    assert _meta(work / "operon_meta")["operon_source"] == "precomputed"
 
 
 # ---------------------------------------------------------------- simulator truth (M2-05)
@@ -462,3 +504,91 @@ def test_simulator_layer_pairs_are_giap_adjacent_pairs(sim: Sim) -> None:
     _, rows = read_tsv(sim.res.precomputed["operon_pairs"])
     adj = adjacent_pairs(sim.genes, sim.reps)
     assert {(r[0], r[1]) for r in rows} <= {(a.locus_tag, b.locus_tag) for a, b in adj}
+
+
+# ---------------------------------------------------------------- review mutants (lead decision 6)
+
+
+def test_fallback_is_logged_at_warning_level(
+    steps: ModuleType, sim: Sim, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    ui = _run_uniop_input(steps, sim, tmp_path / "ui")
+    with caplog.at_level(logging.WARNING, logger="giap"):
+        _run_pairs(steps, sim, tmp_path / "op", _uniop_extra(ui))
+    warned = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert any("distance" in r.getMessage() for r in warned), [r.getMessage() for r in warned]
+
+
+def test_uniop_run_is_not_a_warning(
+    steps: ModuleType, sim: Sim, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    ui = _run_uniop_input(steps, sim, tmp_path / "ui")
+    pred = _fake_pred(ui["uniop_cds"], tmp_path / "uniop.pred", 0.9)
+    with caplog.at_level(logging.WARNING, logger="giap"):
+        _run_pairs(steps, sim, tmp_path / "op", _uniop_extra(ui, pred))
+    assert not [r for r in caplog.records if "distance" in r.getMessage()]
+
+
+def test_distance_model_parameters_read_through_calibration_load(
+    steps: ModuleType, sim: Sim, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from giap.data import calibration
+
+    original = calibration.load
+
+    def patched() -> dict[str, Any]:
+        data = dict(original())
+        data["operon_distance"] = {**data["operon_distance"], "d0": 10.0, "s": 7.0}
+        return data
+
+    monkeypatch.setattr(calibration, "load", patched)
+    ui = _run_uniop_input(steps, sim, tmp_path / "ui")
+    outs = _run_pairs(steps, sim, tmp_path / "op", _uniop_extra(ui))
+    got = _pairs(outs["pairs_raw"])
+    for a, b in adjacent_pairs(sim.genes, sim.reps):
+        p, src = got[a.locus_tag, b.locus_tag]
+        d = intergenic_distance(a, b, sim.reps[a.interval.contig])
+        assert src == "distance_model"
+        assert p == pytest.approx(logistic(d, 10.0, 7.0)), (a.locus_tag, d)
+
+
+def test_tu_upstream_bp_from_config_is_honoured(
+    steps: ModuleType, sim: Sim, tmp_path: Path
+) -> None:
+    ui = _run_uniop_input(steps, sim, tmp_path / "ui")
+    pred = _fake_pred(ui["uniop_cds"], tmp_path / "uniop.pred", 0.9)
+    cfg = resolve_config(None, ["annotation.tu_upstream_bp=[-100, 20]", "seed=1"])
+    outs = _run_pairs(steps, sim, tmp_path / "op", _uniop_extra(ui, pred), cfg)
+    got = _pairs(outs["pairs_raw"])
+    pairs = [PairProb(a, b, p, src) for (a, b), (p, src) in got.items()]  # type: ignore[arg-type]
+    want = build_tus(sim.genes, pairs, 0.5, sim.reps, upstream_bp=(-100, 20))
+    default = build_tus(sim.genes, pairs, 0.5, sim.reps)
+    rows = pq.read_table(outs["tus"]).to_pylist()
+    got_up = [(r["tu_id"], r["upstream_start"], r["upstream_end"]) for r in rows]
+    assert got_up == [(t.tu_id, t.upstream.start, t.upstream.end) for t in want]
+    assert got_up != [(t.tu_id, t.upstream.start, t.upstream.end) for t in default]
+    assert all(r["upstream_end"] - r["upstream_start"] <= 120 for r in rows)
+
+
+def test_precomputed_layer_source_column_is_kept(
+    steps: ModuleType, sim: Sim, tmp_path: Path
+) -> None:
+    header, rows = read_tsv(sim.res.precomputed["operon_pairs"])
+    assert header == ["gene_a", "gene_b", "uniop_p", "source"]
+    assert len(rows) >= 4
+    layer = tmp_path / "operon_pairs.tsv"
+    mixed = [
+        (r[0], r[1], 0.25 + 0.5 * (i % 2), "distance_model" if i % 2 else "uniop")
+        for i, r in enumerate(rows)
+    ]
+    layer.write_text(
+        "\n".join(["gene_a\tgene_b\tuniop_p\tsource", *("\t".join(map(str, m)) for m in mixed)])
+        + "\n"
+    )
+    cfg = resolve_config(None, [f"annotation.precomputed.operon_pairs={layer}", "seed=1"])
+    ui = _run_uniop_input(steps, sim, tmp_path / "ui")
+    outs = _run_pairs(steps, sim, tmp_path / "op", _uniop_extra(ui), cfg)
+    got = _pairs(outs["pairs_raw"])
+    for a, b, p, src in mixed:
+        assert got[str(a), str(b)] == (pytest.approx(p), src)
+    assert _meta(outs["operon_meta"])["operon_source"] == "precomputed"

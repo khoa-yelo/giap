@@ -139,3 +139,22 @@ distance model with `source = distance_model`. UniOP failure (non-zero exit, mis
    WARNING level of the fallback, precomputed `source` kept, d0/s read via `calibration.load()`,
    `tu_upstream_bp` honoured, the ring-length cap and the ring self-bound.
 Rule from here on (lead): every tool-wrapping issue records a real-tool fixture before its PR is reviewed.
+
+## Test-author pins for the code-review decisions (items 1, 2, 4, 5, 6)
+- Items 1-2: `parse_uniop_pred(path: Path, gff: Path, id_map: Mapping[str, str]) -> list[PairProb]`,
+  where `gff` is the exact file `write_prodigal_gff` wrote. Rows in file order; empty probability cells
+  skipped; the printed `Gene B` number is not used for pairing. `ValueError` on: missing title/header
+  (incl. the invented `gene_a gene_b p` file), a row number outside the gene list, a row with a
+  probability whose partner is absent or on the other strand, a GFF ID missing from `id_map`. Empty
+  file or title+header only → `[]` (a UniOP failure for `build_pairs`). Fixture: real excerpt in
+  `tests/data/uniop/` (plasmid gene sorts first, so row 1 is the plasmid pair); ties on start keep
+  GFF file order. `operon_pairs` reads `uniop_cds` (required or optional input).
+- Item 4: the UNIOP `script:` runs `mkdir -p <the -t dir>` before `src/UniOP`; the `stub:` writes the
+  real title and header.
+- Item 5: `operon_pairs` outputs `("pairs_raw", "tus", "tu_upstream", "operon_meta")`;
+  `operon_meta.json` is a JSON object with `operon_source` ∈ {`uniop`, `distance_model`,
+  `precomputed`} and a non-empty `reason` string.
+- Item 6: the fallback logs a WARNING whose message contains "distance" (no such record on a UniOP
+  run); d₀/s are read by calling `giap.data.calibration.load()` at step run time (monkeypatched in tests).
+- Contract: `tests/data/recorded/uniop/3ed14dfc/{sim100k,k12}/` holds one `*.gff`, `uniop.pred`,
+  `uniop_map.tsv` and `PROVENANCE.md` containing `3ed14dfc` and the GFF's sha256.
