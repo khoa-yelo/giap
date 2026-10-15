@@ -303,6 +303,18 @@ nextflow_pipeline {
             def chunks = H.stepInputs(pl[0]).collect { new File(it[1]).name }.findAll { it ==~ /promotech_\d{3}/ }.unique()
             assert chunks == ['promotech_000', 'promotech_001', 'promotech_002'] : "promoter_layer inputs not sorted: ${chunks}"
 
+            // M2-13 review decision 5: promoter_windows gets replicons and writes its chunks into windows/
+            def pw = H.stepDirs(work, 'promoter_windows')
+            assert pw.size() == 1
+            def pwKeys = H.stepInputs(pw[0]).collect { it[0] }
+            assert 'replicons' in pwKeys : "promoter_windows --in keys: ${pwKeys}"
+            def wdir = new File(pw[0], 'windows')
+            assert wdir.isDirectory() : "promoter_windows: no windows/ directory"
+            assert wdir.list().toList().sort() == ['windows_000.fa', 'windows_001.fa', 'windows_002.fa'] : "windows/: ${wdir.list()}"
+            assert !pw[0].list().any { it ==~ /windows_\d{3}\.fa/ } : "chunks must be inside windows/, not beside it"
+            def ptIn = H.procDirs(work, 'PROMOTECH').collect { d -> H.staged(d).collect { new File(it[1]).name } }.flatten().findAll { it ==~ /windows_\d{3}\.fa/ }.sort()
+            assert ptIn == ['windows_000.fa', 'windows_001.fa', 'windows_002.fa'] : "PROMOTECH chunk inputs: ${ptIn}"
+
             def tx = H.stepDirs(work, 'tx_layer')
             assert tx.size() == 1
             def csvs = H.stepInputs(tx[0]).collect { new File(it[1]).name }.findAll { it.endsWith('.csv') }.unique()
