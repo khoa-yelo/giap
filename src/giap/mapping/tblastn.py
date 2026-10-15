@@ -15,9 +15,12 @@ Chaining (docs/specs/M3-13-tblastn-route.md; lead decisions):
 - On a circular contig the gap is measured on unwrapped coordinates, so an HSP ending near the
   contig end chains with one starting near 0 (origin-crossing locus); a chain never spans more
   than the contig.
-- Greedy: the best unused HSP (bitscore, then a total key) seeds a chain, which is extended
-  forward and backward with the nearest compatible HSP until none is left. The result depends
-  only on the set of HSPs, never on their input order.
+- Best chain (review decision 2): a dynamic program over the compatible HSPs of one
+  protein x contig x strand finds the chain with the largest summed bitscore; ties -> larger
+  union query coverage, then lower canonical start. Its HSPs are removed and the next best
+  chain is built from the rest until none is left. Both criteria are additive along a chain
+  (query starts and ends increase, so the union grows by ``q1 - max(q0, prev.q1)`` per step);
+  sums use exact fractions. The result depends only on the set of HSPs, never on input order.
 
 ``max_gap_nt = 300`` and ``max_q_overlap_aa = 10`` are fixed keyword defaults (Khoa,
 2026-10-14): 300 nt tolerates a short frameshifted or low-similarity stretch between two HSPs of
@@ -36,6 +39,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from fractions import Fraction
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -58,8 +62,12 @@ _N_COLS = 15
 
 
 def makeblastdb_cmd(genome: Path, db: Path) -> list[str]:
-    """``makeblastdb -in genome.fa -dbtype nucl -parse_seqids -out db``."""
-    return ["makeblastdb", "-in", str(genome), "-dbtype", "nucl", "-parse_seqids", "-out", str(db)]
+    """``makeblastdb -in genome.fa -dbtype nucl -out db``.
+
+    No ``-parse_seqids``: with it BLAST reports accession-style IDs as ``ref|NC_000913.3|``,
+    which never match GIAP's contig IDs (review decision 1).
+    """
+    return ["makeblastdb", "-in", str(genome), "-dbtype", "nucl", "-out", str(db)]
 
 
 def tblastn_cmd(db: Path, proteins: Path, threads: int, args: str) -> list[str]:
@@ -96,7 +104,7 @@ class Hsp:
 
 
 def _parse_row(cols: list[str], where: str) -> Hsp:
-    if len(cols) < _N_COLS:
+    if len(cols) != _N_COLS:
         raise ValueError(f"{where}: {len(cols)} columns, expected {_N_COLS} (outfmt {OUTFMT!r})")
     try:
         return Hsp(
@@ -119,7 +127,7 @@ def _parse_row(cols: list[str], where: str) -> Hsp:
 def parse_tblastn(path: Path) -> list[Hsp]:
     """All rows of a tabular tblastn file in ``OUTFMT``, in file order (empty file -> ``[]``).
 
-    Raises ``ValueError`` naming the line on too few columns or a non-numeric field.
+    Raises ``ValueError`` naming the line on a column count other than 15 or a non-numeric field.
     """
     out: list[Hsp] = []
     with path.open(encoding="utf-8") as fh:
@@ -185,30 +193,59 @@ def _follows(prev: _Piece, ps: int, nxt: _Piece, ns: int, lim: _Limits) -> bool:
 _Placed = tuple[_Piece, int]  # piece and its unwrapped shift (0 or +-L)
 
 
-def _extend(chain: list[_Placed], free: list[_Piece], lim: _Limits) -> None:
-    """Greedily add the nearest compatible free piece at either end until none fits."""
-    while True:
-        first, last = chain[0], chain[-1]
-        lo, hi = first[0].t0 + first[1], last[0].t1 + last[1]
-        best: tuple[tuple[float, ...], _Placed, bool] | None = None
-        for p in free:
-            for s in (0, lim.length) if lim.circular else (0,):
-                s_fwd, s_bwd = last[1] + s, first[1] - s
-                if _follows(last[0], last[1], p, s_fwd, lim) and p.t1 + s_fwd - lo <= lim.length:
-                    cand = ((0, p.t0 + s_fwd - hi, *p.key), (p, s_fwd), True)
-                    best = cand if best is None or cand[0] < best[0] else best
-                fits_bwd = hi - (p.t0 + s_bwd) <= lim.length
-                if fits_bwd and _follows(p, s_bwd, first[0], first[1], lim):
-                    cand = ((1, lo - (p.t1 + s_bwd), *p.key), (p, s_bwd), False)
-                    best = cand if best is None or cand[0] < best[0] else best
-        if best is None:
-            return
-        _, placed, forward = best
-        free.remove(placed[0])
-        if forward:
-            chain.append(placed)
-        else:
-            chain.insert(0, placed)
+_Score = tuple[Fraction, int]  # summed bitscore, union query coverage (aa)
+
+
+def _chains_from(
+    first: _Piece, placed: list[_Placed], lim: _Limits
+) -> list[tuple[_Score, list[_Placed]]]:
+    """Best chain (by ``_Score``) starting at ``first`` (shift 0) ending at each placed piece.
+
+    ``placed`` is sorted by unwrapped start; a chain never spans more than the contig.
+    """
+    best: list[tuple[_Score, list[_Placed]]] = [
+        ((Fraction(first.hsp.bitscore), first.q1 - first.q0), [(first, 0)])
+    ]
+    for p, s in placed:
+        if p is first or p.t0 + s <= first.t0 or p.t1 + s - first.t0 > lim.length:
+            continue
+        top: tuple[_Score, list[_Placed]] | None = None
+        for (bits, cov), chain in best:
+            last, ls = chain[-1]
+            if not _follows(last, ls, p, s, lim):
+                continue
+            new = (bits + Fraction(p.hsp.bitscore), cov + p.q1 - max(p.q0, last.q1))
+            if top is None or new > top[0]:
+                top = (new, [*chain, (p, s)])
+        if top is not None:
+            best.append(top)
+    return best
+
+
+def _span(chain: list[_Placed], strand: Strand, rep: Replicon) -> tuple[int, int]:
+    """Canonical ``[lo, hi)`` of a chain (``0 <= lo < L``, unwrapped ``hi``)."""
+    t0 = min(p.t0 + s for p, s in chain)
+    t1 = max(p.t1 + s for p, s in chain)
+    lo, hi = (t0, t1) if strand == "+" else (rep.length - t1, rep.length - t0)
+    shift = -rep.length * (lo // rep.length)
+    return lo + shift, hi + shift
+
+
+def _best_chain(pieces: list[_Piece], strand: Strand, rep: Replicon, lim: _Limits) -> list[_Placed]:
+    """The best chain among ``pieces`` (non-empty): max bitscore, coverage, then lower start."""
+    shifts = (0, lim.length) if lim.circular else (0,)
+    placed = sorted(
+        ((p, s) for p in pieces for s in shifts), key=lambda x: (x[0].t0 + x[1], x[0].key)
+    )
+    top: tuple[tuple[Fraction, int, int, int], list[_Placed]] | None = None
+    for first in pieces:
+        for (bits, cov), chain in _chains_from(first, placed, lim):
+            lo, hi = _span(chain, strand, rep)
+            k = (-bits, -cov, lo, hi)
+            if top is None or k < top[0]:
+                top = (k, chain)
+    assert top is not None
+    return top[1]
 
 
 def _union_len(ranges: list[tuple[int, int]]) -> int:
@@ -224,10 +261,7 @@ def _alignment(
     chain: list[_Placed], strand: Strand, rep: Replicon
 ) -> tuple[float, ProteinAlignment]:
     pieces = [p for p, _ in chain]
-    t0 = min(p.t0 + s for p, s in chain)
-    t1 = max(p.t1 + s for p, s in chain)
-    lo, hi = (t0, t1) if strand == "+" else (rep.length - t1, rep.length - t0)
-    shift = -rep.length * (lo // rep.length)
+    lo, hi = _span(chain, strand, rep)
     hsps = [p.hsp for p in pieces]
     qlen = hsps[0].qlen
     length = sum(h.length for h in hsps)
@@ -235,7 +269,7 @@ def _alignment(
         protein_id=hsps[0].qseqid,
         protein_len_aa=qlen,
         route="tblastn",
-        interval=Interval(rep.id, lo + shift, hi + shift, strand),
+        interval=Interval(rep.id, lo, hi, strand),
         rank=0,
         identity=min(1.0, sum(h.nident for h in hsps) / length) if length else 0.0,
         positive=min(1.0, sum(h.positive for h in hsps) / length) if length else None,
@@ -273,10 +307,11 @@ def merge_hsps(
     for (pid, contig, strand), pieces in groups.items():
         rep = replicons[contig]
         lim = _Limits(max_gap_nt, max_q_overlap_aa, rep.length, rep.topology == "circular")
-        free = sorted(pieces, key=lambda p: (p.key, p.t0))
+        free = sorted(pieces, key=lambda p: (p.t0, p.key))
         while free:
-            chain: list[_Placed] = [(free.pop(0), 0)]
-            _extend(chain, free, lim)
+            chain = _best_chain(free, strand, rep, lim)
+            used = {id(p) for p, _ in chain}
+            free = [p for p in free if id(p) not in used]
             by_protein[pid].append(_alignment(chain, strand, rep))
     out: list[ProteinAlignment] = []
     for pid in sorted(by_protein):

@@ -19,7 +19,7 @@ process TBLASTN {
     script:
     def args = task.ext.args ?: ''
     """
-    makeblastdb -in ${genome} -dbtype nucl -parse_seqids -out db/genome
+    makeblastdb -in ${genome} -dbtype nucl -out db/genome
     tblastn -db db/genome -query ${proteins} -num_threads ${task.cpus} ${args} -outfmt '6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen nident positive' > tblastn.tsv
 
     cat <<-END_VERSIONS > versions.yml
