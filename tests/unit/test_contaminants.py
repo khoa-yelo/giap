@@ -61,6 +61,7 @@ def _peptides(rows: list[tuple[str, str | None]]) -> pd.DataFrame:
                 [ids.split(";") if ids else [] for _, ids in rows], dtype=object
             ),
             "is_decoy": [False] * len(rows),
+            "q_value": [0.0] * len(rows),
             "is_contaminant": [
                 ids is not None and all(i.startswith(tuple(PREFIXES)) for i in ids.split(";"))
                 for _, ids in rows

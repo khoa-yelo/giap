@@ -81,6 +81,7 @@ def test_te5_contaminant_digests_land_in_bucket(setup: dict[str, Any]) -> None:
             "peptide": all_peps,
             "protein_ids": pd.Series([[] for _ in all_peps], dtype=object),
             "is_decoy": [False] * len(all_peps),
+            "q_value": [0.0] * len(all_peps),
             "is_contaminant": [False] * len(all_peps),
         }
     )

@@ -179,6 +179,7 @@ def _frames(s: dict[str, Any], seed: int | None = None) -> tuple[pd.DataFrame, .
                 [s["ids"][p].split(";") if s["ids"][p] else [] for p in s["peps"]], dtype=object
             ),
             "is_decoy": [False] * len(s["peps"]),
+            "q_value": [0.0] * len(s["peps"]),
             "is_contaminant": [False] * len(s["peps"]),
         }
     )
