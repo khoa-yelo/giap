@@ -5,13 +5,18 @@ confirmation; R = ``replicates_fast.regions`` / ``replicates_full.regions``):
 
 C1 level (spec acceptance "Calibration"; §8.4 "Region tests | AR(1) abundance, detection from
    p_detect only | level"): with no region effects, ``detection = "covariates_only"`` and the M4-08
-   AR(1) TU background, the circular-shift p of every (region_type, stat) satisfies
-   P(p <= alpha) <= alpha + k sqrt(alpha (1 - alpha) / R) at alpha in {0.01, 0.05, 0.10}, for the
-   first region of each type on the chromosome and for the plasmid's own AMR set. Discrete p
-   (K = N - 1 shifts) -> level only, no uniformity check. Fast: 1,000-gene chromosome, rho = 0.5,
-   p = ``p_detect_true``. Full: 4,500 genes, rho in {0, 0.5, 0.9}, p = M4-13 cross-fitted
-   ``p_detect`` on M4-10 covariates.
-C2 FDR across region families (§8.1 "BH within type | 0.05"; lead decision 5: family = (region
+   AR(1) TU background, the circular-shift p of the region tests is at level. Gate structure (lead
+   decision 7, after the statistician's review; ADR-0015 harness, no tolerance change):
+   - chromosome: per statistic, one pooled stream over the first region of each of the four types
+     (``check_level_pooled``, m = 4) at alpha in {0.01, 0.05, 0.10};
+   - plasmid AMR set (K = 59 shifts): per statistic, ``check_level`` at alpha in {0.05, 0.10} only;
+   - full mode: HL at rho in {0, 0.5, 0.9}; O - E (which does not depend on rho under
+     covariate-only detection) at rho = 0.5 only.
+   Discrete p (K = N - 1 shifts) -> level only, no uniformity check. Fast: 1,000-gene chromosome,
+   rho = 0.5, p = ``p_detect_true``. Full: 4,500 genes, p = M4-13 cross-fitted ``p_detect`` on
+   M4-10 covariates (xfail "needs M4-13 (#83)" until PR #83 is merged).
+   The statistics are those of ADR-0018: studentised O - E, HL on residualised abundance.
+C2 FDR across region families (§8.1 "BH within type | 0.05"; ADR-0018 decision 3: family = (region
    type, statistic)): on a genome with 4 prophages, 4 BGCs, 4 CRISPR arrays and 2 AMR sets, all
    null, the per-family FDP at q (= 1 if any q_value <= q, as every region is null) satisfies the
    ``check_fdr`` bound at q in {0.01, 0.05, 0.10}.
@@ -52,18 +57,34 @@ FULL = [rc.Scenario(f"null_full_rho{r}", 4500, {"ar1_rho": r}, "m4_13") for r in
 
 
 @pytest.mark.calibration
-def test_c1_level_fast() -> None:
+@pytest.mark.parametrize("stat", rd.STATS)
+def test_c1_level_fast(stat: str) -> None:
     R = C.replicates("regions", False)
-    failed = rc.level_checks(FAST, rc.CHROMOSOME_CHECKS + rc.PLASMID_AMR_CHECKS, R)
+    failed = rc.pooled_level_check(FAST, stat, R)
+    failed += rc.level_checks(FAST, [("amr", stat, "p1")], R, rc.PLASMID_LEVELS)
     assert not failed, failed
+
+
+#: full mode (lead decision 7): HL at every rho, O - E at rho = 0.5 only
+FULL_CHECKS = [(sc, "hl_shift") for sc in FULL] + [(FULL[1], "o_minus_e")]
 
 
 @pytest.mark.calibration_full
-@pytest.mark.parametrize("sc", FULL, ids=lambda s: s.name)
-def test_c1_level_full(sc: rc.Scenario) -> None:
+@rc.needs_m4_13
+@pytest.mark.parametrize(("sc", "stat"), FULL_CHECKS, ids=lambda x: getattr(x, "name", x))
+def test_c1_level_full(sc: rc.Scenario, stat: str) -> None:
     R = C.replicates("regions", True)
-    failed = rc.level_checks(sc, rc.CHROMOSOME_CHECKS + rc.PLASMID_AMR_CHECKS, R)
+    failed = rc.pooled_level_check(sc, stat, R)
+    failed += rc.level_checks(sc, [("amr", stat, "p1")], R, rc.PLASMID_LEVELS)
     assert not failed, failed
+
+
+def test_full_checks_follow_lead_decision_7() -> None:
+    assert FULL[1].expr_kw["ar1_rho"] == 0.5
+    hl_rhos = sorted(sc.expr_kw["ar1_rho"] for sc, s in FULL_CHECKS if s == "hl_shift")
+    assert hl_rhos == [0, 0.5, 0.9]
+    assert [sc.expr_kw["ar1_rho"] for sc, s in FULL_CHECKS if s == "o_minus_e"] == [0.5]
+    assert 0.01 not in rc.PLASMID_LEVELS
 
 
 # --------------------------------------------------------------------------- C2 FDR
@@ -91,7 +112,7 @@ def _fdp(res: pd.DataFrame, typ: str, stat: str, levels: list[float]) -> np.ndar
     "full",
     [
         pytest.param(False, marks=pytest.mark.calibration, id="fast"),
-        pytest.param(True, marks=pytest.mark.calibration_full, id="full"),
+        pytest.param(True, marks=[pytest.mark.calibration_full, rc.needs_m4_13], id="full"),
     ],
 )
 def test_c2_fdr_within_type_and_stat(full: bool) -> None:

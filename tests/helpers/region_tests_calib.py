@@ -8,20 +8,46 @@ replicate ``i`` of any stream maps back to the scenario's replicate ``i`` (seed
 
 A check's replicate value is the p-value of one region row; NA (no valid shift, or no detected
 gene for HL) counts as p = 1 (``p_or_one``: a test that cannot be computed does not reject).
+
+Gate structure after the statistician's review (spec lead decision 7; no tolerance change):
+``pooled_level_check`` pools the first region of each chromosome type into one level stream per
+statistic (``check_level_pooled``, m = 4: rejection indicators of different types correlate
+<= 0.06 over 20,000 null replicates); the plasmid's AMR set is gated at alpha in {0.05, 0.10} only
+(``PLASMID_LEVELS``: with K = 59 shifts p <= 0.01 is unattainable).
+
+``needs_m4_13`` marks checks whose p_detect comes from M4-13 (``giap.genetable.detectability``,
+PR #83): xfail(strict=False) "needs M4-13 (#83)" while that module is absent (lead decisions 4, 8);
+the mark lifts itself once #83 is merged.
 """
 
 from __future__ import annotations
 
+import importlib.util
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 import pandas as pd
+import pytest
 import region_tests_data as rd
 
 #: bootstrap B for calibration runs: the CI is not under test here, the p-values are
 CAL_BOOTSTRAP = 20
+#: plasmid AMR level checks (lead decision 7)
+PLASMID_LEVELS = (0.05, 0.10)
+
+
+def _has_m4_13() -> bool:
+    try:
+        return importlib.util.find_spec("giap.genetable.detectability") is not None
+    except ModuleNotFoundError:
+        return False
+
+
+needs_m4_13 = pytest.mark.xfail(
+    not _has_m4_13(), reason="needs M4-13 (#83)", strict=False, raises=ImportError
+)
 
 
 @dataclass(frozen=True)
@@ -87,13 +113,19 @@ def shared_fn(
     return fn
 
 
-def level_checks(sc: Scenario, checks: list[tuple[str, str, str]], R: int) -> list[str]:
-    """Level at every ``levels`` alpha for each (region_type, stat, contig) check of ``sc``
-    (stream ``<scenario stream>.<type>[@contig].<stat>``); returns failure details."""
+def level_checks(
+    sc: Scenario,
+    checks: list[tuple[str, str, str]],
+    R: int,
+    levels: tuple[float, ...] | None = None,
+) -> list[str]:
+    """Level at every alpha of ``levels`` (default: tolerances ``levels``) for each
+    (region_type, stat, contig) check of ``sc`` (stream
+    ``<scenario stream>.<type>[@contig].<stat>``); returns failure details."""
     from _gate import calibrate_levels
 
     C = _C()
-    levels = list(C.load_tolerances().levels)
+    levels = list(C.load_tolerances().levels) if levels is None else list(levels)
     failed: list[str] = []
     for typ, stat, contig in checks:
         tag = typ if contig == "chr1" else f"{typ}@{contig}"
@@ -102,6 +134,29 @@ def level_checks(sc: Scenario, checks: list[tuple[str, str, str]], R: int) -> li
         gate = calibrate_levels("regions", "level", levels, fn, R, stream=stream)
         failed += gate.detail() if gate.failed else []
     return failed
+
+
+def rejection_shares(
+    res: pd.DataFrame, types: tuple[str, ...], stat: str, contig: str, levels: list[float]
+) -> np.ndarray:
+    """Per alpha, the share of ``types`` whose first region on ``contig`` has p <= alpha."""
+    p = np.array([region_p(res, t, stat, contig) for t in types])
+    return np.array([float(np.count_nonzero(p <= a)) / p.size for a in levels])
+
+
+def pooled_level_check(
+    sc: Scenario, stat: str, R: int, types: tuple[str, ...] = rd.REGION_TYPES
+) -> list[str]:
+    """Pooled level (m = len(types)) of ``stat`` over the first chromosome region of each type,
+    at every tolerances alpha (stream ``<scenario stream>.chr1_pooled.<stat>``)."""
+    from _gate import calibrate_levels
+
+    C = _C()
+    levels = list(C.load_tolerances().levels)
+    stream = f"{sc.stream}.chr1_pooled.{stat}"
+    fn = shared_fn(sc, stream, R, lambda res: rejection_shares(res, types, stat, "chr1", levels))
+    gate = calibrate_levels("regions", "level", levels, fn, R, stream=stream, m=len(types))
+    return gate.detail() if gate.failed else []
 
 
 CHROMOSOME_CHECKS = [(t, s, "chr1") for t in rd.REGION_TYPES for s in rd.STATS]

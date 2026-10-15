@@ -5,20 +5,25 @@ Two kinds of inputs, both in the column vocabulary the real producers write (not
 * hand-built gene tables (``gene_table``) with the §9.3 ``genes.tsv`` columns the region tests read:
   identity (C2: ``locus_tag``, ``feature_type``, ``contig``, ``start``, ``end``, ``strand``,
   ``partial``, ``crosses_origin``), context (C6: ``tu_id``, ``region_ids``), evidence (``detected``,
-  ``detection_status``, ``p_detect``) and abundance (``abundance_log2``); C1 ``replicons``, C7
-  ``regions`` and C8 ``region_genes`` frames with the contract columns;
+  ``detection_status``, ``p_detect``), abundance (``abundance_log2``) and the M4-10 protein
+  covariates ``length_aa``, ``n_observable_peptides``, ``gravy`` (ADR-0018: HL residualises on
+  them);
+  C1 ``replicons``, C7 ``regions`` and C8 ``region_genes`` frames with the contract columns;
 * simulated gene tables (``sim_tables`` / ``tables_from``): giapsim M4-07 layout (C1, C2, C7, C8;
   C6 via ``layers_frame``, or the whole contract written and re-read with M4-06
   ``load_m4_inputs`` in ``loaded_tables``) + M4-08 expression truth: ``detected = detected_true``,
   ``abundance_log2 = abundance_log2_true`` on detected genes (NaN otherwise: M4-14 fills only
   detected genes), ``p_detect`` = ``p_detect_true`` or the M4-13 cross-fitted model on M4-10
-  covariates (``p_source="m4_13"``).
+  covariates (``p_source="m4_13"``); covariate columns from M4-10 ``covariate_table``.
 
 Eligibility follows M4-15/M4-16: partial genes have ``detection_status = partial_excluded``,
 ``detected = False`` and ``p_detect = NaN``. Nothing here imports ``giap.context``.
 
 Oracles: ``naive_o_minus_e_null`` / ``naive_hl_null`` (one Python loop per shift), ``naive_perm_p``
-and ``expected_shifts`` (shift sets from the spec text, independent of ``giap.stats``).
+and ``expected_shifts`` (shift sets from the spec text, independent of ``giap.stats``); ADR-0018:
+``naive_studentised_null`` (O - E test statistic sum(d - p) / sqrt(sum p (1 - p)) per shift) and
+``naive_residualise`` (log2 abundance residualised on the M4-13 transforms of the detectability
+covariates among the replicon's detected genes).
 """
 
 from __future__ import annotations
@@ -44,7 +49,12 @@ TABLE_COLUMNS = (*RESULT_FIELDS, "q_value", "method", "null_model")
 GENE_COLUMNS = (
     "locus_tag", "feature_type", "contig", "start", "end", "strand", "partial", "crosses_origin",
     "tu_id", "region_ids", "detected", "detection_status", "p_detect", "abundance_log2",
+    "length_aa", "n_observable_peptides", "gravy",
 )  # fmt: skip
+#: ADR-0018 decision 1: the detectability covariates HL residualises on (§9.3 genes.tsv names)
+COVARIATE_COLUMNS = ("length_aa", "n_observable_peptides", "gravy")
+#: hand-built genes span 300 nt (99 codons + stop): constant covariates unless a Contig sets them
+DEFAULT_COVARIATES = (99, 5, -0.2)
 REGION_COLUMNS = ("region_id", "region_type", "contig", "start", "end", "source_tool", "score")
 REGION_GENE_COLUMNS = ("region_id", "locus_tag", "overlap_frac", "subset", "core_biosynthetic")
 FEW_SHIFTS_K = 19  # lead decision 5 / Q3: K < 19 -> the smallest p 1/(1+K) exceeds 0.05
@@ -91,7 +101,9 @@ class Contig:
     """One replicon for ``gene_table``: per gene detection d, p_detect p, log2 abundance a.
 
     ``partial`` marks partial genes (linear contig ends); ``tu`` gives TU labels (default: one TU
-    per gene). ``a`` defaults to 10 + gene index on detected genes, NaN elsewhere.
+    per gene). ``a`` defaults to 10 + gene index on detected genes, NaN elsewhere. ``length_aa``,
+    ``n_obs`` (``n_observable_peptides``) and ``gravy`` default to ``DEFAULT_COVARIATES`` (constant:
+    residualising on them only centres the abundances, which leaves every HL difference unchanged).
     """
 
     name: str
@@ -102,6 +114,9 @@ class Contig:
     partial: Sequence[bool] | None = None
     tu: Sequence[str] | None = None
     kind: str | None = None
+    length_aa: Sequence[int] | None = None
+    n_obs: Sequence[int] | None = None
+    gravy: Sequence[float] | None = None
 
 
 def gene_table(contigs: Sequence[Contig]) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -117,6 +132,12 @@ def gene_table(contigs: Sequence[Contig]) -> tuple[pd.DataFrame, pd.DataFrame]:
             raise ValueError(f"contig {c.name}: d, p, a lengths differ")
         part = [False] * n if c.partial is None else [bool(x) for x in c.partial]
         tus = [f"TU_{c.name}_{i}" for i in range(n)] if c.tu is None else list(c.tu)
+        L0, N0, G0 = DEFAULT_COVARIATES
+        la_ = [L0] * n if c.length_aa is None else list(c.length_aa)
+        no_ = [N0] * n if c.n_obs is None else list(c.n_obs)
+        gr_ = [G0] * n if c.gravy is None else list(c.gravy)
+        if not len(la_) == len(no_) == len(gr_) == n:
+            raise ValueError(f"contig {c.name}: covariate lengths differ from d")
         for i in range(n):
             det = bool(c.d[i]) and not part[i]
             if c.a is None:
@@ -141,6 +162,9 @@ def gene_table(contigs: Sequence[Contig]) -> tuple[pd.DataFrame, pd.DataFrame]:
                     ),
                     "p_detect": math.nan if part[i] else float(c.p[i]),
                     "abundance_log2": a,
+                    "length_aa": int(la_[i]),
+                    "n_observable_peptides": int(no_[i]),
+                    "gravy": float(gr_[i]),
                 }
             )
         if c.circular:
@@ -149,7 +173,9 @@ def gene_table(contigs: Sequence[Contig]) -> tuple[pd.DataFrame, pd.DataFrame]:
             kind = c.kind or "unknown"
         reps.append((c.name, 400 * n + 200, "circular" if c.circular else "linear", kind))
     genes = pd.DataFrame(rows, columns=list(GENE_COLUMNS))
-    genes = genes.astype({"start": "int64", "end": "int64", "partial": bool, "detected": bool})
+    genes = genes.astype({"start": "int64", "end": "int64", "partial": bool, "detected": bool,
+                          "length_aa": "int64", "n_observable_peptides": "int64",
+                          "gravy": "float64"})  # fmt: skip
     replicons = pd.DataFrame(reps, columns=["contig", "length", "topology", "kind"])
     return genes, replicons.astype({"length": "int64"})
 
@@ -193,11 +219,15 @@ def tags_of(genes: pd.DataFrame, contig: str, idx: Iterable[int]) -> list[str]:
 
 def hot_contig(name: str, n_hot: int, n: int = 100, width: int = 3) -> Contig:
     """Circular contig of ``n`` genes whose region I = {0 .. width-1} has d - p = +0.5 per gene and
-    ``n_hot`` disjoint copies of that pattern far from I and from each other (every other gene has
-    d = 0, p = 0). Exactly ``n_hot`` of the n - 1 shifts tie the observed O - E, all others are
-    smaller, so the exhaustive two-sided p is (1 + n_hot) / n (spec example 8)."""
+    ``n_hot`` disjoint copies of that pattern far from I and from each other. Exactly ``n_hot`` of
+    the n - 1 shifts tie the observed O - E, all others are
+    smaller, so the exhaustive two-sided p is (1 + n_hot) / n (spec example 8).
+
+    Every other gene has d = 0, p = 0.01 (not 0: the ADR-0018 studentised statistic divides by
+    sum p (1 - p) of the shifted set, which must stay positive); the p-values hold for both the
+    plain sum and the studentised statistic."""
     d = [0] * n
-    p = [0.0] * n
+    p = [0.01] * n
     starts = [0] + [20 * (j + 1) for j in range(n_hot)]
     if starts[-1] + width + width > n:
         raise ValueError("too many hot copies for n")
@@ -224,6 +254,61 @@ def expected_shifts(n: int, idx: Sequence[int], circular: bool) -> list[int]:
 def naive_o_minus_e_null(r: np.ndarray, idx: Sequence[int], shifts: Sequence[int]) -> np.ndarray:
     n = len(r)
     return np.array([sum(float(r[(i + k) % n]) for i in idx) for k in shifts], dtype=float)
+
+
+def naive_studentised_null(
+    r: np.ndarray, v: np.ndarray, idx: Sequence[int], shifts: Sequence[int]
+) -> np.ndarray:
+    """ADR-0018 decision 2: T_k = sum r / sqrt(sum v) over (I + k) mod N, r = d - p,
+    v = p (1 - p)."""
+    n = len(r)
+    out = []
+    for k in shifts:
+        s = sum(float(r[(i + k) % n]) for i in idx)
+        w = sum(float(v[(i + k) % n]) for i in idx)
+        out.append(s / math.sqrt(w))
+    return np.array(out, dtype=float)
+
+
+def studentised(r: np.ndarray, v: np.ndarray, idx: Sequence[int]) -> float:
+    return float(sum(float(r[i]) for i in idx) / math.sqrt(sum(float(v[i]) for i in idx)))
+
+
+def naive_residualise(
+    a: np.ndarray,
+    det: np.ndarray,
+    length_aa: Sequence[float],
+    n_obs: Sequence[float],
+    gravy: Sequence[float],
+) -> np.ndarray:
+    """ADR-0018 decision 1 (test-author reading): among the replicon's detected genes with a finite
+    log2 abundance, ordinary least squares of ``a`` on an intercept and the M4-13
+    ``transform_covariates`` of the detectability covariates, log(length_aa),
+    log1p(n_observable_peptides) and gravy (a non-finite transform -> the median of that column over
+    the fitted genes); returns the residuals there and NaN elsewhere. Rank-deficient designs (e.g.
+    constant covariates) use the minimum-norm solution, so constant covariates only centre ``a``."""
+    av = np.asarray(a, dtype=float)
+    ok = np.asarray(det, dtype=bool) & np.isfinite(av)
+    out = np.full(av.size, np.nan)
+    if not ok.any():
+        return out
+    with np.errstate(divide="ignore", invalid="ignore"):
+        cols = [
+            np.log(np.asarray(length_aa, dtype=float)),
+            np.log1p(np.asarray(n_obs, dtype=float)),
+            np.asarray(gravy, dtype=float),
+        ]
+    X = [np.ones(int(ok.sum()))]
+    for c in cols:
+        x = c[ok].copy()
+        bad = ~np.isfinite(x)
+        if bad.any():
+            x[bad] = np.median(x[~bad]) if (~bad).any() else 0.0
+        X.append(x)
+    design = np.column_stack(X)
+    beta, *_ = np.linalg.lstsq(design, av[ok], rcond=None)
+    out[ok] = av[ok] - design @ beta
+    return out
 
 
 def naive_hl(x: Sequence[float], y: Sequence[float]) -> float:
@@ -333,6 +418,8 @@ def tables_from(
     detected share; the naive model of the attack-2 teeth test) or an explicit array in layout gene
     order. ``genes_c2`` / ``layers`` default to the layout's C2 frame and ``layers_frame``.
     """
+    from giap.config.model import GiapConfig
+    from giap.genetable.covariates import covariate_table
     from giapsim.contract_tables import layers_frame
 
     e = expr.genes.set_index("locus_tag")
@@ -355,6 +442,7 @@ def tables_from(
     else:
         raise ValueError(f"unknown p_source {p_source!r}")
     p = np.where(part, np.nan, p)
+    cov = covariate_table(g, GiapConfig())  # M4-10, the genes.tsv protein columns (§9.3)
     genes = pd.DataFrame(
         {
             "locus_tag": tags.to_numpy(),
@@ -373,6 +461,9 @@ def tables_from(
             ),
             "p_detect": p,
             "abundance_log2": ab,
+            "length_aa": cov["length_aa"].to_numpy(np.int64),
+            "n_observable_peptides": cov["n_observable_peptides"].to_numpy(np.int64),
+            "gravy": cov["gravy"].to_numpy(float),
         },
         columns=list(GENE_COLUMNS),
     )

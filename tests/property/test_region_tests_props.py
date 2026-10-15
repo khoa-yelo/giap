@@ -8,7 +8,11 @@ GIAP_SPEC.md §7.3.6).
   min(I) + k >= N, and the count equals the spec's rule (``expected_shifts``);
 - P4 the vectorised nulls equal a naive per-shift loop (O - E and HL, NaN where a side is empty);
 - P5 end to end on circular contigs below the threshold: n_perm = N - 1 (O - E), and p_value
-  equals the two-sided centred p of the naive null (both statistics; NaN shifts dropped).
+  equals the two-sided centred p of the naive null (both statistics; NaN shifts dropped). O - E:
+  the null of the ADR-0018 studentised statistic sum(d - p) / sqrt(sum p (1 - p)), effect O - E;
+  HL with the default constant covariates (residualising only centres a);
+- P6 (ADR-0018 decision 1) with random detectability covariates, HL effect and p equal the naive
+  HL on ``rd.naive_residualise`` residuals and its naive shift null.
 """
 
 from __future__ import annotations
@@ -20,7 +24,7 @@ from typing import Any
 
 import numpy as np
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
@@ -128,11 +132,12 @@ def test_p5_p_values_equal_naive_exhaustive(rep: dict[str, Any]) -> None:
     res = _run(c, idx)
     shifts = list(range(1, n))
     r = np.array(rep["d"], float) - np.array(rep["p"], float)
+    v = np.array(rep["p"], float) * (1 - np.array(rep["p"], float))
     oe = pick(res, "bgc_1", "o_minus_e")
     assert oe["n_perm"] == n - 1
     obs = float(r[idx].sum())
     assert oe["effect"] == pytest.approx(obs)
-    want = rd.naive_perm_p(obs, rd.naive_o_minus_e_null(r, idx, shifts))
+    want = rd.naive_perm_p(rd.studentised(r, v, idx), rd.naive_studentised_null(r, v, idx, shifts))
     assert oe["p_value"] == pytest.approx(want)
 
     det = np.array(rep["d"], bool)
@@ -152,6 +157,42 @@ def test_p5_p_values_equal_naive_exhaustive(rep: dict[str, Any]) -> None:
             assert rd.is_na(hl["p_value"])
         else:
             assert hl["p_value"] == pytest.approx(want_hl)
+
+
+@SETTINGS
+@given(
+    rep=replicon(min_n=10, max_n=30),
+    cov=st.lists(
+        st.tuples(st.integers(10, 1200), st.integers(0, 60), st.floats(-1.5, 1.5)),
+        min_size=30, max_size=30,
+    ),
+)  # fmt: skip
+def test_p6_hl_on_residualised_abundance(rep: dict[str, Any], cov: list[Any]) -> None:
+    n, idx = rep["n"], rep["idx"]
+    L = [c[0] for c in cov[:n]]
+    k = [c[1] for c in cov[:n]]
+    g = [round(c[2], 3) for c in cov[:n]]
+    c = Contig("chr1", rep["d"], rep["p"], a=rep["a"], length_aa=L, n_obs=k, gravy=g)
+    res = _run(c, idx)
+    det = np.array(rep["d"], bool)
+    assume(int(det.sum()) >= 8)  # an identified fit: 4 coefficients, a few residual dof
+    a = np.where(det, np.array(rep["a"], float), np.nan)
+    ar = rd.naive_residualise(a, det, L, k, g)
+    ok = det & np.isfinite(ar)
+    x = [ar[i] for i in idx if ok[i]]
+    y = [ar[i] for i in range(n) if ok[i] and i not in idx]
+    hl_obs = rd.naive_hl(x, y)
+    hl = pick(res, "bgc_1", "hl_shift")
+    if math.isnan(hl_obs):
+        assert rd.is_na(hl["effect"]) and rd.is_na(hl["p_value"])
+        return
+    assert hl["effect"] == pytest.approx(hl_obs, abs=1e-8)
+    null = rd.naive_hl_null(ar, ok, idx, list(range(1, n)))
+    want = rd.naive_perm_p(hl_obs, null)
+    if math.isnan(want):
+        assert rd.is_na(hl["p_value"])
+    else:
+        assert hl["p_value"] == pytest.approx(want)
 
 
 @pytest.fixture(scope="module")
