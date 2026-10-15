@@ -4,12 +4,12 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-14 · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
+_Last updated: 2026-10-15 00:30 PDT · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
 
 ## Current milestone
 M0: Scaffold. Status: done (PR #1, merged 2026-10-14 under ADR-0004)
 M1: Inputs and preflight. Status: done (12 issues; PRs #2–#11, #13, #14)
-M2–M4: designed (docs/specs/M{2,3,4}-index.md); wave 2 implementation in progress
+M2–M4: designed (docs/specs/M{2,3,4}-index.md); implementation in progress (≈ 60 % of M2–M4 issues merged)
 
 ## Done (with evidence)
 - [M0] `gh` authenticated as khoa-yelo (SSH protocol); repository is public (Actions minutes unlimited).
@@ -23,43 +23,41 @@ M2–M4: designed (docs/specs/M{2,3,4}-index.md); wave 2 implementation in progr
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
-Merged since wave 2: M3-04 (#27), M3-09 (#28), M2-03 (#30), M4-04 (#31), env locks (#32), resumable Bakta
-download (#33), M4-02 (#34), M3-05 (#35), M2-04 (#36), M2-06 (#37), M2-05 (#38), M3-06 (#39), role guard
-fix (#40), M3-11 (#42), timing budgets → benchmarks (#43). Run `bash scripts/resume_status.sh` for each
-branch's next step.
-Open:
-- #41 `m3/placement-fdr` (M3-10, ADR-0010 + ADR-0011): statistician BLOCK fixed (same_db shortcut for
-  database rows only; π̂ over remaining rows); statistician re-check running.
-- `m2/nf-tools` (M2-07): tests + lead CLI test update pushed; implementer running.
-- `m3/tolerant-seeds` (M3-07), `m3/miniprot` (M3-12), `m4/input-contract` (M4-06), `m2/uniop-tus` (M2-12):
-  test-authors running.
-Slurm: `giap-fetch-bakta-db` job 1846085 (aria2c, resumable, md5-checked, then `bakta_db install` in the
-pinned container); resubmit `scripts/slurm/fetch_bakta_db.sbatch` if it times out.
-Follow-ups queued:
-- M3-21: measure c_ref − c_true (reference vs searched de novo precision) and the target-vs-decoy chance
-  rate of wrong peptides; minimum reference peptides per class (or resample c_ℓ); count unreportable
-  bootstrap resamples as precision 0 (M3-11 statistician). Measure the PEP–length correlation for the
-  database π̂ (ADR-0010).
-- M4-12: M4-02 forwarded items (input validation, report fp/n_genes, unspecific-search warning, `fdr_2pep`
-  label); M4-17: report n_tu and flag bootstrap CIs from < 10 TUs (M4-04).
-- M3-08: never call `verify` with sides ≤ 4 aa (M3-06 decision 1); anchored ends defined in M3-08.
-- M3-07: specifies a public njit batch entry point over `tolerant_dp` (M3-06 decision 6).
-- M3-06 benchmark at 3.7–4.2 s of the 5 s budget after input normalisation — watch in the speed loop.
-- Skip pip freeze for pip-less envs when built by name; `_step` failure test should chdir to tmp_path;
-  waitmerge.sh should read the PR head commit's check runs directly; background merges must use the tool's
-  background mode (a plain `&` job dies with its shell).
+Merged (all with code review; stats PRs with statistician sign-off): M2-02…M2-06, M2-08 (#57), M2-11 (#64),
+M2-12 (#49), M3-04…M3-15 (incl. #41 placement FDR, #48 tolerant seeds, #50 loci, #53 tblastn, #60
+frameshifts, #63 contaminants), M3-19 (#55), M4-02, M4-04…M4-07 (#51, #54 calibration harness, #62),
+M4-10 (#61), ADR-0016 size gate (#56), Slurm helpers (#46, #58, #59). Run `bash scripts/resume_status.sh`.
+Open PRs:
+- #65 `m2/nf-tools` (M2-07): real-tool run failed review (registry keys, conda off, no `ps`, PyQt5,
+  stub headers); fixes committed locally, real ANNOTATE run = Slurm 1847900; then re-review.
+  Stacked follow-up `m2/run-wiring` (giap run → preflight, replicons, db_dir; `_step` loads steps) pushed.
+- #66 M3-20 sim de novo errors (approved after test pins) — merging. #67 M2-09 setup resources (ADR-0017) —
+  merging. #68 M3-16 mapping outputs — review fixes in progress. #69 calibration migration to
+  `calibrate()` — statistician review.
+- `m4/sim-m4-08` (M4-08 sim expression): test-author.
+Slurm: tool recordings split per tool (giap-rec-*: 1847974 terminatornet, 1847975 genomad, 1847977
+transtermhp, 1847979 promoter_calculator; chained 1847981 antismash, 1847982 ostir, 1847983 promotech);
+the sequential job 1847778 was cancelled (TerminatorNet on K-12 alone took 60 min).
+Follow-ups queued (docs/backlog.md has the full list):
+- Per-process real-tool Slurm job array for workflow modules (inputs from recordings) — after #65 (Khoa).
+- calibration_full variants for migrated suites (statistician); GO data-version pin (M2-09).
+- M3-21: c_ref − c_true, chance rate of wrong peptides, PEP–length correlation (ADR-0010).
+- M4-12/M4-17 forwarded items; M6: simulate readthrough (cterm_extension).
 Lessons (keep):
+- Never rebase + force-push: merge origin/main into the branch and push plainly (force-push is blocked;
+  Khoa, 2026-10-15). Recover a locally rebased branch by cherry-picking onto origin's branch.
+- Slurm work dirs live under $GIAP_ROOT (scratch/…), never node-local /tmp or the session scratchpad.
+- Rebuilding a shared micromamba env from one branch breaks `test_envs_built` on all other branches until
+  that branch merges (promotech/PyQt5, #65).
+- Every tool wrapper gets a real-tool run before code review; stub fixtures hid ~10 bugs in M2-07.
+- Keep ≤ 128 CPUs: Slurm rounds each job up by 2 CPUs; chain extra jobs with --dependency.
 - Slurm jobs run from the main checkout only; never remove a worktree a job may be using.
-- Clean up a worktree only after a confirmed merge; resolve rebase conflicts file by file.
 - Subagents never install packages; set PYTHONPATH per worktree; unset PYTHONHOME after sourcing the env.
-- Wall-clock budgets live in benchmarks/, unit tests keep only loose 10× guards.
 
 ## Next actions (ordered)
-1. Finish #41 (statistician re-check → merge), M2-07, M3-07, M3-12, M4-06, M2-12.
-2. Then: M3-08 frameshifts (after M3-07), M3-13 tblastn (after M3-12; HSP limits are constants — Khoa),
-   M3-14 loci (after M3-10), M3-19 sim peptides, M4-05 calibration harness, M4-07…09 simulator (after
-   M4-06), M2-08 setup core, M2-11 user annotation, M2-13…M2-20 tool layers (after M2-07/M2-12).
-3. After the Bakta full DB installs: `giap setup` verification (M2-08) and recorded runs (M2-10).
+1. Merge #66, #67; finish #68, #69, #65 (+ run-wiring PR), M4-08.
+2. Then: M4-09 (after M4-08), M3-17 mapping steps (after M3-16), M2-13…M2-20 tool layers (after #65,
+   using the recordings), M2-10, per-process real-tool job array, first full ANNOTATE `giap run`.
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
@@ -67,6 +65,9 @@ Lessons (keep):
 | 2026-10-14 | RegulonDB v12 download (needed at M6) | `regulondb.ccg.unam.mx` unreachable from FarmShare (probe) | nothing yet; retry at M6, then ask |
 
 ## Answered by Khoa
+- 2026-10-15: force-push blocked → merge main into feature branches instead of rebasing (option 3).
+- 2026-10-15: light mode (no new agents) 01:30–03:30 for the usage reset; per-process Slurm testing for M2-07 wanted.
+- 2026-10-14: ADR-0013 cterm_extension, ADR-0015 two-block confirmation, ADR-0016 size gate excludes workflow/tests (all accepted-by-khoa).
 - 2026-10-14: novel ORFs are checked for a nearby promoter and terminator — evidence columns, flags and a
   ranking key, not a calling requirement (ADR-0012, accepted-by-khoa; implemented in M6).
 - 2026-10-14: ADR-0011 (`low_complexity` placement flag) accepted as proposed.
@@ -86,7 +87,8 @@ Lessons (keep):
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;
   apptainer=1.4.4, micromamba=2.3.3, nextflow=26.10.0, nf-test=0.9.5, gh=2.102.0, sbatch=ok,
   gpu partition=visible
-- databases present: none yet (Bakta light/full, geNOMAD, Promotech models come in M2)
+- databases present: Bakta light+full v6.0, geNOMAD, Promotech RF-HOT, antiSMASH (4.1 GB); genomes K-12,
+  Nissle; UP000000625 proteome
 - sources: all §3.2 sources reachable except regulondb.ccg.unam.mx
 
 ## Measured numbers
@@ -94,3 +96,6 @@ Lessons (keep):
 |---|---|---|---|---|
 | bootstrap (micromamba env giap-wf) | — | ~3 min | — | iron-01 (session) |
 | uv sync --all-extras | — | 1 min 48 s | — | iron-01 (session) |
+| Bakta full DB | Nissle 1917 | 13.5 min | — | wheat (1846846) |
+| TerminatorNet (-n 17) | K-12 MG1655 | 60 min | — | wheat-04 (1847778) |
+| giap setup GO/KEGG/COG/contaminants | — | — | go-basic 32.2 MB, KEGG links 2.3 MB | session (review #67) |

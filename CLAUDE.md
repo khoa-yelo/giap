@@ -15,6 +15,6 @@
   `local/worktrees/<topic>` (one branch each); in a worktree set
   `PYTHONPATH=$PWD/src:$PWD/tests/sim` and never install packages (shared venv).
 - Merging: `scripts/dev/waitmerge.sh PR TITLE` squash-merges only when every CI check is present and
-  passed (one snapshot); `scripts/dev/replant.sh WORKTREE FORKPOINT PR` moves a stacked branch onto main
-  (retargets the PR before pushing).
+  passed (one snapshot). Update branches by merging origin/main and pushing plainly — never rebase +
+  force-push (blocked); `scripts/dev/replant.sh` (force-pushes) is retired: merge main into stacked branches
 - End every work unit: update PROGRESS.md, commit, push.
