@@ -85,6 +85,9 @@ class EvidenceConfig:
         bad = []
         if not 0.0 <= self.pi_wrong < 1.0:
             bad.append(f"pi_wrong {self.pi_wrong} not in [0, 1)")
+        mu0, mu1 = self.mixture
+        if not mu1 > mu0:
+            bad.append(f"mixture mu1 {mu1} <= mu0 {mu0} (PEP/q must be monotone)")
         for name in ("shared_frac", "tolerant_frac"):
             if not 0.0 <= getattr(self, name) <= 1.0:
                 bad.append(f"{name} not in [0, 1]")
