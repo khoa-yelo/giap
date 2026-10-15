@@ -86,3 +86,13 @@ the statistician reviews this issue because the nulls it produces gate M4.
    the intercept tuned once so the default layout gives ≈ 55 % detected (≈ −8.9 for 280-aa median
    genes with ≈ 13 observable peptides), an E. coli-like single-run share? **Proposed default:** yes;
    the statistician may tune before the calibration tests are written.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted: `tu_sd` = AR(1) innovation σ; `tu_log2` = μ + replicon +
+   region + island + AR(1), one value per TU, no extra TU noise; planted shifts/islands are deterministic
+   (paired same-seed runs differ by exactly the shift); island first-TU index 0-based in replicon TU order,
+   effect = `effect × tu_sd` at ρ = 0; `n_obs` per M4-10 (distinct tryptic peptides 7–30 aa); natural logs;
+   ρ ∉ [0, 1) or unknown detection mode → ValueError; `expression_for_simulation(genes, tus, cfg, rng)`.
+2. Examples 3 and 4 (±0.5): one seed's scatter (SD ≈ 0.8) exceeds ±0.5, so the spec's tolerance is tested
+   on the mean over 30 seeds, and the exact shift on paired same-seed runs.
+3. The calibration file runs in suite `regions`; its detection checks in `detectability`.
