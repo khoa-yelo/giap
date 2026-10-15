@@ -22,9 +22,14 @@ criterion fails there, replicates R..2R-1 (same seed formula) are block 2 and th
 both blocks fail. Records carry ``block`` (1 | 2), ``status`` (pass | unconfirmed | fail) and the
 per-replicate ``values``. Under ``GIAP_CALIBRATION_REPLICATES=start:stop`` (set by ``--shard K/N``)
 ``calibrate`` runs only that range of block ``GIAP_CALIBRATION_BLOCK`` (default 1, ``--block``) and
-logs a ``shard`` record; ``merge_shards`` (``--merge``) evaluates the criterion on the full R.
-A merged check whose block 1 fails and whose block 2 was not run is ``fail`` (fail closed) until
-the shards are re-run with ``--block 2``.
+logs a ``shard`` record; ``merge_shards`` evaluates the criterion on the full R. A merged check
+whose block 1 fails and whose block 2 was not logged is ``pending`` (no verdict; never ``fail``
+from block 1 alone). ``--merge`` (PR #54 lead decision 5) then runs block 2 itself: it reruns the
+suite's pytest command (``pytest_args``) with ``GIAP_CALIBRATION_CONFIRM`` listing the pending
+checks, so ``calibrate`` runs replicates R..2R-1 of exactly those checks (same seeds as unsharded
+``calibrate``) and skips every other check, then merges again. Exit codes of ``--merge``: 0 every
+check pass or unconfirmed, 1 a confirmed fail (both blocks), 2 merge error (missing or malformed
+records, block 2 not obtained).
 
 Run as a script, this module is the nightly job-array entry point (one suite per task, task i = the
 i-th key of ``replicates_full``): ``python tests/calibration/_criteria.py --task-id I [--fast]
@@ -60,9 +65,13 @@ TOLERANCES_PATH = HERE / "tolerances.yaml"
 LOG_DIR_ENV = "GIAP_CALIBRATION_LOG_DIR"
 SHARD_ENV = "GIAP_CALIBRATION_REPLICATES"
 BLOCK_ENV = "GIAP_CALIBRATION_BLOCK"
+CONFIRM_ENV = "GIAP_CALIBRATION_CONFIRM"  # JSON [[stream, criterion, level, R], ...]: block 2 only
 CRITERIA = ("level", "uniform", "fdr", "fwer")
 STATUSES = ("pass", "unconfirmed", "fail")
 SHARD_STATUS = "shard"  # partial record of one shard; only ``merge_shards`` gives a verdict
+PENDING_STATUS = "pending"  # merged check whose block 1 fails and whose block 2 is not logged yet
+SKIPPED_STATUS = "skipped"  # check not listed in GIAP_CALIBRATION_CONFIRM (not run, not logged)
+MERGE_FAIL, MERGE_ERROR = 1, 2  # --merge exit codes: confirmed calibration failure / merge error
 MAX_TIE_SHARE = 0.05  # §8.4 discrete-p rule: more repeated values than this means discrete p
 
 T = TypeVar("T")
@@ -417,12 +426,27 @@ def _append(records: Sequence[Mapping[str, Any]], suite: str, log_dir: Path | No
 
 
 def _verdict(r1: CheckResult, r2: CheckResult | None) -> str:
-    """ADR-0015 status: fail only when both blocks fail."""
+    """ADR-0015 status: fail only when both blocks fail; ``pending`` while block 2 is missing."""
     if r1.ok:
         return "pass"
     if r2 is None:
-        return "fail"  # confirmation block not run: fail closed
+        return PENDING_STATUS  # confirmation block not run: no verdict (never fail from block 1)
     return "fail" if not r2.ok else "unconfirmed"
+
+
+CheckKey = tuple[str, str, float, int]  # (stream, criterion, level, R)
+
+
+def confirm_checks() -> frozenset[CheckKey] | None:
+    """Checks listed in ``GIAP_CALIBRATION_CONFIRM`` (block-2 run of ``--merge``), else None."""
+    raw = os.environ.get(CONFIRM_ENV)
+    if raw is None:
+        return None
+    try:
+        items = json.loads(raw)
+        return frozenset((str(a), str(b), float(c), int(d)) for a, b, c, d in items)
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"{CONFIRM_ENV}={raw!r}: {exc}") from None
 
 
 def calibrate(
@@ -442,14 +466,17 @@ def calibrate(
     only if both blocks fail. Both block records are appended to ``<log_dir>/<suite>.jsonl`` with
     the final ``status``; the final record (last block run) is returned. Sharded
     (``GIAP_CALIBRATION_REPLICATES`` set): only that range of block ``GIAP_CALIBRATION_BLOCK`` is
-    run and logged as a ``shard`` record (no verdict; see ``merge_shards``).
+    run and logged as a ``shard`` record (no verdict; see ``merge_shards``). Under
+    ``GIAP_CALIBRATION_CONFIRM`` (set by ``--merge``) a listed check runs all of block 2 as a
+    ``shard`` record and any other check is ``skipped`` (nothing run or logged).
     """
     if suite not in array_suites():
         raise KeyError(f"unknown calibration suite {suite!r} (not in tolerances.yaml)")
     if criterion not in CRITERIA:
         raise ValueError(f"unknown criterion {criterion!r}; choose from {', '.join(CRITERIA)}")
     name = stream if stream is not None else suite
-    reps = replicate_range(R)
+    confirm = confirm_checks()
+    reps = range(R) if confirm is not None else replicate_range(R)
 
     def run(block: int, local: range) -> tuple[range, list[float], float]:
         offset = (block - 1) * R
@@ -457,6 +484,14 @@ def calibrate(
         t0 = time.perf_counter()
         values = [_scalar(fn(replicate_rng(name, i)), i) for i in absolute]
         return absolute, values, time.perf_counter() - t0
+
+    if confirm is not None:
+        if (name, criterion, float(level), int(R)) not in confirm:
+            return _record(suite, name, criterion, level, R, 1, reps, [], 0.0, None, SKIPPED_STATUS)
+        absolute, values, dt = run(2, reps)
+        rec = _record(suite, name, criterion, level, R, 2, absolute, values, dt, None, "shard")
+        _append([rec], suite, log_dir)
+        return rec
 
     if reps != range(R):
         block = replicate_block()
@@ -516,8 +551,9 @@ def merge_shards(suite: str, log_dir: Path | None = None) -> list[dict[str, Any]
     """One verdict record per check from the (shard) records in ``<log_dir>/<suite>.jsonl``.
 
     A check is (stream, criterion, level, R). Block 1 must cover replicates 0..R-1 (else
-    ValueError); if it fails, block 2 (R..2R-1) decides per ADR-0015; if block 2 was not run the
-    check is ``fail`` (fail closed). Records written by ``log_result`` (no ``values``) are skipped.
+    ValueError); if it fails, block 2 (R..2R-1) decides per ADR-0015; if block 2 was not logged
+    the check is ``pending`` (block-1 record, no verdict: never ``fail`` from block 1 alone).
+    Records written by ``log_result`` (no ``values``) are skipped.
     """
     directory = Path(log_dir) if log_dir is not None else _default_log_dir()
     groups: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
@@ -587,7 +623,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--block", type=int, choices=(1, 2), default=1, help="replicate block of a sharded run"
     )
     ap.add_argument(
-        "--merge", action="store_true", help="merge shard records into verdicts (no pytest)"
+        "--merge",
+        action="store_true",
+        help="merge shard records into verdicts; runs block 2 of failing checks only",
     )
     ap.add_argument("--dry-run", action="store_true", help="print the pytest command only")
     ns = ap.parse_args(list(argv) if argv is not None else None)
@@ -616,27 +654,54 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return ns
 
 
-def _merge_main(suite: str) -> int:
-    """Merge the shard records of ``suite``; 0 iff no check fails, 2 if nothing to merge."""
+def _check_key(r: Mapping[str, Any]) -> list[Any]:
+    return [r["stream"], r["criterion"], float(r["level"]), int(r["R"])]
+
+
+def _run_block2(suite: str, full: bool, pending: Sequence[Mapping[str, Any]]) -> int:
+    """Run block 2 of the ``pending`` checks through the suite's pytest command; its exit code."""
+    cmd = [sys.executable, "-m", "pytest", *pytest_args(suite, full)]
+    checks = json.dumps([_check_key(r) for r in pending])
+    print(f"{CONFIRM_ENV}={shlex.quote(checks)} {shlex.join(cmd)}", file=sys.stderr)
+    base = {k: v for k, v in os.environ.items() if k not in (SHARD_ENV, BLOCK_ENV, CONFIRM_ENV)}
+    return subprocess.run(cmd, env={**base, CONFIRM_ENV: checks}, check=False).returncode
+
+
+def _merge_main(suite: str, full: bool) -> int:
+    """Merge the shard records of ``suite``, running block 2 of failing checks (decision 5).
+
+    0 if every check is pass or unconfirmed, ``MERGE_FAIL`` (1) if one fails in both blocks,
+    ``MERGE_ERROR`` (2) if the records cannot be merged or block 2 could not be obtained.
+    """
     try:
         merged = merge_shards(suite)
+        pending = [r for r in merged if r["status"] == PENDING_STATUS]
+        if pending:
+            code = _run_block2(suite, full, pending)
+            merged = merge_shards(suite)
+            still = [r for r in merged if r["status"] == PENDING_STATUS]
+            if still:
+                raise ValueError(
+                    f"block 2 not logged for {len(still)} failing check(s) (first"
+                    f" {_check_key(still[0])}; pytest exit {code}); no verdict"
+                )
     except (OSError, ValueError) as exc:
         print(f"merge {suite}: {exc}", file=sys.stderr)
-        return 2
+        return MERGE_ERROR
     if not merged:
         print(f"merge {suite}: no calibrate records in {log_dir()}", file=sys.stderr)
-        return 2
+        return MERGE_ERROR
     path = log_dir() / f"{suite}.merged.jsonl"
     path.write_text("".join(json.dumps(r) + "\n" for r in merged))
     print(summary_markdown(merged), end="")
-    return 1 if any(r["status"] == "fail" for r in merged) else 0
+    return MERGE_FAIL if any(r["status"] == "fail" for r in merged) else 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run (or with ``--dry-run`` print) the pytest command of one suite; ``--merge`` merges."""
     ns = parse_args(argv)
     if ns.merge:
-        return _merge_main(ns.suite)
+        return _merge_main(ns.suite, ns.full)
     cmd = [sys.executable, "-m", "pytest", *pytest_args(ns.suite, ns.full)]
     env: dict[str, str] = {}
     if ns.shard is not None:  # unsharded runs leave the variables unset (behaviour unchanged)

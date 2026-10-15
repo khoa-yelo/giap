@@ -15,8 +15,10 @@
 #   --shard K/N [--block 2]  run replicates block K of N (of confirmation block 2, ADR-0015); give
 #                            every shard the same GIAP_CALIBRATION_LOG_DIR, e.g.
 #                            GIAP_CALIBRATION_LOG_DIR=$GIAP_ROOT/logs/calibration/<tag> sbatch ...
-#   --merge                  evaluate the merged shard records on the full R (no pytest); same
-#                            GIAP_CALIBRATION_LOG_DIR as the shards; exit 1 if a check fails.
+#   --merge                  evaluate block 1 from the merged shard records on the full R and,
+#                            for each failing check, run its block 2 (R..2R-1) here, sequentially
+#                            (ADR-0015); same GIAP_CALIBRATION_LOG_DIR as the shards. Exit 0 pass
+#                            or unconfirmed, 1 confirmed fail (both blocks), 2 merge error.
 set -euo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 export TMPDIR="$(mktemp -d /tmp/giap.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
