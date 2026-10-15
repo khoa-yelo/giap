@@ -8,8 +8,9 @@ are translated from ``nt`` (table 11, first codon read as M, stop before the fir
 
 Lead decisions: a protein with nothing left after cleaning has ``length_aa = 0``, NaN ``gravy``,
 ``pi`` and ``mw_da`` and 0 peptides / TM segments; letters outside the 20 standard amino acids
-score 0 in TM windows; leading and trailing ``*`` are stripped; ``covariate_table`` keeps the
-input row order. Everything here is pure.
+score 0 in TM windows; leading and trailing ``*`` are stripped and an internal ``*`` raises
+ValueError (malformed input); ``covariate_table`` keeps the input row order.
+Everything here is pure.
 """
 
 from __future__ import annotations
@@ -173,11 +174,16 @@ def _protparam(clean: str) -> tuple[float, float, float]:
 
 
 def covariates(aa: str, enzyme: Enzyme, length: tuple[int, int]) -> Covariates:
-    """Covariates of one protein; ``aa`` upper case, leading/trailing ``*`` stripped."""
+    """Covariates of one protein; ``aa`` upper case, leading/trailing ``*`` stripped.
+
+    Raises ValueError on an internal ``*`` (left after stripping the leading/trailing ones).
+    """
     _check_enzyme(enzyme)
     if _VALID.fullmatch(aa) is None:
         raise ValueError("protein sequence must be upper-case letters (and '*')")
     seq = aa.strip("*")
+    if "*" in seq:
+        raise ValueError("internal stop codon '*' in protein sequence")
     clean = _NON_STANDARD.sub("", seq)
     if not clean:
         nan = math.nan
