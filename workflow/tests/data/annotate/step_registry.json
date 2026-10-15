@@ -1,4 +1,47 @@
 {
+  "loci": {
+    "inputs": [
+      "features",
+      "genes",
+      "genome",
+      "hits_exact",
+      "hits_tolerant",
+      "mapping_fdr",
+      "peptides",
+      "placement",
+      "replicons"
+    ],
+    "optional_inputs": [
+      "contaminants",
+      "miniprot_gff",
+      "proteins_long",
+      "tblastn_tsv"
+    ],
+    "outputs": [
+      "mapping"
+    ]
+  },
+  "map_exact": {
+    "inputs": [
+      "peptides",
+      "sixframe"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "hits_exact"
+    ]
+  },
+  "map_tolerant": {
+    "inputs": [
+      "hits_exact",
+      "peptides",
+      "sixframe"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "hits_tolerant"
+    ]
+  },
   "operon_pairs": {
     "inputs": [
       "genes",
@@ -33,6 +76,24 @@
       "xrefs"
     ]
   },
+  "placement": {
+    "inputs": [
+      "features",
+      "genes",
+      "hits_exact",
+      "hits_tolerant",
+      "peptides",
+      "replicons",
+      "sixframe"
+    ],
+    "optional_inputs": [
+      "reference_peptides"
+    ],
+    "outputs": [
+      "mapping_fdr",
+      "placement"
+    ]
+  },
   "promoter_layer": {
     "inputs": [
       "promotech",
@@ -53,6 +114,30 @@
     "outputs": [
       "windows",
       "windows_map"
+    ]
+  },
+  "protein_leftovers": {
+    "inputs": [
+      "features",
+      "genes",
+      "miniprot_gff",
+      "proteins_long",
+      "replicons"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "proteins_leftover"
+    ]
+  },
+  "sixframe_index": {
+    "inputs": [
+      "genome",
+      "peptides",
+      "replicons"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "sixframe"
     ]
   },
   "uniop_input": {
