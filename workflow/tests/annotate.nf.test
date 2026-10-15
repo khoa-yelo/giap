@@ -12,6 +12,12 @@
 //   params.stub = [windows_chunks: N, tu_regions: M]   (both default to 1 when absent)
 // makes the stubbed promoter_windows step emit windows_000.fa … and operon_pairs emit M TU
 // upstream regions.
+//
+// PR #65 review decisions (spec "Lead decisions after code review"): every GIAP_STEP task's --in keys
+// follow the giap.steps registry (data/annotate/step_registry.json, H.registryProblems; decision 1);
+// stub outputs carry the real headers committed in tests/data/recorded/headers (decisions 5-7); a
+// precomputed bakta_json without a GBFF skips antiSMASH with layer_missing (8); the Bakta --regions
+// file is a staged input (9).
 
 nextflow_pipeline {
 
@@ -89,6 +95,26 @@ nextflow_pipeline {
             def gm = H.files(H.procDirs(work, 'GENOMAD')[0]).findAll { it.name.endsWith('.tsv') }
             assert gm.size() > 0 && gm.every { it.readLines().size() == 1 } : "GENOMAD stub: header-only summary TSVs"
 
+            // decision 1: --in keys follow the step registry
+            def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            // decisions 5-7: stub headers equal the committed real headers
+            def hdr = { String n -> new File("${moduleTestDir}/../../tests/data/recorded/headers/${n}").readLines() }
+            assert ostir[0].readLines() == hdr('ostir.ostir.csv.txt') : "OSTIR stub header: ${ostir[0].readLines()}"
+            assert pc[0].readLines() == hdr('promoter_calculator.csv.txt') : "PROMOTER_CALCULATOR stub header: ${pc[0].readLines()}"
+            def ptd = pt.listFiles().find { it.isDirectory() && it.name ==~ /promotech_\d{3}/ }
+            def ptf = new File(ptd, 'sequences_predictions.csv')
+            assert ptf.isFile() : "PROMOTECH stub: no ${ptd.name}/sequences_predictions.csv (real file name)"
+            assert ptf.readLines() == hdr('promotech.sequences_predictions.csv.txt') : "PROMOTECH stub header: ${ptf.readLines()}"
+            ['virus_summary', 'plasmid_summary', 'virus_genes'].each { k ->
+                def f = gm.find { it.name == "genome_${k}.tsv" }
+                assert f != null : "GENOMAD stub: no genome_${k}.tsv in ${gm*.name}"
+                assert f.readLines() == hdr("genomad.${k}.tsv.txt") : "GENOMAD stub ${k} header: ${f.readLines()}"
+            }
+            def up = uniop[0].readLines()
+            assert up == hdr('uniop.uniop.pred.txt') : "UNIOP stub header: ${up}"
+
             def as_ = H.files(H.procDirs(work, 'ANTISMASH')[0]).findAll { it.name.endsWith('.json') && !it.path.contains('/in/') }
             assert as_.any { new groovy.json.JsonSlurper().parse(it) == [records: []] } : "ANTISMASH stub: no {\"records\": []} JSON"
         }
@@ -120,10 +146,100 @@ nextflow_pipeline {
             def sources = H.staged(dirs[0]).collect { new File(it[0]).canonicalPath }
             assert want in sources : "parse_bakta did not stage ${want}; staged ${sources}"
             // the rest of the annotation track still runs
-            ['UNIOP', 'TERMINATORNET', 'OSTIR', 'GENOMAD', 'ANTISMASH'].each { p ->
+            ['UNIOP', 'TERMINATORNET', 'OSTIR', 'GENOMAD'].each { p ->
                 assert H.count(workflow.trace, p) == 1 : "${p} should still run"
             }
             assert H.stepCount(workflow.trace, 'context_layers') == 1
+            def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            // decision 8: bakta_like.json has no bakta_like.gbff next to it -> antiSMASH is skipped
+            // (never fed the FASTA) and layer_missing is recorded; region_layer gets no antismash input
+            assert H.count(workflow.trace, 'ANTISMASH') == 0 : "ANTISMASH ran without a GBFF: ${H.names(workflow.trace)}"
+            def rl = H.stepDirs(work, 'region_layer')
+            assert rl.size() == 1
+            assert !H.stepInputs(rl[0]).any { it[0] == 'antismash' } : "region_layer got an antismash input"
+            def runlog = (workflow.stdout + workflow.stderr).join('\n')
+            assert runlog.readLines().any { it.contains('layer_missing') && it.toLowerCase().contains('antismash') } :
+                "no layer_missing record for antiSMASH in the run log"
+        }
+    }
+
+    test("decision 8: precomputed bakta_json with a GBFF next to it: ANTISMASH runs on that GBFF") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core', 'mobile', 'bgc', 'function']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                ann.precomputed.bakta_json = new File("${d}/with_gbff/bakta_like.json").canonicalPath
+                annotation = ann
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            def want = new File("${moduleTestDir}/data/annotate/with_gbff/bakta_like.gbff").canonicalPath
+            assert workflow.success
+            assert H.count(workflow.trace, 'BAKTA') == 0
+            assert H.count(workflow.trace, 'ANTISMASH') == 1 : H.names(workflow.trace)
+            def dirs = H.procDirs(work, 'ANTISMASH')
+            def sources = H.staged(dirs[0]).collect { new File(it[0]).canonicalPath }
+            assert want in sources : "ANTISMASH did not stage ${want}; staged ${sources}"
+            assert !sources.any { it.endsWith('genome.fa') } : "ANTISMASH got the FASTA: ${sources}"
+        }
+    }
+
+    test("decision 1: precomputed operon_pairs: no UNIOP; operon_pairs gets only registry keys") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core', 'mobile', 'bgc', 'function']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                ann.precomputed.operon_pairs = new File("${d}/operon_pairs.tsv").canonicalPath
+                annotation = ann
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            assert workflow.success
+            assert H.count(workflow.trace, 'UNIOP') == 0 : "UNIOP ran despite precomputed.operon_pairs: ${H.names(workflow.trace)}"
+            assert H.stepCount(workflow.trace, 'operon_pairs') == 1
+            def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+        }
+    }
+
+    test("decision 9: inputs.regions_gff3 is staged into the BAKTA task (part of the task hash)") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString(),
+                          regions_gff3: new File("${d}/regions.gff3").canonicalPath]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            def want = new File("${moduleTestDir}/data/annotate/regions.gff3").canonicalPath
+            assert workflow.success
+            def dirs = H.procDirs(work, 'BAKTA')
+            assert dirs.size() == 1
+            def sources = H.staged(dirs[0]).collect { new File(it[0]).canonicalPath }
+            assert want in sources : "BAKTA did not stage ${want}; staged ${sources}"
         }
     }
 
@@ -154,6 +270,8 @@ nextflow_pipeline {
             assert dirs.size() == 1
             def targets = H.staged(dirs[0]).collect { it[1] }
             assert !targets.any { it.contains('genomad') || it.contains('antismash') } : "optional inputs staged: ${targets}"
+            def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
         }
     }
 

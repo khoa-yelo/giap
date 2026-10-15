@@ -1,0 +1,82 @@
+// M2-07 lead decisions 2 and 9 after the PR #65 review, BAKTA process level with fake tools (workflow/tests/bin;
+// they record argv, never run the real tool). ci.yml runs: nf-test test workflow/tests --profile test,stub
+// (the "stub" profile only disables conda; these tests run the script: blocks, not the stubs).
+//
+// BAKTA input contract pinned here (decision 9: --regions is a staged path input):
+//   input[0] = [meta_id, genome, replicons.tsv]   input[1] = db   input[2] = complete (true|false|'auto')
+//   input[3] = regions file, or [] for none
+// replicons.tsv is the preflight format (preflight/run.py): name, name, type, topology c|l, '-'.
+
+nextflow_process {
+
+    name "BAKTA (fake bakta)"
+    script "../modules/local/bakta/main.nf"
+    process "BAKTA"
+    config "./annotate_tools.config"
+    tag "annotate_tools"
+
+    test("decision 2: complete = auto and every replicon 'c' (preflight format) -> --complete") {
+        when {
+            params { fake_bin = "${moduleTestDir}/bin" }
+            process {
+                """
+                input[0] = ['genome', file("${moduleTestDir}/data/annotate_tools/genome.fa"), file("${moduleTestDir}/data/annotate_tools/replicons_circular.tsv")]
+                input[1] = '/no/db'
+                input[2] = 'auto'
+                input[3] = []
+                """
+            }
+        }
+        then {
+            assert process.success
+            def argv = new File(new File(process.out.json[0].toString()).parentFile.parentFile, 'bakta.argv').readLines()
+            assert '--complete' in argv : "no --complete: ${argv}"
+            assert !('--replicons' in argv) : "--replicons with all-circular replicons: ${argv}"
+            assert !('--regions' in argv) : "--regions without a regions file: ${argv}"
+        }
+    }
+
+    test("decision 2: complete = auto and one replicon 'l' -> --replicons, no --complete") {
+        when {
+            params { fake_bin = "${moduleTestDir}/bin" }
+            process {
+                """
+                input[0] = ['genome', file("${moduleTestDir}/data/annotate_tools/genome.fa"), file("${moduleTestDir}/data/annotate_tools/replicons_linear.tsv")]
+                input[1] = '/no/db'
+                input[2] = 'auto'
+                input[3] = []
+                """
+            }
+        }
+        then {
+            assert process.success
+            def argv = new File(new File(process.out.json[0].toString()).parentFile.parentFile, 'bakta.argv').readLines()
+            assert !('--complete' in argv) : "--complete with a linear replicon: ${argv}"
+            def i = argv.indexOf('--replicons')
+            assert i >= 0 && argv[i + 1] == 'replicons_linear.tsv' : "no --replicons <staged tsv>: ${argv}"
+        }
+    }
+
+    test("decision 9: the regions file is staged and passed as --regions <staged name>") {
+        when {
+            params { fake_bin = "${moduleTestDir}/bin" }
+            process {
+                """
+                input[0] = ['genome', file("${moduleTestDir}/data/annotate_tools/genome.fa"), file("${moduleTestDir}/data/annotate_tools/replicons_circular.tsv")]
+                input[1] = '/no/db'
+                input[2] = 'auto'
+                input[3] = file("${moduleTestDir}/data/annotate_tools/regions.gff3")
+                """
+            }
+        }
+        then {
+            assert process.success
+            def task = new File(process.out.json[0].toString()).parentFile.parentFile
+            def argv = new File(task, 'bakta.argv').readLines()
+            def i = argv.indexOf('--regions')
+            assert i >= 0 : "no --regions: ${argv}"
+            assert !argv[i + 1].startsWith('/') : "--regions is the original path, not the staged file: ${argv[i + 1]}"
+            assert new File(task, argv[i + 1]).exists() : "--regions ${argv[i + 1]} not staged in the task dir"
+        }
+    }
+}

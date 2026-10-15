@@ -30,10 +30,11 @@ def test_genome_fixture_is_one_circular_contig() -> None:
     assert lines[0] == ">chr1"
     assert sum(len(x) for x in lines[1:]) == 3000
     rows = [r.split("\t") for r in (DATA / "replicons.tsv").read_text().splitlines()]
-    assert rows == [["chr1", "chr1", "chromosome", "circular", "-"]]
+    # M2-07 review decision 2: the preflight format (preflight/run.py), topology `c` / `l`
+    assert rows == [["chr1", "chr1", "chromosome", "c", "-"]]
 
 
-@pytest.mark.parametrize("key", ["terminators", "regions"])
+@pytest.mark.parametrize("key", ["terminators", "regions", "operon_pairs"])
 def test_precomputed_fixtures_load(key: str) -> None:
     reps = {"chr1": Replicon("chr1", 3000, "circular", "chromosome")}
     frame = load_precomputed(key, DATA / f"{key}.tsv", reps)

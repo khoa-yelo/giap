@@ -66,5 +66,26 @@ def pySteps = ['parse_bakta', 'uniop_input', 'operon_pairs', 'promoter_windows',
                'tx_layer', 'transterm_input', 'terminator_layer', 'ostir_input', 'rbs_layer',
                'codon_usage', 'region_layer', 'context_layers']
 
-return [defaultTools: defaultTools, pySteps: pySteps, procOf: procOf, tagOf: tagOf, names: names, count: count, stepCount: stepCount,
+// M2-07 review decision 1: the --in keys of every GIAP_STEP task whose step is in the registry
+// fixture (data/annotate/step_registry.json = giap.steps registry, kept equal by
+// tests/unit/test_nf_annotate_registry.py) are declared inputs, and every required input is given.
+def registryProblems = { String work, File regFile ->
+    def reg = new groovy.json.JsonSlurper().parse(regFile)
+    def problems = []
+    taskDirs(work).each { d ->
+        def n = nameLine(d).replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '')
+        def step = tagOf(n)
+        if (step == null || !reg.containsKey(step)) return
+        def spec = reg[step]
+        def keys = stepInputs(d).collect { it[0] }.unique()
+        def allowed = spec.inputs + spec.optional_inputs
+        def extra = keys.findAll { !(it in allowed) }
+        def missing = spec.inputs.findAll { !(it in keys) }
+        if (extra) problems << "${step}: undeclared input key(s) ${extra}"
+        if (missing) problems << "${step}: required input(s) ${missing} not given"
+    }
+    problems
+}
+
+return [registryProblems: registryProblems, defaultTools: defaultTools, pySteps: pySteps, procOf: procOf, tagOf: tagOf, names: names, count: count, stepCount: stepCount,
         taskDirs: taskDirs, stepDirs: stepDirs, procDirs: procDirs, staged: staged, stepInputs: stepInputs, files: files]
