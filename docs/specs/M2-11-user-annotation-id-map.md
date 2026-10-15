@@ -93,3 +93,15 @@ Rules:
    in Q1 and keeps `end > length` for origin-crossing CDS; an origin-crossing CDS is written once in the
    regions file.
 2. `annotation_source` stays in `bakta_layers` (M2-04); M2-11 defines no separate API for it.
+
+## Lead decisions after code review (PR #64, changes requested)
+1. Multi-row CDS (same ID) are merged only when consecutive parts (after unwrapping on circular contigs) are
+   within 3 nt of each other (overlap or gap ≤ 3 nt — covers programmed frameshifts such as prfB and the
+   origin split); a larger gap raises ValueError naming the ID. On a linear contig, rows split at the origin
+   raise ValueError (same as the GBFF reader).
+2. `build_id_map` requires the contig order (FASTA order, §6.5) — the parameter becomes required (the
+   replicons/contig list), no alphabetical fallback.
+3. Tests kill the surviving mutants: circular-topology guard, CDS preferred over other feature types in the
+   id-map index, pseudo flag from any row, a CDS with rows on both strands, GBFF `rec.name`/`rec.id` fallback,
+   a part nested inside another (`reach = max`), BOM strip in `detect_format`, `check_interval` in the regions
+   writer.
