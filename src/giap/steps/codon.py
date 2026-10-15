@@ -2,19 +2,22 @@
 
 ``genes.parquet`` + ``trna_counts.tsv`` → ``codon.parquet``: one row per gene in the input order,
 ``locus_tag``, the eight ``CodonFeatures`` fields and the gene flag ``cai_reference``; missing
-values are nulls. Run flags (``cai_reference_missing``) are logged.
+values are nulls. Run flags (``cai_reference_missing``) are logged and stored in the file metadata
+under ``giap_flags`` (JSON list, ``[]`` when none); suppressed codon-bias warnings are logged once
+as a count.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import json
 from pathlib import Path
 
 import pyarrow as pa  # type: ignore[import-untyped]
 import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
 from giap.annotate.bakta_layers import is_ribosomal_protein
-from giap.annotate.codon_usage import CodonFeatures, codon_usage, scored_sequence
+from giap.annotate.codon_usage import CodonFeatures, codon_usage_counted, scored_sequence
 from giap.io.parquet import write_parquet_deterministic
 from giap.io.tsv import read_tsv
 from giap.model.coords import Interval
@@ -58,13 +61,15 @@ def _read_trna_counts(path: Path) -> dict[str, int]:
 def codon_usage_step(ctx: StepContext) -> None:
     """genes + tRNA copy numbers → ``codon.parquet``."""
     genes = _read_genes(_path(ctx.inputs["genes"]))
-    feats, flags = codon_usage(
+    feats, flags, n_warned = codon_usage_counted(
         genes,
         _read_trna_counts(_path(ctx.inputs["trna_counts"])),
         ctx.cfg.annotation.translation_table,
     )
     for flag in flags:
         ctx.log.warning("codon_usage: run flag %s", flag)
+    if n_warned:
+        ctx.log.info("codon_usage: suppressed codon-bias RuntimeWarnings for %d genes", n_warned)
     rows = [
         (
             g.locus_tag,
@@ -73,4 +78,6 @@ def codon_usage_step(ctx: StepContext) -> None:
         )
         for g in genes
     ]
-    write_parquet_deterministic(ctx.outputs["codon"], _COLS, rows)
+    write_parquet_deterministic(
+        ctx.outputs["codon"], _COLS, rows, metadata={"giap_flags": json.dumps(list(flags))}
+    )

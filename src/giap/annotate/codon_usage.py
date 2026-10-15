@@ -4,12 +4,14 @@
 Every index is computed on codons 2 .. n-1 (start and stop dropped) of eligible genes
 (``scored_sequence``). CAI and Fop use the scored ribosomal-protein genes as reference; tAI the
 tRNA gene copy numbers; codon-pair bias and the genome-wide synonymous shares all scored genes.
-The indices come from codon-bias (MIT), always with ``genetic_code=11``.
+The indices come from codon-bias (MIT), always with ``genetic_code=11``; only translation table 11
+is accepted. codon-bias RuntimeWarnings (genes with nothing to weight) are suppressed and counted.
 """
 
 from __future__ import annotations
 
 import math
+import warnings
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -54,7 +56,7 @@ class CodonFeatures:
 
 
 def _code(table: int) -> dict[str, str]:
-    if table not in (1, 11):  # tables 1 and 11 assign identical amino acids and stops
+    if table != 11:
         raise ValueError(f"translation table {table} is not supported (only 11)")
     return _CODE11
 
@@ -117,10 +119,10 @@ def rare_2_10(nt: str, rare: frozenset[str]) -> int | None:
     return sum(c in rare for c in _codons(nt[_WINDOW]))
 
 
-def gc3(seq: str) -> float:
-    """G+C fraction of the third codon positions (A/C/G/T only)."""
+def gc3(seq: str) -> float | None:
+    """G+C fraction of the third codon positions (A/C/G/T only); ``None`` if there are none."""
     thirds = [c[2] for c in _codons(seq) if c[2] in "ACGT"]
-    return sum(b in "GC" for b in thirds) / len(thirds)
+    return sum(b in "GC" for b in thirds) / len(thirds) if thirds else None
 
 
 def _finite(x: object) -> float | None:
@@ -132,6 +134,14 @@ def codon_usage(
     genes: Sequence[Gene], trna_counts: Mapping[str, int], table: int = 11
 ) -> tuple[dict[str, CodonFeatures], tuple[str, ...]]:
     """(locus_tag → features, run flags); see the module docstring for the references."""
+    feats, flags, _ = codon_usage_counted(genes, trna_counts, table)
+    return feats, flags
+
+
+def codon_usage_counted(
+    genes: Sequence[Gene], trna_counts: Mapping[str, int], table: int = 11
+) -> tuple[dict[str, CodonFeatures], tuple[str, ...], int]:
+    """``codon_usage`` plus the number of genes whose scoring raised a suppressed RuntimeWarning."""
     _code(table)
     scored = {g.locus_tag: scored_sequence(g) for g in genes}
     eligible = sorted(s for s in scored.values() if s is not None)
@@ -160,14 +170,21 @@ def codon_usage(
         return None if model is None else _finite(model.get_score(s))  # type: ignore[attr-defined]
 
     out: dict[str, CodonFeatures] = {}
+    n_warned = 0
     for g in genes:
         s, nt = scored[g.locus_tag], g.nt or ""
         at, rc = at_2_10(nt), rare_2_10(nt, rare)
         if s is None:
             out[g.locus_tag] = CodonFeatures(None, None, None, None, None, None, at, rc)
             continue
-        out[g.locus_tag] = CodonFeatures(
-            score(cai, s), score(tai, s), score(enc, s), score(fop, s), gc3(s), score(cpb, s),
-            at, rc,
-        )  # fmt: skip
-    return out, flags
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", RuntimeWarning)
+            out[g.locus_tag] = CodonFeatures(
+                score(cai, s), score(tai, s), score(enc, s), score(fop, s), gc3(s), score(cpb, s),
+                at, rc,
+            )  # fmt: skip
+        n_warned += any(issubclass(w.category, RuntimeWarning) for w in caught)
+        for w in caught:
+            if not issubclass(w.category, RuntimeWarning):
+                warnings.warn_explicit(w.message, w.category, w.filename, w.lineno)
+    return out, flags, n_warned
