@@ -9,6 +9,9 @@ exit 2 (§5.1).
 A fake ``nextflow`` executable on ``PATH`` records its argv and working directory and exits with
 ``$FAKE_NF_RC``; with ``$FAKE_NF_TRACE`` it copies that file to the ``-with-trace`` path first.
 Nothing real is launched.
+
+``giap run`` runs preflight in full first (run-wiring lead decision 1): every run here gets a
+protein list as evidence and a ``$GIAP_DB_DIR`` whose ``db_manifest.json`` lists every requirement.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ import yaml
 from click.testing import CliRunner
 
 from giap.exitcodes import ExitCode
+from giap.preflight.environment import MANIFEST, requirements
 from giap.runner.nextflow import launch_command
 
 FAKE_NF = """#!/bin/sh
@@ -54,6 +58,32 @@ def genome(tmp_path: Path) -> Path:
     return path
 
 
+_EVIDENCE: list[Path] = []
+
+
+@pytest.fixture(autouse=True)
+def evidence_and_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Proteins passed by ``_run`` and a complete ``db_manifest.json`` in ``$GIAP_DB_DIR``."""
+    rng = random.Random(7)
+    aa = "ACDEFGHIKLMNPQRSTVWY"
+    proteins = tmp_path / "evidence" / "proteins.faa"
+    proteins.parent.mkdir()
+    proteins.write_text(
+        "".join(f">prot{i}\nM{''.join(rng.choice(aa) for _ in range(150))}\n" for i in range(3))
+    )
+    db = tmp_path / "db"
+    db.mkdir()
+    manifest = {
+        r.name: {"version": r.min_version or "1.0"}
+        for mode in ("targeted", "genome")
+        for r in requirements(["core", "mobile", "bgc", "function"], mode)
+    }
+    (db / MANIFEST).write_text(json.dumps(manifest))
+    monkeypatch.setenv("GIAP_DB_DIR", str(db))
+    monkeypatch.setattr(f"{__name__}._EVIDENCE", [proteins])
+    return proteins
+
+
 @pytest.fixture
 def fake_nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     bindir = tmp_path / "fakebin"
@@ -72,7 +102,8 @@ def fake_nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def _run(argv: list[str]) -> tuple[int, str]:
     from giap.cli import cli
 
-    result = CliRunner().invoke(cli, ["run", *argv])
+    evidence = [a for p in _EVIDENCE for a in ("--proteins", str(p))]
+    result = CliRunner().invoke(cli, ["run", *argv, *evidence])
     out = result.output + (result.stderr if result.stderr_bytes is not None else "")
     if result.exception is not None and not isinstance(result.exception, SystemExit):
         raise result.exception
