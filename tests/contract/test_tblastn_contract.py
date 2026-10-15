@@ -76,7 +76,8 @@ def test_provenance_recorded() -> None:
     assert prov.is_file(), "PROVENANCE.md (commands, digest or env lock, date, host) missing"
     text = prov.read_text()
     assert "tblastn" in text and "makeblastdb" in text and "2.16.0" in text
-    for flag in ("-db_gencode 11", "-seg no", "-evalue 1e-5", "-dbtype nucl", "-parse_seqids"):
+    # -parse_seqids is no longer required (M3-13 review decision 1; sim IDs are unaffected by it)
+    for flag in ("-db_gencode 11", "-seg no", "-evalue 1e-5", "-dbtype nucl"):
         assert flag in text, f"command flag {flag!r} not recorded"
     assert OUTFMT in text, "outfmt string not recorded verbatim"
     assert re.search(r"sha256", text), "input checksums missing"

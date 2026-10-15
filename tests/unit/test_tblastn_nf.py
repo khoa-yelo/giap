@@ -53,7 +53,7 @@ def test_builder_flags_appear_in_script() -> None:
         Path("db/g"), Path("p.faa"), 2, ""
     )
     flags = {a for a in argv if re.fullmatch(r"-[A-Za-z][\w-]*", a)}
-    assert flags >= {"-in", "-dbtype", "-parse_seqids", "-out", "-db", "-query", "-num_threads"}
+    assert flags >= {"-in", "-dbtype", "-out", "-db", "-query", "-num_threads"}
     script = _scripts()
     missing = sorted(f for f in flags if not _has_flag(script, f))
     assert not missing, f"builder flags missing from main.nf script: {missing}"

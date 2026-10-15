@@ -184,13 +184,9 @@ def test_makeblastdb_cmd() -> None:
     assert pairs.get("-in") == "genome.fa"
     assert pairs.get("-dbtype") == "nucl"
     assert pairs.get("-out") == "db/genome"
-    assert "-parse_seqids" in cmd
-    assert sorted(a for a in cmd if a.startswith("-")) == [
-        "-dbtype",
-        "-in",
-        "-out",
-        "-parse_seqids",
-    ]
+    # M3-13 review decision 1: no -parse_seqids (BLAST would report ``ref|NC_000913.3|``)
+    assert "-parse_seqids" not in cmd
+    assert sorted(a for a in cmd if a.startswith("-")) == ["-dbtype", "-in", "-out"]
 
 
 # ---------------------------------------------------------------- parser (real tool output)

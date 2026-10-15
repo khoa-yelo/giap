@@ -1,7 +1,7 @@
 // M3-13: the TBLASTN process (workflow/modules/local/tblastn/main.nf; GIAP_SPEC.md §7.2.3, §6.2
 // step `tblastn`: genome, leftover proteins -> tabular hits). Mirrors the M3-12 MINIPROT tests:
 // - stub run: emits tblastn.tsv (empty: no hits is a valid result) and versions.yml;
-// - module contract: makeblastdb -dbtype nucl -parse_seqids, then tblastn with task.ext.args and
+// - module contract: makeblastdb -dbtype nucl (no -parse_seqids: M3-13 review decision 1), then tblastn with task.ext.args and
 //   the 15-column -outfmt of giap.mapping.tblastn.OUTFMT;
 // - pipeline wiring: mapping.proteins.tblastn_args (params.mapping) reaches the command via
 //   ext.args, with no hard-coded default in main.nf.
@@ -66,7 +66,7 @@ nextflow_process {
             assert argv.size() == 2 : "expected makeblastdb + tblastn, got ${argv}"
             assert argv[0].startsWith("makeblastdb ")
             assert argv[0] =~ /(^|\s)-dbtype nucl(\s|$)/
-            assert argv[0] =~ /(^|\s)-parse_seqids(\s|$)/
+            assert !(argv[0] =~ /(^|\s)-parse_seqids(\s|$)/) : "makeblastdb must not use -parse_seqids"
             assert argv[0] =~ /(^|\s)-in genome\.fa(\s|$)/
             assert argv[1].startsWith("tblastn ")
             assert argv[1] =~ /(^|\s)-query proteins\.faa(\s|$)/
