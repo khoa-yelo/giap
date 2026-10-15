@@ -57,6 +57,21 @@ def write_params(
     return params, resolved
 
 
+def nextflow_memory(memory: str) -> str:
+    """``--memory 64.GB`` (§5.1 form) → ``"64 GB"``; other forms pass through unchanged."""
+    return re.sub(r"^\s*(\d+(?:\.\d+)?)\s*\.?\s*([KMGT]B)\s*$", r"\1 \2", memory)
+
+
+def workflow_main() -> Path:
+    """``workflow/main.nf`` of this checkout (src layout) or of an installed package."""
+    here = Path(__file__).resolve()
+    candidates = [
+        here.parents[3] / "workflow" / "main.nf",
+        here.parents[1] / "workflow" / "main.nf",
+    ]
+    return next((p for p in candidates if p.is_file()), candidates[0])
+
+
 def launch_command(
     workflow: Path, params: Path, profile: str, outdir: Path, resume: bool
 ) -> list[str]:
@@ -91,24 +106,32 @@ def _task_dir(row: Mapping[str, str | None], work: Path) -> str:
 
 
 def failed_step(trace_tsv: Path) -> tuple[str, str] | None:
-    """``(step, workdir)`` of the last FAILED/ABORTED task whose name has no later COMPLETED row.
+    """``(step, workdir)`` of the last FAILED task whose name has no later COMPLETED row.
 
-    A retried-then-succeeded attempt never counts. Without a ``workdir`` column (Nextflow's default
-    trace fields) the task directory is rebuilt from ``hash`` under ``OUT/work`` (the trace lives in
-    ``OUT/logs``).
+    A retried-then-succeeded attempt never counts; tasks ABORTED because another task failed (killed
+    by the terminate strategy) count only when no FAILED row is left. Without a ``workdir`` column
+    (Nextflow's default trace fields) the task directory is rebuilt from ``hash`` under
+    ``OUT/work`` (the trace lives in ``OUT/logs``).
     """
     trace_tsv = Path(trace_tsv)
     with trace_tsv.open(newline="", encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh, delimiter="\t"))
     completed: set[str] = set()
+    aborted: Mapping[str, str | None] | None = None
     for row in reversed(rows):
         name = (row.get("name") or "").strip()
         status = (row.get("status") or "").strip()
         if status == "COMPLETED":
             completed.add(name)
         elif status in _FAILED and name not in completed:
-            return _step_name(name), _task_dir(row, trace_tsv.parent.parent / "work")
-    return None
+            if status == "FAILED":
+                return _step_name(name), _task_dir(row, trace_tsv.parent.parent / "work")
+            aborted = aborted or row
+    if aborted is None:
+        return None
+    return _step_name(aborted.get("name") or ""), _task_dir(
+        aborted, trace_tsv.parent.parent / "work"
+    )
 
 
 def run_nextflow(cmd: Sequence[str], outdir: Path) -> ExitCode:

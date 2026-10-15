@@ -1,0 +1,57 @@
+{
+  "bakta": {
+    "complete": "auto",
+    "db": "auto",
+    "extra_args": []
+  },
+  "codon": {
+    "cai_reference": "ribosomal_proteins"
+  },
+  "ostir": {
+    "anti_sd": "auto",
+    "downstream_nt": 50,
+    "upstream_nt": 50
+  },
+  "precomputed": {
+    "bakta_json": null,
+    "operon_pairs": null,
+    "promoters": null,
+    "rbs": null,
+    "regions": null,
+    "terminators": null,
+    "tx_rates": null
+  },
+  "promoter_calculator": {
+    "enabled": true
+  },
+  "promoters": {
+    "mode": "targeted",
+    "promotech_yes": 0.5,
+    "window_3p_range": [
+      -200,
+      20
+    ],
+    "window_nt": 40
+  },
+  "region_min_overlap_frac": 0.5,
+  "start_codons": [
+    "ATG",
+    "GTG",
+    "TTG"
+  ],
+  "terminators": {
+    "bactermfinder": false,
+    "cross_check_transtermhp": true,
+    "terminatornet_yes": 0.5,
+    "tool": "terminatornet"
+  },
+  "translation_table": 11,
+  "tu_upstream_bp": [
+    -300,
+    50
+  ],
+  "uniop": {
+    "fallback": "distance",
+    "pair_threshold": 0.5
+  }
+}

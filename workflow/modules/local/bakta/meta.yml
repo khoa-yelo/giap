@@ -1,0 +1,11 @@
+name: bakta
+description: Bakta genome annotation (GIAP_SPEC.md §7.1.1).
+tools:
+  - bakta:
+      licence: ["GPL-3.0"]
+      notes: Runs as a separate process from envs/bakta.yml or its containers.config pin (R5).
+apptainer: >-
+  no `ps` in the pinned image (Nextflow task metrics need it and cannot be disabled per process).
+  The host procps ps runs here only with the host libproc2 bound as well (and fails in the antiSMASH
+  image: GLIBC 2.38 needed), so the apptainer profile binds workflow/assets/ps/ps (/proc-based,
+  prints pid ppid) to /usr/bin/ps (M2-07 decision 3; verified by the real SIM100K run, PR #65).
