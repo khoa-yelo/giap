@@ -1,7 +1,9 @@
 """Independent oracle and frame builders for M4-11 accepted evidence (docs/specs/M4-11-...).
 
 Written from the spec text (GIAP_SPEC.md §7.3.1, §7.2.6, §7.2.7, §9.3, §9.4 and the M4-11 public
-interface), not from ``giap.genetable.evidence``. Coverage uses explicit position sets taken
+interface), not from ``giap.genetable.evidence``. Coverage is the union of ALL accepted placement
+intervals of a gene, repeats of one peptide inside the gene included (M4-11 lead decision 5 after
+the PR #74 review); it uses explicit position sets taken
 modulo the replicon length, so origin-crossing genes and placements (``end > length``, §6.5) need
 no interval splitting here. Nothing in this module imports ``giap``.
 
@@ -359,7 +361,7 @@ def accepted_pairs(
 def abundance_eligible(row: Mapping[str, Any], rules: Rules) -> bool:
     return (
         row["uniqueness"] == "unique"
-        and row["locus_class"] != "nterm_extension"
+        and row["locus_class"] not in ("nterm_extension", "cterm_extension")  # M4-11 decision 2
         and (
             row["route"] == "exact"
             or (row["route"] == "tolerant" and rules.genome_relation == "related")
@@ -398,7 +400,7 @@ def gene_evidence(
         L = length[str(g["contig"])]
         gpos = _positions(g["start"], g["end"], L)
         cov: set[int] = set()
-        for r in rows:
+        for r in rows:  # every accepted placement, not one row per peptide (decision 5)
             if str(r["contig"]) == str(g["contig"]):
                 cov |= _positions(r["start"], r["end"], L) & gpos
         n_acc = len({r["peptide"] for r in rows})

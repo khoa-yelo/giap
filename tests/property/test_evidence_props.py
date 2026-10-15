@@ -3,7 +3,9 @@
 Acceptance criterion: relabelling peptides leaves every count unchanged; a duplicate C11 row for the
 same peptide and locus changes nothing; ``n_accepted >= n_unique``. Also: agreement with the
 independent oracle (tests/helpers/evidence_oracle.py) on random small scenarios, including genes
-crossing the origin of a circular replicon, and monotonicity in ``input.q_value_max``.
+crossing the origin of a circular replicon and internal repeats (several accepted placements of
+one peptide in one gene: coverage is their union, M4-11 decision 5), and monotonicity in
+``input.q_value_max``.
 """
 
 from __future__ import annotations
@@ -86,26 +88,28 @@ def scenarios(draw: st.DrawFn) -> dict[str, Any]:
             g = genes[gi]
             cls = draw(st.sampled_from(CLASSES))
             n_aa = draw(st.integers(7, 12))
-            off = 3 * draw(st.integers(0, 95))
-            s = int(g["start"]) + off
-            e = s + 3 * n_aa
-            if s >= L:
-                s, e = s - L, e - L
-            route = draw(st.sampled_from(["exact", "exact", "tolerant"]))
-            hits.append(
-                eo.hit(
-                    name,
-                    str(g["locus_tag"]) if cls in ASSIGN or uniq == "shared" else None,
-                    s,
-                    e,
-                    locus_class=cls if uniq != "shared" else "cds_inframe",
-                    uniqueness=uniq,
-                    route=route,
-                    placement_q=draw(st.sampled_from([0.0, 0.004, 0.01, 0.03, None])),
-                    flags=draw(st.sampled_from([[], ["same_db"]])),
-                    crosses_origin=e > L,
+            # Internal repeats: up to 3 placements of the peptide in this gene (decision 5).
+            for _ in range(draw(st.sampled_from([1, 1, 2, 3]))):
+                off = 3 * draw(st.integers(0, 95))
+                s = int(g["start"]) + off
+                e = s + 3 * n_aa
+                if s >= L:
+                    s, e = s - L, e - L
+                route = draw(st.sampled_from(["exact", "exact", "tolerant"]))
+                hits.append(
+                    eo.hit(
+                        name,
+                        str(g["locus_tag"]) if cls in ASSIGN or uniq == "shared" else None,
+                        s,
+                        e,
+                        locus_class=cls if uniq != "shared" else "cds_inframe",
+                        uniqueness=uniq,
+                        route=route,
+                        placement_q=draw(st.sampled_from([0.0, 0.004, 0.01, 0.03, None])),
+                        flags=draw(st.sampled_from([[], ["same_db"]])),
+                        crosses_origin=e > L,
+                    )
                 )
-            )
     return {
         "genes": genes,
         "hits": hits,
