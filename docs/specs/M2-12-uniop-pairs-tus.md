@@ -24,7 +24,7 @@ Milestone M2 · depends on: M2-04 · estimate ≈ 380 code lines (tests not coun
 
 ## Public interface
 
-`src/giap/annotate/uniop.py`, `src/giap/annotate/uniop_cmd.py`, `src/giap/annotate/operons.py`,
+`src/giap/annotate/uniop_adapter.py`, `src/giap/annotate/uniop_cmd.py`, `src/giap/annotate/operons.py`,
 `src/giap/data/calibration.yaml` (new; `operon_distance: {d0: 50, s: 20, provenance: "GIAP_SPEC §7.1.3 default", calibrated: false}`,
 `terminatornet_yes: {value: 0.5, calibrated: false}`), steps `uniop_input`, `operon_pairs`.
 ```python
@@ -104,3 +104,57 @@ distance model with `source = distance_model`. UniOP failure (non-zero exit, mis
 3. `uniop.pred` column names are not documented in the spec. **Proposed default:** the parser keys
    on the recorded header; until recorded, a doc-derived 3-column file (`gene_a gene_b p`) is used in
    unit tests only.
+
+## Lead decisions (test-author questions)
+1. List-valued columns in Parquet work tables are native lists (same rule as M4-06 decision 1): in
+   `tus.parquet`, `genes` is a list of locus tags in TU order; `;`-joining (ADR-0006) only in TSV outputs.
+2. Accepted conventions: replicons as a mapping in FASTA order; a circular contig with two genes has both
+   the forward and the wrap pair; an empty `uniop.pred` is a UniOP failure; nearest-upstream clip =
+   `min(gene end, S)` (Q2); unit-test `uniop.pred` uses the 3-column `gene_a gene_b p` format (Q3);
+   `uniop_map.tsv` header `prodigal_id locus_tag`; 0-based coordinates in Parquet.
+3. With `annotation.precomputed.operon_pairs`, the precomputed layer is read by `operon_pairs` directly
+   (its `source` column kept); exact recovery of simulator `truth/tus.tsv` from 0/1 oracle probabilities
+   is the accuracy check (the spec sets no calibration threshold).
+4. The adapter module is `giap.annotate.uniop_adapter` (not `uniop.py`): the vendoring guard
+   (`test_no_tool_source_vendored`) forbids files named after unlicensed tools under src/ (ADR-0008).
+5. Accepted implementation notes: a circular TU is capped at the ring length; the distance-model fallback
+   is logged as a WARNING (and recorded as `operon_source = distance_model` in the manifest).
+
+## Lead decisions after code review (PR #49, changes requested)
+1. Parser follows the REAL `uniop.pred` format (pin 3ed14dfc): a title line `operon prediction scores`, a
+   header `Gene A\tGene B\tPrediction`, rows of 1-based gene ROW NUMBERS (not IDs); opposite-strand and
+   cross-contig rows have an empty probability and are skipped.
+2. Row numbers index UniOP's own gene order: all genes stable-sorted by start across contigs, as UniOP reads
+   them from the input GFF/Prodigal file. Row k = sorted gene k; gene_b = the next gene ON THE SAME CONTIG.
+   The adapter rebuilds that order from the exact input the builder wrote, requires both genes on the same
+   contig and strand, and maps to locus tags. Unit test on a multi-contig genome.
+3. Record a real UniOP run on SIM100K as `tests/data/recorded/uniop/3ed14dfc/sim100k/` (built `giap-uniop`
+   env; run as a process; PROVENANCE.md with command, env lock and input sha256); the contract test is
+   rewritten to the real format and must pass on it (ID-based assumptions removed).
+4. `workflow/modules/local/uniop/main.nf` creates UniOP's `-t` output directory (`mkdir -p out`).
+5. The distance-model fallback is recorded, not only logged: the operon step declares an output
+   `operon_meta.json` (`operon_source`: `uniop` | `distance_model` | `precomputed`, plus the reason), from
+   which the manifest takes `operon_source` and the run flag `operon_source_distance_model` (§7.1.3, §9.4).
+6. Tests kill the surviving mutants: first gene of a minus-strand multi-gene TU (`run[0]` vs last),
+   WARNING level of the fallback, precomputed `source` kept, d0/s read via `calibration.load()`,
+   `tu_upstream_bp` honoured, the ring-length cap and the ring self-bound.
+Rule from here on (lead): every tool-wrapping issue records a real-tool fixture before its PR is reviewed.
+
+## Test-author pins for the code-review decisions (items 1, 2, 4, 5, 6)
+- Items 1-2: `parse_uniop_pred(path: Path, gff: Path, id_map: Mapping[str, str]) -> list[PairProb]`,
+  where `gff` is the exact file `write_prodigal_gff` wrote. Rows in file order; empty probability cells
+  skipped; the printed `Gene B` number is not used for pairing. `ValueError` on: missing title/header
+  (incl. the invented `gene_a gene_b p` file), a row number outside the gene list, a row with a
+  probability whose partner is absent or on the other strand, a GFF ID missing from `id_map`. Empty
+  file or title+header only → `[]` (a UniOP failure for `build_pairs`). Fixture: real excerpt in
+  `tests/data/uniop/` (plasmid gene sorts first, so row 1 is the plasmid pair); ties on start keep
+  GFF file order. `operon_pairs` reads `uniop_cds` (required or optional input).
+- Item 4: the UNIOP `script:` runs `mkdir -p <the -t dir>` before `src/UniOP`; the `stub:` writes the
+  real title and header.
+- Item 5: `operon_pairs` outputs `("pairs_raw", "tus", "tu_upstream", "operon_meta")`;
+  `operon_meta.json` is a JSON object with `operon_source` ∈ {`uniop`, `distance_model`,
+  `precomputed`} and a non-empty `reason` string.
+- Item 6: the fallback logs a WARNING whose message contains "distance" (no such record on a UniOP
+  run); d₀/s are read by calling `giap.data.calibration.load()` at step run time (monkeypatched in tests).
+- Contract: `tests/data/recorded/uniop/3ed14dfc/{sim100k,k12}/` holds one `*.gff`, `uniop.pred`,
+  `uniop_map.tsv` and `PROVENANCE.md` containing `3ed14dfc` and the GFF's sha256.

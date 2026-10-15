@@ -1,0 +1,9 @@
+##gff-version 3
+chr1	GIAP	CDS	288	2231	.	+	0	ID=chr1_1
+chr1	GIAP	CDS	2598	3749	.	+	0	ID=chr1_2
+chr1	GIAP	CDS	3935	4615	.	-	0	ID=chr1_3
+chr1	GIAP	CDS	4628	5329	.	-	0	ID=chr1_4
+chr1	GIAP	CDS	5655	6434	.	-	0	ID=chr1_5
+chr1	GIAP	CDS	6789	7628	.	-	0	ID=chr1_6
+plasmid_1	GIAP	CDS	193	1854	.	-	0	ID=plasmid_1_1
+plasmid_1	GIAP	CDS	1859	3070	.	-	0	ID=plasmid_1_2
