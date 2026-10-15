@@ -17,6 +17,18 @@
       "tus"
     ]
   },
+  "ostir_input": {
+    "inputs": [
+      "annotation_meta",
+      "genes",
+      "genome",
+      "replicons"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "ostir_input"
+    ]
+  },
   "parse_bakta": {
     "inputs": [
       "bakta_json",
@@ -31,6 +43,16 @@
       "rrna16s",
       "trna_counts",
       "xrefs"
+    ]
+  },
+  "rbs_layer": {
+    "inputs": [
+      "ostir",
+      "ostir_input"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "rbs"
     ]
   },
   "uniop_input": {

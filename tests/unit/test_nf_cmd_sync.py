@@ -84,9 +84,16 @@ def _uniop_variants() -> list[list[str]]:
     return [uniop_cmd.uniop_command(Path("uniop_cds.gff"), Path("out"), Path("/opt/uniop"))]
 
 
+def _ostir_variants() -> list[list[str]]:
+    from giap.annotate import ostir_cmd  # M2-16
+
+    return [ostir_cmd.ostir_command(Path("ostir_input.csv"), Path("ostir.csv"), 4)]
+
+
 BUILDERS: dict[str, Callable[[], list[list[str]]]] = {
     "bakta": _bakta_variants,
     "uniop": _uniop_variants,  # M2-12 (merged before M2-07)
+    "ostir": _ostir_variants,  # M2-16
 }
 
 
