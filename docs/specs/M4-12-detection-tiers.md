@@ -128,3 +128,15 @@ two-peptide and protein-list as `unestimated`, and the calibration evidence (FDP
    `protein_list`.
 4. The peptide-vote step of the protein→gene map is not in the spec (needed when engine IDs are
    UniProt accessions and no `proteins.faa` is given, as in pilot arm A1). **Proposed default:** keep it.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted: ADR-0009 FDR = (D/f + 1)/T with f and 1/f reported;
+   pairing cut-offs from `mapping.proteins.min_identity`/`min_coverage` (set through `detect`); decoys above
+   `q_value_max` are neither paired nor unpaired; the protein→gene map (protein_id, gene, method) covers
+   every C2 locus_tag, `A;B` groups split, contaminant IDs never mapped.
+2. Contaminant evidence counts toward detection in every tier (consistent with `detected_2pep`;
+   resolves M4-11 decision 3).
+3. Unspecific-search warning (MAYU tier): fires when more than 50 % of accepted peptides do not end in K/R
+   (C-terminal peptides excepted); documented in the methods note.
+4. Risk noted: in the reference run the picked/MAYU FDP at q = 0.01 averaged ≈ 0.011–0.012; the
+   statistician reviews the claims and the simulator before merge (possible anti-conservatism).
