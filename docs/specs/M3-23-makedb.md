@@ -89,3 +89,29 @@ wrapper exists, then Bakta runs first.
    part + first 30 aa of the annotated protein, upstream part ≥ 7 aa.
 2. Should A2 (pilot) use `--no-contaminants` because the DIA-NN template already passes
    `--fasta contaminants.fasta`? **Proposed default:** yes, to avoid duplicate entries (M3-24).
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted (missing product → "hypothetical protein"; patched proteins
+   start with M; six-frame ORFs translated codon by codon; db_ids unique, id_map in FASTA order with NA;
+   patched records after CDS/sORF and before ORFs; contaminants from `--db-dir`, exit 2 when missing
+   unless `--no-contaminants`).
+2. nterm_extension entries contain the upstream part plus the first 30 codons of the annotated protein (so
+   peptides spanning the junction are searchable); the header and id_map say so.
+3. An ORF containing X is split at each X; pieces shorter than `min_orf_aa` are dropped.
+
+## Lead decisions after code review (PR #79, changes requested)
+4. nterm_extension is undefined (no entry) when the upstream walk runs off a linear contig or meets an
+   X; the oracle and property test skip those tags.
+5. The junction part (first 30 codons of the annotated protein) is translated codon by codon from the
+   genome (GTG → V, TTG → L inside the entry), not copied from Bakta's `aa` (which starts with M).
+6. The borrowed private helpers become public APIs (M3-08 precedent): M3-14 `LocusClassifier(gm,
+   genome).classify(...)` (`classify_locus` delegates to it) and `in_frame`; M3-01
+   `translate11_text(nt, offset)` and the ambiguity sentinel as a public constant; M3-23 uses only those.
+7. Rejected inputs (exit 1, ValueError): a patch CDS whose translation has an internal `*`; an annotation
+   JSON with no features (`{}`) — never an empty database with exit 0.
+8. The makedb id map is written as `db_id_map.tsv` (avoids the clash with C14 `annotation/id_map.tsv`).
+   Resolving `GIAPORF_`/`NOVEL_`/`*_patch` protein IDs through it (instead of `cross_strain_protein`) is
+   backlog for M3-17/M4.
+9. Tests kill the surviving mutants: nterm interval pinned (upstream + 30 codons only); X in the upstream
+   part; `*` stripping for contaminants and the fallback translation; `--genome` length mismatch; duplicate
+   ORFs at the origin; in-frame drop across the origin.
