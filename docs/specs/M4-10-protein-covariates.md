@@ -97,3 +97,11 @@ Part of `docs/methods/detectability.md` (covariate definitions, the pseudogene r
    wins over the general "count before cleaning" rule).
 2. Accepted: empty protein → NaN `gravy`, `pi`, `mw_da` (`n_observable_peptides`/`tm_segments` 0); non-standard
    letters score 0 in TM windows; leading and trailing `*` stripped; `covariate_table` keeps input row order.
+
+## Lead decisions after code review (PR #61, test gaps)
+1. Tests pin: the TM boundary (window mean exactly 1.6 counts: `tm_segments("LWY" + "A"*16) == 1`); an internal
+   X scores 0 in TM windows and stays inside peptides (`covariates()` case); ambiguous codons translate to X
+   (`protein_sequence(None, "ATGNNNGCT", "pseudogene") == "MXA"`); lower-case `nt` is upper-cased;
+   `missed < 0` raises ValueError.
+2. An internal `*` (after stripping leading/trailing ones) raises ValueError: annotated CDS have none and
+   pseudogenes are translated only up to the first stop, so it can only come from malformed input.
