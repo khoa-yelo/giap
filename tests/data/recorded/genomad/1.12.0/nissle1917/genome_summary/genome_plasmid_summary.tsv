@@ -1,0 +1,3 @@
+seq_name	length	topology	n_genes	genetic_code	plasmid_score	fdr	n_hallmarks	marker_enrichment	conjugation_genes	amr_genes
+CP171244.1	3173	No terminal repeats	6	11	0.9951	NA	2	4.2696	NA	NA
+CP171245.1	5514	No terminal repeats	8	11	0.9932	NA	2	5.3495	MOBP1	NA
