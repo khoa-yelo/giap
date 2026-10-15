@@ -1,0 +1,171 @@
+TransTermHP v2.09 (built on Oct  8 2025)
+25 bins; sample size is 20000000
+--pval-conf=/usr/local/data/expterm.dat
+
+--gc=-2.3 --au=-0.9 --gu=1.3 --mm=3.5 --gap=6
+--max-len=59 --min-stem=4 --max-loop=13 --min-loop=3
+--uwin-length=6 --uwin-require=3 --max-hp-score=-2 --max-tail-score=-2.5
+--loop-penalty=1,2,3,4,5,6,7,8,9,10,11
+--start-cut=0 --end-cut=25
+
+Genes: 0.509493 %AT, 75952 nt, 582 terms.
+Intergenic: 0.583579 %AT, H2T: 13850 nt, 100 terms; T2T: 3810 nt, 68 terms; H2H: 8266 nt, 140 terms. 
+
+Each terminator entry starts in column 3 and is of the form:
+  term #       start - end      +/-  regionconf   hp     tail | notes
+Followed by the sequence of the 5' tail, 5' stem, loop, 3' stem, and 3' tail.
+Genes are interspersed, and start the first column.
+
+
+SEQUENCE chr1  (length 100000)
+
+KABHIH_0001       288 - 2231     + | 
+KABHIH_0002      2598 - 3749     + | 
+  TERM 1         3927 - 3910     - T   100 -14.1 -5.76949 | opp_overlap 3909 3906
+  GAGTTCTAAAAAAAA             GCGCCCG GTAA CGGGCGC              ATGAGTTTTAAAAGA
+KABHIH_0003      4615 - 3935     - | 
+KABHIH_0004      5329 - 4628     - | 
+  TERM 2         5641 - 5624     - R   100 -14.1 -5.75342 | 
+  CTTTGTCAAAAAAAA             GCGGGCC GAGC GGCCCGC              CCAAATCATTATCTT
+KABHIH_0005      6434 - 5655     - | 
+  TERM 3         6737 - 6727     - R    79  -6.8 -4.72386 | 
+  GAAAGTAGTCAAAAA                 CCTG GTC CAGG                 GGTGCATGCGACAAA
+  TERM 4         6781 - 6764     - R   100 -14.1 -6.67286 | 
+  CAAATAAAAAAAAAA             GGGCCCC TATG GGGGCCC              AAACACTTCAGCCGC
+KABHIH_0006      7628 - 6789     - | 
+KABHIH_0007      8185 - 7628     - | 
+KABHIH_0008      9015 - 8185     - | 
+KABHIH_0009     10220 - 9045     - | 
+KABHIH_0010     12420 - 10531    - | 
+KABHIH_0012     13823 - 13194    - | 
+KABHIH_0013     14465 - 13902    - | 
+  TERM 5        14563 - 14546    - R   100 -14.1 -5.75945 | opp_overlap 14543 14546
+  AGCTTGTAAAAAAAA             GGCCGCG CAGT CGCGGCC              TACTTTAAAGCTTAA
+KABHIH_0014     16750 - 14579    - | 
+  TERM 6        17181 - 17164    - R   100 -14.1 -6.09888 | opp_overlap 17162
+  TTTTAAGAAAAAAAA             GCGGGGG AAGA CCCCCGC              AATTGGCTAACACTC
+KABHIH_0015     17794 - 17195    - | 
+KABHIH_0016     18563 - 17997    - | 
+KABHIH_0017     18977 - 19441    + | 
+KABHIH_0018     19453 - 20040    + | 
+  TERM 7        20055 - 20072    + F   100 -14.1 -5.92337 | 
+  AGATCAGTATGGAGT             GCGGGGG AACA CCCCCGC              TTTTTTTTGCTATCT
+KABHIH_0019     20458 - 21369    + | 
+KABHIH_0020     21406 - 22026    + | 
+  TERM 8        22226 - 22209    - T   100 -14.1 -5.75945 | 
+  ATTTGCCAAAAAAAA             CGGCCGC TGCA GCGGCCG              TCCATCTCAAAGGCT
+KABHIH_0021     23459 - 22242    - | 
+KABHIH_0022     23798 - 25090    + | 
+KABHIH_0023     25534 - 26205    + | 
+KABHIH_0024     26384 - 28369    + | 
+KABHIH_0025     28516 - 29061    + | 
+KABHIH_0026     29160 - 29798    + | 
+KABHIH_0027     29918 - 30646    + | 
+KABHIH_0028     30837 - 31589    + | 
+KABHIH_0029     31784 - 33400    + | 
+KABHIH_0030     33523 - 34029    + | 
+KABHIH_0031     34170 - 34754    + | 
+KABHIH_0035     37835 - 36837    - | 
+KABHIH_0036     39545 - 37944    - | 
+KABHIH_0037     40385 - 39726    - | 
+KABHIH_0038     41171 - 40494    - | 
+KABHIH_0039     42279 - 41362    - | 
+KABHIH_0040     42457 - 42332    - | 
+KABHIH_0041     43351 - 42479    - | 
+KABHIH_0042     44671 - 43535    - | 
+KABHIH_0043     45484 - 44867    - | 
+KABHIH_0044     46409 - 45636    - | 
+KABHIH_0045     47315 - 46566    - | 
+KABHIH_0046     48511 - 47495    - | 
+KABHIH_0049     50707 - 49916    - | 
+KABHIH_0057     57047 - 58960    + | 
+KABHIH_0058     58979 - 59923    + | 
+KABHIH_0059     59955 - 62183    + | 
+  TERM 9        62199 - 62216    + F   100 -14.1 -6.24157 | 
+  TAAACGATATCTATA             CCCCCCG CGAT CGGGGGG              TTTTTTTTTATAACT
+KABHIH_0060     62951 - 63484    + | 
+  TERM 10       63494 - 63511    + T   100 -14.1 -5.75945 | opp_overlap 63493
+  GCCTAAGGATTATAT             CCGCCGC CATT GCGGCGG              TTTTTTTTAAAAACT
+  TERM 11       63654 - 63671    + T   100 -14.1  -4.1721 | opp_overlap 63654
+  CATAGTCAAAAAAAA             CCGCCCG TCGG CGGGCGG              TTTTAAACTGTAAGT
+  TERM 12       63671 - 63654    - T   100 -14.1 -5.83822 | opp_overlap 63654
+  CATAGTCAAAAAAAA             CCGCCCG TCGG CGGGCGG              TTTTAAACTGTAAGT
+KABHIH_0061     64465 - 63686    - | 
+KABHIH_0062     64792 - 65514    + | 
+  TERM 13       65520 - 65537    + F   100 -14.1 -6.11644 | opp_overlap 65518
+  CGCGGAGTAGATACC             GGCGGCC CAAT GGCCGCC              TTTTTTTTTCGCTAA
+KABHIH_0063     65928 - 66716    + | 
+KABHIH_0064     66748 - 67503    + | 
+KABHIH_0065     67529 - 68281    + | 
+  TERM 14       68313 - 68294    - T    76 -10.6 -3.05522 | opp_overlap 68295, overlap 68293
+  TAAGTCGTTCAAAAC            TGGGCCCG TTAA CGGGCCCT             TTTTTTTGAACTATT
+  TERM 15       68295 - 68312    + T   100 -14.1 -5.79526 | opp_overlap 68294 68293
+  AAGTCGTTCAAAACT             GGGCCCG TTAA CGGGCCC              TTTTTTTTGAACTAT
+  TERM 16       68658 - 68641    - T   100 -14.1 -5.82388 | 
+  AAATTCGAAAAAAAA             GCCCGGG AGCT CCCGGGC              ATGATAACCTTACCA
+KABHIH_0066     69771 - 68668    - | 
+  TERM 17       69940 - 69923    - R   100 -14.1 -5.81412 | 
+  TTCATTCAAAAAAAA             GCCCCCG GCAA CGGGGGC              CCAATAATACTAGGT
+KABHIH_0067     71167 - 69950    - | 
+KABHIH_0068     71767 - 71177    - | 
+KABHIH_0069     72019 - 72432    + | 
+KABHIH_0070     72611 - 73408    + | 
+KABHIH_0071     73431 - 74441    + | 
+KABHIH_0072     74425 - 75165    + | 
+KABHIH_0073     75483 - 75977    + | 
+KABHIH_0074     76206 - 76802    + | 
+KABHIH_0075     76780 - 77466    + | 
+KABHIH_0076     77466 - 78344    + | 
+KABHIH_0077     78357 - 78830    + | 
+KABHIH_0078     79109 - 80311    + | 
+  TERM 18       80321 - 80338    + F   100 -14.1 -6.09133 | opp_overlap 80321
+  GATTAAGTTCATATA             CGCGGGC CTTG GCCCGCG              TTTTTTTTTCACATC
+KABHIH_0079     80519 - 81058    + | 
+  TERM 19       81065 - 81081    + F   100 -15.1 -5.76949 | opp_overlap 81061
+  AAGTTTTAAATGTTG              GGGGGGG CGG CCCCCCC              TTTTTTTTGGCCATC
+KABHIH_0080     81305 - 82090    + | 
+KABHIH_0081     82106 - 83767    + | 
+  TERM 20       83779 - 83796    + F   100 -14.1 -6.09888 | opp_overlap 83775
+  TTGAAGAATACGCGA             GGGCCGG GGGG CCGGCCC              TTTTTTTTATTCCGA
+KABHIH_0082     83990 - 85039    + | 
+KABHIH_0083     85036 - 85758    + | 
+  TERM 21       85765 - 85782    + F   100 -14.1 -5.81412 | opp_overlap 85764 85765
+  GCGCAGTGAAAAAAT             GCCGGGG TGAA CCCCGGC              TTTTTTTTACCTGAA
+KABHIH_0084     86104 - 86517    + | 
+  TERM 22       86526 - 86543    + T   100 -14.1 -6.40073 | opp_overlap 86523 86521 86519 86526
+  GTTTTAAACATATTA             CGCCCCG ATAC CGGGGCG              TTTTTTTTTTACATT
+  TERM 23       86543 - 86526    - T    95 -14.1 -2.80821 | opp_overlap 86526, overlap 86523 86521 86519
+  GTTTTAAACATATTA             CGCCCCG ATAC CGGGGCG              TTTTTTTTTTACATT
+  TERM 24       86604 - 86588    - T    79 -10.9 -3.21438 | overlap 86586 86584
+  AAGGATCATAACATA              GTCACTC AAT GAGTGAC              AGACAGGCTAAATTT
+  TERM 25       86699 - 86682    - T   100 -14.1 -5.88471 | opp_overlap 86682 86678
+  TATTAGTAAAAAAAA             CGGCGGC ATTG GCCGCCG              TGCATTGAGTTTAAT
+  TERM 26       86682 - 86699    + T    95 -14.1 -2.59079 | opp_overlap 86682, overlap 86678
+  TATTAGTAAAAAAAA             CGGCGGC ATTG GCCGCCG              TGCATTGAGTTTAAT
+KABHIH_0085     87433 - 86714    - | 
+KABHIH_0086     87963 - 87430    - | 
+KABHIH_0087     88883 - 87960    - | 
+  TERM 27       89171 - 89154    - R   100 -14.1 -5.95166 | 
+  GCTAACGAAAAAAAA             CCGCCCC GGGA GGGGCGG              ATGAACGCTATGTCA
+KABHIH_0088     89864 - 89184    - | 
+KABHIH_0089     90454 - 89861    - | 
+KABHIH_0090     91349 - 90459    - | 
+  TERM 28       91601 - 91584    - R   100 -14.1 -5.87688 | opp_overlap 91582
+  ACAATCGAAAAAAAA             CGCGCCG CACT CGGCGCG              ACTAAATTGATTACG
+KABHIH_0091     92919 - 91612    - | 
+KABHIH_0092     94285 - 92945    - | 
+KABHIH_0093     94501 - 95373    + | 
+KABHIH_0094     95370 - 96224    + | 
+KABHIH_0095     96224 - 97627    + | 
+  TERM 29       97793 - 97810    + T   100 -14.1 -4.43309 | opp_overlap 97793
+  CATTAACAAAAAAAA             CCGGGCC GTTA GGCCCGG              TTTTACTTAAAGTTA
+  TERM 30       97810 - 97793    - T   100 -14.1 -6.13503 | opp_overlap 97793
+  CATTAACAAAAAAAA             CCGGGCC GTTA GGCCCGG              TTTTACTTAAAGTTA
+KABHIH_0096     98221 - 97823    - | 
+KABHIH_0097     98606 - 99337    + | 
+
+SEQUENCE plasmid_1  (length 8000)
+
+KABHIH_0098      1854 - 193      - | 
+KABHIH_0099      3070 - 1859     - | 
+

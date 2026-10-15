@@ -105,3 +105,24 @@ Rules:
 2. `terminators_crosscheck.tsv` columns are not in §9.3. **Proposed default:** the 5 columns above.
 3. `terminator_conf_downstream` window when no next same-strand gene. **Proposed default:** 300 bp
    past the stop (or the contig end on linear contigs).
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions 1–5 are accepted (tab-separated TerminatorNet without header; two-letter
+   `.tt` location codes and integer hp scores; terminators.parquet = primary-tool calls (+ BacTermFinder)
+   only; step keys matched by name; cross-check file may be header-only; per-source BED numbering; windows
+   wrap at the origin on circular contigs).
+2. The manifest `uncalibrated` flag and step-level `cross_check_transtermhp: false` are tested when manifest
+   and optional-output support land (backlog; operon_meta → manifest wiring).
+
+## Lead decisions after code review (PR #75, changes requested)
+3. nf-sync test accepts a variable after `-p` (e.g. `$EXPTERM`) and checks the positional order
+   `genome.fa genes.coords` (it must pass against #65's TRANSTERMHP script).
+4. The TerminatorNet parser never skips data lines by prefix: only an exact header line (if any) is
+   skipped; contig IDs starting with "name" parse normally. Test with `name_contig`.
+5. BacTermFinder (provisional): an empty output directory → no calls (`[]`); exactly one CSV → parse it;
+   several CSVs → ValueError naming them (no arbitrary pick). Stays provisional until a recording exists.
+6. `terminator_between(up, down)` raises ValueError unless both genes share contig and strand.
+7. Tests kill the surviving mutants: `−L` shift in `_max_in` at the origin; downstream window slack with
+   no next gene; BED score rounding (`round`, not `int`); NaN `share_matched` for a contig without
+   primary calls; cross-check contig order = FASTA order; the `bactermfinder` gate;
+   `cross_check_transtermhp: false`; layer sorted.

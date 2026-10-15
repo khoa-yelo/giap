@@ -1,0 +1,52 @@
+TransTermHP v2.09 (built on Oct  8 2025)
+25 bins; sample size is 20000000
+--pval-conf=/usr/local/data/expterm.dat
+
+--gc=-2.3 --au=-0.9 --gu=1.3 --mm=3.5 --gap=6
+--max-len=59 --min-stem=4 --max-loop=13 --min-loop=3
+--uwin-length=6 --uwin-require=3 --max-hp-score=-2 --max-tail-score=-2.5
+--loop-penalty=1,2,3,4,5,6,7,8,9,10,11
+--start-cut=0 --end-cut=25
+
+Genes: 0.481522 %AT, 4313623 nt, 37976 terms.
+Intergenic: 0.568091 %AT, H2T: 498286 nt, 4600 terms; T2T: 138343 nt, 3108 terms; H2H: 218422 nt, 3363 terms. 
+
+Each terminator entry starts in column 3 and is of the form:
+  term #       start - end      +/-  regionconf   hp     tail | notes
+Followed by the sequence of the 5' tail, 5' stem, loop, 3' stem, and 3' tail.
+Genes are interspersed, and start the first column.
+
+
+SEQUENCE CP171243.1  (length 4523)
+
+JMJJOG_04963      263 - 1765     + | 
+  TERM 1         1798 - 1834     + T   100 -12.5 -4.09117 | opp_overlap 1802 1807, overlap 1807
+  GGGATCTCCAGGCAT    CAAATAAAACGAAAGAC TGG GCCTTTCGTTTTATCTG    TTGTTTGTCGGTGAA
+  TERM 2         1830 - 1802     - T   100 -14.1 -3.76224 | opp_overlap 1798 1807, overlap 1807
+  TCTCCAGGCATCAAA        TAAAACGAAAGAC TGG GCCTTTCGTTTTA        TCTGTTGTTTGTCGG
+  TERM 3         1807 - 1825     + T    83  -7.4 -4.74989 | opp_overlap 1802 1807, overlap 1798
+  AGGCATCAAATAAAA             CGAAAGAC TGG GCCTTTCG             TTTTATCTGTTGTTT
+  TERM 4         1825 - 1807     - T    93  -9.6  -4.9448 | opp_overlap 1807 1798, overlap 1802
+  AGGCATCAAATAAAA             CGAAAGAC TGG GCCTTTCG             TTTTATCTGTTGTTT
+  TERM 5         1872 - 1891     + T    91 -11.4 -4.04319 | 
+  TACTAGAGTCACACT            GGCTCACC TTCG GGTGGGCC             TTTCTGCGTTTATAC
+JMJJOG_04964     2809 - 1931     - | 
+
+SEQUENCE CP171244.1  (length 3173)
+
+JMJJOG_04966      324 - 154      - | 
+JMJJOG_04967      482 - 910      + | 
+JMJJOG_04968     1622 - 1299     - | 
+JMJJOG_04969     1906 - 2100     + | 
+
+SEQUENCE CP171245.1  (length 5514)
+
+JMJJOG_04971     1043 - 1285     + | 
+JMJJOG_04972     1275 - 1559     + | 
+JMJJOG_04973     3071 - 1554     - | 
+JMJJOG_04974     3387 - 3061     - | 
+  TERM 1         3587 - 3570     - R   100 -10.5 -5.38958 | opp_overlap 3570 3568
+  ACGCACAAACAAAAA             GCCCCGC AAAA GCAGGGC              TGTTATCTGATATAG
+JMJJOG_04975     4756 - 3614     - | 
+JMJJOG_04976     5406 - 4759     - | 
+
