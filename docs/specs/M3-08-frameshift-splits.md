@@ -85,3 +85,16 @@ Sequence `GGCCGGAACCGACCATTGATAGAAAAACTGATGAACGCGTAA` (42 nt, linear `fs1`): fra
    substitution < swap < block < near_block < frameshift; `blocks` in the same unwrapped coordinates as
    start/end; `frame` = prefix block's label; target search only for `target_queries`; M3-07 config errors
    (e.g. k > 2) reused. No recall threshold → no calibration test here (M3-21 measures).
+
+## Lead decisions after code review (PR #60, changes requested)
+1. Tests kill the surviving mutants: the hashed seed prefilter (a genome large enough to trigger it — a test
+   comparing prefiltered vs forced full scan; mark `slow` if > 60 s, keep a fast variant that forces the
+   prefilter on a small genome through a parameter/threshold), the > 16-placement serial path (no
+   truncation), reverse-decoy `frame_id` and `aa_start/aa_end`, the precedence boundaries `smax`/`emin`/`lo`
+   slack, the 2↔1 operation in `_nonfs_overlap`, and the circular shifts at the origin (test them, or remove
+   them if provably redundant — then say so in the PR).
+2. `min_side_aa ≤ 0` is rejected when the config is parsed (ValueError), not clamped.
+3. The four helpers M3-08 imports from `tolerant`/`tolerant_dp` become public APIs (no leading underscore,
+   docstrings, kept in their home modules; M3-07 callers updated). `_band_row` and `_nonfs_overlap`
+   re-implement M3-06 operations: a cross-check test compares them with `tolerant_dp.verify` on random cases.
+4. Scope note: only δ = ±1 nt shifts (spec); the PR text is corrected. Module size stays (< 800 lines).
