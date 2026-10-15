@@ -112,12 +112,19 @@ def _promotech_variants() -> list[list[str]]:
     ]
 
 
+def _ostir_variants() -> list[list[str]]:
+    from giap.annotate import ostir_cmd  # M2-16
+
+    return [ostir_cmd.ostir_command(Path("ostir_input.csv"), Path("ostir.csv"), 4)]
+
+
 BUILDERS: dict[str, Callable[[], list[list[str]]]] = {
     "bakta": _bakta_variants,
     "uniop": _uniop_variants,  # M2-12 (merged before M2-07)
     "terminatornet": _terminatornet_variants,  # M2-15
     "transtermhp": _transtermhp_variants,  # M2-15
     "promotech": _promotech_variants,  # M2-13 (PR #76 review decision 5)
+    "ostir": _ostir_variants,  # M2-16
 }
 
 

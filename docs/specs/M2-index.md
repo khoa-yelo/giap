@@ -119,7 +119,7 @@ A `precomputed` key replaces the listed steps and supplies the listed output (fo
 | `transtermhp` | ext | `genome.norm.fa`, `genes.coords` | `transtermhp.tt` | `terminators` | 07, 15 |
 | `bactermfinder` | ext (opt-in) | `genome.norm.fa` | `bactermfinder/` | `terminators` | 07, 15 |
 | `terminator_layer` | py | the three above | `terminators.parquet`, `terminators_crosscheck.tsv` | `terminators` | 15 |
-| `ostir_input` | py | `genes.parquet`, `annotation_meta.json` | `ostir_input.csv` | `rbs` | 16 |
+| `ostir_input` | py | `genes.parquet`, `annotation_meta.json`, genome, replicons | `ostir_input.csv` | `rbs` | 16 |
 | `ostir` | ext | `ostir_input.csv` | `ostir.csv` | `rbs` | 07, 16 |
 | `rbs_layer` | py | `ostir.csv`, `ostir_input.csv` | `rbs.parquet` | `rbs` | 16 |
 | `codon_usage` | py | `genes.parquet`, `trna_counts.tsv` | `codon.parquet` | — (always in-process) | 17 |

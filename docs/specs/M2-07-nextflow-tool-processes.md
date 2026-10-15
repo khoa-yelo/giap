@@ -135,3 +135,42 @@ Follow-up PR (stacked, branch m2/run-wiring): `giap run` writes `inputs.replicon
     (six in total); conda is never built on the fly under farmshare or farmshare,apptainer.
 13. The `ps` shim bind is read-only (`:ro`). Decision 3 is amended: the shim is a `/proc`-based script
     (`workflow/assets/ps/ps`) printing `pid ppid` for Nextflow's process tree, bound for BAKTA and ANTISMASH.
+
+### Lead decisions for the run-wiring follow-up (branch m2/run-wiring)
+1. `giap run` runs preflight in full, including the evidence rule (`inputs.evidence_present`): a run with
+   neither peptides nor proteins exits 1 before Nextflow starts. Older genome-only `giap run` tests are
+   updated to pass evidence (test-author).
+2. The test-author's interface choices are accepted: absolute `inputs.replicons` in preflight's 5-column
+   c/l format matching the normalised genome's IDs (the run passes the normalised genome); `params.db_dir`
+   = --db-dir, else $GIAP_DB_DIR; a found step without required `--in` fails exit 5 "required input".
+3. After the code review of #78 (real `giap run`, Slurm 1848591):
+   a. `--resume` must cache: preflight rewrites `work/preflight/*` only when the content changed (unchanged
+      files keep their mtime); a stub test runs `giap run` twice with `--resume` and asserts cached > 0.
+   b. The DB directory is visible in containers: the apptainer profile binds `params.db_dir` read-only
+      (`apptainer.runOptions`/`containerOptions` `-B <db_dir>:<db_dir>:ro`) when set. Config test.
+   c. `--profile` accepts comma-joined known profiles (e.g. `farmshare_local,apptainer`,
+      `farmshare,apptainer`); unknown names still exit 1.
+   d. Order: preflight runs before the `nextflow` presence check (a bad genome exits 1 with a report even
+      without Nextflow).
+   e. `db_dir` is passed to preflight/`read_manifest` explicitly; no `os.environ` mutation.
+   f. Tests: `--strict` warning exits 3 before launch; missing manifest exits 2 with no launch.
+4. After the re-review of #78 (real `giap run`, Slurm 1848630: exit 2 at `environment.tools`):
+   a. `environment.tools` checks binaries/environments from the M2-01 tool registry, not from the DB
+      manifest: a tool is present when its pinned container image exists under `$GIAP_ROOT/containers`
+      (apptainer profiles) or, for conda-only tools, its prebuilt micromamba env exists with a build
+      marker matching `workflow/envs/<tool>.yml`; under the `test`/stub profiles tools are not required.
+   b. Databases and models come from the `giap setup` manifest, with item names mapped to requirement
+      names: `cog2020_def`+`cog2020_fun` → `cog`, `go_basic`+`goslim_generic` → `go`, `kegg_*` → `kegg`,
+      `promotech_models` → `promotech` (model), `contaminants` → `contaminants` (all parts of a group
+      must be ok).
+   c. Tests use a manifest in the real `giap setup` format (copy the structure of a real run, versions
+      faked) and fake container/env directories; never the real $GIAP_DB_DIR or $GIAP_ROOT.
+   d. Acceptance: a real `giap run` on SIM100K via Slurm passes preflight and reaches ANNOTATE.
+5. After the acceptance run (Slurm 1848659: preflight ok, ANNOTATE reached, TERMINATORNET and GENOMAD
+   completed, BAKTA failed in tRNAscan-SE with TMPDIR pointing outside the container binds):
+   a. Container tasks use a per-task temp dir inside the task work dir (`beforeScript`: `mkdir -p tmp;
+      export TMPDIR=$PWD/tmp`) in the apptainer profile, so host `TMPDIR` never leaks into a container.
+   b. The extra check of probe-reported tool versions against registry pins (enabled modules only) is
+      accepted (keeps the older version tests meaningful).
+   c. Acceptance repeated with `--resume` on the same outdir: BAKTA succeeds, TERMINATORNET/GENOMAD are
+      cached, and the run proceeds until the first unregistered py step (expected on main).
