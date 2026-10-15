@@ -33,6 +33,28 @@
       "xrefs"
     ]
   },
+  "promoter_layer": {
+    "inputs": [
+      "promotech",
+      "windows_map"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "promoter_windows"
+    ]
+  },
+  "promoter_windows": {
+    "inputs": [
+      "genes",
+      "genome",
+      "replicons"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "windows",
+      "windows_map"
+    ]
+  },
   "uniop_input": {
     "inputs": [
       "genes",

@@ -122,3 +122,22 @@ Window geometry (S = first base of the start codon, 0-based; E = gene interval e
    end3p == n); the pseudogene filter in the step; the header check with a TAB-separated foreign header.
 7. `gene_promoter_features(…, replicons)` requires `replicons` (no silent linear default).
 8. Review finding 5 (`giap _step` never loads step modules) is fixed by the run-wiring PR #78.
+
+### Tests pinning decisions 5–7 (test-author)
+- 5: `tests/unit/test_promoter_review.py::test_promoter_windows_step_end_to_end_through_the_registry`
+  (`run_step` on a circular + a linear contig; chunks only in `windows/windows_000.fa`, pseudogene
+  skipped, map = `gene_windows` in §6.5 order); `workflow/tests/data/annotate/step_registry.json`
+  regenerated (adds `promoter_windows`, `promoter_layer`); `tests/unit/test_nf_cmd_sync.py` BUILDERS
+  gains the `promotech` pair; `tests/unit/test_nf_annotate_registry.py` adds
+  `test_promoter_windows_call_passes_replicons` and
+  `test_promoter_windows_scatters_into_the_windows_directory`; annotate.nf.test example 4 asserts
+  `replicons` in the step's `--in` keys, `windows/windows_00{0,1,2}.fa` inside the task's `windows/`
+  and the three chunks staged into PROMOTECH. annotate.nf must change: `stepIn('promoter_windows',
+  [genes, reps, kv('genome', genome)])`; out spec `scatterSpec('windows', 'windows/windows_*.fa', n,
+  true)`; PROMOTECH chunks from `inDir(W, 'windows')` instead of the name filter.
+- 6: one test per listed mutant in `tests/unit/test_promoter_review.py` (lo1 wrap, gap % n, max(a, 0),
+  promoter_between normalisation, origin merge + max score, touching across the origin, TAB-separated
+  foreign header, pseudogene filter), plus the unlisted survivors 26 (window > 40 nt) and 32 (row
+  field count); 11 and 29 are equivalent mutants. Each verified to kill its mutant on a scratch copy.
+- 7: `test_gene_promoter_features_without_replicons_is_a_type_error`; the existing feature tests
+  pass `replicons=` explicitly.

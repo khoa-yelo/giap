@@ -21,6 +21,7 @@ from giap.model.coords import Interval, Replicon
 from giap.model.genes import Gene
 
 CHR1 = Replicon("chr1", 100_000, "circular", "chromosome")
+REPS = {"chr1": CHR1}  # decision 7: replicons is required
 COLUMNS = ["locus_tag", "promoter_score", "promoter_score_tu", "n_promoter_windows_tu"]
 
 
@@ -56,7 +57,7 @@ def _scores(rows: list[tuple[str, int, float]]) -> pd.DataFrame:
 
 
 def _features(genes: list[Gene], tus: list[Tu], rows: list, yes: float = 0.5) -> pd.DataFrame:
-    df = api("gene_promoter_features")(genes, tus, _scores(rows), yes=yes)
+    df = api("gene_promoter_features")(genes, tus, _scores(rows), yes=yes, replicons=REPS)
     assert list(df.columns) == COLUMNS
     return df.set_index("locus_tag")
 
@@ -129,8 +130,8 @@ def test_single_gene_tu_scores_equal() -> None:
 def test_features_are_deterministic() -> None:
     rows = [("+", 900, 0.97), ("+", 1300, 0.83)]
     args = ([F_PLUS, G_PLUS], [_tu("TU_1", [F_PLUS, G_PLUS])])
-    a = api("gene_promoter_features")(*args, _scores(rows), yes=0.5)
-    b = api("gene_promoter_features")(*args, _scores(rows), yes=0.5)
+    a = api("gene_promoter_features")(*args, _scores(rows), yes=0.5, replicons=REPS)
+    b = api("gene_promoter_features")(*args, _scores(rows), yes=0.5, replicons=REPS)
     pd.testing.assert_frame_equal(a, b)
 
 
