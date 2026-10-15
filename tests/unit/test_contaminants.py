@@ -3,9 +3,9 @@
 Input contracts used here (the spec names the frames but not their columns; test-author choices,
 reported to the lead):
 
-- ``peptides``: the aggregated query peptides (M1-06 ``aggregate_peptides`` columns ``peptide``,
-  ``protein_ids`` = ``;``-joined sorted union or missing, ``is_decoy``, ``is_contaminant``); every
-  row is a peptide that went through mapping.
+- ``peptides``: the aggregated query peptides (M1-06/M1-12 columns ``peptide``, ``protein_ids`` =
+  native list of strings, empty when missing (M3-15 lead decision 1), ``is_decoy``,
+  ``is_contaminant``); every row is a peptide that went through mapping.
 - ``placements``: M3-10 ``placement`` per-peptide frame (``PER_PEPTIDE_COLUMNS``); a peptide is in
   it iff it has a target hit; ``accepted`` is the placement decision.
 - ``protein_state``: one row per mapped protein (> 40 aa): ``protein_id``, ``sequence``,
@@ -14,7 +14,8 @@ reported to the lead):
 - ``unmapped_table(..., tolerant_min_len=10)``: keyword (default 10 = ``mapping.tolerant.min_len``)
   so ``too_short`` follows the configured tolerant minimum (M3-15 Q2 / M3-index decision).
 - blastp tabular output uses the 15 tblastn columns (``giap.mapping.tblastn.OUTFMT``); identity =
-  ``pident / 100``, coverage = ``(qend - qstart + 1) / qlen`` of one HSP; both thresholds inclusive.
+  ``pident / 100``, coverage = ``(qend - qstart + 1) / qlen`` of one HSP; both thresholds inclusive;
+  several passing hits: highest bitscore, identity, coverage, then lowest ID (lead decision 2).
 """
 
 from __future__ import annotations
@@ -56,7 +57,9 @@ def _peptides(rows: list[tuple[str, str | None]]) -> pd.DataFrame:
     return pd.DataFrame(
         {
             "peptide": [p for p, _ in rows],
-            "protein_ids": pd.Series([ids for _, ids in rows], dtype="string"),
+            "protein_ids": pd.Series(
+                [ids.split(";") if ids else [] for _, ids in rows], dtype=object
+            ),
             "is_decoy": [False] * len(rows),
             "is_contaminant": [
                 ids is not None and all(i.startswith(tuple(PREFIXES)) for i in ids.split(";"))
@@ -315,6 +318,40 @@ def test_protein_passing_subject_chosen_over_failing(tmp_path: Path) -> None:
         ],
     )
     assert _c().match_contaminant_proteins(p) == {"P": "Z9"}
+
+
+@pytest.mark.parametrize(
+    ("a", "b", "winner"),
+    [
+        # (sseqid, bitscore, pident, qend) of two passing HSPs of one query (qlen 100)
+        (("A1", 300, 91.0, 60), ("Z9", 400, 91.0, 60), "Z9"),  # highest bitscore
+        (("A1", 300, 91.0, 60), ("Z9", 300, 97.0, 60), "Z9"),  # then highest identity
+        (("A1", 300, 95.0, 60), ("Z9", 300, 95.0, 90), "Z9"),  # then highest coverage
+        (("Z9", 300, 95.0, 80), ("A1", 300, 95.0, 80), "A1"),  # then lowest subject ID
+    ],
+)
+def test_protein_tie_rule(
+    tmp_path: Path,
+    a: tuple[str, int, float, int],
+    b: tuple[str, int, float, int],
+    winner: str,
+) -> None:
+    lines = [
+        blast_line(qseqid="P", sseqid=s, bitscore=bs, pident=pi, qstart=1, qend=qe, qlen=100)
+        for s, bs, pi, qe in (a, b)
+    ]
+    c = _c()
+    assert c.match_contaminant_proteins(_write_blast(tmp_path, lines)) == {"P": winner}
+    assert c.match_contaminant_proteins(_write_blast(tmp_path, lines[::-1])) == {"P": winner}
+
+
+def test_protein_tie_rule_failing_hsp_never_wins(tmp_path: Path) -> None:
+    lines = [
+        blast_line(qseqid="P", sseqid="A1", bitscore=900, pident=89.0, qend=100, qlen=100),
+        blast_line(qseqid="P", sseqid="B2", bitscore=900, pident=99.0, qend=40, qlen=100),
+        blast_line(qseqid="P", sseqid="Z9", bitscore=150, pident=90.0, qend=50, qlen=100),
+    ]
+    assert _c().match_contaminant_proteins(_write_blast(tmp_path, lines)) == {"P": "Z9"}
 
 
 def test_protein_matches_independent_of_row_order(tmp_path: Path) -> None:

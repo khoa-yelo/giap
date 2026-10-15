@@ -62,6 +62,28 @@ def oracle_passing(
     return out
 
 
+def oracle_best(
+    rows: Iterable[Mapping[str, str]], min_identity: float = 0.90, min_coverage: float = 0.50
+) -> dict[str, str]:
+    """Query ID -> library ID of the best passing HSP: highest bitscore, then identity, then
+    coverage, then lowest subject ID (M3-15 lead decision 2)."""
+    best: dict[str, tuple[float, float, float, str]] = {}
+    for r in rows:
+        if not passes(r, min_identity, min_coverage):
+            continue
+        lo, hi = sorted((int(r["qstart"]), int(r["qend"])))
+        key = (
+            -float(r["bitscore"]),
+            -float(r["pident"]),
+            -(hi - lo + 1) / int(r["qlen"]),
+            r["sseqid"],
+        )
+        q = r["qseqid"]
+        if q not in best or key < best[q]:
+            best[q] = key
+    return {q: k[3] for q, k in best.items()}
+
+
 def blast_line(**kw: object) -> str:
     """One tab-separated blastp row in ``OUTFMT_COLUMNS`` order (sensible defaults)."""
     qlen = int(kw.get("qlen", 100))  # type: ignore[call-overload]

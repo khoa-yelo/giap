@@ -20,6 +20,7 @@ from contaminant_oracle import (
     OUTFMT_COLUMNS,
     blast_line,
     il,
+    oracle_best,
     oracle_passing,
     oracle_peptide_matches,
 )
@@ -87,6 +88,7 @@ hsp = st.fixed_dictionaries(
         "qseqid": st.sampled_from(["Q1", "Q2", "Q3"]),
         "sseqid": st.sampled_from(["A1", "B2", "C3", "D4"]),
         "pident": st.sampled_from([50.0, 85.0, 89.999, 90.0, 92.5, 100.0]),
+        "bitscore": st.sampled_from([150, 300]),
         "qlen": st.integers(10, 200),
         "a": st.floats(0, 1),
         "b": st.floats(0, 1),
@@ -98,7 +100,13 @@ def _line(h: dict[str, Any]) -> str:
     qlen = h["qlen"]
     lo, hi = sorted((1 + int(h["a"] * (qlen - 1)), 1 + int(h["b"] * (qlen - 1))))
     return blast_line(
-        qseqid=h["qseqid"], sseqid=h["sseqid"], pident=h["pident"], qstart=lo, qend=hi, qlen=qlen
+        qseqid=h["qseqid"],
+        sseqid=h["sseqid"],
+        pident=h["pident"],
+        bitscore=h["bitscore"],
+        qstart=lo,
+        qend=hi,
+        qlen=qlen,
     )
 
 
@@ -118,6 +126,7 @@ def test_protein_matches_agree_with_oracle(
     assert set(got) == set(passing)
     for q, s in got.items():
         assert s in passing[q]
+    assert got == oracle_best(rows)  # M3-15 lead decision 2 tie rule
     # deterministic under row order
     path.write_text("".join(x + "\n" for x in data.draw(st.permutations(lines))))
     assert dict(c.match_contaminant_proteins(path)) == got
@@ -166,7 +175,9 @@ def _frames(s: dict[str, Any], seed: int | None = None) -> tuple[pd.DataFrame, .
     peps = pd.DataFrame(
         {
             "peptide": s["peps"],
-            "protein_ids": pd.Series([s["ids"][p] for p in s["peps"]], dtype="string"),
+            "protein_ids": pd.Series(
+                [s["ids"][p].split(";") if s["ids"][p] else [] for p in s["peps"]], dtype=object
+            ),
             "is_decoy": [False] * len(s["peps"]),
             "is_contaminant": [False] * len(s["peps"]),
         }
