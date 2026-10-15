@@ -106,3 +106,13 @@ constant fallback, the calibration diagnostics and the simulation evidence (slop
 2. Inner C selection by log loss (not AUC)? **Proposed default:** log loss, since calibration is the goal.
 3. Spline `extrapolation="linear"` for held-out genes outside the training range? **Proposed
    default:** yes (sklearn's default `constant` flattens tails, hurting short sORFs).
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted (non-eligible genes `<NA>` in a boolean `detected`, NaN
+   p_detect; fold and inner-split RNG order; C chosen by mean per-fold log loss; tolerances to the oracle
+   2e-3 / 1e-3; stable-sort bins; NaN covariates → median of the transformed column).
+2. `too_few_tus` and dropped covariates are reported in the returned diagnostics (machine-readable), and
+   also logged at WARNING — not only as a Python warning.
+3. D1 (§8.4 slope gate, mean cross-fitted slope in the tolerance interval) stays outside `calibrate()`
+   (mean-in-interval is not a `calibrate()` criterion); D2–D4 go through `calibrate()`. The statistician
+   signs off the claims before merge.
