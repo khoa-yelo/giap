@@ -50,11 +50,11 @@ from giap.mapping.diffops import block_tables
 from giap.mapping.hits import hits_frame
 from giap.mapping.qgram import MAX_QUERY
 from giap.mapping.sixframe import Frame, SixFrameIndex, decode, encode_query
-from giap.mapping.tolerant import _budget, _parse_max_diff, _Search
-from giap.mapping.tolerant_dp import _rank_weight, decode_key, exchange_lookup
+from giap.mapping.tolerant import Search, budget, parse_max_diff
+from giap.mapping.tolerant_dp import decode_key, exchange_lookup, rank_weight
 from giap.model.coords import Interval, Replicon
 
-__all__ = ["match_frameshift"]
+__all__ = ["band_row", "match_frameshift", "nonfs_overlap"]
 
 Arr = np.ndarray
 # search space: text, frame starts, frame lengths, frame offsets, frame groups, group frames
@@ -72,7 +72,7 @@ _VERIFY_COST = 20000.0  # relative cost of verifying one anchor range vs one q-g
 
 
 @njit(cache=True, nogil=True)
-def _band_row(
+def band_row(
     q: np.ndarray,
     i: int,
     base: int,
@@ -93,8 +93,8 @@ def _band_row(
     nres = 19
     big = 1 << 62
     b = 32768
-    w_sub = _rank_weight(0, b)
-    w_swap = _rank_weight(1, b)
+    w_sub = rank_weight(0, b)
+    w_swap = rank_weight(1, b)
     off21 = nres * nres * nres
     off22 = 2 * off21
     row = i * nd
@@ -127,7 +127,7 @@ def _band_row(
                             w = w_swap
                         r = int(ex[off22 + ((q0 * nres + q1) * nres + t0) * nres + t1])
                         if r >= 0:
-                            rw = _rank_weight(r, b)
+                            rw = rank_weight(r, b)
                             if rw < w:
                                 w = rw
                         if w < big and pk + w < limit and pk + w < best:
@@ -137,7 +137,7 @@ def _band_row(
                     pk = key[prow + dd - 1]
                     r = int(ex[(q1 * nres + t0) * nres + t1])
                     if pk < big and r >= 0:
-                        c = pk + _rank_weight(r, b)
+                        c = pk + rank_weight(r, b)
                         if c < limit and c < best:
                             best = c
                             bj = jn[prow + dd - 1]
@@ -145,7 +145,7 @@ def _band_row(
                     pk = key[prow2 + dd + 1]
                     r = int(ex[off21 + (q0 * nres + q1) * nres + t1])
                     if pk < big and r >= 0:
-                        c = pk + _rank_weight(r, b)
+                        c = pk + rank_weight(r, b)
                         if c < limit and c < best:
                             best = c
                             bj = jn[prow2 + dd + 1]
@@ -190,7 +190,7 @@ def _verify_anchor(
         k1[dd] = 0 if dd == rem else big
         j1[dd] = -1
     for i in range(1, pmax + 1):
-        _band_row(q, i, base1, text, fa, fn, ex, k1, j1, nd, limit, 0)
+        band_row(q, i, base1, text, fa, fn, ex, k1, j1, nd, limit, 0)
     for delta in (1, -1):
         og = (of + delta) % 3
         cd = (of + delta - og) // 3
@@ -201,7 +201,7 @@ def _verify_anchor(
         for i in range(pmin, L + 1):
             row = i * nd
             if i > pmin:
-                _band_row(q, i, base2, text, ga, gn, ex, k2, j2, nd, limit, pmin)
+                band_row(q, i, base2, text, ga, gn, ex, k2, j2, nd, limit, pmin)
             else:
                 for dd in range(nd):
                     k2[row + dd] = big
@@ -234,7 +234,7 @@ def _verify_anchor(
 
 
 @njit(cache=True, nogil=True)
-def _nonfs_overlap(
+def nonfs_overlap(
     q: np.ndarray, text: np.ndarray, fa: int, fn: int, o: int, a: int, b: int, c: int, ex: Arr
 ) -> bool:  # pragma: no cover - compiled by numba; exercised through match_frameshift
     """Does ``q`` align (cost ``<= c``, no frameshift) to a window of the frame overlapping
@@ -302,7 +302,7 @@ def _suppressed(
             f = gfr[g, o]
             fa = int(fstart[f])
             fn = int(flen[f])
-            if _nonfs_overlap(q, text, fa, fn, o, a + sh * ln, b + sh * ln, cost, ex):
+            if nonfs_overlap(q, text, fa, fn, o, a + sh * ln, b + sh * ln, cost, ex):
                 return True
     return False
 
@@ -312,9 +312,9 @@ def _suppressed(
 
 @njit(cache=True, nogil=True)
 def _anchor_ranges(
-    qc: Arr, q: int, offsets: Arr, positions: Arr, t: int, sp: Space, gspan: int
+    qc: Arr, q: int, offsets: Arr, positions: Arr, t: int, sp: Space, gspan: int, pmh: int
 ) -> Arr:  # pragma: no cover - compiled by numba; exercised through match_frameshift
-    """Merged anchor ranges ``(group, P0_lo, P0_hi)`` (inclusive) of one query."""
+    """Merged anchor ranges ``(group, P0_lo, P0_hi)`` (inclusive); prefilter above ``pmh`` hits."""
     _, fstart, _, f_off, f_grp, _, _, _, _ = sp
     L = qc.shape[0]
     nq = L - q + 1
@@ -353,7 +353,7 @@ def _anchor_ranges(
             g = f_off[fid] + 3 * (p - fstart[fid]) - 3 * i + 3 * L + 8
             keys[m] = ((f_grp[fid] * gspan + g) << 10) | i
             m += 1
-    if t >= 2 and total > 256:  # drop hits whose two 8-diagonal bins hold < t hits (hashed)
+    if t >= 2 and total > pmh:  # drop hits whose two 8-diagonal bins hold < t hits (hashed)
         cnt = np.zeros(1 << 18, dtype=np.uint8)
         for x in range(total):
             h = ((keys[x] >> 13) * 0x9E3779B1) & 0x3FFFF
@@ -416,14 +416,14 @@ def _anchor_ranges(
 @njit(cache=True, nogil=True)
 def _search_one(
     qc: Arr, k: int, t: int, q: int, pmin: int, offsets: Arr, positions: Arr, sp: Space,
-    gspan: int, ex: Arr,
+    gspan: int, ex: Arr, pmh: int,
 ) -> Arr:  # pragma: no cover - compiled by numba; exercised through match_frameshift  # fmt: skip
     """Placements (7 columns) of one query at the minimal unsuppressed split cost."""
     text, fstart, flen, _, _, gfr, g_ext, g_len, _ = sp
     L = qc.shape[0]
     rem = k - 1
     if t >= 1:
-        rng = _anchor_ranges(qc, q, offsets, positions, t, sp, gspan)
+        rng = _anchor_ranges(qc, q, offsets, positions, t, sp, gspan, pmh)
     else:
         ng = gfr.shape[0]
         rng = np.empty((ng, 3), dtype=np.int64)
@@ -472,7 +472,7 @@ def _search_one(
 @njit(cache=True, parallel=True)
 def _search_many(
     qcat: Arr, qoff: Arr, ks: Arr, ts: Arr, q: int, pmin: int, offsets: Arr, positions: Arr,
-    sp: Space, gspan: int, ex: Arr, cap: int,
+    sp: Space, gspan: int, ex: Arr, pmh: int, cap: int,
 ) -> tuple[Arr, Arr]:  # pragma: no cover - compiled by numba; via match_frameshift  # fmt: skip
     """:func:`_search_one` for every query (placement counts and the first ``cap`` rows)."""
     nq = qoff.shape[0] - 1
@@ -480,7 +480,7 @@ def _search_many(
     rows = np.full((nq, cap, 7), -1, dtype=np.int64)
     for j in prange(nq):
         qc = qcat[qoff[j] : qoff[j + 1]]
-        res = _search_one(qc, ks[j], ts[j], q, pmin, offsets, positions, sp, gspan, ex)
+        res = _search_one(qc, ks[j], ts[j], q, pmin, offsets, positions, sp, gspan, ex, pmh)
         counts[j] = res.shape[0]
         for r in range(min(res.shape[0], cap)):
             rows[j, r] = res[r]
@@ -522,7 +522,7 @@ class _FSearch:
     """One search space: frames (read in the search direction), q-gram indexes, strand groups."""
 
     def __init__(self, frames: tuple[Frame, ...], replicons: Mapping[str, Replicon]) -> None:
-        self.base = _Search(frames)
+        self.base = Search(frames)
         self.frames = frames
         groups: dict[tuple[str, str], int] = {}
         gfr: list[list[int]] = []
@@ -559,14 +559,14 @@ class _FSearch:
             raise ValueError("genome too large for the frameshift seed keys")
 
     def run(
-        self, codes: Mapping[str, np.ndarray], budget: Mapping[str, int], pmin: int, ex: np.ndarray
+        self, codes: Mapping[str, Arr], budgets: Mapping[str, int], pmin: int, ex: Arr, pmh: int
     ) -> dict[str, np.ndarray]:
-        """Placements of every query (keyed by its text)."""
+        """Placements of every query (keyed by its text); ``pmh``: prefilter hit threshold."""
         b = self.base
         n_text = len(b.text)
         groups: dict[int, list[tuple[str, int, int]]] = {}
         for text in sorted(codes):
-            k = budget[text]
+            k = budgets[text]
             q, t = _choose_q(len(codes[text]), k, pmin, n_text)
             groups.setdefault(q, []).append((text, k, t))
         out: dict[str, np.ndarray] = {}
@@ -578,7 +578,7 @@ class _FSearch:
             qcat = np.ascontiguousarray(np.concatenate(cs), dtype=np.uint8)
             ks = np.array([k for _, k, _ in items], dtype=np.int64)
             ts = np.array([t for _, _, t in items], dtype=np.int64)
-            args = (idx.offsets, idx.positions, self.space, self.gspan, ex)
+            args = (idx.offsets, idx.positions, self.space, self.gspan, ex, pmh)
             counts, rows = _search_many(qcat, qoff, ks, ts, q, pmin, *args, _CAP)
             for j, (text, k, t) in enumerate(items):
                 m = int(counts[j])
@@ -665,6 +665,8 @@ def match_frameshift(
     decoy_of: Mapping[str, DecoyType],
     target_queries: set[str],
     cfg: TolerantConfig,
+    *,
+    prefilter_min_hits: int = 256,
 ) -> pd.DataFrame:
     """Frameshift-split target and decoy hits (``HIT_COLUMNS``, ``route = "tolerant"``).
 
@@ -673,6 +675,8 @@ def match_frameshift(
     Rows carry ``diff_types`` with ``frameshift`` and ``blocks = "s1-e1;s2-e2"`` (genome,
     ascending, unwrapped like ``start``/``end``); ``frame`` labels the prefix block. Rows are
     sorted by peptide, search (target first), decoy type, contig order, start, end, strand.
+    ``prefilter_min_hits``: the hashed seed-bin prefilter runs for a query with more than this
+    many q-gram hits (it never changes the output, only the work done).
 
     Raises:
         ValueError: as :func:`~giap.mapping.tolerant.match_tolerant` (a ``decoy_of`` type without
@@ -681,14 +685,14 @@ def match_frameshift(
     for pep, kind in sorted(decoy_of.items()):
         if kind not in decoys:
             raise ValueError(f"decoy type {kind!r} of peptide {pep!r} has no decoy frames")
-    ranges = _parse_max_diff(cfg.max_diff)
+    ranges = parse_max_diff(cfg.max_diff)
     if not cfg.frameshift.enabled:
         return hits_frame()
-    pmin = max(1, int(cfg.frameshift.min_side_aa))
+    pmin = int(cfg.frameshift.min_side_aa)
     norm: dict[str, str] = {}
-    budget: dict[str, int] = {}
+    budgets: dict[str, int] = {}
     for pep in sorted(set(queries)):
-        k = _budget(len(pep), cfg, ranges)
+        k = budget(len(pep), cfg, ranges)
         if k is None:
             continue
         if pep not in decoy_of:
@@ -697,8 +701,8 @@ def match_frameshift(
             continue
         text = decode(encode_query(pep))
         norm[pep] = text
-        budget[text] = k
-        budget[text[::-1]] = k
+        budgets[text] = k
+        budgets[text[::-1]] = k
     if not norm:
         return hits_frame()
 
@@ -724,7 +728,7 @@ def match_frameshift(
         if wanted:
             spaces[id(frames)] = _FSearch(frames, index.replicons)
             codes = {t: encode_query(t) for t in sorted(wanted)}
-            found[id(frames)] = spaces[id(frames)].run(codes, budget, pmin, ex)
+            found[id(frames)] = spaces[id(frames)].run(codes, budgets, pmin, ex, prefilter_min_hits)
     rows: list[dict[str, object]] = []
     for frames, kd, texts in plans:
         for pep, t in texts.items():
