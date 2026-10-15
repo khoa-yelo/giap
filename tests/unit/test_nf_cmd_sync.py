@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 import giap.annotate
-from giap.annotate import bakta_cmd
+from giap.annotate import bakta_cmd, uniop_cmd
 
 REPO = Path(__file__).resolve().parents[2]
 MODULES = REPO / "workflow" / "modules" / "local"
@@ -67,8 +67,13 @@ def _bakta_variants() -> list[list[str]]:
     ]
 
 
+def _uniop_variants() -> list[list[str]]:
+    return [uniop_cmd.uniop_command(Path("uniop_cds.gff"), Path("out"), Path("/opt/uniop"))]
+
+
 BUILDERS: dict[str, Callable[[], list[list[str]]]] = {
     "bakta": _bakta_variants,
+    "uniop": _uniop_variants,  # M2-12 (merged before M2-07)
 }
 
 

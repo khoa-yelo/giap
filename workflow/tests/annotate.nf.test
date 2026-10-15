@@ -68,7 +68,8 @@ nextflow_pipeline {
             }
 
             def uniop = H.files(H.procDirs(work, 'UNIOP')[0]).findAll { it.name == 'uniop.pred' }
-            assert uniop.size() == 1 && uniop[0].readLines().size() == 1 : "UNIOP stub: uniop.pred header only"
+            // M2-12 decision 1: the stub writes UniOP's real two-line header (title + column header).
+            assert uniop.size() == 1 && uniop[0].readLines().size() == 2 : "UNIOP stub: uniop.pred real header only"
 
             def tn = H.files(H.procDirs(work, 'TERMINATORNET')[0]).findAll { !it.path.contains('/in/') && it.name != 'versions.yml' }
             assert tn.any { it.text.contains('NO TERMINATORS FOUND') } : "TERMINATORNET stub: no 'NO TERMINATORS FOUND' line in ${tn}"
