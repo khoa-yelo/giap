@@ -3,7 +3,8 @@
 Module 1 tests: "window generation property tests: count, strand, 3'-end range, origin wrap on
 circular replicons, no wrap on linear contigs". Plus: every window is 40 nt and equals a
 brute-force oracle; ``+``/``-`` revcomp symmetry on the mirrored genome; dedupe/chunk invariants;
-the layer reproduces every map row's score; ``promoters_bed`` has one record per window >= yes.
+the layer reproduces every map row's score; ``promoters_bed`` merges overlapping windows >= yes
+(max score), never touching ones.
 """
 
 from __future__ import annotations
@@ -191,20 +192,47 @@ def _lo(end3p: int, strand: str) -> int:
     return end3p - 40 if strand == "+" else end3p - 1
 
 
+def _merge(ivs: list[tuple[int, float]]) -> list[tuple[int, int, int]]:
+    """Oracle: 40-nt windows ``(lo, score)`` merged when overlapping (touching stays apart)."""
+    out: list[list[float]] = []
+    for lo, x in sorted(ivs):
+        if out and lo < out[-1][1]:
+            out[-1][1] = max(out[-1][1], lo + 40)
+            out[-1][2] = max(out[-1][2], x)
+        else:
+            out.append([lo, lo + 40, x])
+    return [(int(a), int(b), round(1000 * x)) for a, b, x in out]
+
+
 @SETTINGS
 @given(score_frames(), st.sampled_from([0.3, 0.5, 0.8]))
-def test_promoters_bed_one_record_per_window_at_or_above_yes(df: pd.DataFrame, yes: float) -> None:
-    """Lead decision 3: windows are never merged; numbering follows §6.5 order."""
+def test_promoters_bed_merges_overlaps_not_touching(df: pd.DataFrame, yes: float) -> None:
+    """GIAP_SPEC §7.1, corrected lead decision 3: overlap -> one record (max); touch -> two."""
     rep = Replicon("c1", 2000, "linear")
     recs = api("promoters_bed")(df, {"c1": rep}, yes=yes)
     keep = df[df["score"] >= yes]
-    want = sorted(
-        (_lo(p, s), _lo(p, s) + 40, s, round(1000 * x))
-        for s, p, x in zip(keep["strand"], keep["end3p"], keep["score"], strict=True)
-    )
+    want = []
+    for strand in "+-":
+        sub = keep[keep["strand"] == strand]
+        ivs = [(_lo(p, strand), x) for p, x in zip(sub["end3p"], sub["score"], strict=True)]
+        want += [(a, b, strand, sc) for a, b, sc in _merge(ivs)]
     got = [(r.interval.start, r.interval.end, r.interval.strand, r.score) for r in recs]
-    assert sorted(got) == want
+    assert sorted(got) == sorted(want)
     by_name = sorted(recs, key=lambda r: int(r.name.removeprefix("promoter_")))
     assert [r.name for r in by_name] == [f"promoter_{i}" for i in range(1, len(recs) + 1)]
     keys = [(r.interval.start, r.interval.end, r.interval.strand != "+") for r in by_name]
     assert keys == sorted(keys)
+
+
+@SETTINGS
+@given(st.integers(41, 1800), st.integers(1, 39), st.floats(0.5, 1), st.floats(0.5, 1))
+def test_overlapping_pair_merges_and_touching_pair_does_not(
+    p: int, shift: int, x: float, y: float
+) -> None:
+    rep = {"c1": Replicon("c1", 2000, "linear")}
+    frame = lambda rows: pd.DataFrame(rows, columns=["contig", "strand", "end3p", "score"])  # noqa: E731
+    (rec,) = api("promoters_bed")(frame([("c1", "+", p, x), ("c1", "+", p + shift, y)]), rep)
+    assert (rec.interval.start, rec.interval.end) == (p - 40, p + shift)
+    assert rec.score == round(1000 * max(x, y))
+    two = api("promoters_bed")(frame([("c1", "+", p, x), ("c1", "+", p + 40, y)]), rep)
+    assert len(two) == 2

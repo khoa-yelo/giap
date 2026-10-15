@@ -302,15 +302,11 @@ def _bed(rows: list[tuple[str, str, int, float]], reps: dict | None = None) -> l
     return api("promoters_bed")(_scores(rows), reps or {"chr1": CHR1})
 
 
-def test_example9_overlapping_windows_are_never_merged() -> None:
-    """Lead decision 3 (supersedes the spec's merge): one BED record per window >= yes."""
+def test_example9_overlapping_windows_merge_with_max_score() -> None:
     from giap.io.bed import bed_lines
 
-    recs = _bed([("chr1", "+", 1000, 0.6), ("chr1", "+", 1010, 0.9)])
-    assert [ln for r in recs for ln in bed_lines(r, CHR1)] == [
-        "chr1\t960\t1000\tpromoter_1\t600\t+",
-        "chr1\t970\t1010\tpromoter_2\t900\t+",
-    ]
+    (rec,) = _bed([("chr1", "+", 1000, 0.6), ("chr1", "+", 1010, 0.9)])
+    assert bed_lines(rec, CHR1) == ["chr1\t960\t1010\tpromoter_1\t900\t+"]
 
 
 def test_bed_drops_windows_below_yes_and_keeps_threshold() -> None:
@@ -318,19 +314,22 @@ def test_bed_drops_windows_below_yes_and_keeps_threshold() -> None:
     assert [(r.interval.start, r.interval.end, r.score) for r in recs] == [(960, 1000, 500)]
 
 
-def test_bed_minus_strand_window_interval_one_record_each() -> None:
+def test_bed_minus_strand_window_interval_and_merge() -> None:
     # '-' end3p p -> genome [p - 1, p + 39); 2901 -> [2900, 2940), 2911 -> [2910, 2950)
     recs = _bed([("chr1", "-", 2901, 0.7), ("chr1", "-", 2911, 0.55), ("chr1", "+", 2940, 0.8)])
     got = {(r.interval.start, r.interval.end, r.interval.strand, r.score) for r in recs}
-    assert got == {(2900, 2940, "-", 700), (2910, 2950, "-", 550), (2900, 2940, "+", 800)}
+    assert got == {(2900, 2950, "-", 700), (2900, 2940, "+", 800)}  # strands never merge
 
 
-def test_bed_touching_and_chained_windows_stay_separate() -> None:
-    recs = _bed([("chr1", "+", 1000, 0.6), ("chr1", "+", 1030, 0.7), ("chr1", "+", 1070, 0.65)])
+def test_bed_chain_of_overlaps_merges_but_touching_does_not() -> None:
+    rows = [
+        ("chr1", "+", 1000, 0.6), ("chr1", "+", 1030, 0.7),  # [960,1000) + [990,1030) overlap
+        ("chr1", "+", 1070, 0.65),  # [1030,1070) only touches [990,1030): separate
+    ]  # fmt: skip
+    recs = _bed(rows)
     assert [(r.interval.start, r.interval.end, r.score, r.name) for r in recs] == [
-        (960, 1000, 600, "promoter_1"),
-        (990, 1030, 700, "promoter_2"),
-        (1030, 1070, 650, "promoter_3"),  # touches [990, 1030): still its own record
+        (960, 1030, 700, "promoter_1"),
+        (1030, 1070, 650, "promoter_2"),
     ]
 
 
