@@ -21,6 +21,7 @@ import pytest
 from helpers.peptide_oracle import (
     Run,
     empty,
+    find_truth_meta,
     il,
     maps_to,
     mixture_fdr,
@@ -109,7 +110,11 @@ def test_truth_agrees_with_genome(case: dict[str, Any]) -> None:
                     r["peptide"], run.genome, r["contig"], int(r["start"]), int(r["end"]),
                     r["strand"],
                 ), r  # fmt: skip
-                assert int(r["n_loci_genome"]) >= 1
+                # M3-19 review decision 3: GTG/TTG-start N-terminal peptides have no exact hit.
+                if truthy(r.get("alt_start_nterm")):
+                    assert int(r["n_loci_genome"]) == 0, r
+                else:
+                    assert int(r["n_loci_genome"]) >= 1, r
             elif r["origin"] in ("shuffled", "other_strain"):
                 assert truthy(r["is_wrong"]) and il(r["peptide"]) not in hay, r
         if pi == 0.0:
@@ -120,6 +125,8 @@ def test_truth_agrees_with_genome(case: dict[str, Any]) -> None:
             assert all(i.startswith("rev_") for i in r["protein_ids"].split(";"))
             prots = [run.proteins[x].aa if x in run.proteins else run.json_aa[x] for x in locs]
             assert any(r["peptide"][::-1] in trypsin_p_peptides(a) for a in prots), r
+        # M3-19 review decision 1: PEP and q follow the realised wrong share.
+        pi = float(find_truth_meta(run.out)["pi_wrong_realised"]) if pi > 0 else pi
         targets = sorted(run.target_rows(), key=lambda r: -float(r["score"]))
         qs = [float(r["q_value"]) for r in targets]
         assert all(a <= b + 1e-12 for a, b in itertools.pairwise(qs))
