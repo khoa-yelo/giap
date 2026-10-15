@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Fake miniprot for workflow/tests/miniprot.nf.test (never a real aligner): records its argv in
+# miniprot.argv (one invocation per line), creates the index for -d, prints a minimal GFF otherwise.
+set -euo pipefail
+if [[ "${1:-}" == "--version" ]]; then echo "0.18-fake"; exit 0; fi
+echo "$*" >> miniprot.argv
+prev=""
+for a in "$@"; do
+    if [[ "$prev" == "-d" ]]; then : > "$a"; exit 0; fi
+    prev="$a"
+done
+printf '##gff-version 3\n'

@@ -1,0 +1,100 @@
+// M3-12 lead decision 3 after code review (PR #47): the MINIPROT process
+// (workflow/modules/local/miniprot/main.nf; GIAP_SPEC.md §7.2.3, §7.1.1).
+// - stub run: emits miniprot.gff (a minimal valid GFF) and versions.yml;
+// - module contract: task.ext.args reaches the alignment command;
+// - pipeline wiring: mapping.proteins.miniprot_args (params.mapping, written by `giap run` like
+//   params.annotation) reaches the command via ext.args, with no hard-coded default in main.nf.
+// The non-stub tests put a fake miniprot (workflow/tests/bin/miniprot) on PATH that records its argv.
+// ci.yml runs: nf-test test workflow/tests --profile test,stub
+nextflow_process {
+
+    name "MINIPROT (route 2a)"
+    script "../modules/local/miniprot/main.nf"
+    process "MINIPROT"
+    config "./miniprot.config"
+    tag "miniprot"
+
+    test("stub run writes a minimal valid GFF and versions.yml") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/miniprot/genome.fa")
+                input[2] = file("${moduleTestDir}/data/miniprot/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.gff.size() == 1
+            def gff = path(process.out.gff[0])
+            assert gff.fileName.toString() == "miniprot.gff"
+            def lines = gff.readLines()
+            assert lines.size() >= 1
+            assert lines[0] == "##gff-version 3"
+            assert process.out.versions.size() == 1
+            def versions = path(process.out.versions[0]).text
+            assert versions.contains("MINIPROT")
+            assert versions.contains("miniprot:")
+        }
+    }
+
+    test("task.ext.args reaches the alignment command, -T 11 only at indexing") {
+
+        config "./miniprot_extargs.config"
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/miniprot/genome.fa")
+                input[2] = file("${moduleTestDir}/data/miniprot/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def argv = new File(path(process.out.gff[0]).parent.toFile(), "miniprot.argv").readLines()
+            assert argv.size() == 2 : "expected index + align invocations, got ${argv}"
+            assert argv[0] =~ /(^|\s)-T 11(\s|$)/
+            assert argv[0] =~ /(^|\s)-d genome\.mpi(\s|$)/
+            assert argv[1].contains("--outs=0.42 -N 1 --gff genome.mpi")
+            assert !(argv[1] =~ /(^|\s)-T(\s|$)/) : "§7.1.1: -T is an indexing option"
+            assert !argv[1].contains("--outs=0.95") : "hard-coded default leaked: ${argv[1]}"
+            assert path(process.out.gff[0]).readLines()[0] == "##gff-version 3"
+        }
+    }
+
+    test("mapping.proteins.miniprot_args from params reaches the command via ext.args") {
+
+        when {
+            params {
+                fake_bin = "${moduleTestDir}/bin"
+                mapping = [proteins: [miniprot_args: "-S -N 3 --outs=0.91"]]
+            }
+            process {
+                """
+                input[0] = 'sim'
+                input[1] = file("${moduleTestDir}/data/miniprot/genome.fa")
+                input[2] = file("${moduleTestDir}/data/miniprot/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def argv = new File(path(process.out.gff[0]).parent.toFile(), "miniprot.argv").readLines()
+            assert argv.size() == 2 : "expected index + align invocations, got ${argv}"
+            assert argv[1].contains("-S -N 3 --outs=0.91 --gff genome.mpi")
+            assert !argv[1].contains("--outs=0.95") : "hard-coded default leaked: ${argv[1]}"
+        }
+    }
+}
