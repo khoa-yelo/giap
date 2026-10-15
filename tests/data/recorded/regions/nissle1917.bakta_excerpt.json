@@ -1,0 +1,5127 @@
+{
+"version": {
+"bakta": "1.12.2",
+"db": {
+"version": "6.0",
+"type": "full"
+}
+},
+"sequences": [
+{
+"id": "CP171242.1",
+"type": "chromosome",
+"topology": "linear",
+"length": 5051730
+},
+{
+"id": "CP171243.1",
+"type": "contig",
+"topology": "linear",
+"length": 4523
+},
+{
+"id": "CP171244.1",
+"type": "contig",
+"topology": "linear",
+"length": 3173
+},
+{
+"id": "CP171245.1",
+"type": "contig",
+"topology": "linear",
+"length": 5514
+}
+],
+"features": [
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 24707,
+"stop": 25891,
+"strand": "-",
+"locus": "JMJJOG_00027",
+"gene": "emrD",
+"product": "multidrug efflux MFS transporter EmrD",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 253841,
+"stop": 254266,
+"strand": "-",
+"locus": "JMJJOG_00245",
+"gene": "arsC",
+"product": "glutaredoxin-dependent arsenate reductase",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 486684,
+"stop": 489788,
+"strand": "-",
+"locus": "JMJJOG_00493",
+"gene": "acrF",
+"product": "multidrug efflux RND transporter permease subunit AcrF",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 802829,
+"stop": 807385,
+"strand": "+",
+"locus": "JMJJOG_00801",
+"gene": "sslE",
+"product": "lipoprotein metalloprotease SslE",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 874346,
+"stop": 876436,
+"strand": "+",
+"locus": "JMJJOG_00868",
+"gene": "iha",
+"product": "bifunctional siderophore receptor/adhesin Iha",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 879668,
+"stop": 879871,
+"strand": "+",
+"locus": "JMJJOG_00872",
+"product": "L-lactate permease"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 880376,
+"stop": 880915,
+"strand": "-",
+"locus": "JMJJOG_00873",
+"product": "IS3 family transposase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 880952,
+"stop": 881413,
+"strand": "-",
+"locus": "JMJJOG_00874",
+"product": "IS3 family transposase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 881829,
+"stop": 882284,
+"strand": "-",
+"locus": "JMJJOG_00875",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 882296,
+"stop": 883114,
+"strand": "-",
+"locus": "JMJJOG_00876",
+"gene": "tnp",
+"product": "IS3 family transposase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 883328,
+"stop": 883630,
+"strand": "+",
+"locus": "JMJJOG_00877",
+"gene": "tnp",
+"product": "IS3 family ISEc52 transposase ORF A",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 883843,
+"stop": 884475,
+"strand": "+",
+"locus": "JMJJOG_00878",
+"gene": "tnp",
+"product": "IS3 family ISEc52 transposase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 884503,
+"stop": 885603,
+"strand": "-",
+"locus": "JMJJOG_00879",
+"gene": "tnp",
+"product": "IS30 family IS30 transposase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 885560,
+"stop": 885928,
+"strand": "-",
+"locus": "JMJJOG_00880",
+"product": "Transposase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 885980,
+"stop": 886153,
+"strand": "-",
+"locus": "JMJJOG_00881",
+"product": "Autotransporter domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 886200,
+"stop": 890087,
+"strand": "-",
+"locus": "JMJJOG_00882",
+"gene": "sat",
+"product": "serine protease autotransporter toxin Sat",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 891031,
+"stop": 893232,
+"strand": "-",
+"locus": "JMJJOG_00883",
+"gene": "iutA",
+"product": "ferric aerobactin receptor IutA",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 893314,
+"stop": 894591,
+"strand": "-",
+"locus": "JMJJOG_00884",
+"gene": "iucD",
+"product": "NADPH-dependent L-lysine N(6)-monooxygenase IucD",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 894588,
+"stop": 896330,
+"strand": "-",
+"locus": "JMJJOG_00885",
+"gene": "iucC",
+"product": "NIS family aerobactin synthetase IucC",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 896330,
+"stop": 897277,
+"strand": "-",
+"locus": "JMJJOG_00886",
+"gene": "iucB",
+"product": "N(6)-hydroxylysine O-acetyltransferase IucB",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 897278,
+"stop": 899002,
+"strand": "-",
+"locus": "JMJJOG_00887",
+"gene": "iucA",
+"product": "aerobactin synthase IucA",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 899138,
+"stop": 900331,
+"strand": "+",
+"locus": "JMJJOG_00888",
+"gene": "shiF",
+"product": "ShiF protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 900444,
+"stop": 901349,
+"strand": "-",
+"locus": "JMJJOG_00889",
+"gene": "tnp",
+"product": "IS3 family IS2 transposase ORF B",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 901307,
+"stop": 901672,
+"strand": "-",
+"locus": "JMJJOG_00890",
+"gene": "tnp",
+"product": "IS3 family IS2 transposase ORF A",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 902381,
+"stop": 902809,
+"strand": "-",
+"locus": "JMJJOG_00891",
+"product": "DUF417 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 902849,
+"stop": 903409,
+"strand": "-",
+"locus": "JMJJOG_00892",
+"gene": "tetR",
+"product": "TetR family transcriptional regulator"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 903451,
+"stop": 903711,
+"strand": "-",
+"locus": "JMJJOG_00893",
+"product": "YdgH/BhsA/McbA-like domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 904263,
+"stop": 905009,
+"strand": "+",
+"locus": "JMJJOG_00894",
+"product": "ISL3 family transposase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 905749,
+"stop": 906075,
+"strand": "+",
+"locus": "JMJJOG_00896",
+"gene": "tnp",
+"product": "IS3 family IS1203 transposase ORF A",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 906075,
+"stop": 906875,
+"strand": "+",
+"locus": "JMJJOG_00897",
+"gene": "tnp",
+"product": "IS3 family transposase"
+},
+{
+"type": "sorf",
+"sequence": "CP171242.1",
+"start": 906928,
+"stop": 907008,
+"strand": "+",
+"locus": "JMJJOG_00898",
+"product": "AMP nucleosidase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 907526,
+"stop": 907747,
+"strand": "-",
+"locus": "JMJJOG_00900",
+"gene": "papI",
+"product": "major pilus subunit operon transcriptional regulator PapI",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 908685,
+"stop": 908987,
+"strand": "+",
+"locus": "JMJJOG_00901",
+"gene": "papA",
+"product": "P fimbria major subunit PapA",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 908984,
+"stop": 909253,
+"strand": "+",
+"locus": "JMJJOG_00902",
+"product": "Pap fimbrial major pilin protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 909282,
+"stop": 909557,
+"strand": "+",
+"locus": "JMJJOG_00903",
+"gene": "tnp",
+"product": "IS1 family IS1A transposase ORF A",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 909602,
+"stop": 909979,
+"strand": "+",
+"locus": "JMJJOG_00904",
+"gene": "tnp",
+"product": "IS1 family IS1B transposase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 910302,
+"stop": 910802,
+"strand": "+",
+"locus": "JMJJOG_00905",
+"gene": "papX",
+"product": "Putative regulator PapX protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 911268,
+"stop": 911645,
+"strand": "-",
+"locus": "JMJJOG_00906",
+"gene": "tnp",
+"product": "IS1 family IS1B transposase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 911690,
+"stop": 911965,
+"strand": "-",
+"locus": "JMJJOG_00907",
+"gene": "tnp",
+"product": "IS1 family IS1A transposase ORF A",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 912495,
+"stop": 913538,
+"strand": "-",
+"locus": "JMJJOG_00908",
+"product": "ShiA-like protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 913794,
+"stop": 915059,
+"strand": "-",
+"locus": "JMJJOG_00909",
+"product": "Integrase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1368701,
+"stop": 1370878,
+"strand": "+",
+"locus": "JMJJOG_01356",
+"gene": "sinH",
+"product": "intimin-like inverse autotransporter SinH",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1693914,
+"stop": 1694117,
+"strand": "+",
+"locus": "JMJJOG_01648",
+"gene": "yejO",
+"product": "Outer membrane protein YejO"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1694618,
+"stop": 1694716,
+"strand": "+",
+"locus": "JMJJOG_01649",
+"product": "Autotransporter outer membrane beta-barrel domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1694697,
+"stop": 1694852,
+"strand": "+",
+"locus": "JMJJOG_01650",
+"product": "Pertactin central region domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1695533,
+"stop": 1695814,
+"strand": "-",
+"locus": "JMJJOG_01651",
+"product": "Prophage protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1696071,
+"stop": 1696613,
+"strand": "-",
+"locus": "JMJJOG_01652",
+"product": "Phage DNA packaging protein Nu1"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1696819,
+"stop": 1697232,
+"strand": "-",
+"locus": "JMJJOG_01653",
+"product": "Phage head-tail connector protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1697245,
+"stop": 1697580,
+"strand": "-",
+"locus": "JMJJOG_01654",
+"product": "Capsid protein small subunit"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1697592,
+"stop": 1698647,
+"strand": "-",
+"locus": "JMJJOG_01655",
+"product": "Major capsid protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1698647,
+"stop": 1698853,
+"strand": "-",
+"locus": "JMJJOG_01656",
+"product": "Prophage protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1699269,
+"stop": 1699691,
+"strand": "-",
+"locus": "JMJJOG_01657",
+"product": "Single-stranded DNA-binding protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1699688,
+"stop": 1699966,
+"strand": "-",
+"locus": "JMJJOG_01658",
+"product": "Prophage protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1700254,
+"stop": 1702008,
+"strand": "-",
+"locus": "JMJJOG_01659",
+"product": "SF3 helicase domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1702005,
+"stop": 1702304,
+"strand": "-",
+"locus": "JMJJOG_01660",
+"product": "DUF4222 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1702310,
+"stop": 1702543,
+"strand": "-",
+"locus": "JMJJOG_01661",
+"product": "Prophage protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1702545,
+"stop": 1702814,
+"strand": "-",
+"locus": "JMJJOG_01662",
+"product": "Prophage protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1702759,
+"stop": 1702980,
+"strand": "-",
+"locus": "JMJJOG_01663",
+"product": "Prophage protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1702970,
+"stop": 1703200,
+"strand": "-",
+"locus": "JMJJOG_01664",
+"product": "Prophage protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1703197,
+"stop": 1703397,
+"strand": "-",
+"locus": "JMJJOG_01665",
+"product": "host cell division inhibitor Icd-like protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1703594,
+"stop": 1703899,
+"strand": "+",
+"locus": "JMJJOG_01666",
+"product": "YlcI/YnfO family protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1704279,
+"stop": 1704485,
+"strand": "-",
+"locus": "JMJJOG_01667",
+"gene": "alpA",
+"product": "AlpA family phage regulatory protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1704981,
+"stop": 1706222,
+"strand": "-",
+"locus": "JMJJOG_01668",
+"product": "Integrase from prophage"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1706591,
+"stop": 1708351,
+"strand": "-",
+"locus": "JMJJOG_01670",
+"gene": "yejM",
+"product": "LPS biosynthesis-modulating metalloenzyme YejM"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1943902,
+"stop": 1944867,
+"strand": "-",
+"locus": "JMJJOG_01895",
+"product": "DMT family transporter"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1944921,
+"stop": 1945679,
+"strand": "-",
+"locus": "JMJJOG_01896",
+"product": "Putative glutamine amidotransferase domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1945693,
+"stop": 1946907,
+"strand": "-",
+"locus": "JMJJOG_01897",
+"product": "Ribokinase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1947103,
+"stop": 1947219,
+"strand": "-",
+"locus": "JMJJOG_01898",
+"product": "Transposase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1947909,
+"stop": 1948682,
+"strand": "-",
+"locus": "JMJJOG_01899",
+"gene": "yaiO",
+"product": "YaiO family beta-barrel domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1948684,
+"stop": 1949208,
+"strand": "-",
+"locus": "JMJJOG_01900",
+"product": "Acetyltransferase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1949243,
+"stop": 1950439,
+"strand": "-",
+"locus": "JMJJOG_01901",
+"gene": "yaiP",
+"product": "Uncharacterized glycosyltransferase YaiP"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1950453,
+"stop": 1951106,
+"strand": "-",
+"locus": "JMJJOG_01902",
+"product": "PIG-L family deacetylase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1952154,
+"stop": 1953377,
+"strand": "+",
+"locus": "JMJJOG_01903",
+"product": "Phosphoadenosine phosphosulfate reductase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1953362,
+"stop": 1954006,
+"strand": "+",
+"locus": "JMJJOG_01904",
+"gene": "parB",
+"product": "ParB N-terminal domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1954261,
+"stop": 1954389,
+"strand": "-",
+"locus": "JMJJOG_01905",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1954377,
+"stop": 1956524,
+"strand": "-",
+"locus": "JMJJOG_01906",
+"product": "TonB-dependent receptor"
+},
+{
+"type": "sorf",
+"sequence": "CP171242.1",
+"start": 1957085,
+"stop": 1957174,
+"strand": "+",
+"locus": "JMJJOG_01907",
+"product": "Transposase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1958199,
+"stop": 1958741,
+"strand": "+",
+"locus": "JMJJOG_01908",
+"gene": "cobU",
+"product": "bifunctional adenosylcobinamide kinase/adenosylcobinamide-phosphate guanylyltransferase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1958738,
+"stop": 1959481,
+"strand": "+",
+"locus": "JMJJOG_01909",
+"gene": "cobS",
+"product": "adenosylcobinamide-GDP ribazoletransferase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1959493,
+"stop": 1960572,
+"strand": "+",
+"locus": "JMJJOG_01910",
+"gene": "cobT",
+"product": "nicotinate-nucleotide--dimethylbenzimidazole phosphoribosyltransferase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1960634,
+"stop": 1961569,
+"strand": "+",
+"locus": "JMJJOG_01911",
+"gene": "ldtA",
+"product": "L,D-transpeptidase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1961888,
+"stop": 1962286,
+"strand": "+",
+"locus": "JMJJOG_01912",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1962594,
+"stop": 1963073,
+"strand": "-",
+"locus": "JMJJOG_01913",
+"gene": "tnp",
+"product": "IS3 family transposase ORF B"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1963178,
+"stop": 1963444,
+"strand": "-",
+"locus": "JMJJOG_01915",
+"gene": "tnp",
+"product": "IS3 family ISKpn53 transposase ORF A",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1963590,
+"stop": 1964324,
+"strand": "-",
+"locus": "JMJJOG_01916",
+"gene": "clbA",
+"product": "colibactin biosynthesis phosphopantetheinyl transferase ClbA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1964325,
+"stop": 1964537,
+"strand": "-",
+"locus": "JMJJOG_01917",
+"gene": "clbR",
+"product": "colibactin biosynthesis LuxR family transcriptional regulator ClbR",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1964995,
+"stop": 1974615,
+"strand": "+",
+"locus": "JMJJOG_01918",
+"gene": "clbB",
+"product": "colibactin hybrid non-ribosomal peptide synthetase/type I polyketide synthase ClbB",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1974656,
+"stop": 1977256,
+"strand": "+",
+"locus": "JMJJOG_01919",
+"gene": "clbC",
+"product": "colibactin polyketide synthase ClbC",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1977269,
+"stop": 1978135,
+"strand": "+",
+"locus": "JMJJOG_01920",
+"gene": "clbD",
+"product": "colibactin biosynthesis dehydrogenase ClbD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1978165,
+"stop": 1978413,
+"strand": "+",
+"locus": "JMJJOG_01921",
+"gene": "clbE",
+"product": "colibactin biosynthesis aminomalonyl-acyl carrier protein ClbE",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1978417,
+"stop": 1979547,
+"strand": "+",
+"locus": "JMJJOG_01922",
+"gene": "clbF",
+"product": "colibactin biosynthesis dehydrogenase ClbF",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1979544,
+"stop": 1980812,
+"strand": "+",
+"locus": "JMJJOG_01923",
+"gene": "clbG",
+"product": "colibactin biosynthesis acyltransferase ClbG",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1980860,
+"stop": 1985656,
+"strand": "+",
+"locus": "JMJJOG_01924",
+"gene": "clbH",
+"product": "colibactin non-ribosomal peptide synthetase ClbH",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1985706,
+"stop": 1988738,
+"strand": "+",
+"locus": "JMJJOG_01925",
+"gene": "clbI",
+"product": "colibactin polyketide synthase ClbI",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1988782,
+"stop": 1995282,
+"strand": "+",
+"locus": "JMJJOG_01926",
+"gene": "clbJ",
+"product": "colibactin non-ribosomal peptide synthetase ClbJ",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 1995293,
+"stop": 2001757,
+"strand": "+",
+"locus": "JMJJOG_01927",
+"gene": "clbK",
+"product": "colibactin hybrid non-ribosomal peptide synthetase/type I polyketide synthase ClbK",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2001750,
+"stop": 2003213,
+"strand": "+",
+"locus": "JMJJOG_01928",
+"gene": "clbL",
+"product": "colibactin biosynthesis amidase ClbL",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2003275,
+"stop": 2004714,
+"strand": "+",
+"locus": "JMJJOG_01929",
+"gene": "clbM",
+"product": "precolibactin export MATE transporter ClbM",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2004711,
+"stop": 2009078,
+"strand": "+",
+"locus": "JMJJOG_01930",
+"gene": "clbN",
+"product": "colibactin non-ribosomal peptide synthetase ClbN",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2009109,
+"stop": 2011568,
+"strand": "+",
+"locus": "JMJJOG_01931",
+"gene": "clbO",
+"product": "colibactin polyketide synthase ClbO",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2011590,
+"stop": 2013095,
+"strand": "+",
+"locus": "JMJJOG_01932",
+"gene": "clbP",
+"product": "precolibactin peptidase ClbP",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2013088,
+"stop": 2013810,
+"strand": "+",
+"locus": "JMJJOG_01933",
+"gene": "clbQ",
+"product": "colibactin biosynthesis thioesterase ClbQ",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2013845,
+"stop": 2014357,
+"strand": "+",
+"locus": "JMJJOG_01934",
+"gene": "clbS",
+"product": "colibactin self-protection protein ClbS",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2014637,
+"stop": 2015908,
+"strand": "-",
+"locus": "JMJJOG_01935",
+"product": "Bacteriophage integrase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2016246,
+"stop": 2017700,
+"strand": "-",
+"locus": "JMJJOG_01937",
+"gene": "yeeO",
+"product": "toxic metabolite efflux MATE transporter YeeO",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2018007,
+"stop": 2018957,
+"strand": "-",
+"locus": "JMJJOG_01939",
+"gene": "cbl",
+"product": "HTH-type transcriptional regulator Cbl"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2019059,
+"stop": 2019976,
+"strand": "-",
+"locus": "JMJJOG_01940",
+"gene": "nac",
+"product": "nitrogen assimilation transcriptional regulator NAC"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2020832,
+"stop": 2021548,
+"strand": "-",
+"locus": "JMJJOG_01942",
+"gene": "yeeN",
+"product": "putative transcriptional regulatory protein YeeN"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2021891,
+"stop": 2023345,
+"strand": "-",
+"locus": "JMJJOG_01943",
+"gene": "amn",
+"product": "AMP nucleosidase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2023447,
+"stop": 2024763,
+"strand": "-",
+"locus": "JMJJOG_01944",
+"gene": "shiA",
+"product": "shikimate transporter"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2025078,
+"stop": 2026130,
+"strand": "+",
+"locus": "JMJJOG_01945",
+"product": "Lipopolysaccharide heptosyltransferase family protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2026258,
+"stop": 2026734,
+"strand": "-",
+"locus": "JMJJOG_01946",
+"product": "Invasin"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2026747,
+"stop": 2028216,
+"strand": "-",
+"locus": "JMJJOG_01947",
+"product": "Adhesin/invasin"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2028349,
+"stop": 2029098,
+"strand": "-",
+"locus": "JMJJOG_01948",
+"product": "Inverse autotransporter beta-domain domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2029746,
+"stop": 2031767,
+"strand": "-",
+"locus": "JMJJOG_01949",
+"gene": "fyuA",
+"product": "yersiniabactin receptor FyuA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2031898,
+"stop": 2033475,
+"strand": "-",
+"locus": "JMJJOG_01950",
+"gene": "ybtE",
+"product": "yersiniabactin biosynthesis salycil-AMP ligase YbtE",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2033479,
+"stop": 2034282,
+"strand": "-",
+"locus": "JMJJOG_01951",
+"gene": "ybtT",
+"product": "yersiniabactin biosynthesis thioesterase YbtT",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2034279,
+"stop": 2035379,
+"strand": "-",
+"locus": "JMJJOG_01952",
+"gene": "ybtU",
+"product": "yersiniabactin biosynthetic protein YbtU",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2035376,
+"stop": 2044867,
+"strand": "-",
+"locus": "JMJJOG_01953",
+"gene": "irp1",
+"product": "yersiniabactin biosynthetic protein Irp1",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2044955,
+"stop": 2051062,
+"strand": "-",
+"locus": "JMJJOG_01954",
+"gene": "irp2",
+"product": "yersiniabactin non-ribosomal peptide synthetase HMWP2",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2051253,
+"stop": 2052212,
+"strand": "-",
+"locus": "JMJJOG_01955",
+"gene": "ybtA",
+"product": "yersiniabactin transcriptional regulator YbtA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2052379,
+"stop": 2054181,
+"strand": "+",
+"locus": "JMJJOG_01956",
+"gene": "ybtP",
+"product": "yersiniabactin ABC transporter ATP-binding/permease protein YbtP",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2054168,
+"stop": 2055970,
+"strand": "+",
+"locus": "JMJJOG_01957",
+"gene": "ybtQ",
+"product": "yersiniabactin ABC transporter ATP-binding/permease protein YbtQ",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2055963,
+"stop": 2057243,
+"strand": "+",
+"locus": "JMJJOG_01958",
+"gene": "ybtX",
+"product": "putative signal transducer",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2057271,
+"stop": 2058575,
+"strand": "+",
+"locus": "JMJJOG_01959",
+"gene": "ybtS",
+"product": "salicylate synthase Irp9",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2058769,
+"stop": 2059812,
+"strand": "-",
+"locus": "JMJJOG_01960",
+"gene": "fimB",
+"product": "DUF4102 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2060369,
+"stop": 2061166,
+"strand": "-",
+"locus": "JMJJOG_01962",
+"gene": "mtfA",
+"product": "DgsA anti-repressor MtfA"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2061628,
+"stop": 2062464,
+"strand": "+",
+"locus": "JMJJOG_01964",
+"product": "DUF4238 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2062681,
+"stop": 2062899,
+"strand": "+",
+"locus": "JMJJOG_01965",
+"product": "ECs3513 protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2062981,
+"stop": 2063271,
+"strand": "+",
+"locus": "JMJJOG_01966",
+"product": "Phage protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2063324,
+"stop": 2063620,
+"strand": "+",
+"locus": "JMJJOG_01967",
+"product": "Cytoplasmic protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2063693,
+"stop": 2063935,
+"strand": "+",
+"locus": "JMJJOG_01968",
+"product": "DNA-binding protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2064044,
+"stop": 2064394,
+"strand": "+",
+"locus": "JMJJOG_01969",
+"product": "DUF6404 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2064458,
+"stop": 2064862,
+"strand": "-",
+"locus": "JMJJOG_01970",
+"product": "DNA-binding protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2065021,
+"stop": 2065500,
+"strand": "-",
+"locus": "JMJJOG_01971",
+"product": "DUF4756 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2065674,
+"stop": 2066405,
+"strand": "+",
+"locus": "JMJJOG_01972",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2066490,
+"stop": 2067071,
+"strand": "-",
+"locus": "JMJJOG_01973",
+"product": "Replication protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2068424,
+"stop": 2069386,
+"strand": "+",
+"locus": "JMJJOG_01974",
+"product": "Phage protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2069447,
+"stop": 2070619,
+"strand": "+",
+"locus": "JMJJOG_01975",
+"product": "ComEA protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2070711,
+"stop": 2070896,
+"strand": "-",
+"locus": "JMJJOG_01976",
+"product": "Lipoprotein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2070907,
+"stop": 2071077,
+"strand": "-",
+"locus": "JMJJOG_01977",
+"product": "Lipoprotein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2071109,
+"stop": 2071582,
+"strand": "-",
+"locus": "JMJJOG_01978",
+"product": "DUF4755 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2072015,
+"stop": 2072545,
+"strand": "+",
+"locus": "JMJJOG_01979",
+"gene": "virB7",
+"product": "Type IV secretion system putative lipoprotein virB7"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2072556,
+"stop": 2072831,
+"strand": "+",
+"locus": "JMJJOG_01980",
+"product": "Transmembrane protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2072891,
+"stop": 2073727,
+"strand": "-",
+"locus": "JMJJOG_01981",
+"gene": "thsA",
+"product": "Thoeris protein ThsA Macro domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2073864,
+"stop": 2074373,
+"strand": "+",
+"locus": "JMJJOG_01982",
+"gene": "thsB",
+"product": "Thoeris protein ThsB TIR-like domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2074505,
+"stop": 2075428,
+"strand": "-",
+"locus": "JMJJOG_01983",
+"gene": "tcpC",
+"product": "NAD(+) hydrolase TcpC",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2075485,
+"stop": 2076987,
+"strand": "-",
+"locus": "JMJJOG_01984",
+"gene": "mobQ",
+"product": "MobQ family relaxase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2077633,
+"stop": 2077938,
+"strand": "+",
+"locus": "JMJJOG_01985",
+"gene": "traD",
+"product": "Conjugal transfer protein TraD"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2078337,
+"stop": 2078894,
+"strand": "+",
+"locus": "JMJJOG_01986",
+"product": "Prepilin-type N-terminal cleavage/methylation domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2078947,
+"stop": 2080410,
+"strand": "+",
+"locus": "JMJJOG_01987",
+"product": "Bacterial shufflon protein N-terminal domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2110940,
+"stop": 2111272,
+"strand": "+",
+"locus": "JMJJOG_02020",
+"gene": "emrE",
+"product": "multidrug efflux SMR transporter EmrE",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2170585,
+"stop": 2171310,
+"strand": "-",
+"locus": "JMJJOG_02087",
+"gene": "yecE",
+"product": "UPF0759 protein YecE"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2171337,
+"stop": 2172650,
+"strand": "-",
+"locus": "JMJJOG_02088",
+"product": "Integrase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2172709,
+"stop": 2172945,
+"strand": "-",
+"locus": "JMJJOG_02089",
+"product": "Excisionase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2172986,
+"stop": 2173555,
+"strand": "-",
+"locus": "JMJJOG_02090",
+"product": "3'-5' exoribonuclease Rv2179c-like domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2173577,
+"stop": 2173831,
+"strand": "-",
+"locus": "JMJJOG_02091",
+"product": "DUF4222 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2173834,
+"stop": 2174301,
+"strand": "-",
+"locus": "JMJJOG_02092",
+"gene": "mazZ",
+"product": "dATP/dGTP diphosphohydrolase MazZ domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2174315,
+"stop": 2174623,
+"strand": "-",
+"locus": "JMJJOG_02093",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2174625,
+"stop": 2174972,
+"strand": "-",
+"locus": "JMJJOG_02094",
+"product": "Ead/Ea22-like family protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2174969,
+"stop": 2175223,
+"strand": "-",
+"locus": "JMJJOG_02095",
+"product": "Transcriptional regulator"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2175220,
+"stop": 2175396,
+"strand": "-",
+"locus": "JMJJOG_02096",
+"product": "Prophage protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2175384,
+"stop": 2175923,
+"strand": "-",
+"locus": "JMJJOG_02097",
+"product": "HD family hydrolase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2176032,
+"stop": 2176949,
+"strand": "-",
+"locus": "JMJJOG_02098",
+"gene": "rdgC",
+"product": "recombination-associated protein RdgC"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2177292,
+"stop": 2177657,
+"strand": "-",
+"locus": "JMJJOG_02099",
+"product": "Clp protease"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2177902,
+"stop": 2178612,
+"strand": "-",
+"locus": "JMJJOG_02100",
+"product": "Helix-turn-helix domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2178980,
+"stop": 2179543,
+"strand": "+",
+"locus": "JMJJOG_02101",
+"gene": "ymfL",
+"product": "YmfL family putative regulatory protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2179540,
+"stop": 2179878,
+"strand": "+",
+"locus": "JMJJOG_02102",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2179888,
+"stop": 2180769,
+"strand": "+",
+"locus": "JMJJOG_02103",
+"product": "Phage conserved hypothetical protein C-terminal domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2180766,
+"stop": 2182085,
+"strand": "+",
+"locus": "JMJJOG_02104",
+"product": "phage N-6-adenine-methyltransferase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2182082,
+"stop": 2182468,
+"strand": "+",
+"locus": "JMJJOG_02105",
+"gene": "rusA",
+"product": "RusA family crossover junction endodeoxyribonuclease"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2182482,
+"stop": 2183165,
+"strand": "+",
+"locus": "JMJJOG_02106",
+"product": "Antirepressor protein C-terminal domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2183162,
+"stop": 2184157,
+"strand": "+",
+"locus": "JMJJOG_02107",
+"product": "HNH nuclease domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2184179,
+"stop": 2184868,
+"strand": "+",
+"locus": "JMJJOG_02108",
+"product": "Antitermination protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2185301,
+"stop": 2185507,
+"strand": "+",
+"locus": "JMJJOG_02109",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2185541,
+"stop": 2186419,
+"strand": "+",
+"locus": "JMJJOG_02110",
+"product": "S49 family peptidase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2186588,
+"stop": 2186779,
+"strand": "+",
+"locus": "JMJJOG_02111",
+"gene": "trmB",
+"product": "TrmB family transcriptional regulator"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2186930,
+"stop": 2187982,
+"strand": "+",
+"locus": "JMJJOG_02112",
+"gene": "yhdJ",
+"product": "Methyltransferase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2188128,
+"stop": 2188406,
+"strand": "+",
+"locus": "JMJJOG_02113",
+"product": "Holin"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2188378,
+"stop": 2188926,
+"strand": "+",
+"locus": "JMJJOG_02114",
+"product": "SAR-endolysin"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2189125,
+"stop": 2189379,
+"strand": "+",
+"locus": "JMJJOG_02115",
+"gene": "rzoQ",
+"product": "Putative lipoprotein RzoQ"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2189640,
+"stop": 2189837,
+"strand": "+",
+"locus": "JMJJOG_02116",
+"product": "Phage protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2189906,
+"stop": 2190520,
+"strand": "-",
+"locus": "JMJJOG_02117",
+"product": "DUF4145 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2190540,
+"stop": 2190731,
+"strand": "+",
+"locus": "JMJJOG_02118",
+"product": "Fur-regulated protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2190906,
+"stop": 2191634,
+"strand": "+",
+"locus": "JMJJOG_02119",
+"product": "Fur-regulated protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2191818,
+"stop": 2192306,
+"strand": "+",
+"locus": "JMJJOG_02120",
+"product": "DUF1441 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2192306,
+"stop": 2194408,
+"strand": "+",
+"locus": "JMJJOG_02121",
+"gene": "gpA1",
+"product": "Terminase, large subunit"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2194405,
+"stop": 2194620,
+"strand": "+",
+"locus": "JMJJOG_02122",
+"product": "Primosomal replication protein PriB/PriC domain protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2194617,
+"stop": 2196116,
+"strand": "+",
+"locus": "JMJJOG_02123",
+"product": "phage portal protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2196061,
+"stop": 2198076,
+"strand": "+",
+"locus": "JMJJOG_02124",
+"product": "ClpP-like prohead protease/major capsid protein fusion protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2198159,
+"stop": 2198485,
+"strand": "+",
+"locus": "JMJJOG_02125",
+"product": "DUF2190 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2198511,
+"stop": 2198753,
+"strand": "+",
+"locus": "JMJJOG_02126",
+"product": "DNA breaking-rejoining protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2198763,
+"stop": 2199341,
+"strand": "+",
+"locus": "JMJJOG_02127",
+"product": "Minor tail protein Z"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2199338,
+"stop": 2199739,
+"strand": "+",
+"locus": "JMJJOG_02128",
+"product": "Phage minor tail protein U"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2199749,
+"stop": 2200492,
+"strand": "+",
+"locus": "JMJJOG_02129",
+"product": "Tail fiber protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2200503,
+"stop": 2200934,
+"strand": "+",
+"locus": "JMJJOG_02130",
+"gene": "gpG",
+"product": "phage tail assembly chaperone G"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2200985,
+"stop": 2201257,
+"strand": "+",
+"locus": "JMJJOG_02131",
+"product": "phage tail assembly protein T"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2201241,
+"stop": 2204378,
+"strand": "+",
+"locus": "JMJJOG_02132",
+"product": "phage tail tape measure protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2204375,
+"stop": 2204713,
+"strand": "+",
+"locus": "JMJJOG_02133",
+"product": "Minor tail protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2204770,
+"stop": 2205507,
+"strand": "+",
+"locus": "JMJJOG_02134",
+"product": "phage minor tail protein L"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2205510,
+"stop": 2206229,
+"strand": "+",
+"locus": "JMJJOG_02135",
+"product": "Tail assembly protein K"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2206222,
+"stop": 2206839,
+"strand": "+",
+"locus": "JMJJOG_02136",
+"product": "Tail assembly protein I"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2206882,
+"stop": 2210808,
+"strand": "+",
+"locus": "JMJJOG_02137",
+"product": "DUF1983 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2210840,
+"stop": 2211073,
+"strand": "-",
+"locus": "JMJJOG_02138",
+"product": "Lipoprotein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2211376,
+"stop": 2211501,
+"strand": "+",
+"locus": "JMJJOG_02139",
+"product": "DUF6453 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2211579,
+"stop": 2212511,
+"strand": "+",
+"locus": "JMJJOG_02140",
+"product": "Tail fiber"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2212511,
+"stop": 2213104,
+"strand": "+",
+"locus": "JMJJOG_02141",
+"product": "Tail fiber assembly protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2213076,
+"stop": 2213519,
+"strand": "-",
+"locus": "JMJJOG_02142",
+"product": "tail fiber assembly protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2213937,
+"stop": 2214179,
+"strand": "-",
+"locus": "JMJJOG_02143",
+"gene": "msgA",
+"product": "Virulence protein MsgA"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2214258,
+"stop": 2214647,
+"strand": "+",
+"locus": "JMJJOG_02144",
+"product": "Peptidase S24/S26A/S26B/S26C domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2215249,
+"stop": 2215815,
+"strand": "-",
+"locus": "JMJJOG_02145",
+"gene": "yecD",
+"product": "hydrolase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2487068,
+"stop": 2487376,
+"strand": "-",
+"locus": "JMJJOG_02428",
+"gene": "asr",
+"product": "acid resistance repetitive basic protein Asr",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2865491,
+"stop": 2865757,
+"strand": "-",
+"locus": "JMJJOG_02788",
+"gene": "ariR",
+"product": "biofilm/acid-resistance regulator AriR",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2868067,
+"stop": 2868798,
+"strand": "+",
+"locus": "JMJJOG_02791",
+"gene": "bluR",
+"product": "DNA-binding transcriptional repressor BluR",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2869019,
+"stop": 2869423,
+"strand": "+",
+"locus": "JMJJOG_02792",
+"gene": "ycgX",
+"product": "Uncharacterized protein YcgX"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2869685,
+"stop": 2869837,
+"strand": "-",
+"locus": "JMJJOG_02793",
+"gene": "icd",
+"product": "NADP-dependent isocitrate dehydrogenase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2870031,
+"stop": 2870186,
+"strand": "-",
+"locus": "JMJJOG_02794",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2870309,
+"stop": 2871067,
+"strand": "-",
+"locus": "JMJJOG_02795",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2871766,
+"stop": 2872680,
+"strand": "+",
+"locus": "JMJJOG_02796",
+"gene": "sitA",
+"product": "iron/manganese ABC transporter substrate-binding protein SitA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2872680,
+"stop": 2873507,
+"strand": "+",
+"locus": "JMJJOG_02797",
+"gene": "sitB",
+"product": "iron/manganese ABC transporter ATP-binding protein SitB",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2873504,
+"stop": 2874361,
+"strand": "+",
+"locus": "JMJJOG_02798",
+"gene": "sitC",
+"product": "iron/manganese ABC transporter permease subunit SitC",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2874358,
+"stop": 2875215,
+"strand": "+",
+"locus": "JMJJOG_02799",
+"gene": "sitD",
+"product": "iron/manganese ABC transporter permease subunit SitD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2875307,
+"stop": 2875600,
+"strand": "-",
+"locus": "JMJJOG_02800",
+"product": "Ybl63"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2875613,
+"stop": 2875891,
+"strand": "-",
+"locus": "JMJJOG_02801",
+"product": "Prophage protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2875888,
+"stop": 2877948,
+"strand": "-",
+"locus": "JMJJOG_02802",
+"product": "Lambda-like tail fibre protein N-terminal domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2878007,
+"stop": 2881489,
+"strand": "-",
+"locus": "JMJJOG_02803",
+"product": "Tail component of prophage"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2881550,
+"stop": 2882122,
+"strand": "-",
+"locus": "JMJJOG_02804",
+"product": "Tail tip assembly protein I"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2882119,
+"stop": 2882718,
+"strand": "-",
+"locus": "JMJJOG_02805",
+"product": "Tail tip assembly protein K"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2882868,
+"stop": 2883566,
+"strand": "-",
+"locus": "JMJJOG_02806",
+"product": "phage minor tail protein L"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2883566,
+"stop": 2883895,
+"strand": "-",
+"locus": "JMJJOG_02807",
+"product": "Tail tip protein M"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2883892,
+"stop": 2886453,
+"strand": "-",
+"locus": "JMJJOG_02808",
+"product": "Tape measure protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2886446,
+"stop": 2886880,
+"strand": "-",
+"locus": "JMJJOG_02809",
+"product": "phage tail assembly protein T"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2886862,
+"stop": 2887284,
+"strand": "-",
+"locus": "JMJJOG_02810",
+"gene": "gpG",
+"product": "phage tail assembly chaperone G"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2887300,
+"stop": 2888040,
+"strand": "-",
+"locus": "JMJJOG_02811",
+"product": "Tail tube protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2888048,
+"stop": 2888443,
+"strand": "-",
+"locus": "JMJJOG_02812",
+"product": "Phage minor tail U family protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2888440,
+"stop": 2889018,
+"strand": "-",
+"locus": "JMJJOG_02813",
+"product": "Tail completion protein Z"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2889030,
+"stop": 2889383,
+"strand": "-",
+"locus": "JMJJOG_02814",
+"product": "Tail attachment protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2889376,
+"stop": 2889750,
+"strand": "-",
+"locus": "JMJJOG_02815",
+"product": "Uncharacterized protein in GP7-GP8 intergenic region"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2889802,
+"stop": 2890830,
+"strand": "-",
+"locus": "JMJJOG_02816",
+"product": "P21 prophage-derived major head protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2890888,
+"stop": 2891235,
+"strand": "-",
+"locus": "JMJJOG_02817",
+"gene": "shp",
+"product": "Head decoration protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2891272,
+"stop": 2892777,
+"strand": "-",
+"locus": "JMJJOG_02818",
+"product": "Head-tail preconnector protein GP5"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2892767,
+"stop": 2894359,
+"strand": "-",
+"locus": "JMJJOG_02819",
+"product": "phage portal protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2894356,
+"stop": 2894562,
+"strand": "-",
+"locus": "JMJJOG_02820",
+"product": "phage head-tail joining protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2894546,
+"stop": 2896474,
+"strand": "-",
+"locus": "JMJJOG_02821",
+"product": "Terminase, large subunit"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2896446,
+"stop": 2896994,
+"strand": "-",
+"locus": "JMJJOG_02822",
+"gene": "nohA",
+"product": "P21 prophage-derived terminase small subunit"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2897470,
+"stop": 2897823,
+"strand": "+",
+"locus": "JMJJOG_02823",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2897946,
+"stop": 2898272,
+"strand": "-",
+"locus": "JMJJOG_02824",
+"gene": "tonB",
+"product": "Protein TonB"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2898753,
+"stop": 2899046,
+"strand": "+",
+"locus": "JMJJOG_02825",
+"gene": "iss",
+"product": "increased serum survival lipoprotein Iss",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2899078,
+"stop": 2899539,
+"strand": "-",
+"locus": "JMJJOG_02826",
+"gene": "rzpD",
+"product": "prophage endopeptidase RzpD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2899536,
+"stop": 2900033,
+"strand": "-",
+"locus": "JMJJOG_02827",
+"gene": "rrrD",
+"product": "lysozyme RrrD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2900033,
+"stop": 2900248,
+"strand": "-",
+"locus": "JMJJOG_02828",
+"gene": "essD",
+"product": "phage lysis protein EssD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2900837,
+"stop": 2901919,
+"strand": "+",
+"locus": "JMJJOG_02829",
+"product": "Outer membrane porin protein LC"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2902108,
+"stop": 2902491,
+"strand": "-",
+"locus": "JMJJOG_02830",
+"gene": "quuD",
+"product": "antitermination protein QuuD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "sorf",
+"sequence": "CP171242.1",
+"start": 2902554,
+"stop": 2902580,
+"strand": "-",
+"locus": "JMJJOG_02831",
+"gene": "nmpC",
+"product": "Orf33, orf151, orf56, orf96, rus, orf45, orf8, orf127, and nmpC genes"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2902577,
+"stop": 2902714,
+"strand": "-",
+"locus": "JMJJOG_02832",
+"product": "DLP12 prophage small protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2902714,
+"stop": 2903076,
+"strand": "-",
+"locus": "JMJJOG_02833",
+"gene": "rusA",
+"product": "crossover junction endodeoxyribonuclease RusA"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2903283,
+"stop": 2903624,
+"strand": "-",
+"locus": "JMJJOG_02834",
+"product": "DUF2591 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2903800,
+"stop": 2904327,
+"strand": "-",
+"locus": "JMJJOG_02835",
+"product": "phage N-6-adenine-methyltransferase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2904324,
+"stop": 2904764,
+"strand": "-",
+"locus": "JMJJOG_02836",
+"gene": "ninB",
+"product": "P21 prophage-derived protein NinB"
+},
+{
+"type": "sorf",
+"sequence": "CP171242.1",
+"start": 2904761,
+"stop": 2904841,
+"strand": "-",
+"locus": "JMJJOG_02837",
+"gene": "ninA",
+"product": "NinA protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2904838,
+"stop": 2905128,
+"strand": "-",
+"locus": "JMJJOG_02838",
+"gene": "ren",
+"product": "Protein ren"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2905125,
+"stop": 2905826,
+"strand": "-",
+"locus": "JMJJOG_02839",
+"product": "Helicase loader"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2905823,
+"stop": 2906722,
+"strand": "-",
+"locus": "JMJJOG_02840",
+"product": "Replication protein O"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2906755,
+"stop": 2907051,
+"strand": "-",
+"locus": "JMJJOG_02841",
+"product": "Regulatory protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2907193,
+"stop": 2907408,
+"strand": "-",
+"locus": "JMJJOG_02842",
+"product": "Helix-turn-helix domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2907526,
+"stop": 2908179,
+"strand": "+",
+"locus": "JMJJOG_02843",
+"product": "CI protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2908219,
+"stop": 2908776,
+"strand": "+",
+"locus": "JMJJOG_02844",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2908776,
+"stop": 2909525,
+"strand": "+",
+"locus": "JMJJOG_02845",
+"product": "DUF1828 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2909962,
+"stop": 2910234,
+"strand": "+",
+"locus": "JMJJOG_02846",
+"product": "Antitermination protein N"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2910251,
+"stop": 2910832,
+"strand": "-",
+"locus": "JMJJOG_02847",
+"product": "Superinfection exclusion protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2910928,
+"stop": 2911230,
+"strand": "+",
+"locus": "JMJJOG_02848",
+"gene": "tnp",
+"product": "IS3 family ISEc52 transposase ORF A",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "IS"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2911443,
+"stop": 2912075,
+"strand": "+",
+"locus": "JMJJOG_02849",
+"gene": "tnp",
+"product": "IS3 family ISEc52 transposase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2912120,
+"stop": 2912533,
+"strand": "+",
+"locus": "JMJJOG_02850",
+"product": "tyrosine-type recombinase/integrase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 2912647,
+"stop": 2913897,
+"strand": "-",
+"locus": "JMJJOG_02851",
+"gene": "icd",
+"product": "NADP-dependent isocitrate dehydrogenase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3040417,
+"stop": 3041532,
+"strand": "+",
+"locus": "JMJJOG_02988",
+"gene": "iroB",
+"product": "salmochelin biosynthesis C-glycosyltransferase IroB",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3041672,
+"stop": 3045331,
+"strand": "+",
+"locus": "JMJJOG_02989",
+"gene": "iroC",
+"product": "salmochelin/enterobactin export ABC transporter IroC",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3045435,
+"stop": 3046664,
+"strand": "+",
+"locus": "JMJJOG_02990",
+"gene": "iroD",
+"product": "catecholate siderophore esterase IroD",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3046749,
+"stop": 3047705,
+"strand": "+",
+"locus": "JMJJOG_02991",
+"gene": "iroE",
+"product": "catecholate siderophore esterase IroE",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3047750,
+"stop": 3049927,
+"strand": "-",
+"locus": "JMJJOG_02992",
+"gene": "iroN",
+"product": "siderophore salmochelin receptor IroN",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3054223,
+"stop": 3054726,
+"strand": "-",
+"locus": "JMJJOG_02997",
+"gene": "focG",
+"product": "F1C fimbria minor subunit FocG",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3055288,
+"stop": 3057918,
+"strand": "-",
+"locus": "JMJJOG_02999",
+"gene": "focD",
+"product": "S/F1C fimbrial biogenesis usher protein SfaF/FocD",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3065224,
+"stop": 3067320,
+"strand": "-",
+"locus": "JMJJOG_03013",
+"gene": "mchF",
+"product": "microcin H47 export transporter peptidase/ATP-binding subunit MchF",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3071040,
+"stop": 3071333,
+"strand": "-",
+"locus": "JMJJOG_03017",
+"gene": "mchB",
+"product": "microcin H47",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3079651,
+"stop": 3080334,
+"strand": "-",
+"locus": "JMJJOG_03029",
+"gene": "ant(3'')-Ia",
+"product": "ANT(3'')-Ia family aminoglycoside nucleotidyltransferase AadA",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3080406,
+"stop": 3080969,
+"strand": "-",
+"locus": "JMJJOG_03030",
+"product": "3'-5' exonuclease"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3080991,
+"stop": 3081680,
+"strand": "+",
+"locus": "JMJJOG_03031",
+"product": "Putative transposase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3081994,
+"stop": 3082224,
+"strand": "+",
+"locus": "JMJJOG_03032",
+"product": "IS21 family transposase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3082195,
+"stop": 3082590,
+"strand": "-",
+"locus": "JMJJOG_03033",
+"product": "DUF6862 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3082709,
+"stop": 3082864,
+"strand": "-",
+"locus": "JMJJOG_03034",
+"gene": "pstC",
+"product": "Phosphate ABC transporter permease subunit PstC"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3082861,
+"stop": 3083052,
+"strand": "-",
+"locus": "JMJJOG_03035",
+"product": "Adenylate cyclase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3083089,
+"stop": 3083466,
+"strand": "-",
+"locus": "JMJJOG_03036",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3083542,
+"stop": 3084000,
+"strand": "-",
+"locus": "JMJJOG_03037",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3083987,
+"stop": 3086791,
+"strand": "-",
+"locus": "JMJJOG_03038",
+"product": "hemagglutinin repeat-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3086751,
+"stop": 3089348,
+"strand": "-",
+"locus": "JMJJOG_03039",
+"product": "Hemagglutinin"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3090042,
+"stop": 3090431,
+"strand": "+",
+"locus": "JMJJOG_03040",
+"product": "Lipoprotein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3090496,
+"stop": 3091554,
+"strand": "+",
+"locus": "JMJJOG_03041",
+"product": "Methyltransferase domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3091595,
+"stop": 3092317,
+"strand": "+",
+"locus": "JMJJOG_03042",
+"product": "Beta-ketoacyl synthase-like N-terminal domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3092296,
+"stop": 3093135,
+"strand": "+",
+"locus": "JMJJOG_03043",
+"product": "1-acylglycerol-3-phosphate O-acyltransferase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3093110,
+"stop": 3093367,
+"strand": "+",
+"locus": "JMJJOG_03044",
+"product": "Acyl carrier protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3093379,
+"stop": 3093630,
+"strand": "+",
+"locus": "JMJJOG_03045",
+"product": "acyl carrier protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3093635,
+"stop": 3094216,
+"strand": "+",
+"locus": "JMJJOG_03046",
+"product": "DNA gyrase subunit B"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3094213,
+"stop": 3095571,
+"strand": "+",
+"locus": "JMJJOG_03047",
+"product": "AMP-binding enzyme"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3095558,
+"stop": 3095911,
+"strand": "+",
+"locus": "JMJJOG_03048",
+"product": "Putative acyl carrier protein dehydratase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3095902,
+"stop": 3097578,
+"strand": "+",
+"locus": "JMJJOG_03049",
+"product": "Glycosyltransferase 2-like domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3097582,
+"stop": 3098004,
+"strand": "+",
+"locus": "JMJJOG_03050",
+"gene": "fadM",
+"product": "Acyl-CoA thioesterase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3098001,
+"stop": 3098606,
+"strand": "+",
+"locus": "JMJJOG_03051",
+"gene": "lolA",
+"product": "Outer membrane lipoprotein carrier protein LolA"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3098575,
+"stop": 3100893,
+"strand": "+",
+"locus": "JMJJOG_03052",
+"product": "Membrane transport protein MMPL domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3100890,
+"stop": 3101474,
+"strand": "+",
+"locus": "JMJJOG_03053",
+"product": "Lipoprotein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3101476,
+"stop": 3102645,
+"strand": "+",
+"locus": "JMJJOG_03054",
+"product": "3-oxoacyl-ACP synthase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3102642,
+"stop": 3103106,
+"strand": "+",
+"locus": "JMJJOG_03055",
+"product": "3-hydroxy-fatty acyl-(Acyl carrier protein) dehydratase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3103106,
+"stop": 3103837,
+"strand": "+",
+"locus": "JMJJOG_03056",
+"gene": "fabG2",
+"product": "3-ketoacyl-ACP reductase FabG2"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3103834,
+"stop": 3105063,
+"strand": "+",
+"locus": "JMJJOG_03057",
+"gene": "fabB",
+"product": "beta-ketoacyl-ACP synthase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3105373,
+"stop": 3105798,
+"strand": "-",
+"locus": "JMJJOG_03058",
+"product": "Inovirus Gp2 family protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3106095,
+"stop": 3106436,
+"strand": "+",
+"locus": "JMJJOG_03059",
+"product": "N-terminal part of D-galactarate dehydratase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3106628,
+"stop": 3106825,
+"strand": "+",
+"locus": "JMJJOG_03060",
+"product": "D-galactarate/Altronate dehydratase C-terminal domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3106844,
+"stop": 3107344,
+"strand": "+",
+"locus": "JMJJOG_03061",
+"product": "C-terminal part of D-galactarate dehydratase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3107407,
+"stop": 3107688,
+"strand": "-",
+"locus": "JMJJOG_03062",
+"gene": "deoR",
+"product": "DeoR family transcriptional regulator"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3107726,
+"stop": 3107977,
+"strand": "-",
+"locus": "JMJJOG_03063",
+"gene": "agaR",
+"product": "AgaR family transcriptional regulator"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3108226,
+"stop": 3108849,
+"strand": "+",
+"locus": "JMJJOG_03064",
+"product": "Tagatose-6-phosphate ketose isomerase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3108871,
+"stop": 3109137,
+"strand": "+",
+"locus": "JMJJOG_03065",
+"product": "Tagatose-bisphosphate aldolase 2"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3109274,
+"stop": 3110437,
+"strand": "+",
+"locus": "JMJJOG_03066",
+"product": "cysteine-S-conjugate beta-lyase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3110463,
+"stop": 3112352,
+"strand": "+",
+"locus": "JMJJOG_03067",
+"product": "Enterotoxin"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3112521,
+"stop": 3112727,
+"strand": "-",
+"locus": "JMJJOG_03068",
+"product": "Methyltransferase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3112829,
+"stop": 3113422,
+"strand": "-",
+"locus": "JMJJOG_03069",
+"product": "Inovirus Gp2 family protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3114386,
+"stop": 3115828,
+"strand": "-",
+"locus": "JMJJOG_03070",
+"product": "DUF3987 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3117881,
+"stop": 3119698,
+"strand": "+",
+"locus": "JMJJOG_03071",
+"product": "DUF4209 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3119886,
+"stop": 3121088,
+"strand": "-",
+"locus": "JMJJOG_03072",
+"product": "Integrase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3121266,
+"stop": 3121370,
+"strand": "-",
+"locus": "JMJJOG_03073",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3121367,
+"stop": 3122734,
+"strand": "-",
+"locus": "JMJJOG_03074",
+"gene": "dgcT",
+"product": "putative diguanylate cyclase DgcT"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3123322,
+"stop": 3125745,
+"strand": "+",
+"locus": "JMJJOG_03075",
+"gene": "pgaA",
+"product": "poly-beta-1,6 N-acetyl-D-glucosamine export porin PgaA"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3125754,
+"stop": 3127772,
+"strand": "+",
+"locus": "JMJJOG_03076",
+"gene": "pgaB",
+"product": "poly-beta-1,6-N-acetyl-D-glucosamine N-deacetylase PgaB"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3228477,
+"stop": 3229463,
+"strand": "-",
+"locus": "JMJJOG_03174",
+"gene": "lpxK",
+"product": "tetraacyldisaccharide 4'-kinase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3229460,
+"stop": 3231208,
+"strand": "-",
+"locus": "JMJJOG_03175",
+"gene": "msbA",
+"product": "lipid A ABC transporter ATP-binding protein/permease MsbA"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3231245,
+"stop": 3233509,
+"strand": "-",
+"locus": "JMJJOG_03176",
+"gene": "ycaI",
+"product": "ComEC family protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3233715,
+"stop": 3233999,
+"strand": "-",
+"locus": "JMJJOG_03177",
+"gene": "ihfB",
+"product": "integration host factor subunit beta"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3234159,
+"stop": 3235832,
+"strand": "-",
+"locus": "JMJJOG_03178",
+"gene": "rpsA",
+"product": "30S ribosomal protein S1"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3235943,
+"stop": 3236626,
+"strand": "-",
+"locus": "JMJJOG_03179",
+"gene": "cmk",
+"product": "(d)CMP kinase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3236799,
+"stop": 3237563,
+"strand": "-",
+"locus": "JMJJOG_03180",
+"gene": "ycaL",
+"product": "metallopeptidase YcaL",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3237733,
+"stop": 3239016,
+"strand": "-",
+"locus": "JMJJOG_03181",
+"gene": "aroA",
+"product": "3-phosphoshikimate 1-carboxyvinyltransferase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3239087,
+"stop": 3240175,
+"strand": "-",
+"locus": "JMJJOG_03182",
+"gene": "serC",
+"product": "3-phosphoserine/phosphohydroxythreonine transaminase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3240374,
+"stop": 3241066,
+"strand": "-",
+"locus": "JMJJOG_03183",
+"gene": "ycaP",
+"product": "UPF0702 transmembrane protein YcaP"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3241196,
+"stop": 3242956,
+"strand": "+",
+"locus": "JMJJOG_03184",
+"gene": "ycaO",
+"product": "30S ribosomal protein S12 methylthiotransferase accessory factor YcaO"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3243023,
+"stop": 3244219,
+"strand": "+",
+"locus": "JMJJOG_03185",
+"gene": "focA",
+"product": "formate transporter FocA"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3244274,
+"stop": 3246556,
+"strand": "+",
+"locus": "JMJJOG_03186",
+"gene": "pflB",
+"product": "formate C-acetyltransferase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3246748,
+"stop": 3247488,
+"strand": "+",
+"locus": "JMJJOG_03187",
+"gene": "pflA",
+"product": "pyruvate formate lyase 1-activating protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3247585,
+"stop": 3248733,
+"strand": "-",
+"locus": "JMJJOG_03188",
+"gene": "ycaD",
+"product": "MFS transporter"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3249047,
+"stop": 3249673,
+"strand": "+",
+"locus": "JMJJOG_03189",
+"gene": "ycaC",
+"product": "isochorismate family cysteine hydrolase YcaC"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3249709,
+"stop": 3250572,
+"strand": "-",
+"locus": "JMJJOG_03190",
+"gene": "dmsC",
+"product": "dimethyl sulfoxide reductase anchor subunit DmsC",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3250574,
+"stop": 3251191,
+"strand": "-",
+"locus": "JMJJOG_03191",
+"gene": "ynfG",
+"product": "DMSO/selenate family reductase complex B subunit"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3251202,
+"stop": 3253646,
+"strand": "-",
+"locus": "JMJJOG_03192",
+"gene": "dmsA",
+"product": "dimethylsulfoxide reductase subunit A"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3253885,
+"stop": 3255177,
+"strand": "-",
+"locus": "JMJJOG_03194",
+"gene": "serS",
+"product": "serine--tRNA ligase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3255268,
+"stop": 3256611,
+"strand": "-",
+"locus": "JMJJOG_03195",
+"gene": "rarA",
+"product": "replication-associated recombination protein RarA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3256622,
+"stop": 3257233,
+"strand": "-",
+"locus": "JMJJOG_03196",
+"gene": "lolA",
+"product": "outer membrane lipoprotein chaperone LolA"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3257392,
+"stop": 3261435,
+"strand": "-",
+"locus": "JMJJOG_03197",
+"gene": "ftsK",
+"product": "DNA translocase FtsK",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3261570,
+"stop": 3262064,
+"strand": "-",
+"locus": "JMJJOG_03198",
+"gene": "lrp",
+"product": "leucine-responsive transcriptional regulator Lrp"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3522207,
+"stop": 3523265,
+"strand": "+",
+"locus": "JMJJOG_03464",
+"gene": "citC",
+"product": "[citrate (pro-3S)-lyase] ligase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3523280,
+"stop": 3523576,
+"strand": "+",
+"locus": "JMJJOG_03465",
+"gene": "citD",
+"product": "citrate lyase acyl carrier protein 1",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3523573,
+"stop": 3524481,
+"strand": "+",
+"locus": "JMJJOG_03466",
+"gene": "citE",
+"product": "citrate (pro-3S)-lyase subunit beta"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3524492,
+"stop": 3526024,
+"strand": "+",
+"locus": "JMJJOG_03467",
+"gene": "citF",
+"product": "citrate lyase subunit alpha"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3526028,
+"stop": 3526579,
+"strand": "+",
+"locus": "JMJJOG_03468",
+"gene": "citX",
+"product": "Apo-citrate lyase phosphoribosyl-dephospho-CoA transferase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3526554,
+"stop": 3527432,
+"strand": "+",
+"locus": "JMJJOG_03469",
+"gene": "citG",
+"product": "triphosphoribosyl-dephospho-CoA synthase CitG"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3527483,
+"stop": 3528946,
+"strand": "+",
+"locus": "JMJJOG_03470",
+"gene": "citT",
+"product": "citrate/succinate antiporter CitT",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3529060,
+"stop": 3529866,
+"strand": "+",
+"locus": "JMJJOG_03471",
+"gene": "rna",
+"product": "ribonuclease I"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3530096,
+"stop": 3530506,
+"strand": "+",
+"locus": "JMJJOG_03472",
+"gene": "rnk",
+"product": "nucleoside diphosphate kinase regulator"
+},
+{
+"type": "sorf",
+"sequence": "CP171242.1",
+"start": 3530649,
+"stop": 3530738,
+"strand": "+",
+"locus": "JMJJOG_03473",
+"product": "Potassium-transporting ATPase subunit F"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3530863,
+"stop": 3531291,
+"strand": "+",
+"locus": "JMJJOG_03474",
+"gene": "uspG",
+"product": "universal stress protein UspG"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3531412,
+"stop": 3533007,
+"strand": "-",
+"locus": "JMJJOG_03475",
+"product": "Alkyl hydroperoxide reductase subunit F"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3533148,
+"stop": 3533711,
+"strand": "-",
+"locus": "JMJJOG_03476",
+"gene": "ahpC",
+"product": "alkyl hydroperoxide reductase subunit C"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3534083,
+"stop": 3534829,
+"strand": "+",
+"locus": "JMJJOG_03477",
+"gene": "dsbG",
+"product": "thiol:disulfide interchange protein DsbG"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3535034,
+"stop": 3535936,
+"strand": "+",
+"locus": "JMJJOG_03478",
+"gene": "citR",
+"product": "DNA-binding transcriptional repressor CitR"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3536083,
+"stop": 3537303,
+"strand": "+",
+"locus": "JMJJOG_03479",
+"gene": "ybdN",
+"product": "Uncharacterized protein YbdN"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3537276,
+"stop": 3537905,
+"strand": "+",
+"locus": "JMJJOG_03480",
+"gene": "ybdM",
+"product": "Uncharacterized protein YbdM"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3537906,
+"stop": 3539066,
+"strand": "-",
+"locus": "JMJJOG_03481",
+"gene": "ybdL",
+"product": "methionine-oxo-acid transaminase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3539175,
+"stop": 3540263,
+"strand": "+",
+"locus": "JMJJOG_03482",
+"gene": "hcxA",
+"product": "hydroxycarboxylate dehydrogenase HcxA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3540273,
+"stop": 3540470,
+"strand": "-",
+"locus": "JMJJOG_03483",
+"gene": "ybdD",
+"product": "Uncharacterized protein YbdD"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3540583,
+"stop": 3542688,
+"strand": "-",
+"locus": "JMJJOG_03484",
+"gene": "cstA",
+"product": "pyruvate/proton symporter CstA"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3542869,
+"stop": 3543282,
+"strand": "-",
+"locus": "JMJJOG_03485",
+"gene": "entH",
+"product": "proofreading thioesterase EntH"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3543285,
+"stop": 3544031,
+"strand": "-",
+"locus": "JMJJOG_03486",
+"gene": "entA",
+"product": "2,3-dihydro-2,3-dihydroxybenzoate dehydrogenase EntA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3544031,
+"stop": 3544888,
+"strand": "-",
+"locus": "JMJJOG_03487",
+"gene": "entB",
+"product": "isochorismatase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3544902,
+"stop": 3546512,
+"strand": "-",
+"locus": "JMJJOG_03488",
+"gene": "entE",
+"product": "(2,3-dihydroxybenzoyl)adenylate synthase EntE",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3546522,
+"stop": 3547697,
+"strand": "-",
+"locus": "JMJJOG_03489",
+"gene": "entC",
+"product": "isochorismate synthase 1",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3547886,
+"stop": 3548842,
+"strand": "+",
+"locus": "JMJJOG_03490",
+"gene": "fepB",
+"product": "ferrienterobactin ABC transporter periplasmic binding protein",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3548846,
+"stop": 3550096,
+"strand": "-",
+"locus": "JMJJOG_03491",
+"gene": "entS",
+"product": "enterobactin exporter, iron-regulated",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3550207,
+"stop": 3551211,
+"strand": "+",
+"locus": "JMJJOG_03492",
+"gene": "fepD",
+"product": "ferrienterobactin ABC transporter permease",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3551208,
+"stop": 3552200,
+"strand": "+",
+"locus": "JMJJOG_03493",
+"gene": "fepG",
+"product": "iron-enterobactin ABC transporter permease",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3552197,
+"stop": 3553012,
+"strand": "+",
+"locus": "JMJJOG_03494",
+"gene": "fepC",
+"product": "ferrienterobactin ABC transporter ATPase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3553009,
+"stop": 3554142,
+"strand": "-",
+"locus": "JMJJOG_03495",
+"gene": "fepE",
+"product": "LPS O-antigen length regulator",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3554389,
+"stop": 3558270,
+"strand": "-",
+"locus": "JMJJOG_03496",
+"gene": "entF",
+"product": "enterobactin synthase multienzyme complex component, ATP-dependent",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3558267,
+"stop": 3558485,
+"strand": "-",
+"locus": "JMJJOG_03497",
+"gene": "ybdZ",
+"product": "enterobactin biosynthesis protein YbdZ",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3558488,
+"stop": 3559690,
+"strand": "-",
+"locus": "JMJJOG_03498",
+"gene": "fes",
+"product": "enterobactin/ferric enterobactin esterase",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3559933,
+"stop": 3562173,
+"strand": "+",
+"locus": "JMJJOG_03499",
+"gene": "fepA",
+"product": "ferrienterobactin outer membrane transporter",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3563090,
+"stop": 3563242,
+"strand": "-",
+"locus": "JMJJOG_03501",
+"gene": "hokE",
+"product": "type I toxin-antitoxin system toxin HokE",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3563694,
+"stop": 3564812,
+"strand": "+",
+"locus": "JMJJOG_03503",
+"gene": "ybdK",
+"product": "YbdK family carboxylate-amine ligase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3564878,
+"stop": 3565126,
+"strand": "+",
+"locus": "JMJJOG_03504",
+"gene": "ybdJ",
+"product": "Uncharacterized protein YbdJ"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3565191,
+"stop": 3565574,
+"strand": "+",
+"locus": "JMJJOG_03505",
+"gene": "ybdF",
+"product": "MmcQ/YjbR family DNA-binding protein"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3565653,
+"stop": 3566306,
+"strand": "+",
+"locus": "JMJJOG_03506",
+"gene": "nfsB",
+"product": "oxygen-insensitive NAD(P)H nitroreductase NfsB"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3566414,
+"stop": 3567661,
+"strand": "+",
+"locus": "JMJJOG_03507",
+"gene": "ybdG",
+"product": "mechanosensitive ion channel YbdG",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3567818,
+"stop": 3569200,
+"strand": "-",
+"locus": "JMJJOG_03508",
+"gene": "pheP",
+"product": "phenylalanine transporter"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3569302,
+"stop": 3572445,
+"strand": "-",
+"locus": "JMJJOG_03509",
+"gene": "cusA",
+"product": "Cu(+)/Ag(+) efflux RND transporter permease subunit CusA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3572457,
+"stop": 3573680,
+"strand": "-",
+"locus": "JMJJOG_03510",
+"gene": "cusB",
+"product": "Cu(+)/Ag(+) efflux RND transporter periplasmic adaptor subunit CusB",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3573696,
+"stop": 3574028,
+"strand": "-",
+"locus": "JMJJOG_03511",
+"gene": "cusF",
+"product": "Cu(+)/Ag(+) efflux RND transporter periplasmic metallochaperone CusF",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3574052,
+"stop": 3575434,
+"strand": "-",
+"locus": "JMJJOG_03512",
+"gene": "cusC",
+"product": "Cu(+)/Ag(+) efflux RND transporter outer membrane channel CusC",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3575591,
+"stop": 3576274,
+"strand": "+",
+"locus": "JMJJOG_03513",
+"gene": "cusR",
+"product": "copper response regulator transcription factor CusR",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3576264,
+"stop": 3577706,
+"strand": "+",
+"locus": "JMJJOG_03514",
+"gene": "cusS",
+"product": "Cu(+)/Ag(+) sensor histidine kinase CusS",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3577931,
+"stop": 3580093,
+"strand": "+",
+"locus": "JMJJOG_03515",
+"gene": "nrfB",
+"product": "cyclic di-3',5'-guanylate-activated glycosyltransferase NrfB"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3580080,
+"stop": 3583052,
+"strand": "+",
+"locus": "JMJJOG_03516",
+"gene": "nfrA",
+"product": "bacteriophage adsorption protein NfrA",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3686469,
+"stop": 3687944,
+"strand": "+",
+"locus": "JMJJOG_03617",
+"gene": "ampG",
+"product": "muropeptide MFS transporter AmpG"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3688403,
+"stop": 3689350,
+"strand": "+",
+"locus": "JMJJOG_03618",
+"gene": "cyoA",
+"product": "cytochrome o ubiquinol oxidase subunit II"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3689372,
+"stop": 3691363,
+"strand": "+",
+"locus": "JMJJOG_03619",
+"gene": "cyoB",
+"product": "cytochrome o ubiquinol oxidase subunit I"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3691353,
+"stop": 3691967,
+"strand": "+",
+"locus": "JMJJOG_03620",
+"gene": "cyoC",
+"product": "cytochrome o ubiquinol oxidase subunit III"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3691967,
+"stop": 3692296,
+"strand": "+",
+"locus": "JMJJOG_03621",
+"product": "cytochrome o ubiquinol oxidase subunit IV"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3692308,
+"stop": 3693198,
+"strand": "+",
+"locus": "JMJJOG_03622",
+"gene": "cyoE",
+"product": "heme o synthase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3693347,
+"stop": 3694711,
+"strand": "+",
+"locus": "JMJJOG_03623",
+"gene": "yajR",
+"product": "Inner membrane transport protein YajR"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3694839,
+"stop": 3695330,
+"strand": "-",
+"locus": "JMJJOG_03624",
+"gene": "yajQ",
+"product": "nucleotide binding protein YajQ",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3695498,
+"stop": 3696409,
+"strand": "+",
+"locus": "JMJJOG_03625",
+"gene": "panE",
+"product": "2-dehydropantoate 2-reductase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3696372,
+"stop": 3696962,
+"strand": "+",
+"locus": "JMJJOG_03626",
+"gene": "yajL",
+"product": "protein deglycase YajL"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3697016,
+"stop": 3698464,
+"strand": "-",
+"locus": "JMJJOG_03627",
+"gene": "thiI",
+"product": "tRNA sulfurtransferase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3698670,
+"stop": 3698912,
+"strand": "+",
+"locus": "JMJJOG_03628",
+"gene": "xseB",
+"product": "exodeoxyribonuclease VII small subunit"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3698912,
+"stop": 3699811,
+"strand": "+",
+"locus": "JMJJOG_03629",
+"gene": "ispA",
+"product": "(2E,6E)-farnesyl diphosphate synthase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3699836,
+"stop": 3701698,
+"strand": "+",
+"locus": "JMJJOG_03630",
+"gene": "dxs",
+"product": "1-deoxy-D-xylulose-5-phosphate synthase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3701753,
+"stop": 3702727,
+"strand": "+",
+"locus": "JMJJOG_03631",
+"gene": "yajO",
+"product": "1-deoxyxylulose-5-phosphate synthase YajO",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3702781,
+"stop": 3703299,
+"strand": "-",
+"locus": "JMJJOG_03632",
+"gene": "pgpA",
+"product": "phosphatidylglycerophosphatase A"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3703277,
+"stop": 3704254,
+"strand": "-",
+"locus": "JMJJOG_03633",
+"gene": "thiL",
+"product": "thiamine-phosphate kinase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3704332,
+"stop": 3704751,
+"strand": "-",
+"locus": "JMJJOG_03634",
+"gene": "nusB",
+"product": "transcription antitermination factor NusB"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3704771,
+"stop": 3705241,
+"strand": "-",
+"locus": "JMJJOG_03635",
+"gene": "ribE",
+"product": "6,7-dimethyl-8-ribityllumazine synthase"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3705330,
+"stop": 3706433,
+"strand": "-",
+"locus": "JMJJOG_03636",
+"gene": "ribD",
+"product": "bifunctional diaminohydroxyphosphoribosylaminopyrimidine deaminase/5-amino-6-(5-phosphoribosylamino)uracil reductase RibD"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3706437,
+"stop": 3706886,
+"strand": "-",
+"locus": "JMJJOG_03637",
+"gene": "nrdR",
+"product": "transcriptional regulator NrdR"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3707037,
+"stop": 3707576,
+"strand": "+",
+"locus": "JMJJOG_03638",
+"gene": "yajI",
+"product": "Uncharacterized lipoprotein YajI"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3707875,
+"stop": 3708759,
+"strand": "+",
+"locus": "JMJJOG_03639",
+"gene": "tsx",
+"product": "nucleoside-specific channel-forming protein Tsx",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3708797,
+"stop": 3709144,
+"strand": "-",
+"locus": "JMJJOG_03640",
+"gene": "yajD",
+"product": "HNH nuclease YajD",
+"expert": [
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3709274,
+"stop": 3710245,
+"strand": "-",
+"locus": "JMJJOG_03641",
+"gene": "secF",
+"product": "Protein translocase subunit SecF"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3710256,
+"stop": 3712070,
+"strand": "-",
+"locus": "JMJJOG_03642",
+"gene": "secD",
+"product": "Protein translocase subunit SecD"
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3811396,
+"stop": 3815646,
+"strand": "-",
+"locus": "JMJJOG_03737",
+"gene": "fdeC",
+"product": "inverse autotransporter adhesin FdeC",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3835347,
+"stop": 3839477,
+"strand": "+",
+"locus": "JMJJOG_03755",
+"gene": "vactox",
+"product": "vacuolating autotransporter toxin Vat",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 3877706,
+"stop": 3881821,
+"strand": "+",
+"locus": "JMJJOG_03791",
+"gene": "pic",
+"product": "serine protease autotransporter toxin Pic",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "VFDB"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 4266295,
+"stop": 4267527,
+"strand": "+",
+"locus": "JMJJOG_04173",
+"gene": "mdtM",
+"product": "multidrug efflux MFS transporter MdtM",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 4499077,
+"stop": 4500210,
+"strand": "+",
+"locus": "JMJJOG_04412",
+"gene": "blaEC-5",
+"product": "cephalosporin-hydrolyzing class C beta-lactamase EC-5",
+"expert": [
+{
+"type": "amrfinder"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171242.1",
+"start": 4807116,
+"stop": 4808018,
+"strand": "-",
+"locus": "JMJJOG_04711",
+"gene": "fieF",
+"product": "CDF family cation-efflux transporter FieF",
+"expert": [
+{
+"type": "amrfinder"
+},
+{
+"type": "expert_proteins",
+"source": "BlastRules"
+}
+]
+},
+{
+"type": "cds",
+"sequence": "CP171243.1",
+"start": 263,
+"stop": 1765,
+"strand": "+",
+"locus": "JMJJOG_04963",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171243.1",
+"start": 1931,
+"stop": 2809,
+"strand": "-",
+"locus": "JMJJOG_04964",
+"gene": "dapA",
+"product": "4-hydroxy-tetrahydrodipicolinate synthase"
+},
+{
+"type": "cds",
+"sequence": "CP171244.1",
+"start": 154,
+"stop": 324,
+"strand": "-",
+"locus": "JMJJOG_04966",
+"product": "hypothetical protein"
+},
+{
+"type": "cds",
+"sequence": "CP171244.1",
+"start": 482,
+"stop": 910,
+"strand": "+",
+"locus": "JMJJOG_04967",
+"product": "Helix-turn-helix domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171244.1",
+"start": 1299,
+"stop": 1622,
+"strand": "-",
+"locus": "JMJJOG_04968",
+"gene": "mobA",
+"product": "plasmid mobilization protein MobA"
+},
+{
+"type": "cds",
+"sequence": "CP171244.1",
+"start": 1906,
+"stop": 2100,
+"strand": "+",
+"locus": "JMJJOG_04969",
+"product": "RNAI modulator protein"
+},
+{
+"type": "cds",
+"sequence": "CP171245.1",
+"start": 1043,
+"stop": 1285,
+"strand": "+",
+"locus": "JMJJOG_04971",
+"product": "type II toxin-antitoxin system RelB/DinJ family antitoxin"
+},
+{
+"type": "cds",
+"sequence": "CP171245.1",
+"start": 1275,
+"stop": 1559,
+"strand": "+",
+"locus": "JMJJOG_04972",
+"product": "Type II toxin-antitoxin system RelE/ParE family toxin"
+},
+{
+"type": "cds",
+"sequence": "CP171245.1",
+"start": 1554,
+"stop": 3071,
+"strand": "-",
+"locus": "JMJJOG_04973",
+"product": "Putitative mobilisation protein"
+},
+{
+"type": "cds",
+"sequence": "CP171245.1",
+"start": 3061,
+"stop": 3387,
+"strand": "-",
+"locus": "JMJJOG_04974",
+"product": "Putative mobilization protein"
+},
+{
+"type": "cds",
+"sequence": "CP171245.1",
+"start": 3614,
+"stop": 4756,
+"strand": "-",
+"locus": "JMJJOG_04975",
+"product": "DUF4868 domain-containing protein"
+},
+{
+"type": "cds",
+"sequence": "CP171245.1",
+"start": 4759,
+"stop": 5406,
+"strand": "-",
+"locus": "JMJJOG_04976",
+"gene": "kwaA",
+"product": "anti-phage protein KwaA"
+}
+]
+}

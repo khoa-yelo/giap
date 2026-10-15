@@ -1,4 +1,14 @@
 {
+  "codon_usage": {
+    "inputs": [
+      "genes",
+      "trna_counts"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "codon"
+    ]
+  },
   "loci": {
     "inputs": [
       "features",
@@ -151,6 +161,21 @@
       "rbs"
     ]
   },
+  "region_layer": {
+    "inputs": [
+      "features",
+      "genes",
+      "replicons"
+    ],
+    "optional_inputs": [
+      "antismash",
+      "genomad"
+    ],
+    "outputs": [
+      "region_genes",
+      "regions"
+    ]
+  },
   "sixframe_index": {
     "inputs": [
       "genome",
@@ -183,6 +208,17 @@
     "optional_inputs": [],
     "outputs": [
       "genes_coords"
+    ]
+  },
+  "tx_layer": {
+    "inputs": [
+      "pc",
+      "replicons",
+      "tus"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "tx_rates"
     ]
   },
   "uniop_input": {

@@ -1,0 +1,3 @@
+# regions/: record_tools_inputs.py regions k12_mg1655.json (TU upstream -300..+50, distance-model TUs)
+# per region, 9 in parallel:
+promoter-calculator -i regions/\<TU\>.fa -o csv/\<TU\>.csv -j 1 

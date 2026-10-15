@@ -79,3 +79,22 @@ when ≥ 10 codons exist.
 1. Score codons 2…n−1 (drop start and stop) for every index. **Proposed default:** yes, consistently.
 2. No ribosomal-protein genes found (fragmented draft). **Proposed default:** CAI/Fop `NA` and a run
    flag `cai_reference_missing` (new run flag in the §9.4 vocabulary, added via the schema in M2-20).
+
+## Lead decisions (after the test-author's pass)
+1. Q1/Q2: the proposed defaults are accepted.
+2. The test-author's resolutions are accepted: "< 10 codons" counted on the full CDS; CAI reference = the
+   scored ribosomal genes (`cai_reference`); genome-wide shares and the CPB reference over all scored
+   genes, unseen codons in a present family have share 0.0; `codon.parquet` columns `locus_tag`, the 8
+   fields, `cai_reference`; NaN written as null.
+3. The codon-bias library must pass scripts/ci/check_imports.py (licence) and already be in uv.lock; if
+   not, stop and tell the lead (no new dependencies).
+
+## Lead decisions after code review (PR #86, changes requested)
+4. Run flags are stored, not only logged: `cai_reference_missing` (and any other codon-usage run flag)
+   goes into the codon.parquet file metadata (key `giap_flags`, JSON list) so M2-20/report can read it.
+5. Only genetic code 11 is accepted; any other table raises ValueError (table 1 and table 4 tested).
+6. `gc3` returns None (not ZeroDivisionError) when no third position is A/C/G/T.
+7. codon-bias RuntimeWarnings for genes with nothing to weight are suppressed and logged once as a count.
+8. Tests kill the surviving mutants at step level: `cai_reference` excludes partial and pseudogene
+   ribosomal genes; the step reads the gene's real `partial` value; the step uses table 11; the table
+   check; lower-case sequences (`.upper()`).
