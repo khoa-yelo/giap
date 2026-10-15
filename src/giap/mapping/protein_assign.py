@@ -18,7 +18,7 @@ import pandas as pd
 
 from giap.config.model import ProteinsConfig
 from giap.mapping.miniprot import ProteinAlignment
-from giap.model.coords import Interval, Replicon
+from giap.model.coords import Interval, Replicon, check_interval
 from giap.model.genes import Gene, GeneModel
 
 SimilarityClass = Literal["identical", "near", "divergent"]
@@ -175,6 +175,19 @@ def _empty_frame() -> pd.DataFrame:
     )
 
 
+def _check_canonical(aln: ProteinAlignment, gm: GeneModel) -> None:
+    iv = aln.interval
+    replicon = gm.replicons.get(iv.contig)
+    if replicon is None:
+        raise ValueError(f"alignment of {aln.protein_id!r} is on unknown contig {iv.contig!r}")
+    if iv.start < 0:
+        raise ValueError(f"alignment of {aln.protein_id!r} has negative start {iv.start}")
+    try:
+        check_interval(iv, replicon)
+    except ValueError as exc:
+        raise ValueError(f"alignment of {aln.protein_id!r}: {exc}") from exc
+
+
 def assign_alignments(
     alns: Sequence[ProteinAlignment], gm: GeneModel, cfg: ProteinsConfig
 ) -> tuple[pd.DataFrame, set[str]]:
@@ -183,7 +196,12 @@ def assign_alignments(
     Rows (0-based half-open, unwrapped ``start``/``end``) are every alignment passing identity and
     coverage, sorted by protein, rank, coordinates; ``gene`` and ``reciprocal_overlap`` are NA
     when no CDS/sORF passes. Leftovers are the aligned proteins without an assigned row.
+
+    Raises ``ValueError`` unless every interval is canonical (``0 <= start < L``, unwrapped
+    ``end <= start + L``, linear contigs never wrap); callers normalise chains first.
     """
+    for aln in alns:
+        _check_canonical(aln, gm)
     index = _GeneIndex(gm)
     rows: list[dict[str, object]] = []
     assigned: set[str] = set()

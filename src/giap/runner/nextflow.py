@@ -47,6 +47,7 @@ def write_params(
         "annotation": dumped["annotation"],
         "config": str(resolved),
         "inputs": {k: str(Path(v).absolute()) for k, v in inputs.items()},
+        "mapping": dumped["mapping"],
         "memory": memory,
         "modules": list(cfg.modules),
         "outdir": str(outdir),

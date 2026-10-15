@@ -1,7 +1,7 @@
 // miniprot 0.18 (MIT): route 2a protein alignment (GIAP_SPEC.md §7.2.3, §7.1.1; M3-12).
 // Mirrors giap.mapping.miniprot.miniprot_index_cmd / miniprot_align_cmd. §7.1.1 gotcha: -T 11 is
-// an indexing option; the alignment options (mapping.proteins.miniprot_args, default
-// "-S -N 5 --outs=0.95") arrive through task.ext.args. Container pin: conf/containers.config.
+// an indexing option; the alignment options (mapping.proteins.miniprot_args) arrive through
+// task.ext.args (set in conf/base.config from params.mapping). Container pin: conf/containers.config.
 process MINIPROT {
     tag "${meta_id}"
     label 'process_medium'
@@ -17,7 +17,7 @@ process MINIPROT {
     path 'versions.yml', emit: versions
 
     script:
-    def args = task.ext.args ?: '-S -N 5 --outs=0.95'
+    def args = task.ext.args ?: ''
     """
     miniprot -t ${task.cpus} -T 11 -d genome.mpi ${genome}
     miniprot -t ${task.cpus} ${args} --gff genome.mpi ${proteins} > miniprot.gff
