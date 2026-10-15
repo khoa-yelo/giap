@@ -129,3 +129,15 @@ M4-17 adds overlapping regions and per-contig region placement to the simulator 
 
 ## Note from M4-08 review (lead)
 Simulated TU expression follows an AR(1) that restarts per replicon and does not wrap at the origin of circular replicons (one uncorrelated join); this does not affect the level of the circular-shift test.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted ("+X % detection" = relative rise of the region's mean
+   detection probability, capped at 0.99; `few_shifts` when K < 19; all-partial regions → NA effect/p,
+   `n_perm` 0, `small_region`; HL `n_perm` counts valid shifts; bootstrap B = 20 in calibration).
+2. A region whose members lie on two contigs is flagged `split_contigs` (and tested on each contig's
+   own circular shifts); name added here.
+3. The simulator gains `RegionSpec.contig` (M4-07 decision 6 deferred it to M4-17); overlap is covered by
+   plasmid AMR genes also in `plasmid_1` — no extra overlap knob.
+4. A2 (short prophage genes, gate on M4-13 p_detect) needs PR #83 merged; until then it may be marked
+   xfail(strict=False) with reason "needs M4-13 (#83)".
+5. The statistician reviews claims C1–C3, A2, A4 before merge.
