@@ -104,5 +104,9 @@ uniqueness handling).
    detection; NA `placement_q` without `same_db` is rejected; C9 decoy rows yield nothing; C9 wins over C11
    on q without raising; flags compared as sets; one row per gene in C2 order.
 2. `cterm_extension` placements are not `abundance_eligible` (abundance from the canonical CDS only).
-3. Contaminant-matching peptides that pass the five conditions are accepted but carry the `contaminant`
-   flag through to the gene row (visible to M4-12/M4-14); M4-12 decides whether they count for tiers.
+3. Contaminant-matching peptides that pass the five conditions are accepted; the gene row carries a separate
+   bool column `contaminant_evidence` (accepted rows carry `is_contaminant`), not an `evidence_flags` entry
+   (visible to M4-12/M4-14); M4-12 decides whether they count for tiers.
+4. Several accepted placements of one peptide in one gene keep one row (exact first, then leftmost);
+   coverage uses that row. Without C9, q/pep/score come from C11 (`best_q_input`, `pep_input`,
+   `score_input`) and intensity is NA.
