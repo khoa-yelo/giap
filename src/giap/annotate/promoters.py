@@ -152,8 +152,8 @@ def _anchor(g: Gene) -> int:
     return g.interval.start if g.interval.strand == "+" else -(g.interval.end + 1)
 
 
-def _period(contig: str, replicons: Mapping[str, Replicon] | None) -> int | None:
-    rep = None if replicons is None else replicons.get(contig)
+def _period(contig: str, replicons: Mapping[str, Replicon]) -> int | None:
+    rep = replicons.get(contig)
     return rep.length if rep is not None and rep.topology == "circular" else None
 
 
@@ -191,9 +191,13 @@ def gene_promoter_features(
     window_scores: pd.DataFrame,
     yes: float = 0.5,
     k_range: tuple[int, int] = K_RANGE,
-    replicons: Mapping[str, Replicon] | None = None,
+    *,
+    replicons: Mapping[str, Replicon],
 ) -> pd.DataFrame:
-    """``promoter_score``, ``promoter_score_tu`` and ``n_promoter_windows_tu`` per gene."""
+    """``promoter_score``, ``promoter_score_tu`` and ``n_promoter_windows_tu`` per gene.
+
+    ``replicons`` is required: circular contigs wrap, linear ones (or unknown contigs) do not.
+    """
     tracks = _tracks(window_scores)
     k0, k1 = k_range
     own_span = (0, k1 - k0)
