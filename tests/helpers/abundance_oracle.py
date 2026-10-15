@@ -7,8 +7,9 @@ shares no code with ``giap.genetable.abundance``:
   iBAQ = sum / max(1, n_observable); Top3 = arithmetic mean of the (up to) 3 largest linear values;
 - protein route: C10 joined through the protein -> gene map, values on the log2 scale (linear values
   -> log2, values <= 0 -> missing), the larger value per gene;
-- imputation: fill statistic over observed log2 values of detected genes (median, mean, min,
-  zero = min - 1, exclude = none), filled only for detected genes with a missing value.
+- imputation: fill statistic over observed log2 values of detected eligible (non-partial) genes
+  (median, mean, min, zero = min - 1, exclude = none), filled for every detected gene with a
+  missing value, partial included (PR #82 lead decision 5).
 
 Also a small peptide-level simulator on top of giapsim layouts/expression (M4-07/M4-08), since the
 M4-09 evidence simulator is not merged: each detected gene's observable tryptic peptides (0 missed
@@ -169,28 +170,53 @@ def detection(
     return DetectionStub("decoy_picked", table, pd.DataFrame())
 
 
-def c10(values: Mapping[str, float | None], scale: str) -> pd.DataFrame:
-    """C10 ``abundance.norm.parquet`` rows (``scale`` carried as a column, see the tests)."""
+def c10(values: Mapping[str, float | None]) -> pd.DataFrame:
+    """C10 ``abundance.norm.parquet`` rows: ``protein_id``, ``value`` and NO ``scale`` column (M4-06
+    decision on PR #51; the measurement scale is ``abundance.scale`` or preflight, passed to
+    ``gene_abundance`` as ``c10_scale``; PR #82 lead decision 1)."""
     return pd.DataFrame(
         {
             "protein_id": list(values),
             "value": [math.nan if v is None else float(v) for v in values.values()],
-            "scale": [scale] * len(values),
         }
     )
 
 
-def pmap_frame(rows: Iterable[tuple[str, str | None, str, Sequence[str]]]) -> pd.DataFrame:
-    """M4-12 protein -> gene map: protein_id, gene, method, flags (C12 flags of the hit)."""
+def pmap_frame(rows: Iterable[tuple[str, str | None, str]]) -> pd.DataFrame:
+    """M4-12 protein -> gene map: only ``protein_id``, ``gene``, ``method`` (PR #82 decision 2)."""
     rows = list(rows)
     return pd.DataFrame(
         {
-            "protein_id": [r[0] for r in rows],
-            "gene": [r[1] for r in rows],
-            "method": [r[2] for r in rows],
-            "flags": [list(r[3]) for r in rows],
+            "protein_id": pd.Series([r[0] for r in rows], dtype=object),
+            "gene": pd.Series([r[1] for r in rows], dtype=object),
+            "method": pd.Series([r[2] for r in rows], dtype=object),
         }
     )
+
+
+PROTEIN_HITS_COLUMNS = (
+    "protein_id", "protein_len_aa", "route", "contig", "start", "end", "strand", "rank",
+    "identity", "query_coverage", "reciprocal_overlap", "class", "gene", "flags",
+)  # fmt: skip
+
+
+def protein_hits_frame(rows: Iterable[tuple[Any, ...]]) -> pd.DataFrame:
+    """C12 ``protein_hits`` (M3-16) in the M4Inputs shape: one (protein_id, gene, flags[, rank])
+    per hit, ``flags`` a list (e.g. ``cross_strain_protein``); other columns are placeholders."""
+    recs = []
+    for i, r in enumerate(rows):
+        rank = int(r[3]) if len(r) > 3 else 1
+        recs.append(
+            {
+                "protein_id": r[0], "protein_len_aa": 300, "route": "miniprot", "contig": "chr1",
+                "start": 1000 * i, "end": 1000 * i + 900, "strand": "+", "rank": rank,
+                "identity": 0.95, "query_coverage": 0.95, "reciprocal_overlap": 0.95,
+                "class": "near", "gene": r[1], "flags": list(r[2]),
+            }
+        )  # fmt: skip
+    if not recs:
+        return pd.DataFrame({c: pd.Series([], dtype=object) for c in PROTEIN_HITS_COLUMNS})
+    return pd.DataFrame(recs, columns=list(PROTEIN_HITS_COLUMNS))
 
 
 # -------------------------------------------------------------------------------------- oracle
@@ -233,9 +259,18 @@ def fill_value(observed: Sequence[float], policy: str) -> float | None:
 
 
 def impute(
-    log2: Mapping[str, float], detected: Mapping[str, bool], policy: str
+    log2: Mapping[str, float],
+    detected: Mapping[str, bool],
+    policy: str,
+    eligible: Mapping[str, bool] | None = None,
 ) -> tuple[dict[str, float], dict[str, bool], float | None]:
-    observed = [v for t, v in log2.items() if detected.get(t, False) and not is_na(v)]
+    """Fill statistic over observed values of detected AND eligible (non-partial; default all)
+    genes; filled: every detected gene with a missing value, partial or not (PR #82 decision 5)."""
+    observed = [
+        v
+        for t, v in log2.items()
+        if detected.get(t, False) and (eligible is None or eligible.get(t, True)) and not is_na(v)
+    ]
     fill = fill_value(observed, policy)
     filled: dict[str, float] = {}
     mask: dict[str, bool] = {}
@@ -250,6 +285,8 @@ def to_log2(value: float | None, scale: str) -> float:
     if is_na(value):
         return math.nan
     v = float(value)  # type: ignore[arg-type]
+    if not math.isfinite(v):
+        return math.nan  # +-inf never survives (PR #82 decision 3)
     if scale == "log2":
         return v
     return math.log2(v) if v > 0 else math.nan

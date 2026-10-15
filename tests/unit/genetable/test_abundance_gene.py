@@ -13,11 +13,13 @@ Resolved ambiguities (pinned here; questions 1-3 of the spec use the proposed de
 - Undetected genes keep an observed value (Q3).
 - ``detection`` is an M4-12 ``Detection``-like object; only ``.table`` (locus_tag, detected)
   is read.
-- C10 has no scale column in the M4-06 contract (the loader reads preflight); the C10 frames here
-  carry a ``scale`` column AND set ``abundance.scale`` explicitly to the same value, so either
-  source of the measurement scale gives the same answer.
-- The protein -> gene map (M4-12) carries ``flags`` (the C12 flags of the hit used); a
-  ``protein_hit`` mapping whose flags contain ``cross_strain_protein`` gives the gene flag.
+- PR #82 lead decision 1: C10 has NO ``scale`` column (M4-06 decision on PR #51); the measurement
+  scale is ``abundance.scale`` when not ``auto``, else the preflight scale passed as
+  ``gene_abundance(..., c10_scale=...)`` (``protein_abundance(..., scale)``). The tests here keep
+  ``abundance.scale = auto`` and pass ``c10_scale``; precedence is in test_abundance_review.py.
+- PR #82 lead decision 2: the protein -> gene map has only protein_id, gene, method;
+  ``cross_strain_protein`` comes from the C12 protein-hit flags (``protein_hits=`` keyword of
+  ``gene_abundance`` / ``protein_abundance``) of a protein mapped by ``protein_hit``.
 - On the protein route ``top3_log2`` is NA; ``abundance_raw`` keeps the input value (log2 input
   stays log2). With source ``none`` ``abundance_imputed`` is NA or False (no abundance at all).
 - ``n_quant_peptides`` counts distinct quantified peptides; genes without one are either absent
@@ -43,7 +45,15 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "helpers"))
 import abundance_oracle as ao
 import evidence_oracle as eo
-from abundance_oracle import acc, accepted_frame, c10, covariates_frame, detection, pmap_frame
+from abundance_oracle import (
+    acc,
+    accepted_frame,
+    c10,
+    covariates_frame,
+    detection,
+    pmap_frame,
+    protein_hits_frame,
+)
 
 G, H, K, L, M = "GSIM_00005", "GSIM_00010", "GSIM_00015", "GSIM_00020", "GSIM_00025"
 TAGS = [G, H, K, L, M]
@@ -86,6 +96,8 @@ def run(
     pmap: pd.DataFrame | None = None,
     policy: str | None = None,
     tags: list[str] = TAGS,
+    c10_scale: str | None = None,
+    protein_hits: pd.DataFrame | None = None,
     **conf: Any,
 ) -> Any:
     ab = _ab()
@@ -102,6 +114,8 @@ def run(
         pmap if pmap is not None else empty_pmap(),
         cfg(**conf),
         policy=policy,
+        c10_scale=c10_scale,
+        protein_hits=protein_hits if protein_hits is not None else protein_hits_frame([]),
     )
 
 
@@ -270,9 +284,9 @@ def test_example4_tolerant_hit_not_accepted_under_same() -> None:
 
 
 def test_example5_two_proteins_one_gene_takes_larger_log2() -> None:
-    ab = c10({"P1": 20.0, "P2": 22.0}, "log2")
-    pm = pmap_frame([("P1", G, "protein_hit", []), ("P2", G, "peptide_vote", [])])
-    res = run(None, detected=(G,), abundance=ab, pmap=pm, type="ibaq", scale="log2")
+    ab = c10({"P1": 20.0, "P2": 22.0})
+    pm = pmap_frame([("P1", G, "protein_hit"), ("P2", G, "peptide_vote")])
+    res = run(None, detected=(G,), abundance=ab, pmap=pm, type="ibaq", c10_scale="log2")
     assert res.source == "protein_table"
     r = row(res, G)
     assert approx(r["abundance_log2"], 22.0)
@@ -285,11 +299,9 @@ def test_example5_two_proteins_one_gene_takes_larger_log2() -> None:
 
 def test_example5_protein_abundance_direct() -> None:
     abm = _ab()
-    ab = c10({"P1": 20.0, "P2": 22.0, "P3": 18.0}, "log2")
-    pm = pmap_frame(
-        [("P1", G, "protein_hit", []), ("P2", G, "protein_hit", []), ("P3", H, "locus_tag", [])]
-    )
-    out = abm.protein_abundance(ab, pm, "ibaq")
+    ab = c10({"P1": 20.0, "P2": 22.0, "P3": 18.0})
+    pm = pmap_frame([("P1", G, "protein_hit"), ("P2", G, "protein_hit"), ("P3", H, "locus_tag")])
+    out = abm.protein_abundance(ab, pm, "ibaq", "log2")
     g = out[out["locus_tag"] == G].iloc[0]
     h = out[out["locus_tag"] == H].iloc[0]
     assert g["value_log2"] == pytest.approx(22.0)
@@ -301,9 +313,9 @@ def test_example5_protein_abundance_direct() -> None:
 
 
 def test_protein_route_linear_values_to_log2_and_raw_kept() -> None:
-    ab = c10({"P1": 1024.0, "P2": 4096.0}, "linear")
-    pm = pmap_frame([("P1", G, "protein_hit", []), ("P2", H, "protein_hit", [])])
-    res = run(None, detected=(G, H), abundance=ab, pmap=pm, type="top3", scale="linear")
+    ab = c10({"P1": 1024.0, "P2": 4096.0})
+    pm = pmap_frame([("P1", G, "protein_hit"), ("P2", H, "protein_hit")])
+    res = run(None, detected=(G, H), abundance=ab, pmap=pm, type="top3", c10_scale="linear")
     assert approx(row(res, G)["abundance_log2"], 10.0)
     assert approx(row(res, G)["abundance_raw"], 1024.0)
     assert approx(row(res, H)["abundance_log2"], 12.0)
@@ -312,20 +324,20 @@ def test_protein_route_linear_values_to_log2_and_raw_kept() -> None:
 
 
 def test_protein_route_unmapped_protein_ignored() -> None:
-    ab = c10({"P1": 20.0, "PX": 30.0}, "log2")
-    pm = pmap_frame([("P1", G, "protein_hit", []), ("PX", None, "protein_hit", [])])
-    res = run(None, detected=(G,), abundance=ab, pmap=pm, type="ibaq", scale="log2")
+    ab = c10({"P1": 20.0, "PX": 30.0})
+    pm = pmap_frame([("P1", G, "protein_hit"), ("PX", None, "protein_hit")])
+    res = run(None, detected=(G,), abundance=ab, pmap=pm, type="ibaq", c10_scale="log2")
     assert approx(row(res, G)["abundance_log2"], 20.0)
     for t in (H, K, L, M):
         assert na(row(res, t)["abundance_log2"])
 
 
 def test_cross_strain_protein_carries_abundance_and_flag() -> None:
-    ab = c10({"Q9XYZ1": 21.0, "P2": 19.0}, "log2")
-    pm = pmap_frame(
-        [("Q9XYZ1", H, "protein_hit", ["cross_strain_protein"]), ("P2", G, "protein_hit", [])]
-    )
-    res = run(None, detected=(G, H), abundance=ab, pmap=pm, type="ibaq", scale="log2")
+    ab = c10({"Q9XYZ1": 21.0, "P2": 19.0})
+    pm = pmap_frame([("Q9XYZ1", H, "protein_hit"), ("P2", G, "protein_hit")])
+    hits = protein_hits_frame([("Q9XYZ1", H, ["cross_strain_protein"]), ("P2", G, [])])
+    res = run(None, detected=(G, H), abundance=ab, pmap=pm, type="ibaq", c10_scale="log2",
+              protein_hits=hits)  # fmt: skip
     assert approx(row(res, H)["abundance_log2"], 21.0)
     assert "cross_strain_protein" in flags(row(res, H))
     assert "cross_strain_protein" not in flags(row(res, G))
@@ -345,9 +357,9 @@ def test_cross_strain_protein_carries_abundance_and_flag() -> None:
     ],
 )
 def test_example6_protein_route_scale_from_declared_type(declared: str, scale: str) -> None:
-    ab = c10({"P1": 20.0}, "log2")
-    pm = pmap_frame([("P1", G, "protein_hit", [])])
-    res = run(None, detected=(G,), abundance=ab, pmap=pm, type=declared, scale="log2")
+    ab = c10({"P1": 20.0})
+    pm = pmap_frame([("P1", G, "protein_hit")])
+    res = run(None, detected=(G,), abundance=ab, pmap=pm, type=declared, c10_scale="log2")
     r = row(res, G)
     assert r["abundance_type"] == declared
     assert r["abundance_scale"] == scale
@@ -472,10 +484,10 @@ def test_undetected_gene_keeps_observed_value() -> None:
 
 
 def test_example9_linear_zero_is_missing_then_imputed_if_detected() -> None:
-    ab = c10({"P1": 0.0, "P2": 1024.0, "P3": 4096.0, "P4": 0.0}, "linear")
-    pm = pmap_frame([("P1", G, "protein_hit", []), ("P2", H, "protein_hit", []),
-                     ("P3", K, "protein_hit", []), ("P4", L, "protein_hit", [])])  # fmt: skip
-    res = run(None, detected=(G, H, K), abundance=ab, pmap=pm, type="ibaq", scale="linear")
+    ab = c10({"P1": 0.0, "P2": 1024.0, "P3": 4096.0, "P4": 0.0})
+    pm = pmap_frame([("P1", G, "protein_hit"), ("P2", H, "protein_hit"),
+                     ("P3", K, "protein_hit"), ("P4", L, "protein_hit")])  # fmt: skip
+    res = run(None, detected=(G, H, K), abundance=ab, pmap=pm, type="ibaq", c10_scale="linear")
     g = row(res, G)
     assert approx(g["abundance_log2"], 11.0), "median of 10 and 12"
     assert bool(g["abundance_imputed"])
@@ -487,9 +499,10 @@ def test_example9_linear_zero_is_missing_then_imputed_if_detected() -> None:
 
 def test_example9_protein_abundance_zero_is_na() -> None:
     out = _ab().protein_abundance(
-        c10({"P1": 0.0, "P2": -5.0}, "linear"),
-        pmap_frame([("P1", G, "protein_hit", []), ("P2", H, "protein_hit", [])]),
+        c10({"P1": 0.0, "P2": -5.0}),
+        pmap_frame([("P1", G, "protein_hit"), ("P2", H, "protein_hit")]),
         "ibaq",
+        "linear",
     )
     for t in (G, H):
         sel = out[out["locus_tag"] == t]
@@ -520,10 +533,10 @@ def test_example10_no_intensities_no_c10(with_rows: bool) -> None:
 
 
 def test_peptide_intensities_win_over_c10() -> None:
-    ab = c10({"P1": 30.0}, "log2")
-    pm = pmap_frame([("P1", G, "protein_hit", [])])
+    ab = c10({"P1": 30.0})
+    pm = pmap_frame([("P1", G, "protein_hit")])
     res = run(accepted_frame(ex1_rows()), n_obs={G: 4}, detected=(G,), abundance=ab, pmap=pm,
-              type="maxlfq", scale="log2")  # fmt: skip
+              type="maxlfq", c10_scale="log2")  # fmt: skip
     assert res.source == "peptide_intensity"
     r = row(res, G)
     assert approx(r["abundance_log2"], 8.965784)
@@ -533,10 +546,10 @@ def test_peptide_intensities_win_over_c10() -> None:
 
 def test_ineligible_intensities_only_fall_back_to_c10() -> None:
     rows = [acc(G, "MULTIPEPK", 1e6, uniqueness="multi_identical")]
-    ab = c10({"P1": 20.0}, "log2")
-    pm = pmap_frame([("P1", G, "protein_hit", [])])
+    ab = c10({"P1": 20.0})
+    pm = pmap_frame([("P1", G, "protein_hit")])
     res = run(accepted_frame(rows), n_obs={G: 1}, detected=(G,), abundance=ab, pmap=pm,
-              type="maxlfq", scale="log2")  # fmt: skip
+              type="maxlfq", c10_scale="log2")  # fmt: skip
     assert res.source == "protein_table"
     assert approx(row(res, G)["abundance_log2"], 20.0)
     assert row(res, G)["abundance_scale"] == "relative"

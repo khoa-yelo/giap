@@ -14,6 +14,14 @@ estimates feed):
 2. ``abundance.spearman.top3``: the same with ``abundance.method = top3``.
 3. Teeth: an estimator that ignores the data (``abundance_log2`` shuffled across genes) is a
    confirmed ``fail`` of claim 1 (private log, PR #69 decision 3).
+4. ``abundance.ibaq_denominator`` (PR #82 lead decision 4): the iBAQ denominator matters. Over the
+   same genes (detected, >= 3 quantified peptides; ``n_observable_peptides`` varies, sd of its log2
+   >= 0.3), Spearman(iBAQ, truth) exceeds Spearman(raw sum, truth) beyond noise: per replicate the
+   value is 1{the 5% paired-bootstrap lower bound (200 gene resamples) of rho_ibaq - rho_sum <= 0};
+   criterion ``fwer`` at 0.05. Both estimates come from ``gene_abundance`` (method ibaq): the raw
+   sum is the same call with every ``n_observable_peptides`` = 1, so only the denominator differs.
+   Teeth: with ``n_observable_peptides`` permuted across genes the claim is a confirmed ``fail``.
+   Re-run on the M4-09 simulator once #80 is merged (backlog).
 
 Simulated data (the M4-09 evidence simulator is not merged; tests/helpers/abundance_oracle.py):
 giapsim layout (M4-07, 400 chromosome genes) and expression (M4-08 defaults); each ``detected_true``
@@ -56,7 +64,9 @@ def _simulate(rng: np.random.Generator) -> tuple[Any, ao.SimPeptides]:
     return lay, ao.simulate_peptides(lay, expr, rng)
 
 
-def _estimate(lay: Any, sim: ao.SimPeptides, method: str) -> dict[str, float]:
+def _estimate(
+    lay: Any, sim: ao.SimPeptides, method: str, n_obs: dict[str, int] | None = None
+) -> dict[str, float]:
     from giap.config import GiapConfig
     from giap.genetable.abundance import gene_abundance
 
@@ -64,7 +74,7 @@ def _estimate(lay: Any, sim: ao.SimPeptides, method: str) -> dict[str, float]:
     res = gene_abundance(
         lay.genes,
         sim.accepted,
-        ao.covariates_frame(sim.n_observable, tags),
+        ao.covariates_frame(sim.n_observable if n_obs is None else n_obs, tags),
         ao.detection(tags, sim.detected),
         None,
         ao.pmap_frame([]),
@@ -123,3 +133,60 @@ def test_simulated_data_sanity() -> None:
     resid = [np.log(x) - sim.truth[g] * np.log(2.0) for g, v in vals.items() for x in v]
     assert abs(float(np.mean(resid))) < 0.05
     assert 0.45 < float(np.std(resid)) < 0.55
+
+
+# ---------------------------------------------------------------- claim 4: the iBAQ denominator
+
+N_BOOT = 200
+LOG2_NOBS_SD_MIN = 0.3
+
+
+def _rank_corr_rows(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Spearman per row of two (B, n) arrays (average ranks, Pearson of ranks)."""
+    rx = stats.rankdata(x, axis=1)
+    ry = stats.rankdata(y, axis=1)
+    rx -= rx.mean(axis=1, keepdims=True)
+    ry -= ry.mean(axis=1, keepdims=True)
+    return np.asarray((rx * ry).sum(axis=1) / np.sqrt((rx**2).sum(axis=1) * (ry**2).sum(axis=1)))
+
+
+def _denominator_claim(permute_n_obs: bool = False) -> Callable[[np.random.Generator], float]:
+    def fn(rng: np.random.Generator) -> float:
+        lay, sim = _simulate(rng)
+        tags = list(sim.n_observable)
+        n_obs = dict(sim.n_observable)
+        if permute_n_obs:
+            n_obs = dict(zip(tags, rng.permutation([n_obs[t] for t in tags]).tolist(), strict=True))
+        ibaq = _estimate(lay, sim, "ibaq", n_obs)
+        raw_sum = _estimate(lay, sim, "ibaq", dict.fromkeys(tags, 1))
+        vals = ao.peptide_values(sim.accepted)
+        keep = [g for g in sim.detected if len(vals.get(g, ())) >= 3]
+        assert len(keep) >= 30, f"too few genes with >= 3 quantified peptides: {len(keep)}"
+        log2_nobs = np.log2([max(1, sim.n_observable[g]) for g in keep])
+        assert float(np.std(log2_nobs)) >= LOG2_NOBS_SD_MIN, "n_observable must vary"
+        x = np.array([ibaq[g] for g in keep])
+        s = np.array([raw_sum[g] for g in keep])
+        y = np.array([sim.truth[g] for g in keep])
+        assert np.isfinite(x).all() and np.isfinite(s).all()
+        idx = rng.integers(0, len(keep), size=(N_BOOT, len(keep)))
+        delta = _rank_corr_rows(x[idx], y[idx]) - _rank_corr_rows(s[idx], y[idx])
+        lower = float(np.quantile(delta, 0.05))
+        return 1.0 if lower <= 0.0 else 0.0
+
+    return fn
+
+
+@pytest.mark.parametrize("full", MODES)
+def test_ibaq_denominator_beats_raw_sum(full: bool) -> None:
+    R = C.replicates(SUITE, full)
+    rec = C.calibrate(SUITE, "fwer", LEVEL, _denominator_claim(), R,
+                      stream="abundance.ibaq_denominator")  # fmt: skip
+    assert rec["status"] != "fail", rec
+
+
+@pytest.mark.calibration
+def test_teeth_permuted_denominator_fails(teeth_log: Path) -> None:
+    claim = _denominator_claim(permute_n_obs=True)
+    rec = C.calibrate(SUITE, "fwer", LEVEL, claim, 20,
+                      stream="abundance.ibaq_denominator.teeth", log_dir=teeth_log)  # fmt: skip
+    assert rec["status"] == "fail", rec

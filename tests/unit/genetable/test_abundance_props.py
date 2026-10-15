@@ -224,10 +224,10 @@ def test_impute_matches_oracle(values: list[float | None], det: list[bool], poli
 )
 def test_protein_route_linear_scale_shift(values: dict[str, float], c: float) -> None:
     owners = {"P1": TAGS[0], "P2": TAGS[0], "P3": TAGS[1], "P4": TAGS[2], "P5": TAGS[3]}
-    pm = pmap_frame([(p, owners[p], "protein_hit", []) for p in values])
+    pm = pmap_frame([(p, owners[p], "protein_hit") for p in values])
     ab = _ab()
-    a = ab.protein_abundance(c10(values, "linear"), pm, "maxlfq").set_index("locus_tag")
-    b = ab.protein_abundance(c10({k: v * c for k, v in values.items()}, "linear"), pm, "maxlfq")
+    a = ab.protein_abundance(c10(values), pm, "maxlfq", "linear").set_index("locus_tag")
+    b = ab.protein_abundance(c10({k: v * c for k, v in values.items()}), pm, "maxlfq", "linear")
     b = b.set_index("locus_tag")
     for g in {owners[p] for p in values}:
         exp = max(math.log2(values[p]) for p in values if owners[p] == g)
