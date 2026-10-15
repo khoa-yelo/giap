@@ -103,3 +103,16 @@ Files: `src/giap/setupdb/{items.py,manifest.py,run.py}`, `src/giap/data/db_sourc
    the first download, both recorded in `db_sources.yaml` with an ADR.
 2. Does `amrfinder_update` (pulled by `bakta_db`) need its own manifest row? **Proposed default:**
    yes, `amrfinderplus` with the version from `bakta/db/amrfinderplus-db/latest/version.txt`.
+
+## Lead decisions (questions and test-author notes)
+1. Q1: proposed default accepted — ADR-0014 pins the Bakta full DB MD5 (Zenodo metadata), the geNOMAD MD5
+   and the Promotech RF-HOT.zip first-download SHA-256 in `db_sources.yaml`.
+2. Q2: proposed default accepted — an `amrfinderplus` manifest row with the version from
+   `bakta/db/amrfinderplus-db/latest/version.txt` (currently `2026-08-07.1`), status from its presence.
+3. geNOMAD lives at `DB/genomad_db` (spec §7.1.1); the prefetch data was moved there and the prefetch
+   script fixed. `SOURCES["genomad"].path == "genomad_db"`; no special case for `genomad/genomad_db`.
+4. Accepted test-author choices: `giap.setupdb` module; CLI-named `SetupOptions`; checksum mismatch recorded
+   as `status: "mismatch"` (example 5), never `ok`; adopted prefetched items keep the prefetch checksum and
+   date; preflight maps bakta_* → bakta_db, genomad → genomad_db, antismash → antismash_db, counting `ok`
+   rows only; free disk via `shutil.disk_usage`. The kept `promotech/RF-HOT.zip` is what the SHA-256 pin
+   verifies. antiSMASH `verify` and `--go/--kegg/--cog/--contaminants` are covered by M2-09.
