@@ -1,8 +1,9 @@
 """giapsim evidence: peptides, identification errors, decoys and placed hits (issue M4-09).
 
 Examples 1-10, edge cases and acceptance criteria of docs/specs/M4-09-sim-evidence.md (GIAP_SPEC.md
-§11.3, §8.4, §8.7, §7.2.6, §7.3.2), checked against tests/helpers/sim_evidence_oracle.py (written from
-the spec, not from the simulator). Lives in tests/unit (tests/sim is implementer tooling); the
+§11.3, §8.4, §8.7, §7.2.6, §7.3.2), checked against tests/helpers/sim_evidence_oracle.py
+(written from the spec, not from the simulator). Lives in tests/unit (tests/sim is implementer
+tooling); the
 distributional claims are gated in tests/calibration/test_sim_evidence_calibration.py (suite
 ``gene_fdr``).
 
