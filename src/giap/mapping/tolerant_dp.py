@@ -31,7 +31,15 @@ from numba import njit
 from giap.mapping.diffops import DIFF_TYPES, BlockTables, DiffType
 from giap.mapping.sixframe import MAX_DIFF, STOP
 
-__all__ = ["BAND", "Alignment", "decode_key", "exchange_lookup", "verify", "verify_batch"]
+__all__ = [
+    "BAND",
+    "Alignment",
+    "decode_key",
+    "exchange_lookup",
+    "rank_weight",
+    "verify",
+    "verify_batch",
+]
 
 BAND: int = MAX_DIFF
 _NDIAG: int = 2 * BAND + 1
@@ -87,7 +95,7 @@ def exchange_lookup(tables: BlockTables) -> np.ndarray:
 
 
 @njit(cache=True, nogil=True)
-def _rank_weight(rank: int, b: int) -> int:  # pragma: no cover - compiled by numba; via verify
+def rank_weight(rank: int, b: int) -> int:  # pragma: no cover - compiled by numba; via verify
     """Key increment of one difference of ``rank`` (0 substitution .. 3 near_block)."""
     b2 = b * b
     w = b2 * b
@@ -132,8 +140,8 @@ def _verify_core(
     L = q.shape[0]
     n = frame.shape[0]
     limit = (k + 1) * b * b * b  # key < limit <=> cost <= k
-    w_sub = _rank_weight(0, b)
-    w_swap = _rank_weight(1, b)
+    w_sub = rank_weight(0, b)
+    w_swap = rank_weight(1, b)
     off21 = nres * nres * nres
     off22 = 2 * off21
     lo = d0 - 2
@@ -175,7 +183,7 @@ def _verify_core(
                                 w = w_swap
                             r = int(ex[off22 + ((q0 * nres + q1) * nres + t0) * nres + t1])
                             if r >= 0:
-                                rw = _rank_weight(r, b)
+                                rw = rank_weight(r, b)
                                 if rw < w:
                                     w = rw
                             if w < big:
@@ -190,7 +198,7 @@ def _verify_core(
                         if pk < big:
                             r = int(ex[(q1 * nres + t0) * nres + t1])
                             if r >= 0:
-                                c = pk + _rank_weight(r, b)
+                                c = pk + rank_weight(r, b)
                                 s = st[prow + dd - 1]
                                 if c < limit and (c < best or (c == best and s < bs)):
                                     best = c
@@ -201,7 +209,7 @@ def _verify_core(
                         if pk < big:
                             r = int(ex[off21 + (q0 * nres + q1) * nres + t1])
                             if r >= 0:
-                                c = pk + _rank_weight(r, b)
+                                c = pk + rank_weight(r, b)
                                 s = st[prow2 + dd + 1]
                                 if c < limit and (c < best or (c == best and s < bs)):
                                     best = c

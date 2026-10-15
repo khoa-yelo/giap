@@ -170,7 +170,7 @@ class ProteinsConfig(_Strict):
 
 class FrameshiftConfig(_Strict):
     enabled: bool = True
-    min_side_aa: int = 4
+    min_side_aa: int = Field(default=4, ge=1)
 
 
 class TolerantConfig(_Strict):

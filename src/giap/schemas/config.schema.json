@@ -424,6 +424,7 @@
         },
         "min_side_aa": {
           "default": 4,
+          "minimum": 1,
           "title": "Min Side Aa",
           "type": "integer"
         }

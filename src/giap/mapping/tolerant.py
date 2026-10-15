@@ -40,7 +40,7 @@ from giap.mapping.sixframe import Frame, SixFrameIndex, decode, encode_query
 from giap.mapping.tolerant_dp import BAND, decode_key, exchange_lookup, verify_batch
 from giap.model.coords import Interval
 
-__all__ = ["match_tolerant"]
+__all__ = ["Search", "budget", "match_tolerant", "parse_max_diff"]
 
 _SEARCH_ORDER = {"target": 0, "decoy": 1}
 _CAP = 16  # rows per query kept by the parallel pass; larger results are recomputed serially
@@ -112,7 +112,7 @@ def _search_many(
     return counts, rows
 
 
-def _parse_max_diff(max_diff: Mapping[str, int]) -> list[tuple[int, int, int]]:
+def parse_max_diff(max_diff: Mapping[str, int]) -> list[tuple[int, int, int]]:
     """``[(lo, hi, k)]`` from config keys ``"lo-hi"``.
 
     Raises:
@@ -136,7 +136,7 @@ def _parse_max_diff(max_diff: Mapping[str, int]) -> list[tuple[int, int, int]]:
     return sorted(out)
 
 
-def _budget(L: int, cfg: TolerantConfig, ranges: list[tuple[int, int, int]]) -> int | None:
+def budget(L: int, cfg: TolerantConfig, ranges: list[tuple[int, int, int]]) -> int | None:
     """Difference budget ``k`` of a query of ``L`` residues, or ``None`` when not searched."""
     if not cfg.min_len <= L <= MAX_QUERY or L <= 2 * BAND:
         return None
@@ -146,7 +146,7 @@ def _budget(L: int, cfg: TolerantConfig, ranges: list[tuple[int, int, int]]) -> 
     return None
 
 
-class _Search:
+class Search:
     """One search space (target frames or the decoy frames of one type) with lazy indexes."""
 
     def __init__(self, frames: tuple[Frame, ...]) -> None:
@@ -155,6 +155,7 @@ class _Search:
         self._indexes: dict[int, QGramIndex] = {}
 
     def index(self, q: int) -> QGramIndex:
+        """The q-gram index of the concatenated frames (built on first use)."""
         if q not in self._indexes:
             self._indexes[q] = _index_from_text(self.text, self.starts, q)
         return self._indexes[q]
@@ -227,18 +228,18 @@ def match_tolerant(
     for pep, kind in sorted(decoy_of.items()):
         if kind not in decoys:
             raise ValueError(f"decoy type {kind!r} of peptide {pep!r} has no decoy frames")
-    ranges = _parse_max_diff(cfg.max_diff)
+    ranges = parse_max_diff(cfg.max_diff)
     norm: dict[str, str] = {}
-    budget: dict[str, int] = {}
+    budgets: dict[str, int] = {}
     for pep in sorted(set(queries)):
-        k = _budget(len(pep), cfg, ranges)
+        k = budget(len(pep), cfg, ranges)
         if k is None:
             continue
         if pep not in decoy_of:
             raise ValueError(f"peptide {pep!r} has no decoy type in decoy_of")
         text = decode(encode_query(pep))
         norm[pep] = text
-        budget[text] = k
+        budgets[text] = k
     if not norm:
         return hits_frame()
 
@@ -288,12 +289,12 @@ def match_tolerant(
 
     targets = sorted({norm[p] for p in norm if p in target_queries})
     if targets:
-        emit(_Search(index.frames).run(targets, budget, ex), index.frames, None)
+        emit(Search(index.frames).run(targets, budgets, ex), index.frames, None)
     for kind in sorted(decoys):
         wanted = sorted({text for p, text in norm.items() if decoy_of[p] == kind})
         if wanted:
             frames = decoys[kind]
-            emit(_Search(frames).run(wanted, budget, ex), frames, kind)
+            emit(Search(frames).run(wanted, budgets, ex), frames, kind)
 
     rows.sort(
         key=lambda r: (
