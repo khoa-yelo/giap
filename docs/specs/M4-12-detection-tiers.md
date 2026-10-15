@@ -140,3 +140,17 @@ two-peptide and protein-list as `unestimated`, and the calibration evidence (FDP
    (C-terminal peptides excepted); documented in the methods note.
 4. Risk noted: in the reference run the picked/MAYU FDP at q = 0.01 averaged ≈ 0.011–0.012; the
    statistician reviews the claims and the simulator before merge (possible anti-conservatism).
+
+## Lead decisions after the statistician's review (PR #92, changes requested)
+5. (blocking) Input with PEPs but no q-values: gene thresholds use q derived from PEP (running mean, as
+   the MAYU-with-PEP path defines) — never 0 genes silently; test.
+6. (required) Contaminant decoys (`rev_CON__…`) are excluded from pairing counts (neither paired nor
+   unpaired); test with 8 gene decoys + 3 contaminant decoys staying in the picked tier.
+7. Decoy-prefix stripping removes the longest matching prefix first (`REV__X` → `X`).
+8. `Detection` exposes the protein→gene map it used (`Detection.protein_gene_map`); M4-14 uses it
+   instead of re-deriving it (follow-up in M4-14).
+9. Tests kill the surviving mutants: a decoy pairs only when all its listed proteins map; the
+   `unspecific_search` cut-off at exactly 50 % (not flagged).
+10. Backlog: a giapsim mode with decoy-derived q (D/T) so the MAYU PEP/no-PEP claims separate; a calibration
+    run with `q_value_max` = 0.1 so the q = 0.10 claim is informative; the "best decoys lost" attack is a
+    documented limitation.
