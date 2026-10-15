@@ -84,8 +84,8 @@ class ProbeError(Exception):
 def read_manifest(db_dir: str | None) -> dict[str, str | None] | None:
     """Versions found per name in ``db_dir/db_manifest.json``; ``None`` if there is no manifest.
 
-    Provisional format (pinned by M2's ``giap setup``): ``{"<name>": {"version": "<v>",
-    "sha256": "<hex>", ...}}``; a bare ``"<name>": "<v>"`` is accepted too. Raises
+    The ``giap setup`` manifest (``{"schema_version", "items": [...]}``, ``ok`` items only) or
+    the provisional ``{"<name>": {"version": "<v>", ...}}`` / ``"<name>": "<v>"`` form. Raises
     :class:`ProbeError` when the manifest is unreadable or not a JSON object.
     """
     if not db_dir or not (Path(db_dir) / MANIFEST).exists():
@@ -97,10 +97,27 @@ def read_manifest(db_dir: str | None) -> dict[str, str | None] | None:
         raise ProbeError(f"{MANIFEST} is unreadable: {type(exc).__name__}: {exc}") from exc
     if not isinstance(data, dict):
         raise ProbeError(f"{MANIFEST} is not a JSON object")
+    if isinstance(data.get("items"), list):  # `giap setup` manifest (M2-08)
+        return _setup_manifest(data["items"])
     found: dict[str, str | None] = {}
     for name, entry in data.items():
         v = entry.get("version") if isinstance(entry, dict) else entry
         found[name] = v if isinstance(v, str) else None
+    return found
+
+
+# `giap setup` item names → requirement names (M2-08 lead decision 4)
+_SETUP_NAMES = {"bakta_light": "bakta_db", "bakta_full": "bakta_db", "genomad": "genomad_db",
+                "antismash": "antismash_db"}  # fmt: skip
+
+
+def _setup_manifest(items: list[object]) -> dict[str, str | None]:
+    """Versions of the ``status: "ok"`` items of a ``giap setup`` manifest, by requirement name."""
+    found: dict[str, str | None] = {}
+    for item in items:
+        if isinstance(item, dict) and item.get("status") == "ok":
+            name, version = str(item.get("name")), item.get("version")
+            found[_SETUP_NAMES.get(name, name)] = version if isinstance(version, str) else None
     return found
 
 

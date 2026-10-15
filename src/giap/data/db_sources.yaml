@@ -1,0 +1,46 @@
+# Official database and model sources of `giap setup` (GIAP_SPEC.md §3.2, §3.9, §7.9.1; R6).
+# Checksums are those of the archive as published; Bakta full, geNOMAD and Promotech pins: ADR-0014.
+# check: how `verify` recognises an installed copy; size_gib: free disk needed before downloading;
+# prefetch: the item's row in $GIAP_DB_DIR/prefetch_manifest.tsv (adopted provenance).
+bakta_light:
+  version: "6.0"
+  url: https://zenodo.org/records/14916843/files/db-light.tar.xz
+  checksum: md5:4a6e059ded39e9c5537ef4137d2f5648   # §3.9
+  path: bakta/db-light
+  tool: bakta
+  check: bakta:light
+  size_gib: 5
+bakta_full:
+  version: "6.0"
+  url: https://zenodo.org/records/14916843/files/db.tar.xz
+  checksum: md5:4c1115e40abfa2b464ae5dd988bdd88e   # ADR-0014 (Zenodo record metadata)
+  path: bakta/db
+  tool: bakta
+  check: bakta:full
+  size_gib: 84
+genomad:
+  version: "1.9"
+  url: https://zenodo.org/records/14886553/files/genomad_db_v1.9.tar.gz
+  checksum: md5:67244b528bb8bed464d1ca147136d33e   # ADR-0014 (Zenodo 14886553)
+  path: genomad_db
+  tool: null                                         # GIAP fetches the pinned tarball itself (R6)
+  check: genomad
+  size_gib: 4
+  prefetch: genomad_db
+antismash:
+  version: "8.0.4"
+  url: https://dl.secondarymetabolites.org/releases/
+  checksum: ""                                       # antiSMASH's downloader checks its own files
+  path: antismash
+  tool: antismash
+  check: antismash
+  size_gib: 10
+promotech_models:
+  version: RF-HOT
+  url: https://www.cs.mun.ca/~lourdes/public/PromoTech_models/RF-HOT.zip
+  checksum: sha256:fcd96ffe5a43b579af965839ee2bb896de94de3601978d88bcabd32c4fb5093f  # ADR-0014
+  path: promotech
+  tool: null
+  check: promotech
+  size_gib: 5
+  prefetch: promotech_rf_hot
