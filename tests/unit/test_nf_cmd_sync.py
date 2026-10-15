@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 import giap.annotate
-from giap.annotate import bakta_cmd, uniop_cmd
+from giap.annotate import bakta_cmd, promotech_cmd, uniop_cmd
 
 REPO = Path(__file__).resolve().parents[2]
 MODULES = REPO / "workflow" / "modules" / "local"
@@ -84,6 +84,14 @@ def _uniop_variants() -> list[list[str]]:
     return [uniop_cmd.uniop_command(Path("uniop_cds.gff"), Path("out"), Path("/opt/uniop"))]
 
 
+def _promotech_variants() -> list[list[str]]:
+    return [
+        promotech_cmd.promotech_command(
+            Path("windows_000.fa"), Path("promotech_000"), Path("/opt/promotech")
+        )
+    ]
+
+
 def _ostir_variants() -> list[list[str]]:
     from giap.annotate import ostir_cmd  # M2-16
 
@@ -93,6 +101,7 @@ def _ostir_variants() -> list[list[str]]:
 BUILDERS: dict[str, Callable[[], list[list[str]]]] = {
     "bakta": _bakta_variants,
     "uniop": _uniop_variants,  # M2-12 (merged before M2-07)
+    "promotech": _promotech_variants,  # M2-13 (PR #76 review decision 5)
     "ostir": _ostir_variants,  # M2-16
 }
 

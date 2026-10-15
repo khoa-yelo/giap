@@ -29,7 +29,7 @@ ever run as processes (R5); `scripts/ci/check_imports.py` already forbids import
 | 10 | [M2-10](M2-10-recording-harness-wave-a.md) | recording harness (`scripts/record_fixture.py`, `slurm/record_fixtures.sbatch`, `slurm/record_bakta_full.sbatch`); genomes K-12/Nissle/sim100k committed; wave-A fixtures (Bakta light+full, TerminatorNet, geNOMAD, antiSMASH, BacTermFinder) | 01, 03 (cmd), 05, 08 | 300 | `needs_slurm`, `needs_conda`/`needs_apptainer`, `needs_bakta_db`, `needs_bakta_full`, `needs_genomad_db`, `needs_net` |
 | 11 | [M2-11](M2-11-user-annotation-id-map.md) | `--annotation` GFF3/GBFF → Bakta `--regions` file and `annotation/id_map.tsv` | 03 | 240 | none |
 | 12 | [M2-12](M2-12-uniop-pairs-tus.md) | UniOP adapter (Prodigal GFF ↔ locus tags), distance-model fallback, `operon_pairs.tsv`, TUs, TU upstream regions, `calibration.yaml` | 04 | 380 | none (UniOP fixture via harness) |
-| 13 | [M2-13](M2-13-promoter-windows-promotech.md) | 40-nt windows (221/start, wrap, dedupe, 100k chunks), Promotech parser, per-gene promoter features, `promoter_between`, `promoters.bed` | 04, 12 | 380 | none (fixture via harness, `needs_promotech_models` to record) |
+| 13 | [M2-13](M2-13-promoter-windows-promotech.md) | 40-nt windows (221/start, wrap via `replicons`, dedupe, 100k chunks in `windows/`), Promotech parser, per-gene promoter features, `promoter_between`, `promoters.bed` | 04, 12 | 380 | none (fixture via harness, `needs_promotech_models` to record) |
 | 14 | [M2-14](M2-14-promoter-calculator.md) | one-region-per-call Promoter Calculator, parser, `tx_rates`, TU features | 12 | 200 | none |
 | 15 | [M2-15](M2-15-terminators.md) | TerminatorNet (`-s`), TransTermHP (`.coords`, `.tt`), cross-check, BacTermFinder (opt-in), `terminator_between`, `terminators.bed` | 04 | 390 | none |
 | 16 | [M2-16](M2-16-ostir-rbs.md) | OSTIR input (−50/+50, start = end = 51), parser → RBS features | 04 | 180 | none |
@@ -119,7 +119,7 @@ A `precomputed` key replaces the listed steps and supplies the listed output (fo
 | `transtermhp` | ext | `genome.norm.fa`, `genes.coords` | `transtermhp.tt` | `terminators` | 07, 15 |
 | `bactermfinder` | ext (opt-in) | `genome.norm.fa` | `bactermfinder/` | `terminators` | 07, 15 |
 | `terminator_layer` | py | the three above | `terminators.parquet`, `terminators_crosscheck.tsv` | `terminators` | 15 |
-| `ostir_input` | py | `genes.parquet`, `annotation_meta.json` | `ostir_input.csv` | `rbs` | 16 |
+| `ostir_input` | py | `genes.parquet`, `annotation_meta.json`, genome, replicons | `ostir_input.csv` | `rbs` | 16 |
 | `ostir` | ext | `ostir_input.csv` | `ostir.csv` | `rbs` | 07, 16 |
 | `rbs_layer` | py | `ostir.csv`, `ostir_input.csv` | `rbs.parquet` | `rbs` | 16 |
 | `codon_usage` | py | `genes.parquet`, `trna_counts.tsv` | `codon.parquet` | — (always in-process) | 17 |

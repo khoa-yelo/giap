@@ -89,3 +89,35 @@ def test_out_keys_equal_the_registry_outputs(step: str) -> None:
     got = _step_calls()[step]
     assert len(got) == len(set(got)), f"{step}: duplicate output key in {got}"
     assert sorted(got) == reg[step]["outputs"], f"{step}: annotate.nf outputs {sorted(got)}"
+
+
+# ---------------------------------------------- M2-13 review decision 5: promoter_windows wiring
+
+
+def _step_in_keys(text: str, step: str) -> set[str]:
+    """Statically resolvable input keys of ``stepIn('<step>', [...])`` (kv literals and vars)."""
+    m = re.search(rf"stepIn\(\s*'{step}'\s*,\s*\[(.*?)\]\s*\)", text, flags=re.S)
+    assert m, f"no stepIn('{step}', [...]) call in annotate.nf"
+    var_key = dict(re.findall(r"def\s+(\w+)\s*=\s*kv\(\s*'(\w+)'", text))
+    keys = set(re.findall(r"kv\(\s*'(\w+)'", m.group(1)))
+    keys |= {var_key[v] for v in re.findall(r"\b(\w+)\b", m.group(1)) if v in var_key}
+    return keys
+
+
+def test_promoter_windows_call_passes_replicons() -> None:
+    """The step reads replicons for circular wraps; annotate.nf must stage them."""
+    keys = _step_in_keys(_strip_comments(SUBWF.read_text(encoding="utf-8")), "promoter_windows")
+    assert keys >= {"genes", "genome", "replicons"}, f"promoter_windows inputs: {sorted(keys)}"
+
+
+def test_promoter_windows_scatters_into_the_windows_directory() -> None:
+    """``windows`` is a directory: scatterSpec('windows', 'windows/windows_*.fa', n, true)."""
+    text = _strip_comments(SUBWF.read_text(encoding="utf-8"))
+    assert re.search(
+        r"scatterSpec\(\s*'windows'\s*,\s*'windows/windows_\*\.fa'\s*,[^()]*,\s*true\s*\)", text
+    ), "PROMOTER_WINDOWS must declare scatterSpec('windows', 'windows/windows_*.fa', n, true)"
+    m = re.search(r"def\s+(\w+)\s*=\s*PROMOTER_WINDOWS\.out\.outputs", text)
+    assert m, "PROMOTER_WINDOWS.out.outputs not bound"
+    assert re.search(rf"inDir\(\s*{m.group(1)}\s*,\s*'windows'\s*\)", text), (
+        "PROMOTECH chunks must come from inDir(<PROMOTER_WINDOWS outputs>, 'windows')"
+    )
