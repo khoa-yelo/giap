@@ -88,6 +88,7 @@ def test_local_rerun_is_byte_identical(sim: Any, tmp_path: Path) -> None:
         assert fa[f].read_bytes() == fb[f].read_bytes(), f
 
 
+@pytest.mark.xfail(strict=False, reason="needs M2-20 context_layers")
 @pytest.mark.needs_nextflow
 @pytest.mark.slow
 def test_example_5_local_and_nextflow_mapping_tsvs_are_byte_identical(
