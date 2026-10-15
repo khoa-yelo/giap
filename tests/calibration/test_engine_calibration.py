@@ -19,7 +19,6 @@ confirmation, sharding) through ``_gate.calibrate_levels``, which logs to
 
 from __future__ import annotations
 
-import time
 from collections.abc import Callable
 
 import _criteria as C
@@ -88,20 +87,7 @@ def test_bh_fdr(full: bool) -> None:
             out[j] = (called & null).sum() / n if n else 0.0
         return out
 
-    t0 = time.perf_counter()
-    fdp = np.vstack(C.run_replicates(stream, rep, r))
-    duration = time.perf_counter() - t0
-    assert fdp.shape == (r, len(levels))
-    failures = []
-    for j, a in enumerate(levels):
-        res = C.check_fdr(fdp[:, j], a)
-        assert r == res.R
-        C.log_result(suite, f"fdr:{stream}", a, res, C.suite_seed(stream, 0), duration)
-        if not res.ok:
-            failures.append(res.detail)
-    assert not failures, failures
-    if not full:
-        assert duration < FAST_SECONDS, duration
+    _finish(calibrate_levels(suite, "fdr", levels, rep, r, stream=stream), r, full)
 
 
 @pytest.mark.parametrize("full", MODES)
