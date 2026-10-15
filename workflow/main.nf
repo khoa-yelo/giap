@@ -11,13 +11,21 @@ def opt(path) { path ? channel.value(file(path, checkIfExists: true)) : channel.
 
 // params.inputs.contaminants, else <db_dir>/contaminants/contaminants.fasta when the db_dir
 // manifest lists `contaminants` (M3-15; giap.runner.local.contaminant_library), else null.
+// Manifest shapes as giap.preflight.environment.read_manifest: the `giap setup` form
+// {"schema_version", "items": [{"name", ..., "status"}]} (only `ok` items count) or the
+// provisional {"<name>": ...} map (M3-17 lead decision 18).
 def contaminantLibrary(inputs) {
     if (inputs.contaminants) return inputs.contaminants
     def db = params.db_dir ?: System.getenv('GIAP_DB_DIR')
     def manifest = db ? file("${db}/db_manifest.json") : null
     if (manifest == null || !manifest.exists()) return null
     def lib = file("${db}/contaminants/contaminants.fasta")
-    return new groovy.json.JsonSlurper().parse(manifest.toFile()).containsKey('contaminants') && lib.exists() ? lib : null
+    def data = new groovy.json.JsonSlurper().parse(manifest.toFile())
+    if (!(data instanceof Map)) return null
+    def listed = data.items instanceof List
+        ? data.items.any { it instanceof Map && it.name == 'contaminants' && it.status == 'ok' }
+        : data.containsKey('contaminants')
+    return listed && lib.exists() ? lib : null
 }
 
 workflow {
