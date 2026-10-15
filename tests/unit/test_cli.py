@@ -107,6 +107,7 @@ def _no_db_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # preflight (M1-12): a missing db_manifest.json is info, so exit codes come from the inputs
     (tmp_path / "db_empty").mkdir()
     monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "db_empty"))  # never the real $GIAP_ROOT
 
 
 def test_preflight_is_implemented(runner: CliRunner, genome: Path, proteins: Path) -> None:
@@ -235,8 +236,9 @@ def test_run_lists_spec_options(runner: CliRunner) -> None:
 def test_run_valid_options_reach_the_runner(
     runner: CliRunner, genome: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # M2-07 wires `giap run` to the Nextflow runner: valid options get past option parsing and
-    # reach the launcher, which reports a missing `nextflow` as an environment error (exit 2).
+    # M2-07 wires `giap run`: valid options get past option parsing and reach preflight, which
+    # (run-wiring decisions 1 and 3d) runs before the `nextflow` check and stops a genome-only run
+    # (no peptides or proteins) with exit 1 — not a usage error, not "not implemented".
     from giap.cli import cli
     from giap.exitcodes import ExitCode
 
@@ -257,5 +259,5 @@ def test_run_valid_options_reach_the_runner(
             "--publication",
         ],
     )
-    assert result.exit_code == ExitCode.ENVIRONMENT, result.output
+    assert result.exit_code == ExitCode.INVALID_INPUT, result.output
     assert "not implemented" not in result.output.lower()

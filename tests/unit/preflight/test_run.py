@@ -44,6 +44,7 @@ def _empty_db_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     repo.mkdir()
     monkeypatch.setenv("GIAP_DB_DIR", str(db))
     monkeypatch.setenv("GIAP_REPO", str(repo))
+    monkeypatch.setenv("GIAP_ROOT", str(repo))  # never the real $GIAP_ROOT (decision 4c)
     return db
 
 
