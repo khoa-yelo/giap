@@ -47,7 +47,7 @@ converted on read. "opt" = file or column may be absent; "NA" = nullable.
 | C6 | `layers.parquet` (M2-20 `context_layers`) | M2-20 `LAYER_COLUMNS`: `locus_tag`, `tu_id`, `tu_position`, `tu_size`, `uniop_p_prev`, `uniop_p_next` (transcription order), `region_ids` list, `promoter_score`, `promoter_score_tu`, `n_promoter_windows_tu`, `tx_rate_max_tu`, `tx_rate_sum_tu`, `tss_distance_bp`, `terminator_conf_downstream`, `tir_ostir`, `sd_dg`, `mrna_dg`, `spacing_dg`, `standby_dg`, `spacer_bp`, `start_codon`, `cai`, `tai`, `enc`, `fop`, `gc3`, `cpb`, `at_2_10`, `rare_codons_2_10`, `flags` list | one row per C2 gene; `tu_id` agrees with C5; layer columns may be all-NA (layer missing; run flag from M2) |
 | C7 | `regions.parquet` (M2-19 `region_layer`) | `region_id` (`<type>_<n>`), `region_type` enum{prophage, plasmid, bgc, crispr, amr}, `contig`, `start` NA, `end` NA, `source_tool`, `score` NA | AMR: one row per contig, NA coordinates; plasmid: whole replicon |
 | C8 | `region_genes.parquet` (M2-19) | `region_id`, `locus_tag`, `overlap_frac`, `subset` enum{integrase, repressor, structural, lysis, cargo} NA, `core_biosynthetic` bool | membership decided by M2 (≥ 0.5); `subset` non-NA iff prophage |
-| C9 | `peptides.norm.parquet` (M1-12) | M1-06 `AGG_COLUMNS`: `peptide`, `q_value`, `pep`, `score`, `is_decoy`, `is_contaminant`, `protein_ids` (`;`-joined str NA), `modified_peptides`, `n_rows`, `n_runs`, `intensity` (linear, NA), `source`, `search_db` | one row per stripped peptide; decoy rows included |
+| C9 | `peptides.norm.parquet` (M1-12) | M1-06 `AGG_COLUMNS`: `peptide`, `q_value`, `pep`, `score`, `is_decoy`, `is_contaminant`, `protein_ids` (list of str; see lead decision 1), `modified_peptides`, `n_rows`, `n_runs`, `intensity` (linear, NA), `source`, `search_db` | one row per stripped peptide; decoy rows included |
 | C10 | `abundance.norm.parquet` (M1-12; opt) | `protein_id` (resolved), `value` float NA, `scale` enum{log2, linear} | see Q4 |
 | C11 | `mapping/peptide_hits.tsv` (M3-16 `loci`) | §9.3: `peptide`, `peptide_len`, `source`, `best_q_input`, `pep_input`, `score_input`, `contig`, `start`, `end`, `strand`, `frame`, `crosses_origin`, `route` enum{exact, tolerant}, `n_diff`, `diff_types` list, `placement_q`, `length_class`, `locus_class` enum{rna_overlap, pseudogene, sorf, cds_inframe, nterm_extension, cds_outframe, antisense, intergenic}, `uniqueness` enum{unique, multi_identical, shared}, `gene` NA, `novel_candidate_id` NA, `flags` list | one row per target peptide × **accepted** locus; `gene` non-NA exactly for assigning classes; decoys never appear; every `gene` is a C2 locus tag |
 | C12 | `mapping/protein_hits.tsv` (M3-16; header-only without proteins) | §9.3: `protein_id`, `protein_len_aa`, `route`, `contig`, `start`, `end`, `strand`, `rank`, `identity`, `query_coverage`, `reciprocal_overlap`, `class` enum{identical, near, divergent}, `gene` NA, `flags` list | `gene` a C2 locus tag when set |
@@ -115,7 +115,7 @@ issues, and the `gene_table` step (M4-15) stops on any error.
 | 7 | C11 row with `uniqueness = unique`, `locus_class = cds_inframe`, `gene = NA` | error `contract.peptide_hits.assignment` (an assigning class needs a gene) |
 | 8 | C11 row `gene = GSIM_99999` not in C2 | error `contract.peptide_hits.unknown_gene` |
 | 9 | C6 with every promoter column NA | valid (layer missing is not a contract error) |
-| 10 | C9 with `protein_ids` as a list column instead of a `;`-joined string | error `contract.peptides.dtype` |
+| 10 | C9 with `protein_ids` as a `;`-joined string instead of a list column (lead decision 1) | error `contract.peptides.dtype` |
 
 ## Edge cases
 
@@ -160,3 +160,30 @@ None (no statistics). The contract is documented in the module docstring and cop
 6. `cog_category` and `gc_local_dev` have no producer in the M2 drafts. **Proposed default:**
    `cog_category` from the COG 2020 definition table when installed (M4-15), else `NA` (M4-16 then
    skips COG rows with a warning); `gc_local_dev` stays `NA` until an issue (M2 or M5) defines it.
+
+## Lead decisions (test-author questions)
+1. C9 / example 10 changed: in the Parquet work tables `peptides.protein_ids` is a native list of strings
+   (as merged M1-12 writes it); a `;`-joined string there is a contract error. The `;` list encoding of
+   ADR-0006 applies to TSV outputs only (writers join on write). Validation also rejects lists containing
+   empty strings or NA elements.
+2. Accepted: unnamed error codes checked by the `contract.<table>.` prefix; `modified_peptides` dtype from
+   `TABLES`; `peptides.norm.parquet` optional (not tested as missing); `gc_local_dev` optional if present;
+   pseudogene placements with a gene are valid; file names pinned, directories not.
+3. Scope: the contract enforces only the checks this spec lists. Checks the implementer added beyond it
+   (decoy rows placed, plasmid region spanning its whole replicon, hits beyond replicon length) are removed
+   unless a test pins them; if they are worth having, propose them for M4-21 conformance.
+4. `default_paths` keeps the flat fixture layout (every file directly in the work dir); M4-21 maps the real
+   M2/M3 step outputs onto these keys.
+5. Size (ci/gates.yaml: warn 400, fail 800 code lines): bring the PR under 800 by removing the unspecced
+   checks and duplicated helpers; if that is not enough, split the loader (`giap.io.work_tables`) into a
+   follow-up PR stacked on the contract.
+
+## Lead decisions after code review (PR #51, changes requested)
+1. C10 follows merged M1-12: `abundance.norm.parquet` has `protein_id`, `raw_id` (optional), `value`; the
+   scale is read by the loader from `preflight.json` (`abundance_scale`) into `M4Inputs`, not required as a
+   Parquet column. Test: real M1-12 preflight output passes the contract.
+2. `cterm_extension` (ADR-0013) is in `LOCUS_CLASSES` and `ASSIGNING_CLASSES`. Test with a gene-assigned
+   `cterm_extension` row.
+3. Tests kill the surviving mutants: layers rows for unknown genes; an AMR region with exactly one NA
+   coordinate; `1.5` in an object-dtype int column; TSV bool parsing accepts only `true`/`false`
+   (`TRUE` and `1` → dtype error).
