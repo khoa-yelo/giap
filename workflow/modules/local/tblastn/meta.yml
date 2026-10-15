@@ -1,0 +1,27 @@
+name: tblastn
+description: Search leftover proteins against the genome with tblastn (GIAP_SPEC.md §7.2.3).
+keywords: [protein, alignment, mapping, blast]
+tools:
+  - tblastn:
+      description: BLAST+ makeblastdb (nucleotide DB) and tblastn (protein vs translated genome).
+      homepage: https://blast.ncbi.nlm.nih.gov/
+      licence: ["Public Domain"]
+input:
+  - meta_id:
+      type: string
+      description: Sample ID (the process tag).
+  - genome:
+      type: file
+      description: Normalised genome FASTA.
+  - proteins:
+      type: file
+      description: Leftover protein FASTA (no miniprot assignment).
+output:
+  - hits:
+      - tblastn.tsv:
+          type: file
+          description: Tabular hits in the 15-column outfmt of giap.mapping.tblastn.OUTFMT.
+  - versions:
+      - versions.yml:
+          type: file
+          description: Software versions (nf-core style).

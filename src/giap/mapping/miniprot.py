@@ -52,9 +52,13 @@ class ProteinAlignment:
     frameshift: int  # counts; > 0 -> flag fs
     stop_codon: int  # counts; > 0 -> flag st
     alt_start: bool = False  # GTG/TTG start read as M, counted as a match in ``identity``
+    coverage: float | None = None  # explicit query coverage (tblastn: union of HSP ranges)
 
     @property
     def query_coverage(self) -> float:
+        """``coverage`` if set (M3-13 lead decision 1), else the span ``(q_end - q_start) / n``."""
+        if self.coverage is not None:
+            return self.coverage
         return (self.q_end - self.q_start) / self.protein_len_aa
 
 
