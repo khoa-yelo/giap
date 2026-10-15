@@ -74,3 +74,15 @@ n_runs: int = 3; proteins: ProteinSimConfig | None = None             # proteins
    `abundance.enzyme: trypsin_p`).
 2. Detectability coefficients are placeholders until M4 defines the detectability truth.
    **Proposed default:** the values above; M4 replaces them.
+
+## Lead decisions (test-author questions)
+1. The independent peptide checker is test code, not simulator tooling: it moves from `tests/sim/peptide_oracle.py`
+   (implementer-owned, role-guard exempt) to `tests/helpers/peptide_oracle.py` so the implementer cannot
+   edit the oracle its output is judged by.
+2. Accepted: API `giapsim.proteomics.{ProteomicsConfig, ProteinSimConfig, digest}`, `SimConfig.proteomics`,
+   `res.truth["peptides"]`; expressed proteins counted from the true start incl. novel ORFs, pseudogenes
+   excluded; wrong peptides match no sample protein (I = L); other-strain wrong peptides are tryptic pieces
+   of reference-strain proteins (no strain → ValueError); `abundance.tsv` has `locus_tag` + `log_abundance`
+   (or `abundance`); `reference_peptides.tsv` is M3-20's.
+3. C-terminal extensions (ADR-0013) are not simulated in M3-19 (no M3-18/M3-19 feature creates them);
+   Module 6 calibration adds readthrough planting — backlog note.
