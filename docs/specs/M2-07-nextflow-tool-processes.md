@@ -125,3 +125,11 @@ Fixed in this PR (#65):
 Follow-up PR (stacked, branch m2/run-wiring): `giap run` writes `inputs.replicons` (runs preflight) and
 `params.db_dir` so main.nf takes the ANNOTATE branch (review item 1), and `giap _step` calls
 `load_step_modules()` (item 5, pre-existing). Tests for both.
+
+### Lead decisions for the run-wiring follow-up (branch m2/run-wiring)
+1. `giap run` runs preflight in full, including the evidence rule (`inputs.evidence_present`): a run with
+   neither peptides nor proteins exits 1 before Nextflow starts. Older genome-only `giap run` tests are
+   updated to pass evidence (test-author).
+2. The test-author's interface choices are accepted: absolute `inputs.replicons` in preflight's 5-column
+   c/l format matching the normalised genome's IDs (the run passes the normalised genome); `params.db_dir`
+   = --db-dir, else $GIAP_DB_DIR; a found step without required `--in` fails exit 5 "required input".
