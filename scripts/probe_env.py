@@ -150,6 +150,12 @@ def databases() -> dict[str, object]:
     }
     if manifest.is_file():
         out["manifest_sha256"] = hashlib.sha256(manifest.read_bytes()).hexdigest()
+        try:
+            items = json.loads(manifest.read_text(encoding="utf-8")).get("items", [])
+            out["manifest"] = {i["name"]: {"status": i["status"], "version": i["version"]}
+                               for i in items}  # fmt: skip
+        except (ValueError, AttributeError, KeyError, TypeError):
+            out["manifest"] = "unreadable"
     return out
 
 
