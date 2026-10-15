@@ -23,9 +23,9 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+from helpers.fake_env import fake_giap_root, write_setup_manifest
 
 from giap.exitcodes import ExitCode
-from giap.preflight.environment import MANIFEST, requirements
 from giap.runner.nextflow import launch_command
 
 FAKE_NF = """#!/bin/sh
@@ -35,14 +35,17 @@ exit 0
 ALL_MODULES = ["core", "mobile", "bgc", "function"]
 
 
+@pytest.fixture(autouse=True)
+def _fake_giap_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Every pinned image and prebuilt env present (run-wiring decision 4a); never the real root."""
+    root = fake_giap_root(tmp_path / "giap_root")
+    monkeypatch.setenv("GIAP_ROOT", str(root))
+    return root
+
+
 def _write_db(path: Path) -> Path:
     path.mkdir(parents=True)
-    manifest = {
-        r.name: {"version": r.min_version or "1.0"}
-        for mode in ("targeted", "genome")
-        for r in requirements(ALL_MODULES, mode)
-    }
-    (path / MANIFEST).write_text(json.dumps(manifest))
+    write_setup_manifest(path)  # real `giap setup` format (decision 4c)
     return path
 
 

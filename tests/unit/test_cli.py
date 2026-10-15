@@ -107,6 +107,7 @@ def _no_db_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # preflight (M1-12): a missing db_manifest.json is info, so exit codes come from the inputs
     (tmp_path / "db_empty").mkdir()
     monkeypatch.setenv("GIAP_DB_DIR", str(tmp_path / "db_empty"))
+    monkeypatch.setenv("GIAP_ROOT", str(tmp_path / "db_empty"))  # never the real $GIAP_ROOT
 
 
 def test_preflight_is_implemented(runner: CliRunner, genome: Path, proteins: Path) -> None:

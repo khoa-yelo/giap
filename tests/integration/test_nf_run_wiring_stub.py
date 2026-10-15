@@ -9,7 +9,6 @@ no ``inputs.replicons`` and main.nf ran the one-task smoke branch instead.
 from __future__ import annotations
 
 import csv
-import json
 import os
 import shutil
 import stat
@@ -17,9 +16,9 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+from helpers.fake_env import fake_giap_root, write_setup_manifest
 
 from giap.exitcodes import ExitCode
-from giap.preflight.environment import MANIFEST, requirements
 
 pytestmark = pytest.mark.needs_nextflow
 
@@ -40,14 +39,17 @@ exec "{real}" "$@" -stub-run
 """
 
 
+@pytest.fixture(autouse=True)
+def _fake_giap_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Every pinned image and prebuilt env present (run-wiring decision 4a); never the real root."""
+    root = fake_giap_root(tmp_path / "giap_root")
+    monkeypatch.setenv("GIAP_ROOT", str(root))
+    return root
+
+
 def _db(path: Path) -> Path:
     path.mkdir()
-    manifest = {
-        r.name: {"version": r.min_version or "1.0"}
-        for mode in ("targeted", "genome")
-        for r in requirements(["core", "mobile", "bgc", "function"], mode)
-    }
-    (path / MANIFEST).write_text(json.dumps(manifest))
+    write_setup_manifest(path)  # real `giap setup` format (decision 4c)
     return path
 
 

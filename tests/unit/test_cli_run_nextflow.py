@@ -26,9 +26,9 @@ from pathlib import Path
 import pytest
 import yaml
 from click.testing import CliRunner
+from helpers.fake_env import fake_giap_root, write_setup_manifest
 
 from giap.exitcodes import ExitCode
-from giap.preflight.environment import MANIFEST, requirements
 from giap.runner.nextflow import launch_command
 
 FAKE_NF = """#!/bin/sh
@@ -45,6 +45,14 @@ exit "${FAKE_NF_RC:-0}"
 """
 
 TRACE_HEADER = "task_id\thash\tnative_id\tname\ttag\tstatus\texit\tattempt\tworkdir\n"
+
+
+@pytest.fixture(autouse=True)
+def _fake_giap_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Every pinned image and prebuilt env present (run-wiring decision 4a); never the real root."""
+    root = fake_giap_root(tmp_path / "giap_root")
+    monkeypatch.setenv("GIAP_ROOT", str(root))
+    return root
 
 
 @pytest.fixture
@@ -73,12 +81,7 @@ def evidence_and_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     )
     db = tmp_path / "db"
     db.mkdir()
-    manifest = {
-        r.name: {"version": r.min_version or "1.0"}
-        for mode in ("targeted", "genome")
-        for r in requirements(["core", "mobile", "bgc", "function"], mode)
-    }
-    (db / MANIFEST).write_text(json.dumps(manifest))
+    write_setup_manifest(db)  # real `giap setup` format (decision 4c)
     monkeypatch.setenv("GIAP_DB_DIR", str(db))
     monkeypatch.setattr(f"{__name__}._EVIDENCE", [proteins])
     return proteins
