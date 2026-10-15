@@ -6,6 +6,26 @@
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
 _Last updated: 2026-10-15 00:30 PDT · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
 
+## Milestone progress
+<!-- progress:start -->
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 47/79 done (59 %), 7 running · generated 2026-10-15 00:21 by `scripts/dev/progress_bars.py`
+
+| Milestone | Progress | Done | Running | Pending |
+|---|---|---|---|---|
+| M0 Scaffold | 🟩 | 1 | 0 | 0 |
+| M1 Inputs and preflight | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 12 | 0 | 0 |
+| M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 43 % | 9 | 2 | 10 |
+| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜ 71 % | 17 | 3 | 4 |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 38 % | 8 | 2 | 11 |
+| M5 Autocorrelation and islands | _not designed yet_ | - | - | - |
+| M6 Operons | _not designed yet_ | - | - | - |
+| M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
+| M8 Function and determinants | _not designed yet_ | - | - | - |
+| M9 Visualisation and report | _not designed yet_ | - | - | - |
+| M10 Pilot validation | _not designed yet_ | - | - | - |
+| M11 Release 1.0 | _not designed yet_ | - | - | - |
+<!-- progress:end -->
+
 ## Current milestone
 M0: Scaffold. Status: done (PR #1, merged 2026-10-14 under ADR-0004)
 M1: Inputs and preflight. Status: done (12 issues; PRs #2–#11, #13, #14)
