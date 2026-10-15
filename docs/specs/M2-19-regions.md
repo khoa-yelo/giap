@@ -100,3 +100,11 @@ Rules:
    `annotation.regions.genomad_plasmid_min_score` (ADR, default change).
 3. CRISPR region bounds with `cas` genes. **Proposed default:** the interval is extended to cover the
    listed `cas` genes, so membership (≥ 50 %) includes them.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted: every geNOMAD plasmid row counts (M2-index decision 6
+   overrides Q2's 0.7); CRISPR cas genes within 1 kb of the array, region genes = ≥ 50 % members;
+   prophage gene descriptions from geNOMAD only on identical intervals; the step reads the single
+   top-level antiSMASH JSON and warns `layer_missing:genomad`/`layer_missing:antismash`; parquet columns
+   include the `Region`/`RegionGene` fields.
+2. Test files carry the `regions_` prefix (M4-17 owns `tests/unit/context/test_regions*.py`).
