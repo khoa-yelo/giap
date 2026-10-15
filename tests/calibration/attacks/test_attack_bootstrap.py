@@ -19,8 +19,10 @@ is the level check on CI misses at alpha = 1 - c(n) (the same inequality) throug
 ``regions.attack_bootstrap.<attack>``.
 
 ``test_gene_level_bootstrap_undercovers`` is the teeth check: resampling genes instead of TUs on
-the ``few_large_tus`` data must fall far below the band. ``test_recorded_few_tus`` records (does
-not gate) coverage at 5 and 10 TUs against c(n), the documented regime where callers flag CIs.
+the ``few_large_tus`` data must fall far below the band: a confirmed ``fail`` through ``calibrate``
+(stream ``regions.attack_bootstrap.naive_gene``, PR #69 decision 3). ``test_recorded_few_tus``
+records (does not gate) coverage at 5 and 10 TUs against c(n), the documented regime where
+callers flag CIs.
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ import math
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import _criteria as C
 import numpy as np
@@ -130,19 +133,24 @@ def test_tu_block_ci_coverage_under_attack(
 
 
 @pytest.mark.parametrize("suite", SUITES)
-def test_gene_level_bootstrap_undercovers(tolerances: dict[str, object], suite: str) -> None:
-    """Teeth: resampling genes (each gene its own 'TU') ignores intra-TU correlation."""
-    r, seed, k = _settings(tolerances, suite)
-    rng = for_step(f"attack.bootstrap.naive_gene.{suite}", seed)
-    covered = 0
-    for _ in range(r):
-        d = _clustered(rng, 30, 5, 15, 0.9)
-        ci = tu_block_bootstrap(d, "gene", _mean, B=B, rng=rng)
-        covered += ci.ci_low <= 0.0 <= ci.ci_high
-    cov = covered / r
-    bound = _lower_bound(expected_percentile_coverage(30), r, k)
-    print(f"gene-level bootstrap on few_large_tus: coverage {cov:.3f} (TU-block bound {bound:.3f})")
-    assert cov < bound, f"gene-level coverage {cov:.3f} not below {bound:.3f}: attack has no teeth"
+def test_gene_level_bootstrap_undercovers(
+    tolerances: dict[str, object], suite: str, teeth_log: Path
+) -> None:
+    """Teeth: resampling genes (each gene its own 'TU') ignores intra-TU correlation; through
+    ``calibrate`` it is a confirmed ``fail`` (both blocks, PR #69 decision 3)."""
+    r, _, _ = _settings(tolerances, suite)
+    c = expected_percentile_coverage(30)
+
+    def missed(rng: np.random.Generator) -> float:
+        ci = tu_block_bootstrap(_clustered(rng, 30, 5, 15, 0.9), "gene", _mean, B=B, rng=rng)
+        return 1.0 if ci.ci_low <= 0.0 <= ci.ci_high else 0.0
+
+    rec = C.calibrate(
+        "regions", "level", 1.0 - c, missed, r, stream="regions.attack_bootstrap.naive_gene",
+        log_dir=teeth_log,
+    )  # fmt: skip
+    print(f"gene-level bootstrap on few_large_tus: {rec}")
+    assert rec["status"] == "fail", f"gene-level bootstrap not a confirmed fail: {rec}"
 
 
 @pytest.mark.calibration

@@ -21,18 +21,20 @@ above level while staying inside the assumptions in docs/methods/permutation-and
 The AR(1) and heavy-ties attacks simulate ``REPLICONS`` independent replicons per replicate, so
 their level check also counts R * REPLICONS independent p-values.
 
-Criterion (§8.4 level): for alpha in ``levels``, rejection rate <= alpha + k sqrt(alpha(1-alpha)/M),
-M independent p-values. R = ``replicates_fast.regions`` (marker ``calibration``) or
-``replicates_full.regions`` (``calibration_full``); seed ``seeds.calibration_base``. Attacks with
-one p per replicate (``ONE_P``) are gated by ``_criteria.calibrate`` (ADR-0015 two-block
-confirmation, sharding; stream ``regions.attack_permutation.<attack>``); the pooled ones keep
-their own check over M (calibrate takes one scalar per replicate).
+Criterion (§8.4 level): for alpha in ``levels``, rejection rate <= alpha + k sqrt(alpha(1-alpha)/N),
+N independent p-values. R = ``replicates_fast.regions`` (marker ``calibration``) or
+``replicates_full.regions`` (``calibration_full``). Every attack is gated by ``_criteria.calibrate``
+(ADR-0015 two-block confirmation, sharding; stream ``regions.attack_permutation.<attack>``):
+``ONE_P`` attacks with their p (N = R); the pooled ones with each replicate's rejection share and
+``m = POOLED_M[attack]`` (N = R m, PR #69 lead decision 1).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 
+import _criteria as C
 import numpy as np
 import pytest
 from _gate import calibrate_levels
@@ -138,10 +140,18 @@ ATTACKS: dict[str, Replicate] = {
     "besag_clifford_ties": _bc_ties,
 }
 
-#: attacks with one p per replicate. The others pool CONTIGS / REPLICONS independent p per
-#: replicate (M = R x CONTIGS p-values per check); ``calibrate`` takes one scalar per replicate
-#: with R = the suite's R (shard ranges), so they keep their own level check over M.
-ONE_P = frozenset({"besag_clifford_ties"})
+#: p-values per replicate: 1 for ``besag_clifford_ties``; the others pool CONTIGS / REPLICONS
+#: independent p, gated with ``calibrate(..., m=M)`` on each replicate's rejection share
+#: (bound ``level_bound(alpha, R M)``, PR #69 lead decision 1).
+POOLED_M: dict[str, int] = {
+    "ar1_circular_exhaustive": REPLICONS,
+    "ar1_circular_sampled": REPLICONS,
+    "tiny_circular_n10": CONTIGS,
+    "tiny_circular_n20": CONTIGS,
+    "tiny_linear_n12": CONTIGS,
+    "heavy_ties": REPLICONS,
+}
+ONE_P = frozenset(ATTACKS) - frozenset(POOLED_M)
 
 
 def _one_p(rep: Replicate) -> Callable[[np.random.Generator], float]:
@@ -149,6 +159,17 @@ def _one_p(rep: Replicate) -> Callable[[np.random.Generator], float]:
         (p,) = rep(rng)
         assert np.isfinite(p) and 0 < p <= 1, p
         return float(p)
+
+    return fn
+
+
+def _shares(rep: Replicate, m: int, levels: list[float]) -> Replicate:
+    """Rejection share #{p <= alpha} / m of one replicate's m pooled p-values, per alpha."""
+
+    def fn(rng: np.random.Generator) -> np.ndarray:
+        p = rep(rng)
+        assert p.size == m and np.isfinite(p).all() and ((p > 0) & (p <= 1)).all(), p
+        return np.array([np.count_nonzero(p <= a) / m for a in levels])
 
     return fn
 
@@ -170,36 +191,37 @@ def _settings(tolerances: dict[str, object], suite: str) -> tuple[list[float], i
 @pytest.mark.parametrize("suite", SUITES)
 @pytest.mark.parametrize("attack", sorted(ATTACKS))
 def test_attack_stays_at_level(tolerances: dict[str, object], attack: str, suite: str) -> None:
-    levels, r, seed, k = _settings(tolerances, suite)
-    if attack in ONE_P:  # one p per replicate: gated by calibrate (ADR-0015, sharding)
-        stream = f"regions.attack_permutation.{attack}"
+    levels, r, _, _ = _settings(tolerances, suite)
+    stream = f"regions.attack_permutation.{attack}"
+    if attack in ONE_P:
         fn = _one_p(ATTACKS[attack])
         calibrate_levels("regions", "level", levels, fn, r, stream=stream).assert_ok()
         return
-    rng = for_step(f"attack.permutation.{attack}.{suite}", seed)
-    p = np.concatenate([ATTACKS[attack](rng) for _ in range(r)])
-    assert np.isfinite(p).all() and ((p > 0) & (p <= 1)).all()
-    m = p.size
-    for a in levels:
-        rate = float((p <= a).mean())
-        bound = a + k * np.sqrt(a * (1 - a) / m)
-        assert rate <= bound, f"{attack} alpha={a}: rate {rate:.4f} > bound {bound:.4f}, M={m}"
+    m = POOLED_M[attack]
+    fn = _shares(ATTACKS[attack], m, levels)
+    calibrate_levels("regions", "level", levels, fn, r, stream=stream, m=m).assert_ok()
 
 
 @pytest.mark.parametrize("suite", SUITES)
-def test_naive_permutation_is_anticonservative(tolerances: dict[str, object], suite: str) -> None:
-    """Teeth check: gene-label permutation on the AR(1) attack data is far above level."""
-    _, r, seed, k = _settings(tolerances, suite)
-    rng = for_step(f"attack.permutation.naive_ar1.{suite}", seed)
-    n, w, a = 1000, 20, 0.05
-    p = np.empty(r)
-    for i in range(r):
+def test_naive_permutation_is_anticonservative(
+    tolerances: dict[str, object], suite: str, teeth_log: Path
+) -> None:
+    """Teeth: gene-label permutation on the AR(1) attack data is a confirmed ``fail`` at alpha =
+    0.05 through ``calibrate`` (both blocks, PR #69 decision 3)."""
+    _, r, _, _ = _settings(tolerances, suite)
+    n, w = 1000, 20
+
+    def naive_p(rng: np.random.Generator) -> float:
         x = _circular_ar1(rng, n)
         idx = (int(rng.integers(0, n)) + np.arange(w)) % n
         null = np.array([x[rng.choice(n, w, replace=False)].sum() for _ in range(199)])
-        p[i] = perm_p(float(x[idx].sum()), null)
-    rate = float((p <= a).mean())
-    assert rate > a + k * np.sqrt(a * (1 - a) / r), f"naive permutation rate {rate:.3f} at level"
+        return perm_p(float(x[idx].sum()), null)
+
+    rec = C.calibrate(
+        "regions", "level", 0.05, naive_p, r, stream="regions.attack_permutation.naive_ar1",
+        log_dir=teeth_log,
+    )  # fmt: skip
+    assert rec["status"] == "fail", f"naive permutation not a confirmed fail: {rec}"
 
 
 @pytest.mark.parametrize("suite", SUITES)

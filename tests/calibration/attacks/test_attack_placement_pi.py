@@ -27,13 +27,15 @@ searched peptides times (D + 1).
 R is ``replicates_fast.placement`` (marker ``calibration``) or ``replicates_full.placement``
 (``calibration_full``); seed ``seeds.calibration_base``; k = ``se_multiplier``. The at-level gates
 go through ``_criteria.calibrate`` (ADR-0015 two-block confirmation, sharding; stream
-``placement.attack_pi.<scenario>``); the power check keeps its single-stream estimate.
+``placement.attack_pi.<scenario>``); the power check must be a confirmed ``fail`` there too (stream
+``placement.attack_pi.rejected.<rule>``, PR #69 decision 3).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -170,26 +172,6 @@ def _settings(tolerances: dict[str, object], suite: str) -> tuple[list[float], i
     return levels, int(reps["placement"]), int(seeds["calibration_base"]), k
 
 
-def _fdp(
-    tolerances: dict[str, object],
-    suite: str,
-    scenario: str,
-    salt: int,
-    q_of: Callable[[Replicate], np.ndarray],
-) -> tuple[np.ndarray, np.ndarray, list[float], float]:
-    levels, r, seed, k = _settings(tolerances, suite)
-    rng = np.random.default_rng([seed, 310, salt])
-    fdp = np.zeros((r, len(levels)))
-    for i in range(r):
-        rep = _replicate(rng, SCENARIOS[scenario])
-        q = q_of(rep)
-        for j, a in enumerate(levels):
-            called = ~np.isnan(q) & (q <= a)
-            n = int(called.sum())
-            fdp[i, j] = (rep.wrong & called).sum() / n if n else 0.0
-    return fdp.mean(axis=0), fdp.std(axis=0, ddof=1) / np.sqrt(r), levels, k
-
-
 SUITES = [
     pytest.param("replicates_fast", marks=pytest.mark.calibration, id="fast"),
     pytest.param("replicates_full", marks=pytest.mark.calibration_full, id="full"),
@@ -226,13 +208,12 @@ def test_attack_signed_rule_stays_at_level(
 @pytest.mark.parametrize("suite", SUITES)
 @pytest.mark.parametrize("rule", ["mean_over_targets", "mean_over_searched"])
 def test_attack_has_power_against_rejected_rules(
-    tolerances: dict[str, object], rule: str, suite: str
+    tolerances: dict[str, object], rule: str, suite: str, teeth_log: Path
 ) -> None:
-    """The attack detects the rejected rules: both exceed q + k SE at q = 0.01 and 0.05."""
-    mean, se, levels, k = _fdp(
-        tolerances, suite, "two_bins_corr", 99, lambda rep: _q_rejected(rep, rule)
-    )
-    for j, a in enumerate(levels[:2]):
-        assert mean[j] > a + k * se[j], (
-            f"{rule} q={a}: mean FDP {mean[j]:.4f} not above {a} + {k}*{se[j]:.4f}"
-        )
+    """Teeth: the rejected rules are a confirmed ``fail`` (both blocks, ADR-0015) through
+    ``calibrate`` at q = 0.01 and 0.05 (PR #69 decision 3)."""
+    levels, r, _, _ = _settings(tolerances, suite)
+    fdp = _replicate_fdp("two_bins_corr", levels, lambda rep: _q_rejected(rep, rule))
+    stream = f"placement.attack_pi.rejected.{rule}"
+    gate = calibrate_levels("placement", "fdr", levels, fdp, r, stream=stream, log_dir=teeth_log)
+    assert [rec["status"] for rec in gate.records[:2]] == ["fail", "fail"], gate.detail()

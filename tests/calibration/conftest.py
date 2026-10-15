@@ -31,6 +31,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "test_chance_hits.py": "placement",
         "test_criteria.py": "regions",
         "test_criteria_review.py": "regions",
+        "test_criteria_pooled.py": "regions",
         "test_denovo_precision_calibration.py": "denovo_precision",
         "test_engine_calibration.py": "regions",
         "test_engine_calibration.py::test_bh_fdr": "gene_fdr",
@@ -49,7 +50,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "attacks/test_attack_calibration_harness.py::test_fdr_check_passes_exact_level_bh": (
             "gene_fdr"
         ),
-        "attacks/test_attack_calibration_harness.py::test_fdr_check_flags_bh_at_one_and_a_half_q": (
+        "attacks/test_attack_calibration_harness.py::test_fdr_check_flags_inflated_bh": (
             "gene_fdr"
         ),
         "attacks/test_attack_chance_hits.py": "placement",
@@ -74,6 +75,16 @@ def pytest_configure(config: pytest.Config) -> None:
 def full(request: pytest.FixtureRequest) -> bool:
     """True under ``-m calibration_full`` (the test carries the marker)."""
     return request.node.get_closest_marker("calibration_full") is not None
+
+
+@pytest.fixture
+def teeth_log(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """Log dir for teeth tests (PR #69 decision 3): an anti-conservative procedure must be a
+    confirmed ``fail`` through ``calibrate``, so it runs unsharded (both blocks, whatever
+    ``--shard`` / ``--merge`` set) and logs to a private directory, never the nightly suite log."""
+    for var in (C.SHARD_ENV, C.BLOCK_ENV, C.CONFIRM_ENV):
+        monkeypatch.delenv(var, raising=False)
+    return tmp_path
 
 
 def item_suite(item: pytest.Function) -> str | None:

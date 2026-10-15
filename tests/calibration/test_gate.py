@@ -84,3 +84,28 @@ def test_wrong_vector_length_refused(tmp_path: Path) -> None:
             "regions", "level", LEVELS, lambda g: np.array([0.5, 0.5]), R, stream="t.gate.len",
             log_dir=tmp_path,
         )  # fmt: skip
+
+
+def test_block_one_seconds_kept_when_a_level_goes_to_block_two(tmp_path: Path) -> None:
+    """PR #69 decision 2: the simulation time of block 1 survives a level that needs block 2."""
+    import time
+
+    def fn(rng: np.random.Generator) -> float:
+        time.sleep(0.002)
+        rng.uniform()
+        return 0.0  # every level fails block 1 and runs block 2
+
+    gate = calibrate_levels(
+        "regions", "level", LEVELS, fn, R, stream="t.gate.time", log_dir=tmp_path
+    )
+    assert all(r["block"] == 2 for r in gate.records)
+    assert gate.block_seconds[1] >= R * 0.002
+    assert gate.block_seconds[2] >= R * 0.002
+
+
+def test_block_seconds_single_block(tmp_path: Path) -> None:
+    gate = calibrate_levels(
+        "regions", "level", LEVELS, lambda g: 0.5 + 0.5 * g.uniform(), R, stream="t.gate.t1",
+        log_dir=tmp_path,
+    )  # fmt: skip
+    assert set(gate.block_seconds) == {1} and gate.block_seconds[1] > 0.0
