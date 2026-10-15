@@ -1,0 +1,6 @@
+tu_id	contig	contig_length	topology	strand	tu_start	tu_end	region_start	region_end	start_codon
+TU_00007	chr1	100000	circular	-	13193	13823	13773	13901	13822
+TU_00019	chr1	100000	circular	+	29159	29798	29061	29209	29159
+TU_00020	chr1	100000	circular	+	29917	30646	29798	29967	29917
+TU_00029	chr1	100000	circular	-	41361	42279	42229	42331	42278
+TU_00059	plasmid_1	8000	circular	-	192	3070	3020	3370	3069

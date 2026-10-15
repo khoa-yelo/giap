@@ -100,3 +100,24 @@ Rules:
    `annotation.regions.genomad_plasmid_min_score` (ADR, default change).
 3. CRISPR region bounds with `cas` genes. **Proposed default:** the interval is extended to cover the
    listed `cas` genes, so membership (≥ 50 %) includes them.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted: every geNOMAD plasmid row counts (M2-index decision 6
+   overrides Q2's 0.7); CRISPR cas genes within 1 kb of the array, region genes = ≥ 50 % members;
+   prophage gene descriptions from geNOMAD only on identical intervals; the step reads the single
+   top-level antiSMASH JSON and warns `layer_missing:genomad`/`layer_missing:antismash`; parquet columns
+   include the `Region`/`RegionGene` fields.
+2. Test files carry the `regions_` prefix (M4-17 owns `tests/unit/context/test_regions*.py`).
+
+## Lead decisions after code review (PR #91, changes requested)
+3. CRISPR cas-gene search is origin-aware on circular replicons: the gap is the circular distance
+   between the array and the gene (also for origin-crossing arrays); region extents stay in one frame
+   (unwrapped `end > length` per §6.5). Tests for both review examples.
+4. Nissle has THREE plasmids (CP171243.1 4.5 kb, CP171244.1 pMUT1, CP171245.1 pMUT2; chromosome
+   CP171242.1) — the circular-replicon recording (bakta_full_circ, M2-10 lead decision 1) is correct and
+   gives 3 plasmid regions; the linear recording typed CP171243.1 as `contig` only for lack of topology
+   tags. The contract test uses the circular recording (falls back to skip if missing).
+5. Contract C7 (src/giap/genetable/contract.py) gains optional `genes` and `notes` columns (no
+   `extra_column` warning on real regions tables).
+6. Tests kill the surviving mutants: the step with an AMR gene (`expert`); AMR rows in FASTA contig
+   order (contig names that sort differently); `cas` as a prefix (`re.match`).
