@@ -126,7 +126,7 @@ workflow ANNOTATE {
     } else if (ann.promoter_calculator.enabled) {
         def regions = inDir(O, 'tu_upstream')
         PROMOTER_CALCULATOR(regions.map { f -> [f.baseName, f] })
-        def tx = stepIn('tx_layer', [kv('pc', byName(PROMOTER_CALCULATOR.out.csv.collect(sort: true))), tus])
+        def tx = stepIn('tx_layer', [kv('pc', byName(PROMOTER_CALCULATOR.out.csv.collect(sort: true))), tus, reps])
         TX_LAYER(tx.files, tx.keys, ['tx_rates=tx_rates.parquet'])
         layers += [kv('tx_rates', pick(TX_LAYER.out.outputs, 'tx_rates.parquet'))]
     }

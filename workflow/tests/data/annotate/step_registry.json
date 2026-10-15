@@ -210,6 +210,17 @@
       "genes_coords"
     ]
   },
+  "tx_layer": {
+    "inputs": [
+      "pc",
+      "replicons",
+      "tus"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "tx_rates"
+    ]
+  },
   "uniop_input": {
     "inputs": [
       "genes",
