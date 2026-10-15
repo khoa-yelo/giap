@@ -14,6 +14,8 @@ process PROMOTER_CALCULATOR {
     script:
     """
     promoter-calculator -i ${region} -o ${meta_id}.csv -j 1
+    # no promoter in the region: the tool writes no CSV ("No promotors found."); emit its real header
+    [ -e ${meta_id}.csv ] || printf '%s\\r\\n' 'promoter_sequence,TSS,UP,hex35,spacer,hex10,disc,ITR,dG_total,dG_10,dG_35,dG_disc,dG_ITR,dG_ext10,dG_spacer,dG_bind,dG_UP,Tx_rate,UP_position,hex35_position,spacer_position,hex10_position,disc_position,fraction,strand,drop,length' > ${meta_id}.csv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -23,7 +25,7 @@ process PROMOTER_CALCULATOR {
 
     stub:
     """
-    printf 'TSS,strand,Tx_rate\\n' > ${meta_id}.csv
+    printf 'promoter_sequence,TSS,UP,hex35,spacer,hex10,disc,ITR,dG_total,dG_10,dG_35,dG_disc,dG_ITR,dG_ext10,dG_spacer,dG_bind,dG_UP,Tx_rate,UP_position,hex35_position,spacer_position,hex10_position,disc_position,fraction,strand,drop,length\\n' > ${meta_id}.csv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

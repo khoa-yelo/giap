@@ -28,7 +28,7 @@ process GENOMAD {
     mkdir -p genomad/genome_summary && cd genomad/genome_summary
     printf 'seq_name\\tlength\\ttopology\\tcoordinates\\tn_genes\\tgenetic_code\\tvirus_score\\tfdr\\tn_hallmarks\\tmarker_enrichment\\ttaxonomy\\n' > genome_virus_summary.tsv
     printf 'seq_name\\tlength\\ttopology\\tn_genes\\tgenetic_code\\tplasmid_score\\tfdr\\tn_hallmarks\\tmarker_enrichment\\tconjugation_genes\\tamr_genes\\n' > genome_plasmid_summary.tsv
-    printf 'gene\\tstart\\tend\\tlength\\tstrand\\tgc_content\\tgenetic_code\\trbs_motif\\tmarker\\tevalue\\tbitscore\\tvirus_hallmark\\ttaxname\\n' > genome_virus_genes.tsv
+    printf 'gene\\tstart\\tend\\tlength\\tstrand\\tgc_content\\tgenetic_code\\trbs_motif\\tmarker\\tevalue\\tbitscore\\tuscg\\tplasmid_hallmark\\tvirus_hallmark\\ttaxid\\ttaxname\\tannotation_conjscan\\tannotation_amr\\tannotation_accessions\\tannotation_description\\n' > genome_virus_genes.tsv
     cd -
 
     cat <<-END_VERSIONS > versions.yml

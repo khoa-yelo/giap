@@ -30,7 +30,7 @@ process PROMOTECH {
     stub:
     """
     mkdir ${meta_id}
-    printf 'sequence,score\\n' > ${meta_id}/sequence_predictions.csv
+    printf 'CHROM\\tSEQ\\tPRED\\n' > ${meta_id}/sequences_predictions.csv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
