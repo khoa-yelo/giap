@@ -59,19 +59,54 @@ def write_prodigal_gff(
     return id_map
 
 
-def parse_uniop_pred(path: Path, id_map: Mapping[str, str]) -> list[PairProb]:
-    """Parse ``uniop.pred`` (header row; first two columns gene IDs, probability column ``p`` or
-    the last column) into locus-tag pairs in file order. An unknown ID raises ``ValueError``."""
+UNIOP_TITLE = "operon prediction scores"
+UNIOP_HEADER = ["Gene A", "Gene B", "Prediction"]
+
+
+def uniop_gene_order(gff: Path) -> list[tuple[str, str, str]]:
+    """``(ID, contig, strand)`` of every GFF gene in UniOP's order: stable sort by start."""
+    rows: list[tuple[int, str, str, str]] = []
+    with open_text(gff) as fh:
+        for ln in fh.read().splitlines():
+            if ln and not ln.startswith("#"):
+                f = ln.split("\t")
+                rows.append((int(f[3]), f[8].split(";")[0].removeprefix("ID="), f[0], f[6]))
+    return [(i, c, s) for _, i, c, s in sorted(rows, key=lambda r: r[0])]
+
+
+def parse_uniop_pred(path: Path, gff: Path, id_map: Mapping[str, str]) -> list[PairProb]:
+    """Parse UniOP's ``uniop.pred`` (pin 3ed14dfc) into locus-tag pairs in row order.
+
+    Title ``operon prediction scores``, header ``Gene A/Gene B/Prediction``, rows ``k  k+1  p`` of
+    1-based row numbers into UniOP's gene order (:func:`uniop_gene_order` of ``gff``, the exact
+    input UniOP ran on). Row ``k`` pairs sorted gene ``k`` with the next gene on its contig; empty
+    probabilities are skipped. An empty file or title + header only gives ``[]``. ``ValueError``
+    on a missing title/header, a row number outside the gene list, a probability without a
+    same-contig same-strand partner, or a GFF ID absent from ``id_map``.
+    """
     with open_text(path) as fh:
-        rows = [ln.split() for ln in fh.read().splitlines() if ln.strip()]
-    if not rows:
+        lines = [ln for ln in fh.read().splitlines() if ln.strip()]
+    if not lines:
         return []
-    header, body = rows[0], rows[1:]
-    col = header.index("p") if "p" in header else len(header) - 1
+    if lines[0].strip() != UNIOP_TITLE or len(lines) < 2:
+        raise ValueError(f"{path}: not a UniOP prediction file (title {UNIOP_TITLE!r} missing)")
+    if [c.strip() for c in lines[1].split("\t")] != UNIOP_HEADER:
+        raise ValueError(f"{path}: unexpected UniOP header {lines[1]!r}")
+    order = uniop_gene_order(gff)
     out: list[PairProb] = []
-    for r in body:
-        missing = [x for x in r[:2] if x not in id_map]
+    for ln in lines[2:]:
+        cells = ln.split("\t")
+        if len(cells) < 3 or not cells[2].strip():
+            continue
+        k = int(cells[0])
+        if not 1 <= k <= len(order):
+            raise ValueError(f"{path}: row number {k} outside the {len(order)} input genes")
+        a_id, contig, strand = order[k - 1]
+        nxt = next((g for g in order[k:] if g[1] == contig), None)
+        if nxt is None or nxt[2] != strand:
+            raise ValueError(f"{path}: row {k} ({a_id}) has no same-strand partner on {contig}")
+        missing = [x for x in (a_id, nxt[0]) if x not in id_map]
         if missing:
             raise ValueError(f"{path}: UniOP gene ID {missing[0]!r} not in the input map")
-        out.append(PairProb(id_map[r[0]], id_map[r[1]], float(r[col]), "uniop"))
+        out.append(PairProb(id_map[a_id], id_map[nxt[0]], float(cells[2]), "uniop"))
     return out

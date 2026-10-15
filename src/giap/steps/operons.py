@@ -2,14 +2,16 @@
 ``operon_pairs``.
 
 ``uniop_input`` writes the Prodigal-style GFF and its ID map; the external ``uniop`` step runs
-UniOP (never imported, ADR-0008). ``operon_pairs`` merges ``uniop.pred`` with the distance model
-(parameters from ``calibration.yaml``), builds TUs and their upstream FASTAs. With
+UniOP (never imported, ADR-0008). ``operon_pairs`` merges ``uniop.pred`` (row numbers resolved
+through ``uniop_cds``) with the distance model (parameters from ``calibration.yaml``), builds TUs
+and their upstream FASTAs and records the pair source in ``operon_meta.json``. With
 ``annotation.precomputed.operon_pairs`` the layer is read directly and its ``source`` kept.
 Work-directory tables are 0-based half-open; ``tus.parquet`` ``genes`` is a native list column.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pyarrow as pa  # type: ignore[import-untyped]
@@ -92,14 +94,15 @@ def _uniop_pairs(ctx: StepContext, reps: dict[str, Replicon]) -> list[PairProb] 
     if pred is None:
         return None
     _, rows = read_tsv(_path(ctx.inputs["uniop_map"]))
-    return parse_uniop_pred(_path(pred), {str(r[0]): str(r[1]) for r in rows})
+    id_map = {str(r[0]): str(r[1]) for r in rows}
+    return parse_uniop_pred(_path(pred), _path(ctx.inputs["uniop_cds"]), id_map)
 
 
 @step(
     "operon_pairs",
-    inputs=["genes", "uniop_map", "replicons", "genome"],
+    inputs=["genes", "uniop_map", "uniop_cds", "replicons", "genome"],
     optional_inputs=["uniop_pred"],
-    outputs=["pairs_raw", "tus", "tu_upstream"],
+    outputs=["pairs_raw", "tus", "tu_upstream", "operon_meta"],
 )
 def operon_pairs(ctx: StepContext) -> None:
     """UniOP / distance-model pairs, TUs (threshold ``annotation.uniop.pair_threshold``)."""
@@ -108,8 +111,15 @@ def operon_pairs(ctx: StepContext) -> None:
     model = calibration.load()["operon_distance"]
     uniop = _uniop_pairs(ctx, reps)
     pairs, flags = build_pairs(genes, reps, uniop, float(model["d0"]), float(model["s"]))
-    if DISTANCE_FLAG in flags:
-        ctx.log.warning("operon_pairs: no UniOP output; run flag %s", DISTANCE_FLAG)
+    if ctx.cfg.annotation.precomputed.operon_pairs is not None:
+        meta = {"operon_source": "precomputed", "reason": "annotation.precomputed.operon_pairs"}
+    elif DISTANCE_FLAG in flags:
+        why = "no uniop.pred" if "uniop_pred" not in ctx.inputs else "uniop.pred has no pair"
+        meta = {"operon_source": "distance_model", "reason": f"UniOP failed ({why})"}
+        ctx.log.warning("operon_pairs: %s; distance model used, run flag %s", why, DISTANCE_FLAG)
+    else:
+        meta = {"operon_source": "uniop", "reason": "UniOP probabilities (pin 3ed14dfc)"}
+    ctx.outputs["operon_meta"].write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n")
     ann = ctx.cfg.annotation
     up_bp = (ann.tu_upstream_bp[0], ann.tu_upstream_bp[1])
     tus = build_tus(genes, pairs, ann.uniop.pair_threshold, reps, up_bp)

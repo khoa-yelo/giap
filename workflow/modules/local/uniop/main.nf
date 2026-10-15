@@ -14,6 +14,7 @@ process UNIOP {
     script:
     """
     UNIOP_HOME=\${UNIOP_HOME:-\$CONDA_PREFIX/share/uniop}
+    mkdir -p out
     python \$UNIOP_HOME/src/UniOP -f ${gff} --gff_source prodigal_gff -t out
     cp out/*.pred uniop.pred
 
@@ -25,7 +26,7 @@ process UNIOP {
 
     stub:
     """
-    printf 'gene_a\\tgene_b\\tp\\n' > uniop.pred
+    printf 'operon prediction scores\\nGene A\\tGene B\\tPrediction\\n' > uniop.pred
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
