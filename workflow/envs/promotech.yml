@@ -2,7 +2,6 @@
 # Source cloned at commit 56251ad9b883ef831b4753fc623d5ec970fe65e0 (ADR-0008) into
 # $CONDA_PREFIX/share/promotech. TensorFlow 2.1.0 is not on conda-forge, so it comes from its PyPI
 # cp36 wheel (§17 fallback); versions of the other packages follow upstream promotech_env.yml.
-# pyqt: promotech.py imports PyQt5 at module level (GUI only; headless runs just need the import).
 name: giap-promotech
 channels: [conda-forge, bioconda]
 dependencies:
@@ -21,7 +20,6 @@ dependencies:
   - scikit-bio=0.5.6
   - bedtools=2.29.2
   - pybedtools=0.8.1
-  - pyqt=5.12.3
   - pip:
     - tensorflow==2.1.0
     - protobuf==3.19.6
