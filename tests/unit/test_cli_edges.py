@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tools; decision 3)
 
 from giap.exitcodes import ExitCode
 

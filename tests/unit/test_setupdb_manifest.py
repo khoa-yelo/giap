@@ -25,6 +25,7 @@ import jsonschema
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tools; decision 3)
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / "src" / "giap" / "schemas" / "db_manifest.schema.json"

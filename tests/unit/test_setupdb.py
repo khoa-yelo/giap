@@ -21,16 +21,20 @@ Ambiguities resolved here (the implementation may choose anything else the spec 
 
 from __future__ import annotations
 
+import dataclasses
+import hashlib
 import io
 import json
 import re
 import shutil
+import tarfile
 import zipfile
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, NamedTuple
 
 import pytest
+from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tools; decision 3)
 
 from giap.exitcodes import ExitCode
 
@@ -132,9 +136,59 @@ class ZipFetcher:
 
 class DownFetcher:
     def fetch(self, url: str, dest: Path) -> None:
+        from urllib.parse import urlparse
+
         from giap.setupdb import SourceError
 
-        raise SourceError("www.cs.mun.ca", "connection refused")
+        raise SourceError(urlparse(url).hostname or url, "connection refused")
+
+
+def _tar(members: Sequence[tuple[str, bytes]], links: Sequence[tuple[str, str]] = ()) -> bytes:
+    """A gzipped tarball with the given regular files and symlinks (names kept verbatim)."""
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for name, data in members:
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+        for name, target in links:
+            info = tarfile.TarInfo(name)
+            info.type = tarfile.SYMTYPE
+            info.linkname = target
+            tar.addfile(info)
+    return buf.getvalue()
+
+
+GENOMAD_TAR = _tar([("genomad_db/version.txt", b"1.9\n"), ("genomad_db/genomad_db", b"mmseqs")])
+
+
+def md5(payload: bytes) -> str:
+    return "md5:" + hashlib.md5(payload).hexdigest()
+
+
+def pin(monkeypatch: pytest.MonkeyPatch, name: str, payload: bytes) -> Any:
+    """Re-pin ``SOURCES[name]`` to the checksum of a fake archive (same algorithm as the pin)."""
+    import giap.setupdb
+    import giap.setupdb.items
+    import giap.setupdb.run
+    from giap.setupdb import SOURCES
+
+    algo = SOURCES[name].checksum.split(":", 1)[0]
+    item = dataclasses.replace(
+        SOURCES[name], checksum=f"{algo}:{hashlib.new(algo, payload).hexdigest()}"
+    )
+    patched = {**SOURCES, name: item}
+    for mod in (giap.setupdb, giap.setupdb.items, giap.setupdb.run):
+        if hasattr(mod, "SOURCES"):
+            monkeypatch.setattr(mod, "SOURCES", patched)
+    return item
+
+
+@pytest.fixture
+def genomad_fetcher(monkeypatch: pytest.MonkeyPatch) -> ZipFetcher:
+    """geNOMAD is an HTTPS fetch of the pinned Zenodo tarball (decision 1); fake one re-pinned."""
+    pin(monkeypatch, "genomad", GENOMAD_TAR)
+    return ZipFetcher(GENOMAD_TAR)
 
 
 # ---------------------------------------------------------------- helpers
@@ -230,7 +284,7 @@ def test_sources_are_the_official_pinned_ones() -> None:
     assert SOURCES["bakta_light"].path == "bakta/db-light"
     assert SOURCES["bakta_full"].path == "bakta/db"
     assert SOURCES["genomad"].host == "zenodo.org" and "14886553" in SOURCES["genomad"].url
-    assert SOURCES["genomad"].tool == "genomad" and SOURCES["genomad"].version == "1.9"
+    assert SOURCES["genomad"].tool is None and SOURCES["genomad"].version == "1.9"  # decision 1
     assert SOURCES["promotech_models"].host == "www.cs.mun.ca"
     assert "/~lourdes/public/PromoTech_models/" in SOURCES["promotech_models"].url
     assert SOURCES["promotech_models"].tool is None
@@ -391,19 +445,21 @@ def test_example7_nothing_planned_leaves_manifest_unchanged(tmp_path: Path) -> N
     assert (tmp_path / "db_manifest.json").read_bytes() == before
 
 
-def test_example8_two_setups_merge_sorted(tmp_path: Path) -> None:
+def test_example8_two_setups_merge_sorted(tmp_path: Path, genomad_fetcher: ZipFetcher) -> None:
     assert setup(tmp_path, FakeRunner(), bakta="light") == 0
-    assert setup(tmp_path, FakeRunner(), bakta="skip", genomad=True) == 0
+    assert setup(tmp_path, NoRunner(), genomad_fetcher, bakta="skip", genomad=True) == 0
     names = [i["name"] for i in manifest(tmp_path)["items"]]
     assert names == sorted(names) and {"bakta_light", "genomad"} <= set(names)
     assert all(i["status"] == "ok" for i in manifest(tmp_path)["items"])
 
 
-def test_genomad_downloader_command(tmp_path: Path) -> None:
-    runner = FakeRunner()
-    assert setup(tmp_path, runner, bakta="skip", genomad=True) == 0
-    [(tool, argv)] = runner.calls
-    assert tool == "genomad" and "download-database" in argv
+def test_genomad_is_fetched_from_zenodo_not_by_its_downloader(
+    tmp_path: Path, genomad_fetcher: ZipFetcher
+) -> None:
+    """Decision 1: no ``genomad download-database`` (portal.nersc.gov, unchecked)."""
+    assert setup(tmp_path, NoRunner(), genomad_fetcher, bakta="skip", genomad=True) == 0
+    assert genomad_fetcher.urls == [_source_url("genomad")]
+    assert "zenodo.org/records/14886553/" in genomad_fetcher.urls[0]
     assert items(tmp_path)["genomad"]["version"] == "1.9"
     assert stray(tmp_path) == []
 
@@ -411,17 +467,19 @@ def test_genomad_downloader_command(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- idempotence, R6
 
 
-def test_second_identical_run_is_a_noop(tmp_path: Path) -> None:
-    assert setup(tmp_path, FakeRunner(), bakta="light", genomad=True) == 0
+def test_second_identical_run_is_a_noop(tmp_path: Path, genomad_fetcher: ZipFetcher) -> None:
+    assert setup(tmp_path, FakeRunner(), genomad_fetcher, bakta="light", genomad=True) == 0
     before = (tmp_path / "db_manifest.json").read_bytes()
     assert setup(tmp_path, NoRunner(), NoFetcher(), bakta="light", genomad=True) == 0
     assert (tmp_path / "db_manifest.json").read_bytes() == before
 
 
-def test_same_setup_in_two_dirs_gives_identical_manifests(tmp_path: Path) -> None:
+def test_same_setup_in_two_dirs_gives_identical_manifests(
+    tmp_path: Path, genomad_fetcher: ZipFetcher
+) -> None:
     a, b = tmp_path / "a", tmp_path / "b"
     for d in (a, b):
-        assert setup(d, FakeRunner(), bakta="light", genomad=True) == 0
+        assert setup(d, FakeRunner(), genomad_fetcher, bakta="light", genomad=True) == 0
     assert (a / "db_manifest.json").read_bytes() == (b / "db_manifest.json").read_bytes()
 
 
@@ -439,16 +497,13 @@ def test_unreachable_item_blocks_only_itself(
     assert stray(tmp_path) == []
 
 
-def test_failing_item_does_not_stop_later_items(tmp_path: Path) -> None:
-    calls: list[str] = []
-
-    class Mixed:
-        def run(self, tool: str, argv: Sequence[str]) -> int:
-            calls.append(tool)
-            return (FakeRunner(exit_code=1) if tool == "bakta" else FakeRunner()).run(tool, argv)
-
-    assert setup(tmp_path, Mixed(), bakta="light", genomad=True) == 2
-    assert set(calls) == {"bakta", "genomad"}
+def test_failing_item_does_not_stop_later_items(
+    tmp_path: Path, genomad_fetcher: ZipFetcher
+) -> None:
+    runner = FakeRunner(exit_code=1)
+    assert setup(tmp_path, runner, genomad_fetcher, bakta="light", genomad=True) == 2
+    assert [tool for tool, _ in runner.calls] == ["bakta"]
+    assert genomad_fetcher.urls == [_source_url("genomad")]
     assert items(tmp_path)["genomad"]["status"] == "ok"
 
 
@@ -463,7 +518,7 @@ def test_install_skips_verified_item(tmp_path: Path) -> None:
 def test_install_returns_absent_with_host_on_failure(tmp_path: Path) -> None:
     from giap.setupdb import SOURCES, install
 
-    rec = install(SOURCES["genomad"], tmp_path, FakeRunner(exit_code=1), NoFetcher())
+    rec = install(SOURCES["genomad"], tmp_path, NoRunner(), DownFetcher())
     assert rec.status == "absent" and "zenodo.org" in rec.message
     assert not (tmp_path / src_path("genomad")).exists() and stray(tmp_path) == []
 
@@ -474,9 +529,9 @@ def test_install_returns_absent_with_host_on_failure(tmp_path: Path) -> None:
 PREFETCH = (
     "item\tsource\tfile\tchecksum\tverified\tdate\n"
     "genomad_db\thttps://zenodo.org/records/14886553/files/genomad_db_v1.9.tar.gz?download=1\t"
-    f"genomad_db_v1.9.tar.gz\t{GENOMAD_MD5}\tzenodo md5\t2026-10-15T01:08:26Z\n"
+    f"genomad_db_v1.9.tar.gz\t{GENOMAD_MD5}\tzenodo md5\t2025-03-02T01:08:26Z\n"
     "genome_k12_mg1655\thttps://ftp.ncbi.nlm.nih.gov/x.fna.gz\tx.fna.gz\tmd5:"
-    "7e69874199f23fd21b060dc0b2b72321\tncbi md5checksums.txt\t2026-10-15T01:09:52Z\n"
+    "7e69874199f23fd21b060dc0b2b72321\tncbi md5checksums.txt\t2025-03-02T01:09:52Z\n"
 )
 
 
@@ -487,7 +542,7 @@ def test_prefetched_item_adopted_with_its_logged_provenance(tmp_path: Path) -> N
     rec = items(tmp_path)["genomad"]
     assert rec["status"] == "ok" and rec["version"] == "1.9"
     assert rec["checksum"] == GENOMAD_MD5
-    assert rec["retrieved"] == "2026-10-15", "retrieval date comes from the prefetch log"
+    assert rec["retrieved"] == "2025-03-02", "retrieval date comes from the prefetch log"
     assert (tmp_path / "prefetch_manifest.tsv").read_text() == PREFETCH, "prefetch log untouched"
 
 

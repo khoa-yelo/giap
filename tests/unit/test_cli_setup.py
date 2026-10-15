@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
+from setup_guard import setup_guard  # noqa: F401  (autouse: no network, no tools; decision 3)
 
 from giap.cli import cli
 
