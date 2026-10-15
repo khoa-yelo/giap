@@ -1,0 +1,7 @@
+name: bakta
+description: Bakta genome annotation (GIAP_SPEC.md §7.1.1).
+tools:
+  - bakta:
+      licence: ["GPL-3.0"]
+      notes: Runs as a separate process from envs/bakta.yml or its containers.config pin (R5).
+apptainer: none needed

@@ -1,0 +1,7 @@
+name: ostir
+description: OSTIR RBS strength (§7.1.1).
+tools:
+  - ostir:
+      licence: ["GPL-3.0"]
+      notes: Runs as a separate process from envs/ostir.yml or its containers.config pin (R5).
+apptainer: conda only until a GHCR image exists

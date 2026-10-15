@@ -1,0 +1,7 @@
+name: antismash
+description: antiSMASH biosynthetic gene clusters [bgc] (§7.1.1).
+tools:
+  - antismash:
+      licence: ["AGPL-3.0"]
+      notes: Runs as a separate process from envs/antismash.yml or its containers.config pin (R5).
+apptainer: writable HOME if the image writes caches (--containall); record here when seen
