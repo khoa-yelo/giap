@@ -98,7 +98,8 @@ def write_mapping_outputs(outdir: Path, peptide_hits: pd.DataFrame, protein_hits
 
 ## Lead decisions after code review (PR #68, changes requested)
 1. Origin-crossing frameshift placements: every `match_part` child (and any feature) whose unwrapped start
-   is ≥ L is shifted by −L; a child spanning the origin is split like other origin-crossing features.
+   is ≥ L is shifted by −L; a child spanning the origin stays one feature with end > L (§6.5 GFF3
+   convention), like other origin-crossing GFF3 features.
    GFF3 writing never fails on valid placements. Test incl. L=10000, start=9990, end=10027,
    blocks "9990-10008;10009-10027".
 2. δ = −1 frameshifts: the parent `match` carries `frameshift_reread=<1-based genome position>` (the base
