@@ -5,7 +5,12 @@ check), §7.2.7 (genome relation labels) and §9.4 (placement and gene flags), f
 docs/specs/M3-14-loci-and-assignment.md and its lead decisions:
 
 * classes in priority order ``rna_overlap`` > ``pseudogene`` > ``sorf`` > ``cds_inframe`` >
-  ``nterm_extension`` > ``cds_outframe`` > ``antisense`` > ``intergenic``;
+  ``nterm_extension`` > ``cterm_extension`` > ``cds_outframe`` > ``antisense`` > ``intergenic``;
+* ``cterm_extension`` (ADR-0013): same strand, in frame with a CDS/sORF, overlapping it and
+  running past its annotated stop (3' end), also across the origin; assigned to that gene;
+  ``cds_outframe`` only when no in-frame relation exists;
+* ``multi_identical`` only when every gene has the same non-empty ``aa``;
+* an unknown contig raises ``ValueError`` naming it;
 * all comparisons on unwrapped intervals: on a circular replicon the hit is shifted by +-L when it
   and the feature lie on opposite sides of the origin;
 * ``multi`` is a placement flag on every row of a peptide whose loci have different classes;
@@ -48,6 +53,7 @@ LocusClass = Literal[
     "sorf",
     "cds_inframe",
     "nterm_extension",
+    "cterm_extension",
     "cds_outframe",
     "antisense",
     "intergenic",
@@ -59,7 +65,7 @@ LOCUS_CLASSES: tuple[str, ...] = get_args(LocusClass)
 _RNA_TYPES = frozenset({"rrna", "trna", "tmrna", "ncrna"})
 _PLUS_STOPS = frozenset({"TAA", "TAG", "TGA"})  # table 11
 _MINUS_STOPS = frozenset({"TTA", "CTA", "TCA"})  # reverse complements, read on the plus string
-_ASSIGNING = frozenset({"cds_inframe", "sorf", "nterm_extension", "pseudogene"})
+_ASSIGNING = frozenset({"cds_inframe", "sorf", "nterm_extension", "cterm_extension", "pseudogene"})
 FLAG_SEP = ";"
 _DEFAULT_DECOY_PREFIXES: tuple[str, ...] = tuple(InputConfig().decoy_prefixes)
 _DEFAULT_CONTAMINANT_PREFIXES: tuple[str, ...] = tuple(InputConfig().contaminant_prefixes)
@@ -72,12 +78,16 @@ def _shifts(rep: Replicon) -> tuple[int, ...]:
     return (0, rep.length, -rep.length) if rep.topology == "circular" else (0,)
 
 
-def _overlap_shift(s: int, e: int, fs: int, fe: int, shifts: tuple[int, ...]) -> int | None:
-    """First shift ``d`` with ``[s + d, e + d)`` overlapping ``[fs, fe)``; None if none."""
+def _cterm(s: int, e: int, g: Interval, shifts: tuple[int, ...]) -> bool:
+    """True if ``[s, e)`` (shifted) overlaps ``g`` in frame and runs past its 3' end."""
+    fs, fe = g.start, g.end
     for d in shifts:
-        if max(s + d, fs) < min(e + d, fe):
-            return d
-    return None
+        a, b = s + d, e + d
+        if max(a, fs) >= min(b, fe) or not _in_frame(a, b, g):
+            continue
+        if (g.strand == "+" and b > fe) or (g.strand == "-" and a < fs):
+            return True
+    return False
 
 
 def _inside_shift(s: int, e: int, fs: int, fe: int, shifts: tuple[int, ...]) -> int | None:
@@ -232,12 +242,15 @@ def _classify(
     genome: Mapping[str, str],
     index: _Index,
 ) -> tuple[LocusClass, str | None]:
-    rep = gm.replicons[contig]
+    rep = gm.replicons.get(contig)
+    if rep is None:
+        raise ValueError(f"unknown contig {contig!r}: not a replicon of the gene model")
     shifts = _shifts(rep)
     items = gm.overlapping(Interval(contig, s, e, strand))  # type: ignore[arg-type]
     pseudo: list[str] = []
     sorf: list[str] = []
     inframe: list[str] = []
+    cterm: list[str] = []
     same_strand = False
     antisense = False
     for x in items:
@@ -257,6 +270,8 @@ def _classify(
         d = _inside_shift(s, e, fi.start, fi.end, shifts)
         if d is not None and _in_frame(s + d, e + d, fi):
             (sorf if x.feature_type == "sorf" else inframe).append(x.locus_tag)
+        elif _cterm(s, e, fi, shifts):
+            cterm.append(x.locus_tag)
     if pseudo:
         return "pseudogene", min(pseudo)
     if sorf:
@@ -271,6 +286,8 @@ def _classify(
             tag = fn(s, e, rep, seq, up)
             if tag is not None:
                 return "nterm_extension", tag
+    if cterm:
+        return "cterm_extension", min(cterm)
     if same_strand:
         return "cds_outframe", None
     if antisense:
@@ -303,6 +320,12 @@ def _engine_ids(
 ) -> frozenset[str]:
     prefixes = (*decoy_prefixes, *contaminant_prefixes)
     return frozenset(p for p in _split_flags(x) if not p.startswith(prefixes))
+
+
+def _identical_aa(gm: GeneModel, tags: Sequence[str | None]) -> bool:
+    """All genes have the same, non-empty protein sequence."""
+    aas = {gm.by_locus(t).aa for t in tags if t is not None}
+    return len(aas) == 1 and "" not in aas
 
 
 _OUT_COLUMNS = ("locus_class", "gene", "uniqueness", "flags", "novel_candidate_id")
@@ -365,9 +388,7 @@ def annotate_peptide_hits(
         u: Uniqueness
         if len(units) == 1:
             u = "unique"
-        elif all(genes[i] is not None for i in idx) and (
-            len({gm.by_locus(genes[i]).aa for i in idx}) == 1  # type: ignore[arg-type]
-        ):
+        elif all(genes[i] is not None for i in idx) and _identical_aa(gm, [genes[i] for i in idx]):
             u = "multi_identical"
         else:
             u = "shared"
