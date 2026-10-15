@@ -44,3 +44,55 @@ promotech_models:
   check: promotech
   size_gib: 5
   prefetch: promotech_rf_hot
+# M2-09 resources: single files fetched over HTTPS (check: go / kegg:<table> / sha256 / fasta:<n>).
+# GO: newest monthly release whose OBO headers announce the release date of its directory
+# (2026-06-19 and 2026-08-05 announce 2026-06-15 and 2026-07-26); sha256 pins retrieved 2026-10-15.
+go_basic:
+  version: "2026-05-19"
+  url: https://purl.obolibrary.org/obo/go/releases/2026-05-19/go-basic.obo
+  checksum: sha256:923645000afcb1df0e72e252b64950b1c2bcc98c9393fec8c1dd1a0f7c9d4d77
+  path: go/go-basic.obo
+  tool: null
+  check: go
+goslim_generic:
+  version: "2026-05-19"
+  url: https://purl.obolibrary.org/obo/go/releases/2026-05-19/subsets/goslim_generic.obo
+  checksum: sha256:dfc49ced033f5f047a9729a2b434e7a70b0c395ba61f950d138beff769555a26
+  path: go/goslim_generic.obo
+  tool: null
+  check: go
+kegg_ko_pathway:                                     # KEGG REST: unversioned, academic use (NOTICE.md)
+  version: ""                                        # recorded: retrieval date and sha256 of the bytes
+  url: https://rest.kegg.jp/link/pathway/ko
+  checksum: ""
+  path: kegg/ko_pathway.tsv
+  tool: null
+  check: kegg:links
+kegg_pathway_names:
+  version: ""
+  url: https://rest.kegg.jp/list/pathway
+  checksum: ""
+  path: kegg/pathway_names.tsv
+  tool: null
+  check: kegg:names
+cog2020_def:
+  version: "2020"
+  url: https://ftp.ncbi.nlm.nih.gov/pub/COG/COG2020/data/cog-20.def.tab
+  checksum: sha256:00e93e42f38f6ada46ef6be5da4a8518829300ea29f2888261660de0ca2f7e77
+  path: cog/cog-20.def.tab
+  tool: null
+  check: sha256
+cog2020_fun:
+  version: "2020"
+  url: https://ftp.ncbi.nlm.nih.gov/pub/COG/COG2020/data/fun-20.tab
+  checksum: sha256:fbdce778220f07a6f9701b2bde07fbcb1d3fca9fa7453fa9ab7021b5da18c4f7
+  path: cog/fun-20.tab
+  tool: null
+  check: sha256
+contaminants:                                        # Frankenfield et al. 2022 universal library; no licence file: downloaded, never vendored
+  version: bddf6da9
+  url: https://raw.githubusercontent.com/HaoGroup-ProtContLib/Protein-Contaminant-Libraries-for-DDA-and-DIA-Proteomics/bddf6da9334f4300caed75f7a87c096dd96b6bca/Universal%20protein%20contaminant%20FASTA/0602_Universal%20Contaminants.fasta
+  checksum: sha256:c0782146be6dad6ecf53e23e5a21a7ed4fea9b4802cb01e8d00091404ec66926
+  path: contaminants/contaminants.fasta
+  tool: null
+  check: fasta:381

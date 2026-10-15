@@ -13,5 +13,5 @@ set -euo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 export TMPDIR="$(mktemp -d /tmp/giap.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
 cd "$GIAP_REPO"
-if [ $# -eq 0 ]; then set -- --bakta full --genomad --promotech-models; fi
+if [ $# -eq 0 ]; then set -- --bakta full --genomad --promotech-models --go --kegg --cog --contaminants; fi
 uv run --no-sync giap setup --db-dir "$GIAP_DB_DIR" "$@"

@@ -57,6 +57,7 @@ def write_manifest(db_dir: Path, records: Sequence[DbRecord]) -> None:
             fh.write(text)
             fh.flush()
             os.fsync(fh.fileno())
+        os.chmod(tmp, 0o644)  # shared DB directory, whatever the umask (M2-09 review 6)
         os.replace(tmp, db_dir / MANIFEST)
     except BaseException:
         with contextlib.suppress(OSError):
