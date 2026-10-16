@@ -294,3 +294,48 @@ def test_atu_missing_region_tu_labels_do_not_change_the_hl_p(seed: int) -> None:
     p_some = rd.pick(some, "prophage_1", "hl_shift", "chr1")["p_value"]
     p_every = rd.pick(every, "prophage_1", "hl_shift", "chr1")["p_value"]
     assert p_some == p_every, (p_some, p_every)
+
+
+# --------------------------------------------------------------------------- A-LIN (review round 4)
+# Decision 16: on a linear replicon the lag autocovariance and V use in-sequence lag pairs only and
+# the shifts never wrap. Neither path is exercised by the circular calibration suites. Statistician
+# runs (1,000 genes, every replicon set to linear, no region effect; local/scratch/review-m4-17/v4,
+# Slurm 1851233 / 1851234), rates among non-NA rows (origin-crossing regions have K = 0 there):
+# rho = 0.5 HL 0.0084 / 0.0496 / 0.0985 (R = 4,000 x 4 types), rho = 0.9 0.0089 / 0.0488 / 0.0957,
+# A2-HL linear 0.0108 / 0.0465 / 0.0968, 4,500 genes 0.0057 / 0.0456 / 0.0937 (R = 400).
+
+
+ALIN_TYPES = ("prophage", "bgc", "crispr")
+
+
+@pytest.mark.parametrize("full", MODES)
+def test_alin_linear_replicon_hl_at_level(full: bool) -> None:
+    """A-LIN (statistician, review round 4): the null layout without origin crossing, every replicon
+    declared linear (non-wrapping shifts, in-sequence lag pairs for gamma and V), AR(1)
+    rho = 0.9. Chromosome HL must stay at level, pooled over the four region types (m = 4)."""
+    from _gate import calibrate_levels
+
+    from giap.rng import for_step
+
+    R = C.replicates("regions", full)
+    n = 4500 if full else 1000
+    levels = list(C.load_tolerances().levels)
+    stream = f"regions.region_tests.attack_linear_{'full' if full else 'fast'}.chr1_pooled.hl_shift"
+
+    def fn(rng: np.random.Generator) -> np.ndarray:
+        lay_cfg = rd.calibration_layout_config(n, origin_crossing=False)
+        t = rd.sim_tables(rng, lay_cfg, {"ar1_rho": 0.9}, "true")
+        seed = int(rng.integers(0, 2**31 - 1))
+        rp = t.replicons.copy()
+        rp["topology"] = "linear"
+        t.replicons = rp
+        res = rd.run_region_tests(
+            t, rd.config(bootstrap=rc.CAL_BOOTSTRAP), for_step("context_stats", seed)
+        )
+        oe = res[(res["contig"] == "chr1") & (res["stat"] == "o_minus_e")]
+        oe = oe[oe["region_type"].isin(ALIN_TYPES)]
+        assert (oe["n_perm"] > 0).all(), "a block region without a non-wrapping shift"
+        return rc.rejection_shares(res, ALIN_TYPES, "hl_shift", "chr1", levels)
+
+    gate = calibrate_levels("regions", "level", levels, fn, R, stream=stream, m=len(ALIN_TYPES))
+    assert not gate.failed, gate.detail()

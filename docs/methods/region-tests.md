@@ -135,6 +135,10 @@ own AMR set, M4-08 AR(1) ρ = 0.5, no region effects, detection from covariates 
   Fast: everything passes (C1 pooled HL at α = 0.01 and A2-mid O − E at α = 0.01 unconfirmed:
   0.02 / 0.0175 and 0.03 / 0.02). `hl_variance_nonpositive` occurred in 3 of 59,000 HL rows in
   full mode (all in the ρ = 0.9 null) and 0 of 7,300 in fast mode.
+- A-LIN (statistician, round 4; `test_alin_linear_replicon_hl_at_level`): no origin crossing, every
+  replicon declared linear, ρ = 0.9, chromosome HL pooled over prophage / BGC / CRISPR (m = 3).
+  Fast (Slurm 1851283, R = 100) 0.0133 / 0.070 / 0.097, full (1851308, R = 1,000)
+  0.0083 / 0.0453 / 0.0993: pass.
 - C3 power (recorded, not gated; BGC O − E, α = 0.05, R = 100): +10 % 0.11, +20 % 0.21,
   +30 % 0.46, +50 % 0.88 (`local/logs/calibration/regions_power.jsonl`).
 
@@ -176,14 +180,19 @@ own AMR set, M4-08 AR(1) ρ = 0.5, no region effects, detection from covariates 
 - **Plasmid copy number** cancels exactly (within-replicon comparisons): results are bitwise identical
   for `plasmid_copy_log2` 0 and log2 20 on the same seed (3 seeds checked), so attack 4 holds by
   construction and is best tested as an invariance, not a calibration stream.
-- **TU labels enter the HL test (amendment 1).** V's design factor Σ_t m_t²/m² comes from the TU
-  labels, so the shift null assumes the labels describe the dependence equally well inside and
-  outside the region. Labels wrong everywhere in the same way do no harm. Labels wrong only inside
-  the region break level; see attack A-TU and review round 3.
+- **TU labels enter only the CIs (amendment 2).** V is built from gene-index lags, so TU-label
+  errors cannot move the HL p (attack A-TU at level). The TU-block bootstrap still uses the labels,
+  so labels that fragment a region's operons narrow that region's CI; the p is unaffected.
+- **V ≤ 0 (decision 16).** The truncated γ is not always positive definite. In 60,000+ chromosome
+  HL rows (ρ up to 0.95, ori–ter cosine up to 2 log2) it never happened; on the 60-gene plasmid at
+  ρ ≥ 0.9 it hits 0.15–0.35 % of rows (lags up to 30 cover half the replicon). Those rows lose
+  their HL p, but level is unaffected: under exhaustive shifts the flag is a function of the whole
+  shift orbit, so the same rows would be NA whichever orbit member was observed.
 
 ## Statistician sign-off
 
-Statistician (M4-17 review, PR #89, 2026-10-15): **changes requested** (not signed).
+Statistician (M4-17 review, PR #89): **signed 2026-10-16** (review round 4 below). Rounds 1–3
+(2026-10-15, changes requested) are kept for the record.
 
 - C1 `crispr`/`hl_shift` fast confirmed fail: **chance**. 20,000 null replicates of the fast scenario
   (Slurm 1849136; same layout, ρ = 0.5, p = p_detect_true) give 0.0083 / 0.048 / 0.096 for that check
@@ -361,3 +370,60 @@ Slurm 1850322, 1850439, 1850446, 1850492). Rates are rejection shares at α = 0.
 
 Everything else is signed: formula, guard, C1, A2-HL, A2-HL-MAR, A2-mid, A2-low, the A4 invariance,
 FDR families and the false-alarm budget.
+
+### Review round 4 (statistician, 2026-10-16): label-free lag V (04fc8f7, 651cf9c) — signed
+
+Scripts and outputs: `local/scratch/review-m4-17/v4/` (rev.py, an.py; Slurm 1851233, 1851234 for the
+side runs, 1851283 / 1851284 for the A-LIN gate). Rates at α = 0.01 / 0.05 / 0.10, 1,000 genes.
+
+1. **Code equals the v3 reference on the same seeds.** `lag_autocovariance`, `hl_variance` and
+   `studentised_hl_null` against `lagv.py` (round-3 seeds, chr1, every shift): 7,000 replicates,
+   27,909 regions (control ρ 0.5 and 0.9, A2-HL, A2-MAR); max |Δγ| 1.1e-14, max relative |ΔT|
+   6.6e-16, identical NaN pattern, identical p in every row (round-3 p reproduced). The prototype
+   double-counts lag n/2 on an even replicon of ≤ 60 genes; the implementation counts it once
+   (correct). Linear γ and V match a naive in-sequence-pair oracle to 7e-15 (400 random replicons,
+   5–90 genes, every non-wrapping shift).
+2. **Linear replicons (decision 16, not in v3): at level.** Every replicon set to linear (rates among
+   rows with a p; regions crossing the origin get K = 0 by design): ρ 0.5 HL
+   0.0084 / 0.0496 / 0.0985 and O − E 0.0084 / 0.046 / 0.098 (R = 4,000 × 4 types); ρ 0.9 HL
+   0.0089 / 0.0488 / 0.0957; A2-HL 0.0108 / 0.0465 / 0.0968; A2-MAR 0.0076 / 0.0465 / 0.0978;
+   4,500 genes 0.0057 / 0.0456 / 0.0937 (R = 400). The linear 60-gene plasmid is conservative
+   (K ≈ 14). New gate **A-LIN** (`test_alin_linear_replicon_hl_at_level`, fast and full; no origin
+   crossing, ρ = 0.9, HL pooled over prophage / BGC / CRISPR, m = 3; the scattered AMR set can span
+   a linear chromosome, K = 0). Fast 0.0133 / 0.070 / 0.097 (bounds 0.0215 / 0.0752 / 0.1346), pass;
+   full (4,500 genes, R = 1,000, Slurm 1851308) 0.0083 / 0.0453 / 0.0993 (bounds
+   0.0136 / 0.0580 / 0.1110), pass; ≈ 57 min per block on one core (shard it in the nightly).
+3. **V ≤ 0 → NA (decision 16): accepted.** Chromosome: 0 of ~60,000 HL rows (circular ρ 0.9 and
+   0.95, R = 4,000 / 2,000; ori–ter cosine of amplitude 1 and 2 log2 at ρ 0.5 / 0.9). 60-gene
+   plasmid: 6 / 4,000 at ρ 0.9, 7 / 2,000 at ρ 0.95, 2 / 2,000 linear ρ 0.9, 0–1 elsewhere — so the
+   implementer's 3 / 59,000 are small-replicon rows. No bias: with exhaustive shifts the flag is
+   decided on the observed set plus every shift, i.e. on the whole orbit, so it is the same whatever
+   orbit member was observed and the p of the remaining rows stays exact (rates among non-NA rows are
+   at level in every scenario above). The cost is lost HL p on a few small replicons at high
+   autocorrelation; fail-closed is right (a silent fallback would need its own calibration).
+4. **Dosage gradient (limitation "Replication dosage").** With a random region position, an ori–ter
+   cosine leaves level intact (1 log2: 0.0097 / 0.049 / 0.102 at ρ 0.5, 0.0106 / 0.049 / 0.092 at
+   ρ 0.9; 2 log2 at ρ 0.9: 0.0105 / 0.052 / 0.100; R = 2,000 / 1,000 × 4 types) and creates no
+   V ≤ 0. The limitation (HL partly measures position) stands as written.
+5. **A-TU 0.0525 at α 0.05 (bound 0.0569, n = 4,000 pooled): at level.** z = 0.7 against 0.05;
+   the same statistic on the unfragmented control gives 0.0516 (R = 2,000 × 4) and 0.046–0.049 at
+   ρ 0.9. A-TU and the control cannot differ for the lag V (labels do not enter it); the gap to
+   round 3 (0.071) is the fix, not chance.
+6. **Fast "unconfirmed" cells: chance, no action.** C1 pooled HL α 0.01: 8 / 400 then 7 / 400
+   (bound 7.98 / 400) against full 0.0085 (n = 4,000) and 0.009–0.010 here (n ≈ 28,000). A2-mid O − E
+   α 0.01: 3 / 100 then 2 / 100 against full 0.005 and round-2 0.009 (R = 6,000). Seeds are fixed,
+   so both cells will keep reporting "unconfirmed" (not a failure) until the replicate streams
+   change.
+7. **False-alarm budget, final gate set** (two-block rule, P(block fails)², every stream at nominal
+   level except A2-mid / A2-low O − E at their measured conservative rates): fast ≈ 0.034 (C1 0.008,
+   plasmid AMR 0.002, A2 0.016, A-TU + A-LIN 0.008), nightly ≈ 0.023 (C1 0.008, AMR 0.006, A2 0.005,
+   A-TU + A-LIN 0.004). Up from round 3 (0.016 / 0.018–0.023) because A2-HL and A2-MAR are no longer
+   conservative under the lag V; nightly is within ≈ 0.04 (ADR-0015). The largest terms are single
+   R = 100 streams at α 0.01 (0.0063 each); backlog suggestion, not a condition: pool A2-HL and
+   A2-HL-MAR at α 0.01 in fast mode.
+8. **Families and outputs (§8.1).** Unchanged: BH within (region_type, stat); every row with a p has
+   a q, an effect and a TU-block 95 % CI on the same scale; NA p (K = 0, empty HL side, V ≤ 0) gets NA
+   q and stays out of BH.
+
+**Sign-off state: signed.** ADR-0018 amendment 2 and decisions 13–16 are implemented as specified;
+every C1, A2, A4, A-TU and A-LIN gate passes. Rounds 1–3 conditions are all met.
