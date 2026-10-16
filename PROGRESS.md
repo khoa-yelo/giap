@@ -4,19 +4,19 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-15 10:45 PDT · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
+_Last updated: 2026-10-15 13:48 PDT · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 61/79 done (77 %), 10 running · generated 2026-10-15 10:45 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 66/79 done (84 %), 5 running · generated 2026-10-15 13:48 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
 | M0 Scaffold | 🟩 | 1 | 0 | 0 |
 | M1 Inputs and preflight | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 12 | 0 | 0 |
-| M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜ 71 % | 15 | 4 | 2 |
+| M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜ 90 % | 19 | 0 | 2 |
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜ 88 % | 21 | 1 | 2 |
-| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜ 57 % | 12 | 5 | 4 |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜ 62 % | 13 | 4 | 4 |
 | M5 Autocorrelation and islands | _not designed yet_ | - | - | - |
 | M6 Operons | _not designed yet_ | - | - | - |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
@@ -43,22 +43,24 @@ M2–M4: designed (docs/specs/M{2,3,4}-index.md); implementation in progress (�
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
-Merged today (since 00:30): M2-09 (#67), M2-13 (#76), M2-15 (#75), M2-16 (#81), M2-18 (#84), M3-16 (#68),
-M3-17 (#77), M3-20 (#66), M3-23 (#79), M4-07 (#62), M4-08 (#71), M4-09 (#80), M4-11 (#74), M4-14 (#82),
-calibration migration (#69), giap run wiring (#78), per-process real-tool job array (#88), CI: size gate
-ADR-0016 (#73), unique test names (#85), waitmerge conflict stop (#90). Run `bash scripts/resume_status.sh`.
-Open PRs (state at 10:45):
-- Merging on green CI: #83 M4-13 detectability (statistician approved), #86 M2-17 codon usage, #93 M2-10
-  recording harness (circular fixtures).
-- In review/fixes: #87 M4-16 detection summary (statistician changes requested; implementer on fixes),
-  #89 M4-17 region tests (statistician reviewing; C1 crispr/hl_shift at α=0.01 borderline), #91 M2-19
-  regions (implementer on fixes), #92 M4-12 detection tiers (statistician reviewing), #94 M2-14 Promoter
-  Calculator (review: tests-only changes requested, decisions recorded; not yet pinned — light mode).
-- Branch m3/mapping-nf-2: MAPPING subworkflow (implementer running).
-Light mode since 10:45 (Khoa): no new token-heavy agents; long Slurm runs queued (when CPUs allow):
-per-process real-tool array on K-12 and Nissle, calibration_full on main, integration tests on main.
-Real `giap run` status: preflight → ANNOTATE with real tools works (Bakta, geNOMAD, TerminatorNet, resume
-caching); it stops at the first step not yet on main (codon_usage → #86).
+Merged since 10:45: M3-17 (#77), M4-13 (#83), M2-17 (#86), M2-10 (#93), M2-19 (#91), M2-14 (#94), waitmerge
+conflict stop (#90), antiSMASH compare ignores set order (#97). Run `bash scripts/resume_status.sh`.
+Real `giap run` on main fa19c16 (Slurm 1849451, sim100k, real DBs; local/scratch/real-run-main): every
+ANNOTATE process completes (Bakta … Promoter Calculator, UniOP, codon usage, regions, tx_layer); stops at
+CONTEXT_LAYERS (`unknown step 'context_layers'` = M2-20, not built yet) → next: M2-20.
+Long runs on main (all green): calibration_full 89/89 (1849366), integration 90 passed (1849367); real
+per-process arrays K-12 (1849282) and Nissle (1849365): all ok after #97/#98.
+Open PRs (state at 13:48):
+- #98 real Promotech/UniOP inputs + recordings for K-12/Nissle: merging on green CI (its backlog entry is
+  removed here).
+- #92 M4-12 detection tiers: fixes in (suite 1849404, calibration 1849405 green; decision 11) → needs the
+  statistician's sign-off.
+- #89 M4-17 region tests: ADR-0018 (accepted-by-khoa) implemented (1186184) but A2-HL calibration still fails
+  (0.144 at α 0.05, R=1000, job 1849427) → statistician to reconcile decision 10 (see spec "Open").
+- #87 M4-16 detection summary: fixes in (lead pushed once with Khoa's approval; test 3/6 → 3/5) → statistician
+  re-check.
+- #96 MAPPING subworkflow (M3-17 follow-up): needs a code review.
+Session mode: Khoa set light mode (≤ 2 agents; token-light, Slurm-heavy work first).
 
 Follow-ups queued (docs/backlog.md has the full list):
 - Per-process real-tool Slurm job array for workflow modules (inputs from recordings) — after #65 (Khoa).
