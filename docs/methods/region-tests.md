@@ -292,7 +292,9 @@ Slurm 1850322, 1850439, 1850446, 1850492). Rates are rejection shares at α = 0.
    Gate: `test_atu_region_specific_tu_fragmentation_hl_at_level`, pooled m = 4 as C1, fast and full.
    Slurm 1850492, fast (R = 100, pooled): 0.015 at α 0.01 (pass); 0.080 then 0.055 at 0.05 and
    0.133 then 0.120 at 0.10 (unconfirmed: R = 100 is too small to confirm a rate near 0.08).
-   Full (R = 1,000, pooled bound 0.0569 at α 0.05): pending.
+   Full (4,500 genes, R = 1,000 per block, pooled m = 4): **confirmed fail at every α**,
+   0.019 / 0.019, 0.071 / 0.072 and 0.130 / 0.126 against bounds 0.0131 / 0.0569 / 0.1095.
+   The full stream costs ≈ 46 min per block on one core.
    **A label-free fix exists (prototype `lagv.py`).** It keeps T = HL/√V but builds V from
    positions instead of labels:
    - V = Var(mean_in − mean_out) = Σ_{in,in} γ/m² + Σ_{out,out} γ/m′² − 2 Σ_{in,out} γ/(m m′);
