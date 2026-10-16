@@ -174,9 +174,9 @@ def test_no_other_feature_types(feats: list[GffFeature]) -> None:
 
 
 def test_gff3_layers_without_optional_inputs(chain: Chain, tmp_path: Path) -> None:
-    """Only genes and TUs when every optional layer is missing."""
+    """Only genes and TUs when every optional layer is missing (`genome` is required, dec. 7)."""
     outs = {"annotation": tmp_path / "annotation", "layers": tmp_path / "layers.parquet"}
-    keep = {k: chain.inputs[k] for k in ("genes", "replicons", "pairs_raw", "tus")}
+    keep = {k: chain.inputs[k] for k in ("genes", "replicons", "pairs_raw", "tus", "genome")}
     with pytest.MonkeyPatch.context() as mp:
         reg = fresh_steps(mp)
         reg.run_step("context_layers", GiapConfig(seed=1), keep, outs)
