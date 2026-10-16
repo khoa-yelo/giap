@@ -157,3 +157,10 @@ two-peptide and protein-list as `unestimated`, and the calibration evidence (FDP
 11. (lead, after the implementer's fix f297600) A decoy is a contaminant decoy when ANY of its stripped
     protein IDs carries a contaminant prefix (it is then out of the pairing counts); PEP-derived q is used
     only when every accepted q value is missing (mixed input keeps the given q).
+12. (Corrects decision 11's first half — statistician round 2,
+    https://github.com/khoa-yelo/giap/pull/92#issuecomment-6208572257.) A decoy is a contaminant decoy only
+    when ALL its stripped protein IDs carry a contaminant prefix; a mixed decoy (e.g. `rev_P;rev_CON__P`)
+    pairs on its non-contaminant IDs (it is paired when its target P maps, unpaired otherwise). "Any" let
+    contaminant grouping keep the `decoy_picked` tier with FDP 0.012–0.017 at q 0.01 (attack
+    `contaminant_groups` in tests/calibration/attacks/test_detection_tiers_attack_inputs.py). Gates are
+    re-run after the fix (the earlier 1849404/1849405 predate f297600).
