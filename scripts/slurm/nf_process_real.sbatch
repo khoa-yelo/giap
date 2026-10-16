@@ -16,11 +16,20 @@
 #   7 PROMOTER_CALCULATOR  8 UNIOP       (BACTERMFINDER: no env built, not covered)
 # Inputs: $GIAP_ROOT/recordings/bakta_full/<sample> (preflight genome + replicons, Bakta JSON/GBFF);
 # genes.coords, ostir_input.csv and TU regions rebuilt by scripts/dev/record_tools_inputs.py as
-# record_tools.sbatch did; PROMOTECH windows and the UNIOP GFF from tests/data/recorded (sim100k only).
+# record_tools.sbatch did. PROMOTECH windows (promoter_windows step, M2-13) and the UNIOP GFF
+# (uniop_input step, M2-12) are rebuilt by its promotech-windows / uniop subcommands, which run the
+# merged giap steps of this checkout, and compared with $GIAP_ROOT/recordings/{promotech,uniop}/<sample>;
+# sim100k keeps the tests/data/recorded fixtures (their inputs predate the bakta_full sim100k recording).
+# NF_REAL_RECORD=1 (PROMOTECH, UNIOP): with no recording yet, the run itself is saved as the recording
+# (inputs, outputs, command.txt, versions.txt, runtime.txt, SHA256SUMS, .giap-complete); a second
+# run then checks it reproduces. Existing recordings are never touched. PROMOTECH compares only
+# promotech_NNN/sequences_predictions.csv (sequences.log.txt holds elapsed times).
 # Usage (from the repo or worktree root; the code under test is that checkout):
 #   sbatch scripts/slurm/nf_process_real.sbatch [sample]          # default sim100k; all 9 processes
 #   sbatch --array=4 --export=ALL,NF_REAL_JOB=<array job> scripts/slurm/nf_process_real.sbatch
 #       reruns one process (here TRANSTERMHP) into that job's directory, replacing its verdict
+#   sbatch --array=6,8 --export=ALL,NF_REAL_RECORD=1 scripts/slurm/nf_process_real.sbatch k12_mg1655
+#       records PROMOTECH (E. coli: 10 chunks of 100k windows, ~4 min) and UNIOP (~10 s)
 # Each task writes "PROCESS <name>: ok|mismatch|failed (<reason>)" to its log and to
 # $GIAP_ROOT/scratch/nf-process-real/<array job>/verdicts/; summary.txt there lists all of them.
 # Work dirs live under that directory (never node-local /tmp); $GIAP_DB_DIR is only read.
@@ -41,6 +50,7 @@ J="$GIAP_ROOT/scratch/nf-process-real/${NF_REAL_JOB:-${SLURM_ARRAY_JOB_ID:-manua
 T="$J/$t"; rm -rf "$T"; mkdir -p "$T/in" "$T/want" "$J/verdicts" "$T/tmp" && cd "$T" || exit 1
 export TMPDIR="$T/tmp"
 INPUTS="python $REPO/scripts/dev/record_tools_inputs.py"
+GIAP_PY="env PYTHONPATH=$REPO/src $INPUTS"   # subcommands that run this checkout's giap steps
 echo "process=$P sample=$S repo=$REPO ($(git -C "$REPO" rev-parse --short HEAD)) work=$T"
 
 verdict() {
@@ -62,17 +72,34 @@ case "$P" in
     args=(--genome "$PRE/genome.norm.fa" --coords "$T/in/genes.coords"); ln -s "$REC/transtermhp/$S/transtermhp.tt" want/ ;;
   OSTIR) $INPUTS ostir "$B/$S.json" "$T/in/ostir_input.csv" || verdict "failed (record_tools_inputs.py ostir)"
     args=(--csv "$T/in/ostir_input.csv"); ln -s "$REC/ostir/$S/ostir.csv" want/ ;;
-  PROMOTECH) [ "$S" = sim100k ] || verdict "failed (recorded windows exist for sim100k only)"
-    d=$(ls -d "$FIX"/promotech/*/*/ | head -1)
-    args=(--windows "$d/windows_000.fa" --db_dir "$GIAP_DB_DIR")
-    mkdir want/promotech_000; ln -s "$d/sequences_predictions.csv" want/promotech_000/ ;;
+  PROMOTECH) if [ "$S" = sim100k ]; then
+      d=$(ls -d "$FIX"/promotech/*/*/ | head -1)
+      args=(--windows "$d/windows_000.fa" --db_dir "$GIAP_DB_DIR")
+      mkdir want/promotech_000; ln -s "$d/sequences_predictions.csv" want/promotech_000/
+    else
+      $GIAP_PY promotech-windows "$B/$S.json" "$PRE/genome.norm.fa" "$T/in" || verdict "failed (record_tools_inputs.py promotech-windows)"
+      args=(--windows "$T/in/windows/windows_*.fa" --db_dir "$GIAP_DB_DIR")
+      for x in "$REC/promotech/$S"/promotech_*/sequences_predictions.csv; do   # not the timed log
+        [ -f "$x" ] && c=$(basename "$(dirname "$x")") && mkdir "want/$c" && ln -s "$x" "want/$c/"
+      done
+      recdir="$REC/promotech/$S"
+    fi ;;
   PROMOTER_CALCULATOR) $INPUTS regions "$B/$S.json" "$T/in/regions" || verdict "failed (record_tools_inputs.py regions)"
     args=(--regions "$T/in/regions"); want=("$REC/promoter_calculator/$S/csv") ;;
-  UNIOP) [ "$S" = sim100k ] || verdict "failed (recorded UniOP input exists for sim100k only)"
-    d=$(ls -d "$FIX"/uniop/*/sim100k)
-    args=(--gff "$d/uniop_cds.gff"); ln -s "$d/uniop.pred" want/ ;;
+  UNIOP) if [ "$S" = sim100k ]; then
+      d=$(ls -d "$FIX"/uniop/*/sim100k)
+      args=(--gff "$d/uniop_cds.gff"); ln -s "$d/uniop.pred" want/
+    else
+      $GIAP_PY uniop "$B/$S.json" "$PRE/genome.norm.fa" "$T/in" || verdict "failed (record_tools_inputs.py uniop)"
+      args=(--gff "$T/in/uniop_cds.gff")
+      [ -f "$REC/uniop/$S/uniop.pred" ] && ln -s "$REC/uniop/$S/uniop.pred" want/
+      recdir="$REC/uniop/$S"
+    fi ;;
 esac
-[ -e "${want[0]}" ] || verdict "failed (no recording at ${want[0]})"
+recording=0
+if [ -n "${recdir:-}" ] && [ "${NF_REAL_RECORD:-0}" = 1 ] && [ ! -e "$recdir" ]; then recording=1
+elif [ -n "${recdir:-}" ] && [ ! -f "$recdir/.giap-complete" ]; then verdict "failed (no complete recording at $recdir)"
+else [ -n "$(ls -A "${want[0]}")" ] || verdict "failed (no recording at ${want[0]})"; fi
 
 SECONDS=0
 nextflow -log "$T/nextflow.log" run "$REPO/workflow/tests/real/$t.nf" -c "$REPO/workflow/tests/real/real.config" \
@@ -82,6 +109,19 @@ echo "nextflow exit=$rc wall=${SECONDS}s"
 if [ "$rc" -ne 0 ]; then
   err=$(grep -m1 -A1 -E "ERROR ~|Caused by:" "$T/nextflow.log" | tr '\n' ' ' | cut -c1-200)
   verdict "failed (nextflow exit $rc: ${err:-see $T/nextflow.log})"
+fi
+if [ "$recording" = 1 ]; then   # save this run as the recording (inputs, outputs, provenance)
+  rm -rf "$recdir.partial"; mkdir -p "$recdir.partial" && cp -r "$T/in/." "$T/out/." "$recdir.partial/" && rm -rf "$recdir.partial/parse_bakta"
+  { echo "# inputs: record_tools_inputs.py ${t/promotech/promotech-windows} $S.json genome.norm.fa . (giap $(git -C "$REPO" rev-parse --short HEAD))"
+    echo "# nextflow run workflow/tests/real/$t.nf -profile farmshare_local,apptainer; per task (.command.sh):"
+    for c in $(grep -l . "$T"/work/*/*/.command.sh); do sed -n '/^[^#]/p' "$c" | grep -m1 -E "promotech.py|UniOP"; done | sort -u
+  } > "$recdir.partial/command.txt"
+  { cat "$(ls "$T"/work/*/*/versions.yml | head -1)"; envl="$REPO/workflow/envs/locks"; (cd "$envl" && sha256sum "$t".explicit.txt "$t".pip.txt)
+    [ "$t" = promotech ] && echo "RF-HOT.zip $(cat "$GIAP_DB_DIR/promotech/RF-HOT.zip.sha256")"; } > "$recdir.partial/versions.txt"
+  echo "wall_s=$SECONDS cpus=${SLURM_CPUS_PER_TASK:-?} node=$(hostname) job=${SLURM_ARRAY_JOB_ID:-?}_${SLURM_ARRAY_TASK_ID:-?}" > "$recdir.partial/runtime.txt"
+  (cd "$recdir.partial" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+  touch "$recdir.partial/.giap-complete" && mv "$recdir.partial" "$recdir" || verdict "failed (could not save the recording $recdir)"
+  verdict "recorded ($recdir, ${SECONDS}s)"
 fi
 v=$(python "$REPO/scripts/dev/nf_real_compare.py" "$P" "$T/out" "${want[0]}")
 verdict "$v (${SECONDS}s)"
