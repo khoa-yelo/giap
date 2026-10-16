@@ -102,18 +102,33 @@ def tu_folds(tu_ids: Sequence[str], k: int, rng: np.random.Generator) -> dict[st
     return {tus[int(i)]: pos % k for pos, i in enumerate(order)}
 
 
+def _separated(d: Array, p: Array) -> bool:
+    """True if both classes occur and the logits separate them in either direction.
+
+    (Quasi-)complete separation of d by logit(clip(p)): no recalibration MLE (decision 17).
+    """
+    pos = d > 0
+    if not 0 < pos.sum() < pos.size:
+        return False
+    z = logit(np.clip(p, CLIP, 1 - CLIP))
+    zp, zn = z[pos], z[~pos]
+    return bool(zp.min() >= zn.max() or zp.max() <= zn.min())
+
+
 def _recalibration(d: Array, p: Array) -> tuple[float, float, float, float]:
     """Unpenalised MLE (intercept, slope) of d ~ a + b·logit(clip(p)) and their Wald SEs.
 
     SEs come from the inverse observed Fisher information X'WX (W = mu(1 - mu)) at the estimate.
-    All four are NaN if the fit is not identifiable (one class, or constant logits after
-    clipping); the SEs alone if X'WX is singular.
+    All four are NaN if the fit is not identifiable (one class, constant logits after clipping,
+    or separated data: decisions 11 and 17); the SEs alone if X'WX is singular.
     """
     nan = float("nan")
     if not 0 < d.sum() < d.size:
         return nan, nan, nan, nan
     z = logit(np.clip(p, CLIP, 1 - CLIP))
     if np.ptp(z) == 0:  # constant predicted logits: the slope is not identifiable
+        return nan, nan, nan, nan
+    if _separated(d, p):  # no MLE (decision 17): never report the divergent iterate
         return nan, nan, nan, nan
     x = np.column_stack([np.ones_like(z), z])
 
@@ -171,6 +186,7 @@ def calibration_diagnostics(d: npt.ArrayLike, p: npt.ArrayLike, n_bins: int = 10
     ci_s = (s - Z975 * se_s, s + Z975 * se_s)
     rows.append(_row("overall", OVERALL, "calibration_intercept", a, ci_a))
     rows.append(_row("overall", OVERALL, "calibration_slope", s, ci_s))
+    rows.append(_row("overall", OVERALL, "recalibration_separated", float(_separated(dd, pp))))
     rows.append(_row("overall", OVERALL, "n_detected", dd.sum()))
     rows.append(_row("overall", OVERALL, "n_eligible", dd.size))
     return _frame(rows)
