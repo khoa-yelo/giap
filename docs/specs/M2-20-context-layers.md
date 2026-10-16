@@ -95,3 +95,44 @@ tables in `src/giap/schemas/annotation/*.json` (incl. `id_map`, `terminators_cro
    `biosynthetic_gene_cluster` SO:0001411, `CRISPR` SO:0001459).
 2. `uniop_p_prev/next` orientation. **Proposed default:** transcription order (as above); a TU's first
    gene has `uniop_p_prev` = the p to its upstream same-strand neighbour (< threshold) or `NA`.
+
+## Lead decisions after the test-author's 461fa2a (2026-10-16)
+1. Step outputs are `annotation` and `layers` (the keys annotate.nf's CONTEXT_LAYERS uses; the spec's
+   `annotation_dir` is renamed); optional inputs also take `features` and `promoters`.
+2. Precomputed layers (§6.4) arrive as TSVs read through the config; `--modules core` drops prophage/bgc ids
+   from precomputed regions; missing optional layers log a `layer_missing` warning event.
+3. The run publishes OUT/annotation (`local.PUBLISHED`); `terminators_crosscheck.tsv` only when
+   terminator_layer made it; annotation TSV/BED files match the existing writers byte for byte.
+4. `gc_local_dev` (§9.3: 10-kb window GC − genome GC) IS produced here (M4-index line 150; GIAP_SPEC §9.3
+   "Modules 1 and 3") and belongs in LAYER_COLUMNS — the tests from 461fa2a omit it: add a test (window
+   centred on the gene midpoint, circular wrap on circular replicons, edge-truncated on linear ones) before
+   or with the implementation.
+5. annotate.nf must pass `terminators_crosscheck` to CONTEXT_LAYERS (workflow fix, implementer).
+6. Integration example 5 (M3-17) stays xfail until a real run completes past CONTEXT_LAYERS; then re-check.
+7. (lead, after c1ac317) `genome` is a required context_layers input (gc_local_dev needs the sequence);
+   `gene_layers(..., genome=)` keyword (NA without it). "Genome GC" = whole genome, all replicons, N
+   excluded; GC as a fraction, case-insensitive; window [m − 5000, m + 5000) with m = (start + end) // 2,
+   modulo length on circular replicons, a circular replicon shorter than the window counted once; no A/C/G/T
+   in the window → NA; column right after `region_ids`. annotate.nf stages `genome` and
+   `terminators_crosscheck`; step_registry.json and the layers contract (gc_local_dev: optional float) follow.
+
+## Lead decisions after the code review of PR #104 (changes requested)
+8. (blocking) GFF3 IDs are unique per file (§9.5): every ID GIAP writes carries its feature kind as a
+   prefix — `region:<region_id>`, `operon:<tu_id>`, `promoter:<id>`, `terminator:<id>` — while Bakta's own
+   feature IDs are kept as given; a test on sim100k (contig named `plasmid_1`) asserts no duplicate IDs and
+   that Parent= references resolve.
+9. `layer_missing:<layer>` is a structured event (logger `extra={"event": …}`) that reaches
+   OUT/logs/events.jsonl (and the run flags), not only a log line (§9.4, decision 2).
+10. `start_codon` comes from genes.parquet; the RBS layer only adds RBS columns — a missing rbs layer never
+    blanks start_codon.
+11. Tests kill the surviving mutants: `crosses_origin` flag; circular wrap in `_next_same_strand` and in
+    `assign_tus`; both `tu_sources` mutants; the precomputed `tx_rates` exemption in `layer_flags`;
+    pseudogene phase.
+12. GFF3 score for promoters is the tool's own score (Promotech / Promoter Calculator), not the BED score/1000.
+13. Not blocking (backlog): annotate.nf wiring of `tool_dirs` → OUT/annotation/tools/ (§7.1.8); no producer
+    of `id_map` yet, so `--annotation` GFF3/GBFF runs lack `id_map.tsv`. cai/fop NA on sim100k is expected
+    (all genes "hypothetical protein": no ribosomal reference set).
+14. (lead, after the test-author's 5a092ee) Bug found by the new tests: `tu_sources` pairs a TU's genes in
+    transcription order while `pairs_raw` keys are in genome order, so links of − strand TUs are never
+    found. Pairs are looked up in genome order on both strands (reverse the walk for − TUs); pinned by
+    test_tu_sources_*[-].

@@ -1,0 +1,15 @@
+{
+  "name": "id_map",
+  "description": "annotation/id_map.tsv: user annotation IDs mapped to GIAP locus tags (GIAP_SPEC.md §7.1.8; M2-11).",
+  "coordinates": "1-based-closed",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "source_id", "type": "string", "description": "ID in the user GFF3 / GBFF", "constraints": {"required": true}},
+    {"name": "locus_tag", "type": "string", "description": "Matched locus tag; NA when unmatched"},
+    {"name": "contig", "type": "string", "description": "Replicon", "constraints": {"required": true}},
+    {"name": "start", "type": "integer", "description": "Start (1-based)", "constraints": {"required": true, "minimum": 1}},
+    {"name": "end", "type": "integer", "description": "End (closed)", "constraints": {"required": true}},
+    {"name": "strand", "type": "string", "description": "Strand", "constraints": {"required": true, "enum": ["+", "-"]}},
+    {"name": "match", "type": "string", "description": "Match kind", "constraints": {"required": true, "enum": ["identical", "unmatched"]}}
+  ]
+}

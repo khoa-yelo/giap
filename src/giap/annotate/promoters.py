@@ -249,6 +249,13 @@ def promoters_bed(
     window_scores: pd.DataFrame, replicons: Mapping[str, Replicon], yes: float = 0.5
 ) -> list[BedRecord]:
     """Windows ``>= yes`` merged per contig and strand when overlapping (touching stays apart)."""
+    return [b for b, _ in promoter_records(window_scores, replicons, yes)]
+
+
+def promoter_records(
+    window_scores: pd.DataFrame, replicons: Mapping[str, Replicon], yes: float = 0.5
+) -> list[tuple[BedRecord, float]]:
+    """``promoters_bed`` records paired with the tool's own score (the maximum window score)."""
     keep = window_scores[window_scores["score"] >= yes]
     merged: list[tuple[Interval, float]] = []
     for (contig, strand), sub in keep.groupby(["contig", "strand"], sort=True):
@@ -273,6 +280,6 @@ def promoters_bed(
     order = {cid: i for i, cid in enumerate(replicons)}
     merged.sort(key=lambda m: interval_sort_key(m[0], order))
     return [
-        BedRecord(iv, f"promoter_{i}", round(1000 * float(x)))
+        (BedRecord(iv, f"promoter_{i}", round(1000 * float(x))), float(x))
         for i, (iv, x) in enumerate(merged, start=1)
     ]

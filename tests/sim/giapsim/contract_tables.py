@@ -57,7 +57,8 @@ CONTRACT_TYPES: Mapping[str, tuple[tuple[str, str], ...]] = {
     "layers": (
         ("locus_tag", "str"), ("tu_id", "str"), ("tu_position", "int"), ("tu_size", "int"),
         ("uniop_p_prev", "float"), ("uniop_p_next", "float"), ("region_ids", "list"),
-        *_LAYER_NA, ("start_codon", "str"), *_CODON_NA, ("flags", "list"),
+        ("gc_local_dev", "float?"), *_LAYER_NA, ("start_codon", "str"), *_CODON_NA,
+        ("flags", "list"),
     ),
     "regions": (
         ("region_id", "str"), ("region_type", "str"), ("contig", "str"), ("start", "int"),
@@ -162,7 +163,7 @@ def layers_frame(layout: Layout) -> pd.DataFrame:
         data[name] = pd.Series([na] * n, dtype=pd_dtype)
     data["start_codon"] = genes["start_codon"].tolist()
     data["flags"] = flags
-    cols = CONTRACT_COLUMNS["layers"]
+    cols = REQUIRED_COLUMNS["layers"]
     return pd.DataFrame({c: data[c] for c in cols}, columns=list(cols))
 
 

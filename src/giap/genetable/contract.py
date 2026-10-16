@@ -8,7 +8,8 @@ Contract tables (key: file, producer; invariants checked here):
   ``aa`` NA only for pseudogenes and without a trailing ``*``.
 - C3 ``xrefs``: xrefs.parquet (M2-04); long format, columns only.
 - C5 ``tus``: tus.parquet (M2-12); every C2 gene in exactly one TU.
-- C6 ``layers``: layers.parquet (M2-20); one row per C2 gene; ``tu_id`` agrees with C5.
+- C6 ``layers``: layers.parquet (M2-20); one row per C2 gene; ``tu_id`` agrees with C5;
+  ``gc_local_dev`` optional (M2-20 lead decision 7).
 - C7 ``regions``: regions.parquet (M2-19); AMR rows have NA coordinates.
 - C8 ``region_genes``: region_genes.parquet (M2-19); ``subset`` non-NA iff prophage member.
 - C9 ``peptides``: peptides.norm.parquet (M1-12); one row per peptide; ``protein_ids`` a native
@@ -122,6 +123,7 @@ TABLES: Mapping[str, tuple[Column, ...]] = {
     "layers": (
         _s("locus_tag"), _s("tu_id"), _i("tu_position"), _i("tu_size"),
         _f("uniop_p_prev", True), _f("uniop_p_next", True), _l("region_ids"),
+        Column("gc_local_dev", "float", True, optional=True),
         *(_f(c, True) for c in _LAYER_FLOATS[:2]), _i("n_promoter_windows_tu", True),
         *(_f(c, True) for c in _LAYER_FLOATS[2:4]), _i("tss_distance_bp", True),
         *(_f(c, True) for c in _LAYER_FLOATS[4:]), _i("spacer_bp", True),

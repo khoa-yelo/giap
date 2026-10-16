@@ -9,6 +9,33 @@
       "codon"
     ]
   },
+  "context_layers": {
+    "inputs": [
+      "genes",
+      "genome",
+      "pairs_raw",
+      "replicons",
+      "tus"
+    ],
+    "optional_inputs": [
+      "codon",
+      "features",
+      "id_map",
+      "promoter_windows",
+      "promoters",
+      "rbs",
+      "region_genes",
+      "regions",
+      "terminators",
+      "terminators_crosscheck",
+      "tool_dirs",
+      "tx_rates"
+    ],
+    "outputs": [
+      "annotation",
+      "layers"
+    ]
+  },
   "loci": {
     "inputs": [
       "features",
