@@ -1,7 +1,7 @@
 # Detection tiers and gene-level FDR (M4-12)
 
-Status: statistician review 2026-10-15 (PR #92): statistics approved, sign-off conditional on the
-code changes listed under Sign-off. Code: `src/giap/genetable/detection.py`.
+Status: statistician re-review 2026-10-15 (PR #92, after f297600): PEP-only path approved;
+**changes requested** on the contaminant-decoy rule (lead decision 11), see Sign-off. Code: `src/giap/genetable/detection.py`.
 Spec: GIAP_SPEC.md §2.1 decision 4, §7.3, §7.3.2, §9.3; ADR-0009; docs/specs/M4-12-detection-tiers.md.
 
 ## Tier choice (once per run, from the input)
@@ -21,8 +21,15 @@ gene with the most distinct peptides (a tie leaves the ID unmapped). Protein gro
 contaminant-prefixed IDs are never mapped.
 
 ## Decoy pairing
-The first matching `input.decoy_prefixes` entry is stripped from every member of the decoy's
-`protein_ids`. The decoy pairs when every member maps, and all map to the same gene.
+The longest matching `input.decoy_prefixes` entry is stripped from every member of the decoy's
+`protein_ids`. A decoy with any stripped member carrying an `input.contaminant_prefixes` prefix is
+a contaminant decoy and is neither paired nor unpaired (lead decisions 6, 11). Otherwise the decoy
+pairs when every member maps, and all map to the same gene.
+
+## PEP-only input (lead decision 5)
+When every accepted q-value is missing and PEPs are given, peptide q is the running mean of the
+sorted distinct accepted PEPs (q_i = mean of the PEPs <= PEP_i), and MAYU uses those q for the
+thresholds and sum PEP for F(t). Mixed input keeps the given q (decision 11).
 
 Asymmetry (lead question 1). Decoys pass the same q <= `q_value_max` filter as targets, but targets
 must also be placed on a gene and decoys cannot be. False targets that do not place are lost while
@@ -126,7 +133,53 @@ Reading:
    `coverage_frac`. The FDR curve rows carry no CI (`ci_low`/`ci_high` NA). They are estimates of an
    expectation, as in mayu-gene-fdr.md.
 
+### Statistician re-review after f297600 (Slurm job 1850323 + 1850540; R = 1,000 at 2,000 genes, R = 300 at 4,500)
+Script local/scratch/review-92/exp.py; seeds `SeedSequence([20261015, 92, 1000 pi, n_genes, rep])`.
+Mean FDP +- SE.
+
+PEP-only input (decoys dropped, C9 `q_value` and C11 `best_q_input` NA, PEP kept; tier `mayu` in
+every replicate). Every target peptide passes the q filter, so q = 0.05 / 0.10 are reachable:
+
+| n genes, pi | q = 0.01 | q = 0.05 | q = 0.10 |
+|---|---|---|---|
+| 2,000, 0.01 | 0.00973 +- 0.00009 | 0.04886 +- 0.00018 | 0.05514 +- 0.00018 |
+| 2,000, 0.05 | 0.00965 +- 0.00009 | 0.04926 +- 0.00021 | 0.09831 +- 0.00028 |
+| 4,500, 0.01 | 0.00983 +- 0.00010 | 0.04940 +- 0.00022 | 0.05538 +- 0.00020 |
+| 4,500, 0.05 | 0.00995 +- 0.00011 | 0.04945 +- 0.00025 | 0.09871 +- 0.00035 |
+
+At q <= 0.05 it equals the `mayu_pep` claim (giapsim q is the running mean of PEP, so the derived
+q reproduces it on the accepted prefix). At q = 0.10 and pi 0.05 it is the first gene-FDR claim of
+M4-12 that is informative at 0.10 (FDP 0.098, at level). Approved.
+
+Contaminant-shared groups (attack; picked input, a share X of the genes has `CON__<g>` /
+`rev_CON__<g>` appended to target / decoy `protein_ids`; targets still place by sequence):
+
+| n genes, pi | X = 0.2, q = 0.01 | X = 0.4, q = 0.01 | X = 0.4, q = 0.05 |
+|---|---|---|---|
+| 2,000, 0.01 | 0.01184 +- 0.00015 | 0.01597 +- 0.00019 | 0.05302 +- 0.00018 |
+| 2,000, 0.05 | 0.01176 +- 0.00015 | 0.01575 +- 0.00019 | 0.05316 +- 0.00020 |
+| 4,500, 0.01 | 0.01199 +- 0.00017 | 0.01621 +- 0.00021 | 0.05348 +- 0.00020 |
+| 4,500, 0.05 | 0.01232 +- 0.00019 | 0.01657 +- 0.00024 | 0.05334 +- 0.00024 |
+
+The tier is `decoy_picked` in every replicate: the mixed decoys leave both counts, so f stays ~1
+while D loses a share X of the gene decoys and FDP ~ q / (1 - X). The rule rewards the input with
+the higher tier exactly when its decoy side is depleted, and nothing bounds X (an organism whose
+proteins overlap the contaminant FASTA, or a contaminant FASTA that carries organism proteins).
+Gated as tests/calibration/attacks/test_detection_tiers_attack_inputs.py (X = 0.3): fast run
+(job 1850411) is a confirmed fail at q = 0.01 (0.0143 / 0.0138 against bound 0.0115) and at
+q = 0.05; the `pep_only` claim of the same file passes at all three levels.
+
 ## Sign-off
+Re-review (2026-10-15, after f297600 and lead decision 11): **changes requested.**
+1. Decision 5 (PEP-only q) is implemented and calibrated (table above); approved.
+2. Decision 11 as implemented ("ANY stripped ID is a contaminant -> out of both counts") is
+   anti-conservative for decoys of mixed groups `rev_P;rev_CON__X`: their targets `P;CON__X`
+   still place on P's gene by sequence, so dropping only the decoy is unaccounted decoy loss.
+   Required: a decoy is a contaminant decoy only when ALL its stripped members carry a contaminant
+   prefix; for mixed decoys drop the contaminant members and pair on the rest (or, at least,
+   count them as unpaired so 1/f and the 80 % guard see them). The attack file above must pass.
+3. Decisions 7-9 verified (longest prefix, `Detection.protein_gene_map`, mutant tests).
+
 Statistician (M4-12 review, 2026-10-15): the gene-level FDR claims (picked with ADR-0009's 1/f, and
 MAYU) are **approved** as calibrated on the evidence above. Sign-off of the module is **conditional**
 on two code fixes, listed in the PR #92 review: (a) PEP-only input reaches the `mayu` tier but
