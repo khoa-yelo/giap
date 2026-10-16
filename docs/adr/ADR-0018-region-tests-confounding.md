@@ -24,7 +24,7 @@ Also §8.1 says "BH within type"; the code (and the test-author) use BH within (
 Region-test p-values change on real data where detectability differs between regions; methods note and
 report text follow. Calibration gates (C1, A2 both directions) verify level under attack 2.
 
-## Amendment 1 (proposed, needs Khoa) — 2026-10-16
+## Amendment 1 (accepted-by-khoa 2026-10-16)
 Statistician review round 2 (https://github.com/khoa-yelo/giap/pull/89#issuecomment-6205786444;
 docs/methods/region-tests.md "Review round 2"; local/scratch/review-m4-17/v2): residualisation (decision 1)
 removes the bias (prophage HL −0.08 log2 vs +0.74 raw) but HL stays anti-conservative because a region's

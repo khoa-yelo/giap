@@ -163,3 +163,7 @@ roughly halves the raw bias (1000 genes 0.24 → 0.11; + (log length)² 0.09). N
 their exp.py residualisation with decision 10 as implemented (covariates, fit set: detected-only vs all,
 per-replicon vs pooled, imputation), then either amend decision 10 or the attack scenario; do not change
 tolerances. Branch is not mergeable until A2-HL passes.
+11. ADR-0018 amendment 1 (accepted-by-khoa 2026-10-16): the HL circular-shift p-value uses the studentised
+    T = HL/√V at every shift (V: per-TU variance estimated once per replicon; formula in
+    docs/methods/region-tests.md "Review round 2"); reported HL effect and CI unchanged. New attack null
+    A2-HL-MAR (detection independent of abundance) gates it too. Resolves the "Open" item above.
