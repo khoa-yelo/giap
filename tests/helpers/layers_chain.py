@@ -16,7 +16,7 @@ sim100k recording):
   area on ``chr1``;
 * ``promoter_windows`` + ``promoter_layer`` (M2-13) with a Promotech ``sequences_predictions.csv``
   in the recorded format (``CHROM<TAB>SEQ<TAB>PRED``, one row per ``w<index>``), scores a fixed
-  function of the index;
+  full-precision function of the index;
 * ``tx_layer`` (M2-14) with Promoter Calculator CSVs in the recorded 27-column format
   (``helpers.promoter_calculator_fixtures.write_pc_csv``), hits for every third TU, header-only
   CSVs (what the tool writes when it finds nothing) for the rest;
@@ -53,6 +53,9 @@ GENOMAD_REC = REC / "genomad" / "1.12.0" / "sim100k" / "genome_summary"
 ANTISMASH_REC = REC / "antismash" / "8.0.4" / "sim100k" / "bakta.json"
 OSTIR_HEADER = (REC / "headers" / "ostir.ostir.csv.txt").read_text().splitlines()[0]
 PROMOTECH_HEADER = "CHROM\tSEQ\tPRED"
+#: Promotech writes full-precision probabilities (e.g. 0.1773268671071446, recorded run); the
+#: fixture scores carry more than the 3 decimals a BED score keeps (lead decision 12).
+PROMOTECH_DENOM = 1_000_003
 TAX = "Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;"
 PROVIRUS_PLASMID = (1_001, 6_000)  # 1-based closed on plasmid_1 (8 000 bp), as geNOMAD writes it
 BGC_AREA = (20_000, 30_000)  # antiSMASH JSON: 0-based half-open on chr1
@@ -194,7 +197,7 @@ def promotech_dir(root: Path, windows: Path) -> Path:
         for rec in recs:
             head, seq = rec.split("\n", 1)
             idx = int(head.strip()[1:])
-            score = ((idx * 7919) % 1000) / 1000.0
+            score = ((idx * 7919) % PROMOTECH_DENOM) / PROMOTECH_DENOM
             lines.append(f"{head.strip()}\t{seq.replace(chr(10), '')}\t{score}")
     (out / "sequences_predictions.csv").write_text("\n".join(lines) + "\n")
     return out

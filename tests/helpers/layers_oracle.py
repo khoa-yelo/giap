@@ -276,6 +276,33 @@ def expected_annotation_files(
     return {p.name: p for p in out.iterdir()}
 
 
+def promoter_record_scores(
+    windows: pd.DataFrame, records: Any, reps: Mapping[str, Replicon], yes: float = 0.5
+) -> dict[str, float]:
+    """BED name -> the tool's own score of a merged ``promoters.bed`` record: the maximum
+    Promotech score of the windows (>= ``yes``, 40 nt, M2-13 window placement) inside it."""
+    from giap.annotate.promoters import WINDOW_NT
+
+    out = {}
+    for r in records:
+        iv = r.interval
+        rep = reps[iv.contig]
+        sub = windows[(windows["contig"] == iv.contig) & (windows["strand"] == iv.strand)]
+        best = -math.inf
+        for p, x in zip(sub["end3p"], sub["score"], strict=True):
+            if x < yes:
+                continue
+            lo = int(p) - WINDOW_NT if iv.strand == "+" else int(p) - 1
+            if rep.topology == "circular":
+                lo %= rep.length
+            shifts = (0, rep.length) if rep.topology == "circular" else (0,)
+            if any(iv.start <= lo + s and lo + s + WINDOW_NT <= iv.end for s in shifts):
+                best = max(best, float(x))
+        assert best > -math.inf, r.name
+        out[r.name] = best
+    return out
+
+
 def isna(x: Any) -> bool:
     return x is None or (isinstance(x, float) and math.isnan(x)) or x is pd.NA
 

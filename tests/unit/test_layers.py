@@ -15,6 +15,8 @@ Pinned where the spec is silent (test author):
   ``gene_promoter_features`` with ``promotech_yes``; M2-14 ``tu_tx_features`` of the gene's TU;
   M2-15 ``terminator_conf_downstream``, checked where the next same-strand gene is a pair
   partner); rbs / codon columns equal the ``rbs`` / ``codon`` rows of the gene (NA without one).
+* ``start_codon`` is the gene table's (``genes.parquet``), with or without an ``rbs`` row or
+  layer (lead decision 10).
 * ``layer_flags(cfg, present)``: ``present`` is the set of ``context_layers`` input keys given;
   result sorted, unique, every item ``layer_missing:<layer>``; ``genomad`` / ``antismash`` follow
   ``cfg.modules`` (``mobile`` / ``bgc``), ``tx_rates`` follows the key (and
@@ -61,7 +63,8 @@ SPEC_COLUMNS = (
     "tir_ostir", "sd_dg", "mrna_dg", "spacing_dg", "standby_dg", "spacer_bp", "start_codon",
     "cai", "tai", "enc", "fop", "gc3", "cpb", "at_2_10", "rare_codons_2_10", "flags",
 )  # fmt: skip
-RBS_COLS = ("tir_ostir", "sd_dg", "mrna_dg", "spacing_dg", "standby_dg", "spacer_bp", "start_codon")
+#: the columns the RBS layer adds; ``start_codon`` comes from genes.parquet (lead decision 10).
+RBS_COLS = ("tir_ostir", "sd_dg", "mrna_dg", "spacing_dg", "standby_dg", "spacer_bp")
 CODON_COLS = ("cai", "tai", "enc", "fop", "gc3", "cpb", "at_2_10", "rare_codons_2_10")
 TX_COLS = ("tx_rate_max_tu", "tx_rate_sum_tu", "tss_distance_bp")
 ALL_KEYS = {
@@ -569,6 +572,20 @@ def test_no_rbs_or_codon_layer_gives_na(chain: Chain) -> None:
     df = call_gene_layers(read_layers_frames(chain, rbs=None, codon=None))
     for c in (*RBS_COLS, *CODON_COLS):
         assert df[c].isna().all(), c
+
+
+@pytest.mark.parametrize("drop_rbs", [False, True])
+def test_start_codon_comes_from_the_gene_table(chain: Chain, drop_rbs: bool) -> None:
+    """Lead decision 10: start_codon is genes.parquet's for every gene — also for genes without
+    an OSTIR row and when the rbs layer is missing; the RBS layer only adds the RBS columns."""
+    frames = read_layers_frames(chain, **({"rbs": None} if drop_rbs else {}))
+    df = call_gene_layers(frames)
+    genes = chain.frame("genes")
+    assert genes["start_codon"].notna().all()
+    want = dict(zip(genes["locus_tag"], genes["start_codon"], strict=True))
+    got = dict(zip(df["locus_tag"], df["start_codon"], strict=True))
+    bad = {t: (got[t], w) for t, w in want.items() if got[t] != w}
+    assert not bad, f"{len(bad)} genes, e.g. {list(bad.items())[:3]}"
 
 
 def test_gene_flags(chain: Chain, layers: pd.DataFrame) -> None:
