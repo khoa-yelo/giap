@@ -119,3 +119,16 @@ def select_queries(peptides: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame: ...
     value), not only a log line. Test.
 15. Tests kill N10 (`loci` uses the resolved queries, so `auto` reaches M3-14's `same_db` mismatch
     check) and M10 (`placed` set).
+
+## Lead decisions after the code review of PR #96 (changes requested)
+15. Decision 14 under Nextflow: the per-task `logs/events.jsonl` written by `giap _step` (placement,
+    loci, any step) is an optional GIAP_STEP output; the workflow collects them and `giap run` appends
+    them to `OUT/logs/events.jsonl` after Nextflow ends (order: task completion as listed in the trace;
+    each event keeps its step name). Test on the run directory, not the task directory.
+16. Integration example 5 is `xfail(strict=False, reason="needs M2-20 context_layers")` until M2-20
+    merges; its backlog line is restored.
+17. Tests kill the surviving mutants: `gene_model` channel order (features vs replicons); main.nf wiring
+    of `proteins_long` and `reference_peptides`; `params.json` contents written by `giap run`
+    (`_NORM_INPUTS` peptides.norm.parquet, proteins_long, contaminants path).
+18. The Groovy contaminants fallback reads the current `giap setup` manifest format (db_manifest.json as
+    written today), tested with that shape.

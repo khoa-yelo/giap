@@ -18,8 +18,10 @@ include { GENOMAD } from '../../modules/local/genomad/main'
 include { ANTISMASH } from '../../modules/local/antismash/main'
 
 // Channels of [key, path | list] → GIAP_STEP inputs: files = [step, paths], keys aligned (key order).
-def stepIn(String step, List chans) {
+// Emits nothing unless every key of `need` arrived (a step gated on an optional input, e.g. proteins).
+def stepIn(String step, List chans, List need = []) {
     chans.inject(channel.empty()) { acc, c -> acc.mix(c) }.toList()
+        .filter { kvs -> kvs.collect { kv -> kv[0] }.containsAll(need) }
         .map { kvs -> kvs.sort { kv -> kv[0] }.collectMany { kv -> (kv[1] instanceof List ? kv[1] : [kv[1]]).collect { f -> [kv[0], f] } } }
         .multiMap { kvs ->
             files: [step, kvs.collect { kv -> kv[1] }]
@@ -126,7 +128,7 @@ workflow ANNOTATE {
     } else if (ann.promoter_calculator.enabled) {
         def regions = inDir(O, 'tu_upstream')
         PROMOTER_CALCULATOR(regions.map { f -> [f.baseName, f] })
-        def tx = stepIn('tx_layer', [kv('pc', byName(PROMOTER_CALCULATOR.out.csv.collect(sort: true))), tus])
+        def tx = stepIn('tx_layer', [kv('pc', byName(PROMOTER_CALCULATOR.out.csv.collect(sort: true))), tus, reps])
         TX_LAYER(tx.files, tx.keys, ['tx_rates=tx_rates.parquet'])
         layers += [kv('tx_rates', pick(TX_LAYER.out.outputs, 'tx_rates.parquet'))]
     }
@@ -195,5 +197,6 @@ workflow ANNOTATE {
     CONTEXT_LAYERS(cl.files, cl.keys, ['layers=layers.parquet', 'annotation=annotation'])
 
     emit:
-    context = CONTEXT_LAYERS.out.outputs
+    context    = CONTEXT_LAYERS.out.outputs
+    gene_model = pick(P, 'genes.parquet').combine(pick(P, 'features.parquet')).combine(pick(P, 'replicons.parquet'))
 }

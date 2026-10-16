@@ -196,11 +196,13 @@ def region_sequence(iv: Interval, seq: str) -> str:
 
 
 def write_tu_regions(outdir: Path, tus: Sequence[Tu], genome: Mapping[str, str]) -> list[Path]:
-    """One ``<tu_id>.fa`` per TU with its upstream region; returns the paths in TU order."""
+    """One ``<tu_id>.fa`` per TU, its upstream region on one line; returns the paths in TU order."""
     outdir.mkdir(parents=True, exist_ok=True)
     paths = []
     for t in tus:
         path = outdir / f"{t.tu_id}.fa"
-        write_fasta(path, [(t.tu_id, region_sequence(t.upstream, genome[t.contig]))])
+        seq = region_sequence(t.upstream, genome[t.contig])
+        # one sequence line (= promoter_calculator.region_fasta_text; §7.1.1 gotcha, M2-14)
+        write_fasta(path, [(t.tu_id, seq)], width=max(len(seq), 1))
         paths.append(path)
     return paths
