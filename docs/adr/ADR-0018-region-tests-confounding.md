@@ -23,3 +23,17 @@ Also §8.1 says "BH within type"; the code (and the test-author) use BH within (
 ## Consequences
 Region-test p-values change on real data where detectability differs between regions; methods note and
 report text follow. Calibration gates (C1, A2 both directions) verify level under attack 2.
+
+## Amendment 1 (proposed, needs Khoa) — 2026-10-16
+Statistician review round 2 (https://github.com/khoa-yelo/giap/pull/89#issuecomment-6205786444;
+docs/methods/region-tests.md "Review round 2"; local/scratch/review-m4-17/v2): residualisation (decision 1)
+removes the bias (prophage HL −0.08 log2 vs +0.74 raw) but HL stays anti-conservative because a region's
+detected-gene count differs from that at shifted positions (≈ 7 vs ≈ 22 of 40), so the raw HL's spread under
+the shift null is wrong; this holds even when detection ignores abundance (new attack null A2-HL-MAR: 0.147 /
+0.151 at α 0.05), and no covariate fit fixes it (oracle correction 0.131).
+
+Decision 1 is extended: the circular-shift p-value is computed from the studentised statistic
+T = HL / √V at every shift, V a per-TU variance estimated once per replicon (formula in the methods note);
+the reported HL effect and CI are unchanged (residual scale). Evidence at α 0.01/0.05/0.10: A2-HL
+0.005/0.019/0.046 (1,000 genes, R 4000) and 0.003/0.021/0.047 (4,500, R 2000); A2-HL-MAR ≤ 0.038 at 0.10;
+C1 pooled at level; power without confounding unchanged (0.166 vs 0.156).
