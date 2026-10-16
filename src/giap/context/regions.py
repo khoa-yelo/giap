@@ -8,8 +8,9 @@ region's index set I is moved to (I + k) mod N for every valid shift k (``circul
 ADR-0018: the O - E test statistic is studentised, sum(d - p) / sqrt(sum p (1 - p)) (the reported
 effect stays O - E), and HL runs on log2 abundance residualised per replicon on the detectability
 covariates (``residualise``; effect, CI and p on the residual scale). ADR-0018 amendment 1: the HL
-p-value comes from T = HL / sqrt(V) at every shift, V a TU-cluster variance whose components are
-estimated once per replicon (``tu_variance_components``, ``hl_variance``, ``studentised_hl_null``).
+p-value comes from T = HL / sqrt(V) at every shift; amendment 2: V is label-free, built from the
+replicon's lag autocovariance of the residuals (``lag_autocovariance``, ``hl_variance``,
+``studentised_hl_null``); V <= 0 gives an NA p flagged ``hl_variance_nonpositive``.
 Pure functions: randomness only from the generator passed in (``for_step("context_stats", seed)``).
 """
 
@@ -30,10 +31,10 @@ from giap.stats.multitest import bh
 from giap.stats.permutation import choose_shifts, circular_shifts, perm_p
 from giap.stats.robust import hodges_lehmann
 
-__all__ = ["COVARIATES", "REGION_TYPES", "RegionTest", "hl_null", "hl_variance",
-           "o_minus_e_null", "replicon_index", "residualise", "studentised_hl_null",
-           "studentised_null", "test_all_regions", "test_region",
-           "tu_variance_components"]  # fmt: skip
+__all__ = ["COVARIATES", "LAG_MAX", "REGION_TYPES", "RegionTest", "hl_null", "hl_variance",
+           "lag_autocovariance", "o_minus_e_null", "replicon_index", "residualise",
+           "studentised_hl_null", "studentised_null", "test_all_regions",
+           "test_region"]  # fmt: skip
 
 #: region types tested here (§7.3.5(b)); ``plasmid`` regions belong to M4-18
 REGION_TYPES = ("prophage", "bgc", "crispr", "amr")
@@ -46,6 +47,8 @@ _ENUM = 64  # HL null: enumerate a shift's candidate differences once at most th
 _CHUNK = 4_000_000  # HL null: shifts per chunk such that K * m * m stays below this
 #: decision 12: residual variance below (V_RTOL * data magnitude)^2 is fit rounding: V counts as 0
 V_RTOL = 1e-7
+#: ADR-0018 amendment 2: largest gene-index lag of the residual autocovariance
+LAG_MAX = 30
 
 F64 = npt.NDArray[np.float64]
 I64 = npt.NDArray[np.int64]
@@ -252,98 +255,134 @@ def _kth(
     return res
 
 
-def _tu_codes(tu: npt.ArrayLike) -> I64:
-    """Integer TU codes; a missing TU label makes the gene its own TU."""
-    codes = np.asarray(pd.factorize(np.asarray(tu, dtype=object).ravel())[0], dtype=np.int64)
-    na = codes < 0
-    codes[na] = codes.max(initial=-1) + 1 + np.arange(int(na.sum()))
-    return codes
-
-
-def tu_variance_components(
-    a: npt.ArrayLike, ok: npt.ArrayLike, tu: npt.ArrayLike
-) -> tuple[float, float]:
-    """ADR-0018 amendment 1: one-way ANOVA moment estimates (sigma_u^2, sigma_e^2) of ``a`` over
-    the genes with ``ok`` and a finite value, grouped by ``tu``. sigma_e^2 = SSE / max(M - n_T, 1);
-    sigma_u^2 = max((SSB / (n_T - 1) - sigma_e^2) / n0, 0), n0 = (M - sum M_t^2 / M) / (n_T - 1);
-    one TU gives sigma_u^2 = 0; no gene gives (NaN, NaN)."""
+def lag_autocovariance(
+    a: npt.ArrayLike, ok: npt.ArrayLike, max_lag: int = LAG_MAX, *, circular: bool = True
+) -> F64:
+    """ADR-0018 amendment 2: gamma(0 ... ``max_lag``), the autocovariance of ``a`` over the genes
+    with ``ok`` and a finite value at gene-index lag h: x = a - mean on those genes, 0 elsewhere;
+    gamma(h) = sum_i x_i x_(i+h) / #{i: both ok} (0 without a pair), i + h taken mod N on a
+    ``circular`` replicon and only inside the sequence on a linear one. Truncated at the first
+    h >= 1 with gamma(h) <= 0 (gamma = 0 from there on). No ok gene: all 0."""
     av = np.asarray(a, dtype=np.float64).ravel()
     okv = np.asarray(ok, dtype=bool).ravel() & np.isfinite(av)
-    m_all = int(okv.sum())
-    if m_all == 0:
-        return math.nan, math.nan
-    tc = np.unique(_tu_codes(tu)[okv], return_inverse=True)[1].ravel()
-    x = av[okv]
-    mt = np.bincount(tc).astype(np.float64)
-    mu = np.bincount(tc, weights=x) / mt
-    nt = int(mt.size)
-    se2 = float(((x - mu[tc]) ** 2).sum()) / max(m_all - nt, 1)
-    if nt < 2:
-        return 0.0, se2
-    ssb = float((mt * (mu - x.mean()) ** 2).sum())
-    n0 = (m_all - float((mt**2).sum()) / m_all) / (nt - 1)
-    return max((ssb / (nt - 1) - se2) / n0, 0.0), se2
+    g = np.zeros(max_lag + 1)
+    if not okv.any():
+        return g
+    x = np.where(okv, av - av[okv].mean(), 0.0)
+    w = okv.astype(np.float64)
+    n = av.size
+    for h in range(max_lag + 1):
+        if circular:
+            num, den = float(x @ np.roll(x, -h)), float(w @ np.roll(w, -h))
+        elif h < n:
+            num, den = float(x[: n - h] @ x[h:]), float(w[: n - h] @ w[h:])
+        else:
+            num, den = 0.0, 0.0
+        g[h] = num / den if den > 0 else 0.0
+    bad = np.flatnonzero(g[1:] <= 0)
+    if bad.size:
+        g[1 + int(bad[0]) :] = 0.0
+    return g
+
+
+def _dist(i: I64, j: I64, n: int, circular: bool) -> I64:
+    d = np.abs(i - j)
+    return np.minimum(d, n - d) if circular else d
 
 
 def hl_variance(
-    ok: npt.ArrayLike,
-    tu: npt.ArrayLike,
-    idx: npt.ArrayLike,
-    shifts: npt.ArrayLike,
-    sigma_u2: float,
-    sigma_e2: float,
+    ok: npt.ArrayLike, idx: npt.ArrayLike, shifts: npt.ArrayLike, gamma: npt.ArrayLike
 ) -> F64:
-    """V_k = sigma_u2 (sum_t m_t^2 / m^2 + sum_t m'_t^2 / m'^2) + sigma_e2 (1/m + 1/m') for every
-    shift k, m_t / m'_t the ``ok`` genes of TU t inside / outside (I + k) mod N and m / m' their
-    totals; NaN if m or m' is 0."""
+    """ADR-0018 amendment 2: V_k = Var(mean_in - mean_out) = S_in,in / m^2 + S_out,out / m'^2
+    - 2 S_in,out / (m m') for every shift k, S_A,B the sum of gamma(d(i, j)) over ``ok`` genes
+    i in A and j in B, d the circular gene-index distance (gamma = 0 beyond its length), A the set
+    (I + k) mod N; NaN if m or m' is 0. No TU label enters V. ``test_region`` uses the linear
+    distance |i - j| on linear replicons (decision 16)."""
+    return _lag_variance(ok, idx, shifts, gamma, True)
+
+
+def _lag_variance(
+    ok: npt.ArrayLike, idx: npt.ArrayLike, shifts: npt.ArrayLike, gamma: npt.ArrayLike,
+    circular: bool,
+) -> F64:  # fmt: skip
+    """``hl_variance`` on a circular or linear replicon."""
     okv = np.asarray(ok, dtype=bool).ravel()
-    tc = _tu_codes(tu)
-    mt = np.bincount(tc[okv], minlength=int(tc.max(initial=0)) + 1).astype(np.float64)
-    m_all, sq_all = float(mt.sum()), float((mt**2).sum())
-    sets = _sets(idx, shifts, okv.size)
-    tset = np.where(okv[sets], tc[sets], -1)
-    out = np.full(tset.shape[0], np.nan)
-    step = max(1, _CHUNK // max(1, tset.shape[1] ** 2))
-    for c in range(0, tset.shape[0], step):
-        ts = tset[c : c + step]
-        m = (ts >= 0).sum(axis=1).astype(np.float64)
-        s_in = ((ts[:, :, None] == ts[:, None, :]) & (ts[:, :, None] >= 0)).sum(axis=(1, 2))
-        cross = np.where(ts >= 0, mt[np.maximum(ts, 0)], 0.0).sum(axis=1)
-        s_out = sq_all - 2.0 * cross + s_in
+    g = np.asarray(gamma, dtype=np.float64).ravel()
+    n, h_max = okv.size, g.size - 1
+    w = okv.astype(np.float64)
+    # c_i = sum_j ok_j gamma(d(i, j)), each offset once (offsets with distance <= h_max)
+    c = np.zeros(n)
+    pos = np.arange(n, dtype=np.int64)
+    lim = min(h_max, n - 1)
+    offs = sorted({o % n for o in range(-lim, lim + 1)}) if circular else range(-lim, lim + 1)
+    for o in offs:
+        dist = min(o, n - o) if circular else abs(o)
+        if dist > h_max or g[dist] == 0.0:
+            continue
+        j = pos + o
+        if circular:
+            c += g[dist] * w[j % n]
+        else:
+            inb = (j >= 0) & (j < n)
+            c[inb] += g[dist] * w[j[inb]]
+    s_all, m_all = float(w @ c), float(w.sum())
+    sets = _sets(idx, shifts, n)
+    out = np.full(sets.shape[0], np.nan)
+    step = max(1, _CHUNK // max(1, sets.shape[1] ** 2))
+    for b in range(0, sets.shape[0], step):
+        st = sets[b : b + step]
+        om = okv[st]
+        m = om.sum(axis=1).astype(np.float64)
+        s_in_all = np.where(om, c[st], 0.0).sum(axis=1)
+        d = _dist(st[:, :, None], st[:, None, :], n, circular)
+        gm = np.where(d <= h_max, g[np.minimum(d, h_max)], 0.0)
+        s_ii = (gm * (om[:, :, None] & om[:, None, :])).sum(axis=(1, 2))
+        s_io, s_oo = s_in_all - s_ii, s_all - 2.0 * s_in_all + s_ii
         mo = m_all - m
         live = (m > 0) & (mo > 0)
         mm, mmo = np.where(live, m, 1.0), np.where(live, mo, 1.0)
-        v = sigma_u2 * (s_in / mm**2 + s_out / mmo**2) + sigma_e2 * (1.0 / mm + 1.0 / mmo)
-        out[c : c + step] = np.where(live, v, np.nan)
+        v = s_ii / mm**2 + s_oo / mmo**2 - 2.0 * s_io / (mm * mmo)
+        out[b : b + step] = np.where(live, v, np.nan)
     return out
+
+
+def _hl_t(
+    a: F64, ok: B8, idx: npt.ArrayLike, shifts: npt.ArrayLike, scale: float | None, circular: bool
+) -> tuple[F64, bool]:
+    """(T per shift, whether some finite V <= 0 occurred with gamma(0) above the guard)."""
+    hl = hl_null(a, ok, idx, shifts)
+    if not ok.any():
+        return hl, False
+    g = lag_autocovariance(a, ok, circular=circular)
+    mag = float(np.abs(a[ok]).max()) if scale is None else scale
+    v = _lag_variance(ok, idx, shifts, g, circular)
+    na = np.isnan(hl) | np.isnan(v)
+    if g[0] <= (V_RTOL * mag) ** 2:  # decision 12 guard: rounding noise, V counts as 0, T = 0
+        return np.where(na, np.nan, 0.0), False
+    nonpos = bool(np.any(v[~na] <= 0.0))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t = np.where(v > 0, hl / np.sqrt(v), np.where(hl == 0, 0.0, np.sign(hl) * np.inf))
+    return np.asarray(np.where(na, np.nan, t), dtype=np.float64), nonpos
 
 
 def studentised_hl_null(
     a: npt.ArrayLike,
     ok: npt.ArrayLike,
-    tu: npt.ArrayLike,
     idx: npt.ArrayLike,
     shifts: npt.ArrayLike,
     *,
     scale: float | None = None,
+    circular: bool = True,
 ) -> F64:
-    """ADR-0018 amendment 1: T_k = HL_k / sqrt(V_k) for every shift k (k = 0 is the observed T),
-    sigma's estimated once from (``a``, ``ok``, ``tu``); NaN where a side is empty. Decision 12:
-    V = 0 gives T = 0, and V counts as 0 when sigma_u^2 + sigma_e^2 <= (V_RTOL * ``scale``)^2,
-    ``scale`` the magnitude of the data before residualisation (default max |a| over ``ok``)."""
+    """ADR-0018 amendment 2: T_k = HL_k / sqrt(V_k) for every shift k (k = 0 is the observed T),
+    gamma estimated once from (``a``, ``ok``) (``lag_autocovariance``), V from ``hl_variance``;
+    NaN where a side is empty. Decision 12: V counts as 0 (T = 0) when gamma(0) <=
+    (V_RTOL * ``scale``)^2, ``scale`` the magnitude of the data before residualisation (default
+    max |a| over ``ok``). V <= 0 otherwise gives T = 0 for HL = 0 and +-inf else; ``test_region``
+    reports such a region's p as NA (decision 16)."""
     av = np.asarray(a, dtype=np.float64).ravel()
     okv = np.asarray(ok, dtype=bool).ravel() & np.isfinite(av)
-    hl = hl_null(av, okv, idx, shifts)
-    if not okv.any():
-        return hl
-    su2, se2 = tu_variance_components(av, okv, tu)
-    mag = float(np.abs(av[okv]).max()) if scale is None else scale
-    v = hl_variance(okv, tu, idx, shifts, su2, se2)
-    if su2 + se2 <= (V_RTOL * mag) ** 2:
-        v = np.where(np.isnan(v), np.nan, 0.0)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        t = np.where(v > 0, hl / np.sqrt(v), 0.0)
-    return np.asarray(np.where(np.isnan(hl) | np.isnan(v), np.nan, t), dtype=np.float64)
+    return _hl_t(av, okv, idx, shifts, scale, circular)[0]
 
 
 def _flags(n_eligible: int, k: int, extra: tuple[str, ...]) -> tuple[str, ...]:
@@ -365,9 +404,11 @@ def test_region(
 ) -> list[RegionTest]:
     """O - E and HL rows of one region on one replicon (``circular`` topology); ``flags`` are
     appended to each row's own flags (e.g. ``split_contigs``)."""
+    on_contig = genes["contig"].astype(str) == contig
+    if genes.loc[on_contig, "tu_id"].isna().any():  # decision 13: C6 makes tu_id non-null
+        raise ValueError(f"missing tu_id on replicon {contig!r} (C6: every gene has a tu_id)")
     ix = replicon_index(genes, contig)
     members = set(map(str, region_genes))
-    on_contig = genes["contig"].astype(str) == contig
     n_genes = int(genes.loc[on_contig, "locus_tag"].astype(str).isin(members).sum())
     inside = ix["locus_tag"].isin(members).to_numpy(bool)
     idx = np.flatnonzero(inside)
@@ -403,17 +444,19 @@ def test_region(
     ok = (d > 0) & np.isfinite(a)
     hl = hodges_lehmann(a[inside & ok], a[~inside & ok])
     k_hl, p_hl, lo, hi = 0, na, na, na
+    hflag: tuple[str, ...] = ()
     if not math.isnan(hl):
-        mag, tus = float(np.abs(raw).max()), ix["tu_id"].to_numpy()
-        t_obs = studentised_hl_null(a, ok, tus, idx, np.zeros(1, np.int64), scale=mag)[0]
-        null = studentised_hl_null(a, ok, tus, idx, shifts, scale=mag)
+        mag = float(np.abs(raw).max())
+        t_all, nonpos = _hl_t(a, ok, idx, np.concatenate([[0], shifts]), mag, circular)
+        null = t_all[1:]
         k_hl = int(np.count_nonzero(~np.isnan(null)))
-        p_hl = perm_p(float(t_obs), null) if k_hl else na
+        p_hl = perm_p(float(t_all[0]), null) if k_hl and not nonpos else na
+        hflag = ("hl_variance_nonpositive",) if nonpos else ()
         hd = pd.DataFrame({"tu": tu[ok], "a": a[ok], "in": inside[ok].astype(np.float64)})
         hci = tu_block_bootstrap(hd, "tu", _hl_of, B, rng, strata_col="in")
         lo, hi = hci.ci_low, hci.ci_high
     hrow = RegionTest(*base, "hl_shift", hl, None, hl, lo, hi, p_hl, k_hl, n_genes, m,
-                      _flags(m, k_hl, flags))  # fmt: skip
+                      _flags(m, k_hl, (*hflag, *flags)))  # fmt: skip
     return [oe, hrow]
 
 

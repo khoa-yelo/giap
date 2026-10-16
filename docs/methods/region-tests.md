@@ -33,18 +33,25 @@ and plasmid) give one test per replicon, each on its own shifts, flagged `split_
   (policy `exclude`) drop out on both sides. Comparing within the replicon only keeps a high-copy
   plasmid's dosage out of the shift (attack 4). Effect, CI and p are on the residual scale: log2
   units relative to the covariate expectation, labelled "detectability-adjusted" in the report.
-- **HL test statistic** (ADR-0018 amendment 1, lead decisions 11–12): the shift p comes from the
-  TU-cluster-studentised T = HL/√V, recomputed at every shift (`studentised_hl_null`), with
-  V = σ_u²(Σ_t m_t²/m² + Σ_t m′_t²/m′²) + σ_e²(1/m + 1/m′): m_t, m′_t the detected genes with
-  finite ã of TU t inside / outside the set, m, m′ their totals (`hl_variance`). σ_u² (between-TU,
-  truncated at 0) and σ_e² (within-TU) are one-way ANOVA moment estimates on the replicon's
-  residualised detected genes, computed once per replicon (`tu_variance_components`; one TU gives
-  σ_u² = 0). A gene without a TU label is its own TU. V = 0 gives T = 0; V counts as 0 when
-  σ_u² + σ_e² ≤ (10⁻⁷ · max |raw log2 abundance|)², i.e. only for (numerically) constant
-  residuals, where T would otherwise be fit-rounding noise. The reported effect and CI stay HL.
-  Why: a region's detected-gene count can differ strongly from that at shifted positions (≈ 7 vs
-  ≈ 22 of 40 short prophage genes), so raw HL has the wrong spread under the shift null
-  (limitation (iii)).
+- **HL test statistic** (ADR-0018 amendments 1–2, lead decisions 11–16): the shift p comes from
+  the studentised T = HL/√V, recomputed at every shift (`studentised_hl_null`). V is label-free
+  (amendment 2): V = Var(mean_in − mean_out) = S_in,in/m² + S_out,out/m′² − 2 S_in,out/(m m′), S_A,B
+  the sum of γ(d(i, j)) over detected genes with finite ã in A × B, m, m′ their counts inside /
+  outside the set (`hl_variance`). γ(h), h = 0 … 30 (`LAG_MAX`), is the replicon's autocovariance
+  of ã at gene-index lag h (centred on the mean of ã, each lag divided by its number of detected
+  pairs), estimated once per replicon and set to 0 from the first h ≥ 1 with γ(h) ≤ 0
+  (`lag_autocovariance`). Lags and d are circular on circular replicons and plain |i − j| (pairs
+  inside the sequence) on linear ones (decision 16). Implementation: c_i = Σ_j ok_j γ(d(i, j)) once
+  per replicon (≤ 61 offsets), then per shift S_in,all = Σ_{i∈set} c_i, S_in,in by pairwise
+  distances inside the set, S_in,out = S_in,all − S_in,in, S_out,out = S_all − 2 S_in,all + S_in,in.
+  Guard (decision 12): when γ(0) ≤ (10⁻⁷ · max |raw log2 abundance|)², i.e. (numerically) constant
+  residuals, V counts as 0 and T = 0 at every shift. Otherwise, a finite V ≤ 0 at the observed or
+  any null shift (the truncated γ need not be positive definite) makes the region's HL p NA with
+  flag `hl_variance_nonpositive` (fail closed, decision 16). TU labels do not enter V; a missing
+  `tu_id` on a tested replicon raises ValueError (decision 13; C6 makes it non-null). The reported
+  effect and CI stay HL. Why: a region's detected-gene count can differ strongly from that at
+  shifted positions (≈ 7 vs ≈ 22 of 40 short prophage genes), so raw HL has the wrong spread under
+  the shift null (limitation (iii)); label-free V is immune to TU-label errors (attack A-TU).
 
 ## Null: circular gene-index shifts
 
@@ -79,15 +86,15 @@ property suite compares with a naive per-shift loop).
 `tu_block_bootstrap`, B = `stats.bootstrap`, 95 % percentile. O − E resamples the region's TUs,
 counting only region members within each TU (a region inside one TU has a degenerate CI). HL
 resamples inside and outside TUs as two strata (on the residualised abundances; the fit is not
-repeated per resample). Known inconsistency (follow-up, not blocking): genes without a TU label
-share one block here (`pd.factorize` code −1), whereas V treats each as its own TU. The C6 genes
-table gives every gene a TU, so the case does not arise from the pipeline.
+repeated per resample). A missing `tu_id` raises ValueError before any test (decision 13), so
+every block is a real TU.
 
 ## Multiple testing and flags
 
 BH within each (region_type, stat) family (lead decision 5, ADR-0018 decision 3; detection and
 abundance answer different questions; at least as strict as "within type" for each statistic). Flags: `small_region` (< 3 eligible genes; tests still run when K > 0; with 0 eligible
-genes all statistics are NA and `n_perm` = 0), `few_shifts`, `split_contigs`.
+genes all statistics are NA and `n_perm` = 0), `few_shifts`, `split_contigs`,
+`hl_variance_nonpositive` (HL row only; p NA, see above).
 
 ## Calibration evidence
 
