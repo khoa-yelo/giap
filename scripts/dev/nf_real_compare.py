@@ -7,8 +7,9 @@ file must exist in OUT with byte-identical content, except these documented norm
   BAKTA        bakta/<sample>.json: features without "id" (sorted canonical JSON) and the replicons
                (id, type, topology, length); the other Bakta files embed run dates and paths
   GENOMAD      genomad/genome_summary/ only; JSON files without "start_time"
-  ANTISMASH    antismash/bakta.json without "timings" and with every "enabled_types" list sorted
-               (antiSMASH writes a Python set: hash-seed order); the GenBank/zip embed run dates
+  ANTISMASH    antismash/bakta.json without "timings"; every "enabled_types" and "gene_functions"
+               list and every list in a "definition_domains" map sorted (antiSMASH builds them from
+               Python sets: hash-seed order; seen on nissle1917); the GenBank/zip embed run dates
   TRANSTERMHP  without the "--pval-conf=<path>" header line (the module resolves expterm.dat itself)
 Stdlib only.
 """
@@ -72,11 +73,20 @@ def _features(d: dict[str, Any]) -> list[str]:
     return sorted(_canon({k: v for k, v in f.items() if k != "id"}) for f in d["features"])
 
 
+_SET_LISTS = ("enabled_types", "gene_functions")  # written from Python sets: order varies by run
+
+
+def _sort_set_value(k: str, v: Any) -> Any:
+    if k in _SET_LISTS:
+        return sorted(v)
+    if k == "definition_domains" and isinstance(v, dict):  # {rule: [domain, ...]} from sets
+        return {r: sorted(d) for r, d in v.items()}
+    return _sort_enabled_types(v)
+
+
 def _sort_enabled_types(x: Any) -> Any:
     if isinstance(x, dict):
-        return {
-            k: sorted(v) if k == "enabled_types" else _sort_enabled_types(v) for k, v in x.items()
-        }
+        return {k: _sort_set_value(k, v) for k, v in x.items()}
     if isinstance(x, list):
         return [_sort_enabled_types(v) for v in x]
     return x

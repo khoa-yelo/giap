@@ -186,6 +186,11 @@ _RUN_INPUTS = [
     "reference_peptides",
     "replicon_depth",
 ]
+# params.inputs key -> (raw input, preflight work file): MAPPING reads the normalised files
+_NORM_INPUTS = {
+    "peptides": ("peptides", "peptides.norm.parquet"),
+    "proteins_long": ("proteins", "proteins.long.faa"),
+}
 
 
 @cli.command()
@@ -270,12 +275,18 @@ def run(
         click.echo(f"giap run: error: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
     if executor == "local":
-        _run_local(cfg, outdir / "work")
+        keys = ("peptides", "proteins", "annotation", "reference_peptides", "db_dir")
+        _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys})
     inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
     env_db = os.environ.get("GIAP_DB_DIR")
     db_dir: Path | None = _.get("db_dir") or (Path(env_db) if env_db else None)
     outdir = outdir.absolute()
     inputs.update(_run_preflight(cfg, outdir, inputs, db_dir, bool(_["strict"]), str(_["profile"])))
+    from giap.runner.local import contaminant_library
+
+    lib = contaminant_library(db_dir)  # M3-15 library for MAPPING's loci
+    if lib is not None:
+        inputs["contaminants"] = lib
     if shutil.which("nextflow") is None:
         click.echo("giap run: nextflow not found on PATH (see AGENTS.md setup)", err=True)
         sys.exit(ExitCode.ENVIRONMENT)
@@ -293,7 +304,8 @@ def _run_preflight(
     profile: str,
 ) -> dict[str, Path]:
     """Preflight in run mode (§5.1): exits on an error (or a warning with ``strict``) before
-    Nextflow starts, else returns the normalised ``genome`` and ``replicons`` for params.json.
+    Nextflow starts, else returns the normalised ``genome`` and ``replicons`` for params.json
+    (plus ``peptides`` and ``proteins_long`` when given, for MAPPING).
     Tools are checked for the Nextflow ``profile`` under ``$GIAP_ROOT`` (run-wiring 4a)."""
     from giap.preflight.report import render_preflight_md
     from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
@@ -320,7 +332,11 @@ def _run_preflight(
         click.echo(render_preflight_md(report), err=True, nl=False)
         sys.exit(code)
     work = outdir / "work" / "preflight"
-    return {"genome": work / "genome.norm.fa", "replicons": work / "replicons.tsv"}
+    roots = {"genome": work / "genome.norm.fa", "replicons": work / "replicons.tsv"}
+    for key, (raw, name) in _NORM_INPUTS.items():
+        if raw in inputs and (work / name).is_file():
+            roots[key] = work / name
+    return roots
 
 
 def _run_nextflow(
@@ -341,23 +357,79 @@ def _run_nextflow(
     sys.exit(nf.run_nextflow(cmd, outdir))
 
 
-def _run_local(cfg: GiapConfig, workdir: Path) -> None:
+def _local_roots(
+    cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Path | None]
+) -> dict[str, Path]:
+    """Preflight-normalised root work files for the local executor (§6.2, §6.4).
+
+    A preflight error (e.g. no evidence) exits with the preflight exit code; a GFF3/GenBank
+    ``--annotation`` without ``annotation.precomputed.bakta_json`` exits 1 naming the key. The
+    contaminant library comes from ``--db-dir`` / ``$GIAP_DB_DIR`` (M3-15).
+    """
+    import os
+
+    from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
+    from giap.runner.local import contaminant_library
+
+    inp = PreflightInputs(
+        genome, inputs["proteins"], inputs["peptides"], None, inputs["annotation"]
+    )
+    report, norm = run_preflight(inp, cfg, None, "preflight", outdir)
+    write_outputs(outdir, report, norm)
+    code = exit_code(report, False)
+    if code != ExitCode.SUCCESS:
+        for c in report.checks:
+            if c.level == "error":
+                click.echo(f"giap run: preflight error {c.rule_id}: {c.message}", err=True)
+        sys.exit(code)
+    work = outdir / "work" / "preflight"
+    files = {"genome": "genome.norm.fa", "peptides": "peptides.norm.parquet"}
+    roots = {k: work / f for k, f in files.items() if (work / f).is_file()}
+    if (work / "proteins.long.faa").is_file():
+        roots["proteins_long"] = work / "proteins.long.faa"
+    ann, ref = inputs["annotation"], inputs["reference_peptides"]
+    is_json = ann is not None and ann.name.lower().endswith(".json")
+    bakta = ann if is_json else cfg.annotation.precomputed.bakta_json
+    if ann is not None and bakta is None:  # a GFF3/GenBank annotation cannot replace Bakta JSON
+        click.echo("giap run: error: annotation.precomputed.bakta_json is required with "
+                   "--executor local (--annotation is not a Bakta JSON)", err=True)  # fmt: skip
+        sys.exit(ExitCode.INVALID_INPUT)
+    if bakta is not None:
+        roots["bakta_json"] = Path(bakta)
+    if ref is not None:
+        roots["reference_peptides"] = ref
+    db = inputs["db_dir"] or os.environ.get("GIAP_DB_DIR")
+    lib = contaminant_library(Path(db) if db else None)
+    if lib is not None:
+        roots["contaminants"] = lib
+    return roots
+
+
+def _run_local(cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Path | None]) -> None:
     """``--executor local`` (§6.4): every registered step as target; exits when done."""
     from giap.runner import local
     from giap.steps import load_step_modules
     from giap.steps import registry as reg
 
+    workdir = outdir / "work"
     load_step_modules()
     targets = [s.name for s in reg.all_steps()]
     if not targets:
         click.echo("giap run --executor local: not implemented (no steps registered)", err=True)
         sys.exit(ExitCode.INTERNAL)
+    roots = _local_roots(cfg, outdir, genome, inputs)
+    # step events (e.g. the ``search_db: auto`` resolution) go to OUT/logs/events.jsonl (§6.7)
+    restore = _record_step_events(outdir / "logs")
     try:
-        local.plan_local(cfg, targets)
-        local.run_local(cfg, workdir, targets)
+        local.plan_local(cfg, targets, set(roots))
+        local.run_local(cfg, workdir, targets, roots)
+        local.publish(workdir, outdir)
     except local.LayerMissing as exc:
         click.echo(f"giap run: error: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
+    except local.ToolUnavailable as exc:
+        click.echo(f"giap run: error: {exc}", err=True)
+        sys.exit(ExitCode.STEP_FAILED)
     except reg.StepError as exc:
         log = exc.write_log(workdir.parent / "logs")
         click.echo(f"giap run: {exc} (see {log})", err=True)
@@ -365,7 +437,27 @@ def _run_local(cfg: GiapConfig, workdir: Path) -> None:
     except reg.WiringError as exc:
         click.echo(f"giap run: internal error: {exc}", err=True)
         sys.exit(ExitCode.INTERNAL)
+    finally:
+        restore()
     sys.exit(ExitCode.SUCCESS)
+
+
+def _record_step_events(logs_dir: Path) -> Callable[[], None]:
+    """Send ``giap.steps`` events to ``logs_dir/events.jsonl`` (§6.7); returns the undo."""
+    from giap.io.events import EventsHandler
+
+    steps_log = logging.getLogger("giap.steps")
+    events = EventsHandler(logs_dir)
+    steps_log.addHandler(events)
+    prev_level = steps_log.level
+    if steps_log.getEffectiveLevel() > logging.INFO:
+        steps_log.setLevel(logging.INFO)
+
+    def restore() -> None:
+        steps_log.removeHandler(events)
+        steps_log.setLevel(prev_level)
+
+    return restore
 
 
 # ---------------------------------------------------------------- makedb
@@ -545,6 +637,7 @@ def step(
 
     load_step_modules()
     cfg = _resolve(config_file, sets, log_level)
+    restore = _record_step_events(Path("logs"))  # e.g. placement's search_db event (§6.7)
     try:
         ins = _in_paths(name, inputs)
         outs = _key_paths(name, "--out", outputs)
@@ -556,6 +649,8 @@ def step(
     except reg.WiringError as exc:
         click.echo(f"giap _step: internal error: {exc}", err=True)
         sys.exit(ExitCode.INTERNAL)
+    finally:
+        restore()
 
 
 def _key_paths(name: str, flag: str, items: Sequence[str]) -> dict[str, Path]:

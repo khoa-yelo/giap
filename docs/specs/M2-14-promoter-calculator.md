@@ -74,3 +74,19 @@ Region → genome: `+` TU with region `[a, b)`: genome TSS `= a + tss − 1`; `�
    (no predicted σ70 promoter is information), `tss_distance_bp = NA`.
 2. Promoter Calculator CSV column names are not in the spec. **Proposed default:** fixed by the
    recorded fixture; unit tests use a doc-derived header (`TSS`, `strand`, `Tx_rate`) until then.
+
+## Lead decisions (after the test-author's pass)
+1. Accepted: the tool's TSS column is 0-based for "+" rows and 1-based forward for "−" rows (verified on
+   all 244,836 recorded rows via the ITR column) — `parse_pc_csv` adds 1 to "+" rows only.
+2. `tx_layer` takes `pc`, `tus` and `replicons` (origin-crossing TSSs reduced mod contig length); annotate.nf
+   passes `reps` to `stepIn('tx_layer', …)`; `tu_tx_features(..., replicons=...)`.
+3. Q1: the proposed default (a TU with no kept hit → 0 / 0 / NA).
+4. `write_tu_regions` (M2-12) writes one sequence line per region (= `region_fasta_text`); M2-12's own
+   tests stay green.
+
+## Lead decisions after code review (PR #94, changes requested — tests only)
+5. Tests pin the `tx_rate_between` window edges on both strands: a TSS on the first base after the
+   upstream gene's stop is kept; a TSS on the downstream start-codon base is dropped; adjacent or
+   overlapping genes give None (kills the four boundary mutants); `_signed` at exactly half the contig
+   length is pinned (the documented choice).
+6. Re-run the full-genome contract check on Nissle once its recording finishes (backlog).

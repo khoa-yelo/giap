@@ -1,0 +1,37 @@
+{
+  "_comment": "Accepted runtime and accuracy numbers (GIAP_SPEC.md \u00a712; updates by ADR with before/after numbers). Seconds are wall clock.",
+  "detectability": {
+    "source": "docs/specs/M4-13-detectability.md lead decision 8",
+    "d1_fast": {
+      "test": "tests/calibration/test_detectability_calibration.py::test_d1_mean_cross_fitted_slope_in_tolerance[fast]",
+      "R": 20,
+      "n_genes": 2000,
+      "secs": 34.2,
+      "mean_slope": 0.9738,
+      "node": "barley-01",
+      "cpu": "AMD EPYC 9384X",
+      "slurm_job": 1848693,
+      "commit": "4ff26d3",
+      "note": "duration field of the D1 record in detectability.jsonl; run alone (-n 16, other workers on D2/attack tests); 170.6 s when interleaved with the full suite (job 1848692)"
+    },
+    "d1_replicate": {
+      "test": "benchmarks/test_detectability_bench.py::test_detectability_d1_replicate_budget",
+      "n_genes": 2000,
+      "secs": 1.47,
+      "budget_secs": 4.5,
+      "node": "barley-01",
+      "cpu": "AMD EPYC 9384X",
+      "slurm_job": 1848694,
+      "commit": "4ff26d3"
+    }
+  },
+  "mapping_steps_chain_100kb_5000_peptides": {
+    "benchmark": "benchmarks/test_mapping_steps_bench.py::test_mapping_chain_100kb_5000_peptides_budget",
+    "budget_s": 20.0,
+    "secs": 1.8,
+    "queries": 5000,
+    "node_class": "FarmShare iron (AMD EPYC 7742)",
+    "date": "2026-10-15",
+    "issue": "M3-17"
+  }
+}

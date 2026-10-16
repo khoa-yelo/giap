@@ -4,19 +4,19 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-15 06:30 PDT · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
+_Last updated: 2026-10-15 13:48 PDT · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 57/79 done (72 %), 8 running · generated 2026-10-15 06:29 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 66/79 done (84 %), 5 running · generated 2026-10-15 13:48 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
 | M0 Scaffold | 🟩 | 1 | 0 | 0 |
 | M1 Inputs and preflight | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 12 | 0 | 0 |
-| M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜ 67 % | 14 | 2 | 5 |
-| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜ 83 % | 20 | 2 | 2 |
-| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜ 48 % | 10 | 4 | 7 |
+| M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜ 90 % | 19 | 0 | 2 |
+| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜ 88 % | 21 | 1 | 2 |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜ 62 % | 13 | 4 | 4 |
 | M5 Autocorrelation and islands | _not designed yet_ | - | - | - |
 | M6 Operons | _not designed yet_ | - | - | - |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
@@ -43,27 +43,36 @@ M2–M4: designed (docs/specs/M{2,3,4}-index.md); implementation in progress (�
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
-Merged (all with code review; stats PRs with statistician sign-off): M2-02…M2-06, M2-08 (#57), M2-11 (#64),
-M2-12 (#49), M3-04…M3-15 (incl. #41 placement FDR, #48 tolerant seeds, #50 loci, #53 tblastn, #60
-frameshifts, #63 contaminants), M3-19 (#55), M4-02, M4-04…M4-07 (#51, #54 calibration harness, #62),
-M4-10 (#61), ADR-0016 size gate (#56), Slurm helpers (#46, #58, #59). Run `bash scripts/resume_status.sh`.
-Open PRs:
-- #65 `m2/nf-tools` (M2-07): real-tool run failed review (registry keys, conda off, no `ps`, PyQt5,
-  stub headers); fixes committed locally, real ANNOTATE run = Slurm 1847900; then re-review.
-  Stacked follow-up `m2/run-wiring` (giap run → preflight, replicons, db_dir; `_step` loads steps) pushed.
-- #66 M3-20 sim de novo errors (approved after test pins) — merging. #67 M2-09 setup resources (ADR-0017) —
-  merging. #68 M3-16 mapping outputs — review fixes in progress. #69 calibration migration to
-  `calibrate()` — statistician review.
-- `m4/sim-m4-08` (M4-08 sim expression): test-author.
-Slurm: tool recordings split per tool (giap-rec-*: 1847974 terminatornet, 1847975 genomad, 1847977
-transtermhp, 1847979 promoter_calculator; chained 1847981 antismash, 1847982 ostir, 1847983 promotech);
-the sequential job 1847778 was cancelled (TerminatorNet on K-12 alone took 60 min).
+Merged since 10:45: M3-17 (#77), M4-13 (#83), M2-17 (#86), M2-10 (#93), M2-19 (#91), M2-14 (#94), waitmerge
+conflict stop (#90), antiSMASH compare ignores set order (#97). Run `bash scripts/resume_status.sh`.
+Real `giap run` on main fa19c16 (Slurm 1849451, sim100k, real DBs; local/scratch/real-run-main): every
+ANNOTATE process completes (Bakta … Promoter Calculator, UniOP, codon usage, regions, tx_layer); stops at
+CONTEXT_LAYERS (`unknown step 'context_layers'` = M2-20, not built yet) → next: M2-20.
+Long runs on main (all green): calibration_full 89/89 (1849366), integration 90 passed (1849367); real
+per-process arrays K-12 (1849282) and Nissle (1849365): all ok after #97/#98.
+Open PRs (state at 13:48):
+- #98 real Promotech/UniOP inputs + recordings for K-12/Nissle: merging on green CI (its backlog entry is
+  removed here).
+- #92 M4-12 detection tiers: fixes in (suite 1849404, calibration 1849405 green; decision 11) → needs the
+  statistician's sign-off.
+- #89 M4-17 region tests: ADR-0018 (accepted-by-khoa) implemented (1186184) but A2-HL calibration still fails
+  (0.144 at α 0.05, R=1000, job 1849427) → statistician to reconcile decision 10 (see spec "Open").
+- #87 M4-16 detection summary: fixes in (lead pushed once with Khoa's approval; test 3/6 → 3/5) → statistician
+  re-check.
+- #96 MAPPING subworkflow (M3-17 follow-up): needs a code review.
+Session mode: Khoa set light mode (≤ 2 agents; token-light, Slurm-heavy work first).
+
 Follow-ups queued (docs/backlog.md has the full list):
 - Per-process real-tool Slurm job array for workflow modules (inputs from recordings) — after #65 (Khoa).
 - calibration_full variants for migrated suites (statistician); GO data-version pin (M2-09).
 - M3-21: c_ref − c_true, chance rate of wrong peptides, PEP–length correlation (ADR-0010).
 - M4-12/M4-17 forwarded items; M6: simulate readthrough (cterm_extension).
 Lessons (keep):
+- A PR that conflicts with main gets NO CI run; waitmerge now stops on it (#90). Merge main, then retry.
+- Fixture genomes need `[topology=circular]` (spec §~770); plain NCBI FASTA → linear replicons. Nissle
+  GCA_043228065.1 has 3 plasmids (p15A, pMUT1, pMUT2).
+- Generated golden outputs (tests/data/golden/) are exempt from the role check, like recorded fixtures.
+- Shared test files across tool-layer PRs: scratchpad merge_main_nf.sh resolves BUILDERS + step_registry.
 - Real `giap run` (SIM100K, farmshare_local,apptainer, real $GIAP_DB_DIR): preflight ok, BAKTA (13.5 min),
   GENOMAD, TERMINATORNET ok, `--resume` caches; stops at the first unregistered py step (codon_usage, M2-17).
 - Tests built on invented fixtures hid contract bugs (M4-13, M4-14): fixtures must come from the real
@@ -127,3 +136,7 @@ Lessons (keep):
 | Bakta full DB | Nissle 1917 | 13.5 min | — | wheat (1846846) |
 | TerminatorNet (-n 17) | K-12 MG1655 | 60 min | — | wheat-04 (1847778) |
 | giap setup GO/KEGG/COG/contaminants | — | — | go-basic 32.2 MB, KEGG links 2.3 MB | session (review #67) |
+| Bakta 1.12.2 full DB 6.0, circular-tagged, `--replicons` (M2-10) | K-12 MG1655 | 9.9 min (592 s) | 20.6 GB (job, with SIM100K) | barley-01, 16 CPU (1849096) |
+| Bakta 1.12.2 full DB 6.0, circular-tagged (M2-10) | SIM100K | 5.3 min (317 s) | (same job) | barley-01, 16 CPU (1849096) |
+| Bakta 1.12.2 full DB 6.0, circular-tagged (M2-10) | Nissle 1917 | 9.9 min (595 s) | 20.5 GB | barley-01, 16 CPU (1849097) |
+| Bakta 1.12.2 light DB 6.0 (M2-10) | SIM100K | 34 s | 5.9 GB | barley-01, 16 CPU (1849098) |

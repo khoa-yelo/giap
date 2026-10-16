@@ -1,0 +1,93 @@
+// M3-17 example 5 needs `giap run --executor nextflow` to produce mapping/*.tsv, so main.nf runs
+// MAPPING after ANNOTATE when params.inputs.peptides is given (decision 5 follow-up; the real
+// comparison is tests/integration/test_mapping_local.py::test_example_5_..., needs_nextflow).
+// Stub runs only. ci.yml runs: nf-test test workflow/tests --profile test,stub.
+//
+// Interface pinned here: params.inputs.peptides = peptides.norm.parquet (giap run passes the
+// preflight-normalised file, as it does for genome); params.inputs.proteins_long (optional) =
+// proteins.long.faa; params.inputs.reference_peptides (optional); genes / features / replicons
+// come from ANNOTATE's parse_bakta; the contaminant library is
+// <db_dir>/contaminants/contaminants.fasta when <db_dir>/db_manifest.json lists `contaminants`
+// (M3-15, like the local executor's giap.runner.local.contaminant_library).
+
+nextflow_pipeline {
+
+    name "main.nf runs MAPPING (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "mapping"
+
+    test("peptides given: ANNOTATE then MAPPING; placement / loci get parse_bakta's tables; contaminants from db_dir") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = "${d}/db".toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/mapping/step_registry.json")
+            def work = workDir.toString()
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def names = H.names(workflow.trace)
+            assert H.stepCount(workflow.trace, 'parse_bakta') == 1 : names
+            ['sixframe_index', 'map_exact', 'map_tolerant', 'placement', 'loci'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${names}"
+            }
+            assert H.count(workflow.trace, 'MINIPROT') == 0 && H.count(workflow.trace, 'TBLASTN') == 0 : names
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "mapping step inputs vs giap.steps registry: ${probs}"
+
+            // genes / features / replicons are parse_bakta's outputs (no other source in main.nf)
+            def pb = H.stepDirs(work, 'parse_bakta')[0].canonicalPath
+            def pin = H.stepInputs(H.stepDirs(work, 'placement')[0])
+            ['genes', 'features', 'replicons'].each { k ->
+                def e = pin.find { it[0] == k }
+                assert e != null : "placement has no ${k}: ${pin}"
+            }
+            def staged = H.staged(H.stepDirs(work, 'placement')[0]).collect { new File(it[0]).canonicalPath }
+            assert staged.any { it.startsWith(pb) } : "placement does not stage parse_bakta outputs: ${staged}"
+
+            def lin = H.stepInputs(H.stepDirs(work, 'loci')[0])
+            assert lin.any { it[0] == 'contaminants' } : "loci got no contaminant library from db_dir: ${lin}"
+            def lstaged = H.staged(H.stepDirs(work, 'loci')[0]).collect { new File(it[0]).canonicalPath }
+            def lib = new File("${moduleTestDir}/data/mapping/db/contaminants/contaminants.fasta").canonicalPath
+            assert lib in lstaged : "loci did not stage ${lib}; staged ${lstaged}"
+
+            def m = new File("${outputDir}/mapping")
+            ['peptide_hits.tsv', 'protein_hits.tsv', 'mappings.probed', 'mappings.bed', 'mappings.gff3',
+             'unmapped.tsv', 'mapping_fdr.tsv'].each { f -> assert new File(m, f).isFile() : "mapping/${f} not published" }
+        }
+    }
+
+    test("no peptides: MAPPING does not run") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            ['sixframe_index', 'map_exact', 'map_tolerant', 'placement', 'protein_leftovers', 'loci'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 0 : "${s} ran without peptides: ${H.names(workflow.trace)}"
+            }
+            assert !new File("${outputDir}/mapping").exists() : "mapping/ published without peptides"
+        }
+    }
+}
