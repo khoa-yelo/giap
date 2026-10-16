@@ -2,7 +2,7 @@
 
 Implements `giap.context.summary` (`basic_rows`, `qc_rows`, `detection_summary`) and
 `giap.io.summary_tsv.write_detection_summary` (GIAP_SPEC.md §7.3.5(a), §8.2, §9.3; issue M4-16).
-Statistician sign-off: see the end of this note (changes requested).
+Statistician sign-off: see the end of this note (approved after the review fixes, 2026-10-15).
 
 ## O − E against Σ p_detect
 
@@ -19,8 +19,9 @@ count. The 95 % percentile CI comes from `tu_block_bootstrap` (docs/methods/boot
 group's TU sums, B = `stats.bootstrap` (1000). Groups are processed in sorted
 (group_type, group) order from one `for_step("context_stats", seed)` generator, so the draws for a
 group depend only on the TU counts of the groups before it, not on gene labels outside it. A
-group with fewer than 10 TUs carries the flag `ci_few_units`; a single-TU group has a degenerate
-CI equal to the estimate. Calibration: tests/calibration/test_detection_summary_calibration.py
+group carries the flag `ci_few_units` (on the `o_minus_e` row only) when it has fewer than 10 TUs
+or when min(E, n_genes − E) < 10 (lead decision 4); a single-TU group has a degenerate CI equal to
+the estimate. Calibration: tests/calibration/test_detection_summary_calibration.py
 (coverage of 0 under a TU-comonotone null, where gene-level resampling under-covers).
 
 What the CI does and does not cover: it is the sampling variability of Σ (d − p) over the group's
@@ -67,10 +68,16 @@ category in `none`. Groups without eligible genes are omitted.
 
 ## QC rows (`section = qc`, `run`/`all`)
 
-- `id_mixups`: distinct C11 peptides with flag `engine_protein_mismatch`.
-- `genome_inconsistent_rate`: among distinct C9 target peptides with `search_db = same`, the share
-  without an exact C11 placement (absent, or tolerant only); `n` = that denominator; NA without
-  such peptides (lead decision 1).
+- `id_mixups` (§7.5.1: same-database ALT sites without `start_codon`/`stop_codon`): NA with flag
+  `requires_variants` until the variant module (M7) exists (lead decision 6).
+- `engine_protein_mismatch_rate`: distinct C11 peptides flagged `engine_protein_mismatch` over
+  distinct placed (C11) peptides; `n` = that denominator; NA without C11 rows. A QC proxy reported
+  under its own name, not `id_mixups`.
+- `genome_inconsistent_rate` (§7.5.1): among distinct C9 target, non-contaminant peptides with
+  `search_db = other`, the share without an exact C11 placement (absent, or tolerant only); `n` =
+  that denominator; NA without such peptides (e.g. all `search_db = same`) (lead decision 5).
+  §7.5.1 defines it under `--genome-relation same`; under `related` tolerant placements are
+  expected and the rate is not a mismatch signal (it is still computed; read it accordingly).
 - `contaminant_peptides`, `contaminant_proteins`, `unmapped_peptides`, `unmapped_proteins`: C13
   rows by `label` and `kind`; NA without C13.
 
@@ -80,7 +87,42 @@ Sections in order tier, basic, detectability, qc, then group_type, group, metric
 `n`/`flags` (M4-12, M4-13 rows) get NA / empty. Floats are written with round-trip precision
 (shortest repr) rather than `%.6g`, so CIs read back exactly (writer tests require 1e-9).
 
+### Re-review coverage after the fixes (Slurm job 1850360; R = 1000, B = 1000, TU-comonotone null, sORF group)
+The E rule counts expected detections in genes; under within-TU dependence the effective count
+is the number of TUs that carry a detection (≈ E / TU size when detections are comonotone).
+Unflagged groups (≥ 10 TUs and min(E, n − E) ≥ 10) at the boundary:
+
+| TUs × genes per TU, p | E | non-coverage (SE) | flagged |
+|---|---|---|---|
+| 300 × 1, 0.034 | 10.2 | 0.069 (0.008) | 0 % |
+| 100 × 2, 0.05 / 200 × 2, 0.026 | 10 / 10.4 | 0.112 / 0.119 (0.010) | 0 % |
+| 100 × 3, 0.04 | 12 | 0.089 (0.009) | 0 % |
+| 50 × 4, 0.05 / 40 × 5, 0.05 | 10 | 0.089 / 0.113 (0.009–0.010) | 0 % |
+| 20 × 10, 0.05 | 10 | 0.356 (0.015) | 0 % |
+| 100 × 3, 0.10 | 30 | 0.059 (0.007) | 0 % |
+
+For realistic operon sizes (2–5 genes) the unflagged boundary covers 0.88–0.93, the same order as
+the accepted 10–19-TU regime (≈ 0.91), and coverage recovers once E is a few multiples of 10
+(0.059 at E = 30). Only long, uniformly low-p TUs (20 × 10 genes) fall far below; that is not a
+realistic group. Recommendation (non-blocking, backlog): flag in TU units as well, e.g. fewer than
+10 TUs with an observed detection (or non-detection) in the group.
+
 ## Statistician sign-off (M4-16)
+
+Re-review at 338f49f (2026-10-15): **APPROVED.** Lead decisions 4–9 are implemented and tested:
+the E rule and flag only on `o_minus_e` (4, 9); `genome_inconsistent_rate` over `search_db = other`
+non-contaminant targets (5); `id_mixups` NA + `requires_variants` and
+`engine_protein_mismatch_rate` (6; the 3/5 example of 338f49f is the correct distinct-peptide
+count); ValueError naming genes with NaN `p_detect` or no `tu_id` (7); COG `-`/blank → `none`,
+non-boolean `detected` raises (8); group-order mutant killed (9). Unit + integration tests 80/80
+pass locally; implementer's calibration with the low-E attack (job 1849314) passed: the sORF E = 1,
+E = 2 (operons) and n − E = 1 attacks are flagged in every replicate and their unflagged miss rate
+is a confirmed fail. No p- or q-values, so §8.1 families do not apply; every CI is a TU-block CI
+(§8.2). Non-blocking: the TU-unit flag above; the `genome_relation` caveat of
+`genome_inconsistent_rate`; `hypothetical` still uses `astype(bool)` (a string `"false"` would read
+as True; the same fail-closed check as `detected` would cover it).
+
+Earlier review at db7dae0 (history):
 
 Reviewed on branch m4/detection-summary at db7dae0. **CHANGES REQUESTED** (see the PR comment):
 
