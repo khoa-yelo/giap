@@ -10,7 +10,7 @@
 # Full calibration suite (GIAP_SPEC.md §8.4, §12): one suite per array task, task i = the i-th key
 # of replicates_full in tests/calibration/tolerances.yaml (13 suites -> --array=0-12). Each test
 # belongs to exactly one suite (tests/calibration/conftest.py SUITE_REGISTRY).
-# Called by nightly.sbatch; extra arguments go to the harness (tests/calibration/_criteria.py):
+# Run by hand or from a weekly job; extra arguments go to the harness (tests/calibration/_criteria.py):
 #   --fast, --dry-run
 #   --shard K/N [--block 2]  run replicates block K of N (of confirmation block 2, ADR-0015); give
 #                            every shard the same GIAP_CALIBRATION_LOG_DIR, e.g.

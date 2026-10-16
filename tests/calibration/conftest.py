@@ -131,6 +131,48 @@ def item_suite(item: pytest.Function) -> str | None:
     return suite
 
 
+# Fast-mode calibration tests slower than 60 s (single core; Slurm 1851461, 2026-10-16): marked
+# ``calibration_nightly``, so GitHub CI (4-core runners, budget 15-30 min) skips them and
+# scripts/slurm/nightly.sbatch runs them every night on main. Add a test here when it passes 60 s.
+NIGHTLY: frozenset[str] = frozenset(
+    {
+        "attacks/test_attack_bootstrap.py::test_recorded_few_tus",
+        "attacks/test_attack_bootstrap.py::test_tu_block_ci_coverage_under_attack",
+        "attacks/test_attack_detectability.py::test_attack2_no_size_covariates_is_confirmed_fail",
+        "attacks/test_attack_detectability.py::test_attack2_subgroup_oe_at_level",
+        "attacks/test_attack_genome_decoys.py::test_composition_null_decoy_hits_equal_target_hits",
+        "attacks/test_detection_summary_attack_low_e.py::test_low_e_group_is_flagged",
+        "attacks/test_detection_summary_attack_low_e.py::test_low_e_unflagged_miss_rate_exceeds_level",
+        "attacks/test_detection_tiers_attack_decoy_loss.py::test_picked_fdr_under_random_decoy_loss",
+        "attacks/test_detection_tiers_attack_inputs.py::test_gene_fdr_under_input_attack",
+        "attacks/test_region_tests_attacks.py::test_a2_detection_by_abundance_prophage_hl_at_level",
+        "attacks/test_region_tests_attacks.py::test_a2_mid_range_prophage_p_o_minus_e_at_level",
+        "attacks/test_region_tests_attacks.py::test_a2_short_prophage_genes_o_minus_e_at_level",
+        "attacks/test_region_tests_attacks.py::test_a2_short_prophage_hl_at_level_without_abundance_selection",
+        "attacks/test_region_tests_attacks.py::test_a2_teeth_constant_p_detect_rejects",
+        "attacks/test_region_tests_attacks.py::test_alin_linear_replicon_hl_at_level",
+        "attacks/test_region_tests_attacks.py::test_atu_region_specific_tu_fragmentation_hl_at_level",
+        "test_detectability_calibration.py::test_d1_mean_cross_fitted_slope_in_tolerance",
+        "test_detection_summary_calibration.py::test_o_minus_e_ci_covers_zero_under_tu_correlated_null",
+        "test_detection_tiers_gene_fdr.py::test_gene_fdr_controlled",
+        "test_detection_tiers_gene_fdr.py::test_teeth_no_q_filter_fails",
+        "test_mapping_steps_gate.py::test_placement_fdr_through_the_steps",
+        "test_mapping_steps_gate.py::test_recall_of_planted_peptides_through_the_steps",
+        "test_placement_fdr_genome.py::test_realised_placement_fdr_on_giapsim",
+        "test_region_tests.py::test_c1_level_fast",
+        "test_region_tests.py::test_c2_fdr_within_type_and_stat",
+        "test_region_tests.py::test_c3_power_recorded",
+        "test_sim_evidence_calibration.py::test_false_targets_size_proportional",
+        "test_sim_evidence_calibration.py::test_intensity_lognormal",
+        "test_sim_evidence_calibration.py::test_pep_sum_matches_false_count",
+        "test_sim_evidence_calibration.py::test_q_values_control_fdp",
+        "test_sim_evidence_calibration.py::test_score_components",
+        "test_stats_bootstrap_calibration.py::test_recorded_coverage_twenty_tus",
+        "test_tolerant_recall.py::test_planted_tolerant_peptide_recall",
+    }
+)
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     for item in items:
@@ -143,3 +185,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         suite = item_suite(item)
         if suite is not None:
             item.extra_keyword_matches.add(f"calsuite_{suite}")
+        try:
+            rel = Path(str(item.path)).resolve().relative_to(HERE).as_posix()
+        except ValueError:
+            continue
+        if f"{rel}::{item.originalname}" in NIGHTLY and any(item.iter_markers("calibration")):
+            item.add_marker(pytest.mark.calibration_nightly)
