@@ -405,16 +405,25 @@ def _lag_v(a: np.ndarray, ok: np.ndarray, idx: Sequence[int], shifts: Sequence[i
 
 
 def naive_studentised_hl_null(
-    a: np.ndarray, ok: np.ndarray, idx: Sequence[int], shifts: Sequence[int]
+    a: np.ndarray,
+    ok: np.ndarray,
+    idx: Sequence[int],
+    shifts: Sequence[int],
+    scale: float | None = None,
 ) -> np.ndarray:
     """ADR-0018 amendment 2: T_k = HL_k / sqrt(V_k) for every shift k (k = 0 gives the observed
     T); gamma estimated once from (a, ok) (``naive_lag_autocov``), V label-free
     (``naive_lag_hl_variance``); NaN where a side is empty; V = 0 with HL = 0 gives T = 0 (V <= 0
     with HL != 0 gives +-inf; comparisons with the implementation skip such draws,
-    ``naive_v_positive``)."""
+    ``naive_v_positive``). With ``scale`` (the data magnitude before residualisation), decision 12's
+    guard applies: gamma(0) <= (1e-7 * scale)^2 is fit rounding, so every finite T is 0."""
     okv = np.asarray(ok, dtype=bool) & np.isfinite(np.asarray(a, dtype=float))
     hl = naive_hl_null(a, okv, idx, shifts)
     v = _lag_v(a, okv, idx, shifts)
+    if scale is not None and okv.any():
+        g0 = naive_lag_autocov([float(x) for x in a], okv, 0)[0]
+        if g0 <= (1e-7 * scale) ** 2:
+            return np.array([math.nan if math.isnan(h) else 0.0 for h in hl], dtype=float)
     out = []
     for h, w in zip(hl, v, strict=True):
         if math.isnan(h) or math.isnan(w):

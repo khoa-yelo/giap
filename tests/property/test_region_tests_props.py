@@ -196,9 +196,12 @@ def test_p6_hl_on_residualised_abundance(rep: dict[str, Any], cov: list[Any]) ->
         assert rd.is_na(hl["effect"]) and rd.is_na(hl["p_value"])
         return
     assert hl["effect"] == pytest.approx(hl_obs, abs=1e-8)
-    assume(rd.naive_v_positive(ar, ok, idx, list(range(n))))
-    null = rd.naive_studentised_hl_null(ar, ok, idx, list(range(1, n)))
-    want = rd.naive_perm_p(float(rd.naive_studentised_hl_null(ar, ok, idx, [0])[0]), null)
+    scale = float(np.nanmax(np.abs(a[ok]))) if ok.any() else None  # decision 12: raw magnitude
+    null = rd.naive_studentised_hl_null(ar, ok, idx, list(range(1, n)), scale=scale)
+    obs = rd.naive_studentised_hl_null(ar, ok, idx, [0], scale=scale)
+    if not np.all((null == 0) | np.isnan(null)):  # guard not triggered: V must be positive
+        assume(rd.naive_v_positive(ar, ok, idx, list(range(n))))
+    want = rd.naive_perm_p(float(obs[0]), null)
     if math.isnan(want):
         assert rd.is_na(hl["p_value"])
     else:
