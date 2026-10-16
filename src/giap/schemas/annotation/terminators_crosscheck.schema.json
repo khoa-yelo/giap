@@ -1,0 +1,12 @@
+{
+  "name": "terminators_crosscheck",
+  "description": "annotation/terminators_crosscheck.tsv: TerminatorNet vs TransTermHP agreement per replicon (GIAP_SPEC.md §7.1.5; M2-15).",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "contig", "type": "string", "description": "Replicon", "constraints": {"required": true}},
+    {"name": "n_terminatornet", "type": "integer", "description": "TerminatorNet calls", "constraints": {"required": true, "minimum": 0}},
+    {"name": "n_transtermhp", "type": "integer", "description": "TransTermHP calls", "constraints": {"required": true, "minimum": 0}},
+    {"name": "n_matched", "type": "integer", "description": "TerminatorNet calls matched by a TransTermHP call", "constraints": {"required": true, "minimum": 0}},
+    {"name": "share_matched", "type": "number", "description": "n_matched / n_terminatornet", "constraints": {"minimum": 0, "maximum": 1}}
+  ]
+}

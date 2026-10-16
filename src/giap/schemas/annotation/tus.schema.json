@@ -1,0 +1,16 @@
+{
+  "name": "tus",
+  "description": "annotation/tus.tsv: transcription units, genes in transcription order (GIAP_SPEC.md §9.3).",
+  "coordinates": "1-based-closed",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "tu_id", "type": "string", "description": "TU ID (TU_<n>)", "constraints": {"required": true}},
+    {"name": "contig", "type": "string", "description": "Replicon", "constraints": {"required": true}},
+    {"name": "start", "type": "integer", "description": "Start (1-based)", "constraints": {"required": true, "minimum": 1}},
+    {"name": "end", "type": "integer", "description": "End (closed; > length when crossing the origin)", "constraints": {"required": true}},
+    {"name": "strand", "type": "string", "description": "Strand", "constraints": {"required": true, "enum": ["+", "-"]}},
+    {"name": "genes", "type": "string", "description": "Locus tags in transcription order (';'-separated)", "constraints": {"required": true}},
+    {"name": "upstream_start", "type": "integer", "description": "Upstream region start (1-based, unwrapped)", "constraints": {"required": true}},
+    {"name": "upstream_end", "type": "integer", "description": "Upstream region end (closed, unwrapped)", "constraints": {"required": true}}
+  ]
+}

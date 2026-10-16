@@ -202,7 +202,7 @@ def run_local(
 
 
 # §9.1 published directories: work key -> OUT subdirectory
-PUBLISHED: dict[str, str] = {"mapping": "mapping"}
+PUBLISHED: dict[str, str] = {"annotation": "annotation", "mapping": "mapping"}
 
 
 def publish(workdir: Path, outdir: Path) -> list[Path]:

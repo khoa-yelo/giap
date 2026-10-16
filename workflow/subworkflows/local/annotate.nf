@@ -154,7 +154,8 @@ workflow ANNOTATE {
         }
         def tl = stepIn('terminator_layer', [reps] + tools)
         TERMINATOR_LAYER(tl.files, tl.keys, ['terminators=terminators.parquet', 'terminators_crosscheck=terminators_crosscheck.tsv'])
-        layers += [kv('terminators', pick(TERMINATOR_LAYER.out.outputs, 'terminators.parquet'))]
+        layers += [kv('terminators', pick(TERMINATOR_LAYER.out.outputs, 'terminators.parquet')),
+                   kv('terminators_crosscheck', pick(TERMINATOR_LAYER.out.outputs, 'terminators_crosscheck.tsv'))]
     }
 
     if (pc.rbs) {
@@ -193,7 +194,7 @@ workflow ANNOTATE {
         layers += [kv('regions', pick(R, 'regions.parquet')), kv('region_genes', pick(R, 'region_genes.parquet'))]
     }
 
-    def cl = stepIn('context_layers', core + layers)
+    def cl = stepIn('context_layers', core + layers + [kv('genome', genome)])
     CONTEXT_LAYERS(cl.files, cl.keys, ['layers=layers.parquet', 'annotation=annotation'])
 
     emit:
