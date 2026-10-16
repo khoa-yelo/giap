@@ -209,3 +209,88 @@ def test_a4_high_copy_plasmid_invariance(seed: int) -> None:
             a.loc[loose, col].to_numpy(float), b.loc[loose, col].to_numpy(float),
             rtol=0.0, atol=1e-9, equal_nan=True,
         )  # fmt: skip
+
+
+# --------------------------------------------------------------------------- A-TU (review round 3)
+# The ADR-0018 amendment 1 HL statistic T = HL / sqrt(V) takes its clustering design factor
+# sum_t m_t^2 / m^2 from the TU labels, so the shift null is exact only if the labels describe the
+# dependence equally well inside and outside the region. Statistician runs (1,000 genes, rho = 0.5,
+# no region effect, R = 2,000; local/scratch/review-m4-17/v3, Slurm 1850322 / 1850439):
+# - every TU of a region cut into chunks of 2 consecutive genes (region only): prophage / BGC /
+#   CRISPR HL rejects 0.082 / 0.080 / 0.071 at alpha = 0.05 (true labels 0.051 / 0.054 / 0.052);
+#   the same cut applied genome-wide stays at level (0.049 / 0.045 / 0.051);
+# - region TU labels missing (each gene its own TU, the dd663c0 rule): 0.118 / 0.114 / 0.101;
+#   all labels missing: 0.048 / 0.049 / 0.053.
+
+
+def _fragment_region_tus(genes: pd.DataFrame, region_genes: pd.DataFrame) -> pd.DataFrame:
+    """Every TU's region members on chr1, in start order, relabelled ``<tu>#<k // 2>``."""
+    g = genes.copy()
+    members = set(region_genes["locus_tag"].astype(str))
+    sel = g[(g["contig"] == "chr1") & g["locus_tag"].astype(str).isin(members)]
+    sel = sel.sort_values("start")
+    k = sel.groupby("tu_id", sort=False).cumcount()
+    g.loc[sel.index, "tu_id"] = sel["tu_id"].astype(str) + "#" + (k // 2).astype(str)
+    return g
+
+
+@pytest.mark.parametrize("full", MODES)
+def test_atu_region_specific_tu_fragmentation_hl_at_level(full: bool) -> None:
+    """A-TU (statistician, review round 3; §8.5 "new attacks"): no region effect, but the TU
+    predictor fragments the regions' operons (2-gene chunks) and nothing else. HL must stay at
+    level, pooled over the four chromosome types (m = 4) as in C1."""
+    from _gate import calibrate_levels
+
+    from giap.rng import for_step
+
+    R = C.replicates("regions", full)
+    n = 4500 if full else 1000
+    levels = list(C.load_tolerances().levels)
+    stream = f"regions.region_tests.attack_tu_fragmented_{'full' if full else 'fast'}"
+    stream += ".chr1_pooled.hl_shift"
+
+    def fn(rng: np.random.Generator) -> np.ndarray:
+        t = rd.sim_tables(rng, rd.calibration_layout_config(n), {"ar1_rho": 0.5}, "true")
+        seed = int(rng.integers(0, 2**31 - 1))
+        t.genes = _fragment_region_tus(t.genes, t.region_genes)
+        res = rd.run_region_tests(
+            t, rd.config(bootstrap=rc.CAL_BOOTSTRAP), for_step("context_stats", seed)
+        )
+        return rc.rejection_shares(res, rd.REGION_TYPES, "hl_shift", "chr1", levels)
+
+    gate = calibrate_levels("regions", "level", levels, fn, R, stream=stream, m=4)
+    assert not gate.failed, gate.detail()
+
+
+@pytest.mark.parametrize("seed", [501, 502, 503])
+def test_atu_missing_region_tu_labels_do_not_change_the_hl_p(seed: int) -> None:
+    """A missing TU label must not make a region look less clustered than its shifted copies:
+    either the region tests refuse missing labels (ValueError, as M4-13 and the TU-block bootstrap
+    do; C6 makes ``tu_id`` non-null), or the HL p with the region's labels missing equals the HL p
+    with every label missing (labels ignored replicon-wide; at level, see A-TU above)."""
+    from giap.rng import for_step
+
+    def run(blank: str) -> pd.DataFrame:
+        rng = np.random.default_rng(seed)
+        t = rd.sim_tables(rng, rd.calibration_layout_config(1000), {"ar1_rho": 0.5}, "true")
+        s = int(rng.integers(0, 2**31 - 1))
+        g = t.genes.copy()
+        g["tu_id"] = g["tu_id"].astype(object)
+        if blank == "region":
+            pro = set(t.region_genes.loc[t.region_genes["region_id"] == "prophage_1", "locus_tag"])
+            g.loc[g["locus_tag"].isin(pro), "tu_id"] = None
+        else:
+            g["tu_id"] = None
+        t.genes = g
+        return rd.run_region_tests(
+            t, rd.config(bootstrap=rc.CAL_BOOTSTRAP), for_step("context_stats", s)
+        )
+
+    try:
+        some = run("region")
+    except ValueError:
+        return
+    every = run("all")
+    p_some = rd.pick(some, "prophage_1", "hl_shift", "chr1")["p_value"]
+    p_every = rd.pick(every, "prophage_1", "hl_shift", "chr1")["p_value"]
+    assert p_some == p_every, (p_some, p_every)

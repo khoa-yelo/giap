@@ -33,6 +33,18 @@ and plasmid) give one test per replicon, each on its own shifts, flagged `split_
   (policy `exclude`) drop out on both sides. Comparing within the replicon only keeps a high-copy
   plasmid's dosage out of the shift (attack 4). Effect, CI and p are on the residual scale: log2
   units relative to the covariate expectation, labelled "detectability-adjusted" in the report.
+- **HL test statistic** (ADR-0018 amendment 1, lead decisions 11–12): the shift p comes from the
+  TU-cluster-studentised T = HL/√V, recomputed at every shift (`studentised_hl_null`), with
+  V = σ_u²(Σ_t m_t²/m² + Σ_t m′_t²/m′²) + σ_e²(1/m + 1/m′): m_t, m′_t the detected genes with
+  finite ã of TU t inside / outside the set, m, m′ their totals (`hl_variance`). σ_u² (between-TU,
+  truncated at 0) and σ_e² (within-TU) are one-way ANOVA moment estimates on the replicon's
+  residualised detected genes, computed once per replicon (`tu_variance_components`; one TU gives
+  σ_u² = 0). A gene without a TU label is its own TU. V = 0 gives T = 0; V counts as 0 when
+  σ_u² + σ_e² ≤ (10⁻⁷ · max |raw log2 abundance|)², i.e. only for (numerically) constant
+  residuals, where T would otherwise be fit-rounding noise. The reported effect and CI stay HL.
+  Why: a region's detected-gene count can differ strongly from that at shifted positions (≈ 7 vs
+  ≈ 22 of 40 short prophage genes), so raw HL has the wrong spread under the shift null
+  (limitation (iii)).
 
 ## Null: circular gene-index shifts
 
@@ -67,7 +79,9 @@ property suite compares with a naive per-shift loop).
 `tu_block_bootstrap`, B = `stats.bootstrap`, 95 % percentile. O − E resamples the region's TUs,
 counting only region members within each TU (a region inside one TU has a degenerate CI). HL
 resamples inside and outside TUs as two strata (on the residualised abundances; the fit is not
-repeated per resample).
+repeated per resample). Known inconsistency (follow-up, not blocking): genes without a TU label
+share one block here (`pd.factorize` code −1), whereas V treats each as its own TU. The C6 genes
+table gives every gene a TU, so the case does not arise from the pipeline.
 
 ## Multiple testing and flags
 
@@ -95,8 +109,15 @@ own AMR set, M4-08 AR(1) ρ = 0.5, no region effects, detection from covariates 
   block). Side runs on the same scenario (600 replicates at 1,000 genes / 200 at 4,500): raw HL
   0.107 / 0.243 / 0.328 and 0.105 / 0.25 / 0.38, linear 0.033 / 0.112 / 0.185 and
   0.055 / 0.14 / 0.195, adding (log length)² 0.025 / 0.09 / 0.14 and 0.05 / 0.12 / 0.18.
-  Residualising on covariates halves the bias but does not remove detection selection; open for
-  the statistician and the lead.
+  Residualising on covariates halves the bias but does not remove detection selection; resolved
+  by ADR-0018 amendment 1 (next item).
+- Studentised HL (dd663c0; suites run on that tree, Slurm 1850200 fast / 1850201 full; all pass).
+  Full mode (R = 1,000, α = 0.01 / 0.05 / 0.10):
+  - A2-HL 0.002 / 0.024 / 0.064, A2-HL-MAR 0.003 / 0.016 / 0.042;
+  - A2-mid O − E 0.005 / 0.034 / 0.073, A2-low O − E (M4-13 p) 0.005 / 0.044 / 0.076;
+  - C1 pooled (m = 4, ρ = 0.5): HL 0.007 / 0.049 / 0.096, O − E 0.009 / 0.050 / 0.103; pooled HL
+    at ρ = 0 and 0.9 also pass, as does plasmid AMR at α 0.05 / 0.10.
+  Fast: everything passes; A2-mid O − E at α = 0.01 is unconfirmed (0.03 / 0.02).
 - C3 power (recorded, not gated; BGC O − E, α = 0.05, R = 100): +10 % 0.11, +20 % 0.21,
   +30 % 0.46, +50 % 0.88 (`local/logs/calibration/regions_power.jsonl`).
 
@@ -138,6 +159,10 @@ own AMR set, M4-08 AR(1) ρ = 0.5, no region effects, detection from covariates 
 - **Plasmid copy number** cancels exactly (within-replicon comparisons): results are bitwise identical
   for `plasmid_copy_log2` 0 and log2 20 on the same seed (3 seeds checked), so attack 4 holds by
   construction and is best tested as an invariance, not a calibration stream.
+- **TU labels enter the HL test (amendment 1).** V's design factor Σ_t m_t²/m² comes from the TU
+  labels, so the shift null assumes the labels describe the dependence equally well inside and
+  outside the region. Labels wrong everywhere in the same way do no harm. Labels wrong only inside
+  the region break level; see attack A-TU and review round 3.
 
 ## Statistician sign-off
 
@@ -227,3 +252,93 @@ shares at α = 0.01 / 0.05 / 0.10, exhaustive circular shifts, ρ = 0.5, β_abun
 **Sign-off state: changes requested (blocking).** Merge needs the studentised HL statistic
 (item 3), with A2-HL and A2-HL-MAR passing. This changes the §7.3.5(b) HL test, so it needs an
 ADR-0018 amendment (decision 4) accepted by Khoa.
+
+### Review round 3 (statistician, 2026-10-15): studentised HL implementation (dd663c0)
+
+Scripts and outputs: `local/scratch/review-m4-17/v3/` (cmp.py, tumis.py, tusplit.py, lagv.py, an.py;
+Slurm 1850322, 1850439, 1850446, 1850492). Rates are rejection shares at α = 0.01 / 0.05 / 0.10,
+1,000 genes, ρ = 0.5, exhaustive circular shifts. Bounds at R = 2,000: 0.0144 / 0.0597 / 0.1134.
+
+1. **Formula: matches the reference.** `tu_variance_components`, `hl_variance` and
+   `studentised_hl_null` were checked against the round-2 reference (exp5.py `tus_`) on the same
+   seeds: 114 replicates, 455 regions (A2-HL at 1,000 and 4,500 genes, control, A2-MAR).
+   max |ΔT| = 1.8e-15 over every shift, identical p, identical σ_u² and σ_e² (to 1e-12). The
+   observed T (shift 0) is computed by the same path.
+2. **Decision-12 guard: does not hide real regions.** It acts on the replicon's σ_u² + σ_e², not on
+   a region's V. With log2 abundances of ~20–30 it triggers only below a residual SD of ~3e-6
+   log2. Real proteomics quantification is coarser than that by orders of magnitude, so only
+   (numerically) constant residuals reach it. Typical values: σ_u² ≈ 4.0, σ_e² ≈ 0.87, threshold
+   7.5e-12. A small V caused by a large region never reaches the guard. σ_u² = σ_e² = 0 needs
+   SSE = SSB = 0, i.e. constant data (all-singleton TUs give σ_e² = 0 but σ_u² > 0).
+3. **Missing-TU rule: anti-conservative (change requested).** A gene without a TU label becomes its
+   own TU. When the missing labels sit in the tested region, the region's V is too small, because
+   its genes are still correlated. Region labels missing:
+   - control: prophage 0.034 / 0.118 / 0.184, BGC 0.040 / 0.114 / 0.191, CRISPR 0.026 / 0.101 / 0.159;
+   - A2-HL and A2-MAR: BGC 0.108–0.111 at α 0.05.
+
+   All labels missing stays at level (0.009 / 0.048 / 0.102). C6 makes `tu_id` non-null, and M4-13
+   and `tu_block_bootstrap` refuse NA TU IDs. Either refuse missing labels with a ValueError, or
+   ignore labels on the whole replicon when any indexed gene lacks one. Attack test
+   `test_atu_missing_region_tu_labels_do_not_change_the_hl_p` accepts either fix and fails on dd663c0.
+4. **New weakness: region-specific TU fragmentation (attack A-TU).** The data are the control, with
+   no region effect. Each region TU on chr1 is cut into 2-gene chunks; the TUs outside the regions
+   are left whole. HL then rejects:
+   - prophage 0.017 / 0.082 / 0.143, BGC 0.020 / 0.080 / 0.144, CRISPR 0.015 / 0.071 / 0.124;
+   - for comparison, true labels give 0.010 / 0.051 / 0.097 and the same cut genome-wide gives
+     0.008 / 0.049 / 0.104 (R = 2,000).
+
+   Over-merging (adjacent TUs merged in pairs) is conservative. An operon predictor that splits
+   prophage or BGC operons more than core operons (different intergenic spacing) would do this.
+   Gate: `test_atu_region_specific_tu_fragmentation_hl_at_level`, pooled m = 4 as C1, fast and full.
+   Slurm 1850492, fast (R = 100, pooled): 0.015 at α 0.01 (pass); 0.080 then 0.055 at 0.05 and
+   0.133 then 0.120 at 0.10 (unconfirmed: R = 100 is too small to confirm a rate near 0.08).
+   Full (R = 1,000, pooled bound 0.0569 at α 0.05): pending.
+   **A label-free fix exists (prototype `lagv.py`).** It keeps T = HL/√V but builds V from
+   positions instead of labels:
+   - V = Var(mean_in − mean_out) = Σ_{in,in} γ/m² + Σ_{out,out} γ/m′² − 2 Σ_{in,out} γ/(m m′);
+   - γ(h) is the replicon's autocovariance of residualised detected abundances at circular
+     gene-index lag h, estimated once per replicon, h ≤ 30, truncated at its first non-positive
+     value.
+   - Results:
+
+     | Scenario (R) | Lag V | Raw HL | TU-label V |
+     |---|---|---|---|
+     | Control (2,000) | 0.008–0.010 / 0.049–0.057 / 0.097–0.104 | | |
+     | Control, ρ = 0.9 (1,000) | 0.006–0.012 / 0.043–0.052 / 0.087–0.110 | | |
+     | A2-HL (2,000) | 0.009 / 0.032 / 0.074 | 0.034 / 0.109 / 0.178 | |
+     | A2-MAR (2,000) | 0.010 / 0.045 / 0.087 | 0.061 / 0.136 / 0.216 | |
+     | Power, prophage +1 log2, α 0.05 (500) | 0.172 | 0.168 | 0.178 |
+
+   - It is immune to TU-label errors by construction. Its cost is the same order as `hl_variance`
+     (pairwise distances inside the set).
+   - It is a change to amendment 1, so it needs an ADR-0018 amendment 2 accepted by Khoa.
+5. **Calibration log ("null_fast crispr hl_shift 0.03 at α 0.01: fail").** The record is stale and
+   is not a gating error. `local/logs/calibration/regions.jsonl` is append-only and holds every run
+   since 09:44. Lines 47–51 and 115–119 are the pre-pooling runs (Slurm 1849058 era, round 1).
+   Jobs 1850200 and 1850201 wrote lines 495–726. They hold no per-type `null_fast` record, only
+   `chr1_pooled`, and every check there is pass or unconfirmed. Records carry no run ID, commit or
+   timestamp, so runs cannot be told apart. Harness follow-up for the backlog: add `git_head` and
+   `slurm_job` / `ts` to every record, or write one file per run. The gating needs no fix.
+   Separately, jobs 1850199–1850201 logged head 5a7da49 with the implementation uncommitted;
+   dd663c0 was committed 1 min after 1850201 ended. The numbers stand only if the tree equals dd663c0.
+6. **False-alarm budget, final gate set** (ADR-0015 two-block rule; per-check probability
+   P(block fails)²):
+   - Fast: C1 (2 pooled streams × 3 α, plus plasmid AMR 2 × 2 α) 0.010; A2 (4 streams × 3 α)
+     0.006 at the measured rates (0.030 if every A2 stream sat at its nominal level); total
+     ≈ 0.016.
+   - Nightly: C1 (4 pooled + 4 AMR streams) 0.014; A2 0.004–0.009; total ≈ 0.018–0.023.
+   - The two A-TU streams add ≤ 0.003 once they pass.
+
+   Acceptable against ≈ 0.04 for the whole nightly. A2-mid O − E at α 0.01, R = 100, is the largest
+   single term (0.006, near nominal). No change.
+7. Notes: the bootstrap/V inconsistency for missing TU labels (CIs section) goes away with fix 3.
+   Effect and CI are unchanged from round 2 (the HL point estimate on the residual scale).
+
+**Sign-off state: changes requested (blocking).**
+- (a) Missing-TU rule: item 3, a small code change, gated by the deterministic attack test.
+- (b) A-TU: item 4. Either ADR-0018 amendment 2 (label-free lag V, the prototype passes every
+  scenario above), or an explicit waiver by Khoa that keeps A-TU as a documented limitation and
+  marks it xfail with that reason.
+
+Everything else is signed: formula, guard, C1, A2-HL, A2-HL-MAR, A2-mid, A2-low, the A4 invariance,
+FDR families and the false-alarm budget.
