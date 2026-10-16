@@ -69,6 +69,7 @@ testpaths = ["tests"]
 pythonpath = ["tests/sim"]
 addopts = "-ra --strict-markers"
 markers = [
+  "calibration_nightly: fast calibration test over 60 s; nightly on Slurm, not in GitHub CI",
   "needs_apptainer: Apptainer can run a pulled image",
   "needs_docker: Docker daemon running",
   "needs_conda: micromamba and the tool environment",

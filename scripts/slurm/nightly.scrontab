@@ -1,0 +1,10 @@
+# Install with: scrontab scripts/slurm/nightly.scrontab   (view: scrontab -l; remove: scrontab -r)
+# Every night at 01:30 Pacific: the calibration_nightly tests on the latest origin/main.
+#SCRON --job-name=giap-nightly
+#SCRON --partition=normal
+#SCRON --qos=normal
+#SCRON --cpus-per-task=16
+#SCRON --mem=48G
+#SCRON --time=04:00:00
+#SCRON --output=/home/classes/bios/270/khoa/giap/local/logs/giap-nightly.%j.out
+30 1 * * * /home/classes/bios/270/khoa/giap/scripts/slurm/nightly.sbatch
