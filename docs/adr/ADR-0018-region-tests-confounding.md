@@ -37,3 +37,14 @@ T = HL / √V at every shift, V a per-TU variance estimated once per replicon (f
 the reported HL effect and CI are unchanged (residual scale). Evidence at α 0.01/0.05/0.10: A2-HL
 0.005/0.019/0.046 (1,000 genes, R 4000) and 0.003/0.021/0.047 (4,500, R 2000); A2-HL-MAR ≤ 0.038 at 0.10;
 C1 pooled at level; power without confounding unchanged (0.166 vs 0.156).
+
+## Amendment 2 (proposed, needs Khoa) — 2026-10-16
+Statistician final review (https://github.com/khoa-yelo/giap/pull/89#issuecomment-6208970265;
+local/scratch/review-m4-17/v3): amendment 1's per-TU variance V depends on the TU labels, so a region whose
+TUs are fragmented more finely than the rest of the replicon (new attack A-TU) is anti-conservative:
+0.019 / 0.071 / 0.128 at α 0.01 / 0.05 / 0.10 (full mode, Slurm 1850492).
+
+Proposed: V is estimated label-free from the lag autocovariance of the residual abundance along the replicon
+(formula in docs/methods/region-tests.md, statistician's v3 section); T = HL/√V as in amendment 1; reported
+HL effect and CI unchanged. Statistician: passes every scenario (A2-HL, A2-HL-MAR, A2-mid, A-TU, C1) with
+the same power. Alternative: waive A-TU (xfail, documented limitation).

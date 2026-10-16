@@ -171,3 +171,7 @@ tolerances. Branch is not mergeable until A2-HL passes.
     `studentised_hl_null` in giap.context.regions as pinned; a replicon with one TU has σ_u² = 0; V = 0
     gives T = 0; V counts as 0 below a data-scaled tolerance (relative to the residual variance, so
     fit rounding never makes T random).
+13. (lead, statistician final review) Missing `tu_id` labels raise `ValueError` (C6 makes `tu_id`
+    non-null); no per-gene fallback. Pinned by the statistician's
+    test_atu_missing_region_tu_labels_do_not_change_the_hl_p (accepts the error).
+14. Calibration records carry a run ID and commit (backlog: tests/calibration/_criteria.py writer).
