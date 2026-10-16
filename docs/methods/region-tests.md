@@ -125,6 +125,12 @@ own AMR set, M4-08 AR(1) ρ = 0.5, no region effects, detection from covariates 
   detected genes before HL (prototype: quadratic in log length) gives 0.017 / 0.067 / 0.103 (R = 300);
   adopted as the linear fit above (ADR-0018, lead decision 10). Residualising removes the part of
   a real region shift that the covariates explain (e.g. a prophage that is both short and silent).
+  **Correction (review round 2):** the R = 300 prototype figure was noise; residualisation removes
+  the *location* bias but not the failure. The remaining failure is a third violation:
+  (iii) *detected-count heterogeneity of HL*: only ~6–7 of the prophage's 40 genes are detected
+  (short genes), against ~22 at a shifted position, so the observed HL has a wider sampling
+  distribution than the shift null (same mechanism as (i) for O − E). It fails even when detection
+  does not depend on abundance (A2-HL-MAR below) and even with the exact oracle E[a | x, detected].
 - **Replication dosage.** Real replicons have an ori → ter gene-dosage gradient (up to ~1–2 log2 in
   fast growth) that giapsim does not model; circular shifts move the region along it, so HL partly
   measures position. Report HL as "relative to random positions on this replicon", not as a
@@ -152,3 +158,72 @@ Statistician (M4-17 review, PR #89, 2026-10-15): **changes requested** (not sign
   ≈ 0.017 nightly.
 - Blocking: limitations (i) and (ii) are attack-2 failures (§8.5: a failing attack blocks the merge);
   the A2 gate errors until M4-13 (#83) is merged (not marked xfail as lead decision 4 allows).
+
+### Review round 2 (statistician, 2026-10-15): A2-HL root cause and recommendation
+
+Scripts and outputs: `local/scratch/review-m4-17/v2/` (exp2–exp5.py, an.py; Slurm 1849806, 1849807,
+1849809, 1849826, 1849914; attack test run 1849915). All rates are prophage `hl_shift` rejection
+shares at α = 0.01 / 0.05 / 0.10, exhaustive circular shifts, ρ = 0.5, β_abundance = 0.5 unless stated.
+
+1. **Decision 10 as implemented fixes the location bias.** Mean residualised HL over replicates:
+   −0.07 to −0.09 log2 (raw +0.74). Fit-set, pooling and imputation variants do not matter:
+   pooled chr1 + p1 fit equals per-replicon to ±0.003; adding (log length)² or a cubic in a fitted
+   logistic detectability index (or in the true index) changes rates by ≤ 0.04. The oracle
+   residual a − E[a | true covariate index, detected] (exact under the simulator, Gauss–Hermite)
+   still rejects 0.053 / 0.131 / 0.199. So no covariate adjustment can pass this attack.
+2. **Cause: detected-count heterogeneity (limitation (iii)).** A2-HL-MAR (short prophage,
+   detection from covariates only, so no selection on abundance): plain HL 0.058 / 0.147 / 0.225
+   (1,000 genes, R = 2,000) and 0.062 / 0.151 / 0.229 (4,500 genes, R = 1,000). Residualised:
+   0.051 / 0.131 / 0.207 and 0.063 / 0.152 / 0.227. β_abundance = 1 detects more prophage genes
+   (10 versus 7) and fails less (0.012 / 0.074 / 0.139).
+3. **Fix (recommendation (c)): a TU-cluster-studentised HL test statistic**, which parallels
+   ADR-0018 decision 2. Keep decision 10's residualisation, gene-index circular shifts, and HL as
+   the reported effect with its CI. The p-value comes from T = HL / √V, recomputed at every shift.
+   V = σ_u²(Σ_t m_t²/m² + Σ_t m′_t²/m′²) + σ_e²(1/m + 1/m′), where:
+   - m_t and m′_t are the detected genes with finite ã in TU t, inside and outside the set;
+   - m and m′ are their totals;
+   - σ_u² (between-TU) and σ_e² (within-TU) are one-way ANOVA moment estimates on the replicon's
+     residualised detected genes, computed once per replicon, with σ_u² truncated at 0.
+   Level (prophage HL, 1,000 genes / 4,500 genes):
+   - A2-HL β 0.5: 0.005 / 0.019 / 0.046 (R = 4,000) and 0.003 / 0.021 / 0.047 (R = 2,000).
+   - A2-HL β 1.0: 0.001 / 0.014 / 0.045 (1,000 genes, R = 1,000).
+   - A2-HL-MAR: 0.003 / 0.016 / 0.038 and 0.001 / 0.014 / 0.037.
+   - A2-mid: 0.004 / 0.025 / 0.052 (1,000 genes, R = 2,000).
+   - C1 pooled over the 4 chromosome types: 0.010 / 0.045 / 0.092 (R = 4,000) and
+     0.009 / 0.048 / 0.099 (R = 1,000).
+   - C1 plasmid AMR (p1, R = 2,000): 0.000 / 0.043 / 0.095.
+   - Under the attack it is conservative because AR(1) between TUs is not modelled.
+   Power without confounding (prophage +1 log2, R = 500) at α 0.01 / 0.05 / 0.10:
+   - TU-studentised: 0.058 / 0.166 / 0.252.
+   - plain HL: 0.048 / 0.156 / 0.246.
+   With confounding (short prophage + abundance detection, +1 log2), TU-studentised gives
+   0.010 / 0.070 / 0.134 against plain HL's invalid 0.056 / 0.182 / 0.258.
+
+   Alternatives tested, all at level:
+   - shifting the region's detected genes within the detected-only gene sequence:
+     0.004 / 0.019 / 0.044. This changes the spec's null.
+   - scaling by √(m m′/M): 0.002 / 0.010 / 0.028.
+   - Wilcoxon z: 0.001 / 0.009 / 0.026.
+
+   Both scaling and Wilcoxon z are over-conservative because they ignore TU clustering. Decision 10
+   itself needs no amendment. Option (b) is not needed: the attack is claimable once the statistic
+   is studentised.
+4. **O − E re-check.** The studentised O − E statistic passes:
+   - A2-mid (1,000 genes, p = truth, R = 6,000): 0.009 / 0.050 / 0.103, which confirms α = 0.01.
+   - A2-HL data: 0.012 / 0.054 / 0.101 (R = 4,000).
+   - A2-MAR data: 0.008 / 0.051 / 0.104.
+5. **C1 pooled family.** BH within (type, stat) and pooled level per statistic over the 4 chromosome
+   types:
+   - O − E: 0.010 / 0.048 / 0.101 (1,000 genes, R = 4,000) and 0.009 / 0.047 / 0.099 (4,500 genes).
+   - HL (decision 10): 0.008 / 0.045 / 0.094 and 0.010 / 0.049 / 0.099.
+
+   All are within the bounds (R = 4,000: 0.0131 / 0.0569 / 0.1095). A single unpooled cell reached
+   0.072 at α 0.05 (4,500 genes, AMR O − E, R = 1,000; bound 0.064), but an independent seed for the
+   same cell gives 0.052. This is chance, so the pooled restructure stands.
+6. **New attack null** `test_a2_short_prophage_hl_at_level_without_abundance_selection`
+   (tests/calibration/attacks). It runs the A2-low data with HL and must stay at level. The current
+   code is a confirmed fail in fast mode (Slurm 1849915), as is A2-HL.
+
+**Sign-off state: changes requested (blocking).** Merge needs the studentised HL statistic
+(item 3), with A2-HL and A2-HL-MAR passing. This changes the §7.3.5(b) HL test, so it needs an
+ADR-0018 amendment (decision 4) accepted by Khoa.

@@ -125,6 +125,20 @@ def test_a2_detection_by_abundance_prophage_hl_at_level(full: bool) -> None:
     assert not failed, failed
 
 
+@pytest.mark.parametrize("full", MODES)
+def test_a2_short_prophage_hl_at_level_without_abundance_selection(full: bool) -> None:
+    """A2-HL-MAR (statistician, review round 2): the A2-low data (short prophage genes, detection
+    from covariates only, so abundance is independent of detection and of membership and there is
+    no selection bias to residualise). Only ~6 of the prophage's 40 genes are detected against ~22
+    at a shifted position, so a plain HL shift statistic has a wider sampling distribution at the
+    observed position than across the shifts: plain or residualised HL rejects ~0.13-0.14 at
+    alpha = 0.05 (R = 1,000-2,000, 1,000 and 4,500 genes). Isolates the variance mechanism of the
+    A2-HL failure from the detection-selection bias; HL does not use p_detect (p = truth)."""
+    R = C.replicates("regions", full)
+    failed = rc.level_checks(_a2(full, "true"), [("prophage", "hl_shift", "chr1")], R)
+    assert not failed, failed
+
+
 @pytest.mark.calibration
 def test_a2_teeth_constant_p_detect_rejects(teeth_log: Path) -> None:
     """Ignoring detectability (constant p) on the attack-2 data is a confirmed fail at 0.05."""
