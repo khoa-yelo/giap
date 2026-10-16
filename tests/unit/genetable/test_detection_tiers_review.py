@@ -4,8 +4,10 @@
    peptide q derived from PEP, the running mean of the sorted PEPs of the distinct accepted
    peptides (q_i = mean of the PEPs <= PEP_i, the quantity the MAYU-with-PEP path sums); never
    0 genes silently.
-6. Contaminant decoys (``rev_CON__...``: the stripped ID carries an ``input.contaminant_prefixes``
-   entry) are neither paired nor unpaired.
+6. Contaminant decoys are neither paired nor unpaired. Decision 12 (correcting decision 11): a decoy
+   is a contaminant decoy only when ALL its stripped IDs carry an ``input.contaminant_prefixes``
+   entry; a mixed decoy (``rev_P;rev_CON__P``) pairs on its non-contaminant IDs (paired when P
+   maps, unpaired otherwise).
 7. Decoy-prefix stripping removes the longest matching prefix first (``REV__X`` -> ``X``) whatever
    the order of ``input.decoy_prefixes``.
 8. ``Detection.protein_gene_map`` is the protein -> gene map ``detect`` used (columns
@@ -110,7 +112,8 @@ def _eight_gene_decoys(contaminant_ids: list[str]) -> Builder:
 
 
 def test_contaminant_decoys_not_counted_8_plus_3() -> None:
-    """Decision 6: 8 gene + 3 ``rev_CON__`` decoys stay in the picked tier (8/8, not 8/11)."""
+    """Decision 6: 8 gene + 3 pure ``rev_CON__`` decoys (every stripped ID a contaminant,
+    decision 12) stay in the picked tier (8/8, not 8/11)."""
     ids = ["rev_CON__P02768", "rev_CON__P00761", "rev_CON__P04264"]
     r = _eight_gene_decoys(ids).run()
     assert r.det.tier == "decoy_picked"
@@ -145,7 +148,7 @@ def test_contaminant_decoys_follow_configured_prefixes() -> None:
 
 
 def test_unknown_decoys_still_count_as_unpaired() -> None:
-    """Only contaminant decoys leave the counts: 8 paired + 3 unknown -> 8/11 < 0.8 -> mayu."""
+    """Only all-contaminant decoys leave the counts: 8 paired + 3 unknown -> 8/11 < 0.8 -> mayu."""
     r = _eight_gene_decoys([f"rev_UNKNOWN{i}" for i in range(3)]).run()
     assert r.det.tier == "mayu"
     assert "decoy_pairing_low" in r.det.warnings
@@ -182,6 +185,97 @@ def test_maxquant_contaminant_decoy_excluded_via_longest_prefix() -> None:
     assert r.det.tier == "decoy_picked"
     assert fx.tier_metric(r.det, "n_decoys_paired") == 8
     assert fx.tier_metric(r.det, "n_decoys_unpaired") == 0
+
+
+def test_all_contaminant_multi_id_decoys_not_counted() -> None:
+    """Decision 12: ``rev_CON__A;rev_Cont_B`` has only contaminant IDs -> out of the counts."""
+    ids = [f"rev_CON__P0{i};rev_Cont_T{i}" for i in range(3)]
+    r = _eight_gene_decoys(ids).run()
+    assert r.det.tier == "decoy_picked"
+    assert fx.tier_metric(r.det, "n_decoys_paired") == 8
+    assert fx.tier_metric(r.det, "n_decoys_unpaired") == 0
+
+
+# ------------------------------------------------------------------ decision 12: mixed decoys
+
+
+def _pair(b: Builder) -> pd.DataFrame:
+    det = _det()
+    peps = b.peptides_frame()
+    pmap = det.protein_gene_map(b.genes_frame(), peps, fx.eo.hits_frame([]),
+                                fx.ao.protein_hits_frame(b.protein_hit_rows))  # fmt: skip
+    return det.pair_decoys(peps, pmap, cfg().input.decoy_prefixes).set_index("peptide")
+
+
+@pytest.mark.parametrize("ids", [["rev_P1;rev_CON__P1"], ["rev_P1", "rev_CON__P02768"]])
+def test_mixed_decoy_pairs_when_its_target_maps(ids: list[str]) -> None:
+    """``rev_P1;rev_CON__P1`` pairs on P1 (it maps to g): a paired row, not dropped."""
+    b = Builder(2)
+    g = (b.tags or [])[0]
+    b.protein_hit("P1", g)
+    b.decoy(ids)
+    pairing = _pair(b)
+    p = b.peptides_frame()["peptide"].iloc[0]
+    assert p in pairing.index, "a mixed decoy is not a contaminant decoy (decision 12)"
+    assert pairing.loc[p, "gene"] == g
+
+
+@pytest.mark.parametrize("ids", [["rev_UNMAPPED;rev_CON__P1"], ["rev_UNMAPPED", "rev_CON__P1"]])
+def test_mixed_decoy_unpaired_when_its_target_does_not_map(ids: list[str]) -> None:
+    b = Builder(2)
+    b.decoy(ids)
+    pairing = _pair(b)
+    p = b.peptides_frame()["peptide"].iloc[0]
+    assert p in pairing.index, "a mixed decoy is not a contaminant decoy (decision 12)"
+    assert fx.is_na(pairing.loc[p, "gene"])
+
+
+def test_mixed_decoys_paired_in_detect() -> None:
+    """8 gene decoys + 3 mixed ``rev_<tag>;rev_CON__..`` whose tag maps -> 11 paired, 0 unpaired."""
+    b = _eight_gene_decoys([])
+    t = b.tags or []
+    for i in range(3):
+        b.decoy([f"rev_{t[7 + i]};rev_CON__P0276{i}"], 0.001, 0.01, 20.0 + i)
+    r = b.run()
+    assert fx.tier_metric(r.det, "n_decoys_paired") == 11
+    assert fx.tier_metric(r.det, "n_decoys_unpaired") == 0
+    assert r.det.tier == "decoy_picked"
+
+
+def test_mixed_decoys_unpaired_in_detect() -> None:
+    """8 gene decoys + 3 mixed decoys whose non-contaminant ID does not map: 8/11 < 0.8 -> mayu
+    (under "any" they would vanish and keep ``decoy_picked``: the attack of decision 12)."""
+    ids = [f"rev_UNMAPPED{i};rev_CON__P0276{i}" for i in range(3)]
+    r = _eight_gene_decoys(ids).run()
+    assert fx.tier_metric(r.det, "n_decoys_paired") == 8
+    assert fx.tier_metric(r.det, "n_decoys_unpaired") == 3
+    assert fx.tier_metric(r.det, "decoy_paired_share") == pytest.approx(8 / 11)
+    assert r.det.tier == "mayu"
+    assert "decoy_pairing_low" in r.det.warnings
+
+
+def test_pairing_share_on_non_contaminant_ids_with_many_mixed_decoys() -> None:
+    """10 decoys, 4 mixed (40 % >= 20 %):
+    5 plain ``rev_<tag>`` -> paired; 2 ``rev_<tag>;rev_CON__..`` -> paired (tag maps);
+    2 ``rev_UNMAPPED;rev_Cont_..`` -> unpaired; 1 ``rev_CON__..;rev_cRAP..`` -> excluded.
+    Share = (5 + 2) / (5 + 2 + 2) = 7/9 = 0.778 < 0.8 -> mayu. ("Any" gives 5/5 = 1 -> picked.)"""
+    b = Builder(10)
+    t = b.tags or []
+    for i, g in enumerate(t):
+        b.target(g, 0.001, 0.01, 100.0 + i)
+    for i in range(5):
+        b.decoy([f"rev_{t[i]}"], 0.001, 0.01, 1.0 + i)
+    for i in range(2):
+        b.decoy([f"rev_{t[5 + i]};rev_CON__P0{i}"], 0.001, 0.01, 10.0 + i)
+    for i in range(2):
+        b.decoy([f"rev_UNMAPPED{i};rev_Cont_T{i}"], 0.001, 0.01, 20.0 + i)
+    b.decoy(["rev_CON__P09;rev_cRAP009"], 0.001, 0.01, 30.0)
+    r = b.run()
+    assert fx.tier_metric(r.det, "n_decoys_paired") == 7
+    assert fx.tier_metric(r.det, "n_decoys_unpaired") == 2
+    assert fx.tier_metric(r.det, "decoy_paired_share") == pytest.approx(7 / 9)
+    assert r.det.tier == "mayu"
+    assert "decoy_pairing_low" in r.det.warnings
 
 
 # ------------------------------------------------------------------ decision 8: exposed map
