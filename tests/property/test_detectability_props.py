@@ -18,7 +18,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
@@ -59,6 +59,7 @@ def _values(diag: pd.DataFrame, group_type: str, metric: str) -> pd.Series:
 
 
 @settings(max_examples=100, deadline=None)
+@example(n=20, n_bins=1, seed=81781)  # completely separated: no recalibration MLE (decision 17)
 @given(
     n=st.integers(20, 300),
     n_bins=st.integers(1, 10),
@@ -83,11 +84,19 @@ def test_calibration_diagnostics_bins(n: int, n_bins: int, seed: int) -> None:
     perm = r.permutation(n)
     diag2 = _mod().calibration_diagnostics(d[perm], p[perm], n_bins=n_bins)
     metrics = ["brier"]
-    if 0 < d.sum() < n:  # the recalibration MLE exists only with both classes
+    lp = np.log(p / (1 - p))
+    separated = 0 < d.sum() < n and (
+        lp[d == 1].min() >= lp[d == 0].max() or lp[d == 1].max() <= lp[d == 0].min()
+    )
+    if 0 < d.sum() < n:  # the recalibration MLE needs both classes and no separation (decision 17)
         metrics += ["calibration_intercept", "calibration_slope"]
     for m in metrics:
         a, b = _values(diag, "overall", m).iloc[0], _values(diag2, "overall", m).iloc[0]
+        if separated and m != "brier":
+            assert np.isnan(a) and np.isnan(b), m
+            continue
         assert abs(a - b) <= 1e-6 * max(1.0, abs(a)), m
+    assert _values(diag, "overall", "recalibration_separated").iloc[0] == int(separated)
 
 
 @settings(max_examples=6, deadline=None, suppress_health_check=[HealthCheck.too_slow])
@@ -116,3 +125,13 @@ def test_row_order_invariance(data_seed: int, perm_seed: int, seed: int) -> None
     assert np.all((pa >= 0) & (pa <= 1))
     if not a.constant:
         assert np.all((pa > 0) & (pa < 1))
+
+
+def test_reverse_separation_has_no_recalibration_fit() -> None:
+    """Decision 17 covers both directions: every detected logit below every undetected one."""
+    p = np.array([0.05, 0.1, 0.15, 0.2, 0.6, 0.7, 0.8, 0.9])
+    d = np.array([1, 1, 1, 1, 0, 0, 0, 0])
+    diag = _mod().calibration_diagnostics(d, p, n_bins=2)
+    for m in ("calibration_intercept", "calibration_slope"):
+        assert np.isnan(_values(diag, "overall", m).iloc[0]), m
+    assert _values(diag, "overall", "recalibration_separated").iloc[0] == 1

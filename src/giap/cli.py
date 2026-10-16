@@ -186,6 +186,11 @@ _RUN_INPUTS = [
     "reference_peptides",
     "replicon_depth",
 ]
+# params.inputs key -> (raw input, preflight work file): MAPPING reads the normalised files
+_NORM_INPUTS = {
+    "peptides": ("peptides", "peptides.norm.parquet"),
+    "proteins_long": ("proteins", "proteins.long.faa"),
+}
 
 
 @cli.command()
@@ -277,6 +282,11 @@ def run(
     db_dir: Path | None = _.get("db_dir") or (Path(env_db) if env_db else None)
     outdir = outdir.absolute()
     inputs.update(_run_preflight(cfg, outdir, inputs, db_dir, bool(_["strict"]), str(_["profile"])))
+    from giap.runner.local import contaminant_library
+
+    lib = contaminant_library(db_dir)  # M3-15 library for MAPPING's loci
+    if lib is not None:
+        inputs["contaminants"] = lib
     if shutil.which("nextflow") is None:
         click.echo("giap run: nextflow not found on PATH (see AGENTS.md setup)", err=True)
         sys.exit(ExitCode.ENVIRONMENT)
@@ -294,7 +304,8 @@ def _run_preflight(
     profile: str,
 ) -> dict[str, Path]:
     """Preflight in run mode (§5.1): exits on an error (or a warning with ``strict``) before
-    Nextflow starts, else returns the normalised ``genome`` and ``replicons`` for params.json.
+    Nextflow starts, else returns the normalised ``genome`` and ``replicons`` for params.json
+    (plus ``peptides`` and ``proteins_long`` when given, for MAPPING).
     Tools are checked for the Nextflow ``profile`` under ``$GIAP_ROOT`` (run-wiring 4a)."""
     from giap.preflight.report import render_preflight_md
     from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
@@ -321,7 +332,11 @@ def _run_preflight(
         click.echo(render_preflight_md(report), err=True, nl=False)
         sys.exit(code)
     work = outdir / "work" / "preflight"
-    return {"genome": work / "genome.norm.fa", "replicons": work / "replicons.tsv"}
+    roots = {"genome": work / "genome.norm.fa", "replicons": work / "replicons.tsv"}
+    for key, (raw, name) in _NORM_INPUTS.items():
+        if raw in inputs and (work / name).is_file():
+            roots[key] = work / name
+    return roots
 
 
 def _run_nextflow(
@@ -392,7 +407,6 @@ def _local_roots(
 
 def _run_local(cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Path | None]) -> None:
     """``--executor local`` (§6.4): every registered step as target; exits when done."""
-    from giap.io.events import EventsHandler
     from giap.runner import local
     from giap.steps import load_step_modules
     from giap.steps import registry as reg
@@ -405,12 +419,7 @@ def _run_local(cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Pa
         sys.exit(ExitCode.INTERNAL)
     roots = _local_roots(cfg, outdir, genome, inputs)
     # step events (e.g. the ``search_db: auto`` resolution) go to OUT/logs/events.jsonl (§6.7)
-    steps_log = logging.getLogger("giap.steps")
-    events = EventsHandler(outdir / "logs")
-    steps_log.addHandler(events)
-    prev_level = steps_log.level
-    if steps_log.getEffectiveLevel() > logging.INFO:
-        steps_log.setLevel(logging.INFO)
+    restore = _record_step_events(outdir / "logs")
     try:
         local.plan_local(cfg, targets, set(roots))
         local.run_local(cfg, workdir, targets, roots)
@@ -429,9 +438,26 @@ def _run_local(cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Pa
         click.echo(f"giap run: internal error: {exc}", err=True)
         sys.exit(ExitCode.INTERNAL)
     finally:
+        restore()
+    sys.exit(ExitCode.SUCCESS)
+
+
+def _record_step_events(logs_dir: Path) -> Callable[[], None]:
+    """Send ``giap.steps`` events to ``logs_dir/events.jsonl`` (§6.7); returns the undo."""
+    from giap.io.events import EventsHandler
+
+    steps_log = logging.getLogger("giap.steps")
+    events = EventsHandler(logs_dir)
+    steps_log.addHandler(events)
+    prev_level = steps_log.level
+    if steps_log.getEffectiveLevel() > logging.INFO:
+        steps_log.setLevel(logging.INFO)
+
+    def restore() -> None:
         steps_log.removeHandler(events)
         steps_log.setLevel(prev_level)
-    sys.exit(ExitCode.SUCCESS)
+
+    return restore
 
 
 # ---------------------------------------------------------------- makedb
@@ -611,6 +637,7 @@ def step(
 
     load_step_modules()
     cfg = _resolve(config_file, sets, log_level)
+    restore = _record_step_events(Path("logs"))  # e.g. placement's search_db event (§6.7)
     try:
         ins = _in_paths(name, inputs)
         outs = _key_paths(name, "--out", outputs)
@@ -622,6 +649,8 @@ def step(
     except reg.WiringError as exc:
         click.echo(f"giap _step: internal error: {exc}", err=True)
         sys.exit(ExitCode.INTERNAL)
+    finally:
+        restore()
 
 
 def _key_paths(name: str, flag: str, items: Sequence[str]) -> dict[str, Path]:

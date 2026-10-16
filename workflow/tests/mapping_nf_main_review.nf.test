@@ -1,0 +1,131 @@
+// M3-17 lead decisions 17 and 18 after the code review of PR #96 (docs/specs/M3-17-mapping-steps.md).
+// Stub runs of main.nf (ANNOTATE then MAPPING); ci.yml runs: nf-test test workflow/tests --profile test,stub.
+//
+// Decision 17 (surviving mutants): ANNOTATE.out.gene_model is [genes, features, replicons] in
+// that order, so every MAPPING step gets each key bound to its own parse_bakta file; main.nf passes
+// params.inputs.proteins_long (protein route: MINIPROT, protein_leftovers, TBLASTN) and
+// params.inputs.reference_peptides (placement) to MAPPING, never channel.empty().
+// Decision 18: main.nf's contaminant fallback (no params.inputs.contaminants) reads the current
+// `giap setup` manifest, {"schema_version", "items": [{"name", ..., "path", "status"}, ...]}
+// (giap.preflight.environment.read_manifest: `ok` items only). The tmp db_dir here is a copy of
+// tests/data/db_manifest/db_manifest.json (the real structure, values faked) with the contaminants
+// item's path set as `giap setup --contaminants` writes it; the real $GIAP_DB_DIR is never read.
+
+nextflow_pipeline {
+
+    name "main.nf MAPPING wiring after the PR #96 review (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "mapping"
+
+    test("decision 17: gene_model keys bound to their files; proteins_long and reference_peptides reach MAPPING") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString(),
+                          proteins_long: "${d}/proteins.long.faa".toString(),
+                          reference_peptides: "${d}/reference_peptides.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            assert workflow.success
+            def names = H.names(workflow.trace)
+
+            // proteins_long wired (mutant F: main.nf passed channel.empty())
+            ['MINIPROT', 'TBLASTN'].each { p -> assert H.count(workflow.trace, p) == 1 : "${p} ran ${H.count(workflow.trace, p)}x: ${names}" }
+            assert H.stepCount(workflow.trace, 'protein_leftovers') == 1 : names
+            def lin = H.stepInputs(H.stepDirs(work, 'loci')[0])
+            assert lin.any { it[0] == 'proteins_long' && it[1].endsWith('proteins.long.faa') } : "loci inputs ${lin}"
+
+            // reference_peptides wired (mutant E)
+            def pin = H.stepInputs(H.stepDirs(work, 'placement')[0])
+            assert pin.any { it[0] == 'reference_peptides' && it[1].endsWith('reference_peptides.tsv') } : "placement inputs ${pin}"
+
+            // gene_model order (mutant A: features / replicons swapped in ANNOTATE's emit)
+            def want = [genes: 'genes.parquet', features: 'features.parquet', replicons: 'replicons.parquet']
+            ['sixframe_index', 'placement', 'protein_leftovers', 'loci'].each { s ->
+                def got = H.stepInputs(H.stepDirs(work, s)[0]).findAll { want.containsKey(it[0]) }
+                assert !got.isEmpty() : "${s} got no gene model input"
+                got.each { kv ->
+                    assert new File(kv[1]).name == want[kv[0]] : "${s}: --in ${kv[0]}=${kv[1]} (expected ${want[kv[0]]}); all: ${got}"
+                }
+            }
+        }
+    }
+
+    test("decision 18: contaminant library from a db_dir with the giap setup manifest format") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                def db = new File("${outputDir}/tmp_db")
+                new File(db, 'contaminants').mkdirs()
+                new File(db, 'contaminants/contaminants.fasta').text = new File("${d}/contaminants.fasta").text
+                def m = new groovy.json.JsonSlurper().parse(new File("${moduleTestDir}/../../tests/data/db_manifest/db_manifest.json"))
+                m.items.find { it.name == 'contaminants' }.path = 'contaminants/contaminants.fasta'
+                new File(db, 'db_manifest.json').text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(m))
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = db.toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            assert workflow.success
+            def man = new groovy.json.JsonSlurper().parse(new File("${outputDir}/tmp_db/db_manifest.json"))
+            assert man.items instanceof List && !man.containsKey('contaminants') : "fixture is not the setup format"
+            def ldir = H.stepDirs(work, 'loci')[0]
+            def lin = H.stepInputs(ldir)
+            assert lin.any { it[0] == 'contaminants' } : "loci got no contaminant library from a setup-format db_dir: ${lin}"
+            def lib = new File("${outputDir}/tmp_db/contaminants/contaminants.fasta").canonicalPath
+            def staged = H.staged(ldir).collect { new File(it[0]).canonicalPath }
+            assert lib in staged : "loci did not stage ${lib}; staged ${staged}"
+        }
+    }
+
+    test("decision 18: setup-format manifest whose contaminants item is not ok: no library") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                def db = new File("${outputDir}/tmp_db")
+                new File(db, 'contaminants').mkdirs()
+                new File(db, 'contaminants/contaminants.fasta').text = new File("${d}/contaminants.fasta").text
+                def m = new groovy.json.JsonSlurper().parse(new File("${moduleTestDir}/../../tests/data/db_manifest/db_manifest.json"))
+                def item = m.items.find { it.name == 'contaminants' }
+                item.path = 'contaminants/contaminants.fasta'
+                item.status = 'failed'
+                new File(db, 'db_manifest.json').text = groovy.json.JsonOutput.toJson(m)
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = db.toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            def lin = H.stepInputs(H.stepDirs(workDir.toString(), 'loci')[0])
+            assert !lin.any { it[0] == 'contaminants' } : "loci got a library the manifest does not list as ok: ${lin}"
+        }
+    }
+}
