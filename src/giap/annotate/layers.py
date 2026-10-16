@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Mapping, Sequence
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -47,7 +48,7 @@ LIST_COLUMNS = ("region_ids", "flags")
 STR_COLUMNS = ("locus_tag", "tu_id", "start_codon")
 GC_WINDOW_BP = 10_000
 _PROM = ("promoter_score", "promoter_score_tu", "n_promoter_windows_tu")
-_RBS = ("tir_ostir", "sd_dg", "mrna_dg", "spacing_dg", "standby_dg", "spacer_bp", "start_codon")
+_RBS = ("tir_ostir", "sd_dg", "mrna_dg", "spacing_dg", "standby_dg", "spacer_bp")
 _CODON = ("cai", "tai", "enc", "fop", "gc3", "cpb", "at_2_10", "rare_codons_2_10")
 _GFF_REGION_TYPE = {
     "prophage": "prophage", "plasmid": "plasmid", "bgc": "biosynthetic_gene_cluster",
@@ -274,7 +275,7 @@ def gene_layers(
                                  ("pseudogene", g.feature_type == "pseudogene"),
                                  ("cai_reference", t in cai_ref)) if on]  # fmt: skip
         vals = (t, tu_id, k, size, prev_p, next_p, sorted(rid.get(t, ())), gcd,
-                *prom.get(t, (None,) * 3), *tx_row, tc, *rb.get(t, (None,) * 7),
+                *prom.get(t, (None,) * 3), *tx_row, tc, *rb.get(t, (None,) * 6), g.start_codon,
                 *cd.get(t, (None,) * 8), flags)  # fmt: skip
         for c, v in zip(LAYER_COLUMNS, vals, strict=True):
             cols[c].append(v if c in LIST_COLUMNS else _na(v))
@@ -309,12 +310,14 @@ def layer_flags(cfg: GiapConfig, present: set[str]) -> tuple[str, ...]:
 
 def tu_sources(tus: Sequence[Tu], pairs: Sequence[PairProb]) -> dict[str, str]:
     """GFF3 source per TU: ``distance_model`` when a linking pair (or, for a singleton, every
-    pair of the run) comes from the distance model, else ``UniOP``."""
+    pair of the run) comes from the distance model, else ``UniOP``. Pairs are keyed in genome
+    order, so a ``-`` TU (genes in transcription order) is walked in reverse."""
     src = {(p.gene_a, p.gene_b): p.source for p in pairs}
     all_dm = bool(pairs) and all(p.source == "distance_model" for p in pairs)
     out = {}
     for tu in tus:
-        links = [src.get(ab) for ab in zip(tu.genes, tu.genes[1:], strict=False)]
+        gs = list(tu.genes) if tu.strand == "+" else list(reversed(tu.genes))
+        links = [src.get(ab) for ab in pairwise(gs)]
         dm = "distance_model" in links if links else all_dm
         out[tu.tu_id] = "distance_model" if dm else "UniOP"
     return out
@@ -334,13 +337,15 @@ def terminator_records(
 def merged_gff3_features(
     genes: Sequence[Gene],
     tus: Sequence[Tu],
-    promoters_bed: Sequence[BedRecord],
+    promoters: Sequence[tuple[BedRecord, float]],
     terms: Sequence[tuple[BedRecord, Terminator]],
     regions: Sequence[Region],
     *,
     tu_source: Mapping[str, str] | None = None,
 ) -> list[GffFeature]:
-    """Genes (``Bakta``), TUs (``operon``), promoters, terminators and regions as GFF3 features."""
+    """Genes (``Bakta``), TUs (``operon``), promoters (BED record, tool score), terminators and
+    regions as GFF3 features. Bakta's IDs are kept; GIAP's carry their kind (``operon:``,
+    ``promoter:``, ``terminator:``, ``region:``) so IDs stay unique per file (§9.5)."""
     out = []
     for g in genes:
         attrs: dict[str, str | list[str]] = {"ID": g.locus_tag, "locus_tag": g.locus_tag}
@@ -360,25 +365,25 @@ def merged_gff3_features(
                 tu.interval,
                 src,
                 "operon",
-                attributes={"ID": tu.tu_id, "genes": list(tu.genes), "upstream": up},
+                attributes={"ID": f"operon:{tu.tu_id}", "genes": list(tu.genes), "upstream": up},
             )
         )
-    for b in promoters_bed:
-        out.append(GffFeature(b.interval, "Promotech", "promoter", score=b.score / 1000,
-                              attributes={"ID": b.name}))  # fmt: skip
+    for b, x in promoters:
+        out.append(GffFeature(b.interval, "Promotech", "promoter", score=x,
+                              attributes={"ID": f"promoter:{b.name}"}))  # fmt: skip
     for b, t in terms:
         out.append(
             GffFeature(
                 b.interval,
                 t.source,
                 "terminator",
-                attributes={"ID": b.name, "confidence": format_value(t.confidence)},
+                attributes={"ID": f"terminator:{b.name}", "confidence": format_value(t.confidence)},
             )
         )
     for r in regions:
         if r.interval is None or r.region_type not in _GFF_REGION_TYPE:
             continue
-        attrs = {"ID": r.region_id, **({"genes": list(r.genes)} if r.genes else {})}
+        attrs = {"ID": f"region:{r.region_id}", **({"genes": list(r.genes)} if r.genes else {})}
         out.append(GffFeature(r.interval, r.source_tool, _GFF_REGION_TYPE[r.region_type],
                               attributes=attrs))  # fmt: skip
     return out

@@ -37,7 +37,7 @@ from giap.annotate.layers import (
     write_annotation,
 )
 from giap.annotate.precomputed import load_precomputed
-from giap.annotate.promoters import promoters_bed
+from giap.annotate.promoters import promoter_records
 from giap.io.fasta import read_genome_fasta
 from giap.io.parquet import write_parquet_deterministic
 from giap.model.coords import Replicon
@@ -95,7 +95,11 @@ def context_layers(ctx: StepContext) -> None:
     """Per-gene layers (``layers.parquet``) and every ``annotation/*`` file."""
     cfg, ins = ctx.cfg, ctx.inputs
     for flag in layer_flags(cfg, set(ins)):
-        ctx.log.warning("%s: layer not available; its columns are NA", flag)
+        layer = flag.split(":", 1)[1]
+        ctx.log.warning(
+            "%s: layer not available; its columns are NA", flag,
+            extra={"event": "context_layers.layer_missing", "data": {"layer": layer, "flag": flag}},
+        )  # fmt: skip
     rep_df = pd.read_parquet(_path(ins["replicons"]))
     reps = replicons_of(rep_df)
     genes = pd.read_parquet(_path(ins["genes"]))
@@ -123,12 +127,13 @@ def context_layers(ctx: StepContext) -> None:
 
     pair_objs = pairs_of(pairs)
     regs = None if regions is None else regions_of(regions)
-    pbed = None if prom is None else promoters_bed(prom, reps, yes)
+    prec = None if prom is None else promoter_records(prom, reps, yes)
+    pbed = None if prec is None else [b for b, _ in prec]
     terms_rec = None if terms is None else terminator_records(terminators_of(terms), reps)
     feats = merged_gff3_features(
         genes_of(genes),
         tu_objs,
-        pbed or [],
+        prec or [],
         terms_rec or [],
         regs or [],
         tu_source=tu_sources(tu_objs, pair_objs),
