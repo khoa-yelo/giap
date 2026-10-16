@@ -62,9 +62,11 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
             )
         },
         "test_stats_bootstrap_calibration.py": "regions",
+        "test_detection_summary_calibration.py": "regions",
         "test_stats_fdr_calibration.py": "gene_fdr",
         "test_stats_permutation_calibration.py": "regions",
         "attacks/test_attack_bootstrap.py": "regions",
+        "attacks/test_detection_summary_attack_low_e.py": "regions",
         "attacks/test_attack_calibration_harness.py": "regions",
         "attacks/test_attack_calibration_harness.py::test_fdr_check_passes_exact_level_bh": (
             "gene_fdr"
