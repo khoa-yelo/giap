@@ -3,7 +3,9 @@
 Python validates everything and writes ``OUT/work/params.json`` plus ``OUT/resolved_config.yaml``;
 Nextflow only reads the params file. A failed run maps to exit code 4 naming the failed step and the
 ``.command.log`` of its task directory (read from ``OUT/logs/trace.tsv``). All runner messages go to
-stderr.
+stderr. After Nextflow ends, the step events each ``GIAP_STEP`` task wrote (published as
+``OUT/logs/steps/<step>.events.jsonl``) are appended to ``OUT/logs/events.jsonl`` in trace order
+(M3-17 lead decision 15).
 
 Resources: the user's ``--threads``/``--memory`` (``params.threads``/``params.memory``) and the
 profile's limits combine as the minimum of the two, never a silent override: e.g. under
@@ -31,6 +33,7 @@ DEFAULT_MEMORY = "64 GB"  # §5.1 `giap run --memory 64.GB`, written in a Nextfl
 _FAILED = {"FAILED", "ABORTED"}
 _EMPTY = {"", "-"}
 _NAME = re.compile(r"(?P<proc>[^ ]+)(?: \((?P<tag>.*)\))?")
+_DONE = {"COMPLETED", "CACHED", "FAILED"}
 
 
 def write_params(
@@ -141,9 +144,50 @@ def failed_step(trace_tsv: Path) -> tuple[str, str] | None:
     )
 
 
+def _task_events(row: Mapping[str, str | None], step: str, outdir: Path) -> Path:
+    """The task's published events file, else ``logs/events.jsonl`` in its task directory (a
+    failed task publishes nothing)."""
+    published = outdir / "logs" / "steps" / f"{step}.events.jsonl"
+    if published.is_file():
+        return published
+    return Path(_task_dir(row, outdir / "work")) / "logs" / "events.jsonl"
+
+
+def append_step_events(outdir: Path) -> int:
+    """Append each step task's events to ``OUT/logs/events.jsonl`` in ``trace.tsv`` order (task
+    completion); returns the number of lines appended.
+
+    Lines are copied unchanged, so every event keeps its own ``step``; a step's events are taken
+    once (its first finished row) and a missing trace or events file appends nothing.
+    """
+    trace = outdir / "logs" / "trace.tsv"
+    if not trace.is_file():
+        return 0
+    with trace.open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh, delimiter="\t"))
+    lines: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        m = _NAME.fullmatch((row.get("name") or "").strip())
+        step = (m["tag"] if m else None) or (row.get("tag") or "").strip()
+        if (row.get("status") or "").strip() not in _DONE or step in _EMPTY or step in seen:
+            continue
+        events = _task_events(row, step, outdir)
+        if events.is_file():
+            seen.add(step)
+            text = events.read_text(encoding="utf-8")
+            lines += [ln for ln in text.splitlines() if ln.strip()]
+    if lines:
+        with (outdir / "logs" / "events.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write("".join(f"{ln}\n" for ln in lines))
+    return len(lines)
+
+
 def run_nextflow(cmd: Sequence[str], outdir: Path) -> ExitCode:
-    """Run Nextflow in ``outdir``; 0 on success, else 4 with a message naming step and log."""
+    """Run Nextflow in ``outdir`` and append the step events (:func:`append_step_events`); 0 on
+    success, else 4 with a message naming step and log."""
     proc = subprocess.run(list(cmd), cwd=outdir, check=False)
+    append_step_events(outdir)
     if proc.returncode == 0:
         return ExitCode.SUCCESS
     trace = outdir / "logs" / "trace.tsv"
