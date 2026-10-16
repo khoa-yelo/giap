@@ -86,18 +86,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --frozen --all-extras
-      - name: fast calibration subset
-        run: |
-          set +e
-          uv run --no-sync pytest -n auto -m "calibration and not calibration_full" tests/calibration
-          code=$?
-          # exit code 5 = no tests collected (allowed until the first calibration suite exists)
-          if [ $code -ne 0 ] && [ $code -ne 5 ]; then exit $code; fi
-      - name: coverage gate
+      # One run: the fast calibration subset (minus calibration_nightly, which
+      # scripts/slurm/nightly.sbatch runs on Slurm) together with the coverage gate.
+      - name: fast calibration subset and coverage gate
         shell: bash   # -eo pipefail, so the pytest exit status survives the pipe into tee
         run: |
           min=$(awk '/^coverage_min:/ {print $2*100}' ci/gates.yaml)
-          uv run --no-sync pytest -n auto -m "not slow and not calibration_full and not e2e" \
+          uv run --no-sync pytest -n auto \
+            -m "not slow and not calibration_full and not calibration_nightly and not e2e" \
             --cov=giap --cov-report=term-missing:skip-covered --cov-report=xml \
             --cov-fail-under="$min" | tee coverage.txt
       - uses: actions/upload-artifact@v4
