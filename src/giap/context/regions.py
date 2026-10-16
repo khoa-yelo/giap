@@ -7,7 +7,9 @@ region's index set I is moved to (I + k) mod N for every valid shift k (``circul
 ``perm_p`` is reported with a TU-block bootstrap CI. q-values: BH within (region_type, stat).
 ADR-0018: the O - E test statistic is studentised, sum(d - p) / sqrt(sum p (1 - p)) (the reported
 effect stays O - E), and HL runs on log2 abundance residualised per replicon on the detectability
-covariates (``residualise``; effect, CI and p on the residual scale).
+covariates (``residualise``; effect, CI and p on the residual scale). ADR-0018 amendment 1: the HL
+p-value comes from T = HL / sqrt(V) at every shift, V a TU-cluster variance whose components are
+estimated once per replicon (``tu_variance_components``, ``hl_variance``, ``studentised_hl_null``).
 Pure functions: randomness only from the generator passed in (``for_step("context_stats", seed)``).
 """
 
@@ -28,9 +30,10 @@ from giap.stats.multitest import bh
 from giap.stats.permutation import choose_shifts, circular_shifts, perm_p
 from giap.stats.robust import hodges_lehmann
 
-__all__ = ["COVARIATES", "REGION_TYPES", "RegionTest", "hl_null", "o_minus_e_null",
-           "replicon_index", "residualise", "studentised_null", "test_all_regions",
-           "test_region"]  # fmt: skip
+__all__ = ["COVARIATES", "REGION_TYPES", "RegionTest", "hl_null", "hl_variance",
+           "o_minus_e_null", "replicon_index", "residualise", "studentised_hl_null",
+           "studentised_null", "test_all_regions", "test_region",
+           "tu_variance_components"]  # fmt: skip
 
 #: region types tested here (§7.3.5(b)); ``plasmid`` regions belong to M4-18
 REGION_TYPES = ("prophage", "bgc", "crispr", "amr")
@@ -41,6 +44,8 @@ SMALL_REGION = 3
 COVARIATES = ("length_aa", "n_observable_peptides", "gravy")
 _ENUM = 64  # HL null: enumerate a shift's candidate differences once at most this many remain
 _CHUNK = 4_000_000  # HL null: shifts per chunk such that K * m * m stays below this
+#: decision 12: residual variance below (V_RTOL * data magnitude)^2 is fit rounding: V counts as 0
+V_RTOL = 1e-7
 
 F64 = npt.NDArray[np.float64]
 I64 = npt.NDArray[np.int64]
@@ -247,6 +252,100 @@ def _kth(
     return res
 
 
+def _tu_codes(tu: npt.ArrayLike) -> I64:
+    """Integer TU codes; a missing TU label makes the gene its own TU."""
+    codes = np.asarray(pd.factorize(np.asarray(tu, dtype=object).ravel())[0], dtype=np.int64)
+    na = codes < 0
+    codes[na] = codes.max(initial=-1) + 1 + np.arange(int(na.sum()))
+    return codes
+
+
+def tu_variance_components(
+    a: npt.ArrayLike, ok: npt.ArrayLike, tu: npt.ArrayLike
+) -> tuple[float, float]:
+    """ADR-0018 amendment 1: one-way ANOVA moment estimates (sigma_u^2, sigma_e^2) of ``a`` over
+    the genes with ``ok`` and a finite value, grouped by ``tu``. sigma_e^2 = SSE / max(M - n_T, 1);
+    sigma_u^2 = max((SSB / (n_T - 1) - sigma_e^2) / n0, 0), n0 = (M - sum M_t^2 / M) / (n_T - 1);
+    one TU gives sigma_u^2 = 0; no gene gives (NaN, NaN)."""
+    av = np.asarray(a, dtype=np.float64).ravel()
+    okv = np.asarray(ok, dtype=bool).ravel() & np.isfinite(av)
+    m_all = int(okv.sum())
+    if m_all == 0:
+        return math.nan, math.nan
+    tc = np.unique(_tu_codes(tu)[okv], return_inverse=True)[1].ravel()
+    x = av[okv]
+    mt = np.bincount(tc).astype(np.float64)
+    mu = np.bincount(tc, weights=x) / mt
+    nt = int(mt.size)
+    se2 = float(((x - mu[tc]) ** 2).sum()) / max(m_all - nt, 1)
+    if nt < 2:
+        return 0.0, se2
+    ssb = float((mt * (mu - x.mean()) ** 2).sum())
+    n0 = (m_all - float((mt**2).sum()) / m_all) / (nt - 1)
+    return max((ssb / (nt - 1) - se2) / n0, 0.0), se2
+
+
+def hl_variance(
+    ok: npt.ArrayLike,
+    tu: npt.ArrayLike,
+    idx: npt.ArrayLike,
+    shifts: npt.ArrayLike,
+    sigma_u2: float,
+    sigma_e2: float,
+) -> F64:
+    """V_k = sigma_u2 (sum_t m_t^2 / m^2 + sum_t m'_t^2 / m'^2) + sigma_e2 (1/m + 1/m') for every
+    shift k, m_t / m'_t the ``ok`` genes of TU t inside / outside (I + k) mod N and m / m' their
+    totals; NaN if m or m' is 0."""
+    okv = np.asarray(ok, dtype=bool).ravel()
+    tc = _tu_codes(tu)
+    mt = np.bincount(tc[okv], minlength=int(tc.max(initial=0)) + 1).astype(np.float64)
+    m_all, sq_all = float(mt.sum()), float((mt**2).sum())
+    sets = _sets(idx, shifts, okv.size)
+    tset = np.where(okv[sets], tc[sets], -1)
+    out = np.full(tset.shape[0], np.nan)
+    step = max(1, _CHUNK // max(1, tset.shape[1] ** 2))
+    for c in range(0, tset.shape[0], step):
+        ts = tset[c : c + step]
+        m = (ts >= 0).sum(axis=1).astype(np.float64)
+        s_in = ((ts[:, :, None] == ts[:, None, :]) & (ts[:, :, None] >= 0)).sum(axis=(1, 2))
+        cross = np.where(ts >= 0, mt[np.maximum(ts, 0)], 0.0).sum(axis=1)
+        s_out = sq_all - 2.0 * cross + s_in
+        mo = m_all - m
+        live = (m > 0) & (mo > 0)
+        mm, mmo = np.where(live, m, 1.0), np.where(live, mo, 1.0)
+        v = sigma_u2 * (s_in / mm**2 + s_out / mmo**2) + sigma_e2 * (1.0 / mm + 1.0 / mmo)
+        out[c : c + step] = np.where(live, v, np.nan)
+    return out
+
+
+def studentised_hl_null(
+    a: npt.ArrayLike,
+    ok: npt.ArrayLike,
+    tu: npt.ArrayLike,
+    idx: npt.ArrayLike,
+    shifts: npt.ArrayLike,
+    *,
+    scale: float | None = None,
+) -> F64:
+    """ADR-0018 amendment 1: T_k = HL_k / sqrt(V_k) for every shift k (k = 0 is the observed T),
+    sigma's estimated once from (``a``, ``ok``, ``tu``); NaN where a side is empty. Decision 12:
+    V = 0 gives T = 0, and V counts as 0 when sigma_u^2 + sigma_e^2 <= (V_RTOL * ``scale``)^2,
+    ``scale`` the magnitude of the data before residualisation (default max |a| over ``ok``)."""
+    av = np.asarray(a, dtype=np.float64).ravel()
+    okv = np.asarray(ok, dtype=bool).ravel() & np.isfinite(av)
+    hl = hl_null(av, okv, idx, shifts)
+    if not okv.any():
+        return hl
+    su2, se2 = tu_variance_components(av, okv, tu)
+    mag = float(np.abs(av[okv]).max()) if scale is None else scale
+    v = hl_variance(okv, tu, idx, shifts, su2, se2)
+    if su2 + se2 <= (V_RTOL * mag) ** 2:
+        v = np.where(np.isnan(v), np.nan, 0.0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t = np.where(v > 0, hl / np.sqrt(v), 0.0)
+    return np.asarray(np.where(np.isnan(hl) | np.isnan(v), np.nan, t), dtype=np.float64)
+
+
 def _flags(n_eligible: int, k: int, extra: tuple[str, ...]) -> tuple[str, ...]:
     out = ("small_region",) if n_eligible < SMALL_REGION else ()
     return (*out, *(("few_shifts",) if k < FEW_SHIFTS_K else ()), *extra)
@@ -299,14 +398,17 @@ def test_region(
                     ci.ci_low, ci.ci_high, p_oe, int(shifts.size), n_genes, m,
                     _flags(m, int(shifts.size), flags))  # fmt: skip
 
+    raw = a[(d > 0) & np.isfinite(a)]
     a = residualise(a, d > 0, ix)
     ok = (d > 0) & np.isfinite(a)
     hl = hodges_lehmann(a[inside & ok], a[~inside & ok])
     k_hl, p_hl, lo, hi = 0, na, na, na
     if not math.isnan(hl):
-        null = hl_null(a, ok, idx, shifts)
+        mag, tus = float(np.abs(raw).max()), ix["tu_id"].to_numpy()
+        t_obs = studentised_hl_null(a, ok, tus, idx, np.zeros(1, np.int64), scale=mag)[0]
+        null = studentised_hl_null(a, ok, tus, idx, shifts, scale=mag)
         k_hl = int(np.count_nonzero(~np.isnan(null)))
-        p_hl = perm_p(hl, null) if k_hl else na
+        p_hl = perm_p(float(t_obs), null) if k_hl else na
         hd = pd.DataFrame({"tu": tu[ok], "a": a[ok], "in": inside[ok].astype(np.float64)})
         hci = tu_block_bootstrap(hd, "tu", _hl_of, B, rng, strata_col="in")
         lo, hi = hci.ci_low, hci.ci_high
