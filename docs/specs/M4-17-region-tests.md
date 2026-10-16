@@ -129,3 +129,57 @@ M4-17 adds overlapping regions and per-contig region placement to the simulator 
 
 ## Note from M4-08 review (lead)
 Simulated TU expression follows an AR(1) that restarts per replicon and does not wrap at the origin of circular replicons (one uncorrelated join); this does not affect the level of the circular-shift test.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted ("+X % detection" = relative rise of the region's mean
+   detection probability, capped at 0.99; `few_shifts` when K < 19; all-partial regions → NA effect/p,
+   `n_perm` 0, `small_region`; HL `n_perm` counts valid shifts; bootstrap B = 20 in calibration).
+2. A region whose members lie on two contigs is flagged `split_contigs` (and tested on each contig's
+   own circular shifts); name added here.
+3. The simulator gains `RegionSpec.contig` (M4-07 decision 6 deferred it to M4-17); overlap is covered by
+   plasmid AMR genes also in `plasmid_1` — no extra overlap knob.
+4. A2 (short prophage genes, gate on M4-13 p_detect) needs PR #83 merged; until then it may be marked
+   xfail(strict=False) with reason "needs M4-13 (#83)".
+5. The statistician reviews claims C1–C3, A2, A4 before merge.
+
+## Lead decisions after the statistician's review (PR #89, changes requested)
+6. ADR-0018 (accepted-by-khoa 2026-10-15): residualised HL, studentised O−E, BH within (type, stat).
+
+7. Gate restructuring (within the M4-05 harness rules, no tolerance change): pool C1 over the four
+   chromosome region types (`check_level_pooled`, m = 4); plasmid AMR gated at α 0.05/0.10 only; O−E at one
+   ρ; A4 becomes a deterministic invariance test (bitwise-identical at copy number 1 and 20).
+8. A2 xfail(strict=False) "needs M4-13 (#83)" until #83 merges; A2 gains the anti-conservative direction.
+9. Tests kill the surviving mutants: `split_contigs`, HL bootstrap strata, start-before-locus_tag sort.
+10. ADR-0018 residualisation (lead confirms the test-author's reading): per replicon, OLS with intercept
+    of log2 abundance on log length_aa, log1p n_observable_peptides and GRAVY (§9.3 genes.tsv covariates),
+    fitted on detected genes; the HL shift, its CI and p are reported on the residual scale (log2 units
+    relative to the covariate expectation; report labels it "detectability-adjusted"); the O−E effect
+    stays raw while its test uses the studentised sum.
+
+## Open (lead, 12:55): A2-HL still fails after ADR-0018 (implementer 1186184)
+Residualised HL rejects 0.144 at α 0.05 (full mode R=1000, job 1849427; fast 0.17/0.11), against the
+statistician's 0.067 (R=300) with their residualisation. The implementer's side runs: the linear fit
+roughly halves the raw bias (1000 genes 0.24 → 0.11; + (log length)² 0.09). Next (statistician): compare
+their exp.py residualisation with decision 10 as implemented (covariates, fit set: detected-only vs all,
+per-replicon vs pooled, imputation), then either amend decision 10 or the attack scenario; do not change
+tolerances. Branch is not mergeable until A2-HL passes.
+11. ADR-0018 amendment 1 (accepted-by-khoa 2026-10-16): the HL circular-shift p-value uses the studentised
+    T = HL/√V at every shift (V: per-TU variance estimated once per replicon; formula in
+    docs/methods/region-tests.md "Review round 2"); reported HL effect and CI unchanged. New attack null
+    A2-HL-MAR (detection independent of abundance) gates it too. Resolves the "Open" item above.
+12. (lead, after the test-author's b3f7d4c) Interface `tu_variance_components`, `hl_variance`,
+    `studentised_hl_null` in giap.context.regions as pinned; a replicon with one TU has σ_u² = 0; V = 0
+    gives T = 0; V counts as 0 below a data-scaled tolerance (relative to the residual variance, so
+    fit rounding never makes T random).
+13. (lead, statistician final review) Missing `tu_id` labels raise `ValueError` (C6 makes `tu_id`
+    non-null); no per-gene fallback. Pinned by the statistician's
+    test_atu_missing_region_tu_labels_do_not_change_the_hl_p (accepts the error).
+14. Calibration records carry a run ID and commit (backlog: tests/calibration/_criteria.py writer).
+15. ADR-0018 amendment 2 (accepted-by-khoa 2026-10-16): V is label-free — the lag autocovariance of the
+    residual abundance along the replicon (statistician's v3 formula in docs/methods/region-tests.md);
+    T = HL/√V; effect and CI unchanged. Supersedes decision 12's per-TU components; A-TU gates it.
+16. (lead, after the test-author's 70fd0d8) Interface as pinned (`LAG_MAX = 30`, `lag_autocovariance`,
+    `hl_variance`, `studentised_hl_null`). V ≤ 0 (the truncated autocovariance need not be positive
+    definite) → the region's HL p-value is NA with flag `hl_variance_nonpositive` (fail closed, never a
+    silent fallback); the implementer reports how often it occurs in calibration. Lags are circular only on
+    circular replicons; linear replicons use the lag pairs inside the sequence.
