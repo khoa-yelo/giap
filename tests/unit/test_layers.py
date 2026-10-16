@@ -19,6 +19,12 @@ Pinned where the spec is silent (test author):
   result sorted, unique, every item ``layer_missing:<layer>``; ``genomad`` / ``antismash`` follow
   ``cfg.modules`` (``mobile`` / ``bgc``), ``tx_rates`` follows the key (and
   ``promoter_calculator.enabled``).
+* ``gc_local_dev`` (lead decision 4; GIAP_SPEC §7.8.1 / §9.3 "10-kb window GC - genome GC"):
+  a float ``LAYER_COLUMNS`` column right after ``region_ids`` (its §9.3 context block);
+  ``gene_layers(..., genome=<contig -> sequence>)`` fills it, ``genome=None`` gives NA. The pure
+  function ``gc_local_dev(genes, replicons, genome, window=10_000)`` returns one float per gene
+  row (window rules in ``helpers.layers_oracle.gc_local_dev``). "Genome GC" is read literally as
+  the GC of the whole genome (all replicons): §7.8.1 / §9.3 say "genome GC", not "replicon GC".
 """
 
 from __future__ import annotations
@@ -39,6 +45,7 @@ from helpers.layers_chain import (
     build_chain,
     call_gene_layers,
     fresh_steps,
+    genome_seqs,
     precomputed_operon_pairs,
     read_layers_frames,
 )
@@ -49,7 +56,7 @@ from giap.config import GiapConfig
 
 SPEC_COLUMNS = (
     "locus_tag", "tu_id", "tu_position", "tu_size", "uniop_p_prev", "uniop_p_next", "region_ids",
-    "promoter_score", "promoter_score_tu", "n_promoter_windows_tu",
+    "gc_local_dev", "promoter_score", "promoter_score_tu", "n_promoter_windows_tu",
     "tx_rate_max_tu", "tx_rate_sum_tu", "tss_distance_bp", "terminator_conf_downstream",
     "tir_ostir", "sd_dg", "mrna_dg", "spacing_dg", "standby_dg", "spacer_bp", "start_codon",
     "cai", "tai", "enc", "fop", "gc3", "cpb", "at_2_10", "rare_codons_2_10", "flags",
@@ -59,7 +66,7 @@ CODON_COLS = ("cai", "tai", "enc", "fop", "gc3", "cpb", "at_2_10", "rare_codons_
 TX_COLS = ("tx_rate_max_tu", "tx_rate_sum_tu", "tss_distance_bp")
 ALL_KEYS = {
     "genes", "features", "replicons", "pairs_raw", "tus", "promoter_windows", "tx_rates",
-    "terminators", "terminators_crosscheck", "rbs", "codon", "regions", "region_genes",
+    "terminators", "terminators_crosscheck", "rbs", "codon", "regions", "region_genes", "genome",
 }  # fmt: skip
 
 
@@ -70,7 +77,7 @@ def chain(tmp_path_factory: pytest.TempPathFactory) -> Chain:
 
 @pytest.fixture(scope="module")
 def layers(chain: Chain) -> pd.DataFrame:
-    return call_gene_layers(read_layers_frames(chain))
+    return call_gene_layers(read_layers_frames(chain), genome_seqs(chain))
 
 
 def _row(df: pd.DataFrame, tag: str) -> dict[str, Any]:
@@ -236,6 +243,204 @@ def test_property_tu_positions_and_shared_pair_probabilities(
         first, last = df.loc[gs[0], "uniop_p_prev"], df.loc[gs[-1], "uniop_p_next"]
         assert orc.isna(first) or first < thr
         assert orc.isna(last) or last < thr
+
+
+# ----------------------------------------------------------------------------- gc_local_dev
+# Lead decision 4: GIAP_SPEC §7.8.1 / §9.3 "gc_local_dev (10-kb window GC - genome GC)".
+#
+# Small genome (hand-computed, window = 10 so the half-window is 5):
+#   c1 circular, 20 bp: GGGGG AAAAAAAAAA CCCCC   (0-4 G, 5-14 A, 15-19 C)  ACGT 20, GC 10
+#   l1 linear,   12 bp: ATATAT GCGC NN           (N at 10, 11)              ACGT 10, GC 4
+#   genome GC = (10 + 4) / (20 + 10) = 14/30 (whole genome, N excluded; with N: 14/32;
+#   per replicon it would be 10/20 on c1 and 4/10 on l1).
+GC_SEQS = {"c1": "GGGGGAAAAAAAAAACCCCC", "l1": "ATATATGCGCNN"}
+GC_GENOME = 14 / 30
+GC_CASES = [
+    # (locus_tag, contig, start, end, strand, window GC by hand)
+    # m = 2, window [-3, 7) wraps: 17 18 19 | 0..6 -> CCC GGGGG AA -> 8/10
+    ("g1", "c1", 0, 4, "+", 8 / 10),
+    # m = 10, window [5, 15): all A -> 0
+    ("g2", "c1", 8, 12, "-", 0.0),
+    # origin-crossing gene stored unwrapped (end 23 > 20): m = 20 % 20 = 0, window [-5, 5):
+    # 15..19 C + 0..4 G -> 10/10
+    ("g3", "c1", 18, 23, "+", 1.0),
+    # linear: m = 1, window [-4, 6) truncated to [0, 6) = ATATAT -> 0/6 (wrapping would add GCNN)
+    ("g4", "l1", 0, 2, "+", 0.0),
+    # linear: m = 10, window [5, 15) truncated to [5, 12) = T GCGC NN -> 4/5 (N excluded; 4/7 if
+    # N counted)
+    ("g5", "l1", 9, 12, "-", 4 / 5),
+]
+
+
+def _gc_frames(
+    cases: list[tuple[str, str, int, int, str, float]] | None = None,
+    seqs: dict[str, str] | None = None,
+    topology: dict[str, str] | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    cases = GC_CASES if cases is None else cases
+    seqs = GC_SEQS if seqs is None else seqs
+    topology = topology or {"c1": "circular", "l1": "linear"}
+    genes = pd.DataFrame(
+        [(tag, c, s, e, st_) for tag, c, s, e, st_, _ in cases],
+        columns=["locus_tag", "contig", "start", "end", "strand"],
+    )
+    reps = pd.DataFrame(
+        [(c, len(s), topology[c], "unknown") for c, s in seqs.items()],
+        columns=["contig", "length", "topology", "kind"],
+    )
+    return genes, reps
+
+
+def _gc(genes: pd.DataFrame, reps: pd.DataFrame, seqs: dict[str, str], **kw: int) -> list[float]:
+    from giap.annotate.layers import gc_local_dev
+
+    got = gc_local_dev(genes, reps, seqs, **kw)
+    assert len(got) == len(genes)
+    return [float(x) for x in list(got)]
+
+
+def test_layer_columns_include_gc_local_dev() -> None:
+    from giap.annotate.layers import LAYER_COLUMNS
+
+    assert "gc_local_dev" in LAYER_COLUMNS
+    assert LAYER_COLUMNS.index("gc_local_dev") == LAYER_COLUMNS.index("region_ids") + 1
+
+
+@pytest.mark.parametrize("case", GC_CASES, ids=[c[0] for c in GC_CASES])
+def test_gc_local_dev_hand_computed(case: tuple[str, str, int, int, str, float]) -> None:
+    """Window centred on the gene midpoint; circular wrap (also for an origin-crossing gene);
+    truncation at linear ends; N excluded from numerator and denominator; whole-genome GC."""
+    genes, reps = _gc_frames([case])
+    (got,) = _gc(genes, reps, GC_SEQS, window=10)
+    assert got == pytest.approx(case[5] - GC_GENOME, abs=1e-12)
+
+
+def test_gc_local_dev_all_rows_match_the_oracle() -> None:
+    genes, reps = _gc_frames()
+    got = _gc(genes, reps, GC_SEQS, window=10)
+    want = orc.gc_local_dev(genes, reps, GC_SEQS, window=10)
+    assert got == pytest.approx(want, abs=1e-12)
+    assert got == pytest.approx([c[5] - GC_GENOME for c in GC_CASES], abs=1e-12)
+
+
+def test_gc_local_dev_genome_gc_is_whole_genome_not_per_replicon() -> None:
+    """Gene on c1 whose window is all A: dev = 0 - 14/30, not 0 - 10/20 (c1's own GC)."""
+    genes, reps = _gc_frames([GC_CASES[1]])
+    (got,) = _gc(genes, reps, GC_SEQS, window=10)
+    assert got == pytest.approx(-14 / 30, abs=1e-12)
+    assert got != pytest.approx(-10 / 20, abs=1e-6)
+
+
+def test_gc_local_dev_n_excluded_from_genome_gc() -> None:
+    """Adding an all-N replicon changes nothing (N is in neither numerator nor denominator)."""
+    seqs = {**GC_SEQS, "n1": "N" * 40}
+    genes, reps = _gc_frames(seqs=seqs, topology={"c1": "circular", "l1": "linear",
+                                                  "n1": "linear"})  # fmt: skip
+    base_genes, base_reps = _gc_frames()
+    assert _gc(genes, reps, seqs, window=10) == pytest.approx(
+        _gc(base_genes, base_reps, GC_SEQS, window=10), abs=1e-12
+    )
+
+
+def test_gc_local_dev_window_without_acgt_is_na() -> None:
+    seqs = {"c1": GC_SEQS["c1"], "n1": "N" * 30}
+    cases = [("g1", "n1", 10, 14, "+", float("nan")), ("g2", "c1", 8, 12, "+", 0.0)]
+    genes, reps = _gc_frames(cases, seqs, {"c1": "circular", "n1": "linear"})
+    got = _gc(genes, reps, seqs, window=10)
+    assert math.isnan(got[0])
+    assert got[1] == pytest.approx(0.0 - 10 / 20, abs=1e-12)
+
+
+def test_gc_local_dev_circular_replicon_shorter_than_window_counts_each_base_once() -> None:
+    """c2 = GGGAAA (circular, 6 bp) with a 10-bp window: the whole replicon (3/6), not a
+    10-position wrap with repeats (4/10). Single replicon, so dev = 0."""
+    seqs = {"c2": "GGGAAA"}
+    genes, reps = _gc_frames([("g1", "c2", 0, 2, "+", 0.5)], seqs, {"c2": "circular"})
+    (got,) = _gc(genes, reps, seqs, window=10)
+    assert got == pytest.approx(0.0, abs=1e-12)
+
+
+def test_gc_local_dev_default_window_is_10_kb() -> None:
+    """30-kb circular replicon, G on [0, 15 000), A after; gene midpoint 12 000. Default window
+    [7 000, 17 000) -> 8 000 / 10 000 = 0.8; genome GC 0.5 -> dev 0.3 (a 9-kb window gives
+    7 500 / 9 000, a 20-kb one 0.75)."""
+    seqs = {"c3": "G" * 15_000 + "A" * 15_000}
+    genes, reps = _gc_frames([("g1", "c3", 11_900, 12_100, "+", 0.8)], seqs, {"c3": "circular"})
+    (got,) = _gc(genes, reps, seqs)
+    assert got == pytest.approx(0.3, abs=1e-12)
+
+
+def test_gc_local_dev_case_insensitive() -> None:
+    """Soft-masked (lower-case) bases count like upper-case ones."""
+    genes, reps = _gc_frames()
+    lower = {c: s.lower() for c, s in GC_SEQS.items()}
+    assert _gc(genes, reps, lower, window=10) == pytest.approx(
+        _gc(genes, reps, GC_SEQS, window=10), abs=1e-12
+    )
+
+
+@st.composite
+def _gc_genomes(draw: st.DrawFn) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, str], int]:
+    n = draw(st.integers(1, 3))
+    seqs, topo, cases = {}, {}, []
+    for i in range(n):
+        c = f"r{i}"
+        seqs[c] = draw(st.text(alphabet="ACGTNacgtnRY", min_size=1, max_size=60))
+        topo[c] = draw(st.sampled_from(["circular", "linear"]))
+        length = len(seqs[c])
+        for k in range(draw(st.integers(0, 4))):
+            s = draw(st.integers(0, length - 1))
+            hi = s + length if topo[c] == "circular" else length
+            e = draw(st.integers(s + 1, hi))
+            cases.append((f"{c}_{k}", c, s, e, draw(st.sampled_from("+-")), 0.0))
+    if not cases:
+        cases.append(("r0_0", "r0", 0, 1, "+", 0.0))
+    genes, reps = _gc_frames(cases, seqs, topo)
+    return genes, reps, seqs, draw(st.integers(1, 80))
+
+
+@settings(max_examples=150, deadline=None)
+@given(case=_gc_genomes())
+def test_property_gc_local_dev_equals_the_brute_force_oracle(
+    case: tuple[pd.DataFrame, pd.DataFrame, dict[str, str], int],
+) -> None:
+    """Any genome (mixed case, N / IUPAC letters), any topology, any gene, any window: the
+    implementation equals the brute-force window oracle; values lie in [-1, 1] or are NA."""
+    genes, reps, seqs, window = case
+    got = _gc(genes, reps, seqs, window=window)
+    want = orc.gc_local_dev(genes, reps, seqs, window=window)
+    for g, w in zip(got, want, strict=True):
+        assert orc.same(g, w) or math.isclose(g, w, abs_tol=1e-12), (g, w)
+        assert math.isnan(g) or -1.0 <= g <= 1.0
+
+
+@settings(max_examples=60, deadline=None)
+@given(case=_gc_genomes())
+def test_property_gc_local_dev_strand_invariant(
+    case: tuple[pd.DataFrame, pd.DataFrame, dict[str, str], int],
+) -> None:
+    """Strand plays no role (the window is centred on the midpoint, not on the start)."""
+    genes, reps, seqs, window = case
+    base = _gc(genes, reps, seqs, window=window)
+    flipped = genes.assign(strand=genes["strand"].map({"+": "-", "-": "+"}))
+    assert _gc(flipped, reps, seqs, window=window) == pytest.approx(base, abs=1e-12, nan_ok=True)
+
+
+def test_gene_layers_gc_local_dev_on_sim100k(chain: Chain, layers: pd.DataFrame) -> None:
+    """``gene_layers(..., genome=...)`` fills the column with the per-gene values (float)."""
+    want = orc.gc_local_dev(chain.frame("genes"), chain.frame("replicons"), genome_seqs(chain))
+    assert pd.api.types.is_float_dtype(layers["gc_local_dev"])
+    got = layers["gc_local_dev"].tolist()
+    for tag, g, w in zip(layers["locus_tag"], got, want, strict=True):
+        assert orc.same(float(g), w) or math.isclose(g, w, abs_tol=1e-12), (tag, g, w)
+    assert layers["gc_local_dev"].notna().all()
+    assert layers["gc_local_dev"].std() > 0
+
+
+def test_gene_layers_without_genome_gives_na(chain: Chain) -> None:
+    df = call_gene_layers(read_layers_frames(chain))
+    assert pd.api.types.is_float_dtype(df["gc_local_dev"])
+    assert df["gc_local_dev"].isna().all()
 
 
 # ----------------------------------------------------------------------------- regions

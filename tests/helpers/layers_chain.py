@@ -87,6 +87,8 @@ LAYER_FILES = {
     "regions": "regions.parquet",
     "region_genes": "region_genes.parquet",
 }
+#: lead decision 4 (gc_local_dev): the genome FASTA is a required context_layers input.
+GENOME_KEY = "genome"
 #: §7.1.8 / §9.1 files in ``annotation/`` (``id_map.tsv`` only with a user GFF3/GBFF).
 ANNOTATION_FILES = (
     "genes.gff3", "regions.tsv", "regions.bed", "promoters.bed", "terminators.bed",
@@ -308,7 +310,16 @@ def build_chain(root: Path) -> Chain:
              {"ostir": ostir_csv(tools, w / "ostir_input.csv"),
               "ostir_input": w / "ostir_input.csv"},
              {"rbs": w / "rbs.parquet"})  # fmt: skip
-    return Chain(root, sim, {k: w / v for k, v in LAYER_FILES.items()})
+    inputs = {k: w / v for k, v in LAYER_FILES.items()}
+    inputs[GENOME_KEY] = Path(sim.genome_fasta)
+    return Chain(root, sim, inputs)
+
+
+def genome_seqs(chain: Chain) -> dict[str, str]:
+    """contig -> sequence of the chain's genome FASTA (the ``genome`` input)."""
+    from giap.io.fasta import read_genome_fasta
+
+    return {r.id: r.sequence for r in read_genome_fasta(chain.inputs[GENOME_KEY])}
 
 
 def precomputed_operon_pairs(
@@ -354,12 +365,15 @@ def read_layers_frames(chain: Chain, **replace: Path | None) -> dict[str, pd.Dat
     return {k: (None if paths[k] is None else pd.read_parquet(paths[k])) for k in keys}
 
 
-def call_gene_layers(frames: Mapping[str, pd.DataFrame | None]) -> pd.DataFrame:
-    """``gene_layers`` with the spec's positional order (M2-20 public interface)."""
+def call_gene_layers(
+    frames: Mapping[str, pd.DataFrame | None], genome: Mapping[str, str] | None = None
+) -> pd.DataFrame:
+    """``gene_layers`` with the spec's positional order (M2-20 public interface) and the
+    keyword ``genome`` (contig -> sequence; lead decision 4, ``gc_local_dev``)."""
     from giap.annotate.layers import gene_layers
 
     return gene_layers(
         frames["genes"], frames["tus"], frames["pairs_raw"], frames["promoter_windows"],
         frames["tx_rates"], frames["terminators"], frames["rbs"], frames["codon"],
-        frames["region_genes"], frames["replicons"],
+        frames["region_genes"], frames["replicons"], genome=genome,
     )  # fmt: skip

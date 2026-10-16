@@ -164,6 +164,52 @@ def gene_flags(genes_df: pd.DataFrame, codon_df: pd.DataFrame | None) -> dict[st
     return out
 
 
+def gc_local_dev(
+    genes_df: pd.DataFrame,
+    replicons_df: pd.DataFrame,
+    seqs: Mapping[str, str],
+    window: int = 10_000,
+) -> list[float]:
+    """Brute-force ``gc_local_dev`` (GIAP_SPEC §7.8.1 / §9.3: 10-kb window GC - genome GC), one
+    value per ``genes_df`` row (NaN = NA). Pinned by the test author (lead decision 4):
+
+    * GC fraction = (G + C) / (A + C + G + T), case-insensitive; every other letter (N, IUPAC
+      ambiguity codes) is excluded from numerator and denominator. Values are fractions, not %.
+    * genome GC over the whole genome (every sequence of the FASTA), not per replicon.
+    * window ``[m - window // 2, m - window // 2 + window)`` around the gene midpoint
+      ``m = (start + end) // 2`` (0-based half-open; origin-crossing genes are stored unwrapped,
+      so ``m`` is taken modulo the length on circular replicons). Circular replicons wrap; a
+      circular replicon not longer than the window counts each base once (the whole replicon);
+      linear replicons truncate the window at their ends.
+    * NA when the window has no A/C/G/T base. Strand plays no role.
+    """
+    acgt, gc = set("ACGT"), set("GC")
+
+    def frac(bases: list[str]) -> float:
+        d = sum(b in acgt for b in bases)
+        return float("nan") if d == 0 else sum(b in gc for b in bases) / d
+
+    genome_gc = frac([b for s in seqs.values() for b in s.upper()])
+    reps = {str(r.contig): (int(r.length), r.topology) for r in replicons_df.itertuples()}
+    half = window // 2
+    out = []
+    for r in genes_df.itertuples(index=False):
+        seq = seqs[str(r.contig)].upper()
+        length, topo = reps[str(r.contig)]
+        m = (int(r.start) + int(r.end)) // 2
+        if topo == "circular":
+            m %= length
+            pos = (
+                list(range(length))
+                if length <= window
+                else [p % length for p in range(m - half, m - half + window)]
+            )
+        else:
+            pos = list(range(max(0, m - half), min(length, m - half + window)))
+        out.append(frac([seq[p] for p in pos]) - genome_gc)
+    return out
+
+
 # ----------------------------------------------------------------------------- merged producers
 
 

@@ -29,6 +29,12 @@ Pinned / settled by the test author (see the spec questions and annotate.nf):
 * ``layer_missing:<layer>`` run flags are logged as warnings by the step (the M2-19
   ``region_layer`` convention; ``giap.steps`` events reach ``logs/events.jsonl``).
 * Schemas: ``src/giap/schemas/annotation/<table>.json`` (``<table>.schema.json`` accepted).
+* Lead decision 4: ``gc_local_dev`` needs the sequence, so ``genome`` (the genome FASTA, the key
+  annotate.nf already uses for ``parse_bakta`` / ``ostir_input``) is a required input and
+  annotate.nf stages ``kv('genome', genome)`` for ``context_layers``; layers.parquet holds a float
+  ``gc_local_dev`` column.
+* Lead decision 5: annotate.nf passes ``terminators_crosscheck`` (the ``terminator_layer``
+  output ``terminators_crosscheck.tsv``) to ``CONTEXT_LAYERS``.
 """
 
 from __future__ import annotations
@@ -50,6 +56,7 @@ from helpers.layers_chain import (
     Chain,
     build_chain,
     fresh_steps,
+    genome_seqs,
 )
 
 from giap.config import GiapConfig
@@ -58,7 +65,7 @@ REPO = Path(__file__).resolve().parents[2]
 SUBWF = REPO / "workflow" / "subworkflows" / "local" / "annotate.nf"
 FIXTURE = REPO / "workflow" / "tests" / "data" / "annotate" / "step_registry.json"
 SCHEMA_DIR = REPO / "src" / "giap" / "schemas" / "annotation"
-REQUIRED = {"genes", "replicons", "pairs_raw", "tus"}
+REQUIRED = {"genes", "replicons", "pairs_raw", "tus", "genome"}
 OPTIONAL = {
     "features", "promoter_windows", "promoters", "tx_rates", "terminators",
     "terminators_crosscheck", "rbs", "codon", "regions", "region_genes", "id_map", "tool_dirs",
@@ -160,6 +167,72 @@ def test_step_registry_fixture_has_context_layers() -> None:
     }  # fmt: skip
 
 
+# ----------------------------------------------------------------------------- gc_local_dev
+
+
+def test_layers_parquet_has_float_gc_local_dev(chain: Chain, full: tuple[Path, Path]) -> None:
+    """Lead decision 4: the column is in layers.parquet, float, and equals the window oracle on
+    the ``genome`` input."""
+    df = pd.read_parquet(full[1])
+    assert "gc_local_dev" in df.columns
+    assert pd.api.types.is_float_dtype(df["gc_local_dev"]), df["gc_local_dev"].dtype
+    want = orc.gc_local_dev(chain.frame("genes"), chain.frame("replicons"), genome_seqs(chain))
+    for tag, g, w in zip(df["locus_tag"], df["gc_local_dev"], want, strict=True):
+        assert orc.same(float(g), w) or abs(float(g) - w) < 1e-12, (tag, g, w)
+    assert df["gc_local_dev"].notna().all()
+
+
+# ----------------------------------------------------------------------------- annotate.nf wiring
+
+
+def _context_layers_staged_keys() -> set[str]:
+    """Keys staged into ``stepIn('context_layers', <expr>)``: literal ``kv('k', ...)`` /
+    ``pre('k')`` in ``<expr>``, plus those added to the ``layers`` / ``core`` lists when
+    ``<expr>`` uses them."""
+    text = re.sub(r"(?m)//.*$", "", SUBWF.read_text(encoding="utf-8"))
+    m = re.search(r"def\s+(\w+)\s*=\s*stepIn\(\s*'context_layers'\s*,", text)
+    assert m, "annotate.nf builds the CONTEXT_LAYERS inputs with stepIn('context_layers', ...)"
+    depth, i = 1, m.end()
+    while depth:
+        depth += {"(": 1, ")": -1}.get(text[i], 0)
+        i += 1
+    expr = text[m.end() : i - 1]
+
+    var_key = dict(re.findall(r"def\s+(\w+)\s*=\s*kv\(\s*'(\w+)'", text))
+
+    def keys(s: str) -> set[str]:
+        lit = set(re.findall(r"\bkv\(\s*'(\w+)'", s)) | set(re.findall(r"\bpre\(\s*'(\w+)'", s))
+        return lit | {var_key[w] for w in re.findall(r"\b(\w+)\b", s) if w in var_key}
+
+    out = keys(expr)
+    if re.search(r"\blayers\b", expr):
+        for blk in re.findall(r"\blayers\s*\+=\s*\[(.*?)\]\s*$", text[: m.start()], re.M | re.S):
+            out |= keys(blk)
+    if re.search(r"\bcore\b", expr):
+        core = re.search(r"def\s+core\s*=\s*\[(.*?)\]\s*$", text, re.M)
+        assert core, "annotate.nf defines core = [...]"
+        out |= keys(core.group(1))
+    return out
+
+
+def test_annotate_nf_passes_terminators_crosscheck_to_context_layers() -> None:
+    """Lead decision 5: the terminator_layer cross-check table reaches CONTEXT_LAYERS."""
+    assert "terminators_crosscheck" in _context_layers_staged_keys()
+    text = re.sub(r"(?m)//.*$", "", SUBWF.read_text(encoding="utf-8"))
+    assert re.search(
+        r"kv\(\s*'terminators_crosscheck'\s*,\s*pick\(\s*TERMINATOR_LAYER\.out\.outputs\s*,"
+        r"\s*'terminators_crosscheck\.tsv'\s*\)\s*\)",
+        text,
+    ), "terminators_crosscheck is picked from TERMINATOR_LAYER's terminators_crosscheck.tsv"
+
+
+def test_annotate_nf_passes_genome_to_context_layers() -> None:
+    """Lead decision 4: gc_local_dev needs the genome FASTA; every required key is staged."""
+    staged = _context_layers_staged_keys()
+    assert "genome" in staged
+    assert staged >= REQUIRED, sorted(REQUIRED - staged)
+
+
 # ----------------------------------------------------------------------------- outputs
 
 
@@ -178,7 +251,7 @@ def test_layers_parquet_equals_gene_layers(chain: Chain, full: tuple[Path, Path]
     from helpers.layers_chain import call_gene_layers, read_layers_frames
 
     got = pd.read_parquet(full[1])
-    want = call_gene_layers(read_layers_frames(chain))
+    want = call_gene_layers(read_layers_frames(chain), genome_seqs(chain))
     assert got["locus_tag"].tolist() == want["locus_tag"].tolist()
     for c in want.columns:
         for a, b in zip(got[c].tolist(), want[c].tolist(), strict=True):
@@ -334,7 +407,7 @@ def test_local_executor_style_precomputed_layers(chain: Chain, tmp_path: Path) -
     )
     inputs = {
         **{k: chain.inputs[k] for k in ("genes", "features", "replicons", "pairs_raw", "tus",
-                                        "codon")},
+                                        "codon", "genome")},
         "promoter_windows": pre["promoters"], "tx_rates": pre["tx_rates"],
         "terminators": pre["terminators"], "terminators_crosscheck": pre["terminators"],
         "rbs": pre["rbs"], "regions": pre["regions"], "region_genes": pre["regions"],
