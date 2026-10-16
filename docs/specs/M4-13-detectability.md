@@ -153,7 +153,8 @@ constant fallback, the calibration diagnostics and the simulation evidence (slop
 
 ## Lead decision after a property-test failure on main (2026-10-16)
 17. Completely or quasi-completely separated recalibration data (every detected gene's predicted logit
-    above every undetected one's, or ties only at the boundary) have no recalibration MLE:
+    ≥ every undetected one's, OR every detected logit ≤ every undetected one's — both directions;
+    widened 2026-10-16 after the implementer's report) have no recalibration MLE:
     `_recalibration` returns NaN intercept/slope/CIs (as decision 11) and `calibration_diagnostics` adds an
     `overall` row `recalibration_separated = 1` (0 otherwise). Detection uses the same check before
     fitting; the damped-Newton iterate is never reported. Found by Hypothesis seed 81781 (n = 20).

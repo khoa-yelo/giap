@@ -85,7 +85,9 @@ def test_calibration_diagnostics_bins(n: int, n_bins: int, seed: int) -> None:
     diag2 = _mod().calibration_diagnostics(d[perm], p[perm], n_bins=n_bins)
     metrics = ["brier"]
     lp = np.log(p / (1 - p))
-    separated = 0 < d.sum() < n and (lp[d == 1].min() >= lp[d == 0].max())
+    separated = 0 < d.sum() < n and (
+        lp[d == 1].min() >= lp[d == 0].max() or lp[d == 1].max() <= lp[d == 0].min()
+    )
     if 0 < d.sum() < n:  # the recalibration MLE needs both classes and no separation (decision 17)
         metrics += ["calibration_intercept", "calibration_slope"]
     for m in metrics:
@@ -123,3 +125,13 @@ def test_row_order_invariance(data_seed: int, perm_seed: int, seed: int) -> None
     assert np.all((pa >= 0) & (pa <= 1))
     if not a.constant:
         assert np.all((pa > 0) & (pa < 1))
+
+
+def test_reverse_separation_has_no_recalibration_fit() -> None:
+    """Decision 17 covers both directions: every detected logit below every undetected one."""
+    p = np.array([0.05, 0.1, 0.15, 0.2, 0.6, 0.7, 0.8, 0.9])
+    d = np.array([1, 1, 1, 1, 0, 0, 0, 0])
+    diag = _mod().calibration_diagnostics(d, p, n_bins=2)
+    for m in ("calibration_intercept", "calibration_slope"):
+        assert np.isnan(_values(diag, "overall", m).iloc[0]), m
+    assert _values(diag, "overall", "recalibration_separated").iloc[0] == 1
