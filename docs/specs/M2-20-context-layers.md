@@ -132,3 +132,7 @@ tables in `src/giap/schemas/annotation/*.json` (incl. `id_map`, `terminators_cro
 13. Not blocking (backlog): annotate.nf wiring of `tool_dirs` → OUT/annotation/tools/ (§7.1.8); no producer
     of `id_map` yet, so `--annotation` GFF3/GBFF runs lack `id_map.tsv`. cai/fop NA on sim100k is expected
     (all genes "hypothetical protein": no ribosomal reference set).
+14. (lead, after the test-author's 5a092ee) Bug found by the new tests: `tu_sources` pairs a TU's genes in
+    transcription order while `pairs_raw` keys are in genome order, so links of − strand TUs are never
+    found. Pairs are looked up in genome order on both strands (reverse the walk for − TUs); pinned by
+    test_tu_sources_*[-].
