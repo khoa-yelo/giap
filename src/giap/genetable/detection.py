@@ -7,8 +7,9 @@ Lead decisions: the pairing cut-off is max(``mapping.proteins.min_identity``, ``
 contaminant evidence counts toward detection in every tier; in the ``mayu`` tier a warning
 ``unspecific_search`` fires when more than half of the accepted non-C-terminal peptides do not end
 in K/R. Review decisions 5-8: PEP-only input gets peptide q from the running mean of the sorted
-PEPs; contaminant decoys are neither paired nor unpaired; the longest decoy prefix is stripped
-first; ``Detection.protein_gene_map`` is the map ``detect`` used. Everything here is pure.
+PEPs; all-contaminant decoys are neither paired nor unpaired (decision 12); the longest decoy
+prefix is stripped first; ``Detection.protein_gene_map`` is the map ``detect`` used. Everything
+here is pure.
 """
 
 from __future__ import annotations
@@ -155,8 +156,9 @@ def pair_decoys(
 ) -> pd.DataFrame:
     """One row per decoy peptide with ``protein_ids`` (and q <= ``q_value_max`` when both exist):
     ``peptide, q_value, pep, score, gene``; ``gene`` NA when the stripped IDs do not all map to
-    one and the same gene (unpaired). Contaminant decoys (a stripped ID starts with a contaminant
-    prefix, default ``input.contaminant_prefixes``) get no row: neither paired nor unpaired."""
+    one and the same gene (unpaired). Contaminant decoys (every stripped ID starts with a
+    contaminant prefix, default ``input.contaminant_prefixes``) get no row: neither paired nor
+    unpaired; a mixed decoy pairs on its non-contaminant IDs only (decision 12)."""
     cols = ["peptide", "q_value", "pep", "score", "gene"]
     if peptides is None or not len(peptides):
         return pd.DataFrame({c: pd.Series([], dtype=object) for c in cols})
@@ -166,8 +168,13 @@ def pair_decoys(
         q = d["q_value"].astype("float64")
         d = d[q.isna() | (q <= q_value_max)]
     cont = _contaminants(contaminant_prefixes)
-    stripped = [[_strip(m, decoy_prefixes) for m in _ids(c)] for c in d["protein_ids"].tolist()]
-    keep = np.array([not any(m.startswith(cont) for m in ms) for ms in stripped], dtype=bool)
+    # Decision 12: only all-contaminant decoys leave the counts; a mixed decoy pairs on its
+    # non-contaminant IDs.
+    stripped = [
+        [m for m in (_strip(x, decoy_prefixes) for x in _ids(c)) if not m.startswith(cont)]
+        for c in d["protein_ids"].tolist()
+    ]
+    keep = np.array([len(ms) > 0 for ms in stripped], dtype=bool)
     d = d[keep]
     lookup = dict(zip(pmap["protein_id"].astype(str), pmap["gene"], strict=True))
     genes: list[Any] = []
