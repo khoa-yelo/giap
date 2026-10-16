@@ -115,3 +115,20 @@ tables in `src/giap/schemas/annotation/*.json` (incl. `id_map`, `terminators_cro
    modulo length on circular replicons, a circular replicon shorter than the window counted once; no A/C/G/T
    in the window → NA; column right after `region_ids`. annotate.nf stages `genome` and
    `terminators_crosscheck`; step_registry.json and the layers contract (gc_local_dev: optional float) follow.
+
+## Lead decisions after the code review of PR #104 (changes requested)
+8. (blocking) GFF3 IDs are unique per file (§9.5): every ID GIAP writes carries its feature kind as a
+   prefix — `region:<region_id>`, `operon:<tu_id>`, `promoter:<id>`, `terminator:<id>` — while Bakta's own
+   feature IDs are kept as given; a test on sim100k (contig named `plasmid_1`) asserts no duplicate IDs and
+   that Parent= references resolve.
+9. `layer_missing:<layer>` is a structured event (logger `extra={"event": …}`) that reaches
+   OUT/logs/events.jsonl (and the run flags), not only a log line (§9.4, decision 2).
+10. `start_codon` comes from genes.parquet; the RBS layer only adds RBS columns — a missing rbs layer never
+    blanks start_codon.
+11. Tests kill the surviving mutants: `crosses_origin` flag; circular wrap in `_next_same_strand` and in
+    `assign_tus`; both `tu_sources` mutants; the precomputed `tx_rates` exemption in `layer_flags`;
+    pseudogene phase.
+12. GFF3 score for promoters is the tool's own score (Promotech / Promoter Calculator), not the BED score/1000.
+13. Not blocking (backlog): annotate.nf wiring of `tool_dirs` → OUT/annotation/tools/ (§7.1.8); no producer
+    of `id_map` yet, so `--annotation` GFF3/GBFF runs lack `id_map.tsv`. cai/fop NA on sim100k is expected
+    (all genes "hypothetical protein": no ribosomal reference set).
