@@ -167,3 +167,7 @@ tolerances. Branch is not mergeable until A2-HL passes.
     T = HL/√V at every shift (V: per-TU variance estimated once per replicon; formula in
     docs/methods/region-tests.md "Review round 2"); reported HL effect and CI unchanged. New attack null
     A2-HL-MAR (detection independent of abundance) gates it too. Resolves the "Open" item above.
+12. (lead, after the test-author's b3f7d4c) Interface `tu_variance_components`, `hl_variance`,
+    `studentised_hl_null` in giap.context.regions as pinned; a replicon with one TU has σ_u² = 0; V = 0
+    gives T = 0; V counts as 0 below a data-scaled tolerance (relative to the residual variance, so
+    fit rounding never makes T random).
