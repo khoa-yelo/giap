@@ -178,3 +178,8 @@ tolerances. Branch is not mergeable until A2-HL passes.
 15. ADR-0018 amendment 2 (accepted-by-khoa 2026-10-16): V is label-free — the lag autocovariance of the
     residual abundance along the replicon (statistician's v3 formula in docs/methods/region-tests.md);
     T = HL/√V; effect and CI unchanged. Supersedes decision 12's per-TU components; A-TU gates it.
+16. (lead, after the test-author's 70fd0d8) Interface as pinned (`LAG_MAX = 30`, `lag_autocovariance`,
+    `hl_variance`, `studentised_hl_null`). V ≤ 0 (the truncated autocovariance need not be positive
+    definite) → the region's HL p-value is NA with flag `hl_variance_nonpositive` (fail closed, never a
+    silent fallback); the implementer reports how often it occurs in calibration. Lags are circular only on
+    circular replicons; linear replicons use the lag pairs inside the sequence.
