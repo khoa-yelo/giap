@@ -49,6 +49,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - m3/mapping-nf: write the search_db auto-resolution event from the Nextflow `giap _step` path too (only --executor local writes it, M3-17 decision 14).
 - M4-14 (statistician): re-measure abundance.ibaq_denominator on M4-09 data before switching (fails 10–40 % at p_obs = 0.3); restate as a pooled mean Δρ if needed; add the p_obs = 0.3 attack.
 - M4 notes: median imputation pulls detected-but-unquantified genes toward the centre; the min/exclude sensitivity reruns bracket it (statistician, #82).
+- M4-12 (statistician #92): giapsim mode with decoy-derived q (D/T) to separate MAYU with/without PEP; calibration run with q_value_max = 0.1; document 'best-scoring decoys lost' as a limitation of the 80 % pairing guard.
+- M4-14: use Detection.protein_gene_map from M4-12 instead of re-deriving the map (statistician #92).
 - tests/unit/test_cli_step_load.py: the 120 s subprocess timeout can be hit on a loaded batch node (seen in Slurm 1849060); raise it or mark slow.
 - M2-10: BacTermFinder recording (env not built) and record_fixture.py examples 1–3 deferred.
 - M2-10 (#93 review): re-record the antiSMASH fixtures on the circular K-12 GBFF (current ones used the linear GBFF; ~18 s each) or note it in their PROVENANCE.
@@ -56,3 +58,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - TE6: pin Bakta's K-12 oriC call count at two (true origin + dnaA DnaA-box cluster); the replichore analysis (§1447) needs a rule for choosing the true origin.
 - Spec note: Nissle GCA_043228065.1 has three plasmids (p15A-ILA-dapA, likely engineered; pMUT1; pMUT2) — the spec's edge case names two.
 - Bakta fixture PROVENANCE: add attribution (Bakta DB CC BY 4.0, doi 10.5281/zenodo.14916843). Later recording waves need a size budget (wave A uses ~48 % of 50 MB).
+- tests/unit/test_cli_step_load.py::test_step_finds_every_registered_step spawns one process per registered step (~55 s alone on rye-01, Slurm 1850932/1850933, same with or without the session env) and grows with every new step; under a 16-worker full suite it and other subprocess tests (test_exact_review, calibration test_criteria_review) pass their 120 s timeouts (Slurm 1850601, 1850848). Check all steps in one subprocess (or mark slow) — test-author.
