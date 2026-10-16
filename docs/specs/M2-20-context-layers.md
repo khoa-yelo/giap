@@ -109,3 +109,9 @@ tables in `src/giap/schemas/annotation/*.json` (incl. `id_map`, `terminators_cro
    or with the implementation.
 5. annotate.nf must pass `terminators_crosscheck` to CONTEXT_LAYERS (workflow fix, implementer).
 6. Integration example 5 (M3-17) stays xfail until a real run completes past CONTEXT_LAYERS; then re-check.
+7. (lead, after c1ac317) `genome` is a required context_layers input (gc_local_dev needs the sequence);
+   `gene_layers(..., genome=)` keyword (NA without it). "Genome GC" = whole genome, all replicons, N
+   excluded; GC as a fraction, case-insensitive; window [m − 5000, m + 5000) with m = (start + end) // 2,
+   modulo length on circular replicons, a circular replicon shorter than the window counted once; no A/C/G/T
+   in the window → NA; column right after `region_ids`. annotate.nf stages `genome` and
+   `terminators_crosscheck`; step_registry.json and the layers contract (gc_local_dev: optional float) follow.
