@@ -13,8 +13,11 @@ GIAP_SPEC.md §7.3.6).
   HL with the default constant covariates (residualising only centres a);
 - P6 (ADR-0018 decision 1) with random detectability covariates, HL effect and p equal the naive
   HL on ``rd.naive_residualise`` residuals and its naive shift null;
-- ADR-0018 amendment 1 (lead decision 11): in P5 / P6 the HL p comes from the studentised
-  T = HL / sqrt(V) (``rd.naive_studentised_hl_null``; the effect stays the HL);
+- ADR-0018 amendments 1 and 2 (lead decisions 11, 15): in P5 / P6 the HL p comes from the
+  studentised T = HL / sqrt(V), V label-free from the replicon's lag autocovariance
+  (``rd.naive_studentised_hl_null``; the effect stays the HL);
+- P8 (decision 15) ``lag_autocovariance`` and ``hl_variance`` equal the oracles, and the HL row's
+  effect, p and n_perm do not depend on the TU partition (any relabelling / fragmenting / merging);
 - P7 the HL p (and T at every shift) is invariant to adding a constant to log2 abundance and to
   scaling it by c > 0; the effect and CI scale by c.
 """
@@ -150,9 +153,9 @@ def test_p5_p_values_equal_naive_exhaustive(rep: dict[str, Any]) -> None:
     x = [a[i] for i in idx if det[i]]
     y = [a[i] for i in range(n) if det[i] and i not in idx]
     hl_obs = rd.naive_hl(x, y)
-    tu = [f"TU_chr1_{i}" for i in range(n)]
-    null = rd.naive_studentised_hl_null(a, det, tu, idx, shifts)
-    t_obs = float(rd.naive_studentised_hl_null(a, det, tu, idx, [0])[0])
+    assume(rd.naive_v_positive(a, det, idx, [0, *shifts]))
+    null = rd.naive_studentised_hl_null(a, det, idx, shifts)
+    t_obs = float(rd.naive_studentised_hl_null(a, det, idx, [0])[0])
     if math.isnan(hl_obs):
         assert rd.is_na(hl["effect"]) and rd.is_na(hl["p_value"])
     else:
@@ -193,9 +196,9 @@ def test_p6_hl_on_residualised_abundance(rep: dict[str, Any], cov: list[Any]) ->
         assert rd.is_na(hl["effect"]) and rd.is_na(hl["p_value"])
         return
     assert hl["effect"] == pytest.approx(hl_obs, abs=1e-8)
-    tu = [f"TU_chr1_{i}" for i in range(n)]
-    null = rd.naive_studentised_hl_null(ar, ok, tu, idx, list(range(1, n)))
-    want = rd.naive_perm_p(float(rd.naive_studentised_hl_null(ar, ok, tu, idx, [0])[0]), null)
+    assume(rd.naive_v_positive(ar, ok, idx, list(range(n))))
+    null = rd.naive_studentised_hl_null(ar, ok, idx, list(range(1, n)))
+    want = rd.naive_perm_p(float(rd.naive_studentised_hl_null(ar, ok, idx, [0])[0]), null)
     if math.isnan(want):
         assert rd.is_na(hl["p_value"])
     else:
@@ -237,8 +240,8 @@ def test_p7_hl_p_invariant_to_affine_abundance(rep: dict[str, Any], c: float, b:
     assert r1["p_value"] == pytest.approx(r0["p_value"], abs=1e-12)
     assert r1["n_perm"] == r0["n_perm"]
     assert r1["effect"] == pytest.approx(c * r0["effect"], abs=1e-7)
-    assert r1["ci_low"] == pytest.approx(c * r0["ci_low"], abs=1e-7)
-    assert r1["ci_high"] == pytest.approx(c * r0["ci_high"], abs=1e-7)
+    for col in ("ci_low", "ci_high"):  # NA CI (too few TU blocks) stays NA
+        assert r1[col] == pytest.approx(c * r0[col], abs=1e-7, nan_ok=True)
 
 
 @SETTINGS
@@ -252,13 +255,13 @@ def test_p7_studentised_t_invariant_to_affine_values(
     ok = np.array(rep["d"], bool)
     a = np.where(ok, np.array(rep["a"], float), np.nan)
     assume(ok.sum() >= 2 and np.ptp(a[ok]) > 1e-6)
-    tu = np.array(rep["tu"], dtype=object)
     ks = np.arange(n)
+    assume(rd.naive_v_positive(a, ok, list(idx), list(ks)))
     R = _regions()
-    t0 = R.studentised_hl_null(a, ok, tu, idx, ks)
-    t1 = R.studentised_hl_null(c * a + b, ok, tu, idx, ks)
+    t0 = R.studentised_hl_null(a, ok, idx, ks)
+    t1 = R.studentised_hl_null(c * a + b, ok, idx, ks)
     np.testing.assert_allclose(t1, t0, rtol=1e-9, atol=1e-9, equal_nan=True)
-    want = rd.naive_studentised_hl_null(a, ok, list(tu), list(idx), list(ks))
+    want = rd.naive_studentised_hl_null(a, ok, list(idx), list(ks))
     np.testing.assert_allclose(t0, want, rtol=1e-9, atol=1e-12, equal_nan=True)
 
 
@@ -282,3 +285,64 @@ def monkeypatch_shifts() -> Any:
         mp.setattr(R, "choose_shifts", spy)
     yield calls
     mp.undo()
+
+
+# --------------------------------------------------------------------------- P8 (decision 15)
+
+
+@st.composite
+def lag_replicon(draw: st.DrawFn) -> dict[str, Any]:
+    """Detected flags and values (integers: exact oracle arithmetic is meaningful), a region set,
+    and a lag bound (small bounds exercise max_lag; 30 is the default)."""
+    n = draw(st.integers(2, 40))
+    ok = draw(st.lists(st.booleans(), min_size=n, max_size=n))
+    a = draw(st.lists(st.integers(-8, 8).map(float), min_size=n, max_size=n))
+    idx = sorted(draw(st.sets(st.integers(0, n - 1), min_size=1, max_size=max(1, n - 1))))
+    return {"n": n, "ok": ok, "a": a, "idx": idx, "max_lag": draw(st.sampled_from([0, 1, 3, 30]))}
+
+
+@SETTINGS
+@given(rep=lag_replicon())
+def test_p8_lag_autocovariance_equals_oracle(rep: dict[str, Any]) -> None:
+    ok = np.array(rep["ok"], bool)
+    a = np.where(ok, np.array(rep["a"]), np.nan)
+    g = _regions().lag_autocovariance(a, ok, max_lag=rep["max_lag"])
+    want = rd.naive_lag_autocov(list(a), ok, rep["max_lag"])
+    np.testing.assert_allclose(g, np.array(want, float), rtol=1e-9, atol=1e-12)
+
+
+@SETTINGS
+@given(rep=lag_replicon(), g=st.lists(st.floats(-2.0, 5.0, allow_nan=False), min_size=31,
+                                      max_size=31))  # fmt: skip
+def test_p8_hl_variance_equals_oracle(rep: dict[str, Any], g: list[float]) -> None:
+    """Any gamma vector (the quadratic form, not only estimated gammas); NaN where a side is
+    empty."""
+    ok = np.array(rep["ok"], bool)
+    ks = np.arange(rep["n"])
+    v = _regions().hl_variance(ok, np.array(rep["idx"]), ks, np.array(g))
+    want = rd.naive_lag_hl_variance(ok, rep["idx"], list(ks), g)
+    np.testing.assert_allclose(v, np.array(want, float), rtol=1e-9, atol=1e-9, equal_nan=True)
+
+
+@SETTINGS
+@given(rep=tu_replicon(), data=st.data())
+def test_p8_hl_row_independent_of_tu_partition(rep: dict[str, Any], data: Any) -> None:
+    """Any other TU partition of the same genes (random contiguous blocks, labels drawn at random,
+    so relabelling, fragmenting and merging all occur): effect, p and n_perm unchanged."""
+    n, idx = rep["n"], rep["idx"]
+    assume(sum(rep["d"]) >= 8)
+    cuts = data.draw(st.lists(st.booleans(), min_size=n, max_size=n))
+    names = data.draw(st.lists(st.integers(0, 10**6), min_size=n, max_size=n, unique=True))
+    blk, tu2 = 0, []
+    for i in range(n):
+        blk += int(cuts[i])
+        tu2.append(f"Q{names[blk]}")
+    mk = [Contig("chr1", rep["d"], [0.5] * n, a=rep["a"], tu=t, length_aa=rep["L"],
+                 n_obs=rep["k"], gravy=rep["g"]) for t in (rep["tu"], tu2)]  # fmt: skip
+    r0, r1 = (pick(_run(m, idx), "bgc_1", "hl_shift") for m in mk)
+    if rd.is_na(r0["p_value"]):
+        assert rd.is_na(r1["p_value"])
+        return
+    assert r1["effect"] == pytest.approx(r0["effect"], abs=1e-12)
+    assert r1["p_value"] == pytest.approx(r0["p_value"], abs=1e-12)
+    assert r1["n_perm"] == r0["n_perm"]

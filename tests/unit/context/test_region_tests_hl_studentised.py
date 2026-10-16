@@ -1,31 +1,39 @@
-"""M4-17 lead decision 11 / ADR-0018 amendment 1: the TU-cluster-studentised HL shift test.
+"""M4-17 lead decisions 13 and 15 / ADR-0018 amendment 2: the label-free studentised HL shift test.
 
-docs/adr/ADR-0018-region-tests-confounding.md "Amendment 1" (accepted-by-khoa 2026-10-16),
-docs/specs/M4-17-region-tests.md decision 11, formula in docs/methods/region-tests.md "Review round
-2" item 3 (statistician's scripts local/scratch/review-m4-17/v2/exp5.py):
+docs/adr/ADR-0018-region-tests-confounding.md "Amendment 2" (accepted-by-khoa 2026-10-16),
+docs/specs/M4-17-region-tests.md decisions 13 and 15, formula in docs/methods/region-tests.md
+"Review round 3" item 4 (statistician's prototype local/scratch/review-m4-17/v3/lagv.py):
 
-- the circular-shift p-value of the HL row comes from T = HL / sqrt(V), recomputed at every shift;
-- V = sigma_u^2 (sum_t m_t^2 / m^2 + sum_t m'_t^2 / m'^2) + sigma_e^2 (1/m + 1/m'), m_t / m'_t the
-  detected genes with a finite residual in TU t inside / outside the (shifted) set, m / m' their
-  totals;
-- sigma_u^2 (between-TU, truncated at 0) and sigma_e^2 (within-TU) are one-way ANOVA moment
-  estimates on the replicon's residualised detected genes, computed once per replicon;
-- the reported HL effect and its CI are unchanged (residual scale, decision 10).
+- the circular-shift p-value of the HL row comes from T = HL / sqrt(V), recomputed at every shift
+  (as amendment 1); the reported HL effect and its CI are unchanged (residual scale, decision 10);
+- V = Var(mean_in - mean_out) = S_in,in / m^2 + S_out,out / m'^2 - 2 S_in,out / (m m'), S_A,B the
+  sum of gamma(d(i, j)) over detected genes i in A, j in B with a finite residual, d the circular
+  gene-index distance, m / m' the detected genes inside / outside the (shifted) set;
+- gamma(h) is the replicon's autocovariance of the residualised detected abundances at circular
+  gene-index lag h <= 30, estimated once per replicon and truncated at its first non-positive
+  value (gamma(h') = 0 from there on; oracle ``rd.naive_lag_autocov``);
+- V uses no TU label: relabelling, fragmenting or merging TUs leaves V, T and p unchanged
+  (supersedes amendment 1's per-TU components, decision 12's ``tu_variance_components``);
+- decision 12's guard stays, scaled to the data: V counts as 0 (T = 0) when gamma(0) <=
+  (V_RTOL * scale)^2, ``scale`` the magnitude of the data before residualisation (default max |a|);
+- decision 13: a missing ``tu_id`` raises ValueError (C6 makes ``tu_id`` non-null; no per-gene
+  fallback). The bootstrap CI still resamples TU blocks.
 
-Public interface pinned here (test-author choice, ``giap.context.regions``):
+Public interface pinned here (test-author choice, ``giap.context.regions``), replacing
+``tu_variance_components`` and the TU arguments of ``hl_variance`` / ``studentised_hl_null``:
 
-- ``tu_variance_components(a, ok, tu) -> (sigma_u2, sigma_e2)``;
-- ``hl_variance(ok, tu, idx, shifts, sigma_u2, sigma_e2) -> V per shift`` (NaN if a side is empty);
-- ``studentised_hl_null(a, ok, tu, idx, shifts) -> T per shift`` (shift 0 = the observed T).
+- ``LAG_MAX = 30``;
+- ``lag_autocovariance(a, ok, max_lag=LAG_MAX) -> gamma[0 .. max_lag]`` (truncated);
+- ``hl_variance(ok, idx, shifts, gamma) -> V per shift`` (NaN if a side is empty);
+- ``studentised_hl_null(a, ok, idx, shifts, *, scale=None) -> T per shift`` (shift 0 = observed).
 
-Test-author readings of the edge cases: one TU -> sigma_u^2 = 0 (no between-TU information; the
-reviewer's script divides by n0 = 0); all TUs singletons -> sigma_e^2 = 0 (SSE / max(M - n_T, 1));
-V = 0 only when every value is equal, so HL = 0 and T = 0 (p = 1, as the plain HL gives now);
-no detected gene -> NA, never an exception.
+Not pinned: V <= 0 with gamma(0) above the guard (the truncated gamma need not be positive
+definite); oracle comparisons skip such inputs (``rd.naive_v_positive``).
 """
 
 from __future__ import annotations
 
+import inspect
 import math
 import sys
 from fractions import Fraction
@@ -57,158 +65,216 @@ def _run(contigs: list[Contig], members: dict[str, tuple[str, list[str]]], seed:
     )
 
 
-# --------------------------------------------------------------------------- hand example
-# Seven genes in genome order; TU t0 = {0, 2}, t1 = {1} (one detected gene), t2 = {3, 4, 5, 6}
-# with gene 4 undetected. Detected values 1, 2, 3, 4, 6, 8 (M = 6, n_T = 3).
-#   TU means 2, 2, 6; grand mean 4; SSE = 2 + 0 + 8 = 10 -> sigma_e^2 = 10 / (6 - 3) = 10/3.
-#   SSB = 2 * 4 + 1 * 4 + 3 * 4 = 24 -> MSB = 12; n0 = (6 - 14/6) / 2 = 11/6;
-#   sigma_u^2 = (12 - 10/3) / (11/6) = 52/11.
+def _pad(g: list[Any], n: int = 31) -> np.ndarray:
+    return np.array([float(x) for x in g] + [0.0] * (n - len(g)))
+
+
+# --------------------------------------------------------------------------- hand example 1
+# Eight genes on a circular replicon, gene 4 undetected: a = 1, 3, 2, 4, -, 6, 5, 7 (M = 7).
+# Mean 4 -> x = -3, -1, -2, 0, (0), 2, 1, 3.
+#   gamma(0) = (9 + 1 + 4 + 0 + 4 + 1 + 9) / 7 = 4
+#   gamma(1): products of neighbours (0,1) 3, (1,2) 2, (2,3) 0, (5,6) 2, (6,7) 3, (7,0) -9 -> 1;
+#             6 pairs with both detected -> 1/6
+#   gamma(2): (0,2) 6, (1,3) 0, (3,5) 0, (5,7) 6, (6,0) -3, (7,1) -3 -> 6 / 6 = 1
+#   gamma(3): (0,3) 0, (2,5) -4, (3,6) 0, (5,0) -6, (6,1) -1, (7,2) -6 -> -17/6 <= 0: truncated,
+#             gamma(h) = 0 for every h >= 3 (gamma(4) = -8/6 would be negative too).
 # Region I = {0, 1}:
-#   k = 0: in t0:1, t1:1 (m 2, sum m_t^2 2); out t0:1, t2:3 (m' 4, 10)
-#          V = 52/11 (2/4 + 10/16) + 10/3 (1/2 + 1/4) = 86/11;  HL({1,2} - {3,4,6,8}) = -3.5
-#   k = 2: in t0:1, t2:1 (2, 2); out t0:1, t1:1, t2:2 (4, 6)
-#          V = 52/11 (2/4 + 6/16) + 10/3 (3/4) = 73/11;     HL({3,4} - {1,2,6,8}) = -0.5
-#   k = 3: in {3, 4} -> gene 4 undetected: t2:1 (1, 1); out t0:2, t1:1, t2:2 (5, 9)
-#          V = 52/11 (1 + 9/25) + 10/3 (1 + 1/5) = 2868/275; HL({4} - {1,2,3,6,8}) = 1
-#   k = 5: in {5, 6}: t2:2 (2, 4); out t0:2, t1:1, t2:1 (4, 6)
-#          V = 52/11 (4/4 + 6/16) + 10/3 (1/2 + 1/4) = 9;     HL({6,8} - {1,2,3,4}) = 4.5
+#   k = 0: in {0, 1} (m 2), out {2, 3, 5, 6, 7} (m' 5).
+#          S_in,in = 2 gamma0 + 2 gamma1 = 25/3; S_out,out = 5 gamma0 + 2 (3 gamma1 + 2 gamma2) = 25
+#          (distance-1 pairs 23, 56, 67; distance-2 pairs 35, 57); S_in,out = 2 gamma1 + 4 gamma2
+#          = 13/3 (distance 1: 12, 07; distance 2: 02, 06, 13, 17).
+#          V = 25/12 + 25/25 - 2 (13/3) / 10 = 133/60;  HL({1, 3} - {2, 4, 6, 5, 7}) = -3
+#   k = 3: in {3} (gene 4 undetected): HL({4} - {1, 3, 2, 6, 5, 7}) = 0, V = 455/108, T = 0
+#   k = 5: in {5, 6}: HL({6, 5} - {1, 3, 2, 4, 7}) = 2.5, V = 763/300
 
-A = np.array([1.0, 2.0, 3.0, 4.0, np.nan, 6.0, 8.0])
+A = np.array([1.0, 3.0, 2.0, 4.0, np.nan, 6.0, 5.0, 7.0])
 OK = np.isfinite(A)
-TU = np.array(["t0", "t1", "t0", "t2", "t2", "t2", "t2"], dtype=object)
 IDX = np.array([0, 1])
-SU2, SE2 = Fraction(52, 11), Fraction(10, 3)
-HAND = {  # shift -> (V, HL)
-    0: (Fraction(86, 11), -3.5),
-    2: (Fraction(73, 11), -0.5),
-    3: (Fraction(2868, 275), 1.0),
-    5: (Fraction(9), 4.5),
-}
+GAMMA = [Fraction(4), Fraction(1, 6), Fraction(1)]  # gamma(h) = 0 for h >= 3
+V_HAND = [
+    Fraction(133, 60),
+    Fraction(749, 300),
+    Fraction(763, 300),
+    Fraction(455, 108),
+    Fraction(455, 108),
+    Fraction(763, 300),
+    Fraction(749, 300),
+    Fraction(133, 60),
+]
+HAND = {0: (V_HAND[0], -3.0), 3: (V_HAND[3], 0.0), 5: (V_HAND[5], 2.5)}  # shift -> (V, HL)
+
+# Hand example 2 (truncation, not clipping): ten genes, all detected, a = 6 0 4 2 1 0 1 1 0 5,
+# mean 2, x = 4 -2 2 0 -1 -2 -1 -1 -2 3. gamma(0) = 44/10 = 22/5; gamma(1) = (-8 - 4 + 0 + 0 + 2 + 2
+# + 1 + 2 - 6 + 12) / 10 = 1/10; gamma(2) = -6/10 <= 0, so gamma(2 ...) = 0 although the raw
+# gamma(3) = 3/5 is positive.
+A2 = np.array([6.0, 0.0, 4.0, 2.0, 1.0, 0.0, 1.0, 1.0, 0.0, 5.0])
+GAMMA2 = [Fraction(22, 5), Fraction(1, 10)]
 
 
-def test_hand_example_is_consistent_with_oracle() -> None:
-    """The hand arithmetic above agrees with the naive oracle (guards the oracle itself)."""
-    su2, se2 = rd.naive_tu_components(A, OK, list(TU))
-    assert su2 == pytest.approx(float(SU2)) and se2 == pytest.approx(float(SE2))
-    ks = list(HAND)
-    v = rd.naive_hl_variance(OK, list(TU), list(IDX), ks, su2, se2)
-    np.testing.assert_allclose(v, [float(HAND[k][0]) for k in ks], rtol=1e-12)
-    np.testing.assert_allclose(rd.naive_hl_null(A, OK, list(IDX), ks), [HAND[k][1] for k in ks])
+def test_hand_examples_agree_with_oracle() -> None:
+    """The hand arithmetic above agrees with the exact (Fraction) oracle (guards the oracle)."""
+    af = [Fraction(int(x)) if np.isfinite(x) else math.nan for x in A]
+    g = rd.naive_lag_autocov(af, OK)
+    assert g[:3] == GAMMA and all(x == 0 for x in g[3:]) and len(g) == rd.LAG_MAX + 1
+    assert rd.naive_lag_hl_variance(OK, list(IDX), range(8), g) == V_HAND
+    np.testing.assert_allclose(rd.naive_hl_null(A, OK, list(IDX), list(HAND)),
+                               [h for _, h in HAND.values()])  # fmt: skip
+    g2 = rd.naive_lag_autocov([Fraction(int(x)) for x in A2], np.ones(10, bool))
+    assert g2[:2] == GAMMA2 and all(x == 0 for x in g2[2:])
 
 
-def test_tu_variance_components_hand_example() -> None:
-    su2, se2 = _regions().tu_variance_components(A, OK, TU)
-    assert su2 == pytest.approx(float(SU2), rel=1e-12)
-    assert se2 == pytest.approx(float(SE2), rel=1e-12)
+def test_lag_max_is_30() -> None:
+    assert _regions().LAG_MAX == 30
 
 
-def test_tu_variance_components_ignore_undetected_values() -> None:
-    """A value at a gene with ok = False (here 1000 at the undetected gene 4) does not enter."""
+def test_lag_autocovariance_hand_example() -> None:
+    g = _regions().lag_autocovariance(A, OK)
+    assert g.shape == (31,)
+    np.testing.assert_allclose(g, _pad(GAMMA), rtol=1e-12, atol=1e-15)
+
+
+def test_lag_autocovariance_truncates_at_first_non_positive_lag() -> None:
+    g = _regions().lag_autocovariance(A2, np.ones(10, bool))
+    np.testing.assert_allclose(g, _pad(GAMMA2), rtol=1e-12, atol=1e-15)
+
+
+def test_lag_autocovariance_max_lag() -> None:
+    """max_lag bounds the lags: gamma[0 .. max_lag]."""
+    g = _regions().lag_autocovariance(A, OK, max_lag=1)
+    np.testing.assert_allclose(g, [4.0, 1 / 6], rtol=1e-12)
+
+
+def test_lag_autocovariance_ignores_undetected_values() -> None:
+    """A value at a gene with ok = False (1000 at gene 4) enters neither the mean nor any lag."""
     a = A.copy()
     a[4] = 1000.0
-    su2, se2 = _regions().tu_variance_components(a, OK, TU)
-    assert su2 == pytest.approx(float(SU2), rel=1e-12)
-    assert se2 == pytest.approx(float(SE2), rel=1e-12)
+    np.testing.assert_allclose(_regions().lag_autocovariance(a, OK), _pad(GAMMA), rtol=1e-12,
+                               atol=1e-15)  # fmt: skip
+
+
+def test_lag_autocovariance_is_circular() -> None:
+    """Lags wrap around the origin: rotating the replicon leaves gamma unchanged."""
+    R = _regions()
+    np.testing.assert_allclose(R.lag_autocovariance(np.roll(A, 3), np.roll(OK, 3)),
+                               R.lag_autocovariance(A, OK), rtol=1e-12, atol=1e-15)  # fmt: skip
 
 
 def test_hl_variance_hand_example() -> None:
-    ks = np.array(list(HAND))
-    v = _regions().hl_variance(OK, TU, IDX, ks, float(SU2), float(SE2))
-    np.testing.assert_allclose(v, [float(HAND[k][0]) for k in HAND], rtol=1e-12)
+    v = _regions().hl_variance(OK, IDX, np.arange(8), _pad(GAMMA))
+    np.testing.assert_allclose(v, [float(x) for x in V_HAND], rtol=1e-12)
+
+
+def test_hl_variance_white_noise_is_two_sample_variance() -> None:
+    """gamma = (g0, 0, 0, ...): V = g0 (1/m + 1/m') (k = 0: 4 (1/2 + 1/5) = 14/5; k = 3: m = 1,
+    m' = 6: 4 (1 + 1/6) = 14/3)."""
+    v = _regions().hl_variance(OK, IDX, np.array([0, 3]), _pad([4]))
+    np.testing.assert_allclose(v, [14 / 5, 14 / 3], rtol=1e-12)
+
+
+def test_hl_variance_linear_in_gamma() -> None:
+    R = _regions()
+    ks = np.arange(8)
+    g1, g2 = _pad([1, 0.5, 0.25]), _pad([2, 0, 0, 1])
+    np.testing.assert_allclose(R.hl_variance(OK, IDX, ks, 3 * g1 + g2),
+                               3 * R.hl_variance(OK, IDX, ks, g1) + R.hl_variance(OK, IDX, ks, g2),
+                               rtol=1e-12)  # fmt: skip
 
 
 def test_studentised_hl_null_hand_example() -> None:
     ks = np.array(list(HAND))
-    t = _regions().studentised_hl_null(A, OK, TU, IDX, ks)
-    want = [h / math.sqrt(float(v)) for v, h in HAND.values()]
-    np.testing.assert_allclose(t, want, rtol=1e-12)
+    t = _regions().studentised_hl_null(A, OK, IDX, ks)
+    np.testing.assert_allclose(t, [h / math.sqrt(float(v)) for v, h in HAND.values()], rtol=1e-12)
 
 
 def test_studentised_hl_null_equals_oracle_at_every_shift() -> None:
-    ks = np.arange(7)
-    t = _regions().studentised_hl_null(A, OK, TU, IDX, ks)
-    want = rd.naive_studentised_hl_null(A, OK, list(TU), list(IDX), list(ks))
+    ks = np.arange(8)
+    t = _regions().studentised_hl_null(A, OK, IDX, ks)
+    want = rd.naive_studentised_hl_null(A, OK, list(IDX), list(ks))
     np.testing.assert_allclose(t, want, rtol=1e-12, equal_nan=True)
 
 
-def test_sigmas_are_estimated_once_per_replicon_not_per_shift() -> None:
-    """V_k uses the replicon's sigma's at every shift: V / (su2-part, se2-part) is linear in the
-    supplied sigma's (doubling both doubles V) and T does not depend on the region."""
+def test_gamma_is_estimated_once_per_replicon_not_per_shift() -> None:
+    """T_k = HL_k / sqrt(V_k) with V_k from the replicon's one gamma (not re-estimated per set)."""
     R = _regions()
-    ks = np.array(list(HAND))
-    v1 = R.hl_variance(OK, TU, IDX, ks, 1.0, 0.0)
-    v2 = R.hl_variance(OK, TU, IDX, ks, 0.0, 1.0)
-    v = R.hl_variance(OK, TU, IDX, ks, float(SU2), float(SE2))
-    np.testing.assert_allclose(v, float(SU2) * v1 + float(SE2) * v2, rtol=1e-12)
-    np.testing.assert_allclose(v1, [2 / 4 + 10 / 16, 2 / 4 + 6 / 16, 1 + 9 / 25, 4 / 4 + 6 / 16])
-    np.testing.assert_allclose(v2, [3 / 4, 3 / 4, 6 / 5, 3 / 4])
+    ks = np.arange(8)
+    g = R.lag_autocovariance(A, OK)
+    want = R.hl_null(A, OK, IDX, ks) / np.sqrt(R.hl_variance(OK, IDX, ks, g))
+    np.testing.assert_allclose(R.studentised_hl_null(A, OK, IDX, ks), want, rtol=1e-12)
 
 
-# --------------------------------------------------------------------------- edge cases
-
-
-def test_one_tu_has_no_between_tu_variance() -> None:
-    """All detected genes in one TU: sigma_u^2 = 0 (finite, not NaN), sigma_e^2 = sample
-    variance."""
-    a = np.array([1.0, 2.0, 4.0, 7.0])
-    su2, se2 = _regions().tu_variance_components(a, np.ones(4, bool), np.array(["t"] * 4))
-    assert su2 == 0.0
-    assert se2 == pytest.approx(float(np.var(a, ddof=1)))
-    t = _regions().studentised_hl_null(a, np.ones(4, bool), np.array(["t"] * 4), np.array([0]),
-                                       np.arange(4))  # fmt: skip
-    assert np.all(np.isfinite(t))
-
-
-def test_singleton_tus_put_everything_between() -> None:
-    """Every TU one detected gene (the hand-built default): sigma_e^2 = 0, n0 = 1, sigma_u^2 =
-    sample variance; V = sigma_u^2 (1/m + 1/m')."""
-    a = np.array([3.0, 1.0, 4.0, 1.0, 5.0, 9.0])
-    tu = np.array([f"t{i}" for i in range(6)])
+def test_interface_takes_no_tu_labels() -> None:
+    """Decision 15: V is label-free; the variance functions take no TU argument."""
     R = _regions()
-    su2, se2 = R.tu_variance_components(a, np.ones(6, bool), tu)
-    assert se2 == 0.0
-    assert su2 == pytest.approx(float(np.var(a, ddof=1)))
-    v = R.hl_variance(np.ones(6, bool), tu, np.array([0, 1]), np.array([0, 3]), su2, se2)
-    np.testing.assert_allclose(v, su2 * (1 / 2 + 1 / 4))
+    assert list(inspect.signature(R.hl_variance).parameters) == ["ok", "idx", "shifts", "gamma"]
+    p = inspect.signature(R.studentised_hl_null).parameters
+    assert list(p)[:4] == ["a", "ok", "idx", "shifts"] and "tu" not in p
+    assert p["scale"].kind is inspect.Parameter.KEYWORD_ONLY
 
 
-def test_between_tu_variance_truncated_at_zero() -> None:
-    """TU means closer than within-TU noise allows: MSB < sigma_e^2 -> sigma_u^2 = 0, not < 0."""
-    a = np.array([0.0, 10.0, 1.0, 9.0, 2.0, 8.0])
-    tu = np.array(["a", "a", "b", "b", "c", "c"])
-    su2, se2 = _regions().tu_variance_components(a, np.ones(6, bool), tu)
-    assert su2 == 0.0
-    assert se2 == pytest.approx((50 + 32 + 18) / 3)
+# --------------------------------------------------------------------------- edge cases and guard
 
 
 def test_v_zero_gives_t_zero() -> None:
-    """All detected values equal: sigma's are 0, V = 0 and HL = 0 at every shift -> T = 0 (never
-    NaN, never a ZeroDivisionError)."""
+    """All detected values equal: gamma = 0, V = 0 and HL = 0 at every shift -> T = 0 (never NaN,
+    never a ZeroDivisionError)."""
     a = np.full(8, 5.0)
-    tu = np.array(["a", "a", "b", "b", "c", "c", "d", "d"])
     R = _regions()
-    assert R.tu_variance_components(a, np.ones(8, bool), tu) == (0.0, 0.0)
-    t = R.studentised_hl_null(a, np.ones(8, bool), tu, np.array([1, 2]), np.arange(8))
+    np.testing.assert_array_equal(R.lag_autocovariance(a, np.ones(8, bool)), np.zeros(31))
+    t = R.studentised_hl_null(a, np.ones(8, bool), np.array([1, 2]), np.arange(8))
     np.testing.assert_array_equal(t, np.zeros(8))
+
+
+def test_guard_treats_rounding_noise_as_zero() -> None:
+    """Values equal up to rounding (relative 1e-13): gamma(0) <= (V_RTOL max|a|)^2, so V counts as
+    0 and T = 0 at every shift; noise never becomes signal."""
+    rng = np.random.default_rng(3)
+    a = 12.3 + 12.3 * 1e-13 * rng.standard_normal(20)
+    t = _regions().studentised_hl_null(a, np.ones(20, bool), np.arange(5, 9), np.arange(20))
+    np.testing.assert_array_equal(t, np.zeros(20))
+
+
+def test_guard_is_relative_to_the_data_scale() -> None:
+    """Tiny but genuine variation (the whole data scaled by 1e-9) is not zeroed: T is the same as
+    for the unscaled data (HL scales by c, V by c^2)."""
+    R = _regions()
+    rng = np.random.default_rng(4)
+    a = rng.normal(0, 1, 24)
+    ok = np.ones(24, bool)
+    ks, idx = np.arange(24), np.arange(3, 9)
+    t0 = R.studentised_hl_null(a, ok, idx, ks)
+    assert np.any(t0 != 0)
+    np.testing.assert_allclose(R.studentised_hl_null(1e-9 * a, ok, idx, ks), t0, rtol=1e-9)
+
+
+def test_guard_uses_the_supplied_scale() -> None:
+    """``scale`` (magnitude before residualisation) sets the guard: residuals of size 1e-3 count as
+    rounding against scale 1e5 ((1e-7 * 1e5)^2 = 1e-4 > gamma(0) ~ 1e-6) but not by default."""
+    R = _regions()
+    rng = np.random.default_rng(5)
+    a = 1e-3 * rng.standard_normal(16)
+    ok, idx, ks = np.ones(16, bool), np.arange(2, 6), np.arange(16)
+    np.testing.assert_array_equal(R.studentised_hl_null(a, ok, idx, ks, scale=1e5), np.zeros(16))
+    assert np.any(R.studentised_hl_null(a, ok, idx, ks) != 0)
 
 
 def test_empty_side_gives_nan_t() -> None:
     """A shift whose set holds no detected gene (or every detected gene) has T = NaN."""
     a = np.array([1.0, np.nan, np.nan, 4.0, 6.0])
     ok = np.isfinite(a)
-    tu = np.array(["a", "a", "b", "c", "c"])
-    t = _regions().studentised_hl_null(a, ok, tu, np.array([0]), np.array([0, 1, 2, 3]))
+    t = _regions().studentised_hl_null(a, ok, np.array([0]), np.array([0, 1, 2, 3]))
     assert math.isnan(t[1]) and math.isnan(t[2])
     assert np.isfinite(t[0]) and np.isfinite(t[3])
+    v = _regions().hl_variance(ok, np.array([0]), np.array([0, 1, 2, 3]), _pad([1.0]))
+    assert math.isnan(v[1]) and math.isnan(v[2]) and np.isfinite(v[0])
 
 
 def test_no_detected_gene_does_not_raise() -> None:
     a = np.full(5, np.nan)
     ok = np.zeros(5, bool)
-    tu = np.array(["a", "a", "b", "c", "c"])
     R = _regions()
-    R.tu_variance_components(a, ok, tu)  # no exception; values unused
-    t = R.studentised_hl_null(a, ok, tu, np.array([0, 1]), np.arange(5))
+    g = R.lag_autocovariance(a, ok)  # no exception; values unused
+    assert g.shape == (31,)
+    t = R.studentised_hl_null(a, ok, np.array([0, 1]), np.arange(5))
     assert t.shape == (5,) and np.all(np.isnan(t))
 
 
@@ -245,12 +311,11 @@ def _oracle(c: Contig, idx: list[int]) -> dict[str, Any]:
     ar = rd.naive_residualise(a, det, c.length_aa or [L0] * n, c.n_obs or [N0] * n,
                               c.gravy or [G0] * n)  # fmt: skip
     ok = det & np.isfinite(ar)
-    tu = list(c.tu or [f"TU_{c.name}_{i}" for i in range(len(c.d))])
     shifts = list(range(1, len(ar)))
     x = [ar[i] for i in idx if ok[i]]
     y = [ar[i] for i in range(len(ar)) if ok[i] and i not in idx]
-    t_obs = float(rd.naive_studentised_hl_null(ar, ok, tu, idx, [0])[0])
-    t_null = rd.naive_studentised_hl_null(ar, ok, tu, idx, shifts)
+    t_obs = float(rd.naive_studentised_hl_null(ar, ok, idx, [0])[0])
+    t_null = rd.naive_studentised_hl_null(ar, ok, idx, shifts)
     hl_null = rd.naive_hl_null(ar, ok, idx, shifts)
     eff = rd.naive_hl(x, y)
     return {
@@ -276,7 +341,7 @@ def test_hl_p_value_from_studentised_statistic() -> None:
 
 
 # Reported HL effect and CI under decision 10 (current residual-scale implementation, commit
-# 529bd14, seed 1, rd.config()): amendment 1 changes the p-value only.
+# 529bd14, seed 1, rd.config()): amendments 1 and 2 change the p-value only.
 GOLDEN_EFFECT = 0.07878994901260405
 GOLDEN_CI = (-0.6003296150369698, 0.5595939753194148)
 
@@ -292,8 +357,8 @@ def test_hl_effect_and_ci_unchanged_by_amendment() -> None:
 
 
 def test_constant_n_detected_gives_plain_hl_p() -> None:
-    """Every gene detected and every TU a singleton: m and sum m_t^2 are the same at every shift,
-    so V is constant and T orders the shifts as HL does: p equals the plain-HL p."""
+    """Every gene detected on a circular replicon: the lag covariance matrix is circulant, so V is
+    the same at every shift and T orders the shifts as HL does: p equals the plain-HL p."""
     rng = np.random.default_rng(5)
     n = 40
     a = rng.normal(10, 1, n).tolist()
@@ -323,7 +388,7 @@ def test_constant_abundance_gives_p_one() -> None:
 
 
 def test_one_tu_replicon_runs() -> None:
-    """Whole replicon one TU (sigma_u^2 = 0): the HL row has a finite p in (0, 1]."""
+    """Whole replicon one TU: the HL row has a finite p in (0, 1] and equals the oracle."""
     c, idx = _tu_contig(33)
     c = Contig(c.name, c.d, c.p, a=c.a, tu=["TU_all"] * len(c.d), length_aa=c.length_aa,
                n_obs=c.n_obs, gravy=c.gravy)  # fmt: skip
@@ -386,3 +451,65 @@ def test_hl_row_invariant_to_tu_renaming() -> None:
     b = pick(_run([ren], members), "bgc_1", "hl_shift")
     for col in ("effect", "p_value", "ci_low", "ci_high", "n_perm"):
         assert a[col] == pytest.approx(b[col], abs=1e-12)
+
+
+# --------------------------------------------------------------------------- decision 15: no labels
+
+
+def _with_tus(c: Contig, tus: list[str]) -> Contig:
+    return Contig(c.name, c.d, c.p, a=c.a, tu=tus, length_aa=c.length_aa, n_obs=c.n_obs,
+                  gravy=c.gravy)  # fmt: skip
+
+
+@pytest.mark.parametrize("variant", ["singletons", "fragment_region", "merge_pairs", "one_tu"])
+def test_hl_p_unchanged_by_tu_relabelling_or_fragmenting(variant: str) -> None:
+    """A-TU in miniature: TU labels do not enter V, so fragmenting the region's TUs (or all TUs)
+    or merging TUs leaves the HL effect, p and n_perm unchanged (the CI may change: its bootstrap
+    resamples TU blocks)."""
+    c, idx = _tu_contig(37)
+    tus = list(c.tu or [])
+    n = len(tus)
+    new = {
+        "singletons": [f"S{i}" for i in range(n)],
+        "fragment_region": [f"F{i}" if i in idx else t for i, t in enumerate(tus)],
+        "merge_pairs": [f"M{i // 8}" for i in range(n)],
+        "one_tu": ["TU_all"] * n,
+    }[variant]
+    genes, _ = gene_table([c])
+    members = {"prophage_1": ("prophage", tags_of(genes, "chr1", idx))}
+    a = pick(_run([c], members), "prophage_1", "hl_shift")
+    b = pick(_run([_with_tus(c, new)], members), "prophage_1", "hl_shift")
+    assert b["effect"] == pytest.approx(a["effect"], abs=1e-12)
+    assert b["p_value"] == pytest.approx(a["p_value"], abs=1e-12)
+    assert b["n_perm"] == a["n_perm"]
+    assert a["p_value"] == pytest.approx(_oracle(c, idx)["p"])
+
+
+# --------------------------------------------------------------------------- decision 13
+
+
+@pytest.mark.parametrize("where", ["inside", "outside"])
+def test_missing_tu_id_raises_value_error(where: str) -> None:
+    """Decision 13: a gene on a tested replicon without ``tu_id`` (C6 makes it non-null) raises
+    ValueError; there is no per-gene fallback. Inside or outside the region alike."""
+    c, idx = _tu_contig(41)
+    tus: list[Any] = list(c.tu or [])
+    tus[idx[2] if where == "inside" else 40] = None
+    genes, replicons = gene_table([_with_tus(c, tus)])
+    assert genes["tu_id"].isna().sum() == 1
+    genes, regions, rg = region_frames(genes, {"bgc_1": ("bgc", tags_of(genes, "chr1", idx))})
+    with pytest.raises(ValueError, match="tu_id"):
+        _regions().test_all_regions(genes, regions, rg, replicons, rd.config(),
+                                    np.random.default_rng(1))  # fmt: skip
+
+
+def test_missing_tu_id_raises_on_nan_label() -> None:
+    """NaN (as read from a TSV with an empty cell) counts as missing too."""
+    c, idx = _tu_contig(43)
+    genes, replicons = gene_table([c])
+    genes["tu_id"] = genes["tu_id"].astype(object)
+    genes.loc[genes.index[5], "tu_id"] = np.nan
+    genes, regions, rg = region_frames(genes, {"bgc_1": ("bgc", tags_of(genes, "chr1", idx))})
+    with pytest.raises(ValueError, match="tu_id"):
+        _regions().test_all_regions(genes, regions, rg, replicons, rd.config(),
+                                    np.random.default_rng(1))  # fmt: skip

@@ -23,9 +23,10 @@ Oracles: ``naive_o_minus_e_null`` / ``naive_hl_null`` (one Python loop per shift
 and ``expected_shifts`` (shift sets from the spec text, independent of ``giap.stats``); ADR-0018:
 ``naive_studentised_null`` (O - E test statistic sum(d - p) / sqrt(sum p (1 - p)) per shift) and
 ``naive_residualise`` (log2 abundance residualised on the M4-13 transforms of the detectability
-covariates among the replicon's detected genes). ADR-0018 amendment 1 (lead decision 11):
-``naive_tu_components`` (one-way ANOVA moment estimates sigma_u^2, sigma_e^2 per replicon),
-``naive_hl_variance`` (per-shift V) and ``naive_studentised_hl_null`` (T = HL / sqrt(V)).
+covariates among the replicon's detected genes). ADR-0018 amendment 2 (lead decision 15: V
+label-free, superseding amendment 1's per-TU V): ``naive_lag_autocov`` (lag autocovariance
+gamma(h) per replicon), ``naive_lag_hl_variance`` (per-shift V) and ``naive_studentised_hl_null``
+(T = HL / sqrt(V)).
 """
 
 from __future__ import annotations
@@ -334,71 +335,86 @@ def naive_hl_null(
     return np.array(out, dtype=float)
 
 
-def naive_tu_components(a: np.ndarray, ok: np.ndarray, tu: Sequence[Any]) -> tuple[float, float]:
-    """ADR-0018 amendment 1 (docs/methods/region-tests.md "Review round 2", item 3): one-way ANOVA
-    moment estimates (sigma_u^2, sigma_e^2) over the genes with ``ok`` (detected, finite residual),
-    grouped by TU. M = #genes, n_T = #TUs, M_t = genes of TU t:
-    sigma_e^2 = SSE / max(M - n_T, 1); sigma_u^2 = max((SSB / (n_T - 1) - sigma_e^2) / n0, 0) with
-    n0 = (M - sum M_t^2 / M) / (n_T - 1); a single TU has no between-TU information: sigma_u^2 = 0
-    (test-author reading; the reviewer's script divides by n0 = 0 there). No gene: (NaN, NaN)."""
-    groups: dict[Any, list[float]] = {}
-    for j in range(len(a)):
-        if bool(ok[j]) and np.isfinite(a[j]):
-            groups.setdefault(tu[j], []).append(float(a[j]))
-    M = sum(len(g) for g in groups.values())
-    if M == 0:
-        return math.nan, math.nan
-    nt = len(groups)
-    grand = sum(sum(g) for g in groups.values()) / M
-    sse = sum(sum((x - sum(g) / len(g)) ** 2 for x in g) for g in groups.values())
-    se2 = sse / max(M - nt, 1)
-    if nt < 2:
-        return 0.0, se2
-    ssb = sum(len(g) * (sum(g) / len(g) - grand) ** 2 for g in groups.values())
-    n0 = (M - sum(len(g) ** 2 for g in groups.values()) / M) / (nt - 1)
-    return max((ssb / (nt - 1) - se2) / n0, 0.0), se2
+LAG_MAX = 30  # ADR-0018 amendment 2: gamma(h) for h <= 30 (statistician's v3, lagv.py H)
 
 
-def naive_hl_variance(
-    ok: np.ndarray,
-    tu: Sequence[Any],
-    idx: Sequence[int],
-    shifts: Sequence[int],
-    su2: float,
-    se2: float,
-) -> np.ndarray:
-    """V_k = su2 (sum_t m_t^2 / m^2 + sum_t m'_t^2 / m'^2) + se2 (1/m + 1/m') for the set
-    (I + k) mod N: m_t / m'_t count the ``ok`` genes of TU t inside / outside; NaN if m or m'
-    is 0."""
+def _finite(v: Any) -> bool:
+    return not (isinstance(v, float) and not math.isfinite(v))
+
+
+def naive_lag_autocov(a: Sequence[Any], ok: Any, max_lag: int = LAG_MAX) -> list[Any]:
+    """ADR-0018 amendment 2 (docs/methods/region-tests.md, review round 3, item 4): the replicon's
+    autocovariance of the residualised detected abundances at circular gene-index lag
+    h = 0 ... max_lag. x_i = a_i - mean(a over ok) on ``ok`` genes (flag set and value finite), 0
+    elsewhere; gamma(h) = sum_i x_i x_{(i+h) mod N} / #{i : ok_i and ok_{(i+h) mod N}} (0 if that
+    count is 0); truncated at its first non-positive value: gamma(h') = 0 for every h' >= the first
+    h >= 1 with gamma(h) <= 0. Exact for Fraction inputs. No ok gene: every gamma 0."""
+    n = len(a)
+    okl = [bool(ok[i]) and _finite(a[i]) for i in range(n)]
+    vals = [a[i] for i in range(n) if okl[i]]
+    if not vals:
+        return [0] * (max_lag + 1)
+    mu = sum(vals) / len(vals)
+    x = [a[i] - mu if okl[i] else 0 for i in range(n)]
+    g: list[Any] = []
+    for h in range(max_lag + 1):
+        num = sum(x[i] * x[(i + h) % n] for i in range(n))
+        den = sum(1 for i in range(n) if okl[i] and okl[(i + h) % n])
+        g.append(num / den if den else 0)
+    for h in range(1, max_lag + 1):
+        if g[h] <= 0:
+            g[h:] = [0] * (max_lag + 1 - h)
+            break
+    return g
+
+
+def naive_lag_hl_variance(
+    ok: Any, idx: Sequence[int], shifts: Sequence[int], gamma: Sequence[Any]
+) -> list[Any]:
+    """V_k = Var(mean_in - mean_out) = S_in,in / m^2 + S_out,out / m'^2 - 2 S_in,out / (m m'),
+    S_A,B = sum over ok i in A and ok j in B of gamma(d(i, j)), d the circular gene-index distance
+    min(|i - j|, N - |i - j|) (gamma = 0 beyond its length), for the set (I + k) mod N; m / m' the
+    ok genes inside / outside; NaN if m or m' is 0. Exact for Fraction gamma."""
     n = len(ok)
-    out = []
+
+    def gam(i: int, j: int) -> Any:
+        d = abs(i - j)
+        d = min(d, n - d)
+        return gamma[d] if d < len(gamma) else 0
+
+    out: list[Any] = []
     for k in shifts:
         inside = {(i + k) % n for i in idx}
-        cin: dict[Any, int] = {}
-        cout: dict[Any, int] = {}
-        for j in range(n):
-            if bool(ok[j]):
-                c = cin if j in inside else cout
-                c[tu[j]] = c.get(tu[j], 0) + 1
-        m, mo = sum(cin.values()), sum(cout.values())
+        a_in = [j for j in range(n) if bool(ok[j]) and j in inside]
+        a_out = [j for j in range(n) if bool(ok[j]) and j not in inside]
+        m, mo = len(a_in), len(a_out)
         if m == 0 or mo == 0:
             out.append(math.nan)
             continue
-        s_in = sum(x * x for x in cin.values()) / m**2
-        s_out = sum(x * x for x in cout.values()) / mo**2
-        out.append(su2 * (s_in + s_out) + se2 * (1 / m + 1 / mo))
-    return np.array(out, dtype=float)
+        s_ii = sum(gam(i, j) for i in a_in for j in a_in)
+        s_oo = sum(gam(i, j) for i in a_out for j in a_out)
+        s_io = sum(gam(i, j) for i in a_in for j in a_out)
+        out.append(s_ii / m**2 + s_oo / mo**2 - 2 * s_io / (m * mo))
+    return out
+
+
+def _lag_v(a: np.ndarray, ok: np.ndarray, idx: Sequence[int], shifts: Sequence[int]) -> list[Any]:
+    okv = np.asarray(ok, dtype=bool) & np.isfinite(np.asarray(a, dtype=float))
+    g = naive_lag_autocov([float(x) for x in a], okv)
+    return naive_lag_hl_variance(okv, idx, shifts, g)
 
 
 def naive_studentised_hl_null(
-    a: np.ndarray, ok: np.ndarray, tu: Sequence[Any], idx: Sequence[int], shifts: Sequence[int]
+    a: np.ndarray, ok: np.ndarray, idx: Sequence[int], shifts: Sequence[int]
 ) -> np.ndarray:
-    """T_k = HL_k / sqrt(V_k) for every shift k (k = 0 gives the observed T); sigma's estimated once
-    from (a, ok, tu); NaN where a side is empty; V = 0 (all values equal, so HL = 0) gives T = 0."""
+    """ADR-0018 amendment 2: T_k = HL_k / sqrt(V_k) for every shift k (k = 0 gives the observed
+    T); gamma estimated once from (a, ok) (``naive_lag_autocov``), V label-free
+    (``naive_lag_hl_variance``); NaN where a side is empty; V = 0 with HL = 0 gives T = 0 (V <= 0
+    with HL != 0 gives +-inf; comparisons with the implementation skip such draws,
+    ``naive_v_positive``)."""
     okv = np.asarray(ok, dtype=bool) & np.isfinite(np.asarray(a, dtype=float))
-    su2, se2 = naive_tu_components(a, okv, tu)
     hl = naive_hl_null(a, okv, idx, shifts)
-    v = naive_hl_variance(okv, tu, idx, shifts, su2, se2)
+    v = _lag_v(a, okv, idx, shifts)
     out = []
     for h, w in zip(hl, v, strict=True):
         if math.isnan(h) or math.isnan(w):
@@ -408,6 +424,17 @@ def naive_studentised_hl_null(
         else:
             out.append(0.0 if h == 0 else math.copysign(math.inf, h))
     return np.array(out, dtype=float)
+
+
+def naive_v_positive(
+    a: np.ndarray, ok: np.ndarray, idx: Sequence[int], shifts: Sequence[int]
+) -> bool:
+    """Every finite V_k > 0 (relative to gamma(0)). The truncated gamma need not be positive
+    definite; V <= 0 is not pinned by the spec, so oracle comparisons skip such inputs."""
+    okv = np.asarray(ok, dtype=bool) & np.isfinite(np.asarray(a, dtype=float))
+    g0 = naive_lag_autocov([float(x) for x in a], okv, 0)[0]
+    v = _lag_v(a, okv, idx, shifts)
+    return all(math.isnan(w) or w > 1e-9 * max(g0, 1e-300) for w in v)
 
 
 def naive_perm_p(obs: float, null: np.ndarray) -> float:
