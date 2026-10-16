@@ -38,7 +38,7 @@ the reported HL effect and CI are unchanged (residual scale). Evidence at α 0.0
 0.005/0.019/0.046 (1,000 genes, R 4000) and 0.003/0.021/0.047 (4,500, R 2000); A2-HL-MAR ≤ 0.038 at 0.10;
 C1 pooled at level; power without confounding unchanged (0.166 vs 0.156).
 
-## Amendment 2 (proposed, needs Khoa) — 2026-10-16
+## Amendment 2 (accepted-by-khoa 2026-10-16)
 Statistician final review (https://github.com/khoa-yelo/giap/pull/89#issuecomment-6208970265;
 local/scratch/review-m4-17/v3): amendment 1's per-TU variance V depends on the TU labels, so a region whose
 TUs are fragmented more finely than the rest of the replicon (new attack A-TU) is anti-conservative:

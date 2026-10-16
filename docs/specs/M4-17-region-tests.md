@@ -175,3 +175,6 @@ tolerances. Branch is not mergeable until A2-HL passes.
     non-null); no per-gene fallback. Pinned by the statistician's
     test_atu_missing_region_tu_labels_do_not_change_the_hl_p (accepts the error).
 14. Calibration records carry a run ID and commit (backlog: tests/calibration/_criteria.py writer).
+15. ADR-0018 amendment 2 (accepted-by-khoa 2026-10-16): V is label-free — the lag autocovariance of the
+    residual abundance along the replicon (statistician's v3 formula in docs/methods/region-tests.md);
+    T = HL/√V; effect and CI unchanged. Supersedes decision 12's per-TU components; A-TU gates it.
