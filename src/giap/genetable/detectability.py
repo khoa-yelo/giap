@@ -103,7 +103,7 @@ def tu_folds(tu_ids: Sequence[str], k: int, rng: np.random.Generator) -> dict[st
 
 
 def _separated(d: Array, p: Array) -> bool:
-    """True if both classes occur and every detected logit is >= every undetected one.
+    """True if both classes occur and the logits separate them in either direction.
 
     (Quasi-)complete separation of d by logit(clip(p)): no recalibration MLE (decision 17).
     """
@@ -111,7 +111,8 @@ def _separated(d: Array, p: Array) -> bool:
     if not 0 < pos.sum() < pos.size:
         return False
     z = logit(np.clip(p, CLIP, 1 - CLIP))
-    return bool(z[pos].min() >= z[~pos].max())
+    zp, zn = z[pos], z[~pos]
+    return bool(zp.min() >= zn.max() or zp.max() <= zn.min())
 
 
 def _recalibration(d: Array, p: Array) -> tuple[float, float, float, float]:

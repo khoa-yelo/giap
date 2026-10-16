@@ -40,10 +40,11 @@ of the chosen C and of p_detect to 2e-3).
 - Brier score.
 - Recalibration fit d ~ a + b·logit(clip(p̂, 1e-6)) by unpenalised Newton–Raphson; `ci_low` /
   `ci_high` are Wald 95 % intervals from the inverse observed information X'WX at the MLE. Other
-  rows carry no CI. If the data are (quasi-)completely separated (every detected gene's logit ≥
-  every undetected one's) the MLE does not exist: intercept, slope and CIs are NaN and the
-  `recalibration_separated` row is 1 (0 otherwise; spec M4-13 decision 17). These are
-  descriptive: there is no p-value and no test family (§8.1 has no detectability claim).
+  rows carry no CI. If the data are (quasi-)completely separated in either direction (every
+  detected gene's logit ≥ every undetected one's, or every one ≤) the MLE does not exist:
+  intercept, slope and CIs are NaN and the `recalibration_separated` row is 1 (0 otherwise; spec
+  M4-13 decision 17). These are descriptive: there is no p-value and no test family (§8.1 has no
+  detectability claim).
 
 Do not test b = 1 with this Wald interval on cross-fitted p̂: cross-fitted predictions are shrunk
 by estimation error, so b ≈ 0.97 ± 0.02 at n = 2,000 even when the model is right, while the
