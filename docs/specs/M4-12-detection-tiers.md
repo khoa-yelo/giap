@@ -128,3 +128,39 @@ two-peptide and protein-list as `unestimated`, and the calibration evidence (FDP
    `protein_list`.
 4. The peptide-vote step of the protein→gene map is not in the spec (needed when engine IDs are
    UniProt accessions and no `proteins.faa` is given, as in pilot arm A1). **Proposed default:** keep it.
+
+## Lead decisions (after the test-author's pass)
+1. The test-author's resolutions are accepted: ADR-0009 FDR = (D/f + 1)/T with f and 1/f reported;
+   pairing cut-offs from `mapping.proteins.min_identity`/`min_coverage` (set through `detect`); decoys above
+   `q_value_max` are neither paired nor unpaired; the protein→gene map (protein_id, gene, method) covers
+   every C2 locus_tag, `A;B` groups split, contaminant IDs never mapped.
+2. Contaminant evidence counts toward detection in every tier (consistent with `detected_2pep`;
+   resolves M4-11 decision 3).
+3. Unspecific-search warning (MAYU tier): fires when more than 50 % of accepted peptides do not end in K/R
+   (C-terminal peptides excepted); documented in the methods note.
+4. Risk noted: in the reference run the picked/MAYU FDP at q = 0.01 averaged ≈ 0.011–0.012; the
+   statistician reviews the claims and the simulator before merge (possible anti-conservatism).
+
+## Lead decisions after the statistician's review (PR #92, changes requested)
+5. (blocking) Input with PEPs but no q-values: gene thresholds use q derived from PEP (running mean, as
+   the MAYU-with-PEP path defines) — never 0 genes silently; test.
+6. (required) Contaminant decoys (`rev_CON__…`) are excluded from pairing counts (neither paired nor
+   unpaired); test with 8 gene decoys + 3 contaminant decoys staying in the picked tier.
+7. Decoy-prefix stripping removes the longest matching prefix first (`REV__X` → `X`).
+8. `Detection` exposes the protein→gene map it used (`Detection.protein_gene_map`); M4-14 uses it
+   instead of re-deriving it (follow-up in M4-14).
+9. Tests kill the surviving mutants: a decoy pairs only when all its listed proteins map; the
+   `unspecific_search` cut-off at exactly 50 % (not flagged).
+10. Backlog: a giapsim mode with decoy-derived q (D/T) so the MAYU PEP/no-PEP claims separate; a calibration
+    run with `q_value_max` = 0.1 so the q = 0.10 claim is informative; the "best decoys lost" attack is a
+    documented limitation.
+11. (lead, after the implementer's fix f297600) A decoy is a contaminant decoy when ANY of its stripped
+    protein IDs carries a contaminant prefix (it is then out of the pairing counts); PEP-derived q is used
+    only when every accepted q value is missing (mixed input keeps the given q).
+12. (Corrects decision 11's first half — statistician round 2,
+    https://github.com/khoa-yelo/giap/pull/92#issuecomment-6208572257.) A decoy is a contaminant decoy only
+    when ALL its stripped protein IDs carry a contaminant prefix; a mixed decoy (e.g. `rev_P;rev_CON__P`)
+    pairs on its non-contaminant IDs (it is paired when its target P maps, unpaired otherwise). "Any" let
+    contaminant grouping keep the `decoy_picked` tier with FDP 0.012–0.017 at q 0.01 (attack
+    `contaminant_groups` in tests/calibration/attacks/test_detection_tiers_attack_inputs.py). Gates are
+    re-run after the fix (the earlier 1849404/1849405 predate f297600).

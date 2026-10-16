@@ -36,6 +36,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "test_criteria_review.py": "regions",
         "test_criteria_pooled.py": "regions",
         "test_denovo_precision_calibration.py": "denovo_precision",
+        "test_detection_tiers_gene_fdr.py": "gene_fdr",
         "test_detectability_calibration.py": "detectability",
         "test_engine_calibration.py": "regions",
         "test_engine_calibration.py::test_bh_fdr": "gene_fdr",
@@ -62,11 +63,13 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
             )
         },
         "test_stats_bootstrap_calibration.py": "regions",
+        "test_detection_summary_calibration.py": "regions",
         "test_stats_fdr_calibration.py": "gene_fdr",
         "test_stats_permutation_calibration.py": "regions",
         "test_region_tests.py": "regions",
         "attacks/test_region_tests_attacks.py": "regions",
         "attacks/test_attack_bootstrap.py": "regions",
+        "attacks/test_detection_summary_attack_low_e.py": "regions",
         "attacks/test_attack_calibration_harness.py": "regions",
         "attacks/test_attack_calibration_harness.py::test_fdr_check_passes_exact_level_bh": (
             "gene_fdr"
@@ -76,6 +79,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         ),
         "attacks/test_attack_chance_hits.py": "placement",
         "attacks/test_attack_denovo_precision.py": "placement",
+        "attacks/test_detection_tiers_attack_decoy_loss.py": "gene_fdr",
         "attacks/test_attack_detectability.py": "detectability",
         "attacks/test_attack_fdr_engine.py": "gene_fdr",
         "attacks/test_attack_genome_decoys.py": "placement",
