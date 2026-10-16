@@ -12,6 +12,7 @@
   "context_layers": {
     "inputs": [
       "genes",
+      "genome",
       "pairs_raw",
       "replicons",
       "tus"
