@@ -95,3 +95,17 @@ tables in `src/giap/schemas/annotation/*.json` (incl. `id_map`, `terminators_cro
    `biosynthetic_gene_cluster` SO:0001411, `CRISPR` SO:0001459).
 2. `uniop_p_prev/next` orientation. **Proposed default:** transcription order (as above); a TU's first
    gene has `uniop_p_prev` = the p to its upstream same-strand neighbour (< threshold) or `NA`.
+
+## Lead decisions after the test-author's 461fa2a (2026-10-16)
+1. Step outputs are `annotation` and `layers` (the keys annotate.nf's CONTEXT_LAYERS uses; the spec's
+   `annotation_dir` is renamed); optional inputs also take `features` and `promoters`.
+2. Precomputed layers (§6.4) arrive as TSVs read through the config; `--modules core` drops prophage/bgc ids
+   from precomputed regions; missing optional layers log a `layer_missing` warning event.
+3. The run publishes OUT/annotation (`local.PUBLISHED`); `terminators_crosscheck.tsv` only when
+   terminator_layer made it; annotation TSV/BED files match the existing writers byte for byte.
+4. `gc_local_dev` (§9.3: 10-kb window GC − genome GC) IS produced here (M4-index line 150; GIAP_SPEC §9.3
+   "Modules 1 and 3") and belongs in LAYER_COLUMNS — the tests from 461fa2a omit it: add a test (window
+   centred on the gene midpoint, circular wrap on circular replicons, edge-truncated on linear ones) before
+   or with the implementation.
+5. annotate.nf must pass `terminators_crosscheck` to CONTEXT_LAYERS (workflow fix, implementer).
+6. Integration example 5 (M3-17) stays xfail until a real run completes past CONTEXT_LAYERS; then re-check.
