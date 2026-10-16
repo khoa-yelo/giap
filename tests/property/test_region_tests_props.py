@@ -12,7 +12,11 @@ GIAP_SPEC.md §7.3.6).
   the null of the ADR-0018 studentised statistic sum(d - p) / sqrt(sum p (1 - p)), effect O - E;
   HL with the default constant covariates (residualising only centres a);
 - P6 (ADR-0018 decision 1) with random detectability covariates, HL effect and p equal the naive
-  HL on ``rd.naive_residualise`` residuals and its naive shift null.
+  HL on ``rd.naive_residualise`` residuals and its naive shift null;
+- ADR-0018 amendment 1 (lead decision 11): in P5 / P6 the HL p comes from the studentised
+  T = HL / sqrt(V) (``rd.naive_studentised_hl_null``; the effect stays the HL);
+- P7 the HL p (and T at every shift) is invariant to adding a constant to log2 abundance and to
+  scaling it by c > 0; the effect and CI scale by c.
 """
 
 from __future__ import annotations
@@ -146,13 +150,15 @@ def test_p5_p_values_equal_naive_exhaustive(rep: dict[str, Any]) -> None:
     x = [a[i] for i in idx if det[i]]
     y = [a[i] for i in range(n) if det[i] and i not in idx]
     hl_obs = rd.naive_hl(x, y)
-    null = rd.naive_hl_null(a, det, idx, shifts)
+    tu = [f"TU_chr1_{i}" for i in range(n)]
+    null = rd.naive_studentised_hl_null(a, det, tu, idx, shifts)
+    t_obs = float(rd.naive_studentised_hl_null(a, det, tu, idx, [0])[0])
     if math.isnan(hl_obs):
         assert rd.is_na(hl["effect"]) and rd.is_na(hl["p_value"])
     else:
         assert hl["effect"] == pytest.approx(hl_obs)
         assert hl["n_perm"] == int(np.count_nonzero(~np.isnan(null)))
-        want_hl = rd.naive_perm_p(hl_obs, null)
+        want_hl = rd.naive_perm_p(t_obs, null)
         if math.isnan(want_hl):
             assert rd.is_na(hl["p_value"])
         else:
@@ -187,12 +193,73 @@ def test_p6_hl_on_residualised_abundance(rep: dict[str, Any], cov: list[Any]) ->
         assert rd.is_na(hl["effect"]) and rd.is_na(hl["p_value"])
         return
     assert hl["effect"] == pytest.approx(hl_obs, abs=1e-8)
-    null = rd.naive_hl_null(ar, ok, idx, list(range(1, n)))
-    want = rd.naive_perm_p(hl_obs, null)
+    tu = [f"TU_chr1_{i}" for i in range(n)]
+    null = rd.naive_studentised_hl_null(ar, ok, tu, idx, list(range(1, n)))
+    want = rd.naive_perm_p(float(rd.naive_studentised_hl_null(ar, ok, tu, idx, [0])[0]), null)
     if math.isnan(want):
         assert rd.is_na(hl["p_value"])
     else:
         assert hl["p_value"] == pytest.approx(want)
+
+
+@st.composite
+def tu_replicon(draw: st.DrawFn) -> dict[str, Any]:
+    """Circular replicon with multi-gene TUs, continuous abundance and random covariates."""
+    n = draw(st.integers(10, 28))
+    sizes = draw(st.lists(st.integers(1, 4), min_size=n, max_size=n))
+    tu: list[str] = []
+    for j, s in enumerate(sizes):
+        tu += [f"TU{j}"] * s
+    tu = tu[:n]
+    idx = sorted(draw(st.sets(st.integers(0, n - 1), min_size=1, max_size=n // 2)))
+    d = draw(st.lists(st.integers(0, 1), min_size=n, max_size=n))
+    a = draw(st.lists(st.floats(5, 15, allow_nan=False), min_size=n, max_size=n))
+    L = draw(st.lists(st.integers(10, 1200), min_size=n, max_size=n))
+    k = draw(st.lists(st.integers(0, 60), min_size=n, max_size=n))
+    g = draw(st.lists(st.floats(-1.5, 1.5, allow_nan=False), min_size=n, max_size=n))
+    return {"n": n, "idx": idx, "d": d, "a": a, "tu": tu, "L": L, "k": k,
+            "g": [round(x, 3) for x in g]}  # fmt: skip
+
+
+@SETTINGS
+@given(rep=tu_replicon(), c=st.sampled_from([0.125, 0.5, 2.0, 3.0, 10.0]),
+       b=st.floats(-20.0, 20.0, allow_nan=False))  # fmt: skip
+def test_p7_hl_p_invariant_to_affine_abundance(rep: dict[str, Any], c: float, b: float) -> None:
+    n, idx = rep["n"], rep["idx"]
+    assume(sum(rep["d"]) >= 8)
+    a2 = [c * x + b for x in rep["a"]]
+    mk = [Contig("chr1", rep["d"], [0.5] * n, a=av, tu=rep["tu"], length_aa=rep["L"],
+                 n_obs=rep["k"], gravy=rep["g"]) for av in (rep["a"], a2)]  # fmt: skip
+    r0, r1 = (pick(_run(m, idx), "bgc_1", "hl_shift") for m in mk)
+    if rd.is_na(r0["p_value"]):
+        assert rd.is_na(r1["p_value"])
+        return
+    assert r1["p_value"] == pytest.approx(r0["p_value"], abs=1e-12)
+    assert r1["n_perm"] == r0["n_perm"]
+    assert r1["effect"] == pytest.approx(c * r0["effect"], abs=1e-7)
+    assert r1["ci_low"] == pytest.approx(c * r0["ci_low"], abs=1e-7)
+    assert r1["ci_high"] == pytest.approx(c * r0["ci_high"], abs=1e-7)
+
+
+@SETTINGS
+@given(rep=tu_replicon(), c=st.sampled_from([0.125, 0.5, 2.0, 3.0, 10.0]),
+       b=st.floats(-20.0, 20.0, allow_nan=False))  # fmt: skip
+def test_p7_studentised_t_invariant_to_affine_values(
+    rep: dict[str, Any], c: float, b: float
+) -> None:
+    """T(c a + b) = T(a) at every shift (HL scales by c, V by c^2; constants cancel)."""
+    n, idx = rep["n"], np.array(rep["idx"])
+    ok = np.array(rep["d"], bool)
+    a = np.where(ok, np.array(rep["a"], float), np.nan)
+    assume(ok.sum() >= 2 and np.ptp(a[ok]) > 1e-6)
+    tu = np.array(rep["tu"], dtype=object)
+    ks = np.arange(n)
+    R = _regions()
+    t0 = R.studentised_hl_null(a, ok, tu, idx, ks)
+    t1 = R.studentised_hl_null(c * a + b, ok, tu, idx, ks)
+    np.testing.assert_allclose(t1, t0, rtol=1e-9, atol=1e-9, equal_nan=True)
+    want = rd.naive_studentised_hl_null(a, ok, list(tu), list(idx), list(ks))
+    np.testing.assert_allclose(t0, want, rtol=1e-9, atol=1e-12, equal_nan=True)
 
 
 @pytest.fixture(scope="module")

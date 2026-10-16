@@ -23,7 +23,9 @@ Oracles: ``naive_o_minus_e_null`` / ``naive_hl_null`` (one Python loop per shift
 and ``expected_shifts`` (shift sets from the spec text, independent of ``giap.stats``); ADR-0018:
 ``naive_studentised_null`` (O - E test statistic sum(d - p) / sqrt(sum p (1 - p)) per shift) and
 ``naive_residualise`` (log2 abundance residualised on the M4-13 transforms of the detectability
-covariates among the replicon's detected genes).
+covariates among the replicon's detected genes). ADR-0018 amendment 1 (lead decision 11):
+``naive_tu_components`` (one-way ANOVA moment estimates sigma_u^2, sigma_e^2 per replicon),
+``naive_hl_variance`` (per-shift V) and ``naive_studentised_hl_null`` (T = HL / sqrt(V)).
 """
 
 from __future__ import annotations
@@ -329,6 +331,82 @@ def naive_hl_null(
         x = [float(a[j]) for j in ok if j in inside]
         y = [float(a[j]) for j in ok if j not in inside]
         out.append(naive_hl(x, y))
+    return np.array(out, dtype=float)
+
+
+def naive_tu_components(a: np.ndarray, ok: np.ndarray, tu: Sequence[Any]) -> tuple[float, float]:
+    """ADR-0018 amendment 1 (docs/methods/region-tests.md "Review round 2", item 3): one-way ANOVA
+    moment estimates (sigma_u^2, sigma_e^2) over the genes with ``ok`` (detected, finite residual),
+    grouped by TU. M = #genes, n_T = #TUs, M_t = genes of TU t:
+    sigma_e^2 = SSE / max(M - n_T, 1); sigma_u^2 = max((SSB / (n_T - 1) - sigma_e^2) / n0, 0) with
+    n0 = (M - sum M_t^2 / M) / (n_T - 1); a single TU has no between-TU information: sigma_u^2 = 0
+    (test-author reading; the reviewer's script divides by n0 = 0 there). No gene: (NaN, NaN)."""
+    groups: dict[Any, list[float]] = {}
+    for j in range(len(a)):
+        if bool(ok[j]) and np.isfinite(a[j]):
+            groups.setdefault(tu[j], []).append(float(a[j]))
+    M = sum(len(g) for g in groups.values())
+    if M == 0:
+        return math.nan, math.nan
+    nt = len(groups)
+    grand = sum(sum(g) for g in groups.values()) / M
+    sse = sum(sum((x - sum(g) / len(g)) ** 2 for x in g) for g in groups.values())
+    se2 = sse / max(M - nt, 1)
+    if nt < 2:
+        return 0.0, se2
+    ssb = sum(len(g) * (sum(g) / len(g) - grand) ** 2 for g in groups.values())
+    n0 = (M - sum(len(g) ** 2 for g in groups.values()) / M) / (nt - 1)
+    return max((ssb / (nt - 1) - se2) / n0, 0.0), se2
+
+
+def naive_hl_variance(
+    ok: np.ndarray,
+    tu: Sequence[Any],
+    idx: Sequence[int],
+    shifts: Sequence[int],
+    su2: float,
+    se2: float,
+) -> np.ndarray:
+    """V_k = su2 (sum_t m_t^2 / m^2 + sum_t m'_t^2 / m'^2) + se2 (1/m + 1/m') for the set
+    (I + k) mod N: m_t / m'_t count the ``ok`` genes of TU t inside / outside; NaN if m or m'
+    is 0."""
+    n = len(ok)
+    out = []
+    for k in shifts:
+        inside = {(i + k) % n for i in idx}
+        cin: dict[Any, int] = {}
+        cout: dict[Any, int] = {}
+        for j in range(n):
+            if bool(ok[j]):
+                c = cin if j in inside else cout
+                c[tu[j]] = c.get(tu[j], 0) + 1
+        m, mo = sum(cin.values()), sum(cout.values())
+        if m == 0 or mo == 0:
+            out.append(math.nan)
+            continue
+        s_in = sum(x * x for x in cin.values()) / m**2
+        s_out = sum(x * x for x in cout.values()) / mo**2
+        out.append(su2 * (s_in + s_out) + se2 * (1 / m + 1 / mo))
+    return np.array(out, dtype=float)
+
+
+def naive_studentised_hl_null(
+    a: np.ndarray, ok: np.ndarray, tu: Sequence[Any], idx: Sequence[int], shifts: Sequence[int]
+) -> np.ndarray:
+    """T_k = HL_k / sqrt(V_k) for every shift k (k = 0 gives the observed T); sigma's estimated once
+    from (a, ok, tu); NaN where a side is empty; V = 0 (all values equal, so HL = 0) gives T = 0."""
+    okv = np.asarray(ok, dtype=bool) & np.isfinite(np.asarray(a, dtype=float))
+    su2, se2 = naive_tu_components(a, okv, tu)
+    hl = naive_hl_null(a, okv, idx, shifts)
+    v = naive_hl_variance(okv, tu, idx, shifts, su2, se2)
+    out = []
+    for h, w in zip(hl, v, strict=True):
+        if math.isnan(h) or math.isnan(w):
+            out.append(math.nan)
+        elif w > 0:
+            out.append(h / math.sqrt(w))
+        else:
+            out.append(0.0 if h == 0 else math.copysign(math.inf, h))
     return np.array(out, dtype=float)
 
 

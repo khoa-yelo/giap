@@ -136,9 +136,12 @@ def _hl_oracle(c: Contig, idx: list[int]) -> tuple[float, float, int]:
     x = [ar[i] for i in idx if ok[i]]
     y = [ar[i] for i in range(len(ar)) if ok[i] and i not in idx]
     shifts = list(range(1, len(ar)))
-    null = rd.naive_hl_null(ar, ok, idx, shifts)
+    # ADR-0018 amendment 1: p from T = HL / sqrt(V); default TUs are single genes
+    tu = [f"TU_{c.name}_{i}" for i in range(len(ar))]
+    null = rd.naive_studentised_hl_null(ar, ok, tu, idx, shifts)
+    t_obs = float(rd.naive_studentised_hl_null(ar, ok, tu, idx, [0])[0])
     eff = rd.naive_hl(x, y)
-    return eff, rd.naive_perm_p(eff, null), int(np.count_nonzero(~np.isnan(null)))
+    return eff, rd.naive_perm_p(t_obs, null), int(np.count_nonzero(~np.isnan(null)))
 
 
 def test_hl_on_residualised_abundance_matches_oracle() -> None:
@@ -182,8 +185,8 @@ def test_abundance_explained_by_covariates_gives_no_shift() -> None:
 
 
 def test_constant_covariates_leave_hl_as_raw() -> None:
-    """Constant covariates only centre the abundances: HL effect and p equal the raw HL
-    (spec example 2 keeps HL 1.5)."""
+    """Constant covariates only centre the abundances: HL effect equals the raw HL (spec example 2
+    keeps HL 1.5) and p is the studentised p of the raw values (ADR-0018 amendment 1)."""
     d = [1, 1, 0, 1, 1, 1, 0, 0]
     a = [10.0, 12.0, 0.0, 8.0, 9.0, 11.0, 0.0, 0.0]
     c = Contig("chr1", d, [0.5] * 8, a=a)
@@ -193,8 +196,10 @@ def test_constant_covariates_leave_hl_as_raw() -> None:
     assert row["effect"] == pytest.approx(1.5)
     det = np.array(d, bool)
     av = np.where(det, np.array(a), np.nan)
-    null = rd.naive_hl_null(av, det, [0, 1, 2], range(1, 8))
-    assert row["p_value"] == pytest.approx(rd.naive_perm_p(1.5, null))
+    tu = [f"TU_chr1_{i}" for i in range(8)]
+    null = rd.naive_studentised_hl_null(av, det, tu, [0, 1, 2], list(range(1, 8)))
+    t_obs = float(rd.naive_studentised_hl_null(av, det, tu, [0, 1, 2], [0])[0])
+    assert row["p_value"] == pytest.approx(rd.naive_perm_p(t_obs, null))
 
 
 def test_residualisation_uses_detected_genes_only() -> None:
