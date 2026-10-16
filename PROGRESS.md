@@ -4,11 +4,11 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-15 13:48 PDT · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
+_Last updated: 2026-10-15 22:34 PDT · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 66/79 done (84 %), 5 running · generated 2026-10-15 13:48 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 66/79 done (84 %), 5 running · generated 2026-10-15 22:35 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -43,24 +43,32 @@ M2–M4: designed (docs/specs/M{2,3,4}-index.md); implementation in progress (�
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
-Merged since 10:45: M3-17 (#77), M4-13 (#83), M2-17 (#86), M2-10 (#93), M2-19 (#91), M2-14 (#94), waitmerge
-conflict stop (#90), antiSMASH compare ignores set order (#97). Run `bash scripts/resume_status.sh`.
-Real `giap run` on main fa19c16 (Slurm 1849451, sim100k, real DBs; local/scratch/real-run-main): every
-ANNOTATE process completes (Bakta … Promoter Calculator, UniOP, codon usage, regions, tx_layer); stops at
-CONTEXT_LAYERS (`unknown step 'context_layers'` = M2-20, not built yet) → next: M2-20.
-Long runs on main (all green): calibration_full 89/89 (1849366), integration 90 passed (1849367); real
-per-process arrays K-12 (1849282) and Nissle (1849365): all ok after #97/#98.
-Open PRs (state at 13:48):
-- #98 real Promotech/UniOP inputs + recordings for K-12/Nissle: merging on green CI (its backlog entry is
-  removed here).
-- #92 M4-12 detection tiers: fixes in (suite 1849404, calibration 1849405 green; decision 11) → needs the
-  statistician's sign-off.
-- #89 M4-17 region tests: ADR-0018 (accepted-by-khoa) implemented (1186184) but A2-HL calibration still fails
-  (0.144 at α 0.05, R=1000, job 1849427) → statistician to reconcile decision 10 (see spec "Open").
-- #87 M4-16 detection summary: fixes in (lead pushed once with Khoa's approval; test 3/6 → 3/5) → statistician
-  re-check.
-- #96 MAPPING subworkflow (M3-17 follow-up): needs a code review.
-Session mode: Khoa set light mode (≤ 2 agents; token-light, Slurm-heavy work first).
+Merged since 13:48: PROGRESS (#99), Promotech/UniOP real inputs + recordings for K-12/Nissle (#98; role check
+now exempts the real-tool harness workflow/tests/real/), MAPPING subworkflow (#96: GIAP_STEP, contaminants,
+main.nf wiring, run-level step events), detectability separated-data fix (#100, M4-13 decision 17).
+Run `bash scripts/resume_status.sh`.
+Real `giap run` (Slurm 1849451): ANNOTATE completes; MAPPING runs with peptides (review of #96); both stop
+at CONTEXT_LAYERS (M2-20, not built) → next issue: M2-20.
+Open PRs (22:34):
+- #87 M4-16 detection summary: statistician APPROVED (855ed68) → merging on green CI. Non-blocking
+  follow-ups in docs/backlog.md (few-units by detected TUs; genome_inconsistent_rate only for `same`;
+  `hypothetical` bool parsing).
+- #92 M4-12 detection tiers: statistician round 2 approved PEP-only q; my decision 11 ("any" contaminant ID)
+  was gameable → decision 12 (ALL IDs; mixed decoys pair on the rest). Fix 917dd22 in; Slurm gates (suite,
+  detection-tiers calibration, attack file test_detection_tiers_attack_inputs.py) being resubmitted.
+- #89 M4-17 region tests: ADR-0018 amendment 1 (accepted-by-khoa 2026-10-16): studentised HL shift statistic.
+  Implemented (dd663c0; full mode A2-HL 0.024, A2-HL-MAR 0.016 at α 0.05) → statistician final review running.
+Session mode: ≤ 2 agents at a time (Khoa).
+
+Slurm launch failures ("user env retrieval failed" / "launch failure limit exceeded requeued held"):
+~1 in 5 jobs today, on several nodes (wheat-04, barley-02). Suspected cause: the interactive allocation
+exports SLURM_GET_USER_ENV=1 and SLURM_EXPORT_ENV=NONE into every sbatch from the session. Being tested:
+submit with `env -u SLURM_GET_USER_ENV -u SLURM_EXPORT_ENV sbatch …`; if confirmed, unset both in
+scripts/farmshare_env.sh. Until then: local/dev-helpers/watchdog.sh releases held giap-* jobs (excluding the
+node the last attempt failed on) and reports limit-held jobs, which must be cancelled and resubmitted.
+Lead helpers (merge_main_nf.sh, merge_queue.sbatch, watchdog.sh) live in local/dev-helpers/ (node-local
+/tmp scratchpads do not survive a node change). A merge queue left on Slurm without a session got held
+for hours: it needs the watchdog too.
 
 Follow-ups queued (docs/backlog.md has the full list):
 - Per-process real-tool Slurm job array for workflow modules (inputs from recordings) — after #65 (Khoa).
@@ -68,6 +76,9 @@ Follow-ups queued (docs/backlog.md has the full list):
 - M3-21: c_ref − c_true, chance rate of wrong peptides, PEP–length correlation (ADR-0010).
 - M4-12/M4-17 forwarded items; M6: simulate readthrough (cterm_extension).
 Lessons (keep):
+- Lead decisions on stats rules need the statistician's attack check: decision 11 ("any") was gameable.
+- Hypothesis found a separation case (no MLE) the spec never covered: specs must say what happens when an
+  estimator does not exist.
 - A PR that conflicts with main gets NO CI run; waitmerge now stops on it (#90). Merge main, then retry.
 - Fixture genomes need `[topology=circular]` (spec §~770); plain NCBI FASTA → linear replicons. Nissle
   GCA_043228065.1 has 3 plasmids (p15A, pMUT1, pMUT2).
