@@ -125,6 +125,16 @@ own AMR set, M4-08 AR(1) ρ = 0.5, no region effects, detection from covariates 
   - C1 pooled (m = 4, ρ = 0.5): HL 0.007 / 0.049 / 0.096, O − E 0.009 / 0.050 / 0.103; pooled HL
     at ρ = 0 and 0.9 also pass, as does plasmid AMR at α 0.05 / 0.10.
   Fast: everything passes; A2-mid O − E at α = 0.01 is unconfirmed (0.03 / 0.02).
+- Label-free lag V (ADR-0018 amendment 2, 04fc8f7; Slurm 1850777 fast, 1850778 full; all pass).
+  Full mode (R = 1,000 per block, α = 0.01 / 0.05 / 0.10):
+  - A-TU (region TUs fragmented, pooled m = 4) 0.0115 / 0.0525 / 0.0985 (failed with TU-label V);
+  - A2-HL 0.009 / 0.050 / 0.098, A2-HL-MAR 0.012 / 0.041 / 0.090;
+  - A2-mid O − E 0.005 / 0.034 / 0.073, A2-low O − E 0.005 / 0.044 / 0.076;
+  - C1 pooled HL at ρ = 0 / 0.5 / 0.9: 0.0105 / 0.0505 / 0.102, 0.0085 / 0.047 / 0.096,
+    0.009 / 0.047 / 0.096; O − E (ρ = 0.5) 0.009 / 0.050 / 0.103; plasmid AMR passes.
+  Fast: everything passes (C1 pooled HL at α = 0.01 and A2-mid O − E at α = 0.01 unconfirmed:
+  0.02 / 0.0175 and 0.03 / 0.02). `hl_variance_nonpositive` occurred in 3 of 59,000 HL rows in
+  full mode (all in the ρ = 0.9 null) and 0 of 7,300 in fast mode.
 - C3 power (recorded, not gated; BGC O − E, α = 0.05, R = 100): +10 % 0.11, +20 % 0.21,
   +30 % 0.46, +50 % 0.88 (`local/logs/calibration/regions_power.jsonl`).
 
