@@ -22,3 +22,7 @@ export NXF_OPTS="-Xms512m -Xmx4g"
 export NUMBA_CACHE_DIR="/tmp/giap-numba-${USER:-$(id -un)}"     # node-local; NFS caches are shared across nodes
 export PATH="$GIAP_ROOT/bin:$MAMBA_ROOT_PREFIX/envs/giap-wf/bin:$HOME/.local/bin:$PATH"
 module load apptainer/1.4.4 >/dev/null 2>&1 || true
+# The interactive allocation exports SLURM_GET_USER_ENV=1 and SLURM_EXPORT_ENV=NONE; every sbatch from the
+# session inherited them, so batch nodes had to rebuild the login environment at launch and ~1 in 5 jobs
+# failed with "user env retrieval failed" (2026-10-15, wheat-04/barley-02). Jobs get this script's env instead.
+unset SLURM_GET_USER_ENV SLURM_EXPORT_ENV
