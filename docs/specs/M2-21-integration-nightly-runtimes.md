@@ -104,3 +104,10 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
 8. Finding: $GIAP_ROOT/recordings/promotech/sim100k is a genome-wide `-g` run (GIAP uses `-s` windows) and
    labels every row `chr1,plasmid_1` — not a valid fixture; re-record sim100k in `-s` mode (backlog).
    BacTermFinder stays pending (no recording; no env).
+9. (lead, after the implementer) Nightly nf-test runs `--profile test,stub` by default
+   (`NIGHTLY_NF_PROFILE` overrides): the nf-test suites assert fake-tool argv logs and BacTermFinder has no
+   env, so real-tool coverage stays with scripts/slurm/nf_process_real.sbatch (all 9 processes on 3 genomes).
+10. The benchmark arm resubmits itself to wheat when an array task lands elsewhere; the 15 % slowdown gate
+    applies only to steps with a baseline ≥ 1 s (context_layers_sim100k at 0.15 s is recorded, not gated).
+11. Bug found: `giap run --annotation <bakta.json>` does not skip Bakta under Nextflow; nightly/weekly use
+    `--set annotation.precomputed.bakta_json=…` meanwhile. Fix `--annotation` (backlog, M2 follow-up).
