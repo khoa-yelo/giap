@@ -13,7 +13,8 @@
 # Per genome: (a) the farmshare_weekly capability gate (pytest --require-capabilities, the Bakta
 # full-DB contract tests; a missing DB fails); (b) real `giap run` with live full-DB Bakta and every
 # annotation tool, including the antiSMASH live run (its trace row must be COMPLETED); (c) `giap
-# run` with the recorded full-DB JSON ($GIAP_ROOT/recordings/bakta_full/<genome>, --annotation);
+# run` with the recorded full-DB JSON (annotation.precomputed.bakta_json =
+# $GIAP_ROOT/recordings/bakta_full/<genome>/bakta/<genome>.json);
 # (d) K-12 only: TE6 (§11.6) on the live Bakta JSON: an oriC call whose nearest gene is mnmG or
 # mioC with mnmG within 2 kb. Measured runtimes: scripts/measure_runtimes.py on each trace.
 # Evidence stand-in (M2 annotation track only; MAPPING is M3): `giap run` requires --proteins or
@@ -76,7 +77,7 @@ for variant in live recorded_json; do
   if [ "$variant" = live ]; then
     giap run "${common[@]}" --outdir "$out" --set annotation.bakta.db=full
   else
-    giap run "${common[@]}" --outdir "$out" --annotation "$REC/bakta/$S.json"
+    giap run "${common[@]}" --outdir "$out" --set "annotation.precomputed.bakta_json=$REC/bakta/$S.json"
   fi
   r=$?
   step "$r" "giap run $variant exit $r"

@@ -16,7 +16,8 @@
 #      resubmits itself with --constraint and exits; > 15 % slower than benchmarks/baseline.json fails
 #   2  the calibration_nightly tests (the pre-M2-21 nightly)
 #   3  real `giap run` on sim100k (giapsim SIM100K + its proteins): Bakta with the light DB, and
-#      with the recorded full-DB JSON (--annotation); measured runtimes via scripts/measure_runtimes.py
+#      with the recorded full-DB JSON (annotation.precomputed.bakta_json; its GBFF feeds
+#      antiSMASH); measured runtimes via scripts/measure_runtimes.py
 # MODE=test (default) | record: record runs the scripts/slurm/record_tools.sbatch logic in task 0
 # (sim100k into a fresh directory, compared with $GIAP_ROOT/recordings: identical / changed); the
 # other tasks only log "skipped". Submit: sbatch --array=0 --export=ALL,MODE=record nightly.sbatch
@@ -134,7 +135,7 @@ giapsim.simulate(dataclasses.replace(giapsim.SIM100K, proteomics=ProteomicsConfi
     if [ "$variant" = bakta_light ]; then
       giap run "${common[@]}" --outdir "$out" --set annotation.bakta.db=light
     else
-      giap run "${common[@]}" --outdir "$out" --annotation "$full"
+      giap run "${common[@]}" --outdir "$out" --set "annotation.precomputed.bakta_json=$full"
     fi
     r=$?
     [ "$r" -gt "$rc" ] && rc=$r
