@@ -111,3 +111,21 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
     applies only to steps with a baseline ≥ 1 s (context_layers_sim100k at 0.15 s is recorded, not gated).
 11. Bug found: `giap run --annotation <bakta.json>` does not skip Bakta under Nextflow; nightly/weekly use
     `--set annotation.precomputed.bakta_json=…` meanwhile. Fix `--annotation` (backlog, M2 follow-up).
+
+## Lead decisions after the code review of PR #107 (changes requested)
+12. (blocking, R14) `NIGHTLY_PROFILE` and `WEEKLY_PROFILE` default to `farmshare_local,apptainer` (all tasks
+    inside the 16-CPU job); with `farmshare,apptainer` the Nextflow `queueSize` is capped so that heads ×
+    children × CPUs stays ≤ 128. A test computes the worst case including Nextflow child jobs.
+13. Decision 10 implemented: the 15 % benchmark gate skips steps whose baseline is < 1 s.
+14. Every task reports: a failure trap writes its NIGHTLY_EXIT row on any exit, and an `afterany` summary
+    job (1 CPU) posts the night's summary even when a task was killed (timeout/OOM) or the bench
+    resubmission failed (that path writes a failure row).
+15. The benchmark resubmission passes `NIGHTLY_REF=<commit>` so it tests the same commit.
+16. measure_runtimes.py takes the node class from each task's own node (trace `hostname`/native_id via
+    sacct), not the head job's.
+17. Tests kill the reviewer's surviving mutants of measure_runtimes.py (longest vs shortest wall, realtime
+    vs duration, ms/d/KB factors, unit-regex order, sacct failure); behaviour tests for post_summary.py
+    (fake gh: create once, comment per job, --dry-run offline).
+18. Scheduling: scrontab may not accept `--array`, so the scrontab entry runs a 1-CPU launcher
+    (`scripts/slurm/nightly_launch.sh`) that `sbatch --array=0-3` nightly.sbatch plus the afterany summary
+    job; nightly.scrontab is rewritten accordingly. Khoa approved reinstalling it after merge.
