@@ -80,7 +80,7 @@ for variant in live recorded_json; do
   fi
   r=$?
   step "$r" "giap run $variant exit $r"
-  python scripts/measure_runtimes.py "$out/logs/trace.tsv" --sacct "${SLURM_JOB_ID:-0}" --genome "$S ($variant)" \
+  python scripts/measure_runtimes.py "$out/logs/trace.tsv" --sacct "${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-0}}${SLURM_ARRAY_JOB_ID:+_$SLURM_ARRAY_TASK_ID}" --genome "$S ($variant)" \
     | tee "$RUN/runtimes_$variant.md"
 done
 grep -qP '\tANNOTATE:ANTISMASH \([^)]*\)\t[^\t]*\tCOMPLETED\t' "$RUN/live/logs/trace.tsv" 2>/dev/null

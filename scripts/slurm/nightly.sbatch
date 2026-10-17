@@ -9,7 +9,9 @@
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%A_%a.out
 # Nightly job array on the latest origin/main (GIAP_SPEC.md §12; M2-21 lead decisions 3-5):
 #   0  tests/integration + tests/contract with --require-capabilities <ci/gates.yaml farmshare_nightly>
-#      (a missing DB fails, never skips), then nf-test test workflow/tests --profile $PROFILE
+#      (a missing DB fails, never skips), then nf-test test workflow/tests --profile $NF_PROFILE
+#      (default test,stub: the suites assert fake-tool argv logs and stub outputs; under
+#      farmshare,apptainer the pinned images replace the fakes and 9 of 30 tests fail, job 1852060)
 #   1  benchmarks pinned to the wheat node class (CPU_SKU:6148): a task that lands elsewhere
 #      resubmits itself with --constraint and exits; > 15 % slower than benchmarks/baseline.json fails
 #   2  the calibration_nightly tests (the pre-M2-21 nightly)
@@ -24,7 +26,8 @@
 # the last task to finish posts the table with scripts/ci/post_summary.py to the "Nightly
 # (FarmShare)" issue (NIGHTLY_POST=dry: print it instead). Never pushes and never commits.
 # Overrides: NIGHTLY_REF, NIGHTLY_PROFILE (default farmshare,apptainer; farmshare_local,apptainer
-# keeps every Nextflow task inside this allocation), NIGHTLY_POST, NIGHTLY_RECORD_SAMPLES.
+# keeps every Nextflow task inside this allocation), NIGHTLY_NF_PROFILE, NIGHTLY_POST,
+# NIGHTLY_RECORD_SAMPLES.
 # Runs from scrontab (scripts/slurm/nightly.scrontab) or by hand: sbatch scripts/slurm/nightly.sbatch
 # R14: 4 tasks x 16 CPUs = 64 CPUs; Nextflow queueSize 8 x 16 CPUs under -profile farmshare.
 set -uo pipefail
@@ -35,6 +38,7 @@ MODE="${MODE:-test}"
 case "$MODE" in test|record) ;; *) echo "MODE must be test or record, not '$MODE'" >&2; exit 2 ;; esac
 REF="${NIGHTLY_REF:-origin/main}"
 PROFILE="${NIGHTLY_PROFILE:-farmshare,apptainer}"
+NF_PROFILE="${NIGHTLY_NF_PROFILE:-test,stub}"
 TASK="${SLURM_ARRAY_TASK_ID:-0}"
 JOB="${NIGHTLY_ARRAY_JOB:-${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-manual}}}"
 EXPECT="${NIGHTLY_EXPECT:-${SLURM_ARRAY_TASK_COUNT:-1}}"
@@ -77,10 +81,10 @@ task_integration() {
   caps=$(python -c 'import yaml; print(",".join(yaml.safe_load(open("ci/gates.yaml"))["required_capabilities"]["farmshare_nightly"]))')
   pyt integration tests/integration tests/contract -q -n 8 --require-capabilities "$caps"
   r0=$rc; s0=$summary
-  nf-test test workflow/tests --profile "$PROFILE" 2>&1 | tee "$RUN/nf-test.txt"
+  nf-test test workflow/tests --profile "$NF_PROFILE" 2>&1 | tee "$RUN/nf-test.txt"
   local r1=${PIPESTATUS[0]}
   rc=$(( r0 > r1 ? r0 : r1 ))
-  summary="$s0; nf-test: $(grep -E '^(SUCCESS|FAILURE):' "$RUN/nf-test.txt" | tail -1)"
+  summary="$s0; nf-test $NF_PROFILE: $(sed 's/\x1b\[[0-9;]*m//g' "$RUN/nf-test.txt" | grep -E '^(SUCCESS|FAILURE):' | tail -1)"
 }
 
 task_record() {
@@ -135,7 +139,7 @@ giapsim.simulate(dataclasses.replace(giapsim.SIM100K, proteomics=ProteomicsConfi
     r=$?
     [ "$r" -gt "$rc" ] && rc=$r
     summary="$summary $variant exit $r ($(awk -F'\t' 'NR>1 {n[$6]++} END {for (s in n) printf "%s %d ", s, n[s]}' "$out/logs/trace.tsv" 2>/dev/null | xargs));"
-    python scripts/measure_runtimes.py "$out/logs/trace.tsv" --sacct "${SLURM_JOB_ID:-0}" --genome "sim100k ($variant)" \
+    python scripts/measure_runtimes.py "$out/logs/trace.tsv" --sacct "${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-0}}${SLURM_ARRAY_JOB_ID:+_$SLURM_ARRAY_TASK_ID}" --genome "sim100k ($variant)" \
       | tee "$RUN/runtimes_$variant.md"
   done
 }
