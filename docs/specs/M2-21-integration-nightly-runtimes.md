@@ -81,3 +81,51 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
    `--constraint`, if FarmShare exposes node features; otherwise `--nodelist` of one wheat node.
 2. `containers.yml` needs GHCR write access for Actions. **Proposed default:** use `GITHUB_TOKEN` with
    `packages: write`; until the first images exist, the conda fallback of M2-01 Q3 stays.
+
+## Lead decisions (2026-10-16, Khoa: "run those jobs; don't worry about uploading images; have the tools work first")
+1. Q1: benchmarks pin the wheat node class (`--constraint` if FarmShare exposes the feature, else
+   `--nodelist` of one wheat node); baseline per node class.
+2. Q2: `.github/workflows/containers.yml` and GHCR pushes are DEFERRED (backlog); tools keep the conda /
+   prebuilt-env path (M2-01 Q3 fallback). Not part of the M2-21 acceptance.
+3. The existing `scripts/slurm/nightly.sbatch` (PR #105: calibration_nightly on origin/main, scrontab
+   installed by Khoa 2026-10-16 01:30) is extended, not replaced: it becomes the §12 job array
+   (0 = integration + contract with `--require-capabilities`, 1 = benchmarks on wheat, 2 = the
+   calibration_nightly tests, 3 = real `giap run` on sim100k with Bakta light and with recorded full-DB
+   JSON); the scrontab line keeps pointing at it. MODE=record runs scripts/slurm/record_tools.sbatch logic.
+4. Results: one line per sub-task in local/logs/nightly.tsv plus a comment on a "Nightly (FarmShare)"
+   GitHub issue via scripts/ci/post_summary.py (create the issue once if missing).
+5. Testing open PR branches nightly is deferred (backlog): main only for now.
+6. (lead, after f649f07) `measure_runtimes.py` takes `--genome NAME`; one row per process (largest peak RSS
+   when a process has several tasks); CACHED/FAILED tasks are left out. Node class from the node name
+   (wheat/barley/rye/oat).
+7. local ≡ Nextflow (example 4) runs SIM100K with proteomics + peptides only, because `--executor local`
+   cannot run miniprot; killed task simulated with `beforeScript 'exit 137'`; broken tool via
+   `PROMOTECH_HOME=/nonexistent`.
+8. Finding: $GIAP_ROOT/recordings/promotech/sim100k is a genome-wide `-g` run (GIAP uses `-s` windows) and
+   labels every row `chr1,plasmid_1` — not a valid fixture; re-record sim100k in `-s` mode (backlog).
+   BacTermFinder stays pending (no recording; no env).
+9. (lead, after the implementer) Nightly nf-test runs `--profile test,stub` by default
+   (`NIGHTLY_NF_PROFILE` overrides): the nf-test suites assert fake-tool argv logs and BacTermFinder has no
+   env, so real-tool coverage stays with scripts/slurm/nf_process_real.sbatch (all 9 processes on 3 genomes).
+10. The benchmark arm resubmits itself to wheat when an array task lands elsewhere; the 15 % slowdown gate
+    applies only to steps with a baseline ≥ 1 s (context_layers_sim100k at 0.15 s is recorded, not gated).
+11. Bug found: `giap run --annotation <bakta.json>` does not skip Bakta under Nextflow; nightly/weekly use
+    `--set annotation.precomputed.bakta_json=…` meanwhile. Fix `--annotation` (backlog, M2 follow-up).
+
+## Lead decisions after the code review of PR #107 (changes requested)
+12. (blocking, R14) `NIGHTLY_PROFILE` and `WEEKLY_PROFILE` default to `farmshare_local,apptainer` (all tasks
+    inside the 16-CPU job); with `farmshare,apptainer` the Nextflow `queueSize` is capped so that heads ×
+    children × CPUs stays ≤ 128. A test computes the worst case including Nextflow child jobs.
+13. Decision 10 implemented: the 15 % benchmark gate skips steps whose baseline is < 1 s.
+14. Every task reports: a failure trap writes its NIGHTLY_EXIT row on any exit, and an `afterany` summary
+    job (1 CPU) posts the night's summary even when a task was killed (timeout/OOM) or the bench
+    resubmission failed (that path writes a failure row).
+15. The benchmark resubmission passes `NIGHTLY_REF=<commit>` so it tests the same commit.
+16. measure_runtimes.py takes the node class from each task's own node (trace `hostname`/native_id via
+    sacct), not the head job's.
+17. Tests kill the reviewer's surviving mutants of measure_runtimes.py (longest vs shortest wall, realtime
+    vs duration, ms/d/KB factors, unit-regex order, sacct failure); behaviour tests for post_summary.py
+    (fake gh: create once, comment per job, --dry-run offline).
+18. Scheduling: scrontab may not accept `--array`, so the scrontab entry runs a 1-CPU launcher
+    (`scripts/slurm/nightly_launch.sh`) that `sbatch --array=0-3` nightly.sbatch plus the afterany summary
+    job; nightly.scrontab is rewritten accordingly. Khoa approved reinstalling it after merge.
