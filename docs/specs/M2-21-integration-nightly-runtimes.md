@@ -95,3 +95,12 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
 4. Results: one line per sub-task in local/logs/nightly.tsv plus a comment on a "Nightly (FarmShare)"
    GitHub issue via scripts/ci/post_summary.py (create the issue once if missing).
 5. Testing open PR branches nightly is deferred (backlog): main only for now.
+6. (lead, after f649f07) `measure_runtimes.py` takes `--genome NAME`; one row per process (largest peak RSS
+   when a process has several tasks); CACHED/FAILED tasks are left out. Node class from the node name
+   (wheat/barley/rye/oat).
+7. local ≡ Nextflow (example 4) runs SIM100K with proteomics + peptides only, because `--executor local`
+   cannot run miniprot; killed task simulated with `beforeScript 'exit 137'`; broken tool via
+   `PROMOTECH_HOME=/nonexistent`.
+8. Finding: $GIAP_ROOT/recordings/promotech/sim100k is a genome-wide `-g` run (GIAP uses `-s` windows) and
+   labels every row `chr1,plasmid_1` — not a valid fixture; re-record sim100k in `-s` mode (backlog).
+   BacTermFinder stays pending (no recording; no env).
