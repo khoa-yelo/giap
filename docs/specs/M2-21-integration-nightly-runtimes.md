@@ -81,3 +81,17 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
    `--constraint`, if FarmShare exposes node features; otherwise `--nodelist` of one wheat node.
 2. `containers.yml` needs GHCR write access for Actions. **Proposed default:** use `GITHUB_TOKEN` with
    `packages: write`; until the first images exist, the conda fallback of M2-01 Q3 stays.
+
+## Lead decisions (2026-10-16, Khoa: "run those jobs; don't worry about uploading images; have the tools work first")
+1. Q1: benchmarks pin the wheat node class (`--constraint` if FarmShare exposes the feature, else
+   `--nodelist` of one wheat node); baseline per node class.
+2. Q2: `.github/workflows/containers.yml` and GHCR pushes are DEFERRED (backlog); tools keep the conda /
+   prebuilt-env path (M2-01 Q3 fallback). Not part of the M2-21 acceptance.
+3. The existing `scripts/slurm/nightly.sbatch` (PR #105: calibration_nightly on origin/main, scrontab
+   installed by Khoa 2026-10-16 01:30) is extended, not replaced: it becomes the §12 job array
+   (0 = integration + contract with `--require-capabilities`, 1 = benchmarks on wheat, 2 = the
+   calibration_nightly tests, 3 = real `giap run` on sim100k with Bakta light and with recorded full-DB
+   JSON); the scrontab line keeps pointing at it. MODE=record runs scripts/slurm/record_tools.sbatch logic.
+4. Results: one line per sub-task in local/logs/nightly.tsv plus a comment on a "Nightly (FarmShare)"
+   GitHub issue via scripts/ci/post_summary.py (create the issue once if missing).
+5. Testing open PR branches nightly is deferred (backlog): main only for now.
