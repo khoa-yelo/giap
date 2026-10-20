@@ -148,3 +148,4 @@ rule implemented here.
     `giap.stats.autocorr.block_len_prime(l_hat, T)` (M5-06 and M5-08 call it); the test-author adds tests.
 11. `lag_test` with NaN obs: `n_valid` is the count of finite null values; every other field NaN.
 12. The < 5 s performance target goes to benchmarks/ (implementer adds the benchmark, no assertion in tests/).
+13. Decision 11 wording: "finite" reads "non-NaN", matching `perm_p` (±inf null entries count as valid).
