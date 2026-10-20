@@ -62,9 +62,10 @@ and `n_primary` may differ from the count in `regions_stats.tsv`.
 - BH is recomputed within each rerun's (region_type, stat) family, so each set is at its own FDR.
   A variant can move a region's q, and so flip its flag, even when that region's p is unchanged.
 - What each variant holds fixed: every variant keeps the region definitions (C7 / C8), the replicon
-  topology (C1), the detectability covariates and the primary's B. `missing=<p>` and `top3` also
-  keep detection and `p_detect`, so their O − E flags can change only through BH or sampled-shift
-  noise. `single_peptide_detected` keeps the observed abundance values and the TU folds of the
+  topology (C1), the detectability covariates and B = 199 (the primary is recomputed at the same
+  B). `missing=<p>` and `top3` also keep detection and `p_detect`, so every O − E p, q and flag is
+  identical to the primary's when shifts are exhaustive; above 20,000 genes they can differ only
+  through sampled-shift noise. `single_peptide_detected` keeps the observed abundance values and the TU folds of the
   detectability fit.
 
 ## Output
@@ -73,4 +74,7 @@ One row per (family, variant): `n_primary` = |P|, `n_variant` = |V|, `n_shared` 
 `jaccard` = |P ∩ V| / |P ∪ V| (`NA` when both sets are empty). `agreement` is reserved for the
 dominant determinant block (M8) and is `NA` for other families.
 
-Signed off by the statistician (PR #117 review).
+Signed off by the statistician, 2026-10-20 (PR #117 reviews
+https://github.com/khoa-yelo/giap/pull/117#issuecomment-6304191087 and
+https://github.com/khoa-yelo/giap/pull/117#issuecomment-6304219014), conditional on the
+shared-stream limitation above sampled-shift sizes (backlog: per-region shift streams).
