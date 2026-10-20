@@ -225,7 +225,10 @@ def test_morans_i_matrix_equals_scalar_and_oracle(
         lambda n: st.tuples(
             st.lists(st.booleans(), min_size=n, max_size=n),
             st.lists(
-                st.one_of(st.floats(0, 1), st.sampled_from([0.0, 1.0, 1e-9, 1 - 1e-9])),
+                st.one_of(
+                    st.floats(0, 1),
+                    st.sampled_from([0.0, 1.0, 1e-9, 1 - 1e-9, math.nan]),
+                ),  # in [0, 1] or NaN: out-of-range p raises (decision 21)
                 min_size=n,
                 max_size=n,
             ),

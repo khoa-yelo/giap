@@ -886,3 +886,36 @@ def test_choose_block_len_rejects_b_below_one(B: int) -> None:
 def test_block_len_prime_rejects_values_below_one(l_hat: int, T: int) -> None:
     with pytest.raises(ValueError):
         block_len_prime(l_hat, T)
+
+
+# ----------------------------------------------------------------------------- decision 21
+
+
+@pytest.mark.parametrize("bad", [-0.1, 1.5, -math.inf, math.inf])
+def test_join_count_rejects_p_outside_unit_interval(bad: float) -> None:
+    """Decision 21: a non-NaN p outside [0, 1] is an upstream bug and raises, scalar and matrix."""
+    d = np.array([1, 1, 0, 1, 1, 0], dtype=bool)
+    p = np.array([0.9, 0.2, bad, 0.5, 0.7, 0.3])
+    for circular in (True, False):
+        with pytest.raises(ValueError):
+            join_count(d, 1, circular, p=p)
+        with pytest.raises(ValueError):
+            join_count_matrix(np.vstack([d, d]), [1, 2], circular, P=np.vstack([p, p[::-1]]))
+        good = np.array([0.9, 0.2, 0.1, 0.5, 0.7, 0.3])
+        with pytest.raises(ValueError):  # one bad row is enough
+            join_count_matrix(np.vstack([d, d]), [1], circular, P=np.vstack([good, p]))
+    with pytest.raises(ValueError):  # also at an invalid lag (the check is on the input)
+        join_count(d, 3, True, p=p)
+
+
+def test_join_count_p_zero_one_nan_do_not_raise() -> None:
+    """Decision 21: p in {0, 1} and NaN stay missing (no error), scalar and matrix."""
+    d = np.array([1, 1, 0, 1, 1, 0], dtype=bool)
+    p = np.array([0.0, 1.0, math.nan, 0.5, 0.7, 0.3])
+    r = np.array([0.0, 0.0, 0.0, 1.0, math.sqrt(3 / 7), -math.sqrt(3 / 7)])
+    for circular in (True, False):
+        v = join_count(d, 1, circular, p=p)
+        want = float((r * np.roll(r, -1)).sum() if circular else (r[:-1] * r[1:]).sum())
+        assert v == pytest.approx(want, abs=1e-12)
+        got = join_count_matrix(np.vstack([d, d]), [1], circular, P=np.vstack([p, p]))
+        np.testing.assert_allclose(got[:, 0], [v, v], atol=1e-12)
