@@ -238,6 +238,54 @@ def test_cog_file_without_manifest_entry_is_missing(
     assert pd.read_parquet(pre)["cog_category"].isna().all()
 
 
+def test_m4_paths_preflight_directory(tmp_path: Path) -> None:
+    """Lead decision 20(a): a ``preflight`` input that is a directory (the local executor's
+    ``work/preflight/``) resolves to the ``preflight.json`` inside it."""
+    from giap.steps.gene_table import m4_paths
+
+    pre = tmp_path / "preflight"
+    pre.mkdir()
+    (pre / "preflight.json").write_text("{}\n", encoding="utf-8")
+    paths = m4_paths({"preflight": pre, "mapping": tmp_path / "mapping"})
+    assert paths["preflight"] == pre / "preflight.json"
+    assert m4_paths({"preflight": pre / "preflight.json"})["preflight"] == pre / "preflight.json"
+
+
+@pytest.mark.parametrize("as_dir", [True, False])
+def test_abundance_scale_read_from_preflight(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, as_dir: bool
+) -> None:
+    """Lead decision 20(a): with no peptide intensities the C10 route needs the preflight scale
+    (``abundance.scale = auto``); it is read from ``preflight.json`` given as a file or as the
+    directory holding it, and no ``contract.preflight.abundance_scale`` issue is logged."""
+    import json
+
+    from giap.config import GiapConfig
+
+    fr = _frames()
+    fr["peptides"]["intensity"] = float("nan")  # force the protein (C10) route
+    reg = _reg()
+    spec = reg.get("gene_table")
+    keys = write_work(tmp_path / "work", fr, layout="run")
+    pre_dir = tmp_path / "work" / "preflight_dir"
+    pre_dir.mkdir()
+    (pre_dir / "preflight.json").write_text(
+        json.dumps({"routing": {"abundance_scale": "log2"}}) + "\n", encoding="utf-8"
+    )
+    keys["preflight"] = pre_dir if as_dir else pre_dir / "preflight.json"
+    allowed = set(spec.inputs) | set(spec.optional_inputs)
+    inputs = {k: p for k, p in keys.items() if k in allowed}
+    assert "preflight" in inputs and "abundance" in inputs
+    out = tmp_path / "out" / "genes_pre.parquet"
+    outputs = {k: tmp_path / "out" / k for k in spec.outputs} | {"genes_pre": out}
+    with caplog.at_level(logging.WARNING):
+        reg.run_step("gene_table", GiapConfig(seed=1), inputs, outputs)
+    assert not [r for r in caplog.records if "contract.preflight" in r.getMessage()]
+    by = pd.read_parquet(out).set_index("locus_tag")
+    assert set(by["abundance_type"]) != {"none"}
+    assert float(by.loc[tag(0), "abundance_raw"]) == 20.0  # C10 value, log2 scale kept
+
+
 @pytest.fixture
 def no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Point ``$GIAP_DB_DIR`` at an empty directory: tests never read the real databases."""

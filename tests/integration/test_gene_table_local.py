@@ -12,6 +12,7 @@ two CDS ``COG:COG0593`` / ``COG:COG0002``. The local work directory names files 
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -83,3 +84,35 @@ def test_local_executor_stages_cog_table(
     n = table.num_rows
     assert table.column("cog_category").null_count == n - 2
     assert table.column("island_id").null_count == n
+
+
+def test_local_executor_stages_abundance_and_preflight(
+    sim: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Lead decision 20(b): with ``--abundance`` the local run stages ``abundance`` and
+    ``preflight`` (into ``work/preflight/``), the scale is read without a
+    ``contract.preflight.abundance_scale`` issue, and the abundance columns are filled."""
+    from giap.cli import cli
+
+    assert sim.abundance is not None and Path(sim.abundance).is_file()
+    monkeypatch.setenv("GIAP_DB_DIR", str(_db(tmp_path)))
+    out = tmp_path / "OUT"
+    args = ["run", "--genome", str(sim.genome_fasta), "--peptides", str(sim.peptides),
+            "--abundance", str(sim.abundance), "--annotation", str(sim.bakta_json),
+            "--config", str(sim.config_yaml), "--outdir", str(out), "--modules", "core",
+            "--seed", str(SEED), "--executor", "local"]  # fmt: skip
+    with caplog.at_level(logging.WARNING):
+        r = CliRunner().invoke(cli, args)
+    assert r.exit_code == 0, r.output
+    work = out / "work"
+    staged = work / "preflight" / "preflight.json"
+    assert staged.is_file()
+    scale = json.loads(staged.read_text(encoding="utf-8"))["routing"]["abundance_scale"]
+    assert scale in ("log2", "linear")
+    assert (work / "abundance").is_file()
+    msgs = [rec.getMessage() for rec in caplog.records]
+    assert not [m for m in msgs if "contract.preflight" in m], msgs
+    table = pq.read_table(work / "gene_table")
+    types = set(table.column("abundance_type").to_pylist())
+    assert types and types != {"none"}
+    assert table.column("abundance_log2").null_count < table.num_rows
