@@ -128,3 +128,7 @@ does to power (TU scores of large TUs have smaller variance), merging and the be
     floor p = 1/(B + 1) unless the null contains +inf.
 18. Input checks: `fwer_p` and `merge_windows` reject non-1-D input; `merge_windows` validates `n ≥ 0`
     and handles n = 0; tests cover wrong-ndim input to `scan_max` / `scan_null_max`.
+19. Decision 17 wording: `fwer_p` masks non-finite |S| to NaN itself (an infinite S cannot arise from
+    finite z, so NaN marks an input fault); it differs from `perm_p` only there. `perm_p` with ±inf obs
+    follows the test-author's table (+inf "greater" = (1 + #{null = +inf})/(1 + B), etc.).
+    `besag_clifford` gets the same `_tol` fix; no extra test.
