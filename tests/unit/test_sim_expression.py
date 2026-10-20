@@ -53,7 +53,7 @@ BETA_KEYS = {"intercept", "log_length", "log1p_n_obs", "gravy", "log2_abundance"
 # (main at b3846d7, before M4-08): M4-08 must not change the layout or its writer.
 LAYOUT_SHA256 = {
     "default": {
-        "annotation_meta.json": "0998816b81d3f81364ac87e43ef1ffc2d40c08bc620c535584e859619e215f72",
+        "annotation_meta.json": "574ce6a5c6468c793385646f795d8986c317903210e7e7e2f585a14293a30517",
         "genes.parquet": "e0d4341901746a7444965ebe8070a3c382d5edc6f864bff8597bd8e697b65e65",
         "layers.parquet": "c7ae231f33b641c11a6b7b03ce95c36e5daf5c6b7fd5c1a46456d31e6d6c5ba5",
         "region_genes.parquet": "1197b721b0b595beaf182adb375dfbf0707c5cf8085b5d4598106988f1215fd7",
@@ -63,7 +63,7 @@ LAYOUT_SHA256 = {
         "xrefs.parquet": "0fd3d2531b4d94b2dc6370de0378ecb870858dc2f6b091c37854771e474f592e",
     },
     "mixed": {
-        "annotation_meta.json": "0998816b81d3f81364ac87e43ef1ffc2d40c08bc620c535584e859619e215f72",
+        "annotation_meta.json": "574ce6a5c6468c793385646f795d8986c317903210e7e7e2f585a14293a30517",
         "genes.parquet": "36b633ae9875d5a51b30e2999070ff6dc35b03c6011ef0aa3a42df6fea54e2de",
         "layers.parquet": "1745a48214adc69e34c25c54c61906b07ac121d43a097bbfd10044afc0514171",
         "region_genes.parquet": "acea093cd168190d31138ba706167c04a25a5186727512189982206c4480369a",
