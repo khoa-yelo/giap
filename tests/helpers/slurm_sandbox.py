@@ -142,6 +142,26 @@ printf '%s\n' "$(basename "$0") $*" >> "$FAKE_SLURM_DIR/calls.log"
 exit 0
 """
 
+_SQUEUE = r"""#!/bin/bash
+# Logs its argv like the other fakes; prints $FAKE_SLURM_DIR/squeue.out only for a query by the
+# job name given on its first line (``Sandbox.set_squeue``), never for other queries.
+printf '%s\n' "squeue $*" >> "$FAKE_SLURM_DIR/calls.log"
+out="$FAKE_SLURM_DIR/squeue.out"
+[ -f "$out" ] || exit 0
+want=$(head -n 1 "$out")
+prev=""
+for a in "$@"; do
+  case "$a" in
+    --name="$want"|-n"$want") tail -n +2 "$out"; exit 0 ;;
+  esac
+  if [ "$a" = "$want" ] && { [ "$prev" = "-n" ] || [ "$prev" = "--name" ]; }; then
+    tail -n +2 "$out"; exit 0
+  fi
+  prev="$a"
+done
+exit 0
+"""
+
 _HOSTNAME = r"""#!/bin/bash
 h="${FAKE_HOSTNAME:-barley-01}"
 case "${1:-}" in -s|--short) echo "${h%%.*}" ;; *) echo "$h" ;; esac
@@ -215,6 +235,17 @@ class Sandbox:
     def set_sacct(self, rows: list[dict[str, str]]) -> None:
         (self.state / "sacct_rows.json").write_text(json.dumps(rows))
 
+    def set_squeue(self, name: str, lines: list[str]) -> None:
+        """``squeue … -n <name> …`` prints ``lines`` (other queries print nothing)."""
+        (self.state / "squeue.out").write_text("\n".join([name, *lines]) + "\n")
+
+    def set_next_job_id(self, n: int) -> None:
+        (self.state / "next_id").write_text(str(n))
+
+    def calls_log(self) -> list[str]:
+        p = self.state / "calls.log"
+        return p.read_text().splitlines() if p.is_file() else []
+
     def tsv_rows(self, name: str = "nightly.tsv") -> list[list[str]]:
         p = self.root / "logs" / name
         if not p.is_file():
@@ -257,7 +288,8 @@ def make_sandbox(tmp: Path) -> Sandbox:
     write_exe(bindir / "hostname", _HOSTNAME)
     write_exe(bindir / "python", _PYTHON.replace("{python}", py))
     write_exe(bindir / "python3", _PYTHON.replace("{python}", py))
-    for name in ("squeue", "scontrol", "scancel", "srun", "scrontab", "nf-test", "giap",
+    write_exe(bindir / "squeue", _SQUEUE)
+    for name in ("scontrol", "scancel", "srun", "scrontab", "nf-test", "giap",
                  "nextflow", "module"):  # fmt: skip
         write_exe(bindir / name, _LOGGER)
     env = {
