@@ -306,7 +306,10 @@ def test_lag_test_p_is_perm_p_unless_null_constant(obs: float, null: list[float]
         assert res.null_mean == valid[0] == res.null_lo == res.null_hi
     else:
         assert res.p_value == perm_p(obs, null, "two-sided")
-        assert res.null_lo <= res.null_mean <= res.null_hi
+        # lead decision 15: lo <= mean <= hi is not a theorem (a 0.975 quantile can fall below
+        # the mean); the mean lies within the range and the envelope is ordered
+        assert valid.min() <= res.null_mean <= valid.max()
+        assert res.null_lo <= res.null_hi
 
 
 # ----------------------------------------------------------------------------- choose_block_len

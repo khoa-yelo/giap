@@ -622,3 +622,183 @@ def test_block_len_prime(l_hat: int, T: int, expected: int) -> None:
     got = block_len_prime(l_hat, T)
     assert got == expected
     assert isinstance(got, int)
+
+
+# ----------------------------------------------------------------------------- review of #116
+
+
+def test_two_tu_blocks_circular_rotation_null_gives_nan_p() -> None:
+    """Decision 14: on a circular replicon with 2 TU blocks the only block orders are rotations, so
+    Moran's I and the (residual) join count are constant under the TU null up to rounding
+    (spread ~1 ulp); "constant" is spread <= 1e-12 * max(1, max |null|) -> p NaN."""
+    for s in range(60):
+        rng = _rng(1_000 + s)
+        n = int(rng.integers(12, 200))
+        m = int(rng.integers(1, n))
+        labels = ["A"] * m + ["B"] * (n - m)
+        orders = tu_block_permutations(tu_blocks(labels, True), 40, rng)
+        x = rng.normal(size=n) * 3.7 + 11.0
+        p = rng.uniform(0.05, 0.95, size=n)
+        d = rng.uniform(size=n) < p
+        for k in (1, 2, 5):
+            if k > max_lag(n, True):
+                continue
+            cases = {
+                "moran": (morans_i(x, k, True), morans_i_matrix(x[orders], [k], True)[:, 0]),
+                "bb": (join_count(d, k, True), join_count_matrix(d[orders], [k], True)[:, 0]),
+                "bb_resid": (
+                    join_count(d, k, True, p=p),
+                    join_count_matrix(d[orders], [k], True, P=p[orders])[:, 0],
+                ),
+            }
+            for name, (obs, null) in cases.items():
+                assert np.ptp(null) <= 1e-12 * max(1.0, float(np.max(np.abs(null)))), name
+                res = lag_test(obs, null)
+                assert _isnan(res.p_value), (s, n, m, k, name, float(np.ptp(null)))
+
+
+def test_lag_test_near_constant_null_is_degenerate() -> None:
+    """Decision 14 at the tie scale: a 1-ulp spread is constant, a 1e-9 relative spread is not."""
+    base = 0.123456789
+    tiny = np.array([base, np.nextafter(base, 1.0), base, base])
+    assert _isnan(lag_test(0.5, tiny).p_value)
+    spread = np.array([base, base * (1 + 1e-9), base, base])
+    assert not _isnan(lag_test(0.5, spread).p_value)
+
+
+def test_lag_test_inf_null_entries_count_in_n_valid() -> None:
+    """Decision 13: n_valid counts the non-NaN null values; +-inf are valid (as in perm_p)."""
+    inf = math.inf
+    null = [0.0, inf, 1.0, NAN, -inf, 2.0]
+    res = lag_test(1.0, null)
+    assert res.n_valid == 5
+    assert res.p_value == perm_p(1.0, null, "two-sided")
+    res_nan_obs = lag_test(NAN, null)
+    assert res_nan_obs.n_valid == 5
+    assert _isnan(res_nan_obs.p_value)
+
+
+def test_no_variance_threshold_boundary() -> None:
+    """Σ z² <= 1e-24 · max(1, max x²): at x ≈ 1e6 the bound is ≈ 1e-12. One value off by δ gives
+    Σ z² = δ² · 5/6: δ = 2e-6 (3.3e-12) has variance, δ = 5e-7 (2.1e-13) has none."""
+    c = 1e6
+    above = np.array([c, c, c, c, c, c + 2e-6])
+    below = np.array([c, c, c, c, c, c + 5e-7])
+    assert not _isnan(morans_i(above, 1, False))
+    assert _isnan(morans_i(below, 1, False))
+    small = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 2e-12])  # max(1, max x²) = 1: 3.3e-24 > 1e-24
+    assert not _isnan(morans_i(small, 1, False))
+    assert _isnan(morans_i(small * 0.5, 1, False))  # 8.3e-25 <= 1e-24
+
+
+def test_label_permutations_two_movable_positions_swap() -> None:
+    out = label_permutations(5, 200, _rng(30), movable=[False, True, False, False, True])
+    assert {tuple(r) for r in out.tolist()} == {(0, 1, 2, 3, 4), (0, 4, 2, 3, 1)}
+    out2 = label_permutations(2, 200, _rng(31))
+    assert {tuple(r) for r in out2.tolist()} == {(0, 1), (1, 0)}
+
+
+def _manual_block_len(z: np.ndarray, orders: np.ndarray, circular: bool) -> int:
+    n = z.size
+    top = min(20, max_lag(n, circular))
+    lags = list(range(1, top + 1))
+    obs = morans_i_matrix(z[None, :], lags, circular)[0]
+    null = morans_i_matrix(z[orders], lags, circular)
+    for c, k in enumerate(lags):
+        p = lag_test(float(obs[c]), null[:, c]).p_value
+        if not p <= 0.05:
+            return k
+    return min(20, max_lag(n, circular) + 1, n)
+
+
+def test_choose_block_len_moves_nans_with_values() -> None:
+    """Decision 16: choose_block_len permutes all n positions (NaNs move with their values, no
+    ``movable``), one matrix ``label_permutations(n, B, rng)`` for every lag."""
+    from scipy.signal import lfilter
+
+    differs = 0
+    for s in range(10):
+        r = _rng(200 + s)
+        n = 300
+        z = np.asarray(lfilter([1.0], [1.0, -0.8], r.normal(size=n)))
+        z[np.arange(n) % 3 == 1] = NAN
+        want = _manual_block_len(z, label_permutations(n, 199, _rng(s)), True)
+        assert choose_block_len(z, True, 199, _rng(s)) == want, s
+        fixed = label_permutations(n, 199, _rng(s), movable=~np.isnan(z))
+        differs += _manual_block_len(z, fixed, True) != want
+    assert differs >= 1  # the test tells the two nulls apart
+
+
+# ----------------------------------------------------------------------------- ValueErrors
+
+
+@pytest.mark.parametrize("X", [np.zeros(5), np.zeros((2, 3, 4)), 1.0])
+def test_morans_i_matrix_requires_2d(X: object) -> None:
+    with pytest.raises(ValueError):
+        morans_i_matrix(X, [1], True)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("D", [np.zeros(5, dtype=bool), np.zeros((2, 3, 4), dtype=bool)])
+def test_join_count_matrix_requires_2d(D: np.ndarray) -> None:
+    with pytest.raises(ValueError):
+        join_count_matrix(D, [1], True)
+
+
+@pytest.mark.parametrize(
+    "P", [np.zeros((1, 6)), np.zeros(6), np.zeros((4, 5)), np.zeros((4, 7)), np.zeros((4, 6, 1))]
+)
+def test_join_count_matrix_p_shape_must_match_d(P: np.ndarray) -> None:
+    D = np.zeros((4, 6), dtype=bool)
+    with pytest.raises(ValueError):
+        join_count_matrix(D, [1], True, P=P)
+
+
+@pytest.mark.parametrize(("n", "B"), [(-1, 5), (5, -1), (-2, -2)])
+def test_label_permutations_rejects_negative_n_or_b(n: int, B: int) -> None:
+    with pytest.raises(ValueError):
+        label_permutations(n, B, _rng(40))
+
+
+@pytest.mark.parametrize("length", [0, 4, 6, 10])
+def test_label_permutations_rejects_wrong_movable_length(length: int) -> None:
+    with pytest.raises(ValueError):
+        label_permutations(5, 3, _rng(41), movable=np.ones(length, dtype=bool))
+
+
+def test_tu_block_permutations_rejects_negative_b() -> None:
+    with pytest.raises(ValueError):
+        tu_block_permutations(np.array([0, 0, 1]), -1, _rng(42))
+
+
+@pytest.mark.parametrize(
+    "blocks",
+    [
+        [0, 1, 2, 1],  # one gap in a block other than the one holding position 0
+        [0, 0, 1, 0, 2],  # block of position 0 with a gap that does not end at n - 1
+        [0, 1, 0, 1],  # two blocks with gaps
+        [0, 1, 0, 2, 0],  # block 0 with two gaps
+        [1, 0, 1, 0],
+    ],
+)
+def test_tu_block_permutations_rejects_non_contiguous_blocks(blocks: list[int]) -> None:
+    with pytest.raises(ValueError):
+        tu_block_permutations(np.array(blocks), 3, _rng(43))
+
+
+@pytest.mark.parametrize("max_len", [0, -1])
+def test_choose_block_len_rejects_max_len_below_one(max_len: int) -> None:
+    with pytest.raises(ValueError):
+        choose_block_len(_rng(44).normal(size=50), True, 19, _rng(45), max_len=max_len)
+
+
+@pytest.mark.parametrize("B", [0, -1])
+def test_choose_block_len_rejects_b_below_one(B: int) -> None:
+    """Decision 16: B = 0 raises (it would silently give l-hat = 1)."""
+    with pytest.raises(ValueError):
+        choose_block_len(_rng(46).normal(size=50), True, B, _rng(47))
+
+
+@pytest.mark.parametrize(("l_hat", "T"), [(0, 10), (-1, 10), (5, 0), (5, -3), (0, 0)])
+def test_block_len_prime_rejects_values_below_one(l_hat: int, T: int) -> None:
+    with pytest.raises(ValueError):
+        block_len_prime(l_hat, T)
