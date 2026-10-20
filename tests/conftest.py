@@ -80,7 +80,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    # trylast: runs after ``-m``/``-k`` deselection, so capability probes (including the
+    # ``needs_net`` socket) only happen for selected items (PR #115 review)
     required = {c.strip() for c in config.getoption("--require-capabilities").split(",") if c}
     unknown = required - set(CHECKS) - {"needs_net"}
     if unknown:

@@ -101,3 +101,70 @@ adjustment as a known offset) and §"Descriptive rows".
    replicons as reference — the latter is simpler; choose one.
 3. `--replicon-depth` plumbing in `giap run` does not exist yet. **Proposed default:** M4 exposes the
    step parameter and reader; CLI wiring lands with the `run` command.
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+1. Q1 accepted: plasmid rows report their own O − E; no chromosome-rate row and no p.
+2. Plasmid HL uses observed raw log2 abundance (not M4-17's per-replicon residuals, which give HL ≈ 0
+   whatever the dosage) and excludes imputed genes. Document the small selection bias at the null
+   (≈ +0.3 log2 in simulation) in the methods note, and correct abundance.md: the genome-wide median
+   fill does affect this plasmid contrast, which is why imputed genes are excluded.
+3. Q2: the reference is the `kind = chromosome` replicons; if none, all replicons that are neither
+   `kind = plasmid` nor contigs of a plasmid region, with row flag `no_reference_replicon` (already in
+   the M4-index vocabulary). If that set has no detected gene: HL = NA with the same flag. Depth uses the
+   same reference set.
+4. Q3: depth adjustment deferred (backlog item). Depth is treated as known (say so in the methods note);
+   the manifest records its absence; the adjusted row has its own flag and is omitted with a warning when
+   the plasmid or the reference is absent from the depth file.
+5. Consistency with the merged M4-17 code: 0 eligible genes → every statistic NA plus `small_region`
+   (not O − E = 0); `o_over_e` = NA when expected = 0; on `hl_shift` rows `observed` holds the detected
+   count and the HL value goes in `hl_shift_log2`.
+6. Schema rule, both directions: `null_model = none` ⇔ p, q NA and `n_perm = 0`. `regions_stats()`
+   never recomputes BH.
+7. RNG: plasmid and subset rows draw from their own child stream keyed by `region_id`
+   (giap.rng.for_step), so adding a plasmid leaves every M4-17 CI unchanged. Test this.
+8. Subset rows are `descriptive` with CI NA; a TU-block CI is optional.
+
+## Lead decisions after the test-author's report (2026-10-20)
+9. Decision 6 is one-directional (M4-17 rows with K = 0 keep `null_model = circular_shift` with NA p):
+   `null_model = none` ⇒ p, q NA and `n_perm = 0`; a p-value ⇒ `null_model ≠ none`; a q-value ⇒ a p-value.
+10. Plasmid regions are found from the genes' `region_ids` by the §6.5 `<type>_<n>` naming
+    (`plasmid_*`); `plasmid_rows` keeps its signature.
+11. Row order: region types in the default `region_types` order; within a region, rows follow the `stat`
+    enum order of the schema; plasmid and subset rows after M4-17 rows of the same region.
+12. Example 6 is superseded by decision 3.
+13. Unpinned points: the dosage-adjusted row carries flag `depth_adjusted` (add it to the schema
+    vocabulary); no adjusted row when HL is NA; subset rows have `method = descriptive`,
+    `label = descriptive`, CI NA; plasmids with fewer eligible genes than M4-17's small-region threshold
+    (`giap.context.regions.SMALL_REGION`, a module constant) get `small_region` and NA statistics.
+14. The example-7 warning goes through the step's issue/log channel (not `plasmid_rows`); untested at unit
+    level. Plasmid HL bias/coverage stays a recorded diagnostic, not a gate (statistician may promote it
+    later); the implementer times it on Slurm and the lead adds it to NIGHTLY if > 60 s.
+
+## Lead decisions after the statistician's review of PR #110 (changes requested)
+15. The plasmid HL CI stays as is for v1; coverage of log2(copy number) is not a gate. The estimand is the
+    realised dosage-plus-regulation shift, which the CI covers conservatively (0.997–1.000; Slurm 1860197,
+    1860273). docs/methods/region-tests.md: rewrite "Bias at the null" per the statistician's suggested
+    text (remove "read the CI as a lower bound", add the coverage tables and job IDs, note block bootstraps
+    reach only 0.85 / 0.71), and replace the ≈ +0.3 log2 null-bias claim with the measured −0.087 (SE
+    0.049; +0.022 against the realised shift) and the note that its sign depends on the detection slope.
+16. `test_recorded_plasmid_hl_bias_and_ci_coverage` also computes the realised-shift target from the
+    simulator truth (`rd.simulate` then `rd.tables_from`, HL of `abundance_log2_true`), records both
+    coverages, and warns when the realised-shift coverage is below 0.93. Still recorded, not gated.
+17. Backlog: a shared `ci_few_units` flag for M4-17 and M4-18 CIs on fewer than 10 TUs.
+
+## Lead decisions after the code review of PR #110 (changes requested)
+18. (blocking) `context_stats` takes an optional input `detectability_summary` (one parquet file, the
+    output key of M4-15's `detectability` step) and reads it with the io reader; the directory search
+    stays only in `run_context_stats`. Test the registry/local path.
+19. (blocking, tests) `read_replicon_depth`: non-finite values (inf), a duplicate contig and an NA contig
+    each give an error issue and `df is None`; an empty, ragged or missing file returns `(None, issues)`
+    instead of raising.
+20. (blocking, tests) `regions_stats` raises `ValueError` on malformed rows (n_perm / q-implies-p rules).
+21. Tests: the step raises on a bad depth file; `small_region` on subset rows; prophage C8 members with
+    `subset = NA` are not grouped as "None"; contig sorts before start.
+22. Missing `tu_id` is checked for plasmid and reference genes alike; `depth_gaps` respects
+    `context.region_types`.
+23. Nits: module docstring cites decisions 1–23; `_test_rows` converts once; after M4-15 (#111) merges,
+    read the gene table with `read_genes_parquet`.
+24. Merge order: #111 first (its loader is required); #110 then merges origin/main, regenerates
+    `workflow/tests/data/annotate/step_registry.json` from the live registry and pushes plainly.

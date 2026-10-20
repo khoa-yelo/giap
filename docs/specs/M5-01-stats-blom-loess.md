@@ -124,3 +124,18 @@ below the detection limit, so their order is unknown but their position is not),
 3. Q3: keep the 10 % span with the 3-point floor; record power by replicon size (the span costs about half
    the power at 1,000 genes; at 4,500 genes it is ≈ 255 TUs, far longer than an island). A plasmid floor
    is a later ADR candidate.
+
+## Lead decisions after the test-author's report (2026-10-20)
+4. The 3-point floor stays (statsmodels equality, examples 7 and 10). For any strictly increasing positions a k = 3
+   window gives weight 0 to both neighbours, so the fit equals y and every residual is 0: the detrended
+   series does not exist. Methods note says so. Consumers decide: M5-05 and M5-06 report NA with flag
+   `few_values` for any replicon whose span gives k < 4 (≈ n ≤ 30 ordinals at the 10 % span), instead of
+   computing statistics over zero residuals. (Recorded in M5-05 decision 21 and M5-06 decision 40.)
+5. `loess_detrend` raises `ValueError` when `y` and `pos` differ in length.
+6. Add `loess_matrix(pos, frac, *, circular, period=None, min_points=3) -> NDArray[float64]` (n × n,
+   `loess_detrend(y, …).fit == loess_matrix(…) @ y`), so ADR-0020 applies one matrix to B permuted
+   replicates; `loess_detrend` stays 1-D.
+7. No calibration test for M5-01 (deterministic helpers, no statistical claim).
+8. (test-author follow-up) `loess_matrix` validates exactly as `loess_detrend` (ValueError on tied or
+   unsorted pos, NaN, circular without period, pos outside [0, period), frac outside (0, 1]); Hypothesis
+   tolerance 1e-12 × max(1, max|y|) accepted; 2-D `y` to `loess_detrend` is unspecified (no test).
