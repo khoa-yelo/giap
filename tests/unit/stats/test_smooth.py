@@ -1,5 +1,10 @@
 """LOESS detrending with circular padding (issue M5-01; GIAP_SPEC.md §7.3.5(c), §7.3.5(d) step 3).
 
+Lead decisions 4-7 (2026-10-20): k = 3 on equal spacing gives fit == y (documented degeneracy);
+y / pos length mismatch -> ValueError; ``loess_matrix(pos, frac, *, circular, period=None,
+min_points=3)`` is the n x n smoother with ``loess_detrend(y, ...).fit == loess_matrix(...) @ y``;
+no calibration test (deterministic helpers, no statistical claim).
+
 ``loess_span_points(n, frac, min_points=3)`` = min(n, max(min_points, ceil(frac * n - 1e-9))).
 ``loess_detrend(y, pos, frac, *, circular, period=None, min_points=3) -> LoessFit(fit, resid, k)``:
 plain local-linear LOESS (tricube, k nearest by ``pos``, no robustness iterations: lead decision
@@ -32,7 +37,7 @@ from hypothesis import strategies as st
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
 from giap.rng import for_step
-from giap.stats.smooth import LoessFit, loess_detrend, loess_span_points
+from giap.stats.smooth import LoessFit, loess_detrend, loess_matrix, loess_span_points
 
 FAST = settings(max_examples=60, deadline=None)
 
@@ -182,15 +187,37 @@ def test_three_point_floor_matches_statsmodels() -> None:
         )
 
 
-def test_three_point_floor_on_ordinals_absorbs_everything() -> None:
-    # With k = 3 on equally spaced ordinals the two neighbours sit at the radius (tricube weight
-    # 0), so statsmodels returns y itself: residuals are identically 0 (documented consequence
-    # of the spec's statsmodels equality; see lead decision 3).
-    y = for_step("test.smooth.floor", 2).normal(size=30)
-    pos = np.arange(30.0)
+@pytest.mark.parametrize("n", [3, 10, 30])
+@pytest.mark.parametrize("spacing", [1.0, 2.5])
+def test_three_point_floor_on_equal_spacing_is_identity(n: int, spacing: float) -> None:
+    # Lead decision 4: k = 3 on equally spaced positions gives both neighbours tricube weight 0
+    # (they sit at the radius), so fit == y and every residual is 0. Documented degeneracy, not an
+    # error: no ValueError, no NaN; consumers (M5-05, M5-06) flag k < 4 as `few_values`.
+    y = for_step("test.smooth.floor", n).normal(size=n)
+    pos = spacing * np.arange(float(n))
+    period = spacing * n
     for circular in (False, True):
-        res = loess_detrend(y, pos, 0.10, circular=circular, period=30.0)
+        res = loess_detrend(y, pos, 0.10, circular=circular, period=period)
+        assert res.k == 3
+        np.testing.assert_allclose(res.fit, y, rtol=0, atol=1e-12)
         assert np.max(np.abs(res.resid)) <= 1e-12
+        H = loess_matrix(pos, 0.10, circular=circular, period=period)
+        np.testing.assert_allclose(H, np.eye(n), rtol=0, atol=1e-12)
+
+
+def test_three_point_floor_with_gaps_is_identity_too() -> None:
+    # k = 3 is the identity for any strictly increasing positions, not only equal spacing: the
+    # farthest of the 3 neighbours sits at the radius (weight 0) and the local line through the
+    # remaining two points (one is the point itself) returns y_i. Checked against statsmodels.
+    pos = np.array([0.0, 1.0, 3.0, 4.0, 7.0, 8.0, 9.0, 12.0, 13.0, 15.0])
+    y = for_step("test.smooth.floor.gaps", 0).normal(size=10)
+    for circular in (False, True):
+        res = loess_detrend(y, pos, 0.10, circular=circular, period=17.0)
+        assert res.k == 3
+        np.testing.assert_allclose(res.fit, y, rtol=0, atol=1e-12)
+        np.testing.assert_allclose(
+            res.fit, oracle_fit(y, pos, 0.10, circular, 17.0), rtol=0, atol=1e-10
+        )
 
 
 def test_three_points_exact() -> None:
@@ -276,9 +303,15 @@ def test_circular_pos_outside_period_raises(pos: list[int], period: float) -> No
 
 
 def test_length_mismatch_raises() -> None:
-    # not spelled out in M5-01; assumed (same rule as blom_scores)
+    # lead decision 5
     with pytest.raises(ValueError):
         loess_detrend([1.0, 2.0, 3.0, 4.0], [0, 1, 2], 0.5, circular=False)
+    with pytest.raises(ValueError):
+        loess_detrend([1.0, 2.0, 3.0], [0, 1, 2, 3], 0.5, circular=True, period=4.0)
+    with pytest.raises(ValueError):
+        loess_detrend([1.0, 2.0], [0, 1, 2], 0.5, circular=False)  # below min_points too
+    with pytest.raises(ValueError):
+        loess_detrend([], [0], 0.5, circular=False)
 
 
 # ---------------------------------------------------------------------------- statsmodels
@@ -432,4 +465,105 @@ def test_deterministic_and_inputs_not_mutated() -> None:
     r2 = loess_detrend(y, pos, 0.1, circular=True, period=period)
     np.testing.assert_array_equal(r1.fit, r2.fit)
     np.testing.assert_array_equal(y, y0)
+    np.testing.assert_array_equal(pos, p0)
+
+
+# ------------------------------------------------------------------- loess_matrix (decision 6)
+
+
+@pytest.mark.parametrize("circular", [False, True])
+@pytest.mark.parametrize("frac", [0.05, 0.10, 0.30, 1.0])
+@pytest.mark.parametrize("n", [1, 2, 3, 4, 11, 60, 200])
+def test_loess_matrix_matches_detrend(n: int, frac: float, circular: bool) -> None:
+    pos, period = gapped_positions(n, seed=7 * n + int(100 * frac))
+    H = loess_matrix(pos, frac, circular=circular, period=period)
+    assert isinstance(H, np.ndarray)
+    assert H.dtype == np.float64
+    assert H.shape == (n, n)
+    rng = for_step("test.smooth.matrix", n)
+    for _ in range(3):
+        y = rng.normal(0.0, 3.0, size=n)
+        fit = loess_detrend(y, pos, frac, circular=circular, period=period).fit
+        np.testing.assert_allclose(H @ y, fit, rtol=0, atol=1e-12)
+    np.testing.assert_allclose(H.sum(axis=1), 1.0, rtol=0, atol=1e-12)
+
+
+@pytest.mark.parametrize("circular", [False, True])
+def test_loess_matrix_on_batch_matches_per_column(circular: bool) -> None:
+    # ADR-0020: one matrix applied to B permuted replicates (columns of an (n, B) batch)
+    n, B = 120, 25
+    pos, period = np.arange(float(n)), float(n)
+    H = loess_matrix(pos, 0.10, circular=circular, period=period)
+    rng = for_step("test.smooth.batch", 0)
+    y = rng.normal(size=n)
+    Y = np.column_stack([y[rng.permutation(n)] for _ in range(B)])
+    fits = H @ Y
+    assert fits.shape == (n, B)
+    for b in range(B):
+        ref = loess_detrend(Y[:, b], pos, 0.10, circular=circular, period=period).fit
+        np.testing.assert_allclose(fits[:, b], ref, rtol=0, atol=1e-12)
+
+
+def test_loess_matrix_ordinals_and_gaps() -> None:
+    pos = np.concatenate([np.arange(30.0), np.arange(30.0) + 100.0])
+    H_gap = loess_matrix(pos, 0.2, circular=False)
+    H_ord = loess_matrix(np.arange(60.0), 0.2, circular=False)
+    assert np.max(np.abs(H_gap - H_ord)) > 1e-3
+    np.testing.assert_allclose(H_gap @ pos, pos, atol=1e-9)  # local linear reproduces pos
+    # int positions accepted, identical to float
+    np.testing.assert_array_equal(
+        loess_matrix(list(range(60)), 0.2, circular=True, period=60),
+        loess_matrix(np.arange(60.0), 0.2, circular=True, period=60.0),
+    )
+
+
+def test_loess_matrix_degenerate() -> None:
+    assert loess_matrix([], 0.1, circular=False).shape == (0, 0)
+    assert loess_matrix([], 0.1, circular=True, period=5.0).shape == (0, 0)
+    np.testing.assert_allclose(loess_matrix([0, 1], 0.1, circular=False), np.full((2, 2), 0.5))
+    np.testing.assert_allclose(
+        loess_matrix([0, 1, 2, 3], 0.5, circular=False, min_points=5), np.full((4, 4), 0.25)
+    )
+    np.testing.assert_array_equal(loess_matrix([3], 0.5, circular=True, period=4.0), [[1.0]])
+
+
+def test_loess_matrix_matches_statsmodels_unit_vectors() -> None:
+    pos, period = gapped_positions(40, seed=21)
+    for circular in (False, True):
+        H = loess_matrix(pos, 0.15, circular=circular, period=period)
+        eye = np.eye(40)
+        ref = np.column_stack([oracle_fit(eye[j], pos, 0.15, circular, period) for j in range(40)])
+        np.testing.assert_allclose(H, ref, rtol=0, atol=1e-10)
+
+
+@pytest.mark.parametrize(
+    ("pos", "kw"),
+    [
+        ([0, 1, 1, 2], {"circular": False}),
+        ([0, 1, float("nan"), 3], {"circular": False}),
+        ([0, 1, 2, 3], {"circular": True}),
+        ([0, 1, 2, 4], {"circular": True, "period": 4.0}),
+    ],
+    ids=["tie", "nan", "no-period", "outside-period"],
+)
+def test_loess_matrix_validation(pos: list[float], kw: dict[str, object]) -> None:
+    # assumed: the pos / frac / period rules of loess_detrend apply unchanged (decision 6 gives
+    # the same signature without y)
+    with pytest.raises(ValueError):
+        loess_matrix(pos, 0.5, **kw)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("frac", [0.0, 1.5, float("nan")])
+def test_loess_matrix_frac_out_of_range(frac: float) -> None:
+    with pytest.raises(ValueError):
+        loess_matrix(np.arange(10.0), frac, circular=False)
+
+
+def test_loess_matrix_deterministic_and_pos_not_mutated() -> None:
+    pos, period = gapped_positions(50, seed=4)
+    p0 = pos.copy()
+    np.testing.assert_array_equal(
+        loess_matrix(pos, 0.1, circular=True, period=period),
+        loess_matrix(pos, 0.1, circular=True, period=period),
+    )
     np.testing.assert_array_equal(pos, p0)

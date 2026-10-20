@@ -7,6 +7,8 @@
   fit is the mean by definition).
 - Circular and linear fits reproduce constants; residuals of a constant are 0.
 - Linearity: fit(a y1 + b y2) = a fit(y1) + b fit(y2) (one smoother per pos, ADR-0020).
+- ``loess_matrix(pos, ...) @ y == loess_detrend(y, pos, ...).fit`` (<= 1e-12; lead decision 6),
+  linear and circular, also for an (n, B) batch column by column.
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ import numpy as np
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from giap.stats.smooth import loess_detrend
+from giap.stats.smooth import loess_detrend, loess_matrix
 
 SETTINGS = settings(max_examples=80, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 
@@ -99,3 +101,26 @@ def test_mean_rule_below_min_points(
     assert res.k == pos.size
     np.testing.assert_allclose(res.fit, np.mean(y), rtol=0, atol=1e-12)
     assert abs(float(res.resid.sum())) <= 1e-10
+
+
+@SETTINGS
+@given(circular_case(), FRAC, st.booleans(), st.data())
+def test_loess_matrix_equals_detrend(
+    case: tuple[np.ndarray, np.ndarray, int], frac: float, circular: bool, data: st.DataObject
+) -> None:
+    y, pos, period = case
+    p = float(period)
+    H = loess_matrix(pos, frac, circular=circular, period=p)
+    assert H.shape == (pos.size, pos.size)
+    tol = 1e-12 * max(1.0, float(np.max(np.abs(y))))
+    np.testing.assert_allclose(
+        H @ y, loess_detrend(y, pos, frac, circular=circular, period=p).fit, rtol=0, atol=tol
+    )
+    B = data.draw(st.integers(1, 4))
+    Y = np.array(data.draw(st.lists(VAL, min_size=pos.size * B, max_size=pos.size * B)))
+    Y = Y.reshape(pos.size, B)
+    fits = H @ Y
+    for b in range(B):
+        ref = loess_detrend(Y[:, b], pos, frac, circular=circular, period=p).fit
+        tol_b = 1e-12 * max(1.0, float(np.max(np.abs(Y[:, b]))))
+        np.testing.assert_allclose(fits[:, b], ref, rtol=0, atol=tol_b)
