@@ -118,3 +118,13 @@ does to power (TU scores of large TUs have smaller variance), merging and the be
 15. The calibration claim for M5-03 is FWER level under exchangeable permutation nulls (suite `islands`),
     as written by the test-author; the autocorrelated block-bootstrap claim is M5-06/M5-07. `n_windows`
     also raises on a bad window range.
+
+## Lead decisions after the code review of #118 (2026-10-20)
+16. No numba: numpy prefix sums meet the budget (0.41 s against 2 s); §8.3's "numba" is a means, not a
+    requirement. Revisit only if a benchmark regresses.
+17. `fwer_p` returns NaN for a NaN or ±inf |S| (element-wise `perm_p` semantics), including a NaN
+    `max_abs` from a replicon with no window. Fix the root cause in `giap.stats.permutation._tol` (it
+    raises on a non-finite argument), so `perm_p(inf, …)` is defined too: +inf "greater" gives the +1
+    floor p = 1/(B + 1) unless the null contains +inf.
+18. Input checks: `fwer_p` and `merge_windows` reject non-1-D input; `merge_windows` validates `n ≥ 0`
+    and handles n = 0; tests cover wrong-ndim input to `scan_max` / `scan_null_max`.
