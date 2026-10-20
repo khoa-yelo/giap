@@ -145,3 +145,5 @@ ADR-0020 accepted by Khoa 2026-10-20: the spec's "detrend then permute" is anti-
     cosine, (b) label null + gradient, (c) short-gene prophage under TU null (join count) — gated; (d)
     no-detrend teeth — recorded.
 20. Methods note: large-lag negative I under strong short-range correlation is a span artefact.
+21. (M5-01 decision 4) A replicon whose 10 % span gives k < 4 points has all-zero residuals: its rows are
+    NA with flag `few_values` and do not enter a BH family.

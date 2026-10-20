@@ -146,3 +146,5 @@ ADR-0021 accepted by Khoa 2026-10-20: the spec's block length gives FWER 0.205â€
 26. Effect CI: the spec's TU-bootstrap CI; methods note says it is conditional on the selected window and
     ignores within-window autocorrelation; M5-07 records its coverage.
 27. Keep the combined detection/abundance estimand; gate the short-gene prophage attack.
+40. (M5-01 decision 4) A replicon whose span gives k < 4 TUs is not scanned: no islands, run flag
+    `few_values` for that replicon; it does not enter the genome-wide maximum.
