@@ -101,3 +101,25 @@ adjustment as a known offset) and §"Descriptive rows".
    replicons as reference — the latter is simpler; choose one.
 3. `--replicon-depth` plumbing in `giap run` does not exist yet. **Proposed default:** M4 exposes the
    step parameter and reader; CLI wiring lands with the `run` command.
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+1. Q1 accepted: plasmid rows report their own O − E; no chromosome-rate row and no p.
+2. Plasmid HL uses observed raw log2 abundance (not M4-17's per-replicon residuals, which give HL ≈ 0
+   whatever the dosage) and excludes imputed genes. Document the small selection bias at the null
+   (≈ +0.3 log2 in simulation) in the methods note, and correct abundance.md: the genome-wide median
+   fill does affect this plasmid contrast, which is why imputed genes are excluded.
+3. Q2: the reference is the `kind = chromosome` replicons; if none, all replicons that are neither
+   `kind = plasmid` nor contigs of a plasmid region, with row flag `no_reference_replicon` (already in
+   the M4-index vocabulary). If that set has no detected gene: HL = NA with the same flag. Depth uses the
+   same reference set.
+4. Q3: depth adjustment deferred (backlog item). Depth is treated as known (say so in the methods note);
+   the manifest records its absence; the adjusted row has its own flag and is omitted with a warning when
+   the plasmid or the reference is absent from the depth file.
+5. Consistency with the merged M4-17 code: 0 eligible genes → every statistic NA plus `small_region`
+   (not O − E = 0); `o_over_e` = NA when expected = 0; on `hl_shift` rows `observed` holds the detected
+   count and the HL value goes in `hl_shift_log2`.
+6. Schema rule, both directions: `null_model = none` ⇔ p, q NA and `n_perm = 0`. `regions_stats()`
+   never recomputes BH.
+7. RNG: plasmid and subset rows draw from their own child stream keyed by `region_id`
+   (giap.rng.for_step), so adding a plasmid leaves every M4-17 CI unchanged. Test this.
+8. Subset rows are `descriptive` with CI NA; a TU-block CI is optional.
