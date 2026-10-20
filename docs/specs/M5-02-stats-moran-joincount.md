@@ -140,3 +140,11 @@ rule implemented here.
    under both nulls; all p equal and all d equal → constant null → NA.
 8. Example 12 stays; add a test that giapsim TU-score series at ρ 0.9 give ℓ̂ ≈ 8 (4,500 genes) and ≈ 1.3
    (1,000 genes), pinning the dilution.
+
+## Lead decisions after the test-author's report (2026-10-20)
+9. Example 12 amended: AR(1) ρ = 0.9, n = 2,000 gives ℓ̂ ≥ 15 in ≥ 95 % of runs (measured 100 %; ℓ̂ = 20
+   in 0.85–0.92 because the sampling SD of I₁₇…I₂₀ ≈ ρ²⁰). The test-author updates the test.
+10. `choose_block_len` returns ℓ̂ only. ADR-0021's ℓ' = min(20, 2ℓ̂ + 1, T) is a shared helper
+    `giap.stats.autocorr.block_len_prime(l_hat, T)` (M5-06 and M5-08 call it); the test-author adds tests.
+11. `lag_test` with NaN obs: `n_valid` is the count of finite null values; every other field NaN.
+12. The < 5 s performance target goes to benchmarks/ (implementer adds the benchmark, no assertion in tests/).
