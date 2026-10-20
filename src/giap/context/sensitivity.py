@@ -5,13 +5,13 @@ A *variant* changes one analysis choice (missing-abundance policy, single-peptid
 detected, Top3 instead of iBAQ). A *family* maps a gene table to its flagged IDs; the step reruns
 every family under every variant at ``stats.permutations = 199`` and reports the Jaccard index of
 each variant's flagged set against the primary's (recomputed at the same B). Families receive
-``(genes, cfg, rng)``; extra tables are keyword-only parameters that the step binds by name
-(lead decision 5). Pure functions: randomness only from the generator passed in.
+``(genes, cfg, rng)``; the tables a family needs are keyword-only parameters that the step binds
+by name (lead decisions 5, 13). Pure functions: randomness only from the generator passed in.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import cast
 
@@ -21,6 +21,7 @@ import pandas as pd
 from giap.config.model import AbundanceMissing, GiapConfig
 from giap.context.regions import test_all_regions
 from giap.genetable.abundance import impute
+from giap.genetable.assemble import GENE_FLAGS
 
 __all__ = ["COLUMNS", "FAMILIES", "SENSITIVITY_B", "Family", "Variant", "flagged_ids", "jaccard",
            "regions_family", "sensitivity_rows", "variant_genes", "variants"]  # fmt: skip
@@ -29,6 +30,7 @@ __all__ = ["COLUMNS", "FAMILIES", "SENSITIVITY_B", "Family", "Variant", "flagged
 COLUMNS = ("family", "variant", "n_primary", "n_variant", "n_shared", "jaccard", "agreement")
 #: §8.6 "Sensitivity reruns use B = 199"
 SENSITIVITY_B = 199
+_RANK = {f: i for i, f in enumerate(GENE_FLAGS)}
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,7 +43,8 @@ class Variant:
     single_peptide_detected: bool = False
 
 
-Family = Callable[[pd.DataFrame, GiapConfig, np.random.Generator], frozenset[str]]
+#: ``(genes, cfg, rng, **tables) -> flagged IDs``; ``...`` because families add keyword-only tables
+Family = Callable[..., frozenset[str]]
 
 
 def variants(cfg: GiapConfig, tier: str) -> list[Variant]:
@@ -85,7 +88,9 @@ def sensitivity_rows(
 def variant_genes(genes: pd.DataFrame, variant: Variant, cfg: GiapConfig) -> pd.DataFrame:
     """The primary gene table under ``variant``: detection widened to single-peptide genes when
     asked, then the M4-14 imputation redone with the variant's policy on the observed values
-    (``top3_log2`` for ``top3``). ``p_detect`` is left as is (the step refits it)."""
+    (``top3_log2`` for ``top3``, with the Top3 raw values and ``abundance_type``), and
+    ``imputed_abundance`` flags matching the new imputation. ``p_detect`` is left as is (the
+    step refits it)."""
     g = genes.copy()
     tags = pd.Index(g["locus_tag"].astype(str))
     det = pd.Series(g["detected"].astype(bool).to_numpy(), index=tags)
@@ -97,8 +102,11 @@ def variant_genes(genes: pd.DataFrame, variant: Variant, cfg: GiapConfig) -> pd.
     policy = cast(
         AbundanceMissing, variant.overrides.get("abundance.missing", cfg.abundance.missing)
     )
-    if variant.overrides.get("abundance.method") == "top3":
+    top3 = variant.overrides.get("abundance.method") == "top3"
+    if top3:
         base = g["top3_log2"].astype("float64")
+        g["abundance_raw"] = np.exp2(base.to_numpy("float64"))
+        g["abundance_type"] = "top3"
     else:
         base = g["abundance_log2"].astype("float64").where(~g["abundance_imputed"].astype(bool))
     eligible = pd.Series(~g["partial"].astype(bool).to_numpy(), index=tags)
@@ -106,7 +114,16 @@ def variant_genes(genes: pd.DataFrame, variant: Variant, cfg: GiapConfig) -> pd.
     g["abundance_log2"] = filled.to_numpy("float64")
     g["abundance_imputed"] = mask.to_numpy(bool)
     g["imputation_policy"] = policy
+    g["flags"] = [
+        _imputed_flag(f, m) for f, m in zip(g["flags"], g["abundance_imputed"], strict=True)
+    ]
     return g
+
+
+def _imputed_flag(flags: Iterable[str], imputed: bool) -> list[str]:
+    """``flags`` with ``imputed_abundance`` iff ``imputed`` (§9.4 vocabulary order)."""
+    out = [f for f in flags if f != "imputed_abundance"] + ["imputed_abundance"] * bool(imputed)
+    return sorted(out, key=lambda f: _RANK.get(f, len(_RANK)))
 
 
 def flagged_ids(res: pd.DataFrame, alpha: float) -> frozenset[str]:
@@ -125,45 +142,17 @@ def flagged_ids(res: pd.DataFrame, alpha: float) -> frozenset[str]:
     )
 
 
-def _tables_from_genes(genes: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """C7 / C8 / C1 stand-ins from the gene table alone: members from ``region_ids``, the region
-    type from its §6.5 ID prefix ``<type>_<n>``, contig of its first member; every replicon
-    circular (C1 topology is not in the gene table)."""
-    members = [
-        (str(r), str(t), str(c))
-        for t, c, ids in zip(genes["locus_tag"], genes["contig"], genes["region_ids"], strict=True)
-        for r in (ids if ids is not None else [])
-    ]
-    rg = pd.DataFrame([(r, t) for r, t, _ in members], columns=["region_id", "locus_tag"])
-    first: dict[str, str] = {}
-    for r, _, c in members:
-        first.setdefault(r, c)
-    regions = pd.DataFrame(
-        [(r, r.rsplit("_", 1)[0], c) for r, c in first.items()],
-        columns=["region_id", "region_type", "contig"],
-    )
-    contigs = list(dict.fromkeys(genes["contig"].astype(str)))
-    replicons = pd.DataFrame({"contig": contigs, "topology": ["circular"] * len(contigs)})
-    return regions, rg, replicons
-
-
 def regions_family(
     genes: pd.DataFrame,
     cfg: GiapConfig,
     rng: np.random.Generator,
     *,
-    regions: pd.DataFrame | None = None,
-    region_genes: pd.DataFrame | None = None,
-    replicons: pd.DataFrame | None = None,
+    regions: pd.DataFrame,
+    region_genes: pd.DataFrame,
+    replicons: pd.DataFrame,
 ) -> frozenset[str]:
-    """Flagged M4-17 region tests (``flagged_ids`` at ``alpha.context``). The step binds C7
-    ``regions``, C8 ``region_genes`` and C1 ``replicons``; without them they are derived from
-    ``genes`` (``region_ids``; replicons circular)."""
-    if regions is None or region_genes is None or replicons is None:
-        d_reg, d_rg, d_rep = _tables_from_genes(genes)
-        regions = d_reg if regions is None else regions
-        region_genes = d_rg if region_genes is None else region_genes
-        replicons = d_rep if replicons is None else replicons
+    """Flagged M4-17 region tests (``flagged_ids`` at ``alpha.context``) on C7 ``regions``,
+    C8 ``region_genes`` and C1 ``replicons`` (bound by the step; topology from C1)."""
     res = test_all_regions(genes, regions, region_genes, replicons, cfg, rng)
     return flagged_ids(res, cfg.stats.alpha.context)
 

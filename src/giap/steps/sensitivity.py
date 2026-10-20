@@ -25,12 +25,15 @@ from giap.genetable.covariates import COVARIATE_COLUMNS
 from giap.genetable.detectability import fit_detectability
 from giap.io.genes_tsv import read_genes_parquet
 from giap.io.sensitivity_tsv import write_sensitivity_tsv
-from giap.io.work_tables import default_paths, load_m4_inputs
+from giap.io.work_tables import default_paths, load_tables
 from giap.rng import for_step
+from giap.steps.gene_table import check_issues
 
 __all__ = ["run_sensitivity", "with_overrides"]
 
 _log = logging.getLogger("giap.steps.sensitivity")
+#: C1 / C7 / C8, bound to the families that take them (lead decisions 5, 12, 13)
+_TABLES = ("replicons", "regions", "region_genes")
 
 
 def with_overrides(cfg: GiapConfig, overrides: Mapping[str, object]) -> GiapConfig:
@@ -61,6 +64,8 @@ def _refit(genes: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
 
 
 def _bind(family: S.Family, tables: Mapping[str, pd.DataFrame]) -> S.Family:
+    """``family`` with the tables it names as parameters bound (a family taking only
+    ``(genes, cfg, rng)`` is returned as is)."""
     params = inspect.signature(family).parameters
     kw = {k: v for k, v in tables.items() if k in params}
     return functools.partial(family, **kw) if kw else family
@@ -69,6 +74,8 @@ def _bind(family: S.Family, tables: Mapping[str, pd.DataFrame]) -> S.Family:
 def run_sensitivity(work_dir: Path, cfg: GiapConfig) -> Path | None:
     """Rerun every registered family under every variant; writes and returns
     ``work_dir/tables/sensitivity.tsv`` (``None`` when ``output.sensitivity = off``)."""
+    out = work_dir / "tables" / "sensitivity.tsv"
+    out.unlink(missing_ok=True)  # a failed or ``off`` run never leaves a stale table
     if cfg.output.sensitivity == "off":
         _log.info(
             "sensitivity: output.sensitivity = off; families %s not rerun", sorted(S.FAMILIES)
@@ -80,9 +87,8 @@ def run_sensitivity(work_dir: Path, cfg: GiapConfig) -> Path | None:
     if any(v.name == "top3" for v in variants) and not genes["top3_log2"].notna().any():
         _log.info("sensitivity: top3 skipped: no peptide intensities")
         variants = [v for v in variants if v.name != "top3"]
-    paths = {k: p for k, p in default_paths(work_dir).items() if p.exists()}
-    m4, _ = load_m4_inputs(paths)
-    tables = {"replicons": m4.replicons, "regions": m4.regions, "region_genes": m4.region_genes}
+    tables, issues = load_tables(default_paths(work_dir), _TABLES)
+    check_issues(issues, _log, "sensitivity")
     base = with_overrides(cfg, {"stats.permutations": S.SENSITIVITY_B})
     runs: list[tuple[str, pd.DataFrame, GiapConfig]] = []
     for v in variants:
@@ -96,7 +102,6 @@ def run_sensitivity(work_dir: Path, cfg: GiapConfig) -> Path | None:
         primary[name] = fam(genes, base, for_step(f"sensitivity/{name}", cfg.seed))
         for vname, g, vcfg in runs:
             reruns[(name, vname)] = fam(g, vcfg, for_step(f"sensitivity/{name}", cfg.seed))
-    out = work_dir / "tables" / "sensitivity.tsv"
     out.parent.mkdir(parents=True, exist_ok=True)
     write_sensitivity_tsv(out, S.sensitivity_rows(primary, reruns))
     _log.info("sensitivity: %d rows (%d variants)", len(reruns), len(variants))

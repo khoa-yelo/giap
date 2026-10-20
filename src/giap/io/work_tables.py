@@ -10,7 +10,7 @@ converted to 0-based (``start - 1``) on read. Content problems are returned as i
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,7 +21,8 @@ from giap.genetable.contract import TABLES, Column, validate_inputs, validate_ta
 from giap.io.issues import Issue, Severity
 from giap.io.tsv import read_tsv
 
-__all__ = ["FILE_NAMES", "M4_INPUT_KEYS", "M4Inputs", "default_paths", "load_m4_inputs"]
+__all__ = ["FILE_NAMES", "M4_INPUT_KEYS", "M4Inputs", "default_paths", "load_m4_inputs",
+           "load_tables"]  # fmt: skip
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,6 +176,16 @@ def _load_table(key: str, path: Path | None, issues: list[Issue]) -> pd.DataFram
         return None if optional else _empty(key)
     issues.extend(validate_table(key, df))
     return df
+
+
+def load_tables(
+    paths: Mapping[str, Path], keys: Sequence[str]
+) -> tuple[dict[str, pd.DataFrame], list[Issue]]:
+    """Read and validate only the contract tables ``keys`` (per-table checks, no cross-table
+    ones); a missing required file is an ``error`` issue and an empty frame stands in."""
+    issues: list[Issue] = []
+    frames = {k: _load_table(k, paths.get(k), issues) for k in keys}
+    return {k: f if f is not None else _empty(k) for k, f in frames.items()}, issues
 
 
 def load_m4_inputs(paths: Mapping[str, Path]) -> tuple[M4Inputs, list[Issue]]:
