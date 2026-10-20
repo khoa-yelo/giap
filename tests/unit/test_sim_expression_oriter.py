@@ -31,14 +31,16 @@ import oric_oracle as oo
 
 MU = 20.0
 NEW_COLUMNS = ("replichore_true", "replichore_position_true")
-# ``simulate_expression`` gene frames before M5-04 (main at ecd3f6f), as CSV sha256:
+# ``simulate_expression`` frames before M5-04 (giapsim at 09df79b), as sha256 of the CSV with every
+# float written to 9 significant digits (``stable_sha``): the raw float bits differ between CPUs
+# (iron-01 vs wheat-05, Slurm 1861237), the rounded text does not (checked on both node types).
 # default = LayoutConfig() seed 1, ExpressionConfig() seed 1; mixed = the M4-08 mixed layout
-# (400 + plasmids 25, 1 + linear 12, 1, origin crossing) seed 1 with MIXED_EXPR, seed 2.
+# (400 + plasmids 25, 1 + linear 12, 1, origin crossing) seed 1 with ``mixed_expr()``, seed 2.
 PRE_M5_GENES_SHA256 = {
-    "default": "32963ce5efe2d24f2a22f3488fd40e9762956824f43de793ba7c558bb1d547a3",
-    "mixed": "fb1c2426d96b141ab71c5476e95b19ac2b921dbbe4f5fb8a0222fa39324579b2",
+    "default": "001ded2931b6168c7c7683d6c552a0b1ff6c22d195caa443880c61975001c649",
+    "mixed": "7ad9628d7f8f5e4bbd0bde0ba3e4a44d018133fe3023769416727dda43a8cf7d",
 }
-PRE_M5_MIXED_ISLANDS_SHA256 = "f63cdebe931aa7da6d05cadb80d91a3f811c4fefca3b25a007171120944895f1"
+PRE_M5_MIXED_ISLANDS_SHA256 = "1057ef543b820bec3df8c1aa92b74b52a473d87a8eadc3cfa79ce160ac95b757"
 MIXED_KW: dict[str, Any] = {
     "n_genes_chromosome": 400, "plasmids": (25, 1), "linear_contigs": (12, 1),
     "origin_crossing": True,
@@ -67,6 +69,16 @@ def mixed_expr() -> dict[str, Any]:
     return {"ar1_rho": 0.9, "detection": "abundance",
             "islands": (_ex().IslandSpec("chr1", 10, 5, 1.5),),
             "region_effect_log2": {"prophage": -2.0}}  # fmt: skip
+
+
+def stable_sha(df: pd.DataFrame) -> str:
+    """sha256 of ``df`` as CSV with floats at 9 significant digits (NaN as ``nan``): insensitive
+    to last-bit floating-point differences between CPUs, sensitive to any real change."""
+    out = df.copy()
+    for c in out.columns:
+        if pd.api.types.is_float_dtype(out[c]):
+            out[c] = ["nan" if math.isnan(v) else f"{v:.9g}" for v in out[c].to_numpy(float)]
+    return hashlib.sha256(out.to_csv(index=False).encode()).hexdigest()
 
 
 def sha(df: pd.DataFrame) -> str:
@@ -278,17 +290,27 @@ def test_zero_gradient_without_oric_is_fine() -> None:
 # ----------------------------------------------------------------------------- byte identity
 
 
-@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="pinned float formatting")
 @pytest.mark.parametrize("name", ["default", "mixed"])
 def test_oriter_zero_keeps_pre_m5_expression(name: str) -> None:
-    """``oriter_log2 = 0`` (default): every pre-M5 column is byte-identical to before M5-04."""
+    """``oriter_log2 = 0`` (default): every pre-M5 column equals its pre-M5-04 value (to 9
+    significant digits, so the pin holds on every CPU) and no extra random draw shifts them."""
     if name == "default":
         ex = express(layout(1), 1)
     else:
         ex = express(layout(1, **MIXED_KW), 2, **mixed_expr())
-        assert sha(ex.islands) == PRE_M5_MIXED_ISLANDS_SHA256
+        assert stable_sha(ex.islands) == PRE_M5_MIXED_ISLANDS_SHA256
     old = [c for c in ex.genes.columns if c not in NEW_COLUMNS]
-    assert sha(ex.genes[old]) == PRE_M5_GENES_SHA256[name]
+    assert stable_sha(ex.genes[old]) == PRE_M5_GENES_SHA256[name]
+
+
+@pytest.mark.parametrize("shape", ["cosine", "linear"])
+def test_explicit_zero_gradient_equals_default_bitwise(shape: str) -> None:
+    """Same node, same seed: ``oriter_log2 = 0.0`` with either shape is bit-identical to a config
+    without the oriter fields (the node-independent half of the check above)."""
+    lay = layout(1, **MIXED_KW)
+    a = express(lay, 2, **mixed_expr())
+    b = express(lay, 2, oriter_log2=0.0, oriter_shape=shape, **mixed_expr())
+    assert sha(a.genes) == sha(b.genes) and sha(a.islands) == sha(b.islands)
 
 
 def test_oric_with_zero_gradient_changes_only_replichore_columns() -> None:
