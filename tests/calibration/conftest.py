@@ -167,6 +167,7 @@ NIGHTLY: frozenset[str] = frozenset(
         "test_mapping_steps_gate.py::test_recall_of_planted_peptides_through_the_steps",
         "test_placement_fdr_genome.py::test_realised_placement_fdr_on_giapsim",
         "test_placement_fdr_sim.py::test_database_shuffled_placement_fdr",
+        "test_placement_fdr_sim.py::test_database_stratum0_pi_hat_covers_the_wrong_share",
         "test_placement_fdr_sim.py::test_denovo_error_model_placement_fdr",
         "test_placement_fdr_sim.py::test_related_dbstrain_correct_peptides_stratum0",
         "test_placement_fdr_sim.py::test_related_other_strain_placement_fdr",
