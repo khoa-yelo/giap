@@ -138,9 +138,14 @@ def test_example_7_exclude_keeps_every_o_minus_e_id(
     rec = sd.Recorder()
     real = S.regions_family
 
-    def family(genes: pd.DataFrame, cfg: Any, rng: np.random.Generator) -> frozenset[str]:
+    def family(
+        genes: pd.DataFrame, cfg: Any, rng: np.random.Generator, *,
+        regions: pd.DataFrame, region_genes: pd.DataFrame, replicons: pd.DataFrame,
+    ) -> frozenset[str]:  # fmt: skip
         rec(genes, cfg, rng)
-        return real(genes, cfg, rng)
+        return real(
+            genes, cfg, rng, regions=regions, region_genes=region_genes, replicons=replicons
+        )
 
     monkeypatch.setattr(S, "FAMILIES", {"regions": family})
     _run(work, sd.config())
