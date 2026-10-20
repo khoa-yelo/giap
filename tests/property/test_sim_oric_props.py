@@ -51,6 +51,7 @@ def test_oric_placement_invariants(kw: dict[str, Any], seed: int) -> None:
     assert tuple(f.columns) == oo.FEATURE_COLUMNS
     assert f["type"].tolist() == ["oric"] and f["contig"].tolist() == ["chr1"]
     assert f["strand"].tolist() == ["."]
+    assert f["feature_id"].tolist() == ["chr1_oric1"]
     n = int(lay.replicons.set_index("contig").loc["chr1", "length"])
     s, e = int(f["start"].iloc[0]), int(f["end"].iloc[0])
     assert e - s == oo.ORIC_LEN and 0 <= s < n and e <= 2 * n

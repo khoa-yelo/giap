@@ -10,7 +10,8 @@ Interpretations pinned here (reported to the lead):
   the gaps the 232-bp feature fits in (width >= 232; most inter-TU gaps are 50-300 bp), the wrap gap
   across the origin included; the feature is centred in that gap (+/- 1 bp for odd widths);
 - placing the oriC moves no gene: every other frame is identical to ``oric_frac = None``;
-- ``feature_id`` ends in ``_oric1`` (the prefix is the simulator's; not pinned further).
+- ``feature_id`` is ``<contig>_oric1``, i.e. ``chr1_oric1`` (lead decision 15);
+- no gap of width >= 232 -> ``ValueError`` naming ``oric_frac`` (lead decision 14).
 """
 
 from __future__ import annotations
@@ -147,7 +148,7 @@ def test_example2_one_oric_row(half: Any) -> None:
     row = oric_row(half)
     assert row["type"] == "oric" and row["contig"] == "chr1" and row["strand"] == "."
     assert int(row["end"]) - int(row["start"]) == oo.ORIC_LEN
-    assert str(row["feature_id"]).endswith("_oric1")
+    assert row["feature_id"] == "chr1_oric1"  # lead decision 15
     n = chr1_length(half)
     assert 0 <= int(row["start"]) < n and int(row["end"]) <= 2 * n
     for c in ("amino_acid", "anticodon"):
@@ -241,6 +242,30 @@ def test_oric_frac_outside_unit_interval_is_value_error(frac: float) -> None:
     with pytest.raises(ValueError, match="oric_frac"):
         simulate_layout(LayoutConfig(n_genes_chromosome=100, oric_frac=frac),
                         np.random.default_rng(1))  # fmt: skip
+
+
+# One-TU, three-gene chromosomes whose every gap (wrap gap included) is < 232 bp (seeds found on
+# main at ecd3f6f; the test re-checks the widths so a layout change cannot make it vacuous).
+DENSE_KW: dict[str, Any] = {"n_genes_chromosome": 3, "mean_tu_size": 1000.0, "regions": ()}
+DENSE_SEEDS = (6, 17, 22)
+
+
+@pytest.mark.parametrize("seed", DENSE_SEEDS)
+def test_no_fitting_gap_is_value_error(seed: int) -> None:
+    """Lead decision 14: when no chr1 gap is >= 232 bp, ``ValueError`` naming ``oric_frac``."""
+    lay = simulate(seed, **DENSE_KW)
+    widths = [b - a for a, b in oo.chr1_gaps(lay.genes, chr1_length(lay))]
+    assert max(widths) < oo.ORIC_LEN, widths
+    with pytest.raises(ValueError, match="oric_frac"):
+        simulate(seed, oric_frac=0.5, **DENSE_KW)
+
+
+def test_feature_id_is_contig_oric1_for_every_layout() -> None:
+    """Lead decision 15: ``<contig>_oric1``, also with plasmids, contigs and origin crossing."""
+    for seed in (1, 2):
+        lay = simulate(seed, n_genes_chromosome=300, plasmids=(20,), linear_contigs=(10,),
+                       origin_crossing=True, oric_frac=0.2)  # fmt: skip
+        assert lay.features["feature_id"].tolist() == ["chr1_oric1"]
 
 
 @pytest.mark.parametrize("frac", [0.0, 0.001, 0.999])

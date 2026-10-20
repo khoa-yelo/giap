@@ -169,7 +169,7 @@ def hand_layout(
     feats = pd.DataFrame({c: pd.Series([], dtype=object) for c in FEATURE_COLUMNS})
     if oric is not None:
         feats = pd.DataFrame(
-            [("GSIM_oric1", "oric", "chr1", int(oric[0]), int(oric[1]), ".", None, None, None,
+            [("chr1_oric1", "oric", "chr1", int(oric[0]), int(oric[1]), ".", None, None, None,
               None)],
             columns=list(FEATURE_COLUMNS),
         ).astype({"start": "int64", "end": "int64"})  # fmt: skip
