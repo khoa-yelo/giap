@@ -36,6 +36,33 @@
       "layers"
     ]
   },
+  "context_stats": {
+    "inputs": [
+      "annotation_meta",
+      "gene_table",
+      "genes",
+      "layers",
+      "peptide_hits",
+      "protein_hits",
+      "region_genes",
+      "regions",
+      "replicons",
+      "tus",
+      "unmapped",
+      "xrefs"
+    ],
+    "optional_inputs": [
+      "abundance",
+      "id_map",
+      "peptides",
+      "replicon_depth",
+      "summary_parts"
+    ],
+    "outputs": [
+      "detection_summary",
+      "regions_stats"
+    ]
+  },
   "loci": {
     "inputs": [
       "features",
