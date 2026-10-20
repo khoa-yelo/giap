@@ -1,0 +1,147 @@
+# M5-05: Autocorrelation: Moran's I and join counts per replicon with both nulls; calibration
+
+Milestone M5 · track R (context statistics) · depends on: M5-01 (LOESS), M5-02 (Moran, join count,
+permutations) · calibration needs M5-04 scenarios (M4-05 harness, M4-07/08 simulator merged) ·
+estimate ≈ 330 code lines (+ ≈ 400 test lines) · **statistical** (label `stats`) · code can start now on
+hand-built frames; calibration full mode on **Slurm** (R = 1,000)
+
+## Spec sections implemented
+
+- §7.3.5(c) quoted: "Values. x = log2-abundance residuals of detected genes, after removing the replicon
+  mean and a wide LOESS trend along gene index (span = 10 % of genes, circular padding on circular
+  replicons). Moran's I at lag k = 1 … 20 … Join-count for detection. BB_k = the number of lag-k pairs of
+  eligible genes where both are detected. Two nulls, B permutations each: gene label … TU block …
+  Reporting. Two-sided p per lag and null (centred on the null mean); BH across lags within each null;
+  2.5–97.5 % envelopes for V10."
+- §8.1 "Autocorrelation | lag | gene-label and TU-block permutation | BH across lags | 0.05".
+- §8.4 "Autocorrelation | gene-level noise (label null); TU-structured noise without inter-TU structure
+  (TU null) | level | 100 | 1,000"; §8.5 attack 1; §7.3.6 "autocorrelation tests at level under the
+  TU-block null".
+- §9.3 `tables/autocorrelation.tsv` rows with `statistic ∈ {morans_i, join_count_bb}`; §9.2 test columns.
+- §5.2 `context.moran_lags: [1, 20]`, `stats.permutations`.
+
+## Public interface
+
+`src/giap/context/autocorrelation.py` (pure)
+```python
+AUTOCORR_COLUMNS: tuple[str, ...]   # contig, statistic, lag, null_model, value, null_mean, null_lo,
+                                    # null_hi, stat, effect, ci_low, ci_high, p_value, q_value, method,
+                                    # n_perm, flags
+def moran_values(ix: pd.DataFrame, circular: bool, span_frac: float = 0.10) -> F64: ...
+def replicon_autocorrelation(ix: pd.DataFrame, contig: str, circular: bool, lags: Sequence[int],
+                             B: int, rng: np.random.Generator) -> pd.DataFrame: ...
+def autocorrelation_rows(genes: pd.DataFrame, replicons: pd.DataFrame, cfg: GiapConfig,
+                         rng: np.random.Generator) -> pd.DataFrame: ...   # adds q_value
+```
+- **Index.** `giap.context.regions.replicon_index(genes, contig)` (merged M4-17): eligible genes = not
+  partial and `p_detect` present, genome order, idx 0 … N − 1, columns `d`, `a` (log2 abundance of
+  detected genes, NaN otherwise), `tu_id`. Same index as the region tests.
+- **Values (`moran_values`).** Genes with finite `a`: subtract their mean, then `loess_detrend` with
+  `pos` = idx, frac 0.10, `circular`, `period` = N; x = residuals at those genes, NaN elsewhere.
+- **Lags.** `context.moran_lags = [lo, hi]` is an inclusive range (default 1 … 20); lags > `max_lag(N,
+  circular)` are reported as rows with NA statistics and flag `not_estimable` (so every replicon has the
+  same row grid).
+- **Nulls** (B = `stats.permutations`, one permutation matrix per null and replicon, shared by all lags
+  and both statistics):
+  - `gene_label`: Moran — permute x among the genes with values (`movable` = has value, missingness
+    fixed); join count — permute d among all eligible genes;
+  - `tu_block`: `tu_block_permutations(tu_blocks(tu_id, circular))` applied to x (with its NaNs) and d
+    jointly.
+  The detrended x is permuted as is (no re-detrending per permutation).
+- **Rows.** Per replicon (C1 order) × statistic (`morans_i`, `join_count_bb`) × `null_model`
+  (`gene_label`, `tu_block`) × lag: `value` = I_k or BB_k; `lag_test` gives `null_mean`, `null_lo`,
+  `null_hi`, `p_value`, `n_perm` = valid null draws; `stat` = statistic name; `effect` = value −
+  null_mean; `ci_low`/`ci_high` = NA (see Q2); `method` = `moran_i_permutation` /
+  `join_count_permutation`.
+- **q_value.** BH (`giap.stats.multitest.bh`, NaN-aware) within each (contig, statistic, null_model) over
+  its lags.
+- **Flags.** `not_estimable` whenever the value or p is NA (invalid lag, n < 2 values, no pair, zero
+  variance, degenerate null); additionally `few_values` when fewer than 10 genes have values (the test
+  still runs). (Vocabulary additions: M5-09.)
+- **RNG.** `giap.rng.for_step("context_stats.autocorrelation", seed)`; replicons in C1 order, within a
+  replicon: label matrix for x, label matrix for d, then the TU-block matrix.
+
+## Degenerate cases (the estimator does not exist)
+
+| Situation | Rows |
+|---|---|
+| replicon with no eligible gene | all rows NA, `n_perm 0`, flag `not_estimable` |
+| no detected gene | Moran rows NA (no values); join-count `value` 0, null constant → `p_value` NA, `not_estimable` |
+| every eligible gene detected | Moran rows computed normally; join-count `value` = number of lag-k pairs, null constant → `p_value` NA, `not_estimable` |
+| 1 gene with a value | Moran rows NA, `not_estimable` |
+| all values equal after detrending | Moran NA (zero variance) |
+| single TU on the replicon | `tu_block` null is the identity → `p_value` NA, `not_estimable`; `gene_label` rows normal |
+| circular replicon with N = 30 | lags 1–14 computed; 15–20 NA, `not_estimable` |
+
+## Examples
+
+| # | Input | Expected |
+|---|---|---|
+| 1 | 10-gene circular replicon, every gene detected and its own TU, detrended x alternating ±1 | `morans_i` lag 1 value −1.0; lags 5–20 NA (`max_lag` 4) |
+| 2 | 1,000-gene default layout, one replicon | 2 × 2 × 20 = 80 rows, sorted contig, statistic, null_model, lag |
+| 3 | `tu_null` scenario (strong within-TU correlation, none across) | `morans_i` lag 1 `gene_label` p ≤ 0.01 and `tu_block` p > 0.01 in ≥ 80 % of 20 seeds |
+| 4 | any replicon | `q_value` ≥ `p_value` row-wise; q NA exactly where p NA |
+| 5 | `stats.permutations = 199` | `n_perm` 199 on every estimable row |
+| 6 | 30-gene circular plasmid + 1,000-gene chromosome | plasmid lags 15–20 NA with `not_estimable`; BH family of the plasmid has 14 tests |
+| 7 | same seed twice | identical frames (bitwise) |
+| 8 | a replicon with no detected gene | Moran rows NA; join-count rows `value 0`, `p_value` NA, `not_estimable` |
+
+## Acceptance criteria
+
+- [ ] `tests/unit/context/test_autocorrelation.py`: examples 1, 2, 4–8 and every row of the degenerate
+  table.
+- [ ] **Calibration** `tests/calibration/test_autocorrelation.py` (suite `autocorrelation`, R = 100 fast /
+  1,000 full, 1,000-gene layout fast, 4,500 full; `p_detect = p_detect_true`, abundance =
+  `abundance_log2_true` for detected genes):
+  - `label_null`: `check_level_pooled` over the 20 lags at α ∈ {0.01, 0.05, 0.10} for each
+    (statistic, null_model) — both nulls must hold;
+  - `tu_null`: the same for `null_model = tu_block` (both statistics);
+  - teeth (recorded, not gated): `gene_label` rejection rate under `tu_null` at lag 1 ≥ 0.8.
+- [ ] **Attack 1** (statistician, `tests/calibration/attacks/test_attack_autocorr.py`): `tu_null` plus an
+  ori–ter cosine of 2 log2 (`oriter_gradient` with ρ = 0) → `tu_block` rows at level (the LOESS removes
+  the gradient); the same without detrending is recorded to show the attack has teeth.
+- [ ] Performance: 4,500-gene replicon, B = 1,000, both nulls, 20 lags < 30 s on 4 CPUs (benchmark).
+- [ ] mypy, ruff; coverage ≥ 90 % of the module.
+
+## Methods note (statistician sign-off)
+
+`docs/methods/autocorrelation.md`: values and detrending, the two estimands, the missingness choice of the
+label null, TU blocks, degenerate nulls, BH across lags within (contig, statistic, null), why no CI
+(Q2), calibration and attack evidence, the known small negative bias of Moran's I after detrending
+(≈ −1/k) and that it enters observed and null alike only for the TU-block null (it is checked by the
+calibration).
+
+## Questions for the lead
+
+1. Gene-label null for Moran: permute values among genes **with** values (missingness fixed) or among all
+   eligible genes (missingness moves)? **Proposed default:** among genes with values — the join count
+   already tests where detected genes sit; Moran then asks only about abundance.
+2. §8.2 asks for a 95 % CI with every p. Moran and join-count rows have the null envelope
+   (`null_lo`/`null_hi`) but no CI of the statistic itself; a block-bootstrap CI for a lag-k
+   autocorrelation needs blocks ≫ k and is uncalibrated. **Proposed default:** `effect` = value −
+   null_mean, `ci_low`/`ci_high` = NA, documented in the methods note; record as an ADR (deviation from
+   §8.2 for this table only) if the lead agrees.
+3. BH family per (contig, statistic, null_model) — §8.1 says "across lags" without naming the contig.
+   **Proposed default:** per contig; replicons answer separate questions.
+4. Join count ignores detectability: a cluster of short genes (low `p_detect`) gives low BB under both
+   nulls even with no abundance structure. The spec's nulls are kept; the statistician adds a recorded
+   (not gated) scenario with detectability clustered beyond TUs. **Proposed default:** keep the spec;
+   if that scenario shows the TU-block join count far off level, propose an ADR with the residual join
+   count Σ (d_i − p_i)(d_j − p_j) (same idea as ADR-0018).
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+
+ADR-0020 accepted by Khoa 2026-10-20: the spec's "detrend then permute" is anti-conservative (pooled 0.096 /
+0.155 at α 0.05) and the raw join count fails under clustered detectability. When accepted:
+14. Q1: the gene-label null keeps the missingness pattern; it permutes the pre-detrended values among genes
+    with values and detrends every replicate.
+15. Q2: CI NA with flag `ci_unestimated` (ADR-0020 decision 4).
+16. Q3: BH family per (contig, statistic, null_model); contigs with < 10 values get `few_values`.
+17. Q4: residual join count now (ADR-0020 decision 3): `value` = raw BB_k, `stat`/`effect` = residual
+    statistic − null mean.
+18. Gates per (statistic, null), α ∈ {0.01, 0.05, 0.10}: lag-1 level, lag-20 level, BH-family
+    any-rejection rate (FWER bound); pooled 20-lag rate recorded only.
+19. Statistician attack file tests/calibration/attacks/test_attack_autocorr.py: (a) TU null + 2 log2
+    cosine, (b) label null + gradient, (c) short-gene prophage under TU null (join count) — gated; (d)
+    no-detrend teeth — recorded.
+20. Methods note: large-lag negative I under strong short-range correlation is a span artefact.

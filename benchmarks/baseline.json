@@ -33,5 +33,30 @@
     "node_class": "FarmShare iron (AMD EPYC 7742)",
     "date": "2026-10-15",
     "issue": "M3-17"
+  },
+  "annotation_steps": {
+    "_comment": "M2-21: median of 5 rounds (after 1 warm-up) per node class; nightly task 1 (wheat) fails on > benchmark_slowdown_max (ci/gates.yaml) above the entry of its class.",
+    "wheat": {
+      "producer_chain_sim100k": {
+        "benchmark": "benchmarks/test_annotation_steps.py::test_producer_chain_sim100k",
+        "median_s": 1.2724,
+        "node": "wheat-03",
+        "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+        "slurm_job": 1852063,
+        "commit": "1a6cba7",
+        "date": "2026-10-16",
+        "rounds": 5
+      },
+      "context_layers_sim100k": {
+        "benchmark": "benchmarks/test_annotation_steps.py::test_context_layers_sim100k",
+        "median_s": 0.1519,
+        "node": "wheat-03",
+        "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+        "slurm_job": 1852063,
+        "commit": "1a6cba7",
+        "date": "2026-10-16",
+        "rounds": 5
+      }
+    }
   }
 }

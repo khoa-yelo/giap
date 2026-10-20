@@ -36,6 +36,37 @@
       "layers"
     ]
   },
+  "detectability": {
+    "inputs": [
+      "genes_pre"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "detectability_summary",
+      "gene_table"
+    ]
+  },
+  "gene_table": {
+    "inputs": [
+      "annotation_meta",
+      "genes",
+      "layers",
+      "mapping",
+      "replicons",
+      "tus",
+      "xrefs"
+    ],
+    "optional_inputs": [
+      "abundance",
+      "cog2020_def",
+      "id_map",
+      "peptides",
+      "preflight"
+    ],
+    "outputs": [
+      "genes_pre"
+    ]
+  },
   "loci": {
     "inputs": [
       "features",

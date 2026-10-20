@@ -165,7 +165,8 @@ def _load_table(key: str, path: Path | None, issues: list[Issue]) -> pd.DataFram
         issues.append(_issue(key, "missing_file", f"missing {'optional ' * optional}{where}", sev))
         return None if optional else _empty(key)
     try:
-        if path.name.endswith(".parquet"):
+        # by key, not file name: the local executor stores ``workdir / key`` without a suffix
+        if FILE_NAMES[key].endswith(".parquet"):
             df = _read_parquet_table(key, path)
         else:
             df = _read_tsv_table(key, path)
