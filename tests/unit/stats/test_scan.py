@@ -488,3 +488,79 @@ def _run(disable_jit: bool) -> str:
 
 def test_numba_disabled_identical() -> None:
     assert _run(disable_jit=True) == _run(disable_jit=False)
+
+
+# ---- decision 17: non-finite |S| in fwer_p -------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
+def test_fwer_p_nonfinite_s_is_nan(bad: float) -> None:
+    p = fwer_p([1.5, bad, 0.5], [1.0, 2.0, 3.0])
+    assert p.shape == (3,)
+    assert np.isnan(p[1])
+    np.testing.assert_allclose(p[[0, 2]], [3 / 4, 1.0], rtol=0, atol=1e-15)
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
+def test_fwer_p_nonfinite_s_is_nan_with_infinite_null(bad: float) -> None:
+    p = fwer_p([bad], [1.0, np.inf, -np.inf, np.nan])
+    assert p.shape == (1,) and np.isnan(p[0])
+
+
+def test_fwer_p_nan_max_abs_of_windowless_replicon() -> None:
+    res = scan_max([1.0], 2, 3, circular=False)
+    assert math.isnan(res.max_abs)
+    p = fwer_p([res.max_abs], [1.0, 2.0])
+    assert p.shape == (1,) and np.isnan(p[0])
+    p = fwer_p(np.abs(res.s), [1.0, 2.0])
+    assert p.shape == (0,)
+
+
+# ---- decision 18: input checks -----------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad", [np.float64(1.0), np.ones((2, 2))], ids=["0d", "2d"])
+def test_fwer_p_rejects_non_1d(bad: np.ndarray) -> None:
+    with pytest.raises(ValueError):
+        fwer_p(bad, [1.0, 2.0])
+    with pytest.raises(ValueError):
+        fwer_p([1.0, 2.0], bad)
+
+
+def test_merge_windows_rejects_non_1d_significant() -> None:
+    res = make_res([(0, 2, 3.0), (1, 2, 3.0)])
+    with pytest.raises(ValueError):
+        merge_windows(res, np.ones((1, 2), bool), 10, circular=False)
+    with pytest.raises(ValueError):
+        merge_windows(res, np.ones((2, 1), bool), 10, circular=False)
+    with pytest.raises(ValueError):
+        merge_windows(make_res([(0, 2, 3.0)]), np.bool_(True), 10, circular=False)
+
+
+@pytest.mark.parametrize("circular", [False, True])
+def test_merge_windows_rejects_negative_n(circular: bool) -> None:
+    empty = scan_max(np.zeros(0), 2, 3, circular)
+    with pytest.raises(ValueError):
+        merge_windows(empty, np.zeros(0, bool), -1, circular)
+
+
+@pytest.mark.parametrize("circular", [False, True])
+def test_merge_windows_n0(circular: bool) -> None:
+    res = scan_max(np.zeros(0), 2, 3, circular)
+    assert res.s.size == 0 and math.isnan(res.max_abs)
+    assert merge_windows(res, np.zeros(0, bool), 0, circular) == []
+    assert merge_windows(res, [], 0, circular) == []
+
+
+@pytest.mark.parametrize("bad", [np.float64(1.0), np.ones((2, 5))], ids=["0d", "2d"])
+@pytest.mark.parametrize("circular", [False, True])
+def test_scan_max_rejects_non_1d(bad: np.ndarray, circular: bool) -> None:
+    with pytest.raises(ValueError):
+        scan_max(bad, 1, 3, circular)
+
+
+@pytest.mark.parametrize("bad", [np.ones(5), np.ones((2, 5, 1))], ids=["1d", "3d"])
+@pytest.mark.parametrize("circular", [False, True])
+def test_scan_null_max_rejects_non_2d(bad: np.ndarray, circular: bool) -> None:
+    with pytest.raises(ValueError):
+        scan_null_max(bad, 1, 3, circular)
