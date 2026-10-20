@@ -141,8 +141,12 @@ Two places react to imputed values:
 - Preflight warns when more than 20 % of values are missing (`abundance_missing_warn_frac`).
 
 The fill statistic is genome-wide, not per replicon. On a high-copy plasmid the imputed value is the
-chromosome-dominated median. Region tests treat plasmids as replicon-level effects (§8.5 attack 4),
-so this affects only within-plasmid comparisons.
+chromosome-dominated median. **Correction (M4-18 lead decision 2):** this does not only affect
+within-plasmid comparisons. The plasmid replicon-level effect (`regions_stats.tsv`, `hl_shift` of a
+`plasmid_*` region) contrasts the plasmid's raw log2 abundance with the chromosome's, and imputed
+plasmid genes sit at the chromosome median, which pulls that contrast towards 0. Imputed genes
+(`abundance_imputed = true`) are therefore excluded from both sides of the plasmid HL; they still
+count as detected in O − E (docs/methods/region-tests.md, "Replicon-level effects").
 
 ## Simulation evidence
 

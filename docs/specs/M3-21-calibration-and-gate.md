@@ -70,3 +70,43 @@ All seeds derive from `seeds.calibration_base`; each replicate uses `base + r`.
 2. Strata with very few accepted peptides per replicate (m = 2 at 100 kb): **Proposed default:**
    assert per-stratum FDR only where the mean accepted count per replicate is ≥ 1; always assert
    the pooled FDR.
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+1. Q1 accepted: a peptide is a false placement only when none of its accepted loci overlaps a true
+   origin; a correct peptide also accepted at an equal-cost wrong locus is not false (uniqueness makes
+   it `shared`/`multi_identical`).
+2. True origin per row type: correct database peptide → all its truth `locus_tag` copies; de novo row →
+   the loci of its spectrum's `true_peptide`, whatever the error type; other-strain peptide → the lifted
+   ortholog locus in the sample; shuffled/random peptide → none. "Overlap" = same contig, strand and
+   frame, covering ≥ 50 % of the true interval.
+3. Anti-gaming guard: assert no accepted peptide with a non-origin accepted locus is labelled `unique`
+   unless all its loci lie in its true gene; report the locus-level false share as a diagnostic.
+   Include the mutant "placement adds all loci of cost ≤ m_T + 1" and show this check kills it.
+4. Q2 rejected: assert the FDR for every list (decoy type × m) the suite exercises, regardless of the
+   accepted count, plus the pooled FDR, under the existing two-block confirmation. "Exercised" is decided
+   from the truth (mean ≥ 1 wrong or non-origin peptide with a target hit in that stratum per
+   replicate); a claimed stratum that is not exercised is a suite-configuration error, not a skip.
+5. Pooled FDP: over the union of accepted peptides per replicate, each peptide once (its best-cost list).
+6. ADR-0010's PEP–length correlation: giapsim has Cov = 0 by construction; record in the methods note
+   that the measurement moves to A2/M3-24 (no new simulator variant here).
+7. PENDING (needs an ADR from Khoa): the related-genome suite with `search_db = other` and correct
+   peptides drawn from the database strain underestimates stratum-0 false placements (statistician B2).
+   Until the ADR is decided, write that case as a strict `xfail` with reason "ADR pending: stratum-0 π̂
+   for search_db=other"; the rest of M3-21 proceeds.
+
+## Lead decisions after ADR-0019 (accepted by Khoa, 2026-10-20)
+8. Decision 7 is replaced: the genome-level related suite keeps a normal FDP gate (it passes under the
+   current rule, ≤ 0.0005 at 1 Mb, so a strict xfail would XPASS). Add the estimate check the statistician
+   specified (related suite, `search_db = other`, correct peptides from the M3-18 reference strain's lifted
+   proteins via test-local construction as in the statistician's b2sim.py `--mode strain`; per replicate and
+   decoy type at m = 0, assert mean(Ŵ0 = fdr_stratum × targets) ≥ mean(V0) − 2 SE at 1 Mb with SNV ≥ 2/kb),
+   `calibration_full`, strict xfail "ADR-0019 implementation pending".
+9. `test_database_stratum0_pi_hat_covers_the_wrong_share[3]` stays as the min-collapse regression under the
+   same strict xfail; the [1] control stays a normal test.
+10. The statistician's attack file tests/calibration/attacks/test_attack_placement_strain_span.py is
+    committed by the lead (strict xfail through `placement` until ADR-0019 is implemented); its edge-case
+    unit test gets the calibration marker or moves under tests/unit.
+11. De novo precision gates against the realised share of correct distinct peptides per bin (ADR-0019
+    decision 5).
+12. ADR-0019 is implemented in a separate PR after M3-21 merges; it flips the xfails and updates the tests
+    that encode π̂ = mean PEP (listed in the ADR's Consequences).
