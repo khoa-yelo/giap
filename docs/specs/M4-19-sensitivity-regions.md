@@ -129,3 +129,8 @@ sets, the single-peptide rerun refits detectability.
     (the step loads the gene table plus regions, region_genes and replicons). Decision 15 reading
     confirmed: under `top3`, `abundance_raw` holds the Top3 raw value, so log2(abundance_raw) = top3_log2
     on observed genes.
+18. (statistician review of #117) Methods-note fixes only: common random numbers hold only with
+    exhaustive shifts (≤ `exhaustive_shift_max_genes`, every bacterial replicon); with sampled shifts a
+    change in one region shifts later regions' draws (measured: O−E p moved by up to 0.075). Single-peptide
+    genes keep their observed one-peptide abundance. Add an interpretation paragraph. Backlog: per-region
+    shift stream in M4-17 `test_region`; skip or shrink bootstrap CIs in sensitivity reruns.
