@@ -148,3 +148,13 @@ None new; the statistician checks that `p_detect` is attached only from cross-fi
     already a directory, and `gene_table` accepts `preflight` as `preflight.json` or a directory holding
     it (implementer, 9838394). Backlog: give staged root inputs their own namespace so keys never collide
     with executor directories.
+
+## Lead decisions after the re-review of PR #111
+20. Tests (blocking): (a) `m4_paths` turns a `preflight` directory into its `preflight.json` and the
+    abundance scale is read from it; (b) a local run with an abundance input checks that
+    `work/preflight/preflight.json` exists, `abundance` was staged, no `contract.preflight.abundance_scale`
+    issue is logged and the abundance columns are filled; (c) a `stage_roots` test for the directory case.
+21. `stage_roots`' copy-into-directory branch applies to the `preflight` key only (other keys still fail
+    loudly on a directory) until the backlog namespace item lands.
+22. `cog_table` moves out of `giap.runner.local` into `giap.setupdb` (or io), using a public accessor
+    instead of `setupdb.items._load_sources`; steps do not import the executor.
