@@ -171,3 +171,10 @@ rule implemented here.
     50 % islands) so the two-block gate has teeth.
 20. Decision 14 stays (NaN p for any constant null); the statistician's power note for sparse raw nulls
     is recorded, not adopted.
+21. (statistician re-review) A non-NaN p outside [0, 1] raises `ValueError` in `join_count` /
+    `join_count_matrix` (an upstream bug must not be silently dropped); p ∈ {0, 1} and NaN stay missing.
+22. Methods note edits before sign-off: the constant-null paragraph says 1/(B + 1) is a valid p when the
+    observation differs from a constant null and NA is kept as a conservative choice that avoids
+    enlarging the BH family without adding information; the join-count paragraph states the assumption
+    that cross-fitted p_detect is calibrated (a rejection means clustering beyond the detectability
+    model).
