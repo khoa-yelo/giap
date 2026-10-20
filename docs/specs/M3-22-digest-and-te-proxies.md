@@ -81,3 +81,17 @@ at defaults ≤ 0.01; tolerant and unmapped shares reported.
    the full-DB recording for TE1; the light-DB fallback is not needed.
 3. TE8 (UniProt K-12) needs the network: it runs only in the weekly job (marker `e2e`/`slow` as the
    spec says); unit and CI tests use a small recorded excerpt with PROVENANCE.md, never the network.
+
+## Lead decisions after the test-author's report (2026-10-20)
+4. Counting unit for "peptides": distinct peptide sequences (exact string, no I=L collapsing), each
+   counted once per proxy; per-product counts may be reported as a diagnostic only.
+5. "Non-ATG start" (TE1): strict reading — the gene's first codon in the genome is not ATG **and** the
+   Bakta protein starts with `M`. Truncated "Edge" genes whose protein starts with the genome-encoded
+   residue are ordinary peptides (they match exactly).
+6. TE8 applies the same exclusion as TE1: N-terminal peptides of K-12 genes with a non-ATG start
+   (UniProt also writes `M`) leave the K-12 exact-share denominator and are counted separately
+   (`non_atg_nterm`). Otherwise the 0.995 gate mostly measures start annotation (480 of 525 misses on
+   the full proteome are N-terminal). Tests pin the share with the exclusion.
+7. `nissle_exact` counts accepted exact placements (route = exact); bounds as the tests have them.
+8. `validation/` is importable from the repo root (namespace package). The TE8 weekly entry in
+   `scripts/slurm/weekly.sbatch` is added after #107 (M2-21) merges; backlog item.
