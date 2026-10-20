@@ -1,5 +1,42 @@
 {
   "_comment": "Accepted runtime and accuracy numbers (GIAP_SPEC.md \u00a712; updates by ADR with before/after numbers). Seconds are wall clock.",
+  "annotation_steps": {
+    "_comment": "M2-21: median of 5 rounds (after 1 warm-up) per node class; nightly task 1 (wheat) fails on > benchmark_slowdown_max (ci/gates.yaml) above the entry of its class.",
+    "wheat": {
+      "producer_chain_sim100k": {
+        "benchmark": "benchmarks/test_annotation_steps.py::test_producer_chain_sim100k",
+        "median_s": 1.2724,
+        "node": "wheat-03",
+        "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+        "slurm_job": 1852063,
+        "commit": "1a6cba7",
+        "date": "2026-10-16",
+        "rounds": 5
+      },
+      "context_layers_sim100k": {
+        "benchmark": "benchmarks/test_annotation_steps.py::test_context_layers_sim100k",
+        "median_s": 0.1519,
+        "node": "wheat-03",
+        "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+        "slurm_job": 1852063,
+        "commit": "1a6cba7",
+        "date": "2026-10-16",
+        "rounds": 5
+      }
+    }
+  },
+  "autocorr_morans_i_matrix_b1000_n4500_20_lags": {
+    "benchmark": "benchmarks/test_autocorr_bench.py::test_morans_i_matrix_b1000_n4500_20_lags_budget",
+    "budget_s": 5.0,
+    "secs": 0.14,
+    "B": 1000,
+    "n_genes": 4500,
+    "lags": 20,
+    "node_class": "FarmShare iron (AMD EPYC 7742)",
+    "threads": 1,
+    "date": "2026-10-20",
+    "issue": "M5-02"
+  },
   "detectability": {
     "source": "docs/specs/M4-13-detectability.md lead decision 8",
     "d1_fast": {
@@ -33,31 +70,6 @@
     "node_class": "FarmShare iron (AMD EPYC 7742)",
     "date": "2026-10-15",
     "issue": "M3-17"
-  },
-  "annotation_steps": {
-    "_comment": "M2-21: median of 5 rounds (after 1 warm-up) per node class; nightly task 1 (wheat) fails on > benchmark_slowdown_max (ci/gates.yaml) above the entry of its class.",
-    "wheat": {
-      "producer_chain_sim100k": {
-        "benchmark": "benchmarks/test_annotation_steps.py::test_producer_chain_sim100k",
-        "median_s": 1.2724,
-        "node": "wheat-03",
-        "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
-        "slurm_job": 1852063,
-        "commit": "1a6cba7",
-        "date": "2026-10-16",
-        "rounds": 5
-      },
-      "context_layers_sim100k": {
-        "benchmark": "benchmarks/test_annotation_steps.py::test_context_layers_sim100k",
-        "median_s": 0.1519,
-        "node": "wheat-03",
-        "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
-        "slurm_job": 1852063,
-        "commit": "1a6cba7",
-        "date": "2026-10-16",
-        "rounds": 5
-      }
-    }
   },
   "scan_null_max_b1000_n2500": {
     "benchmark": "benchmarks/test_scan_bench.py::test_scan_null_max_b1000_n2500_budget",
