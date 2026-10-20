@@ -96,3 +96,13 @@ None new; the statistician checks that `p_detect` is attached only from cross-fi
    assembled into `datapackage.json` by `finalize` later? **Proposed default:** yes.
 3. `cog_category` needs the COG 2020 table from `giap setup --cog` (M2-09). **Proposed default:**
    read it when installed, else `NA` with run flag `layer_missing:cog`.
+
+## Lead decisions (2026-10-20)
+1. M2-02's `@step` registry has merged: register `gene_table` and `detectability` with it now (not in
+   M4-20), and regenerate `workflow/tests/data/annotate/step_registry.json` if the registry snapshot
+   test requires it.
+2. Yes: one resource file per table under `src/giap/schemas/tables/` (as M3-16); `finalize` assembles
+   `datapackage.json` later.
+3. Yes: read the COG 2020 table when `giap setup --cog` installed it (manifest entry `cog2020_def`/
+   `cog2020_fun`); otherwise `cog_category = NA` and run flag `layer_missing:cog`. Tests use a tiny
+   fixture COG table, never the real `$GIAP_DB_DIR`.
