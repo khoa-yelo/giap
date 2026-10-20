@@ -16,7 +16,9 @@ columns, ``abundance_imputed`` false) and outputs under ``work_dir/tables/``. Th
 from __future__ import annotations
 
 import json
+import logging
 import math
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -89,22 +91,37 @@ def _drop_plasmid_regions(work: Path, genes: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _build(work: Path, *, copy_log2: float = 0.0, plasmid: bool = True,
-           depth: dict[str, float] | None = None) -> Path:  # fmt: skip
-    """Write the fixture to ``work``, run the step, return ``tables/regions_stats.tsv``."""
-    from giap.steps.context_stats import run_context_stats
-
+def _prepare(work: Path, *, copy_log2: float = 0.0, plasmid: bool = True,
+             depth: dict[str, float] | str | None = None) -> Path | None:  # fmt: skip
+    """Write the fixture to ``work`` (contract tables, gene table, optional depth TSV given as a
+    mapping or raw text); returns the depth path."""
     sim = fx.sim_fixture(work, seed=SEED, n_genes=N_GENES)
     genes = _gene_table(sim.inputs, copy_log2)
     if not plasmid:
         genes = _drop_plasmid_regions(work, genes)
     (work / "genetable").mkdir(parents=True, exist_ok=True)
     genes.to_parquet(work / "genetable" / "genes.parquet", index=False)
-    dpath = None
-    if depth is not None:
-        dpath = work / "replicon_depth.tsv"
-        lines = ["contig\tmean_depth", *(f"{c}\t{v}" for c, v in depth.items())]
-        dpath.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if depth is None:
+        return None
+    dpath = work / "replicon_depth.tsv"
+    _write_depth(dpath, depth)
+    return dpath
+
+
+def _write_depth(dpath: Path, depth: dict[str, float] | str) -> None:
+    if isinstance(depth, str):
+        dpath.write_text(depth, encoding="utf-8")
+        return
+    lines = ["contig\tmean_depth", *(f"{c}\t{v}" for c, v in depth.items())]
+    dpath.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _build(work: Path, *, copy_log2: float = 0.0, plasmid: bool = True,
+           depth: dict[str, float] | None = None) -> Path:  # fmt: skip
+    """Write the fixture to ``work``, run the step, return ``tables/regions_stats.tsv``."""
+    from giap.steps.context_stats import run_context_stats
+
+    dpath = _prepare(work, copy_log2=copy_log2, plasmid=plasmid, depth=depth)
     run_context_stats(work, _cfg(), dpath)
     out = work / "tables" / "regions_stats.tsv"
     assert out.exists(), sorted(p.name for p in (work / "tables").glob("*"))
@@ -244,3 +261,146 @@ def test_step_inputs_left_untouched(tmp_path: Path) -> None:
 
     run_context_stats(tmp_path / "w", _cfg(), None)
     assert out.read_bytes() == first
+
+
+# --------------------------------------------------------------------------- decisions 18, 21, 22
+
+
+@pytest.fixture(scope="module")
+def prepared(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Fixture work directory with inputs only (copied per test before the step writes)."""
+    work = tmp_path_factory.mktemp("context_stats_prepared") / "work"
+    _prepare(work)
+    return work
+
+
+def _copy(prepared: Path, tmp_path: Path) -> Path:
+    work = tmp_path / "work"
+    shutil.copytree(prepared, work)
+    return work
+
+
+def _detectability_part() -> pd.DataFrame:
+    """Rows shaped like M4-15's ``detectability_summary`` output (M4-13 diagnostics)."""
+    d = [i % 3 != 0 for i in range(60)]
+    p = [0.2 + 0.01 * i for i in range(60)]
+    return fx.detectability_rows(d, p)
+
+
+def _summary_rows(path: Path, section: str) -> pd.DataFrame:
+    df = _read(path)
+    return df[df["section"] == section]
+
+
+def test_registry_path_carries_detectability_summary(prepared: Path, tmp_path: Path) -> None:
+    """Decision 18: through ``run_step`` (inputs named by key) the optional input
+    ``detectability_summary`` (one parquet file) reaches ``detection_summary.tsv``."""
+    import layers_chain as lc
+
+    from giap.io.work_tables import OPTIONAL_KEYS, default_paths
+
+    work = _copy(prepared, tmp_path)
+    part = _detectability_part()
+    dpart = tmp_path / "detectability_summary_input"  # no suffix: the key names the file
+    part.to_parquet(dpart, index=False)
+    inputs: dict[str, Any] = {k: p for k, p in default_paths(work).items()
+                              if k not in OPTIONAL_KEYS or p.exists()}  # fmt: skip
+    inputs["gene_table"] = work / "genetable" / "genes.parquet"
+    inputs["detectability_summary"] = dpart
+    out = tmp_path / "out"
+    outputs = {"regions_stats": out / "regions_stats_out", "detection_summary": out / "ds_out"}
+    with pytest.MonkeyPatch.context() as mp:
+        reg = lc.fresh_steps(mp)
+        spec = reg.get("context_stats")
+        assert "detectability_summary" in spec.optional_inputs
+        reg.run_step("context_stats", _cfg(), inputs, outputs)
+    rows = _summary_rows(outputs["detection_summary"], "detectability")
+    assert len(rows) == len(part)
+    got = set(zip(rows["group_type"], rows["group"], rows["metric"], strict=True))
+    want = set(zip(part["group_type"], part["group"].astype(str), part["metric"], strict=True))
+    assert got == want
+    assert "basic" in set(_read(outputs["detection_summary"])["section"])
+
+
+def test_registry_path_without_detectability_summary(prepared: Path, tmp_path: Path) -> None:
+    import layers_chain as lc
+
+    from giap.io.work_tables import OPTIONAL_KEYS, default_paths
+
+    work = _copy(prepared, tmp_path)
+    inputs: dict[str, Any] = {k: p for k, p in default_paths(work).items()
+                              if k not in OPTIONAL_KEYS or p.exists()}  # fmt: skip
+    inputs["gene_table"] = work / "genetable" / "genes.parquet"
+    out = tmp_path / "out"
+    outputs = {"regions_stats": out / "rs", "detection_summary": out / "ds"}
+    with pytest.MonkeyPatch.context() as mp:
+        lc.fresh_steps(mp).run_step("context_stats", _cfg(), inputs, outputs)
+    assert _summary_rows(outputs["detection_summary"], "detectability").empty
+
+
+def test_local_layout_carries_detectability_part(prepared: Path, tmp_path: Path) -> None:
+    """``run_context_stats`` maps ``genetable/detection_summary_parts/detectability.parquet``
+    (M4-15 local layout) into the summary."""
+    from giap.steps.context_stats import run_context_stats
+
+    work = _copy(prepared, tmp_path)
+    parts = work / "genetable" / "detection_summary_parts"
+    parts.mkdir(parents=True)
+    part = _detectability_part()
+    part.to_parquet(parts / "detectability.parquet", index=False)
+    run_context_stats(work, _cfg(), None)
+    rows = _summary_rows(work / "tables" / "detection_summary.tsv", "detectability")
+    assert len(rows) == len(part)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["contig\tmean_depth\nchr1\t50\np1\t0\nctg1\t50\n",
+     "contig\tmean_depth\nchr1\t50\nchr1\t60\np1\t400\n"],
+    ids=["zero", "duplicate"],
+)  # fmt: skip
+def test_step_raises_on_bad_depth_file(prepared: Path, tmp_path: Path, text: str) -> None:
+    """Decision 21: a depth file with an error issue stops the step."""
+    from giap.steps.context_stats import run_context_stats
+
+    work = _copy(prepared, tmp_path)
+    dpath = tmp_path / "depth.tsv"
+    _write_depth(dpath, text)
+    with pytest.raises(ValueError):
+        run_context_stats(work, _cfg(), dpath)
+
+
+def _depth_warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [r.getMessage() for r in caplog.records
+            if r.levelno >= logging.WARNING and "depth" in r.getMessage()]  # fmt: skip
+
+
+def test_depth_gap_warns_when_plasmids_on(prepared: Path, tmp_path: Path,
+                                          caplog: pytest.LogCaptureFixture) -> None:  # fmt: skip
+    from giap.steps.context_stats import run_context_stats
+
+    work = _copy(prepared, tmp_path)
+    dpath = tmp_path / "depth.tsv"
+    _write_depth(dpath, {"chr1": 50.0, "ctg1": 50.0})  # p1 missing
+    with caplog.at_level(logging.WARNING):
+        run_context_stats(work, _cfg(), dpath)
+    assert _depth_warnings(caplog)
+
+
+def test_depth_gap_silent_when_plasmid_regions_off(
+    prepared: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Decision 22: with ``plasmid`` not in ``context.region_types`` there are no plasmid rows
+    and no depth-gap warning."""
+    from giap.config.model import GiapConfig
+    from giap.steps.context_stats import run_context_stats
+
+    work = _copy(prepared, tmp_path)
+    dpath = tmp_path / "depth.tsv"
+    _write_depth(dpath, {"chr1": 50.0, "ctg1": 50.0})
+    cfg = GiapConfig.model_validate({"stats": {"bootstrap": 50}, "seed": 11, "context": {
+        "region_types": ["prophage", "bgc", "crispr", "amr"]}})  # fmt: skip
+    with caplog.at_level(logging.WARNING):
+        run_context_stats(work, cfg, dpath)
+    assert not _depth_warnings(caplog)
+    assert not (_read(work / "tables" / "regions_stats.tsv")["region_type"] == "plasmid").any()

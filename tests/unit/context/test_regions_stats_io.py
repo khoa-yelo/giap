@@ -73,6 +73,49 @@ def test_read_replicon_depth_non_numeric_is_error(tmp_path: Path) -> None:
     assert _errors(issues)
 
 
+@pytest.mark.parametrize("value", ["inf", "-inf", "nan", "1e400"])
+def test_read_replicon_depth_non_finite_is_error(tmp_path: Path, value: str) -> None:
+    """Decision 19: non-finite depths are errors and give no frame."""
+    from giap.io.depth import read_replicon_depth
+
+    p = _write(tmp_path / "depth.tsv", f"contig\tmean_depth\nchr1\t50\np1\t{value}\n")
+    df, issues = read_replicon_depth(p)
+    assert _errors(issues) and df is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["contig\tmean_depth\nchr1\t50\np1\t400\nchr1\t60\n",
+     "contig\tmean_depth\nchr1\t50\nNA\t400\n",
+     "contig\tmean_depth\nchr1\t50\n\t400\n"],
+    ids=["duplicate", "na_contig", "empty_contig"],
+)  # fmt: skip
+def test_read_replicon_depth_bad_contig_is_error(tmp_path: Path, text: str) -> None:
+    from giap.io.depth import read_replicon_depth
+
+    df, issues = read_replicon_depth(_write(tmp_path / "depth.tsv", text))
+    assert _errors(issues) and df is None
+
+
+@pytest.mark.parametrize(
+    "text", ["", "contig\tmean_depth\nchr1\t50\tEXTRA\n", "chr1\n50\t3\t4\n"],
+    ids=["empty", "ragged", "ragged_header"],
+)  # fmt: skip
+def test_read_replicon_depth_unreadable_returns_issues(tmp_path: Path, text: str) -> None:
+    """Decision 19: empty / ragged files give (None, issues), never an exception."""
+    from giap.io.depth import read_replicon_depth
+
+    df, issues = read_replicon_depth(_write(tmp_path / "depth.tsv", text))
+    assert df is None and _errors(issues)
+
+
+def test_read_replicon_depth_missing_file_returns_issues(tmp_path: Path) -> None:
+    from giap.io.depth import read_replicon_depth
+
+    df, issues = read_replicon_depth(tmp_path / "absent.tsv")
+    assert df is None and _errors(issues)
+
+
 # --------------------------------------------------------------------------- writer
 
 

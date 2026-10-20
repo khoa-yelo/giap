@@ -15,6 +15,7 @@ from __future__ import annotations
 import math
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -660,3 +661,102 @@ def test_example_9_same_seed_same_table(tmp_path: Path) -> None:
     c = tmp_path / "c.tsv"
     write_regions_stats(c, _table(g, depth, seed=6))
     assert c.read_bytes() != a.read_bytes()  # the CIs do use the seed
+
+
+# --------------------------------------------------------------------------- decisions 20-22
+
+
+def _tables_parts(g: sd.Genome) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    T = _T()
+    return _tests(g), _plasmids(g), T.subset_rows(g.genes, g.regions, g.region_genes)
+
+
+@pytest.mark.parametrize("bad", ["none_with_p", "none_with_n_perm", "q_without_p"])
+def test_regions_stats_rejects_malformed_test_rows(bad: str) -> None:
+    """Decision 20: ``regions_stats`` fails closed on rows breaking the decision-9 rules."""
+    g = sd.mixed_genome()
+    tests, pl, sub = _tables_parts(g)
+    tests = tests.copy()
+    i = tests.index[tests["p_value"].notna()][0]
+    if bad == "none_with_p":
+        tests.loc[i, "null_model"] = "none"
+    elif bad == "none_with_n_perm":
+        tests.loc[i, ["null_model", "p_value", "q_value"]] = ["none", np.nan, np.nan]
+        tests.loc[i, "n_perm"] = 5
+    else:
+        tests.loc[i, "p_value"] = np.nan
+    with pytest.raises(ValueError):
+        _T().regions_stats(tests, pl, sub, g.regions)
+
+
+@pytest.mark.parametrize("bad", ["p_value", "n_perm", "q_value"])
+def test_regions_stats_rejects_malformed_plasmid_rows(bad: str) -> None:
+    g = sd.mixed_genome()
+    tests, pl, sub = _tables_parts(g)
+    pl = pl.copy()
+    pl.loc[pl.index[0], bad] = 5 if bad == "n_perm" else 0.01
+    with pytest.raises(ValueError):
+        _T().regions_stats(tests, pl, sub, g.regions)
+
+
+def test_subset_small_region_flag() -> None:
+    """Decision 21: a subset with fewer eligible genes than M4-17's SMALL_REGION is flagged
+    ``small_region``; a subset at the threshold is not."""
+    n = 60
+    c = Contig("chr1", [1] * n, [0.5] * n, tu=_pairs("chr1", n))
+    tags = sd.genome([c]).genes["locus_tag"].tolist()
+    k = _small()
+    members = tags[10 : 10 + (k - 1) + k]
+    sub = {t: "lysis" for t in members[: k - 1]} | {t: "cargo" for t in members[k - 1 :]}
+    g = sd.genome([c], {"prophage_1": ("prophage", members)}, subsets=sub)
+    res = _T().subset_rows(g.genes, g.regions, g.region_genes)
+    assert "small_region" in sd.flags(
+        sd.one(res, "prophage_1", "o_minus_e", subset="lysis")["flags"]
+    )
+    assert "small_region" not in sd.flags(
+        sd.one(res, "prophage_1", "o_minus_e", subset="cargo")["flags"])  # fmt: skip
+
+
+@pytest.mark.parametrize("missing", [None, np.nan, pd.NA])
+def test_subset_na_members_not_grouped(missing: Any) -> None:
+    """Decision 21: prophage C8 members with ``subset`` NA give no subset row (no "None" /
+    "nan" / "<NA>" group)."""
+    n = 60
+    c = Contig("chr1", [1] * n, [0.5] * n, tu=_pairs("chr1", n))
+    tags = sd.genome([c]).genes["locus_tag"].tolist()
+    members = tags[10:30]
+    g = sd.genome([c], {"prophage_1": ("prophage", members)},
+                  subsets={t: "structural" for t in members[:12]})  # fmt: skip
+    rg = g.region_genes.astype({"subset": object})
+    rg.loc[rg["subset"].isna(), "subset"] = missing
+    res = _T().subset_rows(g.genes, g.regions, rg)
+    assert list(res["subset"]) == ["structural"]
+    assert int(res["n_genes"].iloc[0]) == 12
+    table = _T().regions_stats(_tests(g), _plasmids(g), res, g.regions)
+    assert set(table["subset"]) == {"all", "structural"}
+
+
+def test_contig_sorts_before_start() -> None:
+    """Decision 21: within a type, C7 contig order comes before start."""
+    c1 = chr_contig("chr1", n=150)
+    c2 = chr_contig("chr2", n=60, kind="chromosome")
+    g0 = sd.genome([c1, c2])
+    t1 = g0.genes.loc[g0.genes["contig"] == "chr1", "locus_tag"].tolist()
+    t2 = g0.genes.loc[g0.genes["contig"] == "chr2", "locus_tag"].tolist()
+    g = sd.genome([c1, c2], {"bgc_1": ("bgc", t1[100:115]), "bgc_2": ("bgc", t2[0:15])})
+    res = _table(g)
+    assert list(dict.fromkeys(res["region_id"])) == ["bgc_1", "bgc_2"]
+    s = g.regions.set_index("region_id")["start"]
+    assert int(s["bgc_2"]) < int(s["bgc_1"])  # start alone would put bgc_2 first
+
+
+@pytest.mark.parametrize("contig", ["p1", "chr1"])
+def test_missing_tu_id_raises_for_plasmid_and_reference_genes(contig: str) -> None:
+    """Decision 22: a gene without ``tu_id`` on the plasmid or on a reference replicon raises
+    (C6: every gene has a TU), not a silent single bootstrap block."""
+    g = example_1()
+    i = g.genes.index[g.genes["contig"] == contig][3]
+    g.genes = g.genes.astype({"tu_id": object})
+    g.genes.loc[i, "tu_id"] = None
+    with pytest.raises(ValueError):
+        _plasmids(g)
