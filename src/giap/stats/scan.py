@@ -214,12 +214,14 @@ def fwer_p(s_abs: ArrayLike, null_max: ArrayLike) -> F64:
     Raises
     ------
     ValueError
-        If ``s_abs`` or ``null_max`` is not 1-D.
+        If ``s_abs`` or ``null_max`` is not 1-D, or ``s_abs`` has a negative value (decision 22).
     """
     o = np.asarray(s_abs, dtype=np.float64)
     m = np.asarray(null_max, dtype=np.float64)
     if o.ndim != 1 or m.ndim != 1:
         raise ValueError("s_abs and null_max must be 1-D")
+    if (np.isfinite(o) & (o < 0)).any():  # -0.0, NaN and ±inf pass (NaN p, decision 19)
+        raise ValueError("s_abs must be |S| (got a negative value; pass np.abs(res.s))")
     m = np.sort(m[~np.isnan(m)])
     if m.size == 0:
         return np.full(o.size, np.nan, dtype=np.float64)
