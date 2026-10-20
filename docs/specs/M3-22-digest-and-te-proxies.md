@@ -95,3 +95,6 @@ at defaults ≤ 0.01; tolerant and unmapped shares reported.
 7. `nissle_exact` counts accepted exact placements (route = exact); bounds as the tests have them.
 8. `validation/` is importable from the repo root (namespace package). The TE8 weekly entry in
    `scripts/slurm/weekly.sbatch` is added after #107 (M2-21) merges; backlog item.
+9. Decision 6 uses the gene-model reading (as pinned): a K-12 peptide is excluded when it is N-terminal in
+   its UniProt protein and equals an N-terminal digest product of a strict non-ATG K-12 gene in `k12_json`.
+   The genome reading (M → V/L substitution search) is not used.
