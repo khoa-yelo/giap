@@ -66,7 +66,7 @@ report() {  # report <exit> <sub-task: summary>: this task's nightly.tsv line, t
   local dry=() ps="$W/scripts/ci/post_summary.py"
   [ -f "$ps" ] || ps="$GIAP_REPO/scripts/ci/post_summary.py"   # the checkout may have failed
   [ "${NIGHTLY_POST:-yes}" = dry ] && dry=(--dry-run)
-  python "$ps" --job "$JOB" --tsv "$TSV" --expect "$EXPECT" "${dry[@]}"
+  python "$ps" --job "$JOB" --tsv "$TSV" --expect "$EXPECT" ${dry[@]+"${dry[@]}"}
 }
 on_exit() {  # decision 14: a task that ends without its line (early exit, error) still reports
   local rc=$?
@@ -131,7 +131,7 @@ task_record() {
     else changed+=("$ts"); fi
   done
   rc=$(( nfail > 0 ? 1 : 0 ))
-  summary="record: failures $nfail; identical $same; changed ${#changed[@]}${changed:+ (${changed[*]})}"
+  summary="record: failures $nfail; identical $same; changed ${#changed[@]}${changed[0]+ (${changed[*]})}"
 }
 
 extend_summary() {  # extend_summary <job>: decision 19, the night's summary also waits for <job>

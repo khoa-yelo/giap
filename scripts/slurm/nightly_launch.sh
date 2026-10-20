@@ -19,6 +19,6 @@ array=${array%%;*}
 dry=(); [ "${NIGHTLY_POST:-yes}" = dry ] && dry=(--dry-run)
 summary=$(sbatch --parsable --job-name=giap-nightly-summary --cpus-per-task=1 \
   --dependency="afterany:$array" --comment="nightly:$array" --output="$REPO/local/logs/%x.%j.out" \
-  "$REPO/scripts/slurm/nightly_summary.sh" "$array" "${dry[@]}") || {
+  "$REPO/scripts/slurm/nightly_summary.sh" "$array" ${dry[@]+"${dry[@]}"}) || {
   echo "nightly_launch: array $array submitted, but its summary job was refused" >&2; exit 1; }
 echo "nightly_launch: array ${array}, summary job ${summary%%;*} (afterany:$array)"
