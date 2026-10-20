@@ -678,3 +678,51 @@ requires `source = database`, the database π̂ is computed over the stratum-0 p
 `test_attack_placement_same_db.py` passes (at 9ec53d1 the FDP at q = 0.01 was 0.175 and 0.0196).
 Forwarded to M3-21: Cov(PEP, chance-hit rate) on A2; the list-level calibration of tolerant strata
 with real decoy hits; attack 5.
+
+## Genome-level calibration (M3-21)
+
+Suites: `tests/calibration/test_placement_fdr_sim.py`, `test_denovo_precision_sim.py`,
+`attacks/test_attack5_reversed_stretches.py`; truth oracle `tests/helpers/placement_truth.py`
+(origins per row type, overlap rule of lead decision 2, unique guard, cost-≤ m_T+1 mutant).
+
+**What "exercised" means.** A list (decoy type × m) is exercised in a replicate by the number of
+peptides in it that are false placements (no accepted locus overlaps a true origin), at any q.
+A gate on a list with no false peptides passes trivially and is a **smoke check**: it shows the
+chain runs and accepts, not that the FDR is controlled.
+
+**At 100 kb the placement lists are not exercised enough to test the bound.** In the fast tier
+(R = 50, job 1860994) the database-shuffled (π 0.01, 0.05), related other-strain and related
+db-strain suites had 0 false peptides in every list. The de novo error-model suite and attack 5 had a mean of
+0.14 and 0.12 per replicate in shuffle m = 0 and ≤ 0.02 elsewhere. These gates are therefore smoke checks
+(`claimed = ()`). The genome-level evidence for stratum 0 comes from two places only:
+
+- the **stressed stratum-0 arm** (`test_database_stressed_stratum0_placement_fdr`, full tier at
+  1 Mb): short wrong database peptides (7/8-mers of protein sequences that are absent from the
+  genome, as in b2sim `--mode short`) are injected test-locally with PEP set to the true wrong
+  share. This arm claims reverse m = 0. With δ = 0 (exact PEP) its FDP gate
+  is expected to pass. At 100 kb (K = 2,000, R = 50, job 1860994): 1.6 false peptides per
+  replicate, mean FDP 0.0009 at every q. At 1 Mb (K = 400, R = 300, job 1860995): 2.85 false per
+  replicate, mean FDP 0.00016 at every q, about 17,960 accepted. The fast arm also asserts the
+  estimate check mean(Ŵ0) ≥ mean(V0) − 2 SE: Ŵ0 2.44 vs V0 1.6, because the injected share
+  dominates the pooled π̂ at 100 kb. At 1 Mb the estimate check is a separate test,
+  `test_database_stressed_stratum0_estimate_covers_false_placements` (`calibration_full`,
+  R = 100, ΣV0 ≥ 100). It is a strict xfail "ADR-0019 implementation pending": mean PEP gives
+  Ŵ0 0.57 vs V0 2.85. The cause is the length-correlated no-origin share. 75 % of the injected
+  peptides are 7-mers, and the 7-mer class has a no-origin share of 0.22 against 0.031 pooled,
+  so a pooled π̂ times all decoy hits under-counts. ADR-0019's per-class π̂ corrects it; the
+  statistician's reference rule gives Ŵ0 3.65 vs V0 3.50 over 6 replicates (review of #113,
+  round 2). The FDP stays far below q under mean PEP only because the stratum is large;
+- the **related db-strain estimate check**
+  (`test_related_dbstrain_stratum0_estimate_covers_false_placements`, full tier, 1 Mb, 5 SNV/kb,
+  R = 100). It requires ΣV0 ≥ 30 false stratum-0 placements and mean W0 ≥ mean V0 − 2 SE (SE of V0 − W0 over lists). Observed
+  (job 1860995, after the B1 origin fix): ΣV0 = 79, mean V0 0.79, mean W0 0.150, SE 0.099. It is a
+  strict xfail until ADR-0019 (exact-match π̂ per length class) is implemented. Correct
+  identifications that span a strain difference have no exact origin but small PEP, so mean PEP
+  under-counts their exact chance hits (ADR-0019 Context, defect 1).
+
+**FDR evidence at m ≥ 1 rests on the list-level suites** (`test_placement_fdr_lists.py`,
+`attacks/test_attack_placement_pi.py`), not on these genome suites.
+
+**Attack 5.** Its FDP gate is a smoke check as well. Its content is the decoy-count documentation:
+de novo reversed stretches searched with reverse decoys inflate the m = 0 decoy count D
+(mean 9.1 reversed vs 0.5 shuffled per replicate). That is why de novo input uses shuffle decoys.
