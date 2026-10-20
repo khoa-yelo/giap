@@ -12,10 +12,12 @@ genes; M4-08 AR(1) rho = 0.5, detection from covariates only, ``p = p_detect_tru
   unchanged. A per-replicon residualised HL (HL ~ 0 whatever the dosage) or a plasmid tested inside
   a concatenated chromosome + plasmid index both fail. The chromosome region tests' level under
   this attack is M4-17's A4 test (tests/calibration/attacks/test_region_tests_attacks.py).
-- Recorded, not gated: bias of the plasmid HL against the true dosage log2(20) and coverage of its
-  95 % TU-block CI over R = ``replicates_fast.regions`` replicates. §8.4 and tolerances.yaml carry
-  no criterion for this CI (lead decision 2 expects a small positive selection bias, ~ +0.3 log2);
-  the numbers are printed for the statistician's methods note.
+- Recorded, not gated (lead decisions 15-16): bias of the plasmid HL and coverage of its 95 %
+  TU-block CI against the dosage log2(20) and against the realised dosage-plus-regulation shift (HL
+  of the simulator's true abundance over eligible genes, the estimand), over R =
+  ``replicates_fast.regions`` replicates; a warning when the realised-shift coverage is < 0.93.
+  §8.4 and tolerances.yaml carry no criterion for this CI; the numbers are printed for the
+  methods note.
 """
 
 from __future__ import annotations
@@ -39,18 +41,36 @@ COPY_20 = math.log2(20.0)
 STREAM = "regions.regions_stats.a4_plasmid"
 
 
-def _plasmid_rows(seed: int, copy_log2: float, B: int = 50) -> pd.DataFrame:
+def _sim(seed: int, copy_log2: float, B: int = 50) -> tuple[pd.DataFrame, float]:
+    """(plasmid rows, realised shift) of one replicate. ``rd.simulate`` + ``rd.tables_from``
+    consume the generator exactly as ``rd.sim_tables`` does. The realised shift (lead decision 16)
+    is the HL of the simulator's ``abundance_log2_true`` over all eligible genes, plasmid against
+    the reference replicons: the dosage-plus-regulation shift the CI estimates."""
     from giap.context import regions_table as T
     from giap.rng import for_step
 
     rng = np.random.default_rng(seed)
     kw = {"ar1_rho": 0.5, "plasmid_copy_log2": {"p1": copy_log2}}
-    t = rd.sim_tables(rng, rd.calibration_layout_config(1000), kw, p_source="true")
+    lay, expr = rd.simulate(rng, rd.calibration_layout_config(1000), kw)
+    t = rd.tables_from(lay, expr, "true", rng)
     genes = t.genes.copy()
     genes["abundance_imputed"] = False
     s = int(rng.integers(0, 2**31 - 1))
-    return T.plasmid_rows(genes, t.replicons, None, rd.config(bootstrap=B),  # type: ignore[no-any-return]
+    rows = T.plasmid_rows(genes, t.replicons, None, rd.config(bootstrap=B),
                           for_step("context_stats", s))  # fmt: skip
+    truth = expr.genes.set_index("locus_tag")["abundance_log2_true"]
+    a = truth.reindex(genes["locus_tag"].astype(str)).to_numpy(float)
+    ref, _ = sd.reference_contigs(t.replicons, ["p1"])
+    contig = genes["contig"].astype(str)
+    el = sd.eligible(genes) & np.isfinite(a)
+    x = a[el & (contig == "p1").to_numpy()]
+    y = a[el & contig.isin(ref).to_numpy()]
+    realised = float(np.median(np.subtract.outer(x, y)))
+    return rows, realised
+
+
+def _plasmid_rows(seed: int, copy_log2: float, B: int = 50) -> pd.DataFrame:
+    return _sim(seed, copy_log2, B)[0]
 
 
 @pytest.mark.parametrize("seed", [401, 402, 403])
@@ -73,22 +93,27 @@ def test_a4_plasmid_rows_untested_and_carry_the_dosage(seed: int) -> None:
 
 
 def test_recorded_plasmid_hl_bias_and_ci_coverage(full: bool) -> None:
+    """Recorded, not gated (lead decisions 15-16): bias and 95 % CI coverage against log2(20)
+    and against the realised shift; warns when the realised-shift coverage is below 0.93."""
     R = C.replicates("regions", full)
-    err, cover = [], 0
+    err, err_real, cover, cover_real = [], [], 0, 0
     for i in range(R):
         seed = C.suite_seed(STREAM, i)
-        hl = sd.unadjusted(_plasmid_rows(seed, COPY_20, B=200), "plasmid_1", "hl_shift")
-        e = float(hl["effect"])
+        rows, realised = _sim(seed, COPY_20, B=200)
+        hl = sd.unadjusted(rows, "plasmid_1", "hl_shift")
+        e, lo, hi = float(hl["effect"]), float(hl["ci_low"]), float(hl["ci_high"])
         err.append(e - COPY_20)
-        cover += float(hl["ci_low"]) <= COPY_20 <= float(hl["ci_high"])
-    bias = float(np.mean(err))
-    cov = cover / R
-    sd_err = float(np.std(err, ddof=1))
+        err_real.append(e - realised)
+        cover += lo <= COPY_20 <= hi
+        cover_real += lo <= realised <= hi
+    cov, cov_real = cover / R, cover_real / R
     msg = (
-        f"recorded: plasmid HL at copy 20 (R={R}): mean HL - log2(20) = {bias:+.3f} log2 "
-        f"(sd {sd_err:.3f}), 95% TU-block CI coverage {cov:.3f}"
+        f"recorded: plasmid HL at copy 20 (R={R}): mean HL - log2(20) = {np.mean(err):+.3f} "
+        f"(sd {np.std(err, ddof=1):.3f}), coverage of log2(20) {cov:.3f}; "
+        f"mean HL - realised shift = {np.mean(err_real):+.3f} "
+        f"(sd {np.std(err_real, ddof=1):.3f}), coverage of the realised shift {cov_real:.3f}"
     )
     print(msg)
-    if abs(bias) > 0.5 or not 0.9 <= cov <= 0.99:
+    if cov_real < 0.93:
         warnings.warn(msg, stacklevel=1)
-    assert all(math.isfinite(x) for x in err)
+    assert all(math.isfinite(x) for x in err + err_real)
