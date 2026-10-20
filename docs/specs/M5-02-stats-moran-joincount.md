@@ -149,3 +149,11 @@ rule implemented here.
 11. `lag_test` with NaN obs: `n_valid` is the count of finite null values; every other field NaN.
 12. The < 5 s performance target goes to benchmarks/ (implementer adds the benchmark, no assertion in tests/).
 13. Decision 11 wording: "finite" reads "non-NaN", matching `perm_p` (±inf null entries count as valid).
+
+## Lead decisions after code review of #116 (2026-10-20)
+14. "Constant null" means spread ≤ 1e-12 × max(1, max|null|) over non-NaN entries (the perm_p tie scale),
+    not exact min == max; a circular replicon with 2 TU blocks (rotation-only null) gives p = NaN.
+15. The property test asserts min ≤ null_mean ≤ max and null_lo ≤ null_hi (not lo ≤ mean ≤ hi).
+16. Every documented ValueError has a test (autocorr.py checks: non-contiguous blocks, bad n/B/movable,
+    l_hat/T < 1, max_len < 1, …); decision 13 (±inf counts in n_valid) is pinned; `choose_block_len`
+    moves NaNs with values (documented and tested); B = 0 raises ValueError.
