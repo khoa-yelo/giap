@@ -99,3 +99,13 @@ def oriter_gradient(n_genes: int, rho: float, oriter_log2: float) -> tuple[Layou
    `TABLES` as optional (no ADR: it documents an existing M2 output, nothing changes for M4).
 2. Gradient applied at TU level (shared by the TU's genes) rather than per gene? **Proposed default:**
    TU level, consistent with the region and island effects of M4-08.
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+
+11. Q1: C15 `features` is optional in the contract, no ADR. Bakta writes oriC strand `?` (K-12,
+    Nissle); the contract test checks it arrives as `.` through `parse_bakta`.
+12. Q2: the ori–ter gradient applies at TU level.
+13. Add scenarios: `label_null` + gradient (`tu_sd = 0`, cosine 2 log2); `tu_null` with
+    `short_genes_in = "prophage"` and `detection = covariates_only`; `ar1_background(1000, 0.9)`;
+    `draft_ar1` (500-gene chromosome + 133 linear 30-gene contigs); `island_power(..., detection =
+    "abundance")`.
