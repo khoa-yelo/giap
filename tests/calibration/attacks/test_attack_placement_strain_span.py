@@ -222,6 +222,7 @@ def test_attack_has_power_against_mean_pep(suite: str, teeth_log: Path) -> None:
     assert [rec["status"] for rec in gate.records[:2]] == ["fail", "fail"], gate.detail()
 
 
+@pytest.mark.calibration
 def test_estimator_edge_cases() -> None:
     """r = 1 -> 1; k = n -> 1; r = 0 -> U95(k, n); empty classes ignored; c = max class pi."""
     from scipy.stats import beta

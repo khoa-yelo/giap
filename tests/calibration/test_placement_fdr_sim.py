@@ -18,8 +18,9 @@ measured at 100 kb, 2026-10-20):
 * ``related_other_strain``: M3-18 strain (5 SNV/kb), other-strain wrong peptides lifted to their
   ortholog (decision 2) -> list reverse m = 1 (about 30 per replicate).
 * ``denovo``: M3-20 reads, shuffle decoys -> shuffle m = 1 (about 1,500) and m = 2 (about 60).
-* ``related_dbstrain`` (decision 7): correct peptides reported as the database strain's sequence;
-  strict xfail "ADR pending: stratum-0 π̂ for search_db=other".
+* ``related_dbstrain`` (decisions 8, ADR-0019): correct peptides reported as the database strain's
+  sequence -> reverse m = 0 (about 4 per replicate); normal FDP gate, plus the 1-Mb stratum-0
+  estimate check (``calibration_full``, strict xfail "ADR-0019 implementation pending").
 """
 
 from __future__ import annotations
@@ -29,8 +30,9 @@ from pathlib import Path
 
 import _criteria as C
 import numpy as np
+import pandas as pd
 import pytest
-from _placement_suite import run_fdr_suite
+from _placement_suite import run_fdr_suite, write_diagnostics
 from helpers.placement_sims import null_share_stratum0, run_chain, score_chain
 
 pytestmark = pytest.mark.calibration
@@ -148,11 +150,16 @@ def _assert_pi(mean_pi: float, mean_null: float, se: float) -> None:
     )
 
 
-@pytest.mark.parametrize("n_runs", [1, 3])
+ADR0019 = pytest.mark.xfail(strict=True, reason="ADR-0019 implementation pending")
+
+
+@pytest.mark.parametrize("n_runs", [1, pytest.param(3, marks=ADR0019)])
 def test_database_stratum0_pi_hat_covers_the_wrong_share(tmp_path: Path, n_runs: int) -> None:
     """π̂ (mean input PEP over the stratum-0 database queries) must not understate their wrong
     share (methods note: "validity needs π̂ >= π"). M3-19 row PEPs are calibrated; with 3 runs
-    the per-peptide input PEP is aggregated over the runs."""
+    preflight collapses a peptide's runs with ``pep = min`` and the mean of the minima is not a
+    peptide-level wrong share (ADR-0019 "Run collapse"; decision 9: [3] is the regression, strict
+    xfail until ADR-0019 replaces mean PEP; [1] is the control)."""
     stats = _pi_check(
         "database", f"placement.pi_db_runs{n_runs}", tmp_path,
         proteomics=_proteomics(pi_wrong=0.05, n_runs=n_runs),
@@ -160,24 +167,77 @@ def test_database_stratum0_pi_hat_covers_the_wrong_share(tmp_path: Path, n_runs:
     _assert_pi(*stats)
 
 
-@pytest.mark.xfail(strict=True, reason="ADR pending: stratum-0 π̂ for search_db=other")
-def test_related_dbstrain_correct_peptides_stratum0(tmp_path: Path) -> None:
-    """Decision 7 (statistician B2): related genome, ``search_db = other``, correct peptides drawn
-    from the database strain (one run, so input PEPs are the calibrated row PEPs). Correct
-    peptides crossing a strain difference have no exact origin in the sample, so for stratum 0
-    they are null peptides that the mean PEP does not count. Checks: the placement FDR gates
-    (all lists and pooled), then π̂ >= the true null share of the stratum-0 database queries."""
+def _dbstrain(length: int, snv: float) -> dict[str, object]:
+    return {"length": length, "strain": _strain(snv),
+            "proteomics": _proteomics(pi_wrong=0.01, n_runs=1)}  # fmt: skip
+
+
+def _related_dbstrain(full: bool, tmp: Path) -> None:
+    kw = _dbstrain(_length(full), 5.0)
 
     def replicate(seed: int, d: Path):  # type: ignore[no-untyped-def]
-        ch = run_chain(
-            "related_dbstrain", seed, d, strain=_strain(),
-            proteomics=_proteomics(pi_wrong=0.01, n_runs=1),
-        )  # fmt: skip
+        ch = run_chain("related_dbstrain", seed, d, **kw)  # type: ignore[arg-type]
         return score_chain(ch, LEVELS, d)
 
-    run_fdr_suite("placement.sim_related_dbstrain", replicate, tmp_path / "fdr", ())
-    stats = _pi_check(
-        "related_dbstrain", "placement.pi_related_dbstrain", tmp_path / "pi", strain=_strain(),
-        proteomics=_proteomics(pi_wrong=0.01, n_runs=1),
-    )  # fmt: skip
-    _assert_pi(*stats)
+    run_fdr_suite("placement.sim_related_dbstrain", replicate, tmp, [("reverse", 0)], full=full)
+
+
+def test_related_dbstrain_placement_fdr(tmp_path: Path) -> None:
+    """Decision 8 (replaces the decision-7 xfail): related genome, ``search_db = other``, correct
+    peptides reported as the database (M3-18 reference) strain's sequence at the same protein
+    offset (SNV-only strain, 5 SNV/kb; one run). Peptides spanning a strain difference have no exact
+    origin; their chance exact hits elsewhere exercise the stratum-0 list (about 4 per replicate
+    at 100 kb). Normal FDP gate: it passes under the current rule because the list does not bind."""
+    _related_dbstrain(False, tmp_path)
+
+
+@pytest.mark.calibration_full
+def test_related_dbstrain_placement_fdr_full(tmp_path: Path) -> None:
+    _related_dbstrain(True, tmp_path)
+
+
+EST_R = C.replicates("placement", False)  # 50 genomes of 1 Mb (about 30 s each)
+
+
+@pytest.mark.calibration_full
+@ADR0019
+def test_related_dbstrain_stratum0_estimate_covers_false_placements(tmp_path: Path) -> None:
+    """Decision 8 estimate check (statistician, B2): 1-Mb genome, 2 SNV/kb, correct peptides from
+    the reference strain as above. Per replicate and decoy type at m = 0 (database input: reverse;
+    the shuffle list is empty), Ŵ0 = ``fdr_stratum`` x ``targets`` of the ``mapping_fdr`` row (all
+    length classes) is the estimated number of false placements among all stratum-0 targets, V0
+    the realised number (no best-cost locus overlaps a true origin). Assert mean(Ŵ0) >= mean(V0) -
+    k SE(V0 - Ŵ0) over EST_R replicates. Mean PEP counts only identification errors, so Ŵ0
+    under-states V0 (statistician: ratio 0.03-0.46); strict xfail until ADR-0019 is implemented."""
+    from helpers.placement_sims import hits_of
+    from helpers.placement_truth import best_loci
+
+    kw = _dbstrain(1_000_000, 2.0)
+    w0, v0 = [], []
+    for i in range(EST_R):
+        seed = int(C.replicate_rng("placement.est_related_dbstrain", i).integers(0, 2**31 - 1))
+        d = tmp_path / f"r{i}"
+        ch = run_chain("related_dbstrain", seed, d, **kw)  # type: ignore[arg-type]
+        per = pd.read_parquet(ch.avail["placement"]).drop_duplicates("peptide")
+        loci = best_loci(hits_of(ch.avail), dict(zip(per["peptide"], per["m_target"].astype(int),
+                                                     strict=True)))  # fmt: skip
+        f = pd.read_parquet(ch.avail["mapping_fdr"])
+        for dt in ("reverse", "shuffle"):
+            row = f[(f["section"] == "placement") & (f["decoy_type"] == dt) & (f["n_diff"] == 0)
+                    & (f["length_class"] == "all")]  # fmt: skip
+            if row.empty or int(row["targets"].iloc[0]) == 0:
+                continue
+            t0 = per[(per["m_target"] == 0) & (per["decoy_type"] == dt)]["peptide"]
+            v0.append(sum(not any(ch.truth.overlaps(iv, p) for iv in loci.get(p, ())) for p in t0))
+            w0.append(float(row["fdr_stratum"].iloc[0]) * int(row["targets"].iloc[0]))
+        shutil.rmtree(d, ignore_errors=True)
+    w, v = np.array(w0), np.array(v0, dtype=float)
+    k = C.load_tolerances().se_multiplier
+    se = float((v - w).std(ddof=1) / np.sqrt(len(v)))
+    rec = {"suite": "placement.est_related_dbstrain", "n": len(v), "se": se}
+    write_diagnostics({**rec, "mean_W0": float(w.mean()), "mean_V0": float(v.mean())})
+    assert v.mean() > 0, "stratum 0 not exercised: no realised false placement"
+    assert w.mean() >= v.mean() - k * se, (
+        f"estimated stratum-0 false placements {w.mean():.3f} < realised {v.mean():.3f} - {k} SE"
+        f" ({se:.3f}), {len(v)} lists"
+    )

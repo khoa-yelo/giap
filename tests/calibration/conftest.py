@@ -90,6 +90,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "attacks/test_attack_placement_pi.py": "placement",
         "attacks/test_attack_placement_same_db.py": "placement",
         "attacks/test_attack5_reversed_stretches.py": "placement",
+        "attacks/test_attack_placement_strain_span.py": "placement",
     }
 )
 
@@ -169,7 +170,7 @@ NIGHTLY: frozenset[str] = frozenset(
         "test_placement_fdr_sim.py::test_database_shuffled_placement_fdr",
         "test_placement_fdr_sim.py::test_database_stratum0_pi_hat_covers_the_wrong_share",
         "test_placement_fdr_sim.py::test_denovo_error_model_placement_fdr",
-        "test_placement_fdr_sim.py::test_related_dbstrain_correct_peptides_stratum0",
+        "test_placement_fdr_sim.py::test_related_dbstrain_placement_fdr",
         "test_placement_fdr_sim.py::test_related_other_strain_placement_fdr",
         "test_region_tests.py::test_c1_level_fast",
         "test_region_tests.py::test_c2_fdr_within_type_and_stat",
