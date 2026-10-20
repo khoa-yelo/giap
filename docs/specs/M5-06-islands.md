@@ -148,3 +148,5 @@ ADR-0021 accepted by Khoa 2026-10-20: the spec's block length gives FWER 0.205�
 27. Keep the combined detection/abundance estimand; gate the short-gene prophage attack.
 40. (M5-01 decision 4) A replicon whose span gives k < 4 TUs is not scanned: no islands, run flag
     `few_values` for that replicon; it does not enter the genome-wide maximum.
+41. (M5-01 statistician review) The degenerate-case table's "T < 4" reads "span gives k < 4 (≈ T ≤ 30 at
+    10 %)", per decision 40; such replicons are left out of both the observed and the null maximum.
