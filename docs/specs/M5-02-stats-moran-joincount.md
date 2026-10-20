@@ -157,3 +157,17 @@ rule implemented here.
 16. Every documented ValueError has a test (autocorr.py checks: non-contiguous blocks, bad n/B/movable,
     l_hat/T < 1, max_len < 1, …); decision 13 (±inf counts in n_valid) is pinned; `choose_block_len`
     moves NaNs with values (documented and tested); B = 0 raises ValueError.
+
+## Lead decisions after the statistician's review of #116 (2026-10-20)
+17. ADR-0020 Amendment 1 (Khoa): the residual join count becomes the Pearson residual statistic
+    Σ r_i r_j, r = (d − p)/√(p(1 − p)), p unclipped; genes with p ∈ {0, 1} or NaN are missing. `join_count`
+    / `join_count_matrix` keep their signatures (`p` / `P` still supplied by the caller).
+18. Methods notes in this PR: docs/methods/autocorrelation.md gains "Statistics and nulls" (Moran's I,
+    Pearson residual join count, both nulls, constant-null rule, null summaries; the V10 envelope is
+    pointwise and on the statistic's scale, not the raw count); docs/methods/bootstrap.md "Block length"
+    states ADR-0021's ℓ' = min(20, 2ℓ̂ + 1, T).
+19. The statistician's engine attack file (tests/calibration/attacks/test_attack_autocorr_engine.py) is in
+    this PR; the test-author adapts it to the Pearson statistic and adds a must-fail arm (raw residual,
+    50 % islands) so the two-block gate has teeth.
+20. Decision 14 stays (NaN p for any constant null); the statistician's power note for sparse raw nulls
+    is recorded, not adopted.
