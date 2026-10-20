@@ -144,3 +144,7 @@ None new; the statistician checks that `p_detect` is attached only from cross-fi
     convention). Per-field `unit` (§9.5) is a project-wide backlog item.
 17. The COG path comes from `db_sources.yaml` (`cog2020_def.path`), not a hard-coded constant.
 18. Downstream: the stricter loader (parquet/TSV by table name) means M4-18/M4-20 supply C7/C8 as parquet.
+19. The input key `preflight` stays; `stage_roots` copies a root file into `workdir/<key>` when that path is
+    already a directory, and `gene_table` accepts `preflight` as `preflight.json` or a directory holding
+    it (implementer, 9838394). Backlog: give staged root inputs their own namespace so keys never collide
+    with executor directories.
