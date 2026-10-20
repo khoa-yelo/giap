@@ -10,8 +10,12 @@ lead decisions 4-8:
   ``join_count_matrix(D, lags, circular, P=None)`` return the residual sum (d - p)(d - p) over the
   valid lag-k pairs when p is given; p moves with d under both nulls; all p equal and all d equal
   give a constant null, hence NaN.
-- ``choose_block_len`` returns the spec's l-hat (examples 11-13; ADR-0021's
-  l' = min(20, 2 l-hat + 1, T) is M5-06's ``block_length``, not this function).
+- ``choose_block_len`` returns the spec's l-hat only (examples 11-13, decision 10);
+- decision 10: ``block_len_prime(l_hat, T)`` = min(20, 2 l-hat + 1, T) (ADR-0021), shared by M5-06
+  and M5-08;
+- decision 11: ``lag_test`` with NaN obs: ``n_valid`` = count of finite null values, every other
+  field except ``value`` NaN;
+- decision 12: the < 5 s performance target is a benchmark (benchmarks/), not a test here.
 
 Examples 11 and 12 and decision 8 are statistical claims, in
 tests/calibration/test_engine_calibration.py.
@@ -27,6 +31,7 @@ import pytest
 
 from giap.stats.autocorr import (
     LagTest,
+    block_len_prime,
     choose_block_len,
     join_count,
     join_count_matrix,
@@ -476,10 +481,14 @@ def test_lag_test_drops_nan_null_entries() -> None:
 
 
 def test_lag_test_obs_nan() -> None:
-    res = lag_test(NAN, [0.0, 1.0, 2.0])
-    assert _isnan(res.value)
-    for v in (res.p_value, res.null_mean, res.null_lo, res.null_hi):
-        assert _isnan(v)
+    """Decision 11: n_valid counts the finite null values; every other field but value is NaN."""
+    for null, n_valid in (([0.0, 1.0, 2.0], 3), ([0.0, NAN, 2.0, NAN], 2), ([NAN], 0), ([], 0)):
+        res = lag_test(NAN, null)
+        assert _isnan(res.value)
+        assert res.n_valid == n_valid
+        assert isinstance(res.n_valid, int)
+        for v in (res.p_value, res.null_mean, res.null_lo, res.null_hi):
+            assert _isnan(v)
 
 
 def test_lag_test_no_valid_null() -> None:
@@ -583,3 +592,33 @@ def test_choose_block_len_draws_fixed_by_b_and_n_only() -> None:
         choose_block_len(z, True, B, rng)
         states.append(float(rng.random()))
     assert len(set(states)) == 1
+
+
+# ----------------------------------------------------------------------------- block_len_prime
+
+
+@pytest.mark.parametrize(
+    ("l_hat", "T", "expected"),
+    [
+        (1, 1_000, 3),
+        (1, 3, 3),
+        (1, 2, 2),
+        (8, 1_000, 17),
+        (8, 17, 17),
+        (8, 12, 12),
+        (10, 1_000, 20),  # 2*10 + 1 = 21 capped at 20
+        (10, 25, 20),
+        (10, 15, 15),
+        (20, 1_000, 20),
+        (20, 20, 20),
+        (20, 7, 7),
+        (1, 1, 1),
+        (8, 1, 1),
+        (20, 1, 1),
+    ],
+)
+def test_block_len_prime(l_hat: int, T: int, expected: int) -> None:
+    """Decision 10 / ADR-0021: l' = min(20, 2 l-hat + 1, T)."""
+    got = block_len_prime(l_hat, T)
+    assert got == expected
+    assert isinstance(got, int)

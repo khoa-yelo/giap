@@ -10,7 +10,7 @@
 - Moran's I is invariant to affine maps x -> a x + b (a != 0); I_k in [-1, 1] is NOT asserted;
 - ``lag_test`` p equals ``perm_p`` unless the null is constant (then NaN, decision 6);
 - ``choose_block_len`` lies in [1, min(max_len, max_lag + 1, n)] and its draws depend on B and n
-  only.
+  only; ``block_len_prime`` = min(20, 2 l-hat + 1, T) (decision 10).
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from giap.stats.autocorr import (
+    block_len_prime,
     choose_block_len,
     join_count,
     join_count_matrix,
@@ -352,3 +353,11 @@ def test_choose_block_len_draws_depend_on_b_and_n_only(
         choose_block_len(z, True, B, rng)
         after.append(rng.bit_generator.state)
     assert after[0] == after[1]
+
+
+@FAST
+@given(st.integers(1, 20), st.integers(1, 5_000))
+def test_block_len_prime_formula(l_hat: int, T: int) -> None:
+    got = block_len_prime(l_hat, T)
+    assert got == min(20, 2 * l_hat + 1, T)
+    assert 1 <= got <= min(20, T)

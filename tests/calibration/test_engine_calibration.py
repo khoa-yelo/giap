@@ -27,7 +27,8 @@ Autocorrelation engine (issue M5-02, suite ``autocorrelation``; docs/specs/M5-02
 - ``test_residual_join_count_level_label_null``: p_i ~ U(0.05, 0.95), d_i ~ Bernoulli(p_i), n = 500;
   residual BB lag 1 with p permuted together with d (decision 7); level.
 - ``test_example11_iid_block_len_one`` / ``test_example12_ar09_block_len_twenty``: spec examples
-  11-12 on 100 seeds (``replicate_rng``), n = 2,000, B = 199, circular.
+  11-12 on 100 seeds (``replicate_rng``), n = 2,000, B = 199, circular (example 12 as amended by
+  lead decision 9: l-hat >= 15 in >= 95 %).
 - ``test_decision8_giapsim_tu_scores_block_len`` (suite ``islands``, lead decision 8): giapsim
   chromosome at AR(1) rho 0.9 -> Blom scores (left-censored) -> TU means -> 10 % LOESS detrend
   (circular padding, statsmodels as M5-01 specifies) -> ``choose_block_len`` with B = 500 gives
@@ -241,10 +242,11 @@ def _ar1(rng: np.random.Generator, n: int, rho: float) -> np.ndarray:
 @AUTOCORR
 @pytest.mark.calibration
 def test_example12_ar09_block_len_twenty() -> None:
-    """Spec example 12 (kept by lead decision 8): AR(1) rho 0.9, n = 2,000 -> l = 20 (bounded) in
-    >= 95 % of 100 seeds."""
+    """Spec example 12 as amended by lead decision 9: AR(1) rho 0.9, n = 2,000 -> l-hat >= 15 in
+    >= 95 % of 100 seeds (l-hat = 20 only in 0.85-0.92: the sampling SD of I_17 ... I_20 is about
+    rho^20)."""
     ells = _block_lens("autocorrelation.engine_block_len_ar09", lambda r: _ar1(r, 2_000, 0.9))
-    assert np.mean(ells == 20) >= 0.95, np.bincount(ells, minlength=21)[1:]
+    assert np.mean(ells >= 15) >= 0.95, np.bincount(ells, minlength=21)[1:]
 
 
 def _tu_score_series(rng: np.random.Generator, n_genes: int, rho: float) -> np.ndarray:
