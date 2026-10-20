@@ -15,8 +15,9 @@ peptides (share delta of the correct ones): wrong and spanning peptides get a ch
 w.p. p_j; every peptide a chance decoy hit w.p. p_j (A1-A2 of the methods note).
 Scenarios: ``flat_d05`` / ``flat_d20`` (p_j = 0.25, delta = 0.05 / 0.20); ``short_d20`` (wrong
 and spanning peptides 8-10 aa, p_j falls with length: the length-correlated case); ``pad_d20``
-(flat_d20 plus N long exact peptides with PEP 0: padding attack on any single pooled pi_hat);
-``none_d00`` (delta = 0: must not lose power vs mean PEP; checked by ``test_power_at_delta_zero``).
+(flat_d20 plus N long exact peptides with PEP 0: padding attack on any single pooled pi_hat).
+Power at delta = 0 relative to mean PEP is not tested here; it was measured for ADR-0019
+(Evidence: 0.984-1.0 at N = 4,000, Slurm 1860138 / 1860180).
 
 - ``test_attack_strain_span_stays_at_level``: through ``placement``. Fails before the ADR-0019
   implementation (strict xfail "ADR-0019 implementation pending"; remove the mark with that PR).
@@ -25,6 +26,8 @@ and spanning peptides 8-10 aa, p_j falls with length: the length-correlated case
   generator.
 - ``test_attack_has_power_against_mean_pep``: teeth: the mean-PEP rule is a confirmed ``fail`` at
   q = 0.01 and 0.05 on ``flat_d20`` (PR #69 decision 3).
+- ``test_estimator_edge_cases``: the reference rule's edge cases (r = 1, k = n, r = 0, empty
+  classes, c = max).
 """
 
 from __future__ import annotations
