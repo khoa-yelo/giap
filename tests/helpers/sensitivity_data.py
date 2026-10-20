@@ -18,8 +18,8 @@
   (``run_gene_table`` then ``run_detectability``, PR #111).
 
 ``call_regions_family`` is the one place that encodes how ``regions_family`` receives its inputs:
-the spec's ``Family`` signature ``(genes, cfg, rng)`` (genes carrying ``region_ids``). See the
-report for the open question (C7 / C8 / C1 are not in the signature).
+``(genes, cfg, rng, *, regions, region_genes, replicons)`` (lead decisions 5 and 13: the step
+binds C7 / C8 / C1 with ``functools.partial``; no fallback to ``region_ids``).
 """
 
 from __future__ import annotations
@@ -111,6 +111,37 @@ def family_tables() -> FamilyTables:
     return FamilyTables(genes, regions, rg, replicons)
 
 
+def bound_tables(p1_topology: str = "linear") -> FamilyTables:
+    """Lead decisions 5 / 13 (M27): C7 / C8 / C1 that differ from what ``region_ids`` implies.
+
+    ``family_tables`` plus ``bgc_2`` = p1 genes 10-94 (85 genes, all detected at p_detect 0.2), a
+    region present only in C7 / C8; every gene's ``region_ids`` is emptied; p1 is
+    ``p1_topology``. On a circular p1 ``bgc_2`` O - E has p = 1/100 (flagged); on a linear p1 only
+    shifts k = 1..5 keep the set inside the contig, so p >= 1/6 (never flagged)."""
+    t = family_tables()
+    g = t.genes.copy()
+    on_p1 = (g["contig"] == "p1").to_numpy()
+    pos = np.cumsum(on_p1) - 1
+    hot = on_p1 & (pos >= 10) & (pos <= 94)
+    g.loc[hot, "detected"] = True
+    g.loc[hot, "detection_status"] = "detected"
+    g.loc[hot, "p_detect"] = 0.2
+    g.loc[hot & g["abundance_log2"].isna(), "abundance_log2"] = 9.5
+    g["region_ids"] = [[] for _ in range(len(g))]
+    tags = g.loc[hot, "locus_tag"].astype(str).tolist()
+    reg = t.regions.copy()
+    s, e = int(g.loc[hot, "start"].min()), int(g.loc[hot, "end"].max())
+    extra = pd.DataFrame([("bgc_2", "bgc", "p1", s, e, "test", None)], columns=list(reg.columns))
+    reg = pd.concat([reg, extra.astype(reg.dtypes.to_dict())], ignore_index=True)
+    rg_extra = pd.DataFrame([("bgc_2", t_, 1.0, None, False) for t_ in tags],
+                            columns=list(t.region_genes.columns))  # fmt: skip
+    rg = pd.concat([t.region_genes, rg_extra.astype(t.region_genes.dtypes.to_dict())],
+                   ignore_index=True)  # fmt: skip
+    rep = t.replicons.copy()
+    rep.loc[rep["contig"] == "p1", "topology"] = p1_topology
+    return FamilyTables(g, reg, rg, rep)
+
+
 def with_missing_abundance(genes: pd.DataFrame, tags: Iterable[str]) -> pd.DataFrame:
     """``genes`` with ``abundance_log2`` NaN on ``tags`` (what ``missing=exclude`` does to genes
     that the primary imputed); detection columns unchanged."""
@@ -125,7 +156,9 @@ def call_regions_family(t: FamilyTables, cfg: Any, rng: np.random.Generator) -> 
     """``giap.context.sensitivity.regions_family`` on the tables ``t`` (spec signature)."""
     from giap.context import sensitivity as S
 
-    return S.regions_family(t.genes, cfg, rng)
+    return S.regions_family(
+        t.genes, cfg, rng, regions=t.regions, region_genes=t.region_genes, replicons=t.replicons
+    )
 
 
 def reported_flagged(t: FamilyTables, cfg: Any, rng: np.random.Generator) -> frozenset[str]:
@@ -229,6 +262,7 @@ def sim_work_dir(
     blank_intensity_genes: int = 60,
     cfg_over: Mapping[str, Any] | None = None,
     seed: int = SIM_SEED,
+    layout: Mapping[str, Any] | None = None,
 ) -> Path:
     """giapsim work directory with the M4-15 gene table; returns ``work``.
 
@@ -237,7 +271,8 @@ def sim_work_dir(
     genes with peptide hits) lose every peptide intensity, so detected ones among them have a
     missing abundance (imputed under the primary ``median``; NA under ``exclude``).
     ``evidence``: ``giapsim.evidence.EvidenceConfig`` fields (e.g. ``emit = {"intensity"}`` gives
-    the ``two_peptide`` tier)."""
+    the ``two_peptide`` tier); ``layout``: ``giapsim.layout.LayoutConfig`` fields (e.g.
+    ``linear_contigs = (80,)`` adds a linear contig with partial end genes)."""
     import giapsim.evidence as ev
     import giapsim.expression as ex
     import giapsim.layout as la
@@ -247,7 +282,8 @@ def sim_work_dir(
 
     work.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(seed)
-    lay = la.simulate_layout(la.LayoutConfig(n_genes_chromosome=SIM_GENES), rng)
+    lcfg = la.LayoutConfig(n_genes_chromosome=SIM_GENES, **dict(layout or {}))
+    lay = la.simulate_layout(lcfg, rng)
     ecfg = ex.ExpressionConfig(
         region_detect_shift={"prophage": -3.0}, region_effect_log2={"bgc": 3.0}
     )

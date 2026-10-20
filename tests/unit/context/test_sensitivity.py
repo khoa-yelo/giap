@@ -241,9 +241,9 @@ def _stub_rows() -> list[tuple[str, str, str, str, float, float, str]]:
 
 
 def test_flagged_set_rule_and_id_format(monkeypatch: pytest.MonkeyPatch) -> None:
-    S = _S()
+    _S()
     sd.patch_region_tests(monkeypatch, sd.fake_tests(_stub_rows()))
-    got = S.regions_family(sd.family_tables().genes, sd.config(), np.random.default_rng(1))
+    got = sd.call_regions_family(sd.family_tables(), sd.config(), np.random.default_rng(1))
     assert isinstance(got, frozenset)
     assert got == {
         "prophage_1:chr1:o_minus_e",
@@ -256,35 +256,35 @@ def test_flagged_set_rule_and_id_format(monkeypatch: pytest.MonkeyPatch) -> None
 def test_split_contig_parts_do_not_collide(monkeypatch: pytest.MonkeyPatch) -> None:
     """Lead decision 3: one ID per (region, contig, stat); ``<region_id>:<stat>`` would merge
     the two parts of a ``split_contigs`` region into one."""
-    S = _S()
+    _S()
     cs = "circular_shift"
     rows = [("amr_1", "amr", "chr1", "o_minus_e", 0.001, 0.002, cs),
             ("amr_1", "amr", "p1", "o_minus_e", 0.001, 0.002, cs)]  # fmt: skip
     sd.patch_region_tests(monkeypatch, sd.fake_tests(rows))
-    got = S.regions_family(sd.family_tables().genes, sd.config(), np.random.default_rng(1))
+    got = sd.call_regions_family(sd.family_tables(), sd.config(), np.random.default_rng(1))
     assert len(got) == 2
     assert got == {"amr_1:chr1:o_minus_e", "amr_1:p1:o_minus_e"}
 
 
 def test_p_na_rows_are_never_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
-    S = _S()
+    _S()
     cs = "circular_shift"
     rows = [("bgc_1", "bgc", "chr1", "hl_shift", NAN, 0.0, cs),
             ("bgc_1", "bgc", "chr1", "o_minus_e", NAN, NAN, cs)]  # fmt: skip
     sd.patch_region_tests(monkeypatch, sd.fake_tests(rows))
-    got = S.regions_family(sd.family_tables().genes, sd.config(), np.random.default_rng(1))
+    got = sd.call_regions_family(sd.family_tables(), sd.config(), np.random.default_rng(1))
     assert got == frozenset()
 
 
 def test_alpha_context_is_the_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
-    S = _S()
+    _S()
     sd.patch_region_tests(monkeypatch, sd.fake_tests(_stub_rows()))
-    genes = sd.family_tables().genes
-    loose = S.regions_family(genes, sd.config(stats={"alpha": {"context": 0.10}}),
-                             np.random.default_rng(1))  # fmt: skip
+    t = sd.family_tables()
+    loose = sd.call_regions_family(t, sd.config(stats={"alpha": {"context": 0.10}}),
+                                   np.random.default_rng(1))  # fmt: skip
     assert "bgc_1:chr1:o_minus_e" in loose
-    strict = S.regions_family(genes, sd.config(stats={"alpha": {"context": 0.005}}),
-                              np.random.default_rng(1))  # fmt: skip
+    strict = sd.call_regions_family(t, sd.config(stats={"alpha": {"context": 0.005}}),
+                                    np.random.default_rng(1))  # fmt: skip
     assert strict == {"amr_1:chr1:o_minus_e", "amr_1:p1:o_minus_e"}
 
 
@@ -292,10 +292,10 @@ def test_family_runs_the_region_tests_with_the_given_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The step sets ``stats.permutations = 199``; the family must not override it."""
-    S = _S()
+    _S()
     calls = sd.patch_region_tests(monkeypatch, sd.fake_tests(_stub_rows()))
     cfg = sd.config(stats={"permutations": sd.SENS_B})
-    S.regions_family(sd.family_tables().genes, cfg, np.random.default_rng(1))
+    sd.call_regions_family(sd.family_tables(), cfg, np.random.default_rng(1))
     assert len(calls) == 1
     passed = [a for a in (*calls[0]["args"], *calls[0]["kwargs"].values())
               if type(a).__name__ == "GiapConfig"]  # fmt: skip
@@ -368,3 +368,44 @@ def test_region_types_off_give_no_ids() -> None:
     cfg = sd.config(stats={"permutations": sd.SENS_B}, context={"region_types": ["bgc", "crispr"]})
     got = sd.call_regions_family(t, cfg, np.random.default_rng(1))
     assert not any(x.startswith(("prophage_", "amr_")) for x in got)
+
+
+# --------------------------------------------------------------------------- lead decisions 5, 13:
+# the family uses the bound C7 / C8 / C1, never tables derived from ``region_ids``
+
+
+@pytest.mark.parametrize(
+    "given", [(), ("regions",), ("regions", "region_genes"), ("region_genes", "replicons")]
+)
+def test_regions_family_requires_bound_tables(given: tuple[str, ...]) -> None:
+    """Decision 13: ``regions``, ``region_genes`` and ``replicons`` are keyword-only and required
+    (no fallback to tables derived from the gene table)."""
+    S = _S()
+    t = sd.family_tables()
+    tables = {"regions": t.regions, "region_genes": t.region_genes, "replicons": t.replicons}
+    with pytest.raises(TypeError):
+        S.regions_family(t.genes, sd.config(), np.random.default_rng(1),
+                         **{k: tables[k] for k in given})  # fmt: skip
+
+
+def test_regions_family_tables_are_keyword_only() -> None:
+    import inspect
+
+    params = inspect.signature(_S().regions_family).parameters
+    for name in ("regions", "region_genes", "replicons"):
+        assert params[name].kind is inspect.Parameter.KEYWORD_ONLY, name
+        assert params[name].default is inspect.Parameter.empty, name
+
+
+@pytest.mark.parametrize("topology", ["circular", "linear"])
+def test_bound_tables_and_topology_are_used(topology: str) -> None:
+    """M27: C7 / C8 hold ``bgc_2`` that no gene's ``region_ids`` lists, and C1 makes p1
+    ``topology``: the flagged set is the one of the M4-17 tests on exactly those tables (on the
+    linear p1 ``bgc_2`` has 5 valid shifts and is never flagged; circular: p = 0.01)."""
+    t = sd.bound_tables(topology)
+    cfg = sd.config(stats={"permutations": sd.SENS_B})
+    want = sd.reported_flagged(t, sd.config(), np.random.default_rng(3))
+    got = sd.call_regions_family(t, cfg, np.random.default_rng(4))
+    assert got == want
+    assert ("bgc_2:p1:o_minus_e" in got) is (topology == "circular")
+    assert "prophage_1:chr1:o_minus_e" in got  # region_ids are empty: C7 / C8 were used

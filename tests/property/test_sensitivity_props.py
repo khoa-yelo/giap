@@ -85,14 +85,14 @@ _ROW = st.tuples(
 def test_f1_flagged_set_rule(
     monkeypatch: pytest.MonkeyPatch, rows: list[tuple[Any, ...]], alpha: float
 ) -> None:
-    S = _S()
+    _S()
     typ = {"prophage": "prophage", "bgc": "bgc", "amr": "amr", "crispr": "crispr"}
     full = [(r, typ[r.split("_")[0]], c, s, p, q, n) for r, c, s, p, q, n in rows]
     frame = sd.fake_tests(full)
     with monkeypatch.context() as m:
         sd.patch_region_tests(m, frame)
-        got = S.regions_family(sd.family_tables().genes,
-                               sd.config(stats={"alpha": {"context": alpha}}),
-                               np.random.default_rng(0))  # fmt: skip
+        got = sd.call_regions_family(sd.family_tables(),
+                                     sd.config(stats={"alpha": {"context": alpha}}),
+                                     np.random.default_rng(0))  # fmt: skip
     assert got == sd.flagged_from(frame, alpha)
     assert all(len(x.split(":")) == 3 for x in got)
