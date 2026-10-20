@@ -106,3 +106,15 @@ does to power (TU scores of large TUs have smaller variance), merging and the be
 9. Q1: windows on a circular replicon are capped at n − 1 TUs.
 10. Q2: windows merge only on ≥ 1 shared TU. Methods note: an island longer than 20 TUs is represented by
     a best window of ≤ 20 TUs, and M5-10's Jaccard inherits that.
+
+## Lead decisions after the test-author's report (2026-10-20)
+11. Example 9 is a `merge_windows` example on a hand-built `ScanResult` (the same window with two signs
+    cannot come from `scan_max`); tested that way.
+12. Cluster order follows the rule (best window's start), not the listing in example 9; on equal starts,
+    "high" precedes "low".
+13. A significant window with S = 0 has no direction and is dropped from every cluster (no error); it can
+    arise only from a degenerate null.
+14. Example 4 reads "the first cluster's best window has start 0".
+15. The calibration claim for M5-03 is FWER level under exchangeable permutation nulls (suite `islands`),
+    as written by the test-author; the autocorrelated block-bootstrap claim is M5-06/M5-07. `n_windows`
+    also raises on a bad window range.
