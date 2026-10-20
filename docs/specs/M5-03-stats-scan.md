@@ -100,3 +100,9 @@ does to power (TU scores of large TUs have smaller variance), merging and the be
    window covering the whole replicon has S = Σz/√n ≈ 0 after detrending and is not an island.
 2. "Overlapping" = sharing ≥ 1 TU; adjacent (touching) windows stay separate islands? **Proposed default:**
    yes, only shared TUs merge.
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+
+9. Q1: windows on a circular replicon are capped at n − 1 TUs.
+10. Q2: windows merge only on ≥ 1 shared TU. Methods note: an island longer than 20 TUs is represented by
+    a best window of ≤ 20 TUs, and M5-10's Jaccard inherits that.

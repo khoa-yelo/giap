@@ -23,8 +23,6 @@ import pytest
 
 from giap.model.coords import Interval, Replicon, check_interval
 
-pytestmark = pytest.mark.pending_sample
-
 RECORDED = Path(__file__).resolve().parents[1] / "data" / "recorded" / "genomad" / "1.12.0"
 SAMPLES = ["sim100k", "k12_mg1655", "nissle1917"]
 TSVS = ["virus_summary", "plasmid_summary", "virus_genes"]

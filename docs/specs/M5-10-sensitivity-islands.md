@@ -61,3 +61,7 @@ variants.
    `functools.partial` when it calls a family that declares them (keyword-only parameters); no change for
    `regions`.
 2. Should autocorrelation also be a family? §8.6 lists only islands for M5. **Proposed default:** no (R1).
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+
+38. Q1 (`functools.partial`) and Q2 (no autocorrelation family): accept.
