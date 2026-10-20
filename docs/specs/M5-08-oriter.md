@@ -101,3 +101,13 @@ the oriC choice with several calls, TU values, the block-bootstrap CI and its bl
    row. **Proposed default:** skip; the spec's geometry (terminus = oriC + L/2) assumes a circle.
 4. Gradient on detected genes' abundance only (censoring ignored). **Proposed default:** yes, this is a
    descriptive regression of TU-level log2 abundance as §7.3.5(e) says.
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+
+31. Q1: circular mean of the oriC calls only if all lie within 0.05·L of each other (circular distance);
+    otherwise `no_oric` plus a `multiple_oric` log event. (K-12: two calls 42 kb apart → mean 21 kb off
+    the true oriC, 0.009 of a replichore; slope unaffected.)
+32. Q2: `right`/`left` labels in `stat`.
+33. Q3: linear and unknown-kind contigs are skipped.
+34. Q4: detected genes only (descriptive).
+35. CI block length ℓ' (ADR-0021, proposed); until accepted, tests use an integer `block_len`.

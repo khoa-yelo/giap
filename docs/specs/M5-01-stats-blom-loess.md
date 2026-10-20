@@ -114,3 +114,13 @@ below the detection limit, so their order is unknown but their position is not),
    LOESS absorbs almost all structure, so islands cannot be found there. **Proposed default:** keep the
    spec's 10 % with the 3-point floor (valid, low power on small replicons); record power by replicon
    size in M5-07.
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+
+1. Q1: yes — `giap.stats.smooth.loess_detrend` as an internal engine helper, no ADR. It accepts positions
+   0…n−1 (the ordinal among genes with values), so the smoother is one matrix for every permutation
+   (ADR-0020 needs this; TU-block permutations move the valued positions).
+2. Q2: plain local-linear LOESS (`it = 0`); robust iterations would make the trend depend on the island.
+3. Q3: keep the 10 % span with the 3-point floor; record power by replicon size (the span costs about half
+   the power at 1,000 genes; at 4,500 genes it is ≈ 255 TUs, far longer than an island). A plasmid floor
+   is a later ADR candidate.

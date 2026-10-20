@@ -55,3 +55,7 @@ grid (M5-07) run as `giap-` jobs; nothing heavy in the session allocation
    tests the empty path) and add `sim1000_island` for a non-empty golden.
 2. Gate run: as for M4, one green full calibration run on main submitted as a Slurm job until Khoa
    installs the nightly scrontab entry. **Proposed default:** yes.
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+
+39. Q1, Q2: accept; check the `sim1000_island` golden (+3 SD, 20 TUs) against ℓ' before freezing it.

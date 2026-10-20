@@ -93,3 +93,8 @@ in its §9.3 position, for autocorrelation) and `flags` last.
    M4 code writes genes.tsv before `context_stats`, move that call after it in this PR.
 3. Schema file names: `<table>.schema.json` (existing files) vs `<table>.json` (M4-15/M4-18 specs).
    **Proposed default:** follow whatever M4-15/M4-18 merged; else the existing `.schema.json`.
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+
+36. Q1: add `not_estimable`, `few_values` and `ci_unestimated` to the flag vocabulary.
+37. Q2, Q3: accept the proposed defaults.

@@ -134,3 +134,15 @@ null, genome-wide maximum, merging, effect CI, degenerate cases; evidence from M
 4. Significance threshold: `stats.alpha.context` (0.05) — §7.3.5 hard-codes 0.05. **Proposed default:**
    read it from `stats.alpha.context` ("the single source of every significance level", §5.2); the block
    length rule stays at the literal 0.05.
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+
+Blocked on ADR-0021 (proposed): the spec's block length gives FWER 0.205–0.27 at ρ ≥ 0.5. When accepted:
+21. Q1: genome-wide maximum over replicons; each replicon keeps its own ℓ'.
+22. Q2: detected genes without abundance are not scored.
+23. Q3: report each island by its best window.
+24. Q4: threshold `stats.alpha.context`; the block-length rule keeps the literal 0.05.
+25. Block length ℓ' = min(20, 2ℓ̂ + 1, T); integer `context.islands.block_len` overrides.
+26. Effect CI: the spec's TU-bootstrap CI; methods note says it is conditional on the selected window and
+    ignores within-window autocorrelation; M5-07 records its coverage.
+27. Keep the combined detection/abundance estimand; gate the short-gene prophage attack.

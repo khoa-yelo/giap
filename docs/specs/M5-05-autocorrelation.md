@@ -128,3 +128,20 @@ calibration).
    (not gated) scenario with detectability clustered beyond TUs. **Proposed default:** keep the spec;
    if that scenario shows the TU-block join count far off level, propose an ADR with the residual join
    count Σ (d_i − p_i)(d_j − p_j) (same idea as ADR-0018).
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+
+Blocked on ADR-0020 (proposed): the spec's "detrend then permute" is anti-conservative (pooled 0.096 /
+0.155 at α 0.05) and the raw join count fails under clustered detectability. When accepted:
+14. Q1: the gene-label null keeps the missingness pattern; it permutes the pre-detrended values among genes
+    with values and detrends every replicate.
+15. Q2: CI NA with flag `ci_unestimated` (ADR-0020 decision 4).
+16. Q3: BH family per (contig, statistic, null_model); contigs with < 10 values get `few_values`.
+17. Q4: residual join count now (ADR-0020 decision 3): `value` = raw BB_k, `stat`/`effect` = residual
+    statistic − null mean.
+18. Gates per (statistic, null), α ∈ {0.01, 0.05, 0.10}: lag-1 level, lag-20 level, BH-family
+    any-rejection rate (FWER bound); pooled 20-lag rate recorded only.
+19. Statistician attack file tests/calibration/attacks/test_attack_autocorr.py: (a) TU null + 2 log2
+    cosine, (b) label null + gradient, (c) short-gene prophage under TU null (join count) — gated; (d)
+    no-detrend teeth — recorded.
+20. Methods note: large-lag negative I under strong short-range correlation is a span artefact.
