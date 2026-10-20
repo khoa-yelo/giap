@@ -23,22 +23,27 @@
 # other tasks only log "skipped". Submit: sbatch --array=0 --export=ALL,MODE=record nightly.sbatch
 # Each task checks out NIGHTLY_REF (default origin/main; decision 5: main only) in its own detached
 # worktree $GIAP_ROOT/ci/<ref>-t<task>; work dirs in $GIAP_ROOT/ci/runs/<job>_<task> (kept 7 days).
-# One line per sub-task goes to $GIAP_ROOT/logs/nightly.tsv (date, job_task, commit, exit, summary);
-# the last task to finish posts the table with scripts/ci/post_summary.py to the "Nightly
-# (FarmShare)" issue (NIGHTLY_POST=dry: print it instead). Never pushes and never commits.
-# Overrides: NIGHTLY_REF, NIGHTLY_PROFILE (default farmshare,apptainer; farmshare_local,apptainer
-# keeps every Nextflow task inside this allocation), NIGHTLY_NF_PROFILE, NIGHTLY_POST,
-# NIGHTLY_RECORD_SAMPLES.
-# Runs from scrontab (scripts/slurm/nightly.scrontab) or by hand: sbatch scripts/slurm/nightly.sbatch
-# R14: 4 tasks x 16 CPUs = 64 CPUs; Nextflow queueSize 8 x 16 CPUs under -profile farmshare.
+# Every task writes one line to $GIAP_ROOT/logs/nightly.tsv (date, job_task, commit, exit,
+# summary), also when it fails early or is killed (SIGTERM at the time limit; decision 14: EXIT and
+# TERM traps), then calls scripts/ci/post_summary.py, which posts the table to the "Nightly
+# (FarmShare)" issue once every task has a line (NIGHTLY_POST=dry: print it instead). The 1-CPU
+# summary job of scripts/slurm/nightly_launch.sh (afterany) posts whatever is there when a task
+# could not report at all (SIGKILL, OOM). Never pushes and never commits.
+# Overrides: NIGHTLY_REF, NIGHTLY_PROFILE (default farmshare_local,apptainer: every Nextflow task
+# stays inside this allocation, decision 12; farmshare,apptainer adds Nextflow child jobs),
+# NIGHTLY_NF_PROFILE, NIGHTLY_POST, NIGHTLY_RECORD_SAMPLES.
+# Runs nightly from scripts/slurm/nightly_launch.sh (scrontab: scripts/slurm/nightly.scrontab) or by
+# hand: sbatch scripts/slurm/nightly.sbatch (then nothing posts for a task that is SIGKILLed).
+# R14: 4 tasks x 16 CPUs = 64 CPUs (+ 1 summary CPU) under the default profile; with
+# NIGHTLY_PROFILE=farmshare,apptainer add 3 heads x queueSize 8 x 16 CPUs: run one task at a time.
 set -uo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 unset PYTHONHOME
 module load apptainer 2>/dev/null || true
+export PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"   # python for report() even before the checkout
 MODE="${MODE:-test}"
-case "$MODE" in test|record) ;; *) echo "MODE must be test or record, not '$MODE'" >&2; exit 2 ;; esac
 REF="${NIGHTLY_REF:-origin/main}"
-PROFILE="${NIGHTLY_PROFILE:-farmshare,apptainer}"
+PROFILE="${NIGHTLY_PROFILE:-farmshare_local,apptainer}"
 NF_PROFILE="${NIGHTLY_NF_PROFILE:-test,stub}"
 TASK="${SLURM_ARRAY_TASK_ID:-0}"
 JOB="${NIGHTLY_ARRAY_JOB:-${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-manual}}}"
@@ -46,11 +51,36 @@ EXPECT="${NIGHTLY_EXPECT:-${SLURM_ARRAY_TASK_COUNT:-1}}"
 N="${SLURM_CPUS_PER_TASK:-16}"
 TSV="$GIAP_ROOT/logs/nightly.tsv"
 CI="$GIAP_ROOT/ci"
-W="$GIAP_ROOT/ci/$(echo "${REF#origin/}" | tr '/' '-')-t$TASK"
+W="${NIGHTLY_WORKTREE:-$GIAP_ROOT/ci/$(echo "${REF#origin/}" | tr '/' '-')-t$TASK}"
 RUN="$CI/runs/${JOB}_$TASK"
+commit=$(git -C "$GIAP_REPO" rev-parse -q --short --verify "$REF^0" 2>/dev/null || echo unknown)
+stage="setup"; reported=""; numba_tmp=""
 mkdir -p "$CI/runs" "$GIAP_ROOT/logs"
+
+tsv_line() {  # tsv_line <job_task> <exit> <summary>
+  printf '%s\t%s\t%s\t%s\t%s\n' "$(date +%F)" "$1" "$commit" "$2" "$3" >> "$TSV"
+}
+report() {  # report <exit> <sub-task: summary>: this task's nightly.tsv line, then the summary post
+  reported=1
+  tsv_line "${JOB}_$TASK" "$1" "$2"
+  echo "NIGHTLY_EXIT=$1 $2"
+  local dry=() ps="$W/scripts/ci/post_summary.py"
+  [ -f "$ps" ] || ps="$GIAP_REPO/scripts/ci/post_summary.py"   # the checkout may have failed
+  [ "${NIGHTLY_POST:-yes}" = dry ] && dry=(--dry-run)
+  python "$ps" --job "$JOB" --tsv "$TSV" --expect "$EXPECT" "${dry[@]}"
+}
+on_exit() {  # decision 14: a task that ends without its line (early exit, error) still reports
+  local rc=$?
+  [ -n "$reported" ] || report "$(( rc ? rc : 1 ))" "task $TASK: ended during $stage without a result (exit $rc)"
+  [ -z "$numba_tmp" ] || rm -rf "$numba_tmp"   # only this task's cache, never the shared one
+}
+trap on_exit EXIT
+trap 'report 143 "task $TASK: killed by SIGTERM (time limit?) during $stage"; exit 143' TERM
+
+case "$MODE" in test|record) ;; *) echo "MODE must be test or record, not '$MODE'" >&2; exit 2 ;; esac
 find "$CI/runs" -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} + 2>/dev/null
 rm -rf "$RUN"; mkdir -p "$RUN/tmp"
+stage="checkout of $REF"
 (
   flock 9   # the array tasks share one repository: fetch and worktree add one at a time
   git -C "$GIAP_REPO" fetch -q origin
@@ -58,19 +88,13 @@ rm -rf "$RUN"; mkdir -p "$RUN/tmp"
   git -C "$W" checkout -q -f --detach "$REF"
 ) 9>"$CI/.git.lock" || { echo "cannot check out $REF in $W" >&2; exit 2; }
 cd "$W" || exit 2
-export TMPDIR="$RUN/tmp" NXF_ANSI_LOG=false NUMBA_CACHE_DIR="$(mktemp -d /tmp/giap-numba.XXXXXX)"
-trap 'rm -rf "$NUMBA_CACHE_DIR"' EXIT
+numba_tmp="$(mktemp -d /tmp/giap-numba.XXXXXX)"
+export TMPDIR="$RUN/tmp" NXF_ANSI_LOG=false NUMBA_CACHE_DIR="$numba_tmp"
 export PYTHONPATH="$PWD/src:$PWD/tests/sim"
-export PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"
 commit=$(git -C "$W" rev-parse --short HEAD)
+stage="task $TASK"
 echo "nightly task=$TASK mode=$MODE ref=$REF commit=$commit node=$(hostname) profile=$PROFILE start=$(date -Is)"
 
-report() {  # report <exit> <sub-task: summary>: one nightly.tsv line, then the summary post
-  printf '%s\t%s\t%s\t%s\t%s\n' "$(date +%F)" "${JOB}_$TASK" "$commit" "$1" "$2" >> "$TSV"
-  echo "NIGHTLY_EXIT=$1 $2"
-  local dry=(); [ "${NIGHTLY_POST:-yes}" = dry ] && dry=(--dry-run)
-  python scripts/ci/post_summary.py --job "$JOB" --tsv "$TSV" --expect "$EXPECT" "${dry[@]}"
-}
 pyt() {  # pyt <label> <pytest args...>: sets rc and summary
   python -m pytest -p no:cacheprovider "${@:2}" 2>&1 | tee "$RUN/$1.txt"
   rc=${PIPESTATUS[0]}
@@ -105,14 +129,29 @@ task_record() {
   summary="record: failures $nfail; identical $same; changed ${#changed[@]}${changed:+ (${changed[*]})}"
 }
 
+extend_summary() {  # extend_summary <job>: decision 19, the night's summary also waits for <job>
+  local sid
+  sid=$(squeue -u "$USER" -h -t PENDING -n giap-nightly-summary -o '%i %k' 2>/dev/null \
+    | awk -v c="nightly:$JOB" '$2 == c {print $1; exit}')
+  [ -n "$sid" ] && scontrol update JobId="$sid" Dependency="afterany:$JOB:$1"
+}
+
 task_benchmarks() {
   case "$(hostname -s)" in
     wheat-*) ;;
     *) if [ -z "${NIGHTLY_BENCH_PINNED:-}" ]; then   # array tasks cannot carry their own constraint
-         local j; j=$(sbatch --parsable --array="$TASK" --constraint=CPU_SKU:6148 \
-           --export="ALL,MODE=$MODE,NIGHTLY_BENCH_PINNED=1,NIGHTLY_ARRAY_JOB=$JOB,NIGHTLY_EXPECT=$EXPECT" \
-           scripts/slurm/nightly.sbatch)
-         echo "not a wheat node ($(hostname -s)): benchmarks resubmitted as job $j"; exit 0
+         local j   # decision 15: the same commit; the pinned job writes this task's line
+         if ! j=$(sbatch --parsable --array="$TASK" --constraint=CPU_SKU:6148 \
+           --export="ALL,MODE=$MODE,NIGHTLY_BENCH_PINNED=1,NIGHTLY_ARRAY_JOB=$JOB,NIGHTLY_EXPECT=$EXPECT,NIGHTLY_REF=$commit,NIGHTLY_WORKTREE=$W" \
+           scripts/slurm/nightly.sbatch); then
+           rc=1; summary="benchmarks: not a wheat node ($(hostname -s)) and the resubmission to wheat failed"
+           return
+         fi
+         j=${j%%;*}
+         echo "not a wheat node ($(hostname -s)): benchmarks resubmitted as job $j"
+         extend_summary "$j" || tsv_line "${JOB}_note" 0 \
+           "benchmarks resubmitted as job $j; no pending giap-nightly-summary job of $JOB to extend: it may post before them"
+         reported=1; exit 0
        fi
        rc=1; summary="benchmarks: not on a wheat node ($(hostname -s))"; return ;;
   esac

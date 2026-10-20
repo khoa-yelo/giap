@@ -9,7 +9,9 @@ component of the trace ``name``, lowercased), the largest peak RSS and the longe
 process ran several tasks (``promoter_calculator (16 tasks)``), ``CACHED``/``FAILED`` tasks left
 out. ``wall`` is the task ``realtime`` (else ``duration``) as ``H:MM:SS``; peak RSS keeps the
 trace's unit. The node class (``wheat``/``barley``/``rye``/``oat``) is the prefix of the node
-name that ``sacct -j JOBID`` reports for the head job.
+each task ran on, from the trace ``hostname`` field (lead decisions 16 and 20; under ``-profile
+farmshare`` the tasks run on other nodes than the head); tasks without it (older traces, or
+``-``) fall back to the node that ``sacct -j JOBID`` reports for the head job.
 """
 
 from __future__ import annotations
@@ -38,6 +40,7 @@ class Task:
     rss_text: str
     rss_bytes: float
     variant: str = ""
+    node: str = ""  # node class of the task's own node ("" when the trace has no hostname)
 
 
 def seconds(text: str) -> float | None:
@@ -94,12 +97,17 @@ def parse_trace(rows: list[dict[str, str]]) -> list[Task]:
         proc = process_name(r.get("name", ""))
         rss = r.get("peak_rss", "").strip()
         variant = bakta_variant(r.get("workdir", "")) if proc == "bakta" else ""
-        tasks.append(Task(proc, wall, rss or "-", rss_bytes(rss) or 0.0, variant))
+        host = (r.get("hostname") or "").strip()
+        node = node_class(host) if host and host != "-" else ""
+        tasks.append(Task(proc, wall, rss or "-", rss_bytes(rss) or 0.0, variant, node))
     return tasks
 
 
-def summarise(tasks: list[Task], genome: str, node: str) -> list[str]:
-    """One markdown row per process, in order of first appearance."""
+def summarise(tasks: list[Task], genome: str, node: str, job: str | None = None) -> list[str]:
+    """One markdown row per process, in order of first appearance.
+
+    ``node`` is the head job's class, used for tasks without their own; ``job`` labels the cell.
+    """
     by: dict[str, list[Task]] = {}
     for t in tasks:
         by.setdefault(t.process, []).append(t)
@@ -111,7 +119,9 @@ def summarise(tasks: list[Task], genome: str, node: str) -> list[str]:
             notes.append(f"{len(ts)} tasks")
         step = f"{proc} ({', '.join(notes)})" if notes else proc
         wall = hms(max(t.wall_s for t in ts))
-        out.append(f"| {step} | {genome} | {wall} | {top.rss_text} | {node} |")
+        klass = "/".join(sorted({t.node or node for t in ts}))
+        cell = f"{klass} ({job})" if job else klass
+        out.append(f"| {step} | {genome} | {wall} | {top.rss_text} | {cell} |")
     return out
 
 
@@ -144,14 +154,15 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as exc:
         print(f"measure_runtimes: cannot read {args.trace}: {exc.strerror}", file=sys.stderr)
         return 2
+    tasks = parse_trace(rows)
     node = "?"
-    if args.sacct:
+    if args.sacct and any(not t.node for t in tasks):
         try:
-            node = f"{node_class(sacct_node(args.sacct))} ({args.sacct})"
+            node = node_class(sacct_node(args.sacct))
         except (OSError, RuntimeError) as exc:
             print(f"measure_runtimes: {exc}", file=sys.stderr)
             return 2
-    print("\n".join(summarise(parse_trace(rows), args.genome, node)))
+    print("\n".join(summarise(tasks, args.genome, node, args.sacct)))
     return 0
 
 

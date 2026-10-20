@@ -12,8 +12,9 @@ Median of 5 rounds after one warm-up round. ``benchmarks/baseline.json`` > ``ann
 > ``<node class>`` holds the accepted medians per node class (the class is the node-name
 prefix: wheat, barley, rye, oat; the nightly pins wheat, lead decision 1); a median more than
 ``benchmark_slowdown_max`` (``ci/gates.yaml``, 15 %) above the baseline of the same class
-fails. Without a baseline for the class the medians are only reported (``extra_info``,
-``--benchmark-json``).
+fails. Without a baseline for the class, or with a baseline under ``GATE_MIN_S`` (1 s; lead
+decisions 10 and 13: timer noise dominates such steps), the medians are only reported
+(``extra_info``, ``--benchmark-json``).
 Run with ``pytest benchmarks/test_annotation_steps.py --benchmark-only``.
 """
 
@@ -39,6 +40,7 @@ from helpers.layers_chain import Chain, build_chain, fresh_steps  # noqa: E402
 from giap.config import GiapConfig  # noqa: E402
 
 ROUNDS = 5
+GATE_MIN_S = 1.0  # baselines below this are recorded, not gated (lead decisions 10, 13)
 SLOWDOWN_MAX = float(
     yaml.safe_load((ROOT / "ci" / "gates.yaml").read_text())["benchmark_slowdown_max"]
 )
@@ -73,7 +75,7 @@ def _bench(benchmark: Any, name: str, run: Callable[[int], object]) -> None:
     benchmark.extra_info.update({"median_s": round(median, 4), "node_class": klass,
                                  "node": socket.gethostname().split(".")[0]})  # fmt: skip
     base = baseline(name, klass)
-    if base is not None:
+    if base is not None and base >= GATE_MIN_S:
         limit = base * (1 + SLOWDOWN_MAX)
         assert median <= limit, (
             f"{name}: median {median:.3f} s > {limit:.3f} s (baseline {base:.3f} s on {klass})"

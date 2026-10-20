@@ -23,7 +23,9 @@
 # MODE=test (default) | record: record also keeps the live Bakta outputs (JSON, GBFF, FAA, TSV with
 # SHA256SUMS) under $GIAP_ROOT/recordings/weekly/<genome>/<job>/; both modes report whether the
 # live JSON's features equal the recorded one's.
-# Overrides: WEEKLY_REF (default origin/main), WEEKLY_PROFILE (default farmshare,apptainer).
+# Overrides: WEEKLY_REF (default origin/main), WEEKLY_PROFILE (default farmshare_local,apptainer:
+# every Nextflow task inside this 16-CPU allocation, R14 and lead decision 12; farmshare,apptainer
+# adds up to 2 heads x queueSize 8 x 16 CPUs of child jobs).
 # One line per task goes to $GIAP_ROOT/logs/weekly.tsv. Never pushes and never commits.
 set -uo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
@@ -32,7 +34,7 @@ module load apptainer 2>/dev/null || true
 MODE="${MODE:-test}"
 case "$MODE" in test|record) ;; *) echo "MODE must be test or record, not '$MODE'" >&2; exit 2 ;; esac
 REF="${WEEKLY_REF:-origin/main}"
-PROFILE="${WEEKLY_PROFILE:-farmshare,apptainer}"
+PROFILE="${WEEKLY_PROFILE:-farmshare_local,apptainer}"
 TASK="${SLURM_ARRAY_TASK_ID:-0}"
 JOB="${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-manual}}"
 N="${SLURM_CPUS_PER_TASK:-16}"
