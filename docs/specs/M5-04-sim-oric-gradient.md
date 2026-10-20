@@ -109,3 +109,17 @@ def oriter_gradient(n_genes: int, rho: float, oriter_log2: float) -> tuple[Layou
     `short_genes_in = "prophage"` and `detection = covariates_only`; `ar1_background(1000, 0.9)`;
     `draft_ar1` (500-gene chromosome + 133 linear 30-gene contigs); `island_power(..., detection =
     "abundance")`.
+
+## Lead decisions after the test-author's report (2026-10-20)
+14. oriC placement: the gap nearest to `oric_frac·L` whose width is ≥ 232 bp (the wrap gap included),
+    oriC centred (±1 bp), no gene moved; if no gap fits, `ValueError` naming `oric_frac`.
+15. `feature_id` = `<contig>_oric1` (e.g. `chr1_oric1`). The "no chr1" error is dropped (chr1 always
+    exists).
+16. The scenario signatures the tests assume are accepted (`label_null`, `tu_null`, `ar1_background`,
+    `island_power`, `oriter_gradient`, `draft_ar1`); every nonzero gradient uses `oric_frac = 0.8`, cosine.
+17. `island_power` places the island deterministically (no seed argument); "away from regions" is not a
+    simulator guarantee — M5-07 drops replicates whose island overlaps a region and records the count.
+18. `replichore_true` / `replichore_position_true` live in `Expression.genes`.
+19. C15 is not added to `load_m4_inputs` / `FILE_NAMES` / `M4Inputs` in M5-04; M5-08 decides its loader.
+20. `simulate_expression` does not check feature overlap (example 4 as written).
+21. Simulator tests stay under tests/unit/test_sim_*.py (as M4-07/08), not tests/sim/.
