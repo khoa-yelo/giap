@@ -51,7 +51,6 @@ from giap.config import GiapConfig, resolve_config
 
 regions = importlib.import_module("giap.annotate.regions")  # M2-19
 
-pytestmark = pytest.mark.pending_sample
 
 TAX = "Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;"
 K12_PROPHAGES = [  # 0-based half-open, numbered by start
