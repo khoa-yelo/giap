@@ -125,3 +125,7 @@ sets, the single-peptide rerun refits detectability.
 15. The `top3` variant table sets `abundance_type` = top3 and carries the top3 raw values and flags.
 16. Backlog: M4-19 step registration and Nextflow wiring; decision 7 (manifest records `off`); decision 8
     (no rows when a module is off).
+17. Decision 12 table names use the M4-06 numbering: C1 replicons, C2 genes, C7 regions, C8 region_genes
+    (the step loads the gene table plus regions, region_genes and replicons). Decision 15 reading
+    confirmed: under `top3`, `abundance_raw` holds the Top3 raw value, so log2(abundance_raw) = top3_log2
+    on observed genes.
