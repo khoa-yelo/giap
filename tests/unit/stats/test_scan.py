@@ -262,6 +262,29 @@ def test_circular_touching_across_origin_stays_separate() -> None:
     assert [c.members for c in cl] == [(1,), (0,)]
 
 
+def test_equal_best_start_high_before_low() -> None:
+    # decision 12: the low window is listed first but the high cluster comes first
+    res = make_res([(3, 2, -3.1), (3, 3, 3.0), (7, 2, 2.0)])
+    cl = merge_windows(res, [True, True, True], 10, circular=False)
+    assert cl == [
+        Cluster(direction="high", best=1, members=(1,)),
+        Cluster(direction="low", best=0, members=(0,)),
+        Cluster(direction="high", best=2, members=(2,)),
+    ]
+
+
+def test_zero_s_significant_window_is_dropped() -> None:
+    # decision 13: S = 0 has no direction; it joins no cluster, bridges none, raises no error
+    res = make_res([(0, 3, 3.0), (2, 3, 0.0), (4, 3, 3.2), (6, 2, -0.0)])
+    cl = merge_windows(res, [True, True, True, True], 10, circular=False)
+    assert cl == [
+        Cluster(direction="high", best=0, members=(0,)),
+        Cluster(direction="high", best=2, members=(2,)),
+    ]
+    only_zero = make_res([(0, 2, 0.0), (1, 2, 0.0)])
+    assert merge_windows(only_zero, [True, True], 10, circular=True) == []
+
+
 def test_opposite_directions_never_merge() -> None:
     res = make_res([(0, 3, 3.0), (1, 3, -3.5)])
     cl = merge_windows(res, [True, True], 10, circular=False)

@@ -8,7 +8,9 @@
 - ``fwer_p`` is monotone non-increasing in |S|, lies in [1/(1+B), 1] and equals the +1 rule.
 - ``merge_windows``: clusters partition the significant windows; members share the direction of
   the cluster; same-direction windows sharing a TU are in one cluster; each cluster is connected;
-  the best window maximises |S| among its members; clusters are ordered by the best start.
+  the best window maximises |S| among its members; clusters are ordered by the best start, with
+  "high" before "low" on equal starts (decision 12); significant windows with S = 0 are in no
+  cluster and raise no error (decision 13).
 """
 
 from __future__ import annotations
@@ -153,8 +155,8 @@ def merge_case(draw: st.DrawFn) -> tuple[np.ndarray, int, int, int, bool, np.nda
 def test_merge_invariants(case: tuple[np.ndarray, int, int, int, bool, np.ndarray]) -> None:
     z, n, wmin, wmax, circular, sig = case
     res = scan_max(z, wmin, wmax, circular)
-    sig = sig & (res.s != 0)  # a zero-S window has no direction
-    clusters = merge_windows(res, sig, n, circular)
+    clusters = merge_windows(res, sig, n, circular)  # sig may include S = 0 windows
+    kept = sig & (res.s != 0)  # decision 13: a zero-S window has no direction; dropped
     pos = [
         positions(int(s), int(w), n, circular)
         for s, w in zip(res.start.tolist(), res.length.tolist(), strict=True)
@@ -165,7 +167,7 @@ def test_merge_invariants(case: tuple[np.ndarray, int, int, int, bool, np.ndarra
         assert c.best in c.members
         sign = 1 if c.direction == "high" else -1
         for m in c.members:
-            assert sig[m]
+            assert kept[m]
             assert np.sign(res.s[m]) == sign
             assert m not in seen
             seen[m] = ci
@@ -180,10 +182,11 @@ def test_merge_invariants(case: tuple[np.ndarray, int, int, int, bool, np.ndarra
                     reach.add(m)
                     frontier.append(m)
         assert reach == set(c.members)
-    assert set(seen) == set(np.flatnonzero(sig).tolist())
+    assert set(seen) == set(np.flatnonzero(kept).tolist())
     for a in seen:
         for b in seen:
             if a < b and np.sign(res.s[a]) == np.sign(res.s[b]) and pos[a] & pos[b]:
                 assert seen[a] == seen[b]
-    starts = [int(res.start[c.best]) for c in clusters]
-    assert starts == sorted(starts)
+    # decision 12: ordered by the best window's start; on equal starts "high" before "low"
+    keys = [(int(res.start[c.best]), c.direction != "high") for c in clusters]
+    assert keys == sorted(keys)
