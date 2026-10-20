@@ -221,16 +221,52 @@ treated as known**: the CI is the HL CI shifted by the same constant, so it omit
 of the depth ratio (deferred, docs/backlog.md). The row is omitted, with a warning from the step,
 when the plasmid or a reference replicon has no depth, or when HL is NA.
 
-**Bias at the null (recorded, not gated).** The HL compares detected genes only. When detection
-depends on abundance, the low-abundance genes of each replicon drop out, and the two replicons
-lose different shares, so the raw contrast carries a selection bias at the true dosage; the lead
-decision cites ≈ +0.3 log2 in simulation for abundance-driven detection. Under covariate-only
-detection (`tests/calibration/attacks/test_regions_stats_attacks.py`, AR(1) ρ = 0.5, 1,000
-chromosome genes, 60-gene plasmid at log2 20 copies, R = 100, B = 200; Slurm 1860163) the mean
-HL − log2(20) is +0.013 log2 (sd 0.79), but the 95 % TU-block CI covers log2(20) in only 78 % of
-replicates: AR(1) dependence between neighbouring TUs and the replicon-level abundance level of
-the simulated plasmid are not captured by resampling independent TUs. Read the CI as a lower bound
-on the uncertainty. The result is an effect estimate, never a test.
+**What the HL CI covers (statistician review of PR #110; lead decisions 15 and 16).** The estimand
+is the realised dosage-plus-regulation shift of this plasmid against the reference replicons. The
+TU-block CI covers it conservatively: 0.997–1.000 for ρ = 0–0.8, with detection from covariates
+or from abundance (Slurm 1860197, 1860273). It is not a CI for the copy number alone. The plasmid's
+own TU-level expression adds sd ≈ 0.75 log2 around log2(dosage) at ρ = 0.5 (1.7 at ρ = 0.8), and
+one genome cannot separate that from dosage. This is why the row is labelled
+`dosage_plus_regulation`. It is also why the CI covers log2(20) only 0.80 of the time at ρ = 0.5
+(0.58 at ρ = 0.8). No resampling scheme fixes this: circular-block bootstraps reach only 0.85 /
+0.71, and a lag-V Wald interval 0.87 / 0.81, which at ρ = 0 is worse than the current CI. The
+`dosage_adjusted` row estimates the plasmid's realised regulation under the same conditional
+reading. Coverage of log2(copy number) is not a gate. The nightly diagnostic
+`test_recorded_plasmid_hl_bias_and_ci_coverage` records both coverages and warns when coverage of
+the realised shift falls below 0.93.
+
+Setup: M4-17 calibration layout, 1,000 chromosome genes, a 60-gene plasmid (median 34 TUs) at
+log2(20) copies, p = p_detect_true, B = 1,000. Coverage SE ≈ 0.013 at R = 1,000 and 0.02–0.03 at
+R = 300.
+
+Coverage of log2(20) (Slurm 1860197):
+
+| scenario | R | mean HL − log2 20 (MC SE) | sd | TU-block (implemented) | circular block, L = 2 / 3 / 4 / 6 / auto | lag-V Wald |
+|---|---|---|---|---|---|---|
+| ρ = 0.5 (attack default) | 1000 | +0.006 (0.026) | 0.82 | 0.801 | 0.836 / 0.849 / 0.849 / 0.847 / 0.852 | 0.867 |
+| ρ = 0 | 300 | +0.078 (0.029) | 0.50 | 0.933 | 0.923 / 0.917 / 0.913 / 0.893 / 0.907 | 0.897 |
+| ρ = 0.8 | 300 | −0.017 (0.098) | 1.70 | 0.583 | 0.653 / 0.687 / 0.703 / 0.733 / 0.713 | 0.807 |
+| ρ = 0.5, detection ~ abundance | 300 | −0.087 (0.049) | 0.86 | 0.843 | 0.847 / 0.860 / 0.860 / 0.870 / 0.870 | 0.880 |
+
+Coverage of the realised shift on the same seeds (Slurm 1860273). T_all is the HL of the true
+abundance over all eligible plasmid genes against the chromosome's (dosage + regulation, without
+gene noise or detection). T_tu is log2(20) plus the plasmid-minus-chromosome difference in mean
+TU-level AR values:
+
+| scenario | sd(T_all − log2 20) | HL − T_all, mean (sd) | CI covers T_all | CI covers T_tu |
+|---|---|---|---|---|
+| ρ = 0.5 | 0.75 | +0.004 (0.30) | 1.000 | 0.989 |
+| ρ = 0 | 0.42 | +0.009 (0.26) | 0.997 | 0.993 |
+| ρ = 0.8 | 1.70 | −0.009 (0.39) | 0.997 | 0.983 |
+| detection ~ abundance | 0.79 | +0.022 (0.33) | 0.997 | 0.987 |
+
+**Selection bias at the null (recorded, not gated).** The HL compares detected genes only. When
+detection depends on abundance, each replicon loses its low-abundance genes, and the two replicons
+lose different shares, so the raw contrast can be biased at the true dosage. The bias is small. With
+abundance-driven detection (`detection = "abundance"`, default slope, ρ = 0.5, R = 300), the mean
+HL − log2(20) is −0.087 log2 (MC SE 0.049), and the mean HL − T_all is +0.022. Its sign depends
+on the detection slope and on how much of each replicon drops out. Under covariate-only detection
+the bias is +0.006 (SE 0.026). The result is an effect estimate, never a test.
 
 ## Descriptive rows (prophage subsets, M4-18)
 
