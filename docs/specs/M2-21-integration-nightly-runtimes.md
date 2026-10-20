@@ -136,3 +136,21 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
     posts itself.
 20. Node class (decision 16): from the trace `hostname` field only, with `--sacct` as the fallback when
     the column is missing or `-`. No native_id lookup (under the local executor native_id is a PID).
+
+## Lead decisions after the second review of PR #107 (changes requested)
+21. (blocker) The summary job runs a `#!/bin/bash` script `scripts/slurm/nightly_summary.sh` (submitted
+    as the batch script, not `--wrap`, whose `/bin/sh` is dash and has no `source`). Tests run it the way
+    Slurm does (by its shebang), never via `bash -c` on a wrap string.
+22. Decision 12, second half: nightly/weekly refuse (exit 2, clear message) a `farmshare` executor
+    profile without `_local`; no queueSize arithmetic. Fix the comments ("3 heads", "one task at a time").
+    Test the override path.
+23. The TERM trap writes a row only when none was written yet (`[ -n "$reported" ] || report 143 …`);
+    a test must fail if the trap body is removed or unguarded.
+24. Everywhere under scrontab: `${USER:-$(id -un)}` (scrontab ignores the user environment).
+25. `post_summary.py --final` treats a missing `nightly.tsv` as empty (posts a red night).
+26. Tests kill the reviewer's surviving mutants: `expect - 1`; `_note` rows counted as tasks or done;
+    the sacct state of a missing task asserted in the comment; the `head == job` filter; `NIGHTLY_EXPECT`
+    on the resubmission; `-t PENDING`; `measure_runtimes` `(N tasks)` boundary and `None assigned`
+    filter. Every failure-path test asserts exactly one row.
+27. `weekly.sbatch` gets the same EXIT/TERM reporting trap as the nightly (one row on any exit).
+The diff exceeds ~400 lines (mostly tests and fixtures); accepted for this PR, noted in its body.
