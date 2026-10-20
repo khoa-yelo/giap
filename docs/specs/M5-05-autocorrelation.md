@@ -145,3 +145,11 @@ ADR-0020 accepted by Khoa 2026-10-20: the spec's "detrend then permute" is anti-
     cosine, (b) label null + gradient, (c) short-gene prophage under TU null (join count) — gated; (d)
     no-detrend teeth — recorded.
 20. Methods note: large-lag negative I under strong short-range correlation is a span artefact.
+21. (M5-01 decision 4) A replicon whose 10 % span gives k < 4 points has all-zero residuals: its rows are
+    NA with flag `few_values` and do not enter a BH family.
+22. (M5-01 statistician review) Supersedes the "Values" bullet: detrend on ordinals, `pos` = 0…n−1 over the
+    n genes with values, `period` = n (circular), re-detrended per permutation as ADR-0020 states; one
+    `loess_matrix` per (n, span, circular) serves the observed series and all B replicates (compute the
+    observed fit as H @ y too). Consumers test `k < 4` (never `resid == 0`). Rows flagged `few_values`
+    under decision 21 also carry `not_estimable`; the "< 10 values, test still runs" text in "Flags" and
+    decision 16 is superseded for k < 4 replicons (≈ n ≤ 30).
