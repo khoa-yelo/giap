@@ -209,17 +209,24 @@ def fwer_p(s_abs: ArrayLike, null_max: ArrayLike) -> F64:
     -------
     numpy.ndarray of float64, shape (k,)
         p-values (ties within the engine's 1e-12 relative tolerance count); NaN when no M_b is
-        valid or |S_w| is NaN.
+        valid or |S_w| is not finite.
+
+    Raises
+    ------
+    ValueError
+        If ``s_abs`` or ``null_max`` is not 1-D.
     """
-    o = np.asarray(s_abs, dtype=np.float64).ravel()
-    m = np.asarray(null_max, dtype=np.float64).ravel()
+    o = np.asarray(s_abs, dtype=np.float64)
+    m = np.asarray(null_max, dtype=np.float64)
+    if o.ndim != 1 or m.ndim != 1:
+        raise ValueError("s_abs and null_max must be 1-D")
     m = np.sort(m[~np.isnan(m)])
     if m.size == 0:
         return np.full(o.size, np.nan, dtype=np.float64)
     thr = np.array([v - _tol(v) for v in o.tolist()], dtype=np.float64)
     b = m.size - np.searchsorted(m, thr, side="left")
     p: F64 = ((1.0 + b) / (1.0 + m.size)).astype(np.float64)
-    p[np.isnan(o)] = np.nan
+    p[~np.isfinite(o)] = np.nan  # an infinite |S| cannot come from finite z (decision 19)
     return p
 
 
@@ -254,9 +261,13 @@ def merge_windows(res: ScanResult, significant: ArrayLike, n: int, circular: boo
     Raises
     ------
     ValueError
-        If ``significant`` does not match the window count.
+        If ``significant`` is not 1-D or does not match the window count, or n < 0.
     """
-    sig = np.asarray(significant, dtype=bool).ravel()
+    sig = np.asarray(significant, dtype=bool)
+    if sig.ndim != 1:
+        raise ValueError("significant must be 1-D")
+    if n < 0:
+        raise ValueError(f"n must be >= 0, got {n}")
     if sig.size != res.s.size:
         raise ValueError(f"significant has {sig.size} entries for {res.s.size} windows")
     idx = np.flatnonzero(sig & (res.s != 0)).tolist()
