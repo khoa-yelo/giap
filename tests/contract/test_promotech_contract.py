@@ -7,9 +7,11 @@ single ``sequences_predictions.csv``) and ``PROVENANCE.md``.
 
 - ``annotate-real-1847900`` (committed): a real ``-s -m RF-HOT`` run from the reviewer's ANNOTATE
   job 1847900 on a stub-written chunk (locus-tag headers). Always runs.
-- ``sim100k``: the GIAP-written ``w<index>`` chunk(s) of the 100-kb synthetic genome, recorded with
-  the M2-10 harness once M2-13 exists (needs ``needs_conda``, ``needs_promotech_models``);
-  ``pending_sample`` until then.
+- ``k12_mg1655_excerpt`` (committed, M2-21): the first 100 records of the GIAP-written chunk
+  ``windows_000.fa`` (``w0 …``) and the last 100 of ``windows_009.fa`` (``… w950227``) of the real
+  K-12 recording (``record_tools.sbatch`` job 1849513_6), with their prediction rows. Always runs.
+  (The ``sim100k`` recording under ``$GIAP_ROOT`` is a genome-wide ``-g`` run, not GIAP's ``-s``
+  mode; see the excerpt's ``PROVENANCE.md``.)
 
 Real format (pinned ``sequences/process_sequences.py``): tab-separated despite the ``.csv`` name,
 header ``CHROM<TAB>SEQ<TAB>PRED``, one row per input record in input order, CHROM = the FASTA id.
@@ -20,12 +22,11 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-import pytest
 from helpers.promoter_oracle import api
 
 RECORDED = Path(__file__).resolve().parents[1] / "data" / "recorded" / "promotech" / "56251ad9"
 REAL = RECORDED / "annotate-real-1847900"
-SIM = RECORDED / "sim100k"
+K12 = RECORDED / "k12_mg1655_excerpt"
 HEADER = ["CHROM", "SEQ", "PRED"]
 
 
@@ -75,8 +76,18 @@ def test_real_annotate_run_parses() -> None:
     assert len(headers) == 86
 
 
-@pytest.mark.pending_sample
-@pytest.mark.skipif(not SIM.is_dir(), reason=f"pending_sample: no recorded sim100k run in {SIM}")
-def test_sim100k_w_headers_round_trip_unmangled() -> None:
-    headers = _check_sample(SIM)
-    assert headers == [f"w{i}" for i in range(len(headers))]
+def test_k12_excerpt_has_provenance_for_every_file() -> None:
+    prov = (K12 / "PROVENANCE.md").read_text()
+    files = sorted(K12.glob("windows_*"))
+    assert len(files) == 4
+    for f in files:
+        assert hashlib.sha256(f.read_bytes()).hexdigest() in prov, f.name
+    assert "1849513" in prov and "-s -m RF-HOT" in prov
+
+
+def test_k12_giap_w_headers_round_trip_unmangled() -> None:
+    """M2-13 example 10 on GIAP-written windows: ``w<index>`` keys survive Promotech unchanged."""
+    headers = _check_sample(K12)
+    first = [f"w{i}" for i in range(100)]
+    last = [f"w{i}" for i in range(950128, 950228)]
+    assert headers == first + last

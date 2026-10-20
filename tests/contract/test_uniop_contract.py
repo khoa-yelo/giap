@@ -1,8 +1,8 @@
 """Contract test: ``uniop.pred`` parser on recorded UniOP runs (M2-12; GIAP_SPEC.md §5.4, §7.1.1).
 
-Marked ``pending_sample`` until the implementer records a real UniOP run (pin 3ed14dfc, built
-``giap-uniop`` env, run as a process; lead decision 3 after the PR #49 review) under
-``tests/data/recorded/uniop/3ed14dfc/sim100k/`` (``k12/`` optional). Each directory holds the exact
+Active since M2-21: real UniOP runs (pin 3ed14dfc, built ``giap-uniop`` env, run as a process; lead
+decision 3 after the PR #49 review) under ``tests/data/recorded/uniop/3ed14dfc/sim100k/`` (complete)
+and ``k12/`` (first 300 genes of the K-12 recording). Each directory holds the exact
 input GFF written by ``write_prodigal_gff`` (``*.gff``), UniOP's ``uniop.pred``, ``uniop_map.tsv``
 (``prodigal_id``, ``locus_tag``) and ``PROVENANCE.md`` (command, env lock, input sha256).
 
@@ -31,10 +31,9 @@ SAMPLES = [RECORDED / d for d in EXPECTED if (RECORDED / d).is_dir()]
 TITLE = "operon prediction scores"
 HEADER = ["Gene A", "Gene B", "Prediction"]
 
-pytestmark = [
-    pytest.mark.pending_sample,
-    pytest.mark.skipif(not SAMPLES, reason=f"pending_sample: no recorded UniOP run in {RECORDED}"),
-]
+
+def test_every_expected_recording_is_committed() -> None:
+    assert [p.name for p in SAMPLES] == EXPECTED
 
 
 def _gff(path: Path) -> list[tuple[str, str, int, str]]:
