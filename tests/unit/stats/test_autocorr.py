@@ -6,8 +6,10 @@ lead decisions 4-8:
 
 - decision 6: a constant null gives ``p_value`` NaN even when the observation differs (``perm_p``
   alone would give 1/(B + 1));
-- decision 7 (ADR-0020): ``join_count(d, lag, circular, p=None)`` and
-  ``join_count_matrix(D, lags, circular, P=None)`` return the residual sum (d - p)(d - p) over the
+- decision 7 as amended by decision 17 (ADR-0020 Amendment 1): ``join_count(d, lag, circular,
+  p=None)`` and ``join_count_matrix(D, lags, circular, P=None)`` return the Pearson residual sum
+  Σ r_i r_j, r = (d - p)/sqrt(p(1 - p)) with p unclipped, over the valid lag-k pairs; genes with
+  p in {0, 1} or NaN (and NaN entries of a float D) are missing and join no pair. Over the
   valid lag-k pairs when p is given; p moves with d under both nulls; all p equal and all d equal
   give a constant null, hence NaN.
 - ``choose_block_len`` returns the spec's l-hat only (examples 11-13, decision 10);
@@ -191,23 +193,83 @@ def test_join_count_invalid_lag_is_nan() -> None:
 
 
 def test_residual_join_count_hand_values() -> None:
-    """Decision 7 / ADR-0020: Σ (d_i - p_i)(d_j - p_j) over the valid lag-k pairs."""
+    """Decision 17 / ADR-0020 Amendment 1: Σ r_i r_j over the valid lag-k pairs,
+    r = (d - p)/sqrt(p(1 - p)) = [1/3, 2, -1/3, 1, sqrt(3/7), -sqrt(3/7)] here."""
     d = np.array([1, 1, 0, 1, 1, 0], dtype=bool)
     p = np.array([0.9, 0.2, 0.1, 0.5, 0.7, 0.3])
-    assert join_count(d, 1, False, p=p) == pytest.approx(0.01, abs=1e-12)
-    assert join_count(d, 1, True, p=p) == pytest.approx(-0.02, abs=1e-12)
-    assert join_count(d, 2, False, p=p) == pytest.approx(0.21, abs=1e-12)
-    assert join_count(d, 2, True, p=p) == pytest.approx(0.0, abs=1e-12)
-    half = np.full(6, 0.5)
-    assert join_count(d, 1, True, p=half) == pytest.approx(-0.5, abs=1e-12)
-    assert join_count(d, 1, False, p=half) == pytest.approx(-0.25, abs=1e-12)
+    q = math.sqrt(3.0 / 7.0)
+    assert join_count(d, 1, False, p=p) == pytest.approx(-1 / 3 + q - 3 / 7, abs=1e-12)
+    assert join_count(d, 1, False, p=p) == pytest.approx(-0.10725109119678478, abs=1e-12)
+    assert join_count(d, 1, True, p=p) == pytest.approx(-0.3254689814327771, abs=1e-12)
+    assert join_count(d, 2, False, p=p) == pytest.approx(1.0160173279449194, abs=1e-12)
+    assert join_count(d, 2, True, p=p) == pytest.approx(-0.07507212323504242, abs=1e-12)
+    half = np.full(6, 0.5)  # r = +-1
+    assert join_count(d, 1, True, p=half) == pytest.approx(-2.0, abs=1e-12)
+    assert join_count(d, 1, False, p=half) == pytest.approx(-1.0, abs=1e-12)
     assert _isnan(join_count(d, 3, True, p=p))
 
 
-def test_residual_join_count_with_zero_p_is_raw_count() -> None:
+def test_residual_is_not_the_raw_residual() -> None:
+    """The amended statistic differs from the superseded Σ (d - p)(d - p) (0.01 here)."""
     d = np.array([1, 1, 0, 1, 1, 0], dtype=bool)
+    p = np.array([0.9, 0.2, 0.1, 0.5, 0.7, 0.3])
+    assert abs(join_count(d, 1, False, p=p) - 0.01) > 0.1
+
+
+@pytest.mark.parametrize("bad", [0.0, 1.0, NAN])
+def test_residual_genes_with_p_zero_one_or_nan_are_missing(bad: float) -> None:
+    """Genes 1 and 3 get p in {0, 1} or NaN: no residual, they join no pair (p unclipped).
+    r = [1/3, -, -1/3, -, sqrt(3/7), -sqrt(3/7)]."""
+    d = np.array([1, 1, 0, 1, 1, 0], dtype=bool)
+    p = np.array([0.9, bad, 0.1, bad, 0.7, 0.3])
+    if bad == 1.0:
+        p[1] = 0.0  # mix p = 0 and p = 1
+    q = math.sqrt(3.0 / 7.0)
+    assert join_count(d, 1, False, p=p) == pytest.approx(-3 / 7, abs=1e-12)
+    assert join_count(d, 1, True, p=p) == pytest.approx(-3 / 7 - q / 3, abs=1e-12)
+    assert join_count(d, 2, False, p=p) == pytest.approx(-1 / 9 - q / 3, abs=1e-12)
+    assert join_count(d, 2, True, p=p) == pytest.approx(-1 / 9, abs=1e-12)
     for lag, circular in [(1, True), (1, False), (2, True), (2, False)]:
-        assert join_count(d, lag, circular, p=np.zeros(6)) == join_count(d, lag, circular)
+        v = join_count(d, lag, circular, p=p)
+        assert math.isfinite(v)
+        P = np.vstack([p, p])
+        np.testing.assert_allclose(
+            join_count_matrix(np.vstack([d, d]), [lag], circular, P=P)[:, 0], [v, v], atol=1e-12
+        )
+
+
+def test_residual_p_unclipped_near_bounds() -> None:
+    """p close to 0 or 1 is used as is (no floor): r = (d - p)/sqrt(p(1 - p))."""
+    d = np.array([True, True, False, False])
+    p = np.array([1e-6, 0.5, 1 - 1e-6, 0.5])
+    r = (d - p) / np.sqrt(p * (1 - p))
+    assert join_count(d, 1, False, p=p) == pytest.approx(float((r[:-1] * r[1:]).sum()), rel=1e-12)
+
+
+def test_residual_all_genes_missing_is_zero() -> None:
+    """Every p in {0, 1}: no pair joins; a join count is a sum, so 0 (it exists at valid lags)."""
+    d = np.array([1, 0, 1, 1, 0], dtype=bool)
+    p = np.array([1.0, 0.0, 1.0, 0.0, 1.0])
+    assert join_count(d, 1, True, p=p) == 0.0
+    assert join_count(d, 2, False, p=p) == 0.0
+    assert _isnan(join_count(d, 3, True, p=p))
+
+
+def test_nan_in_float_d_with_p_is_missing() -> None:
+    """Code re-review: a NaN in a float D together with P is a missing gene (joins no pair)."""
+    d = np.array([1.0, NAN, 0.0, 1.0, 1.0, 0.0])
+    p = np.array([0.9, 0.2, 0.1, 0.5, 0.7, 0.3])
+    r = np.array([1 / 3, 0.0, -1 / 3, 1.0, math.sqrt(3 / 7), -math.sqrt(3 / 7)])
+    for k in (1, 2):
+        assert join_count(d, k, False, p=p) == pytest.approx(
+            float((r[:-k] * r[k:]).sum()), abs=1e-12
+        )
+        assert join_count(d, k, True, p=p) == pytest.approx(
+            float((r * np.roll(r, -k)).sum()), abs=1e-12
+        )
+    got = join_count_matrix(np.vstack([d, d[::-1]]), [1, 2], True, P=np.vstack([p, p[::-1]]))
+    assert np.isfinite(got).all()
+    np.testing.assert_allclose(got[0], [join_count(d, 1, True, p=p), join_count(d, 2, True, p=p)])
 
 
 def test_join_count_matrix_residual_p_moves_with_d() -> None:
@@ -254,7 +316,7 @@ def test_all_equal_d_gives_constant_null_and_nan_p(all_detected: bool) -> None:
 
 
 def test_residual_with_varying_p_is_not_degenerate_when_d_constant() -> None:
-    """All d equal but p varying: d - p varies, so the residual null is not constant."""
+    """All d equal but p varying: the Pearson residual varies, so the null is not constant."""
     n = 40
     rng = _rng(5)
     d = np.ones(n, dtype=bool)
@@ -664,6 +726,28 @@ def test_lag_test_near_constant_null_is_degenerate() -> None:
     assert _isnan(lag_test(0.5, tiny).p_value)
     spread = np.array([base, base * (1 + 1e-9), base, base])
     assert not _isnan(lag_test(0.5, spread).p_value)
+
+
+def test_lag_test_near_constant_null_large_magnitude() -> None:
+    """Decision 14 tolerance scales with max |null|: at 1e6 a spread of 1e-7 (<= 1e-6) is constant,
+    a spread of 1e-5 is not."""
+    c = 1e6
+    assert _isnan(lag_test(c + 1.0, [c, c + 1e-7, c, c]).p_value)
+    assert _isnan(lag_test(-c - 1.0, [-c, -c - 1e-7, -c]).p_value)
+    res = lag_test(c + 1.0, [c, c + 1e-5, c, c])
+    assert not _isnan(res.p_value)
+    assert res.p_value == perm_p(c + 1.0, [c, c + 1e-5, c, c], "two-sided")
+
+
+@pytest.mark.parametrize(
+    "null", [[0.0, 0.5, math.inf, 2.0], [-math.inf, 1.0, 3.0], [0.0, 0.0, math.inf]]
+)
+def test_lag_test_p_is_perm_p_with_inf_and_finite(null: list[float]) -> None:
+    """Code re-review: a null mixing inf with finite values is not constant; p = perm_p."""
+    for obs in (1.0, 10.0):
+        res = lag_test(obs, null)
+        assert res.n_valid == len(null)
+        assert res.p_value == perm_p(obs, null, "two-sided")
 
 
 def test_lag_test_inf_null_entries_count_in_n_valid() -> None:

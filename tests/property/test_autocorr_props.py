@@ -5,8 +5,9 @@
   (cyclically) in its internal order (a wrapped block: end-part then start-part), and preserves
   the multiset of block sizes;
 - label permutations with ``movable`` never move fixed positions;
-- ``morans_i_matrix`` / ``join_count_matrix`` (raw and residual) equal scalar loops and an
-  independent oracle on random inputs, valid and invalid lags alike;
+- ``morans_i_matrix`` / ``join_count_matrix`` (raw and Pearson residual, decision 17; p drawn
+  from [0, 1] with 0 and 1 likely, i.e. missing genes) equal scalar loops and an independent
+  oracle on random inputs, valid and invalid lags alike;
 - Moran's I is invariant to affine maps x -> a x + b (a != 0); I_k in [-1, 1] is NOT asserted;
 - ``lag_test`` p equals ``perm_p`` unless the null is constant (then NaN, decision 6);
 - ``choose_block_len`` lies in [1, min(max_len, max_lag + 1, n)] and its draws depend on B and n
@@ -72,11 +73,19 @@ def _oracle_moran(x: np.ndarray, k: int, circular: bool) -> float:
 
 
 def _oracle_bb(d: np.ndarray, k: int, circular: bool, p: np.ndarray | None) -> float:
+    """Raw Σ d_i d_j, or (decision 17) Pearson Σ r_i r_j, r = (d - p)/sqrt(p(1 - p)), over pairs
+    where both genes have a residual (p in (0, 1))."""
     pairs = _oracle_pairs(len(d), k, circular)
     if not pairs:
         return math.nan
-    r = d.astype(float) - (0.0 if p is None else p)
-    return float(sum(r[i] * r[j] for i, j in pairs))
+    if p is None:
+        r = d.astype(float)
+        ok = np.ones(len(d), dtype=bool)
+    else:
+        ok = (p > 0) & (p < 1)
+        r = np.zeros(len(d))
+        r[ok] = (d[ok] - p[ok]) / np.sqrt(p[ok] * (1 - p[ok]))
+    return float(sum(r[i] * r[j] for i, j in pairs if ok[i] and ok[j]))
 
 
 # ----------------------------------------------------------------------------- strategies
@@ -215,7 +224,11 @@ def test_morans_i_matrix_equals_scalar_and_oracle(
     st.integers(0, 25).flatmap(
         lambda n: st.tuples(
             st.lists(st.booleans(), min_size=n, max_size=n),
-            st.lists(st.floats(0, 1), min_size=n, max_size=n),
+            st.lists(
+                st.one_of(st.floats(0, 1), st.sampled_from([0.0, 1.0, 1e-9, 1 - 1e-9])),
+                min_size=n,
+                max_size=n,
+            ),
         )
     ),
     st.lists(st.integers(-1, 28), min_size=1, max_size=6),

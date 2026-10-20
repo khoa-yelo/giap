@@ -25,7 +25,8 @@ Autocorrelation engine (issue M5-02, suite ``autocorrelation``; docs/specs/M5-02
   1 + Geometric(0.55), TU effect N(0, 1) + gene noise N(0, 0.5^2), ~500 genes, circular) under
   B = 199 TU-block permutations; level.
 - ``test_residual_join_count_level_label_null``: p_i ~ U(0.05, 0.95), d_i ~ Bernoulli(p_i), n = 500;
-  residual BB lag 1 with p permuted together with d (decision 7); level.
+  Pearson residual join count lag 1 (decision 17, ADR-0020 Amendment 1), p permuted together with
+  d; level.
 - ``test_example11_iid_block_len_one`` / ``test_example12_ar09_block_len_twenty``: spec examples
   11-12 on 100 seeds (``replicate_rng``), n = 2,000, B = 199, circular (example 12 as amended by
   lead decision 9: l-hat >= 15 in >= 95 %).
