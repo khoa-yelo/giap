@@ -110,4 +110,4 @@ the oriC choice with several calls, TU values, the block-bootstrap CI and its bl
 32. Q2: `right`/`left` labels in `stat`.
 33. Q3: linear and unknown-kind contigs are skipped.
 34. Q4: detected genes only (descriptive).
-35. CI block length ℓ' (ADR-0021, proposed); until accepted, tests use an integer `block_len`.
+35. CI block length ℓ' (ADR-0021, accepted); until accepted, tests use an integer `block_len`.

@@ -137,7 +137,7 @@ null, genome-wide maximum, merging, effect CI, degenerate cases; evidence from M
 
 ## Lead decisions (2026-10-20, after the statistician's attack check)
 
-Blocked on ADR-0021 (proposed): the spec's block length gives FWER 0.205–0.27 at ρ ≥ 0.5. When accepted:
+ADR-0021 accepted by Khoa 2026-10-20: the spec's block length gives FWER 0.205–0.27 at ρ ≥ 0.5. When accepted:
 21. Q1: genome-wide maximum over replicons; each replicon keeps its own ℓ'.
 22. Q2: detected genes without abundance are not scored.
 23. Q3: report each island by its best window.

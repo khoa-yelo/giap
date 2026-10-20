@@ -1,6 +1,6 @@
 # ADR-0020: Autocorrelation nulls recompute the detrend; residual join count; no CI for lag statistics
 
-- Status: proposed (needs Khoa: changes §7.3.5(c) and deviates from §8.2 for one table)
+- Status: accepted-by-khoa (2026-10-20)
 - Date: 2026-10-20
 - Issue: M5-05 (also M5-01, M5-02); statistician attack check, Slurm 1860199, 1860281, 1860305, 1860318
   (scripts and outputs under local/scratch/stat-m5/sims/)

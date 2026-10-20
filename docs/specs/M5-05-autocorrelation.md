@@ -131,7 +131,7 @@ calibration).
 
 ## Lead decisions (2026-10-20, after the statistician's attack check)
 
-Blocked on ADR-0020 (proposed): the spec's "detrend then permute" is anti-conservative (pooled 0.096 /
+ADR-0020 accepted by Khoa 2026-10-20: the spec's "detrend then permute" is anti-conservative (pooled 0.096 /
 0.155 at α 0.05) and the raw join count fails under clustered detectability. When accepted:
 14. Q1: the gene-label null keeps the missingness pattern; it permutes the pre-detrended values among genes
     with values and detrends every replicate.

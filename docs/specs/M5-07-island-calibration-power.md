@@ -90,7 +90,7 @@ joins.
 
 ## Lead decisions (2026-10-20, after the statistician's attack check)
 
-Blocked on ADR-0021 (proposed). When accepted:
+ADR-0021 accepted by Khoa 2026-10-20. When accepted:
 28. Q1: full gate ρ ∈ {0, 0.5, 0.9} at 4,500 genes + plasmid; fast gate ρ 0.5 at 1,000 genes; attack ρ 0.95
     required; gated attacks: draft assembly, short-gene prophage, gradient, large TUs, abundance-driven
     detection. Replicons < 1,000 scored TUs are recorded under ADR-0021 decision 2.

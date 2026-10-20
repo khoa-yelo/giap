@@ -130,12 +130,12 @@ rule implemented here.
 ## Lead decisions (2026-10-20, after the statistician's attack check)
 
 4. Q1: the block-length rule uses the raw two-sided p > 0.05 as written; ℓ̂ enters only through
-   ℓ' = min(20, 2ℓ̂ + 1, T) (ADR-0021, proposed).
+   ℓ' = min(20, 2ℓ̂ + 1, T) (ADR-0021, accepted).
 5. Q2: ℓ̂ = min(20, max_lag + 1, n) as stated.
 6. Q3: a degenerate null gives p NA plus `not_estimable`. `perm_p` returns 1/(B + 1) when the null is
    constant and the observation differs, so `lag_test`'s NA rule tests "null constant", not "null
    constant and equal to obs".
-7. Residual join count (ADR-0020, proposed): `join_count(d, lag, circular, p=None)` and
+7. Residual join count (ADR-0020, accepted): `join_count(d, lag, circular, p=None)` and
    `join_count_matrix(D, lags, circular, P=None)` return Σ(d − p)(d − p) when p is given; p moves with d
    under both nulls; all p equal and all d equal → constant null → NA.
 8. Example 12 stays; add a test that giapsim TU-score series at ρ 0.9 give ℓ̂ ≈ 8 (4,500 genes) and ≈ 1.3

@@ -1,6 +1,6 @@
 # ADR-0021: Block length for the island scan and the ori–ter CI
 
-- Status: proposed (needs Khoa: changes §7.3.5(d) step 5 and limits a gate claim)
+- Status: accepted-by-khoa (2026-10-20; small replicons flagged `uncalibrated`, option b)
 - Date: 2026-10-20
 - Issues: M5-02, M5-06, M5-07, M5-08; statistician attack check, Slurm 1860199, 1860281, 1860305, 1860318
   (local/scratch/stat-m5/sims/)
