@@ -219,6 +219,32 @@ def test_gc_local_dev_copied_from_layers() -> None:
             assert math.isclose(float(got), 0.01 * i - 0.05, abs_tol=1e-15), i
 
 
+def test_partial_id_map_falls_back_to_locus_tag(world: gt.World) -> None:
+    """Lead decision 14: a gene the C14 id map does not list gets ``source_id = locus_tag``."""
+    ids = world.inputs.id_map
+    t = world.assemble(inputs=world.with_inputs(id_map=ids[ids["locus_tag"] != tag(3)]))
+    assert row(t, tag(3))["source_id"] == tag(3)
+    assert row(t, tag(4))["source_id"] == "orig_4"
+
+
+def test_missing_booleans_become_false(world: gt.World) -> None:
+    """Lead decision 14: NA ``detected_2pep`` / ``abundance_imputed`` are written as False."""
+    import dataclasses
+
+    ev = world.evidence.copy()
+
+    def with_na(s: pd.Series) -> pd.Series:
+        return pd.Series([None if i == 6 else bool(v) for i, v in enumerate(s)], dtype="boolean")
+
+    ev["detected_2pep"] = with_na(ev["detected_2pep"])
+    ab = world.abundance.table.copy()
+    ab["abundance_imputed"] = with_na(ab["abundance_imputed"])
+    t = world.assemble(evidence=ev, abundance=dataclasses.replace(world.abundance, table=ab))
+    r = row(t, tag(6))
+    for c in ("detected_2pep", "abundance_imputed"):
+        assert not is_na(r[c]) and bool(r[c]) is False, (c, r[c])
+
+
 def test_source_id_defaults_to_locus_tag_without_id_map(world: gt.World) -> None:
     """Lead decision 9: no C14 id map -> ``source_id = locus_tag``."""
     t = world.assemble(inputs=world.with_inputs(id_map=None))

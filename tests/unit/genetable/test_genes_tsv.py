@@ -2,8 +2,8 @@
 (docs/specs/M4-15-gene-table-assembly.md; GIAP_SPEC.md §6.5, §6.6, §9.2, §9.3, §9.5; ADR-0006).
 
 Pinned by the test author:
-- The schema file is ``src/giap/schemas/tables/genes.json`` (spec name); the M3-16 naming
-  ``genes.schema.json`` is accepted too (exactly one must exist). Like the M3-16 / M4-16 table
+- The schema file is ``src/giap/schemas/tables/genes.schema.json`` (lead decision 16, the
+  ``<table>.schema.json`` convention); ``genes.json`` must not exist. Like the M3-16 / M4-16 table
   schemas it is a Frictionless *schema* descriptor with a top-level ``coordinates`` key, which is
   removed before ``frictionless.Schema.from_descriptor``.
 - The ``flags`` vocabulary is enforced by the descriptor: a TSV whose ``flags`` cell holds a word
@@ -42,9 +42,15 @@ def table() -> pd.DataFrame:
 
 
 def schema_path() -> Path:
-    found = [p for p in (TABLE_DIR / "genes.json", TABLE_DIR / "genes.schema.json") if p.exists()]
-    assert len(found) == 1, f"expected one genes schema in {TABLE_DIR}, got {found}"
-    return found[0]
+    path = TABLE_DIR / "genes.schema.json"
+    assert path.is_file(), f"expected {path} (lead decision 16)"
+    return path
+
+
+def test_schema_file_name() -> None:
+    """Lead decision 16: one ``genes.schema.json``, no ``genes.json`` left behind."""
+    assert (TABLE_DIR / "genes.schema.json").is_file()
+    assert not (TABLE_DIR / "genes.json").exists()
 
 
 def descriptor() -> dict[str, Any]:
@@ -153,6 +159,47 @@ def test_round_trip_is_idempotent_on_bytes(tmp_path: Path, table: pd.DataFrame) 
     first = write(tmp_path, table, "a.tsv")
     second = write(tmp_path, read_genes_tsv(first), "b.tsv")
     assert first.read_bytes() == second.read_bytes()
+
+
+def test_parquet_round_trip_keeps_missing_values(tmp_path: Path, table: pd.DataFrame) -> None:
+    """Lead decision 11 (blocking): missing strings stay null through the gene-table Parquet
+    (never the text ``"nan"``), also after a second write as the ``detectability`` step does."""
+    import pyarrow.parquet as pq
+
+    from giap.io.genes_tsv import read_genes_parquet, write_genes_parquet
+
+    first = tmp_path / "pre.parquet"
+    write_genes_parquet(first, table)
+    back = read_genes_parquet(first)
+    second = tmp_path / "genes.parquet"
+    write_genes_parquet(second, back)
+    assert tuple(back.columns) == gt.GENES_COLUMNS
+    for c in gt.GENES_COLUMNS:
+        for i in range(len(table)):
+            assert _equal_cells(c, back.at[i, c], table.at[i, c]), (c, i, back.at[i, c],
+                                                                    table.at[i, c])  # fmt: skip
+    for c in gt.STRING_COLUMNS:
+        assert "nan" not in [str(v).lower() for v in back[c] if not is_na(v)], c
+    t1, t2 = pq.read_table(first), pq.read_table(second)
+    for c in (*gt.STRING_COLUMNS, *gt.FLOAT_COLUMNS, *gt.INT_COLUMNS):
+        n_missing = int(table[c].map(is_na).sum())
+        assert t1.column(c).null_count == t2.column(c).null_count == n_missing, c
+    for c in ("island_id", "replichore", "cog_category", "gene"):
+        assert t2.column(c).null_count > 0, c  # the fixture has missing values there
+
+
+def test_read_cog_def_falls_back_from_utf8(tmp_path: Path) -> None:
+    """Lead decision 13: the NCBI file holds cp1252 bytes (0x92); ``read_cog_def`` reads it."""
+    from giap.io.genes_tsv import read_cog_def
+
+    path = tmp_path / "cog-20.def.tab"
+    rows = [b"COG0593\tL\tDnaA\x92s ATPase\tDnaA\t\t\t\n", b"COG0002\tKT\tRegulator\tRegX\t\t\t\n"]
+    path.write_bytes(b"".join(rows))
+    with pytest.raises(UnicodeDecodeError):
+        path.read_bytes().decode("utf-8")
+    df = read_cog_def(path)
+    assert df["cog_id"].tolist() == ["COG0593", "COG0002"]
+    assert df["cog_category"].tolist() == ["L", "KT"]
 
 
 # ----------------------------------------------------------------------------- schema

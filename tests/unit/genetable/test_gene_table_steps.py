@@ -164,6 +164,80 @@ def test_gene_table_step_fails_on_contract_error(tmp_path: Path) -> None:
 # ----------------------------------------------------------------------------- run_* functions
 
 
+def _assert_nulls_kept(pre: Path, out: Path) -> None:
+    """Lead decision 11: string NAs of genes_pre are still null in genes.parquet."""
+    import pyarrow.parquet as pq
+
+    tp, to = pq.read_table(pre), pq.read_table(out)
+    n = to.num_rows
+    for c in ("island_id", "replichore"):
+        assert to.column(c).null_count == n, c
+    for c in ("cog_id", "cog_category", "gene", "product"):
+        values = to.column(c).to_pylist()
+        assert "nan" not in [str(v).lower() for v in values if v is not None], c
+        assert to.column(c).null_count == tp.column(c).null_count > 0, c
+
+
+def _setup_db(root: Path, *, listed: bool, raw: bytes | None = None) -> Path:
+    """A tmp ``$GIAP_DB_DIR``: fixture ``cog/cog-20.def.tab`` and a ``giap setup`` manifest that
+    lists ``cog2020_def`` (``listed``) or only another item."""
+    import json
+
+    db = root / "db"
+    cog = gt.write_cog_def(db / "cog" / "cog-20.def.tab")
+    if raw is not None:
+        cog.write_bytes(raw)
+    item = {"name": "cog2020_def" if listed else "kegg_ko_list", "version": "2020", "url": "",
+            "checksum": "", "size_bytes": cog.stat().st_size, "retrieved": "",
+            "path": "cog/cog-20.def.tab" if listed else "kegg/ko_list.tsv", "status": "ok",
+            "message": ""}  # fmt: skip
+    doc = {"schema_version": "1.0", "items": [item]}
+    (db / "db_manifest.json").write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+    return db
+
+
+@pytest.mark.parametrize("cp1252", [False, True])
+def test_cog_table_found_through_setup_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+    cp1252: bool,
+) -> None:  # fmt: skip
+    """Lead decisions 12/13: ``$GIAP_DB_DIR`` manifest lists ``cog2020_def`` -> categories set
+    (also when the file has a cp1252 byte, as the real NCBI file does)."""
+    from giap.config import GiapConfig
+    from giap.steps.gene_table import run_gene_table
+
+    raw = None
+    if cp1252:
+        raw = b"".join("\t".join(r).encode("utf-8") + b"\n" for r in gt.COG_DEF_ROWS)
+        raw = raw.replace(b"DnaA\t", b"DnaA\x92\t", 1)
+    monkeypatch.setenv("GIAP_DB_DIR", str(_setup_db(tmp_path, listed=True, raw=raw)))
+    work = tmp_path / "work"
+    work.mkdir()
+    write_work(work, _frames(), layout="run")
+    with caplog.at_level(logging.WARNING):
+        pre = run_gene_table(work, GiapConfig(seed=3))
+    assert not [r for r in caplog.records if "layer_missing:cog" in r.getMessage()]
+    by = pd.read_parquet(pre).set_index("locus_tag")
+    assert (by.loc[tag(0), "cog_category"], by.loc[tag(2), "cog_category"]) == ("J", "KT")
+
+
+def test_cog_file_without_manifest_entry_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Lead decision 12: the file alone (setup never recorded it) -> NA + ``layer_missing:cog``."""
+    from giap.config import GiapConfig
+    from giap.steps.gene_table import run_gene_table
+
+    monkeypatch.setenv("GIAP_DB_DIR", str(_setup_db(tmp_path, listed=False)))
+    work = tmp_path / "work"
+    work.mkdir()
+    write_work(work, _frames(), layout="run")
+    with caplog.at_level(logging.WARNING):
+        pre = run_gene_table(work, GiapConfig(seed=3))
+    assert any("layer_missing:cog" in r.getMessage() for r in caplog.records)
+    assert pd.read_parquet(pre)["cog_category"].isna().all()
+
+
 @pytest.fixture
 def no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Point ``$GIAP_DB_DIR`` at an empty directory: tests never read the real databases."""
@@ -195,6 +269,7 @@ def test_run_functions_write_genetable_files(
 
     out = run_detectability(work, cfg)
     assert out == work / "genetable" / "genes.parquet" and out.is_file()
+    _assert_nulls_kept(pre, out)
     df = pd.read_parquet(out)
     assert set(gt.GENES_COLUMNS) <= set(df.columns)
     by = df.set_index("locus_tag")

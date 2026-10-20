@@ -4,7 +4,7 @@ GIAP_SPEC.md §6.6/R7, §7.3.3, §9.5).
 The M4-07/08/09 simulator writes the contract tables of a 1,000-gene layout to ``tmp_path`` (C1-C8
 flat, C9/C10 flat, C11-C13 under ``mapping/``, as the producers do); the registered steps
 ``gene_table`` and ``detectability`` run through ``run_step``; ``genes.tsv`` is written with
-``write_genes_tsv`` and validated with frictionless against ``schemas/tables/genes.json``.
+``write_genes_tsv`` and validated with frictionless against ``schemas/tables/genes.schema.json``.
 
 Lead decision 7: giapsim writes ``annotation_source = "bakta_full"``, so its output validates as
 written (no rewrite here). The detectability output parquet is the declared output of
@@ -86,9 +86,8 @@ def run_a(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, pd.DataFrame,
 
 
 def _schema() -> dict[str, Any]:
-    found = [p for p in (TABLE_DIR / "genes.json", TABLE_DIR / "genes.schema.json") if p.exists()]
-    assert len(found) == 1, found
-    return json.loads(found[0].read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+    path = TABLE_DIR / "genes.schema.json"  # lead decision 16
+    return json.loads(path.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
 
 
 def test_example_1_default_fixture(run_a: tuple[Path, pd.DataFrame, pd.DataFrame]) -> None:
