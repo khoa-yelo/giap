@@ -1,7 +1,9 @@
 # Region tests: O − E and Hodges–Lehmann shift under circular gene-index shifts
 
 Implements `giap.context.regions` (GIAP_SPEC.md §7.3.5(b), §8.1, Appendix B.4; issue M4-17,
-docs/specs/M4-17-region-tests.md, ADR-0018 and lead decisions 6–10). Reuses `giap.stats.permutation` (M4-03), `giap.stats.bootstrap`
+docs/specs/M4-17-region-tests.md, ADR-0018 and lead decisions 6–10) and the `regions_stats.tsv`
+rows of `giap.context.regions_table` (issue M4-18, docs/specs/M4-18-regions-stats-table.md,
+sections "Replicon-level effects" and "Descriptive rows"). Reuses `giap.stats.permutation` (M4-03), `giap.stats.bootstrap`
 and `giap.stats.robust` (M4-04) and `giap.stats.multitest.bh` (M4-01). Statistician sign-off: see
 the end of this note.
 
@@ -188,6 +190,97 @@ own AMR set, M4-08 AR(1) ρ = 0.5, no region effects, detection from covariates 
   ρ ≥ 0.9 it hits 0.15–0.35 % of rows (lags up to 30 cover half the replicon). Those rows lose
   their HL p, but level is unaffected: under exhaustive shifts the flag is a function of the whole
   shift orbit, so the same rows would be NA whichever orbit member was observed.
+
+## Replicon-level effects (plasmids, M4-18)
+
+Plasmids are not tested (§7.3.5(b), §8.5 attack 4). A plasmid region is the whole replicon, so no
+circular shift moves it, and its contrast with the chromosome mixes gene dosage (copy number) with
+regulation: nothing in proteomics data separates the two. Each `plasmid_*` region gets two rows with
+`p_value = q_value = NA`, `null_model = none`, `n_perm = 0`, `method = replicon_contrast`,
+`label = dosage_plus_regulation`:
+
+- `o_minus_e`: the plasmid's own O − E over its eligible genes (E = Σ p_detect, which already
+  carries the detectability model; lead decision 1). No chromosome-rate row.
+- `hl_shift`: HL of the plasmid's **raw** log2 abundance against the reference replicons (lead
+  decision 2). Not M4-17's per-replicon residuals: those centre every replicon and give HL ≈ 0
+  whatever the dosage. Only detected, eligible genes with an observed value enter; **imputed genes
+  are excluded** on both sides, because the genome-wide median fill (docs/methods/abundance.md)
+  places imputed plasmid genes at the chromosome median and pulls the contrast towards 0.
+- Reference (lead decision 3): the `kind = chromosome` replicons; without one (draft genomes) every
+  replicon that is neither `kind = plasmid` nor a plasmid region's contig, flag
+  `no_reference_replicon` (HL NA with the same flag if that set has no usable gene).
+- CIs: 95 % TU-block bootstrap; for HL with strata plasmid / reference, so every replicate has both
+  sides. Each plasmid draws from its own child stream keyed by its `region_id` (lead decision 7), so
+  adding a plasmid changes no other row.
+- Fewer than `SMALL_REGION` (3) eligible genes: every statistic NA, flag `small_region`.
+
+**Depth offset.** With `--replicon-depth` (§5.3), an extra `hl_shift` row (`label =
+dosage_adjusted`, flag `depth_adjusted`) reports HL − log2(plasmid depth / reference depth), the
+reference depth being the length-weighted mean over the same reference replicons. **Depth is
+treated as known**: the CI is the HL CI shifted by the same constant, so it omits the uncertainty
+of the depth ratio (deferred, docs/backlog.md). The row is omitted, with a warning from the step,
+when the plasmid or a reference replicon has no depth, or when HL is NA.
+
+**What the HL CI covers (statistician review of PR #110; lead decisions 15 and 16).** The estimand
+is the realised dosage-plus-regulation shift of this plasmid against the reference replicons. The
+TU-block CI covers it conservatively: 0.997–1.000 for ρ = 0–0.8, with detection from covariates
+or from abundance (Slurm 1860197, 1860273). It is not a CI for the copy number alone. The plasmid's
+own TU-level expression adds sd ≈ 0.75 log2 around log2(dosage) at ρ = 0.5 (1.7 at ρ = 0.8), and
+one genome cannot separate that from dosage. This is why the row is labelled
+`dosage_plus_regulation`. It is also why the CI covers log2(20) only 0.80 of the time at ρ = 0.5
+(0.58 at ρ = 0.8). No resampling scheme fixes this: circular-block bootstraps reach only 0.85 /
+0.71, and a lag-V Wald interval 0.87 / 0.81, which at ρ = 0 is worse than the current CI. The
+`dosage_adjusted` row estimates the plasmid's realised regulation under the same conditional
+reading. Coverage of log2(copy number) is not a gate. The nightly diagnostic
+`test_recorded_plasmid_hl_bias_and_ci_coverage` records both coverages and warns when coverage of
+the realised shift falls below 0.93.
+
+Setup: M4-17 calibration layout, 1,000 chromosome genes, a 60-gene plasmid (median 34 TUs) at
+log2(20) copies, p = p_detect_true, B = 1,000. Coverage SE ≈ 0.013 at R = 1,000 and 0.02–0.03 at
+R = 300.
+
+Coverage of log2(20) (Slurm 1860197):
+
+| scenario | R | mean HL − log2 20 (MC SE) | sd | TU-block (implemented) | circular block, L = 2 / 3 / 4 / 6 / auto | lag-V Wald |
+|---|---|---|---|---|---|---|
+| ρ = 0.5 (attack default) | 1000 | +0.006 (0.026) | 0.82 | 0.801 | 0.836 / 0.849 / 0.849 / 0.847 / 0.852 | 0.867 |
+| ρ = 0 | 300 | +0.078 (0.029) | 0.50 | 0.933 | 0.923 / 0.917 / 0.913 / 0.893 / 0.907 | 0.897 |
+| ρ = 0.8 | 300 | −0.017 (0.098) | 1.70 | 0.583 | 0.653 / 0.687 / 0.703 / 0.733 / 0.713 | 0.807 |
+| ρ = 0.5, detection ~ abundance | 300 | −0.087 (0.049) | 0.86 | 0.843 | 0.847 / 0.860 / 0.860 / 0.870 / 0.870 | 0.880 |
+
+Coverage of the realised shift on the same seeds (Slurm 1860273). T_all is the HL of the true
+abundance over all eligible plasmid genes against the chromosome's (dosage + regulation, without
+gene noise or detection). T_tu is log2(20) plus the plasmid-minus-chromosome difference in mean
+TU-level AR values:
+
+| scenario | sd(T_all − log2 20) | HL − T_all, mean (sd) | CI covers T_all | CI covers T_tu |
+|---|---|---|---|---|
+| ρ = 0.5 | 0.75 | +0.004 (0.30) | 1.000 | 0.989 |
+| ρ = 0 | 0.42 | +0.009 (0.26) | 0.997 | 0.993 |
+| ρ = 0.8 | 1.70 | −0.009 (0.39) | 0.997 | 0.983 |
+| detection ~ abundance | 0.79 | +0.022 (0.33) | 0.997 | 0.987 |
+
+**Selection bias at the null (recorded, not gated).** The HL compares detected genes only. When
+detection depends on abundance, each replicon loses its low-abundance genes, and the two replicons
+lose different shares, so the raw contrast can be biased at the true dosage. The bias is small. With
+abundance-driven detection (`detection = "abundance"`, default slope, ρ = 0.5, R = 300), the mean
+HL − log2(20) is −0.087 log2 (MC SE 0.049), and the mean HL − T_all is +0.022. Its sign depends
+on the detection slope and on how much of each replicon drops out. Under covariate-only detection
+the bias is +0.006 (SE 0.026). The result is an effect estimate, never a test.
+
+## Descriptive rows (prophage subsets, M4-18)
+
+Per prophage and §7.1.7 function subset present in C8 (`integrase`, `repressor`, `structural`,
+`lysis`, `cargo`): `subset` = the name, `stat = o_minus_e`, `observed` = detected eligible members,
+`expected` = Σ p_detect, `o_minus_e` (= `effect`), `o_over_e` (NA when E = 0). `method = label =
+descriptive`, flag `descriptive`, CI, p and q NA, `null_model = none`. Subsets are small (often one
+to a few genes) and nested in the tested prophage; they are not tested in version 1. Fewer than
+3 eligible genes add `small_region`; 0 eligible genes give NA statistics.
+
+**Table rules.** M4-17 rows enter with `subset = all` and the detection columns of both stat rows
+(`observed`, `expected`, `o_minus_e`, `o_over_e`, `hl_shift_log2`), q-values copied (BH is never
+recomputed). Every row satisfies `null_model = none` ⇒ p, q NA and `n_perm = 0`; a p-value ⇒
+`null_model ≠ none`; a q-value ⇒ a p-value (checked by the assembler).
 
 ## Statistician sign-off
 
