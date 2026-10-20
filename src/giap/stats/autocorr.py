@@ -42,6 +42,7 @@ F64 = npt.NDArray[np.float64]
 I64 = npt.NDArray[np.int64]
 B8 = npt.NDArray[np.bool_]
 
+_TIE_RTOL = 1e-12  # perm_p's tie scale; a null spread below it is constant (decision 14)
 _VAR_RTOL = 1e-24  # Σ z² <= 1e-24 · max(1, max x²) means "no variance"
 _CHUNK_CELLS = 1 << 22  # rows per chunk = this // n (results do not depend on it)
 _BLOCK_LEN_CAP = 20  # ADR-0021: l' <= 20
@@ -184,7 +185,8 @@ def join_count_matrix(
     Parameters
     ----------
     D
-        (B, n) boolean detection over eligible genes.
+        (B, n) boolean detection over eligible genes; a NaN in a float D marks a missing gene
+        (its pairs contribute nothing, also to the residual statistic).
     lags
         Lags to evaluate; invalid lags give NaN columns.
     circular
@@ -204,15 +206,18 @@ def join_count_matrix(
     ValueError
         If ``D`` is not 2-D or ``P`` has a different shape.
     """
-    d = np.asarray(D, dtype=bool)
-    if d.ndim != 2:
-        raise ValueError(f"D must be 2-D (B, n), got shape {d.shape}")
+    raw = np.asarray(D)
+    if raw.ndim != 2:
+        raise ValueError(f"D must be 2-D (B, n), got shape {raw.shape}")
+    miss = np.isnan(raw) if raw.dtype.kind == "f" else np.zeros(raw.shape, dtype=bool)
+    d = np.where(miss, False, raw).astype(bool)
     r = d.astype(np.float64)
     if P is not None:
         p = _as_matrix(P, "P")
         if p.shape != d.shape:
             raise ValueError(f"P shape {p.shape} differs from D shape {d.shape}")
         r = r - p
+    r[miss] = 0.0  # a NaN in a float D is missing: its pairs contribute nothing
     rows, n = r.shape
     out = np.full((rows, len(lags)), np.nan)
     valid = [c for c, k in enumerate(lags) if _valid_lag(n, int(k), circular)]
@@ -232,7 +237,7 @@ def join_count(d: ArrayLike, lag: int, circular: bool, p: ArrayLike | None = Non
     float
         The count (0 is a value); NaN if the lag is invalid.
     """
-    row = np.asarray(d, dtype=bool).reshape(1, -1)
+    row = np.asarray(d).reshape(1, -1)
     prow = None if p is None else np.asarray(p, dtype=np.float64).reshape(1, -1)
     return float(join_count_matrix(row, [lag], circular, P=prow)[0, 0])
 
@@ -392,7 +397,9 @@ def lag_test(obs: float, null: ArrayLike) -> LagTest:
 
     ``p_value`` = ``perm_p(obs, null, "two-sided")``. Does not exist: NaN ``obs`` or no valid null
     value (every field NaN except ``value`` and ``n_valid``); a constant null (no variation, e.g.
-    no detected gene) gives ``p_value`` NaN whatever ``obs`` is (lead decision 6).
+    no detected gene) gives ``p_value`` NaN whatever ``obs`` is (lead decision 6). Constant means
+    spread <= 1e-12 * max(1, max|v|) over a null of finite values (decision 14; e.g. the
+    rotation-only TU null of a circular replicon with 2 TU blocks), or every entry the same inf.
     """
     o = float(obs)
     z = np.asarray(null, dtype=np.float64).ravel()
@@ -404,10 +411,23 @@ def lag_test(obs: float, null: ArrayLike) -> LagTest:
     if valid.min() == valid.max():
         c = float(valid[0])
         return LagTest(o, c, c, c, nan, n_valid)
-    lo, hi = np.quantile(valid, [0.025, 0.975], method="linear")
-    return LagTest(
-        o, float(valid.mean()), float(lo), float(hi), perm_p(o, valid, "two-sided"), n_valid
-    )
+    degenerate = _near_constant(valid)
+    with np.errstate(invalid="ignore"):  # inf - inf in the mean / quantiles is NaN, by design
+        lo, hi = np.quantile(valid, [0.025, 0.975], method="linear")
+        mean = float(valid.mean())
+    p = nan if degenerate else perm_p(o, valid, "two-sided")
+    return LagTest(o, mean, float(lo), float(hi), p, n_valid)
+
+
+def _near_constant(valid: F64) -> bool:
+    """Spread <= 1e-12 * max(1, max|v|) over the finite entries (the perm_p tie scale, decision 14).
+
+    A null with any +-inf entry is constant only if every entry is the same inf (handled by the
+    caller's exact check), so it is never near-constant here.
+    """
+    if not np.isfinite(valid).all():
+        return False
+    return bool(np.ptp(valid) <= _TIE_RTOL * max(1.0, float(np.max(np.abs(valid)))))
 
 
 # ----------------------------------------------------------------------------- block length
@@ -426,15 +446,18 @@ def choose_block_len(
     For k = 1 ... min(``max_len``, ``max_lag(n)``), ``lag_test`` of Moran's I of ``z`` under ``B``
     gene-label permutations (one permutation matrix shared by every lag, so the draws depend on
     B and n only); l-hat = the first k with raw two-sided p > ``alpha`` or NaN. If every lag is
-    significant, l-hat = min(``max_len``, ``max_lag(n)`` + 1, n). n < 3 gives 1.
+    significant, l-hat = min(``max_len``, ``max_lag(n)`` + 1, n). n < 3 gives 1. NaN entries of
+    ``z`` (genes without a value) move with the values under the permutations.
 
     Raises
     ------
     ValueError
-        If ``max_len`` < 1.
+        If ``max_len`` < 1 or ``B`` < 1.
     """
     if max_len < 1:
         raise ValueError(f"max_len must be >= 1, got {max_len}")
+    if B < 1:
+        raise ValueError(f"B must be >= 1, got {B}")
     x = np.asarray(z, dtype=np.float64).ravel()
     n = x.size
     if n < 3:
