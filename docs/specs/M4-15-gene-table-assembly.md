@@ -126,3 +126,21 @@ None new; the statistician checks that `p_detect` is attached only from cross-fi
    `replichore_position` float; all NA in M4.
 10. "I/O only through io/" is enforced for `genetable/assemble.py` only; the step-level convention is a
     backlog item (merged steps already read parquet directly).
+
+## Lead decisions after the code review of PR #111 (changes requested)
+11. (blocking) `read_genes_parquet` keeps missing values missing: float NaN and `pd.NA` in string columns
+    stay null (never the text `"nan"`). Tests: a parquet round trip, and
+    `pq.read_table(genetable/genes.parquet).column(c).null_count` equals the number of missing values for
+    string columns (`island_id`, `replichore`, `cog_id`, `cog_category`).
+12. Tests for COG resolution through the setup manifest: a tmp `$GIAP_DB_DIR` with `db_manifest.json` and a
+    fixture `cog/cog-20.def.tab` → categories set; file present but no manifest entry → NA + warning.
+13. `read_cog_def` falls back to latin-1 (the NCBI file has cp1252 bytes, e.g. 0x92); test with such a
+    fixture byte.
+14. Tests: a gene missing from a partial id map gets `source_id = locus_tag`; NA `detected_2pep` /
+    `abundance_imputed` become False (kill `fillna(True)`).
+15. `--executor local` stages `cog2020_def` (like `contaminants`) and passes `abundance` / `preflight`
+    when the run produced them, so `cog_category` is set under the local executor too.
+16. Rename the schema to `src/giap/schemas/tables/genes.schema.json` (the `<table>.schema.json`
+    convention). Per-field `unit` (§9.5) is a project-wide backlog item.
+17. The COG path comes from `db_sources.yaml` (`cog2020_def.path`), not a hard-coded constant.
+18. Downstream: the stricter loader (parquet/TSV by table name) means M4-18/M4-20 supply C7/C8 as parquet.
