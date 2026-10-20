@@ -16,7 +16,9 @@
 # run` with the recorded full-DB JSON (annotation.precomputed.bakta_json =
 # $GIAP_ROOT/recordings/bakta_full/<genome>/bakta/<genome>.json);
 # (d) K-12 only: TE6 (§11.6) on the live Bakta JSON: an oriC call whose nearest gene is mnmG or
-# mioC with mnmG within 2 kb. Measured runtimes: scripts/measure_runtimes.py on each trace.
+# mioC with mnmG within 2 kb; (e) K-12 only: TE8 (§11.6, M3-22): validation/fetch_uniprot_k12.py,
+# then validation/proxies/te_proxies.py te8 -> $GIAP_ROOT/ci/validation/<date>_te8_<job>.json.
+# Measured runtimes: scripts/measure_runtimes.py on each trace.
 # Evidence stand-in (M2 annotation track only; MAPPING is M3): `giap run` requires --proteins or
 # --peptides, so the evidence is a deterministic 60 % subset of the recorded Bakta proteins
 # (records 0,1,2 of every 5 of bakta/<genome>.faa), as in the lead's hand run of 2026-10-16.
@@ -153,6 +155,18 @@ sys.exit(0 if any(ok) else 1)
 PY
     step $? "TE6 live"
   fi
+fi
+# (e) K-12 task only: TE8 (§11.6, M3-22) on the live UniProt K-12 proteome (rest.uniprot.org) with
+# the committed genomes and recorded full-DB Bakta JSONs; result JSON kept as gate-M3 evidence
+if [ "$S" = k12_mg1655 ]; then
+  stage="TE8"
+  te8="$CI/validation/$(date +%F)_te8_${JOB}.json"; mkdir -p "$CI/validation"
+  D=tests/data; B=$D/recorded/bakta/1.12.2-full
+  python validation/fetch_uniprot_k12.py \
+    && python validation/proxies/te_proxies.py te8 "$D/genomes/k12_mg1655.fna.gz" \
+         "$B/k12/k12_mg1655.json.gz" "$D/genomes/nissle1917.fna.gz" "$B/nissle/nissle1917.json.gz" \
+         "$GIAP_DATA_DIR/uniprot/UP000000625.fasta" --out "$te8" 2>&1 | tee "$RUN/te8.log" | tail -1
+  step "${PIPESTATUS[0]}" "TE8 $te8"
 fi
 report "$rc" "$summary"
 exit "$rc"

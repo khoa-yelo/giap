@@ -73,3 +73,40 @@ at defaults ≤ 0.01; tolerant and unmapped shares reported.
 2. If the recorded Nissle full-DB JSON is not ready when M3 closes: **Proposed default:** use the
    light-DB Bakta JSON for TE1 (CDS calls are identical between DBs for coordinates), and re-run
    once G17 fixtures exist.
+
+## Lead decisions (2026-10-20)
+1. Accept the default: the digest keeps the protein as Bakta writes it (with the initiator `M`); no
+   Met-excised peptides are generated, so only the non-ATG-start exception arises for TE1.
+2. The recorded full-DB Bakta JSONs exist (`tests/data/recorded/bakta/1.12.2-full/{nissle,k12}`): use
+   the full-DB recording for TE1; the light-DB fallback is not needed.
+3. TE8 (UniProt K-12) needs the network: it runs only in the weekly job (marker `e2e`/`slow` as the
+   spec says); unit and CI tests use a small recorded excerpt with PROVENANCE.md, never the network.
+
+## Lead decisions after the test-author's report (2026-10-20)
+4. Counting unit for "peptides": distinct peptide sequences (exact string, no I=L collapsing), each
+   counted once per proxy; per-product counts may be reported as a diagnostic only.
+5. "Non-ATG start" (TE1): strict reading — the gene's first codon in the genome is not ATG **and** the
+   Bakta protein starts with `M`. Truncated "Edge" genes whose protein starts with the genome-encoded
+   residue are ordinary peptides (they match exactly).
+6. TE8 applies the same exclusion as TE1: N-terminal peptides of K-12 genes with a non-ATG start
+   (UniProt also writes `M`) leave the K-12 exact-share denominator and are counted separately
+   (`non_atg_nterm`). Otherwise the 0.995 gate mostly measures start annotation (480 of 525 misses on
+   the full proteome are N-terminal). Tests pin the share with the exclusion.
+7. `nissle_exact` counts accepted exact placements (route = exact); bounds as the tests have them.
+8. `validation/` is importable from the repo root (namespace package). The TE8 weekly entry in
+   `scripts/slurm/weekly.sbatch` is added after #107 (M2-21) merges; backlog item.
+9. Decision 6 uses the gene-model reading (as pinned): a K-12 peptide is excluded when it is N-terminal in
+   its UniProt protein and equals an N-terminal digest product of a strict non-ATG K-12 gene in `k12_json`.
+   The genome reading (M → V/L substitution search) is not used.
+
+## Lead decisions after the implementer's report (2026-10-20)
+10. TE1 counts a peptide as "exact, in frame, annotated CDS" (§11.6) when an exact hit lies in frame inside
+    one of its own coding genes, even if the merged loci ranking labels the locus `rna_overlap` or
+    `pseudogene`; those are reported separately as `exact_inframe_masked`. The §11.6 wording governs over
+    the issue's `locus_class` shorthand.
+11. Coding genes for the digest are cds, sorf and pseudogene, as the merged parser types them (Bakta 1.12
+    has no `pseudo` key); the pinned 164,181 stands.
+12. Pooled proxy FDR with unit decoy weights (no q/PEP in proxy tables) and the TE8 counting choices
+    (`k12_exact` = any exact target hit; `nissle_rejected` vs `nissle_unmapped`) are accepted; the methods
+    text in validation/proxies must state them.
+13. Local test runs deselect `needs_net` tests (`-m "not e2e"`); the e2e fetch test runs only in weekly.
