@@ -17,7 +17,6 @@ import hashlib
 import json
 import re
 import sys
-import time
 from dataclasses import replace
 from pathlib import Path
 from types import ModuleType
@@ -615,21 +614,9 @@ def test_layout_config_is_frozen_and_hashable() -> None:
 # ---------------------------------------------------------------------------- example 7: speed
 
 
-def _best_of(n: int, fn: Any) -> float:
-    best = float("inf")
-    for _ in range(n):
-        t0 = time.perf_counter()
-        fn()
-        best = min(best, time.perf_counter() - t0)
-    return best
-
-
-def test_example7_speed_4500_genes() -> None:
-    assert _best_of(3, lambda: simulate(1, n_genes_chromosome=4500)) < 2.0
-
-
-# The 1,000-gene target (best of 3 < 0.2 s, M4-07 acceptance) is checked in
-# benchmarks/test_sim_layout_bench.py: wall clock is flaky on loaded nodes.
+# Example 7 (4,500 genes, best of 3 < 2 s) and the 1,000-gene target (best of 3 < 0.2 s), both
+# M4-07 acceptance, are checked in benchmarks/test_sim_layout_bench.py: wall clock is flaky on
+# loaded nodes.
 
 
 # ---------------------------------------------------------------------------- example 8: M0 adapter
