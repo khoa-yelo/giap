@@ -564,3 +564,26 @@ def test_scan_max_rejects_non_1d(bad: np.ndarray, circular: bool) -> None:
 def test_scan_null_max_rejects_non_2d(bad: np.ndarray, circular: bool) -> None:
     with pytest.raises(ValueError):
         scan_null_max(bad, 1, 3, circular)
+
+
+# ---- decision 22: a negative finite |S| is a caller error --------------------------------------
+
+
+@pytest.mark.parametrize("bad", [-5.0, -1e-300, -np.finfo(float).max])
+def test_fwer_p_negative_s_abs_raises(bad: float) -> None:
+    with pytest.raises(ValueError):
+        fwer_p([1.0, bad], [1.0, 2.0])
+    with pytest.raises(ValueError):
+        fwer_p([bad], [np.nan])  # checked even when no null maximum is valid
+
+
+def test_fwer_p_signed_s_raises() -> None:
+    res = scan_max([0.0, -2.0, -2.0, 0.0], 2, 2, circular=False)
+    with pytest.raises(ValueError):
+        fwer_p(res.s, [1.0, 2.0])
+
+
+def test_fwer_p_negative_zero_and_nonfinite_do_not_raise() -> None:
+    p = fwer_p([-0.0, 0.0, np.nan, -np.inf, np.inf], [1.0, 2.0])
+    np.testing.assert_array_equal(p[:2], [1.0, 1.0])
+    assert np.isnan(p[2:]).all()  # decision 19: non-finite |S| -> NaN, not an error
