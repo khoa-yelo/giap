@@ -700,8 +700,13 @@ db-strain suites had 0 false peptides in every list. The de novo error-model sui
   1 Mb): short wrong database peptides (7/8-mers of protein sequences that are absent from the
   genome, as in b2sim `--mode short`) are injected test-locally with PEP set to the true wrong
   share. This arm claims reverse m = 0. With δ = 0 (exact PEP) the mean-PEP π̂ is valid, so the arm
-  is expected to pass. At 100 kb (K = 2,000, R = 50): 1.6 false peptides per replicate, mean FDP
-  0.0009 at every q, mean W0 2.44 ≥ V0 1.6;
+  is expected to pass. At 100 kb (K = 2,000, R = 50, job 1860994): 1.6 false peptides per
+  replicate, mean FDP 0.0009 at every q. At 1 Mb (K = 400, R = 300, job 1860995): 2.85 false per
+  replicate, mean FDP 0.00016 at every q, about 17,960 accepted. The FDP gate is the only
+  assertion. The stratum-0 estimate is recorded but not gated. At 1 Mb it under-counts:
+  mean Ŵ0 = 0.57 against V0 = 2.85, while at 100 kb Ŵ0 = 2.44 against V0 = 1.6. The
+  statistician's b2sim short7 runs give the same direction at δ = 0 (π̂ 0.05, D0 14.7, V0 1.4).
+  This is open: the FDP stays far below q only because the stratum is large;
 - the **related db-strain estimate check**
   (`test_related_dbstrain_stratum0_estimate_covers_false_placements`, full tier, 1 Mb, 5 SNV/kb,
   R = 100). It requires ΣV0 ≥ 30 false stratum-0 placements and mean W0 ≥ mean V0 − 2 SE (SE of V0 − W0 over lists). Observed
