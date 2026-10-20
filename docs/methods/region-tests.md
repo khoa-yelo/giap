@@ -1,7 +1,9 @@
 # Region tests: O − E and Hodges–Lehmann shift under circular gene-index shifts
 
 Implements `giap.context.regions` (GIAP_SPEC.md §7.3.5(b), §8.1, Appendix B.4; issue M4-17,
-docs/specs/M4-17-region-tests.md, ADR-0018 and lead decisions 6–10). Reuses `giap.stats.permutation` (M4-03), `giap.stats.bootstrap`
+docs/specs/M4-17-region-tests.md, ADR-0018 and lead decisions 6–10) and the `regions_stats.tsv`
+rows of `giap.context.regions_table` (issue M4-18, docs/specs/M4-18-regions-stats-table.md,
+sections "Replicon-level effects" and "Descriptive rows"). Reuses `giap.stats.permutation` (M4-03), `giap.stats.bootstrap`
 and `giap.stats.robust` (M4-04) and `giap.stats.multitest.bh` (M4-01). Statistician sign-off: see
 the end of this note.
 
@@ -188,6 +190,61 @@ own AMR set, M4-08 AR(1) ρ = 0.5, no region effects, detection from covariates 
   ρ ≥ 0.9 it hits 0.15–0.35 % of rows (lags up to 30 cover half the replicon). Those rows lose
   their HL p, but level is unaffected: under exhaustive shifts the flag is a function of the whole
   shift orbit, so the same rows would be NA whichever orbit member was observed.
+
+## Replicon-level effects (plasmids, M4-18)
+
+Plasmids are not tested (§7.3.5(b), §8.5 attack 4). A plasmid region is the whole replicon, so no
+circular shift moves it, and its contrast with the chromosome mixes gene dosage (copy number) with
+regulation: nothing in proteomics data separates the two. Each `plasmid_*` region gets two rows with
+`p_value = q_value = NA`, `null_model = none`, `n_perm = 0`, `method = replicon_contrast`,
+`label = dosage_plus_regulation`:
+
+- `o_minus_e`: the plasmid's own O − E over its eligible genes (E = Σ p_detect, which already
+  carries the detectability model; lead decision 1). No chromosome-rate row.
+- `hl_shift`: HL of the plasmid's **raw** log2 abundance against the reference replicons (lead
+  decision 2). Not M4-17's per-replicon residuals: those centre every replicon and give HL ≈ 0
+  whatever the dosage. Only detected, eligible genes with an observed value enter; **imputed genes
+  are excluded** on both sides, because the genome-wide median fill (docs/methods/abundance.md)
+  places imputed plasmid genes at the chromosome median and pulls the contrast towards 0.
+- Reference (lead decision 3): the `kind = chromosome` replicons; without one (draft genomes) every
+  replicon that is neither `kind = plasmid` nor a plasmid region's contig, flag
+  `no_reference_replicon` (HL NA with the same flag if that set has no usable gene).
+- CIs: 95 % TU-block bootstrap; for HL with strata plasmid / reference, so every replicate has both
+  sides. Each plasmid draws from its own child stream keyed by its `region_id` (lead decision 7), so
+  adding a plasmid changes no other row.
+- Fewer than `SMALL_REGION` (3) eligible genes: every statistic NA, flag `small_region`.
+
+**Depth offset.** With `--replicon-depth` (§5.3), an extra `hl_shift` row (`label =
+dosage_adjusted`, flag `depth_adjusted`) reports HL − log2(plasmid depth / reference depth), the
+reference depth being the length-weighted mean over the same reference replicons. **Depth is
+treated as known**: the CI is the HL CI shifted by the same constant, so it omits the uncertainty
+of the depth ratio (deferred, docs/backlog.md). The row is omitted, with a warning from the step,
+when the plasmid or a reference replicon has no depth, or when HL is NA.
+
+**Bias at the null (recorded, not gated).** The HL compares detected genes only. When detection
+depends on abundance, the low-abundance genes of each replicon drop out, and the two replicons
+lose different shares, so the raw contrast carries a selection bias at the true dosage; the lead
+decision cites ≈ +0.3 log2 in simulation for abundance-driven detection. Under covariate-only
+detection (`tests/calibration/attacks/test_regions_stats_attacks.py`, AR(1) ρ = 0.5, 1,000
+chromosome genes, 60-gene plasmid at log2 20 copies, R = 100, B = 200; Slurm 1860163) the mean
+HL − log2(20) is +0.013 log2 (sd 0.79), but the 95 % TU-block CI covers log2(20) in only 78 % of
+replicates: AR(1) dependence between neighbouring TUs and the replicon-level abundance level of
+the simulated plasmid are not captured by resampling independent TUs. Read the CI as a lower bound
+on the uncertainty. The result is an effect estimate, never a test.
+
+## Descriptive rows (prophage subsets, M4-18)
+
+Per prophage and §7.1.7 function subset present in C8 (`integrase`, `repressor`, `structural`,
+`lysis`, `cargo`): `subset` = the name, `stat = o_minus_e`, `observed` = detected eligible members,
+`expected` = Σ p_detect, `o_minus_e` (= `effect`), `o_over_e` (NA when E = 0). `method = label =
+descriptive`, flag `descriptive`, CI, p and q NA, `null_model = none`. Subsets are small (often one
+to a few genes) and nested in the tested prophage; they are not tested in version 1. Fewer than
+3 eligible genes add `small_region`; 0 eligible genes give NA statistics.
+
+**Table rules.** M4-17 rows enter with `subset = all` and the detection columns of both stat rows
+(`observed`, `expected`, `o_minus_e`, `o_over_e`, `hl_shift_log2`), q-values copied (BH is never
+recomputed). Every row satisfies `null_model = none` ⇒ p, q NA and `n_perm = 0`; a p-value ⇒
+`null_model ≠ none`; a q-value ⇒ a p-value (checked by the assembler).
 
 ## Statistician sign-off
 
