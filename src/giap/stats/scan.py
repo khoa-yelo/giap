@@ -11,6 +11,7 @@ not depend on ``NUMBA_DISABLE_JIT``.
 from __future__ import annotations
 
 import math
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Literal
 
@@ -32,6 +33,8 @@ __all__ = [
 
 F64 = npt.NDArray[np.float64]
 I64 = npt.NDArray[np.int64]
+
+_EMPTY = np.zeros(0, dtype=np.int64)
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,8 +110,8 @@ def n_windows(n: int, wmin: int, wmax: int, circular: bool) -> int:
     return sum(n if circular else n - w + 1 for w in _lengths(n, wmin, wmax, circular))
 
 
-def _scan(Z: F64, wmin: int, wmax: int, circular: bool) -> tuple[I64, I64, F64]:
-    """Window starts, lengths and S of every row of ``Z`` (B, n) -> (k,), (k,), (B, k)."""
+def _sums(Z: F64, wmin: int, wmax: int, circular: bool) -> Iterator[tuple[int, F64]]:
+    """Per window length w, the window sums of every row of ``Z`` (B, n) -> (B, m_w), by start."""
     if not np.isfinite(Z).all():
         raise ValueError("z must be finite (drop TUs without a score before scanning)")
     n = Z.shape[1]
@@ -117,16 +120,9 @@ def _scan(Z: F64, wmin: int, wmax: int, circular: bool) -> tuple[I64, I64, F64]:
         Z = np.concatenate([Z, Z[:, : ws[-1]]], axis=1)
     c = np.zeros((Z.shape[0], Z.shape[1] + 1), dtype=np.float64)
     np.cumsum(Z, axis=1, out=c[:, 1:])
-    starts, lengths, s = [], [], []
     for w in ws:
         m = n if circular else n - w + 1
-        starts.append(np.arange(m, dtype=np.int64))
-        lengths.append(np.full(m, w, dtype=np.int64))
-        s.append((c[:, w : w + m] - c[:, :m]) / math.sqrt(w))
-    if not s:
-        e = np.zeros(0, dtype=np.int64)
-        return e, e.copy(), np.zeros((Z.shape[0], 0), dtype=np.float64)
-    return np.concatenate(starts), np.concatenate(lengths), np.concatenate(s, axis=1)
+        yield w, c[:, w : w + m] - c[:, :m]
 
 
 def _as_matrix(Z: ArrayLike) -> F64:
@@ -161,8 +157,10 @@ def scan_max(z: ArrayLike, wmin: int, wmax: int, circular: bool) -> ScanResult:
     a = np.asarray(z, dtype=np.float64)
     if a.ndim != 1:
         raise ValueError("z must be 1-D")
-    start, length, s = _scan(a[None, :], wmin, wmax, circular)
-    row = s[0]
+    blocks = [(w, d[0] / math.sqrt(w)) for w, d in _sums(a[None, :], wmin, wmax, circular)]
+    start = np.concatenate([np.arange(v.size, dtype=np.int64) for _, v in blocks] or [_EMPTY])
+    length = np.concatenate([np.full(v.size, w, dtype=np.int64) for w, v in blocks] or [_EMPTY])
+    row = np.concatenate([v for _, v in blocks] or [np.zeros(0)])
     max_abs = float(np.abs(row).max()) if row.size else float("nan")
     return ScanResult(start=start, length=length, s=row, max_abs=max_abs)
 
@@ -190,10 +188,10 @@ def scan_null_max(Z: ArrayLike, wmin: int, wmax: int, circular: bool) -> F64:
         On a bad window range, a non-2-D Z or non-finite entries.
     """
     a = _as_matrix(Z)
-    _, _, s = _scan(a, wmin, wmax, circular)
-    if s.shape[1] == 0:
-        return np.full(a.shape[0], np.nan, dtype=np.float64)
-    out: F64 = np.abs(s).max(axis=1)
+    out = np.full(a.shape[0], np.nan, dtype=np.float64)
+    for w, d in _sums(a, wmin, wmax, circular):
+        # correctly rounded division by sqrt(w) > 0 is monotone: max |d| / sqrt(w) == max |S|
+        np.fmax(out, np.abs(d, out=d).max(axis=1, initial=0.0) / math.sqrt(w), out=out)
     return out
 
 
