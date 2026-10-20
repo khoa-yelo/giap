@@ -12,8 +12,10 @@ Pinned by the test author (spec gaps, see the hand-back report):
 - ``function_columns(xrefs, cog_def)`` takes the COG table as a frame with columns ``cog_id`` and
   ``cog_category`` (extra columns ignored); list cells (``go_terms``, ``kegg_ko``, ``ec``) are
   sorted and de-duplicated; xrefs of other databases are ignored.
-- ``assemble_genes`` has no COG-table argument, so ``cog_category`` is checked only through
-  ``function_columns`` here and through the step (test_gene_table_steps.py).
+- Lead decisions 4, 5, 9: ``gc_local_dev`` is copied from C6 when present; ``assemble_genes(...,
+  cog_def=None)`` (keyword) sets ``cog_category``; several COG IDs -> the smallest and its
+  category, bare category xrefs (``COG:L``) ignored; no id map -> ``source_id = locus_tag``;
+  ``island_id`` / ``replichore`` string and ``replichore_position`` float, all NA in M4.
 - ``detectability_constant`` goes on eligible (non-partial) genes only (M4-13 spec "M4-15 sets
   it"); ``source_id`` comes from C14 when the id map is given.
 """
@@ -197,6 +199,30 @@ def test_m5_columns_are_na(table: pd.DataFrame) -> None:
     """Example 9: ``island_id``, ``replichore``, ``replichore_position`` are filled by M5."""
     for c in ("island_id", "replichore", "replichore_position"):
         assert table[c].map(is_na).all(), c
+    assert pd.api.types.is_float_dtype(table["replichore_position"].dtype)
+    for c in ("island_id", "replichore"):
+        dt = table[c].dtype
+        assert pd.api.types.is_object_dtype(dt) or pd.api.types.is_string_dtype(dt), (c, dt)
+
+
+def test_gc_local_dev_copied_from_layers() -> None:
+    """Lead decision 4: M2-20 writes ``gc_local_dev``; it is copied unchanged."""
+    fr = gt.frames_with()
+    fr["layers"].insert(7, "gc_local_dev", [0.01 * i - 0.05 for i in range(20)])
+    fr["layers"].loc[3, "gc_local_dev"] = float("nan")
+    t = gt.build_world(frames=fr).assemble()
+    for i in range(20):
+        got = row(t, tag(i))["gc_local_dev"]
+        if i == 3:
+            assert is_na(got)
+        else:
+            assert math.isclose(float(got), 0.01 * i - 0.05, abs_tol=1e-15), i
+
+
+def test_source_id_defaults_to_locus_tag_without_id_map(world: gt.World) -> None:
+    """Lead decision 9: no C14 id map -> ``source_id = locus_tag``."""
+    t = world.assemble(inputs=world.with_inputs(id_map=None))
+    assert (t["source_id"] == t["locus_tag"]).all()
 
 
 def test_gc_local_dev_na_without_layer_column() -> None:
@@ -204,6 +230,16 @@ def test_gc_local_dev_na_without_layer_column() -> None:
     assert "gc_local_dev" not in fr["layers"].columns  # optional C6 column (M2-20 decision 7)
     t = gt.build_world(frames=fr).assemble()
     assert t["gc_local_dev"].map(is_na).all()
+
+
+def test_assemble_cog_def_keyword(world: gt.World, table: pd.DataFrame) -> None:
+    """Lead decision 5: ``cog_def`` sets ``cog_category``; the default (None) leaves it NA."""
+    assert table["cog_category"].map(is_na).all()
+    t = world.assemble(cog_def=gt.cog_def_frame())
+    assert row(t, tag(0))["cog_category"] == "J"  # COG0000
+    assert row(t, tag(2))["cog_category"] == "KT"  # COG0002
+    assert is_na(row(t, tag(4))["cog_category"])  # COG0004 not in the table
+    assert is_na(row(t, tag(1))["cog_category"])  # no COG xref
 
 
 def test_function_columns_in_table(table: pd.DataFrame) -> None:
@@ -257,7 +293,9 @@ def test_example_6_function_pivot() -> None:
         [("G1", "COG", "COG0593"), ("G1", "GO", "GO:0005524"), ("G1", "EC", "3.6.4.12"),
          ("G1", "KEGG", "K02313"), ("G1", "UniRef", "UniRef90_P03004"),
          ("G2", "GO", "GO:0003677"), ("G2", "GO", "GO:0003677"), ("G2", "GO", "GO:0000001"),
-         ("G3", "COG", "COG9999"), ("G4", "COG", "COG0002")],
+         ("G3", "COG", "COG9999"), ("G4", "COG", "COG0002"),
+         ("G5", "COG", "COG0593"), ("G5", "COG", "COG0002"), ("G5", "COG", "KT"),
+         ("G6", "COG", "L")],
         columns=["locus_tag", "db", "id"],
     )  # fmt: skip
     cols = ["locus_tag", "cog_id", "cog_category", "go_terms", "kegg_ko", "ec"]
@@ -272,6 +310,10 @@ def test_example_6_function_pivot() -> None:
     assert as_list(r2["go_terms"]) == ["GO:0000001", "GO:0003677"]  # sorted, unique
     assert row(with_cog, "G3")["cog_id"] == "COG9999" and is_na(row(with_cog, "G3")["cog_category"])
     assert row(with_cog, "G4")["cog_category"] == "KT"  # multi-letter category kept
+    # decision 9: several COG IDs -> smallest ID and its category; bare categories ignored
+    assert tuple(row(with_cog, "G5")[["cog_id", "cog_category"]]) == ("COG0002", "KT")
+    g6 = with_cog[with_cog["locus_tag"] == "G6"]
+    assert g6.empty or (is_na(g6.iloc[0]["cog_id"]) and is_na(g6.iloc[0]["cog_category"]))
     without = function_columns(xrefs, None)
     r = row(without, "G1")
     assert r["cog_id"] == "COG0593" and is_na(r["cog_category"])

@@ -78,14 +78,12 @@ FLOAT_COLUMNS = (
     "tx_rate_max_tu", "tx_rate_sum_tu", "terminator_conf_downstream", "tir_ostir", "sd_dg",
     "mrna_dg", "cai", "tai", "enc", "fop", "gc3", "cpb", "at_2_10", "mw_da", "pi", "gravy",
     "gene_q_value", "coverage_frac", "best_peptide_q", "p_detect", "abundance_raw",
-    "abundance_log2", "top3_log2",
+    "abundance_log2", "top3_log2", "replichore_position",
 )  # fmt: skip
-# Columns whose §9.3 type is not stated (M5 fills them); never pinned.
-UNTYPED = ("island_id", "replichore", "replichore_position")
 STRING_COLUMNS = tuple(
     c
     for c in GENES_COLUMNS
-    if c not in (*LIST_COLUMNS, *INT_COLUMNS, *BOOL_COLUMNS, *FLOAT_COLUMNS, *UNTYPED)
+    if c not in (*LIST_COLUMNS, *INT_COLUMNS, *BOOL_COLUMNS, *FLOAT_COLUMNS)
 )
 ENUMS: dict[str, tuple[str, ...]] = {
     "feature_type": ("cds", "sorf", "pseudogene"),
@@ -143,18 +141,21 @@ class World:
     abundance: Any
     cfg: Any
 
-    def assemble(self, **override: Any) -> pd.DataFrame:
+    def assemble(self, cog_def: pd.DataFrame | None = None, **override: Any) -> pd.DataFrame:
         from giap.genetable.assemble import assemble_genes
 
+        if cog_def is not None:  # lead decision 5: keyword, default None
+            override["_cog"] = cog_def
         parts = {
             "inputs": self.inputs, "cov": self.cov, "evidence": self.evidence,
             "detection": self.detection, "detectability": self.detectability,
             "abundance": self.abundance,
         } | override  # fmt: skip
-        return assemble_genes(
-            parts["inputs"], parts["cov"], parts["evidence"], parts["detection"],
-            parts["detectability"], parts["abundance"],
-        )  # fmt: skip
+        args = (parts["inputs"], parts["cov"], parts["evidence"], parts["detection"],
+                parts["detectability"], parts["abundance"])  # fmt: skip
+        if "_cog" in parts:
+            return assemble_genes(*args, cog_def=parts["_cog"])
+        return assemble_genes(*args)
 
     def with_inputs(self, **frames: Any) -> Any:
         return dataclasses.replace(self.inputs, **frames)

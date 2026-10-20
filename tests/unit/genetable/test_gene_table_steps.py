@@ -10,8 +10,8 @@ Pinned by the test author (see the hand-back report):
 - Without the COG table ``cog_category`` is NA and a warning carrying ``layer_missing:cog`` is
   logged (the M2-19/M2-20 convention for run flags).
 - ``run_gene_table(work_dir, cfg)`` / ``run_detectability(work_dir, cfg)`` find the contract files
-  in ``work_dir`` (the test writes them both flat, as ``giap.io.work_tables.default_paths`` lays
-  them out, and with the M3 TSVs under ``mapping/`` as ``loci`` writes them) and return
+  in ``work_dir`` in the real ``giap run`` layout (M3 TSVs under ``mapping/``, C14 under
+  ``annotation/``) and in the flat ``default_paths`` layout (lead decision 8), and return
   ``work_dir/genetable/genes_pre.parquet`` / ``work_dir/genetable/genes.parquet``.
 - A contract ``error`` issue makes the step fail (``StepError`` through ``run_step``; the spec's
   "exit code 1" is reported as an inconsistency, the runner maps ``StepError`` to 4).
@@ -58,17 +58,21 @@ def _frames(dup: bool = False) -> dict[str, Any]:
     return fr
 
 
-def write_work(root: Path, frames: dict[str, Any]) -> dict[str, Path]:
-    """Contract files under ``root`` (flat and ``mapping/`` + ``annotation/``); step input keys."""
+def write_work(root: Path, frames: dict[str, Any], layout: str = "both") -> dict[str, Path]:
+    """Contract files under ``root``; ``layout`` ``flat`` (``default_paths``), ``run`` (M3 TSVs
+    under ``mapping/``, C14 under ``annotation/``) or ``both``. Returns the step input keys."""
     from giap.io.work_tables import default_paths
 
     flat = default_paths(root) | {"preflight": root / "preflight.json"}
     mf.write_work(frames, flat)
-    for name in ("peptide_hits.tsv", "protein_hits.tsv", "unmapped.tsv"):
-        (root / "mapping").mkdir(exist_ok=True)
-        shutil.copyfile(root / name, root / "mapping" / name)
-    (root / "annotation").mkdir(exist_ok=True)
-    shutil.copyfile(root / "id_map.tsv", root / "annotation" / "id_map.tsv")
+    moved = {"peptide_hits.tsv": "mapping", "protein_hits.tsv": "mapping",
+             "unmapped.tsv": "mapping", "id_map.tsv": "annotation"}  # fmt: skip
+    for name, sub in moved.items():
+        if layout != "flat":
+            (root / sub).mkdir(exist_ok=True)
+            shutil.copyfile(root / name, root / sub / name)
+        if layout == "run":
+            (root / name).unlink()
     keys = {k: p for k, p in flat.items() if k not in ("peptide_hits", "protein_hits", "unmapped")}
     return keys | {"mapping": root / "mapping", "id_map": root / "annotation" / "id_map.tsv"}
 
@@ -80,7 +84,7 @@ def run_gene_table_step(
 
     reg = _reg()
     spec = reg.get("gene_table")
-    keys = write_work(root / "work", frames)
+    keys = write_work(root / "work", frames, layout="run")
     if cog is not None:
         keys["cog2020_def"] = cog
     allowed = set(spec.inputs) | set(spec.optional_inputs)
@@ -169,8 +173,9 @@ def no_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return empty
 
 
+@pytest.mark.parametrize("layout", ["run", "flat"])
 def test_run_functions_write_genetable_files(
-    tmp_path: Path, no_db: Path, caplog: pytest.LogCaptureFixture
+    tmp_path: Path, no_db: Path, caplog: pytest.LogCaptureFixture, layout: str
 ) -> None:
     from giap.config import GiapConfig
     from giap.steps.detectability import run_detectability
@@ -178,11 +183,14 @@ def test_run_functions_write_genetable_files(
 
     work = tmp_path / "work"
     work.mkdir()
-    write_work(work, _frames())
+    write_work(work, _frames(), layout=layout)
     cfg = GiapConfig(seed=3)
     with caplog.at_level(logging.WARNING):
         pre = run_gene_table(work, cfg)
     assert pre == work / "genetable" / "genes_pre.parquet" and pre.is_file()
+    pre_df = pd.read_parquet(pre)
+    assert len(pre_df) == 20
+    assert pre_df.set_index("locus_tag").loc[tag(3), "source_id"] == "orig_3"  # C14 found
     assert any("layer_missing:cog" in r.getMessage() for r in caplog.records)
 
     out = run_detectability(work, cfg)

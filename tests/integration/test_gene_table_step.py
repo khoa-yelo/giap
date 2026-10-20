@@ -6,9 +6,8 @@ flat, C9/C10 flat, C11-C13 under ``mapping/``, as the producers do); the registe
 ``gene_table`` and ``detectability`` run through ``run_step``; ``genes.tsv`` is written with
 ``write_genes_tsv`` and validated with frictionless against ``schemas/tables/genes.json``.
 
-Pinned by the test author: giapsim writes ``annotation_source = "giapsim"``, which is outside the
-§9.3 enum, so the fixture's ``annotation_meta.json`` is rewritten to ``bakta_full`` before the run
-(reported to the lead). The detectability output parquet is the declared output of
+Lead decision 7: giapsim writes ``annotation_source = "bakta_full"``, so its output validates as
+written (no rewrite here). The detectability output parquet is the declared output of
 ``detectability`` that holds a ``p_detect`` column.
 """
 
@@ -48,8 +47,6 @@ def _simulate(work: Path) -> dict[str, Path]:
     e = ev.simulate_evidence(lay, expr, ev.EvidenceConfig(), rng)
     write_contract_tables(lay, work)
     ev.write_evidence_tables(e, work)
-    meta = {"annotation_source": "bakta_full", "flags": []}
-    (work / "annotation_meta.json").write_text(json.dumps(meta) + "\n", encoding="utf-8")
     keys = {k: work / f for k, f in KEYS.items() if (work / f).exists()}
     return keys | {"mapping": work / "mapping"}
 
