@@ -151,3 +151,20 @@ adjustment as a known offset) and §"Descriptive rows".
     simulator truth (`rd.simulate` then `rd.tables_from`, HL of `abundance_log2_true`), records both
     coverages, and warns when the realised-shift coverage is below 0.93. Still recorded, not gated.
 17. Backlog: a shared `ci_few_units` flag for M4-17 and M4-18 CIs on fewer than 10 TUs.
+
+## Lead decisions after the code review of PR #110 (changes requested)
+18. (blocking) `context_stats` takes an optional input `detectability_summary` (one parquet file, the
+    output key of M4-15's `detectability` step) and reads it with the io reader; the directory search
+    stays only in `run_context_stats`. Test the registry/local path.
+19. (blocking, tests) `read_replicon_depth`: non-finite values (inf), a duplicate contig and an NA contig
+    each give an error issue and `df is None`; an empty, ragged or missing file returns `(None, issues)`
+    instead of raising.
+20. (blocking, tests) `regions_stats` raises `ValueError` on malformed rows (n_perm / q-implies-p rules).
+21. Tests: the step raises on a bad depth file; `small_region` on subset rows; prophage C8 members with
+    `subset = NA` are not grouped as "None"; contig sorts before start.
+22. Missing `tu_id` is checked for plasmid and reference genes alike; `depth_gaps` respects
+    `context.region_types`.
+23. Nits: module docstring cites decisions 1–23; `_test_rows` converts once; after M4-15 (#111) merges,
+    read the gene table with `read_genes_parquet`.
+24. Merge order: #111 first (its loader is required); #110 then merges origin/main, regenerates
+    `workflow/tests/data/annotate/step_registry.json` from the live registry and pushes plainly.
