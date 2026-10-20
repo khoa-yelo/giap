@@ -113,3 +113,15 @@ sets, the single-peptide rerun refits detectability.
     `src/giap/schemas/tables/sensitivity.schema.json` (repo convention); the test may stop accepting
     `sensitivity.json` later.
 11. The implementer starts after M4-15 (#111) merges, since the integration tests need its steps.
+
+## Lead decisions after the code review of #117 (2026-10-20)
+12. The step loads only C1 (genes), C7 (regions, region_genes) and C8 (replicons) and raises on their
+    error issues (`check_issues`); a missing required table is an error, never empty rows.
+13. No fallback: `regions_family` requires `regions`, `region_genes` and `replicons` (keyword-only, no
+    default); the test helper `call_regions_family` passes them. Topology always comes from C8.
+14. Tests (test-author) kill M09 (`top3` must read `top3_log2`), M27 (decision-5 binding: a fixture whose
+    C7/C8 differ from what `region_ids` imply, including a linear replicon), M24 (refitting the unchanged
+    primary reproduces its `p_detect` exactly), plus a missing-file test for each of C1/C7/C8.
+15. The `top3` variant table sets `abundance_type` = top3 and carries the top3 raw values and flags.
+16. Backlog: M4-19 step registration and Nextflow wiring; decision 7 (manifest records `off`); decision 8
+    (no rows when a module is off).
