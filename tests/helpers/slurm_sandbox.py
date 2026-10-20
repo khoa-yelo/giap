@@ -95,6 +95,8 @@ while i < len(argv):
     i += 1
 fields = [f.split("%")[0] for f in fields]
 def match(jid):
+    if os.environ.get("FAKE_SACCT_NOFILTER"):  # rows of other jobs too (tests the caller's filter)
+        return True
     return not jobs or any(jid == j or jid.startswith(j + "_") or jid.startswith(j + ".")
                            for j in jobs)
 sep = "|" if parsable else "  "
@@ -168,6 +170,14 @@ case "${1:-}" in -s|--short) echo "${h%%.*}" ;; *) echo "$h" ;; esac
 """
 
 _PYTHON = r"""#!/bin/bash
+# FAKE_TERM_IN_POST=1: the first post_summary.py run gets SIGTERM (to the whole process group, as
+# Slurm's time limit does) before it starts, i.e. while the script is inside report().
+case " $* " in
+  *post_summary.py*)
+    if [ -n "${FAKE_TERM_IN_POST:-}" ] && [ ! -e "$FAKE_SLURM_DIR/term_in_post.done" ]; then
+      : > "$FAKE_SLURM_DIR/term_in_post.done"; kill -TERM 0; sleep 2; exit 143
+    fi ;;
+esac
 if [ "${1:-}" = "-m" ] && [ "${2:-}" = "pytest" ]; then
   printf '%s\n' "$*" >> "$FAKE_SLURM_DIR/pytest.argv"
   case "${FAKE_PYTEST:-ok}" in
@@ -188,6 +198,7 @@ export GIAP_DB_DIR="$GIAP_ROOT/db" GIAP_DATA_DIR="$GIAP_ROOT/data" GIAP_LOG_DIR=
 
 
 FAKE_GH = _GH
+FAKE_SACCT = _SACCT
 
 
 def write_exe(path: Path, text: str) -> Path:
@@ -252,11 +263,19 @@ class Sandbox:
             return []
         return [ln.split("\t") for ln in p.read_text().splitlines() if ln.strip()]
 
-    def run(self, cmd: list[str], *, env: dict[str, str] | None = None, cwd: Path | None = None,
-            timeout: float = 180) -> subprocess.CompletedProcess[str]:  # fmt: skip
+    def run(
+        self,
+        cmd: list[str],
+        *,
+        env: dict[str, str] | None = None,
+        cwd: Path | None = None,
+        timeout: float = 180,
+        unset: tuple[str, ...] = (),
+    ) -> subprocess.CompletedProcess[str]:
+        full = {k: v for k, v in {**self.env, **(env or {})}.items() if k not in unset}
         return subprocess.run(
             cmd,
-            env={**self.env, **(env or {})},
+            env=full,
             cwd=str(cwd or self.tmp),
             capture_output=True,
             text=True,

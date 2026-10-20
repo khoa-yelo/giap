@@ -63,6 +63,8 @@ if rc:
     sys.exit(rc)
 node = os.environ.get("M2_21_SACCT_NODE", "barley-01")
 job = sys.argv[sys.argv.index("-j") + 1] if "-j" in sys.argv else "1"
+if os.environ.get("M2_21_SACCT_UNASSIGNED"):  # a pending step row before the allocation rows
+    print(f"{job}|None assigned")
 print(f"{job}|{node}")
 print(f"{job}.batch|{node}")
 """
@@ -261,3 +263,29 @@ def test_hostname_dash_falls_back_to_the_head_node(
     table = _measure(tmp_path, rows, "--sacct", "1851578", head=[*HEAD, "hostname"])
     assert table["bakta"][4].split()[0] == "wheat", table
     assert table["genomad"][4].split()[0] == "barley", table
+
+
+# --- second review of PR #107: decision 26 -------------------------------------------------------
+
+
+def test_one_task_has_no_task_count_two_tasks_do(tmp_path: Path, sacct: Path) -> None:
+    rows = [_row("ANNOTATE:GENOMAD (genome)", "1s"),
+            _row("ANNOTATE:UNIOP (a)", "1s"), _row("ANNOTATE:UNIOP (b)", "2s")]  # fmt: skip
+    res = _run(str(_write(tmp_path, rows)), "--genome", "g", "--sacct", "1851578")
+    assert res.returncode == 0, res.stderr
+    steps = [ln.strip().strip("|").split("|")[0].strip() for ln in res.stdout.splitlines()]
+    assert "genomad" in steps and "uniop (2 tasks)" in steps, steps
+
+
+def test_none_assigned_rows_are_skipped(
+    tmp_path: Path, sacct: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("M2_21_SACCT_UNASSIGNED", "1")
+    monkeypatch.setenv("M2_21_SACCT_NODE", "rye-02")
+    table = _measure(tmp_path, [_row("ANNOTATE:BAKTA (genome)", "1s")], "--sacct", "1851578")
+    assert table["bakta"][4] == "rye (1851578)", table
+
+
+def test_no_sacct_call_when_every_task_has_a_hostname(tmp_path: Path, sacct: Path) -> None:
+    _measure(tmp_path, _host_rows(), "--sacct", "1851578", head=[*HEAD, "hostname"])
+    assert not sacct.read_text().strip(), f"sacct called needlessly: {sacct.read_text()}"

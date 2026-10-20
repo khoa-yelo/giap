@@ -17,7 +17,8 @@ Conventions settled by the test author:
   a table row for the missing task. When the array already posted itself it posts nothing.
 * Decision 18: the scrontab has one cron line running ``scripts/slurm/nightly_launch.sh``; its
   ``#SCRON`` options carry no ``--array``, a ``giap-*`` job name and 1 CPU.
-* Decision 12: worst case = array tasks x ``--cpus-per-task`` + Nextflow child jobs + the 1-CPU
+* Decisions 12, 22: the default profiles are ``farmshare_local``; worst case = array tasks x
+  ``--cpus-per-task`` + Nextflow child jobs + the 1-CPU
   summary job <= 128 (R14). Child jobs exist only when the default ``*_PROFILE`` uses the Slurm
   executor (``farmshare``, not ``farmshare_local``): then each task that runs ``giap run`` adds
   ``queueSize`` x ``min(16, cpus-per-task)`` CPUs, ``queueSize`` read from the script if it sets
@@ -28,6 +29,7 @@ from __future__ import annotations
 
 import re
 import shlex
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -112,6 +114,37 @@ def test_launcher_submits_the_array_then_an_afterany_summary(sb: Sandbox) -> Non
     assert "post_summary.py" in body, f"the summary job does not run post_summary.py: {s}"
 
 
+def test_summary_job_is_a_bash_batch_script(sb: Sandbox) -> None:
+    """Decision 21: ``scripts/slurm/nightly_summary.sh`` (``#!/bin/bash``) is the batch script."""
+    path = SLURM / "nightly_summary.sh"
+    assert path.is_file(), "scripts/slurm/nightly_summary.sh does not exist (decision 21)"
+    text = path.read_text()
+    assert text.splitlines()[0].strip() == "#!/bin/bash", text.splitlines()[:1]
+    assert path.stat().st_mode & 0o111, "nightly_summary.sh is not executable"
+    assert "post_summary.py" in text and "--final" in text
+    parse = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True)
+    assert parse.returncode == 0, parse.stderr
+    res = _launch(sb)
+    assert res.returncode == 0, res.stderr
+    (s,) = _summary_calls(sb.sbatch_calls())
+    assert option(s["argv"], "wrap") is None, f"the summary job still uses --wrap: {s['argv']}"
+    scripts = [a for a in s["argv"] if a.endswith("nightly_summary.sh")]
+    assert scripts, f"nightly_summary.sh is not the batch script: {s['argv']}"
+    assert s["script"] == text, "the submitted batch script is not scripts/slurm/nightly_summary.sh"
+
+
+def test_launcher_works_without_user(sb: Sandbox) -> None:
+    """Decision 24: scrontab runs the launcher without the user environment."""
+    res = _launch_unset(sb)
+    assert res.returncode == 0, f"{res.stdout}\n{res.stderr}"
+    assert len(_summary_calls(sb.sbatch_calls())) == 1
+
+
+def _launch_unset(sb: Sandbox):  # type: ignore[no-untyped-def]
+    return sb.run(["bash", str(sb.repo / "scripts" / "slurm" / "nightly_launch.sh")],
+                  unset=("USER", "LOGNAME"))  # fmt: skip
+
+
 def test_launcher_fails_without_a_summary_when_the_array_is_refused(sb: Sandbox) -> None:
     res = _launch(sb, FAKE_SBATCH_FAIL="0")
     assert res.returncode != 0, "the launcher hid a failed array submission"
@@ -120,19 +153,30 @@ def test_launcher_fails_without_a_summary_when_the_array_is_refused(sb: Sandbox)
 
 
 def _summary_command(sb: Sandbox, call: dict[str, Any]) -> tuple[list[str], dict[str, str]]:
+    """The summary job's command as Slurm runs it (decision 21).
+
+    A batch script is copied to a spool directory (Slurm runs a copy, so the script cannot find
+    the repository through its own path) and executed by its shebang; a ``--wrap`` string, if one
+    remains, runs under ``/bin/sh -c`` (dash on FarmShare), as sbatch does.
+    """
     env = {k: v for k, v in export_pairs(call["argv"]).items() if k != "ALL"}
     env.update({"SLURM_JOB_ID": str(call["id"]), "SLURM_JOB_NAME": "giap-nightly-summary",
                 "SLURM_CPUS_PER_TASK": "1"})  # fmt: skip
     wrap = option(call["argv"], "wrap")
     if wrap is not None:
         assert_honours_giap_repo(wrap, "summary --wrap")
-        return ["bash", "-c", wrap], env
+        return ["/bin/sh", "-c", wrap], env
     argv = call["argv"]
     cwd = Path(call["cwd"])
     idx = next(i for i, a in enumerate(argv) if not a.startswith("-") and (cwd / a).is_file())
     script = cwd / argv[idx]
     assert_honours_giap_repo(script.read_text(), str(script))
-    return ["bash", str(script), *argv[idx + 1 :]], env
+    spool = sb.tmp / "spool" / f"job{call['id']}"
+    spool.mkdir(parents=True, exist_ok=True)
+    copy = spool / "slurm_script"
+    shutil.copyfile(script, copy)
+    copy.chmod(0o700)
+    return [str(copy), *argv[idx + 1 :]], env
 
 
 def _array_with_rows(sb: Sandbox, tasks: list[int]) -> dict[str, Any]:
@@ -158,12 +202,15 @@ def _comments(sb: Sandbox) -> list[dict[str, Any]]:
     return [c for c in sb.gh_calls() if c["argv"][:2] == ["issue", "comment"]]
 
 
-def test_summary_job_posts_when_a_task_was_killed(sb: Sandbox) -> None:
-    """Decision 14: task 2 hit its time limit and wrote nothing; the night is still posted."""
+@pytest.mark.parametrize("user", ["set", "unset"])
+def test_summary_job_posts_when_a_task_was_killed(sb: Sandbox, user: str) -> None:
+    """Decision 14: task 2 hit its time limit and wrote nothing; the night is still posted.
+
+    Decision 24: also without ``USER`` (scrontab ignores the user environment)."""
     summary = _array_with_rows(sb, [0, 1, 3])
     cmd, env = _summary_command(sb, summary)
-    res = sb.run(cmd, env=env, cwd=Path(summary["cwd"]) if summary["cwd"].startswith(
-        str(sb.tmp)) else sb.repo)  # fmt: skip
+    cwd = Path(summary["cwd"]) if summary["cwd"].startswith(str(sb.tmp)) else sb.repo
+    res = sb.run(cmd, env=env, cwd=cwd, unset=("USER", "LOGNAME") if user == "unset" else ())
     comments = _comments(sb)
     assert len(comments) == 1, (
         f"expected one issue comment, got {comments}\n{shlex.join(cmd)}\n{res.stdout}\n{res.stderr}"
@@ -171,7 +218,11 @@ def test_summary_job_posts_when_a_task_was_killed(sb: Sandbox) -> None:
     body = comments[0]["body"] or ""
     assert ARRAY_ID in body, body
     assert "**green**" not in body and "green" not in body.split("\n", 1)[0].lower(), body
-    assert re.search(r"^\|\s*2\s*\|", body, re.M), f"no row for the killed task 2:\n{body}"
+    row2 = re.search(r"^\|\s*2\s*\|.*$", body, re.M)
+    assert row2, f"no row for the killed task 2:\n{body}"
+    assert "TIMEOUT" in row2.group(0), (
+        f"task 2's row lacks its sacct state TIMEOUT: {row2.group(0)}"
+    )
 
 
 def test_summary_job_does_not_post_twice(sb: Sandbox) -> None:
@@ -288,12 +339,9 @@ def test_weekly_worst_case_cpus_within_r14() -> None:
 @pytest.mark.parametrize(
     ("path", "var"), [(NIGHTLY, "NIGHTLY_PROFILE"), (WEEKLY, "WEEKLY_PROFILE")]
 )
-def test_default_profile_is_local_or_queue_capped(path: Path, var: str) -> None:
-    """Decision 12: default ``farmshare_local,apptainer``, or ``farmshare`` with a queueSize cap"""
-    profile = _default_profile(path, var)
-    if _slurm_children(profile):
-        assert re.search(r"queueSize", _code(path)), (
-            f"{path.name}: {var} defaults to {profile} without capping queueSize"
-        )
-    else:
-        assert "farmshare_local" in profile.split(","), profile
+def test_default_profile_is_farmshare_local(path: Path, var: str) -> None:
+    """Decisions 12 and 22: the default keeps every Nextflow task inside the allocation (a
+    ``farmshare`` override is refused, see ``test_m2_21_nightly_task_reporting.py`` and
+    ``test_m2_21_weekly_reporting.py``)."""
+    profile = _default_profile(path, var).split(",")
+    assert "farmshare_local" in profile and "farmshare" not in profile, profile

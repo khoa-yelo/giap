@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from helpers.slurm_sandbox import FAKE_GH, write_exe
+from helpers.slurm_sandbox import FAKE_GH, FAKE_SACCT, write_exe
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "ci" / "post_summary.py"
@@ -43,6 +43,7 @@ class Env:
         bindir = tmp / "bin"
         bindir.mkdir()
         write_exe(bindir / "gh", FAKE_GH.replace("{python}", sys.executable))
+        write_exe(bindir / "sacct", FAKE_SACCT.replace("{python}", sys.executable))
         self.tsv = tmp / "logs" / "nightly.tsv"
         self.tsv.parent.mkdir()
         self.env = {
@@ -64,6 +65,11 @@ class Env:
             env={**self.env, **env}, cwd=str(self.tmp), capture_output=True, text=True,
             timeout=60, check=False,
         )  # fmt: skip
+
+    def sacct(self, *rows: tuple[str, str]) -> None:
+        (self.state / "sacct_rows.json").write_text(
+            json.dumps([{"JobID": j, "State": st, "JobName": "giap-nightly"} for j, st in rows])
+        )
 
     def calls(self) -> list[dict[str, Any]]:
         p = self.state / "gh.jsonl"
@@ -201,3 +207,59 @@ def test_token_never_printed(e: Env) -> None:
     res = e.run("--job", "100", "--expect", "4")
     assert "fake-token-never-used" not in res.stdout + res.stderr
     assert all("fake-token-never-used" not in json.dumps(c) for c in e.calls())
+
+
+# --- second review of PR #107: decisions 25, 26 -------------------------------------------------
+
+
+@pytest.mark.parametrize("done", [0, 1, 2, 3])
+def test_fewer_than_expect_posts_nothing(e: Env, done: int) -> None:
+    """Decision 26 (``expect - 1``): 3 of 4 tasks is not yet a night."""
+    e.rows(*((f"100_{t}", "abc1234", "0", f"task {t}") for t in range(done)))
+    res = e.run("--job", "100", "--expect", "4")
+    assert res.returncode == 0, res.stderr
+    assert not e.comments(), f"posted with {done}/4 tasks: {e.comments()}"
+
+
+def test_note_rows_are_not_tasks(e: Env) -> None:
+    """Decision 26: a ``<job>_note`` row neither completes the night nor shows as a task."""
+    e.rows(*((f"100_{t}", "abc1234", "0", f"task {t}") for t in (0, 2, 3)))
+    e.rows(("100_note", "abc1234", "0", "benchmarks resubmitted as job 7001"))
+    assert e.run("--job", "100", "--expect", "4").returncode == 0
+    assert not e.comments(), "a note row counted as task 1"
+    e.rows(("100_1", "abc1234", "0", "task 1"))
+    res = e.run("--job", "100", "--expect", "4", "--dry-run")
+    assert res.returncode == 0, res.stderr
+    assert "green" in res.stdout.splitlines()[0].lower(), res.stdout
+    assert not re.search(r"^\|\s*note\s*\|", res.stdout, re.M), res.stdout
+    assert "resubmitted as job 7001" in res.stdout, "the note is not shown"
+    table = [ln for ln in res.stdout.splitlines() if re.match(r"^\|\s*\d+\s*\|", ln)]
+    assert len(table) == 4, table
+
+
+def test_final_shows_the_sacct_state_of_a_missing_task(e: Env) -> None:
+    """Decision 26: the killed task's row carries its own sacct state (other jobs ignored)."""
+    e.rows(*((f"100_{t}", "abc1234", "0", f"task {t}") for t in (0, 1, 3)))
+    e.sacct(("100_2", "TIMEOUT"), ("1000_2", "OUT_OF_MEMORY"), ("9999_2", "COMPLETED"))
+    res = e.run("--job", "100", "--expect", "4", "--final", FAKE_SACCT_NOFILTER="1")
+    assert res.returncode == 0, res.stderr
+    (c,) = e.comments()
+    body = c["body"]
+    assert "green" not in body.splitlines()[0].lower(), body
+    row = re.search(r"^\|\s*2\s*\|.*$", body, re.M)
+    assert row and "TIMEOUT" in row.group(0), body
+    assert "COMPLETED" not in row.group(0) and "OUT_OF_MEMORY" not in row.group(0), row.group(0)
+
+
+def test_final_without_a_tsv_posts_a_red_night(e: Env) -> None:
+    """Decision 25: every task was killed before writing; nightly.tsv does not exist."""
+    e.sacct(*((f"100_{t}", "TIMEOUT") for t in range(4)))
+    assert not e.tsv.exists()
+    res = e.run("--job", "100", "--expect", "4", "--final")
+    assert res.returncode == 0, res.stderr
+    comments = e.comments()
+    assert len(comments) == 1, f"{comments}\n{res.stderr}"
+    body = comments[0]["body"]
+    assert "red" in body.splitlines()[0].lower() and "100" in body, body
+    for t in range(4):
+        assert re.search(rf"^\|\s*{t}\s*\|.*TIMEOUT", body, re.M), body
