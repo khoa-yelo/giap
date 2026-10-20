@@ -85,3 +85,15 @@ sets, the single-peptide rerun refits detectability.
    default:** M4, so M5–M8 only register families; it is off the gate path and can slip.
 2. Compare variants with a primary recomputed at B = 199 (as above) or with the reported primary
    (B = 1,000)? **Proposed default:** recomputed at 199; otherwise permutation noise reads as instability.
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+1. Q1 is already decided by M4-index decision 7 (framework built in M4, regions family only, off the
+   gate path).
+2. Q2 accepted, with common random numbers: one child stream keyed by family (not by family × variant),
+   including the M4-13 folds for the `single_peptide_detected` refit. With
+   `exhaustive_shift_max_genes = 20000` every bacterial replicon uses all shifts, so the recomputed
+   primary equals the reported one — test that. The methods note must say that above 20,000 genes the
+   p floor is 0.005 and `n_primary` may differ from the count in `regions_stats.tsv`.
+3. Family IDs are `<region_id>:<contig>:<stat>` (M4-17 `split_contigs` regions get one row per contig).
+4. Flagged set = rows with `null_model = circular_shift` and q ≤ `alpha.context`; rows with p NA are
+   never flagged.
