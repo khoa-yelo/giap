@@ -44,7 +44,7 @@ islands. The engine is only as valid as the exchangeability of its null rows: ii
 not valid under autocorrelation. The production null is the circular block bootstrap with ℓ′
 (ADR-0021), calibrated in M5-06/M5-07. FWER is per replicon; across k replicons the genome-wide FWER
 is up to 1 − (1 − α)^k. A replicon with no window (n < wmin) has `max_abs` NaN and p NaN, which is
-never significant. A non-finite |S| gives NaN.
+never significant. A non-finite |S| gives NaN; a negative finite |S| is a caller error and raises (decision 22).
 
 **Why S/√n_w is not standardised for TU size.** z_t is the mean of the gene scores of TU t, so Var
 z_t falls with the TU's gene count. S_w/√n_w has unit variance only when every TU has unit variance.
