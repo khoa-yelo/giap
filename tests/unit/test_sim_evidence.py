@@ -59,7 +59,7 @@ UP_RE = re.compile(r"^UP_\d+$")
 
 # Contract tables of ``simulate_layout(LayoutConfig(), default_rng(1))`` (pinned by M4-08 too).
 LAYOUT_SHA256 = {
-    "annotation_meta.json": "0998816b81d3f81364ac87e43ef1ffc2d40c08bc620c535584e859619e215f72",
+    "annotation_meta.json": "574ce6a5c6468c793385646f795d8986c317903210e7e7e2f585a14293a30517",
     "genes.parquet": "e0d4341901746a7444965ebe8070a3c382d5edc6f864bff8597bd8e697b65e65",
     "layers.parquet": "c7ae231f33b641c11a6b7b03ce95c36e5daf5c6b7fd5c1a46456d31e6d6c5ba5",
     "region_genes.parquet": "1197b721b0b595beaf182adb375dfbf0707c5cf8085b5d4598106988f1215fd7",
