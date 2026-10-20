@@ -123,3 +123,19 @@ adjustment as a known offset) and §"Descriptive rows".
 7. RNG: plasmid and subset rows draw from their own child stream keyed by `region_id`
    (giap.rng.for_step), so adding a plasmid leaves every M4-17 CI unchanged. Test this.
 8. Subset rows are `descriptive` with CI NA; a TU-block CI is optional.
+
+## Lead decisions after the test-author's report (2026-10-20)
+9. Decision 6 is one-directional (M4-17 rows with K = 0 keep `null_model = circular_shift` with NA p):
+   `null_model = none` ⇒ p, q NA and `n_perm = 0`; a p-value ⇒ `null_model ≠ none`; a q-value ⇒ a p-value.
+10. Plasmid regions are found from the genes' `region_ids` by the §6.5 `<type>_<n>` naming
+    (`plasmid_*`); `plasmid_rows` keeps its signature.
+11. Row order: region types in the default `region_types` order; within a region, rows follow the `stat`
+    enum order of the schema; plasmid and subset rows after M4-17 rows of the same region.
+12. Example 6 is superseded by decision 3.
+13. Unpinned points: the dosage-adjusted row carries flag `depth_adjusted` (add it to the schema
+    vocabulary); no adjusted row when HL is NA; subset rows have `method = descriptive`,
+    `label = descriptive`, CI NA; plasmids with fewer eligible genes than M4-17's small-region threshold
+    (same config key) get `small_region` and NA statistics.
+14. The example-7 warning goes through the step's issue/log channel (not `plasmid_rows`); untested at unit
+    level. Plasmid HL bias/coverage stays a recorded diagnostic, not a gate (statistician may promote it
+    later); the implementer times it on Slurm and the lead adds it to NIGHTLY if > 60 s.
