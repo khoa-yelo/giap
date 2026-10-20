@@ -27,8 +27,6 @@ import pytest
 from giap.model.coords import Interval, Replicon
 from giap.model.genes import Gene
 
-pytestmark = pytest.mark.pending_sample
-
 RECORDED = Path(__file__).resolve().parents[1] / "data" / "recorded" / "ostir" / "1.1.3"
 SAMPLES = ["sim100k", "k12_mg1655", "nissle1917"]
 NO_ROW = {"sim100k": set(), "k12_mg1655": {"KOIAIB_02000"}, "nissle1917": {"JMJJOG_02078"}}
@@ -166,7 +164,7 @@ def test_excerpts_cover_the_listed_cases() -> None:
 def _full(sample: str) -> Path:
     d = FULL[sample]
     if not (d / "ostir.csv").is_file() or not (d / "ostir_input.csv").is_file():
-        pytest.skip(f"pending_sample: full recording not under {d}")
+        pytest.skip(f"full recording not under {d}")
     return d
 
 
@@ -186,7 +184,7 @@ def test_full_writer_reproduces_the_recorded_input(sample: str, tmp_path: Path) 
     d = _full(sample)
     js = sorted((GIAP_ROOT / "bakta_full" / sample / "bakta").glob("*.json"))
     if not js:
-        pytest.skip(f"pending_sample: recorded Bakta JSON for {sample} missing")
+        pytest.skip(f"full recorded Bakta JSON for {sample} missing")
     ann = parse_bakta_json(js[0])
     reps = ann.model.replicons
     rank = {c: k for k, c in enumerate(reps)}

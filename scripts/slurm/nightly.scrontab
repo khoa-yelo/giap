@@ -1,10 +1,14 @@
 # Install with: scrontab scripts/slurm/nightly.scrontab   (view: scrontab -l; remove: scrontab -r)
-# Every night at 01:30 Pacific: the calibration_nightly tests on the latest origin/main.
-#SCRON --job-name=giap-nightly
+# Every night at 01:30 Pacific a 1-CPU launcher (scripts/slurm/nightly_launch.sh, M2-21 decision 18;
+# scrontab may not accept --array) submits the nightly job array (scripts/slurm/nightly.sbatch) on the
+# latest origin/main: 0 integration + contract + nf-test, 1 benchmarks (wheat), 2 calibration_nightly,
+# 3 real giap run on sim100k; then a 1-CPU afterany summary job that posts the night's results.
+# Proposed for Khoa (M2-21); Khoa reinstalls it after the merge.
+#SCRON --job-name=giap-nightly-launch
 #SCRON --partition=normal
 #SCRON --qos=normal
-#SCRON --cpus-per-task=16
-#SCRON --mem=48G
-#SCRON --time=04:00:00
-#SCRON --output=/home/classes/bios/270/khoa/giap/local/logs/giap-nightly.%j.out
-30 1 * * * /home/classes/bios/270/khoa/giap/scripts/slurm/nightly.sbatch
+#SCRON --cpus-per-task=1
+#SCRON --mem=1G
+#SCRON --time=00:10:00
+#SCRON --output=/home/classes/bios/270/khoa/giap/local/logs/giap-nightly-launch.%j.out
+30 1 * * * /home/classes/bios/270/khoa/giap/scripts/slurm/nightly_launch.sh
