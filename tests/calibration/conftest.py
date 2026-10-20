@@ -36,6 +36,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "test_criteria_review.py": "regions",
         "test_criteria_pooled.py": "regions",
         "test_denovo_precision_calibration.py": "denovo_precision",
+        "test_denovo_precision_sim.py": "denovo_precision",
         "test_detection_tiers_gene_fdr.py": "gene_fdr",
         "test_detectability_calibration.py": "detectability",
         "test_engine_calibration.py": "regions",
@@ -46,6 +47,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "test_mayu_calibration.py": "gene_fdr",
         "test_placement_fdr_genome.py": "placement",
         "test_placement_fdr_lists.py": "placement",
+        "test_placement_fdr_sim.py": "placement",
         "test_sim_v2_calibration.py": "missed_operons",
         "test_sim_layout_calibration.py": "missed_operons",
         "test_sim_denovo_calibration.py": "denovo_precision",
@@ -87,6 +89,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "attacks/test_attack_permutation.py": "regions",
         "attacks/test_attack_placement_pi.py": "placement",
         "attacks/test_attack_placement_same_db.py": "placement",
+        "attacks/test_attack5_reversed_stretches.py": "placement",
     }
 )
 
@@ -138,6 +141,7 @@ def item_suite(item: pytest.Function) -> str | None:
 # scripts/slurm/nightly.sbatch runs them every night on main. Add a test here when it passes 60 s.
 NIGHTLY: frozenset[str] = frozenset(
     {
+        "attacks/test_attack5_reversed_stretches.py::test_attack5_reversed_stretches_shuffle_decoys",
         "attacks/test_attack_bootstrap.py::test_recorded_few_tus",
         "attacks/test_attack_bootstrap.py::test_tu_block_ci_coverage_under_attack",
         "attacks/test_attack_detectability.py::test_attack2_no_size_covariates_is_confirmed_fail",
@@ -154,6 +158,7 @@ NIGHTLY: frozenset[str] = frozenset(
         "attacks/test_region_tests_attacks.py::test_a2_teeth_constant_p_detect_rejects",
         "attacks/test_region_tests_attacks.py::test_alin_linear_replicon_hl_at_level",
         "attacks/test_region_tests_attacks.py::test_atu_region_specific_tu_fragmentation_hl_at_level",
+        "test_denovo_precision_sim.py::test_denovo_precision_on_giapsim",
         "test_detectability_calibration.py::test_d1_mean_cross_fitted_slope_in_tolerance",
         "test_detection_summary_calibration.py::test_o_minus_e_ci_covers_zero_under_tu_correlated_null",
         "test_detection_tiers_gene_fdr.py::test_gene_fdr_controlled",
@@ -161,6 +166,10 @@ NIGHTLY: frozenset[str] = frozenset(
         "test_mapping_steps_gate.py::test_placement_fdr_through_the_steps",
         "test_mapping_steps_gate.py::test_recall_of_planted_peptides_through_the_steps",
         "test_placement_fdr_genome.py::test_realised_placement_fdr_on_giapsim",
+        "test_placement_fdr_sim.py::test_database_shuffled_placement_fdr",
+        "test_placement_fdr_sim.py::test_denovo_error_model_placement_fdr",
+        "test_placement_fdr_sim.py::test_related_dbstrain_correct_peptides_stratum0",
+        "test_placement_fdr_sim.py::test_related_other_strain_placement_fdr",
         "test_region_tests.py::test_c1_level_fast",
         "test_region_tests.py::test_c2_fdr_within_type_and_stat",
         "test_region_tests.py::test_c3_power_recorded",
