@@ -1,0 +1,4 @@
+JobID|JobName|NodeList|MaxRSS|Elapsed|State
+1851578|giap-real-run|barley-01||00:16:59|COMPLETED
+1851578.batch|batch|barley-01|58193504K|00:16:59|COMPLETED
+1851578.extern|extern|barley-01||00:16:59|COMPLETED

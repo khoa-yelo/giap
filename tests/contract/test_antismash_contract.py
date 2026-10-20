@@ -23,8 +23,6 @@ import pytest
 
 from giap.model.coords import Interval, Replicon, check_interval
 
-pytestmark = pytest.mark.pending_sample
-
 RECORDED = Path(__file__).resolve().parents[1] / "data" / "recorded" / "antismash" / "8.0.4"
 SAMPLES = ["sim100k", "k12_mg1655", "nissle1917"]
 FULL = Path(os.environ.get("GIAP_ROOT", "/nonexistent")) / "recordings" / "antismash"

@@ -382,25 +382,30 @@ def selections(tmp_path_factory: pytest.TempPathFactory) -> dict[str, dict[str, 
     return result
 
 
-@pytest.mark.parametrize("mode", ["full", "fast"])
-def test_every_calibration_test_runs_in_exactly_one_suite(
-    selections: dict[str, dict[str, Any]], mode: str
-) -> None:
+def _check_one_owner(selections: dict[str, dict[str, Any]], mode: str) -> None:
     everything = set(selections[f"all|{mode}"]["ids"])
-    assert everything, "no calibration tests collected"
+    assert everything, f"no calibration tests collected ({mode})"
     owners: dict[str, list[str]] = {}
     for suite in C.array_suites():
         for nodeid in selections[f"{suite}|{mode}"]["ids"]:
             owners.setdefault(nodeid, []).append(suite)
     twice = {n: s for n, s in owners.items() if len(s) > 1}
-    assert not twice, f"{len(twice)} tests in several array tasks, e.g. {sorted(twice.items())[:5]}"
+    assert not twice, (
+        f"{mode}: {len(twice)} tests in several array tasks, e.g. {sorted(twice.items())[:5]}"
+    )
     orphans = sorted(everything - set(owners))
-    assert not orphans, f"{len(orphans)} tests in no array task, e.g. {orphans[:5]}"
+    assert not orphans, f"{mode}: {len(orphans)} tests in no array task, e.g. {orphans[:5]}"
     assert set(owners) <= everything
 
 
-def test_harness_attack_file_lands_in_one_task(selections: dict[str, dict[str, Any]]) -> None:
-    """attacks/test_attack_calibration_harness.py names both gene_fdr and regions."""
+def test_every_calibration_test_runs_in_exactly_one_suite(
+    selections: dict[str, dict[str, Any]],
+) -> None:
+    """Both modes and the harness attack file in ONE test: under xdist each test using the
+    module fixture may land on another worker and rerun the collector subprocess (backlog)."""
+    for mode in ("full", "fast"):
+        _check_one_owner(selections, mode)
+    # attacks/test_attack_calibration_harness.py names both gene_fdr and regions.
     hits = {
         suite
         for suite in C.array_suites()

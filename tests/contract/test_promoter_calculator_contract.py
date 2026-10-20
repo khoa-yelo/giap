@@ -40,8 +40,6 @@ from helpers.promoter_calculator_fixtures import (
 from giap.annotate.operons import Tu
 from giap.model.coords import Replicon
 
-pytestmark = pytest.mark.pending_sample
-
 DATA = Path(__file__).resolve().parents[1] / "data" / "recorded"
 RECORDED = DATA / "promoter_calculator" / "1.2.4"
 SAMPLES = ["sim100k", "k12_mg1655"]
