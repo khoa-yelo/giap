@@ -30,12 +30,11 @@
 # summary job of scripts/slurm/nightly_launch.sh (afterany) posts whatever is there when a task
 # could not report at all (SIGKILL, OOM). Never pushes and never commits.
 # Overrides: NIGHTLY_REF, NIGHTLY_PROFILE (default farmshare_local,apptainer: every Nextflow task
-# stays inside this allocation, decision 12; farmshare,apptainer adds Nextflow child jobs),
-# NIGHTLY_NF_PROFILE, NIGHTLY_POST, NIGHTLY_RECORD_SAMPLES.
+# stays inside this allocation; a list with the Slurm-executor profile `farmshare` is refused with
+# exit 2, decisions 12 and 22), NIGHTLY_NF_PROFILE, NIGHTLY_POST, NIGHTLY_RECORD_SAMPLES.
 # Runs nightly from scripts/slurm/nightly_launch.sh (scrontab: scripts/slurm/nightly.scrontab) or by
 # hand: sbatch scripts/slurm/nightly.sbatch (then nothing posts for a task that is SIGKILLed).
-# R14: 4 tasks x 16 CPUs = 64 CPUs (+ 1 summary CPU) under the default profile; with
-# NIGHTLY_PROFILE=farmshare,apptainer add 3 heads x queueSize 8 x 16 CPUs: run one task at a time.
+# R14: 4 tasks x 16 CPUs = 64 CPUs + the 1-CPU summary job; no Nextflow child jobs (farmshare_local).
 set -uo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 unset PYTHONHOME
@@ -75,9 +74,15 @@ on_exit() {  # decision 14: a task that ends without its line (early exit, error
   [ -z "$numba_tmp" ] || rm -rf "$numba_tmp"   # only this task's cache, never the shared one
 }
 trap on_exit EXIT
-trap 'report 143 "task $TASK: killed by SIGTERM (time limit?) during $stage"; exit 143' TERM
+# decision 23: a row only if none was written yet (SIGTERM may land inside report itself)
+trap '[ -n "$reported" ] || report 143 "task $TASK: killed by SIGTERM (time limit?) during $stage"; exit 143' TERM
 
 case "$MODE" in test|record) ;; *) echo "MODE must be test or record, not '$MODE'" >&2; exit 2 ;; esac
+case ",$PROFILE," in
+  *,farmshare,*)   # decision 22: Slurm-executor child jobs would break the R14 CPU budget
+    echo "NIGHTLY_PROFILE=$PROFILE: the farmshare (Slurm executor) profile is refused (R14); use farmshare_local" >&2
+    report 2 "task $TASK: NIGHTLY_PROFILE=$PROFILE refused (R14: use farmshare_local)"; exit 2 ;;
+esac
 find "$CI/runs" -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} + 2>/dev/null
 rm -rf "$RUN"; mkdir -p "$RUN/tmp"
 stage="checkout of $REF"
@@ -131,7 +136,7 @@ task_record() {
 
 extend_summary() {  # extend_summary <job>: decision 19, the night's summary also waits for <job>
   local sid
-  sid=$(squeue -u "$USER" -h -t PENDING -n giap-nightly-summary -o '%i %k' 2>/dev/null \
+  sid=$(squeue -u "${USER:-$(id -un)}" -h -t PENDING -n giap-nightly-summary -o '%i %k' 2>/dev/null \
     | awk -v c="nightly:$JOB" '$2 == c {print $1; exit}')
   [ -n "$sid" ] && scontrol update JobId="$sid" Dependency="afterany:$JOB:$1"
 }

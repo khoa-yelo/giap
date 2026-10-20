@@ -24,28 +24,52 @@
 # SHA256SUMS) under $GIAP_ROOT/recordings/weekly/<genome>/<job>/; both modes report whether the
 # live JSON's features equal the recorded one's.
 # Overrides: WEEKLY_REF (default origin/main), WEEKLY_PROFILE (default farmshare_local,apptainer:
-# every Nextflow task inside this 16-CPU allocation, R14 and lead decision 12; farmshare,apptainer
-# adds up to 2 heads x queueSize 8 x 16 CPUs of child jobs).
-# One line per task goes to $GIAP_ROOT/logs/weekly.tsv. Never pushes and never commits.
+# every Nextflow task inside this 16-CPU allocation; a list with the Slurm-executor profile
+# `farmshare` is refused with exit 2, R14 and lead decisions 12, 22).
+# Every task writes exactly one line to $GIAP_ROOT/logs/weekly.tsv and prints WEEKLY_EXIT=<rc>, also
+# on an early exit or SIGTERM (exit 143; EXIT/TERM traps, decision 27). Never pushes or commits.
 set -uo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 unset PYTHONHOME
 module load apptainer 2>/dev/null || true
+export PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"
 MODE="${MODE:-test}"
-case "$MODE" in test|record) ;; *) echo "MODE must be test or record, not '$MODE'" >&2; exit 2 ;; esac
 REF="${WEEKLY_REF:-origin/main}"
 PROFILE="${WEEKLY_PROFILE:-farmshare_local,apptainer}"
 TASK="${SLURM_ARRAY_TASK_ID:-0}"
 JOB="${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-manual}}"
 N="${SLURM_CPUS_PER_TASK:-16}"
 SAMPLES=(k12_mg1655 nissle1917)
-S="${SAMPLES[$TASK]}"
+S="${SAMPLES[$TASK]:-none}"
 CI="$GIAP_ROOT/ci"
 W="$GIAP_ROOT/ci/weekly-$(echo "${REF#origin/}" | tr '/' '-')-t$TASK"
 RUN="$CI/runs/weekly_${JOB}_$TASK"
 REC="$GIAP_ROOT/recordings/bakta_full/$S"
+commit=$(git -C "$GIAP_REPO" rev-parse -q --short --verify "$REF^0" 2>/dev/null || echo unknown)
+rc=0; summary="$S:"; stage="setup"; reported=""; numba_tmp=""
 mkdir -p "$CI/runs" "$GIAP_ROOT/logs"
+
+report() {  # report <exit> <summary>: this task's one weekly.tsv line
+  reported=1
+  printf '%s\t%s\t%s\t%s\t%s\n' "$(date +%F)" "${JOB}_$TASK" "$commit" "$1" "$2" >> "$GIAP_ROOT/logs/weekly.tsv"
+  echo "WEEKLY_EXIT=$1 $2"
+}
+on_exit() {
+  local r=$?
+  [ -n "$reported" ] || report "$(( r ? r : 1 ))" "$summary ended during $stage (exit $r)"
+  [ -z "$numba_tmp" ] || rm -rf "$numba_tmp"   # only this task's cache, never the shared one
+}
+trap on_exit EXIT
+trap '[ -n "$reported" ] || report 143 "$summary killed by SIGTERM (time limit?) during $stage"; exit 143' TERM
+
+case "$MODE" in test|record) ;; *) echo "MODE must be test or record, not '$MODE'" >&2; exit 2 ;; esac
+case ",$PROFILE," in
+  *,farmshare,*)   # decision 22: Slurm-executor child jobs would break the R14 CPU budget
+    echo "WEEKLY_PROFILE=$PROFILE: the farmshare (Slurm executor) profile is refused (R14); use farmshare_local" >&2
+    report 2 "$S: WEEKLY_PROFILE=$PROFILE refused (R14: use farmshare_local)"; exit 2 ;;
+esac
 rm -rf "$RUN"; mkdir -p "$RUN/tmp"
+stage="checkout of $REF"
 (
   flock 9
   git -C "$GIAP_REPO" fetch -q origin
@@ -53,13 +77,12 @@ rm -rf "$RUN"; mkdir -p "$RUN/tmp"
   git -C "$W" checkout -q -f --detach "$REF"
 ) 9>"$CI/.git.lock" || { echo "cannot check out $REF in $W" >&2; exit 2; }
 cd "$W" || exit 2
-export TMPDIR="$RUN/tmp" NXF_ANSI_LOG=false NUMBA_CACHE_DIR="$(mktemp -d /tmp/giap-numba.XXXXXX)"
-trap 'rm -rf "$NUMBA_CACHE_DIR"' EXIT
+numba_tmp="$(mktemp -d /tmp/giap-numba.XXXXXX)"
+export TMPDIR="$RUN/tmp" NXF_ANSI_LOG=false NUMBA_CACHE_DIR="$numba_tmp"
 export PYTHONPATH="$PWD/src:$PWD/tests/sim"
-export PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"
 commit=$(git -C "$W" rev-parse --short HEAD)
+stage="the run"
 echo "weekly genome=$S mode=$MODE ref=$REF commit=$commit node=$(hostname) profile=$PROFILE start=$(date -Is)"
-rc=0; summary="$S:"
 step() { [ "$1" -gt "$rc" ] && rc=$1; summary="$summary $2;"; echo "STEP exit=$1 $2"; }
 
 # (a) capability gate
@@ -131,6 +154,5 @@ PY
     step $? "TE6 live"
   fi
 fi
-printf '%s\t%s\t%s\t%s\t%s\n' "$(date +%F)" "${JOB}_$TASK" "$commit" "$rc" "$summary" >> "$GIAP_ROOT/logs/weekly.tsv"
-echo "WEEKLY_EXIT=$rc $summary"
+report "$rc" "$summary"
 exit "$rc"

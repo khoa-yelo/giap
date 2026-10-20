@@ -11,7 +11,8 @@ issue is created once if missing. A lock plus ``<tsv>.posted`` make the post hap
 even when two sub-tasks finish together. ``--dry-run`` prints the comment and touches nothing.
 
 ``--final`` is the afterany summary job of ``scripts/slurm/nightly_launch.sh`` (lead decision 14):
-it posts even when tasks ``0..expect-1`` have no line (killed by Slurm before they could report);
+it posts even when tasks ``0..expect-1`` have no line (killed by Slurm before they could report;
+a missing ``nightly.tsv`` counts as empty);
 each missing task gets a row with its ``sacct`` state, and the night is not green. Rows whose task
 is not a number (``<job>_note``) are notes: listed under the table, never counted as a task.
 """
@@ -122,10 +123,11 @@ def main(argv: list[str] | None = None) -> int:
                     help="post even with tasks missing (the afterany summary job)")  # fmt: skip
     ap.add_argument("--dry-run", action="store_true", help="print the comment, post nothing")
     args = ap.parse_args(argv)
-    if not args.tsv.is_file():
+    if not args.tsv.is_file() and not args.final:
         print(f"post_summary: {args.tsv} does not exist", file=sys.stderr)
         return 2
-    lines = parse(args.tsv.read_text(), args.job)
+    # --final (decision 25): no nightly.tsv means no task wrote a line; post a red night
+    lines = parse(args.tsv.read_text(), args.job) if args.tsv.is_file() else []
     done = {ln.task for ln in lines if ln.task.isdigit()}
     missing: dict[str, str] = {}
     if args.final:
@@ -140,6 +142,7 @@ def main(argv: list[str] | None = None) -> int:
         print(body, end="")
         return 0
     posted = args.tsv.with_name(args.tsv.name + ".posted")
+    args.tsv.parent.mkdir(parents=True, exist_ok=True)  # --final may run before any task wrote
     with open(args.tsv.with_name(args.tsv.name + ".lock"), "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if args.job in (posted.read_text().split() if posted.is_file() else []):
