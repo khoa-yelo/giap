@@ -98,3 +98,15 @@ at defaults ≤ 0.01; tolerant and unmapped shares reported.
 9. Decision 6 uses the gene-model reading (as pinned): a K-12 peptide is excluded when it is N-terminal in
    its UniProt protein and equals an N-terminal digest product of a strict non-ATG K-12 gene in `k12_json`.
    The genome reading (M → V/L substitution search) is not used.
+
+## Lead decisions after the implementer's report (2026-10-20)
+10. TE1 counts a peptide as "exact, in frame, annotated CDS" (§11.6) when an exact hit lies in frame inside
+    one of its own coding genes, even if the merged loci ranking labels the locus `rna_overlap` or
+    `pseudogene`; those are reported separately as `exact_inframe_masked`. The §11.6 wording governs over
+    the issue's `locus_class` shorthand.
+11. Coding genes for the digest are cds, sorf and pseudogene, as the merged parser types them (Bakta 1.12
+    has no `pseudo` key); the pinned 164,181 stands.
+12. Pooled proxy FDR with unit decoy weights (no q/PEP in proxy tables) and the TE8 counting choices
+    (`k12_exact` = any exact target hit; `nissle_rejected` vs `nissle_unmapped`) are accepted; the methods
+    text in validation/proxies must state them.
+13. Local test runs deselect `needs_net` tests (`-m "not e2e"`); the e2e fetch test runs only in weekly.
