@@ -96,3 +96,65 @@ None new; the statistician checks that `p_detect` is attached only from cross-fi
    assembled into `datapackage.json` by `finalize` later? **Proposed default:** yes.
 3. `cog_category` needs the COG 2020 table from `giap setup --cog` (M2-09). **Proposed default:**
    read it when installed, else `NA` with run flag `layer_missing:cog`.
+
+## Lead decisions (2026-10-20)
+1. M2-02's `@step` registry has merged: register `gene_table` and `detectability` with it now (not in
+   M4-20), and regenerate `workflow/tests/data/annotate/step_registry.json` if the registry snapshot
+   test requires it.
+2. Yes: one resource file per table under `src/giap/schemas/tables/` (as M3-16); `finalize` assembles
+   `datapackage.json` later.
+3. Yes: read the COG 2020 table when `giap setup --cog` installed it (manifest entry `cog2020_def`/
+   `cog2020_fun`); otherwise `cog_category = NA` and run flag `layer_missing:cog`. Tests use a tiny
+   fixture COG table, never the real `$GIAP_DB_DIR`.
+
+## Lead decisions after the test-author's report (2026-10-20)
+4. `gc_local_dev`: copied from C6 / M2-20 layers when the column is present, NA only when absent
+   (M2-20 has merged; M4-index decision 2).
+5. COG: `assemble_genes(..., cog_def: DataFrame | None = None)` (keyword, default None → `cog_category`
+   NA); the step passes the table read from the optional input key `cog2020_def` (raw NCBI
+   `cog-20.def.tab`, like `contaminants` reaches `loci`). The workflow resolves that path from the setup
+   manifest; this refines decision 3.
+6. A contract error raises `StepError` (runner exit code 4), not exit 1.
+7. giapsim writes `annotation_source = "bakta_full"` so simulated outputs validate against the §9.3 enum
+   (giapsim is tooling: the implementer changes it); the integration test's rewrite can then go.
+8. Work-dir layout: `run_gene_table` reads the real `giap run` layout (TSVs under `mapping/`, C14 under
+   `annotation/`) through the existing M4 input loader; the flat `default_paths` layout stays accepted
+   for unit fixtures.
+9. Several COG IDs on one gene: `cog_id` = the lexicographically smallest, `cog_category` from that ID;
+   bare category xrefs (`COG:L`) are ignored (category comes from the table). No id map → `source_id` =
+   `locus_tag`. Types: `island_id` string, `replichore` string (`right`/`left`, M5-08),
+   `replichore_position` float; all NA in M4.
+10. "I/O only through io/" is enforced for `genetable/assemble.py` only; the step-level convention is a
+    backlog item (merged steps already read parquet directly).
+
+## Lead decisions after the code review of PR #111 (changes requested)
+11. (blocking) `read_genes_parquet` keeps missing values missing: float NaN and `pd.NA` in string columns
+    stay null (never the text `"nan"`). Tests: a parquet round trip, and
+    `pq.read_table(genetable/genes.parquet).column(c).null_count` equals the number of missing values for
+    string columns (`island_id`, `replichore`, `cog_id`, `cog_category`).
+12. Tests for COG resolution through the setup manifest: a tmp `$GIAP_DB_DIR` with `db_manifest.json` and a
+    fixture `cog/cog-20.def.tab` → categories set; file present but no manifest entry → NA + warning.
+13. `read_cog_def` falls back to latin-1 (the NCBI file has cp1252 bytes, e.g. 0x92); test with such a
+    fixture byte.
+14. Tests: a gene missing from a partial id map gets `source_id = locus_tag`; NA `detected_2pep` /
+    `abundance_imputed` become False (kill `fillna(True)`).
+15. `--executor local` stages `cog2020_def` (like `contaminants`) and passes `abundance` / `preflight`
+    when the run produced them, so `cog_category` is set under the local executor too.
+16. Rename the schema to `src/giap/schemas/tables/genes.schema.json` (the `<table>.schema.json`
+    convention). Per-field `unit` (§9.5) is a project-wide backlog item.
+17. The COG path comes from `db_sources.yaml` (`cog2020_def.path`), not a hard-coded constant.
+18. Downstream: the stricter loader (parquet/TSV by table name) means M4-18/M4-20 supply C7/C8 as parquet.
+19. The input key `preflight` stays; `stage_roots` copies a root file into `workdir/<key>` when that path is
+    already a directory, and `gene_table` accepts `preflight` as `preflight.json` or a directory holding
+    it (implementer, 9838394). Backlog: give staged root inputs their own namespace so keys never collide
+    with executor directories.
+
+## Lead decisions after the re-review of PR #111
+20. Tests (blocking): (a) `m4_paths` turns a `preflight` directory into its `preflight.json` and the
+    abundance scale is read from it; (b) a local run with an abundance input checks that
+    `work/preflight/preflight.json` exists, `abundance` was staged, no `contract.preflight.abundance_scale`
+    issue is logged and the abundance columns are filled; (c) a `stage_roots` test for the directory case.
+21. `stage_roots`' copy-into-directory branch applies to the `preflight` key only (other keys still fail
+    loudly on a directory) until the backlog namespace item lands.
+22. `cog_table` moves out of `giap.runner.local` into `giap.setupdb` (or io), using a public accessor
+    instead of `setupdb.items._load_sources`; steps do not import the executor.
