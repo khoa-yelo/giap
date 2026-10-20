@@ -9,8 +9,10 @@ Interface assumed (spec "Public interface"; field names pinned here by the test 
 
 ``ProxyResult`` "holds counts, shares, the pass/fail flag, and up to 50 example exceptions":
 
-* ``counts: Mapping[str, int]`` with ``peptides`` (digest products evaluated), ``non_atg_nterm``
-  (N-terminal products of genes whose start codon is not ATG; excluded from the share),
+* ``counts: Mapping[str, int]`` with ``peptides`` (distinct digest sequences, exact string, no
+  I = L collapsing; lead decision 4), ``non_atg_nterm`` (distinct N-terminal products of genes
+  whose first genome codon is not ATG **and** whose Bakta protein starts with M; decision 5;
+  excluded from the share),
   ``exact_inframe`` (``route = exact`` with ``locus_class`` in {cds_inframe, sorf} at the
   peptide's own gene) and ``misses`` (the rest); ``peptides == non_atg_nterm + exact_inframe +
   misses``.
@@ -19,6 +21,10 @@ Interface assumed (spec "Public interface"; field names pinned here by the test 
 * ``passed: bool`` (``shares["exact_inframe"] >= 0.999``).
 * ``exceptions: Sequence[Mapping[str, Any]]``, at most 50, each with ``locus_tag`` and
   ``peptide``.
+
+Pinned on the Nissle recording (oracle: this file's digest of the recorded proteins): 164,181
+peptides, 431 ``non_atg_nterm``; an in-frame translation oracle finds 4 other misses (share
+0.99998).
 
 Inputs may be gzip-compressed (§5.3). ``validation/`` is imported from the repository root.
 Every run gets a test ``$GIAP_DB_DIR`` (never the real one).
@@ -41,6 +47,7 @@ RECORDED = REPO / "tests" / "data" / "recorded" / "bakta" / "1.12.2-full" / "nis
 NISSLE_JSON = RECORDED / "nissle1917.json.gz"
 NISSLE_GENOME = REPO / "tests" / "data" / "genomes" / "nissle1917.fna.gz"
 THRESHOLD = 0.999  # §11.6 TE1 proxy
+NISSLE_PEPTIDES, NISSLE_NON_ATG_NTERM = 164_181, 431  # lead decisions 4-5
 
 pytestmark = pytest.mark.slow
 
@@ -96,12 +103,16 @@ def _sim(tmp: Path, seed: int, **kw: Any) -> Any:
     return simulate(SimConfig(genome_length=100_000, write_precomputed=True, **kw), seed, tmp)
 
 
-def _n_products(genes: list[dict[str, Any]]) -> tuple[int, int]:
-    """(distinct peptide strings, digest products) over every gene."""
+def _n_peptides(genes: list[dict[str, Any]]) -> int:
+    """Distinct digest sequences over every gene (lead decision 4)."""
     from giap.mapping.digest import digest
 
-    units = [p for g in genes for _, _, p in digest(g["aa"])]
-    return len(set(units)), len(units)
+    return len({p for g in genes for _, _, p in digest(g["aa"])})
+
+
+def _strict_nterm(genes: list[dict[str, Any]]) -> set[str]:
+    """Distinct N-terminal products of genes with a non-ATG first codon and M (decision 5)."""
+    return {p for g in genes if g["nt"][:3] != "ATG" and g["aa"][0] == "M" for p in _nterm(g["aa"])}
 
 
 # ------------------------------------------------------------------ example 4
@@ -113,8 +124,7 @@ def test_example_4_all_atg_sim_share_is_one(tmp_path: Path) -> None:
     assert genes and all(g["nt"][:3] == "ATG" for g in genes)
     r = _te_proxies().te1_proxy(res.genome_fasta, res.bakta_json)
     _check_shape(r)
-    lo, hi = _n_products(genes)
-    assert lo <= r.counts["peptides"] <= hi
+    assert r.counts["peptides"] == _n_peptides(genes)
     assert r.counts["non_atg_nterm"] == 0
     assert r.counts["misses"] == 0
     assert r.shares["exact_inframe"] == 1.0
@@ -138,8 +148,9 @@ def test_example_5_gtg_ttg_starts_are_the_only_misses(tmp_path: Path) -> None:
     assert r.counts["misses"] == 0
     assert r.shares["exact_inframe"] == 1.0
     assert r.passed is True
-    n_nterm_peps = len({p for _, p in expected_nterm})
-    assert n_nterm_peps <= r.counts["non_atg_nterm"] <= len(expected_nterm)
+    assert r.counts["peptides"] == _n_peptides(genes)
+    assert r.counts["non_atg_nterm"] == len({p for _, p in expected_nterm})
+    assert r.counts["non_atg_nterm"] == len(_strict_nterm(genes))
     assert r.exceptions, "the non-ATG N-terminal peptides are listed"
     assert len(r.exceptions) == min(50, r.counts["non_atg_nterm"])  # all listed, up to 50
     for ex in r.exceptions:
@@ -168,24 +179,19 @@ def test_exclusion_is_what_keeps_the_share_at_one(tmp_path: Path) -> None:
 )
 def test_te1_nissle_full_db_recording_passes() -> None:
     genes = _genes(NISSLE_JSON)
-    # strict: Bakta wrote M but the start codon is not ATG (the §11.6 case); loose: any non-ATG
-    # first codon (also 5'-truncated edge genes, whose protein does not start with M)
-    strict = {(g["locus"], p) for g in genes if g["nt"][:3] != "ATG" and g["aa"][0] == "M"
-              for p in _nterm(g["aa"])}  # fmt: skip
-    loose = {(g["locus"], p) for g in genes if g["nt"][:3] != "ATG" for p in _nterm(g["aa"])}
-    assert len(strict) > 300  # 346 GTG + 69 TTG genes in the recording
+    strict = _strict_nterm(genes)  # decision 5; 5'-truncated "Edge" genes not starting M excluded
+    assert _n_peptides(genes) == NISSLE_PEPTIDES  # guards the pinned numbers against the fixture
+    assert len(strict) == NISSLE_NON_ATG_NTERM
 
     r = _te_proxies().te1_proxy(NISSLE_GENOME, NISSLE_JSON)
     _check_shape(r)
-    lo, hi = _n_products(genes)
-    assert lo <= r.counts["peptides"] <= hi
-    assert len({p for _, p in strict}) <= r.counts["non_atg_nterm"] <= len(loose)
+    assert r.counts["peptides"] == NISSLE_PEPTIDES
+    assert r.counts["non_atg_nterm"] == NISSLE_NON_ATG_NTERM
     assert r.shares["exact_inframe"] >= THRESHOLD
     assert r.passed is True
     assert r.exceptions
-    nterm_peps = {p for _, p in loose}
     gene_ids = {g["locus"] for g in genes}
     for ex in r.exceptions:
         assert ex["locus_tag"] in gene_ids, ex
     # the listed exceptions include the §11.6 kind: N-terminal peptides at non-ATG starts
-    assert any(ex["peptide"] in nterm_peps for ex in r.exceptions)
+    assert any(ex["peptide"] in strict for ex in r.exceptions)

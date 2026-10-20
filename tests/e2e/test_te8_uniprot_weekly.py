@@ -58,7 +58,14 @@ def test_te8_full_uniprot_k12_passes(tmp_path: Path, monkeypatch: pytest.MonkeyP
         BAKTA / "nissle" / "nissle1917.json.gz",
         fasta,
     )
-    assert r.counts["peptides"] > 100_000  # ~151k distinct / ~154k products (4,403 proteins)
+    # release 2026_03 (4,403 proteins): 151,424 distinct peptides, 354 non_atg_nterm (decision 6),
+    # share 150,918 / 151,070 = 0.99899; not pinned because the live release changes
+    c = r.counts
+    assert c["peptides"] > 100_000
+    assert 0 < c["non_atg_nterm"] < 0.01 * c["peptides"]
+    assert r.shares["k12_exact"] == pytest.approx(
+        c["k12_exact"] / (c["peptides"] - c["non_atg_nterm"])
+    )
     assert r.shares["k12_exact"] >= 0.995
     assert r.shares["nissle_placement_fdr"] <= 0.01
     for key in ("nissle_tolerant", "nissle_unmapped"):
