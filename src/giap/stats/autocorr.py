@@ -1,9 +1,9 @@
 """Moran's I, join counts, gene-label and TU-block permutations, lag tests and block length.
 
 GIAP_SPEC.md §7.3.5(c), §7.3.5(d) step 5, §7.3.6, §8.3, Appendix B.4; docs/specs/M5-02 (lead
-decisions 4-13), ADR-0020 (residual join count) and ADR-0021 (block length). All functions are
-pure; randomness comes only from the ``np.random.Generator`` passed in by the caller (obtained via
-``giap.rng.for_step``).
+decisions 4-20), ADR-0020 with Amendment 1 (Pearson residual join count) and ADR-0021 (block
+length). All functions are pure; randomness comes only from the ``np.random.Generator`` passed
+in by the caller (obtained via ``giap.rng.for_step``).
 
 Lags. Circular: pairs (i, (i + k) mod n), i = 0 ... n - 1, valid for 1 <= k <= (n - 1) // 2.
 Linear: pairs (i, i + k), i + k < n, valid for 1 <= k <= n - 1. A statistic at an invalid lag does
@@ -180,21 +180,23 @@ def morans_i(x: ArrayLike, lag: int, circular: bool) -> float:
 def join_count_matrix(
     D: ArrayLike, lags: Sequence[int], circular: bool, P: ArrayLike | None = None
 ) -> F64:
-    """Join count BB_k (or the residual statistic) of every row of ``D`` at every lag.
+    """Join count BB_k (or the Pearson residual statistic) of every row of ``D`` at every lag.
 
     Parameters
     ----------
     D
         (B, n) boolean detection over eligible genes; a NaN in a float D marks a missing gene
-        (its pairs contribute nothing, also to the residual statistic).
+        (its pairs contribute nothing, also to the Pearson statistic).
     lags
         Lags to evaluate; invalid lags give NaN columns.
     circular
         Whether the gene index is circular.
     P
         Optional (B, n) detection probabilities, permuted together with ``D`` by the caller.
-        Given P, the statistic is Σ over valid lag-k pairs of (d_i - p_i)(d_j - p_j)
-        (ADR-0020 decision 3); otherwise Σ d_i d_j.
+        Given P, the statistic is Σ over valid lag-k pairs of r_i r_j with the Pearson residual
+        r = (d - p)/sqrt(p(1 - p)), p unclipped (ADR-0020 Amendment 1, decision 17); a gene with
+        p outside (0, 1) (p in {0, 1}), p NaN or d missing has r = 0, so it joins no pair, and a
+        valid lag with no pair left gives 0.0. Without P the statistic is Σ d_i d_j.
 
     Returns
     -------
@@ -216,8 +218,9 @@ def join_count_matrix(
         p = _as_matrix(P, "P")
         if p.shape != d.shape:
             raise ValueError(f"P shape {p.shape} differs from D shape {d.shape}")
-        r = r - p
-    r[miss] = 0.0  # a NaN in a float D is missing: its pairs contribute nothing
+        r = _pearson_residual(r, p, miss)
+    else:
+        r[miss] = 0.0  # a NaN in a float D is missing: its pairs contribute nothing
     rows, n = r.shape
     out = np.full((rows, len(lags)), np.nan)
     valid = [c for c, k in enumerate(lags) if _valid_lag(n, int(k), circular)]
@@ -229,8 +232,17 @@ def join_count_matrix(
     return out
 
 
+def _pearson_residual(d: F64, p: F64, miss: B8) -> F64:
+    """(d - p)/sqrt(p(1 - p)) where 0 < p < 1 and d is present; 0 elsewhere (no residual)."""
+    with np.errstate(invalid="ignore"):
+        has = (p > 0.0) & (p < 1.0) & ~miss  # False for NaN p
+    v = np.where(has, p * (1.0 - p), 1.0)
+    return np.where(has, (d - np.where(has, p, 0.0)) / np.sqrt(v), 0.0)
+
+
 def join_count(d: ArrayLike, lag: int, circular: bool, p: ArrayLike | None = None) -> float:
-    """Join count BB_k = Σ over valid lag-k pairs of d_i d_j (residual Σ (d - p)(d - p) given p).
+    """Join count BB_k = Σ over valid lag-k pairs of d_i d_j; given p, the Pearson residual
+    statistic Σ r_i r_j, r = (d - p)/sqrt(p(1 - p)) (see ``join_count_matrix``).
 
     Returns
     -------

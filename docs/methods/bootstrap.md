@@ -82,12 +82,33 @@ concatenated and truncated to n. Wrapping makes every position equally likely to
 replicon. For a linear contig the wrap joins the two ends; with ℓ ≪ n the induced artefact is
 O(ℓ/n) and is accepted (spec uses the same function for both).
 
-Block length (chosen by the caller, not here): for the island scan (§7.3.6 step 5) ℓ = the
-smallest lag at which TU-level Moran's I is not significant at 0.05, bounded to [1, 20]; i.e. the
-block must be long enough to carry the autocorrelation that matters. The replichore regression's
-CI uses the same rule. ℓ = 1 is the iid bootstrap. Blocks join independent stretches, so the
-bootstrap slightly under-represents dependence across block joins; with ℓ above the correlation
-length this bias is small (the M5 island calibration checks FWER with this null).
+## Block length
+
+The caller chooses the block length; this function does not. The island circular block bootstrap
+(§7.3.5(d) step 5) and the ori–ter slope CI (§7.3.5(e)) use the same rule, from ADR-0021:
+
+1. **ℓ̂** = `giap.stats.autocorr.choose_block_len(z, circular, B, rng)`: the smallest lag at which
+   the TU-level Moran's I is not significant (raw two-sided p > 0.05 under the gene-label null,
+   bounded to [1, 20]). See docs/methods/autocorrelation.md "Block length".
+2. **ℓ'** = `block_len_prime(ℓ̂, T)` = min(20, 2ℓ̂ + 1, T), where T is the number of scored TUs.
+   ℓ' is the block length actually used. An integer `context.islands.block_len` overrides it
+   unchanged.
+
+**Why ℓ' and not ℓ̂.** ℓ̂ marks where the correlation stops being detectable, not the block length that
+a window-sum maximum needs (ADR-0021).
+- With ℓ̂ as the block length, island FWER on a 4,500-gene chromosome is 0.205 / 0.26 / 0.27 at
+  ρ 0.5 / 0.9 / 0.95, and the ori–ter CI covers only 0.88–0.93.
+- With ℓ', FWER is 0.003–0.040 and the CI covers 0.96 at ρ 0.5.
+
+**Small replicons.** Islands on replicons with fewer than 1,000 scored TUs carry the flag
+`uncalibrated`. There ℓ̂ ≈ 1.3, because Moran's I cannot detect the diluted correlation, and FWER at
+ρ 0.9 is 0.13.
+
+**Joins between blocks.** ℓ = 1 is the iid bootstrap. Blocks join independent stretches, so the
+bootstrap slightly under-represents dependence across block joins. With ℓ above the correlation
+length this bias is small; the M5 island calibration checks FWER with this null.
+
+The statistician has not yet signed off on this section (M5-02); the sign-off is pending.
 
 ## Hodges–Lehmann shift
 
