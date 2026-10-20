@@ -140,6 +140,29 @@ def inject_short_wrong(
     return path, inj
 
 
+def prefilter_to_genome(res: Any, out: Path, pep: float) -> Path:
+    """ADR-0019 decision 4 (``input_prefiltered``): the input as an upstream pipeline that kept only
+    genome-matching peptides would hand it over: every target row of a wrong identification
+    (giapsim truth ``is_wrong``) is dropped, and every target row claims PEP = ``pep`` (giapsim's
+    own PEP is ~0.01 at any pi_wrong after the q filter, too small for the warning to have power
+    at 50 kb)."""
+    with Path(res.peptides).open(newline="") as fh:
+        rows = list(csv.DictReader(fh, delimiter="\t"))
+    tr = read_tsv_df(res.truth["peptides"])
+    wrong = set(tr.loc[tr["is_wrong"] == "true", "peptide"])
+    keep = [r for r in rows if r["is_decoy"] == "true" or r["peptide"] not in wrong]
+    for r in keep:
+        if r["is_decoy"] != "true":
+            r["pep"] = f"{pep:.10g}"
+    path = out / "peptides_prefiltered.tsv"
+    out.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0]), delimiter="\t", lineterminator="\n")
+        w.writeheader()
+        w.writerows(keep)
+    return path
+
+
 def dbstrain_input(res: Any, tmp: Path) -> tuple[Path, Truth, dict[str, list[str]]]:
     """Database-strain input of ``related_dbstrain`` and its truth (decision 2, review B1): every
     database peptide inherits the origins of the sample peptide(s) it replaces, including pairs
@@ -238,6 +261,7 @@ def run_chain(
     overrides: Sequence[str] = (),
     paralogs: int = 0,
     inject_short: int = 0,
+    prefilter: float | None = None,
 ) -> Chain:
     from giapsim.simulate import SimConfig, simulate
 
@@ -264,6 +288,9 @@ def run_chain(
             path, inj = inject_short_wrong(res, tmp, inject_short, seed)
             truth.wrong |= inj
             res_in = dataclasses.replace(res, peptides=path)
+        if prefilter is not None:
+            res_in = dataclasses.replace(res, peptides=prefilter_to_genome(res, tmp, prefilter))
+            truth.wrong = set()
     run = preflight(res_in, tmp / "pf")
     cfg = resolve_config(run.config_yaml, [f"seed={seed}", *overrides])
     roots = roots_of(run)

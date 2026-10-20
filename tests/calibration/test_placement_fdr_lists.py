@@ -16,11 +16,18 @@ pi_wrong is the share of wrong peptides among all searched peptides. (The issue 
 peptides "no decoy hit"; with pi_wrong < 1 that would make the spec formula anti-conservative by the
 factor pi_wrong, so correct peptides draw chance decoy hits like every other searched peptide.)
 
-pi_wrong enters only through the inputs ``placement`` sees (PEP, q-values, ``pi_denovo``), so each
-pi-estimation route of §7.2.5 step 4 has its own calibration scenario:
+For database input, stratum 0, ADR-0019 replaces §7.2.5 step 4: π̂ is the per-length-class
+exact-share estimate min(1, U95(k, n)/(1 - r)) and PEP and q-values are not read. In this
+generator a correct peptide always has its exact target hit and a wrong one has one with
+probability P_CHANCE, so k/n estimates pi_wrong (1 - P_CHANCE) and r = P_CHANCE: the estimator
+is unbiased up to the upper bound. The scenarios that used to exercise each step-4 route stay as
+regression scenarios for the class estimator under different wrong-share laws:
 - ``known_pi``: every PEP equals the true wrong probability (database, stratum 0 and 1);
-- ``calibrated_pep``: per-peptide PEP ~ Beta, wrong ~ Bernoulli(PEP) -> pi = mean PEP;
-- ``max_q``: no PEP, q-values up to ``input.q_value_max`` that bound the wrong share;
+- ``calibrated_pep``: per-peptide PEP ~ Beta, wrong ~ Bernoulli(PEP);
+- ``max_q``: no PEP, q-values up to ``input.q_value_max`` (formerly the max-q route);
+- ``deflated_pep`` (ADR-0019 "Run collapse"): PEP = a tenth of the true wrong probability, as the
+  §5.3 min over runs produces; mean PEP fails this scenario (FDP ~ 10 q), the class estimator must
+  not (it does not read PEP);
 - ``denovo_bins``: de novo peptides in 10 score bins with different wrong rates, ``pi_denovo`` = the
   true per-bin wrong rate; per-peptide pi enters as decoy weights, FDR(e) = (W(e) + c)/T(e) with
   c = max pi (ADR-0010; docs/methods/placement-fdr.md "pi_wrong in the stratum FDR", where this
@@ -153,6 +160,17 @@ def test_max_q_route_controls_fdr() -> None:
         return _replicate(rng, 0, np.full(N, 0.008), q_value=q)
 
     _check_fdr("max_q", make)
+
+
+def test_deflated_pep_controls_fdr() -> None:
+    """ADR-0019 Evidence row "PEP deflated 10x (min-collapse)": 14 failing cells under mean PEP,
+    0 under the class estimator."""
+    pi = 0.3
+
+    def make(rng: np.random.Generator) -> tuple[pd.DataFrame, np.ndarray]:
+        return _replicate(rng, 0, np.full(N, pi), pep=np.full(N, pi / 10))
+
+    _check_fdr("deflated_pep", make)
 
 
 def test_denovo_per_bin_pi_controls_fdr() -> None:

@@ -31,8 +31,8 @@ estimate checks.
   rule (Slurm 1860995, 1 Mb, R = 300: FDP 0.0002 at every q). The 100-kb arm also asserts the
   estimate check mean(Ŵ0) >= mean(V0) - 2 SE: Ŵ0 2.44 vs V0 1.6, because the injected share
   dominates the pooled π̂. At 1 Mb the estimate check is a separate test
-  (``test_database_stressed_stratum0_estimate_covers_false_placements``, ``calibration_full``,
-  strict xfail "ADR-0019 implementation pending"). Mean PEP gives Ŵ0 0.57 vs V0 2.85 there. The
+  (``test_database_stressed_stratum0_estimate_covers_false_placements``, ``calibration_full``;
+  a strict xfail until ADR-0019 was implemented). Mean PEP gave Ŵ0 0.57 vs V0 2.85 there. The
   no-origin share is length-correlated: 75 % of the injected peptides are 7-mers, and the 7-mer
   class has a no-origin share of 0.22 against 0.031 pooled. ADR-0019's per-class π̂ corrects
   this; the statistician's reference rule gives Ŵ0 3.65 vs V0 3.50 (review of #113, round 2).
@@ -41,7 +41,11 @@ estimate checks.
 * ``denovo``: smoke check (errors are placed at their spectrum's origin).
 * ``related_dbstrain`` (decision 8, ADR-0019): correct peptides reported as the database strain's
   sequence; FDP smoke check at 100 kb, and the 1-Mb stratum-0 estimate check at 5 SNV/kb
-  (``calibration_full``, strict xfail "ADR-0019 implementation pending").
+  (``calibration_full``; a strict xfail until ADR-0019 was implemented).
+
+The exercise floors of the two 1-Mb estimate checks (ΣV0 >= 30 and >= 100) count false placements
+(V0) only, which do not depend on π̂: measured 79 (Slurm 1860995) and ~285 expected (2.85 per
+replicate at R = 100), so removing the xfails cannot hide a floor failure.
 """
 
 from __future__ import annotations
@@ -59,7 +63,6 @@ from helpers.placement_sims import null_share_stratum0, run_chain, score_chain
 pytestmark = pytest.mark.calibration
 
 LEVELS = C.load_tolerances().levels
-ADR0019 = pytest.mark.xfail(strict=True, reason="ADR-0019 implementation pending")
 
 
 def _length(full: bool) -> int:
@@ -112,8 +115,8 @@ def _stressed(full: bool, tmp: Path) -> None:
     def replicate(seed: int, d: Path):  # type: ignore[no-untyped-def]
         return _stressed_replicate(full, seed, d)
 
-    # The 100-kb arm also carries the estimate check (it passes under mean PEP, docstring);
-    # at 1 Mb that check is the separate strict xfail below.
+    # The 100-kb arm also carries the estimate check (it passed under mean PEP too, docstring);
+    # at 1 Mb that check is the separate test below.
     run_fdr_suite(
         "placement.sim_db_stressed", replicate, tmp, [("reverse", 0)], full=full,
         estimate=() if full else ("reverse",),
@@ -135,7 +138,6 @@ STRESS_EST_V0_FLOOR = 100
 
 
 @pytest.mark.calibration_full
-@ADR0019
 def test_database_stressed_stratum0_estimate_covers_false_placements(tmp_path: Path) -> None:
     """Statistician review of #113, round 2: the 1-Mb stressed arm (K = 400 injected short wrong
     database peptides, PEP = the true wrong share, delta = 0). Estimate rule as in the related
@@ -235,13 +237,14 @@ def _assert_pi(mean_pi: float, mean_null: float, se: float) -> None:
     )
 
 
-@pytest.mark.parametrize("n_runs", [1, pytest.param(3, marks=ADR0019)])
+@pytest.mark.parametrize("n_runs", [1, 3])
 def test_database_stratum0_pi_hat_covers_the_wrong_share(tmp_path: Path, n_runs: int) -> None:
     """π̂ (mean input PEP over the stratum-0 database queries) must not understate their wrong
     share (methods note: "validity needs π̂ >= π"). M3-19 row PEPs are calibrated; with 3 runs
     preflight collapses a peptide's runs with ``pep = min`` and the mean of the minima is not a
-    peptide-level wrong share (ADR-0019 "Run collapse"; decision 9: [3] is the regression, strict
-    xfail until ADR-0019 replaces mean PEP; [1] is the control)."""
+    peptide-level wrong share (ADR-0019 "Run collapse"; decision 9: [3] is the regression, a
+    strict xfail until ADR-0019 replaced mean PEP; [1] is the control). Under ADR-0019 PEP is not
+    read, so π̂ (the row's (W + c)/(D + 1)) must cover the share with both run counts."""
     stats = _pi_check(
         "database", f"placement.pi_db_runs{n_runs}", tmp_path,
         proteomics=_proteomics(pi_wrong=0.05, n_runs=n_runs),
@@ -285,7 +288,6 @@ EST_V0_FLOOR = 30
 
 
 @pytest.mark.calibration_full
-@ADR0019
 def test_related_dbstrain_stratum0_estimate_covers_false_placements(tmp_path: Path) -> None:
     """Decision 8 estimate check (statistician, B2; review B3): 1-Mb genome, 5 SNV/kb, correct
     peptides from the reference strain as above. Per replicate and decoy type at m = 0 (database
@@ -294,8 +296,8 @@ def test_related_dbstrain_stratum0_estimate_covers_false_placements(tmp_path: Pa
     all stratum-0 targets, V0 the realised number (no best-cost locus overlaps a true origin).
     Assert mean(Ŵ0) >= mean(V0) - k SE(V0 - Ŵ0) over EST_R replicates and total V0 >=
     EST_V0_FLOOR. Mean PEP counts only identification errors, so Ŵ0 under-states V0
-    (statistician: Ŵ0 ~ 0.1 vs V0 ~ 0.75); strict xfail until ADR-0019 is implemented (measured
-    ratio 0.96-2.4 there)."""
+    (statistician: Ŵ0 ~ 0.1 vs V0 ~ 0.75; Slurm 1860995: 0.150 vs 0.79); a strict xfail until
+    ADR-0019 was implemented (measured ratio 0.96-2.4 under it)."""
     from helpers.placement_sims import hits_of
     from helpers.placement_truth import best_loci
 
