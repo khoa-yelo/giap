@@ -91,7 +91,7 @@ FDP = mean over replicates; failing = some level with mean FDP > q + 2 SE.
 - Tests to update with the implementation: database examples in tests/unit/test_placement_fdr.py; the
   `known_pi` / `calibrated_pep` / `max_q` expectations in tests/calibration/test_placement_fdr_lists.py; the
   reference rule in tests/calibration/attacks/test_attack_placement_same_db.py; re-verify
-  test_placement_fdr_genome.py. New attack: tests/calibration/attacks/test_attack_placement_strain_span.py.
+  test_placement_fdr_genome.py. New attack: tests/calibration/attacks/test_attack_placement_strain_span.py. Strict xfails to flip: the 1-Mb related_dbstrain estimate check and `test_database_stressed_stratum0_estimate_covers_false_placements` (1-Mb stressed arm; W0/V0 ≈ 0.2 under mean PEP, ≈ 1.04 under this rule, statistician review of #113 round 2).
 - GIAP_SPEC.md §7.2.5 step 4 is superseded by this ADR; docs/methods/placement-fdr.md (new section
   "Cross-strain input and run collapse") and docs/methods/denovo-precision.md (estimand) are updated.
 
