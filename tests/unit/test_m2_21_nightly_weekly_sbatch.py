@@ -162,10 +162,14 @@ def test_nightly_runs_nf_test_and_reports() -> None:
     assert (REPO / "scripts" / "ci" / "post_summary.py").is_file()
 
 
-def test_scrontab_still_points_at_nightly() -> None:
+def test_scrontab_points_at_the_launcher() -> None:
+    """Decision 18 supersedes decision 3's "the scrontab line keeps pointing at nightly.sbatch":
+    the cron line runs ``nightly_launch.sh``, which submits nightly.sbatch as the array
+    (details in ``test_m2_21_nightly_launch.py``)."""
     lines = [ln for ln in (SLURM / "nightly.scrontab").read_text().splitlines()
              if ln.strip() and not ln.lstrip().startswith("#")]  # fmt: skip
-    assert len(lines) == 1 and lines[0].split()[-1].endswith("scripts/slurm/nightly.sbatch")
+    assert len(lines) == 1 and lines[0].split()[-1].endswith("scripts/slurm/nightly_launch.sh")
+    assert "nightly.sbatch" in (SLURM / "nightly_launch.sh").read_text()
 
 
 def test_weekly_covers_k12_nissle_and_antismash() -> None:
