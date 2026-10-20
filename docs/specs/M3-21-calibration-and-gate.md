@@ -70,3 +70,26 @@ All seeds derive from `seeds.calibration_base`; each replicate uses `base + r`.
 2. Strata with very few accepted peptides per replicate (m = 2 at 100 kb): **Proposed default:**
    assert per-stratum FDR only where the mean accepted count per replicate is ≥ 1; always assert
    the pooled FDR.
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+1. Q1 accepted: a peptide is a false placement only when none of its accepted loci overlaps a true
+   origin; a correct peptide also accepted at an equal-cost wrong locus is not false (uniqueness makes
+   it `shared`/`multi_identical`).
+2. True origin per row type: correct database peptide → all its truth `locus_tag` copies; de novo row →
+   the loci of its spectrum's `true_peptide`, whatever the error type; other-strain peptide → the lifted
+   ortholog locus in the sample; shuffled/random peptide → none. "Overlap" = same contig, strand and
+   frame, covering ≥ 50 % of the true interval.
+3. Anti-gaming guard: assert no accepted peptide with a non-origin accepted locus is labelled `unique`
+   unless all its loci lie in its true gene; report the locus-level false share as a diagnostic.
+   Include the mutant "placement adds all loci of cost ≤ m_T + 1" and show this check kills it.
+4. Q2 rejected: assert the FDR for every list (decoy type × m) the suite exercises, regardless of the
+   accepted count, plus the pooled FDR, under the existing two-block confirmation. "Exercised" is decided
+   from the truth (mean ≥ 1 wrong or non-origin peptide with a target hit in that stratum per
+   replicate); a claimed stratum that is not exercised is a suite-configuration error, not a skip.
+5. Pooled FDP: over the union of accepted peptides per replicate, each peptide once (its best-cost list).
+6. ADR-0010's PEP–length correlation: giapsim has Cov = 0 by construction; record in the methods note
+   that the measurement moves to A2/M3-24 (no new simulator variant here).
+7. PENDING (needs an ADR from Khoa): the related-genome suite with `search_db = other` and correct
+   peptides drawn from the database strain underestimates stratum-0 false placements (statistician B2).
+   Until the ADR is decided, write that case as a strict `xfail` with reason "ADR pending: stratum-0 π̂
+   for search_db=other"; the rest of M3-21 proceeds.
