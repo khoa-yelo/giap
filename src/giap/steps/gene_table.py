@@ -27,6 +27,7 @@ from giap.genetable.evidence import accepted_peptides, gene_evidence
 from giap.io.genes_tsv import read_cog_def, write_genes_parquet
 from giap.io.issues import Issue
 from giap.io.work_tables import FILE_NAMES, load_m4_inputs
+from giap.runner.local import cog_table
 from giap.steps.registry import InputPath, StepContext, run_step, step
 
 __all__ = ["build_genes_pre", "m4_paths", "run_gene_table", "work_inputs"]
@@ -37,7 +38,6 @@ _M3_TSVS = ("peptide_hits", "protein_hits", "unmapped")
 _REQUIRED = ("genes", "replicons", "xrefs", "annotation_meta", "tus", "layers", "mapping")
 _UNREAD = frozenset({"contract.regions.missing_file", "contract.region_genes.missing_file"})
 _OPTIONAL = ("peptides", "abundance", "id_map", "preflight", "cog2020_def")
-COG_FILE = Path("cog") / "cog-20.def.tab"
 
 
 def _one(p: InputPath) -> Path:
@@ -47,6 +47,8 @@ def _one(p: InputPath) -> Path:
 def m4_paths(inputs: Mapping[str, InputPath]) -> dict[str, Path]:
     """Step input keys → ``load_m4_inputs`` paths (the M3 TSVs live in the ``mapping`` dir)."""
     paths = {k: _one(v) for k, v in inputs.items() if k in FILE_NAMES or k == "preflight"}
+    if "preflight" in paths and paths["preflight"].is_dir():  # local executor: work/preflight/
+        paths["preflight"] = paths["preflight"] / "preflight.json"
     if "mapping" in inputs:
         mapping = _one(inputs["mapping"])
         paths |= {k: mapping / FILE_NAMES[k] for k in _M3_TSVS}
@@ -100,16 +102,6 @@ def gene_table(ctx: StepContext) -> None:
 
 def _first(*paths: Path) -> Path | None:
     return next((p for p in paths if p.exists()), None)
-
-
-def cog_table(db_dir: Path | None) -> Path | None:
-    """``cog/cog-20.def.tab`` when ``db_dir``'s setup manifest lists ``cog2020_def``."""
-    from giap.preflight.environment import read_manifest
-
-    if db_dir is None:
-        return None
-    path = db_dir / COG_FILE
-    return path if "cog2020_def" in (read_manifest(str(db_dir)) or {}) and path.is_file() else None
 
 
 def work_inputs(work_dir: Path) -> dict[str, Path]:

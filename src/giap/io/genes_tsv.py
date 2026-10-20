@@ -28,13 +28,17 @@ _ARROW: dict[ColumnType, Any] = {
 }  # fmt: skip
 
 
+def _na(v: Any) -> bool:
+    return v is None or v is pd.NA or (isinstance(v, float) and np.isnan(v))
+
+
 def _cell(v: Any, kind: ColumnType) -> Any:
     if kind == "list":
         return list(v) if isinstance(v, list | tuple | np.ndarray) else []
     if v is None or v is pd.NA:
         return None
     if kind == "float":
-        return float(v)
+        return None if _na(v) else float(v)
     if kind == "int":
         return None if isinstance(v, float) and np.isnan(v) else int(v)
     if kind == "bool":
@@ -99,8 +103,8 @@ def read_genes_parquet(path: Path) -> pd.DataFrame:
             df[c] = pd.Series([list(v) if v is not None else [] for v in df[c]], dtype=object)
         elif kind == "int":
             df[c] = df[c].astype("Int64")
-        elif kind == "str":
-            df[c] = pd.Series([None if v is None else str(v) for v in df[c]], dtype=object)
+        elif kind == "str":  # missing stays missing (NaN / pd.NA never become "nan")
+            df[c] = pd.Series([None if _na(v) else str(v) for v in df[c]], dtype=object)
     return df
 
 

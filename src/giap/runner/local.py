@@ -167,10 +167,12 @@ def plan_local(
 
 
 def stage_roots(workdir: Path, roots: Mapping[str, Path]) -> None:
-    """Copy root input files (normalised by preflight) to ``workdir / key``."""
+    """Copy root input files (normalised by preflight) to ``workdir / key``; when ``workdir / key``
+    is a directory (``preflight``: preflight's own work directory) the file goes inside it."""
     workdir.mkdir(parents=True, exist_ok=True)
     for key, src in sorted(roots.items()):
-        shutil.copyfile(src, workdir / key)
+        dst = workdir / key
+        shutil.copyfile(src, dst / src.name if dst.is_dir() else dst)
 
 
 def run_local(
@@ -226,3 +228,15 @@ def contaminant_library(db_dir: Path | None) -> Path | None:
     found = read_manifest(str(db_dir)) or {}
     lib = db_dir / "contaminants" / "contaminants.fasta"
     return lib if "contaminants" in found and lib.is_file() else None
+
+
+def cog_table(db_dir: Path | None) -> Path | None:
+    """The COG 2020 ``cog-20.def.tab`` (path from ``db_sources.yaml`` ``cog2020_def``) when
+    ``db_dir``'s setup manifest lists ``cog2020_def`` (M4-15 decisions 3, 17), else ``None``."""
+    from giap.preflight.environment import read_manifest
+    from giap.setupdb.items import _load_sources
+
+    if db_dir is None:
+        return None
+    path = db_dir / _load_sources()["cog2020_def"].path
+    return path if "cog2020_def" in (read_manifest(str(db_dir)) or {}) and path.is_file() else None
