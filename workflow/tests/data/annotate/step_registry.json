@@ -43,7 +43,7 @@
     "optional_inputs": [],
     "outputs": [
       "detectability_summary",
-      "genes_final"
+      "gene_table"
     ]
   },
   "gene_table": {
@@ -52,8 +52,6 @@
       "genes",
       "layers",
       "mapping",
-      "region_genes",
-      "regions",
       "replicons",
       "tus",
       "xrefs"

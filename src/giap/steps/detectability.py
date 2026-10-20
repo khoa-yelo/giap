@@ -47,7 +47,7 @@ def add_p_detect(pre: pd.DataFrame, res: DetectabilityResult) -> pd.DataFrame:
 @step(
     "detectability",
     inputs=["genes_pre"],
-    outputs=["genes_final", "detectability_summary"],
+    outputs=["gene_table", "detectability_summary"],
 )
 def detectability(ctx: StepContext) -> None:
     """``genes_pre`` → gene table with ``p_detect`` and the diagnostics rows."""
@@ -58,7 +58,7 @@ def detectability(ctx: StepContext) -> None:
     cov = pre[["locus_tag", *COVARIATE_COLUMNS]].astype(dict.fromkeys(COVARIATE_COLUMNS, "float64"))
     tus = pd.Series(pre["tu_id"].to_numpy(), index=idx)
     res = fit_detectability(detected, cov, tus, ctx.cfg.detectability, ctx.rng)
-    write_genes_parquet(ctx.outputs["genes_final"], add_p_detect(pre, res))
+    write_genes_parquet(ctx.outputs["gene_table"], add_p_detect(pre, res))
     diag = res.diagnostics
     rows = [
         tuple(
@@ -80,7 +80,7 @@ def run_detectability(work_dir: Path, cfg: GiapConfig) -> Path:
     gt = work_dir / "genetable"
     out = gt / "genes.parquet"
     outputs = {
-        "genes_final": out,
+        "gene_table": out,
         "detectability_summary": gt / "detection_summary_parts" / "detectability.parquet",
     }
     run_step("detectability", cfg, {"genes_pre": gt / "genes_pre.parquet"}, outputs)

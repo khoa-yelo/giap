@@ -2,10 +2,11 @@
 docs/specs/M4-15-gene-table-assembly.md): the M4-06 contract tables through M4-10 ... M4-14 into
 the §9.3 gene table without ``p_detect``.
 
-Inputs: M2's Parquet intermediates and ``annotation_meta``, ``mapping`` (the ``loci`` directory with
-``peptide_hits.tsv``, ``protein_hits.tsv``, ``unmapped.tsv``), optional C9/C10, the C14 id map,
-preflight.json and ``cog2020_def`` (raw NCBI ``cog-20.def.tab``; absent → ``cog_category`` NA and
-run flag ``layer_missing:cog``). A contract ``error`` issue fails the step (``StepError``).
+Inputs: M2's Parquet intermediates (C1-C6; not C7/C8) and ``annotation_meta``, ``mapping`` (the
+``loci`` directory with ``peptide_hits.tsv``, ``protein_hits.tsv``, ``unmapped.tsv``), optional
+C9/C10, the C14 id map, preflight.json and ``cog2020_def`` (raw NCBI ``cog-20.def.tab``; absent
+→ ``cog_category`` NA and run flag ``layer_missing:cog``).
+A contract ``error`` issue fails the step (``StepError``).
 """
 
 from __future__ import annotations
@@ -31,8 +32,10 @@ from giap.steps.registry import InputPath, StepContext, run_step, step
 __all__ = ["build_genes_pre", "m4_paths", "run_gene_table", "work_inputs"]
 
 _M3_TSVS = ("peptide_hits", "protein_hits", "unmapped")
-_REQUIRED = ("genes", "replicons", "xrefs", "annotation_meta", "tus", "layers", "regions",
-             "region_genes", "mapping")  # fmt: skip
+# C7/C8 are not read: region membership arrives through C6 ``region_ids``, and a precomputed
+# regions layer reaches ``regions``/``region_genes`` as its M2-02 TSV, not the contract Parquet.
+_REQUIRED = ("genes", "replicons", "xrefs", "annotation_meta", "tus", "layers", "mapping")
+_UNREAD = frozenset({"contract.regions.missing_file", "contract.region_genes.missing_file"})
 _OPTIONAL = ("peptides", "abundance", "id_map", "preflight", "cog2020_def")
 COG_FILE = Path("cog") / "cog-20.def.tab"
 
@@ -65,7 +68,7 @@ def build_genes_pre(
 ) -> pd.DataFrame:
     """Load and check the contract tables, run M4-10 ... M4-14 and assemble (no ``p_detect``)."""
     m4, issues = load_m4_inputs(m4_paths(inputs))
-    check_issues(issues, log, "gene_table")
+    check_issues([i for i in issues if i.code not in _UNREAD], log, "gene_table")
     cog = inputs.get("cog2020_def")
     if cog is None:
         log.warning(
