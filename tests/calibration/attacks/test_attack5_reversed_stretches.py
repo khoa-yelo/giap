@@ -8,12 +8,15 @@ erroneous read carries one reversed 3-6-residue stretch), reference peptides. De
 shuffle decoys (``mapping.decoys.denovo_input`` default). The false-placement definition, the
 per-list and pooled gates and the unique guard are those of ``_placement_suite.run_fdr_suite``;
 a de novo read's true origin is its spectrum's true peptide whatever the error (decision 2).
-Exercised (measured at 100 kb, 2026-10-20): shuffle m = 1 (about 30-40 per replicate) and m = 2
-(about 500) -- reversed stretches are mostly cost 2 at the origin.
 
-Documentation, not a gate: the first ``DOC_N`` replicates are mapped again with reversed decoys
-for the de novo input; decoy-hit counts D per stratum under both decoys (and the FDP under the
-reversed decoy) go to ``placement_m3_21_diagnostics.jsonl``.
+**At genome level the FDR gate is a smoke check, not evidence** (PR #113 review B2): every
+erroneous read is placed at its spectrum's origin (cost 1-2), so no list holds a false peptide
+(exercise 0 per replicate at 100 kb); nothing is claimed. The attack's substantive content is the
+decoy documentation: the first ``DOC_N`` replicates are mapped again with reversed decoys for the
+de novo input, and the decoy-hit counts D per stratum under both decoys (and the FDP under the
+reversed decoy) go to ``placement_m3_21_diagnostics.jsonl`` (Slurm 1860161: mean D at m = 0 9.1
+reversed vs 0.5 shuffled -- a reversed decoy inflates D). The FDR claim for m >= 1 rests on the
+list-level suites (test_placement_fdr_lists.py, attacks/test_attack_placement_pi.py).
 """
 
 from __future__ import annotations
@@ -61,7 +64,7 @@ def _run(full: bool, tmp: Path) -> None:
         d_shuffle[seed] = _decoys_by_stratum(ch.avail)
         return score_chain(ch, LEVELS, d)
 
-    memo = run_fdr_suite(BASE, replicate, tmp, [("shuffle", 1), ("shuffle", 2)], full=full)
+    memo = run_fdr_suite(BASE, replicate, tmp, (), full=full)
     doc = []
     for i in sorted(memo)[:DOC_N]:
         seed = int(C.replicate_rng(BASE, i).integers(0, 2**31 - 1))

@@ -53,10 +53,10 @@ class Chain:
     planted: dict[str, tuple[str, int, int, str]] = dataclasses.field(default_factory=dict)
 
 
-def _db_strain_peptides(res: Any, out: Path) -> tuple[Path, dict[str, str]]:
+def _db_strain_peptides(res: Any, out: Path) -> tuple[Path, dict[str, list[str]]]:
     """``peptides.tsv`` with each correct peptide replaced by the reference strain's peptide at
-    the same offset of the same locus; returns the new path and {database peptide: sample
-    peptide}."""
+    the same offset of the same locus; returns the new path and {database peptide: [sample
+    peptides]}."""
     tr = read_tsv_df(res.truth["peptides"])
     cds = _reference_cds(res.reference_json)
     sub: dict[str, str] = {}
@@ -78,7 +78,83 @@ def _db_strain_peptides(res: Any, out: Path) -> tuple[Path, dict[str, str]]:
         w = csv.DictWriter(fh, fieldnames=list(rows[0]), delimiter="\t", lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
-    return path, {v: k for k, v in sub.items()}
+    back: dict[str, list[str]] = {}
+    for sample_pep, db_pep in sub.items():
+        back.setdefault(db_pep, []).append(sample_pep)
+    return path, back
+
+
+def inject_short_wrong(
+    res: Any, out: Path, k: int, seed: int, q_max: float = 0.01
+) -> tuple[Path, set[str]]:
+    """Stressed stratum-0 arm (PR #113 review B4; statistician's b2sim ``--mode short``): add ``k``
+    wrong database peptides, each a shuffled 7-mer (75 %) or 8-mer window of a random expressed
+    protein that does not occur in any protein (I = L), as one confident row (q = 0.001). Every
+    target row then gets PEP = the true wrong share among the peptides that pass ``q <= q_max``
+    (constant, so the run collapse cannot bias it): π̂ = mean PEP is exact (delta = 0)."""
+    import numpy as np
+
+    rng = np.random.default_rng([seed, 31])
+    with Path(res.peptides).open(newline="") as fh:
+        rows = list(csv.DictReader(fh, delimiter="\t"))
+    with Path(res.proteins_faa).open() as fh:
+        text = "".join("|" if line.startswith(">") else line.strip() for line in fh)
+    prots = [p for p in text.split("|") if p]
+    hay = "|".join(p.replace("I", "L") for p in prots)
+    tr = read_tsv_df(res.truth["peptides"])
+    wrong = set(tr.loc[(tr["is_wrong"] == "true") & (tr["origin"] != "decoy"), "peptide"])
+    present = {r["peptide"] for r in rows}
+    usable = [p for p in prots if len(p) >= 9]
+    inj: set[str] = set()
+    tries = 0
+    while len(inj) < k and tries < 100 * k:
+        tries += 1
+        prot = usable[int(rng.integers(len(usable)))]
+        n = 7 if rng.random() < 0.75 else 8
+        a = int(rng.integers(1, len(prot) - n))
+        pep = "".join(rng.permutation(list(prot[a : a + n])).tolist())
+        if set(pep) - set("ACDEFGHIKLMNPQRSTVWY") or pep in present or pep in inj:
+            continue
+        if pep.replace("I", "L") in hay:
+            continue
+        inj.add(pep)
+    template = next(r for r in rows if r["is_decoy"] != "true")
+    for j, pep in enumerate(sorted(inj)):
+        rows.append({**template, "peptide": pep, "protein_ids": "INJECTED", "q_value": "0.001",
+                     "score": "3", "spectrum_id": f"inj.{j + 1}"})  # fmt: skip
+    best: dict[str, float] = {}
+    for r in rows:
+        if r["is_decoy"] != "true":
+            best[r["peptide"]] = min(best.get(r["peptide"], 1.0), float(r["q_value"]))
+    queries = [p for p, q in best.items() if q <= q_max]
+    share = sum(p in wrong or p in inj for p in queries) / max(1, len(queries))
+    for r in rows:
+        if r["is_decoy"] != "true":
+            r["pep"] = f"{share:.10g}"
+    path = out / "peptides_injected.tsv"
+    out.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0]), delimiter="\t", lineterminator="\n")
+        w.writeheader()
+        w.writerows(rows)
+    return path, inj
+
+
+def dbstrain_input(res: Any, tmp: Path) -> tuple[Path, Truth, dict[str, list[str]]]:
+    """Database-strain input of ``related_dbstrain`` and its truth (decision 2, review B1): every
+    database peptide inherits the origins of the sample peptide(s) it replaces, including pairs
+    equal under I = L (an L/I SNV: the mapper places them exactly at the origin); only pairs that
+    differ under I = L are ``absent`` (no exact copy at the origin)."""
+    truth = database_truth(res)
+    path, back = _db_strain_peptides(res, tmp)
+    for db_pep, samples in back.items():
+        for sample_pep in samples:
+            if db_pep == sample_pep:
+                continue
+            truth.add(db_pep, truth.origins.get(sample_pep, []), truth.genes.get(sample_pep, ()))
+            if db_pep.replace("I", "L") != sample_pep.replace("I", "L"):
+                truth.absent.add(db_pep)
+    return path, truth, back
 
 
 _COMP = str.maketrans("ACGT", "TGCA")
@@ -161,6 +237,7 @@ def run_chain(
     denovo: Any = None,
     overrides: Sequence[str] = (),
     paralogs: int = 0,
+    inject_short: int = 0,
 ) -> Chain:
     from giapsim.simulate import SimConfig, simulate
 
@@ -178,18 +255,15 @@ def run_chain(
         truth = denovo_truth(res)
         res_in = dataclasses.replace(res, peptides=res.outdir / "peptides_denovo.tsv")
     elif kind == "related_dbstrain":
-        truth = database_truth(res)
-        path, back = _db_strain_peptides(res, tmp)
-        for db_pep, sample_pep in back.items():
-            if db_pep.replace("I", "L") != sample_pep.replace("I", "L"):
-                truth.absent.add(db_pep)
-                truth.add(
-                    db_pep, truth.origins.get(sample_pep, []), truth.genes.get(sample_pep, ())
-                )
+        path, truth, _back = dbstrain_input(res, tmp)
         res_in = dataclasses.replace(res, peptides=path)
     else:
         truth = database_truth(res)
         res_in = res
+        if inject_short:
+            path, inj = inject_short_wrong(res, tmp, inject_short, seed)
+            truth.wrong |= inj
+            res_in = dataclasses.replace(res, peptides=path)
     run = preflight(res_in, tmp / "pf")
     cfg = resolve_config(run.config_yaml, [f"seed={seed}", *overrides])
     roots = roots_of(run)
@@ -240,6 +314,15 @@ def score_chain(ch: Chain, levels: Sequence[float], tmp: Path | None = None) -> 
     rep = evaluate(
         per, hits_of(ch.avail), ch.truth, levels, ph, ch.cfg.stats.alpha.placement, extra
     )
+    f = pd.read_parquet(ch.avail["mapping_fdr"])
+    for dt in ("reverse", "shuffle"):
+        row = f[(f["section"] == "placement") & (f["decoy_type"] == dt) & (f["n_diff"] == 0)
+                & (f["length_class"] == "all")]  # fmt: skip
+        t = int(row["targets"].iloc[0]) if len(row) else 0
+        # Ŵ0 = estimated false placements among all stratum-0 targets; V0 = realised (exercise)
+        rep.extra[f"W0_{dt}"] = float(row["fdr_stratum"].iloc[0]) * t if t else 0.0
+        rep.extra[f"V0_{dt}"] = float(rep.exercise[f"{dt}_m0"])
+        rep.extra[f"T0_{dt}"] = float(t)
     if tmp is not None:
         shutil.rmtree(tmp, ignore_errors=True)
     return rep

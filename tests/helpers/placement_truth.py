@@ -12,8 +12,10 @@ work tables (hit Parquets, 0-based half-open; ``peptide_hits.tsv``, 1-based clos
   its best cost m_T) overlaps a true origin.
 * **Lists**: (decoy type, m_T); each accepted peptide belongs to exactly one, its best-cost list,
   so the pooled FDP (decision 5) is over the union with each peptide once.
-* **Exercised** (decision 4): mean >= 1 per replicate of peptides of the list (target hit at cost
-  m) that are wrong or whose best-cost loci miss every origin.
+* **Exercised** (decision 4, PR #113 review B2): mean >= 1 per replicate of the list's peptides
+  (target hit at cost m, any q) that are false, i.e. whose best-cost loci miss every origin. A
+  wrong string placed at its true origin (de novo read, other-strain peptide) is not a null
+  candidate.
 * **Unique guard** (decision 3): a non-false accepted peptide with a non-origin accepted locus must
   not be ``unique`` unless all its loci lie in a true gene.
 """
@@ -201,7 +203,7 @@ class Replicate:
     """Per-replicate FDP per list and pooled at each level, plus side measures."""
 
     fdp: dict[str, np.ndarray]
-    exercise: dict[str, int]  # list -> wrong or non-origin peptides with a target hit at m
+    exercise: dict[str, int]  # list -> false peptides (best-cost loci miss every origin), any q
     accepted: dict[str, np.ndarray]
     loci_false_share: float  # accepted (peptide, locus) rows at alpha missing every origin
     guard: list[str]  # unique-guard violations (real output)
@@ -233,7 +235,6 @@ def evaluate(
     key = [f"{d}_m{int(m)}" for d, m in zip(per["decoy_type"], per["m_target"], strict=True)]
     key_arr = np.array(key, dtype=object)
     is_false = np.array([false[p] for p in peps], dtype=bool)
-    nullish = np.array([false[p] or p in truth.wrong for p in peps], dtype=bool)
     fdp: dict[str, np.ndarray] = {}
     acc: dict[str, np.ndarray] = {}
     for name in [*(list_name(x) for x in LISTS), POOLED]:
@@ -245,7 +246,7 @@ def evaluate(
             a[j] = n
             f[j] = (called & is_false).sum() / n if n else 0.0
         fdp[name], acc[name] = f, a
-    exercise = {list_name(x): int((nullish & (key_arr == list_name(x))).sum()) for x in LISTS}
+    exercise = {list_name(x): int((is_false & (key_arr == list_name(x))).sum()) for x in LISTS}
     rows = [(p, iv) for p in peps[~np.isnan(q) & (q <= alpha)] for iv in loci.get(p, ())]
     lf = sum(not truth.overlaps(iv, p) for p, iv in rows) / len(rows) if rows else 0.0
     g, gm, fm = [], [], np.zeros(len(levels))

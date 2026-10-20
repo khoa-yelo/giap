@@ -1,8 +1,9 @@
 """Attack nulls for stratum-0 pi_wrong with cross-strain database input (ADR-0019; GIAP_SPEC.md
 §7.2.5 step 4, §8.5; statistician). Methods: docs/methods/placement-fdr.md, "Cross-strain input".
 
-DRAFT by the statistician for the test-author (copy to tests/calibration/attacks/ after ADR-0019 is
-accepted). With ``search_db = other`` some *correct* identifications are database-strain sequences
+Status (2026-10-21): ADR-0019 accepted by Khoa; this attack is committed with M3-21 (PR #113) and
+its ``placement`` test is a strict xfail until the ADR-0019 implementation PR lands (then remove
+the mark). With ``search_db = other`` some *correct* identifications are database-strain sequences
 spanning a strain difference: they have no exact true locus, so an exact chance hit elsewhere is a
 false stratum-0 placement, while their PEP (identification error only) is small. Mean PEP then
 counts only the identification errors among the peptides without an exact origin, and the FDR is
@@ -18,8 +19,7 @@ and spanning peptides 8-10 aa, p_j falls with length: the length-correlated case
 ``none_d00`` (delta = 0: must not lose power vs mean PEP; checked by ``test_power_at_delta_zero``).
 
 - ``test_attack_strain_span_stays_at_level``: through ``placement``. Fails before the ADR-0019
-  implementation (mark ``xfail(strict=True, reason="ADR-0019 implementation pending")`` until the
-  implementer's PR lands, then remove the mark).
+  implementation (strict xfail "ADR-0019 implementation pending"; remove the mark with that PR).
 - ``test_attack_strain_span_reference_passes``: reference ADR-0019 rule (per length class pi_hat
   from the exact-match shares, 95 % upper bound, ADR-0010 decoy weights, c = max) on the same
   generator.

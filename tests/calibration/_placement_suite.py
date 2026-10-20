@@ -4,15 +4,20 @@
 and gates, through ``_gate.calibrate_levels`` (ADR-0015 two-block confirmation, sharding):
 
 * every list (decoy type x m in {0, 1, 2}) -- an unexercised list has FDP 0 and passes, so "every
-  list the suite exercises" is covered whatever the truth says (decision 4);
+  list the suite exercises" is covered whatever the truth says (decision 4). For an unexercised
+  list this is a **smoke check** (coordinates, the false-placement oracle, wiring), not calibration
+  evidence; only claimed lists, whose exercise is asserted, are evidence;
 * the pooled FDP over the union, each peptide once at its best-cost list (decision 5).
 
 Each check has its own record stream ``<base>.<list>``; the replicate index is recovered from the
 check stream's seed, so all checks of replicate i read one simulation. After the gate, from the
-replicates actually run: every claimed list must be exercised (mean >= 1 wrong or non-origin
-peptide with a target hit at that cost per replicate; else a suite-configuration error), the
+replicates actually run: every claimed list must be exercised (mean >= 1 false peptide -- target
+hit at that cost, any q, no best-cost locus overlapping a true origin -- per replicate; else a
+suite-configuration error; PR #113 review B2), the
 unique guard holds in every replicate, and with planted near-paralogs the mutant "adds all loci of
-cost <= m_T + 1" is caught by the guard in every replicate (decision 3). FDP / accepted /
+cost <= m_T + 1" is caught by the guard in every replicate (decision 3). With ``estimate``, per
+decoy type at m = 0: total V0 >= ``v0_floor`` and mean(Ŵ0 = fdr_stratum x targets) >= mean(V0) -
+k SE(V0 - Ŵ0), V0 = realised false placements among all stratum-0 targets. FDP / accepted /
 exercise tables are appended to ``<log_dir>/placement_m3_21_diagnostics.jsonl`` for the
 statistician's sign-off.
 """
@@ -48,6 +53,8 @@ def run_fdr_suite(
     *,
     full: bool = False,
     mutant: bool = False,
+    estimate: Sequence[str] = (),
+    v0_floor: int = 30,
 ) -> dict[int, Replicate]:
     """Gate one suite; returns the replicates run (index -> result). ``replicate(seed, dir)``."""
     levels = C.load_tolerances().levels
@@ -91,6 +98,17 @@ def run_fdr_suite(
                 "loci_false_share": float(np.mean([r.loci_false_share for r in reps])),
                 "mutant_pooled_fdp": np.mean([r.fdp_mutant for r in reps], axis=0).tolist(),
                 "mutant_guard_violations": int(sum(len(r.guard_mutant) for r in reps)),
+                "stratum0_mean": {
+                    k: float(np.mean([r.extra.get(k, 0.0) for r in reps]))
+                    for k in (
+                        "W0_reverse",
+                        "V0_reverse",
+                        "T0_reverse",
+                        "W0_shuffle",
+                        "V0_shuffle",
+                        "T0_shuffle",
+                    )
+                },
                 "gate": [rec for g in gates.values() for rec in g.detail()],
             }
         )
@@ -107,5 +125,15 @@ def run_fdr_suite(
             missed = [i for i, r in memo.items() if not r.guard_mutant]
             assert not missed, (
                 f"the cost <= m_T + 1 mutant survives the guard in replicates {missed}"
+            )
+        k = C.load_tolerances().se_multiplier
+        for dt in estimate:
+            w = np.array([r.extra[f"W0_{dt}"] for r in reps])
+            v = np.array([r.extra[f"V0_{dt}"] for r in reps])
+            assert v.sum() >= v0_floor, f"{dt} m0: total V0 {v.sum():.0f} < floor {v0_floor}"
+            se = float((v - w).std(ddof=1) / np.sqrt(len(v)))
+            assert w.mean() >= v.mean() - k * se, (
+                f"{dt} m0: estimated false placements {w.mean():.3f} < realised {v.mean():.3f}"
+                f" - {k} SE ({se:.3f})"
             )
     return memo

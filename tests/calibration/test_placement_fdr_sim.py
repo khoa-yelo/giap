@@ -1,26 +1,40 @@
 """Genome-level placement FDR on giapsim through the mapping steps (issue M3-21; GIAP_SPEC.md
 §7.2.9 "Calibration: placement FDR <= q + Monte Carlo error on simulated wrong peptides (database
-and de novo error models)", §8.4 "Placement FDR" row; docs/specs/M3-21 lead decisions 1-7).
+and de novo error models)", §8.4 "Placement FDR" row; docs/specs/M3-21 lead decisions 1-12;
+ADR-0019).
 
 Every replicate: a giapsim genome (100 kb fast / 1 Mb full), M3-19 proteomics, ``giap
 preflight`` and the registered mapping steps (helpers.placement_sims). FDP per list (decoy type x
 m) and pooled, false placement = no accepted locus overlaps a true origin (helpers.placement_truth),
 criterion mean FDP <= q + 2 SE at every level (``_placement_suite.run_fdr_suite``).
 
-Suites and what they exercise (mean wrong or non-origin peptides with a target hit per replicate,
-measured at 100 kb, 2026-10-20):
+"Exercised" (decision 4, PR #113 review B2) = mean >= 1 per replicate of the list's peptides (target
+hit at cost m, any q) that are *false*: no best-cost locus overlaps a true origin. A wrong string
+placed at its true origin (de novo read, other-strain peptide) is not a null candidate.
 
-* ``database_shuffled`` (pi_wrong 0.01 / 0.05, ``search_db = other``, 20 planted near-paralogs for
-  the unique guard and its mutant): **no list is exercised** -- after the q <= q_value_max filter
-  about 1-2 % of the mapped queries are wrong and none hits the 100-kb target by chance. Nothing is
-  claimed; every list and the pooled FDP are still gated. The stratum-0 risk is checked on π̂
-  directly (``test_database_stratum0_pi_hat_covers_the_wrong_share``).
-* ``related_other_strain``: M3-18 strain (5 SNV/kb), other-strain wrong peptides lifted to their
-  ortholog (decision 2) -> list reverse m = 1 (about 30 per replicate).
-* ``denovo``: M3-20 reads, shuffle decoys -> shuffle m = 1 (about 1,500) and m = 2 (about 60).
-* ``related_dbstrain`` (decisions 8, ADR-0019): correct peptides reported as the database strain's
-  sequence -> reverse m = 0 (about 4 per replicate); normal FDP gate, plus the 1-Mb stratum-0
-  estimate check (``calibration_full``, strict xfail "ADR-0019 implementation pending").
+**What the genome level shows.** At 100 kb no suite below except the stressed arm exercises any
+list (measured 2026-10-21): tryptic >= 7-aa peptides that pass the q filter almost never hit a
+100-kb-1-Mb six-frame translation by chance, and tolerant search needs >= 10 aa (``max_diff``
+10-11 -> 1, 12-40 -> 2), so chance non-origin hits at m >= 1 are ~0 at <= 1 Mb. The unclaimed gates
+are regression smoke checks (coordinates, oracle, wiring), not calibration evidence. The FDR claim
+for **m >= 1 rests on the list-level suites** (test_placement_fdr_lists.py,
+attacks/test_attack_placement_pi.py); stratum 0 at genome level on the stressed arm and the
+estimate checks.
+
+* ``database_shuffled`` (pi_wrong 0.01 / 0.05, 20 planted near-paralogs for the unique guard and
+  its mutant): smoke check; the stratum-0 π̂ is checked directly
+  (``test_database_stratum0_pi_hat_covers_the_wrong_share``).
+* ``database_stressed`` (review B4, b2sim ``--mode short``): M3-19 table plus injected shuffled
+  7-8-mer wrong database peptides, PEP = the true wrong share (delta = 0) -> claims reverse m = 0
+  (about 2.5 false per replicate at 100 kb, K = 2,000; 1 Mb, K = 400), FDP gate plus the estimate
+  check mean(Ŵ0) >= mean(V0) - 2 SE. Exercised but not binding (FDR estimate < 0.002 at the end
+  of the list). Passes under the current rule (statistician: mean PEP is valid at delta = 0).
+* ``related_other_strain`` (5 SNV/kb, other-strain wrong peptides at their lifted ortholog):
+  smoke check (all of them are placed at their origin).
+* ``denovo``: smoke check (errors are placed at their spectrum's origin).
+* ``related_dbstrain`` (decision 8, ADR-0019): correct peptides reported as the database strain's
+  sequence; FDP smoke check at 100 kb, and the 1-Mb stratum-0 estimate check at 5 SNV/kb
+  (``calibration_full``, strict xfail "ADR-0019 implementation pending").
 """
 
 from __future__ import annotations
@@ -78,6 +92,32 @@ def test_database_shuffled_placement_fdr_full(tmp_path: Path, pi_wrong: float) -
     _suite(True, pi_wrong, tmp_path)
 
 
+def _stressed(full: bool, tmp: Path) -> None:
+    k_inject = 400 if full else 2000
+
+    def replicate(seed: int, d: Path):  # type: ignore[no-untyped-def]
+        ch = run_chain(
+            "database", seed, d, length=_length(full),
+            proteomics=_proteomics(pi_wrong=0.05, n_runs=1), inject_short=k_inject,
+        )  # fmt: skip
+        return score_chain(ch, LEVELS, d)
+
+    run_fdr_suite(
+        "placement.sim_db_stressed", replicate, tmp, [("reverse", 0)], full=full,
+        estimate=("reverse",),
+    )  # fmt: skip
+
+
+def test_database_stressed_stratum0_placement_fdr(tmp_path: Path) -> None:
+    """Review B4: the stratum-0 database list exercised at genome level (see module docstring)."""
+    _stressed(False, tmp_path)
+
+
+@pytest.mark.calibration_full
+def test_database_stressed_stratum0_placement_fdr_full(tmp_path: Path) -> None:
+    _stressed(True, tmp_path)
+
+
 def _related(full: bool, tmp: Path) -> None:
     def replicate(seed: int, d: Path):  # type: ignore[no-untyped-def]
         ch = run_chain(
@@ -87,7 +127,7 @@ def _related(full: bool, tmp: Path) -> None:
         )  # fmt: skip
         return score_chain(ch, LEVELS, d)
 
-    run_fdr_suite("placement.sim_related", replicate, tmp, [("reverse", 1)], full=full)
+    run_fdr_suite("placement.sim_related", replicate, tmp, (), full=full)
 
 
 def test_related_other_strain_placement_fdr(tmp_path: Path) -> None:
@@ -109,8 +149,7 @@ def _denovo(full: bool, tmp: Path) -> None:
         )  # fmt: skip
         return score_chain(ch, LEVELS, d)
 
-    claimed = [("shuffle", 1), ("shuffle", 2)]
-    run_fdr_suite("placement.sim_denovo", replicate, tmp, claimed, full=full)
+    run_fdr_suite("placement.sim_denovo", replicate, tmp, (), full=full)
 
 
 def test_denovo_error_model_placement_fdr(tmp_path: Path) -> None:
@@ -179,15 +218,16 @@ def _related_dbstrain(full: bool, tmp: Path) -> None:
         ch = run_chain("related_dbstrain", seed, d, **kw)  # type: ignore[arg-type]
         return score_chain(ch, LEVELS, d)
 
-    run_fdr_suite("placement.sim_related_dbstrain", replicate, tmp, [("reverse", 0)], full=full)
+    run_fdr_suite("placement.sim_related_dbstrain", replicate, tmp, (), full=full)
 
 
 def test_related_dbstrain_placement_fdr(tmp_path: Path) -> None:
     """Decision 8 (replaces the decision-7 xfail): related genome, ``search_db = other``, correct
     peptides reported as the database (M3-18 reference) strain's sequence at the same protein
     offset (SNV-only strain, 5 SNV/kb; one run). Peptides spanning a strain difference have no exact
-    origin; their chance exact hits elsewhere exercise the stratum-0 list (about 4 per replicate
-    at 100 kb). Normal FDP gate: it passes under the current rule because the list does not bind."""
+    origin; their chance exact hits elsewhere are the stratum-0 null, about 0 per replicate at
+    100 kb (review B1: L/I SNV pairs keep their origin), so this is a smoke check; the 1-Mb
+    estimate check below is the evidence."""
     _related_dbstrain(False, tmp_path)
 
 
@@ -196,23 +236,27 @@ def test_related_dbstrain_placement_fdr_full(tmp_path: Path) -> None:
     _related_dbstrain(True, tmp_path)
 
 
-EST_R = C.replicates("placement", False)  # 50 genomes of 1 Mb (about 30 s each)
+EST_R = 100  # review B3: 1-Mb genomes, about 13 s each; SE ~ 0.09 at V0 ~ 0.75
+EST_SNV = 5.0  # review B3 (decision 8 allows >= 2/kb): V0 ~ 0.75, D0 ~ 9 per replicate
+EST_V0_FLOOR = 30
 
 
 @pytest.mark.calibration_full
 @ADR0019
 def test_related_dbstrain_stratum0_estimate_covers_false_placements(tmp_path: Path) -> None:
-    """Decision 8 estimate check (statistician, B2): 1-Mb genome, 2 SNV/kb, correct peptides from
-    the reference strain as above. Per replicate and decoy type at m = 0 (database input: reverse;
-    the shuffle list is empty), Ŵ0 = ``fdr_stratum`` x ``targets`` of the ``mapping_fdr`` row (all
-    length classes) is the estimated number of false placements among all stratum-0 targets, V0
-    the realised number (no best-cost locus overlaps a true origin). Assert mean(Ŵ0) >= mean(V0) -
-    k SE(V0 - Ŵ0) over EST_R replicates. Mean PEP counts only identification errors, so Ŵ0
-    under-states V0 (statistician: ratio 0.03-0.46); strict xfail until ADR-0019 is implemented."""
+    """Decision 8 estimate check (statistician, B2; review B3): 1-Mb genome, 5 SNV/kb, correct
+    peptides from the reference strain as above. Per replicate and decoy type at m = 0 (database
+    input: reverse; the shuffle list is empty), Ŵ0 = ``fdr_stratum`` x ``targets`` of the
+    ``mapping_fdr`` row (all length classes) is the estimated number of false placements among
+    all stratum-0 targets, V0 the realised number (no best-cost locus overlaps a true origin).
+    Assert mean(Ŵ0) >= mean(V0) - k SE(V0 - Ŵ0) over EST_R replicates and total V0 >=
+    EST_V0_FLOOR. Mean PEP counts only identification errors, so Ŵ0 under-states V0
+    (statistician: Ŵ0 ~ 0.1 vs V0 ~ 0.75); strict xfail until ADR-0019 is implemented (measured
+    ratio 0.96-2.4 there)."""
     from helpers.placement_sims import hits_of
     from helpers.placement_truth import best_loci
 
-    kw = _dbstrain(1_000_000, 2.0)
+    kw = _dbstrain(1_000_000, EST_SNV)
     w0, v0 = [], []
     for i in range(EST_R):
         seed = int(C.replicate_rng("placement.est_related_dbstrain", i).integers(0, 2**31 - 1))
@@ -236,7 +280,7 @@ def test_related_dbstrain_stratum0_estimate_covers_false_placements(tmp_path: Pa
     se = float((v - w).std(ddof=1) / np.sqrt(len(v)))
     rec = {"suite": "placement.est_related_dbstrain", "n": len(v), "se": se}
     write_diagnostics({**rec, "mean_W0": float(w.mean()), "mean_V0": float(v.mean())})
-    assert v.mean() > 0, "stratum 0 not exercised: no realised false placement"
+    assert v.sum() >= EST_V0_FLOOR, f"stratum 0 under-exercised: total V0 {v.sum():.0f}"
     assert w.mean() >= v.mean() - k * se, (
         f"estimated stratum-0 false placements {w.mean():.3f} < realised {v.mean():.3f} - {k} SE"
         f" ({se:.3f}), {len(v)} lists"
