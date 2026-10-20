@@ -132,3 +132,13 @@ does to power (TU scores of large TUs have smaller variance), merging and the be
     finite z, so NaN marks an input fault); it differs from `perm_p` only there. `perm_p` with ±inf obs
     follows the test-author's table (+inf "greater" = (1 + #{null = +inf})/(1 + B), etc.).
     `besag_clifford` gets the same `_tol` fix; no extra test.
+
+## Lead decisions after the statistician's review of #118 (2026-10-20)
+20. Methods note in this PR: docs/methods/islands.md §"Scan and maximum statistic" (the statistician's
+    text in the #118 review comment, or equivalent), and the header no longer says sign-off waits for
+    M5-06 for this section.
+21. Add a `calibration_full` arm (R = 500) to the scan calibration file: FWER level at α ∈ {0.01, 0.05,
+    0.10} plus the planted-island check (false-island rate ≤ window FWER; starting point: the
+    statistician's isl.py).
+22. `fwer_p` raises `ValueError` on a negative finite |S| (signed S passed by mistake would lose every
+    low island).
