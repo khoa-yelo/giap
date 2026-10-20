@@ -139,3 +139,15 @@ adjustment as a known offset) and §"Descriptive rows".
 14. The example-7 warning goes through the step's issue/log channel (not `plasmid_rows`); untested at unit
     level. Plasmid HL bias/coverage stays a recorded diagnostic, not a gate (statistician may promote it
     later); the implementer times it on Slurm and the lead adds it to NIGHTLY if > 60 s.
+
+## Lead decisions after the statistician's review of PR #110 (changes requested)
+15. The plasmid HL CI stays as is for v1; coverage of log2(copy number) is not a gate. The estimand is the
+    realised dosage-plus-regulation shift, which the CI covers conservatively (0.997–1.000; Slurm 1860197,
+    1860273). docs/methods/region-tests.md: rewrite "Bias at the null" per the statistician's suggested
+    text (remove "read the CI as a lower bound", add the coverage tables and job IDs, note block bootstraps
+    reach only 0.85 / 0.71), and replace the ≈ +0.3 log2 null-bias claim with the measured −0.087 (SE
+    0.049; +0.022 against the realised shift) and the note that its sign depends on the detection slope.
+16. `test_recorded_plasmid_hl_bias_and_ci_coverage` also computes the realised-shift target from the
+    simulator truth (`rd.simulate` then `rd.tables_from`, HL of `abundance_log2_true`), records both
+    coverages, and warns when the realised-shift coverage is below 0.93. Still recorded, not gated.
+17. Backlog: a shared `ci_few_units` flag for M4-17 and M4-18 CIs on fewer than 10 TUs.
