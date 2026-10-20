@@ -53,10 +53,10 @@
     ],
     "optional_inputs": [
       "abundance",
+      "detectability_summary",
       "id_map",
       "peptides",
-      "replicon_depth",
-      "summary_parts"
+      "replicon_depth"
     ],
     "outputs": [
       "detection_summary",

@@ -1,7 +1,7 @@
 """``regions_stats`` rows: plasmid replicon-level effects, prophage subsets, the table (M4-18).
 
 GIAP_SPEC.md §7.3.5(b), §8.5 attack 4, §9.2, §9.3; docs/specs/M4-18-regions-stats-table.md (lead
-decisions 1-14); docs/methods/region-tests.md "Replicon-level effects" and "Descriptive rows".
+decisions 1-23); docs/methods/region-tests.md "Replicon-level effects" and "Descriptive rows".
 
 - Plasmid rows: the plasmid's own O - E (E = sum of ``p_detect``) and the Hodges-Lehmann shift of
   the plasmid's raw log2 abundance against the reference replicons (``kind = chromosome``; else
@@ -118,9 +118,14 @@ def _plasmid_contigs(genes: pd.DataFrame, members: dict[str, B8]) -> dict[str, s
     return {rid: str(pd.Series(contig[m]).mode().iloc[0]) for rid, m in members.items()}
 
 
-def depth_gaps(genes: pd.DataFrame, replicons: pd.DataFrame, depth: pd.DataFrame) -> list[str]:
+def depth_gaps(
+    genes: pd.DataFrame, replicons: pd.DataFrame, depth: pd.DataFrame, cfg: GiapConfig
+) -> list[str]:
     """Plasmid-region and reference contigs absent from ``depth`` (their adjusted rows are
-    omitted; the step logs a warning, lead decision 14)."""
+    omitted; the step logs a warning, lead decision 14); none when ``plasmid`` is not in
+    ``context.region_types`` (decision 22)."""
+    if "plasmid" not in cfg.context.region_types:
+        return []
     pcontig = _plasmid_contigs(genes, _plasmid_members(genes))
     if not pcontig:
         return []
@@ -169,8 +174,10 @@ def _one_plasmid(
     contig_col = genes["contig"].astype(str).to_numpy()
     tu = pd.factorize(pd.Series(list(zip(contig_col, genes["tu_id"].astype(str), strict=True))))[0]
     tu = tu.astype(np.float64)
-    if genes.loc[pm, "tu_id"].isna().any():
-        raise ValueError(f"missing tu_id on plasmid region {rid!r} (C6: every gene has a tu_id)")
+    used = pm | np.isin(contig_col, ref)  # lead decision 22: plasmid and reference genes
+    if genes.loc[used, "tu_id"].isna().any():
+        raise ValueError(f"missing tu_id on plasmid region {rid!r} or its reference replicons "
+                         "(C6: every gene has a tu_id)")  # fmt: skip
     r = d.astype(float) - p
     ci = tu_block_bootstrap(pd.DataFrame({"tu": tu[pm], "r": r[pm]}), "tu", _sum_r, B, rng)
     o, e = float(d[pm].sum()), float(p[pm].sum())
@@ -270,12 +277,12 @@ def subset_rows(
 def _test_rows(tests: pd.DataFrame) -> list[dict[str, Any]]:
     """M4-17 rows with ``subset = all`` and the detection columns of both stat rows."""
     key = list(zip(tests["region_id"].astype(str), tests["contig"].astype(str), strict=True))
-    oe = {k: r for k, r in zip(key, tests.to_dict("records"), strict=True)
-          if r["stat"] == "o_minus_e"}  # fmt: skip
-    hl = {k: float(r["effect"]) for k, r in zip(key, tests.to_dict("records"), strict=True)
+    records = tests.to_dict("records")
+    oe = {k: r for k, r in zip(key, records, strict=True) if r["stat"] == "o_minus_e"}
+    hl = {k: float(r["effect"]) for k, r in zip(key, records, strict=True)
           if r["stat"] == "hl_shift"}  # fmt: skip
     rows = []
-    for k, r in zip(key, tests.to_dict("records"), strict=True):
+    for k, r in zip(key, records, strict=True):
         src = oe.get(k)
         o, e = (_NA, _NA) if src is None else (float(src["observed"]), float(src["expected"]))
         det = _detection(o, e, hl.get(k, _NA))

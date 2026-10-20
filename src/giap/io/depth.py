@@ -25,8 +25,11 @@ def _depth(v: str | None) -> float:
 def read_replicon_depth(path: Path) -> tuple[pd.DataFrame | None, list[Issue]]:
     """(``contig``, ``mean_depth``) frame and issues. Missing columns, non-numeric or non-finite
     depths, depths <= 0 (log2 undefined) and duplicate contigs are errors; the frame is then
-    ``None``."""
-    header, rows = read_tsv(path)
+    ``None``. A missing, empty or ragged file is an error issue too (lead decision 19)."""
+    try:
+        header, rows = read_tsv(path)
+    except (OSError, ValueError) as exc:
+        return None, [Issue("replicon_depth.unreadable", "error", f"{path}: {exc}")]
     missing = [c for c in _COLUMNS if c not in header]
     if missing:
         return None, [Issue("replicon_depth.columns", "error",

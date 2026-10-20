@@ -3,8 +3,9 @@ and ``tables/detection_summary.tsv`` (the M4 parts; M5 adds autocorrelation, isl
 
 Inputs: the final gene table (M4-15 ``work/genetable/genes.parquet``, key ``gene_table``), the
 M4-06 contract tables C1-C14 (validated with ``load_m4_inputs``; an ``error`` issue stops the
-step), optionally the ``--replicon-depth`` TSV (§5.3) and a directory of extra summary parts
-(``*.parquet``, e.g. M4-15's ``detection_summary_parts``). Random streams, all from
+step), optionally the ``--replicon-depth`` TSV (§5.3) and M4-15's ``detectability_summary``
+parquet (detectability diagnostics rows; locally ``genetable/detection_summary_parts/
+detectability.parquet``). Random streams, all from
 ``config.seed``: ``context_stats`` (M4-17 region tests), ``context_stats.plasmids`` (parent of the
 per-plasmid streams) and ``context_stats.detection_summary`` (basic O - E CIs), so no part's draws
 depend on another part's content.
@@ -55,7 +56,7 @@ def _context_stats(
         depth, dissues = read_replicon_depth(inputs["replicon_depth"])
         if depth is None:
             raise ValueError(f"replicon depth: {[i.message for i in dissues]}")
-        gaps = depth_gaps(genes, m4.replicons, depth)
+        gaps = depth_gaps(genes, m4.replicons, depth, cfg)
         if gaps:
             log.warning("replicon_depth: no depth for %s; dosage-adjusted plasmid rows omitted",
                         ", ".join(gaps))  # fmt: skip
@@ -73,8 +74,8 @@ def _context_stats(
     parts = [basic_rows(genes, cfg.stats.bootstrap, for_step("context_stats.detection_summary",
                                                                seed)),
              qc_rows(m4.peptides, m4.peptide_hits, m4.unmapped)]  # fmt: skip
-    if "summary_parts" in inputs:
-        parts += [pd.read_parquet(p) for p in sorted(inputs["summary_parts"].glob("*.parquet"))]
+    if "detectability_summary" in inputs:  # M4-15 detectability diagnostics rows
+        parts.append(pd.read_parquet(inputs["detectability_summary"]))
     write_detection_summary(outputs["detection_summary"], detection_summary(parts))
 
 
@@ -84,9 +85,9 @@ def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | No
     inputs = {k: p for k, p in default_paths(work_dir).items()
               if k not in OPTIONAL_KEYS or p.exists()}  # fmt: skip
     inputs["gene_table"] = work_dir / "genetable" / "genes.parquet"
-    parts = work_dir / "genetable" / "detection_summary_parts"
-    if parts.is_dir():
-        inputs["summary_parts"] = parts
+    part = work_dir / "genetable" / "detection_summary_parts" / "detectability.parquet"
+    if part.exists():
+        inputs["detectability_summary"] = part
     if replicon_depth is not None:
         inputs["replicon_depth"] = replicon_depth
     tables = work_dir / "tables"
@@ -99,7 +100,7 @@ def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | No
 @step(
     "context_stats",
     inputs=["gene_table", *_REQUIRED],
-    optional_inputs=[*sorted(OPTIONAL_KEYS), "replicon_depth", "summary_parts"],
+    optional_inputs=[*sorted(OPTIONAL_KEYS), "detectability_summary", "replicon_depth"],
     outputs=["regions_stats", "detection_summary"],
 )
 def context_stats(ctx: StepContext) -> None:
