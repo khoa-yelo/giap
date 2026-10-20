@@ -628,8 +628,8 @@ def test_example7_speed_4500_genes() -> None:
     assert _best_of(3, lambda: simulate(1, n_genes_chromosome=4500)) < 2.0
 
 
-def test_speed_1000_genes() -> None:
-    assert _best_of(3, lambda: simulate(1)) < 0.2
+# The 1,000-gene target (best of 3 < 0.2 s, M4-07 acceptance) is checked in
+# benchmarks/test_sim_layout_bench.py: wall clock is flaky on loaded nodes.
 
 
 # ---------------------------------------------------------------------------- example 8: M0 adapter
