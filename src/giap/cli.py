@@ -275,7 +275,7 @@ def run(
         click.echo(f"giap run: error: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
     if executor == "local":
-        keys = ("peptides", "proteins", "annotation", "reference_peptides", "db_dir")
+        keys = ("peptides", "proteins", "abundance", "annotation", "reference_peptides", "db_dir")
         _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys})
     inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
     env_db = os.environ.get("GIAP_DB_DIR")
@@ -370,10 +370,15 @@ def _local_roots(
     import os
 
     from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
-    from giap.runner.local import cog_table, contaminant_library
+    from giap.runner.local import contaminant_library
+    from giap.setupdb.installed import cog_table
 
     inp = PreflightInputs(
-        genome, inputs["proteins"], inputs["peptides"], None, inputs["annotation"]
+        genome,
+        inputs["proteins"],
+        inputs["peptides"],
+        inputs.get("abundance"),
+        inputs["annotation"],
     )
     report, norm = run_preflight(inp, cfg, None, "preflight", outdir)
     write_outputs(outdir, report, norm)

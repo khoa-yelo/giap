@@ -27,7 +27,7 @@ from giap.genetable.evidence import accepted_peptides, gene_evidence
 from giap.io.genes_tsv import read_cog_def, write_genes_parquet
 from giap.io.issues import Issue
 from giap.io.work_tables import FILE_NAMES, load_m4_inputs
-from giap.runner.local import cog_table
+from giap.setupdb.installed import cog_table
 from giap.steps.registry import InputPath, StepContext, run_step, step
 
 __all__ = ["build_genes_pre", "m4_paths", "run_gene_table", "work_inputs"]
