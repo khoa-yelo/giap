@@ -123,3 +123,14 @@ def oriter_gradient(n_genes: int, rho: float, oriter_log2: float) -> tuple[Layou
 19. C15 is not added to `load_m4_inputs` / `FILE_NAMES` / `M4Inputs` in M5-04; M5-08 decides its loader.
 20. `simulate_expression` does not check feature overlap (example 4 as written).
 21. Simulator tests stay under tests/unit/test_sim_*.py (as M4-07/08), not tests/sim/.
+
+## Lead decisions after the code review of #119 (2026-10-20)
+22. Tests to add (test-author): the oriC start reduction when s0 ≥ L, with `0 <= start < L` asserted in the
+    placement invariants; `ABUNDANCE_BETA` pinned (or the detected fraction compared with the
+    covariates_only default, 0.537 vs 0.553); plus the S3 list — non-finite `oriter_log2` raises, a gap of
+    exactly 232 bp is accepted, ties take the first gap, the M0 adapter handles an origin-crossing feature,
+    and `island_first_tu(1000) == 138`.
+23. C15 tightened now (S2): `start < length` for every contig, and `end <= length` on linear contigs
+    (`end <= 2*length` stays for circular ones). Codes `contract.features.start_bounds` and
+    `contract.features.bounds`.
+24. S1 accepted: drop the redundant `last_end > length` branch in `_place_oric`.
