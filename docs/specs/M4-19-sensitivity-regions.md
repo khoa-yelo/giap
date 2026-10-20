@@ -97,3 +97,19 @@ sets, the single-peptide rerun refits detectability.
 3. Family IDs are `<region_id>:<contig>:<stat>` (M4-17 `split_contigs` regions get one row per contig).
 4. Flagged set = rows with `null_model = circular_shift` and q ≤ `alpha.context`; rows with p NA are
    never flagged.
+
+## Lead decisions after the test-author's report (2026-10-20)
+5. The family signature stays `(genes, cfg, rng)`; `run_sensitivity` binds C1 replicons, C7 regions and
+   C8 region_genes with `functools.partial` (as M5-10 decision 38), so the regions family uses the same
+   inputs and topology as `regions_stats`.
+6. The single-peptide refit reuses the primary's folds (`for_step("detectability", seed)`); all other
+   draws of a family come from its one family stream (CRN). The primary is never refit.
+7. Example 6: no sensitivity.tsv is written; the step logs that the family is off. Recording it in the run
+   manifest is done by `finalize` later (backlog).
+8. A family whose module is disabled produces no rows (backlog test once module switches exist).
+9. `top3` is not rerun when `abundance.method` is already `top3`; it is skipped with a "top3" log line when
+   there are no peptide intensities.
+10. Writer `giap.io.sensitivity_tsv`, output `tables/sensitivity.tsv`, schema
+    `src/giap/schemas/tables/sensitivity.schema.json` (repo convention); the test may stop accepting
+    `sensitivity.json` later.
+11. The implementer starts after M4-15 (#111) merges, since the integration tests need its steps.
