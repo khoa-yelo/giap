@@ -106,3 +106,23 @@ None new; the statistician checks that `p_detect` is attached only from cross-fi
 3. Yes: read the COG 2020 table when `giap setup --cog` installed it (manifest entry `cog2020_def`/
    `cog2020_fun`); otherwise `cog_category = NA` and run flag `layer_missing:cog`. Tests use a tiny
    fixture COG table, never the real `$GIAP_DB_DIR`.
+
+## Lead decisions after the test-author's report (2026-10-20)
+4. `gc_local_dev`: copied from C6 / M2-20 layers when the column is present, NA only when absent
+   (M2-20 has merged; M4-index decision 2).
+5. COG: `assemble_genes(..., cog_def: DataFrame | None = None)` (keyword, default None → `cog_category`
+   NA); the step passes the table read from the optional input key `cog2020_def` (raw NCBI
+   `cog-20.def.tab`, like `contaminants` reaches `loci`). The workflow resolves that path from the setup
+   manifest; this refines decision 3.
+6. A contract error raises `StepError` (runner exit code 4), not exit 1.
+7. giapsim writes `annotation_source = "bakta_full"` so simulated outputs validate against the §9.3 enum
+   (giapsim is tooling: the implementer changes it); the integration test's rewrite can then go.
+8. Work-dir layout: `run_gene_table` reads the real `giap run` layout (TSVs under `mapping/`, C14 under
+   `annotation/`) through the existing M4 input loader; the flat `default_paths` layout stays accepted
+   for unit fixtures.
+9. Several COG IDs on one gene: `cog_id` = the lexicographically smallest, `cog_category` from that ID;
+   bare category xrefs (`COG:L`) are ignored (category comes from the table). No id map → `source_id` =
+   `locus_tag`. Types: `island_id` string, `replichore` string (`right`/`left`, M5-08),
+   `replichore_position` float; all NA in M4.
+10. "I/O only through io/" is enforced for `genetable/assemble.py` only; the step-level convention is a
+    backlog item (merged steps already read parquet directly).
