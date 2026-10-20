@@ -73,3 +73,11 @@ at defaults ≤ 0.01; tolerant and unmapped shares reported.
 2. If the recorded Nissle full-DB JSON is not ready when M3 closes: **Proposed default:** use the
    light-DB Bakta JSON for TE1 (CDS calls are identical between DBs for coordinates), and re-run
    once G17 fixtures exist.
+
+## Lead decisions (2026-10-20)
+1. Accept the default: the digest keeps the protein as Bakta writes it (with the initiator `M`); no
+   Met-excised peptides are generated, so only the non-ATG-start exception arises for TE1.
+2. The recorded full-DB Bakta JSONs exist (`tests/data/recorded/bakta/1.12.2-full/{nissle,k12}`): use
+   the full-DB recording for TE1; the light-DB fallback is not needed.
+3. TE8 (UniProt K-12) needs the network: it runs only in the weekly job (marker `e2e`/`slow` as the
+   spec says); unit and CI tests use a small recorded excerpt with PROVENANCE.md, never the network.
