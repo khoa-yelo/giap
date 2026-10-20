@@ -13,9 +13,11 @@ Interface assumed (spec "Public interface"; field names pinned here by the test 
   I = L collapsing; lead decision 4), ``non_atg_nterm`` (distinct N-terminal products of genes
   whose first genome codon is not ATG **and** whose Bakta protein starts with M; decision 5;
   excluded from the share),
-  ``exact_inframe`` (``route = exact`` with ``locus_class`` in {cds_inframe, sorf} at the
-  peptide's own gene) and ``misses`` (the rest); ``peptides == non_atg_nterm + exact_inframe +
-  misses``.
+  ``exact_inframe`` (an accepted ``route = exact`` row with ``locus_class`` in {cds_inframe,
+  sorf} at one of the peptide's own genes, or, lead decision 10, an exact row whose class
+  outranks them (``rna_overlap``, ``pseudogene``) on a locus in frame inside one of its own
+  genes; the latter also counted in ``exact_inframe_masked``) and ``misses`` (the rest);
+  ``peptides == non_atg_nterm + exact_inframe + misses``.
 * ``shares: Mapping[str, float]`` with ``exact_inframe = exact_inframe / (peptides -
   non_atg_nterm)``.
 * ``passed: bool`` (``shares["exact_inframe"] >= 0.999``).
@@ -48,6 +50,7 @@ NISSLE_JSON = RECORDED / "nissle1917.json.gz"
 NISSLE_GENOME = REPO / "tests" / "data" / "genomes" / "nissle1917.fna.gz"
 THRESHOLD = 0.999  # §11.6 TE1 proxy
 NISSLE_PEPTIDES, NISSLE_NON_ATG_NTERM = 164_181, 431  # lead decisions 4-5
+NISSLE_EXACT_INFRAME_MASKED = 191  # decision 10 (reviewer's run of PR #115)
 
 pytestmark = pytest.mark.slow
 
@@ -187,6 +190,8 @@ def test_te1_nissle_full_db_recording_passes() -> None:
     _check_shape(r)
     assert r.counts["peptides"] == NISSLE_PEPTIDES
     assert r.counts["non_atg_nterm"] == NISSLE_NON_ATG_NTERM
+    assert r.counts["exact_inframe_masked"] == NISSLE_EXACT_INFRAME_MASKED
+    assert r.counts["exact_inframe_masked"] <= r.counts["exact_inframe"]
     assert r.shares["exact_inframe"] >= THRESHOLD
     assert r.passed is True
     assert r.exceptions

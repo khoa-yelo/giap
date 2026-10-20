@@ -188,3 +188,13 @@ def test_missed_2_spans_two_internal_sites() -> None:
 def test_unknown_enzyme_is_rejected() -> None:
     with pytest.raises(ValueError):
         digest(EX, enzyme="chymotrypsin")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("missed", [-1, -2])
+def test_negative_missed_is_rejected(missed: int) -> None:
+    with pytest.raises(ValueError):
+        digest(EX, missed=missed)
+
+
+def test_missed_zero_is_accepted() -> None:
+    assert digest(EX, missed=0, min_len=1)
