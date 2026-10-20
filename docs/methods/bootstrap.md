@@ -108,7 +108,7 @@ a window-sum maximum needs (ADR-0021).
 bootstrap slightly under-represents dependence across block joins. With ℓ above the correlation
 length this bias is small; the M5 island calibration checks FWER with this null.
 
-The statistician has not yet signed off on this section (M5-02); the sign-off is pending.
+Signed off by the statistician (PR #116 re-review).
 
 ## Hodges–Lehmann shift
 

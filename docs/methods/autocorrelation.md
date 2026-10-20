@@ -6,7 +6,7 @@ ADR-0021).
 
 `giap.stats.autocorr` provides `morans_i`, `join_count`, `label_permutations`, `tu_blocks`,
 `tu_block_permutations`, `lag_test`, `choose_block_len` and `block_len_prime` (issue M5-02, lead
-decisions 4–20; GIAP_SPEC.md §7.3.5(d) step 5, §7.3.6, §8.3, Appendix B.4). Statistician sign-off for
+decisions 4–22; GIAP_SPEC.md §7.3.5(d) step 5, §7.3.6, §8.3, Appendix B.4). Statistician sign-off for
 the statistics is at the end of this note.
 
 ## Detrending
@@ -87,9 +87,18 @@ residual (ADR-0020 Amendment 1, lead decision 17):
     r_i = (d_i − p_i) / √(p_i (1 − p_i)),       S_k = Σ_{lag-k pairs} r_i r_j
 
 - p is the cross-fitted `p_detect`, unclipped.
-- A gene with p ∈ {0, 1}, with p NaN, or with d missing has no residual: r = 0, so it joins no pair.
+- A gene with p ∈ {0, 1}, with p NaN, or with d missing counts as missing: it has no residual
+  (r = 0), so it joins no pair.
+- A non-NaN p outside [0, 1] can only come from an upstream bug, so `join_count` and
+  `join_count_matrix` raise `ValueError` rather than drop the gene silently (decision 21).
 - A valid lag with no pair left gives S_k = 0.
 - `effect` = S_k − its null mean.
+
+**Assumption.** The test is valid when the d_i are independent Bernoulli(p_i) given a *calibrated*
+p. It is therefore conditional on the cross-fitted `p_detect` being calibrated (M3 calibration). If
+`p_detect` is biased in a region (e.g. too low in an island), r has a non-zero mean there, and the
+test reports that miscalibration as detection clustering. A rejection means "clustering beyond the
+detectability model" (decision 22).
 
 **Why the earlier statistic was replaced.** ADR-0020 decision 3 first used the raw residual
 Σ (d_i − p_i)(d_j − p_j). Its variance is Σ v_i v_j with v = p(1 − p). The permutation null averages v
@@ -141,9 +150,13 @@ and the null and uses the +1 rule, so it is exactly valid under exchangeability
 `not_estimable`.
 - "Constant" means the spread of a null of finite values is ≤ 1e-12 · max(1, max |v|), which is
   `perm_p`'s tie scale. A null whose entries are all the same inf is also constant.
-- This applies even when the observation differs from the null: `perm_p` would then return 1/(B + 1),
-  a p that carries no information.
-- A p of 1 from a degenerate null would inflate the BH family, so it is never reported.
+- This applies even when the observation differs from the constant null. The observed arrangement is
+  always in the permutation support (the identity, or a rotation for the circular statistics), so a
+  constant sampled null with a different observation arises only by chance from a sparse null. The
+  +1-rule p, 1/(B + 1), would then be valid, but GIAP reports NA (decisions 20 and 22).
+- The rule is conservative: it never adds a rejection. A p of 1 from a degenerate null would make BH
+  more conservative, not inflate the FDR. Reporting NA avoids enlarging the BH family (m) without
+  adding information.
 - Examples of degenerate nulls:
   - a replicon that is one TU (the TU-block null is the identity);
   - a circular replicon with two TU blocks (both block orders are rotations of each other, and both
@@ -178,5 +191,5 @@ The block length that callers actually use is ℓ' = `block_len_prime(ℓ̂, T)`
 
 ## Statistician sign-off
 
-**Pending.** The statistician reviewed PR #116; that review led to ADR-0020 Amendment 1 and lead
-decisions 17–20. Sign-off on this note and on the Pearson residual implementation is still to come.
+Signed off by the statistician (PR #116 re-review). The review covered "Statistics and nulls" and
+the Pearson residual implementation, after ADR-0020 Amendment 1 and lead decisions 17–22.

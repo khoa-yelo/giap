@@ -195,8 +195,8 @@ def join_count_matrix(
         Optional (B, n) detection probabilities, permuted together with ``D`` by the caller.
         Given P, the statistic is Σ over valid lag-k pairs of r_i r_j with the Pearson residual
         r = (d - p)/sqrt(p(1 - p)), p unclipped (ADR-0020 Amendment 1, decision 17); a gene with
-        p outside (0, 1) (p in {0, 1}), p NaN or d missing has r = 0, so it joins no pair, and a
-        valid lag with no pair left gives 0.0. Without P the statistic is Σ d_i d_j.
+        p in {0, 1}, p NaN or d missing has r = 0, so it joins no pair, and a valid lag with no
+        pair left gives 0.0. Without P the statistic is Σ d_i d_j.
 
     Returns
     -------
@@ -206,7 +206,8 @@ def join_count_matrix(
     Raises
     ------
     ValueError
-        If ``D`` is not 2-D or ``P`` has a different shape.
+        If ``D`` is not 2-D, ``P`` has a different shape, or a non-NaN entry of ``P`` lies
+        outside [0, 1] (decision 21; checked before the lags).
     """
     raw = np.asarray(D)
     if raw.ndim != 2:
@@ -218,6 +219,10 @@ def join_count_matrix(
         p = _as_matrix(P, "P")
         if p.shape != d.shape:
             raise ValueError(f"P shape {p.shape} differs from D shape {d.shape}")
+        with np.errstate(invalid="ignore"):
+            bad = (p < 0.0) | (p > 1.0)  # False for NaN
+        if bad.any():
+            raise ValueError("P must lie in [0, 1] or be NaN (out-of-range p is an upstream bug)")
         r = _pearson_residual(r, p, miss)
     else:
         r[miss] = 0.0  # a NaN in a float D is missing: its pairs contribute nothing
