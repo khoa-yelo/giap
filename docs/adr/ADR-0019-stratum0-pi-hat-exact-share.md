@@ -1,6 +1,6 @@
 # ADR-0019: Stratum-0 π̂_wrong for database input from exact-match shares per length class
 
-- Status: proposed (needs Khoa: changes a §7.2.5 estimator)
+- Status: accepted-by-khoa (2026-10-20)
 - Date: 2026-10-20
 - Issue: M3-21 (branch m3/calibration-gate); statistician validation, Slurm 1860123, 1860138, 1860180
   (scripts and outputs under local/scratch/stat-m321-m418-m419/b2/)
