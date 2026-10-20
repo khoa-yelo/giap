@@ -129,3 +129,10 @@ lines (sbatch, Python helpers, nf-test; tests not counted) · capabilities: `nee
 18. Scheduling: scrontab may not accept `--array`, so the scrontab entry runs a 1-CPU launcher
     (`scripts/slurm/nightly_launch.sh`) that `sbatch --array=0-3` nightly.sbatch plus the afterany summary
     job; nightly.scrontab is rewritten accordingly. Khoa approved reinstalling it after merge.
+19. (test-author design issue) The benchmark resubmission gets a new job ID, so `afterany:<array>` alone
+    fires too early. When task 1 resubmits, it finds the pending summary job of the same night (by its
+    `giap-*` name and the array ID, via `squeue -u $USER`) and adds `afterany:<resubmitted id>` to its
+    dependency with `scontrol update`. If no summary job is found, it writes a warning row; it never
+    posts itself.
+20. Node class (decision 16): from the trace `hostname` field only, with `--sacct` as the fallback when
+    the column is missing or `-`. No native_id lookup (under the local executor native_id is a PID).
