@@ -1,7 +1,9 @@
 """M4-06 input contract: ``giap.genetable.contract`` (docs/specs/M4-06-input-contract.md).
 
 Examples 1-10 one test each, a parametrised missing-column test over every ``Column`` in ``TABLES``,
-dtype/enum/NA rules, cross-table invariants and the edge cases of the spec.
+dtype/enum/NA rules, cross-table invariants and the edge cases of the spec. C15 ``features``
+(M5-04, docs/specs/M5-04-sim-oric-gradient.md) is at the end: optional in ``validate_inputs``,
+``contig`` known, ``0 <= start < end <= 2 length``.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ import pandas as pd
 import pytest
 from m4_contract_fixture import (
     AGG_COLUMNS,
+    FEATURE_COLUMNS,
     LAYER_COLUMNS,
     PEPTIDE_HITS_COLUMNS,
     PROMOTER_COLUMNS,
@@ -36,7 +39,7 @@ CONTRACT_PY = REPO / "src" / "giap" / "genetable" / "contract.py"
 
 TABLE_KEYS = (
     "replicons", "genes", "xrefs", "tus", "layers", "regions", "region_genes", "peptides",
-    "abundance", "peptide_hits", "protein_hits", "unmapped", "id_map",
+    "abundance", "peptide_hits", "protein_hits", "unmapped", "id_map", "features",
 )  # fmt: skip
 
 # Required (non-optional) columns per table, from the spec table "The contract".
@@ -57,6 +60,7 @@ REQUIRED: dict[str, tuple[str, ...]] = {
     "protein_hits": PROTEIN_HITS_COLUMNS,
     "unmapped": UNMAPPED_COLUMNS,
     "id_map": ("source_id", "locus_tag"),
+    "features": FEATURE_COLUMNS,  # C15 (M5-04): parse_bakta's columns, in its order
 }  # fmt: skip
 OPTIONAL: dict[str, tuple[str, ...]] = {
     "genes": ("ribosomal_protein", "amr"),
@@ -156,6 +160,21 @@ PINNED: dict[tuple[str, str], tuple[str, bool | None, tuple[str, ...] | None]] =
     ("protein_hits", "class"): ("str", False, ("identical", "near", "divergent")),
     ("protein_hits", "gene"): ("str", True, None),
     ("protein_hits", "flags"): ("list", None, None),
+    # C15 (M5-04): ``?`` in the spec marks the nullable columns
+    ("features", "feature_id"): ("str", False, None),
+    ("features", "type"): (
+        "str",
+        False,
+        ("rrna", "trna", "tmrna", "ncrna", "ncrna_region", "crispr", "oric", "orit", "oriv", "gap"),
+    ),
+    ("features", "contig"): ("str", False, None),
+    ("features", "start"): ("int", False, None),
+    ("features", "end"): ("int", False, None),
+    ("features", "strand"): ("str", False, ("+", "-", ".")),
+    ("features", "gene"): ("str", True, None),
+    ("features", "product"): ("str", True, None),
+    ("features", "amino_acid"): ("str", True, None),
+    ("features", "anticodon"): ("str", True, None),
 }
 
 
@@ -201,8 +220,19 @@ def validate_all(frames: dict[str, Any]) -> list[Issue]:
     for key in TABLE_KEYS:
         if frames.get(key) is not None:
             out += c.validate_table(key, frames[key])
-    out += c.validate_inputs(make_inputs(frames))
+    out += c.validate_inputs(with_features(make_inputs(frames), frames.get("features")))
     return out
+
+
+class with_features:
+    """``M4Inputs`` plus a ``features`` attribute (C15), whatever ``M4Inputs`` itself carries."""
+
+    def __init__(self, base: Any, features: pd.DataFrame | None) -> None:
+        self._base = base
+        self.features = features
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._base, name)
 
 
 @pytest.fixture
@@ -235,7 +265,7 @@ def test_tables_columns_pinned(table: str) -> None:
     names = [c.name for c in cols]
     assert len(names) == len(set(names)), f"duplicate column in {table}"
     required = tuple(c.name for c in cols if not c.optional)
-    if table in ("layers", "peptides", "peptide_hits", "protein_hits", "unmapped"):
+    if table in ("layers", "peptides", "peptide_hits", "protein_hits", "unmapped", "features"):
         assert required == REQUIRED[table]  # producer column order (M2-20, M1-06, §9.3)
     else:
         assert set(required) == set(REQUIRED[table])
@@ -910,3 +940,228 @@ def test_contract_uses_shared_issue_type() -> None:
     """``Issue`` is M1-04's shared type, not a local copy."""
     src = CONTRACT_PY.read_text(encoding="utf-8")
     assert "giap.io.issues" in src
+
+
+# --------------------------------------------------------------------------- C15 features (M5-04)
+
+
+def _features_issues(issues: list[Issue]) -> list[Issue]:
+    return [i for i in issues if i.code.startswith("contract.features.")]
+
+
+def _inputs_with(frames: dict[str, Any], features: pd.DataFrame | None) -> Any:
+    return with_features(make_inputs(frames), features)
+
+
+def test_c15_columns_follow_parse_bakta() -> None:
+    """C15 is exactly the columns ``parse_bakta`` writes (``giap.steps.annotation._FEATURE_COLS``),
+    in that order, all required (the table itself is optional)."""
+    from giap.steps.annotation import _FEATURE_COLS
+
+    cols = _contract().TABLES["features"]
+    assert tuple(c.name for c in cols) == FEATURE_COLUMNS
+    assert tuple(name for name, _ in _FEATURE_COLS) == FEATURE_COLUMNS
+    assert not any(c.optional for c in cols)
+    assert _contract().CONTRACT_COLUMNS["features"] == FEATURE_COLUMNS
+
+
+def test_c15_type_enum_is_nctype() -> None:
+    from typing import get_args
+
+    from giap.model.genes import NcType
+
+    col = next(c for c in _contract().TABLES["features"] if c.name == "type")
+    assert col.enum is not None and set(col.enum) == set(get_args(NcType))
+
+
+def test_c15_fixture_valid(frames: dict[str, Any]) -> None:
+    assert _contract().validate_table("features", frames["features"]) == []
+    assert _features_issues(_contract().validate_inputs(_inputs_with(frames, frames["features"])))\
+        == []  # fmt: skip
+
+
+def test_c15_header_only_valid(frames: dict[str, Any]) -> None:
+    """No oriC and no other feature: an empty table is valid (M5-08 then reports ``no_oric``)."""
+    empty = empty_like(frames["features"])
+    assert _contract().validate_table("features", empty) == []
+    assert _features_issues(_contract().validate_inputs(_inputs_with(frames, empty))) == []
+
+
+def test_c15_absent_is_valid(frames: dict[str, Any]) -> None:
+    """Example 7 (optional): ``features = None`` or no attribute at all gives no issue."""
+    c = _contract()
+    assert _features_issues(c.validate_inputs(_inputs_with(frames, None))) == []
+    assert _features_issues(c.validate_inputs(make_inputs(frames))) == []
+
+
+@pytest.mark.parametrize(
+    ("column", "bad"),
+    [("type", "oriC"), ("type", "cds"), ("strand", "?"), ("strand", "")],
+)
+def test_c15_enum_errors(frames: dict[str, Any], column: str, bad: str) -> None:
+    """Bakta's raw ``oriC`` / ``?`` must be normalised by ``parse_bakta`` (``oric`` / ``.``)."""
+    df = frames["features"].copy()
+    df.loc[0, column] = bad
+    errs = errors(_contract().validate_table("features", df))
+    assert errs and all(i.code.startswith("contract.features.") for i in errs)
+    assert any(column in text(i) for i in errs)
+
+
+@pytest.mark.parametrize("column", ["feature_id", "type", "contig", "start", "end", "strand"])
+def test_c15_na_in_required_value_is_error(frames: dict[str, Any], column: str) -> None:
+    df = frames["features"].copy()
+    df[column] = df[column].astype(object)
+    df.loc[0, column] = None
+    errs = errors(_contract().validate_table("features", df))
+    assert errs and any(column in text(i) for i in errs)
+
+
+@pytest.mark.parametrize("column", ["gene", "product", "amino_acid", "anticodon"])
+def test_c15_nullable_columns_accept_na(frames: dict[str, Any], column: str) -> None:
+    df = frames["features"].copy()
+    df[column] = None
+    assert errors(_contract().validate_table("features", df)) == []
+
+
+def _feature_rows(frames: dict[str, Any], **row: Any) -> pd.DataFrame:
+    df = frames["features"].iloc[:1].copy()
+    for k, v in row.items():
+        df[k] = df[k].astype(object) if isinstance(v, str) else df[k]
+        df.loc[df.index[0], k] = v
+    return df.astype({"start": "int64", "end": "int64"})
+
+
+def _length(frames: dict[str, Any]) -> int:
+    return int(frames["replicons"].loc[0, "length"])
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        {"contig": "chrX"},  # unknown contig
+        {"start": -1, "end": 231},  # start < 0
+        {"start": 500, "end": 500},  # start == end
+        {"start": 600, "end": 500},  # start > end
+    ],
+    ids=["unknown_contig", "negative_start", "empty", "reversed"],
+)
+def test_c15_out_of_range_rows_rejected(frames: dict[str, Any], row: dict[str, Any]) -> None:
+    df = _feature_rows(frames, **row)
+    issues = _contract().validate_table("features", df)
+    issues += _contract().validate_inputs(_inputs_with(frames, df))
+    errs = [i for i in errors(issues) if i.code.startswith("contract.features.")]
+    assert errs, row
+
+
+def test_c15_end_beyond_twice_length_rejected(frames: dict[str, Any]) -> None:
+    n = _length(frames)
+    df = _feature_rows(frames, start=2 * n - 100, end=2 * n + 1)
+    issues = _contract().validate_table("features", df)
+    issues += _contract().validate_inputs(_inputs_with(frames, df))
+    assert [i for i in errors(issues) if i.code.startswith("contract.features.")]
+
+
+@pytest.mark.parametrize("offset", [1, 116, None])
+def test_c15_origin_crossing_feature_valid(frames: dict[str, Any], offset: int | None) -> None:
+    """``end`` may pass ``length`` (unwrapped across the origin, §6.5) up to ``2 length``."""
+    n = _length(frames)
+    end = 2 * n if offset is None else n + offset
+    df = _feature_rows(frames, start=end - 232, end=end)
+    issues = _contract().validate_table("features", df)
+    issues += _contract().validate_inputs(_inputs_with(frames, df))
+    assert _features_issues(errors(issues)) == []
+
+
+def test_c15_feature_on_plasmid_and_linear_contig_valid(frames: dict[str, Any]) -> None:
+    reps = pd.concat(
+        [frames["replicons"],
+         pd.DataFrame({"contig": ["p1", "ctg1"], "length": [5000, 4000],
+                       "topology": ["circular", "linear"], "kind": ["plasmid", "unknown"]})],
+        ignore_index=True,
+    ).astype({"length": "int64"})  # fmt: skip
+    frames["replicons"] = reps
+    df = pd.concat(
+        [frames["features"], _feature_rows(frames, contig="p1", start=10, end=242),
+         _feature_rows(frames, contig="ctg1", start=0, end=4000)],
+        ignore_index=True,
+    )  # fmt: skip
+    df["feature_id"] = [f"f{i}" for i in range(len(df))]
+    issues = _contract().validate_table("features", df)
+    issues += _contract().validate_inputs(_inputs_with(frames, df))
+    assert _features_issues(errors(issues)) == []
+
+
+def test_c15_validate_inputs_does_not_mutate(frames: dict[str, Any]) -> None:
+    df = frames["features"].copy()
+    _contract().validate_inputs(_inputs_with(frames, df))
+    pd.testing.assert_frame_equal(df, frames["features"])
+
+
+def _bakta_with_oric(tmp_path: Path) -> tuple[Path, Path]:
+    """A minimal Bakta JSON whose oriC has Bakta's strand ``?`` (as K-12 and Nissle 1917 do)."""
+    import json
+
+    rng = np.random.default_rng(15)
+    chrom = "".join(rng.choice(list("ACGT"), 3000))
+    data = {
+        "version": {"bakta": "1.12.2", "db": {"version": "6.0", "type": "light"}},
+        "sequences": [
+            {"id": "chr1", "type": "chromosome", "topology": "circular", "length": 3000,
+             "nt": chrom},
+        ],
+        "features": [
+            {"type": "cds", "sequence": "chr1", "start": 101, "stop": 400, "strand": "+",
+             "locus": "T_00010", "aa": "MKV", "product": "protein"},
+            {"type": "oriC", "sequence": "chr1", "start": 1001, "stop": 1232, "strand": "?",
+             "id": "T_oriC"},
+            {"type": "tRNA", "sequence": "chr1", "start": 2101, "stop": 2176, "strand": "-",
+             "id": "T_t1", "product": "tRNA-Leu", "amino_acid": "Leu", "anti_codon": "cag"},
+        ],
+    }  # fmt: skip
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    js, fa = tmp_path / "bakta.json", tmp_path / "genome.norm.fa"
+    js.write_text(json.dumps(data), encoding="utf-8")
+    fa.write_text(f">chr1\n{chrom}\n", encoding="utf-8")
+    return js, fa
+
+
+def test_c15_parse_bakta_output_conforms(tmp_path: Path) -> None:
+    """Lead decision 11: Bakta's oriC strand ``?`` arrives as ``.`` through ``parse_bakta``, and
+    its ``features.parquet`` passes C15 (table and cross-table with its ``replicons.parquet``)."""
+    import importlib
+
+    from giap.config import GiapConfig
+    from giap.steps import registry
+
+    mod = importlib.import_module("giap.steps.annotation")
+    if "parse_bakta" not in registry._REGISTRY:
+        importlib.reload(mod)
+    js, fa = _bakta_with_oric(tmp_path / "in")
+    names = {
+        "genes": "genes.parquet", "features": "features.parquet",
+        "replicons": "replicons.parquet", "rrna16s": "rrna16s.fa",
+        "trna_counts": "trna_counts.tsv", "xrefs": "xrefs.parquet",
+        "annotation_meta": "annotation_meta.json",
+    }  # fmt: skip
+    outs = {k: tmp_path / "work" / v for k, v in names.items()}
+    registry.run_step("parse_bakta", GiapConfig(seed=1), {"bakta_json": js, "genome": fa}, outs)
+    feats = pd.read_parquet(outs["features"])
+    oric = feats[feats["type"] == "oric"]
+    assert len(oric) == 1
+    assert oric["strand"].tolist() == ["."]
+    assert (int(oric["start"].iloc[0]), int(oric["end"].iloc[0])) == (1000, 1232)
+    assert _contract().validate_table("features", feats) == []
+    frames = build_frames(5)
+    frames["replicons"] = pd.read_parquet(outs["replicons"])
+    issues = _contract().validate_inputs(_inputs_with(frames, feats))
+    assert _features_issues(issues) == []
+
+
+def test_c15_giapsim_literal_copy_equals_tables() -> None:
+    """Acceptance: giapsim's literal C15 column list equals ``TABLES`` (drift check)."""
+    from giapsim.contract_tables import CONTRACT_COLUMNS
+
+    assert "features" in CONTRACT_COLUMNS
+    assert tuple(CONTRACT_COLUMNS["features"]) == tuple(
+        c.name for c in _contract().TABLES["features"]
+    )
