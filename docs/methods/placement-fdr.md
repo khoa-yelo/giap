@@ -699,14 +699,19 @@ db-strain suites had 0 false peptides in every list. The de novo error-model sui
 - the **stressed stratum-0 arm** (`test_database_stressed_stratum0_placement_fdr`, full tier at
   1 Mb): short wrong database peptides (7/8-mers of protein sequences that are absent from the
   genome, as in b2sim `--mode short`) are injected test-locally with PEP set to the true wrong
-  share. This arm claims reverse m = 0. With δ = 0 (exact PEP) the mean-PEP π̂ is valid, so the arm
+  share. This arm claims reverse m = 0. With δ = 0 (exact PEP) its FDP gate
   is expected to pass. At 100 kb (K = 2,000, R = 50, job 1860994): 1.6 false peptides per
   replicate, mean FDP 0.0009 at every q. At 1 Mb (K = 400, R = 300, job 1860995): 2.85 false per
-  replicate, mean FDP 0.00016 at every q, about 17,960 accepted. The FDP gate is the only
-  assertion. The stratum-0 estimate is recorded but not gated. At 1 Mb it under-counts:
-  mean Ŵ0 = 0.57 against V0 = 2.85, while at 100 kb Ŵ0 = 2.44 against V0 = 1.6. The
-  statistician's b2sim short7 runs give the same direction at δ = 0 (π̂ 0.05, D0 14.7, V0 1.4).
-  This is open: the FDP stays far below q only because the stratum is large;
+  replicate, mean FDP 0.00016 at every q, about 17,960 accepted. The fast arm also asserts the
+  estimate check mean(Ŵ0) ≥ mean(V0) − 2 SE: Ŵ0 2.44 vs V0 1.6, because the injected share
+  dominates the pooled π̂ at 100 kb. At 1 Mb the estimate check is a separate test,
+  `test_database_stressed_stratum0_estimate_covers_false_placements` (`calibration_full`,
+  R = 100, ΣV0 ≥ 100). It is a strict xfail "ADR-0019 implementation pending": mean PEP gives
+  Ŵ0 0.57 vs V0 2.85. The cause is the length-correlated no-origin share. 75 % of the injected
+  peptides are 7-mers, and the 7-mer class has a no-origin share of 0.22 against 0.031 pooled,
+  so a pooled π̂ times all decoy hits under-counts. ADR-0019's per-class π̂ corrects it; the
+  statistician's reference rule gives Ŵ0 3.65 vs V0 3.50 over 6 replicates (review of #113,
+  round 2). The FDP stays far below q under mean PEP only because the stratum is large;
 - the **related db-strain estimate check**
   (`test_related_dbstrain_stratum0_estimate_covers_false_placements`, full tier, 1 Mb, 5 SNV/kb,
   R = 100). It requires ΣV0 ≥ 30 false stratum-0 placements and mean W0 ≥ mean V0 − 2 SE (SE of V0 − W0 over lists). Observed

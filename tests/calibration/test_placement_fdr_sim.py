@@ -26,13 +26,16 @@ estimate checks.
   (``test_database_stratum0_pi_hat_covers_the_wrong_share``).
 * ``database_stressed`` (review B4, b2sim ``--mode short``): M3-19 table plus injected shuffled
   7-8-mer wrong database peptides, PEP = the true wrong share (delta = 0) -> claims reverse m = 0
-  (1.6 false per replicate at 100 kb, K = 2,000; 2.85 at 1 Mb, K = 400), FDP gate only.
-  Exercised but not binding (FDR estimate < 0.002 at the end of the list). The FDP passes under
-  the current rule (Slurm 1860995, 1 Mb, R = 300: FDP 0.0002 at every q). W0 and V0 are recorded
-  in the diagnostics but not asserted. At 1 Mb mean(Ŵ0) = 0.57 < mean(V0) = 2.85 even at
-  delta = 0, which is a finding for the statistician (cause not established here). The
-  statistician's b2sim short7 numbers point the same way: CUR and CAND π̂ = 0.05, D0 = 14.7,
-  V0 = 1.4. No flip under ADR-0019 is predicted, so it is not an xfail.
+  (1.6 false per replicate at 100 kb, K = 2,000; 2.85 at 1 Mb, K = 400). Exercised but not
+  binding (FDR estimate < 0.002 at the end of the list). The FDP gate passes under the current
+  rule (Slurm 1860995, 1 Mb, R = 300: FDP 0.0002 at every q). The 100-kb arm also asserts the
+  estimate check mean(Ŵ0) >= mean(V0) - 2 SE: Ŵ0 2.44 vs V0 1.6, because the injected share
+  dominates the pooled π̂. At 1 Mb the estimate check is a separate test
+  (``test_database_stressed_stratum0_estimate_covers_false_placements``, ``calibration_full``,
+  strict xfail "ADR-0019 implementation pending"). Mean PEP gives Ŵ0 0.57 vs V0 2.85 there. The
+  no-origin share is length-correlated: 75 % of the injected peptides are 7-mers, and the 7-mer
+  class has a no-origin share of 0.22 against 0.031 pooled. ADR-0019's per-class π̂ corrects
+  this; the statistician's reference rule gives Ŵ0 3.65 vs V0 3.50 (review of #113, round 2).
 * ``related_other_strain`` (5 SNV/kb, other-strain wrong peptides at their lifted ortholog):
   smoke check (all of them are placed at their origin).
 * ``denovo``: smoke check (errors are placed at their spectrum's origin).
@@ -56,6 +59,7 @@ from helpers.placement_sims import null_share_stratum0, run_chain, score_chain
 pytestmark = pytest.mark.calibration
 
 LEVELS = C.load_tolerances().levels
+ADR0019 = pytest.mark.xfail(strict=True, reason="ADR-0019 implementation pending")
 
 
 def _length(full: bool) -> int:
@@ -96,18 +100,23 @@ def test_database_shuffled_placement_fdr_full(tmp_path: Path, pi_wrong: float) -
     _suite(True, pi_wrong, tmp_path)
 
 
+def _stressed_replicate(full: bool, seed: int, d: Path):  # type: ignore[no-untyped-def]
+    ch = run_chain(
+        "database", seed, d, length=_length(full),
+        proteomics=_proteomics(pi_wrong=0.05, n_runs=1), inject_short=400 if full else 2000,
+    )  # fmt: skip
+    return score_chain(ch, LEVELS, d)
+
+
 def _stressed(full: bool, tmp: Path) -> None:
-    k_inject = 400 if full else 2000
-
     def replicate(seed: int, d: Path):  # type: ignore[no-untyped-def]
-        ch = run_chain(
-            "database", seed, d, length=_length(full),
-            proteomics=_proteomics(pi_wrong=0.05, n_runs=1), inject_short=k_inject,
-        )  # fmt: skip
-        return score_chain(ch, LEVELS, d)
+        return _stressed_replicate(full, seed, d)
 
+    # The 100-kb arm also carries the estimate check (it passes under mean PEP, docstring);
+    # at 1 Mb that check is the separate strict xfail below.
     run_fdr_suite(
-        "placement.sim_db_stressed", replicate, tmp, [("reverse", 0)], full=full
+        "placement.sim_db_stressed", replicate, tmp, [("reverse", 0)], full=full,
+        estimate=() if full else ("reverse",),
     )  # fmt: skip
 
 
@@ -119,6 +128,40 @@ def test_database_stressed_stratum0_placement_fdr(tmp_path: Path) -> None:
 @pytest.mark.calibration_full
 def test_database_stressed_stratum0_placement_fdr_full(tmp_path: Path) -> None:
     _stressed(True, tmp_path)
+
+
+STRESS_EST_R = 100
+STRESS_EST_V0_FLOOR = 100
+
+
+@pytest.mark.calibration_full
+@ADR0019
+def test_database_stressed_stratum0_estimate_covers_false_placements(tmp_path: Path) -> None:
+    """Statistician review of #113, round 2: the 1-Mb stressed arm (K = 400 injected short wrong
+    database peptides, PEP = the true wrong share, delta = 0). Estimate rule as in the related
+    db-strain check: mean(Ŵ0) >= mean(V0) - k SE, where Ŵ0 = fdr_stratum x targets of the reverse
+    m = 0 ``mapping_fdr`` row (all length classes) and V0 = its false peptides, at any q. The floor
+    is ΣV0 >= 100 (about 285 expected). The no-origin share is length-correlated (7-mer class
+    0.22 against 0.031 pooled), so mean PEP under-counts: Ŵ0 0.57 vs V0 2.85, more than 10 SE at
+    R = 100. ADR-0019's per-class π̂ corrects this (reference Ŵ0 3.65 vs V0 3.50)."""
+    w0, v0 = [], []
+    for i in range(STRESS_EST_R):
+        seed = int(C.replicate_rng("placement.est_db_stressed", i).integers(0, 2**31 - 1))
+        d = tmp_path / f"r{i}"
+        rep = _stressed_replicate(True, seed, d)
+        w0.append(float(rep.extra["W0_reverse"]))
+        v0.append(float(rep.extra["V0_reverse"]))
+        shutil.rmtree(d, ignore_errors=True)
+    w, v = np.array(w0), np.array(v0)
+    k = C.load_tolerances().se_multiplier
+    se = float((v - w).std(ddof=1) / np.sqrt(len(v)))
+    rec = {"suite": "placement.est_db_stressed", "n": len(v), "se": se}
+    write_diagnostics({**rec, "mean_W0": float(w.mean()), "mean_V0": float(v.mean())})
+    assert v.sum() >= STRESS_EST_V0_FLOOR, f"stratum 0 under-exercised: total V0 {v.sum():.0f}"
+    assert w.mean() >= v.mean() - k * se, (
+        f"estimated stratum-0 false placements {w.mean():.3f} < realised {v.mean():.3f} - {k} SE"
+        f" ({se:.3f}), {len(v)} replicates"
+    )
 
 
 def _related(full: bool, tmp: Path) -> None:
@@ -190,9 +233,6 @@ def _assert_pi(mean_pi: float, mean_null: float, se: float) -> None:
         f"stratum-0 π̂ {mean_pi:.5f} below the true share of wrong or absent searched peptides"
         f" {mean_null:.5f} (k SE = {k * se:.5f}); validity needs π̂ >= π (placement-fdr.md)"
     )
-
-
-ADR0019 = pytest.mark.xfail(strict=True, reason="ADR-0019 implementation pending")
 
 
 @pytest.mark.parametrize("n_runs", [1, pytest.param(3, marks=ADR0019)])
