@@ -24,9 +24,11 @@ Oracles implement the lead decisions of the spec (2026-10-20) independently of `
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -53,7 +55,11 @@ TYPE_ORDER = ("prophage", "plasmid", "bgc", "crispr", "amr")
 REGION_FLAGS = (
     "small_region", "dosage_plus_regulation", "descriptive", "no_oric", "uncalibrated",
     "few_shifts", "split_contigs", "hl_variance_nonpositive", "no_reference_replicon",
+    "depth_adjusted",
 )  # fmt: skip
+#: lead decision 13: flag of the dosage-adjusted plasmid row; method / label of subset rows
+DEPTH_FLAG = "depth_adjusted"
+DESCRIPTIVE = "descriptive"
 PLASMID_METHOD = "replicon_contrast"
 PLASMID_LABEL = "dosage_plus_regulation"
 ADJUSTED_LABEL = "dosage_adjusted"
@@ -321,3 +327,44 @@ def mixed_genome() -> Genome:
     }
     sub = {t: ("structural" if k % 2 else "cargo") for k, t in enumerate(tags[100:130])}
     return genome(contigs, mem, plasmids=["p1"], subsets=sub)
+
+
+SCHEMA_DIR = Path(__file__).resolve().parents[2] / "src" / "giap" / "schemas" / "tables"
+
+
+def schema() -> dict[str, Any]:
+    """The ``regions_stats`` table schema (``regions_stats.schema.json`` or ``.json``)."""
+    found = [p for p in (SCHEMA_DIR / "regions_stats.json",
+                         SCHEMA_DIR / "regions_stats.schema.json") if p.exists()]  # fmt: skip
+    if len(found) != 1:
+        raise AssertionError(f"expected one regions_stats schema, found {found}")
+    return json.loads(found[0].read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+
+
+def stat_order() -> list[str]:
+    """Lead decision 11: rows of a region follow the schema's ``stat`` enum order."""
+    f = next(f for f in schema()["fields"] if f["name"] == "stat")
+    return [str(x) for x in f["constraints"]["enum"]]
+
+
+def check_row_order(df: pd.DataFrame) -> None:
+    """Lead decision 11 on a regions_stats frame: region types in the default ``region_types``
+    order, a region's rows contiguous, ``subset = all`` (M4-17 / plasmid rows) before subset rows,
+    and within each (region, subset) the ``stat`` enum order of the schema."""
+    types = list(dict.fromkeys(df["region_type"].astype(str)))
+    assert types == [t for t in TYPE_ORDER if t in types], types
+    rid = df["region_id"].astype(str).to_numpy()
+    seen: list[str] = []
+    for r in rid:
+        if not seen or seen[-1] != r:
+            assert r not in seen, f"rows of {r} are not contiguous"
+            seen.append(r)
+    order = stat_order()
+    for r in seen:
+        grp = df[df["region_id"].astype(str) == r]
+        subs = list(grp["subset"].astype(str))
+        n_all = subs.count("all")
+        assert subs[:n_all] == ["all"] * n_all, (r, subs)
+        for _, g2 in grp.groupby(grp["subset"].astype(str), sort=False):
+            rank = [order.index(str(s)) for s in g2["stat"]]
+            assert rank == sorted(rank), (r, list(g2["stat"]))

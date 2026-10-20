@@ -191,6 +191,7 @@ def test_depth_adds_adjusted_plasmid_row(runs: dict[str, Path]) -> None:
     pl = df[df["region_type"] == "plasmid"]
     adj = pl[pl["label"] == sd.ADJUSTED_LABEL]
     assert len(adj) == 1 and adj.iloc[0]["stat"] == "hl_shift"
+    assert sd.DEPTH_FLAG in str(adj.iloc[0]["flags"]).split(";")
     hl = pl[(pl["stat"] == "hl_shift") & (pl["label"] != sd.ADJUSTED_LABEL)].iloc[0]
     assert float(adj.iloc[0]["effect"]) == pytest.approx(float(hl["effect"]) - 3.0, abs=1e-9)
 
@@ -210,6 +211,13 @@ def test_attack_4_dosage_is_in_the_plasmid_hl(runs: dict[str, Path]) -> None:
     pd.testing.assert_frame_equal(a[pl_oe].drop(columns=hl_cols), b[pl_oe].drop(columns=hl_cols))
     chrom = a["region_type"] != "plasmid"
     pd.testing.assert_frame_equal(a[chrom], b[chrom])
+
+
+@pytest.mark.parametrize("name", ["plain", "depth", "copy20", "no_plasmid"])
+def test_row_order(runs: dict[str, Path], name: str) -> None:
+    """Lead decision 11: type order, contiguous regions, subset ``all`` first, ``stat`` enum order
+    of the schema within (region, subset)."""
+    sd.check_row_order(_read(runs[name]))
 
 
 def test_example_9_byte_identical(runs: dict[str, Path]) -> None:

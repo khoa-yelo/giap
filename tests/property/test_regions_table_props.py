@@ -25,7 +25,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import pytest
-from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
@@ -58,7 +58,7 @@ def contig(draw: st.DrawFn, name: str, kind: str, lo: int, hi: int) -> Contig:
 @st.composite
 def genome_case(draw: st.DrawFn) -> dict[str, Any]:
     chrom = draw(contig("chr1", "chromosome", 2, 30))
-    pl = draw(contig("p1", "plasmid", 1, 20))
+    pl = draw(contig("p1", "plasmid", 3, 20))  # >= M4-17 SMALL_REGION: statistics computed
     det = [f"p1_g{i:05d}" for i, x in enumerate(pl.d) if x] + [
         f"chr1_g{i:05d}" for i, x in enumerate(chrom.d) if x
     ]
@@ -136,9 +136,12 @@ def test_p3_common_shift_leaves_hl_unchanged(case: dict[str, Any], c: float) -> 
 def test_p4_depth_offset(case: dict[str, Any], dc: float, dp: float) -> None:
     _, res = _plasmids(case, depth=sd.depth_frame({"chr1": dc, "p1": dp}))
     hl = sd.unadjusted(res, "plasmid_1", "hl_shift")
-    assume(not sd.na(hl["effect"]))  # the adjusted row of an NA HL is not pinned by the spec
     adj = res[res["label"].astype(str) == sd.ADJUSTED_LABEL]
+    if sd.na(hl["effect"]):  # lead decision 13: no adjusted row when HL is NA
+        assert adj.empty
+        return
     assert len(adj) == 1
+    assert sd.DEPTH_FLAG in sd.flags(adj.iloc[0]["flags"])
     row = adj.iloc[0]
     off = math.log2(dp / dc)
     for col in ("effect", "ci_low", "ci_high"):
@@ -177,6 +180,8 @@ def test_p5_subset_rows_partition_the_prophage(case: dict[str, Any]) -> None:
     assert float(res["expected"].astype(float).sum()) == pytest.approx(e, abs=1e-9)
     for _, row in res.iterrows():
         assert "descriptive" in sd.flags(row["flags"])
+        assert row["method"] == sd.DESCRIPTIVE and row["label"] == sd.DESCRIPTIVE
+        assert sd.na(row["ci_low"]) and sd.na(row["ci_high"])
         assert row["stat"] == "o_minus_e" and row["null_model"] == "none"
         assert sd.na(row["p_value"]) and sd.na(row["q_value"]) and int(row["n_perm"]) == 0
 
@@ -200,6 +205,7 @@ def test_p6_table_null_model_rule(case: dict[str, Any], lo: int, width: int) -> 
         g.regions,
     )  # fmt: skip
     assert tuple(res.columns) == sd.REGIONS_STATS_COLUMNS
+    sd.check_row_order(res.reset_index(drop=True))
     for _, row in res.iterrows():
         if row["null_model"] == "none":
             assert sd.na(row["p_value"]) and sd.na(row["q_value"]) and int(row["n_perm"]) == 0

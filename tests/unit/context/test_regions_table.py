@@ -222,8 +222,10 @@ def test_example_2_depth_adjusted_row() -> None:
     assert row["ci_low"] == pytest.approx(hl["ci_low"] - 3.0, abs=1e-12)
     assert row["ci_high"] == pytest.approx(hl["ci_high"] - 3.0, abs=1e-12)
     _assert_no_test(row)
-    assert sd.flags(row["flags"]), "the adjusted row carries its own flag (decision 4)"
+    assert sd.DEPTH_FLAG in sd.flags(row["flags"])  # lead decision 13
     assert len(res) == 3
+    for stat in ("o_minus_e", "hl_shift"):
+        assert sd.DEPTH_FLAG not in sd.flags(sd.unadjusted(res, "plasmid_1", stat)["flags"])
 
 
 def test_depth_does_not_change_the_unadjusted_rows() -> None:
@@ -373,6 +375,51 @@ def test_plasmid_without_detected_gene_has_na_hl_and_real_o_minus_e() -> None:
     assert float(sd.unadjusted(res, "plasmid_1", "o_minus_e")["effect"]) == pytest.approx(-4.0)
 
 
+def test_no_adjusted_row_when_hl_is_na() -> None:
+    """Lead decision 13: HL NA (no detected plasmid gene) -> no depth-adjusted row."""
+    m = 10
+    pl = Contig("p1", [0] * m, [0.4] * m, kind="plasmid", tu=_pairs("p1", m))
+    g = sd.genome([chr_contig(), pl], plasmids=["p1"])
+    res = _plasmids(g, sd.depth_frame({"chr1": 50.0, "p1": 400.0}))
+    assert _adjusted(res).empty
+    assert len(res) == 2
+
+
+def _small() -> int:
+    from giap.context import regions as R
+
+    return int(R.SMALL_REGION)
+
+
+def test_small_plasmid_flagged_with_na_statistics() -> None:
+    """Lead decision 13: fewer eligible genes than M4-17's small-region threshold -> flag
+    ``small_region`` and NA statistics (the plasmid rows are not computed)."""
+    m = _small() - 1
+    assert m >= 1
+    pl = Contig("p1", [1] * m, [0.5] * m, a=[20.0] * m, kind="plasmid", tu=_pairs("p1", m))
+    g = sd.genome([chr_contig(), pl], plasmids=["p1"])
+    res = _plasmids(g, sd.depth_frame({"chr1": 50.0, "p1": 400.0}))
+    assert _adjusted(res).empty
+    assert set(res["stat"]) == {"o_minus_e", "hl_shift"} and len(res) == 2
+    for _, row in res.iterrows():
+        assert int(row["n_eligible"]) == m
+        assert "small_region" in sd.flags(row["flags"])
+        for c in ("effect", "ci_low", "ci_high", "o_minus_e", "o_over_e", "hl_shift_log2"):
+            assert sd.na(row[c]), (row["stat"], c, row[c])
+        _assert_no_test(row)
+
+
+def test_plasmid_at_threshold_is_not_small() -> None:
+    m = _small()
+    pl = Contig("p1", [1] * m, [0.5] * m, a=[20.0 + i for i in range(m)], kind="plasmid",
+                tu=_pairs("p1", m))  # fmt: skip
+    g = sd.genome([chr_contig(), pl], plasmids=["p1"])
+    res = _plasmids(g)
+    for _, row in res.iterrows():
+        assert "small_region" not in sd.flags(row["flags"])
+    assert not sd.na(sd.unadjusted(res, "plasmid_1", "hl_shift")["effect"])
+
+
 # --------------------------------------------------------------------------- decision 7: RNG
 
 
@@ -430,6 +477,8 @@ def test_example_3_prophage_subset_rows() -> None:
         assert float(row["o_over_e"]) == pytest.approx(obs / e, abs=1e-12)
         assert row["region_type"] == "prophage" and row["contig"] == "chr1"
         assert "descriptive" in sd.flags(row["flags"])
+        assert row["method"] == sd.DESCRIPTIVE and row["label"] == sd.DESCRIPTIVE  # decision 13
+        assert sd.na(row["ci_low"]) and sd.na(row["ci_high"])
         _assert_no_test(row)
 
 
@@ -545,6 +594,19 @@ def test_sort_order() -> None:
     for rid, grp in res.groupby("region_id", sort=False):  # rows of a region are contiguous
         idx = grp.index.to_numpy()
         assert (np.diff(idx) == 1).all(), rid
+    sd.check_row_order(res.reset_index(drop=True))  # lead decision 11
+
+
+def test_row_order_with_depth_row() -> None:
+    """Decision 11 with the adjusted plasmid row: stat enum order within the plasmid region, and
+    the plasmid region still between the prophages and bgc_1."""
+    res = _table(sd.mixed_genome(), sd.depth_frame({"chr1": 40.0, "p1": 160.0}))
+    res = res.reset_index(drop=True)
+    sd.check_row_order(res)
+    pl = res[res["region_id"] == "plasmid_1"]
+    order = sd.stat_order()
+    assert list(pl["stat"]) == sorted(pl["stat"], key=order.index)
+    assert len(pl) == 3
 
 
 def test_prophage_subsets_in_table_have_prophage_coordinates() -> None:
