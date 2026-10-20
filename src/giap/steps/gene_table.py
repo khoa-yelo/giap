@@ -1,0 +1,128 @@
+"""Step ``gene_table`` (GIAP_SPEC.md §6.2 "genes, layers, loci, abundance → genes_pre.parquet";
+docs/specs/M4-15-gene-table-assembly.md): the M4-06 contract tables through M4-10 ... M4-14 into
+the §9.3 gene table without ``p_detect``.
+
+Inputs: M2's Parquet intermediates (C1-C6; not C7/C8) and ``annotation_meta``, ``mapping`` (the
+``loci`` directory with ``peptide_hits.tsv``, ``protein_hits.tsv``, ``unmapped.tsv``), optional
+C9/C10, the C14 id map, preflight.json and ``cog2020_def`` (raw NCBI ``cog-20.def.tab``; absent
+→ ``cog_category`` NA and run flag ``layer_missing:cog``).
+A contract ``error`` issue fails the step (``StepError``).
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from collections.abc import Mapping
+from pathlib import Path
+
+import pandas as pd
+
+from giap.config import GiapConfig
+from giap.genetable.abundance import gene_abundance
+from giap.genetable.assemble import assemble_genes
+from giap.genetable.covariates import covariate_table
+from giap.genetable.detection import detect
+from giap.genetable.evidence import accepted_peptides, gene_evidence
+from giap.io.genes_tsv import read_cog_def, write_genes_parquet
+from giap.io.issues import Issue
+from giap.io.work_tables import FILE_NAMES, load_m4_inputs
+from giap.setupdb.installed import cog_table
+from giap.steps.registry import InputPath, StepContext, run_step, step
+
+__all__ = ["build_genes_pre", "m4_paths", "run_gene_table", "work_inputs"]
+
+_M3_TSVS = ("peptide_hits", "protein_hits", "unmapped")
+# C7/C8 are not read: region membership arrives through C6 ``region_ids``, and a precomputed
+# regions layer reaches ``regions``/``region_genes`` as its M2-02 TSV, not the contract Parquet.
+_REQUIRED = ("genes", "replicons", "xrefs", "annotation_meta", "tus", "layers", "mapping")
+_UNREAD = frozenset({"contract.regions.missing_file", "contract.region_genes.missing_file"})
+_OPTIONAL = ("peptides", "abundance", "id_map", "preflight", "cog2020_def")
+
+
+def _one(p: InputPath) -> Path:
+    return p[0] if isinstance(p, list) else p
+
+
+def m4_paths(inputs: Mapping[str, InputPath]) -> dict[str, Path]:
+    """Step input keys → ``load_m4_inputs`` paths (the M3 TSVs live in the ``mapping`` dir)."""
+    paths = {k: _one(v) for k, v in inputs.items() if k in FILE_NAMES or k == "preflight"}
+    if "preflight" in paths and paths["preflight"].is_dir():  # local executor: work/preflight/
+        paths["preflight"] = paths["preflight"] / "preflight.json"
+    if "mapping" in inputs:
+        mapping = _one(inputs["mapping"])
+        paths |= {k: mapping / FILE_NAMES[k] for k in _M3_TSVS}
+    return paths
+
+
+def check_issues(issues: list[Issue], log: logging.Logger, what: str) -> None:
+    """Log warnings; raise ``ValueError`` listing every contract ``error`` issue."""
+    for i in issues:
+        if i.severity != "error":
+            log.warning("%s: %s: %s", what, i.code, i.message)
+    errors = [f"{i.code}: {i.message}" for i in issues if i.severity == "error"]
+    if errors:
+        raise ValueError(f"{what}: M4 input contract errors: " + "; ".join(errors))
+
+
+def build_genes_pre(
+    inputs: Mapping[str, InputPath], cfg: GiapConfig, log: logging.Logger
+) -> pd.DataFrame:
+    """Load and check the contract tables, run M4-10 ... M4-14 and assemble (no ``p_detect``)."""
+    m4, issues = load_m4_inputs(m4_paths(inputs))
+    check_issues([i for i in issues if i.code not in _UNREAD], log, "gene_table")
+    cog = inputs.get("cog2020_def")
+    if cog is None:
+        log.warning(
+            "layer_missing:cog: COG 2020 table not installed (giap setup --cog); cog_category NA",
+            extra={"event": "gene_table.layer_missing", "data": {"layer": "cog",
+                                                                 "flag": "layer_missing:cog"}},
+        )  # fmt: skip
+    cog_def = None if cog is None else read_cog_def(_one(cog))
+    cov = covariate_table(m4.genes, cfg)
+    acc = accepted_peptides(m4.peptide_hits, m4.peptides, cfg)
+    ev = gene_evidence(m4.genes, m4.peptide_hits, acc, m4.replicons)
+    det = detect(m4.genes, ev, acc, m4.peptides, m4.peptide_hits, m4.protein_hits, cov, cfg)
+    for w in det.warnings:
+        log.warning("gene_table: detection: %s", w)
+    ab = gene_abundance(m4.genes, acc, cov, det, m4.abundance, det.protein_gene_map, cfg,
+                        c10_scale=m4.abundance_scale, protein_hits=m4.protein_hits)  # fmt: skip
+    table = assemble_genes(m4, cov, ev, det, None, ab, cog_def=cog_def)
+    return table.drop(columns=["p_detect"])
+
+
+@step("gene_table", inputs=_REQUIRED, optional_inputs=_OPTIONAL, outputs=["genes_pre"])
+def gene_table(ctx: StepContext) -> None:
+    """Contract tables → ``genetable/genes_pre.parquet`` (everything but ``p_detect``)."""
+    df = build_genes_pre(ctx.inputs, ctx.cfg, ctx.log)
+    write_genes_parquet(ctx.outputs["genes_pre"], df)
+    n_det = int(df["detected"].sum())
+    ctx.log.info("gene_table: %d genes, %d detected", len(df), n_det)
+
+
+def _first(*paths: Path) -> Path | None:
+    return next((p for p in paths if p.exists()), None)
+
+
+def work_inputs(work_dir: Path) -> dict[str, Path]:
+    """Step inputs found in ``work_dir``: the ``giap run`` layout (M3 TSVs under ``mapping/``, C14
+    under ``annotation/``) or the flat ``default_paths`` layout (lead decision 8)."""
+    found: dict[str, Path | None] = {
+        k: _first(work_dir / FILE_NAMES[k], work_dir / k)
+        for k in _REQUIRED + _OPTIONAL
+        if k in FILE_NAMES
+    }
+    found["id_map"] = _first(work_dir / "annotation" / "id_map.tsv", work_dir / "id_map.tsv")
+    found["preflight"] = _first(work_dir / "preflight.json")
+    flat = all((work_dir / FILE_NAMES[k]).is_file() for k in _M3_TSVS)
+    found["mapping"] = work_dir if flat else work_dir / "mapping"
+    db = os.environ.get("GIAP_DB_DIR")
+    found["cog2020_def"] = cog_table(Path(db) if db else None)
+    return {k: p for k, p in found.items() if p is not None and p.exists()}
+
+
+def run_gene_table(work_dir: Path, cfg: GiapConfig) -> Path:
+    """Run ``gene_table`` on ``work_dir``; returns ``work_dir/genetable/genes_pre.parquet``."""
+    out = work_dir / "genetable" / "genes_pre.parquet"
+    run_step("gene_table", cfg, work_inputs(work_dir), {"genes_pre": out})
+    return out

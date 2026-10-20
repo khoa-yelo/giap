@@ -26,7 +26,7 @@ __all__ = ["ANNOTATION_SOURCE", "CONTRACT_COLUMNS", "CONTRACT_TYPES", "REQUIRED_
            "layers_frame",
            "write_contract_tables"]  # fmt: skip
 
-ANNOTATION_SOURCE = "giapsim"
+ANNOTATION_SOURCE = "bakta_full"  # §9.3 enum (M4-15 lead decision 7)
 
 _LAYER_NA: tuple[tuple[str, str], ...] = (
     ("promoter_score", "float"), ("promoter_score_tu", "float"), ("n_promoter_windows_tu", "int"),

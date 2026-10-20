@@ -167,10 +167,17 @@ def plan_local(
 
 
 def stage_roots(workdir: Path, roots: Mapping[str, Path]) -> None:
-    """Copy root input files (normalised by preflight) to ``workdir / key``."""
+    """Copy root input files (normalised by preflight) to ``workdir / key``. Only ``preflight``,
+    whose ``workdir / preflight`` is preflight's own work directory, goes inside that directory
+    (M4-15 decisions 19, 21); any other key onto a directory raises ``IsADirectoryError``."""
     workdir.mkdir(parents=True, exist_ok=True)
     for key, src in sorted(roots.items()):
-        shutil.copyfile(src, workdir / key)
+        dst = workdir / key
+        if dst.is_dir() and key == "preflight":
+            dst = dst / src.name
+        elif dst.is_dir():
+            raise IsADirectoryError(f"cannot stage root '{key}': {dst} is a directory")
+        shutil.copyfile(src, dst)
 
 
 def run_local(
