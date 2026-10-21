@@ -41,3 +41,16 @@ they land.
 11. The performance budget (50,000 targets × 2 decoy sets × 5 bins < 2 s) goes in
     `benchmarks/test_decoy_fdr_bench.py`, added by the implementer — house convention (M5-02 decision 12)
     keeps performance targets out of `tests/`.
+
+## Lead decisions after the statistician's review of #140 (2026-10-21)
+
+12. **Power (Khoa, 2026-10-21: "Label it now, ADR later").** The statistician showed the floor on the
+    attainable FDR is set by the score, not by the +1 or the bins: in the large-sample limit it is
+    π0 / (π0 + (1 − π0)·L) with L = σ0/σ1, so q ≤ 0.1 needs L ≳ 23–46. Over the M6-09 grid
+    (0.25–1.0 SD, L ≤ 4) no variant makes a call. Merge as specified; `docs/methods/operons.md` states
+    plainly that the missed-operon family is near-powerless at realistic effects, controls FDR, and its
+    lfdr is a ranking output. M6-09 gates FDR control and **claims no power**. A combined score
+    (signed-Δ likelihood ratio + UniOP p + distance + promoter/terminator evidence, same decoy FDR, decoys
+    matched on every covariate) is a **hardening-pass ADR draft for Khoa**, not M6 pass 1.
+13. A degenerate (collapsed-scale) t fit is unestimated (`converged = False`, NaN parameters), fixed in
+    7ad17fe; the KDE accuracy stated in code and PR is ~3e-3, as measured.
