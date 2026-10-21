@@ -8,7 +8,7 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 85/91 done (93 %), 2 running · generated 2026-10-21 12:54 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 85/91 done (93 %), 2 running · generated 2026-10-21 13:33 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -64,7 +64,7 @@ the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise deci
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
 
-M5-09 (branch `m5/context-tables`, **implementer step done**, 2026-10-21, PR pending): the two
+M5-09 (**PR #138**, implementer step done, 2026-10-21): the two
 tables, the gene context columns and the step extension. New `giap.io.context_tsv` (writers by value
 through M1-04 `write_tsv`, readers typed from the schema; islands 1-based closed with `end` kept
 unwrapped), `giap.context.vocab.CONTEXT_FLAGS` (no `uncalibrated`), `giap.context.diagnostics`
@@ -86,7 +86,10 @@ producer (`tests/unit/context/test_islands.py:134` pins `stat == scan_s`) all ma
 (b) `context_tables_data.flag_set` does not read the `NA` cell of a flagless row as empty, which
 contradicts `test_empty_flags_are_na`. With four one-line fixes (`"stat"` -> the numeric scan
 statistic in three places, `flag_set` dropping `"NA"`) all 145 M5-09 tests pass — verified locally
-and reverted.
+and reverted (the exact patch is a PR comment). CI run 39666907909: `guards` (the size gate,
+992 -> 783 gated lines after a docstring pass to the house style), `lint`, `nf-test-stub` and
+`summary` pass; the four pytest jobs fail on those same 9 and nothing else (ubuntu 3.11:
+9 failed, 8938 passed). Plus docs/methods/context_tables.md.
 
 M5-09 (branch `m5/context-tables`, **test-author step done**, 2026-10-21): failing tests for
 `autocorrelation.tsv`, `islands.tsv`, the gene context columns and the `context_stats` extension —
