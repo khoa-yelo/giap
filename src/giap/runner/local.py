@@ -60,6 +60,24 @@ def _enabled(cfg: GiapConfig, spec: reg.StepSpec) -> bool:
     return spec.module in cfg.modules
 
 
+# An ``annotation.precomputed`` layer arrives as its M2-02 TSV (giap.annotate.precomputed), not as
+# the M4-06 contract Parquet: layer key -> the contract keys it then supplies as that TSV. M4 steps
+# ignoring such a key still run (``gene_table`` does), but a step *requiring* one cannot, so it is
+# left out of the plan (MVP-01). Under Nextflow the same steps are skipped because ANNOTATE has no
+# C7/C8 Parquet to emit then.
+_LAYER_TSV_KEYS: Mapping[str, tuple[str, ...]] = {"regions": ("regions", "region_genes")}
+
+
+def _tsv_only(cfg: GiapConfig) -> frozenset[str]:
+    """Contract keys that only a precomputed layer's TSV would supply in this run."""
+    return frozenset(
+        key
+        for layer, keys in _LAYER_TSV_KEYS.items()
+        if _layer(cfg, layer) is not None
+        for key in keys
+    )
+
+
 def _feasible(
     cfg: GiapConfig,
     specs: Mapping[str, reg.StepSpec],
@@ -105,6 +123,7 @@ def _walk(
         for key in s.outputs:
             producers.setdefault(key, []).append(s.name)
     feasible = None if roots is None else _feasible(cfg, specs, producers, roots)
+    tsv_only = _tsv_only(cfg)
     pruned: list[str] = []
     planned: set[str] = set()
     supplied: dict[str, Path] = {}
@@ -117,6 +136,8 @@ def _walk(
         seen.add(name)
         spec = reg.get(name)
         if not _enabled(cfg, spec):
+            continue
+        if not tsv_only.isdisjoint(spec.inputs):  # needs a contract table only a layer supplies
             continue
         if feasible is not None and not feasible(name):
             pruned.append(name)

@@ -1,5 +1,9 @@
 // One Python pipeline step through `giap _step` (GIAP_SPEC.md §6.2, §6.3; M2-06).
-// inputs[i] is passed as --in in_keys[i]=<staged path>; out_spec items are "key=file name"
+// inputs[i] is passed as --in in_keys[i]=<staged path>; each input is staged into its own
+// directory in1/, in2/, ... (stageAs 'in?/*') because two keys of one step can name the same
+// file: context_stats takes both the gene table (genetable/genes.parquet) and the M4-06 C2
+// table (genes.parquet), and one `in/` would be a Nextflow input file name collision (MVP-01).
+// out_spec items are "key=file name"
 // (a glob such as windows_*.fa names a scattered output; the stub creates the listed files; in stub
 // runs an item "key=file HEADER" makes the stub write HEADER as the file's only line).
 // The optional logs/events.jsonl that `giap _step` writes (§6.7) is published as
@@ -26,7 +30,7 @@ process GIAP_STEP {
         fn == 'versions.yml' ? null : fn == 'logs/events.jsonl' ? "logs/steps/${step}.events.jsonl" : fn }
 
     input:
-    tuple val(step), path(inputs, stageAs: 'in/*')
+    tuple val(step), path(inputs, stageAs: 'in?/*')
     val(in_keys)
     val(out_spec)
 
