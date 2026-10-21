@@ -37,6 +37,24 @@
     "date": "2026-10-20",
     "issue": "M5-02"
   },
+  "autocorrelation_rows_b1000_n4500_20_lags": {
+    "benchmark": "benchmarks/test_autocorrelation_bench.py::test_autocorrelation_rows_b1000_n4500_20_lags_budget",
+    "budget_s": 30.0,
+    "secs": 2.07,
+    "B": 1000,
+    "n_genes": 4500,
+    "n_values": 2360,
+    "lags": 20,
+    "cpus": 4,
+    "threads": 4,
+    "node": "wheat-07",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "slurm_job": 1861601,
+    "commit": "b12f19d",
+    "date": "2026-10-20",
+    "issue": "M5-05",
+    "note": "real implementation (lead decision 32); OMP_NUM_THREADS=4; a first run on the same node gave 1.97 s (job 1861599). The stand-in's 2.57-2.83 s was a sanity check only."
+  },
   "detectability": {
     "source": "docs/specs/M4-13-detectability.md lead decision 8",
     "d1_fast": {
