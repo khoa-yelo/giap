@@ -2,7 +2,7 @@
 """Post a nightly array's summary to the "Nightly (FarmShare)" issue (GIAP_SPEC.md §3.10, §12).
 
 Usage: ``post_summary.py --job ARRAY_JOB [--tsv local/logs/nightly.tsv] [--expect 4] [--final]
-[--dry-run]``
+[--label nightly] [--title TITLE] [--dry-run]``
 
 ``nightly.sbatch`` appends one line per sub-task to ``nightly.tsv`` (M2-21 lead decision 4:
 ``date  job_task  commit  exit  sub-task: summary``) and then calls this script. Only once every
@@ -57,14 +57,26 @@ def parse(text: str, job: str) -> list[Line]:
     return [rows[k] for k in sorted(rows, key=lambda t: (len(t), t))]
 
 
-def render(lines: list[Line], job: str, missing: dict[str, str] | None = None) -> str:
-    """Markdown comment body for one array job; ``missing`` maps task → its Slurm state."""
+def render(
+    lines: list[Line],
+    job: str,
+    missing: dict[str, str] | None = None,
+    *,
+    label: str = "nightly",
+    tsv_name: str = "nightly.tsv",
+) -> str:
+    """Markdown comment body for one array job; ``missing`` maps task → its Slurm state.
+
+    ``label`` names the job (the ``giap-<label>`` Slurm name) and ``tsv_name`` the file its rows
+    come from, so a second array — ``scripts/slurm/calibration_full.sbatch`` (CI-01) — points its
+    readers at its own logs instead of the nightly's.
+    """
     missing = missing or {}
     tasks = [ln for ln in lines if ln.task.isdigit()]
     notes = [ln for ln in lines if not ln.task.isdigit()]
     ok = bool(tasks) and not missing and all(ln.exit == "0" for ln in tasks)
     commits = sorted({ln.commit for ln in lines})
-    head = f"**{'green' if ok else 'RED'}**: nightly array job {job} on `{', '.join(commits)}`"
+    head = f"**{'green' if ok else 'RED'}**: {label} array job {job} on `{', '.join(commits)}`"
     rows = [(ln.task, ln.exit, ln.summary) for ln in tasks]
     rows += [(t, "-", f"no line: {state} (sacct)") for t, state in missing.items()]
     rows.sort(key=lambda r: int(r[0]))
@@ -73,7 +85,7 @@ def render(lines: list[Line], job: str, missing: dict[str, str] | None = None) -
     out += [f"\nNote: {ln.summary}" for ln in notes]
     out += [
         "",
-        f"Logs: `local/logs/giap-nightly.{job}_<task>.out`; rows in `local/logs/nightly.tsv`.",
+        f"Logs: `local/logs/giap-{label}.{job}_<task>.out`; rows in `local/logs/{tsv_name}`.",
     ]
     return "\n".join(out) + "\n"
 
@@ -119,6 +131,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--tsv", type=Path, default=Path("local/logs/nightly.tsv"))
     ap.add_argument("--expect", type=int, default=1, help="sub-tasks to wait for")
     ap.add_argument("--title", default=TITLE)
+    ap.add_argument("--label", default="nightly", help="the job's giap-<label> Slurm name")
     ap.add_argument("--final", action="store_true",
                     help="post even with tasks missing (the afterany summary job)")  # fmt: skip
     ap.add_argument("--dry-run", action="store_true", help="print the comment, post nothing")
@@ -137,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
     elif len(done) < args.expect:
         print(f"post_summary: {len(done)}/{args.expect} sub-tasks of {args.job} done; not yet")
         return 0
-    body = render(lines, args.job, missing)
+    body = render(lines, args.job, missing, label=args.label, tsv_name=args.tsv.name)
     if args.dry_run:
         print(body, end="")
         return 0
@@ -149,7 +162,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"post_summary: {args.job} already posted")
             return 0
         try:
-            num = issue_number(args.title, "Daily results of scripts/slurm/nightly.sbatch.")
+            num = issue_number(args.title, f"Results of the giap-{args.label} array job.")
             _gh("issue", "comment", num, "--body-file", "-", stdin=body)
         except (OSError, RuntimeError, ValueError) as exc:
             print(f"post_summary: {exc}", file=sys.stderr)

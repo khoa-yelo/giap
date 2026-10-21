@@ -2,6 +2,12 @@
 
 Track: infrastructure (lead-raised 2026-10-20, not a milestone issue) · depends on: nothing
 
+> **DEFERRED to the post-MVP hardening pass (Khoa, 2026-10-20: "Have it after end 2 end").** This is
+> hardening, not integration, so it waits until `giap run` works end to end (MVP-01). The branch
+> `ci/full-tier-array` holds the partial implementation; resume its implementer then rather than
+> starting fresh. Nothing about the gap below has changed — the tier still never runs on a schedule —
+> and it must not be picked up before MVP-01 lands.
+
 ## The gap
 `calibration_full` is **deselected everywhere** and therefore never runs except by hand:
 - `.github/workflows/ci.yml:79` and `:96` — `-m "not … and not calibration_full and not …"`;

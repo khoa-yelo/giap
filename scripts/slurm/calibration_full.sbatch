@@ -15,15 +15,20 @@
 # Sharding (decision 1) is by test id, not by file: a single test is the expensive unit here. Each
 # task collects the selection itself and keeps the ids with sha1(id) % CALFULL_SHARDS == task
 # (scripts/ci/shard_tests.py) — a partition that every task computes identically, with no plan file.
-# Shard count (decision 2, measured 2026-10-20 on commit 646da60, job 1861630: every one of the 161
-# selected tests timed on its own, 8 at a time on one 16-CPU node): 158 tests under 20 s,
-# test_related_dbstrain_stratum0_estimate_covers_false_placements 24 min,
-# test_database_stressed_stratum0_placement_fdr_full 76 min, the third placement arm ~8 min; the
-# tier totals ~2 h of CPU time and is dominated by those arms. 8 shards x 8 CPUs = 64 CPUs (+ 1 for
-# the summary job) is the R14-safe size (tasks x cpus-per-task + 1 <= 128): the shard that draws the
-# 76-minute arm sets the wall clock (~1.5 h), the others finish in minutes, and --time=04:00:00
-# leaves room for the M5-06 island attacks and ADR-0020's hour-long arms as they land. Raise
-# CALFULL_SHARDS (and --array to match) when the tier grows; more, smaller tasks beat wider ones.
+# Shard count (decision 2, measured, not guessed): on commit 646da60 the selection is 161 of the 557
+# tests under tests/calibration. Jobs 1861630 and 1861656 timed every one of them on its own, 8 at a
+# time on a 16-CPU node, capped (120 s, then 900 s for the ones that hit the cap): 112 run in under
+# 2 min (28 min together), 49 take longer, and 37 of those are still running at 15 min, so the
+# measured 12.3 CPU-hours is a lower bound. The longest single test is
+# test_placement_fdr_sim.py::test_database_stressed_stratum0_placement_fdr_full at 76 min (job
+# 1861430) — that one test, not the total, sets the wall clock of whichever shard draws it, which is
+# why more shards stop helping quickly. 8 shards x 8 CPUs = 64 CPUs + the 1-CPU summary job stays
+# well inside both R14 caps (128 CPUs, 20 jobs) while other agents run jobs; it splits the selection
+# into 18-25 tests and 0.7-2.6 CPU-hours per shard (`shard_tests.py --of 8 --count`), i.e. ~20 min of
+# work spread over the 8 workers plus the long arm, and --time=06:00:00 leaves room for the arms
+# whose duration is still only a lower bound and for the M5-06 islands and ADR-0020 arms as they
+# land. The first real run writes the exact durations (see below) — resize from those: raise
+# CALFULL_SHARDS and --array together; more, smaller tasks beat wider ones.
 # Every task appends one line to $GIAP_ROOT/logs/calibration_full.tsv (date, job_task, commit, exit,
 # summary — the shape of nightly.tsv, decision 3), also when it fails early or is killed (SIGTERM at
 # the time limit: EXIT and TERM traps), and the per-test durations (`--durations=0`) to
@@ -71,7 +76,8 @@ report() {  # report <exit> <summary>: this shard's calibration_full.tsv line, t
   local dry=() ps="$W/scripts/ci/post_summary.py"
   [ -f "$ps" ] || ps="$GIAP_REPO/scripts/ci/post_summary.py"   # the checkout may have failed
   [ "${NIGHTLY_POST:-dry}" = dry ] && dry=(--dry-run)
-  python "$ps" --job "$JOB" --tsv "$TSV" --expect "$EXPECT" --title "$TITLE" ${dry[@]+"${dry[@]}"}
+  python "$ps" --job "$JOB" --tsv "$TSV" --expect "$EXPECT" --title "$TITLE" --label calfull \
+    ${dry[@]+"${dry[@]}"}
 }
 on_exit() {  # a shard that ends without its line (early exit, error) still reports
   local rc=$?

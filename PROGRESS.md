@@ -139,6 +139,8 @@ Lessons (keep):
 ## Questions for Khoa
 | # | Question | Options | Default if no answer | Asked |
 |---|---|---|---|---|
+| 1 | How often should the `calibration_full` tier run? `scripts/slurm/calibration_full.sbatch` (CI-01) runs it in 8 shards x 8 CPUs (~65 CPU-hours of tests today); nothing schedules it, no scrontab line was added. | weekly (after the weekly end-to-end job) / fortnightly / before each gate review / on demand only | on demand only: the job stays hand-submitted | 2026-10-20 |
+| 2 | May the full tier post its summary to the "Nightly (FarmShare)" issue, or should it keep its own issue? | nightly issue / own issue "Calibration full tier (FarmShare)" | its own issue, and `NIGHTLY_POST=dry` (print, post nothing) unless the launcher is told otherwise | 2026-10-20 |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;

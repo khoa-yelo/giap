@@ -294,6 +294,9 @@ def test_the_last_shard_posts_the_summary_once(sb: Sandbox) -> None:
     assert titles and "Nightly (FarmShare)" not in titles, (
         f"decision 4 leaves the nightly issue to Khoa; posted to {titles}"
     )
+    assert "calibration_full.tsv" in body and "giap-calfull" in body, (
+        f"the comment sends readers to the nightly's logs, not this job's:\n{body}"
+    )
 
 
 # --- the launcher --------------------------------------------------------------------------------

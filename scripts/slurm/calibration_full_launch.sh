@@ -21,16 +21,16 @@ TSV="$GIAP_ROOT/logs/calibration_full.tsv"
 case "$SHARDS" in ''|*[!0-9]*|0)
   echo "calibration_full_launch: CALFULL_SHARDS='$SHARDS' is not a positive integer" >&2; exit 2 ;;
 esac
-mkdir -p "$REPO/local/logs" "$GIAP_ROOT/logs"
+mkdir -p "$GIAP_ROOT/logs"
 array=$(sbatch --parsable --array="0-$((SHARDS - 1))" --export="ALL,CALFULL_SHARDS=$SHARDS" \
   "$REPO/scripts/slurm/calibration_full.sbatch") || {
   echo "calibration_full_launch: the array was not submitted" >&2; exit 1; }
 array=${array%%;*}
 dry=(); [ "${NIGHTLY_POST:-dry}" = dry ] && dry=(--dry-run)
 summary=$(sbatch --parsable --job-name=giap-calfull-summary --cpus-per-task=1 \
-  --dependency="afterany:$array" --comment="calfull:$array" --output="$REPO/local/logs/%x.%j.out" \
+  --dependency="afterany:$array" --comment="calfull:$array" --output="$GIAP_ROOT/logs/%x.%j.out" \
   "$REPO/scripts/slurm/nightly_summary.sh" "$array" \
-  --tsv "$TSV" --expect "$SHARDS" --title "$TITLE" ${dry[@]+"${dry[@]}"}) || {
+  --tsv "$TSV" --expect "$SHARDS" --title "$TITLE" --label calfull ${dry[@]+"${dry[@]}"}) || {
   echo "calibration_full_launch: array $array submitted, but its summary job was refused" >&2
   exit 1; }
 echo "calibration_full_launch: array ${array} ($SHARDS shards), summary job ${summary%%;*} (afterany:$array)"
