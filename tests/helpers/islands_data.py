@@ -51,6 +51,7 @@ ISLAND_COLUMNS = (
 GENE_MAP_COLUMNS = ("locus_tag", "island_id")
 METHOD = "scan_max_stat"
 NULL_MODEL = "circular_block_bootstrap"
+STAT = "scan_max"  # §9.2 test column ``stat``: the statistic's name (M5-09 decision 6)
 STEP = "context_stats.islands"  # §6.6 random stream of the island part
 FEW_VALUES = "few_values"  # decision 40: replicon not scanned (span gives k < 4)
 FEW_UNITS = "ci_few_units"  # M4-16: CI from < 10 resampling units
