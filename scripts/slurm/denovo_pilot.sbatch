@@ -65,17 +65,19 @@ if [ ! -f "$MODEL" ]; then
 fi
 
 RUNS=()
+RUN_N=0   # a counter, so bash 3.2 (macOS CI) never expands an empty array under `set -u`
 for f in "$RAW_DIR"/$PATTERN; do
   [ -e "$f" ] || continue
   RUNS+=("$f")
+  RUN_N=$((RUN_N + 1))
 done
-if [ "${#RUNS[@]}" -eq 0 ]; then
+if [ "$RUN_N" -eq 0 ]; then
   echo "no $PATTERN runs in $RAW_DIR" >&2
   exit 2
 fi
 
 mkdir -p "$OUT"
-echo "== A3 de novo with $TOOL on ${#RUNS[@]} run(s) from $RAW_DIR; output $OUT"
+echo "== A3 de novo with $TOOL on $RUN_N run(s) from $RAW_DIR; output $OUT"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader || true
 
 case "$TOOL" in

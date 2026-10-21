@@ -58,19 +58,22 @@ mkdir -p "$OUT" "$FASTA_DIR"
 
 # The timsTOF runs of PXD078459 (§15.1); checked before any DIA-NN call.
 RAW_FILES=()
+RAW_N=0
 for d in "$RAW_DIR"/*.d; do
   [ -e "$d" ] || continue
   RAW_FILES+=(--f "$d")
+  RAW_N=$((RAW_N + 1))
 done
-if [ "${#RAW_FILES[@]}" -eq 0 ]; then
+if [ "$RAW_N" -eq 0 ]; then
   echo "no *.d runs in $RAW_DIR (run scripts/slurm/fetch_pxd078459.sbatch first)" >&2
   exit 2
 fi
 
+# bash 3.2 (macOS CI) runs these functions too: no ${v,,}, no ${!v}, no empty-array expansion.
 expand() {  # $VAR / ${VAR} of the GIAP environment in a cfg value
   local s="$1" name val
   for name in GIAP_REPO GIAP_ROOT GIAP_DATA_DIR GIAP_DB_DIR GIAP_TOOLS_DIR; do
-    val="${!name:-}"
+    eval "val=\${$name:-}"
     s="${s//\$\{$name\}/$val}"
     s="${s//\$$name/$val}"
   done
@@ -78,34 +81,35 @@ expand() {  # $VAR / ${VAR} of the GIAP environment in a cfg value
 }
 
 CFG_ARGS=()
+CFG_N=0
 load_step() {  # flags of [step1]/[step2] of $CFG, in file order, into CFG_ARGS
   local want="$1" section="" line tok
   CFG_ARGS=()
+  CFG_N=0
   set -f  # K*,R* and UniMod:35,… must not be globbed
   while IFS= read -r line || [ -n "$line" ]; do
     line="${line%%#*}"
-    line="${line#"${line%%[![:space:]]*}"}"
-    line="${line%"${line##*[![:space:]]}"}"
-    [ -n "$line" ] || continue
     case "$line" in
-      "["*"]")
-        section="${line//[![:alnum:]]/}"
-        section="${section,,}"
+      *\[*\]*)
+        section=$(printf '%s' "$line" | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]')
         continue
         ;;
     esac
     [ "$section" = "$want" ] || continue
-    for tok in $line; do CFG_ARGS+=("$tok"); done
+    for tok in $line; do
+      CFG_ARGS+=("$tok")
+      CFG_N=$((CFG_N + 1))
+    done
   done < "$CFG"
   set +f
-  [ "${#CFG_ARGS[@]}" -gt 0 ] || { echo "$CFG: section [$want] is empty" >&2; exit 2; }
+  [ "$CFG_N" -gt 0 ] || { echo "$CFG: section [$want] is empty" >&2; exit 2; }
 }
 
 STEP_ARGS=()
 resolve_fastas() {  # expand every --fasta of CFG_ARGS; unpack a gzipped one outside the repository
   local i=0 tok val base
   STEP_ARGS=()
-  while [ "$i" -lt "${#CFG_ARGS[@]}" ]; do
+  while [ "$i" -lt "$CFG_N" ]; do
     tok="${CFG_ARGS[$i]}"
     if [ "$tok" != "--fasta" ]; then
       STEP_ARGS+=("$tok")
@@ -147,7 +151,7 @@ else
 fi
 
 # ---- step 2: search the runs against the predicted library
-echo "step 2: searching ${#RAW_FILES[@]} run(s) from $RAW_DIR"
+echo "step 2: searching $RAW_N run(s) from $RAW_DIR"
 load_step step2
 resolve_fastas
 diann "${STEP_ARGS[@]}" "${RAW_FILES[@]}" --threads "$THREADS" --lib "$PREDICTED_LIB" \

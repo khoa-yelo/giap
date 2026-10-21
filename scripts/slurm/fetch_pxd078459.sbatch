@@ -37,8 +37,17 @@ case "$BASE_URL" in
   *) echo "refusing a non-TLS source: $BASE_URL (R6)" >&2; exit 2 ;;
 esac
 
+sha256_of() {  # GNU sha256sum or the BSD shasum of macOS CI; both print "<hash>  <name>"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum -- "$@"
+  else
+    shasum -a 256 -- "$@"
+  fi
+}
+
 mkdir -p "$DEST"
 NAMES=()
+NAME_N=0
 for name in $FILES; do
   url="$BASE_URL/$name"
   if [ -s "$DEST/$name" ]; then
@@ -49,9 +58,11 @@ for name in $FILES; do
       --output "$DEST/$name" "$url"
   fi
   NAMES+=("$name")
+  NAME_N=$((NAME_N + 1))
 done
+[ "$NAME_N" -gt 0 ] || { echo "PXD078459_FILES is empty: nothing to download" >&2; exit 2; }
 
-(cd "$DEST" || exit 1; sha256sum -- "${NAMES[@]}" > SHA256SUMS)
+(cd "$DEST" || exit 1; sha256_of "${NAMES[@]}" > SHA256SUMS)
 echo "== SHA256SUMS"
 cat "$DEST/SHA256SUMS"
 
