@@ -92,6 +92,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "attacks/test_attack_genome_decoys.py": "placement",
         "attacks/test_attack_mayu.py": "gene_fdr",
         "attacks/test_attack_permutation.py": "regions",
+        "attacks/test_attack_placement_contaminants.py": "placement",
         "attacks/test_attack_placement_pi.py": "placement",
         "attacks/test_attack_placement_same_db.py": "placement",
         "attacks/test_attack5_reversed_stretches.py": "placement",
