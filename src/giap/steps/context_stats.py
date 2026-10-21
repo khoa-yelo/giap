@@ -3,10 +3,12 @@ and ``tables/detection_summary.tsv`` (the M4 parts; M5 adds autocorrelation, isl
 
 Inputs: the final gene table (M4-15 ``work/genetable/genes.parquet``, key ``gene_table``), the
 M4-06 contract tables C1-C14 (validated with ``load_m4_inputs``; an ``error`` issue stops the
-step), optionally the ``--replicon-depth`` TSV (§5.3) and M4-15's ``detectability_summary``
+step), optionally the ``--replicon-depth`` TSV (§5.3), M4-15's ``detectability_summary``
 parquet (detectability diagnostics rows; locally ``genetable/detection_summary_parts/
-detectability.parquet``) and the ADR-0019 stratum-0 class table of the ``placement`` step
-(``stratum0_classes``; locally ``mapping/stratum0_classes.parquet``), which adds the
+detectability.parquet``), the ``tier_summary`` parquet of ``gene_table`` (M4-12's tier counts and
+q-threshold curve; locally ``genetable/detection_summary_parts/tier.parquet``, M4-20 decision 3)
+and the ADR-0019 stratum-0 class table of the ``placement`` step (``stratum0_classes``; locally
+``mapping/stratum0_classes.parquet``), which adds the
 ``stratum0_unmapped_share`` QC rows. Random streams, all from
 ``config.seed``: ``context_stats`` (M4-17 region tests), ``context_stats.plasmids`` (parent of the
 per-plasmid streams) and ``context_stats.detection_summary`` (basic O - E CIs), so no part's draws
@@ -78,6 +80,8 @@ def _context_stats(
                                                                seed)),
              qc_rows(m4.peptides, m4.peptide_hits, m4.unmapped,
                      stratum0=None if s0 is None else pd.read_parquet(s0))]  # fmt: skip
+    if "tier_summary" in inputs:  # M4-12 tier counts and q-threshold curve (decision 3)
+        parts.append(pd.read_parquet(inputs["tier_summary"]))
     if "detectability_summary" in inputs:  # M4-15 detectability diagnostics rows
         parts.append(pd.read_parquet(inputs["detectability_summary"]))
     write_detection_summary(outputs["detection_summary"], detection_summary(parts))
@@ -89,9 +93,10 @@ def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | No
     inputs = {k: p for k, p in default_paths(work_dir).items()
               if k not in OPTIONAL_KEYS or p.exists()}  # fmt: skip
     inputs["gene_table"] = work_dir / "genetable" / "genes.parquet"
-    part = work_dir / "genetable" / "detection_summary_parts" / "detectability.parquet"
-    if part.exists():
-        inputs["detectability_summary"] = part
+    parts = work_dir / "genetable" / "detection_summary_parts"
+    for key, name in (("detectability_summary", "detectability"), ("tier_summary", "tier")):
+        if (parts / f"{name}.parquet").exists():
+            inputs[key] = parts / f"{name}.parquet"
     classes = work_dir / "mapping" / "stratum0_classes.parquet"
     if classes.exists():
         inputs["stratum0_classes"] = classes
@@ -112,6 +117,7 @@ def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | No
         "detectability_summary",
         "replicon_depth",
         "stratum0_classes",
+        "tier_summary",
     ],
     outputs=["regions_stats", "detection_summary"],
 )
