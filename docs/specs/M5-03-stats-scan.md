@@ -106,3 +106,39 @@ does to power (TU scores of large TUs have smaller variance), merging and the be
 9. Q1: windows on a circular replicon are capped at n − 1 TUs.
 10. Q2: windows merge only on ≥ 1 shared TU. Methods note: an island longer than 20 TUs is represented by
     a best window of ≤ 20 TUs, and M5-10's Jaccard inherits that.
+
+## Lead decisions after the test-author's report (2026-10-20)
+11. Example 9 is a `merge_windows` example on a hand-built `ScanResult` (the same window with two signs
+    cannot come from `scan_max`); tested that way.
+12. Cluster order follows the rule (best window's start), not the listing in example 9; on equal starts,
+    "high" precedes "low".
+13. A significant window with S = 0 has no direction and is dropped from every cluster (no error); it can
+    arise only from a degenerate null.
+14. Example 4 reads "the first cluster's best window has start 0".
+15. The calibration claim for M5-03 is FWER level under exchangeable permutation nulls (suite `islands`),
+    as written by the test-author; the autocorrelated block-bootstrap claim is M5-06/M5-07. `n_windows`
+    also raises on a bad window range.
+
+## Lead decisions after the code review of #118 (2026-10-20)
+16. No numba: numpy prefix sums meet the budget (0.41 s against 2 s); §8.3's "numba" is a means, not a
+    requirement. Revisit only if a benchmark regresses.
+17. `fwer_p` returns NaN for a NaN or ±inf |S| (element-wise `perm_p` semantics), including a NaN
+    `max_abs` from a replicon with no window. Fix the root cause in `giap.stats.permutation._tol` (it
+    raises on a non-finite argument), so `perm_p(inf, …)` is defined too: +inf "greater" gives the +1
+    floor p = 1/(B + 1) unless the null contains +inf.
+18. Input checks: `fwer_p` and `merge_windows` reject non-1-D input; `merge_windows` validates `n ≥ 0`
+    and handles n = 0; tests cover wrong-ndim input to `scan_max` / `scan_null_max`.
+19. Decision 17 wording: `fwer_p` masks non-finite |S| to NaN itself (an infinite S cannot arise from
+    finite z, so NaN marks an input fault); it differs from `perm_p` only there. `perm_p` with ±inf obs
+    follows the test-author's table (+inf "greater" = (1 + #{null = +inf})/(1 + B), etc.).
+    `besag_clifford` gets the same `_tol` fix; no extra test.
+
+## Lead decisions after the statistician's review of #118 (2026-10-20)
+20. Methods note in this PR: docs/methods/islands.md §"Scan and maximum statistic" (the statistician's
+    text in the #118 review comment, or equivalent), and the header no longer says sign-off waits for
+    M5-06 for this section.
+21. Add a `calibration_full` arm (R = 500) to the scan calibration file: FWER level at α ∈ {0.01, 0.05,
+    0.10} plus the planted-island check (false-island rate ≤ window FWER; starting point: the
+    statistician's isl.py).
+22. `fwer_p` raises `ValueError` on a negative finite |S| (signed S passed by mistake would lose every
+    low island).

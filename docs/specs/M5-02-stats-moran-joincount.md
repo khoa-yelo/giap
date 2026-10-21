@@ -140,3 +140,41 @@ rule implemented here.
    under both nulls; all p equal and all d equal → constant null → NA.
 8. Example 12 stays; add a test that giapsim TU-score series at ρ 0.9 give ℓ̂ ≈ 8 (4,500 genes) and ≈ 1.3
    (1,000 genes), pinning the dilution.
+
+## Lead decisions after the test-author's report (2026-10-20)
+9. Example 12 amended: AR(1) ρ = 0.9, n = 2,000 gives ℓ̂ ≥ 15 in ≥ 95 % of runs (measured 100 %; ℓ̂ = 20
+   in 0.85–0.92 because the sampling SD of I₁₇…I₂₀ ≈ ρ²⁰). The test-author updates the test.
+10. `choose_block_len` returns ℓ̂ only. ADR-0021's ℓ' = min(20, 2ℓ̂ + 1, T) is a shared helper
+    `giap.stats.autocorr.block_len_prime(l_hat, T)` (M5-06 and M5-08 call it); the test-author adds tests.
+11. `lag_test` with NaN obs: `n_valid` is the count of finite null values; every other field NaN.
+12. The < 5 s performance target goes to benchmarks/ (implementer adds the benchmark, no assertion in tests/).
+13. Decision 11 wording: "finite" reads "non-NaN", matching `perm_p` (±inf null entries count as valid).
+
+## Lead decisions after code review of #116 (2026-10-20)
+14. "Constant null" means spread ≤ 1e-12 × max(1, max|null|) over non-NaN entries (the perm_p tie scale),
+    not exact min == max; a circular replicon with 2 TU blocks (rotation-only null) gives p = NaN.
+15. The property test asserts min ≤ null_mean ≤ max and null_lo ≤ null_hi (not lo ≤ mean ≤ hi).
+16. Every documented ValueError has a test (autocorr.py checks: non-contiguous blocks, bad n/B/movable,
+    l_hat/T < 1, max_len < 1, …); decision 13 (±inf counts in n_valid) is pinned; `choose_block_len`
+    moves NaNs with values (documented and tested); B = 0 raises ValueError.
+
+## Lead decisions after the statistician's review of #116 (2026-10-20)
+17. ADR-0020 Amendment 1 (Khoa): the residual join count becomes the Pearson residual statistic
+    Σ r_i r_j, r = (d − p)/√(p(1 − p)), p unclipped; genes with p ∈ {0, 1} or NaN are missing. `join_count`
+    / `join_count_matrix` keep their signatures (`p` / `P` still supplied by the caller).
+18. Methods notes in this PR: docs/methods/autocorrelation.md gains "Statistics and nulls" (Moran's I,
+    Pearson residual join count, both nulls, constant-null rule, null summaries; the V10 envelope is
+    pointwise and on the statistic's scale, not the raw count); docs/methods/bootstrap.md "Block length"
+    states ADR-0021's ℓ' = min(20, 2ℓ̂ + 1, T).
+19. The statistician's engine attack file (tests/calibration/attacks/test_attack_autocorr_engine.py) is in
+    this PR; the test-author adapts it to the Pearson statistic and adds a must-fail arm (raw residual,
+    50 % islands) so the two-block gate has teeth.
+20. Decision 14 stays (NaN p for any constant null); the statistician's power note for sparse raw nulls
+    is recorded, not adopted.
+21. (statistician re-review) A non-NaN p outside [0, 1] raises `ValueError` in `join_count` /
+    `join_count_matrix` (an upstream bug must not be silently dropped); p ∈ {0, 1} and NaN stay missing.
+22. Methods note edits before sign-off: the constant-null paragraph says 1/(B + 1) is a valid p when the
+    observation differs from a constant null and NA is kept as a conservative choice that avoids
+    enlarging the BH family without adding information; the join-count paragraph states the assumption
+    that cross-fitted p_detect is calibrated (a rejection means clustering beyond the detectability
+    model).

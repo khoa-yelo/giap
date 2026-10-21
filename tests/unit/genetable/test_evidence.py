@@ -21,7 +21,6 @@ from __future__ import annotations
 import dataclasses
 import math
 import sys
-import time
 from pathlib import Path
 from typing import Any
 
@@ -702,21 +701,17 @@ def test_simulated_layout_matches_oracle(origin: bool) -> None:
         assert len(crossing) >= 1
 
 
-def test_simulated_4500_genes_under_one_second() -> None:
+def test_simulated_4500_genes_detected_have_evidence() -> None:
     layout, detected, peps, hits = _sim_inputs(4500, 5, True)
     ev = _ev()
-    cfg = _cfg()
-    best = math.inf
-    for _ in range(3):
-        t0 = time.perf_counter()
-        acc = ev.accepted_peptides(hits, peps, cfg)
-        out = ev.gene_evidence(layout.genes, hits, acc, layout.replicons)
-        best = min(best, time.perf_counter() - t0)
+    acc = ev.accepted_peptides(hits, peps, _cfg())
+    out = ev.gene_evidence(layout.genes, hits, acc, layout.replicons)
     assert len(out) == len(layout.genes) >= 4500
     r = Run(acc, out, layout.genes)
     missing = [t for t, d in detected.items() if d and int(r.row(t)["n_accepted"]) < 1]
     assert not missing
-    assert best < 1.0, f"{best:.3f} s for {len(layout.genes)} genes"
+    # The M4-11 time budget (best of 3 < 1 s for 4,500 genes) is checked in
+    # benchmarks/test_genetable_evidence_bench.py (wall clock is flaky on loaded nodes).
 
 
 def test_m409_default_fixture_detected_true_have_evidence() -> None:
@@ -729,11 +724,10 @@ def test_m409_default_fixture_detected_true_have_evidence() -> None:
     expr = simulate_expression(layout, ExpressionConfig(), np.random.default_rng(2))
     sim = evmod.simulate_evidence(layout, expr, evmod.EvidenceConfig(), np.random.default_rng(3))
     ev = _ev()
-    t0 = time.perf_counter()
     acc = ev.accepted_peptides(sim.peptide_hits, sim.peptides, _cfg())
     out = ev.gene_evidence(layout.genes, sim.peptide_hits, acc, layout.replicons)
-    elapsed = time.perf_counter() - t0
     r = Run(acc, out, layout.genes)
     det = expr.genes.loc[expr.genes["detected_true"].astype(bool), "locus_tag"]
     assert all(int(r.row(t)["n_accepted"]) >= 1 for t in det)
-    assert elapsed < 1.0 * max(1.0, len(layout.genes) / 4500)
+    # The M4-11 time budget (< 1 s per 4,500 genes) on this fixture is checked in
+    # benchmarks/test_genetable_evidence_bench.py (wall clock is flaky on loaded nodes).

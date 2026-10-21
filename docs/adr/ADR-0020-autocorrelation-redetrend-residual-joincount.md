@@ -63,3 +63,20 @@ Simulations on giapsim M4-07/08 truth (B = 499–1,000):
 - Permute raw, detrend per replicate: fails under an ori–ter gradient with weak TU structure.
 - Double detrend without the wide pre-trend: 0.072 at lag 1.
 - Bootstrap CI for I_k: needs blocks ≫ k, biased toward 0 at joins, uncalibrated.
+
+## Amendment 1 (accepted-by-khoa, 2026-10-20): Pearson residual join count
+Supersedes decision 3's statistic. Statistician review of PR #116 (Slurm 1861073, 1861078; scripts and
+outputs under local/scratch/review-116-stat-sims/) found Σ(d − p)(d − p) anti-conservative when low
+`p_detect` clusters along the replicon: the permutation null cannot reproduce the clustered p(1 − p)
+variance. Circular n = 1,000, 30-gene islands with p ~ U(0.01, 0.05) amid p ~ U(0.3, 0.9), α = 0.05:
+rejection 0.059 / 0.074 / 0.086 / 0.105 at 10 / 20 / 30 / 50 % island share (both nulls).
+
+- The join count test uses r_i = (d_i − p_i)/√(p_i(1 − p_i)) and the statistic Σ over valid lag-k pairs of
+  r_i r_j, with p unclipped and permuted together with d under both nulls. Genes with p ∈ {0, 1} (or NaN)
+  have no residual and are treated as missing (they join no pair).
+- Evidence: level 0.045–0.056 in every scenario above and in the original attack set; about 10 % power
+  cost; at very small p (0.001–0.005) α = 0.01 gives 0.019 (recorded, not gated).
+- A floor on p in the denominator is rejected: it reintroduces the clustering failure.
+- `value` still reports the raw BB_k; `effect` = Pearson statistic − its null mean.
+- The engine attack file tests/calibration/attacks/test_attack_autocorr_engine.py carries the low-p-island
+  arms (pass with the Pearson statistic) and a must-fail arm (raw residual, 50 % islands).
