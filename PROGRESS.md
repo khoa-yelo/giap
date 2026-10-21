@@ -64,6 +64,47 @@ the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise deci
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
 
+M5-09 (**PR #138**, implementer step done, 2026-10-21): the two
+tables, the gene context columns and the step extension. New `giap.io.context_tsv` (writers by value
+through M1-04 `write_tsv`, readers typed from the schema; islands 1-based closed with `end` kept
+unwrapped), `giap.context.vocab.CONTEXT_FLAGS` (no `uncalibrated`), `giap.context.diagnostics`
+(lead decision 1: l-hat / l' / lag-1 Moran's I as NA-never-0, `render_l_hat`,
+`calibration_applies`), `giap.context.tables` (the spec's row assembly), the two Frictionless
+schemas, and `context_stats` gaining C15 `features` (run flag `layer_missing:features`) and the
+outputs `autocorrelation`, `islands`, `gene_context`, `island_diagnostics` and `genes_tsv`
+(lead decision 3). `giap.context.oriter` now emits `lag` as the schema's nullable `Int64`, so the
+concatenated table keeps integer lags. `giap.steps.registry` gained `optional_outputs` so the new
+keys could be declared without rewiring M4-18's registry-path callers (backlog: no unit test yet).
+CONTEXT publishes `tables/autocorrelation.tsv`, `tables/islands.tsv` and `tables/genes.tsv` and
+takes C15 from the annotation channel's second file, so no 11th `take:` was needed; nf-test
+context + main + main_genetable_context all pass (stub). Plus docs/methods/context_tables.md.
+
+Fast suite **9062 passed, 29 skipped, 1 xfailed, 0 failed** (Slurm 1863848, 11:37) after lead
+decisions 6-8 closed the two test bugs the first run exposed (Slurm 1863383: 9053 passed,
+9 failed, coverage 96 %; CI run 39666907909 had the same 9 and nothing else, with `guards`,
+`lint`, `nf-test-stub` and `summary` green). Decision 6 (**Khoa authorised the merged-code
+change**): §9.2 makes the test column `stat` an enum of statistic *names*, which `regions_stats`
+and `autocorrelation` both follow, so M5-06's float `stat` (a copy of `scan_s`) was the slip —
+`giap.context.islands.STAT = "scan_max"` now, `scan_s` keeps the value, the islands schema field
+is a `string` enum, and the one merged oracle (`tests/unit/context/test_islands.py:134`) asserts
+the name. Decision 7: `context_tables_data.flag_set` now reads the `NA` cell of a flagless row as
+empty (it contradicted `test_empty_flags_are_na` in the same file), and `ISLAND_FLOATS` drops
+`stat`. Decision 8 accepted the two out-of-surface changes (`oriter`'s nullable `Int64` `lag`,
+`registry.optional_outputs`; the latter's missing unit test stays filed in docs/backlog.md).
+Gated code lines 787 of 800 — above the 400 warn line, left as is (lead).
+
+M5-09 (branch `m5/context-tables`, **test-author step done**, 2026-10-21): failing tests for
+`autocorrelation.tsv`, `islands.tsv`, the gene context columns and the `context_stats` extension —
+140 failed, 5 passed (the 5 are invariant guards that already hold: the genes.tsv context group in the
+schema and the M4 tables' determinism). New: `tests/unit/io/test_context_tsv.py`,
+`tests/unit/context/test_vocab.py`, `tests/unit/context/test_island_diagnostics.py`,
+`tests/property/test_context_tsv_props.py`, `tests/integration/test_context_stats_m5.py`,
+`tests/helpers/context_tables_data.py`. Interfaces assumed where none is merged: M5-08's `oriter_rows`
+/ `gene_replichores` as PR #132 has them; M4-20's `build_m4_fixture` replaced by the M4-18 fixture plus
+an oriC and a planted island. **Needs a lead decision:** where ADR-0021 Amendment 1's per-replicon
+l-hat / l' / lag-1 Moran's I live — **decided**: `giap.context.diagnostics` and
+`work/context/island_diagnostics.parquet`, because `IslandScan` dies with the step and the §9.4 run
+report does not exist yet (M5-09 lead decisions 1-5, 2026-10-21).
 M6-04 (PR #143, branch `m6/pair-table`, implementer step done): `giap.operons.pairs` — the adjacent
 chain (M2 `adjacent_pairs(same_strand=False)`; a 2-gene ring has one pair), SW decoys, OP/NO/CV/DV
 classes, strand-aware orientation, `rna_between`, per-gene joins and threshold-independent `PAIR_<n>`
@@ -99,7 +140,7 @@ M5-08 (#132, implementer step done): `giap.context.oriter` — oriC resolution (
 three descriptive OLS slopes with a circular block-bootstrap CI; block length clamped per fit with that
 fit's own T (lead decision 1 of 2026-10-21), ℓ̂ once per replicon from the pooled residuals. Unit +
 property tests 42 passed, module coverage 97 %; fast suite **8872 passed, 29 skipped** (Slurm 1863080,
-6:37); the recorded fast coverage arm (example 7, 2 log2, ρ 0.5, R = 50) **coverage 0.96, estimable 1.00,
+6:37); the recorded fast coverage arm (example 7, 2 log2, ρ 0.5, R = 50) **coverage 0.96 at R = 50 — corrected to 0.943 at R = 300, Slurm 1863166; the 0.96 was a fluctuation**, estimable 1.00,
 mean CI width 1.11** (Slurm 1863081, 27 s) — the test-author's 0.96 reproduced. Plus
 docs/methods/oriter.md. `features` stays a plain parameter; the step plumbing is M5-09's.
 M5-06 (**PR #131**, implementer step done, 2026-10-21): `giap.context.islands` on the merged M5-01/02/03

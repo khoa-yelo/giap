@@ -41,11 +41,6 @@ SEED = 20261021
 #: the 50-kb genome cannot reach the default 0.01 (see the module docstring)
 GOLDEN_ALPHA = 0.05
 FAST_STATS = {"permutations": 199, "bootstrap": 200}
-#: M4-20 lead decision 14: the writer still sits in ``run_detectability``; M5-09 moves it and
-#: removes this mark (strict, so the move cannot land unnoticed)
-XFAIL_OWNER = pytest.mark.xfail(
-    strict=True, reason="genes.tsv owner moves to context_stats in M5-09 (#138)"
-)
 
 
 @pytest.fixture(scope="module")
@@ -117,7 +112,6 @@ def test_example_1_every_table_has_rows(sim50k: dict[str, Path]) -> None:
     assert len(genes) == len(mc.genes(sim50k["genes.tsv"].parent.parent))
 
 
-@XFAIL_OWNER
 def test_genes_tsv_is_written_by_context_stats(tmp_path: Path, db: Path) -> None:
     """M5-09 lead decision 3: ``context_stats`` owns ``tables/genes.tsv`` -- it is the only step
     holding both the gene table and M5-09's ``island_id`` / ``replichore`` /
@@ -127,10 +121,6 @@ def test_genes_tsv_is_written_by_context_stats(tmp_path: Path, db: Path) -> None
     The known limitation this pins, recorded and not worked around: after ``gene_table`` and
     ``detectability`` there is no ``genes.tsv``, so a run whose ``context_stats`` is skipped (no
     C7/C8) publishes none. §6.2 gives the file to ``finalize``, which is its proper owner.
-
-    Strict xfail (M4-20 lead decision 14): ``run_detectability`` still writes the file here, and
-    M5-09 (#138) moves the call. The mark is strict, so the day M5-09 lands this test turns the
-    branch red until the mark is removed -- it cannot be forgotten.
     """
     from giap.steps.context_stats import run_context_stats
     from giap.steps.detectability import run_detectability
