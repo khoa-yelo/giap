@@ -85,3 +85,52 @@ sets, the single-peptide rerun refits detectability.
    default:** M4, so M5–M8 only register families; it is off the gate path and can slip.
 2. Compare variants with a primary recomputed at B = 199 (as above) or with the reported primary
    (B = 1,000)? **Proposed default:** recomputed at 199; otherwise permutation noise reads as instability.
+
+## Lead decisions (2026-10-20, after the statistician's attack check)
+1. Q1 is already decided by M4-index decision 7 (framework built in M4, regions family only, off the
+   gate path).
+2. Q2 accepted, with common random numbers: one child stream keyed by family (not by family × variant),
+   including the M4-13 folds for the `single_peptide_detected` refit. With
+   `exhaustive_shift_max_genes = 20000` every bacterial replicon uses all shifts, so the recomputed
+   primary equals the reported one — test that. The methods note must say that above 20,000 genes the
+   p floor is 0.005 and `n_primary` may differ from the count in `regions_stats.tsv`.
+3. Family IDs are `<region_id>:<contig>:<stat>` (M4-17 `split_contigs` regions get one row per contig).
+4. Flagged set = rows with `null_model = circular_shift` and q ≤ `alpha.context`; rows with p NA are
+   never flagged.
+
+## Lead decisions after the test-author's report (2026-10-20)
+5. The family signature stays `(genes, cfg, rng)`; `run_sensitivity` binds C1 replicons, C7 regions and
+   C8 region_genes with `functools.partial` (as M5-10 decision 38), so the regions family uses the same
+   inputs and topology as `regions_stats`.
+6. The single-peptide refit reuses the primary's folds (`for_step("detectability", seed)`); all other
+   draws of a family come from its one family stream (CRN). The primary is never refit.
+7. Example 6: no sensitivity.tsv is written; the step logs that the family is off. Recording it in the run
+   manifest is done by `finalize` later (backlog).
+8. A family whose module is disabled produces no rows (backlog test once module switches exist).
+9. `top3` is not rerun when `abundance.method` is already `top3`; it is skipped with a "top3" log line when
+   there are no peptide intensities.
+10. Writer `giap.io.sensitivity_tsv`, output `tables/sensitivity.tsv`, schema
+    `src/giap/schemas/tables/sensitivity.schema.json` (repo convention); the test may stop accepting
+    `sensitivity.json` later.
+11. The implementer starts after M4-15 (#111) merges, since the integration tests need its steps.
+
+## Lead decisions after the code review of #117 (2026-10-20)
+12. The step loads only C1 (genes), C7 (regions, region_genes) and C8 (replicons) and raises on their
+    error issues (`check_issues`); a missing required table is an error, never empty rows.
+13. No fallback: `regions_family` requires `regions`, `region_genes` and `replicons` (keyword-only, no
+    default); the test helper `call_regions_family` passes them. Topology always comes from C8.
+14. Tests (test-author) kill M09 (`top3` must read `top3_log2`), M27 (decision-5 binding: a fixture whose
+    C7/C8 differ from what `region_ids` imply, including a linear replicon), M24 (refitting the unchanged
+    primary reproduces its `p_detect` exactly), plus a missing-file test for each of C1/C7/C8.
+15. The `top3` variant table sets `abundance_type` = top3 and carries the top3 raw values and flags.
+16. Backlog: M4-19 step registration and Nextflow wiring; decision 7 (manifest records `off`); decision 8
+    (no rows when a module is off).
+17. Decision 12 table names use the M4-06 numbering: C1 replicons, C2 genes, C7 regions, C8 region_genes
+    (the step loads the gene table plus regions, region_genes and replicons). Decision 15 reading
+    confirmed: under `top3`, `abundance_raw` holds the Top3 raw value, so log2(abundance_raw) = top3_log2
+    on observed genes.
+18. (statistician review of #117) Methods-note fixes only: common random numbers hold only with
+    exhaustive shifts (≤ `exhaustive_shift_max_genes`, every bacterial replicon); with sampled shifts a
+    change in one region shifts later regions' draws (measured: O−E p moved by up to 0.075). Single-peptide
+    genes keep their observed one-peptide abundance. Add an interpretation paragraph. Backlog: per-region
+    shift stream in M4-17 `test_region`; skip or shrink bootstrap CIs in sensitivity reruns.

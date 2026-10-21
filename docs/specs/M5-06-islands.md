@@ -150,3 +150,8 @@ ADR-0021 accepted by Khoa 2026-10-20: the spec's block length gives FWER 0.205�
     `few_values` for that replicon; it does not enter the genome-wide maximum.
 41. (M5-01 statistician review) The degenerate-case table's "T < 4" reads "span gives k < 4 (≈ T ≤ 30 at
     10 %)", per decision 40; such replicons are left out of both the observed and the null maximum.
+42. (M5-03 statistician review) Report each island's best window span (start, length), never the
+    union of its cluster (the union spills past the true island in 27–100 % of planted replicates);
+    test `p <= alpha` so NaN p never counts; pass `np.abs(res.s)` to `fwer_p`; state the family: FWER is
+    per replicon, so k replicons give up to 1 − (1 − α)^k genome-wide (ADR-0021 measured across
+    chromosome plus plasmid).

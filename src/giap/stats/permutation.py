@@ -29,7 +29,7 @@ _TIE_RTOL = 1e-12
 
 def _tol(*scale: float) -> float:
     """Float-tie tolerance ``1e-12 * max(1, |x|)`` over the finite scales."""
-    return _TIE_RTOL * max(1.0, *(abs(s) for s in scale if np.isfinite(s)))
+    return _TIE_RTOL * max([1.0, *(abs(s) for s in scale if np.isfinite(s))])
 
 
 def perm_p(obs: float, null: ArrayLike, alternative: Alternative = "two-sided") -> float:
