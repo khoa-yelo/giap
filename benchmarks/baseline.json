@@ -123,6 +123,24 @@
     "date": "2026-10-20",
     "note": "single run, median of 3 invocations (0.221-0.227 s), interactive allocation"
   },
+  "m4_chain": {
+    "_comment": "M4-20: wall clock per M4 step on the giapsim sim4500 fixture; secs is the timed step alone (the prerequisite steps of the same case are not counted).",
+    "benchmark": "benchmarks/test_m4_chain_bench.py::test_m4_step_budget_sim4500",
+    "gene_table": {"budget_s": 120.0, "secs": 3.81},
+    "detectability": {"budget_s": 300.0, "secs": 5.36},
+    "context_stats": {"budget_s": 600.0, "secs": 9.94},
+    "n_genes": 4500,
+    "permutations": 1000,
+    "bootstrap": 1000,
+    "cpus": 4,
+    "node": "wheat-05",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "slurm_job": 1863136,
+    "commit": "325fff4",
+    "date": "2026-10-21",
+    "issue": "M4-20",
+    "note": "budgets are the test author's generous first numbers (3x these medians would be the tightened ones); an earlier run on barley-04 (EPYC 9384X, job 1863121) measured 2.05 / 4.65 / 9.82 s for the whole case including its prerequisite steps"
+  },
   "islands_4500_genes_b1000": {
     "benchmark": "benchmarks/test_islands_bench.py::test_islands_4500_genes_b1000_budget",
     "budget_s": 20.0,
