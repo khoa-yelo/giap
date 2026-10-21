@@ -60,3 +60,32 @@ prepared only, not run in M3 · estimate ≈ 250 code lines (scripts)
 2. Is `contaminants.fasta` for DIA-NN the same Frankenfield library that `giap setup
    --contaminants` downloads? **Proposed default:** yes, the same file, copied (not regenerated)
    so GIAP and DIA-NN share one contaminant set.
+
+## Lead decisions (2026-10-20, after Khoa supplied the DIA-NN container)
+
+1. **DIA-NN is available as an Apptainer image, not an unpacked binary.** Khoa pointed at
+   `/farmshare/home/classes/bios/270/jordan/run_2step.sh`. The image is
+   `/farmshare/home/classes/bios/270/jordan/diann_2.3.1.sif` (532 MB, owned by khoang99, world-readable);
+   the binary inside is `/diann-2.3.1/diann-linux`; the module is `apptainer/1.4.4`; the binds are
+   `/home/classes`, `/scratch`, `/farmshare`. Verified in-session: `DIA-NN 2.3.1 Academia, compiled
+   2025-12-05`.
+2. **The version is 2.3.1, not the 2.7.0 the spec names.** The pilot is written and recorded against
+   2.3.1 Academia; `makedb_manifest.json` and the pilot README record the exact version string, the image
+   path and its sha256. Do not re-write the spec's 2.7.0 text; note the difference in the README under
+   "Version actually used". Flagged to Khoa; if 2.7.0 arrives later, only the config files and the recorded
+   version change.
+3. **Never copy or commit the image** (532 MB, outside `$GIAP_ROOT`). `scripts/slurm/diann_pilot.sbatch`
+   takes `DIANN_SIF` from the environment, defaulting to the path in decision 1, and fails with a clear
+   message when it is missing. The repo keeps only the config files, the README and the sbatch scripts.
+4. **Two-step predict-then-search is mandatory in DIA-NN 2.x.** `--fasta-search --predictor` together with
+   raw files in one call disables the FASTA digest (documented in Khoa's script and in the DIA-NN 2.x
+   notes). `diann_pilot.sbatch` therefore runs step 1 (`--gen-spec-lib --predictor --out-lib`, no raw) and
+   step 2 (`--lib <predicted> --f <raw>…`), skipping step 1 when the predicted library already exists.
+   `diann_A1.cfg` and `diann_A2.cfg` each hold both steps' flags.
+5. **Digest flags must match GIAP's own digest** (M3-22): `--cut K*,R*`, `--missed-cleavages 1`,
+   `--min-pep-len 7`, `--max-pep-len 30`, `--unimod4`. A1 searches the reference proteome, A2 the
+   `giap makedb` strain database. Add `--report-decoys` (§15.2 step 5). Any flag the spec's template names
+   that 2.3.1 does not accept is listed in the README with what was used instead.
+6. **Nothing is run against real data in M3.** The kit is prepared only; the pilot runs at M10. A
+   `--dry-run`/`--help`-level smoke check of the container inside the sbatch is allowed and is the only
+   DIA-NN execution in this issue.
