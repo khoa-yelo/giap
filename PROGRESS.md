@@ -64,6 +64,19 @@ the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise deci
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
 
+M5-09 (branch `m5/context-tables`, **test-author step done**, 2026-10-21): failing tests for
+`autocorrelation.tsv`, `islands.tsv`, the gene context columns and the `context_stats` extension —
+140 failed, 5 passed (the 5 are invariant guards that already hold: the genes.tsv context group in the
+schema and the M4 tables' determinism). New: `tests/unit/io/test_context_tsv.py`,
+`tests/unit/context/test_vocab.py`, `tests/unit/context/test_island_diagnostics.py`,
+`tests/property/test_context_tsv_props.py`, `tests/integration/test_context_stats_m5.py`,
+`tests/helpers/context_tables_data.py`. Interfaces assumed where none is merged: M5-08's `oriter_rows`
+/ `gene_replichores` as PR #132 has them; M4-20's `build_m4_fixture` replaced by the M4-18 fixture plus
+an oriC and a planted island. **Needs a lead decision:** where ADR-0021 Amendment 1's per-replicon
+l-hat / l' / lag-1 Moran's I live — the tests assume a new `giap.context.diagnostics` and
+`work/context/island_diagnostics.parquet`, because `IslandScan` dies with the step and the §9.4 run
+report does not exist yet.
+
 M5-06 (**PR #131**, implementer step done, 2026-10-21): `giap.context.islands` on the merged M5-01/02/03
 engines — one **genome-wide** M_b over the scanned replicons (decisions 21/46), ℓ' = min(20, 2ℓ̂+1, T),
 the best window as the reported span (decision 42), the `flags` column with `ci_few_units` only, and
