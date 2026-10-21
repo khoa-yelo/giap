@@ -183,3 +183,12 @@ ADR-0020 accepted by Khoa 2026-10-20: the spec's "detrend then permute" is anti-
 33. #119 (M5-04) is merged, so `tests/helpers/autocorr_calib.py` and the attack file drop their local
     scenario definitions for `giapsim.scenarios`, and ADR-0020 attack arms (a) (TU null + a 2 log2
     ori–ter cosine) and (b) (label null + gradient) are written now.
+34. (after the scenario switch) `tu_null_1000.morans_i.tu_block.lag1` at α 0.10 moved 0.100 → 0.190
+    against a bound of 0.160 in the **fast** tier: block 1 fails, block 2 passes, so it records
+    `unconfirmed`. At R = 100 one SE is 0.03, so it is about 1 SE over, and it is the only check in the
+    suite needing confirmation — but it is the headline TU-null claim. The implementer runs the **full**
+    tier (R = 1,000) for the main suite once the module exists and reports that number; if the full tier
+    is also over, it goes to the statistician before anything is gated differently. No bound is touched
+    meanwhile.
+35. Arm (c) full lag 1 at α 0.01 now sits exactly on its bound (0.016 of 0.016, pass), up from 0.012;
+    recorded so a later drift is visible.
