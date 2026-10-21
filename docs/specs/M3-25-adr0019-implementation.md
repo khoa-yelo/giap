@@ -46,3 +46,17 @@ docs/methods/placement-fdr.md ("Cross-strain input and run collapse") and docs/m
 10. **`is_contaminant` on the costs frame** (filled by `best_costs`) is the accepted interface for
     decision 7. Whether a contaminant peptide's own hits stay in the stratum lists is out of scope here;
     the ADR only speaks about P.
+11. (code review of #124) Resolve `pi_wrong_database`: `_stratum0_pooled` computes the mean PEP itself,
+    correctly, because `pi_wrong_database`'s max-q / 1.0 fallbacks would misfire. It is therefore dead in
+    `src/`. **Delete it** and drop the two sentences in lead decision 5 and in
+    docs/methods/placement-fdr.md that keep it "because the warning needs it".
+12. (code review of #124) Add the two missing edge-case tests; both behave correctly today, both mutants
+    survive, and the wrong direction is silently anti-conservative: a contaminant falling in a class
+    empty of P weighs 1 (not 0), and an empty P gives c = 1 (not 0).
+13. (code review of #124) Guard the degenerate configuration: `mapping.length_classes: []` now raises
+    IndexError where main returned a table. Add a config validator rejecting an empty list, and make
+    `stratum0_pi_classes` raise a named ValueError, not a bare KeyError, on a frame without `m_target`.
+14. (code review of #124) Non-blocking, recorded only: `_stratum0_pooled` takes n/k/r from the class table
+    but the mean PEP from all of P, unreachable with the default config; the test helper's `prefilter=`
+    silently discards `inject_short=`; and the per-class gate has zero tolerance for a class seen in one
+    replicate. Backlog, not this PR.
