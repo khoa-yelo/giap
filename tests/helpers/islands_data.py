@@ -53,9 +53,10 @@ METHOD = "scan_max_stat"
 NULL_MODEL = "circular_block_bootstrap"
 STEP = "context_stats.islands"  # §6.6 random stream of the island part
 FEW_VALUES = "few_values"  # decision 40: replicon not scanned (span gives k < 4)
-UNCALIBRATED = "uncalibrated"  # ADR-0021 decision 2: < 1,000 scored TUs
 FEW_UNITS = "ci_few_units"  # M4-16: CI from < 10 resampling units
-CALIBRATED_MIN_TUS = 1000
+#: ADR-0021 Amendment 1 / decision 48: ``uncalibrated`` is dropped; the run report carries
+#: l-hat, l' and the lag-1 Moran's I of the detrended TU scores per replicon instead.
+RUN_REPORT_FIELDS = ("l_hat", "block_len", "morans_i_lag1")
 MIN_SPAN_POINTS = 4  # decision 40/41: loess_span_points(T, frac) < 4 -> not scanned
 
 
@@ -199,7 +200,65 @@ def sim_contig(
     )
 
 
+def scenario_contigs(rng: Any, pair: Any) -> list[Contig]:
+    """A giapsim ``scenarios`` pair ``(LayoutConfig, ExpressionConfig)`` drawn as ``Contig``s.
+
+    The layout and the expression truth are drawn from ``rng``; ``detected_true``,
+    ``p_detect_true`` and ``abundance_log2_true`` become the gene table's evidence columns, as
+    ``region_tests_data.tables_from`` does with ``p_source = "true"``.
+    """
+    import giapsim.expression as ex
+    import giapsim.layout as la
+
+    lcfg, ecfg = pair
+    lay = la.simulate_layout(lcfg, rng)
+    e = ex.simulate_expression(lay, ecfg, rng)
+    g = lay.genes[["locus_tag", "contig", "start", "partial"]].copy()
+    eg = e.genes.set_index("locus_tag").loc[g["locus_tag"]]
+    tu_of = {gg: t for t, gs in zip(lay.tus["tu_id"], lay.tus["genes"], strict=True) for gg in gs}
+    g["tu_id"] = g["locus_tag"].map(tu_of)
+    topo = dict(zip(lay.replicons["contig"], lay.replicons["topology"], strict=True))
+    out = []
+    for name, gc in g.groupby("contig", sort=False):
+        gc = gc.sort_values("start", kind="mergesort")
+        tags = gc["locus_tag"]
+        out.append(
+            Contig(
+                name=str(name),
+                d=[int(v) for v in eg.loc[tags, "detected_true"].astype(int)],
+                p=[float(v) for v in eg.loc[tags, "p_detect_true"]],
+                a=[float(v) for v in eg.loc[tags, "abundance_log2_true"]],
+                circular=str(topo[name]) == "circular",
+                partial=[bool(v) for v in gc["partial"]],
+                tu=[str(t) for t in gc["tu_id"]],
+            )
+        )
+    return out
+
+
 # --------------------------------------------------------------------------- score oracles
+
+
+def censored_share(genes: pd.DataFrame, contig: str) -> float:
+    """q = share of the scored genes of ``contig`` that are undetected (left-censored)."""
+    t = scored_table(genes, contig)
+    return float((~t["det"].to_numpy(bool)).mean()) if len(t) else math.nan
+
+
+def ceiling_from_q(q: float, w: int) -> float:
+    """Decision 50: the most negative S a window of ``w`` TUs can reach when every one of its
+    genes is undetected, ``sqrt(w) * |Phi^-1(q / 2)|`` (before the LOESS attenuation)."""
+    from scipy.special import ndtri
+
+    if not 0.0 < q < 1.0:
+        return math.nan
+    return float(math.sqrt(w) * abs(ndtri(q / 2.0)))
+
+
+def max_window(ts: Any, cfg: Any) -> int:
+    """Longest window the scan uses on ``ts``: ``min(max_tus, T - 1)`` circular, ``min(.., T)``."""
+    n = len(ts.tu_ids)
+    return int(min(cfg.context.islands.max_tus, n - 1 if ts.circular else n))
 
 
 def scored_table(genes: pd.DataFrame, contig: str) -> pd.DataFrame:
@@ -305,7 +364,9 @@ class OracleScan:
     """Block lengths, the genome-wide null maximum and the per-replicon windows."""
 
     series: tuple[OracleSeries, ...]
+    l_hat: tuple[int, ...]
     block_len: tuple[int, ...]
+    morans_i_lag1: tuple[float, ...]
     null_max: np.ndarray
     windows: tuple[Any, ...]
     replicon_null: tuple[np.ndarray, ...]
@@ -318,23 +379,27 @@ class OracleScan:
 def oracle_scan(series: Sequence[OracleSeries], cfg: Any, rng: Any) -> OracleScan:
     """Spec steps 4-6 with the draw order of step 10 (block lengths for every scanned replicon in
     C1 order, then the bootstrap draws in C1 order); ``rng`` is advanced in place."""
-    from giap.stats.autocorr import block_len_prime, choose_block_len
+    from giap.stats.autocorr import block_len_prime, choose_block_len, morans_i
     from giap.stats.bootstrap import circular_block_bootstrap
     from giap.stats.scan import fwer_p, merge_windows, scan_max, scan_null_max
 
     isl = cfg.context.islands
     wmin, wmax, alpha = isl.min_tus, isl.max_tus, cfg.stats.alpha.context
     lens: list[int] = []
+    hats: list[int] = []
     for s in series:
         if not s.scanned:
             lens.append(0)
+            hats.append(0)
             continue
         t = s.detrended.size
         if isinstance(isl.block_len, int):
+            hats.append(0)  # no l-hat is estimated when the config fixes the block length
             lens.append(int(min(isl.block_len, t)))
         else:
             l_hat = choose_block_len(s.detrended, s.circular, cfg.stats.permutations, rng,
                                      alpha=0.05, max_len=20)  # fmt: skip
+            hats.append(int(l_hat))
             lens.append(block_len_prime(l_hat, t))
     # M_b accumulates with np.fmax over the scanned replicons (NaN only when every term is NaN)
     null = np.full(cfg.stats.bootstrap, np.nan)
@@ -365,7 +430,11 @@ def oracle_scan(series: Sequence[OracleSeries], cfg: Any, rng: Any) -> OracleSca
         clusters.append(tuple(merge_windows(res, sig, s.detrended.size, s.circular)))
     return OracleScan(
         series=tuple(series),
+        l_hat=tuple(hats),
         block_len=tuple(lens),
+        morans_i_lag1=tuple(
+            morans_i(x.detrended, 1, x.circular) if x.scanned else math.nan for x in series
+        ),
         null_max=null,
         windows=tuple(windows),
         replicon_null=tuple(per_replicon),
@@ -428,7 +497,6 @@ def oracle_frame(genes: pd.DataFrame, scan: OracleScan, cfg: Any, rng: Any) -> p
                     "effect": float(np.mean([s.detrended[j] for j in pos])),
                     "p_value": float(p[i]),
                     "n_perm": scan.n_perm,
-                    "uncalibrated": s.detrended.size < CALIBRATED_MIN_TUS,
                     "_pos": pos,
                 }
             )
@@ -441,12 +509,7 @@ def oracle_frame(genes: pd.DataFrame, scan: OracleScan, cfg: Any, rng: Any) -> p
         ci = tu_block_bootstrap(df, "tu_id", lambda d: float(d["z"].mean()),
                                 cfg.stats.bootstrap, rng)  # fmt: skip
         r["ci_low"], r["ci_high"] = ci.ci_low, ci.ci_high
-        flags = []
-        if r["n_tus"] < 10:
-            flags.append(FEW_UNITS)
-        if r["uncalibrated"]:
-            flags.append(UNCALIBRATED)
-        r["flags"] = tuple(flags)
+        r["flags"] = (FEW_UNITS,) if r["n_tus"] < 10 else ()  # decision 48: no ``uncalibrated``
     return pd.DataFrame(rows)
 
 
@@ -507,7 +570,7 @@ def rows_of(islands: pd.DataFrame, contig: str) -> pd.DataFrame:
 
 
 def counts(genes: pd.DataFrame) -> Mapping[str, int]:
-    """Scored TUs per contig (for the ``few_values`` / ``uncalibrated`` expectations)."""
+    """Scored TUs per contig (for the ``few_values`` expectations)."""
     return {
         str(c): int(scored_table(genes, str(c))["tu_id"].nunique())
         for c in pd.unique(genes["contig"].astype(str))

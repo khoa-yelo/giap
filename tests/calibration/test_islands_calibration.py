@@ -1,4 +1,11 @@
-"""FWER calibration of the M5-06 island step (GIAP_SPEC.md §7.3.5(d), §8.1, §8.4; ADR-0021).
+"""FWER calibration of the M5-06 island step (GIAP_SPEC.md §7.3.5(d), §8.1, §8.4; ADR-0021 with
+Amendment 1).
+
+Validity domain (ADR-0021 Amendment 1, accepted 2026-10-20): the claim holds for the *dependence
+regime* the calibration covers, not for a replicon size, and no replicon is flagged
+``uncalibrated``; the run report carries l-hat, l' and the lag-1 Moran's I per replicon instead
+(decision 48). The gated cells below are rho <= 0.5, where every size measured is calibrated; the
+breaches at rho 0.9 are recorded in attacks/test_attack_islands.py (arm D).
 
 Claim (§8.1 "Islands | maximum statistic | FWER | 0.05"): under the complete null (no island) the
 share of runs that report at least one island is at most alpha. The family is genome-wide - M_b is
@@ -14,9 +21,11 @@ permutations. The replicate value is the indicator "at least one island" at ever
 ``tolerances.yaml``; the criterion is ``fwer`` with R = ``replicates_fast/full.islands``.
 
 Measured with the spec oracle before the implementation existed (R = 50, bound 0.112 at
-alpha 0.05): rho 0 -> 0.00, rho 0.5 -> 0.02, chromosome + plasmid -> 0.02. The attack nulls
-(autocorrelation at rho 0.9, large TUs, the ori-ter gradient, draft assemblies, many replicons)
-live in attacks/test_attack_islands.py.
+alpha 0.05): rho 0 -> 0.00, rho 0.5 -> 0.02, chromosome + plasmid -> 0.02; the statistician's
+giapsim re-measurement at R = 1,000 gives 0.020 / 0.031 / 0.037 for ``ar1_background`` at rho 0.5
+on 557 / 1,001 / 2,501 scored TUs (bound 0.0638). The attack nulls (the M5-04 ori-ter scenario,
+autocorrelation at rho 0.9, large TUs, draft assemblies, many replicons and the structural
+low-direction ceiling) live in attacks/test_attack_islands.py.
 
 Teeth: the spec's block length l-hat (instead of ADR-0021's l' = min(20, 2 l-hat + 1, T)) must be
 a confirmed ``fail`` of the same criterion (ADR-0021: FWER 0.205-0.27 at rho >= 0.5; 0.62 here at

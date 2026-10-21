@@ -1,8 +1,9 @@
 """M5-06 islands: spec examples, the degenerate-case table and the lead decisions.
 
 docs/specs/M5-06-islands.md (GIAP_SPEC.md §7.3.5(d) steps 1-10, §9.3 ``tables/islands.tsv``),
-ADR-0021 (block length l' = min(20, 2 l-hat + 1, T); replicons with < 1,000 scored TUs flagged
-``uncalibrated``) and lead decisions 21-27, 40-42. Inputs are hand-built §9.3 gene tables with the
+ADR-0021 with Amendment 1 (block length l' = min(20, 2 l-hat + 1, T); ``uncalibrated`` dropped,
+the run report carries l-hat, l' and the lag-1 Moran's I instead) and lead decisions 21-27 and
+40-51. Inputs are hand-built §9.3 gene tables with the
 C5 ``tus`` and C1 ``replicons`` frames (tests/helpers/islands_data.py); the expectations come from
 the spec text and from the oracle there, which composes the merged engines in the documented draw
 order.
@@ -10,7 +11,9 @@ order.
 Interface assumed (tests/helpers/islands_data.py lists it in full): ``TuSeries`` carries the
 replicon ``length`` and the per-TU ``start`` / ``end`` that the unwrapped coordinates of step 7
 need; ``scan_replicons`` returns an ``IslandScan`` with ``series``, ``scanned``, ``block_len``,
-``windows``, ``p_value``, ``clusters``, ``null_max``, ``n_perm`` and per-replicon ``flags``;
+``windows``, ``p_value``, ``clusters``, ``null_max``, ``n_perm``, per-replicon ``flags`` and the
+run-report fields ``l_hat`` / ``morans_i_lag1`` (decision 48); ``low_direction_ceiling(q, w)`` is
+the module-level ceiling of decision 50;
 ``islands.py`` holds the engine functions as module attributes (``scan_null_max`` is
 monkeypatched below).
 
@@ -114,8 +117,8 @@ def test_island_scan_dataclass() -> None:
     M = _isl()
     assert dataclasses.is_dataclass(M.IslandScan)
     assert {f.name for f in dataclasses.fields(M.IslandScan)} == {
-        "series", "scanned", "block_len", "windows", "p_value", "clusters", "null_max",
-        "n_perm", "flags",
+        "series", "scanned", "l_hat", "block_len", "morans_i_lag1", "windows", "p_value",
+        "clusters", "null_max", "n_perm", "flags",
     }  # fmt: skip
 
 
@@ -501,18 +504,66 @@ def test_block_length_follows_adr0021() -> None:
     assert ell == block_len_prime(l_hat, series[0].detrended.size) <= 20
 
 
-# --------------------------------------------------------------------------- ADR-0021 flag
+# ------------------------------------------- ADR-0021 Amendment 1: run report, no uncalibrated
 
 
-def test_small_replicon_islands_are_flagged_uncalibrated() -> None:
-    """ADR-0021 decision 2: islands on a replicon with fewer than 1,000 scored TUs are flagged
-    ``uncalibrated`` (the M5-07 gate is claimed only above that)."""
+def test_no_replicon_or_island_is_flagged_uncalibrated() -> None:
+    """ADR-0021 Amendment 1 / decision 48: ``uncalibrated`` is dropped; the only island flag on a
+    small replicon is ``ci_few_units``."""
     genes, tus, reps = idat.frames([_bump("chr1", 200, {(40, 48): 2.0})])
     out, scan = _run(genes, tus, reps, idat.config(alpha=1.0))
-    assert len(scan.series[0].tu_ids) < idat.CALIBRATED_MIN_TUS
-    assert len(out) >= 1
-    assert all(idat.UNCALIBRATED in idat.flag_set(f) for f in out["flags"])
-    assert idat.UNCALIBRATED in set(scan.flags[0])
+    assert len(scan.series[0].tu_ids) < 1000 and len(out) >= 1
+    assert all(idat.flag_set(f) <= {idat.FEW_UNITS} for f in out["flags"])
+    assert all("uncalibrated" not in set(f) for f in scan.flags)
+
+
+def test_run_report_carries_l_hat_block_len_and_lag1_moran() -> None:
+    """Decision 48: the §9.4 run report needs l-hat, l' (``block_len``) and the lag-1 Moran's I of
+    the detrended TU scores per replicon, so ``IslandScan`` exposes all three (0 / NaN for a
+    replicon that is not scanned)."""
+    from giap.stats.autocorr import block_len_prime, morans_i
+
+    genes, tus, reps = idat.frames([_bump("chr1", 200, {(40, 48): 2.0}), _bump("p1", 3, {})])
+    cfg = idat.config(alpha=1.0)
+    _, scan = _run(genes, tus, reps, cfg)
+    _, want = idat.oracle_islands(genes, tus, reps, cfg, 11)
+    assert all(hasattr(scan, f) for f in idat.RUN_REPORT_FIELDS)
+    assert scan.l_hat == want.l_hat and scan.block_len == want.block_len
+    assert scan.block_len[0] == block_len_prime(scan.l_hat[0], len(scan.series[0].tu_ids))
+    assert math.isclose(
+        scan.morans_i_lag1[0], morans_i(scan.series[0].detrended, 1, True), abs_tol=1e-12
+    )
+    assert scan.l_hat[1] == scan.block_len[1] == 0  # the plasmid is not scanned
+    assert math.isnan(scan.morans_i_lag1[1])
+
+
+def test_low_direction_ceiling_formula_and_silenced_tus() -> None:
+    """Decision 50: left censoring caps a low window of w TUs at sqrt(w) * |Phi^-1(q / 2)|, so
+    silencing whole TUs cannot produce a low island once q is large. The ceiling is a public
+    function of the step, because the run report prints it against the null maximum."""
+    n, q = 200, 0.45
+    ceiling = _isl().low_direction_ceiling(q, 20)
+    assert math.isclose(ceiling, idat.ceiling_from_q(q, 20), rel_tol=0, abs_tol=1e-12)
+    assert 3.3 < ceiling < 3.5  # the statistician's 3.4 at q = 0.45, w = 20
+    rng = np.random.default_rng(50)
+    d = [int(v) for v in rng.random(n) >= q]
+    for i in range(100, 120):  # silence 20 consecutive TUs entirely
+        d[i] = 0
+    a = [10.0 + i / n for i in range(n)]
+    genes, tus, reps = idat.frames([Contig("chr1", d=d, p=[0.55] * n, a=a)])
+    cfg = idat.config(alpha=0.05)
+    out, scan = _run(genes, tus, reps, cfg)
+    w = idat.max_window(scan.series[0], cfg)
+    got = _isl().low_direction_ceiling(idat.censored_share(genes, "chr1"), w)
+    assert float(np.min(scan.windows[0].s)) >= -got
+    assert "low" not in set(out["direction"])
+
+
+def test_module_docstring_carries_the_low_direction_caveat() -> None:
+    """Decision 50: M5-06 does not claim a two-sided procedure without the ceiling caveat."""
+    doc = (_isl().__doc__ or "").lower()
+    assert "ceiling" in doc
+    assert "censor" in doc and "low" in doc
 
 
 # --------------------------------------------------------------------------- gene map
