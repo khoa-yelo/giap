@@ -64,8 +64,8 @@ AUTOCORR_INTS: tuple[str, ...] = ("lag", "n_perm")
 ISLAND_INTS: tuple[str, ...] = ("start", "end", "n_tus", "n_genes", "block_len", "n_perm")
 AUTOCORR_FLOATS: tuple[str, ...] = ("value", "null_mean", "null_lo", "null_hi", "effect",
                                     "ci_low", "ci_high", "p_value", "q_value")  # fmt: skip
-ISLAND_FLOATS: tuple[str, ...] = ("mean_abundance_log2", "detected_frac", "scan_s", "stat",
-                                  "effect", "ci_low", "ci_high", "p_value", "q_value")  # fmt: skip
+ISLAND_FLOATS: tuple[str, ...] = ("mean_abundance_log2", "detected_frac", "scan_s", "effect",
+                                  "ci_low", "ci_high", "p_value", "q_value")  # fmt: skip
 #: list-valued cell (``;``-joined in the TSV)
 ISLAND_LISTS: tuple[str, ...] = ("genes",)
 
@@ -330,7 +330,7 @@ def flag_set(cell: Any) -> set[str]:
     if cell is None or (isinstance(cell, float) and math.isnan(cell)):
         return set()
     if isinstance(cell, str):
-        return {f for f in cell.split(";") if f}
+        return {f for f in cell.split(";") if f and f != "NA"}
     return {str(f) for f in cell}
 
 
