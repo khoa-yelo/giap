@@ -149,11 +149,11 @@ def missed_operons(
     Returns:
         The :class:`MissedOperons` result. ``q_value <= stats.alpha.operon_flags`` marks a pair
         co-abundant (M6-07 names it); ``lfdr`` ranks and never calls. A relative abundance scale
-        flags every NO row ``relative_scale``; fewer than ``MIN_NO_PAIRS`` scored targets or no
-        usable decoy set flags them ``too_few_no_pairs``; neither path scores a row. Relative rows also carry
-        ``unestimated``; scored rows carry ``ci_unestimated`` (a q, no CI); a NO row with an imputed
-        gene carries ``abundance_imputed``. Eligible pairs outside every distance bin are not
-        scored and are counted in a WARNING.
+        flags every NO row ``relative_scale`` and ``unestimated``; fewer than ``MIN_NO_PAIRS``
+        scored targets or no usable decoy set flags them ``too_few_no_pairs``; neither path scores
+        a row. Scored rows carry ``ci_unestimated`` (a q, no CI); a NO row with an imputed gene
+        carries ``abundance_imputed``. Eligible pairs outside every distance bin are not scored
+        and are counted in a WARNING.
 
     Raises:
         ValueError: if ``operons.decoys`` is empty.
