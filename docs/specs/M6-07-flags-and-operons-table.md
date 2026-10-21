@@ -149,3 +149,12 @@ OP pair with q = 0.02: Δ = +1.4, promoter 0.81, terminator 0.10 (cut-off 0.5).
    `abundance_imputed` here, where the gene table is joined, so a co-abundance or discordance call
    driven by imputation is visible. The statistician's answer on #148 may tighten this (exclusion
    from the targets); if so, that lands in M6-06 and this rule stays as the label.
+7. The test-author's resolutions (tests at 904d3af) are accepted:
+   - `merge_tests` and `flag_for` are added to the interface;
+   - the caller names missing layers (`missing_layers=`), and the rule extends to promoters by symmetry;
+   - an exact `unestimated` token disqualifies a row, while `ci_unestimated` counts as tested;
+   - the one-pattern-per-pair rules hold;
+   - `operons_table` takes `flagged`;
+   - `detected_frac` counts non-partial genes.
+
+   Owed to pass 2: the wording of `evidence_note`, `detected_frac` for an all-partial TU (0/0), and `layer_missing` on SW rows.
