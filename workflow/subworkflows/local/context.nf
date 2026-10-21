@@ -2,9 +2,9 @@
 // table plus the M4-06 contract tables -> tables/regions_stats.tsv and
 // tables/detection_summary.tsv (context_stats), and the §8.6 reruns -> tables/sensitivity.tsv
 // (sensitivity, registered by M4-19 decision 16). Both py steps run through GIAP_STEP aliases.
-// C7/C8 (regions, region_genes) are required by both steps: when ANNOTATE could not write them
-// (a precomputed regions layer) the `regions` channel is empty and neither step runs, the way
-// MAPPING skips its protein route. The M3 tables come out of MAPPING's loci directory.
+// C7/C8 (regions, region_genes) are required by both steps; ANNOTATE's region_layer writes them,
+// also under a precomputed regions layer (MVP-02). If the `regions` channel is empty neither step
+// runs, the way MAPPING skips its protein route. The M3 tables come out of MAPPING's loci directory.
 include { GIAP_STEP as CONTEXT_STATS; GIAP_STEP as SENSITIVITY } from '../../modules/local/giap_step/main'
 include { stepIn; kv; pick; inDir } from './annotate'
 
@@ -18,7 +18,7 @@ workflow CONTEXT {
     detectability_summary // detectability diagnostics parquet, or channel.empty()
     annotation            // [genes.parquet, features.parquet, replicons.parquet]
     contract              // [xrefs.parquet, annotation_meta.json, tus.parquet, layers.parquet]
-    regions               // [regions.parquet, region_genes.parquet], or channel.empty()
+    regions               // [regions.parquet, region_genes.parquet] (region_layer)
     mapping               // LOCI outputs (the mapping/ directory)
     stratum0_classes      // ADR-0019 class table, or channel.empty()
     peptides              // peptides.norm.parquet, or channel.empty()
