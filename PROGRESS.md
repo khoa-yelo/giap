@@ -8,7 +8,7 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 85/91 done (93 %), 2 running · generated 2026-10-21 13:33 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 85/91 done (93 %), 2 running · generated 2026-10-21 13:53 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -77,19 +77,21 @@ concatenated table keeps integer lags. `giap.steps.registry` gained `optional_ou
 keys could be declared without rewiring M4-18's registry-path callers (backlog: no unit test yet).
 CONTEXT publishes `tables/autocorrelation.tsv`, `tables/islands.tsv` and `tables/genes.tsv` and
 takes C15 from the annotation channel's second file, so no 11th `take:` was needed; nf-test
-context + main + main_genetable_context all pass (stub). Fast suite **9053 passed, 29 skipped,
-9 failed** (Slurm 1863383, 24:35, coverage 96 %). The 9 are **two test bugs, reported not
-changed**: (a) the islands `stat` fixtures in `tests/unit/io/test_context_tsv.py` and
-`tests/property/test_context_tsv_props.py` use the string `"scan_max"`, while
-`context_tables_data.ISLAND_FLOATS`, the schema assertion in the same file and the merged M5-06
-producer (`tests/unit/context/test_islands.py:134` pins `stat == scan_s`) all make it a number;
-(b) `context_tables_data.flag_set` does not read the `NA` cell of a flagless row as empty, which
-contradicts `test_empty_flags_are_na`. With four one-line fixes (`"stat"` -> the numeric scan
-statistic in three places, `flag_set` dropping `"NA"`) all 145 M5-09 tests pass — verified locally
-and reverted (the exact patch is a PR comment). CI run 39666907909: `guards` (the size gate,
-992 -> 783 gated lines after a docstring pass to the house style), `lint`, `nf-test-stub` and
-`summary` pass; the four pytest jobs fail on those same 9 and nothing else (ubuntu 3.11:
-9 failed, 8938 passed). Plus docs/methods/context_tables.md.
+context + main + main_genetable_context all pass (stub). Plus docs/methods/context_tables.md.
+
+Fast suite **9062 passed, 29 skipped, 1 xfailed, 0 failed** (Slurm 1863848, 11:37) after lead
+decisions 6-8 closed the two test bugs the first run exposed (Slurm 1863383: 9053 passed,
+9 failed, coverage 96 %; CI run 39666907909 had the same 9 and nothing else, with `guards`,
+`lint`, `nf-test-stub` and `summary` green). Decision 6 (**Khoa authorised the merged-code
+change**): §9.2 makes the test column `stat` an enum of statistic *names*, which `regions_stats`
+and `autocorrelation` both follow, so M5-06's float `stat` (a copy of `scan_s`) was the slip —
+`giap.context.islands.STAT = "scan_max"` now, `scan_s` keeps the value, the islands schema field
+is a `string` enum, and the one merged oracle (`tests/unit/context/test_islands.py:134`) asserts
+the name. Decision 7: `context_tables_data.flag_set` now reads the `NA` cell of a flagless row as
+empty (it contradicted `test_empty_flags_are_na` in the same file), and `ISLAND_FLOATS` drops
+`stat`. Decision 8 accepted the two out-of-surface changes (`oriter`'s nullable `Int64` `lag`,
+`registry.optional_outputs`; the latter's missing unit test stays filed in docs/backlog.md).
+Gated code lines 787 of 800 — above the 400 warn line, left as is (lead).
 
 M5-09 (branch `m5/context-tables`, **test-author step done**, 2026-10-21): failing tests for
 `autocorrelation.tsv`, `islands.tsv`, the gene context columns and the `context_stats` extension —
