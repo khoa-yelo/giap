@@ -8,7 +8,7 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 86/103 done (83 %), 4 running · generated 2026-10-21 14:54 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 87/103 done (84 %), 4 running · generated 2026-10-21 15:41 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -16,9 +16,9 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 | M1 Inputs and preflight | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 12 | 0 | 0 |
 | M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
-| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 95 % | 20 | 0 | 1 |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨 95 % | 20 | 1 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜ 64 % | 7 | 1 | 3 |
-| M6 Operons | 🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0 % | 0 | 3 | 9 |
+| M6 Operons | 🟩🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 8 % | 1 | 2 | 9 |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
 | M8 Function and determinants | _not designed yet_ | - | - | - |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
@@ -105,6 +105,13 @@ an oriC and a planted island. **Needs a lead decision:** where ADR-0021 Amendmen
 l-hat / l' / lag-1 Moran's I live — **decided**: `giap.context.diagnostics` and
 `work/context/island_diagnostics.parquet`, because `IslandScan` dies with the step and the §9.4 run
 report does not exist yet (M5-09 lead decisions 1-5, 2026-10-21).
+M6-04 (PR #143, branch `m6/pair-table`, implementer step done): `giap.operons.pairs` — the adjacent
+chain (M2 `adjacent_pairs(same_strand=False)`; a 2-gene ring has one pair), SW decoys, OP/NO/CV/DV
+classes, strand-aware orientation, `rna_between`, per-gene joins and threshold-independent `PAIR_<n>`
+ids. Evidence reuses the M2-13/14/15 helpers via per-run indexes (`promoter_between_tracks`,
+`tx_rate_between_arrays`, start-sorted terminator prefilter). Fast suite 8952 passed (Slurm 1864209);
+baseline `pair_frame_4500_genes` = 0.41 s of a 3 s budget (wheat-08, 1 CPU, Slurm 1864210). Lead decisions after the test-author appended to
+the spec.
 
 M4-20 (PR #133, implementer step done, branch m4/integration-golden): `giapsim.fixtures.build_m4_fixture`
 (sim50k / sim1000 / sim4500, `layout=` kwarg, prophage + AMR planted from the actual gene count),

@@ -221,6 +221,11 @@ def gene_promoter_features(
     return pd.DataFrame(rows, columns=FEATURE_COLUMNS).astype({"n_promoter_windows_tu": "int64"})
 
 
+def promoter_tracks(window_scores: pd.DataFrame) -> dict[tuple[str, str], _Track]:
+    """Window scores indexed per (contig, strand), for repeated ``promoter_between_tracks``."""
+    return _tracks(window_scores)
+
+
 def promoter_between(
     up: Gene,
     down: Gene,
@@ -229,6 +234,17 @@ def promoter_between(
     k_range: tuple[int, int] = K_RANGE,
 ) -> float | None:
     """Max score of ``down``'s windows whose 3' end lies after ``up``'s end; ``None`` if none."""
+    return promoter_between_tracks(up, down, _tracks(window_scores), replicon, k_range)
+
+
+def promoter_between_tracks(
+    up: Gene,
+    down: Gene,
+    tracks: Mapping[tuple[str, str], _Track],
+    replicon: Replicon,
+    k_range: tuple[int, int] = K_RANGE,
+) -> float | None:
+    """``promoter_between`` on ``promoter_tracks(window_scores)`` (built once per run)."""
     iv = down.interval
     n = replicon.length if replicon.topology == "circular" else None
     t0 = _anchor(down) + k_range[0]
@@ -236,9 +252,7 @@ def promoter_between(
     a = bound - t0
     if n is not None:
         a = (a + n // 2) % n - n // 2
-    got = _select(
-        _tracks(window_scores), iv.contig, iv.strand, t0, (max(a, 0), k_range[1] - k_range[0]), n
-    )
+    got = _select(tracks, iv.contig, iv.strand, t0, (max(a, 0), k_range[1] - k_range[0]), n)
     return float(got.max()) if got.size else None
 
 
