@@ -60,3 +60,75 @@ prepared only, not run in M3 · estimate ≈ 250 code lines (scripts)
 2. Is `contaminants.fasta` for DIA-NN the same Frankenfield library that `giap setup
    --contaminants` downloads? **Proposed default:** yes, the same file, copied (not regenerated)
    so GIAP and DIA-NN share one contaminant set.
+
+## Lead decisions (2026-10-20, after Khoa supplied the DIA-NN container)
+
+1. **DIA-NN is available as an Apptainer image, not an unpacked binary.** Khoa pointed at
+   `/farmshare/home/classes/bios/270/jordan/run_2step.sh`. The image is
+   `/farmshare/home/classes/bios/270/jordan/diann_2.3.1.sif` (532 MB, owned by khoang99, world-readable);
+   the binary inside is `/diann-2.3.1/diann-linux`; the module is `apptainer/1.4.4`; the binds are
+   `/home/classes`, `/scratch`, `/farmshare`. Verified in-session: `DIA-NN 2.3.1 Academia, compiled
+   2025-12-05`.
+2. **The version is 2.3.1, not the 2.7.0 the spec names.** The pilot is written and recorded against
+   2.3.1 Academia; `makedb_manifest.json` and the pilot README record the exact version string, the image
+   path and its sha256. Do not re-write the spec's 2.7.0 text; note the difference in the README under
+   "Version actually used". Flagged to Khoa; if 2.7.0 arrives later, only the config files and the recorded
+   version change.
+3. **Never copy or commit the image** (532 MB, outside `$GIAP_ROOT`). `scripts/slurm/diann_pilot.sbatch`
+   takes `DIANN_SIF` from the environment, defaulting to the path in decision 1, and fails with a clear
+   message when it is missing. The repo keeps only the config files, the README and the sbatch scripts.
+4. **Two-step predict-then-search is mandatory in DIA-NN 2.x.** `--fasta-search --predictor` together with
+   raw files in one call disables the FASTA digest (documented in Khoa's script and in the DIA-NN 2.x
+   notes). `diann_pilot.sbatch` therefore runs step 1 (`--gen-spec-lib --predictor --out-lib`, no raw) and
+   step 2 (`--lib <predicted> --f <raw>…`), skipping step 1 when the predicted library already exists.
+   `diann_A1.cfg` and `diann_A2.cfg` each hold both steps' flags.
+5. **Digest flags must match GIAP's own digest** (M3-22): `--cut K*,R*`, `--missed-cleavages 1`,
+   `--min-pep-len 7`, `--max-pep-len 30`, `--unimod4`. A1 searches the reference proteome, A2 the
+   `giap makedb` strain database. Add `--report-decoys` (§15.2 step 5). Any flag the spec's template names
+   that 2.3.1 does not accept is listed in the README with what was used instead.
+6. **Nothing is run against real data in M3.** The kit is prepared only; the pilot runs at M10. A
+   `--dry-run`/`--help`-level smoke check of the container inside the sbatch is allowed and is the only
+   DIA-NN execution in this issue.
+7. **`--met-excision` stays out** (confirming the test-author). GIAP's digest keeps the initiator Met, so
+   enabling it in DIA-NN would create peptides GIAP never proposes and break the A1/A2 comparison. The
+   README lists it under deviations from the §15.2 template, with this reason.
+8. **`giap makedb` must take the genome.** `build_strain_db` calls `parse_bakta_json(opts.annotation)`
+   without `opts.genome`, so the committed Nissle JSON (sequences without nucleotides) fails. The
+   implementer plumbs `opts.genome` through in `src/giap/makedb/build.py` and adds a unit test; §15.2
+   step 2's command gains `--genome`. The genome is
+   `local/data/genomes/nissle1917/GCA_043228065.1_ASM4322806v1_genomic.fna.gz` (uncommitted); the README
+   records the accession and how to fetch it, and `validation/pilot/db_a2/` is committed as the spec says,
+   so the kit does not need the FASTA to be present.
+9. **The DIA-NN version does not go in `makedb_manifest.json`** (amending decision 2): `makedb` knows
+   nothing about DIA-NN. The README is the record for the version string, the image path and its sha256
+   (`1946452d56d2fb0f66e05ced473df88e53484e28040f1ecbd83c4a43405a6381`, computed 2026-10-20).
+10. **Id map:** use the name `makedb` actually writes, `db_id_map.tsv`; the spec's `id_map.tsv` is a
+    typo. (The M2-20 `annotation/id_map.tsv` is a different file.)
+11. **Downloads stay https/ftps** (R6). If the only iProX route for PXD078459 turns out to be plain
+    `ftp://`, the implementer marks the URLs clearly for Khoa to confirm at M10 rather than weakening the
+    rule; the URLs cannot be verified from here (no network in tests).
+12. **`needs_diann` in tests/conftest.py** also accepts `${DIANN_SIF:-<decision 1 path>}`, so the marker
+    can detect the 2.3.1 image; the `$GIAP_TOOLS_DIR/diann-2.7.0*` probe stays for a future unpacked
+    build.
+13. (code review of #122) The genome length check must not be a tautology. When a JSON sequence record
+    carries no `nt` and no `length`, `rep.length` is derived from the same FASTA, so
+    `len(fasta[cid]) != rep.length` compares a value with itself and a truncated genome builds silently
+    (a hard error before this PR). The check compares against the JSON's **declared** length where there
+    is one, and `build_strain_db` raises when a record has neither `nt` nor `length`, so no replicon is
+    ever length-checked against itself.
+14. (code review of #122) `test_the_genome_must_match_the_annotation` feeds a stripped JSON, so it trips
+    the parser's length check, not `build.py`'s. Add a case with the **full** JSON and a short FASTA,
+    which reaches the `build.py` check and kills four of the six surviving mutants.
+15. (code review of #122) Tighten the README's reason for leaving out `--reanalyse` / `--rt-profiling`:
+    MBR weakens run-level FDR control, so the §15.5 entrapment set is no longer the single-pass q ≤ 0.01
+    set — not merely "moves the denominator". Drop the closing "identical in A1 and A2, so the comparison
+    stays fair", which undercuts the reason.
+16. (code review of #122) Two small shell nits: `diann_pilot.sbatch` should exit 2, not die on an unbound
+    variable, when a cfg ends in a bare `--fasta`; `fetch_pxd078459.sbatch`'s `for name in $FILES` needs
+    the same `set -f` guard as its sibling.
+17. (re-review of #122) Pin the decision-13 message. `test_a_record_without_nt_and_without_length_is_refused`
+    asserts only that the contig appears, which the weaker "missing or of the wrong length" message also
+    satisfies, so a refactor could delete the branch with CI green and point the user at the genome file
+    for an annotation fault. Require "declares no length" too. Also add the two `_declared_lengths` shape
+    cases the re-review found uncovered and non-equivalent: the `contigs` key in place of `sequences`,
+    and the `sequence` key in place of `nt`.

@@ -49,7 +49,8 @@ workflow MAPPING {
     def ht = kv('hits_tolerant', pick(MAP_TOLERANT.out.outputs, 'hits_tolerant.parquet'))
 
     def pl = stepIn('placement', [pep, six, hx, ht, kv('reference_peptides', reference_peptides)] + gm)
-    PLACEMENT(pl.files, pl.keys, ['placement=placement.parquet', 'mapping_fdr=mapping_fdr.parquet'])
+    // stratum0_classes = the ADR-0019 stratum-0 pi-hat per length class (an input of context_stats)
+    PLACEMENT(pl.files, pl.keys, ['placement=placement.parquet', 'mapping_fdr=mapping_fdr.parquet', 'stratum0_classes=stratum0_classes.parquet'])
     def P = PLACEMENT.out.outputs
     def placed = [kv('placement', pick(P, 'placement.parquet')), kv('mapping_fdr', pick(P, 'mapping_fdr.parquet'))]
 
@@ -70,5 +71,6 @@ workflow MAPPING {
 
     emit:
     mapping  = LOCI.out.outputs
+    stratum0 = pick(P, 'stratum0_classes.parquet')   // ADR-0019 table, an input of context_stats
     versions = ch_versions
 }

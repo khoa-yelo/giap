@@ -56,7 +56,8 @@
       "detectability_summary",
       "id_map",
       "peptides",
-      "replicon_depth"
+      "replicon_depth",
+      "stratum0_classes"
     ],
     "outputs": [
       "detection_summary",
@@ -198,7 +199,8 @@
     ],
     "outputs": [
       "mapping_fdr",
-      "placement"
+      "placement",
+      "stratum0_classes"
     ]
   },
   "promoter_layer": {
@@ -259,6 +261,18 @@
     "outputs": [
       "region_genes",
       "regions"
+    ]
+  },
+  "sensitivity": {
+    "inputs": [
+      "gene_table",
+      "region_genes",
+      "regions",
+      "replicons"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "sensitivity"
     ]
   },
   "sixframe_index": {

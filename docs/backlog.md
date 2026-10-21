@@ -47,8 +47,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - At the next uv lock update: scikit-learn>=1.8 (l1_ratio API) and threadpoolctl as direct dependencies (M4-13).
 - M4-15/M4-17/M8 attack-2 suites must gate on M4-13 p_detect; even the correct model slightly over-predicts detection for the shortest genes (decile z ≈ −0.66) (statistician, #83).
 - m3/mapping-nf: write the search_db auto-resolution event from the Nextflow `giap _step` path too (only --executor local writes it, M3-17 decision 14).
-- M4-14 (statistician): re-measure abundance.ibaq_denominator on M4-09 data before switching (fails 10–40 % at p_obs = 0.3); restate as a pooled mean Δρ if needed; add the p_obs = 0.3 attack.
-- M4 notes: median imputation pulls detected-but-unquantified genes toward the centre; the min/exclude sensitivity reruns bracket it (statistician, #82).
 - M4-12 (statistician #92): giapsim mode with decoy-derived q (D/T) to separate MAYU with/without PEP; calibration run with q_value_max = 0.1; document 'best-scoring decoys lost' as a limitation of the 80 % pairing guard.
 - M4-14: use Detection.protein_gene_map from M4-12 instead of re-deriving the map (statistician #92).
 - M2-10: BacTermFinder recording (env not built) and record_fixture.py examples 1–3 deferred.
@@ -62,16 +60,15 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M4-17 nightly: the A-LIN full attack (test_alin_linear_replicon_hl_at_level) takes ~57 min per block on one core — shard it in the nightly/weekly calibration job (statistician #89 sign-off).
 - M2-20 follow-ups (implementer report, real run 1851270): annotate.nf passes no `tool_dirs`, so OUT/annotation/tools/ is empty (§7.1.8 wants native tool outputs untouched); `cai`/`fop` all NA on sim100k layers — check whether expected (no reference set on the simulator) or a wiring gap; consider splitting schemas + gc_local_dev if review asks (658 gated lines).
 - M2-20 (#104 review): annotate.nf passes no tool_dirs → OUT/annotation/tools/ empty (§7.1.8 native outputs untouched); nothing produces id_map, so --annotation GFF3/GBFF runs lack annotation/id_map.tsv. Wire both.
-- M4-18 (lead decision 4): the dosage-adjusted plasmid row treats replicon depth as known (CI shifted by log2(plasmid / reference depth)). Deferred: propagate depth uncertainty (e.g. bootstrap or delta-method term from per-window coverage) and wire `--replicon-depth` from `giap run` into `context_stats` (the step reads it; the manifest should record its absence).
+- M4-18 (lead decision 4): the dosage-adjusted plasmid row treats replicon depth as known (CI shifted by log2(plasmid / reference depth)). Deferred: propagate depth uncertainty (e.g. bootstrap or delta-method term from per-window coverage); the manifest should record a missing `--replicon-depth` (the flag itself is wired into `context_stats` since MVP-01).
 - M4-17/M4-18 (lead decision 17; statistician #110 finding 7): a shared `ci_few_units` flag for region-test and plasmid TU-block CIs computed from fewer than 10 TUs (docs/methods/bootstrap.md: percentile CIs from < 10 TUs under-cover), as M4-16 already does for detection_summary.
 - M4-15 decision 10: "file I/O only through io/" is enforced for genetable/assemble.py only. Step-level convention open: merged steps (mapping, context, operons, codon, ...) read Parquet directly with pd.read_parquet; decide whether steps must go through giap.io readers and add an AST check like test_assemble_module_is_pure if so.
-- M4-15: `gene_table` / `detectability` are registered but not wired in Nextflow (no subworkflow calls them yet); the workflow must resolve `cog2020_def` from the setup manifest (decision 5). Output keys: `genes_pre`, `gene_table` (genetable/genes.parquet, consumed by M4-18 context_stats), `detectability_summary` (one file under detection_summary_parts/). gene_table does not read C7/C8 (precomputed regions arrive as the M2-02 TSV under the local executor).
 - §9.5 per-field `unit` in the table schema resources (src/giap/schemas/tables/*.schema.json): none of them has it yet (M4-15 decision 16; project-wide).
 - Promotech sim100k recording ($GIAP_ROOT/recordings/promotech/sim100k) is a genome-wide -g run with every row labelled chr1,plasmid_1; re-record in GIAP's -s window mode (M2-21 test-author).
 - Nightly: test the newest open PR branches too (M2-21 decision 5, deferred). containers.yml / GHCR images deferred (M2-21 decision 2).
 - giap run --annotation <bakta.json> does not stop BAKTA from running under Nextflow (M2-21 implementer); workaround --set annotation.precomputed.bakta_json=…. Make --annotation map to the precomputed path.
 - Benchmarks: gate only steps with a baseline ≥ 1 s (M2-21 decision 10); implement the threshold in the benchmark check.
-- M4-19 decision 16: `run_sensitivity` is a plain function (no @step, no step_registry entry, no Nextflow wiring); register and wire it in finalize. Decision 7: the run manifest records `output.sensitivity = off`; decision 8: no rows for a module that is off.
+- M4-19 decision 7: the run manifest records `output.sensitivity = off`; decision 8: no rows for a module that is off. (Decision 16, registering and wiring `run_sensitivity`, is done: MVP-01.)
 - M4-18 (#110 review): context_stats reads genes.parquet with pd.read_parquet; switch to M4-15's read_genes_parquet (output identical today) with the M5 context_stats work.
 - Flaky timing asserts on loaded nodes: tests/unit/genetable/test_evidence.py::test_m409_default_fixture_detected_true_have_evidence (1.0 s; seen 1.01–1.13 s) and test_sim_layout::test_speed_1000_genes (0.2 s; seen 0.23 s). Move to benchmarks/ or loosen.
 - Slurm test runs on barley nodes are ~8× slower (subprocess timeouts in test_cli_step_load, test_exact_review, test_criteria_review): raise those timeouts or exclude barley in scripts/slurm/test_branch.sbatch.
@@ -79,3 +76,45 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M5-01 (#114 review, non-blocking test gaps): tied/unsorted 2-point pos accepted; keyword-only arguments untested; min_points < 3 unvalidated (LoessFit.k reports 1); loess_span_points does not validate n/frac; NaN in Blom censored_mask counts as censored.
 - Calibration full tier exceeds 2 h in one job: shard it across array tasks.
 - M4-19 (#117 statistician): sampled-shift region tests share one family stream across regions, so CRN breaks above `exhaustive_shift_max_genes`; give `test_region` (M4-17) a per-region shift stream. Sensitivity reruns compute 1,000-replicate bootstrap CIs that flagged sets never use; shrink or skip them (primary recomputed with the same count).
+- PRIORITY (M5-05 decision 31, now load-bearing): shard the full calibration tier across nightly array
+  tasks. The nightly full tier now carries three ~65-minute autocorrelation attack arms (a, b, c; 1,000
+  replicates at 4,500 genes each, and a block-2 confirmation doubles an arm) on top of the main full
+  suite and the M3 placement full checks (~38 min). M5-06's island attacks land next.
+- local/dev-helpers/regen_registry.py writes only workflow/tests/data/annotate/step_registry.json; fold in
+  the mapping twin (M3-25 regenerated it by hand with the same filter the test uses).
+- M3-25 (#124 review, non-blocking): `_stratum0_pooled` takes n/k/r from the class table but mean PEP from
+  all of P (unreachable with the default config); tests/helpers/placement_sims.py `prefilter=` silently
+  discards `inject_short=`; the per-class π̂ gate has zero tolerance for a class seen in one replicate.
+- Two homes for the K-12 reference proteome: scripts/slurm/fetch_resources.sbatch writes
+  $GIAP_DATA_DIR/proteomes/UP000000625.fasta (used by the M3-24 pilot cfgs), while
+  validation/fetch_uniprot_k12.py and scripts/slurm/weekly.sbatch use $GIAP_DATA_DIR/uniprot/. Pick one.
+- MVP-01 pass 2 (found while wiring): with a precomputed `regions` layer ANNOTATE has no C7/C8
+  Parquet, so CONTEXT (context_stats, sensitivity) skips itself silently — the run should say so,
+  and ideally the precomputed layer should reach M4 as the contract tables.
+- MVP-01 pass 2: nothing produces `id_map` under Nextflow (C14 is an optional input of
+  `gene_table` and `context_stats`; the local executor stages `annotation/id_map.tsv`), and the
+  `tables/` outputs are published but not validated inside the pipeline (contract assertions).
+- MVP-01 pass 2: the registered `sensitivity` step writes a header-only `tables/sensitivity.tsv`
+  when `output.sensitivity = off` (a declared step output must exist), while `run_sensitivity`
+  leaves no file under the local executor. Decide which one the §9.4 manifest should describe.
+- MVP-01 real run (jobs 1861957, 1861972, sim100k): every step runs and 1,646 peptide hits reach
+  the gene table, but no gene is detected: the `decoy_picked` tier has no decoy win, so every
+  eligible gene gets the picked-FDR floor q = 1/85 = 0.0118 > `stats.alpha.identification` = 0.01.
+  An 87-gene genome cannot reach the identification alpha at all — the statistician should say
+  whether the MVP evidence run needs a bigger genome, a different tier or a flag.
+- MVP-01 pass 2: `detect` (M4-12) builds tier and q-threshold curve rows, but `gene_table` has no
+  diagnostics output key, so those rows never reach `tables/detection_summary.tsv` (only the
+  basic / qc / detectability sections are there).
+- MVP-01 pass 2 (#129 review): `stepIn`'s `need` defaults to `[]`, so a step with no `need` emits
+  an empty task — which is exactly the MVP-01 failure — as soon as one upstream channel is empty.
+  `map_exact`, `map_tolerant`, `loci` and `parse_bakta` are each one empty upstream away from it.
+  `need` should default to the step's required keys (the registry already lists them).
+- MVP-01 pass 2 (#129 review): `OUT/genetable/genes_pre.parquet` is an intermediate published into
+  the user's output tree, and §9.1 has no `genetable/` directory at all (it specifies
+  `tables/genes.tsv`). Settle publishDir discipline — which keys are user-facing, which stay in
+  work/ — with the M6 writers.
+- MVP-01 pass 2 (#129 review): `cog/cog-20.def.tab` is a literal in `main.nf` (`cogTable()`), while
+  Python reads the path from `db_sources.yaml` and the db manifest records it per item.
+  `tests/unit/test_nf_main_installed_items.py` now pins the two literals against `SOURCES`, in the
+  style of `test_nf_annotate_registry.py`; pass 2 should drop the duplication instead, by having
+  `installed()` read the manifest entry's own `path`.
