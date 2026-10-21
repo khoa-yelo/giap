@@ -126,3 +126,18 @@ in its §9.3 position, for autocorrelation) and `flags` last.
    reachable at this size (decision 50: censoring caps the direction). Acceptable for plumbing, it doubles
    as the fixed-block diagnostics case, and it is stated in the module docstring. Do **not** grow the
    genome to reach the calibrated regime here; that belongs to M5-07.
+6. **`stat` is the statistic's *name* in every test table, islands included** (2026-10-21). §9.2 defines
+   the test columns with `stat` as an enum of names (`enum{o_minus_e, hl_shift}` for regions), and
+   `regions_stats` and `autocorrelation` both follow it. M5-06 shipped `stat` as a float equal to
+   `scan_s`, which both breaks the convention and duplicates a column the same row already carries. So
+   **islands' `stat` becomes the string `"scan_max"`** and `scan_s` keeps the value. The M5-09
+   test-author's fixtures already say `"scan_max"` — they were right and the merged producer is the slip.
+   This changes merged code (`src/giap/context/islands.py`) and one merged oracle
+   (tests/unit/context/test_islands.py:134); cheap now, expensive once goldens, the M9 report and any
+   generic table reader depend on three tables meaning three different things by `stat`.
+7. **The `flag_set` / `NA` contradiction is a test bug**: `test_every_row_keeps_its_own_flags` reads raw
+   cells where `flag_set` returns `{"NA"}`, while `test_empty_flags_are_na` requires the cell to be
+   exactly `NA`. Drop `"NA"` from `flag_set`; the integration path through `read_tsv` is unaffected.
+8. The two changes outside M5-09's nominal surface are **accepted**: `oriter`'s `lag` as nullable `Int64`
+   (without it the concat of M5-05's int64 and M5-08's float64 rows writes `1.0`), and
+   `registry.optional_outputs`. The latter has no unit test — that is filed and must not be forgotten.
