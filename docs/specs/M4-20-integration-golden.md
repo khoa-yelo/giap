@@ -65,3 +65,31 @@ None new (collects the sign-offs above).
 
 1. Gate on the nightly full suite (R = 300 / 1,000) or accept the per-PR fast suite for the M4 gate?
    **Proposed default:** the gate needs one green nightly full run on `main` after M4-17 and M4-12 merge.
+
+## Lead decisions after the test-author's report (2026-10-21)
+1. **Golden alpha.** The sim50k golden runs at `stats.alpha.identification = 0.05` (33 of 47 genes
+   detected, real p-values), documented in the module docstrings. The vacuous default stays pinned by
+   `test_default_alpha_detects_nothing_on_50_kb`, which also asserts `len(genes) < 100` so the pin shouts
+   if the fixture grows. A golden of zeros would test nothing; moving to sim1000 is rejected because
+   §11.4 names the 50-kb fixture. Record in the methods/README text that the 50-kb fixture cannot reach
+   the default alpha (picked q floor 1/29 = 0.0345) — this is a property of the fixture, not a defect.
+2. **`tables/genes.tsv` (gap 1): write it at the end of the M4 chain.** `write_genes_tsv` has no caller
+   anywhere, so the pipeline's headline gene table is never produced — that is an end-to-end hole and the
+   MVP push is the right time to close it. §6.2 gives genes.tsv to `finalize`; when `finalize` arrives it
+   takes the call over. Note that in the backlog beside the `genes_pre.parquet` publishDir item.
+3. **detection_summary tier rows (gap 2): yes.** `gene_table` persists `det.summary` as
+   `genetable/detection_summary_parts/tier.parquet`, an input to `context_stats`, so the `fdr_2pep`
+   q-threshold curve reaches `tables/detection_summary.tsv`. Today `steps/gene_table.py` discards it.
+4. **`build_m4_fixture` takes an extra `layout={...}` kwarg** (LayoutConfig fields) for example 7's
+   linear contigs and plasmid; `size` alone cannot express them. Added to the spec's Interface line.
+5. **Fixture robustness confirmed:** the builder plants the prophage and AMR regions relative to the
+   actual gene count (it varies ~40–50 by seed) and gives AMR rows NA coordinates
+   (`contract.regions.amr_coordinates`). The property tests build at arbitrary seeds and must stay that way.
+6. **Gate scope confirmed** as the spec's proposed default: one nightly full run (R ≥ `replicates_full`;
+   gene_fdr 300, regions 1000) for `gene_fdr.{picked,mayu_pep,mayu_nopep}.pi{0.01,0.05}` and the regions
+   level/FDR streams. Generating the PROGRESS.md evidence block from it is **deferred** to the hardening
+   pass — useful, not integration.
+7. **`sensitivity = off` stays pinned in M4-19's own tests**, not here; M4-20 keeps its scope.
+8. The test-author was right not to write `tests/sim/giapsim/fixtures.py`: giapsim is implementer-owned
+   tooling (AGENTS.md), and writing it there would have made the tests pass before the implementation.
+   The implementer writes it to the interface `tests/helpers/m4_chain.build` and the property tests pin.
