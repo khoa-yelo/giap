@@ -214,7 +214,12 @@ def test_a_record_without_nt_and_without_length_is_refused(
     with pytest.raises(ValueError) as info:
         _build(annotation, tmp_path / "DB", genome=fasta)
     if how == "match":  # a correct FASTA cannot trip any other check: this is decision 13's
-        assert cid in str(info.value), str(info.value)
+        message = str(info.value)
+        assert cid in message, message
+        # Decision 17: the fault is in the annotation, so the message must say so. "missing or of
+        # the wrong length" would blame the genome file and would also pass a `cid in …` check.
+        assert "declares no length" in message, message
+        assert str(annotation) in message, message
     assert not (tmp_path / "DB" / "strain_db.faa").exists(), "a partial database was written"
 
 
@@ -228,6 +233,36 @@ def test_a_declared_length_still_catches_a_wrong_genome(
     with pytest.raises(ValueError, match=re.escape(cid)):
         _build(stripped_json, tmp_path / "DB", genome=bad)
     assert not (tmp_path / "DB" / "strain_db.faa").exists(), "a partial database was written"
+
+
+@pytest.mark.parametrize("shape", ["contigs-key", "sequence-key"])
+def test_the_declared_length_follows_the_parsers_own_fallbacks(
+    full_json: Path, genome: Path, tmp_path: Path, shape: str
+) -> None:
+    """Decision 17: both shapes ``annotate/bakta.py`` accepts must build, not be refused.
+
+    A Bakta JSON may name the records ``contigs`` instead of ``sequences`` and the nucleotides
+    ``sequence`` instead of ``nt``. Whatever reads the declared length (decision 13) has to know
+    both: with either fallback missing every record looks length-less and a valid annotation is
+    rejected as "declares no length".
+    """
+    data = json.loads(full_json.read_text())
+    if shape == "contigs-key":
+        data["contigs"] = data.pop("sequences")
+        records = data["contigs"]
+        assert all("length" in r and "nt" in r for r in records), records
+    else:
+        records = data["sequences"]
+        for record in records:
+            record["sequence"] = record.pop("nt")
+            record.pop("length", None)  # a declared length would hide the nucleotide fallback
+        assert all("length" not in r and "nt" not in r for r in records), records
+    other = tmp_path / f"{shape}.json"
+    other.write_text(json.dumps(data, indent=1) + "\n")
+    want = _build(full_json, tmp_path / "BASE", genome=genome)
+    got = _build(other, tmp_path / "SHAPE", genome=genome)
+    for name in OUTPUTS:
+        assert (got / name).read_bytes() == (want / name).read_bytes(), name
 
 
 def test_the_genome_overrides_the_nucleotides_of_the_json(
