@@ -100,9 +100,15 @@ a window-sum maximum needs (ADR-0021).
   ρ 0.5 / 0.9 / 0.95, and the ori–ter CI covers only 0.88–0.93.
 - With ℓ', FWER is 0.003–0.040 and the CI covers 0.96 at ρ 0.5.
 
-**Small replicons.** Islands on replicons with fewer than 1,000 scored TUs carry the flag
-`uncalibrated`. There ℓ̂ ≈ 1.3, because Moran's I cannot detect the diluted correlation, and FWER at
-ρ 0.9 is 0.13.
+**Validity domain.** ADR-0021 **Amendment 1** supersedes the original "fewer than 1,000 scored TUs"
+rule and **drops the `uncalibrated` flag**: re-measurement at R = 1,000 showed the scored-TU count
+decides nothing on its own (400 TUs at ρ 0.5 give FWER 0.005; 1,000 TUs at ρ 0.9 give 0.095–0.208;
+2,500 TUs at ρ 0.9 give 0.024). What matters is whether strong TU-level autocorrelation is resolved by
+Moran's I to a long enough lag: every breach has ℓ' ≤ 7, and censoring is what hides the correlation
+(the same ρ 0.9 replicon gives ℓ̂ = 9 and FWER 0.007 uncensored, ℓ̂ = 2 and 0.208 at 55 % detected).
+No per-replicon statistic certifies the domain, and selecting on one is adverse, so the run report
+carries ℓ̂, ℓ' and the lag-1 Moran's I per replicon instead of a flag. See docs/methods/islands.md,
+"The island step (M5-06)".
 
 **Joins between blocks.** ℓ = 1 is the iid bootstrap. Blocks join independent stretches, so the
 bootstrap slightly under-represents dependence across block joins. With ℓ above the correlation
