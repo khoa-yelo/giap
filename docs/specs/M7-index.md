@@ -287,3 +287,11 @@ real-tool arm (15). All within R14 (≤ 32 CPUs at once for M7's own jobs).
 3. If attack 6 fails: an ADR changing the `high` rule (M7-13 risks) is a call-rule change.
 4. Possibly: the new `annotation.precomputed.rbs_novel` key (M7-08 Q1) and the new flag values, if
    the lead treats them as interface changes in the ADR-0005/0011 sense.
+
+## Lead decisions (2026-10-21)
+1. The 11 decisions above, and every per-issue proposed default listed in the designer's report (M7-01 Q1 … M7-15 Q2), are **accepted**.
+2. **New flag values** (`vcf_unrepresentable`, `no_start_codon`, `partial`, `ostir_missing`, `rbs_threshold_unestimated`, `junction_unknown`): add them through the schema, as M6 decision 6 did. They are vocabulary, not interface.
+3. **`annotation.precomputed.rbs_novel`** (M7-08 Q1) is accepted. It is a config-interface addition, so M7-08 writes an ADR (lead-accepted, Khoa informed); the existing `rbs` layer keeps its keying.
+4. **Publishing tables:** the local executor already publishes `tables/` through `PUBLISHED_FILES` (M4-21, #145), and a test pins it to the Nextflow `'key=path'` names. M7-04 and M7-08 add their keys there.
+5. **Questions for Khoa** (K1 replicate counts in the protected `tolerances.yaml`, K2 the M7-16 option, K3 the attack-6 rule) stay open. They are pass-2 work, and nothing in pass 1 waits on them. PROGRESS.md records that the `stop_codon` clause is vacuous until K2 is decided.
+6. **Integration-pass discipline:** one review round per PR; nits go to the backlog; the wiring issues M7-04 and M7-08 come right after their producers, as sequenced.
