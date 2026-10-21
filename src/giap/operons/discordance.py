@@ -39,6 +39,8 @@ ROW_COLUMNS: tuple[str, ...] = ("pair_id", "test", *TEST_COLUMNS, "flags")
 
 TOO_FEW = "too_few_op_pairs"
 UNESTIMATED = "unestimated"
+#: a tested row has p and q but no CI for a single pair (ADR-0020 decision 4 precedent)
+CI_UNESTIMATED = "ci_unestimated"
 NO_DL_MODEL = "no_detection_limit_model"
 RELATIVE = "relative_scale"
 
@@ -94,7 +96,8 @@ def _is_relative(genes: pd.DataFrame) -> bool:
         scales = set(genes["abundance_scale"].dropna().astype(str))
         return "relative" in scales
     if "abundance_type" in genes.columns:
-        types = set(genes["abundance_type"].dropna().astype(str)) - {"none", "unknown"}
+        # ``unknown`` counts as relative (§7.3.4)
+        types = set(genes["abundance_type"].dropna().astype(str)) - {"none"}
         return bool(types - MOLAR_TYPES)
     return False
 
@@ -188,7 +191,7 @@ def discordance(
         rows.loc[idx, "q_value"] = bh(p)
         rows.loc[idx, "method"] = "student_t"
         rows.loc[idx, "null_model"] = "within_operon_t"
-        extra = {int(i): [UNESTIMATED] for i in idx}  # no CI for a single pair (decision 2)
+        extra = {int(i): [CI_UNESTIMATED] for i in idx}  # no CI for a single pair (decision 2)
         extra.update({int(i): [NO_DL_MODEL, UNESTIMATED] for i in np.flatnonzero(one)})
     for i, add in extra.items():
         flags[i] = flags[i] + [f for f in add if f not in flags[i]]

@@ -211,7 +211,29 @@ def test_ci_is_na_and_flagged_unestimated() -> None:
     for col in ("ci_low", "ci_high"):
         if col in tested.columns:
             assert tested[col].isna().all()
-    assert all("unestimated" in flags_of(f) for f in tested["flags"])
+    # the claim has p and q, only the CI is missing: ci_unestimated, never unestimated (R4)
+    assert all("ci_unestimated" in flags_of(f) for f in tested["flags"])
+    assert not any("unestimated" in flags_of(f) for f in tested["flags"])
+
+
+def test_unknown_abundance_type_without_scale_column_is_relative() -> None:
+    """§7.3.4: ``unknown`` is relative, also in the ``abundance_type`` fallback."""
+    pairs, genes = chain(_t_draws(60), abundance_type="unknown")
+    res = run(pairs, genes.drop(columns=["abundance_scale"]))
+    _all_untested(res, "relative_scale")
+
+
+def test_only_op_pairs_are_tested_and_enter_bh() -> None:
+    """NO pairs never get a t p-value, so the BH family is the 60 OP pairs."""
+    op, g1 = chain(_t_draws(60))
+    no, g2 = chain(_t_draws(10, seed=3), prefix="N", contig="c2", uniop_p=0.05)
+    assert (no["class"] == "NO").all()
+    pairs = pd.concat([op, no], ignore_index=True)
+    res = run(pairs, pd.concat([g1, g2], ignore_index=True))
+    assert not res.rows["pair_id"].isin(no["pair_id"]).any()
+    tested = res.rows[res.rows["test"] == "both_detected_t"]
+    assert len(tested) == 60
+    np.testing.assert_allclose(tested["q_value"], bh(tested["p_value"].to_numpy()))
 
 
 def test_example5_imputed_pair_not_in_fit_but_tested() -> None:

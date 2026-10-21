@@ -123,7 +123,9 @@ def discordance(pairs: pd.DataFrame, genes: pd.DataFrame, cfg: GiapConfig,
 
 ## Lead decisions (2026-10-21)
 1. Q1: minimum **20** usable OP pairs for the t fit; below it every pair is `unestimated` with a flag.
-2. Q2: `ci_low`/`ci_high` NA with `unestimated` (no effect is estimated per pair).
+2. Q2: `ci_low`/`ci_high` NA (no effect is estimated per pair). Amended after the statistician
+   review of #147 (F1): the tested row carries `ci_unestimated` (ADR-0020 decision 4 precedent),
+   not `unestimated` — the claim has p and q; only the CI is missing (R4).
 3. Q3: superseded by M6-index lead decision 1 — `P(miss)` never enters the BH family; in pass 1 the
    one-detected branch is `unestimated (no_detection_limit_model)`, so the family holds only t p-values.
 4. The t fit is `giap.stats.tdist.fit_student_t` (M6-01, #144). A degenerate fit (`converged = False`,
