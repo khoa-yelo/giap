@@ -49,3 +49,9 @@ None.
 1. If M2's region membership or TU rules differ from the simulator's (e.g. TU singletons), which side
    adapts? **Proposed default:** the contract (M4-06) is the arbiter; the producer adapts unless the
    lead decides the contract was wrong.
+
+## Lead decisions (2026-10-21)
+
+1. Q1: the M4-06 contract (`giap.genetable.contract`) is the arbiter. The producer adapts unless the
+   lead decides the contract was wrong; such a case is reported to the lead, never fixed by changing
+   the contract in this issue.
