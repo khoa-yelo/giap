@@ -31,7 +31,7 @@ import sys
 import tempfile
 import time
 import urllib.request
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -109,43 +109,32 @@ def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _common_names(cert: Mapping[str, Any]) -> set[str]:
-    """The subject common names of a certificate as ``ssl`` decodes it."""
-    out: set[str] = set()
-    subject = cert.get("subject") or ()
-    for rdn in subject:
-        for attribute in rdn:
-            if isinstance(attribute, tuple) and len(attribute) == 2:
-                key, value = attribute
-                if key == "commonName":
-                    out.add(str(value))
-    return out
+def _openssl() -> str:
+    """The ``openssl`` binary that performs the chain check; absent means refuse, not downgrade."""
+    found = shutil.which("openssl")
+    if found is None:
+        raise FetchError(
+            "fetch_regulondb: openssl is not on PATH, so the pinned intermediate cannot be "
+            f"checked against {ROOT_CN!r}; refusing to continue"
+        )
+    return found
 
 
-def trusted_root_pem(common_name: str) -> str:
-    """Return the PEM of the trusted root whose subject CN is ``common_name``.
-
-    Reads the system trust store only (``ssl`` default certificates); raises :class:`FetchError`
-    when the root is absent, because completing the chain would then rest on nothing.
-    """
-    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    ctx.load_default_certs(ssl.Purpose.SERVER_AUTH)
-    decoded = ctx.get_ca_certs()
-    binary = ctx.get_ca_certs(binary_form=True)
-    for cert, der in zip(decoded, binary, strict=True):
-        if common_name in _common_names(cert):
-            return ssl.DER_cert_to_PEM_cert(der)
-    raise FetchError(
-        f"fetch_regulondb: {common_name!r} is not in the system trust store, so the "
-        f"{INTERMEDIATE_CN!r} intermediate cannot be anchored; refusing to continue"
+def _run_openssl(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(  # fixed argv, on a file we just wrote
+        [_openssl(), *args], capture_output=True, text=True, check=False, timeout=60
     )
 
 
-def verify_intermediate(der: bytes, root_pem: str) -> str:
-    """Pin ``der`` by SHA-256, check it is signed by ``root_pem``, and return it as PEM.
+def verify_intermediate(der: bytes) -> str:
+    """Pin ``der`` by SHA-256, check it chains to :data:`ROOT_CN`, and return it as PEM.
+
+    The chain check is ``openssl verify`` against the **system** trust store, so it works whether
+    the host keeps its roots in a bundle file or a hashed directory; the issuer is then read back
+    and must be :data:`ROOT_CN`, so the anchor is the root we expect and not some other CA.
 
     Raises :class:`FetchError` naming :data:`INTERMEDIATE_SHA256` when the pin does not match or
-    the signature does not verify, so an expiry or a re-issue is obvious rather than mysterious.
+    the chain does not verify, so an expiry or a re-issue is obvious rather than mysterious.
     """
     got = sha256_hex(der)
     if got != INTERMEDIATE_SHA256:
@@ -154,29 +143,22 @@ def verify_intermediate(der: bytes, root_pem: str) -> str:
             f"{INTERMEDIATE_SHA256} ({INTERMEDIATE_CN}, pinned valid to {INTERMEDIATE_NOT_AFTER}). "
             "Re-pin it only after checking it against GlobalSign; never disable verification."
         )
-    openssl = shutil.which("openssl")
-    if openssl is None:
-        raise FetchError(
-            "fetch_regulondb: openssl is not on PATH, so the pinned intermediate cannot be "
-            f"checked against {ROOT_CN!r}; refusing to continue"
-        )
     pem = ssl.DER_cert_to_PEM_cert(der)
     with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp) / "root.pem"
         inter = Path(tmp) / "intermediate.pem"
-        root.write_text(root_pem, encoding="ascii")
         inter.write_text(pem, encoding="ascii")
-        proc = subprocess.run(  # fixed argv, on files we just wrote
-            [openssl, "verify", "-CAfile", str(root), str(inter)],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=60,
-        )
-    if proc.returncode != 0:
+        verified = _run_openssl("verify", str(inter))
+        issuer = _run_openssl("x509", "-in", str(inter), "-noout", "-issuer")
+    if verified.returncode != 0:
         raise FetchError(
-            f"fetch_regulondb: the pinned intermediate {INTERMEDIATE_SHA256} does not verify "
-            f"against {ROOT_CN!r}: {proc.stdout.strip()} {proc.stderr.strip()}"
+            f"fetch_regulondb: the pinned intermediate {INTERMEDIATE_SHA256} does not chain to a "
+            f"trusted root ({ROOT_CN!r} should be in the system trust store): "
+            f"{verified.stdout.strip()} {verified.stderr.strip()}"
+        )
+    if ROOT_CN not in issuer.stdout:
+        raise FetchError(
+            f"fetch_regulondb: the pinned intermediate is anchored to {issuer.stdout.strip()!r}, "
+            f"not to {ROOT_CN!r}; refusing to continue"
         )
     return pem
 
@@ -199,7 +181,7 @@ def regulondb_context(fetch: Callable[[str], bytes] = _get) -> ssl.SSLContext:
         raise FetchError(
             f"fetch_regulondb: {INTERMEDIATE_URL} returned PEM, not the DER the pin covers"
         )
-    pem = verify_intermediate(der, trusted_root_pem(ROOT_CN))
+    pem = verify_intermediate(der)
     ctx = ssl.create_default_context()
     ctx.load_verify_locations(cadata=pem)
     return ctx

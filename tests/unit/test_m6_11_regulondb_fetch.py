@@ -117,7 +117,7 @@ def test_the_pin_is_the_sha256_the_backlog_records() -> None:
 
 def test_verify_intermediate_refuses_a_changed_certificate() -> None:
     with pytest.raises(fr.FetchError) as exc:
-        fr.verify_intermediate(_self_signed_der(), "-----BEGIN CERTIFICATE-----\n")
+        fr.verify_intermediate(_self_signed_der())
     message = str(exc.value)
     assert fr.INTERMEDIATE_SHA256 in message  # the pin is named, so an expiry is obvious
     assert hashlib.sha256(_self_signed_der()).hexdigest() in message
@@ -133,52 +133,72 @@ def test_regulondb_context_refuses_a_certificate_that_fails_the_pin() -> None:
         fr.regulondb_context(fetch=lambda _url: _self_signed_der())
 
 
-@pytest.mark.skipif(shutil.which("openssl") is None, reason="openssl is not on PATH")
+def _pin(monkeypatch: pytest.MonkeyPatch, der: bytes) -> None:
+    """Make ``der`` satisfy the pin, so the test can reach the chain check behind it."""
+    monkeypatch.setattr(fr, "INTERMEDIATE_SHA256", hashlib.sha256(der).hexdigest())
+
+
+def _openssl_results(
+    monkeypatch: pytest.MonkeyPatch, verify: tuple[int, str], issuer: str
+) -> list[list[str]]:
+    """Stub ``openssl``: ``verify`` gives ``(code, output)``, ``x509 -issuer`` gives ``issuer``."""
+    calls: list[list[str]] = []
+
+    def fake(argv: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        calls.append(argv)
+        if argv[1] == "verify":
+            return subprocess.CompletedProcess(argv, verify[0], verify[1], "")
+        return subprocess.CompletedProcess(argv, 0, issuer, "")
+
+    monkeypatch.setattr(fr.subprocess, "run", fake)
+    return calls
+
+
+def test_verify_intermediate_checks_the_chain_against_the_system_trust_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    der = _self_signed_der()
+    _pin(monkeypatch, der)
+    calls = _openssl_results(monkeypatch, (1, "error 20 at 0 depth lookup"), "")
+
+    with pytest.raises(fr.FetchError, match="does not chain to a trusted root"):
+        fr.verify_intermediate(der)
+
+    # no -CAfile: the system store is used, so a bundle file and a hashed directory both work
+    assert calls[0][1] == "verify"
+    assert "-CAfile" not in calls[0]
+
+
+def test_verify_intermediate_requires_the_expected_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    der = _self_signed_der()
+    _pin(monkeypatch, der)
+    _openssl_results(monkeypatch, (0, "ok"), "issuer=C = BE, O = Someone Else, CN = Other Root\n")
+
+    with pytest.raises(fr.FetchError, match="not to 'GlobalSign Root R46'"):
+        fr.verify_intermediate(der)
+
+
+def test_verify_intermediate_accepts_a_pinned_certificate_under_the_right_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    der = _self_signed_der()
+    _pin(monkeypatch, der)
+    _openssl_results(
+        monkeypatch, (0, "intermediate.pem: OK"), f"issuer=C = BE, CN = {fr.ROOT_CN}\n"
+    )
+
+    pem = fr.verify_intermediate(der)
+
+    assert pem.startswith("-----BEGIN CERTIFICATE-----")
+    assert ssl.PEM_cert_to_DER_cert(pem) == der
+
+
 def test_verify_intermediate_without_openssl_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
     der = _self_signed_der()
-    monkeypatch.setattr(fr, "INTERMEDIATE_SHA256", hashlib.sha256(der).hexdigest())
+    _pin(monkeypatch, der)
     monkeypatch.setattr(fr.shutil, "which", lambda _name: None)
     with pytest.raises(fr.FetchError, match="openssl is not on PATH"):
-        fr.verify_intermediate(der, "-----BEGIN CERTIFICATE-----\n")
-
-
-def test_trusted_root_pem_raises_when_the_root_is_absent() -> None:
-    with pytest.raises(fr.FetchError, match="not in the system trust store"):
-        fr.trusted_root_pem("No Such Root CA 1999")
-
-
-def test_trusted_root_pem_returns_pem_for_a_root_that_is_there() -> None:
-    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    ctx.load_default_certs(ssl.Purpose.SERVER_AUTH)
-    names = [
-        value
-        for cert in ctx.get_ca_certs()
-        for rdn in cert.get("subject", ())
-        for key, value in rdn
-        if key == "commonName"
-    ]
-    if not names:
-        pytest.skip("no system trust store on this host")
-    pem = fr.trusted_root_pem(names[0])
-    assert pem.startswith("-----BEGIN CERTIFICATE-----")
-    assert ssl.PEM_cert_to_DER_cert(pem)
-
-
-@pytest.mark.skipif(shutil.which("openssl") is None, reason="openssl is not on PATH")
-def test_verify_intermediate_runs_openssl_against_the_root(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The pinned bytes must still verify against the root; the check is a real subprocess call."""
-    der = _self_signed_der()
-    monkeypatch.setattr(fr, "INTERMEDIATE_SHA256", hashlib.sha256(der).hexdigest())
-    seen: dict[str, Any] = {}
-
-    def fake_run(argv: list[str], **_: object) -> subprocess.CompletedProcess[str]:
-        seen["argv"] = argv
-        return subprocess.CompletedProcess(argv, 1, "", "error 20 at 0 depth lookup")
-
-    monkeypatch.setattr(fr.subprocess, "run", fake_run)
-    with pytest.raises(fr.FetchError, match="does not verify"):
-        fr.verify_intermediate(der, "-----BEGIN CERTIFICATE-----\nAAA\n-----END CERTIFICATE-----\n")
-    assert seen["argv"][1:3] == ["verify", "-CAfile"]
+        fr.verify_intermediate(der)
 
 
 def test_verification_is_never_disabled_anywhere_in_the_fetcher() -> None:
