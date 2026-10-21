@@ -62,6 +62,32 @@
       "commit": "4ff26d3"
     }
   },
+  "genetable_evidence_4500_genes": {
+    "benchmark": "benchmarks/test_genetable_evidence_bench.py::test_simulated_4500_genes_evidence_budget",
+    "source": "docs/specs/M4-11-accepted-evidence.md (< 1 s for 4,500 genes)",
+    "n_genes": 4535,
+    "budget_s": 1.0,
+    "best_secs": 0.132,
+    "node_class": "FarmShare iron (AMD EPYC 7742)",
+    "node": "iron-01",
+    "slurm_job": 1860046,
+    "commit": "515424d",
+    "date": "2026-10-20",
+    "note": "best of 3, median of 3 invocations (0.131-0.135 s), interactive allocation"
+  },
+  "genetable_evidence_m409_default": {
+    "benchmark": "benchmarks/test_genetable_evidence_bench.py::test_m409_default_fixture_evidence_budget",
+    "source": "docs/specs/M4-11-accepted-evidence.md (< 1 s for 4,500 genes)",
+    "n_genes": 1000,
+    "budget_s": 1.0,
+    "secs": 0.22,
+    "node_class": "FarmShare iron (AMD EPYC 7742)",
+    "node": "iron-01",
+    "slurm_job": 1860046,
+    "commit": "1a79d9f",
+    "date": "2026-10-20",
+    "note": "single run, median of 3 invocations (0.221-0.227 s), interactive allocation"
+  },
   "mapping_steps_chain_100kb_5000_peptides": {
     "benchmark": "benchmarks/test_mapping_steps_bench.py::test_mapping_chain_100kb_5000_peptides_budget",
     "budget_s": 20.0,
@@ -85,5 +111,31 @@
     "commit": "8caca63",
     "date": "2026-10-20",
     "issue": "M5-03"
+  },
+  "sim_layout_1000_genes": {
+    "benchmark": "benchmarks/test_sim_layout_bench.py::test_sim_layout_1000_genes_budget",
+    "source": "docs/specs/M4-07-sim-layout-tables.md acceptance (1,000 genes < 0.2 s)",
+    "n_genes": 1000,
+    "budget_s": 0.2,
+    "best_secs": 0.06,
+    "node_class": "FarmShare iron (AMD EPYC 7742)",
+    "node": "iron-01",
+    "slurm_job": 1860046,
+    "commit": "1a79d9f",
+    "date": "2026-10-20",
+    "note": "best of 3, median of 3 invocations (0.059-0.060 s), interactive allocation"
+  },
+  "sim_layout_4500_genes": {
+    "benchmark": "benchmarks/test_sim_layout_bench.py::test_sim_layout_example7_4500_genes_budget",
+    "source": "docs/specs/M4-07-sim-layout-tables.md example 7 and acceptance (4,500 genes < 2 s)",
+    "n_genes": 4500,
+    "budget_s": 2.0,
+    "best_secs": 0.234,
+    "node_class": "FarmShare iron (AMD EPYC 7742)",
+    "node": "iron-01",
+    "slurm_job": 1860046,
+    "commit": "515424d",
+    "date": "2026-10-20",
+    "note": "best of 3, median of 3 invocations (0.230-0.238 s), interactive allocation"
   }
 }
