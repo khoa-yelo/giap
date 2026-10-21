@@ -147,7 +147,7 @@ def test_fit_rows_selects_usable_op_pairs() -> None:
     pairs.loc[0, "class"] = "NO"
     got = np.sort(np.asarray(disc.fit_rows(pairs), dtype=float))
     # pair 0 not OP, pair 1 imputed, pairs 3/4 touch the NaN gene 4, pair 5 the undetected gene 6
-    np.testing.assert_allclose(got, [0.3])
+    np.testing.assert_allclose(got, [0.3], atol=1e-6)  # chain() rounds Δ to 2**-20
 
 
 # ------------------------------------------------------------------ examples 1-3, 5
@@ -259,8 +259,8 @@ def test_twenty_usable_pairs_is_enough() -> None:
 
 
 def test_too_few_counts_usable_pairs_not_op_rows() -> None:
-    """25 OP pairs, but the imputed genes leave only 19 usable for the fit."""
-    res = run(*chain(_t_draws(25), imputed=[0, 2, 4]))
+    """25 OP pairs, but the imputed genes (0 and 25 touch one pair, 2 and 4 two each) leave 19."""
+    res = run(*chain(_t_draws(25), imputed=[0, 2, 4, 25]))
     _all_untested(res, "too_few_op_pairs")
 
 
