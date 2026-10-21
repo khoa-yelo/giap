@@ -20,6 +20,9 @@ Contract tables (key: file, producer; invariants checked here):
   NA for non-assigning ones (pseudogene: either), always a C2 tag; no C9 decoy placed.
 - C12 ``protein_hits``: mapping/protein_hits.tsv (M3-16); ``gene`` a C2 tag when set.
 - C13 ``unmapped``: mapping/unmapped.tsv (M3-16); C14 ``id_map``: annotation/id_map.tsv (opt).
+- C15 ``features``: features.parquet (M2-04 ``parse_bakta``; read by M5, optional in
+  ``validate_inputs``, M5-04): ``type`` a ``NcType``; ``0 <= start < end``; ``contig`` known and
+  ``end <= 2 length`` (unwrapped across the origin, §6.5).
 
 C4 (``annotation_meta.json``) is read by the loader (``giap.io.work_tables``). Frames hold the
 internal representation: 0-based half-open coordinates and list cells (``list``, ``tuple`` or numpy
@@ -32,12 +35,13 @@ from __future__ import annotations
 import numbers
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Literal, Protocol, get_args
 
 import numpy as np
 import pandas as pd
 
 from giap.io.issues import MAX_EXAMPLES, Issue, Severity
+from giap.model.genes import NcType
 
 __all__ = [
     "ASSIGNING_CLASSES",
@@ -166,6 +170,11 @@ TABLES: Mapping[str, tuple[Column, ...]] = {
         _s("contaminant_match", True),
     ),
     "id_map": (_s("source_id"), _s("locus_tag")),
+    "features": (
+        _s("feature_id"), _s("type", enum=get_args(NcType)), _s("contig"), _i("start"),
+        _i("end"), _s("strand", enum=(*STRAND, ".")), _s("gene", True), _s("product", True),
+        _s("amino_acid", True), _s("anticodon", True),
+    ),
 }
 # fmt: on
 
@@ -340,13 +349,16 @@ def _has(df: pd.DataFrame | None, *cols: str) -> bool:
 # --------------------------------------------------------------------------- per table
 
 
+def _rules_interval(table: str, df: pd.DataFrame) -> list[Issue]:
+    if not _has(df, "start", "end"):
+        return []
+    start, end = _num(df["start"]), _num(df["end"])
+    rows = _positions(~((start >= 0) & (start < end)) & ~np.isnan(start) & ~np.isnan(end))
+    return [_issue(table, "interval", "need 0 <= start < end", rows)] if rows else []
+
+
 def _rules_genes(df: pd.DataFrame) -> list[Issue]:
-    out: list[Issue] = []
-    if _has(df, "start", "end"):
-        start, end = _num(df["start"]), _num(df["end"])
-        rows = _positions(~((start >= 0) & (start < end)) & ~np.isnan(start) & ~np.isnan(end))
-        if rows:
-            out.append(_issue("genes", "interval", "need 0 <= start < end", rows))
+    out = _rules_interval("genes", df)
     if _has(df, "aa"):
         aa = df["aa"].tolist()
         stop = [i for i, v in enumerate(aa) if isinstance(v, str) and v.endswith("*")]
@@ -374,6 +386,7 @@ _UNIQUE = dict(replicons="contig", genes="locus_tag", layers="locus_tag", peptid
 _TABLE_RULES: dict[str, Callable[[pd.DataFrame], list[Issue]]] = {
     "genes": _rules_genes,
     "regions": _rules_regions,
+    "features": lambda df: _rules_interval("features", df),
 }
 
 
@@ -548,8 +561,39 @@ def _check_peptide_hits(t: InputTables, genes: set[str]) -> list[Issue]:
     return out
 
 
+def _check_features(
+    features: pd.DataFrame | None, reps: dict[str, tuple[float, str]]
+) -> list[Issue]:
+    """C15 vs C1 (an absent table is no issue; M5-04 lead decision 23): ``contig`` known,
+    ``start < length`` everywhere, and ``end <= length`` on a linear contig (``end <= 2·length``
+    on a circular one, where a feature may be unwrapped across the origin)."""
+    if features is None:
+        return []
+    out = _unknown_refs("features", "unknown_contig", features, "contig", set(reps), "replicon")
+    if not _has(features, "contig", "start", "end"):
+        return out
+    start, end = _num(features["start"]), _num(features["end"])
+    past_start, past_end = [], []
+    for i, c in enumerate(features["contig"].tolist()):
+        if not isinstance(c, str) or c not in reps:
+            continue
+        length, topology = reps[c]
+        if not np.isnan(start[i]) and start[i] >= length:
+            past_start.append(i)
+        limit = 2 * length if topology == "circular" else length
+        if not np.isnan(end[i]) and end[i] > limit:
+            past_end.append(i)
+    if past_start:
+        out.append(_issue("features", "start_bounds", "start beyond replicon length", past_start))
+    if past_end:
+        msg = "end beyond replicon length (2*length on circular replicons)"
+        out.append(_issue("features", "bounds", msg, past_end))
+    return out
+
+
 def validate_inputs(t: InputTables) -> list[Issue]:
-    """Cross-table invariants (C2 vs C1, TU partition, layers, region subsets, mapping genes)."""
+    """Cross-table invariants (C2 vs C1, TU partition, layers, region subsets, mapping genes;
+    C15 vs C1 when ``t`` has a non-None ``features`` attribute)."""
     rep = t.replicons
     reps: dict[str, tuple[float, str]] = {}
     if _has(rep, "contig", "length", "topology"):
@@ -570,4 +614,5 @@ def validate_inputs(t: InputTables) -> list[Issue]:
     out += _unknown_refs(
         "protein_hits", "unknown_gene", t.protein_hits, "gene", genes, "C2 locus tag"
     )
+    out += _check_features(getattr(t, "features", None), reps)
     return out

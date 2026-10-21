@@ -84,3 +84,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M3-25 (#124 review, non-blocking): `_stratum0_pooled` takes n/k/r from the class table but mean PEP from
   all of P (unreachable with the default config); tests/helpers/placement_sims.py `prefilter=` silently
   discards `inject_short=`; the per-class π̂ gate has zero tolerance for a class seen in one replicate.
+- Two homes for the K-12 reference proteome: scripts/slurm/fetch_resources.sbatch writes
+  $GIAP_DATA_DIR/proteomes/UP000000625.fasta (used by the M3-24 pilot cfgs), while
+  validation/fetch_uniprot_k12.py and scripts/slurm/weekly.sbatch use $GIAP_DATA_DIR/uniprot/. Pick one.

@@ -80,7 +80,7 @@ markers = [
   "needs_bakta_full: Bakta full DB",
   "needs_genomad_db: geNOMAD DB v1.9",
   "needs_promotech_models: RF-HOT.model present",
-  "needs_diann: DIA-NN 2.7.0 under GIAP_TOOLS_DIR",
+  "needs_diann: the DIA-NN 2.3.1 image ($DIANN_SIF) or DIA-NN 2.7.0 under GIAP_TOOLS_DIR",
   "needs_net(host): the named host is reachable",
   "slow: longer than 60 s",
   "calibration: fast calibration subset",

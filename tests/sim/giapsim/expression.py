@@ -1,13 +1,19 @@
 """Expression and detection truth for sequence-free layouts (issue M4-08; GIAP_SPEC.md §11.3, §8.4).
 
-TU level (log2): ``tu_log2 = mu + replicon copy + region effect + island + AR(1)``, one value per
-TU; the AR(1) runs over the TUs of each replicon in ``TU_<n>`` order with a stationary start
-(``x_0 ~ N(0, s^2/(1 - rho^2))``, ``x_t = rho x_{t-1} + e_t``, ``s = tu_sd``). Gene level:
-``abundance_log2_true = tu_log2 - decay * position + stoichiometry + noise`` (+ the gene's own
-region effect when its TU straddles a region boundary). Detection:
+TU level (log2): ``tu_log2 = mu + replicon copy + region effect + ori-ter gradient + island +
+AR(1)``, one value per TU; the AR(1) runs over the TUs of each replicon in ``TU_<n>`` order with a
+stationary start (``x_0 ~ N(0, s^2/(1 - rho^2))``, ``x_t = rho x_{t-1} + e_t``, ``s = tu_sd``).
+Gene level: ``abundance_log2_true = tu_log2 - decay * position + stoichiometry + noise`` (+ the
+gene's own region effect when its TU straddles a region boundary). Detection:
 ``p = sigmoid(b0 + b1 log len + b2 log1p n_obs + b3 GRAVY [+ b4 abundance] + region shift)``,
 ``detected_true ~ Bernoulli(p)``. Planted shifts and islands are deterministic, so runs with the
 same seed and different shifts differ by exactly the shift. Nothing is imported from ``giap``.
+
+Replichores (M5-04, GIAP_SPEC.md §7.3.5(e)): with a chr1 ``oric`` feature at midpoint o, a point m
+has clockwise distance d = (m - o) mod L; ``right`` with position d / (L/2) when d <= L/2, else
+``left`` with (L - d) / (L/2) (``NA`` off chr1 or without an oriC). The ori-ter gradient is the TU
+shift g(p) at the TU midpoint's position p: cosine (a/2) cos(pi p), linear a (0.5 - p), with
+``a = oriter_log2``; it is deterministic, and ``oriter_log2 = 0`` adds nothing at all.
 """
 
 from __future__ import annotations
@@ -108,6 +114,8 @@ class ExpressionConfig:
     islands: tuple[IslandSpec, ...] = ()
     detection: Literal["covariates_only", "abundance"] = "covariates_only"
     beta: Mapping[str, float] = DEFAULT_BETA
+    oriter_log2: float = 0.0  # ori minus ter difference of TU-level log2 abundance (M5-04)
+    oriter_shape: Literal["cosine", "linear"] = "cosine"
 
     def __post_init__(self) -> None:
         for name in ("plasmid_copy_log2", "region_effect_log2", "region_detect_shift", "beta"):
@@ -115,6 +123,10 @@ class ExpressionConfig:
         object.__setattr__(self, "islands", tuple(self.islands))
         if not 0.0 <= self.ar1_rho < 1.0:
             raise ValueError(f"ar1_rho must be in [0, 1), got {self.ar1_rho}")
+        if self.oriter_shape not in ("cosine", "linear"):
+            raise ValueError(f"unknown oriter_shape {self.oriter_shape!r}")
+        if not math.isfinite(self.oriter_log2):
+            raise ValueError(f"oriter_log2 must be finite, got {self.oriter_log2}")
         if self.detection not in ("covariates_only", "abundance"):
             raise ValueError(f"unknown detection mode {self.detection!r}")
         missing = set(DEFAULT_BETA) - set(self.beta)
@@ -158,14 +170,33 @@ def _ar1(e: np.ndarray, rho: float, sd: float) -> np.ndarray:
     return x
 
 
+def _replichore(mid: np.ndarray, oric_mid: float, length: float) -> tuple[np.ndarray, np.ndarray]:
+    """(right arm?, replichore position in [0, 1]) of midpoints ``mid`` (any real; taken mod L)."""
+    d = np.mod(np.mod(mid, length) - oric_mid, length)
+    half = length / 2.0
+    right = d <= half
+    return right, np.where(right, d, length - d) / half
+
+
+def _gradient(p: np.ndarray, cfg: ExpressionConfig) -> np.ndarray:
+    a = cfg.oriter_log2
+    if cfg.oriter_shape == "cosine":
+        out: np.ndarray = a / 2.0 * np.cos(np.pi * p)
+    else:
+        out = a * (0.5 - p)
+    return out
+
+
 def _abundance(
     genes: pd.DataFrame,
     tus: pd.DataFrame,
     gene_types: Mapping[str, frozenset[str]],
     cfg: ExpressionConfig,
     rng: np.random.Generator,
+    oric: tuple[float, float] | None = None,
 ) -> tuple[dict[str, np.ndarray], pd.DataFrame]:
-    """TU- and gene-level abundance in ``genes`` order, and the island truth frame."""
+    """TU- and gene-level abundance in ``genes`` order, and the island truth frame; ``oric`` is
+    (chr1 oriC midpoint, chr1 length), needed when ``cfg.oriter_log2 != 0``."""
     tus = _tu_order(tus)
     contigs = tus["contig"].astype(str).to_numpy()
     members = [[str(g) for g in gs] for gs in tus["genes"]]
@@ -190,6 +221,12 @@ def _abundance(
             shared = frozenset.intersection(*(gene_types.get(g, frozenset()) for g in gs))
             region_tu[i] = sum(cfg.region_effect_log2.get(t, 0.0) for t in shared)
     shift += region_tu
+    if cfg.oriter_log2 != 0.0:
+        if oric is None:
+            raise ValueError("oriter_log2 != 0 needs an oriC on chr1 (LayoutConfig.oric_frac)")
+        on = contigs == "chr1"
+        mid = (tus["start"].to_numpy(float)[on] + tus["end"].to_numpy(float)[on]) / 2.0
+        shift[on] += _gradient(_replichore(mid, *oric)[1], cfg)
     island_tu = np.zeros(len(tus), dtype=bool)
     island_of = np.full(len(tus), None, dtype=object)  # island id per TU, None outside islands
     rows = []
@@ -238,11 +275,26 @@ def _sigmoid(x: np.ndarray) -> np.ndarray:
     return out
 
 
+def _chr1_oric(layout: Any) -> tuple[float, float] | None:
+    """(oriC midpoint mod L, L) of the layout's chr1 ``oric`` feature; None without one."""
+    f = getattr(layout, "features", None)
+    if f is None or len(f) == 0:
+        return None
+    f = f[(f["type"] == "oric") & (f["contig"] == "chr1")]
+    if len(f) == 0:
+        return None
+    reps = layout.replicons
+    length = float(reps.loc[reps["contig"] == "chr1", "length"].iloc[0])
+    mid = (float(f["start"].iloc[0]) + float(f["end"].iloc[0])) / 2.0
+    return mid % length, length
+
+
 def simulate_expression(layout: Any, cfg: ExpressionConfig, rng: np.random.Generator) -> Expression:
     """Expression and detection truth for a ``giapsim.layout.Layout`` (not mutated)."""
     genes = layout.genes
     types = _gene_region_types(layout)
-    parts, islands = _abundance(genes, layout.tus, types, cfg, rng)
+    oric = _chr1_oric(layout)
+    parts, islands = _abundance(genes, layout.tus, types, cfg, rng, oric)
     b = cfg.beta
     n_obs = np.zeros(len(genes), dtype=np.int64)
     gravy = np.full(len(genes), math.nan)
@@ -273,6 +325,16 @@ def simulate_expression(layout: Any, cfg: ExpressionConfig, rng: np.random.Gener
             "region_effect_log2": parts["region_effect"].astype(float),
         }
     )
+    arm = np.full(len(tags), None, dtype=object)
+    pos = np.full(len(tags), math.nan)
+    if oric is not None:
+        on = (genes["contig"].astype(str) == "chr1").to_numpy()
+        mid = (genes["start"].to_numpy(float)[on] + genes["end"].to_numpy(float)[on]) / 2.0
+        right, p_on = _replichore(mid, *oric)
+        arm[on] = np.where(right, "right", "left")
+        pos[on] = p_on
+    frame["replichore_true"] = pd.array(arm, dtype="string")  # NA off chr1 / without an oriC
+    frame["replichore_position_true"] = pos
     return Expression(frame, islands)
 
 
@@ -280,7 +342,8 @@ def expression_for_simulation(
     genes: pd.DataFrame, tus: pd.DataFrame, cfg: ExpressionConfig, rng: np.random.Generator
 ) -> np.ndarray:
     """Per-gene natural-log abundance (``genes`` order) for the nucleotide simulator: the M3-19
-    ``gene_log_abundance`` replacement (opt-in; region effects need a layout, so none here)."""
+    ``gene_log_abundance`` replacement (opt-in; region effects and the ori-ter gradient need a
+    layout, so none here: ``oriter_log2 != 0`` is a ``ValueError``)."""
     parts, _ = _abundance(genes, tus, {}, cfg, rng)
     out: np.ndarray = parts["abundance"] * math.log(2.0)
     return out
