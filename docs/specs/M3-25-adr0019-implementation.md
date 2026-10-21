@@ -36,3 +36,13 @@ ADR-0019 Consequences satisfied; both strict xfails flipped with their ΣV0 floo
 ≈ 275 measured under the test-author's stand-in, floors 30 and 100); methods notes
 docs/methods/placement-fdr.md ("Cross-strain input and run collapse") and docs/methods/denovo-precision.md
 (estimand) updated; statistician sign-off.
+9. **The Nextflow out spec is in this PR, not the backlog** (amending decision 3). Registering
+   `stratum0_classes` makes three static tests bind the registry to `workflow/`, so the implementer also
+   edits `workflow/subworkflows/local/mapping.nf` (the PLACEMENT out spec gains
+   `'stratum0_classes=stratum0_classes.parquet'`) and regenerates both
+   `workflow/tests/data/mapping/step_registry.json` and `workflow/tests/data/annotate/step_registry.json`.
+   What stays on the backlog is the *consumer* wiring: joining the new file into `context_stats` in the
+   Nextflow graph, with the other wiring items.
+10. **`is_contaminant` on the costs frame** (filled by `best_costs`) is the accepted interface for
+    decision 7. Whether a contaminant peptide's own hits stay in the stratum lists is out of scope here;
+    the ADR only speaks about P.
