@@ -1,4 +1,4 @@
-"""Writer of the M4-06 contract tables C1-C8 for a giapsim layout (issue M4-07).
+"""Writer of the M4-06 contract tables C1-C8 and C15 for a giapsim layout (issues M4-07, M5-04).
 
 The column names and logical types below are a literal copy of the M2-side tables of
 ``giap.genetable.contract.TABLES`` (a test compares them, catching drift both ways); giapsim imports
@@ -68,6 +68,12 @@ CONTRACT_TYPES: Mapping[str, tuple[tuple[str, str], ...]] = {
     "region_genes": (
         ("region_id", "str"), ("locus_tag", "str"), ("overlap_frac", "float"), ("subset", "str"),
         ("core_biosynthetic", "bool"),
+    ),
+    # C15 (M5-04): parse_bakta's columns; gene, product, amino_acid, anticodon nullable
+    "features": (
+        ("feature_id", "str"), ("type", "str"), ("contig", "str"), ("start", "int"),
+        ("end", "int"), ("strand", "str"), ("gene", "str"), ("product", "str"),
+        ("amino_acid", "str"), ("anticodon", "str"),
     ),
 }  # fmt: skip
 
@@ -193,7 +199,8 @@ def _arrow_table(key: str, df: pd.DataFrame) -> pa.Table:
 
 def write_contract_tables(layout: Layout, work_dir: Path) -> None:
     """Write C1-C8 (``replicons``, ``genes``, ``xrefs``, ``annotation_meta.json``, ``tus``,
-    ``layers``, ``regions``, ``region_genes``) directly under ``work_dir`` (created if needed)."""
+    ``layers``, ``regions``, ``region_genes``) and C15 ``features`` (header-only without an oriC)
+    directly under ``work_dir`` (created if needed)."""
     work_dir.mkdir(parents=True, exist_ok=True)
     frames: dict[str, pd.DataFrame] = {
         "replicons": layout.replicons,
@@ -203,6 +210,7 @@ def write_contract_tables(layout: Layout, work_dir: Path) -> None:
         "layers": layers_frame(layout),
         "regions": layout.regions,
         "region_genes": layout.region_genes,
+        "features": layout.features,
     }
     for key, df in frames.items():
         pq.write_table(_arrow_table(key, df), work_dir / _FILES[key], compression="zstd")

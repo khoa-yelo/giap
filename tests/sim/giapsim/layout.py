@@ -5,16 +5,19 @@ linear draft contigs ``ctg<i>``, in that order), genes in planted TUs (geometric
 with ``p_same_strand``), log-normal protein lengths with sORFs and pseudogenes, back-translated
 ``nt``, UniOP-like pair probabilities, region blocks and xrefs. No nucleotide genome is built:
 gene coordinates are synthetic but consistent (span 3·(len_aa + 1) bp; -20...+40 bp between genes
-of a TU, 50-300 bp between TUs). ``layout_from_simulation`` turns the M0 full simulator output into
-the same frames. Randomness only from the generator passed in; nothing is imported from ``giap``.
+of a TU, 50-300 bp between TUs). With ``oric_frac`` set, a 232-bp ``oric`` feature (C15, M5-04) is
+centred in the chr1 gap nearest to ``oric_frac * length`` that fits it; placing it draws nothing
+and moves no gene. ``layout_from_simulation`` turns the M0 full simulator output into the same
+frames. Randomness only from the generator passed in; nothing is imported from ``giap``.
 """
 
 from __future__ import annotations
 
 import csv
+import itertools
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +30,8 @@ from giapsim.contract_tables import REQUIRED_COLUMNS as CONTRACT_COLUMNS
 __all__ = [
     "DEFAULT_REGIONS",
     "ECOLI_AA",
+    "FEATURE_COLUMNS",
+    "ORIC_LEN",
     "PROPHAGE_SUBSETS",
     "Layout",
     "LayoutConfig",
@@ -55,6 +60,10 @@ _INTRA_GAP = (-20, 40)
 _INTER_GAP = (50, 300)
 _P_XREF = 0.7
 _SOURCE_TOOL = "giapsim"
+ORIC_LEN = 232  # bp of the oriC feature (the M0 oriC-like block, blocks.oric)
+#: C15 columns (``giap.genetable.contract.TABLES["features"]``; giapsim's literal copy).
+FEATURE_COLUMNS: tuple[str, ...] = tuple(CONTRACT_COLUMNS["features"])
+_M0_FEATURE_TYPES = {"oric": "oric", "crispr": "crispr"}  # lower-cased Bakta type -> C15 type
 
 
 @dataclass(frozen=True)
@@ -98,6 +107,8 @@ class LayoutConfig:
     short_genes_in: str | None = None  # attack null 2: region type whose genes are drawn short
     # rotate chr1 so one gene, its TU and one block region straddle the origin (unwrapped, §6.5)
     origin_crossing: bool = False
+    # oriC midpoint on chr1 as a fraction of its length (M5-04); None = no oriC feature
+    oric_frac: float | None = None
 
     def __post_init__(self) -> None:
         for name in ("plasmids", "linear_contigs", "regions", "uniop_beta_in", "uniop_beta_out"):
@@ -126,6 +137,8 @@ class Layout:
     region_genes: pd.DataFrame
     truth: pd.DataFrame
     xrefs: pd.DataFrame
+    features: pd.DataFrame = field(default_factory=lambda: _features_frame([]))
+    """C15 rows (``FEATURE_COLUMNS``): one chr1 ``oric`` row, or empty without an oriC."""
 
 
 # --------------------------------------------------------------------------- codons
@@ -177,6 +190,8 @@ def _check(cfg: LayoutConfig) -> None:
         raise ValueError("frac_sorf and frac_pseudogene must be >= 0 with sum <= 1")
     if not 0 <= cfg.frac_hypothetical <= 1:
         raise ValueError(f"frac_hypothetical must be in [0, 1], got {cfg.frac_hypothetical}")
+    if cfg.oric_frac is not None and not 0.0 <= cfg.oric_frac < 1.0:  # NaN fails too
+        raise ValueError(f"oric_frac must be in [0, 1) or None, got {cfg.oric_frac}")
     if any(r.n_genes < 1 for r in cfg.regions):
         raise ValueError("every region needs at least one gene")
     sizes = dict(_replicon_sizes(cfg))
@@ -370,6 +385,53 @@ def _xrefs(rng: np.random.Generator, tags: list[str]) -> pd.DataFrame:
         if kegg[i]:
             rows.append((tags[i], "KEGG", f"K{int(kegg[i]):05d}"))
     return pd.DataFrame(rows, columns=list(CONTRACT_COLUMNS["xrefs"]))
+
+
+#: Header-only C15 frame; ``_features_frame`` copies it (building one costs ~3 % of a layout).
+_EMPTY_FEATURES = pd.DataFrame(
+    {
+        name: pd.Series([], dtype="int64" if name in ("start", "end") else object)
+        for name in FEATURE_COLUMNS
+    }
+)
+
+
+def _features_frame(rows: list[tuple[Any, ...]]) -> pd.DataFrame:
+    """C15 frame from row tuples in ``FEATURE_COLUMNS`` order (int64 coordinates)."""
+    if not rows:
+        return _EMPTY_FEATURES.copy()
+    df = pd.DataFrame(rows, columns=list(FEATURE_COLUMNS), dtype=object)
+    return df.astype({"start": "int64", "end": "int64"})
+
+
+def _place_oric(
+    frac: float, contig: list[str], start: np.ndarray, end: np.ndarray, length: int
+) -> pd.DataFrame:
+    """The C15 ``oric`` row: centred in the chr1 gap (wrap gap included) of width >= ``ORIC_LEN``
+    whose midpoint is circularly nearest to ``frac * length`` (first such gap on ties)."""
+    on = np.array([c == "chr1" for c in contig], dtype=bool)
+    iv = sorted(zip(start[on].tolist(), end[on].tolist(), strict=True))
+    gaps = [(e0, s1) for (_, e0), (s1, _) in itertools.pairwise(iv)]
+    # the wrap gap, unwrapped past the origin (an origin-crossing gene gives the same gap one
+    # length further out; ``s0`` is reduced to the circle below, M5-04 lead decision 24)
+    gaps.append((max(e for _, e in iv), iv[0][0] + length))
+    target = frac * length
+    best: tuple[float, int, int] | None = None
+    for a, b in gaps:
+        if b - a < ORIC_LEN:
+            continue
+        d = abs((a + b) / 2 - target) % length
+        d = min(d, length - d)
+        if best is None or d < best[0]:
+            best = (d, a, b)
+    if best is None:
+        raise ValueError(f"oric_frac={frac}: no chr1 gap of >= {ORIC_LEN} bp fits the oriC")
+    _, a, b = best
+    s0 = a + (b - a - ORIC_LEN) // 2
+    if s0 >= length:
+        s0 -= length
+    return _features_frame([("chr1_oric1", "oric", "chr1", s0, s0 + ORIC_LEN, ".", None, None,
+                             None, None)])  # fmt: skip
 
 
 def _truth(tags: list[str], gene_tu: list[str], region_genes: pd.DataFrame) -> pd.DataFrame:
@@ -572,8 +634,10 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
     amr_ids = set(regions.loc[regions["region_type"] == "amr", "region_id"])
     amr_genes = set(region_genes.loc[region_genes["region_id"].isin(amr_ids), "locus_tag"])
     genes["amr"] = genes["locus_tag"].isin(amr_genes).astype(bool)
+    features = (_features_frame([]) if cfg.oric_frac is None
+                else _place_oric(cfg.oric_frac, contig, start, end, lengths[0]))  # fmt: skip
     return Layout(replicons, genes, tus, pairs, regions, region_genes,
-                  _truth(tags, gene_tu, region_genes), xrefs)  # fmt: skip
+                  _truth(tags, gene_tu, region_genes), xrefs, features)  # fmt: skip
 
 
 def _rotate_chr1(
@@ -686,4 +750,29 @@ def layout_from_simulation(sim: Any) -> Layout:
     regions, region_genes = _empty_regions()
     xrefs = pd.DataFrame(xref_rows, columns=list(CONTRACT_COLUMNS["xrefs"]))
     return Layout(replicons, genes, tus, pairs, regions, region_genes,
-                  _truth(tags, gene_tu, region_genes), xrefs)  # fmt: skip
+                  _truth(tags, gene_tu, region_genes), xrefs,
+                  _m0_features(data["features"], length, rank))  # fmt: skip
+
+
+def _m0_features(
+    feats: list[dict[str, Any]], length: Mapping[str, int], rank: Mapping[str, int]
+) -> pd.DataFrame:
+    """C15 rows from the M0 JSON ``oriC`` and ``crispr`` features (0-based half-open, ``end``
+    unwrapped across the origin; Bakta's strand ``?`` as ``.``), by contig order then start."""
+    rows: list[tuple[Any, ...]] = []
+    seen: set[str] = set()
+    for f in feats:
+        typ = _M0_FEATURE_TYPES.get(str(f.get("type", "")).lower())
+        if typ is None:
+            continue
+        cid = str(f.get("contig", f.get("sequence")))
+        s0, stop = int(f["start"]) - 1, int(f["stop"])
+        e = stop + length[cid] if stop <= s0 else stop
+        strand = f.get("strand") if f.get("strand") in ("+", "-") else "."
+        fid = str(f.get("id") or f.get("locus") or "")
+        if not fid or fid in seen:
+            fid = f"{cid}_{typ}{len(rows) + 1}"
+        seen.add(fid)
+        rows.append((fid, typ, cid, s0, e, strand, f.get("gene"), f.get("product"), None, None))
+    rows.sort(key=lambda r: (rank[r[2]], r[3], r[4], r[0]))
+    return _features_frame(rows)

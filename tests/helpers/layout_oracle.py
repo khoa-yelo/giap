@@ -37,11 +37,12 @@ XREF_RE = {
     "KEGG": re.compile(r"^K\d{5}$"),
     "EC": re.compile(r"^\d+\.(\d+|-)\.(\d+|-)\.(\d+|-)$"),
 }
-#: The M2-side files ``write_contract_tables`` writes (C1-C8; C4 is JSON).
+#: The M2-side files ``write_contract_tables`` writes (C1-C8 and C15; C4 is JSON).
 WRITTEN_TABLES = ("replicons", "genes", "xrefs", "tus", "layers", "regions", "region_genes")
 M2_FILES = (
     "replicons.parquet", "genes.parquet", "xrefs.parquet", "annotation_meta.json",
     "tus.parquet", "layers.parquet", "regions.parquet", "region_genes.parquet",
+    "features.parquet",  # C15 (M5-04): written always, header-only without an oriC
 )  # fmt: skip
 M3_FILES = ("peptide_hits.tsv", "protein_hits.tsv", "unmapped.tsv")
 
