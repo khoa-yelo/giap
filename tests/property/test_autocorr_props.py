@@ -7,7 +7,9 @@
 - label permutations with ``movable`` never move fixed positions;
 - ``morans_i_matrix`` / ``join_count_matrix`` (raw and Pearson residual, decision 17; p drawn
   from [0, 1] with 0 and 1 likely, i.e. missing genes) equal scalar loops and an independent
-  oracle on random inputs, valid and invalid lags alike;
+  oracle on random inputs, valid and invalid lags alike (the join-count comparison is made at a
+  tolerance scaled to the sum's conditioning, ``_bb_tol``: near p = 0 or 1 the oracle's naive
+  summation, not the engine, loses digits);
 - Moran's I is invariant to affine maps x -> a x + b (a != 0); I_k in [-1, 1] is NOT asserted;
 - ``lag_test`` p equals ``perm_p`` unless the null is constant (then NaN, decision 6);
 - ``choose_block_len`` lies in [1, min(max_len, max_lag + 1, n)] and its draws depend on B and n
@@ -72,12 +74,22 @@ def _oracle_moran(x: np.ndarray, k: int, circular: bool) -> float:
     return float(num / (ss / n))
 
 
-def _oracle_bb(d: np.ndarray, k: int, circular: bool, p: np.ndarray | None) -> float:
+def _oracle_bb(d: np.ndarray, k: int, circular: bool, p: np.ndarray | None) -> tuple[float, float]:
     """Raw Σ d_i d_j, or (decision 17) Pearson Σ r_i r_j, r = (d - p)/sqrt(p(1 - p)), over pairs
-    where both genes have a residual (p in (0, 1))."""
+    where both genes have a residual (p in (0, 1)).
+
+    Returns
+    -------
+    tuple
+        The sum and ``scale`` = Σ |r_i r_j| over the same pairs, the conditioning of the sum
+        (``_bb_tol``). With p near 0 or 1 (unclipped, decision 17) the residuals reach ~3e4, so
+        the terms reach ~1e8 while the sum is O(1): a naive left-to-right ``sum`` of m <= 25 such
+        terms carries an error of up to ~5.5e-15 * scale, and it is this oracle, not the engine
+        (correctly rounded, checked with ``math.fsum``), that loses the digits.
+    """
     pairs = _oracle_pairs(len(d), k, circular)
     if not pairs:
-        return math.nan
+        return math.nan, 0.0
     if p is None:
         r = d.astype(float)
         ok = np.ones(len(d), dtype=bool)
@@ -85,7 +97,13 @@ def _oracle_bb(d: np.ndarray, k: int, circular: bool, p: np.ndarray | None) -> f
         ok = (p > 0) & (p < 1)
         r = np.zeros(len(d))
         r[ok] = (d[ok] - p[ok]) / np.sqrt(p[ok] * (1 - p[ok]))
-    return float(sum(r[i] * r[j] for i, j in pairs if ok[i] and ok[j]))
+    terms = [r[i] * r[j] for i, j in pairs if ok[i] and ok[j]]
+    return float(sum(terms)), float(sum(abs(t) for t in terms))
+
+
+def _bb_tol(scale: float) -> float:
+    """Absolute tolerance for a join-count sum of conditioning ``scale`` = Σ |terms|."""
+    return 1e-9 + 1e-12 * scale
 
 
 # ----------------------------------------------------------------------------- strategies
@@ -259,13 +277,14 @@ def test_join_count_matrix_equals_scalar_and_oracle(
     for b in range(B):
         pb = None if P is None else P[b]
         for c, k in enumerate(lags):
-            want = _oracle_bb(D[b], k, circular, pb)
+            want, scale = _oracle_bb(D[b], k, circular, pb)
             scalar = join_count(D[b], k, circular, p=pb)
             if math.isnan(want):
                 assert math.isnan(scalar) and math.isnan(got[b, c]), (b, k)
             else:
-                assert math.isclose(scalar, want, rel_tol=1e-9, abs_tol=1e-9)
-                assert math.isclose(got[b, c], scalar, rel_tol=1e-9, abs_tol=1e-9)
+                tol = _bb_tol(scale)
+                assert math.isclose(scalar, want, rel_tol=1e-9, abs_tol=tol), (b, k, scale)
+                assert math.isclose(got[b, c], scalar, rel_tol=1e-9, abs_tol=tol), (b, k, scale)
 
 
 @FAST
