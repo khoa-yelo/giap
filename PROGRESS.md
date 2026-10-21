@@ -8,7 +8,7 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 82/91 done (90 %), 3 running · generated 2026-10-20 23:20 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 83/91 done (91 %), 3 running · generated 2026-10-21 09:06 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -17,7 +17,7 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 | M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜ 90 % | 19 | 1 | 1 |
-| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜ 36 % | 4 | 2 | 5 |
+| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜ 45 % | 5 | 2 | 4 |
 | M6 Operons | _not designed yet_ | - | - | - |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
 | M8 Function and determinants | _not designed yet_ | - | - | - |
@@ -64,10 +64,29 @@ the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise deci
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
 
+M5-06 (**PR #131**, implementer step done, 2026-10-21): `giap.context.islands` on the merged M5-01/02/03
+engines — one **genome-wide** M_b over the scanned replicons (decisions 21/46), ℓ' = min(20, 2ℓ̂+1, T),
+the best window as the reported span (decision 42), the `flags` column with `ci_few_units` only, and
+ADR-0021 Amendment 1 (no `uncalibrated`; `IslandScan` carries ℓ̂, ℓ' and the lag-1 Moran's I per replicon
+for the §9.4 run report). Unit 34 + props 5 + sim 6 (slow) passed; islands calibration fast tier
+4 passed (ρ 0 → 0.000, ρ 0.5 → 0.020, chromosome + plasmid → 0.020 at α 0.05, bound 0.112 at R = 50 —
+equal to the test-author's pre-implementation oracle), teeth confirm the spec's ℓ̂ at **0.72**; the
+non-nightly attack arms 6 passed (the decision-50 ceiling 3.35–3.42 against M_b q95 4.49–4.92, best low
+p 1.000 at 10/20/40 silenced TUs). CI all green: 8760 passed, coverage 96.25 % (islands.py 95 %).
+Benchmark baseline `islands_4500_genes_b1000` = 1.79 s of a 20 s budget (4,500 genes, 2,482 TUs,
+B = 1,000 + 1,000). **No Slurm run**: the shared account sat at its 512-CPU QOS cap all day
+(`QOSMaxCpuPerUserLimit`, 32 × 16-CPU non-GIAP `n1170_tools` array), so jobs 1863043/1863044 never
+started and were cancelled; CI covers the fast suite, the fast calibration tier and the coverage gate.
+Open for review: the M5-06 section of `docs/methods/islands.md` (bootstrap null, genome-wide family,
+Amendment 1's validity domain, the low-direction ceiling, effect CI, degenerate cases) is not written
+yet — `docs/methods/` is the statistician's.
+
 ADRs accepted today by Khoa: ADR-0019 (stratum-0 π̂ per length class, Clopper–Pearson upper bound, no PEP),
 ADR-0020 (autocorrelation: re-detrend per permutation, residual join count, CI NA) **+ Amendment 1**
 (Pearson residual (d−p)/√(p(1−p)); the raw residual rejected at 0.074–0.105 when low p_detect clusters),
-ADR-0021 (block length ℓ' = min(20, 2ℓ̂+1, T); < 1,000 scored TUs → `uncalibrated`).
+ADR-0021 (block length ℓ' = min(20, 2ℓ̂+1, T)) **+ Amendment 1** (the validity domain is a dependence
+regime, not a replicon size; `uncalibrated` dropped — the §9.4 run report carries ℓ̂, ℓ' and the lag-1
+Moran's I per replicon instead).
 
 Infrastructure: scrontab reinstalled from scripts/slurm/nightly.scrontab (01:30 launcher → array 0-3 +
 summary with afterany); first real-cluster dry run all green (1860190–1860196). Hold watchdog running.
