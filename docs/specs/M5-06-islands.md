@@ -155,3 +155,23 @@ ADR-0021 accepted by Khoa 2026-10-20: the spec's block length gives FWER 0.205�
     test `p <= alpha` so NaN p never counts; pass `np.abs(res.s)` to `fwer_p`; state the family: FWER is
     per replicon, so k replicons give up to 1 − (1 − α)^k genome-wide (ADR-0021 measured across
     chromosome plus plasmid).
+
+## Lead decisions after the test-author's report (2026-10-20)
+43. `TuSeries` gains `length`, `start` and `end` (per-TU, 0-based half-open from C5) and `tu_series`
+    gains `length=`, so step 7 can emit unwrapped coordinates. Passing `tus` + `replicons` into
+    `islands_frame` instead is rejected: the series already is the per-replicon view.
+44. `islands.tsv` gains a `flags` column (§9.3's list predates `ci_few_units` and `uncalibrated`);
+    M5-09's schema adds it. `few_values` stays a run flag on `IslandScan` with no table row (decision 40),
+    and the `context_stats.islands.not_scanned` log event belongs to the step.
+45. Example 9 is amended to a **40**-TU plasmid. Decision 41 governs: a 30-TU plasmid gives k = 3 at the
+    10 % span and is not scanned; 31 TUs is the boundary that is scanned. Both are tested.
+46. **The M5-06 family is genome-wide**, clarifying decision 42: ADR-0021 makes M_b the maximum over
+    replicons, so one FWER covers the genome. Decision 42's "1 − (1 − α)^k" describes the M5-03 *engine*
+    used alone, per replicon, which M5-06 does not do. The methods note must state which family applies
+    where.
+47. Low islands are much harder to detect than high ones, because left censoring bounds the low direction
+    at the shared censored score (≈ −1.9 Blom) while the high direction reaches +3.3. docs/methods/islands.md
+    gains a line on this asymmetry, and M5-07 records low-island power separately. Spec examples 4–5 are
+    tested on hand-built frames at the real α; on giapsim they are reachable only with
+    `detection="abundance"` (+6 SD found at p 0.01–0.04), so the giapsim test asserts only the claim that
+    must hold at any power (no false island) and records the miss.
