@@ -74,6 +74,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "attacks/test_region_tests_attacks.py": "regions",
         "attacks/test_regions_stats_attacks.py": "regions",
         "attacks/test_attack_bootstrap.py": "regions",
+        "attacks/test_attack_autocorr.py": "autocorrelation",
         "attacks/test_attack_autocorr_engine.py": "autocorrelation",
         "attacks/test_detection_summary_attack_low_e.py": "regions",
         "attacks/test_attack_calibration_harness.py": "regions",
@@ -147,6 +148,8 @@ def item_suite(item: pytest.Function) -> str | None:
 NIGHTLY: frozenset[str] = frozenset(
     {
         "attacks/test_attack5_reversed_stretches.py::test_attack5_reversed_stretches_shuffle_decoys",
+        "attacks/test_attack_autocorr.py::test_attack_short_prophage_join_count_at_level",
+        "attacks/test_attack_autocorr.py::test_teeth_permuting_residuals_without_redetrending_fails",
         "attacks/test_attack_bootstrap.py::test_recorded_few_tus",
         "attacks/test_attack_bootstrap.py::test_tu_block_ci_coverage_under_attack",
         "attacks/test_attack_detectability.py::test_attack2_no_size_covariates_is_confirmed_fail",
