@@ -95,3 +95,16 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - MVP-01 pass 2: the registered `sensitivity` step writes a header-only `tables/sensitivity.tsv`
   when `output.sensitivity = off` (a declared step output must exist), while `run_sensitivity`
   leaves no file under the local executor. Decide which one the §9.4 manifest should describe.
+- MVP-01 real run (jobs 1861957, 1861972, sim100k): every step runs and 1,646 peptide hits reach
+  the gene table, but no gene is detected: the `decoy_picked` tier has no decoy win, so every
+  eligible gene gets the picked-FDR floor q = 1/85 = 0.0118 > `stats.alpha.identification` = 0.01.
+  An 87-gene genome cannot reach the identification alpha at all — the statistician should say
+  whether the MVP evidence run needs a bigger genome, a different tier or a flag.
+- MVP-01 pass 2: `detect` (M4-12) builds tier and q-threshold curve rows, but `gene_table` has no
+  diagnostics output key, so those rows never reach `tables/detection_summary.tsv` (only the
+  basic / qc / detectability sections are there).
+- `tests/unit/test_setup_resources.py::test_contaminant_library_is_not_vendored` walks the whole
+  checkout and counts `.nf-test/.../work/**/contaminants.fasta` (a symlink to the real
+  $GIAP_DB_DIR library staged by mapping_nf_main_review.nf.test), so it fails after a local
+  nf-test run in the same worktree. CI never sees it (separate jobs); add `.nf-test` to its skip
+  set.
