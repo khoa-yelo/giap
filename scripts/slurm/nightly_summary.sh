@@ -10,6 +10,9 @@
 # with --dependency=afterany:<array>: posts the array's nightly.tsv rows with
 # scripts/ci/post_summary.py --final, so a task killed before it could report (SIGKILL, OOM) still
 # shows up (its sacct state). Usage: nightly_summary.sh ARRAY_JOB [post_summary.py options]
+# The appended options win over the ones below (argparse: the last occurrence of an option), which
+# is how scripts/slurm/calibration_full_launch.sh (CI-01) reuses this script for its own array:
+# it appends --tsv <calibration_full.tsv> --expect <shards> --title <its issue>.
 # Slurm runs a spooled copy of this file, so the repository comes from GIAP_REPO (exported by the
 # launcher), never from this script's own path.
 set -uo pipefail

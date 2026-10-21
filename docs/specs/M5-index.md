@@ -56,7 +56,7 @@ issues merge; only calibration files wait for 04. Only 09–11 wait for unmerged
 |---|---|---|
 | A (now) | 01, 02, 03, 04 | four independent PRs; 04 is tooling (implementer) plus a 50-line contract entry |
 | B | 05, 06, 08 | after A; 06 is the critical path to the gate |
-| C | 07 (gate, Slurm), 05 full calibration (Slurm) | test-author + statistician; submit `scripts/slurm/calibration_full.sbatch` tasks `islands`, `autocorrelation` (≤ 2 jobs, ≤ 32 CPUs) |
+| C | 07 (gate, Slurm), 05 full calibration (Slurm) | test-author + statistician; submit `scripts/slurm/calibration_suite.sbatch` (the M4-05 harness array, renamed from `calibration_full.sbatch` by CI-01) tasks `islands`, `autocorrelation` (≤ 2 jobs, ≤ 32 CPUs) |
 | D | 09, 10, 11 | after M4-15, M4-18, M4-19, M4-20 merge |
 
 ## What M5 consumes (checked against merged code on main, 05ba500)

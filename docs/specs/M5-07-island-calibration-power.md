@@ -4,8 +4,8 @@ Milestone M5 · track C (calibration) · depends on: M5-06 (islands), M5-04 (sce
 (merged: `calibrate`, `check_fwer`, two-block confirmation ADR-0015) · estimate ≈ 40 code lines (power
 recorder script under `scripts/dev/`) + ≈ 350 test lines (test-author owns the calibration and
 statistician owns the attack) · **statistical** (label `stats`) · **needs Slurm**: full mode (R = 500 × 3
-backgrounds) and the power grid run as `giap-` batch jobs (`scripts/slurm/calibration_full.sbatch`,
-existing array task `islands`)
+backgrounds) and the power grid run as `giap-` batch jobs (`scripts/slurm/calibration_suite.sbatch`,
+the M4-05 harness array renamed from `calibration_full.sbatch` by CI-01; existing array task `islands`)
 
 ## Spec sections implemented
 
