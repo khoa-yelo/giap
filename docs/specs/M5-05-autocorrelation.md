@@ -173,3 +173,13 @@ ADR-0020 accepted by Khoa 2026-10-20: the spec's "detrend then permute" is anti-
 30. ADR-0020 decision-19 attack arms (a) and (b) need M5-04's `oriter_gradient` and wait for #119; arms
     (c) short-gene prophage and (d) the no-detrend teeth are written in this PR under
     tests/calibration/attacks/. The benchmark (4,500 genes, B = 1,000, < 30 s on 4 CPUs) is in this PR.
+31. Arm (c) keeps **both** lag-1 and lag-20 gates in full mode, at 38 min, because ADR-0020 decision 5
+    gates lag 20 explicitly; the cost is paid only by the nightly full array. This makes the existing
+    backlog item (shard the full calibration tier across array tasks) a prerequisite for the next full
+    arm, not a nice-to-have.
+32. `benchmarks/baseline.json` gains `autocorrelation_rows_b1000_n4500_20_lags` only when the **real**
+    implementation is measured (the implementer records it with node, CPU and job metadata). The
+    stand-in's 2.57 s against a 30 s budget is a sanity check, not an accepted number.
+33. #119 (M5-04) is merged, so `tests/helpers/autocorr_calib.py` and the attack file drop their local
+    scenario definitions for `giapsim.scenarios`, and ADR-0020 attack arms (a) (TU null + a 2 log2
+    ori–ter cosine) and (b) (label null + gradient) are written now.
