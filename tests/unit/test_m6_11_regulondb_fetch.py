@@ -22,6 +22,7 @@ import hashlib
 import importlib
 import io
 import json
+import re
 import shutil
 import ssl
 import subprocess
@@ -154,9 +155,14 @@ def _openssl_results(
     return calls
 
 
-def test_verify_intermediate_checks_the_chain_against_the_system_trust_store(
+def test_verify_intermediate_checks_the_chain_against_pythons_own_trust_store(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Lead decision 6 (supersedes "no -CAfile"): ``openssl verify`` uses Python's own store.
+
+    The handshake trusts ``ssl.get_default_verify_paths()``; the chain check must use the same
+    ``-CAfile`` / ``-CApath``, or the two checks could disagree about which roots are trusted.
+    """
     der = _self_signed_der()
     _pin(monkeypatch, der)
     calls = _openssl_results(monkeypatch, (1, "error 20 at 0 depth lookup"), "")
@@ -164,9 +170,15 @@ def test_verify_intermediate_checks_the_chain_against_the_system_trust_store(
     with pytest.raises(fr.FetchError, match="does not chain to a trusted root"):
         fr.verify_intermediate(der)
 
-    # no -CAfile: the system store is used, so a bundle file and a hashed directory both work
-    assert calls[0][1] == "verify"
-    assert "-CAfile" not in calls[0]
+    argv = calls[0]
+    assert argv[1] == "verify"
+    paths = ssl.get_default_verify_paths()
+    passed = {flag: argv[argv.index(flag) + 1] for flag in ("-CAfile", "-CApath") if flag in argv}
+    assert passed, f"openssl verify must name Python's store via -CAfile/-CApath: {argv}"
+    if "-CAfile" in passed:
+        assert passed["-CAfile"] == paths.cafile
+    if "-CApath" in passed:
+        assert passed["-CApath"] == paths.capath
 
 
 def test_verify_intermediate_requires_the_expected_root(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -211,6 +223,9 @@ def test_verification_is_never_disabled_anywhere_in_the_fetcher() -> None:
         "--insecure",
     ):
         assert forbidden not in source, f"{forbidden} must never appear"
+    # the spaced spelling above misses ``check_hostname=False`` (a keyword or a tight assignment)
+    assert not re.search(r"check_hostname\s*=\s*False", source)
+    assert not re.search(r"verify_mode\s*=\s*(ssl\.)?CERT_(NONE|OPTIONAL)", source)
 
 
 # -------------------------------------------------------------- the GraphQL
@@ -418,3 +433,128 @@ def test_no_regulondb_bytes_are_committed() -> None:
     offenders = [p for p in tracked if Path(p).name in names or Path(p).parts[:1] == ("regulondb",)]
     assert offenders == []
     assert not any(p.startswith("validation/regulondb/") for p in tracked)
+
+
+# ------------------------------------------- lead decision 6: the returned context
+
+# A throwaway self-signed CA generated for this test only (its key was discarded). It stands in
+# for the GlobalSign intermediate so ``load_verify_locations`` sees a real certificate; it is not
+# RegulonDB or GlobalSign material.
+_TEST_CA_PEM = """-----BEGIN CERTIFICATE-----
+MIIBjzCCATWgAwIBAgIUenhfRAXNvOJTtqpcISZ6mh+2Gl4wCgYIKoZIzj0EAwIw
+HDEaMBgGA1UEAwwRR0lBUCB0ZXN0LW9ubHkgQ0EwIBcNMjYxMDIxMjIwNDIxWhgP
+MjEyNjA5MjcyMjA0MjFaMBwxGjAYBgNVBAMMEUdJQVAgdGVzdC1vbmx5IENBMFkw
+EwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEmgMd0yo6IzYs94NVdu3ZoRKEL9sqnqlF
+4GcDPDB0LJy9tdNJSfKRVojv3Op1o0VSuX7AwpQqwweUTSHBR3EncaNTMFEwHQYD
+VR0OBBYEFKG+SDLUOtucSYR5N1v+Xo7LliQjMB8GA1UdIwQYMBaAFKG+SDLUOtuc
+SYR5N1v+Xo7LliQjMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSAAwRQIh
+ALM0oNzktFewxfj+XpBCEWBM9WWDkk+m4SpFcrhGbtulAiBExcWdMcTb7np9prfb
+esXjFja+BismJNLM2IiKyDinhA==
+-----END CERTIFICATE-----
+"""
+_TEST_CA_DER = ssl.PEM_cert_to_DER_cert(_TEST_CA_PEM)
+
+
+def _good_openssl(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    """``openssl`` present, the chain verifies and the issuer is the expected root."""
+    monkeypatch.setattr(fr.shutil, "which", lambda _name: "/usr/bin/openssl")
+    return _openssl_results(monkeypatch, (0, "intermediate.pem: OK"), f"issuer=CN = {fr.ROOT_CN}\n")
+
+
+def _partial_chain_default_context(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Simulate Python >= 3.13, whose default context sets ``VERIFY_X509_PARTIAL_CHAIN``."""
+    original = ssl.create_default_context
+
+    def with_partial_chain(*args: Any, **kwargs: Any) -> ssl.SSLContext:
+        ctx = original(*args, **kwargs)
+        ctx.verify_flags |= ssl.VERIFY_X509_PARTIAL_CHAIN
+        return ctx
+
+    monkeypatch.setattr(fr.ssl, "create_default_context", with_partial_chain)
+
+
+def test_regulondb_context_keeps_verification_on_and_adds_the_pinned_ca(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    baseline = ssl.create_default_context().cert_store_stats()["x509_ca"]
+    _pin(monkeypatch, _TEST_CA_DER)
+    _good_openssl(monkeypatch)
+    _partial_chain_default_context(monkeypatch)
+    fetched: list[str] = []
+
+    def fetch(url: str) -> bytes:
+        fetched.append(url)
+        return _TEST_CA_DER
+
+    ctx = fr.regulondb_context(fetch=fetch)
+
+    assert fetched == [fr.INTERMEDIATE_URL]
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
+    assert ctx.check_hostname is True
+    # the handshake must reach a trusted root, whatever the Python default (lead decision 6)
+    assert not ctx.verify_flags & ssl.VERIFY_X509_PARTIAL_CHAIN
+    assert ctx.cert_store_stats()["x509_ca"] == baseline + 1
+
+
+def test_an_openssl_timeout_is_a_fetch_error_not_a_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _pin(monkeypatch, _TEST_CA_DER)
+    monkeypatch.setattr(fr.shutil, "which", lambda _name: "/usr/bin/openssl")
+
+    def hang(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(argv, kwargs.get("timeout") or 60)
+
+    monkeypatch.setattr(fr.subprocess, "run", hang)
+    with pytest.raises(fr.FetchError):
+        fr.verify_intermediate(_TEST_CA_DER)
+
+
+def test_main_returns_1_when_openssl_times_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("GIAP_DATA_DIR", str(tmp_path))
+    _pin(monkeypatch, _TEST_CA_DER)
+    monkeypatch.setattr(fr.shutil, "which", lambda _name: "/usr/bin/openssl")
+
+    def hang(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(argv, 60)
+
+    def intermediate_only(req: Any, *_: object, **__: object) -> _Response:
+        assert getattr(req, "full_url", req) == fr.INTERMEDIATE_URL, "no other request expected"
+        return _Response(_TEST_CA_DER)
+
+    monkeypatch.setattr(fr.subprocess, "run", hang)
+    monkeypatch.setattr(fr.urllib.request, "urlopen", intermediate_only)
+
+    assert fr.main() == 1
+    assert fr.HOST in capsys.readouterr().err
+    assert not (tmp_path / "regulondb").exists()
+
+
+# ------------------------------------------------- lead decision 7: retry exhaustion
+
+
+def test_main_returns_1_and_writes_nothing_when_every_attempt_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("GIAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(fr, "regulondb_context", lambda: ssl.create_default_context())
+    calls: list[str] = []
+
+    def down(req: Any, *_: object, **__: object) -> _Response:
+        calls.append(req.full_url)
+        raise OSError("connection refused")
+
+    sleeps: list[float] = []
+    monkeypatch.setattr(fr.urllib.request, "urlopen", down)
+    monkeypatch.setattr(fr.time, "sleep", sleeps.append)
+
+    assert fr.main() == 1
+
+    assert len(calls) == fr.ATTEMPTS  # one failing request per attempt, then give up
+    assert len(sleeps) == fr.ATTEMPTS - 1  # no sleep after the last attempt
+    assert not (tmp_path / "regulondb").exists()
+    assert list(tmp_path.iterdir()) == []
+    err = capsys.readouterr().err
+    assert f"attempt {fr.ATTEMPTS}" in err
