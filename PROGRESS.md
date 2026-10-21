@@ -4,20 +4,20 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-16 15:30 PDT · session https://claude.ai/code/session_01LEyHKvwXcvHWvkxzhtD54J_
+_Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01FctC7kZEMou2AYwYy1KhJa_
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 70/79 done (89 %), 2 running · generated 2026-10-16 15:25 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 76/90 done (84 %), 6 running · generated 2026-10-20 16:47 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
 | M0 Scaffold | 🟩 | 1 | 0 | 0 |
 | M1 Inputs and preflight | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 12 | 0 | 0 |
-| M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 95 % | 20 | 0 | 1 |
-| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜ 88 % | 21 | 1 | 2 |
-| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜⬜ 76 % | 16 | 1 | 4 |
-| M5 Autocorrelation and islands | _not designed yet_ | - | - | - |
+| M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
+| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 96 % | 23 | 0 | 1 |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜ 86 % | 18 | 2 | 1 |
+| M5 Autocorrelation and islands | 🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜ 9 % | 1 | 4 | 6 |
 | M6 Operons | _not designed yet_ | - | - | - |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
 | M8 Function and determinants | _not designed yet_ | - | - | - |
@@ -27,9 +27,11 @@ _Last updated: 2026-10-16 15:30 PDT · session https://claude.ai/code/session_01
 <!-- progress:end -->
 
 ## Current milestone
-M0: Scaffold. Status: done (PR #1, merged 2026-10-14 under ADR-0004)
-M1: Inputs and preflight. Status: done (12 issues; PRs #2–#11, #13, #14)
-M2–M4: designed (docs/specs/M{2,3,4}-index.md); implementation in progress (≈ 60 % of M2–M4 issues merged)
+M0–M1: done. M2: done (21/21; M2-21 closed it, #107).
+M3: 22/24 — M3-24 needs DIA-NN from Khoa; ADR-0019 implementation is the last code item.
+M4: 19/21 after #117 — M4-20, M4-21 not started.
+M5 (autocorrelation and islands): designed (#108, 11 issues); M5-01 merged, M5-02/03/04 in review.
+M6–M11: not designed yet.
 
 ## Done (with evidence)
 - [M0] `gh` authenticated as khoa-yelo (SSH protocol); repository is public (Actions minutes unlimited).
@@ -43,20 +45,28 @@ M2–M4: designed (docs/specs/M{2,3,4}-index.md); implementation in progress (�
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
-Merged since 03:08: M4-17 region tests (#89; ADR-0018 amendments 1–2, statistician signed), M2-20 context
-layers (#104), CI cut-back + nightly (#105). No open PRs. Run `bash scripts/resume_status.sh`.
-Real `giap run` on main: ANNOTATE completes end to end (incl. CONTEXT_LAYERS; Slurm 1851578); MAPPING runs
-with peptides. Next pipeline piece: M4-15 (genes.tsv, gene_table/detectability steps).
-CI: GitHub run ≈ 20 min (calibration-and-coverage 20 min, was 2–3 h): fast calibration runs once, tests over
-60 s are `calibration_nightly` (tests/calibration/conftest.py NIGHTLY). Nightly on Slurm: scrontab
-(scripts/slurm/nightly.scrontab, installed 2026-10-16, 01:30) runs scripts/slurm/nightly.sbatch on
-origin/main; results in local/logs/nightly.tsv (manual check 1851593: 49 passed, 31 min).
-Remaining designed issues (10 → 9 after M2-20): M2-21; M3-21, M3-22, M3-24 (needs DIA-NN from Khoa); M4-15,
-M4-18, M4-19, M4-20, M4-21. M5–M11 not designed yet. Suggested order: M4-15 → M4-18/M4-19 → M4-20/M4-21;
-M3-21/M3-22 in parallel.
-Backlog first: slow step-load test (times out under full-suite load); M2-20 tools/ wiring + id_map producer;
-shard A-LIN in the nightly; M4-16 follow-ups.
-Session mode: agents only when Khoa says (currently none running).
+Session 2026-10-20 (lead + up to 6 subagents in parallel, Khoa's instruction). Merged today: #107 M2-21
+(nightly array, weekly, measured runtimes), #108 M5 design, #109 one-subprocess step-load test (52.6 s →
+2.7 s), #110 M4-18 regions stats, #111 M4-15 gene table, #112 M5 decisions + ADR-0020/0021, #113 M3-21
+calibration suites, #114 M5-01 Blom/LOESS, #115 M3-22 digest + TE1/TE8.
+
+Open PRs: #116 M5-02 (autocorr engine; code + statistician approved, CI), #117 M4-19 sensitivity (both
+approved, CI), #118 M5-03 scan (code approved; statistician asked for the islands methods note —
+implementer finishing), #119 M5-04 simulator oriC/gradient/C15 (code review running), #120 chore: four
+wall-clock asserts moved to benchmarks/.
+
+ADRs accepted today by Khoa: ADR-0019 (stratum-0 π̂ per length class, Clopper–Pearson upper bound, no PEP),
+ADR-0020 (autocorrelation: re-detrend per permutation, residual join count, CI NA) **+ Amendment 1**
+(Pearson residual (d−p)/√(p(1−p)); the raw residual rejected at 0.074–0.105 when low p_detect clusters),
+ADR-0021 (block length ℓ' = min(20, 2ℓ̂+1, T); < 1,000 scored TUs → `uncalibrated`).
+
+Infrastructure: scrontab reinstalled from scripts/slurm/nightly.scrontab (01:30 launcher → array 0-3 +
+summary with afterany); first real-cluster dry run all green (1860190–1860196). Hold watchdog running.
+CI ≈ 20 min.
+
+Worktrees in flight: adr0019 (ADR-0019 implementation, test-author), m5-scan (#118), m5-sim-oric (#119),
+m5-moran (#116), sensitivity (#117), timing-bench (#120), digest-te/gene-table/regions-stats/calibration-gate
+(merged, removable).
 
 Follow-ups queued (docs/backlog.md has the full list):
 - Per-process real-tool Slurm job array for workflow modules (inputs from recordings) — after #65 (Khoa).
@@ -95,9 +105,16 @@ Lessons (keep):
 - Subagents never install packages; set PYTHONPATH per worktree; unset PYTHONHOME after sourcing the env.
 
 ## Next actions (ordered)
-1. Merge #66, #67; finish #68, #69, #65 (+ run-wiring PR), M4-08.
-2. Then: M4-09 (after M4-08), M3-17 mapping steps (after M3-16), M2-13…M2-20 tool layers (after #65,
-   using the recordings), M2-10, per-process real-tool job array, first full ANNOTATE `giap run`.
+1. Merge #116, #117, then #118, #119, #120 (waitmerge; merge origin/main into each branch first —
+   #116 and #120 both touch benchmarks/baseline.json).
+2. ADR-0019 implementation (branch m3/adr0019-pi-hat): class estimator, detection_summary QC rows,
+   `input_prefiltered` warning, and flip the two strict xfails (1-Mb related_dbstrain estimate check and
+   test_database_stressed_stratum0_estimate_covers_false_placements; check the ΣV0 floors still hold,
+   ≈ 285 expected). Then M3 is done except M3-24.
+3. M5-05 (autocorrelation tables) and M5-06 (islands) test-authors after #116/#118 merge; then M5-07,
+   M5-08 (needs M5-02 + M5-04), M5-09.
+4. M4-20, M4-21.
+5. Design M6 (operons).
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
