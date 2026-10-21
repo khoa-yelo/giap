@@ -251,7 +251,8 @@ families).
   for that, but a set with a large `log2err` on both sides makes the check weak. M8-13 reports how
   many sets fall in each p decade, so a vacuous pass is visible.
 - **Determinants cost.** B = 1,000 permutations × (5 LightGBM + 5 elastic-net fits) on ~2,500
-  rows is ~10⁴ fits per model — an estimated 30–40 CPU-minutes per run at the §5.2 parameters (to be measured in M8-09). The step needs
+  rows is ~10⁴ fits per model — an estimated 30–40 CPU-minutes per run at the §5.2 parameters
+  (to be measured in M8-09). The step needs
   `process_high` and parallel permutations with spawned seeds (M8-09); the calibration fast tier
   cannot afford the defaults (M8-15 decision 23).
 - **Small integration fixture.** sim100k has ~100 genes, so determinants models are below the
@@ -298,7 +299,8 @@ inside the R14 caps.
     itself when it has none); NA for non-significant rows and non-GO collections (M8-04 Q5).
 12. **A `flags` column** on `enrichment_detection.tsv`, `enrichment_gsea.tsv` and
     `determinants_model.tsv`, with new values `unestimated`, `size_filtered`,
-    `log2err_unestimated`, `too_few_rows`, added through the schema (ADR-A).
+    `log2err_unestimated`, `too_few_rows`, `null_degenerate`, `ci_few_units` (reused from M4-16),
+    added through the schema (ADR-A).
 13. **Pass-1 GSEA ships the fgsea simple stage** (`method = fgsea_simple`, p floor 1/1001); M8-11
     switches the call to multilevel (M8-05 Q4).
 14. **Elastic-net missing values:** median imputation fitted inside each training fold; an all-NA
