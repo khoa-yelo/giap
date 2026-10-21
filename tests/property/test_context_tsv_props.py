@@ -43,7 +43,10 @@ SMALL_FLOATS = st.one_of(
     st.floats(min_value=-1e6, max_value=1e6, allow_nan=False, allow_infinity=False),
 )
 PROBABILITIES = st.one_of(st.just(NA), st.floats(min_value=0.0, max_value=1.0))
-TAGS = st.text(alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789", min_size=1, max_size=8)
+#: "NA" is the missing-value token of write_tsv (ADR-0006), so it is not a legal tag
+TAGS = st.text(alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789", min_size=1, max_size=8).filter(
+    lambda s: s != "NA"
+)
 
 
 #: deferred so importing this module does not import the (not yet written) vocabulary

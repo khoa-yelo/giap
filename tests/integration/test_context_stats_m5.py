@@ -573,3 +573,35 @@ def test_step_leaves_its_inputs_untouched(tmp_path: Path) -> None:
     first = run.autocorrelation.read_bytes()
     run_context_stats(run.fixture.work, run.cfg, None)
     assert run.autocorrelation.read_bytes() == first
+
+
+@pytest.mark.parametrize("name", ["plain", "island", "no_features"])
+def test_genes_tsv_is_the_gene_table_joined_with_gene_context(
+    runs: dict[str, Run], name: str
+) -> None:
+    """Lead decision 3 (code review of #138): ``tables/genes.tsv`` has one row per gene in
+    gene-table order, a 1-based ``start``, and the three context columns of ``gene_context``."""
+    from giap.io.genes_tsv import read_genes_tsv
+
+    run = runs[name]
+    path = run.tables / "genes.tsv"
+    assert path.exists()
+    got = read_genes_tsv(path)
+    genes = run.fixture.genes
+    assert list(got["locus_tag"]) == list(genes["locus_tag"].astype(str))
+    assert list(got["start"]) == [int(s) for s in genes["start"]]  # reader undoes the +1
+    raw_start = [line.split("\t") for line in path.read_text().splitlines()]
+    col = raw_start[0].index("start")
+    assert [int(r[col]) for r in raw_start[1:]] == [int(s) + 1 for s in genes["start"]]
+    ctx = pd.read_parquet(run.gene_context)
+    for c in ("island_id", "replichore"):
+        assert [None if pd.isna(v) else v for v in got[c]] == [
+            None if pd.isna(v) else v for v in ctx[c]
+        ], c
+    # written %.6g (M1-04 write_tsv), so equal to six significant digits
+    np.testing.assert_allclose(
+        got["replichore_position"].astype(float),
+        ctx["replichore_position"].astype(float),
+        rtol=1e-5,
+        equal_nan=True,
+    )
