@@ -122,3 +122,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   `tu_frame` and a giapsim-scenario driver; whichever merges second should deduplicate. Note the ori–ter
   driver deliberately keeps the simulator's real coordinates, while the island one re-lays genes through
   `Contig`, which would destroy the ori–ter geometry — so the shared helper must preserve both modes.
+- RegulonDB TLS: the server omits its intermediate, so any plain client fails verification. GIAP completes
+  the chain itself (fetch_regulondb.py pins GlobalSign GCC R46 OV TLS CA 2025, sha256
+  d160e2de4e56cb10b66c1cb0adcb79cf93c78dcd9db30c2018220262c04063f9, valid to 2029-06-23, verified against
+  the already-trusted GlobalSign Root R46). Re-check when the intermediate expires, or drop the workaround
+  if RegulonDB ever publishes a complete chain.
