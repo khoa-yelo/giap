@@ -564,19 +564,30 @@ def _check_peptide_hits(t: InputTables, genes: set[str]) -> list[Issue]:
 def _check_features(
     features: pd.DataFrame | None, reps: dict[str, tuple[float, str]]
 ) -> list[Issue]:
-    """C15 vs C1: ``contig`` known and ``end <= 2·length`` (an absent table is no issue)."""
+    """C15 vs C1 (an absent table is no issue; M5-04 lead decision 23): ``contig`` known,
+    ``start < length`` everywhere, and ``end <= length`` on a linear contig (``end <= 2·length``
+    on a circular one, where a feature may be unwrapped across the origin)."""
     if features is None:
         return []
     out = _unknown_refs("features", "unknown_contig", features, "contig", set(reps), "replicon")
-    if _has(features, "contig", "end"):
-        end = _num(features["end"])
-        rows = [
-            i
-            for i, c in enumerate(features["contig"].tolist())
-            if isinstance(c, str) and c in reps and not np.isnan(end[i]) and end[i] > 2 * reps[c][0]
-        ]
-        if rows:
-            out.append(_issue("features", "bounds", "end beyond 2*replicon length", rows))
+    if not _has(features, "contig", "start", "end"):
+        return out
+    start, end = _num(features["start"]), _num(features["end"])
+    past_start, past_end = [], []
+    for i, c in enumerate(features["contig"].tolist()):
+        if not isinstance(c, str) or c not in reps:
+            continue
+        length, topology = reps[c]
+        if not np.isnan(start[i]) and start[i] >= length:
+            past_start.append(i)
+        limit = 2 * length if topology == "circular" else length
+        if not np.isnan(end[i]) and end[i] > limit:
+            past_end.append(i)
+    if past_start:
+        out.append(_issue("features", "start_bounds", "start beyond replicon length", past_start))
+    if past_end:
+        msg = "end beyond replicon length (2*length on circular replicons)"
+        out.append(_issue("features", "bounds", msg, past_end))
     return out
 
 

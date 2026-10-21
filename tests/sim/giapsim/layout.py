@@ -401,11 +401,9 @@ def _place_oric(
     on = np.array([c == "chr1" for c in contig], dtype=bool)
     iv = sorted(zip(start[on].tolist(), end[on].tolist(), strict=True))
     gaps = [(e0, s1) for (_, e0), (s1, _) in itertools.pairwise(iv)]
-    last_end = max(e for _, e in iv)
-    if last_end > length:  # a gene crosses the origin
-        gaps.append((last_end - length, iv[0][0]))
-    else:
-        gaps.append((last_end, iv[0][0] + length))
+    # the wrap gap, unwrapped past the origin (an origin-crossing gene gives the same gap one
+    # length further out; ``s0`` is reduced to the circle below, M5-04 lead decision 24)
+    gaps.append((max(e for _, e in iv), iv[0][0] + length))
     target = frac * length
     best: tuple[float, int, int] | None = None
     for a, b in gaps:
