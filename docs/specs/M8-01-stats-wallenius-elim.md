@@ -128,3 +128,11 @@ def elim(term_genes: Mapping[str, frozenset[int]], parents: Mapping[str, frozens
 2. elim's significance threshold: strict `< 0.01` (topGO) or `≤`? **Proposed default:** strict.
 3. Where does elim live? **Proposed default:** `giap.function.elim` (it walks a DAG, not a stats
    primitive); M8-05's redundancy check reuses its ancestor closure.
+
+## Lead decisions (2026-10-21)
+1. The test-author's resolutions at 8b34ffa are accepted.
+   - Whole-support pmf identities use `PMF_SUM_TOL = 1e-10`.
+   - ω = 1 is special-cased to the hypergeometric, and ω = 0 is special-cased exactly.
+   - Inputs are validated with `ValueError`; cycles are detected before any test runs.
+2. **Pass 1 uses scipy's Wallenius pmf, summed directly.** The far-tail inaccuracy of Fog's pmf (relative errors of 3e-5 to 7e-5 at p ≈ 1e-11) is pinned as non-strict `xfail`. A log-space or exact pmf is pass-2 work, settled against the golden data in M8-13, with an ADR if needed.
+3. The benchmark (3,000 × `wallenius_tails` at M = 4,500, under 5 s) and its `baseline.json` entry belong to the implementer. The methods note belongs to the statistician, after the implementation.
