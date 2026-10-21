@@ -1,0 +1,108 @@
+// MVP-01: stub run of the GENETABLE subworkflow (workflow/subworkflows/local/genetable.nf;
+// GIAP_SPEC.md §6.2, §7.3, §9.3). ci.yml runs: nf-test test workflow/tests --profile test,stub;
+// "-stub" is set here as well.
+//
+// Interface pinned here:
+//   take: annotation  value channel: [genes.parquet, features.parquet, replicons.parquet]
+//         contract    value channel: [xrefs.parquet, annotation_meta.json, tus.parquet, layers.parquet]
+//         mapping     LOCI output: [step, mapping/] (the §7.2.9 directory)
+//         peptides / abundance / preflight / cog2020_def: value channel or channel.empty()
+// Both py steps run through GIAP_STEP aliases named after the step (M2-07), so each task's
+// --in keys follow the registry (data/annotate/step_registry.json, kept equal to giap.steps by
+// tests/unit/test_nf_annotate_registry.py). gene_table publishes genetable/genes_pre.parquet,
+// detectability genetable/genes.parquet and the detectability diagnostics parquet.
+
+nextflow_workflow {
+
+    name "GENETABLE subworkflow (stub)"
+    script "../subworkflows/local/genetable.nf"
+    workflow "GENETABLE"
+    options "-stub"
+    tag "genetable"
+
+    test("gene_table then detectability: registry keys, optional inputs staged, outputs published") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                input[0] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[1] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[2] = channel.value(['loci', file("\${g}/mapping")])
+                input[3] = channel.value(file("\${g}/peptides.norm.parquet"))
+                input[4] = channel.value(file("\${g}/abundance.norm.parquet"))
+                input[5] = channel.value(file("\${g}/preflight.json"))
+                input[6] = channel.value(file("\${g}/cog-20.def.tab"))
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            ['gene_table', 'detectability'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${H.names(workflow.trace)}"
+                assert new File(H.stepDirs(work, s)[0], '.giap_inputs').isFile() : "${s} did not run through GIAP_STEP"
+            }
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def gin = H.stepInputs(H.stepDirs(work, 'gene_table')[0])
+            def keys = gin.collect { it[0] }
+            assert keys.containsAll(['genes', 'replicons', 'xrefs', 'annotation_meta', 'tus', 'layers', 'mapping'])
+            assert !('features' in keys) : "gene_table does not declare features: ${keys}"
+            assert keys.containsAll(['peptides', 'abundance', 'preflight', 'cog2020_def']) : "optional inputs dropped: ${keys}"
+            assert gin.any { it[0] == 'mapping' && new File(it[1]).name == 'mapping' } : "gene_table got no loci directory: ${gin}"
+
+            // detectability reads only the gene_table output
+            def din = H.stepInputs(H.stepDirs(work, 'detectability')[0])
+            assert din.collect { it[0] } == ['genes_pre'] : "detectability inputs ${din}"
+            def gtDir = H.stepDirs(work, 'gene_table')[0].canonicalPath
+            assert H.staged(H.stepDirs(work, 'detectability')[0]).any { new File(it[0]).canonicalPath.startsWith(gtDir) } : "detectability does not stage gene_table's output"
+
+            ['genetable/genes_pre.parquet', 'genetable/genes.parquet',
+             'genetable/detection_summary_parts/detectability.parquet'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+        }
+    }
+
+    test("no loci directory: neither step runs") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                input[0] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[1] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[2] = channel.empty()
+                input[3] = channel.empty()
+                input[4] = channel.empty()
+                input[5] = channel.empty()
+                input[6] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            ['gene_table', 'detectability'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 0 : "${s} ran without the loci output: ${H.names(workflow.trace)}"
+            }
+            assert !new File("${outputDir}/genetable").exists() : "genetable/ published without the loci output"
+        }
+    }
+}

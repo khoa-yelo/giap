@@ -62,16 +62,15 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M4-17 nightly: the A-LIN full attack (test_alin_linear_replicon_hl_at_level) takes ~57 min per block on one core — shard it in the nightly/weekly calibration job (statistician #89 sign-off).
 - M2-20 follow-ups (implementer report, real run 1851270): annotate.nf passes no `tool_dirs`, so OUT/annotation/tools/ is empty (§7.1.8 wants native tool outputs untouched); `cai`/`fop` all NA on sim100k layers — check whether expected (no reference set on the simulator) or a wiring gap; consider splitting schemas + gc_local_dev if review asks (658 gated lines).
 - M2-20 (#104 review): annotate.nf passes no tool_dirs → OUT/annotation/tools/ empty (§7.1.8 native outputs untouched); nothing produces id_map, so --annotation GFF3/GBFF runs lack annotation/id_map.tsv. Wire both.
-- M4-18 (lead decision 4): the dosage-adjusted plasmid row treats replicon depth as known (CI shifted by log2(plasmid / reference depth)). Deferred: propagate depth uncertainty (e.g. bootstrap or delta-method term from per-window coverage) and wire `--replicon-depth` from `giap run` into `context_stats` (the step reads it; the manifest should record its absence).
+- M4-18 (lead decision 4): the dosage-adjusted plasmid row treats replicon depth as known (CI shifted by log2(plasmid / reference depth)). Deferred: propagate depth uncertainty (e.g. bootstrap or delta-method term from per-window coverage); the manifest should record a missing `--replicon-depth` (the flag itself is wired into `context_stats` since MVP-01).
 - M4-17/M4-18 (lead decision 17; statistician #110 finding 7): a shared `ci_few_units` flag for region-test and plasmid TU-block CIs computed from fewer than 10 TUs (docs/methods/bootstrap.md: percentile CIs from < 10 TUs under-cover), as M4-16 already does for detection_summary.
 - M4-15 decision 10: "file I/O only through io/" is enforced for genetable/assemble.py only. Step-level convention open: merged steps (mapping, context, operons, codon, ...) read Parquet directly with pd.read_parquet; decide whether steps must go through giap.io readers and add an AST check like test_assemble_module_is_pure if so.
-- M4-15: `gene_table` / `detectability` are registered but not wired in Nextflow (no subworkflow calls them yet); the workflow must resolve `cog2020_def` from the setup manifest (decision 5). Output keys: `genes_pre`, `gene_table` (genetable/genes.parquet, consumed by M4-18 context_stats), `detectability_summary` (one file under detection_summary_parts/). gene_table does not read C7/C8 (precomputed regions arrive as the M2-02 TSV under the local executor).
 - §9.5 per-field `unit` in the table schema resources (src/giap/schemas/tables/*.schema.json): none of them has it yet (M4-15 decision 16; project-wide).
 - Promotech sim100k recording ($GIAP_ROOT/recordings/promotech/sim100k) is a genome-wide -g run with every row labelled chr1,plasmid_1; re-record in GIAP's -s window mode (M2-21 test-author).
 - Nightly: test the newest open PR branches too (M2-21 decision 5, deferred). containers.yml / GHCR images deferred (M2-21 decision 2).
 - giap run --annotation <bakta.json> does not stop BAKTA from running under Nextflow (M2-21 implementer); workaround --set annotation.precomputed.bakta_json=…. Make --annotation map to the precomputed path.
 - Benchmarks: gate only steps with a baseline ≥ 1 s (M2-21 decision 10); implement the threshold in the benchmark check.
-- M4-19 decision 16: `run_sensitivity` is a plain function (no @step, no step_registry entry, no Nextflow wiring); register and wire it in finalize. Decision 7: the run manifest records `output.sensitivity = off`; decision 8: no rows for a module that is off.
+- M4-19 decision 7: the run manifest records `output.sensitivity = off`; decision 8: no rows for a module that is off. (Decision 16, registering and wiring `run_sensitivity`, is done: MVP-01.)
 - M4-18 (#110 review): context_stats reads genes.parquet with pd.read_parquet; switch to M4-15's read_genes_parquet (output identical today) with the M5 context_stats work.
 - Flaky timing asserts on loaded nodes: tests/unit/genetable/test_evidence.py::test_m409_default_fixture_detected_true_have_evidence (1.0 s; seen 1.01–1.13 s) and test_sim_layout::test_speed_1000_genes (0.2 s; seen 0.23 s). Move to benchmarks/ or loosen.
 - Slurm test runs on barley nodes are ~8× slower (subprocess timeouts in test_cli_step_load, test_exact_review, test_criteria_review): raise those timeouts or exclude barley in scripts/slurm/test_branch.sbatch.
@@ -87,3 +86,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Two homes for the K-12 reference proteome: scripts/slurm/fetch_resources.sbatch writes
   $GIAP_DATA_DIR/proteomes/UP000000625.fasta (used by the M3-24 pilot cfgs), while
   validation/fetch_uniprot_k12.py and scripts/slurm/weekly.sbatch use $GIAP_DATA_DIR/uniprot/. Pick one.
+- MVP-01 pass 2 (found while wiring): with a precomputed `regions` layer ANNOTATE has no C7/C8
+  Parquet, so CONTEXT (context_stats, sensitivity) skips itself silently — the run should say so,
+  and ideally the precomputed layer should reach M4 as the contract tables.
+- MVP-01 pass 2: nothing produces `id_map` under Nextflow (C14 is an optional input of
+  `gene_table` and `context_stats`; the local executor stages `annotation/id_map.tsv`), and the
+  `tables/` outputs are published but not validated inside the pipeline (contract assertions).
+- MVP-01 pass 2: the registered `sensitivity` step writes a header-only `tables/sensitivity.tsv`
+  when `output.sensitivity = off` (a declared step output must exist), while `run_sensitivity`
+  leaves no file under the local executor. Decide which one the §9.4 manifest should describe.

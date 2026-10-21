@@ -71,5 +71,6 @@ workflow MAPPING {
 
     emit:
     mapping  = LOCI.out.outputs
+    stratum0 = pick(P, 'stratum0_classes.parquet')   // ADR-0019 table, an input of context_stats
     versions = ch_versions
 }

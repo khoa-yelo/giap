@@ -1,0 +1,4 @@
+{
+  "contaminants": {"path": "contaminants/contaminants.fasta", "version": "stub"},
+  "cog2020_def": {"path": "cog/cog-20.def.tab", "version": "2020"}
+}

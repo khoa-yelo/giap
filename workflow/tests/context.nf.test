@@ -1,0 +1,117 @@
+// MVP-01: stub run of the CONTEXT subworkflow (workflow/subworkflows/local/context.nf;
+// GIAP_SPEC.md §6.2, §8.6, §9.4). ci.yml runs: nf-test test workflow/tests --profile test,stub;
+// "-stub" is set here as well.
+//
+// Interface pinned here:
+//   take: gene_table, detectability_summary, annotation, contract, regions ([regions,
+//         region_genes] or channel.empty()), mapping (the LOCI output), stratum0_classes,
+//         peptides, abundance, replicon_depth
+// context_stats takes the three M3 tables out of the loci directory and both the gene table and
+// the C2 genes.parquet (same file name: GIAP_STEP stages each input into its own in<n>/).
+// sensitivity (M4-19 decision 16) takes the gene table and C1/C7/C8. Without C7/C8 neither step
+// runs, as MAPPING skips its protein route.
+
+nextflow_workflow {
+
+    name "CONTEXT subworkflow (stub)"
+    script "../subworkflows/local/context.nf"
+    workflow "CONTEXT"
+    options "-stub"
+    tag "context"
+
+    test("context_stats and sensitivity: registry keys, no file name collision, tables published") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value(file("\${g}/genetable/detectability.parquet"))
+                input[2] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[3] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[4] = channel.value([file("\${g}/regions.parquet"), file("\${g}/region_genes.parquet")])
+                input[5] = channel.value(['loci', file("\${g}/mapping")])
+                input[6] = channel.value(file("\${g}/stratum0_classes.parquet"))
+                input[7] = channel.value(file("\${g}/peptides.norm.parquet"))
+                input[8] = channel.value(file("\${g}/abundance.norm.parquet"))
+                input[9] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            ['context_stats', 'sensitivity'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${H.names(workflow.trace)}"
+                assert new File(H.stepDirs(work, s)[0], '.giap_inputs').isFile() : "${s} did not run through GIAP_STEP"
+            }
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def cin = H.stepInputs(H.stepDirs(work, 'context_stats')[0])
+            def keys = cin.collect { it[0] }
+            assert keys.containsAll(['gene_table', 'genes', 'replicons', 'xrefs', 'annotation_meta',
+                                     'tus', 'layers', 'regions', 'region_genes',
+                                     'peptide_hits', 'protein_hits', 'unmapped']) : "context_stats inputs ${keys}"
+            assert keys.containsAll(['detectability_summary', 'stratum0_classes', 'peptides', 'abundance']) : "optional inputs dropped: ${keys}"
+            assert !('replicon_depth' in keys) : "replicon_depth staged although not given: ${keys}"
+            ['peptide_hits', 'protein_hits', 'unmapped'].each { k ->
+                assert cin.any { it[0] == k && it[1].endsWith("${k}.tsv") } : "${k} is not the loci TSV: ${cin}"
+            }
+            // the gene table and the C2 table are both called genes.parquet: distinct staged paths
+            def same = cin.findAll { new File(it[1]).name == 'genes.parquet' }
+            assert same.size() == 2 : "expected gene_table and genes to be staged: ${cin}"
+            assert same[0][1] != same[1][1] : "input file name collision: ${same}"
+
+            def sin = H.stepInputs(H.stepDirs(work, 'sensitivity')[0])
+            assert sin.collect { it[0] }.sort() == ['gene_table', 'region_genes', 'regions', 'replicons'] : "sensitivity inputs ${sin}"
+
+            ['tables/regions_stats.tsv', 'tables/detection_summary.tsv', 'tables/sensitivity.tsv'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+        }
+    }
+
+    test("no C7/C8 (precomputed regions layer): neither step runs") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value(file("\${g}/genetable/detectability.parquet"))
+                input[2] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[3] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[4] = channel.empty()
+                input[5] = channel.value(['loci', file("\${g}/mapping")])
+                input[6] = channel.empty()
+                input[7] = channel.empty()
+                input[8] = channel.empty()
+                input[9] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            ['context_stats', 'sensitivity'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 0 : "${s} ran without C7/C8: ${H.names(workflow.trace)}"
+            }
+            assert !new File("${outputDir}/tables").exists() : "tables/ published without C7/C8"
+        }
+    }
+}

@@ -174,6 +174,11 @@ workflow ANNOTATE {
     CODON_USAGE(cu.files, cu.keys, ['codon=codon.parquet'])
     layers += [kv('codon', pick(CODON_USAGE.out.outputs, 'codon.parquet'))]
 
+    // C7/C8 as the M4-06 contract Parquet: only the region_layer branch writes them. A
+    // precomputed regions layer arrives as its M2-02 TSV, which M4 cannot read, so the channels
+    // stay empty and every step requiring C7/C8 is skipped (MVP-01 pass 2 closes that gap).
+    def c7 = channel.empty()   // regions.parquet
+    def c8 = channel.empty()   // region_genes.parquet
     if (pc.regions) {
         layers += [pre('regions')]
     } else {
@@ -191,13 +196,22 @@ workflow ANNOTATE {
         def rg = stepIn('region_layer', core + optional)
         REGION_LAYER(rg.files, rg.keys, ['regions=regions.parquet', 'region_genes=region_genes.parquet'])
         def R = REGION_LAYER.out.outputs
-        layers += [kv('regions', pick(R, 'regions.parquet')), kv('region_genes', pick(R, 'region_genes.parquet'))]
+        c7 = pick(R, 'regions.parquet')
+        c8 = pick(R, 'region_genes.parquet')
+        layers += [kv('regions', c7), kv('region_genes', c8)]
     }
 
     def cl = stepIn('context_layers', core + layers + [kv('genome', genome)])
     CONTEXT_LAYERS(cl.files, cl.keys, ['layers=layers.parquet', 'annotation=annotation'])
+    def layers_pq = pick(CONTEXT_LAYERS.out.outputs, 'layers.parquet')
+    // The M4-06 contract tables the gene table and the context statistics read, beside the
+    // gene model: C3 xrefs / C4 annotation_meta (parse_bakta), C5 tus (operon_pairs),
+    // C6 layers (context_layers); C7/C8 travel separately because they can be absent.
+    def m4 = pick(P, 'xrefs.parquet').combine(pick(P, 'annotation_meta.json')).combine(pick(O, 'tus.parquet')).combine(layers_pq)
 
     emit:
     context    = CONTEXT_LAYERS.out.outputs
     gene_model = pick(P, 'genes.parquet').combine(pick(P, 'features.parquet')).combine(pick(P, 'replicons.parquet'))
+    contract   = m4                 // [xrefs, annotation_meta, tus, layers] (MVP-01)
+    regions    = c7.combine(c8)     // [regions, region_genes], empty without a region_layer run
 }
