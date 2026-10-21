@@ -38,3 +38,17 @@ With a precomputed regions layer, Nextflow:
 - The precomputed TSV carries no marker descriptions or core flags, so prophage subsets come from the
   Bakta product only and `core_biosynthetic` is always false (M4-21). Record as a run flag or extend
   the M2-02 TSV format; decide when M2-02's format is revisited.
+- Stage the precomputed regions TSV as a declared `region_layer` input (decision 2).
+- Automate example 4 in `tests/integration/test_m2_21_local_vs_nextflow.py` (decision 4).
+
+## Lead decisions (2026-10-21, after the test-author)
+1. `autocorrelation.tsv`, `islands.tsv` and `genes.tsv` come from M5-09 (#138), not on this branch's
+   base. The nf-test asserts only what `context_stats` declares here; when this branch merges main after
+   #138, the lead adds the three tables to the example-2 assertion.
+2. The precomputed regions TSV is read from the config path, not staged. Hardening pass: stage it as a
+   declared input (so `-resume` sees content changes and Apptainer needs no extra bind), which needs a
+   registry change. Recorded in "Hardening owed".
+3. `context_layers` may receive the Parquet or the TSV under `regions` (both accepted); implementer's
+   choice, stated in the PR.
+4. Example 4 is one Slurm `giap_run.sbatch` run after the implementation (local vs Nextflow published
+   table sets), job ID in PROGRESS.md; automating it in `test_m2_21_local_vs_nextflow.py` is pass 2.
