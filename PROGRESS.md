@@ -8,7 +8,7 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 84/91 done (92 %), 2 running · generated 2026-10-21 10:35 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 85/91 done (93 %), 2 running · generated 2026-10-21 11:08 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -17,7 +17,7 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 | M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜ 90 % | 19 | 1 | 1 |
-| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜⬜ 55 % | 6 | 1 | 4 |
+| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜ 64 % | 7 | 1 | 3 |
 | M6 Operons | _not designed yet_ | - | - | - |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
 | M8 Function and determinants | _not designed yet_ | - | - | - |
@@ -64,7 +64,6 @@ the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise deci
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
 
-<<<<<<< HEAD
 M5-09 (branch `m5/context-tables`, **test-author step done**, 2026-10-21): failing tests for
 `autocorrelation.tsv`, `islands.tsv`, the gene context columns and the `context_stats` extension —
 140 failed, 5 passed (the 5 are invariant guards that already hold: the genes.tsv context group in the
@@ -74,20 +73,18 @@ schema and the M4 tables' determinism). New: `tests/unit/io/test_context_tsv.py`
 `tests/helpers/context_tables_data.py`. Interfaces assumed where none is merged: M5-08's `oriter_rows`
 / `gene_replichores` as PR #132 has them; M4-20's `build_m4_fixture` replaced by the M4-18 fixture plus
 an oriC and a planted island. **Needs a lead decision:** where ADR-0021 Amendment 1's per-replicon
-l-hat / l' / lag-1 Moran's I live — the tests assume a new `giap.context.diagnostics` and
+l-hat / l' / lag-1 Moran's I live — **decided**: `giap.context.diagnostics` and
 `work/context/island_diagnostics.parquet`, because `IslandScan` dies with the step and the §9.4 run
-report does not exist yet.
+report does not exist yet (M5-09 lead decisions 1-5, 2026-10-21).
 
-=======
 M5-08 (#132, implementer step done): `giap.context.oriter` — oriC resolution (circular mean inside
 0.05·L, `multiple_oric` event on both branches), replichore geometry, the two genes.tsv columns and the
 three descriptive OLS slopes with a circular block-bootstrap CI; block length clamped per fit with that
 fit's own T (lead decision 1 of 2026-10-21), ℓ̂ once per replicon from the pooled residuals. Unit +
 property tests 42 passed, module coverage 97 %; fast suite **8872 passed, 29 skipped** (Slurm 1863080,
-6:37); the recorded fast coverage arm (example 7, 2 log2, ρ 0.5, R = 50) **coverage 0.96, estimable 1.00,
+6:37); the recorded fast coverage arm (example 7, 2 log2, ρ 0.5, R = 50) **coverage 0.96 at R = 50 — corrected to 0.943 at R = 300, Slurm 1863166; the 0.96 was a fluctuation**, estimable 1.00,
 mean CI width 1.11** (Slurm 1863081, 27 s) — the test-author's 0.96 reproduced. Plus
 docs/methods/oriter.md. `features` stays a plain parameter; the step plumbing is M5-09's.
->>>>>>> origin/main
 M5-06 (**PR #131**, implementer step done, 2026-10-21): `giap.context.islands` on the merged M5-01/02/03
 engines — one **genome-wide** M_b over the scanned replicons (decisions 21/46), ℓ' = min(20, 2ℓ̂+1, T),
 the best window as the reported span (decision 42), the `flags` column with `ci_few_units` only, and
