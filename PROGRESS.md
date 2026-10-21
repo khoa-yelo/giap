@@ -65,6 +65,15 @@ the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise deci
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
 
+M6-07 (branch `m6/flags`, stacked on M6-04/05/06, implementer step done, 2026-10-21):
+`giap.operons.flags` — `flag_for` (the §7.4.5 table, first match wins), `evidence_yes` (config
+cut-offs, inclusive; NA, `layer_missing:<layer>` or an exact `unestimated` token is never "yes"),
+`abundance_pattern` (`stats.alpha.operon_flags`), `flag_pairs` (`operon_flags.tsv`, by pair number,
+generated `evidence_note` that says "layer missing" / "no call", never absence) and `merge_tests`
+(M6-05/06 rows into the pair frame, `which` dropped, `abundance_imputed`, `layer_missing:*` on OP/NO);
+`giap.operons.tu_table.operons_table` (one row per C5 TU, C1 contig order then start). No test changed;
+tests/unit/operons 217 passed; fast suite 9257 passed (Slurm 1864716). Simplifications in docs/backlog.md.
+
 M6-05 (branch `m6/discordance`, stacked on #144, implementer step done, 2026-10-21):
 `giap.operons.discordance` pass 1 — `fit_rows` (usable OP Δ, sorted), `discordance()` with the
 within-operon t fit (`fit_student_t`, `MIN_OP_PAIRS` = 20), two-sided t p for both-detected OP pairs,
