@@ -157,10 +157,11 @@ def all_steps() -> list[StepSpec]:
     return [_REGISTRY[n] for n in sorted(_REGISTRY)]
 
 
-def topo_order(names: Iterable[str]) -> list[str]:
+def topo_order(names: Iterable[str], members: Mapping[str, str] | None = None) -> list[str]:
     """Order ``names`` so that a step producing a key runs before every step consuming it.
 
-    Edges come from output keys to (required or optional) input keys among ``names`` only; ties
+    Edges come from output keys to (required or optional) input keys among ``names`` only (a key
+    in ``members``, a file inside another output key, is produced by that key's producer); ties
     are broken by name (Kahn's algorithm with a min-heap), so the result does not depend on
     registration or argument order. A cycle raises ``ValueError`` naming the steps involved.
     """
@@ -169,6 +170,9 @@ def topo_order(names: Iterable[str]) -> list[str]:
     for s in specs:
         for key in s.outputs:
             producer.setdefault(key, s.name)
+    for key, parent in (members or {}).items():
+        if parent in producer:
+            producer.setdefault(key, producer[parent])
     succ: dict[str, set[str]] = {s.name: set() for s in specs}
     indeg: dict[str, int] = dict.fromkeys(succ, 0)
     for s in specs:

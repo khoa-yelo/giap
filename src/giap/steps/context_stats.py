@@ -30,8 +30,9 @@ from giap.context.summary import basic_rows, detection_summary, qc_rows
 from giap.io.depth import read_replicon_depth
 from giap.io.regions_tsv import write_regions_stats
 from giap.io.summary_tsv import write_detection_summary
-from giap.io.work_tables import M4_INPUT_KEYS, OPTIONAL_KEYS, default_paths, load_m4_inputs
+from giap.io.work_tables import M4_INPUT_KEYS, OPTIONAL_KEYS, load_m4_inputs
 from giap.rng import for_step
+from giap.steps.gene_table import contract_paths
 from giap.steps.registry import InputPath, StepContext, step
 
 __all__ = ["context_stats", "run_context_stats"]
@@ -88,10 +89,10 @@ def _context_stats(
 
 
 def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | None) -> None:
-    """Run the step on the local work-directory layout: contract tables directly under
-    ``work_dir``, the gene table at ``genetable/genes.parquet``, outputs under ``tables/``."""
-    inputs = {k: p for k, p in default_paths(work_dir).items()
-              if k not in OPTIONAL_KEYS or p.exists()}  # fmt: skip
+    """Run the step on a work directory: contract tables found by ``contract_paths`` (the flat
+    fixture layout or the keyed ``giap run`` layout, M4-21 lead decision 3), the gene table at
+    ``genetable/genes.parquet``, outputs under ``tables/``."""
+    inputs = contract_paths(work_dir)
     inputs["gene_table"] = work_dir / "genetable" / "genes.parquet"
     parts = work_dir / "genetable" / "detection_summary_parts"
     for key, name in (("detectability_summary", "detectability"), ("tier_summary", "tier")):
