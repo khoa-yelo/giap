@@ -229,7 +229,10 @@ anti-conservative direction:
 - **Winner's curse.** The window was chosen as the genome-wide maximum of |S|, so both the point
   estimate and the interval are conditional on that selection: `effect` is biased away from zero,
   the CI under-covers the underlying island mean, and it essentially never contains zero — so it
-  carries no independent evidence that the island is real. The `p_value` is the only test.
+  carries no independent evidence that the island is real. The `p_value` is the only test. On a
+  600-gene null with the threshold opened to α = 0.9, the three reported windows have effects
+  +2.35, +2.33, +1.67 with CIs [1.88, 2.83], [1.70, 2.96], [1.44, 1.99] — every one excluding zero
+  — at p = 0.70, 0.86, 0.13.
 - **Within-window dependence is ignored.** The CI resamples TUs independently inside the window;
   with positive autocorrelation that understates the variance and the interval is too narrow.
 - **Scale.** The units are detrended Blom scores, not log2 fold change, and the detrend has already
