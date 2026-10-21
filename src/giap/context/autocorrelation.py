@@ -40,6 +40,7 @@ import numpy.typing as npt
 import pandas as pd
 
 from giap.config.model import GiapConfig
+from giap.context.regions import replicon_index
 from giap.stats import autocorr as ac
 from giap.stats.multitest import bh
 from giap.stats.smooth import loess_detrend, loess_matrix, loess_span_points
@@ -328,8 +329,6 @@ def autocorrelation_rows(
         ``AUTOCORR_COLUMNS``, sorted by (contig in C1 order, statistic, null_model, lag), with
         ``q_value`` = BH over the lags of each (contig, statistic, null_model) family.
     """
-    from giap.context.regions import replicon_index
-
     lo, hi = (int(v) for v in cfg.context.moran_lags)
     lags = list(range(lo, hi + 1))
     B = int(cfg.stats.permutations)
