@@ -153,3 +153,23 @@ ADR-0020 accepted by Khoa 2026-10-20: the spec's "detrend then permute" is anti-
     observed fit as H @ y too). Consumers test `k < 4` (never `resid == 0`). Rows flagged `few_values`
     under decision 21 also carry `not_estimable`; the "< 10 values, test still runs" text in "Flags" and
     decision 16 is superseded for k < 4 replicons (≈ n ≤ 30).
+23. (test-author report) `few_values` applies to the **morans_i** rows only: the join count never touches
+    the detrend and stays estimable on a small plasmid. The trigger is the number of genes *with values*.
+24. Row order is lexicographic on (contig in C1 order, statistic, null_model, lag), so `join_count_bb`
+    precedes `morans_i` and `gene_label` precedes `tu_block`. The §9.3 enum order does not apply to rows.
+25. The 0.30 wide pre-trend span and the 0.10 detrend span are **module constants**, not config keys:
+    ADR-0020 fixes them and the calibration is conditional on them. No `context.autocorr` section.
+26. `moran_values` on a degenerate replicon returns all-zero residuals, never NaN (consumers test k < 4).
+27. Degenerate join-count rows ("no detected gene", "every gene detected") are written for a **constant**
+    `p_detect`; with the Pearson statistic and varying p the null is not constant and the row is estimable.
+28. **Join-count teeth (statistician question).** With giapsim's truth `p_detect` the Pearson residuals are
+    exact Bernoulli residuals, so the join count has almost no power under any abundance-structured
+    scenario (recorded 0.04 at lag 1 under the TU null, against 1.00 for Moran). Spec example 3's teeth
+    claim therefore holds for `morans_i` only. Record both rates and gate neither for now; the
+    statistician decides at review whether a miscalibrated-p scenario (constant `p_source`, or the
+    short-gene prophage) must carry a join-count teeth gate.
+29. The calibration file is `tests/calibration/test_autocorrelation_calibration.py` (basenames are unique
+    across tests/); the spec's `test_autocorrelation.py` would collide with the unit file.
+30. ADR-0020 decision-19 attack arms (a) and (b) need M5-04's `oriter_gradient` and wait for #119; arms
+    (c) short-gene prophage and (d) the no-detrend teeth are written in this PR under
+    tests/calibration/attacks/. The benchmark (4,500 genes, B = 1,000, < 30 s on 4 CPUs) is in this PR.
