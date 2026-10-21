@@ -1,6 +1,7 @@
 # ADR-0021: Block length for the island scan and the ori–ter CI
 
-- Status: accepted-by-khoa (2026-10-20; small replicons flagged `uncalibrated`, option b)
+- Status: accepted-by-khoa (2026-10-20); **decision 2 amended and accepted-by-khoa 2026-10-20 evening**
+  (option B: the `uncalibrated` flag is dropped). See "Amendment 1".
 - Date: 2026-10-20
 - Issues: M5-02, M5-06, M5-07, M5-08; statistician attack check, Slurm 1860199, 1860281, 1860305, 1860318
   (local/scratch/stat-m5/sims/)
@@ -47,3 +48,49 @@ TU-size-standardised scores 0.18 at ρ 0) all failed.
 - (a) Accept the small-replicon limitation and gate only the full-gate sizes, without a flag.
 - (c) ℓ = 20 on replicons with < 1,000 scored TUs: valid but no power there.
 - The spec's ℓ̂ unchanged: anti-conservative (above).
+
+## Amendment 1 (accepted-by-khoa, 2026-10-20): the validity domain is a dependence regime, not a size
+
+Supersedes decision 2. Evidence: M5-06 statistician re-measurement, R = 1,000 per cell, B = 199, through
+the M5-06 oracle on the merged engines (Slurm 1861482, 1861494, 1861551, 1861552; scripts and outputs
+under local/scratch/m5-06-stat/). The original numbers reproduce (4,500 genes: 0.037 at ρ 0.5 against the
+ADR's 0.040; 0.024 at ρ 0.9 against 0.023); the **inference** from them was wrong.
+
+2. **Validity domain.** The island FWER is claimed for the dependence regime the calibration covers, not
+   for a replicon size. It is claimed for giapsim `ar1_background` at ρ ≤ 0.5 at every size measured
+   (557 / 1,001 / 2,501 scored TUs: 0.020 / 0.031 / 0.037), for the 4,500-gene chromosome at ρ = 0.9
+   (0.024, where ℓ̂ ≈ 8 makes ℓ' = 17 span the 20-TU windows), and for the §8.5 attacks that stay in that
+   regime. It is **not** claimed where strong TU-level autocorrelation is resolved by Moran's I only to a
+   short lag (ℓ' ≤ 7): giapsim ρ = 0.9 gives 0.113 at 557 TUs and 0.095 at 1,001 TUs, and 1,000
+   single-gene TUs give 0.068 / 0.110 / 0.208 / 0.327 at ρ = 0.7 / 0.8 / 0.9 / 0.95 (bound 0.0638).
+   The scored-TU count decides nothing on its own — 400 TUs at ρ 0.5 give 0.005, 1,000 TUs at ρ 0.9 give
+   0.095–0.208, 2,500 TUs at ρ 0.9 give 0.024 — it enters only through the power of the ℓ̂ test, together
+   with ρ, the TU size distribution and the censored share (the same ρ = 0.9 replicon gives ℓ̂ = 9 and
+   0.007 uncensored, ℓ̂ = 2 and 0.208 at 55 % detected).
+
+   Two mechanisms, both measured at 1,000 TUs, ρ = 0.9, with the block forced: autocovariance beyond the
+   block (uncensored, Î₁ = 0.78: 0.576 at block 5 against 0.016 at block 19) and local-scale heterogeneity
+   at matched variance (45 % censored, variance ratio ≈ 1.0 yet 0.158 at block 5; block SD q90/q10 1.73 at
+   ρ 0.9 against 1.24 at ρ 0). A long block fixes both and costs all the power, which decision 1 rejected.
+
+2a. **No flag.** `uncalibrated` is **dropped** (Khoa, option B): no per-replicon statistic certifies the
+   domain, so a flag would give false reassurance. ℓ̂, ℓ', the lag-1 Moran's I of the detrended TU scores,
+   a Bartlett variance ratio of the window sums and a local-scale ratio all fail as keep/flag rules, and
+   selecting on them is **adverse** — giapsim ρ = 0.9 at 557 TUs is 0.113 overall but **0.220** among the
+   replicates that look calmest (ℓ̂ ≤ 1, flat local scale), because a small ℓ̂ is exactly what makes the
+   block too short; the same rule flags 94 % of the perfectly calibrated 2,501-TU ρ = 0.5 cell.
+   Instead: docs/methods/islands.md states the domain above, and the §9.4 run report carries ℓ̂, ℓ'
+   (`block_len`) and Î₁ per replicon so a reader can see where their data sit.
+
+### Measured and rejected
+Local standardisation (dividing the detrended scores by a LOESS fit of |residual| before the scan and the
+bootstrap) reduces the inflation (ρ 0.8: 0.106 → 0.032 at a 10 % span; ρ 0.9: 0.188 → 0.084, still a
+breach, because the autocovariance mechanism remains) but absorbs the signal: power on a planted
+20-TU × +2 SD island at ρ 0.5 falls from 0.103 to 0.003.
+
+### Consequences
+- M5-07 keeps its gate cells (ρ ∈ {0, 0.5, 0.9} at 4,500 genes) and adds **recorded, not gated** cells at
+  1,000 and 1,800 genes × ρ = 0.9.
+- docs/methods/islands.md gains the domain statement and the two mechanisms.
+- M5-06 and M5-09 drop `uncalibrated`; the §9.4 run report gains the per-replicon ℓ̂, ℓ' and Î₁.
+- Backlog: a scale-aware or variance-corrected island null.
