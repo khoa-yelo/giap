@@ -58,7 +58,8 @@
       "id_map",
       "peptides",
       "replicon_depth",
-      "stratum0_classes"
+      "stratum0_classes",
+      "tier_summary"
     ],
     "outputs": [
       "autocorrelation",
@@ -98,7 +99,8 @@
       "preflight"
     ],
     "outputs": [
-      "genes_pre"
+      "genes_pre",
+      "tier_summary"
     ]
   },
   "loci": {

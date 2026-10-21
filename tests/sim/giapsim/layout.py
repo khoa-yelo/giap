@@ -16,8 +16,8 @@ from __future__ import annotations
 import csv
 import itertools
 import json
-from collections.abc import Mapping
-from dataclasses import dataclass, field
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +37,7 @@ __all__ = [
     "LayoutConfig",
     "RegionSpec",
     "layout_from_simulation",
+    "plant_regions",
     "simulate_layout",
 ]
 
@@ -638,6 +639,50 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
                 else _place_oric(cfg.oric_frac, contig, start, end, lengths[0]))  # fmt: skip
     return Layout(replicons, genes, tus, pairs, regions, region_genes,
                   _truth(tags, gene_tu, region_genes), xrefs, features)  # fmt: skip
+
+
+def plant_regions(layout: Layout, specs: Sequence[RegionSpec], rng: np.random.Generator) -> Layout:
+    """``layout`` with ``specs`` planted on its genes: C7, C8, ``genes.amr`` and ``truth`` replaced.
+
+    Each spec is placed among the genes of ``spec.contig`` (the first replicon when None) the way
+    ``simulate_layout`` does: a block is a run of consecutive genes (unwrapped bounds on a circular
+    replicon, §6.5), a scattered set single genes outside every block, and AMR rows keep NA
+    coordinates (the M4-06 rule ``contract.regions.amr_coordinates``). Member counts are the
+    caller's, so a fixture can scale them with the gene count instead of hard-coding indices.
+    """
+    genes = layout.genes
+    tags = genes["locus_tag"].astype(str).tolist()
+    contig = genes["contig"].astype(str).tolist()
+    start, end = genes["start"].to_numpy(), genes["end"].to_numpy()
+    reps = layout.replicons
+    contig_rank = {str(c): i for i, c in enumerate(reps["contig"])}
+    circular = {str(c): int(n) for c, n, topo in zip(reps["contig"], reps["length"],
+                                                     reps["topology"], strict=True)
+                if topo == "circular"}  # fmt: skip
+    default_contig = str(reps["contig"].iloc[0])
+    by_contig: dict[str, list[RegionSpec]] = {}
+    for spec in specs:
+        by_contig.setdefault(spec.contig or default_contig, []).append(spec)
+    rows: list[tuple[str, str, list[str], int | None, int | None]] = []
+    for cid, group in by_contig.items():
+        pool = [i for i, c in enumerate(contig) if c == cid]
+        if sum(s.n_genes for s in group) > len(pool):
+            raise ValueError(f"{cid}: {sum(s.n_genes for s in group)} region genes > {len(pool)}")
+        for spec, members in _place_regions(rng, len(pool), tuple(group)):
+            gi = [pool[m] for m in members]
+            if spec.scattered:
+                rows.append((spec.region_type, cid, [tags[i] for i in gi], None, None))
+            else:
+                run, s0, e0 = _span(gi, start, end, circular.get(cid))
+                rows.append((spec.region_type, cid, [tags[i] for i in run], s0, e0))
+    regions, region_genes = _region_frames(rows, contig_rank, rng)
+    amr = set(regions.loc[regions["region_type"] == "amr", "region_id"])
+    amr_genes = set(region_genes.loc[region_genes["region_id"].isin(amr), "locus_tag"])
+    planted = genes.copy()
+    planted["amr"] = planted["locus_tag"].astype(str).isin(amr_genes).to_numpy(dtype=bool)
+    gene_tu = layout.truth["tu_id"].astype(str).tolist()
+    return replace(layout, genes=planted, regions=regions, region_genes=region_genes,
+                   truth=_truth(tags, gene_tu, region_genes))  # fmt: skip
 
 
 def _rotate_chr1(

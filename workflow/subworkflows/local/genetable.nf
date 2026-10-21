@@ -1,7 +1,7 @@
 // GENETABLE subworkflow (GIAP_SPEC.md §6.2, §7.3, §9.3; M4-15, MVP-01): the M4-06 contract
-// tables plus MAPPING's loci directory -> genetable/genes_pre.parquet (gene_table), then the
-// cross-fitted p_detect -> genetable/genes.parquet and the detectability diagnostics
-// (detectability). Both py steps run through GIAP_STEP aliases, as in annotate.nf / mapping.nf.
+// tables plus MAPPING's loci directory -> genetable/genes_pre.parquet and the M4-12 tier rows of
+// detection_summary (gene_table), then the cross-fitted p_detect -> genetable/genes.parquet and
+// the detectability diagnostics (detectability). Both py steps run through GIAP_STEP aliases, as in annotate.nf / mapping.nf.
 // Every required input must arrive or neither step runs (stepIn's `need`), the way MAPPING skips
 // its protein route; the optional ones (peptides, abundance, preflight.json, the COG 2020 table)
 // are staged only when `giap run` passed them.
@@ -37,7 +37,8 @@ workflow GENETABLE {
                     kv('preflight', preflight), kv('cog2020_def', cog2020_def)]
 
     def gt = stepIn('gene_table', tables + [kv('mapping', mappingDir(mapping))] + optional, required)
-    GENE_TABLE(gt.files, gt.keys, ['genes_pre=genetable/genes_pre.parquet'])
+    GENE_TABLE(gt.files, gt.keys, ['genes_pre=genetable/genes_pre.parquet',
+        'tier_summary=genetable/detection_summary_parts/tier.parquet'])
 
     // `need` even with one input: stepIn emits an empty task when every channel is empty
     def dt = stepIn('detectability', [kv('genes_pre', pick(GENE_TABLE.out.outputs, 'genes_pre.parquet'))], ['genes_pre'])
@@ -48,5 +49,6 @@ workflow GENETABLE {
     emit:
     gene_table            = pick(D, 'genes.parquet')
     detectability_summary = pick(D, 'detectability.parquet')
+    tier_summary          = pick(GENE_TABLE.out.outputs, 'tier.parquet')
     versions              = GENE_TABLE.out.versions.mix(DETECTABILITY.out.versions)
 }
