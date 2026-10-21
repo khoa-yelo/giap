@@ -64,7 +64,7 @@ the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise deci
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
 
-M6-04 (pair table, branch `m6/pair-table`, implementer step done): `giap.operons.pairs` — the adjacent
+M6-04 (PR #143, branch `m6/pair-table`, implementer step done): `giap.operons.pairs` — the adjacent
 chain (M2 `adjacent_pairs(same_strand=False)`; a 2-gene ring has one pair), SW decoys, OP/NO/CV/DV
 classes, strand-aware orientation, `rna_between`, per-gene joins and threshold-independent `PAIR_<n>`
 ids. Evidence reuses the M2-13/14/15 helpers via per-run indexes (`promoter_between_tracks`,
