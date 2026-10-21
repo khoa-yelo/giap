@@ -8,16 +8,16 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 76/90 done (84 %), 6 running · generated 2026-10-20 16:47 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 80/91 done (88 %), 5 running · generated 2026-10-20 19:37 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
 | M0 Scaffold | 🟩 | 1 | 0 | 0 |
 | M1 Inputs and preflight | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 12 | 0 | 0 |
 | M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
-| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 96 % | 23 | 0 | 1 |
-| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜ 86 % | 18 | 2 | 1 |
-| M5 Autocorrelation and islands | 🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜ 9 % | 1 | 4 | 6 |
+| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨 92 % | 23 | 2 | 0 |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜ 90 % | 19 | 1 | 1 |
+| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜ 36 % | 4 | 2 | 5 |
 | M6 Operons | _not designed yet_ | - | - | - |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
 | M8 Function and determinants | _not designed yet_ | - | - | - |
@@ -64,7 +64,25 @@ Infrastructure: scrontab reinstalled from scripts/slurm/nightly.scrontab (01:30 
 summary with afterany); first real-cluster dry run all green (1860190–1860196). Hold watchdog running.
 CI ≈ 20 min.
 
-Worktrees in flight: adr0019 (ADR-0019 implementation, test-author), m5-scan (#118), m5-sim-oric (#119),
+M3-25 (ADR-0019 implementation) is **PR #124** (implementer done, CI running). Slurm: fast suite 1861427
+(6 failures, all node-load subprocess timeouts that pass locally, plus the golden `mapping_fdr.tsv`
+regenerated on purpose — the 50-kb fixture is all `same_db`, so π̂ = c = 1 on empty lists); fast-tier
+placement calibration 1861428 (41 passed); the two flipped `calibration_full` estimate checks 1861430
+(both pass: related_dbstrain Ŵ0 1.551 vs V0 0.79, ΣV0 = 79 ≥ 30; db_stressed Ŵ0 4.306 vs V0 2.75,
+ΣV0 = 275 ≥ 100). Round 2 (decisions 11–14 + the statistician's extras): config guard on
+`mapping.length_classes`, named ValueErrors in `stratum0_pi_classes`, per-class `ci_high` from the
+Clopper–Pearson `upper`, and the methods notes (sign-offs recorded, post-ADR numbers, deflated-PEP
+caveat, "read π̂_ℓ from `stratum0_classes`"). Fast suite **1861618: 8786 passed, 0 failed**; every CI
+check green (guards included, after the lead's EXEMPT_TESTS line). **Left for a lead/test-author
+commit (R2 — the implementer may not touch existing or new test files):** decision 11's deletion of
+`pi_wrong_database` (six unit tests in tests/unit/test_placement_fdr.py still import and pin it; the
+function is dead in `src/` and its docstring says so), decision 12's two edge-case tests (written and
+mutation-checked, patch at
+`/tmp/claude-430805/-home-classes-bios-270-khoa-giap/b9f44921-ae38-43a6-9b00-e1601c824b49/scratchpad/decision12-edge-tests.patch`),
+and the statistician's `write_diagnostics` extra (sketch beside it as
+`statistician-diagnostics.patch`).
+
+Worktrees in flight: adr0019 (ADR-0019 implementation, PR #124), m5-scan (#118), m5-sim-oric (#119),
 m5-moran (#116), sensitivity (#117), timing-bench (#120), digest-te/gene-table/regions-stats/calibration-gate
 (merged, removable).
 

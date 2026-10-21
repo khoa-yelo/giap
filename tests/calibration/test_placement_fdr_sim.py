@@ -31,8 +31,8 @@ estimate checks.
   rule (Slurm 1860995, 1 Mb, R = 300: FDP 0.0002 at every q). The 100-kb arm also asserts the
   estimate check mean(Ŵ0) >= mean(V0) - 2 SE: Ŵ0 2.44 vs V0 1.6, because the injected share
   dominates the pooled π̂. At 1 Mb the estimate check is a separate test
-  (``test_database_stressed_stratum0_estimate_covers_false_placements``, ``calibration_full``,
-  strict xfail "ADR-0019 implementation pending"). Mean PEP gives Ŵ0 0.57 vs V0 2.85 there. The
+  (``test_database_stressed_stratum0_estimate_covers_false_placements``, ``calibration_full``;
+  a strict xfail until ADR-0019 was implemented). Mean PEP gave Ŵ0 0.57 vs V0 2.85 there. The
   no-origin share is length-correlated: 75 % of the injected peptides are 7-mers, and the 7-mer
   class has a no-origin share of 0.22 against 0.031 pooled. ADR-0019's per-class π̂ corrects
   this; the statistician's reference rule gives Ŵ0 3.65 vs V0 3.50 (review of #113, round 2).
@@ -41,7 +41,11 @@ estimate checks.
 * ``denovo``: smoke check (errors are placed at their spectrum's origin).
 * ``related_dbstrain`` (decision 8, ADR-0019): correct peptides reported as the database strain's
   sequence; FDP smoke check at 100 kb, and the 1-Mb stratum-0 estimate check at 5 SNV/kb
-  (``calibration_full``, strict xfail "ADR-0019 implementation pending").
+  (``calibration_full``; a strict xfail until ADR-0019 was implemented).
+
+The exercise floors of the two 1-Mb estimate checks (ΣV0 >= 30 and >= 100) count false placements
+(V0) only, which do not depend on π̂: measured 79 (Slurm 1860995) and ~285 expected (2.85 per
+replicate at R = 100), so removing the xfails cannot hide a floor failure.
 """
 
 from __future__ import annotations
@@ -59,7 +63,6 @@ from helpers.placement_sims import null_share_stratum0, run_chain, score_chain
 pytestmark = pytest.mark.calibration
 
 LEVELS = C.load_tolerances().levels
-ADR0019 = pytest.mark.xfail(strict=True, reason="ADR-0019 implementation pending")
 
 
 def _length(full: bool) -> int:
@@ -112,8 +115,8 @@ def _stressed(full: bool, tmp: Path) -> None:
     def replicate(seed: int, d: Path):  # type: ignore[no-untyped-def]
         return _stressed_replicate(full, seed, d)
 
-    # The 100-kb arm also carries the estimate check (it passes under mean PEP, docstring);
-    # at 1 Mb that check is the separate strict xfail below.
+    # The 100-kb arm also carries the estimate check (it passed under mean PEP too, docstring);
+    # at 1 Mb that check is the separate test below.
     run_fdr_suite(
         "placement.sim_db_stressed", replicate, tmp, [("reverse", 0)], full=full,
         estimate=() if full else ("reverse",),
@@ -130,12 +133,36 @@ def test_database_stressed_stratum0_placement_fdr_full(tmp_path: Path) -> None:
     _stressed(True, tmp_path)
 
 
+def _class_diag(cs: list[float], by_class: dict[str, list[list[float]]]) -> dict[str, object]:
+    """Diagnostics only (M3-25 statistician): mean c and, per length class, mean n and π̂ over the
+    replicates that have the class."""
+    return {
+        "mean_c": float(np.mean(cs)) if cs else float("nan"),
+        "pi_by_class": {
+            label: {
+                "mean_n": float(np.mean([x[0] for x in v])),
+                "mean_pi": float(np.mean([x[1] for x in v])),
+                "reps": len(v),
+            }
+            for label, v in sorted(by_class.items())
+        },
+    }
+
+
+def _collect_class_diag(
+    extra: dict[str, object], cs: list[float], by_class: dict[str, list[list[float]]]
+) -> None:
+    cs.append(float(extra.get("stratum0_c", float("nan"))))
+    pis: dict[str, list[float]] = extra.get("stratum0_pi", {})  # type: ignore[assignment]
+    for label, (n_l, _k, _r, pi_l) in pis.items():
+        by_class.setdefault(label, []).append([float(n_l), float(pi_l)])
+
+
 STRESS_EST_R = 100
 STRESS_EST_V0_FLOOR = 100
 
 
 @pytest.mark.calibration_full
-@ADR0019
 def test_database_stressed_stratum0_estimate_covers_false_placements(tmp_path: Path) -> None:
     """Statistician review of #113, round 2: the 1-Mb stressed arm (K = 400 injected short wrong
     database peptides, PEP = the true wrong share, delta = 0). Estimate rule as in the related
@@ -144,18 +171,21 @@ def test_database_stressed_stratum0_estimate_covers_false_placements(tmp_path: P
     is ΣV0 >= 100 (about 285 expected). The no-origin share is length-correlated (7-mer class
     0.22 against 0.031 pooled), so mean PEP under-counts: Ŵ0 0.57 vs V0 2.85, more than 10 SE at
     R = 100. ADR-0019's per-class π̂ corrects this (reference Ŵ0 3.65 vs V0 3.50)."""
-    w0, v0 = [], []
+    w0, v0, cs = [], [], []
+    by_class: dict[str, list[list[float]]] = {}
     for i in range(STRESS_EST_R):
         seed = int(C.replicate_rng("placement.est_db_stressed", i).integers(0, 2**31 - 1))
         d = tmp_path / f"r{i}"
         rep = _stressed_replicate(True, seed, d)
         w0.append(float(rep.extra["W0_reverse"]))
         v0.append(float(rep.extra["V0_reverse"]))
+        _collect_class_diag(rep.extra, cs, by_class)
         shutil.rmtree(d, ignore_errors=True)
     w, v = np.array(w0), np.array(v0)
     k = C.load_tolerances().se_multiplier
     se = float((v - w).std(ddof=1) / np.sqrt(len(v)))
-    rec = {"suite": "placement.est_db_stressed", "n": len(v), "se": se}
+    rec = {"suite": "placement.est_db_stressed", "n": len(v), "se": se,
+           **_class_diag(cs, by_class)}  # fmt: skip
     write_diagnostics({**rec, "mean_W0": float(w.mean()), "mean_V0": float(v.mean())})
     assert v.sum() >= STRESS_EST_V0_FLOOR, f"stratum 0 under-exercised: total V0 {v.sum():.0f}"
     assert w.mean() >= v.mean() - k * se, (
@@ -212,36 +242,67 @@ def test_denovo_error_model_placement_fdr_full(tmp_path: Path) -> None:
 PI_R = 20  # the shortfall is several-fold; 20 replicates resolve it (SE ~ 0.001)
 
 
-def _pi_check(kind: str, stream: str, tmp: Path, **kw: object) -> tuple[float, float, float]:
-    """(mean π̂, mean true null share, SE of the difference) over PI_R replicates; null share =
-    stratum-0 searched database peptides that are wrong or absent from the sample."""
-    pi, null = [], []
+def _pi_check(
+    kind: str, stream: str, tmp: Path, **kw: object
+) -> tuple[float, float, float, pd.DataFrame]:
+    """(mean π̂, mean true null share, SE of the difference, per-class frame) over PI_R replicates;
+    null share = stratum-0 searched database peptides that are wrong or absent from the sample.
+    The per-class frame averages ``pi_hat``, ``null_share``, ``n`` and ``n_null`` over the
+    replicates that have the class, and carries ``se`` of (null_share - pi_hat) over them."""
+    pi, null, per = [], [], []
     for i in range(PI_R):
         seed = int(C.replicate_rng(stream, i).integers(0, 2**31 - 1))
         ch = run_chain(kind, seed, tmp / f"r{i}", **kw)  # type: ignore[arg-type]
-        a, b = null_share_stratum0(ch)
+        a, b, tab = null_share_stratum0(ch)
         shutil.rmtree(tmp / f"r{i}", ignore_errors=True)
         pi.append(a)
         null.append(b)
+        per.append(tab)
     d = np.array(null) - np.array(pi)
-    return float(np.mean(pi)), float(np.mean(null)), float(d.std(ddof=1) / np.sqrt(PI_R))
+    allc = pd.concat(per, ignore_index=True).dropna(subset=["pi_hat", "null_share"])
+    allc["diff"] = allc["null_share"] - allc["pi_hat"]
+    g = allc.groupby("length_class", sort=True)
+    classes = g.agg(
+        pi_hat=("pi_hat", "mean"), null_share=("null_share", "mean"), n=("n", "mean"),
+        n_null=("n_null", "mean"), reps=("diff", "size"),
+        sd=("diff", lambda x: float(np.std(x, ddof=1)) if len(x) > 1 else 0.0),
+    ).reset_index()  # fmt: skip
+    classes["se"] = classes["sd"] / np.sqrt(classes["reps"])
+    return float(np.mean(pi)), float(np.mean(null)), float(d.std(ddof=1) / np.sqrt(PI_R)), classes
 
 
-def _assert_pi(mean_pi: float, mean_null: float, se: float) -> None:
+PI_CLASS_MIN_N = 10  # a class with fewer peptides per replicate is too noisy to gate
+
+
+def _assert_pi(
+    mean_pi: float, mean_null: float, se: float, classes: pd.DataFrame | None = None
+) -> None:
+    """M3-25 decision 6: the per-class π̂_l vs that class's realised null share is the primary
+    assertion; the pooled (W + c)/(D + 1) comparison is kept alongside."""
     k = C.load_tolerances().se_multiplier
+    if classes is not None:
+        gated = classes[classes["n_null"] >= PI_CLASS_MIN_N]
+        assert len(gated), f"no length class with >= {PI_CLASS_MIN_N} queries:\n{classes}"
+        bad = gated[gated["pi_hat"] < gated["null_share"] - k * gated["se"]]
+        assert bad.empty, (
+            "stratum-0 π̂_l below the class's true share of wrong or absent searched peptides"
+            f" (k = {k}); validity needs π̂_l >= π_l (placement-fdr.md):\n{bad}"
+        )
     assert mean_pi >= mean_null - k * se, (
         f"stratum-0 π̂ {mean_pi:.5f} below the true share of wrong or absent searched peptides"
         f" {mean_null:.5f} (k SE = {k * se:.5f}); validity needs π̂ >= π (placement-fdr.md)"
     )
 
 
-@pytest.mark.parametrize("n_runs", [1, pytest.param(3, marks=ADR0019)])
+@pytest.mark.parametrize("n_runs", [1, 3])
 def test_database_stratum0_pi_hat_covers_the_wrong_share(tmp_path: Path, n_runs: int) -> None:
     """π̂ (mean input PEP over the stratum-0 database queries) must not understate their wrong
     share (methods note: "validity needs π̂ >= π"). M3-19 row PEPs are calibrated; with 3 runs
     preflight collapses a peptide's runs with ``pep = min`` and the mean of the minima is not a
-    peptide-level wrong share (ADR-0019 "Run collapse"; decision 9: [3] is the regression, strict
-    xfail until ADR-0019 replaces mean PEP; [1] is the control)."""
+    peptide-level wrong share (ADR-0019 "Run collapse"; decision 9: [3] is the regression, a
+    strict xfail until ADR-0019 replaced mean PEP; [1] is the control). Under ADR-0019 PEP is not
+    read, so π̂ must cover the share with both run counts: per length class (decision 6, the
+    primary assertion) and pooled, the row's (W + c)/(D + 1)."""
     stats = _pi_check(
         "database", f"placement.pi_db_runs{n_runs}", tmp_path,
         proteomics=_proteomics(pi_wrong=0.05, n_runs=n_runs),
@@ -285,7 +346,6 @@ EST_V0_FLOOR = 30
 
 
 @pytest.mark.calibration_full
-@ADR0019
 def test_related_dbstrain_stratum0_estimate_covers_false_placements(tmp_path: Path) -> None:
     """Decision 8 estimate check (statistician, B2; review B3): 1-Mb genome, 5 SNV/kb, correct
     peptides from the reference strain as above. Per replicate and decoy type at m = 0 (database
@@ -294,13 +354,14 @@ def test_related_dbstrain_stratum0_estimate_covers_false_placements(tmp_path: Pa
     all stratum-0 targets, V0 the realised number (no best-cost locus overlaps a true origin).
     Assert mean(Ŵ0) >= mean(V0) - k SE(V0 - Ŵ0) over EST_R replicates and total V0 >=
     EST_V0_FLOOR. Mean PEP counts only identification errors, so Ŵ0 under-states V0
-    (statistician: Ŵ0 ~ 0.1 vs V0 ~ 0.75); strict xfail until ADR-0019 is implemented (measured
-    ratio 0.96-2.4 there)."""
-    from helpers.placement_sims import hits_of
+    (statistician: Ŵ0 ~ 0.1 vs V0 ~ 0.75; Slurm 1860995: 0.150 vs 0.79); a strict xfail until
+    ADR-0019 was implemented (measured ratio 0.96-2.4 under it)."""
+    from helpers.placement_sims import hits_of, stratum0_diagnostics
     from helpers.placement_truth import best_loci
 
     kw = _dbstrain(1_000_000, EST_SNV)
-    w0, v0 = [], []
+    w0, v0, cs = [], [], []
+    by_class: dict[str, list[list[float]]] = {}
     for i in range(EST_R):
         seed = int(C.replicate_rng("placement.est_related_dbstrain", i).integers(0, 2**31 - 1))
         d = tmp_path / f"r{i}"
@@ -317,11 +378,14 @@ def test_related_dbstrain_stratum0_estimate_covers_false_placements(tmp_path: Pa
             t0 = per[(per["m_target"] == 0) & (per["decoy_type"] == dt)]["peptide"]
             v0.append(sum(not any(ch.truth.overlaps(iv, p) for iv in loci.get(p, ())) for p in t0))
             w0.append(float(row["fdr_stratum"].iloc[0]) * int(row["targets"].iloc[0]))
+        c, pis = stratum0_diagnostics(ch)
+        _collect_class_diag({"stratum0_c": c, "stratum0_pi": pis}, cs, by_class)
         shutil.rmtree(d, ignore_errors=True)
     w, v = np.array(w0), np.array(v0, dtype=float)
     k = C.load_tolerances().se_multiplier
     se = float((v - w).std(ddof=1) / np.sqrt(len(v)))
-    rec = {"suite": "placement.est_related_dbstrain", "n": len(v), "se": se}
+    rec = {"suite": "placement.est_related_dbstrain", "n": len(v), "se": se,
+           **_class_diag(cs, by_class)}  # fmt: skip
     write_diagnostics({**rec, "mean_W0": float(w.mean()), "mean_V0": float(v.mean())})
     assert v.sum() >= EST_V0_FLOOR, f"stratum 0 under-exercised: total V0 {v.sum():.0f}"
     assert w.mean() >= v.mean() - k * se, (

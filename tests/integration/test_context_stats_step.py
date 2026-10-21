@@ -1,4 +1,7 @@
-"""M4-18 example 8 and the step-level checks of ``giap.steps.context_stats.run_context_stats``.
+"""M4-18 example 8 and the step-level checks of ``giap.steps.context_stats.run_context_stats``,
+plus ADR-0019's ``stratum0_classes`` optional input (M3-25 decisions 2 and 3: the ADR-0019 class
+table reaches the summary the way M4-15's ``detectability_summary`` does, and its QC rows sit
+beside ``genome_inconsistent_rate`` instead of replacing it).
 
 docs/specs/M4-18-regions-stats-table.md: "fixture end to end through ``run_context_stats``:
 ``regions_stats.tsv`` validates against its schema; header = ``REGIONS_STATS_COLUMNS``", example 9
@@ -404,3 +407,104 @@ def test_depth_gap_silent_when_plasmid_regions_off(
         run_context_stats(work, cfg, dpath)
     assert not _depth_warnings(caplog)
     assert not (_read(work / "tables" / "regions_stats.tsv")["region_type"] == "plasmid").any()
+
+
+# ------------------------------------------------- ADR-0019 stratum0_classes (M3-25 decisions 2, 3)
+
+STRATUM0_METRIC = "stratum0_unmapped_share"
+
+
+def _stratum0_part() -> pd.DataFrame:
+    """Rows shaped like ``placement``'s ``stratum0_classes`` output (ADR-0019 decision 1)."""
+    labels = ["7", "8", "9", "10-11", "12-14", "15-19", "20-40"]
+    n = [100, 80, 60, 40, 20, 0, 10]
+    k = [22, 8, 3, 2, 1, 0, 0]
+    return pd.DataFrame(
+        {
+            "length_class": labels,
+            "n": n,
+            "k": k,
+            "r": [0.1] * 7,
+            "upper": [0.3] * 7,
+            "pi_wrong": [0.33] * 7,
+        }
+    )
+
+
+def _qc_rows(path: Path) -> pd.DataFrame:
+    return _summary_rows(path, "qc")
+
+
+def test_registry_path_carries_stratum0_classes(prepared: Path, tmp_path: Path) -> None:
+    """M3-25 decision 3: ``stratum0_classes`` is an optional input of ``context_stats`` and its
+    QC rows (decision 2: value k/n, ``n`` = n, overall and per class) reach the summary."""
+    import layers_chain as lc
+
+    from giap.io.work_tables import OPTIONAL_KEYS, default_paths
+
+    work = _copy(prepared, tmp_path)
+    part = _stratum0_part()
+    spath = tmp_path / "stratum0_classes"  # no suffix: the key names the file
+    part.to_parquet(spath, index=False)
+    inputs: dict[str, Any] = {k: p for k, p in default_paths(work).items()
+                              if k not in OPTIONAL_KEYS or p.exists()}  # fmt: skip
+    inputs["gene_table"] = work / "genetable" / "genes.parquet"
+    out = tmp_path / "out"
+    outputs = {"regions_stats": out / "rs", "detection_summary": out / "ds"}
+    with pytest.MonkeyPatch.context() as mp:
+        reg = lc.fresh_steps(mp)
+        assert "stratum0_classes" in reg.get("context_stats").optional_inputs
+        reg.run_step("context_stats", _cfg(), {**inputs, "stratum0_classes": spath}, outputs)
+    qc = _qc_rows(outputs["detection_summary"])
+    rows = qc[qc["metric"] == STRATUM0_METRIC]
+    overall = rows[(rows["group_type"] == "run") & (rows["group"] == "all")]
+    assert len(overall) == 1
+    assert float(overall["value"].iloc[0]) == pytest.approx(36 / 310, rel=1e-9)
+    assert int(overall["n"].iloc[0]) == 310
+    per = rows[rows["group_type"] == "length_class"].set_index("group")
+    assert set(per.index) == set(part["length_class"])
+    assert float(per.loc["7", "value"]) == pytest.approx(0.22, rel=1e-9)
+    assert int(per.loc["7", "n"]) == 100
+
+
+def test_stratum0_rows_do_not_replace_genome_inconsistent_rate(
+    prepared: Path, tmp_path: Path
+) -> None:
+    """M3-25 decision 2: the two metrics measure different populations; adding the class table
+    leaves every M4-16 QC row byte-identical."""
+    import layers_chain as lc
+
+    from giap.io.work_tables import OPTIONAL_KEYS, default_paths
+
+    work = _copy(prepared, tmp_path)
+    spath = tmp_path / "stratum0_classes"
+    _stratum0_part().to_parquet(spath, index=False)
+    inputs: dict[str, Any] = {k: p for k, p in default_paths(work).items()
+                              if k not in OPTIONAL_KEYS or p.exists()}  # fmt: skip
+    inputs["gene_table"] = work / "genetable" / "genes.parquet"
+    got = {}
+    for name, extra in (("without", {}), ("with", {"stratum0_classes": spath})):
+        out = tmp_path / f"out_{name}"
+        outputs = {"regions_stats": out / "rs", "detection_summary": out / "ds"}
+        with pytest.MonkeyPatch.context() as mp:
+            lc.fresh_steps(mp).run_step("context_stats", _cfg(), {**inputs, **extra}, outputs)
+        got[name] = _qc_rows(outputs["detection_summary"]).reset_index(drop=True)
+    assert "genome_inconsistent_rate" in set(got["without"]["metric"])
+    assert STRATUM0_METRIC not in set(got["without"]["metric"])
+    kept = got["with"][got["with"]["metric"] != STRATUM0_METRIC].reset_index(drop=True)
+    pd.testing.assert_frame_equal(kept, got["without"])
+
+
+def test_local_layout_carries_stratum0_classes(prepared: Path, tmp_path: Path) -> None:
+    """``run_context_stats`` maps ``mapping/stratum0_classes.parquet`` (M3-25 decision 3) into
+    the summary."""
+    from giap.steps.context_stats import run_context_stats
+
+    work = _copy(prepared, tmp_path)
+    mapping = work / "mapping"
+    mapping.mkdir(parents=True, exist_ok=True)
+    _stratum0_part().to_parquet(mapping / "stratum0_classes.parquet", index=False)
+    run_context_stats(work, _cfg(), None)
+    qc = _qc_rows(work / "tables" / "detection_summary.tsv")
+    rows = qc[qc["metric"] == STRATUM0_METRIC]
+    assert len(rows) == 8  # run/all plus seven classes

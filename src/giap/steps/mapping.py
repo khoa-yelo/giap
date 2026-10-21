@@ -5,8 +5,9 @@ Six-frame index ─► exact peptides ─► tolerant (+ decoys) ─► placemen
 these steps only read and write the work files. Keys: roots ``genome``, ``peptides``,
 ``proteins_long``, ``reference_peptides``; ``genes``/``features``/``replicons`` from
 ``parse_bakta``; intermediates ``sixframe`` (``.npz``), ``hits_exact``, ``hits_tolerant``,
-``placement``, ``mapping_fdr`` (Parquet), ``miniprot_gff``, ``proteins_leftover``,
-``tblastn_tsv``; ``loci`` writes the seven §7.2.9 files into the directory ``mapping``.
+``placement``, ``mapping_fdr``, ``stratum0_classes`` (Parquet), ``miniprot_gff``,
+``proteins_leftover``, ``tblastn_tsv``; ``loci`` writes the seven §7.2.9 files into the
+directory ``mapping``.
 
 Queries (Q2, Q3): non-decoy rows with ``q_value <= input.q_value_max`` or no q-value and length in
 ``mapping.exact.[min_len, max_len]``; a row source ``auto`` (or missing) is ``input.peptide_source``
@@ -37,7 +38,7 @@ from giap.mapping.hits import hits_frame
 from giap.mapping.loci import annotate_peptide_hits, annotate_protein_hits
 from giap.mapping.miniprot import ProteinAlignment, parse_miniprot_gff
 from giap.mapping.outputs import write_mapping_outputs
-from giap.mapping.placement_fdr import best_costs, placement
+from giap.mapping.placement_fdr import PREFILTERED_FLAG, best_costs, placement_tables
 from giap.mapping.protein_assign import PROTEIN_HITS_COLUMNS, assign_alignments
 from giap.mapping.sixframe import Frame, SixFrameIndex, build_sixframe, load_index, save_index
 from giap.mapping.tblastn import merge_hsps, parse_tblastn
@@ -357,10 +358,11 @@ def _denovo(
         "peptides", "sixframe", "hits_exact", "hits_tolerant", "genes", "features", "replicons",
     ],
     optional_inputs=["reference_peptides"],
-    outputs=["placement", "mapping_fdr"],
+    outputs=["placement", "mapping_fdr", "stratum0_classes"],
 )  # fmt: skip
 def placement_step(ctx: StepContext) -> None:
-    """Best costs, de novo precision, placement q-values and ``mapping_fdr`` rows (§7.2.5)."""
+    """Best costs, de novo precision, placement q-values, ``mapping_fdr`` rows (§7.2.5) and the
+    ADR-0019 stratum-0 class table (``stratum0_classes``, an input of ``context_stats``)."""
     queries = _resolved_queries(ctx, _gene_model(ctx))
     index, decoys = load_index(_path(ctx.inputs["sixframe"]))
     exact = pd.read_parquet(_path(ctx.inputs["hits_exact"]))
@@ -371,11 +373,20 @@ def placement_step(ctx: StepContext) -> None:
         pi, dn_rows = _denovo(ctx, queries[is_dn], exact, index, decoys)
         queries.loc[is_dn, "pi_denovo"] = pi
     costs = best_costs(_hits(ctx, "hits_exact", "hits_tolerant"), queries, residue_freqs(index))
-    per, fdr = placement(costs, ctx.cfg)
+    out = placement_tables(costs, ctx.cfg)
+    per, fdr = out.per_peptide, out.mapping_fdr
     if dn_rows:
         fdr = pd.concat([fdr, pd.DataFrame(dn_rows)], ignore_index=True)
+    if PREFILTERED_FLAG in out.run_flags:
+        ctx.log.warning(
+            "placement: the input looks pre-filtered to genome matches; no genome-based "
+            "stratum-0 π̂ can be calibrated on it (run flag %s)",
+            PREFILTERED_FLAG,
+            extra={"event": "mapping.input_prefiltered", "data": {"flag": PREFILTERED_FLAG}},
+        )
     per.to_parquet(ctx.outputs["placement"], index=False)
     fdr.to_parquet(ctx.outputs["mapping_fdr"], index=False)
+    out.stratum0_classes.to_parquet(ctx.outputs["stratum0_classes"], index=False)
     ctx.log.info(
         "placement: %d queries (%d de novo), %d with a target hit, %d accepted",
         len(queries), int(is_dn.sum()), len(per), int(per["accepted"].sum()),
