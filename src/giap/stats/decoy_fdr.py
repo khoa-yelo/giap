@@ -104,8 +104,11 @@ def _check_pair(s: F64, b: I64, what: str) -> None:
 
 
 def _usable(s: F64, b: I64, n_bins: int) -> npt.NDArray[np.bool_]:
-    """Entries with a score and a bin in ``range(n_bins)``; everything else is excluded."""
-    return ~np.isnan(s) & (b >= 0) & (b < n_bins)
+    """Entries with a finite score and a bin in ``range(n_bins)``; everything else is excluded.
+
+    An infinite score is excluded like NaN, as in ``fit_student_t`` and ``giap.stats.tda``.
+    """
+    return np.isfinite(s) & (b >= 0) & (b < n_bins)
 
 
 def bin_index(distance_bp: ArrayLike, edges: Sequence[float]) -> I64:
@@ -150,9 +153,9 @@ def reweighted_fdr(
     is not special-cased here (lead decision 5): every bin then contributes its target count.
 
     Args:
-        target_s: target scores ``-|Delta|``; NaN is excluded.
+        target_s: target scores ``-|Delta|``; NaN and +-inf are excluded.
         target_bin: target distance bins; anything outside ``range(n_bins)`` is excluded.
-        decoy_s: decoy scores; NaN is excluded.
+        decoy_s: decoy scores; NaN and +-inf are excluded.
         decoy_bin: decoy distance bins; anything outside ``range(n_bins)`` is excluded.
         n_bins: number of distance bins.
         pi0: prior null proportion, in (0, 1].
@@ -221,7 +224,7 @@ def max_decoy_fdr(
     broken by the order of ``decoys``, the first key winning (lead decision 4).
 
     Args:
-        target_s: target scores ``-|Delta|``; NaN is excluded.
+        target_s: target scores ``-|Delta|``; NaN and +-inf are excluded.
         target_bin: target distance bins; anything outside ``range(n_bins)`` is excluded.
         decoys: decoy sets by name, each a ``(scores, bins)`` pair. A set with no usable decoy is
             skipped (lead decision 5); if no set survives, ``q``, ``fdr`` and ``lfdr`` are NaN.
@@ -258,7 +261,9 @@ def max_decoy_fdr(
         lfdrs.append(one)
     if not names:
         nan = np.full(t_s.shape, np.nan, dtype=np.float64)
-        return DecoyFdr(q=nan, fdr=nan.copy(), which=np.full(t_s.shape, "", dtype="<U1"), lfdr=nan)
+        return DecoyFdr(
+            q=nan, fdr=nan.copy(), which=np.full(t_s.shape, "", dtype="<U1"), lfdr=nan.copy()
+        )
     stacked = np.vstack(curves)
     fdr: F64 = stacked.max(axis=0)
     # argmax keeps the first maximum, so the first key of ``decoys`` wins a tie (lead decision 4)
@@ -348,8 +353,8 @@ def _lfdr_densities(target_s: ArrayLike, decoy_s: ArrayLike, decoy_w: ArrayLike)
     if d_s.shape != d_w.shape:
         raise ValueError(f"decoy_s and decoy_w differ in length: {d_s.size} != {d_w.size}")
     nan = np.full(t_s.shape, np.nan, dtype=np.float64)
-    ok_t = ~np.isnan(t_s)
-    ok_d = ~np.isnan(d_s) & np.isfinite(d_w) & (d_w > 0.0)
+    ok_t = np.isfinite(t_s)
+    ok_d = np.isfinite(d_s) & np.isfinite(d_w) & (d_w > 0.0)
     if int(ok_t.sum()) < MIN_KDE_N or int(ok_d.sum()) < MIN_KDE_N:
         return nan, nan.copy()
     target_abs, decoy_abs = -t_s[ok_t], -d_s[ok_d]
@@ -369,8 +374,8 @@ def local_fdr(target_s: ArrayLike, decoy_s: ArrayLike, decoy_w: ArrayLike, pi0: 
     matter.
 
     Args:
-        target_s: target scores ``-|Delta|``; NaN is excluded.
-        decoy_s: decoy scores ``-|Delta|``; NaN is excluded.
+        target_s: target scores ``-|Delta|``; NaN and +-inf are excluded.
+        decoy_s: decoy scores ``-|Delta|``; NaN and +-inf are excluded.
         decoy_w: per-decoy weights, non-negative; zero-weight decoys are dropped.
         pi0: prior null proportion, in (0, 1].
 

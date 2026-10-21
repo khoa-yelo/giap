@@ -70,7 +70,7 @@
     "commit": "488c71c",
     "date": "2026-10-21",
     "issue": "M6-01",
-    "note": "one max_decoy_fdr call: two reweighted step functions, the maximum, monotone q and both local-fdr KDEs. 0.150 s (job 1863858) and 0.170 s (job 1863844) on wheat-05; 0.13-0.14 s in the iron-15 session allocation. The lfdr KDEs are evaluated by linear binning plus one convolution (h/40 grid, 1e-4 relative); scipy's exact gaussian_kde on 50,000 x 50,000 would be minutes."
+    "note": "one max_decoy_fdr call: two reweighted step functions, the maximum, monotone q and both local-fdr KDEs. 0.150 s (job 1863858) and 0.170 s (job 1863844) on wheat-05; 0.13-0.14 s in the iron-15 session allocation. The lfdr KDEs are evaluated by linear binning plus one convolution (h/40 grid, ~3e-3 relative); scipy's exact gaussian_kde on 50,000 x 50,000 would be minutes."
   },
   "detectability": {
     "source": "docs/specs/M4-13-detectability.md lead decision 8",
