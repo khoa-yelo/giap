@@ -75,7 +75,7 @@ sensitivity rows.
 | 11 | [M8-11](M8-11-stats-fgsea-multilevel.md) | S | 2 | `stats/`: fgsea port II — multilevel splitting (`sampleSize = 101`, `eps = 0`), multilevel `log2err` | 02 | 330 | yes |
 | 12 | [M8-12](M8-12-golden-r-env.md) | G | 2 | R env (conda-forge + bioconda pins), frozen golden inputs, `make_golden_r.R`, `golden_r.sbatch`, `golden-r.yml`, committed outputs | 02 (inputs only) | 220 | no |
 | 13 | [M8-13](M8-13-golden-equivalence.md) | C | 2 | **gate, half 1**: Wallenius vs goseq, ES / NES / p vs fgsea, on the committed golden data | 01, 11, 12 | 40 (+tests) | yes |
-| 14 | [M8-14](M8-14-sim-function-determinants.md) | F | 2 | giapsim: synthetic ontology + xrefs, ORA null and confounding attack, GSEA null and operon-packed attack, planted determinant effects, determinants null | none | 30 (+300 sim) | yes (light) |
+| 14 | [M8-14](M8-14-sim-function-determinants.md) | F | 2 | giapsim: synthetic ontology + xrefs, ORA null and confounding attack, GSEA null and operon-packed attack, planted determinant effects, determinants null | none | 0 (+330 sim) | yes (light) |
 | 15 | [M8-15](M8-15-calibration-gate.md) | C | 2 | **gate, half 2**: `ora`, `gsea`, `determinants` at level; attacks 2 and 3; planted-R² recovery recorded | 04, 05, 09, 11, 14 | 60 (+tests) | yes |
 | 16 | [M8-16](M8-16-sensitivity-function-determinants.md) | R | 2 | §8.6 families "enriched categories" and "determinants" (CV R², dominant-block `agreement`) | 06, 10 | 160 | yes (light) |
 
@@ -105,7 +105,7 @@ beyond giapsim.
 
 | Wave | Issues | Notes |
 |---|---|---|
-| A (now) | 01, 02, 03, 07; submit the M8-12 env build job | four independent PRs; the env build is a Slurm job (≤ 4 CPUs) |
+| A (now) | 01, 02, 03, 07; start M8-12 with its env yml + `golden_r.sbatch` | four independent PRs; the env build is a Slurm job (≤ 4 CPUs) whose result the rest of M8-12 waits for |
 | B | 04, 05, 08 | 05 needs only 02's simple stage |
 | C | 06, 09 | 06 is the function integration milestone (a real `sbatch scripts/slurm/giap_run.sbatch`) |
 | D | 10 | the determinants integration milestone; same evidence rule |
@@ -180,8 +180,8 @@ NOTICE.md:
 |---|---|---|
 | a collection | its resource is not installed (`giap setup --go/--kegg/--cog` not run) | no rows for it; run flag `layer_missing:go` / `layer_missing:kegg` / `layer_missing:cog` |
 | Wallenius ω | the category is the whole universe, or Σ p_detect outside it is 0 | the category is not tested; row `flags` `unestimated` (index decision 12) |
-| ORA p | category size outside `function.ora_size` after elim removal | row kept in no family; `p_value` NA, `flags` `unestimated;size_filtered` |
-| any GSEA row | no abundance input, or < 2 collections of usable TUs | `enrichment_gsea.tsv` header-only; run flag `layer_missing:abundance` |
+| ORA p | category size (full set) outside `function.ora_size` | not tested, no row; an elim-reduced set of an in-range term is still tested (M8-04 Q3) |
+| any GSEA row | no abundance input, or < 2 ranked TUs | `enrichment_gsea.tsv` header-only; run flag `layer_missing:abundance` or `too_few_ranked_tus` |
 | GSEA p | fgsea's rule "modeFraction < 10" (unbalanced ES signs) | `p_value`, `q_value`, `nes`, `log2err` NA, `flags` `unestimated` |
 | GSEA `log2err` | multilevel with `isCpGeHalf = FALSE` | `log2err` NA, p kept, `flags` `log2err_unestimated` |
 | determinants models | < 100 model rows or < 25 TUs (decision 18) | no CV / null / block rows; univariate rows still written; model table row `flags` `too_few_rows` |
@@ -268,9 +268,9 @@ families).
 Module 7 needs < 2 GB and seconds to minutes (go-basic.obo is 32 MB; GO propagation over ~4,500
 genes is a set union; fgsea simple on ~2,500 TUs × ~1,500 sets is numba-bound). Module 8's null
 dominates (above). The R env build is one ≤ 4-CPU job of ≤ 1 h; generating golden data is seconds.
-Full calibration: `ora` (1,000 replicates, analytical p) and `gsea` (300) are cheap; `determinants`
-(100 replicates × B = 1,000 at reduced model size, decision 23) is the only job that needs sharding
-inside the R14 caps.
+Full calibration: `ora` (1,000 replicates, analytical p) and `gsea` (300) are cheap;
+`determinants` (100 replicates × B = 999 at the §5.2 parameters, 1,500 genes; the fast tier runs
+reduced, decision 23) is the only suite that needs sharding inside the R14 caps.
 
 ## Decisions taken in these specs (for the lead to confirm)
 
@@ -283,7 +283,7 @@ inside the R14 caps.
 4. **elim applies to `direction = over` only**; `under` rows report `p_value = p_classic`
    (topGO's elim is defined for over-representation) (M8-04 Q2).
 5. **GO slim is its own collection `go_slim`**, tested with classic p (no elim) in ORA and GSEA
-   (M8-03 Q3, M8-04 Q3).
+   (M8-03 Q3).
 6. **KEGG uses `map` pathway IDs only and excludes the global/overview maps `map011xx` and
    `map012xx`** (M8-03 Q2; ADR-C).
 7. **Collection values** in the enrichment tables: `cog`, `kegg`, `go_bp`, `go_mf`, `go_cc`,
