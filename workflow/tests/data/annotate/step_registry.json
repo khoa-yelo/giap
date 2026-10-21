@@ -56,7 +56,8 @@
       "detectability_summary",
       "id_map",
       "peptides",
-      "replicon_depth"
+      "replicon_depth",
+      "stratum0_classes"
     ],
     "outputs": [
       "detection_summary",
@@ -198,7 +199,8 @@
     ],
     "outputs": [
       "mapping_fdr",
-      "placement"
+      "placement",
+      "stratum0_classes"
     ]
   },
   "promoter_layer": {

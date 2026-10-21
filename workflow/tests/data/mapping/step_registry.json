@@ -57,7 +57,8 @@
     ],
     "outputs": [
       "mapping_fdr",
-      "placement"
+      "placement",
+      "stratum0_classes"
     ]
   },
   "protein_leftovers": {

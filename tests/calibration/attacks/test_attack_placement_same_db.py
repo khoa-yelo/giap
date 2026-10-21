@@ -11,18 +11,22 @@ stratum-0 lists. Two ways this can leak into the FDR of the *other* peptides:
   input only; otherwise every exact de novo hit, right or wrong, gets q = 0.
 - ``mixed_same_other``: one input with database peptides from an own-protein search (exact hits,
   correct, small PEP) and from a cross-strain search (``other``, PEP = true wrong rate 0.3).
-  pi_wrong (mean PEP) must be estimated on the peptides that enter the stratum-0 lists, the same
-  population that defines c in ADR-0010; averaging in the same_db exact peptides (which have left
-  both lists) halves pi_wrong and doubles the FDP of the ``other`` list.
+  pi_wrong must be estimated on the peptides that enter the stratum-0 lists, the same population
+  that defines c in ADR-0010; averaging in the same_db exact peptides (which have left both lists)
+  halves pi_wrong and doubles the FDP of the ``other`` list. Since ADR-0019 the database π̂ is the
+  per-length-class exact-share estimate (no PEP), and the same_db exact peptides, all exact
+  matches, would deflate its k/n just as they deflated mean PEP.
 
 FDP is measured over the peptides accepted through a stratum list (``same_db`` exact peptides
 excluded: their q = 0 is a label, not an estimate). Criterion as everywhere: mean FDP over R
 replicates <= q + k SE at every level in ``levels``. A reference implementation of the corrected
-rule (``stratum_qvalues`` with pi_wrong over the searched population) is checked on the same
-generator, so the attack is known to be passable. R = ``replicates_fast.placement`` (marker
-``calibration``) or ``replicates_full.placement`` (``calibration_full``); k = ``se_multiplier``.
-Gated by ``_criteria.calibrate`` (ADR-0015 two-block confirmation, sharding): replicate i of
-stream ``placement.attack_same_db.<rule>.<scenario>`` draws from ``replicate_rng(stream, i)``.
+rule (``stratum_qvalues`` with the ADR-0019 class π̂ over the searched population, de novo
+``pi_denovo``) is checked on the same generator, so the attack is known to be passable, and
+``placement`` must reproduce its q-values exactly (``test_placement_equals_the_reference_rule``). R
+= ``replicates_fast.placement`` (marker ``calibration``) or ``replicates_full.placement``
+(``calibration_full``); k = ``se_multiplier``. Gated by ``_criteria.calibrate`` (ADR-0015 two-block
+confirmation, sharding): replicate i of stream ``placement.attack_same_db.<rule>.<scenario>`` draws
+from ``replicate_rng(stream, i)``.
 """
 
 from __future__ import annotations
@@ -139,9 +143,10 @@ def _q_reference(costs: pd.DataFrame) -> np.ndarray:
     shortcut = db & (costs["search_db"] == "same").to_numpy() & (m_t == 0)
     searched = ~shortcut
     pi_dn = costs["pi_denovo"].to_numpy(dtype=float)
-    pep = costs["pep"].to_numpy(dtype=float)
-    pi_db = float(np.mean(pep[searched & db])) if (searched & db).any() else 1.0
-    pi = np.where(db, pi_db, np.where(np.isnan(pi_dn), 1.0, pi_dn))
+    pop = searched & db
+    pi_db, c_db = _pi_adr0019(costs[pop])
+    pi = np.where(np.isnan(pi_dn), 1.0, pi_dn)
+    pi[pop] = pi_db
     q = np.full(len(costs), np.nan)
     q[shortcut] = 0.0
     for src in (db, ~db):
@@ -150,8 +155,34 @@ def _q_reference(costs: pd.DataFrame) -> np.ndarray:
             continue
         is_t, is_d = s & (m_t == 0), s & (m_d == 0)
         e_t, e_d = costs["e_target"].to_numpy(), costs["e_decoy"].to_numpy()
-        q[is_t] = stratum_qvalues(e_t[is_t], e_d[is_d], pi[is_d], float(pi[s].max()))
+        c = c_db if src is db else float(pi[s].max())
+        q[is_t] = stratum_qvalues(e_t[is_t], e_d[is_d], pi[is_d], c)
     return q
+
+
+CLASSES = [(7, 7), (8, 8), (9, 9), (10, 11), (12, 14), (15, 19), (20, 40)]
+
+
+def _pi_adr0019(costs: pd.DataFrame) -> tuple[np.ndarray, float]:
+    """ADR-0019 per-peptide π̂ (its length class; 1 outside every class) and c = max over the
+    classes present: π̂_l = 1 if r_l = 1, else min(1, U95(k_l, n_l)/(1 - r_l))."""
+    from scipy.stats import beta
+
+    L = costs["length"].to_numpy()
+    mt0 = (costs["m_target"] == 0).to_numpy()
+    md0 = (costs["m_decoy"] == 0).to_numpy()
+    pi = np.ones(len(costs))
+    present = []
+    for lo, hi in CLASSES:
+        s = (lo <= L) & (hi >= L)
+        n = int(s.sum())
+        if n == 0:
+            continue
+        k, r = int(n - mt0[s].sum()), float(md0[s].mean())
+        u = 1.0 if k >= n else float(beta.ppf(0.95, k + 1, n - k))
+        pi[s] = 1.0 if r >= 1.0 else min(1.0, u / (1.0 - r))
+        present.append(pi[s][0])
+    return pi, (max(present) if present else 1.0)
 
 
 SUITES = [
@@ -198,3 +229,13 @@ def test_attack_same_db_reference_rule_passes(scenario: str, suite: str) -> None
     mean = gate.mean()  # over the replicates run here (block 1 unsharded)
     levels = C.load_tolerances().levels
     assert mean is None or mean[-1] > 0.5 * levels[-1]
+
+
+@pytest.mark.calibration
+@pytest.mark.parametrize("scenario", sorted(SCENARIOS))
+def test_placement_equals_the_reference_rule(scenario: str) -> None:
+    """ADR-0019 through ``placement``: on one replicate of each scenario its q-values are the
+    reference rule's (stratum 0 only here: every hit is exact)."""
+    costs, _ = SCENARIOS[scenario](C.replicate_rng(f"placement.attack_same_db.equal.{scenario}", 0))
+    np.testing.assert_allclose(_q_placement(costs), _q_reference(costs), rtol=1e-9,
+                               equal_nan=True)  # fmt: skip

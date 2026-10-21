@@ -10,9 +10,12 @@ Conventions pinned here (docs/specs/M3-10-placement-fdr.md, lead decisions in M3
 - ``placement``: each decoy hit carries its own peptide's pi; c = max pi over the searched
   peptides of the decoy type (all its rows except ``same_db`` exact peptides in stratum 0; 1 if
   none; m >= 1 -> 1).
-- pi_wrong: database m = 0 -> ``pi_wrong_database`` (mean PEP over peptides with PEP, else max
-  q <= ``input.q_value_max``, else 1); de novo m = 0 -> the peptide's ``pi_denovo`` (1 if missing);
-  m >= 1 -> 1.
+- pi_wrong: database m = 0 -> ADR-0019 (supersedes §7.2.5 step 4): the π̂ of the peptide's length
+  class from the exact-match shares, min(1, U95(k, n)/(1 - r)) over the stratum-0 database
+  population (all database rows except ``same_db`` exact peptides); PEP and q-values are not read
+  (tests/unit/test_placement_fdr_adr0019.py); de novo m = 0 -> the peptide's ``pi_denovo`` (1 if
+  missing); m >= 1 -> 1. ``pi_wrong_database`` (the superseded mean-PEP rule) was deleted with
+  M3-25 lead decision 11; ``input_prefiltered`` computes its own mean PEP over P.
 - Lists are per decoy type: database peptides vs reverse decoys, de novo vs shuffle decoys.
 - ``search_db = same`` with ``m_target = 0``: placement_q = 0, flag ``same_db``, left out of the
   stratum-0 target and decoy lists.
@@ -43,7 +46,6 @@ from giap.mapping.hits import hits_frame
 from giap.mapping.placement_fdr import (
     PeptideCosts,
     best_costs,
-    pi_wrong_database,
     placement,
     stratum_qvalues,
 )
@@ -52,6 +54,14 @@ from giap.stats.tda import tda_qvalues
 ALPHABET19 = "ACDEFGHKLMNPQRSTVWY"
 PREFIX = "MDEFGHKLNPQRSTVWYACDEFGHKLMNPQRSTVWY"
 CLASS_LABELS = ["7", "8", "9", "10-11", "12-14", "15-19", "20-40"]
+
+
+def u0(n: int) -> float:
+    """ADR-0019 class π̂ with k = 0, r = 0: one-sided 95 % Clopper-Pearson bound 1 - 0.05^(1/n)."""
+    return 1.0 - 0.05 ** (1.0 / n)
+
+
+U_1_3 = 0.8646496378284161  # U95(k = 1, n = 3) = beta.ppf(0.95, 2, 2); 3u^2 - 2u^3 = 0.95
 FDR_COLUMNS = {
     "length_class",
     "n_diff",
@@ -245,48 +255,6 @@ def test_constant_pi_equals_m4_tda_qvalues(pi: float) -> None:
     np.testing.assert_allclose(q, tda_qvalues(-et, -ed, pi=pi, plus_one=True), rtol=1e-12)
 
 
-# ------------------------------------------------------------------------- pi_wrong_database
-
-
-def _pep_table(pep: Sequence[float | None], q: Sequence[float | None]) -> pd.DataFrame:
-    return pd.DataFrame(
-        {
-            "peptide": [pep_of(i) for i in range(len(pep))],
-            "pep": pd.array([np.nan if v is None else v for v in pep], dtype="float64"),
-            "q_value": pd.array([np.nan if v is None else v for v in q], dtype="float64"),
-        }
-    )
-
-
-def test_example5_mean_pep() -> None:
-    t = _pep_table([0.001, 0.003, 0.008], [0.001, 0.001, 0.001])
-    assert pi_wrong_database(t, 0.01) == pytest.approx(0.004, rel=1e-12)
-
-
-def test_example6_max_q_within_cap() -> None:
-    t = _pep_table([None, None, None], [0.001, 0.0098, 0.03])
-    assert pi_wrong_database(t, 0.01) == pytest.approx(0.0098, rel=1e-12)
-
-
-def test_example7_neither_pep_nor_q() -> None:
-    t = _pep_table([None, None], [None, None])
-    assert pi_wrong_database(t, 0.01) == 1.0
-
-
-def test_mean_pep_over_peptides_with_pep_only() -> None:
-    t = _pep_table([0.002, None, 0.004], [None, 0.005, None])
-    assert pi_wrong_database(t, 0.01) == pytest.approx(0.003, rel=1e-12)
-
-
-def test_no_q_within_cap_falls_back_to_one() -> None:
-    t = _pep_table([None, None], [0.02, 0.03])
-    assert pi_wrong_database(t, 0.01) == 1.0
-
-
-def test_empty_table_gives_one() -> None:
-    assert pi_wrong_database(_pep_table([], []), 0.01) == 1.0
-
-
 # --------------------------------------------------------------------------------- best_costs
 
 
@@ -428,47 +396,57 @@ def test_placement_example3_stratum1_ignores_pep() -> None:
     assert float(fdr_row(fdr, 1, "9")["pi_wrong"]) == 1.0
 
 
-def test_placement_example4_stratum0_pi_from_pep_inclusive_alpha() -> None:
+def test_placement_example4_stratum0_small_list_pi_one() -> None:
+    """ADR-0019: class 9 has n = 4, k = 1 (the decoy-only peptide), r = 1/4: U95(1, 4)/0.75 > 1, so
+    π̂ = 1 whatever the PEP: FDR = 1/1, 1/2, (1 + 1)/3 -> q = 0.5, 0.5, 2/3."""
     rows = targets([0.001, 0.002, 0.003], 0, pep=0.02) + decoys([0.0025], 0, pep=0.02)
     per, fdr = run(rows)
     names = [r["peptide"] for r in rows[:3]]
-    np.testing.assert_allclose(q_of(per, names), [0.01, 0.01, 0.02 * 2 / 3], rtol=1e-12)
-    acc = per.set_index("peptide").loc[names, "accepted"].astype(bool).tolist()
-    assert acc == [True, True, False]
+    np.testing.assert_allclose(q_of(per, names), [0.5, 0.5, 2 / 3], rtol=1e-12)
+    assert not per.set_index("peptide").loc[names, "accepted"].astype(bool).any()
     row = fdr_row(fdr, 0, "9")
-    assert float(row["pi_wrong"]) == pytest.approx(0.02, rel=1e-12)
+    assert float(row["pi_wrong"]) == pytest.approx(1.0, rel=1e-12)
     assert int(row["targets"]) == 3 and int(row["decoys"]) == 1
-    assert float(row["fdr_stratum"]) == pytest.approx(0.02 * 2 / 3, rel=1e-12)
-    assert int(row["n_accepted"]) == 2
+    assert float(row["fdr_stratum"]) == pytest.approx(2 / 3, rel=1e-12)
+    assert int(row["n_accepted"]) == 0
 
 
-def test_placement_example5_mean_pep_enters_stratum0() -> None:
+def test_placement_alpha_is_inclusive() -> None:
+    """q exactly at ``stats.alpha.placement`` is accepted (stratum 1: q = 2/100)."""
+    rows = targets(np.linspace(1e-6, 1e-3, 100), 1) + decoys([1e-9], 1)
+    per, _ = run(rows, alpha=0.02)
+    names = [r["peptide"] for r in rows[:100]]
+    np.testing.assert_allclose(q_of(per, names), 0.02, rtol=0)
+    assert per.set_index("peptide").loc[names, "accepted"].astype(bool).all()
+
+
+def test_placement_example5_pep_no_longer_enters_stratum0() -> None:
+    """ADR-0019 replaces mean PEP: 3 exact targets, no decoys -> π̂ = c = U95(0, 3), q = c/3."""
     peps = [0.001, 0.003, 0.008]
     rows = [
         {"peptide": pep_of(i), "m_target": 0, "e_target": 0.001 * (i + 1), "pep": p}
         for i, p in enumerate(peps)
     ]
     per, fdr = run(rows)
-    # no decoys: FDR(e_k) = 0.004 / k -> q = 0.004/3 for all
-    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in rows]), 0.004 / 3, rtol=1e-12)
-    assert float(fdr_row(fdr, 0, "all")["pi_wrong"]) == pytest.approx(0.004, rel=1e-12)
+    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in rows]), u0(3) / 3, rtol=1e-9)
+    assert float(fdr_row(fdr, 0, "all")["pi_wrong"]) == pytest.approx(u0(3), rel=1e-9)
 
 
-def test_placement_example6_max_q_enters_stratum0() -> None:
+def test_placement_example6_max_q_no_longer_enters_stratum0() -> None:
     rows = [
         {"peptide": pep_of(i), "m_target": 0, "e_target": 0.001 * (i + 1), "q_value": q}
         for i, q in enumerate([0.001, 0.0098, 0.03])
     ]
     per, fdr = run(rows, q_value_max=0.01)
-    assert float(fdr_row(fdr, 0, "all")["pi_wrong"]) == pytest.approx(0.0098, rel=1e-12)
-    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in rows]), 0.0098 / 3, rtol=1e-12)
+    assert float(fdr_row(fdr, 0, "all")["pi_wrong"]) == pytest.approx(u0(3), rel=1e-9)
+    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in rows]), u0(3) / 3, rtol=1e-9)
 
 
-def test_placement_example7_no_pep_no_q_pi_one() -> None:
+def test_placement_example7_no_pep_no_q_uses_the_class_estimate() -> None:
     rows = targets([0.001, 0.002], 0)
     per, fdr = run(rows)
-    assert float(fdr_row(fdr, 0, "all")["pi_wrong"]) == 1.0
-    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in rows]), 0.5, rtol=1e-12)
+    assert float(fdr_row(fdr, 0, "all")["pi_wrong"]) == pytest.approx(u0(2), rel=1e-9)
+    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in rows]), u0(2) / 2, rtol=1e-9)
 
 
 def test_placement_example8_same_db() -> None:
@@ -483,8 +461,10 @@ def test_placement_example8_same_db() -> None:
     assert float(d[same_exact["peptide"]]["placement_q"]) == 0.0
     assert "same_db" in flags_of(d[same_exact["peptide"]]["flags"])
     assert bool(d[same_exact["peptide"]]["accepted"])
-    # neither its target nor its decoy hit enters stratum 0: q = 1/1, 1/2 -> 0.5, 0.5
-    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in others]), [0.5, 0.5], rtol=1e-12)
+    # neither its target nor its decoy hit enters stratum 0. ADR-0019 population: the twin
+    # (m_T = 1, not exact) stays in it, so class 9 has n = 3, k = 1, r = 0 -> c = U95(1, 3);
+    # FDR = c/1, c/2 -> q = c/2, c/2
+    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in others]), U_1_3 / 2, rtol=1e-9)
     tot0 = fdr_row(fdr, 0, "all")
     assert int(tot0["targets"]) == 2 and int(tot0["decoys"]) == 0
     # the 1-difference twin goes through steps 1-4 (alone in stratum 1: q = 1/1)
@@ -557,8 +537,9 @@ def test_lists_are_per_decoy_type() -> None:
     db = targets([0.001, 0.002], 0)
     dn_decoy = decoys([0.0005], 0, source="denovo")
     per, fdr = run(db + dn_decoy)
-    # the shuffle decoy does not enter the database (reverse) list: q = 1/1, 1/2 -> 0.5, 0.5
-    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in db]), [0.5, 0.5], rtol=1e-12)
+    # the shuffle decoy does not enter the database (reverse) list (nor its π̂ population):
+    # π̂ = U95(0, 2), FDR = c/1, c/2 -> q = c/2
+    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in db]), u0(2) / 2, rtol=1e-9)
     assert int(fdr_row(fdr, 0, "all", "reverse")["decoys"]) == 0
     sh = fdr_row(fdr, 0, "all", "shuffle")
     assert int(sh["decoys"]) == 1 and int(sh["targets"]) == 0
