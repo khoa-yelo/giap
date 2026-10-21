@@ -29,7 +29,7 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 ## Current milestone
 M0–M1: done. M2: done (21/21; M2-21 closed it, #107).
 M3: 22/24 — M3-24 needs DIA-NN from Khoa; ADR-0019 implementation is the last code item.
-M4: 19/21 after #117 — M4-20, M4-21 not started.
+M4: 19/21 after #117 — M4-20 in review (PR #133), M4-21 not started.
 M5 (autocorrelation and islands): designed (#108, 11 issues); M5-01 merged, M5-02/03/04 in review.
 M6–M11: not designed yet.
 
@@ -63,6 +63,29 @@ bound of 0.119 at α 0.10 (0.055 / 0.011 at 0.05 / 0.01), all on block 1, reprod
 the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise decision 34 expected, no
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
+
+M4-20 (PR #133, implementer step done, branch m4/integration-golden): `giapsim.fixtures.build_m4_fixture`
+(sim50k / sim1000 / sim4500, `layout=` kwarg, prophage + AMR planted from the actual gene count),
+decision 2 `tables/genes.tsv` written by `run_detectability` (`write_genes_tsv` had no caller at all),
+decision 3 `gene_table` output `tier_summary` → optional `context_stats` input (the `tier` section and
+the MAYU `fdr_2pep` curve now reach `tables/detection_summary.tsv`), and the golden tables
+`tests/data/golden/sim50k/m4/` at α_identification = 0.05 (51 genes, 29 detected, 18 tier rows).
+Fast suite Slurm **1863107: 8855 passed, 3 failed**; benchmark `m4_chain` on sim4500 recorded in
+benchmarks/baseline.json (3.81 / 5.36 / 9.94 s of 120 / 300 / 600 s budgets, wheat-05, jobs 1863121 and
+1863136). The two open items are **for the lead / test-author, not the implementer**:
+- `tests/golden/test_m4_golden.py` fails off the recording machine: `regions_stats.tsv` differs in the
+  last 1-2 ulp of `hl_shift_log2` / `effect` / CI (…42064 on iron-15 vs …41353 on barley-01); the other
+  three golden tables are byte-identical. Cause measured with a probe (job 1863136): `residualise`
+  (ADR-0018 decision 1) calls `np.linalg.lstsq`, and LAPACK gives different last bits per CPU
+  (iron-15 EPYC 7742 `0x1.85e19f7a40364p-6` vs wheat-05 Xeon 6148 `0x1.85e19f7a40377p-6` for the same
+  design); plain numpy sums agree bit for bit, and pinning BLAS threads does not help. A byte-exact
+  golden of a table derived from LAPACK cannot hold across machines — needs a decision (round the
+  `regions_stats` writer, replace the OLS with a BLAS-free solve, or compare the float columns
+  numerically).
+- `tests/integration/test_m4_gate.py::test_m4_gate_evidence_is_recorded` fails in any full fast-suite
+  run: the fast calibration suite itself creates `local/logs/calibration/`, so the gate test stops
+  skipping and then demands the nightly full-R records a fast run never writes (decision 6 keeps the
+  gate on the nightly full run).
 
 ADRs accepted today by Khoa: ADR-0019 (stratum-0 π̂ per length class, Clopper–Pearson upper bound, no PEP),
 ADR-0020 (autocorrelation: re-detrend per permutation, residual join count, CI NA) **+ Amendment 1**
