@@ -131,7 +131,7 @@ def test_islands_frame_columns_and_constants() -> None:
     assert (out["method"] == idat.METHOD).all()
     assert (out["null_model"] == idat.NULL_MODEL).all()
     assert out["q_value"].map(idat.is_na).all()
-    assert np.array_equal(out["stat"].to_numpy(float), out["scan_s"].to_numpy(float))
+    assert (out["stat"] == idat.STAT).all()  # §9.2: the name, not the value (decision 6)
     assert list(out["island_id"]) == [f"ISL_{i + 1}" for i in range(len(out))]
     assert (out["n_perm"].to_numpy(int) == cfg.stats.bootstrap).all()
     idat.assert_matches_oracle(out, idat.oracle_islands(genes, tus, reps, cfg, 11)[0])
