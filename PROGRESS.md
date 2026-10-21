@@ -8,7 +8,7 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 85/91 done (93 %), 2 running · generated 2026-10-21 11:08 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 85/91 done (93 %), 2 running · generated 2026-10-21 12:54 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -63,6 +63,30 @@ bound of 0.119 at α 0.10 (0.055 / 0.011 at 0.05 / 0.01), all on block 1, reprod
 the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise decision 34 expected, no
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
+
+M5-09 (branch `m5/context-tables`, **implementer step done**, 2026-10-21, PR pending): the two
+tables, the gene context columns and the step extension. New `giap.io.context_tsv` (writers by value
+through M1-04 `write_tsv`, readers typed from the schema; islands 1-based closed with `end` kept
+unwrapped), `giap.context.vocab.CONTEXT_FLAGS` (no `uncalibrated`), `giap.context.diagnostics`
+(lead decision 1: l-hat / l' / lag-1 Moran's I as NA-never-0, `render_l_hat`,
+`calibration_applies`), `giap.context.tables` (the spec's row assembly), the two Frictionless
+schemas, and `context_stats` gaining C15 `features` (run flag `layer_missing:features`) and the
+outputs `autocorrelation`, `islands`, `gene_context`, `island_diagnostics` and `genes_tsv`
+(lead decision 3). `giap.context.oriter` now emits `lag` as the schema's nullable `Int64`, so the
+concatenated table keeps integer lags. `giap.steps.registry` gained `optional_outputs` so the new
+keys could be declared without rewiring M4-18's registry-path callers (backlog: no unit test yet).
+CONTEXT publishes `tables/autocorrelation.tsv`, `tables/islands.tsv` and `tables/genes.tsv` and
+takes C15 from the annotation channel's second file, so no 11th `take:` was needed; nf-test
+context + main + main_genetable_context all pass (stub). Fast suite **9053 passed, 29 skipped,
+9 failed** (Slurm 1863383, 24:35, coverage 96 %). The 9 are **two test bugs, reported not
+changed**: (a) the islands `stat` fixtures in `tests/unit/io/test_context_tsv.py` and
+`tests/property/test_context_tsv_props.py` use the string `"scan_max"`, while
+`context_tables_data.ISLAND_FLOATS`, the schema assertion in the same file and the merged M5-06
+producer (`tests/unit/context/test_islands.py:134` pins `stat == scan_s`) all make it a number;
+(b) `context_tables_data.flag_set` does not read the `NA` cell of a flagless row as empty, which
+contradicts `test_empty_flags_are_na`. With four one-line fixes (`"stat"` -> the numeric scan
+statistic in three places, `flag_set` dropping `"NA"`) all 145 M5-09 tests pass — verified locally
+and reverted.
 
 M5-09 (branch `m5/context-tables`, **test-author step done**, 2026-10-21): failing tests for
 `autocorrelation.tsv`, `islands.tsv`, the gene context columns and the `context_stats` extension —
