@@ -263,6 +263,18 @@
       "regions"
     ]
   },
+  "sensitivity": {
+    "inputs": [
+      "gene_table",
+      "region_genes",
+      "regions",
+      "replicons"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "sensitivity"
+    ]
+  },
   "sixframe_index": {
     "inputs": [
       "genome",

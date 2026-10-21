@@ -186,10 +186,12 @@ _RUN_INPUTS = [
     "reference_peptides",
     "replicon_depth",
 ]
-# params.inputs key -> (raw input, preflight work file): MAPPING reads the normalised files
+# params.inputs key -> (raw input, preflight work file): MAPPING and GENETABLE read the
+# normalised files (the gene table's C10 abundance is the normalised Parquet, MVP-01)
 _NORM_INPUTS = {
     "peptides": ("peptides", "peptides.norm.parquet"),
     "proteins_long": ("proteins", "proteins.long.faa"),
+    "abundance": ("abundance", "abundance.norm.parquet"),
 }
 
 
@@ -336,6 +338,9 @@ def _run_preflight(
     for key, (raw, name) in _NORM_INPUTS.items():
         if raw in inputs and (work / name).is_file():
             roots[key] = work / name
+    report_json = outdir / "preflight" / "preflight.json"  # gene_table's abundance_scale (M1-12)
+    if report_json.is_file():
+        roots["preflight"] = report_json
     return roots
 
 

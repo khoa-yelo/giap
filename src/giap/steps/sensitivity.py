@@ -7,6 +7,10 @@ variant's gene table comes from ``variant_genes``; ``single_peptide_detected`` a
 call from the same family stream ``for_step("sensitivity/<family>", seed)`` (common random
 numbers, lead decision 2). Tables a family declares as keyword parameters (``replicons``,
 ``regions``, ``region_genes``) are bound with ``functools.partial`` (lead decision 5).
+
+The registered step ``sensitivity`` (M4-19 decision 16, wired by MVP-01) takes those files as
+explicit inputs instead of a work directory, so ``giap run`` can call it like any other step;
+``run_sensitivity`` keeps the work-directory form for the local executor and the tests.
 """
 
 from __future__ import annotations
@@ -28,8 +32,9 @@ from giap.io.sensitivity_tsv import write_sensitivity_tsv
 from giap.io.work_tables import default_paths, load_tables
 from giap.rng import for_step
 from giap.steps.gene_table import check_issues
+from giap.steps.registry import InputPath, StepContext, step
 
-__all__ = ["run_sensitivity", "with_overrides"]
+__all__ = ["run_sensitivity", "sensitivity", "with_overrides"]
 
 _log = logging.getLogger("giap.steps.sensitivity")
 #: C1 / C7 / C8, bound to the families that take them (lead decisions 5, 12, 13)
@@ -71,23 +76,19 @@ def _bind(family: S.Family, tables: Mapping[str, pd.DataFrame]) -> S.Family:
     return functools.partial(family, **kw) if kw else family
 
 
-def run_sensitivity(work_dir: Path, cfg: GiapConfig) -> Path | None:
-    """Rerun every registered family under every variant; writes and returns
-    ``work_dir/tables/sensitivity.tsv`` (``None`` when ``output.sensitivity = off``)."""
-    out = work_dir / "tables" / "sensitivity.tsv"
-    out.unlink(missing_ok=True)  # a failed or ``off`` run never leaves a stale table
-    if cfg.output.sensitivity == "off":
-        _log.info(
-            "sensitivity: output.sensitivity = off; families %s not rerun", sorted(S.FAMILIES)
-        )
-        return None
-    genes = read_genes_parquet(work_dir / "genetable" / "genes.parquet")
+def _sensitivity(gene_table: Path, tables: Mapping[str, Path], cfg: GiapConfig, out: Path) -> None:
+    """Rerun every registered family under every variant and write the §8.6 table to ``out``.
+
+    ``gene_table`` is M4-15's ``genes.parquet``; ``tables`` maps the C1 / C7 / C8 contract keys
+    (``_TABLES``) to their files.
+    """
+    genes = read_genes_parquet(gene_table)
     tier = str(genes["detection_tier"].iloc[0]) if len(genes) else ""
     variants = S.variants(cfg, tier)
     if any(v.name == "top3" for v in variants) and not genes["top3_log2"].notna().any():
         _log.info("sensitivity: top3 skipped: no peptide intensities")
         variants = [v for v in variants if v.name != "top3"]
-    tables, issues = load_tables(default_paths(work_dir), _TABLES)
+    frames, issues = load_tables(tables, _TABLES)
     check_issues(issues, _log, "sensitivity")
     base = with_overrides(cfg, {"stats.permutations": S.SENSITIVITY_B})
     runs: list[tuple[str, pd.DataFrame, GiapConfig]] = []
@@ -98,11 +99,50 @@ def run_sensitivity(work_dir: Path, cfg: GiapConfig) -> Path | None:
     primary: dict[str, frozenset[str]] = {}
     reruns: dict[tuple[str, str], frozenset[str]] = {}
     for name, family in S.FAMILIES.items():
-        fam = _bind(family, tables)
+        fam = _bind(family, frames)
         primary[name] = fam(genes, base, for_step(f"sensitivity/{name}", cfg.seed))
         for vname, g, vcfg in runs:
             reruns[(name, vname)] = fam(g, vcfg, for_step(f"sensitivity/{name}", cfg.seed))
     out.parent.mkdir(parents=True, exist_ok=True)
     write_sensitivity_tsv(out, S.sensitivity_rows(primary, reruns))
     _log.info("sensitivity: %d rows (%d variants)", len(reruns), len(variants))
+
+
+def run_sensitivity(work_dir: Path, cfg: GiapConfig) -> Path | None:
+    """Rerun every registered family under every variant; writes and returns
+    ``work_dir/tables/sensitivity.tsv`` (``None`` when ``output.sensitivity = off``)."""
+    out = work_dir / "tables" / "sensitivity.tsv"
+    out.unlink(missing_ok=True)  # a failed or ``off`` run never leaves a stale table
+    if cfg.output.sensitivity == "off":
+        _log.info(
+            "sensitivity: output.sensitivity = off; families %s not rerun", sorted(S.FAMILIES)
+        )
+        return None
+    _sensitivity(work_dir / "genetable" / "genes.parquet", default_paths(work_dir), cfg, out)
     return out
+
+
+def _one(p: InputPath) -> Path:
+    if isinstance(p, list):
+        raise ValueError(f"expected one path, got {len(p)}")
+    return p
+
+
+@step("sensitivity", inputs=["gene_table", *_TABLES], outputs=["sensitivity"])
+def sensitivity(ctx: StepContext) -> None:
+    """Gene table + C1 / C7 / C8 → the §8.6 sensitivity table (M4-19 decision 16).
+
+    ``output.sensitivity = off`` writes the table with its header and no row: a declared step
+    output must exist, so the pipeline cannot hand a half-written run to the next step.
+    """
+    out = ctx.outputs["sensitivity"]
+    if ctx.cfg.output.sensitivity == "off":
+        ctx.log.info(
+            "sensitivity: output.sensitivity = off; families %s not rerun, %s has no rows",
+            sorted(S.FAMILIES), out.name,
+        )  # fmt: skip
+        out.parent.mkdir(parents=True, exist_ok=True)
+        write_sensitivity_tsv(out, S.sensitivity_rows({}, {}))
+        return
+    tables = {k: _one(v) for k, v in ctx.inputs.items() if k in _TABLES}
+    _sensitivity(_one(ctx.inputs["gene_table"]), tables, ctx.cfg, out)
