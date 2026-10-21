@@ -89,3 +89,24 @@ prepared only, not run in M3 · estimate ≈ 250 code lines (scripts)
 6. **Nothing is run against real data in M3.** The kit is prepared only; the pilot runs at M10. A
    `--dry-run`/`--help`-level smoke check of the container inside the sbatch is allowed and is the only
    DIA-NN execution in this issue.
+7. **`--met-excision` stays out** (confirming the test-author). GIAP's digest keeps the initiator Met, so
+   enabling it in DIA-NN would create peptides GIAP never proposes and break the A1/A2 comparison. The
+   README lists it under deviations from the §15.2 template, with this reason.
+8. **`giap makedb` must take the genome.** `build_strain_db` calls `parse_bakta_json(opts.annotation)`
+   without `opts.genome`, so the committed Nissle JSON (sequences without nucleotides) fails. The
+   implementer plumbs `opts.genome` through in `src/giap/makedb/build.py` and adds a unit test; §15.2
+   step 2's command gains `--genome`. The genome is
+   `local/data/genomes/nissle1917/GCA_043228065.1_ASM4322806v1_genomic.fna.gz` (uncommitted); the README
+   records the accession and how to fetch it, and `validation/pilot/db_a2/` is committed as the spec says,
+   so the kit does not need the FASTA to be present.
+9. **The DIA-NN version does not go in `makedb_manifest.json`** (amending decision 2): `makedb` knows
+   nothing about DIA-NN. The README is the record for the version string, the image path and its sha256
+   (`1946452d56d2fb0f66e05ced473df88e53484e28040f1ecbd83c4a43405a6381`, computed 2026-10-20).
+10. **Id map:** use the name `makedb` actually writes, `db_id_map.tsv`; the spec's `id_map.tsv` is a
+    typo. (The M2-20 `annotation/id_map.tsv` is a different file.)
+11. **Downloads stay https/ftps** (R6). If the only iProX route for PXD078459 turns out to be plain
+    `ftp://`, the implementer marks the URLs clearly for Khoa to confirm at M10 rather than weakening the
+    rule; the URLs cannot be verified from here (no network in tests).
+12. **`needs_diann` in tests/conftest.py** also accepts `${DIANN_SIF:-<decision 1 path>}`, so the marker
+    can detect the 2.3.1 image; the `$GIAP_TOOLS_DIR/diann-2.7.0*` probe stays for a future unpacked
+    build.
