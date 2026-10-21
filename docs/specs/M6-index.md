@@ -276,3 +276,30 @@ array within R14. Only 11–12 need the network.
 1. **RegulonDB TLS** (above): may the GlobalSign intermediate be fetched from GlobalSign and pinned,
    or should GIAP wait for RegulonDB to publish a complete chain? Nothing else unblocks M6-11.
 2. ADR-0022 is a protected-file change and needs Khoa's acceptance once M6-12 produces numbers.
+
+## Lead decisions on the designer's questions (2026-10-21)
+1. **M6-05 Q3 — a t p-value and a `P(miss)` probability in one BH family.** The designer is right that
+   `P(miss)` cannot be uniform under any null, so BH over the mixture is not justified. Do **not** ship
+   that family: in pass 1 the one-detected branch is already `unestimated (no_detection_limit_model)`, so
+   nothing mixes. When M6-02 turns it on, `P(miss)` is reported **with no q-value** and stays out of the
+   BH family, unless M6-09 attack C shows the mixture is safe — in which case an ADR records why. This
+   reverses the spec's reading deliberately; the spec predates the observation.
+2. **M6-04 Q1 — extend `giap.annotate.operons.adjacent_pairs` with `same_strand=False`.** Accepted. One
+   definition of adjacency and origin wrapping beats two that can drift apart.
+3. **M6-08 Q1 — `annotate.nf` emits `promoter_windows`, `terminators`, `tx_rates`.** Accepted; re-recording
+   the M2 fixtures to teach `context_layers` a new output costs more and buys nothing.
+4. **M6-07 Q1 — keep flag rows 3 and 5 when there is no terminator layer**, with `layer_missing:terminators`
+   in the row's flags. Suppressing them would silently lose every `novel_operon_candidate` on runs without
+   TerminatorNet; a visible flag beats a missing row.
+5. **M6-02 Q1 — add `work/peptide_runs.parquet` as optional C16.** Accepted.
+6. **New flag values accepted** (`too_few_op_pairs`, `too_few_no_pairs`, `no_detection_limit_model`,
+   `unestimated`), added through the schema. No `uncalibrated` anywhere.
+7. **Backlog hygiene:** the stop-codon readthrough / `cterm_extension` line is M7 work; re-file it there.
+
+## RegulonDB is unblocked (2026-10-21)
+Not an outage: the server omits its TLS intermediate. The GlobalSign intermediate verifies against
+`GlobalSign Root R46`, already in FarmShare's trust store, and with the chain completed the site and
+`/datasets` return HTTP 200 (verified in-session). **Khoa approved completing the chain.** So **M6-11 and
+M6-12 are no longer blocked** — `validation/fetch_regulondb.py` completes the chain itself and pins the
+intermediate (sha256 d160e2de…63f9, valid to 2029-06-23); never disable verification. Note for ADR-0022:
+RegulonDB is incomplete, so the terminator precision is a lower bound (spec §15.4).
