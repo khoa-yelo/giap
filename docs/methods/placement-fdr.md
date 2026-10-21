@@ -610,7 +610,8 @@ the peptide is FDR-controlled), but it loses the `same_db` shortcut; `auto` must
 
 ## Cross-strain input and run collapse (ADR-0019, M3-25)
 
-**Status: statistician sign-off pending.** Decision and evidence:
+**Status:** signed off by the statistician (M3-25 review of #124, 2026-10-20; ADR-0019 decisions
+1–5). Decision and evidence:
 `docs/adr/ADR-0019-stratum0-pi-hat-exact-share.md` (accepted by Khoa 2026-10-20; Slurm 1860123,
 1860138, 1860180). This section supersedes the mean-PEP row of "π̂_wrong sources" for database
 input in stratum 0 and resolves the item forwarded from ADR-0010 (π̂ correlated with the
@@ -662,13 +663,23 @@ or binding lists lose up to ~15 % power.
 k is ~0 by construction and no genome-based rule can be calibrated — mean PEP included (FDP 0.061
 at q = 0.01, δ = 0.2). `placement` therefore raises the run warning `input_prefiltered` when k
 falls below the 0.001 quantile of Binomial(n, mean PEP × (1 − r)) over P pooled; this is the one
-place the row-level mean PEP is still read (`pi_wrong_database` is kept for it).
+place the row-level mean PEP is still read, and it is read directly, not through the old
+`pi_wrong_database` (whose max-q and 1.0 fallbacks would misfire here). The detector inherits
+PEP's weakness in one direction: a **deflated** PEP (the §5.3 min over runs, defect 2 above, or
+an engine that under-reports) lowers the expected count n × mean PEP × (1 − r) towards the
+realised k, so the test loses power and a genuinely pre-filtered input can pass unwarned. It
+never fires spuriously for that reason — too small an expectation only hides the warning — and
+the π̂ it guards does not read PEP at all. An inflated PEP is the conservative direction.
 
 **Reporting.** `mapping_fdr.tsv` columns are unchanged, with `pi_wrong` = (W + c)/(D + 1) now
-reflecting the class π̂. The class table itself is the `placement` step's `stratum0_classes`
-output (`mapping/stratum0_classes.parquet`), an optional input of `context_stats`, which turns it
+reflecting the class π̂. Read the per-class π̂ from the class table, **not** from `mapping_fdr`:
+a class with no decoy hit has W = 0 and D = 0, so its `pi_wrong` row is c, the largest class
+estimate, not that class's π̂_ℓ. The class table is the `placement` step's `stratum0_classes`
+output (`mapping/stratum0_classes.parquet`, columns `length_class, n, k, r, upper, pi_wrong`),
+an optional input of `context_stats`, which turns it
 into `detection_summary.tsv` QC rows `stratum0_unmapped_share` = k/n (the §7.5.1
-genome-inconsistent rate of this population), one for the run and one per length class. It sits
+genome-inconsistent rate of this population), one for the run and one per length class, each
+per-class row carrying that class's `upper` as `ci_high`. It sits
 beside `genome_inconsistent_rate`, which measures another population (C9 `other`, non-contaminant,
 over accepted exact placements) and is unchanged.
 
@@ -775,14 +786,22 @@ db-strain suites had 0 false peptides in every list. The de novo error-model sui
   peptides are 7-mers, and the 7-mer class has a no-origin share of 0.22 against 0.031 pooled,
   so a pooled π̂ times all decoy hits under-counts. ADR-0019's per-class π̂ corrects it; the
   statistician's reference rule gives Ŵ0 3.65 vs V0 3.50 over 6 replicates (review of #113,
-  round 2). The FDP stays far below q under mean PEP only because the stratum is large;
+  round 2). **Post-ADR, through `placement`** (M3-25, job 1861430, R = 100): Ŵ0 **4.306** vs
+  V0 **2.75**, SE 0.191, ΣV0 = 275 (floor 100) — the check passes, with a ratio of 1.57 against
+  0.20 under mean PEP. The FDP stays far below q under mean PEP only because the stratum is large;
 - the **related db-strain estimate check**
   (`test_related_dbstrain_stratum0_estimate_covers_false_placements`, full tier, 1 Mb, 5 SNV/kb,
   R = 100). It requires ΣV0 ≥ 30 false stratum-0 placements and mean W0 ≥ mean V0 − 2 SE (SE of V0 − W0 over lists). Observed
   (job 1860995, after the B1 origin fix): ΣV0 = 79, mean V0 0.79, mean W0 0.150, SE 0.099. It was
   a strict xfail until ADR-0019 (exact-match π̂ per length class) was implemented in M3-25. Correct
   identifications that span a strain difference have no exact origin but small PEP, so mean PEP
-  under-counts their exact chance hits (ADR-0019 Context, defect 1).
+  under-counts their exact chance hits (ADR-0019 Context, defect 1). **Post-ADR, through
+  `placement`** (M3-25, job 1861430, R = 100): Ŵ0 **1.551** vs V0 **0.79**, SE 0.107,
+  ΣV0 = 79 (floor 30) — the check passes, with a ratio of 1.96 against 0.19 under mean PEP.
+  Both post-ADR ratios (1.57 and 1.96) sit inside ADR-0019's expected 0.96–2.4 band; the excess
+  over 1 is the Clopper–Pearson bound plus c, and c is set by the most sparsely populated class
+  (a class with k = n forces π̂_ℓ = 1), so most of the conservative margin can come from one
+  small class — read `stratum0_classes` to see which.
 
 **FDR evidence at m ≥ 1 rests on the list-level suites** (`test_placement_fdr_lists.py`,
 `attacks/test_attack_placement_pi.py`), not on these genome suites.

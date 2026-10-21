@@ -181,9 +181,11 @@ def pi_wrong_database(peptides: pd.DataFrame, q_value_max: float) -> float:
     Mean PEP over the peptides with a PEP; otherwise the maximum q-value <= ``q_value_max``;
     otherwise 1.
 
-    Since ADR-0019 (M3-25 lead decision 5) this is **not** the stratum-0 database pi_wrong any
-    more: ``placement`` takes it from ``stratum0_pi_classes``. The function is kept because
-    decision 4's ``input_prefiltered`` warning still needs the row-level mean PEP.
+    Dead code since ADR-0019 (M3-25 lead decision 11): ``placement`` takes the stratum-0 database
+    pi_wrong from ``stratum0_pi_classes``, and decision 4's ``input_prefiltered`` warning means
+    its own mean PEP over P (``_stratum0_pooled``), because the max-q and 1.0 fallbacks here would
+    misfire there. Nothing in ``src/`` calls it; it is due for deletion together with its unit
+    tests in tests/unit/test_placement_fdr.py (a test-author change, R2).
     """
     if len(peptides) == 0:
         return 1.0
@@ -255,7 +257,21 @@ def stratum0_pi_classes(costs: pd.DataFrame, classes: Sequence[Sequence[int]]) -
     pandas.DataFrame
         One row per class in the order of ``classes``, columns ``STRATUM0_CLASS_COLUMNS``. An
         empty class has n = k = 0 and NaN ``r``, ``upper`` and ``pi_wrong``.
+
+    Raises
+    ------
+    ValueError
+        When ``classes`` is empty, a class is not an inclusive ``[lo, hi]`` pair, or ``costs``
+        lacks ``length``, ``m_target`` or ``m_decoy``.
     """
+    if not len(classes):
+        raise ValueError("stratum0_pi_classes needs at least one length class")
+    for item in classes:
+        if len(item) != 2 or item[0] > item[1]:
+            raise ValueError(f"length class {list(item)} is not an inclusive [lo, hi] range")
+    missing = [c for c in ("length", "m_target", "m_decoy") if c not in costs.columns]
+    if missing:
+        raise ValueError(f"costs lacks the column(s) {missing} of the best_costs schema")
     bounds = [[int(lo), int(hi)] for lo, hi in classes]
     labels = length_class_labels(bounds)
     length = pd.to_numeric(costs["length"], errors="coerce").to_numpy(dtype=np.float64)

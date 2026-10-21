@@ -21,8 +21,8 @@ and Consequences.
 4. **`input_prefiltered`:** computed on P's collapsed PEP (what `placement` actually sees), pooled over
    all classes (n, k, r), not per class. It is raised through the existing run-warning mechanism, the
    same as `c_assumed`, so a WARNING log plus the run warning; no extra table.
-5. **`pi_wrong_database` is kept**, because the decision-4 warning needs the mean PEP, but it is no
-   longer read for the stratum-0 π̂. Its docstring says so.
+5. **`pi_wrong_database` is no longer read for the stratum-0 π̂** (**superseded by decision 11**: the
+   decision-4 warning means its own mean PEP over P, so the function is dead in `src/` and goes).
 6. **π̂[3] (`null_share_stratum0`): adopt the statistician's per-class form** as the primary assertion —
    compare each class's π̂_ℓ with that class's realised null share — and keep the pooled
    (W + c)/(D + 1) comparison alongside it. (Statistician note, #113 round 1.)

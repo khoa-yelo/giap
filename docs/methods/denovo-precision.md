@@ -7,7 +7,8 @@ the genome" and step 4, §8.1, §8.4, §9.3, §9.4; issue M3-11; ADR-0010).
 
 ## Estimand (ADR-0019 decision 5)
 
-**Status: statistician sign-off pending** (added with the ADR-0019 implementation, M3-25).
+**Status:** signed off by the statistician (M3-25 review of #124, 2026-10-20; ADR-0019 decisions
+1–5).
 
 `prec_b` estimates the **correct share among the distinct de novo peptides of GIAP score bin b**.
 Two consequences of "distinct" and "GIAP's bins":

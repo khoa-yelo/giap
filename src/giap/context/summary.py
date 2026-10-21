@@ -175,9 +175,11 @@ def _stratum0_rows(stratum0: pd.DataFrame) -> list[Row]:
     """ADR-0019 decision 4 QC rows: the stratum-0 unmapped share k/n, overall and per class.
 
     ``stratum0`` is ``giap.mapping.placement_fdr.stratum0_pi_classes``'s table (one row per
-    length class with ``n`` and ``k``). The overall row is group ``run``/``all``, the per-class
-    rows group_type ``length_class`` with the class label; ``value`` = k/n (NA for an empty
-    class, never 0) and ``n`` = n.
+    length class with ``n``, ``k`` and ``upper``). The overall row is group ``run``/``all``, the
+    per-class rows group_type ``length_class`` with the class label; ``value`` = k/n (NA for an
+    empty class, never 0) and ``n`` = n. A per-class row reports the table's ``upper`` as
+    ``ci_high``: the one-sided 95 % Clopper-Pearson bound of that same k/n (``ci_low`` stays NA,
+    the interval is one-sided). The overall row has no such bound in the table and leaves both NA.
     """
     nan = math.nan
     n_all, k_all = int(stratum0["n"].sum()), int(stratum0["k"].sum())
@@ -185,8 +187,9 @@ def _stratum0_rows(stratum0: pd.DataFrame) -> list[Row]:
     rows: list[Row] = [("qc", "run", "all", STRATUM0_METRIC, share, nan, nan, n_all, "")]
     for r in stratum0.itertuples(index=False):
         n, k = int(r.n), int(r.k)
+        upper = float(r.upper) if n else nan
         rows.append(("qc", "length_class", str(r.length_class), STRATUM0_METRIC,
-                     k / n if n else nan, nan, nan, n, ""))  # fmt: skip
+                     k / n if n else nan, nan, upper, n, ""))  # fmt: skip
     return rows
 
 
