@@ -5,21 +5,19 @@ scenario, as in ``region_tests_calib``: each check has its own ``_criteria`` str
 replicate ``i`` of any stream maps back to the scenario's replicate ``i`` (seed
 ``suite_seed(<scenario stream>, i)``), simulated and tabulated once per process.
 
-**Scenarios.** docs/specs/M5-04 defines ``giapsim.scenarios.label_null`` / ``tu_null``; that
-module is not merged yet (PR #119), so the two null scenarios are spelled out here with the
-merged M4-07 layout and M4-08 expression knobs and swapped for the simulator's versions when
-#119 lands:
+**Scenarios** are the M5-04 generators (``giapsim.scenarios``, merged in PR #119; lead
+decision 33); this module only wraps them in a ``Scenario`` with its ``_criteria`` stream:
 
-* ``label_null``: ``tu_sd = 0``, ``ar1_rho = 0``, ``position_decay_log2 = 0``, iid gene and
-  stoichiometry noise, covariate-only detection -> no structure at all, so both nulls hold
-  (§8.4 "gene-level noise (label null)");
-* ``tu_null``: ``ar1_rho = 0``, ``tu_sd = 2``, decay 0.2, ``detection = "abundance"`` (beta
-  ``log2_abundance`` 0.5 with the M4-08 intercept offset) -> within-TU structure only, so the
-  TU-block null holds and the gene-label null is false (§8.4 "TU-structured noise without
-  inter-TU structure (TU null)"), and detection inherits the TU structure.
+* ``label_null``: ``tu_sd = 0``, ``ar1_rho = 0``, no position decay, iid gene and stoichiometry
+  noise, covariate-only detection -> no structure at all, so both nulls hold (§8.4 "gene-level
+  noise (label null)");
+* ``tu_null``: ``ar1_rho = 0``, ``tu_sd = 2``, decay 0.2, ``detection = "abundance"`` -> within-TU
+  structure only, so the TU-block null holds and the gene-label null does not (§8.4
+  "TU-structured noise without inter-TU structure"), and detection inherits the TU structure.
 
-A chromosome alone (no plasmid, no regions) keeps the nulls exact: regions and plasmids would
-add no effect here but change gene sizes and the TU grid for nothing.
+Both take ``oriter_log2`` (the ADR-0020 ori-ter cosine of the attack arms) and ``tu_null`` takes
+``short_genes_in``; the scenarios carry the default regions (no planted effect) and, with a
+nonzero gradient, an oriC at ``scenarios.ORIC_FRAC``.
 
 ``p_detect`` = ``p_detect_true`` and the abundance of detected genes = ``abundance_log2_true``
 (spec acceptance "Calibration"); B = ``PERMUTATIONS`` permutations per null.
@@ -27,8 +25,8 @@ add no effect here but change gene sizes and the TU grid for nothing.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 import autocorr_data as ad
@@ -42,80 +40,66 @@ PERMUTATIONS = 199
 LAGS = tuple(range(1, 21))
 SUITE = "autocorrelation"
 CONTIG = "chr1"
-#: detection logit slope on log2 abundance for the TU null (M4-08 "detection = abundance")
-TU_NULL_BETA_ABUNDANCE = 0.5
-
-
-def _beta(**shift: float) -> dict[str, float]:
-    import giapsim.expression as ex
-
-    b = dict(ex.DEFAULT_BETA)
-    for k, v in shift.items():
-        b[k] = b[k] + v
-    return b
 
 
 @dataclass(frozen=True)
 class Scenario:
-    """A null generator: chromosome size and M4-08 expression knobs."""
+    """One M5-04 scenario: its name (the ``_criteria`` stream), size and config pair."""
 
     name: str
     n_genes: int
-    expr_kw: Mapping[str, Any] = field(default_factory=dict)
-    layout_kw: Mapping[str, Any] = field(default_factory=dict)
-    #: (statistic, null_model) pairs whose level this scenario can gate
+    #: ``(LayoutConfig, ExpressionConfig)`` from ``giapsim.scenarios``
+    pair: tuple[Any, Any]
+    #: null models whose level this scenario can gate
     nulls: tuple[str, ...] = ("gene_label", "tu_block")
 
     @property
     def stream(self) -> str:
         return f"{SUITE}.{self.name}"
 
+    @property
+    def layout_cfg(self) -> Any:
+        return self.pair[0]
 
-def label_null(n_genes: int) -> Scenario:
-    """No structure at all: both nulls hold (M5-04 ``scenarios.label_null``)."""
+    @property
+    def expr_cfg(self) -> Any:
+        return self.pair[1]
+
+
+def label_null(n_genes: int, *, oriter_log2: float = 0.0, name: str | None = None) -> Scenario:
+    """``scenarios.label_null``: no structure at all, so both nulls hold."""
+    import giapsim.scenarios as scen
+
+    pair = scen.label_null(n_genes, oriter_log2=oriter_log2)
+    return Scenario(name or f"label_null_{n_genes}", n_genes, pair)
+
+
+def tu_null(
+    n_genes: int,
+    *,
+    short_genes_in: str | None = None,
+    oriter_log2: float = 0.0,
+    name: str | None = None,
+) -> Scenario:
+    """``scenarios.tu_null``: within-TU structure only, so the TU-block null holds."""
+    import giapsim.scenarios as scen
+
     return Scenario(
-        f"label_null_{n_genes}",
+        name or f"tu_null_{n_genes}",
         n_genes,
-        {
-            "tu_sd": 0.0,
-            "ar1_rho": 0.0,
-            "position_decay_log2": 0.0,
-            "gene_sd": 0.5,
-            "stoich_sd": 0.7,
-            "detection": "covariates_only",
-        },
-    )
-
-
-def tu_null(n_genes: int) -> Scenario:
-    """Within-TU structure only: the TU-block null holds (M5-04 ``scenarios.tu_null``)."""
-    b4 = TU_NULL_BETA_ABUNDANCE
-    return Scenario(
-        f"tu_null_{n_genes}",
-        n_genes,
-        {
-            "tu_sd": 2.0,
-            "ar1_rho": 0.0,
-            "position_decay_log2": 0.2,
-            "detection": "abundance",
-            "beta": _beta(log2_abundance=b4, intercept=-b4 * 20.0),
-        },
+        scen.tu_null(n_genes, short_genes_in=short_genes_in, oriter_log2=oriter_log2),
         nulls=("tu_block",),
     )
 
 
-def layout_config(n_genes: int, **kw: Any) -> Any:
-    """One circular chromosome, no plasmid and no region (origin crossing on, M4-07)."""
+def simulate(sc: Scenario, rng: np.random.Generator) -> Any:
+    """The M4-06 tables of one draw of ``sc`` (``p_detect`` = ``p_detect_true``)."""
+    import giapsim.expression as ex
     import giapsim.layout as la
 
-    base: dict[str, Any] = {
-        "n_genes_chromosome": int(n_genes),
-        "plasmids": (),
-        "regions": (),
-        "origin_crossing": True,
-    }
-    base.update(kw)
-    return la.LayoutConfig(**base)
+    lay = la.simulate_layout(sc.layout_cfg, rng)
+    expr = ex.simulate_expression(lay, sc.expr_cfg, rng)
+    return rd.tables_from(lay, expr, "true", rng)
 
 
 _FRAMES: dict[tuple[str, int], pd.DataFrame] = {}
@@ -132,9 +116,7 @@ def replicate_rows(sc: Scenario, i: int) -> pd.DataFrame:
     key = (sc.stream, i)
     if key not in _FRAMES:
         rng = _C().replicate_rng(sc.stream, i)
-        tables = rd.sim_tables(
-            rng, layout_config(sc.n_genes, **dict(sc.layout_kw)), sc.expr_kw, p_source="true"
-        )
+        tables = simulate(sc, rng)
         seed = int(rng.integers(0, 2**31 - 1))
         cfg = ad.config(PERMUTATIONS, lags=(LAGS[0], LAGS[-1]))
         _FRAMES[key] = ad.rows(tables.genes, tables.replicons, cfg, seed)

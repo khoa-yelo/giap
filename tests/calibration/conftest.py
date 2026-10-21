@@ -148,6 +148,8 @@ def item_suite(item: pytest.Function) -> str | None:
 NIGHTLY: frozenset[str] = frozenset(
     {
         "attacks/test_attack5_reversed_stretches.py::test_attack5_reversed_stretches_shuffle_decoys",
+        "attacks/test_attack_autocorr.py::test_attack_oriter_gradient_gene_label_at_level",
+        "attacks/test_attack_autocorr.py::test_attack_oriter_gradient_tu_block_at_level",
         "attacks/test_attack_autocorr.py::test_attack_short_prophage_join_count_at_level",
         "attacks/test_attack_autocorr.py::test_teeth_permuting_residuals_without_redetrending_fails",
         "attacks/test_attack_bootstrap.py::test_recorded_few_tus",

@@ -34,11 +34,8 @@ def _inputs() -> tuple[Any, Any, Any]:
     """The gene table, C1 replicons and config of one 4,500-gene TU-null replicate."""
     import autocorr_calib as acal
     import autocorr_data as ad
-    import region_tests_data as rd
 
-    sc = acal.tu_null(N)
-    rng = np.random.default_rng(7)
-    tables = rd.sim_tables(rng, acal.layout_config(N), sc.expr_kw, p_source="true")
+    tables = acal.simulate(acal.tu_null(N), np.random.default_rng(7))
     return tables.genes, tables.replicons, ad.config(B, lags=(1, LAGS))
 
 

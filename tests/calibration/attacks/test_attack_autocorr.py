@@ -1,9 +1,20 @@
 """Attack nulls for the M5-05 autocorrelation table (GIAP_SPEC.md §8.5 attack 1; ADR-0020
 decision 19, M5-05 lead decisions 19 and 30; statistician-owned).
 
-Two of the four arms are here; each stays inside the null the table claims and tries to push the
-lag tests above level:
+All four arms of ADR-0020 decision 19 are here (lead decision 33: M5-04's
+``giapsim.scenarios`` is merged, so (a) and (b) have their ori-ter gradient). Each stays inside
+the null the table claims and tries to push the lag tests above level:
 
+* **(a) TU null plus a 2 log2 ori-ter cosine** (gated): ``scenarios.tu_null(oriter_log2=2.0)``
+  -- within-TU structure, an oriC at ``scenarios.ORIC_FRAC`` and a cosine of 2 log2 peak to
+  trough over the replichores, with ``detection = "abundance"`` so the gradient reaches
+  ``p_detect`` too. The 10 % LOESS must remove the gradient: both statistics stay at level under
+  the TU-block null at lags 1 and 20. Without re-detrending the same arm is anti-conservative
+  (ADR-0020: pooled 0.34).
+* **(b) label null plus the gradient** (gated): ``scenarios.label_null(oriter_log2=2.0)`` -- the
+  gradient is then the *only* structure, so the gene-label null still holds after detrending
+  (ADR-0020 evidence: pooled 0.010 / 0.051 / 0.104 at R = 400). Gated at lags 1 and 20 for both
+  statistics under the gene-label null.
 * **(c) short-gene prophage under the TU null** (gated): the TU-null scenario
   (``ar1_rho = 0``, ``tu_sd = 2``, decay 0.2, ``detection = "abundance"``) on a layout whose
   prophage genes are drawn short (M4-07 ``short_genes_in``), so low ``p_detect`` clusters along
@@ -20,11 +31,6 @@ lag tests above level:
   ADR-0020 procedure. The two-block gate must confirm the failure at alpha 0.05.
   Arm (d) builds its series from the engines alone, so it is independent of
   ``giap.context.autocorrelation`` -- it is the control for the arms that are not.
-
-**Pending (M5-04, PR #119):** ADR-0020 arms **(a)** TU null plus a 2 log2 ori-ter cosine and
-**(b)** label null plus the same gradient need ``giapsim.scenarios.oriter_gradient`` (an oriC
-feature and ``ExpressionConfig.oriter_log2``), which is not merged. They are the arms that show
-the LOESS removes a smooth gradient, so this file is incomplete until #119 lands; add them then.
 
 Criterion: §8.4 level through ``_gate.calibrate_levels`` / ``_criteria.calibrate`` (ADR-0015
 two-block confirmation), R = ``replicates_fast``/``replicates_full``.``autocorrelation``.
@@ -52,41 +58,99 @@ pytestmark = pytest.mark.calsuite("autocorrelation")
 FAST_GENES, FULL_GENES = 1000, 4500
 B = acal.PERMUTATIONS
 LAGS = list(acal.LAGS)
-#: lags gated in arm (c): the first and the last of ``context.moran_lags`` (lead decision 18)
+#: lags gated in every arm: the first and the last of ``context.moran_lags`` (lead decision 18)
 GATED_LAGS = (1, 20)
+#: ori-ter difference of arms (a) and (b), in log2 (ADR-0020 decision 19)
+ORITER_LOG2 = 2.0
+
+
+def _n(full: bool) -> int:
+    return FULL_GENES if full else FAST_GENES
+
+
+def _level_gates(sc: acal.Scenario, statistics: tuple[str, ...], null_model: str,
+                 R: int) -> list[str]:  # fmt: skip
+    """``check_level`` at every tolerance alpha for each statistic at the gated lags."""
+    levels = list(C.load_tolerances().levels)
+    failed: list[str] = []
+    for statistic in statistics:
+        for lag in GATED_LAGS:
+            stream = f"{sc.stream}.{statistic}.{null_model}.lag{lag}"
+            fn = acal.shared_fn(
+                sc, stream, R, lambda r, s=statistic, m=null_model, k=lag: acal.lag_p(r, s, m, k)
+            )
+            gate = calibrate_levels(acal.SUITE, "level", levels, fn, R, stream=stream)
+            failed += gate.detail() if gate.failed else []
+    return failed
+
+
+# --------------------------------------------------------------------------- arms (a) and (b)
+
+
+def oriter_tu_null(n_genes: int) -> acal.Scenario:
+    """Arm (a): the TU null with the 2 log2 ori-ter cosine on top."""
+    return acal.tu_null(n_genes, oriter_log2=ORITER_LOG2,
+                        name=f"attack_oriter_tu_null_{n_genes}")  # fmt: skip
+
+
+def oriter_label_null(n_genes: int) -> acal.Scenario:
+    """Arm (b): the label null with the 2 log2 ori-ter cosine as its only structure."""
+    return acal.label_null(n_genes, oriter_log2=ORITER_LOG2,
+                           name=f"attack_oriter_label_null_{n_genes}")  # fmt: skip
+
+
+@pytest.mark.parametrize("full", MODES)
+def test_attack_oriter_gradient_tu_block_at_level(full: bool) -> None:
+    """Arm (a): the LOESS must remove the ori-ter gradient, so the TU-block null holds."""
+    R = C.replicates(acal.SUITE, full)
+    failed = _level_gates(oriter_tu_null(_n(full)), ad.STATISTICS, "tu_block", R)
+    assert not failed, failed
+
+
+@pytest.mark.parametrize("full", MODES)
+def test_attack_oriter_gradient_gene_label_at_level(full: bool) -> None:
+    """Arm (b): with the gradient as the only structure the gene-label null holds too."""
+    R = C.replicates(acal.SUITE, full)
+    failed = _level_gates(oriter_label_null(_n(full)), ad.STATISTICS, "gene_label", R)
+    assert not failed, failed
+
+
+def test_attack_ab_plant_a_two_log2_oriter_cosine() -> None:
+    """The arms really plant the gradient: an oriC, and a 2 log2 ori-minus-ter difference of the
+    TU-level truth along the replichore position."""
+    import giapsim.expression as ex
+    import giapsim.layout as la
+    import giapsim.scenarios as scen
+
+    for sc in (oriter_tu_null(FAST_GENES), oriter_label_null(FAST_GENES)):
+        assert sc.layout_cfg.oric_frac == scen.ORIC_FRAC
+        assert sc.expr_cfg.oriter_log2 == ORITER_LOG2 and sc.expr_cfg.oriter_shape == "cosine"
+        rng = np.random.default_rng(3)
+        lay = la.simulate_layout(sc.layout_cfg, rng)
+        assert (lay.features["type"] == "oric").sum() == 1
+        genes = ex.simulate_expression(lay, sc.expr_cfg, rng).genes
+        pos = genes["replichore_position_true"].to_numpy(float)
+        a = genes["abundance_log2_true"].to_numpy(float)
+        near_ori, near_ter = pos < 0.1, pos > 0.9
+        drop = float(np.nanmean(a[near_ori]) - np.nanmean(a[near_ter]))
+        assert 1.0 < drop < 3.0, (sc.name, drop)
 
 
 # --------------------------------------------------------------------------- arm (c)
 
 
 def short_prophage_tu_null(n_genes: int) -> acal.Scenario:
-    """The TU-null scenario on a layout whose prophage genes are short (M4-07 attack null 2)."""
-    import giapsim.layout as la
-
-    base = acal.tu_null(n_genes)
-    return acal.Scenario(
-        f"attack_short_prophage_{base.name}",
-        n_genes,
-        base.expr_kw,
-        {"regions": la.DEFAULT_REGIONS, "short_genes_in": "prophage"},
-        nulls=("tu_block",),
-    )
+    """Arm (c): the TU-null scenario on a layout whose prophage genes are short (M4-07 attack
+    null 2, ``short_genes_in``)."""
+    return acal.tu_null(n_genes, short_genes_in="prophage",
+                        name=f"attack_short_prophage_tu_null_{n_genes}")  # fmt: skip
 
 
 @pytest.mark.parametrize("full", MODES)
 def test_attack_short_prophage_join_count_at_level(full: bool) -> None:
     """Arm (c): clustered detectability must not make the join count reject under the TU null."""
     R = C.replicates(acal.SUITE, full)
-    sc = short_prophage_tu_null(FULL_GENES if full else FAST_GENES)
-    levels = list(C.load_tolerances().levels)
-    failed: list[str] = []
-    for lag in GATED_LAGS:
-        stream = f"{sc.stream}.join_count_bb.tu_block.lag{lag}"
-        fn = acal.shared_fn(
-            sc, stream, R, lambda r, k=lag: acal.lag_p(r, "join_count_bb", "tu_block", k)
-        )
-        gate = calibrate_levels(acal.SUITE, "level", levels, fn, R, stream=stream)
-        failed += gate.detail() if gate.failed else []
+    failed = _level_gates(short_prophage_tu_null(_n(full)), ("join_count_bb",), "tu_block", R)
     assert not failed, failed
 
 
@@ -95,9 +159,7 @@ def test_attack_c_layout_draws_short_prophage_genes() -> None:
     import giapsim.layout as la
 
     sc = short_prophage_tu_null(FAST_GENES)
-    lay = la.simulate_layout(
-        acal.layout_config(sc.n_genes, **dict(sc.layout_kw)), np.random.default_rng(0)
-    )
+    lay = la.simulate_layout(sc.layout_cfg, np.random.default_rng(0))
     ids = lay.region_genes["region_id"].astype(str).str.startswith("prophage")
     tags = set(lay.region_genes.loc[ids, "locus_tag"])
     length = lay.genes.set_index("locus_tag")["aa"].str.len().astype(float)

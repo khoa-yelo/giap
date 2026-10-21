@@ -128,11 +128,14 @@ def test_tu_null_bh_family_any_rejection(statistic: str, full: bool) -> None:
 
 def test_tu_null_scenario_gates_only_the_tu_block_null() -> None:
     """The gene-label null is false under the TU null, so it is never gated there."""
-    assert acal.tu_null(FAST_GENES).nulls == ("tu_block",)
-    assert acal.label_null(FAST_GENES).nulls == ("gene_label", "tu_block")
-    assert acal.tu_null(FAST_GENES).expr_kw["ar1_rho"] == 0.0
-    assert acal.tu_null(FAST_GENES).expr_kw["detection"] == "abundance"
-    assert acal.label_null(FAST_GENES).expr_kw["tu_sd"] == 0.0
+    tu, label = acal.tu_null(FAST_GENES), acal.label_null(FAST_GENES)
+    assert tu.nulls == ("tu_block",)
+    assert label.nulls == ("gene_label", "tu_block")
+    assert tu.expr_cfg.ar1_rho == 0.0 and tu.expr_cfg.tu_sd == 2.0
+    assert tu.expr_cfg.detection == "abundance"
+    assert label.expr_cfg.tu_sd == 0.0 and label.expr_cfg.position_decay_log2 == 0.0
+    # no gradient outside the attack arms, so no oriC either (M5-04 lead decision 16)
+    assert tu.expr_cfg.oriter_log2 == 0.0 and label.layout_cfg.oric_frac is None
 
 
 # --------------------------------------------------------------------------- recorded
