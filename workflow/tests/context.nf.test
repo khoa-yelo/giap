@@ -82,10 +82,10 @@ nextflow_workflow {
         }
     }
 
-    test("precomputed regions layer: `regions` empty and every other input given, neither step runs") {
+    test("`regions` empty and every other input given, neither step runs") {
 
-        // The skip path a real run takes (with params.annotation.precomputed.regions ANNOTATE
-        // emits no C7/C8 Parquet). Only `regions` is empty, so stepIn's list reaches the filter
+        // No real run reaches this since MVP-02 (region_layer always writes C7/C8); it pins the
+        // empty-`regions` branch of stepIn. Only `regions` is empty, so stepIn's list reaches the filter
         // non-empty and missing two keys of `need` — the case `need` exists for. Emptying the
         // optional inputs as well would instead test the degenerate toList() == [], which the
         // filter rejects whatever `need` says (genetable.nf.test covers that one).

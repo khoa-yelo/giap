@@ -155,3 +155,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   `context.region_types` (the tool path filters it); F7 the sensitivity goldens (sim50k, sim100k_real)
   have zero primary/variant calls; F8 stale flat files win over keyed ones in `contract_paths` /
   `work_inputs`. `PUBLISHED_FILES` repeats the Nextflow names (pinned by a test) — one shared source.
+- MVP-02 pass 2 (code review of #146): `-resume` reuses a stale region_layer result when only the
+  precomputed TSV's content changes (stage it as a declared input, decision 2, which also replaces the
+  absolute-path fix in `write_params`); example 4 ran under farmshare_local, the farmshare,apptainer
+  conclusion (GIAP_STEP runs natively) is from reading the config, not from a run.
