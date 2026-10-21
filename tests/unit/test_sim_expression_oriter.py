@@ -129,6 +129,21 @@ def test_unknown_shape_is_value_error() -> None:
         _ex().ExpressionConfig(oriter_shape="quadratic")
 
 
+@pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf])
+def test_non_finite_oriter_log2_is_value_error(bad: float) -> None:
+    """S3: a non-finite gradient is rejected at construction, not silently propagated to NaN
+    abundances (``oriter_log2 != 0`` is true for NaN, so the check must be explicit)."""
+    with pytest.raises(ValueError, match="oriter_log2"):
+        _ex().ExpressionConfig(oriter_log2=bad)
+
+
+@pytest.mark.parametrize("bad", [math.nan, math.inf])
+def test_non_finite_gradient_never_reaches_the_frame(bad: float) -> None:
+    lay = layout(1, n_genes_chromosome=200, oric_frac=0.5)
+    with pytest.raises(ValueError, match="oriter_log2"):
+        express(lay, 1, oriter_log2=bad)
+
+
 def test_gene_frame_gains_replichore_columns() -> None:
     lay = layout(1, n_genes_chromosome=200, oric_frac=0.4)
     g = express(lay, 1).genes

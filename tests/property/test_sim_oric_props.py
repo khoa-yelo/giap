@@ -72,6 +72,46 @@ Circle = tuple[int, tuple[int, int], list[tuple[int, int]], int]
 
 
 @st.composite
+def gene_rings(draw: st.DrawFn) -> tuple[int, list[tuple[int, int]]]:
+    """A circle and 2-6 non-overlapping genes on it, in increasing order."""
+    length = draw(st.integers(5_000, 60_000))
+    bounds = draw(
+        st.lists(st.integers(0, length - 1), min_size=4, max_size=12, unique=True).map(sorted)
+    )
+    bounds = bounds[: len(bounds) // 2 * 2]
+    genes = [(a, b) for a, b in zip(bounds[0::2], bounds[1::2], strict=True) if b > a]
+    return length, genes
+
+
+@SETTINGS
+@given(ring=gene_rings(), frac=st.floats(0.0, 1.0, exclude_max=True, allow_nan=False))
+def test_place_oric_start_inside_the_replicon(
+    ring: tuple[int, list[tuple[int, int]]], frac: float
+) -> None:
+    """Review B1: whatever the genes and ``oric_frac``, the row is a 232-bp interval with
+    ``0 <= start < length``, inside one chr1 gap and overlapping no gene."""
+    import pytest
+
+    from giapsim.layout import _place_oric
+
+    length, genes = ring
+    if len(genes) < 2:
+        return
+    try:
+        row = _place_oric(frac, ["chr1"] * len(genes),
+                          np.array([a for a, _ in genes]), np.array([b for _, b in genes]),
+                          length)  # fmt: skip
+    except ValueError as exc:  # no gap of >= 232 bp (lead decision 14)
+        assert "oric_frac" in str(exc)
+        pytest.skip("no fitting gap")
+    s, e = int(row["start"].iloc[0]), int(row["end"].iloc[0])
+    assert 0 <= s < length
+    assert e - s == oo.ORIC_LEN and e <= 2 * length
+    for g in genes:
+        assert not oo.overlaps_circular((s, e), g, length)
+
+
+@st.composite
 def circles(draw: st.DrawFn) -> Circle:
     length = draw(st.integers(2_000, 200_000))
     o_start = draw(st.integers(0, length - 1))

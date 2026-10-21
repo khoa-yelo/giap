@@ -718,6 +718,9 @@ def test_end_equal_length_valid(frames: dict[str, Any]) -> None:
     frames["peptide_hits"] = frames["peptide_hits"][
         frames["peptide_hits"]["locus_class"] != "intergenic"
     ].reset_index(drop=True)
+    # the C15 fixture rows sit in the free stretch the shrunk replicon no longer has (C15 is
+    # optional, and its own bounds are tested below)
+    frames["features"] = empty_like(frames["features"])
     assert errors(validate_all(frames)) == []
 
 
@@ -1063,10 +1066,12 @@ def test_c15_end_beyond_twice_length_rejected(frames: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize("offset", [1, 116, None])
 def test_c15_origin_crossing_feature_valid(frames: dict[str, Any], offset: int | None) -> None:
-    """``end`` may pass ``length`` (unwrapped across the origin, §6.5) up to ``2 length``."""
+    """On a circular replicon ``end`` may pass ``length`` (unwrapped across the origin, §6.5) up
+    to ``2 length``; ``start`` stays inside the replicon (lead decision 23)."""
     n = _length(frames)
     end = 2 * n if offset is None else n + offset
-    df = _feature_rows(frames, start=end - 232, end=end)
+    start = n - 1 if offset is None else end - 232
+    df = _feature_rows(frames, start=start, end=end)
     issues = _contract().validate_table("features", df)
     issues += _contract().validate_inputs(_inputs_with(frames, df))
     assert _features_issues(errors(issues)) == []
@@ -1089,6 +1094,71 @@ def test_c15_feature_on_plasmid_and_linear_contig_valid(frames: dict[str, Any]) 
     issues = _contract().validate_table("features", df)
     issues += _contract().validate_inputs(_inputs_with(frames, df))
     assert _features_issues(errors(issues)) == []
+
+
+@pytest.mark.parametrize("topology", ["circular", "linear"])
+@pytest.mark.parametrize("delta", [0, 1, 1000])
+def test_c15_start_at_or_beyond_length_rejected(
+    frames: dict[str, Any], topology: str, delta: int
+) -> None:
+    """Lead decision 23: ``start >= length`` is an error on every contig, circular or linear,
+    with code ``contract.features.start_bounds`` (``start`` is never unwrapped)."""
+    n = 4000
+    frames["replicons"] = pd.DataFrame(
+        {"contig": ["c1"], "length": pd.Series([n], dtype="int64"), "topology": [topology],
+         "kind": ["chromosome" if topology == "circular" else "unknown"]}
+    )  # fmt: skip
+    frames["genes"] = empty_like(frames["genes"])
+    df = _feature_rows(frames, contig="c1", start=n + delta, end=n + delta + 232)
+    issues = _contract().validate_table("features", df)
+    issues += _contract().validate_inputs(_inputs_with(frames, df))
+    codes = [i.code for i in errors(issues)]
+    assert "contract.features.start_bounds" in codes, codes
+
+
+@pytest.mark.parametrize("topology", ["circular", "linear"])
+def test_c15_start_just_below_length_valid(frames: dict[str, Any], topology: str) -> None:
+    n = 4000
+    frames["replicons"] = pd.DataFrame(
+        {"contig": ["c1"], "length": pd.Series([n], dtype="int64"), "topology": [topology],
+         "kind": ["chromosome" if topology == "circular" else "unknown"]}
+    )  # fmt: skip
+    frames["genes"] = empty_like(frames["genes"])
+    df = _feature_rows(frames, contig="c1", start=n - 1, end=n)
+    issues = _contract().validate_table("features", df)
+    issues += _contract().validate_inputs(_inputs_with(frames, df))
+    assert _features_issues(errors(issues)) == []
+
+
+@pytest.mark.parametrize("end_delta", [1, 100, 4000])
+def test_c15_end_beyond_length_on_a_linear_contig_rejected(
+    frames: dict[str, Any], end_delta: int
+) -> None:
+    """Lead decision 23: nothing crosses the origin of a linear contig, so ``end > length`` there
+    is ``contract.features.bounds`` (on a circular replicon the same row is valid)."""
+    n = 4000
+    base = pd.DataFrame(
+        {"contig": ["lin", "circ"], "length": pd.Series([n, n], dtype="int64"),
+         "topology": ["linear", "circular"], "kind": ["unknown", "chromosome"]}
+    )  # fmt: skip
+    frames["replicons"] = base
+    frames["genes"] = empty_like(frames["genes"])
+    bad = _feature_rows(frames, contig="lin", start=n - 10, end=n + end_delta)
+    issues = _contract().validate_inputs(_inputs_with(frames, bad))
+    assert "contract.features.bounds" in [i.code for i in errors(issues)]
+    ok = _feature_rows(frames, contig="circ", start=n - 10, end=n + end_delta)
+    assert _features_issues(errors(_contract().validate_inputs(_inputs_with(frames, ok)))) == []
+
+
+def test_c15_end_equal_length_on_a_linear_contig_valid(frames: dict[str, Any]) -> None:
+    n = 4000
+    frames["replicons"] = pd.DataFrame(
+        {"contig": ["lin"], "length": pd.Series([n], dtype="int64"), "topology": ["linear"],
+         "kind": ["unknown"]}
+    )  # fmt: skip
+    frames["genes"] = empty_like(frames["genes"])
+    df = _feature_rows(frames, contig="lin", start=n - 232, end=n)
+    assert _features_issues(errors(_contract().validate_inputs(_inputs_with(frames, df)))) == []
 
 
 def test_c15_validate_inputs_does_not_mutate(frames: dict[str, Any]) -> None:

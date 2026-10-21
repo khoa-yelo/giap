@@ -217,6 +217,7 @@ def test_placement_rules_at_any_fraction(seed: int, frac: float) -> None:
     _check_nearest(lay, frac)
     row = oric_row(lay)
     assert int(row["end"]) - int(row["start"]) == oo.ORIC_LEN
+    assert 0 <= int(row["start"]) < chr1_length(lay)  # reduced past the origin (B1)
 
 
 def test_oric_moves_no_gene_and_changes_no_other_frame() -> None:
@@ -230,6 +231,61 @@ def test_oric_moves_no_gene_and_changes_no_other_frame() -> None:
 def test_oric_only_on_chr1_with_plasmids_and_contigs() -> None:
     lay = simulate(5, n_genes_chromosome=300, plasmids=(40,), linear_contigs=(25,), oric_frac=0.6)
     assert lay.features["contig"].tolist() == ["chr1"]
+
+
+# ------------------------------------------------------- _place_oric units (review B1, S3)
+
+
+def place(frac: float, genes: list[tuple[int, int]], length: int) -> tuple[int, int]:
+    """``(start, end)`` of ``_place_oric`` for chr1 genes ``(start, end)`` on a circle."""
+    from giapsim.layout import _place_oric
+
+    contig = ["chr1"] * len(genes)
+    row = _place_oric(frac, contig, np.array([s for s, _ in genes]),
+                      np.array([e for _, e in genes]), length)  # fmt: skip
+    assert len(row) == 1 and tuple(row.columns) == oo.FEATURE_COLUMNS
+    return int(row["start"].iloc[0]), int(row["end"].iloc[0])
+
+
+def test_place_oric_reduces_a_start_past_the_origin() -> None:
+    """Review B1: the wrap gap (9,990 ... 10,400) centres the oriC at 10,079, which must be
+    reduced to the circle: (79, 311), never (10,079, 10,311)."""
+    assert place(0.0, [(400, 900), (1000, 9990)], 10_000) == (79, 311)
+
+
+@pytest.mark.parametrize("first_start", [240, 300, 420, 999])
+def test_place_oric_start_is_always_inside_the_replicon(first_start: int) -> None:
+    """Whatever the wrap gap's width, ``0 <= start < length`` and the feature stays in the gap."""
+    length = 10_000
+    genes = [(first_start, first_start + 500), (2000, 9950)]
+    start, end = place(0.0, genes, length)
+    assert 0 <= start < length
+    assert end - start == oo.ORIC_LEN
+    assert oo.overlaps_circular((start, end), (9950, first_start + length), length)
+    for g in genes:
+        assert not oo.overlaps_circular((start, end), g, length)
+
+
+def test_place_oric_accepts_a_gap_of_exactly_232_bp() -> None:
+    """S3: ``>= ORIC_LEN`` (not ``>``): a 232-bp gap holds the oriC exactly, with no slack."""
+    length = 20_000
+    genes = [(1000, 5000), (5232, 9000), (12_000, 19_900)]  # the 5,000-5,232 gap is exactly 232
+    assert place(0.25, genes, length) == (5000, 5232)
+
+
+def test_place_oric_just_under_232_bp_is_not_used() -> None:
+    length = 20_000
+    genes = [(1000, 5000), (5231, 9000), (12_000, 19_900)]
+    start, _ = place(0.25, genes, length)
+    assert start != 5000
+
+
+def test_place_oric_ties_take_the_first_gap() -> None:
+    """S3: two gaps the same circular distance from the target -> the first one (lowest start)."""
+    length = 10_000
+    # gaps 2,000-2,400 (midpoint 2,200) and 7,600-8,000 (midpoint 7,800): both 2,800 from 5,000
+    genes = [(100, 2000), (2400, 7600), (8000, 9900)]
+    assert place(0.5, genes, length) == (2084, 2316)
 
 
 # ----------------------------------------------------------------------------- edge cases
@@ -392,6 +448,64 @@ def test_adapter_features_valid_in_contract(m0_oric: tuple[Any, Any], tmp_path: 
     df = pd.read_parquet(tmp_path / "w" / "features.parquet")
     assert len(df) == len(lay.features) == 2
     assert validate_table("features", df) == []
+
+
+def _fake_sim(tmp_path: Path, features: list[dict[str, Any]], length: int = 6000) -> Any:
+    """The two files ``layout_from_simulation`` reads: a bakta-like JSON and the gene truth."""
+    from types import SimpleNamespace
+
+    genes = [
+        {"type": "cds", "sequence": "chr1", "start": 101, "stop": 400, "strand": "+",
+         "locus": "G_00010", "aa": "MKV", "nt": "ATG" + "GCT" * 98 + "TAA"},
+        {"type": "cds", "sequence": "chr1", "start": 1001, "stop": 1300, "strand": "-",
+         "locus": "G_00020", "aa": "MKV", "nt": "ATG" + "GCT" * 98 + "TAA"},
+    ]  # fmt: skip
+    data = {
+        "sequences": [{"id": "chr1", "type": "chromosome", "topology": "circular",
+                       "length": length}],
+        "features": [*genes, *features],
+    }  # fmt: skip
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    js, truth = tmp_path / "bakta_like.json", tmp_path / "genes.tsv"
+    js.write_text(json.dumps(data), encoding="utf-8")
+    truth.write_text("locus_tag\ttu_id\nG_00010\tTU1\nG_00020\tTU2\n", encoding="utf-8")
+    return SimpleNamespace(bakta_json=js, genes_truth=truth)
+
+
+def test_adapter_unwraps_an_origin_crossing_feature(tmp_path: Path) -> None:
+    """S3: a Bakta feature with ``stop <= start`` crosses the origin; C15 keeps ``end``
+    unwrapped (``end = stop + length``, §6.5), so ``length < end < 2 length``."""
+    from giapsim.layout import layout_from_simulation
+
+    sim = _fake_sim(tmp_path / "m0", [{"type": "oriC", "sequence": "chr1", "start": 5901,
+                                       "stop": 132, "strand": "?", "id": "O1"}])  # fmt: skip
+    f = layout_from_simulation(sim).features
+    assert len(f) == 1
+    row = f.iloc[0]
+    assert (row["type"], row["strand"]) == ("oric", ".")
+    assert (int(row["start"]), int(row["end"])) == (5900, 6132)  # not (5900, 132)
+    assert 6000 < int(row["end"]) < 12_000
+    assert int(row["end"]) - int(row["start"]) == oo.ORIC_LEN
+
+
+def test_adapter_keeps_a_non_crossing_feature_unchanged(tmp_path: Path) -> None:
+    from giapsim.layout import layout_from_simulation
+
+    sim = _fake_sim(tmp_path / "m0", [{"type": "oriC", "sequence": "chr1", "start": 2001,
+                                       "stop": 2232, "strand": "?", "id": "O1"}])  # fmt: skip
+    row = layout_from_simulation(sim).features.iloc[0]
+    assert (int(row["start"]), int(row["end"])) == (2000, 2232)
+
+
+def test_adapter_crossing_feature_is_contract_valid(tmp_path: Path) -> None:
+    from giap.genetable.contract import validate_table
+    from giapsim.layout import layout_from_simulation
+
+    sim = _fake_sim(tmp_path / "m0", [{"type": "oriC", "sequence": "chr1", "start": 5901,
+                                       "stop": 132, "strand": "?", "id": "O1"}])  # fmt: skip
+    lay = layout_from_simulation(sim)
+    write(lay, tmp_path / "w")
+    assert validate_table("features", pd.read_parquet(tmp_path / "w" / "features.parquet")) == []
 
 
 def test_adapter_without_oric_has_empty_features(tmp_path: Path) -> None:

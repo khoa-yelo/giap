@@ -128,6 +128,35 @@ def test_label_null_definition() -> None:
     assert lcfg.oric_frac is None
 
 
+def test_abundance_beta_is_pinned() -> None:
+    """Review B2: ``ABUNDANCE_BETA`` is ``DEFAULT_BETA`` with slope 0.5 on log2 abundance and the
+    intercept offset ``-0.5 * mu_log2`` (so the detected share stays near the default)."""
+    from giapsim.expression import DEFAULT_BETA, ExpressionConfig
+
+    beta = dict(_sc().ABUNDANCE_BETA)
+    mu = ExpressionConfig().mu_log2
+    assert beta["log2_abundance"] == 0.5
+    assert beta["intercept"] == pytest.approx(DEFAULT_BETA["intercept"] - 0.5 * mu)
+    assert beta["intercept"] == pytest.approx(-18.65)
+    rest = {k: v for k, v in beta.items() if k not in ("log2_abundance", "intercept")}
+    assert rest == {k: v for k, v in dict(DEFAULT_BETA).items()
+                    if k not in ("log2_abundance", "intercept")}  # fmt: skip
+
+
+def test_abundance_detection_share_matches_the_default() -> None:
+    """Review B2 behaviourally: the ``abundance`` detected share stays near the
+    ``covariates_only`` one (0.534 vs 0.555 over 8 seeds); dropping the ``-b4 mu`` offset or
+    doubling the slope moves it."""
+    shares = {}
+    for name, cfgs in (("abundance", _sc().tu_null(1000)),
+                       ("covariates_only", _sc().tu_null(1000, "covariates_only"))):  # fmt: skip
+        vals = [float(run(cfgs, seed)[1].genes["detected_true"].mean()) for seed in range(8)]
+        shares[name] = float(np.mean(vals))
+    assert shares["abundance"] == pytest.approx(0.534, abs=0.02)
+    assert shares["covariates_only"] == pytest.approx(0.555, abs=0.02)
+    assert abs(shares["abundance"] - shares["covariates_only"]) < 0.05
+
+
 @pytest.mark.parametrize("detection", ["abundance", "covariates_only"])
 def test_tu_null_definition(detection: str) -> None:
     m = _sc()
@@ -137,7 +166,11 @@ def test_tu_null_definition(detection: str) -> None:
     assert ecfg.detection == detection
     assert tuple(ecfg.islands) == () and ecfg.oriter_log2 == 0.0
     if detection == "abundance":
-        assert ecfg.beta["log2_abundance"] > 0  # detection inherits the TU structure
+        assert dict(ecfg.beta) == dict(_sc().ABUNDANCE_BETA)  # review B2
+    else:
+        from giapsim.expression import DEFAULT_BETA
+
+        assert dict(ecfg.beta) == dict(DEFAULT_BETA)
 
 
 def test_tu_null_detection_inherits_tu_structure() -> None:
@@ -201,9 +234,20 @@ def test_island_power_fits_every_layout_seed() -> None:
 
 
 def test_island_power_abundance_detection() -> None:
-    """Lead decision 13: ``island_power(..., detection = "abundance")``."""
+    """Lead decision 13: ``island_power(..., detection = "abundance")`` (review B2: the pinned
+    ``ABUNDANCE_BETA``, and the mode must reach the config)."""
     _, ecfg = _sc().island_power(1000, 0.5, 10, 2.0, detection="abundance")
-    assert ecfg.detection == "abundance" and ecfg.beta["log2_abundance"] > 0
+    assert ecfg.detection == "abundance"
+    assert dict(ecfg.beta) == dict(_sc().ABUNDANCE_BETA)
+
+
+def test_island_first_tu_is_a_quarter_of_the_expected_tus() -> None:
+    """S3: ``island_first_tu(1000) == 138`` (1,000 genes / (4 x mean TU size 1.8))."""
+    m = _sc()
+    assert m.island_first_tu(1000) == 138
+    assert m.island_first_tu(4500) == 625
+    assert m.island_first_tu(1000, mean_tu_size=2.5) == 100
+    assert m.island_power(1000, 0.5, 10, 2.0)[1].islands[0].first_tu == 138
 
 
 def test_oriter_gradient_definition() -> None:
