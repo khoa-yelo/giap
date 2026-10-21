@@ -559,7 +559,7 @@ design (attack `two_bins_small`: FDP 0.0063 at 0.01).
 
 | Input, stratum | π̂_j | Population |
 |---|---|---|
-| database, m = 0 | one value: mean PEP if any PEP; else max q ≤ `input.q_value_max`; else 1 | the database peptides **of the stratum-0 lists**, i.e. all database rows except `same_db` exact peptides (see "Same-strain input") |
+| database, m = 0 | **superseded by ADR-0019** (see "Cross-strain input and run collapse"): the exact-match estimate of the peptide's length class. Until then: one value, mean PEP if any PEP; else max q ≤ `input.q_value_max`; else 1 | the database peptides **of the stratum-0 lists**, i.e. all database rows except `same_db` exact peptides (ADR-0019 also drops contaminants; see "Same-strain input") |
 | de novo, m = 0 | `pi_denovo` of the peptide's score bin (1 − lower 95 % precision bound, M3-11); missing → 1 | per peptide |
 | any, m ≥ 1 | 1 | — |
 
@@ -607,6 +607,70 @@ Two conditions are needed for the rest of the list to stay valid (attack
 An unresolved `search_db = auto` reaching `placement` is treated as `other`: valid (conservative,
 the peptide is FDR-controlled), but it loses the `same_db` shortcut; `auto` must be resolved to
 `same`/`other` before mapping (M3-17).
+
+## Cross-strain input and run collapse (ADR-0019, M3-25)
+
+**Status: statistician sign-off pending.** Decision and evidence:
+`docs/adr/ADR-0019-stratum0-pi-hat-exact-share.md` (accepted by Khoa 2026-10-20; Slurm 1860123,
+1860138, 1860180). This section supersedes the mean-PEP row of "π̂_wrong sources" for database
+input in stratum 0 and resolves the item forwarded from ADR-0010 (π̂ correlated with the
+chance-hit rate).
+
+**Why mean PEP fails.** Two defects, both measured in M3-21:
+
+1. *Cross-strain input* (`search_db = other`). Some **correct** identifications report the
+   database strain's sequence across a strain difference. They have no exact true locus, so an
+   exact chance hit elsewhere is a false stratum-0 placement, while their PEP measures
+   identification error only and is small. Mean PEP counts only the identification errors among
+   the peptides without an exact origin and under-estimates the false placements by about
+   (π_wrong + δ)/π_wrong, δ = the spanning share of the correct identifications.
+2. *Run collapse.* §5.3 collapses a peptide's runs with `pep = min`. The mean of min-collapsed
+   PEPs is not a peptide-level wrong share: with 3 runs M3-21 measured π̂ ≈ 0.0026 against a true
+   wrong share ≈ 0.024. No PSM-level aggregation (min, mean, max, product) is calibrated in
+   general, so placement stops reading PEP instead of changing §5.3's aggregation, which ranking,
+   detection and evidence still use.
+
+**The rule.** Population P: all database rows except `same_db` exact peptides (unchanged from
+M3-10) and except contaminants (M3-25 decision 7 — they are not genome-derived, so they carry no
+information about the chance-hit rate). Per length class ℓ of `mapping.length_classes`:
+
+- n_ℓ = peptides of P in ℓ; k_ℓ = those with no exact target hit (m_T ≠ 0 or no hit at all);
+  r_ℓ = **share of n_ℓ** with an exact decoy hit;
+- U_ℓ = one-sided 95 % Clopper–Pearson upper bound of k_ℓ/n_ℓ (1 when k_ℓ = n_ℓ), mirroring
+  step 4's "1 − lower 95 % bound";
+- π̂_ℓ = 1 if r_ℓ = 1, else min(1, U_ℓ/(1 − r_ℓ)).
+
+This is the database analogue of the de novo precision estimator with c_l = 1: a peptide with an
+exact origin always matches, one without matches at the decoy rate. Every peptide of P carries
+its class's π̂ into ADR-0010's FDR_0(e) = (W_0(e) + c)/T_0(e), with c = max π̂_ℓ over the classes
+with n_ℓ > 0. A peptide outside every class weighs 1 and does **not** enter c; an empty class has
+no weight. Edge cases: r_ℓ = 0 gives π̂ = U_ℓ, and m < r (fewer exact target than exact decoy
+matches) clips to 1. m ≥ 1 is unchanged (π̂ = 1). Why per class and not pooled: the no-origin
+share correlates with the chance-hit rate, which changes by ≈ ×14 per residue of length; an
+oracle that knows the true **pooled** no-origin share still fails the short-peptide and padding
+scenarios (2.19×, 2.02×).
+
+**Evidence** (failing cells of 18 list-level scenarios, δ × π × q; ADR-0019 Evidence):
+mean PEP fails 6–14 cells per scenario, a pooled exact share 0–13, the per-class rule **0**
+everywhere, including PEP deflated 10× (the run collapse) and the length-correlated inputs.
+Power at δ = 0 relative to mean PEP is 0.984–1.0 at N = 4,000 and 0.85–0.97 at N = 300 (π̂ = 1
+instead gives 0.43–0.84 and 0.25). At genome scale the estimated/true false count moves from
+0.03–0.46 under mean PEP to 0.96–2.4 under this rule; acceptance at q = 0.01 is unchanged, small
+or binding lists lose up to ~15 % power.
+
+**Limitation and the run warning.** If the upstream pipeline kept only genome-matching peptides,
+k is ~0 by construction and no genome-based rule can be calibrated — mean PEP included (FDP 0.061
+at q = 0.01, δ = 0.2). `placement` therefore raises the run warning `input_prefiltered` when k
+falls below the 0.001 quantile of Binomial(n, mean PEP × (1 − r)) over P pooled; this is the one
+place the row-level mean PEP is still read (`pi_wrong_database` is kept for it).
+
+**Reporting.** `mapping_fdr.tsv` columns are unchanged, with `pi_wrong` = (W + c)/(D + 1) now
+reflecting the class π̂. The class table itself is the `placement` step's `stratum0_classes`
+output (`mapping/stratum0_classes.parquet`), an optional input of `context_stats`, which turns it
+into `detection_summary.tsv` QC rows `stratum0_unmapped_share` = k/n (the §7.5.1
+genome-inconsistent rate of this population), one for the run and one per length class. It sits
+beside `genome_inconsistent_rate`, which measures another population (C9 `other`, non-contaminant,
+over accepted exact placements) and is unchanged.
 
 ## Calibration (M3-10)
 
@@ -706,8 +770,8 @@ db-strain suites had 0 false peptides in every list. The de novo error-model sui
   estimate check mean(Ŵ0) ≥ mean(V0) − 2 SE: Ŵ0 2.44 vs V0 1.6, because the injected share
   dominates the pooled π̂ at 100 kb. At 1 Mb the estimate check is a separate test,
   `test_database_stressed_stratum0_estimate_covers_false_placements` (`calibration_full`,
-  R = 100, ΣV0 ≥ 100). It is a strict xfail "ADR-0019 implementation pending": mean PEP gives
-  Ŵ0 0.57 vs V0 2.85. The cause is the length-correlated no-origin share. 75 % of the injected
+  R = 100, ΣV0 ≥ 100). It was a strict xfail "ADR-0019 implementation pending" until M3-25
+  implemented the ADR: mean PEP gave Ŵ0 0.57 vs V0 2.85. The cause is the length-correlated no-origin share. 75 % of the injected
   peptides are 7-mers, and the 7-mer class has a no-origin share of 0.22 against 0.031 pooled,
   so a pooled π̂ times all decoy hits under-counts. ADR-0019's per-class π̂ corrects it; the
   statistician's reference rule gives Ŵ0 3.65 vs V0 3.50 over 6 replicates (review of #113,
@@ -715,8 +779,8 @@ db-strain suites had 0 false peptides in every list. The de novo error-model sui
 - the **related db-strain estimate check**
   (`test_related_dbstrain_stratum0_estimate_covers_false_placements`, full tier, 1 Mb, 5 SNV/kb,
   R = 100). It requires ΣV0 ≥ 30 false stratum-0 placements and mean W0 ≥ mean V0 − 2 SE (SE of V0 − W0 over lists). Observed
-  (job 1860995, after the B1 origin fix): ΣV0 = 79, mean V0 0.79, mean W0 0.150, SE 0.099. It is a
-  strict xfail until ADR-0019 (exact-match π̂ per length class) is implemented. Correct
+  (job 1860995, after the B1 origin fix): ΣV0 = 79, mean V0 0.79, mean W0 0.150, SE 0.099. It was
+  a strict xfail until ADR-0019 (exact-match π̂ per length class) was implemented in M3-25. Correct
   identifications that span a strain difference have no exact origin but small PEP, so mean PEP
   under-counts their exact chance hits (ADR-0019 Context, defect 1).
 

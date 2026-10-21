@@ -5,6 +5,25 @@ the genome" and step 4, §8.1, §8.4, §9.3, §9.4; issue M3-11; ADR-0010).
 
 **Status:** signed off by the statistician (M3-11 review, 2026-10-14; see Sign-off).
 
+## Estimand (ADR-0019 decision 5)
+
+**Status: statistician sign-off pending** (added with the ADR-0019 implementation, M3-25).
+
+`prec_b` estimates the **correct share among the distinct de novo peptides of GIAP score bin b**.
+Two consequences of "distinct" and "GIAP's bins":
+
+- the unit is the distinct peptide string, after §5.3 collapses the rows of a peptide (`score` =
+  max over its rows), not the spectrum or the read; a peptide is **correct** when its string
+  (I = L) equals the `true_peptide` of at least one of the reads it was collapsed from;
+- the bins are GIAP's own score deciles over those aggregated scores (see Bins), not the bins or
+  the design parameters of whatever produced the input.
+
+Calibration therefore gates against that realised share, computed per bin from the truth table.
+giapsim's `truth/denovo_precision.tsv` is the **per-read design precision** of the error model —
+a different quantity, over another unit and other bins — and is not the target of these gates.
+The two drift apart whenever correct and wrong reads collapse into peptides at different rates
+(a correct peptide is usually read several times; a wrong one once), which is the ordinary case.
+
 ## Estimator
 
 De novo peptides that enter mapping are split into score bins b and length classes l (M3-10 labels

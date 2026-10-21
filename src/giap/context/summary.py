@@ -20,6 +20,7 @@ __all__ = [
     "FEW_UNITS_FLAG",
     "REQUIRES_VARIANTS_FLAG",
     "SECTIONS",
+    "STRATUM0_METRIC",
     "SUMMARY_COLUMNS",
     "basic_rows",
     "detection_summary",
@@ -35,6 +36,7 @@ FEW_UNITS_MIN = 10
 FEATURE_CLASSES = ("cds", "sorf", "pseudogene")
 MISMATCH_FLAG = "engine_protein_mismatch"
 REQUIRES_VARIANTS_FLAG = "requires_variants"  # id_mixups (§7.5.1) needs the variant module (M7)
+STRATUM0_METRIC = "stratum0_unmapped_share"  # ADR-0019 decision 4 (§7.5.1 genome-inconsistent)
 NO_COG = frozenset({"", "-"})
 
 Row = tuple[str, str, str, str, float, float, float, Any, str]
@@ -169,8 +171,30 @@ def _has_flag(v: object, flag: str) -> bool:
     return flag in str(v).split(";")
 
 
+def _stratum0_rows(stratum0: pd.DataFrame) -> list[Row]:
+    """ADR-0019 decision 4 QC rows: the stratum-0 unmapped share k/n, overall and per class.
+
+    ``stratum0`` is ``giap.mapping.placement_fdr.stratum0_pi_classes``'s table (one row per
+    length class with ``n`` and ``k``). The overall row is group ``run``/``all``, the per-class
+    rows group_type ``length_class`` with the class label; ``value`` = k/n (NA for an empty
+    class, never 0) and ``n`` = n.
+    """
+    nan = math.nan
+    n_all, k_all = int(stratum0["n"].sum()), int(stratum0["k"].sum())
+    share = k_all / n_all if n_all else nan
+    rows: list[Row] = [("qc", "run", "all", STRATUM0_METRIC, share, nan, nan, n_all, "")]
+    for r in stratum0.itertuples(index=False):
+        n, k = int(r.n), int(r.k)
+        rows.append(("qc", "length_class", str(r.length_class), STRATUM0_METRIC,
+                     k / n if n else nan, nan, nan, n, ""))  # fmt: skip
+    return rows
+
+
 def qc_rows(
-    peptides: pd.DataFrame | None, peptide_hits: pd.DataFrame, unmapped: pd.DataFrame | None
+    peptides: pd.DataFrame | None,
+    peptide_hits: pd.DataFrame,
+    unmapped: pd.DataFrame | None,
+    stratum0: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """QC rows (section ``qc``, group ``run``/``all``) from C9, C11 and C13 (§7.5.1, §9.3).
 
@@ -181,6 +205,10 @@ def qc_rows(
     peptides with ``search_db = other`` without an exact C11 placement; ``n`` = that denominator
     (NA without such peptides, e.g. all ``same``). C13 counts by ``label`` and ``kind`` (NA
     without C13).
+
+    With the ADR-0019 class table ``stratum0`` (the ``placement`` step's ``stratum0_classes``)
+    the rows of ``_stratum0_rows`` follow. They measure another population than
+    ``genome_inconsistent_rate`` and replace no row of it (M3-25 decision 2).
     """
     hits = peptide_hits
     pep_col = hits["peptide"].astype(str)
@@ -223,7 +251,10 @@ def qc_rows(
         ("unmapped_peptides", count("unmapped", "peptide"), pd.NA, ""),
         ("unmapped_proteins", count("unmapped", "protein"), pd.NA, ""),
     ]
-    return _frame([("qc", "run", "all", m, v, nan, nan, n, f) for m, v, n, f in vals])
+    rows: list[Row] = [("qc", "run", "all", m, v, nan, nan, n, f) for m, v, n, f in vals]
+    if stratum0 is not None:
+        rows += _stratum0_rows(stratum0)
+    return _frame(rows)
 
 
 def _flags_str(v: object) -> str:
