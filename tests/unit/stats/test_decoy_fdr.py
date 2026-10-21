@@ -33,7 +33,15 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from scipy import stats as sps
 
-from giap.stats.decoy_fdr import DecoyFdr, bin_index, local_fdr, max_decoy_fdr, reweighted_fdr
+from giap.stats.decoy_fdr import (
+    DecoyFdr,
+    _lfdr_densities,
+    _reflected_density,
+    bin_index,
+    local_fdr,
+    max_decoy_fdr,
+    reweighted_fdr,
+)
 from giap.stats.tda import monotone_q
 
 FAST = settings(max_examples=40, deadline=None)
@@ -491,3 +499,22 @@ def test_property_local_fdr_is_scale_equivariant(seed: int) -> None:
     plain = local_fdr(target, decoy, np.ones(300))
     scaled = local_fdr(3.7 * target, 3.7 * decoy, np.ones(300))
     assert scaled == pytest.approx(plain, rel=1e-8, nan_ok=True)
+
+
+def test_reflected_density_is_symmetric_and_integrates_to_one_on_the_half_line() -> None:
+    """Lead decision 8: the reflection at 0 is checked on the exposed helper."""
+    sample = np.abs(np.random.default_rng(3).normal(size=500))
+    w = np.ones_like(sample)
+    x = np.linspace(0.0, 8.0, 4001)
+    f = _reflected_density(sample, w, x)
+    np.testing.assert_allclose(_reflected_density(sample, w, -x), f, rtol=1e-12)
+    assert np.trapezoid(f, x) == pytest.approx(1.0, abs=1e-3)
+
+
+def test_lfdr_densities_are_finite_and_non_negative_at_every_target() -> None:
+    rng = np.random.default_rng(4)
+    t, d = rng.normal(size=300), rng.normal(size=300)
+    f0, f_no = _lfdr_densities(t, d, np.ones_like(d))
+    assert f0.shape == f_no.shape == t.shape
+    assert np.all(np.isfinite(f0)) and np.all(f0 >= 0.0)
+    assert np.all(np.isfinite(f_no)) and np.all(f_no > 0.0)
