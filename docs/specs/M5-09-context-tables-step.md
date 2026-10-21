@@ -16,7 +16,7 @@ Milestone M5 · track T (tables and step) · depends on: M5-05, M5-06, M5-08; **
   `mean_abundance_log2`, `detected_frac`, `scan_s`, `block_len`, plus the test columns (`p_value` = FWER,
   `q_value = NA`)." genes.tsv context group: `island_id`, `replichore`, `replichore_position`.
 - §9.2 table conventions and test columns; §9.4 "Region and context" flags (`descriptive`, `no_oric`,
-  `uncalibrated`) — "extend only through the schema"; §9.5 Frictionless resources; §6.5 coordinates and
+  `ci_few_units`; **not** `uncalibrated`, which ADR-0021 Amendment 1 drops) — "extend only through the schema"; §9.5 Frictionless resources; §6.5 coordinates and
   sort; §6.6 / R7 determinism; R4 (every claim carries FWER/q or `unestimated`).
 
 ## Public interface

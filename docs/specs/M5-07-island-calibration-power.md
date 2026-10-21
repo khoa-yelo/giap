@@ -93,9 +93,19 @@ joins.
 ADR-0021 accepted by Khoa 2026-10-20. When accepted:
 28. Q1: full gate ρ ∈ {0, 0.5, 0.9} at 4,500 genes + plasmid; fast gate ρ 0.5 at 1,000 genes; attack ρ 0.95
     required; gated attacks: draft assembly, short-gene prophage, gradient, large TUs, abundance-driven
-    detection. Replicons < 1,000 scored TUs are recorded under ADR-0021 decision 2.
+    detection. (ADR-0021 **Amendment 1** supersedes decision 2: the size rule and the `uncalibrated`
+    flag are gone. Gate cells stay at 4,500 genes; add **recorded, not gated** cells at 1,000 and 1,800
+    genes x rho 0.9, and label the low-direction row a **structural zero** with the ceiling and the
+    critical value beside it, per M5-06 decisions 47/50.)
 29. Q2: escalate with numbers, never tune (done: ADR-0021).
 30. Q3: power = same-direction island sharing ≥ 1 TU with the planted one, plus Jaccard and false-island
     rate; report the null FWER next to each power cell. Power is recorded, not gated; run the grid also with
     `detection = "abundance"`. The ≥ 0.8 planning target is not met under giapsim defaults (≈ 0.18 at
     20 TUs × 2 SD).
+
+## Lead note (2026-10-21, from the statistician's #131 review)
+The short-gene prophage arm of M5-06 decision 27 is **missing** from
+tests/calibration/attacks/test_attack_islands.py: `scenarios.tu_null(1800, short_genes_in="prophage")`
+through `idat.scenario_contigs`, one gated arm. It is the same mechanism class as the ori–ter breach
+(clustered censoring → local-scale heterogeneity), so it must be gated rather than assumed. **It must
+land before M5-07 claims the island gate.**
