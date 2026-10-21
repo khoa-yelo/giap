@@ -48,6 +48,7 @@ sha256_of() {  # GNU sha256sum or the BSD shasum of macOS CI; both print "<hash>
 mkdir -p "$DEST"
 NAMES=()
 NAME_N=0
+set -f  # $FILES is split into words, never globbed against the working directory
 for name in $FILES; do
   url="$BASE_URL/$name"
   if [ -s "$DEST/$name" ]; then
@@ -60,6 +61,7 @@ for name in $FILES; do
   NAMES+=("$name")
   NAME_N=$((NAME_N + 1))
 done
+set +f  # the *.zip loop below needs globbing again
 [ "$NAME_N" -gt 0 ] || { echo "PXD078459_FILES is empty: nothing to download" >&2; exit 2; }
 
 (cd "$DEST" || exit 1; sha256_of "${NAMES[@]}" > SHA256SUMS)

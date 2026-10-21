@@ -86,9 +86,9 @@ Everything else of the template is used verbatim: `--fasta-search --gen-spec-lib
 Added beyond the template, from Khoa's reference invocation: the mass ranges `--min-pr-mz 300
 --max-pr-mz 1800 --min-fr-mz 200 --max-fr-mz 1800`, `--peptidoforms`, `--verbose 1`, and (step 2
 only) `--matrices` and `--gen-spec-lib --out-lib <arm>_empirical.parquet`. His `--reanalyse`
-(MBR) and `--rt-profiling` are deliberately **not** used: the pilot estimates a false-discovery
-proportion from entrapment peptides (§15.5 metric 8) and MBR would change that denominator. All
-of this is identical in A1 and A2, so the comparison stays fair.
+(MBR) and `--rt-profiling` are deliberately **not** used: match-between-runs weakens run-level
+FDR control, so the identifications are no longer the single-pass q ≤ 0.01 set that §15.5 metric
+8 estimates a false-discovery proportion for from entrapment peptides.
 
 ## How `db_a2` was built
 

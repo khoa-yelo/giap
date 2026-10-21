@@ -116,6 +116,10 @@ resolve_fastas() {  # expand every --fasta of CFG_ARGS; unpack a gzipped one out
       i=$((i + 1))
       continue
     fi
+    if [ $((i + 1)) -ge "$CFG_N" ]; then
+      echo "$CFG: a --fasta at the end of a section has no value" >&2
+      usage
+    fi
     val="$(expand "${CFG_ARGS[$((i + 1))]}")"
     case "$val" in
       /*) ;;

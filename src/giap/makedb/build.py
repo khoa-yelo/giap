@@ -29,6 +29,7 @@ import numpy as np
 
 import giap
 from giap.annotate.bakta import interval_nt, parse_bakta_json
+from giap.io._open import read_json
 from giap.io.fasta import read_genome_fasta
 from giap.io.gff3 import AttrValue, read_gff3
 from giap.io.protein_fasta import read_protein_fasta, write_protein_fasta
@@ -252,6 +253,28 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _declared_lengths(path: Path) -> dict[str, int | None]:
+    """Contig -> the length the Bakta JSON itself states; ``None`` when it states none.
+
+    A record with neither ``length`` nor ``nt`` says nothing about its own size, so a ``--genome``
+    FASTA cannot be checked against it (lead decision 13): ``build_strain_db`` refuses such an
+    annotation instead of comparing the replicon length with the FASTA it was derived from.
+    """
+    data = read_json(path)
+    out: dict[str, int | None] = {}
+    if not isinstance(data, Mapping):
+        return out
+    for rec in data.get("sequences", data.get("contigs")) or []:
+        if not isinstance(rec, Mapping) or not rec.get("id"):
+            continue
+        length, nt = rec.get("length"), rec.get("nt") or rec.get("sequence")
+        if isinstance(length, int) and not isinstance(length, bool):
+            out[str(rec["id"])] = length
+        else:
+            out[str(rec["id"])] = len(nt) if isinstance(nt, str) else None
+    return out
+
+
 Row = tuple[str, str, str | None, str | None, str | None, int | None, int | None, str | None]
 
 
@@ -274,8 +297,17 @@ def build_strain_db(opts: MakedbOptions) -> MakedbResult:
         raise ValueError(f"{opts.annotation}: annotation has no sequences or features")
     genome = dict(ann.sequences)
     if fasta is not None:
-        for cid, rep in gm.replicons.items():
-            if cid not in fasta or len(fasta[cid]) != rep.length:
+        # The JSON's own lengths, never the replicon lengths: without `nt` those come from this
+        # very FASTA, so comparing them would compare a value with itself (lead decision 13).
+        declared = _declared_lengths(opts.annotation)
+        for cid in gm.replicons:
+            length = declared.get(cid)
+            if length is None:
+                raise ValueError(
+                    f"{opts.annotation}: sequence {cid!r} declares no length and carries no "
+                    f"nucleotides, so {opts.genome} cannot be checked against it"
+                )
+            if cid not in fasta or len(fasta[cid]) != length:
                 raise ValueError(f"{opts.genome}: contig {cid!r} missing or of the wrong length")
             genome[cid] = fasta[cid]
     records: list[tuple[str, str]] = []
