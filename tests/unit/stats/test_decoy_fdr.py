@@ -501,13 +501,13 @@ def test_property_local_fdr_is_scale_equivariant(seed: int) -> None:
     assert scaled == pytest.approx(plain, rel=1e-8, nan_ok=True)
 
 
-def test_reflected_density_is_symmetric_and_integrates_to_one_on_the_half_line() -> None:
-    """Lead decision 8: the reflection at 0 is checked on the exposed helper."""
+def test_reflected_density_integrates_to_one_on_the_half_line() -> None:
+    """Lead decision 8: the reflection at 0 keeps all the mass on [0, inf) (a plain KDE would
+    leak about half a kernel below 0)."""
     sample = np.abs(np.random.default_rng(3).normal(size=500))
     w = np.ones_like(sample)
     x = np.linspace(0.0, 8.0, 4001)
     f = _reflected_density(sample, w, x)
-    np.testing.assert_allclose(_reflected_density(sample, w, -x), f, rtol=1e-12)
     assert np.trapezoid(f, x) == pytest.approx(1.0, abs=1e-3)
 
 

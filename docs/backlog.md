@@ -161,3 +161,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M6-01 hardening (statistician, #140): `_KDE_MAX_GRID` coarsens silently; a bin with targets but no
   decoys gets weight 0 in f0 (fix before lfdr is ever thresholded); the lfdr can come from a different
   decoy set than `which` reports; three proposed attacks are in docs/methods/operons.md for M6-09.
+- M6-01 pass 2 (code review of #140, non-blocking): (N1) replace `_COLLAPSE_FRAC` with the exact
+  scale-free criterion: the Student-t likelihood is unbounded when the largest tie count k satisfies
+  k > df_lo * (n - k); (N2) take the KDE grid span of `_reflected_density` from the sample only, not
+  from the evaluation points; `_bins` silently truncates float bins; `bin_index` accepts NaN edges;
+  the +inf distance in the `bin_index` docstring.
