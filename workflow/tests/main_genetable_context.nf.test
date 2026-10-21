@@ -1,0 +1,136 @@
+// MVP-01: main.nf runs ANNOTATE, MAPPING, GENETABLE and CONTEXT in one stub run, so `giap run`
+// produces the gene table, the detectability diagnostics and the §9.4 tables (GIAP_SPEC.md
+// §6.3, §7.3, §8.6, §9.3, §9.4). Stub runs only; ci.yml runs:
+// nf-test test workflow/tests --profile test,stub.
+//
+// Pinned here: GENETABLE and CONTEXT run from params.inputs.peptides, like MAPPING; the M4-06
+// contract tables come from ANNOTATE (parse_bakta, operon_pairs, context_layers, region_layer)
+// and the M3 tables from MAPPING's loci directory, with no path given by hand; the COG 2020
+// table is <db_dir>/cog/cog-20.def.tab when the db_dir manifest lists cog2020_def (M4-15
+// decision 5), as giap.setupdb.installed.cog_table resolves it.
+
+nextflow_pipeline {
+
+    name "main.nf runs GENETABLE and CONTEXT (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "genetable"
+
+    test("peptides given: the four MVP outputs are published and every step gets its wired inputs") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            ['gene_table', 'detectability', 'context_stats', 'sensitivity'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${H.names(workflow.trace)}"
+            }
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            // the contract tables come from ANNOTATE's tasks, the M3 tables from loci
+            def gtDir = H.stepDirs(work, 'gene_table')[0]
+            def gin = H.stepInputs(gtDir)
+            assert gin.any { it[0] == 'mapping' } : "gene_table got no loci directory: ${gin}"
+            assert gin.any { it[0] == 'cog2020_def' && it[1].endsWith('cog-20.def.tab') } : "no COG table from db_dir: ${gin}"
+            def pb = H.stepDirs(work, 'parse_bakta')[0].canonicalPath
+            def cl = H.stepDirs(work, 'context_layers')[0].canonicalPath
+            def sources = H.staged(gtDir).collect { new File(it[0]).canonicalPath }
+            assert sources.any { it.startsWith(pb) } : "gene_table does not stage parse_bakta's tables: ${sources}"
+            assert sources.any { it.startsWith(cl) } : "gene_table does not stage layers.parquet: ${sources}"
+
+            def cin = H.stepInputs(H.stepDirs(work, 'context_stats')[0])
+            ['peptide_hits', 'protein_hits', 'unmapped'].each { k ->
+                assert cin.any { it[0] == k && it[1].endsWith("${k}.tsv") } : "context_stats got no ${k}: ${cin}"
+            }
+            assert cin.any { it[0] == 'stratum0_classes' } : "ADR-0019 class table not wired: ${cin}"
+            assert cin.any { it[0] == 'detectability_summary' } : "detectability diagnostics not wired: ${cin}"
+            assert cin.findAll { new File(it[1]).name == 'genes.parquet' }.size() == 2 : "gene_table and C2 genes both expected: ${cin}"
+
+            ['genetable/genes_pre.parquet', 'genetable/genes.parquet',
+             'genetable/detection_summary_parts/detectability.parquet', 'tables/regions_stats.tsv',
+             'tables/detection_summary.tsv', 'tables/sensitivity.tsv'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+        }
+    }
+
+    test("precomputed regions layer: GENETABLE still runs, CONTEXT does not") {
+
+        // The Nextflow twin of the local executor's skip: ANNOTATE emits the precomputed regions
+        // as an M2-02 TSV layer and no C7/C8 Parquet, so context_stats and sensitivity are left
+        // out while gene_table and detectability, which need neither, keep running.
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                ann.precomputed.regions = new File("${a}/regions.tsv").canonicalPath
+                annotation = ann
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def ran = { H.names(workflow.trace) }
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            assert H.stepCount(workflow.trace, 'region_layer') == 0 : "region_layer ran despite the layer: ${ran()}"
+            ['gene_table', 'detectability'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "${s} ran ${H.stepCount(workflow.trace, s)}x: ${ran()}"
+            }
+            ['context_stats', 'sensitivity'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 0 : "${s} ran without C7/C8: ${ran()}"
+            }
+            // the M2-02 TSV is a layer of the gene table, not a contract table
+            def gin = H.stepInputs(H.stepDirs(workDir.toString(), 'gene_table')[0])
+            assert !gin.any { it[0] in ['regions', 'region_genes'] } : "C7/C8 keys from a layer: ${gin}"
+
+            assert new File("${outputDir}/genetable/genes.parquet").isFile() : "gene table not published"
+            assert !new File("${outputDir}/tables").exists() : "tables/ published without C7/C8"
+        }
+    }
+
+    test("no peptides: GENETABLE and CONTEXT do not run") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            ['gene_table', 'detectability', 'context_stats', 'sensitivity'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 0 : "${s} ran without peptides: ${H.names(workflow.trace)}"
+            }
+            assert !new File("${outputDir}/genetable").exists() : "genetable/ published without peptides"
+            assert !new File("${outputDir}/tables").exists() : "tables/ published without peptides"
+        }
+    }
+}

@@ -105,8 +105,16 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - MVP-01 pass 2: `detect` (M4-12) builds tier and q-threshold curve rows, but `gene_table` has no
   diagnostics output key, so those rows never reach `tables/detection_summary.tsv` (only the
   basic / qc / detectability sections are there).
-- `tests/unit/test_setup_resources.py::test_contaminant_library_is_not_vendored` walks the whole
-  checkout and counts `.nf-test/.../work/**/contaminants.fasta` (a symlink to the real
-  $GIAP_DB_DIR library staged by mapping_nf_main_review.nf.test), so it fails after a local
-  nf-test run in the same worktree. CI never sees it (separate jobs); add `.nf-test` to its skip
-  set.
+- MVP-01 pass 2 (#129 review): `stepIn`'s `need` defaults to `[]`, so a step with no `need` emits
+  an empty task — which is exactly the MVP-01 failure — as soon as one upstream channel is empty.
+  `map_exact`, `map_tolerant`, `loci` and `parse_bakta` are each one empty upstream away from it.
+  `need` should default to the step's required keys (the registry already lists them).
+- MVP-01 pass 2 (#129 review): `OUT/genetable/genes_pre.parquet` is an intermediate published into
+  the user's output tree, and §9.1 has no `genetable/` directory at all (it specifies
+  `tables/genes.tsv`). Settle publishDir discipline — which keys are user-facing, which stay in
+  work/ — with the M6 writers.
+- MVP-01 pass 2 (#129 review): `cog/cog-20.def.tab` is a literal in `main.nf` (`cogTable()`), while
+  Python reads the path from `db_sources.yaml` and the db manifest records it per item.
+  `tests/unit/test_nf_main_installed_items.py` now pins the two literals against `SOURCES`, in the
+  style of `test_nf_annotate_registry.py`; pass 2 should drop the duplication instead, by having
+  `installed()` read the manifest entry's own `path`.
