@@ -83,3 +83,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   tasks. The nightly full tier now carries three ~65-minute autocorrelation attack arms (a, b, c; 1,000
   replicates at 4,500 genes each, and a block-2 confirmation doubles an arm) on top of the main full
   suite and the M3 placement full checks (~38 min). M5-06's island attacks land next.
+- Two homes for the K-12 reference proteome: scripts/slurm/fetch_resources.sbatch writes
+  $GIAP_DATA_DIR/proteomes/UP000000625.fasta (used by the M3-24 pilot cfgs), while
+  validation/fetch_uniprot_k12.py and scripts/slurm/weekly.sbatch use $GIAP_DATA_DIR/uniprot/. Pick one.
