@@ -5,25 +5,16 @@ Inputs: the final gene table (M4-15 ``work/genetable/genes.parquet``, key ``gene
 M4-06 contract tables C1-C14 (validated with ``load_m4_inputs``; an ``error`` issue stops the
 step), optionally the ``--replicon-depth`` TSV (§5.3), M4-15's ``detectability_summary``
 parquet (detectability diagnostics rows; locally ``genetable/detection_summary_parts/
-detectability.parquet``), the ``tier_summary`` parquet of ``gene_table`` (M4-12's tier counts and
-q-threshold curve; locally ``genetable/detection_summary_parts/tier.parquet``, M4-20 decision 3),
-the ADR-0019 stratum-0 class table of the ``placement`` step (``stratum0_classes``; locally
-``mapping/stratum0_classes.parquet``), which adds the ``stratum0_unmapped_share`` QC rows, and the
-C15 ``features`` table (M5-04; locally ``features.parquet``), whose ``oric`` rows place the origin:
-without it the ori-ter rows are ``no_oric`` and the step logs ``layer_missing:features``.
+detectability.parquet``), ``tier_summary`` of ``gene_table`` (M4-20 decision 3; locally
+``genetable/detection_summary_parts/tier.parquet``), the ADR-0019 ``stratum0_classes`` of
+``placement`` (the ``stratum0_unmapped_share`` QC rows) and C15 ``features`` (M5-04), whose ``oric``
+rows place the origin (without it: ``no_oric`` rows and ``layer_missing:features``).
 
-Outputs: the M4 ``tables/regions_stats.tsv`` and ``tables/detection_summary.tsv``, the M5
-``tables/autocorrelation.tsv`` and ``tables/islands.tsv``, ``work/context/gene_context.parquet``
-(the §9.3 genes.tsv context group), ``work/context/island_diagnostics.parquet``
-(:mod:`giap.context.diagnostics`) and ``tables/genes.tsv`` -- written here because this is the
-last step holding both the gene table and the context columns (M5-09 lead decision 3), until
-§6.2's ``finalize`` takes the file over (docs/backlog.md).
-
-Random streams, all from ``config.seed``: ``context_stats`` (M4-17 region tests),
-``context_stats.plasmids``, ``context_stats.detection_summary`` (basic O - E CIs),
-``context_stats.autocorrelation``, ``context_stats.islands`` (shared by ``scan_replicons`` then
-``islands_frame``, in that order) and ``context_stats.oriter``, so no part's draws depend on
-another part's content and the M4 tables do not move when an M5 knob changes.
+Outputs: ``tables/regions_stats.tsv``, ``detection_summary.tsv``, ``autocorrelation.tsv``,
+``islands.tsv``, ``genes.tsv`` (here until §6.2's ``finalize``, M5-09 lead decision 3) and
+``work/context/{gene_context,island_diagnostics}.parquet``. Streams from ``config.seed``:
+``context_stats``, ``.plasmids``, ``.detection_summary``, ``.autocorrelation``, ``.islands`` and
+``.oriter``, so no part's draws depend on another's and M5 knobs never move the M4 tables.
 """
 
 from __future__ import annotations

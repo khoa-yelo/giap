@@ -2,10 +2,7 @@
 docs/specs/M4-15-gene-table-assembly.md): adds the M4-13 cross-fitted ``p_detect`` to
 ``genes_pre`` and writes the ``detectability`` rows of ``detection_summary``.
 
-The §9.3 master table ``tables/genes.tsv`` is written by ``context_stats``, the last step holding
-both the gene table and the context columns (M5-09 lead decision 3; it replaced M4-20 lead
-decision 2's write from here). §6.2 gives the file to ``finalize``; when that step arrives it
-takes the call over.
+``tables/genes.tsv`` is written by ``context_stats`` (M5-09 lead decision 3).
 
 Eligible genes are the non-partial ones (§7.3); their ``detected`` value is the M4-12 call. The
 model draws only from the step's own stream ``giap.rng.for_step("detectability", seed)``. With a
