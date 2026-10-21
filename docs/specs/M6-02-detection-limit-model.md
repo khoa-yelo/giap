@@ -126,3 +126,11 @@ Toy model, `logit p_j = −12 + 0.6 · a − 0.02 · L_j`, gene u with peptides 
 3. Peptide model preferred whenever peptides exist, even with many runs (proposed), or pick by
    cross-validated AUC? **Proposed default:** follow the spec literally; record both AUCs in the
    detection summary so a future ADR has evidence.
+
+## Lead decisions (2026-10-21)
+1. Q1: C16 `work/peptide_runs.parquet`, optional (M6-index decision 5).
+2. Q2: "observed" = any C11 assignment of the peptide to the gene (proposed default).
+3. Q3: follow the spec literally (peptide model whenever peptides exist); record both AUCs in the
+   detection summary as evidence for a future ADR.
+4. `p_miss` is a probability, never a p-value: it gets no q and never enters a BH family
+   (M6-index decision 1). The M6-05H follow-up consumes it.
