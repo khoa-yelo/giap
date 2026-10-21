@@ -523,3 +523,39 @@ def test_qc_rows_report_the_stratum0_unmapped_share_overall_and_per_class() -> N
     # classes with n = 0 report no share (NA), never 0
     if "7" in per.index:
         assert pd.isna(per.loc["7", "value"])
+
+
+# ----------------------------------------- M3-25 decision 12: anti-conservative edge cases
+
+
+def test_decoy_hit_in_a_class_empty_of_p_weighs_one() -> None:
+    """A contaminant leaves P (decision 7) but keeps its place in the stratum-0 lists, as the
+    implementation does today (M3-25 decision 10 leaves that membership out of scope, so this
+    test depends on it). When its class holds no peptide of P at all, the class has no π̂
+    (n = 0), and the missing value must read as 1, not 0: W = 1 here, so q = (1 + π̂_9)/100 and
+    not π̂_9/100."""
+    cont = row(pep_of(700, 12), md=0, ed=1e-9, is_contaminant=True)
+    rows = [*targets0(100), cont]
+    per, fdr = run(rows)
+    u = u0(100)
+    assert (int(class_row(classes_table(rows[:100]), "12-14")["n"])) == 0  # empty of P
+    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in rows[:100]]), (1 + u) / 100,
+                               rtol=1e-9)  # fmt: skip
+    tot = fdr_row(fdr, 0, "all")
+    assert int(tot["decoys"]) == 1
+    assert float(tot["pi_wrong"]) == pytest.approx((1 + u) / 2, rel=1e-9)  # (W + c)/(D + 1)
+
+
+def test_empty_population_gives_c_one() -> None:
+    """Every database row a contaminant: P is empty, so no class has an estimate and c must fall
+    back to 1, not 0. The rows stay in the lists (decision 10), each weighing 1: one decoy before
+    10 targets gives FDR(e_j) = (1 + 1)/j -> q = 0.2, not 0.1 (c = 0) or 0 (weights 0)."""
+    t = [row(pep_of(i), mt=0, et=0.001 * (i + 1), is_contaminant=True) for i in range(10)]
+    d = row(pep_of(500), md=0, ed=1e-9, is_contaminant=True)
+    tab = classes_table([*t, d])
+    assert int(tab["n"].sum()) == 11  # the table itself still counts whatever it is given
+    per, fdr = run([*t, d])
+    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in t]), 0.2, rtol=1e-12)
+    tot = fdr_row(fdr, 0, "all")
+    assert (int(tot["targets"]), int(tot["decoys"])) == (10, 1)
+    assert float(tot["pi_wrong"]) == 1.0  # (W + c)/(D + 1) = (1 + 1)/2
