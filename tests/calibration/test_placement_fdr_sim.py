@@ -133,6 +133,31 @@ def test_database_stressed_stratum0_placement_fdr_full(tmp_path: Path) -> None:
     _stressed(True, tmp_path)
 
 
+def _class_diag(cs: list[float], by_class: dict[str, list[list[float]]]) -> dict[str, object]:
+    """Diagnostics only (M3-25 statistician): mean c and, per length class, mean n and π̂ over the
+    replicates that have the class."""
+    return {
+        "mean_c": float(np.mean(cs)) if cs else float("nan"),
+        "pi_by_class": {
+            label: {
+                "mean_n": float(np.mean([x[0] for x in v])),
+                "mean_pi": float(np.mean([x[1] for x in v])),
+                "reps": len(v),
+            }
+            for label, v in sorted(by_class.items())
+        },
+    }
+
+
+def _collect_class_diag(
+    extra: dict[str, object], cs: list[float], by_class: dict[str, list[list[float]]]
+) -> None:
+    cs.append(float(extra.get("stratum0_c", float("nan"))))
+    pis: dict[str, list[float]] = extra.get("stratum0_pi", {})  # type: ignore[assignment]
+    for label, (n_l, _k, _r, pi_l) in pis.items():
+        by_class.setdefault(label, []).append([float(n_l), float(pi_l)])
+
+
 STRESS_EST_R = 100
 STRESS_EST_V0_FLOOR = 100
 
@@ -146,18 +171,21 @@ def test_database_stressed_stratum0_estimate_covers_false_placements(tmp_path: P
     is ΣV0 >= 100 (about 285 expected). The no-origin share is length-correlated (7-mer class
     0.22 against 0.031 pooled), so mean PEP under-counts: Ŵ0 0.57 vs V0 2.85, more than 10 SE at
     R = 100. ADR-0019's per-class π̂ corrects this (reference Ŵ0 3.65 vs V0 3.50)."""
-    w0, v0 = [], []
+    w0, v0, cs = [], [], []
+    by_class: dict[str, list[list[float]]] = {}
     for i in range(STRESS_EST_R):
         seed = int(C.replicate_rng("placement.est_db_stressed", i).integers(0, 2**31 - 1))
         d = tmp_path / f"r{i}"
         rep = _stressed_replicate(True, seed, d)
         w0.append(float(rep.extra["W0_reverse"]))
         v0.append(float(rep.extra["V0_reverse"]))
+        _collect_class_diag(rep.extra, cs, by_class)
         shutil.rmtree(d, ignore_errors=True)
     w, v = np.array(w0), np.array(v0)
     k = C.load_tolerances().se_multiplier
     se = float((v - w).std(ddof=1) / np.sqrt(len(v)))
-    rec = {"suite": "placement.est_db_stressed", "n": len(v), "se": se}
+    rec = {"suite": "placement.est_db_stressed", "n": len(v), "se": se,
+           **_class_diag(cs, by_class)}  # fmt: skip
     write_diagnostics({**rec, "mean_W0": float(w.mean()), "mean_V0": float(v.mean())})
     assert v.sum() >= STRESS_EST_V0_FLOOR, f"stratum 0 under-exercised: total V0 {v.sum():.0f}"
     assert w.mean() >= v.mean() - k * se, (
@@ -328,11 +356,12 @@ def test_related_dbstrain_stratum0_estimate_covers_false_placements(tmp_path: Pa
     EST_V0_FLOOR. Mean PEP counts only identification errors, so Ŵ0 under-states V0
     (statistician: Ŵ0 ~ 0.1 vs V0 ~ 0.75; Slurm 1860995: 0.150 vs 0.79); a strict xfail until
     ADR-0019 was implemented (measured ratio 0.96-2.4 under it)."""
-    from helpers.placement_sims import hits_of
+    from helpers.placement_sims import hits_of, stratum0_diagnostics
     from helpers.placement_truth import best_loci
 
     kw = _dbstrain(1_000_000, EST_SNV)
-    w0, v0 = [], []
+    w0, v0, cs = [], [], []
+    by_class: dict[str, list[list[float]]] = {}
     for i in range(EST_R):
         seed = int(C.replicate_rng("placement.est_related_dbstrain", i).integers(0, 2**31 - 1))
         d = tmp_path / f"r{i}"
@@ -349,11 +378,14 @@ def test_related_dbstrain_stratum0_estimate_covers_false_placements(tmp_path: Pa
             t0 = per[(per["m_target"] == 0) & (per["decoy_type"] == dt)]["peptide"]
             v0.append(sum(not any(ch.truth.overlaps(iv, p) for iv in loci.get(p, ())) for p in t0))
             w0.append(float(row["fdr_stratum"].iloc[0]) * int(row["targets"].iloc[0]))
+        c, pis = stratum0_diagnostics(ch)
+        _collect_class_diag({"stratum0_c": c, "stratum0_pi": pis}, cs, by_class)
         shutil.rmtree(d, ignore_errors=True)
     w, v = np.array(w0), np.array(v0, dtype=float)
     k = C.load_tolerances().se_multiplier
     se = float((v - w).std(ddof=1) / np.sqrt(len(v)))
-    rec = {"suite": "placement.est_related_dbstrain", "n": len(v), "se": se}
+    rec = {"suite": "placement.est_related_dbstrain", "n": len(v), "se": se,
+           **_class_diag(cs, by_class)}  # fmt: skip
     write_diagnostics({**rec, "mean_W0": float(w.mean()), "mean_V0": float(v.mean())})
     assert v.sum() >= EST_V0_FLOOR, f"stratum 0 under-exercised: total V0 {v.sum():.0f}"
     assert w.mean() >= v.mean() - k * se, (

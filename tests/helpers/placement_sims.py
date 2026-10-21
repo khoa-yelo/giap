@@ -378,9 +378,31 @@ def score_chain(ch: Chain, levels: Sequence[float], tmp: Path | None = None) -> 
         rep.extra[f"W0_{dt}"] = float(row["fdr_stratum"].iloc[0]) * t if t else 0.0
         rep.extra[f"V0_{dt}"] = float(rep.exercise[f"{dt}_m0"])
         rep.extra[f"T0_{dt}"] = float(t)
+    c, by_class = stratum0_diagnostics(ch)
+    rep.extra["stratum0_c"] = c
+    rep.extra["stratum0_pi"] = by_class
     if tmp is not None:
         shutil.rmtree(tmp, ignore_errors=True)
     return rep
+
+
+def stratum0_diagnostics(ch: Chain) -> tuple[float, dict[str, list[float]]]:
+    """(c, per-class [n, k, r, π̂]) of the ADR-0019 class table (M3-25 statistician, diagnostics
+    only): a conservative Ŵ0 can then be traced to the class that forces c (a sparse class with
+    k = n gives π̂ = 1). ``(1.0, {})`` when the chain has no ``stratum0_classes`` output or no
+    class holds a peptide of P."""
+    path = ch.avail.get("stratum0_classes")
+    if path is None:
+        return 1.0, {}
+    tab = pd.read_parquet(path)
+    present = tab[tab["n"] > 0]
+    if not len(present):
+        return 1.0, {}
+    by_class = {
+        str(r.length_class): [int(r.n), int(r.k), float(r.r), float(r.pi_wrong)]
+        for r in present.itertuples(index=False)
+    }
+    return float(present["pi_wrong"].max()), by_class
 
 
 def run_replicate(kind: str, seed: int, tmp: Path, levels: Sequence[float], **kw: Any) -> Replicate:
