@@ -4,7 +4,7 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01FctC7kZEMou2AYwYy1KhJa_
+_Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01FctC7kZEMou2AYwYy1KhJa_
 
 ## Milestone progress
 <!-- progress:start -->
@@ -159,6 +159,25 @@ started and were cancelled; CI covers the fast suite, the fast calibration tier 
 Open for review: the M5-06 section of `docs/methods/islands.md` (bootstrap null, genome-wide family,
 Amendment 1's validity domain, the low-direction ceiling, effect CI, degenerate cases) is not written
 yet — `docs/methods/` is the statistician's.
+
+M6-01 (branch `m6/stats-pairfdr`, implementer step done, 2026-10-21): `giap.stats.tdist`
+(`StudentT`, `fit_student_t`, `student_t_two_sided`) and `giap.stats.decoy_fdr` (`bin_index`,
+`reweighted_fdr`, `max_decoy_fdr`, `local_fdr`) under lead decisions 1–8 and 11 — maximum over the
+decoy sets first then `tda.monotone_q`, the empty-set skip only in `max_decoy_fdr`, `lfdr` the same
+"larger wins" rule with the per-bin weights, scipy `gaussian_kde(bw_method="silverman")` from the
+unweighted samples, and `_reflected_density` / `_lfdr_densities` exposed so the reflection at 0 can be
+tested (it cancels in the ratio). Unit 66 passed; fast suite **8991 passed, 30 skipped** (Slurm
+1863842, 13:00; rerun 1863964); operon calibration fast **and** `calibration_full` arms 18 passed in
+32 s (Slurm 1863857). Benchmark baseline `decoy_fdr_50k_targets_2_decoy_sets_5_bins` = **0.15 s of a
+2 s budget** (50,000 targets × 2 decoy sets × 5 bins, wheat-05, Slurm 1863858); the lfdr KDEs use
+linear binning + one convolution (h/40 grid, 1e-4 relative) because scipy's exact `gaussian_kde` at
+50,000 × 50,000 is minutes. **Decision 9 (power) measured and confirmed**: 1,200 targets, 1,200 decoys
+per set, 20 replicates, planted share 20/40 % — at planted sd 0.10–1.00 against null sd 1.0 the engine
+calls **nothing** at q ≤ 0.1 (min q 0.19–0.92); only sd 0.02 calls (50/500 calls, power 0.19/0.98).
+The floor is structural: the per-bin +1 is one phantom decoy per bin, so the smallest reachable FDR is
+≈ Σ_b N_NO,b/(N_decoy,b+1) / k ≈ B·N_target/N_decoy/k, i.e. with 5 bins and equal-sized decoy sets
+~50 targets must sit above every decoy before q can reach 0.1. `docs/methods/operons.md` and the
+target-decoy §"Convergent and sandwich decoys" are still owed (statistician).
 
 ADRs accepted today by Khoa: ADR-0019 (stratum-0 π̂ per length class, Clopper–Pearson upper bound, no PEP),
 ADR-0020 (autocorrelation: re-detrend per permutation, residual join count, CI NA) **+ Amendment 1**

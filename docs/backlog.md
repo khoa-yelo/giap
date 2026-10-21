@@ -158,4 +158,20 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   `tu_frame` and a giapsim-scenario driver; whichever merges second should deduplicate. Note the ori–ter
   driver deliberately keeps the simulator's real coordinates, while the island one re-lays genes through
   `Contig`, which would destroy the ori–ter geometry — so the shared helper must preserve both modes.
+- Post-merge code review of #131 (M5-06 islands), pass-2 items (the origin-crossing TU bug is being
+  fixed in its own PR): (1) the high-before-low tie-break sort at `islands.py:585` is untested;
+  (2) `detected_frac` is not pinned (add a `missing = exclude` case with a detected NaN-abundance gene
+  inside an island); (3) `_eligible` duplicates the `replicon_index` rule in `regions.py:83-86`;
+  (4) gene order of a wrapping island's `genes` list (sorted by start, not window order) — decide and
+  document; (5) `TuSeries.genes` docstring says genome order, the spec says transcription order;
+  (6) the `min_tus` guard is untested for `min_tus ≥ 3`; (7) the B = 9 hand-computed p check is not
+  literally present; (8) the PR was 3,062 lines against the ~400 guideline.
+- M6-01 hardening (statistician, #140): `_KDE_MAX_GRID` coarsens silently; a bin with targets but no
+  decoys gets weight 0 in f0 (fix before lfdr is ever thresholded); the lfdr can come from a different
+  decoy set than `which` reports; three proposed attacks are in docs/methods/operons.md for M6-09.
+- M6-01 pass 2 (code review of #140, non-blocking): (N1) replace `_COLLAPSE_FRAC` with the exact
+  scale-free criterion: the Student-t likelihood is unbounded when the largest tie count k satisfies
+  k > df_lo * (n - k); (N2) take the KDE grid span of `_reflected_density` from the sample only, not
+  from the evaluation points; `_bins` silently truncates float bins; `bin_index` accepts NaN edges;
+  the +inf distance in the `bin_index` docstring.
 - M6-04 polish (non-behavioural): `promoter_between_tracks` exposes the private `_Track` alias in its signature (make a public `PromoterTrack` type); pin `pair_frame` dtypes (`detected_*` bool, `flags` list) through a pairs.tsv schema when M6-08 writes the table; consider one shared index object for the M2 `*_between` helpers so M6-07 reuses it.
