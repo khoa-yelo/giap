@@ -110,6 +110,15 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   input, so `run_context_stats` emits the `tier` section. The Nextflow half is open: passing it to
   CONTEXT needs an eleventh `take:` channel, and `workflow/tests/context.nf.test` binds exactly ten
   (`input[0..9]`), so the nf-test has to change with it — test-author work, not an implementer edit.
+- M4-20: the §11.4 golden `regions_stats.tsv` cannot be byte-identical across machines. The
+  `hl_shift` family (`hl_shift_log2`, `effect`, `ci_low`, `ci_high`) differs in the last 1-2 ulp per
+  CPU because `giap.context.regions.residualise` (ADR-0018 decision 1) calls `np.linalg.lstsq`
+  (LAPACK SVD); the three CI jobs (ubuntu 3.11, ubuntu 3.13, macOS 3.12) disagree with each other, so
+  no recording machine satisfies the matrix. The other three golden tables and every other column of
+  this one are byte-identical. Fix options: compare the golden's float columns numerically
+  (test-author), round what the `regions_stats` writer emits (output-format decision, helps users
+  too), or make the OLS BLAS-free (moves every calibration number). Evidence and bit patterns in
+  PR #133.
 - M4-20 (decision 2): `run_detectability` now writes `tables/genes.tsv` (`write_genes_tsv` had no
   caller at all), so the M4 chain and the local executor produce the §9.3 master table. It is *not*
   a declared step output yet, so `giap run` does not publish it: adding the key `genes_tsv` to
