@@ -101,7 +101,8 @@ def config(
 
 def tu_frame(genes: pd.DataFrame) -> pd.DataFrame:
     """C5 ``tus`` from a gene table: one row per (contig, tu_id), 0-based half-open span of its
-    genes, ``genes`` in genome order. Hand-built TUs never cross the origin."""
+    genes, ``genes`` in genome order. These spans never cross the origin; :func:`cross_origin`
+    rewrites a TU with genes at both ends of a circular replicon into the C5 crossing form."""
     rows = []
     for (contig, tu), g in genes.groupby(["contig", "tu_id"], sort=False):
         rows.append(
@@ -115,6 +116,27 @@ def tu_frame(genes: pd.DataFrame) -> pd.DataFrame:
             )
         )
     out = pd.DataFrame(rows, columns=["tu_id", "contig", "start", "end", "strand", "genes"])
+    out = out.sort_values(["contig", "start"], kind="mergesort").reset_index(drop=True)
+    return out.astype({"start": "int64", "end": "int64"})
+
+
+def cross_origin(
+    genes: pd.DataFrame, tus: pd.DataFrame, replicons: pd.DataFrame, contig: str, tu_id: str
+) -> pd.DataFrame:
+    """``tus`` with TU ``tu_id`` of circular ``contig`` in the C5 origin-crossing form (C5
+    ``build_tus`` links the last and first genes; spec 6.5 unwrapped): ``start`` is that of
+    its genes past mid-replicon, ``end`` the end of its genes before it plus the length."""
+    length = int(replicons.loc[replicons["contig"] == contig, "length"].iloc[0])
+    g = genes[(genes["contig"].astype(str) == contig) & (genes["tu_id"].astype(str) == tu_id)]
+    tail = g["start"].astype(int) >= length // 2
+    assert tail.any() and (~tail).any(), "the TU must hold genes at both ends of the replicon"
+    out = tus.copy()
+    m = (out["contig"].astype(str) == contig) & (out["tu_id"].astype(str) == tu_id)
+    out.loc[m, "start"] = int(g.loc[tail, "start"].min())
+    out.loc[m, "end"] = int(g.loc[~tail, "end"].max()) + length
+    out.loc[m, "genes"] = pd.Series(
+        [[str(t) for t in pd.concat([g[tail], g[~tail]])["locus_tag"]]], index=out.index[m]
+    )
     out = out.sort_values(["contig", "start"], kind="mergesort").reset_index(drop=True)
     return out.astype({"start": "int64", "end": "int64"})
 
@@ -320,13 +342,11 @@ def oracle_series(
         contig = str(rep["contig"])
         circular = str(rep["topology"]) == "circular"
         t = scored_table(genes, contig)
-        order: list[str] = []
         members: dict[str, list[str]] = {}
         for tag, tu in zip(t["locus_tag"].astype(str), t["tu_id"].astype(str), strict=True):
-            if tu not in members:
-                members[tu] = []
-                order.append(tu)
-            members[tu].append(tag)
+            members.setdefault(tu, []).append(tag)
+        # Genome order of the TUs: C5 (start, tu_id) (spec step 2); an origin-crossing TU is last.
+        order = sorted(members, key=lambda tu: (int(tu_idx.loc[(contig, tu), "start"]), tu))
         scores = oracle_gene_scores(genes, contig)
         z = np.array([float(scores[members[tu]].mean()) for tu in order])
         n = z.size

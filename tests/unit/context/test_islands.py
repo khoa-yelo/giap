@@ -299,6 +299,50 @@ def test_example7_wrapping_window_reports_unwrapped_coordinates() -> None:
     idat.assert_matches_oracle(out, idat.oracle_islands(genes, tus, reps, cfg, 11)[0])
 
 
+@pytest.mark.parametrize(
+    ("bump", "first", "last", "start", "end"),
+    [
+        # T196..T199: ends at the crossing TU, whose unwrapped end is 400 + L (no extra wrap).
+        ((196, 201), "T196", "T199", 400 * 196 + 100, 400 + 80_200),
+        # T199, T1, T2: starts at the crossing TU near L and wraps; end is T2's end + L.
+        ((199, 203), "T199", "T2", 400 * 199 + 100, 400 * 2 + 400 + 80_200),
+    ],
+    ids=["window-ends-at-crossing-tu", "window-starts-at-crossing-tu"],
+)
+def test_origin_crossing_tu_sorts_last_and_gives_valid_coordinates(
+    bump: tuple[int, int], first: str, last: str, start: int, end: int
+) -> None:
+    """Regression (post-merge review of #131): a C5 TU holding the last and first genes of a
+    circular replicon (start near the length, end past it) is last in TU order (C5 start), so a
+    best window ending or starting at it has 0 <= start < length and start < end <= start + L."""
+    n = 200
+    a = [10.0 + 0.01 * ((i * 37) % 11) for i in range(n)]  # flat, no ramp to favour a neighbour
+    for i in range(*bump):  # gene indices mod n: the bump covers both genes of the crossing TU
+        a[i % n] += 4.0
+    tu = [f"T{i}" for i in range(n)]
+    tu[0] = f"T{n - 1}"  # genes n-1 and 0 form one TU across the origin
+    c = Contig(name="chr1", d=[1] * n, p=[0.6] * n, a=a, circular=True, tu=tu)
+    genes, tus, reps = idat.frames([c])
+    tus = idat.cross_origin(genes, tus, reps, "chr1", f"T{n - 1}")
+    length = int(reps["length"].iloc[0])
+    cfg = idat.config(alpha=1.0)
+    out, scan = _run(genes, tus, reps, cfg)
+    ts = scan.series[0]
+    assert ts.tu_ids[-1] == f"T{n - 1}" and ts.tu_ids[0] == "T1"
+    assert int(ts.start[-1]) == 400 * (n - 1) + 100
+    assert int(ts.end[-1]) == 400 + length
+    for _, r in out.iterrows():
+        assert 0 <= int(r["start"]) < length
+        assert int(r["start"]) < int(r["end"]) <= int(r["start"]) + length
+    high = out[out["direction"] == "high"].reset_index(drop=True)
+    assert len(high) == 1
+    r = high.iloc[0]
+    assert (r["tu_first"], r["tu_last"]) == (first, last)
+    assert length == 80_200
+    assert (int(r["start"]), int(r["end"])) == (start, end)
+    idat.assert_matches_oracle(out, idat.oracle_islands(genes, tus, reps, cfg, 11)[0])
+
+
 def test_example8_integer_block_len_is_used_and_draws_no_permutations() -> None:
     """Spec example 8: ``context.islands.block_len = 5`` is reported in every row and no
     block-length permutation is drawn (the frame equals the oracle, which skips them)."""
