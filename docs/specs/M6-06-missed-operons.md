@@ -111,3 +111,14 @@ def missed_operons(pairs: pd.DataFrame, cfg: GiapConfig) -> MissedOperons: ...
 4. Power: M6-01 lead decision 12 (Khoa) — the family is near-powerless at realistic effects; example 6
    plants |Δ| ≤ 1e-3 SD. Tests assert FDR control and the honest labelling, never power at 0.25–1 SD.
 5. ±inf scores are excluded by the engine (M6-01 B1); a log(0) Δ never reaches it as a target.
+
+## Lead decisions after review of #148 (2026-10-21)
+6. Eligible NO and decoy pairs outside every `operons.distance_bins_bp` bin are not scored; one
+   WARNING counts both (B1).
+7. A NO row with an imputed gene carries `abundance_imputed` on every path (N2, required by the
+   statistician). Whether imputed pairs are **excluded** from targets and decoys alike is a method
+   change (§7.4.4 says only "both detected") — an ADR for Khoa; attack M-1 in M6-09 pins it.
+8. Relative-scale rows carry `relative_scale` and `unestimated` (R1, §7.3.4); scored rows carry
+   `ci_unestimated` (R2, as M6-05); `operons.pi0 != 1` logs a WARNING (R3; the manifest record is
+   M6-08's).
+
