@@ -1,39 +1,5 @@
 {
   "_comment": "Accepted runtime and accuracy numbers (GIAP_SPEC.md \u00a712; updates by ADR with before/after numbers). Seconds are wall clock.",
-  "detectability": {
-    "source": "docs/specs/M4-13-detectability.md lead decision 8",
-    "d1_fast": {
-      "test": "tests/calibration/test_detectability_calibration.py::test_d1_mean_cross_fitted_slope_in_tolerance[fast]",
-      "R": 20,
-      "n_genes": 2000,
-      "secs": 34.2,
-      "mean_slope": 0.9738,
-      "node": "barley-01",
-      "cpu": "AMD EPYC 9384X",
-      "slurm_job": 1848693,
-      "commit": "4ff26d3",
-      "note": "duration field of the D1 record in detectability.jsonl; run alone (-n 16, other workers on D2/attack tests); 170.6 s when interleaved with the full suite (job 1848692)"
-    },
-    "d1_replicate": {
-      "test": "benchmarks/test_detectability_bench.py::test_detectability_d1_replicate_budget",
-      "n_genes": 2000,
-      "secs": 1.47,
-      "budget_secs": 4.5,
-      "node": "barley-01",
-      "cpu": "AMD EPYC 9384X",
-      "slurm_job": 1848694,
-      "commit": "4ff26d3"
-    }
-  },
-  "mapping_steps_chain_100kb_5000_peptides": {
-    "benchmark": "benchmarks/test_mapping_steps_bench.py::test_mapping_chain_100kb_5000_peptides_budget",
-    "budget_s": 20.0,
-    "secs": 1.8,
-    "queries": 5000,
-    "node_class": "FarmShare iron (AMD EPYC 7742)",
-    "date": "2026-10-15",
-    "issue": "M3-17"
-  },
   "annotation_steps": {
     "_comment": "M2-21: median of 5 rounds (after 1 warm-up) per node class; nightly task 1 (wheat) fails on > benchmark_slowdown_max (ci/gates.yaml) above the entry of its class.",
     "wheat": {
@@ -70,5 +36,54 @@
     "threads": 1,
     "date": "2026-10-20",
     "issue": "M5-02"
+  },
+  "detectability": {
+    "source": "docs/specs/M4-13-detectability.md lead decision 8",
+    "d1_fast": {
+      "test": "tests/calibration/test_detectability_calibration.py::test_d1_mean_cross_fitted_slope_in_tolerance[fast]",
+      "R": 20,
+      "n_genes": 2000,
+      "secs": 34.2,
+      "mean_slope": 0.9738,
+      "node": "barley-01",
+      "cpu": "AMD EPYC 9384X",
+      "slurm_job": 1848693,
+      "commit": "4ff26d3",
+      "note": "duration field of the D1 record in detectability.jsonl; run alone (-n 16, other workers on D2/attack tests); 170.6 s when interleaved with the full suite (job 1848692)"
+    },
+    "d1_replicate": {
+      "test": "benchmarks/test_detectability_bench.py::test_detectability_d1_replicate_budget",
+      "n_genes": 2000,
+      "secs": 1.47,
+      "budget_secs": 4.5,
+      "node": "barley-01",
+      "cpu": "AMD EPYC 9384X",
+      "slurm_job": 1848694,
+      "commit": "4ff26d3"
+    }
+  },
+  "mapping_steps_chain_100kb_5000_peptides": {
+    "benchmark": "benchmarks/test_mapping_steps_bench.py::test_mapping_chain_100kb_5000_peptides_budget",
+    "budget_s": 20.0,
+    "secs": 1.8,
+    "queries": 5000,
+    "node_class": "FarmShare iron (AMD EPYC 7742)",
+    "date": "2026-10-15",
+    "issue": "M3-17"
+  },
+  "scan_null_max_b1000_n2500": {
+    "benchmark": "benchmarks/test_scan_bench.py::test_scan_null_max_b1000_n2500_budget",
+    "budget_s": 2.0,
+    "secs": 0.41,
+    "B": 1000,
+    "n": 2500,
+    "windows": "2-20, circular",
+    "cpus": 1,
+    "node": "wheat-02",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "slurm_job": 1861095,
+    "commit": "8caca63",
+    "date": "2026-10-20",
+    "issue": "M5-03"
   }
 }
