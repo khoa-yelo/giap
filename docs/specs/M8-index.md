@@ -338,3 +338,15 @@ reduced, decision 23) is the only suite that needs sharding inside the R14 caps.
    (R fgsea as an external tool in its own env) is a dependency change and goes to Khoa.
 2. ADR-B (centring) changes a statistic; the lead may accept it, but if the lead prefers the
    literal spec (uncentred scores), Khoa should know the fgsea warning will appear on every run.
+
+## Lead decisions (2026-10-21)
+1. The 26 decisions above are **accepted** as proposed, together with each issue's smaller proposed defaults.
+2. **ADR-B (median-centring the TU scores before fgsea)** is accepted by the lead. M8-05 writes it; Khoa is informed in the PR. The literal uncentred spec would raise the fgsea warning on every run.
+3. **Licences:**
+   - fgsea is MIT: port it with attribution in each file header and in NOTICE.md.
+   - goseq (LGPL) and BiasedUrn (GPL-3) are never ported, read or imported. R runs only to produce golden numbers, in its own env (`giap-golden-r`, M8-12).
+   - The guard against `rpy2` and `Rscript` lands with M8-12.
+4. **KEGG:** no KEGG file or KEGG-derived table is ever committed (KEGG academic terms; ADR-0017). Tests and golden data use synthetic sets.
+5. **The scipy Wallenius tail bug:** M8-01 sums the pmf directly. The `sf(k−1) == 0` case at 3.2e-14 is pinned as a regression test.
+6. **fgsea version:** port from the **1.36.2** sources, the bioconda version that the golden env pins. The implementer diffs master's details (integer rounding, sign-conditional p, reversed negative leading edge) against 1.36.2 before relying on them.
+7. **For Khoa:** the §7.7.4 fallback ADR (R fgsea as an external tool) is raised only if M8-13 misses a tolerance three times (R9).
