@@ -1,15 +1,11 @@
 """Controlled flag vocabulary of the region-and-context tables (GIAP_SPEC.md §9.4).
 
-§9.4 is closed ("extend only through the schema"): a flag that is not listed here must never
-reach ``tables/regions_stats.tsv``, ``tables/autocorrelation.tsv`` or ``tables/islands.tsv``, and
-the two M5 table schemas constrain their ``flags`` column to exactly :data:`CONTEXT_FLAGS`.
-
-The set is the §9.4 "Region and context" row **minus** ``uncalibrated`` (ADR-0021 Amendment 1 and
-M5-06 decision 48 drop it: no per-replicon statistic certifies the validity domain, so the flag
-would be false reassurance — the per-replicon l-hat / l' / the lag-1 Moran's I of
-:mod:`giap.context.diagnostics` replace it), plus the M4 additions of ``regions_stats`` and
-``detection_summary`` and the M5 additions of lead decision 36. The legacy
-``regions_stats.schema.json`` pattern still lists ``uncalibrated`` and is left alone.
+§9.4 is closed ("extend only through the schema"): the two M5 table schemas constrain their
+``flags`` column to exactly :data:`CONTEXT_FLAGS`, and the writers reject anything else. The set
+is the §9.4 "Region and context" row **minus** ``uncalibrated`` (ADR-0021 Amendment 1 and M5-06
+decision 48 drop it as false reassurance; :mod:`giap.context.diagnostics` replaces it), plus the
+M4 additions and the M5 additions of lead decision 36. The legacy ``regions_stats.schema.json``
+pattern still lists ``uncalibrated`` and is left alone.
 """
 
 from __future__ import annotations
@@ -49,8 +45,7 @@ def flags_pattern() -> str:
     Returns
     -------
     str
-        A regular expression matching one or more :data:`CONTEXT_FLAGS` members joined by
-        ``;`` — the constraint the two M5 table schemas carry (as ``regions_stats`` does).
+        A regular expression matching :data:`CONTEXT_FLAGS` members joined by ``;``.
     """
     alt = "|".join(CONTEXT_FLAGS)
     return f"(?:{alt})(?:;(?:{alt}))*"

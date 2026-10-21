@@ -1,34 +1,27 @@
 """Writers and readers for ``tables/autocorrelation.tsv`` and ``tables/islands.tsv``.
 
-GIAP_SPEC.md §9.2 (table conventions and test columns), §9.3 (the two column dictionaries), §9.5
-(the Frictionless resources in ``giap/schemas/tables/``), §6.5 (0-based half-open internally,
-1-based closed in the writer) and ADR-0006 (``NA``, ``;`` lists, ``%.6g``); M5-09
-(docs/specs/M5-09-context-tables-step.md).
+GIAP_SPEC.md §9.2, §9.3, §9.5 (the shipped Frictionless schemas), §6.5 and ADR-0006; M5-09
+(docs/specs/M5-09-context-tables-step.md, docs/methods/context_tables.md).
 
-* ``autocorrelation.tsv`` carries no coordinates, so the writer is a pure formatting pass.
-* ``islands.tsv`` is 1-based closed: ``start + 1`` with ``end`` unchanged (a half-open 0-based
-  end equals a closed 1-based end), and an origin-crossing island keeps ``end > length``.
-* An empty frame writes the header line only; a flag outside
-  :data:`giap.context.vocab.CONTEXT_FLAGS` raises ``ValueError`` naming it (§9.4 is closed).
-* The readers are the exact inverses: ``integer`` fields of the schema come back as pandas
-  nullable ``Int64``, ``number`` fields as ``float64``, string fields as ``object`` holding
-  ``str``, and the list-valued cells (``flags``, ``genes``) as tuples of ``str``.
+Cells go to M1-04 ``write_tsv`` **by value** (``%.6g`` floats, integers as integers, ``NA`` for
+missing, ``;`` lists), so nothing is silently coerced; only ``start`` is converted, to 1-based
+(``end`` unchanged, so an origin-crossing island keeps ``end > length``). An empty frame writes
+the header line only, and a flag outside :data:`giap.context.vocab.CONTEXT_FLAGS` raises
+``ValueError`` naming it. The readers are the inverses and type each column from the schema:
+``integer`` → nullable ``Int64``, ``number`` → ``float64``, ``string`` → ``object`` of ``str``,
+and the list cells (``flags``, ``genes``) → tuples of ``str``.
 
-The ``flags`` column name collides with ``pandas.Series.flags``, so every access here is
-``row["flags"]`` / positional, never ``row.flags``.
+``pandas.Series.flags`` shadows the ``flags`` *column*, so every access here is by name or
+position, never ``row.flags``.
 """
 
 from __future__ import annotations
 
-__all__ = [
-    "read_autocorrelation",
-    "read_islands",
-    "write_autocorrelation",
-    "write_islands",
-]
+__all__ = ["read_autocorrelation", "read_islands", "write_autocorrelation", "write_islands"]
 
 import math
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -39,23 +32,33 @@ from giap.context.islands import ISLAND_COLUMNS
 from giap.context.vocab import require_known_flags
 from giap.io.tsv import read_tsv, write_tsv
 
-#: ``integer`` fields of ``autocorrelation.schema.json`` (``lag`` carries NA).
-AUTOCORR_INTS: frozenset[str] = frozenset({"lag", "n_perm"})
-#: ``number`` fields of ``autocorrelation.schema.json``.
-AUTOCORR_FLOATS: frozenset[str] = frozenset(
-    {"value", "null_mean", "null_lo", "null_hi", "effect", "ci_low", "ci_high", "p_value",
-     "q_value"}
+
+@dataclass(frozen=True, slots=True)
+class _Table:
+    """A table's name, column order and the field types of its schema."""
+
+    name: str
+    columns: tuple[str, ...]
+    ints: frozenset[str]
+    floats: frozenset[str]
+    lists: tuple[str, ...]
+
+
+#: ``autocorrelation.schema.json`` (no coordinates; ``lag`` is an integer carrying NA).
+AUTOCORRELATION = _Table(
+    "autocorrelation", AUTOCORR_COLUMNS, frozenset({"lag", "n_perm"}),
+    frozenset({"value", "null_mean", "null_lo", "null_hi", "effect", "ci_low", "ci_high",
+               "p_value", "q_value"}),
+    ("flags",),
 )  # fmt: skip
-#: ``integer`` fields of ``islands.schema.json``.
-ISLAND_INTS: frozenset[str] = frozenset({"start", "end", "n_tus", "n_genes", "block_len", "n_perm"})
-#: ``number`` fields of ``islands.schema.json`` (``stat`` is the scan statistic S, a number).
-ISLAND_FLOATS: frozenset[str] = frozenset(
-    {"mean_abundance_log2", "detected_frac", "scan_s", "stat", "effect", "ci_low", "ci_high",
-     "p_value", "q_value"}
+#: ``islands.schema.json`` (1-based closed; ``stat`` is the scan statistic S, a number).
+ISLANDS = _Table(
+    "islands", ISLAND_COLUMNS,
+    frozenset({"start", "end", "n_tus", "n_genes", "block_len", "n_perm"}),
+    frozenset({"mean_abundance_log2", "detected_frac", "scan_s", "stat", "effect", "ci_low",
+               "ci_high", "p_value", "q_value"}),
+    ("genes", "flags"),
 )  # fmt: skip
-#: ``;``-joined list cells per table.
-AUTOCORR_LISTS: tuple[str, ...] = ("flags",)
-ISLAND_LISTS: tuple[str, ...] = ("genes", "flags")
 
 
 def _is_na(value: object) -> bool:
@@ -76,20 +79,13 @@ def _list_cell(value: object) -> tuple[str, ...]:
     raise TypeError(f"cannot read {type(value).__name__} {value!r} as a list cell")
 
 
-def _format_row(
-    row: Sequence[object], columns: Sequence[str], *, lists: Sequence[str], table: str
-) -> list[object]:
-    """One frame row as TSV cells: ``start`` shifted, lists joined, flags checked.
-
-    Everything else is handed to ``giap.io.tsv.format_value`` by value (``%.6g`` floats,
-    integers as integers, strings as they are), so a cell that is not of its schema type is
-    written as it stands rather than silently coerced.
-    """
+def _row(row: Sequence[object], table: _Table) -> list[object]:
+    """One frame row as TSV cells: ``start`` shifted, lists joined, flags checked."""
     cells: list[object] = []
-    for column, value in zip(columns, row, strict=True):
+    for column, value in zip(table.columns, row, strict=True):
         if column == "flags":
-            cells.append(list(require_known_flags(_list_cell(value), where=table)) or None)
-        elif column in lists:
+            cells.append(list(require_known_flags(_list_cell(value), where=table.name)) or None)
+        elif column in table.lists:
             cells.append(list(_list_cell(value)) or None)
         elif _is_na(value):
             cells.append(None)
@@ -100,54 +96,10 @@ def _format_row(
     return cells
 
 
-def _write(
-    path: Path, df: pd.DataFrame, columns: tuple[str, ...], *, lists: Sequence[str], table: str
-) -> None:
-    frame = df[list(columns)]
-    rows = [
-        _format_row(row, columns, lists=lists, table=table)
-        for row in frame.itertuples(index=False, name=None)
-    ]
-    write_tsv(path, columns, rows)
-
-
-def write_autocorrelation(path: Path, df: pd.DataFrame) -> None:
-    """Write an ``autocorrelation`` frame as ``tables/autocorrelation.tsv`` (§9.3).
-
-    Parameters
-    ----------
-    path : pathlib.Path
-        Destination; a ``.gz`` suffix gzips it deterministically (M1-04).
-    df : pandas.DataFrame
-        Frame with the columns ``giap.context.autocorrelation.AUTOCORR_COLUMNS`` (any order);
-        the rows are written in frame order. ``flags`` holds a sequence of §9.4 flags or NA.
-
-    Raises
-    ------
-    ValueError
-        If a ``flags`` item is outside ``giap.context.vocab.CONTEXT_FLAGS``.
-    """
-    _write(path, df, AUTOCORR_COLUMNS, lists=AUTOCORR_LISTS, table="autocorrelation")
-
-
-def write_islands(path: Path, df: pd.DataFrame) -> None:
-    """Write an ``islands`` frame as ``tables/islands.tsv``, 1-based closed (§9.3, §6.5).
-
-    Parameters
-    ----------
-    path : pathlib.Path
-        Destination; a ``.gz`` suffix gzips it deterministically (M1-04).
-    df : pandas.DataFrame
-        Frame with the columns ``giap.context.islands.ISLAND_COLUMNS`` (any order), 0-based
-        half-open. ``start`` is written ``start + 1`` and ``end`` unchanged, so an island that
-        crosses the origin keeps ``end`` beyond the replicon length.
-
-    Raises
-    ------
-    ValueError
-        If a ``flags`` item is outside ``giap.context.vocab.CONTEXT_FLAGS``.
-    """
-    _write(path, df, ISLAND_COLUMNS, lists=ISLAND_LISTS, table="islands")
+def _write(path: Path, df: pd.DataFrame, table: _Table) -> None:
+    frame = df[list(table.columns)]
+    rows = [_row(r, table) for r in frame.itertuples(index=False, name=None)]
+    write_tsv(path, table.columns, rows)
 
 
 def _parse(cell: str | None, column: str, kind: type[int] | type[float]) -> int | float | None:
@@ -162,89 +114,50 @@ def _parse(cell: str | None, column: str, kind: type[int] | type[float]) -> int 
         ) from None
 
 
-def _column(
-    values: list[str | None],
-    column: str,
-    *,
-    ints: frozenset[str],
-    floats: frozenset[str],
-    lists: Sequence[str],
-) -> pd.Series:
+def _column(values: list[str | None], column: str, table: _Table) -> pd.Series:
     """One read column, typed as the table schema declares it."""
-    if column in lists:
+    if column in table.lists:
         return pd.Series([_list_cell(v) for v in values], dtype=object)
-    if column in ints:
+    if column in table.ints:
         return pd.Series([_parse(v, column, int) for v in values], dtype="Int64")
-    if column in floats:
+    if column in table.floats:
         parsed = [_parse(v, column, float) for v in values]
         return pd.Series([math.nan if v is None else v for v in parsed], dtype="float64")
     return pd.Series([None if v is None else str(v) for v in values], dtype=object)
 
 
-def _read(
-    path: Path,
-    columns: tuple[str, ...],
-    *,
-    ints: frozenset[str],
-    floats: frozenset[str],
-    lists: Sequence[str],
-    table: str,
-) -> pd.DataFrame:
+def _read(path: Path, table: _Table) -> pd.DataFrame:
     header, rows = read_tsv(path)
-    if tuple(header) != columns:
-        raise ValueError(f"{path}: {table} header is {header}, expected {list(columns)}")
-    data = {
-        column: _column([r[i] for r in rows], column, ints=ints, floats=floats, lists=lists)
-        for i, column in enumerate(columns)
-    }
-    out = pd.DataFrame(data, columns=list(columns))
-    if "start" in columns:
+    if tuple(header) != table.columns:
+        raise ValueError(f"{path}: {table.name} header is {header}, expected {table.columns}")
+    out = pd.DataFrame(
+        {c: _column([r[i] for r in rows], c, table) for i, c in enumerate(table.columns)},
+        columns=list(table.columns),
+    )
+    if "start" in table.columns:
         out["start"] = out["start"] - 1  # back to 0-based half-open (§6.5)
     return out
 
 
+def write_autocorrelation(path: Path, df: pd.DataFrame) -> None:
+    """Write an ``AUTOCORR_COLUMNS`` frame as ``tables/autocorrelation.tsv`` (§9.3), rows in
+    frame order; a ``flags`` item outside ``CONTEXT_FLAGS`` raises ``ValueError``."""
+    _write(path, df, AUTOCORRELATION)
+
+
+def write_islands(path: Path, df: pd.DataFrame) -> None:
+    """Write a 0-based ``ISLAND_COLUMNS`` frame as ``tables/islands.tsv``, 1-based closed
+    (``start + 1``, ``end`` unchanged; §9.3, §6.5); an unknown ``flags`` item raises."""
+    _write(path, df, ISLANDS)
+
+
 def read_autocorrelation(path: Path) -> pd.DataFrame:
-    """Read ``tables/autocorrelation.tsv`` back into a frame (inverse of the writer).
-
-    Parameters
-    ----------
-    path : pathlib.Path
-        A table written by :func:`write_autocorrelation`.
-
-    Returns
-    -------
-    pandas.DataFrame
-        ``AUTOCORR_COLUMNS`` with the schema's dtypes: ``Int64`` for ``lag`` and ``n_perm``,
-        ``float64`` for the number fields, ``object`` of ``str`` elsewhere and a tuple of
-        ``str`` in ``flags``.
-
-    Raises
-    ------
-    ValueError
-        If the header is not ``AUTOCORR_COLUMNS``.
-    """
-    return _read(path, AUTOCORR_COLUMNS, ints=AUTOCORR_INTS, floats=AUTOCORR_FLOATS,
-                 lists=AUTOCORR_LISTS, table="autocorrelation")  # fmt: skip
+    """``tables/autocorrelation.tsv`` as an ``AUTOCORR_COLUMNS`` frame with the schema's dtypes
+    (inverse of :func:`write_autocorrelation`); a wrong header or cell type raises."""
+    return _read(path, AUTOCORRELATION)
 
 
 def read_islands(path: Path) -> pd.DataFrame:
-    """Read ``tables/islands.tsv`` back into a 0-based half-open frame (inverse of the writer).
-
-    Parameters
-    ----------
-    path : pathlib.Path
-        A table written by :func:`write_islands`.
-
-    Returns
-    -------
-    pandas.DataFrame
-        ``ISLAND_COLUMNS`` with the schema's dtypes (``Int64`` integers, ``float64`` numbers,
-        tuples of ``str`` in ``genes`` and ``flags``) and ``start`` converted back to 0-based.
-
-    Raises
-    ------
-    ValueError
-        If the header is not ``ISLAND_COLUMNS``.
-    """
-    return _read(path, ISLAND_COLUMNS, ints=ISLAND_INTS, floats=ISLAND_FLOATS,
-                 lists=ISLAND_LISTS, table="islands")  # fmt: skip
+    """``tables/islands.tsv`` as an ``ISLAND_COLUMNS`` frame with the schema's dtypes and
+    ``start`` back to 0-based (inverse of :func:`write_islands`)."""
+    return _read(path, ISLANDS)

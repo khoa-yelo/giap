@@ -11,21 +11,18 @@ detectability.parquet``) and the ADR-0019 stratum-0 class table of the ``placeme
 ``features.parquet``), whose ``oric`` rows place the origin: without it the ori-ter rows are
 ``no_oric`` and the step logs ``layer_missing:features``.
 
-Outputs: ``tables/regions_stats.tsv`` and ``tables/detection_summary.tsv`` (M4),
-``tables/autocorrelation.tsv`` and ``tables/islands.tsv`` (M5-05, M5-06, M5-08),
-``work/context/gene_context.parquet`` (the §9.3 genes.tsv context group, one row per gene),
-``work/context/island_diagnostics.parquet`` (ADR-0021 Amendment 1, see
-:mod:`giap.context.diagnostics`) and ``tables/genes.tsv``. This step writes genes.tsv because it
-is the last M4/M5 step and the only one holding both the gene table and the three context
-columns (M5-09 lead decision 3); a run that skips ``context_stats`` therefore produces no
-genes.tsv, which is resolved when §6.2's ``finalize`` step takes ownership of the file.
+Outputs: the M4 ``tables/regions_stats.tsv`` and ``tables/detection_summary.tsv``, the M5
+``tables/autocorrelation.tsv`` and ``tables/islands.tsv``, ``work/context/gene_context.parquet``
+(the §9.3 genes.tsv context group), ``work/context/island_diagnostics.parquet``
+(:mod:`giap.context.diagnostics`) and ``tables/genes.tsv`` -- written here because this is the
+last step holding both the gene table and the context columns (M5-09 lead decision 3), until
+§6.2's ``finalize`` takes the file over (docs/backlog.md).
 
 Random streams, all from ``config.seed``: ``context_stats`` (M4-17 region tests),
-``context_stats.plasmids`` (parent of the per-plasmid streams),
-``context_stats.detection_summary`` (basic O - E CIs), ``context_stats.autocorrelation``
-(M5-05), ``context_stats.islands`` (M5-06, shared by ``scan_replicons`` then ``islands_frame``
-in that order) and ``context_stats.oriter`` (M5-08), so no part's draws depend on another
-part's content and the M4 tables do not move when an M5 knob changes.
+``context_stats.plasmids``, ``context_stats.detection_summary``,
+``context_stats.autocorrelation``, ``context_stats.islands`` (shared by ``scan_replicons`` then
+``islands_frame``, in that order) and ``context_stats.oriter``, so no part's draws depend on
+another part's content and the M4 tables do not move when an M5 knob changes.
 """
 
 from __future__ import annotations
@@ -141,11 +138,10 @@ def _m5_context(
     inputs: Mapping[str, Path], outputs: Mapping[str, Path], cfg: GiapConfig,
     log: logging.Logger, m4: M4Inputs, genes: pd.DataFrame,
 ) -> None:  # fmt: skip
-    """The M5 half of the step: autocorrelation, islands, ori-ter, genes.tsv (§7.3.5(c)-(e)).
+    """The M5 half: autocorrelation, islands, ori-ter and genes.tsv (§7.3.5(c)-(e)).
 
-    Every M5 output key is declared ``optional_outputs``, so a caller that wires only the M4
-    half (``regions_stats``, ``detection_summary``) runs nothing here; ``run_context_stats``
-    and the CONTEXT subworkflow wire all of them.
+    The M5 keys are ``optional_outputs``, so a caller wiring only the M4 half runs nothing
+    here; ``run_context_stats`` and the CONTEXT subworkflow wire all of them.
     """
     missing = [k for k in M5_OUTPUTS if k not in outputs]
     if len(missing) == len(M5_OUTPUTS):
@@ -230,11 +226,8 @@ def _count(value: object) -> int | None:
 
 
 def _with_context(genes: pd.DataFrame, context: pd.DataFrame) -> pd.DataFrame:
-    """The gene table with the three §9.3 context columns left-joined on ``locus_tag``.
-
-    Columns of ``GENES_COLUMNS`` the gene table does not carry are filled with NA, so the
-    writer never fails on a partially assembled table.
-    """
+    """The gene table with the three §9.3 context columns joined in; absent
+    ``GENES_COLUMNS`` are NA, so a partially assembled table still writes."""
     out = genes.copy()
     out.index = pd.RangeIndex(len(out))
     for column in ("island_id", "replichore", "replichore_position"):

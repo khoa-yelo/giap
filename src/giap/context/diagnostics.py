@@ -1,26 +1,17 @@
 """Per-replicon island diagnostics: l-hat, l' and the lag-1 Moran's I of the detrended TU scores.
 
-ADR-0021 **Amendment 1** (decision 2a) and M5-06 decision 48 dropped the ``uncalibrated`` flag:
-"no per-replicon statistic certifies the domain, so a flag would give false reassurance ...
-Instead: docs/methods/islands.md states the domain, and the §9.4 run report carries l-hat, l'
-(``block_len``) and the lag-1 Moran's I per replicon so a reader can see where their data sit."
-``IslandScan`` dies with the step, so :mod:`giap.steps.context_stats` persists this frame as
-``work/context/island_diagnostics.parquet``; when the §9.4 run report is built it **consumes
-that parquet** rather than recomputing anything (M5-09 lead decision 1).
+ADR-0021 **Amendment 1** (decision 2a) and M5-06 decision 48 dropped the ``uncalibrated`` flag
+and put these three numbers per replicon in its place. ``IslandScan`` dies with the step, so
+:mod:`giap.steps.context_stats` persists this frame as ``work/context/island_diagnostics.parquet``
+and the §9.4 run report will consume it rather than recompute (M5-09 lead decision 1).
 
-**0 is not a value here.** ``IslandScan.l_hat`` is ``0`` both when the replicon was not scanned
-and when ``context.islands.block_len`` fixes the block length, and ``IslandScan.block_len`` is
-``0`` when the replicon was not scanned. Printed as a number, l-hat = 0 reads "no autocorrelation",
-which is exactly the false reassurance Amendment 1 refuses. This module turns those sentinels
-into missing values and keeps the two reasons apart in :data:`BLOCK_RULES`:
-
-===============  ======  ===========  =========  ===============  ===========
-``block_rule``   l-hat       l'           the lag-1 Moran's I         calibration      flags
-===============  ======  ===========  =========  ===============  ===========
-``auto``         ≥ 1     ≥ 1          finite     applies          none
-``fixed``        NA      configured   finite     does **not**     none
-``not_scanned``  NA      NA           NaN        does **not**     ``few_values``
-===============  ======  ===========  =========  ===============  ===========
+``IslandScan`` reports ``l_hat = 0`` both for a replicon that was not scanned and for one whose
+``context.islands.block_len`` is fixed, and ``block_len = 0`` when it was not scanned. Printed as
+a number, l-hat = 0 reads "no autocorrelation" — the false reassurance Amendment 1 refuses — so
+here those sentinels are **NA, never 0**, and :data:`BLOCK_RULES` keeps the two reasons apart:
+``auto`` (l-hat and l' >= 1, finite Moran's I, calibration applies), ``fixed`` (l-hat NA, l' the
+configured value, finite Moran's I) and ``not_scanned`` (all missing, flag ``few_values``).
+Only ``auto`` is inside the calibrated regime. See docs/methods/context_tables.md.
 
 Pure functions; no randomness and no file I/O.
 """
@@ -58,72 +49,26 @@ _NOT_ESTIMATED = {
 
 
 def block_rule(*, scanned: bool, configured: int | str) -> str:
-    """Which :data:`BLOCK_RULES` entry describes one replicon.
-
-    Parameters
-    ----------
-    scanned : bool
-        Whether the replicon entered the scan (``IslandScan.scanned``).
-    configured : int or str
-        ``context.islands.block_len``: an integer fixes l', ``"auto"`` estimates l-hat.
-
-    Returns
-    -------
-    str
-        ``"not_scanned"``, ``"fixed"`` or ``"auto"``.
-    """
+    """:data:`BLOCK_RULES` entry of one replicon: ``not_scanned`` when it never entered the
+    scan, else ``fixed`` when ``context.islands.block_len`` is an integer, else ``auto``."""
     if not scanned:
         return "not_scanned"
     return "fixed" if isinstance(configured, int) else "auto"
 
 
 def calibration_applies(rule: str) -> bool:
-    """Whether the ADR-0021 FWER calibration covers a replicon with this block rule.
-
-    Parameters
-    ----------
-    rule : str
-        One of :data:`BLOCK_RULES`.
-
-    Returns
-    -------
-    bool
-        True only for ``"auto"``: Amendment 1's FWER evidence is conditional on ADR-0021
-        decision 1's rule l' = min(20, 2 l-hat + 1, T), so an overridden ``block_len`` — or a
-        replicon that was never scanned — is outside it.
-
-    Raises
-    ------
-    ValueError
-        If ``rule`` is not a :data:`BLOCK_RULES` member.
-    """
+    """Whether the ADR-0021 FWER calibration covers a replicon with this block rule: True only
+    for ``auto``, since Amendment 1's evidence is conditional on l' = min(20, 2 l-hat + 1, T).
+    An unknown rule raises ``ValueError``."""
     if rule not in BLOCK_RULES:
         raise ValueError(f"unknown block rule {rule!r}; expected one of {list(BLOCK_RULES)}")
     return rule == "auto"
 
 
 def render_l_hat(l_hat: Any, rule: str) -> str:
-    """l-hat as the §9.4 run report should print it.
-
-    Parameters
-    ----------
-    l_hat : int, float, None or pandas.NA
-        The estimate; ``0``, ``None`` and NaN all mean "never estimated".
-    rule : str
-        One of :data:`BLOCK_RULES`.
-
-    Returns
-    -------
-    str
-        The integer as text when l-hat exists, otherwise a sentence saying it was not estimated
-        and why. Never the character ``0``: printed as a number, l-hat = 0 would read "no
-        autocorrelation" (ADR-0021 Amendment 1).
-
-    Raises
-    ------
-    ValueError
-        If ``rule`` is not a :data:`BLOCK_RULES` member.
-    """
+    """l-hat as the §9.4 run report should print it: the integer when it exists, else a
+    sentence saying it was not estimated and why. ``0``, None and NaN all mean "never
+    estimated", and the text never contains the character ``0`` (ADR-0021 Amendment 1)."""
     if rule not in BLOCK_RULES:
         raise ValueError(f"unknown block rule {rule!r}; expected one of {list(BLOCK_RULES)}")
     missing = l_hat is None or l_hat is pd.NA
@@ -141,24 +86,11 @@ def _positive(value: int) -> int | None:
 
 
 def island_diagnostics(scan: IslandScan, cfg: GiapConfig) -> pd.DataFrame:
-    """l-hat, l' and the lag-1 Moran's I per replicon, with 0 replaced by a missing value.
-
-    Parameters
-    ----------
-    scan : giap.context.islands.IslandScan
-        The scan of :func:`giap.context.islands.scan_replicons`; its replicons are in C1 order.
-    cfg : giap.config.model.GiapConfig
-        ``context.islands.block_len`` tells ``fixed`` from ``auto``.
-
-    Returns
-    -------
-    pandas.DataFrame
-        :data:`DIAGNOSTICS_COLUMNS`, one row per replicon in C1 order: ``scanned`` (bool),
-        ``block_rule`` (:data:`BLOCK_RULES`), ``l_hat`` and ``block_len`` (nullable ``Int64``,
-        NA and never 0 when not estimated), ``morans_i_lag1`` (``float64``, NaN when the
-        replicon was not scanned) and ``flags`` (the replicon's run flags, e.g.
-        ``few_values``).
-    """
+    """:data:`DIAGNOSTICS_COLUMNS` for a :func:`giap.context.islands.scan_replicons` result,
+    one row per replicon in C1 order: ``l_hat`` and ``block_len`` as nullable ``Int64`` (NA,
+    never 0, when not estimated), ``morans_i_lag1`` as ``float64`` (NaN when not scanned) and
+    the replicon's run ``flags``. ``cfg.context.islands.block_len`` tells ``fixed`` from
+    ``auto``."""
     configured = cfg.context.islands.block_len
     rules = [block_rule(scanned=bool(ok), configured=configured) for ok in scan.scanned]
     estimated = [

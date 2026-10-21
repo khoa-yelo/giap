@@ -60,77 +60,51 @@ def _island_number(island_id: object) -> int:
     return int(tail) if tail.isdigit() else 2**62
 
 
+def _sorted(out: pd.DataFrame, key: dict[str, list[object]]) -> pd.DataFrame:
+    """``out`` reordered by a stable sort on ``key`` (ties keep the producer's order)."""
+    order = pd.DataFrame(key).sort_values(list(key), kind="mergesort").index
+    return out.loc[order].reset_index(drop=True)
+
+
 def autocorrelation_table(parts: Sequence[pd.DataFrame], replicons: pd.DataFrame) -> pd.DataFrame:
-    """Concatenate the autocorrelation row sources and sort them as §9.3 orders the table.
-
-    Parameters
-    ----------
-    parts : sequence of pandas.DataFrame
-        Frames with the columns ``giap.context.autocorrelation.AUTOCORR_COLUMNS`` (the M5-05
-        rows and the M5-08 ori-ter rows).
-    replicons : pandas.DataFrame
-        C1 replicons in table order; their order is the ``contig`` sort key.
-
-    Returns
-    -------
-    pandas.DataFrame
-        ``AUTOCORR_COLUMNS``, sorted by contig (C1 order), ``statistic``
-        (:data:`STATISTIC_ORDER`), ``null_model`` (:data:`NULL_MODEL_ORDER`), ``lag`` (NA last)
-        and ``stat``, with a fresh range index. The sort is stable, so rows that tie keep the
-        order their producer gave them.
-    """
+    """The ``AUTOCORR_COLUMNS`` frames of ``parts`` (M5-05 rows, M5-08 ori-ter rows)
+    concatenated and sorted as §9.3 orders the table: contig in ``replicons`` order, then
+    ``statistic`` (:data:`STATISTIC_ORDER`), ``null_model`` (:data:`NULL_MODEL_ORDER`),
+    ``lag`` (NA last) and ``stat``."""
     frames = [p for p in parts if len(p)]
     if not frames:
         return pd.DataFrame(columns=list(AUTOCORR_COLUMNS))
     out = pd.concat(frames, ignore_index=True)[list(AUTOCORR_COLUMNS)]
     rank = _contig_rank(replicons)
-    unknown = len(rank)
-    key = pd.DataFrame(
+    return _sorted(
+        out,
         {
-            "contig": [rank.get(str(v), unknown) for v in out["contig"]],
+            "contig": [rank.get(str(v), len(rank)) for v in out["contig"]],
             "statistic": [_rank(STATISTIC_ORDER, v) for v in out["statistic"]],
             "null_model": [_rank(NULL_MODEL_ORDER, v) for v in out["null_model"]],
             "lag": [math.inf if pd.isna(v) else float(v) for v in out["lag"]],
             "stat": [str(v) for v in out["stat"]],
-        }
+        },
     )
-    order = key.sort_values(list(key.columns), kind="mergesort").index
-    return out.loc[order].reset_index(drop=True)
 
 
 def islands_table(islands: pd.DataFrame, replicons: pd.DataFrame) -> pd.DataFrame:
-    """Sort the M5-06 island frame as §9.3 orders the table.
-
-    Parameters
-    ----------
-    islands : pandas.DataFrame
-        The frame of :func:`giap.context.islands.islands_frame`
-        (``giap.context.islands.ISLAND_COLUMNS``, 0-based half-open).
-    replicons : pandas.DataFrame
-        C1 replicons in table order.
-
-    Returns
-    -------
-    pandas.DataFrame
-        ``ISLAND_COLUMNS``, sorted by contig (C1 order), ``start``, ``end`` and the ``ISL_<n>``
-        number, with a fresh range index. The island IDs are the producer's and are not
-        renumbered.
-    """
+    """The 0-based :func:`giap.context.islands.islands_frame` frame sorted as §9.3 orders the
+    table: contig in ``replicons`` order, then ``start``, ``end`` and the ``ISL_<n>`` number.
+    The producer's IDs are kept, not renumbered."""
     out = islands[list(ISLAND_COLUMNS)]
     if not len(out):
         return out.reset_index(drop=True)
     rank = _contig_rank(replicons)
-    unknown = len(rank)
-    key = pd.DataFrame(
+    return _sorted(
+        out,
         {
-            "contig": [rank.get(str(v), unknown) for v in out["contig"]],
+            "contig": [rank.get(str(v), len(rank)) for v in out["contig"]],
             "start": [math.inf if pd.isna(v) else float(v) for v in out["start"]],
             "end": [math.inf if pd.isna(v) else float(v) for v in out["end"]],
             "island_id": [_island_number(v) for v in out["island_id"]],
-        }
+        },
     )
-    order = key.sort_values(list(key.columns), kind="mergesort").index
-    return out.loc[order].reset_index(drop=True)
 
 
 def gene_context_table(
@@ -139,26 +113,10 @@ def gene_context_table(
     replicons: pd.DataFrame,
     features: pd.DataFrame | None,
 ) -> pd.DataFrame:
-    """The §9.3 genes.tsv context group, one row per gene in gene-table order.
-
-    Parameters
-    ----------
-    genes : pandas.DataFrame
-        The gene table (``locus_tag``, ``contig``, ``start``, ``end``).
-    islands : pandas.DataFrame
-        The island table; its ``genes`` lists give the gene→island map (M5-06 step 9).
-    replicons : pandas.DataFrame
-        C1 replicons.
-    features : pandas.DataFrame or None
-        C15 features; its ``oric`` rows give each replicon's origin (M5-08). None leaves both
-        replichore columns NA.
-
-    Returns
-    -------
-    pandas.DataFrame
-        :data:`GENE_CONTEXT_COLUMNS`: ``locus_tag``, ``island_id`` (None off every island),
-        ``replichore`` (None off the ori-ter analysis) and ``replichore_position`` (NaN there).
-    """
+    """:data:`GENE_CONTEXT_COLUMNS`, one row per gene of ``genes`` in gene-table order: the
+    M5-06 gene->island map (step 9) of ``islands`` and the M5-08 replichore columns of
+    ``replicons`` / the C15 ``features``, left-joined and NA where a gene has neither.
+    ``features`` None leaves both replichore columns NA."""
     tags = genes["locus_tag"].astype(str)
     island_of = gene_island_map(islands).set_index("locus_tag")["island_id"]
     replichores = gene_replichores(genes, replicons, features).set_index("locus_tag")
