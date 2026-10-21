@@ -89,6 +89,28 @@ Open for review: the M5-06 section of `docs/methods/islands.md` (bootstrap null,
 Amendment 1's validity domain, the low-direction ceiling, effect CI, degenerate cases) is not written
 yet — `docs/methods/` is the statistician's.
 
+M6-11 (implementer step done, 2026-10-21): RegulonDB is **fetched and the K-12 truth sets are built**.
+`validation/fetch_regulondb.py` completes the TLS chain itself — it downloads the GlobalSign
+intermediate RegulonDB omits, refuses it unless its SHA-256 equals the pin
+`d160e2de…63f9` (GlobalSign GCC R46 OV TLS CA 2025, valid to 2029-06-23), checks with
+`openssl verify` that it is signed by `GlobalSign Root R46` (already in the trust store), and only then
+adds it to the CA bundle; verification is never disabled (a test greps the source for `verify=False`,
+`CERT_NONE` and friends). Real fetch, twice, identical hashes: **RegulonDB 14.5.0** (release 2026-01-28,
+EcoCyc 29.5, genome NC_000913.3) into `$GIAP_DATA_DIR/regulondb/14.5.0/` — `TUSet.txt` 446,341 B
+(sha256 c96c8a3b…), `TerminatorSet.txt` 60,282 B (9d916ffe…), `GeneProductSet.txt` 1,290,719 B
+(3c2c6be3…), plus `provenance.json`. Nothing committed (R6/R11); no Slurm job (the whole download takes
+about two seconds, as the spec predicted).
+
+**Spec example 5, the evidence M6-12 consumes** (`validation/regulondb_truth.py` on the recorded
+`tests/data/recorded/bakta/1.12.2-full/k12/` JSON, contig U00096.3, ±30 bp): **3,066 same-strand
+adjacent pairs — 1,703 positive, 966 negative, 2,669 labelled** (≥ 2,000 as required), 397 ambiguous
+and excluded (12.9 %); **375 terminators**; gene mapping **4,219 of 4,744 RegulonDB genes = 0.889**
+(4,089 by coordinates, 130 by name), above the 0.8 escalation floor. The 525 unmapped names are
+RegulonDB RNA/phantom entries Bakta does not annotate as CDS. Unit tests 53 passed, nothing touches the
+network. **Note for the lead:** the spec says "RegulonDB v12" everywhere, but v12.0.0 is from 2023-10-23
+and the live release is 14.5.0; the fetcher records whatever release the endpoint reports (ADR-0017), so
+M6-12 and its ADR-0022 must cite 14.5.0, not v12.
+
 ADRs accepted today by Khoa: ADR-0019 (stratum-0 π̂ per length class, Clopper–Pearson upper bound, no PEP),
 ADR-0020 (autocorrelation: re-detrend per permutation, residual join count, CI NA) **+ Amendment 1**
 (Pearson residual (d−p)/√(p(1−p)); the raw residual rejected at 0.074–0.105 when low p_detect clusters),
@@ -193,6 +215,7 @@ Lessons (keep):
 ## Questions for Khoa
 | # | Question | Options | Default if no answer | Asked |
 |---|---|---|---|---|
+| 1 | GIAP_SPEC.md §15.3/§15.4 name "RegulonDB v12", but v12.0.0 is the 2023-10-23 release and the live one is **14.5.0** (2026-01-28). The fetcher records the release the endpoint reports. | (a) use the current release (14.5.0) and cite it in ADR-0022; (b) pin v12 and ask RegulonDB for the archived files | (a) — ADR-0017: record the version and the hash of what we actually fetched | 2026-10-21 (M6-11) |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;
