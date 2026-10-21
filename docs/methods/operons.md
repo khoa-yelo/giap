@@ -303,27 +303,121 @@ candidates and is the useful output of this family as specified.
 ## The missed-operon step (M6-06)
 
 `giap.operons.missed.missed_operons(pairs, cfg, *, genes=None)` applies the engine above to the
-M6-04 pair table. **Targets**: NO pairs whose two genes are eligible (not `partial`), both detected,
-with finite `abundance_log2`; imputed abundances and `rna_between` pairs are kept (lead decision 2),
-since §7.4.4 excludes imputation only from the t fit. **Decoys**: CV and SW pairs with both genes
-detected and finite abundances; `partial` is a target rule only. `operons.decoys` selects the
-sets (an empty list is a config error); a configured set with no usable pair is dropped with a log
-line. Both sides are binned by `intergenic_bp` over `operons.distance_bins_bp`, and `operons.pi0`
-is passed through. A bin with targets and no decoys of a surviving set is named in a warning: it
-contributes its whole target count and can push every q to 1 (spec example 7).
+M6-04 pair table.
 
-Output rows: one per NO pair. Scored targets have `test = missed_operon_decoy`, `stat = −|Δ|`,
-`effect = |Δ|`, `q_value` from `max_decoy_fdr`, `lfdr` (ranking only), `which` (the deciding decoy
-set), `method = decoy_fdr`, `null_model = <sets>_reweighted`; `p_value`, `ci_low`, `ci_high` and
-`n_perm` are NA (lead decision 1: a decoy FDR has no p, and a pseudo-p would invite a second BH).
-`bin_counts` (N_NO, N_cv, N_sw per bin) goes to the run report so the reweighting can be read off.
-Nothing is scored, and every NO row is flagged, when the scale is relative (`relative_scale`), when
-there are fewer than 20 scored NO pairs, or when no decoy set survives (`too_few_no_pairs`).
+- **Targets.** NO pairs whose two genes are eligible (not `partial`), both detected, with finite
+  `abundance_log2` and Δ. Imputed abundances and `rna_between` pairs are kept (lead decision 2),
+  since §7.4.4 excludes imputation only from the t fit.
+- **Decoys.** CV and SW pairs with both genes detected and finite abundances. The code applies
+  `partial` to targets only. In a production gene table a partial gene is never detected
+  (`detection_status = partial_excluded`), so both sides are filtered the same way in practice.
+- **Configuration.** `operons.decoys` selects the sets; an empty list is a config error. A
+  configured set with no usable pair is dropped with a log line.
+- **Binning.** Both sides are binned by `intergenic_bp` over `operons.distance_bins_bp`, and
+  `operons.pi0` is passed through. A bin with targets and no decoys of a surviving set is named in
+  a warning: it contributes its whole target count, which can push every q to 1 (spec example 7).
 
-**As stated in the power section above, the step controls the FDR and will make almost no calls
-at realistic effects.** Its unit example 6 makes calls only because the planted pairs have
-|Δ| ≤ 10⁻³ null SD. An empty `q_value ≤ 0.1` list is the expected result on a real genome and is
-not evidence against missed operons; the lfdr ranking is the useful output.
+**Output rows.** One row per NO pair. A scored target has:
+
+- `test = missed_operon_decoy`, `stat = −|Δ|`, `effect = |Δ|`;
+- `q_value` from `max_decoy_fdr`, and `lfdr` (ranking only);
+- `which` (the deciding decoy set), `method = decoy_fdr`, `null_model = <sets>_reweighted`;
+- `p_value`, `ci_low`, `ci_high` and `n_perm` NA (lead decision 1: a decoy FDR has no p, and a
+  pseudo-p would invite a second BH).
+
+`bin_counts` (N_NO, N_cv, N_sw per bin) goes to the run report so a reader can see the
+reweighting. Nothing is scored, and every NO row is flagged, in three cases:
+
+- the scale is relative (`relative_scale`);
+- there are fewer than 20 scored NO pairs (`too_few_no_pairs`);
+- no decoy set survives (`too_few_no_pairs`).
+
+**The claim and its error estimate.** The claim is "co-abundant at q ≤ 0.1", and its error
+estimate is the decoy q (§8.1). There is no CI for |Δ| of a single pair, so `ci_low` and
+`ci_high` are NA; the row must say so with `ci_unestimated`, as in M6-05. The lfdr is not a claim.
+In a bin with no decoys it is too small (see *Known asymmetry*), so it must not be shown as an
+error estimate.
+
+**π₀.** The default `operons.pi0 = 1` is the conservative choice. The NO class contains the missed
+operons, so the true null share is below 1. A configured π₀ < 1 multiplies every q and lfdr by π₀
+with no estimate behind it. Until the manifest records the π₀ used (M6-08, backlog), such a q
+cannot be read correctly from `pairs.tsv` alone.
+
+**Power.** As stated in the power section above, the step controls the FDR and will make almost no
+calls at realistic effects. Its unit example 6 makes calls only because the planted pairs have
+|Δ| ≤ 10⁻³ null SD. On a real genome an empty `q_value ≤ 0.1` list is the expected result. It is
+not evidence against missed operons, and the lfdr ranking is the useful output.
+
+### Level under structured nulls, and the imputation point mass (statistician review of PR #148)
+
+**Simulation setup.**
+
+- *Classes and bins.* Every pair is null, so any call is false. The five distance bins have
+  NO/CV/SW mixes that deliberately differ: NO 0.15/0.35/0.30/0.15/0.05, CV 0.05/0.15/0.30/0.30/0.20,
+  SW 0.05/0.10/0.25/0.30/0.30.
+- *Sizes.* An E. coli-like genome (700 NO, 450 CV, 300 SW) and a large one (2,000 of each).
+  R = 500 replicates.
+- *Δ.* Δ ~ N(0, 1).
+- *Imputation.* Each gene is filled at rate r, as under the default `abundance.missing = median`.
+  A pair with both genes filled has Δ = 0 exactly, because the fill is one shared value. A pair
+  with one gene filled has Δ = observed − fill.
+- *Co-imputation.* "Co-imputation ρ" makes the partner of a filled NO gene also filled with extra
+  probability ρ. This models same-strand neighbours that lose quantification together, such as
+  tandem paralogs that share their peptides.
+- *Script.* `local/scratch/stat-pr148/missed_sim.py` (unversioned; M6-09 turns it into attack M-1).
+
+The share of replicates with any call at q ≤ 0.1 equals the FDR here, because every call is false.
+The gate bound is 0.1 + 2 SE = 0.127. The table gives that share, with the median of the smallest
+q in parentheses.
+
+| Null | E. coli-like | large |
+|---|---|---|
+| no imputation | 0 (0.97) | 0 (0.96) |
+| r = 5 %, the same in every class | 0 (0.96) | 0 (0.96) |
+| r = 15 %, the same in every class | 0 (0.97) | 0 (0.96) |
+| r = 10 % in NO, 5 % in decoys | 0 (0.97) | 0 (0.66) |
+| r = 5 %, co-imputation ρ = 0.3 | 0 (0.93) | 0 (0.40) |
+| r = 5 %, co-imputation ρ = 0.6 | 0 (0.78) | 0 (0.23) |
+| r = 10 % in NO, 5 % in decoys, ρ = 1 | 0 (0.29) | **0.96** (0.07), ≈ 198 false calls |
+| the last row with imputed pairs excluded on both sides | 0 (0.97) | 0 (0.95) |
+| Δ SD ∝ exp(−0.5 a), NO abundance a shifted by +0.5 SD | 0 (0.81) | 0 (0.76) |
+| the same, shifted by +1.0 SD | 0 (0.65) | 0 (0.60) |
+
+**What the table shows.**
+
+- **Continuous nulls stay at level.** That includes NO and decoy pairs whose abundance mix, and so
+  their Δ noise, differ. This is the identifiability bound at work: with a continuous null, a false
+  call needs the null NO pairs to be about 10 times tighter than the decoys.
+- **Imputation removes that protection.** Pairs with both genes filled sit at Δ = 0 exactly, a point
+  mass with L = f₁(0)/f₀(0) = ∞. Ties do go to the decoys, so only the *excess* of tied targets
+  over the reweighted tied decoys counts. Even so, once the number of tied targets T₀ exceeds about
+  (1/α) · [reweighted tied decoys + Σ_b N_NO,b/(N_decoy,b + 1)], every one of them is called. In
+  the ρ = 1 row that is ≈ 200 false calls, and the per-bin +1 floor is the only margin. That
+  floor is about 7–8 for the large bins and 11–19 for the E. coli-like bins, so the risk grows with
+  genome size.
+- **When the attack is harmless.** With equal per-gene imputation rates in every class it is
+  harmless. It needs filled genes to pair up preferentially in NO pairs.
+- **Excluding imputed pairs fixes it.** Excluding every pair with an imputed gene, from targets and
+  decoys alike, restores the level and costs nothing measurable, because the family has no power
+  at realistic effects anyway.
+
+**Decision needed (ADR, Khoa).** Should a pair with an imputed abundance be excluded from both
+targets and decoys, as the t fit already excludes it? §7.4.4 says only "both genes detected", so
+exclusion is a method change.
+
+Until that is decided, two things hold:
+
+- the `abundance_imputed` state must reach every pair row and every call (lead decision 2 assumes
+  it does);
+- the §8.6 `exclude` sensitivity rerun is the built-in check: a call that vanishes under `exclude`
+  rested on an imputed value.
+
+**Attacks owed to M6-09** (`tests/calibration/attacks/`):
+
+- **M-1.** Co-imputation excess in NO pairs, the rows above. Gated on FDR.
+- **M-2.** Abundance and detection mix differing between NO and decoys, the last two rows. Gated.
+- **M-3.** The M6-01 attacks: AR(1) abundance (attack A), and detection confounded with distance
+  (attack B).
 
 ## Calibration evidence
 
@@ -357,3 +451,10 @@ Statistician (PR #147 review, 2026-10-21): the discordance test is at level with
 included, and BH over the both-detected t p-values is the specified family. The flag on tested rows
 must say that the CI, not the claim, is unestimated. Power is near zero at realistic effects; that
 is reported here, not a merge blocker. Attack D-1 is owed to M6-09.
+
+Statistician (PR #148 review, 2026-10-21): the missed-operon step is at level under every
+continuous null tried, including an abundance mix that differs between NO and decoy pairs. Pairs
+with both genes imputed share a fill value, so their Δ = 0 is a point mass that can produce
+wholesale false calls when it is more common among NO pairs. The imputed state must travel with the
+pair rows now, and exclusion on both sides is an ADR for Khoa. Relative-scale rows need
+`unestimated` (§7.3.4), and scored rows need `ci_unestimated`.

@@ -43,6 +43,10 @@ TEST = "missed_operon_decoy"
 METHOD = "decoy_fdr"
 TOO_FEW = "too_few_no_pairs"
 RELATIVE = "relative_scale"
+UNESTIMATED = "unestimated"
+#: scored rows have a q but no CI for a single pair (as M6-05, #147 review F1)
+CI_UNESTIMATED = "ci_unestimated"
+IMPUTED = "abundance_imputed"
 ROW_COLUMNS: tuple[str, ...] = ("pair_id", "test", *TEST_COLUMNS, "which", "flags")
 #: ``operons.decoys`` name -> pair class and ``bin_counts`` column
 DECOY_CLASS: dict[str, tuple[str, str]] = {
@@ -97,13 +101,13 @@ def _is_relative(genes: pd.DataFrame | None) -> bool:
     return "relative" in set(genes["abundance_scale"].dropna().astype(str))
 
 
-def _usable(pairs: pd.DataFrame, n_bins: int, bins: npt.NDArray[np.int64]) -> npt.NDArray[np.bool_]:
-    """Both detected, both abundances and Delta finite, a distance bin."""
+def _measured(pairs: pd.DataFrame) -> npt.NDArray[np.bool_]:
+    """Both detected, both abundances and Delta finite."""
     a = pairs["abundance_log2_a"].astype(float).to_numpy()
     b = pairs["abundance_log2_b"].astype(float).to_numpy()
     d = pairs["delta_log2"].astype(float).to_numpy()
     ok = _bool(pairs["detected_a"]) & _bool(pairs["detected_b"])
-    ok &= np.isfinite(a) & np.isfinite(b) & np.isfinite(d) & (bins >= 0) & (bins < n_bins)
+    ok &= np.isfinite(a) & np.isfinite(b) & np.isfinite(d)
     return np.asarray(ok, dtype=np.bool_)
 
 
@@ -145,8 +149,11 @@ def missed_operons(
     Returns:
         The :class:`MissedOperons` result. ``q_value <= stats.alpha.operon_flags`` marks a pair
         co-abundant (M6-07 names it); ``lfdr`` ranks and never calls. A relative abundance scale
-        flags every NO row ``relative_scale``; fewer than ``MIN_NO_PAIRS`` scored targets or no
-        usable decoy set flags them ``too_few_no_pairs``; neither path scores a row.
+        flags every NO row ``relative_scale`` and ``unestimated``; fewer than ``MIN_NO_PAIRS``
+        scored targets or no usable decoy set flags them ``too_few_no_pairs``; neither path scores
+        a row. Scored rows carry ``ci_unestimated`` (a q, no CI); a NO row with an imputed gene
+        carries ``abundance_imputed``. Eligible pairs outside every distance bin are not scored
+        and are counted in a WARNING.
 
     Raises:
         ValueError: if ``operons.decoys`` is empty.
@@ -154,11 +161,19 @@ def missed_operons(
     oc = cfg.operons
     if not oc.decoys:
         raise ValueError("operons.decoys is empty: at least one decoy set is required")
+    if oc.pi0 != 1.0:
+        log.warning(
+            "missed operons: operons.pi0 = %g scales every q and lfdr with no estimate behind it; "
+            "the default 1 is conservative",
+            oc.pi0,
+        )
     edges = [float(e) for e in oc.distance_bins_bp]
     n_bins = len(edges) - 1
     cls = pairs["class"].astype(str).to_numpy()
     bins = bin_index(pairs["intergenic_bp"].astype(float).to_numpy(), edges)
-    usable = _usable(pairs, n_bins, bins)
+    measured = _measured(pairs)
+    in_bin = (bins >= 0) & (bins < n_bins)
+    usable = measured & in_bin
     score = -np.abs(pairs["delta_log2"].astype(float).to_numpy())
 
     is_no = cls == "NO"
@@ -166,6 +181,19 @@ def missed_operons(
         genes, "partial", pairs["gene_b"]
     )
     target = is_no & usable & ~partial
+    imputed = _per_gene(genes, "abundance_imputed", pairs["gene_a"]) | _per_gene(
+        genes, "abundance_imputed", pairs["gene_b"]
+    )
+    is_decoy = np.isin(cls, [DECOY_CLASS[n][0] for n in oc.decoys])
+    out_no = int((is_no & measured & ~partial & ~in_bin).sum())
+    out_d = int((is_decoy & measured & ~in_bin).sum())
+    if out_no or out_d:
+        log.warning(
+            "missed operons: %d eligible NO pair(s) and %d decoy pair(s) fall outside every "
+            "operons.distance_bins_bp bin and are not scored",
+            out_no,
+            out_d,
+        )
     counts: dict[str, npt.NDArray[np.int64]] = {"N_NO": np.bincount(bins[target], minlength=n_bins)}
     decoys: dict[str, tuple[npt.NDArray[np.float64], npt.NDArray[np.int64]]] = {}
     n_decoys: dict[str, int] = {}
@@ -184,11 +212,13 @@ def missed_operons(
     rows = _empty_rows(no)
     raw = no["flags"] if "flags" in no.columns else [None] * len(no)
     flags = [_flags(f) for f in raw]
+    flags = [[*f, IMPUTED] if imp and IMPUTED not in f else f
+             for f, imp in zip(flags, imputed[is_no], strict=True)]  # fmt: skip
     n_targets = int(target.sum())
 
-    extra: str | None = None
+    extra: list[str] = []
     if _is_relative(genes):
-        extra = RELATIVE
+        extra = [RELATIVE, UNESTIMATED]
     elif n_targets < MIN_NO_PAIRS or not decoys:
         log.info(
             "missed operons: %d scored NO pairs (minimum %d), %d usable decoy set(s); untested",
@@ -196,9 +226,9 @@ def missed_operons(
             MIN_NO_PAIRS,
             len(decoys),
         )
-        extra = TOO_FEW
-    if extra is not None:
-        rows["flags"] = [f if extra in f else [*f, extra] for f in flags]
+        extra = [TOO_FEW]
+    if extra:
+        rows["flags"] = [[*f, *(x for x in extra if x not in f)] for f in flags]
         return MissedOperons(rows[list(ROW_COLUMNS)], n_targets, n_decoys, bin_counts)
 
     for used, (_, d_bin) in decoys.items():
@@ -225,5 +255,9 @@ def missed_operons(
     rows.loc[idx, "method"] = METHOD
     rows.loc[idx, "null_model"] = "+".join(decoys) + "_reweighted"
     rows.loc[idx, "which"] = res.which.astype(str)
-    rows["flags"] = flags
+    scored = set(idx.tolist())
+    rows["flags"] = [
+        [*f, CI_UNESTIMATED] if i in scored and CI_UNESTIMATED not in f else f
+        for i, f in enumerate(flags)
+    ]
     return MissedOperons(rows[list(ROW_COLUMNS)], n_targets, n_decoys, bin_counts)
