@@ -203,6 +203,24 @@ class MappingConfig(_Strict):
         [20, 40],
     ]
 
+    @field_validator("length_classes")
+    @classmethod
+    def _classes_are_non_empty_ranges(cls, value: list[list[int]]) -> list[list[int]]:
+        """At least one class, each an inclusive ``[lo, hi]`` with 1 <= lo <= hi.
+
+        The stratum-0 pi_wrong of database input is estimated per length class (ADR-0019), and
+        ``c`` is the largest class estimate: without a class there is nothing to estimate it on.
+        """
+        if not value:
+            raise ValueError("mapping.length_classes must list at least one [lo, hi] class")
+        for item in value:
+            if len(item) != 2 or not 1 <= item[0] <= item[1]:
+                raise ValueError(
+                    f"mapping.length_classes entry {item} is not an inclusive [lo, hi] range"
+                    " with 1 <= lo <= hi"
+                )
+        return value
+
 
 # ---------------------------------------------------------------- gene table
 

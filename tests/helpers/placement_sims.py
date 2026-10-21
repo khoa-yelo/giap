@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import csv
 import dataclasses
+import math
 import shutil
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -140,6 +141,29 @@ def inject_short_wrong(
     return path, inj
 
 
+def prefilter_to_genome(res: Any, out: Path, pep: float) -> Path:
+    """ADR-0019 decision 4 (``input_prefiltered``): the input as an upstream pipeline that kept only
+    genome-matching peptides would hand it over: every target row of a wrong identification
+    (giapsim truth ``is_wrong``) is dropped, and every target row claims PEP = ``pep`` (giapsim's
+    own PEP is ~0.01 at any pi_wrong after the q filter, too small for the warning to have power
+    at 50 kb)."""
+    with Path(res.peptides).open(newline="") as fh:
+        rows = list(csv.DictReader(fh, delimiter="\t"))
+    tr = read_tsv_df(res.truth["peptides"])
+    wrong = set(tr.loc[tr["is_wrong"] == "true", "peptide"])
+    keep = [r for r in rows if r["is_decoy"] == "true" or r["peptide"] not in wrong]
+    for r in keep:
+        if r["is_decoy"] != "true":
+            r["pep"] = f"{pep:.10g}"
+    path = out / "peptides_prefiltered.tsv"
+    out.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0]), delimiter="\t", lineterminator="\n")
+        w.writeheader()
+        w.writerows(keep)
+    return path
+
+
 def dbstrain_input(res: Any, tmp: Path) -> tuple[Path, Truth, dict[str, list[str]]]:
     """Database-strain input of ``related_dbstrain`` and its truth (decision 2, review B1): every
     database peptide inherits the origins of the sample peptide(s) it replaces, including pairs
@@ -238,6 +262,7 @@ def run_chain(
     overrides: Sequence[str] = (),
     paralogs: int = 0,
     inject_short: int = 0,
+    prefilter: float | None = None,
 ) -> Chain:
     from giapsim.simulate import SimConfig, simulate
 
@@ -264,6 +289,9 @@ def run_chain(
             path, inj = inject_short_wrong(res, tmp, inject_short, seed)
             truth.wrong |= inj
             res_in = dataclasses.replace(res, peptides=path)
+        if prefilter is not None:
+            res_in = dataclasses.replace(res, peptides=prefilter_to_genome(res, tmp, prefilter))
+            truth.wrong = set()
     run = preflight(res_in, tmp / "pf")
     cfg = resolve_config(run.config_yaml, [f"seed={seed}", *overrides])
     roots = roots_of(run)
@@ -275,9 +303,18 @@ def run_chain(
     return Chain(res, avail, truth, cfg, planted)
 
 
-def null_share_stratum0(ch: Chain) -> tuple[float, float]:
-    """(π̂ of the database stratum-0 list, true share of its searched peptides without an exact
-    origin: wrong or absent from the sample). Database input, ``search_db = other`` only."""
+def null_share_stratum0(ch: Chain) -> tuple[float, float, pd.DataFrame]:
+    """Stratum-0 π̂ against the realised null share, pooled and per length class (M3-25 decision 6).
+
+    Returns ``(pooled π̂, pooled null share, per-class frame)``. The pooled π̂ is the reverse m = 0
+    ``all`` row's ``pi_wrong`` = (W + c)/(D + 1); the per-class π̂_l is the ADR-0019 class estimate
+    read from the ``stratum0_classes`` output (columns ``length_class``, ``n``, ``pi_wrong``). The
+    null share is the share of the stratum-0 database queries that are wrong or absent from the
+    sample (no exact origin). Database input, ``search_db = other`` only. The per-class frame has
+    ``length_class``, ``n`` (of the π̂ population), ``n_null`` (queries of that class seen here),
+    ``pi_hat`` and ``null_share`` (NaN when the class has no query).
+    """
+    from giap.mapping.placement_fdr import length_class_labels
     from giap.steps.mapping import select_queries
 
     q = select_queries(pd.read_parquet(ch.avail["peptides"]), ch.cfg)
@@ -287,7 +324,25 @@ def null_share_stratum0(ch: Chain) -> tuple[float, float]:
     f = pd.read_parquet(ch.avail["mapping_fdr"])
     row = f[(f["section"] == "placement") & (f["decoy_type"] == "reverse") & (f["n_diff"] == 0)
             & (f["length_class"] == "all")].iloc[0]  # fmt: skip
-    return float(row["pi_wrong"]), float(null.mean()) if len(null) else 0.0
+    classes = [list(c) for c in ch.cfg.mapping.length_classes]
+    labels = length_class_labels(classes)
+    lengths = peps.str.len().to_numpy()
+    tab = pd.read_parquet(ch.avail["stratum0_classes"]).set_index("length_class")
+    rows = []
+    for (lo, hi), label in zip(classes, labels, strict=True):
+        sel = (lengths >= lo) & (lengths <= hi)
+        n_null = int(sel.sum())
+        rows.append(
+            {
+                "length_class": label,
+                "n": int(tab.loc[label, "n"]) if label in tab.index else 0,
+                "n_null": n_null,
+                "pi_hat": float(tab.loc[label, "pi_wrong"]) if label in tab.index else math.nan,
+                "null_share": float(null[sel].mean()) if n_null else math.nan,
+            }
+        )
+    pooled_null = float(null.mean()) if len(null) else 0.0
+    return float(row["pi_wrong"]), pooled_null, pd.DataFrame(rows)
 
 
 def hits_of(avail: Mapping[str, Path]) -> pd.DataFrame:
@@ -323,9 +378,31 @@ def score_chain(ch: Chain, levels: Sequence[float], tmp: Path | None = None) -> 
         rep.extra[f"W0_{dt}"] = float(row["fdr_stratum"].iloc[0]) * t if t else 0.0
         rep.extra[f"V0_{dt}"] = float(rep.exercise[f"{dt}_m0"])
         rep.extra[f"T0_{dt}"] = float(t)
+    c, by_class = stratum0_diagnostics(ch)
+    rep.extra["stratum0_c"] = c
+    rep.extra["stratum0_pi"] = by_class
     if tmp is not None:
         shutil.rmtree(tmp, ignore_errors=True)
     return rep
+
+
+def stratum0_diagnostics(ch: Chain) -> tuple[float, dict[str, list[float]]]:
+    """(c, per-class [n, k, r, π̂]) of the ADR-0019 class table (M3-25 statistician, diagnostics
+    only): a conservative Ŵ0 can then be traced to the class that forces c (a sparse class with
+    k = n gives π̂ = 1). ``(1.0, {})`` when the chain has no ``stratum0_classes`` output or no
+    class holds a peptide of P."""
+    path = ch.avail.get("stratum0_classes")
+    if path is None:
+        return 1.0, {}
+    tab = pd.read_parquet(path)
+    present = tab[tab["n"] > 0]
+    if not len(present):
+        return 1.0, {}
+    by_class = {
+        str(r.length_class): [int(r.n), int(r.k), float(r.r), float(r.pi_wrong)]
+        for r in present.itertuples(index=False)
+    }
+    return float(present["pi_wrong"].max()), by_class
 
 
 def run_replicate(kind: str, seed: int, tmp: Path, levels: Sequence[float], **kw: Any) -> Replicate:

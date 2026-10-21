@@ -7,8 +7,10 @@ confirmation and sharding): a 100-kb giapsim genome (M3-18 simulator); correct p
 tryptic peptides (7-20 aa) of its
 annotated genes; wrong peptides are i.i.d. 7- and 8-mers drawn from the genome's six-frame residue
 frequencies (``residue_freqs``), minus any that equal a correct peptide. All are database input
-(reverse decoys, ``search_db = other``) and every PEP equals the known wrong share, so pi_wrong is
-exact and constant (ADR-0010 then reduces to the §7.2.5 formula pi (D + 1)/T). The full chain
+(reverse decoys, ``search_db = other``) and every PEP equals the known wrong share. Since ADR-0019
+the PEP is not read: π̂ is the per-length-class exact-share estimate, and the wrong 7-8-mers
+concentrate the no-origin share in classes 7 and 8 (the length-correlated case of ADR-0019,
+which a pooled π̂ cannot handle). The full chain
 runs: ``build_sixframe`` -> ``build_decoys`` -> ``match_exact`` ->
 ``best_costs`` -> ``placement``. Criterion (§8.4 "FDR"): mean FDP over R <= q + k SE(FDP) at every
 level in ``levels``. The genome-level suite with tolerant hits and de novo errors is M3-21.
