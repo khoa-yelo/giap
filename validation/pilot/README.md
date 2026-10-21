@@ -1,0 +1,160 @@
+# Pilot validation kit: E. coli Nissle 1917 (GIAP_SPEC.md §15)
+
+The kit for the light pilot of §15: three arms (A1 generic reference, A2 matched strain, A3 de
+novo) over three wild-type runs of **PXD078459** (iProX; Nissle 1917; timsTOF HT, diaPASEF
+expected). **M3 prepares the kit; M10 runs it.** Nothing here has been run on real data: the only
+thing M3 executed is a `--version` smoke check of the DIA-NN container (M3-24 decision 6).
+
+| File | What it is |
+|---|---|
+| `diann_A1.cfg` | DIA-NN settings for arm A1 (UniProt K-12 UP000000625 + contaminants) |
+| `diann_A2.cfg` | the same settings for arm A2; only `--fasta` differs |
+| `db_a2/strain_db.faa.gz` | the A2 database built by `giap makedb` from the recorded Nissle Bakta JSON |
+| `db_a2/db_id_map.tsv` | one row per database record (1-based closed coordinates) |
+| `db_a2/makedb_manifest.json` | inputs with their SHA-256, options and counts |
+| `../../scripts/slurm/fetch_pxd078459.sbatch` | step 4: download the runs to `$GIAP_DATA_DIR/pxd078459/` |
+| `../../scripts/slurm/diann_pilot.sbatch` | step 5: DIA-NN for A1 and A2 |
+| `../../scripts/slurm/denovo_pilot.sbatch` | step 6: Cascadia (A3), with the Casanovo fallback |
+
+## DIA-NN: the container, not an unpacked binary
+
+Khoa supplied DIA-NN as an Apptainer image instead of the unpacked `$GIAP_TOOLS_DIR/diann-2.7.0`
+build of §15.2 step 3 (reference invocation:
+`/farmshare/home/classes/bios/270/jordan/run_2step.sh`, which this kit follows).
+
+| | |
+|---|---|
+| Version string | `DIA-NN 2.3.1 Academia`, compiled 2025-12-05 |
+| Image | `/farmshare/home/classes/bios/270/jordan/diann_2.3.1.sif` (532 MB, world-readable) |
+| sha256 of the image | `1946452d56d2fb0f66e05ced473df88e53484e28040f1ecbd83c4a43405a6381` (2026-10-20) |
+| Binary inside | `/diann-2.3.1/diann-linux` |
+| Module | `apptainer/1.4.4`; binds `/home/classes`, `/scratch`, `/farmshare` |
+| Override | `DIANN_SIF=/path/to/image.sif sbatch scripts/slurm/diann_pilot.sbatch A1` |
+| Smoke check | the job logs `… --version` into `$OUT_DIR/<arm>/diann_version.txt`; 2.3.1 prints the banner, warns `unrecognised option [--version]` and exits 0 |
+
+The image is **never copied into the repository** (532 MB, R11; decision 3): the repository keeps
+only the two cfg files, this README, `db_a2/` and the sbatch scripts.
+`scripts/slurm/diann_pilot.sbatch` reads `DIANN_SIF`, defaults to the path above and exits 2 with
+a clear message when the image is not there. The pin above is checked by `tests/unit/test_m3_24_pilot_kit.py`; if
+the image is replaced, re-pin it there and here.
+
+## Version actually used
+
+The spec names DIA-NN **2.7.0** (§15.1, §15.2 step 3). The version actually available on FarmShare,
+and the one this kit is written and recorded against, is **2.3.1** Academia. The spec text is not
+rewritten (decision 2). If a 2.7.0 build arrives later, only `diann_A1.cfg`, `diann_A2.cfg` and this
+section change; the recorded reports then carry the 2.7.0 version string, and
+`tests/data/recorded/diann/` gets the sample of whichever version produced them.
+
+## The two-step DIA-NN workflow
+
+In DIA-NN 2.x, combining `--fasta-search --predictor` with raw files in one call disables the FASTA
+digest. The pilot therefore runs two calls in order (decision 4), both in `diann_<arm>.cfg`:
+
+1. `[step1]` predicts the in-silico spectral library from the FASTA files alone
+   (`--fasta-search --gen-spec-lib --predictor`, `--out-lib $OUT/<arm>.parquet`, from which DIA-NN
+   writes `<arm>.predicted.speclib`).
+2. `[step2]` searches the runs against that library (`--lib <arm>.predicted.speclib`, `--f <run>.d`,
+   `--out <arm>_report.parquet`).
+
+Step 1 is skipped when its library already exists, so a re-queued job resumes. `--f`, `--lib`,
+`--fasta`, `--out`, `--out-lib` and `--threads` (= `$SLURM_CPUS_PER_TASK`) are supplied by the
+sbatch script; everything else comes from the cfg file, one flag per line, with `$GIAP_*`
+variables expanded at submission time. A2's database is committed gzipped and DIA-NN reads plain
+FASTA, so the script unpacks `strain_db.faa.gz` into `$OUT_DIR/<arm>/fasta/`, outside the
+repository.
+
+### Digest flags = GIAP's digest (decision 5)
+
+`--cut K*,R*`, `--missed-cleavages 1`, `--min-pep-len 7`, `--max-pep-len 30` and `--unimod4` are
+exactly the defaults of `giap.mapping.digest` (M3-22); the tests derive them from that module, so
+the two cannot drift apart.
+
+### §15.2 template flags that the cfg files do not use
+
+| Flag | Why |
+|---|---|
+| `--met-excision` | **left out** (decision 7). GIAP's digest keeps the initiator Met (`src/giap/mapping/digest.py` decision 1), so letting DIA-NN excise it would produce peptides GIAP never proposes and break the A1/A2 comparison. |
+| `--lib ""` | not needed: step 1 builds no library of its own, and step 2 gets `--lib <predicted>` from the script. |
+| `--f`, `--fasta`, `--out`, `--out-lib`, `--threads` | supplied by `scripts/slurm/diann_pilot.sbatch` (run paths, output names and the Slurm CPU count). |
+
+Everything else of the template is used verbatim: `--fasta-search --gen-spec-lib --predictor
+--cut K*,R* --missed-cleavages 1 --min-pep-len 7 --max-pep-len 30 --unimod4 --var-mods 1
+--var-mod UniMod:35,15.994915,M --min-pr-charge 1 --max-pr-charge 4 --qvalue 0.01
+--report-decoys`.
+
+Added beyond the template, from Khoa's reference invocation: the mass ranges `--min-pr-mz 300
+--max-pr-mz 1800 --min-fr-mz 200 --max-fr-mz 1800`, `--peptidoforms`, `--verbose 1`, and (step 2
+only) `--matrices` and `--gen-spec-lib --out-lib <arm>_empirical.parquet`. His `--reanalyse`
+(MBR) and `--rt-profiling` are deliberately **not** used: the pilot estimates a false-discovery
+proportion from entrapment peptides (§15.5 metric 8) and MBR would change that denominator. All
+of this is identical in A1 and A2, so the comparison stays fair.
+
+## How `db_a2` was built
+
+```bash
+giap makedb --annotation tests/data/recorded/bakta/1.12.2-full/nissle/nissle1917.json.gz \
+            --genome local/data/genomes/nissle1917/GCA_043228065.1_ASM4322806v1_genomic.fna.gz \
+            --outdir validation/pilot/db_a2 --no-contaminants
+gzip -9n validation/pilot/db_a2/strain_db.faa
+```
+
+Counts: 4,620 CDS + 72 sORFs = 4,692 proteins (no six-frame ORFs, no decoys, no contaminants;
+DIA-NN adds `contaminants.fasta` as a second `--fasta`, M3-23 Q2). `strain_db.faa.gz` is 989 KB.
+
+The recorded Bakta JSON carries no nucleotides (R11), so `--genome` is required; `build_strain_db`
+passes it through to the Bakta parser (decision 8). The genome is **GCA_043228065.1**
+(`ASM4322806v1`: chromosome CP171242.1, plasmids CP171243.1, CP171244.1, CP171245.1) and is not
+committed. Fetch it with `sbatch scripts/slurm/fetch_resources.sbatch` (it lands in
+`$GIAP_DATA_DIR/genomes/nissle1917/`, md5 `ff062688cf999ade769f4a27c2cb0949`), or directly from
+NCBI:
+
+```bash
+curl -O https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/043/228/065/GCA_043228065.1_ASM4322806v1/GCA_043228065.1_ASM4322806v1_genomic.fna.gz
+```
+
+## Running the pilot (§15.2 steps 4-9)
+
+Every step is a batch job; nothing runs on a login node or in the session allocation.
+
+```bash
+# step 4 - the three wild-type runs (~5-10 GB) into $GIAP_DATA_DIR/pxd078459/, with SHA256SUMS
+sbatch scripts/slurm/fetch_pxd078459.sbatch
+# step 5 - DIA-NN 2.3.1 for A1 and A2 (normal, 16 CPU, 64 GB, two calls each)
+sbatch -J giap-diann-A1 scripts/slurm/diann_pilot.sbatch A1
+sbatch -J giap-diann-A2 scripts/slurm/diann_pilot.sbatch A2
+# step 6 - A3 de novo on one GPU (Cascadia 0.0.7; `casanovo` selects the fallback)
+sbatch scripts/slurm/denovo_pilot.sbatch
+# step 7 - the generic peptide tables (the large reports stay under $GIAP_DATA_DIR)
+giap convert --from diann    $GIAP_ROOT/pilot/A1/A1_report.parquet --out a1.tsv.gz
+giap convert --from diann    $GIAP_ROOT/pilot/A2/A2_report.parquet --out a2.tsv.gz
+giap convert --from cascadia $GIAP_ROOT/pilot/A3_cascadia/a3_cascadia --out a3.tsv.gz
+```
+
+```bash
+# step 8 - the three GIAP runs (as batch jobs: sbatch scripts/slurm/giap_run.sbatch <args>)
+giap run --genome nissle.fasta.gz --annotation nissle_bakta_full.json.gz --peptides a1.tsv.gz --outdir out_a1
+giap run --genome nissle.fasta.gz --annotation nissle_bakta_full.json.gz --peptides a2.tsv.gz --outdir out_a2
+giap run --genome nissle.fasta.gz --annotation nissle_bakta_full.json.gz --peptides a3.tsv.gz --reference-peptides a2.tsv.gz --outdir out_a3
+giap compare out_a1 out_a2 out_a3 --labels A1,A2,A3
+# step 9 - the measured runtimes that replace the estimates in the docs
+sbatch scripts/slurm/benchmark_standard.sbatch
+```
+
+All three runs use the default `--genome-relation related`. Step 8 ends with
+`validation/pilot/REPORT.md` (§15.5-15.7); the free-entrapment estimator of §15.5 metric 8 lives in
+`validation/pilot/entrapment.py`.
+
+## Who does what
+
+| Step | Who | What |
+|---|---|---|
+| 1-2 | agent | done in M2/M3: the recorded Bakta JSON and `db_a2/` above |
+| 3 | **Khoa** | the DIA-NN licence. Khoa accepted it and supplied the 2.3.1 Academia image above, and checks the flag table of this README against the DIA-NN documentation before the first real run |
+| 3b | **Khoa** | DIA-NN 2.7.0 under `$GIAP_TOOLS_DIR/diann-2.7.0`, if the pilot should use the version the spec names |
+| 4-9 | agent | the batch jobs above, then `validation/pilot/REPORT.md` |
+
+Also needed before step 5: `$GIAP_DATA_DIR/proteomes/UP000000625.fasta` (the A1 database, from
+`sbatch scripts/slurm/fetch_resources.sbatch`) and `$GIAP_DB_DIR/contaminants/contaminants.fasta`
+(from `giap setup --contaminants`) — the same contaminant library GIAP itself uses, so GIAP and
+DIA-NN share one set.

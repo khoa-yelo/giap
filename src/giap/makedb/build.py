@@ -262,13 +262,18 @@ def build_strain_db(opts: MakedbOptions) -> MakedbResult:
     an empty database."""
     if opts.min_orf_aa < 1:
         raise ValueError(f"min_orf_aa must be >= 1, got {opts.min_orf_aa}")
-    ann = parse_bakta_json(opts.annotation)
+    fasta = (
+        {r.id: r.sequence for r in read_genome_fasta(opts.genome)}
+        if opts.genome is not None
+        else None
+    )
+    # The genome also replaces nucleotides a recorded Bakta JSON does not carry (M3-24 decision 8).
+    ann = parse_bakta_json(opts.annotation, genome=fasta)
     gm = ann.model
     if not gm.replicons:
         raise ValueError(f"{opts.annotation}: annotation has no sequences or features")
     genome = dict(ann.sequences)
-    if opts.genome is not None:
-        fasta = {r.id: r.sequence for r in read_genome_fasta(opts.genome)}
+    if fasta is not None:
         for cid, rep in gm.replicons.items():
             if cid not in fasta or len(fasta[cid]) != rep.length:
                 raise ValueError(f"{opts.genome}: contig {cid!r} missing or of the wrong length")

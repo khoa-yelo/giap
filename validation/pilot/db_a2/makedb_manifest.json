@@ -1,0 +1,27 @@
+{
+  "giap_version": "0.0.1",
+  "date": "2026-10-20",
+  "inputs": {
+    "annotation": {
+      "path": "tests/data/recorded/bakta/1.12.2-full/nissle/nissle1917.json.gz",
+      "sha256": "a012798400eaa71587dc7954473a201ef046b4907bdfa31936a2927a1cb6c97c"
+    },
+    "genome": {
+      "path": "local/data/genomes/nissle1917/GCA_043228065.1_ASM4322806v1_genomic.fna.gz",
+      "sha256": "22e2daf4370fc5ceee3f050d01f050be63de3dc47f9debe680df3a58ea043e79"
+    }
+  },
+  "options": {
+    "six_frame_orfs": false,
+    "min_orf_aa": 20,
+    "contaminants": false
+  },
+  "counts": {
+    "cds": 4620,
+    "sorf": 72,
+    "patch": 0,
+    "orf": 0,
+    "contaminant": 0
+  },
+  "decoys": false
+}
