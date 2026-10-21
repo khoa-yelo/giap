@@ -38,7 +38,7 @@ def pair_frame(genes_tbl: pd.DataFrame, genes: Sequence[Gene], replicons, pairs_
 ```
 
 1. **Adjacency.** `giap.annotate.operons.adjacent_pairs` gains `same_strand: bool = True`
-   (decision 1); `adjacent_chain` calls it with `same_strand=False`. One definition of genome order,
+   (decision 1; the default keeps the M2-12 behaviour); `adjacent_chain` calls it with `same_strand=False`. One definition of genome order,
    of the wrap pair on circular replicons and of `intergenic_distance` (which already handles the
    origin) is therefore shared with M2-12.
 2. **Members.** Every C2 gene of the replicon (cds, sorf, pseudogene), `partial` included
@@ -111,7 +111,9 @@ G4 `−` [1500, 1900), G5 `+` [2000, 2400). `pair_threshold` 0.5.
 - [ ] Property: every adjacent pair of the chain appears exactly once; the union of OP, NO, CV, DV
   rows equals `adjacent_chain`; SW rows are disjoint from it; classes are mutually exclusive.
 - [ ] Property: reversing the strand of every gene and mirroring the coordinates maps OP↔OP, NO↔NO,
-  CV↔CV, DV↔DV and negates no Δ (orientation is strand-aware, so Δ is invariant).
+  CV↔CV, DV↔DV and SW↔SW. OP, NO and SW keep `gene_a`, `gene_b` and Δ (orientation is
+  strand-aware); CV and DV swap `gene_a` and `gene_b` and negate Δ (a is the left gene). See lead
+  decision 1 below.
 - [ ] Property: `pair_id` assignment is unchanged when `annotation.uniop.pair_threshold` moves from
   0.3 to 0.7 (the M6-10 requirement), while `class` changes.
 - [ ] Conformance: on the merged sim100k fixture, the OP pairs reproduce exactly the TU membership
@@ -138,3 +140,20 @@ G4 `−` [1500, 1900), G5 `+` [2000, 2400). `pair_threshold` 0.5.
 5. `terminator_between` called with `yes = 0.0` so the column is the raw maximum, with the cut-off
    applied in M6-07? **Proposed default:** yes; the column then survives a recalibration of
    `terminatornet_yes` (M6-12) without re-running the step.
+
+## Lead decisions (2026-10-21, after the test-author)
+
+1. **Mirror property.** The tests are right: OP, NO and SW keep `gene_a`, `gene_b` and Δ under
+   mirroring; CV and DV swap `gene_a` and `gene_b` and negate Δ, because a is the left gene. The
+   acceptance criterion's "negates no Δ" wording is corrected above.
+2. **Circular replicon with 2 genes.** One adjacent pair (A, B); `pairs_raw` may hold both rows
+   (M2-12 writes the wrap row too), and the extra row is ignored.
+3. **`pair_frame` returns only the DataFrame.** The `layer_missing:<layer>` run flag (example 11,
+   degenerate row "layer missing") is the `operons` step's job (M6-08).
+4. **Test-author readings accepted:** `flags` is a list per row (`rna_between` the only value in
+   pass 1); a gene absent from the gene table raises with a message naming the gene;
+   `Evidence.rna` holds RNA rows only (the caller filters C15 by type); on a circular replicon
+   with exactly 3 genes a sandwich pair (i, i + 2) is also the wrap-adjacent pair, so the
+   property test does not check SW disjointness there (the row is still emitted by rule 4).
+5. **Performance.** The 4,500-gene criterion is a benchmark in `benchmarks/` with a
+   `benchmarks/baseline.json` entry (node, CPU, commit).
