@@ -126,3 +126,9 @@ prepared only, not run in M3 · estimate ≈ 250 code lines (scripts)
 16. (code review of #122) Two small shell nits: `diann_pilot.sbatch` should exit 2, not die on an unbound
     variable, when a cfg ends in a bare `--fasta`; `fetch_pxd078459.sbatch`'s `for name in $FILES` needs
     the same `set -f` guard as its sibling.
+17. (re-review of #122) Pin the decision-13 message. `test_a_record_without_nt_and_without_length_is_refused`
+    asserts only that the contig appears, which the weaker "missing or of the wrong length" message also
+    satisfies, so a refactor could delete the branch with CI green and point the user at the genome file
+    for an annotation fault. Require "declares no length" too. Also add the two `_declared_lengths` shape
+    cases the re-review found uncovered and non-equivalent: the `contigs` key in place of `sequences`,
+    and the `sequence` key in place of `nt`.
