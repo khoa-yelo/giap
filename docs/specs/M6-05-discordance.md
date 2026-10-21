@@ -120,3 +120,11 @@ def discordance(pairs: pd.DataFrame, genes: pd.DataFrame, cfg: GiapConfig,
    is written for estimated effects, and pretending otherwise would mislead.
 3. One BH family for both kinds, as §7.4.3 says, even though P(miss) is not a p-value?
    **Proposed default:** follow the spec in pass 1 and let M6-09 measure it; any change is an ADR.
+
+## Lead decisions (2026-10-21)
+1. Q1: minimum **20** usable OP pairs for the t fit; below it every pair is `unestimated` with a flag.
+2. Q2: `ci_low`/`ci_high` NA with `unestimated` (no effect is estimated per pair).
+3. Q3: superseded by M6-index lead decision 1 — `P(miss)` never enters the BH family; in pass 1 the
+   one-detected branch is `unestimated (no_detection_limit_model)`, so the family holds only t p-values.
+4. The t fit is `giap.stats.tdist.fit_student_t` (M6-01, #144). A degenerate fit (`converged = False`,
+   NaN parameters — M6-01 decision 13) means every pair is `unestimated`, never p = 0.
