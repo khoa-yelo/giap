@@ -65,8 +65,8 @@ in x, does not exist: its row is NA with `descriptive;not_estimable`.
 ## The interval and its block length
 
 Neighbouring TUs are correlated (operons, local expression domains), so an iid bootstrap of the
-TUs would be too narrow. The CI comes from the **circular block bootstrap** (docs/methods/
-bootstrap.md) of each fit's own TU sequence — the pooled fit in genome order, an arm ordered from
+TUs would be too narrow. The CI comes from the **circular block bootstrap** (docs/methods/bootstrap.md)
+of each fit's own TU sequence — the pooled fit in genome order, an arm ordered from
 oriC to terminus — resampling index blocks and refitting; the reported interval is the 95 %
 percentile interval of the `stats.bootstrap` refitted slopes. Replicates whose resampled x has no
 variance give a NaN slope and are dropped; `n_perm` counts the valid ones, and below B/2 of them
