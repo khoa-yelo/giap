@@ -98,7 +98,9 @@ The caller chooses the block length; this function does not. The island circular
 a window-sum maximum needs (ADR-0021).
 - With ℓ̂ as the block length, island FWER on a 4,500-gene chromosome is 0.205 / 0.26 / 0.27 at
   ρ 0.5 / 0.9 / 0.95, and the ori–ter CI covers only 0.88–0.93.
-- With ℓ', FWER is 0.003–0.040 and the CI covers 0.96 at ρ 0.5.
+- With ℓ', FWER is 0.003–0.040 and the ori–ter CI covers **0.943** at ρ 0.5 (R = 300, Slurm 1863166;
+  the 0.96 first reported was an R = 50 fluctuation). Coverage runs 0.875–0.945 across cells and arms,
+  so the interval is slightly narrow everywhere — see docs/methods/oriter.md.
 
 **Validity domain.** ADR-0021 **Amendment 1** supersedes the original "fewer than 1,000 scored TUs"
 rule and **drops the `uncalibrated` flag**: re-measurement at R = 1,000 showed the scored-TU count

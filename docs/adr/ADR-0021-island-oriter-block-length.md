@@ -31,7 +31,11 @@ TU-size-standardised scores 0.18 at ρ 0) all failed.
   0.013 at 1,000 genes, ρ 0.5.
 - Attacks at level (R = 300): ori–ter gradient 0.04, large TUs 0.013, abundance-driven detection 0.04,
   short-gene prophage 0.04, draft assembly (500 + 133 × 30-gene linear contigs) 0.003 (spec rule 0.09).
-- Ori–ter pooled-slope CI coverage 0.96 at ρ 0.5 (spec rule ≈ 0.905).
+- Ori–ter pooled-slope CI coverage 0.96 at ρ 0.5 (spec rule ≈ 0.905). **Corrected 2026-10-21:** that
+  0.96 was an R = 50 fluctuation. Re-measured with the merged implementation at R = 300 (Slurm 1863166)
+  the same cell gives **0.943** (SE 0.013); ρ 0 gives 0.925, ρ 0.9 0.900, no gradient 0.917, 1,000 genes
+  0.905, and the arms 0.875–0.945. The estimator is unbiased (−2.4239 against the closed form −2.4317);
+  the interval is 1–5 points narrow throughout.
 - Power (4,500 genes, ρ 0.5, R = 100): 20 TUs × 2 SD 0.18, 20 × 1.5 0.06, 10 × 2 0.04, 5 × 2 0.00 — low
   because ≈ 45 % of genes are censored independently of abundance in giapsim defaults; power stays
   recorded, not gated, and is also run with `detection = "abundance"`.
