@@ -387,8 +387,19 @@ def _xrefs(rng: np.random.Generator, tags: list[str]) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=list(CONTRACT_COLUMNS["xrefs"]))
 
 
+#: Header-only C15 frame; ``_features_frame`` copies it (building one costs ~3 % of a layout).
+_EMPTY_FEATURES = pd.DataFrame(
+    {
+        name: pd.Series([], dtype="int64" if name in ("start", "end") else object)
+        for name in FEATURE_COLUMNS
+    }
+)
+
+
 def _features_frame(rows: list[tuple[Any, ...]]) -> pd.DataFrame:
     """C15 frame from row tuples in ``FEATURE_COLUMNS`` order (int64 coordinates)."""
+    if not rows:
+        return _EMPTY_FEATURES.copy()
     df = pd.DataFrame(rows, columns=list(FEATURE_COLUMNS), dtype=object)
     return df.astype({"start": "int64", "end": "int64"})
 
