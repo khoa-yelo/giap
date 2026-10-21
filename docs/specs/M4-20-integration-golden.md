@@ -121,3 +121,14 @@ None new (collects the sign-offs above).
     itself remains the nightly full run.
 13. Prose fix: the test-author docstrings say "47 genes, 29 with evidence, 33 detected"; the real builder
     gives **51 / 30 / 29** at `GOLDEN_SEED`. No assertion depends on it.
+14. **The genes.tsv column-completeness trap (2026-10-21).** `write_genes_tsv` needs all 73
+    `GENES_COLUMNS`, while `tests/helpers/region_tests_data.gene_table` builds a 17-column frame, so an
+    unconditional write in `context_stats` breaks ~14 call sites at **serialisation**, not merely wiring.
+    - Option (a), having `write_genes_tsv` reindex and fill NA, is **rejected**: padding 56 missing
+      columns would emit a genes.tsv that looks complete and is not. A writer should refuse an
+      incomplete gene table, not invent one.
+    - Option (c) is taken: **M5-09 owns it**, because it is already editing those same helpers for
+      `island_id` / `replichore` and would otherwise collide with a parallel fix.
+    - So M4-20's `test_genes_tsv_is_written_by_context_stats` is **correct and fails today**. Mark it a
+      **strict xfail** with reason "genes.tsv owner moves to context_stats in M5-09 (#138)" so #133 can
+      merge, and M5-09 flips it — the pattern M3-21/ADR-0019 used. Do not weaken the test.
