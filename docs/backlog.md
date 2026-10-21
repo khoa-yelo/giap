@@ -140,3 +140,9 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   `tests/unit/test_nf_main_installed_items.py` now pins the two literals against `SOURCES`, in the
   style of `test_nf_annotate_registry.py`; pass 2 should drop the duplication instead, by having
   `installed()` read the manifest entry's own `path`.
+- `np.linalg.lstsq` in `giap.context.regions.residualise` is not bit-portable across CPUs (LAPACK SVD),
+  so `regions_stats.tsv` float columns differ by 1–2 ulp between machines and between CI legs (M4-20
+  decision 9, probe 1863133). Writer-level rounding is the real fix — see the §9.5 per-field precision
+  item — and belongs with the M6 writers.
+- CONTEXT cannot receive `tier_summary`: it would need an 11th `take:` channel and
+  workflow/tests/context.nf.test binds exactly input[0..9] (M4-20 decision 3). Test-author work.

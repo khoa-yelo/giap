@@ -93,3 +93,31 @@ None new (collects the sign-offs above).
 8. The test-author was right not to write `tests/sim/giapsim/fixtures.py`: giapsim is implementer-owned
    tooling (AGENTS.md), and writing it there would have made the tests pass before the implementation.
    The implementer writes it to the interface `tests/helpers/m4_chain.build` and the property tests pin.
+
+## Lead decisions after the implementer's report (2026-10-21)
+9. **The golden `regions_stats.tsv` float columns are compared numerically, not byte for byte.**
+   `giap.context.regions.residualise` (ADR-0018 decision 1) uses `np.linalg.lstsq`, i.e. a LAPACK SVD,
+   which is not bit-portable: one fixed 51×4 design gives `beta[0] = 0x1.85e19f7a40364p-6` on iron and
+   `…377p-6` on wheat, and the three CI legs disagree with each other, so **no recording machine can make
+   the matrix green**. Thread pinning does not help (probe 1863133). The other three golden tables, and
+   every count, p-value and flag of this one, stay byte-identical, so TE7 keeps its teeth where the claim
+   is true. Option (c), a BLAS-free OLS, is rejected: it would move every calibration number for a
+   cosmetic gain.
+10. **Rounding the writer's output (option b) is deferred to the M6 writers**, together with the existing
+    §9.5 per-field precision backlog item. Emitting 17 significant digits of a quantity whose last two
+    are machine noise is misleading to a user, so it should be fixed — but at the writer layer, as one
+    decision across all tables, not here.
+11. **`tables/genes.tsv` must become a declared step output** (decision 2 is not finished). The
+    implementer wrote it from `run_detectability` but could not declare it: doing so breaks 15+ hand-written
+    `outputs=` dicts in tests/integration/test_context_stats_step.py — several of which pass partial gene
+    tables `write_genes_tsv` cannot serialise — and `main_genetable_context.nf.test`'s
+    `!tables/ published without C7/C8`. Those are **test-side** blockers, so the test-author fixes them in
+    this round. Until it is a declared output, `giap run` still does not publish the pipeline's headline
+    table, which is exactly the end-to-end hole MVP-01 set out to close.
+12. **`test_m4_gate_evidence_is_recorded` needs a guard.** The fast calibration suite creates
+    `local/logs/calibration/`, so the test stops skipping and then demands nightly full-R records that a
+    fast run never writes; it fails in every full fast-suite run, CI included. Skip unless the directory
+    holds records at `replicates_full`, or gate it behind an opt-in env flag. Decision 6 stands: the gate
+    itself remains the nightly full run.
+13. Prose fix: the test-author docstrings say "47 genes, 29 with evidence, 33 detected"; the real builder
+    gives **51 / 30 / 29** at `GOLDEN_SEED`. No assertion depends on it.
