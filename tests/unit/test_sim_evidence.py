@@ -808,7 +808,8 @@ def test_earlier_outputs_unchanged(tmp_path: Path) -> None:
     pd.testing.assert_frame_equal(ex_before, ex_after)
     if sys.platform.startswith("linux"):
         digests = {k: hashlib.sha256(v).hexdigest() for k, v in after.items()}
-        assert digests == LAYOUT_SHA256
+        # M5-04 adds features.parquet; every earlier file keeps its pinned bytes
+        assert {k: digests.get(k) for k in LAYOUT_SHA256} == LAYOUT_SHA256
         # The expression frame is compared before/after above; its float output differs in the
         # last bits between CPUs (wheat-08 vs the session node), so it has no pinned digest.
 
