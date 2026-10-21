@@ -14,8 +14,8 @@ Conventions pinned here (docs/specs/M3-10-placement-fdr.md, lead decisions in M3
   class from the exact-match shares, min(1, U95(k, n)/(1 - r)) over the stratum-0 database
   population (all database rows except ``same_db`` exact peptides); PEP and q-values are not read
   (tests/unit/test_placement_fdr_adr0019.py); de novo m = 0 -> the peptide's ``pi_denovo`` (1 if
-  missing); m >= 1 -> 1. ``pi_wrong_database`` (mean PEP, else max q, else 1) is still tested
-  below as a function: ADR-0019 decision 4 uses the row-level mean PEP for ``input_prefiltered``.
+  missing); m >= 1 -> 1. ``pi_wrong_database`` (the superseded mean-PEP rule) was deleted with
+  M3-25 lead decision 11; ``input_prefiltered`` computes its own mean PEP over P.
 - Lists are per decoy type: database peptides vs reverse decoys, de novo vs shuffle decoys.
 - ``search_db = same`` with ``m_target = 0``: placement_q = 0, flag ``same_db``, left out of the
   stratum-0 target and decoy lists.
@@ -46,7 +46,6 @@ from giap.mapping.hits import hits_frame
 from giap.mapping.placement_fdr import (
     PeptideCosts,
     best_costs,
-    pi_wrong_database,
     placement,
     stratum_qvalues,
 )
@@ -254,48 +253,6 @@ def test_constant_pi_equals_m4_tda_qvalues(pi: float) -> None:
     ed = np.round(rng.exponential(2.0, 200), 2)
     q = stratum_qvalues(et, ed, np.full(ed.size, pi), pi)
     np.testing.assert_allclose(q, tda_qvalues(-et, -ed, pi=pi, plus_one=True), rtol=1e-12)
-
-
-# ------------------------------------------------------------------------- pi_wrong_database
-
-
-def _pep_table(pep: Sequence[float | None], q: Sequence[float | None]) -> pd.DataFrame:
-    return pd.DataFrame(
-        {
-            "peptide": [pep_of(i) for i in range(len(pep))],
-            "pep": pd.array([np.nan if v is None else v for v in pep], dtype="float64"),
-            "q_value": pd.array([np.nan if v is None else v for v in q], dtype="float64"),
-        }
-    )
-
-
-def test_example5_mean_pep() -> None:
-    t = _pep_table([0.001, 0.003, 0.008], [0.001, 0.001, 0.001])
-    assert pi_wrong_database(t, 0.01) == pytest.approx(0.004, rel=1e-12)
-
-
-def test_example6_max_q_within_cap() -> None:
-    t = _pep_table([None, None, None], [0.001, 0.0098, 0.03])
-    assert pi_wrong_database(t, 0.01) == pytest.approx(0.0098, rel=1e-12)
-
-
-def test_example7_neither_pep_nor_q() -> None:
-    t = _pep_table([None, None], [None, None])
-    assert pi_wrong_database(t, 0.01) == 1.0
-
-
-def test_mean_pep_over_peptides_with_pep_only() -> None:
-    t = _pep_table([0.002, None, 0.004], [None, 0.005, None])
-    assert pi_wrong_database(t, 0.01) == pytest.approx(0.003, rel=1e-12)
-
-
-def test_no_q_within_cap_falls_back_to_one() -> None:
-    t = _pep_table([None, None], [0.02, 0.03])
-    assert pi_wrong_database(t, 0.01) == 1.0
-
-
-def test_empty_table_gives_one() -> None:
-    assert pi_wrong_database(_pep_table([], []), 0.01) == 1.0
 
 
 # --------------------------------------------------------------------------------- best_costs

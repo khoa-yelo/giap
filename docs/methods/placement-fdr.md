@@ -663,8 +663,8 @@ or binding lists lose up to ~15 % power.
 k is ~0 by construction and no genome-based rule can be calibrated — mean PEP included (FDP 0.061
 at q = 0.01, δ = 0.2). `placement` therefore raises the run warning `input_prefiltered` when k
 falls below the 0.001 quantile of Binomial(n, mean PEP × (1 − r)) over P pooled; this is the one
-place the row-level mean PEP is still read, and it is read directly, not through the old
-`pi_wrong_database` (whose max-q and 1.0 fallbacks would misfire here). The detector inherits
+place the row-level mean PEP is still read, and it is read directly; the old `pi_wrong_database`
+helper (whose max-q and 1.0 fallbacks would misfire here) was deleted with M3-25 decision 11. The detector inherits
 PEP's weakness in one direction: a **deflated** PEP (the §5.3 min over runs, defect 2 above, or
 an engine that under-reports) lowers the expected count n × mean PEP × (1 − r) towards the
 realised k, so the test loses power and a genuinely pre-filtered input can pass unwarned. It

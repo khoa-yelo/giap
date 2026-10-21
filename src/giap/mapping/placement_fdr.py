@@ -42,7 +42,6 @@ __all__ = [
     "input_prefiltered",
     "is_low_complexity",
     "length_class_labels",
-    "pi_wrong_database",
     "placement",
     "placement_tables",
     "stratum0_pi_classes",
@@ -173,31 +172,6 @@ def stratum_qvalues(
     out[order] = q_sorted
     q[ok] = out
     return q
-
-
-def pi_wrong_database(peptides: pd.DataFrame, q_value_max: float) -> float:
-    """pi_wrong for database input, stratum 0 (§7.2.5 step 4), superseded by ADR-0019.
-
-    Mean PEP over the peptides with a PEP; otherwise the maximum q-value <= ``q_value_max``;
-    otherwise 1.
-
-    Dead code since ADR-0019 (M3-25 lead decision 11): ``placement`` takes the stratum-0 database
-    pi_wrong from ``stratum0_pi_classes``, and decision 4's ``input_prefiltered`` warning means
-    its own mean PEP over P (``_stratum0_pooled``), because the max-q and 1.0 fallbacks here would
-    misfire there. Nothing in ``src/`` calls it; it is due for deletion together with its unit
-    tests in tests/unit/test_placement_fdr.py (a test-author change, R2).
-    """
-    if len(peptides) == 0:
-        return 1.0
-    pep = pd.to_numeric(peptides.get("pep"), errors="coerce").to_numpy(dtype=np.float64)
-    pep = pep[~np.isnan(pep)]
-    if pep.size:
-        return float(min(1.0, max(0.0, math.fsum(pep.tolist()) / pep.size)))
-    qv = pd.to_numeric(peptides.get("q_value"), errors="coerce").to_numpy(dtype=np.float64)
-    qv = qv[~np.isnan(qv) & (qv <= q_value_max)]
-    if qv.size:
-        return float(min(1.0, max(0.0, qv.max())))
-    return 1.0
 
 
 def clopper_pearson_upper(k: int, n: int, level: float = CP_LEVEL) -> float:
