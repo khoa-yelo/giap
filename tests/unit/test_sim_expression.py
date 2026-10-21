@@ -651,7 +651,8 @@ def test_layout_outputs_unchanged(tmp_path: Path, name: str) -> None:
     # The pinned digests (written on Linux) guard against layout changes there; Parquet bytes
     # (float formatting, writer metadata) differ across platforms, so only compare them on Linux.
     if sys.platform.startswith("linux"):
-        assert after == LAYOUT_SHA256[name]
+        # M5-04 adds features.parquet; every pre-M5 file keeps its pinned bytes
+        assert {k: after.get(k) for k in LAYOUT_SHA256[name]} == LAYOUT_SHA256[name]
 
 
 def test_m0_proteomics_outputs_unchanged_with_hook_off(tmp_path: Path) -> None:

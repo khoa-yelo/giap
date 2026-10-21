@@ -48,6 +48,11 @@ PROTEIN_HITS_COLUMNS: tuple[str, ...] = (
     "protein_id", "protein_len_aa", "route", "contig", "start", "end", "strand", "rank",
     "identity", "query_coverage", "reciprocal_overlap", "class", "gene", "flags",
 )  # fmt: skip
+#: C15 ``features`` (M5-04; the columns M2-04 ``parse_bakta`` writes), in order.
+FEATURE_COLUMNS: tuple[str, ...] = (
+    "feature_id", "type", "contig", "start", "end", "strand", "gene", "product", "amino_acid",
+    "anticodon",
+)  # fmt: skip
 UNMAPPED_COLUMNS: tuple[str, ...] = (
     "sequence_id", "sequence", "kind", "label", "reason", "contaminant_match",
 )  # fmt: skip
@@ -97,7 +102,7 @@ def _modified_peptides_value(peptide: str) -> Any:
 
 
 def build_frames(n_genes: int = 20, tu_sizes: Sequence[int] = (1, 2, 3)) -> dict[str, Any]:
-    """Valid C1-C14 frames (internal representation) plus ``annotation_source``."""
+    """Valid C1-C15 frames (internal representation) plus ``annotation_source``."""
     if n_genes < 0:
         raise ValueError("n_genes must be >= 0")
     length = OFFSET + GENE_STEP * max(n_genes, 1) + 1000
@@ -317,10 +322,28 @@ def build_frames(n_genes: int = 20, tu_sizes: Sequence[int] = (1, 2, 3)) -> dict
             "locus_tag": [tag(i) for i in range(n_genes)],
         }
     )
+    # C15 (M5-04): an oriC in the free stretch after the last gene and one tRNA there too.
+    free = OFFSET + GENE_STEP * max(n_genes, 1)
+    features = pd.DataFrame(
+        {
+            "feature_id": ["GSIM_oric1", "GSIM_trna1"],
+            "type": ["oric", "trna"],
+            "contig": ["chr1", "chr1"],
+            "start": pd.Series([free + 100, free + 500], dtype="int64"),
+            "end": pd.Series([free + 332, free + 576], dtype="int64"),
+            "strand": [".", "+"],
+            "gene": [None, None],
+            "product": [None, "tRNA-Leu"],
+            "amino_acid": [None, "Leu"],
+            "anticodon": [None, "CAG"],
+        },
+        columns=list(FEATURE_COLUMNS),
+    )
     return {
         "replicons": replicons,
         "genes": genes,
         "xrefs": xrefs,
+        "features": features,
         "annotation_source": "bakta_full",
         "abundance_scale": "log2",  # preflight.json routing.abundance_scale (M1-12)
         "tus": tus,
