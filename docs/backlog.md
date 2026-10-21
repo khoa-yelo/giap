@@ -118,3 +118,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   `tests/unit/test_nf_main_installed_items.py` now pins the two literals against `SOURCES`, in the
   style of `test_nf_annotate_registry.py`; pass 2 should drop the duplication instead, by having
   `installed()` read the manifest entry's own `path`.
+- tests/helpers/islands_data.py (m5/islands) and tests/helpers/oriter_data.py (m5/oriter) both carry a
+  `tu_frame` and a giapsim-scenario driver; whichever merges second should deduplicate. Note the ori–ter
+  driver deliberately keeps the simulator's real coordinates, while the island one re-lays genes through
+  `Contig`, which would destroy the ori–ter geometry — so the shared helper must preserve both modes.

@@ -98,3 +98,31 @@ in its §9.3 position, for autocorrelation) and `flags` last.
 
 36. Q1: add `not_estimable`, `few_values` and `ci_unestimated` to the flag vocabulary.
 37. Q2, Q3: accept the proposed defaults.
+
+## Lead decisions after the test-author's report (2026-10-21)
+1. **`giap.context.diagnostics` is accepted as invented.** ADR-0021 Amendment 1 requires the per-replicon
+   ℓ̂ / ℓ' / Î₁ to be reported, but `IslandScan` dies with the step, `detection_summary.tsv` must stay
+   byte-identical (example 8), `autocorrelation.tsv`'s `statistic` enum is closed, and the §9.4 run report
+   does not exist yet (`src/giap/report/` holds only `__init__.py`). So the step persists
+   `work/context/island_diagnostics.parquet` with `DIAGNOSTICS_COLUMNS` and `BLOCK_RULES` as proposed.
+   The semantics are the contract and survive any later renaming: ℓ̂ and ℓ' are **NA, never 0**; a fixed
+   block gives `block_rule="fixed"`, ℓ̂ NA, ℓ' = the configured value, Î₁ finite; not scanned gives NA/NaN
+   with `few_values`; `render_l_hat` never emits the character `0`; `calibration_applies("fixed")` is
+   False. When the §9.4 run report is built it **consumes this parquet** rather than recomputing.
+2. **`uncalibrated` stays out of `CONTEXT_FLAGS`** as the tests assert, with the legacy
+   `regions_stats.schema.json` pattern left alone. (The spec's line 19 correction *is* on main as of
+   1189648 — re-read it.)
+3. **`tables/genes.tsv` is written by `context_stats`**, not by `run_detectability`. It is the last M4/M5
+   step and the only one holding both the gene table and the three context columns, so a single write
+   with the left join already applied beats writing it early and patching it. **Known limitation:** a run
+   where `context_stats` is skipped (no C7/C8) produces no `genes.tsv`. That is recorded, not hidden, and
+   is resolved when §6.2's `finalize` step arrives and takes ownership of the file. M4-20 moves its write
+   accordingly.
+4. **Example 6's literal numbers are not reproducible on a simulated fixture**; testing the relation (every
+   island's genes carry that island's id, replichore ∈ {right, left}, position ∈ [0, 1], the frame equals
+   the producers' join) is the right substitute. The exact geometry is M5-08 example 1's job.
+5. **The island fixture runs outside the ADR-0021 calibrated regime on purpose** — abundance-driven
+   detection, a 0.30 detrend span and `context.islands.block_len = 1` are all needed to make an island
+   reachable at this size (decision 50: censoring caps the direction). Acceptable for plumbing, it doubles
+   as the fixed-block diagnostics case, and it is stated in the module docstring. Do **not** grow the
+   genome to reach the calibrated regime here; that belongs to M5-07.
