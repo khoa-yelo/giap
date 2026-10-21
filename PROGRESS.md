@@ -173,7 +173,7 @@ Lessons (keep):
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
 |---|---|---|---|
-| 2026-10-14 | RegulonDB v12 download (needed at M6) | `regulondb.ccg.unam.mx` unreachable from FarmShare (probe) | nothing yet; retry at M6, then ask |
+| 2026-10-14 | ~~RegulonDB v12 download~~ **RESOLVED 2026-10-21** | Not an outage: RegulonDB serves a cert (GlobalSign GCC R46 OV TLS CA 2025, issued 2026-10-14) **without the intermediate**, so verification fails. The intermediate from GlobalSign's own CA endpoint verifies against `GlobalSign Root R46`, already in FarmShare's trust store; with it, the site and `/datasets` return HTTP 200. Khoa approved completing the chain (2026-10-21). | nothing — M6-11/M6-12 unblocked |
 
 ## Answered by Khoa
 - 2026-10-15: force-push blocked → merge main into feature branches instead of rebasing (option 3).
