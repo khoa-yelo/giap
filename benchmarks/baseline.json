@@ -207,5 +207,19 @@
     "commit": "515424d",
     "date": "2026-10-20",
     "note": "best of 3, median of 3 invocations (0.230-0.238 s), interactive allocation"
+  },
+  "pair_frame_4500_genes": {
+    "benchmark": "benchmarks/test_pairs_bench.py::test_pair_frame_4500_genes_budget",
+    "source": "docs/specs/M6-04-pair-table.md acceptance (4,500 genes < 3 s, 1 CPU, all three layers)",
+    "n_genes": 4500,
+    "budget_s": 3.0,
+    "secs": 0.414,
+    "cpus": 1,
+    "node": "wheat-08",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "slurm_job": 1864210,
+    "commit": "c0ddc3b",
+    "date": "2026-10-21",
+    "issue": "M6-04"
   }
 }
