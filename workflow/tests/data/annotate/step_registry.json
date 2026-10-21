@@ -57,7 +57,8 @@
       "id_map",
       "peptides",
       "replicon_depth",
-      "stratum0_classes"
+      "stratum0_classes",
+      "tier_summary"
     ],
     "outputs": [
       "detection_summary",
@@ -92,7 +93,8 @@
       "preflight"
     ],
     "outputs": [
-      "genes_pre"
+      "genes_pre",
+      "tier_summary"
     ]
   },
   "loci": {
