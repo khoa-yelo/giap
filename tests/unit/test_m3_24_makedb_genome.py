@@ -6,6 +6,15 @@ are not committed twice) - could not be turned into ``validation/pilot/db_a2``. 
 the fix: with ``--genome`` the stripped JSON builds exactly the database the full JSON builds,
 and without it the error is a clean ``ValueError``/exit 2, not a traceback.
 
+Decisions 13 and 14 (code review of PR #122) guard the genome against the annotation:
+
+* the ``build.py`` check ``cid not in fasta or len(fasta[cid]) != rep.length`` is only reached
+  when the JSON carries its own nucleotides, so the mismatch cases below use the **full** JSON
+  (with a stripped JSON the parser raises first and ``build.py``'s check is never exercised);
+* a sequence record with neither ``nt`` nor ``length`` makes ``rep.length`` come from the very
+  FASTA it is compared against, so the check is a tautology and a truncated genome would build
+  silently: such a record is refused outright, whatever the genome.
+
 The last test rebuilds the committed ``db_a2`` from the recorded Nissle JSON and the genome of
 decision 8 (``local/data/genomes/nissle1917/…``, uncommitted) and compares it byte for byte; it
 is marked ``slow`` and skips when that FASTA is absent.
@@ -15,6 +24,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -32,6 +42,7 @@ from makedb_genomes import (  # tests/helpers is on sys.path, as in test_makedb.
     write_bakta_json,
     write_fasta,
 )
+from makedb_oracle import revcomp
 
 OUTPUTS = ("strain_db.faa", "db_id_map.tsv")
 
@@ -52,13 +63,40 @@ def _cli(argv: list[str]) -> int:
     return 0 if info.value.code is None else int(info.value.code)
 
 
-def _strip_nucleotides(path: Path, out: Path) -> Path:
-    """A recorded Bakta JSON: sequence records without ``nt`` (as under tests/data/recorded)."""
+def _strip_nucleotides(path: Path, out: Path, *, lengths: bool = True) -> Path:
+    """A recorded Bakta JSON: sequence records without ``nt`` (as under tests/data/recorded).
+
+    ``lengths=False`` also drops the declared ``length`` (decision 13: then nothing is left to
+    check the FASTA against).
+    """
     data = json.loads(path.read_text())
     for record in data["sequences"]:
         record.pop("nt", None)
+        if not lengths:
+            record.pop("length", None)
     out.write_text(json.dumps(data, indent=1) + "\n")
     return out
+
+
+def _read_fasta(path: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+    name = ""
+    for line in path.read_text().splitlines():
+        if line.startswith(">"):
+            name = line[1:].split()[0]
+            out[name] = ""
+        elif name:
+            out[name] += line.strip()
+    return out
+
+
+def _write_fasta(path: Path, records: dict[str, str]) -> Path:
+    chunks = []
+    for name, seq in records.items():
+        chunks.append(f">{name}\n")
+        chunks += [seq[i : i + 80] + "\n" for i in range(0, len(seq), 80)]
+    path.write_text("".join(chunks))
+    return path
 
 
 @pytest.fixture(scope="module")
@@ -111,13 +149,131 @@ def test_the_genome_replaces_the_missing_nucleotides(
 def test_the_genome_must_match_the_annotation(
     stripped_json: Path, example: ExampleGenome, tmp_path: Path
 ) -> None:
-    """A FASTA of the wrong length is refused before anything is written (M3-23 behaviour)."""
+    """A FASTA of the wrong length is refused before anything is written (M3-23 behaviour).
+
+    With a stripped JSON this is the parser's check (``annotate/bakta.py``); the cases below
+    reach ``build.py``'s own check (decision 14).
+    """
     contigs = [c for c in example.contigs]
     truncated = tmp_path / "short.fasta"
     text = write_fasta(tmp_path / "g.fasta", contigs).read_text().splitlines()
     truncated.write_text("\n".join([text[0], text[1][:60]]) + "\n")
     with pytest.raises(ValueError):
         _build(stripped_json, tmp_path / "DB", genome=truncated)
+
+
+# ---------------------------------------------------------------- decisions 13 and 14
+
+
+def _damaged(genome: Path, out: Path, how: str, cid: str) -> Path:
+    """``genome`` with contig ``cid`` shortened, lengthened or renamed."""
+    records = _read_fasta(genome)
+    assert cid in records, (cid, sorted(records))
+    if how == "short":
+        records[cid] = records[cid][:-30]
+    elif how == "long":
+        records[cid] = records[cid] + "A" * 30
+    elif how == "renamed":
+        records = {("other" if k == cid else k): v for k, v in records.items()}
+    else:  # pragma: no cover - guarded by the parametrisation
+        raise AssertionError(how)
+    return _write_fasta(out, records)
+
+
+@pytest.mark.parametrize("how", ["short", "long", "renamed"])
+def test_a_genome_that_contradicts_the_full_json_is_refused(
+    full_json: Path, genome: Path, example: ExampleGenome, tmp_path: Path, how: str
+) -> None:
+    """Decision 14: the full JSON carries its own ``nt``, so ``build.py``'s check is reached.
+
+    ``long`` kills a ``!=`` weakened to ``<``; ``renamed`` kills a dropped missing-contig half
+    (a ``KeyError`` is not a ``ValueError``); ``short`` kills a dropped length half or a skipped
+    block.
+    """
+    cid = example.contigs[0].id
+    bad = _damaged(genome, tmp_path / f"{how}.fasta", how, cid)
+    with pytest.raises(ValueError, match=re.escape(cid)):
+        _build(full_json, tmp_path / "DB", genome=bad)
+    assert not (tmp_path / "DB" / "strain_db.faa").exists(), "a partial database was written"
+
+
+@pytest.mark.parametrize("how", ["match", "short", "long"])
+def test_a_record_without_nt_and_without_length_is_refused(
+    full_json: Path, genome: Path, example: ExampleGenome, tmp_path: Path, how: str
+) -> None:
+    """Decision 13: ``rep.length`` would come from the FASTA itself, so there is nothing to check.
+
+    The refusal does not depend on the genome being wrong: with ``match`` the FASTA is correct
+    and the build must still stop, because a truncated one could not be told apart from it.
+    """
+    annotation = _strip_nucleotides(full_json, tmp_path / "no_length.json", lengths=False)
+    records = json.loads(annotation.read_text())["sequences"]
+    assert all("length" not in r and "nt" not in r for r in records), records
+    cid = example.contigs[0].id
+    fasta = genome if how == "match" else _damaged(genome, tmp_path / f"{how}.fasta", how, cid)
+    with pytest.raises(ValueError) as info:
+        _build(annotation, tmp_path / "DB", genome=fasta)
+    if how == "match":  # a correct FASTA cannot trip any other check: this is decision 13's
+        assert cid in str(info.value), str(info.value)
+    assert not (tmp_path / "DB" / "strain_db.faa").exists(), "a partial database was written"
+
+
+@pytest.mark.parametrize("how", ["short", "long"])
+def test_a_declared_length_still_catches_a_wrong_genome(
+    stripped_json: Path, genome: Path, example: ExampleGenome, tmp_path: Path, how: str
+) -> None:
+    """Decision 13: a record with ``length`` but no ``nt`` (the recorded shape) stays checkable."""
+    cid = example.contigs[0].id
+    bad = _damaged(genome, tmp_path / f"{how}.fasta", how, cid)
+    with pytest.raises(ValueError, match=re.escape(cid)):
+        _build(stripped_json, tmp_path / "DB", genome=bad)
+    assert not (tmp_path / "DB" / "strain_db.faa").exists(), "a partial database was written"
+
+
+def test_the_genome_overrides_the_nucleotides_of_the_json(
+    full_json: Path, genome: Path, example: ExampleGenome, tmp_path: Path
+) -> None:
+    """``--genome`` wins where both carry a sequence: the database is the FASTA's, not the JSON's.
+
+    (Not a mismatch case: the variant has the same length, so no length check fires.)
+    """
+    records = _read_fasta(genome)
+    cid = example.contigs[0].id
+    variant = dict(records)
+    variant[cid] = revcomp(records[cid])
+    fasta = _write_fasta(tmp_path / "variant.fasta", variant)
+    data = json.loads(full_json.read_text())
+    for record in data["sequences"]:
+        record["nt"] = variant[record["id"]]
+    variant_json = tmp_path / "variant.json"
+    variant_json.write_text(json.dumps(data, indent=1) + "\n")
+
+    from_fasta = _build(full_json, tmp_path / "FASTA", genome=fasta, six_frame_orfs=True)
+    from_json = _build(variant_json, tmp_path / "JSON", six_frame_orfs=True)
+    untouched = _build(full_json, tmp_path / "ORIG", six_frame_orfs=True)
+    for name in OUTPUTS:
+        assert (from_fasta / name).read_bytes() == (from_json / name).read_bytes(), name
+        assert (from_fasta / name).read_bytes() != (untouched / name).read_bytes(), (
+            f"precondition: the variant genome must change {name}"
+        )
+
+
+@pytest.mark.parametrize("min_orf_aa", [0, -1])
+def test_the_api_guard_on_min_orf_aa(full_json: Path, tmp_path: Path, min_orf_aa: int) -> None:
+    """The API guard, not only the CLI one (a surviving mutant of the #122 review)."""
+    with pytest.raises(ValueError, match="min_orf_aa"):
+        _build(full_json, tmp_path / "DB", min_orf_aa=min_orf_aa)
+    assert not (tmp_path / "DB" / "strain_db.faa").exists()
+
+
+def test_the_recorded_nissle_json_declares_every_length() -> None:
+    """Decision 13 cannot break ``db_a2``: all four Nissle records declare a length, none has nt."""
+    with gzip.open(RECORDED_NISSLE, "rt") as fh:
+        records = json.load(fh)["sequences"]
+    assert len(records) == 4, len(records)
+    for record in records:
+        assert isinstance(record.get("length"), int) and record["length"] > 0, record.get("id")
+        assert "nt" not in record, record.get("id")
 
 
 def test_the_cli_builds_the_db_a2_command_of_step_2(
