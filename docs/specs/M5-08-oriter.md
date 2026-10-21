@@ -111,3 +111,29 @@ the oriC choice with several calls, TU values, the block-bootstrap CI and its bl
 33. Q3: linear and unknown-kind contigs are skipped.
 34. Q4: detected genes only (descriptive).
 35. CI block length ℓ' (ADR-0021, accepted); until accepted, tests use an integer `block_len`.
+
+## Lead decisions after the test-author's report (2026-10-21)
+1. **Per-arm block length:** `ℓ_s = block_len_prime(ℓ̂, T_s)` = min(20, 2ℓ̂+1, T_s) with `T_s` the *fit's
+   own* TU count, and an integer `context.islands.block_len` used as `min(block_len, T_s)` — the same
+   clamp the M5-06 oracle uses. `circular_block_bootstrap` raises when `block_len > n`, so a 20-TU arm
+   cannot carry an ℓ' derived from 2,000 pooled TUs. `ℓ̂` is estimated **once per replicon** from the
+   pooled fit's residuals. Re-estimating per arm is more faithful but costs more draws for no measured
+   gain; revisit only if the statistician asks.
+2. **Draw order:** a non-estimable fit consumes **no** bootstrap draws. Replicons in C1 order; per
+   replicon the ℓ̂ permutations, then bootstrap replicates for pooled, right, left, skipping absent fits.
+3. **Row order** within a replicon is pooled, right, left (M5-09 re-sorts for the table; the parity tests
+   need a fixed order).
+4. **`multiple_oric` is a logging record** from the pure module, using `giap.io.events`' convention
+   (`extra={"event": ..., "data": ...}`) rather than a diagnostics object threaded back through the step.
+   Logging is not file I/O; this keeps the signature clean.
+5. The event fires on **both** branches — when the calls are averaged and when they are > 0.05·L apart
+   and refused (decision 31's `no_oric`).
+6. The fast coverage arm stays in **NIGHTLY**: 47 s on a session node is under the 60 s rule but will
+   exceed it on a 4-core CI runner.
+7. **C15 routing confirmed** (M5-04 decision 19 stands): `features` does **not** join `load_m4_inputs` /
+   `FILE_NAMES` / `M4Inputs`. `oriter_rows` takes `features: pd.DataFrame | None`, and `context_stats`
+   gains it as an optional step input — the plumbing is M5-09's, as its spec already says. A missing
+   features table gives `no_oric` rows and a successful run, not a contract issue.
+8. **Example 7 stays recorded, not gated**, pending the statistician's review of the implementation PR:
+   the test-author independently reproduced ADR-0021's 0.96 coverage at ρ 0.5 and measured the estimand
+   at −2.42 against the closed form −2.432, so promotion is plausible — the statistician decides.

@@ -146,3 +146,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   item — and belongs with the M6 writers.
 - CONTEXT cannot receive `tier_summary`: it would need an 11th `take:` channel and
   workflow/tests/context.nf.test binds exactly input[0..9] (M4-20 decision 3). Test-author work.
+- tests/helpers/islands_data.py (m5/islands) and tests/helpers/oriter_data.py (m5/oriter) both carry a
+  `tu_frame` and a giapsim-scenario driver; whichever merges second should deduplicate. Note the ori–ter
+  driver deliberately keeps the simulator's real coordinates, while the island one re-lays genes through
+  `Contig`, which would destroy the ori–ter geometry — so the shared helper must preserve both modes.
