@@ -254,6 +254,17 @@ def run_local(
 
 # §9.1 published directories: work key -> OUT subdirectory
 PUBLISHED: dict[str, str] = {"annotation": "annotation", "mapping": "mapping"}
+#: §9.1 published files: work key -> OUT path, the ``key=path`` names the Nextflow subworkflows
+#: give GIAP_STEP (pinned against workflow/ by tests/unit/test_local_publish_names.py)
+PUBLISHED_FILES: dict[str, str] = {
+    "detectability_summary": "genetable/detection_summary_parts/detectability.parquet",
+    "detection_summary": "tables/detection_summary.tsv",
+    "gene_table": "genetable/genes.parquet",
+    "genes_pre": "genetable/genes_pre.parquet",
+    "regions_stats": "tables/regions_stats.tsv",
+    "sensitivity": "tables/sensitivity.tsv",
+    "tier_summary": "genetable/detection_summary_parts/tier.parquet",
+}
 
 
 def publish(workdir: Path, outdir: Path) -> list[Path]:
@@ -263,6 +274,12 @@ def publish(workdir: Path, outdir: Path) -> list[Path]:
         src, dst = workdir / key, outdir / sub
         if src.is_dir():
             shutil.copytree(src, dst, dirs_exist_ok=True)
+            done.append(dst)
+    for key, rel in sorted(PUBLISHED_FILES.items()):
+        src, dst = workdir / key, outdir / rel
+        if src.is_file():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dst)
             done.append(dst)
     return done
 

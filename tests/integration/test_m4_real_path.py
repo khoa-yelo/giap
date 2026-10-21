@@ -76,3 +76,19 @@ def test_example_4_real_path_twice_is_byte_identical(
     assert set(a) == set(mc.OUTPUT_TABLES), f"run A wrote only {sorted(a)}"
     differ = [n for n in sorted(mc.OUTPUT_TABLES) if a.get(n) != b.get(n)]
     assert not differ, f"tables differ between two runs: {differ}"
+
+
+def test_the_local_executor_itself_plans_runs_and_publishes_context_stats(
+    tmp_path: Path, db: Path
+) -> None:
+    """M4-21 lead decision 4 (code review of #145, F1): ``giap run --executor local`` plans
+    ``context_stats`` and ``sensitivity`` on the real outputs and publishes their tables, without
+    the M4 test helpers re-running anything."""
+    sim = mr.sim100k(tmp_path / "sim")
+    out = tmp_path / "OUT"
+    work = mr.giap_run(sim, out, db, SEED)
+    for key in ("regions_stats", "detection_summary", "sensitivity"):
+        assert (work / key).is_file(), f"the executor did not run the step writing {key}"
+    for rel in ("tables/regions_stats.tsv", "tables/detection_summary.tsv",
+                "tables/sensitivity.tsv", "genetable/genes.parquet"):  # fmt: skip
+        assert (out / rel).is_file(), f"giap run published no {rel}"

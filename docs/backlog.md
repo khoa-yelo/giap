@@ -150,3 +150,10 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   `tu_frame` and a giapsim-scenario driver; whichever merges second should deduplicate. Note the ori–ter
   driver deliberately keeps the simulator's real coordinates, while the island one re-lays genes through
   `Contig`, which would destroy the ori–ter geometry — so the shared helper must preserve both modes.
+- M4-21 pass 2 (code review of #145): F2 unit tests for `precomputed_members` (constant overlap_frac,
+  skipped unknown tag, core_biosynthetic mutants survive); F3 no real-path test of prophage subset
+  classes beyond `cargo`; F4 log or `notes`-tag that precomputed regions have product-only subsets and
+  `core_biosynthetic = False`; F5 unit-test `topo_order` with `members`; F6 `_precomputed` ignores
+  `context.region_types` (the tool path filters it); F7 the sensitivity goldens (sim50k, sim100k_real)
+  have zero primary/variant calls; F8 stale flat files win over keyed ones in `contract_paths` /
+  `work_inputs`. `PUBLISHED_FILES` repeats the Nextflow names (pinned by a test) — one shared source.
