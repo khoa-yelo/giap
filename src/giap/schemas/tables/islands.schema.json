@@ -18,7 +18,7 @@
     {"name": "detected_frac", "type": "number", "description": "Share of the island's eligible genes that are detected", "constraints": {"minimum": 0, "maximum": 1}},
     {"name": "scan_s", "type": "number", "description": "Scan statistic S of the island's best window"},
     {"name": "block_len", "type": "integer", "description": "Bootstrap block length l' used for the replicon", "constraints": {"minimum": 1}},
-    {"name": "stat", "type": "number", "description": "Test statistic of the row: S of the best window (= scan_s)"},
+    {"name": "stat", "type": "string", "description": "Name of the test statistic of the row; its value is scan_s", "constraints": {"required": true, "enum": ["scan_max"]}},
     {"name": "effect", "type": "number", "description": "Mean detrended TU score over the island's best window"},
     {"name": "ci_low", "type": "number", "description": "Lower bound of the 95% bootstrap CI of the effect"},
     {"name": "ci_high", "type": "number", "description": "Upper bound of the 95% bootstrap CI of the effect"},

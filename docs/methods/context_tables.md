@@ -23,6 +23,16 @@ their producer gave them, and no island is renumbered.
 `giap.context.oriter` emits `lag` as the schema's nullable `Int64` rather than `float64`, so the
 concatenation of the two row sources keeps integer lags (`1`, not `1.0`) in the written table.
 
+## `stat` is a name, in all three tables
+
+§9.2 defines the test column `stat` as an enum of **statistic names** (`enum{o_minus_e, hl_shift}`
+for `regions_stats`), and `autocorrelation` follows it (`morans_i`, `join_count_bb`,
+`oriter_slope_pooled`, …). M5-06 originally shipped islands' `stat` as a float equal to `scan_s`,
+which both broke the convention and duplicated a column the same row already carries; M5-09 lead
+decision 6 fixed it, so islands' `stat` is the string `"scan_max"` (`giap.context.islands.STAT`)
+and `scan_s` keeps the value. A generic reader of the three test tables can therefore treat `stat`
+as a string everywhere.
+
 ## Random streams (§6.6)
 
 `context_stats.autocorrelation`, `context_stats.islands` and `context_stats.oriter`, each from
@@ -43,8 +53,7 @@ An empty frame writes the header line only.
 
 The readers are the inverses and type each column from the shipped schema: `integer` → pandas
 nullable `Int64`, `number` → `float64`, `string` → `object` of `str`, and the list cells → tuples
-of `str`. A numeric cell that is not a number raises `ValueError` naming the column, so a
-malformed table is never silently reshaped.
+of `str`.
 
 `flags` is checked against `giap.context.vocab.CONTEXT_FLAGS` (§9.4 is closed) and an unknown flag
 raises `ValueError` naming it. Note that `pandas.Series.flags` shadows the `flags` *column*: a

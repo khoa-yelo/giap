@@ -51,12 +51,12 @@ AUTOCORRELATION = _Table(
                "p_value", "q_value"}),
     ("flags",),
 )  # fmt: skip
-#: ``islands.schema.json`` (1-based closed; ``stat`` is the scan statistic S, a number).
+#: ``islands.schema.json`` (1-based closed; ``stat`` is a name, its value is ``scan_s``).
 ISLANDS = _Table(
     "islands", ISLAND_COLUMNS,
     frozenset({"start", "end", "n_tus", "n_genes", "block_len", "n_perm"}),
-    frozenset({"mean_abundance_log2", "detected_frac", "scan_s", "stat", "effect", "ci_low",
-               "ci_high", "p_value", "q_value"}),
+    frozenset({"mean_abundance_log2", "detected_frac", "scan_s", "effect", "ci_low", "ci_high",
+               "p_value", "q_value"}),
     ("genes", "flags"),
 )  # fmt: skip
 
@@ -102,27 +102,14 @@ def _write(path: Path, df: pd.DataFrame, table: _Table) -> None:
     write_tsv(path, table.columns, rows)
 
 
-def _parse(cell: str | None, column: str, kind: type[int] | type[float]) -> int | float | None:
-    """One numeric cell; ``ValueError`` names the column when the cell is not a number."""
-    if cell is None:
-        return None
-    try:
-        return kind(cell)
-    except ValueError:
-        raise ValueError(
-            f"column {column!r} is {kind.__name__} in the table schema, got {cell!r}"
-        ) from None
-
-
 def _column(values: list[str | None], column: str, table: _Table) -> pd.Series:
     """One read column, typed as the table schema declares it."""
     if column in table.lists:
         return pd.Series([_list_cell(v) for v in values], dtype=object)
     if column in table.ints:
-        return pd.Series([_parse(v, column, int) for v in values], dtype="Int64")
+        return pd.Series([None if v is None else int(v) for v in values], dtype="Int64")
     if column in table.floats:
-        parsed = [_parse(v, column, float) for v in values]
-        return pd.Series([math.nan if v is None else v for v in parsed], dtype="float64")
+        return pd.Series([math.nan if v is None else float(v) for v in values], dtype="float64")
     return pd.Series([None if v is None else str(v) for v in values], dtype=object)
 
 
@@ -153,7 +140,7 @@ def write_islands(path: Path, df: pd.DataFrame) -> None:
 
 def read_autocorrelation(path: Path) -> pd.DataFrame:
     """``tables/autocorrelation.tsv`` as an ``AUTOCORR_COLUMNS`` frame with the schema's dtypes
-    (inverse of :func:`write_autocorrelation`); a wrong header or cell type raises."""
+    (inverse of :func:`write_autocorrelation`); a wrong header raises."""
     return _read(path, AUTOCORRELATION)
 
 
