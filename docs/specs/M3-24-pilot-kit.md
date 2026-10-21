@@ -110,3 +110,19 @@ prepared only, not run in M3 · estimate ≈ 250 code lines (scripts)
 12. **`needs_diann` in tests/conftest.py** also accepts `${DIANN_SIF:-<decision 1 path>}`, so the marker
     can detect the 2.3.1 image; the `$GIAP_TOOLS_DIR/diann-2.7.0*` probe stays for a future unpacked
     build.
+13. (code review of #122) The genome length check must not be a tautology. When a JSON sequence record
+    carries no `nt` and no `length`, `rep.length` is derived from the same FASTA, so
+    `len(fasta[cid]) != rep.length` compares a value with itself and a truncated genome builds silently
+    (a hard error before this PR). The check compares against the JSON's **declared** length where there
+    is one, and `build_strain_db` raises when a record has neither `nt` nor `length`, so no replicon is
+    ever length-checked against itself.
+14. (code review of #122) `test_the_genome_must_match_the_annotation` feeds a stripped JSON, so it trips
+    the parser's length check, not `build.py`'s. Add a case with the **full** JSON and a short FASTA,
+    which reaches the `build.py` check and kills four of the six surviving mutants.
+15. (code review of #122) Tighten the README's reason for leaving out `--reanalyse` / `--rt-profiling`:
+    MBR weakens run-level FDR control, so the §15.5 entrapment set is no longer the single-pass q ≤ 0.01
+    set — not merely "moves the denominator". Drop the closing "identical in A1 and A2, so the comparison
+    stays fair", which undercuts the reason.
+16. (code review of #122) Two small shell nits: `diann_pilot.sbatch` should exit 2, not die on an unbound
+    variable, when a cfg ends in a bare `--fasta`; `fetch_pxd078459.sbatch`'s `for name in $FILES` needs
+    the same `set -f` guard as its sibling.
