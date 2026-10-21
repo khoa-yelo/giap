@@ -64,6 +64,15 @@ the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise deci
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
 
+M5-08 (#132, implementer step done): `giap.context.oriter` — oriC resolution (circular mean inside
+0.05·L, `multiple_oric` event on both branches), replichore geometry, the two genes.tsv columns and the
+three descriptive OLS slopes with a circular block-bootstrap CI; block length clamped per fit with that
+fit's own T (lead decision 1 of 2026-10-21), ℓ̂ once per replicon from the pooled residuals. Unit +
+property tests 42 passed, module coverage 97 %; fast suite **8872 passed, 29 skipped** (Slurm 1863080,
+6:37); the recorded fast coverage arm (example 7, 2 log2, ρ 0.5, R = 50) **coverage 0.96, estimable 1.00,
+mean CI width 1.11** (Slurm 1863081, 27 s) — the test-author's 0.96 reproduced. Plus
+docs/methods/oriter.md. `features` stays a plain parameter; the step plumbing is M5-09's.
+
 ADRs accepted today by Khoa: ADR-0019 (stratum-0 π̂ per length class, Clopper–Pearson upper bound, no PEP),
 ADR-0020 (autocorrelation: re-detrend per permutation, residual join count, CI NA) **+ Amendment 1**
 (Pearson residual (d−p)/√(p(1−p)); the raw residual rejected at 0.074–0.105 when low p_detect clusters),
