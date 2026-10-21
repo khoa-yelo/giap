@@ -10,13 +10,19 @@ The M4 chain on a giapsim fixture, as the spec's "Interface" fixes it:
 * ``run_m4`` then calls ``run_gene_table`` -> ``run_detectability`` -> ``run_context_stats`` ->
   ``run_sensitivity`` in the spec's order and returns the four ``tables/`` outputs.
 
+Who writes what in ``tables/``: ``context_stats`` writes ``genes.tsv`` (M5-09 lead decision 3: it
+is the only step that holds both the gene table and M5-09's ``island_id`` / ``replichore`` /
+``replichore_position``, so writing it earlier would mean writing the file twice),
+``regions_stats.tsv`` and ``detection_summary.tsv``; ``sensitivity`` writes ``sensitivity.tsv``.
+Known limitation, recorded rather than worked around: a run without C7/C8 skips ``context_stats``
+and so produces no ``genes.tsv``; §6.2 gives the file to ``finalize``, which resolves it.
+
 ``$GIAP_DB_DIR`` always points at ``test_db`` here (never the real one, M3-17 review decision 12):
 the gene table reads ``cog2020_def`` from the manifest, so without a pinned fixture COG table the
 golden run would depend on whether the shared database is installed.
 
-``layout=`` is a test-author addition to the spec signature (example 7 needs
-``linear_contigs=(30,)`` and a plasmid, which ``size`` alone cannot express); it is listed in the
-M4-20 report as a question for the lead.
+``layout=`` is in the spec's Interface line since M4-20 lead decision 4 (example 7 needs
+``linear_contigs=(30,)`` and a plasmid, which ``size`` alone cannot express).
 """
 
 from __future__ import annotations

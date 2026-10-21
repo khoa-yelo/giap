@@ -20,8 +20,15 @@ calibration records the two M4 suites must have produced at the nightly full rep
 stream names the suites actually build (it needs no logs and runs on every commit). The evidence
 check reads the JSON-lines logs of a nightly full run -- ``$GIAP_CALIBRATION_LOG_DIR`` or
 ``local/logs/calibration`` -- and fails when a required record is missing, was run at fewer than
-``replicates_full`` replicates, or is a confirmed failure; it skips only when no log directory
-exists at all (a fresh clone has no nightly evidence).
+``replicates_full`` replicates, or is a confirmed failure.
+
+**Guard (lead decision 12).** The *fast* calibration suite writes into the same directory, so "the
+directory exists" is not evidence of a nightly run: without the guard the check failed in every
+full fast-suite run, CI included, demanding full-R records a fast run never writes. The evidence
+check therefore skips unless the suite's log holds at least one record at ``replicates_full`` --
+i.e. unless a nightly full run really happened -- or ``GIAP_M4_GATE=1`` is set, which makes a
+missing nightly a failure (that is how the gate is collected on purpose). The gate itself stays
+the nightly full run (decision 6).
 """
 
 from __future__ import annotations
@@ -140,13 +147,23 @@ def test_every_gate_level_is_a_tolerances_level() -> None:
 # --------------------------------------------------------------------------- recorded evidence
 
 
+def required_replicates(suite: str) -> int:
+    return int(_tolerances()["replicates_full"][suite])
+
+
+def demanded() -> bool:
+    """``GIAP_M4_GATE=1``: a missing nightly is a failure, not a skip (gate collection)."""
+    return os.environ.get("GIAP_M4_GATE") == "1"
+
+
+def has_full_run(records: Iterable[dict[str, Any]], full: int) -> bool:
+    """True when some record was produced at the nightly full replicate count (decision 12:
+    the fast suite writes into the same directory, so the directory alone proves nothing)."""
+    return any(int(r.get("R", 0)) >= full for r in records)
+
+
 @pytest.fixture(scope="module")
 def evidence() -> dict[str, list[dict[str, Any]]]:
-    if not log_dir().is_dir():
-        pytest.skip(
-            f"no calibration log directory {log_dir()}: run the nightly full suite"
-            " (scripts/slurm/calibration_full.sbatch) or set GIAP_CALIBRATION_LOG_DIR"
-        )
     return {suite: _records(suite) for suite in REQUIRED}
 
 
@@ -155,8 +172,14 @@ def test_m4_gate_evidence_is_recorded(
     evidence: dict[str, list[dict[str, Any]]], suite: str
 ) -> None:
     """Every required record exists, at ``replicates_full`` replicates, and none failed."""
-    full = int(_tolerances()["replicates_full"][suite])
+    full = required_replicates(suite)
     records = evidence[suite]
+    if not demanded() and not has_full_run(records, full):
+        pytest.skip(
+            f"no nightly full record (R >= {full}) for suite {suite} in {log_dir()}:"
+            " run scripts/slurm/calibration_full.sbatch, point GIAP_CALIBRATION_LOG_DIR at its"
+            " logs, or set GIAP_M4_GATE=1 to make the missing nightly a failure"
+        )
     by_key: dict[tuple[str, str, float], list[dict[str, Any]]] = {}
     for rec in records:
         by_key.setdefault(_key(rec), []).append(rec)
@@ -173,3 +196,21 @@ def test_m4_gate_evidence_is_recorded(
             failed.append((key, sorted({str(r.get("status")) for r in runs})))
     assert not small, f"{suite}: fast-suite only (R < {full}): {small[:10]}"
     assert not failed, f"{suite}: not passed: {failed[:10]}"
+
+
+@pytest.mark.parametrize("suite", sorted(REQUIRED))
+def test_the_guard_does_not_accept_fast_suite_records(suite: str) -> None:
+    """Decision 12: a log directory the fast suite created is not gate evidence."""
+    tol = _tolerances()
+    fast, full = int(tol["replicates_fast"][suite]), required_replicates(suite)
+    assert fast < full, (suite, fast, full)
+    assert not has_full_run([{"R": fast}, {"R": fast}], full)
+    assert not has_full_run([], full)
+    assert has_full_run([{"R": fast}, {"R": full}], full)
+
+
+def test_the_gate_can_be_demanded_with_an_env_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GIAP_M4_GATE", raising=False)
+    assert not demanded()
+    monkeypatch.setenv("GIAP_M4_GATE", "1")
+    assert demanded()

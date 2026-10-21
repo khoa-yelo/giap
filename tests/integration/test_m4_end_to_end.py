@@ -11,10 +11,15 @@ tables with the committed ones); examples 4-8 on ``sim1000`` at ``stats.permutat
 ``stats.bootstrap = 200`` (the structure, not the numbers, is under test). Example 3 is TE7
 (§11.6): the same seed in two directories gives byte-identical tables.
 
-``sim50k`` is 47 genes, 29 of them with peptide evidence, so the picked gene FDR cannot go below
-1/29 = 0.034: at the default ``stats.alpha.identification`` = 0.01 nothing is ever detected and
-every downstream table is vacuous. The fixture runs at ``alpha.identification`` = 0.05
-(``GOLDEN_ALPHA``), where 33 of 47 genes are detected; the vacuous default is pinned in
+``genes.tsv`` is written by ``context_stats`` (M5-09 lead decision 3), which
+``test_genes_tsv_is_written_by_context_stats`` pins together with its known limitation: a run
+whose ``context_stats`` is skipped (no C7/C8) has no ``genes.tsv`` until §6.2's ``finalize``
+owns the file.
+
+``sim50k`` is 51 genes, 30 of them with peptide evidence, and the smallest attainable picked gene
+q-value is 1/29 = 0.0345: at the default ``stats.alpha.identification`` = 0.01 nothing is ever
+detected and every downstream table is vacuous. The fixture runs at ``alpha.identification`` =
+0.05 (``GOLDEN_ALPHA``), where 29 of the 51 genes are detected; the vacuous default is pinned in
 tests/golden/test_m4_golden.py.
 """
 
@@ -105,6 +110,32 @@ def test_example_1_every_table_has_rows(sim50k: dict[str, Path]) -> None:
     assert sorted(set(sv["variant"])) == ["missing=exclude", "missing=min"]
     genes = mc.read(sim50k["genes.tsv"])
     assert len(genes) == len(mc.genes(sim50k["genes.tsv"].parent.parent))
+
+
+def test_genes_tsv_is_written_by_context_stats(tmp_path: Path, db: Path) -> None:
+    """M5-09 lead decision 3: ``context_stats`` owns ``tables/genes.tsv`` -- it is the only step
+    holding both the gene table and M5-09's ``island_id`` / ``replichore`` /
+    ``replichore_position``, so an earlier write from ``detectability`` would write the file
+    twice.
+
+    The known limitation this pins, recorded and not worked around: after ``gene_table`` and
+    ``detectability`` there is no ``genes.tsv``, so a run whose ``context_stats`` is skipped (no
+    C7/C8) publishes none. §6.2 gives the file to ``finalize``, which is its proper owner.
+    """
+    from giap.steps.context_stats import run_context_stats
+    from giap.steps.detectability import run_detectability
+    from giap.steps.gene_table import run_gene_table
+
+    work = mc.build(tmp_path / "work", seed=SEED, size="sim50k")
+    cfg = _cfg()
+    tsv = work / "tables" / "genes.tsv"
+    with mc.db_env(db):
+        run_gene_table(work, cfg)
+        run_detectability(work, cfg)
+        assert not tsv.exists(), "genes.tsv is written by context_stats, not before it"
+        run_context_stats(work, cfg, None)
+    assert tsv.is_file(), "context_stats did not write tables/genes.tsv"
+    assert len(mc.read(tsv)) == len(mc.genes(work))
 
 
 # --------------------------------------------------------------------------- example 3 (TE7)
