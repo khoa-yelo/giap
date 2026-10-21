@@ -134,3 +134,21 @@ Toy model, `logit p_j = −12 + 0.6 · a − 0.02 · L_j`, gene u with peptides 
    detection summary as evidence for a future ADR.
 4. `p_miss` is a probability, never a p-value: it gets no q and never enters a BH family
    (M6-index decision 1). The M6-05H follow-up consumes it.
+5. **Estimator (statistician review, e88e96e; docs/methods/detection-limit.md).** The model, its three
+   features and its training rows are as specified, but the fit is a **conditional (truncated) likelihood**
+   rather than plain logistic regression. Training only on detected genes selects on the response: the plain
+   fit halves the abundance coefficient and over-predicts detection by +0.14 to +0.19, which makes P(miss)
+   anti-conservative.
+   - **Peptide model:** maximise Σ log-lik − Σ_g log P_det,g over training genes (finite abundance and
+     ≥ k_min observed observable peptides). Fit unpenalised, with no ridge; separation or non-convergence
+     means `usable = False`.
+   - **Replicate model:** a binomial truncated at both ends (1 ≤ S ≤ R − 1) from 3 runs up. At exactly
+     2 runs it is `usable = False` with reason `replicate_two_runs`, decided from the run count; spec
+     item 6 already treats a constant model as unusable.
+   - **Replicate `p_detect`:** stays the per-run q (spec item 4).
+6. DL1 also **records** the calibration-in-the-large (CITL), meaning the intercept of d on logit(p̂) with
+   the slope fixed at 1. Gating on it (±0.2) needs a `tolerances.yaml` key, which is Khoa's decision.
+7. **For Khoa (pass 2, ADRs):**
+   - widen the replicate training set to every gene seen in at least one run, which makes 2 runs usable;
+   - switch the replicate `p_detect` to 1 − (1 − q)^R;
+   - the DL1 CITL tolerance of ±0.2.
