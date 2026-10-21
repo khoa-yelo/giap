@@ -155,3 +155,50 @@ ADR-0021 accepted by Khoa 2026-10-20: the spec's block length gives FWER 0.205�
     test `p <= alpha` so NaN p never counts; pass `np.abs(res.s)` to `fwer_p`; state the family: FWER is
     per replicon, so k replicons give up to 1 − (1 − α)^k genome-wide (ADR-0021 measured across
     chromosome plus plasmid).
+
+## Lead decisions after the test-author's report (2026-10-20)
+43. `TuSeries` gains `length`, `start` and `end` (per-TU, 0-based half-open from C5) and `tu_series`
+    gains `length=`, so step 7 can emit unwrapped coordinates. Passing `tus` + `replicons` into
+    `islands_frame` instead is rejected: the series already is the per-replicon view.
+44. `islands.tsv` gains a `flags` column (§9.3's list predates `ci_few_units` and `uncalibrated`);
+    M5-09's schema adds it. `few_values` stays a run flag on `IslandScan` with no table row (decision 40),
+    and the `context_stats.islands.not_scanned` log event belongs to the step.
+45. Example 9 is amended to a **40**-TU plasmid. Decision 41 governs: a 30-TU plasmid gives k = 3 at the
+    10 % span and is not scanned; 31 TUs is the boundary that is scanned. Both are tested.
+46. **The M5-06 family is genome-wide**, clarifying decision 42: ADR-0021 makes M_b the maximum over
+    replicons, so one FWER covers the genome. Decision 42's "1 − (1 − α)^k" describes the M5-03 *engine*
+    used alone, per replicon, which M5-06 does not do. The methods note must state which family applies
+    where.
+47. Low islands are much harder to detect than high ones, because left censoring bounds the low direction
+    at the shared censored score (≈ −1.9 Blom) while the high direction reaches +3.3. docs/methods/islands.md
+    gains a line on this asymmetry, and M5-07 records low-island power separately. Spec examples 4–5 are
+    tested on hand-built frames at the real α; on giapsim they are reachable only with
+    `detection="abundance"` (+6 SD found at p 0.01–0.04), so the giapsim test asserts only the claim that
+    must hold at any power (no false island) and records the miss.
+48. **ADR-0021 Amendment 1 (Khoa, option B): `uncalibrated` is dropped.** No replicon carries it; the
+    §9.4 run report carries ℓ̂, ℓ' (`block_len`) and the lag-1 Moran's I of the detrended TU scores per
+    replicon instead. The `flags` column of decision 44 stays for `ci_few_units`. M5-09's schema must not
+    add `uncalibrated`.
+49. **Ori–ter gradient (statistician).** The inflation is real but needs an unrealistic amplitude: the
+    hand-built null's AR(1) innovation SD is 1 against giapsim's 2, so "amplitude 2" there is giapsim's
+    4 log2 (a 16-fold ori:ter ratio). Gate `scenarios.oriter_gradient(1800, 0.5, 2.0)` at the ordinary
+    bound (measured 0.042) and the `detection="abundance"` variant (0.017); **record, not gate**, the
+    4-log2 and hand-built 2-SD versions (0.062 / 0.066; 0.136 at α 0.10). Attack docstrings quote
+    amplitudes in background SD, not log2. Mechanism: with left-censored Blom scores the low half is
+    compressed against the censored atom while the high half spreads, so the detrended series is
+    heteroscedastic (local-SD ratio 1.74 against 1.35 with no gradient); removing censoring removes the
+    inflation (0.066 → 0.011).
+50. **Low islands are a structural zero, not low power** (strengthening decision 47). Every undetected
+    gene shares the Blom score c = Φ⁻¹(q/2), so a low window of w TUs cannot exceed √w·|c| ≈ 3.4 at
+    w = 20, q = 0.45, against a genome-wide critical value ≈ 4.1–4.5. Measured: silencing 10/20/40
+    consecutive TUs entirely gives p_low ≥ 0.93 and 0 of 20 significant; only below about a quarter
+    undetected does the low direction become reachable. Consequences: docs/methods/islands.md states the
+    ceiling explicitly; M5-07's low-power row is labelled a **structural zero** with the ceiling and the
+    critical value printed beside it; M5-06 does not claim a two-sided procedure without that caveat; the
+    run report prints the ceiling against the 95th percentile of M_b per replicon. The two-sided family
+    costs the high direction almost nothing.
+51. Attack arms A–E from the statistician's proposal (local/scratch/m5-06-stat/work/proposed_attacks.py.txt)
+    go into tests/calibration/attacks/test_attack_islands.py: A and B gated, C and D recorded, E the
+    structural low-direction ceiling test. D replaces the current single `autocorr_rho09` record with the
+    size series 557 / 1,001 / 2,501 TUs (0.113 / 0.095 / 0.024), which is the evidence that the count is
+    not the criterion.

@@ -106,6 +106,23 @@
     "date": "2026-10-20",
     "note": "single run, median of 3 invocations (0.221-0.227 s), interactive allocation"
   },
+  "islands_4500_genes_b1000": {
+    "benchmark": "benchmarks/test_islands_bench.py::test_islands_4500_genes_b1000_budget",
+    "budget_s": 20.0,
+    "secs": 1.79,
+    "B": 1000,
+    "permutations": 1000,
+    "n_genes": 4500,
+    "n_tus": 2482,
+    "cpus": 4,
+    "threads": 4,
+    "node": "iron-15",
+    "cpu": "AMD EPYC 7742 64-Core Processor",
+    "commit": "7760a31",
+    "date": "2026-10-21",
+    "issue": "M5-06",
+    "note": "real implementation; OMP_NUM_THREADS=4; median of three runs in the session allocation (1.79 / 1.94 / 1.39 s). No Slurm batch run: the shared account sat at its 512-CPU QOS limit all day (QOSMaxCpuPerUserLimit)."
+  },
   "mapping_steps_chain_100kb_5000_peptides": {
     "benchmark": "benchmarks/test_mapping_steps_bench.py::test_mapping_chain_100kb_5000_peptides_budget",
     "budget_s": 20.0,
