@@ -40,6 +40,11 @@ the image is replaced, re-pin it there and here.
 
 ## Version actually used
 
+**Khoa reviewed and accepted the flag table and this section on 2026-10-20** ("looks fine"), including
+the two deviations from the §15.2 template: `--reanalyse` / `--rt-profiling` left out, and
+`--met-excision` absent. 2.3.1 Academia is the version of record unless he says otherwise.
+
+
 The spec names DIA-NN **2.7.0** (§15.1, §15.2 step 3). The version actually available on FarmShare,
 and the one this kit is written and recorded against, is **2.3.1** Academia. The spec text is not
 rewritten (decision 2). If a 2.7.0 build arrives later, only `diann_A1.cfg`, `diann_A2.cfg` and this
