@@ -83,3 +83,29 @@ them (index, "RegulonDB"). **No substitute source may be used.**
 2. If the chain is not fixed and the intermediate may not be pinned, M6's gate stays partial
    indefinitely. Khoa should then decide whether M6 is declared done on its simulation half with
    §15.4 deferred to M10 (the pilot already needs K-12 data), or whether the milestone waits.
+
+## Lead decisions (2026-10-21, after the code review of #141)
+
+1. **Verify before use (blocking).** `build` loads `provenance.json`, checks bytes and SHA-256 of every
+   file it reads, and fails on a mismatch or a missing sidecar (ADR-0017). `truth_summary.json` carries
+   the release and the three hashes. Tests: a tampered file, a missing sidecar.
+2. **Adjacency is the pipeline's (blocking).** Pairs come from `giap.annotate.operons.adjacent_pairs`
+   (M2-12, the definition `pairs_raw` and UniOP use), filtered to the contig and same strand, so the
+   circular wrap pair is included; the RegulonDB-only gap check is circular-aware. Test: a wrap pair.
+3. **Labels follow GIAP_SPEC §15.4.** One RegulonDB TU containing both genes → **positive**, even when
+   an unmapped RegulonDB gene lies between them (the real data blocked dnaK–dnaJ, ftsA–ftsZ, pdhR–aceE).
+   The RegulonDB-only-gene exclusion is kept **only for the negative case** (an unmapped gene between two
+   genes of different TUs makes the negative ambiguous). This supersedes the degenerate row's wording.
+4. **RegulonDB RNA genes map against Bakta `model.features`** (ncRNA/tRNA/rRNA, same strand, ±30 bp)
+   before a gene is called RegulonDB-only; the mapped share is reported for CDS and all genes separately.
+5. **Name fallback**: same strand and ≥ 1 bp overlap required; duplicate RegulonDB names keep every copy
+   (key by RegulonDB gene id, not name).
+6. **TLS hardening** (rules already hold): clear `ssl.VERIFY_X509_PARTIAL_CHAIN` on the context so the
+   handshake must reach a trusted root on every Python; run `openssl verify` against Python's own
+   `ssl.get_default_verify_paths()` (`-CAfile`/`-CApath`) so both checks use the same store; fix the
+   "system trust store" wording; a behavioural test of the returned context (`CERT_REQUIRED`,
+   `check_hostname`, the CA count grew); catch `subprocess.TimeoutExpired`.
+7. Retry exhaustion returns 1 and writes nothing (test). Everything else in the review's non-blocking list
+   goes to docs/backlog.md as M6-11 pass 2.
+8. Release of record: whatever the endpoint reports (14.5.0 today); M6-12 and ADR-0022 cite it unless
+   Khoa asks for the archived v12 files (PROGRESS.md › Questions for Khoa).
