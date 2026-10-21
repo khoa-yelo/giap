@@ -30,6 +30,9 @@ F64 = npt.NDArray[np.float64]
 MIN_FIT_N = 5
 _DF_START = 8.0
 _SCALE_FLOOR = 1e-6  # zero MAD: the spec's starting scale
+#: a fitted scale below this fraction of max(1, range of x) is a collapse onto tied values (the
+#: likelihood has no maximum there), not an estimate
+_COLLAPSE_FRAC = 1e-8
 _MAXITER = 2000
 
 
@@ -107,8 +110,8 @@ def fit_student_t(x: ArrayLike, df_bounds: tuple[float, float] = (2.0, 50.0)) ->
 
     Returns:
         The fit. ``StudentT(nan, nan, nan, n, False)`` when fewer than ``MIN_FIT_N`` finite values
-        are given or the optimiser leaves the parameters degenerate (a zero or non-finite scale),
-        never an exception.
+        are given or the optimiser leaves the parameters degenerate (a zero, non-finite or collapsed
+        scale: many tied values make the likelihood unbounded), never an exception.
 
     Raises:
         ValueError: if ``x`` is not one-dimensional or ``df_bounds`` is not a valid interval.
@@ -135,7 +138,8 @@ def fit_student_t(x: ArrayLike, df_bounds: tuple[float, float] = (2.0, 50.0)) ->
     loc, log_scale, df = (float(v) for v in result.x)
     df = _snap_to_bound(np.array([loc, log_scale, df]), a, lo, hi)
     scale = math.exp(log_scale) if -700.0 < log_scale < 700.0 else 0.0
-    if not (scale > 0.0 and math.isfinite(loc) and lo <= df <= hi):
+    collapsed = scale < _COLLAPSE_FRAC * max(1.0, float(np.ptp(a)))
+    if collapsed or not (scale > 0.0 and math.isfinite(loc) and lo <= df <= hi):
         return _unestimated(n)
     return StudentT(loc=loc, scale=scale, df=df, n=n, converged=bool(result.success))
 

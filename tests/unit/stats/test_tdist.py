@@ -85,11 +85,20 @@ def test_fewer_than_five_finite_values_is_unestimated(n: int) -> None:
 
 
 def test_zero_mad_does_not_raise() -> None:
-    """All values equal: the likelihood is unbounded, so the fit need not converge -- but it
-    returns a ``StudentT`` instead of raising."""
+    """All values equal: the likelihood is unbounded, so the fit is unestimated (not a collapsed
+    scale reported as converged, which would give p = 0 for every other value)."""
     fit = fit_student_t(np.full(50, 2.5))
     assert fit.n == 50
-    assert not fit.converged or fit.scale > 0.0
+    assert not fit.converged
+    assert math.isnan(fit.scale)
+
+
+def test_mostly_tied_values_are_not_a_converged_fit() -> None:
+    """40 tied values plus 10 draws: the scale collapses onto the tie, so no estimate."""
+    x = np.r_[np.full(40, 2.5), np.random.default_rng(1).normal(size=10)]
+    fit = fit_student_t(x)
+    assert not fit.converged
+    assert math.isnan(fit.scale)
 
 
 def test_df_at_the_upper_bound_is_converged() -> None:

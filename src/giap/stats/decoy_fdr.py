@@ -53,7 +53,7 @@ Decoys = Mapping[str, tuple[ArrayLike, ArrayLike]]
 
 #: fewer values than this in either sample and the local fdr is undefined (spec, degenerate cases)
 MIN_KDE_N = 5
-#: grid steps per bandwidth for the binned KDE evaluation (relative error ~1e-4)
+#: grid steps per bandwidth for the binned KDE (max relative error ~3e-3 vs the exact kernel sum)
 _KDE_STEPS_PER_BW = 40
 #: the Gaussian kernel is truncated at this many bandwidths (exp(-50) = 2e-22)
 _KDE_TRUNCATION = 10.0
@@ -299,8 +299,9 @@ def _reflected_density(sample: F64, weights: F64, x: F64) -> F64:
     reason this helper is exposed: the reflection cancels in the lfdr ratio (lead decision 8).
 
     The sum is evaluated by linear binning on a uniform grid of ``h / 40`` and one convolution with
-    the kernel truncated at 10 bandwidths, then linearly interpolated at ``|x|`` - exact to about
-    1e-4 relative and O(n + G K) instead of O(n m), which the 50,000-target budget needs.
+    the kernel truncated at 10 bandwidths, then linearly interpolated at ``|x|`` - within ~3e-3
+    relative of the exact sum (measured at n = 50 and 2,000) and O(n + G K) instead of O(n m),
+    which the 50,000-target budget needs.
 
     Args:
         sample: the values the density is built on (``|Delta|``, non-negative).
