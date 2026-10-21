@@ -44,8 +44,8 @@ CFG = {"A1": PILOT / "diann_A1.cfg", "A2": PILOT / "diann_A2.cfg"}
 DB_A2 = PILOT / "db_a2"
 STRAIN_DB = DB_A2 / "strain_db.faa.gz"
 MANIFEST = DB_A2 / "makedb_manifest.json"
-ID_MAP = DB_A2 / "db_id_map.tsv"  # ``giap makedb`` writes this name; see ID_MAP_NAMES
-ID_MAP_NAMES = ("db_id_map.tsv", "id_map.tsv")
+ID_MAP = DB_A2 / "db_id_map.tsv"  # decision 10: the name ``giap makedb`` writes
+ID_MAP_COLUMNS = ("db_id", "kind", "locus_tag", "class", "contig", "start", "end", "strand")
 
 SLURM = REPO / "scripts" / "slurm"
 SCRIPTS = {
@@ -58,11 +58,19 @@ SCRIPTS = {
 DIANN_SIF = "/farmshare/home/classes/bios/270/jordan/diann_2.3.1.sif"
 DIANN_BIN = "/diann-2.3.1/diann-linux"
 DIANN_VERSION = "DIA-NN 2.3.1 Academia"
+# Decision 9: pinned on 2026-10-20 from the image of decision 1; ``test_readme_sha256_is_pinned``
+# re-reads the image when it is there, so a replaced image fails loudly instead of silently.
+DIANN_SIF_SHA256 = "1946452d56d2fb0f66e05ced473df88e53484e28040f1ecbd83c4a43405a6381"
 BINDS = ("/home/classes", "/scratch", "/farmshare")
 SPEC_VERSION = "2.7.0"  # what GIAP_SPEC.md §15 names; decision 2 records the difference
 
 NISSLE_DIR = REPO / "tests" / "data" / "recorded" / "bakta" / "1.12.2-full" / "nissle"
 RECORDED_NISSLE = NISSLE_DIR / "nissle1917.json.gz"
+# Decision 8: uncommitted (R11). `giap makedb` needs it: the recorded JSON has no nucleotides.
+NISSLE_GENOME = Path(
+    "/home/classes/bios/270/khoa/giap/local/data/genomes/nissle1917/"
+    "GCA_043228065.1_ASM4322806v1_genomic.fna.gz"
+)
 
 # Flags of the §15.2 template that the sbatch script supplies, not the cfg file.
 SBATCH_SUPPLIED = frozenset({"--f", "--lib", "--fasta", "--out", "--out-lib", "--threads"})

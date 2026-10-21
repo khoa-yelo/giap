@@ -32,11 +32,12 @@ import pytest
 from helpers.pilot_kit import (
     BINDS,
     CFG,
-    DB_A2,
     DIANN_BIN,
     DIANN_SIF,
+    DIANN_SIF_SHA256,
     DIANN_VERSION,
-    ID_MAP_NAMES,
+    ID_MAP,
+    ID_MAP_COLUMNS,
     MANIFEST,
     PILOT,
     README,
@@ -95,8 +96,10 @@ def test_deliverable_exists(path: Path) -> None:
 
 
 def test_db_a2_has_an_id_map() -> None:
-    present = [n for n in ID_MAP_NAMES if (DB_A2 / n).is_file()]
-    assert present, f"{DB_A2.relative_to(REPO)}: no id map ({' or '.join(ID_MAP_NAMES)})"
+    """Decision 10: the name ``giap makedb`` writes, ``db_id_map.tsv`` (the spec's is a typo)."""
+    assert ID_MAP.is_file(), f"{ID_MAP.relative_to(REPO)} does not exist"
+    header = ID_MAP.read_text().splitlines()[0].split("\t")
+    assert header == list(ID_MAP_COLUMNS), header
 
 
 # ---------------------------------------------------------------- the two cfg files
@@ -242,8 +245,16 @@ def test_readme_warns_that_the_image_is_never_copied() -> None:
     assert "DIANN_SIF" in text, "README does not document the DIANN_SIF override (decision 3)"
 
 
+def test_readme_records_the_pinned_sha256() -> None:
+    """Decision 9: the README is the record, and the checksum is pinned, not re-derived."""
+    assert DIANN_SIF_SHA256 in _text(README), (
+        f"README does not record sha256 {DIANN_SIF_SHA256} of {DIANN_SIF}"
+    )
+
+
 @pytest.mark.slow
-def test_readme_sha256_matches_the_real_image() -> None:
+def test_the_pinned_sha256_is_still_the_image_on_disk() -> None:
+    """The pin of decision 9 against the real file: a replaced image fails loudly."""
     image = Path(DIANN_SIF)
     if not image.is_file():
         pytest.skip(f"{DIANN_SIF} is not readable here")
@@ -251,8 +262,9 @@ def test_readme_sha256_matches_the_real_image() -> None:
     with image.open("rb") as fh:
         for chunk in iter(lambda: fh.read(1 << 22), b""):
             digest.update(chunk)
-    assert digest.hexdigest() in _text(README), (
-        f"README does not record sha256 {digest.hexdigest()} of {DIANN_SIF}"
+    assert digest.hexdigest() == DIANN_SIF_SHA256, (
+        f"{DIANN_SIF} now hashes to {digest.hexdigest()}, not the pinned {DIANN_SIF_SHA256}; "
+        "re-pin it in tests/helpers/pilot_kit.py and in validation/pilot/README.md"
     )
 
 

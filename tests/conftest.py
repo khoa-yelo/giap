@@ -45,6 +45,17 @@ def _host_reachable(host: str) -> bool:
         return False
 
 
+# M3-24 decision 1: the DIA-NN 2.3.1 Academia image Khoa supplied (never copied into the repo).
+DIANN_SIF_DEFAULT = "/farmshare/home/classes/bios/270/jordan/diann_2.3.1.sif"
+
+
+def _have_diann() -> bool:
+    """DIA-NN: the Apptainer image of ``$DIANN_SIF`` (M3-24 decision 12, default above) or an
+    unpacked 2.7.0 build under ``$GIAP_TOOLS_DIR`` (GIAP_SPEC.md §15.2 step 3)."""
+    sif = Path(os.environ.get("DIANN_SIF") or DIANN_SIF_DEFAULT)
+    return sif.is_file() or any(TOOLS.glob("diann-2.7.0*/**/diann*"))
+
+
 CHECKS: dict[str, Callable[[], bool]] = {
     "needs_apptainer": lambda: _ok(["apptainer", "--version"]),
     "needs_docker": lambda: _ok(["docker", "info"]),
@@ -60,7 +71,7 @@ CHECKS: dict[str, Callable[[], bool]] = {
     "needs_bakta_full": lambda: (DB / "bakta" / "db").is_dir(),
     "needs_genomad_db": lambda: (DB / "genomad_db").is_dir(),
     "needs_promotech_models": lambda: any(DB.glob("promotech/**/RF-HOT.model")),
-    "needs_diann": lambda: any(TOOLS.glob("diann-2.7.0*/**/diann*")),
+    "needs_diann": _have_diann,
 }
 
 _cache: dict[str, bool] = {}
