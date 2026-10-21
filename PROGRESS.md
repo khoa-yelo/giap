@@ -64,6 +64,13 @@ the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise deci
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
 
+M6-04 (pair table, branch `m6/pair-table`, implementer step done): `giap.operons.pairs` — the adjacent
+chain (M2 `adjacent_pairs(same_strand=False)`; a 2-gene ring has one pair), SW decoys, OP/NO/CV/DV
+classes, strand-aware orientation, `rna_between`, per-gene joins and threshold-independent `PAIR_<n>`
+ids. Evidence reuses the M2-13/14/15 helpers via per-run indexes (`promoter_between_tracks`,
+`tx_rate_between_arrays`, start-sorted terminator prefilter). Fast suite 8952 passed (Slurm 1864209);
+baseline `pair_frame_4500_genes` = 0.41 s of a 3 s budget (wheat-08, 1 CPU, Slurm 1864210). Lead decisions after the test-author appended to the spec.
+
 M5-08 (#132, implementer step done): `giap.context.oriter` — oriC resolution (circular mean inside
 0.05·L, `multiple_oric` event on both branches), replichore geometry, the two genes.tsv columns and the
 three descriptive OLS slopes with a circular block-bootstrap CI; block length clamped per fit with that
