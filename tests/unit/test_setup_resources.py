@@ -1126,7 +1126,11 @@ def test_notice_names_kegg_academic_use_and_the_contaminant_library() -> None:
 
 
 def test_contaminant_library_is_not_vendored() -> None:
-    skip = {".git", "local", ".venv", "node_modules", ".hypothesis", ".mypy_cache", ".ruff_cache"}
+    # .nf-test is Nextflow's gitignored work tree: a local `nf-test test workflow/tests` run
+    # symlinks the real $GIAP_DB_DIR library into it (mapping_nf_main_review.nf.test), which is
+    # staging, not vendoring. Nothing under a gitignored directory can be vendored.
+    skip = {".git", "local", ".venv", "node_modules", ".hypothesis", ".mypy_cache", ".ruff_cache",
+            ".nf-test"}  # fmt: skip
     hits = []
     for root, dirs, names in os.walk(REPO):
         dirs[:] = [d for d in dirs if d not in skip]
