@@ -127,3 +127,16 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   d160e2de4e56cb10b66c1cb0adcb79cf93c78dcd9db30c2018220262c04063f9, valid to 2029-06-23, verified against
   the already-trusted GlobalSign Root R46). Re-check when the intermediate expires, or drop the workaround
   if RegulonDB ever publishes a complete chain.
+- M6-11 pass 2 (non-blocking items from the code review of #141; lead decision 7):
+  - fetch_regulondb: when the endpoint reports no release, fall back to the date + hash (ADR-0017)
+    instead of the directory name `unknown`;
+  - record `(date, sha256)` per retrieval, not only the dates, so a changed download is visible;
+  - the unreachable-host error names the PROGRESS.md › Blocked entry, as the spec's degenerate row says;
+  - clean up `.part` files on failure and fsync before the rename in `write_atomically`;
+  - bound the intermediate download (read at most a few kB);
+  - type-check the GraphQL payload fields (content is `str`, metadata `str | None`);
+  - catch `UnicodeDecodeError` in the retry loop;
+  - record the genome-version equivalence NC_000913.3 = U00096.3 (RegulonDB vs the recorded Bakta contig);
+  - the tests live in `tests/unit/test_m6_11_regulondb_*.py`, not the spec's `validation/tests/`
+    (pytest's testpaths is `tests`): amend the spec or move them;
+  - the "no RegulonDB bytes committed" check matches file names only; add a content or size check.

@@ -101,15 +101,18 @@ EcoCyc 29.5, genome NC_000913.3) into `$GIAP_DATA_DIR/regulondb/14.5.0/` — `TU
 (3c2c6be3…), plus `provenance.json`. Nothing committed (R6/R11); no Slurm job (the whole download takes
 about two seconds, as the spec predicted).
 
-**Spec example 5, the evidence M6-12 consumes** (`validation/regulondb_truth.py` on the recorded
-`tests/data/recorded/bakta/1.12.2-full/k12/` JSON, contig U00096.3, ±30 bp): **3,066 same-strand
-adjacent pairs — 1,703 positive, 966 negative, 2,669 labelled** (≥ 2,000 as required), 397 ambiguous
-and excluded (12.9 %); **375 terminators**; gene mapping **4,219 of 4,744 RegulonDB genes = 0.889**
-(4,089 by coordinates, 130 by name), above the 0.8 escalation floor. The 525 unmapped names are
-RegulonDB RNA/phantom entries Bakta does not annotate as CDS. Unit tests 53 passed, nothing touches the
-network. **Note for the lead:** the spec says "RegulonDB v12" everywhere, but v12.0.0 is from 2023-10-23
-and the live release is 14.5.0; the fetcher records whatever release the endpoint reports (ADR-0017), so
-M6-12 and its ADR-0022 must cite 14.5.0, not v12.
+**Spec example 5, the evidence M6-12 consumes** (after the #141 review fixes, lead decisions 1–8;
+`validation/regulondb_truth.py` on the recorded `tests/data/recorded/bakta/1.12.2-full/k12/` JSON,
+contig U00096.3, ±30 bp, every file verified against `provenance.json` first): **3,067 same-strand
+adjacent pairs** (the pipeline's `adjacent_pairs`, **wrap pair included**: yjtD → KOIAIB_00001, labelled
+ambiguous because KOIAIB_00001 is a Bakta-only sORF at 3–98) — **1,730 positive, 1,009 negative, 2,739
+labelled** (≥ 2,000 as required), 328 ambiguous and excluded (10.7 %); **375 terminators**. Gene mapping
+**4,392 of 4,745 RegulonDB genes = 0.926 overall** (4,217 onto Bakta CDS + 175 RNA genes onto Bakta
+ncRNA/tRNA/rRNA features); **CDS share 0.923** (4,217 / 4,570); both above the 0.8 escalation floor;
+353 unmapped. dnaK–dnaJ, ftsA–ftsZ and pdhR–aceE are now positive (decision 3). Two RegulonDB names
+occur twice and are kept per gene id (decision 5). The summary carries release 14.5.0 and the three
+SHA-256s. Unit tests 91 passed, nothing touches the network. Release of record: 14.5.0, not v12
+(decision 8; PROGRESS › Questions for Khoa).
 
 ADRs accepted today by Khoa: ADR-0019 (stratum-0 π̂ per length class, Clopper–Pearson upper bound, no PEP),
 ADR-0020 (autocorrelation: re-detrend per permutation, residual join count, CI NA) **+ Amendment 1**

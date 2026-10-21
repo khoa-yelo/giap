@@ -11,9 +11,11 @@ TLS. Since 2026-10-14 ``regulondb.ccg.unam.mx`` serves a certificate issued by "
 OV TLS CA 2025" but **omits that intermediate** from the handshake, so a normal client fails with
 ``unable to get local issuer certificate``. This script completes the chain itself: it downloads
 the intermediate from GlobalSign's own CA endpoint, refuses to continue unless its SHA-256 equals
-``INTERMEDIATE_SHA256``, checks with ``openssl verify`` that it is signed by "GlobalSign Root R46"
-(already in the system trust store), and only then adds it to the CA bundle used for RegulonDB.
-Verification is never disabled, and the extra anchor is scoped to this script's requests. When the
+``INTERMEDIATE_SHA256``, checks with ``openssl verify`` against Python's own default trust store
+(``ssl.get_default_verify_paths()``, the store the handshake uses) that it chains to "GlobalSign
+Root R46", and only then adds it to the CA bundle used for RegulonDB, with
+``VERIFY_X509_PARTIAL_CHAIN`` cleared so the handshake must still reach that root. Verification is
+never disabled, and the extra certificate is scoped to this script's requests. When the
 intermediate expires (2029-06-23) or RegulonDB publishes a complete chain, the failure names the
 pin so the cause is obvious; see docs/backlog.md.
 """
@@ -52,6 +54,7 @@ DATASETS = ("TUSet", "TerminatorSet", "GeneProductSet")
 
 ATTEMPTS = 3
 TIMEOUT_S = 300
+OPENSSL_TIMEOUT_S = 60
 USER_AGENT = "giap-validation (FarmShare)"
 
 _FILE_QUERY = """query GetDataOfFile($fileName: String) {
@@ -121,17 +124,42 @@ def _openssl() -> str:
 
 
 def _run_openssl(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # fixed argv, on a file we just wrote
-        [_openssl(), *args], capture_output=True, text=True, check=False, timeout=60
-    )
+    """Run ``openssl``; a hang becomes a :class:`FetchError`, never a traceback."""
+    argv = [_openssl(), *args]
+    try:
+        return subprocess.run(  # fixed argv, on a file we just wrote
+            argv, capture_output=True, text=True, check=False, timeout=OPENSSL_TIMEOUT_S
+        )
+    except subprocess.TimeoutExpired:
+        raise FetchError(
+            f"fetch_regulondb: `openssl {args[0]}` timed out after {OPENSSL_TIMEOUT_S} s while "
+            f"checking the pinned intermediate {INTERMEDIATE_SHA256}; refusing to continue"
+        ) from None
+
+
+def _store_args() -> list[str]:
+    """``-CAfile`` / ``-CApath`` for Python's default trust store, so both checks agree."""
+    paths = ssl.get_default_verify_paths()
+    args: list[str] = []
+    if paths.cafile:
+        args += ["-CAfile", paths.cafile]
+    if paths.capath:
+        args += ["-CApath", paths.capath]
+    if not args:
+        raise FetchError(
+            "fetch_regulondb: Python has no default trust store (ssl.get_default_verify_paths()), "
+            f"so the pinned intermediate cannot be checked against {ROOT_CN!r}; refusing"
+        )
+    return args
 
 
 def verify_intermediate(der: bytes) -> str:
     """Pin ``der`` by SHA-256, check it chains to :data:`ROOT_CN`, and return it as PEM.
 
-    The chain check is ``openssl verify`` against the **system** trust store, so it works whether
-    the host keeps its roots in a bundle file or a hashed directory; the issuer is then read back
-    and must be :data:`ROOT_CN`, so the anchor is the root we expect and not some other CA.
+    The chain check is ``openssl verify`` against Python's default trust store, named explicitly
+    with ``-CAfile`` / ``-CApath`` from ``ssl.get_default_verify_paths()`` (a bundle file, a hashed
+    directory or both), so it trusts exactly what the TLS handshake will trust; the issuer is then
+    read back and must be :data:`ROOT_CN`, so the anchor is the root we expect.
 
     Raises :class:`FetchError` naming :data:`INTERMEDIATE_SHA256` when the pin does not match or
     the chain does not verify, so an expiry or a re-issue is obvious rather than mysterious.
@@ -147,12 +175,12 @@ def verify_intermediate(der: bytes) -> str:
     with tempfile.TemporaryDirectory() as tmp:
         inter = Path(tmp) / "intermediate.pem"
         inter.write_text(pem, encoding="ascii")
-        verified = _run_openssl("verify", str(inter))
+        verified = _run_openssl("verify", *_store_args(), str(inter))
         issuer = _run_openssl("x509", "-in", str(inter), "-noout", "-issuer")
     if verified.returncode != 0:
         raise FetchError(
             f"fetch_regulondb: the pinned intermediate {INTERMEDIATE_SHA256} does not chain to a "
-            f"trusted root ({ROOT_CN!r} should be in the system trust store): "
+            f"trusted root ({ROOT_CN!r} should be in Python's default trust store): "
             f"{verified.stdout.strip()} {verified.stderr.strip()}"
         )
     if ROOT_CN not in issuer.stdout:
@@ -171,7 +199,7 @@ def _get(url: str, timeout: int = TIMEOUT_S) -> bytes:
 
 
 def regulondb_context(fetch: Callable[[str], bytes] = _get) -> ssl.SSLContext:
-    """Build the TLS context for RegulonDB: the system roots plus the pinned intermediate.
+    """Build the TLS context for RegulonDB: Python's default roots plus the pinned intermediate.
 
     ``fetch`` is the one network call (injected so tests stay offline). Verification stays on:
     the intermediate is only added after the SHA-256 pin and the ``openssl verify`` check pass.
@@ -183,6 +211,9 @@ def regulondb_context(fetch: Callable[[str], bytes] = _get) -> ssl.SSLContext:
         )
     pem = verify_intermediate(der)
     ctx = ssl.create_default_context()
+    # Python >= 3.13 sets VERIFY_X509_PARTIAL_CHAIN by default, which would let the added
+    # intermediate act as a trust anchor on its own; clear it so the chain must reach the root.
+    ctx.verify_flags &= ~ssl.VERIFY_X509_PARTIAL_CHAIN
     ctx.load_verify_locations(cadata=pem)
     return ctx
 

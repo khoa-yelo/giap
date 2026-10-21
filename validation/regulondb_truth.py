@@ -26,18 +26,19 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from bisect import bisect_left, bisect_right
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
-from itertools import pairwise
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from giap.annotate.bakta import parse_bakta_json
+from giap.annotate.operons import adjacent_pairs
 from giap.io.fasta import read_genome_fasta
-from giap.model.coords import Interval, Strand
+from giap.model.coords import Interval, Replicon, Strand
 from giap.model.genes import Gene, GeneModel
 
 #: RegulonDB gene coordinates agree with Bakta exactly on K-12; a few bp of slack absorbs
@@ -47,6 +48,12 @@ DEFAULT_TOLERANCE_BP = 30
 #: Below this mapped share the result is escalated, not worked around (spec example 5).
 MIN_MAPPED_SHARE = 0.8
 
+#: Bakta non-coding features a RegulonDB RNA gene may map onto (lead decision 4).
+RNA_FEATURE_TYPES = frozenset({"ncrna", "trna", "rrna"})
+
+#: The three downloads ``build`` reads, each verified against ``provenance.json`` first.
+DATASETS = ("TUSet", "TerminatorSet", "GeneProductSet")
+
 PAIR_COLUMNS = ("gene_a", "gene_b", "label", "tu_ids")
 TERMINATOR_COLUMNS = ("contig", "start", "end", "strand", "source_id")
 
@@ -55,6 +62,10 @@ _STRANDS: Mapping[str, Strand] = {"forward": "+", "reverse": "-", "+": "+", "-":
 
 class RegulonDBFormatError(ValueError):
     """A RegulonDB download does not have the expected columns."""
+
+
+class ProvenanceError(ValueError):
+    """A download does not match its ``provenance.json`` record, or the record is missing."""
 
 
 # ------------------------------------------------------------------ parsing
@@ -222,11 +233,18 @@ def parse_terminator_set(text: str, contig: str) -> tuple[RegulonDBTerminator, .
 
 @dataclass(frozen=True, slots=True)
 class GeneMapping:
-    """RegulonDB gene names resolved onto Bakta locus tags, with the share that resolved."""
+    """RegulonDB genes resolved onto Bakta locus tags (or RNA feature ids), with the shares.
+
+    Keys are RegulonDB gene names, except that a name RegulonDB uses more than once is keyed by
+    each copy's RegulonDB gene id, so every copy is kept (lead decision 5); ``names`` maps such a
+    key back to its gene name (a key absent from ``names`` is the name itself).
+    """
 
     locus_by_name: Mapping[str, str]
-    how: Mapping[str, str]  # gene name -> "coordinates" | "name"
-    unmapped: tuple[str, ...]  # RegulonDB gene names with no Bakta counterpart
+    how: Mapping[str, str]  # key -> "coordinates" | "name"
+    unmapped: tuple[str, ...]  # keys of RegulonDB genes with no Bakta counterpart
+    rna: frozenset[str] = frozenset()  # keys mapped onto a Bakta ncRNA / tRNA / rRNA feature
+    names: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def n_mapped(self) -> int:
@@ -234,8 +252,22 @@ class GeneMapping:
 
     @property
     def mapped_share(self) -> float:
+        """Share of all RegulonDB genes (coding and RNA) that found a Bakta counterpart."""
         total = self.n_mapped + len(self.unmapped)
         return self.n_mapped / total if total else 0.0
+
+    @property
+    def n_mapped_cds(self) -> int:
+        return self.n_mapped - len(self.rna)
+
+    @property
+    def cds_mapped_share(self) -> float:
+        """Share mapped onto a Bakta CDS among the RegulonDB genes not matched to an RNA feature."""
+        total = self.n_mapped_cds + len(self.unmapped)
+        return self.n_mapped_cds / total if total else 0.0
+
+    def name_of(self, key: str) -> str:
+        return self.names.get(key, key)
 
 
 def chromosome_contig(model: GeneModel) -> str:
@@ -250,82 +282,107 @@ def chromosome_contig(model: GeneModel) -> str:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _Target:
+    """A Bakta gene or RNA feature a RegulonDB gene may map onto."""
+
+    ident: str
+    interval: Interval
+    name: str | None
+    rna: bool
+
+
+def _targets(model: GeneModel, contig: str) -> list[_Target]:
+    genes = [
+        _Target(g.locus_tag, g.interval, g.gene, False)
+        for g in model.genes
+        if g.interval.contig == contig
+    ]
+    rnas = [
+        _Target(f.id, f.interval, f.gene, True)
+        for f in model.features
+        if f.interval.contig == contig and f.type in RNA_FEATURE_TYPES
+    ]
+    return sorted(genes + rnas, key=lambda t: (t.interval.start, t.interval.end, t.ident))
+
+
+def _keys(rdb_genes: Sequence[RegulonDBGene]) -> list[str]:
+    """Each gene's key: its name, or its RegulonDB gene id when the name is not unique."""
+    counts = Counter(g.name for g in rdb_genes)
+    return [g.name if g.name and counts[g.name] == 1 else g.gene_id for g in rdb_genes]
+
+
+def _overlaps(a: Interval, b: Interval) -> bool:
+    return a.start < b.end and b.start < a.end
+
+
 def map_genes(
     rdb_genes: Sequence[RegulonDBGene],
     model: GeneModel,
     contig: str,
     tolerance_bp: int = DEFAULT_TOLERANCE_BP,
 ) -> GeneMapping:
-    """Map RegulonDB gene names onto Bakta locus tags, by coordinates first and then by name.
+    """Map RegulonDB genes onto Bakta CDS and RNA features, by coordinates first, then by name.
 
-    A coordinate match needs the same strand and both ends within ``tolerance_bp``; among the
-    candidates the smallest total offset wins, globally and deterministically, and each Bakta gene
-    is claimed at most once. Names are matched only when the name is unique on both sides.
+    A coordinate match needs the same strand and both ends within ``tolerance_bp`` (inclusive);
+    the smallest total offset wins, globally and deterministically, and each Bakta gene or feature
+    is claimed at most once. RNA genes match Bakta ncRNA / tRNA / rRNA features the same way
+    (lead decision 4). The name fallback needs a unique name on both sides, the same strand and at
+    least 1 bp of overlap (lead decision 5).
     """
-    bakta = [g for g in model.genes if g.interval.contig == contig]
+    targets = _targets(model, contig)
+    starts = [t.interval.start for t in targets]
+    keys = _keys(rdb_genes)
     candidates: list[tuple[int, str, str]] = []
-    by_start = sorted(bakta, key=lambda g: g.interval.start)
-    starts = [g.interval.start for g in by_start]
-    for rg in rdb_genes:
+    for key, rg in zip(keys, rdb_genes, strict=True):
         lo, hi = rg.interval.start - tolerance_bp, rg.interval.start + tolerance_bp
-        for g in _window(by_start, starts, lo, hi):
-            if g.interval.strand != rg.interval.strand:
+        for t in targets[bisect_left(starts, lo) : bisect_right(starts, hi)]:
+            if t.interval.strand != rg.interval.strand:
                 continue
-            if abs(g.interval.end - rg.interval.end) > tolerance_bp:
+            d_end = abs(t.interval.end - rg.interval.end)
+            if d_end > tolerance_bp:
                 continue
-            offset = abs(g.interval.start - rg.interval.start) + abs(
-                g.interval.end - rg.interval.end
-            )
-            candidates.append((offset, rg.name, g.locus_tag))
+            candidates.append((abs(t.interval.start - rg.interval.start) + d_end, key, t.ident))
 
     locus_by_name: dict[str, str] = {}
     how: dict[str, str] = {}
     claimed: set[str] = set()
-    for _offset, name, locus in sorted(candidates):
-        if name in locus_by_name or locus in claimed:
+    for _offset, key, ident in sorted(candidates):
+        if key in locus_by_name or ident in claimed:
             continue
-        locus_by_name[name] = locus
-        how[name] = "coordinates"
-        claimed.add(locus)
+        locus_by_name[key] = ident
+        how[key] = "coordinates"
+        claimed.add(ident)
 
-    seen = Counter(g.name for g in rdb_genes if g.name)
-    unresolved = sorted(n for n in seen if n not in locus_by_name)
-    for name, locus in _unique_name_matches(unresolved, seen, bakta, claimed).items():
-        locus_by_name[name] = locus
-        how[name] = "name"
-        claimed.add(locus)
-
-    unmapped = tuple(n for n in unresolved if n not in locus_by_name)
-    return GeneMapping(locus_by_name=locus_by_name, how=how, unmapped=unmapped)
-
-
-def _window(genes: Sequence[Gene], starts: Sequence[int], lo: int, hi: int) -> Sequence[Gene]:
-    """Genes whose start lies in ``[lo, hi]`` (``starts`` is ``genes``' sorted start list)."""
-    return genes[bisect_left(starts, lo) : bisect_right(starts, hi)]
-
-
-def _unique_name_matches(
-    names: Sequence[str],
-    occurrences: Mapping[str, int],
-    bakta: Sequence[Gene],
-    claimed: Iterable[str],
-) -> dict[str, str]:
-    """Name matches that are unambiguous on both sides and do not steal a claimed locus tag."""
-    taken = set(claimed)
-    by_name: dict[str, list[str]] = {}
-    for g in bakta:
-        if g.gene and g.locus_tag not in taken:
-            by_name.setdefault(g.gene.casefold(), []).append(g.locus_tag)
-    out: dict[str, str] = {}
-    used: set[str] = set()
-    for name in names:
-        if occurrences.get(name, 0) != 1:
+    by_name: dict[str, list[_Target]] = {}
+    for t in targets:
+        if t.name:
+            by_name.setdefault(t.name.casefold(), []).append(t)
+    for key, rg in sorted(zip(keys, rdb_genes, strict=True), key=lambda kg: kg[0]):
+        if key in locus_by_name or key != rg.name:
+            continue  # resolved already, or a duplicated name (no unambiguous name match)
+        same_name = by_name.get(rg.name.casefold(), [])
+        if len(same_name) != 1:
             continue
-        hits = by_name.get(name.casefold(), ())
-        if len(hits) == 1 and hits[0] not in used:
-            out[name] = hits[0]
-            used.add(hits[0])
-    return out
+        (t,) = same_name
+        if (
+            t.ident in claimed
+            or t.interval.strand != rg.interval.strand
+            or not _overlaps(t.interval, rg.interval)
+        ):
+            continue
+        locus_by_name[key] = t.ident
+        how[key] = "name"
+        claimed.add(t.ident)
+
+    rna_ids = {t.ident for t in targets if t.rna}
+    return GeneMapping(
+        locus_by_name=locus_by_name,
+        how=how,
+        unmapped=tuple(sorted(k for k in set(keys) if k not in locus_by_name)),
+        rna=frozenset(k for k, ident in locus_by_name.items() if ident in rna_ids),
+        names={k: g.name for k, g in zip(keys, rdb_genes, strict=True) if k != g.name},
+    )
 
 
 # ----------------------------------------------------------------- the truth
@@ -353,33 +410,66 @@ class TerminatorRow:
 
 
 def adjacent_same_strand_pairs(model: GeneModel, contig: str) -> tuple[tuple[Gene, Gene], ...]:
-    """Consecutive genes on ``contig`` (coordinate order) whose strands agree."""
-    genes = sorted(
-        (g for g in model.genes if g.interval.contig == contig),
-        key=lambda g: (g.interval.start, g.interval.end, g.locus_tag),
+    """The pipeline's adjacent pairs (M2-12, ``pairs_raw`` and UniOP) restricted to ``contig``.
+
+    ``giap.annotate.operons.adjacent_pairs`` keeps same-strand pairs only and adds the wrap pair
+    of a circular replicon (lead decision 2).
+    """
+    return tuple(
+        (a, b)
+        for a, b in adjacent_pairs(model.genes, model.replicons)
+        if a.interval.contig == contig and a.interval.strand == b.interval.strand
     )
-    return tuple((a, b) for a, b in pairwise(genes) if a.interval.strand == b.interval.strand)
 
 
 def tus_by_locus(
     tus: Sequence[TranscriptionUnit], mapping: GeneMapping
 ) -> dict[str, frozenset[str]]:
-    """Locus tag -> the ids of the transcription units that contain it."""
+    """Locus tag -> the ids of the transcription units that contain it.
+
+    A TU names its genes; a name RegulonDB uses more than once resolves to every mapped copy.
+    """
+    loci_by_name: dict[str, list[str]] = {}
+    for key, locus in mapping.locus_by_name.items():
+        loci_by_name.setdefault(mapping.name_of(key), []).append(locus)
     out: dict[str, set[str]] = {}
     for tu in tus:
         for name in tu.genes:
-            locus = mapping.locus_by_name.get(name)
-            if locus is not None:
+            for locus in loci_by_name.get(name, ()):
                 out.setdefault(locus, set()).add(tu.tu_id)
     return {locus: frozenset(ids) for locus, ids in out.items()}
 
 
-def _unmapped_between(a: Gene, b: Gene, unmapped_intervals: Sequence[tuple[int, int]]) -> bool:
-    """True when a RegulonDB gene without a Bakta counterpart lies between ``a`` and ``b``."""
+def _gap(a: Gene, b: Gene, replicon: Replicon) -> tuple[int, int] | None:
+    """The intergenic gap from ``a`` to ``b`` on the unrolled line, or None when they touch.
+
+    For the wrap pair of a circular replicon (``b`` starts before ``a``) the gap runs past the
+    origin, so ``b``'s start is shifted by the replicon length.
+    """
     lo, hi = a.interval.end, b.interval.start
-    if hi <= lo:
+    if replicon.topology == "circular" and b.interval.start < a.interval.start:
+        hi += replicon.length
+    return (lo, hi) if hi > lo else None
+
+
+def _unmapped_between(
+    a: Gene,
+    b: Gene,
+    unmapped_intervals: Sequence[tuple[int, int]],
+    replicon: Replicon,
+) -> bool:
+    """True when a RegulonDB gene without a Bakta counterpart lies in the gap from ``a`` to ``b``.
+
+    Strand-independent (lead decision 3) and circular-aware (lead decision 2): each interval is
+    also tried one replicon length further on, which catches the part of a wrap gap past the
+    origin.
+    """
+    gap = _gap(a, b, replicon)
+    if gap is None:
         return False
-    return any(start < hi and end > lo for start, end in unmapped_intervals)
+    lo, hi = gap
+    shifts = (0, replicon.length) if replicon.topology == "circular" else (0,)
+    return any(start + k < hi and end + k > lo for start, end in unmapped_intervals for k in shifts)
 
 
 def label_pair(
@@ -389,26 +479,24 @@ def label_pair(
     mapped_loci: frozenset[str],
     blocked: bool,
 ) -> PairRow:
-    """Label one adjacent same-strand pair exactly as §15.4 step 2 and its degenerate table say.
+    """Label one adjacent same-strand pair as GIAP_SPEC.md §15.4 step 2 says (lead decision 3).
 
-    In order: a pair is **ambiguous** when either gene has no RegulonDB counterpart or when a
-    RegulonDB-only gene lies between them (``blocked`` — the degenerate table states this without
-    qualification, so it wins over the TU evidence); otherwise **positive** when some TU holds
-    both (two overlapping TUs still count); otherwise **negative** when each gene is in at least
-    one TU and none holds both; otherwise **ambiguous** (a gene in no TU at all).
+    In order: **positive** when some RegulonDB TU holds both genes — even when a RegulonDB-only
+    gene lies between them, and two overlapping TUs still count; otherwise **ambiguous** when
+    either gene has no RegulonDB counterpart or a RegulonDB-only gene lies between them
+    (``blocked``: the different-TU evidence is then unreliable); otherwise **negative** when each
+    gene is in at least one TU; otherwise **ambiguous** (a gene in no TU at all).
     """
     a_tus = tu_ids.get(a.locus_tag, frozenset())
     b_tus = tu_ids.get(b.locus_tag, frozenset())
-    union = tuple(sorted(a_tus | b_tus))
-    unmapped = a.locus_tag not in mapped_loci or b.locus_tag not in mapped_loci
-    if unmapped or blocked:
-        return PairRow(a.locus_tag, b.locus_tag, "ambiguous", union)
     both = a_tus & b_tus
     if both:
         return PairRow(a.locus_tag, b.locus_tag, "positive", tuple(sorted(both)))
-    if a_tus and b_tus:
-        return PairRow(a.locus_tag, b.locus_tag, "negative", union)
-    return PairRow(a.locus_tag, b.locus_tag, "ambiguous", union)
+    union = tuple(sorted(a_tus | b_tus))
+    unmapped = a.locus_tag not in mapped_loci or b.locus_tag not in mapped_loci
+    if unmapped or blocked or not (a_tus and b_tus):
+        return PairRow(a.locus_tag, b.locus_tag, "ambiguous", union)
+    return PairRow(a.locus_tag, b.locus_tag, "negative", union)
 
 
 def pair_truth(
@@ -418,17 +506,33 @@ def pair_truth(
     mapping: GeneMapping,
     contig: str,
 ) -> tuple[PairRow, ...]:
-    """All same-strand adjacent pairs of ``contig`` with their §15.4 labels."""
+    """All same-strand adjacent pairs of ``contig`` (wrap pair included) with their labels."""
     by_locus = tus_by_locus(tus, mapping)
     mapped_loci = frozenset(mapping.locus_by_name.values())
-    unmapped_names = frozenset(mapping.unmapped)
+    unmapped_keys = frozenset(mapping.unmapped)
+    keys = _keys(rdb_genes)
     unmapped_intervals = sorted(
-        (g.interval.start, g.interval.end) for g in rdb_genes if g.name in unmapped_names
+        (g.interval.start, g.interval.end)
+        for key, g in zip(keys, rdb_genes, strict=True)
+        if key in unmapped_keys
     )
+    replicon = model.replicons[contig]
     return tuple(
-        label_pair(a, b, by_locus, mapped_loci, _unmapped_between(a, b, unmapped_intervals))
+        label_pair(
+            a, b, by_locus, mapped_loci, _unmapped_between(a, b, unmapped_intervals, replicon)
+        )
         for a, b in adjacent_same_strand_pairs(model, contig)
     )
+
+
+def wrap_pairs(model: GeneModel, pairs: Sequence[PairRow]) -> list[dict[str, str]]:
+    """The pairs that span the origin (the second gene starts before the first), for the report."""
+    by_locus = {g.locus_tag: g for g in model.genes}
+    return [
+        {"gene_a": p.gene_a, "gene_b": p.gene_b, "label": p.label}
+        for p in pairs
+        if by_locus[p.gene_b].interval.start < by_locus[p.gene_a].interval.start
+    ]
 
 
 def terminator_truth(terminators: Sequence[RegulonDBTerminator]) -> tuple[TerminatorRow, ...]:
@@ -464,8 +568,11 @@ def summarise(
         "pairs_labelled": labelled,
         "excluded_share": counts["ambiguous"] / total if total else 0.0,
         "genes_mapped": mapping.n_mapped,
+        "genes_mapped_cds": mapping.n_mapped_cds,
+        "genes_mapped_rna": len(mapping.rna),
         "genes_unmapped": len(mapping.unmapped),
         "mapped_share": mapping.mapped_share,
+        "cds_mapped_share": mapping.cds_mapped_share,
         "mapped_share_ok": mapping.mapped_share >= MIN_MAPPED_SHARE,
         "terminators": n_terminators,
     }
@@ -488,8 +595,45 @@ def terminator_tsv(rows: Sequence[TerminatorRow]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _read(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+def verified_release(regulondb_dir: Path) -> tuple[dict[str, str], dict[str, object]]:
+    """Read the three downloads after checking each against ``provenance.json`` (ADR-0017).
+
+    Returns the decoded tables by dataset and the provenance record. Raises
+    :class:`ProvenanceError` (a ``ValueError``) naming the dataset when its size or SHA-256 differs
+    from the record or the record lacks it, and naming ``provenance.json`` when the sidecar is
+    missing or unreadable — verify before use (lead decision 1).
+    """
+    sidecar = regulondb_dir / "provenance.json"
+    try:
+        meta = json.loads(sidecar.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise ProvenanceError(
+            f"{sidecar}: no provenance record; re-run validation/fetch_regulondb.py"
+        ) from None
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ProvenanceError(f"{sidecar}: unreadable provenance record: {exc}") from exc
+    files = meta.get("files") if isinstance(meta, dict) else None
+    if not isinstance(files, list):
+        raise ProvenanceError(f"{sidecar}: provenance record has no 'files' list")
+    records = {str(f.get("dataset")): f for f in files if isinstance(f, dict)}
+    tables: dict[str, str] = {}
+    for dataset in DATASETS:
+        rec = records.get(dataset)
+        if rec is None:
+            raise ProvenanceError(f"{dataset}: not recorded in {sidecar}")
+        path = regulondb_dir / str(rec.get("file") or f"{dataset}.txt")
+        data = path.read_bytes()
+        if len(data) != rec.get("bytes"):
+            raise ProvenanceError(
+                f"{dataset}: {path} has {len(data)} bytes, provenance records {rec.get('bytes')}"
+            )
+        digest = hashlib.sha256(data).hexdigest()
+        if digest != rec.get("sha256"):
+            raise ProvenanceError(
+                f"{dataset}: {path} sha256 {digest} != recorded {rec.get('sha256')}"
+            )
+        tables[dataset] = data.decode("utf-8")
+    return tables, meta
 
 
 def build(
@@ -499,22 +643,30 @@ def build(
     contig: str | None = None,
     tolerance_bp: int = DEFAULT_TOLERANCE_BP,
 ) -> tuple[tuple[PairRow, ...], tuple[TerminatorRow, ...], dict[str, object]]:
-    """Read the downloads and the recorded Bakta JSON; return pairs, terminators and the summary.
+    """Verify and read the downloads and the recorded Bakta JSON; return pairs, terminators and
+    the summary (which carries the release and the three verified SHA-256s).
 
     ``genome`` supplies the nucleotides when the recorded JSON omits them (M2 lead decision 4).
     """
+    tables, meta = verified_release(regulondb_dir)
     seqs = {r.id: r.sequence for r in read_genome_fasta(genome)} if genome else None
     model = parse_bakta_json(bakta_json, genome=seqs).model
     name = contig or chromosome_contig(model)
-    rdb_genes = parse_gene_set(_read(regulondb_dir / "GeneProductSet.txt"), name)
-    tus = parse_tu_set(_read(regulondb_dir / "TUSet.txt"))
-    terms = parse_terminator_set(_read(regulondb_dir / "TerminatorSet.txt"), name)
+    rdb_genes = parse_gene_set(tables["GeneProductSet"], name)
+    tus = parse_tu_set(tables["TUSet"])
+    terms = parse_terminator_set(tables["TerminatorSet"], name)
     mapping = map_genes(rdb_genes, model, name, tolerance_bp)
     pairs = pair_truth(model, tus, rdb_genes, mapping, name)
     rows = terminator_truth(terms)
     summary = summarise(pairs, mapping, len(rows))
     summary["contig"] = name
     summary["tolerance_bp"] = tolerance_bp
+    summary["wrap_pairs"] = wrap_pairs(model, pairs)
+    summary["regulondb_version"] = meta.get("regulondb_version")
+    summary["release_date"] = meta.get("release_date")
+    summary["sha256"] = {
+        dataset: hashlib.sha256(tables[dataset].encode("utf-8")).hexdigest() for dataset in DATASETS
+    }
     return pairs, rows, summary
 
 
