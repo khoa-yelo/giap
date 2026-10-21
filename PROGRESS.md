@@ -4,20 +4,20 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01FctC7kZEMou2AYwYy1KhJa_
+_Last updated: 2026-10-20 21:40 PDT · session https://claude.ai/code/session_01FctC7kZEMou2AYwYy1KhJa_
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 76/90 done (84 %), 6 running · generated 2026-10-20 16:47 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 81/90 done (90 %), 3 running · generated 2026-10-20 21:36 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
 | M0 Scaffold | 🟩 | 1 | 0 | 0 |
 | M1 Inputs and preflight | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 12 | 0 | 0 |
 | M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
-| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 96 % | 23 | 0 | 1 |
-| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜ 86 % | 18 | 2 | 1 |
-| M5 Autocorrelation and islands | 🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜ 9 % | 1 | 4 | 6 |
+| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 24 | 0 | 0 |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜ 90 % | 19 | 1 | 1 |
+| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜ 36 % | 4 | 2 | 5 |
 | M6 Operons | _not designed yet_ | - | - | - |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
 | M8 Function and determinants | _not designed yet_ | - | - | - |
@@ -45,6 +45,42 @@ M6–M11: not designed yet.
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
+**PAUSED 2026-10-20 21:40 PDT at Khoa's request; resume 23:10 PDT (token reset).** Nothing new was
+dispatched after the pause. Four subagents were mid-task and were left to finish (they commit and push
+each step, so their work is on their branches); three Slurm jobs were left running: 1861606
+(giap-test-m5-05-full), 1861656 (giap-calfull-probe), 1861670 (giap-test). The nightly scrontab launcher
+(1860420) is pending as usual and needs no attention.
+
+**Khoa's direction, 2026-10-20 21:30 — MVP first.** "Progress is a bit too slow and got caught in too
+much of engineering decision... push the code development faster to achieve end to end integration of
+the tool first. Think of an MVP. Then start optimizing and make them solid later." The concrete gap: 31
+steps are registered but `main.nf` calls only ANNOTATE and MAPPING, so all of M4 and M5 is reachable
+from Python only. Working-mode changes: wiring outranks polishing; one review round per PR with
+non-behavioural nits going to the backlog; only the lead decisions that block an implementer; calibration
+gates, attack nulls and ADR round-trips deferred to a post-MVP hardening pass with a visible list of what
+is unproven. Subagent cap is **2** from the next dispatch (was 6, then 4).
+
+**Resume here (in order):**
+1. MVP-01, the wiring issue — spec and branch ready: `feat/wire-genetable-context` (ef19f72),
+   docs/specs/MVP-01-wire-genetable-context.md. Dispatch an implementer. This is the priority.
+2. Finish the four in-flight items when their agents report: M5-05 implementer (branch
+   m5/autocorrelation), M5-06 test-author (m5/islands), CI-01 implementer (ci/full-tier-array),
+   ADR-0019 test-author (m3/adr0019-pi-hat, three test-side items to unblock #124).
+3. Merge #124 then #125 (both approved; #125 is based on #124's branch).
+4. Then the M5-06 implementer, and only then new issues (M5-07/08/09, M4-20/21).
+
+**Settled by Khoa today:** ADR-0019 accepted; ADR-0020 accepted with Amendment 1 (Pearson residual join
+count); ADR-0021 accepted, then **Amendment 1** — the "≥ 1,000 scored TUs is calibrated" claim was
+measurably false, the domain is now a dependence regime and the `uncalibrated` flag is **dropped**
+(option B); the DIA-NN 2.3.1 pilot flag table signed off ("looks fine"), so 2.3.1 is the version of
+record.
+
+**Unproven, deliberately (post-MVP hardening list):** the `calibration_full` tier has never run on a
+schedule (CI-01 addresses the job; scheduling still needs Khoa); M5-05's `tu_null_1000.morans_i.tu_block.lag1`
+is ~1 SE over its fast-tier bound and awaits the full-tier number; M5-06's island attacks are written but
+unimplemented; contaminants stay in the stratum-0 lists (PR #125 pins it as a strict xfail, not a
+regression).
+
 Session 2026-10-20 (lead + up to 6 subagents in parallel, Khoa's instruction). Merged today: #107 M2-21
 (nightly array, weekly, measured runtimes), #108 M5 design, #109 one-subprocess step-load test (52.6 s →
 2.7 s), #110 M4-18 regions stats, #111 M4-15 gene table, #112 M5 decisions + ADR-0020/0021, #113 M3-21
