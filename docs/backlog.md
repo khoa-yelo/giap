@@ -144,8 +144,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   so `regions_stats.tsv` float columns differ by 1–2 ulp between machines and between CI legs (M4-20
   decision 9, probe 1863133). Writer-level rounding is the real fix — see the §9.5 per-field precision
   item — and belongs with the M6 writers.
-- CONTEXT cannot receive `tier_summary`: it would need an 11th `take:` channel and
-  workflow/tests/context.nf.test binds exactly input[0..9] (M4-20 decision 3). Test-author work.
 - tests/helpers/islands_data.py (m5/islands) and tests/helpers/oriter_data.py (m5/oriter) both carry a
   `tu_frame` and a giapsim-scenario driver; whichever merges second should deduplicate. Note the ori–ter
   driver deliberately keeps the simulator's real coordinates, while the island one re-lays genes through

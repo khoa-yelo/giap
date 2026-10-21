@@ -24,6 +24,7 @@ workflow CONTEXT {
     peptides              // peptides.norm.parquet, or channel.empty()
     abundance             // abundance.norm.parquet, or channel.empty()
     replicon_depth        // §5.3 depth TSV, or channel.empty()
+    tier_summary          // gene_table's tier counts / q-threshold curve (M4-20 decision 3), or channel.empty()
 
     main:
     def gt = kv('gene_table', gene_table)
@@ -36,7 +37,8 @@ workflow CONTEXT {
     def m3 = ['peptide_hits', 'protein_hits', 'unmapped'].collect { n -> kv(n, ofMapping(mapping, "${n}.tsv")) }
     def optional = [kv('peptides', peptides), kv('abundance', abundance),
                     kv('detectability_summary', detectability_summary),
-                    kv('stratum0_classes', stratum0_classes), kv('replicon_depth', replicon_depth)]
+                    kv('stratum0_classes', stratum0_classes), kv('replicon_depth', replicon_depth),
+                    kv('tier_summary', tier_summary)]
     def needed = ['gene_table', 'genes', 'replicons', 'xrefs', 'annotation_meta', 'tus', 'layers',
                   'regions', 'region_genes', 'peptide_hits', 'protein_hits', 'unmapped']
 

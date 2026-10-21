@@ -54,7 +54,7 @@ workflow {
             CONTEXT(GENETABLE.out.gene_table, GENETABLE.out.detectability_summary, gene_model,
                     ANNOTATE.out.contract, ANNOTATE.out.regions, MAPPING.out.mapping,
                     MAPPING.out.stratum0, opt(inputs.peptides), opt(inputs.abundance),
-                    opt(inputs.replicon_depth))
+                    opt(inputs.replicon_depth), GENETABLE.out.tier_summary)
         }
     } else {
         def keys = inputs.keySet().sort()

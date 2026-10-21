@@ -61,6 +61,7 @@ nextflow_pipeline {
             }
             assert cin.any { it[0] == 'stratum0_classes' } : "ADR-0019 class table not wired: ${cin}"
             assert cin.any { it[0] == 'detectability_summary' } : "detectability diagnostics not wired: ${cin}"
+            assert cin.any { it[0] == 'tier_summary' && it[1].endsWith('tier.parquet') } : "tier_summary not wired (M4-20 decision 3, MVP-02): ${cin}"
             assert cin.findAll { new File(it[1]).name == 'genes.parquet' }.size() == 2 : "gene_table and C2 genes both expected: ${cin}"
 
             ['genetable/genes_pre.parquet', 'genetable/genes.parquet',
