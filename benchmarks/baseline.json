@@ -58,5 +58,17 @@
         "rounds": 5
       }
     }
+  },
+  "autocorr_morans_i_matrix_b1000_n4500_20_lags": {
+    "benchmark": "benchmarks/test_autocorr_bench.py::test_morans_i_matrix_b1000_n4500_20_lags_budget",
+    "budget_s": 5.0,
+    "secs": 0.14,
+    "B": 1000,
+    "n_genes": 4500,
+    "lags": 20,
+    "node_class": "FarmShare iron (AMD EPYC 7742)",
+    "threads": 1,
+    "date": "2026-10-20",
+    "issue": "M5-02"
   }
 }
