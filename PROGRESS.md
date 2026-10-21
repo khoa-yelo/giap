@@ -8,16 +8,16 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 76/90 done (84 %), 6 running · generated 2026-10-20 16:47 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 81/90 done (90 %), 3 running · generated 2026-10-20 22:07 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
 | M0 Scaffold | 🟩 | 1 | 0 | 0 |
 | M1 Inputs and preflight | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 12 | 0 | 0 |
 | M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
-| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 96 % | 23 | 0 | 1 |
-| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜ 86 % | 18 | 2 | 1 |
-| M5 Autocorrelation and islands | 🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜ 9 % | 1 | 4 | 6 |
+| M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 24 | 0 | 0 |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜ 90 % | 19 | 1 | 1 |
+| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜ 36 % | 4 | 2 | 5 |
 | M6 Operons | _not designed yet_ | - | - | - |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
 | M8 Function and determinants | _not designed yet_ | - | - | - |
@@ -53,7 +53,16 @@ calibration suites, #114 M5-01 Blom/LOESS, #115 M3-22 digest + TE1/TE8.
 Open PRs: #116 M5-02 (autocorr engine; code + statistician approved, CI), #117 M4-19 sensitivity (both
 approved, CI), #118 M5-03 scan (code approved; statistician asked for the islands methods note —
 implementer finishing), #119 M5-04 simulator oriC/gradient/C15 (code review running), #120 chore: four
-wall-clock asserts moved to benchmarks/.
+wall-clock asserts moved to benchmarks/, #126 M5-05 autocorrelation table (implementation + benchmark
+baseline; awaiting code and statistician review).
+
+M5-05 (#126, implementer step done): fast suite 8668 passed (Slurm 1861597), calibration fast tier
+including all four attack arms 23 passed (1861598), **full tier R = 1,000 at 4,500 genes 12 passed in
+1:21** (1861606). Lead decision 34 is resolved: `tu_null_4500.morans_i.tu_block.lag1` is 0.113 against a
+bound of 0.119 at α 0.10 (0.055 / 0.011 at 0.05 / 0.01), all on block 1, reproduced alone in 1861757 —
+the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise decision 34 expected, no
+bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
+(wheat-07, 4 CPUs, Slurm 1861601).
 
 ADRs accepted today by Khoa: ADR-0019 (stratum-0 π̂ per length class, Clopper–Pearson upper bound, no PEP),
 ADR-0020 (autocorrelation: re-detrend per permutation, residual join count, CI NA) **+ Amendment 1**
