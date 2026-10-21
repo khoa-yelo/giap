@@ -1,0 +1,24 @@
+{
+  "name": "autocorrelation",
+  "description": "Spatial autocorrelation of detection and abundance along each replicon and the origin-to-terminus gradient (GIAP_SPEC.md §9.3, §7.3.5(c) and §7.3.5(e)).",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "contig", "type": "string", "description": "Replicon name (C1 order)", "constraints": {"required": true}},
+    {"name": "statistic", "type": "string", "description": "Statistic family of the row", "constraints": {"required": true, "enum": ["morans_i", "join_count_bb", "oriter_slope"]}},
+    {"name": "lag", "type": "integer", "description": "Lag in genes; NA for the descriptive oriter_slope rows", "constraints": {"minimum": 1}},
+    {"name": "null_model", "type": "string", "description": "Null the row is tested against; bootstrap means a descriptive row with a bootstrap CI and no p-value", "constraints": {"required": true, "enum": ["gene_label", "tu_block", "bootstrap"]}},
+    {"name": "value", "type": "number", "description": "Reported statistic (Moran's I, the raw BB join count, or the OLS slope in log2 per replichore); NA when it does not exist"},
+    {"name": "null_mean", "type": "number", "description": "Mean of the null distribution of the test statistic"},
+    {"name": "null_lo", "type": "number", "description": "2.5th percentile of the null distribution"},
+    {"name": "null_hi", "type": "number", "description": "97.5th percentile of the null distribution"},
+    {"name": "stat", "type": "string", "description": "Name of the test statistic of the row", "constraints": {"required": true}},
+    {"name": "effect", "type": "number", "description": "Effect estimate: observed minus null mean, or the OLS slope"},
+    {"name": "ci_low", "type": "number", "description": "Lower bound of the 95% confidence interval; NA when unestimated"},
+    {"name": "ci_high", "type": "number", "description": "Upper bound of the 95% confidence interval; NA when unestimated"},
+    {"name": "p_value", "type": "number", "description": "Permutation p-value; NA for a descriptive or not-estimable row", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "q_value", "type": "number", "description": "Benjamini-Hochberg q-value within (contig, statistic, null_model); NA whenever p_value is NA", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "method", "type": "string", "description": "Method that produced the row", "constraints": {"required": true}},
+    {"name": "n_perm", "type": "integer", "description": "Valid permutations or bootstrap replicates behind the row", "constraints": {"minimum": 0}},
+    {"name": "flags", "type": "string", "description": "Semicolon-joined flags from the controlled vocabulary (§9.4)", "constraints": {"pattern": "(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated)(?:;(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated))*"}}
+  ]
+}

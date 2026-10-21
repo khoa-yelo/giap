@@ -7,10 +7,25 @@ step), optionally the ``--replicon-depth`` TSV (§5.3) and M4-15's ``detectabili
 parquet (detectability diagnostics rows; locally ``genetable/detection_summary_parts/
 detectability.parquet``) and the ADR-0019 stratum-0 class table of the ``placement`` step
 (``stratum0_classes``; locally ``mapping/stratum0_classes.parquet``), which adds the
-``stratum0_unmapped_share`` QC rows. Random streams, all from
-``config.seed``: ``context_stats`` (M4-17 region tests), ``context_stats.plasmids`` (parent of the
-per-plasmid streams) and ``context_stats.detection_summary`` (basic O - E CIs), so no part's draws
-depend on another part's content.
+``stratum0_unmapped_share`` QC rows, and the C15 ``features`` table (M5-04; locally
+``features.parquet``), whose ``oric`` rows place the origin: without it the ori-ter rows are
+``no_oric`` and the step logs ``layer_missing:features``.
+
+Outputs: ``tables/regions_stats.tsv`` and ``tables/detection_summary.tsv`` (M4),
+``tables/autocorrelation.tsv`` and ``tables/islands.tsv`` (M5-05, M5-06, M5-08),
+``work/context/gene_context.parquet`` (the §9.3 genes.tsv context group, one row per gene),
+``work/context/island_diagnostics.parquet`` (ADR-0021 Amendment 1, see
+:mod:`giap.context.diagnostics`) and ``tables/genes.tsv``. This step writes genes.tsv because it
+is the last M4/M5 step and the only one holding both the gene table and the three context
+columns (M5-09 lead decision 3); a run that skips ``context_stats`` therefore produces no
+genes.tsv, which is resolved when §6.2's ``finalize`` step takes ownership of the file.
+
+Random streams, all from ``config.seed``: ``context_stats`` (M4-17 region tests),
+``context_stats.plasmids`` (parent of the per-plasmid streams),
+``context_stats.detection_summary`` (basic O - E CIs), ``context_stats.autocorrelation``
+(M5-05), ``context_stats.islands`` (M5-06, shared by ``scan_replicons`` then ``islands_frame``
+in that order) and ``context_stats.oriter`` (M5-08), so no part's draws depend on another
+part's content and the M4 tables do not move when an M5 knob changes.
 """
 
 from __future__ import annotations
@@ -20,15 +35,36 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pandas as pd
+import pyarrow as pa  # type: ignore[import-untyped]
 
 from giap.config.model import GiapConfig
-from giap.context.regions import test_all_regions
+from giap.context.autocorrelation import autocorrelation_rows
+from giap.context.diagnostics import DIAGNOSTICS_COLUMNS, island_diagnostics
+from giap.context.islands import islands_frame, scan_replicons, tu_series
+from giap.context.oriter import oriter_rows
+from giap.context.regions import replicon_index, test_all_regions
 from giap.context.regions_table import depth_gaps, plasmid_rows, regions_stats, subset_rows
 from giap.context.summary import basic_rows, detection_summary, qc_rows
+from giap.context.tables import (
+    GENE_CONTEXT_COLUMNS,
+    autocorrelation_table,
+    gene_context_table,
+    islands_table,
+)
+from giap.genetable.assemble import GENES_COLUMNS
+from giap.io.context_tsv import write_autocorrelation, write_islands
 from giap.io.depth import read_replicon_depth
+from giap.io.genes_tsv import write_genes_tsv
+from giap.io.parquet import write_parquet_deterministic
 from giap.io.regions_tsv import write_regions_stats
 from giap.io.summary_tsv import write_detection_summary
-from giap.io.work_tables import M4_INPUT_KEYS, OPTIONAL_KEYS, default_paths, load_m4_inputs
+from giap.io.work_tables import (
+    M4_INPUT_KEYS,
+    OPTIONAL_KEYS,
+    M4Inputs,
+    default_paths,
+    load_m4_inputs,
+)
 from giap.rng import for_step
 from giap.steps.registry import InputPath, StepContext, step
 
@@ -36,6 +72,10 @@ __all__ = ["context_stats", "run_context_stats"]
 
 _LOG = logging.getLogger("giap.steps.context_stats")
 _REQUIRED = [k for k in M4_INPUT_KEYS if k not in OPTIONAL_KEYS]
+#: the M5 half's output keys, all optional at the registry level (wired together or not at all)
+M5_OUTPUTS: tuple[str, ...] = (
+    "autocorrelation", "islands", "gene_context", "island_diagnostics", "genes_tsv",
+)  # fmt: skip
 
 
 def _path(p: InputPath) -> Path:
@@ -82,10 +122,134 @@ def _context_stats(
         parts.append(pd.read_parquet(inputs["detectability_summary"]))
     write_detection_summary(outputs["detection_summary"], detection_summary(parts))
 
+    _m5_context(inputs, outputs, cfg, log, m4, genes)
+
+
+def _features(inputs: Mapping[str, Path], log: logging.Logger) -> pd.DataFrame | None:
+    """The C15 ``features`` table, or None with the ``layer_missing:features`` run flag."""
+    path = inputs.get("features")
+    if path is None:
+        log.warning(
+            "layer_missing:features: no C15 features table; the ori-ter rows are no_oric and "
+            "the genes.tsv replichore columns stay NA"
+        )
+        return None
+    return pd.read_parquet(path)
+
+
+def _m5_context(
+    inputs: Mapping[str, Path], outputs: Mapping[str, Path], cfg: GiapConfig,
+    log: logging.Logger, m4: M4Inputs, genes: pd.DataFrame,
+) -> None:  # fmt: skip
+    """The M5 half of the step: autocorrelation, islands, ori-ter, genes.tsv (§7.3.5(c)-(e)).
+
+    Every M5 output key is declared ``optional_outputs``, so a caller that wires only the M4
+    half (``regions_stats``, ``detection_summary``) runs nothing here; ``run_context_stats``
+    and the CONTEXT subworkflow wire all of them.
+    """
+    missing = [k for k in M5_OUTPUTS if k not in outputs]
+    if len(missing) == len(M5_OUTPUTS):
+        log.info("M5 context outputs not wired; writing the M4 tables only")
+        return
+    if missing:
+        raise ValueError(f"context_stats: M5 output(s) not given: {', '.join(missing)}")
+    seed = cfg.seed
+    features = _features(inputs, log)
+
+    rows = autocorrelation_rows(
+        genes, m4.replicons, cfg, for_step("context_stats.autocorrelation", seed)
+    )
+    oriter = oriter_rows(
+        genes, m4.tus, m4.replicons, features, cfg, for_step("context_stats.oriter", seed)
+    )
+    write_autocorrelation(
+        outputs["autocorrelation"], autocorrelation_table([rows, oriter], m4.replicons)
+    )
+
+    island_rng = for_step("context_stats.islands", seed)  # scan_replicons, then islands_frame
+    span = float(cfg.context.islands.detrend_span_frac)
+    series = [
+        tu_series(
+            replicon_index(genes, str(contig)),
+            m4.tus,
+            contig=str(contig),
+            circular=str(topology) == "circular",
+            length=int(length),
+            span_frac=span,
+        )
+        for contig, topology, length in zip(
+            m4.replicons["contig"], m4.replicons["topology"], m4.replicons["length"], strict=True
+        )
+    ]
+    scan = scan_replicons(series, cfg, island_rng)
+    islands = islands_table(islands_frame(scan, genes, cfg, island_rng), m4.replicons)
+    write_islands(outputs["islands"], islands)
+    _write_diagnostics(outputs["island_diagnostics"], island_diagnostics(scan, cfg))
+
+    context = gene_context_table(genes, islands, m4.replicons, features)
+    _write_gene_context(outputs["gene_context"], context)
+    write_genes_tsv(outputs["genes_tsv"], _with_context(genes, context))
+
+
+def _write_gene_context(path: Path, df: pd.DataFrame) -> None:
+    """``work/context/gene_context.parquet`` (byte-reproducible, TE7)."""
+    cols = [("locus_tag", pa.string()), ("island_id", pa.string()),
+            ("replichore", pa.string()), ("replichore_position", pa.float64())]  # fmt: skip
+    rows = [
+        (str(tag), _text(island), _text(arm), float(pos))
+        for tag, island, arm, pos in df[list(GENE_CONTEXT_COLUMNS)].itertuples(
+            index=False, name=None
+        )
+    ]
+    write_parquet_deterministic(path, cols, rows)
+
+
+def _write_diagnostics(path: Path, df: pd.DataFrame) -> None:
+    """``work/context/island_diagnostics.parquet`` (ADR-0021 Amendment 1)."""
+    cols = [("contig", pa.string()), ("scanned", pa.bool_()), ("block_rule", pa.string()),
+            ("l_hat", pa.int64()), ("block_len", pa.int64()),
+            ("morans_i_lag1", pa.float64()), ("flags", pa.list_(pa.string()))]  # fmt: skip
+    rows = [
+        (str(contig), bool(scanned), str(rule), _count(l_hat), _count(block_len),
+         float(moran), [str(f) for f in flags])
+        for contig, scanned, rule, l_hat, block_len, moran, flags in df[
+            list(DIAGNOSTICS_COLUMNS)
+        ].itertuples(index=False, name=None)
+    ]  # fmt: skip
+    write_parquet_deterministic(path, cols, rows)
+
+
+def _text(value: object) -> str | None:
+    """A nullable string cell of a context column."""
+    return None if value is None or pd.isna(value) else str(value)
+
+
+def _count(value: object) -> int | None:
+    """A nullable integer cell (``l_hat`` / ``block_len``: NA, never 0)."""
+    return None if value is None or pd.isna(value) else int(value)  # type: ignore[call-overload]
+
+
+def _with_context(genes: pd.DataFrame, context: pd.DataFrame) -> pd.DataFrame:
+    """The gene table with the three §9.3 context columns left-joined on ``locus_tag``.
+
+    Columns of ``GENES_COLUMNS`` the gene table does not carry are filled with NA, so the
+    writer never fails on a partially assembled table.
+    """
+    out = genes.copy()
+    out.index = pd.RangeIndex(len(out))
+    for column in ("island_id", "replichore", "replichore_position"):
+        out[column] = context[column].to_numpy()
+    for column in GENES_COLUMNS:
+        if column not in out.columns:
+            out[column] = pd.Series([None] * len(out), dtype=object)
+    return out[list(GENES_COLUMNS)]
+
 
 def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | None) -> None:
     """Run the step on the local work-directory layout: contract tables directly under
-    ``work_dir``, the gene table at ``genetable/genes.parquet``, outputs under ``tables/``."""
+    ``work_dir`` (C15 ``features.parquet`` included when present), the gene table at
+    ``genetable/genes.parquet``, the tables under ``tables/`` and the two intermediate parquet
+    files under ``context/``."""
     inputs = {k: p for k, p in default_paths(work_dir).items()
               if k not in OPTIONAL_KEYS or p.exists()}  # fmt: skip
     inputs["gene_table"] = work_dir / "genetable" / "genes.parquet"
@@ -95,12 +259,22 @@ def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | No
     classes = work_dir / "mapping" / "stratum0_classes.parquet"
     if classes.exists():
         inputs["stratum0_classes"] = classes
+    features = work_dir / "features.parquet"  # C15 (M5-04), optional
+    if features.exists():
+        inputs["features"] = features
     if replicon_depth is not None:
         inputs["replicon_depth"] = replicon_depth
     tables = work_dir / "tables"
     tables.mkdir(parents=True, exist_ok=True)
+    context = work_dir / "context"
+    context.mkdir(parents=True, exist_ok=True)
     outputs = {"regions_stats": tables / "regions_stats.tsv",
-               "detection_summary": tables / "detection_summary.tsv"}  # fmt: skip
+               "detection_summary": tables / "detection_summary.tsv",
+               "autocorrelation": tables / "autocorrelation.tsv",
+               "islands": tables / "islands.tsv",
+               "genes_tsv": tables / "genes.tsv",
+               "gene_context": context / "gene_context.parquet",
+               "island_diagnostics": context / "island_diagnostics.parquet"}  # fmt: skip
     _context_stats(inputs, outputs, cfg, _LOG)
 
 
@@ -110,12 +284,14 @@ def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | No
     optional_inputs=[
         *sorted(OPTIONAL_KEYS),
         "detectability_summary",
+        "features",
         "replicon_depth",
         "stratum0_classes",
     ],
-    outputs=["regions_stats", "detection_summary"],
+    outputs=["regions_stats", "detection_summary", *M5_OUTPUTS],
+    optional_outputs=list(M5_OUTPUTS),
 )
 def context_stats(ctx: StepContext) -> None:
-    """Region statistics and the detection summary from the gene table."""
+    """Region statistics, autocorrelation, islands, ori-ter and genes.tsv from the gene table."""
     inputs = {k: _path(v) for k, v in ctx.inputs.items()}
     _context_stats(inputs, ctx.outputs, ctx.cfg, ctx.log)
