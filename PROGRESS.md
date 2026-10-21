@@ -8,7 +8,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 87/103 done (84 %), 4 running · generated 2026-10-21 15:41 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 87/103 done (84 %), 4 running · generated 2026-10-21 15:58 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -63,6 +63,14 @@ bound of 0.119 at α 0.10 (0.055 / 0.011 at 0.05 / 0.01), all on block 1, reprod
 the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise decision 34 expected, no
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
+
+M6-05 (branch `m6/discordance`, stacked on #144, implementer step done, 2026-10-21):
+`giap.operons.discordance` pass 1 — `fit_rows` (usable OP Δ, sorted), `discordance()` with the
+within-operon t fit (`fit_student_t`, `MIN_OP_PAIRS` = 20), two-sided t p for both-detected OP pairs,
+one BH family of t p-values only (M6-index decision 1), CI NA + `unestimated`; `too_few_op_pairs`,
+`relative_scale` and `no_detection_limit_model` paths; partial genes ineligible. Lead fixed two test
+oracles (8e43149); tests/unit/operons 57 passed; fast suite Slurm 1864501. Pass-1 simplifications in
+docs/backlog.md.
 
 M6-04 (PR #143, branch `m6/pair-table`, implementer step done): `giap.operons.pairs` — the adjacent
 chain (M2 `adjacent_pairs(same_strand=False)`; a 2-gene ring has one pair), SW decoys, OP/NO/CV/DV

@@ -167,3 +167,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   from the evaluation points; `_bins` silently truncates float bins; `bin_index` accepts NaN edges;
   the +inf distance in the `bin_index` docstring.
 - M6-04 polish (non-behavioural): `promoter_between_tracks` exposes the private `_Track` alias in its signature (make a public `PromoterTrack` type); pin `pair_frame` dtypes (`detected_*` bool, `flags` list) through a pairs.tsv schema when M6-08 writes the table; consider one shared index object for the M2 `*_between` helpers so M6-07 reuses it.
+- M6-05 pass 1 simplifications (implementer): `discordance()` accepts `cfg` and `p_miss` but uses
+  neither — a NaN abundance is untested under every `abundance.missing` mode, not only `exclude`, and
+  the one-detected branch is always `unestimated (no_detection_limit_model)`; `PMissModel` is a
+  placeholder Protocol until M6-02 merges (replace with its real type in M6-05H).
