@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import csv
 import dataclasses
+import math
 import shutil
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -302,9 +303,18 @@ def run_chain(
     return Chain(res, avail, truth, cfg, planted)
 
 
-def null_share_stratum0(ch: Chain) -> tuple[float, float]:
-    """(π̂ of the database stratum-0 list, true share of its searched peptides without an exact
-    origin: wrong or absent from the sample). Database input, ``search_db = other`` only."""
+def null_share_stratum0(ch: Chain) -> tuple[float, float, pd.DataFrame]:
+    """Stratum-0 π̂ against the realised null share, pooled and per length class (M3-25 decision 6).
+
+    Returns ``(pooled π̂, pooled null share, per-class frame)``. The pooled π̂ is the reverse m = 0
+    ``all`` row's ``pi_wrong`` = (W + c)/(D + 1); the per-class π̂_l is the ADR-0019 class estimate
+    read from the ``stratum0_classes`` output (columns ``length_class``, ``n``, ``pi_wrong``). The
+    null share is the share of the stratum-0 database queries that are wrong or absent from the
+    sample (no exact origin). Database input, ``search_db = other`` only. The per-class frame has
+    ``length_class``, ``n`` (of the π̂ population), ``n_null`` (queries of that class seen here),
+    ``pi_hat`` and ``null_share`` (NaN when the class has no query).
+    """
+    from giap.mapping.placement_fdr import length_class_labels
     from giap.steps.mapping import select_queries
 
     q = select_queries(pd.read_parquet(ch.avail["peptides"]), ch.cfg)
@@ -314,7 +324,25 @@ def null_share_stratum0(ch: Chain) -> tuple[float, float]:
     f = pd.read_parquet(ch.avail["mapping_fdr"])
     row = f[(f["section"] == "placement") & (f["decoy_type"] == "reverse") & (f["n_diff"] == 0)
             & (f["length_class"] == "all")].iloc[0]  # fmt: skip
-    return float(row["pi_wrong"]), float(null.mean()) if len(null) else 0.0
+    classes = [list(c) for c in ch.cfg.mapping.length_classes]
+    labels = length_class_labels(classes)
+    lengths = peps.str.len().to_numpy()
+    tab = pd.read_parquet(ch.avail["stratum0_classes"]).set_index("length_class")
+    rows = []
+    for (lo, hi), label in zip(classes, labels, strict=True):
+        sel = (lengths >= lo) & (lengths <= hi)
+        n_null = int(sel.sum())
+        rows.append(
+            {
+                "length_class": label,
+                "n": int(tab.loc[label, "n"]) if label in tab.index else 0,
+                "n_null": n_null,
+                "pi_hat": float(tab.loc[label, "pi_wrong"]) if label in tab.index else math.nan,
+                "null_share": float(null[sel].mean()) if n_null else math.nan,
+            }
+        )
+    pooled_null = float(null.mean()) if len(null) else 0.0
+    return float(row["pi_wrong"]), pooled_null, pd.DataFrame(rows)
 
 
 def hits_of(avail: Mapping[str, Path]) -> pd.DataFrame:

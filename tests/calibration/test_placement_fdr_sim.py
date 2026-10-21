@@ -214,23 +214,52 @@ def test_denovo_error_model_placement_fdr_full(tmp_path: Path) -> None:
 PI_R = 20  # the shortfall is several-fold; 20 replicates resolve it (SE ~ 0.001)
 
 
-def _pi_check(kind: str, stream: str, tmp: Path, **kw: object) -> tuple[float, float, float]:
-    """(mean π̂, mean true null share, SE of the difference) over PI_R replicates; null share =
-    stratum-0 searched database peptides that are wrong or absent from the sample."""
-    pi, null = [], []
+def _pi_check(
+    kind: str, stream: str, tmp: Path, **kw: object
+) -> tuple[float, float, float, pd.DataFrame]:
+    """(mean π̂, mean true null share, SE of the difference, per-class frame) over PI_R replicates;
+    null share = stratum-0 searched database peptides that are wrong or absent from the sample.
+    The per-class frame averages ``pi_hat``, ``null_share``, ``n`` and ``n_null`` over the
+    replicates that have the class, and carries ``se`` of (null_share - pi_hat) over them."""
+    pi, null, per = [], [], []
     for i in range(PI_R):
         seed = int(C.replicate_rng(stream, i).integers(0, 2**31 - 1))
         ch = run_chain(kind, seed, tmp / f"r{i}", **kw)  # type: ignore[arg-type]
-        a, b = null_share_stratum0(ch)
+        a, b, tab = null_share_stratum0(ch)
         shutil.rmtree(tmp / f"r{i}", ignore_errors=True)
         pi.append(a)
         null.append(b)
+        per.append(tab)
     d = np.array(null) - np.array(pi)
-    return float(np.mean(pi)), float(np.mean(null)), float(d.std(ddof=1) / np.sqrt(PI_R))
+    allc = pd.concat(per, ignore_index=True).dropna(subset=["pi_hat", "null_share"])
+    allc["diff"] = allc["null_share"] - allc["pi_hat"]
+    g = allc.groupby("length_class", sort=True)
+    classes = g.agg(
+        pi_hat=("pi_hat", "mean"), null_share=("null_share", "mean"), n=("n", "mean"),
+        n_null=("n_null", "mean"), reps=("diff", "size"),
+        sd=("diff", lambda x: float(np.std(x, ddof=1)) if len(x) > 1 else 0.0),
+    ).reset_index()  # fmt: skip
+    classes["se"] = classes["sd"] / np.sqrt(classes["reps"])
+    return float(np.mean(pi)), float(np.mean(null)), float(d.std(ddof=1) / np.sqrt(PI_R)), classes
 
 
-def _assert_pi(mean_pi: float, mean_null: float, se: float) -> None:
+PI_CLASS_MIN_N = 10  # a class with fewer peptides per replicate is too noisy to gate
+
+
+def _assert_pi(
+    mean_pi: float, mean_null: float, se: float, classes: pd.DataFrame | None = None
+) -> None:
+    """M3-25 decision 6: the per-class π̂_l vs that class's realised null share is the primary
+    assertion; the pooled (W + c)/(D + 1) comparison is kept alongside."""
     k = C.load_tolerances().se_multiplier
+    if classes is not None:
+        gated = classes[classes["n_null"] >= PI_CLASS_MIN_N]
+        assert len(gated), f"no length class with >= {PI_CLASS_MIN_N} queries:\n{classes}"
+        bad = gated[gated["pi_hat"] < gated["null_share"] - k * gated["se"]]
+        assert bad.empty, (
+            "stratum-0 π̂_l below the class's true share of wrong or absent searched peptides"
+            f" (k = {k}); validity needs π̂_l >= π_l (placement-fdr.md):\n{bad}"
+        )
     assert mean_pi >= mean_null - k * se, (
         f"stratum-0 π̂ {mean_pi:.5f} below the true share of wrong or absent searched peptides"
         f" {mean_null:.5f} (k SE = {k * se:.5f}); validity needs π̂ >= π (placement-fdr.md)"
@@ -244,7 +273,8 @@ def test_database_stratum0_pi_hat_covers_the_wrong_share(tmp_path: Path, n_runs:
     preflight collapses a peptide's runs with ``pep = min`` and the mean of the minima is not a
     peptide-level wrong share (ADR-0019 "Run collapse"; decision 9: [3] is the regression, a
     strict xfail until ADR-0019 replaced mean PEP; [1] is the control). Under ADR-0019 PEP is not
-    read, so π̂ (the row's (W + c)/(D + 1)) must cover the share with both run counts."""
+    read, so π̂ must cover the share with both run counts: per length class (decision 6, the
+    primary assertion) and pooled, the row's (W + c)/(D + 1)."""
     stats = _pi_check(
         "database", f"placement.pi_db_runs{n_runs}", tmp_path,
         proteomics=_proteomics(pi_wrong=0.05, n_runs=n_runs),

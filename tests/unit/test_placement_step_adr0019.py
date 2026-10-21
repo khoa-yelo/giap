@@ -1,6 +1,11 @@
-"""ADR-0019 decision 4 through the registered ``placement`` step: the run warning
-``input_prefiltered`` (an input already filtered to genome matches cannot be calibrated by any
-genome-based π̂; ADR-0019 Evidence, "Limitation").
+"""ADR-0019 decisions 3 and 4 through the registered ``placement`` step (M3-25 decisions 3, 4):
+the ``stratum0_classes`` output and the run warning ``input_prefiltered`` (an input already
+filtered to genome matches cannot be calibrated by any genome-based π̂; ADR-0019 Evidence,
+"Limitation").
+
+M3-25 decision 3: ``placement`` writes the class table as a new output ``stratum0_classes``
+(``mapping/stratum0_classes.parquet`` in the run layout, the columns of ``stratum0_pi_classes``),
+following M4-18's ``detectability_summary`` pattern; ``mapping_fdr.tsv`` columns are unchanged.
 
 Convention (as for ``c_assumed``, tests/unit/test_mapping_steps.py): a run warning is a WARNING
 record on a ``giap.steps.*`` logger whose message names the flag. Inputs: a 50-kb giapsim genome,
@@ -21,6 +26,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+from helpers.mapping_steps import fresh_steps, key_like
 from helpers.placement_sims import Chain, run_chain
 
 SEED = 20261022
@@ -100,3 +106,53 @@ def test_prefiltered_input_warns_input_prefiltered(chains: dict[str, tuple]) -> 
     assert n > 200 and mean_pep == pytest.approx(0.05), (n, mean_pep)
     assert k <= 0.2 * n * mean_pep, (n, k, mean_pep)  # far below the expected unmapped count
     assert _warned(records), (n, k, mean_pep)
+
+
+# ----------------------------------------------------------- decision 3: stratum0_classes output
+
+STRATUM0_COLUMNS = ("length_class", "n", "k", "r", "upper", "pi_wrong")
+
+
+def test_placement_declares_the_stratum0_classes_output() -> None:
+    with pytest.MonkeyPatch.context() as mp:
+        reg = fresh_steps(mp)
+        spec = reg.get("placement")
+    assert key_like(spec.outputs, "stratum0_classes")
+    assert key_like(spec.outputs, "mapping_fdr")  # unchanged alongside it
+
+
+def test_placement_writes_the_class_table(chains: dict[str, tuple]) -> None:
+    """The output holds ``stratum0_pi_classes`` of the step's own stratum-0 population: one row
+    per ``mapping.length_classes`` class, in config order."""
+    from giap.mapping.placement_fdr import length_class_labels, stratum0_pi_classes
+
+    ch, _records = chains["raw"]
+    tab = pd.read_parquet(ch.avail[key_like(list(ch.avail), "stratum0_classes")])
+    labels = length_class_labels([list(c) for c in ch.cfg.mapping.length_classes])
+    assert list(tab.columns) == list(STRATUM0_COLUMNS)
+    assert tab["length_class"].astype(str).tolist() == labels
+    assert int(tab["n"].sum()) > 200
+    want = stratum0_pi_classes(_population(ch), [list(c) for c in ch.cfg.mapping.length_classes])
+    pd.testing.assert_frame_equal(tab.reset_index(drop=True), want.reset_index(drop=True))
+
+
+def _population(ch: Chain) -> pd.DataFrame:
+    """P: the database queries except ``same_db`` exact peptides and contaminants (decision 7),
+    at their best costs, as ``placement`` sees them."""
+    from helpers.placement_sims import hits_of
+
+    from giap.mapping.chance import residue_freqs
+    from giap.mapping.placement_fdr import best_costs
+    from giap.mapping.sixframe import load_index
+    from giap.steps.mapping import select_queries
+
+    q = select_queries(pd.read_parquet(ch.avail["peptides"]), ch.cfg)
+    idx, _decoys = load_index(ch.avail[key_like(list(ch.avail), "sixframe")])
+    q = q.copy()
+    q["pi_denovo"] = np.nan
+    costs = best_costs(hits_of(ch.avail), q, residue_freqs(idx))
+    keep = costs["source"].astype(str) == "database"
+    keep &= ~((costs["search_db"].astype(str) == "same") & (costs["m_target"] == 0))
+    if "is_contaminant" in costs:
+        keep &= ~costs["is_contaminant"].fillna(False).astype(bool)
+    return costs[keep].reset_index(drop=True)

@@ -157,6 +157,7 @@ def test_step_keys_follow_the_section_6_2_files(steps: ModuleType) -> None:
     assert "peptides" in set(pl.inputs) | set(pl.optional_inputs)  # input q / PEP
     key_like(pl.outputs, "placement")
     key_like(pl.outputs, "mapping_fdr")
+    key_like(pl.outputs, "stratum0_classes")  # ADR-0019 class table (M3-25 decision 3)
     lo = steps.get("loci")
     assert key_like(pl.outputs, "placement") in lo.inputs
     assert "genes" in set(lo.inputs) | set(lo.optional_inputs)

@@ -21,7 +21,12 @@ Interface assumed here (test-author; the ADR names no functions):
   enter c. ``pep`` and ``q_value`` are not read for it (decisions 2 and 3).
 * ``giap.context.summary.qc_rows(peptides, peptide_hits, unmapped, stratum0=table)``: with the
   ``stratum0_pi_classes`` table it adds metric ``stratum0_unmapped_share`` (value k/n, ``n`` = n)
-  as group ``run``/``all`` and per class as group_type ``length_class``, group = label.
+  as group ``run``/``all`` and per class as group_type ``length_class``, group = label. The M4-16
+  QC rows, ``genome_inconsistent_rate`` included, stay exactly as they are (M3-25 decision 2).
+* Contaminant rows (``is_contaminant``) leave the π̂ population P like ``same_db`` exact peptides
+  (M3-25 decision 7), so the costs frame carries an optional ``is_contaminant`` column (absent or
+  NaN = False), filled by ``best_costs`` from the peptide table. Only the exclusion from P is
+  pinned here: whether a contaminant peptide's own hits stay in the stratum lists is untested.
 
 Hand values: with k = 0, U = 1 - 0.05^(1/n) (Clopper-Pearson); for k > 0 U is pinned and checked
 against its defining equation P(X <= k; n, U) = 0.05.
@@ -87,6 +92,7 @@ def row(
     nan = math.nan
     r: dict[str, Any] = {
         "peptide": peptide, "length": len(peptide), "source": "database", "search_db": "other",
+        "is_contaminant": False,
         "m_target": nan if mt is None else float(mt), "m_decoy": nan if md is None else float(md),
         "e_target": nan if et is None else float(et), "e_decoy": nan if ed is None else float(ed),
         "pep": nan, "q_value": nan, "pi_denovo": nan,
@@ -361,6 +367,25 @@ def test_placement_same_db_exact_peptides_leave_the_population() -> None:
     np.testing.assert_allclose(q_of(per, [r["peptide"] for r in same]), 0.0)
 
 
+def test_placement_contaminant_rows_leave_the_population() -> None:
+    """M3-25 decision 7: 20 hit-less contaminant rows of class 9 must not raise k (they have no
+    hits, so they are in no list either): π̂ stays U(0, 100), not U(20, 120)/1."""
+    rows = [*targets0(100), *[row(pep_of(700 + i), is_contaminant=True) for i in range(20)]]
+    per, fdr = run(rows)
+    np.testing.assert_allclose(q_of(per, [r["peptide"] for r in rows[:100]]), u0(100) / 100,
+                               rtol=1e-9)  # fmt: skip
+    assert float(fdr_row(fdr, 0, "9")["pi_wrong"]) == pytest.approx(u0(100), rel=1e-9)
+
+
+def test_placement_contaminant_exact_hits_do_not_lower_k() -> None:
+    """The other direction: 100 class-9 contaminants with exact target hits must not pull the
+    class's k/n down (with them in P: k = 1 of 200 instead of 1 of 100)."""
+    base = [*targets0(99), row(pep_of(500), md=0, ed=10.0)]
+    cont = [row(pep_of(700 + i), mt=0, et=0.002, is_contaminant=True) for i in range(100)]
+    pi = U_1_100 / 0.99
+    assert float(fdr_row(run(base + cont)[1], 0, "all")["pi_wrong"]) == pytest.approx(pi, rel=1e-9)
+
+
 # ------------------------------------------------- decisions 2 and 3: PEP and q are not read
 
 
@@ -479,6 +504,11 @@ def test_qc_rows_report_the_stratum0_unmapped_share_overall_and_per_class() -> N
     )
     hits = pd.DataFrame({"peptide": pd.Series([], dtype=str), "route": pd.Series([], dtype=str)})
     qc = qc_rows(peptides, hits, None, stratum0=tab)
+    # decision 2: the M4-16 QC rows are untouched, each over its own population
+    base = qc_rows(peptides, hits, None)
+    keep = qc[qc["metric"] != "stratum0_unmapped_share"].reset_index(drop=True)
+    pd.testing.assert_frame_equal(keep, base.reset_index(drop=True))
+    assert "genome_inconsistent_rate" in set(qc["metric"])
     sel = qc[qc["metric"] == "stratum0_unmapped_share"]
     assert set(sel["section"]) == {"qc"}
     overall = sel[(sel["group_type"] == "run") & (sel["group"] == "all")]
