@@ -1,4 +1,4 @@
-# M6-11: **BLOCKED** — RegulonDB v12 fetch and the K-12 pair and terminator truth
+# M6-11: **BLOCKED** — RegulonDB 14.5.0 fetch and the K-12 pair and terminator truth
 
 Milestone M6 · track V (validation) · **blocked, not scheduled** · depends on: network access to
 `regulondb.ccg.unam.mx` (see below) · estimate ≈ 180 code lines in `validation/` (+ ≈ 150 test
@@ -24,7 +24,7 @@ them (index, "RegulonDB"). **No substitute source may be used.**
 
 ## Spec sections implemented (when unblocked)
 
-- §15.3 table row: "RegulonDB v12 | transcription units and terminators | §15.4. Not committed;
+- §15.3 table row (quoted verbatim; the release of record is **14.5.0**, decision 8): "RegulonDB v12 | transcription units and terminators | §15.4. Not committed;
   downloaded to `$GIAP_DATA_DIR` by `validation/fetch_regulondb.py`".
 - §15.4 steps 1–2: "Inputs. The K-12 Bakta JSON (recorded), UniOP and TerminatorNet run on the K-12
   genome"; "Pair truth. A same-strand adjacent pair is positive when both genes lie in one
@@ -35,7 +35,7 @@ them (index, "RegulonDB"). **No substitute source may be used.**
 
 ## Scope
 
-1. `validation/fetch_regulondb.py`: download the v12 TU and terminator datasets to
+1. `validation/fetch_regulondb.py`: download the 14.5.0 TU and terminator datasets to
    `$GIAP_DATA_DIR/regulondb/<version>/`, record URL, date, bytes and SHA-256 in a provenance JSON
    beside them, verify before use, never commit the data. Same shape as
    `validation/fetch_uniprot_k12.py` (merged).
@@ -107,5 +107,5 @@ them (index, "RegulonDB"). **No substitute source may be used.**
    `check_hostname`, the CA count grew); catch `subprocess.TimeoutExpired`.
 7. Retry exhaustion returns 1 and writes nothing (test). Everything else in the review's non-blocking list
    goes to docs/backlog.md as M6-11 pass 2.
-8. Release of record: whatever the endpoint reports (14.5.0 today); M6-12 and ADR-0022 cite it unless
-   Khoa asks for the archived v12 files (PROGRESS.md › Questions for Khoa).
+8. Release of record: **14.5.0** (2026-01-28; Khoa, 2026-10-21: 'cite RegulonDB 14.5.0'). The fetcher
+   still records whatever the endpoint reports; M6-12 and ADR-0022 cite 14.5.0.
