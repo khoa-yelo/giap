@@ -13,7 +13,23 @@ This issue closes that, and supersedes the three backlog wiring items (M4-15, M4
 `giap run` on the simulated 100 kb genome produces, in one invocation: `genetable/genes.parquet`,
 the detectability summary, `tables/regions_stats.tsv` and `tables/sensitivity.tsv`.
 
-## Lead decisions (deliberately few — decide the rest yourself and record it in the PR)
+## How this issue is sequenced (Khoa, 2026-10-20)
+"After we integrate end to end, we can pick up the rigour… write the spec as usual, but prioritize end
+to end integration first, then work on the rigour after." So this spec carries the whole job, and the
+work is split into two passes:
+- **Pass 1 (this issue, now):** wiring, a real run that reaches the end, nf-test stub coverage.
+- **Pass 2 (MVP-01H, after the MVP runs):** the hardening the spec names below — contract assertions on
+  the wired outputs, a golden end-to-end comparison, failure-path behaviour (a step erroring mid-graph,
+  `-resume` correctness), and the per-step runtime budgets. Nothing here is dropped; it is scheduled.
+
+## Hardening owed (pass 2, written down now so it is not lost)
+- Contract validation of every wired output inside the pipeline, not only in the Python tests.
+- A golden end-to-end fixture for sim100k so a wiring regression is caught by diff, not by eye.
+- `-resume` correctness across the new subworkflows, and the behaviour when one step fails mid-graph.
+- Per-step runtime recorded via scripts/measure_runtimes.py and a budget in benchmarks/baseline.json.
+- The real-tool arm: the same run under `-profile farmshare,apptainer` rather than the local executor.
+
+## Lead decisions
 1. Two new subworkflows beside annotate.nf and mapping.nf: `genetable.nf` (`gene_table`,
    `detectability`) and `context.nf` (`context_stats`, plus sensitivity). Called from `main.nf` after
    MAPPING, each skipped cleanly when its inputs are absent, as MAPPING already is.
