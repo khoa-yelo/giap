@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
@@ -26,11 +27,12 @@ from giap.genetable.detection import detect
 from giap.genetable.evidence import accepted_peptides, gene_evidence
 from giap.io.genes_tsv import read_cog_def, write_genes_parquet
 from giap.io.issues import Issue
+from giap.io.summary_tsv import write_summary_part
 from giap.io.work_tables import FILE_NAMES, load_m4_inputs
 from giap.setupdb.installed import cog_table
 from giap.steps.registry import InputPath, StepContext, run_step, step
 
-__all__ = ["build_genes_pre", "m4_paths", "run_gene_table", "work_inputs"]
+__all__ = ["GenesPre", "build_genes_pre", "m4_paths", "run_gene_table", "work_inputs"]
 
 _M3_TSVS = ("peptide_hits", "protein_hits", "unmapped")
 # C7/C8 are not read: region membership arrives through C6 ``region_ids``, and a precomputed
@@ -65,9 +67,17 @@ def check_issues(issues: list[Issue], log: logging.Logger, what: str) -> None:
         raise ValueError(f"{what}: M4 input contract errors: " + "; ".join(errors))
 
 
+@dataclass(frozen=True, slots=True)
+class GenesPre:
+    """What the step writes: the gene table without ``p_detect`` and M4-12's ``tier`` rows."""
+
+    table: pd.DataFrame
+    tier_summary: pd.DataFrame
+
+
 def build_genes_pre(
     inputs: Mapping[str, InputPath], cfg: GiapConfig, log: logging.Logger
-) -> pd.DataFrame:
+) -> GenesPre:
     """Load and check the contract tables, run M4-10 ... M4-14 and assemble (no ``p_detect``)."""
     m4, issues = load_m4_inputs(m4_paths(inputs))
     check_issues([i for i in issues if i.code not in _UNREAD], log, "gene_table")
@@ -88,16 +98,24 @@ def build_genes_pre(
     ab = gene_abundance(m4.genes, acc, cov, det, m4.abundance, det.protein_gene_map, cfg,
                         c10_scale=m4.abundance_scale, protein_hits=m4.protein_hits)  # fmt: skip
     table = assemble_genes(m4, cov, ev, det, None, ab, cog_def=cog_def)
-    return table.drop(columns=["p_detect"])
+    return GenesPre(table.drop(columns=["p_detect"]), det.summary_rows)
 
 
-@step("gene_table", inputs=_REQUIRED, optional_inputs=_OPTIONAL, outputs=["genes_pre"])
+@step(
+    "gene_table",
+    inputs=_REQUIRED,
+    optional_inputs=_OPTIONAL,
+    outputs=["genes_pre", "tier_summary"],
+)
 def gene_table(ctx: StepContext) -> None:
-    """Contract tables → ``genetable/genes_pre.parquet`` (everything but ``p_detect``)."""
-    df = build_genes_pre(ctx.inputs, ctx.cfg, ctx.log)
-    write_genes_parquet(ctx.outputs["genes_pre"], df)
-    n_det = int(df["detected"].sum())
-    ctx.log.info("gene_table: %d genes, %d detected", len(df), n_det)
+    """Contract tables → ``genetable/genes_pre.parquet`` (everything but ``p_detect``) and the
+    ``tier`` rows of ``detection_summary``."""
+    pre = build_genes_pre(ctx.inputs, ctx.cfg, ctx.log)
+    write_genes_parquet(ctx.outputs["genes_pre"], pre.table)
+    write_summary_part(ctx.outputs["tier_summary"], pre.tier_summary)
+    n_det = int(pre.table["detected"].sum())
+    ctx.log.info("gene_table: %d genes, %d detected, %d tier rows", len(pre.table), n_det,
+                 len(pre.tier_summary))  # fmt: skip
 
 
 def _first(*paths: Path) -> Path | None:
@@ -122,7 +140,10 @@ def work_inputs(work_dir: Path) -> dict[str, Path]:
 
 
 def run_gene_table(work_dir: Path, cfg: GiapConfig) -> Path:
-    """Run ``gene_table`` on ``work_dir``; returns ``work_dir/genetable/genes_pre.parquet``."""
-    out = work_dir / "genetable" / "genes_pre.parquet"
-    run_step("gene_table", cfg, work_inputs(work_dir), {"genes_pre": out})
+    """Run ``gene_table`` on ``work_dir``; returns ``work_dir/genetable/genes_pre.parquet``
+    (the ``tier`` rows go to ``genetable/detection_summary_parts/tier.parquet``)."""
+    gt = work_dir / "genetable"
+    out = gt / "genes_pre.parquet"
+    outputs = {"genes_pre": out, "tier_summary": gt / "detection_summary_parts" / "tier.parquet"}
+    run_step("gene_table", cfg, work_inputs(work_dir), outputs)
     return out

@@ -105,14 +105,27 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - MVP-01 pass 2: `detect` (M4-12) builds tier and q-threshold curve rows, but `gene_table` has no
   diagnostics output key, so those rows never reach `tables/detection_summary.tsv` (only the
   basic / qc / detectability sections are there).
+  *M4-20 (decision 3) closed the Python half*: `gene_table` now writes the output `tier_summary`
+  (`genetable/detection_summary_parts/tier.parquet`) and `context_stats` reads it as an optional
+  input, so `run_context_stats` emits the `tier` section. The Nextflow half is open: passing it to
+  CONTEXT needs an eleventh `take:` channel, and `workflow/tests/context.nf.test` binds exactly ten
+  (`input[0..9]`), so the nf-test has to change with it — test-author work, not an implementer edit.
+- M4-20 (decision 2): `run_detectability` now writes `tables/genes.tsv` (`write_genes_tsv` had no
+  caller at all), so the M4 chain and the local executor produce the §9.3 master table. It is *not*
+  a declared step output yet, so `giap run` does not publish it: adding the key `genes_tsv` to
+  `context_stats` (the step that owns `tables/`) breaks the hand-written `outputs=` dicts and the
+  partial gene tables of `tests/integration/test_context_stats_step.py`, and adding it to
+  `detectability` breaks `main_genetable_context.nf.test` ("tables/ published without C7/C8").
+  Settle it with the publishDir item below; §6.2 gives `genes.tsv` to `finalize`, which takes the
+  call over when it arrives.
 - MVP-01 pass 2 (#129 review): `stepIn`'s `need` defaults to `[]`, so a step with no `need` emits
   an empty task — which is exactly the MVP-01 failure — as soon as one upstream channel is empty.
   `map_exact`, `map_tolerant`, `loci` and `parse_bakta` are each one empty upstream away from it.
   `need` should default to the step's required keys (the registry already lists them).
 - MVP-01 pass 2 (#129 review): `OUT/genetable/genes_pre.parquet` is an intermediate published into
   the user's output tree, and §9.1 has no `genetable/` directory at all (it specifies
-  `tables/genes.tsv`). Settle publishDir discipline — which keys are user-facing, which stay in
-  work/ — with the M6 writers.
+  `tables/genes.tsv`, which `giap run` still does not publish — see the M4-20 item above). Settle
+  publishDir discipline — which keys are user-facing, which stay in work/ — with the M6 writers.
 - MVP-01 pass 2 (#129 review): `cog/cog-20.def.tab` is a literal in `main.nf` (`cogTable()`), while
   Python reads the path from `db_sources.yaml` and the db manifest records it per item.
   `tests/unit/test_nf_main_installed_items.py` now pins the two literals against `SOURCES`, in the
