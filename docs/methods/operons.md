@@ -300,6 +300,31 @@ candidates and is the useful output of this family as specified.
    distant opposite-strand pairs) gives more decoys but they mimic NO pairs less well. Shrinks only
    the +1 floor.
 
+## The missed-operon step (M6-06)
+
+`giap.operons.missed.missed_operons(pairs, cfg, *, genes=None)` applies the engine above to the
+M6-04 pair table. **Targets**: NO pairs whose two genes are eligible (not `partial`), both detected,
+with finite `abundance_log2`; imputed abundances and `rna_between` pairs are kept (lead decision 2),
+since §7.4.4 excludes imputation only from the t fit. **Decoys**: CV and SW pairs with both genes
+detected and finite abundances; `partial` is a target rule only. `operons.decoys` selects the
+sets (an empty list is a config error); a configured set with no usable pair is dropped with a log
+line. Both sides are binned by `intergenic_bp` over `operons.distance_bins_bp`, and `operons.pi0`
+is passed through. A bin with targets and no decoys of a surviving set is named in a warning: it
+contributes its whole target count and can push every q to 1 (spec example 7).
+
+Output rows: one per NO pair. Scored targets have `test = missed_operon_decoy`, `stat = −|Δ|`,
+`effect = |Δ|`, `q_value` from `max_decoy_fdr`, `lfdr` (ranking only), `which` (the deciding decoy
+set), `method = decoy_fdr`, `null_model = <sets>_reweighted`; `p_value`, `ci_low`, `ci_high` and
+`n_perm` are NA (lead decision 1: a decoy FDR has no p, and a pseudo-p would invite a second BH).
+`bin_counts` (N_NO, N_cv, N_sw per bin) goes to the run report so the reweighting can be read off.
+Nothing is scored, and every NO row is flagged, when the scale is relative (`relative_scale`), when
+there are fewer than 20 scored NO pairs, or when no decoy set survives (`too_few_no_pairs`).
+
+**As stated in the power section above, the step controls the FDR and will make almost no calls
+at realistic effects.** Its unit example 6 makes calls only because the planted pairs have
+|Δ| ≤ 10⁻³ null SD. An empty `q_value ≤ 0.1` list is the expected result on a real genome and is
+not evidence against missed operons; the lfdr ranking is the useful output.
+
 ## Calibration evidence
 
 Fast tier (`tests/calibration/test_operon_fdr_calibration.py`, R = 50; 1,200 targets, 1,200 decoys

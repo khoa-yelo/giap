@@ -178,3 +178,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   neither — a NaN abundance is untested under every `abundance.missing` mode, not only `exclude`, and
   the one-detected branch is always `unestimated (no_detection_limit_model)`; `PMissModel` is a
   placeholder Protocol until M6-02 merges (replace with its real type in M6-05H).
+- M6-06 (pass 2): `bin_counts` and the π₀ actually used must reach the §9.4 run report and the manifest when the operons step is wired (M6-07/M6-08); the function returns them but nothing writes them yet.
+- M6-06 (pass 2): the missed-operon benchmark baseline was measured in the iron-15 session allocation only (0.23 s); re-measure on wheat with the other M6 entries.
+- M6-06 (pass 2): the lfdr of targets in a bin with no decoys is too small (methods note, "Known asymmetry"); set it NA or 1 there before lfdr is ever thresholded.
