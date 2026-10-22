@@ -153,3 +153,14 @@ oracle of the exhaustive table rather than trusting this table.
 6. VCF FILTER values (backlog): **Proposed default:** every record `PASS`; `CONF` carries
    high/candidate. A `candidate` FILTER would make single-peptide calls disappear from filtered VCF
    views, which hides exactly the calls `class_error_rate` is meant to qualify.
+
+## Lead decisions
+
+1. **Questions 1–6:** the proposed defaults are accepted.
+   - **G14 tie-break:** the lexicographically smallest codon on the gene's strand.
+   - **VCF content:** substitutions plus equal-length two-codon events (swap, 2↔2 blocks). 1↔2/2↔1 blocks and frameshifts stay in `variants.tsv` only.
+   - **Origin-crossing codons:** omitted from the VCF and flagged `vcf_unrepresentable`, a new Variants flag added through the schema.
+   - **DP:** counts IL-only peptides.
+   - **GT with several ALTs and no REF:** the index of the best-supported allele, or `.` on a tie.
+   - **FILTER:** every record is `PASS`; `CONF` carries high/candidate.
+2. **From the M7-02 review (#158):** replace the pileup's internal `_ref_codon`/`_alts` columns and its `attrs` channel with an explicit structure: a frozen `Pileup` result, or a `frameshifts=` argument to `sites`. Then no writer can leak `_` columns or silently lose frameshift sites. This is the implementer's call within this issue, and M7-02's tests must keep passing. Settle the frameshift `alt_aa` and `ref_codon` here (M7-02 left placeholders).
