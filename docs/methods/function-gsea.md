@@ -16,7 +16,7 @@
 - **`log2err`:** a Monte Carlo precision label. It slightly understates the error of the conditional p.
 
 ## GO redundancy
-- **The re-test:** a GO set that is significant together with one of its significant descendants is re-tested without the TUs of all its significant descendants. The re-test uses min_size 1.
+- **The re-test:** a significant GO set with at least one significant descendant is re-tested without the genes of all its significant descendants. TU membership is rebuilt, so a TU stays when another of its scoring genes is still in the reduced set. The re-test uses min_size 1.
 - **Deciding `redundant`:** the re-test p replaces the set's main p in a copy of the collection's p vector, and `redundant` is true when that substituted BH q is above α.
 - **Reported q:** `q_value` stays the main-run BH q.
 - **Degenerate re-tests:** a 0-TU re-test gives `redundant = true` plus `size_filtered`. A NaN re-test p gives `redundant = NA`.
@@ -47,5 +47,5 @@ Both flags are computed for every main-run row, are pure and use no RNG. Redunda
 
 ## Evidence
 - **Single-set level at R = 4,000** (statistician, Slurm 1867122): rejection 0.0508 at α = 0.05 under the null. Attack 3, the ties, median imputation and scattered AR(1) are all at level.
-- **Family probe** (GO-like nested sets, R = 2,000): FWER 0.0015 at q 0.05 under the complete null, and FDR 0.017–0.053 with shifted children.
+- **Family probe** (GO-like nested sets, R = 2,000): FWER 0.0015 at q 0.05 under the complete null. With shifted children, FDR is 0.017 at q 0.05 and 0.053 at q 0.10 (shift +1.5), and 0.0035 / 0.024 (shift +0.8).
 - **Committed arms:** tests/calibration/test_gsea_tu_calibration.py and tests/calibration/attacks/test_attack_gsea_structure.py (Slurm 1867070: 14 passed, 2 strict xfails).
