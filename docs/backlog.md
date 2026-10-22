@@ -244,3 +244,5 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Decide and test `top_decile` under `too_few_rows`.
 - `_canonical` recomputed per permutation and model.
 - Owed (acceptance): B = 1,000 benchmark in baseline.json; methods "Null and attribution" section.
+- M8-10 carry-over (statistician #173): `cv_r2_mean` (the null p's effect) gets `ci_unestimated` (ADR-0031 pattern); `n_perm` should count non-NaN null values as `perm_p` does; optional exact test against the observed repeat-1 R².
+- Hardening (ADR-0034): spatially contiguous CV folds for observed and null, a positional-feature decision (`replichore_position`), a detection-selection model; `null_uncalibrated` comes off only when every arm of test_attack_determinants_null.py passes.
