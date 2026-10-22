@@ -4,11 +4,11 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01FctC7kZEMou2AYwYy1KhJa_
+_Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01FctC7kZEMou2AYwYy1KhJa_
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 87/103 done (84 %), 4 running · generated 2026-10-21 15:41 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 91/135 done (67 %), 7 running · generated 2026-10-21 19:46 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -16,11 +16,11 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 | M1 Inputs and preflight | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 12 | 0 | 0 |
 | M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
-| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨 95 % | 20 | 1 | 0 |
-| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜ 64 % | 7 | 1 | 3 |
-| M6 Operons | 🟩🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 8 % | 1 | 2 | 9 |
-| M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
-| M8 Function and determinants | _not designed yet_ | - | - | - |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
+| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
+| M6 Operons | 🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜⬜ 25 % | 3 | 3 | 6 |
+| M7 Variants and novel ORFs | 🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0 % | 0 | 1 | 15 |
+| M8 Function and determinants | 🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0 % | 0 | 3 | 13 |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
@@ -66,6 +66,38 @@ the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise deci
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
 
+M6-05 (branch `m6/discordance`, stacked on #144, implementer step done, 2026-10-21):
+`giap.operons.discordance` pass 1 — `fit_rows` (usable OP Δ, sorted), `discordance()` with the
+within-operon t fit (`fit_student_t`, `MIN_OP_PAIRS` = 20), two-sided t p for both-detected OP pairs,
+one BH family of t p-values only (M6-index decision 1), CI NA + `unestimated`; `too_few_op_pairs`,
+`relative_scale` and `no_detection_limit_model` paths; partial genes ineligible. Lead fixed two test
+oracles (8e43149); tests/unit/operons 57 passed; fast suite Slurm 1864501. Pass-1 simplifications in
+docs/backlog.md.
+MVP-02 (branch mvp/nf-precomputed-regions, stacked on #145; implementer step done): with
+`annotation.precomputed.regions` set, ANNOTATE skips only GENOMAD/ANTISMASH; REGION_LAYER runs (reads the
+TSV from the config) and its C7/C8 Parquet go to context_layers and CONTEXT, so Nextflow now runs
+context_stats and sensitivity like `--executor local`. nf-tests annotate / main_genetable_context /
+context: 16 passed (stub). Fast suite Slurm 1864441: 8977 passed, 30 skipped, 2 xfailed. Example 4
+(Slurm **1864515**, SIM100K real-path config, seed 50000, local vs Nextflow `farmshare_local`; run dir
+`$GIAP_ROOT/runs/mvp02-example4`): the same `tables/*.tsv` set {detection_summary, regions_stats,
+sensitivity}; regions_stats and sensitivity byte-identical; **detection_summary differs**: Nextflow
+lacks the 18 `tier` rows because main.nf does not pass GENETABLE.out.tier_summary to CONTEXT (M4-20
+decision 3 is wired only in the local executor). Open for the lead (needs a CONTEXT `take:` change and
+so a context.nf.test update by the test-author). Job 1864452 ran before 0e95e14 (local published no tables).
+
+M4-21 (branch m4/conformance, implementer step done): the real M2/M3 path conforms to M4-06 with no
+contract change. Decision 2: `region_layer` still runs under `annotation.precomputed.regions` and writes
+C7/C8 Parquet from the layer TSV (`giap.annotate.regions.precomputed_members`; prophage subsets from the
+Bakta product only, `core_biosynthetic` false: the TSV has neither marker descriptions nor core flags).
+Decision 3: `run_context_stats` / `run_sensitivity` read through `contract_paths` (= `work_inputs`).
+Decision 4: the local executor keeps `region_layer` planned (`LAYER_CONVERTERS`) and maps
+`peptide_hits`/`protein_hits`/`unmapped` to loci's `mapping/` (`MEMBER_KEYS`), so `giap run --executor
+local` now plans and runs `context_stats` and `sensitivity`. Golden `tests/data/golden/sim100k_real/m4/`
+recorded (87 genes, 85 detected at α 0.05). **Open for the lead:** the Nextflow path still skips
+`region_layer`/CONTEXT with a precomputed regions layer, pinned by workflow/tests/annotate.nf.test
+("precomputed regions: … no region_layer") and main_genetable_context.nf.test ("CONTEXT does not");
+aligning annotate.nf needs those nf-tests changed by the test-author first. Fast suite Slurm 1864317:
+8977 passed, 30 skipped, 2 xfailed.
 M5-09 (**PR #138**, implementer step done, 2026-10-21): the two
 tables, the gene context columns and the step extension. New `giap.io.context_tsv` (writers by value
 through M1-04 `write_tsv`, readers typed from the schema; islands 1-based closed with `end` kept
@@ -158,9 +190,59 @@ Benchmark baseline `islands_4500_genes_b1000` = 1.79 s of a 20 s budget (4,500 g
 B = 1,000 + 1,000). **No Slurm run**: the shared account sat at its 512-CPU QOS cap all day
 (`QOSMaxCpuPerUserLimit`, 32 × 16-CPU non-GIAP `n1170_tools` array), so jobs 1863043/1863044 never
 started and were cancelled; CI covers the fast suite, the fast calibration tier and the coverage gate.
+M5-06 post-merge fix (branch `fix/islands-origin`, 2026-10-21): `tu_series` now orders TUs by C5
+(`start`, `tu_id`) as spec step 2 says, so an origin-crossing TU sorts last and islands get
+0 <= start < L, start < end <= start + L (the review repro gave ISL_2 78500-160800 on 80,200 bp; now
+78500-80600). Code only (implementer); no output change for non-crossing TUs. Fast suite on Slurm
+job 1864132: 8917 passed; islands fast calibration job 1864133: 28 passed. The oracle update and the
+regression tests (two origin-crossing windows, props bounds) are a separate test-side change for the
+lead/test-author.
 Open for review: the M5-06 section of `docs/methods/islands.md` (bootstrap null, genome-wide family,
 Amendment 1's validity domain, the low-direction ceiling, effect CI, degenerate cases) is not written
 yet — `docs/methods/` is the statistician's.
+
+M6-11 (implementer step done, 2026-10-21): RegulonDB is **fetched and the K-12 truth sets are built**.
+`validation/fetch_regulondb.py` completes the TLS chain itself — it downloads the GlobalSign
+intermediate RegulonDB omits, refuses it unless its SHA-256 equals the pin
+`d160e2de…63f9` (GlobalSign GCC R46 OV TLS CA 2025, valid to 2029-06-23), checks with
+`openssl verify` that it is signed by `GlobalSign Root R46` (already in the trust store), and only then
+adds it to the CA bundle; verification is never disabled (a test greps the source for `verify=False`,
+`CERT_NONE` and friends). Real fetch, twice, identical hashes: **RegulonDB 14.5.0** (release 2026-01-28,
+EcoCyc 29.5, genome NC_000913.3) into `$GIAP_DATA_DIR/regulondb/14.5.0/` — `TUSet.txt` 446,341 B
+(sha256 c96c8a3b…), `TerminatorSet.txt` 60,282 B (9d916ffe…), `GeneProductSet.txt` 1,290,719 B
+(3c2c6be3…), plus `provenance.json`. Nothing committed (R6/R11); no Slurm job (the whole download takes
+about two seconds, as the spec predicted).
+
+**Spec example 5, the evidence M6-12 consumes** (after the #141 review fixes, lead decisions 1–8;
+`validation/regulondb_truth.py` on the recorded `tests/data/recorded/bakta/1.12.2-full/k12/` JSON,
+contig U00096.3, ±30 bp, every file verified against `provenance.json` first): **3,067 same-strand
+adjacent pairs** (the pipeline's `adjacent_pairs`, **wrap pair included**: yjtD → KOIAIB_00001, labelled
+ambiguous because KOIAIB_00001 is a Bakta-only sORF at 3–98) — **1,730 positive, 1,009 negative, 2,739
+labelled** (≥ 2,000 as required), 328 ambiguous and excluded (10.7 %); **375 terminators**. Gene mapping
+**4,392 of 4,745 RegulonDB genes = 0.926 overall** (4,217 onto Bakta CDS + 175 RNA genes onto Bakta
+ncRNA/tRNA/rRNA features); **CDS share 0.923** (4,217 / 4,570); both above the 0.8 escalation floor;
+353 unmapped. dnaK–dnaJ, ftsA–ftsZ and pdhR–aceE are now positive (decision 3). Two RegulonDB names
+occur twice and are kept per gene id (decision 5). The summary carries release 14.5.0 and the three
+SHA-256s. Unit tests 91 passed, nothing touches the network. Release of record: **14.5.0**
+(decision 8; Khoa, 2026-10-21: 'cite RegulonDB 14.5.0').
+M6-01 (branch `m6/stats-pairfdr`, implementer step done, 2026-10-21): `giap.stats.tdist`
+(`StudentT`, `fit_student_t`, `student_t_two_sided`) and `giap.stats.decoy_fdr` (`bin_index`,
+`reweighted_fdr`, `max_decoy_fdr`, `local_fdr`) under lead decisions 1–8 and 11 — maximum over the
+decoy sets first then `tda.monotone_q`, the empty-set skip only in `max_decoy_fdr`, `lfdr` the same
+"larger wins" rule with the per-bin weights, scipy `gaussian_kde(bw_method="silverman")` from the
+unweighted samples, and `_reflected_density` / `_lfdr_densities` exposed so the reflection at 0 can be
+tested (it cancels in the ratio). Unit 66 passed; fast suite **8991 passed, 30 skipped** (Slurm
+1863842, 13:00; rerun 1863964); operon calibration fast **and** `calibration_full` arms 18 passed in
+32 s (Slurm 1863857). Benchmark baseline `decoy_fdr_50k_targets_2_decoy_sets_5_bins` = **0.15 s of a
+2 s budget** (50,000 targets × 2 decoy sets × 5 bins, wheat-05, Slurm 1863858); the lfdr KDEs use
+linear binning + one convolution (h/40 grid, 1e-4 relative) because scipy's exact `gaussian_kde` at
+50,000 × 50,000 is minutes. **Decision 9 (power) measured and confirmed**: 1,200 targets, 1,200 decoys
+per set, 20 replicates, planted share 20/40 % — at planted sd 0.10–1.00 against null sd 1.0 the engine
+calls **nothing** at q ≤ 0.1 (min q 0.19–0.92); only sd 0.02 calls (50/500 calls, power 0.19/0.98).
+The floor is structural: the per-bin +1 is one phantom decoy per bin, so the smallest reachable FDR is
+≈ Σ_b N_NO,b/(N_decoy,b+1) / k ≈ B·N_target/N_decoy/k, i.e. with 5 bins and equal-sized decoy sets
+~50 targets must sit above every decoy before q can reach 0.1. `docs/methods/operons.md` and the
+target-decoy §"Convergent and sandwich decoys" are still owed (statistician).
 
 ADRs accepted today by Khoa: ADR-0019 (stratum-0 π̂ per length class, Clopper–Pearson upper bound, no PEP),
 ADR-0020 (autocorrelation: re-detrend per permutation, residual join count, CI NA) **+ Amendment 1**
@@ -246,7 +328,7 @@ Lessons (keep):
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
 |---|---|---|---|
-| 2026-10-14 | RegulonDB v12 download (needed at M6) | `regulondb.ccg.unam.mx` unreachable from FarmShare (probe) | nothing yet; retry at M6, then ask |
+| 2026-10-14 | ~~RegulonDB v12 download~~ **RESOLVED 2026-10-21** | Not an outage: RegulonDB serves a cert (GlobalSign GCC R46 OV TLS CA 2025, issued 2026-10-14) **without the intermediate**, so verification fails. The intermediate from GlobalSign's own CA endpoint verifies against `GlobalSign Root R46`, already in FarmShare's trust store; with it, the site and `/datasets` return HTTP 200. Khoa approved completing the chain (2026-10-21). | nothing — M6-11/M6-12 unblocked |
 
 ## Answered by Khoa
 - 2026-10-15: force-push blocked → merge main into feature branches instead of rebasing (option 3).
@@ -266,6 +348,7 @@ Lessons (keep):
 ## Questions for Khoa
 | # | Question | Options | Default if no answer | Asked |
 |---|---|---|---|---|
+| 1 | GIAP_SPEC.md §15.3/§15.4 name "RegulonDB v12", but v12.0.0 is the 2023-10-23 release and the live one is **14.5.0** (2026-01-28). The fetcher records the release the endpoint reports. | (a) use the current release (14.5.0) and cite it in ADR-0022; (b) pin v12 and ask RegulonDB for the archived files | (a) — ADR-0017: record the version and the hash of what we actually fetched | 2026-10-21 (M6-11) — **RESOLVED 2026-10-21**: Khoa: 'cite RegulonDB 14.5.0' (option a) |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;

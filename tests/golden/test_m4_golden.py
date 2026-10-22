@@ -28,6 +28,17 @@ attainable picked gene q-value is 1/29 = 0.0345. At the default ``stats.alpha.id
 run 1861972 hit on sim100k); the golden therefore runs at ``alpha.identification`` = 0.05, where
 29 of the 51 genes are detected (lead decision 1).
 
+**M4-21: a second case, ``sim100k_real``,** runs the same four steps on the outputs of the real
+M2/M3 steps instead of the giapsim contract fixture: giapsim SIM100K with its precomputed layers
+and proteomics -> ``giap run --executor local`` (``parse_bakta``, TUs, the regions layer,
+``context_layers``, the M3 mapping steps; tests/helpers/m4_real.py) -> the M4 chain on that
+``OUT/work``. Its files live in ``tests/data/golden/sim100k_real/m4/``; ``sim50k/`` stays the
+M4-only regression. The spec calls the directory ``sim50k_real``, but the 50-kb giapsim genome
+plants no region at all (its precomputed ``regions.tsv`` is header-only), so its
+``regions_stats.tsv`` would be empty; SIM100K plants a prophage, a BGC, a CRISPR array and a
+plasmid and is the genome of every sim100k recording and of the MVP-01 run. Same golden config
+(alpha 0.05: SIM100K's picked-q floor is 1/85 = 0.0118 > 0.01), same decision 9 tolerance.
+
 Regenerating (on purpose, reviewed in the PR diff as data, with the statistician's note):
 ``GIAP_UPDATE_GOLDEN=1 pytest tests/golden/test_m4_golden.py`` writes the files and skips.
 """
@@ -46,7 +57,12 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
 import m4_chain as mc
 
-GOLDEN = Path(__file__).resolve().parents[1] / "data" / "golden" / "sim50k" / "m4"
+GOLDEN_ROOT = Path(__file__).resolve().parents[1] / "data" / "golden"
+GOLDEN = GOLDEN_ROOT / "sim50k" / "m4"
+#: case -> committed directory; ``sim100k_real`` goes through the real M2/M3 path (M4-21)
+CASES = {"sim50k": GOLDEN, "sim100k_real": GOLDEN_ROOT / "sim100k_real" / "m4"}
+#: region types each case must test (the real SIM100K run has no AMR set)
+REGION_TYPES = {"sim50k": {"prophage", "amr"}, "sim100k_real": {"prophage"}}
 #: the 50-kb genome cannot reach the default 0.01 (see the module docstring)
 GOLDEN_ALPHA = 0.05
 #: regions_stats.tsv columns downstream of the LAPACK least squares of ``residualise``
@@ -73,30 +89,44 @@ def golden_config(seed: int) -> Any:
     return mc.config(seed, stats={"alpha": {"identification": GOLDEN_ALPHA}})
 
 
+@pytest.fixture(scope="module", params=sorted(CASES))
+def case(request: pytest.FixtureRequest) -> str:
+    return str(request.param)
+
+
 @pytest.fixture(scope="module")
-def run(tmp_path_factory: pytest.TempPathFactory, golden_seed: int) -> dict[str, Path]:
-    root = tmp_path_factory.mktemp("m4_golden")
-    work = mc.build(root / "work", seed=golden_seed, size="sim50k")
-    return mc.run_m4(work, golden_config(golden_seed), mc.test_db(root / "db"))
+def golden(case: str) -> Path:
+    return CASES[case]
 
 
-@pytest.fixture(scope="module", autouse=True)
-def _update_golden(run: dict[str, Path]) -> None:
+@pytest.fixture(scope="module")
+def run(tmp_path_factory: pytest.TempPathFactory, golden_seed: int, case: str) -> dict[str, Path]:
+    root = tmp_path_factory.mktemp(f"m4_golden_{case}")
+    db = mc.test_db(root / "db")
+    if case == "sim100k_real":
+        import m4_real as mr
+
+        work = mr.giap_run(mr.sim100k(root / "sim"), root / "OUT", db, golden_seed)
+    else:
+        work = mc.build(root / "work", seed=golden_seed, size="sim50k")
+    out = mc.run_m4(work, golden_config(golden_seed), db)
     if os.environ.get("GIAP_UPDATE_GOLDEN") == "1":
-        GOLDEN.mkdir(parents=True, exist_ok=True)
-        for name, path in run.items():
-            shutil.copy(path, GOLDEN / name)
-        pytest.skip(f"golden files written to {GOLDEN}")
+        dest = CASES[case]
+        dest.mkdir(parents=True, exist_ok=True)
+        for name, path in out.items():
+            shutil.copy(path, dest / name)
+        pytest.skip(f"golden files written to {dest}")
+    return out
 
 
-def test_m4_tables_equal_the_committed_golden_files(run: dict[str, Path]) -> None:
+def test_m4_tables_equal_the_committed_golden_files(run: dict[str, Path], golden: Path) -> None:
     """Byte identity for every table but ``regions_stats.tsv`` (decision 9, next test)."""
-    missing = [n for n in mc.OUTPUT_TABLES if not (GOLDEN / n).is_file()]
-    assert not missing, f"golden files missing in {GOLDEN}: {missing}"
+    missing = [n for n in mc.OUTPUT_TABLES if not (golden / n).is_file()]
+    assert not missing, f"golden files missing in {golden}: {missing}"
     for name, path in sorted(run.items()):
         if name == "regions_stats.tsv":
             continue
-        want = GOLDEN / name
+        want = golden / name
         if path.read_bytes() != want.read_bytes():
             pytest.fail(
                 f"{name} differs from the golden file; first lines (n, want, got):"
@@ -105,11 +135,11 @@ def test_m4_tables_equal_the_committed_golden_files(run: dict[str, Path]) -> Non
 
 
 def test_regions_stats_equals_the_golden_file_up_to_the_lstsq_floats(
-    run: dict[str, Path],
+    run: dict[str, Path], golden: Path
 ) -> None:
     """Lead decision 9: ``NUMERIC_COLUMNS`` are compared with ``REL_TOL`` / ``ABS_TOL``, every
     other cell -- counts, p-values, q-values, methods, labels, flags -- byte for byte."""
-    want, got = mc.read(GOLDEN / "regions_stats.tsv"), mc.read(run["regions_stats.tsv"])
+    want, got = mc.read(golden / "regions_stats.tsv"), mc.read(run["regions_stats.tsv"])
     assert list(got.columns) == list(want.columns), "regions_stats header changed"
     assert len(got) == len(want), f"{len(got)} rows, golden has {len(want)}"
     exact = [c for c in want.columns if c not in NUMERIC_COLUMNS]
@@ -131,9 +161,9 @@ def test_regions_stats_equals_the_golden_file_up_to_the_lstsq_floats(
         )
 
 
-def test_the_golden_regions_stats_floats_are_not_all_na() -> None:
+def test_the_golden_regions_stats_floats_are_not_all_na(run: dict[str, Path], golden: Path) -> None:
     """The tolerance above must not be hiding an empty comparison."""
-    want = mc.read(GOLDEN / "regions_stats.tsv")
+    want = mc.read(golden / "regions_stats.tsv")
     for col in NUMERIC_COLUMNS:
         assert [v for v in want[col] if v not in NA], f"{col} is NA in every golden row"
 
@@ -149,19 +179,19 @@ def test_the_float_tolerance_accepts_ulps_and_nothing_larger() -> None:
     assert _close("NA", "NA") and not _close("NA", "0.5") and not _close("0.5", "")
 
 
-def test_the_golden_tables_are_not_vacuous(run: dict[str, Path]) -> None:
+def test_the_golden_tables_are_not_vacuous(run: dict[str, Path], golden: Path, case: str) -> None:
     """A golden of zeros would pass for ever without testing anything: the committed run must
     detect genes, test both planted regions and rerun both sensitivity variants."""
-    genes = mc.read(GOLDEN / "genes.tsv") if (GOLDEN / "genes.tsv").is_file() else None
-    assert genes is not None, f"{GOLDEN / 'genes.tsv'} is not committed"
+    genes = mc.read(golden / "genes.tsv") if (golden / "genes.tsv").is_file() else None
+    assert genes is not None, f"{golden / 'genes.tsv'} is not committed"
     detected = [v for v in genes["detection_status"] if v == "detected"]
     assert 0 < len(detected) < len(genes), f"{len(detected)} detected of {len(genes)}"
-    rs = mc.read(GOLDEN / "regions_stats.tsv")
-    assert set(rs["region_type"]) >= {"prophage", "amr"}
+    rs = mc.read(golden / "regions_stats.tsv")
+    assert set(rs["region_type"]) >= REGION_TYPES[case]
     assert any(v not in ("NA", "") for v in rs["p_value"]), "no region test ran"
-    ds = mc.read(GOLDEN / "detection_summary.tsv")
+    ds = mc.read(golden / "detection_summary.tsv")
     assert set(ds["section"]) >= {"tier", "basic", "detectability", "qc"}
-    sv = mc.read(GOLDEN / "sensitivity.tsv")
+    sv = mc.read(golden / "sensitivity.tsv")
     assert sorted(set(sv["variant"])) == ["missing=exclude", "missing=min"]
 
 
