@@ -1,3 +1,5 @@
 family	variant	n_primary	n_variant	n_shared	jaccard	agreement
 regions	missing=min	0	0	0	NA	NA
 regions	missing=exclude	0	0	0	NA	NA
+islands	missing=min	0	0	0	NA	NA
+islands	missing=exclude	0	0	0	NA	NA

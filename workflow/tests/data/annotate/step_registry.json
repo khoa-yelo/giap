@@ -398,7 +398,8 @@
       "gene_table",
       "region_genes",
       "regions",
-      "replicons"
+      "replicons",
+      "tus"
     ],
     "optional_inputs": [],
     "outputs": [
