@@ -9,7 +9,7 @@ the origin of a circular replicon is flagged ``vcf_unrepresentable`` and gets no
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from functools import cache
 from itertools import product
 from typing import Any
@@ -34,10 +34,11 @@ VARIANTS_COLUMNS: tuple[str, ...] = (
     "alt_aa", "alt_type", "call", "confidence", "n_ref", "n_alt", "nt_changes", "alt_codon_vcf",
     "class_error_rate", "class_error_n", "source", "flags",
 )  # fmt: skip
-VARIANT_FLAGS: frozenset[str] = frozenset({
+_FLAG_ORDER: tuple[str, ...] = (
     "mass_equivalent", "snv", "multi_nt", "strain_difference", "database_derived",
     "start_codon", "stop_codon", "vcf_unrepresentable",
-})  # fmt: skip
+)  # fmt: skip
+VARIANT_FLAGS: frozenset[str] = frozenset(_FLAG_ORDER)
 UNESTIMATED = "unestimated"
 
 _F = VcfHeaderField
@@ -92,7 +93,13 @@ def _flags(v: object) -> tuple[str, ...]:
     bad = sorted(set(items) - VARIANT_FLAGS)
     if bad:
         raise ValueError(f"flags outside the Variants vocabulary (§9.4): {bad}")
-    return tuple(sorted(set(items)))
+    return _ordered(items)
+
+
+def _ordered(items: Iterable[str]) -> tuple[str, ...]:
+    """Deduplicated flags in the §9.4 order (M7-05 rule 7)."""
+    seen = set(items)
+    return tuple(f for f in _FLAG_ORDER if f in seen)
 
 
 def _class_err(v: object) -> str:
@@ -131,7 +138,7 @@ def _record(rows: list[dict[str, Any]], ref: str, pos0: int, dp: int) -> VcfReco
         "NT_CHANGES": [int(r["nt_changes"]) for r in rows],
         "ALT_TYPE": [str(r["alt_type"]) for r in rows],
     }
-    flags = sorted({f for r in rows for f in r["flags"]})
+    flags = list(_ordered(f for r in rows for f in r["flags"]))
     if flags:
         info["FLAGS"] = flags
     info["CLASS_ERR"] = [str(r["class_error_rate"]) for r in rows]
@@ -171,7 +178,7 @@ def vcf_records(
         low = codon if strand == "+" or width == 3 else codon - 3
         low = low % rep.length if rep.topology == "circular" else low
         if low + width > rep.length:
-            row["flags"] = tuple(sorted({*row["flags"], "vcf_unrepresentable"}))
+            row["flags"] = _ordered((*row["flags"], "vcf_unrepresentable"))
             continue
         gene_alt = "".join(c for c, _ in cods)
         row["alt_codon_vcf"] = _rc(gene_alt) if strand == "-" else gene_alt
