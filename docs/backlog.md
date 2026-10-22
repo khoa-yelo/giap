@@ -104,6 +104,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   eligible gene gets the picked-FDR floor q = 1/85 = 0.0118 > `stats.alpha.identification` = 0.01.
   An 87-gene genome cannot reach the identification alpha at all — the statistician should say
   whether the MVP evidence run needs a bigger genome, a different tier or a flag.
+  *Khoa (2026-10-22): flag it.* The `tier` row `q_floor` = 1/T and the warning `q_floor_above_alpha`;
+  q and alpha unchanged (fix/q-floor-flag).
 - MVP-01 pass 2: `detect` (M4-12) builds tier and q-threshold curve rows, but `gene_table` has no
   diagnostics output key, so those rows never reach `tables/detection_summary.tsv` (only the
   basic / qc / detectability sections are there).
