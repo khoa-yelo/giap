@@ -222,6 +222,22 @@
     "date": "2026-10-21",
     "issue": "M6-04"
   },
+  "align_hits_100k_tolerant": {
+    "benchmark": "benchmarks/test_align_bench.py::test_align_hits_100k_tolerant_budget",
+    "source": "docs/specs/M7-01-residue-alignment.md acceptance (100,000 tolerant hits < 30 s, 1 CPU)",
+    "hits": 100000,
+    "budget_s": 30.0,
+    "secs": 11.35,
+    "cpus": 1,
+    "threads": 1,
+    "node": "wheat-08",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "slurm_job": 1864766,
+    "commit": "bd2d854",
+    "date": "2026-10-21",
+    "issue": "M7-01",
+    "note": "timed align_hits call only (genome and hit generation and the numba warm-up excluded); whole subprocess 23.5 s"
+  },
   "missed_operons_20k_targets_20k_decoys": {
     "benchmark": "benchmarks/test_missed_operons_bench.py::test_missed_operons_20k_targets_20k_decoys_budget",
     "source": "docs/specs/M6-06-missed-operons.md acceptance (20,000 NO pairs + 20,000 decoys < 2 s)",
