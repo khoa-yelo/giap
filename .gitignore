@@ -10,3 +10,4 @@ htmlcov/
 .nextflow*
 .nf-test*
 /logs/
+.coverage.*
