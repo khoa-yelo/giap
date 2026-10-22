@@ -17,6 +17,7 @@
     "operon_pairs": null,
     "promoters": null,
     "rbs": null,
+    "rbs_novel": null,
     "regions": null,
     "terminators": null,
     "tx_rates": null

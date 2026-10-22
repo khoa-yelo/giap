@@ -117,3 +117,23 @@ def null_p(X, y, tu, folds_rep1: I64, observed_mean_r2: Mapping[str, float],
    The spec's "candidates for regulation or stability" fits both directions.
 3. Ribosomal genes "reported separately": rows in `determinants_attribution.tsv` with
    `cai_reference` and predictions from models that never saw them (proposed), or no rows at all?
+
+## Lead decisions (2026-10-21)
+
+1. **Q1:** every permutation's null refits reuse the repeat-1 folds, as proposed. The null is then conditional on the folds, the same folds the observed R² uses. The statistician reviews this; fresh folds per permutation are recorded as a pass-2 sensitivity option.
+2. **Q2:** the residual flag is two-sided, |r| > 2 SD, as proposed. The row's sign says which direction.
+3. **Q3:** ribosomal genes get rows with the `cai_reference` flag, predicted by models that never saw them, as proposed.
+4. **Stacking:** the branch m8/attribution is stacked on m8/models (#166).
+5. **The test author's choices (commits 3b6b895 and 35de63b) are accepted as the contract.** They are written out in tests/helpers/determinants_attrib_data.py:
+   - **`tu_size_blocks`:** ascending sizes, TUs by ID, input row order within a TU.
+   - **`null_p`:**
+     - fits only the models named in `observed_mean_r2`;
+     - returns `NullResult`;
+     - child seeds come from `SeedSequence([seed, crc32("determinants.null")]).spawn(B)`, independent of B;
+     - each permutation's R² equals `cross_validate` on the repeat-1 folds with `tu=`;
+     - every TU size unique gives p = 1 and `null_degenerate`.
+   - **`shap_blocks`:** boosters taken as `boosters[r*K + k]`, ribosomal rows through `extra=`, elastic net raises.
+   - **`attribution_table`:** §9.3 columns, with `cv=None` for the < 100-row case.
+   - **Undetected ribosomal genes** get no rows in pass 1.
+   - **Residual SD:** 0 means exactly 0.
+6. **ADR-0033** makes the elastic-net ΔR² the primary attribution. SHAP stays a LightGBM output with a caveat in the methods note. M8-08 decision 7 (randomised-greedy folds, univariate `ci_unestimated`) is merged into this branch.

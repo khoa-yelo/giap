@@ -84,7 +84,8 @@ def _assert_law(t, ex) -> None:  # type: ignore[no-untyped-def]
 
 
 def test_tilt_pair_signature_and_return_types() -> None:
-    assert list(inspect.signature(tilt_pair).parameters) == ["p", "total"]
+    # M8-04b decision 12 adds a keyword-only comp=None after the two positional parameters
+    assert list(inspect.signature(tilt_pair).parameters)[:2] == ["p", "total"]
     q = np.array([0.2, 0.5, 0.7])
     out = tilt_pair(q, 1)
     assert isinstance(out, tuple) and len(out) == 2
