@@ -3,7 +3,8 @@
 Implements `giap.stats.wallenius` and `giap.function.elim` (GIAP_SPEC.md §7.7.3, §7.7.5, §8.1 row
 "Category detection", §8.2, §8.3; issue M8-01, docs/specs/M8-01-stats-wallenius-elim.md, lead
 decisions 1–4; M8-index lead decision 5). The families, the effect size and `parent_group` are
-M8-04's ("Detection enrichment", still to be written). The `ora` suite and attack 2 are M8-15's.
+M8-04's: see "Detection enrichment" below, which replaces the Wallenius p with the TU-counted
+conditional Poisson-binomial (ADR-0029). The `ora` suite and attack 2 are M8-15's.
 
 **Status:** statistician review of #153 (2026-10-21). The primitives are **approved as
 implemented**. The **method is not yet approved as a calibrated test**: the mean-odds Wallenius
@@ -286,3 +287,419 @@ They compute what the spec defines:
 - M8-04: the O − E CI, or the CPB log-odds CI.
 - M8-13: the far-tail precision and `p = 0` below ~1e-14.
 - Khoa, by ADR: replace the ORA p with the conditional Poisson-binomial; make ORA TU-aware.
+
+## Detection enrichment
+
+Implements `giap.function.ora`, `giap.function.summary` and `tilt_pair(comp=)` in
+`giap.stats.poisson_binomial` (GIAP_SPEC.md §7.7.2, §7.7.3, §8.1 row "Category detection", §8.2;
+issue M8-04, docs/specs/M8-04-category-summary-ora.md, lead decisions 1–13; ADR-0029, ADR-0035).
+Outputs: the rows of `enrichment_detection.tsv` and `category_summary.tsv` (§9.3).
+
+**Status:** PR #179. The statistician's review blocked it (B1–B6); decision 13 answers each point,
+and the re-check lifted the block. Statistician sign-off: given (#179 re-check of 2026-10-22, after
+edits M1–M6). Every ORA row carries `ora_uncalibrated` (see "Pass-1 limit").
+
+### The unit: TUs
+- **Eligible genes** are the non-partial genes. Only they count, for q and for detection.
+- **Universe U:** the TUs with ≥ 1 eligible gene, in natural TU-ID order. Results do not depend on
+  the input row order.
+- **Detection:** TU t is detected (d_t = 1) when any of its eligible genes is detected.
+- **Membership rule (decision 1):** TU t is in category C when any of its eligible genes is in C.
+  The rule runs over all eligible genes, never over the detected ones, so membership cannot depend
+  on the response.
+- **Partial membership dilutes.** A TU with one member gene counts as one unit of C, and it may be
+  detected through a gene outside C. This costs power, not level. Its power (spec arm 7) is owed.
+- **Size filter (decision 6):** n = |C| counted in TUs must lie in `function.ora_size` ([5, 500],
+  both ends included). A term outside it writes no row and does not enter elim. Under elim the
+  filter applies to the full TU set; a term reduced below 5 TUs is still tested.
+- **Count columns are in TUs:** `n_universe`, `n_in_set`, `n_detected`, `k_detected_in_set`.
+  `n_in_set_genes` and `k_detected_in_set_genes` are the gene counts behind `p_classic`.
+- **Fail closed (decision 13):** an eligible gene with a NaN `p_detect`, a `p_detect` outside
+  [0, 1], or no `tu_id` raises `ValueError` naming the locus tags. So does a TU missing from a
+  non-empty `folds` mapping.
+
+### The statistic and the null
+- **Statistic:** k = the detected TUs in C (`stat`).
+- **Null:** the TUs are independent, and TU t is detected with probability q_t. The test is the
+  law of K = Σ_{t∈C} d_t given S = Σ_{t∈U} d_t = N (the conditional Bernoulli law):
+
+  P(K = j | N) = PB_C(j) · PB_Ū(N − j) / Σ_i PB_C(i) · PB_Ū(N − i),
+
+  where PB_A is the Poisson-binomial pmf of the q_t in A and Ū = U ∖ C.
+- **Tails:** p_over = Σ_{j ≥ k} P(K = j | N) and p_under = Σ_{j ≤ k} P(K = j | N). Both include k
+  and both are sums of non-negative terms, never 1 − cdf.
+
+**Computation (exact; no approximation, no Monte Carlo).**
+1. **Truncated DP.** The convex-combination recurrence pmf[j] ← pmf[j](1 − q) + pmf[j − 1] q,
+   numba-compiled and stopped at the highest index read. PB_C runs to min(|C|, N); PB_Ū is
+   computed only on the band that the support reads.
+2. **Tilt, once per run.** `tilt_pair(q, N, comp=)` multiplies every TU odds q/(1 − q) by one
+   factor e^θ, with θ solving Σ_t expit(logit q_t + θ) = N. The solver is Newton with a bisection
+   guard; it targets |Σ − N| ≤ 1e-13 N, inside the spec contract of 1e-9 N.
+   - The logit is log q − log comp, and the tilted complement is expit(−(logit q + θ)). Neither
+     is ever re-derived as 1 − q, so a TU with q that rounds to 1.0 keeps its complement
+     (decision 11).
+   - q = 0 and comp = 0 stay exact. Every open entry stays ≥ the smallest normal double, so an
+     open TU is never treated as certain.
+   - **The tilt is numerics only.** It puts the mass of PB_Ū near the indices that are read, so no
+     weight underflows. The conditional law is invariant to a common odds factor, so the tilt does
+     not change the p.
+   - **Conditioning on N cancels only a common TU-level odds factor** (ADR-0035). A mis-scaling of
+     q that varies with TU size, with q itself or with the category does not cancel. That is why q
+     is recalibrated (next subsection).
+3. **Support-sum normalisation.** The weights PB_C(j) · PB_Ū(N − j) are normalised by their sum
+   over the support, not by a separate PB_U(N). This saves a DP and makes the tails sum to 1 by
+   construction. A zero or non-finite sum raises `ValueError`.
+4. **p domain (decision 13, review B1).** The numerator and the support sum can round apart by one
+   ulp, which gave p = 1 + 2⁻⁵² and aborted BH: 663 of 4,000 strongly under-detected categories,
+   and 120 of 3,000 replicates of 4b at c = 3.5. Both tails are now clamped to [0, 1], in the
+   primitive and again before BH (test: tests/unit/function/test_ora_pvalue_domain.py).
+
+**Precision contract** (tests/unit/stats/test_conditional_poisson_binomial.py: enumeration for
+T ≤ 14 units, a `Fraction` DP for T ≤ 60):
+
+| input | tails ≥ 1e-300, and the mean | smaller tails |
+|---|---|---|
+| untilted q | relative 1e-12 of the exact rational value | the float underflow: ≥ 0, never NaN |
+| `tilt_pair` output with its complements | relative 1e-11 of the untilted exact law, including q within 1e-15 of 1 and θ > 0 | the same |
+
+A tail of 0.0 is reachable only below about 1e-300, far below the ~1e-14 floor of scipy's
+Wallenius pmf ("Far-tail precision" above).
+
+### TU detection probability
+**Clipping (decision 12).** For the null only, p̂ is clipped to [1e-12, 1 − 1e-12]. Exact 0 and 1
+from M4-13 are therefore never treated as certain.
+- The run, and every row whose full TU set holds a TU with a moved gene, gets `p_detect_clipped`.
+- `expected` in `category_summary` and the Wallenius `odds_weight` / `p_classic` use the unclipped
+  p̂. The difference is ≤ 1e-12 per gene (statistician, #179 review).
+
+**Raw q.** Per TU, log_comp = Σ log1p(−p̂) over its eligible genes and q_raw = −expm1(log_comp)
+= 1 − ∏(1 − p̂) (ADR-0029).
+- q_raw assumes that the genes of a TU are detected independently given p̂.
+- Shared abundance makes co-detection positive, so q_raw overstates q for multi-gene TUs, and more
+  so for larger TUs.
+- The ADR-0035 attack gave p̂ as the exact gene marginal over a shared TU effect of strength c.
+  Before recalibration, the rejection rates were (3,000 p per cell; bounds 0.0136 / 0.058; Slurm
+  1867453, 1867454):
+
+| scenario | categories | tail | α 0.01 | α 0.05 |
+|---|---|---|---|---|
+| c 1.5 | large TUs | under | 0.107 | 0.248 |
+| c 1.5 | single-gene TUs | over | 0.019 | 0.079 |
+| c 2.5 | large TUs | under | 0.278 | 0.490 |
+| c 2.5 | single-gene TUs | over | 0.044 | 0.143 |
+| c 0, gene-level p̂ intercept +0.5 | large TUs | under | 0.0137 | 0.067 |
+
+**Recalibration (ADR-0035, decision 12).**
+- **Model:** d_t ~ Bernoulli(expit(β₀ + β₁ logit q_raw,t + β₂ log n_t)), where n_t is the number
+  of eligible genes in TU t. The log n term is dropped when every training TU has the same size.
+- **Cross-fitting:** for each of M4-13's TU folds (`fold_of_tu`), the model is fitted on the TUs
+  of the other folds and predicts the held-out fold. A TU's own detection never enters its q.
+- **Output:** η = x·β̂, then q = expit(η) and comp = expit(−η), each computed directly. These
+  pairs are what the tilt and the conditional law receive.
+- **Leakage left:** cross-fitting does not remove own-category leakage when a category is a large
+  share of a covariate stratum. In the statistician's worlds this was only conservative (a power
+  loss).
+
+**Fit (decision 13, review B4).**
+- An unpenalised logistic MLE by Newton, started at (0, 1, 0), the identity on logit q.
+- **Damped:** each step is halved until the log-likelihood does not decrease beyond rounding
+  noise (relative 1e3 · ε), up to 60 halvings.
+- **Converged** when the full Newton step is below 1e-10 in every coordinate, within 50
+  iterations.
+- **The noise slack cannot fake convergence.** Convergence is tested on the full Newton step
+  H⁻¹g at the current iterate, which is a stationarity test. A concave log-likelihood has exactly
+  one stationary point, the MLE. The slack can only let a near-optimal step through, or use up
+  iterations and end in a skipped fit; it cannot stop the fit away from the MLE.
+- **Checked against scipy** (statistician re-check at c1e3ca0, `$GIAP_ROOT/stat/m804b/recheck/`
+  `newton_check.py`, `newton_summary.txt`): 9 worlds × 40 seeds × 5 folds = 1,800 fits against
+  scipy `trust-exact` plus Newton polishing. 0 fits failed. Max |Δβ| was 5.3e-15, and the max
+  gradient at the returned β was 9.7e-13. The slack branch was taken in 74 folds, and every one
+  ended at the reference MLE. Complete separation, quasi-separation and a collinear design return
+  no fit, so the fit is skipped (`newton_adversarial.py`).
+- Before decision 13 the full-step Newton diverged where the MLE exists: 2,898 of 3,000 replicates
+  of the 4b + 4c world (c = 2.5, a = +0.5, b = 0.8). Each fell back to the raw q, where large-TU
+  under rejected 0.49 at α 0.01.
+- **Tests:** tests/unit/function/test_ora_recal_convergence.py (the divergent case) and
+  test_ora_recal_oracle.py (an independent scipy fit per fold, to 1e-8 relative, including a case
+  where the size term matters).
+
+**Skipped fit (`tu_recal_skipped`).** The fit is skipped, and q = q_raw with comp = exp(log_comp),
+when any of these holds:
+- `folds` is None or empty. `folds` is a required keyword, so this is the caller's explicit choice
+  (it is the path of M4-13's constant model);
+- a fold's training TUs have fewer than 10 detected or fewer than 10 undetected TUs;
+- the Hessian is singular or a step is non-finite;
+- 60 halvings find no increase, or 50 iterations do not converge.
+
+The run flag and every row get `tu_recal_skipped` (review B3).
+- **How often:** at c1e3ca0, 0 of 2,000 replicates skip in any tested world, deep coverage
+  included (Slurm 1867941, 1867942).
+- **Why the flag matters:** a raw-q fallback over-rejects. At 3f82e0f the undamped Newton diverged
+  in 417 of 3,000 deep-coverage replicates (eta0 = +1.5, about 75 % of genes detected) and fell
+  back to the raw q. There, large-TU under rejected 0.45 at α 0.01, and the ~200-TU categories
+  0.98 (raw q, 3f82e0f). The statistician's first review attributed those skips to `MIN_CLASS`;
+  the re-check corrected this.
+- **A skipped run keeps `ora_uncalibrated` even after the pass-1 flag is lifted.**
+
+### Tests per term: directions, elim and BH
+Every tested term gives one row per direction, `over` and `under`.
+
+| column | what it is | unit | elim | enters BH |
+|---|---|---|---|---|
+| `p_value` | CPB tail of the tested TU set (elim-reduced for GO `over`, else the full set) | TUs | GO `over` only | yes |
+| `p_noelim` | CPB tail of the full TU set | TUs | no | no |
+| `p_classic` | M8-01 mean-odds Wallenius tail on the full gene set | genes | no | no |
+
+**elim over TU sets (decision 2).**
+- **Scope:** `go_bp`, `go_mf` and `go_cc`, direction `over` only. Everywhere else (`under`, `cog`,
+  `kegg`, `go_slim`) `p_value = p_noelim`.
+- **Walk:** M8-01's walker, fed TU index sets. A term is tested on its remaining TUs against
+  U ∖ remaining, with the run's N and tilt.
+- **Removal:** a term whose elim p_over is strictly below 0.01 removes the TUs it was tested on
+  from every ancestor that passed the size filter.
+- **Why TUs, not genes:** removing genes would leave a shared TU in the ancestor and count the
+  same detection event twice (spec example 7).
+- **Empty remainder:** `p_value` NA, flags `unestimated;elim_empty`; `p_noelim` and `p_classic`
+  are kept.
+- **Evidence** (statistician, `$GIAP_ROOT/stat/m804b/probe_elim.py` and `elim.log`, 12,000
+  parents, R = 600): the elim test, with N fixed, is conservative relative to the exact law that
+  also conditions on the removed child's count. Rates at α 0.01 / 0.05 / 0.10:
+
+| world | elim `p_value` | `p_noelim` | bound |
+|---|---|---|---|
+| global null | 0.0048 / 0.031 / 0.070 | 0.0065 / 0.036 / 0.076 | 0.0118 / 0.054 / 0.1055 |
+| one planted child per parent (logit +3, child power 0.67) | 0.0008 / 0.0073 / 0.019 | 0.0093 / 0.056 / 0.117 | same |
+
+- **R4 label:** "BH on elim p; conditional on removing elim-significant descendants; FDR control is
+  empirical."
+
+**BH (decision 5).** One family per (collection, direction), on `p_value`, with `giap.stats.bh`.
+- A NaN p stays out of its family and the row gets `unestimated`.
+- `p_classic` and `p_noelim` are never adjusted.
+
+**`parent_group` (GO only).** For a row with `q_value ≤ stats.alpha.enrichment` it is the most
+general significant ancestor in the same direction and namespace (by depth, ties by ID), or the
+term's own ID if it has none. Otherwise it is NA.
+
+**Why Wallenius stays only as `p_classic` (ADR-0029).**
+- Mean-odds Wallenius fails the §8.4 ORA null and attack 2 ("The approximation and the attack it
+  implies" above).
+- It is kept, on genes, for goseq parity (M8-13).
+- If it fails closed, `p_classic` is NA with `odds_out_of_range`; the CPB columns stand.
+
+### Effect size
+- `effect` = k − E[K | N] for the tested TU set (the full set, or the elim-reduced one), in TUs.
+  It is the mean of the same conditional law as the p.
+- A positive effect means more detected TUs than expected given N.
+- `ci_low` and `ci_high` are NA and every row carries `ci_unestimated` (decision 6, the accepted
+  Q6 pass-1 waiver).
+- It is not the gene-level O − E of `category_summary`.
+
+### Degenerate cases
+
+| situation | behaviour |
+|---|---|
+| C covers every TU of U | not a test: `p_value`, `p_noelim` NA, `unestimated`, out of BH |
+| N = 0, or N = \|U\| | one-point support; every p = 1 |
+| all q equal | the central hypergeometric on TUs |
+| `detectability_constant` from M4-13 | ω = 1 for `p_classic`, but q still grows with TU size, so the TU null is not hypergeometric |
+| an undetected TU with comp = 0, or a detected TU with q = 0 | the observation has probability 0 (`null_degenerate`): every row of the run has `p_value` NA with `unestimated;null_degenerate`, plus the run flag and one `UserWarning`. Reachable when comp underflows (see "Hardening owed") |
+| a tail of 1 + ulp | clamped to [0, 1] |
+| `p_detect` exactly 0 or 1 | clipped; `p_detect_clipped` |
+| NaN `p_detect`, `p_detect` outside [0, 1], no `tu_id`, a TU without a fold | `ValueError` naming them |
+| ω undefined or out of range | `odds_weight`, `p_classic` NA; `odds_out_of_range` |
+| elim empties a term | `elim_empty` (above) |
+
+### Calibration evidence
+Bounds are the §8.4 pooled bound α + 2√(α(1 − α)/(R·m)), where m is the number of categories per
+replicate. The categories are negatively dependent given N, so pooling is conservative.
+
+**A. Committed arms, fast tier (R = 100), after decision 13.** These are the last records of each
+stream in `local/logs/calibration/ora.jsonl` of the m8-ora worktree. The records carry no commit
+or job ID. Linking them to Slurm 1867928 at 48019fc (370 passed) is an inference: the file's mtime
+(09:52) lies inside that job's window (09:43–09:58). They are smoke tests, not level claims. The
+fast tier does not resolve 4b or 4f: 4f passes here (0.011 against 0.0163 at α 0.01) but fails at
+R = 2,000 (below). Rates are at α 0.01 / 0.05 / 0.10.
+
+| arm | cell | over | under | bound |
+|---|---|---|---|---|
+| CPB pair, base (m = 20) | q ~ Beta(1.2, 2.5), q-rank blocks | 0.0065 / 0.0315 / 0.0615 | 0.0030 / 0.0155 / 0.0425 | 0.0144 / 0.0597 / 0.1134 |
+| CPB pair, tilt stress (m = 20) | odds × e⁻⁸, 5 % of units at q = 1.0 in float | 0.0035 / 0.027 / 0.065 | 0.0045 / 0.020 / 0.047 | same |
+| TU-ORA null (m = 10) | 15 whole TUs | 0.004 / 0.029 / 0.060 | 0.003 / 0.023 / 0.056 | 0.0163 / 0.0638 / 0.119 |
+| TU-ORA null | 40 random genes | 0.003 / 0.032 / 0.062 | 0.007 / 0.030 / 0.065 | same |
+| 4b, c = 1.5 | large TUs | 0 / 0.017 / 0.035 | 0.006 / 0.044 / 0.094 | same |
+| 4b, c = 1.5 | single-gene TUs | 0.002 / 0.027 / 0.049 | 0.005 / 0.029 / 0.071 | same |
+| 4b, c = 2.5 | large TUs | 0 / 0.014 / 0.032 | 0.015 / 0.057 / 0.104 | same |
+| 4b, c = 2.5 | single-gene TUs | 0.006 / 0.023 / 0.045 | 0.007 / 0.037 / 0.080 | same |
+| 4c, a = ±0.5 | large, single, random | every cell passes; the highest at α 0.01 is 0.009 (a = −0.5, single, under) | | same |
+| 4f, c = 2.5, deep coverage | large TUs | 0 / 0 / 0 | 0.011 / 0.060 / 0.104 | same |
+
+The same run fails 4d and 4e in both blocks of 100:
+- **4d** (high-q ≥ 4-gene TUs, c = 1.5, m = 5), under: 0.032 and 0.028 at α 0.01 (bound 0.0189),
+  0.120 and 0.102 at α 0.05 (0.0695), 0.218 and 0.180 at α 0.10 (0.1268).
+- **4e** (all ≥ 4-gene TUs in two halves, c = 1.5, m = 2), under: 0.040 and 0.035 (0.0241), 0.150
+  and 0.100 (0.0808), 0.280 and 0.160 (0.1424). The ≥ 2-gene thirds (m = 3), over, at α 0.10:
+  0.153 and 0.127 against 0.1346, unconfirmed.
+
+These tests pass only because every row carries `ora_uncalibrated` (the ADR-0034 fallback).
+
+The teeth passed in the same job: the TU hypergeometric on gene categories, the raw q on 4b large
+under, and the unweighted CPB on q-rank blocks. Their rates are not logged; owed.
+
+The implementer's first log (Slurm 1867826 at dcce9e7, R = 100, 15 of 15 passed) had 4b c = 2.5
+large under at 0.015 against 0.0163. That R does not resolve the cell.
+
+**B. Resolving runs (statistician, #179 review).** Files are in `$GIAP_ROOT/stat/m804b/`
+(`probe.py`, `repo_arm.py`, `summ.py`, `res_*.jsonl`). The PR model was at 3f82e0f, before the
+damped Newton, in Slurm 1867861, 1867862 and 1867888 (R = 3,000). Every cell also carries the
+oracle q (the exact TU marginal, same detections), which is at level in every cell below. The
+conditional law is sound; the failure is the misfit of the 3-parameter recalibration.
+
+4b, c = 2.5, large TUs, under, on the repo's own arm and seeds (`repo_arm.py`):
+
+| block | R | α 0.01 | α 0.05 | α 0.10 | bound |
+|---|---|---|---|---|---|
+| 1 (replicates 0–999) | 1,000 | 0.0140 | 0.0555 | 0.1082 | 0.0120 / 0.0544 / 0.1060 |
+| 2 (replicates 1,000–1,999) | 1,000 | 0.0130 | 0.0587 | 0.1098 | same |
+| probe | 3,000 | 0.0130 | 0.0576 | 0.1104 | 0.0111 / 0.0525 / 0.1035 |
+| probe, c = 3.5 | 3,000 | 0.0113 | 0.0552 | 0.1086 | same |
+
+This is a confirmed fail in both ADR-0015 blocks.
+
+The other recalibrated cells at R = 3,000, at α 0.01 / 0.05 / 0.10:
+
+| arm | cell | rate | bound |
+|---|---|---|---|
+| 4d | high-q ≥ 4-gene TUs, c = 1.5, under | 0.030 / 0.108 / 0.193 | 0.0117 / 0.054 / 0.105 |
+| 4e | all ≥ 4-gene TUs in halves (~115 TUs), c = 1.5, under | 0.023 / 0.114 / 0.212 | 0.0126 / 0.056 / 0.108 |
+| 4e | the same, c = 2.5, under | 0.030 / 0.143 / 0.256 | same |
+| 4e | all ≥ 2-gene TUs in thirds (~200 TUs), c = 1.5, over | 0.015 / 0.069 / 0.135 | 0.0121 / 0.055 / 0.106 |
+| 4e | the same, c = 2.5, over | 0.018 / 0.086 / 0.167 | same |
+| 4f | deep coverage, c = 2.5, large, under (at c1e3ca0 every replicate is fitted; R = 2,000, re-check below) | 0.0177 / 0.0692 / 0.1270 | 0.0120 / 0.0544 / 0.1060 per block |
+| — | co-detection by TU size (c = 3 for ≥ 4 genes, 0.5 otherwise), large, under | 0.075 / 0.212 / 0.321 | 0.0111 / 0.0525 / 0.1035 |
+| 4c | a = +0.5, large, under | 0.0057 / 0.0336 / 0.0656 | 0.0111 / 0.0525 / 0.1035 |
+| 4c | a = −0.5, large, under | 0.0028 / 0.0186 / 0.0439 | same |
+
+- 4c was at level in every recalibrated cell of both signs (`res_4c_a±0.5.jsonl`).
+- The 4e c = 1.5 rows and the 4c rows are from `summ.py` on `res_4b_c1.5.jsonl` and
+  `res_4c_a±0.5.jsonl`; the others are quoted in the review.
+- In these worlds the old fit never diverged (0 skipped), so the damped Newton reaches the same
+  MLE and the rates carry over. The re-check confirms this: its 4b, 4d, 4e and csize rates match.
+- The 4b + 4c combination world skipped 2,898 of 3,000 at 3f82e0f. With the damped fit it is
+  measured in the re-check below, and it fails.
+
+**B′. Re-check at c1e3ca0 (statistician; `$GIAP_ROOT/stat/m804b/recheck/summ_blocks.txt`, Slurm
+1867941, 1867942).** R = 2,000 per world, split into the ADR-0015 blocks 0–999 and 1,000–1,999.
+0 replicates skipped in any world. These are the fallback-free p, with the flag ignored. A cell
+fails when it is above the bound in both blocks. The oracle q is at level in every cell of all 13
+worlds.
+
+| world | cell | block 1 | block 2 | bound (per block) |
+|---|---|---|---|---|
+| 4b c 2.5 (repo arm, its own seeds) | large, under | 0.0140 / 0.0555 / 0.1082 | 0.0130 / 0.0587 / 0.1098 | 0.0120 / 0.0544 / 0.1060 |
+| 4b c 2.5 (probe) | large, under | 0.0135 / 0.0586 / 0.1103 | 0.0129 / 0.0595 / 0.1118 | same |
+| 4b c 3.5 | large, under | 0.0120 / 0.0525 / 0.1060 | 0.0108 / 0.0591 / 0.1113 | same (borderline) |
+| 4d (4b c 1.5) | large_hiq, under | 0.0299 / 0.1075 / 0.1956 | 0.0301 / 0.1118 / 0.1979 | 0.0129 / 0.0564 / 0.1089 |
+| 4b c 2.5 | large_hiq, under | 0.0430 / 0.1428 / 0.2271 | 0.0409 / 0.1523 / 0.2403 | same |
+| 4e (4b c 1.5) | big_large, under | 0.0235 / 0.1215 / 0.2195 | 0.0260 / 0.1175 / 0.2135 | 0.0144 / 0.0597 / 0.1134 |
+| 4e (4b c 1.5) | big_multi, over | 0.0163 / 0.0723 / 0.1340 | 0.0107 / 0.0610 / 0.1293 | 0.0136 / 0.0580 / 0.1110 (fails at 0.05 and 0.10) |
+| 4b c 2.5 | big_large, under | 0.0280 / 0.1365 / 0.2510 | 0.0360 / 0.1405 / 0.2550 | 0.0144 / 0.0597 / 0.1134 |
+| 4f deep (eta0 +1.5) | large, under | 0.0184 / 0.0700 / 0.1278 | 0.0171 / 0.0684 / 0.1263 | 0.0120 / 0.0544 / 0.1060 |
+| 4f deep | loq_any, under | 0.0250 / 0.1000 / 0.1700 | 0.0224 / 0.0974 / 0.1792 | 0.0128 / 0.0562 / 0.1085 |
+| 4f deep | big_multi, over | 0.0170 / 0.0827 / 0.1633 | 0.0157 / 0.0877 / 0.1677 | 0.0136 / 0.0580 / 0.1110 |
+| combo (4b + 4c), damped fit | large, under | 0.0168 / 0.0750 / 0.1336 | 0.0206 / 0.0776 / 0.1381 | 0.0120 / 0.0544 / 0.1060 |
+| combo | large_hiq, under | 0.0807 / 0.2202 / 0.3219 | 0.0810 / 0.2165 / 0.3207 | 0.0129 / 0.0564 / 0.1089 |
+| csize (c 3 for ≥ 4 genes, 0.5 otherwise) | large, under | 0.0743 / 0.2116 / 0.3181 | 0.0788 / 0.2144 / 0.3249 | 0.0120 / 0.0544 / 0.1060 |
+| small genome (800 genes) | hiq_any, under | 0.0140 / 0.0840 / 0.1475 | 0.0175 / 0.0795 / 0.1530 | 0.0144 / 0.0597 / 0.1134 (fails at 0.05 and 0.10) |
+
+At level in both blocks: the null; 4c at a = ±0.5 (every cell); slope b = 1.4; the random
+whole-TU and single-gene categories in every world.
+
+**C. Flexible comparator (statistician; `probe_flex.py`, Slurm 1867892, 1867900, R = 3,000).**
+- **Model:** a cross-fitted logistic on [1, logit q_raw, 4 quantile hinges of logit q_raw, a size
+  one-hot {2, 3, 4, 5–6, 7+}, logit q_raw × log n], with ridge 1e-4 on the non-intercept terms.
+- **Result:** at level in every cell of all 8 worlds: 4b at c = 1.5 and 2.5, the combination, the
+  size-dependent c, deep coverage (including the 417 replicates in which the old undamped fit diverged at 3f82e0f), low detection and
+  a small genome.
+- **Examples:** 4b c = 2.5 large under 0.0053 / 0.0303 / 0.0623; the high-q cells 0.003 / 0.023 /
+  0.052. The large categories are conservative.
+
+### Pass-1 limit (decision 13; ADR-0035 decision 3)
+- **Every ORA row carries `ora_uncalibrated`** (`CALIBRATION_FLAGS`).
+- **Why:** arm 4b (c = 2.5, large TUs, under) fails at R = 1,000 in both blocks (0.0140 and
+  0.0130 against 0.0120 at α 0.01). Its close variants 4d–4f fail by more, and so does the
+  size-dependent co-detection world. These are routine category kinds within [5, 500]: high-q
+  operons (ribosome-like), and categories of 100–200 multi-gene TUs.
+- **What holds:** the conditional law is exact for the q it is given (oracle-q cells at level;
+  precision contract). 4c and the random whole-TU and random-gene categories are at level.
+- **What fails:** q itself, through the misfit of the 3-parameter recalibration (re-check table
+  B′). It is anti-conservative for:
+  - under-detection of large or high-q TU sets;
+  - under-detection of low-q TU sets at deep coverage (`loq_any`, 0.024 at α 0.01);
+  - over-detection of large multi-gene categories (`big_multi` over, 0.016 to 0.026 at α 0.01);
+  - high-q categories in a small genome (800 genes).
+
+  Any category selected on TU size or on q is at risk. Only the random whole-TU and single-gene
+  categories were at level in every world. The conditional law itself is still sound: the oracle
+  q is at level in every cell.
+- **Consequence:** the p and q are not discovery claims. `ora.py` writes no "calibrated" claim
+  (ADR-0029). A skipped fit (`tu_recal_skipped`) is a second, independent reason for the flag.
+
+### Hardening owed (pass 2)
+- **Flexible recalibration.** Adopt the statistician's comparator model (C above), or another
+  that passes. It needs an ADR-0035 amendment from Khoa.
+- **Lifting the flag.** Only on a pass at R = 1,000 in both blocks of every cell of 4b–4f, with
+  rates logged; the fast tier is a smoke test. Skipped runs keep the flag regardless. The
+  fallback in the attack files cannot trigger on its own, because the flag is a constant (backlog
+  N10).
+- **Comp underflow (backlog N1).** comp = exp(log_comp) underflows to 0 once log_comp < about
+  −745: about 27 genes at the clip 1 − 1e-12 in one TU, or a very large TU. On the fitted path,
+  expit(−η) underflows once η > about 745. An undetected TU with comp = 0 makes the whole run
+  `null_degenerate`. Fix: carry log_comp into the tilt instead of comp.
+- **Clip semantics (backlog N3).** State which rows count as affected. The clip also moves p̂ in
+  (0, 1e-12) and (1 − 1e-12, 1).
+- **The CI on `effect`.** Candidates: a TU-block bootstrap of k − E, or the conditional MLE of a
+  log-odds shift δ for C's TUs with an exact CI by inverting the CPB test.
+- **The `category_summary` CI for small categories** (below).
+- **Power of partial membership** (spec arm 7): owed.
+- **The 4b + 4c combination** fails with the damped fit (large under 0.0168 / 0.0750 / 0.1336 and
+  0.0206 / 0.0776 / 0.1381 in the two blocks; large_hiq under 0.081 / 0.218 / 0.321 pooled). The
+  pass-2 model must pass it, together with every other failing cell of B′, in both blocks at
+  R ≥ 1,000.
+
+### `category_summary`
+- **Scope:** collections `cog`, `kegg` and `go_slim`. It is descriptive: no test, and every
+  category is reported whatever its size. It is gene-level, as §9.3 names it.
+- **Columns, per category:**
+  - `n_genes` (eligible members) and `n_detected`;
+  - `expected` = Σ p̂ over members (unclipped);
+  - `o_minus_e` = `n_detected` − `expected`, with a 95 % CI;
+  - `median_abundance_log2` over detected members with a finite abundance (imputed values
+    included);
+  - the collection's `coverage`.
+- **CI:** a percentile TU block bootstrap (`giap.stats.tu_block_bootstrap`, M4-16 `basic_rows`
+  construction). Per-TU sums of d − p̂ over the category's members are resampled as whole TUs and
+  summed. B is the caller's (`stats.bootstrap`), and the draws come from the step's rng in row
+  order.
+- **Few units:** below 10 TUs (`CI_MIN_UNITS`) the CI is NA with `ci_few_units`.
+- **Coverage is low for small categories** (statistician, `$GIAP_ROOT/stat/m804b/probe_boot.py`
+  and `boot.log`; B = 999, 1,200 CIs per cell, true O − E = 0):
+
+| category | coverage, c = 0 | coverage, c = 2.5 |
+|---|---|---|
+| 10 TUs | 0.886 | 0.887 |
+| 15 TUs | 0.908 | 0.898 |
+| 30 TUs | 0.922 | 0.933 |
+| 100 TUs | 0.963 | 0.932 |
+| 40 random genes | 0.933 | 0.942 |
+
+  - Nominal 95 % CIs covered 0.89 to 0.93 at 10 to 30 TUs (Monte Carlo SE about 0.009).
+  - Under TU-packed detection (c = 2.5) they covered 0.93 even at 100 TUs.
+  - The misses are mostly intervals wholly below the truth (hi < 0), because the sum is skewed:
+    8.5 % at 10 TUs against 2.5 % nominal (0.085 at c = 0, 0.087 at c = 2.5; lo > 0: 0.029 and
+    0.025).
+  - So an apparent under-detection (a CI entirely below 0) in a category of 30 TUs or fewer is
+    weaker evidence than its nominal level.
+
+  Raising `CI_MIN_UNITS` to about 30, or a BCa or studentized bootstrap, is owed (backlog).

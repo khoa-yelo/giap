@@ -363,6 +363,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - under `same`/`other`, a stripped frameshift peptide still adds REF at its off-frame suffix codons (M7-05);
   - pin the str/object string dtypes in the M7-03 schema;
   - test gaps (surviving mutants): `il` ops kept under same/other; frameshift next codon on − strand (731/734 without 728); folded frameshift `n_alt`; `alt_aa` tie-break order; Int64 dtypes on header-only frames; a block peptide spanning the frameshift codons counting in `n_ref`.
+- M7-03 review of #160 (lead fix: the datapackage resource profiles, plus a package-validation test):
+  - replace the pileup's `_alts` column and the `attrs` channel with an explicit structure (a frozen `Pileup`); the M7-02 review test must change first;
+  - `read_variants` is a byte inverse, not a frame inverse: `class_error_rate` is stored as a `%.6g` string and comes back as a float, and text dtypes differ. Keep the float in the table and format only in the writers;
+  - §9.1 puts the descriptor at `OUT/schemas/datapackage.json`, so the `tables/...` paths resolve under `schemas/`. M7-04/finalize must settle where the descriptor and schemas are copied;
+  - a bare `KeyError` when `sites` and `pile` mismatch; a `;`-joined string `flags` cell is exploded into characters; `read_variants` validates nothing;
+  - weak schema patterns: `class_error_rate`, and `alt_aa` for `fs±1`;
+  - for − two-codon events, TSV `codon_start` (the first codon in peptide order) differs from VCF POS (the lower codon); note it in the methods. A codon with both a substitution and a swap gets one GT per length-class record; document it;
+  - test gaps: a − two-codon event whose second codon wraps past 0; duplicate or unsorted input flags; `read_variants` flag splitting.
 
 - M6-06 review of #148, owed to M6-08/M6-09:
   - ADR draft for Khoa: exclude pairs with an imputed gene from targets and decoys (statistician: a co-imputed NO surplus gives ~198 false calls per replicate on a 2,000-pair genome; exclusion restores the level);
@@ -389,13 +397,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - detection is saturated: 804/813 genes are detected, `p_detect` is the constant 0.989 fallback, and picked FDR q = 1/804 for all. The giapsim real-run scenario needs decoys with null scores (the earlier item) and lower peptide coverage;
   - Promoter Calculator runs one Nextflow task per TU (288 tasks for 0.9 Mb); batch it;
   - `--annotation bakta.json` now feeds `annotation.precomputed.bakta_json` (mvp/annotation-json). The previous runs re-ran Bakta, so `engine_protein_mismatch_rate` was 0.9997; re-run after the merge to confirm it falls.
-
-- M8-03 review of #159 (approve; lead: ADR-0023 adds map01310/map01320, methods note):
-  - the GO closure does not filter by namespace (go-basic has no cross-namespace edges): filter in `up()` or assert in `read_go`;
-  - `if kegg_names` tests a Path's truthiness; a missing names file gives all-NA names with no flag;
-  - `build_collections` turns an integer index array into a wrong bool mask without error, and a wrong-length mask raises a bare IndexError; check shape and dtype;
-  - `_ids` treats a plain string cell ("GO:1;GO:2") as empty;
-  - test gaps: roots in `parents`; KEGG and COG `n_unknown_ids`; slim names that differ from the GO names.
 
 
 - M6-06 review of #148, owed to M6-08/M6-09:
@@ -470,3 +471,32 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - A NaN `contig` becomes a linear pseudo-replicon "nan"; guard or comment.
 - M8-06 checklist: register `genomic_cluster` and `detection_confounded` in the `enrichment_gsea` schema (§9.4).
 - `test_gsea_table_flags_need_no_rng` uses the fake engine; add a real-engine p-value comparison to pin the RNG stream.
+
+## M8-04b reviews (#179: code review CHANGES, statistician BLOCK, fixed in decision 13), pass 2 and nits
+- **Pass 2: lift `ora_uncalibrated`.**
+  - The statistician's flexible cross-fitted recalibration passes every cell of all 8 worlds at R = 3000 ($GIAP_ROOT/stat/m804b/probe_flex.py). Its terms are 4 quantile hinges in logit q_raw, a one-hot TU size, a logit × log n interaction, and ridge 1e-4.
+  - It needs an ADR-0035 amendment (Khoa).
+  - The flag can be lifted only on a pass at R = 1000 in both blocks of 4b–4f, and the gate needs rate logging.
+- **N1** Comp still underflows to 0 for a very large or heavily clipped TU (`np.exp(log_comp)`, `expit(-eta)` once eta > 745). Carry log_comp into the tilt.
+- **N2** Duplicate locus_tag rows are accepted: the gene is counted twice in n_genes.
+- **N3** Clip semantics: `p_detect_clipped` goes only on rows whose full set holds the clipped TU, and the clip also moves p̂ in (0, 1e-12). State which rows count as "affected".
+- **N4** ora.py imports gsea's private `_closure`, `_depth` and `_natural_key`, and `_closure` duplicates `elim._ancestors`. Move them to a shared module.
+- **N5** Untested boundaries:
+  - `MIN_CLASS` at 1 and 200, and `<` vs `<=`;
+  - the inclusive size upper bound;
+  - `q_value <= alpha`;
+  - the parent_group ID tie-break;
+  - the strict `<` in the elim replay;
+  - `CI_MIN_UNITS` at 9 and `<=`;
+  - `_PAIR_ATOL`;
+  - comp computed as 1 − q on the raw and fitted paths;
+  - `folds={}` skips the fit with `tu_recal_skipped`, as documented; the statistician's re-check corrected the earlier claim that it raises.
+- **N6** `_classic`: a NaN `category_odds` gives `p_classic` NA with no flag, and the bare `except ValueError` can hide real errors.
+- **N7** The end-to-end `detection_enrichment` benchmark is still owed; the current one covers only the primitive.
+- **N8** test_attack_ora_tusize.py:96 recovers the replicate index from `seed_seq.entropy`, which is fragile.
+- **N9** `_collection_rows` rebuilds the gene maps for every collection, and GO `_closure` is built twice.
+- **Lifting the flag:** the commit that lifts `ora_uncalibrated` must add it explicitly on the skip path; test_ora_review_179.py pins this.
+- **N10** The attack arms' `ora_uncalibrated` fallback cannot trigger on its own; the flag is a hand-edited constant.
+- **Statistician:** category_summary's bootstrap undercovers small categories (10 TUs: 0.886; 15 TUs: 0.90). Raise `CI_MIN_UNITS` to about 30, or use BCa or a studentized bootstrap.
+- **Statistician:** cross-fitting does not remove leakage when a category is a large share of one TU-size group. In the tested worlds this was only conservative.
+- **Flaky?** `tests/unit/function/test_gsea_flags.py::test_detection_flag_with_the_real_engine_d1_d2` failed only in the 16-worker fast suite (Slurm 1867909 and 1867927, es = −0.5 for top=True). It passes alone and in its file. Check main and look for state leaking between tests.
