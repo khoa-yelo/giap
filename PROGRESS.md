@@ -8,7 +8,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 104/135 done (77 %), 7 running · generated 2026-10-22 09:13 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 117/162 done (72 %), 13 running · generated 2026-10-22 15:13 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -17,21 +17,22 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
-| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
+| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 91 % | 10 | 0 | 1 |
 | M6 Operons | 🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜⬜ 58 % | 7 | 1 | 4 |
-| M7 Variants and novel ORFs | 🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 19 % | 3 | 4 | 9 |
-| M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜ 38 % | 6 | 2 | 8 |
-| M9 Visualisation and report | _not designed yet_ | - | - | - |
+| M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜⬜⬜⬜⬜ 56 % | 9 | 0 | 7 |
+| M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜ 47 % | 8 | 4 | 5 |
+| M9 Visualisation and report | 🟩🟩🟩🟨🟨🟨🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 12 % | 3 | 8 | 15 |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
 <!-- progress:end -->
 
 ## Current milestone
-M0–M1: done. M2: done (21/21; M2-21 closed it, #107).
-M3: 22/24 — M3-24 needs DIA-NN from Khoa; ADR-0019 implementation is the last code item.
-M4: 19/21 after #117 — M4-20 in review (PR #133), M4-21 not started.
-M5 (autocorrelation and islands): designed (#108, 11 issues); M5-01 merged, M5-02/03/04 in review.
-M6–M11: not designed yet.
+(2026-10-22 15:15) M0–M4 done (M3-24 merged as #122 with the DIA-NN sif). M5: 10/11, M5-11
+(integration golden) in test-author step. M6/M7: integration pass done; remaining issues are the
+hardening pass. M8: R fgsea engine (ADR-0038) M8-17a #204 (+ split #207) waits on #192; M8-17b in
+implementation. M9 (pass 1) is the main front. MVP-03a manifest #196 queued (split #206 merged).
+**Agents paused by Khoa 15:15 → 17:45 (2 h 30 min):** the five running agents finish their current
+step; no new feature-loop steps start until 17:45. Merge queues keep running.
 
 ## Done (with evidence)
 - [M0] `gh` authenticated as khoa-yelo (SSH protocol); repository is public (Actions minutes unlimited).
@@ -376,16 +377,16 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 7742, 1 thread). Next: review, then the statistician's methods note (§"Wallenius ORA").
 
 ## Next actions (ordered)
-1. Merge #116, #117, then #118, #119, #120 (waitmerge; merge origin/main into each branch first —
-   #116 and #120 both touch benchmarks/baseline.json).
-2. ADR-0019 implementation (branch m3/adr0019-pi-hat): class estimator, detection_summary QC rows,
-   `input_prefiltered` warning, and flip the two strict xfails (1-Mb related_dbstrain estimate check and
-   test_database_stressed_stratum0_estimate_covers_false_placements; check the ΣV0 floors still hold,
-   ≈ 285 expected). Then M3 is done except M3-24.
-3. M5-05 (autocorrelation tables) and M5-06 (islands) test-authors after #116/#118 merge; then M5-07,
-   M5-08 (needs M5-02 + M5-04), M5-09.
-4. M4-20, M4-21.
-5. Design M6 (operons).
+1. Merge queues (scratchpad queue.sh logs): #187→#197, #199, #200→#201, #178, #202→#196, #203,
+   #208, #211, #205→#210 (after.sh), #192 then #204→#207 (after.sh). #197's stale `guards` run was
+   rerun; #201's protected-file check clears once #200 (ADR-0042) is on main.
+2. After 17:45: code review of #212 (M9-08 circos, 570 lines). On each agent report: #209 review tests → implementer; M9-08 implementer → PR +
+   reviewer; M9-09 tests → lead decisions → implementer (+ statistician, stats light); M5-11 tests →
+   implementer; M8-17b implementer → lead re-pins the existing tests it breaks (lead decision 10) → PR.
+3. After #196 merges: ADR-0041 follow-up (move the four tokens out of RUN_FLAGS_PENDING).
+4. After #205/#210/#209 merge: M9-12 (V13 novel ORFs, needs the V3 renderer), then M9-13 (pass-1 closer).
+5. Islands calibration_full on main, Slurm 1868687 (running): record rates in docs/methods/islands.md.
+6. Extend calibration_full array to 0-14 once the variants/compare suites exist (ADR-0042).
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
