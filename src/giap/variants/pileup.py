@@ -262,7 +262,10 @@ def sites(pile: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
     """The core rows of ``variants.tsv`` (rules 7 and 11): one per (codon, ALT key) of an
     ``ALT``/``mixed`` codon plus one per frameshift event, in §6.5 order with ``VAR_<n>`` IDs."""
     k = cfg.variants.high_min_peptides
-    recs: list[_Site] = list(pile.attrs.get("frameshifts", ()))
+    if "frameshifts" not in pile.attrs or "contig_order" not in pile.attrs:
+        # a frame that lost its attrs (rebuilt, round-tripped) would drop every frameshift site
+        raise ValueError("sites() needs the frame returned by pileup(); its attrs are missing")
+    recs: list[_Site] = list(pile.attrs["frameshifts"])
     for r in pile.to_dict("records"):
         if r["call"] not in ("ALT", "mixed"):
             continue
@@ -272,7 +275,7 @@ def sites(pile: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
             recs.append(_Site(str(r["contig"]), int(r["codon_start"]), str(r["strand"]), gene,
                               aa_pos, str(r["_ref_codon"]), str(r["ref_aa"]), alt, kind,
                               int(r["n_ref"]), n, src))  # fmt: skip
-    order = {c: i for i, c in enumerate(pile.attrs.get("contig_order", ()))}
+    order = {c: i for i, c in enumerate(pile.attrs["contig_order"])}
     for c in pile["contig"]:
         order.setdefault(c, len(order))
     recs.sort(key=lambda x: (order[x.contig], x.codon_start, _STRAND_RANK[x.strand], x.alt_type,

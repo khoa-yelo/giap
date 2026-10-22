@@ -169,3 +169,13 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - frameshift work-table lookup: filter to `frameshift` rows, and check blocks against the row's start/end;
   - `test_align_sim100k.py`: assert that frameshift rows occur;
   - test_align_props.py:266: sort kinds by RANK, not by name (unobservable today).
+- M7-02 review of #158 (approve; lead fix: `sites` raises when the pileup's attrs are missing):
+  - **decide with M7-05:** I/L splits the swap and block ALT keys (`IK>KI` against `IK>KL` give two `candidate` sites where one `high` ALT is expected). Fold I/L, or write `J`, in swap and block tokens. This hurts attack 6 / M7-13 sensitivity. It also produces the multi-category-per-folded-peptide case, so the earlier backlog note calling that "only conflicting alignments" is wrong;
+  - a NaN `placement_q` is silently eligible (`NaN > alpha` is False). Write an explicit rule (reject NaN unless the peptide is exact/`same_db`, as M4-11 does) and add a test;
+  - M7-03: replace the `_ref_codon`/`_alts` columns and the `attrs` channel with a frozen `Pileup(table, alts, frameshifts, contig_order)` or an explicit `frameshifts=` argument;
+  - `pileup()` does not apply `eligible`; the M7-04 step must call it first, or the docstring must say so loudly;
+  - bare KeyErrors on a contig missing from the genome or an unknown strand; an empty `source` when support is missing; the −L gene shift is dead code;
+  - under `same`/`other`, a stripped frameshift peptide still adds REF at its off-frame suffix codons (M7-05);
+  - pin the str/object string dtypes in the M7-03 schema;
+  - test gaps (surviving mutants): `il` ops kept under same/other; frameshift next codon on − strand (731/734 without 728); folded frameshift `n_alt`; `alt_aa` tie-break order; Int64 dtypes on header-only frames; a block peptide spanning the frameshift codons counting in `n_ref`.
+
