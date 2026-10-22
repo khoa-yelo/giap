@@ -17,6 +17,7 @@ tier	tier	decoy_picked	n_decoys_paired	49	NA	NA	NA
 tier	tier	decoy_picked	n_decoys_unpaired	0	NA	NA	NA	
 tier	tier	decoy_picked	n_detected	85	NA	NA	NA	
 tier	tier	decoy_picked	n_detected_2pep	83	NA	NA	NA	
+tier	tier	decoy_picked	q_floor	0.011764705882352941	NA	NA	NA	
 basic	cog_category	none	expected	85.00000000000003	NA	NA	87	
 basic	cog_category	none	n_detected	85	NA	NA	87	
 basic	cog_category	none	n_genes	87	NA	NA	87	
