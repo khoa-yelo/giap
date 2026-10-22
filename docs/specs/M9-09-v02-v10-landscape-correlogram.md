@@ -111,3 +111,19 @@ first contig in FASTA order with a finite row; else "Autocorrelation not estimab
    envelopes are drawn.
 3. Branch off main: M9-03 (support files, #210) is not merged, so V2's oriC/terminus lines are tested
    through their empty state only; the populated lines are pinned when M9-03 lands.
+
+## Lead decisions on the tests (2026-10-22, after 50bea79)
+4. V10's title quotes the TU-block row's q (consistent with decision 2); V2's title clause keeps the
+   gene-label q, as the spec says.
+5. V10's data TSV keeps every Moran's I and join-count row, NA rows included, with `significant` false.
+6. V10 rows sort `statistic` in the schema's enum order (not alphabetical).
+7. The `<flags>` in "not estimable (<flags>)" are the row's flags joined by ", "; only the prefix and
+   `few_values` are pinned.
+8. V2 binning assigns genes to bins by midpoint; the bin count is not a TSV column in pass 1 (backlog).
+9. "No measured abundance: detection only" applies whenever no gene qualifies as a point (detected,
+   measured, not imputed or partial) — so the validation run, whose undetected genes carry only
+   imputed values, gets it.
+10. The "no islands table" note wording is free; it mentions islands.
+11. An origin-crossing island is one data row with end > length (index decision 11), drawn as two spans.
+12. The interface in the test docstrings (V2 axes labelled by contig, V10 axes "a:<contig>"/"b:<contig>",
+    `%g` numbers, `position_bp = (start0+end)/2 mod L + 1`) is accepted.
