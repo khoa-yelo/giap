@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Collection, Mapping
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 
@@ -62,7 +63,8 @@ def support_of(
             if resolved is None:
                 resolved = resolve_search_db(peptides, database_ids)
             s = resolved
-        out.setdefault(r["peptide"], Support(r["peptide"], r["source"], s,
+        db: Literal["same", "other"] = "other" if s == "other" else "same"
+        out.setdefault(r["peptide"], Support(r["peptide"], r["source"], db,
                        float(r["placement_q"]), r["uniqueness"]))  # fmt: skip
     return out
 
