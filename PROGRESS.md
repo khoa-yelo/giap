@@ -8,7 +8,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 96/135 done (71 %), 13 running · generated 2026-10-21 23:18 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 97/135 done (72 %), 12 running · generated 2026-10-21 23:39 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -20,7 +20,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
 | M6 Operons | 🟩🟩🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜ 42 % | 5 | 3 | 4 |
 | M7 Variants and novel ORFs | 🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 6 % | 1 | 5 | 10 |
-| M8 Function and determinants | 🟩🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 12 % | 2 | 5 | 9 |
+| M8 Function and determinants | 🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 19 % | 3 | 4 | 9 |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
