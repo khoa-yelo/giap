@@ -97,3 +97,7 @@ not wrap.
    module constant (not a config key; adding a key would touch the protected `defaults.yaml`).
 2. Should `giap report` recompute GC skew when `--config` names a genome? **Proposed default:** no;
    §5.1 gives `giap report` no genome argument.
+
+## Lead decisions (2026-10-22)
+1. GC-skew window 10 kb (the V1 peptide-density bin), a module constant, not a config key.
+2. `giap report` never recomputes GC skew; with no support file the GC-skew track takes its empty state.
