@@ -3,12 +3,14 @@
 ``novel_rbs_layer`` and ``novel_orfs``.
 
 ``novel_candidates`` runs the M7-06 library on the loci tables and writes the ORFs
-(``novel_candidates.parquet``, one row per ORF x peptide), the second-round Promotech windows
+(``novel_candidates.parquet``, one row per ORF x peptide with the peptide's mapped interval),
+the second-round Promotech windows
 (``novel_windows/windows_NNN.fa`` + ``novel_windows_map.parquet``) and ``ostir_input_novel.csv``.
 The two tools are never imported (GPL-3.0). ``novel_rbs_layer`` keys OSTIR features by
 ``(contig, strand, start)``, ``start`` the 0-based first base of the start codon in
 transcription direction. ``novel_orfs`` joins the second-round scores by position and writes the
-four M7-07 files. Under the local executor the precomputed ``promoters`` and ``rbs_novel`` TSVs
+four M7-07 files after the M7-09 evidence (gene-table RBS threshold, terminator layer).
+Under the local executor the precomputed ``promoters`` and ``rbs_novel`` TSVs
 replace the tool and layer steps and arrive here instead of the Parquet files.
 """
 
@@ -22,6 +24,7 @@ from typing import Any
 import pandas as pd
 import pyarrow as pa  # type: ignore[import-untyped]
 
+from giap.annotate.layers import terminators_of
 from giap.annotate.ostir import parse_ostir_starts, read_ostir_input, write_ostir_input
 from giap.annotate.precomputed import load_precomputed
 from giap.annotate.promotech_cmd import parse_promotech
@@ -44,10 +47,12 @@ from giap.novel.candidates import (
     candidate_rows,
     minimal_call,
     ostir_rows,
+    peptide_loci,
     promoter_windows,
     reconstruct,
     window_chunks,
 )
+from giap.novel.evidence import apply_evidence
 from giap.novel.outputs import orf_table
 from giap.steps.common import one_path as _path
 from giap.steps.common import read_genes as _genes
@@ -63,6 +68,7 @@ _CAND_COLS = [
     ("frame", _INT), ("stop", _INT), ("starts", pa.list_(_INT)), ("start_firsts", pa.list_(_INT)),
     ("start_longest", _INT), ("end_5p_open", _BOOL), ("end_3p_open", _BOOL), ("best_q", _F64),
     ("overlapping_gene", _STR), ("first_peptide", _INT),
+    ("peptide_start", _INT), ("peptide_end", _INT),  # M7-09 d5: the peptide's mapped interval
 ]  # fmt: skip
 _MAP_COLS = [
     ("header", _STR), ("contig", _STR), ("strand", _STR), ("end3p", _INT), ("owner", _STR),
@@ -81,14 +87,20 @@ def first_base(strand: str, lowest: int, n: int) -> int:
 # ---------------------------------------------------------------- novel_candidates
 
 
-def _candidate_records(orfs: Sequence[Orf], reps: Mapping[str, Replicon]) -> list[tuple[Any, ...]]:
+def _candidate_records(
+    orfs: Sequence[Orf],
+    reps: Mapping[str, Replicon],
+    loci: Mapping[tuple[str, str], Interval],
+) -> list[tuple[Any, ...]]:
     out = []
     for o in orfs:
         firsts = [first_base(o.strand, x, reps[o.contig].length) for x in o.starts]
         for p in o.peptides:
+            iv = loci.get((o.contig, p))
             out.append((o.orf_id, p, o.cls, o.contig, o.strand, o.frame, o.stop, list(o.starts),
                         firsts, o.start_longest, o.end_5p_open, o.end_3p_open, o.best_q,
-                        o.overlapping_gene, o.first_peptide))  # fmt: skip
+                        o.overlapping_gene, o.first_peptide, None if iv is None else iv.start,
+                        None if iv is None else iv.end))  # fmt: skip
     return out
 
 
@@ -117,6 +129,20 @@ def read_candidates(path: Path) -> tuple[list[Orf], dict[str, list[int]]]:
     return orfs, firsts
 
 
+def read_peptide_intervals(path: Path) -> dict[str, list[Interval]]:
+    """Per ORF, the mapped intervals of its peptides (``novel_candidates.parquet`` columns
+    ``peptide_start``/``peptide_end``; empty for a file without them)."""
+    df = pd.read_parquet(path)
+    if not {"peptide_start", "peptide_end"} <= set(df.columns):
+        return {}
+    out: dict[str, list[Interval]] = {}
+    cols = (df[c] for c in ("orf_id", "contig", "strand", "peptide_start", "peptide_end"))
+    for oid, c, s, a, b in zip(*cols, strict=True):
+        if pd.notna(a) and pd.notna(b):
+            out.setdefault(str(oid), []).append(Interval(str(c), int(a), int(b), s))
+    return out
+
+
 @step(
     "novel_candidates",
     inputs=["mapping", "peptides", "genes", "features", "replicons", "genome", "annotation_meta"],
@@ -133,18 +159,21 @@ def novel_candidates(ctx: StepContext) -> None:
     contaminants = None if lib is None else read_protein_fasta(_path(lib))
     gm = _gene_model(ctx)
     genome = {r.id: r.sequence for r in read_genome_fasta(_path(ins["genome"]))}
-    orfs = reconstruct(candidate_rows(hits, peptides, contaminants), gm, genome, cfg)
+    rows = candidate_rows(hits, peptides, contaminants)
+    orfs = reconstruct(rows, gm, genome, cfg)
     write_parquet_deterministic(
-        ctx.outputs["novel_candidates"], _CAND_COLS, _candidate_records(orfs, gm.replicons)
+        ctx.outputs["novel_candidates"],
+        _CAND_COLS,
+        _candidate_records(orfs, gm.replicons, peptide_loci(rows)),
     )
     chunks, wmap = window_chunks(promoter_windows(orfs, gm, genome, cfg))
     write_chunks(ctx.outputs["novel_windows"], chunks)
     write_parquet_deterministic(ctx.outputs["novel_windows_map"], _MAP_COLS, _rows(wmap))
     anti_sd = str(json.loads(_path(ins["annotation_meta"]).read_text())["anti_sd"])
-    rows = ostir_rows(orfs, gm, genome, anti_sd, cfg)
-    write_ostir_input(ctx.outputs["ostir_input_novel"], rows)
+    o_rows = ostir_rows(orfs, gm, genome, anti_sd, cfg)
+    write_ostir_input(ctx.outputs["ostir_input_novel"], o_rows)
     ctx.log.info("novel_candidates: %d ORFs, %d windows, %d OSTIR rows",
-                 len(orfs), sum(map(len, chunks)), len(rows))  # fmt: skip
+                 len(orfs), sum(map(len, chunks)), len(o_rows))  # fmt: skip
 
 
 # ---------------------------------------------------------------- second-round layers
@@ -286,8 +315,8 @@ def second_round_scores(
     outputs=["novel_orfs", "novel_orfs_gff3", "novel_orfs_faa", "annotation_patch"],
 )
 def novel_orfs(ctx: StepContext) -> None:
-    """Candidates + second-round scores → ``novel_orfs.tsv``/``.gff3``/``.faa`` and
-    ``annotation_patch.gff3`` (evidence, ranking and RBS support: M7-09; class FDR: M7-11)."""
+    """Candidates + second-round scores + evidence (M7-09) → ``novel_orfs.tsv``/``.gff3``/
+    ``.faa`` and ``annotation_patch.gff3`` (class FDR: M7-11)."""
     ins, cfg = ctx.inputs, ctx.cfg
     reps = _replicons(_path(ins["replicons"]))
     gm = GeneModel(replicons=reps, genes=tuple(_genes(_path(ins["genes"]))), features=())
@@ -316,6 +345,13 @@ def novel_orfs(ctx: StepContext) -> None:
     sec = second_round_scores(orfs, rbs, prom, gm, genome, k_range, pcfg.window_nt)
     scored = minimal_call(orfs, cfg).merge(sec, on="orf_id", how="left")
     table = orf_table(orfs, scored, genome=genome, replicons=reps)
+    terms_df = _layer(ctx, "terminators", "terminators", reps)
+    table = apply_evidence(
+        table, orfs, gene_table=pd.read_parquet(_path(ins["gene_table"])),
+        terminators=None if terms_df is None else terminators_of(terms_df), gm=gm,
+        genome=genome, cfg=cfg,
+        peptide_intervals=read_peptide_intervals(_path(ins["novel_candidates"])),
+    )  # fmt: skip
     write_novel_orfs(ctx.outputs["novel_orfs"], table)
     write_novel_faa(ctx.outputs["novel_orfs_faa"], table, genome, reps)
     if len(table):
