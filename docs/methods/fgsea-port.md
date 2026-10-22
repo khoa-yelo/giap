@@ -86,3 +86,65 @@ the Beta borders, `multilevelError`, the simple `log2err`). The port matches the
   the parent's state. Draws made before the call therefore do not change the samples, and a
   second call on the same generator gets fresh children. Sampling without replacement is uniform
   (pair χ² p = 0.27 on N = 6, K = 3).
+
+## Part II: the multilevel stage (M8-11)
+
+`fgsea_multilevel(prep, simple, sample_size, eps, rng)` refines exactly the sets that
+`simple.needs_multilevel` marks and that have a finite simple p. Every other field and every other set
+comes back unchanged. Config: `sampleSize = 101`, `eps = 0`.
+
+| GIAP | fgsea 1.36.2 |
+|---|---|
+| `fgsea_multilevel` (grouping by size, one ruler per sign, `denomProb`, `eps`, `p = min(1, cppMPval / denomProb)`) | `R/fgseaMultilevel.R` `fgseaMultilevel` after the split, `multilevelImpl` |
+| `_multilevel_error` | `multilevelError` |
+| `_beta_mean_log` | `betaMeanLog` |
+| `_fgsea_kernels._ruler` | `EsRuler` (`extend`, `duplicateSamples`, `getPvalue`) |
+| `_fgsea_kernels._perturb`, `_reaches` | `perturbate` |
+| sign term of the p, `is_cp_ge_half` | `calcLogCorrection`, `isCpGeHalf` |
+
+**Ruler.** A ruler draws `s` uniform random K-sets. Each set gets maxP, the positive deviation of
+`calcGseaStat`'s walk. A round then does four things:
+
+1. It records the median maxP as the level.
+2. It keeps the top `h − 1 = (s − 1)/2` samples twice and the median sample once.
+3. It runs MCMC swap moves until `s · K` moves have been accepted. A move swaps one member for one
+   non-member, each chosen uniformly, and it is kept only when maxP stays ≥ the level. Each sample
+   gets `max(1, K/10)` attempts per sweep.
+4. It repeats until every target ES is below the median.
+
+Negative ES runs the same ruler on the reversed |stats| with target |ES|. This is exact: reversing
+the ranks maps the walk's minimum to minus the maximum.
+
+**p of a target T.** T is resolved at the first round `r` whose median exceeds T. Let `c` be the
+samples of that round with maxP > T, and `c₊` those of them whose ES is positive. Then:
+
+- log cppMPval = r · betaMeanLog(h, s) + betaMeanLog(c + 1, s) + ψ(c₊ + 1) − ψ(c + 1);
+- `isCpGeHalf` = 2c₊ ≥ c;
+- p = min(1, cppMPval / denomProb);
+- `log2err` = multilevelError(p, s), or NaN where `isCpGeHalf` is false;
+- with eps > 0, a p < eps becomes eps with `log2err` NaN. Extension stops after
+  ⌈−log₂(eps · min(denomProb) / 2)⌉ levels, using the minimum over the size group.
+
+**Deviations, all GIAP's choices; part II was not line-checked against the 1.36.2 tarball.** The
+implementer could not download the tarball in session. M8-13's golden runs and the statistician's
+review own that check.
+
+- `nPermSimple` is not a `SimpleResult` field. `denomProb = (modeFraction + 1)/(nPerm + 1)` takes
+  nPerm from the simple `log2err` of the refined sets, because trigamma(nPerm + 1) =
+  trigamma(nMoreExtreme + 1) − (ln 2 · log2err)². Newton steps invert it, then it is rounded. The
+  recovery is exact to well under one permutation for nPerm ≤ 10⁷.
+- **RNG.** Size groups get `rng.spawn` children in ascending size order (fgsea shuffles the
+  groups). Each group spawns one child per sign. That child seeds a splitmix64 stream inside the
+  numba kernel, which drives both the initial K-sets and the MCMC moves. Rulers run one per numba
+  thread, so results do not depend on the thread count.
+- **Stalled levels.** A level that accepts fewer than `s · K` moves within `10 · s · K` attempts
+  (acceptance < 10 %) stops the extension, and so does reaching `MAX_LEVELS = 1000`. Targets still
+  above the median are then resolved at that level, with `c` possibly 0, so p > 0 always. This only
+  happens near the maximum ES of a size (the top-K set itself). There fgsea with eps = 0 keeps
+  climbing at a cost of minutes per set. For example, the top 50 of 2,000 N(0, 1) stats stall
+  near 1e-44 after about 140 levels.
+- `_reaches` decides acceptance by walking from the last hit backwards and stopping once
+  cum_j / nr < level. Its cumulative sums are nr minus the later weights, so they can differ from
+  the forward walk by rounding. This matters only at exact ties with the level.
+- **Not ported from master (1.39.x).** The `moveScale` argument and the C++-side `log2err` are
+  absent, as the spec says. The full 1.36.2-vs-master diff is owed with the tarball check.

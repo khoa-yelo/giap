@@ -470,6 +470,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - `cluster_deltas` rebuilds contig map, positions and P_w per collection; build once per `gsea_table` call.
 - A NaN `contig` becomes a linear pseudo-replicon "nan"; guard or comment.
 - M8-06 checklist: register `genomic_cluster` and `detection_confounded` in the `enrichment_gsea` schema (§9.4).
+- M8-06 checklist (M8-11 lead decision 2): register `log2err_unestimated` in the `enrichment_gsea` flags pattern; the schema lives on m8/function-step, not on main.
 - `test_gsea_table_flags_need_no_rng` uses the fake engine; add a real-engine p-value comparison to pin the RNG stream.
 
 ## M8-04b reviews (#179: code review CHANGES, statistician BLOCK, fixed in decision 13), pass 2 and nits

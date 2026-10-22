@@ -1,11 +1,12 @@
-"""fgsea port I: stat preparation, ES and leading edge, the simple permutation stage, NES, the
-simple p and ``log2err``, and the multilevel decision (issue M8-02; GIAP_SPEC.md §7.7.4, §2.4 G15,
-§8.3 row ``fgsea_multilevel``, §6.6).
+"""fgsea port I and II: stat preparation, ES and leading edge, the simple permutation stage, NES,
+the simple p and ``log2err``, the multilevel decision (issue M8-02) and the multilevel splitting
+stage (issue M8-11; GIAP_SPEC.md §7.7.4, §2.4 G15, §8.2, §8.3 row ``fgsea_multilevel``, §6.6).
 
 Ported from fgsea 1.36.2 (Bioconductor 3.22, git b7862b7): ``R/fgsea.R``
 (``preparePathwaysAndStats``, ``calcGseaStat``, ``fgseaSimpleImpl``), ``R/util.R``
-(``preparePathways``) and the simple-stage part of ``R/fgseaMultilevel.R``; scoreType std and
-gseaParam 1 only. fgsea is MIT-licensed:
+(``preparePathways``) and ``R/fgseaMultilevel.R`` (simple stage, ``multilevelImpl``,
+``multilevelError``, ``denomProb``, ``eps``, ``isCpGeHalf``); scoreType std and gseaParam 1
+only. fgsea is MIT-licensed:
 
     Copyright (c) 2016-2019 Alexey Sergushichev
 
@@ -21,11 +22,13 @@ gseaParam 1 only. fgsea is MIT-licensed:
 fgsea 1.36.2 computes ES on the float |stats| (no integer scaling; M8-02 lead decision 5). All
 randomness comes from the caller's generator (stream ``function.gsea``): permutations run in
 chunks of 100, each drawn from a child of ``rng.spawn``; counts and sums are accumulated chunk by
-chunk in chunk order, so results do not depend on the numba thread count.
+chunk in chunk order, so results do not depend on the numba thread count. The multilevel stage
+spawns one child per size group (ascending size) and, in each group, one child per sign.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -33,11 +36,19 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import ArrayLike
-from scipy.special import betaincinv, polygamma
+from scipy.special import betaincinv, digamma, polygamma
 
-from giap.stats._fgsea_kernels import es_walk, random_es_batch
+from giap.stats._fgsea_kernels import MAX_LEVELS, es_walk, multilevel_rulers, random_es_batch
 
-__all__ = ["Prepared", "SimpleResult", "fgsea_simple", "gsea_es", "prepare"]
+__all__ = [
+    "MultilevelResult",
+    "Prepared",
+    "SimpleResult",
+    "fgsea_multilevel",
+    "fgsea_simple",
+    "gsea_es",
+    "prepare",
+]
 
 F64 = npt.NDArray[np.float64]
 I64 = npt.NDArray[np.int64]
@@ -204,3 +215,123 @@ def fgsea_simple(
     log2err = np.where(estimated, log2err, np.nan)
     needs = _needs_multilevel(nme, n_perm, sample_size) & estimated
     return SimpleResult(es, nes, p, log2err, nme, mode, needs, edges)
+
+
+@dataclass(frozen=True, slots=True)
+class MultilevelResult:
+    """Multilevel p, ``log2err`` and fgsea's ``isCpGeHalf`` of the refined sets."""
+
+    p: F64
+    log2err: F64
+    is_cp_ge_half: npt.NDArray[np.bool_]
+
+
+def _multilevel_error(p: F64, sample_size: int) -> F64:
+    """fgsea ``multilevelError``: sqrt(floor(-log2 p + 1) * single-level variance) / ln 2."""
+    single = _trigamma((sample_size + 1) / 2) - _trigamma(sample_size + 1)
+    return np.asarray(np.sqrt(np.floor(-np.log2(p) + 1) * single) / _LN2, dtype=np.float64)
+
+
+def _beta_mean_log(a: ArrayLike, b: int) -> F64:
+    """fgsea ``betaMeanLog``: E log of a Beta(a, b - a + 1) variable."""
+    return np.asarray(digamma(a) - digamma(b + 1), dtype=np.float64)
+
+
+def _n_perm(simple: SimpleResult, need: npt.NDArray[np.bool_]) -> int:
+    """``nPermSimple`` recovered from the simple ``log2err`` (trigamma(nPerm + 1) =
+    trigamma(nMoreExtreme + 1) - (ln 2 * log2err)^2), inverted by Newton steps."""
+    err = np.asarray(simple.log2err, dtype=np.float64)[need]
+    if not np.all(np.isfinite(err)):
+        raise ValueError("a set needing multilevel has no finite simple log2err")
+    tg = _trigamma(np.asarray(simple.n_more_extreme)[need] + 1.0) - (err * _LN2) ** 2
+    y = 1.0 / tg + 0.5
+    for _ in range(8):
+        y = y - (_trigamma(y) - tg) / np.asarray(polygamma(2, y), dtype=np.float64)
+    return int(np.rint(np.median(y))) - 1
+
+
+def _rulers(
+    prep: Prepared, simple: SimpleResult, need: npt.NDArray[np.bool_], denom: F64,
+    sample_size: int, eps: float, rng: np.random.Generator,
+) -> tuple[I64, I64]:  # fmt: skip
+    """Run one ruler per (size, sign) of the ``need`` sets; (set index, kernel row) per target.
+
+    Size groups take ``rng.spawn`` children in ascending size order; each group's child spawns
+    one stream per sign (positive ES on the ranks, negative on the reversed ranks)."""
+    sizes, es = np.asarray(prep.sizes), np.asarray(simple.es)
+    groups = sorted({int(k) for k in sizes[need]})
+    ids: list[I64] = []
+    meta: list[tuple[int, int, int, np.uint64]] = []
+    for k, child in zip(groups, rng.spawn(len(groups)), strict=True):
+        in_group = need & (sizes == k)
+        rounds = MAX_LEVELS
+        if eps > 0:  # fgsea stops extending once 2^-levels < eps * min(denomProb) / 2
+            eps_group = eps * float(np.min(denom[in_group]))
+            rounds = min(MAX_LEVELS, math.ceil(-math.log2(0.5 * eps_group)))
+        for side, (sign, stream) in enumerate(zip((es > 0, es < 0), child.spawn(2), strict=True)):
+            sel = np.flatnonzero(in_group & sign)
+            if sel.size:
+                ids.append(sel)
+                seed = np.uint64(stream.integers(0, 2**63, dtype=np.int64))
+                meta.append((side, k, rounds, seed))
+    stats = np.asarray(prep.stats, dtype=np.float64)
+    flat = np.concatenate(ids)
+    out = multilevel_rulers(
+        np.stack([stats, stats[::-1].copy()]),
+        np.array([m[0] for m in meta], dtype=np.int64),
+        np.array([m[1] for m in meta], dtype=np.int64),
+        sample_size,
+        np.abs(es[flat]).astype(np.float64),
+        np.concatenate([[0], np.cumsum([i.size for i in ids])]).astype(np.int64),
+        np.array([m[2] for m in meta], dtype=np.int64),
+        np.array([m[3] for m in meta], dtype=np.uint64),
+    )
+    return flat, out
+
+
+def fgsea_multilevel(
+    prep: Prepared,
+    simple: SimpleResult,
+    sample_size: int,
+    eps: float,
+    rng: np.random.Generator,
+) -> SimpleResult:
+    """fgseaMultilevel's multilevel stage for the sets in ``simple.needs_multilevel``.
+
+    Per target ES, after r levels: log cppMPval = r * betaMeanLog(h, s) + betaMeanLog(c + 1, s)
+    + digamma(c_pos + 1) - digamma(c + 1), with h = (s + 1)/2, c the samples of the resolving
+    level above ES and c_pos those with a positive ES (the sign correction; isCpGeHalf = 2 c_pos
+    >= c). p = min(1, cppMPval / denomProb); p < eps > 0 gives p = eps and log2err NaN; otherwise
+    log2err = multilevelError(p, s), NaN when isCpGeHalf is false. Other fields are unchanged.
+    """
+    if sample_size < 3:
+        raise ValueError("sample_size must be >= 3")
+    if sample_size % 2 == 0:  # fgseaMultilevel rounds an even sampleSize up
+        sample_size += 1
+    p = np.array(simple.p, dtype=np.float64)
+    log2err = np.array(simple.log2err, dtype=np.float64)
+    need = np.asarray(simple.needs_multilevel, dtype=np.bool_) & np.isfinite(p)
+    if not need.any():
+        return dataclasses.replace(simple, p=p, log2err=log2err)
+    mode = np.asarray(simple.mode_fraction, dtype=np.float64)
+    denom = (mode + 1.0) / (_n_perm(simple, need) + 1.0)
+    flat, out = _rulers(prep, simple, need, denom, sample_size, eps, rng)
+    rounds, c, c_pos = out[:, 0], out[:, 1], out[:, 2]
+    half = (sample_size + 1) // 2
+    log_cpp = (
+        rounds * _beta_mean_log(half, sample_size)
+        + _beta_mean_log(c + 1, sample_size)
+        + digamma(c_pos + 1)
+        - digamma(c + 1)
+    )
+    ml = MultilevelResult(
+        p=np.minimum(1.0, np.exp(log_cpp) / denom[flat]),
+        log2err=np.empty(flat.size),
+        is_cp_ge_half=2 * c_pos >= c,
+    )
+    floored = ml.p < eps
+    ml.log2err[:] = np.where(ml.is_cp_ge_half & ~floored, _multilevel_error(ml.p, sample_size),
+                             np.nan)  # fmt: skip
+    p[flat] = np.where(floored, eps, ml.p)
+    log2err[flat] = ml.log2err
+    return dataclasses.replace(simple, p=p, log2err=log2err)

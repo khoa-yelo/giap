@@ -3,11 +3,14 @@
 Pure. The ranked units are TUs: a TU's score is the mean ``abundance_log2`` of its detected,
 eligible genes (imputed values included), median-centred (ADR-B), and a TU is in a set when any
 of its scoring genes is. Sets are sized in TUs. Per collection, M8-02's ``fgsea_simple`` runs on
-the TUs in a seeded random order (M8-02 lead decision 7: ties are never broken by TU ID); q is BH
-within the collection. A significant GO parent is ``redundant`` when, re-tested without the genes
+the TUs in a seeded random order (M8-02 lead decision 7: ties are never broken by TU ID), then
+M8-11's ``fgsea_multilevel`` refines the sets it flags (``method`` fgsea_multilevel on every row;
+a finite p with NaN ``log2err`` is flagged ``log2err_unestimated``); q is BH within the
+collection. A significant GO parent is ``redundant`` when, re-tested without the genes
 of its significant descendants, its p substituted into the collection's BH vector gives q > alpha
 (lead decisions 3, 6 and 7: a re-test with 0 TUs is redundant, an unestimated re-test leaves
-``redundant`` NA). The writer joins the list cells ``leading_edge`` and ``flags``.
+``redundant`` NA); re-tests run the same two stages (M8-11 lead decision 3). The writer joins
+the list cells ``leading_edge`` and ``flags``.
 
 Every main-run row also carries the position flags of lead decision 9 (ADR-0025, ADR-0026), both
 pure and RNG-free: ``genomic_cluster`` when the set's AR(1) variance inflation delta along the
@@ -30,7 +33,7 @@ import pandas as pd
 
 from giap.config.model import GseaConfig
 from giap.function.collections import GeneSets
-from giap.stats.fgsea import Prepared, SimpleResult, fgsea_simple, prepare
+from giap.stats.fgsea import Prepared, SimpleResult, fgsea_multilevel, fgsea_simple, prepare
 from giap.stats.multitest import bh
 
 __all__ = [
@@ -50,7 +53,7 @@ __all__ = [
 
 F64 = npt.NDArray[np.float64]
 GO_NAMESPACES = frozenset({"go_bp", "go_mf", "go_cc"})
-METHOD = "fgsea_simple"
+METHOD = "fgsea_multilevel"
 NULL_MODEL = "tu_set_permutation"
 CLUSTER_TAU = 0.15  # decision 9a: genomic_cluster when delta >= tau
 DETECTION_Z0 = 1.0  # decision 9b: detection_confounded needs |z| >= z0
@@ -338,6 +341,12 @@ class _Main:
 _Ctx = tuple[F64, list[str], dict[str, str], GseaConfig, np.random.Generator]
 
 
+def _engine(prep: Prepared, cfg: GseaConfig, rng: np.random.Generator) -> SimpleResult:
+    """``fgsea_simple``, then ``fgsea_multilevel`` on the same ``prep`` (spec M8-11 item 6)."""
+    simple = fgsea_simple(prep, cfg.n_perm_simple, cfg.sample_size, rng)
+    return fgsea_multilevel(prep, simple, cfg.sample_size, cfg.eps, rng)
+
+
 def _retest(
     m: _Main,
     term: str,
@@ -351,8 +360,7 @@ def _retest(
     if not tus:
         return math.nan, 0
     prep = prepare(stats, labels, {term: sorted(tus)}, 1, len(labels))
-    res = fgsea_simple(prep, cfg.n_perm_simple, cfg.sample_size, rng)
-    return float(res.p[0]), len(tus)
+    return float(_engine(prep, cfg, rng).p[0]), len(tus)
 
 
 def _go_hierarchy(
@@ -421,7 +429,7 @@ def gsea_table(
     for coll in colls:
         tus = tu_sets(rank, coll)
         prep = prepare(stats, labels, {t: sorted(s) for t, s in tus.items()}, size[0], size[1])
-        res = fgsea_simple(prep, cfg.n_perm_simple, cfg.sample_size, rng) if prep.names else None
+        res = _engine(prep, cfg, rng) if prep.names else None
         q = bh(res.p) if res is not None else np.empty(0)
         mains.append(_Main(coll, tus, prep, res, q))
 
@@ -443,6 +451,8 @@ def gsea_table(
             flags = ["ci_unestimated"]
             if math.isnan(p):
                 flags.append("unestimated")
+            elif math.isnan(float(res.log2err[i])):
+                flags.append("log2err_unestimated")
             if t in size_filtered:
                 flags.append("size_filtered")
             if is_genomic_cluster(deltas[t]):
