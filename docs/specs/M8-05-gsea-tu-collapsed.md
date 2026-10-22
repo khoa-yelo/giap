@@ -446,7 +446,7 @@ Positions are indices in the ranked order of one replicon unless stated.
    Both flag claims are per-row level, not FDR among unflagged rows.
 7. **Unflagged ≠ calibrated beyond these worlds.** Both flags are tuned on the probe's AR(1) and
    logistic-detection worlds. Real sets can combine both structures; a row can carry both flags.
-7. **Realistic-set check.** RegulonDB operons stand in for GIAP TUs, and gene-name and keyword
+8. **Realistic-set check.** RegulonDB operons stand in for GIAP TUs, and gene-name and keyword
    families stand in for COG/GO sets, because no COG/GO gene mapping for K-12 is on disk. Flag
    rates on real collections should be recorded by M8-15 on the first real E. coli run.
 10. **After the code and statistician reviews (PR #171):**
