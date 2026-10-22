@@ -128,7 +128,7 @@ def p_detect(
 ) -> float:
     """P(gene called | abundance ``a``): Poisson-binomial P(>= k_min of ``peps`` seen) for the
     peptide model, the per-run probability for the replicate model; NaN if not usable."""
-    if not model.usable:
+    if not model.usable or not math.isfinite(a):
         return math.nan
     if model.kind == "replicate":
         x = {"abundance_log2": a}
@@ -237,10 +237,12 @@ def _newton(x: Array, ll: LogLik) -> Array | None:
             e = np.zeros(nb)
             e[i] = 1e-5
             h[i] = (grad(beta + e)[1] - grad(beta - e)[1]) / 2e-5
+        neg_h = -(h + h.T) / 2
         try:
-            step = np.linalg.solve(-(h + h.T) / 2, g)
+            step = np.linalg.solve(neg_h, g)
         except np.linalg.LinAlgError:
             return None
+        full = step
         for _ in range(60):
             cand = beta + step
             v_c, g_c = grad(cand)
@@ -253,8 +255,18 @@ def _newton(x: Array, ll: LogLik) -> Array | None:
         if not np.all(np.isfinite(beta)) or np.max(np.abs(beta)) > COEF_BOUND:
             return None
         if np.max(np.abs(step)) < 1e-9:
-            return beta
+            # a step halved to nothing is not convergence: the Newton step itself must vanish at
+            # a local maximum (-H positive definite), else the point is not an MLE
+            return beta if np.max(np.abs(full)) < 1e-6 and _pos_def(neg_h) else None
     return None
+
+
+def _pos_def(m: Array) -> bool:
+    try:
+        np.linalg.cholesky(m)
+    except np.linalg.LinAlgError:
+        return False
+    return True
 
 
 def _standardised_fit(
