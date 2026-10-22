@@ -207,3 +207,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - the publishDir rule (only `tables/*.tsv` in a subworkflow's out spec) is written in `operons.nf`; `genetable/genes_pre.parquet` from MVP-01 still publishes;
   - `peptides`, `peptide_hits`, `peptide_runs`, `detection_summary` are declared but not staged by OPERONS nor read (M6-02, pass 2);
   - the `giap.steps.common` importers alias `one_path as _path` etc.; rename the call sites when the modules are next touched.
+- M6-08 review of #155 (approve; pass 2):
+  - **must-do before the manifest writer:** open bin bounds `±Infinity` in the `operons.missed_operons` event are not strict JSON; write them as `null` in `_plain`;
+  - local executor stages `peptides` and `detection_summary` into `operons` (and orders it after `context_stats`); OPERONS under Nextflow stages neither; reconcile before M6-02 reads them;
+  - missing-layer WARNINGs have no §6.7 `operons.layer_missing` event;
+  - `assign_tus` on precomputed `tx_rates` in `_layer` is dead work (`pair_frame` never reads `tu_id`);
+  - `_cell` stringifies `None` items inside lists, bypassing `join_list`'s missing-item guard;
+  - nf-test lives at `workflow/tests/operons.nf.test`, not `workflow/tests/subworkflows/`;
+  - test gaps (surviving mutants): `missed_operons` without `genes=` (needs a relative-scale/partial-gene fixture); precomputed branch of `_layer` (promoters → `promoter_windows`) has no unit or nf-test; `no_detection_limit_model` log level unpinned.
+- MVP real run (Slurm 1864792) is degenerate upstream: all 86 genes `detected=False`, `detection_tier=decoy_picked`, `p_detect=0`, yet 81 have `detected_2pep=True` and finite `abundance_log2`; investigate M3/M4 on the real inputs (operon tests all `none` trivially).
