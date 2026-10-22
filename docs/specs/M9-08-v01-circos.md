@@ -99,3 +99,17 @@ sites, `<m>` novel ORFs" when those tables exist). Counts only.
 3. Peptide density counts placement rows; the data TSV's `category` column says `placements`.
 4. Branch off main: M9-03 (support files) is not merged, so the oriC/ter and GC-skew tracks are tested
    through their empty states only; the populated tracks are pinned when M9-03 lands.
+
+## Lead decisions on the tests (2026-10-22, after d82bebf)
+5. **AMR without coordinates.** `regions.tsv` AMR rows with NA start/end are not drawn and get no data
+   row in pass 1; the figure says "AMR sets without coordinates not drawn" when any exist. AMR rows with
+   coordinates are drawn. (Backlog: draw per member gene from genes.tsv in pass 2.)
+6. **TU start tick** is at the transcription start: the low coordinate on `+`, the high one on `−`.
+7. **Abundance rows.** One row per gene; NA and imputed genes have `value = NA` (drawn white).
+8. **Title plurals.** Singular at 1 ("1 island", "1 ALT site", "1 novel ORF"); the suffix lists only the
+   marker tables present, in the order ALT sites, novel ORFs.
+9. Omission-note wording is free; each names what is missing ("peptide", "GC skew", "oriC", tool names).
+10. **Density bins.** Every bin gets a row, zero counts included, so the bins tile each sector.
+11. **Novel ORFs with NA `start_longest`** use the called ORF's own `start`/`end`.
+12. **islands.tsv absent:** the island clause is left out of the title.
+13. **genes.tsv with no rows:** the framework empty state, "No genes in this run" (index decision 4(b)).
