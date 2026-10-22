@@ -380,8 +380,12 @@ nextflow_pipeline {
         }
     }
 
-    test("precomputed regions: no GENOMAD, no ANTISMASH, no region_layer") {
+    test("precomputed regions: no GENOMAD, no ANTISMASH; region_layer runs and writes C7/C8") {
 
+        // MVP-02 example 1 (supersedes the M2-07 "no region_layer" pin): the precomputed layer
+        // replaces geNOMAD and antiSMASH, but region_layer still runs on it (it reads
+        // annotation.precomputed.regions from the config, M4-21 lead decision 2) and emits the
+        // C7 regions.parquet / C8 region_genes.parquet that CONTEXT needs.
         when {
             params {
                 def d = "${moduleTestDir}/data/annotate"
@@ -396,12 +400,27 @@ nextflow_pipeline {
 
         then {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
             assert workflow.success
+            assert workflow.trace.failed().size() == 0
             def ran = H.names(workflow.trace)
-            assert H.count(workflow.trace, 'GENOMAD') == 0 : ran
-            assert H.count(workflow.trace, 'ANTISMASH') == 0 : ran
-            assert H.stepCount(workflow.trace, 'region_layer') == 0 : ran
+            assert H.count(workflow.trace, 'GENOMAD') == 0 : "GENOMAD ran despite precomputed.regions: ${ran}"
+            assert H.count(workflow.trace, 'ANTISMASH') == 0 : "ANTISMASH ran despite precomputed.regions: ${ran}"
+            assert H.stepCount(workflow.trace, 'region_layer') == 1 : "region_layer must run on the precomputed layer: ${ran}"
             assert H.stepCount(workflow.trace, 'context_layers') == 1
+
+            // region_layer: registry keys only, and no tool directories (none ran)
+            def dirs = H.stepDirs(work, 'region_layer')
+            assert dirs.size() == 1
+            def keys = H.stepInputs(dirs[0]).collect { it[0] }
+            assert !keys.any { it in ['genomad', 'antismash'] } : "tool inputs given to region_layer: ${keys}"
+            def probs = H.registryProblems(work, new File("${moduleTestDir}/data/annotate/step_registry.json"))
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            // c7/c8: region_layer writes the contract Parquet
+            ['regions.parquet', 'region_genes.parquet'].each { f ->
+                assert new File(dirs[0], f).isFile() : "region_layer did not write ${f}"
+            }
         }
     }
 }

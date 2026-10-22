@@ -117,6 +117,29 @@ N = 2000, π₀ = 0.8):
 | 30 % of null-gene decoys lost | 0.011 / 0.067 / 0.138 | as above |
 | π = 0.5 when true π₀ = 0.8 | 0.015 / 0.077 / 0.158 | π̂ must be conservative; M3-10's π̂_wrong (mean PEP, max q, de novo lower bound) needs its own calibration in the placement suite |
 
+## Convergent and sandwich decoys (operons, M6-01)
+
+`giap.stats.decoy_fdr` reuses `monotone_q` for the missed-operon family (§7.4.4); the full method
+and its power analysis are in `docs/methods/operons.md`. What differs from the separate search
+above:
+
+- **Decoys are not one per target.** CV (convergent) and SW (→ ← →) pairs are whatever the genome
+  has, in different numbers and with a different intergenic-distance mix than the NO targets. The
+  "one decoy per target, same distribution" assumption of `tda_qvalues` is replaced by
+  **within-bin exchangeability**: in each distance bin b, |Δ| of a null NO pair and of a decoy have
+  the same distribution. Each bin's decoy tail fraction (D_b + 1)/(N_decoy,b + 1) is scaled by the
+  bin's target count N_NO,b, so the decoys are reweighted to the targets' distance mix and their
+  number no longer matters.
+- **The +1 is per bin**, so the small-list floor is ≈ π₀ Σ_b N_NO,b/(N_decoy,b + 1) phantom false
+  targets — about B times the single-bin floor, dominated by the bin with the fewest decoys per
+  target. A bin with targets and no decoys contributes all its targets.
+- **Two decoy sets, the larger FDR wins**, maximum taken before monotonising. CV partners can be
+  *less* alike than same-strand neighbours (transcriptional interference), which is conservative;
+  SW pairs are farther apart. Reporting the larger guards against whichever set happens to mimic
+  null NO pairs badly in the conservative direction; it does not guard against a set that is
+  *more* alike than null targets (anti-conservative), which only an attack null can reveal.
+- **π₀ = 1** and N_NO,b counts every target, so the estimate is conservative by ≈ π₀.
+
 ## Numerical notes
 
 - Counts use `searchsorted` on sorted arrays (O(n log n)); no floating-point equality beyond the

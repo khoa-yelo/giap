@@ -273,7 +273,7 @@ def tu_series(
     Returns
     -------
     TuSeries
-        TUs in the genome order of their first scored gene; a TU with no scored gene is dropped.
+        TUs in genome order by C5 (``start``, ``tu_id``); a TU with no scored gene is dropped.
 
     Raises
     ------
@@ -291,8 +291,13 @@ def tu_series(
             values[tu] = []
         members[tu].append(tag)
         values[tu].append(float(score))
-    mean = np.array([float(np.mean(values[t])) for t in order], dtype=np.float64)
+    # Genome order of the TUs by C5 (start, tu_id) (spec step 2): a TU crossing the origin
+    # (start near length, end > length, §6.5) sorts last, so the window wrap rule holds.
     start, end = _tu_spans(tus, contig, order)
+    rank = sorted(range(len(order)), key=lambda i: (int(start[i]), order[i]))
+    order = [order[i] for i in rank]
+    start, end = start[rank], end[rank]
+    mean = np.array([float(np.mean(values[t])) for t in order], dtype=np.float64)
     n = mean.size
     if n:
         fit = loess_detrend(
