@@ -154,3 +154,7 @@ def run_variants(peptide_hits: pd.DataFrame, hits_tolerant: pd.DataFrame | None,
      - the step benchmark;
      - strict frictionless resolution of `OUT/schemas/datapackage.json` (the paths are relative to `OUT`, not to `schemas/`).
 
+6. **After the code review (PR #164):**
+   - **B1, fixed by the lead.** C9 keeps the literal `search_db: auto`; only placement resolved it, and only in memory. The variants step read `auto` as `same`, so database peptides searched against another strain's proteins gave false ALT sites under `genome_relation: same`.
+   - `support_of(peptide_hits, peptides, database_ids)` now resolves `auto`, or a missing value, table-wide with `resolve_search_db` against the gene model's locus tags, the same way placement does.
+   - The other review findings go to docs/backlog.md.

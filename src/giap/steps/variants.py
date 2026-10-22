@@ -12,7 +12,7 @@ unresolved ``auto`` fails the step (``write_vcf``).
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from pathlib import Path
 
 import pandas as pd
@@ -24,7 +24,7 @@ from giap.io.variant_tables import write_pileup, write_variants
 from giap.io.vcf import VcfRecord, write_vcf
 from giap.io.work_tables import load_tables
 from giap.model.genes import GeneModel
-from giap.steps.mapping import _path, read_gene_model
+from giap.steps.mapping import _path, read_gene_model, resolve_search_db
 from giap.steps.registry import StepContext, step
 from giap.variants.align import align_hits
 from giap.variants.pileup import Support, eligible, pileup, sites
@@ -44,19 +44,26 @@ def without_frameshifts(peptide_hits: pd.DataFrame) -> pd.DataFrame:
     return peptide_hits[keep].reset_index(drop=True)
 
 
-def support_of(peptide_hits: pd.DataFrame, peptides: pd.DataFrame) -> dict[str, Support]:
-    """Per peptide: C11 ``source``/``placement_q``/``uniqueness`` and C9 ``search_db`` (a value
-    other than ``same``/``other``, or none, counts as ``same``). Pure."""
+def support_of(
+    peptide_hits: pd.DataFrame, peptides: pd.DataFrame, database_ids: Collection[str]
+) -> dict[str, Support]:
+    """Per peptide: C11 ``source``/``placement_q``/``uniqueness`` and C9 ``search_db``. A value
+    other than ``same``/``other`` (``auto``), or none, is resolved table-wide as placement does
+    (``resolve_search_db`` against ``database_ids``, the gene model's locus tags). Pure."""
     sdb: dict[str, str] = {}
     if "search_db" in peptides.columns:
         sdb = {str(p): str(s) for p, s in zip(peptides["peptide"], peptides["search_db"],
                                                strict=True)}  # fmt: skip
+    resolved: str | None = None
     out: dict[str, Support] = {}
     for r in peptide_hits.to_dict("records"):
-        s = sdb.get(r["peptide"], "same")
-        out.setdefault(r["peptide"], Support(r["peptide"], r["source"],
-                       "other" if s == "other" else "same", float(r["placement_q"]),
-                       r["uniqueness"]))  # fmt: skip
+        s = sdb.get(r["peptide"])
+        if s not in ("same", "other"):
+            if resolved is None:
+                resolved = resolve_search_db(peptides, database_ids)
+            s = resolved
+        out.setdefault(r["peptide"], Support(r["peptide"], r["source"], s,
+                       float(r["placement_q"]), r["uniqueness"]))  # fmt: skip
     return out
 
 
@@ -70,7 +77,7 @@ def run_variants(
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[VcfRecord]]:
     """Rule 2's chain: the pileup (with its ``attrs``), the ``variants.tsv`` frame and the VCF
     records. ``peptide_hits`` is 0-based half-open with ``;``-joined ``diff_types``. Pure."""
-    support = support_of(peptide_hits, peptides)
+    support = support_of(peptide_hits, peptides, {g.locus_tag for g in gm.genes})
     aligns = align_hits(peptide_hits, hits_tolerant, genome, gm.replicons)
     pile = pileup(eligible(aligns, support, cfg), gm, genome, cfg, support=support)
     records, table = vcf_records(sites(pile, cfg), pile, genome, gm.replicons)
