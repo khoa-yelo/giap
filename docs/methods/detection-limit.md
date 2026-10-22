@@ -161,6 +161,115 @@ a pair with true P(miss) 0.2 estimated at 0.04 contributes 0.2 to the level at �
    run independence, anti-conservative if detections are over-dispersed across runs).
 3. The DL1 CITL tolerance (above).
 
+## Statistical review of the implementation (PR #157, head cf164a5, 2026-10-21)
+
+Simulations ran the code under review: Slurm jobs 1865238 and 1865261. The scripts and output are in
+`$GIAP_ROOT/stat/m6-02/review/` (review_sim.py, review_sel.py, out/). R = 100 replicates per arm,
+60 for the selection arm. The values below are means, with the Monte Carlo SE in brackets.
+
+**Verdict: blocked on one item (B1). Everything else matches this note.**
+
+### Matches the note
+
+- **Likelihoods.** The peptide conditional likelihood and its score are correct, including the
+  leave-one-out factor P(X_−j ≥ k − 1) for k_min = 2. The same holds for the doubly truncated binomial and
+  its score. Since cf164a5, `_newton` returns only at a stationary point with −H positive definite.
+- **Peptide model on the operon null.** 900 OP pairs, opportunities = (v detected, u). The level is
+  per opportunity.
+
+| σ | k_min | β_a (0.5) | gene slope | CITL | mean P(miss) | undetected share | level α=0.05 | level α=0.10 |
+|---|---|---|---|---|---|---|---|---|
+| 0.6 | 1 | 0.502 (0.002) | 0.998 | +0.006 (0.008) | 0.302 | 0.304 | 0.004 | 0.011 |
+| 0.6 | 2 | 0.504 (0.002) | 0.992 | +0.015 (0.014) | 0.434 | 0.443 | 0.003 | 0.009 |
+| 1.5 | 1 | 0.503 (0.002) | 1.000 | +0.012 (0.009) | 0.305 | 0.313 | 0.006 | 0.016 |
+| 1.5 | 2 | 0.504 (0.002) | 0.999 | +0.017 (0.014) | 0.420 | 0.459 | 0.005 | 0.014 |
+
+  At σ = 1.5 with k_min = 2, P(miss) falls 0.04 below the observed share. This gap comes from the
+  r sample, which is selected on both-detected pairs; the model itself has CITL +0.017. It belongs to
+  M6-09 attack C, not to M6-02.
+- **Cross-fitting is honest.** The folds are a seeded partition of the training TUs. `fold_coef[j]` never
+  saw fold j, and a TU that trained nothing gets the full model, which never saw it either. An
+  undetected partner is never a training gene in either model. M6-05H must call `model_for_tu`
+  with the TU of the **detected** partner v. That is the only gene of the pair that can have trained.
+- **Replicate model at R ≥ 3.** The slope is 0.504 (0.004) at R = 3 and 0.499 (0.003) at R = 4,
+  against a truth of 0.5. At R = 2 the model is decided from the run count. With the per-run q, P(miss)
+  is very conservative: mean 0.45 against an observed undetected share of 0.15, and level 0 at every α.
+  This is as the note predicted.
+- **Calibration tests.** The DL1 slope gate has no teeth against the naive fit. The teeth are elsewhere:
+  - DL2 (halved slopes);
+  - the every-commit β_a recovery test (±0.08; the naive fit gives 0.35);
+  - the slow unit CITL test (|CITL| ≤ 0.1 on an independent genome; the naive fit gives −0.89);
+  - the k_min = 2 recovery test (±0.04; the k = 1 score gives 0.44).
+
+  These tests are adequate for the failure this note predicted. They cannot detect B1, because in
+  `simulate_peptides` `detected` is exactly X_obs ≥ k_min.
+
+### B1 (blocking): the training genes are selected on `detected`, not on the conditioning event
+
+`fit_peptide_model` keeps `called & finite(abundance)` and then `sum(o) >= k`. The likelihood
+conditions on X_obs ≥ k_min. In the `mayu` and `decoy_picked` tiers, `detected` is a gene-level q ≤ α.
+That is a strict subset of the conditioning event: single-hit genes fail it at random. Genes that
+fail are missing from the training set, yet the likelihood treats them as possible. Because they are
+low-abundance genes with few peptides, the bias that this note's estimator was chosen to remove
+comes back, in the same direction (anti-conservative).
+
+Attack arm (review_sel.py): the pair design above with σ = 0.6. Every gene with ≥ 2 peptides seen is
+called, and a gene with one peptide seen is called with probability π₁.
+
+| π₁ | X ≥ 1 genes not called | fit | β_a | CITL vs X ≥ 1 | level α=0.05 (event: u not called) | level α=0.10 |
+|---|---|---|---|---|---|---|
+| 0.5 | 22 % | code (`detected`) | 0.447 | −0.40 (0.01) | 0.022 | 0.049 |
+| 0.5 | 22 % | training = X ≥ 1 | 0.503 | +0.01 (0.01) | 0.014 | 0.033 |
+| 0.2 | 36 % | code (`detected`) | 0.400 | −0.75 (0.01) | **0.046** | **0.092** |
+| 0.2 | 36 % | training = X ≥ 1 | 0.503 | +0.01 (0.01) | 0.023 | 0.050 |
+
+The fix is in the implementation and the tests, which are not mine to edit:
+
+- Training genes = finite `abundance_log2` and ≥ k_min distinct observable peptides seen in C11, whatever
+  `detected` says. This is decision 5's wording and this note's; spec item 2's "detected" is the special
+  case. M4-11 gives finite abundances to undetected genes that have accepted peptides.
+- The test-author adds a case in which a gene with ≥ k_min observable peptides seen but
+  `detected = False` contributes its rows to `n_fit`, and a recovery test with π₁ < 1.
+
+If the lead reads spec item 2 as binding, this needs a Khoa ADR. Until one exists, it stays blocking.
+
+### Non-blocking
+
+- **N1: the event P(miss) models.** Even with B1 fixed, P_det models X_obs ≥ k_min, not `detected`.
+  Against the event "u not called", P(miss) is too small in the large: CITL −0.84 (π₁ = 0.5) and
+  −1.39 (π₁ = 0.2). The per-opportunity level still held in these arms: at most 0.023 at α = 0.05 and
+  0.050 at α = 0.10. M6-05H must define the one-detected arm by u having < k_min observable peptides
+  seen, or ADR the gap. This is owed to Khoa (M6-05H) and to M6-09 attack C.
+- **N2: stray run label.** With 5 % of the run labels dropped to `""`:
+  - 2 real runs give R = 3 and the replicate model is fitted instead of `replicate_two_runs`;
+  - with 3 real runs the slope is 0.473 (0.003) against 0.5.
+
+  P(miss) stays conservative under the per-run q: level 0. A C16 validation item, not blocking.
+- **N3: unstored covariate median.** At scoring, a NaN covariate gives NaN, so the pair is not
+  tested. This costs power, not validity. Store the median. If M6-05H passes `cov=None`, every
+  replicate P(miss) is NaN, so M6-05H must pass the M4-10 covariates.
+- **N4: replicate model under `two_peptide`.** A run counts as seen with ≥ 1 peptide, while detection
+  needs ≥ 2 distinct peptides pooled. P(miss) is then 0.41 against an observed share of 0.46 (R = 3,
+  1–4 peptides per gene), still level ≤ 0.003 at α = 0.10 because 1 − q is so conservative.
+  Record it in the summary; it only matters if the pooled 1 − (1 − q)^R ADR is accepted.
+- **N5: imputed abundances.** A detected gene with an imputed `abundance_log2` (no intensity) trains
+  with a fill value. Excluding `abundance_imputed` rows from training would be cleaner; the current
+  behaviour is measurement error in the direction this note already lists.
+- **N6: the DL1 docstring** still describes the naive oracle as "recorded, not gated" with intercept
+  −0.97. It should describe the conditional fit.
+- The other backlog nits are numerical or test gaps, not statistical issues: NaN `tu_id` pooled into
+  one fold group, rng consumption order, I/L, a constant feature giving a singular H.
+
+### ADRs owed to Khoa
+
+1. The DL1 CITL tolerance of ±0.2 (`tolerances.yaml` is protected). The measured |CITL| is ≤ 0.02 at
+   k_min = 1 and 2. A conditional-fit CITL record should also be added at k_min = 2 (DL1 runs only
+   k_min = 1).
+2. If B1's fix is read as a change to spec item 2: the training set is the conditioning event, not
+   `detected`.
+3. The one-detected event for M6-05H (N1).
+4. The two existing open decisions above: R = 2 zero-truncation, and the pooled replicate `p_detect`.
+
 ## References
 
 Huggins RM (1989). On the statistical analysis of capture experiments. Biometrika 76:133–140.
