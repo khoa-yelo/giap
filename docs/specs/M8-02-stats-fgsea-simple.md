@@ -163,3 +163,11 @@ ES examples use stats small enough that integer scaling is exact (c is an intege
    - the order of the leading edge for a negative ES.
 
    Check each against the 1.36.2 source, not master.
+5. **Amends decision 4 (after the test step, 3d0d18b).** fgsea **1.36.2 has no integer scaling**: the 2³⁰/Σ rounding exists only on master (1.39.x), which is the version the designer read. GIAP follows 1.36.2, the version the golden env runs, so statistics stay float |stats| and `Prepared.stats` is float64. This lead decision overrides spec item 1 for that one point.
+6. The test-author's other resolutions are accepted:
+   - the ES = 0 tie counts in both leZero and geZero;
+   - p = (1 + nMoreExtreme)/(1 + modeFraction);
+   - float ties are decided by IEEE rounding;
+   - the `_fgsea_kernels.random_es_prefixes` hook is used for the prefix property.
+
+   Owed to M8-13: R accumulates in long double, so near-ties may differ in rare cases, and the batch kernel's statEps weighting of zero stats is not pinned.
