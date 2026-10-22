@@ -203,6 +203,21 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   from the evaluation points; `_bins` silently truncates float bins; `bin_index` accepts NaN edges;
   the +inf distance in the `bin_index` docstring.
 - M6-04 polish (non-behavioural): `promoter_between_tracks` exposes the private `_Track` alias in its signature (make a public `PromoterTrack` type); pin `pair_frame` dtypes (`detected_*` bool, `flags` list) through a pairs.tsv schema when M6-08 writes the table; consider one shared index object for the M2 `*_between` helpers so M6-07 reuses it.
+- M8-01 (pass 2): `wallenius_tails` evaluates scipy's Wallenius pmf over the whole support on every
+  call (both tails are direct sums). M8-04 calls it once per category with the same (M, N) and many
+  (n, ω), so a per-(M, n, N, ω) cache is useless; if the 3,000-category budget tightens, sum only
+  the shorter tail plus a pmf evaluation of the other near k, or move to the log-space pmf the
+  far-tail xfails need anyway (M8-13 ADR). Measured 2.30 s / 5 s on iron-15 (EPYC 7742).
+- M8-01: `elim` raises on a parent named in `parents` but absent from `term_genes` and gives
+  (NaN, NaN) without calling the test for a term with an empty gene set; neither is pinned by a
+  test yet (test-author). `wallenius_tails` raises on NaN/negative odds and on n or N outside
+  [0, M]; also unpinned.
+- M8-01 review of #153 (non-blocking):
+  - pin the untested fail-closed contracts: `wallenius_tails` NaN/inf/negative odds and n/N outside [0, M]; `elim` unknown parent/key; an empty gene set gives (NaN, NaN) without a test call;
+  - `category_odds`: test the finite-p filter and the shape check; range-check p_detect ∈ [0, 1];
+  - test ω = 0 with lo > 0, and N < n with k in (N, n];
+  - non-integer k raises a TypeError deep in the slice; validate it;
+  - M8-04: catch `ValueError` from extreme odds and report the category `unestimated` (`odds_out_of_range`); M8-13: exact pmf for extreme odds.
 - M8-07 dedupe: `giap.determinants.features._eligible` is a local copy of the §7.3 regions-table rule
   (`regions_table._eligible`); switch it to `giap.genetable.eligible` once M8-03 (#159) merges
   (lead decision 2 of docs/specs/M8-07-determinants-features.md).
