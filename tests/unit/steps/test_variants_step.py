@@ -366,10 +366,29 @@ def test_example_1_three_files_written_with_their_headers(full: Run) -> None:
     assert f"##source=giap-{giap.__version__}" in head
 
 
+def _without_flags(key: str, path: Path) -> object:
+    """The file with M7-05's flags removed: the ``flags`` column of ``variants.tsv`` and the
+    ``FLAGS`` INFO entry of the VCF. M7-05 fills both; test_variants_step_flags.py checks them."""
+    if key == "variants":
+        rows = [ln.split("\t") for ln in path.read_text(encoding="utf-8").splitlines()]
+        j = rows[0].index("flags")
+        return [r[:j] + r[j + 1 :] for r in rows]
+    if key == "variants_vcf":
+        out = []
+        for ln in path.read_text(encoding="utf-8").splitlines():
+            if not ln.startswith("#"):
+                f = ln.split("\t")
+                f[7] = ";".join(x for x in f[7].split(";") if not x.startswith("FLAGS=")) or "."
+                ln = "\t".join(f)
+            out.append(ln)
+        return out
+    return path.read_bytes()
+
+
 def test_example_1_tables_equal_the_rule_2_chain(full: Run, full_oracle: dict[str, Any]) -> None:
     for key, path in full.paths.items():
         want = full_oracle["paths"][key]
-        assert path.read_bytes() == want.read_bytes(), key
+        assert _without_flags(key, path) == _without_flags(key, want), key
 
 
 def test_example_1_fixture_exercises_alt_and_frameshift_sites(full: Run) -> None:
@@ -502,7 +521,7 @@ def test_example_3_same_strain_database_peptides_give_no_alt_except_non_atg_star
         assert starts[key] != "ATG" and r.alt_aa == "M", r
     want = oracle(run.inputs, _cfg(), tmp_path / "oracle")
     for key, path in run.paths.items():
-        assert path.read_bytes() == want["paths"][key].read_bytes(), key
+        assert _without_flags(key, path) == _without_flags(key, want["paths"][key]), key
 
 
 # ----------------------------------------------------------------------------- rule 7
@@ -558,7 +577,7 @@ def test_without_hits_tolerant_frameshift_rows_are_skipped_with_a_run_flag(
     assert (df["alt_type"] == "substitution").any(), "the other rows still count"
     want = oracle(ins, _cfg(), tmp_path / "oracle")
     for key, path in run.paths.items():
-        assert path.read_bytes() == want["paths"][key].read_bytes(), key
+        assert _without_flags(key, path) == _without_flags(key, want["paths"][key]), key
 
 
 def test_hits_that_disagree_with_the_genome_fail_the_step(
