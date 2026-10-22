@@ -29,9 +29,8 @@ capture <- function(expr) {
 }
 
 read_tsv <- function(name, classes) {
-  con <- gzfile(file.path(inputs, name))
-  on.exit(close(con))
-  read.delim(con, colClasses = classes, quote = "", comment.char = "")
+  read.delim(gzfile(file.path(inputs, name)), colClasses = classes, quote = "",
+             comment.char = "")
 }
 
 num <- function(x) {
