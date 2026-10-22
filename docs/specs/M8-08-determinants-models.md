@@ -123,3 +123,15 @@ def model_rows_table(cv: Mapping[str, CvResult], uni: pd.DataFrame) -> pd.DataFr
 3. Minimum data: 100 model rows and 25 TUs (proposed)?
 4. Univariate rows carry no p-value (§9.3's metric enum has none). Confirm — or should ρ and AUROC
    get bootstrap-based p and a BH family? **Proposed default:** no p; CIs only.
+
+## Lead decisions
+
+1. **Questions 1–4:** the proposed defaults are accepted.
+   - Elastic-net missing values are imputed with the fold-wise median, fitted on the training fold only.
+   - CV R² per repeat is the pooled out-of-fold R².
+   - The minimum is 100 model rows and 25 TUs.
+   - Univariate rows carry CIs and no p-value or BH family.
+2. **From the M8-07 review (#162):** the model matrix has constant columns on real data (14 on sim100k: `start_codon_other`, `replicon_type_unknown`, 12 `nterm_residue_*`).
+   - Drop zero-variance and all-NaN columns per training fold before standardising.
+   - Record the dropped columns for the step's events.
+   - LightGBM takes the same matrix.
