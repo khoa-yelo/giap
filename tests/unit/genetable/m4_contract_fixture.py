@@ -53,6 +53,8 @@ FEATURE_COLUMNS: tuple[str, ...] = (
     "feature_id", "type", "contig", "start", "end", "strand", "gene", "product", "amino_acid",
     "anticodon",
 )  # fmt: skip
+#: C16 ``peptide_runs`` (M6-02; the columns M1-06 ``aggregate_peptides`` writes), in order.
+PEPTIDE_RUN_COLUMNS: tuple[str, ...] = ("peptide", "run", "intensity", "n_rows")
 UNMAPPED_COLUMNS: tuple[str, ...] = (
     "sequence_id", "sequence", "kind", "label", "reason", "contaminant_match",
 )  # fmt: skip
@@ -263,6 +265,17 @@ def build_frames(n_genes: int = 20, tu_sizes: Sequence[int] = (1, 2, 3)) -> dict
         }
     )[list(AGG_COLUMNS)]
 
+    # C16 (M6-02): per-run detail of C9, one run per peptide (n_runs = 1, n_rows as in C9).
+    peptide_runs = pd.DataFrame(
+        {
+            "peptide": [r[0] for r in pep_rows],
+            "run": ["run1"] * len(pep_rows),
+            "intensity": pd.Series([1.0e6, math.nan, 2.0e5, 3.0e3], dtype="float64"),
+            "n_rows": pd.Series([2, 1, 1, 1], dtype="int64"),
+        },
+        columns=list(PEPTIDE_RUN_COLUMNS),
+    )
+
     abundance = pd.DataFrame(
         {
             "protein_id": [tag(i) for i in range(min(n_genes, 5))],
@@ -351,6 +364,7 @@ def build_frames(n_genes: int = 20, tu_sizes: Sequence[int] = (1, 2, 3)) -> dict
         "regions": regions,
         "region_genes": region_genes,
         "peptides": peptides,
+        "peptide_runs": peptide_runs,
         "abundance": abundance,
         "peptide_hits": peptide_hits,
         "protein_hits": protein_hits,

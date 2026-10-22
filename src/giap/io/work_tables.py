@@ -21,8 +21,8 @@ from giap.genetable.contract import TABLES, Column, validate_inputs, validate_ta
 from giap.io.issues import Issue, Severity
 from giap.io.tsv import read_tsv
 
-__all__ = ["FILE_NAMES", "M4_INPUT_KEYS", "M4Inputs", "default_paths", "load_m4_inputs",
-           "load_tables"]  # fmt: skip
+__all__ = ["EXTRA_FILE_NAMES", "FILE_NAMES", "M4_INPUT_KEYS", "M4Inputs", "default_paths",
+           "load_m4_inputs", "load_tables"]  # fmt: skip
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +64,9 @@ FILE_NAMES: Mapping[str, str] = {
 }
 M4_INPUT_KEYS: tuple[str, ...] = tuple(FILE_NAMES)
 OPTIONAL_KEYS = frozenset({"peptides", "abundance", "id_map"})
+#: Optional contract tables read only through ``load_tables`` (not in ``M4Inputs``): C16 (M6-02).
+EXTRA_FILE_NAMES: Mapping[str, str] = {"peptide_runs": "peptide_runs.parquet"}
+_ALL_FILES: Mapping[str, str] = {**FILE_NAMES, **EXTRA_FILE_NAMES}
 _ONE_BASED = frozenset({"peptide_hits", "protein_hits"})  # M3 TSVs with coordinates
 
 
@@ -159,15 +162,15 @@ def _read_scale(path: Path | None, issues: list[Issue]) -> str | None:
 
 
 def _load_table(key: str, path: Path | None, issues: list[Issue]) -> pd.DataFrame | None:
-    optional = key in OPTIONAL_KEYS
+    optional = key in OPTIONAL_KEYS or key in EXTRA_FILE_NAMES
     if path is None or not path.is_file():
-        where = FILE_NAMES[key] if path is None else f"{path.name} ({path})"
+        where = _ALL_FILES[key] if path is None else f"{path.name} ({path})"
         sev: Severity = "warn" if optional else "error"
         issues.append(_issue(key, "missing_file", f"missing {'optional ' * optional}{where}", sev))
         return None if optional else _empty(key)
     try:
         # by key, not file name: the local executor stores ``workdir / key`` without a suffix
-        if FILE_NAMES[key].endswith(".parquet"):
+        if _ALL_FILES[key].endswith(".parquet"):
             df = _read_parquet_table(key, path)
         else:
             df = _read_tsv_table(key, path)

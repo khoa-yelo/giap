@@ -68,7 +68,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - §9.5 per-field `unit` in the table schema resources (src/giap/schemas/tables/*.schema.json): none of them has it yet (M4-15 decision 16; project-wide).
 - Promotech sim100k recording ($GIAP_ROOT/recordings/promotech/sim100k) is a genome-wide -g run with every row labelled chr1,plasmid_1; re-record in GIAP's -s window mode (M2-21 test-author).
 - Nightly: test the newest open PR branches too (M2-21 decision 5, deferred). containers.yml / GHCR images deferred (M2-21 decision 2).
-- giap run --annotation <bakta.json> does not stop BAKTA from running under Nextflow (M2-21 implementer); workaround --set annotation.precomputed.bakta_json=…. Make --annotation map to the precomputed path.
 - Benchmarks: gate only steps with a baseline ≥ 1 s (M2-21 decision 10); implement the threshold in the benchmark check.
 - M4-19 decision 7: the run manifest records `output.sensitivity = off`; decision 8: no rows for a module that is off. (Decision 16, registering and wiring `run_sensitivity`, is done: MVP-01.)
 - M4-18 (#110 review): context_stats reads genes.parquet with pd.read_parquet; switch to M4-15's read_genes_parquet (output identical today) with the M5 context_stats work.
@@ -219,6 +218,46 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - test ω = 0 with lo > 0, and N < n with k in (N, n];
   - non-integer k raises a TypeError deep in the slice; validate it;
   - M8-04: catch `ValueError` from extreme odds and report the category `unestimated` (`odds_out_of_range`); M8-13: exact pmf for extreme odds.
+- M8-07 dedupe: `giap.determinants.features._eligible` is a local copy of the §7.3 regions-table rule
+  (`regions_table._eligible`); switch it to `giap.genetable.eligible` once M8-03 (#159) merges
+  (lead decision 2 of docs/specs/M8-07-determinants-features.md).
+- M8-07 review of #162 (approve; lead: `_lookup` deduplicates before indexing):
+  - **M8-08 brief:** on sim100k, 14 encoded columns are constant (`start_codon_other`, `replicon_type_unknown`, 12 `nterm_residue_*`). The elastic net's standardisation must handle zero variance and NaN cells (impute or drop), and must drop any column that is all-NaN after encoding;
+  - an `nterm_residue` outside the 20 levels (X, U, `*`, lowercase) gives all-zero one-hot rather than NaN; a lowercase `aa` skips the Met rule;
+  - test gaps: the C2 `ribosomal_protein` column winning, and each fallback arm alone; one-hot NA → NaN; §6.5 tie-breaks (same start with a different end; strand or locus_tag ties);
+  - methods: say that `layer_missing:<layer>` is inferred from which features are absent from the returned map.
+
+- M6-02 (test-author): `tests/unit/genetable/test_contract.py` pins `TABLE_KEYS` (no `peptide_runs`)
+  and `m4_contract_fixture.build_frames` has no C16 frame. `test_tables_keys` and
+  `test_missing_column[peptide_runs-*]` fail against the C16 contract that
+  `test_contract_peptide_runs.py` requires. Add C16 the way M5-04 added C15.
+- M6-02 (lead to confirm): `fit_detection_limit` puts the peptide model in force when it is usable,
+  else the replicate model when it is usable, else the unusable peptide model. The spec does not say
+  what to do when the peptide model exists but is unusable while runs exist.
+- M6-02: the replicate model takes R as the number of distinct C16 runs for every gene. The method
+  doc's "R is the gene's own number of runs" needs a per-gene run-eligibility input, which C16 does
+  not carry.
+- M6-02: `detectability.covariates` absent from the `genes` frame are silently left out of the
+  replicate model; M6-05H should pass the M4-10 covariate table joined in.
+- M6-02: the method doc asks the detection summary to count detected genes whose evidence lies
+  only outside the observable set (not training genes); not yet emitted.
+- M6-02: `k_min = 2` whenever any gene carries `detection_tier == "two_peptide"` (the tier is
+  run-wide in M4-12).
+- M6-02 review of #157 (lead fixes: a non-finite abundance gives NaN in both models; a k_min = 2 recovery test; `_newton` requires a vanishing Newton step and a negative definite H at convergence):
+  - the replicate model needs `cov=` at scoring, which the spec signature lacks. A NaN covariate scores NaN, but training imputes a median the model does not store; store it;
+  - a stray run label inflates R (the M1-06 `""` run plus 2 real runs gives R = 3, usable). Reject or flag it in C16 validation;
+  - a constant length or GRAVY gives a singular H, reported as `separated_or_not_converged`. Drop zero-variance features as the replicate model does;
+  - NaN `tu_id` values merge into one fold group; the replicate folds depend on how much rng the peptide fit consumed; I/L variants inside one gene are deduplicated raw but matched folded; non-standard letters create unmatchable observable peptides;
+  - test gaps (surviving mutants): I/L matching; the decision 8 in-force rule; the log of `length_aa` at scoring; the `one_class` guard; the MAX_ITER and line-search-failure paths; the convergence tolerance; the out-of-fold AUC.
+- M6-02 statistician review (56d5a72), non-blocking: a stray `""` run inflates R (C16 validation); store the covariate median in the model; under `two_peptide` the replicate model counts a run with ≥ 1 peptide as seen; detected genes with imputed abundances train on fill values; the DL1 docstring still says the naive oracle is "recorded, not gated".
+
+- M8-03 review of #159 (approve; lead: ADR-0023 adds map01310/map01320, methods note):
+  - the GO closure does not filter by namespace (go-basic has no cross-namespace edges): filter in `up()` or assert in `read_go`;
+  - `if kegg_names` tests a Path's truthiness; a missing names file gives all-NA names with no flag;
+  - `build_collections` turns an integer index array into a wrong bool mask without error, and a wrong-length mask raises a bare IndexError; check shape and dtype;
+  - `_ids` treats a plain string cell ("GO:1;GO:2") as empty;
+  - test gaps: roots in `parents`; KEGG and COG `n_unknown_ids`; slim names that differ from the GO names.
+
 - M8-13 (from M8-02): the random-ES kernel walks each prefix in O(K²) instead of fgsea's block
   convex hull (0.61 s for the 2,500 x 1,500 x 1,000 benchmark, so no need yet); its statEps
   weighting of zero stats is ported but unpinned, and R's long-double sums may decide near-ties
@@ -259,3 +298,51 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   neither — a NaN abundance is untested under every `abundance.missing` mode, not only `exclude`, and
   the one-detected branch is always `unestimated (no_detection_limit_model)`; `PMissModel` is a
   placeholder Protocol until M6-02 merges (replace with its real type in M6-05H).
+- MVP real run on 813 genes (Slurm 1865149, validation): operon tests now run (515 t, 102 decoy), but:
+  - detection is saturated: 804/813 genes are detected, `p_detect` is the constant 0.989 fallback, and picked FDR q = 1/804 for all. The giapsim real-run scenario needs decoys with null scores (the earlier item) and lower peptide coverage;
+  - Promoter Calculator runs one Nextflow task per TU (288 tasks for 0.9 Mb); batch it;
+  - `--annotation bakta.json` now feeds `annotation.precomputed.bakta_json` (mvp/annotation-json). The previous runs re-ran Bakta, so `engine_protein_mismatch_rate` was 0.9997; re-run after the merge to confirm it falls.
+
+- M8-03 review of #159 (approve; lead: ADR-0023 adds map01310/map01320, methods note):
+  - the GO closure does not filter by namespace (go-basic has no cross-namespace edges): filter in `up()` or assert in `read_go`;
+  - `if kegg_names` tests a Path's truthiness; a missing names file gives all-NA names with no flag;
+  - `build_collections` turns an integer index array into a wrong bool mask without error, and a wrong-length mask raises a bare IndexError; check shape and dtype;
+  - `_ids` treats a plain string cell ("GO:1;GO:2") as empty;
+  - test gaps: roots in `parents`; KEGG and COG `n_unknown_ids`; slim names that differ from the GO names.
+
+
+- M6-06 review of #148, owed to M6-08/M6-09:
+  - ADR draft for Khoa: exclude pairs with an imputed gene from targets and decoys (statistician: a co-imputed NO surplus gives ~198 false calls per replicate on a 2,000-pair genome; exclusion restores the level);
+  - attacks M-1 (co-imputation surplus; fails until the ADR), M-2 (class-dependent abundance/detection mix), M-3 (M6-01 attacks A and B);
+  - validate `operons.pi0` in `OperonsConfig` so the degenerate paths reject it too;
+  - `genes=None` means molar and all eligible: the step must always pass `genes` (or make it required);
+  - drop the internal `which` column before `pairs.tsv` (M6-07 decision 4);
+  - mutant test gaps: `partial` on `gene_a` only; `N_NO` counting only targets; `null_model` name with a dropped set; deterministic decoys-before-targets order; decoys' `partial` symmetry.
+- M6-07 pass 1 simplifications (implementer):
+  - `flags.py` imports the private `_bool`, `_flags`, `_per_gene` helpers from `missed.py` (also duplicated in `discordance.py`); move them to one shared `giap.operons._util` module;
+  - `operons_table` restricts `n_flags` to flagged **OP** pairs with both genes in the TU, so `sum(n_flags) <= flagged OP pairs` holds by construction even if a C5 TU ever contained an NO pair; confirm with the lead or drop the restriction;
+  - `detected_frac` for an all-partial TU is NA (0/0), as the spec lists it owed to pass 2;
+  - `merge_tests` keeps the first row when a `pair_id` appears in both M6-05 and M6-06 rows (cannot happen: OP vs NO), with no warning;
+  - `evidence_note` wording is placeholder prose (spec "Hardening owed"); `layer_missing:*` is not added to SW rows (pass 2);
+  - `flag_pairs` builds notes with `iterrows` (fine at thousands of flagged pairs; vectorise if a benchmark says so).
+- M6-06 (pass 2): `bin_counts` and the π₀ actually used must reach the §9.4 run report and the manifest when the operons step is wired (M6-07/M6-08); the function returns them but nothing writes them yet.
+- M6-06 (pass 2): the missed-operon benchmark baseline was measured in the iron-15 session allocation only (0.23 s); re-measure on wheat with the other M6 entries.
+- M6-06 (pass 2): the lfdr of targets in a bin with no decoys is too small (methods note, "Known asymmetry"); set it NA or 1 there before lfdr is ever thresholded.
+- M6-07 review of #152 (non-blocking):
+  - tests to add: the terminator cut-off on its own (promotech 0.5 / terminatornet 0.9 / score 0.8); a pair's own flags kept by `merge_tests`; the both-detected guard in `max_abs_delta_log2`; a gene missing from the gene table counted as undetected; the fully linked circular ring (wrap OP pair inside one TU);
+  - validate `missing_layers=` ∈ {promoters, terminators}; guard `merge_tests` against empty inputs that have no columns;
+  - move `_bool`/`_flags`/`_per_gene` to `giap.operons._util`;
+  - M6-10: restricting `n_flags` to OP pairs matters once pairs are reclassified at UniOP 0.3/0.7 while the TUs stay at the default.
+
+## M8-05 review nits (PR #171)
+- Surviving mutants (test gaps):
+  - re-tests on a fresh rng;
+  - unestimated rows set to p = 1 in the substituted BH vector;
+  - boundaries: `k <= min_size`, `bh(sub) >= alpha`, `q < alpha`;
+  - the `parent_group` ID tie-break.
+- A missing `tu_id` crashes with a TypeError. Fail closed with a ValueError, as context does.
+- A NaN `tu_position` makes gene order row-order dependent.
+- An infinite `abundance_log2` passes `notna()`.
+- Duplicate `locus_tag` rows are counted twice.
+- A missing collection name becomes the literal "NA".
+- M8-15 should adopt the statistician's GO-family FDR arm (local/stat/m805code/probe_code.py `go_null`/`go_alt`), and cite the R = 4,000 level runs (Slurm 1867122).
