@@ -442,7 +442,11 @@ def test_denovo_error_bars_span_the_ci(tmp_path: Path, cfg: GiapConfig) -> None:
 
 # --- properties -------------------------------------------------------------------------------
 
-_FDR = st.one_of(st.none(), st.floats(min_value=0.0, max_value=0.2, allow_nan=False))
+#: values that survive write_tsv's 6 significant digits, so the read-back and the alpha test agree
+_FDR = st.one_of(
+    st.none(),
+    st.floats(min_value=0.0, max_value=0.2, allow_nan=False).map(lambda x: float(f"{x:.6g}")),
+)
 
 
 @settings(max_examples=15, deadline=None, suppress_health_check=[HealthCheck.too_slow])
