@@ -135,3 +135,13 @@ for islands "ISL_3 (low): mean log2 `<m>`, FWER p `<p>`"; operon flags "`<flag>`
 8. NA loci sort last, then by kind and id; `small_region` gets no extra rule.
 9. pyGenomeViz may be used only for its patches/tracks drawn onto our own `Figure`; no pyplot figure
    may survive a render.
+
+## Lead decisions on the review round (2026-10-22, #209)
+10. An operon flag across the origin spans the shorter arc (b unwrapped relative to a).
+11. The title wraps and stays inside the figure; every clause with its q stays in the drawn text.
+12. A colorbar labelled "log2 abundance" shows the run-wide cividis scale, plus a legend outside the
+    gene and pileup axes with undetected, imputed and single_peptide_unestimated swatches.
+13. Strands: arrow heads point downstream. The promoter bent arrow stands at its TSS, the downstream end
+    of the upstream Promotech window (high coordinate on +, low on −); + marks above the gene-track
+    centre, − below. (Corrects the review-round brief, which said low on +.)
+14. Imputed genes keep their data-TSV row with `value` NA and `category = imputed`.

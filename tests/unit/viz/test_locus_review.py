@@ -559,10 +559,10 @@ def test_b4_promoter_bent_arrow_sits_at_its_strand_start_and_points_downstream(
     ax = _axes(_render(_strand_out(tmp_path), cfg, "bgc_1").figure, "genes")
     stem, head = _stem_and_head(_mark_lines(ax, PROMOTER, s, e))
     if strand == "+":
-        assert stem == pytest.approx(s, abs=1)  # low coordinate on +
+        assert stem == pytest.approx(e, abs=1)  # TSS: high end of the upstream window on +
         assert head > stem
     else:
-        assert stem == pytest.approx(e, abs=1)  # high coordinate on -
+        assert stem == pytest.approx(s, abs=1)  # TSS: low end of the upstream window on -
         assert head < stem
 
 

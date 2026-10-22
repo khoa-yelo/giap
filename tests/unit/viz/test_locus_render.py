@@ -223,7 +223,7 @@ def test_data_columns_suffix_title_and_coords(tmp_path: Path, cfg: GiapConfig) -
     assert inst.suffix == "prophage_1"
     assert inst.title == lo.label
     assert inst.title == "prophage_1: 12 % detected vs 31 % expected (q = 0.003)"
-    assert inst.title in _texts(inst.figure)
+    assert " ".join(inst.title.split()) in [" ".join(t.split()) for t in _texts(inst.figure)]
     assert "start" in inst.coords
     assert "end" not in inst.coords
     assert set(inst.data["track"]) <= {"gene", "pileup", "promoter", "terminator", "region",
