@@ -154,3 +154,9 @@ part_of `GO:B1`; `GO:0003674` (MF root) ← `GO:M1`.
      - `bakta_db_light` is raised from `annotation_source == bakta_light`.
    - **Inputs:** numpy-array list cells behave like lists. Inputs are never mutated.
 3. **Owed to pass 2:** the contract test on the installed resources (it needs a `needs_go_db` marker) and the < 10 s performance test.
+4. **After the code review (#159):**
+   - The overview-map exclusion also covers map01310 and map01320, KEGG's full "Global and overview maps" group (ADR-0023).
+   - "Excluded and counted" becomes "excluded and documented": there is no count field in pass 1.
+   - The methods section is docs/methods/function-collections.md, a separate file so it doesn't collide with the M8-01 `function.md`.
+   - The implementer's choices 1–7 are accepted.
+

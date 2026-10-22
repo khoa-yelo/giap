@@ -4,7 +4,8 @@ Pure: the resources are read by :func:`giap.io.function_resources.read_resources
 annotations come from the gene table (``cog_category``, ``go_terms``, ``kegg_ko``). GO terms are
 mapped to their primary ID, propagated over ``is_a`` and ``part_of`` and split by namespace; the
 three roots are removed. KEGG keeps ``path:map`` links and drops the global/overview maps
-(``map011xx``, ``map012xx``). Sets hold eligible genes only and are never empty.
+(``map011xx``, ``map012xx``, ``map01310``, ``map01320``; ADR-0023). Sets hold eligible genes
+only and are never empty.
 """
 
 from __future__ import annotations
@@ -32,7 +33,8 @@ NAMESPACES: Mapping[str, Collection] = {
     "molecular_function": "go_mf",
     "cellular_component": "go_cc",
 }
-_OVERVIEW = re.compile(r"^map01[12]\d\d$")
+# KEGG "Global and overview maps" (ADR-0023)
+_OVERVIEW = re.compile(r"^map01(?:[12]\d\d|310|320)$")
 _MISSING_NAME = "NA"
 
 
@@ -146,7 +148,8 @@ def _go(tags: list[str], terms: list[list[str]], res: Resources, n: int) -> list
 
 def kegg_pathways(links: pd.DataFrame) -> dict[str, frozenset[str]]:
     """KO -> ``mapNNNNN`` pathways from ``link/pathway/ko`` rows: ``path:map`` rows only (the
-    ``path:ko`` rows duplicate them), global/overview maps ``map011xx``/``map012xx`` excluded."""
+    ``path:ko`` rows duplicate them); the global/overview maps (``map011xx``, ``map012xx``,
+    ``map01310``, ``map01320``; ADR-0023) are excluded."""
     out: dict[str, set[str]] = {}
     for ko, pw in zip(links["ko"].astype(str), links["pathway"].astype(str), strict=True):
         m = pw.removeprefix("path:")
