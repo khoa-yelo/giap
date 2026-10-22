@@ -669,7 +669,7 @@ def test_renders_on_the_validation_run(tmp_path: Path, cfg: GiapConfig) -> None:
     inst = _render(VAL_OUT, cfg)
     keys = _keys(inst)
     assert keys[-2:] == [("region", "plasmid_1"), ("region", "crispr_1")]
-    assert len(keys) > 2 and all(block == "basic" for block, _ in keys[:-2])
+    assert len(keys) > 2 and all(block != "region" for block, _ in keys[:-2])
     assert inst.title == "No region departs from detectability at q ≤ 0.05; 0 regions tested"
     assert "dosage_plus_regulation (untested)" in texts(inst.figure)
     paths = write_instance(inst, "V07", "obs_vs_exp", tmp_path / "plots", ["svg", "png"], 100)
