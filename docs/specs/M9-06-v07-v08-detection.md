@@ -101,3 +101,19 @@ Data TSV `V08_cog_abundance.tsv`: `category`, `super_category`, `locus_tag`, `ab
    V14(c) shows category detection; V7 keeps one COG estimate (the M4 one).
 4. Violin bandwidth is a display choice; **Proposed default:** matplotlib's default (Scott), with
    no statistical claim attached.
+
+## Lead decisions (2026-10-22, after the test author's d431aaf)
+
+1. The test author's pinned readings of gaps 1–4, 6–10 are accepted:
+   - region `n` = n_eligible;
+   - k counts the rows with a q value;
+   - a tie goes to the first region in drawing order;
+   - an estimate is drawn at 0 when E = 0;
+   - the COG "none" row is kept;
+   - V08 has one row per non-partial gene and letter, with `abundance_log2` NA unless drawn;
+   - "none" goes last.
+2. **Gap 5.** With no `regions_stats`, the basic-only title rule applies, even when every row has n_detected = 0.
+3. **Gap 9.** The `locus_tag = NA` summary row comes first in its category. `super_category` for "none" is `none`.
+4. **Gap 11.** "no COG annotation" appears when every COG letter is NA, whether or not the `layer_missing:cog` flag is present. The flag is named in brackets only when it is present.
+5. **Gap 12.** `<m>` is the median log2 abundance, formatted `%.1f`. `<n>` is the number of measured values drawn in that category.
+6. **Gaps 13 and 14.** Use the framework's default empty state. V07 is single width up to 20 rows and double above; V08 is double width.
