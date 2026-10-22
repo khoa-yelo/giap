@@ -465,3 +465,5 @@ M8-06b:
    - Every ORA row carries `ora_uncalibrated` in pass 1.
    - A skipped recalibration adds `tu_recal_skipped` to the rows as well.
    - The schema-equals-`COLUMNS` test pins the final #179 columns.
+4. **The M8-06b test contract is accepted (TA 9a931e5).** Q6's premise was wrong: sim100k writes `db_xrefs: []`, so the simulator has no GO, KEGG or COG IDs. The integration fixture therefore writes deterministic `db_xrefs` into the simulated `bakta_like.json` before either run, and builds the synthetic DB from those IDs. Giving giapsim real xrefs goes to the backlog (M8-14). The lead added `FUNCTION_STEP` to the MVP-02 process-list pin and `genetable/tu_folds.parquet` to the genetable published files.
+
