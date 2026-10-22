@@ -111,6 +111,7 @@ def test_writes_schema_valid_regions_rows(work: Path) -> None:
     assert header[6:] in ([], ["agreement"])
     _validate(tsv)
     df = sd.read_sensitivity(tsv)
+    df = df[df["family"] == "regions"]  # M5-10 adds islands rows beside them
     assert sorted(zip(df["family"], df["variant"], strict=True)) == [
         ("regions", "missing=exclude"), ("regions", "missing=min"),
     ]  # fmt: skip
@@ -123,6 +124,7 @@ def test_n_primary_equals_the_reported_count(work: Path) -> None:
     cfg = sd.config()
     _run(work, cfg)
     df = sd.read_sensitivity(sd.sensitivity_tsv(work))
+    df = df[df["family"] == "regions"]  # M5-10 islands rows carry their own n_primary
     want = _reported_n(work, cfg)
     assert want >= 1, "fixture: no flagged region"
     assert set(df["n_primary"].astype(int)) == {want}
@@ -549,4 +551,5 @@ def test_step_n_primary_uses_c7_c8_not_region_ids(work_linear: Path, tmp_path: P
     want = _reported_n(w, cfg)
     assert want >= 1, "fixture: no flagged region"
     df = sd.read_sensitivity(sd.sensitivity_tsv(w))
+    df = df[df["family"] == "regions"]  # M5-10 islands rows carry their own n_primary
     assert set(df["n_primary"].astype(int)) == {want}
