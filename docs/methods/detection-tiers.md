@@ -52,6 +52,14 @@ The better one is kept; a tie goes to the decoy. With f the paired share,
 FDR(t) = (D(t)/f + 1) / T(t), made monotone. Decoy winners and genes without accepted
 peptides get q NA (`not_detected`). `detection_summary.tsv` reports f (`decoy_paired_share`) and 1/f
 (`decoy_win_weight`).
+It also reports `q_floor` = 1/T, where T is the number of eligible genes won by a target. It is a
+lower bound on every picked q, from the +1 that finite-sample control needs: q = running min of
+(D/f + 1)/k ≥ 1/T, whatever f is. It is reached only when no decoy win scores at or above the
+weakest target win. When `q_floor` > `stats.alpha.identification`, i.e. fewer than 1/alpha genes are
+won by a target, no gene can be detected at that alpha. The run then warns `q_floor_above_alpha`,
+and q-values and detection calls are reported unchanged (Khoa, 2026-10-22). The row is NA outside
+the picked tier: MAYU has no +1 term (its q → 0 as the expected false-peptide count → 0), and the
+`two_peptide` and `protein_list` tiers have no gene q.
 
 ## MAYU tier
 `giap.stats.mayu.mayu_gene_fdr` (see mayu-gene-fdr.md) on eligible genes, with sizes
