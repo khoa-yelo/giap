@@ -45,6 +45,8 @@ M6–M11: not designed yet.
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
+M7-01 residue aligner (branch m7/alignment, implementer step done 2026-10-21): `giap.variants.align` (247 code lines, numba banded DP with traceback; M3 kernels untouched). Unit 42 passed, property 5 passed (also over 20 Hypothesis seeds), sim100k conformance passed (Slurm 1864764), fast suite 9180 passed (1864763), benchmark 100k tolerant hits 11.35 s < 30 s (1864766, wheat-08). Next: code review.
+M7-02 pileup and calls (branch m7/calls, stacked on m7/alignment; implementer step done 2026-10-21): `giap.variants.pileup` (Support, eligible, pileup, sites; 242 non-blank code lines). Unit 68 passed, property 5 passed, fast suite 9253 passed (Slurm 1865145). Frameshift events travel in `pile.attrs["frameshifts"]`; per-codon ALT detail in internal `_ref_codon`/`_alts` columns (writers drop `_` columns, M7-03). Next: code review.
 - M8-02 (m8/fgsea, implementer step done, 103ebe6): fgsea 1.36.2 port I — `giap.stats.fgsea`
   (`prepare`, `gsea_es`, `fgsea_simple`) + numba kernels `giap.stats._fgsea_kernels`; NOTICE.md
   fgsea MIT row; docs/methods/fgsea-port.md. Contract tests 49 passed; fast suite 9184 passed
