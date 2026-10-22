@@ -589,3 +589,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Example 10 runs only on FarmShare; the colour cycle leaves out black and grey (spec wording).
 - `read_tsv` now treats an empty cell as missing in genes.tsv too (matches `giap.io.genes_tsv`).
 - Mutation evidence: $GIAP_ROOT/review/pr191-mut/ (22/25 killed, 1 equivalent).
+
+## M9-02 review nits (#205; one round, B1–B5 and N1 local half fixed in the PR)
+- N1 Nextflow half: REPORT gets no `events`, so `layer_missing` skips fire under the local executor and `giap report` but not in a Nextflow `giap run`. Fix before the first Nextflow-run plot that declares layers.
+- Config digest reads "not available" in `giap run` but appears after `giap report`, so `report.html` changes on a rebuild of an untouched run.
+- Executor-equality test compares only `plots/data` (empty until plots register): also compare `report.html` bytes, and the run's report with a rebuilt one.
+- Peptide "of N input" counts `kind=protein` rows from `unmapped`.
+- Stale plot files from an earlier run are shown in place of a skip reason that holds now; with `formats=[png]` the report says "plot file absent" although the PNG exists.
+- PLOTS has no resource label (1 CPU / 2 GB) while REPORT_HTML gets `process_low`.
+- `ALL_PUBLISHED_KEYS` declares optional inputs never read (`peptide_hits`, `tus_tsv`); SVG id separator `-` is not provably unique.
+- Surviving mutants: `<=` boundary in the card counts, the two `nunique` peptide counts. Move `cards()` to `giap/report/cards.py` ahead of M9-16.
+- Card/table read failures are notes in the HTML only (build.py is pure); consider an event from the step.
