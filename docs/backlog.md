@@ -498,6 +498,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M8-06 checklist: register `genomic_cluster` and `detection_confounded` in the `enrichment_gsea` schema (§9.4).
 - `test_gsea_table_flags_need_no_rng` uses the fake engine; add a real-engine p-value comparison to pin the RNG stream.
 
+## M5-10 reviews (#184; code approved, statistician BLOCK on the note, B1–B3 fixed in the PR), nits
+- Code: `islands_family` copies `cfg` without re-validation (unlike `with_overrides`); re-validate or comment why it is safe.
+- Tests: an island wrapping the origin of a circular replicon; pin the replicon order of draws (two replicons near threshold); a direct `islands_family` test with `stats.permutations != 199` and an automatic block length (mutants: topology flip, length + 1, reversed replicon order survived; $GIAP_ROOT/review/pr184-mut/).
+- `islands_frame` computes 199-resample CIs the flagged set never uses; skip them if island counts grow.
+- No golden has a non-empty islands set; add one with a planted island once M5 goldens exist.
+- Stats: a Monte Carlo baseline row (the primary rerun on an independent stream) as the reference for variant rows (§8.6 / lead decision).
+- Stats: one random substream per replicon in M5-06, so a T change elsewhere leaves a replicon's draws alone (changes islands.tsv; ADR-0021 note).
+- Stats: `alpha.context` < 1/200 makes every islands set empty and every Jaccard NA; warn or document.
 ## M5-07 reviews (#188; code CHANGES B1–B2 and statistician LIFT, fixed in the PR), nits
 - **Owed before the M5 gate is ticked:** run the `islands` array task of `scripts/slurm/calibration_full.sbatch` on main, then fill "Main run: Slurm ⟨ID⟩" in docs/methods/islands.md and PROGRESS.md.
 - `test_planted_island_avoids_regions` checks nothing (empty region list); delete it now that `test_power_layout_has_no_regions` pins `regions == ()`, and amend the spec edge case "island_power guarantees no overlap" (false: overlap is left to the caller).
@@ -582,3 +590,13 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - `read_tsv` now treats an empty cell as missing in genes.tsv too (matches `giap.io.genes_tsv`).
 - Mutation evidence: $GIAP_ROOT/review/pr191-mut/ (22/25 killed, 1 equivalent).
 - ADR-0041 follow-up (after #196 merges): move the four tokens from RUN_FLAGS_PENDING to the accepted run vocabulary and update the vocabulary test (lead).
+- M9-05 V6: a run with targets under both `reverse` and `shuffle` decoy types (database + de novo placements) — split or overlay the strata (lead decision 3, 2026-10-22).
+- M9-05 review nits (#198):
+  - **Labels:** N4, the "rejected by FDR" label is pushed beside the placed bar with no leader line, and the (b) "0" label sits on the α line.
+  - **Test gaps:**
+    - N5b, no case with targets under both decoy types;
+    - N6, no test with a contaminant label and `reason=no_hit`;
+    - N7, no title test with FDR = α, and none with every stratum estimated and above α;
+    - N8, the reviewer's alluvial geometry check (scratchpad geom.py) should become a test.
+  - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
+  - **Size:** about 25 lines of simplifications listed in the review.

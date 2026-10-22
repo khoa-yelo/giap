@@ -8,7 +8,7 @@
 //         peptides, abundance, replicon_depth
 // context_stats takes the three M3 tables out of the loci directory and both the gene table and
 // the C2 genes.parquet (same file name: GIAP_STEP stages each input into its own in<n>/).
-// sensitivity (M4-19 decision 16) takes the gene table and C1/C7/C8. Without C7/C8 neither step
+// sensitivity (M4-19 decision 16) takes the gene table and C1/C5/C7/C8. Without C7/C8 neither step
 // runs, as MAPPING skips its protein route.
 
 nextflow_workflow {
@@ -74,7 +74,7 @@ nextflow_workflow {
             assert same[0][1] != same[1][1] : "input file name collision: ${same}"
 
             def sin = H.stepInputs(H.stepDirs(work, 'sensitivity')[0])
-            assert sin.collect { it[0] }.sort() == ['gene_table', 'region_genes', 'regions', 'replicons'] : "sensitivity inputs ${sin}"
+            assert sin.collect { it[0] }.sort() == ['gene_table', 'region_genes', 'regions', 'replicons', 'tus'] : "sensitivity inputs ${sin}"
 
             ['tables/regions_stats.tsv', 'tables/detection_summary.tsv', 'tables/sensitivity.tsv'].each { f ->
                 assert new File("${outputDir}/${f}").isFile() : "${f} not published"
