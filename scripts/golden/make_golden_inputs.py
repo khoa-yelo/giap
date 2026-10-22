@@ -131,10 +131,9 @@ def ora_inputs(rng: np.random.Generator) -> tuple[Table, Table]:
     ]
 
     order = rng.permutation(N_GENES)
-    n_out = int(round(FRAC_UNCATEGORISED * N_GENES))
+    n_out = round(FRAC_UNCATEGORISED * N_GENES)
     pool = np.sort(order[n_out:])  # genes that regular categories draw from
     det_pool = pool[detected[pool] == 1]
-    undet_pool = pool[detected[pool] == 0]
     mid_det = det_pool[(pd[det_pool] > 0.3) & (pd[det_pool] < 0.7)]
     mid = pool[(pd[pool] > 0.3) & (pd[pool] < 0.7)]
 
@@ -142,7 +141,7 @@ def ora_inputs(rng: np.random.Generator) -> tuple[Table, Table]:
         return sorted(int(i) for i in rng.choice(source, size=n, replace=False))
 
     def mixed(n: int, frac_det: float) -> list[int]:
-        k = int(round(n * frac_det))
+        k = round(n * frac_det)
         mid_undet = np.setdiff1d(mid, mid_det)
         return sorted(pick(mid_det, k) + pick(mid_undet, n - k))
 
