@@ -36,7 +36,7 @@ nextflow_pipeline {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
             def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
             def work = workDir.toString()
-            def nameOf = { File dir -> (new File(dir, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '') }
+            def nameOf = { File dir -> (new File(dir, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
             def byTag = { String s -> H.taskDirs(work).findAll { dir -> H.tagOf(nameOf(dir)) == s } }
             assert workflow.success
             assert workflow.trace.failed().size() == 0

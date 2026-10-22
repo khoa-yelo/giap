@@ -56,7 +56,7 @@ nextflow_workflow {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
             def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
             def work = workDir.toString()
-            def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '') }
+            def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
             def byTag = { String s -> H.taskDirs(work).findAll { d -> H.tagOf(nameOf(d)) == s } }
             def ran = { String s -> H.names(workflow.trace).count { H.tagOf(it) == s } }
             assert workflow.success
@@ -135,7 +135,7 @@ nextflow_workflow {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
             def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
             def work = workDir.toString()
-            def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '') }
+            def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
             def d = H.taskDirs(work).find { H.tagOf(nameOf(it)) == 'variants' }
             assert workflow.success
             assert d != null : "variants did not run; tasks: ${H.names(workflow.trace)}"
