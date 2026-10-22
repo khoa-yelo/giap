@@ -14,7 +14,7 @@ Conventions pinned by the test author (see tests/helpers/novel_outputs_fixture.p
   M7-06 ``minimal_call`` columns plus optional ``start_best_ostir``, a 0-based codon of
   ``Orf.starts``, and any other table column); the TSV is written by ``write_novel_orfs``;
 * TSV cells follow giap.io.tsv: ``NA``, ``true``/``false``, ``%.6g``; ``peptides`` and ``flags``
-  are ``;``-joined (flags sorted);
+  are ``;``-joined (flags in the schema vocabulary order, M7-09 decision 4);
 * GFF3 attributes use the column names; the first three keys are ``ID``, ``class``, ``called``;
   ``start_longest`` is written like the TSV (1-based, transcription direction);
 * FASTA records follow the table rows, ``|longest`` before ``|best_ostir``; every record starts
