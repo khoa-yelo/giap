@@ -185,6 +185,23 @@ def test_null_p_uses_the_formula_on_its_null_vector() -> None:
         assert "null_degenerate" not in _flags(r), name
 
 
+def test_every_result_is_null_uncalibrated_in_pass_1() -> None:
+    """Statistician #173 / ADR-0034: the TU-size null fails the autocorrelation and detection
+    attacks, so every NullResult (degenerate included) carries ``null_uncalibrated``; a NaN
+    observed R² adds ``unestimated``."""
+    X, y, tu, f1 = _world()
+    res = _null(X, y, tu, f1, {"lightgbm": 0.2, "elastic_net": math.nan}, 9)
+    assert _flags(res["lightgbm"]) == {"null_uncalibrated"}
+    assert _flags(res["elastic_net"]) == {"unestimated", "null_uncalibrated"}
+    sizes = [f"T{i:03d}" for i in range(1, 15) for _ in range(i)]  # sizes 1..14 all unique
+    n = len(sizes)
+    Xd = pd.DataFrame(
+        {"cai": np.linspace(0, 1, n)}, index=pd.Index([f"G{i:05d}" for i in range(n)])
+    )
+    deg = _null(Xd, np.linspace(0, 1, n), sizes, np.arange(n) % 5, {"lightgbm": 0.1}, 9)
+    assert _flags(deg["lightgbm"]) == {"null_degenerate", "null_uncalibrated"}
+
+
 def test_example_4_no_null_exceeds_gives_floor() -> None:
     """Observed R² = 1 (no null refit reaches it) -> b = 0, p = 1/(1 + B); fast form B = 19."""
     X, y, tu, f1 = _world()

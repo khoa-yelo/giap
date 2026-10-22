@@ -30,6 +30,9 @@ I64 = npt.NDArray[np.int64]
 #: the stream of ``giap.rng.for_step``; permutation b draws from its b-th spawned child
 NULL_STREAM = "determinants.null"
 DEGENERATE = "null_degenerate"
+#: pass 1 (ADR-0034): the permutation p is valid only for exchangeable TUs; on every result
+UNCALIBRATED = "null_uncalibrated"
+UNESTIMATED = "unestimated"
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,7 +45,8 @@ class NullResult:
     b_count: int  # #{null R² >= observed}
     n_perm: int  # B
     p: float  # (1 + b_count)/(1 + B)
-    flags: str = ""  # ";"-joined; ``null_degenerate`` when no TU can move
+    flags: str = ""  # ";"-joined: ``unestimated`` (NaN observed), ``null_degenerate``, then
+    # ``null_uncalibrated`` (always, ADR-0034)
 
 
 def tu_size_blocks(tu: Sequence[str]) -> list[I64]:
@@ -123,9 +127,16 @@ def null_p(
         p = perm_p(obs, null[:, j], alternative="greater")
         n = int(np.count_nonzero(~np.isnan(null[:, j])))
         b = round(p * (1 + n)) - 1 if np.isfinite(p) else 0
-        out[m] = NullResult(m, obs, null[:, j].copy(), b, B, p)
+        out[m] = NullResult(m, obs, null[:, j].copy(), b, B, p, _flags(obs))
     return out
 
 
 def _degenerate(model: ModelName, observed: float, B: int) -> NullResult:
-    return NullResult(model, observed, np.full(B, observed), B, B, 1.0, DEGENERATE)
+    return NullResult(
+        model, observed, np.full(B, observed), B, B, 1.0, _flags(observed, DEGENERATE)
+    )
+
+
+def _flags(observed: float, *extra: str) -> str:
+    nan = [UNESTIMATED] if np.isnan(observed) else []
+    return ";".join([*nan, *extra, UNCALIBRATED])
