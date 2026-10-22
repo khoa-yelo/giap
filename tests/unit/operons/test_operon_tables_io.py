@@ -59,6 +59,7 @@ SPEC_FLAG = {
 #: lead decision 7 (M6-08): the pair-scope tokens added through the ``pairs.tsv`` schema
 DECISION_7 = (
     "abundance_imputed", "layer_missing:promoters", "layer_missing:terminators",
+    "layer_missing:tx_rates",
     "ci_unestimated", "unestimated", "too_few_op_pairs", "too_few_no_pairs",
     "no_detection_limit_model", "relative_scale",
 )  # fmt: skip

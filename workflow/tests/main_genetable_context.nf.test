@@ -107,7 +107,10 @@ nextflow_pipeline {
             assert !gin.any { it[0] in ['regions', 'region_genes'] } : "C7/C8 keys from a layer: ${gin}"
 
             assert new File("${outputDir}/genetable/genes.parquet").isFile() : "gene table not published"
-            assert !new File("${outputDir}/tables").exists() : "tables/ published without C7/C8"
+            // M6-08: OPERONS needs no C7/C8 and publishes its tables here; CONTEXT's must be absent
+            ['regions_stats.tsv', 'detection_summary.tsv', 'sensitivity.tsv'].each { f ->
+                assert !new File("${outputDir}/tables/${f}").exists() : "tables/${f} published without C7/C8"
+            }
         }
     }
 
