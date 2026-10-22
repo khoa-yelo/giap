@@ -3,7 +3,8 @@
 Issue M6-01 (GIAP_SPEC.md §7.4.2–§7.4.4, §8.1–§8.3), modules `giap.stats.tdist` and
 `giap.stats.decoy_fdr`, with the lead decisions of `docs/specs/M6-01-lead-decisions.md`. The pair
 table is M6-04, the discordance tests M6-05, the missed-operon step M6-06 and the operon-level
-calibration gate M6-09. This note covers the engine; the sections the step modules add come later.
+calibration gate M6-09. This note covers the engine and the discordance step (M6-05); the other step sections come
+later.
 
 ## The within-operon distribution
 
@@ -38,13 +39,122 @@ short ones) violates it and the BH family of M6-05 inherits that.
 **Degenerate cases.** Fewer than 5 finite values → `StudentT(nan, nan, nan, n, False)`. When more
 than ν_min/(ν_min + 1) = 2/3 of the values are tied (all equal, or a dominant exact tie, which quantised
 abundances can produce), the likelihood is unbounded as σ → 0. The issue requires
-`converged = False` there; **at the reviewed head (326d024) the fit instead returns σ ≈ 10⁻³⁰⁵ with
-`converged = True`** (50 equal values; 40 tied of 50), which would give p = 0 for every untied OP
-pair downstream. Required fix before merge (statistician review of PR #140).
+`converged = False` there. The review of PR #140 found the fit returning σ ≈ 10⁻³⁰⁵ with
+`converged = True` (50 equal values; 40 tied of 50), which would have given p = 0 for every untied
+OP pair. Fixed in 7ad17fe (M6-01 decision 13): a scale below 10⁻⁸ · max(1, range) is a collapse and
+the fit is returned unestimated, so M6-05 tests nothing.
 
 **Not yet provided (pass 2).** A CI for (μ, σ, ν) (profile likelihood), so the reported fit
-carries its uncertainty. The effect size that §8.2 requires next to each discordance p is
-z = (Δ − μ)/σ with its CI, owed by M6-05.
+carries its uncertainty. The per-pair effect M6-05 reports is described under *Discordance*
+below.
+
+## Discordance (M6-05, pass 1)
+
+Module `giap.operons.discordance` (GIAP_SPEC.md §7.4.3, §8.1 row "Operon discordance"; lead
+decisions in `docs/specs/M6-05-discordance.md` and M6-index decision 1).
+
+**Test.** The t of the previous section is fitted to Δ over the *usable* OP pairs: both genes
+eligible (not `partial`), both detected, both log2 abundances finite, neither imputed. Fewer than
+20 usable pairs, or a fit with `converged = False`, leaves every OP pair `test = none` with
+`too_few_op_pairs` and `unestimated`, and no family is formed. Otherwise every eligible
+both-detected OP pair with a finite Δ is tested: `p = 2 · min(F, 1 − F)` under the fit. Pairs whose
+abundance is imputed are tested but not fitted (spec §7.4.2, example 5). The fit and the test use
+the same pairs, so p is a plug-in p (below).
+
+**Effect and CI.** `effect = Δ − μ̂` in log2 units: how far the pair sits from the typical
+within-operon ratio. No CI is reported for it (`ci_low`, `ci_high` NA): a single pair has no
+sampling replicate, and the t prediction interval is a statement about the null, not about the
+effect (M6-05 lead decision 2). The claim GIAP makes is "discordant at q ≤ 0.1", and that claim
+carries its q.
+
+**Family.** One BH family per run: every OP pair with `test = both_detected_t`. In pass 1 the
+one-detected branch is `unestimated (no_detection_limit_model)`, so this is literally §7.4.3's
+"all tested OP pairs". When M6-05H turns on P(miss), M6-index decision 1 keeps P(miss) out of the
+family and without a q. That departs from §7.4.3's "both kinds together", so it needs an ADR at
+that point. P(miss) is not uniform under any null, so BH over the mixture has no justification.
+
+**Relative scale.** With `abundance_scale = relative` (MaxLFQ, summed intensity, unknown;
+§7.3.4) Δ is not a ratio of copy numbers, because each protein's normalisation constant enters it.
+A pair that is "unusual" on that scale is not a stoichiometry statement. Every abundance test is
+therefore `none` with `relative_scale` and `unestimated`, as the spec requires. This is the right
+behaviour, not merely a conservative one.
+
+### Plug-in level, contamination and power (statistician review of PR #147)
+
+Simulation (2026-10-21, Slurm 1864589): Δ = −0.3 + 0.5 · t_ν, ν ∈ {5, 30}; a share π₁ of pairs
+shifted by ±s log2. The shifted pairs stay in the fit, as they would in a real run. R = 2,000
+replicates at n = 20 and 50, and 400 at n = 500. The convergence rate was 1.000 everywhere.
+*In-sample* is the M6-05 p (fit and test on the same pairs), measured on the null pairs. *Held-out*
+is the p of 50 fresh null draws under the same fit: the honest out-of-sample p, which is also what
+leave-one-out would give.
+
+| n | ν | π₁, s | in-sample rate at α = .01 / .05 / .10 | held-out rate | ν̂ median (share at 50 / at 2) |
+|---|---|---|---|---|---|
+| 20 | 5 | 0 | 0.0017 / 0.0540 / 0.1050 | 0.029 / 0.080 / 0.137 | 19.2 (0.47 / 0.09) |
+| 20 | 30 | 0 | 0.0004 / 0.0455 / 0.1016 | 0.021 / 0.075 / 0.138 | 50 (0.70 / 0.02) |
+| 50 | 5 | 0 | 0.0093 / 0.0527 / 0.1022 | 0.018 / 0.062 / 0.115 | 6.4 (0.22 / 0.02) |
+| 50 | 30 | 0 | 0.0062 / 0.0474 / 0.1013 | 0.013 / 0.059 / 0.114 | 50 (0.62 / 0.00) |
+| 500 | 5 | 0 | 0.0104 / 0.0507 / 0.0996 | 0.011 / 0.052 / 0.103 | 5.1 (0 / 0) |
+| 500 | 30 | 0 | 0.0096 / 0.0495 / 0.1002 | 0.010 / 0.050 / 0.101 | 33.3 (0.41 / 0) |
+| 20 | 5 | 0.10, 2 | 0.0003 / 0.0130 / 0.0418 | 0.003 / 0.023 / 0.062 | 2.6 |
+| 50 | 5 | 0.10, 2 | 0.0004 / 0.0119 / 0.0400 | 0.001 / 0.016 / 0.046 | 2.6 |
+| 500 | 5 | 0.10, 2 | 0.0006 / 0.0119 / 0.0396 | 0.001 / 0.012 / 0.040 | 2.6 |
+| 500 | 5 | 0.10, 4 | 0.0002 / 0.0063 / 0.0280 | 0.000 / 0.007 / 0.028 | 2.0 (bound) |
+
+Monte Carlo SE of the in-sample rates is ≤ 0.0009. What the table shows:
+
+- **Double use is not anti-conservative where it matters.** The largest excess is +0.005 at
+  α = 0.10 (n = 20, ν = 5), and the rate is *below* nominal at α = 0.01 at every n. The small-p
+  tail is the one BH uses. The in-sample point pulls the fit toward itself, and that cancels the
+  downward bias of the MLE scale at small n. The held-out p is the anti-conservative one: 0.029 at
+  α = 0.01 for n = 20. So **leave-one-out would make the level worse**, not better, and it is not
+  recommended.
+- **True discordant pairs in the fit make the null pairs conservative.** They lower ν̂ toward the
+  bound 2 and widen the tails, so contamination never inflates the level.
+- **Family-wise under the complete null.** The share of replicates with any BH call at q ≤ 0.1 is
+  0.0015 at n = 20, 0.0065 at n = 50 and 0.0725 at n = 500 (ν = 5); the bound is 0.1 + 2 SE.
+- **TU-chained Δ.** Consecutive pairs of one TU share a gene, so their Δ are negatively
+  correlated. With TUs of 2–6 genes the in-sample rates are 0.0103 / 0.0495 / 0.0993 at n = 500 and
+  the any-call share is 0.0725. That passes.
+- **Abundance-dependent noise** (Δ SD × exp(−0.5 · z_abundance)) passes the *pooled* criterion
+  (0.0070 / 0.0522 / 0.1076 at n = 500) but **not within the lowest-abundance quartile**
+  (0.024 / 0.152 / 0.271), at 2.4–3× nominal. One t for all pairs puts null calls on noisy,
+  low-abundance pairs. This is attack D-1 for M6-09 (below).
+- **Power is close to zero at realistic effects.** With ν free, the fit absorbs discordant pairs
+  into a heavy tail. BH power at q ≤ 0.1 by n and π₁:
+  - s = 2 log2 (4-fold): 0.000–0.003 at every n and every π₁ ∈ {0.05, 0.10, 0.20}.
+  - s = 4 log2 (16-fold, 8 null scale units), π₁ = 0.10: 0.12 at n = 20, 0.005 at n = 50, 0.000 at
+    n = 500.
+  - s = 4 log2, π₁ = 0.01 (5 of 500 pairs): still 0.000, because ν̂ falls to 3.3.
+
+  Power *falls* as n grows, because BH needs ever smaller p while ν̂ stays near the bound. This is
+  a property of the specified method (§7.4.2 fits ν by ML on all OP pairs, discordant ones
+  included), not of the code.
+
+**What M6-05 can claim.** Discordance calls control the per-pair level and the family-wise false
+call rate on null OP pairs. Their FDR is controlled at q ≤ 0.1, conservatively. The module will
+rarely make a call: a near-empty `operon_flags.tsv` is the expected output, not evidence of
+concordance. Like the missed-operon family (M6-01 decision 12), M6-09 gates level and FDR and
+**claims no power**. A method change that would restore power needs an ADR draft for Khoa. Options
+include: ν fixed (e.g. 4) or bounded below at 3–4; a robust or trimmed fit of the bulk; a
+two-component null+outlier mixture; σ modelled as a function of mean abundance, which also
+answers attack D-1.
+
+**Minimum of 20 usable pairs.** At n = 20, ν is not identified: ν̂ sits on a bound in 56 % (ν = 5)
+and 72 % (ν = 30) of replicates. The p is still at level, for the cancellation reason above, and is
+conservative in the BH tail (rate 0.0017 at α = 0.01). At n = 20 a single BH call needs
+p ≤ 0.005. Sizes below 20 were not measured. So 20 is defensible as a floor for *level*. It is not
+a floor for useful *power*, and that is stated rather than gated.
+
+**Attacks owed to M6-09** (`tests/calibration/attacks/`, §8.5):
+
+- **D-1.** Δ variance that depends on abundance, with level checked per abundance quartile as
+  well as pooled. The pooled check passes; the per-quartile check fails, as measured above. A
+  failing attack blocks the gate, so M6-09 needs either the ADR fix or an ADR that scopes the
+  claim to the pooled level.
+- **D-2.** TU-chained Δ (shared genes), level and any-call share. Passes as measured above.
+- **D-3.** Contamination masking: report power at π₁ ∈ {0.01, 0.05, 0.10} and s ∈ {2, 4}. This is
+  a power record only; it is not gated.
 
 ## Decoy FDR for missed operons
 
@@ -343,3 +453,7 @@ with both genes imputed share a fill value, so their Δ = 0 is a point mass that
 wholesale false calls when it is more common among NO pairs. The imputed state must travel with the
 pair rows now, and exclusion on both sides is an ADR for Khoa. Relative-scale rows need
 `unestimated` (§7.3.4), and scored rows need `ci_unestimated`.
+Statistician (PR #147 review, 2026-10-21): the discordance test is at level with the double use
+included, and BH over the both-detected t p-values is the specified family. The flag on tested rows
+must say that the CI, not the claim, is unestimated. Power is near zero at realistic effects; that
+is reported here, not a merge blocker. Attack D-1 is owed to M6-09.

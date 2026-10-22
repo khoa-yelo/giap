@@ -152,8 +152,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   so `regions_stats.tsv` float columns differ by 1–2 ulp between machines and between CI legs (M4-20
   decision 9, probe 1863133). Writer-level rounding is the real fix — see the §9.5 per-field precision
   item — and belongs with the M6 writers.
-- CONTEXT cannot receive `tier_summary`: it would need an 11th `take:` channel and
-  workflow/tests/context.nf.test binds exactly input[0..9] (M4-20 decision 3). Test-author work.
 - tests/helpers/islands_data.py (m5/islands) and tests/helpers/oriter_data.py (m5/oriter) both carry a
   `tu_frame` and a giapsim-scenario driver; whichever merges second should deduplicate. Note the ori–ter
   driver deliberately keeps the simulator's real coordinates, while the island one re-lays genes through
@@ -165,6 +163,10 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   `context.region_types` (the tool path filters it); F7 the sensitivity goldens (sim50k, sim100k_real)
   have zero primary/variant calls; F8 stale flat files win over keyed ones in `contract_paths` /
   `work_inputs`. `PUBLISHED_FILES` repeats the Nextflow names (pinned by a test) — one shared source.
+- MVP-02 pass 2 (code review of #146): `-resume` reuses a stale region_layer result when only the
+  precomputed TSV's content changes (stage it as a declared input, decision 2, which also replaces the
+  absolute-path fix in `write_params`); example 4 ran under farmshare_local, the farmshare,apptainer
+  conclusion (GIAP_STEP runs natively) is from reading the config, not from a run.
 - RegulonDB TLS: the server omits its intermediate, so any plain client fails verification. GIAP completes
   the chain itself (fetch_regulondb.py pins GlobalSign GCC R46 OV TLS CA 2025, sha256
   d160e2de4e56cb10b66c1cb0adcb79cf93c78dcd9db30c2018220262c04063f9, valid to 2029-06-23, verified against
@@ -210,3 +212,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M6-06 (pass 2): `bin_counts` and the π₀ actually used must reach the §9.4 run report and the manifest when the operons step is wired (M6-07/M6-08); the function returns them but nothing writes them yet.
 - M6-06 (pass 2): the missed-operon benchmark baseline was measured in the iron-15 session allocation only (0.23 s); re-measure on wheat with the other M6 entries.
 - M6-06 (pass 2): the lfdr of targets in a bin with no decoys is too small (methods note, "Known asymmetry"); set it NA or 1 there before lfdr is ever thresholded.
+- M6-05 review of #147 (code reviewer, statistician), owed to M6-05H/M6-09:
+  - skip the t fit when the scale is relative (today it fits and may warn "too_few_op_pairs" on relative rows);
+  - log the 1e-6 scale floor in the non-convergence warning, not the raw MAD;
+  - document that one-detected rows get no `no_detection_limit_model` on the too-few/relative paths;
+  - test gaps (surviving mutants): undetected gene with a finite imputed value; `unestimated` on the too-few and relative paths; one side partial only; pair flags (`rna_between`) kept; flags of partial rows;
+  - statistician F3/D-1: abundance-dependent Δ noise breaks the lowest-quartile level (2.4–3× nominal) — method ADR or narrowed claim, Khoa decides; D-2 (TU-chained Δ) and D-3 (power record) as attacks;
+  - F5: keeping P(miss) out of the BH family in M6-05H needs an ADR; F6: flag imputed-but-detected tested pairs `abundance_imputed`.
+- M6-05 pass 1 simplifications (implementer): `discordance()` accepts `cfg` and `p_miss` but uses
+  neither — a NaN abundance is untested under every `abundance.missing` mode, not only `exclude`, and
+  the one-detected branch is always `unestimated (no_detection_limit_model)`; `PMissModel` is a
+  placeholder Protocol until M6-02 merges (replace with its real type in M6-05H).
