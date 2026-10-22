@@ -107,9 +107,13 @@ workflow ANNOTATE {
     def O = OPERON_PAIRS.out.outputs
     def tus = kv('tus', pick(O, 'tus.parquet'))
     layers += [kv('pairs_raw', pick(O, 'pairs_raw.parquet')), tus]
+    // OPERONS' pair evidence (M6-08 decision 1): pairs_raw and each layer this run has, a
+    // precomputed promoters TSV under the producer key promoter_windows (as the local executor)
+    def forPairs = [kv('pairs_raw', pick(O, 'pairs_raw.parquet'))]
 
     if (pc.promoters) {
         layers += [pre('promoters')]
+        forPairs += [kv('promoter_windows', pre('promoters').map { k, f -> f })]
     } else {
         def pw = stepIn('promoter_windows', [genes, reps, kv('genome', genome)])
         PROMOTER_WINDOWS(pw.files, pw.keys, ['windows_map=windows_map.parquet'] +
@@ -121,20 +125,24 @@ workflow ANNOTATE {
             kv('promotech', byName(PROMOTECH.out.dir.collect(sort: true)))])
         PROMOTER_LAYER(pl.files, pl.keys, ['promoter_windows=promoter_windows.parquet'])
         layers += [kv('promoter_windows', pick(PROMOTER_LAYER.out.outputs, 'promoter_windows.parquet'))]
+        forPairs += [layers[-1]]
     }
 
     if (pc.tx_rates) {
         layers += [pre('tx_rates')]
+        forPairs += [layers[-1]]
     } else if (ann.promoter_calculator.enabled) {
         def regions = inDir(O, 'tu_upstream')
         PROMOTER_CALCULATOR(regions.map { f -> [f.baseName, f] })
         def tx = stepIn('tx_layer', [kv('pc', byName(PROMOTER_CALCULATOR.out.csv.collect(sort: true))), tus, reps])
         TX_LAYER(tx.files, tx.keys, ['tx_rates=tx_rates.parquet'])
         layers += [kv('tx_rates', pick(TX_LAYER.out.outputs, 'tx_rates.parquet'))]
+        forPairs += [layers[-1]]
     }
 
     if (pc.terminators) {
         layers += [pre('terminators')]
+        forPairs += [layers[-1]]
     } else {
         def term = ann.terminators
         def tools = []
@@ -156,6 +164,7 @@ workflow ANNOTATE {
         TERMINATOR_LAYER(tl.files, tl.keys, ['terminators=terminators.parquet', 'terminators_crosscheck=terminators_crosscheck.tsv'])
         layers += [kv('terminators', pick(TERMINATOR_LAYER.out.outputs, 'terminators.parquet')),
                    kv('terminators_crosscheck', pick(TERMINATOR_LAYER.out.outputs, 'terminators_crosscheck.tsv'))]
+        forPairs += [layers[-2]]
     }
 
     if (pc.rbs) {
@@ -214,4 +223,5 @@ workflow ANNOTATE {
     gene_model = pick(P, 'genes.parquet').combine(pick(P, 'features.parquet')).combine(pick(P, 'replicons.parquet'))
     contract   = m4                 // [xrefs, annotation_meta, tus, layers] (MVP-01)
     regions    = c7.combine(c8)     // [regions, region_genes], empty without a region_layer run
+    layers_for_pairs = forPairs.inject(channel.empty()) { acc, c -> acc.mix(c) }  // [key, path] (M6-08)
 }
