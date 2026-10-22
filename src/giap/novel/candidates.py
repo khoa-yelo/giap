@@ -55,6 +55,9 @@ class Orf:
     peptides: tuple[str, ...]  # distinct, I/L-folded, sorted
     best_q: float | None  # min input q of its peptides (None for de novo)
     overlapping_gene: str | None
+    # lowest 0-based coordinate of the most upstream peptide's first codon (its mapped hit, so a
+    # tolerant peptide counts too); None only for ORFs built outside ``reconstruct``
+    first_peptide: int | None = None
 
 
 def _il(s: str) -> str:
@@ -262,6 +265,7 @@ def _build(
         peptides=tuple(sorted({_il(str(m[2]["peptide"])) for m in members})),
         best_q=_best_q([m[2].get("q_value", float("nan")) for m in members]),
         overlapping_gene=_overlapping_gene(cls, cls_row, gm),
+        first_peptide=sv.codon_genome(first),
     )
 
 

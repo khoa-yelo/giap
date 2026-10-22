@@ -4,6 +4,7 @@ written tables and their schemas, ``frictionless`` validates the package and bot
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -21,7 +22,10 @@ def test_datapackage_validates_with_written_tables(tmp_path: Path) -> None:
     vt().write_variants(tmp_path / "tables" / "variants.tsv", table)
     for name in ("pileup", "variants"):
         shutil.copy(TABLES / f"{name}.schema.json", tmp_path / "tables")
-    shutil.copy(SCHEMAS / "datapackage.json", tmp_path)
+    # only the variant resources: other modules (M7-07 novel_orfs) share the descriptor
+    pkg = json.loads((SCHEMAS / "datapackage.json").read_text(encoding="utf-8"))
+    pkg["resources"] = [r for r in pkg["resources"] if r["name"] in ("pileup", "variants")]
+    (tmp_path / "datapackage.json").write_text(json.dumps(pkg), encoding="utf-8")
     report = frictionless.validate(str(tmp_path / "datapackage.json"))
     assert report.valid, report.flatten(["type", "note"])
     assert len(report.tasks) == 2
