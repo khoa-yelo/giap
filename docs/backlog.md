@@ -235,6 +235,28 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - test gaps: the C2 `ribosomal_protein` column winning, and each fallback arm alone; one-hot NA → NaN; §6.5 tie-breaks (same start with a different end; strand or locus_tag ties);
   - methods: say that `layer_missing:<layer>` is inferred from which features are absent from the returned map.
 
+
+## M8-08 (determinants models), owed
+- The acceptance benchmark, 2,500 rows × 35 columns in under 120 s, recorded in `benchmarks/baseline.json`.
+- The `docs/methods/determinants.md` section "Models".
+- The calibration tests need the protected `tolerances.yaml` key `determinants_delta_r2_max_abs_bias`, which is owed to Khoa (decision 6).
+- The `too_few_rows` rows carry `n` = NA. Pass the model-row count to `model_rows_table`.
+
+## M8-08 review nits (PR #166)
+- Make `tu=` a required keyword in `cross_validate`, or assert in the M8-09 and M8-10 tests that it is passed.
+- `cross_validate` has no input validation: the lengths of y, folds and tu are never checked against X.
+- Document that `X.index` must be `locus_tag`, because a RangeIndex breaks canonical order.
+- A fold with no usable columns appends no booster, so M8-09's repeat × fold indexing shifts.
+- `cv_r2_sd` with R = 1 is NaN and carries no flag.
+- Untested parameters: LightGBM `deterministic`, `force_row_wise` and the seed derivation; the fallback that predicts the training mean when no columns are usable.
+- Constant features give AUROC 0.5 with CI [0.5, 0.5]. Consider a `constant_feature` flag.
+- An NA `tu_id` in `univariate` becomes one shared pseudo-TU. Raise instead.
+- `univariate` bootstraps even when the point estimate is NaN.
+- The methods note must cover:
+  - the inner-CV preprocessing;
+  - the ΔR² caveat (the repeats share data);
+  - univariate CIs are unadjusted and make no discovery claim.
+- §7.8.2's separate report of ribosomal genes: confirm which issue owns it (M8-09 adds rows flagged `cai_reference`).
 - M6-02 (test-author): `tests/unit/genetable/test_contract.py` pins `TABLE_KEYS` (no `peptide_runs`)
   and `m4_contract_fixture.build_frames` has no C16 frame. `test_tables_keys` and
   `test_missing_column[peptide_runs-*]` fail against the C16 contract that
