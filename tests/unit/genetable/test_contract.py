@@ -22,6 +22,7 @@ from m4_contract_fixture import (
     FEATURE_COLUMNS,
     LAYER_COLUMNS,
     PEPTIDE_HITS_COLUMNS,
+    PEPTIDE_RUN_COLUMNS,
     PROMOTER_COLUMNS,
     PROTEIN_HITS_COLUMNS,
     UNMAPPED_COLUMNS,
@@ -40,6 +41,7 @@ CONTRACT_PY = REPO / "src" / "giap" / "genetable" / "contract.py"
 TABLE_KEYS = (
     "replicons", "genes", "xrefs", "tus", "layers", "regions", "region_genes", "peptides",
     "abundance", "peptide_hits", "protein_hits", "unmapped", "id_map", "features",
+    "peptide_runs",
 )  # fmt: skip
 
 # Required (non-optional) columns per table, from the spec table "The contract".
@@ -61,6 +63,7 @@ REQUIRED: dict[str, tuple[str, ...]] = {
     "unmapped": UNMAPPED_COLUMNS,
     "id_map": ("source_id", "locus_tag"),
     "features": FEATURE_COLUMNS,  # C15 (M5-04): parse_bakta's columns, in its order
+    "peptide_runs": PEPTIDE_RUN_COLUMNS,  # C16 (M6-02): M1-06's columns, in its order
 }  # fmt: skip
 OPTIONAL: dict[str, tuple[str, ...]] = {
     "genes": ("ribosomal_protein", "amr"),
@@ -175,6 +178,11 @@ PINNED: dict[tuple[str, str], tuple[str, bool | None, tuple[str, ...] | None]] =
     ("features", "product"): ("str", True, None),
     ("features", "amino_acid"): ("str", True, None),
     ("features", "anticodon"): ("str", True, None),
+    # C16 (M6-02 lead decision 1): M1-06 ``peptide_runs``
+    ("peptide_runs", "peptide"): ("str", False, None),
+    ("peptide_runs", "run"): ("str", False, None),
+    ("peptide_runs", "intensity"): ("float", True, None),
+    ("peptide_runs", "n_rows"): ("int", False, None),
 }
 
 
@@ -265,7 +273,15 @@ def test_tables_columns_pinned(table: str) -> None:
     names = [c.name for c in cols]
     assert len(names) == len(set(names)), f"duplicate column in {table}"
     required = tuple(c.name for c in cols if not c.optional)
-    if table in ("layers", "peptides", "peptide_hits", "protein_hits", "unmapped", "features"):
+    if table in (
+        "layers",
+        "peptides",
+        "peptide_hits",
+        "protein_hits",
+        "unmapped",
+        "features",
+        "peptide_runs",
+    ):
         assert required == REQUIRED[table]  # producer column order (M2-20, M1-06, §9.3)
     else:
         assert set(required) == set(REQUIRED[table])
