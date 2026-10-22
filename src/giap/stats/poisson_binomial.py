@@ -243,7 +243,8 @@ def conditional_poisson_binomial(
     """Tails of K = Σ_{t∈C} D_t given S = N (spec M8-04 §1; ADR-0029); exact, no approximation.
 
     P(K = j | N) ∝ PB_C(j) · PB_Ū(N - j), normalised by the sum over the support. ``p_over`` and
-    ``p_under`` both include k and are sums of non-negative terms. The support [lo, hi] is
+    ``p_under`` both include k, are sums of non-negative terms and are clamped to [0, 1] (the
+    numerator and the support sum round apart by an ulp, decision 13). The support [lo, hi] is
     [max(0, N - |Ū|), min(|C|, N)] narrowed by the exact zeros of q (impossible units) and of
     1 - q (certain units); a k outside it, an N outside [0, |C| + |Ū|], or a zero or non-finite
     support sum is a ``ValueError``. Callers pass tilted q and its complements (``tilt_pair``) so
@@ -272,8 +273,8 @@ def conditional_poisson_binomial(
     return CpbTails(
         k=k,
         N=N,
-        p_over=float(w[i:].sum()) / total,
-        p_under=float(w[: i + 1].sum()) / total,
+        p_over=min(float(w[i:].sum()) / total, 1.0),  # the two sums round apart: 1 + ulp
+        p_under=min(float(w[: i + 1].sum()) / total, 1.0),
         mean=float((np.arange(lo, hi + 1) * w).sum()) / total,
         lo=lo,
         hi=hi,
