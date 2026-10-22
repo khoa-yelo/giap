@@ -39,6 +39,11 @@ def write_variants(path: Path, sites: pd.DataFrame) -> None:
     _write(path, sites, VARIANTS_COLUMNS)
 
 
+# required residue columns: a two-residue block can read "NA" (Asn-Ala); the schema gives them
+# no missing values (field-level ``missingValues: []``)
+_RESIDUES = ("ref_aa", "alt_aa")
+
+
 def _rate(v: str | None) -> object:
     if v is None:
         return pd.NA
@@ -60,4 +65,6 @@ def read_variants(path: Path) -> pd.DataFrame:
     df["flags"] = [() if v is None else tuple(v.split(";")) for v in df["flags"]]
     for col in ("gene", "alt_codon_vcf"):
         df[col] = [pd.NA if v is None else v for v in df[col]]
+    for col in _RESIDUES:  # never missing: "NA" here is Asn-Ala, not the ADR-0006 token
+        df[col] = ["NA" if v is None else v for v in df[col]]
     return df

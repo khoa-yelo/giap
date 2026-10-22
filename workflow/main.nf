@@ -1,7 +1,7 @@
 // GIAP entry workflow (GIAP_SPEC.md §6.3). Parameters come only from OUT/work/params.json
 // written by `giap run`. With a genome and replicons.tsv it runs ANNOTATE (M2-07), then MAPPING
-// (M3-17), GENETABLE (M4-15), CONTEXT (M4-18, M4-19), beside CONTEXT, OPERONS (M6-08), NOVEL
-// (M7-08) and DETERMINANTS (M8-10, after CONTEXT: it takes the gene context) when
+// (M3-17), VARIANTS (M7-04), GENETABLE (M4-15), CONTEXT (M4-18, M4-19), beside CONTEXT, OPERONS
+// (M6-08), NOVEL (M7-08) and DETERMINANTS (M8-10, after CONTEXT: it takes the gene context) when
 // params.inputs.peptides (peptides.norm.parquet) is given; without inputs it runs one GIAP_STEP
 // smoke task (skeleton check, M2-06). GENETABLE, CONTEXT, OPERONS and DETERMINANTS skip
 // themselves when an input they require is absent (MVP-01). Under a precomputed regions layer
@@ -11,6 +11,7 @@ include { ANNOTATE } from './subworkflows/local/annotate'
 include { MAPPING } from './subworkflows/local/mapping'
 include { GENETABLE } from './subworkflows/local/genetable'
 include { CONTEXT } from './subworkflows/local/context'
+include { VARIANTS } from './subworkflows/local/variants'
 include { NOVEL } from './subworkflows/local/novel'
 include { DETERMINANTS } from './subworkflows/local/determinants'
 include { OPERONS } from './subworkflows/local/operons'
@@ -54,6 +55,9 @@ workflow {
             def gene_model = ANNOTATE.out.gene_model
             MAPPING(genome, opt(inputs.peptides), opt(inputs.proteins_long), gene_model,
                     opt(inputs.reference_peptides), opt(contaminantLibrary(inputs)))
+            // Module 5 (M7-04): independent of GENETABLE and CONTEXT
+            VARIANTS(genome, gene_model, MAPPING.out.mapping, MAPPING.out.hits_tolerant,
+                     opt(inputs.peptides), opt(inputs.reference_peptides))
             GENETABLE(gene_model, ANNOTATE.out.contract, MAPPING.out.mapping, opt(inputs.peptides),
                       opt(inputs.abundance), opt(inputs.preflight), opt(cogTable()))
             CONTEXT(GENETABLE.out.gene_table, GENETABLE.out.detectability_summary, gene_model,

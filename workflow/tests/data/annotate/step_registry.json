@@ -443,5 +443,23 @@
       "uniop_cds",
       "uniop_map"
     ]
+  },
+  "variants": {
+    "inputs": [
+      "genes",
+      "genome",
+      "mapping",
+      "peptides",
+      "replicons"
+    ],
+    "optional_inputs": [
+      "hits_tolerant",
+      "reference_peptides"
+    ],
+    "outputs": [
+      "pileup",
+      "variants",
+      "variants_vcf"
+    ]
   }
 }

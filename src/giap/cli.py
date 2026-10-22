@@ -277,6 +277,11 @@ def run(
         "annotation.precomputed.bakta_json": _bakta_json(_.get("annotation")),
     }
     cfg = _resolve(config_file, sets, log_level, flags, publication)
+    from giap.config import resolve_sample_name
+
+    # §5.2 sample_name: auto is resolved once, before any step (M7-04 lead decision 1)
+    sample = resolve_sample_name(cfg, _.get("peptides"), _.get("proteins"))
+    cfg = cfg.model_copy(update={"sample_name": sample})
     from giap.annotate.promoters import check_promoter_mode
 
     try:  # before launching anything (M2-13 Q2, revised lead decision 4)
@@ -375,7 +380,12 @@ def _run_nextflow(
     outdir = outdir.absolute()
     params, _resolved = nf.write_params(outdir, cfg, inputs, nf.nextflow_memory(memory), db_dir)
     cmd = nf.launch_command(nf.workflow_main(), params, profile, outdir, resume)
-    sys.exit(nf.run_nextflow(cmd, outdir))
+    code = nf.run_nextflow(cmd, outdir)
+    if code == ExitCode.SUCCESS:
+        from giap.runner.local import write_datapackage
+
+        write_datapackage(outdir)
+    sys.exit(code)
 
 
 def _local_roots(
@@ -458,6 +468,7 @@ def _run_local(cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Pa
         local.plan_local(cfg, targets, set(roots))
         local.run_local(cfg, workdir, targets, roots)
         local.publish(workdir, outdir)
+        local.write_datapackage(outdir)
     except local.LayerMissing as exc:
         click.echo(f"giap run: error: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)

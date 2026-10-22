@@ -340,8 +340,13 @@ def detect(
     status = np.full(n, "not_detected", dtype=object)
     curve: list[dict[str, Any]] = []
     elig_tags = [t for t, e in zip(tags, eligible, strict=True) if e]
+    q_floor = np.nan
     if tier == "decoy_picked" and elig_tags:
         q[eligible] = _picked_q(elig_tags, accepted, pairing, f)
+        n_win = int(np.isfinite(q).sum())
+        q_floor = 1.0 / n_win if n_win else np.nan  # smallest picked q: no decoy win, all T wins
+        if q_floor > alpha:  # Khoa 2026-10-22: flag a too-small genome; q is reported unchanged
+            warns.append("q_floor_above_alpha")
     elif tier == "mayu" and elig_tags:
         sizes = covariates.set_index(covariates["locus_tag"].astype(str))["n_observable_peptides"]
         a = sizes.reindex(elig_tags).astype(float).to_numpy()
@@ -400,6 +405,7 @@ def detect(
         _row("tier", tier, "n_decoys_unpaired", n_unpaired),
         _row("tier", tier, "decoy_paired_share", f),
         _row("tier", tier, "decoy_win_weight", 1.0 / f if f and f > 0 else np.nan),
+        _row("tier", tier, "q_floor", q_floor),
     ]
     summary = pd.DataFrame([*tier_rows, *curve], columns=list(SUMMARY_COLUMNS))
     return Detection(

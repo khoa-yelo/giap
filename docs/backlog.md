@@ -104,6 +104,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   eligible gene gets the picked-FDR floor q = 1/85 = 0.0118 > `stats.alpha.identification` = 0.01.
   An 87-gene genome cannot reach the identification alpha at all — the statistician should say
   whether the MVP evidence run needs a bigger genome, a different tier or a flag.
+  *Khoa (2026-10-22): flag it.* The `tier` row `q_floor` = 1/T and the warning `q_floor_above_alpha`;
+  q and alpha unchanged (fix/q-floor-flag).
 - MVP-01 pass 2: `detect` (M4-12) builds tier and q-threshold curve rows, but `gene_table` has no
   diagnostics output key, so those rows never reach `tables/detection_summary.tsv` (only the
   basic / qc / detectability sections are there).
@@ -407,6 +409,23 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   neither — a NaN abundance is untested under every `abundance.missing` mode, not only `exclude`, and
   the one-detected branch is always `unestimated (no_detection_limit_model)`; `PMissModel` is a
   placeholder Protocol until M6-02 merges (replace with its real type in M6-05H).
+
+## M7-04 review nits (PR #164)
+- `OUT/schemas/datapackage.json` names `tables/...`, which Frictionless resolves under `OUT/schemas/`, not `OUT`. Lead decision 5 already owes this; the test checks only `OUT / path`.
+- The table-schema copies into `OUT/schemas/tables/` (`runner/local.py`) are untested.
+- `sample_name`: a peptide file named `auto.tsv` resolves to `auto`, and `write_vcf` then fails with exit 4. An explicit empty `sample_name` gives an empty VCF sample column. Guard both.
+- Replicon order in variants output is untested because the fixture has one contig. Add a two-replicon case.
+- `placement_q` is untested at the step level. Add a case with q above `stats.alpha.variants`.
+- The stub VCF `#CHROM` line hard-codes `sample` (`variants.nf:37`).
+- A single quote in a stub header would break the `printf` quoting. This predates M7-04.
+- Spec drift:
+  - the nf-test path is `workflow/tests/variants.nf.test`;
+  - the process alias is `VARIANTS_STEP`.
+- `read_gene_model` features are untested by the loci tests (mutant M22).
+- Still owed:
+  - the manifest `no_peptides` entry;
+  - the real sim100k `giap_run.sbatch` run;
+  - the step benchmark.
 - MVP real run on 813 genes (Slurm 1865149, validation): operon tests now run (515 t, 102 decoy), but:
   - detection is saturated: 804/813 genes are detected, `p_detect` is the constant 0.989 fallback, and picked FDR q = 1/804 for all. The giapsim real-run scenario needs decoys with null scores (the earlier item) and lower peptide coverage;
   - Promoter Calculator runs one Nextflow task per TU (288 tasks for 0.9 Mb); batch it;
