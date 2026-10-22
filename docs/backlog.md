@@ -203,6 +203,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   from the evaluation points; `_bins` silently truncates float bins; `bin_index` accepts NaN edges;
   the +inf distance in the `bin_index` docstring.
 - M6-04 polish (non-behavioural): `promoter_between_tracks` exposes the private `_Track` alias in its signature (make a public `PromoterTrack` type); pin `pair_frame` dtypes (`detected_*` bool, `flags` list) through a pairs.tsv schema when M6-08 writes the table; consider one shared index object for the M2 `*_between` helpers so M6-07 reuses it.
+- M7-06 review of #161 (lead fixes: an antisense `overlapping_gene` from the opposite strand; `cds_outframe` takes the smallest same-strand tag; I/L twins share the contaminant ban and the multi-locus count):
+  - M7-09 must attribute shared Promotech windows by `(contig, strand, end3p)` against each ORF's starts, not by `owner` (first-window-wins);
+  - the M7-15 step must pass the in-memory 0-based C11 frame, not the published 1-based `peptide_hits.tsv`;
+  - frameshift (tolerant) hits walk downstream in the prefix frame; exclude them or record it;
+  - `nterm_extension` assumes the next canonical stop is the gene's own stop (selenoproteins, recoding, partial genes);
+  - N bases are not stops (undocumented); the whole-turn error names no frame number;
+  - test gaps: the `#` library separator; library-side I/L folding; a non-11 translation table; `frame` across an origin with L % 3 ≠ 0; the window dedupe and sort key; `window_chunks`.
+
 - M8-01 (pass 2): `wallenius_tails` evaluates scipy's Wallenius pmf over the whole support on every
   call (both tails are direct sums). M8-04 calls it once per category with the same (M, N) and many
   (n, ω), so a per-(M, n, N, ω) cache is useless; if the 3,000-category budget tightens, sum only
