@@ -163,3 +163,13 @@ swaps everywhere) tests these counting rules together with the M7-05 flags.
    event.
 5. `variant_id` scheme: §6.5 defines none. **Proposed default:** `VAR_<n>` in §6.5 order (rule
    11). `giap compare` (M9) matches sites by coordinates, not by ID.
+
+## Lead decisions after the test step (2026-10-21, tests at 6be780d)
+1. **Interface.** `pileup(aligns, gm, genome, cfg, *, support=...)` takes the peptide `Support` table as a keyword argument. Frameshift events travel from the pileup to `sites` through internal columns or `attrs`, never as pileup rows.
+2. **The test-author's other resolutions are accepted:**
+   - Folded peptides that disagree at I/L count as one IL-supporting peptide.
+   - `alt_type` and `alt_aa` ties sort as strings.
+   - Swap and block site fields: the site sits at codons[0] in peptide order, `alt_counts` keys are `ref>alt`, and `alt_aa` is the ALT part.
+   - Frameshift rows are keyed at `last_prefix_codon`.
+   - An empty `alt_counts` is written as NA.
+3. **Pass 2:** the frameshift row's `alt_aa` and `ref_codon` (not pinned here) are settled in M7-03 together with the VCF writer.
