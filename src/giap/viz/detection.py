@@ -159,8 +159,8 @@ def v07_title(data: pd.DataFrame, has_regions: bool, alpha: float) -> str:
     top = None
     for r in recs:
         lo, hi, ome = r["ci_low"], r["ci_high"], r["o_minus_e"]
-        if lo is None or hi is None or ome is None or lo <= 0 <= hi:
-            continue
+        if ome is None or _ci_unestimated(r) or lo <= 0 <= hi:
+            continue  # only a row that carries its error estimate is headlined (decision 5)
         if top is None or abs(ome) > abs(top["o_minus_e"]):
             top = r
     if top is None:

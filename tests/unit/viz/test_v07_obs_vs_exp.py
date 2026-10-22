@@ -674,3 +674,21 @@ def test_renders_on_the_validation_run(tmp_path: Path, cfg: GiapConfig) -> None:
     assert "dosage_plus_regulation (untested)" in texts(inst.figure)
     paths = write_instance(inst, "V07", "obs_vs_exp", tmp_path / "plots", ["svg", "png"], 100)
     assert all(p.stat().st_size > 0 for p in paths)
+
+
+@pytest.mark.parametrize("flags", ["", "ci_unestimated"])
+def test_basic_only_title_never_headlines_an_unestimated_ci(
+    tmp_path: Path, cfg: GiapConfig, flags: str
+) -> None:
+    """Review B1 (#202): a zero-width CI (one TU) or a flagged CI reads "CI unestimated" on the
+    plot, so the title must not quote it."""
+    ci = (-0.5, -0.5) if not flags else (-3.0, -1.0)
+    summary = [
+        *basic(
+            "replicon", "chr2", n_genes=4, n_detected=0, expected=0.5, ci=ci, flags=flags or None
+        ),
+        *basic("feature_class", "cds", n_genes=40, n_detected=24, expected=19.0, ci=(-1.0, 9.0)),
+    ]
+    inst = _render(_out(tmp_path, summary=summary, regions=None), cfg)
+    assert not inst.title.startswith("chr2")
+    assert inst.title == "Detection matches detectability in every group with a CI"
