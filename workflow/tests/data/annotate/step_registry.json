@@ -183,6 +183,30 @@
       "tus"
     ]
   },
+  "operons": {
+    "inputs": [
+      "features",
+      "gene_table",
+      "genes",
+      "pairs_raw",
+      "replicons",
+      "tus"
+    ],
+    "optional_inputs": [
+      "detection_summary",
+      "peptide_hits",
+      "peptide_runs",
+      "peptides",
+      "promoter_windows",
+      "terminators",
+      "tx_rates"
+    ],
+    "outputs": [
+      "operon_flags",
+      "operons",
+      "pairs"
+    ]
+  },
   "ostir_input": {
     "inputs": [
       "annotation_meta",

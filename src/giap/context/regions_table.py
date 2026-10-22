@@ -29,6 +29,7 @@ import pandas as pd
 
 from giap.config.model import GiapConfig
 from giap.context.regions import SMALL_REGION
+from giap.genetable import eligible
 from giap.rng import for_step
 from giap.stats.bootstrap import tu_block_bootstrap
 from giap.stats.robust import hodges_lehmann
@@ -68,12 +69,6 @@ def _frame(rows: Sequence[dict[str, Any]]) -> pd.DataFrame:
               "label", "flags"):  # fmt: skip
         df[c] = df[c].astype(object)
     return df
-
-
-def _eligible(genes: pd.DataFrame) -> B8:
-    p = pd.to_numeric(genes["p_detect"], errors="coerce").to_numpy(float)
-    part = genes["partial"].astype("boolean").fillna(False).to_numpy(bool)
-    return np.asarray(~part & np.isfinite(p), dtype=bool)
 
 
 def _bool(genes: pd.DataFrame, col: str) -> B8:
@@ -159,7 +154,7 @@ def _one_plasmid(
     genes: pd.DataFrame, mask: B8, rid: str, contig: str, ref: list[str], fallback: bool,
     depth: dict[str, float] | None, length: dict[str, float], B: int, rng: np.random.Generator,
 ) -> list[dict[str, Any]]:  # fmt: skip
-    el = _eligible(genes)
+    el = eligible(genes)
     pm = mask & el
     m = int(pm.sum())
     base = _base(rid, contig, int(mask.sum()), m)
@@ -250,7 +245,7 @@ def subset_rows(
     rg = region_genes[region_genes["region_id"].astype(str).isin(contig_of)]
     rg = rg[rg["subset"].notna()]
     g = genes.assign(
-        _el=_eligible(genes),
+        _el=eligible(genes),
         _d=_bool(genes, "detected"),
         _p=pd.to_numeric(genes["p_detect"], errors="coerce").astype(float),
     )
