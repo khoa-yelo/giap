@@ -10,6 +10,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 <!-- progress:start -->
 🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 96/135 done (71 %), 13 running · generated 2026-10-21 23:16 by `scripts/dev/progress_bars.py`
 🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 98/135 done (73 %), 11 running · generated 2026-10-22 00:14 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 99/135 done (73 %), 11 running · generated 2026-10-22 00:50 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -24,7 +25,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M8 Function and determinants | 🟩🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 12 % | 2 | 5 | 9 |
 | M6 Operons | 🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜ 50 % | 6 | 2 | 4 |
 | M7 Variants and novel ORFs | 🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 6 % | 1 | 5 | 10 |
-| M8 Function and determinants | 🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 19 % | 3 | 4 | 9 |
+| M8 Function and determinants | 🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜ 25 % | 4 | 4 | 8 |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
