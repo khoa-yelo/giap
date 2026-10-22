@@ -1,0 +1,192 @@
+// M6-08: stub run of the OPERONS subworkflow (workflow/subworkflows/local/operons.nf;
+// GIAP_SPEC.md §6.2 step row "operons", §9.1, §9.3; docs/specs/M6-08-operons-step-and-run.md
+// example 7). ci.yml runs: nf-test test workflow/tests --profile test,stub; "-stub" is set here
+// as well.
+//
+// Interface pinned here (test author):
+//   take: gene_table       (genetable/genes.parquet, as CONTEXT takes it)
+//         annotation       ([genes.parquet, features.parquet, replicons.parquet], ANNOTATE gene_model)
+//         contract         ([xrefs, annotation_meta, tus, layers], ANNOTATE contract; tus is used)
+//         layers_for_pairs (ANNOTATE's new emission, lead decision 1: [key, path] tuples:
+//                           'pairs_raw' always, 'promoter_windows' / 'terminators' / 'tx_rates'
+//                           when ANNOTATE wrote them)
+//   emit: pairs, operons, operon_flags (tables/pairs.tsv, tables/operons.tsv,
+//         tables/operon_flags.tsv), versions
+// The operons py step runs through a GIAP_STEP alias with the tag `operons`. The alias name is
+// left free: `OPERONS` is the subworkflow's own name, so this test finds the task by its tag.
+// Only tables/*.tsv are published; no work Parquet (spec item 7). The required keys
+// reach stepIn's `need` explicitly, so the step does not run when a required channel is empty.
+
+nextflow_workflow {
+
+    name "OPERONS subworkflow (stub)"
+    script "../subworkflows/local/operons.nf"
+    workflow "OPERONS"
+    options "-stub"
+    tag "operons"
+
+    test("every layer: the operons step runs once with its registry keys; the three tables are emitted and published") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def o = "${moduleTestDir}/data/operons"
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[3] = channel.of(['pairs_raw', file("\${o}/pairs_raw.parquet")],
+                                      ['promoter_windows', file("\${o}/promoter_windows.parquet")],
+                                      ['terminators', file("\${o}/terminators.parquet")],
+                                      ['tx_rates', file("\${o}/tx_rates.parquet")])
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '') }
+            def byTag = { String s -> H.taskDirs(work).findAll { d -> H.tagOf(nameOf(d)) == s } }
+            def ran = { String s -> H.names(workflow.trace).count { H.tagOf(it) == s } }
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            assert ran('operons') == 1 : "operons ran ${ran('operons')}x; tasks: ${H.names(workflow.trace)}"
+            def dirs = byTag('operons')
+            assert dirs.size() == 1 && new File(dirs[0], '.giap_inputs').isFile() : "operons did not run through GIAP_STEP"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def oin = H.stepInputs(dirs[0])
+            def keys = oin.collect { it[0] }
+            assert keys.toSet() == ['gene_table', 'genes', 'replicons', 'tus', 'pairs_raw', 'features',
+                                    'promoter_windows', 'terminators', 'tx_rates'].toSet() : "operons inputs ${keys}"
+            assert oin.any { it[0] == 'tus' && it[1].endsWith('tus.parquet') } : "tus is not the contract C5 table: ${oin}"
+            assert oin.any { it[0] == 'features' && it[1].endsWith('features.parquet') } : "features is not the C15 table: ${oin}"
+            // the gene table and the C2 table are both called genes.parquet: distinct staged paths
+            def same = oin.findAll { new File(it[1]).name == 'genes.parquet' }
+            assert same.collect { it[0] }.sort() == ['gene_table', 'genes'] : "gene_table and genes expected: ${oin}"
+            assert same[0][1] != same[1][1] : "input file name collision: ${same}"
+
+            // emitted under the §9.1 names
+            ['pairs': 'pairs.tsv', 'operons': 'operons.tsv', 'operon_flags': 'operon_flags.tsv'].each { emitName, fname ->
+                def got = workflow.out[emitName]
+                assert got != null && got.size() == 1 : "emit ${emitName}: ${got}"
+                assert new File(got[0].toString()).name == fname : "emit ${emitName} is ${got[0]}"
+            }
+
+            ['tables/pairs.tsv', 'tables/operons.tsv', 'tables/operon_flags.tsv'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+            // spec item 7: work Parquet is not published
+            def parquet = []
+            new File("${outputDir}").eachFileRecurse { f -> if (f.isFile() && f.name.endsWith('.parquet')) parquet << f }
+            assert parquet.isEmpty() : "work Parquet published: ${parquet}"
+            def tables = new File("${outputDir}/tables").listFiles().collect { it.name }.sort()
+            assert tables == ['operon_flags.tsv', 'operons.tsv', 'pairs.tsv'] : "tables/ holds ${tables}"
+        }
+    }
+
+    test("pairs_raw only: the optional layers are not staged and the step still runs") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def o = "${moduleTestDir}/data/operons"
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[3] = channel.of(['pairs_raw', file("\${o}/pairs_raw.parquet")])
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            def ran = { String s -> H.names(workflow.trace).count { H.tagOf(it) == s } }
+            assert workflow.success
+            assert ran('operons') == 1 : "operons ran ${ran('operons')}x; tasks: ${H.names(workflow.trace)}"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '') }
+            def d = H.taskDirs(work).find { H.tagOf(nameOf(it)) == 'operons' }
+            def keys = H.stepInputs(d).collect { it[0] }
+            assert keys.toSet() == ['gene_table', 'genes', 'replicons', 'tus', 'pairs_raw', 'features'].toSet() : "operons inputs ${keys}"
+            ['tables/pairs.tsv', 'tables/operons.tsv', 'tables/operon_flags.tsv'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+        }
+    }
+
+    test("no pairs_raw: a required key is missing, the step does not run") {
+
+        // Every other channel is given, so stepIn's list reaches the filter non-empty and short
+        // of one key of `need`: the case `need` exists for (the required keys passed explicitly).
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def o = "${moduleTestDir}/data/operons"
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[3] = channel.of(['terminators', file("\${o}/terminators.parquet")])
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            assert H.names(workflow.trace).count { H.tagOf(it) == 'operons' } == 0 : "operons ran without pairs_raw: ${H.names(workflow.trace)}"
+            assert !new File("${outputDir}/tables").exists() : "tables/ published without pairs_raw"
+        }
+    }
+
+    test("no gene table: the step does not run") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def o = "${moduleTestDir}/data/operons"
+                input[0] = channel.empty()
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[3] = channel.of(['pairs_raw', file("\${o}/pairs_raw.parquet")],
+                                      ['terminators', file("\${o}/terminators.parquet")])
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            assert H.names(workflow.trace).count { H.tagOf(it) == 'operons' } == 0 : "operons ran without a gene table: ${H.names(workflow.trace)}"
+            assert !new File("${outputDir}/tables").exists() : "tables/ published without a gene table"
+        }
+    }
+}

@@ -1,4 +1,5 @@
-"""M6-08 the ``operons`` step on the sim100k producer chain (docs/specs/M6-08-operons-step-and-run.md
+"""M6-08 the ``operons`` step on the sim100k producer chain
+(docs/specs/M6-08-operons-step-and-run.md;
 examples 1, 3, 4 and 6 at step level, degenerate cases, lead decisions 3, 4 and 6; GIAP_SPEC.md
 §6.2 step row, §6.5, §6.7, §9.3).
 

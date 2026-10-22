@@ -19,12 +19,12 @@ Interface pinned here (test-author reading of the spec):
 * Schemas live in ``src/giap/schemas/tables/{pairs,operons,operon_flags}.schema.json``, the
   per-table resources the other tables already use. Each declares ``coordinates:
   1-based-closed``. The ``class``, ``test`` and ``flag`` enums are exactly those of §9.3.
-* ``pairs.tsv`` ``flags`` accepts every Operons token the M6-04..M6-07 modules emit: the §9.4
-  scope (``rna_between``, ``relative_scale``), the index decision 7 additions
-  (``too_few_op_pairs``, ``too_few_no_pairs``, ``no_detection_limit_model``, ``unestimated``),
-  ``ci_unestimated`` and ``abundance_imputed`` (emitted by M6-05/M6-06), and
-  ``layer_missing:<layer>`` (§9.4 Run scope, added by ``merge_tests``). It rejects
-  ``uncalibrated`` (index risk "uncalibrated must not come back"; ADR-0021 Amendment 1).
+* ``pairs.tsv`` ``flags`` accepts ``rna_between`` (§9.4 Operons) and exactly the M6-08 lead
+  decision 7 tokens: ``abundance_imputed``, ``layer_missing:promoters``,
+  ``layer_missing:terminators``, ``ci_unestimated``, ``unestimated``, ``too_few_op_pairs``,
+  ``too_few_no_pairs``, ``no_detection_limit_model`` and ``relative_scale``. The flags field
+  documents both ``abundance_imputed`` (pair scope) and ``imputed_abundance`` (gene scope). It
+  rejects ``uncalibrated`` (index risk "uncalibrated must not come back"; ADR-0021 Amendment 1).
 """
 
 from __future__ import annotations
@@ -56,12 +56,14 @@ SPEC_FLAG = {
     "conflict_terminator_in_operon", "novel_operon_candidate", "coabundant_despite_terminator",
     "other",
 }  # fmt: skip
-#: every token M6-04..M6-07 can put in ``pairs.tsv`` ``flags`` (see the module docstring)
-OPERON_TOKENS = (
-    "rna_between", "relative_scale", "too_few_op_pairs", "too_few_no_pairs",
-    "no_detection_limit_model", "unestimated", "ci_unestimated", "abundance_imputed",
-    "layer_missing:terminators", "layer_missing:promoters", "layer_missing:tx_rates",
+#: lead decision 7 (M6-08): the pair-scope tokens added through the ``pairs.tsv`` schema
+DECISION_7 = (
+    "abundance_imputed", "layer_missing:promoters", "layer_missing:terminators",
+    "ci_unestimated", "unestimated", "too_few_op_pairs", "too_few_no_pairs",
+    "no_detection_limit_model", "relative_scale",
 )  # fmt: skip
+#: every token ``pairs.tsv`` ``flags`` must accept: §9.4 Operons ``rna_between`` + decision 7
+OPERON_TOKENS = ("rna_between", *DECISION_7)
 
 
 def _writers() -> Any:
@@ -268,7 +270,9 @@ def test_operons_empty_frame_is_header_only(tmp_path: Path) -> None:
     assert out.read_text(encoding="utf-8") == "\t".join(OPERON_COLUMNS) + "\n"
 
 
-@settings(max_examples=60, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=60, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture]
+)
 @given(
     spans=st.lists(
         st.tuples(st.integers(0, 10_000_000), st.integers(1, 50_000)), min_size=1, max_size=8
@@ -413,6 +417,22 @@ def test_pairs_flag_vocabulary_rejects_unknown_tokens(tmp_path: Path, token: str
     assert not report.valid, f"pairs.tsv flags accepted {token!r}"
 
 
+def test_decision_7_pairs_flags_documents_both_imputation_tokens() -> None:
+    """Decision 7: ``abundance_imputed`` is the pair-scope token; the schema documents it and
+    the distinct gene-scope ``imputed_abundance``."""
+    text = json.dumps(_field("pairs", "flags"))
+    assert "abundance_imputed" in text
+    assert "imputed_abundance" in text
+
+
+def test_decision_7_vocabulary_exact_in_one_cell(tmp_path: Path) -> None:
+    """All decision 7 tokens together in one ``;``-joined cell validate."""
+    out = tmp_path / "pairs.tsv"
+    _writers().write_pairs_tsv(out, _one_pair_with_flags(list(OPERON_TOKENS)))
+    report = _validate(out, "pairs")
+    assert report.valid, report.flatten(["rowNumber", "fieldName", "type", "note"])
+
+
 def test_schema_mentions_no_uncalibrated_anywhere() -> None:
     for stem in ("pairs", "operons", "operon_flags"):
         text = (SCHEMA_DIR / f"{stem}.schema.json").read_text(encoding="utf-8")
@@ -425,9 +445,13 @@ def test_schema_mentions_no_uncalibrated_anywhere() -> None:
 _ids = st.lists(st.integers(1, 10_000), min_size=0, max_size=12, unique=True)
 
 
-@settings(max_examples=60, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=60, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture]
+)
 @given(nums=_ids, seed=st.integers(0, 2**32 - 1))
-def test_property_flag_rows_sorted_by_pair_number(tmp_path: Path, nums: list[int], seed: int) -> None:
+def test_property_flag_rows_sorted_by_pair_number(
+    tmp_path: Path, nums: list[int], seed: int
+) -> None:
     rng = np.random.default_rng(seed)
     order = rng.permutation(len(nums)) if nums else np.array([], dtype=int)
     shuffled = [nums[i] for i in order]
@@ -457,7 +481,9 @@ def test_property_flag_rows_sorted_by_pair_number(tmp_path: Path, nums: list[int
 _word = st.text(alphabet=string.ascii_lowercase + "_", min_size=1, max_size=8)
 
 
-@settings(max_examples=60, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=60, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture]
+)
 @given(genes=st.lists(st.lists(_word, min_size=1, max_size=5), min_size=1, max_size=5))
 def test_property_operon_gene_lists_round_trip(tmp_path: Path, genes: list[list[str]]) -> None:
     n = len(genes)

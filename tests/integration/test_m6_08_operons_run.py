@@ -1,0 +1,149 @@
+"""M6-08 examples 1-3 through ``giap run`` on sim100k (docs/specs/M6-08-operons-step-and-run.md;
+GIAP_SPEC.md §6.4 "byte-identical tables", §9.1).
+
+The inputs are the M2-21 executor-equality inputs
+(tests/integration/test_m2_21_local_vs_nextflow.py):
+the giapsim SIM100K genome with M3-19 proteomics and every precomputed layer, ``--modules core``
+and one seed, with the test DB from tests/helpers/mapping_steps.py.
+
+* Example 1: ``--executor local`` with ``--abundance`` writes ``OUT/tables/pairs.tsv``,
+  ``operons.tsv`` and ``operon_flags.tsv`` and exits 0. ``pairs.tsv`` has one row per adjacent
+  pair plus the SW rows. On sim100k every test is ``none``, because there are too few pairs
+  (index risk "Small genomes"). Publishing ``tables/`` under the local executor relies on
+  ``PUBLISHED_FILES`` (PR #145, lead decision 5).
+* Example 3: the same run without ``--abundance`` writes ``pairs.tsv``, and ``operon_flags.tsv``
+  is header-only.
+* Example 2: ``--executor nextflow --profile farmshare_local`` gives byte-identical tables.
+
+All three tables validate against their schemas (example 6).
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import json
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+import pytest
+from click.testing import CliRunner
+
+pytestmark = [pytest.mark.slow]
+
+SEED = 7
+TABLES = ("pairs.tsv", "operons.tsv", "operon_flags.tsv")
+SCHEMA_DIR = Path(__file__).resolve().parents[2] / "src" / "giap" / "schemas" / "tables"
+
+
+@pytest.fixture(scope="module")
+def sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
+    import giapsim
+    from giapsim.proteomics import ProteomicsConfig
+
+    cfg = dataclasses.replace(
+        giapsim.SIM100K, proteomics=ProteomicsConfig(), write_precomputed=True
+    )
+    return giapsim.simulate(cfg, giapsim.SIM100K_SEED, tmp_path_factory.mktemp("sim100k") / "sim")
+
+
+@pytest.fixture(scope="module")
+def db(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    from helpers.mapping_steps import write_test_db
+
+    return Path(write_test_db(tmp_path_factory.mktemp("test_db_m6_08")))
+
+
+def _run(sim: Any, out: Path, db: Path, *extra: str, abundance: bool = True) -> None:
+    from giap.cli import cli
+
+    args = ["run", "--genome", str(sim.genome_fasta), "--peptides", str(sim.peptides)]
+    if abundance:
+        assert sim.abundance is not None, "the fixture writes abundance.tsv"
+        args += ["--abundance", str(sim.abundance)]
+    args += ["--annotation", str(sim.bakta_json), "--config", str(sim.config_yaml)]
+    args += ["--outdir", str(out), "--modules", "core", "--seed", str(SEED), *extra]
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("GIAP_DB_DIR", str(db))
+        mp.setenv("NXF_ANSI_LOG", "false")
+        res = CliRunner().invoke(cli, args)
+    if res.exception is not None and not isinstance(res.exception, SystemExit):
+        raise res.exception
+    assert res.exit_code == 0, res.output
+
+
+@pytest.fixture(scope="module")
+def local(sim: Any, db: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
+    out = tmp_path_factory.mktemp("LOCAL") / "OUT"
+    _run(sim, out, db, "--executor", "local")
+    return out
+
+
+@pytest.fixture(scope="module")
+def local_noab(sim: Any, db: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
+    out = tmp_path_factory.mktemp("LOCAL_NOAB") / "OUT"
+    _run(sim, out, db, "--executor", "local", abundance=False)
+    return out
+
+
+def _read(path: Path) -> pd.DataFrame:
+    return pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False)
+
+
+def _validate(path: Path, stem: str) -> None:
+    frictionless = pytest.importorskip("frictionless")
+    d = json.loads((SCHEMA_DIR / f"{stem}.schema.json").read_text(encoding="utf-8"))
+    d = {k: v for k, v in d.items() if k != "coordinates"}
+    res = frictionless.Resource(path=path.name, basepath=str(path.parent),
+                                schema=frictionless.Schema.from_descriptor(d))  # fmt: skip
+    report = res.validate()
+    assert report.valid, (stem, report.flatten(["rowNumber", "fieldName", "type", "note"]))
+
+
+def _chain_counts(out: Path) -> tuple[int, int]:
+    """Adjacent pairs and SW triples of the run's own C2 genes and C1 replicons."""
+    from giap.annotate.layers import genes_of, replicons_of
+    from giap.operons.pairs import adjacent_chain, sandwich_pairs
+
+    genes = genes_of(pd.read_parquet(out / "work" / "genes"))
+    reps = replicons_of(pd.read_parquet(out / "work" / "replicons"))
+    return len(adjacent_chain(genes, reps)), len(sandwich_pairs(genes, reps))
+
+
+def test_example_1_three_tables_under_tables(local: Path) -> None:
+    for name in TABLES:
+        assert (local / "tables" / name).is_file(), f"tables/{name} not written"
+        _validate(local / "tables" / name, name.removesuffix(".tsv"))
+
+
+def test_example_1_pairs_rows_and_tests(local: Path) -> None:
+    df = _read(local / "tables" / "pairs.tsv")
+    assert "which" not in df.columns
+    n_adj, n_sw = _chain_counts(local)
+    assert len(df) == n_adj + n_sw
+    assert int((df["class"] == "SW").sum()) == n_sw
+    assert set(df["test"]) == {"none"}
+    assert set(df["p_value"]) == {"NA"}
+
+
+def test_example_3_no_abundance(local_noab: Path) -> None:
+    pairs = local_noab / "tables" / "pairs.tsv"
+    assert pairs.is_file()
+    assert len(_read(pairs)) > 0
+    flags = local_noab / "tables" / "operon_flags.tsv"
+    from giap.operons.flags import FLAG_COLUMNS
+
+    assert flags.read_text(encoding="utf-8") == "\t".join(FLAG_COLUMNS) + "\n"
+    _validate(flags, "operon_flags")
+
+
+@pytest.mark.needs_nextflow
+def test_example_2_nextflow_gives_byte_identical_tables(
+    sim: Any, db: Path, local: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    nf = tmp_path_factory.mktemp("NF") / "OUT"
+    _run(sim, nf, db, "--executor", "nextflow", "--profile", "farmshare_local")
+    for name in TABLES:
+        got = nf / "tables" / name
+        assert got.is_file(), f"Nextflow run did not publish tables/{name}"
+        assert got.read_bytes() == (local / "tables" / name).read_bytes(), name

@@ -1,0 +1,127 @@
+// M6-08: main.nf runs OPERONS after GENETABLE and beside CONTEXT, so `giap run` publishes
+// tables/pairs.tsv, tables/operons.tsv and tables/operon_flags.tsv (GIAP_SPEC.md §6.2, §6.3, §9.1;
+// docs/specs/M6-08-operons-step-and-run.md items 6 and 7, example 7). Stub runs only; ci.yml
+// runs: nf-test test workflow/tests --profile test,stub.
+//
+// Pinned here (test author): the operons py step (GIAP_STEP tag `operons`) gets the final gene
+// table from detectability, the C2 genes / C15 features / C1 replicons from parse_bakta, the
+// C5 tus and pairs_raw from operon_pairs, and the three pair-evidence layers from
+// promoter_layer, terminator_layer and tx_layer (ANNOTATE's `layers_for_pairs`, lead decision 1).
+// OPERONS needs no C7/C8, so a precomputed regions layer that stops CONTEXT does not stop it.
+// Without peptides there is no gene table, and OPERONS does not run.
+
+nextflow_pipeline {
+
+    name "main.nf runs OPERONS (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "operons"
+
+    test("peptides given: operons runs once with its wired inputs and the three tables are published") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            def nameOf = { File dir -> (new File(dir, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '') }
+            def byTag = { String s -> H.taskDirs(work).findAll { dir -> H.tagOf(nameOf(dir)) == s } }
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            def ops = byTag('operons')
+            assert ops.size() == 1 : "operons ran ${ops.size()}x; tasks: ${H.names(workflow.trace)}"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def oin = H.stepInputs(ops[0])
+            def keys = oin.collect { it[0] }.toSet()
+            assert keys.containsAll(['gene_table', 'genes', 'replicons', 'tus', 'pairs_raw', 'features']) : "operons inputs ${keys}"
+            assert keys.containsAll(['promoter_windows', 'terminators', 'tx_rates']) : "pair-evidence layers not wired: ${keys}"
+
+            // each staged input comes from its producer's task directory
+            def staged = H.staged(ops[0]).collect { new File(it[0]).canonicalPath }
+            def from = { String step -> byTag(step).collect { it.canonicalPath } }
+            ['detectability', 'parse_bakta', 'operon_pairs', 'promoter_layer', 'terminator_layer', 'tx_layer'].each { s ->
+                def prod = from(s)
+                assert prod.size() == 1 : "${s} ran ${prod.size()}x"
+                assert staged.any { it.startsWith(prod[0]) } : "operons stages nothing of ${s}: ${staged}"
+            }
+            // gene_table is detectability's genes.parquet, genes is parse_bakta's
+            def gtPath = oin.find { it[0] == 'gene_table' }[1]
+            def genesPath = oin.find { it[0] == 'genes' }[1]
+            assert gtPath != genesPath : "gene_table and genes staged as one path: ${oin}"
+
+            ['tables/pairs.tsv', 'tables/operons.tsv', 'tables/operon_flags.tsv'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+            // CONTEXT still runs beside OPERONS
+            ['context_stats', 'sensitivity'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "${s} ran ${H.stepCount(workflow.trace, s)}x"
+            }
+        }
+    }
+
+    test("precomputed regions layer: CONTEXT is skipped, OPERONS still runs") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                ann.precomputed.regions = new File("${a}/regions.tsv").canonicalPath
+                annotation = ann
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def ran = { String s -> H.names(workflow.trace).count { H.tagOf(it) == s } }
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            assert H.stepCount(workflow.trace, 'context_stats') == 0 : "context_stats ran without C7/C8"
+            assert ran('operons') == 1 : "operons ran ${ran('operons')}x: ${H.names(workflow.trace)}"
+            ['tables/pairs.tsv', 'tables/operons.tsv', 'tables/operon_flags.tsv'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+        }
+    }
+
+    test("no peptides: no gene table, OPERONS does not run") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            assert H.names(workflow.trace).count { H.tagOf(it) == 'operons' } == 0 : "operons ran without peptides: ${H.names(workflow.trace)}"
+            ['pairs.tsv', 'operons.tsv', 'operon_flags.tsv'].each { f ->
+                assert !new File("${outputDir}/tables/${f}").exists() : "tables/${f} published without peptides"
+            }
+        }
+    }
+}
