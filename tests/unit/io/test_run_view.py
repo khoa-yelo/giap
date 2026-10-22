@@ -50,13 +50,13 @@ def test_keys_cover_the_files_published_has_no_entry_for() -> None:
     assert PATHS["preflight"] == "preflight/preflight.json"
     for name in ("peptide_hits", "protein_hits", "unmapped", "mapping_fdr"):
         assert PATHS[name] == f"mapping/{name}.tsv"
-    assert PATHS["tus"] == "annotation/tus.tsv"
-    assert PATHS["regions"] == "annotation/regions.tsv"
-    assert PATHS["promoters"] == "annotation/promoters.bed"
-    assert PATHS["terminators"] == "annotation/terminators.bed"
+    assert PATHS["tus_tsv"] == "annotation/tus.tsv"
+    assert PATHS["regions_tsv"] == "annotation/regions.tsv"
+    assert PATHS["promoters_bed"] == "annotation/promoters.bed"
+    assert PATHS["terminators_bed"] == "annotation/terminators.bed"
     # every directory key's files live under its published directory
     dirs = set(PUBLISHED.values())
-    for key in ("peptide_hits", "tus"):
+    for key in ("peptide_hits", "tus_tsv"):
         assert PATHS[key].split("/")[0] in dirs
 
 
@@ -135,7 +135,7 @@ def test_tables_are_read_with_schema_types(tmp_path: Path) -> None:
     isl = view.table("islands")
     assert isl is not None
     assert pd.api.types.is_integer_dtype(isl["start"])
-    assert isl["start"].tolist() == [1001]
+    assert isl["start"].tolist() == [1000]  # #191 B1: 0-based on read
     assert pd.api.types.is_float_dtype(isl["effect"])
     assert isl["effect"].tolist() == [1.5]
     assert pd.isna(isl.loc[0, "q_value"])

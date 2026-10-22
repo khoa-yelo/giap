@@ -2,7 +2,8 @@
 index decision 12).
 
 ``binned`` returns ``None`` at or under ``max_elements`` elements, otherwise the
-``max_elements + 1`` edges of equal-width bins over ``[0, length)``.
+``min(max_elements, length) + 1`` integer edges of near-equal bins (widths differ by at most 1 bp,
+PR #191 B2) over ``[0, length)``.
 """
 
 from __future__ import annotations
@@ -66,10 +67,11 @@ def test_property_bins_at_most_max_and_cover_every_element(
         return
     assert edges is not None
     assert len(edges) - 1 <= 20_000
-    assert len(edges) - 1 == max_elements
+    assert len(edges) - 1 == min(max_elements, length)
     assert edges[0] == 0 and edges[-1] == length
     assert np.all(np.diff(edges) > 0)
-    np.testing.assert_allclose(np.diff(edges), length / max_elements, rtol=1e-9)
+    w = np.diff(edges)
+    assert w.max() - w.min() <= 1  # integer edges (PR #191 B2)
     # every element falls into a bin: its start and its last base are inside [0, length)
     for pos in (starts, ends - 1):
         idx = np.searchsorted(edges, pos, side="right") - 1
