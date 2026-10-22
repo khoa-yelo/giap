@@ -7,13 +7,15 @@ versa.
 
 ``conditional_poisson_binomial`` is the law of K = Σ_C D_t given S = Σ_U D_t = N for independent
 units (the conditional-Bernoulli null of docs/specs/M8-04 §1): two truncated DPs, multiplied and
-normalised by their support sum. ``tilt`` rescales every odds by one factor e^θ so that Σ q = N,
-which leaves that law unchanged and keeps the DPs clear of underflow (the caller tilts once per
-run).
+normalised by their support sum. ``tilt_pair`` rescales every odds by one factor e^θ so that
+Σ q = N, which leaves that law unchanged and keeps the DPs clear of underflow (the caller tilts
+once per run). It returns each complement 1 - q computed directly, because a tilted q close to 1
+keeps too little of 1 - q (decision 11); the conditional takes those complements as keywords.
 """
 
 from __future__ import annotations
 
+import operator
 from dataclasses import dataclass
 
 import numpy as np
@@ -23,6 +25,7 @@ from scipy.special import expit
 
 _TILT_RTOL = 1e-13  # |Σ q(θ) - total| target; the spec contract is 1e-9 · total
 _TILT_MAXITER = 200
+_TINY = float(np.finfo(np.float64).tiny)  # the clamp that keeps a tilted open entry open
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,12 +48,20 @@ def _validate(p: ArrayLike) -> np.ndarray:
     return arr
 
 
+def _validate_comp(comp: ArrayLike, p: np.ndarray) -> np.ndarray:
+    c = _validate(comp)
+    if c.shape != p.shape:
+        raise ValueError(f"{c.size} complements for {p.size} probabilities")
+    return c
+
+
 @njit(cache=True, nogil=True)
 def _pmf_band(
-    arr: np.ndarray, kmax: int, kmin: int
+    arr: np.ndarray, comp: np.ndarray, kmax: int, kmin: int
 ) -> np.ndarray:  # pragma: no cover - numba-compiled; via _pmf_trunc and the conditional
     """P(X = j) for kmin <= j <= kmax (entries below kmin are 0 on return).
 
+    ``comp`` holds the complements 1 - q (``1.0 - arr`` unless the caller kept them, decision 11).
     The recurrence pmf[j] <- pmf[j](1 - q) + pmf[j - 1] q, stopped at kmax (spec M8-04 §1 step
     1). After unit i, R more units follow, so an entry j < kmin - R can never reach the returned
     band and is skipped; every entry that is computed is the same as in the full DP. Two buffers
@@ -64,7 +75,7 @@ def _pmf_band(
     x[0] = 1.0
     for i in range(n):
         q = arr[i]
-        r = 1.0 - q
+        r = comp[i]
         src = x if i % 2 == 0 else y
         dst = y if i % 2 == 0 else x
         top = min(i + 1, kmax)  # the support after unit i is 0..i+1
@@ -81,7 +92,7 @@ def _pmf_band(
 
 
 def _pmf_trunc(arr: np.ndarray, kmax: int) -> np.ndarray:
-    return _pmf_band(arr, kmax, 0)
+    return _pmf_band(arr, 1.0 - arr, kmax, 0)
 
 
 def _pmf(arr: np.ndarray) -> np.ndarray:
@@ -114,30 +125,54 @@ def poisson_binomial_pmf_trunc(p: ArrayLike, kmax: int) -> np.ndarray:
     return _pmf_trunc(_validate(p), int(kmax))
 
 
-def tilt(p: ArrayLike, total: float) -> np.ndarray:
-    """q with every odds x e^θ and Σ q = total; q ∈ {0, 1} stay fixed (spec M8-04 §1 step 2).
+def tilt_pair(p: ArrayLike, total: float) -> tuple[np.ndarray, np.ndarray]:
+    """(q, 1 - q) with every odds x e^θ and Σ q = total (spec M8-04 §1 step 2, decision 11).
 
-    θ solves Σ expit(logit q + θ) = total by Newton with a bisection guard. ``total`` must lie in
-    [#(q = 1), #(q > 0)]; at the two ends the limit θ → ∓∞ is returned (open entries 0 or 1).
+    θ solves Σ expit(logit q + θ) = total by Newton with a bisection guard; the complement is
+    expit(-(logit q + θ)), never 1 - q. q ∈ {0, 1} stay exact (complement 1 or 0); every open
+    entry keeps both values >= the smallest normal double, so it is never taken as certain.
+    ``total`` must lie in [#(q = 1), #(q > 0)]; at the two ends the limit θ → ∓∞ is returned
+    (open entries exactly 0 or 1, decision 10).
     """
-    q = _validate(p)
+    out, comp, _ = _tilt(_validate(p), total)
+    return out, comp
+
+
+def tilt(p: ArrayLike, total: float) -> np.ndarray:
+    """``tilt_pair(p, total)[0]``; a ``ValueError`` when one array cannot keep an entry open.
+
+    That is an open entry whose tilted value rounds to 1.0, or underflows to 0.0 before the clamp;
+    use ``tilt_pair`` and pass the complements to ``conditional_poisson_binomial`` then.
+    """
+    out, _, saturated = _tilt(_validate(p), total)
+    if saturated:
+        raise ValueError("an open entry rounds to 0 or 1 after the tilt; use tilt_pair")
+    return out
+
+
+def _tilt(q: np.ndarray, total: float) -> tuple[np.ndarray, np.ndarray, bool]:
+    """The tilted (q, 1 - q) and whether an interior tilt rounded an open entry to 0 or 1."""
     open_ = (q > 0.0) & (q < 1.0)
     n_one = int(np.count_nonzero(q == 1.0))
     n_open = int(np.count_nonzero(open_))
     if not n_one <= total <= n_one + n_open:
         raise ValueError(f"tilt total {total} outside [{n_one}, {n_one + n_open}]")
     out = q.copy()
+    comp = 1.0 - q  # exact on q ∈ {0, 1}; the open entries are overwritten
     target = float(total) - n_one
     if target == 0.0:
-        out[open_] = 0.0
-        return out
+        out[open_], comp[open_] = 0.0, 1.0
+        return out, comp, False
     if target == n_open:
-        out[open_] = 1.0
-        return out
+        out[open_], comp[open_] = 1.0, 0.0
+        return out, comp, False
     logit = np.log(q[open_]) - np.log1p(-q[open_])
-    theta = _solve_theta(logit, target)
-    out[open_] = expit(logit + theta)
-    return out
+    s = logit + _solve_theta(logit, target)
+    raw = expit(s)
+    saturated = bool(np.any((raw == 0.0) | (raw == 1.0)))
+    out[open_] = np.maximum(raw, _TINY)
+    comp[open_] = np.maximum(expit(-s), _TINY)
+    return out, comp, saturated
 
 
 def _solve_theta(logit: np.ndarray, target: float) -> float:
@@ -168,27 +203,39 @@ def _solve_theta(logit: np.ndarray, target: float) -> float:
     return theta
 
 
-def conditional_poisson_binomial(p_in: ArrayLike, p_out: ArrayLike, k: int, N: int) -> CpbTails:
+def conditional_poisson_binomial(
+    p_in: ArrayLike,
+    p_out: ArrayLike,
+    k: int,
+    N: int,
+    *,
+    comp_in: ArrayLike | None = None,
+    comp_out: ArrayLike | None = None,
+) -> CpbTails:
     """Tails of K = Σ_{t∈C} D_t given S = N (spec M8-04 §1; ADR-0029); exact, no approximation.
 
     P(K = j | N) ∝ PB_C(j) · PB_Ū(N - j), normalised by the sum over the support. ``p_over`` and
     ``p_under`` both include k and are sums of non-negative terms. The support [lo, hi] is
-    [max(0, N - |Ū|), min(|C|, N)] narrowed by the exact zeros of q ∈ {0, 1}; a k outside it, an
-    N outside [0, |C| + |Ū|], or a zero or non-finite support sum is a ``ValueError``. Callers
-    pass tilted q (``tilt``) so that no weight underflows.
+    [max(0, N - |Ū|), min(|C|, N)] narrowed by the exact zeros of q (impossible units) and of
+    1 - q (certain units); a k outside it, an N outside [0, |C| + |Ū|], or a zero or non-finite
+    support sum is a ``ValueError``. Callers pass tilted q and its complements (``tilt_pair``) so
+    that no weight underflows; ``comp_in``/``comp_out`` default to 1 - q. k and N must be
+    integers (``operator.index``).
     """
     a_in, a_out = _validate(p_in), _validate(p_out)
-    k, N = int(k), int(N)
+    c_in = 1.0 - a_in if comp_in is None else _validate_comp(comp_in, a_in)
+    c_out = 1.0 - a_out if comp_out is None else _validate_comp(comp_out, a_out)
+    k, N = operator.index(k), operator.index(N)
     if not 0 <= N <= a_in.size + a_out.size:
         raise ValueError(f"N = {N} outside [0, {a_in.size + a_out.size}]")
-    lo = max(int(np.count_nonzero(a_in == 1.0)), N - int(np.count_nonzero(a_out > 0.0)), 0)
-    hi = min(int(np.count_nonzero(a_in > 0.0)), N - int(np.count_nonzero(a_out == 1.0)), N)
+    lo = max(int(np.count_nonzero(c_in == 0.0)), N - int(np.count_nonzero(a_out > 0.0)), 0)
+    hi = min(int(np.count_nonzero(a_in > 0.0)), N - int(np.count_nonzero(c_out == 0.0)), N)
     if lo > hi:
         raise ValueError(f"S = {N} has probability 0 under q")
     if not lo <= k <= hi:
         raise ValueError(f"k = {k} outside the support [{lo}, {hi}] given N = {N}")
-    pb_in = _pmf_band(a_in, hi, lo)[lo:]
-    pb_out = _pmf_band(a_out, N - lo, N - hi)[N - hi :][::-1]  # PB_Ū(N - j), j = lo..hi
+    pb_in = _pmf_band(a_in, c_in, hi, lo)[lo:]
+    pb_out = _pmf_band(a_out, c_out, N - lo, N - hi)[N - hi :][::-1]  # PB_Ū(N - j), j = lo..hi
     w = pb_in * pb_out
     total = float(w.sum())
     if not (total > 0.0 and np.isfinite(total)):
