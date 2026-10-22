@@ -83,6 +83,8 @@ def test_signatures_are_pinned() -> None:
         "p_out",
         "k",
         "N",
+        "comp_in",  # decision 11: optional complements, keyword-only
+        "comp_out",
     ]
     assert list(inspect.signature(poisson_binomial_pmf_trunc).parameters) == ["p", "kmax"]
     assert list(inspect.signature(tilt).parameters) == ["p", "total"]
