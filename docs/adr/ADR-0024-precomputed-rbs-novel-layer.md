@@ -10,7 +10,7 @@ The local executor reads every tool result from a precomputed layer, and a missi
 ## Decision
 Add `annotation.precomputed.rbs_novel` to `defaults.yaml`, null by default.
 - It holds a TSV keyed by position (contig, 1-based start-codon position, strand), with the OSTIR columns of the `rbs` layer.
-- Nextflow runs OSTIR itself and ignores the key.
+- Nextflow honours the key the same way as the other precomputed layers, and runs OSTIR itself only when the key is null (M7-08 lead decision 6).
 - The rejected alternative was to put `START_<contig>_<pos1>_<p|m>` rows into the `rbs` layer. It needs no new key, but it overloads `locus_tag`.
 
 ## Evidence (before → after: metrics, tests, simulations)

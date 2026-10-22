@@ -184,3 +184,11 @@ sd_dg, mrna_dg, spacing_dg, standby_dg, spacer_bp, start_codon`.
 5. **Stacking:**
    - The branch m7/novel-steps is stacked on m7/novel-outputs (#165, itself on #161).
    - M6-08 (#155) is not merged yet, so this issue adds the `terminators` emission itself if `annotate.nf` lacks it. The lead resolves the overlap when main is merged.
+6. **The test author's choices (commit 5a06f85) are accepted as the contract.**
+   - **`rbs_novel` positions:** the first base of the codon in transcription direction, as in `novel_orfs.tsv`. `Orf.starts` and the `scored` `start_best_ostir` stay lowest-coordinate.
+   - **`novel_rbs_layer` inputs:** it may take extra inputs from the `novel_candidates` outputs.
+   - **Example 6:** exits 1 (`INVALID_INPUT`), as every missing layer does today. The spec's "exit 2" is an error in the spec.
+   - **Example 2:** runs real Nextflow on `farmshare_local` with every layer precomputed. This revises ADR-0024: Nextflow honours a given `annotation.precomputed.rbs_novel`, and second-round `promoters`, the same way as the other precomputed keys, and runs OSTIR only when the key is null.
+   - **The rest:** the promoter-score join on `(contig, strand, end3p)`, the WARNING `layer_missing:<key>`, and the pinned NOVEL Nextflow interface (`contract`, a `layers` channel of `[key, path]`, `params.stub.novel_windows_chunks`, emits named after the output keys).
+   - **MVP-02 nf-test:** the lead updated it to check only CONTEXT's tables, because NOVEL also publishes under `tables/`.
+   - **Rule 9 recording:** the implementer records `tests/data/recorded/ostir/1.1.3/sim100k_novel/` from a real OSTIR 1.1.3 run, using the official environment on Slurm.
