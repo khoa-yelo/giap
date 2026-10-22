@@ -251,6 +251,13 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   neither — a NaN abundance is untested under every `abundance.missing` mode, not only `exclude`, and
   the one-detected branch is always `unestimated (no_detection_limit_model)`; `PMissModel` is a
   placeholder Protocol until M6-02 merges (replace with its real type in M6-05H).
+- M8-03 review of #159 (approve; lead: ADR-0023 adds map01310/map01320, methods note):
+  - the GO closure does not filter by namespace (go-basic has no cross-namespace edges): filter in `up()` or assert in `read_go`;
+  - `if kegg_names` tests a Path's truthiness; a missing names file gives all-NA names with no flag;
+  - `build_collections` turns an integer index array into a wrong bool mask without error, and a wrong-length mask raises a bare IndexError; check shape and dtype;
+  - `_ids` treats a plain string cell ("GO:1;GO:2") as empty;
+  - test gaps: roots in `parents`; KEGG and COG `n_unknown_ids`; slim names that differ from the GO names.
+
 
 - M6-06 review of #148, owed to M6-08/M6-09:
   - ADR draft for Khoa: exclude pairs with an imputed gene from targets and decoys (statistician: a co-imputed NO surplus gives ~198 false calls per replicate on a 2,000-pair genome; exclusion restores the level);
@@ -274,3 +281,16 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - validate `missing_layers=` ∈ {promoters, terminators}; guard `merge_tests` against empty inputs that have no columns;
   - move `_bool`/`_flags`/`_per_gene` to `giap.operons._util`;
   - M6-10: restricting `n_flags` to OP pairs matters once pairs are reclassified at UniOP 0.3/0.7 while the TUs stay at the default.
+
+## M8-05 review nits (PR #171)
+- Surviving mutants (test gaps):
+  - re-tests on a fresh rng;
+  - unestimated rows set to p = 1 in the substituted BH vector;
+  - boundaries: `k <= min_size`, `bh(sub) >= alpha`, `q < alpha`;
+  - the `parent_group` ID tie-break.
+- A missing `tu_id` crashes with a TypeError. Fail closed with a ValueError, as context does.
+- A NaN `tu_position` makes gene order row-order dependent.
+- An infinite `abundance_log2` passes `notna()`.
+- Duplicate `locus_tag` rows are counted twice.
+- A missing collection name becomes the literal "NA".
+- M8-15 should adopt the statistician's GO-family FDR arm (local/stat/m805code/probe_code.py `go_null`/`go_alt`), and cite the R = 4,000 level runs (Slurm 1867122).
