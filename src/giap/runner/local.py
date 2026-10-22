@@ -4,8 +4,10 @@
 steps never run here: each must be replaced by its ``annotation.precomputed`` layer, and a missing
 layer is an error naming the key, raised before any step runs. Every step key is stored at
 ``workdir / key``; a consumer of an output of a replaced step receives the precomputed file itself,
-even when an older ``workdir / key`` exists. Opt-in steps run only when their configuration enables
-them (e.g. ``annotation.terminators.bactermfinder``).
+even when an older ``workdir / key`` exists, except a ``LAYER_CONVERTERS`` step, which still
+runs on the layer to write the contract Parquet. A ``MEMBER_KEYS`` key is a file inside another
+step output (M3's tables inside ``mapping/``). Opt-in steps run only when their configuration
+enables them (e.g. ``annotation.terminators.bactermfinder``).
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 from pathlib import Path
 
 from giap.config import GiapConfig
+from giap.io.work_tables import FILE_NAMES
 from giap.steps import registry as reg
 
 
@@ -60,22 +63,46 @@ def _enabled(cfg: GiapConfig, spec: reg.StepSpec) -> bool:
     return spec.module in cfg.modules
 
 
-# An ``annotation.precomputed`` layer arrives as its M2-02 TSV (giap.annotate.precomputed), not as
-# the M4-06 contract Parquet: layer key -> the contract keys it then supplies as that TSV. M4 steps
-# ignoring such a key still run (``gene_table`` does), but a step *requiring* one cannot, so it is
-# left out of the plan (MVP-01). Under Nextflow the same steps are skipped because ANNOTATE has no
-# C7/C8 Parquet to emit then.
-_LAYER_TSV_KEYS: Mapping[str, tuple[str, ...]] = {"regions": ("regions", "region_genes")}
+# Steps that still run when their ``annotation.precomputed`` layer is set: they turn the layer's
+# M2-02 TSV into the M4-06 contract Parquet (``region_layer`` -> C7/C8, M4-21 lead decision 2),
+# so ``context_stats`` and ``sensitivity`` are planned on precomputed runs too. Only the external
+# tools they would otherwise read are replaced.
+LAYER_CONVERTERS: frozenset[str] = frozenset({"region_layer"})
+
+# Keys that are a file inside another step output (key -> (output key, file name)): M3's final
+# tables live in the ``loci`` output directory ``mapping/`` (M4-21 lead decision 4), the way
+# workflow/subworkflows/local/context.nf picks them out of the LOCI outputs.
+MEMBER_KEYS: Mapping[str, tuple[str, str]] = {
+    k: ("mapping", FILE_NAMES[k]) for k in ("peptide_hits", "protein_hits", "unmapped")
+}
+_PARENT: Mapping[str, str] = {k: parent for k, (parent, _) in MEMBER_KEYS.items()}
 
 
-def _tsv_only(cfg: GiapConfig) -> frozenset[str]:
-    """Contract keys that only a precomputed layer's TSV would supply in this run."""
-    return frozenset(
-        key
-        for layer, keys in _LAYER_TSV_KEYS.items()
-        if _layer(cfg, layer) is not None
-        for key in keys
-    )
+def _replacing_layer(cfg: GiapConfig, spec: reg.StepSpec) -> Path | None:
+    """The layer that replaces ``spec`` in this run (``None``: the step runs)."""
+    if not spec.precomputed or spec.name in LAYER_CONVERTERS:
+        return None
+    return _layer(cfg, spec.precomputed)
+
+
+def _producers(specs: Mapping[str, reg.StepSpec]) -> dict[str, list[str]]:
+    """Key -> producing steps, a member key produced by whoever produces its output key."""
+    producers: dict[str, list[str]] = {}
+    for s in specs.values():
+        for key in s.outputs:
+            producers.setdefault(key, []).append(s.name)
+    for key, parent in _PARENT.items():
+        if parent in producers:
+            producers.setdefault(key, list(producers[parent]))
+    return producers
+
+
+def _key_path(workdir: Path, key: str) -> Path:
+    """Where ``key`` lives under ``workdir`` (a member key inside its output directory)."""
+    if key in MEMBER_KEYS:
+        parent, name = MEMBER_KEYS[key]
+        return workdir / parent / name
+    return workdir / key
 
 
 def _feasible(
@@ -96,7 +123,7 @@ def _feasible(
         spec = specs[name]
         if not _enabled(cfg, spec):
             res = False
-        elif spec.precomputed and _layer(cfg, spec.precomputed) is not None:
+        elif _replacing_layer(cfg, spec) is not None:
             res = True
         else:
             res = all(
@@ -118,12 +145,8 @@ def _walk(
     produced are left out instead of failing later.
     """
     specs = {s.name: s for s in reg.all_steps()}
-    producers: dict[str, list[str]] = {}
-    for s in specs.values():
-        for key in s.outputs:
-            producers.setdefault(key, []).append(s.name)
+    producers = _producers(specs)
     feasible = None if roots is None else _feasible(cfg, specs, producers, roots)
-    tsv_only = _tsv_only(cfg)
     pruned: list[str] = []
     planned: set[str] = set()
     supplied: dict[str, Path] = {}
@@ -137,12 +160,10 @@ def _walk(
         spec = reg.get(name)
         if not _enabled(cfg, spec):
             continue
-        if not tsv_only.isdisjoint(spec.inputs):  # needs a contract table only a layer supplies
-            continue
         if feasible is not None and not feasible(name):
             pruned.append(name)
             continue
-        layer = _layer(cfg, spec.precomputed) if spec.precomputed else None
+        layer = _replacing_layer(cfg, spec)
         if layer is not None:
             for key in spec.outputs:
                 supplied[key] = layer
@@ -156,7 +177,7 @@ def _walk(
             stack.extend(sorted(producers.get(key, ()), reverse=True))
     if roots is not None:
         _check_required_roots(cfg, specs, producers, roots, pruned)
-    return reg.topo_order(planned), supplied
+    return reg.topo_order(planned, _PARENT), supplied
 
 
 def _check_required_roots(
@@ -216,12 +237,14 @@ def run_local(
     # with staged roots an optional input is a root of this run or an output of a planned step,
     # never a stale ``workdir / key`` left by an earlier run (M3-17 review decision 8)
     fresh = None if roots is None else {*roots, *(k for n in order for k in reg.get(n).outputs)}
+    if fresh is not None:
+        fresh |= {k for k, parent in _PARENT.items() if parent in fresh}
     for name in order:
         spec = reg.get(name)
         inputs: dict[str, reg.InputPath] = {}
         for key in (*spec.inputs, *spec.optional_inputs):
             # a configured layer always wins over a stale ``workdir / key`` from an earlier run
-            path = supplied.get(key, workdir / key)
+            path = supplied.get(key, _key_path(workdir, key))
             stale = fresh is not None and key not in supplied and key not in fresh
             if key in spec.inputs or (path.exists() and not stale):
                 inputs[key] = path
@@ -231,6 +254,25 @@ def run_local(
 
 # §9.1 published directories: work key -> OUT subdirectory
 PUBLISHED: dict[str, str] = {"annotation": "annotation", "mapping": "mapping"}
+#: §9.1 published files: work key -> OUT path, the ``key=path`` names the Nextflow subworkflows
+#: give GIAP_STEP (pinned against workflow/ by tests/unit/test_local_publish_names.py)
+PUBLISHED_FILES: dict[str, str] = {
+    "autocorrelation": "tables/autocorrelation.tsv",
+    "detectability_summary": "genetable/detection_summary_parts/detectability.parquet",
+    "detection_summary": "tables/detection_summary.tsv",
+    "gene_context": "context/gene_context.parquet",
+    "gene_table": "genetable/genes.parquet",
+    "genes_pre": "genetable/genes_pre.parquet",
+    "genes_tsv": "tables/genes.tsv",
+    "island_diagnostics": "context/island_diagnostics.parquet",
+    "islands": "tables/islands.tsv",
+    "operon_flags": "tables/operon_flags.tsv",
+    "operons": "tables/operons.tsv",
+    "pairs": "tables/pairs.tsv",
+    "regions_stats": "tables/regions_stats.tsv",
+    "sensitivity": "tables/sensitivity.tsv",
+    "tier_summary": "genetable/detection_summary_parts/tier.parquet",
+}
 
 
 def publish(workdir: Path, outdir: Path) -> list[Path]:
@@ -240,6 +282,12 @@ def publish(workdir: Path, outdir: Path) -> list[Path]:
         src, dst = workdir / key, outdir / sub
         if src.is_dir():
             shutil.copytree(src, dst, dirs_exist_ok=True)
+            done.append(dst)
+    for key, rel in sorted(PUBLISHED_FILES.items()):
+        src, dst = workdir / key, outdir / rel
+        if src.is_file():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dst)
             done.append(dst)
     return done
 

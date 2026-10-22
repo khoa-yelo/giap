@@ -49,3 +49,22 @@ None.
 1. If M2's region membership or TU rules differ from the simulator's (e.g. TU singletons), which side
    adapts? **Proposed default:** the contract (M4-06) is the arbiter; the producer adapts unless the
    lead decides the contract was wrong.
+
+## Lead decisions (2026-10-21)
+
+1. Q1: the M4-06 contract (`giap.genetable.contract`) is the arbiter. The producer adapts unless the
+   lead decides the contract was wrong; such a case is reported to the lead, never fixed by changing
+   the contract in this issue.
+
+## Lead decisions after the test-author step (2026-10-21)
+
+2. **M2 adapts (C7/C8).** With `annotation.precomputed.regions` set, `region_layer` still writes the
+   C7 `regions` and C8 `region_genes` Parquet, built from the precomputed TSV, so `context_stats` is
+   planned on precomputed runs. The contract is unchanged.
+3. **M4 consumers read the keyed layout.** `run_context_stats` and `run_sensitivity` resolve inputs
+   through `work_inputs`, as `run_gene_table` already does, so the real `OUT/work` layout works.
+4. **`context_stats` must be planned under `giap run --executor local`.** Wire its `peptide_hits` /
+   `protein_hits` / `unmapped` inputs to the producer `loci` actually emits (the `mapping` outputs).
+   This is integration work and outranks everything else in this issue.
+5. The real-path golden case is **`sim100k_real`** (the 50-kb genome plants no regions); keep `sim50k`
+   for M4-only regressions. Record it with `GIAP_UPDATE_GOLDEN=1` once 2–4 pass.

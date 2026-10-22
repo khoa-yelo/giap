@@ -6,6 +6,8 @@ Required: the ``parse_bakta`` gene model, ``pairs_raw`` / ``tus`` and the genome
 ``layer_missing:<layer>`` warning. A precomputed layer (``annotation.precomputed.<key>`` set)
 arrives as its M2-02 TSV under the producer's key (local executor) or ``promoters`` (Nextflow);
 ``--modules`` without ``mobile`` / ``bgc`` drops prophage / BGC rows of precomputed regions.
+Under a precomputed regions layer ``region_layer`` still runs (M4-21 lead decision 2), so
+``regions`` / ``region_genes`` may be its Parquet (already filtered) or the layer TSV itself.
 ``terminators_crosscheck.tsv`` and ``id_map.tsv`` are byte copies of their inputs.
 """
 
@@ -38,16 +40,17 @@ from giap.annotate.layers import (
 )
 from giap.annotate.precomputed import load_precomputed
 from giap.annotate.promoters import promoter_records
+from giap.annotate.regions import MODULE_REGION_TYPES
 from giap.io.fasta import read_genome_fasta
 from giap.io.parquet import write_parquet_deterministic
 from giap.model.coords import Replicon
-from giap.steps.operons import _path
+from giap.steps.common import one_path as _path
 from giap.steps.registry import StepContext, step
 
 _TYPES = {c: pa.int64() for c in INT_COLUMNS} | {c: pa.list_(pa.string()) for c in LIST_COLUMNS}
 _TYPES |= {c: pa.string() for c in STR_COLUMNS}
 _COLS = [(c, _TYPES.get(c, pa.float64())) for c in LAYER_COLUMNS]
-_DROPPED_TYPES = {"mobile": "prophage", "bgc": "bgc"}
+_PARQUET_MAGIC = b"PAR1"
 
 
 def _frame(ctx: StepContext, key: str, pre: str, reps: dict[str, Replicon]) -> pd.DataFrame | None:
@@ -60,14 +63,23 @@ def _frame(ctx: StepContext, key: str, pre: str, reps: dict[str, Replicon]) -> p
     return pd.read_parquet(_path(path))
 
 
+def _is_parquet(path: Path) -> bool:
+    with path.open("rb") as fh:
+        return fh.read(4) == _PARQUET_MAGIC
+
+
 def _regions(
     ctx: StepContext, reps: dict[str, Replicon]
 ) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
+    given = ctx.inputs.get("regions")
+    if given is not None and _is_parquet(_path(given)):  # region_layer's C7 (and C8)
+        rg = ctx.inputs.get("region_genes")
+        return pd.read_parquet(_path(given)), None if rg is None else pd.read_parquet(_path(rg))
     regions = _frame(ctx, "regions", "regions", reps)
     if regions is None or ctx.cfg.annotation.precomputed.regions is None:
         rg = ctx.inputs.get("region_genes")
         return regions, None if rg is None else pd.read_parquet(_path(rg))
-    off = [t for m, t in _DROPPED_TYPES.items() if m not in ctx.cfg.modules]
+    off = [t for m, t in MODULE_REGION_TYPES.items() if m not in ctx.cfg.modules]
     regions = regions[~regions["region_type"].isin(off)].reset_index(drop=True)
     members = [(r, g) for r, gs in zip(regions["region_id"], regions["genes"], strict=True)
                for g in gs]  # fmt: skip

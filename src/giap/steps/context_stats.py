@@ -55,6 +55,7 @@ from giap.io.work_tables import (
     load_m4_inputs,
 )
 from giap.rng import for_step
+from giap.steps.gene_table import contract_paths
 from giap.steps.registry import InputPath, StepContext, step
 
 __all__ = ["context_stats", "run_context_stats"]
@@ -233,12 +234,14 @@ def _with_context(genes: pd.DataFrame, context: pd.DataFrame) -> pd.DataFrame:
 
 
 def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | None) -> None:
-    """Run the step on the local work-directory layout: contract tables directly under
-    ``work_dir`` (C15 ``features.parquet`` included when present), the gene table at
+    """Run the step on a work directory: contract tables found by ``contract_paths`` (the flat
+    fixture layout or the keyed ``giap run`` layout, M4-21 lead decision 3) plus any optional
+    contract table present (C15 ``features.parquet``), the gene table at
     ``genetable/genes.parquet``, the tables under ``tables/`` and the two intermediate parquet
     files under ``context/``."""
-    inputs = {k: p for k, p in default_paths(work_dir).items()
-              if k not in OPTIONAL_KEYS or p.exists()}  # fmt: skip
+    inputs = contract_paths(work_dir)
+    inputs |= {k: p for k, p in default_paths(work_dir).items()
+               if k in OPTIONAL_KEYS and k not in inputs and p.exists()}  # fmt: skip
     inputs["gene_table"] = work_dir / "genetable" / "genes.parquet"
     parts = work_dir / "genetable" / "detection_summary_parts"
     for key, name in (("detectability_summary", "detectability"), ("tier_summary", "tier")):
