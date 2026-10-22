@@ -6,9 +6,10 @@ Interface pinned here (module ``giap.function.ora``):
 - ``tu_universe(genes, folds) -> TuUniverse`` and ``tu_members(u, genes) -> frozenset[int]``;
 - ``detection_enrichment(genes, colls, size, alpha, *, folds) -> DataFrame`` with the columns
   of ``ORA_COLUMNS`` in the order of the module constant ``COLUMNS``; ``folds`` is M4-13's
-  ``DetectabilityResult.fold_of_tu``, a required argument (decision 13). With ``folds=None`` the TU recalibration (decision 12) is not run
-  and the raw q is used (run and row flag ``tu_recal_skipped``), which is how examples 1-10 keep the
-  spec's raw-q numbers; ``test_ora_recalibration.py`` pins the fitted path;
+  ``DetectabilityResult.fold_of_tu``, a required argument (decision 13). With ``folds=None`` the
+  TU recalibration (decision 12) is not run and the raw q is used (run and row flag
+  ``tu_recal_skipped``), which is how examples 1-10 keep the spec's raw-q numbers;
+  ``test_ora_recalibration.py`` pins the fitted path;
 - ``attrs["run_flags"]`` is a list of strings; ``flags`` cells are sequences of strings (the writer
   joins them, as M8-05); every row carries ``ci_unestimated`` (lead decision 6).
 
