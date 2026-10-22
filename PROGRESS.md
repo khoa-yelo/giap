@@ -8,7 +8,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 89/103 done (86 %), 5 running · generated 2026-10-21 17:04 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 90/103 done (87 %), 4 running · generated 2026-10-21 17:30 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -18,7 +18,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨 95 % | 20 | 1 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
-| M6 Operons | 🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜ 17 % | 2 | 4 | 6 |
+| M6 Operons | 🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜⬜ 25 % | 3 | 3 | 6 |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
 | M8 Function and determinants | _not designed yet_ | - | - | - |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
@@ -180,6 +180,30 @@ Open for review: the M5-06 section of `docs/methods/islands.md` (bootstrap null,
 Amendment 1's validity domain, the low-direction ceiling, effect CI, degenerate cases) is not written
 yet — `docs/methods/` is the statistician's.
 
+M6-11 (implementer step done, 2026-10-21): RegulonDB is **fetched and the K-12 truth sets are built**.
+`validation/fetch_regulondb.py` completes the TLS chain itself — it downloads the GlobalSign
+intermediate RegulonDB omits, refuses it unless its SHA-256 equals the pin
+`d160e2de…63f9` (GlobalSign GCC R46 OV TLS CA 2025, valid to 2029-06-23), checks with
+`openssl verify` that it is signed by `GlobalSign Root R46` (already in the trust store), and only then
+adds it to the CA bundle; verification is never disabled (a test greps the source for `verify=False`,
+`CERT_NONE` and friends). Real fetch, twice, identical hashes: **RegulonDB 14.5.0** (release 2026-01-28,
+EcoCyc 29.5, genome NC_000913.3) into `$GIAP_DATA_DIR/regulondb/14.5.0/` — `TUSet.txt` 446,341 B
+(sha256 c96c8a3b…), `TerminatorSet.txt` 60,282 B (9d916ffe…), `GeneProductSet.txt` 1,290,719 B
+(3c2c6be3…), plus `provenance.json`. Nothing committed (R6/R11); no Slurm job (the whole download takes
+about two seconds, as the spec predicted).
+
+**Spec example 5, the evidence M6-12 consumes** (after the #141 review fixes, lead decisions 1–8;
+`validation/regulondb_truth.py` on the recorded `tests/data/recorded/bakta/1.12.2-full/k12/` JSON,
+contig U00096.3, ±30 bp, every file verified against `provenance.json` first): **3,067 same-strand
+adjacent pairs** (the pipeline's `adjacent_pairs`, **wrap pair included**: yjtD → KOIAIB_00001, labelled
+ambiguous because KOIAIB_00001 is a Bakta-only sORF at 3–98) — **1,730 positive, 1,009 negative, 2,739
+labelled** (≥ 2,000 as required), 328 ambiguous and excluded (10.7 %); **375 terminators**. Gene mapping
+**4,392 of 4,745 RegulonDB genes = 0.926 overall** (4,217 onto Bakta CDS + 175 RNA genes onto Bakta
+ncRNA/tRNA/rRNA features); **CDS share 0.923** (4,217 / 4,570); both above the 0.8 escalation floor;
+353 unmapped. dnaK–dnaJ, ftsA–ftsZ and pdhR–aceE are now positive (decision 3). Two RegulonDB names
+occur twice and are kept per gene id (decision 5). The summary carries release 14.5.0 and the three
+SHA-256s. Unit tests 91 passed, nothing touches the network. Release of record: **14.5.0**
+(decision 8; Khoa, 2026-10-21: 'cite RegulonDB 14.5.0').
 M6-01 (branch `m6/stats-pairfdr`, implementer step done, 2026-10-21): `giap.stats.tdist`
 (`StudentT`, `fit_student_t`, `student_t_two_sided`) and `giap.stats.decoy_fdr` (`bin_index`,
 `reweighted_fdr`, `max_decoy_fdr`, `local_fdr`) under lead decisions 1–8 and 11 — maximum over the
@@ -283,7 +307,7 @@ Lessons (keep):
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
 |---|---|---|---|
-| 2026-10-14 | RegulonDB v12 download (needed at M6) | `regulondb.ccg.unam.mx` unreachable from FarmShare (probe) | nothing yet; retry at M6, then ask |
+| 2026-10-14 | ~~RegulonDB v12 download~~ **RESOLVED 2026-10-21** | Not an outage: RegulonDB serves a cert (GlobalSign GCC R46 OV TLS CA 2025, issued 2026-10-14) **without the intermediate**, so verification fails. The intermediate from GlobalSign's own CA endpoint verifies against `GlobalSign Root R46`, already in FarmShare's trust store; with it, the site and `/datasets` return HTTP 200. Khoa approved completing the chain (2026-10-21). | nothing — M6-11/M6-12 unblocked |
 
 ## Answered by Khoa
 - 2026-10-15: force-push blocked → merge main into feature branches instead of rebasing (option 3).
@@ -303,6 +327,7 @@ Lessons (keep):
 ## Questions for Khoa
 | # | Question | Options | Default if no answer | Asked |
 |---|---|---|---|---|
+| 1 | GIAP_SPEC.md §15.3/§15.4 name "RegulonDB v12", but v12.0.0 is the 2023-10-23 release and the live one is **14.5.0** (2026-01-28). The fetcher records the release the endpoint reports. | (a) use the current release (14.5.0) and cite it in ADR-0022; (b) pin v12 and ask RegulonDB for the archived files | (a) — ADR-0017: record the version and the hash of what we actually fetched | 2026-10-21 (M6-11) — **RESOLVED 2026-10-21**: Khoa: 'cite RegulonDB 14.5.0' (option a) |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;
