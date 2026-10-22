@@ -8,8 +8,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 86/103 done (83 %), 5 running · generated 2026-10-21 15:19 by `scripts/dev/progress_bars.py`
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 89/103 done (86 %), 4 running · generated 2026-10-21 16:29 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 89/103 done (86 %), 5 running · generated 2026-10-21 17:04 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -18,10 +17,8 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨 95 % | 20 | 1 | 0 |
-| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜ 64 % | 7 | 1 | 3 |
-| M6 Operons | 🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0 % | 0 | 3 | 9 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
-| M6 Operons | 🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜ 17 % | 2 | 3 | 7 |
+| M6 Operons | 🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜ 17 % | 2 | 4 | 6 |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
 | M8 Function and determinants | _not designed yet_ | - | - | - |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
