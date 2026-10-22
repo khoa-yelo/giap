@@ -50,6 +50,12 @@ def write_params(
     params = outdir / "work" / "params.json"
     params.parent.mkdir(parents=True, exist_ok=True)
     dumped = cfg.model_dump(mode="json")
+    # precomputed layers are read by py steps inside Nextflow task directories, so a relative
+    # path would resolve there, not at launch (code review of #146)
+    pre = dumped["annotation"]["precomputed"]
+    for key, value in pre.items():
+        if value is not None:
+            pre[key] = str(Path(value).absolute())
     resolved.write_text(yaml.safe_dump(dumped, sort_keys=True), encoding="utf-8")
     data = {
         "annotation": dumped["annotation"],

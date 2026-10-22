@@ -134,3 +134,27 @@ OP pair with q = 0.02: Δ = +1.4, promoter 0.81, terminator 0.10 (cut-off 0.5).
    TU? **Proposed default:** both genes, so the count is a property of the TU.
 3. `evidence_note` free text in a controlled-vocabulary table: acceptable? **Proposed default:**
    yes, §9.3 defines it as a note column; the schema marks it as non-enumerated.
+
+## Lead decisions (2026-10-21)
+1. Q1: keep rows 3 and 5 without a terminator layer, adding `layer_missing:terminators` to the row's
+   flags and saying it in `evidence_note` (M6-index decision 4).
+2. Q2: `n_flags` counts flagged pairs with both genes in the TU.
+3. Q3: `evidence_note` free text is accepted; the schema marks it non-enumerated.
+4. Inputs are the merged M6-05 (`Discordance.rows`) and M6-06 (`MissedOperons.rows`) frames as they
+   are on `m6/discordance` and `m6/missed-operons`. The internal `which` column of M6-06 is not a
+   §9.2 column: drop it before anything is written (#148 review N5).
+5. A tested discordance row carries `ci_unestimated`, not `unestimated` (#147 review F1). A flag
+   whose row is `unestimated` never makes evidence "yes".
+6. Imputed abundances (#148 review N2): a pair row whose gene has `abundance_imputed` gains the flag
+   `abundance_imputed` here, where the gene table is joined, so a co-abundance or discordance call
+   driven by imputation is visible. The statistician's answer on #148 may tighten this (exclusion
+   from the targets); if so, that lands in M6-06 and this rule stays as the label.
+7. The test-author's resolutions (tests at 904d3af) are accepted:
+   - `merge_tests` and `flag_for` are added to the interface;
+   - the caller names missing layers (`missing_layers=`), and the rule extends to promoters by symmetry;
+   - an exact `unestimated` token disqualifies a row, while `ci_unestimated` counts as tested;
+   - the one-pattern-per-pair rules hold;
+   - `operons_table` takes `flagged`;
+   - `detected_frac` counts non-partial genes.
+
+   Owed to pass 2: the wording of `evidence_note`, `detected_frac` for an all-partial TU (0/0), and `layer_missing` on SW rows.
