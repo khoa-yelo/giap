@@ -1,12 +1,12 @@
-# M8-14: the R fgsea engine for `enrichment_gsea` (ADR-0038)
+# M8-17: the R fgsea engine for `enrichment_gsea` (ADR-0038)
 
 Milestone M8 · track T (tool integration) · **pass 2** · depends on: M8-05 (`gsea_table`), M8-06a
 (#181, the `function` step, merged), M8-06b (#187, `function.nf`), M8-12 (#192, the golden inputs
 and outputs, the R pins) · estimate ≈ 470 code lines (+ ≈ 450 test lines), so it is split into
-**M8-14a** (the R side and its wrapper, ≈ 290) and **M8-14b** (the engine switch in `gsea_table`,
+**M8-17a** (the R side and its wrapper, ≈ 290) and **M8-17b** (the engine switch in `gsea_table`,
 the step, Nextflow and preflight wiring, ≈ 180) · statistical (label `stats`) for 14b only
 
-> **Numbering.** `docs/specs/M8-14-sim-function-determinants.md` already holds the number M8-14
+> **Numbering.** `docs/specs/M8-17-sim-function-determinants.md` already holds the number M8-17
 > (giapsim scenarios). The lead named this file; see lead decision 1.
 
 ## Spec sections implemented
@@ -50,7 +50,7 @@ re-test, batched across namespaces, made only when at least one re-test exists.
 
 ---
 
-## M8-14a: the environment, `giap_fgsea.R` and the Python wrapper
+## M8-17a: the environment, `giap_fgsea.R` and the Python wrapper
 
 ### 1. Environment `workflow/envs/fgsea.yml` and its lock
 
@@ -314,7 +314,7 @@ All of the following run in CI without R unless marked otherwise.
 
 ---
 
-## M8-14b: the engine switch, the step, Nextflow and preflight
+## M8-17b: the engine switch, the step, Nextflow and preflight
 
 ### 7. The engine interface (pure, in `src/giap/function/gsea.py`)
 
@@ -579,7 +579,7 @@ code 4. No table is written: the step writes after computing, as it does today.
 
 ## Lead decisions needed
 
-1. **Issue number.** M8-14 is taken by `M8-14-sim-function-determinants.md`. Should this be
+1. **Issue number.** M8-17 is taken by `M8-17-sim-function-determinants.md`. Should this be
    M8-17 (17a and 17b), with the M8 index row added, or does the lead want to renumber the
    simulator issue? The filename stays as instructed until then.
 2. **R inside the step (recommended), or a separate Nextflow process.**
@@ -618,3 +618,16 @@ code 4. No table is written: the step writes after computing, as it does today.
    ADR-0038 item 1?
 10. **M8-13.** Should the fgsea half of M8-13 (port vs golden) be closed as superseded by A1 here,
     with its Wallenius half kept as is?
+
+## Lead decisions (2026-10-22)
+
+1. **Number.** The issue is M8-17 (M8-14 is the simulator issue), split into M8-17a and M8-17b.
+2. **Where R runs.** R is started from inside the Python `function` step through `giap.io.fgsea_r`. Both executors share one code path.
+3. **A set covering every ranked TU.** It gets an `unestimated` row with NA statistics, matching the ORA's whole-universe rule.
+4. **Old test numbers.** The M8-05/M8-06 tests that pin port numbers are re-pinned by the lead after M8-17b's implementation. The test author writes new tests only (role guard).
+5. **R failure.** Any R error fails the step with exit 4, the same as every other tool failure. No partial GSEA table.
+6. **Timeout.** The 3,600 s code constant is accepted; it moves to config in the hardening pass if it is ever needed.
+7. **The `log2err` NA case.** Tested with fakes and recorded outputs only.
+8. **When fgsea is required.** Preflight requires the fgsea env only when `function` is enabled **and** abundance is given, which is when GSEA runs.
+9. **Apptainer.** fgsea is conda-only under every profile for now. The BioContainers pin in ADR-0038 item 1 is deferred to the hardening pass (backlog). The step never calls `apptainer exec` itself.
+10. **M8-13.** Its fgsea half is superseded by the M8-17a contract test; its Wallenius half stays.

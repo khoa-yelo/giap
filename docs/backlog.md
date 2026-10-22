@@ -545,3 +545,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - MVP-03: build the §6.2 / §6.7 `manifest` and `finalize` steps (run_manifest.json; KEGG retrieval date, provenance), before M9-16.
 - M4: should `detection_summary` carry a region-**type** O − E row (§10.2 V7 lists region types; no table has them)?
 - UpSetPlot 0.9.0 fails on pandas 3.0.6 (`Invalid RGBA argument: nan`); V16 uses the custom matplotlib fallback (§10.2).
+- M8-17 (ADR-0038 item 1): BioContainers image for the fgsea env under apptainer profiles — deferred; conda-only for now (lead decision 9).
