@@ -45,3 +45,28 @@ def test_flag_leaves_q_and_status_unchanged() -> None:
     assert "q_floor_above_alpha" in r.det.warnings
     assert not r.det.table["detected"].astype(bool).any()
     assert set(r.det.table["detection_status"]) == {"not_detected"}
+
+
+def test_floor_is_a_bound_not_reached_when_a_decoy_outranks_the_weakest_target() -> None:
+    b = Builder(20)
+    t = b.tags or []
+    for i, g in enumerate(t):
+        b.target(g, 0.001, 0.01, 100.0 + i)
+    b.decoy([f"rev_{t[0]}"], 0.001, 0.01, 1.0)
+    b.decoy([f"rev_{t[1]}"], 0.001, 0.01, 110.0)  # above the weakest target win
+    r = b.run()
+    assert r.det.tier == "decoy_picked"
+    q = r.det.table["gene_q_value"].astype(float).to_numpy()
+    floor = fx.tier_metric(r.det, "q_floor")
+    assert floor == pytest.approx(1.0 / int(np.isfinite(q).sum()))
+    assert np.nanmin(q) > floor
+
+
+def test_mayu_tier_has_na_floor_and_no_warning() -> None:
+    b = Builder(40)
+    for g in b.tags or []:
+        b.target(g, None, 1e-4, None)
+    r = b.run(sizes=20)
+    assert r.det.tier == "mayu"
+    assert np.isnan(fx.tier_metric(r.det, "q_floor"))
+    assert "q_floor_above_alpha" not in r.det.warnings
