@@ -7,10 +7,15 @@ REF (``match``), IL (``il``, or a substitution between I and L), or one ALT key 
 residue, ``J`` for I or L; or the ``ref>alt`` token of a swap or block at its first codon only).
 
 :func:`pileup` returns one row per covered codon in §6.5 order with the §9.3 columns, followed by
-the internal columns ``_ref_codon`` and ``_alts`` (one ``(token, alt_type, alt_aa, n, source)``
-tuple per ALT key) that :func:`sites` reads; writers drop the ``_`` columns. Frameshift events
+the internal column ``_alts`` (one ``(token, alt_type, alt_aa, n, source, ref_codon)`` tuple per
+ALT key) that :func:`sites` reads; writers select the §9.3 columns by name. Frameshift events
 are never pileup rows: they travel in ``attrs["frameshifts"]`` (named tuples), with the contig
 order in ``attrs["contig_order"]``.
+
+``ref_codon`` (M7-03) is the gene-strand bases of every codon the REF allele spans: 3 nt for a
+substitution or a one-codon block, 6 nt for a swap or a two-codon block (first codon in peptide
+order first). A frameshift row has ``alt_aa = fs+1`` or ``fs-1`` (the signed shift) and
+``ref_codon`` the codon of the last prefix residue.
 """
 
 from __future__ import annotations
@@ -49,7 +54,7 @@ SITE_COLUMNS: tuple[str, ...] = (
     "variant_id", "contig", "codon_start", "strand", "gene", "aa_pos", "ref_codon", "ref_aa",
     "alt_aa", "alt_type", "call", "confidence", "n_ref", "n_alt", "source",
 )  # fmt: skip
-_INTERNAL = ("_ref_codon", "_alts")
+_INTERNAL = ("_alts",)
 _DIFF = frozenset({"substitution", "swap", "block", "near_block"})
 _IL = frozenset("IL")
 _STRAND_RANK = {"+": 0, "-": 1}
@@ -134,6 +139,15 @@ def _codon_nt(seq: str, rep: Replicon, codon: int, strand: str) -> str:
     n = rep.length
     nt = seq[codon : codon + 3] if codon + 3 <= n else seq[codon:] + seq[: codon + 3 - n]
     return nt.translate(_COMP)[::-1] if strand == "-" else nt
+
+
+def _ref_nt(seq: str, rep: Replicon, key: _Key, token: str) -> str:
+    """Gene-strand bases of the codons the REF allele of ``token`` spans (1 or 2 codons)."""
+    _, strand, codon = key
+    nt = _codon_nt(seq, rep, codon, strand)
+    if len(token.partition(">")[0]) == 2:
+        nt += _codon_nt(seq, rep, _wrap(codon + (3 if strand == "+" else -3), rep), strand)
+    return nt
 
 
 def _gene_at(gm: GeneModel, rep: Replicon, codon: int, strand: str) -> tuple[str, int] | None:
@@ -222,13 +236,14 @@ def pileup(
                 alts.setdefault((tok, kind, alt), set()).update(peps[(key, f)])
         counts = {k: len({_fold(p) for p in v}) for k, v in alts.items()}
         ranked = sorted(alts, key=lambda k: (-counts[k], k))
-        gene, aa_pos, ref_codon, ref_aa = _locate(key, gm, genome)
+        gene, aa_pos, _, ref_aa = _locate(key, gm, genome)
         rows.append({
             "contig": key[0], "codon_start": key[2], "strand": key[1], "gene": gene,
             "aa_pos": aa_pos, "ref_aa": ref_aa, "n_ref": n_ref, "n_il": n_il,
             "alt_counts": ";".join(f"{k[0]}:{counts[k]}" for k in ranked) or None,
-            "call": _call(n_ref, len(alts)), "_ref_codon": ref_codon,
-            "_alts": tuple((*k, counts[k], _sources(alts[k], support)) for k in ranked),
+            "call": _call(n_ref, len(alts)),
+            "_alts": tuple((*k, counts[k], _sources(alts[k], support),
+                            _ref_nt(genome[key[0]], reps[key[0]], key, k[0])) for k in ranked),
         })  # fmt: skip
     fs: list[_Site] = []
     for (key, shift), ps in sorted(events.items(), key=lambda e: (sort_key(e[0][0]), e[0][1])):
@@ -271,9 +286,9 @@ def sites(pile: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
             continue
         gene = None if pd.isna(r["gene"]) else str(r["gene"])
         aa_pos = None if pd.isna(r["aa_pos"]) else int(r["aa_pos"])
-        for _tok, kind, alt, n, src in r["_alts"]:
+        for _tok, kind, alt, n, src, ref_nt in r["_alts"]:
             recs.append(_Site(str(r["contig"]), int(r["codon_start"]), str(r["strand"]), gene,
-                              aa_pos, str(r["_ref_codon"]), str(r["ref_aa"]), alt, kind,
+                              aa_pos, ref_nt, str(r["ref_aa"]), alt, kind,
                               int(r["n_ref"]), n, src))  # fmt: skip
     order = {c: i for i, c in enumerate(pile.attrs["contig_order"])}
     for c in pile["contig"]:

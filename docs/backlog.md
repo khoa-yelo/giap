@@ -363,6 +363,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - under `same`/`other`, a stripped frameshift peptide still adds REF at its off-frame suffix codons (M7-05);
   - pin the str/object string dtypes in the M7-03 schema;
   - test gaps (surviving mutants): `il` ops kept under same/other; frameshift next codon on − strand (731/734 without 728); folded frameshift `n_alt`; `alt_aa` tie-break order; Int64 dtypes on header-only frames; a block peptide spanning the frameshift codons counting in `n_ref`.
+- M7-03 review of #160 (lead fix: the datapackage resource profiles, plus a package-validation test):
+  - replace the pileup's `_alts` column and the `attrs` channel with an explicit structure (a frozen `Pileup`); the M7-02 review test must change first;
+  - `read_variants` is a byte inverse, not a frame inverse: `class_error_rate` is stored as a `%.6g` string and comes back as a float, and text dtypes differ. Keep the float in the table and format only in the writers;
+  - §9.1 puts the descriptor at `OUT/schemas/datapackage.json`, so the `tables/...` paths resolve under `schemas/`. M7-04/finalize must settle where the descriptor and schemas are copied;
+  - a bare `KeyError` when `sites` and `pile` mismatch; a `;`-joined string `flags` cell is exploded into characters; `read_variants` validates nothing;
+  - weak schema patterns: `class_error_rate`, and `alt_aa` for `fs±1`;
+  - for − two-codon events, TSV `codon_start` (the first codon in peptide order) differs from VCF POS (the lower codon); note it in the methods. A codon with both a substitution and a swap gets one GT per length-class record; document it;
+  - test gaps: a − two-codon event whose second codon wraps past 0; duplicate or unsorted input flags; `read_variants` flag splitting.
 
 - M6-06 review of #148, owed to M6-08/M6-09:
   - ADR draft for Khoa: exclude pairs with an imputed gene from targets and decoys (statistician: a co-imputed NO surplus gives ~198 false calls per replicate on a 2,000-pair genome; exclusion restores the level);
