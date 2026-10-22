@@ -25,6 +25,7 @@ from giap.model.coords import Interval, Replicon, interval_sort_key, split_at_or
 from giap.model.genes import Gene, NcFeature
 
 __all__ = [
+    "MODULE_REGION_TYPES",
     "TSV_COLUMNS",
     "Region",
     "RegionGene",
@@ -32,6 +33,7 @@ __all__ = [
     "build_regions",
     "members",
     "overlap_frac",
+    "precomputed_members",
     "prophage_subset",
     "regions_bed",
     "write_regions_tsv",
@@ -41,6 +43,8 @@ TSV_COLUMNS = (
     "region_id", "region_type", "contig", "start", "end", "source_tool", "score", "genes", "notes",
 )  # fmt: skip
 CAS_MAX_GAP = 1000
+#: ``--modules`` entry -> the region type it gates (§5.2): without it those regions are dropped
+MODULE_REGION_TYPES: Mapping[str, RegionType] = {"mobile": "prophage", "bgc": "bgc"}
 _TYPE_ORDER: tuple[RegionType, ...] = ("prophage", "plasmid", "bgc", "crispr", "amr")
 
 
@@ -273,6 +277,32 @@ def build_regions(
                 )
                 rgenes.append(RegionGene(rid, tag, f, subset, rtype == "bgc" and tag in cores))
     return regions, rgenes
+
+
+def precomputed_members(
+    regions: Sequence[Region], genes: Sequence[Gene], replicons: Mapping[str, Replicon]
+) -> list[RegionGene]:
+    """C8 rows of an ``annotation.precomputed.regions`` layer (M4-21 lead decision 2).
+
+    Members are the region's listed ``genes`` (the layer equals ``regions.tsv``, whose list is
+    the membership), in that order; ``overlap_frac`` is measured as in ``build_regions`` (1.0
+    for AMR gene sets, which have no interval). Prophage members get ``prophage_subset`` of the
+    Bakta product alone (the layer carries no geNOMAD marker description) and no member is
+    ``core_biosynthetic`` (the layer carries no antiSMASH core flag). An unknown locus tag
+    raises ``ValueError`` naming the region.
+    """
+    by_tag = {g.locus_tag: g for g in genes}
+    out: list[RegionGene] = []
+    for r in regions:
+        for tag in r.genes:
+            g = by_tag.get(tag)
+            if g is None:
+                raise ValueError(f"precomputed region {r.region_id}: unknown locus tag {tag!r}")
+            iv = r.interval
+            frac = 1.0 if iv is None else overlap_frac(g.interval, iv, replicons[r.contig])
+            subset = prophage_subset(g.product, None) if r.region_type == "prophage" else None
+            out.append(RegionGene(r.region_id, tag, frac, subset, False))
+    return out
 
 
 # ------------------------------------------------------------------------------- writers
