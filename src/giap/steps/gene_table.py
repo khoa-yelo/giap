@@ -36,8 +36,7 @@ __all__ = ["GenesPre", "build_genes_pre", "contract_paths", "m4_paths", "run_gen
            "work_inputs"]  # fmt: skip
 
 _M3_TSVS = ("peptide_hits", "protein_hits", "unmapped")
-# C7/C8 are not read: region membership arrives through C6 ``region_ids`` (and under Nextflow a
-# precomputed regions layer still reaches ``regions`` only as its M2-02 TSV).
+# C7/C8 are not read: region membership arrives through C6 ``region_ids``.
 _REQUIRED = ("genes", "replicons", "xrefs", "annotation_meta", "tus", "layers", "mapping")
 _UNREAD = frozenset({"contract.regions.missing_file", "contract.region_genes.missing_file"})
 _OPTIONAL = ("peptides", "abundance", "id_map", "preflight", "cog2020_def")
