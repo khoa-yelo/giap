@@ -10,6 +10,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 <!-- progress:start -->
 🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 100/135 done (74 %), 10 running · generated 2026-10-22 02:04 by `scripts/dev/progress_bars.py`
 🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 99/135 done (73 %), 11 running · generated 2026-10-22 01:27 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 102/135 done (76 %), 8 running · generated 2026-10-22 03:54 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -22,6 +23,8 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M6 Operons | 🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜ 50 % | 6 | 2 | 4 |
 | M7 Variants and novel ORFs | 🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 6 % | 1 | 5 | 10 |
 | M8 Function and determinants | 🟩🟩🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜ 31 % | 5 | 3 | 8 |
+| M7 Variants and novel ORFs | 🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 12 % | 2 | 4 | 10 |
+| M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜ 38 % | 6 | 2 | 8 |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
@@ -72,6 +75,21 @@ bound of 0.119 at α 0.10 (0.055 / 0.011 at 0.05 / 0.01), all on block 1, reprod
 the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise decision 34 expected, no
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
+
+M6-08 (branch `m6/operons-step`, stacked on `m6/flags`, implementer step done, 2026-10-21): the
+`operons` step (core, py) chains pair_frame → discordance (pass 1) → missed_operons(genes=) →
+merge_tests (absent layers named) → flag_pairs → operons_table and writes `tables/pairs.tsv`,
+`operons.tsv`, `operon_flags.tsv` (`giap.io.operon_tables`, three Frictionless resources with the
+decision 7 vocabulary); WARNING `layer_missing:<layer>` per absent layer, §6.7 event
+`operons.missed_operons` (π₀, bin_counts). `operons.nf` (OPERONS), `annotate.nf` emit
+`layers_for_pairs`, `main.nf` calls OPERONS beside CONTEXT. `_path/_genes/_replicons` moved to
+`giap.steps.common`. No test changed. Fast suite **9332 passed** (Slurm 1864791); nf-test operons /
+main_operons / main_genetable_context 10/10 (session); slow `test_m6_08_operons_run.py` **4 passed**
+(Slurm 1864795, on a throwaway merge with #145 plus the three `PUBLISHED_FILES` keys — the lead adds
+those keys at merge). **Real run** Slurm **1864792** (`giap_run.sbatch`, farmshare,apptainer, sim100k,
+real tools incl. Bakta light, 45 tasks, 41 min, exit 0): pairs.tsv 88 rows (70 OP, 1 NO, 7 CV, 7 DV,
+3 SW; every test `none`, `too_few_op_pairs`), operons.tsv 16 TUs, operon_flags.tsv header-only.
+Example 1 "every test none" holds on sim100k.
 
 M6-07 (branch `m6/flags`, stacked on M6-04/05/06, implementer step done, 2026-10-21):
 `giap.operons.flags` — `flag_for` (the §7.4.5 table, first match wins), `evidence_yes` (config

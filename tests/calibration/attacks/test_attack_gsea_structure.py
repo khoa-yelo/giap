@@ -50,7 +50,7 @@ CFG = GseaConfig()
 SIZE = (10, 500)
 ALPHA = 0.05
 XFAIL_ADR = pytest.mark.xfail(
-    strict=True, reason="M8-05 review: GSEA null vs positional/detectability structure (ADR owed)"
+    strict=True, reason="ADR-0025/ADR-0026: no all-rows level claim under this structure"
 )
 
 

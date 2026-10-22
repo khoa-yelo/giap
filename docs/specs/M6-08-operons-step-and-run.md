@@ -122,3 +122,23 @@ def run_operons(...) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: ...
 3. Is a header-only `operon_flags.tsv` on sim100k an acceptable pass-1 definition of done?
    **Proposed default:** yes — the alternative is to enlarge the integration fixture, which belongs
    to pass 2 (M6-03 hardening item above).
+
+## Lead decisions (2026-10-21)
+1. Q1: `annotate.nf` emits `promoter_windows`, `terminators` and `tx_rates` (M6-index decision 3).
+2. Q2: Module 4 is core. It has no `--modules` flag and keeps the graceful no-abundance behaviour.
+3. Q3: a header-only `operon_flags.tsv` on sim100k is an acceptable pass-1 done.
+4. **Inputs:** the M6-04 `pair_frame`, M6-05 `discordance`, M6-06 `missed_operons` (always pass `genes`) and M6-07 `merge_tests`/`flag_pairs`/`operons_table`, as on `m6/flags`.
+   - `pairs.tsv` never carries the internal `which` column.
+   - `merge_tests(..., missing_layers=...)` is given the annotation layers that are actually absent.
+5. **Local/Nextflow parity:** add the three tables to the local executor's `PUBLISHED_FILES` (M4-21). `tests/unit/test_local_publish_names.py` pins them against the Nextflow `'key=path'` names.
+6. **Manifest:** record π₀ (`operons.pi0`) and the decoy `bin_counts`, which the #148 review left owed to M6-08.
+7. **The pair-scope flag vocabulary is extended through the `pairs.tsv` schema** (§9.4, "extend only through the schema"; #152 review). It adds `abundance_imputed`, `layer_missing:promoters`, `layer_missing:terminators`, `layer_missing:tx_rates` (added after the test step), `ci_unestimated`, `unestimated`, `too_few_op_pairs`, `too_few_no_pairs`, `no_detection_limit_model` and `relative_scale`.
+   - `abundance_imputed` stays the pair-scope token. It is distinct from the gene-scope `imputed_abundance`, and the schema documents both.
+   - `operon_flags.tsv` and `operons.tsv` take the same values where they carry flags.
+8. After the test step (594fbd6): the TA's interface is accepted.
+   - `pairs_raw` travels inside `layers_for_pairs` as its required member.
+   - The process alias name is free; tasks are found by their tag.
+   - Decision 6 is pinned as a §6.7 event `operons.missed_operons`.
+   - The `main_genetable_context.nf.test` "precomputed regions" case now asserts that CONTEXT's tables are absent, not that `tables/` is (OPERONS publishes there).
+   - Example 5 (a 50-kb golden `pairs.tsv`) moves to pass 2: no fixture has `pairs_raw` yet (M6-03).
+   - If example 1's "every test none" fails on real sim100k because ≥ 20 usable OP pairs exist, the implementer reports it and the lead revises the example; never weaken the test silently.
