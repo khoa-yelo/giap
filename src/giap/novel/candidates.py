@@ -88,11 +88,14 @@ def candidate_rows(
     if contaminants:
         library = "#".join(_il(r.sequence) for r in contaminants)
         banned |= {p for p in set(pep) if _il(p) in library}
-    keep = hits["locus_class"].isin(NOVEL_CLASSES) & ~pep.isin(banned)
+    # I/L twins share one identity: a ban or a second locus of either applies to both
+    folded = pep.map(_il)
+    keep = hits["locus_class"].isin(NOVEL_CLASSES) & ~folded.isin({_il(p) for p in banned})
     out = hits.loc[keep].copy()
-    loci = out.drop_duplicates(["peptide", "contig", "start", "end", "strand"])
-    n_loci = loci["peptide"].value_counts()
-    out = out.loc[out["peptide"].map(n_loci).fillna(0).to_numpy() == 1]
+    out_f = folded[keep]
+    loci = out.assign(_f=out_f).drop_duplicates(["_f", "contig", "start", "end", "strand"])
+    n_loci = loci["_f"].value_counts()
+    out = out.loc[out_f.map(n_loci).fillna(0).to_numpy() == 1]
     q = dict(zip(peptides["peptide"].astype(str), peptides["q_value"], strict=True))
     out["q_value"] = pd.to_numeric(out["peptide"].map(q), errors="coerce").astype("float64")
     return out.reset_index(drop=True)
@@ -174,13 +177,18 @@ def _overlapping_gene(cls: str, row: Mapping[str, Any], gm: GeneModel) -> str | 
     gene = row.get("gene")
     if isinstance(gene, str) and gene:
         return gene
-    if cls != "cds_outframe":
+    if cls not in ("cds_outframe", "antisense"):
         return None
+    # M3-14 leaves C11 ``gene`` NA for these classes: the overlapped gene is on the same strand
+    # (out of frame) or the opposite strand (antisense); smallest locus tag, as M3-14 ties
     iv = Interval(str(row["contig"]), int(row["start"]), int(row["end"]), row["strand"])
-    for g in gm.overlapping(iv):
-        if isinstance(g, Gene) and g.interval.strand == iv.strand:
-            return g.locus_tag
-    return None
+    same = cls == "cds_outframe"
+    tags = [
+        g.locus_tag
+        for g in gm.overlapping(iv)
+        if isinstance(g, Gene) and (g.interval.strand == iv.strand) == same
+    ]
+    return min(tags) if tags else None
 
 
 def _best_q(qs: Sequence[float]) -> float | None:
