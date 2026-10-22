@@ -23,6 +23,8 @@ Contract tables (key: file, producer; invariants checked here):
 - C15 ``features``: features.parquet (M2-04 ``parse_bakta``; read by M5, optional in
   ``validate_inputs``, M5-04): ``type`` a ``NcType``; ``0 <= start < end``; ``contig`` known and
   ``end <= 2 length`` (unwrapped across the origin, §6.5).
+- C16 ``peptide_runs``: peptide_runs.parquet (M1-06/M1-12, optional; read by M6-02): the M1-06
+  columns, one row per (``peptide``, ``run``); not part of ``M4Inputs`` (like C15).
 
 C4 (``annotation_meta.json``) is read by the loader (``giap.io.work_tables``). Frames hold the
 internal representation: 0-based half-open coordinates and list cells (``list``, ``tuple`` or numpy
@@ -175,6 +177,7 @@ TABLES: Mapping[str, tuple[Column, ...]] = {
         _i("end"), _s("strand", enum=(*STRAND, ".")), _s("gene", True), _s("product", True),
         _s("amino_acid", True), _s("anticodon", True),
     ),
+    "peptide_runs": (_s("peptide"), _s("run"), _f("intensity", True), _i("n_rows")),
 }
 # fmt: on
 
@@ -383,8 +386,22 @@ def _rules_regions(df: pd.DataFrame) -> list[Issue]:
 
 # Columns whose values are unique within the table (rule ``<column>_unique``).
 _UNIQUE = dict(replicons="contig", genes="locus_tag", layers="locus_tag", peptides="peptide")
+
+
+def _rules_peptide_runs(df: pd.DataFrame) -> list[Issue]:
+    """M1-06 aggregates per (peptide, run): a repeated pair is a malformed C16."""
+    if not _has(df, "peptide", "run"):
+        return []
+    pairs = pd.Series(
+        list(zip(df["peptide"].astype(object), df["run"].astype(object), strict=True))
+    )
+    pairs = pairs.where(~(_na_mask(df["peptide"]) | _na_mask(df["run"])), None)
+    return _duplicates("peptide_runs", "peptide_run_unique", pairs, "(peptide, run)")
+
+
 _TABLE_RULES: dict[str, Callable[[pd.DataFrame], list[Issue]]] = {
     "genes": _rules_genes,
+    "peptide_runs": _rules_peptide_runs,
     "regions": _rules_regions,
     "features": lambda df: _rules_interval("features", df),
 }

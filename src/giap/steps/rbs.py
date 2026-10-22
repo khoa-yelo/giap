@@ -15,7 +15,9 @@ import pyarrow as pa  # type: ignore[import-untyped]
 from giap.annotate.ostir import ostir_row, parse_ostir, read_ostir_input, write_ostir_input
 from giap.io.fasta import read_genome_fasta
 from giap.io.parquet import write_parquet_deterministic
-from giap.steps.operons import _genes, _path, _replicons
+from giap.steps.common import one_path as _path
+from giap.steps.common import read_genes as _genes
+from giap.steps.common import read_replicons as _replicons
 from giap.steps.registry import StepContext, external, step
 
 _F64 = pa.float64()

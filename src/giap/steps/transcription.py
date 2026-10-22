@@ -18,7 +18,8 @@ from giap.annotate.operons import Tu
 from giap.annotate.promoter_calculator import parse_pc_csv, tx_layer
 from giap.io.parquet import write_parquet_deterministic
 from giap.model.coords import Interval
-from giap.steps.operons import _path, _replicons
+from giap.steps.common import one_path as _path
+from giap.steps.common import read_replicons as _replicons
 from giap.steps.registry import StepContext, external, step
 
 _STR = pa.string()

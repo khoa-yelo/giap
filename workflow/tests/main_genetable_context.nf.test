@@ -156,7 +156,7 @@ nextflow_pipeline {
             }.sort()
             def want = ['ANTISMASH', 'BAKTA', 'CODON_USAGE', 'CONTEXT_LAYERS', 'CONTEXT_STATS',
                         'DETECTABILITY', 'GENE_TABLE', 'GENOMAD', 'LOCI', 'MAP_EXACT', 'MAP_TOLERANT',
-                        'OPERON_PAIRS', 'OSTIR', 'OSTIR_INPUT', 'PARSE_BAKTA', 'PLACEMENT', 'PROMOTECH',
+                        'OPERONS_STEP', 'OPERON_PAIRS', 'OSTIR', 'OSTIR_INPUT', 'PARSE_BAKTA', 'PLACEMENT', 'PROMOTECH',
                         'PROMOTER_CALCULATOR', 'PROMOTER_LAYER', 'PROMOTER_WINDOWS', 'RBS_LAYER',
                         'REGION_LAYER', 'SENSITIVITY', 'SIXFRAME_INDEX', 'TERMINATORNET',
                         'TERMINATOR_LAYER', 'TRANSTERMHP', 'TRANSTERM_INPUT', 'TX_LAYER', 'UNIOP', 'VARIANTS_STEP',

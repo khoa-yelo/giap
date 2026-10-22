@@ -44,7 +44,7 @@ from giap.annotate.regions import MODULE_REGION_TYPES
 from giap.io.fasta import read_genome_fasta
 from giap.io.parquet import write_parquet_deterministic
 from giap.model.coords import Replicon
-from giap.steps.operons import _path
+from giap.steps.common import one_path as _path
 from giap.steps.registry import StepContext, step
 
 _TYPES = {c: pa.int64() for c in INT_COLUMNS} | {c: pa.list_(pa.string()) for c in LIST_COLUMNS}

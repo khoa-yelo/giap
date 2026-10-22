@@ -1,0 +1,19 @@
+{
+  "name": "operons",
+  "description": "Transcription units (C5 TUs) with their detection, abundance and flag summaries (GIAP_SPEC.md §9.3; M6-07, M6-08).",
+  "coordinates": "1-based-closed",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "tu_id", "type": "string", "description": "TU ID (TU_<n>, §6.5)", "constraints": {"required": true, "unique": true}},
+    {"name": "contig", "type": "string", "description": "Replicon", "constraints": {"required": true}},
+    {"name": "start", "type": "integer", "description": "TU start, 1-based", "constraints": {"required": true, "minimum": 1}},
+    {"name": "end", "type": "integer", "description": "TU end, 1-based closed; > replicon length for an origin-crossing TU", "constraints": {"required": true, "minimum": 1}},
+    {"name": "strand", "type": "string", "description": "Strand", "constraints": {"required": true, "enum": ["+", "-"]}},
+    {"name": "genes", "type": "string", "description": "Semicolon-joined member genes in transcription order", "constraints": {"required": true}},
+    {"name": "n_genes", "type": "integer", "description": "Member genes", "constraints": {"required": true, "minimum": 1}},
+    {"name": "detected_frac", "type": "number", "description": "Detected fraction of the non-partial member genes; NA when none is eligible", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "median_abundance_log2", "type": "number", "description": "Median log2 abundance of the detected member genes"},
+    {"name": "max_abs_delta_log2", "type": "number", "description": "Largest |delta_log2| over internal adjacent pairs with both genes detected", "constraints": {"minimum": 0}},
+    {"name": "n_flags", "type": "integer", "description": "Flagged OP pairs with both genes in the TU", "constraints": {"required": true, "minimum": 0}}
+  ]
+}

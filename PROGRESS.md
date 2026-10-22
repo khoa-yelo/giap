@@ -8,9 +8,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 87/103 done (84 %), 4 running · generated 2026-10-21 16:11 by `scripts/dev/progress_bars.py`
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 90/103 done (87 %), 4 running · generated 2026-10-21 17:30 by `scripts/dev/progress_bars.py`
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 91/135 done (67 %), 7 running · generated 2026-10-21 19:46 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 102/135 done (76 %), 8 running · generated 2026-10-22 03:54 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -20,9 +18,9 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
-| M6 Operons | 🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜⬜ 25 % | 3 | 3 | 6 |
-| M7 Variants and novel ORFs | 🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0 % | 0 | 1 | 15 |
-| M8 Function and determinants | 🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0 % | 0 | 3 | 13 |
+| M6 Operons | 🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜ 50 % | 6 | 2 | 4 |
+| M7 Variants and novel ORFs | 🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 12 % | 2 | 4 | 10 |
+| M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜ 38 % | 6 | 2 | 8 |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
@@ -49,6 +47,13 @@ M6–M11: not designed yet.
 ## In progress
 M7-01 residue aligner (branch m7/alignment, implementer step done 2026-10-21): `giap.variants.align` (247 code lines, numba banded DP with traceback; M3 kernels untouched). Unit 42 passed, property 5 passed (also over 20 Hypothesis seeds), sim100k conformance passed (Slurm 1864764), fast suite 9180 passed (1864763), benchmark 100k tolerant hits 11.35 s < 30 s (1864766, wheat-08). Next: code review.
 M7-02 pileup and calls (branch m7/calls, stacked on m7/alignment; implementer step done 2026-10-21): `giap.variants.pileup` (Support, eligible, pileup, sites; 242 non-blank code lines). Unit 68 passed, property 5 passed, fast suite 9253 passed (Slurm 1865145). Frameshift events travel in `pile.attrs["frameshifts"]`; per-codon ALT detail in internal `_ref_codon`/`_alts` columns (writers drop `_` columns, M7-03). Next: code review.
+- M8-02 (m8/fgsea, implementer step done, 103ebe6): fgsea 1.36.2 port I — `giap.stats.fgsea`
+  (`prepare`, `gsea_es`, `fgsea_simple`) + numba kernels `giap.stats._fgsea_kernels`; NOTICE.md
+  fgsea MIT row; docs/methods/fgsea-port.md. Contract tests 49 passed; fast suite 9184 passed
+  (Slurm 1864796); fgsea calibration 2 passed (1865099); whole calibration dir job 1864797 still
+  running at handoff. Benchmark 0.61 s vs 20 s budget (2,500 TUs x 1,500 sets x 1,000 perms, 4
+  CPUs, wheat-01, 1864798). Next: code + statistician review.
+M7-01 residue aligner (branch m7/alignment, implementer step done 2026-10-21): `giap.variants.align` (247 code lines, numba banded DP with traceback; M3 kernels untouched). Unit 42 passed, property 5 passed (also over 20 Hypothesis seeds), sim100k conformance passed (Slurm 1864764), fast suite 9180 passed (1864763), benchmark 100k tolerant hits 11.35 s < 30 s (1864766, wheat-08). Next: code review.
 
 Session 2026-10-20 (lead + up to 6 subagents in parallel, Khoa's instruction). Merged today: #107 M2-21
 (nightly array, weekly, measured runtimes), #108 M5 design, #109 one-subprocess step-load test (52.6 s →
@@ -69,6 +74,30 @@ the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise deci
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
 
+M6-08 (branch `m6/operons-step`, stacked on `m6/flags`, implementer step done, 2026-10-21): the
+`operons` step (core, py) chains pair_frame → discordance (pass 1) → missed_operons(genes=) →
+merge_tests (absent layers named) → flag_pairs → operons_table and writes `tables/pairs.tsv`,
+`operons.tsv`, `operon_flags.tsv` (`giap.io.operon_tables`, three Frictionless resources with the
+decision 7 vocabulary); WARNING `layer_missing:<layer>` per absent layer, §6.7 event
+`operons.missed_operons` (π₀, bin_counts). `operons.nf` (OPERONS), `annotate.nf` emit
+`layers_for_pairs`, `main.nf` calls OPERONS beside CONTEXT. `_path/_genes/_replicons` moved to
+`giap.steps.common`. No test changed. Fast suite **9332 passed** (Slurm 1864791); nf-test operons /
+main_operons / main_genetable_context 10/10 (session); slow `test_m6_08_operons_run.py` **4 passed**
+(Slurm 1864795, on a throwaway merge with #145 plus the three `PUBLISHED_FILES` keys — the lead adds
+those keys at merge). **Real run** Slurm **1864792** (`giap_run.sbatch`, farmshare,apptainer, sim100k,
+real tools incl. Bakta light, 45 tasks, 41 min, exit 0): pairs.tsv 88 rows (70 OP, 1 NO, 7 CV, 7 DV,
+3 SW; every test `none`, `too_few_op_pairs`), operons.tsv 16 TUs, operon_flags.tsv header-only.
+Example 1 "every test none" holds on sim100k.
+
+M6-07 (branch `m6/flags`, stacked on M6-04/05/06, implementer step done, 2026-10-21):
+`giap.operons.flags` — `flag_for` (the §7.4.5 table, first match wins), `evidence_yes` (config
+cut-offs, inclusive; NA, `layer_missing:<layer>` or an exact `unestimated` token is never "yes"),
+`abundance_pattern` (`stats.alpha.operon_flags`), `flag_pairs` (`operon_flags.tsv`, by pair number,
+generated `evidence_note` that says "layer missing" / "no call", never absence) and `merge_tests`
+(M6-05/06 rows into the pair frame, `which` dropped, `abundance_imputed`, `layer_missing:*` on OP/NO);
+`giap.operons.tu_table.operons_table` (one row per C5 TU, C1 contig order then start). No test changed;
+tests/unit/operons 217 passed; fast suite 9257 passed (Slurm 1864716). Simplifications in docs/backlog.md.
+
 M6-05 (branch `m6/discordance`, stacked on #144, implementer step done, 2026-10-21):
 `giap.operons.discordance` pass 1 — `fit_rows` (usable OP Δ, sorted), `discordance()` with the
 within-operon t fit (`fit_student_t`, `MIN_OP_PAIRS` = 20), two-sided t p for both-detected OP pairs,
@@ -76,6 +105,7 @@ one BH family of t p-values only (M6-index decision 1), CI NA + `unestimated`; `
 `relative_scale` and `no_detection_limit_model` paths; partial genes ineligible. Lead fixed two test
 oracles (8e43149); tests/unit/operons 57 passed; fast suite Slurm 1864501. Pass-1 simplifications in
 docs/backlog.md.
+
 MVP-02 (branch mvp/nf-precomputed-regions, stacked on #145; implementer step done): with
 `annotation.precomputed.regions` set, ANNOTATE skips only GENOMAD/ANTISMASH; REGION_LAYER runs (reads the
 TSV from the config) and its C7/C8 Parquet go to context_layers and CONTEXT, so Nextflow now runs
@@ -150,6 +180,19 @@ ids. Evidence reuses the M2-13/14/15 helpers via per-run indexes (`promoter_betw
 baseline `pair_frame_4500_genes` = 0.41 s of a 3 s budget (wheat-08, 1 CPU, Slurm 1864210). Lead decisions after the test-author appended to
 the spec.
 
+M6-02 (branch `m6/detlimit`, implementer step done, 27a0292): `giap.operons.detection_limit`, with
+the peptide model and the replicate model fitted by the conditional (truncated) likelihood (lead
+decision 5). The fit is unpenalised damped Newton on standardised features; the peptide model is
+cross-fitted by TU folds, and the replicate model is not fitted at R = 2 (`replicate_two_runs`).
+C16 `peptide_runs` is in TABLES and loads through `load_tables`. Fit time is 0.6 s for 600 genes and
+1.2 s for 1,500 (full fit plus 5 folds, 1 CPU). Detection-limit slow and calibration tests: 64 passed
+(Slurm 1864768). DL1 full (R = 100, 1,500 genes): mean slope 0.9996, CITL −0.008. DL1 fast (R = 20,
+600 genes): slope 0.976, CITL +0.081. Fast suite (Slurm 1864767, pre-commit tree): 9202 passed, 6
+failed. One failure was mine (`OPTIONAL_KEYS` leaked into the context_stats registry) and is fixed
+before the commit. The other 5 are `tests/unit/genetable/test_contract.py`: `test_tables_keys` and 4
+`test_missing_column[peptide_runs-*]`. Its pinned `TABLE_KEYS` and `build_frames` fixture predate
+C16, so they conflict with the new C16 test. This is test-author work. Rerun on 27a0292 (Slurm 1864799): 9203 passed;
+the same 5 failed.
 M6-06 (branch `m6/missed-operons`, stacked on #144, implementer step done, 2026-10-21):
 `giap.operons.missed` — `missed_operons(pairs, cfg, *, genes=None)` scores eligible both-detected NO
 pairs `-|Δ|` against CV/SW decoys through the merged engine `max_decoy_fdr` (distance-reweighted,
@@ -323,6 +366,14 @@ Lessons (keep):
 - Keep ≤ 128 CPUs: Slurm rounds each job up by 2 CPUs; chain extra jobs with --dependency.
 - Slurm jobs run from the main checkout only; never remove a worktree a job may be using.
 - Subagents never install packages; set PYTHONPATH per worktree; unset PYTHONHOME after sourcing the env.
+
+M8-01 (branch `m8/wallenius`, implementer step done, 2026-10-21; no PR yet): `giap.stats.wallenius`
+(`OraResult`, `category_odds`, `wallenius_tails` as direct pmf sums with ω = 1 via the hypergeometric
+and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.function.elim`
+(deepest-first, strict `<`, cycles named before any test). Contract tests at 8b34ffa: 61 passed,
+3 far-tail xfails (non-strict, lead decision 2). Fast suite on Slurm 1864745: 9194 passed, 31 skipped,
+4 xfailed. Benchmark `wallenius_tails_3000_categories_m4500` = 2.30 s of a 5 s budget (iron-15, EPYC
+7742, 1 thread). Next: review, then the statistician's methods note (§"Wallenius ORA").
 
 ## Next actions (ordered)
 1. Merge #116, #117, then #118, #119, #120 (waitmerge; merge origin/main into each branch first —
