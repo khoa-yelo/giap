@@ -171,3 +171,29 @@ sd_dg, mrna_dg, spacing_dg, standby_dg, spacer_bp, start_codon`.
 4. Is a sim100k run with few or no *called* ORFs an acceptable pass-1 definition of done?
    **Proposed default:** yes, as M6-08 Q3: the acceptance criterion is "the four files exist with
    the right schema"; M7-12 builds the scenario where calls are informative.
+
+## Lead decisions (2026-10-21)
+
+1. **Q1: a new key.** Add `annotation.precomputed.rbs_novel`, null by default: a position-keyed OSTIR layer that the simulator writes for every start codon.
+   - Overloading `locus_tag` in the `rbs` layer is rejected because it breaks that column's meaning.
+   - This is an input path beside the other `annotation.precomputed.*` keys, not a threshold, so it is not the case ADR-0005 item 4 rejected.
+   - It is recorded as ADR-0024 (proposed, Needs Khoa: yes, because it changes the config interface). Pass 1 goes ahead on it.
+2. **Q2:** no deduplication against first-round windows in pass 1. Accepted as proposed; the benchmark decides for pass 2.
+3. **Q3:** `NOVEL` runs only when a gene table exists. Accepted as proposed.
+4. **Q4:** accepted as proposed. A sim100k run with few or no called ORFs is done when the four files exist and validate against their schemas.
+5. **Stacking:**
+   - The branch m7/novel-steps is stacked on m7/novel-outputs (#165, itself on #161).
+   - M6-08 (#155) is not merged yet, so this issue adds the `terminators` emission itself if `annotate.nf` lacks it. The lead resolves the overlap when main is merged.
+6. **The test author's choices (commit 5a06f85) are accepted as the contract.**
+   - **`rbs_novel` positions:** the first base of the codon in transcription direction, as in `novel_orfs.tsv`. `Orf.starts` and the `scored` `start_best_ostir` stay lowest-coordinate.
+   - **`novel_rbs_layer` inputs:** it may take extra inputs from the `novel_candidates` outputs.
+   - **Example 6:** exits 1 (`INVALID_INPUT`), as every missing layer does today. The spec's "exit 2" is an error in the spec.
+   - **Example 2:** runs real Nextflow on `farmshare_local` with every layer precomputed. This revises ADR-0024: Nextflow honours a given `annotation.precomputed.rbs_novel`, and second-round `promoters`, the same way as the other precomputed keys, and runs OSTIR only when the key is null.
+   - **The rest:** the promoter-score join on `(contig, strand, end3p)`, the WARNING `layer_missing:<key>`, and the pinned NOVEL Nextflow interface (`contract`, a `layers` channel of `[key, path]`, `params.stub.novel_windows_chunks`, emits named after the output keys).
+   - **MVP-02 nf-test:** the lead updated it to check only CONTEXT's tables, because NOVEL also publishes under `tables/`.
+   - **Rule 9 recording:** the implementer records `tests/data/recorded/ostir/1.1.3/sim100k_novel/` from a real OSTIR 1.1.3 run, using the official environment on Slurm.
+7. **After the implementer (4760059 to 6ca2f9b):**
+   - The implementer's choices are accepted, including the empty-run GFF3s.
+   - When the table is empty, the step writes pragma-only GFF3s (header and `##sequence-region` lines) through `write_pragma_gff3`. The M7-07 writers are unchanged. The difference from a non-empty run, which has `region` lines, is intended: an empty file has no features.
+   - The PR is about 510 code lines. That is over the ~400 target and under the 800 gate, and it is accepted because it is one integration unit.
+   - **Owed:** example 7 (the real `giap_run.sbatch` run on sim100k) and the benchmark entry.

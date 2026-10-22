@@ -215,3 +215,46 @@ def write_config(path: Path, bakta: Path, layers: Mapping[str, Path]) -> None:
     lines = ["annotation:", "  precomputed:", f"    bakta_json: {json.dumps(str(bakta.resolve()))}"]
     lines += [f"    {k}: {json.dumps(str(p.resolve()))}" for k, p in layers.items()]
     path.write_text("\n".join(lines) + "\n")
+
+
+_START_CODONS = ("ATG", "GTG", "TTG")
+_COMP = str.maketrans("ACGT", "TGCA")
+
+
+def rbs_novel_rows(
+    rng: np.random.Generator, text: Mapping[str, str], truth: set[tuple[str, str, int]]
+) -> list[list[Any]]:
+    """The ``rbs_novel`` layer (M7-08 rule 6, ADR-0024): one row per start codon on both strands
+    of every replicon (origin-crossing codons left out), ``start`` = the 1-based first base of
+    the codon in transcription direction; ``tir_ostir`` lognormal(8, 0.8) at the 0-based
+    ``truth`` keys ``(contig, strand, first base)``, lognormal(6, 0.8) elsewhere."""
+    keys: list[tuple[str, str, int, str]] = []
+    for c, seq in text.items():
+        mine: list[tuple[str, str, int, str]] = []
+        s = seq.upper()
+        for i in range(len(s) - 2):
+            cod = s[i : i + 3]
+            if cod in _START_CODONS:
+                mine.append((c, "+", i, cod))
+            rc = cod[::-1].translate(_COMP)
+            if rc in _START_CODONS:
+                mine.append((c, "-", i + 2, rc))
+        keys += sorted(mine, key=lambda k: (k[2], k[1]))
+    n = len(keys)
+    true = np.array([(c, st, p) in truth for c, st, p, _ in keys], dtype=bool)
+    tir = np.where(true, rng.lognormal(8.0, 0.8, n), rng.lognormal(6.0, 0.8, n))
+    sd = np.where(true, rng.uniform(-11.0, -8.0, n), rng.uniform(-6.0, -2.0, n))
+    dg = [rng.normal(m, 1.0, n) for m in (-5.0, 0.5, -1.0)]
+    spacer = rng.integers(3, 15, n)
+    return [
+        [c, st, p + 1, _r(tir[k]), _r(sd[k]), _r(dg[0][k]), _r(dg[1][k]), _r(dg[2][k]),
+         int(spacer[k]), cod]
+        for k, (c, st, p, cod) in enumerate(keys)
+    ]  # fmt: skip
+
+
+def write_rbs_novel(out: Path, rows: Sequence[Sequence[Any]]) -> Path:
+    """``precomputed/rbs_novel.tsv`` (columns of ``PRECOMPUTED_COLUMNS['rbs_novel']``)."""
+    path = out / "precomputed" / "rbs_novel.tsv"
+    write_tsv(path, list(PRECOMPUTED_COLUMNS["rbs_novel"]), rows)
+    return path

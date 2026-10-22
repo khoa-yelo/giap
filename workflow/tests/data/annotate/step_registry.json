@@ -146,6 +146,68 @@
       "hits_tolerant"
     ]
   },
+  "novel_candidates": {
+    "inputs": [
+      "annotation_meta",
+      "features",
+      "genes",
+      "genome",
+      "mapping",
+      "peptides",
+      "replicons"
+    ],
+    "optional_inputs": [
+      "contaminants"
+    ],
+    "outputs": [
+      "novel_candidates",
+      "novel_windows",
+      "novel_windows_map",
+      "ostir_input_novel"
+    ]
+  },
+  "novel_orfs": {
+    "inputs": [
+      "gene_table",
+      "genes",
+      "genome",
+      "novel_candidates",
+      "replicons"
+    ],
+    "optional_inputs": [
+      "novel_promoter_windows",
+      "promoter_windows",
+      "rbs_novel",
+      "terminators"
+    ],
+    "outputs": [
+      "annotation_patch",
+      "novel_orfs",
+      "novel_orfs_faa",
+      "novel_orfs_gff3"
+    ]
+  },
+  "novel_promoter_layer": {
+    "inputs": [
+      "novel_windows_map",
+      "promotech_novel"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "novel_promoter_windows"
+    ]
+  },
+  "novel_rbs_layer": {
+    "inputs": [
+      "novel_candidates",
+      "ostir_input_novel",
+      "ostir_novel"
+    ],
+    "optional_inputs": [],
+    "outputs": [
+      "rbs_novel"
+    ]
+  },
   "operon_pairs": {
     "inputs": [
       "genes",

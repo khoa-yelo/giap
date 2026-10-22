@@ -5,6 +5,7 @@ and equals the output of the parse step it replaces. ``load_precomputed`` return
 frame with 0-based coordinates: ``start``/``end`` become half-open ``[start, end)`` and single
 positions (``end3p``, ``tss``) become 0-based positions. Coordinates are checked with
 ``check_interval``; origin-crossing rows keep ``end > length`` on circular replicons only.
+``rbs_novel`` keys rows by a single ``start`` position.
 AMR rows of ``regions`` may have NA ``start``/``end`` (nullable ``Int64``). A bad value raises
 ``ValueError`` naming the key, column and 1-based data row (header not counted).
 ``bakta_json`` is a Bakta JSON file, not a TSV, and is parsed by the Bakta parser (M2-03).
@@ -55,6 +56,20 @@ _SCHEMA: dict[str, dict[str, str]] = {
         "score": "float",
         "genes": "list",
         "notes": "str",
+    },
+    # second-round OSTIR (ADR-0024): ``start`` = the start codon's first base in transcription
+    # direction (on ``-`` its highest coordinate), a single position
+    "rbs_novel": {
+        "contig": "str",
+        "strand": "str",
+        "start": "pos",
+        "tir_ostir": "float",
+        "sd_dg": "float",
+        "mrna_dg": "float",
+        "spacing_dg": "float",
+        "standby_dg": "float",
+        "spacer_bp": "int",
+        "start_codon": "str",
     },
 }
 
@@ -122,7 +137,7 @@ def _convert_row(
                 raise _CellError(col, f"invalid {kind} {row[col]!r} ({exc})") from None
     if "strand" in schema and out["strand"] not in ("+", "-", "."):
         raise _CellError("strand", f"invalid strand {out['strand']!r}")
-    if "start" in schema:
+    if schema.get("start") == "start":
         rep = _replicon(row, reps)
         if (
             key == "regions"

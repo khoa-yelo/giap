@@ -52,6 +52,7 @@ annotation:
     terminators: null
     rbs: null
     regions: null
+    rbs_novel: null                                   # second-round OSTIR by start position (ADR-0024)
 
 mapping:
   exact: {min_len: 7, max_len: 40}
