@@ -23,6 +23,7 @@ FORBIDDEN = {
     "genomad",
     "terminatornet",
     "bactermfinder",
+    "rpy2",  # R bridge: R and its packages stay in the giap-golden-r env (M8-12)
 }
 
 
