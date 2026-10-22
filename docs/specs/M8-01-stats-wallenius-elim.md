@@ -139,3 +139,11 @@ def elim(term_genes: Mapping[str, frozenset[int]], parents: Mapping[str, frozens
 4. **Extreme odds fail closed (#153 review B1).** scipy's pmf turns NaN outside odds ∈ [1e-6, 1e6], and at about 1e±300 its C++ aborts the process. So `wallenius_tails` raises `ValueError` outside `ODDS_RANGE`, and also on any pmf that is non-finite or does not sum to 1.
    - M8-04 catches the error and reports that category `unestimated` (flag `odds_out_of_range`).
    - An exact or limiting-form pmf for extreme odds is pass-2 work (M8-13), together with the far-tail precision ADR.
+5. **After the statistician's review (b37d2f4, docs/methods/function.md), the primitives are accepted.** They compute what the spec defines. But mean-odds Wallenius is **not** a calibrated ORA test when detection is independent Bernoulli(p_detect).
+   - It over-rejects when detection is saturated and when p_detect is mixed within a category.
+   - It fails the §8.4 ORA null and attack 2 (giapsim attack 2 rejects under at 0.027/0.137 at α = 0.01/0.05).
+   - So `tests/calibration/test_wallenius_calibration.py`, marked `ora`, is a **code check under the urn model**, not the §8.4 ORA gate. The gate belongs to M8-15.
+   - M8-04 may wire ORA in the integration pass, but its p-values must carry no calibrated claim until Khoa decides these ADRs:
+     1. Use the conditional Poisson-binomial as the ORA p-value, keeping a Wallenius column for the goseq golden.
+     2. Make ORA TU-aware; the new TU-packed attack fails every gene-level test.
+   - elim on `over` only is accepted, with the R4 label "BH on elim p; conditional on removing elim-significant descendants; FDR control is empirical".
