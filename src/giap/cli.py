@@ -267,6 +267,9 @@ def run(
         "seed": seed,
         "output.parquet": parquet,
         "output.sensitivity": sensitivity,
+        # §5.3: a Bakta JSON given as --annotation is used as is and Bakta is not run, so it is
+        # the precomputed Bakta layer (it beats the config file; a --set still wins)
+        "annotation.precomputed.bakta_json": _bakta_json(_.get("annotation")),
     }
     cfg = _resolve(config_file, sets, log_level, flags, publication)
     from giap.annotate.promoters import check_promoter_mode
@@ -295,6 +298,14 @@ def run(
     _run_nextflow(
         cfg, outdir, inputs, str(_["memory"]), str(_["profile"]), bool(_["resume"]), db_dir
     )
+
+
+def _bakta_json(annotation: Path | None) -> str | None:
+    """The absolute path of ``--annotation`` when it is a Bakta JSON, else None (GFF3/GBFF go
+    through Bakta ``--regions``, §5.3)."""
+    if annotation is None or Path(annotation).suffix.lower() != ".json":
+        return None
+    return str(Path(annotation).absolute())
 
 
 def _run_preflight(
