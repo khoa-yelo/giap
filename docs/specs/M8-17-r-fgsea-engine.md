@@ -670,3 +670,7 @@ code 4. No table is written: the step writes after computing, as it does today.
 10. Existing tests that break (the function-step world tests, `test_function_step_review_181.py`, the
     two `test_fgsea_r_io.py` subset/header tests, the tool-registry and NOTICE tests) are re-pinned by
     the lead after the implementation (lead decision 4). A NOTICE.md row for fgsea is implementation.
+6a. (amends 6, 2026-10-22, after bc0615f) A set covering every ranked TU has no complement, so its ES is
+   undefined: it never goes into a job (as `test_property_call_invariants` pins). It gets an NA
+   `unestimated` row when its collection has other jobs (example 10); a collection with no job adds no
+   row, and no job anywhere gives a header-only table.
