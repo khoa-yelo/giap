@@ -131,3 +131,15 @@ def gsea_table(genes: pd.DataFrame, colls: Sequence[GeneSets], size: tuple[int, 
    - The NES CI is not estimated, so rows carry `ci_unestimated`.
    - Ties are ordered with the seeded random order of M8-02 decision 7.
 5. **Stacking:** the branch m8/gsea is m8/fgsea (#156) with m8/collections (#159) merged in. The lead merges main once those PRs land.
+6. **The test author's choices (commit 69eb309) are accepted as the contract.**
+   - **Ties:** a seeded order from `rng` is used when ties enter fgsea. `TuRanking.tu_ids` stays in natural TU-ID order.
+   - **Run flags:** `layer_missing:abundance` and `too_few_ranked_tus` go in `table.attrs["run_flags"]`, the same channel as M7-03 decision 4. An empty table keeps every column.
+   - **No abundance:** this means a missing or null `abundance_scale` with all-NA `abundance_log2`. Fewer than 2 ranked TUs gives `too_few_ranked_tus`.
+   - **`tu_genes`:** the scoring genes, in `tu_position` order.
+   - **Cells:** `leading_edge` and `flags` are sequences, every row carries `ci_unestimated`, and `flags` is the last column.
+   - **Decision 3, made precise:**
+     - the reported `q_value` is the main-run BH q;
+     - the substituted BH, with the parent's re-test p in place of its main-run p, decides only `redundant`;
+     - each re-test is one fgsea call with the same `n_perm`, made after all main runs. A re-test below `size[0]` still runs and flags `size_filtered`.
+   - **Engine:** `fgsea_simple(prep, n_perm, sample_size, rng)` is called by name, so tests can patch it.
+   - **`parent_group`:** the most general significant ancestor (by depth, then ID), or the term's own ID. It is NA for non-significant rows and non-GO collections.
