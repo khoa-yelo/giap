@@ -135,6 +135,7 @@ class PrecomputedConfig(_Strict):
     terminators: Path | None = None
     rbs: Path | None = None
     regions: Path | None = None
+    rbs_novel: Path | None = None  # second-round OSTIR by position (ADR-0024)
 
 
 class AnnotationConfig(_Strict):
