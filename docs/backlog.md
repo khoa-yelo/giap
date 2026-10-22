@@ -596,3 +596,13 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Carry the slope/intercept Wald CIs (`ci_low`/`ci_high`) into the TSV and corner text (pass 2).
 - Both real fixtures are constant fits; add a non-constant-fit golden when M4-13's fixture allows (the synthetic render's bin n sum 875 ≠ n_eligible 100).
 - Open in the spec: where `n_outside_0_1` sorts (now after the 20 bin rows); a family with every p outside [0, 1] now draws 20 empty bins plus the outside count.
+- M9-05 V6: a run with targets under both `reverse` and `shuffle` decoy types (database + de novo placements) — split or overlay the strata (lead decision 3, 2026-10-22).
+- M9-05 review nits (#198):
+  - **Labels:** N4, the "rejected by FDR" label is pushed beside the placed bar with no leader line, and the (b) "0" label sits on the α line.
+  - **Test gaps:**
+    - N5b, no case with targets under both decoy types;
+    - N6, no test with a contaminant label and `reason=no_hit`;
+    - N7, no title test with FDR = α, and none with every stratum estimated and above α;
+    - N8, the reviewer's alluvial geometry check (scratchpad geom.py) should become a test.
+  - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
+  - **Size:** about 25 lines of simplifications listed in the review.
