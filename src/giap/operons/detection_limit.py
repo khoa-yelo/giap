@@ -356,8 +356,10 @@ def fit_peptide_model(
     """Conditional-likelihood peptide model, cross-fitted by TU folds (spec 2; decision 5)."""
     k = _k_min(genes, cfg)
     seen = _assigned(peptide_hits)
-    called = genes["detected"].astype("boolean").fillna(False).to_numpy(bool)
-    det = genes[called & np.isfinite(_numeric(genes["abundance_log2"]))]
+    # training = finite abundance and >= k_min observable peptides seen, whatever the gene-level
+    # ``detected`` call says: the likelihood conditions on X_obs >= k_min, and selecting on the
+    # FDR call (a strict subset in the mayu/decoy_picked tiers) biases beta_a (review of #157)
+    det = genes[np.isfinite(_numeric(genes["abundance_log2"]))]
     det = det.sort_values("locus_tag", kind="stable")
     per_gene: list[tuple[str, float, list[tuple[int, float]], list[bool]]] = []
     for tag, tu, aa, a in zip(det["locus_tag"], det["tu_id"], det["aa"], det["abundance_log2"],

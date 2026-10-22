@@ -160,3 +160,12 @@ Toy model, `logit p_j = −12 + 0.6 · a − 0.02 · L_j`, gene u with peptides 
    - **I/L:** I and L are treated as the same when matching peptides.
 
    The size is 356 code lines, over the ~300 estimate and under the hard gate.
+9. **After the statistician's review (56d5a72):**
+   - **B1 is fixed by the lead:** the peptide model trains on every gene with a finite `abundance_log2` and ≥ k_min observable peptides seen, **whatever `detected` says**. Spec item 2's "detected" means this event, the one the conditional likelihood conditions on, not the gene-level FDR call. This is a reading of the spec, not a change to it.
+   - **Owed to M6-05H:** call `model_for_tu` with the TU of the **detected** partner, define the one-detected event as "< k_min observable peptides seen" (N1; an ADR if the spec's "not called" is binding), and pass `cov` to the replicate model (N3).
+   - **Owed to Khoa (ADRs, hardening):**
+     - a DL1 CITL tolerance of ±0.2, and a CITL record at k_min = 2;
+     - the N1 event definition;
+     - the replicate R = 2 truncation and the pooled `p_detect`.
+   - **Owed to M6-09:** the review's attack arms (B1 selection, stray run, `two_peptide` replicate, operon-null level), ported from local/stat/m6-02/review/ into tests/calibration/attacks/.
+

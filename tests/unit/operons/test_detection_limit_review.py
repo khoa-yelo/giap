@@ -50,3 +50,21 @@ def test_newton_rejects_a_non_stationary_point() -> None:
 
     out = _dl()._newton(np.eye(1), ll)
     assert out is None or abs(-4.0 * out[0] * (out[0] ** 2 - 1.0) + 0.1) < 1e-6
+
+
+def test_training_ignores_the_gene_level_call() -> None:
+    """Statistician review B1: genes with >= k_min peptides seen train the model even when the
+    gene-level FDR call failed (mayu/decoy_picked single-hit genes), so the fit equals the one
+    with every such gene called."""
+    rng = np.random.default_rng(SEED + 3)
+    train = D.simulate_peptides(rng, 1500, BETA, n_peps=(5, 20))
+    seen_genes = set(train.hits["gene"].astype(str))
+    in_seen = train.genes.locus_tag.astype(str).isin(seen_genes).to_numpy()
+    drop = in_seen & (np.random.default_rng(7).random(len(train.genes)) < 0.5)
+    uncalled = train.genes.assign(detected=train.genes["detected"].to_numpy() & ~drop)
+    assert drop.sum() > 100
+    cfg = GiapConfig(seed=SEED)
+    m_all = _dl().fit_peptide_model(train.genes, train.hits, cfg, _rng())
+    m_sub = _dl().fit_peptide_model(uncalled, train.hits, cfg, _rng())
+    assert m_sub.usable and m_sub.n_fit == m_all.n_fit
+    assert m_sub.coef == pytest.approx(m_all.coef)
