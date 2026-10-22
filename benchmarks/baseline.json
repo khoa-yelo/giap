@@ -273,5 +273,26 @@
     "date": "2026-10-21",
     "issue": "M6-06",
     "note": "one missed_operons call on a 40,000-row pair frame: selection, binning, max_decoy_fdr (two reweighted FDRs, maximum, monotone q, two lfdr KDEs) and the row frame. 0.105 / 0.260 / 0.230 s over three runs in the iron-15 session allocation (median 0.23 s); not re-measured on wheat."
+  },
+  "cpb_3000_categories_full_and_elim_2500_tus": {
+    "benchmark": "benchmarks/test_cpb_bench.py::test_cpb_3000_categories_full_and_elim_2500_tus_budget",
+    "source": "docs/specs/M8-04-category-summary-ora.md acceptance (3,000 categories x both tails plus one elim re-test each, T = 2,500 TUs, N = 1,250, < 10 s on 1 CPU); the primitive's share",
+    "n_tus": 2500,
+    "n_detected": 1250,
+    "n_categories": 3000,
+    "calls": 6000,
+    "set_sizes": "uniform [5, 500], max 500; elim re-test on half of each set",
+    "budget_s": 10.0,
+    "secs": 4.54,
+    "ms_per_call": 0.757,
+    "cpus": 1,
+    "numba_threads": 1,
+    "node": "wheat-08",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "slurm_job": 1867256,
+    "commit": "bb73e4f",
+    "date": "2026-10-21",
+    "issue": "M8-04a",
+    "note": "one round after a warm-up call that compiles the numba kernel; one tilt plus 6,000 conditional_poisson_binomial calls. Same commit: barley-01 (AMD EPYC 9384X, job 1867255) 1.42 s; iron-15 session allocation 2.08 s"
   }
 }
