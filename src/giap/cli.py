@@ -315,9 +315,12 @@ def run(
         click.echo("giap run: nextflow not found on PATH (see AGENTS.md setup)", err=True)
         sys.exit(ExitCode.ENVIRONMENT)
     base = _launch_sources(cfg, outdir, run_info, "nextflow", str(_["profile"]), bool(_["resume"]))
-    code = _run_nextflow(
-        cfg, outdir, inputs, str(_["memory"]), str(_["profile"]), bool(_["resume"]), db_dir
-    )
+    try:
+        code = _run_nextflow(
+            cfg, outdir, inputs, str(_["memory"]), str(_["profile"]), bool(_["resume"]), db_dir
+        )
+    except Exception:  # past the provenance core: exit 5, the tail still runs (review B2)
+        code = _internal_error(outdir)
     from giap.runner.nextflow import failed_step
 
     trace = outdir / "logs" / "trace.tsv"
@@ -339,6 +342,17 @@ def _launch_sources(
                           db_dir=info["db_dir"], command_line=argv)  # fmt: skip
     write_provenance(outdir.absolute(), base)
     return base
+
+
+def _internal_error(outdir: Path) -> ExitCode:
+    """Log the current traceback to ``OUT/logs/internal_error.log`` and stderr; exit 5."""
+    import traceback
+
+    log = outdir.absolute() / "logs" / "internal_error.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text(tb := traceback.format_exc(), encoding="utf-8")
+    click.echo(f"{tb}{REPORT_MESSAGE} (log: {log})", err=True)
+    return ExitCode.INTERNAL
 
 
 def _run_tail(outdir: Path, base: dict[str, Any], code: int, **kw: Any) -> int:
@@ -545,6 +559,8 @@ def _run_local(
     except reg.WiringError as exc:
         click.echo(f"giap run: internal error: {exc}", err=True)
         code = ExitCode.INTERNAL
+    except Exception:  # past the provenance core: exit 5, the tail still runs (review B2)
+        code = _internal_error(outdir)
     finally:
         restore()
     sys.exit(_run_tail(outdir, base, code, local_steps=timings, **failed))

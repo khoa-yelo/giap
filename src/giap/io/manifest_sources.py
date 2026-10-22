@@ -18,10 +18,11 @@ from giap.manifest import canonical_json
 
 
 def rotate_events(logs_dir: Path) -> None:
-    """``events.jsonl`` → ``events.previous.jsonl`` (one generation kept; lead decision 5)."""
-    cur = logs_dir / "events.jsonl"
-    if cur.is_file():
-        cur.replace(logs_dir / "events.previous.jsonl")
+    """``events.jsonl`` → ``events.previous.jsonl`` and ``trace.tsv`` → ``trace.previous.tsv``
+    (one generation kept; lead decision 5, review B1)."""
+    for cur in (logs_dir / "events.jsonl", logs_dir / "trace.tsv"):
+        if cur.is_file():
+            cur.replace(cur.with_stem(f"{cur.stem}.previous"))
 
 
 def read_events(path: Path) -> list[dict[str, Any]]:
