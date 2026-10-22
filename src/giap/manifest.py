@@ -1,4 +1,4 @@
-"""``run_manifest.json``: the pure builder (GIAP_SPEC.md §6.7; ADR-0038;
+"""``run_manifest.json``: the pure builder (GIAP_SPEC.md §6.7; ADR-0040;
 docs/specs/MVP-03-manifest-finalize.md D-C, D-D, D-E).
 
 ``build_manifest`` turns already-parsed sources (:class:`ManifestSources`) into the manifest dict;

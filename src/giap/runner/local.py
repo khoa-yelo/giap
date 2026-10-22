@@ -31,7 +31,7 @@ class LayerMissing(Exception):
         self.key = key
 
 
-#: Run-tail steps: registered, never planned; ``giap run`` calls them after the graph (ADR-0038).
+#: Run-tail steps: registered, never planned; ``giap run`` calls them after the graph (ADR-0040).
 TAIL_STEPS: tuple[str, ...] = ("manifest",)
 
 # Root keys a run must stage when a step needs them; other roots (``proteins_long``,

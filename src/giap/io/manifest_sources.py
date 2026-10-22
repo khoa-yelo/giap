@@ -1,4 +1,4 @@
-"""File readers and the strict writer behind ``run_manifest.json`` (MVP-03 D-B, D-C; ADR-0038).
+"""File readers and the strict writer behind ``run_manifest.json`` (MVP-03 D-B, D-C; ADR-0040).
 
 Everything here touches the file system; :mod:`giap.manifest` stays pure. The ``versions.yml``
 (``tools``) and ``db_manifest.json`` (``databases``) readers are MVP-03c.

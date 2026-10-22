@@ -1,4 +1,4 @@
-# ADR-0038: The manifest runs after the graph; finalize is split between the graph and the run tail
+# ADR-0040: The manifest runs after the graph; finalize is split between the graph and the run tail
 - Status: accepted (lead-level, 2026-10-22)
 - Date: 2026-10-22
 - Spec sections: §6.2 (rows `finalize`, `manifest`), §6.3 ("one process per Python step", Error strategy), §6.7, §9.1, §9.5; docs/specs/MVP-03-manifest-finalize.md (D-A, D-B, lead decisions 2, 3 and 13)

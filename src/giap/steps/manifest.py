@@ -1,4 +1,4 @@
-"""The ``manifest`` step and the run tail (GIAP_SPEC.md §6.2, §6.7; MVP-03 D-A, D-B; ADR-0038).
+"""The ``manifest`` step and the run tail (GIAP_SPEC.md §6.2, §6.7; MVP-03 D-A, D-B; ADR-0040).
 
 ``giap run`` gathers the launch-time sources (:func:`launch_sources`), writes the provenance core
 before the graph (:func:`write_provenance`) and calls :func:`run_tail` after it, under both

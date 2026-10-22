@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/khoa-yelo/giap/schemas/run_manifest.schema.json",
   "title": "GIAP run manifest",
-  "description": "run_manifest.json written by every giap run past preflight (GIAP_SPEC.md section 6.7; MVP-03 D-C; ADR-0038).",
+  "description": "run_manifest.json written by every giap run past preflight (GIAP_SPEC.md section 6.7; MVP-03 D-C; ADR-0040).",
   "type": "object",
   "additionalProperties": false,
   "required": [

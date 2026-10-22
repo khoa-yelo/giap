@@ -60,6 +60,10 @@ KEYS_03A = {
 # ----------------------------------------------------------------------------- shape
 
 
+#: The tools/databases readers moved to MVP-03c (c06f140); 03c reverts it and drops this mark.
+MVP03C = pytest.mark.xfail(reason="MVP-03c: tools/databases readers", strict=True)
+
+
 def test_builder_output_has_every_03a_field_and_validates() -> None:
     m = build()
     missing = KEYS_03A - set(m)
@@ -429,6 +433,7 @@ def _setup_manifest() -> dict[str, Any]:
     ]}  # fmt: skip
 
 
+@MVP03C
 def test_databases_from_setup_manifest_ok_items_sorted() -> None:
     m = build(db_manifest=_setup_manifest())
     assert [d["name"] for d in m["databases"]] == ["bakta_light", "kegg"]
@@ -438,6 +443,7 @@ def test_databases_from_setup_manifest_ok_items_sorted() -> None:
     validate(m)
 
 
+@MVP03C
 def test_databases_from_provisional_form() -> None:
     m = build(db_manifest={"cog2020_def": {"version": "2020"}, "bakta_db": {"version": "6.0"}})
     assert [d["name"] for d in m["databases"]] == ["bakta_db", "cog2020_def"]
@@ -460,6 +466,7 @@ def _report(process: str, name: str, version: str, digest: str | None = None,
             "container_digest": digest, "conda_lock_hash": lock}  # fmt: skip
 
 
+@MVP03C
 def test_tools_one_row_per_name_and_version() -> None:
     reports = [
         _report("ANNOTATE:BAKTA", "bakta", "1.11.4", "sha256:" + "d" * 64),
