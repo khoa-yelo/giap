@@ -125,8 +125,11 @@ def test_islands_stay_inside_their_replicon(cs: list[Contig]) -> None:
     ts = scan.series[0]
     known = set(ts.tu_ids)
     wmin, wmax = cfg.context.islands.min_tus, cfg.context.islands.max_tus
+    length = int(reps["length"].iloc[0])
     for _, r in out.iterrows():
         assert r["contig"] == ts.contig
+        assert 0 <= int(r["start"]) < length
+        assert int(r["start"]) < int(r["end"]) <= int(r["start"]) + length
         assert r["tu_first"] in known and r["tu_last"] in known
         assert wmin <= int(r["n_tus"]) <= min(wmax, len(known) - (1 if ts.circular else 0))
         assert int(r["n_genes"]) == len(r["genes"]) >= int(r["n_tus"])
