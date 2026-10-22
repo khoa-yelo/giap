@@ -606,6 +606,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - `read_tsv` now treats an empty cell as missing in genes.tsv too (matches `giap.io.genes_tsv`).
 - Mutation evidence: $GIAP_ROOT/review/pr191-mut/ (22/25 killed, 1 equivalent).
 
+## M9-07 review nits (#203; one round, B1 out-of-range p and NITs 2–3 fixed in the PR)
+- V18 fit title and corner text ignore `recalibration_separated = 1` (prints "slope 41"): append "; recalibration separated".
+- "1 test families shown": singular for k = 1.
+- Carry the slope/intercept Wald CIs (`ci_low`/`ci_high`) into the TSV and corner text (pass 2).
+- Both real fixtures are constant fits; add a non-constant-fit golden when M4-13's fixture allows (the synthetic render's bin n sum 875 ≠ n_eligible 100).
+- Open in the spec: where `n_outside_0_1` sorts (now after the 20 bin rows); a family with every p outside [0, 1] now draws 20 empty bins plus the outside count.
 ## M9-06 review nits (#202; one round, B1 fixed in the PR)
 - V7 title: when no row has an estimated CI, say "O − E CI unestimated in every group" (not the vacuous "matches … with a CI"); basic-only title uses `%.1f` (→ "-0.0"), switch to `%.2g` and prefix the block ("COG J:").
 - Dead E = 0 branches (`detection.py` o/e helpers); `_pct` duplicates `base.title_pct` (widen it to floats); share the `flags` parsing.
