@@ -45,7 +45,7 @@ def bin_index(distance_bp: ArrayLike, edges: Sequence[float]) -> npt.NDArray[np.
 
 1. **`fit_student_t`.** Maximum likelihood over (loc, scale, df) with `scale > 0` and df clamped to
    `df_bounds`; start at `loc = median(x)`, `scale = 1.4826 · MAD(x)`, `df = 8`. Optimiser:
-   Nelder–Mead on (loc, log scale, logit of df within the bounds), `maxiter = 2000`. NaNs are
+   Nelder–Mead on (loc, log scale, df with the bounds given to the optimiser, then both bounds scored), `maxiter = 2000`. NaNs are
    dropped. `converged = False` when the optimiser stops on iterations; the caller decides what to
    do (M6-05 marks the tests `unestimated`).
 2. **`student_t_two_sided`.** `2 · min(F, 1 − F)` with `F = t.cdf((x − loc)/scale, df)`; exactly
@@ -100,7 +100,8 @@ def bin_index(distance_bp: ArrayLike, edges: Sequence[float]) -> npt.NDArray[np.
 - [ ] `tests/unit/stats/test_tdist.py` and `test_decoy_fdr.py` cover examples 1–10 and every
   degenerate row; examples 2–8 are hand-computed constants in the test, not golden files.
 - [ ] Property: `q` is non-increasing in the score, lies in [0, 1], and equals the element-wise
-  maximum of the per-decoy monotone curves (not the monotone curve of the maximum — both are tested
+  monotone curve of the element-wise maximum of the per-decoy FDRs, which is ≥ the maximum of the
+  per-decoy monotone curves (corrected by lead decision 1 of M6-01-lead-decisions.md; both are tested
   so the order of operations is pinned).
 - [ ] Property: multiplying every count in one bin by k leaves the FDR unchanged up to the +1 terms
   (checked as a limit at large counts).
