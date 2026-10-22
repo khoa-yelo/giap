@@ -28,3 +28,31 @@ Contaminant library: the universal protein contaminant FASTA of Frankenfield et 
 (HaoGroup-ProtContLib/Protein-Contaminant-Libraries-for-DDA-and-DIA-Proteomics, commit bddf6da9); no licence
 file found in the repository (checked 2026-10-15), so it is downloaded by `giap setup --contaminants` and
 never vendored (R11).
+
+## Ported code
+
+| Source | Licence | Notes |
+|---|---|---|
+| fgsea 1.36.2 | MIT | Bioconductor 3.22 tarball (git b7862b7); `calcGseaStat`, `fgseaSimpleImpl`, `calcGseaStatCumulative(Batch)`, `preparePathways` and the simple stage of `fgseaMultilevel` ported to Python/numba in `src/giap/stats/fgsea.py` and `src/giap/stats/_fgsea_kernels.py`; no fgsea file is vendored (docs/methods/fgsea-port.md) |
+
+fgsea licence (MIT):
+
+    Copyright (c) 2016-2019 Alexey Sergushichev
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.

@@ -103,3 +103,22 @@ def missed_operons(pairs: pd.DataFrame, cfg: GiapConfig) -> MissedOperons: ...
 2. Keep imputed abundances among the targets? **Proposed default:** yes — §7.4.4 excludes them only
    from the t fit, and the `imputed_abundance` gene flag already travels with the pair.
 3. Minimum scored NO pairs: 20 (proposed), matching M6-05's rule.
+
+## Lead decisions (2026-10-21)
+1. Q1: `p_value` NA; the family is controlled by the decoy FDR (`q_value`) with lfdr for ranking (§8.1).
+2. Q2: keep imputed abundances among the targets; the `imputed_abundance` flag travels with the pair.
+3. Q3: minimum **20** scored NO pairs, as M6-05.
+4. Power: M6-01 lead decision 12 (Khoa) — the family is near-powerless at realistic effects; example 6
+   plants |Δ| ≤ 1e-3 SD. Tests assert FDR control and the honest labelling, never power at 0.25–1 SD.
+5. ±inf scores are excluded by the engine (M6-01 B1); a log(0) Δ never reaches it as a target.
+
+## Lead decisions after review of #148 (2026-10-21)
+6. Eligible NO and decoy pairs outside every `operons.distance_bins_bp` bin are not scored; one
+   WARNING counts both (B1).
+7. A NO row with an imputed gene carries `abundance_imputed` on every path (N2, required by the
+   statistician). Whether imputed pairs are **excluded** from targets and decoys alike is a method
+   change (§7.4.4 says only "both detected") — an ADR for Khoa; attack M-1 in M6-09 pins it.
+8. Relative-scale rows carry `relative_scale` and `unestimated` (R1, §7.3.4); scored rows carry
+   `ci_unestimated` (R2, as M6-05); `operons.pi0 != 1` logs a WARNING (R3; the manifest record is
+   M6-08's).
+

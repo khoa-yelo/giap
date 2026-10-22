@@ -276,3 +276,21 @@ def test_runner_docstring_documents_minimum_of_user_and_profile_limits() -> None
     """Decision 5: the --threads/--memory vs profile-limit rule is documented in the runner."""
     doc = (_nf().__doc__ or "").lower()
     assert "minimum" in doc or "min(" in doc, "runner docstring does not document the minimum rule"
+
+
+def test_write_params_relative_precomputed_layers_become_absolute(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A relative ``annotation.precomputed.<key>`` must reach both params.json and the resolved
+    config absolute: region_layer reads it inside a Nextflow task directory (review of #146)."""
+    import yaml
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "in").mkdir()
+    (tmp_path / "in" / "regions.tsv").write_text("region_id\n")
+    cfg = resolve_config(overrides=["annotation.precomputed.regions=in/regions.tsv"])
+    params, resolved = _nf().write_params(Path("OUT"), cfg, {})
+    want = str(tmp_path / "in" / "regions.tsv")
+    assert json.loads(params.read_text())["annotation"]["precomputed"]["regions"] == want
+    assert yaml.safe_load(resolved.read_text())["annotation"]["precomputed"]["regions"] == want
+    assert json.loads(params.read_text())["annotation"]["precomputed"]["operon_pairs"] is None

@@ -120,3 +120,20 @@ def model_matrix(features: pd.DataFrame) -> tuple[pd.DataFrame, Mapping[str, str
 2. `n_promoters_tu_to_gene` = C6 `n_promoter_windows_tu` (windows at or above `promotech_yes`)?
    **Proposed default:** yes; it is the merged M2-13 definition.
 3. Logs natural (proposed) or base 10? (Trees are invariant; the elastic net is standardised.)
+
+## Lead decisions
+
+1. **Questions 1–3:** the proposed defaults are accepted.
+   - `nterm_residue` is a feature only; nothing in mapping or annotation uses it.
+   - `n_promoters_tu_to_gene` = C6 `n_promoter_windows_tu`.
+   - Logs are natural.
+2. **The test author's choices** (commit 298ffbc) are accepted as the contract.
+   - **`replicons`** is a `Mapping[str, Replicon]` in C1 order.
+   - **`regions`** is C8 with C7 `region_type` joined on.
+   - **`ribosomal_protein`** is taken from the C2 column when set, otherwise from the product, gene name or the `cai_reference` flag.
+   - **`FEATURE_COLUMNS`** is the 6 identity columns followed by the 31 features in §7.8.1 order.
+   - **Eligibility** is the regions-table rule. Use `giap.genetable.eligible` once M8-03 (#159) merges; until then a local copy is allowed, with a backlog note to dedupe it.
+   - **One-hot names** are `<feature>_<level>`, and every level is kept.
+   - **Distances** are nullable Int64, NA when the gene is in no TU.
+   - **Run flags** are left to M8-10's step events.
+   - The sim100k conformance test stays unmarked (about 40 s), like `test_m4_real_path.py`.
