@@ -86,6 +86,7 @@ def reason_words(reason: str) -> str:
         "module_off": f"the {what} module is off",
         "input_absent": f"input {what} absent",
         "layer_missing": f"layer {what} missing",
+        "not_registered": "this plot is not available in this GIAP version",
     }
     return words.get(kind, reason)
 

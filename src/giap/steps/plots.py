@@ -88,11 +88,14 @@ def render_plots(
 
 
 def skipped_plots(view: RunView) -> dict[str, str]:
-    """Plot ID -> declared skip reason, for every registered plot that skips on ``view``."""
+    """Plot ID -> declared skip reason, for every registered plot that skips on ``view``, and
+    ``not_registered`` for a report section's plot that this GIAP version does not have."""
+    from giap.report.build import SECTIONS
     from giap.viz import base
 
     reasons = {pid: base.skip_reason(pid, view) for pid in base.registered()}
-    return {pid: r for pid, r in reasons.items() if r is not None}
+    absent = {p: "not_registered" for s in SECTIONS for p in s.plots if p not in reasons}
+    return {pid: r for pid, r in reasons.items() if r is not None} | absent
 
 
 def write_report(view: RunView, plots_dir: Path | None, report_dir: Path, cfg: GiapConfig) -> Path:
