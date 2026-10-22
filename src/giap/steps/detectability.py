@@ -7,10 +7,16 @@ docs/specs/M4-15-gene-table-assembly.md): adds the M4-13 cross-fitted ``p_detect
 Eligible genes are the non-partial ones (§7.3); their ``detected`` value is the M4-12 call. The
 model draws only from the step's own stream ``giap.rng.for_step("detectability", seed)``. With a
 constant model every eligible gene gets the flag ``detectability_constant``.
+
+The optional output ``tu_folds`` (``genetable/tu_folds.parquet``, M8-06 item 1) persists
+``DetectabilityResult.fold_of_tu`` for ADR-0035's cross-fitted TU recalibration: ``tu_id``
+(string) and ``fold`` (int64), sorted by natural TU ID; header-only for a constant model. Left
+unwired, it is not written.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -25,9 +31,22 @@ from giap.io.genes_tsv import read_genes_parquet, write_genes_parquet
 from giap.io.parquet import write_parquet_deterministic
 from giap.steps.registry import StepContext, run_step, step
 
-__all__ = ["add_p_detect", "run_detectability"]
+__all__ = ["add_p_detect", "fold_rows", "run_detectability"]
 
 _DIAG_TYPES = (pa.string(),) * 4 + (pa.float64(),) * 3
+_FOLD_COLS = [("tu_id", pa.string()), ("fold", pa.int64())]
+
+
+def _natural_key(s: str) -> tuple[tuple[int, int | str], ...]:
+    return tuple((0, int(p)) if p.isdigit() else (1, p) for p in re.split(r"(\d+)", s) if p)
+
+
+def fold_rows(res: DetectabilityResult) -> list[tuple[str, int]]:
+    """``fold_of_tu`` as ``(tu_id, fold)`` rows in natural TU-ID order; none when constant."""
+    if res.constant:
+        return []
+    folds = {str(t): int(f) for t, f in res.fold_of_tu.items()}
+    return [(t, folds[t]) for t in sorted(folds, key=_natural_key)]
 
 
 def add_p_detect(pre: pd.DataFrame, res: DetectabilityResult) -> pd.DataFrame:
@@ -49,7 +68,8 @@ def add_p_detect(pre: pd.DataFrame, res: DetectabilityResult) -> pd.DataFrame:
 @step(
     "detectability",
     inputs=["genes_pre"],
-    outputs=["gene_table", "detectability_summary"],
+    outputs=["gene_table", "detectability_summary", "tu_folds"],
+    optional_outputs=["tu_folds"],
 )
 def detectability(ctx: StepContext) -> None:
     """``genes_pre`` → gene table with ``p_detect`` and the diagnostics rows."""
@@ -73,6 +93,8 @@ def detectability(ctx: StepContext) -> None:
         ctx.outputs["detectability_summary"], list(zip(DIAG_COLUMNS, _DIAG_TYPES, strict=True)),
         rows,
     )  # fmt: skip
+    if "tu_folds" in ctx.outputs:
+        write_parquet_deterministic(ctx.outputs["tu_folds"], _FOLD_COLS, fold_rows(res))
     ctx.log.info("detectability: constant=%s, %d diagnostics rows", res.constant, len(rows))
 
 
