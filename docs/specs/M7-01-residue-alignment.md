@@ -169,3 +169,13 @@ alignment bug would show.
    work-table dependency acceptable, or should `peptide_hits.tsv` gain a `blocks` column?
    **Proposed default:** read the work table; changing the published M3 schema is a breaking column
    change (§9.2 versioning) for a field only Module 5 needs.
+
+## Lead decisions after the test step (2026-10-21)
+1. The test-author's resolutions at cfc4fab are accepted.
+   - **Co-optimal ties:** choose the lexicographically smallest tuple of difference start positions, in peptide order. This refines "leftmost" (M7-01 Q2).
+   - **`frame`:** follows the `peptide_hits.tsv` convention.
+   - **I/L folding:** applies inside swaps and blocks.
+   - **Block codons:** listed in peptide order.
+   - **Frameshift `shift`:** use the per-strand definitions in the tests.
+   - **Tolerant route:** an end-to-end alignment within a ±2 band.
+2. The benchmark (100k hits in under 30 s) and its `baseline.json` entry are owed by the implementer.
