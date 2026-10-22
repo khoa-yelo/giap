@@ -104,6 +104,17 @@ def candidate_rows(
     return out.reset_index(drop=True)
 
 
+def peptide_loci(rows: pd.DataFrame) -> dict[tuple[str, str], Interval]:
+    """The mapped interval of each retained peptide, keyed by ``(contig, I/L-folded peptide)``
+    (``candidate_rows`` keeps one locus per folded peptide); the M7-09 junction and readthrough
+    labels read these coordinates."""
+    out: dict[tuple[str, str], Interval] = {}
+    for c, p, a, b, s in zip(rows["contig"], rows["peptide"], rows["start"], rows["end"],
+                             rows["strand"], strict=True):  # fmt: skip
+        out.setdefault((str(c), _il(str(p))), Interval(str(c), int(a), int(b), s))
+    return out
+
+
 # ---------------------------------------------------------------- rules 2-6: reconstruction
 
 
