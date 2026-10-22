@@ -396,3 +396,21 @@ They still apply. The new questions:
 9. **Arm 5 threshold.** Proposed: "> 2α at 0.01 and > level bound at 0.05" (the pre-check shows a
    flat "> 2α" at 0.05 fails at c = 2.5). Is it acceptable as a gated teeth criterion, or should
    M8-14's `c` be raised until "> 2α" holds at both levels?
+
+## Lead decisions (revision 2, 2026-10-21, after ADR-0029)
+
+1. **Q1:** set membership is defined over eligible genes, not detected genes. Accepted, because ORA membership must not depend on the response.
+2. **Q2:** elim removes TUs. M8-05's redundancy re-test keeps gene removal in pass 1, as its tests pin. The asymmetry goes to the backlog for M8-15.
+3. **Q3:** keep `p_classic`, meaning gene-level Wallenius as ADR-0029 words it, and add `p_noelim`. The §9.3 column additions are recorded with M8-06's schema change.
+4. **Q4:** accepted. The TU-packed arm decides whether q = 1 − ∏(1 − p) holds. If it fails, an ADR on TU-level detectability goes to Khoa.
+5. **Q5:** BH is applied per (collection, direction), as written.
+6. **Q6:** the size filter counts TUs. **Q7:** effect = k − E[K | N] in TUs, with the CI NA and `ci_unestimated`.
+7. **Q8:** split into two PRs.
+   - **M8-04a:** `giap.stats.poisson_binomial` gains `conditional_poisson_binomial`, `poisson_binomial_pmf_trunc` and `tilt`. Tests use the exact-rational oracle, and the PR carries the stats label.
+   - **M8-04b:** `function/ora.py` and `summary.py`, stacked on M8-04a and on M8-01 (#153).
+8. **Q9:** the TU-packed teeth criterion is accepted for pass 1: > 2α at 0.01 and above the bound at 0.05. M8-14 may strengthen the attack.
+9. **Follow-up spec edits** (lead-assigned):
+   - M8-06: the `method` enum, columns and flags in the schema;
+   - M8-14: the `ora_attack_tu_packed` scenario, and attack-2 categories made of whole TUs;
+   - M8-15: the new arms;
+   - M8-index: row 4.
