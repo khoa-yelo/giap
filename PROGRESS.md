@@ -8,7 +8,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 89/103 done (86 %), 5 running · generated 2026-10-21 17:02 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 90/103 done (87 %), 4 running · generated 2026-10-21 17:30 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -18,7 +18,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨 95 % | 20 | 1 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
-| M6 Operons | 🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜ 17 % | 2 | 4 | 6 |
+| M6 Operons | 🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜⬜ 25 % | 3 | 3 | 6 |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
 | M8 Function and determinants | _not designed yet_ | - | - | - |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
@@ -64,6 +64,19 @@ the fast-tier `unconfirmed` (0.19 then 0.13 against 0.16) is the 1-SE noise deci
 bound touched. Benchmark baseline `autocorrelation_rows_b1000_n4500_20_lags` = 2.07 s of a 30 s budget
 (wheat-07, 4 CPUs, Slurm 1861601).
 
+M4-21 (branch m4/conformance, implementer step done): the real M2/M3 path conforms to M4-06 with no
+contract change. Decision 2: `region_layer` still runs under `annotation.precomputed.regions` and writes
+C7/C8 Parquet from the layer TSV (`giap.annotate.regions.precomputed_members`; prophage subsets from the
+Bakta product only, `core_biosynthetic` false: the TSV has neither marker descriptions nor core flags).
+Decision 3: `run_context_stats` / `run_sensitivity` read through `contract_paths` (= `work_inputs`).
+Decision 4: the local executor keeps `region_layer` planned (`LAYER_CONVERTERS`) and maps
+`peptide_hits`/`protein_hits`/`unmapped` to loci's `mapping/` (`MEMBER_KEYS`), so `giap run --executor
+local` now plans and runs `context_stats` and `sensitivity`. Golden `tests/data/golden/sim100k_real/m4/`
+recorded (87 genes, 85 detected at α 0.05). **Open for the lead:** the Nextflow path still skips
+`region_layer`/CONTEXT with a precomputed regions layer, pinned by workflow/tests/annotate.nf.test
+("precomputed regions: … no region_layer") and main_genetable_context.nf.test ("CONTEXT does not");
+aligning annotate.nf needs those nf-tests changed by the test-author first. Fast suite Slurm 1864317:
+8977 passed, 30 skipped, 2 xfailed.
 M5-09 (**PR #138**, implementer step done, 2026-10-21): the two
 tables, the gene context columns and the step extension. New `giap.io.context_tsv` (writers by value
 through M1-04 `write_tsv`, readers typed from the schema; islands 1-based closed with `end` kept
