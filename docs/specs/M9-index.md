@@ -321,3 +321,13 @@ job beyond the pass-1 `giap_run.sbatch` and the M9-26 K-12 run.
    them (computing them in the plot would recompute a statistic).
 4. Pass placement of V12, V14, V15: the lead's brief put plots whose tables land later in pass 2.
    **Proposed default:** keep them in pass 2 but let each start the day its producing PR merges.
+
+## Questions that need Khoa (not the lead)
+
+1. The M9 gate itself: approval of the snapshot baselines and the report layout (M9-25 packet).
+2. `giap compare`'s ρ CI is a new statistical claim; gating its coverage needs a
+   `replicates_fast/full.compare` entry in the protected `tests/calibration/tolerances.yaml`
+   (an ADR accepted by Khoa). Until then M9-22 records coverage without gating (M9-22 Q2).
+3. Whether a colour-distance threshold for the deuteranopia check (decision 30) or a different
+   minimum font size (decision 31) should become a gated style rule.
+

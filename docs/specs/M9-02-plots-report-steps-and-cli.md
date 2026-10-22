@@ -30,7 +30,7 @@ Plots added by later issues appear in the report with no change here.
 `src/giap/steps/plots.py`
 ```python
 @step("plots", inputs=["preflight"], optional_inputs=[*ALL_PUBLISHED_KEYS, "events", "genome",
-      "features", "replicons"], outputs=["plots"])
+      "features", "replicons", "genes"], outputs=["plots"])
 def plots_step(ctx: StepContext) -> None: ...
 
 @step("report", inputs=["plots", "preflight"], optional_inputs=[*ALL_PUBLISHED_KEYS, "events"],
@@ -40,7 +40,8 @@ def report_step(ctx: StepContext) -> None: ...
 def render_plots(view: RunView, cfg: GiapConfig, plots_dir: Path,
                  only: Sequence[str] | None) -> list[PlotEvent]
 ```
-(`genome`, `features`, `replicons` are used only by M9-03's support writer.)
+(`genome`, `features`, `replicons` and `genes` are used only by the support writers of M9-03 and
+M9-18.)
 
 `src/giap/report/build.py` (pure: data in, HTML string out)
 ```python
