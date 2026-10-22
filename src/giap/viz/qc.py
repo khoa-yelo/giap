@@ -10,6 +10,7 @@ genes. The data frame is the long ``panel, group, key, value, n`` table of
 from __future__ import annotations
 
 import math
+import textwrap
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -53,18 +54,10 @@ FEATURE_GROUPS: Mapping[str, tuple[str, ...]] = {
     "translation initiation": ("tir_ostir", "sd_dg", "mrna_dg", "spacer_bp", "start_codon"),
 }
 MAX_WARN_LINES = 10
+#: drawn lines in the warning cell (each message takes at most 2) and characters per line
+_CELL_LINES, _WRAP = 20, 52
 N_BINS = 40
 _MUTED = "#555555"
-#: characters kept per warning; matplotlib wraps the line at the figure edge when drawing
-_LINE_CHARS = 110
-#: panel (e) bar colour per feature group
-GROUP_COLOUR: Mapping[str, str] = {
-    "abundance": OKABE_ITO["orange"],
-    "codon usage": OKABE_ITO["bluish_green"],
-    "promoters and transcription": OKABE_ITO["blue"],
-    "protein": OKABE_ITO["reddish_purple"],
-    "translation initiation": OKABE_ITO["sky_blue"],
-}
 
 Row = tuple[str, str, Any, Any, Any]
 
@@ -75,12 +68,29 @@ def _note(ax: Axes, text: str) -> None:
     ax.set_yticks([])
 
 
-def _warning_line(check: Mapping[str, Any]) -> str:
+def _warning_lines(check: Mapping[str, Any]) -> list[str]:
+    """``rule_id: message`` wrapped to at most two drawn lines (the second ends in an ellipsis)."""
     rule_id = str(check.get("rule_id", ""))
     message = str(check.get("message") or "").strip() or str(check.get("rule") or "").strip()
-    line = f"{rule_id}: {message}" if message else rule_id
-    line = " ".join(line.split())  # one logical line: no embedded newlines
-    return line if len(line) <= _LINE_CHARS else line[: _LINE_CHARS - 1] + "\u2026"
+    line = " ".join((f"{rule_id}: {message}" if message else rule_id).split())
+    lines = textwrap.wrap(line, _WRAP, subsequent_indent="  ") or [rule_id]
+    if len(lines) > 2:
+        lines = [lines[0], lines[1][: _WRAP - 1] + "\u2026"]
+    return lines
+
+
+def _cell_text(flagged: Sequence[Mapping[str, Any]]) -> str:
+    lines: list[str] = []
+    shown = 0
+    for check in flagged[:MAX_WARN_LINES]:
+        wrapped = _warning_lines(check)
+        if len(lines) + len(wrapped) > _CELL_LINES - 1:  # keep a line for "+ n more"
+            break
+        lines += wrapped
+        shown += 1
+    if len(flagged) > shown:
+        lines.append(f"+ {len(flagged) - shown} more")
+    return "\n".join(lines) if lines else "no warnings"
 
 
 def _panel_a(ax: Axes, cell: Axes, checks: Sequence[Mapping[str, Any]]) -> list[Row]:
@@ -90,14 +100,10 @@ def _panel_a(ax: Axes, cell: Axes, checks: Sequence[Mapping[str, Any]]) -> list[
     ax.set_ylabel("checks")
     ax.set_title("(a) preflight checks", loc="left")
     flagged = [c for c in checks if str(c.get("level")) in ("warn", "error")]
-    lines = [_warning_line(c) for c in flagged[:MAX_WARN_LINES]]
-    if len(flagged) > MAX_WARN_LINES:
-        lines.append(f"+ {len(flagged) - MAX_WARN_LINES} more")
     cell.set_axis_off()
     cell.set_title("warnings and errors", loc="left")
-    text = "\n".join(lines) if lines else "no warnings"
     note = cell.text(
-        0.0, 1.0, text, ha="left", va="top", transform=cell.transAxes, fontsize=6, wrap=True
+        0.0, 1.0, _cell_text(flagged), ha="left", va="top", transform=cell.transAxes, fontsize=6
     )
     note.set_in_layout(False)
     rows: list[Row] = [("a", "level", lvl, counts[lvl], None) for lvl in sorted(LEVELS)]
@@ -246,10 +252,10 @@ def _panel_e(ax: Axes, whole: pd.DataFrame) -> list[Row]:
             rows.append(("e", group, col, share, n))
     ys = list(range(len(rows)))
     widths = [0.0 if r[3] is None else 100 * r[3] for r in rows]
-    for group in sorted(FEATURE_GROUPS):
-        sel = [i for i, r in enumerate(rows) if r[1] == group]
-        ax.barh(sel, [widths[i] for i in sel], color=GROUP_COLOUR[group], height=0.7, label=group)
-    ax.legend(frameon=False, loc="lower right", fontsize=6)
+    ax.barh(ys, widths, color=_MUTED, height=0.7)
+    for i in range(1, len(rows)):  # thin rules between feature groups (the TSV names them)
+        if rows[i][1] != rows[i - 1][1]:
+            ax.axhline(i - 0.5, color="#BBBBBB", linewidth=0.5)
     ax.set_yticks(ys, [str(r[2]) for r in rows], fontsize=6)
     ax.invert_yaxis()
     ax.set_xlim(0, 100)

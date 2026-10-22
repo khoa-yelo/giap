@@ -739,3 +739,32 @@ def test_renders_on_the_validation_run(tmp_path: Path, cfg: GiapConfig) -> None:
     assert inst.title.startswith("1 preflight warnings")
     paths = write_instance(inst, "V17", "qc", tmp_path / "plots", ["svg", "png"], 100)
     assert all(p.stat().st_size > 0 for p in paths)
+
+
+def test_long_warnings_stay_in_the_figure_and_keep_the_more_line(
+    tmp_path: Path, cfg: GiapConfig
+) -> None:
+    """Review B1 (#197): wrapped messages fit the cell; "+ n more" is drawn, not cut off."""
+    long = "contig shorter than the threshold " * 6
+    warns = [_check(f"genome.rule_{chr(97 + i)}", "warn", long) for i in range(12)]
+    inst = _render(_default_out(tmp_path, preflight=_preflight([*OK_CHECKS, *warns])), cfg)
+    cell = _ax(inst, "warnings")
+    lines = "\n".join(_texts(cell)).splitlines()
+    shown = sum(line.startswith("genome.rule_") for line in lines)
+    assert any(line == f"+ {12 - shown} more" for line in lines)
+    assert len(lines) <= 20
+    fig = inst.figure
+    fig.canvas.draw()
+    box = fig.bbox
+    for text in cell.findobj(Text):
+        if text.get_text():
+            ext = text.get_window_extent()
+            assert ext.y0 >= box.y0 - 1 and ext.x1 <= box.x1 + 1
+
+
+def test_missingness_bars_have_one_colour_and_no_legend(tmp_path: Path, cfg: GiapConfig) -> None:
+    """Review B2 (#197): no legend over the bars; the feature groups live in the data TSV."""
+    inst = _render(_default_out(tmp_path), cfg)
+    ax = _ax(inst, "e")
+    assert ax.get_legend() is None
+    assert len({_hex(r) for r in _rects(ax) if r.get_width() > 0}) <= 1
