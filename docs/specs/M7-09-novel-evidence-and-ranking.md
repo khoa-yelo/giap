@@ -163,3 +163,13 @@ Gene-table `tir_ostir` of the 30 detected genes: 100, 200, …, 3000 → 10 % qu
    `called = true` until M7-16 decides the stop-codon matching question.
 5. Rank over called ORFs only (proposed) or all rows? **Proposed default:** called only; uncalled
    rows carry `rank` NA, so "top 20" (V13) means top 20 calls.
+
+## Lead decisions (2026-10-22)
+
+1. **Questions 1–5: the proposed defaults are accepted.**
+   - **RBS quantile:** it needs at least 20 detected genes. Below that, the RBS-requiring classes are not called and the rows are flagged.
+   - **Pseudogene junction:** the junction is the first premature in-frame stop from the annotated start. `junction_spanned` means that codon lies inside a peptide interval. The homopolymer window is [junction − 5, junction + 8). These fields are labels only.
+   - **`cds_outframe`:** this class still needs at least 2 distinct frame-specific peptides when decoys are present (M7-11).
+   - **`cterm_extension`:** these rows carry `readthrough_candidate` and are never `called = true` until M7-16.
+   - **Rank:** only called ORFs are ranked; uncalled rows get rank NA.
+2. **Branch:** m7/novel-evidence is stacked on m7/novel-steps (#168).
