@@ -54,6 +54,7 @@
     "optional_inputs": [
       "abundance",
       "detectability_summary",
+      "features",
       "id_map",
       "peptides",
       "replicon_depth",
@@ -61,7 +62,12 @@
       "tier_summary"
     ],
     "outputs": [
+      "autocorrelation",
       "detection_summary",
+      "gene_context",
+      "genes_tsv",
+      "island_diagnostics",
+      "islands",
       "regions_stats"
     ]
   },

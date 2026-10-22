@@ -140,6 +140,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   `tests/unit/test_nf_main_installed_items.py` now pins the two literals against `SOURCES`, in the
   style of `test_nf_annotate_registry.py`; pass 2 should drop the duplication instead, by having
   `installed()` read the manifest entry's own `path`.
+- M5-09 (lead decision 3): `context_stats` writes `tables/genes.tsv`, so a run that skips it (no
+  C7/C8, as the "precomputed regions layer" nf-test does) produces no genes.tsv at all. Resolved
+  when §6.2's `finalize` step arrives and takes ownership of the file; `gene_context.parquet` and
+  the gene table are already on disk for it to join.
+- M5-09: `giap.steps.registry` gained `optional_outputs` (a subset of `outputs` a caller may leave
+  unwired) so the M5 keys could be added to `context_stats` without rewiring M4-18's registry-path
+  callers. It has no dedicated unit test yet — the test-author should cover the decorator check,
+  `_check_keys` and the "wired together or not at all" rule in `_m5_context`.
 - `np.linalg.lstsq` in `giap.context.regions.residualise` is not bit-portable across CPUs (LAPACK SVD),
   so `regions_stats.tsv` float columns differ by 1–2 ulp between machines and between CI legs (M4-20
   decision 9, probe 1863133). Writer-level rounding is the real fix — see the §9.5 per-field precision
