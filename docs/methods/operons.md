@@ -3,7 +3,8 @@
 Issue M6-01 (GIAP_SPEC.md §7.4.2–§7.4.4, §8.1–§8.3), modules `giap.stats.tdist` and
 `giap.stats.decoy_fdr`, with the lead decisions of `docs/specs/M6-01-lead-decisions.md`. The pair
 table is M6-04, the discordance tests M6-05, the missed-operon step M6-06 and the operon-level
-calibration gate M6-09. This note covers the engine; the sections the step modules add come later.
+calibration gate M6-09. This note covers the engine and the discordance step (M6-05); the other step sections come
+later.
 
 ## The within-operon distribution
 
@@ -38,13 +39,122 @@ short ones) violates it and the BH family of M6-05 inherits that.
 **Degenerate cases.** Fewer than 5 finite values → `StudentT(nan, nan, nan, n, False)`. When more
 than ν_min/(ν_min + 1) = 2/3 of the values are tied (all equal, or a dominant exact tie, which quantised
 abundances can produce), the likelihood is unbounded as σ → 0. The issue requires
-`converged = False` there; **at the reviewed head (326d024) the fit instead returns σ ≈ 10⁻³⁰⁵ with
-`converged = True`** (50 equal values; 40 tied of 50), which would give p = 0 for every untied OP
-pair downstream. Required fix before merge (statistician review of PR #140).
+`converged = False` there. The review of PR #140 found the fit returning σ ≈ 10⁻³⁰⁵ with
+`converged = True` (50 equal values; 40 tied of 50), which would have given p = 0 for every untied
+OP pair. Fixed in 7ad17fe (M6-01 decision 13): a scale below 10⁻⁸ · max(1, range) is a collapse and
+the fit is returned unestimated, so M6-05 tests nothing.
 
 **Not yet provided (pass 2).** A CI for (μ, σ, ν) (profile likelihood), so the reported fit
-carries its uncertainty. The effect size that §8.2 requires next to each discordance p is
-z = (Δ − μ)/σ with its CI, owed by M6-05.
+carries its uncertainty. The per-pair effect M6-05 reports is described under *Discordance*
+below.
+
+## Discordance (M6-05, pass 1)
+
+Module `giap.operons.discordance` (GIAP_SPEC.md §7.4.3, §8.1 row "Operon discordance"; lead
+decisions in `docs/specs/M6-05-discordance.md` and M6-index decision 1).
+
+**Test.** The t of the previous section is fitted to Δ over the *usable* OP pairs: both genes
+eligible (not `partial`), both detected, both log2 abundances finite, neither imputed. Fewer than
+20 usable pairs, or a fit with `converged = False`, leaves every OP pair `test = none` with
+`too_few_op_pairs` and `unestimated`, and no family is formed. Otherwise every eligible
+both-detected OP pair with a finite Δ is tested: `p = 2 · min(F, 1 − F)` under the fit. Pairs whose
+abundance is imputed are tested but not fitted (spec §7.4.2, example 5). The fit and the test use
+the same pairs, so p is a plug-in p (below).
+
+**Effect and CI.** `effect = Δ − μ̂` in log2 units: how far the pair sits from the typical
+within-operon ratio. No CI is reported for it (`ci_low`, `ci_high` NA): a single pair has no
+sampling replicate, and the t prediction interval is a statement about the null, not about the
+effect (M6-05 lead decision 2). The claim GIAP makes is "discordant at q ≤ 0.1", and that claim
+carries its q.
+
+**Family.** One BH family per run: every OP pair with `test = both_detected_t`. In pass 1 the
+one-detected branch is `unestimated (no_detection_limit_model)`, so this is literally §7.4.3's
+"all tested OP pairs". When M6-05H turns on P(miss), M6-index decision 1 keeps P(miss) out of the
+family and without a q. That departs from §7.4.3's "both kinds together", so it needs an ADR at
+that point. P(miss) is not uniform under any null, so BH over the mixture has no justification.
+
+**Relative scale.** With `abundance_scale = relative` (MaxLFQ, summed intensity, unknown;
+§7.3.4) Δ is not a ratio of copy numbers, because each protein's normalisation constant enters it.
+A pair that is "unusual" on that scale is not a stoichiometry statement. Every abundance test is
+therefore `none` with `relative_scale` and `unestimated`, as the spec requires. This is the right
+behaviour, not merely a conservative one.
+
+### Plug-in level, contamination and power (statistician review of PR #147)
+
+Simulation (2026-10-21, Slurm 1864589): Δ = −0.3 + 0.5 · t_ν, ν ∈ {5, 30}; a share π₁ of pairs
+shifted by ±s log2. The shifted pairs stay in the fit, as they would in a real run. R = 2,000
+replicates at n = 20 and 50, and 400 at n = 500. The convergence rate was 1.000 everywhere.
+*In-sample* is the M6-05 p (fit and test on the same pairs), measured on the null pairs. *Held-out*
+is the p of 50 fresh null draws under the same fit: the honest out-of-sample p, which is also what
+leave-one-out would give.
+
+| n | ν | π₁, s | in-sample rate at α = .01 / .05 / .10 | held-out rate | ν̂ median (share at 50 / at 2) |
+|---|---|---|---|---|---|
+| 20 | 5 | 0 | 0.0017 / 0.0540 / 0.1050 | 0.029 / 0.080 / 0.137 | 19.2 (0.47 / 0.09) |
+| 20 | 30 | 0 | 0.0004 / 0.0455 / 0.1016 | 0.021 / 0.075 / 0.138 | 50 (0.70 / 0.02) |
+| 50 | 5 | 0 | 0.0093 / 0.0527 / 0.1022 | 0.018 / 0.062 / 0.115 | 6.4 (0.22 / 0.02) |
+| 50 | 30 | 0 | 0.0062 / 0.0474 / 0.1013 | 0.013 / 0.059 / 0.114 | 50 (0.62 / 0.00) |
+| 500 | 5 | 0 | 0.0104 / 0.0507 / 0.0996 | 0.011 / 0.052 / 0.103 | 5.1 (0 / 0) |
+| 500 | 30 | 0 | 0.0096 / 0.0495 / 0.1002 | 0.010 / 0.050 / 0.101 | 33.3 (0.41 / 0) |
+| 20 | 5 | 0.10, 2 | 0.0003 / 0.0130 / 0.0418 | 0.003 / 0.023 / 0.062 | 2.6 |
+| 50 | 5 | 0.10, 2 | 0.0004 / 0.0119 / 0.0400 | 0.001 / 0.016 / 0.046 | 2.6 |
+| 500 | 5 | 0.10, 2 | 0.0006 / 0.0119 / 0.0396 | 0.001 / 0.012 / 0.040 | 2.6 |
+| 500 | 5 | 0.10, 4 | 0.0002 / 0.0063 / 0.0280 | 0.000 / 0.007 / 0.028 | 2.0 (bound) |
+
+Monte Carlo SE of the in-sample rates is ≤ 0.0009. What the table shows:
+
+- **Double use is not anti-conservative where it matters.** The largest excess is +0.005 at
+  α = 0.10 (n = 20, ν = 5), and the rate is *below* nominal at α = 0.01 at every n. The small-p
+  tail is the one BH uses. The in-sample point pulls the fit toward itself, and that cancels the
+  downward bias of the MLE scale at small n. The held-out p is the anti-conservative one: 0.029 at
+  α = 0.01 for n = 20. So **leave-one-out would make the level worse**, not better, and it is not
+  recommended.
+- **True discordant pairs in the fit make the null pairs conservative.** They lower ν̂ toward the
+  bound 2 and widen the tails, so contamination never inflates the level.
+- **Family-wise under the complete null.** The share of replicates with any BH call at q ≤ 0.1 is
+  0.0015 at n = 20, 0.0065 at n = 50 and 0.0725 at n = 500 (ν = 5); the bound is 0.1 + 2 SE.
+- **TU-chained Δ.** Consecutive pairs of one TU share a gene, so their Δ are negatively
+  correlated. With TUs of 2–6 genes the in-sample rates are 0.0103 / 0.0495 / 0.0993 at n = 500 and
+  the any-call share is 0.0725. That passes.
+- **Abundance-dependent noise** (Δ SD × exp(−0.5 · z_abundance)) passes the *pooled* criterion
+  (0.0070 / 0.0522 / 0.1076 at n = 500) but **not within the lowest-abundance quartile**
+  (0.024 / 0.152 / 0.271), at 2.4–3× nominal. One t for all pairs puts null calls on noisy,
+  low-abundance pairs. This is attack D-1 for M6-09 (below).
+- **Power is close to zero at realistic effects.** With ν free, the fit absorbs discordant pairs
+  into a heavy tail. BH power at q ≤ 0.1 by n and π₁:
+  - s = 2 log2 (4-fold): 0.000–0.003 at every n and every π₁ ∈ {0.05, 0.10, 0.20}.
+  - s = 4 log2 (16-fold, 8 null scale units), π₁ = 0.10: 0.12 at n = 20, 0.005 at n = 50, 0.000 at
+    n = 500.
+  - s = 4 log2, π₁ = 0.01 (5 of 500 pairs): still 0.000, because ν̂ falls to 3.3.
+
+  Power *falls* as n grows, because BH needs ever smaller p while ν̂ stays near the bound. This is
+  a property of the specified method (§7.4.2 fits ν by ML on all OP pairs, discordant ones
+  included), not of the code.
+
+**What M6-05 can claim.** Discordance calls control the per-pair level and the family-wise false
+call rate on null OP pairs. Their FDR is controlled at q ≤ 0.1, conservatively. The module will
+rarely make a call: a near-empty `operon_flags.tsv` is the expected output, not evidence of
+concordance. Like the missed-operon family (M6-01 decision 12), M6-09 gates level and FDR and
+**claims no power**. A method change that would restore power needs an ADR draft for Khoa. Options
+include: ν fixed (e.g. 4) or bounded below at 3–4; a robust or trimmed fit of the bulk; a
+two-component null+outlier mixture; σ modelled as a function of mean abundance, which also
+answers attack D-1.
+
+**Minimum of 20 usable pairs.** At n = 20, ν is not identified: ν̂ sits on a bound in 56 % (ν = 5)
+and 72 % (ν = 30) of replicates. The p is still at level, for the cancellation reason above, and is
+conservative in the BH tail (rate 0.0017 at α = 0.01). At n = 20 a single BH call needs
+p ≤ 0.005. Sizes below 20 were not measured. So 20 is defensible as a floor for *level*. It is not
+a floor for useful *power*, and that is stated rather than gated.
+
+**Attacks owed to M6-09** (`tests/calibration/attacks/`, §8.5):
+
+- **D-1.** Δ variance that depends on abundance, with level checked per abundance quartile as
+  well as pooled. The pooled check passes; the per-quartile check fails, as measured above. A
+  failing attack blocks the gate, so M6-09 needs either the ADR fix or an ADR that scopes the
+  claim to the pooled level.
+- **D-2.** TU-chained Δ (shared genes), level and any-call share. Passes as measured above.
+- **D-3.** Contamination masking: report power at π₁ ∈ {0.01, 0.05, 0.10} and s ∈ {2, 4}. This is
+  a power record only; it is not gated.
 
 ## Decoy FDR for missed operons
 
@@ -190,6 +300,125 @@ candidates and is the useful output of this family as specified.
    distant opposite-strand pairs) gives more decoys but they mimic NO pairs less well. Shrinks only
    the +1 floor.
 
+## The missed-operon step (M6-06)
+
+`giap.operons.missed.missed_operons(pairs, cfg, *, genes=None)` applies the engine above to the
+M6-04 pair table.
+
+- **Targets.** NO pairs whose two genes are eligible (not `partial`), both detected, with finite
+  `abundance_log2` and Δ. Imputed abundances and `rna_between` pairs are kept (lead decision 2),
+  since §7.4.4 excludes imputation only from the t fit.
+- **Decoys.** CV and SW pairs with both genes detected and finite abundances. The code applies
+  `partial` to targets only. In a production gene table a partial gene is never detected
+  (`detection_status = partial_excluded`), so both sides are filtered the same way in practice.
+- **Configuration.** `operons.decoys` selects the sets; an empty list is a config error. A
+  configured set with no usable pair is dropped with a log line.
+- **Binning.** Both sides are binned by `intergenic_bp` over `operons.distance_bins_bp`, and
+  `operons.pi0` is passed through. A bin with targets and no decoys of a surviving set is named in
+  a warning: it contributes its whole target count, which can push every q to 1 (spec example 7).
+
+**Output rows.** One row per NO pair. A scored target has:
+
+- `test = missed_operon_decoy`, `stat = −|Δ|`, `effect = |Δ|`;
+- `q_value` from `max_decoy_fdr`, and `lfdr` (ranking only);
+- `which` (the deciding decoy set), `method = decoy_fdr`, `null_model = <sets>_reweighted`;
+- `p_value`, `ci_low`, `ci_high` and `n_perm` NA (lead decision 1: a decoy FDR has no p, and a
+  pseudo-p would invite a second BH).
+
+`bin_counts` (N_NO, N_cv, N_sw per bin) goes to the run report so a reader can see the
+reweighting. Nothing is scored, and every NO row is flagged, in three cases:
+
+- the scale is relative (`relative_scale`);
+- there are fewer than 20 scored NO pairs (`too_few_no_pairs`);
+- no decoy set survives (`too_few_no_pairs`).
+
+**The claim and its error estimate.** The claim is "co-abundant at q ≤ 0.1", and its error
+estimate is the decoy q (§8.1). There is no CI for |Δ| of a single pair, so `ci_low` and
+`ci_high` are NA; the row must say so with `ci_unestimated`, as in M6-05. The lfdr is not a claim.
+In a bin with no decoys it is too small (see *Known asymmetry*), so it must not be shown as an
+error estimate.
+
+**π₀.** The default `operons.pi0 = 1` is the conservative choice. The NO class contains the missed
+operons, so the true null share is below 1. A configured π₀ < 1 multiplies every q and lfdr by π₀
+with no estimate behind it. Until the manifest records the π₀ used (M6-08, backlog), such a q
+cannot be read correctly from `pairs.tsv` alone.
+
+**Power.** As stated in the power section above, the step controls the FDR and will make almost no
+calls at realistic effects. Its unit example 6 makes calls only because the planted pairs have
+|Δ| ≤ 10⁻³ null SD. On a real genome an empty `q_value ≤ 0.1` list is the expected result. It is
+not evidence against missed operons, and the lfdr ranking is the useful output.
+
+### Level under structured nulls, and the imputation point mass (statistician review of PR #148)
+
+**Simulation setup.**
+
+- *Classes and bins.* Every pair is null, so any call is false. The five distance bins have
+  NO/CV/SW mixes that deliberately differ: NO 0.15/0.35/0.30/0.15/0.05, CV 0.05/0.15/0.30/0.30/0.20,
+  SW 0.05/0.10/0.25/0.30/0.30.
+- *Sizes.* An E. coli-like genome (700 NO, 450 CV, 300 SW) and a large one (2,000 of each).
+  R = 500 replicates.
+- *Δ.* Δ ~ N(0, 1).
+- *Imputation.* Each gene is filled at rate r, as under the default `abundance.missing = median`.
+  A pair with both genes filled has Δ = 0 exactly, because the fill is one shared value. A pair
+  with one gene filled has Δ = observed − fill.
+- *Co-imputation.* "Co-imputation ρ" makes the partner of a filled NO gene also filled with extra
+  probability ρ. This models same-strand neighbours that lose quantification together, such as
+  tandem paralogs that share their peptides.
+- *Script.* `local/scratch/stat-pr148/missed_sim.py` (unversioned; M6-09 turns it into attack M-1).
+
+The share of replicates with any call at q ≤ 0.1 equals the FDR here, because every call is false.
+The gate bound is 0.1 + 2 SE = 0.127. The table gives that share, with the median of the smallest
+q in parentheses.
+
+| Null | E. coli-like | large |
+|---|---|---|
+| no imputation | 0 (0.97) | 0 (0.96) |
+| r = 5 %, the same in every class | 0 (0.96) | 0 (0.96) |
+| r = 15 %, the same in every class | 0 (0.97) | 0 (0.96) |
+| r = 10 % in NO, 5 % in decoys | 0 (0.97) | 0 (0.66) |
+| r = 5 %, co-imputation ρ = 0.3 | 0 (0.93) | 0 (0.40) |
+| r = 5 %, co-imputation ρ = 0.6 | 0 (0.78) | 0 (0.23) |
+| r = 10 % in NO, 5 % in decoys, ρ = 1 | 0 (0.29) | **0.96** (0.07), ≈ 198 false calls |
+| the last row with imputed pairs excluded on both sides | 0 (0.97) | 0 (0.95) |
+| Δ SD ∝ exp(−0.5 a), NO abundance a shifted by +0.5 SD | 0 (0.81) | 0 (0.76) |
+| the same, shifted by +1.0 SD | 0 (0.65) | 0 (0.60) |
+
+**What the table shows.**
+
+- **Continuous nulls stay at level.** That includes NO and decoy pairs whose abundance mix, and so
+  their Δ noise, differ. This is the identifiability bound at work: with a continuous null, a false
+  call needs the null NO pairs to be about 10 times tighter than the decoys.
+- **Imputation removes that protection.** Pairs with both genes filled sit at Δ = 0 exactly, a point
+  mass with L = f₁(0)/f₀(0) = ∞. Ties do go to the decoys, so only the *excess* of tied targets
+  over the reweighted tied decoys counts. Even so, once the number of tied targets T₀ exceeds about
+  (1/α) · [reweighted tied decoys + Σ_b N_NO,b/(N_decoy,b + 1)], every one of them is called. In
+  the ρ = 1 row that is ≈ 200 false calls, and the per-bin +1 floor is the only margin. That
+  floor is about 7–8 for the large bins and 11–19 for the E. coli-like bins, so the risk grows with
+  genome size.
+- **When the attack is harmless.** With equal per-gene imputation rates in every class it is
+  harmless. It needs filled genes to pair up preferentially in NO pairs.
+- **Excluding imputed pairs fixes it.** Excluding every pair with an imputed gene, from targets and
+  decoys alike, restores the level and costs nothing measurable, because the family has no power
+  at realistic effects anyway.
+
+**Decision needed (ADR, Khoa).** Should a pair with an imputed abundance be excluded from both
+targets and decoys, as the t fit already excludes it? §7.4.4 says only "both genes detected", so
+exclusion is a method change.
+
+Until that is decided, two things hold:
+
+- the `abundance_imputed` state must reach every pair row and every call (lead decision 2 assumes
+  it does);
+- the §8.6 `exclude` sensitivity rerun is the built-in check: a call that vanishes under `exclude`
+  rested on an imputed value.
+
+**Attacks owed to M6-09** (`tests/calibration/attacks/`):
+
+- **M-1.** Co-imputation excess in NO pairs, the rows above. Gated on FDR.
+- **M-2.** Abundance and detection mix differing between NO and decoys, the last two rows. Gated.
+- **M-3.** The M6-01 attacks: AR(1) abundance (attack A), and detection confounded with distance
+  (attack B).
+
 ## Calibration evidence
 
 Fast tier (`tests/calibration/test_operon_fdr_calibration.py`, R = 50; 1,200 targets, 1,200 decoys
@@ -217,3 +446,14 @@ the +1 floor dominates.
 Statistician (PR #140 review, 2026-10-21): FDR control and the KDE evaluation **approved**; the
 zero-MAD / dominant-tie fit (σ → 0 reported as converged) **must be fixed** before merge; the power
 limitation above is a property of the specified method and is reported, not a merge blocker.
+
+Statistician (PR #148 review, 2026-10-21): the missed-operon step is at level under every
+continuous null tried, including an abundance mix that differs between NO and decoy pairs. Pairs
+with both genes imputed share a fill value, so their Δ = 0 is a point mass that can produce
+wholesale false calls when it is more common among NO pairs. The imputed state must travel with the
+pair rows now, and exclusion on both sides is an ADR for Khoa. Relative-scale rows need
+`unestimated` (§7.3.4), and scored rows need `ci_unestimated`.
+Statistician (PR #147 review, 2026-10-21): the discordance test is at level with the double use
+included, and BH over the both-detected t p-values is the specified family. The flag on tested rows
+must say that the CI, not the claim, is unestimated. Power is near zero at realistic effects; that
+is reported here, not a merge blocker. Attack D-1 is owed to M6-09.
