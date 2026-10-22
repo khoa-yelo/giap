@@ -24,7 +24,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
-from hypothesis import given
+from hypothesis import assume, given
 from hypothesis import strategies as st
 
 REPO = Path(__file__).resolve().parents[2]
@@ -148,6 +148,7 @@ _SAFE_TEXT = st.text(
 def test_rscript_guard_flags_exactly_the_files_that_mention_it(
     tmp_path_factory: pytest.TempPathFactory, prefix: str, suffix: str, planted: bool
 ) -> None:
+    assume(planted or "Rscript" not in prefix + suffix)  # PR #192 B3: the join can spell it
     root = tmp_path_factory.mktemp("src")
     body = prefix + ("Rscript" if planted else "") + suffix
     (root / "f.txt").write_text(body, encoding="utf-8")

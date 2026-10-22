@@ -25,6 +25,7 @@ DEST="$WT/tests/data/golden/r"
 prefix="$MAMBA_ROOT_PREFIX/envs/$ENV"
 marker="$prefix/.giap-built"
 want="$(sha256sum "$YML" | cut -d' ' -f1)"
+: "${SLURM_JOB_ID:?run through sbatch: PROVENANCE.md records the job}"
 echo "checkout=$WT head=$(git rev-parse --short HEAD) node=$(hostname) job=${SLURM_JOB_ID:-none}"
 
 if [ -d "$prefix" ] && [ "$(cat "$marker" 2>/dev/null || true)" = "$want" ]; then
@@ -73,7 +74,7 @@ cat > "$DEST/PROVENANCE.md" <<MD
 
 - Command: \`sbatch scripts/slurm/golden_r.sbatch\` (runs \`scripts/golden/make_golden_inputs.py
   --seed $seed\` and \`Rscript --vanilla scripts/golden/make_golden_r.R\` in env \`$ENV\`).
-- Slurm job: $SLURM_JOB_ID on $(hostname), $(date -u +%Y-%m-%d) ($(date -u +%H:%M) UTC).
+- Slurm job: ${SLURM_JOB_ID:?run through sbatch} on $(hostname), $(date -u +%Y-%m-%d) ($(date -u +%H:%M) UTC).
 - Env lock: \`scripts/golden/golden_r.explicit.txt\`, sha256 \`$lock_sha\`
   (R $(micromamba run -n "$ENV" Rscript -e 'cat(paste(R.version$major, R.version$minor, sep="."))'),
   fgsea 1.36.2, goseq 1.62.0, BiasedUrn 2.0.12; conda-forge and bioconda only).

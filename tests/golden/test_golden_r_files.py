@@ -240,7 +240,7 @@ def test_provenance_records_the_run(golden_seed: int) -> None:
     assert "GOLDEN_SEED" in text and str(golden_seed) in text
     assert re.search(r"[Jj]ob\D{0,20}\d{5,}", text), "Slurm job ID"
     assert re.search(r"\b[0-9a-f]{64}\b", text), "env lock sha256"
-    assert re.search(r"\b[0-9a-f]{7,40}\b", text), "git commit of the scripts"
+    assert re.search(r"commit\W{0,3}[0-9a-f]{40}\b", text), "git commit of the scripts"
     assert re.search(r"\b20\d\d-\d\d-\d\d\b", text), "date"
     assert "golden_r.sbatch" in text or "make_golden_r.R" in text, "command"
     if LOCK.is_file():

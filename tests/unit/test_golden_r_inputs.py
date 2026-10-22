@@ -230,8 +230,10 @@ def test_ora_categories_sizes_and_special_cases(ora: tuple) -> None:  # type: ig
     universe = set(genes)
     idx = {g: i for i, g in enumerate(genes)}
     assert len(cats) == 150
-    near_universe = [c for c, m in cats.items() if len(set(m)) == len(universe) - 1]
-    assert len(near_universe) == 1, "one category equal to the universe minus one gene"
+    categorised = set().union(*map(set, cats.values()))
+    # PR #192 B1 (lead): "all categorised genes minus one", so the uncategorised 30 % stay out.
+    near_universe = [c for c, m in cats.items() if len(set(m)) == len(categorised) - 1]
+    assert len(near_universe) == 1, "one category equal to the categorised genes minus one"
     k_eq_n = k_zero = 0
     for cat, members in cats.items():
         assert len(members) == len(set(members)), f"duplicate gene in {cat}"
@@ -246,11 +248,9 @@ def test_ora_categories_sizes_and_special_cases(ora: tuple) -> None:  # type: ig
 
 
 def test_ora_has_genes_without_category(ora: tuple) -> None:  # type: ignore[type-arg]
-    # Read against the near-universe category (which by construction covers all but one gene):
-    # 30 % of genes are in none of the *other* categories.
+    # PR #192 B1: 30 % of genes are in no category at all, so use_genes_without_cat matters.
     genes, _, _, cats = ora
-    regular = [m for m in cats.values() if len(m) < len(genes) - 1]
-    covered = set().union(*map(set, regular))
+    covered = set().union(*map(set, cats.values()))
     frac = 1 - len(covered) / len(genes)
     assert 0.25 <= frac <= 0.35, frac
 

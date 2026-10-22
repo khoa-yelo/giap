@@ -146,9 +146,10 @@ def ora_inputs(rng: np.random.Generator) -> tuple[Table, Table]:
         return sorted(pick(mid_det, k) + pick(mid_undet, n - k))
 
     cats: list[list[int]] = []
-    # Universe minus one gene (a mid-p_detect gene, so neither weight is 0 nor infinite).
+    # All categorised genes minus one (a mid-p_detect gene, so neither weight is 0 nor infinite);
+    # the 30 % uncategorised genes stay outside every category (PR #192 B1, lead decision).
     drop = int(rng.choice(mid))
-    cats.append([i for i in range(N_GENES) if i != drop])
+    cats.append([])  # filled below, once every other category is drawn
     # omega >> 1 and omega << 1.
     for n, lo in ((40, 0.85), (120, 0.80), (300, 0.70)):
         cats.append(pick(pool[pd[pool] > lo], n))
@@ -169,6 +170,8 @@ def ora_inputs(rng: np.random.Generator) -> tuple[Table, Table]:
     sizes = np.rint(np.exp(rng.uniform(np.log(5), np.log(500), n_rand))).astype(int)
     for n in sizes:
         cats.append(pick(pool, int(n)))
+    categorised = set(pool.tolist()).union(*map(set, cats[1:]))
+    cats[0] = sorted(int(i) for i in categorised - {drop})
     long: Table = [(f"CAT_{c:03d}", genes[g]) for c, members in enumerate(cats, 1) for g in members]
     return genes_table, long
 
