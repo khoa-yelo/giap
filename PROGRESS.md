@@ -8,7 +8,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 102/135 done (76 %), 8 running · generated 2026-10-22 03:54 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 104/135 done (77 %), 7 running · generated 2026-10-22 09:13 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -18,8 +18,8 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
-| M6 Operons | 🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜ 50 % | 6 | 2 | 4 |
-| M7 Variants and novel ORFs | 🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 12 % | 2 | 4 | 10 |
+| M6 Operons | 🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜⬜ 58 % | 7 | 1 | 4 |
+| M7 Variants and novel ORFs | 🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 19 % | 3 | 4 | 9 |
 | M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜ 38 % | 6 | 2 | 8 |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
 | M10 Pilot validation | _not designed yet_ | - | - | - |

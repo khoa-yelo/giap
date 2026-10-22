@@ -26,6 +26,7 @@ from scipy.special import expit
 _TILT_RTOL = 1e-13  # |Σ q(θ) - total| target; the spec contract is 1e-9 · total
 _TILT_MAXITER = 200
 _TINY = float(np.finfo(np.float64).tiny)  # the clamp that keeps a tilted open entry open
+_PAIR_ATOL = 1e-9  # |p + comp - 1| allowed for a caller's (p, comp) pair
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,7 +126,9 @@ def poisson_binomial_pmf_trunc(p: ArrayLike, kmax: int) -> np.ndarray:
     return _pmf_trunc(_validate(p), int(kmax))
 
 
-def tilt_pair(p: ArrayLike, total: float) -> tuple[np.ndarray, np.ndarray]:
+def tilt_pair(
+    p: ArrayLike, total: float, *, comp: ArrayLike | None = None
+) -> tuple[np.ndarray, np.ndarray]:
     """(q, 1 - q) with every odds x e^θ and Σ q = total (spec M8-04 §1 step 2, decision 11).
 
     θ solves Σ expit(logit q + θ) = total by Newton with a bisection guard; the complement is
@@ -133,9 +136,21 @@ def tilt_pair(p: ArrayLike, total: float) -> tuple[np.ndarray, np.ndarray]:
     entry keeps both values >= the smallest normal double, so it is never taken as certain.
     ``total`` must lie in [#(q = 1), #(q > 0)]; at the two ends the limit θ → ∓∞ is returned
     (open entries exactly 0 or 1, decision 10).
+
+    With ``comp`` the units are the (p, comp) pairs (decision 12, ADR-0035): the logit is
+    log p - log comp, so a p that rounds to 1.0 with comp > 0 stays open; comp == 0 is certain,
+    p == 0 impossible, and the feasible range is [#(comp == 0), #(p > 0)]. A pair with
+    p == comp == 0 or with |p + comp - 1| > 1e-9 is a ``ValueError``.
     """
-    out, comp, _ = _tilt(_validate(p), total)
-    return out, comp
+    q = _validate(p)
+    if comp is None:
+        out, c, _ = _tilt(q, total)
+        return out, c
+    c = _validate_comp(comp, q)
+    if np.any((q == 0.0) & (c == 0.0)) or np.any(np.abs(q + c - 1.0) > _PAIR_ATOL):
+        raise ValueError("(p, comp) pairs must be probabilities summing to 1")
+    out, c, _ = _tilt(q, total, c)
+    return out, c
 
 
 def tilt(p: ArrayLike, total: float) -> np.ndarray:
@@ -150,15 +165,27 @@ def tilt(p: ArrayLike, total: float) -> np.ndarray:
     return out
 
 
-def _tilt(q: np.ndarray, total: float) -> tuple[np.ndarray, np.ndarray, bool]:
-    """The tilted (q, 1 - q) and whether an interior tilt rounded an open entry to 0 or 1."""
-    open_ = (q > 0.0) & (q < 1.0)
-    n_one = int(np.count_nonzero(q == 1.0))
+def _tilt(
+    q: np.ndarray, total: float, c: np.ndarray | None = None
+) -> tuple[np.ndarray, np.ndarray, bool]:
+    """The tilted (q, 1 - q) and whether an interior tilt rounded an open entry to 0 or 1.
+
+    ``c`` is the caller's complement (``tilt_pair(..., comp=)``); None means 1 - q.
+    """
+    if c is None:
+        certain = q == 1.0
+        open_ = (q > 0.0) & (q < 1.0)
+        out = q.copy()
+        comp = 1.0 - q  # exact on q ∈ {0, 1}; the open entries are overwritten
+    else:
+        certain = c == 0.0
+        open_ = (q > 0.0) & (c > 0.0)
+        out = np.where(certain, 1.0, 0.0)  # the closed pairs exactly (1, 0) and (0, 1)
+        comp = 1.0 - out
+    n_one = int(np.count_nonzero(certain))
     n_open = int(np.count_nonzero(open_))
     if not n_one <= total <= n_one + n_open:
         raise ValueError(f"tilt total {total} outside [{n_one}, {n_one + n_open}]")
-    out = q.copy()
-    comp = 1.0 - q  # exact on q ∈ {0, 1}; the open entries are overwritten
     target = float(total) - n_one
     if target == 0.0:
         out[open_], comp[open_] = 0.0, 1.0
@@ -166,7 +193,8 @@ def _tilt(q: np.ndarray, total: float) -> tuple[np.ndarray, np.ndarray, bool]:
     if target == n_open:
         out[open_], comp[open_] = 1.0, 0.0
         return out, comp, False
-    logit = np.log(q[open_]) - np.log1p(-q[open_])
+    tail = np.log1p(-q[open_]) if c is None else np.log(c[open_])
+    logit = np.log(q[open_]) - tail
     s = logit + _solve_theta(logit, target)
     raw = expit(s)
     saturated = bool(np.any((raw == 0.0) | (raw == 1.0)))
@@ -215,7 +243,8 @@ def conditional_poisson_binomial(
     """Tails of K = Σ_{t∈C} D_t given S = N (spec M8-04 §1; ADR-0029); exact, no approximation.
 
     P(K = j | N) ∝ PB_C(j) · PB_Ū(N - j), normalised by the sum over the support. ``p_over`` and
-    ``p_under`` both include k and are sums of non-negative terms. The support [lo, hi] is
+    ``p_under`` both include k, are sums of non-negative terms and are clamped to [0, 1] (the
+    numerator and the support sum round apart by an ulp, decision 13). The support [lo, hi] is
     [max(0, N - |Ū|), min(|C|, N)] narrowed by the exact zeros of q (impossible units) and of
     1 - q (certain units); a k outside it, an N outside [0, |C| + |Ū|], or a zero or non-finite
     support sum is a ``ValueError``. Callers pass tilted q and its complements (``tilt_pair``) so
@@ -244,8 +273,8 @@ def conditional_poisson_binomial(
     return CpbTails(
         k=k,
         N=N,
-        p_over=float(w[i:].sum()) / total,
-        p_under=float(w[: i + 1].sum()) / total,
+        p_over=min(float(w[i:].sum()) / total, 1.0),  # the two sums round apart: 1 + ulp
+        p_under=min(float(w[: i + 1].sum()) / total, 1.0),
         mean=float((np.arange(lo, hi + 1) * w).sum()) / total,
         lo=lo,
         hi=hi,
