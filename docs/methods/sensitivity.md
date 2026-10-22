@@ -97,7 +97,8 @@ includes Monte Carlo error (see Interpretation).
   through sampled-shift noise. `single_peptide_detected` keeps the observed abundance values and the TU folds of the
   detectability fit.
 
-- Islands (M5-10) are flagged by one genome-wide FWER per direction, not by BH. Their IDs are
+- Islands (M5-10) are flagged by one two-sided genome-wide FWER (both directions), not
+  by BH. Their IDs are
   genes, so one island flipping moves the Jaccard by that island's share of the genes.
 - Islands whose p lies within about ±0.03 of `alpha.context` can flip on Monte Carlo noise alone.
   In the statistician's probe (identical data, 30 independent streams; PR #184 review), a planted
