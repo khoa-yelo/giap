@@ -491,6 +491,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M8-06 checklist: register `genomic_cluster` and `detection_confounded` in the `enrichment_gsea` schema (§9.4).
 - `test_gsea_table_flags_need_no_rng` uses the fake engine; add a real-engine p-value comparison to pin the RNG stream.
 
+## M8-06a review nits (#181; one round. B1 and N1 fixed in the PR)
+- **N2** `n_unknown_ids` is never non-zero in any fixture (mutant M09). Add a gene with an unknown GO ID or KO.
+- **N3** `ora_size` and `gsea_size` are tested only at their defaults (M11, M17). Add a run with a non-default size.
+- **N4** The function events are logged before the writers run. If a writer fails, `events.jsonl` still holds events for a step that exited 4.
+- **N5** benchmarks/baseline.json records the commit as "0b8ee09 plus uncommitted". Re-record it against a real commit.
+- **N6** `_natural_key` gives `TU_1` and `TU_01` the same key. Add a string tiebreak.
+- Mutation evidence: Slurm 1867940, $GIAP_ROOT/review/pr181-mut/.
+
 ## M7-09 review nits (#180; one round, blockers were test-only)
 - **N1 Homopolymer window edges are untested** (mutants m26, m27): add runs at [591, 596) and [607, 612). Leftward run extension (m64) and the linear contig end (m65) are untested too.
 - **N2 Untested equalities:** `terminator_downstream` at conf == `terminatornet_yes` (m42), and BacTermFinder skipping (m17).

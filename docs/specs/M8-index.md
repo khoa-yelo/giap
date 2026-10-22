@@ -67,7 +67,7 @@ sensitivity rows.
 | 3 | [M8-03](M8-03-function-collections.md) | R | 1 | resources → collections: GO (propagated, BP/MF/CC), GO slim, KEGG pathways, COG letters, coverage | none | 300 | no |
 | 4 | [M8-04](M8-04-category-summary-ora.md) | R | 1 | `category_summary` (O − E, TU-bootstrap CI) and `enrichment_detection` (ORA, BH families, elim, `parent_group`) | 01, 03 | 300 | yes |
 | 5 | [M8-05](M8-05-gsea-tu-collapsed.md) | R | 1 | `enrichment_gsea`: TU collapse, set sizes in TUs, BH per collection, leading-edge genes, `redundant` | 02, 03 | 260 | yes |
-| 6 | [M8-06](M8-06-function-step-and-run.md) | T | 1 | the `function` step, three writers + schemas, `function.nf`, `main.nf`, setup-manifest roots, a real `giap run` | 03–05 | 320 | no |
+| 6 | [M8-06](M8-06-function-step-and-run.md) | T | 1 | the `function` step, three writers + schemas, `detectability`'s `tu_folds` output (ADR-0035), `function.nf`, `main.nf` (first `params.modules` switch), five setup-manifest roots, a real `giap run`; split 06a (step + tables) / 06b (both executors) | 03–05 (04b = #179) | 420 (≈ 125 JSON) | no |
 | 7 | [M8-07](M8-07-determinants-features.md) | R | 1 | `determinants_features.tsv`: the five blocks, the Met rule, `dist_to_tu_start_bp`, region and context columns | none | 280 | no |
 | 8 | [M8-08](M8-08-determinants-models.md) | R | 1 | univariate ρ / AUROC with TU-bootstrap CIs; LightGBM + elastic net under repeated `GroupKFold(5)` by TU; drop-one-block ΔR² | 07 | 340 | yes |
 | 9 | [M8-09](M8-09-determinants-attribution-null.md) | R | 1 | SHAP block sums (`pred_contrib`), dominant block, residual flag; TU-size-preserving permutation null | 08 | 260 | yes |
