@@ -486,6 +486,19 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M8-06 checklist: register `genomic_cluster` and `detection_confounded` in the `enrichment_gsea` schema (§9.4).
 - `test_gsea_table_flags_need_no_rng` uses the fake engine; add a real-engine p-value comparison to pin the RNG stream.
 
+## M7-09 review nits (#180; one round, blockers were test-only)
+- **N1 Homopolymer window edges are untested** (mutants m26, m27): add runs at [591, 596) and [607, 612). Leftward run extension (m64) and the linear contig end (m65) are untested too.
+- **N2 Untested equalities:** `terminator_downstream` at conf == `terminatornet_yes` (m42), and BacTermFinder skipping (m17).
+- **N3 `FLAG_ORDER`:**
+  - the test checks the helper's copy rather than `outputs.FLAG_ORDER` itself;
+  - no test writes `partial` together with `ostir_missing` (m55);
+  - unknown-flags-last is untested (m53).
+- **N4** `sorf` rows sent through the pseudogene junction logic go undetected (m61).
+- **N5** `read_peptide_intervals` on a pre-M7-09 parquet returns `{}` silently; it should log a warning.
+- **N6** The `orf_id` rank tie-break is lexicographic (`_1000_` < `_999_`). Document it.
+- **N7** `has_start` in the intergenic rule is equivalent in the pipeline (m08); the test can't detect its removal.
+- **N8** For a frameshift pseudogene (length not a multiple of 3), the junction scan skips the last whole codon. Document it.
+- Mutation evidence: Slurm 1867907, $GIAP_ROOT/review/pr180-mut/.
 ## M8-04b reviews (#179: code review CHANGES, statistician BLOCK, fixed in decision 13), pass 2 and nits
 - **Pass 2: lift `ora_uncalibrated`.**
   - The statistician's flexible cross-fitted recalibration passes every cell of all 8 worlds at R = 3000 ($GIAP_ROOT/stat/m804b/probe_flex.py). Its terms are 4 quantile hinges in logit q_raw, a one-hot TU size, a logit × log n interaction, and ridge 1e-4.
@@ -514,3 +527,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - **Statistician:** category_summary's bootstrap undercovers small categories (10 TUs: 0.886; 15 TUs: 0.90). Raise `CI_MIN_UNITS` to about 30, or use BCa or a studentized bootstrap.
 - **Statistician:** cross-fitting does not remove leakage when a category is a large share of one TU-size group. In the tested worlds this was only conservative.
 - **Flaky?** `tests/unit/function/test_gsea_flags.py::test_detection_flag_with_the_real_engine_d1_d2` failed only in the 16-worker fast suite (Slurm 1867909 and 1867927, es = −0.5 for top=True). It passes alone and in its file. Check main and look for state leaking between tests.
+
+## M9 design follow-ups (lead, 2026-10-22)
+- MVP-03: build the §6.2 / §6.7 `manifest` and `finalize` steps (run_manifest.json; KEGG retrieval date, provenance), before M9-16.
+- M4: should `detection_summary` carry a region-**type** O − E row (§10.2 V7 lists region types; no table has them)?
+- UpSetPlot 0.9.0 fails on pandas 3.0.6 (`Invalid RGBA argument: nan`); V16 uses the custom matplotlib fallback (§10.2).
