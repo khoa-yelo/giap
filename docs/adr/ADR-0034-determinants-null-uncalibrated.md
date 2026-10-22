@@ -1,8 +1,8 @@
 # ADR-0034: The determinants permutation null p is `null_uncalibrated` in pass 1; a structure-aware null in hardening
-- Status: proposed (needs Khoa)
+- Status: accepted-by-khoa (2026-10-22, in session: "Flag it (Recommended)")
 - Date: 2026-10-22
 - Spec sections: §7.8, §8.4, §8.5; docs/specs/M8-09 (rule 6); statistician review of #173
-- Needs Khoa: yes, because a p-value ships uncalibrated.
+- Needs Khoa: yes, because a p-value ships uncalibrated. Answered: flag it now, a structure-aware null in hardening.
 
 ## Context
 The M8-09 null permutes TU response blocks within TU-size groups. It is valid when TUs are exchangeable, and in that world it holds level at R = 200, α 0.01 / 0.05 / 0.10:
