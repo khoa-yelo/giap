@@ -167,3 +167,9 @@ from swaps alone at q ≤ 0.01" — run in M7-13 on the M7-12 scenario. This iss
 3. **`snv` / `multi_nt` apply to substitutions only.** Swaps, blocks and frameshifts carry neither; `nt_changes` already counts their bases.
 4. **`stop_codon` is implemented now and unit-tested on hand-built alignments** (example 13). It becomes reachable only if M7-16 makes stop-spanning hits possible.
 5. **Branch.** m7/variant-flags is stacked on m7/variants-step (#164). This issue fills `flags` in the wired step, so the M7-04 tests must keep passing unchanged.
+6. **Test-author resolutions accepted (14f59c5).**
+   - Examples 12 and 13 and the two GTG degenerate rows follow the rules, not the table. V → M is `mass_equivalent` (via Dioxidation, −0.0177 Da), and example 13's order is §9.4: `snv;strain_difference;stop_codon`.
+   - At `tol` = 0 only exact B.5 equalities flag. GG → N and AG → Q differ by 1e-5 Da and do **not** flag.
+   - `nt_class` means "at most one base".
+   - `start_codon` applies to `cds` and `sorf` genes only.
+7. **M7-04 step tests.** The two byte-equality tests against the M7-04 oracle now compare everything except `flags` (the TSV column and the VCF `FLAGS` INFO). `test_variants_step_flags.py` checks flags against an independent oracle.
