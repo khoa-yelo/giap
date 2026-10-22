@@ -645,3 +645,8 @@ code 4. No table is written: the step writes after computing, as it does today.
 9. **check_no_rscript.** Its test passes once #192 is merged into this branch.
 10. **No PROVENANCE line in the lock.** Provenance lives in the recordings' README and the versions file.
 11. **Fixtures.** `by_hand/` stays as a permanent format fixture. The five real recordings are made on Slurm by `scripts/slurm/record_fgsea.sbatch` once the env is built.
+
+## Lead notes for M8-17b (after the 17a implementation)
+- Move fgsea into `TOOLS`. Then remove the lead's `{"fgsea"}` exemption in `test_every_env_file_has_a_registry_entry`, and add fgsea to `ALL_TOOLS` and `ALL_BUILDS`.
+- The step fixture yields six collections (cog, kegg, go_bp, go_mf, go_cc, go_slim), while `sim_main` was recorded for the four §6 collections. T7 must either replay only those four or re-record with six.
+- `load_call` rebuilds `params` from `GseaConfig()` defaults, but sim_main and sim_retest used `n_perm_simple` 200. T7 must pass the recorded params.
