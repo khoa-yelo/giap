@@ -27,6 +27,9 @@
 {% else %}
 <p class="note">No summary table was produced in this run.</p>
 {% endif %}
+{% for n in notes %}
+<p class="note">{{ n }}</p>
+{% endfor %}
 {% endif %}
 {% for p in s.plots %}
 <div class="plot" data-plot="{{ p.pid }}">
@@ -44,7 +47,9 @@
 </div>
 {% endfor %}
 {% for t in s.tables %}
-{% if t.absent %}
+{% if t.error %}
+<p class="note">{{ t.error }}</p>
+{% elif t.absent %}
 <p class="note">{{ t.name }}: not produced in this run.</p>
 {% else %}
 <h3>{{ t.name }} (first {{ t.rows | length }} rows; <a href="{{ t.href }}">full table</a>)</h3>

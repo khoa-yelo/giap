@@ -228,10 +228,13 @@ def run_local(
     workdir: Path,
     targets: Sequence[str],
     roots: Mapping[str, Path] | None = None,
+    live: Mapping[str, Path] | None = None,
 ) -> None:
     """Plan (validating every layer first), stage ``roots``, then run each Python step under
-    ``workdir``. Without ``roots`` every planned step must find its inputs in ``workdir``."""
+    ``workdir``. Without ``roots`` every planned step must find its inputs in ``workdir``.
+    ``live`` keys are passed as these paths, never copied (the run's growing events log)."""
     order, supplied = _walk(cfg, targets, None if roots is None else set(roots))
+    supplied = {**supplied, **(live or {})}
     if roots is not None:
         stage_roots(workdir, roots)
     workdir.mkdir(parents=True, exist_ok=True)

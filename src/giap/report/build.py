@@ -107,12 +107,19 @@ def _plot_slot(pid: str, files: PlotFiles | None, skipped: Mapping[str, str]) ->
 
 
 def _table(view: RunView, key: str) -> dict[str, Any]:
-    head = view.head(key, TOP_ROWS)
     name = PATHS[key].rsplit("/", 1)[1]
+    try:
+        head = view.head(key, TOP_ROWS)
+    except Exception as exc:  # an unreadable file is a note, never a crash (review B5)
+        return {"key": key, "name": name, "error": _unreadable(key, exc)}
     if head is None:
         return {"key": key, "name": name, "absent": True}
     header, rows = head
     return {"key": key, "name": name, "header": header, "rows": rows, "href": f"../{PATHS[key]}"}
+
+
+def _unreadable(key: str, exc: BaseException) -> str:
+    return f"{PATHS[key].rsplit('/', 1)[1]}: could not be read: {type(exc).__name__}: {exc}"
 
 
 def _count(frame: pd.DataFrame, column: str, alpha: float | None = None) -> int:
@@ -122,8 +129,7 @@ def _count(frame: pd.DataFrame, column: str, alpha: float | None = None) -> int:
     return int((pd.to_numeric(col, errors="coerce") <= alpha).sum())
 
 
-def _tier_fdr(view: RunView, alpha: float) -> str | None:
-    ds = view.table("detection_summary")
+def _tier_fdr(ds: pd.DataFrame | None, alpha: float) -> str | None:
     if ds is None:
         return None
     hit = ds[(ds["section"] == "tier") & (ds["group_type"] == "q_threshold")
@@ -132,44 +138,71 @@ def _tier_fdr(view: RunView, alpha: float) -> str | None:
     return None if vals.empty else format_value(float(vals.iloc[0]))
 
 
-def cards(view: RunView, cfg: GiapConfig) -> list[dict[str, str]]:
+def _novel_fdr(novel: pd.DataFrame) -> str | None:
+    """The max class FDR over CALLED rows; ``None`` (unestimated) if any called row is (B1)."""
+    called = novel[novel["called"].fillna(False).astype(bool)]
+    fdrs = pd.to_numeric(called["class_fdr"], errors="coerce")
+    if called.empty or bool(fdrs.isna().any()):
+        return None
+    return f"class FDR ≤ {format_value(float(fdrs.max()))}"
+
+
+def cards(view: RunView, cfg: GiapConfig) -> tuple[list[dict[str, str]], list[str]]:
     """The pass-1 summary cards (behaviour 5): a number and its error estimate or
-    ``unestimated``; a card whose table is absent is left out."""
+    ``unestimated``; a card whose table is absent is left out. Also the notes naming each table
+    that could not be read (its card left out, the other cards kept; review B5)."""
     a = cfg.stats.alpha
     out: list[dict[str, str]] = []
+    notes: dict[str, str] = {}
+
+    def table(key: str) -> pd.DataFrame | None:
+        try:
+            return view.table(key)
+        except Exception as exc:
+            notes.setdefault(key, _unreadable(key, exc))
+            return None
 
     def add(name: str, label: str, value: int | str, estimate: str | None) -> None:
         out.append({"name": name, "label": label, "value": str(value),
                     "estimate": estimate or UNESTIMATED})  # fmt: skip
 
-    genes = view.table("genes_tsv")
-    if genes is not None:
-        tiers = ", ".join(sorted({str(t) for t in genes["detection_tier"].dropna()}))
-        fdr = _tier_fdr(view, a.identification)
+    def genes(t: pd.DataFrame) -> None:
+        tiers = ", ".join(sorted({str(x) for x in t["detection_tier"].dropna()}))
+        fdr = _tier_fdr(table("detection_summary"), a.identification)
         est = None if fdr is None else f"tier FDR {fdr} at q ≤ {format_value(a.identification)}"
-        add("genes_detected", f"genes detected of {len(genes)} ({tiers or 'no tier'})",
-            _count(genes, "detected"), est)  # fmt: skip
-    hits = view.table("peptide_hits")
-    if hits is not None:
+        add("genes_detected", f"genes detected of {len(t)} ({tiers or 'no tier'})",
+            _count(t, "detected"), est)  # fmt: skip
+
+    def peptides(hits: pd.DataFrame) -> None:
         placed = hits[pd.to_numeric(hits["placement_q"], errors="coerce") <= a.placement]
-        unmapped = view.table("unmapped")
+        unmapped = table("unmapped")
         n_in = hits["peptide"].nunique() + (0 if unmapped is None else len(unmapped))
         add("peptides_placed", f"peptides placed of {n_in} input", placed["peptide"].nunique(),
             f"mapping FDR controlled at placement q ≤ {format_value(a.placement)}")  # fmt: skip
-    islands = view.table("islands")
-    if islands is not None:
-        add("islands", "abundance islands", _count(islands, "p_value", a.context),
+
+    def islands(t: pd.DataFrame) -> None:
+        add("islands", "abundance islands", _count(t, "p_value", a.context),
             f"FWER-controlled at p ≤ {format_value(a.context)}")  # fmt: skip
-    flags = view.table("operon_flags")
-    if flags is not None:
-        add("operon_flags", "flagged operon pairs", _count(flags, "q_value", a.operon_flags),
-            f"FDR-controlled at q ≤ {format_value(a.operon_flags)}")  # fmt: skip
-    novel = view.table("novel_orfs")
-    if novel is not None:
-        fdrs = pd.to_numeric(novel["class_fdr"], errors="coerce").dropna()
-        est = None if fdrs.empty else f"class FDR ≤ {format_value(float(fdrs.max()))}"
-        add("novel_orfs", "novel ORFs called", _count(novel, "called"), est)
-    return out
+
+    def operons(t: pd.DataFrame) -> None:
+        q = format_value(a.operon_flags)
+        add("operon_flags", f"operon pairs flagged at q ≤ {q} (discordant or co-abundant)",
+            _count(t, "q_value", a.operon_flags), f"FDR-controlled at q ≤ {q}")  # fmt: skip
+
+    def novel(t: pd.DataFrame) -> None:
+        add("novel_orfs", "novel ORFs called", _count(t, "called"), _novel_fdr(t))
+
+    specs = (("genes_tsv", genes), ("peptide_hits", peptides), ("islands", islands),
+             ("operon_flags", operons), ("novel_orfs", novel))  # fmt: skip
+    for key, card in specs:
+        frame = table(key)
+        if frame is None:
+            continue
+        try:
+            card(frame)
+        except Exception as exc:
+            notes.setdefault(key, _unreadable(key, exc))
+    return out, list(notes.values())
 
 
 def _provenance(view: RunView) -> dict[str, Any]:
@@ -190,7 +223,8 @@ def build_report(
          "tables": [_table(view, k) for k in s.tables]}
         for s in SECTIONS
     ]  # fmt: skip
+    summary, notes = cards(view, cfg)
     return _ENV.get_template("report.html.j2").render(
-        sections=sections, cards=cards(view, cfg), provenance=_provenance(view),
+        sections=sections, cards=summary, notes=notes, provenance=_provenance(view),
         version=giap.__version__,
     )  # fmt: skip

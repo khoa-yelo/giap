@@ -462,7 +462,9 @@ def _run_local(cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Pa
     restore = _record_step_events(outdir / "logs")
     try:
         local.plan_local(cfg, targets, set(roots))
-        local.run_local(cfg, workdir, targets, roots)
+        # the live events log, so plots/report see this run's layer_missing flags (B6)
+        live = {"events": outdir / "logs" / "events.jsonl"}
+        local.run_local(cfg, workdir, targets, roots, live)
         local.publish(workdir, outdir)
         local.write_datapackage(outdir)
     except local.LayerMissing as exc:
@@ -663,6 +665,9 @@ def report(
     from giap.steps import plots as P
     from giap.viz.base import normalise_ids
 
+    if config_file is None:  # the run's own thresholds, formats and dpi (review B3)
+        runs = (out / "resolved_config.yaml", out / "work" / "resolved_config.yaml")
+        config_file = next((p for p in runs if p.is_file()), None)
     cfg = _resolve(config_file, sets, log_level)
     if no_interactive:
         cfg = cfg.model_copy(
@@ -680,7 +685,11 @@ def report(
     except P.PlotFailed as exc:
         click.echo(f"giap report: {exc}", err=True)
         sys.exit(ExitCode.STEP_FAILED)
-    click.echo(str(P.write_report(view, out / "plots", out / "report", cfg)))
+    try:
+        click.echo(str(P.write_report(view, out / "plots", out / "report", cfg)))
+    except Exception as exc:  # unreadable tables are notes; anything else is exit 4 (B5)
+        click.echo(f"giap report: {type(exc).__name__}: {exc}", err=True)
+        sys.exit(ExitCode.STEP_FAILED)
 
 
 # ---------------------------------------------------------------- hidden
