@@ -192,3 +192,8 @@ sd_dg, mrna_dg, spacing_dg, standby_dg, spacer_bp, start_codon`.
    - **The rest:** the promoter-score join on `(contig, strand, end3p)`, the WARNING `layer_missing:<key>`, and the pinned NOVEL Nextflow interface (`contract`, a `layers` channel of `[key, path]`, `params.stub.novel_windows_chunks`, emits named after the output keys).
    - **MVP-02 nf-test:** the lead updated it to check only CONTEXT's tables, because NOVEL also publishes under `tables/`.
    - **Rule 9 recording:** the implementer records `tests/data/recorded/ostir/1.1.3/sim100k_novel/` from a real OSTIR 1.1.3 run, using the official environment on Slurm.
+7. **After the implementer (4760059 to 6ca2f9b):**
+   - The implementer's choices are accepted, including the empty-run GFF3s.
+   - When the table is empty, the step writes pragma-only GFF3s (header and `##sequence-region` lines) through `write_pragma_gff3`. The M7-07 writers are unchanged. The difference from a non-empty run, which has `region` lines, is intended: an empty file has no features.
+   - The PR is about 510 code lines. That is over the ~400 target and under the 800 gate, and it is accepted because it is one integration unit.
+   - **Owed:** example 7 (the real `giap_run.sbatch` run on sim100k) and the benchmark entry.
