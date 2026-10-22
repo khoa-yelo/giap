@@ -144,3 +144,13 @@ def run_variants(peptide_hits: pd.DataFrame, hits_tolerant: pd.DataFrame | None,
    - **The stub** must write a real gzip pileup and a full header-only VCF. Extending the GIAP_STEP stub mechanism for this is in scope.
    - **The datapackage** goes to `OUT/schemas/datapackage.json`, with paths resolving under `OUT`. This settles the M7-03 review's N2.
    - The branch has origin/m7/tables (including the datapackage fix) and origin/main merged in (d713b6d).
+5. **After the implementer (ce5225a):**
+   - **"NA" as a residue:** a real two-residue block Asn-Ala gives `alt_aa` = "NA", which collides with the ADR-0006 missing token. `ref_aa`/`alt_aa` are required, so their schema fields carry `missingValues: []` and `read_variants` keeps the text "NA" in them (a lead fix with a test). Other tables with residue strings must do the same.
+   - MVP-02's pinned process list gains `VARIANTS_STEP`.
+   - The implementer's choices 1–8 are accepted.
+   - **Owed:**
+     - the run-manifest entries (no manifest writer exists yet);
+     - the real `giap_run.sbatch` run on sim100k;
+     - the step benchmark;
+     - strict frictionless resolution of `OUT/schemas/datapackage.json` (the paths are relative to `OUT`, not to `schemas/`).
+
