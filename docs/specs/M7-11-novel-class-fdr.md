@@ -1,0 +1,119 @@
+# M7-11: Novel-ORF error control — picked class FDR with decoy rows, subgroup FDR for de novo
+
+Milestone M7 · track S (statistics) · **pass 2** · depends on: M7-06, M7-09 (the wired
+`novel_orfs` step), merged `giap.stats.tda.picked_fdr` and `monotone_q`, M3-10 placement FDR
+(`stratum_qvalues`, ADR-0010), M3-23 makedb IDs · estimate ≈ 300 code lines (+ ≈ 500 test lines)
+· **stats** (statistician reviews the methods note and simulations before the code)
+
+## Spec sections implemented
+
+- §7.6.4: "Novel peptides have a lower prior than annotated ones, so the global search FDR
+  understates their error. **With decoy rows in the input** (for example after a search against the
+  `makedb` database): a picked target–decoy FDR at ORF level, within each class. Decoys pair
+  through the class-tagged `makedb` IDs (§7.9.2). A call needs class q ≤ 0.01. **De novo input:** a
+  subgroup placement FDR. Each decoy hit is assigned the locus class of its mirrored target position
+  (reversed or shuffled windows keep the frame), then FDR_class = π̂_wrong (D_class + 1) / T_class.
+  Calls need q ≤ 0.01. **Neither:** a call needs ≥ 2 distinct peptides and carries
+  `class_fdr = unestimated`."
+- §8.1 row "Novel ORF | ORF | decoy rows in the input (picked, per class); genome decoy for de novo
+  | subgroup FDR | 0.01"; §7.9.2 (`>GIAPORF_{class}_{contig}_{start1}_{end1}_{p|m}`; "No decoys.
+  Search engines generate their own; with DIA-NN, use `--report-decoys`"); §8.2 ("decoys mimic
+  targets"); `stats.alpha.novel_orfs` (0.01); ADR-0009 (picked FDR rescaled by the paired share);
+  ADR-0010 (per-peptide π̂ weights).
+
+## Public interface
+
+`src/giap/novel/fdr.py` (pure)
+```python
+Regime = Literal["picked_decoy", "denovo_subgroup", "unestimated"]
+
+def regime(peptides: pd.DataFrame, orfs: Sequence[Orf]) -> Regime: ...
+def picked_class_q(orfs: Sequence[Orf], peptides: pd.DataFrame, id_map: pd.DataFrame | None
+                   ) -> dict[str, float]: ...              # orf_id -> class q
+def denovo_class_q(orfs: Sequence[Orf], target_hits: pd.DataFrame, decoy_hits: pd.DataFrame,
+                   classifier: LocusClassifier, pi: Mapping[str, float]) -> dict[str, float]: ...
+```
+
+## Rules
+
+1. **Regime per run.** `picked_decoy` when C9 holds decoy rows whose protein IDs (prefix stripped,
+   `input.decoy_prefixes`) are makedb class-tagged IDs; `denovo_subgroup` when the candidate
+   peptides are `source = denovo`; otherwise `unestimated` (the pass-1 behaviour). A run with both
+   database and de novo candidates applies the regime per ORF from its peptides' source
+   (decision 1).
+2. **Picked, per class.** Target ORF ↔ makedb entry: match the reconstructed ORF to the makedb
+   six-frame ORF with the same `(contig, strand, stop)` (the makedb ORF is stop-to-stop, so the
+   stop identifies it; `nterm_extension` entries by locus tag). Score of a target ORF = the best
+   (minimum) input q, then maximum score, over its peptides; score of its decoy = the same over
+   decoy rows whose stripped ID is `<decoy_prefix>GIAPORF_…` of that entry. Within each class,
+   `picked_fdr` (ties go to the decoy), with ADR-0009's rescaling by the paired share of the
+   class's decoys. Classes without makedb tags (`pseudogene`, `sorf` by locus tag only,
+   `cterm_extension`) fall back to `unestimated` (decision 2).
+3. **De novo subgroup.** Decoy hits come from the mapping work tables (`hits_exact`,
+   `hits_tolerant`, `search = decoy`) at each peptide's best decoy cost; each is assigned the locus
+   class of its mirrored target interval with the M3-14 `LocusClassifier` (decoy rows already carry
+   the mirrored target interval, M3-04). Within each novel class, a peptide-level list ordered by E
+   (the M3-10 ranking score) with the ADR-0010 weighted form `FDR_class(e) = (W_class(e) + c) /
+   T_class(e)`, monotone q. ORF class q = the **minimum** peptide class q among its peptides
+   (decision 3).
+4. **Call.** `called` = class rule (M7-09) **and** class q ≤ `stats.alpha.novel_orfs`; under
+   `unestimated`, the ≥ 2-peptide rule (M7-09 rule 8). `class_fdr` = the class q (float) or
+   `unestimated`; the flag `class_fdr_unestimated` only in the last case.
+5. **Reporting.** `detection_summary`-style rows are not added; the per-class T, D, paired share
+   and regime go to `logs/novel_orfs.log` and `events.jsonl` (`novel_orfs.class_fdr`), and to the
+   manifest.
+
+## Degenerate cases
+
+| Situation | Behaviour |
+|---|---|
+| decoy rows present but none class-tagged (search not against `makedb`) | `unestimated` + warning `decoys_not_makedb` |
+| a class with targets and zero decoys | q = (0 + 1)/T per the +1 rule (picked: as `picked_fdr`); small classes cannot pass 0.01 (B.6 logic) |
+| paired share of a class's decoys < 80 % | that class falls back to `unestimated` (ADR-0009's guard, by analogy with MAYU fallback) |
+| de novo with no decoy hit in a class | q = c / T (ADR-0010) |
+| ORF whose peptides mix database and de novo | the database regime when it is `picked_decoy`, else de novo (decision 1) |
+| π̂ unavailable for a de novo peptide | 1 (ADR-0010) |
+
+## Examples
+
+| # | Input | Expected |
+|---|---|---|
+| 1 | intergenic class: 150 target ORFs outscore their decoys before the first decoy win | class q of those 150 = 1/150 = **0.0067** → callable at 0.01 (B.6 analogue) |
+| 2 | intergenic class: 50 targets, no decoy wins | q = 1/50 = **0.02** → none called |
+| 3 | `cds_outframe` ORF matched to `GIAPORF_cds_outframe_c1_101_400_p`, its decoy `rev_GIAPORF_cds_outframe_c1_101_400_p` scores higher | the target loses the pick (counts as a decoy win) |
+| 4 | de novo: a decoy hit whose mirrored target interval is intergenic | counts in D_intergenic only |
+| 5 | de novo: ORF with peptide class q 0.004 and 0.03 | ORF class q **0.004** |
+| 6 | search against Bakta proteins with `--report-decoys` (`rev_<locus_tag>` decoys only) | `unestimated` + `decoys_not_makedb` |
+
+## Acceptance criteria
+
+- [ ] `tests/unit/novel/test_fdr.py`: examples 1–6 and every degenerate row.
+- [ ] **Calibration suite `novel_orfs`** (§8.4 "Novel-ORF class FDR | planted ORFs + false peptides
+  + de novo errors | FDR | 50 | 300"): in M7-13, per regime, mean FDP ≤ q + 2 SE at q ∈ {0.01, 0.05,
+  0.10}, ADR-0015 two-block confirmation.
+- [ ] `docs/methods/novel-orfs.md` §"Class FDR" with the three regimes, the ORF ↔ makedb matching,
+  decision 3 and its risk; statistician sign-off.
+
+## Calibration and attacks owed
+
+- The `novel_orfs` suite (M7-13), both regimes.
+- Attack (new, M7-13): de novo errors that reverse a stretch (§8.5 attack 5) concentrated in
+  intergenic space — the class FDR must stay at level with shuffled decoys.
+- Attack (new): planted false peptides drawn preferentially from GC-poor intergenic regions,
+  where the shuffled decoy composition differs most from the targets.
+
+## Questions for the lead
+
+1. Mixed-source runs (database and de novo candidates). **Proposed default:** per-ORF regime by its
+   peptides' source, database first; the methods note states that the two classes of q-values are
+   not pooled into one list.
+2. Classes without makedb tags (`pseudogene`, `sorf`, `cterm_extension`). **Proposed default:**
+   `unestimated` with the ≥ 2-peptide rule. Pairing sORFs by `rev_<locus_tag>` is possible but they
+   are annotated genes, already covered by the gene-level FDR of M4-12.
+3. ORF-level q from peptide-level subgroup q (de novo): the minimum (proposed) is the natural
+   "best evidence" statistic, but it is anti-conservative at ORF level when ORFs have many
+   peptides. **Proposed default:** minimum, *and* the statistician measures ORF-level FDP in M7-13;
+   if it fails, the ADR options are a picked ORF-level competition on the genome decoy or a
+   Bonferroni-on-peptides-per-ORF correction.
+4. The 80 % paired-share guard per class is borrowed from §7.3.2 by analogy. **Proposed default:**
+   adopt it, recorded in the methods note; change only by ADR.
