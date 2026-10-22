@@ -19,7 +19,7 @@ from giap.config import GiapConfig
 from giap.io import manifest_sources as ms
 from giap.manifest import ManifestSources, build_manifest, provenance_core
 from giap.runner.local import TAIL_STEPS
-from giap.runner.nextflow import _step_name, _task_dir, workflow_main
+from giap.runner.nextflow import _step_name, _task_dir
 from giap.steps.registry import StepContext, all_steps, step
 
 _PREFLIGHT_ROLES = ("genome", "proteins", "peptides", "abundance", "annotation")
@@ -53,7 +53,6 @@ def launch_sources(
         if layer is not None and Path(layer).is_file():
             extra.append(ms.input_row(f"precomputed:{key}", Path(layer).absolute()))
     commit, dirty = ms.git_info(_source_root())
-    db = db_dir / "db_manifest.json" if db_dir is not None else None
     return {
         "cfg": cfg,
         "preflight": preflight,
@@ -72,7 +71,6 @@ def launch_sources(
         },
         "extra_inputs": extra,
         "inputs_absent": [r for r in _OPTIONAL if given.get(r) is None],
-        "db_manifest": ms.read_json(db),
     }
 
 
@@ -96,18 +94,15 @@ def run_tail(
 ) -> None:  # fmt: skip
     """Write ``OUT/run_manifest.json`` after the graph (D-B step 5); raises on any error."""
     events = ms.read_events(outdir / "logs" / "events.jsonl")
-    trace = tools = meta = None
+    trace = meta = None
     if base["executor"] == "nextflow":
         trace = ms.read_trace(outdir / "logs" / "trace.tsv")
-        locks = workflow_main().parent / "envs" / "locks"
-        tools = ms.tool_reports(trace or [], outdir / "work", locks)
         meta = _nf_annotation_meta(trace or [], outdir)
     else:
         meta = ms.read_json(outdir / "work" / "annotation_meta")
     src = ManifestSources(**base, finished_at=_now(), exit_code=exit_code,
                           failed_step=failed_step, failed_log=failed_log, events=events,
-                          annotation_meta=meta, trace=trace, local_steps=local_steps,
-                          tool_reports=tools or ())  # fmt: skip
+                          annotation_meta=meta, trace=trace, local_steps=local_steps)  # fmt: skip
     ms.write_manifest(outdir / "run_manifest.json", build_manifest(src))
 
 

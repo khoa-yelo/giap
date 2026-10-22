@@ -1,6 +1,7 @@
 """File readers and the strict writer behind ``run_manifest.json`` (MVP-03 D-B, D-C; ADR-0038).
 
-Everything here touches the file system; :mod:`giap.manifest` stays pure.
+Everything here touches the file system; :mod:`giap.manifest` stays pure. The ``versions.yml``
+(``tools``) and ``db_manifest.json`` (``databases``) readers are MVP-03c.
 """
 
 from __future__ import annotations
@@ -8,19 +9,12 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
-import re
 import subprocess
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from giap.manifest import canonical_json
-from giap.runner.nextflow import _task_dir
-
-_DIGEST = re.compile(r"@sha256[:-]([0-9a-f]{64})")
-_EMPTY = {"", "-"}
 
 
 def rotate_events(logs_dir: Path) -> None:
@@ -31,21 +25,14 @@ def rotate_events(logs_dir: Path) -> None:
 
 
 def read_events(path: Path) -> list[dict[str, Any]]:
-    """The events of ``path`` in file order (``[]`` if absent); a non-object line raises."""
+    """The events of ``path`` in file order (``[]`` if absent); a non-object line raises
+    ``ValueError`` (``json.JSONDecodeError`` is one): events.jsonl is GIAP's own output."""
     if not path.is_file():
         return []
-    out: list[dict[str, Any]] = []
-    for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip():
-            continue
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"{path}:{n}: not JSON: {exc}") from exc
-        if not isinstance(obj, dict):
-            raise ValueError(f"{path}:{n}: not a JSON object")
-        out.append(obj)
-    return out
+    rows = [json.loads(ln) for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    if not all(isinstance(r, dict) for r in rows):
+        raise ValueError(f"{path}: a line is not a JSON object")
+    return rows
 
 
 def read_json(path: Path | None) -> Any:
@@ -69,31 +56,6 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
-
-
-def tool_reports(
-    trace_rows: Sequence[Mapping[str, str]], work_dir: Path, locks_dir: Path
-) -> list[dict[str, Any]]:
-    """One ``{process, name, version, container_digest, conda_lock_hash}`` per tool line of the
-    ``versions.yml`` of each COMPLETED/CACHED task (lead decision 9)."""
-    out: list[dict[str, Any]] = []
-    for row in trace_rows:
-        if (row.get("status") or "").strip() not in {"COMPLETED", "CACHED"}:
-            continue
-        versions = Path(_task_dir(row, work_dir)) / "versions.yml"
-        if not versions.is_file():
-            continue
-        doc = yaml.load(versions.read_text(encoding="utf-8"), Loader=yaml.BaseLoader) or {}
-        container = (row.get("container") or "").strip()
-        m = _DIGEST.search(container)
-        digest = f"sha256:{m.group(1)}" if m else None
-        for process, tools in doc.items():
-            for name, version in (tools or {}).items():
-                lock = locks_dir / f"{name}.explicit.txt"
-                lock_hash = _sha256(lock) if container in _EMPTY and lock.is_file() else None
-                out.append({"process": process, "name": name, "version": str(version),
-                            "container_digest": digest, "conda_lock_hash": lock_hash})  # fmt: skip
-    return out
 
 
 def input_row(role: str, path: Path) -> dict[str, Any]:

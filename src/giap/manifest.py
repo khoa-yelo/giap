@@ -85,8 +85,8 @@ class ManifestSources:
     annotation_meta: Mapping[str, Any] | None = None
     trace: Sequence[Mapping[str, str]] | None = None
     local_steps: Sequence[Mapping[str, Any]] = ()
-    tool_reports: Sequence[Mapping[str, Any]] = ()
-    db_manifest: Mapping[str, Any] | None = None
+    tool_reports: Sequence[Mapping[str, Any]] = ()  # read in MVP-03c
+    db_manifest: Mapping[str, Any] | None = None  # read in MVP-03c
 
 
 def canonical_json(obj: Any) -> str:
@@ -251,42 +251,6 @@ def _inputs(src: ManifestSources) -> list[dict[str, Any]]:
     return rows
 
 
-def _databases(db: Mapping[str, Any] | None) -> list[dict[str, Any]]:
-    if not db:
-        return []
-    out = []
-    if isinstance(db.get("items"), list):  # the `giap setup` manifest
-        for it in db["items"]:
-            if isinstance(it, Mapping) and it.get("status") == "ok":
-                out.append({"name": it["name"], "version": it.get("version"),
-                            "checksum": it.get("checksum") or None,
-                            "retrieved": it.get("retrieved") or None,
-                            "size_bytes": it.get("size_bytes")})  # fmt: skip
-    else:  # the provisional {"<name>": {"version": ...}} / {"<name>": "<v>"} form
-        for name, entry in db.items():
-            v = entry.get("version") if isinstance(entry, Mapping) else entry
-            out.append({"name": name, "version": v if isinstance(v, str) else None,
-                        "checksum": None, "retrieved": None, "size_bytes": None})  # fmt: skip
-    return sorted(out, key=lambda d: d["name"])
-
-
-def _tools(reports: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    rows: dict[tuple[str, str], dict[str, Any]] = {}
-    for r in reports:
-        if r["name"] == "giap":  # recorded as giap_version
-            continue
-        row = rows.setdefault((r["name"], r["version"]), {
-            "name": r["name"], "version": r["version"], "container_digest": None,
-            "conda_lock_hash": None, "processes": []})  # fmt: skip
-        for key in ("container_digest", "conda_lock_hash"):
-            row[key] = row[key] or r.get(key)
-        if r["process"] not in row["processes"]:
-            row["processes"].append(r["process"])
-    for row in rows.values():
-        row["processes"].sort()
-    return [rows[k] for k in sorted(rows)]
-
-
 def _annotation(meta: Mapping[str, Any] | None) -> dict[str, Any] | None:
     if meta is None:
         return None
@@ -314,8 +278,8 @@ def build_manifest(src: ManifestSources) -> dict[str, Any]:
         "config": cfg.model_dump(mode="json"),
         "inputs": _inputs(src),
         "inputs_absent": sorted(src.inputs_absent),
-        "tools": _tools(src.tool_reports),
-        "databases": _databases(src.db_manifest),
+        "tools": [],  # versions.yml reports: MVP-03c
+        "databases": [],  # db_manifest.json: MVP-03c
         "annotation": _annotation(src.annotation_meta),
         "detection_tier": src.preflight.get("evidence_tier"),
         "seeds": seeds,
