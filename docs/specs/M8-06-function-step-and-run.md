@@ -446,3 +446,22 @@ M8-06b:
     is exercised only by example 7 and the benchmark. **Proposed default:** accept this for pass
     1 (the M6-08 "sparse sim100k" precedent). The K-12 hardening run is the first real
     recalibrated run.
+
+## Lead decisions (2026-10-22)
+1. **Questions 1–10: the proposed defaults are accepted.**
+   - TU folds are persisted as the new `detectability` output `genetable/tu_folds.parquet`.
+   - The branch is stacked on #179 (origin/m8/ora merged in), and M8-06a merges after #179.
+   - No `function.skipped` event.
+   - `category_summary` keeps `flags` as its last column.
+   - Only the `function` module switch goes into main.nf.
+   - The integration examples use a synthetic test DB built from the simulator's IDs, with no KEGG content.
+   - The datapackage criterion is dropped and goes to the backlog.
+   - The work splits into 06a and 06b.
+   - New run-scope flags are emitted in the event now.
+   - sim100k always skipping the recalibration is accepted for pass 1.
+2. **Question 4, the columns that depart from §9.3:** the `category_summary` `flags` column and ORA's `n_in_set_genes`, `k_detected_in_set_genes` and `p_noelim`. They go in an ADR-0029 amendment, which the lead drafts as *proposed* for Khoa. 06a goes ahead on the default. If Khoa rejects the amendment, only the schemas and `COLUMNS` change.
+3. **Decision 13 of #179 applies:**
+   - `folds` is a required keyword, so `function` passes `folds=None` explicitly when `tu_folds.parquet` has only a header.
+   - Every ORA row carries `ora_uncalibrated` in pass 1.
+   - A skipped recalibration adds `tu_recal_skipped` to the rows as well.
+   - The schema-equals-`COLUMNS` test pins the final #179 columns.
