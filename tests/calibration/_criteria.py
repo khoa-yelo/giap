@@ -249,7 +249,8 @@ def _valid_m(m: int) -> int:
 
 
 def check_level_pooled(shares: ArrayLike, alpha: float, m: int) -> CheckResult:
-    """Pooled level check: replicate i rejects ``shares[i] * m`` of its ``m`` independent p-values.
+    """Pooled level check: replicate i rejects ``shares[i] * m`` of its ``m`` p-values
+    (for the ORA arms, categories that are negatively dependent given N, not independent).
 
     The rejection rate over all R m p-values is gated by ``level_bound(alpha, R m)``; ``R`` of the
     result is the number of replicates. Shares outside [0, 1] or not multiples of 1 / m are refused.

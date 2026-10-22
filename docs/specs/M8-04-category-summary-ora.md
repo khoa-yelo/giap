@@ -94,6 +94,8 @@ where PB_A is the Poisson-binomial pmf of the q_t in A (the "conditional Bernoul
    and N do not depend on the category. q_t ∈ {0, 1} stay fixed. All DPs use the tilted q. The mass
    of PB_Ū is then centred near the indices that are read, so no weight underflows even when p̂ is
    badly scaled. That would be possible with raw q, for example q ≈ 10⁻⁶ everywhere and N large.
+   This is a numerical claim only: conditioning on N cancels a common TU-level odds factor, not
+   any other mis-scaling of p̂ (decision 12, ADR-0035).
 3. **Normalise by the support sum**, not by a separate PB_U(N). This is the same quantity
    mathematically, it saves a third DP, and it makes the tails sum to 1 by construction. If the sum
    is 0 or not finite, the primitive raises `ValueError`. That happens only when the observation
@@ -106,7 +108,7 @@ where PB_A is the Poisson-binomial pmf of the q_t in A (the "conditional Bernoul
    - Monte Carlo conditional-Bernoulli sampling: the exact DP is cheap. Exhaustive enumeration
      over 2^T configurations (T ≤ 14) is the **test oracle**.
 5. **Precision contract.** Every returned tail ≥ 10⁻³⁰⁰ is within relative **10⁻¹²** of the exact
-   rational value. Smaller tails are returned as the float underflow (≥ 0, never negative, never
+   rational value (relative **10⁻¹¹** for tilted input, decision 11). Smaller tails are returned as the float underflow (≥ 0, never negative, never
    NaN). A tail of 0.0 is reachable only below ~10⁻³⁰⁰. This is far below the ~10⁻¹⁴ floor of
    Wallenius (M8-01 methods note).
 
@@ -220,7 +222,7 @@ Rows are sorted by collection, term, then direction (M8-06).
 | C covers every TU of U (Ū empty) | not a test: `p_value`, `p_noelim` NA, `flags = unestimated`, out of BH (ω is NaN as well) |
 | N = 0 (no detected TU) | support {0}; every p = 1; rows written; nothing significant |
 | N = \|U\| (every TU detected) | support {n}; every p = 1 |
-| a TU with q = 1 is undetected, or q = 0 is detected | the observation has probability 0: `ValueError` from the primitive. Every row of the run gets `p_value` NA and `flags = unestimated;null_degenerate`, plus a run-level warning. Unreachable from M4-13, whose logistic p lies strictly in (0, 1) |
+| a TU with q = 1 is undetected, or q = 0 is detected | the observation has probability 0: `ValueError` from the primitive. Every row of the run gets `p_value` NA and `flags = unestimated;null_degenerate`, plus a run-level warning. Reachable: comp underflows to 0 for a large or heavily clipped undetected TU (#179 review B2). |
 | all q equal (every TU the same size and constant p) | the null is the central hypergeometric on TUs (example 4) |
 | `detectability_constant` (p_detect = the overall rate) | ω = 1 for `p_classic`, but q_t still grows with TU size, so the TU null is **not** hypergeometric. The run flag from M4-13 stays in the manifest |
 | ω undefined or out of range (Wallenius only) | `odds_weight` / `p_classic` NA, flag `odds_out_of_range` or `unestimated` on `p_classic` only; the CPB columns stand |
@@ -443,3 +445,16 @@ They still apply. The new questions:
       - Spec §1 item 5 reads 1e-11, not 1e-12, for tilted input.
       - The step 2 "even when p̂ is badly scaled" claim is limited to underflow: conditioning on N cancels only a common TU-level odds factor.
       - The `check_level_pooled` docstring says the categories are "negatively dependent given N", not independent.
+
+13. **Reviews of #179 (code review: CHANGES; statistician: BLOCK), 2026-10-22.** One fix round, then merge.
+    - **`ora_uncalibrated` is on (ADR-0035 decision 3).** `CALIBRATION_FLAGS = ("ora_uncalibrated",)`. At R = 1000, arm 4b (c = 2.5, large, under) fails in both blocks: 0.0140 and 0.0130 against a bound of 0.0120 at α 0.01. Its close variants 4d–4f fail by more. The flag can be lifted only on a pass at R = 1000 in both blocks of 4b–4f. The statistician's flexible cross-fitted model passes every cell and is the pass-2 candidate. It needs an ADR-0035 amendment from Khoa.
+    - **Skip path.** When the recalibration is skipped, every row also gets `tu_recal_skipped`. `folds` becomes a required keyword (no default); `folds=None` is an explicit choice by the caller and means the fit is skipped.
+    - **Newton with step halving** until the log-likelihood increases. Divergence or a singular Hessian still means the fit is skipped.
+    - **p-value domain.** `conditional_poisson_binomial` clamps both tails to [0, 1]; a tail of 1 + ulp can no longer abort BH.
+    - **p_detect outside [0, 1]** is a `ValueError` naming the locus tags (fail closed, M4-16 style). Only exact 0 and 1 are clipped.
+    - **Degenerate run.** It is reachable (see the degenerate table). It needs a test, all rows NA with `unestimated;null_degenerate`, the run flag, and a `warnings.warn` run-level warning.
+    - **Tests owed.**
+      - An independent per-fold oracle for the recalibration (scipy.optimize, ≈ 1e-8), with a case where the size term matters.
+      - The statistician's three files: `test_ora_pvalue_domain.py`, `test_ora_recal_convergence.py`, `test_attack_ora_recal_misfit.py`. Lead-committed.
+      - The `docs/methods/function.md` "Detection enrichment" section is written in this PR.
+    - Everything else from both reviews goes to the backlog.

@@ -8,9 +8,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 100/135 done (74 %), 10 running · generated 2026-10-22 02:04 by `scripts/dev/progress_bars.py`
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 99/135 done (73 %), 11 running · generated 2026-10-22 01:27 by `scripts/dev/progress_bars.py`
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 102/135 done (76 %), 8 running · generated 2026-10-22 03:54 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 104/135 done (77 %), 7 running · generated 2026-10-22 09:13 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -20,10 +18,8 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
-| M6 Operons | 🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜ 50 % | 6 | 2 | 4 |
-| M7 Variants and novel ORFs | 🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 6 % | 1 | 5 | 10 |
-| M8 Function and determinants | 🟩🟩🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜ 31 % | 5 | 3 | 8 |
-| M7 Variants and novel ORFs | 🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 12 % | 2 | 4 | 10 |
+| M6 Operons | 🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜⬜ 58 % | 7 | 1 | 4 |
+| M7 Variants and novel ORFs | 🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 19 % | 3 | 4 | 9 |
 | M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜ 38 % | 6 | 2 | 8 |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
@@ -49,6 +45,8 @@ M6–M11: not designed yet.
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
+M7-01 residue aligner (branch m7/alignment, implementer step done 2026-10-21): `giap.variants.align` (247 code lines, numba banded DP with traceback; M3 kernels untouched). Unit 42 passed, property 5 passed (also over 20 Hypothesis seeds), sim100k conformance passed (Slurm 1864764), fast suite 9180 passed (1864763), benchmark 100k tolerant hits 11.35 s < 30 s (1864766, wheat-08). Next: code review.
+M7-02 pileup and calls (branch m7/calls, stacked on m7/alignment; implementer step done 2026-10-21): `giap.variants.pileup` (Support, eligible, pileup, sites; 242 non-blank code lines). Unit 68 passed, property 5 passed, fast suite 9253 passed (Slurm 1865145). Frameshift events travel in `pile.attrs["frameshifts"]`; per-codon ALT detail in internal `_ref_codon`/`_alts` columns (writers drop `_` columns, M7-03). Next: code review.
 - M8-02 (m8/fgsea, implementer step done, 103ebe6): fgsea 1.36.2 port I — `giap.stats.fgsea`
   (`prepare`, `gsea_es`, `fgsea_simple`) + numba kernels `giap.stats._fgsea_kernels`; NOTICE.md
   fgsea MIT row; docs/methods/fgsea-port.md. Contract tests 49 passed; fast suite 9184 passed
