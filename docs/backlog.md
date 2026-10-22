@@ -334,6 +334,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - move `_bool`/`_flags`/`_per_gene` to `giap.operons._util`;
   - M6-10: restricting `n_flags` to OP pairs matters once pairs are reclassified at UniOP 0.3/0.7 while the TUs stay at the default.
 
+## M8-04a review nits (#172, one-round MVP review)
+- N2: the `lo > hi` branch is indistinguishable from the k-range check; pin it by error message.
+- N3: Newton vs pure bisection in `_solve_theta` is untested (speed only).
+- N4: `_solve_theta` returns at the iteration cap without checking the 1e-9·total tolerance.
+- N6: `tilt` is typed `total: float`; the spec signature says `int`.
+- N7: the benchmark docstring quotes 0.4 ms/call; recorded 0.66–0.76 ms (within budget).
 ## M8-05 review nits (PR #171)
 - Surviving mutants (test gaps):
   - re-tests on a fresh rng;
