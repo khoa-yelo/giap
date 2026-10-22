@@ -498,6 +498,27 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M8-06 checklist: register `genomic_cluster` and `detection_confounded` in the `enrichment_gsea` schema (§9.4).
 - `test_gsea_table_flags_need_no_rng` uses the fake engine; add a real-engine p-value comparison to pin the RNG stream.
 
+## M5-10 reviews (#184; code approved, statistician BLOCK on the note, B1–B3 fixed in the PR), nits
+- Code: `islands_family` copies `cfg` without re-validation (unlike `with_overrides`); re-validate or comment why it is safe.
+- Tests: an island wrapping the origin of a circular replicon; pin the replicon order of draws (two replicons near threshold); a direct `islands_family` test with `stats.permutations != 199` and an automatic block length (mutants: topology flip, length + 1, reversed replicon order survived; $GIAP_ROOT/review/pr184-mut/).
+- `islands_frame` computes 199-resample CIs the flagged set never uses; skip them if island counts grow.
+- No golden has a non-empty islands set; add one with a planted island once M5 goldens exist.
+- Stats: a Monte Carlo baseline row (the primary rerun on an independent stream) as the reference for variant rows (§8.6 / lead decision).
+- Stats: one random substream per replicon in M5-06, so a T change elsewhere leaves a replicon's draws alone (changes islands.tsv; ADR-0021 note).
+- Stats: `alpha.context` < 1/200 makes every islands set empty and every Jaccard NA; warn or document.
+## M5-07 reviews (#188; code CHANGES B1–B2 and statistician LIFT, fixed in the PR), nits
+- **Owed before the M5 gate is ticked:** run the `islands` array task of `scripts/slurm/calibration_full.sbatch` on main, then fill "Main run: Slurm ⟨ID⟩" in docs/methods/islands.md and PROGRESS.md.
+- `test_planted_island_avoids_regions` checks nothing (empty region list); delete it now that `test_power_layout_has_no_regions` pins `regions == ()`, and amend the spec edge case "island_power guarantees no overlap" (false: overlap is left to the caller).
+- Arm (a)'s docstring claims ℓ′ is "capped at 20 (asserted in every replicate)"; the code asserts ≤ 20. The attack arms should log ℓ̂ / ℓ′ through `_log_block_lengths`.
+- The recorder should write per cell: hit count, Wilson CI, q, median 95th percentile of M_b, `low_direction_ceiling(q, n_tus)`, and the null FWER (lead decision 30).
+- Replace the deepcopy replay in `_replicate` by a helper that returns the truth with the contigs (the replay is now asserted against `scenario_contigs`).
+- The spec names `test_attack_islands.py`; the arms live in `test_attack_islands_scenarios.py`. The recorded ρ 0.9 cells overlap `test_recorded_autocorrelation_rho09_sizes`; arm (b) is the existing gradient arm at 4,500 genes. Move `replicate` / `gate_pair` into tests/helpers/islands_data.py (N6).
+- `test_low_direction_is_a_structural_zero` (50 s locally, near the 60 s budget) should assert ceiling < M_b 95th percentile per replicate.
+- `islands_recorded.jsonl` lines lack `stream` / `n_genes`.
+- Optional full-tier teeth test: a fixed block of 3 at ρ 0.9 (0.765 at R = 200 in the probe).
+- The effect-CI coverage the islands note promised for M5-07 was never measured.
+- Recorder CLI: NaN → None mapping untested; `--replicates 0` and bad `--cells` need argparse validation; `--run-id` should default to `$SLURM_JOB_ID` and record a dirty commit; append (not prepend) to sys.path or only under `__main__`; `test_arms_are_the_spec_scenarios` inherits `calibration_full` though it takes milliseconds.
+- Power-grid sbatch wrapper (36 cells, xargs -P 36) belongs in scripts/slurm/.
 ## M8-06a review nits (#181; one round. B1 and N1 fixed in the PR)
 - **N2** `n_unknown_ids` is never non-zero in any fixture (mutant M09). Add a gene with an unknown GO ID or KO.
 - **N3** `ora_size` and `gsea_size` are tested only at their defaults (M11, M17). Add a run with a non-default size.
