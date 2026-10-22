@@ -172,3 +172,8 @@ oracle of the exhaustive table rather than trusting this table.
    - **`read_variants`** is the writer's exact inverse.
    - **The datapackage:** `src/giap/schemas/datapackage.json` is created here with the `pileup` and `variants` resources. Later tables add themselves to it.
    - **Multi-allele `FLAGS`:** combined in a way the implementer chooses, sorted and deduplicated.
+4. **After the code review (#160):**
+   - Decision 2 is revised: the pileup keeps its DataFrame + `attrs` form, because M7-02's tests pin it. `_ref_codon` is gone (the REF bases travel in each `_alts` tuple), the writers select §9.3 columns by name, and `sites()` fails loudly on missing attrs. The structural replacement goes to the backlog.
+   - The implementer's choices 2–8 are accepted.
+   - The datapackage resources declare `tabular-data-resource` (the B1 fix).
+
