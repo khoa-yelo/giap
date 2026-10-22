@@ -159,3 +159,19 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   driver deliberately keeps the simulator's real coordinates, while the island one re-lays genes through
   `Contig`, which would destroy the ori–ter geometry — so the shared helper must preserve both modes.
 - M6-04 polish (non-behavioural): `promoter_between_tracks` exposes the private `_Track` alias in its signature (make a public `PromoterTrack` type); pin `pair_frame` dtypes (`detected_*` bool, `flags` list) through a pairs.tsv schema when M6-08 writes the table; consider one shared index object for the M2 `*_between` helpers so M6-07 reuses it.
+- M6-02 (test-author): `tests/unit/genetable/test_contract.py` pins `TABLE_KEYS` (no `peptide_runs`)
+  and `m4_contract_fixture.build_frames` has no C16 frame. `test_tables_keys` and
+  `test_missing_column[peptide_runs-*]` fail against the C16 contract that
+  `test_contract_peptide_runs.py` requires. Add C16 the way M5-04 added C15.
+- M6-02 (lead to confirm): `fit_detection_limit` puts the peptide model in force when it is usable,
+  else the replicate model when it is usable, else the unusable peptide model. The spec does not say
+  what to do when the peptide model exists but is unusable while runs exist.
+- M6-02: the replicate model takes R as the number of distinct C16 runs for every gene. The method
+  doc's "R is the gene's own number of runs" needs a per-gene run-eligibility input, which C16 does
+  not carry.
+- M6-02: `detectability.covariates` absent from the `genes` frame are silently left out of the
+  replicate model; M6-05H should pass the M4-10 covariate table joined in.
+- M6-02: the method doc asks the detection summary to count detected genes whose evidence lies
+  only outside the observable set (not training genes); not yet emitted.
+- M6-02: `k_min = 2` whenever any gene carries `detection_tier == "two_peptide"` (the tier is
+  run-wide in M4-12).

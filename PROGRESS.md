@@ -8,7 +8,7 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 87/103 done (84 %), 4 running · generated 2026-10-21 15:41 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 91/103 done (88 %), 3 running · generated 2026-10-21 19:17 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -16,9 +16,9 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 | M1 Inputs and preflight | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 12 | 0 | 0 |
 | M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
-| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨 95 % | 20 | 1 | 0 |
-| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜ 64 % | 7 | 1 | 3 |
-| M6 Operons | 🟩🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 8 % | 1 | 2 | 9 |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
+| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
+| M6 Operons | 🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜⬜ 25 % | 3 | 3 | 6 |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
 | M8 Function and determinants | _not designed yet_ | - | - | - |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
@@ -112,6 +112,20 @@ ids. Evidence reuses the M2-13/14/15 helpers via per-run indexes (`promoter_betw
 `tx_rate_between_arrays`, start-sorted terminator prefilter). Fast suite 8952 passed (Slurm 1864209);
 baseline `pair_frame_4500_genes` = 0.41 s of a 3 s budget (wheat-08, 1 CPU, Slurm 1864210). Lead decisions after the test-author appended to
 the spec.
+
+M6-02 (branch `m6/detlimit`, implementer step done, 27a0292): `giap.operons.detection_limit`, with
+the peptide model and the replicate model fitted by the conditional (truncated) likelihood (lead
+decision 5). The fit is unpenalised damped Newton on standardised features; the peptide model is
+cross-fitted by TU folds, and the replicate model is not fitted at R = 2 (`replicate_two_runs`).
+C16 `peptide_runs` is in TABLES and loads through `load_tables`. Fit time is 0.6 s for 600 genes and
+1.2 s for 1,500 (full fit plus 5 folds, 1 CPU). Detection-limit slow and calibration tests: 64 passed
+(Slurm 1864768). DL1 full (R = 100, 1,500 genes): mean slope 0.9996, CITL −0.008. DL1 fast (R = 20,
+600 genes): slope 0.976, CITL +0.081. Fast suite (Slurm 1864767, pre-commit tree): 9202 passed, 6
+failed. One failure was mine (`OPTIONAL_KEYS` leaked into the context_stats registry) and is fixed
+before the commit. The other 5 are `tests/unit/genetable/test_contract.py`: `test_tables_keys` and 4
+`test_missing_column[peptide_runs-*]`. Its pinned `TABLE_KEYS` and `build_frames` fixture predate
+C16, so they conflict with the new C16 test. This is test-author work. Rerun on 27a0292 (Slurm 1864799): 9203 passed;
+the same 5 failed.
 
 M4-20 (PR #133, implementer step done, branch m4/integration-golden): `giapsim.fixtures.build_m4_fixture`
 (sim50k / sim1000 / sim4500, `layout=` kwarg, prophage + AMR planted from the actual gene count),
