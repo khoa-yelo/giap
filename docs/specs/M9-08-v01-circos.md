@@ -113,3 +113,7 @@ sites, `<m>` novel ORFs" when those tables exist). Counts only.
 11. **Novel ORFs with NA `start_longest`** use the called ORF's own `start`/`end`.
 12. **islands.tsv absent:** the island clause is left out of the title.
 13. **genes.tsv with no rows:** the framework empty state, "No genes in this run" (index decision 4(b)).
+13a. (amends 13, 2026-10-22, after 934902e) A genes.tsv with no rows still draws the replicon circle
+   (sectors, ticks, region arcs), titled "0 of 0 genes detected (NA)": the sector layout comes from
+   preflight, and several tests render from a zero-gene fixture. Sector rows carry `value` = replicon
+   length. (Backlog: revisit with M9-16's empty-state rules.)
