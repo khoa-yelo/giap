@@ -158,6 +158,21 @@
     "issue": "M5-06",
     "note": "real implementation; OMP_NUM_THREADS=4; median of three runs in the session allocation (1.79 / 1.94 / 1.39 s). No Slurm batch run: the shared account sat at its 512-CPU QOS limit all day (QOSMaxCpuPerUserLimit)."
   },
+  "islands_calibration_fast": {
+    "source": "docs/specs/M5-07-island-calibration-power.md \"Edge cases\" (fast test < 60 s)",
+    "test": "tests/calibration/test_island_fwer.py::test_fast_fwer_rho05_1000_genes",
+    "R": 50,
+    "n_genes": 1000,
+    "secs": 13.59,
+    "teeth_secs": 27.08,
+    "power_low_structural_zero_secs": 30.64,
+    "node": "barley-02",
+    "slurm_job": 1868182,
+    "commit": "c95ceff",
+    "date": "2026-10-22",
+    "issue": "M5-07",
+    "note": "pytest --durations, -n 4 on the calibration tier of test_island_fwer.py (teeth = test_teeth_iid_bootstrap_fails_the_gate). power_low_structural_zero_secs: tests/calibration/test_island_power.py::test_low_direction_is_a_structural_zero (R = 20, 4,500 genes), job 1868179 on barley-02; 50.1 s in the 8-CPU session allocation."
+  },
   "mapping_steps_chain_100kb_5000_peptides": {
     "benchmark": "benchmarks/test_mapping_steps_bench.py::test_mapping_chain_100kb_5000_peptides_budget",
     "budget_s": 20.0,
