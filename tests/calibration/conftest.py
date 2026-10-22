@@ -75,6 +75,8 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "test_region_tests.py": "regions",
         "test_autocorrelation_calibration.py": "autocorrelation",
         "test_oriter_calibration.py": "islands",
+        "test_operon_fdr_calibration.py": "missed_operons",
+        "test_operon_tdist_calibration.py": "discordance",
         "attacks/test_region_tests_attacks.py": "regions",
         "attacks/test_regions_stats_attacks.py": "regions",
         "attacks/test_attack_bootstrap.py": "regions",

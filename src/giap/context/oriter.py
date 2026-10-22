@@ -94,7 +94,7 @@ CI_LEVEL = 0.95
 DESCRIPTIVE = "descriptive"
 NO_ORIC = "no_oric"
 NOT_ESTIMABLE = "not_estimable"
-_FLOATS = ("lag", "value", "null_mean", "null_lo", "null_hi", "effect", "ci_low", "ci_high",
+_FLOATS = ("value", "null_mean", "null_lo", "null_hi", "effect", "ci_low", "ci_high",
            "p_value", "q_value")  # fmt: skip
 _NA = math.nan
 
@@ -435,9 +435,14 @@ def _replicon_rows(
 
 
 def _frame(rows: Sequence[Mapping[str, Any]]) -> pd.DataFrame:
-    """``AUTOCORR_COLUMNS`` frame with the table's dtypes."""
+    """``AUTOCORR_COLUMNS`` frame with the table's dtypes.
+
+    ``lag`` is the nullable ``Int64`` of the §9.3 schema (always NA here, but an integer column
+    with missing values, so concatenating these rows with the M5-05 ones in
+    :func:`giap.context.tables.autocorrelation_table` keeps the lags integers).
+    """
     df = pd.DataFrame(list(rows), columns=list(AUTOCORR_COLUMNS))
-    df = df.astype({**dict.fromkeys(_FLOATS, "float64"), "n_perm": "int64"})
+    df = df.astype({**dict.fromkeys(_FLOATS, "float64"), "n_perm": "int64", "lag": "Int64"})
     for col in ("contig", "statistic", "null_model", "stat", "method", "flags"):
         df[col] = df[col].astype(object)
     return df

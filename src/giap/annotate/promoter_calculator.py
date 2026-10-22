@@ -16,6 +16,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from giap.annotate.operons import Tu, region_sequence
@@ -113,18 +114,32 @@ def tu_tx_features(
     return df.astype(dtypes)
 
 
+def _tx_gap(up: Gene, down: Gene, L: int) -> tuple[int, int]:
+    """Origin ``lo`` and length ``span`` of the gap in transcription order (across the origin)."""
+    if up.interval.strand == "+":
+        return up.interval.end, _signed(down.interval.start - up.interval.end, L)
+    return up.interval.start - 1, _signed(up.interval.start - down.interval.end, L)
+
+
 def tx_rate_between(up: Gene, down: Gene, tx: pd.DataFrame, replicon: Replicon) -> float | None:
     """Max ``tx_rate`` of TSSs on the pair's strand strictly between ``up``'s 3' end and ``down``'s
     start codon (transcription order, across the origin); ``None`` when there is none."""
+    if _tx_gap(up, down, replicon.length)[1] <= 0:
+        return None
+    sel = tx[(tx["contig"] == replicon.id) & (tx["strand"] == up.interval.strand)]
+    return tx_rate_between_arrays(
+        up, down, sel["tss"].to_numpy(), sel["tx_rate"].to_numpy(), replicon
+    )
+
+
+def tx_rate_between_arrays(
+    up: Gene, down: Gene, tss: np.ndarray, tx_rate: np.ndarray, replicon: Replicon
+) -> float | None:
+    """``tx_rate_between`` on the ``tss`` / ``tx_rate`` arrays of the pair's contig and strand."""
     L = replicon.length
-    strand = up.interval.strand
-    if strand == "+":
-        lo, span = up.interval.end, _signed(down.interval.start - up.interval.end, L)
-    else:
-        lo, span = up.interval.start - 1, _signed(up.interval.start - down.interval.end, L)
+    lo, span = _tx_gap(up, down, L)
     if span <= 0:
         return None
-    sel = tx[(tx["contig"] == replicon.id) & (tx["strand"] == strand)]
-    off = (sel["tss"] - lo) % L if strand == "+" else (lo - sel["tss"]) % L
-    rates = sel["tx_rate"][off < span]
+    off = (tss - lo) % L if up.interval.strand == "+" else (lo - tss) % L
+    rates = tx_rate[off < span]
     return float(rates.max()) if len(rates) else None

@@ -257,10 +257,15 @@ PUBLISHED: dict[str, str] = {"annotation": "annotation", "mapping": "mapping"}
 #: §9.1 published files: work key -> OUT path, the ``key=path`` names the Nextflow subworkflows
 #: give GIAP_STEP (pinned against workflow/ by tests/unit/test_local_publish_names.py)
 PUBLISHED_FILES: dict[str, str] = {
+    "autocorrelation": "tables/autocorrelation.tsv",
     "detectability_summary": "genetable/detection_summary_parts/detectability.parquet",
     "detection_summary": "tables/detection_summary.tsv",
+    "gene_context": "context/gene_context.parquet",
     "gene_table": "genetable/genes.parquet",
     "genes_pre": "genetable/genes_pre.parquet",
+    "genes_tsv": "tables/genes.tsv",
+    "island_diagnostics": "context/island_diagnostics.parquet",
+    "islands": "tables/islands.tsv",
     "regions_stats": "tables/regions_stats.tsv",
     "sensitivity": "tables/sensitivity.tsv",
     "tier_summary": "genetable/detection_summary_parts/tier.parquet",

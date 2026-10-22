@@ -4,11 +4,12 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01FctC7kZEMou2AYwYy1KhJa_
+_Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01FctC7kZEMou2AYwYy1KhJa_
 
 ## Milestone progress
 <!-- progress:start -->
 🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 86/103 done (83 %), 5 running · generated 2026-10-21 15:19 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 89/103 done (86 %), 4 running · generated 2026-10-21 16:29 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -19,6 +20,8 @@ _Last updated: 2026-10-20 16:50 PDT · session https://claude.ai/code/session_01
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨 95 % | 20 | 1 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜ 64 % | 7 | 1 | 3 |
 | M6 Operons | 🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0 % | 0 | 3 | 9 |
+| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
+| M6 Operons | 🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜ 17 % | 2 | 3 | 7 |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
 | M8 Function and determinants | _not designed yet_ | - | - | - |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
@@ -77,6 +80,54 @@ recorded (87 genes, 85 detected at α 0.05). **Open for the lead:** the Nextflow
 ("precomputed regions: … no region_layer") and main_genetable_context.nf.test ("CONTEXT does not");
 aligning annotate.nf needs those nf-tests changed by the test-author first. Fast suite Slurm 1864317:
 8977 passed, 30 skipped, 2 xfailed.
+M5-09 (**PR #138**, implementer step done, 2026-10-21): the two
+tables, the gene context columns and the step extension. New `giap.io.context_tsv` (writers by value
+through M1-04 `write_tsv`, readers typed from the schema; islands 1-based closed with `end` kept
+unwrapped), `giap.context.vocab.CONTEXT_FLAGS` (no `uncalibrated`), `giap.context.diagnostics`
+(lead decision 1: l-hat / l' / lag-1 Moran's I as NA-never-0, `render_l_hat`,
+`calibration_applies`), `giap.context.tables` (the spec's row assembly), the two Frictionless
+schemas, and `context_stats` gaining C15 `features` (run flag `layer_missing:features`) and the
+outputs `autocorrelation`, `islands`, `gene_context`, `island_diagnostics` and `genes_tsv`
+(lead decision 3). `giap.context.oriter` now emits `lag` as the schema's nullable `Int64`, so the
+concatenated table keeps integer lags. `giap.steps.registry` gained `optional_outputs` so the new
+keys could be declared without rewiring M4-18's registry-path callers (backlog: no unit test yet).
+CONTEXT publishes `tables/autocorrelation.tsv`, `tables/islands.tsv` and `tables/genes.tsv` and
+takes C15 from the annotation channel's second file, so no 11th `take:` was needed; nf-test
+context + main + main_genetable_context all pass (stub). Plus docs/methods/context_tables.md.
+
+Fast suite **9062 passed, 29 skipped, 1 xfailed, 0 failed** (Slurm 1863848, 11:37) after lead
+decisions 6-8 closed the two test bugs the first run exposed (Slurm 1863383: 9053 passed,
+9 failed, coverage 96 %; CI run 39666907909 had the same 9 and nothing else, with `guards`,
+`lint`, `nf-test-stub` and `summary` green). Decision 6 (**Khoa authorised the merged-code
+change**): §9.2 makes the test column `stat` an enum of statistic *names*, which `regions_stats`
+and `autocorrelation` both follow, so M5-06's float `stat` (a copy of `scan_s`) was the slip —
+`giap.context.islands.STAT = "scan_max"` now, `scan_s` keeps the value, the islands schema field
+is a `string` enum, and the one merged oracle (`tests/unit/context/test_islands.py:134`) asserts
+the name. Decision 7: `context_tables_data.flag_set` now reads the `NA` cell of a flagless row as
+empty (it contradicted `test_empty_flags_are_na` in the same file), and `ISLAND_FLOATS` drops
+`stat`. Decision 8 accepted the two out-of-surface changes (`oriter`'s nullable `Int64` `lag`,
+`registry.optional_outputs`; the latter's missing unit test stays filed in docs/backlog.md).
+Gated code lines 787 of 800 — above the 400 warn line, left as is (lead).
+
+M5-09 (branch `m5/context-tables`, **test-author step done**, 2026-10-21): failing tests for
+`autocorrelation.tsv`, `islands.tsv`, the gene context columns and the `context_stats` extension —
+140 failed, 5 passed (the 5 are invariant guards that already hold: the genes.tsv context group in the
+schema and the M4 tables' determinism). New: `tests/unit/io/test_context_tsv.py`,
+`tests/unit/context/test_vocab.py`, `tests/unit/context/test_island_diagnostics.py`,
+`tests/property/test_context_tsv_props.py`, `tests/integration/test_context_stats_m5.py`,
+`tests/helpers/context_tables_data.py`. Interfaces assumed where none is merged: M5-08's `oriter_rows`
+/ `gene_replichores` as PR #132 has them; M4-20's `build_m4_fixture` replaced by the M4-18 fixture plus
+an oriC and a planted island. **Needs a lead decision:** where ADR-0021 Amendment 1's per-replicon
+l-hat / l' / lag-1 Moran's I live — **decided**: `giap.context.diagnostics` and
+`work/context/island_diagnostics.parquet`, because `IslandScan` dies with the step and the §9.4 run
+report does not exist yet (M5-09 lead decisions 1-5, 2026-10-21).
+M6-04 (PR #143, branch `m6/pair-table`, implementer step done): `giap.operons.pairs` — the adjacent
+chain (M2 `adjacent_pairs(same_strand=False)`; a 2-gene ring has one pair), SW decoys, OP/NO/CV/DV
+classes, strand-aware orientation, `rna_between`, per-gene joins and threshold-independent `PAIR_<n>`
+ids. Evidence reuses the M2-13/14/15 helpers via per-run indexes (`promoter_between_tracks`,
+`tx_rate_between_arrays`, start-sorted terminator prefilter). Fast suite 8952 passed (Slurm 1864209);
+baseline `pair_frame_4500_genes` = 0.41 s of a 3 s budget (wheat-08, 1 CPU, Slurm 1864210). Lead decisions after the test-author appended to
+the spec.
 
 M4-20 (PR #133, implementer step done, branch m4/integration-golden): `giapsim.fixtures.build_m4_fixture`
 (sim50k / sim1000 / sim4500, `layout=` kwarg, prophage + AMR planted from the actual gene count),
@@ -105,7 +156,7 @@ M5-08 (#132, implementer step done): `giap.context.oriter` — oriC resolution (
 three descriptive OLS slopes with a circular block-bootstrap CI; block length clamped per fit with that
 fit's own T (lead decision 1 of 2026-10-21), ℓ̂ once per replicon from the pooled residuals. Unit +
 property tests 42 passed, module coverage 97 %; fast suite **8872 passed, 29 skipped** (Slurm 1863080,
-6:37); the recorded fast coverage arm (example 7, 2 log2, ρ 0.5, R = 50) **coverage 0.96, estimable 1.00,
+6:37); the recorded fast coverage arm (example 7, 2 log2, ρ 0.5, R = 50) **coverage 0.96 at R = 50 — corrected to 0.943 at R = 300, Slurm 1863166; the 0.96 was a fluctuation**, estimable 1.00,
 mean CI width 1.11** (Slurm 1863081, 27 s) — the test-author's 0.96 reproduced. Plus
 docs/methods/oriter.md. `features` stays a plain parameter; the step plumbing is M5-09's.
 M5-06 (**PR #131**, implementer step done, 2026-10-21): `giap.context.islands` on the merged M5-01/02/03
@@ -121,9 +172,35 @@ Benchmark baseline `islands_4500_genes_b1000` = 1.79 s of a 20 s budget (4,500 g
 B = 1,000 + 1,000). **No Slurm run**: the shared account sat at its 512-CPU QOS cap all day
 (`QOSMaxCpuPerUserLimit`, 32 × 16-CPU non-GIAP `n1170_tools` array), so jobs 1863043/1863044 never
 started and were cancelled; CI covers the fast suite, the fast calibration tier and the coverage gate.
+M5-06 post-merge fix (branch `fix/islands-origin`, 2026-10-21): `tu_series` now orders TUs by C5
+(`start`, `tu_id`) as spec step 2 says, so an origin-crossing TU sorts last and islands get
+0 <= start < L, start < end <= start + L (the review repro gave ISL_2 78500-160800 on 80,200 bp; now
+78500-80600). Code only (implementer); no output change for non-crossing TUs. Fast suite on Slurm
+job 1864132: 8917 passed; islands fast calibration job 1864133: 28 passed. The oracle update and the
+regression tests (two origin-crossing windows, props bounds) are a separate test-side change for the
+lead/test-author.
 Open for review: the M5-06 section of `docs/methods/islands.md` (bootstrap null, genome-wide family,
 Amendment 1's validity domain, the low-direction ceiling, effect CI, degenerate cases) is not written
 yet — `docs/methods/` is the statistician's.
+
+M6-01 (branch `m6/stats-pairfdr`, implementer step done, 2026-10-21): `giap.stats.tdist`
+(`StudentT`, `fit_student_t`, `student_t_two_sided`) and `giap.stats.decoy_fdr` (`bin_index`,
+`reweighted_fdr`, `max_decoy_fdr`, `local_fdr`) under lead decisions 1–8 and 11 — maximum over the
+decoy sets first then `tda.monotone_q`, the empty-set skip only in `max_decoy_fdr`, `lfdr` the same
+"larger wins" rule with the per-bin weights, scipy `gaussian_kde(bw_method="silverman")` from the
+unweighted samples, and `_reflected_density` / `_lfdr_densities` exposed so the reflection at 0 can be
+tested (it cancels in the ratio). Unit 66 passed; fast suite **8991 passed, 30 skipped** (Slurm
+1863842, 13:00; rerun 1863964); operon calibration fast **and** `calibration_full` arms 18 passed in
+32 s (Slurm 1863857). Benchmark baseline `decoy_fdr_50k_targets_2_decoy_sets_5_bins` = **0.15 s of a
+2 s budget** (50,000 targets × 2 decoy sets × 5 bins, wheat-05, Slurm 1863858); the lfdr KDEs use
+linear binning + one convolution (h/40 grid, 1e-4 relative) because scipy's exact `gaussian_kde` at
+50,000 × 50,000 is minutes. **Decision 9 (power) measured and confirmed**: 1,200 targets, 1,200 decoys
+per set, 20 replicates, planted share 20/40 % — at planted sd 0.10–1.00 against null sd 1.0 the engine
+calls **nothing** at q ≤ 0.1 (min q 0.19–0.92); only sd 0.02 calls (50/500 calls, power 0.19/0.98).
+The floor is structural: the per-bin +1 is one phantom decoy per bin, so the smallest reachable FDR is
+≈ Σ_b N_NO,b/(N_decoy,b+1) / k ≈ B·N_target/N_decoy/k, i.e. with 5 bins and equal-sized decoy sets
+~50 targets must sit above every decoy before q can reach 0.1. `docs/methods/operons.md` and the
+target-decoy §"Convergent and sandwich decoys" are still owed (statistician).
 
 ADRs accepted today by Khoa: ADR-0019 (stratum-0 π̂ per length class, Clopper–Pearson upper bound, no PEP),
 ADR-0020 (autocorrelation: re-detrend per permutation, residual join count, CI NA) **+ Amendment 1**
