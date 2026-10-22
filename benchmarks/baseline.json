@@ -222,6 +222,25 @@
     "date": "2026-10-21",
     "issue": "M6-04"
   },
+  "fgsea_simple_2500_tus_1500_sets_1000_perms": {
+    "benchmark": "benchmarks/test_fgsea_bench.py::test_fgsea_simple_2500_tus_1500_sets_1000_perms_budget",
+    "source": "docs/specs/M8-02-stats-fgsea-simple.md acceptance (2,500 TUs x 1,500 sets x 1,000 permutations < 20 s on 4 CPUs)",
+    "n_tus": 2500,
+    "n_sets": 1500,
+    "set_sizes": "uniform [10, 500], max 500",
+    "n_perm": 1000,
+    "budget_s": 20.0,
+    "secs": 0.612,
+    "cpus": 4,
+    "numba_threads": 4,
+    "node": "wheat-01",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "slurm_job": 1864798,
+    "commit": "M8-02 implementation commit (measured on e83a747 plus the uncommitted implementation)",
+    "date": "2026-10-21",
+    "issue": "M8-02",
+    "note": "one round after a warm-up call that compiles the numba kernels; observed ES and random draws included"
+  },
   "align_hits_100k_tolerant": {
     "benchmark": "benchmarks/test_align_bench.py::test_align_hits_100k_tolerant_budget",
     "source": "docs/specs/M7-01-residue-alignment.md acceptance (100,000 tolerant hits < 30 s, 1 CPU)",
