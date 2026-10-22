@@ -28,7 +28,7 @@ from giap.determinants.features import model_matrix
 from giap.stats import bootstrap
 
 __all__ = ["MIN_ROWS", "MIN_TUS", "TABLE_COLUMNS", "CvResult", "cross_validate", "enough_data",
-           "model_rows", "model_rows_table", "tu_folds", "univariate"]  # fmt: skip
+           "model_rows", "model_rows_table", "refit_r2", "tu_folds", "univariate"]  # fmt: skip
 
 F64 = npt.NDArray[np.float64]
 I64 = npt.NDArray[np.int64]
@@ -243,6 +243,33 @@ def _repeated_oof(
     return pred, boosters, dropped
 
 
+def _canonical(
+    X: pd.DataFrame, y: F64, folds: I64, tu: Sequence[str] | None
+) -> tuple[I64, F64, F64, I64, npt.NDArray[Any]]:
+    """Rows sorted by ``X.index`` (row order is canonicalised): order, X, y, folds, groups."""
+    order = np.asarray(X.index.argsort(kind="stable"), dtype=np.int64)
+    Xs = X.to_numpy(dtype=float)[order]
+    ys = np.asarray(y, dtype=float)[order]
+    fs = np.asarray(folds, dtype=np.int64)[:, order]
+    groups = np.arange(len(ys)) if tu is None else np.asarray(tu, dtype=str)[order]
+    return order, Xs, ys, fs, groups
+
+
+def refit_r2(
+    model: ModelName, X: pd.DataFrame, y: F64, folds: I64, cfg: DeterminantsConfig, seed: int,
+    threads: int, *, tu: Sequence[str] | None = None,
+) -> F64:  # fmt: skip
+    """Per-repeat pooled out-of-fold R² of one model on every column: the full-model fit of
+    ``cross_validate`` (same seeds, same ordering) without the ΔR² refits (the M8-09 null)."""
+    _, Xs, ys, fs, groups = _canonical(X, y, folds, tu)
+    if ys.size == 0 or np.ptp(ys) == 0:
+        return np.full(fs.shape[0], math.nan)
+    names = [str(c) for c in X.columns]
+    everything = np.ones(len(names), dtype=bool)
+    pred, _, _ = _repeated_oof(model, Xs, ys, fs, groups, everything, names, cfg, seed, threads)
+    return np.array([_r2(ys, pred[r]) for r in range(fs.shape[0])])
+
+
 def cross_validate(
     X: pd.DataFrame, y: F64, folds: I64, blocks: Mapping[str, str], cfg: DeterminantsConfig,
     seed: int, threads: int, *, tu: Sequence[str] | None = None,
@@ -252,12 +279,8 @@ def cross_validate(
 
     ``tu`` (the TU ID per row) groups the elastic net's inner ``GroupKFold``; without it every row
     is its own group. Constant y -> R² and ΔR² NaN (unestimated)."""
-    order = np.asarray(X.index.argsort(kind="stable"))
-    Xs = X.to_numpy(dtype=float)[order]
-    ys = np.asarray(y, dtype=float)[order]
+    order, Xs, ys, fs, groups = _canonical(X, y, folds, tu)
     folds = np.asarray(folds, dtype=np.int64)
-    fs = folds[:, order]
-    groups = np.arange(len(ys)) if tu is None else np.asarray(tu, dtype=str)[order]
     names = [str(c) for c in X.columns]
     col_block = [blocks.get(c) for c in names]
     present = list(dict.fromkeys(b for b in col_block if b is not None))
