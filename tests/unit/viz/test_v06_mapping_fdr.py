@@ -70,7 +70,10 @@ COLUMNS = [
     "ci_high",
     "flags",
 ]
-EX4_TITLE = "Placement FDR ≤ 0.01 in strata 0; 920 FDR-tested placements accepted; stratum 2 unestimated (no targets)"
+EX4_TITLE = (
+    "Placement FDR ≤ 0.01 in strata 0; 920 FDR-tested placements accepted; "
+    "stratum 2 unestimated (no targets)"
+)
 #: per-class counts consistent with example 4 (example 5 is class 7, m = 0)
 EX4_CLASSES = {("7", 0): (5, 0), ("12-14", 0): (895, 3), ("15-19", 1): (120, 2)}
 EX6_DENOVO = [
@@ -467,7 +470,8 @@ def test_property_title_lists_exactly_the_strata_at_or_below_alpha(
     total = sum(totals[m][3] for m in STRATA)
     if listed:
         assert inst.title.startswith(
-            f"Placement FDR ≤ {alpha:g} in strata {', '.join(listed)}; {total} FDR-tested placements accepted"
+            f"Placement FDR ≤ {alpha:g} in strata {', '.join(listed)}; "
+            f"{total} FDR-tested placements accepted"
         )
     na = [m for m, f in zip(STRATA, fdrs, strict=True) if f is None]
     if na:
