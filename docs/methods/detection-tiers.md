@@ -52,6 +52,9 @@ The better one is kept; a tie goes to the decoy. With f the paired share,
 FDR(t) = (D(t)/f + 1) / T(t), made monotone. Decoy winners and genes without accepted
 peptides get q NA (`not_detected`). `detection_summary.tsv` reports f (`decoy_paired_share`) and 1/f
 (`decoy_win_weight`).
+It also reports the floor 1/T (`q_floor`, T = genes won by a target): no picked q can be smaller.
+When `q_floor` > `stats.alpha.identification` the genome is too small for that alpha and the run
+warns `q_floor_above_alpha`; q-values and detection calls are reported unchanged (Khoa, 2026-10-22).
 
 ## MAYU tier
 `giap.stats.mayu.mayu_gene_fdr` (see mayu-gene-fdr.md) on eligible genes, with sizes
