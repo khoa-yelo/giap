@@ -412,6 +412,13 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - the manifest `no_peptides` entry;
   - the real sim100k `giap_run.sbatch` run;
   - the step benchmark.
+
+## M7-05 review nits (#175, one-round MVP review)
+- Test a minus-strand CDS crossing the origin for `start_codon` (the `first %= rep.length` mutant survived).
+- M7-16: decide `stop_codon` and `mass_equivalent` for blocks and swaps whose REF contains `*`.
+- The §9.4 flag order is defined twice (`flags.FLAG_ORDER` and `vcf_records._FLAG_ORDER`); derive one from the other.
+- `site_flags` rebuilds `start_codons` per call; point bulk callers to `flags_for` in its docstring.
+- The FLAGS INFO description in vcf_records.py and variants.nf has no sync test (only the IDs are compared).
 - MVP real run on 813 genes (Slurm 1865149, validation): operon tests now run (515 t, 102 decoy), but:
   - detection is saturated: 804/813 genes are detected, `p_detect` is the constant 0.989 fallback, and picked FDR q = 1/804 for all. The giapsim real-run scenario needs decoys with null scores (the earlier item) and lower peptide coverage;
   - Promoter Calculator runs one Nextflow task per TU (288 tasks for 0.9 Mb); batch it;
@@ -546,3 +553,18 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M4: should `detection_summary` carry a region-**type** O − E row (§10.2 V7 lists region types; no table has them)?
 - UpSetPlot 0.9.0 fails on pandas 3.0.6 (`Invalid RGBA argument: nan`); V16 uses the custom matplotlib fallback (§10.2).
 - M8-17 (ADR-0038 item 1): BioContainers image for the fgsea env under apptainer profiles — deferred; conda-only for now (lead decision 9).
+
+## M9-01 (style and plot framework), owed
+- `RunView.table` leaves list columns (`genes`, `flags`, …) as `;`-joined strings (lead decision 2, 2026-10-22). Split them on `;` (ADR-0006) once the schemas mark which string columns are lists; until then each plot splits what it draws.
+
+## M9-01 review nits (#191; one round, B1–B4 fixed in the PR)
+- `test_figures_are_closed_after_writing` and the Agg-backend test are vacuous (Figure.number is always None; Agg passes without `matplotlib.use`).
+- Origin-crossing BED features come back as `_part1` / `_part2`, not rejoined to end > length.
+- `tus.tsv` / `regions.tsv` are read untyped beyond the coordinate columns; a header-only file gives `object` columns.
+- The `work/resolved_config.yaml` fallback applies only in `from_outdir`.
+- `COG_SUPER` grouping: cite the NCBI source of the super-category grouping (fun-20 group order).
+- `normalise_ids("")` returns `[]`: decide whether an empty `--plots` is an error.
+- `PATHS` lacks `mappings.bed`, `genes.gff3`, `operon_pairs.tsv`, `regions.bed`; add `codon_start` (pileup, variants) to `ONE_BASED_STARTS` when those keys exist.
+- Example 10 runs only on FarmShare; the colour cycle leaves out black and grey (spec wording).
+- `read_tsv` now treats an empty cell as missing in genes.tsv too (matches `giap.io.genes_tsv`).
+- Mutation evidence: $GIAP_ROOT/review/pr191-mut/ (22/25 killed, 1 equivalent).

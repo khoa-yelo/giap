@@ -1,0 +1,28 @@
+# NCBI COG 2020 functional categories, letters and descriptions from https://ftp.ncbi.nlm.nih.gov/pub/COG/COG2020/data/fun-20.tab (retrieved 2026-10-22, sha256 fbdce778220f07a6f9701b2bde07fbcb1d3fca9fa7453fa9ab7021b5da18c4f7); public domain (US government work). super_category: the four NCBI COG groups (GIAP M9-index decision 8).
+letter	super_category	description
+J	information	Translation, ribosomal structure and biogenesis
+A	information	RNA processing and modification
+K	information	Transcription
+L	information	Replication, recombination and repair
+B	information	Chromatin structure and dynamics
+D	cellular	Cell cycle control, cell division, chromosome partitioning
+Y	cellular	Nuclear structure
+V	cellular	Defense mechanisms
+T	cellular	Signal transduction mechanisms
+M	cellular	Cell wall/membrane/envelope biogenesis
+N	cellular	Cell motility
+Z	cellular	Cytoskeleton
+W	cellular	Extracellular structures
+U	cellular	Intracellular trafficking, secretion, and vesicular transport
+O	cellular	Posttranslational modification, protein turnover, chaperones
+X	cellular	Mobilome: prophages, transposons
+C	metabolism	Energy production and conversion
+G	metabolism	Carbohydrate transport and metabolism
+E	metabolism	Amino acid transport and metabolism
+F	metabolism	Nucleotide transport and metabolism
+H	metabolism	Coenzyme transport and metabolism
+I	metabolism	Lipid transport and metabolism
+P	metabolism	Inorganic ion transport and metabolism
+Q	metabolism	Secondary metabolites biosynthesis, transport and catabolism
+R	poorly	General function prediction only
+S	poorly	Function unknown
