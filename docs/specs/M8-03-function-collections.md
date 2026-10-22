@@ -133,3 +133,30 @@ part_of `GO:B1`; `GO:0003674` (MF root) ← `GO:M1`.
    where they survive the 500 cap, dominate BH.
 3. GO slim: one mixed-namespace collection (as §7.7.4 lists "GO slim") with classic tests only?
    **Proposed default:** yes.
+
+## Lead decisions
+
+1. **Questions 1–3:** the proposed defaults are accepted.
+   - Propagate over `is_a` + `part_of`.
+   - Drop the `path:ko` duplicate rows and the overview maps (map011xx/map012xx).
+   - GO slim is one mixed-namespace collection, tested with classic tests only.
+2. **The test author's choices** (commit f850ba6) are accepted as the contract.
+   - **Output order:** `cog, kegg, go_bp, go_mf, go_cc, go_slim`. Set keys are sorted.
+   - **Empty sets** are left out, so every set is a non-empty frozenset.
+   - **No eligible gene:** all six collections are returned empty, with coverage NaN. When the function columns are absent, coverage is 0.0.
+   - **`n_unknown_ids`:** the largest value across go_bp/mf/cc equals the number of dropped GO IDs. The implementer may put the count in each namespace.
+   - **`parents`:** a term's direct non-root `is_a`/`part_of` parents. Only GO terms have them, so `parents` is empty for go_slim, kegg and cog.
+   - **Slim membership** uses the full propagation.
+   - **KEGG keys** are bare `mapNNNNN` IDs. A pathway with no name row is kept, and its name is NA.
+   - **Run flags:** an exact word, or `word: msg`.
+     - Missing GO gives `layer_missing:go` and drops all four GO collections.
+     - A missing slim alone drops go_slim only.
+     - `bakta_db_light` is raised from `annotation_source == bakta_light`.
+   - **Inputs:** numpy-array list cells behave like lists. Inputs are never mutated.
+3. **Owed to pass 2:** the contract test on the installed resources (it needs a `needs_go_db` marker) and the < 10 s performance test.
+4. **After the code review (#159):**
+   - The overview-map exclusion also covers map01310 and map01320, KEGG's full "Global and overview maps" group (ADR-0023).
+   - "Excluded and counted" becomes "excluded and documented": there is no count field in pass 1.
+   - The methods section is docs/methods/function-collections.md, a separate file so it doesn't collide with the M8-01 `function.md`.
+   - The implementer's choices 1–7 are accepted.
+
