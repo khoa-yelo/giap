@@ -164,3 +164,11 @@ oracle of the exhaustive table rather than trusting this table.
    - **GT with several ALTs and no REF:** the index of the best-supported allele, or `.` on a tie.
    - **FILTER:** every record is `PASS`; `CONF` carries high/candidate.
 2. **From the M7-02 review (#158):** replace the pileup's internal `_ref_codon`/`_alts` columns and its `attrs` channel with an explicit structure: a frozen `Pileup` result, or a `frameshifts=` argument to `sites`. Then no writer can leak `_` columns or silently lose frameshift sites. This is the implementer's call within this issue, and M7-02's tests must keep passing. Settle the frameshift `alt_aa` and `ref_codon` here (M7-02 left placeholders).
+3. **The test author's choices** (commit 3321beb) are accepted as the contract.
+   - **`vcf_records`** returns `(records, table)`, with the table row-aligned to `sites` plus `nt_changes`, `alt_codon_vcf` and `flags`.
+   - **Inputs from M7-05:** its flags and `class_error_rate` arrive as optional `sites` columns. A flag outside the vocabulary raises.
+   - **Two-codon events:** POS is the lower codon. A two-codon REF that crosses the origin is `vcf_unrepresentable`.
+   - **The M1-05 `write_vcf`** rejects `sample == "auto"`. This is a small change to the merged writer, and it is in scope.
+   - **`read_variants`** is the writer's exact inverse.
+   - **The datapackage:** `src/giap/schemas/datapackage.json` is created here with the `pileup` and `variants` resources. Later tables add themselves to it.
+   - **Multi-allele `FLAGS`:** combined in a way the implementer chooses, sorted and deduplicated.
