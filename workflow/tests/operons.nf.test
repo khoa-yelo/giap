@@ -51,7 +51,7 @@ nextflow_workflow {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
             def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
             def work = workDir.toString()
-            def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '') }
+            def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
             def byTag = { String s -> H.taskDirs(work).findAll { d -> H.tagOf(nameOf(d)) == s } }
             def ran = { String s -> H.names(workflow.trace).count { H.tagOf(it) == s } }
             assert workflow.success
@@ -121,7 +121,7 @@ nextflow_workflow {
             assert ran('operons') == 1 : "operons ran ${ran('operons')}x; tasks: ${H.names(workflow.trace)}"
             def probs = H.registryProblems(work, REG)
             assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
-            def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '') }
+            def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
             def d = H.taskDirs(work).find { H.tagOf(nameOf(it)) == 'operons' }
             def keys = H.stepInputs(d).collect { it[0] }
             assert keys.toSet() == ['gene_table', 'genes', 'replicons', 'tus', 'pairs_raw', 'features'].toSet() : "operons inputs ${keys}"
