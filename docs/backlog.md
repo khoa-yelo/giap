@@ -616,3 +616,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
     - N8, the reviewer's alluvial geometry check (scratchpad geom.py) should become a test.
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
+
+## M5-11 (statistician, hardening)
+- Island power under giapsim's default `covariates_only` detection: no island at +3/+5/+10 SD on 1,000 genes (ℓ̂ = 1, ℓ' = 3; ~45 % censored regardless of abundance, rank scores saturate). The M5-11 golden uses sim4500 with `detection="abundance"`; decide whether the power table should report the covariates-only regime.

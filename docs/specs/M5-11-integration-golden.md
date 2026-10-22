@@ -59,3 +59,19 @@ grid (M5-07) run as `giap-` jobs; nothing heavy in the session allocation
 ## Lead decisions (2026-10-20, after the statistician's attack check)
 
 39. Q1, Q2: accept; check the `sim1000_island` golden (+3 SD, 20 TUs) against ℓ' before freezing it.
+
+## Lead decisions on the tests (2026-10-22, after fc34e31)
+40. **Island golden.** Decision 39's `sim1000_island` reports no island under giapsim's default
+    `covariates_only` detection (even at +10 SD; ~45 % of genes censored regardless of abundance, the
+    ADR-0018 lesson) and is marginal under `detection="abundance"` (FWER p ≥ 0.035). The golden is
+    `sim4500_island` (oriC 0.8, one +3 SD island of 20 TUs, `detection="abundance"`), where the planted
+    island is found at every seed tried (FWER p 0.003–0.008, ℓ' 9–13 < 20 TUs). `sim1000_island` stays in
+    `tests/helpers/m5_chain.py` for reference. Backlog (statistician, hardening): island power under
+    `covariates_only` detection.
+41. **oriC default.** As the spec's interface says, `build_m4_fixture(oric_frac=0.8)` by default, so
+    sim50k gets an oriC; the implementer regenerates `tests/data/golden/sim50k/m4/genes.tsv` (only the
+    replichore columns change) and any existing test that pinned NA replichores on a default fixture
+    is reported to the lead. The `oric_frac` keyword wins over a `layout={"oric_frac": …}` pass-through.
+42. `expression=` (ExpressionConfig pass-through, as `layout=`) is accepted as an interface addition.
+43. The benchmark times the whole `context_stats` step (the M5 part has no public entry point); the
+    120 s budget holds a fortiori.
