@@ -210,6 +210,8 @@ workflow ANNOTATE {
     def cl = stepIn('context_layers', core + layers + [kv('genome', genome)])
     CONTEXT_LAYERS(cl.files, cl.keys, ['layers=layers.parquet', 'annotation=annotation'])
     def layers_pq = pick(CONTEXT_LAYERS.out.outputs, 'layers.parquet')
+    // every [key, path] layer pair, for the second round (NOVEL: promoter_windows, terminators)
+    def all_layers = layers.inject(channel.empty()) { acc, c -> acc.mix(c) }
     // The M4-06 contract tables the gene table and the context statistics read, beside the
     // gene model: C3 xrefs / C4 annotation_meta (parse_bakta), C5 tus (operon_pairs),
     // C6 layers (context_layers); C7/C8 (region_layer) travel separately.
@@ -220,5 +222,6 @@ workflow ANNOTATE {
     gene_model = pick(P, 'genes.parquet').combine(pick(P, 'features.parquet')).combine(pick(P, 'replicons.parquet'))
     contract   = m4                 // [xrefs, annotation_meta, tus, layers] (MVP-01)
     regions    = c7.combine(c8)     // [regions, region_genes] from region_layer
+    layer_pairs = all_layers     // [key, path] of every layer (M7-08 NOVEL)
     layers_for_pairs = forPairs.inject(channel.empty()) { acc, c -> acc.mix(c) }  // [key, path] (M6-08)
 }
