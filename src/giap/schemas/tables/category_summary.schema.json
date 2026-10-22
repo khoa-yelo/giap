@@ -1,0 +1,20 @@
+{
+  "name": "category_summary",
+  "description": "Observed minus expected detected genes per functional category of the cog, kegg and go_slim collections, with a TU block-bootstrap CI (GIAP_SPEC.md §7.7.5, §9.3; M8-03, M8-06). The table has no coordinate fields.",
+  "coordinates": "1-based-closed",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "collection", "type": "string", "description": "Collection of the category", "constraints": {"required": true, "enum": ["cog", "kegg", "go_slim"]}},
+    {"name": "category", "type": "string", "description": "Category ID (COG letter, KEGG map ID or GO slim term)", "constraints": {"required": true}},
+    {"name": "name", "type": "string", "description": "Human-readable category name; NA when the resource has none"},
+    {"name": "n_genes", "type": "integer", "description": "Eligible genes in the category", "constraints": {"required": true, "minimum": 0}},
+    {"name": "n_detected", "type": "integer", "description": "Detected eligible genes in the category", "constraints": {"required": true, "minimum": 0}},
+    {"name": "expected", "type": "number", "description": "Expected detected genes: the sum of p_detect over the category's eligible genes", "constraints": {"minimum": 0}},
+    {"name": "o_minus_e", "type": "number", "description": "n_detected minus expected"},
+    {"name": "ci_low", "type": "number", "description": "Lower TU block-bootstrap CI bound of o_minus_e; NA with ci_few_units"},
+    {"name": "ci_high", "type": "number", "description": "Upper TU block-bootstrap CI bound of o_minus_e; NA with ci_few_units"},
+    {"name": "median_abundance_log2", "type": "number", "description": "Median log2 abundance of the category's detected genes; NA without abundance"},
+    {"name": "coverage", "type": "number", "description": "Share of eligible genes with at least one category of this collection", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "flags", "type": "string", "description": "Semicolon-joined row flags (ci_few_units: fewer than 10 TUs, no CI); an ADR-A extension of §9.3 (M8-06 lead decision 2)", "constraints": {"pattern": "(?:ci_few_units)(?:;(?:ci_few_units))*"}}
+  ]
+}

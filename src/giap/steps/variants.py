@@ -28,6 +28,7 @@ from giap.model.genes import GeneModel
 from giap.steps.mapping import _path, read_gene_model, resolve_search_db
 from giap.steps.registry import StepContext, step
 from giap.variants.align import align_hits
+from giap.variants.flags import flags_for, start_codons
 from giap.variants.pileup import Support, eligible, pileup, sites
 from giap.variants.vcf_records import FORMAT_FIELDS, INFO_FIELDS, vcf_records
 
@@ -78,11 +79,18 @@ def run_variants(
     cfg: GiapConfig,
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[VcfRecord]]:
     """Rule 2's chain: the pileup (with its ``attrs``), the ``variants.tsv`` frame and the VCF
-    records. ``peptide_hits`` is 0-based half-open with ``;``-joined ``diff_types``. Pure."""
+    records. ``peptide_hits`` is 0-based half-open with ``;``-joined ``diff_types``. Each site
+    carries its M7-05 flags; they never change a call, confidence or count. Pure."""
     support = support_of(peptide_hits, peptides, {g.locus_tag for g in gm.genes})
     aligns = align_hits(peptide_hits, hits_tolerant, genome, gm.replicons)
     pile = pileup(eligible(aligns, support, cfg), gm, genome, cfg, support=support)
-    records, table = vcf_records(sites(pile, cfg), pile, genome, gm.replicons)
+    st = sites(pile, cfg)
+    starts = start_codons(gm)
+    st["flags"] = [
+        tuple(flags_for(r, starts, cfg, {(support[p].source, support[p].search_db) for p in peps}))
+        for r, peps in zip(st.to_dict("records"), st.attrs["alt_peptides"], strict=True)
+    ]
+    records, table = vcf_records(st, pile, genome, gm.replicons)
     return pile, table, records
 
 

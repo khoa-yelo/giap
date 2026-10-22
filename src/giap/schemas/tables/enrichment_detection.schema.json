@@ -1,0 +1,33 @@
+{
+  "name": "enrichment_detection",
+  "description": "TU-level detection enrichment (over- and under-detection) per term under the conditional Poisson-binomial null, with GO elim (GIAP_SPEC.md §7.7.3, §9.3; ADR-0029, ADR-0035; M8-04, M8-06). The table has no coordinate fields.",
+  "coordinates": "1-based-closed",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "collection", "type": "string", "description": "Collection of the term", "constraints": {"required": true, "enum": ["cog", "kegg", "go_bp", "go_mf", "go_cc", "go_slim"]}},
+    {"name": "term", "type": "string", "description": "Term ID", "constraints": {"required": true}},
+    {"name": "name", "type": "string", "description": "Human-readable term name; NA when the resource has none"},
+    {"name": "direction", "type": "string", "description": "Tested direction", "constraints": {"required": true, "enum": ["over", "under"]}},
+    {"name": "n_universe", "type": "integer", "description": "Universe size, in TUs (TUs with an eligible gene)", "constraints": {"required": true, "minimum": 0}},
+    {"name": "n_in_set", "type": "integer", "description": "Term size, in TUs (universe TUs with a member gene; before elim)", "constraints": {"required": true, "minimum": 0}},
+    {"name": "n_detected", "type": "integer", "description": "Detected universe members, in TUs", "constraints": {"required": true, "minimum": 0}},
+    {"name": "k_detected_in_set", "type": "integer", "description": "Detected members of the term, in TUs (before elim)", "constraints": {"required": true, "minimum": 0}},
+    {"name": "n_in_set_genes", "type": "integer", "description": "Eligible genes in the term (M8-04 decision 3)", "constraints": {"required": true, "minimum": 0}},
+    {"name": "k_detected_in_set_genes", "type": "integer", "description": "Detected eligible genes in the term (M8-04 decision 3)", "constraints": {"required": true, "minimum": 0}},
+    {"name": "odds_weight", "type": "number", "description": "Gene-level odds weight of the classic comparison test; NA when unestimated"},
+    {"name": "p_classic", "type": "number", "description": "Gene-level classic p-value (comparison only)", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "p_noelim", "type": "number", "description": "TU-level p-value on the full term, before elim (M8-04 decision 3)", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "parent_group", "type": "string", "description": "Most general significant ancestor (by depth, then ID) of a significant GO term, or the term itself; NA otherwise"},
+    {"name": "coverage", "type": "number", "description": "Share of eligible genes with at least one term of this collection", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "stat", "type": "number", "description": "Test statistic: k_detected_in_set"},
+    {"name": "effect", "type": "number", "description": "Effect estimate: detected TUs of the tested set minus their expectation under the null"},
+    {"name": "ci_low", "type": "number", "description": "Lower CI bound; NA when not estimated (ci_unestimated)"},
+    {"name": "ci_high", "type": "number", "description": "Upper CI bound; NA when not estimated (ci_unestimated)"},
+    {"name": "p_value", "type": "number", "description": "One-sided TU-level p-value (after elim for GO over-detection rows)", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "q_value", "type": "number", "description": "BH q-value within the collection and direction", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "method", "type": "string", "description": "Method", "constraints": {"required": true, "enum": ["cpb_tu_ora"]}},
+    {"name": "null_model", "type": "string", "description": "Null model", "constraints": {"required": true, "enum": ["conditional_poisson_binomial_tu"]}},
+    {"name": "n_perm", "type": "integer", "description": "Permutations behind the p-value: 0 (exact null)", "constraints": {"required": true, "minimum": 0, "maximum": 0}},
+    {"name": "flags", "type": "string", "description": "Semicolon-joined row flags; tu_recal_skipped marks every row of a run whose TU recalibration was skipped and ora_uncalibrated every row while ADR-0035's attack arms fail (M8-04 decision 13)", "constraints": {"pattern": "(?:ci_unestimated|unestimated|odds_out_of_range|elim_empty|null_degenerate|p_detect_clipped|ora_uncalibrated|tu_recal_skipped)(?:;(?:ci_unestimated|unestimated|odds_out_of_range|elim_empty|null_degenerate|p_detect_clipped|ora_uncalibrated|tu_recal_skipped))*"}}
+  ]
+}
