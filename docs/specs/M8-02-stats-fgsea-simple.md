@@ -151,3 +151,15 @@ ES examples use stats small enough that integer scaling is exact (c is an intege
    accepts only the defaults.
 3. Leading edge for the ES = 0 tie: fgsea returns NULL. **Proposed default:** keep it empty, and
    M8-05 writes an empty list (`NA` in the TSV).
+
+## Lead decisions (2026-10-21)
+1. Q1: port fgsea **1.36.2**, the version the golden env pins (M8-index lead decision 6). Read it from its official sources only: the Bioconductor 3.22 source tarball or the ctlab/fgsea tag. fgsea is MIT-licensed, so cite it in each file header and in NOTICE.md.
+2. Q2: only `scoreType = "std"` and `gseaParam = 1` are ported. `prepare` rejects anything else.
+3. Q3: the leading edge is empty when an ES = 0 tie occurs.
+4. **Reproduce these 1.36.2 behaviours exactly:**
+   - integer rounding of the statistics (scaled by 2³⁰/Σ) before ES is computed;
+   - a sign-conditional simple-stage p;
+   - an ES = 0 tie between the running-sum maximum and minimum;
+   - the order of the leading edge for a negative ES.
+
+   Check each against the 1.36.2 source, not master.
