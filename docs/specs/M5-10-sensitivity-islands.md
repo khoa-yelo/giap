@@ -24,7 +24,7 @@ FAMILIES["islands"] = ...   # bound to the context inputs by run_sensitivity (Q1
   a high to a low island counts as a change.
 - Reruns use `stats.bootstrap = 199` and `stats.permutations = 199` (block length) for the primary and
   each variant (M4-19 rule: the primary is recomputed at the same B).
-- RNG: the child stream of M4-19 keyed `islands/<variant>`.
+- RNG: ~~the child stream of M4-19 keyed `islands/<variant>`~~ — replaced by lead decision 1: one family stream `for_step("sensitivity/islands", seed)`.
 - Rows: `family = islands`, `variant`, `n_primary`, `n_variant`, `n_shared`, `jaccard` (NA when both sets
   are empty).
 
@@ -65,3 +65,14 @@ variants.
 ## Lead decisions (2026-10-20, after the statistician's attack check)
 
 38. Q1 (`functools.partial`) and Q2 (no autocorrelation family): accept.
+
+## Lead decisions (2026-10-22, after the test author)
+1. The test author's resolutions are accepted:
+   - **one stream per family:** `for_step("sensitivity/islands", seed)`, as M4-19 decision 2 and the merged step use; this replaces the spec's `islands/<variant>`;
+   - **B = 199** for both `stats.permutations` and `stats.bootstrap`;
+   - **every island:** the flagged set uses every gene of every `islands_frame` row;
+   - **`tus` is required;**
+   - **M5-06 is reached** through `giap.context.islands`.
+2. **Existing pins.** The lead filtered three existing sensitivity tests to `family == "regions"` and widened the FAMILIES pin. The implementer:
+   - adds `tus` to the registry pin and to context.nf's `stepIn('sensitivity', ...)`;
+   - regenerates the golden `sensitivity.tsv` files with GIAP_UPDATE_GOLDEN=1, noting it in the PR.

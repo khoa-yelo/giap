@@ -1,12 +1,13 @@
 """Sensitivity reruns → ``tables/sensitivity.tsv`` (GIAP_SPEC.md §8.6, §2.4 G9; issue M4-19).
 
-Reads the M4-15 gene table (``genetable/genes.parquet``) and C1 / C7 / C8 from ``work_dir``. Each
-variant's gene table comes from ``variant_genes``; ``single_peptide_detected`` also refits
-``p_detect`` (M4-13) on the primary's folds, ``for_step("detectability", seed)`` (lead decision
-6). Every family runs on the primary and on each variant at ``stats.permutations = 199``, each
+Reads the M4-15 gene table (``genetable/genes.parquet``) and C1 / C5 / C7 / C8 from
+``work_dir``. Each variant's gene table comes from ``variant_genes``; ``single_peptide_detected``
+also refits ``p_detect`` (M4-13) on the primary's folds, ``for_step("detectability", seed)``
+(lead decision 6). Every family runs on the primary and on each variant at
+``stats.permutations = 199`` (``islands`` also sets ``stats.bootstrap = 199``, M5-10), each
 call from the same family stream ``for_step("sensitivity/<family>", seed)`` (common random
 numbers, lead decision 2). Tables a family declares as keyword parameters (``replicons``,
-``regions``, ``region_genes``) are bound with ``functools.partial`` (lead decision 5).
+``regions``, ``region_genes``, ``tus``) are bound with ``functools.partial`` (lead decision 5).
 
 The registered step ``sensitivity`` (M4-19 decision 16, wired by MVP-01) takes those files as
 explicit inputs instead of a work directory, so ``giap run`` can call it like any other step;
@@ -37,8 +38,8 @@ from giap.steps.registry import InputPath, StepContext, step
 __all__ = ["run_sensitivity", "sensitivity", "with_overrides"]
 
 _log = logging.getLogger("giap.steps.sensitivity")
-#: C1 / C7 / C8, bound to the families that take them (lead decisions 5, 12, 13)
-_TABLES = ("replicons", "regions", "region_genes")
+#: C1 / C7 / C8 / C5, bound to the families that take them (lead decisions 5, 12, 13; M5-10)
+_TABLES = ("replicons", "regions", "region_genes", "tus")
 
 
 def with_overrides(cfg: GiapConfig, overrides: Mapping[str, object]) -> GiapConfig:
@@ -79,7 +80,7 @@ def _bind(family: S.Family, tables: Mapping[str, pd.DataFrame]) -> S.Family:
 def _sensitivity(gene_table: Path, tables: Mapping[str, Path], cfg: GiapConfig, out: Path) -> None:
     """Rerun every registered family under every variant and write the §8.6 table to ``out``.
 
-    ``gene_table`` is M4-15's ``genes.parquet``; ``tables`` maps the C1 / C7 / C8 contract keys
+    ``gene_table`` is M4-15's ``genes.parquet``; ``tables`` maps the C1 / C5 / C7 / C8 contract keys
     (``_TABLES``) to their files.
     """
     genes = read_genes_parquet(gene_table)
@@ -131,7 +132,7 @@ def _one(p: InputPath) -> Path:
 
 @step("sensitivity", inputs=["gene_table", *_TABLES], outputs=["sensitivity"])
 def sensitivity(ctx: StepContext) -> None:
-    """Gene table + C1 / C7 / C8 → the §8.6 sensitivity table (M4-19 decision 16).
+    """Gene table + C1 / C5 / C7 / C8 → the §8.6 sensitivity table (M4-19 decision 16).
 
     ``output.sensitivity = off`` writes the table with its header and no row: a declared step
     output must exist, so the pipeline cannot hand a half-written run to the next step.
