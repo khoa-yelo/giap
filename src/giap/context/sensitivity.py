@@ -7,6 +7,9 @@ every family under every variant at ``stats.permutations = 199`` and reports the
 each variant's flagged set against the primary's (recomputed at the same B). Families receive
 ``(genes, cfg, rng)``; the tables a family needs are keyword-only parameters that the step binds
 by name (lead decisions 5, 13). Pure functions: randomness only from the generator passed in.
+
+The ``islands`` family (M5-10) flags ``<direction>:<locus_tag>`` for every gene of every M5-06
+island, rerunning the scan at ``stats.bootstrap = stats.permutations = 199``.
 """
 
 from __future__ import annotations
@@ -19,12 +22,14 @@ import numpy as np
 import pandas as pd
 
 from giap.config.model import AbundanceMissing, GiapConfig
-from giap.context.regions import test_all_regions
+from giap.context import islands as _islands
+from giap.context.regions import replicon_index, test_all_regions
 from giap.genetable.abundance import impute
 from giap.genetable.assemble import GENE_FLAGS
 
-__all__ = ["COLUMNS", "FAMILIES", "SENSITIVITY_B", "Family", "Variant", "flagged_ids", "jaccard",
-           "regions_family", "sensitivity_rows", "variant_genes", "variants"]  # fmt: skip
+__all__ = ["COLUMNS", "FAMILIES", "SENSITIVITY_B", "Family", "Variant", "flagged_ids",
+           "islands_family", "jaccard", "regions_family", "sensitivity_rows", "variant_genes",
+           "variants"]  # fmt: skip
 
 #: §8.6 ``sensitivity.tsv`` columns (``agreement`` is NA except for the determinants family)
 COLUMNS = ("family", "variant", "n_primary", "n_variant", "n_shared", "jaccard", "agreement")
@@ -157,5 +162,45 @@ def regions_family(
     return flagged_ids(res, cfg.stats.alpha.context)
 
 
-#: registered families (M4: ``regions``; M5-M8 add theirs)
-FAMILIES: dict[str, Family] = {"regions": regions_family}
+def islands_family(
+    genes: pd.DataFrame,
+    cfg: GiapConfig,
+    rng: np.random.Generator,
+    *,
+    tus: pd.DataFrame,
+    replicons: pd.DataFrame,
+) -> frozenset[str]:
+    """``<direction>:<locus_tag>`` over the best-window genes of every M5-06 island (M5-10).
+
+    The M5-06 pipeline as ``context_stats`` runs it (``tu_series`` per C1 replicon,
+    ``scan_replicons`` then ``islands_frame`` on ``rng``) on C5 ``tus`` and C1 ``replicons``,
+    with ``stats.bootstrap`` and ``stats.permutations`` at ``SENSITIVITY_B`` (§8.6). The
+    direction is part of the ID, so a gene moving from a high to a low island is a change.
+    """
+    stats = cfg.stats.model_copy(update={"bootstrap": SENSITIVITY_B, "permutations": SENSITIVITY_B})
+    run_cfg = cfg.model_copy(update={"stats": stats})
+    span = float(cfg.context.islands.detrend_span_frac)
+    series = [
+        _islands.tu_series(
+            replicon_index(genes, str(contig)),
+            tus,
+            contig=str(contig),
+            circular=str(topology) == "circular",
+            length=int(length),
+            span_frac=span,
+        )
+        for contig, topology, length in zip(
+            replicons["contig"], replicons["topology"], replicons["length"], strict=True
+        )
+    ]
+    scan = _islands.scan_replicons(series, run_cfg, rng)
+    frame = _islands.islands_frame(scan, genes, run_cfg, rng)
+    return frozenset(
+        f"{d}:{g}"
+        for d, members in zip(frame["direction"], frame["genes"], strict=True)
+        for g in members
+    )
+
+
+#: registered families (M4: ``regions``; M5: ``islands``; M6-M8 add theirs)
+FAMILIES: dict[str, Family] = {"regions": regions_family, "islands": islands_family}

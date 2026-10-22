@@ -57,9 +57,9 @@ def test_variant_is_a_frozen_slotted_dataclass() -> None:
 
 
 def test_families_registers_regions_only_in_m4() -> None:
-    """M4-index decision 7: M4 registers ``regions``; M5-M8 add theirs."""
+    """M4-index decision 7: M4 registers ``regions``; M5-M8 add theirs (M5-10: ``islands``)."""
     S = _S()
-    assert set(S.FAMILIES) == {"regions"}
+    assert {"regions", "islands"} >= set(S.FAMILIES) >= {"regions"}
     assert callable(S.FAMILIES["regions"])
 
 
