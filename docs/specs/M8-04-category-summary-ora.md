@@ -414,3 +414,11 @@ They still apply. The new questions:
    - M8-14: the `ora_attack_tu_packed` scenario, and attack-2 categories made of whole TUs;
    - M8-15: the new arms;
    - M8-index: row 4.
+10. **M8-04a test contract (bf860ba) accepted,** including the test author's seven resolutions:
+    - support is narrowed only on the exact zeros from q ∈ {0, 1}, so float underflow gives a tail ≥ 0 and never an error;
+    - the truncated pmf has length kmax + 1;
+    - `tilt` raises outside [#(q = 1), #(q > 0)] and returns the limit at the ends;
+    - when C = U, the primitive gives support {N} and the ORA layer turns it into NA;
+    - an out-of-range N raises;
+    - the caller tilts;
+    - rescaled inputs use a tolerance of 1e-11.
