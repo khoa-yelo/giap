@@ -29,9 +29,9 @@ from giap.genetable.covariates import COVARIATE_COLUMNS
 from giap.genetable.detectability import fit_detectability
 from giap.io.genes_tsv import read_genes_parquet
 from giap.io.sensitivity_tsv import write_sensitivity_tsv
-from giap.io.work_tables import default_paths, load_tables
+from giap.io.work_tables import load_tables
 from giap.rng import for_step
-from giap.steps.gene_table import check_issues
+from giap.steps.gene_table import check_issues, contract_paths
 from giap.steps.registry import InputPath, StepContext, step
 
 __all__ = ["run_sensitivity", "sensitivity", "with_overrides"]
@@ -118,7 +118,8 @@ def run_sensitivity(work_dir: Path, cfg: GiapConfig) -> Path | None:
             "sensitivity: output.sensitivity = off; families %s not rerun", sorted(S.FAMILIES)
         )
         return None
-    _sensitivity(work_dir / "genetable" / "genes.parquet", default_paths(work_dir), cfg, out)
+    tables = contract_paths(work_dir)  # either work layout (M4-21 lead decision 3)
+    _sensitivity(work_dir / "genetable" / "genes.parquet", tables, cfg, out)
     return out
 
 

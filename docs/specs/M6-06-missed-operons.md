@@ -71,7 +71,7 @@ def missed_operons(pairs: pd.DataFrame, cfg: GiapConfig) -> MissedOperons: ...
 | 3 | a target with the largest −\|Δ\| (Δ = 0.02) | the smallest q in the frame; `lfdr` ≤ its q is **not** asserted (they are different quantities) |
 | 4 | 19 NO pairs | no rows; `too_few_no_pairs` |
 | 5 | NO pairs and decoys drawn from the same distribution (n = 2,000 each) | no target at q ≤ 0.1 in ≥ 90 % of seeds; mean FDP ≤ 0.1 (the M6-09 criterion in miniature) |
-| 6 | 2,000 decoys and 2,000 NO pairs of which 100 are planted with \|Δ\| ≈ 0 | ≥ 50 of the planted pairs at q ≤ 0.1 and FDP ≤ 0.1 (power + control on one frame) |
+| 6 | 2,000 decoys and 2,000 NO pairs of which 100 are planted with \|Δ\| ≤ 1e-3 SD (M6-01 lead decision 12: at 5e-3 SD the method makes no calls) | ≥ 50 of the planted pairs at q ≤ 0.1 and FDP ≤ 0.1 (power + control on one frame) |
 | 7 | every NO pair in bin 4 (> 300 bp) and every decoy in bin 0 | all q = 1; `bin_counts` shows the mismatch, log line names it |
 | 8 | `operons.decoys: [convergent]` | only CV used; `which` is `convergent` everywhere |
 | 9 | same frame twice | identical rows (deterministic) |
