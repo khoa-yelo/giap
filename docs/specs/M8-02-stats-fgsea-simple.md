@@ -151,3 +151,30 @@ ES examples use stats small enough that integer scaling is exact (c is an intege
    accepts only the defaults.
 3. Leading edge for the ES = 0 tie: fgsea returns NULL. **Proposed default:** keep it empty, and
    M8-05 writes an empty list (`NA` in the TSV).
+
+## Lead decisions (2026-10-21)
+1. Q1: port fgsea **1.36.2**, the version the golden env pins (M8-index lead decision 6). Read it from its official sources only: the Bioconductor 3.22 source tarball or the ctlab/fgsea tag. fgsea is MIT-licensed, so cite it in each file header and in NOTICE.md.
+2. Q2: only `scoreType = "std"` and `gseaParam = 1` are ported. `prepare` rejects anything else.
+3. Q3: the leading edge is empty when an ES = 0 tie occurs.
+4. **Reproduce these 1.36.2 behaviours exactly:**
+   - integer rounding of the statistics (scaled by 2³⁰/Σ) before ES is computed;
+   - a sign-conditional simple-stage p;
+   - an ES = 0 tie between the running-sum maximum and minimum;
+   - the order of the leading edge for a negative ES.
+
+   Check each against the 1.36.2 source, not master.
+5. **Amends decision 4 (after the test step, 3d0d18b).** fgsea **1.36.2 has no integer scaling**: the 2³⁰/Σ rounding exists only on master (1.39.x), which is the version the designer read. GIAP follows 1.36.2, the version the golden env runs, so statistics stay float |stats| and `Prepared.stats` is float64. This lead decision overrides spec item 1 for that one point.
+6. The test-author's other resolutions are accepted:
+   - the ES = 0 tie counts in both leZero and geZero;
+   - p = (1 + nMoreExtreme)/(1 + modeFraction);
+   - float ties are decided by IEEE rounding;
+   - the `_fgsea_kernels.random_es_prefixes` hook is used for the prefix property.
+
+   Owed to M8-13: R accumulates in long double, so near-ties may differ in rare cases, and the batch kernel's statEps weighting of zero stats is not pinned.
+7. **After the statistician's review (395a99a):** M8-02 is approved. The port is valid and at level under random-set nulls (30/30 cells). Carried to M8-05:
+   - **Tie order (lead-level; changes M8-05 rule 2 and M8-12's input):** TUs enter fgsea in a seeded random order, from `giap.rng.for_step`, and the R golden gets the same order. The order is never by TU ID, which inflates the level to 0.165 under `abundance.missing = min` ties.
+   - **Owed to Khoa (ADR):** the GSEA null under positional autocorrelation. With AR(1) φ = 0.5–0.8 and genome-adjacent sets, the rejection rate is 0.14–0.44 at α = 0.05. The options are a genome-rotation null, a TU-block permutation, or a documented scope limit. M8-15 gets this attack as a gate that must fail without the fix.
+   - **Owed to Khoa (ADR):** the §8.2 95 % CI for NES. M8-05 leaves `ci_low`/`ci_high` empty, so it needs either an exemption or a CI method.
+   - **Pass-1 power note:** rows that need multilevel keep a p ≥ ~1/501, so families with more than ~25 sets have little power until M8-11.
+   - **The PR's calibration test has low power.** M8-15 switches it to the pooled criterion and adds a `calibration_full` arm at R = 300.
+

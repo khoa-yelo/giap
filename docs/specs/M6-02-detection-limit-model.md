@@ -126,3 +126,46 @@ Toy model, `logit p_j = −12 + 0.6 · a − 0.02 · L_j`, gene u with peptides 
 3. Peptide model preferred whenever peptides exist, even with many runs (proposed), or pick by
    cross-validated AUC? **Proposed default:** follow the spec literally; record both AUCs in the
    detection summary so a future ADR has evidence.
+
+## Lead decisions (2026-10-21)
+1. Q1: C16 `work/peptide_runs.parquet`, optional (M6-index decision 5).
+2. Q2: "observed" = any C11 assignment of the peptide to the gene (proposed default).
+3. Q3: follow the spec literally (peptide model whenever peptides exist); record both AUCs in the
+   detection summary as evidence for a future ADR.
+4. `p_miss` is a probability, never a p-value: it gets no q and never enters a BH family
+   (M6-index decision 1). The M6-05H follow-up consumes it.
+5. **Estimator (statistician review, e88e96e; docs/methods/detection-limit.md).** The model, its three
+   features and its training rows are as specified, but the fit is a **conditional (truncated) likelihood**
+   rather than plain logistic regression. Training only on detected genes selects on the response: the plain
+   fit halves the abundance coefficient and over-predicts detection by +0.14 to +0.19, which makes P(miss)
+   anti-conservative.
+   - **Peptide model:** maximise Σ log-lik − Σ_g log P_det,g over training genes (finite abundance and
+     ≥ k_min observed observable peptides). Fit unpenalised, with no ridge; separation or non-convergence
+     means `usable = False`.
+   - **Replicate model:** a binomial truncated at both ends (1 ≤ S ≤ R − 1) from 3 runs up. At exactly
+     2 runs it is `usable = False` with reason `replicate_two_runs`, decided from the run count; spec
+     item 6 already treats a constant model as unusable.
+   - **Replicate `p_detect`:** stays the per-run q (spec item 4).
+6. DL1 also **records** the calibration-in-the-large (CITL), meaning the intercept of d on logit(p̂) with
+   the slope fixed at 1. Gating on it (±0.2) needs a `tolerances.yaml` key, which is Khoa's decision.
+7. **For Khoa (pass 2, ADRs):**
+   - widen the replicate training set to every gene seen in at least one run, which makes 2 runs usable;
+   - switch the replicate `p_detect` to 1 − (1 − q)^R;
+   - the DL1 CITL tolerance of ±0.2.
+8. **After the implementer (43bba1e), the implementer's choices are accepted.** These were backlog items.
+   - **Model in force:** the peptide model when it is usable, otherwise the replicate model when it is usable, otherwise the unusable peptide model.
+   - **R:** the number of distinct C16 runs.
+   - **Covariates:** absent or zero-variance covariates are left out.
+   - **k_min:** 2 when any gene is `two_peptide`.
+   - **I/L:** I and L are treated as the same when matching peptides.
+
+   The size is 356 code lines, over the ~300 estimate and under the hard gate.
+9. **After the statistician's review (56d5a72):**
+   - **B1 is fixed by the lead:** the peptide model trains on every gene with a finite `abundance_log2` and ≥ k_min observable peptides seen, **whatever `detected` says**. Spec item 2's "detected" means this event, the one the conditional likelihood conditions on, not the gene-level FDR call. This is a reading of the spec, not a change to it.
+   - **Owed to M6-05H:** call `model_for_tu` with the TU of the **detected** partner, define the one-detected event as "< k_min observable peptides seen" (N1; an ADR if the spec's "not called" is binding), and pass `cov` to the replicate model (N3).
+   - **Owed to Khoa (ADRs, hardening):**
+     - a DL1 CITL tolerance of ±0.2, and a CITL record at k_min = 2;
+     - the N1 event definition;
+     - the replicate R = 2 truncation and the pooled `p_detect`.
+   - **Owed to M6-09:** the review's attack arms (B1 selection, stray run, `two_peptide` replicate, operon-null level), ported from local/stat/m6-02/review/ into tests/calibration/attacks/.
+

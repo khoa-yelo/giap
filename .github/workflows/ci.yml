@@ -72,6 +72,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
+      - name: OpenMP runtime for the LightGBM wheel (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libomp
       - run: uv sync --frozen --all-extras
       - name: unit, property, golden, contract, snapshot
         # whole tests/ tree minus the slow layers; empty layer directories are not tracked by git

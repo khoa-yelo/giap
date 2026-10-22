@@ -1,5 +1,5 @@
-"""Operon steps (GIAP_SPEC.md §6.2, §7.1.3; M2-12): ``uniop_input``, ``uniop`` (ext) and
-``operon_pairs``.
+"""Operon steps (GIAP_SPEC.md §6.2, §7.1.3, §7.4; M2-12, M6-08): ``uniop_input``, ``uniop``
+(ext), ``operon_pairs`` and ``operons`` (Module 4).
 
 ``uniop_input`` writes the Prodigal-style GFF and its ID map; the external ``uniop`` step runs
 UniOP (never imported, ADR-0008). ``operon_pairs`` merges ``uniop.pred`` (row numbers resolved
@@ -7,26 +7,46 @@ through ``uniop_cds``) with the distance model (parameters from ``calibration.ya
 and their upstream FASTAs and records the pair source in ``operon_meta.json``. With
 ``annotation.precomputed.operon_pairs`` the layer is read directly and its ``source`` kept.
 Work-directory tables are 0-based half-open; ``tus.parquet`` ``genes`` is a native list column.
+
+``operons`` chains M6-04 ``pair_frame``, M6-05 ``discordance`` (pass 1: no detection-limit model),
+M6-06 ``missed_operons`` and M6-07 ``merge_tests`` / ``flag_pairs`` / ``operons_table`` and writes
+``tables/pairs.tsv``, ``operons.tsv`` and ``operon_flags.tsv``. Each absent evidence layer
+(``promoter_windows`` → ``promoters``, ``terminators``, ``tx_rates``) gives NA evidence and the
+WARNING run flag ``layer_missing:<layer>``; a precomputed layer arrives as its M2-02 TSV under the
+same key. The §6.7 event ``operons.missed_operons`` records π₀ and the decoy bin counts (M6-08
+decision 6). ``peptides``, ``peptide_hits``, ``peptide_runs`` and ``detection_summary`` are for
+M6-02 (pass 2) and are not read yet. Without abundance every test is ``none``.
 """
 
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import Any
 
+import pandas as pd
 import pyarrow as pa  # type: ignore[import-untyped]
-import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
+from giap.annotate.layers import assign_tus, genes_of, replicons_of, terminators_of, tus_of
 from giap.annotate.operons import DISTANCE_FLAG, build_pairs, build_tus, write_tu_regions
 from giap.annotate.precomputed import load_precomputed
 from giap.annotate.uniop_adapter import PairProb, parse_uniop_pred, write_prodigal_gff
+from giap.config import GiapConfig
 from giap.data import calibration
 from giap.io.fasta import read_genome_fasta
+from giap.io.genes_tsv import read_genes_parquet
+from giap.io.operon_tables import write_operon_flags_tsv, write_operons_tsv, write_pairs_tsv
 from giap.io.parquet import write_parquet_deterministic
 from giap.io.tsv import read_tsv, write_tsv
-from giap.model.coords import Interval, Replicon
-from giap.model.genes import Gene
-from giap.steps.registry import InputPath, StepContext, external, step
+from giap.model.coords import Replicon
+from giap.operons.discordance import NO_DL_MODEL, discordance
+from giap.operons.flags import LAYER_MISSING, flag_pairs, merge_tests
+from giap.operons.missed import missed_operons
+from giap.operons.pairs import RNA_TYPES, Evidence, pair_frame
+from giap.operons.tu_table import operons_table
+from giap.steps.common import one_path as _path
+from giap.steps.common import read_genes as _genes
+from giap.steps.common import read_replicons as _replicons
+from giap.steps.registry import StepContext, external, step
 
 _STR, _INT, _F64 = pa.string(), pa.int64(), pa.float64()
 _PAIR_COLS = [("gene_a", _STR), ("gene_b", _STR), ("uniop_p", _F64), ("source", _STR)]
@@ -34,33 +54,6 @@ _TU_COLS = [
     ("tu_id", _STR), ("contig", _STR), ("start", _INT), ("end", _INT), ("strand", _STR),
     ("genes", pa.list_(_STR)), ("upstream_start", _INT), ("upstream_end", _INT),
 ]  # fmt: skip
-
-
-def _path(p: InputPath) -> Path:
-    if isinstance(p, list):
-        raise ValueError(f"expected one file, got {len(p)}")
-    return p
-
-
-def _replicons(path: Path) -> dict[str, Replicon]:
-    rows = pq.read_table(path).to_pylist()
-    return {r["contig"]: Replicon(r["contig"], r["length"], r["topology"], r["kind"]) for r in rows}
-
-
-def _genes(path: Path) -> list[Gene]:
-    cols = ["locus_tag", "feature_type", "contig", "start", "end", "strand", "aa", "nt"]
-    cols.append("start_codon")
-    return [
-        Gene(
-            locus_tag=r["locus_tag"],
-            feature_type=r["feature_type"],
-            interval=Interval(r["contig"], r["start"], r["end"], r["strand"]),
-            aa=r["aa"] or "",
-            nt=r["nt"],
-            start_codon=r["start_codon"],
-        )
-        for r in pq.read_table(path, columns=cols).to_pylist()
-    ]
 
 
 @step(
@@ -134,3 +127,87 @@ def operon_pairs(ctx: StepContext) -> None:
     write_parquet_deterministic(out["tus"], _TU_COLS, tu_rows)
     genome = {r.id: r.sequence for r in read_genome_fasta(_path(ctx.inputs["genome"]))}
     write_tu_regions(out["tu_upstream"], tus, genome)
+
+
+#: optional evidence key -> layer name of ``layer_missing:<layer>`` (as ``context_layers``)
+_LAYERS = {"promoter_windows": "promoters", "terminators": "terminators", "tx_rates": "tx_rates"}
+_MISSED_EVENT = "operons.missed_operons"
+
+
+def run_operons(
+    gene_table: pd.DataFrame,
+    genes: pd.DataFrame,
+    replicons: pd.DataFrame,
+    tus: pd.DataFrame,
+    pairs_raw: pd.DataFrame,
+    features: pd.DataFrame,
+    layers: dict[str, pd.DataFrame],
+    cfg: GiapConfig,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """The ``pairs``, ``operons`` and ``operon_flags`` frames and the decoy ``bin_counts``
+    (lead decision 4's chain). ``layers`` maps each present evidence key (``promoter_windows``,
+    ``terminators``, ``tx_rates``, in the producer shapes) to its frame. Pure."""
+    terms = layers.get("terminators")
+    ev = Evidence(
+        windows=layers.get("promoter_windows"),
+        terminators=None if terms is None else tuple(terminators_of(terms)),
+        tx=layers.get("tx_rates"),
+        rna=features[features["type"].isin(RNA_TYPES)].reset_index(drop=True),
+    )
+    pairs = pair_frame(gene_table, genes_of(genes), replicons_of(replicons), pairs_raw, ev, cfg)
+    d = discordance(pairs, gene_table, cfg, None)
+    m = missed_operons(pairs, cfg, genes=gene_table)
+    missing = [name for key, name in _LAYERS.items() if key not in layers]
+    merged = merge_tests(pairs, d.rows, m.rows, gene_table, missing_layers=missing)
+    flagged = flag_pairs(merged, cfg)
+    return merged, operons_table(tus, merged, gene_table, flagged), flagged, m.bin_counts
+
+
+def _layer(ctx: StepContext, key: str, reps: dict[str, Replicon], tus: pd.DataFrame) -> Any:
+    """The evidence layer under ``key`` (producer Parquet, or the M2-02 TSV when precomputed)."""
+    pre = "promoters" if key == "promoter_windows" else key
+    path = _path(ctx.inputs[key])
+    if getattr(ctx.cfg.annotation.precomputed, pre) is None:
+        return pd.read_parquet(path)
+    df = load_precomputed(pre, path, reps)
+    return assign_tus(df, tus_of(tus), reps) if key == "tx_rates" else df
+
+
+def _plain(v: Any) -> Any:
+    return v.item() if hasattr(v, "item") else v
+
+
+@step(
+    "operons",
+    inputs=["gene_table", "genes", "replicons", "tus", "pairs_raw", "features"],
+    optional_inputs=["promoter_windows", "terminators", "tx_rates", "peptides", "peptide_hits",
+                     "peptide_runs", "detection_summary"],
+    outputs=["pairs", "operons", "operon_flags"],
+)  # fmt: skip
+def operons_step(ctx: StepContext) -> None:
+    """Pair table, discordance and missed-operon tests, flags and the TU table (Module 4)."""
+    ins = {k: _path(v) for k, v in ctx.inputs.items()}
+    rd = pd.read_parquet
+    replicons, tus = rd(ins["replicons"]), rd(ins["tus"])
+    reps = replicons_of(replicons)
+    layers = {k: _layer(ctx, k, reps, tus) for k in _LAYERS if k in ins}
+    for key, name in _LAYERS.items():
+        if key not in layers:
+            ctx.log.warning("%s%s: layer not available; its pair evidence is NA",
+                            LAYER_MISSING, name)  # fmt: skip
+    ctx.log.info("%s: pass 1 has no detection-limit model; one-detected pairs are untested",
+                 NO_DL_MODEL)  # fmt: skip
+    gt = read_genes_parquet(ins["gene_table"])
+    pairs, ops, flagged, bins = run_operons(
+        gt, rd(ins["genes"]), replicons, tus, rd(ins["pairs_raw"]), rd(ins["features"]), layers,
+        ctx.cfg,
+    )  # fmt: skip
+    data = {
+        "pi0": float(ctx.cfg.operons.pi0),
+        "bin_counts": [{k: _plain(v) for k, v in r.items()} for r in bins.to_dict("records")],
+    }
+    ctx.log.info("operons: decoy bin counts recorded (pi0 = %s)", data["pi0"],
+                 extra={"event": _MISSED_EVENT, "data": data})  # fmt: skip
+    write_pairs_tsv(ctx.outputs["pairs"], pairs)
+    write_operons_tsv(ctx.outputs["operons"], ops)
+    write_operon_flags_tsv(ctx.outputs["operon_flags"], flagged)
