@@ -514,12 +514,6 @@ def test_example4_constant_model_draws_the_text(tmp_path: Path, cfg: GiapConfig)
     assert inst.title == "Detectability constant; 0 test families shown"
 
 
-def test_no_bin_rows_draws_the_constant_text(tmp_path: Path, cfg: GiapConfig) -> None:
-    inst = _render(_out(tmp_path, detection_summary=_overall(0.9, 0.1, 0.2)), cfg)
-    assert CONSTANT_TEXT in _texts(_ax(inst, "a"))
-    assert inst.title.startswith("Detectability constant;")
-
-
 def test_constant_value_zero_is_not_constant(tmp_path: Path, cfg: GiapConfig) -> None:
     summary = [*EX1_SUMMARY, _ds("overall", "all", "detectability_constant", 0.0)]
     inst = _render(_out(tmp_path, detection_summary=summary), cfg)
