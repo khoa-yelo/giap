@@ -36,9 +36,10 @@ workflow CONTEXT {
     def reps = kv('replicons', annotation.map { a -> a[2] })
     def c7 = kv('regions', regions.map { r -> r[0] })
     def c8 = kv('region_genes', regions.map { r -> r[1] })
+    def c5 = kv('tus', contract.map { c -> c[2] })
     def tables = [kv('genes', annotation.map { a -> a[0] }), reps,
                   kv('xrefs', contract.map { c -> c[0] }), kv('annotation_meta', contract.map { c -> c[1] }),
-                  kv('tus', contract.map { c -> c[2] }), kv('layers', contract.map { c -> c[3] }), c7, c8]
+                  c5, kv('layers', contract.map { c -> c[3] }), c7, c8]
     def m3 = ['peptide_hits', 'protein_hits', 'unmapped'].collect { n -> kv(n, ofMapping(mapping, "${n}.tsv")) }
     def optional = [kv('peptides', peptides), kv('abundance', abundance),
                     kv('detectability_summary', detectability_summary),
@@ -55,7 +56,8 @@ workflow CONTEXT {
         'genes_tsv=tables/genes.tsv', 'gene_context=context/gene_context.parquet',
         'island_diagnostics=context/island_diagnostics.parquet'])
 
-    def se = stepIn('sensitivity', [gt, reps, c7, c8], ['gene_table', 'replicons', 'regions', 'region_genes'])
+    def se = stepIn('sensitivity', [gt, reps, c7, c8, c5],
+                    ['gene_table', 'replicons', 'regions', 'region_genes', 'tus'])
     SENSITIVITY(se.files, se.keys, ['sensitivity=tables/sensitivity.tsv'])
 
     emit:
