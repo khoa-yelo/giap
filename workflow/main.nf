@@ -1,7 +1,8 @@
 // GIAP entry workflow (GIAP_SPEC.md §6.3). Parameters come only from OUT/work/params.json
 // written by `giap run`. With a genome and replicons.tsv it runs ANNOTATE (M2-07), then MAPPING
 // (M3-17), GENETABLE (M4-15), CONTEXT (M4-18, M4-19) and, beside CONTEXT, OPERONS (M6-08) when
-// params.inputs.peptides (peptides.norm.parquet) is given; without inputs it runs one GIAP_STEP
+// params.inputs.peptides (peptides.norm.parquet) is given, and FUNCTION (M8-06) when 'function'
+// is in params.modules; without inputs it runs one GIAP_STEP
 // smoke task (skeleton check, M2-06). GENETABLE, CONTEXT and OPERONS skip themselves when an
 // input they require is absent (MVP-01). Under a precomputed regions layer region_layer still
 // writes C7/C8 (MVP-02).
@@ -11,6 +12,7 @@ include { MAPPING } from './subworkflows/local/mapping'
 include { GENETABLE } from './subworkflows/local/genetable'
 include { CONTEXT } from './subworkflows/local/context'
 include { OPERONS } from './subworkflows/local/operons'
+include { FUNCTION } from './subworkflows/local/function'
 
 // A path input as a value channel, or channel.empty() when absent.
 def opt(path) { path ? channel.value(file(path, checkIfExists: true)) : channel.empty() }
@@ -42,6 +44,17 @@ def contaminantLibrary(inputs) {
 // db_sources.yaml cog2020_def.path, as giap.setupdb.installed.cog_table resolves it).
 def cogTable() { installed('cog2020_def', 'cog/cog-20.def.tab') }
 
+// The installed function resources (M8-06 item 7) as a [setup item name, path] channel; the names
+// are giap.setupdb.installed.FUNCTION_RESOURCES and the paths db_sources.yaml's.
+def functionResources() {
+    def found = [go_basic: installed('go_basic', 'go/go-basic.obo'),
+                 goslim_generic: installed('goslim_generic', 'go/goslim_generic.obo'),
+                 kegg_ko_pathway: installed('kegg_ko_pathway', 'kegg/ko_pathway.tsv'),
+                 kegg_pathway_names: installed('kegg_pathway_names', 'kegg/pathway_names.tsv'),
+                 cog2020_fun: installed('cog2020_fun', 'cog/fun-20.tab')]
+    return channel.fromList(found.findAll { k, p -> p != null }.collect { k, p -> [k, p] })
+}
+
 workflow {
     def inputs = (params.inputs ?: [:]).findAll { k, v -> v }
     if (inputs.genome && inputs.replicons) {
@@ -58,6 +71,9 @@ workflow {
                     MAPPING.out.stratum0, opt(inputs.peptides), opt(inputs.abundance),
                     opt(inputs.replicon_depth), GENETABLE.out.tier_summary)
             OPERONS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract, ANNOTATE.out.layers_for_pairs)
+            if ('function' in (params.modules ?: [])) {  // §6.3: the optional module switch
+                FUNCTION(GENETABLE.out.gene_table, gene_model, GENETABLE.out.tu_folds, functionResources())
+            }
         }
     } else {
         def keys = inputs.keySet().sort()
