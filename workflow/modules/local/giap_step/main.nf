@@ -5,7 +5,8 @@
 // table (genes.parquet), and one `in/` would be a Nextflow input file name collision (MVP-01).
 // out_spec items are "key=file name"
 // (a glob such as windows_*.fa names a scattered output; the stub creates the listed files; in stub
-// runs an item "key=file HEADER" makes the stub write HEADER as the file's only line).
+// runs an item "key=file HEADER" makes the stub write HEADER (everything after the first space;
+// printf %b, so a literal \n starts a new line) as the file's content, gzipped for a .gz file).
 // The optional logs/events.jsonl that `giap _step` writes (§6.7) is published as
 // OUT/logs/steps/<step>.events.jsonl; `giap run` appends those to OUT/logs/events.jsonl after
 // Nextflow ends, in trace order (giap.runner.nextflow.append_step_events; M3-17 decision 15).
@@ -57,8 +58,10 @@ process GIAP_STEP {
     def files = inputs instanceof List ? inputs : [inputs]
     def ins = [in_keys, files].transpose().collect { k, f -> "'${k}=${f}'" }.join(' ')
     def touches = out_spec.collect { o ->
-        def (f, hdr) = [o.tokenize('=')[1].tokenize(' ')[0], o.tokenize(' ')[1]]
-        "mkdir -p \$(dirname ${f}) && " + (hdr ? "printf '%s\\n' '${hdr}' > ${f}" : "touch ${f}")
+        def f = o.tokenize('=')[1].tokenize(' ')[0]
+        def hdr = o.contains(' ') ? o.substring(o.indexOf(' ') + 1) : null
+        def sink = f.endsWith('.gz') ? "| gzip -n > ${f}" : "> ${f}"
+        "mkdir -p \$(dirname ${f}) && " + (hdr ? "printf '%b\\n' '${hdr}' ${sink}" : "touch ${f}")
     }.join('\n    ')
     """
     printf '%s\\n' ${ins} > .giap_inputs
