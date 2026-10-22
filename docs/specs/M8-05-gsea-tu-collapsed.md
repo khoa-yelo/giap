@@ -35,9 +35,7 @@ def gsea_table(genes: pd.DataFrame, colls: Sequence[GeneSets], size: tuple[int, 
    decision 9) are grouped by `tu_id`; score = their mean. TUs without such a gene are not ranked.
    Scores are **median-centred** (score − median over ranked TUs; decision 8, ADR-B) so fgsea's
    `std` mode sees both signs; ranks are unchanged by centring, only the weights are.
-2. **Order and ties.** The input to `prepare` is ordered by TU ID (natural sort of `TU_<n>`), so
-   tied scores (frequent under median imputation) are broken by TU ID, identically in R (M8-12
-   writes the same order).
+2. **Order and ties.** `TuRanking.tu_ids` is in natural TU-ID order (`TU_<n>`). Ties enter `prepare` in one seeded random order per run, drawn from `rng` (amended by lead decisions 4, 6 and 7, after M8-02 decision 7). M8-12 writes the post-shuffle order so R can reproduce it.
 3. **Set membership in TUs.** A TU is in set S when any of its detected genes is in S (the gene-
    level `GeneSets`). Size = number of member TUs; sets outside `function.gsea_size` are dropped.
 4. **fgsea.** Per collection, `prepare` + `fgsea_simple` (M8-02) with `n_perm =
@@ -143,3 +141,31 @@ def gsea_table(genes: pd.DataFrame, colls: Sequence[GeneSets], size: tuple[int, 
      - each re-test is one fgsea call with the same `n_perm`, made after all main runs. A re-test below `size[0]` still runs and flags `size_filtered`.
    - **Engine:** `fgsea_simple(prep, n_perm, sample_size, rng)` is called by name, so tests can patch it.
    - **`parent_group`:** the most general significant ancestor (by depth, then ID), or the term's own ID. It is NA for non-significant rows and non-GO collections.
+7. **After the statistician's pre-code review (BLOCK on the test contract):**
+   - **Rule 2 is amended.** Ties enter fgsea in a seeded random order (decisions 4 and 6), never in TU-ID order.
+   - **Redundancy re-tests:**
+     - they call `prepare` with min_size 1;
+     - a re-test with 0 TUs gives `redundant = true` and the flag `size_filtered`;
+     - a NaN re-test p gives `redundant` = NA.
+   - **Attacks** (tests/calibration/attacks/test_attack_gsea_structure.py):
+     - positional autocorrelation with scattered sets is gated;
+     - positional autocorrelation with clustered sets (one run of 15 TUs) is a strict xfail in `calibration_full`;
+     - detectability confounded with set membership is a strict xfail;
+     - the default median-imputation ties arm is gated.
+   - **Restricted claim**, which the methods note must state:
+     - p-values are valid under TU exchangeability;
+     - there is no level claim for genomically clustered sets under positional autocorrelation;
+     - results are conditional on detection, with no `p_detect` adjustment;
+     - NES has no CI (a §8.2 deviation);
+     - "significant and non-redundant" is not an FDR-controlled list;
+     - "no significant set" never means "no enrichment" (the floor is about 1/500).
+   - **ADRs owed to Khoa:**
+     - the autocorrelation null (rotation null, detrending, a `genomic_cluster` flag, or accept);
+     - detectability selection (censored Blom scores, a `p_detect`-weighted null, or a flag);
+     - the §8.2 NES CI;
+     - ADR-B (centring).
+8. **Khoa's decisions (2026-10-21, ADR-0025 to ADR-0028):**
+   - **Clustered sets:** a `genomic_cluster` flag plus a restricted claim in pass 1. The circular-shift null comes in the hardening pass.
+   - **Detection:** a restricted claim, "conditional on detection", plus a flag.
+   - **NES:** accepted without a CI.
+   - **Centring:** median centring is accepted (ADR-B).
