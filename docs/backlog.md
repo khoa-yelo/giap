@@ -581,3 +581,9 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Example 10 runs only on FarmShare; the colour cycle leaves out black and grey (spec wording).
 - `read_tsv` now treats an empty cell as missing in genes.tsv too (matches `giap.io.genes_tsv`).
 - Mutation evidence: $GIAP_ROOT/review/pr191-mut/ (22/25 killed, 1 equivalent).
+
+## M9-11 review nits (#208; one round, B1 overlap fixed, B2–B5 pinned by test_v11_review.py)
+- Title medians come from pairs.tsv, so the data TSV cannot reproduce them (index decision 5): widen decision 4's exception to cover medians, or add per-pair (a) rows; (a) rows carry a bin index but no edges.
+- Flag legend handles take the first point's class colour; use a neutral face (`other` can be OP or NO).
+- Surviving minor mutants: outline colour, flagged points drawn twice, flagged markers not class-coloured, `set_xlim` removed, degenerate (c) range padding, legend `ncol`.
+- (a)/(b) x-label "|Δ| partner log2 abundance" reads awkwardly; the spec's title template gives "1 pairs".

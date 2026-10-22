@@ -240,11 +240,11 @@ def _panel_b(ax: Axes, b: pd.DataFrame, alpha: float) -> None:
     order = np.argsort(x, kind="stable")
     ax.plot(x[order], y[order], marker="o", markersize=3, linewidth=0.8, color=CLASS_COLOUR["NO"])
     ax.axhline(alpha, linestyle="--", color=GREY, linewidth=0.8, label=THRESHOLD_LABEL)
-    ax.text(0.02, 0.02, NOTE_B, transform=ax.transAxes, fontsize=6, color=GREY)
+    ax.text(0.02, 0.98, NOTE_B, transform=ax.transAxes, fontsize=6, color=GREY, va="top")
     ax.set_ylim(0.0, 1.05)
     ax.set_xlabel("|Δ| partner log2 abundance")
     ax.set_ylabel("local fdr")
-    ax.legend(frameon=False, loc="lower right")
+    ax.legend(frameon=False, loc="center right")  # clear of the alpha line and the note
     ax.set_title("(b) local fdr", loc="left")
 
 
