@@ -664,9 +664,12 @@ def test_renders_on_the_sim50k_golden_tables(tmp_path: Path, cfg: GiapConfig) ->
 @pytest.mark.slow
 @pytest.mark.skipif(not VAL_OUT.is_dir(), reason=f"validation run absent: {VAL_OUT}")
 def test_renders_on_the_validation_run(tmp_path: Path, cfg: GiapConfig) -> None:
-    """2026-10-22 validation run: header-only ``detection_summary``; regions all NA."""
+    """2026-10-22 validation run: 49 ``basic`` summary rows (all O - E 0), regions all NA. Basic
+    rows come first, then the two regions (lead fix: the summary is not header-only)."""
     inst = _render(VAL_OUT, cfg)
-    assert _keys(inst) == [("region", "plasmid_1"), ("region", "crispr_1")]
+    keys = _keys(inst)
+    assert keys[-2:] == [("region", "plasmid_1"), ("region", "crispr_1")]
+    assert len(keys) > 2 and all(block == "basic" for block, _ in keys[:-2])
     assert inst.title == "No region departs from detectability at q ≤ 0.05; 0 regions tested"
     assert "dosage_plus_regulation (untested)" in texts(inst.figure)
     paths = write_instance(inst, "V07", "obs_vs_exp", tmp_path / "plots", ["svg", "png"], 100)

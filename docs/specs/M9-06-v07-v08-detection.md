@@ -117,3 +117,4 @@ Data TSV `V08_cog_abundance.tsv`: `category`, `super_category`, `locus_tag`, `ab
 4. **Gap 11.** "no COG annotation" appears when every COG letter is NA, whether or not the `layer_missing:cog` flag is present. The flag is named in brackets only when it is present.
 5. **Gap 12.** `<m>` is the median log2 abundance, formatted `%.1f`. `<n>` is the number of measured values drawn in that category.
 6. **Gaps 13 and 14.** Use the framework's default empty state. V07 is single width up to 20 rows and double above; V08 is double width.
+7. **Width (after implementation).** V07 also goes double width whenever an "(untested)" label is drawn, because at single width the label squeezes the forest. Accepted (it amends decision 6).
