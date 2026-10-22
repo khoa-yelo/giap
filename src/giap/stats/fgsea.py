@@ -33,6 +33,7 @@ import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+import numba
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import ArrayLike
@@ -276,16 +277,17 @@ def _rulers(
                 meta.append((side, k, rounds, seed))
     stats = np.asarray(prep.stats, dtype=np.float64)
     flat = np.concatenate(ids)
-    out = multilevel_rulers(
-        np.stack([stats, stats[::-1].copy()]),
-        np.array([m[0] for m in meta], dtype=np.int64),
-        np.array([m[1] for m in meta], dtype=np.int64),
-        sample_size,
-        np.abs(es[flat]).astype(np.float64),
-        np.concatenate([[0], np.cumsum([i.size for i in ids])]).astype(np.int64),
-        np.array([m[2] for m in meta], dtype=np.int64),
-        np.array([m[3] for m in meta], dtype=np.uint64),
-    )
+    with numba.parallel_chunksize(1):  # rulers differ in cost: hand them out one at a time
+        out = multilevel_rulers(
+            np.stack([stats, stats[::-1].copy()]),
+            np.array([m[0] for m in meta], dtype=np.int64),
+            np.array([m[1] for m in meta], dtype=np.int64),
+            sample_size,
+            np.abs(es[flat]).astype(np.float64),
+            np.concatenate([[0], np.cumsum([i.size for i in ids])]).astype(np.int64),
+            np.array([m[2] for m in meta], dtype=np.int64),
+            np.array([m[3] for m in meta], dtype=np.uint64),
+        )
     return flat, out
 
 

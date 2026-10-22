@@ -157,52 +157,68 @@ def _extremes(S: I64, w: F64) -> tuple[float, float]:  # pragma: no cover - numb
 
 
 @njit(cache=True, nogil=True)
-def _reaches(S: I64, w: F64, level: float) -> bool:  # pragma: no cover - numba
-    """maxP >= ``level``, walked from the last hit back: top_j <= cum_j / nr, and cum_j only
-    falls going back, so the walk stops at the first cum_j / nr < level (cum_j as nr minus the
-    later weights; it can differ from the forward sum by rounding)."""
+def _reaches(
+    S: I64, w: F64, level: float, drop: int, x: int, nr: float
+) -> bool:  # pragma: no cover - numba
+    """maxP >= ``level`` for ``S`` without ``S[drop]`` and with ``x`` (total weight ``nr``),
+    without building it: walked from the last hit back, as top_j <= cum_j / nr and cum_j only
+    falls going back, the walk stops at the first cum_j / nr < level (cum_j as nr minus the later
+    weights, compared in units of the total weight; this can differ from the forward walk by
+    rounding)."""
     m = S.shape[0]
-    nm = w.shape[0] - m
-    nr = 0.0
-    for j in range(m):
-        nr += w[S[j] - 1]
-    if nr == 0:
-        return _extremes(S, w)[0] >= level
+    total = nr if nr != 0 else float(m)  # all-zero weights: the walk counts hits
+    lim, per_miss = level * total, total / (w.shape[0] - m)
     later = 0.0
-    for j in range(m - 1, -1, -1):
-        rc = (nr - later) / nr
-        if rc < level:
+    a, j, placed = m - 1, m - 1, False
+    while j >= 0:
+        if a == drop:
+            a -= 1
+            continue
+        if not placed and (a < 0 or S[a] < x):
+            v, placed = x, True
+        else:
+            v, a = S[a], a - 1
+        cum = total - later  # top_j * total = cum_j - misses_j * total / nm
+        if cum < lim:
             return False
-        if rc - (S[j] - (j + 1)) / nm >= level:
+        if cum - (v - (j + 1)) * per_miss >= lim:
             return True
-        later += w[S[j] - 1]
+        later += w[v - 1] if nr != 0 else 1.0
+        j -= 1
     return False
 
 
 @njit(cache=True, nogil=True)
 def _perturb(
-    S: I64, w: F64, level: float, state: npt.NDArray[np.uint64], backup: I64
+    S: I64, w: F64, level: float, state: npt.NDArray[np.uint64], iters: int
 ) -> int:  # pragma: no cover - numba
-    """One MCMC move: swap a random member for a random non-member and keep it when the sample's
-    maxP stays >= ``level``; returns 1 when accepted."""
+    """``iters`` MCMC moves on ``S``: swap a random member for a random non-member, kept when the
+    sample's maxP stays >= ``level``. Returns the number of accepted moves. The total weight is
+    summed once per call and updated by each accepted swap."""
     n, k = w.shape[0], S.shape[0]
-    x = _below(state, n) + 1
-    i = np.searchsorted(S, x)
-    while i < k and S[i] == x:
+    nr = 0.0
+    for j in range(k):
+        nr += w[S[j] - 1]
+    accepted = 0
+    for _ in range(iters):
         x = _below(state, n) + 1
         i = np.searchsorted(S, x)
-    backup[:] = S
-    for j in range(_below(state, k), k - 1):  # drop one member, keep the rest sorted
-        S[j] = S[j + 1]
-    j = k - 1
-    while j > 0 and S[j - 1] > x:
-        S[j] = S[j - 1]
-        j -= 1
-    S[j] = x
-    if _reaches(S, w, level):
-        return 1
-    S[:] = backup
-    return 0
+        while i < k and S[i] == x:
+            x = _below(state, n) + 1
+            i = np.searchsorted(S, x)
+        drop = _below(state, k)
+        nr_new = nr - w[S[drop] - 1] + w[x - 1]
+        if not _reaches(S, w, level, drop, x, nr_new):
+            continue
+        if i > drop:  # x goes at i - 1 once S[drop] is gone; shift only the hits in between
+            S[drop : i - 1] = S[drop + 1 : i]
+            S[i - 1] = x
+        else:
+            S[i + 1 : drop + 1] = S[i:drop].copy()
+            S[i] = x
+        nr = nr_new  # re-summed exactly at the next call
+        accepted += 1
+    return accepted
 
 
 @njit(cache=True, nogil=True)
@@ -224,7 +240,6 @@ def _ruler(
             pop[i, j] = x
         pop[i] = np.sort(pop[i])
     vals, pos = np.empty(s), np.empty(s, dtype=np.bool_)
-    backup = np.empty(k, dtype=np.int64)
     done = np.zeros(targets.shape[0], dtype=np.bool_)
     rounds = 0
     while True:
@@ -251,9 +266,8 @@ def _ruler(
         moves, attempts, iters = 0, 0, max(1, k // 10)
         while moves < s * k and attempts < _ATTEMPT_CAP * s * k:
             for i in range(s):
-                for _ in range(iters):
-                    moves += _perturb(pop[i], w, med, state, backup)
-                attempts += iters
+                moves += _perturb(pop[i], w, med, state, iters)
+            attempts += s * iters
         if moves < s * k:  # the level cannot be mixed: resolve the rest at this level
             max_rounds = rounds
 
