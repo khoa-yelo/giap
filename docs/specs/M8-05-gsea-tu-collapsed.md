@@ -91,7 +91,7 @@ def gsea_table(genes: pd.DataFrame, colls: Sequence[GeneSets], size: tuple[int, 
 - [ ] Property: permuting gene rows within the gene table changes nothing; permuting TU labels of
   the scores changes nothing; adding an undetected gene to a set changes nothing.
 - [ ] Property: every leading-edge gene is a detected member of the set.
-- [ ] `docs/methods/function.md` §"GSEA": TU collapse, centring and why (ADR-B), the family, the
+- [ ] `docs/methods/function-gsea.md`: TU collapse, centring and why (ADR-B), the family, the
   redundancy test, what `log2err` means.
 - [ ] ADR-B written (proposed) with the statistician's evidence plan (M8-15 compares centred and
   uncentred level and power).
@@ -169,7 +169,7 @@ def gsea_table(genes: pd.DataFrame, colls: Sequence[GeneSets], size: tuple[int, 
    - **Detection:** a restricted claim, "conditional on detection", plus a flag.
    - **NES:** accepted without a CI.
    - **Centring:** median centring is accepted (ADR-B).
-9. **The  and  flags (ADR-0025, ADR-0026). Accepted from the statistician's proposal.**
+9. **The `genomic_cluster` and `detection_confounded` flags (ADR-0025, ADR-0026). Accepted from the statistician's proposal.**
    - The flags are built as a stacked follow-up, **M8-05b** (branch m8/gsea-flags), so that M8-05 can be reviewed on its own.
    - The proposal's limits are accepted for pass 1:
      - the cluster flag is calibrated only for φ ≤ 0.5;
@@ -441,3 +441,15 @@ Positions are indices in the ranked order of one replicon unless stated.
 7. **Realistic-set check.** RegulonDB operons stand in for GIAP TUs, and gene-name and keyword
    families stand in for COG/GO sets, because no COG/GO gene mapping for K-12 is on disk. Flag
    rates on real collections should be recorded by M8-15 on the first real E. coli run.
+10. **After the code and statistician reviews (PR #171):**
+    - **Code review B1, fixed by the lead.** `parent_group` took the term itself as a candidate, so a term with a shallower path through another parent grouped under itself even when it had a significant ancestor. It now uses the term only when no ancestor is significant. Depth is the shortest path.
+    - **New tests** (tests/unit/function/test_gsea_review.py):
+      - a term with two parents;
+      - non-significant ancestors;
+      - `redundant` decided by the substituted BH q, not the re-test p alone;
+      - the `boolean` dtype.
+    - **Statistician B1 and code review D1, fixed.** The methods note is docs/methods/function-gsea.md, and it states the restricted claim.
+    - **Simple-stage floor (about 1/500):** this is a temporary departure from §7.7.4 and §8.1. M8-11 is a release gate for `enrichment_gsea.tsv`.
+    - **Merge order:** M8-06 must not merge before M8-05b (the flags).
+    - The remaining nits go to docs/backlog.md.
+

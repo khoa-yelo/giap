@@ -211,7 +211,8 @@ def _go_hierarchy(
     for i, t in enumerate(names):
         if t not in sig:
             continue
-        group[t] = min({t} | (above(t) & sig), key=lambda a: (depth(a), a))
+        anc = above(t) & sig  # the term itself only when no ancestor is significant
+        group[t] = min(anc, key=lambda a: (depth(a), a)) if anc else t
         desc = below(t) & sig
         if not desc:
             continue
