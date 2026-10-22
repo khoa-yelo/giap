@@ -377,13 +377,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - Promoter Calculator runs one Nextflow task per TU (288 tasks for 0.9 Mb); batch it;
   - `--annotation bakta.json` now feeds `annotation.precomputed.bakta_json` (mvp/annotation-json). The previous runs re-ran Bakta, so `engine_protein_mismatch_rate` was 0.9997; re-run after the merge to confirm it falls.
 
-- M8-03 review of #159 (approve; lead: ADR-0023 adds map01310/map01320, methods note):
-  - the GO closure does not filter by namespace (go-basic has no cross-namespace edges): filter in `up()` or assert in `read_go`;
-  - `if kegg_names` tests a Path's truthiness; a missing names file gives all-NA names with no flag;
-  - `build_collections` turns an integer index array into a wrong bool mask without error, and a wrong-length mask raises a bare IndexError; check shape and dtype;
-  - `_ids` treats a plain string cell ("GO:1;GO:2") as empty;
-  - test gaps: roots in `parents`; KEGG and COG `n_unknown_ids`; slim names that differ from the GO names.
-
 
 - M6-06 review of #148, owed to M6-08/M6-09:
   - ADR draft for Khoa: exclude pairs with an imputed gene from targets and decoys (statistician: a co-imputed NO surplus gives ~198 false calls per replicate on a 2,000-pair genome; exclusion restores the level);
