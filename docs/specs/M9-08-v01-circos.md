@@ -92,3 +92,10 @@ sites, `<m>` novel ORFs" when those tables exist). Counts only.
 3. Peptide density counts placement rows (a multi-locus peptide counts at each accepted locus).
    **Proposed default:** rows, because the question is "where in the genome"; the data TSV says so
    in the `category` column (`placements`).
+
+## Lead decisions (2026-10-22)
+1. All five feature-arc types are drawn: prophage, plasmid, BGC, CRISPR and AMR.
+2. Only claimed islands (FWER ≤ `stats.alpha.context`) are drawn.
+3. Peptide density counts placement rows; the data TSV's `category` column says `placements`.
+4. Branch off main: M9-03 (support files) is not merged, so the oriC/ter and GC-skew tracks are tested
+   through their empty states only; the populated tracks are pinned when M9-03 lands.
