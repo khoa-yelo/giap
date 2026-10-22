@@ -412,6 +412,13 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - the manifest `no_peptides` entry;
   - the real sim100k `giap_run.sbatch` run;
   - the step benchmark.
+
+## M7-05 review nits (#175, one-round MVP review)
+- Test a minus-strand CDS crossing the origin for `start_codon` (the `first %= rep.length` mutant survived).
+- M7-16: decide `stop_codon` and `mass_equivalent` for blocks and swaps whose REF contains `*`.
+- The §9.4 flag order is defined twice (`flags.FLAG_ORDER` and `vcf_records._FLAG_ORDER`); derive one from the other.
+- `site_flags` rebuilds `start_codons` per call; point bulk callers to `flags_for` in its docstring.
+- The FLAGS INFO description in vcf_records.py and variants.nf has no sync test (only the IDs are compared).
 - MVP real run on 813 genes (Slurm 1865149, validation): operon tests now run (515 t, 102 decoy), but:
   - detection is saturated: 804/813 genes are detected, `p_detect` is the constant 0.989 fallback, and picked FDR q = 1/804 for all. The giapsim real-run scenario needs decoys with null scores (the earlier item) and lower peptide coverage;
   - Promoter Calculator runs one Nextflow task per TU (288 tasks for 0.9 Mb); batch it;
