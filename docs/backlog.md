@@ -463,3 +463,32 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - A NaN `contig` becomes a linear pseudo-replicon "nan"; guard or comment.
 - M8-06 checklist: register `genomic_cluster` and `detection_confounded` in the `enrichment_gsea` schema (§9.4).
 - `test_gsea_table_flags_need_no_rng` uses the fake engine; add a real-engine p-value comparison to pin the RNG stream.
+
+## M8-04b reviews (#179: code review CHANGES, statistician BLOCK, fixed in decision 13), pass 2 and nits
+- **Pass 2: lift `ora_uncalibrated`.**
+  - The statistician's flexible cross-fitted recalibration passes every cell of all 8 worlds at R = 3000 ($GIAP_ROOT/stat/m804b/probe_flex.py). Its terms are 4 quantile hinges in logit q_raw, a one-hot TU size, a logit × log n interaction, and ridge 1e-4.
+  - It needs an ADR-0035 amendment (Khoa).
+  - The flag can be lifted only on a pass at R = 1000 in both blocks of 4b–4f, and the gate needs rate logging.
+- **N1** Comp still underflows to 0 for a very large or heavily clipped TU (`np.exp(log_comp)`, `expit(-eta)` once eta > 745). Carry log_comp into the tilt.
+- **N2** Duplicate locus_tag rows are accepted: the gene is counted twice in n_genes.
+- **N3** Clip semantics: `p_detect_clipped` goes only on rows whose full set holds the clipped TU, and the clip also moves p̂ in (0, 1e-12). State which rows count as "affected".
+- **N4** ora.py imports gsea's private `_closure`, `_depth` and `_natural_key`, and `_closure` duplicates `elim._ancestors`. Move them to a shared module.
+- **N5** Untested boundaries:
+  - `MIN_CLASS` at 1 and 200, and `<` vs `<=`;
+  - the inclusive size upper bound;
+  - `q_value <= alpha`;
+  - the parent_group ID tie-break;
+  - the strict `<` in the elim replay;
+  - `CI_MIN_UNITS` at 9 and `<=`;
+  - `_PAIR_ATOL`;
+  - comp computed as 1 − q on the raw and fitted paths;
+  - `folds={}` skips the fit with `tu_recal_skipped`, as documented; the statistician's re-check corrected the earlier claim that it raises.
+- **N6** `_classic`: a NaN `category_odds` gives `p_classic` NA with no flag, and the bare `except ValueError` can hide real errors.
+- **N7** The end-to-end `detection_enrichment` benchmark is still owed; the current one covers only the primitive.
+- **N8** test_attack_ora_tusize.py:96 recovers the replicate index from `seed_seq.entropy`, which is fragile.
+- **N9** `_collection_rows` rebuilds the gene maps for every collection, and GO `_closure` is built twice.
+- **Lifting the flag:** the commit that lifts `ora_uncalibrated` must add it explicitly on the skip path; test_ora_review_179.py pins this.
+- **N10** The attack arms' `ora_uncalibrated` fallback cannot trigger on its own; the flag is a hand-edited constant.
+- **Statistician:** category_summary's bootstrap undercovers small categories (10 TUs: 0.886; 15 TUs: 0.90). Raise `CI_MIN_UNITS` to about 30, or use BCa or a studentized bootstrap.
+- **Statistician:** cross-fitting does not remove leakage when a category is a large share of one TU-size group. In the tested worlds this was only conservative.
+- **Flaky?** `tests/unit/function/test_gsea_flags.py::test_detection_flag_with_the_real_engine_d1_d2` failed only in the 16-worker fast suite (Slurm 1867909 and 1867927, es = −0.5 for top=True). It passes alone and in its file. Check main and look for state leaking between tests.
