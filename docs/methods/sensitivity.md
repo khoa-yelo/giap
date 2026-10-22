@@ -52,6 +52,25 @@ of up to 20,000 genes uses all shifts, so the recomputed primary equals the set 
 `regions_stats.tsv`. Above 20,000 genes the shifts are sampled, the p-value floor is 1/200 = 0.005,
 and `n_primary` may differ from the count in `regions_stats.tsv`.
 
+## Islands
+
+For the `islands` family (M5-10) the flagged set is `<direction>:<locus_tag>` for every gene of
+every island that M5-06 reports (an island is reported only when its FWER p ≤ `alpha.context`).
+The genes are the island's best-window gene list (M5-06 Q3), so a change in how clusters merge
+shows up as a changed set. The direction is part of the ID: a gene that moves from a high to a low
+island counts as a change, and a gene in both a high and a low island gives two IDs. The family
+reruns the M5-06 pipeline (`tu_series` per C1 replicon on the C5 TUs, then `scan_replicons` and
+`islands_frame`) with both `stats.bootstrap` and `stats.permutations` set to 199 for the primary
+and every variant (the `regions` family keeps the user's `stats.bootstrap`). All calls start from
+the one family stream `for_step("sensitivity/islands", seed)`. The FWER null is a block
+bootstrap, so the islands sets always use randomness. With B = 199 the smallest attainable p is
+1/200 = 0.005. The recomputed primary can therefore differ from `islands.tsv`, which is computed
+at the user's B. Under `missing=exclude`, detected genes without an abundance are not scored
+(M5-06 step 1). The draws follow the primary's only while each replicon keeps its number of
+scored TUs and its block length. Once a variant changes either (a TU losing every scored gene
+under `exclude`, or a different l-hat), the draws from that replicon on differ, and the set
+difference then includes Monte Carlo error.
+
 ## Interpretation
 
 - Flagged sets are small (at most 2 × regions × contigs IDs, usually fewer than 20), so a single
