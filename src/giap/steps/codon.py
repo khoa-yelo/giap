@@ -22,7 +22,7 @@ from giap.io.parquet import write_parquet_deterministic
 from giap.io.tsv import read_tsv
 from giap.model.coords import Interval
 from giap.model.genes import Gene
-from giap.steps.operons import _path
+from giap.steps.common import one_path as _path
 from giap.steps.registry import StepContext, step
 
 _F64 = pa.float64()

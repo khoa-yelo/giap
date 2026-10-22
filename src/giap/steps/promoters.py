@@ -26,7 +26,9 @@ from giap.annotate.promoters import (
 from giap.annotate.uniop_adapter import genome_order
 from giap.io.fasta import read_genome_fasta
 from giap.io.parquet import write_parquet_deterministic
-from giap.steps.operons import _genes, _path, _replicons
+from giap.steps.common import one_path as _path
+from giap.steps.common import read_genes as _genes
+from giap.steps.common import read_replicons as _replicons
 from giap.steps.registry import InputPath, StepContext, external, step
 
 _STR, _INT, _F64 = pa.string(), pa.int64(), pa.float64()
