@@ -1,0 +1,2 @@
+# ostir_input.csv: scripts/dev/record_ostir_novel_input.py (giap 336cc1b)
+ostir -i ostir_input.csv -o ostir.csv -j 4 
