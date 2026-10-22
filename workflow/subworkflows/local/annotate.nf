@@ -107,9 +107,13 @@ workflow ANNOTATE {
     def O = OPERON_PAIRS.out.outputs
     def tus = kv('tus', pick(O, 'tus.parquet'))
     layers += [kv('pairs_raw', pick(O, 'pairs_raw.parquet')), tus]
+    // OPERONS' pair evidence (M6-08 decision 1): pairs_raw and each layer this run has, a
+    // precomputed promoters TSV under the producer key promoter_windows (as the local executor)
+    def forPairs = [kv('pairs_raw', pick(O, 'pairs_raw.parquet'))]
 
     if (pc.promoters) {
         layers += [pre('promoters')]
+        forPairs += [kv('promoter_windows', pre('promoters').map { k, f -> f })]
     } else {
         def pw = stepIn('promoter_windows', [genes, reps, kv('genome', genome)])
         PROMOTER_WINDOWS(pw.files, pw.keys, ['windows_map=windows_map.parquet'] +
@@ -121,20 +125,24 @@ workflow ANNOTATE {
             kv('promotech', byName(PROMOTECH.out.dir.collect(sort: true)))])
         PROMOTER_LAYER(pl.files, pl.keys, ['promoter_windows=promoter_windows.parquet'])
         layers += [kv('promoter_windows', pick(PROMOTER_LAYER.out.outputs, 'promoter_windows.parquet'))]
+        forPairs += [layers[-1]]
     }
 
     if (pc.tx_rates) {
         layers += [pre('tx_rates')]
+        forPairs += [layers[-1]]
     } else if (ann.promoter_calculator.enabled) {
         def regions = inDir(O, 'tu_upstream')
         PROMOTER_CALCULATOR(regions.map { f -> [f.baseName, f] })
         def tx = stepIn('tx_layer', [kv('pc', byName(PROMOTER_CALCULATOR.out.csv.collect(sort: true))), tus, reps])
         TX_LAYER(tx.files, tx.keys, ['tx_rates=tx_rates.parquet'])
         layers += [kv('tx_rates', pick(TX_LAYER.out.outputs, 'tx_rates.parquet'))]
+        forPairs += [layers[-1]]
     }
 
     if (pc.terminators) {
         layers += [pre('terminators')]
+        forPairs += [layers[-1]]
     } else {
         def term = ann.terminators
         def tools = []
@@ -156,6 +164,7 @@ workflow ANNOTATE {
         TERMINATOR_LAYER(tl.files, tl.keys, ['terminators=terminators.parquet', 'terminators_crosscheck=terminators_crosscheck.tsv'])
         layers += [kv('terminators', pick(TERMINATOR_LAYER.out.outputs, 'terminators.parquet')),
                    kv('terminators_crosscheck', pick(TERMINATOR_LAYER.out.outputs, 'terminators_crosscheck.tsv'))]
+        forPairs += [layers[-2]]
     }
 
     if (pc.rbs) {
@@ -174,15 +183,12 @@ workflow ANNOTATE {
     CODON_USAGE(cu.files, cu.keys, ['codon=codon.parquet'])
     layers += [kv('codon', pick(CODON_USAGE.out.outputs, 'codon.parquet'))]
 
-    // C7/C8 as the M4-06 contract Parquet: only the region_layer branch writes them. A
-    // precomputed regions layer arrives as its M2-02 TSV, which M4 cannot read, so the channels
-    // stay empty and every step requiring C7/C8 is skipped (MVP-01 pass 2 closes that gap).
-    def c7 = channel.empty()   // regions.parquet
-    def c8 = channel.empty()   // region_genes.parquet
-    if (pc.regions) {
-        layers += [pre('regions')]
-    } else {
-        def optional = []
+    // C7/C8 as the M4-06 contract Parquet, written by region_layer. A precomputed regions layer
+    // replaces geNOMAD and antiSMASH only: region_layer still runs and reads the M2-02 TSV from
+    // annotation.precomputed.regions in the config (M4-21 lead decision 2; MVP-02), as the local
+    // executor does, so context_layers and CONTEXT receive its Parquet either way.
+    def optional = []
+    if (!pc.regions) {
         if ('mobile' in params.modules) {
             GENOMAD(gin, db)
             optional += [kv('genomad', GENOMAD.out.dir)]
@@ -193,25 +199,26 @@ workflow ANNOTATE {
         } else if ('bgc' in params.modules) {
             println "WARN: layer_missing:antismash: precomputed bakta_json ${pc.bakta_json} has no GBFF next to it; antiSMASH skipped"
         }
-        def rg = stepIn('region_layer', core + optional)
-        REGION_LAYER(rg.files, rg.keys, ['regions=regions.parquet', 'region_genes=region_genes.parquet'])
-        def R = REGION_LAYER.out.outputs
-        c7 = pick(R, 'regions.parquet')
-        c8 = pick(R, 'region_genes.parquet')
-        layers += [kv('regions', c7), kv('region_genes', c8)]
     }
+    def rg = stepIn('region_layer', core + optional)
+    REGION_LAYER(rg.files, rg.keys, ['regions=regions.parquet', 'region_genes=region_genes.parquet'])
+    def R = REGION_LAYER.out.outputs
+    def c7 = pick(R, 'regions.parquet')
+    def c8 = pick(R, 'region_genes.parquet')
+    layers += [kv('regions', c7), kv('region_genes', c8)]
 
     def cl = stepIn('context_layers', core + layers + [kv('genome', genome)])
     CONTEXT_LAYERS(cl.files, cl.keys, ['layers=layers.parquet', 'annotation=annotation'])
     def layers_pq = pick(CONTEXT_LAYERS.out.outputs, 'layers.parquet')
     // The M4-06 contract tables the gene table and the context statistics read, beside the
     // gene model: C3 xrefs / C4 annotation_meta (parse_bakta), C5 tus (operon_pairs),
-    // C6 layers (context_layers); C7/C8 travel separately because they can be absent.
+    // C6 layers (context_layers); C7/C8 (region_layer) travel separately.
     def m4 = pick(P, 'xrefs.parquet').combine(pick(P, 'annotation_meta.json')).combine(pick(O, 'tus.parquet')).combine(layers_pq)
 
     emit:
     context    = CONTEXT_LAYERS.out.outputs
     gene_model = pick(P, 'genes.parquet').combine(pick(P, 'features.parquet')).combine(pick(P, 'replicons.parquet'))
     contract   = m4                 // [xrefs, annotation_meta, tus, layers] (MVP-01)
-    regions    = c7.combine(c8)     // [regions, region_genes], empty without a region_layer run
+    regions    = c7.combine(c8)     // [regions, region_genes] from region_layer
+    layers_for_pairs = forPairs.inject(channel.empty()) { acc, c -> acc.mix(c) }  // [key, path] (M6-08)
 }
