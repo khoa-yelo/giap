@@ -103,3 +103,11 @@ first contig in FASTA order with a finite row; else "Autocorrelation not estimab
    with the same span fraction (what the reader sees is genes); legend says LOESS span; no claim.
 2. Which null decides the filled markers in V10? **Proposed default:** TU block (the conservative
    null ADR-0020 gates); both envelopes are drawn.
+
+## Lead decisions (2026-10-22)
+1. V2's trend is a gene-level LOESS with the islands' span fraction (what the reader sees is genes);
+   the legend names the LOESS span; no claim is made from it.
+2. V10's filled markers follow the TU-block null (the conservative null ADR-0020 gates); both
+   envelopes are drawn.
+3. Branch off main: M9-03 (support files, #210) is not merged, so V2's oriC/terminus lines are tested
+   through their empty state only; the populated lines are pinned when M9-03 lands.
