@@ -43,6 +43,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M7: compute the M4-16 QC metric id_mixups (§7.5.1: same-database ALT sites that are not start/stop sites); M4-16 reports NA + requires_variants until then.
 - M7-01: co-optimal alignments with equal cost, diff-type multiset and difference positions but different op shapes are broken by DP move order (1:1, 2:2, 1:2, 2:1), not pinned by a test; the frameshift property oracle sorts kinds alphabetically, not by DIFF_TYPES precedence (no divergence found in 200k random junction cases).
 - M7-01: align_hits loops rows in Python (~110 µs/hit); batch the DP in numba if Module 5 ever aligns far more than 10^5 hits.
+- M7-02: frameshift site `alt_aa` is the placeholder `fs+1`/`fs-1` and `ref_codon` the last prefix codon; settle both in M7-03 with the VCF writer (lead decision 3). The M7-03 writer must drop the internal `_ref_codon`/`_alts` pileup columns; pandas `attrs` (frameshifts, contig order) do not survive `pd.concat`.
+- M7-02: a folded peptide with several categories at one codon (only possible with conflicting alignments of one sequence) is counted as its smallest ALT key, not pinned by a test (the oracle rejects such cases).
 - M4-16 (statistician #87 sign-off, non-blocking): (a) also flag ci_few_units by the number of TUs carrying a detection (non-coverage 0.07–0.12 for 1–5-gene TUs, 0.36 for 10-gene TUs at E≈10; job 1850360); (b) genome_inconsistent_rate only under --genome-relation same (§7.5.1), not related; (c) `hypothetical` parsed with astype(bool): the string "false" reads as True — parse booleans explicitly.
 - Benchmarks: nothing reads benchmarks/baseline.json yet — add a check that compares benchmark results with it (M4-13 review).
 - At the next uv lock update: scikit-learn>=1.8 (l1_ratio API) and threadpoolctl as direct dependencies (M4-13).
@@ -306,6 +308,16 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - frameshift work-table lookup: filter to `frameshift` rows, and check blocks against the row's start/end;
   - `test_align_sim100k.py`: assert that frameshift rows occur;
   - test_align_props.py:266: sort kinds by RANK, not by name (unobservable today).
+- M7-02 review of #158 (approve; lead fix: `sites` raises when the pileup's attrs are missing):
+  - **decide with M7-05:** I/L splits the swap and block ALT keys (`IK>KI` against `IK>KL` give two `candidate` sites where one `high` ALT is expected). Fold I/L, or write `J`, in swap and block tokens. This hurts attack 6 / M7-13 sensitivity. It also produces the multi-category-per-folded-peptide case, so the earlier backlog note calling that "only conflicting alignments" is wrong;
+  - a NaN `placement_q` is silently eligible (`NaN > alpha` is False). Write an explicit rule (reject NaN unless the peptide is exact/`same_db`, as M4-11 does) and add a test;
+  - M7-03: replace the `_ref_codon`/`_alts` columns and the `attrs` channel with a frozen `Pileup(table, alts, frameshifts, contig_order)` or an explicit `frameshifts=` argument;
+  - `pileup()` does not apply `eligible`; the M7-04 step must call it first, or the docstring must say so loudly;
+  - bare KeyErrors on a contig missing from the genome or an unknown strand; an empty `source` when support is missing; the −L gene shift is dead code;
+  - under `same`/`other`, a stripped frameshift peptide still adds REF at its off-frame suffix codons (M7-05);
+  - pin the str/object string dtypes in the M7-03 schema;
+  - test gaps (surviving mutants): `il` ops kept under same/other; frameshift next codon on − strand (731/734 without 728); folded frameshift `n_alt`; `alt_aa` tie-break order; Int64 dtypes on header-only frames; a block peptide spanning the frameshift codons counting in `n_ref`.
+
 - M6-06 review of #148, owed to M6-08/M6-09:
   - ADR draft for Khoa: exclude pairs with an imputed gene from targets and decoys (statistician: a co-imputed NO surplus gives ~198 false calls per replicate on a 2,000-pair genome; exclusion restores the level);
   - attacks M-1 (co-imputation surplus; fails until the ADR), M-2 (class-dependent abundance/detection mix), M-3 (M6-01 attacks A and B);
