@@ -118,3 +118,20 @@ for islands "ISL_3 (low): mean log2 `<m>`, FWER p `<p>`"; operon flags "`<flag>`
 3. One list ordered by each row's own estimate (q or FWER p), ascending, ties broken by the
    index TSV's stable order (kind, then id); the index TSV's `kind` column records which estimate each
    row used.
+
+## Lead decisions on the tests (2026-10-22, after 39f9ead)
+4. **Index channel.** The index is an `Instance` with `suffix=None`, written by the framework to
+   `plots/data/V03_locus.tsv` (not `plots/V03_locus.tsv`), columns exactly `rank, locus_id, kind,
+   contig, start, end, error, rendered`. No loci gives the framework empty state "no loci to show".
+   The index figure it also writes is a plain ranked list; its content is not pinned (backlog: decide in
+   M9-16 whether the report links it).
+5. `select_loci` returns the whole ordered pool; the plot renders the first `report.max_locus_plots`.
+6. **Labels.** The Title-section form wins over the `Locus` docstring: "prophage_1: 12 % detected vs
+   31 % expected (q = 0.003)", `%g` numbers, "(q = NA)" when missing; islands "ISL_1 (high): mean log2
+   21.5, FWER p 0.01". A merged operon locus keeps the best flag's `pair_id` and q and lists each clause,
+   joined by "; ".
+7. Data-TSV rows carry each feature's own coordinates (unwrapped on circular contigs, so starts can be
+   negative), not clipped to the window. Pileup rows are maximal runs of constant non-zero depth.
+8. NA loci sort last, then by kind and id; `small_region` gets no extra rule.
+9. pyGenomeViz may be used only for its patches/tracks drawn onto our own `Figure`; no pyplot figure
+   may survive a render.
