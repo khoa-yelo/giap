@@ -51,7 +51,7 @@ INFO_FIELDS: tuple[VcfHeaderField, ...] = (
     _F("CONF", "A", "String", "Confidence of each ALT allele: high or candidate"),
     _F("NT_CHANGES", "A", "Integer", "Nucleotide changes of the minimal-change ALT codon(s)"),
     _F("ALT_TYPE", "A", "String", "ALT type: substitution, swap or block"),
-    _F("FLAGS", ".", "String", "Variant flags of the alleles, sorted and deduplicated"),
+    _F("FLAGS", ".", "String", "Variant flags of the alleles, deduplicated, in GIAP §9.4 order"),
     _F("CLASS_ERR", "A", "String", "Class-specific error rate of each allele, or unestimated"),
 )
 FORMAT_FIELDS: tuple[VcfHeaderField, ...] = (
