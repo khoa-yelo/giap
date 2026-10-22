@@ -204,6 +204,30 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   from the evaluation points; `_bins` silently truncates float bins; `bin_index` accepts NaN edges;
   the +inf distance in the `bin_index` docstring.
 - M6-04 polish (non-behavioural): `promoter_between_tracks` exposes the private `_Track` alias in its signature (make a public `PromoterTrack` type); pin `pair_frame` dtypes (`detected_*` bool, `flags` list) through a pairs.tsv schema when M6-08 writes the table; consider one shared index object for the M2 `*_between` helpers so M6-07 reuses it.
+- M6-02 (test-author): `tests/unit/genetable/test_contract.py` pins `TABLE_KEYS` (no `peptide_runs`)
+  and `m4_contract_fixture.build_frames` has no C16 frame. `test_tables_keys` and
+  `test_missing_column[peptide_runs-*]` fail against the C16 contract that
+  `test_contract_peptide_runs.py` requires. Add C16 the way M5-04 added C15.
+- M6-02 (lead to confirm): `fit_detection_limit` puts the peptide model in force when it is usable,
+  else the replicate model when it is usable, else the unusable peptide model. The spec does not say
+  what to do when the peptide model exists but is unusable while runs exist.
+- M6-02: the replicate model takes R as the number of distinct C16 runs for every gene. The method
+  doc's "R is the gene's own number of runs" needs a per-gene run-eligibility input, which C16 does
+  not carry.
+- M6-02: `detectability.covariates` absent from the `genes` frame are silently left out of the
+  replicate model; M6-05H should pass the M4-10 covariate table joined in.
+- M6-02: the method doc asks the detection summary to count detected genes whose evidence lies
+  only outside the observable set (not training genes); not yet emitted.
+- M6-02: `k_min = 2` whenever any gene carries `detection_tier == "two_peptide"` (the tier is
+  run-wide in M4-12).
+- M6-02 review of #157 (lead fixes: a non-finite abundance gives NaN in both models; a k_min = 2 recovery test; `_newton` requires a vanishing Newton step and a negative definite H at convergence):
+  - the replicate model needs `cov=` at scoring, which the spec signature lacks. A NaN covariate scores NaN, but training imputes a median the model does not store; store it;
+  - a stray run label inflates R (the M1-06 `""` run plus 2 real runs gives R = 3, usable). Reject or flag it in C16 validation;
+  - a constant length or GRAVY gives a singular H, reported as `separated_or_not_converged`. Drop zero-variance features as the replicate model does;
+  - NaN `tu_id` values merge into one fold group; the replicate folds depend on how much rng the peptide fit consumed; I/L variants inside one gene are deduplicated raw but matched folded; non-standard letters create unmatchable observable peptides;
+  - test gaps (surviving mutants): I/L matching; the decision 8 in-force rule; the log of `length_aa` at scoring; the `one_class` guard; the MAX_ITER and line-search-failure paths; the convergence tolerance; the out-of-fold AUC.
+- M6-02 statistician review (56d5a72), non-blocking: a stray `""` run inflates R (C16 validation); store the covariate median in the model; under `two_peptide` the replicate model counts a run with ≥ 1 peptide as seen; detected genes with imputed abundances train on fill values; the DL1 docstring still says the naive oracle is "recorded, not gated".
+
 - M8-03 review of #159 (approve; lead: ADR-0023 adds map01310/map01320, methods note):
   - the GO closure does not filter by namespace (go-basic has no cross-namespace edges): filter in `up()` or assert in `read_go`;
   - `if kegg_names` tests a Path's truthiness; a missing names file gives all-NA names with no flag;
