@@ -70,13 +70,13 @@ report() {  # report <exit> <sub-task: summary>: this task's nightly.tsv line, t
 }
 on_exit() {  # decision 14: a task that ends without its line (early exit, error) still reports
   local rc=$?
-  [ "$BASHPID" = "$$" ] || return 0   # a forked child hit by the group SIGTERM before its exec: not this task's exit
+  [ "${BASHPID:-$$}" = "$$" ] || return 0   # a forked child hit by the group SIGTERM before its exec (bash < 4 has no BASHPID: old behaviour)
   [ -n "$reported" ] || report "$(( rc ? rc : 1 ))" "task $TASK: ended during $stage without a result (exit $rc)"
   [ -z "$numba_tmp" ] || rm -rf "$numba_tmp"   # only this task's cache, never the shared one
 }
 trap on_exit EXIT
 # decision 23: a row only if none was written yet (SIGTERM may land inside report itself)
-trap '[ "$BASHPID" = "$$" ] || exit 143; [ -n "$reported" ] || report 143 "task $TASK: killed by SIGTERM (time limit?) during $stage"; exit 143' TERM
+trap '[ "${BASHPID:-$$}" = "$$" ] || exit 143; [ -n "$reported" ] || report 143 "task $TASK: killed by SIGTERM (time limit?) during $stage"; exit 143' TERM
 
 case "$MODE" in test|record) ;; *) echo "MODE must be test or record, not '$MODE'" >&2; exit 2 ;; esac
 case ",$PROFILE," in
