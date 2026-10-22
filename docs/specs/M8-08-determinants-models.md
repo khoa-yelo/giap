@@ -50,8 +50,8 @@ def model_rows_table(cv: Mapping[str, CvResult], uni: pd.DataFrame) -> pd.DataFr
    `n` = rows used; `n_perm` 0. No p-values (§9.3 metric enum has none for univariate; the
    statistical claim of Module 8 is the permutation null of M8-09).
 3. **Folds.** `tu_folds`: per repeat, the TU IDs are shuffled with the stream `determinants.cv`
-   and assigned round-robin into 5 groups balanced by gene count (largest-first greedy on the
-   shuffled order), so `GroupKFold(5)` semantics hold — no TU in two folds — and repeats differ.
+   and assigned, in the shuffled order, to the fold with the fewest genes so far (ties between
+   folds drawn from the same stream; lead decision 7 replaced largest-first), so `GroupKFold(5)` semantics hold — no TU in two folds — and repeats differ.
 4. **LightGBM.** `LGBMRegressor` with §5.2 parameters, `force_row_wise=True`,
    `num_threads = threads`, `seed` from `SeedSequence([seed, repeat, fold])`, `verbose=-1`;
    NaN passed through (native missing handling); categoricals as their one-hot columns (same
@@ -149,3 +149,17 @@ def model_rows_table(cv: Mapping[str, CvResult], uni: pd.DataFrame) -> pd.DataFr
 6. **Protected file:** the calibration key `determinants_delta_r2_max_abs_bias` (proposed 0.05) is missing from `tests/calibration/tolerances.yaml`.
    - The file is protected, so the key needs Khoa.
    - Until then the M8-08 calibration tests fail on the missing key. They are `calibration_nightly`/`calibration_full`, not every-commit.
+7. **After the reviews (PR #166):**
+   - **Statistician B1, fixed by the lead.** Under a TU-structured null, the univariate TU-block bootstrap CIs of ρ and AUROC miss at 0.065–0.072 against a bound of 0.064. The bootstrap SE is 5–9 % low, and the interval type does not fix it. Every univariate row is therefore `ci_unestimated`, and a NA value is also `unestimated`. A calibrated CI is owed to Khoa as an ADR.
+   - **Folds.** `tu_folds` is a randomised greedy: the shuffled order, with seeded tie-breaks between equally loaded folds. Largest-first made every repeat identical when all TU sizes are distinct. Example 3's ±15 % balance still holds.
+   - **Code-reviewer test gaps, now tested** (tests/unit/determinants/test_models_review.py):
+     - T1: the scaler;
+     - T2: `oof` is the mean over repeats;
+     - T3: row order with `tu=`.
+   - **Attacks** (tests/calibration/attacks/test_attack_determinants_tu_null.py):
+     - the univariate CI level, recorded while the rows are flagged;
+     - no TU leak in CV R² or ΔR².
+   - **Owed to Khoa:**
+     - the calibrated univariate CI;
+     - LightGBM overfitting at n = 400–600 under the §5.2 parameters (CV R² −0.27 under the null, ΔR²(codon) 0.97 against 0.8): early stopping, fewer trees, or elastic-net ΔR² as the primary attribution.
+
