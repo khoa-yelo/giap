@@ -143,12 +143,14 @@ def test_child_environment(tmp_path: Path, work: Path, monkeypatch: pytest.Monke
     monkeypatch.setenv("R_LIBS_USER", "/home/someone/R/library")
     monkeypatch.setenv("R_LIBS", "/home/someone/R/other")
     monkeypatch.setenv("R_PROFILE_USER", "/home/someone/.Rprofile")
+    monkeypatch.setenv("R_LIBS_SITE", "/share/software/R/site-library")
     monkeypatch.setenv("LC_ALL", "en_US.UTF-8")
     prefix = fake_prefix(tmp_path / "env")
     _engine(prefix, work)(_call())
     env = fake_log(prefix)["env"]
     for var in ("R_LIBS_USER", "R_LIBS", "R_PROFILE_USER"):
         assert env.get(var) in ("", "/dev/null"), var
+    assert env["R_LIBS_SITE"] == "/dev/null"  # empty would fall back to the default site library
     assert env["LC_ALL"] == "C"
     assert env["PATH"].startswith(f"{prefix / 'bin'}{os.pathsep}")
     assert env["PATH"].endswith(os.environ["PATH"])

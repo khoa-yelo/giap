@@ -589,3 +589,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Example 10 runs only on FarmShare; the colour cycle leaves out black and grey (spec wording).
 - `read_tsv` now treats an empty cell as missing in genes.tsv too (matches `giap.io.genes_tsv`).
 - Mutation evidence: $GIAP_ROOT/review/pr191-mut/ (22/25 killed, 1 equivalent).
+
+## M8-17a review nits (#204; one round, B1 R_LIBS_SITE fixed in the PR)
+- 17b: `read_results` must require rows to match the in-range sets exactly (a dropped row now vanishes silently); `read_versions` should check the `seed`/`jobs` lines and the data.table version.
+- Set `TMPDIR` to the call directory in `child_env` so R's `Rtmp*` is not left behind after a timeout kill; give the post-kill `proc.communicate()` a timeout.
+- `write_call` accepts IDs with tab, newline or `;` (corrupts the R inputs): reject them.
+- `scripts/build_envs.sh`: a failed lock check on an existing env leaves the `.giap-built` marker; the marker hashes only `fgsea.yml`, so a lock-only change never rebuilds.
+- `giap_fgsea.R`: an empty input file exits 1, not 3.
+- `FgseaEngineError` imitates a `StepError` and is then wrapped in a second one by `run_step`.
+- Surviving mutants: duplicate leading-edge check, size-range check, trailing-newline check, `R_HOME` filter, `set(edge) <= ranked` check.

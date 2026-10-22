@@ -159,12 +159,15 @@ def command(call: EngineCall) -> list[str]:
 
 
 def child_env(launcher: Launcher, environ: Mapping[str, str]) -> dict[str, str]:
-    """``environ`` with the env's ``bin`` first on ``PATH``, user R libraries neutralised and
-    ``LC_ALL=C``, so a user's R library can never shadow the pinned fgsea."""
+    """``environ`` with the env's ``bin`` first on ``PATH``, user and site R libraries neutralised
+    and ``LC_ALL=C``, so no other R library can shadow the pinned fgsea."""
     env = {k: v for k, v in environ.items() if k != "R_HOME"}
     path, bin_dir = environ.get("PATH", ""), str(launcher.path / "bin")
     env["PATH"] = f"{bin_dir}{os.pathsep}{path}" if path else bin_dir
-    env.update(R_LIBS_USER="/dev/null", R_LIBS="/dev/null", R_PROFILE_USER="/dev/null", LC_ALL="C")
+    # R_LIBS_SITE must be non-empty: the env's Renviron reads ${R_LIBS_SITE:-'%S'}, and a site
+    # library sits before .Library in the search path.
+    nul = "/dev/null"
+    env.update(R_LIBS_USER=nul, R_LIBS=nul, R_LIBS_SITE=nul, R_PROFILE_USER=nul, LC_ALL="C")
     return env
 
 
