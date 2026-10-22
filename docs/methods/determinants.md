@@ -83,7 +83,7 @@ R = 200 replicates), rejection at α 0.01 / 0.05 / 0.10 (binomial bound α + 2 S
 - The §8.4 gate tier (R = 20) is not a level claim: 0 of 20 rejections happens 36 % of the time
   for a level-0.05 test.
 
-### Pass-1 limit (ADR-0034, proposed)
+### Pass-1 limit (ADR-0034, accepted by Khoa)
 The p is valid only when TU response blocks are exchangeable within size groups. It fails the
 statistician's attacks (R = 100, same jobs; bound at α 0.05: 0.094):
 
@@ -118,7 +118,7 @@ statistician's attacks (R = 100, same jobs; bound at α 0.05: 0.094):
   vector; the vectors are averaged over the 5 repeats and summed by block into `shap_transcription`,
   `shap_translation`, `shap_codon`, `shap_protein`, `shap_context` (NA for a block with no column).
 - **Additivity (§7.8.3):** Σ block SHAP + mean expected value = the OOF LightGBM prediction, per
-  gene. A guard raises if any row misses by more than 10⁻⁶ (the rows of X are not in fitted order).
+  gene. A guard raises if any row misses by more than 10⁻⁶ (the rows of X are not in fitted order); the unit tests hold the identity to 10⁻⁹.
 - **Dominant block:** for top-decile genes (model rows with `abundance_log2` ≥ the linear 90th
   percentile), the block with the largest positive SHAP sum; NA when none is positive; ties by
   block order.
