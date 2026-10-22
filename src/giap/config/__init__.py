@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from importlib.resources import files
 from pathlib import Path
@@ -11,7 +12,7 @@ import yaml
 
 from giap.config.model import GiapConfig
 
-__all__ = ["GiapConfig", "json_schema", "load_defaults", "resolve_config"]
+__all__ = ["GiapConfig", "json_schema", "load_defaults", "resolve_config", "resolve_sample_name"]
 
 PUBLICATION_RESAMPLES = 10000
 
@@ -87,3 +88,19 @@ def resolve_config(
 def json_schema() -> dict[str, Any]:
     """JSON Schema of :class:`GiapConfig` (written to ``giap/schemas/config.schema.json``)."""
     return GiapConfig.model_json_schema()
+
+
+_VCF_UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
+
+
+def resolve_sample_name(cfg: GiapConfig, peptides: Path | None, proteins: Path | None) -> str:
+    """``cfg.sample_name`` with ``auto`` resolved (§5.2, M7-04 rule 4): the peptide file's name
+    without ``.gz`` and its last suffix, else the protein file's, else ``sample``; then every
+    character outside ``[A-Za-z0-9._-]`` becomes ``_`` (VCF-safe, as ADR-0005 maps contig IDs).
+    Pure."""
+    name = cfg.sample_name
+    if name == "auto":
+        src = peptides if peptides is not None else proteins
+        base = "" if src is None else src.name.removesuffix(".gz")
+        name = Path(base).stem or "sample"
+    return _VCF_UNSAFE.sub("_", name)
