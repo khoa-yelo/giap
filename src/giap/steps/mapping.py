@@ -183,29 +183,40 @@ def _genome(path: Path) -> dict[str, str]:
 
 
 def _replicons(ctx: StepContext) -> dict[str, Replicon]:
-    rows = pq.read_table(_path(ctx.inputs["replicons"])).to_pylist()
+    return read_replicons(_path(ctx.inputs["replicons"]))
+
+
+def read_replicons(path: Path) -> dict[str, Replicon]:
+    """C1 ``replicons.parquet`` as ``contig -> Replicon``, in table order."""
+    rows = pq.read_table(path).to_pylist()
     return {r["contig"]: Replicon(r["contig"], r["length"], r["topology"], r["kind"]) for r in rows}
 
 
-def _gene_model(ctx: StepContext) -> GeneModel:
-    """GeneModel from the ``parse_bakta`` tables (0-based half-open)."""
-    genes = tuple(
+def read_gene_model(genes: Path, replicons: Path, features: Path | None = None) -> GeneModel:
+    """GeneModel from the ``parse_bakta`` tables (0-based half-open); no features without C15."""
+    gs = tuple(
         Gene(
             r["locus_tag"], r["feature_type"],
             Interval(r["contig"], r["start"], r["end"], r["strand"]), r["aa"] or "", r["nt"],
             r["start_codon"], r["gene"], r["product"] or "", bool(r["partial"]),
             bool(r["hypothetical"]),
         )
-        for r in pq.read_table(_path(ctx.inputs["genes"])).to_pylist()
+        for r in pq.read_table(genes).to_pylist()
     )  # fmt: skip
     feats = tuple(
         NcFeature(
             r["feature_id"], r["type"], Interval(r["contig"], r["start"], r["end"], r["strand"]),
             r["gene"], r["product"] or "", r["amino_acid"], r["anticodon"],
         )
-        for r in pq.read_table(_path(ctx.inputs["features"])).to_pylist()
+        for r in (pq.read_table(features).to_pylist() if features is not None else [])
     )  # fmt: skip
-    return GeneModel(replicons=_replicons(ctx), genes=genes, features=feats)
+    return GeneModel(replicons=read_replicons(replicons), genes=gs, features=feats)
+
+
+def _gene_model(ctx: StepContext) -> GeneModel:
+    """GeneModel from the ``parse_bakta`` tables (0-based half-open)."""
+    ins = ctx.inputs
+    return read_gene_model(_path(ins["genes"]), _path(ins["replicons"]), _path(ins["features"]))
 
 
 def _hits(ctx: StepContext, *keys: str) -> pd.DataFrame:

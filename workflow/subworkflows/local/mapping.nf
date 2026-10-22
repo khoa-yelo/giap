@@ -71,6 +71,7 @@ workflow MAPPING {
 
     emit:
     mapping  = LOCI.out.outputs
+    hits_tolerant = pick(MAP_TOLERANT.out.outputs, 'hits_tolerant.parquet')   // VARIANTS (M7-04)
     stratum0 = pick(P, 'stratum0_classes.parquet')   // ADR-0019 table, an input of context_stats
     versions = ch_versions
 }

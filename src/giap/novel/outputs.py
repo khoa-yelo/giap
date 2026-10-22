@@ -46,10 +46,24 @@ _GFF_ATTRS = ("rank", "n_peptides")
 _ADR12 = ("promoter_supported", "terminator_downstream", "terminator_conf",
           "terminator_distance_nt")  # fmt: skip
 _DTYPE = {"str": "object", "int": "Int64", "float": "float64", "bool": "boolean"}
+# The novel_orfs ``flags`` vocabulary in schema order: §9.4 "Novel ORFs", then the milestone
+# additions (M7-06/07, M7-09, ADR-0012, ADR-0013). Flags are joined in this order (M7-09 d4).
+FLAG_ORDER: tuple[str, ...] = (
+    "junction_spanned", "homopolymer_junction", "class_fdr_unestimated", "rbs_supported",
+    "no_start_codon", "partial", "ostir_missing", "rbs_threshold_unestimated", "junction_unknown",
+    "promoter_supported", "terminator_supported", "readthrough_candidate",
+)  # fmt: skip
+_FLAG_RANK = {f: i for i, f in enumerate(FLAG_ORDER)}
 
 
 def is_na(v: object) -> bool:
     return v is None or v is pd.NA or (isinstance(v, float) and math.isnan(v))
+
+
+def order_flags(flags: set[str]) -> str | None:
+    """``;``-joined flags in ``FLAG_ORDER`` (unknown flags last, by name); ``None`` if empty."""
+    key = sorted(flags, key=lambda f: (_FLAG_RANK.get(f, len(FLAG_ORDER)), f))
+    return ";".join(key) or None
 
 
 def _na_none(v: object) -> object:
@@ -134,7 +148,7 @@ def _orf_row(
         "n_peptides": s.get("n_peptides", len(o.peptides)),
         "peptides": ";".join(o.peptides) or None, "best_peptide_q": o.best_q,
         "class_fdr": fdr, "called": False if is_na(called) else bool(called),
-        "overlapping_gene": o.overlapping_gene, "flags": ";".join(sorted(flags)) or None,
+        "overlapping_gene": o.overlapping_gene, "flags": order_flags(flags),
     }  # fmt: skip
     row.update({c: s.get(c) for c in _SCORED})
     return row
