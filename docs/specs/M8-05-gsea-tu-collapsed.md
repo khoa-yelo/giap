@@ -119,3 +119,15 @@ def gsea_table(genes: pd.DataFrame, colls: Sequence[GeneSets], size: tuple[int, 
 3. Redundancy re-test: substitute the re-test p into the collection's BH vector and recompute that
    q (proposed), or BH the re-tests as their own family?
 4. Pass 1 ships `method = fgsea_simple` with the 1/1001 floor (proposed), or GSEA waits for M8-11?
+
+## Lead decisions (2026-10-21)
+
+1. **Q1:** median-centre the TU scores, as proposed. With raw abundances every score is positive and the test would be one-sided under `scoreType = std`.
+   - This is a methods choice and goes to the statistician review.
+   - ADR-B is owed to Khoa. Until then, results carry no calibrated claim beyond the M8-02 p-values.
+2. **Q2:** imputed abundances count in the TU mean, as proposed. The §8.6 `min`/`exclude` sensitivity reruns are where this is varied.
+3. **Q3:** a re-test p replaces its value in the collection's BH vector, and that q is recomputed. Accepted as proposed.
+4. **Q4:** pass 1 ships `method = fgsea_simple` with the 1/1001 floor (MVP first), and M8-11 replaces it.
+   - The NES CI is not estimated, so rows carry `ci_unestimated`.
+   - Ties are ordered with the seeded random order of M8-02 decision 7.
+5. **Stacking:** the branch m8/gsea is m8/fgsea (#156) with m8/collections (#159) merged in. The lead merges main once those PRs land.
