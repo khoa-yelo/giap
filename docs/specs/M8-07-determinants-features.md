@@ -120,3 +120,10 @@ def model_matrix(features: pd.DataFrame) -> tuple[pd.DataFrame, Mapping[str, str
 2. `n_promoters_tu_to_gene` = C6 `n_promoter_windows_tu` (windows at or above `promotech_yes`)?
    **Proposed default:** yes; it is the merged M2-13 definition.
 3. Logs natural (proposed) or base 10? (Trees are invariant; the elastic net is standardised.)
+
+## Lead decisions
+
+1. **Questions 1–3:** the proposed defaults are accepted.
+   - `nterm_residue` is a feature only; nothing in mapping or annotation uses it.
+   - `n_promoters_tu_to_gene` = C6 `n_promoter_windows_tu`.
+   - Logs are natural.
