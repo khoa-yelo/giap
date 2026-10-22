@@ -48,6 +48,7 @@ from helpers.viz_out_tree import gene_row, make_out, write_schema_table
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from matplotlib.axes import Axes
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.collections import PathCollection
 from matplotlib.patches import Rectangle
 from matplotlib.text import Text
@@ -754,7 +755,7 @@ def test_long_warnings_stay_in_the_figure_and_keep_the_more_line(
     assert any(line == f"+ {12 - shown} more" for line in lines)
     assert len(lines) <= 20
     fig = inst.figure
-    fig.canvas.draw()
+    FigureCanvasAgg(fig).draw()  # the writer's renderer; the bare canvas mis-measures text
     box = fig.bbox
     for text in cell.findobj(Text):
         if text.get_text():
