@@ -155,7 +155,7 @@ nextflow_pipeline {
                 p == 'GIAP_STEP' ? H.tagOf(n).toUpperCase() : p
             }.sort()
             def want = ['ANTISMASH', 'BAKTA', 'CODON_USAGE', 'CONTEXT_LAYERS', 'CONTEXT_STATS',
-                        'DETECTABILITY', 'GENE_TABLE', 'GENOMAD', 'LOCI', 'MAP_EXACT', 'MAP_TOLERANT',
+                        'DETECTABILITY', 'FUNCTION_STEP', 'GENE_TABLE', 'GENOMAD', 'LOCI', 'MAP_EXACT', 'MAP_TOLERANT',
                         'OPERONS_STEP', 'OPERON_PAIRS', 'OSTIR', 'OSTIR_INPUT', 'PARSE_BAKTA', 'PLACEMENT', 'PROMOTECH',
                         'PROMOTER_CALCULATOR', 'PROMOTER_LAYER', 'PROMOTER_WINDOWS', 'RBS_LAYER',
                         'REGION_LAYER', 'SENSITIVITY', 'SIXFRAME_INDEX', 'TERMINATORNET',
