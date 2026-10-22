@@ -215,4 +215,9 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - `_cell` stringifies `None` items inside lists, bypassing `join_list`'s missing-item guard;
   - nf-test lives at `workflow/tests/operons.nf.test`, not `workflow/tests/subworkflows/`;
   - test gaps (surviving mutants): `missed_operons` without `genes=` (needs a relative-scale/partial-gene fixture); precomputed branch of `_layer` (promoters → `promoter_windows`) has no unit or nf-test; `no_detection_limit_model` log level unpinned.
-- MVP real run (Slurm 1864792) is degenerate upstream: all 86 genes `detected=False`, `detection_tier=decoy_picked`, `p_detect=0`, yet 81 have `detected_2pep=True` and finite `abundance_log2`; investigate M3/M4 on the real inputs (operon tests all `none` trivially).
+- MVP real run (Slurm 1864792) is degenerate by input, not by code (validation diagnosis):
+  - 82 candidate genes, so the specified picked FDR floor (0 + 1)/82 = 0.0122 > α = 0.01 (§7.3.2, GIAP_SPEC.md:1331, worked example at :3253), and no gene can be detected;
+  - then `p_detect` = 0, the detectability constant fallback; `detected_2pep` and `abundance_log2` are independent of the call;
+  - giapsim (tooling): the real-run scenario needs several hundred genes, and decoy rows are written with NA q/pep/score so a decoy can never win; draw them from a null;
+  - M4: warn when the number of eligible genes is < 1/α; a new flag (e.g. `picked_floor_above_alpha`) is new vocabulary and needs Khoa/ADR;
+  - M0 preflight `evidence.py:286`: the ranking-column check passes on target q-values; check the decoy rows' values.
