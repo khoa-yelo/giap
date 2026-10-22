@@ -7,9 +7,9 @@
 // context group it left-joins into genes.tsv, and the ADR-0021 Amendment 1 island diagnostics.
 // The optional C15 features table (the oriC of the ori-ter rows) is the annotation channel's
 // second file, so CONTEXT needs no further take: channel (M4-20 note).
-// C7/C8 (regions, region_genes) are required by both steps: when ANNOTATE could not write them
-// (a precomputed regions layer) the `regions` channel is empty and neither step runs, the way
-// MAPPING skips its protein route. The M3 tables come out of MAPPING's loci directory.
+// C7/C8 (regions, region_genes) are required by both steps; ANNOTATE's region_layer writes them,
+// also under a precomputed regions layer (MVP-02). If the `regions` channel is empty neither step
+// runs, the way MAPPING skips its protein route. The M3 tables come out of MAPPING's loci directory.
 include { GIAP_STEP as CONTEXT_STATS; GIAP_STEP as SENSITIVITY } from '../../modules/local/giap_step/main'
 include { stepIn; kv; pick; inDir } from './annotate'
 
@@ -23,12 +23,13 @@ workflow CONTEXT {
     detectability_summary // detectability diagnostics parquet, or channel.empty()
     annotation            // [genes.parquet, features.parquet, replicons.parquet]
     contract              // [xrefs.parquet, annotation_meta.json, tus.parquet, layers.parquet]
-    regions               // [regions.parquet, region_genes.parquet], or channel.empty()
+    regions               // [regions.parquet, region_genes.parquet] (region_layer)
     mapping               // LOCI outputs (the mapping/ directory)
     stratum0_classes      // ADR-0019 class table, or channel.empty()
     peptides              // peptides.norm.parquet, or channel.empty()
     abundance             // abundance.norm.parquet, or channel.empty()
     replicon_depth        // §5.3 depth TSV, or channel.empty()
+    tier_summary          // gene_table's tier counts / q-threshold curve (M4-20 decision 3), or channel.empty()
 
     main:
     def gt = kv('gene_table', gene_table)
@@ -42,7 +43,8 @@ workflow CONTEXT {
     def optional = [kv('peptides', peptides), kv('abundance', abundance),
                     kv('detectability_summary', detectability_summary),
                     kv('features', annotation.map { a -> a[1] }),
-                    kv('stratum0_classes', stratum0_classes), kv('replicon_depth', replicon_depth)]
+                    kv('stratum0_classes', stratum0_classes), kv('replicon_depth', replicon_depth),
+                    kv('tier_summary', tier_summary)]
     def needed = ['gene_table', 'genes', 'replicons', 'xrefs', 'annotation_meta', 'tus', 'layers',
                   'regions', 'region_genes', 'peptide_hits', 'protein_hits', 'unmapped']
 
