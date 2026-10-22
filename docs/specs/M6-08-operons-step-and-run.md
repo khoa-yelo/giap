@@ -132,3 +132,6 @@ def run_operons(...) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: ...
    - `merge_tests(..., missing_layers=...)` is given the annotation layers that are actually absent.
 5. **Local/Nextflow parity:** add the three tables to the local executor's `PUBLISHED_FILES` (M4-21). `tests/unit/test_local_publish_names.py` pins them against the Nextflow `'key=path'` names.
 6. **Manifest:** record π₀ (`operons.pi0`) and the decoy `bin_counts`, which the #148 review left owed to M6-08.
+7. **The pair-scope flag vocabulary is extended through the `pairs.tsv` schema** (§9.4, "extend only through the schema"; #152 review). It adds `abundance_imputed`, `layer_missing:promoters`, `layer_missing:terminators`, `ci_unestimated`, `unestimated`, `too_few_op_pairs`, `too_few_no_pairs`, `no_detection_limit_model` and `relative_scale`.
+   - `abundance_imputed` stays the pair-scope token. It is distinct from the gene-scope `imputed_abundance`, and the schema documents both.
+   - `operon_flags.tsv` and `operons.tsv` take the same values where they carry flags.
