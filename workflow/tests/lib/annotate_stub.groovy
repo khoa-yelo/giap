@@ -29,14 +29,14 @@ def nameLine = { File dir ->
 // Task directories of a py step (GIAP_STEP tag or alias) or of a tool process.
 def stepDirs = { String work, String step ->
     taskDirs(work).findAll { d ->
-        def n = nameLine(d).replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '')
+        def n = nameLine(d).replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '')
         def p = procOf(n)
         (p == 'GIAP_STEP' && tagOf(n) == step) || p == step.toUpperCase()
     }
 }
 def procDirs = { String work, String proc ->
     taskDirs(work).findAll { d ->
-        def n = nameLine(d).replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '')
+        def n = nameLine(d).replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '')
         procOf(n) == proc
     }
 }
@@ -73,7 +73,7 @@ def registryProblems = { String work, File regFile ->
     def reg = new groovy.json.JsonSlurper().parse(regFile)
     def problems = []
     taskDirs(work).each { d ->
-        def n = nameLine(d).replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '')
+        def n = nameLine(d).replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '')
         def step = tagOf(n)
         if (step == null || !reg.containsKey(step)) return
         def spec = reg[step]
