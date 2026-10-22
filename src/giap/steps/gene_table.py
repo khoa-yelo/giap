@@ -28,15 +28,16 @@ from giap.genetable.evidence import accepted_peptides, gene_evidence
 from giap.io.genes_tsv import read_cog_def, write_genes_parquet
 from giap.io.issues import Issue
 from giap.io.summary_tsv import write_summary_part
-from giap.io.work_tables import FILE_NAMES, load_m4_inputs
+from giap.io.work_tables import FILE_NAMES, OPTIONAL_KEYS, default_paths, load_m4_inputs
 from giap.setupdb.installed import cog_table
 from giap.steps.registry import InputPath, StepContext, run_step, step
 
-__all__ = ["GenesPre", "build_genes_pre", "m4_paths", "run_gene_table", "work_inputs"]
+__all__ = ["GenesPre", "build_genes_pre", "contract_paths", "m4_paths", "run_gene_table",
+           "work_inputs"]  # fmt: skip
 
 _M3_TSVS = ("peptide_hits", "protein_hits", "unmapped")
-# C7/C8 are not read: region membership arrives through C6 ``region_ids``, and a precomputed
-# regions layer reaches ``regions``/``region_genes`` as its M2-02 TSV, not the contract Parquet.
+# C7/C8 are not read: region membership arrives through C6 ``region_ids`` (and under Nextflow a
+# precomputed regions layer still reaches ``regions`` only as its M2-02 TSV).
 _REQUIRED = ("genes", "replicons", "xrefs", "annotation_meta", "tus", "layers", "mapping")
 _UNREAD = frozenset({"contract.regions.missing_file", "contract.region_genes.missing_file"})
 _OPTIONAL = ("peptides", "abundance", "id_map", "preflight", "cog2020_def")
@@ -137,6 +138,20 @@ def work_inputs(work_dir: Path) -> dict[str, Path]:
     db = os.environ.get("GIAP_DB_DIR")
     found["cog2020_def"] = cog_table(Path(db) if db else None)
     return {k: p for k, p in found.items() if p is not None and p.exists()}
+
+
+def contract_paths(work_dir: Path) -> dict[str, Path]:
+    """M4-06 key -> file in ``work_dir`` for every contract table, in either layout of
+    ``work_inputs`` (M4-21 lead decision 3; C7/C8 as ``regions.parquet`` or the key itself). A
+    required table that is not there keeps its ``default_paths`` name, so ``load_m4_inputs``
+    reports it as missing; an optional one is left out."""
+    found = m4_paths(work_inputs(work_dir))
+    for key in ("regions", "region_genes"):
+        p = _first(work_dir / FILE_NAMES[key], work_dir / key)
+        if p is not None:
+            found[key] = p
+    paths = {k: p for k, p in default_paths(work_dir).items() if k not in OPTIONAL_KEYS}
+    return paths | {k: p for k, p in found.items() if k in FILE_NAMES}
 
 
 def run_gene_table(work_dir: Path, cfg: GiapConfig) -> Path:
