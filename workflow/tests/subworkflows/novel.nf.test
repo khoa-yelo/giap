@@ -1,0 +1,240 @@
+// M7-08: stub runs of the NOVEL subworkflow (workflow/subworkflows/local/novel.nf; GIAP_SPEC.md
+// §6.2, §6.3, §7.6.2, §9.1; docs/specs/M7-08-novel-steps-and-second-round.md rules 3, 5, 7).
+// ci.yml runs: nf-test test workflow/tests --profile test,stub; "-stub" is set here as well.
+//
+// Interface pinned here (test author):
+//   take: genome        value channel: genome FASTA
+//         gene_model    value channel: [genes.parquet, features.parquet, replicons.parquet]
+//         contract      value channel: [xrefs.parquet, annotation_meta.json, tus.parquet, layers.parquet]
+//         mapping       LOCI output: [step, mapping/]
+//         peptides      peptides.norm.parquet (value channel)
+//         contaminants  library FASTA, or channel.empty()
+//         gene_table    genetable/genes.parquet, or channel.empty() (then nothing runs: decision 3)
+//         layers        channel of [key, path] pairs from ANNOTATE; NOVEL stages
+//                       'promoter_windows' and 'terminators' into novel_orfs and ignores other keys
+//                       ('promoters' = the precomputed promoters TSV, see the last test)
+//   params.stub.novel_windows_chunks (stub runs only): number of window chunks NOVEL_CANDIDATES
+//         emits; 0 stands for "no candidate start" (empty window directory, header-only OSTIR CSV),
+//         so neither PROMOTECH_NOVEL nor OSTIR_NOVEL runs (rule 3).
+//   params.annotation.precomputed.promoters / .rbs_novel: when set, PROMOTECH_NOVEL +
+//         NOVEL_PROMOTER_LAYER / OSTIR_NOVEL + NOVEL_RBS_LAYER are replaced by the layer, which
+//         novel_orfs receives as novel_promoter_windows / rbs_novel (§6.4, as annotate.nf does).
+//   emit: novel_orfs, novel_orfs_gff3, novel_orfs_faa, annotation_patch (the step's output keys).
+// Every GIAP_STEP task's --in keys follow the registry (data/annotate/step_registry.json, kept
+// equal to giap.steps by tests/unit/test_nf_annotate_registry.py).
+
+nextflow_workflow {
+
+    name "NOVEL subworkflow (stub)"
+    script "../../subworkflows/local/novel.nf"
+    workflow "NOVEL"
+    options "-stub"
+    tag "novel"
+
+    test("example 3: two chunks -> PROMOTECH_NOVEL twice, OSTIR_NOVEL once, four tables published") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                stub = [windows_chunks: 1, tu_regions: 1, novel_windows_chunks: 2]
+                def ann = new groovy.json.JsonSlurper().parse(new File("${moduleTestDir}/../data/annotate/annotation.json"))
+                ann.precomputed.rbs_novel = null
+                annotation = ann
+            }
+            workflow {
+                """
+                def d = "${moduleTestDir}/../data"
+                input[0] = channel.value(file("\${d}/mapping/genome.fa"))
+                input[1] = channel.value([file("\${d}/mapping/genes.parquet"), file("\${d}/mapping/features.parquet"), file("\${d}/mapping/replicons.parquet")])
+                input[2] = channel.value([file("\${d}/genetable/xrefs.parquet"), file("\${d}/genetable/annotation_meta.json"), file("\${d}/genetable/tus.parquet"), file("\${d}/genetable/layers.parquet")])
+                input[3] = channel.value(['loci', file("\${d}/genetable/mapping")])
+                input[4] = channel.value(file("\${d}/genetable/peptides.norm.parquet"))
+                input[5] = channel.value(file("\${d}/mapping/contaminants.fasta"))
+                input[6] = channel.value(file("\${d}/genetable/genetable/genes.parquet"))
+                input[7] = channel.of(['promoter_windows', file("\${d}/genetable/layers.parquet")],
+                                      ['terminators', file("\${d}/annotate/terminators.tsv")],
+                                      ['rbs', file("\${d}/annotate/regions.tsv")])
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/../lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/../data/annotate/step_registry.json")
+            def work = workDir.toString()
+            def ran = { H.names(workflow.trace) }
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            ['novel_candidates', 'novel_promoter_layer', 'novel_rbs_layer', 'novel_orfs'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${ran()}"
+                assert new File(H.stepDirs(work, s)[0], '.giap_inputs').isFile() : "${s} did not run through GIAP_STEP"
+            }
+            assert H.count(workflow.trace, 'PROMOTECH_NOVEL') == 2 : "one Promotech task per chunk: ${ran()}"
+            assert H.count(workflow.trace, 'OSTIR_NOVEL') == 1 : "one OSTIR task: ${ran()}"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def cin = H.stepInputs(H.stepDirs(work, 'novel_candidates')[0])
+            def ckeys = cin.collect { it[0] }
+            assert ckeys.containsAll(['mapping', 'peptides', 'genes', 'features', 'replicons', 'genome', 'annotation_meta', 'contaminants']) : "novel_candidates inputs ${ckeys}"
+            assert cin.any { it[0] == 'mapping' && new File(it[1]).name == 'mapping' } : "novel_candidates got no loci directory: ${cin}"
+            assert cin.any { it[0] == 'annotation_meta' && it[1].endsWith('annotation_meta.json') } : "C4 not staged: ${cin}"
+
+            def pin = H.stepInputs(H.stepDirs(work, 'novel_promoter_layer')[0])
+            assert pin.count { it[0] == 'promotech_novel' } == 2 : "both chunk results reach the layer step: ${pin}"
+            assert pin.any { it[0] == 'novel_windows_map' } : "novel_promoter_layer inputs ${pin}"
+
+            def oin = H.stepInputs(H.stepDirs(work, 'novel_orfs')[0])
+            def okeys = oin.collect { it[0] }
+            assert okeys.containsAll(['novel_candidates', 'gene_table', 'genes', 'replicons', 'genome',
+                                      'novel_promoter_windows', 'rbs_novel', 'promoter_windows', 'terminators']) : "novel_orfs inputs ${okeys}"
+            assert !('rbs' in okeys) : "layers other than promoter_windows/terminators are ignored: ${okeys}"
+            def src = { String step -> H.stepDirs(work, step)[0].canonicalPath }
+            def staged = H.staged(H.stepDirs(work, 'novel_orfs')[0]).collect { new File(it[0]).canonicalPath }
+            assert staged.any { it.startsWith(src('novel_promoter_layer')) } : "novel_promoter_windows not from NOVEL_PROMOTER_LAYER: ${staged}"
+            assert staged.any { it.startsWith(src('novel_rbs_layer')) } : "rbs_novel not from NOVEL_RBS_LAYER: ${staged}"
+            assert staged.any { it.startsWith(src('novel_candidates')) } : "novel_candidates not staged: ${staged}"
+
+            ['tables/novel_orfs.tsv', 'tables/novel_orfs.gff3', 'tables/novel_orfs.faa', 'tables/annotation_patch.gff3'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+            ['novel_orfs', 'novel_orfs_gff3', 'novel_orfs_faa', 'annotation_patch'].each { e ->
+                assert workflow.out[e]?.size() == 1 : "NOVEL emits ${e} once: ${workflow.out}"
+            }
+        }
+    }
+
+    test("example 4 / rule 3: no candidate start -> neither second-round tool runs, novel_orfs still does") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                stub = [windows_chunks: 1, tu_regions: 1, novel_windows_chunks: 0]
+                def ann = new groovy.json.JsonSlurper().parse(new File("${moduleTestDir}/../data/annotate/annotation.json"))
+                ann.precomputed.rbs_novel = null
+                annotation = ann
+            }
+            workflow {
+                """
+                def d = "${moduleTestDir}/../data"
+                input[0] = channel.value(file("\${d}/mapping/genome.fa"))
+                input[1] = channel.value([file("\${d}/mapping/genes.parquet"), file("\${d}/mapping/features.parquet"), file("\${d}/mapping/replicons.parquet")])
+                input[2] = channel.value([file("\${d}/genetable/xrefs.parquet"), file("\${d}/genetable/annotation_meta.json"), file("\${d}/genetable/tus.parquet"), file("\${d}/genetable/layers.parquet")])
+                input[3] = channel.value(['loci', file("\${d}/genetable/mapping")])
+                input[4] = channel.value(file("\${d}/genetable/peptides.norm.parquet"))
+                input[5] = channel.empty()
+                input[6] = channel.value(file("\${d}/genetable/genetable/genes.parquet"))
+                input[7] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/../lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            def ran = { H.names(workflow.trace) }
+            assert workflow.success
+            ['PROMOTECH_NOVEL', 'OSTIR_NOVEL'].each { p ->
+                assert H.count(workflow.trace, p) == 0 : "${p} ran without a candidate start: ${ran()}"
+            }
+            ['novel_promoter_layer', 'novel_rbs_layer'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 0 : "${s} ran without a candidate start: ${ran()}"
+            }
+            ['novel_candidates', 'novel_orfs'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "${s} ran ${H.stepCount(workflow.trace, s)}x: ${ran()}"
+            }
+            def okeys = H.stepInputs(H.stepDirs(work, 'novel_orfs')[0]).collect { it[0] }
+            assert !okeys.any { it in ['novel_promoter_windows', 'rbs_novel', 'promoter_windows', 'terminators'] } : "novel_orfs inputs ${okeys}"
+            assert !H.stepInputs(H.stepDirs(work, 'novel_candidates')[0]).any { it[0] == 'contaminants' } : "contaminants staged although not given"
+            ['tables/novel_orfs.tsv', 'tables/novel_orfs.gff3', 'tables/novel_orfs.faa', 'tables/annotation_patch.gff3'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+        }
+    }
+
+    test("decision 3: no gene table -> NOVEL does not run") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                stub = [windows_chunks: 1, tu_regions: 1, novel_windows_chunks: 1]
+                def ann = new groovy.json.JsonSlurper().parse(new File("${moduleTestDir}/../data/annotate/annotation.json"))
+                ann.precomputed.rbs_novel = null
+                annotation = ann
+            }
+            workflow {
+                """
+                def d = "${moduleTestDir}/../data"
+                input[0] = channel.value(file("\${d}/mapping/genome.fa"))
+                input[1] = channel.value([file("\${d}/mapping/genes.parquet"), file("\${d}/mapping/features.parquet"), file("\${d}/mapping/replicons.parquet")])
+                input[2] = channel.value([file("\${d}/genetable/xrefs.parquet"), file("\${d}/genetable/annotation_meta.json"), file("\${d}/genetable/tus.parquet"), file("\${d}/genetable/layers.parquet")])
+                input[3] = channel.value(['loci', file("\${d}/genetable/mapping")])
+                input[4] = channel.value(file("\${d}/genetable/peptides.norm.parquet"))
+                input[5] = channel.empty()
+                input[6] = channel.empty()
+                input[7] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/../lib/annotate_stub.groovy"))
+            assert workflow.success
+            assert H.stepCount(workflow.trace, 'novel_orfs') == 0 : "novel_orfs ran without a gene table: ${H.names(workflow.trace)}"
+            assert !new File("${outputDir}/tables/novel_orfs.tsv").exists() : "novel_orfs.tsv published without a gene table"
+        }
+    }
+
+    test("precomputed promoters and rbs_novel replace the second-round tools and layer steps") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                stub = [windows_chunks: 1, tu_regions: 1, novel_windows_chunks: 2]
+                def ann = new groovy.json.JsonSlurper().parse(new File("${moduleTestDir}/../data/annotate/annotation.json"))
+                ann.precomputed.promoters = new File("${moduleTestDir}/../data/novel/promoters.tsv").canonicalPath
+                ann.precomputed.rbs_novel = new File("${moduleTestDir}/../data/novel/rbs_novel.tsv").canonicalPath
+                annotation = ann
+            }
+            workflow {
+                """
+                def d = "${moduleTestDir}/../data"
+                input[0] = channel.value(file("\${d}/mapping/genome.fa"))
+                input[1] = channel.value([file("\${d}/mapping/genes.parquet"), file("\${d}/mapping/features.parquet"), file("\${d}/mapping/replicons.parquet")])
+                input[2] = channel.value([file("\${d}/genetable/xrefs.parquet"), file("\${d}/genetable/annotation_meta.json"), file("\${d}/genetable/tus.parquet"), file("\${d}/genetable/layers.parquet")])
+                input[3] = channel.value(['loci', file("\${d}/genetable/mapping")])
+                input[4] = channel.value(file("\${d}/genetable/peptides.norm.parquet"))
+                input[5] = channel.empty()
+                input[6] = channel.value(file("\${d}/genetable/genetable/genes.parquet"))
+                input[7] = channel.of(['promoters', file("\${d}/novel/promoters.tsv")],
+                                      ['terminators', file("\${d}/annotate/terminators.tsv")])
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/../lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/../data/annotate/step_registry.json")
+            def work = workDir.toString()
+            def ran = { H.names(workflow.trace) }
+            assert workflow.success
+            ['PROMOTECH_NOVEL', 'OSTIR_NOVEL'].each { p ->
+                assert H.count(workflow.trace, p) == 0 : "${p} ran despite its precomputed layer: ${ran()}"
+            }
+            ['novel_promoter_layer', 'novel_rbs_layer'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 0 : "${s} ran despite its precomputed layer: ${ran()}"
+            }
+            ['novel_candidates', 'novel_orfs'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "${s} ran ${H.stepCount(workflow.trace, s)}x: ${ran()}"
+            }
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            def oin = H.stepInputs(H.stepDirs(work, 'novel_orfs')[0])
+            assert oin.any { it[0] == 'novel_promoter_windows' && it[1].endsWith('promoters.tsv') } : "the precomputed promoters layer serves the second round: ${oin}"
+            assert oin.any { it[0] == 'rbs_novel' && it[1].endsWith('rbs_novel.tsv') } : "the precomputed rbs_novel layer is not staged: ${oin}"
+            assert oin.any { it[0] == 'terminators' } : "terminators not staged: ${oin}"
+            assert new File("${outputDir}/tables/novel_orfs.tsv").isFile() : "novel_orfs.tsv not published"
+        }
+    }
+}
