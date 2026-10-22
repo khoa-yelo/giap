@@ -244,3 +244,10 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   neither — a NaN abundance is untested under every `abundance.missing` mode, not only `exclude`, and
   the one-detected branch is always `unestimated (no_detection_limit_model)`; `PMissModel` is a
   placeholder Protocol until M6-02 merges (replace with its real type in M6-05H).
+- M8-03 review of #159 (approve; lead: ADR-0023 adds map01310/map01320, methods note):
+  - the GO closure does not filter by namespace (go-basic has no cross-namespace edges): filter in `up()` or assert in `read_go`;
+  - `if kegg_names` tests a Path's truthiness; a missing names file gives all-NA names with no flag;
+  - `build_collections` turns an integer index array into a wrong bool mask without error, and a wrong-length mask raises a bare IndexError; check shape and dtype;
+  - `_ids` treats a plain string cell ("GO:1;GO:2") as empty;
+  - test gaps: roots in `parents`; KEGG and COG `n_unknown_ids`; slim names that differ from the GO names.
+
