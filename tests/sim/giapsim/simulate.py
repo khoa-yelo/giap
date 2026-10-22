@@ -661,6 +661,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     )
     if srng is not None and config.write_precomputed:
         res = _write_v2(out, config, srng, st, chrom, feats, text, bakta, res)
+        _write_rbs_novel(out, seed, text, novel, feats, bakta, res)
     if prot is not None:
         topo_map = {cid: topo for cid, _, topo in contigs}
         paths = simulate_proteomics(prot, seed, out, feats, novel, text, topo_map, lifted)
@@ -701,6 +702,30 @@ def _write_v2(
     return replace(
         res, config_yaml=cfg_yaml, precomputed=pre, truth={**res.truth, "tus": tus, **tru}
     )
+
+
+_RBS_NOVEL_STREAM = 5  # numpy SeedSequence key of the rbs_novel layer (M7-08)
+
+
+def _write_rbs_novel(
+    out: Path,
+    seed: int,
+    text: dict[str, str],
+    novel: Sequence[Sequence[Any]],
+    feats: Sequence[Feat],
+    bakta: Path,
+    res: SimResult,
+) -> None:
+    """``precomputed/rbs_novel.tsv`` from its own RNG stream (the other layers are unchanged)
+    and its ``annotation.precomputed.rbs_novel`` key in ``config.yaml`` (M7-08 rule 6)."""
+    truth = {(str(r[2]), str(r[5]), int(r[3]) - 1 if r[5] == "+" else int(r[4]) - 1)
+             for r in novel}  # fmt: skip
+    truth |= {(f.contig, f.strand, f.true_start - 1) for f in feats
+              if f.kind == "cds" and f.true_start}  # fmt: skip
+    rows = layers.rbs_novel_rows(np.random.default_rng([seed, _RBS_NOVEL_STREAM]), text, truth)
+    path = layers.write_rbs_novel(out, rows)
+    assert res.config_yaml is not None
+    layers.write_config(res.config_yaml, bakta, {**res.precomputed, "rbs_novel": path})
 
 
 #: The 100-kb genome of M2-05 (recorded with real tools by M2-10).

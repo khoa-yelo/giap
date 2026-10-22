@@ -232,6 +232,19 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - the patch wrap across the origin;
   - flags carried from `scored`;
   - `n_peptides` taken from `scored`.
+
+## M7-08 review (PR #168, approved): test gaps and nits
+- Surviving mutants (correct code, untested):
+  - the TSV promoter `+1` (use a single scored window, and assert NA one position away);
+  - a minus-strand start codon crossing the origin (`first_base` wrap);
+  - a multi-start ORF whose best-OSTIR and longest starts carry different promoter scores;
+  - a NaN `tir_ostir` row;
+  - the `novel_rbs_layer` count-mismatch guard.
+- The empty second round under Nextflow logs a spurious `layer_missing:rbs_novel` WARNING.
+- PROVENANCE.md cites the unreachable WIP commit 336cc1b. Cite 4760059 instead.
+- `annotation.ostir.downstream_nt` has no lower bound. Below 3 it cuts the last start codon, in the first round too.
+- Paths only a real run exercises (the header-only OSTIR CSV, an empty `novel_windows/`) are covered only by the owed example 7.
+- The simulator's `rbs_novel` rows leave out codons crossing the origin. Note this in the M7-12 scenario.
 - M8-01 (pass 2): `wallenius_tails` evaluates scipy's Wallenius pmf over the whole support on every
   call (both tails are direct sums). M8-04 calls it once per category with the same (M, N) and many
   (n, ω), so a per-(M, n, N, ω) cache is useless; if the 3,000-category budget tightens, sum only
@@ -278,6 +291,19 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - the ΔR² caveat (the repeats share data);
   - univariate CIs are unadjusted and make no discovery claim.
 - §7.8.2's separate report of ribosomal genes: confirm which issue owns it (M8-09 adds rows flagged `cai_reference`).
+
+## M8-09 review nits (#173, one-round MVP review)
+- Tests at rule edges: `>=` top-decile cut, SD ddof 1, `>` at 2 SD, ribosomal genes imputed/undetected with finite abundance.
+- Untested error paths: OOF size vs model rows, booster count ≠ R·K, `len(X)`.
+- `null_p` should check `X`/`y`/`tu`/`folds_rep1` lengths.
+- `b_count` derived from p; `n_perm` is B not the non-NaN count — compute both directly.
+- A NaN observed R² gives p NaN unflagged; add `unestimated`.
+- Pin the LightGBM refit seed with a bagging-on test.
+- Decide and test `top_decile` under `too_few_rows`.
+- `_canonical` recomputed per permutation and model.
+- Owed (acceptance): B = 1,000 benchmark in baseline.json; methods "Null and attribution" section.
+- M8-10 carry-over (statistician #173): `cv_r2_mean` (the null p's effect) gets `ci_unestimated` (ADR-0031 pattern); `n_perm` should count non-NaN null values as `perm_p` does; optional exact test against the observed repeat-1 R².
+- Hardening (ADR-0034): spatially contiguous CV folds for observed and null, a positional-feature decision (`replichore_position`), a detection-selection model; `null_uncalibrated` comes off only when every arm of test_attack_determinants_null.py passes.
 - M6-02 (test-author): `tests/unit/genetable/test_contract.py` pins `TABLE_KEYS` (no `peptide_runs`)
   and `m4_contract_fixture.build_frames` has no C16 frame. `test_tables_keys` and
   `test_missing_column[peptide_runs-*]` fail against the C16 contract that
@@ -389,13 +415,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - Promoter Calculator runs one Nextflow task per TU (288 tasks for 0.9 Mb); batch it;
   - `--annotation bakta.json` now feeds `annotation.precomputed.bakta_json` (mvp/annotation-json). The previous runs re-ran Bakta, so `engine_protein_mismatch_rate` was 0.9997; re-run after the merge to confirm it falls.
 
-- M8-03 review of #159 (approve; lead: ADR-0023 adds map01310/map01320, methods note):
-  - the GO closure does not filter by namespace (go-basic has no cross-namespace edges): filter in `up()` or assert in `read_go`;
-  - `if kegg_names` tests a Path's truthiness; a missing names file gives all-NA names with no flag;
-  - `build_collections` turns an integer index array into a wrong bool mask without error, and a wrong-length mask raises a bare IndexError; check shape and dtype;
-  - `_ids` treats a plain string cell ("GO:1;GO:2") as empty;
-  - test gaps: roots in `parents`; KEGG and COG `n_unknown_ids`; slim names that differ from the GO names.
-
 
 - M6-06 review of #148, owed to M6-08/M6-09:
   - ADR draft for Khoa: exclude pairs with an imputed gene from targets and decoys (statistician: a co-imputed NO surplus gives ~198 false calls per replicate on a 2,000-pair genome; exclusion restores the level);
@@ -469,3 +488,32 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - A NaN `contig` becomes a linear pseudo-replicon "nan"; guard or comment.
 - M8-06 checklist: register `genomic_cluster` and `detection_confounded` in the `enrichment_gsea` schema (§9.4).
 - `test_gsea_table_flags_need_no_rng` uses the fake engine; add a real-engine p-value comparison to pin the RNG stream.
+
+## M8-04b reviews (#179: code review CHANGES, statistician BLOCK, fixed in decision 13), pass 2 and nits
+- **Pass 2: lift `ora_uncalibrated`.**
+  - The statistician's flexible cross-fitted recalibration passes every cell of all 8 worlds at R = 3000 ($GIAP_ROOT/stat/m804b/probe_flex.py). Its terms are 4 quantile hinges in logit q_raw, a one-hot TU size, a logit × log n interaction, and ridge 1e-4.
+  - It needs an ADR-0035 amendment (Khoa).
+  - The flag can be lifted only on a pass at R = 1000 in both blocks of 4b–4f, and the gate needs rate logging.
+- **N1** Comp still underflows to 0 for a very large or heavily clipped TU (`np.exp(log_comp)`, `expit(-eta)` once eta > 745). Carry log_comp into the tilt.
+- **N2** Duplicate locus_tag rows are accepted: the gene is counted twice in n_genes.
+- **N3** Clip semantics: `p_detect_clipped` goes only on rows whose full set holds the clipped TU, and the clip also moves p̂ in (0, 1e-12). State which rows count as "affected".
+- **N4** ora.py imports gsea's private `_closure`, `_depth` and `_natural_key`, and `_closure` duplicates `elim._ancestors`. Move them to a shared module.
+- **N5** Untested boundaries:
+  - `MIN_CLASS` at 1 and 200, and `<` vs `<=`;
+  - the inclusive size upper bound;
+  - `q_value <= alpha`;
+  - the parent_group ID tie-break;
+  - the strict `<` in the elim replay;
+  - `CI_MIN_UNITS` at 9 and `<=`;
+  - `_PAIR_ATOL`;
+  - comp computed as 1 − q on the raw and fitted paths;
+  - `folds={}` skips the fit with `tu_recal_skipped`, as documented; the statistician's re-check corrected the earlier claim that it raises.
+- **N6** `_classic`: a NaN `category_odds` gives `p_classic` NA with no flag, and the bare `except ValueError` can hide real errors.
+- **N7** The end-to-end `detection_enrichment` benchmark is still owed; the current one covers only the primitive.
+- **N8** test_attack_ora_tusize.py:96 recovers the replicate index from `seed_seq.entropy`, which is fragile.
+- **N9** `_collection_rows` rebuilds the gene maps for every collection, and GO `_closure` is built twice.
+- **Lifting the flag:** the commit that lifts `ora_uncalibrated` must add it explicitly on the skip path; test_ora_review_179.py pins this.
+- **N10** The attack arms' `ora_uncalibrated` fallback cannot trigger on its own; the flag is a hand-edited constant.
+- **Statistician:** category_summary's bootstrap undercovers small categories (10 TUs: 0.886; 15 TUs: 0.90). Raise `CI_MIN_UNITS` to about 30, or use BCa or a studentized bootstrap.
+- **Statistician:** cross-fitting does not remove leakage when a category is a large share of one TU-size group. In the tested worlds this was only conservative.
+- **Flaky?** `tests/unit/function/test_gsea_flags.py::test_detection_flag_with_the_real_engine_d1_d2` failed only in the 16-worker fast suite (Slurm 1867909 and 1867927, es = −0.5 for top=True). It passes alone and in its file. Check main and look for state leaking between tests.

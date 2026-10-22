@@ -4,7 +4,7 @@ Each gene gets the window ``-up .. +down`` nt around its first start-codon base,
 ``+`` genes read ``genome[S - up, S + down)``, ``-`` genes ``revcomp(genome[E - down, E + up))``.
 Circular replicons wrap (origin-crossing genes are stored unwrapped, ``end > length``); linear
 contigs clip and ``start = end = 1 + (bases kept upstream)`` (OSTIR positions are 1-based).
-The parser keeps only the row at the requested start of each id; genes without one are absent.
+The parser keeps only the rows at the requested starts of each id; ids without one are absent.
 """
 
 from __future__ import annotations
@@ -83,21 +83,34 @@ def read_ostir_input(path: Path) -> list[OstirRow]:
         ]
 
 
+def _features(r: Mapping[str, str]) -> RbsFeatures:
+    return RbsFeatures(
+        tir_ostir=float(r["expression"]),
+        sd_dg=float(r["dG_rRNA:mRNA"]),
+        mrna_dg=float(r["dG_mRNA"]),
+        spacing_dg=float(r["dG_spacing"]),
+        standby_dg=float(r["dG_standby"]),
+        spacer_bp=int(r["RBS_distance_bp"]),
+        start_codon=r["start_codon"],
+    )
+
+
 def parse_ostir(path: Path, requested: Mapping[str, int]) -> dict[str, RbsFeatures]:
     """``ostir.csv`` → features per id, keeping the row whose ``start_position`` was requested."""
-    out: dict[str, RbsFeatures] = {}
+    many = parse_ostir_starts(path, {k: {v} for k, v in requested.items()})
+    return {k: v[requested[k]] for k, v in many.items()}
+
+
+def parse_ostir_starts(
+    path: Path, requested: Mapping[str, set[int]]
+) -> dict[str, dict[int, RbsFeatures]]:
+    """``ostir.csv`` → features per id and requested 1-based ``start_position`` (M7-08): every
+    requested start of an id with a row, the first row of a repeated ``(name, position)``."""
+    out: dict[str, dict[int, RbsFeatures]] = {}
     with path.open(newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
-            name = r["name"]
-            if name in out or requested.get(name) != int(r["start_position"]):
+            name, pos = r["name"], int(r["start_position"])
+            if pos not in requested.get(name, ()) or pos in out.get(name, {}):
                 continue
-            out[name] = RbsFeatures(
-                tir_ostir=float(r["expression"]),
-                sd_dg=float(r["dG_rRNA:mRNA"]),
-                mrna_dg=float(r["dG_mRNA"]),
-                spacing_dg=float(r["dG_spacing"]),
-                standby_dg=float(r["dG_standby"]),
-                spacer_bp=int(r["RBS_distance_bp"]),
-                start_codon=r["start_codon"],
-            )
+            out.setdefault(name, {})[pos] = _features(r)
     return out

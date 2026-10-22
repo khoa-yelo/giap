@@ -30,7 +30,7 @@ from giap.novel.outputs import (
 )
 
 __all__ = ["read_novel_orfs", "write_annotation_patch", "write_novel_faa", "write_novel_gff3",
-           "write_novel_orfs"]  # fmt: skip
+           "write_novel_orfs", "write_pragma_gff3"]  # fmt: skip
 
 _POS = frozenset(POSITION_COLUMNS)
 
@@ -70,6 +70,13 @@ def read_novel_orfs(path: Path) -> pd.DataFrame:
 
 def write_novel_gff3(path: Path, table: pd.DataFrame, replicons: Mapping[str, Replicon]) -> None:
     write_gff3(path, gff_features(table), list(replicons.values()))
+
+
+def write_pragma_gff3(path: Path, replicons: Mapping[str, Replicon]) -> None:
+    """A pragma-only GFF3 (header and ``##sequence-region`` lines; M7-08 rule 3: no candidate)."""
+    lines = ["##gff-version 3"] + [f"##sequence-region {r.id} 1 {r.length}"
+                                   for r in replicons.values()]  # fmt: skip
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
 def write_annotation_patch(path: Path, table: pd.DataFrame, gm: GeneModel) -> None:
