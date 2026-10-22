@@ -130,7 +130,7 @@ Gene-table `tir_ostir` of the 30 detected genes: 100, 200, …, 3000 → 10 % qu
 
 ## Acceptance criteria
 
-- [ ] `tests/unit/novel/test_evidence.py`: examples 1–12 and every degenerate row; §7.6.6 "each
+- [ ] `tests/unit/novel/test_novel_evidence.py`: examples 1–12 and every degenerate row; §7.6.6 "each
   class", "the ≥ 2-peptide rule", "ranking order"; ADR-0012 consequences ("a terminator 0–300 nt
   downstream on the same strand is found, one on the other strand or beyond 300 nt is not, origin
   wrap, NA when no call").
@@ -163,3 +163,21 @@ Gene-table `tir_ostir` of the 30 detected genes: 100, 200, …, 3000 → 10 % qu
    `called = true` until M7-16 decides the stop-codon matching question.
 5. Rank over called ORFs only (proposed) or all rows? **Proposed default:** called only; uncalled
    rows carry `rank` NA, so "top 20" (V13) means top 20 calls.
+
+## Lead decisions (2026-10-22)
+
+1. **Questions 1–5: the proposed defaults are accepted.**
+   - **RBS quantile:** it needs at least 20 detected genes. Below that, the RBS-requiring classes are not called and the rows are flagged.
+   - **Pseudogene junction:** the junction is the first premature in-frame stop from the annotated start. `junction_spanned` means that codon lies inside a peptide interval. The homopolymer window is [junction − 5, junction + 8). These fields are labels only.
+   - **`cds_outframe`:** this class still needs at least 2 distinct frame-specific peptides when decoys are present (M7-11).
+   - **`cterm_extension`:** these rows carry `readthrough_candidate` and are never `called = true` until M7-16.
+   - **Rank:** only called ORFs are ranked; uncalled rows get rank NA.
+2. **Branch:** m7/novel-evidence is stacked on m7/novel-steps (#168).
+
+3. **Test contract accepted (TA 3ab4a3e, e295140, 774946d).** The test author resolved nine ambiguities, listed in the test docstrings, and they are accepted as written. In particular:
+   - `class_evidence` excludes rule 8.
+   - The fixed ≥ 2 peptides rule applies to `cds_outframe`/`antisense`.
+   - Terminator distance = the terminator's 5′ base − the stop's last base, in a closed window 0..300.
+   - Flags follow §9.4 vocabulary order, not alphabetical order.
+4. **Flag order:** `apply_evidence` (or `orf_table`) emits flags in the novel_orfs schema vocabulary order. This replaces M7-07's "flags sorted"; the lead updates the stale `test_outputs.py` docstring.
+5. **Peptide intervals for the junction and cterm labels** reach the step as additive columns of `novel_candidates.parquet`. The step's inputs are unchanged, so the M7-08 registration test still holds. If the frozen schema of the parquet needs it, the change is additive only.

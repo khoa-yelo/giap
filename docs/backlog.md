@@ -472,6 +472,19 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M8-06 checklist: register `genomic_cluster` and `detection_confounded` in the `enrichment_gsea` schema (§9.4).
 - `test_gsea_table_flags_need_no_rng` uses the fake engine; add a real-engine p-value comparison to pin the RNG stream.
 
+## M7-09 review nits (#180; one round, blockers were test-only)
+- **N1 Homopolymer window edges are untested** (mutants m26, m27): add runs at [591, 596) and [607, 612). Leftward run extension (m64) and the linear contig end (m65) are untested too.
+- **N2 Untested equalities:** `terminator_downstream` at conf == `terminatornet_yes` (m42), and BacTermFinder skipping (m17).
+- **N3 `FLAG_ORDER`:**
+  - the test checks the helper's copy rather than `outputs.FLAG_ORDER` itself;
+  - no test writes `partial` together with `ostir_missing` (m55);
+  - unknown-flags-last is untested (m53).
+- **N4** `sorf` rows sent through the pseudogene junction logic go undetected (m61).
+- **N5** `read_peptide_intervals` on a pre-M7-09 parquet returns `{}` silently; it should log a warning.
+- **N6** The `orf_id` rank tie-break is lexicographic (`_1000_` < `_999_`). Document it.
+- **N7** `has_start` in the intergenic rule is equivalent in the pipeline (m08); the test can't detect its removal.
+- **N8** For a frameshift pseudogene (length not a multiple of 3), the junction scan skips the last whole codon. Document it.
+- Mutation evidence: Slurm 1867907, $GIAP_ROOT/review/pr180-mut/.
 ## M8-04b reviews (#179: code review CHANGES, statistician BLOCK, fixed in decision 13), pass 2 and nits
 - **Pass 2: lift `ora_uncalibrated`.**
   - The statistician's flexible cross-fitted recalibration passes every cell of all 8 worlds at R = 3000 ($GIAP_ROOT/stat/m804b/probe_flex.py). Its terms are 4 quantile hinges in logit q_raw, a one-hot TU size, a logit × log n interaction, and ridge 1e-4.
