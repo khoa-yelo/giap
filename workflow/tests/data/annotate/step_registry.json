@@ -346,6 +346,7 @@
       "operons",
       "pairs",
       "peptide_hits",
+      "pileup",
       "plots_support",
       "promoters_bed",
       "protein_hits",
@@ -358,7 +359,9 @@
       "terminators_bed",
       "tier_summary",
       "tus_tsv",
-      "unmapped"
+      "unmapped",
+      "variants",
+      "variants_vcf"
     ],
     "outputs": [
       "plots"
@@ -454,6 +457,7 @@
       "operons",
       "pairs",
       "peptide_hits",
+      "pileup",
       "plots_support",
       "promoters_bed",
       "protein_hits",
@@ -466,7 +470,9 @@
       "terminators_bed",
       "tier_summary",
       "tus_tsv",
-      "unmapped"
+      "unmapped",
+      "variants",
+      "variants_vcf"
     ],
     "outputs": [
       "report"
