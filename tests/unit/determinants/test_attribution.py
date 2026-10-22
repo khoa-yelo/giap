@@ -73,6 +73,14 @@ def test_example_5_shap_identity_every_row(fitted: Any) -> None:
     np.testing.assert_allclose(shap["predicted_log2"].to_numpy(float), oof, rtol=0, atol=TOL)
 
 
+def test_rows_out_of_fitted_order_raise(fitted: Any) -> None:
+    """Review B1: fold labels and OOF are positional, so shuffled rows must not pass silently."""
+    X, _, _, blocks, cv = fitted
+    shuffled = X.iloc[np.random.default_rng(5).permutation(len(X))]
+    with pytest.raises(ValueError, match="fitted order"):
+        a.attr_mod().shap_blocks(cv["lightgbm"], shuffled, blocks)
+
+
 def test_blocks_without_columns_are_na(fitted: Any) -> None:
     X, _, _, blocks, cv = fitted
     shap = a.attr_mod().shap_blocks(cv["lightgbm"], X, blocks)
@@ -300,6 +308,7 @@ def test_example_6_two_sided_residual_flag() -> None:
     assert signs[0] == pytest.approx(-2.3) and signs[1] == pytest.approx(2.5)
     for g in RIBO:
         assert "cai_reference" in flags_of(t.at[g, "flags"])
+        assert a.FLAG not in flags_of(t.at[g, "flags"]), g  # decision Q3 (residual 50)
 
 
 def test_residual_flag_strictly_beyond_two_sd() -> None:

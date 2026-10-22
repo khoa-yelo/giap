@@ -35,6 +35,7 @@ ATTRIBUTION_COLUMNS: tuple[str, ...] = (
 UNEXPLAINED = "abundance_not_explained_by_sequence"
 TOP_QUANTILE = 0.9
 RESIDUAL_SDS = 2.0
+ADDITIVITY_TOL = 1e-6  # |Σ block SHAP + expected - OOF| per CV row
 
 
 # ---------------------------------------------------------------------------- SHAP
@@ -100,7 +101,12 @@ def shap_blocks(
             S[test] += s / R
             E[test] += e / R
             i += 1
-    out = _shap_frame(S, E, np.asarray(cv.oof, dtype=float), X.index, present)
+    oof = np.asarray(cv.oof, dtype=float)
+    gap = np.abs(np.nansum(S, axis=1) + E - oof)
+    if np.any(gap > ADDITIVITY_TOL):  # rows of X not in the order cv was fitted on
+        raise ValueError(f"SHAP sums miss the OOF predictions by up to {np.nanmax(gap):.3g}; "
+                         "X must hold the CV rows in their fitted order")  # fmt: skip
+    out = _shap_frame(S, E, oof, X.index, present)
     if extra is None or len(extra) == 0:
         return out
     boosters: Sequence[Any] = cv.boosters

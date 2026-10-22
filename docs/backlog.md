@@ -233,3 +233,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - the ΔR² caveat (the repeats share data);
   - univariate CIs are unadjusted and make no discovery claim.
 - §7.8.2's separate report of ribosomal genes: confirm which issue owns it (M8-09 adds rows flagged `cai_reference`).
+
+## M8-09 review nits (#173, one-round MVP review)
+- Tests at rule edges: `>=` top-decile cut, SD ddof 1, `>` at 2 SD, ribosomal genes imputed/undetected with finite abundance.
+- Untested error paths: OOF size vs model rows, booster count ≠ R·K, `len(X)`.
+- `null_p` should check `X`/`y`/`tu`/`folds_rep1` lengths.
+- `b_count` derived from p; `n_perm` is B not the non-NaN count — compute both directly.
+- A NaN observed R² gives p NaN unflagged; add `unestimated`.
+- Pin the LightGBM refit seed with a bagging-on test.
+- Decide and test `top_decile` under `too_few_rows`.
+- `_canonical` recomputed per permutation and model.
+- Owed (acceptance): B = 1,000 benchmark in baseline.json; methods "Null and attribution" section.
