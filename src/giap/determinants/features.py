@@ -168,7 +168,8 @@ def _sorted(tbl: pd.DataFrame, contig_order: Sequence[str]) -> pd.DataFrame:
 def _lookup(frame: pd.DataFrame | None, col: str, tags: pd.Series) -> pd.Series:
     if frame is None or col not in frame.columns:
         return pd.Series([None] * len(tags), dtype=object)
-    m = frame.drop_duplicates("locus_tag").set_index(frame["locus_tag"].astype(str))[col]
+    d = frame.drop_duplicates("locus_tag")
+    m = d.set_index(d["locus_tag"].astype(str))[col]
     return m.reindex(tags.to_numpy()).reset_index(drop=True)
 
 

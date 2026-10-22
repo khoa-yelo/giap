@@ -205,3 +205,9 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M8-07 dedupe: `giap.determinants.features._eligible` is a local copy of the §7.3 regions-table rule
   (`regions_table._eligible`); switch it to `giap.genetable.eligible` once M8-03 (#159) merges
   (lead decision 2 of docs/specs/M8-07-determinants-features.md).
+- M8-07 review of #162 (approve; lead: `_lookup` deduplicates before indexing):
+  - **M8-08 brief:** on sim100k, 14 encoded columns are constant (`start_codon_other`, `replicon_type_unknown`, 12 `nterm_residue_*`). The elastic net's standardisation must handle zero variance and NaN cells (impute or drop), and must drop any column that is all-NaN after encoding;
+  - an `nterm_residue` outside the 20 levels (X, U, `*`, lowercase) gives all-zero one-hot rather than NaN; a lowercase `aa` skips the Met rule;
+  - test gaps: the C2 `ribosomal_protein` column winning, and each fallback arm alone; one-hot NA → NaN; §6.5 tie-breaks (same start with a different end; strand or locus_tag ties);
+  - methods: say that `layer_missing:<layer>` is inferred from which features are absent from the returned map.
+
