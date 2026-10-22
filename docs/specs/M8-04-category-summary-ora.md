@@ -422,3 +422,9 @@ They still apply. The new questions:
     - an out-of-range N raises;
     - the caller tilts;
     - rescaled inputs use a tolerance of 1e-11.
+11. **Review B1 (#172): the tilt keeps complements** (2026-10-22). `expit(logit q + θ)` rounds to 1.0 once logit q + θ > about 36.7. Below that, `1 − q` keeps only about ε/2 of absolute accuracy, which breaks the 1e-12 contract and can make the "unreachable" degenerate case reachable.
+    - **New:** `tilt_pair(p, total) -> tuple[np.ndarray, np.ndarray]` returns the tilted `(p, comp)`, where `comp = expit(−(logit p + θ))` is computed directly, never as `1 − p`. Exact 0s and 1s of the input stay exact, with `comp` 1 or 0. Every open entry (0 < p < 1) has both `p` and `comp` > 0, clamped to the smallest positive normal double, so an open entry is never treated as certain.
+    - `conditional_poisson_binomial(p_in, p_out, k, N, *, comp_in=None, comp_out=None)` uses the complements when given (else `1 − p`). It narrows the support only on exact 0s of `p` and of `comp`.
+    - **Contract:** for any raw q and total, `conditional_poisson_binomial` on `tilt_pair(q, total)` equals the untilted exact law of q. This holds to a relative 1e-11 on the tails and the mean, including q within 1e-15 of 1 and θ > 0. The call also never raises when the untilted support is non-empty.
+    - **`tilt`:** keeps its signature and returns `tilt_pair(...)[0]`. It now raises `ValueError` when an open entry rounds to exactly 0 or 1. M8-04b uses `tilt_pair`.
+    - **Review nits:** N1 (the zero or non-finite support-sum guard test) and N5 (`operator.index(k)`) go in this round. N2–N4, N6 and N7 go to the backlog.
