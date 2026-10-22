@@ -127,3 +127,11 @@ from swaps alone at q ≤ 0.01" — run in M7-13 on the M7-12 scenario. This iss
 4. `stop_codon` is unreachable with the merged matcher (rule 6). **Proposed default:** implement
    and unit-test it now; whether stop-spanning hits become possible is M7-16's decision (lead, and
    Khoa if it changes placement FDR).
+
+## Lead decisions (2026-10-22)
+
+1. **Swaps carry no `mass_equivalent`.** This is the proposed default. Every swap is isobaric, so a flag on swaps would carry no information. M7-13 reports swaps separately under attack 6.
+2. **The mass-equivalence list is recomputed in process at the configured tolerance.** The committed `mass_equivalents.tsv` is the reviewed list at the default tolerance, and a unit test pins the two together. The TSV is never read at run time.
+3. **`snv` / `multi_nt` apply to substitutions only.** Swaps, blocks and frameshifts carry neither; `nt_changes` already counts their bases.
+4. **`stop_codon` is implemented now and unit-tested on hand-built alignments** (example 13). It becomes reachable only if M7-16 makes stop-spanning hits possible.
+5. **Branch.** m7/variant-flags is stacked on m7/variants-step (#164). This issue fills `flags` in the wired step, so the M7-04 tests must keep passing unchanged.
