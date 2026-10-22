@@ -29,12 +29,16 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Instance:
-    """One output file set: ``Vnn_<name>[_<suffix>].{svg,png,pdf}`` and its data TSV."""
+    """One output file set: ``Vnn_<name>[_<suffix>].{svg,png,pdf}`` and its data TSV.
+
+    ``data`` is 0-based half-open like ``RunView`` tables; ``coords`` names its start columns,
+    which ``write_instance`` writes ``+ 1`` so the data TSV is 1-based closed (§6.5, §9.2)."""
 
     suffix: str | None
     figure: Figure
     data: pd.DataFrame
     title: str
+    coords: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -148,13 +152,20 @@ def empty_state(
 def binned(
     starts: np.ndarray, ends: np.ndarray, length: int, max_elements: int = 20_000
 ) -> np.ndarray | None:
-    """``None`` when a track has at most ``max_elements`` elements, otherwise the
-    ``max_elements + 1`` edges of equal-width bins over ``[0, length)`` (decision 12)."""
+    """``None`` when a track has at most ``max_elements`` elements, otherwise the ``n + 1``
+    integer edges (``int64``) of ``n = min(max_elements, length)`` bins over ``[0, length)``;
+    every bin is at least 1 bp and widths differ by at most 1 bp (decision 12, PR #191 B2).
+
+    Elements must lie in ``[0, length)``: the caller splits circular features with
+    ``end > length`` at the origin first."""
     if len(starts) != len(ends):
         raise ValueError(f"{len(starts)} starts but {len(ends)} ends")
     if len(starts) <= max_elements:
         return None
-    return np.linspace(0.0, float(length), max_elements + 1)
+    if length < 1:
+        raise ValueError(f"replicon length {length} < 1")
+    n = min(max_elements, length)
+    return (np.arange(n + 1, dtype=np.int64) * np.int64(length)) // np.int64(n)
 
 
 def title_pct(n: int, d: int) -> str:

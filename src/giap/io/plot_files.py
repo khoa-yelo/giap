@@ -3,7 +3,10 @@
 ``write_instance`` writes ``Vnn_<name>[_<suffix>].<fmt>`` for each format and
 ``data/Vnn_<name>[_<suffix>].tsv`` through ``giap.io.tsv`` (§9.2, ADR-0006). Image metadata that
 carries a date or a software version is dropped, so two renders of one instance are
-byte-identical on one platform. The figure is closed after writing.
+byte-identical on one platform (``svg.hashsalt`` is fixed here, whether or not
+``giap.viz.style.apply`` ran). The figures are ``matplotlib.figure.Figure`` objects that pyplot
+never manages, so nothing needs closing. The ``Instance.coords`` columns are written ``+ 1``
+(1-based closed data TSVs, §6.5).
 """
 
 from __future__ import annotations
@@ -13,7 +16,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-import matplotlib.pyplot as plt
+import matplotlib
 
 from giap.io.tsv import write_tsv
 from giap.viz.base import Instance
@@ -24,6 +27,8 @@ METADATA: dict[str, dict[str, Any]] = {
     "pdf": {"CreationDate": None, "ModDate": None},
     "png": {"Software": None},
 }
+#: fixed SVG id salt (``giap.viz.style`` sets the same value)
+HASHSALT = "giap"
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
 
 
@@ -42,16 +47,16 @@ def write_instance(
     base = stem(pid, name, inst.suffix)
     plots_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
-    try:
+    with matplotlib.rc_context({"svg.hashsalt": HASHSALT}):
         for fmt in formats:
             path = plots_dir / f"{base}.{fmt}"
             inst.figure.savefig(path, format=fmt, dpi=dpi, metadata=METADATA[fmt])
             written.append(path)
-    finally:
-        plt.close(inst.figure)
     tsv = plots_dir / "data" / f"{base}.tsv"
     tsv.parent.mkdir(parents=True, exist_ok=True)
-    frame = inst.data
+    frame = inst.data.copy()
+    for col in inst.coords:
+        frame[col] = frame[col] + 1
     write_tsv(tsv, [str(c) for c in frame.columns], frame.itertuples(index=False, name=None))
     written.append(tsv)
     return written
