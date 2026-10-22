@@ -221,5 +221,22 @@
     "commit": "c0ddc3b",
     "date": "2026-10-21",
     "issue": "M6-04"
+  },
+  "missed_operons_20k_targets_20k_decoys": {
+    "benchmark": "benchmarks/test_missed_operons_bench.py::test_missed_operons_20k_targets_20k_decoys_budget",
+    "source": "docs/specs/M6-06-missed-operons.md acceptance (20,000 NO pairs + 20,000 decoys < 2 s)",
+    "budget_s": 2.0,
+    "secs": 0.23,
+    "n_target": 20000,
+    "n_decoy": 20000,
+    "n_decoy_sets": 2,
+    "n_bins": 5,
+    "node": "iron-15",
+    "cpu": "AMD EPYC 7742",
+    "node_class": "FarmShare iron (session allocation, shared 8 CPUs)",
+    "commit": "420ebcc",
+    "date": "2026-10-21",
+    "issue": "M6-06",
+    "note": "one missed_operons call on a 40,000-row pair frame: selection, binning, max_decoy_fdr (two reweighted FDRs, maximum, monotone q, two lfdr KDEs) and the row frame. 0.105 / 0.260 / 0.230 s over three runs in the iron-15 session allocation (median 0.23 s); not re-measured on wheat."
   }
 }

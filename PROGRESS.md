@@ -8,6 +8,8 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 87/103 done (84 %), 4 running · generated 2026-10-21 16:11 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 90/103 done (87 %), 4 running · generated 2026-10-21 17:30 by `scripts/dev/progress_bars.py`
 🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 91/135 done (67 %), 7 running · generated 2026-10-21 19:46 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
@@ -144,6 +146,14 @@ ids. Evidence reuses the M2-13/14/15 helpers via per-run indexes (`promoter_betw
 `tx_rate_between_arrays`, start-sorted terminator prefilter). Fast suite 8952 passed (Slurm 1864209);
 baseline `pair_frame_4500_genes` = 0.41 s of a 3 s budget (wheat-08, 1 CPU, Slurm 1864210). Lead decisions after the test-author appended to
 the spec.
+
+M6-06 (branch `m6/missed-operons`, stacked on #144, implementer step done, 2026-10-21):
+`giap.operons.missed` — `missed_operons(pairs, cfg, *, genes=None)` scores eligible both-detected NO
+pairs `-|Δ|` against CV/SW decoys through the merged engine `max_decoy_fdr` (distance-reweighted,
+larger FDR, monotone q, lfdr for ranking); `p_value` NA; `too_few_no_pairs` / `relative_scale` paths;
+`bin_counts` for the report. 30/30 unit tests (2 slow) pass; fast suite 9102 passed (Slurm 1864518);
+baseline `missed_operons_20k_targets_20k_decoys` = 0.23 s of 2 s (iron-15 session). Near-powerless at
+realistic effects (M6-01 decision 12), stated in the docstring and docs/methods/operons.md.
 
 M4-20 (PR #133, implementer step done, branch m4/integration-golden): `giapsim.fixtures.build_m4_fixture`
 (sim50k / sim1000 / sim4500, `layout=` kwarg, prophage + AMR planted from the actual gene count),
