@@ -60,7 +60,9 @@ def test_t6_with_folds_is_too_small_and_skips() -> None:
 def test_skipped_recalibration_is_a_run_flag() -> None:
     from helpers.ora_data import kegg
 
-    out = ora().detection_enrichment(t6_frame(), [kegg({"x": {"g1", "g4", "g7"}})], (1, 500), 0.05)
+    out = ora().detection_enrichment(
+        t6_frame(), [kegg({"x": {"g1", "g4", "g7"}})], (1, 500), 0.05, folds=None
+    )
     assert "tu_recal_skipped" in out.attrs["run_flags"]
 
 
@@ -201,9 +203,9 @@ def test_folds_none_in_ora_uses_the_raw_q() -> None:
     s = _sim(53)
     rng = np.random.default_rng(54)
     sets = whole_tu_sets(s, rng, "large", 2)
-    out = ora().detection_enrichment(s.genes, [collection(sets)], (5, 500), 0.05)
+    out = ora().detection_enrichment(s.genes, [collection(sets)], (5, 500), 0.05, folds=None)
     assert "tu_recal_skipped" in out.attrs["run_flags"]
-    u = ora().tu_universe(s.genes)
+    u = ora().tu_universe(s.genes, folds=None)
     N = int(u.detected.sum())
     for term, genes in sets.items():
         m = np.zeros(len(u.tu_ids), dtype=bool)

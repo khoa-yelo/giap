@@ -63,7 +63,7 @@ def gene_subsets(draw: Any, tags: list[str], n: int) -> dict[str, set[str]]:
 
 
 def _run(genes: pd.DataFrame, colls: list[Any]) -> pd.DataFrame:
-    return ora().detection_enrichment(genes, colls, SIZE, ALPHA)
+    return ora().detection_enrichment(genes, colls, SIZE, ALPHA, folds=None)
 
 
 def _rows(out: pd.DataFrame, term: str) -> pd.DataFrame:
