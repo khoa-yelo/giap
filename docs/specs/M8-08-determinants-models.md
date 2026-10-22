@@ -135,3 +135,17 @@ def model_rows_table(cv: Mapping[str, CvResult], uni: pd.DataFrame) -> pd.DataFr
    - Drop zero-variance and all-NaN columns per training fold before standardising.
    - Record the dropped columns for the step's events.
    - LightGBM takes the same matrix.
+3. **The test author's choices** (commit 6c2ad3f) are accepted as the contract.
+   - `enough_data`, and `CvResult.dropped`.
+   - `univariate` encodes with `model_matrix` and bootstraps by TU.
+   - Rows are sorted internally.
+   - `flags` is a `;`-joined string, and constant y gives `unestimated`.
+   - The LightGBM tolerances in example 1 are ±0.15 with ΔR²(codon) > 0.7. The spec's ±0.05 holds only for the elastic net: LightGBM's drop model overfits the noise.
+   - Examples 4 and 5 are doubled, so each univariate row has ≥ 10 rows.
+4. **Inner CV grouping:** `cross_validate` takes the TU IDs as a keyword argument (`tu=`), so the inner `GroupKFold(3)` is by TU, as the spec says. A test for it is owed to the code-review round, and the lead adds it.
+5. **The ΔR² t-interval under-covers.** Under the null it misses 0 in 0.30–0.57 of replicates for LightGBM and 0.04–0.15 for the elastic net, against a bound of about 0.09.
+   - In pass 1, every ΔR² row carries `ci_unestimated`: the interval is reported, but it makes no coverage claim (R4).
+   - **Owed to Khoa (ADR):** a calibrated interval, for example a TU-block bootstrap over repeats or nested CV, or relabelling it.
+6. **Protected file:** the calibration key `determinants_delta_r2_max_abs_bias` (proposed 0.05) is missing from `tests/calibration/tolerances.yaml`.
+   - The file is protected, so the key needs Khoa.
+   - Until then the M8-08 calibration tests fail on the missing key. They are `calibration_nightly`/`calibration_full`, not every-commit.
