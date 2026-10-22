@@ -17,6 +17,7 @@ Each run flag is logged once as the WARNING ``function: run flag <flag>``; then 
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -56,6 +57,11 @@ def _empty(columns: Sequence[str]) -> pd.DataFrame:
 
 def _union(*parts: Sequence[str]) -> list[str]:
     return list(dict.fromkeys(f for p in parts for f in p))
+
+
+def _finite_or_none(x: float) -> float | None:
+    v = float(x)
+    return v if math.isfinite(v) else None
 
 
 def run_function(
@@ -125,7 +131,8 @@ def function_step(ctx: StepContext) -> None:
         ctx.log.warning("function: run flag %s", flag)
     ctx.log.info("function: %d run flags", len(flags),
                  extra={"event": _FLAGS_EVENT, "data": {"flags": list(flags)}})  # fmt: skip
-    data = {c.collection: {"n_terms": len(c.sets), "coverage": float(c.coverage),
+    # strict JSON: a coverage over no eligible gene is NaN, written as null (#181 review N1)
+    data = {c.collection: {"n_terms": len(c.sets), "coverage": _finite_or_none(c.coverage),
                            "n_unknown_ids": int(c.n_unknown_ids)} for c in colls}  # fmt: skip
     ctx.log.info("function: %d collections built", len(data),
                  extra={"event": _COLL_EVENT, "data": data})  # fmt: skip

@@ -675,8 +675,9 @@ def test_go_basic_without_slim_has_no_go_slim(world: World) -> None:
 
 
 def test_linear_replicon_changes_only_genomic_cluster(world: World, tmp_path: Path) -> None:
-    """Degenerate case "circular vs linear": only ``genomic_cluster`` reads the topology, and the
-    step hands C1 to GSEA (its table equals the item 2 chain on the linear C1)."""
+    """Degenerate case "circular vs linear": only ``genomic_cluster`` reads the topology. This world
+    has no origin-spanning term, so the hand-off of C1 to GSEA is pinned in
+    test_function_step_review_181.py (#181 review B1)."""
     items = ["cog2020_fun", "kegg_ko_pathway", "kegg_pathway_names"]
     circ = world.run("circ", items=items)
     lin = world.run("lin", items=items, replicons=world.linear)
