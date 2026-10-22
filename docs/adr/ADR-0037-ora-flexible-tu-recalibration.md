@@ -1,8 +1,8 @@
 # ADR-0037: The ORA TU detection recalibration becomes a flexible cross-fitted ridge logistic (pass 2)
-- Status: proposed
+- Status: accepted-by-khoa (2026-10-22, in session: "accept")
 - Date: 2026-10-22
 - Spec sections: §7.7.3, §8.4, §8.5; amends ADR-0035 decisions 1 and 3; ADR-0034 (flag pattern); ADR-0015 (blocks); docs/specs/M8-04-category-summary-ora.md (lead decisions 12 and 13); docs/methods/function.md "Detection enrichment" (origin/m8/ora)
-- Needs Khoa: yes. It changes the model behind every ORA p-value, and it sets the rule for lifting `ora_uncalibrated`.
+- Needs Khoa: yes (answered 2026-10-22: accept). It changes the model behind every ORA p-value, and it sets the rule for lifting `ora_uncalibrated`.
 
 ## Context
 **ADR-0035 is in place, but its model is not calibrated.**

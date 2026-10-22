@@ -1,8 +1,8 @@
 # ADR-0036: M8 function tables carry four columns and five run flags beyond GIAP_SPEC.md §9.3 and §9.4
-- Status: proposed
+- Status: accepted-by-khoa (2026-10-22, in session: "accept")
 - Date: 2026-10-22
 - Spec sections: §7.7.2, §7.7.3, §9.2, §9.3 (`category_summary.tsv`, `enrichment_detection.tsv`), §9.4 (Run scope); amends ADR-0029; docs/specs/M8-06-function-step-and-run.md (questions 4 and 9, lead decisions 1 and 2); docs/specs/M8-04-category-summary-ora.md (lead decisions 3 and 13); M8-index "ADR-A" (index decision 12)
-- Needs Khoa: yes. It adds columns to two §9.3 dictionaries and five tokens to the §9.4 run vocabulary. The lead's default is option (a). M8-06a goes ahead on that default (M8-06 lead decision 2). If Khoa rejects this ADR, only the two table schemas and the `COLUMNS` tuples change.
+- Needs Khoa: yes (answered 2026-10-22: accept). It adds columns to two §9.3 dictionaries and five tokens to the §9.4 run vocabulary. The lead's default is option (a). M8-06a goes ahead on that default (M8-06 lead decision 2). If Khoa rejects this ADR, only the two table schemas and the `COLUMNS` tuples change.
 
 ## Context
 - **§9.3 lists these columns:**
