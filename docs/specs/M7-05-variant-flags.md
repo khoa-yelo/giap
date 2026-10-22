@@ -34,6 +34,38 @@ def site_flags(site: Mapping[str, object], gm: GeneModel, cfg: GiapConfig,
                alt_sources: Collection[tuple[str, str]]) -> list[str]: ...  # (source, search_db)
 ```
 
+**Pinned by the tests (test author, 2026-10-22).**
+
+- `mass_equivalent(ref, alt, tol_da)`: `ref`/`alt` are residue strings (1 residue, or 1–2 for
+  blocks and near-blocks; `J` weighs as L/I). Directional: true iff |m(alt) − (m(ref) + Δ)| ≤
+  `tol_da` for Δ ∈ {0} ∪ the B.5 deltas (negative deltas included, so D → N flags via Amidated).
+  Float noise below 10⁻⁶ Da counts as 0, as `giap.mapping.masses` rounds to 6 decimals. On
+  substitutions it agrees with `mass_equivalents(tol_da)`: composition entries in both
+  directions, and `r+<mod>` vs `a` only as r → a.
+- `nt_class(ref_codon, alt_aa)`: `snv` iff some table-11 codon at most one base from `ref_codon`
+  encodes `alt_aa` (`J` = any I or L codon). This equals M7-03 `nt_changes ≤ 1`. It is defined
+  for all 64 codons (stops included) × the 20 residues and `J`.
+- `site_flags(site, gm, cfg, alt_sources)`: `site` is one `giap.variants.pileup.sites` row
+  (0-based `codon_start`). `alt_sources` holds the `(source, search_db)` of the peptides
+  supporting the site's ALT. Returns the M7-05 flags, each once, in §9.4 order; never
+  `vcf_unrepresentable`. It does not mutate `site`.
+  - REF of a `block` row is the translation of `ref_codon`, since `ref_aa` holds only the first
+    codon.
+  - `start_codon` applies when ALT is `M` on a substitution, at the first codon in
+    transcription direction (`start` on +, `end − 3` on −, wrapped on circular replicons) of a
+    `cds` or `sorf` gene; pseudogenes do not count.
+  - `stop_codon` applies when `ref_aa` is `*`.
+- `variants.tsv` `flags` follow §9.4 order, with `vcf_unrepresentable` last. The VCF `FLAGS`
+  field is the `|`-joined union over the record's alleles; its order is not pinned.
+- `python -m giap.data.build_mass_equivalents [--out PATH]` writes
+  `src/giap/data/mass_equivalents.tsv` by default, or `PATH`. The file is laid out as:
+  - `#` comment lines naming `build_mass_equivalents` and Appendix B.5;
+  - a header row `left  right  delta_da  kind`;
+  - one row per `mass_equivalents(0.05)` entry, in that function's order, with `delta_da`
+    within 5·10⁻⁷ of the entry.
+- Tests: `tests/unit/variants/test_flags.py`, `tests/unit/test_mass_equivalents_tsv.py`,
+  `tests/property/test_variant_flags_props.py`, `tests/unit/steps/test_variants_step_flags.py`.
+
 ## Rules
 
 1. **Mass equivalence.** For a substitution REF r → ALT a: flagged when |m(a) − (m(r) + Δ)| ≤
