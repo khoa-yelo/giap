@@ -130,7 +130,7 @@ Gene-table `tir_ostir` of the 30 detected genes: 100, 200, …, 3000 → 10 % qu
 
 ## Acceptance criteria
 
-- [ ] `tests/unit/novel/test_evidence.py`: examples 1–12 and every degenerate row; §7.6.6 "each
+- [ ] `tests/unit/novel/test_novel_evidence.py`: examples 1–12 and every degenerate row; §7.6.6 "each
   class", "the ≥ 2-peptide rule", "ranking order"; ADR-0012 consequences ("a terminator 0–300 nt
   downstream on the same strand is found, one on the other strand or beyond 300 nt is not, origin
   wrap, NA when no call").
