@@ -74,7 +74,7 @@ nextflow_pipeline {
         }
     }
 
-    test("precomputed regions layer: CONTEXT is skipped, OPERONS still runs") {
+    test("precomputed regions layer: OPERONS still runs (CONTEXT runs too since MVP-02)") {
 
         when {
             params {
@@ -95,7 +95,8 @@ nextflow_pipeline {
             def ran = { String s -> H.names(workflow.trace).count { H.tagOf(it) == s } }
             assert workflow.success
             assert workflow.trace.failed().size() == 0
-            assert H.stepCount(workflow.trace, 'context_stats') == 0 : "context_stats ran without C7/C8"
+            // MVP-02 (#146): region_layer writes C7/C8 from the precomputed layer, so CONTEXT runs
+            assert H.stepCount(workflow.trace, 'context_stats') == 1 : "context_stats ran ${H.stepCount(workflow.trace, 'context_stats')}x"
             assert ran('operons') == 1 : "operons ran ${ran('operons')}x: ${H.names(workflow.trace)}"
             ['tables/pairs.tsv', 'tables/operons.tsv', 'tables/operon_flags.tsv'].each { f ->
                 assert new File("${outputDir}/${f}").isFile() : "${f} not published"

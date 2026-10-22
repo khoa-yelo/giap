@@ -61,6 +61,7 @@ nextflow_pipeline {
             }
             assert cin.any { it[0] == 'stratum0_classes' } : "ADR-0019 class table not wired: ${cin}"
             assert cin.any { it[0] == 'detectability_summary' } : "detectability diagnostics not wired: ${cin}"
+            assert cin.any { it[0] == 'tier_summary' && it[1].endsWith('tier.parquet') } : "tier_summary not wired (M4-20 decision 3, MVP-02): ${cin}"
             assert cin.findAll { new File(it[1]).name == 'genes.parquet' }.size() == 2 : "gene_table and C2 genes both expected: ${cin}"
 
             ['genetable/genes_pre.parquet', 'genetable/genes.parquet',
@@ -71,11 +72,11 @@ nextflow_pipeline {
         }
     }
 
-    test("precomputed regions layer: GENETABLE still runs, CONTEXT does not") {
+    test("precomputed regions layer: GENETABLE and CONTEXT run on region_layer's C7/C8") {
 
-        // The Nextflow twin of the local executor's skip: ANNOTATE emits the precomputed regions
-        // as an M2-02 TSV layer and no C7/C8 Parquet, so context_stats and sensitivity are left
-        // out while gene_table and detectability, which need neither, keep running.
+        // MVP-02 example 2 (supersedes the MVP-01 "CONTEXT does not" pin): region_layer turns the
+        // precomputed M2-02 TSV into C7/C8 (M4-21 lead decision 2), so Nextflow runs CONTEXT
+        // like `giap run --executor local` does: one plan, two executors (GIAP_SPEC.md §6.4).
         when {
             params {
                 def a = "${moduleTestDir}/data/annotate"
@@ -87,30 +88,80 @@ nextflow_pipeline {
                 def ann = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
                 ann.precomputed.regions = new File("${a}/regions.tsv").canonicalPath
                 annotation = ann
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
             }
         }
 
         then {
             def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
             def ran = { H.names(workflow.trace) }
             assert workflow.success
             assert workflow.trace.failed().size() == 0
-            assert H.stepCount(workflow.trace, 'region_layer') == 0 : "region_layer ran despite the layer: ${ran()}"
-            ['gene_table', 'detectability'].each { s ->
+            ['GENOMAD', 'ANTISMASH'].each { p ->
+                assert H.count(workflow.trace, p) == 0 : "${p} ran despite the layer: ${ran()}"
+            }
+            ['region_layer', 'gene_table', 'detectability', 'context_stats', 'sensitivity'].each { s ->
                 assert H.stepCount(workflow.trace, s) == 1 : "${s} ran ${H.stepCount(workflow.trace, s)}x: ${ran()}"
             }
-            ['context_stats', 'sensitivity'].each { s ->
-                assert H.stepCount(workflow.trace, s) == 0 : "${s} ran without C7/C8: ${ran()}"
-            }
-            // the M2-02 TSV is a layer of the gene table, not a contract table
-            def gin = H.stepInputs(H.stepDirs(workDir.toString(), 'gene_table')[0])
-            assert !gin.any { it[0] in ['regions', 'region_genes'] } : "C7/C8 keys from a layer: ${gin}"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
 
-            assert new File("${outputDir}/genetable/genes.parquet").isFile() : "gene table not published"
-            // M6-08: OPERONS needs no C7/C8 and publishes its tables here; CONTEXT's must be absent
-            ['regions_stats.tsv', 'detection_summary.tsv', 'sensitivity.tsv'].each { f ->
-                assert !new File("${outputDir}/tables/${f}").exists() : "tables/${f} published without C7/C8"
+            // C7/C8 reach both CONTEXT steps from region_layer's task, not the M2-02 TSV
+            def rl = H.stepDirs(work, 'region_layer')[0].canonicalPath
+            ['context_stats', 'sensitivity'].each { s ->
+                def sd = H.stepDirs(work, s)[0]
+                def sin = H.stepInputs(sd)
+                ['regions', 'region_genes'].each { k ->
+                    assert sin.any { it[0] == k } : "${s} got no ${k}: ${sin}"
+                }
+                def sources = H.staged(sd).collect { new File(it[0]).canonicalPath }
+                ['regions.parquet', 'region_genes.parquet'].each { f ->
+                    assert sources.contains("${rl}/${f}".toString()) : "${s} does not stage region_layer's ${f}: ${sources}"
+                }
             }
+
+            ['genetable/genes.parquet', 'tables/regions_stats.tsv', 'tables/detection_summary.tsv',
+             'tables/sensitivity.tsv'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+        }
+    }
+
+    test("no precomputed layer, every module: the process list is unchanged (MVP-02 example 3)") {
+
+        // The non-precomputed path as of MVP-01 / M4-21, one task per process (GIAP_STEP tasks by
+        // step name). MVP-02 must not add, drop or repeat a process on this path.
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core', 'mobile', 'bgc', 'function']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def got = H.names(workflow.trace).collect { n ->
+                def p = H.procOf(n)
+                p == 'GIAP_STEP' ? H.tagOf(n).toUpperCase() : p
+            }.sort()
+            def want = ['ANTISMASH', 'BAKTA', 'CODON_USAGE', 'CONTEXT_LAYERS', 'CONTEXT_STATS',
+                        'DETECTABILITY', 'GENE_TABLE', 'GENOMAD', 'LOCI', 'MAP_EXACT', 'MAP_TOLERANT',
+                        'OPERONS_STEP', 'OPERON_PAIRS', 'OSTIR', 'OSTIR_INPUT', 'PARSE_BAKTA', 'PLACEMENT', 'PROMOTECH',
+                        'PROMOTER_CALCULATOR', 'PROMOTER_LAYER', 'PROMOTER_WINDOWS', 'RBS_LAYER',
+                        'REGION_LAYER', 'SENSITIVITY', 'SIXFRAME_INDEX', 'TERMINATORNET',
+                        'TERMINATOR_LAYER', 'TRANSTERMHP', 'TRANSTERM_INPUT', 'TX_LAYER', 'UNIOP',
+                        'UNIOP_INPUT'].sort()
+            assert got == want : "process list changed: extra ${got - want}, missing ${want - got}; got ${got}"
         }
     }
 

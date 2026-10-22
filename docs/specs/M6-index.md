@@ -67,7 +67,7 @@ all three have merged.
 | 8 | [M6-03](M6-03-sim-operon-scenarios.md) | F | 2 | giapsim: operon null, planted co-abundant NO pairs, planted discordance, AR(1) attack, detection truth | none | 40 (+260 sim) | yes (light) |
 | 9 | [M6-09](M6-09-calibration-gate.md) | C | 2 | **the gate**: `missed_operons` FDR, `discordance` level, attack null, power recorded | 03, 05, 06 (+02) | 60 (+tests) | yes |
 | 10 | [M6-10](M6-10-sensitivity-operon-flags.md) | R | 2 | sensitivity family `operon_flags`; `full` variants UniOP 0.3 / 0.7 | 07, 08 | 110 | yes (light) |
-| 11 | [M6-11](M6-11-regulondb-fetch.md) | V | **blocked** | `validation/fetch_regulondb.py`, RegulonDB v12 TU and terminator truth on K-12 | network (see below) | 180 | no |
+| 11 | [M6-11](M6-11-regulondb-fetch.md) | V | **blocked** | `validation/fetch_regulondb.py`, RegulonDB 14.5.0 TU and terminator truth on K-12 | network (see below) | 180 | no |
 | 12 | [M6-12](M6-12-uniop-terminator-cutoffs.md) | V | **blocked** | UniOP AUROC + cut-off, d₀/s refit, TerminatorNet cut-off → `calibration.yaml` + **ADR-0022** | 11 | 200 | yes |
 
 Total ≈ 2,410 code lines in `src/` and `validation/` (+ ≈ 260 simulator lines, ≈ 3,000 test lines);
@@ -196,7 +196,7 @@ the Poisson-binomial, the replicate model, the oriented r sample). Updates: `mul
 
 ## ADRs M6 owes
 
-- **ADR-0022 "UniOP and TerminatorNet cut-offs from RegulonDB v12"** (M6-12, **blocked**): the AUROC,
+- **ADR-0022 "UniOP and TerminatorNet cut-offs from RegulonDB 14.5.0"** (M6-12, **blocked**): the AUROC,
   the chosen thresholds, the refitted d₀ and s, the statement that RegulonDB's incompleteness makes
   the terminator precision a lower bound (§15.4 step 4), and the provenance fields written into
   `calibration.yaml`. Protected file; goes to Khoa.

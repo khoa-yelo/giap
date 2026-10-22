@@ -447,14 +447,13 @@ Statistician (PR #140 review, 2026-10-21): FDR control and the KDE evaluation **
 zero-MAD / dominant-tie fit (σ → 0 reported as converged) **must be fixed** before merge; the power
 limitation above is a property of the specified method and is reported, not a merge blocker.
 
-Statistician (PR #147 review, 2026-10-21): the discordance test is at level with the double use
-included, and BH over the both-detected t p-values is the specified family. The flag on tested rows
-must say that the CI, not the claim, is unestimated. Power is near zero at realistic effects; that
-is reported here, not a merge blocker. Attack D-1 is owed to M6-09.
-
 Statistician (PR #148 review, 2026-10-21): the missed-operon step is at level under every
 continuous null tried, including an abundance mix that differs between NO and decoy pairs. Pairs
 with both genes imputed share a fill value, so their Δ = 0 is a point mass that can produce
 wholesale false calls when it is more common among NO pairs. The imputed state must travel with the
 pair rows now, and exclusion on both sides is an ADR for Khoa. Relative-scale rows need
 `unestimated` (§7.3.4), and scored rows need `ci_unestimated`.
+Statistician (PR #147 review, 2026-10-21): the discordance test is at level with the double use
+included, and BH over the both-detected t p-values is the specified family. The flag on tested rows
+must say that the CI, not the claim, is unestimated. Power is near zero at realistic effects; that
+is reported here, not a merge blocker. Attack D-1 is owed to M6-09.
