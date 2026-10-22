@@ -63,7 +63,7 @@ def site_flags(site: Mapping[str, object], gm: GeneModel, cfg: GiapConfig,
   - a header row `left  right  delta_da  kind`;
   - one row per `mass_equivalents(0.05)` entry, in that function's order, with `delta_da`
     within 5·10⁻⁷ of the entry.
-- Tests: `tests/unit/variants/test_flags.py`, `tests/unit/test_mass_equivalents_tsv.py`,
+- Tests: `tests/unit/variants/test_variant_flags.py`, `tests/unit/test_mass_equivalents_tsv.py`,
   `tests/property/test_variant_flags_props.py`, `tests/unit/steps/test_variants_step_flags.py`.
 
 ## Rules
@@ -130,7 +130,7 @@ def site_flags(site: Mapping[str, object], gm: GeneModel, cfg: GiapConfig,
 
 - [ ] `build_mass_equivalents.py` writes `mass_equivalents.tsv`; a unit test regenerates it and
   diffs against the committed file; the twelve B.5 checks pass on it.
-- [ ] `tests/unit/variants/test_flags.py`: examples 1–13 and every degenerate row; the exhaustive
+- [ ] `tests/unit/variants/test_variant_flags.py`: examples 1–13 and every degenerate row; the exhaustive
   64 × 21 `nt_class` table against a brute-force oracle; "mass-equivalent flags for the listed
   pairs" (every §7.5.3 bullet).
 - [ ] Property: flags never change `call`, `confidence`, `n_ref` or `n_alt` (run `sites` with and
