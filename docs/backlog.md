@@ -42,6 +42,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M4-14 (statistician): re-measure abundance.ibaq_denominator on M4-09 data before switching (fails 10–40 % at p_obs = 0.3); restate as a pooled mean Δρ if needed; add the p_obs = 0.3 attack.
 - M4 notes: median imputation pulls detected-but-unquantified genes toward the centre; the min/exclude sensitivity reruns bracket it (statistician, #82).
 - M7: compute the M4-16 QC metric id_mixups (§7.5.1: same-database ALT sites that are not start/stop sites); M4-16 reports NA + requires_variants until then.
+- M7-01: co-optimal alignments with equal cost, diff-type multiset and difference positions but different op shapes are broken by DP move order (1:1, 2:2, 1:2, 2:1), not pinned by a test; the frameshift property oracle sorts kinds alphabetically, not by DIFF_TYPES precedence (no divergence found in 200k random junction cases).
+- M7-01: align_hits loops rows in Python (~110 µs/hit); batch the DP in numba if Module 5 ever aligns far more than 10^5 hits.
 - M4-16 (statistician #87 sign-off, non-blocking): (a) also flag ci_few_units by the number of TUs carrying a detection (non-coverage 0.07–0.12 for 1–5-gene TUs, 0.36 for 10-gene TUs at E≈10; job 1850360); (b) genome_inconsistent_rate only under --genome-relation same (§7.5.1), not related; (c) `hypothetical` parsed with astype(bool): the string "false" reads as True — parse booleans explicitly.
 - Benchmarks: nothing reads benchmarks/baseline.json yet — add a check that compares benchmark results with it (M4-13 review).
 - At the next uv lock update: scikit-learn>=1.8 (l1_ratio API) and threadpoolctl as direct dependencies (M4-13).
@@ -140,16 +142,51 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   `tests/unit/test_nf_main_installed_items.py` now pins the two literals against `SOURCES`, in the
   style of `test_nf_annotate_registry.py`; pass 2 should drop the duplication instead, by having
   `installed()` read the manifest entry's own `path`.
+- M5-09 (lead decision 3): `context_stats` writes `tables/genes.tsv`, so a run that skips it (no
+  C7/C8, as the "precomputed regions layer" nf-test does) produces no genes.tsv at all. Resolved
+  when §6.2's `finalize` step arrives and takes ownership of the file; `gene_context.parquet` and
+  the gene table are already on disk for it to join.
+- M5-09: `giap.steps.registry` gained `optional_outputs` (a subset of `outputs` a caller may leave
+  unwired) so the M5 keys could be added to `context_stats` without rewiring M4-18's registry-path
+  callers. It has no dedicated unit test yet — the test-author should cover the decorator check,
+  `_check_keys` and the "wired together or not at all" rule in `_m5_context`.
 - `np.linalg.lstsq` in `giap.context.regions.residualise` is not bit-portable across CPUs (LAPACK SVD),
   so `regions_stats.tsv` float columns differ by 1–2 ulp between machines and between CI legs (M4-20
   decision 9, probe 1863133). Writer-level rounding is the real fix — see the §9.5 per-field precision
   item — and belongs with the M6 writers.
-- CONTEXT cannot receive `tier_summary`: it would need an 11th `take:` channel and
-  workflow/tests/context.nf.test binds exactly input[0..9] (M4-20 decision 3). Test-author work.
 - tests/helpers/islands_data.py (m5/islands) and tests/helpers/oriter_data.py (m5/oriter) both carry a
   `tu_frame` and a giapsim-scenario driver; whichever merges second should deduplicate. Note the ori–ter
   driver deliberately keeps the simulator's real coordinates, while the island one re-lays genes through
   `Contig`, which would destroy the ori–ter geometry — so the shared helper must preserve both modes.
+- M4-21 pass 2 (code review of #145): F2 unit tests for `precomputed_members` (constant overlap_frac,
+  skipped unknown tag, core_biosynthetic mutants survive); F3 no real-path test of prophage subset
+  classes beyond `cargo`; F4 log or `notes`-tag that precomputed regions have product-only subsets and
+  `core_biosynthetic = False`; F5 unit-test `topo_order` with `members`; F6 `_precomputed` ignores
+  `context.region_types` (the tool path filters it); F7 the sensitivity goldens (sim50k, sim100k_real)
+  have zero primary/variant calls; F8 stale flat files win over keyed ones in `contract_paths` /
+  `work_inputs`. `PUBLISHED_FILES` repeats the Nextflow names (pinned by a test) — one shared source.
+- MVP-02 pass 2 (code review of #146): `-resume` reuses a stale region_layer result when only the
+  precomputed TSV's content changes (stage it as a declared input, decision 2, which also replaces the
+  absolute-path fix in `write_params`); example 4 ran under farmshare_local, the farmshare,apptainer
+  conclusion (GIAP_STEP runs natively) is from reading the config, not from a run.
+- RegulonDB TLS: the server omits its intermediate, so any plain client fails verification. GIAP completes
+  the chain itself (fetch_regulondb.py pins GlobalSign GCC R46 OV TLS CA 2025, sha256
+  d160e2de4e56cb10b66c1cb0adcb79cf93c78dcd9db30c2018220262c04063f9, valid to 2029-06-23, verified against
+  the already-trusted GlobalSign Root R46). Re-check when the intermediate expires, or drop the workaround
+  if RegulonDB ever publishes a complete chain.
+- M6-11 pass 2 (non-blocking items from the code review of #141; lead decision 7):
+  - fetch_regulondb: when the endpoint reports no release, fall back to the date + hash (ADR-0017)
+    instead of the directory name `unknown`;
+  - record `(date, sha256)` per retrieval, not only the dates, so a changed download is visible;
+  - the unreachable-host error names the PROGRESS.md › Blocked entry, as the spec's degenerate row says;
+  - clean up `.part` files on failure and fsync before the rename in `write_atomically`;
+  - bound the intermediate download (read at most a few kB);
+  - type-check the GraphQL payload fields (content is `str`, metadata `str | None`);
+  - catch `UnicodeDecodeError` in the retry loop;
+  - record the genome-version equivalence NC_000913.3 = U00096.3 (RegulonDB vs the recorded Bakta contig);
+  - the tests live in `tests/unit/test_m6_11_regulondb_*.py`, not the spec's `validation/tests/`
+    (pytest's testpaths is `tests`): amend the spec or move them;
+  - the "no RegulonDB bytes committed" check matches file names only; add a content or size check.
 - Post-merge code review of #131 (M5-06 islands), pass-2 items (the origin-crossing TU bug is being
   fixed in its own PR): (1) the high-before-low tie-break sort at `islands.py:585` is untested;
   (2) `detected_frac` is not pinned (add a `missing = exclude` case with a detected NaN-abundance gene
@@ -167,6 +204,22 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   from the evaluation points; `_bins` silently truncates float bins; `bin_index` accepts NaN edges;
   the +inf distance in the `bin_index` docstring.
 - M6-04 polish (non-behavioural): `promoter_between_tracks` exposes the private `_Track` alias in its signature (make a public `PromoterTrack` type); pin `pair_frame` dtypes (`detected_*` bool, `flags` list) through a pairs.tsv schema when M6-08 writes the table; consider one shared index object for the M2 `*_between` helpers so M6-07 reuses it.
+- M7-01 review of #154 (non-blocking):
+  - untested: two same-direction 1↔2 blocks (|n−m| = 2, align.py:184); leftmost tie-break across frameshift junctions; the 2→1 block start (`pi = i - 2`); the move-3 bounds guard;
+  - `_check` could also compare the recomputed diff-type multiset with the row's `diff_types`;
+  - frameshift work-table lookup: filter to `frameshift` rows, and check blocks against the row's start/end;
+  - `test_align_sim100k.py`: assert that frameshift rows occur;
+  - test_align_props.py:266: sort kinds by RANK, not by name (unobservable today).
+- M6-06 review of #148, owed to M6-08/M6-09:
+  - ADR draft for Khoa: exclude pairs with an imputed gene from targets and decoys (statistician: a co-imputed NO surplus gives ~198 false calls per replicate on a 2,000-pair genome; exclusion restores the level);
+  - attacks M-1 (co-imputation surplus; fails until the ADR), M-2 (class-dependent abundance/detection mix), M-3 (M6-01 attacks A and B);
+  - validate `operons.pi0` in `OperonsConfig` so the degenerate paths reject it too;
+  - `genes=None` means molar and all eligible: the step must always pass `genes` (or make it required);
+  - drop the internal `which` column before `pairs.tsv` (M6-07 decision 4);
+  - mutant test gaps: `partial` on `gene_a` only; `N_NO` counting only targets; `null_model` name with a dropped set; deterministic decoys-before-targets order; decoys' `partial` symmetry.
+- M6-06 (pass 2): `bin_counts` and the π₀ actually used must reach the §9.4 run report and the manifest when the operons step is wired (M6-07/M6-08); the function returns them but nothing writes them yet.
+- M6-06 (pass 2): the missed-operon benchmark baseline was measured in the iron-15 session allocation only (0.23 s); re-measure on wheat with the other M6 entries.
+- M6-06 (pass 2): the lfdr of targets in a bin with no decoys is too small (methods note, "Known asymmetry"); set it NA or 1 there before lfdr is ever thresholded.
 - M6-05 review of #147 (code reviewer, statistician), owed to M6-05H/M6-09:
   - skip the t fit when the scale is relative (today it fits and may warn "too_few_op_pairs" on relative rows);
   - log the 1e-6 scale floor in the non-convergence warning, not the raw MAD;

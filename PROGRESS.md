@@ -10,6 +10,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 <!-- progress:start -->
 🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 87/103 done (84 %), 4 running · generated 2026-10-21 15:58 by `scripts/dev/progress_bars.py`
 🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 87/103 done (84 %), 4 running · generated 2026-10-21 16:11 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 92/135 done (68 %), 9 running · generated 2026-10-21 20:26 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -22,6 +23,11 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M6 Operons | 🟩🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜ 8 % | 1 | 2 | 9 |
 | M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
 | M8 Function and determinants | _not designed yet_ | - | - | - |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
+| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
+| M6 Operons | 🟩🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜ 33 % | 4 | 3 | 5 |
+| M7 Variants and novel ORFs | 🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0 % | 0 | 2 | 14 |
+| M8 Function and determinants | 🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0 % | 0 | 4 | 12 |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
@@ -46,6 +52,8 @@ M6–M11: not designed yet.
   capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
 
 ## In progress
+M7-01 residue aligner (branch m7/alignment, implementer step done 2026-10-21): `giap.variants.align` (247 code lines, numba banded DP with traceback; M3 kernels untouched). Unit 42 passed, property 5 passed (also over 20 Hypothesis seeds), sim100k conformance passed (Slurm 1864764), fast suite 9180 passed (1864763), benchmark 100k tolerant hits 11.35 s < 30 s (1864766, wheat-08). Next: code review.
+
 Session 2026-10-20 (lead + up to 6 subagents in parallel, Khoa's instruction). Merged today: #107 M2-21
 (nightly array, weekly, measured runtimes), #108 M5 design, #109 one-subprocess step-load test (52.6 s →
 2.7 s), #110 M4-18 regions stats, #111 M4-15 gene table, #112 M5 decisions + ADR-0020/0021, #113 M3-21
@@ -82,6 +90,72 @@ one BH family of t p-values only (M6-index decision 1), CI NA + `unestimated`; `
 oracles (8e43149); tests/unit/operons 57 passed; fast suite Slurm 1864501. Pass-1 simplifications in
 docs/backlog.md.
 
+MVP-02 (branch mvp/nf-precomputed-regions, stacked on #145; implementer step done): with
+`annotation.precomputed.regions` set, ANNOTATE skips only GENOMAD/ANTISMASH; REGION_LAYER runs (reads the
+TSV from the config) and its C7/C8 Parquet go to context_layers and CONTEXT, so Nextflow now runs
+context_stats and sensitivity like `--executor local`. nf-tests annotate / main_genetable_context /
+context: 16 passed (stub). Fast suite Slurm 1864441: 8977 passed, 30 skipped, 2 xfailed. Example 4
+(Slurm **1864515**, SIM100K real-path config, seed 50000, local vs Nextflow `farmshare_local`; run dir
+`$GIAP_ROOT/runs/mvp02-example4`): the same `tables/*.tsv` set {detection_summary, regions_stats,
+sensitivity}; regions_stats and sensitivity byte-identical; **detection_summary differs**: Nextflow
+lacks the 18 `tier` rows because main.nf does not pass GENETABLE.out.tier_summary to CONTEXT (M4-20
+decision 3 is wired only in the local executor). Open for the lead (needs a CONTEXT `take:` change and
+so a context.nf.test update by the test-author). Job 1864452 ran before 0e95e14 (local published no tables).
+
+M4-21 (branch m4/conformance, implementer step done): the real M2/M3 path conforms to M4-06 with no
+contract change. Decision 2: `region_layer` still runs under `annotation.precomputed.regions` and writes
+C7/C8 Parquet from the layer TSV (`giap.annotate.regions.precomputed_members`; prophage subsets from the
+Bakta product only, `core_biosynthetic` false: the TSV has neither marker descriptions nor core flags).
+Decision 3: `run_context_stats` / `run_sensitivity` read through `contract_paths` (= `work_inputs`).
+Decision 4: the local executor keeps `region_layer` planned (`LAYER_CONVERTERS`) and maps
+`peptide_hits`/`protein_hits`/`unmapped` to loci's `mapping/` (`MEMBER_KEYS`), so `giap run --executor
+local` now plans and runs `context_stats` and `sensitivity`. Golden `tests/data/golden/sim100k_real/m4/`
+recorded (87 genes, 85 detected at α 0.05). **Open for the lead:** the Nextflow path still skips
+`region_layer`/CONTEXT with a precomputed regions layer, pinned by workflow/tests/annotate.nf.test
+("precomputed regions: … no region_layer") and main_genetable_context.nf.test ("CONTEXT does not");
+aligning annotate.nf needs those nf-tests changed by the test-author first. Fast suite Slurm 1864317:
+8977 passed, 30 skipped, 2 xfailed.
+M5-09 (**PR #138**, implementer step done, 2026-10-21): the two
+tables, the gene context columns and the step extension. New `giap.io.context_tsv` (writers by value
+through M1-04 `write_tsv`, readers typed from the schema; islands 1-based closed with `end` kept
+unwrapped), `giap.context.vocab.CONTEXT_FLAGS` (no `uncalibrated`), `giap.context.diagnostics`
+(lead decision 1: l-hat / l' / lag-1 Moran's I as NA-never-0, `render_l_hat`,
+`calibration_applies`), `giap.context.tables` (the spec's row assembly), the two Frictionless
+schemas, and `context_stats` gaining C15 `features` (run flag `layer_missing:features`) and the
+outputs `autocorrelation`, `islands`, `gene_context`, `island_diagnostics` and `genes_tsv`
+(lead decision 3). `giap.context.oriter` now emits `lag` as the schema's nullable `Int64`, so the
+concatenated table keeps integer lags. `giap.steps.registry` gained `optional_outputs` so the new
+keys could be declared without rewiring M4-18's registry-path callers (backlog: no unit test yet).
+CONTEXT publishes `tables/autocorrelation.tsv`, `tables/islands.tsv` and `tables/genes.tsv` and
+takes C15 from the annotation channel's second file, so no 11th `take:` was needed; nf-test
+context + main + main_genetable_context all pass (stub). Plus docs/methods/context_tables.md.
+
+Fast suite **9062 passed, 29 skipped, 1 xfailed, 0 failed** (Slurm 1863848, 11:37) after lead
+decisions 6-8 closed the two test bugs the first run exposed (Slurm 1863383: 9053 passed,
+9 failed, coverage 96 %; CI run 39666907909 had the same 9 and nothing else, with `guards`,
+`lint`, `nf-test-stub` and `summary` green). Decision 6 (**Khoa authorised the merged-code
+change**): §9.2 makes the test column `stat` an enum of statistic *names*, which `regions_stats`
+and `autocorrelation` both follow, so M5-06's float `stat` (a copy of `scan_s`) was the slip —
+`giap.context.islands.STAT = "scan_max"` now, `scan_s` keeps the value, the islands schema field
+is a `string` enum, and the one merged oracle (`tests/unit/context/test_islands.py:134`) asserts
+the name. Decision 7: `context_tables_data.flag_set` now reads the `NA` cell of a flagless row as
+empty (it contradicted `test_empty_flags_are_na` in the same file), and `ISLAND_FLOATS` drops
+`stat`. Decision 8 accepted the two out-of-surface changes (`oriter`'s nullable `Int64` `lag`,
+`registry.optional_outputs`; the latter's missing unit test stays filed in docs/backlog.md).
+Gated code lines 787 of 800 — above the 400 warn line, left as is (lead).
+
+M5-09 (branch `m5/context-tables`, **test-author step done**, 2026-10-21): failing tests for
+`autocorrelation.tsv`, `islands.tsv`, the gene context columns and the `context_stats` extension —
+140 failed, 5 passed (the 5 are invariant guards that already hold: the genes.tsv context group in the
+schema and the M4 tables' determinism). New: `tests/unit/io/test_context_tsv.py`,
+`tests/unit/context/test_vocab.py`, `tests/unit/context/test_island_diagnostics.py`,
+`tests/property/test_context_tsv_props.py`, `tests/integration/test_context_stats_m5.py`,
+`tests/helpers/context_tables_data.py`. Interfaces assumed where none is merged: M5-08's `oriter_rows`
+/ `gene_replichores` as PR #132 has them; M4-20's `build_m4_fixture` replaced by the M4-18 fixture plus
+an oriC and a planted island. **Needs a lead decision:** where ADR-0021 Amendment 1's per-replicon
+l-hat / l' / lag-1 Moran's I live — **decided**: `giap.context.diagnostics` and
+`work/context/island_diagnostics.parquet`, because `IslandScan` dies with the step and the §9.4 run
+report does not exist yet (M5-09 lead decisions 1-5, 2026-10-21).
 M6-04 (PR #143, branch `m6/pair-table`, implementer step done): `giap.operons.pairs` — the adjacent
 chain (M2 `adjacent_pairs(same_strand=False)`; a 2-gene ring has one pair), SW decoys, OP/NO/CV/DV
 classes, strand-aware orientation, `rna_between`, per-gene joins and threshold-independent `PAIR_<n>`
@@ -125,7 +199,7 @@ M5-08 (#132, implementer step done): `giap.context.oriter` — oriC resolution (
 three descriptive OLS slopes with a circular block-bootstrap CI; block length clamped per fit with that
 fit's own T (lead decision 1 of 2026-10-21), ℓ̂ once per replicon from the pooled residuals. Unit +
 property tests 42 passed, module coverage 97 %; fast suite **8872 passed, 29 skipped** (Slurm 1863080,
-6:37); the recorded fast coverage arm (example 7, 2 log2, ρ 0.5, R = 50) **coverage 0.96, estimable 1.00,
+6:37); the recorded fast coverage arm (example 7, 2 log2, ρ 0.5, R = 50) **coverage 0.96 at R = 50 — corrected to 0.943 at R = 300, Slurm 1863166; the 0.96 was a fluctuation**, estimable 1.00,
 mean CI width 1.11** (Slurm 1863081, 27 s) — the test-author's 0.96 reproduced. Plus
 docs/methods/oriter.md. `features` stays a plain parameter; the step plumbing is M5-09's.
 M5-06 (**PR #131**, implementer step done, 2026-10-21): `giap.context.islands` on the merged M5-01/02/03
@@ -141,10 +215,41 @@ Benchmark baseline `islands_4500_genes_b1000` = 1.79 s of a 20 s budget (4,500 g
 B = 1,000 + 1,000). **No Slurm run**: the shared account sat at its 512-CPU QOS cap all day
 (`QOSMaxCpuPerUserLimit`, 32 × 16-CPU non-GIAP `n1170_tools` array), so jobs 1863043/1863044 never
 started and were cancelled; CI covers the fast suite, the fast calibration tier and the coverage gate.
+M5-06 post-merge fix (branch `fix/islands-origin`, 2026-10-21): `tu_series` now orders TUs by C5
+(`start`, `tu_id`) as spec step 2 says, so an origin-crossing TU sorts last and islands get
+0 <= start < L, start < end <= start + L (the review repro gave ISL_2 78500-160800 on 80,200 bp; now
+78500-80600). Code only (implementer); no output change for non-crossing TUs. Fast suite on Slurm
+job 1864132: 8917 passed; islands fast calibration job 1864133: 28 passed. The oracle update and the
+regression tests (two origin-crossing windows, props bounds) are a separate test-side change for the
+lead/test-author.
 Open for review: the M5-06 section of `docs/methods/islands.md` (bootstrap null, genome-wide family,
 Amendment 1's validity domain, the low-direction ceiling, effect CI, degenerate cases) is not written
 yet — `docs/methods/` is the statistician's.
 
+M6-11 (implementer step done, 2026-10-21): RegulonDB is **fetched and the K-12 truth sets are built**.
+`validation/fetch_regulondb.py` completes the TLS chain itself — it downloads the GlobalSign
+intermediate RegulonDB omits, refuses it unless its SHA-256 equals the pin
+`d160e2de…63f9` (GlobalSign GCC R46 OV TLS CA 2025, valid to 2029-06-23), checks with
+`openssl verify` that it is signed by `GlobalSign Root R46` (already in the trust store), and only then
+adds it to the CA bundle; verification is never disabled (a test greps the source for `verify=False`,
+`CERT_NONE` and friends). Real fetch, twice, identical hashes: **RegulonDB 14.5.0** (release 2026-01-28,
+EcoCyc 29.5, genome NC_000913.3) into `$GIAP_DATA_DIR/regulondb/14.5.0/` — `TUSet.txt` 446,341 B
+(sha256 c96c8a3b…), `TerminatorSet.txt` 60,282 B (9d916ffe…), `GeneProductSet.txt` 1,290,719 B
+(3c2c6be3…), plus `provenance.json`. Nothing committed (R6/R11); no Slurm job (the whole download takes
+about two seconds, as the spec predicted).
+
+**Spec example 5, the evidence M6-12 consumes** (after the #141 review fixes, lead decisions 1–8;
+`validation/regulondb_truth.py` on the recorded `tests/data/recorded/bakta/1.12.2-full/k12/` JSON,
+contig U00096.3, ±30 bp, every file verified against `provenance.json` first): **3,067 same-strand
+adjacent pairs** (the pipeline's `adjacent_pairs`, **wrap pair included**: yjtD → KOIAIB_00001, labelled
+ambiguous because KOIAIB_00001 is a Bakta-only sORF at 3–98) — **1,730 positive, 1,009 negative, 2,739
+labelled** (≥ 2,000 as required), 328 ambiguous and excluded (10.7 %); **375 terminators**. Gene mapping
+**4,392 of 4,745 RegulonDB genes = 0.926 overall** (4,217 onto Bakta CDS + 175 RNA genes onto Bakta
+ncRNA/tRNA/rRNA features); **CDS share 0.923** (4,217 / 4,570); both above the 0.8 escalation floor;
+353 unmapped. dnaK–dnaJ, ftsA–ftsZ and pdhR–aceE are now positive (decision 3). Two RegulonDB names
+occur twice and are kept per gene id (decision 5). The summary carries release 14.5.0 and the three
+SHA-256s. Unit tests 91 passed, nothing touches the network. Release of record: **14.5.0**
+(decision 8; Khoa, 2026-10-21: 'cite RegulonDB 14.5.0').
 M6-01 (branch `m6/stats-pairfdr`, implementer step done, 2026-10-21): `giap.stats.tdist`
 (`StudentT`, `fit_student_t`, `student_t_two_sided`) and `giap.stats.decoy_fdr` (`bin_index`,
 `reweighted_fdr`, `max_decoy_fdr`, `local_fdr`) under lead decisions 1–8 and 11 — maximum over the
@@ -248,7 +353,7 @@ Lessons (keep):
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
 |---|---|---|---|
-| 2026-10-14 | RegulonDB v12 download (needed at M6) | `regulondb.ccg.unam.mx` unreachable from FarmShare (probe) | nothing yet; retry at M6, then ask |
+| 2026-10-14 | ~~RegulonDB v12 download~~ **RESOLVED 2026-10-21** | Not an outage: RegulonDB serves a cert (GlobalSign GCC R46 OV TLS CA 2025, issued 2026-10-14) **without the intermediate**, so verification fails. The intermediate from GlobalSign's own CA endpoint verifies against `GlobalSign Root R46`, already in FarmShare's trust store; with it, the site and `/datasets` return HTTP 200. Khoa approved completing the chain (2026-10-21). | nothing — M6-11/M6-12 unblocked |
 
 ## Answered by Khoa
 - 2026-10-15: force-push blocked → merge main into feature branches instead of rebasing (option 3).
@@ -268,6 +373,7 @@ Lessons (keep):
 ## Questions for Khoa
 | # | Question | Options | Default if no answer | Asked |
 |---|---|---|---|---|
+| 1 | GIAP_SPEC.md §15.3/§15.4 name "RegulonDB v12", but v12.0.0 is the 2023-10-23 release and the live one is **14.5.0** (2026-01-28). The fetcher records the release the endpoint reports. | (a) use the current release (14.5.0) and cite it in ADR-0022; (b) pin v12 and ask RegulonDB for the archived files | (a) — ADR-0017: record the version and the hash of what we actually fetched | 2026-10-21 (M6-11) — **RESOLVED 2026-10-21**: Khoa: 'cite RegulonDB 14.5.0' (option a) |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;
@@ -289,3 +395,4 @@ Lessons (keep):
 | Bakta 1.12.2 full DB 6.0, circular-tagged (M2-10) | SIM100K | 5.3 min (317 s) | (same job) | barley-01, 16 CPU (1849096) |
 | Bakta 1.12.2 full DB 6.0, circular-tagged (M2-10) | Nissle 1917 | 9.9 min (595 s) | 20.5 GB | barley-01, 16 CPU (1849097) |
 | Bakta 1.12.2 light DB 6.0 (M2-10) | SIM100K | 34 s | 5.9 GB | barley-01, 16 CPU (1849098) |
+| M7-01 align_hits, 100,000 tolerant hits (1 CPU) | random 200 kb | 11.35 s (timed call) | — | wheat-08 (1864766) |

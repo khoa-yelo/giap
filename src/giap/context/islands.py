@@ -64,6 +64,7 @@ __all__ = [
     "METHOD",
     "MIN_SPAN_POINTS",
     "NULL_MODEL",
+    "STAT",
     "IslandScan",
     "TuSeries",
     "block_length",
@@ -89,6 +90,9 @@ ISLAND_COLUMNS: tuple[str, ...] = (
 GENE_MAP_COLUMNS: tuple[str, ...] = ("locus_tag", "island_id")
 METHOD = "scan_max_stat"
 NULL_MODEL = "circular_block_bootstrap"
+#: §9.2 test column ``stat``: the *name* of the row's statistic (M5-09 lead decision 6); its
+#: value is in ``scan_s``, which every row already carries.
+STAT = "scan_max"
 #: decisions 40-41: below this LOESS span in points the detrend is degenerate, so no scan
 MIN_SPAN_POINTS = 4
 #: run flag of a replicon that is not scanned (decision 40)
@@ -100,11 +104,11 @@ CI_MIN_UNITS = 10
 BLOCK_LEN_ALPHA = 0.05
 #: ADR-0021: l-hat is searched over lags 1 ... 20
 BLOCK_LEN_MAX_LAG = 20
-_FLOATS = ("mean_abundance_log2", "detected_frac", "scan_s", "stat", "effect", "ci_low",
-           "ci_high", "p_value", "q_value")  # fmt: skip
+_FLOATS = ("mean_abundance_log2", "detected_frac", "scan_s", "effect", "ci_low", "ci_high",
+           "p_value", "q_value")  # fmt: skip
 _INTS = ("start", "end", "n_tus", "n_genes", "block_len", "n_perm")
-_OBJECTS = ("island_id", "direction", "contig", "tu_first", "tu_last", "genes", "method",
-            "null_model", "flags")  # fmt: skip
+_OBJECTS = ("island_id", "direction", "contig", "tu_first", "tu_last", "genes", "stat",
+            "method", "null_model", "flags")  # fmt: skip
 _NA = math.nan
 
 
@@ -269,7 +273,7 @@ def tu_series(
     Returns
     -------
     TuSeries
-        TUs in the genome order of their first scored gene; a TU with no scored gene is dropped.
+        TUs in genome order by C5 (``start``, ``tu_id``); a TU with no scored gene is dropped.
 
     Raises
     ------
@@ -287,8 +291,13 @@ def tu_series(
             values[tu] = []
         members[tu].append(tag)
         values[tu].append(float(score))
-    mean = np.array([float(np.mean(values[t])) for t in order], dtype=np.float64)
+    # Genome order of the TUs by C5 (start, tu_id) (spec step 2): a TU crossing the origin
+    # (start near length, end > length, §6.5) sorts last, so the window wrap rule holds.
     start, end = _tu_spans(tus, contig, order)
+    rank = sorted(range(len(order)), key=lambda i: (int(start[i]), order[i]))
+    order = [order[i] for i in rank]
+    start, end = start[rank], end[rank]
+    mean = np.array([float(np.mean(values[t])) for t in order], dtype=np.float64)
     n = mean.size
     if n:
         fit = loess_detrend(
@@ -523,7 +532,7 @@ def _island_row(
         "detected_frac": float(det.mean()) if len(eg) else _NA,
         "scan_s": float(res.s[best]),
         "block_len": int(block_len),
-        "stat": float(res.s[best]),
+        "stat": STAT,
         "effect": float(np.mean(ts.detrended[pos])),
         "p_value": float(p),
         "q_value": _NA,
@@ -564,7 +573,8 @@ def islands_frame(
     -------
     pandas.DataFrame
         ``ISLAND_COLUMNS``, ordered by contig (C1 order), then ``start``, then direction (high
-        first), with IDs ``ISL_<n>`` in that order. ``q_value`` is NA (§7.3.5(d) step 7) and
+        first), with IDs ``ISL_<n>`` in that order. ``stat`` is the §9.2 statistic *name*
+        :data:`STAT` and its value is ``scan_s``; ``q_value`` is NA (§7.3.5(d) step 7) and
         ``flags`` carries ``ci_few_units`` when the best window has fewer than
         ``CI_MIN_UNITS`` TUs; ``uncalibrated`` is never emitted (decision 48).
     """

@@ -2,11 +2,7 @@
 docs/specs/M4-15-gene-table-assembly.md): adds the M4-13 cross-fitted ``p_detect`` to
 ``genes_pre`` and writes the ``detectability`` rows of ``detection_summary``.
 
-``run_detectability`` also writes the §9.3 master table ``tables/genes.tsv`` beside the Parquet
-gene table (M4-20 lead decision 2: ``write_genes_tsv`` had no caller anywhere, so the headline
-table of §9.1 was never produced; this step is the one that holds the complete table). It is not
-a declared step output yet, so ``giap run`` still does not publish it -- see docs/backlog.md.
-§6.2 gives ``genes.tsv`` to ``finalize``; when that step arrives it takes the call over.
+``tables/genes.tsv`` is written by ``context_stats`` (M5-09 lead decision 3).
 
 Eligible genes are the non-partial ones (§7.3); their ``detected`` value is the M4-12 call. The
 model draws only from the step's own stream ``giap.rng.for_step("detectability", seed)``. With a
@@ -25,7 +21,7 @@ from giap.genetable.assemble import GENES_COLUMNS, gene_flags
 from giap.genetable.covariates import COVARIATE_COLUMNS
 from giap.genetable.detectability import COLUMNS as DIAG_COLUMNS
 from giap.genetable.detectability import DetectabilityResult, fit_detectability
-from giap.io.genes_tsv import read_genes_parquet, write_genes_parquet, write_genes_tsv
+from giap.io.genes_tsv import read_genes_parquet, write_genes_parquet
 from giap.io.parquet import write_parquet_deterministic
 from giap.steps.registry import StepContext, run_step, step
 
@@ -82,8 +78,7 @@ def detectability(ctx: StepContext) -> None:
 
 def run_detectability(work_dir: Path, cfg: GiapConfig) -> Path:
     """Run ``detectability`` on ``work_dir/genetable/genes_pre.parquet``; returns
-    ``work_dir/genetable/genes.parquet`` (diagnostics in ``detection_summary_parts/``, the §9.3
-    ``tables/genes.tsv`` in ``tables/``)."""
+    ``work_dir/genetable/genes.parquet`` (diagnostics in ``detection_summary_parts/``)."""
     gt = work_dir / "genetable"
     out = gt / "genes.parquet"
     outputs = {
@@ -91,7 +86,4 @@ def run_detectability(work_dir: Path, cfg: GiapConfig) -> Path:
         "detectability_summary": gt / "detection_summary_parts" / "detectability.parquet",
     }
     run_step("detectability", cfg, {"genes_pre": gt / "genes_pre.parquet"}, outputs)
-    tables = work_dir / "tables"
-    tables.mkdir(parents=True, exist_ok=True)
-    write_genes_tsv(tables / "genes.tsv", read_genes_parquet(out))
     return out

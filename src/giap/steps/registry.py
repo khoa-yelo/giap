@@ -52,6 +52,8 @@ class StepSpec:
     module: StepModule
     precomputed: str | None  # annotation.precomputed key that replaces this step
     func: StepFn | None  # None for ext
+    #: subset of ``outputs`` a caller may leave unwired; the step then does not write it
+    optional_outputs: tuple[str, ...] = ()
 
 
 class StepError(Exception):
@@ -97,10 +99,17 @@ def step(
     inputs: Sequence[str],
     outputs: Sequence[str],
     optional_inputs: Sequence[str] = (),
+    optional_outputs: Sequence[str] = (),
     module: StepModule = "core",
     precomputed: str | None = None,
 ) -> Callable[[StepFn], StepFn]:
-    """Decorator registering a Python step; returns the function unchanged."""
+    """Decorator registering a Python step; returns the function unchanged.
+
+    ``optional_outputs`` must be a subset of ``outputs``: a caller may leave such a key
+    unwired (the step then skips that artifact), which lets one step be wired in stages while
+    the keys stay reserved in the graph.
+    """
+    _check_optional(name, outputs, optional_outputs)
 
     def deco(func: StepFn) -> StepFn:
         _register(
@@ -113,6 +122,7 @@ def step(
                 module=module,
                 precomputed=precomputed,
                 func=func,
+                optional_outputs=tuple(optional_outputs),
             )
         )
         return func
@@ -126,10 +136,12 @@ def external(
     inputs: Sequence[str],
     outputs: Sequence[str],
     optional_inputs: Sequence[str] = (),
+    optional_outputs: Sequence[str] = (),
     module: StepModule = "core",
     precomputed: str | None = None,
 ) -> None:
     """Declare an external (Nextflow process) step."""
+    _check_optional(name, outputs, optional_outputs)
     _register(
         StepSpec(
             name=name,
@@ -140,8 +152,15 @@ def external(
             module=module,
             precomputed=precomputed,
             func=None,
+            optional_outputs=tuple(optional_outputs),
         )
     )
+
+
+def _check_optional(name: str, outputs: Sequence[str], optional: Sequence[str]) -> None:
+    extra = sorted(set(optional) - set(outputs))
+    if extra:
+        raise ValueError(f"step '{name}': optional_outputs not in outputs: {', '.join(extra)}")
 
 
 def get(name: str) -> StepSpec:
@@ -157,10 +176,11 @@ def all_steps() -> list[StepSpec]:
     return [_REGISTRY[n] for n in sorted(_REGISTRY)]
 
 
-def topo_order(names: Iterable[str]) -> list[str]:
+def topo_order(names: Iterable[str], members: Mapping[str, str] | None = None) -> list[str]:
     """Order ``names`` so that a step producing a key runs before every step consuming it.
 
-    Edges come from output keys to (required or optional) input keys among ``names`` only; ties
+    Edges come from output keys to (required or optional) input keys among ``names`` only (a key
+    in ``members``, a file inside another output key, is produced by that key's producer); ties
     are broken by name (Kahn's algorithm with a min-heap), so the result does not depend on
     registration or argument order. A cycle raises ``ValueError`` naming the steps involved.
     """
@@ -169,6 +189,9 @@ def topo_order(names: Iterable[str]) -> list[str]:
     for s in specs:
         for key in s.outputs:
             producer.setdefault(key, s.name)
+    for key, parent in (members or {}).items():
+        if parent in producer:
+            producer.setdefault(key, producer[parent])
     succ: dict[str, set[str]] = {s.name: set() for s in specs}
     indeg: dict[str, int] = dict.fromkeys(succ, 0)
     for s in specs:
@@ -211,7 +234,7 @@ def _check_keys(
             if not path.exists():
                 raise WiringError(f"step '{spec.name}': input '{key}' does not exist: {path}")
     for key in spec.outputs:
-        if key not in outputs:
+        if key not in outputs and key not in spec.optional_outputs:
             raise WiringError(f"step '{spec.name}': output '{key}' not given")
 
 
