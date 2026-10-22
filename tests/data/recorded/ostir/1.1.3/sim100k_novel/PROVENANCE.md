@@ -4,7 +4,7 @@
   `giap-ostir` built from `workflow/envs/ostir.yml` and its lock (`versions.txt`: sha256 of
   `ostir.explicit.txt` and `ostir.pip.txt`, the same env as the `../sim100k` recording).
 - Run: 2026-10-21, Slurm job 1865755 (`giap-record-ostir-novel`, 4 CPUs, node wheat-04, 2 s wall),
-  `sbatch scripts/slurm/record_ostir_novel.sbatch <worktree>` at giap commit 336cc1b
+  `sbatch scripts/slurm/record_ostir_novel.sbatch <worktree>` at giap commit 4760059
   (branch m7/novel-steps). Command as the OSTIR module runs it: `command.txt`.
 - Input (`ostir_input.csv`): `scripts/dev/record_ostir_novel_input.py` simulates giapsim
   `SIM100K` (seed 20261014) with the M7-08 test configuration (M3-19 proteomics, planted novel
