@@ -428,3 +428,18 @@ They still apply. The new questions:
     - **Contract:** for any raw q and total, `conditional_poisson_binomial` on `tilt_pair(q, total)` equals the untilted exact law of q. This holds to a relative 1e-11 on the tails and the mean, including q within 1e-15 of 1 and θ > 0. The call also never raises when the untilted support is non-empty.
     - **`tilt`:** keeps its signature and returns `tilt_pair(...)[0]`. It now raises `ValueError` when an open entry rounds to exactly 0 or 1. M8-04b uses `tilt_pair`.
     - **Review nits:** N1 (the zero or non-finite support-sum guard test) and N5 (`operator.index(k)`) go in this round. N2–N4, N6 and N7 go to the backlog.
+12. **ADR-0035 (accepted by Khoa, 2026-10-22): statistician #172 blocks M8-04b until it lands.**
+    - **TU detection probability.** `tu_universe` keeps the raw q = −expm1(Σ log1p(−p̂)) and also fits a cross-fitted logistic recalibration. The model regresses observed TU detection on logit q and log(eligible gene count), over M4-13's TU folds, so a TU's own detection never enters its fitted value. The fitted probability, together with its complement, is what the conditional law uses.
+    - **Numerics:**
+      - `TuUniverse` carries the log complement.
+      - `tilt_pair` gains an optional complement input (`comp=`), so it never re-derives 1 − q from a rounded q. This is a small M8-04a extension in this PR, pinned against `cpb_pairs_exact`.
+      - A p̂ exactly 0 or 1 is clipped to [1e-12, 1 − 1e-12], and every affected row gets the flag `p_detect_clipped`.
+      - "Unreachable from M4-13" is removed from the degenerate-case table.
+    - **Calibration:**
+      - `test_cpb_calibration` moves from `tilt` to `tilt_pair` with complements, and gains a tilt-stress level arm (every odds × e^−8 and about 5 % of units near 1).
+      - Arms 4b (TU-packed, categories from ≥ 4-gene TUs and from single-gene TUs) and 4c (gene-level p̂ intercept ±0.5) are specified here. They are gated in M8-14/15. They become runnable here on a gene frame plus `GeneSets`, with the statistician's generator `$GIAP_ROOT/stat/m8-04a-review/attack_tusize.py` as the reference.
+      - If 4b or 4c fails after recalibration, rows get `ora_uncalibrated` (the ADR-0034 pattern).
+    - **Wording fixes:**
+      - Spec §1 item 5 reads 1e-11, not 1e-12, for tilted input.
+      - The step 2 "even when p̂ is badly scaled" claim is limited to underflow: conditioning on N cancels only a common TU-level odds factor.
+      - The `check_level_pooled` docstring says the categories are "negatively dependent given N", not independent.
