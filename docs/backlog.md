@@ -217,3 +217,19 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The `docs/methods/determinants.md` section "Models".
 - The calibration tests need the protected `tolerances.yaml` key `determinants_delta_r2_max_abs_bias`, which is owed to Khoa (decision 6).
 - The `too_few_rows` rows carry `n` = NA. Pass the model-row count to `model_rows_table`.
+
+## M8-08 review nits (PR #166)
+- Make `tu=` a required keyword in `cross_validate`, or assert in the M8-09 and M8-10 tests that it is passed.
+- `cross_validate` has no input validation: the lengths of y, folds and tu are never checked against X.
+- Document that `X.index` must be `locus_tag`, because a RangeIndex breaks canonical order.
+- A fold with no usable columns appends no booster, so M8-09's repeat × fold indexing shifts.
+- `cv_r2_sd` with R = 1 is NaN and carries no flag.
+- Untested parameters: LightGBM `deterministic`, `force_row_wise` and the seed derivation; the fallback that predicts the training mean when no columns are usable.
+- Constant features give AUROC 0.5 with CI [0.5, 0.5]. Consider a `constant_feature` flag.
+- An NA `tu_id` in `univariate` becomes one shared pseudo-TU. Raise instead.
+- `univariate` bootstraps even when the point estimate is NaN.
+- The methods note must cover:
+  - the inner-CV preprocessing;
+  - the ΔR² caveat (the repeats share data);
+  - univariate CIs are unadjusted and make no discovery claim.
+- §7.8.2's separate report of ribosomal genes: confirm which issue owns it (M8-09 adds rows flagged `cai_reference`).

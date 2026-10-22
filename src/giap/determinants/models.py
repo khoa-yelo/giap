@@ -111,8 +111,11 @@ def _uni_row(
     else:
         ci = bootstrap.tu_block_bootstrap(df, "tu", fn, B, rng)
         est, lo, hi = ci.estimate, ci.ci_low, ci.ci_high
+    # lead decision 7: the TU-block bootstrap CI of a rank statistic under-covers (SE 5-9 % low
+    # under a TU-structured null), so every univariate CI is ci_unestimated; NA value: unestimated
+    flags = "ci_unestimated" if math.isfinite(est) else "unestimated;ci_unestimated"
     return {"model": "univariate", "feature_or_block": feature, "metric": metric, "value": est,
-            "ci_low": lo, "ci_high": hi, "n": len(df), "n_perm": 0, "flags": ""}  # fmt: skip
+            "ci_low": lo, "ci_high": hi, "n": len(df), "n_perm": 0, "flags": flags}  # fmt: skip
 
 
 def univariate(features: pd.DataFrame, B: int, rng: np.random.Generator) -> pd.DataFrame:
@@ -151,19 +154,20 @@ def _frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
 
 
 def tu_folds(tu: Sequence[str], n_folds: int, repeats: int, rng: np.random.Generator) -> I64:
-    """Rule 3: per repeat, shuffle the (sorted) TU IDs, then assign them largest-first (stable on
-    the shuffled order) to the fold with the fewest genes so far. Returns (repeats, n_rows)."""
+    """Rule 3 (lead decision 7): per repeat, shuffle the (sorted) TU IDs and assign each, in the
+    shuffled order, to the fold with the fewest genes so far (ties between folds drawn from
+    ``rng``), so repeats differ even when every TU size is distinct. Returns (repeats, n_rows)."""
     ids, codes, sizes = np.unique(
         np.asarray(tu, dtype=str), return_inverse=True, return_counts=True
     )
     out = np.empty((repeats, codes.size), dtype=np.int64)
     for r in range(repeats):
-        shuffled = rng.permutation(ids.size)
-        order = shuffled[np.argsort(-sizes[shuffled], kind="stable")]
+        order = rng.permutation(ids.size)
         load = np.zeros(n_folds, dtype=np.int64)
         fold_of = np.empty(ids.size, dtype=np.int64)
         for t in order:
-            k = int(np.argmin(load))
+            least = np.flatnonzero(load == load.min())
+            k = int(least[0] if least.size == 1 else rng.choice(least))
             fold_of[t] = k
             load[k] += sizes[t]
         out[r] = fold_of[codes]
