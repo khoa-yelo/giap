@@ -235,7 +235,7 @@ def test_columns_and_constant_fields() -> None:
         assert r["collection"] == "kegg"
         assert r["name"] == f"name of {r['term']}"
         assert r["size_tus"] == 15
-        assert r["method"] == "fgsea_simple"
+        assert r["method"] == "fgsea_multilevel"
         assert r["null_model"] == "tu_set_permutation"
         assert r["n_perm"] == 1000
         assert r["stat"] == r["es"]
@@ -245,7 +245,7 @@ def test_columns_and_constant_fields() -> None:
         assert r["redundant"] is False or r["redundant"] == False  # noqa: E712
         assert _na(r["parent_group"])  # non-GO
         assert "ci_unestimated" in _flags(r["flags"])
-        assert 1 / 1001 <= r["p_value"] <= 1
+        assert 0 < r["p_value"] <= 1  # M8-11: no 1/(nPerm + 1) floor
     t = _row(out, "map00010")
     assert t["es"] > 0 and t["nes"] > 0
     assert t["p_value"] <= 0.01
@@ -256,7 +256,7 @@ def test_n_perm_follows_the_config() -> None:
     out = _run(genes, [gene_sets("cog", {"K": _tag(genes, order[:15])})], n_perm=200)
     r = _row(out, "K")
     assert r["n_perm"] == 200
-    assert r["p_value"] >= 1 / 201
+    assert 0 < r["p_value"] <= 1  # M8-11: no 1/(n_perm + 1) floor
 
 
 def test_es_matches_the_fgsea_port_on_the_centred_tu_scores() -> None:

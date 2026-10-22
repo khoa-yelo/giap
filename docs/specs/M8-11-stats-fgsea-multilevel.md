@@ -105,3 +105,15 @@ def fgsea_multilevel(prep: Prepared, simple: SimpleResult, sample_size: int, eps
    statistically equivalent and deterministic. Acceptable?
 2. One `method` value per run (`fgsea_multilevel`, proposed), or per row (`fgsea_simple` for sets
    that did not need the multilevel stage)? fgsea itself reports no per-row method.
+
+## Lead decisions (2026-10-22, after the test author)
+
+1. Existing tests pinning `method == "fgsea_simple"` and the 1/(nPerm + 1) floor in
+   `tests/unit/function/test_gsea.py` are updated by the lead to item 6 (multilevel, no floor).
+   `tests/unit/stats/test_fgsea_simple.py` keeps its floor: `fgsea_simple` itself is unchanged.
+2. M8-11 owns the `log2err_unestimated` flag: `gsea_table` sets it when a finite p has NaN
+   `log2err`. It is registered in the `enrichment_gsea` flag vocabulary in this PR.
+3. Redundancy re-tests use the same engine as the main run (`fgsea_simple` then
+   `fgsea_multilevel`), so a re-test p is on the same scale as the p it replaces.
+4. Example 4: symmetry is tested on mirrored stats (the test author's reading); the bottom-50 case
+   checks the sign and p < 1e-10 only.
