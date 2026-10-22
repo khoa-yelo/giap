@@ -1,8 +1,8 @@
 # ADR-0038: GSEA runs R fgsea as an external tool
-- Status: accepted-by-khoa (GSEA engine); proposed (ORA stays in scipy, item 5)
+- Status: accepted-by-khoa (2026-10-22)
 - Date: 2026-10-22
 - Spec sections: §7.7.4, §7.7.5, §11.5, G15, R5
-- Needs Khoa: yes (dependency and §2 decision G15; item 5 awaits confirmation)
+- Needs Khoa: no (Khoa decided the dependency, §2 decision G15 and item 5 on 2026-10-22)
 
 ## Context
 G15 and §7.7.4 make the abundance GSEA a Python and numba port of fgsea 1.36.2. R fgsea was only a fallback,
@@ -33,7 +33,7 @@ On 2026-10-22 Khoa decided that the pipeline calls R fgsea instead of a port.
 4. **Interfaces.** `METHOD = "fgsea_multilevel"`. The table columns, flags and schema are unchanged. The
    engine is still an injectable callable, so unit tests use fakes or recorded outputs (§11.4) and never R.
    A slow integration test and an nf-test run the real environment, on Slurm only.
-5. **ORA (proposed, needs Khoa's confirmation).** The detection ORA stays on
+5. **ORA.** The detection ORA stays on
    `scipy.stats.nchypergeom_wallenius`. It is analytical and exact, not a port of an approximation, and it is
    still checked against goseq by the §11.5 golden data (#192). Calling goseq in the pipeline would pull in
    `bioconductor-genelendatabase` and `bioconductor-go.db`, whose install scripts download from
