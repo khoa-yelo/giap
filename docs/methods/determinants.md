@@ -39,3 +39,99 @@ level kept), named `<feature>_<level>`, an NA value giving NaN in every level; b
 feature that is NA on every row (a missing layer) stays in the TSV and is dropped from the matrix
 with all its encoded columns; the returned column → block map omits it, and a block left without
 columns is absent. Run flags (`layer_missing:<layer>`) are the step's (M8-10).
+
+## Null and attribution
+
+Issue M8-09, modules `giap.determinants.null` and `giap.determinants.attribution` (pure). Outputs:
+one `NullResult` per model and `tables/determinants_attribution.tsv` (§9.3).
+
+### The null
+- **Statistic:** the observed mean CV R² over the 5 repeats (`cv_r2_mean`); one p per model, no BH
+  (§8.1 "Determinant model"). `p = (1 + b)/(1 + B)`, b = #{null R² ≥ observed} (`perm_p`,
+  `alternative="greater"`); B = `determinants.permutations` (10,000 with `--publication`).
+- **Permutation unit:** TUs are grouped by their number of model rows (detected, non-imputed,
+  non-ribosomal genes). Within a group of ≥ 2 TUs, whole TU response vectors move among the TUs,
+  gene order inside a TU kept. A TU whose size is unique stays put (conservative).
+- **Degenerate:** if every TU size is unique, every permutation is the identity: no refit, b = B,
+  p = 1, flag `null_degenerate`.
+- **Refit:** each permutation refits one CV repeat on the fixed repeat-1 folds (decision Q1). The
+  folds depend only on the TUs, not on y, so conditioning on them is sound and the permutation test
+  of the repeat-1 R² is exact.
+- **Seeds:** permutation b uses child b of `SeedSequence([seed, crc32("determinants.null")]).spawn(B)`,
+  so permutation b is the same for any B, and results are identical for any thread count.
+
+### Conservativeness of the 5-repeat statistic
+The 5-repeat observed mean against a 1-repeat null is not exact, but it is conservative in practice.
+Statistician runs (Slurm 1867304, 1867334, 1867348, 1867349; B = 99, 50 trees, 400 genes,
+R = 200 replicates), rejection at α 0.01 / 0.05 / 0.10 (binomial bound α + 2 SE: 0.024 / 0.081 /
+0.142):
+
+| World | LightGBM | Elastic net |
+|---|---|---|
+| clustered | 0.010 / 0.040 / 0.105 | 0.000 / 0.005 / 0.020 (mean p 0.55) |
+| size | 0.000 / 0.020 / 0.075 | 0.005 / 0.025 / 0.045 |
+| clustered, exact (observed = repeat-1 R²) | 0.010 / 0.060 / 0.115 | 0.015 / 0.060 / 0.140 |
+
+- LightGBM is at nominal level; the elastic net is clearly conservative (0.005 against 0.060 for
+  the exact version at α 0.05).
+- Swapping the observed statistic for the repeat-1 R² would restore power; this is an option, not
+  a requirement.
+- The §8.4 gate tier (R = 20) is not a level claim: 0 of 20 rejections happens 36 % of the time
+  for a level-0.05 test.
+
+### Pass-1 limit (ADR-0034, accepted by Khoa)
+The p is valid only when TU response blocks are exchangeable within size groups. It fails the
+statistician's attacks (R = 100, same jobs; bound at α 0.05: 0.094):
+
+| Attack | LightGBM at α 0.05 | Elastic net at α 0.05 |
+|---|---|---|
+| inter-TU AR(1) abundance (ρ 0.9) with an independent AR(1) `gc_local_dev` | 0.12 | 0.12 |
+| + `replichore_position` | 0.95 | 0.41 |
+| detection selection (y ⊥ X; detection depends on y and length) | 0.53 | 0.83 |
+
+- **Why:** permuting TUs destroys the response's autocorrelation, so the null is too narrow;
+  scattered TU folds let a positional feature interpolate a gene's response from its neighbours;
+  detection is a collider of abundance and the detectability covariates in the protein block.
+- **Consequence:** every `NullResult` carries `null_uncalibrated` (M8-10 copies it onto the
+  `null_p` row). The p is not a discovery claim.
+- **Committed arms:** tests/calibration/attacks/test_attack_determinants_null.py; they gate the
+  level unless every result of an arm carries `null_uncalibrated` (the ADR-0032 pattern).
+
+### Hardening owed (pass 2)
+- Spatially contiguous CV folds (chunks of consecutive TUs) for both the observed CV and the null.
+  In the statistician's probe this brings the AR(1) attack to level (EN 0.06, LightGBM 0.02 at α
+  0.05) with unchanged planted power; circular shifts within size groups did not.
+- A decision on positional features (`replichore_position`): exclude them from the null claim, or
+  use a spatial null. Contiguous folds alone leave LightGBM at 0.70.
+- A detection-selection model. Stratifying the permutation by TU-mean detectability still fails
+  (EN 0.46 at α 0.05).
+- Fresh folds per permutation stay a sensitivity option (decision Q1).
+
+### SHAP attribution
+- **Scope:** LightGBM only (`pred_contrib=True`, no `shap` package); the elastic net has no SHAP.
+  The primary attribution is the elastic-net ΔR² (ADR-0033); SHAP describes the LightGBM fit only.
+- **Per gene:** in each repeat, the fold model that held the gene out gives its contribution
+  vector; the vectors are averaged over the 5 repeats and summed by block into `shap_transcription`,
+  `shap_translation`, `shap_codon`, `shap_protein`, `shap_context` (NA for a block with no column).
+- **Additivity (§7.8.3):** Σ block SHAP + mean expected value = the OOF LightGBM prediction, per
+  gene. A guard raises if any row misses by more than 10⁻⁶ (the rows of X are not in fitted order); the unit tests hold the identity to 10⁻⁹.
+- **Dominant block:** for top-decile genes (model rows with `abundance_log2` ≥ the linear 90th
+  percentile), the block with the largest positive SHAP sum; NA when none is positive; ties by
+  block order.
+
+### Ribosomal rows
+- Ribosomal-protein genes are the CAI reference, so their CAI is self-referential and lies outside
+  the training range. They are excluded from fitting.
+- Detected, non-imputed ribosomal genes get rows predicted by the mean of all repeat × fold models
+  (none saw them), with SHAP likewise averaged; additivity holds for the average.
+- These predictions are extrapolations (trees cannot extrapolate), labelled `cai_reference`. The
+  rows are kept out of the residual SD and the top decile and are never residual-flagged.
+- Undetected ribosomal genes get no rows in pass 1.
+
+### Residual flag
+- `residual` = observed − `predicted_log2` (the mean OOF LightGBM prediction).
+- |residual| > 2 SD (ddof 1, over model rows; two-sided, decision Q2) adds
+  `abundance_not_explained_by_sequence`; SD exactly 0 sets no flag.
+- A descriptive screen, not a claim: about 4.6 % of genes are flagged under any model (statistician
+  review of #173).
+- Fewer than 100 model rows: no SHAP and no null; rows have NA predictions and `too_few_rows`.

@@ -291,6 +291,19 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - the ΔR² caveat (the repeats share data);
   - univariate CIs are unadjusted and make no discovery claim.
 - §7.8.2's separate report of ribosomal genes: confirm which issue owns it (M8-09 adds rows flagged `cai_reference`).
+
+## M8-09 review nits (#173, one-round MVP review)
+- Tests at rule edges: `>=` top-decile cut, SD ddof 1, `>` at 2 SD, ribosomal genes imputed/undetected with finite abundance.
+- Untested error paths: OOF size vs model rows, booster count ≠ R·K, `len(X)`.
+- `null_p` should check `X`/`y`/`tu`/`folds_rep1` lengths.
+- `b_count` derived from p; `n_perm` is B not the non-NaN count — compute both directly.
+- A NaN observed R² gives p NaN unflagged; add `unestimated`.
+- Pin the LightGBM refit seed with a bagging-on test.
+- Decide and test `top_decile` under `too_few_rows`.
+- `_canonical` recomputed per permutation and model.
+- Owed (acceptance): B = 1,000 benchmark in baseline.json; methods "Null and attribution" section.
+- M8-10 carry-over (statistician #173): `cv_r2_mean` (the null p's effect) gets `ci_unestimated` (ADR-0031 pattern); `n_perm` should count non-NaN null values as `perm_p` does; optional exact test against the observed repeat-1 R².
+- Hardening (ADR-0034): spatially contiguous CV folds for observed and null, a positional-feature decision (`replichore_position`), a detection-selection model; `null_uncalibrated` comes off only when every arm of test_attack_determinants_null.py passes.
 - M6-02 (test-author): `tests/unit/genetable/test_contract.py` pins `TABLE_KEYS` (no `peptide_runs`)
   and `m4_contract_fixture.build_frames` has no C16 frame. `test_tables_keys` and
   `test_missing_column[peptide_runs-*]` fail against the C16 contract that
