@@ -589,3 +589,9 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Example 10 runs only on FarmShare; the colour cycle leaves out black and grey (spec wording).
 - `read_tsv` now treats an empty cell as missing in genes.tsv too (matches `giap.io.genes_tsv`).
 - Mutation evidence: $GIAP_ROOT/review/pr191-mut/ (22/25 killed, 1 equivalent).
+
+## M9-03 review nits (#210; one round, oriC rounding and the 2^20 gzip boundary pinned in the PR)
+- Untested guards in `giap.viz.support`: `window_bp < 1`, the missing-contig `ValueError`, the empty-sequence skip.
+- `datapackage.json` lists `plots/support/gc_skew.tsv` uncompressed; a `.tsv.gz` write (not reachable at 10 kb windows for bacteria) would leave the descriptor pointing at a missing file — write the descriptor path from the file actually written.
+- `plots` step: with `replicons` absent but a `plots_support` input passed, plots render from the incoming directory, not this run's output.
+- No test checks that `write_datapackage` copies `schemas/plot_support/*.json` into OUT.

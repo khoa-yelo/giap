@@ -163,8 +163,23 @@ def test_several_close_oric_calls_give_their_circular_mean() -> None:
     feats = features(("oric", "c1", 98_900, 99_100), ("oric", "c1", 900, 1_100))
     row = _row(_support().replicon_landmarks(reps, feats), "c1")
     assert row["status"] == "called"
-    assert int(row["oric_position"]) in (1, 100_000)  # 0 up to float error, 1-based
+    assert int(row["oric_position"]) == 1  # 0 up to float error, nearest base (decision 4a)
     assert abs(int(row["ter_position"]) - 50_001) <= 1
+
+
+def test_half_base_midpoint_rounds_up() -> None:
+    # [100, 301) has midpoint 200.5: nearest base, ties up, gives 0-based 201 (decision 4a)
+    reps = replicons(("c1", 1_000, "circular", "chromosome"))
+    row = _row(_support().replicon_landmarks(reps, features(("oric", "c1", 100, 301))), "c1")
+    assert (int(row["oric_position"]), int(row["ter_position"])) == (202, 702)
+
+
+def test_quarter_base_midpoint_rounds_down() -> None:
+    # midpoints 200 and 200.5 average to about 200.25, which rounds to 0-based 200, not up
+    reps = replicons(("c1", 1_000, "circular", "chromosome"))
+    feats = features(("oric", "c1", 100, 300), ("oric", "c1", 100, 301))
+    row = _row(_support().replicon_landmarks(reps, feats), "c1")
+    assert (int(row["oric_position"]), int(row["ter_position"])) == (201, 701)
 
 
 def test_several_distant_oric_calls_give_no_oric() -> None:
@@ -278,10 +293,7 @@ def test_property_oric_agrees_with_oriter_on_giapsim_layouts(
         assert row.status == "called"
         pos, ter = int(row.oric_position), int(row.ter_position)
         assert 1 <= pos <= n and 1 <= ter <= n
-        if float(o).is_integer():
-            assert pos == int(o) + 1
-        else:
-            assert min(abs(pos - (o + 1)), n - abs(pos - (o + 1))) < 1
+        assert pos - 1 == math.floor(o + 0.5) % n  # nearest base, ties up (decision 4a)
         assert ter == ((pos - 1) + n // 2) % n + 1
 
 

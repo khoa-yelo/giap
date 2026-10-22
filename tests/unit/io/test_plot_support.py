@@ -277,3 +277,15 @@ def test_landmark_schema_rejects_an_unknown_status(tmp_path: Path) -> None:
         schema=frictionless.Schema.from_descriptor(_schema("replicon_landmarks")),
     )  # fmt: skip
     assert not resource.validate().valid
+
+
+@pytest.mark.parametrize(("size", "gzipped"), [(2**20, False), (2**20 + 1, True)])
+def test_gzip_threshold_is_two_to_the_twenty_bytes(
+    tmp_path: Path, size: int, gzipped: bool
+) -> None:
+    # one column "x": header "x\n" plus one cell and its newline (lead decision 6)
+    df = pd.DataFrame({"x": ["a" * (size - 3)]})
+    path = Path(_write("gc_skew", df, tmp_path))
+    assert path.name.endswith(".tsv.gz") is gzipped
+    raw = gzip.decompress(path.read_bytes()) if gzipped else path.read_bytes()
+    assert len(raw) == size
