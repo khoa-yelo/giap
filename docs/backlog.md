@@ -569,6 +569,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - **Statistician:** cross-fitting does not remove leakage when a category is a large share of one TU-size group. In the tested worlds this was only conservative.
 - **Flaky?** `tests/unit/function/test_gsea_flags.py::test_detection_flag_with_the_real_engine_d1_d2` failed only in the 16-worker fast suite (Slurm 1867909 and 1867927, es = −0.5 for top=True). It passes alone and in its file. Check main and look for state leaking between tests.
 
+## M8-06b review nits (#187; one round, approved)
+- Groovy `installed()` uses `path.exists()`, Python `is_file()`: a directory at a resource path is staged by Nextflow only.
+- `installed()` re-parses `db_manifest.json` per call (five more callers); parse once.
+- The local executor stages function resources (up to 32 MB) even when the step cannot run (no peptides); Nextflow does not.
+- `genetable.nf` header comment line is ~150 characters.
+- No test pins that `tu_folds.parquet` is published under `--modules core` by both executors.
+- Example 1 builds GO and KEGG xrefs but asserts only `cog` rows; assert kegg / go_slim too.
+- Mutation evidence: $GIAP_ROOT/review/pr187-mut/ (5/5 killed).
 ## M8-12 review nits (#192; one round, B1–B3 fixed in the PR)
 - `check_golden_provenance.py` could check that the lock sha agrees across PROVENANCE, VERSIONS and the lock; add a fixture where the base branch moved.
 - Guard bypasses: the Rscript guard is case-sensitive and misses `R CMD`, `["R", "--vanilla"]` and concatenation; `check_imports` misses `importlib.import_module("rpy2")` / `__import__`.

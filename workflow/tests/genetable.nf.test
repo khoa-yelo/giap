@@ -69,7 +69,8 @@ nextflow_workflow {
             assert H.staged(H.stepDirs(work, 'detectability')[0]).any { new File(it[0]).canonicalPath.startsWith(gtDir) } : "detectability does not stage gene_table's output"
 
             ['genetable/genes_pre.parquet', 'genetable/genes.parquet',
-             'genetable/detection_summary_parts/detectability.parquet'].each { f ->
+             'genetable/detection_summary_parts/detectability.parquet',
+             'genetable/tu_folds.parquet'].each { f ->  // M8-06 tu_folds output
                 assert new File("${outputDir}/${f}").isFile() : "${f} not published"
             }
         }
