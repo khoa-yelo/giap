@@ -1,0 +1,86 @@
+# M9-19: V14 `enrichment`: which functions are high or low?
+
+Milestone M9 · **pass 2** · depends on: M9-17 (`gsea_running`); PR #181 and the `FUNCTION`
+Nextflow wiring merged · estimate ≈ 340 code lines (+ ≈ 320 test lines) · **stats (light)**: the
+running sums come from the support file; the plot asserts they match the table's `es`
+
+## Spec sections implemented
+
+- §10.2 V14: "(a) GSEA running-score plots for the top 6 sets; (b) NES vs. −log₁₀ q dot plot;
+  (c) detection ORA, O/E by category"; Plotly twin.
+- §7.7.3–§7.7.5, ADR-0025 ("The report and V14 must not present flagged rows as calibrated" —
+  `genomic_cluster`), ADR-0026 (GSEA "conditional on detection"; flag `detection_confounded`),
+  ADR-0027 (NES without a CI), ADR-0029/ADR-0035 (ORA is TU-level: `stat` = k detected TUs,
+  `effect` = k − E[K | N], `method = cpb_tu_ora`), §9.3 `enrichment_gsea.tsv`,
+  `enrichment_detection.tsv` (branch `origin/m8/function-step` schemas), §5.2
+  `stats.alpha.enrichment`.
+
+## Panels (double width)
+
+- **(a) Running scores**, 2 × 3 small multiples, the six sets of `gsea_running.tsv.gz` (M9-17's
+  order): x = rank position, y = `running_es`; set-member ticks below; the leading edge shaded up to
+  the peak; panel title "`<term>` `<name>` (`<collection>`) NES `<nes>`, q `<q>`". A set flagged
+  `genomic_cluster` or `detection_confounded` gets a grey "not calibrated (`<flag>`)" banner and a
+  dashed outline (ADR-0025/0026).
+- **(b) NES vs −log₁₀ q:** every row with finite `nes` and `q_value`; colour by collection (six
+  Okabe–Ito hues, fixed order cog, kegg, go_bp, go_mf, go_cc, go_slim); hollow markers for
+  `genomic_cluster` / `detection_confounded` rows; a dashed line at −log₁₀ `stats.alpha.enrichment`;
+  `redundant = true` rows drawn small and grey; no error bars (ADR-0027); labels for the 10 most
+  significant non-redundant rows.
+- **(c) Detection ORA:** rows with `q_value ≤ stats.alpha.enrichment`, else the 20 smallest q;
+  O/E = `stat` / (`stat` − `effect`) on a log₂ axis, one row per (collection, term, direction),
+  coloured by direction (over `#0072B2`, under `#D55E00`), `coverage` printed at the right; "CI
+  unestimated" (the M8-04 pass-1 rows carry `ci_unestimated`); x label "observed / expected
+  detected TUs".
+
+Footnote (all panels): "GSEA is conditional on detection, with no p_detect adjustment" (ADR-0026);
+"coverage = share of eligible genes with ≥ 1 term".
+
+## Data TSV `V14_enrichment.tsv`
+
+`panel` enum{a, b, c}, `collection`, `term`, `name`, `direction`, `rank_position`, `running_es`,
+`in_set`, `nes`, `q_value`, `o_over_e`, `coverage`, `flags`. Panel (a) copies the support rows;
+(b), (c) one row per table row. Sorted by panel, collection (enum order), term, direction,
+rank_position.
+
+## Title
+
+"`<n>` sets enriched by abundance at q ≤ `<alpha>` (conditional on detection); `<m>` categories
+detected more or less than expected" (counts exclude `redundant` rows). None: "No set or category
+passes q ≤ `<alpha>`" — never "no enrichment" (ADR-0026 consequence).
+
+## Degenerate cases
+
+| Situation | Behaviour |
+|---|---|
+| `function` module off | skip `module_off:function` |
+| `layer_missing:go;kegg;cog` (no resources) | header-only tables → empty state "No annotation resources installed (giap setup --go --kegg --cog)" |
+| no abundance (`enrichment_gsea` header-only) | panels (a), (b) "no abundance input"; (c) drawn |
+| `gsea_running` absent (old run, or `giap report` before M9-17) | panel (a) "running scores not available"; (b), (c) drawn |
+| support `running_es` max deviation ≠ table `es` (> 1e-9) | the plot raises (a data mismatch is a bug, exit 4) |
+| q = 0 (cannot happen: fgsea p ≥ floor) | guarded: −log₁₀ capped at the p floor and noted |
+| only `under` rows significant | panel (c) shows them; colours as above |
+
+## Examples
+
+| # | Input | Expected |
+|---|---|---|
+| 1 | ORA row stat 12, effect 4 | O/E 12 / 8 = 1.5 |
+| 2 | GSEA row flags `genomic_cluster` | (b) hollow; if in the top 6, (a) banner "not calibrated (genomic_cluster)" |
+| 3 | 3 non-redundant GSEA rows and 1 redundant at q ≤ 0.05; 2 ORA rows | title "3 sets enriched by abundance at q ≤ 0.05 (conditional on detection); 2 categories detected more or less than expected" |
+| 4 | support running sum peak 0.62, table es 0.62 | accepted |
+| 5 | support peak 0.60, table es 0.62 | `ValueError` |
+
+## Acceptance criteria
+
+- [ ] `tests/unit/viz/test_v14_enrichment.py`: examples 1–5; ADR-0025/0026 markings; no CI drawn
+  on NES.
+- [ ] Plotly twin registered (M9-14 mechanism).
+- [ ] Coded against the branch schemas; re-checked when #181 merges.
+
+## Questions for the lead
+
+1. Panel (c) when nothing is significant: show the 20 smallest q (with the alpha line) or nothing?
+   **Proposed default:** the 20 smallest, so the reader sees how far they are.
+2. ORA's `effect` CI is NA in pass 1 (M8-04). **Proposed default:** points without bars, labelled
+   "CI unestimated", until M8 hardening adds it.

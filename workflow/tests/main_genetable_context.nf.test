@@ -161,7 +161,7 @@ nextflow_pipeline {
                         'OPERONS_STEP', 'OPERON_PAIRS', 'OSTIR', 'OSTIR_INPUT', 'PARSE_BAKTA', 'PLACEMENT', 'PROMOTECH',
                         'PROMOTER_CALCULATOR', 'PROMOTER_LAYER', 'PROMOTER_WINDOWS', 'RBS_LAYER',
                         'REGION_LAYER', 'SENSITIVITY', 'SIXFRAME_INDEX', 'TERMINATORNET',
-                        'TERMINATOR_LAYER', 'TRANSTERMHP', 'TRANSTERM_INPUT', 'TX_LAYER', 'UNIOP',
+                        'TERMINATOR_LAYER', 'TRANSTERMHP', 'TRANSTERM_INPUT', 'TX_LAYER', 'UNIOP', 'VARIANTS_STEP',
                         'UNIOP_INPUT'].sort()
             assert got == want : "process list changed: extra ${got - want}, missing ${want - got}; got ${got}"
         }

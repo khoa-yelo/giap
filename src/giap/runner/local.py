@@ -12,6 +12,7 @@ enables them (e.g. ``annotation.terminators.bactermfinder``).
 
 from __future__ import annotations
 
+import json
 import shutil
 from collections.abc import Callable, Collection, Mapping, Sequence
 from pathlib import Path
@@ -277,9 +278,12 @@ PUBLISHED_FILES: dict[str, str] = {
     "operons": "tables/operons.tsv",
     "pairs": "tables/pairs.tsv",
     "regions_stats": "tables/regions_stats.tsv",
+    "pileup": "tables/pileup.tsv.gz",
     "sensitivity": "tables/sensitivity.tsv",
     "tier_summary": "genetable/detection_summary_parts/tier.parquet",
     "tu_folds": "genetable/tu_folds.parquet",
+    "variants": "tables/variants.tsv",
+    "variants_vcf": "tables/variants.vcf",
 }
 
 
@@ -298,6 +302,25 @@ def publish(workdir: Path, outdir: Path) -> list[Path]:
             shutil.copyfile(src, dst)
             done.append(dst)
     return done
+
+
+def write_datapackage(outdir: Path) -> Path | None:
+    """Copy ``schemas/datapackage.json`` and the table schemas it names to ``OUT/schemas/``
+    when a resource it lists was published (§9.1, §9.5; M7-03 decision 3); resource paths are
+    ``tables/...`` under ``OUT``. Returns the written path, or ``None``."""
+    from importlib.resources import files
+
+    src = files("giap.schemas")
+    package = json.loads(src.joinpath("datapackage.json").read_text(encoding="utf-8"))
+    resources = package["resources"]
+    if not any((outdir / r["path"]).is_file() for r in resources):
+        return None
+    dst = outdir / "schemas"
+    for rel in sorted({str(r["schema"]) for r in resources if isinstance(r.get("schema"), str)}):
+        (dst / rel).parent.mkdir(parents=True, exist_ok=True)
+        (dst / rel).write_bytes(src.joinpath(rel).read_bytes())
+    (dst / "datapackage.json").write_bytes(src.joinpath("datapackage.json").read_bytes())
+    return dst / "datapackage.json"
 
 
 def contaminant_library(db_dir: Path | None) -> Path | None:
