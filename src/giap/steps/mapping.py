@@ -336,6 +336,7 @@ def _denovo(
         ctx.log.warning(
             "placement: no usable reference peptides; c_l = %.2f assumed (run flag c_assumed)",
             dnp.C_DEFAULT,
+            extra={"event": "placement.run_flag", "data": {"flag": "c_assumed"}},
         )
     bins = dnp.denovo_precision(df, c, assumed, ctx.rng)
     pi = np.ones(len(dn))

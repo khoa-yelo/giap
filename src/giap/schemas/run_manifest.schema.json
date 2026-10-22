@@ -2,39 +2,66 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/khoa-yelo/giap/schemas/run_manifest.schema.json",
   "title": "GIAP run manifest",
-  "description": "run_manifest.json written by every giap run (GIAP_SPEC.md section 6.7). M0 skeleton.",
+  "description": "run_manifest.json written by every giap run past preflight (GIAP_SPEC.md section 6.7; MVP-03 D-C; ADR-0038).",
   "type": "object",
-  "required": ["giap_version", "config", "inputs", "schema_version"],
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "giap_version", "git_commit", "git_dirty", "command_line", "executor",
+    "profile", "resume", "outdir", "started_at", "finished_at", "status", "exit_code",
+    "failed_step", "failed_log", "publication", "config", "inputs", "inputs_absent", "tools",
+    "databases", "annotation", "detection_tier", "seeds", "steps", "skipped", "modules_off",
+    "flags", "layers_missing", "warnings", "volatile", "provenance_digest"
+  ],
+  "$defs": {
+    "nstr": {"type": ["string", "null"]},
+    "strs": {"type": "array", "items": {"type": "string"}}
+  },
   "properties": {
     "schema_version": {"type": "string"},
     "giap_version": {"type": "string"},
-    "git_commit": {"type": ["string", "null"]},
-    "command_line": {"type": "array", "items": {"type": "string"}},
+    "git_commit": {"$ref": "#/$defs/nstr"},
+    "git_dirty": {"type": ["boolean", "null"]},
+    "command_line": {"$ref": "#/$defs/strs"},
+    "executor": {"enum": ["local", "nextflow"]},
+    "profile": {"$ref": "#/$defs/nstr"},
+    "resume": {"type": "boolean"},
+    "outdir": {"type": "string"},
+    "started_at": {"type": "string"},
+    "finished_at": {"type": "string"},
+    "status": {"enum": ["completed", "failed"]},
+    "exit_code": {"type": "integer", "minimum": 0},
+    "failed_step": {"$ref": "#/$defs/nstr"},
+    "failed_log": {"$ref": "#/$defs/nstr"},
     "publication": {"type": "boolean"},
     "config": {"type": "object", "description": "The resolved configuration (config.schema.json)."},
     "inputs": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["path", "sha256", "size"],
+        "additionalProperties": false,
+        "required": ["role", "file", "path", "sha256", "size"],
         "properties": {
           "role": {"type": "string"},
+          "file": {"type": "string", "pattern": "^[^/]+$"},
           "path": {"type": "string"},
           "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "size": {"type": "integer", "minimum": 0}
         }
       }
     },
+    "inputs_absent": {"$ref": "#/$defs/strs"},
     "tools": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "version"],
+        "additionalProperties": false,
+        "required": ["name", "version", "container_digest", "conda_lock_hash", "processes"],
         "properties": {
           "name": {"type": "string"},
           "version": {"type": "string"},
-          "container_digest": {"type": ["string", "null"]},
-          "conda_lock_hash": {"type": ["string", "null"]}
+          "container_digest": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+          "conda_lock_hash": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+          "processes": {"$ref": "#/$defs/strs"}
         }
       }
     },
@@ -42,31 +69,59 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "version"],
+        "additionalProperties": false,
+        "required": ["name", "version", "checksum", "retrieved", "size_bytes"],
         "properties": {
           "name": {"type": "string"},
-          "version": {"type": "string"},
-          "checksum": {"type": ["string", "null"]}
+          "version": {"$ref": "#/$defs/nstr"},
+          "checksum": {"$ref": "#/$defs/nstr"},
+          "retrieved": {"$ref": "#/$defs/nstr"},
+          "size_bytes": {"type": ["integer", "null"], "minimum": 0}
         }
       }
     },
-    "seeds": {"type": "object", "additionalProperties": {"type": "integer"}},
+    "annotation": {
+      "type": ["object", "null"],
+      "additionalProperties": {"$ref": "#/$defs/nstr"},
+      "required": ["source", "bakta_version", "db_version", "db_type"]
+    },
+    "detection_tier": {"$ref": "#/$defs/nstr"},
+    "seeds": {"type": "object", "required": ["master"], "additionalProperties": {"type": "integer"}},
     "steps": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name"],
+        "additionalProperties": false,
+        "required": ["name", "status", "n_tasks", "n_retries"],
         "properties": {
           "name": {"type": "string"},
+          "status": {"enum": ["completed", "cached", "failed"]},
+          "n_tasks": {"type": "integer", "minimum": 0},
+          "n_retries": {"type": "integer", "minimum": 0},
           "wall_time_s": {"type": "number", "minimum": 0},
           "cpu_time_s": {"type": "number", "minimum": 0},
           "peak_rss_bytes": {"type": "integer", "minimum": 0}
         }
       }
     },
-    "warnings": {"type": "array", "items": {"type": "string"}},
-    "flags": {"type": "array", "items": {"type": "string"}},
-    "layers_missing": {"type": "array", "items": {"type": "string"}},
-    "sensitivity": {"type": "object"}
+    "skipped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "reason"],
+        "properties": {
+          "name": {"type": "string"},
+          "reason": {"pattern": "^(module_off:[a-z_]+|opt_in_off|precomputed:[a-z0-9_]+|not_run)$"}
+        }
+      }
+    },
+    "modules_off": {"type": "array", "items": {"enum": ["bgc", "function", "mobile"]}},
+    "flags": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9_]+(:[a-z0-9_.-]+)?$"}},
+    "layers_missing": {"$ref": "#/$defs/strs"},
+    "warnings": {"$ref": "#/$defs/strs"},
+    "volatile": {"$ref": "#/$defs/strs"},
+    "provenance_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sensitivity": {"type": "object", "description": "MVP-03c."}
   }
 }

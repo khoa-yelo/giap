@@ -279,12 +279,17 @@ def run(
     except ValueError as exc:
         click.echo(f"giap run: error: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
-    if executor == "local":
-        keys = ("peptides", "proteins", "abundance", "annotation", "reference_peptides", "db_dir")
-        _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys})
-    inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
+    from giap.io.manifest_sources import rotate_events
+
+    rotate_events(outdir.absolute() / "logs")  # one events.jsonl per run (MVP-03 D-B step 1)
     env_db = os.environ.get("GIAP_DB_DIR")
     db_dir: Path | None = _.get("db_dir") or (Path(env_db) if env_db else None)
+    given = {k: _.get(k) for k in _RUN_INPUTS}
+    run_info = {"publication": publication, "db_dir": db_dir, "given": given}
+    if executor == "local":
+        keys = ("peptides", "proteins", "abundance", "annotation", "reference_peptides", "db_dir")
+        _run_local(cfg, outdir, _["genome"], {k: _.get(k) for k in keys}, run_info)
+    inputs = {k: _[k] for k in _RUN_INPUTS if _.get(k) is not None}
     outdir = outdir.absolute()
     inputs.update(_run_preflight(cfg, outdir, inputs, db_dir, bool(_["strict"]), str(_["profile"])))
     from giap.runner.local import contaminant_library
@@ -295,9 +300,51 @@ def run(
     if shutil.which("nextflow") is None:
         click.echo("giap run: nextflow not found on PATH (see AGENTS.md setup)", err=True)
         sys.exit(ExitCode.ENVIRONMENT)
-    _run_nextflow(
+    base = _launch_sources(cfg, outdir, run_info, "nextflow", str(_["profile"]), bool(_["resume"]))
+    code = _run_nextflow(
         cfg, outdir, inputs, str(_["memory"]), str(_["profile"]), bool(_["resume"]), db_dir
     )
+    from giap.runner.nextflow import failed_step
+
+    trace = outdir / "logs" / "trace.tsv"
+    hit = failed_step(trace) if code != ExitCode.SUCCESS and trace.is_file() else None
+    failed = {"failed_step": hit[0], "failed_log": f"{hit[1]}/.command.log"} if hit else {}
+    sys.exit(_run_tail(outdir, base, code, **failed))
+
+
+def _launch_sources(
+    cfg: GiapConfig, outdir: Path, info: dict[str, Any], executor: str, profile: str | None,
+    resume: bool,
+) -> dict[str, Any]:  # fmt: skip
+    """Launch-time manifest sources; writes ``OUT/work/provenance.json`` (MVP-03 D-B step 3)."""
+    from giap.steps.manifest import launch_sources, write_provenance
+
+    base = launch_sources(cfg, outdir.absolute(), info["given"], executor=executor,
+                          profile=profile, resume=resume, publication=info["publication"],
+                          db_dir=info["db_dir"])  # fmt: skip
+    write_provenance(outdir.absolute(), base)
+    return base
+
+
+def _run_tail(outdir: Path, base: dict[str, Any], code: int, **kw: Any) -> int:
+    """The run tail (MVP-03 D-B steps 5-6): the manifest, even after a failed step. A tail error
+    after a successful graph is exit 4; after a failed graph it is only logged."""
+    import traceback
+
+    from giap.steps.manifest import run_tail
+
+    outdir = outdir.absolute()
+    try:
+        run_tail(outdir, base, int(code), **kw)
+    except Exception:
+        log = outdir / "logs" / "manifest.log"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        log.write_text(traceback.format_exc(), encoding="utf-8")
+        if code == ExitCode.SUCCESS:
+            click.echo(f"giap run: step manifest failed; log: {log}", err=True)
+            return ExitCode.STEP_FAILED
+        click.echo(f"giap run: the run manifest was not written; log: {log}", err=True)
+    return int(code)
 
 
 def _bakta_json(annotation: Path | None) -> str | None:
@@ -363,14 +410,14 @@ def _run_nextflow(
     profile: str,
     resume: bool,
     db_dir: Path | None = None,
-) -> None:
+) -> ExitCode:
     """§6.3 "Launch": params.json (+ ``db_dir``) + resolved_config.yaml, then ``nextflow run``."""
     from giap.runner import nextflow as nf
 
     outdir = outdir.absolute()
     params, _resolved = nf.write_params(outdir, cfg, inputs, nf.nextflow_memory(memory), db_dir)
     cmd = nf.launch_command(nf.workflow_main(), params, profile, outdir, resume)
-    sys.exit(nf.run_nextflow(cmd, outdir))
+    return nf.run_nextflow(cmd, outdir)
 
 
 def _local_roots(
@@ -434,8 +481,15 @@ def _local_roots(
     return roots
 
 
-def _run_local(cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Path | None]) -> None:
-    """``--executor local`` (§6.4): every registered step as target; exits when done."""
+def _run_local(
+    cfg: GiapConfig,
+    outdir: Path,
+    genome: Path,
+    inputs: dict[str, Path | None],
+    info: dict[str, Any],
+) -> None:
+    """``--executor local`` (§6.4): every registered step as target, then the run tail; exits
+    when done. A layer or tool problem found while planning exits before the provenance core."""
     from giap.runner import local
     from giap.steps import load_step_modules
     from giap.steps import registry as reg
@@ -447,28 +501,32 @@ def _run_local(cfg: GiapConfig, outdir: Path, genome: Path, inputs: dict[str, Pa
         click.echo("giap run --executor local: not implemented (no steps registered)", err=True)
         sys.exit(ExitCode.INTERNAL)
     roots = _local_roots(cfg, outdir, genome, inputs)
-    # step events (e.g. the ``search_db: auto`` resolution) go to OUT/logs/events.jsonl (§6.7)
-    restore = _record_step_events(outdir / "logs")
     try:
         local.plan_local(cfg, targets, set(roots))
-        local.run_local(cfg, workdir, targets, roots)
-        local.publish(workdir, outdir)
     except local.LayerMissing as exc:
         click.echo(f"giap run: error: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
     except local.ToolUnavailable as exc:
         click.echo(f"giap run: error: {exc}", err=True)
         sys.exit(ExitCode.STEP_FAILED)
+    base = _launch_sources(cfg, outdir, info, "local", None, False)
+    timings: list[dict[str, Any]] = []
+    code, failed = ExitCode.SUCCESS, {}
+    # step events (e.g. the ``search_db: auto`` resolution) go to OUT/logs/events.jsonl (§6.7)
+    restore = _record_step_events(outdir / "logs")
+    try:
+        local.run_local(cfg, workdir, targets, roots, timings)
+        local.publish(workdir, outdir)
     except reg.StepError as exc:
         log = exc.write_log(workdir.parent / "logs")
         click.echo(f"giap run: {exc} (see {log})", err=True)
-        sys.exit(ExitCode.STEP_FAILED)
+        code, failed = ExitCode.STEP_FAILED, {"failed_step": exc.name, "failed_log": str(log)}
     except reg.WiringError as exc:
         click.echo(f"giap run: internal error: {exc}", err=True)
-        sys.exit(ExitCode.INTERNAL)
+        code = ExitCode.INTERNAL
     finally:
         restore()
-    sys.exit(ExitCode.SUCCESS)
+    sys.exit(_run_tail(outdir, base, code, local_steps=timings, **failed))
 
 
 def _record_step_events(logs_dir: Path) -> Callable[[], None]:

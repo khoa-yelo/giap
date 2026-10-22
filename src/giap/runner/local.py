@@ -13,8 +13,10 @@ enables them (e.g. ``annotation.terminators.bactermfinder``).
 from __future__ import annotations
 
 import shutil
+import time
 from collections.abc import Callable, Collection, Mapping, Sequence
 from pathlib import Path
+from typing import Any
 
 from giap.config import GiapConfig
 from giap.io.work_tables import FILE_NAMES
@@ -28,6 +30,9 @@ class LayerMissing(Exception):
         super().__init__(f"{key} is required with --executor local")
         self.key = key
 
+
+#: Run-tail steps: registered, never planned; ``giap run`` calls them after the graph (ADR-0038).
+TAIL_STEPS: tuple[str, ...] = ("manifest",)
 
 # Root keys a run must stage when a step needs them; other roots (``proteins_long``,
 # ``reference_peptides``, ``contaminants``, ``peptides``) are optional and prune silently.
@@ -158,7 +163,7 @@ def _walk(
             continue
         seen.add(name)
         spec = reg.get(name)
-        if not _enabled(cfg, spec):
+        if name in TAIL_STEPS or not _enabled(cfg, spec):
             continue
         if feasible is not None and not feasible(name):
             pruned.append(name)
@@ -227,9 +232,12 @@ def run_local(
     workdir: Path,
     targets: Sequence[str],
     roots: Mapping[str, Path] | None = None,
+    timings: list[dict[str, Any]] | None = None,
 ) -> None:
     """Plan (validating every layer first), stage ``roots``, then run each Python step under
-    ``workdir``. Without ``roots`` every planned step must find its inputs in ``workdir``."""
+    ``workdir``. Without ``roots`` every planned step must find its inputs in ``workdir``.
+    ``timings`` receives ``{name, status, wall_time_s, cpu_time_s}`` per step run (a failed step
+    included, as ``failed``) for the manifest."""
     order, supplied = _walk(cfg, targets, None if roots is None else set(roots))
     if roots is not None:
         stage_roots(workdir, roots)
@@ -249,7 +257,15 @@ def run_local(
             if key in spec.inputs or (path.exists() and not stale):
                 inputs[key] = path
         outputs = {key: workdir / key for key in spec.outputs}
-        reg.run_step(name, cfg, inputs, outputs)
+        wall, cpu, status = time.perf_counter(), time.process_time(), "failed"
+        try:
+            reg.run_step(name, cfg, inputs, outputs)
+            status = "completed"
+        finally:
+            if timings is not None:
+                timings.append({"name": name, "status": status,
+                                "wall_time_s": time.perf_counter() - wall,
+                                "cpu_time_s": time.process_time() - cpu})  # fmt: skip
 
 
 # §9.1 published directories: work key -> OUT subdirectory
