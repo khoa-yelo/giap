@@ -431,11 +431,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - `CI_MIN_UNITS` at 9 and `<=`;
   - `_PAIR_ATOL`;
   - comp computed as 1 − q on the raw and fitted paths;
-  - `folds={}` raises "TUs without a fold".
+  - `folds={}` skips the fit with `tu_recal_skipped`, as documented; the statistician's re-check corrected the earlier claim that it raises.
 - **N6** `_classic`: a NaN `category_odds` gives `p_classic` NA with no flag, and the bare `except ValueError` can hide real errors.
 - **N7** The end-to-end `detection_enrichment` benchmark is still owed; the current one covers only the primitive.
 - **N8** test_attack_ora_tusize.py:96 recovers the replicate index from `seed_seq.entropy`, which is fragile.
 - **N9** `_collection_rows` rebuilds the gene maps for every collection, and GO `_closure` is built twice.
+- **Lifting the flag:** the commit that lifts `ora_uncalibrated` must add it explicitly on the skip path; test_ora_review_179.py pins this.
 - **N10** The attack arms' `ora_uncalibrated` fallback cannot trigger on its own; the flag is a hand-edited constant.
 - **Statistician:** category_summary's bootstrap undercovers small categories (10 TUs: 0.886; 15 TUs: 0.90). Raise `CI_MIN_UNITS` to about 30, or use BCa or a studentized bootstrap.
 - **Statistician:** cross-fitting does not remove leakage when a category is a large share of one TU-size group. In the tested worlds this was only conservative.
