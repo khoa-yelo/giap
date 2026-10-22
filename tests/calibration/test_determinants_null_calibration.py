@@ -29,8 +29,13 @@ Gated:
   both models — the null is not trivially conservative (an identity permutation or p = 1 passes
   the level gate; it fails here).
 
-Test-author pre-run (prototype of the spec's rules, 10 / 6 / 3 replicates, one core): about 30 s
-of null refits per replicate per model at B = 99 and 50 trees, 3-5 s for the observed CV.
+Test-author pre-run (a prototype of the spec's rules, Slurm job 1865936, one core per test, fast
+tier R = 20): every fast test passed; about 16.5 min per level / power test (about 49 s per
+replicate per model) and 25 min per teeth test (both blocks run, as a confirmed fail must).
+Rejection rates at alpha 0.01 / 0.05 / 0.10: clustered 0 / 0 / 0.05 (LightGBM) and 0 / 0 / 0
+(elastic net); size 0 / 0.05 / 0.10 and 0 / 0 / 0.05; mean p 0.49-0.53 (conservative, as the spec
+states); gene-level teeth p = 0.01 in every replicate; planted p = 0.01 in every replicate. The
+full tier (R = 100, B = 199, 500 trees) is not measured; it is ``calibration_full`` only.
 """
 
 from __future__ import annotations
