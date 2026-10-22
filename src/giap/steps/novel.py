@@ -90,27 +90,26 @@ def _candidate_records(orfs: Sequence[Orf], reps: Mapping[str, Replicon]) -> lis
     return out
 
 
+def _opt_int(v: Any) -> int | None:
+    return None if pd.isna(v) else int(v)
+
+
 def read_candidates(path: Path) -> tuple[list[Orf], dict[str, list[int]]]:
-    """The ORFs of ``novel_candidates.parquet`` (file order) and each ORF's start positions."""
+    """The ORFs of ``novel_candidates.parquet`` (file order) and the first base, in transcription
+    direction, of each ORF's starts (5' to 3')."""
     df = pd.read_parquet(path)
     orfs: list[Orf] = []
     firsts: dict[str, list[int]] = {}
     for oid, g in df.groupby("orf_id", sort=False):
         r = g.iloc[0]
-
-        def opt(v: Any) -> Any:
-            return None if pd.isna(v) else v
-
         orfs.append(Orf(
             orf_id=str(oid), cls=r["class"], contig=str(r["contig"]), strand=r["strand"],
-            frame=int(r["frame"]), stop=int(r["stop"]),
-            starts=tuple(int(x) for x in r["starts"]),
-            start_longest=None if opt(r["start_longest"]) is None else int(r["start_longest"]),
-            end_5p_open=bool(r["end_5p_open"]), end_3p_open=bool(r["end_3p_open"]),
-            peptides=tuple(sorted(str(p) for p in g["peptide"])),
-            best_q=None if opt(r["best_q"]) is None else float(r["best_q"]),
-            overlapping_gene=opt(r["overlapping_gene"]),
-            first_peptide=None if opt(r["first_peptide"]) is None else int(r["first_peptide"]),
+            frame=int(r["frame"]), stop=int(r["stop"]), starts=tuple(int(x) for x in r["starts"]),
+            start_longest=_opt_int(r["start_longest"]), end_5p_open=bool(r["end_5p_open"]),
+            end_3p_open=bool(r["end_3p_open"]), peptides=tuple(sorted(map(str, g["peptide"]))),
+            best_q=None if pd.isna(r["best_q"]) else float(r["best_q"]),
+            overlapping_gene=None if pd.isna(r["overlapping_gene"]) else str(r["overlapping_gene"]),
+            first_peptide=_opt_int(r["first_peptide"]),
         ))  # fmt: skip
         firsts[str(oid)] = [int(x) for x in r["start_firsts"]]
     return orfs, firsts
