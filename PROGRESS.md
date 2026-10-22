@@ -8,7 +8,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 95/135 done (70 %), 12 running · generated 2026-10-21 22:01 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 99/135 done (73 %), 11 running · generated 2026-10-22 01:58 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -18,9 +18,9 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
-| M6 Operons | 🟩🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜ 33 % | 4 | 3 | 5 |
+| M6 Operons | 🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜ 50 % | 6 | 2 | 4 |
 | M7 Variants and novel ORFs | 🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 6 % | 1 | 5 | 10 |
-| M8 Function and determinants | 🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 12 % | 2 | 4 | 10 |
+| M8 Function and determinants | 🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜ 25 % | 4 | 4 | 8 |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
@@ -163,6 +163,19 @@ ids. Evidence reuses the M2-13/14/15 helpers via per-run indexes (`promoter_betw
 baseline `pair_frame_4500_genes` = 0.41 s of a 3 s budget (wheat-08, 1 CPU, Slurm 1864210). Lead decisions after the test-author appended to
 the spec.
 
+M6-02 (branch `m6/detlimit`, implementer step done, 27a0292): `giap.operons.detection_limit`, with
+the peptide model and the replicate model fitted by the conditional (truncated) likelihood (lead
+decision 5). The fit is unpenalised damped Newton on standardised features; the peptide model is
+cross-fitted by TU folds, and the replicate model is not fitted at R = 2 (`replicate_two_runs`).
+C16 `peptide_runs` is in TABLES and loads through `load_tables`. Fit time is 0.6 s for 600 genes and
+1.2 s for 1,500 (full fit plus 5 folds, 1 CPU). Detection-limit slow and calibration tests: 64 passed
+(Slurm 1864768). DL1 full (R = 100, 1,500 genes): mean slope 0.9996, CITL −0.008. DL1 fast (R = 20,
+600 genes): slope 0.976, CITL +0.081. Fast suite (Slurm 1864767, pre-commit tree): 9202 passed, 6
+failed. One failure was mine (`OPTIONAL_KEYS` leaked into the context_stats registry) and is fixed
+before the commit. The other 5 are `tests/unit/genetable/test_contract.py`: `test_tables_keys` and 4
+`test_missing_column[peptide_runs-*]`. Its pinned `TABLE_KEYS` and `build_frames` fixture predate
+C16, so they conflict with the new C16 test. This is test-author work. Rerun on 27a0292 (Slurm 1864799): 9203 passed;
+the same 5 failed.
 M6-06 (branch `m6/missed-operons`, stacked on #144, implementer step done, 2026-10-21):
 `giap.operons.missed` — `missed_operons(pairs, cfg, *, genes=None)` scores eligible both-detected NO
 pairs `-|Δ|` against CV/SW decoys through the merged engine `max_decoy_fdr` (distance-reweighted,
