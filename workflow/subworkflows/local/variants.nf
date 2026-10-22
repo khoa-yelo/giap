@@ -27,7 +27,7 @@ def variantsSpec(List spec) {
                 ['CONF', 'A', 'String', 'Confidence of each ALT allele: high or candidate'],
                 ['NT_CHANGES', 'A', 'Integer', 'Nucleotide changes of the minimal-change ALT codon(s)'],
                 ['ALT_TYPE', 'A', 'String', 'ALT type: substitution, swap or block'],
-                ['FLAGS', '.', 'String', 'Variant flags of the alleles, sorted and deduplicated'],
+                ['FLAGS', '.', 'String', 'Variant flags of the alleles, deduplicated, in GIAP §9.4 order'],
                 ['CLASS_ERR', 'A', 'String', 'Class-specific error rate of each allele, or unestimated']]
     def fmt = [['GT', '1', 'String', 'Haploid genotype: the best-supported ALT allele; . for mixed or tie'],
                ['AD', 'R', 'Integer', 'Distinct peptides supporting REF, then each ALT allele'],
