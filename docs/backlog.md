@@ -161,3 +161,9 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   driver deliberately keeps the simulator's real coordinates, while the island one re-lays genes through
   `Contig`, which would destroy the ori–ter geometry — so the shared helper must preserve both modes.
 - M6-04 polish (non-behavioural): `promoter_between_tracks` exposes the private `_Track` alias in its signature (make a public `PromoterTrack` type); pin `pair_frame` dtypes (`detected_*` bool, `flags` list) through a pairs.tsv schema when M6-08 writes the table; consider one shared index object for the M2 `*_between` helpers so M6-07 reuses it.
+- M7-01 review of #154 (non-blocking):
+  - untested: two same-direction 1↔2 blocks (|n−m| = 2, align.py:184); leftmost tie-break across frameshift junctions; the 2→1 block start (`pi = i - 2`); the move-3 bounds guard;
+  - `_check` could also compare the recomputed diff-type multiset with the row's `diff_types`;
+  - frameshift work-table lookup: filter to `frameshift` rows, and check blocks against the row's start/end;
+  - `test_align_sim100k.py`: assert that frameshift rows occur;
+  - test_align_props.py:266: sort kinds by RANK, not by name (unobservable today).
