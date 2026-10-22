@@ -1,8 +1,9 @@
 """``giap`` command line (GIAP_SPEC.md §5.1).
 
 Every subcommand resolves the configuration first (an unknown key is exit code 1). ``preflight``
-(M1-12), ``_step``, ``run --executor local`` (M2-02) and ``run`` through Nextflow (M2-07) are
-implemented; the other commands report that they are not implemented yet (exit code 5).
+(M1-12), ``_step``, ``run --executor local`` (M2-02), ``run`` through Nextflow (M2-07) and
+``report`` (M9-02) are implemented; the other commands report that they are not implemented
+yet (exit code 5).
 """
 
 from __future__ import annotations
@@ -637,10 +638,38 @@ def compare(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_
 @click.option("--no-interactive", is_flag=True, help="Static report only.")
 @click.option("--plots", help="Comma-separated plot IDs (V01,V02,...).")
 @shared_options
-def report(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_: Any) -> None:
+def report(
+    config_file: Path | None,
+    sets: tuple[str, ...],
+    log_level: str,
+    out: Path,
+    no_interactive: bool,
+    plots: str | None,
+    **_: Any,
+) -> None:
     """Rebuild plots and report from existing tables."""
-    _resolve(config_file, sets, log_level)
-    _not_implemented("report", "M9")
+    from giap.io.run_view import NotAGiapRun, RunView
+    from giap.steps import plots as P
+    from giap.viz.base import normalise_ids
+
+    cfg = _resolve(config_file, sets, log_level)
+    if no_interactive:
+        cfg = cfg.model_copy(
+            update={"report": cfg.report.model_copy(update={"interactive": False})}
+        )
+    P.load_plot_modules()
+    try:
+        view = RunView.from_outdir(out)
+        only = None if plots is None else normalise_ids(plots)
+    except (NotAGiapRun, ValueError) as exc:
+        click.echo(f"giap report: {exc}", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
+    try:
+        P.render_plots(view, cfg, out / "plots", only)
+    except P.PlotFailed as exc:
+        click.echo(f"giap report: {exc}", err=True)
+        sys.exit(ExitCode.STEP_FAILED)
+    click.echo(str(P.write_report(view, out / "plots", out / "report", cfg)))
 
 
 # ---------------------------------------------------------------- hidden

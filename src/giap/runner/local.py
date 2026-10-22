@@ -253,7 +253,12 @@ def run_local(
 
 
 # §9.1 published directories: work key -> OUT subdirectory
-PUBLISHED: dict[str, str] = {"annotation": "annotation", "mapping": "mapping"}
+PUBLISHED: dict[str, str] = {
+    "annotation": "annotation",
+    "mapping": "mapping",
+    "plots": "plots",
+    "report": "report",
+}
 #: §9.1 published files: work key -> OUT path, the ``key=path`` names the Nextflow subworkflows
 #: give GIAP_STEP (pinned against workflow/ by tests/unit/test_local_publish_names.py)
 PUBLISHED_FILES: dict[str, str] = {

@@ -297,6 +297,53 @@
       "stratum0_classes"
     ]
   },
+  "plots": {
+    "inputs": [
+      "preflight"
+    ],
+    "optional_inputs": [
+      "annotation",
+      "annotation_patch",
+      "autocorrelation",
+      "detectability_summary",
+      "detection_summary",
+      "events",
+      "features",
+      "gene_context",
+      "gene_table",
+      "genes",
+      "genes_pre",
+      "genes_tsv",
+      "genome",
+      "island_diagnostics",
+      "islands",
+      "mapping",
+      "mapping_fdr",
+      "novel_orfs",
+      "novel_orfs_faa",
+      "novel_orfs_gff3",
+      "operon_flags",
+      "operons",
+      "pairs",
+      "peptide_hits",
+      "plots_support",
+      "promoters_bed",
+      "protein_hits",
+      "regions_stats",
+      "regions_tsv",
+      "replicons",
+      "resolved_config",
+      "sensitivity",
+      "step_events",
+      "terminators_bed",
+      "tier_summary",
+      "tus_tsv",
+      "unmapped"
+    ],
+    "outputs": [
+      "plots"
+    ]
+  },
   "promoter_layer": {
     "inputs": [
       "promotech",
@@ -355,6 +402,48 @@
     "outputs": [
       "region_genes",
       "regions"
+    ]
+  },
+  "report": {
+    "inputs": [
+      "plots",
+      "preflight"
+    ],
+    "optional_inputs": [
+      "annotation",
+      "annotation_patch",
+      "autocorrelation",
+      "detectability_summary",
+      "detection_summary",
+      "events",
+      "gene_context",
+      "gene_table",
+      "genes_pre",
+      "genes_tsv",
+      "island_diagnostics",
+      "islands",
+      "mapping",
+      "mapping_fdr",
+      "novel_orfs",
+      "novel_orfs_faa",
+      "novel_orfs_gff3",
+      "operon_flags",
+      "operons",
+      "pairs",
+      "peptide_hits",
+      "promoters_bed",
+      "protein_hits",
+      "regions_stats",
+      "regions_tsv",
+      "resolved_config",
+      "sensitivity",
+      "terminators_bed",
+      "tier_summary",
+      "tus_tsv",
+      "unmapped"
+    ],
+    "outputs": [
+      "report"
     ]
   },
   "sensitivity": {

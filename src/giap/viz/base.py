@@ -84,6 +84,11 @@ def _skip_reason(spec: PlotSpec, view: RunView) -> str | None:
     return None
 
 
+def skip_reason(pid: str, view: RunView) -> str | None:
+    """The declared skip of the registered plot ``pid`` on ``view``, or ``None``."""
+    return _skip_reason(_REGISTRY[pid], view)
+
+
 def plot(
     pid: str,
     name: str,

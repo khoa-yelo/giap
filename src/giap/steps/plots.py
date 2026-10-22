@@ -1,0 +1,134 @@
+"""The ``plots`` and ``report`` steps (GIAP_SPEC.md §6.2, §10.3; M9-02 behaviour 1, 2, 8).
+
+``plots`` renders every registered plot (``giap.viz.base``) from a ``RunView`` of its inputs into
+the ``plots`` directory and logs ``plots.rendered`` / ``plots.skipped`` events; ``report`` reads
+that directory and writes ``report/report.html`` (``giap.report.build``). Both take every
+published key as an optional input, so a subworkflow that did not run contributes nothing and the
+plot skips itself. The run's modules come from ``cfg.modules`` (the steps have no resolved-config
+input). ``render_plots`` is shared with ``giap report``.
+"""
+
+from __future__ import annotations
+
+import importlib
+import pkgutil
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from giap.config import GiapConfig
+from giap.io.plot_files import PlotFiles, read_plot_files, remove_plot_files, write_instance
+from giap.io.run_view import PATHS, RunView
+from giap.runner.local import PUBLISHED, PUBLISHED_FILES
+from giap.steps.registry import InputPath, StepContext, step
+
+#: every key published under ``OUT/`` (and readable by ``RunView``), except the two outputs here
+ALL_PUBLISHED_KEYS = sorted(
+    {*PUBLISHED, *PUBLISHED_FILES, *PATHS} - {"plots", "report", "preflight"}
+)
+_SUPPORT_INPUTS = ["genome", "features", "replicons", "genes", "step_events", "plots_support"]
+
+
+@dataclass(frozen=True)
+class PlotEvent:
+    """``plots.rendered {plot, files, instances}`` or ``plots.skipped {plot, reason}``."""
+
+    event: str
+    data: dict[str, Any]
+
+
+class PlotFailed(Exception):
+    """A plot function raised (``giap report`` exit code 4; a ``StepError`` in ``plots``)."""
+
+    def __init__(self, pid: str, cause: BaseException) -> None:
+        super().__init__(f"plot {pid} failed: {type(cause).__name__}: {cause}")
+        self.pid = pid
+
+
+def load_plot_modules() -> None:
+    """Import every ``giap.viz`` module, so each plot registers."""
+    import giap.viz
+
+    for info in pkgutil.walk_packages(giap.viz.__path__, prefix="giap.viz."):
+        importlib.import_module(info.name)
+
+
+def render_plots(
+    view: RunView, cfg: GiapConfig, plots_dir: Path, only: Sequence[str] | None
+) -> list[PlotEvent]:
+    """Render the registered plots (``only``: normalised IDs; ``None``: all) in ID order into
+    ``plots_dir``. Each plot's older files are removed first; other files are left alone."""
+    from giap.viz import base, style
+
+    style.apply()
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    wanted = None if only is None else set(only)
+    events: list[PlotEvent] = []
+    for pid, spec in base.registered().items():
+        if wanted is not None and pid not in wanted:
+            continue
+        remove_plot_files(plots_dir, pid)
+        try:
+            result = spec.fn(view, cfg)
+        except Exception as exc:
+            raise PlotFailed(pid, exc) from exc
+        if isinstance(result, base.Skip):
+            events.append(PlotEvent("plots.skipped", {"plot": pid, "reason": result.reason}))
+            continue
+        files: list[str] = []
+        for inst in result:
+            written = write_instance(
+                inst, pid, spec.name, plots_dir, cfg.report.formats, cfg.report.dpi
+            )
+            files += [p.relative_to(plots_dir).as_posix() for p in written]
+        data = {"plot": pid, "files": files, "instances": len(result)}
+        events.append(PlotEvent("plots.rendered", data))
+    return events
+
+
+def skipped_plots(view: RunView) -> dict[str, str]:
+    """Plot ID -> declared skip reason, for every registered plot that skips on ``view``."""
+    from giap.viz import base
+
+    reasons = {pid: base.skip_reason(pid, view) for pid in base.registered()}
+    return {pid: r for pid, r in reasons.items() if r is not None}
+
+
+def write_report(view: RunView, plots_dir: Path | None, report_dir: Path, cfg: GiapConfig) -> Path:
+    """Write ``report_dir/report.html`` from the plot files under ``plots_dir`` and the tables of
+    ``view``; returns its path."""
+    from giap.report.build import build_report
+
+    files: Mapping[str, PlotFiles] = {} if plots_dir is None else read_plot_files(plots_dir)
+    html = build_report(view, files, skipped_plots(view), cfg)
+    report_dir.mkdir(parents=True, exist_ok=True)
+    page = report_dir / "report.html"
+    page.write_text(html, encoding="utf-8")
+    return page
+
+
+def _view(ctx: StepContext) -> RunView:
+    load_plot_modules()
+    return RunView.from_inputs(ctx.inputs).with_modules(ctx.cfg.modules)
+
+
+@step("plots", inputs=["preflight"], optional_inputs=[*ALL_PUBLISHED_KEYS, *_SUPPORT_INPUTS],
+      outputs=["plots"])  # fmt: skip
+def plots_step(ctx: StepContext) -> None:
+    """Tables -> ``plots/``: ``Vnn_*.{svg,png,pdf}`` and ``data/Vnn_*.tsv`` (behaviour 1)."""
+    out = ctx.outputs["plots"]
+    for e in render_plots(_view(ctx), ctx.cfg, out, None):
+        ctx.log.info("%s %s", e.event, e.data["plot"], extra={"event": e.event, "data": e.data})
+
+
+def _plots_dir(value: InputPath) -> Path | None:
+    path = value if isinstance(value, Path) else value[0]
+    return path if path.is_dir() else None
+
+
+@step("report", inputs=["plots", "preflight"], optional_inputs=ALL_PUBLISHED_KEYS,
+      outputs=["report"])  # fmt: skip
+def report_step(ctx: StepContext) -> None:
+    """Tables + ``plots/`` -> ``report/report.html`` (behaviour 2)."""
+    write_report(_view(ctx), _plots_dir(ctx.inputs["plots"]), ctx.outputs["report"], ctx.cfg)
