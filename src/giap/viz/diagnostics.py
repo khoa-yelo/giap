@@ -5,6 +5,9 @@ distributions, is M9-21.
 Pure: tables come from a ``RunView``; the figure is built without pyplot. Histogram bins are
 exact: a p-value is binned by its shortest decimal form as a rational number, so a reported
 ``k/20`` (a permutation p with B + 1 = 20, 40, ...) lands in bin ``k``; 1 is in the last bin.
+A p outside [0, 1] (including +-inf) is never clamped into an end bar: it is counted per family
+and reported as a panel-b row ``metric = n_outside_0_1`` after that family's bin rows. NaN is
+missing: neither binned nor counted.
 """
 
 from __future__ import annotations
@@ -43,6 +46,7 @@ GRID_COLS = 4
 CONSTANT_TEXT = "detectability constant: no calibration curve"
 ABSENT_TEXT = "detectability not available"
 NO_P_TEXT = "no p-values in this run"
+OUTSIDE_METRIC = "n_outside_0_1"
 _MAX_AREA = 60.0  # pt², the marker area of the largest bin
 _GREY = OKABE_ITO["grey"]
 _TEXT = "#555555"
@@ -58,9 +62,19 @@ def _g2(v: float) -> str:
     return "NA" if not math.isfinite(v) else f"{v:.2g}"
 
 
+def in_unit(p: float) -> bool:
+    """Whether ``p`` is in the closed interval [0, 1] (False for NaN and +-inf)."""
+    return 0.0 <= p <= 1.0
+
+
 def p_bin(p: float) -> int:
-    """The bin ``0..19`` of ``p``: ``[k/20, (k+1)/20)``, the last closed; outside [0, 1] clamps."""
-    return min(N_BINS - 1, max(0, math.floor(Fraction(repr(float(p))) * N_BINS)))
+    """The bin ``0..19`` of ``p`` in [0, 1]: ``[k/20, (k+1)/20)``, the last closed.
+
+    Raises ``ValueError`` outside [0, 1]: such values are counted, never clamped.
+    """
+    if not in_unit(float(p)):
+        raise ValueError(f"p-value outside [0, 1]: {p!r}")
+    return min(N_BINS - 1, math.floor(Fraction(repr(float(p))) * N_BINS))
 
 
 # --- panel (a) --------------------------------------------------------------------------------
@@ -133,15 +147,19 @@ def _message(ax: Axes, text: str) -> None:
 # --- panel (b) --------------------------------------------------------------------------------
 
 
-def _family_counts(view: RunView) -> list[tuple[str, str, list[int]]]:
-    """(table, family, 20 counts) for every family with a finite p, in table then family order."""
+_Family = tuple[str, str, list[int], int]
+
+
+def _family_counts(view: RunView) -> list[_Family]:
+    """(table, family, 20 counts, n outside [0, 1]) for every family with a non-NaN p, in table
+    then family order."""
     out = []
     for table, keys in FAMILIES:
         frame = view.table(table)
         if frame is None or frame.empty:
             continue
         p = pd.to_numeric(frame["p_value"], errors="coerce").to_numpy(dtype=float)
-        keep = np.isfinite(p)
+        keep = ~np.isnan(p)
         if table == "regions_stats":
             keep &= (frame["subset"] == "all").to_numpy(dtype=bool)
         elif table == "pairs":
@@ -151,18 +169,28 @@ def _family_counts(view: RunView) -> list[tuple[str, str, list[int]]]:
             for vals in zip(*(frame[k] for k in keys), strict=True)
         ]
         groups: dict[str, list[int]] = {}
+        outside: dict[str, int] = {}
         for label, value, ok in zip(labels, p, keep, strict=True):
-            if ok:
-                groups.setdefault(label, [0] * N_BINS)[p_bin(float(value))] += 1
-        out += [(table, fam, groups[fam]) for fam in sorted(groups)]
+            if not ok:
+                continue
+            counts = groups.setdefault(label, [0] * N_BINS)
+            outside.setdefault(label, 0)
+            if in_unit(float(value)):
+                counts[p_bin(float(value))] += 1
+            else:
+                outside[label] += 1
+        out += [(table, fam, groups[fam], outside[fam]) for fam in sorted(groups)]
     return out
 
 
-def _draw_histogram(ax: Axes, table: str, family: str, counts: Sequence[int]) -> None:
+def _draw_histogram(
+    ax: Axes, table: str, family: str, counts: Sequence[int], n_outside: int
+) -> None:
     edges = [k / N_BINS for k in range(N_BINS)]
     ax.bar(edges, counts, width=1 / N_BINS, align="edge", color=OKABE_ITO["sky_blue"])
     ax.set_xlim(0.0, 1.0)
-    ax.set_title(f"{table}\n{family}, n = {sum(counts)}", fontsize=6)
+    extra = f", {n_outside} outside [0, 1]" if n_outside else ""
+    ax.set_title(f"{table}\n{family}, n = {sum(counts)}{extra}", fontsize=6)
     ax.set_xlabel("p-value", fontsize=6)
     ax.set_ylabel("count", fontsize=6)
 
@@ -181,15 +209,17 @@ def stat_diagnostics(view: RunView, cfg: GiapConfig) -> list[Instance]:
     has_bins = any(r["metric"] is None for r in a_rows)
     if det is None or det.empty:
         state = "absent"
-    elif overall.get("detectability_constant") == 1.0 or not has_bins:
+    elif overall.get("detectability_constant") == 1.0:
         state = "constant"
+    elif not has_bins:
+        state = "absent"
     else:
         state = "fit"
 
     families = _family_counts(view)
     order = {t: i for i, (t, _) in enumerate(FAMILIES)}
     ranked = sorted(families, key=lambda f: (-sum(f[2]), order[f[0]], f[1]))
-    keep = {(t, f) for t, f, _ in ranked[:MAX_DRAWN]}
+    keep = {(t, f) for t, f, _, _ in ranked[:MAX_DRAWN]}
     drawn = [f for f in families if (f[0], f[1]) in keep]
 
     n_rows = math.ceil(len(drawn) / GRID_COLS)
@@ -203,9 +233,9 @@ def stat_diagnostics(view: RunView, cfg: GiapConfig) -> list[Instance]:
         _message(ax_a, CONSTANT_TEXT if state == "constant" else ABSENT_TEXT)
     if not drawn:
         _message(fig.add_subplot(gs[0, 2:], label="b"), NO_P_TEXT)
-    for i, (table, family, counts) in enumerate(drawn):
+    for i, (table, family, counts, n_out) in enumerate(drawn):
         ax = fig.add_subplot(gs[1 + i // GRID_COLS, i % GRID_COLS], label=f"b:{table} / {family}")
-        _draw_histogram(ax, table, family, counts)
+        _draw_histogram(ax, table, family, counts, n_out)
 
     k = len(drawn)
     if state == "fit":
@@ -220,11 +250,13 @@ def stat_diagnostics(view: RunView, cfg: GiapConfig) -> list[Instance]:
         title = f"Detectability not available; {k} test families shown"
     fig.suptitle(title)
 
-    b_rows = [
-        _row("b", table, family=family, bin=k_ / N_BINS, n=c)
-        for table, family, counts in families
-        for k_, c in enumerate(counts)
-    ]
+    b_rows: list[_Row] = []
+    for table, family, counts, n_out in families:
+        b_rows += [
+            _row("b", table, family=family, bin=k_ / N_BINS, n=c) for k_, c in enumerate(counts)
+        ]
+        if n_out:
+            b_rows.append(_row("b", table, family=family, metric=OUTSIDE_METRIC, value=n_out))
     cells = [[r[c] for c in COLUMNS] for r in [*a_rows, *b_rows]]
     data = pd.DataFrame(cells, columns=list(COLUMNS), dtype=object)
     return [Instance(suffix=None, figure=fig, data=data, title=title)]
