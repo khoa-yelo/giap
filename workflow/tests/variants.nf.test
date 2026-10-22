@@ -1,0 +1,181 @@
+// M7-04: stub run of the VARIANTS subworkflow (workflow/subworkflows/local/variants.nf;
+// GIAP_SPEC.md §6.2 step row "variants", §7.5.5, §9.1; docs/specs/M7-04-variants-step-and-run.md
+// rules 5 and 6, example 6). ci.yml runs: nf-test test workflow/tests --profile test,stub; "-stub"
+// is set here as well.
+//
+// Interface pinned here (test author):
+//   take: genome              (genome.norm.fa)
+//         gene_model          ([genes.parquet, features.parquet, replicons.parquet], ANNOTATE gene_model)
+//         mapping             (the LOCI output: [step, mapping dir] in a real run)
+//         hits_tolerant       (MAPPING's new hits_tolerant emit, or channel.empty())
+//         peptides            (peptides.norm.parquet)
+//         reference_peptides  (reference peptide table, or channel.empty())
+//   emit: pileup, variants, variants_vcf (tables/pileup.tsv.gz, tables/variants.tsv,
+//         tables/variants.vcf)
+// The variants py step runs through a GIAP_STEP alias with the tag `variants`. VARIANTS is the
+// subworkflow's own name, so the alias name is free and this test finds the task by its tag.
+// The `mapping` key is the loci directory (rule 1). The required keys reach stepIn's `need`
+// explicitly, so the step does not run when a required channel is empty (rule 5).
+// Rule 6: the stub writes a header-only gzip pileup.tsv.gz and variants.tsv with their §9.3 headers,
+// and a header-only VCF with the §7.5.5 header. PILEUP_HEADER and VARIANTS_HEADER below equal
+// giap.variants (tests/unit/test_nf_variants_registry.py keeps them so).
+
+nextflow_workflow {
+
+    name "VARIANTS subworkflow (stub)"
+    script "../subworkflows/local/variants.nf"
+    workflow "VARIANTS"
+    options "-stub"
+    tag "variants"
+
+    test("every input: the variants step runs once with its registry keys; the three tables are emitted and published") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def m = "${moduleTestDir}/data/mapping"
+                def g = "${moduleTestDir}/data/genetable"
+                def v = "${moduleTestDir}/data/variants"
+                input[0] = channel.value(file("\${m}/genome.fa"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value(['loci', file("\${g}/mapping")])
+                input[3] = channel.value(file("\${v}/hits_tolerant.parquet"))
+                input[4] = channel.value(file("\${m}/peptides.norm.parquet"))
+                input[5] = channel.value(file("\${m}/reference_peptides.tsv"))
+                """
+            }
+        }
+
+        then {
+            def PILEUP_HEADER = 'contig codon_start strand gene aa_pos ref_aa n_ref n_il alt_counts call'.tokenize(' ').join('\t')
+            def VARIANTS_HEADER = 'variant_id contig codon_start strand gene aa_pos ref_codon ref_aa alt_aa alt_type call confidence n_ref n_alt nt_changes alt_codon_vcf class_error_rate class_error_n source flags'.tokenize(' ').join('\t')
+            def INFO_IDS = ['GENE', 'AA_POS', 'AA_REF', 'AA_ALT', 'CALL', 'CONF', 'NT_CHANGES', 'ALT_TYPE', 'FLAGS', 'CLASS_ERR']
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '') }
+            def byTag = { String s -> H.taskDirs(work).findAll { d -> H.tagOf(nameOf(d)) == s } }
+            def ran = { String s -> H.names(workflow.trace).count { H.tagOf(it) == s } }
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            assert ran('variants') == 1 : "variants ran ${ran('variants')}x; tasks: ${H.names(workflow.trace)}"
+            def dirs = byTag('variants')
+            assert dirs.size() == 1 && new File(dirs[0], '.giap_inputs').isFile() : "variants did not run through GIAP_STEP"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def vin = H.stepInputs(dirs[0])
+            def keys = vin.collect { it[0] }
+            assert keys.toSet() == ['mapping', 'genome', 'genes', 'replicons', 'peptides',
+                                    'hits_tolerant', 'reference_peptides'].toSet() : "variants inputs ${keys}"
+            assert keys.size() == keys.toSet().size() : "a key staged twice: ${keys}"
+            assert vin.any { it[0] == 'mapping' && new File(it[1]).name == 'mapping' } : "mapping is not the loci directory: ${vin}"
+            assert vin.any { it[0] == 'genes' && it[1].endsWith('genes.parquet') } : "genes is not C2: ${vin}"
+            assert vin.any { it[0] == 'replicons' && it[1].endsWith('replicons.parquet') } : "replicons is not C1: ${vin}"
+            assert vin.any { it[0] == 'hits_tolerant' && it[1].endsWith('hits_tolerant.parquet') } : "hits_tolerant not wired: ${vin}"
+
+            // emitted under the §9.1 names
+            ['pileup': 'pileup.tsv.gz', 'variants': 'variants.tsv', 'variants_vcf': 'variants.vcf'].each { emitName, fname ->
+                def got = workflow.out[emitName]
+                assert got != null && got.size() == 1 : "emit ${emitName}: ${got}"
+                assert new File(got[0].toString()).name == fname : "emit ${emitName} is ${got[0]}"
+            }
+
+            def tables = new File("${outputDir}/tables").listFiles().collect { it.name }.sort()
+            assert tables == ['pileup.tsv.gz', 'variants.tsv', 'variants.vcf'] : "tables/ holds ${tables}"
+            def parquet = []
+            new File("${outputDir}").eachFileRecurse { f -> if (f.isFile() && f.name.endsWith('.parquet')) parquet << f }
+            assert parquet.isEmpty() : "work Parquet published: ${parquet}"
+
+            // rule 6: header-only stub outputs
+            def gz = new File("${outputDir}/tables/pileup.tsv.gz")
+            def pile = new java.util.zip.GZIPInputStream(new FileInputStream(gz)).getText('UTF-8')
+            assert pile == PILEUP_HEADER + '\n' : "stub pileup.tsv.gz: ${pile.inspect()}"
+            def tsv = new File("${outputDir}/tables/variants.tsv").getText('UTF-8')
+            assert tsv == VARIANTS_HEADER + '\n' : "stub variants.tsv: ${tsv.inspect()}"
+            def vcf = new File("${outputDir}/tables/variants.vcf").readLines()
+            assert vcf.size() > 2 && vcf.every { it.startsWith('#') } : "stub VCF is not header-only: ${vcf}"
+            assert vcf[0] == '##fileformat=VCFv4.3' : "stub VCF: ${vcf[0]}"
+            assert vcf.any { it.startsWith('##source=giap-') } : "no ##source line: ${vcf}"
+            assert vcf.any { it.startsWith('##reference=') } : "no ##reference line: ${vcf}"
+            INFO_IDS.each { id -> assert vcf.any { it.startsWith("##INFO=<ID=${id},") } : "no ##INFO ${id}: ${vcf}" }
+            ['GT', 'AD', 'DP'].each { id -> assert vcf.any { it.startsWith("##FORMAT=<ID=${id},") } : "no ##FORMAT ${id}: ${vcf}" }
+            def chrom = vcf.findAll { it.startsWith('#CHROM') }
+            assert chrom.size() == 1 && vcf[-1] == chrom[0] : "the #CHROM line ends the header: ${vcf}"
+            assert chrom[0].split('\t').toList().subList(0, 9) == ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT']
+            assert chrom[0].split('\t').size() == 10 : "one sample column: ${chrom[0]}"
+        }
+    }
+
+    test("no hits_tolerant and no reference peptides: the optional keys are not staged and the step still runs") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def m = "${moduleTestDir}/data/mapping"
+                def g = "${moduleTestDir}/data/genetable"
+                input[0] = channel.value(file("\${m}/genome.fa"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value(['loci', file("\${g}/mapping")])
+                input[3] = channel.empty()
+                input[4] = channel.value(file("\${m}/peptides.norm.parquet"))
+                input[5] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*'/, '').replaceFirst(/'\s*$/, '') }
+            def d = H.taskDirs(work).find { H.tagOf(nameOf(it)) == 'variants' }
+            assert workflow.success
+            assert d != null : "variants did not run; tasks: ${H.names(workflow.trace)}"
+            assert H.registryProblems(work, REG).isEmpty()
+            def keys = H.stepInputs(d).collect { it[0] }
+            assert keys.toSet() == ['mapping', 'genome', 'genes', 'replicons', 'peptides'].toSet() : "variants inputs ${keys}"
+            ['tables/pileup.tsv.gz', 'tables/variants.tsv', 'tables/variants.vcf'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+        }
+    }
+
+    test("no loci output: a required key is missing, the step does not run") {
+
+        // Every other channel is given, so stepIn's list reaches the filter non-empty and short
+        // of one key of `need` (rule 5: the required keys are passed explicitly).
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def m = "${moduleTestDir}/data/mapping"
+                def v = "${moduleTestDir}/data/variants"
+                input[0] = channel.value(file("\${m}/genome.fa"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.empty()
+                input[3] = channel.value(file("\${v}/hits_tolerant.parquet"))
+                input[4] = channel.value(file("\${m}/peptides.norm.parquet"))
+                input[5] = channel.value(file("\${m}/reference_peptides.tsv"))
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            assert H.names(workflow.trace).count { H.tagOf(it) == 'variants' } == 0 : "variants ran without the loci output: ${H.names(workflow.trace)}"
+            assert !new File("${outputDir}/tables").exists() : "tables/ published without the loci output"
+        }
+    }
+}
