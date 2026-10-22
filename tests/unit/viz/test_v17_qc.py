@@ -410,7 +410,7 @@ def test_warning_cell_lists_warn_and_error_messages(tmp_path: Path, cfg: GiapCon
         _check("genome.topology", "info", "info is not listed"),
     ]
     inst = _render(_default_out(tmp_path, preflight=_preflight(checks)), cfg)
-    text = "\n".join(_texts(_ax(inst, "warnings")))
+    text = " ".join(" ".join(_texts(_ax(inst, "warnings"))).split())  # wrapped lines rejoined
     assert "genome.contiguity: largest contig 100000 bp" in text
     assert "peptides.content: no usable peptide" in text
     assert "genome.topology" not in text
@@ -746,7 +746,7 @@ def test_long_warnings_stay_in_the_figure_and_keep_the_more_line(
     tmp_path: Path, cfg: GiapConfig
 ) -> None:
     """Review B1 (#197): wrapped messages fit the cell; "+ n more" is drawn, not cut off."""
-    long = "contig shorter than the threshold " * 6
+    long = "largest contig 54321 bp is below the threshold; N50 12345 bp; WWWW mmmm " * 2
     warns = [_check(f"genome.rule_{chr(97 + i)}", "warn", long) for i in range(12)]
     inst = _render(_default_out(tmp_path, preflight=_preflight([*OK_CHECKS, *warns])), cfg)
     cell = _ax(inst, "warnings")

@@ -55,7 +55,7 @@ FEATURE_GROUPS: Mapping[str, tuple[str, ...]] = {
 }
 MAX_WARN_LINES = 10
 #: drawn lines in the warning cell (each message takes at most 2) and characters per line
-_CELL_LINES, _WRAP = 20, 44
+_CELL_LINES, _WRAP = 20, 36
 N_BINS = 40
 _MUTED = "#555555"
 
