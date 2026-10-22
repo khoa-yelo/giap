@@ -3,6 +3,8 @@ se_multiplier: 2.0
 ks_min_p: 0.001
 detectability_slope: [0.8, 1.2]
 denovo_precision_max_abs_bias: 0.05
+detection_limit_citl_max_abs: 0.2          # ADR-0030
+determinants_delta_r2_max_abs_bias: 0.05    # ADR-0031
 mapping_recall_min: 0.999
 f1_min: {variants_high: 0.90, novel_orfs: 0.90}
 golden_r: {wallenius_rel_tol: 1.0e-6, fgsea_es_abs_tol: 1.0e-9, fgsea_nes_abs_tol: 0.02, fgsea_log10p_k: 3.0}
