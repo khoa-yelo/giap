@@ -123,7 +123,11 @@ def _features(inputs: Mapping[str, Path], log: logging.Logger) -> pd.DataFrame |
     if path is None:
         log.warning(
             "layer_missing:features: no C15 features table; the ori-ter rows are no_oric and "
-            "the genes.tsv replichore columns stay NA"
+            "the genes.tsv replichore columns stay NA",
+            extra={
+                "event": "context_stats.layer_missing",
+                "data": {"layer": "features", "flag": "layer_missing:features"},
+            },
         )
         return None
     return pd.read_parquet(path)
