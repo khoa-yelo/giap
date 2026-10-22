@@ -77,7 +77,13 @@ def resolve_config(
     if publication:
         data = _deep_merge(
             data,
-            {"stats": {"permutations": PUBLICATION_RESAMPLES, "bootstrap": PUBLICATION_RESAMPLES}},
+            {
+                "stats": {
+                    "permutations": PUBLICATION_RESAMPLES,
+                    "bootstrap": PUBLICATION_RESAMPLES,
+                },
+                "determinants": {"permutations": PUBLICATION_RESAMPLES},  # §8.2, M8-10 decision 3
+            },
         )
     for override in overrides:
         _set_dotted(data, override)

@@ -81,6 +81,25 @@
       "gene_table"
     ]
   },
+  "determinants": {
+    "inputs": [
+      "gene_table",
+      "genes",
+      "layers",
+      "replicons",
+      "tus"
+    ],
+    "optional_inputs": [
+      "gene_context",
+      "region_genes",
+      "regions"
+    ],
+    "outputs": [
+      "determinants_attribution",
+      "determinants_features",
+      "determinants_model"
+    ]
+  },
   "gene_table": {
     "inputs": [
       "annotation_meta",

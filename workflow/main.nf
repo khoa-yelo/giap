@@ -1,14 +1,15 @@
 // GIAP entry workflow (GIAP_SPEC.md §6.3). Parameters come only from OUT/work/params.json
 // written by `giap run`. With a genome and replicons.tsv it runs ANNOTATE (M2-07), then MAPPING
-// (M3-17), GENETABLE (M4-15) and CONTEXT (M4-18, M4-19) when params.inputs.peptides
-// (peptides.norm.parquet) is given; without inputs it runs one GIAP_STEP smoke task (skeleton
-// check, M2-06). GENETABLE and CONTEXT skip themselves when an input they require is absent
-// (MVP-01). Under a precomputed regions layer region_layer still writes C7/C8 (MVP-02).
+// (M3-17), GENETABLE (M4-15), CONTEXT (M4-18, M4-19) and DETERMINANTS (M8-10, after CONTEXT:
+// it takes the gene context) when params.inputs.peptides (peptides.norm.parquet) is given;
+// without inputs it runs one GIAP_STEP smoke task (skeleton check, M2-06). GENETABLE, CONTEXT
+// and DETERMINANTS skip themselves when an input they require is absent (MVP-01). Under a precomputed regions layer region_layer still writes C7/C8 (MVP-02).
 include { GIAP_STEP } from './modules/local/giap_step/main'
 include { ANNOTATE } from './subworkflows/local/annotate'
 include { MAPPING } from './subworkflows/local/mapping'
 include { GENETABLE } from './subworkflows/local/genetable'
 include { CONTEXT } from './subworkflows/local/context'
+include { DETERMINANTS } from './subworkflows/local/determinants'
 
 // A path input as a value channel, or channel.empty() when absent.
 def opt(path) { path ? channel.value(file(path, checkIfExists: true)) : channel.empty() }
@@ -55,6 +56,8 @@ workflow {
                     ANNOTATE.out.contract, ANNOTATE.out.regions, MAPPING.out.mapping,
                     MAPPING.out.stratum0, opt(inputs.peptides), opt(inputs.abundance),
                     opt(inputs.replicon_depth), GENETABLE.out.tier_summary)
+            DETERMINANTS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract,
+                         ANNOTATE.out.regions, CONTEXT.out.gene_context)
         }
     } else {
         def keys = inputs.keySet().sort()
