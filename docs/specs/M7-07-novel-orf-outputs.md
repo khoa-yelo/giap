@@ -137,3 +137,8 @@ Schema: `src/giap/schemas/tables/novel_orfs.schema.json`.
    - **FASTA header suffixes:** `|longest` and `|best_ostir`, merged when equal.
    - **`cterm_extension`:** no patch row until M7-16.
 2. **From the M7-06 review (#161):** `overlapping_gene` is now set for antisense ORFs (the opposite-strand gene). I/L twins share the contaminant ban and the multi-locus count.
+3. **The test author's choices** (commit 7c4dc0f) are accepted as the contract.
+   - **`orf_table(orfs, scored, *, genome, replicons)`:** `scored` is keyed by `orf_id` and holds the `minimal_call` columns plus optional overrides.
+   - **`length_aa_longest` without a start:** counted from the first peptide to the stop. The implementer re-finds the first peptide in the translated frame (I/L folded). `Orf` keeps the M7-06 field set, because M7-06's tests pin its field order.
+   - **Cell formats, GFF3 attributes, patch rows and the schema** are as listed in the test docstrings.
+   - **`datapackage.json`** is created here with the `novel_orfs` resource only. M7-03 (#160) creates the same file with `pileup` and `variants`, and the lead merges the two resource lists when the second lands.
