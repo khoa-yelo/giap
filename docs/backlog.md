@@ -211,3 +211,9 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - test gaps: the C2 `ribosomal_protein` column winning, and each fallback arm alone; one-hot NA → NaN; §6.5 tie-breaks (same start with a different end; strand or locus_tag ties);
   - methods: say that `layer_missing:<layer>` is inferred from which features are absent from the returned map.
 
+
+## M8-08 (determinants models), owed
+- The acceptance benchmark, 2,500 rows × 35 columns in under 120 s, recorded in `benchmarks/baseline.json`.
+- The `docs/methods/determinants.md` section "Models".
+- The calibration tests need the protected `tolerances.yaml` key `determinants_delta_r2_max_abs_bias`, which is owed to Khoa (decision 6).
+- The `too_few_rows` rows carry `n` = NA. Pass the model-row count to `model_rows_table`.

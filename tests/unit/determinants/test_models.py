@@ -645,7 +645,9 @@ def test_table_columns_values_and_t_interval() -> None:
             pytest.approx(0.10 + half, abs=1e-12),
         )
         for _, row in rows(tbl, model=m).iterrows():
-            assert not flags_of(row["flags"])
+            # lead decision 5: ΔR² rows carry ci_unestimated (the t interval is not calibrated)
+            want = {"ci_unestimated"} if row["metric"] == "delta_r2" else set()
+            assert set(flags_of(row["flags"])) == want
 
 
 # ---------------------------------------------------------------------------------------------
