@@ -500,3 +500,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - **Statistician:** category_summary's bootstrap undercovers small categories (10 TUs: 0.886; 15 TUs: 0.90). Raise `CI_MIN_UNITS` to about 30, or use BCa or a studentized bootstrap.
 - **Statistician:** cross-fitting does not remove leakage when a category is a large share of one TU-size group. In the tested worlds this was only conservative.
 - **Flaky?** `tests/unit/function/test_gsea_flags.py::test_detection_flag_with_the_real_engine_d1_d2` failed only in the 16-worker fast suite (Slurm 1867909 and 1867927, es = −0.5 for top=True). It passes alone and in its file. Check main and look for state leaking between tests.
+
+## M8-12 review nits (#192; one round, B1–B3 fixed in the PR)
+- `check_golden_provenance.py` could check that the lock sha agrees across PROVENANCE, VERSIONS and the lock; add a fixture where the base branch moved.
+- Guard bypasses: the Rscript guard is case-sensitive and misses `R CMD`, `["R", "--vanilla"]` and concatenation; `check_imports` misses `importlib.import_module("rpy2")` / `__import__`.
+- golden-r.yml: pin actions by SHA, move `contents: write` to the job, add the R / package version-pin check the sbatch does.
+- Add an input set with exactly 10 names matched after absent names drop (sharper `minSize`).
+- Precision test: per-field `repr(float(s))` round trip.
+- VERSIONS.txt carries host-specific absolute paths (BLAS); the FarmShare and workflow routes always differ there.
+- Open with Khoa: R6 (bioconda post-link downloads from bioconductor.org) and the PR-size gate counting `*.explicit.txt` (ci/gates.yaml is protected).
