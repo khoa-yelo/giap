@@ -76,6 +76,8 @@ def flows(
         counts["peptide", "exact", "placed"] = len(exact)
         counts["peptide", "tolerant", "placed"] = len(every - exact)
         placed["peptide"] = every
+    if proteins is not None and "gene" in proteins.columns:
+        proteins = proteins[proteins["gene"].notna()]  # placed = assigned to a gene, as in M3
     if proteins is not None and len(proteins):
         best = proteins.sort_values(["rank", "route"], kind="mergesort").drop_duplicates(
             "protein_id"

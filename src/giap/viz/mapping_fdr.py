@@ -312,6 +312,9 @@ def mapping_fdr(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.Sk
     if len(sub["a"]) and len(sub["b"]):
         _panel_a(axes["a"], sub["a"])
         _panel_b(axes["b"], sub["b"], alpha)
+        if (placement_rows(fdr)["decoy_type"] == "shuffle").any():  # lead decision 3 fallback
+            for p in ("a", "b"):
+                axes[p].set_title(axes[p].get_title(loc="left") + " (shuffle decoys)", loc="left")
     else:
         _empty(axes["a"])
         _empty(axes["b"])

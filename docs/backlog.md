@@ -581,3 +581,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - `read_tsv` now treats an empty cell as missing in genes.tsv too (matches `giap.io.genes_tsv`).
 - Mutation evidence: $GIAP_ROOT/review/pr191-mut/ (22/25 killed, 1 equivalent).
 - M9-05 V6: a run with targets under both `reverse` and `shuffle` decoy types (database + de novo placements) — split or overlay the strata (lead decision 3, 2026-10-22).
+- M9-05 review nits (#198):
+  - **Labels:** N4, the "rejected by FDR" label is pushed beside the placed bar with no leader line, and the (b) "0" label sits on the α line.
+  - **Test gaps:**
+    - N5b, no case with targets under both decoy types;
+    - N6, no test with a contaminant label and `reason=no_hit`;
+    - N7, no title test with FDR = α, and none with every stratum estimated and above α;
+    - N8, the reviewer's alluvial geometry check (scratchpad geom.py) should become a test.
+  - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
+  - **Size:** about 25 lines of simplifications listed in the review.

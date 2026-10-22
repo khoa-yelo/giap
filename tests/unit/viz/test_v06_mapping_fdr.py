@@ -533,3 +533,14 @@ def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -
     assert isinstance(first, list) and isinstance(second, list)
     pd.testing.assert_frame_equal(first[0].data, second[0].data)
     assert first[0].title == second[0].title
+
+
+def test_shuffle_fallback_is_named_on_panels_a_and_b(tmp_path: Path, cfg: GiapConfig) -> None:
+    """Review N2/N5 (#198): targets only under shuffle -> V6 draws those strata and says so."""
+    shuffled = [{**r, "decoy_type": "shuffle"} for r in _ex4_rows()]
+    inst = _render(mapping_out(tmp_path, fdr=[*full_placement({}), *shuffled]), cfg)
+    reference = _render(_ex4(tmp_path / "ref"), cfg)
+    pd.testing.assert_frame_equal(inst.data, reference.data)
+    for label in ("a", "b"):
+        assert _ax(inst, label).get_title(loc="left").endswith("(shuffle decoys)")
+        assert not _ax(reference, label).get_title(loc="left").endswith("(shuffle decoys)")

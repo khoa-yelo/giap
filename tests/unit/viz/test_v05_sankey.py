@@ -512,3 +512,27 @@ def test_v05_and_v06_render_on_the_validation_run(tmp_path: Path, cfg: GiapConfi
     for pid, name, one in (("V05", "mapping_sankey", inst), ("V06", "mapping_fdr", v06[0])):
         paths = write_instance(one, pid, name, tmp_path / "plots", ["svg", "png"], 100)
         assert all(p.stat().st_size > 0 for p in paths)
+
+
+def test_protein_rows_without_a_gene_are_not_placed(tmp_path: Path, cfg: GiapConfig) -> None:
+    """Review N1 (#198): M3 keeps miniprot rows with no gene; tblastn then assigns the protein at
+    its own rank 1. V5 credits the gene-assigned route; a protein with no gene row is not placed."""
+    proteins = [
+        protein_hit("P1", "miniprot", 1, gene=None),
+        protein_hit("P1", "tblastn", 1, gene="g1"),
+        protein_hit("P2", "miniprot", 1, gene=None),
+    ]
+    rows = [unmapped("P2", "below_identity", kind="protein")]
+    inst = _render(mapping_out(tmp_path, hits=[], proteins=proteins, unmapped_rows=rows), cfg)
+    flows = _flows(inst)
+    assert flows[("protein", "tblastn", "placed")] == 1
+    assert flows[("protein", "miniprot", "placed")] == 0
+    assert flows[("protein", "unmapped", "unexplained")] == 1
+
+
+@pytest.mark.parametrize(
+    ("n", "d", "want"), [(1667, 1668, "99 %"), (1, 300, "1 %"), (0, 5, "0 %"), (5, 5, "100 %")]
+)
+def test_title_pct_never_rounds_a_partial_share_to_0_or_100(n: int, d: int, want: str) -> None:
+    """Review N3 (#198): 1667 of 1668 placed is not "100 % placed"."""
+    assert base.title_pct(n, d) == want

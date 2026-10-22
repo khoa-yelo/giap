@@ -49,6 +49,7 @@ def protein_hit(protein_id: str, route: str, rank: int, start: int = 1001, **kw:
         "identity": 0.98,
         "query_coverage": 1.0,
         "class": "near",
+        "gene": f"gene_{protein_id}",  # assigned, as M3 writes placed proteins (#198 N1)
     }
     row.update(kw)
     return row
