@@ -10,17 +10,17 @@ include { stepIn; kv } from './annotate'
 
 workflow REPORT {
     take:
-    published   // [key, path] pairs
+    pub_pairs   // [key, path] pairs
 
     main:
-    def p = stepIn('plots', [published], ['preflight'])
+    def p = stepIn('plots', [pub_pairs], ['preflight'])
     PLOTS(p.files, p.keys, workflow.stubRun ? ["plots=plots/stub.done"] : ['plots=plots'])
-    def plots = PLOTS.out.outputs.map { s, f -> f }
-    def r = stepIn('report', [kv('plots', plots), published], ['plots', 'preflight'])
+    def plots_dir = PLOTS.out.outputs.map { s, f -> f }
+    def r = stepIn('report', [kv('plots', plots_dir), pub_pairs], ['plots', 'preflight'])
     REPORT_HTML(r.files, r.keys, workflow.stubRun ? ["report=report/report.html"] : ['report=report'])
 
     emit:
-    plots    = plots
+    plots    = plots_dir
     report   = REPORT_HTML.out.outputs.map { s, f -> f }
     versions = PLOTS.out.versions.mix(REPORT_HTML.out.versions)
 }

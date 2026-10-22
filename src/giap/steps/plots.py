@@ -27,6 +27,8 @@ from giap.steps.registry import InputPath, StepContext, step
 ALL_PUBLISHED_KEYS = sorted(
     {*PUBLISHED, *PUBLISHED_FILES, *PATHS} - {"plots", "report", "preflight"}
 )
+#: the support writers' inputs (M9-03, M9-18) and the RunView directories; ``report`` takes them
+#: too, so REPORT can hand both steps the same [key, path] channel
 _SUPPORT_INPUTS = ["genome", "features", "replicons", "genes", "step_events", "plots_support"]
 
 
@@ -130,8 +132,8 @@ def _plots_dir(value: InputPath) -> Path | None:
     return path if path.is_dir() else None
 
 
-@step("report", inputs=["plots", "preflight"], optional_inputs=ALL_PUBLISHED_KEYS,
-      outputs=["report"])  # fmt: skip
+@step("report", inputs=["plots", "preflight"],
+      optional_inputs=[*ALL_PUBLISHED_KEYS, *_SUPPORT_INPUTS], outputs=["report"])  # fmt: skip
 def report_step(ctx: StepContext) -> None:
     """Tables + ``plots/`` -> ``report/report.html`` (behaviour 2)."""
     write_report(_view(ctx), _plots_dir(ctx.inputs["plots"]), ctx.outputs["report"], ctx.cfg)

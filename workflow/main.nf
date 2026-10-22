@@ -53,10 +53,10 @@ workflow {
         def genome = channel.value(file(inputs.genome, checkIfExists: true))
         ANNOTATE(genome, channel.value(file(inputs.replicons, checkIfExists: true)))
         def gm = ANNOTATE.out.gene_model
-        def published = [kv('preflight', opt(inputs.preflight)), kv('genome', genome),
-                         kv('annotation', pick(ANNOTATE.out.context, 'annotation')),
-                         kv('genes', gm.map { a -> a[0] }), kv('features', gm.map { a -> a[1] }),
-                         kv('replicons', gm.map { a -> a[2] })]
+        def pub = [kv('preflight', opt(inputs.preflight)), kv('genome', genome),
+                   kv('annotation', pick(ANNOTATE.out.context, 'annotation')),
+                   kv('genes', gm.map { a -> a[0] }), kv('features', gm.map { a -> a[1] }),
+                   kv('replicons', gm.map { a -> a[2] })]
         if (inputs.peptides) {
             def gene_model = ANNOTATE.out.gene_model
             MAPPING(genome, opt(inputs.peptides), opt(inputs.proteins_long), gene_model,
@@ -70,13 +70,18 @@ workflow {
             NOVEL(genome, gene_model, ANNOTATE.out.contract, MAPPING.out.mapping, opt(inputs.peptides),
                   opt(contaminantLibrary(inputs)), GENETABLE.out.gene_table, ANNOTATE.out.layer_pairs)
             OPERONS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract, ANNOTATE.out.layers_for_pairs)
-            published += [outs('mapping', MAPPING.out.mapping)] +
-                ['gene_table', 'detectability_summary', 'tier_summary'].collect { k -> kv(k, GENETABLE.out[k]) } +
-                ['regions_stats', 'detection_summary', 'autocorrelation', 'islands', 'genes_tsv', 'sensitivity'].collect { k -> kv(k, CONTEXT.out[k]) } +
-                ['pairs', 'operons', 'operon_flags'].collect { k -> kv(k, OPERONS.out[k]) } +
-                ['novel_orfs', 'novel_orfs_gff3', 'novel_orfs_faa', 'annotation_patch'].collect { k -> kv(k, NOVEL.out[k]) }
+            pub += [outs('mapping', MAPPING.out.mapping),
+                    kv('gene_table', GENETABLE.out.gene_table), kv('detectability_summary', GENETABLE.out.detectability_summary),
+                    kv('tier_summary', GENETABLE.out.tier_summary),
+                    kv('regions_stats', CONTEXT.out.regions_stats), kv('detection_summary', CONTEXT.out.detection_summary),
+                    kv('autocorrelation', CONTEXT.out.autocorrelation), kv('islands', CONTEXT.out.islands),
+                    kv('genes_tsv', CONTEXT.out.genes_tsv), kv('sensitivity', CONTEXT.out.sensitivity),
+                    kv('pairs', OPERONS.out.pairs), kv('operons', OPERONS.out.operons),
+                    kv('operon_flags', OPERONS.out.operon_flags),
+                    kv('novel_orfs', NOVEL.out.novel_orfs), kv('novel_orfs_gff3', NOVEL.out.novel_orfs_gff3),
+                    kv('novel_orfs_faa', NOVEL.out.novel_orfs_faa), kv('annotation_patch', NOVEL.out.annotation_patch)]
         }
-        REPORT(published.inject(channel.empty()) { acc, c -> acc.mix(c) })
+        REPORT(pub.inject(channel.empty()) { acc, c -> acc.mix(c) })
     } else {
         def keys = inputs.keySet().sort()
         def files = keys.collect { k -> file(inputs[k], checkIfExists: true) }
