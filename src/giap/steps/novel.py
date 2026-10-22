@@ -49,8 +49,10 @@ from giap.novel.candidates import (
     window_chunks,
 )
 from giap.novel.outputs import orf_table
+from giap.steps.common import one_path as _path
+from giap.steps.common import read_genes as _genes
+from giap.steps.common import read_replicons as _replicons
 from giap.steps.mapping import _gene_model
-from giap.steps.operons import _genes, _path, _replicons
 from giap.steps.promoters import _LAYER_COLS, _prediction_files, _rows
 from giap.steps.rbs import _RBS_COLS
 from giap.steps.registry import StepContext, external, step
