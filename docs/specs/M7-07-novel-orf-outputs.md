@@ -128,3 +128,29 @@ Schema: `src/giap/schemas/tables/novel_orfs.schema.json`.
    into search IDs.
 4. `cterm_extension` in the patch: M3-23 raises on an internal stop. **Proposed default:** no patch
    row until M7-16 decides whether `makedb` writes the read-through residue as `X`, `U` or `W`.
+
+## Lead decisions
+
+1. **Questions 1–4:** the proposed defaults are accepted.
+   - **Minus-strand positions:** `start_*`/`end` follow the transcription direction (on `−`, start > end). The `novel_orfs` schema field descriptions must say so explicitly, because every other table is lowest/highest. The GFF3 uses lowest/highest.
+   - **No OSTIR score:** the `*_best` OSTIR columns are NA; `length_aa_best`/`start_codon_best` fall back to the longest start, with `ostir_missing`.
+   - **FASTA header suffixes:** `|longest` and `|best_ostir`, merged when equal.
+   - **`cterm_extension`:** no patch row until M7-16.
+2. **From the M7-06 review (#161):** `overlapping_gene` is now set for antisense ORFs (the opposite-strand gene). I/L twins share the contaminant ban and the multi-locus count.
+3. **The test author's choices** (commit 7c4dc0f) are accepted as the contract.
+   - **`orf_table(orfs, scored, *, genome, replicons)`:** `scored` is keyed by `orf_id` and holds the `minimal_call` columns plus optional overrides.
+   - **`length_aa_longest` without a start:** counted from the first peptide to the stop. The implementer re-finds the first peptide in the translated frame (I/L folded). `Orf` keeps the M7-06 field set, because M7-06's tests pin its field order.
+   - **Cell formats, GFF3 attributes, patch rows and the schema** are as listed in the test docstrings.
+   - **`datapackage.json`** is created here with the `novel_orfs` resource only. M7-03 (#160) creates the same file with `pileup` and `variants`, and the lead merges the two resource lists when the second lands.
+4. **After the code review (PR #165):**
+   - **B1, fixed by the lead.** This revises the length rule of decision 3.
+     - Re-finding the first peptide by exact text fails for tolerant-route, frameshift and junction peptides: it gives a short ORF, or raises and stops the step.
+     - `Orf` therefore gains a trailing field, `first_peptide`. It holds the lowest 0-based coordinate of the most upstream peptide's first codon, taken from its mapped hit, and `reconstruct` always sets it.
+     - `length_aa_longest` without a start is counted from that position.
+     - The text search remains only for `Orf`s built by hand with `first_peptide = None`.
+     - The M7-06 field-order test now lists the new field.
+   - **B2, deferred to pass 2 (M7-15).** A − strand ORF with no start codon, whose stop sits at genome 0–2 on a linear contig, is treated as 3'-open when it is open only at its 5' end. Its GFF3 feature is then one codon short.
+     - The table cannot tell the two cases apart without saying which end is open.
+     - That needs a vocabulary addition to §9.4 (for example `open_3p`), which is a spec change and so an ADR.
+     - The case is rare: a short linear contig spanned by one ORF.
+   - The rest of the review findings go to docs/backlog.md.

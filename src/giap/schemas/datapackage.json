@@ -1,0 +1,9 @@
+{
+  "name": "giap-run",
+  "title": "GIAP run outputs",
+  "description": "Frictionless Data Package of GIAP's tables; each resource names its schema (GIAP_SPEC.md §9.5).",
+  "profile": "tabular-data-package",
+  "resources": [
+    {"name": "novel_orfs", "profile": "tabular-data-resource", "path": "tables/novel_orfs.tsv", "format": "tsv", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "tables/novel_orfs.schema.json"}
+  ]
+}
