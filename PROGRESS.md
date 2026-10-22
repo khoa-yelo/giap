@@ -8,8 +8,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 87/103 done (84 %), 4 running · generated 2026-10-21 15:58 by `scripts/dev/progress_bars.py`
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 90/103 done (87 %), 4 running · generated 2026-10-21 17:30 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 91/135 done (67 %), 7 running · generated 2026-10-21 19:46 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -17,11 +16,11 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M1 Inputs and preflight | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 12 | 0 | 0 |
 | M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
-| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨 95 % | 20 | 1 | 0 |
+| M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
 | M6 Operons | 🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜⬜ 25 % | 3 | 3 | 6 |
-| M7 Variants and novel ORFs | _not designed yet_ | - | - | - |
-| M8 Function and determinants | _not designed yet_ | - | - | - |
+| M7 Variants and novel ORFs | 🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0 % | 0 | 1 | 15 |
+| M8 Function and determinants | 🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0 % | 0 | 3 | 13 |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
@@ -72,6 +71,17 @@ one BH family of t p-values only (M6-index decision 1), CI NA + `unestimated`; `
 `relative_scale` and `no_detection_limit_model` paths; partial genes ineligible. Lead fixed two test
 oracles (8e43149); tests/unit/operons 57 passed; fast suite Slurm 1864501. Pass-1 simplifications in
 docs/backlog.md.
+MVP-02 (branch mvp/nf-precomputed-regions, stacked on #145; implementer step done): with
+`annotation.precomputed.regions` set, ANNOTATE skips only GENOMAD/ANTISMASH; REGION_LAYER runs (reads the
+TSV from the config) and its C7/C8 Parquet go to context_layers and CONTEXT, so Nextflow now runs
+context_stats and sensitivity like `--executor local`. nf-tests annotate / main_genetable_context /
+context: 16 passed (stub). Fast suite Slurm 1864441: 8977 passed, 30 skipped, 2 xfailed. Example 4
+(Slurm **1864515**, SIM100K real-path config, seed 50000, local vs Nextflow `farmshare_local`; run dir
+`$GIAP_ROOT/runs/mvp02-example4`): the same `tables/*.tsv` set {detection_summary, regions_stats,
+sensitivity}; regions_stats and sensitivity byte-identical; **detection_summary differs**: Nextflow
+lacks the 18 `tier` rows because main.nf does not pass GENETABLE.out.tier_summary to CONTEXT (M4-20
+decision 3 is wired only in the local executor). Open for the lead (needs a CONTEXT `take:` change and
+so a context.nf.test update by the test-author). Job 1864452 ran before 0e95e14 (local published no tables).
 
 M4-21 (branch m4/conformance, implementer step done): the real M2/M3 path conforms to M4-06 with no
 contract change. Decision 2: `region_layer` still runs under `annotation.precomputed.regions` and writes
