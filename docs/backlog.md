@@ -569,6 +569,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - **Statistician:** cross-fitting does not remove leakage when a category is a large share of one TU-size group. In the tested worlds this was only conservative.
 - **Flaky?** `tests/unit/function/test_gsea_flags.py::test_detection_flag_with_the_real_engine_d1_d2` failed only in the 16-worker fast suite (Slurm 1867909 and 1867927, es = −0.5 for top=True). It passes alone and in its file. Check main and look for state leaking between tests.
 
+## M8-12 review nits (#192; one round, B1–B3 fixed in the PR)
+- `check_golden_provenance.py` could check that the lock sha agrees across PROVENANCE, VERSIONS and the lock; add a fixture where the base branch moved.
+- Guard bypasses: the Rscript guard is case-sensitive and misses `R CMD`, `["R", "--vanilla"]` and concatenation; `check_imports` misses `importlib.import_module("rpy2")` / `__import__`.
+- golden-r.yml: pin actions by SHA, move `contents: write` to the job, add the R / package version-pin check the sbatch does.
+- Add an input set with exactly 10 names matched after absent names drop (sharper `minSize`).
+- Precision test: per-field `repr(float(s))` round trip.
+- VERSIONS.txt carries host-specific absolute paths (BLAS); the FarmShare and workflow routes always differ there.
+- Open with Khoa: R6 (bioconda post-link downloads from bioconductor.org) and the PR-size gate counting `*.explicit.txt` (ci/gates.yaml is protected).
 ## M9 design follow-ups (lead, 2026-10-22)
 - MVP-03: build the §6.2 / §6.7 `manifest` and `finalize` steps (run_manifest.json; KEGG retrieval date, provenance), before M9-16.
 - M4: should `detection_summary` carry a region-**type** O − E row (§10.2 V7 lists region types; no table has them)?
