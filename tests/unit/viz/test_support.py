@@ -29,7 +29,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
 LANDMARK_COLUMNS = ["contig", "length_bp", "topology", "oric_position", "ter_position", "status"]
@@ -233,7 +233,10 @@ def sim_layout(draw: Any) -> tuple[pd.DataFrame, pd.DataFrame]:
         origin_crossing=draw(st.booleans()),
         oric_frac=oric_frac,
     )
-    layout = simulate_layout(cfg, np.random.default_rng(seed))
+    try:
+        layout = simulate_layout(cfg, np.random.default_rng(seed))
+    except ValueError:  # no intergenic gap fits an oriC (giapsim lead decision 14)
+        assume(False)
     reps = layout.replicons.reset_index(drop=True)
     feats = layout.features.reset_index(drop=True)
     extra: list[tuple[str, str, int, int]] = []

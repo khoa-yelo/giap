@@ -116,3 +116,6 @@ not wrap.
 8. **Step inputs.** Both tables need `replicons`; a missing `features` input means no oriC calls
    (`no_oric` on circular replicons). The datapackage `schema` is `plot_support/<name>.json`, relative
    to `src/giap/schemas`.
+4a. (amends 4, 2026-10-22) `oric_position` returns a float and has no integer rule, so the landmark is
+   the nearest base, ties up: `floor(o + 0.5) mod L`. Nearest-base rounding also absorbs the float error
+   of the circular mean (0.9999999999999999).
