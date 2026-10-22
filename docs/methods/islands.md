@@ -38,8 +38,11 @@ low islands share one α. Ties within 1e-12·max(1, |S|) count as exceedances (c
 null rows are exchangeable with the observed series under the complete null, P(min_w p_w ≤ α) ≤ α
 exactly. The excess over α is discreteness only, at most 1/(B + 1). With true islands present, the
 signal is spread into the null rows (permutation or block bootstrap), which raises M_b. The
-procedure is then conservative: in simulation with planted islands of 5–60 TUs the false-island rate
-was 0–0.033 at α = 0.05 (PR #118 review). Being single-step, it is also conservative for secondary
+procedure is then conservative: in simulation with planted high islands of 5–60 TUs the
+false-island rate was 0–0.033 at α = 0.05 (PR #118 review). A planted low (silenced) island, which
+the step cannot detect, is not conservative in this sense: it is a low-variance stretch at the
+censored atom, not extra variability spread into the null rows. It gives 0.034–0.036 at R = 500,
+against 0.020 on the complete null ("Calibration and power" below), which is within α. Being single-step, it is also conservative for secondary
 islands. The engine is only as valid as the exchangeability of its null rows: iid permutations are
 not valid under autocorrelation. The production null is the circular block bootstrap with ℓ′
 (ADR-0021), calibrated in M5-06/M5-07. **Which family applies where** (M5-06 decision 46): the
@@ -240,7 +243,7 @@ anti-conservative direction:
 - **Few units.** Windows of 2–9 TUs carry the M4-16 flag `ci_few_units`: a percentile bootstrap over
   so few units is coarse (at 2 TUs the interval is essentially the two values).
 
-M5-07 records the realised coverage of this CI.
+The realised coverage of this CI is not yet measured (backlog).
 
 ### Degenerate cases
 
@@ -268,3 +271,107 @@ contigs and a chromosome with three plasmids; the 4-log2 gradient (0.009 / 0.062
 carries the full-size gate and the power table.
 
 Signed off by the statistician (PR #131 review).
+
+### Calibration and power (M5-07)
+
+**The M5 gate** (§8.4 row "Islands"; `tests/calibration/test_island_fwer.py`). Each replicate draws
+giapsim `ar1_background` with no island planted; the indicator is "at least one island reported".
+Settings: `stats.bootstrap = stats.permutations = 1000`, default `context.islands`, criterion `fwer`
+with the ADR-0015 two-block confirmation. Levels and bounds come from
+`tests/calibration/tolerances.yaml` (0.05 + 2 SE: 0.0189 / 0.0695 / 0.1268 at α = 0.01 / 0.05 /
+0.10, R = 500). The layout is a circular 4,500-gene chromosome (median 2,501 scored TUs) plus a
+circular 60-gene plasmid, in one genome-wide family. Branch run: Slurm 1868005 (commit fdbfc77).
+Main run: Slurm ⟨ID⟩. Every cell passed on block 1. Rates carry Wilson 95 % intervals.
+
+| Cell (R = 500) | α = 0.01 | α = 0.05 | α = 0.10 |
+|---|---|---|---|
+| ρ = 0 | 0.004 | 0.022 [0.012, 0.039] | 0.050 [0.034, 0.073] |
+| ρ = 0.5 | 0.006 | 0.020 [0.011, 0.036] | 0.068 [0.049, 0.094] |
+| ρ = 0.9 | 0.000 | 0.024 [0.014, 0.041] | 0.096 [0.073, 0.125] |
+| attack (a): ρ = 0.95 | 0.002 | 0.026 [0.015, 0.044] | 0.094 [0.071, 0.123] |
+| attack (b): ori–ter cosine 2 log2, ρ = 0.5 | 0.006 | 0.048 [0.032, 0.070] | 0.114 [0.089, 0.145] |
+| attack (c): `tu_null`, mean TU size 3 | 0.006 | 0.022 [0.012, 0.039] | 0.030 [0.018, 0.049] |
+| attack (d): ρ = 0.5, detection from abundance | 0.000 | 0.010 [0.004, 0.023] | 0.070 [0.051, 0.096] |
+| attack (e): `tu_null(1800)`, short genes in the prophage | 0.000 | 0.010 [0.004, 0.023] | 0.022 [0.012, 0.039] |
+
+Attacks (a)–(d) use 4,500 genes and no plasmid (`tests/calibration/attacks/test_attack_islands_scenarios.py`,
+§8.5 attack 1, gated). Arm (b) has the least margin at both levels. It is the local-scale mechanism
+of "Validity domain" item 2, whose 4-log2 version is the recorded breach. Recorded, not gated
+(ADR-0021 Amendment 1): ρ = 0.9 gives 0.096 [0.073, 0.125] at 1,000 genes (557 TUs) and 0.130
+[0.103, 0.162] at 1,800 genes (999 TUs), at α = 0.05 against 0.0695. Both are breaches outside the
+claimed domain. Fast tier: 1,000 genes, ρ = 0.5, R = 50, 13.6 s (`benchmarks/baseline.json`).
+Teeth: the iid bootstrap (`block_len = 1`) on the fast cell is a confirmed fail (0.23 at R = 100 in
+the statistician's probe, against 0.1116). A fixed block of 3 on the full ρ = 0.9 cell gives 0.765
+(R = 200).
+
+**Block lengths observed** (chromosome, R = 500 per cell):
+
+| Cell | ℓ̂ median [10 %, 90 %] | ℓ′ counts |
+|---|---|---|
+| ρ 0, 4,500 genes | 1 [1, 1] | 3: 459, 5: 40, 7: 1 |
+| ρ 0.5, 4,500 | 2 [2, 3] | 3: 26, 5: 309, 7: 147, 9: 18 |
+| ρ 0.9, 4,500 | 8 [6, 11] | 7: 2, 9: 12, 11: 27, 13: 65, 15: 87, 17: 89, 19: 85, 20: 133 |
+| ρ 0.95, 4,500 (attack a) | 11 | 5: 2, 7: 2, 9: 8, 11: 13, 13: 24, 15: 31, 17: 36, 19: 64, 20: 320 |
+| ρ 0.9, 1,800 (recorded) | 3 [1, 5] | 3: 96, 5: 135, 7: 127, 9: 77, 11: 40, 13: 14, 15: 9, 17: 2 |
+| ρ 0.9, 1,000 (recorded) | 1 [1, 2] | 3: 352, 5: 111, 7: 28, 9: 7, 11: 2 |
+
+ℓ′ = min(20, 2ℓ̂ + 1, T) reaches the cap whenever ℓ̂ ≥ 10: in 133 of 500 replicates at ρ 0.9 and
+320 of 500 at ρ 0.95. The cap does not show in the rate. Capped replicates: 0/133 and 2/320 at
+α = 0.05 (9/133 and 26/320 at 0.10); the rest: 12/367 and 11/180. The excess sits where ℓ̂ is
+small for the dependence (uncapped ρ 0.95: 0.061 at α = 0.05, R = 180), the adverse selection of
+decision 48, not where the cap binds. This comes from the statistician's probe for PR #188, which
+reran ℓ′ per replicate and joined it to the gate indicators. Limitation: the blocks underrepresent
+dependence at the joins (docs/methods/bootstrap.md, "Block length"). At 4,500 genes ℓ′ spans the
+dependence well enough for 20-TU windows; the evidence does not extend to correlation lengths
+beyond the cap (ρ > 0.95, or longer-range structure).
+
+**The plasmid is not always scanned.** The 60-gene plasmid has 21–46 scored TUs (median 34). With
+T ≤ 30 the LOESS span ⌈0.1·T⌉ is below 4 points, so the replicon is not scanned (`few_values`,
+decision 40). That happened in 93 / 89 / 98 of 500 replicates at ρ = 0 / 0.5 / 0.9, about 19 %. The
+two-replicon family was therefore exercised in 402–411 replicates per cell, with FWER 7/407, 9/411
+and 11/402 at α = 0.05. An unscanned plasmid cannot carry an island and adds nothing to M_b; the
+genome-wide-family claim rests on the 81 % of replicates where it was scanned.
+
+**Power** (recorded, not gated; §7.3.6). `scripts/dev/island_power.py`, Slurm 1868246 (commit
+20e5273), R = 100 per cell. Layout: the 4,500-gene `island_power` scenario at ρ = 0.5, island
+starting at chromosome TU 625, `stats.bootstrap = stats.permutations = 1000`, α = 0.05. The layout
+carries no regions: the scenario has no region effect and the island step reads no region, so this
+changes the random stream, not the distribution of anything the step sees. *Power* is the share of
+replicates with a same-direction island sharing at least one TU with the planted island; *J* is the
+TU Jaccard of the best such island's best window with the planted TUs, averaged over hits (unstable
+below 5 hits); *false* is the share of replicates with an island that shares no TU with the planted
+one (an island counts as false when its best window misses the planted TUs, even if its cluster
+touches them, which biases this rate upward). Null FWER of this layout: 0.020 [0.011, 0.036] (gate
+cell ρ = 0.5).
+
+High direction: power [Wilson 95 %] / J / false.
+
+| TUs × SD | covariates_only | detection from abundance |
+|---|---|---|
+| 5 × 1 | 0.00 [0.00, 0.04] / – / 0.02 | 0.00 [0.00, 0.04] / – / 0.04 |
+| 5 × 1.5 | 0.01 [0.00, 0.05] / 0.62 / 0.02 | 0.00 [0.00, 0.04] / – / 0.01 |
+| 5 × 2 | 0.00 [0.00, 0.04] / – / 0.01 | 0.01 [0.00, 0.05] / 0.28 / 0.01 |
+| 10 × 1 | 0.01 [0.00, 0.05] / 0.67 / 0.03 | 0.00 [0.00, 0.04] / – / 0.03 |
+| 10 × 1.5 | 0.02 [0.01, 0.07] / 0.65 / 0.01 | 0.05 [0.02, 0.11] / 0.76 / 0.02 |
+| 10 × 2 | 0.05 [0.02, 0.11] / 0.84 / 0.03 | 0.11 [0.06, 0.19] / 0.83 / 0.00 |
+| 20 × 1 | 0.02 [0.01, 0.07] / 0.55 / 0.01 | 0.04 [0.02, 0.10] / 0.83 / 0.02 |
+| 20 × 1.5 | 0.10 [0.06, 0.17] / 0.63 / 0.04 | 0.30 [0.22, 0.40] / 0.78 / 0.03 |
+| 20 × 2 | 0.20 [0.13, 0.29] / 0.59 / 0.01 | 0.65 [0.55, 0.74] / 0.86 / 0.00 |
+
+The low direction is a **structural zero**: power is 0/100 in all 18 low cells in both detection
+modes (upper Wilson bound 0.04). The ceiling √w·|Φ⁻¹(q/2)| at q ≈ 0.45 is 1.68 / 2.38 / 3.37 for
+w = 5 / 10 / 20, while the genome-wide critical value (the 95th percentile of M_b) has median
+4.40–4.58 and minimum 3.71; across 1,200 probe replicates the ceiling was never at or above it.
+False-island rates in the low cells (R = 100), covariates_only, 5 / 10 / 20 TUs × 1 / 1.5 / 2 SD:
+0.04, 0.05, 0.05 / 0.03, 0.00, 0.01 / 0.06, 0.05, 0.07; detection from abundance: 0.02, 0.05, 0.05
+/ 0.04, 0.03, 0.00 / 0.00, 0.03, 0.02.
+
+The planning target of ≥ 0.8 is not met under giapsim defaults: 0.20 at 20 TUs × 2 SD. When
+detection follows abundance (0.65), a high island also raises detection, and the left-censored
+Blom score turns that into larger scores. Pooled false-island rates with a planted island: high
+cells 18/900 = 0.020 (covariates_only) and 16/900 = 0.018 (abundance); low cells 36/900 = 0.040 and
+24/900 = 0.027. At R = 500 the low 20-TU cells give 0.034 (−1 SD) and 0.036 (−2 SD): within α but
+above the complete-null 0.020. All of these are high-direction islands, mostly more than 300 TUs
+from the planted one (see "Scan and maximum statistic").
+
+Signed off by the statistician (PR #188 review).
