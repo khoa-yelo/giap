@@ -103,7 +103,9 @@ def _orf_row(
         raise ValueError(f"{o.orf_id}: start_best_ostir {best} is not one of its start codons")
     if o.start_longest is not None:
         len_longest = n_aa(t(o.start_longest))
-    else:  # from the first peptide (I/L folded) in the translated ORF body
+    elif o.first_peptide is not None:  # from the first peptide's mapped position
+        len_longest = n_aa(t(o.first_peptide))
+    else:  # no position: find the first peptide (I/L folded) in the translated ORF body
         q, _ = _walk_up(sv, t_end, _stops(11))
         body = "".join(sv.codon(p) or "NNN" for p in range(q + 3, t_end, 3))
         aa = _il(translate11_text(body))
