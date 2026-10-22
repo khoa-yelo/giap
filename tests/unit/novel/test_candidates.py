@@ -191,9 +191,21 @@ def keratin(seq: str) -> ProteinRecord:
 def test_orf_is_a_frozen_dataclass_with_the_spec_fields() -> None:
     names = [f.name for f in dataclasses.fields(Orf)]
     assert names == [
-        "orf_id", "cls", "contig", "strand", "frame", "stop", "starts", "start_longest",
-        "end_5p_open", "end_3p_open", "peptides", "best_q", "overlapping_gene",
-    ]  # fmt: skip
+        "orf_id",
+        "cls",
+        "contig",
+        "strand",
+        "frame",
+        "stop",
+        "starts",
+        "start_longest",
+        "end_5p_open",
+        "end_3p_open",
+        "peptides",
+        "best_q",
+        "overlapping_gene",
+        "first_peptide",
+    ]  # fmt: skip  (first_peptide: M7-07 lead decision 4)
     (orf,) = run(ex1())
     with pytest.raises(dataclasses.FrozenInstanceError):
         orf.stop = 0  # type: ignore[misc]
