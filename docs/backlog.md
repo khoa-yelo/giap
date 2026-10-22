@@ -202,3 +202,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   from the evaluation points; `_bins` silently truncates float bins; `bin_index` accepts NaN edges;
   the +inf distance in the `bin_index` docstring.
 - M6-04 polish (non-behavioural): `promoter_between_tracks` exposes the private `_Track` alias in its signature (make a public `PromoterTrack` type); pin `pair_frame` dtypes (`detected_*` bool, `flags` list) through a pairs.tsv schema when M6-08 writes the table; consider one shared index object for the M2 `*_between` helpers so M6-07 reuses it.
+- M6-05 review of #147 (code reviewer, statistician), owed to M6-05H/M6-09:
+  - skip the t fit when the scale is relative (today it fits and may warn "too_few_op_pairs" on relative rows);
+  - log the 1e-6 scale floor in the non-convergence warning, not the raw MAD;
+  - document that one-detected rows get no `no_detection_limit_model` on the too-few/relative paths;
+  - test gaps (surviving mutants): undetected gene with a finite imputed value; `unestimated` on the too-few and relative paths; one side partial only; pair flags (`rna_between`) kept; flags of partial rows;
+  - statistician F3/D-1: abundance-dependent Δ noise breaks the lowest-quartile level (2.4–3× nominal) — method ADR or narrowed claim, Khoa decides; D-2 (TU-chained Δ) and D-3 (power record) as attacks;
+  - F5: keeping P(miss) out of the BH family in M6-05H needs an ADR; F6: flag imputed-but-detected tested pairs `abundance_imputed`.
+- M6-05 pass 1 simplifications (implementer): `discordance()` accepts `cfg` and `p_miss` but uses
+  neither — a NaN abundance is untested under every `abundance.missing` mode, not only `exclude`, and
+  the one-detected branch is always `unestimated (no_detection_limit_model)`; `PMissModel` is a
+  placeholder Protocol until M6-02 merges (replace with its real type in M6-05H).
