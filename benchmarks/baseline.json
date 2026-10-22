@@ -222,6 +222,21 @@
     "date": "2026-10-21",
     "issue": "M6-04"
   },
+  "wallenius_tails_3000_categories_m4500": {
+    "benchmark": "benchmarks/test_wallenius_bench.py::test_wallenius_tails_3000_categories_m4500_budget",
+    "budget_s": 5.0,
+    "secs": 2.3,
+    "categories": 3000,
+    "M": 4500,
+    "N": 1500,
+    "category_sizes": "log-uniform [5, 500]",
+    "odds": "uniform [0.5, 2]",
+    "node": "iron-15",
+    "node_class": "FarmShare iron (AMD EPYC 7742)",
+    "threads": 1,
+    "date": "2026-10-21",
+    "issue": "M8-01"
+  },
   "fgsea_simple_2500_tus_1500_sets_1000_perms": {
     "benchmark": "benchmarks/test_fgsea_bench.py::test_fgsea_simple_2500_tus_1500_sets_1000_perms_budget",
     "source": "docs/specs/M8-02-stats-fgsea-simple.md acceptance (2,500 TUs x 1,500 sets x 1,000 permutations < 20 s on 4 CPUs)",

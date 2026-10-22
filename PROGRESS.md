@@ -8,7 +8,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 99/135 done (73 %), 11 running · generated 2026-10-22 01:58 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 100/135 done (74 %), 10 running · generated 2026-10-22 02:04 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -20,7 +20,7 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 73 % | 8 | 0 | 3 |
 | M6 Operons | 🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜⬜ 50 % | 6 | 2 | 4 |
 | M7 Variants and novel ORFs | 🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 6 % | 1 | 5 | 10 |
-| M8 Function and determinants | 🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜ 25 % | 4 | 4 | 8 |
+| M8 Function and determinants | 🟩🟩🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜ 31 % | 5 | 3 | 8 |
 | M9 Visualisation and report | _not designed yet_ | - | - | - |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
@@ -349,6 +349,14 @@ Lessons (keep):
 - Keep ≤ 128 CPUs: Slurm rounds each job up by 2 CPUs; chain extra jobs with --dependency.
 - Slurm jobs run from the main checkout only; never remove a worktree a job may be using.
 - Subagents never install packages; set PYTHONPATH per worktree; unset PYTHONHOME after sourcing the env.
+
+M8-01 (branch `m8/wallenius`, implementer step done, 2026-10-21; no PR yet): `giap.stats.wallenius`
+(`OraResult`, `category_odds`, `wallenius_tails` as direct pmf sums with ω = 1 via the hypergeometric
+and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.function.elim`
+(deepest-first, strict `<`, cycles named before any test). Contract tests at 8b34ffa: 61 passed,
+3 far-tail xfails (non-strict, lead decision 2). Fast suite on Slurm 1864745: 9194 passed, 31 skipped,
+4 xfailed. Benchmark `wallenius_tails_3000_categories_m4500` = 2.30 s of a 5 s budget (iron-15, EPYC
+7742, 1 thread). Next: review, then the statistician's methods note (§"Wallenius ORA").
 
 ## Next actions (ordered)
 1. Merge #116, #117, then #118, #119, #120 (waitmerge; merge origin/main into each branch first —
