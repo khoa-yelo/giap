@@ -182,3 +182,24 @@ None here; class FDR (M7-11) and the novel-ORF F1 (M7-13) measure it.
    Module 6 runs) or leave it NA? **Proposed default:** leave NA in pass 1; in M7-15 the
    `novel_orfs` step rewrites the published `mapping/peptide_hits.tsv` with the column filled (one
    writer, `giap.mapping.outputs`), or `finalize` does it when it exists.
+
+## Lead decisions
+
+1. **Questions 1–4 and 6:** the proposed defaults are accepted.
+   - Contaminants are checked by exact I = L substring match against the library, plus C9 `is_contaminant`, inside `novel_candidates`.
+   - Multi-locus peptides are excluded from every ORF.
+   - An ORF's class is the highest-priority class among its peptides' classes.
+   - The ID uses the 1-based lowest coordinate of the longest interval.
+   - `novel_candidate_id` stays NA in pass 1.
+2. **Question 5:** the Novel-ORF flags are added through the schema, as M6 did (M6 lead decision 6). This means `no_start_codon`, `partial` (reused), `class_fdr_unestimated`, and M7-09's flags. Khoa is told in the integration-pass summary. They are recorded in the run report, not taken as an ADR, because they describe existing conditions and add no new claims.
+3. **The test author's choices** (commit 50b2d45) are accepted as the contract.
+   - **`minimal_call(orfs, cfg)`** is the rule-10 entry point. It returns the columns `orf_id, n_peptides, called, class_fdr = "unestimated", flags`, with flags sorted and joined by `;`.
+   - **`candidate_rows`** returns the retained C11 rows with all of their columns.
+   - **Coordinates:** the 0-based lowest codon coordinate, wrapped. `starts` run 5'→3' on the strand.
+   - **`frame`** is the peptides' C11 frame label.
+   - **`best_q`** is `None` when no peptide has a q-value, otherwise the minimum over the raw strings.
+   - **Multi-locus** is decided by distinct (contig, start, end, strand).
+   - **`overlapping_gene`** for `cds_outframe` comes from the gene model, on the same strand.
+   - **Promotech windows** are unique by (contig, strand, end3p) across ORFs, with `owner = orf_id`.
+   - **Whole turn without a stop:** `ValueError` naming the contig and the frame.
+   - **Exclusion reasons:** no output column in pass 1.

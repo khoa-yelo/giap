@@ -40,10 +40,6 @@ feature that is NA on every row (a missing layer) stays in the TSV and is droppe
 with all its encoded columns; the returned column → block map omits it, and a block left without
 columns is absent. Run flags (`layer_missing:<layer>`) are the step's (M8-10).
 
-## Models
-
-Owed by M8-08 (`giap.determinants.models`); not written yet.
-
 ## Null and attribution
 
 Issue M8-09, modules `giap.determinants.null` and `giap.determinants.attribution` (pure). Outputs:

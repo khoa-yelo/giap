@@ -35,7 +35,8 @@ from giap.config import GiapConfig
 from giap.io.parquet import write_parquet_deterministic
 from giap.model.coords import Interval, Replicon
 from giap.model.genes import Gene, NcFeature
-from giap.steps.operons import _path, _replicons
+from giap.steps.common import one_path as _path
+from giap.steps.common import read_replicons as _replicons
 from giap.steps.registry import StepContext, step
 
 _STR, _INT, _F64 = pa.string(), pa.int64(), pa.float64()
