@@ -89,7 +89,16 @@ def _not_implemented(command: str, milestone: str) -> None:
     sys.exit(ExitCode.INTERNAL)
 
 
-@click.group(context_settings={"help_option_names": ["-h", "--help"]})
+class _Cli(click.Group):
+    """Keeps the raw argument list (the manifest's ``command_line``; ``sys.argv`` is not it when
+    the CLI is invoked in-process)."""
+
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        ctx.meta["giap.argv"] = ["giap", *args]
+        return super().parse_args(ctx, args)
+
+
+@click.group(cls=_Cli, context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(giap.__version__, prog_name="giap")
 def cli() -> None:
     """GIAP: genome-integrated analysis of proteomics data for bacterial genomes."""
@@ -319,9 +328,10 @@ def _launch_sources(
     """Launch-time manifest sources; writes ``OUT/work/provenance.json`` (MVP-03 D-B step 3)."""
     from giap.steps.manifest import launch_sources, write_provenance
 
+    argv = click.get_current_context().meta.get("giap.argv", sys.argv)
     base = launch_sources(cfg, outdir.absolute(), info["given"], executor=executor,
                           profile=profile, resume=resume, publication=info["publication"],
-                          db_dir=info["db_dir"])  # fmt: skip
+                          db_dir=info["db_dir"], command_line=argv)  # fmt: skip
     write_provenance(outdir.absolute(), base)
     return base
 

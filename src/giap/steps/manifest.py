@@ -38,6 +38,7 @@ def _source_root() -> Path:
 def launch_sources(
     cfg: GiapConfig, outdir: Path, given: Mapping[str, Path | None], *, executor: str,
     profile: str | None, resume: bool, publication: bool, db_dir: Path | None,
+    command_line: Sequence[str] = (),
 ) -> dict[str, Any]:  # fmt: skip
     """The :class:`ManifestSources` fields known before launch (D-C, D-D)."""
     from giap.steps import load_step_modules
@@ -61,7 +62,7 @@ def launch_sources(
         "profile": profile,
         "resume": resume,
         "outdir": str(outdir),
-        "command_line": list(sys.argv),
+        "command_line": list(command_line or sys.argv),
         "started_at": _now(),
         "publication": publication,
         "git_commit": commit,
