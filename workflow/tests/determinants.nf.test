@@ -1,0 +1,178 @@
+// M8-10: stub run of the DETERMINANTS subworkflow (workflow/subworkflows/local/determinants.nf;
+// GIAP_SPEC.md §6.2, §7.8.3, §9.1; docs/specs/M8-10-determinants-step-and-run.md step 6,
+// example 7). ci.yml runs: nf-test test workflow/tests --profile test,stub; "-stub" is set here too.
+//
+// Interface pinned here (test-author choices, reported to the lead):
+//   take: gene_table   (genetable/genes.parquet, GENETABLE's detectability output)
+//         annotation   ([genes.parquet, features.parquet, replicons.parquet], as CONTEXT takes it)
+//         contract     ([xrefs.parquet, annotation_meta.json, tus.parquet, layers.parquet])
+//         regions      ([regions.parquet, region_genes.parquet] or channel.empty())
+//         gene_context (context/gene_context.parquet from CONTEXT, or channel.empty())
+//   emit: determinants_features, determinants_model, determinants_attribution (one file each,
+//         the §9.1 names), versions
+// The py step runs through GIAP_STEP (found by its tag "determinants", whatever the alias), with the
+// registry's keys; it needs gene_table, genes, tus, layers and replicons; C7/C8 and the gene
+// context are optional (CONTEXT skipped: the step still runs). Published: tables/determinants_*.tsv.
+// There is no gene_context fixture under workflow/tests/data (the test author may not add data
+// there), so the test writes an empty stand-in file: stub tasks never read their inputs.
+
+nextflow_workflow {
+
+    name "DETERMINANTS subworkflow (stub)"
+    script "../subworkflows/local/determinants.nf"
+    workflow "DETERMINANTS"
+    options "-stub"
+    tag "determinants"
+
+    test("every input: registry keys, gene_context wired, three tables emitted and published") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def gc = java.nio.file.Files.createTempDirectory('m810_gc').resolve('gene_context.parquet')
+                gc.toFile().text = ''
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[3] = channel.value([file("\${g}/regions.parquet"), file("\${g}/region_genes.parquet")])
+                input[4] = channel.value(file(gc.toString()))
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // subworkflow's own name DETERMINANTS: "`DETERMINANTS` is already included")
+            def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
+            def dirsTagged = { String w, String step ->
+                H.taskDirs(w).findAll { d ->
+                    def l = new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: ''
+                    H.tagOf(l.replaceFirst(/^### name:\s*['"]?/, '').replaceFirst(/['"]\s*$/, '')) == step
+                }
+            }
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            def reg = new groovy.json.JsonSlurper().parse(REG)
+            assert reg.containsKey('determinants') : "step_registry.json has no determinants step (regenerate it from giap.steps)"
+            assert ranTagged('determinants') == 1 : "determinants ran ${ranTagged('determinants')}x; tasks: ${H.names(workflow.trace)}"
+            def dirs = dirsTagged(work, 'determinants')
+            assert dirs.size() == 1 && new File(dirs[0], '.giap_inputs').isFile() : "determinants did not run through GIAP_STEP"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def din = H.stepInputs(dirs[0])
+            def keys = din.collect { it[0] }
+            assert keys.sort() == ['gene_context', 'gene_table', 'genes', 'layers', 'region_genes',
+                                   'regions', 'replicons', 'tus'] : "determinants inputs ${din}"
+            assert din.find { it[0] == 'gene_context' }[1].endsWith('gene_context.parquet') : "${din}"
+            assert din.find { it[0] == 'tus' }[1].endsWith('tus.parquet') : "${din}"
+            assert din.find { it[0] == 'layers' }[1].endsWith('layers.parquet') : "${din}"
+            assert din.find { it[0] == 'replicons' }[1].endsWith('replicons.parquet') : "${din}"
+            // the gene table and C2 are both genes.parquet: distinct staged paths
+            def same = din.findAll { new File(it[1]).name == 'genes.parquet' }
+            assert same.size() == 2 && same[0][1] != same[1][1] : "input file name collision: ${same}"
+
+            ['determinants_features', 'determinants_model', 'determinants_attribution'].each { k ->
+                def out = workflow.out[k]
+                assert out != null && out.size() == 1 : "emit ${k}: ${out}"
+                assert out[0].toString().endsWith("${k}.tsv") : "emit ${k}: ${out}"
+                assert new File("${outputDir}/tables/${k}.tsv").isFile() : "tables/${k}.tsv not published"
+            }
+            assert workflow.out.versions != null && workflow.out.versions.size() >= 1 : "no versions emitted"
+            // tables/determinants_*.tsv only (spec step 7, M6-08 decision 7)
+            def published = []
+            new File("${outputDir}").eachFileRecurse { f ->
+                if (f.isFile()) published << new File("${outputDir}").toPath().relativize(f.toPath()).toString()
+            }
+            def other = published.findAll { !it.startsWith('logs/') }.sort()
+            assert other == ['tables/determinants_attribution.tsv', 'tables/determinants_features.tsv',
+                             'tables/determinants_model.tsv'] : "published ${other}"
+        }
+    }
+
+    test("CONTEXT skipped (no C7/C8, no gene context): the step still runs on the required inputs") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[3] = channel.empty()
+                input[4] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // subworkflow's own name DETERMINANTS: "`DETERMINANTS` is already included")
+            def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
+            def dirsTagged = { String w, String step ->
+                H.taskDirs(w).findAll { d ->
+                    def l = new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: ''
+                    H.tagOf(l.replaceFirst(/^### name:\s*['"]?/, '').replaceFirst(/['"]\s*$/, '')) == step
+                }
+            }
+            def work = workDir.toString()
+            assert workflow.success
+            assert ranTagged('determinants') == 1 : "determinants did not run without CONTEXT: ${H.names(workflow.trace)}"
+            def keys = H.stepInputs(dirsTagged(work, 'determinants')[0]).collect { it[0] }.sort()
+            assert keys == ['gene_table', 'genes', 'layers', 'replicons', 'tus'] : "determinants inputs ${keys}"
+            ['determinants_features', 'determinants_model', 'determinants_attribution'].each { k ->
+                assert new File("${outputDir}/tables/${k}.tsv").isFile() : "tables/${k}.tsv not published"
+            }
+        }
+    }
+
+    test("no gene table: the step does not run") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                input[0] = channel.empty()
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[3] = channel.value([file("\${g}/regions.parquet"), file("\${g}/region_genes.parquet")])
+                input[4] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // subworkflow's own name DETERMINANTS: "`DETERMINANTS` is already included")
+            def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
+            def dirsTagged = { String w, String step ->
+                H.taskDirs(w).findAll { d ->
+                    def l = new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: ''
+                    H.tagOf(l.replaceFirst(/^### name:\s*['"]?/, '').replaceFirst(/['"]\s*$/, '')) == step
+                }
+            }
+            assert workflow.success
+            assert ranTagged('determinants') == 0 : "determinants ran without a gene table: ${H.names(workflow.trace)}"
+            assert !new File("${outputDir}/tables").exists() : "tables/ published without a gene table"
+        }
+    }
+}
