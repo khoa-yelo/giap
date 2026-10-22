@@ -35,7 +35,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M3-17/M4: resolve makedb protein IDs (GIAPORF_, NOVEL_, *_patch) through db_id_map.tsv in annotate_protein_hits instead of flagging cross_strain_protein (M3-23 review).
 - M2: the full-DB Bakta recordings (bakta_full/*) were made without a replicon table, so every replicon is 'linear'; re-record with preflight's replicons.tsv (--replicons) so circular wraps are exercised (M3-23 review).
 - M2: one shared IUPAC-aware reverse complement (ostir.py _COMP, bakta.py, operons.py only complement ACGTN; preflight allows IUPAC) (M2-16 review).
-- M2: move the step helpers (_genes, _path, _replicons) from giap.steps.operons to a public shared module before more step modules import them (M2-16 review).
 - M2-15: test the manifest `uncalibrated` flag and step-level `cross_check_transtermhp: false` once manifest and optional-output support exist.
 - M2-15: parse_bactermfinder's input format is provisional (no recording); record a real BacTermFinder run (opt-in tool, env not built) and pin the parser to it.
 - M4-20: replace M4-16's test stand-ins (p_detect_true, fixed COG table, tier/detectability columns) with the real M4-12/M4-13 outputs once merged.
@@ -345,6 +344,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - ADR draft for Khoa: exclude pairs with an imputed gene from targets and decoys (statistician: a co-imputed NO surplus gives ~198 false calls per replicate on a 2,000-pair genome; exclusion restores the level);
   - attacks M-1 (co-imputation surplus; fails until the ADR), M-2 (class-dependent abundance/detection mix), M-3 (M6-01 attacks A and B);
   - validate `operons.pi0` in `OperonsConfig` so the degenerate paths reject it too;
+  - `genes=None` means molar and all eligible: the operons step always passes `genes` (M6-08); make it required in pass 2;
   - `genes=None` means molar and all eligible: the step must always pass `genes` (or make it required);
   - drop the internal `which` column before `pairs.tsv` (M6-07 decision 4);
   - mutant test gaps: `partial` on `gene_a` only; `N_NO` counting only targets; `null_model` name with a dropped set; deterministic decoys-before-targets order; decoys' `partial` symmetry.
@@ -355,6 +355,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - `merge_tests` keeps the first row when a `pair_id` appears in both M6-05 and M6-06 rows (cannot happen: OP vs NO), with no warning;
   - `evidence_note` wording is placeholder prose (spec "Hardening owed"); `layer_missing:*` is not added to SW rows (pass 2);
   - `flag_pairs` builds notes with `iterrows` (fine at thousands of flagged pairs; vectorise if a benchmark says so).
+- M6-06 (pass 2): `bin_counts` and π₀ now reach `logs/events.jsonl` as the §6.7 event `operons.missed_operons` (M6-08); the §9.4 run report and `run_manifest.json` still have no writer that reads them. The first bin's `lower_bp` is written as `-Infinity` (Python `json` default), which is not strict JSON.
 - M6-06 (pass 2): `bin_counts` and the π₀ actually used must reach the §9.4 run report and the manifest when the operons step is wired (M6-07/M6-08); the function returns them but nothing writes them yet.
 - M6-06 (pass 2): the missed-operon benchmark baseline was measured in the iron-15 session allocation only (0.23 s); re-measure on wheat with the other M6 entries.
 - M6-06 (pass 2): the lfdr of targets in a bin with no decoys is too small (methods note, "Known asymmetry"); set it NA or 1 there before lfdr is ever thresholded.
@@ -363,6 +364,28 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - validate `missing_layers=` ∈ {promoters, terminators}; guard `merge_tests` against empty inputs that have no columns;
   - move `_bool`/`_flags`/`_per_gene` to `giap.operons._util`;
   - M6-10: restricting `n_flags` to OP pairs matters once pairs are reclassified at UniOP 0.3/0.7 while the TUs stay at the default.
+- M6-08 pass 1 (implementer):
+  - merge time: add `pairs`, `operons`, `operon_flags` → `tables/*.tsv` to `giap.runner.local.PUBLISHED_FILES` (#145; `test_local_publish_names.py` and the slow M6-08 local tests need them);
+  - `run_operons` returns a 4-tuple (pairs, operons, operon_flags, bin_counts), not the spec's 3-tuple, so the event needs no second missed_operons call;
+  - `schemas/datapackage.json` does not exist in the repo; the three resources are per-table files like the others (spec acceptance item);
+  - `benchmarks/baseline.json` runtime of the step on a 4,500-gene genome is not recorded yet (spec acceptance item);
+  - the publishDir rule (only `tables/*.tsv` in a subworkflow's out spec) is written in `operons.nf`; `genetable/genes_pre.parquet` from MVP-01 still publishes;
+  - `peptides`, `peptide_hits`, `peptide_runs`, `detection_summary` are declared but not staged by OPERONS nor read (M6-02, pass 2);
+  - the `giap.steps.common` importers alias `one_path as _path` etc.; rename the call sites when the modules are next touched.
+- M6-08 review of #155 (approve; pass 2):
+  - **must-do before the manifest writer:** open bin bounds `±Infinity` in the `operons.missed_operons` event are not strict JSON; write them as `null` in `_plain`;
+  - local executor stages `peptides` and `detection_summary` into `operons` (and orders it after `context_stats`); OPERONS under Nextflow stages neither; reconcile before M6-02 reads them;
+  - missing-layer WARNINGs have no §6.7 `operons.layer_missing` event;
+  - `assign_tus` on precomputed `tx_rates` in `_layer` is dead work (`pair_frame` never reads `tu_id`);
+  - `_cell` stringifies `None` items inside lists, bypassing `join_list`'s missing-item guard;
+  - nf-test lives at `workflow/tests/operons.nf.test`, not `workflow/tests/subworkflows/`;
+  - test gaps (surviving mutants): `missed_operons` without `genes=` (needs a relative-scale/partial-gene fixture); precomputed branch of `_layer` (promoters → `promoter_windows`) has no unit or nf-test; `no_detection_limit_model` log level unpinned.
+- MVP real run (Slurm 1864792) is degenerate by input, not by code (validation diagnosis):
+  - 82 candidate genes, so the specified picked FDR floor (0 + 1)/82 = 0.0122 > α = 0.01 (§7.3.2, GIAP_SPEC.md:1331, worked example at :3253), and no gene can be detected;
+  - then `p_detect` = 0, the detectability constant fallback; `detected_2pep` and `abundance_log2` are independent of the call;
+  - giapsim (tooling): the real-run scenario needs several hundred genes, and decoy rows are written with NA q/pep/score so a decoy can never win; draw them from a null;
+  - M4: warn when the number of eligible genes is < 1/α; a new flag (e.g. `picked_floor_above_alpha`) is new vocabulary and needs Khoa/ADR;
+  - M0 preflight `evidence.py:286`: the ranking-column check passes on target q-values; check the decoy rows' values.
 
 ## M8-04a review nits (#172, one-round MVP review)
 - N2: the `lo > hi` branch is indistinguishable from the k-range check; pin it by error message.
