@@ -123,3 +123,15 @@ def run_variants(peptide_hits: pd.DataFrame, hits_tolerant: pd.DataFrame | None,
    MAPPING's existing condition (`if (inputs.peptides)`); protein-only runs carry no residue-level
    evidence, so Module 5 has nothing to report and writes nothing.
 3. `hits_tolerant` as a step input (M7-01 Q3) — confirm. **Proposed default:** yes, optional.
+
+## Lead decisions
+
+1. **Questions 1–3:** the proposed defaults are accepted.
+   - `sample_name: auto` is resolved in `giap run` before any step runs. `write_vcf` rejects `auto`, as M7-03 decision 3 has it.
+   - VARIANTS follows MAPPING's `if (inputs.peptides)` condition.
+   - `hits_tolerant` is an optional step input.
+2. **From M7-03 (#160):**
+   - the pileup is passed in memory within the step, as a DataFrame with its `attrs`;
+   - the step calls `eligible` before `pileup` (M7-02 review);
+   - the run copies `schemas/datapackage.json` so that its `tables/...` paths resolve against the run root.
+3. **Parity:** add the published names to `giap.runner.local.PUBLISHED_FILES`, so that they equal the Nextflow `'key=path'` names (`tests/unit/test_local_publish_names.py`).
