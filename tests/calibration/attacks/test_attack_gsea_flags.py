@@ -13,6 +13,9 @@ worlds of the statistician's probe (local/stat/m805flags/flags_probe.py; Slurm 1
   - ``detection_confounded``: the mix (s ~ U(0, 1.5), beta in {1, 2}, 15-120 TUs) 0.0106 / 0.0544
     / 0.1025 (sigma inf); null s 0, beta 2 0.0089 / 0.0533 / 0.0971; null s 0, beta 1, 15-120 TUs
     0.0123 / 0.0544 / 0.1080; s 1.0, beta 1 0.0028 / 0.0100 / 0.0213.
+    Statistician #174 (Slurm 1867332, R 4,000): the detection flag is a screen, so its arms are
+    gated at rejection <= 1.5 alpha (criterion ``fwer`` on the rejection indicator), with teeth:
+    all rows of the mix reject at >= 3 alpha.
 * **Teeth** (gated): one run of 15 and five runs of 3 are flagged ``genomic_cluster`` in >= 99 %
   of replicates; ``detection_confounded`` covers >= 99 % of s 1.5 rows and >= 75 % of s 1.0 rows.
   A coverage claim c passes when the observed share is >= c - 2 sqrt(c (1 - c) / R) (the §8.4
@@ -361,16 +364,41 @@ def _det_unflagged(kind: str) -> Callable[[np.random.Generator], float]:
 
 
 DET_LEVEL = ("mix", "null_b2", "null_b1_mix", "s1_b1")
+SCREEN = 1.5  # statistician #174: the detection flag is a screen, unflagged rows <= 1.5 alpha
 
 
 @pytest.mark.parametrize("full", FAST_FULL)
 @pytest.mark.parametrize("arm", DET_LEVEL)
-def test_detection_confounded_unflagged_rows_at_level(arm: str, full: bool) -> None:
+def test_detection_confounded_unflagged_rows_within_the_screen(arm: str, full: bool) -> None:
+    """Unflagged rows reject at <= 1.5 alpha (the §8.4 bound around 1.5 alpha), not at alpha: at
+    R 4,000 the mix gives 0.0138 / 0.0592 / 0.1125 and the pooled mix (R about 12,600) 0.0128 /
+    0.0567 / 0.1073, above the level bounds (Slurm 1867332)."""
     levels = C.load_tolerances().levels
     reps = C.replicates(SUITE, full=full)
-    rec = calibrate_levels(SUITE, "level", levels, _det_unflagged(arm), reps,
+    unflagged = _det_unflagged(arm)
+
+    def rejects(rng: np.random.Generator) -> np.ndarray:
+        p = unflagged(rng)
+        return np.array([float(p <= a) for a in levels])
+
+    rec = calibrate_levels(SUITE, "fwer", [SCREEN * a for a in levels], rejects, reps,
                            stream=f"{SUITE}.attack.flags.detection.{arm}")  # fmt: skip
     rec.assert_ok()
+
+
+@pytest.mark.parametrize("full", FAST_FULL)
+def test_detection_screen_teeth_all_rows_of_the_mix_reject_at_3_alpha(full: bool) -> None:
+    """Without the screen, rows of the confounded mix reject at about 0.25 at alpha 0.05: >= 3 alpha
+    (coverage convention above), so the screen visibly removes rejections."""
+    alpha = 0.05
+
+    def rep(rng: np.random.Generator) -> bool:
+        return _p(_det_row(rng, "mix")) <= alpha
+
+    hits = C.run_replicates(f"{SUITE}.attack.flags.detection_teeth.all_rows_mix", rep,
+                            C.replicates(SUITE, full=full))  # fmt: skip
+    ok, msg = _coverage_ok(hits, 3 * alpha)
+    assert ok, msg
 
 
 @pytest.mark.parametrize("full", FAST_FULL)

@@ -252,8 +252,9 @@ those rows, the result may be a detection artefact (ADR-0026: "conditional on de
 (the hypergeometric z of the detected count).
 
 **Flag** (z₀ = 1):
-- ES finite and ≠ 0: flag when z · ES < 0 and |z| ≥ 1.
-- ES NaN (`unestimated`) or ES = 0: flag when |z| ≥ 1.
+- ES finite and ≠ 0 (`unestimated` rows included): flag when z · ES < 0 and |z| ≥ 1.
+- ES = 0: flag when |z| ≥ 1. A NaN ES, which `fgsea_simple` does not return, is treated as 0
+  (a defensive guard; statistician #174 Q3).
 
 **Inputs.** The gene frame (`detected`, `abundance_log2`, `partial`, `p_detect`), the gene-level
 sets, and the row's ES. No new configuration is needed. If z₀ should be configurable, it would
@@ -388,7 +389,7 @@ Positions are indices in the ranked order of one replicon unless stated.
 | D5 | 1000 | 500 | 40 | 27 | +0.3 | +2.2581 | no |
 | D6 | 1000 | 600 | 30 | 15 | +0.5 | −1.1346 | yes |
 | D7 | 1000 | 600 | 30 | 16 | +0.5 | −0.7564 | no (boundary pair with D6) |
-| D8 | 1000 | 500 | 40 | 12 | NaN (`unestimated`) | −2.5807 | yes |
+| D8 | 1000 | 500 | 40 | 12 | NaN ES (defensive; not produced by `fgsea_simple`) | −2.5807 | yes |
 | D9 | 1000 | 1000 | 40 | 40 | +0.4 | 0 (v = 0) | no |
 | D10 | n = M (the set is the universe) | | | | any | 0 | no |
 
@@ -423,8 +424,10 @@ Positions are indices in the ranked order of one replicon unless stated.
    adjacency. This is conservative. Abundance correlation that decays with distance in bp rather
    than in TU count is not modelled.
 3. **`detection_confounded` is a screen, not a guarantee.**
-   - In the mixed-confounding worlds the unflagged rows hold level at α 0.05 and 0.10. At α 0.01,
-     one of the three mixtures exceeds the bound marginally (0.0147 vs 0.0142, R 2,182).
+   - In mixed-confounding worlds (s ~ U(0, 1.5), β ∈ {1, 2}) unflagged rows reject at about
+     1.3α / 1.15α / 1.07α at α = 0.01 / 0.05 / 0.10 (pooled R ≈ 12,600: 0.0128 / 0.0567 / 0.1073),
+     above the §8.4 bound; unscreened rows in the same worlds reject at about 0.25 at α = 0.05
+     (Slurm 1867332). The committed arms gate unflagged rows at ≤ 1.5α.
    - Rows with |z| < 1 and the "wrong" sign keep a small bias that no detected-fraction threshold
      can screen out. The detected fraction is as noisy as the bias it predicts.
    - The fix is the censored-rank / p_detect-weighted null left to a later ADR.
@@ -433,10 +436,15 @@ Positions are indices in the ranked order of one replicon unless stated.
    flagged (1.8 % and 7.3 % for ±0.3). A real effect with an opposite-sign detection difference
    is flagged, because the two cannot be told apart.
 5. **Null flag rate and overdispersion.** Without confounding, 13–16 % of rows are flagged, about
-   ½·P(|Z| ≥ 1) = 0.16; flagged null rows are conservative (0.02–0.03 at α 0.05). The z uses the
+   ½·P(|Z| ≥ 1) = 0.16; flagged null rows are conservative (0.02–0.03 at α 0.05), so unflagged
+   null rows reject at about 1.1α (0.0551 / 0.1088 at α 0.05 / 0.10). The z uses the
    gene-level hypergeometric variance and ignores the within-TU correlation of detection. In
    genomes with long, tightly co-detected operons this raises the flag rate; it costs no level.
-6. **Unflagged ≠ calibrated beyond these worlds.** Both flags are tuned on the probe's AR(1) and
+6. **The BH family includes flagged rows.** q values of unflagged rows come from a family that
+   includes flagged rows; with 10 flagged sets among 40 the FWER of unflagged null rows rose from
+   0.004–0.02 to 0.022–0.057 (Slurm 1867330; still ≤ α under the 1/500 floor; M8-11 re-checks).
+   Both flag claims are per-row level, not FDR among unflagged rows.
+7. **Unflagged ≠ calibrated beyond these worlds.** Both flags are tuned on the probe's AR(1) and
    logistic-detection worlds. Real sets can combine both structures; a row can carry both flags.
 7. **Realistic-set check.** RegulonDB operons stand in for GIAP TUs, and gene-name and keyword
    families stand in for COG/GO sets, because no COG/GO gene mapping for K-12 is on disk. Flag
