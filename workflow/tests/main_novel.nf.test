@@ -1,0 +1,94 @@
+// M7-08 rule 7: main.nf calls NOVEL after GENETABLE when params.inputs.peptides is given (stub
+// runs only; ci.yml runs: nf-test test workflow/tests --profile test,stub).
+//
+// Pinned here: novel_candidates stages MAPPING's loci directory and ANNOTATE's annotation_meta.json;
+// novel_orfs stages the gene table from DETECTABILITY (genetable/genes.parquet) and the first-round
+// promoter_windows / terminators layers from ANNOTATE's PROMOTER_LAYER / TERMINATOR_LAYER tasks
+// (no tool runs twice for them); the four §9.1 files are published under tables/. Without
+// peptides no NOVEL step runs.
+
+nextflow_pipeline {
+
+    name "main.nf runs NOVEL (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "novel"
+
+    test("peptides given: NOVEL runs after GENETABLE and publishes the four tables") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                ann.precomputed.rbs_novel = null
+                annotation = ann
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            def ran = { H.names(workflow.trace) }
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            ['novel_candidates', 'novel_orfs'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "${s} ran ${H.stepCount(workflow.trace, s)}x: ${ran()}"
+            }
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def from = { File dir, String step ->
+                def d = H.stepDirs(work, step)[0].canonicalPath
+                H.staged(dir).any { new File(it[0]).canonicalPath.startsWith(d) }
+            }
+            def cdir = H.stepDirs(work, 'novel_candidates')[0]
+            assert from(cdir, 'loci') : "novel_candidates does not stage the loci directory"
+            assert from(cdir, 'parse_bakta') : "novel_candidates does not stage parse_bakta's tables"
+
+            def odir = H.stepDirs(work, 'novel_orfs')[0]
+            def okeys = H.stepInputs(odir).collect { it[0] }
+            assert okeys.containsAll(['gene_table', 'promoter_windows', 'terminators']) : "novel_orfs inputs ${okeys}"
+            assert from(odir, 'detectability') : "novel_orfs does not stage the gene table"
+            assert from(odir, 'promoter_layer') : "first-round promoter_windows not from PROMOTER_LAYER"
+            assert from(odir, 'terminator_layer') : "terminators not from TERMINATOR_LAYER"
+            assert H.count(workflow.trace, 'PROMOTECH') == 1 : "first-round Promotech ran more than once: ${ran()}"
+
+            ['tables/novel_orfs.tsv', 'tables/novel_orfs.gff3', 'tables/novel_orfs.faa',
+             'tables/annotation_patch.gff3', 'genetable/genes.parquet'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+        }
+    }
+
+    test("no peptides: no NOVEL step runs") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            ['novel_candidates', 'novel_promoter_layer', 'novel_rbs_layer', 'novel_orfs'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 0 : "${s} ran without peptides: ${H.names(workflow.trace)}"
+            }
+            ['PROMOTECH_NOVEL', 'OSTIR_NOVEL'].each { p ->
+                assert H.count(workflow.trace, p) == 0 : "${p} ran without peptides"
+            }
+            assert !new File("${outputDir}/tables/novel_orfs.tsv").exists() : "novel_orfs.tsv published without peptides"
+        }
+    }
+}

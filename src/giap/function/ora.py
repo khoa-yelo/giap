@@ -53,6 +53,9 @@ CALIBRATION_FLAGS: tuple[str, ...] = ("ora_uncalibrated",)
 MAX_NEWTON = 50  # Newton iterations of the recalibration fit
 NEWTON_TOL = 1e-10  # converged once max |step| is below it
 MAX_HALVINGS = 60  # step halvings per iteration before the fit is declared stalled
+#: Relative log-likelihood change treated as rounding noise by the line search: near the optimum
+#: a step of ~1e-8 can lower the summed log-likelihood by ~1e-13 and must still be taken.
+LL_NOISE = 1e3 * float(np.finfo(np.float64).eps)
 COLUMNS = (
     "collection",
     "term",
@@ -140,9 +143,10 @@ def _loglik(x: F64, y: F64, beta: F64) -> float:
 
 def _logistic_mle(x: F64, y: F64) -> F64 | None:
     """Unpenalised logistic MLE by Newton from the identity on logit q, each step halved until
-    the log-likelihood does not decrease (decision 13); converged once the full Newton step is
-    below ``NEWTON_TOL``. None on a singular Hessian, a non-finite step, a line search that
-    finds no increase in ``MAX_HALVINGS`` halvings or no convergence in ``MAX_NEWTON`` steps."""
+    the log-likelihood does not decrease beyond rounding noise (``LL_NOISE``, decision 13);
+    converged once the full Newton step is below ``NEWTON_TOL``. None on a singular Hessian, a
+    non-finite step, a line search that finds no increase in ``MAX_HALVINGS`` halvings or no
+    convergence in ``MAX_NEWTON`` steps."""
     beta = np.zeros(x.shape[1])
     beta[1] = 1.0
     ll = _loglik(x, y, beta)
@@ -159,7 +163,7 @@ def _logistic_mle(x: F64, y: F64) -> F64 | None:
         for _ in range(MAX_HALVINGS):
             new = beta + step
             ll_new = _loglik(x, y, new)
-            if ll_new >= ll:  # near the optimum a step can tie on float noise
+            if ll_new >= ll - LL_NOISE * max(1.0, abs(ll)):  # rounding noise is not a decrease
                 break
             step = 0.5 * step
         else:
