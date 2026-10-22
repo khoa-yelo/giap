@@ -322,6 +322,21 @@ job beyond the pass-1 `giap_run.sbatch` and the M9-26 K-12 run.
 4. Pass placement of V12, V14, V15: the lead's brief put plots whose tables land later in pass 2.
    **Proposed default:** keep them in pass 2 but let each start the day its producing PR merges.
 
+## Lead decisions (2026-10-22)
+
+- The 32 decisions taken in these specs are confirmed as written, including the display defaults
+  (DejaVu Sans with a 6 pt minimum, four COG super-category hues, a ±2 kb locus window, histograms
+  for V11, a 10-kb GC-skew window, the 20,000-element rule per track, measured abundance values only).
+- Q1, ADR-M9-A: accepted. `plots/support/` is written by the producing steps; `giap report` never
+  refits or reruns a null. The ADR is written in M9-03.
+- Q2: the §6.2 `manifest` and `finalize` steps become an MVP issue (MVP-03), scheduled before
+  M9-16. M9 reads the manifest when present.
+- Q3: V7 omits region-type rows. A backlog line goes to M4.
+- Q4: V12, V14 and V15 stay in pass 2. Each starts the day its producing PR merges.
+- ADR-M9-B (`giap compare` layout, decision 22's one-leg snapshot comparison): accepted as proposed;
+  written in M9-22.
+- The Khoa questions below wait for Khoa; pass 1 does not depend on them.
+
 ## Questions that need Khoa (not the lead)
 
 1. The M9 gate itself: approval of the snapshot baselines and the report layout (M9-25 packet).
