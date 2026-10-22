@@ -128,3 +128,12 @@ Schema: `src/giap/schemas/tables/novel_orfs.schema.json`.
    into search IDs.
 4. `cterm_extension` in the patch: M3-23 raises on an internal stop. **Proposed default:** no patch
    row until M7-16 decides whether `makedb` writes the read-through residue as `X`, `U` or `W`.
+
+## Lead decisions
+
+1. **Questions 1–4:** the proposed defaults are accepted.
+   - **Minus-strand positions:** `start_*`/`end` follow the transcription direction (on `−`, start > end). The `novel_orfs` schema field descriptions must say so explicitly, because every other table is lowest/highest. The GFF3 uses lowest/highest.
+   - **No OSTIR score:** the `*_best` OSTIR columns are NA; `length_aa_best`/`start_codon_best` fall back to the longest start, with `ostir_missing`.
+   - **FASTA header suffixes:** `|longest` and `|best_ostir`, merged when equal.
+   - **`cterm_extension`:** no patch row until M7-16.
+2. **From the M7-06 review (#161):** `overlapping_gene` is now set for antisense ORFs (the opposite-strand gene). I/L twins share the contaminant ban and the multi-locus count.
