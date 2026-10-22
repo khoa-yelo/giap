@@ -78,7 +78,27 @@
     "optional_inputs": [],
     "outputs": [
       "detectability_summary",
-      "gene_table"
+      "gene_table",
+      "tu_folds"
+    ]
+  },
+  "function": {
+    "inputs": [
+      "gene_table",
+      "replicons",
+      "tu_folds"
+    ],
+    "optional_inputs": [
+      "cog2020_fun",
+      "go_basic",
+      "goslim_generic",
+      "kegg_ko_pathway",
+      "kegg_pathway_names"
+    ],
+    "outputs": [
+      "category_summary",
+      "enrichment_detection",
+      "enrichment_gsea"
     ]
   },
   "gene_table": {
