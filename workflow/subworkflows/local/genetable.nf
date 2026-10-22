@@ -1,7 +1,7 @@
 // GENETABLE subworkflow (GIAP_SPEC.md §6.2, §7.3, §9.3; M4-15, MVP-01): the M4-06 contract
 // tables plus MAPPING's loci directory -> genetable/genes_pre.parquet and the M4-12 tier rows of
-// detection_summary (gene_table), then the cross-fitted p_detect -> genetable/genes.parquet and
-// the detectability diagnostics (detectability). Both py steps run through GIAP_STEP aliases, as in annotate.nf / mapping.nf.
+// detection_summary (gene_table), then the cross-fitted p_detect -> genetable/genes.parquet, the
+// detectability diagnostics and the TU folds (detectability, genetable/tu_folds.parquet: M8-06). Both py steps run through GIAP_STEP aliases, as in annotate.nf / mapping.nf.
 // Every required input must arrive or neither step runs (stepIn's `need`), the way MAPPING skips
 // its protein route; the optional ones (peptides, abundance, preflight.json, the COG 2020 table)
 // are staged only when `giap run` passed them.
@@ -43,12 +43,14 @@ workflow GENETABLE {
     // `need` even with one input: stepIn emits an empty task when every channel is empty
     def dt = stepIn('detectability', [kv('genes_pre', pick(GENE_TABLE.out.outputs, 'genes_pre.parquet'))], ['genes_pre'])
     DETECTABILITY(dt.files, dt.keys, ['gene_table=genetable/genes.parquet',
-        'detectability_summary=genetable/detection_summary_parts/detectability.parquet'])
+        'detectability_summary=genetable/detection_summary_parts/detectability.parquet',
+        'tu_folds=genetable/tu_folds.parquet'])
     def D = DETECTABILITY.out.outputs
 
     emit:
     gene_table            = pick(D, 'genes.parquet')
     detectability_summary = pick(D, 'detectability.parquet')
+    tu_folds              = pick(D, 'tu_folds.parquet')  // M8-06: the cross-fit folds (FUNCTION)
     tier_summary          = pick(GENE_TABLE.out.outputs, 'tier.parquet')
     genes_pre             = pick(GENE_TABLE.out.outputs, 'genes_pre.parquet')
     versions              = GENE_TABLE.out.versions.mix(DETECTABILITY.out.versions)

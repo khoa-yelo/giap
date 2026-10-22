@@ -1,11 +1,11 @@
 // GIAP entry workflow (GIAP_SPEC.md §6.3). Parameters come only from OUT/work/params.json
 // written by `giap run`. With a genome and replicons.tsv it runs ANNOTATE (M2-07), then MAPPING
 // (M3-17), VARIANTS (M7-04), GENETABLE (M4-15), CONTEXT (M4-18, M4-19), beside CONTEXT, OPERONS
-// (M6-08) and NOVEL (M7-08) when params.inputs.peptides (peptides.norm.parquet) is given; without
-// inputs it runs one GIAP_STEP smoke task (skeleton check, M2-06). GENETABLE, CONTEXT and OPERONS
-// skip themselves when an input they require is absent (MVP-01). Under a precomputed regions layer
-// region_layer still writes C7/C8 (MVP-02). REPORT runs last on every published [key, path] pair
-// (M9-02).
+// (M6-08) and NOVEL (M7-08) when params.inputs.peptides (peptides.norm.parquet) is given, and
+// FUNCTION (M8-06) when 'function' is in params.modules; without inputs it runs one GIAP_STEP smoke
+// task (skeleton check, M2-06). GENETABLE, CONTEXT and OPERONS skip themselves when an input they
+// require is absent (MVP-01). Under a precomputed regions layer region_layer still writes C7/C8
+// (MVP-02). REPORT runs last on every published [key, path] pair (M9-02).
 include { GIAP_STEP } from './modules/local/giap_step/main'
 include { ANNOTATE; kv; pick } from './subworkflows/local/annotate'
 include { MAPPING } from './subworkflows/local/mapping'
@@ -15,6 +15,7 @@ include { VARIANTS } from './subworkflows/local/variants'
 include { NOVEL } from './subworkflows/local/novel'
 include { OPERONS } from './subworkflows/local/operons'
 include { REPORT } from './subworkflows/local/report'
+include { FUNCTION } from './subworkflows/local/function'
 
 // A path input as a value channel, or channel.empty() when absent.
 def opt(path) { path ? channel.value(file(path, checkIfExists: true)) : channel.empty() }
@@ -48,6 +49,16 @@ def cogTable() { installed('cog2020_def', 'cog/cog-20.def.tab') }
 
 // [key, path] pairs of a step's outputs channel ([step, path | list]): every path, under `key`.
 def outs(String key, ch) { ch.flatMap { s, fs -> (fs instanceof List ? fs : [fs]).collect { f -> [key, f] } } }
+// The installed function resources (M8-06 item 7) as a [setup item name, path] channel; the names
+// are giap.setupdb.installed.FUNCTION_RESOURCES and the paths db_sources.yaml's.
+def functionResources() {
+    def found = [go_basic: installed('go_basic', 'go/go-basic.obo'),
+                 goslim_generic: installed('goslim_generic', 'go/goslim_generic.obo'),
+                 kegg_ko_pathway: installed('kegg_ko_pathway', 'kegg/ko_pathway.tsv'),
+                 kegg_pathway_names: installed('kegg_pathway_names', 'kegg/pathway_names.tsv'),
+                 cog2020_fun: installed('cog2020_fun', 'cog/fun-20.tab')]
+    return channel.fromList(found.findAll { k, p -> p != null }.collect { k, p -> [k, p] })
+}
 
 workflow {
     def inputs = (params.inputs ?: [:]).findAll { k, v -> v }
@@ -80,6 +91,7 @@ workflow {
                     kv('variants_vcf', VARIANTS.out.variants_vcf),
                     kv('gene_table', GENETABLE.out.gene_table), kv('detectability_summary', GENETABLE.out.detectability_summary),
                     kv('tier_summary', GENETABLE.out.tier_summary), kv('genes_pre', GENETABLE.out.genes_pre),
+                    kv('tu_folds', GENETABLE.out.tu_folds),
                     kv('gene_context', CONTEXT.out.gene_context),
                     kv('island_diagnostics', CONTEXT.out.island_diagnostics),
                     kv('regions_stats', CONTEXT.out.regions_stats), kv('detection_summary', CONTEXT.out.detection_summary),
@@ -89,6 +101,12 @@ workflow {
                     kv('operon_flags', OPERONS.out.operon_flags),
                     kv('novel_orfs', NOVEL.out.novel_orfs), kv('novel_orfs_gff3', NOVEL.out.novel_orfs_gff3),
                     kv('novel_orfs_faa', NOVEL.out.novel_orfs_faa), kv('annotation_patch', NOVEL.out.annotation_patch)]
+            if ('function' in (params.modules ?: [])) {  // §6.3: the optional module switch
+                FUNCTION(GENETABLE.out.gene_table, gene_model, GENETABLE.out.tu_folds, functionResources())
+                pub += [kv('category_summary', FUNCTION.out.category_summary),
+                        kv('enrichment_detection', FUNCTION.out.enrichment_detection),
+                        kv('enrichment_gsea', FUNCTION.out.enrichment_gsea)]
+            }
         }
         REPORT(pub.inject(channel.empty()) { acc, c -> acc.mix(c) })
     } else {
