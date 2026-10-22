@@ -70,9 +70,7 @@ COLUMNS = [
     "ci_high",
     "flags",
 ]
-EX4_TITLE = (
-    "Placement FDR ≤ 0.01 in strata 0; 920 placements accepted; stratum 2 unestimated (no targets)"
-)
+EX4_TITLE = "Placement FDR ≤ 0.01 in strata 0; 920 FDR-tested placements accepted; stratum 2 unestimated (no targets)"
 #: per-class counts consistent with example 4 (example 5 is class 7, m = 0)
 EX4_CLASSES = {("7", 0): (5, 0), ("12-14", 0): (895, 3), ("15-19", 1): (120, 2)}
 EX6_DENOVO = [
@@ -327,7 +325,7 @@ def test_alpha_line_and_title_follow_the_config(tmp_path: Path) -> None:
     inst = _render(_ex4(tmp_path), cfg)
     assert _hlines(_ax(inst, "b"), "--") == [pytest.approx(0.05)]
     assert inst.title == (
-        "Placement FDR ≤ 0.05 in strata 0, 1; 920 placements accepted; "
+        "Placement FDR ≤ 0.05 in strata 0, 1; 920 FDR-tested placements accepted; "
         "stratum 2 unestimated (no targets)"
     )
     assert inst.data.equals(_render(_ex4(tmp_path / "again"), resolve_config()).data)
@@ -352,7 +350,9 @@ def test_points_accepted_labels_and_na_marker(tmp_path: Path, cfg: GiapConfig) -
 def test_every_stratum_estimated_and_below_alpha(tmp_path: Path, cfg: GiapConfig) -> None:
     totals = {0: (500, 1, 0.002, 450), 1: (80, 0, 0.0, 70), 2: (30, 0, 0.005, 20)}
     inst = _render(mapping_out(tmp_path, fdr=full_placement(totals)), cfg)
-    assert inst.title == "Placement FDR ≤ 0.01 in strata 0, 1, 2; 540 placements accepted"
+    assert (
+        inst.title == "Placement FDR ≤ 0.01 in strata 0, 1, 2; 540 FDR-tested placements accepted"
+    )
     assert "NA (no targets)" not in _notes(_ax(inst, "b"))
 
 
@@ -467,7 +467,7 @@ def test_property_title_lists_exactly_the_strata_at_or_below_alpha(
     total = sum(totals[m][3] for m in STRATA)
     if listed:
         assert inst.title.startswith(
-            f"Placement FDR ≤ {alpha:g} in strata {', '.join(listed)}; {total} placements accepted"
+            f"Placement FDR ≤ {alpha:g} in strata {', '.join(listed)}; {total} FDR-tested placements accepted"
         )
     na = [m for m, f in zip(STRATA, fdrs, strict=True) if f is None]
     if na:
