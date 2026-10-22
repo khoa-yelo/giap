@@ -324,5 +324,22 @@
     "date": "2026-10-21",
     "issue": "M8-04a",
     "note": "one round after a warm-up call that compiles the numba kernel; one tilt plus 6,000 conditional_poisson_binomial calls. Same commit: barley-01 (AMD EPYC 9384X, job 1867255) 1.42 s; iron-15 session allocation 2.08 s"
+  },
+  "function_step_4500_genes": {
+    "benchmark": "benchmarks/test_function_step_bench.py::test_function_step_4500_genes_budget",
+    "source": "docs/specs/M8-06-function-step-and-run.md M8-06a acceptance (the 4,500-gene simulated layout with synthetic resources, stats.bootstrap = 1000); M8 index feasibility: seconds to minutes",
+    "n_genes": 4500,
+    "fixture": "giapsim build_m4_fixture size sim4500, seed 20261022; helpers.function_db synthetic GO/KEGG/COG DB from its xrefs",
+    "bootstrap": 1000,
+    "budget_s": 45.0,
+    "secs": 14.08,
+    "cpus": 4,
+    "node": "wheat-02",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "slurm_job": 1867926,
+    "commit": "0b8ee09 plus the uncommitted M8-06a implementation (the feat(M8-06a) commit)",
+    "date": "2026-10-22",
+    "issue": "M8-06a",
+    "note": "one run_step('function', ...) on a cold process: reading the gene table and resources, collections, summary bootstrap, ORA with TU recalibration (tu_folds wired), GSEA with its numba compilation (fresh NUMBA_CACHE_DIR) and the three writers"
   }
 }

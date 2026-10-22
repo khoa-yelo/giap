@@ -1,0 +1,99 @@
+// M7-04: main.nf runs VARIANTS right after MAPPING, inside the peptide block, so `giap run`
+// publishes tables/pileup.tsv.gz, tables/variants.tsv and tables/variants.vcf (GIAP_SPEC.md §6.2,
+// §6.3, §9.1; docs/specs/M7-04-variants-step-and-run.md rule 5, acceptance "main.nf.test
+// (stub) shows VARIANTS running after MAPPING when peptides are given and not at all without
+// them"). Stub runs only; ci.yml runs: nf-test test workflow/tests --profile test,stub.
+//
+// Pinned here (test author): the variants py step (GIAP_STEP tag `variants`) stages the loci
+// output as `mapping` and map_tolerant's hits_tolerant.parquet (MAPPING's new `hits_tolerant`
+// emit), and the C2 genes / C1 replicons from parse_bakta. It stages nothing from GENETABLE or
+// CONTEXT (rule 5: independent of GENETABLE). Without peptides it does not run, and no Module 5
+// file is published.
+
+nextflow_pipeline {
+
+    name "main.nf runs VARIANTS (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "variants"
+
+    test("peptides given: variants runs once after MAPPING and the three tables are published") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            def nameOf = { File dir -> (new File(dir, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
+            def byTag = { String s -> H.taskDirs(work).findAll { dir -> H.tagOf(nameOf(dir)) == s } }
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            def vs = byTag('variants')
+            assert vs.size() == 1 : "variants ran ${vs.size()}x; tasks: ${H.names(workflow.trace)}"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def vin = H.stepInputs(vs[0])
+            def keys = vin.collect { it[0] }.toSet()
+            assert keys.containsAll(['mapping', 'genome', 'genes', 'replicons', 'peptides']) : "variants inputs ${keys}"
+            assert 'hits_tolerant' in keys : "MAPPING's hits_tolerant not wired: ${keys}"
+            assert vin.any { it[0] == 'hits_tolerant' && it[1].endsWith('hits_tolerant.parquet') } : "${vin}"
+
+            // each staged input comes from its producer's task directory: after MAPPING
+            def staged = H.staged(vs[0]).collect { new File(it[0]).canonicalPath }
+            def from = { String step -> byTag(step).collect { it.canonicalPath } }
+            ['loci', 'map_tolerant', 'parse_bakta'].each { s ->
+                def prod = from(s)
+                assert prod.size() == 1 : "${s} ran ${prod.size()}x"
+                assert staged.any { it.startsWith(prod[0]) } : "variants stages nothing of ${s}: ${staged}"
+            }
+            // independent of GENETABLE and CONTEXT
+            ['gene_table', 'detectability', 'context_stats', 'sensitivity'].each { s ->
+                from(s).each { p -> assert !staged.any { it.startsWith(p) } : "variants stages ${s} output: ${staged}" }
+            }
+
+            ['tables/pileup.tsv.gz', 'tables/variants.tsv', 'tables/variants.vcf'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+            // GENETABLE and CONTEXT still run beside VARIANTS
+            ['gene_table', 'detectability', 'context_stats'].each { s ->
+                assert from(s).size() == 1 : "${s} ran ${from(s).size()}x"
+            }
+        }
+    }
+
+    test("no peptides: VARIANTS does not run and no Module 5 file is published") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            assert H.names(workflow.trace).count { H.tagOf(it) == 'variants' } == 0 : "variants ran without peptides: ${H.names(workflow.trace)}"
+            ['tables/pileup.tsv.gz', 'tables/variants.tsv', 'tables/variants.vcf'].each { f ->
+                assert !new File("${outputDir}/${f}").exists() : "${f} published without peptides"
+            }
+        }
+    }
+}

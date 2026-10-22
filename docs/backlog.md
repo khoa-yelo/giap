@@ -104,6 +104,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   eligible gene gets the picked-FDR floor q = 1/85 = 0.0118 > `stats.alpha.identification` = 0.01.
   An 87-gene genome cannot reach the identification alpha at all — the statistician should say
   whether the MVP evidence run needs a bigger genome, a different tier or a flag.
+  *Khoa (2026-10-22): flag it.* The `tier` row `q_floor` = 1/T and the warning `q_floor_above_alpha`;
+  q and alpha unchanged (fix/q-floor-flag).
 - MVP-01 pass 2: `detect` (M4-12) builds tier and q-threshold curve rows, but `gene_table` has no
   diagnostics output key, so those rows never reach `tables/detection_summary.tsv` (only the
   basic / qc / detectability sections are there).
@@ -393,6 +395,23 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   neither — a NaN abundance is untested under every `abundance.missing` mode, not only `exclude`, and
   the one-detected branch is always `unestimated (no_detection_limit_model)`; `PMissModel` is a
   placeholder Protocol until M6-02 merges (replace with its real type in M6-05H).
+
+## M7-04 review nits (PR #164)
+- `OUT/schemas/datapackage.json` names `tables/...`, which Frictionless resolves under `OUT/schemas/`, not `OUT`. Lead decision 5 already owes this; the test checks only `OUT / path`.
+- The table-schema copies into `OUT/schemas/tables/` (`runner/local.py`) are untested.
+- `sample_name`: a peptide file named `auto.tsv` resolves to `auto`, and `write_vcf` then fails with exit 4. An explicit empty `sample_name` gives an empty VCF sample column. Guard both.
+- Replicon order in variants output is untested because the fixture has one contig. Add a two-replicon case.
+- `placement_q` is untested at the step level. Add a case with q above `stats.alpha.variants`.
+- The stub VCF `#CHROM` line hard-codes `sample` (`variants.nf:37`).
+- A single quote in a stub header would break the `printf` quoting. This predates M7-04.
+- Spec drift:
+  - the nf-test path is `workflow/tests/variants.nf.test`;
+  - the process alias is `VARIANTS_STEP`.
+- `read_gene_model` features are untested by the loci tests (mutant M22).
+- Still owed:
+  - the manifest `no_peptides` entry;
+  - the real sim100k `giap_run.sbatch` run;
+  - the step benchmark.
 - MVP real run on 813 genes (Slurm 1865149, validation): operon tests now run (515 t, 102 decoy), but:
   - detection is saturated: 804/813 genes are detected, `p_detect` is the constant 0.989 fallback, and picked FDR q = 1/804 for all. The giapsim real-run scenario needs decoys with null scores (the earlier item) and lower peptide coverage;
   - Promoter Calculator runs one Nextflow task per TU (288 tasks for 0.9 Mb); batch it;
@@ -485,6 +504,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The effect-CI coverage the islands note promised for M5-07 was never measured.
 - Recorder CLI: NaN → None mapping untested; `--replicates 0` and bad `--cells` need argparse validation; `--run-id` should default to `$SLURM_JOB_ID` and record a dirty commit; append (not prepend) to sys.path or only under `__main__`; `test_arms_are_the_spec_scenarios` inherits `calibration_full` though it takes milliseconds.
 - Power-grid sbatch wrapper (36 cells, xargs -P 36) belongs in scripts/slurm/.
+## M8-06a review nits (#181; one round. B1 and N1 fixed in the PR)
+- **N2** `n_unknown_ids` is never non-zero in any fixture (mutant M09). Add a gene with an unknown GO ID or KO.
+- **N3** `ora_size` and `gsea_size` are tested only at their defaults (M11, M17). Add a run with a non-default size.
+- **N4** The function events are logged before the writers run. If a writer fails, `events.jsonl` still holds events for a step that exited 4.
+- **N5** benchmarks/baseline.json records the commit as "0b8ee09 plus uncommitted". Re-record it against a real commit.
+- **N6** `_natural_key` gives `TU_1` and `TU_01` the same key. Add a string tiebreak.
+- Mutation evidence: Slurm 1867940, $GIAP_ROOT/review/pr181-mut/.
+
 ## M7-09 review nits (#180; one round, blockers were test-only)
 - **N1 Homopolymer window edges are untested** (mutants m26, m27): add runs at [591, 596) and [607, 612). Leftward run extension (m64) and the linear contig end (m65) are untested too.
 - **N2 Untested equalities:** `terminator_downstream` at conf == `terminatornet_yes` (m42), and BacTermFinder skipping (m17).
@@ -526,3 +553,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - **Statistician:** category_summary's bootstrap undercovers small categories (10 TUs: 0.886; 15 TUs: 0.90). Raise `CI_MIN_UNITS` to about 30, or use BCa or a studentized bootstrap.
 - **Statistician:** cross-fitting does not remove leakage when a category is a large share of one TU-size group. In the tested worlds this was only conservative.
 - **Flaky?** `tests/unit/function/test_gsea_flags.py::test_detection_flag_with_the_real_engine_d1_d2` failed only in the 16-worker fast suite (Slurm 1867909 and 1867927, es = −0.5 for top=True). It passes alone and in its file. Check main and look for state leaking between tests.
+
+## M9 design follow-ups (lead, 2026-10-22)
+- MVP-03: build the §6.2 / §6.7 `manifest` and `finalize` steps (run_manifest.json; KEGG retrieval date, provenance), before M9-16.
+- M4: should `detection_summary` carry a region-**type** O − E row (§10.2 V7 lists region types; no table has them)?
+- UpSetPlot 0.9.0 fails on pandas 3.0.6 (`Invalid RGBA argument: nan`); V16 uses the custom matplotlib fallback (§10.2).
