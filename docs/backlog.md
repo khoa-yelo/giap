@@ -158,6 +158,31 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   `tu_frame` and a giapsim-scenario driver; whichever merges second should deduplicate. Note the ori–ter
   driver deliberately keeps the simulator's real coordinates, while the island one re-lays genes through
   `Contig`, which would destroy the ori–ter geometry — so the shared helper must preserve both modes.
+- M4-21 pass 2 (code review of #145): F2 unit tests for `precomputed_members` (constant overlap_frac,
+  skipped unknown tag, core_biosynthetic mutants survive); F3 no real-path test of prophage subset
+  classes beyond `cargo`; F4 log or `notes`-tag that precomputed regions have product-only subsets and
+  `core_biosynthetic = False`; F5 unit-test `topo_order` with `members`; F6 `_precomputed` ignores
+  `context.region_types` (the tool path filters it); F7 the sensitivity goldens (sim50k, sim100k_real)
+  have zero primary/variant calls; F8 stale flat files win over keyed ones in `contract_paths` /
+  `work_inputs`. `PUBLISHED_FILES` repeats the Nextflow names (pinned by a test) — one shared source.
+- RegulonDB TLS: the server omits its intermediate, so any plain client fails verification. GIAP completes
+  the chain itself (fetch_regulondb.py pins GlobalSign GCC R46 OV TLS CA 2025, sha256
+  d160e2de4e56cb10b66c1cb0adcb79cf93c78dcd9db30c2018220262c04063f9, valid to 2029-06-23, verified against
+  the already-trusted GlobalSign Root R46). Re-check when the intermediate expires, or drop the workaround
+  if RegulonDB ever publishes a complete chain.
+- M6-11 pass 2 (non-blocking items from the code review of #141; lead decision 7):
+  - fetch_regulondb: when the endpoint reports no release, fall back to the date + hash (ADR-0017)
+    instead of the directory name `unknown`;
+  - record `(date, sha256)` per retrieval, not only the dates, so a changed download is visible;
+  - the unreachable-host error names the PROGRESS.md › Blocked entry, as the spec's degenerate row says;
+  - clean up `.part` files on failure and fsync before the rename in `write_atomically`;
+  - bound the intermediate download (read at most a few kB);
+  - type-check the GraphQL payload fields (content is `str`, metadata `str | None`);
+  - catch `UnicodeDecodeError` in the retry loop;
+  - record the genome-version equivalence NC_000913.3 = U00096.3 (RegulonDB vs the recorded Bakta contig);
+  - the tests live in `tests/unit/test_m6_11_regulondb_*.py`, not the spec's `validation/tests/`
+    (pytest's testpaths is `tests`): amend the spec or move them;
+  - the "no RegulonDB bytes committed" check matches file names only; add a content or size check.
 - Post-merge code review of #131 (M5-06 islands), pass-2 items (the origin-crossing TU bug is being
   fixed in its own PR): (1) the high-before-low tie-break sort at `islands.py:585` is untested;
   (2) `detected_frac` is not pinned (add a `missing = exclude` case with a detected NaN-abundance gene

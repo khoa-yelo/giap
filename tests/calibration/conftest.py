@@ -38,6 +38,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "test_denovo_precision_calibration.py": "denovo_precision",
         "test_denovo_precision_sim.py": "denovo_precision",
         "test_detection_tiers_gene_fdr.py": "gene_fdr",
+        "test_gene_fdr_real_mapping.py": "gene_fdr",
         "test_detectability_calibration.py": "detectability",
         "test_engine_calibration.py": "regions",
         "test_engine_calibration.py::test_bh_fdr": "gene_fdr",
