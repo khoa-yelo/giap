@@ -24,7 +24,7 @@ FAMILIES["islands"] = ...   # bound to the context inputs by run_sensitivity (Q1
   a high to a low island counts as a change.
 - Reruns use `stats.bootstrap = 199` and `stats.permutations = 199` (block length) for the primary and
   each variant (M4-19 rule: the primary is recomputed at the same B).
-- RNG: the child stream of M4-19 keyed `islands/<variant>`.
+- RNG: ~~the child stream of M4-19 keyed `islands/<variant>`~~ — replaced by lead decision 1: one family stream `for_step("sensitivity/islands", seed)`.
 - Rows: `family = islands`, `variant`, `n_primary`, `n_variant`, `n_shared`, `jaccard` (NA when both sets
   are empty).
 

@@ -64,12 +64,22 @@ reruns the M5-06 pipeline (`tu_series` per C1 replicon on the C5 TUs, then `scan
 and every variant (the `regions` family keeps the user's `stats.bootstrap`). All calls start from
 the one family stream `for_step("sensitivity/islands", seed)`. The FWER null is a block
 bootstrap, so the islands sets always use randomness. With B = 199 the smallest attainable p is
-1/200 = 0.005. The recomputed primary can therefore differ from `islands.tsv`, which is computed
-at the user's B. Under `missing=exclude`, detected genes without an abundance are not scored
-(M5-06 step 1). The draws follow the primary's only while each replicon keeps its number of
-scored TUs and its block length. Once a variant changes either (a TU losing every scored gene
-under `exclude`, or a different l-hat), the draws from that replicon on differ, and the set
-difference then includes Monte Carlo error.
+1/200 = 0.005.
+
+The recomputed primary is an independent Monte Carlo realisation, not `islands.tsv` at a coarser
+p floor. It uses its own stream and B = 199 for both the block bootstrap and the l-hat test, so an
+island with p near `alpha.context` can differ from `islands.tsv` in either direction, not only
+through the 0.005 floor.
+
+Common random numbers hold only in part. `scan_replicons` draws the l-hat permutations of every
+scanned replicon before any bootstrap draw, and how many it draws depends on each replicon's
+number of scored TUs T. A variant that changes T, or whether a replicon is scanned, anywhere in
+the genome therefore changes the bootstrap draws of every replicon, including earlier ones. A
+change of the block length l' at replicon r changes the draws of r and of later replicons only.
+The triggers are `missing=exclude` (a TU losing every scored gene, since detected genes without an
+abundance are not scored, M5-06 step 1) and the `single_peptide_detected` refit of `p_detect`.
+With `context.islands.block_len` fixed, only T matters. When the draws differ, the set difference
+includes Monte Carlo error (see Interpretation).
 
 ## Interpretation
 
@@ -86,6 +96,14 @@ difference then includes Monte Carlo error.
   identical to the primary's when shifts are exhaustive; above 20,000 genes they can differ only
   through sampled-shift noise. `single_peptide_detected` keeps the observed abundance values and the TU folds of the
   detectability fit.
+
+- Islands (M5-10) are flagged by one genome-wide FWER per direction, not by BH. Their IDs are
+  genes, so one island flipping moves the Jaccard by that island's share of the genes.
+- Islands whose p lies within about ±0.03 of `alpha.context` can flip on Monte Carlo noise alone.
+  In the statistician's probe (identical data, 30 independent streams; PR #184 review), a planted
+  island at 2.2 SD gave Jaccard 0 against stream 0 in 59 % of streams; at 3.0 SD it was always 1.
+  At B = 199 the Monte Carlo SD of p at 0.05 is about 0.015. An island lost under a variant whose
+  primary p ≤ 0.01 is the real signal to inspect. The Jaccard has no confidence interval.
 
 ## Output
 

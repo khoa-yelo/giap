@@ -463,3 +463,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - A NaN `contig` becomes a linear pseudo-replicon "nan"; guard or comment.
 - M8-06 checklist: register `genomic_cluster` and `detection_confounded` in the `enrichment_gsea` schema (§9.4).
 - `test_gsea_table_flags_need_no_rng` uses the fake engine; add a real-engine p-value comparison to pin the RNG stream.
+
+## M5-10 reviews (#184; code approved, statistician BLOCK on the note, B1–B3 fixed in the PR), nits
+- Code: `islands_family` copies `cfg` without re-validation (unlike `with_overrides`); re-validate or comment why it is safe.
+- Tests: an island wrapping the origin of a circular replicon; pin the replicon order of draws (two replicons near threshold); a direct `islands_family` test with `stats.permutations != 199` and an automatic block length (mutants: topology flip, length + 1, reversed replicon order survived; $GIAP_ROOT/review/pr184-mut/).
+- `islands_frame` computes 199-resample CIs the flagged set never uses; skip them if island counts grow.
+- No golden has a non-empty islands set; add one with a planted island once M5 goldens exist.
+- Stats: a Monte Carlo baseline row (the primary rerun on an independent stream) as the reference for variant rows (§8.6 / lead decision).
+- Stats: one random substream per replicon in M5-06, so a T change elsewhere leaves a replicon's draws alone (changes islands.tsv; ADR-0021 note).
+- Stats: `alpha.context` < 1/200 makes every islands set empty and every Jaccard NA; warn or document.
