@@ -212,6 +212,26 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - N bases are not stops (undocumented); the whole-turn error names no frame number;
   - test gaps: the `#` library separator; library-side I/L folding; a non-11 translation table; `frame` across an origin with L % 3 ≠ 0; the window dedupe and sort key; `window_chunks`.
 
+
+## M7-07 review nits (PR #165), for pass 2 (M7-15)
+- **B2:** the − strand no-start 3'-open heuristic in `_span` (`outputs.py`). Add an `open_3p` flag or column after an ADR on the §9.4 vocabulary. Lead decision 4.
+- The translation table is hard-coded to 11 in `outputs.py`, while `reconstruct` uses `cfg.annotation.translation_table`. Assert it, or thread the table through.
+- Flags and `class_fdr` strings copied from `scored` are not checked against the schema vocabulary at write time.
+- `start_best_ostir` means the codon's lowest coordinate in `scored` but the transcription-direction first base in the table. Document this for M7-08.
+- Make `_strand_view`, `_walk_up`, `_stops` and `_il` a public helper in candidates.
+- The sort key uses the transcription-direction `end` rather than the §6.5 highest coordinate, which only matters for strand ties.
+- Rows in `scored` with no matching ORF are silently ignored.
+- The `nterm_extension` patch does not check that the gene's strand matches the ORF's.
+- Surviving mutants (test gaps) — pin each with an explicit example:
+  - the `start_best_ostir`-not-a-start ValueError;
+  - `ostir_missing` on no-start ORFs;
+  - `partial` on 5'-open ORFs;
+  - start and stop codons straddling the origin;
+  - `called` when `scored` is None;
+  - the strand tie-break;
+  - the patch wrap across the origin;
+  - flags carried from `scored`;
+  - `n_peptides` taken from `scored`.
 - M8-01 (pass 2): `wallenius_tails` evaluates scipy's Wallenius pmf over the whole support on every
   call (both tails are direct sums). M8-04 calls it once per category with the same (M, N) and many
   (n, ω), so a per-(M, n, N, ω) cache is useless; if the 3,000-category budget tightens, sum only
