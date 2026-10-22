@@ -3,12 +3,13 @@
 
 Interface pinned here (module ``giap.function.ora``):
 
-- ``tu_universe(genes, folds=None) -> TuUniverse`` and ``tu_members(u, genes) -> frozenset[int]``;
-- ``detection_enrichment(genes, colls, size, alpha, *, folds=None) -> DataFrame`` with the columns
+- ``tu_universe(genes, folds) -> TuUniverse`` and ``tu_members(u, genes) -> frozenset[int]``;
+- ``detection_enrichment(genes, colls, size, alpha, *, folds) -> DataFrame`` with the columns
   of ``ORA_COLUMNS`` in the order of the module constant ``COLUMNS``; ``folds`` is M4-13's
-  ``DetectabilityResult.fold_of_tu``. Without folds the TU recalibration (decision 12) is not run
-  and the raw q is used (run flag ``tu_recal_skipped``), which is how examples 1-10 keep the
-  spec's raw-q numbers; ``test_ora_recalibration.py`` pins the fitted path;
+  ``DetectabilityResult.fold_of_tu``, a required argument (decision 13). With ``folds=None`` the
+  TU recalibration (decision 12) is not run and the raw q is used (run and row flag
+  ``tu_recal_skipped``), which is how examples 1-10 keep the spec's raw-q numbers;
+  ``test_ora_recalibration.py`` pins the fitted path;
 - ``attrs["run_flags"]`` is a list of strings; ``flags`` cells are sequences of strings (the writer
   joins them, as M8-05); every row carries ``ci_unestimated`` (lead decision 6).
 
@@ -27,9 +28,8 @@ Resolutions (the spec leaves them open; reported to the lead):
   and in ``run_flags``.
 - Rows are ordered by collection (contiguous blocks), then term, then direction (over < under);
   the collection order itself is not pinned.
-- ``null_degenerate`` (a q = 1 TU undetected) is no longer reachable from a gene frame: p̂ is
-  clipped and the fitted q is a logistic value with its own complement (decision 12). It is
-  tested on the primitive in M8-04a only.
+- ``null_degenerate`` (a q = 1 TU undetected) is reachable: comp underflows to 0 for a large or
+  heavily clipped undetected TU (#179 review B2, decision 13; test_ora_review_179.py).
 """
 
 from __future__ import annotations
@@ -63,6 +63,7 @@ ALL = (1, 500)
 
 
 def _run(genes: pd.DataFrame, colls: list[Any], size: tuple[int, int] = ALL, **kw: Any) -> Any:
+    kw.setdefault("folds", None)
     return ora().detection_enrichment(genes, colls, size, ALPHA, **kw)
 
 
@@ -78,7 +79,7 @@ def _flags(v: Any) -> list[str]:
 
 
 def test_tu_universe_t6_raw_fields() -> None:
-    u = ora().tu_universe(t6_frame())
+    u = ora().tu_universe(t6_frame(), folds=None)
     assert u.tu_ids == ("TU_1", "TU_2", "TU_3", "TU_4", "TU_5", "TU_6")
     q = [0.95, 0.5, 0.36, 0.5, 1 - 0.7**3, 0.1]
     np.testing.assert_allclose(u.q_raw, q, rtol=1e-14)
@@ -94,7 +95,7 @@ def test_tu_universe_t6_raw_fields() -> None:
 
 
 def test_tu_universe_without_folds_uses_the_raw_q() -> None:
-    u = ora().tu_universe(t6_frame())
+    u = ora().tu_universe(t6_frame(), folds=None)
     np.testing.assert_array_equal(u.q, u.q_raw)
     np.testing.assert_allclose(u.comp, np.exp(u.log_comp), rtol=1e-15)
     assert "tu_recal_skipped" in u.flags
@@ -102,10 +103,10 @@ def test_tu_universe_without_folds_uses_the_raw_q() -> None:
 
 def test_tu_ids_are_natural_sorted_and_row_order_free() -> None:
     g = singletons([0.3] * 12, [0, 4, 10])
-    u = ora().tu_universe(g)
+    u = ora().tu_universe(g, folds=None)
     assert u.tu_ids == tuple(f"TU_{i}" for i in range(1, 13))
     shuffled = g.sample(frac=1.0, random_state=7).reset_index(drop=True)
-    v = ora().tu_universe(shuffled)
+    v = ora().tu_universe(shuffled, folds=None)
     assert v.tu_ids == u.tu_ids
     assert dict(v.gene_tu) == dict(u.gene_tu)
     np.testing.assert_array_equal(v.q, u.q)
@@ -121,7 +122,7 @@ def test_partial_genes_are_not_in_the_universe() -> None:
             "TU_3": [Gene("g4", None, False, p_detect=0.2)],
         }
     )  # fmt: skip
-    u = ora().tu_universe(g)
+    u = ora().tu_universe(g, folds=None)
     assert u.tu_ids == ("TU_1", "TU_3")  # TU_2 has no eligible gene
     assert "g2" not in u.gene_tu and "g3" not in u.gene_tu
     np.testing.assert_allclose(u.q_raw, [0.5, 0.2], rtol=1e-15)
@@ -131,7 +132,7 @@ def test_nan_p_detect_on_an_eligible_gene_fails_closed() -> None:
     g = t6_frame()
     g.loc[g["locus_tag"] == "g5", "p_detect"] = math.nan
     with pytest.raises(ValueError, match="g5"):
-        ora().tu_universe(g)
+        ora().tu_universe(g, folds=None)
     with pytest.raises(ValueError, match="g5"):
         _run(g, [kegg({"x": {"g1", "g4", "g7"}})])
 
@@ -141,28 +142,28 @@ def test_missing_tu_id_fails_closed() -> None:
     g["tu_id"] = g["tu_id"].astype(object)
     g.loc[g["locus_tag"] == "g8", "tu_id"] = None
     with pytest.raises(ValueError, match="g8"):
-        ora().tu_universe(g)
+        ora().tu_universe(g, folds=None)
 
 
 # ------------------------------------------------------------------------------ tu_members
 
 
 def test_tu_members_any_eligible_gene() -> None:
-    u = ora().tu_universe(t6_frame())
+    u = ora().tu_universe(t6_frame(), folds=None)
     assert ora().tu_members(u, frozenset({"g1", "g4", "g7"})) == frozenset({0, 2, 4})
     assert ora().tu_members(u, frozenset({"g8", "g9"})) == frozenset({4})
     assert ora().tu_members(u, frozenset()) == frozenset()
 
 
 def test_tu_members_ignores_genes_outside_the_universe() -> None:
-    u = ora().tu_universe(t6_frame())
+    u = ora().tu_universe(t6_frame(), folds=None)
     assert ora().tu_members(u, frozenset({"g3", "nope"})) == frozenset({1})
 
 
 def test_tu_members_does_not_depend_on_detection() -> None:
     """Q1 / lead decision 1: membership over eligible genes, never over detected ones."""
-    u0 = ora().tu_universe(t6_frame(detected=[]))
-    u1 = ora().tu_universe(t6_frame())
+    u0 = ora().tu_universe(t6_frame(detected=[]), folds=None)
+    u1 = ora().tu_universe(t6_frame(), folds=None)
     s = frozenset({"g1", "g3", "g5", "g8"})
     assert ora().tu_members(u0, s) == ora().tu_members(u1, s) == frozenset({0, 1, 2, 4})
 
@@ -513,7 +514,7 @@ def test_p_detect_of_exactly_0_or_1_is_clipped_and_flagged(gene: str, p: float, 
         assert "p_detect_clipped" not in _flags(other["flags"])
         assert math.isfinite(has["p_value"]) and math.isfinite(other["p_value"])
         assert "null_degenerate" not in _flags(has["flags"])
-    u = ora().tu_universe(g)
+    u = ora().tu_universe(g, folds=None)
     i = u.gene_tu[gene]
     assert u.clipped[i] and int(u.clipped.sum()) == 1
     pc = min(max(p, 1e-12), 1 - 1e-12)

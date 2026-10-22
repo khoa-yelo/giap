@@ -15,8 +15,9 @@ TU sets; BH runs per (collection, direction). ``p_classic`` is the gene-level Wa
 from __future__ import annotations
 
 import math
+import warnings
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import numpy as np
@@ -46,8 +47,12 @@ DIRECTIONS = ("over", "under")
 METHOD = "cpb_tu_ora"
 NULL_MODEL = "conditional_poisson_binomial_tu"
 #: Flags every row carries while a decision-12 attack arm fails after recalibration (ADR-0034
-#: pattern); () while arms 4b and 4c are at level. Set to ("ora_uncalibrated",) otherwise.
-CALIBRATION_FLAGS: tuple[str, ...] = ()
+#: pattern). On since decision 13: arm 4b (c = 2.5, large, under) and 4d-4f fail at R = 1000;
+#: lifted only on a pass of 4b-4f at R = 1000 in both blocks.
+CALIBRATION_FLAGS: tuple[str, ...] = ("ora_uncalibrated",)
+MAX_NEWTON = 50  # Newton iterations of the recalibration fit
+NEWTON_TOL = 1e-10  # converged once max |step| is below it
+MAX_HALVINGS = 60  # step halvings per iteration before the fit is declared stalled
 COLUMNS = (
     "collection",
     "term",
@@ -106,7 +111,8 @@ def eligible_genes(genes: pd.DataFrame) -> pd.DataFrame:
     """Non-partial genes sorted by (TU, locus tag) in natural order; fail closed (spec §2).
 
     Raises:
-        ValueError: naming the eligible genes with a NaN ``p_detect`` or without a ``tu_id``.
+        ValueError: naming the eligible genes with a NaN ``p_detect``, a ``p_detect`` outside
+            [0, 1] (decision 13; exact 0 and 1 are clipped later) or no ``tu_id``.
     """
     keep = np.ones(len(genes), dtype=bool)
     if "partial" in genes:
@@ -114,10 +120,12 @@ def eligible_genes(genes: pd.DataFrame) -> pd.DataFrame:
     el = genes[keep]
     tags = el["locus_tag"].astype(str)
     p = pd.to_numeric(el["p_detect"], errors="coerce").to_numpy(float)
-    no_p = sorted(tags[~np.isfinite(p)])
+    finite = np.isfinite(p)
+    no_p = sorted(tags[~finite])
+    out_p = sorted(tags[finite & ((p < 0.0) | (p > 1.0))])
     no_tu = sorted(t for t, v in zip(tags, el["tu_id"], strict=True) if _missing_tu(v))
-    problems = [f"{what}: {', '.join(bad)}"
-                for what, bad in (("NaN p_detect", no_p), ("no tu_id", no_tu)) if bad]  # fmt: skip
+    checks = (("NaN p_detect", no_p), ("p_detect outside [0, 1]", out_p), ("no tu_id", no_tu))
+    problems = [f"{what}: {', '.join(bad)}" for what, bad in checks if bad]
     if problems:
         raise ValueError(f"eligible genes with {'; '.join(problems)}")
     key = [(_natural_key(str(t)), _natural_key(g)) for t, g in zip(el["tu_id"], tags, strict=True)]
@@ -125,21 +133,38 @@ def eligible_genes(genes: pd.DataFrame) -> pd.DataFrame:
     return el.iloc[order].reset_index(drop=True)
 
 
+def _loglik(x: F64, y: F64, beta: F64) -> float:
+    eta = x @ beta
+    return float(np.sum(y * eta - np.logaddexp(0.0, eta)))
+
+
 def _logistic_mle(x: F64, y: F64) -> F64 | None:
-    """Unpenalised logistic MLE by Newton from the identity on logit q; None if not converged."""
+    """Unpenalised logistic MLE by Newton from the identity on logit q, each step halved until
+    the log-likelihood does not decrease (decision 13); converged once the full Newton step is
+    below ``NEWTON_TOL``. None on a singular Hessian, a non-finite step, a line search that
+    finds no increase in ``MAX_HALVINGS`` halvings or no convergence in ``MAX_NEWTON`` steps."""
     beta = np.zeros(x.shape[1])
     beta[1] = 1.0
-    for _ in range(50):
+    ll = _loglik(x, y, beta)
+    for _ in range(MAX_NEWTON):
         mu = expit(x @ beta)
         try:
             step = np.linalg.solve(x.T @ (x * (mu * (1.0 - mu))[:, None]), x.T @ (y - mu))
         except np.linalg.LinAlgError:
             return None
-        beta = beta + step
-        if not np.all(np.isfinite(beta)):
+        if not np.all(np.isfinite(step)):
             return None
-        if np.max(np.abs(step)) < 1e-10:
-            return beta
+        if np.max(np.abs(step)) < NEWTON_TOL:  # the full step, so halving cannot fake it
+            return beta + step
+        for _ in range(MAX_HALVINGS):
+            new = beta + step
+            ll_new = _loglik(x, y, new)
+            if ll_new >= ll:  # near the optimum a step can tie on float noise
+                break
+            step = 0.5 * step
+        else:
+            return None
+        beta, ll = new, ll_new
     return None
 
 
@@ -166,11 +191,12 @@ def _recalibrate(logit_raw: F64, n_genes: I64, detected: B8, fold: I64) -> tuple
     return expit(eta), expit(-eta)
 
 
-def tu_universe(genes: pd.DataFrame, folds: Mapping[str, int] | None = None) -> TuUniverse:
+def tu_universe(genes: pd.DataFrame, folds: Mapping[str, int] | None) -> TuUniverse:
     """The TU units, raw and recalibrated q (decision 12); ``folds`` is M4-13's ``fold_of_tu``.
 
-    Without folds (None or empty) q is ``q_raw`` and ``flags`` holds ``tu_recal_skipped``, as
-    when the universe is too small to fit.
+    ``folds`` has no default (decision 13): None (or empty) is the caller's explicit choice to
+    skip the fit. Skipped, q is ``q_raw`` and ``flags`` holds ``tu_recal_skipped``, as when a
+    fold is short of a class or the fit fails.
 
     Raises:
         ValueError: as ``eligible_genes``; naming the TUs missing from a non-empty ``folds``.
@@ -225,6 +251,10 @@ def tu_members(u: TuUniverse, genes: frozenset[str]) -> frozenset[int]:
     return frozenset(u.gene_tu[g] for g in genes if g in u.gene_tu)
 
 
+def _unit(p: float) -> float:
+    return min(max(p, 0.0), 1.0)
+
+
 class _Null:
     """The conditional law of a TU set's detected count given N, on the run's tilted (q, comp)."""
 
@@ -244,7 +274,8 @@ class _Null:
         return int(self.detected[sorted(tus)].sum())
 
     def tails(self, tus: frozenset[int]) -> CpbTails | None:
-        """None when not a test: an empty set, the whole universe or a degenerate run."""
+        """None when not a test: an empty set, the whole universe or a degenerate run. Both tails
+        are clamped to [0, 1] here too, so BH never sees 1 + ulp (decision 13)."""
         if tus not in self._memo:
             law = None
             if tus and len(tus) < self.q.size and not self.degenerate:
@@ -254,6 +285,7 @@ class _Null:
                     self.q[m], self.q[~m], self.k(tus), self.n,
                     comp_in=self.comp[m], comp_out=self.comp[~m],
                 )  # fmt: skip
+                law = replace(law, p_over=_unit(law.p_over), p_under=_unit(law.p_under))
             self._memo[tus] = law
         return self._memo[tus]
 
@@ -346,6 +378,8 @@ def _collection_rows(
                 flags.append("null_degenerate")
             if u.clipped[sorted(full)].any():
                 flags.append("p_detect_clipped")
+            if "tu_recal_skipped" in u.flags:
+                flags.append("tu_recal_skipped")
             rows.append(
                 {
                     "collection": coll.collection,
@@ -401,17 +435,26 @@ def detection_enrichment(
     size: tuple[int, int],
     alpha: float,
     *,
-    folds: Mapping[str, int] | None = None,
+    folds: Mapping[str, int] | None,
 ) -> pd.DataFrame:
     """The enrichment_detection rows of every collection (§9.3, spec M8-04 §4), sorted by
     collection, term and direction; run flags in ``attrs["run_flags"]``. Terms whose full TU set
-    lies outside ``size`` write no row and do not enter elim.
+    lies outside ``size`` write no row and do not enter elim. ``folds`` is required (decision
+    13); None skips the recalibration and every row gets ``tu_recal_skipped``. A degenerate run
+    (the observation has probability 0 under q) emits one ``UserWarning``.
 
     Raises:
         ValueError: as ``tu_universe``.
     """
     u = tu_universe(genes, folds)
     null = _Null(u)
+    if null.degenerate:
+        warnings.warn(
+            "detection ORA: the observed detection has probability 0 under the TU null "
+            "(an undetected TU with q = 1); every row is NA with null_degenerate",
+            UserWarning,
+            stacklevel=2,
+        )
     el = eligible_genes(genes)
     rows: list[dict[str, Any]] = []
     for coll in colls:
