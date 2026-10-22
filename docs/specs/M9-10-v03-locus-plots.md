@@ -111,3 +111,10 @@ for islands "ISL_3 (low): mean log2 `<m>`, FWER p `<p>`"; operon flags "`<flag>`
 3. Ordering across kinds mixes q-values, FWER p-values and (none here) class FDRs. **Proposed
    default:** a single list by the estimate itself, as §10.2's "ordered by q" implies; the index
    TSV records which estimate each row used (`kind`).
+
+## Lead decisions (2026-10-22)
+1. Novel ORFs are excluded from the V3 pool; V13(b) renders them (index decision 18).
+2. Window flank is 2 kb (index decision 20), a module constant.
+3. One list ordered by each row's own estimate (q or FWER p), ascending, ties broken by the
+   index TSV's stable order (kind, then id); the index TSV's `kind` column records which estimate each
+   row used.
