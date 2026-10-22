@@ -101,3 +101,18 @@ not wrap.
 ## Lead decisions (2026-10-22)
 1. GC-skew window 10 kb (the V1 peptide-density bin), a module constant, not a config key.
 2. `giap report` never recomputes GC skew; with no support file the GC-skew track takes its empty state.
+
+## Lead decisions on the tests (2026-10-22, after 182395d)
+3. **Coordinates.** Support tables are published tables, not internal frames. `replicon_landmarks` and
+   `gc_skew` build the table as written: 1-based oriC/terminus positions and 1-based closed window
+   `start`/`end`. The computation inside works in 0-based half-open coordinates, and the conversion
+   happens once, where the published frame is built. `write_support` converts nothing.
+4. **Rounding.** A non-integer oriC midpoint uses the same rule as
+   `giap.context.oriter.oric_position`, so V1/V2 marks and the islands' replichore assignment agree.
+5. **Cumulative skew over NA.** An NA window adds 0, so the cumulative value carries over it; a first
+   window that is NA has cumulative skew 0, and its `skew` stays NA.
+6. **Size threshold.** 1 MB means 2^20 bytes of uncompressed TSV.
+7. **Replicons.** Every replicon gets GC-skew windows, linear ones included, in replicon (FASTA) order.
+8. **Step inputs.** Both tables need `replicons`; a missing `features` input means no oriC calls
+   (`no_oric` on circular replicons). The datapackage `schema` is `plot_support/<name>.json`, relative
+   to `src/giap/schemas`.
