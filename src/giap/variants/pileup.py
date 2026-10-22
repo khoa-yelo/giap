@@ -7,10 +7,11 @@ REF (``match``), IL (``il``, or a substitution between I and L), or one ALT key 
 residue, ``J`` for I or L; or the ``ref>alt`` token of a swap or block at its first codon only).
 
 :func:`pileup` returns one row per covered codon in §6.5 order with the §9.3 columns, followed by
-the internal column ``_alts`` (one ``(token, alt_type, alt_aa, n, source, ref_codon)`` tuple per
-ALT key) that :func:`sites` reads; writers select the §9.3 columns by name. Frameshift events
-are never pileup rows: they travel in ``attrs["frameshifts"]`` (named tuples), with the contig
-order in ``attrs["contig_order"]``.
+the internal column ``_alts`` (one ``(token, alt_type, alt_aa, n, source, ref_codon, peptides)``
+tuple per ALT key) that :func:`sites` reads; writers select the §9.3 columns by name.
+Frameshift events are never pileup rows: they travel in ``attrs["frameshifts"]`` (named tuples),
+with the contig order in ``attrs["contig_order"]``. :func:`sites` puts the supporting peptides
+of each row (a frozenset, aligned with the rows) in ``attrs["alt_peptides"]`` for M7-05 flags.
 
 ``ref_codon`` (M7-03) is the gene-strand bases of every codon the REF allele spans: 3 nt for a
 substitution or a one-codon block, 6 nt for a swap or a two-codon block (first codon in peptide
@@ -81,6 +82,7 @@ class _Site(NamedTuple):
     n_ref: int
     n_alt: int
     source: str
+    peptides: frozenset[str] = frozenset()  # the ALT's supporting peptides (attrs only)
 
 
 @dataclass(frozen=True, slots=True)
@@ -243,7 +245,8 @@ def pileup(
             "alt_counts": ";".join(f"{k[0]}:{counts[k]}" for k in ranked) or None,
             "call": _call(n_ref, len(alts)),
             "_alts": tuple((*k, counts[k], _sources(alts[k], support),
-                            _ref_nt(genome[key[0]], reps[key[0]], key, k[0])) for k in ranked),
+                            _ref_nt(genome[key[0]], reps[key[0]], key, k[0]), frozenset(alts[k]))
+                           for k in ranked),
         })  # fmt: skip
     fs: list[_Site] = []
     for (key, shift), ps in sorted(events.items(), key=lambda e: (sort_key(e[0][0]), e[0][1])):
@@ -253,7 +256,8 @@ def pileup(
         n_ref = len((cover.get(key, set()) & cover.get(nxt, set())) - alt_f)
         gene, aa_pos, ref_codon, ref_aa = _locate(key, gm, genome)
         fs.append(_Site(contig, codon, strand, gene, aa_pos, ref_codon, ref_aa, f"fs{shift:+d}",
-                        "frameshift", n_ref, len(alt_f), _sources(ps, support)))  # fmt: skip
+                        "frameshift", n_ref, len(alt_f), _sources(ps, support),
+                        frozenset(ps)))  # fmt: skip
     pile = _frame(rows, [*PILEUP_COLUMNS, *_INTERNAL])
     pile.attrs["frameshifts"] = tuple(fs)
     pile.attrs["contig_order"] = tuple(reps)
@@ -286,10 +290,10 @@ def sites(pile: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
             continue
         gene = None if pd.isna(r["gene"]) else str(r["gene"])
         aa_pos = None if pd.isna(r["aa_pos"]) else int(r["aa_pos"])
-        for _tok, kind, alt, n, src, ref_nt in r["_alts"]:
+        for _tok, kind, alt, n, src, ref_nt, peps in r["_alts"]:
             recs.append(_Site(str(r["contig"]), int(r["codon_start"]), str(r["strand"]), gene,
                               aa_pos, ref_nt, str(r["ref_aa"]), alt, kind,
-                              int(r["n_ref"]), n, src))  # fmt: skip
+                              int(r["n_ref"]), n, src, peps))  # fmt: skip
     order = {c: i for i, c in enumerate(pile.attrs["contig_order"])}
     for c in pile["contig"]:
         order.setdefault(c, len(order))
@@ -300,4 +304,6 @@ def sites(pile: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
          "confidence": "high" if x.n_alt >= k else "candidate"}
         for i, x in enumerate(recs, 1)
     ]  # fmt: skip
-    return _frame(rows, SITE_COLUMNS)
+    out = _frame(rows, SITE_COLUMNS)
+    out.attrs["alt_peptides"] = tuple(x.peptides for x in recs)
+    return out
