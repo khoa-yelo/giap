@@ -233,6 +233,17 @@ The fix is in the implementation and the tests, which are not mine to edit:
 
 If the lead reads spec item 2 as binding, this needs a Khoa ADR. Until one exists, it stays blocking.
 
+**B1 re-check (bac9046, Slurm 1865546, R = 60).** B1 is fixed and the block is lifted. The
+selection arm against bac9046 reproduces the "training = X ≥ 1" rows to every printed digit:
+
+| π₁ | β_a | CITL vs X ≥ 1 | level at α = 0.05 (event: u not called) | level at α = 0.10 |
+|---|---|---|---|---|
+| 0.5 | 0.503 | +0.011 | 0.014 | 0.033 |
+| 0.2 | 0.503 | +0.011 | 0.023 | 0.050 |
+
+The two fits, with `detected` as called and with `detected` = X ≥ 1, are identical in both arms.
+N1 (now spec decision 9) stands for M6-05H.
+
 ### Non-blocking
 
 - **N1: the event P(miss) models.** Even with B1 fixed, P_det models X_obs ≥ k_min, not `detected`.
