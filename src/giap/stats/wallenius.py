@@ -19,6 +19,10 @@ from numpy.typing import ArrayLike
 from scipy.stats import hypergeom, nchypergeom_wallenius
 
 NAN = float("nan")
+#: odds where scipy's Wallenius pmf is finite and sums to 1 (measured on scipy 1.18.1, #153 review);
+#: outside it the pmf turns NaN and, at ~1e±300, scipy's C++ aborts the process
+ODDS_RANGE = (1e-6, 1e6)
+_PMF_SUM_TOL = 1e-6
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,11 +72,20 @@ def wallenius_tails(k: int, M: int, n: int, N: int, odds: float) -> tuple[float,
         return 1.0, 1.0
     if odds == 0.0:  # X = lo almost surely
         return (1.0 if k == lo else 0.0), 1.0
+    if not ODDS_RANGE[0] <= odds <= ODDS_RANGE[1]:
+        raise ValueError(
+            f"odds={odds!r} is outside {ODDS_RANGE} where the Wallenius pmf is reliable "
+            f"(M={M}, n={n}, N={N})"
+        )
     xs = np.arange(lo, hi + 1)
     if odds == 1.0:
         pmf = np.asarray(hypergeom.pmf(xs, M, n, N), dtype=np.float64)
     else:
         pmf = np.asarray(nchypergeom_wallenius.pmf(xs, M, n, N, odds), dtype=np.float64)
+    if not np.isfinite(pmf).all() or abs(math.fsum(pmf.tolist()) - 1.0) > _PMF_SUM_TOL:
+        raise ValueError(
+            f"Wallenius pmf is not a distribution at M={M}, n={n}, N={N}, odds={odds!r}"
+        )
     j = k - lo
     return _tail_sum(pmf[j:]), _tail_sum(pmf[: j + 1])
 

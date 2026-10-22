@@ -136,3 +136,6 @@ def elim(term_genes: Mapping[str, frozenset[int]], parents: Mapping[str, frozens
    - Inputs are validated with `ValueError`; cycles are detected before any test runs.
 2. **Pass 1 uses scipy's Wallenius pmf, summed directly.** The far-tail inaccuracy of Fog's pmf (relative errors of 3e-5 to 7e-5 at p ≈ 1e-11) is pinned as non-strict `xfail`. A log-space or exact pmf is pass-2 work, settled against the golden data in M8-13, with an ADR if needed.
 3. The benchmark (3,000 × `wallenius_tails` at M = 4,500, under 5 s) and its `baseline.json` entry belong to the implementer. The methods note belongs to the statistician, after the implementation.
+4. **Extreme odds fail closed (#153 review B1).** scipy's pmf turns NaN outside odds ∈ [1e-6, 1e6], and at about 1e±300 its C++ aborts the process. So `wallenius_tails` raises `ValueError` outside `ODDS_RANGE`, and also on any pmf that is non-finite or does not sum to 1.
+   - M8-04 catches the error and reports that category `unestimated` (flag `odds_out_of_range`).
+   - An exact or limiting-form pmf for extreme odds is pass-2 work (M8-13), together with the far-tail precision ADR.

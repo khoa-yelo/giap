@@ -168,3 +168,9 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   (NaN, NaN) without calling the test for a term with an empty gene set; neither is pinned by a
   test yet (test-author). `wallenius_tails` raises on NaN/negative odds and on n or N outside
   [0, M]; also unpinned.
+- M8-01 review of #153 (non-blocking):
+  - pin the untested fail-closed contracts: `wallenius_tails` NaN/inf/negative odds and n/N outside [0, M]; `elim` unknown parent/key; an empty gene set gives (NaN, NaN) without a test call;
+  - `category_odds`: test the finite-p filter and the shape check; range-check p_detect ∈ [0, 1];
+  - test ω = 0 with lo > 0, and N < n with k in (N, n];
+  - non-integer k raises a TypeError deep in the slice; validate it;
+  - M8-04: catch `ValueError` from extreme odds and report the category `unestimated` (`odds_out_of_range`); M8-13: exact pmf for extreme odds.
