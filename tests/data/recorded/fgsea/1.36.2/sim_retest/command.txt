@@ -1,0 +1,1 @@
+giap_fgsea.R --stats stats.tsv --sets sets.tsv --jobs jobs.tsv --sample-size 101 --eps 0.0 --n-perm-simple 200 --seed 526337168 --out results.tsv --versions versions.txt
