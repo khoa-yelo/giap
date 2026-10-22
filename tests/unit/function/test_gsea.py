@@ -556,9 +556,9 @@ def fake(monkeypatch: pytest.MonkeyPatch) -> Callable[..., FakeEngine]:
     def install(p_by_size: Mapping[int, float], **kw: Any) -> FakeEngine:
         import giap.stats.fgsea as fg
 
+        mod = _g()  # import gsea before patching fg, or its import binds the fake
         eng = FakeEngine(p_by_size, **kw)
         monkeypatch.setattr(fg, "fgsea_simple", eng)
-        mod = _g()
         if hasattr(mod, "fgsea_simple"):
             monkeypatch.setattr(mod, "fgsea_simple", eng)
         return eng
