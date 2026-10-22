@@ -222,6 +222,8 @@ def write_vcf(
         raise ValueError(f"genome_sha256 must be 64 lowercase hex digits, got {genome_sha256!r}")
     if not sample or _check_text("sample name", sample) != sample.strip():
         raise ValueError(f"invalid VCF sample name {sample!r}")
+    if sample == "auto":
+        raise ValueError("VCF sample name 'auto' must be resolved by giap run first")
     _check_text("giap_version", giap_version)
     for r in replicons:
         if not _SAFE_ID.fullmatch(r.id):

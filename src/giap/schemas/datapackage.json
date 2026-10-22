@@ -1,0 +1,10 @@
+{
+  "name": "giap-run",
+  "title": "GIAP run outputs",
+  "description": "Frictionless Data Package of GIAP's tables; each resource names its schema (GIAP_SPEC.md §9.5).",
+  "profile": "tabular-data-package",
+  "resources": [
+    {"name": "pileup", "path": "tables/pileup.tsv.gz", "format": "tsv", "compression": "gz", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "tables/pileup.schema.json"},
+    {"name": "variants", "path": "tables/variants.tsv", "format": "tsv", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "tables/variants.schema.json"}
+  ]
+}
