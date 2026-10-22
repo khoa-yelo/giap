@@ -390,14 +390,15 @@ def _local_roots(
 
     A preflight error (e.g. no evidence) exits with the preflight exit code; a GFF3/GenBank
     ``--annotation`` without ``annotation.precomputed.bakta_json`` exits 1 naming the key. The
-    contaminant library (M3-15) and the COG 2020 table (M4-15) come from ``--db-dir`` /
-    ``$GIAP_DB_DIR``; preflight's ``abundance`` and ``preflight.json`` are staged when written.
+    contaminant library (M3-15), the COG 2020 table (M4-15) and, with the ``function`` module,
+    its installed resources (M8-06) come from ``--db-dir`` / ``$GIAP_DB_DIR``; preflight's
+    ``abundance`` and ``preflight.json`` are staged when written.
     """
     import os
 
     from giap.preflight.run import PreflightInputs, exit_code, run_preflight, write_outputs
     from giap.runner.local import contaminant_library
-    from giap.setupdb.installed import cog_table
+    from giap.setupdb.installed import FUNCTION_RESOURCES, cog_table, resource
 
     inp = PreflightInputs(
         genome,
@@ -438,6 +439,11 @@ def _local_roots(
     cog = cog_table(db_path)  # M4-15 decision 15: cog_category under the local executor too
     if cog is not None:
         roots["cog2020_def"] = cog
+    if "function" in cfg.modules:  # M8-06 item 7: only an installed resource, only when switched on
+        for name in FUNCTION_RESOURCES:
+            path = resource(db_path, name)
+            if path is not None:
+                roots[name] = path
     produced = {"abundance": work / "abundance.norm.parquet",
                 "preflight": outdir / "preflight" / "preflight.json"}  # fmt: skip
     roots |= {k: p for k, p in produced.items() if p.is_file()}
