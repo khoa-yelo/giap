@@ -120,6 +120,17 @@ def test_scores_are_centred_tu_means(world: Any, seed: int) -> None:
     assert float(np.median(np.asarray(rank.scores, dtype=float))) == pytest.approx(0.0, abs=1e-9)
 
 
+# M8-05b (decision 9): genomic_cluster depends on TU genome order and detection_confounded on
+# undetected members, so the two invariance properties below compare everything else.
+_POSITION_FLAGS = {"genomic_cluster", "detection_confounded"}
+
+
+def _without_position_flags(df: pd.DataFrame) -> pd.DataFrame:
+    """``_canon`` output with the two flags dropped from each ``flags`` tuple."""
+    drop = _POSITION_FLAGS
+    return df.assign(flags=df["flags"].map(lambda v: tuple(f for f in v if f not in drop)))
+
+
 @SETTINGS
 @given(worlds(ties=False), st.integers(0, 2**31 - 1))
 def test_relabelling_tus_changes_nothing(world: Any, perm_seed: int) -> None:
@@ -130,7 +141,7 @@ def test_relabelling_tus_changes_nothing(world: Any, perm_seed: int) -> None:
     rename = {t: f"TU_{int(j) + 1}" for t, j in zip(ids, new, strict=True)}
     renamed = genes.assign(tu_id=genes["tu_id"].map(rename))
     a, b = _canon(_run(genes, _colls(sets))), _canon(_run(renamed, _colls(sets)))
-    pd.testing.assert_frame_equal(a, b)
+    pd.testing.assert_frame_equal(_without_position_flags(a), _without_position_flags(b))
 
 
 @SETTINGS
@@ -143,7 +154,7 @@ def test_adding_an_undetected_gene_to_a_set_changes_nothing(world: Any, which: i
     key = sorted(sets)[which % len(sets)]
     bigger = {k: (v | {"u_new"} if k == key else v) for k, v in sets.items()}
     a, b = _canon(_run(genes, _colls(sets))), _canon(_run(more, _colls(bigger)))
-    pd.testing.assert_frame_equal(a, b)
+    pd.testing.assert_frame_equal(_without_position_flags(a), _without_position_flags(b))
 
 
 @SETTINGS
