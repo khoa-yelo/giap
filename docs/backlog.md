@@ -202,3 +202,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   from the evaluation points; `_bins` silently truncates float bins; `bin_index` accepts NaN edges;
   the +inf distance in the `bin_index` docstring.
 - M6-04 polish (non-behavioural): `promoter_between_tracks` exposes the private `_Track` alias in its signature (make a public `PromoterTrack` type); pin `pair_frame` dtypes (`detected_*` bool, `flags` list) through a pairs.tsv schema when M6-08 writes the table; consider one shared index object for the M2 `*_between` helpers so M6-07 reuses it.
+- M8-07 dedupe: `giap.determinants.features._eligible` is a local copy of the §7.3 regions-table rule
+  (`regions_table._eligible`); switch it to `giap.genetable.eligible` once M8-03 (#159) merges
+  (lead decision 2 of docs/specs/M8-07-determinants-features.md).
