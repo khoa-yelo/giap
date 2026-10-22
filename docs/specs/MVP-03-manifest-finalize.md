@@ -335,3 +335,14 @@ merged.
 4. Should `finalize` also fold in the §9.3 `genes.tsv` columns of later modules (variants, novel
    ORFs, function) as optional inputs? **Proposed default:** yes, each producing issue adds its own
    optional input to `finalize`; MVP-03b wires only `gene_context`.
+
+## Lead decisions (2026-10-22)
+
+- Decisions 1–14: accepted as proposed. The split is 03a (manifest), then 03b (finalize) and
+  03c (content blocks) in parallel.
+- Decisions 2 and 3 (the manifest runs after the graph; finalize is split between graph and tail)
+  are recorded in a lead-level ADR written in 03a.
+- The four spec-gap questions take their proposed defaults.
+- Needs Khoa: the run-scope tokens `input_prefiltered`, `cai_reference_missing`,
+  `no_detection_limit_model` and `uncalibrated:<key>` (one ADR). They stay in `RUN_FLAGS_PENDING`
+  until Khoa answers; nothing is blocked.
