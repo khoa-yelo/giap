@@ -123,3 +123,38 @@ def run_variants(peptide_hits: pd.DataFrame, hits_tolerant: pd.DataFrame | None,
    MAPPING's existing condition (`if (inputs.peptides)`); protein-only runs carry no residue-level
    evidence, so Module 5 has nothing to report and writes nothing.
 3. `hits_tolerant` as a step input (M7-01 Q3) — confirm. **Proposed default:** yes, optional.
+
+## Lead decisions
+
+1. **Questions 1–3:** the proposed defaults are accepted.
+   - `sample_name: auto` is resolved in `giap run` before any step runs. `write_vcf` rejects `auto`, as M7-03 decision 3 has it.
+   - VARIANTS follows MAPPING's `if (inputs.peptides)` condition.
+   - `hits_tolerant` is an optional step input.
+2. **From M7-03 (#160):**
+   - the pileup is passed in memory within the step, as a DataFrame with its `attrs`;
+   - the step calls `eligible` before `pileup` (M7-02 review);
+   - the run copies `schemas/datapackage.json` so that its `tables/...` paths resolve against the run root.
+3. **Parity:** add the published names to `giap.runner.local.PUBLISHED_FILES`, so that they equal the Nextflow `'key=path'` names (`tests/unit/test_local_publish_names.py`).
+4. **The test author's choices** (commit 1d51456) are accepted as the contract.
+   - **`resolve_sample_name`** lives in `giap.config`. It is pure, and it applies the VCF-safe mapping to explicit names too.
+   - **`Support`** is built from the C11 `source`/`placement_q`/`uniqueness` plus C9 `search_db`.
+   - **The VCF header** carries `giap.__version__`, contigs in replicon order, and `##reference=` set to the SHA-256 of the genome input.
+   - **The `variants.summary` event** has the keys `aligned_hits`, `covered_codons`, `sites_by_call` and `sites_by_confidence`.
+   - **Without `hits_tolerant`:** frameshift rows are dropped and a WARNING says `layer_missing:hits_tolerant`.
+   - **The stub** must write a real gzip pileup and a full header-only VCF. Extending the GIAP_STEP stub mechanism for this is in scope.
+   - **The datapackage** goes to `OUT/schemas/datapackage.json`, with paths resolving under `OUT`. This settles the M7-03 review's N2.
+   - The branch has origin/m7/tables (including the datapackage fix) and origin/main merged in (d713b6d).
+5. **After the implementer (ce5225a):**
+   - **"NA" as a residue:** a real two-residue block Asn-Ala gives `alt_aa` = "NA", which collides with the ADR-0006 missing token. `ref_aa`/`alt_aa` are required, so their schema fields carry `missingValues: []` and `read_variants` keeps the text "NA" in them (a lead fix with a test). Other tables with residue strings must do the same.
+   - MVP-02's pinned process list gains `VARIANTS_STEP`.
+   - The implementer's choices 1–8 are accepted.
+   - **Owed:**
+     - the run-manifest entries (no manifest writer exists yet);
+     - the real `giap_run.sbatch` run on sim100k;
+     - the step benchmark;
+     - strict frictionless resolution of `OUT/schemas/datapackage.json` (the paths are relative to `OUT`, not to `schemas/`).
+
+6. **After the code review (PR #164):**
+   - **B1, fixed by the lead.** C9 keeps the literal `search_db: auto`; only placement resolved it, and only in memory. The variants step read `auto` as `same`, so database peptides searched against another strain's proteins gave false ALT sites under `genome_relation: same`.
+   - `support_of(peptide_hits, peptides, database_ids)` now resolves `auto`, or a missing value, table-wide with `resolve_search_db` against the gene model's locus tags, the same way placement does.
+   - The other review findings go to docs/backlog.md.
