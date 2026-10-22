@@ -606,6 +606,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - `giap_fgsea.R`: an empty input file exits 1, not 3.
 - `FgseaEngineError` imitates a `StepError` and is then wrapped in a second one by `run_step`.
 - Surviving mutants: duplicate leading-edge check, size-range check, trailing-newline check, `R_HOME` filter, `set(edge) <= ranked` check.
+## M9-06 review nits (#202; one round, B1 fixed in the PR)
+- V7 title: when no row has an estimated CI, say "O − E CI unestimated in every group" (not the vacuous "matches … with a CI"); basic-only title uses `%.1f` (→ "-0.0"), switch to `%.2g` and prefix the block ("COG J:").
+- Dead E = 0 branches (`detection.py` o/e helpers); `_pct` duplicates `base.title_pct` (widen it to floats); share the `flags` parsing.
+- Region rows with NA O − E show only "CI unestimated": add "O − E NA" to the label.
+- `ci_few_units` rows are drawn as ordinary CIs and can headline the title; `small_region` rows can headline too — lead reading needed in hardening.
+- Figure height grows 0.17 in per row uncapped (26 COG + ~100 regions > 20 in): cap or hand to M9-26.
+- V8 "none" grey equals the "poorly" super-category grey (two identical legend patches): hatch "none" or merge the entries.
+- V8 strips lack the median tick the violins have; title wording at `detection.py:328/331`.
 - M9-05 V6: a run with targets under both `reverse` and `shuffle` decoy types (database + de novo placements) — split or overlay the strata (lead decision 3, 2026-10-22).
 - M9-05 review nits (#198):
   - **Labels:** N4, the "rejected by FDR" label is pushed beside the placed bar with no leader line, and the (b) "0" label sits on the α line.
