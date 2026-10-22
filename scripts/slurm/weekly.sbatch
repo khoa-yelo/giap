@@ -58,11 +58,12 @@ report() {  # report <exit> <summary>: this task's one weekly.tsv line
 }
 on_exit() {
   local r=$?
+  [ "$BASHPID" = "$$" ] || return 0   # a forked child hit by the group SIGTERM before its exec: not this task's exit
   [ -n "$reported" ] || report "$(( r ? r : 1 ))" "$summary ended during $stage (exit $r)"
   [ -z "$numba_tmp" ] || rm -rf "$numba_tmp"   # only this task's cache, never the shared one
 }
 trap on_exit EXIT
-trap '[ -n "$reported" ] || report 143 "$summary killed by SIGTERM (time limit?) during $stage"; exit 143' TERM
+trap '[ "$BASHPID" = "$$" ] || exit 143; [ -n "$reported" ] || report 143 "$summary killed by SIGTERM (time limit?) during $stage"; exit 143' TERM
 
 case "$MODE" in test|record) ;; *) echo "MODE must be test or record, not '$MODE'" >&2; exit 2 ;; esac
 case ",$PROFILE," in

@@ -237,6 +237,7 @@ def test_redundant_iff_bh_with_the_retest_p_substituted_exceeds_alpha(
     collection's main p-vector with P's p replaced by the re-test p exceeds alpha."""
     import giap.stats.fgsea as fg
 
+    mod = _g()  # import gsea before patching fg, or its import binds the fake
     n = 400
     genes = frame({f"TU_{i + 1}": [Gene(f"g{i + 1}", 20.0 + 0.01 * i)] for i in range(n)})
     tags = list(genes["locus_tag"])
@@ -249,7 +250,6 @@ def test_redundant_iff_bh_with_the_retest_p_substituted_exceeds_alpha(
         table[40 + i] = p
     fake = _Fake(table)
     monkeypatch.setattr(fg, "fgsea_simple", fake)
-    mod = _g()
     if hasattr(mod, "fgsea_simple"):
         monkeypatch.setattr(mod, "fgsea_simple", fake)
     out = _run(genes, [gene_sets("go_bp", sets, parents=parents)], size=(10, 500))
