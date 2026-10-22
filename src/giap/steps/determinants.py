@@ -53,7 +53,8 @@ from giap.io.determinants_tables import (
 from giap.model.coords import Interval
 from giap.rng import for_step
 from giap.steps.codon import _read_genes
-from giap.steps.operons import _path, _replicons
+from giap.steps.common import one_path as _path
+from giap.steps.common import read_replicons as _replicons
 from giap.steps.registry import StepContext, step
 
 __all__ = ["determinants_step"]

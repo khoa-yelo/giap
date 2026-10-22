@@ -232,6 +232,19 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - the patch wrap across the origin;
   - flags carried from `scored`;
   - `n_peptides` taken from `scored`.
+
+## M7-08 review (PR #168, approved): test gaps and nits
+- Surviving mutants (correct code, untested):
+  - the TSV promoter `+1` (use a single scored window, and assert NA one position away);
+  - a minus-strand start codon crossing the origin (`first_base` wrap);
+  - a multi-start ORF whose best-OSTIR and longest starts carry different promoter scores;
+  - a NaN `tir_ostir` row;
+  - the `novel_rbs_layer` count-mismatch guard.
+- The empty second round under Nextflow logs a spurious `layer_missing:rbs_novel` WARNING.
+- PROVENANCE.md cites the unreachable WIP commit 336cc1b. Cite 4760059 instead.
+- `annotation.ostir.downstream_nt` has no lower bound. Below 3 it cuts the last start codon, in the first round too.
+- Paths only a real run exercises (the header-only OSTIR CSV, an empty `novel_windows/`) are covered only by the owed example 7.
+- The simulator's `rbs_novel` rows leave out codons crossing the origin. Note this in the M7-12 scenario.
 - M8-01 (pass 2): `wallenius_tails` evaluates scipy's Wallenius pmf over the whole support on every
   call (both tails are direct sums). M8-04 calls it once per category with the same (M, N) and many
   (n, ω), so a per-(M, n, N, ω) cache is useless; if the 3,000-category budget tightens, sum only

@@ -156,6 +156,8 @@ nextflow_pipeline {
             }.sort()
             def want = ['ANTISMASH', 'BAKTA', 'CODON_USAGE', 'CONTEXT_LAYERS', 'CONTEXT_STATS', 'DETERMINANTS_STEP',
                         'DETECTABILITY', 'GENE_TABLE', 'GENOMAD', 'LOCI', 'MAP_EXACT', 'MAP_TOLERANT',
+                        'NOVEL_CANDIDATES', 'NOVEL_ORFS', 'NOVEL_PROMOTER_LAYER', 'NOVEL_RBS_LAYER',
+                        'OSTIR_NOVEL', 'PROMOTECH_NOVEL',  // M7-08 NOVEL (peptides given)
                         'OPERONS_STEP', 'OPERON_PAIRS', 'OSTIR', 'OSTIR_INPUT', 'PARSE_BAKTA', 'PLACEMENT', 'PROMOTECH',
                         'PROMOTER_CALCULATOR', 'PROMOTER_LAYER', 'PROMOTER_WINDOWS', 'RBS_LAYER',
                         'REGION_LAYER', 'SENSITIVITY', 'SIXFRAME_INDEX', 'TERMINATORNET',
