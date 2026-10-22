@@ -152,3 +152,11 @@ Toy model, `logit p_j = −12 + 0.6 · a − 0.02 · L_j`, gene u with peptides 
    - widen the replicate training set to every gene seen in at least one run, which makes 2 runs usable;
    - switch the replicate `p_detect` to 1 − (1 − q)^R;
    - the DL1 CITL tolerance of ±0.2.
+8. **After the implementer (43bba1e), the implementer's choices are accepted.** These were backlog items.
+   - **Model in force:** the peptide model when it is usable, otherwise the replicate model when it is usable, otherwise the unusable peptide model.
+   - **R:** the number of distinct C16 runs.
+   - **Covariates:** absent or zero-variance covariates are left out.
+   - **k_min:** 2 when any gene is `two_peptide`.
+   - **I/L:** I and L are treated as the same when matching peptides.
+
+   The size is 356 code lines, over the ~300 estimate and under the hard gate.
