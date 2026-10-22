@@ -171,3 +171,10 @@ ES examples use stats small enough that integer scaling is exact (c is an intege
    - the `_fgsea_kernels.random_es_prefixes` hook is used for the prefix property.
 
    Owed to M8-13: R accumulates in long double, so near-ties may differ in rare cases, and the batch kernel's statEps weighting of zero stats is not pinned.
+7. **After the statistician's review (395a99a):** M8-02 is approved. The port is valid and at level under random-set nulls (30/30 cells). Carried to M8-05:
+   - **Tie order (lead-level; changes M8-05 rule 2 and M8-12's input):** TUs enter fgsea in a seeded random order, from `giap.rng.for_step`, and the R golden gets the same order. The order is never by TU ID, which inflates the level to 0.165 under `abundance.missing = min` ties.
+   - **Owed to Khoa (ADR):** the GSEA null under positional autocorrelation. With AR(1) φ = 0.5–0.8 and genome-adjacent sets, the rejection rate is 0.14–0.44 at α = 0.05. The options are a genome-rotation null, a TU-block permutation, or a documented scope limit. M8-15 gets this attack as a gate that must fail without the fix.
+   - **Owed to Khoa (ADR):** the §8.2 95 % CI for NES. M8-05 leaves `ci_low`/`ci_high` empty, so it needs either an exemption or a CI method.
+   - **Pass-1 power note:** rows that need multilevel keep a p ≥ ~1/501, so families with more than ~25 sets have little power until M8-11.
+   - **The PR's calibration test has low power.** M8-15 switches it to the pooled criterion and adds a `calibration_full` arm at R = 300.
+
