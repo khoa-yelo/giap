@@ -352,3 +352,10 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Duplicate `locus_tag` rows are counted twice.
 - A missing collection name becomes the literal "NA".
 - M8-15 should adopt the statistician's GO-family FDR arm (local/stat/m805code/probe_code.py `go_null`/`go_alt`), and cite the R = 4,000 level runs (Slurm 1867122).
+
+## M8-05b review nits (#174, one-round MVP review)
+- The detection |z| rule's "ES NaN" branch never fires on real rows (fgsea_simple returns finite ES for unestimated rows): key it on `unestimated` (p NaN) or reword spec 9b / methods to "ES = 0" (statistician asked).
+- `cluster_deltas` rebuilds contig map, positions and P_w per collection; build once per `gsea_table` call.
+- A NaN `contig` becomes a linear pseudo-replicon "nan"; guard or comment.
+- M8-06 checklist: register `genomic_cluster` and `detection_confounded` in the `enrichment_gsea` schema (§9.4).
+- `test_gsea_table_flags_need_no_rng` uses the fake engine; add a real-engine p-value comparison to pin the RNG stream.

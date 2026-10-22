@@ -30,9 +30,24 @@
 - "Significant and non-redundant" is not an FDR-controlled list.
 - "No significant set" never means "no enrichment", because the floor is about 1/500 and BH needs several sets at the floor before it rejects any.
 
-Pass-1 rows do not yet carry the `genomic_cluster` and `detection_confounded` flags (M8-05b), so the restricted claim applies to every row. M8-06 (the writer) does not merge before M8-05b.
+The two position flags below mark the rows where the last two limits are most likely to matter. An unflagged row is not a guarantee (see Limits).
+
+## Position flags (M8-05b; spec decision 9, ADR-0025, ADR-0026)
+Both flags are computed for every main-run row, are pure and use no RNG. Redundancy re-tests compute no flags; a re-tested parent keeps the flags of its main run. They follow the existing flags in the order `ci_unestimated`, `unestimated`, `size_filtered`, `genomic_cluster`, `detection_confounded`.
+
+- **`genomic_cluster` (δ ≥ τ = 0.15).** δ estimates how much the set's member TUs inflate the variance of its mean score, relative to the TU-label permutation null, if TU scores were AR(1) with φ₀ = 0.5 along the genome.
+  - *Order:* ranked TUs are split by replicon (`contig`) and kept in natural TU-ID order (genome order, from `build_tus`); unranked TUs are skipped, so members with only unranked TUs between them are adjacent. On a circular replicon (C1 `topology == "circular"`) d = min(|i − j|, n_r − |i − j|); every other topology is linear. Members on different replicons are never paired.
+  - *Statistic:* with w(d) = 0.5^d for 1 ≤ d ≤ 10 (else 0), k member TUs and n ranked TUs, C = (2/k) Σ_{member pairs} w(d), E[C] = 2(k − 1) P_w / (n(n − 1)) with P_w = Σ w(d) over all pairs of ranked TUs, and δ = (C − E[C]) / (1 − k/n); δ = 0 when k < 2 or k ≥ n. δ is centred at 0 for randomly placed sets of any size.
+- **`detection_confounded` (|z| ≥ z₀ = 1 with the sign that produces the observed ES).** Counted in genes over the eligible universe (non-partial, finite `p_detect`): M eligible genes, N scoring genes, n eligible genes of the gene-level set (undetected members included), x of them scoring. With f = N/M and v = n f (1 − f)(M − n)/(M − 1), z = (x − n f)/√v (z = 0 when v = 0). The row is flagged when ES is finite and ≠ 0 (`unestimated` rows included, since their ES is a real statistic) and z · ES < 0 with |z| ≥ 1; when ES = 0, when |z| ≥ 1. A NaN ES, which `fgsea_simple` does not return, is treated as 0.
+
+### Limits
+- `genomic_cluster` is calibrated only for φ ≤ 0.5: the kernel fixes φ₀ = 0.5, and at φ = 0.7 unflagged rows are anti-conservative at α = 0.01 (0.0165 against 0.0143). It uses ranked-TU order, not bp distance. The claim is per-row level, not FDR among unflagged rows.
+- `detection_confounded` is a screen, not a guarantee. In mixed-confounding worlds (s ~ U(0, 1.5), β ∈ {1, 2}) unflagged rows reject at about 1.3α / 1.15α / 1.07α at α = 0.01 / 0.05 / 0.10 (pooled R ≈ 12,600: 0.0128 / 0.0567 / 0.1073), above the §8.4 bound; unscreened rows in the same worlds reject at about 0.25 at α = 0.05. Under an unconfounded null, unflagged rows reject at about 1.1α (0.0551 / 0.1088 at 0.05 / 0.10), because flagged null rows are conservative. Rows with |z| < 1 keep a small bias that no detected-fraction threshold can screen out. It reacts to observed detection, so a real effect with an opposite-sign detection difference is flagged too; about 13–16 % of rows are flagged under an unconfounded null.
+- q values of unflagged rows come from a BH family that includes flagged rows; with 10 flagged sets among 40 the FWER of unflagged null rows rose from 0.004–0.02 to 0.022–0.057 (still ≤ α under the 1/500 floor; M8-11 re-checks).
+- The hardening ADRs (a rotation null; censored or `p_detect`-weighted ranks) remove both limits.
 
 ## Evidence
 - **Single-set level at R = 4,000** (statistician, Slurm 1867122): rejection 0.0508 at α = 0.05 under the null. Attack 3, the ties, median imputation and scattered AR(1) are all at level.
 - **Family probe** (GO-like nested sets, R = 2,000): FWER 0.0015 at q 0.05 under the complete null. With shifted children, FDR is 0.017 at q 0.05 and 0.053 at q 0.10 (shift +1.5), and 0.0035 / 0.024 (shift +0.8).
 - **Committed arms:** tests/calibration/test_gsea_tu_calibration.py and tests/calibration/attacks/test_attack_gsea_structure.py (Slurm 1867070: 14 passed, 2 strict xfails).
+- **Position flags** (statistician, #174): full tier R = 300 (Slurm 1867323: 33 passed, 2 strict xfails); R = 4,000 per arm (Slurm 1867332; cluster φ 0.5 mix at level, detection as in Limits); BH-family spillover (Slurm 1867330). Committed arms: tests/calibration/attacks/test_attack_gsea_flags.py (detection arms gated at ≤ 1.5α).
