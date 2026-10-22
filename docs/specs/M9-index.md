@@ -250,8 +250,8 @@ it (plot-support files, decision 3).
     stays in `pyproject.toml` until the next lock update (no lock change in M9).
 30. **Colour-blind check:** the Machado 2009 deuteranopia matrix (severity 1) applied to the
     rendered PNG; the minimum pairwise colour distance between the categories of each plot is
-    **recorded**, not gated, until Khoa sets a threshold (M9-24 Q1).
-31. **Minimum font size 6 pt** at the final figure size (legible at single-column width) (M9-24 Q2).
+    **recorded**, not gated, until Khoa sets a threshold (M9-24 Q1). **Khoa, 2026-10-22: confirmed, record only for now; revisit at the M9-25 approval.**
+31. **Minimum font size 6 pt** at the final figure size (legible at single-column width) (M9-24 Q2). **Khoa confirmed (2026-10-22).**
 32. **RNG streams:** `compare.bootstrap` only (M9-22); every plot is deterministic.
 
 ## ADRs M9 owes (numbers: next free at merge time)
