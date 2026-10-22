@@ -98,6 +98,16 @@ def _replicate(rng: Any, pair: Any) -> tuple[list[Island], frozenset[str]]:
         if planted_genes & set(gs)
     )  # fmt: skip
     contigs = idat.scenario_contigs(rng, pair)
+    gstart = lay.genes[["locus_tag", "start"]].rename(columns={"start": "gstart"})
+    replay = (
+        lay.tus[["tu_id", "contig", "genes"]]
+        .explode("genes")
+        .merge(gstart, left_on="genes", right_on="locus_tag")
+    )
+    for c in contigs:  # the replay must have drawn exactly the layout the scan sees
+        tus = replay[replay["contig"] == c.name].sort_values("gstart", kind="mergesort")["tu_id"]
+        if [str(x) for x in tus] != c.tu:
+            raise RuntimeError(f"planted-truth replay diverged from scenario_contigs on {c.name}")
     cfg = idat.config(bootstrap=B, permutations=PERM, alpha=ALPHA)
     genes, tus, replicons = idat.frames(contigs)
     out, _ = idat.step(genes, idat.build_series(genes, tus, replicons, cfg), cfg, rng)
