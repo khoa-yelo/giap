@@ -30,7 +30,20 @@
 - "Significant and non-redundant" is not an FDR-controlled list.
 - "No significant set" never means "no enrichment", because the floor is about 1/500 and BH needs several sets at the floor before it rejects any.
 
-Pass-1 rows do not yet carry the `genomic_cluster` and `detection_confounded` flags (M8-05b), so the restricted claim applies to every row. M8-06 (the writer) does not merge before M8-05b.
+The two position flags below mark the rows where the last two limits are most likely to matter. An unflagged row is not a guarantee (see Limits).
+
+## Position flags (M8-05b; spec decision 9, ADR-0025, ADR-0026)
+Both flags are computed for every main-run row, are pure and use no RNG. Redundancy re-tests compute no flags; a re-tested parent keeps the flags of its main run. They follow the existing flags in the order `ci_unestimated`, `unestimated`, `size_filtered`, `genomic_cluster`, `detection_confounded`.
+
+- **`genomic_cluster` (δ ≥ τ = 0.15).** δ estimates how much the set's member TUs inflate the variance of its mean score, relative to the TU-label permutation null, if TU scores were AR(1) with φ₀ = 0.5 along the genome.
+  - *Order:* ranked TUs are split by replicon (`contig`) and kept in natural TU-ID order (genome order, from `build_tus`); unranked TUs are skipped, so members with only unranked TUs between them are adjacent. On a circular replicon (C1 `topology == "circular"`) d = min(|i − j|, n_r − |i − j|); every other topology is linear. Members on different replicons are never paired.
+  - *Statistic:* with w(d) = 0.5^d for 1 ≤ d ≤ 10 (else 0), k member TUs and n ranked TUs, C = (2/k) Σ_{member pairs} w(d), E[C] = 2(k − 1) P_w / (n(n − 1)) with P_w = Σ w(d) over all pairs of ranked TUs, and δ = (C − E[C]) / (1 − k/n); δ = 0 when k < 2 or k ≥ n. δ is centred at 0 for randomly placed sets of any size.
+- **`detection_confounded` (|z| ≥ z₀ = 1 with the sign that produces the observed ES).** Counted in genes over the eligible universe (non-partial, finite `p_detect`): M eligible genes, N scoring genes, n eligible genes of the gene-level set (undetected members included), x of them scoring. With f = N/M and v = n f (1 − f)(M − n)/(M − 1), z = (x − n f)/√v (z = 0 when v = 0). The row is flagged when z · ES < 0 and |z| ≥ 1; when ES is NaN or 0, when |z| ≥ 1.
+
+### Limits
+- `genomic_cluster` is calibrated only for φ ≤ 0.5: the kernel fixes φ₀ = 0.5, and at φ = 0.7 unflagged rows are anti-conservative at α = 0.01 (0.0165 against 0.0143). It uses ranked-TU order, not bp distance.
+- `detection_confounded` is a screen, not a guarantee. In one mixed-confounding world unflagged rows are marginal at α = 0.01 (0.0147 against 0.0142), and rows with |z| < 1 keep a small bias. It reacts to observed detection, so a real effect with an opposite-sign detection difference is flagged too; about 13–16 % of rows are flagged under an unconfounded null.
+- The hardening ADRs (a rotation null; censored or `p_detect`-weighted ranks) remove both limits.
 
 ## Evidence
 - **Single-set level at R = 4,000** (statistician, Slurm 1867122): rejection 0.0508 at α = 0.05 under the null. Attack 3, the ties, median imputation and scattered AR(1) are all at level.
