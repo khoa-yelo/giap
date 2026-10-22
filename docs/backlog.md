@@ -569,6 +569,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - **Statistician:** cross-fitting does not remove leakage when a category is a large share of one TU-size group. In the tested worlds this was only conservative.
 - **Flaky?** `tests/unit/function/test_gsea_flags.py::test_detection_flag_with_the_real_engine_d1_d2` failed only in the 16-worker fast suite (Slurm 1867909 and 1867927, es = −0.5 for top=True). It passes alone and in its file. Check main and look for state leaking between tests.
 
+## M8-06b review nits (#187; one round, approved)
+- Groovy `installed()` uses `path.exists()`, Python `is_file()`: a directory at a resource path is staged by Nextflow only.
+- `installed()` re-parses `db_manifest.json` per call (five more callers); parse once.
+- The local executor stages function resources (up to 32 MB) even when the step cannot run (no peptides); Nextflow does not.
+- `genetable.nf` header comment line is ~150 characters.
+- No test pins that `tu_folds.parquet` is published under `--modules core` by both executors.
+- Example 1 builds GO and KEGG xrefs but asserts only `cog` rows; assert kegg / go_slim too.
+- Mutation evidence: $GIAP_ROOT/review/pr187-mut/ (5/5 killed).
 ## M8-12 review nits (#192; one round, B1–B3 fixed in the PR)
 - `check_golden_provenance.py` could check that the lock sha agrees across PROVENANCE, VERSIONS and the lock; add a fixture where the base branch moved.
 - Guard bypasses: the Rscript guard is case-sensitive and misses `R CMD`, `["R", "--vanilla"]` and concatenation; `check_imports` misses `importlib.import_module("rpy2")` / `__import__`.
@@ -597,7 +605,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Example 10 runs only on FarmShare; the colour cycle leaves out black and grey (spec wording).
 - `read_tsv` now treats an empty cell as missing in genes.tsv too (matches `giap.io.genes_tsv`).
 - Mutation evidence: $GIAP_ROOT/review/pr191-mut/ (22/25 killed, 1 equivalent).
+- ADR-0041 follow-up (after #196 merges): move the four tokens from RUN_FLAGS_PENDING to the accepted run vocabulary and update the vocabulary test (lead).
 
+## M9-07 review nits (#203; one round, B1 out-of-range p and NITs 2–3 fixed in the PR)
+- V18 fit title and corner text ignore `recalibration_separated = 1` (prints "slope 41"): append "; recalibration separated".
+- "1 test families shown": singular for k = 1.
+- Carry the slope/intercept Wald CIs (`ci_low`/`ci_high`) into the TSV and corner text (pass 2).
+- Both real fixtures are constant fits; add a non-constant-fit golden when M4-13's fixture allows (the synthetic render's bin n sum 875 ≠ n_eligible 100).
+- Open in the spec: where `n_outside_0_1` sorts (now after the 20 bin rows); a family with every p outside [0, 1] now draws 20 empty bins plus the outside count.
 ## M9-06 review nits (#202; one round, B1 fixed in the PR)
 - V7 title: when no row has an estimated CI, say "O − E CI unestimated in every group" (not the vacuous "matches … with a CI"); basic-only title uses `%.1f` (→ "-0.0"), switch to `%.2g` and prefix the block ("COG J:").
 - Dead E = 0 branches (`detection.py` o/e helpers); `_pct` duplicates `base.title_pct` (widen it to floats); share the `flags` parsing.

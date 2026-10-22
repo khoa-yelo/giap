@@ -275,8 +275,11 @@ PUBLISHED: dict[str, str] = {"annotation": "annotation", "mapping": "mapping"}
 #: give GIAP_STEP (pinned against workflow/ by tests/unit/test_local_publish_names.py)
 PUBLISHED_FILES: dict[str, str] = {
     "autocorrelation": "tables/autocorrelation.tsv",
+    "category_summary": "tables/category_summary.tsv",
     "detectability_summary": "genetable/detection_summary_parts/detectability.parquet",
     "detection_summary": "tables/detection_summary.tsv",
+    "enrichment_detection": "tables/enrichment_detection.tsv",
+    "enrichment_gsea": "tables/enrichment_gsea.tsv",
     "gene_context": "context/gene_context.parquet",
     "gene_table": "genetable/genes.parquet",
     "genes_pre": "genetable/genes_pre.parquet",
@@ -294,6 +297,7 @@ PUBLISHED_FILES: dict[str, str] = {
     "pileup": "tables/pileup.tsv.gz",
     "sensitivity": "tables/sensitivity.tsv",
     "tier_summary": "genetable/detection_summary_parts/tier.parquet",
+    "tu_folds": "genetable/tu_folds.parquet",
     "variants": "tables/variants.tsv",
     "variants_vcf": "tables/variants.vcf",
 }
