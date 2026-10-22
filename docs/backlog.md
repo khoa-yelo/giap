@@ -140,6 +140,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   `tests/unit/test_nf_main_installed_items.py` now pins the two literals against `SOURCES`, in the
   style of `test_nf_annotate_registry.py`; pass 2 should drop the duplication instead, by having
   `installed()` read the manifest entry's own `path`.
+- M5-09 (lead decision 3): `context_stats` writes `tables/genes.tsv`, so a run that skips it (no
+  C7/C8, as the "precomputed regions layer" nf-test does) produces no genes.tsv at all. Resolved
+  when §6.2's `finalize` step arrives and takes ownership of the file; `gene_context.parquet` and
+  the gene table are already on disk for it to join.
+- M5-09: `giap.steps.registry` gained `optional_outputs` (a subset of `outputs` a caller may leave
+  unwired) so the M5 keys could be added to `context_stats` without rewiring M4-18's registry-path
+  callers. It has no dedicated unit test yet — the test-author should cover the decorator check,
+  `_check_keys` and the "wired together or not at all" rule in `_m5_context`.
 - `np.linalg.lstsq` in `giap.context.regions.residualise` is not bit-portable across CPUs (LAPACK SVD),
   so `regions_stats.tsv` float columns differ by 1–2 ulp between machines and between CI legs (M4-20
   decision 9, probe 1863133). Writer-level rounding is the real fix — see the §9.5 per-field precision
@@ -159,3 +167,38 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   precomputed TSV's content changes (stage it as a declared input, decision 2, which also replaces the
   absolute-path fix in `write_params`); example 4 ran under farmshare_local, the farmshare,apptainer
   conclusion (GIAP_STEP runs natively) is from reading the config, not from a run.
+- RegulonDB TLS: the server omits its intermediate, so any plain client fails verification. GIAP completes
+  the chain itself (fetch_regulondb.py pins GlobalSign GCC R46 OV TLS CA 2025, sha256
+  d160e2de4e56cb10b66c1cb0adcb79cf93c78dcd9db30c2018220262c04063f9, valid to 2029-06-23, verified against
+  the already-trusted GlobalSign Root R46). Re-check when the intermediate expires, or drop the workaround
+  if RegulonDB ever publishes a complete chain.
+- M6-11 pass 2 (non-blocking items from the code review of #141; lead decision 7):
+  - fetch_regulondb: when the endpoint reports no release, fall back to the date + hash (ADR-0017)
+    instead of the directory name `unknown`;
+  - record `(date, sha256)` per retrieval, not only the dates, so a changed download is visible;
+  - the unreachable-host error names the PROGRESS.md › Blocked entry, as the spec's degenerate row says;
+  - clean up `.part` files on failure and fsync before the rename in `write_atomically`;
+  - bound the intermediate download (read at most a few kB);
+  - type-check the GraphQL payload fields (content is `str`, metadata `str | None`);
+  - catch `UnicodeDecodeError` in the retry loop;
+  - record the genome-version equivalence NC_000913.3 = U00096.3 (RegulonDB vs the recorded Bakta contig);
+  - the tests live in `tests/unit/test_m6_11_regulondb_*.py`, not the spec's `validation/tests/`
+    (pytest's testpaths is `tests`): amend the spec or move them;
+  - the "no RegulonDB bytes committed" check matches file names only; add a content or size check.
+- Post-merge code review of #131 (M5-06 islands), pass-2 items (the origin-crossing TU bug is being
+  fixed in its own PR): (1) the high-before-low tie-break sort at `islands.py:585` is untested;
+  (2) `detected_frac` is not pinned (add a `missing = exclude` case with a detected NaN-abundance gene
+  inside an island); (3) `_eligible` duplicates the `replicon_index` rule in `regions.py:83-86`;
+  (4) gene order of a wrapping island's `genes` list (sorted by start, not window order) — decide and
+  document; (5) `TuSeries.genes` docstring says genome order, the spec says transcription order;
+  (6) the `min_tus` guard is untested for `min_tus ≥ 3`; (7) the B = 9 hand-computed p check is not
+  literally present; (8) the PR was 3,062 lines against the ~400 guideline.
+- M6-01 hardening (statistician, #140): `_KDE_MAX_GRID` coarsens silently; a bin with targets but no
+  decoys gets weight 0 in f0 (fix before lfdr is ever thresholded); the lfdr can come from a different
+  decoy set than `which` reports; three proposed attacks are in docs/methods/operons.md for M6-09.
+- M6-01 pass 2 (code review of #140, non-blocking): (N1) replace `_COLLAPSE_FRAC` with the exact
+  scale-free criterion: the Student-t likelihood is unbounded when the largest tie count k satisfies
+  k > df_lo * (n - k); (N2) take the KDE grid span of `_reflected_density` from the sample only, not
+  from the evaluation points; `_bins` silently truncates float bins; `bin_index` accepts NaN edges;
+  the +inf distance in the `bin_index` docstring.
+- M6-04 polish (non-behavioural): `promoter_between_tracks` exposes the private `_Track` alias in its signature (make a public `PromoterTrack` type); pin `pair_frame` dtypes (`detected_*` bool, `flags` list) through a pairs.tsv schema when M6-08 writes the table; consider one shared index object for the M2 `*_between` helpers so M6-07 reuses it.

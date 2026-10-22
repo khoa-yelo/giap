@@ -42,14 +42,15 @@ class Tu:
 
 
 def adjacent_pairs(
-    genes: Sequence[Gene], replicons: Mapping[str, Replicon]
+    genes: Sequence[Gene], replicons: Mapping[str, Replicon], same_strand: bool = True
 ) -> list[tuple[Gene, Gene]]:
-    """Consecutive same-strand genes per contig (FASTA order), plus the wrap pair if circular."""
+    """Consecutive genes per contig (FASTA order), plus the wrap pair if circular; only the
+    same-strand ones unless ``same_strand`` is False (the M6-04 pair chain)."""
     out: list[tuple[Gene, Gene]] = []
     for contig, gs in genome_order(genes, list(replicons)).items():
         ring = replicons[contig].topology == "circular" and len(gs) >= 2
         nxt = list(itertools.pairwise(gs)) + ([(gs[-1], gs[0])] if ring else [])
-        out += [(a, b) for a, b in nxt if a.interval.strand == b.interval.strand]
+        out += [(a, b) for a, b in nxt if not same_strand or a.interval.strand == b.interval.strand]
     return out
 
 
