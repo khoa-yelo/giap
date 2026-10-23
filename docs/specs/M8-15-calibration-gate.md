@@ -138,3 +138,25 @@ confirmation and sharding apply.
    - **8 (centring arm, annotated-universe arm):** backlog follow-up.
    - **No #193 xfails:** ADR-0038 sends GSEA level claims to RFgseaEngine, so nothing needs M8-11.
    - Next: the re-time, the baseline.json entries, then the PR and the statistician.
+9. **Statistician review (e405dcef): BLOCK on B1 and B2, both test-side; accepted.**
+   - **B1 (teeth arm):** the gated teeth arm is GIAP's own engine with the detectability weights
+     removed: one constant p_detect for every eligible gene (the eligible detection share), run
+     through `detection_enrichment(..., folds=<the oracle's tu_folds>)`, `under` p. It must be a
+     confirmed fail above 2α in each block at −1.5 and −0.75 (probe: 0.96 / 0.97 at −0.75, 1.00 at
+     −1.5). The gene-level hypergeometric stays as a recorded "world is confounded" check; the
+     TU-level ω = 1 record is relabelled "equal q per TU (ignores TU size)", and the "dilution"
+     docstring is corrected.
+   - **B2 (ORA pool):** one distinct term per collection per replicate (m = 6), drawn in a fixed
+     collection order, with `go_slim` excluding IDs already picked; per-collection records over all
+     tested terms keep size bands if cheap.
+   - **Gap 6 (recovery):** a finding about M8-09's §5.2 defaults (LightGBM overfits at about 800 rows;
+     `_recovery` uses `DeterminantsConfig()`), not the fast settings. It stays recorded only. Backlog:
+     an M8-09 hyperparameter ADR (inner-fold early stopping, or fewer trees or a lower rate).
+   - **Oracle at −1.5 below the band at α 0.10:** the M8-04 recalibration re-learning the members'
+     rate (without it, 0.05). Recorded, not gated (decision 6); added to the projection-variance ADR
+     backlog.
+   - **Reading the determinants null:** it passes in an exchangeable world only and does not lift
+     `null_uncalibrated` (ADR-0034's AR(1) and `replichore_position` attacks still fail). The
+     PROGRESS evidence and methods text say so.
+   - Next: the test-author fixes B1 and B2, then the implementer (baseline.json; re-time 1874853).
+     No second statistician round is needed.
