@@ -115,3 +115,9 @@ def te2_proxy(genome: Path, bakta_json: Path) -> ProxyResult: ...   # Nissle, as
    - Accepted: GIAP_STEP publishDir and the local `publish()` skip `work/...` outputs. Work
      intermediates are never published, and no other step had a `work/` output.
    - Accepted: the regenerated step_registry.json mirror.
+5. **Code review (#248): CHANGES REQUESTED.**
+   - B1: the backlog line "M7: compute the M4-16 QC metric id_mixups" is deleted. The TE2 evidence
+     (1871578) is now under PROGRESS.md › Done.
+   - B2: the lead adds `test_id_mixups_row_keeps_count_and_n_apart` (count 1, n 3). It kills the
+     value/n swap mutant.
+   - Nits 1–6 go to the backlog.

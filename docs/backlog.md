@@ -40,7 +40,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M4-20: replace M4-16's test stand-ins (p_detect_true, fixed COG table, tier/detectability columns) with the real M4-12/M4-13 outputs once merged.
 - M4-14 (statistician): re-measure abundance.ibaq_denominator on M4-09 data before switching (fails 10–40 % at p_obs = 0.3); restate as a pooled mean Δρ if needed; add the p_obs = 0.3 attack.
 - M4 notes: median imputation pulls detected-but-unquantified genes toward the centre; the min/exclude sensitivity reruns bracket it (statistician, #82).
-- M7: compute the M4-16 QC metric id_mixups (§7.5.1: same-database ALT sites that are not start/stop sites); M4-16 reports NA + requires_variants until then.
 - M7-01: co-optimal alignments with equal cost, diff-type multiset and difference positions but different op shapes are broken by DP move order (1:1, 2:2, 1:2, 2:1), not pinned by a test; the frameshift property oracle sorts kinds alphabetically, not by DIFF_TYPES precedence (no divergence found in 200k random junction cases).
 - M7-01: align_hits loops rows in Python (~110 µs/hit); batch the DP in numba if Module 5 ever aligns far more than 10^5 hits.
 - M7-02: frameshift site `alt_aa` is the placeholder `fs+1`/`fs-1` and `ref_codon` the last prefix codon; settle both in M7-03 with the VCF writer (lead decision 3). The M7-03 writer must drop the internal `_ref_codon`/`_alts` pileup columns; pandas `attrs` (frameshifts, contig order) do not survive `pd.concat`.
@@ -837,3 +836,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - N3: no unit or step test passes precomputed TSV layers (mutant M9).
   - N4: hardening still owed: `--sensitivity full` in the nightly e2e, and the M9 text item on threshold sensitivity.
   - N5: `test_unpatched_variants_unchanged` has an odd `assert [c for c in ...]`.
+- M7-14 review nits (#248): a step test mixing same-db and other support across sites (alt_peps order, variants.py:220); te2_result `notes` empty when high_stop_codon > 0; merge the duplicate `_flag_set`/`_flag_names` helpers (drop the unreachable `;` branch); `variants_qc` in `PUBLISHED_FILES`/`run_view.PATHS` though never published; test_id_mixups_sim100k returns early on missing inputs (make it skip); an nf-test with a non-empty `variants_qc` into CONTEXT.

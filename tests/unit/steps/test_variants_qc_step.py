@@ -271,6 +271,21 @@ def test_example_5_id_mixups_row_is_numeric_and_matches_the_oracle(
     assert "requires_variants" not in _flag_set(row["flags"])
 
 
+def test_id_mixups_row_keeps_count_and_n_apart(
+    strain_run: dict[str, Path], m4_work: tuple[Path, Path], tmp_path: Path
+) -> None:
+    """Review #248 B2: count < n (exempt start/stop sites) publishes value = count, n = n."""
+    qc = pd.read_parquet(strain_run["variants_qc"])
+    mask = qc["metric"].astype(str) == "id_mixups"
+    qc.loc[mask, "value"] = 1
+    qc.loc[mask, "n"] = 3
+    path = tmp_path / "variants_qc.parquet"
+    qc.to_parquet(path, index=False)
+    row = _id_mixups_row(_context_stats(m4_work, tmp_path / "cs", path))
+    assert float(row["value"]) == 1.0
+    assert int(row["n"]) == 3
+
+
 def test_related_relation_is_still_counted(strain_run: dict[str, Path]) -> None:
     """Degenerate row "``genome_relation = related`` | still counted": the fixture runs under
     the default ``related`` (every site flagged ``strain_difference``), and the sites the
