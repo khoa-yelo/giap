@@ -417,3 +417,48 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
    6. M7-12 decisions 28–29 exist on #225's current head; this branch merges it again before the
       implementer starts.
    7. Add `.hypothesis/` to `.gitignore` if missing (lead).
+10. **Statistician review (09bb875d, review on #247, Slurm 1871592 and 1871626): BLOCKED on B1–B3.**
+    Decisions 10–14 answer it.
+    - **B1: the null split becomes a fixed 50/50 (question 2's alternative). The proportional
+      default and its "~50 PSMs" fallback are withdrawn.**
+      - Under the search-space split, K-12 gets about 21 protein nulls and 11 decoy wins.
+      - The α cut never binds, and an engine that ignores the decoys still passes gate 7 (FDP 0.0076).
+      - The fallback was also non-monotone in π_wrong.
+      - With 50/50 (10 seeds): about 83 protein nulls and 41 decoy wins. The α 0.01 cut binds on
+        10/10 seeds, with FDP 0.0104 ± 0.0013. Ignoring the decoys gives 0.030, which fails gate 7.
+      - Six-frame entries get the other half. The class-level null was already dense and stays
+        informative.
+      - Implementer: change `_scored_nulls` / `k12_evidence`.
+      - Test-author: update the split test and the gate-5 expected range (with 50/50, about 41 wins
+        fits 20–300), and remove the statistician's two strict xfails ("gate 7 can fail", "α cut
+        binds"). These become plain slow tests that must pass.
+11. **B3: what gate 7 measures.** A "true peptide" is a `truth/peptides.tsv` row with `is_wrong =
+    false`. A protein null's truth row carries its locus tag but has `is_wrong = true`, so it never
+    makes a gene "true".
+    - `mvp04_summary.py` uses this definition. It also reports false-detected genes by channel:
+      protein null, six-frame null on a `GIAPORF_nterm_extension_*` entry, and tolerant-route
+      (one-mismatch) six-frame null. That covers non-blocking item 9.
+    - Test-author: the `gene_competition` oracle gains the nterm-extension channel and
+      `multi_identical` acceptance.
+12. **Test-author items from the review:**
+    - (B2) The `gene_fdr` suite's replicate counts follow the suite convention: the full tier is
+      R = 300, not `replicates_fast`.
+    - (5) The two binomial tests of counts that are fixed by construction become exact-equality
+      asserts.
+    - (6) Teeth for the KS checks and `picked_null` (a score-dependent coin), and for `coin_pooled`
+      (a p = 0.55 coin). Raise `picked_null`'s power against P = 0.6, or record its power.
+    - (7) Use the calibration harness (`confirm` with records, `suite_seed`) rather than the file's
+      own `confirm()`. Print each estimate with its 95 % CI.
+13. **Recorded deviation (item 8).** Decision 9's protein nulls are drawn uniformly over undetected
+    loci. The §8.4 gene-FDR generator draws size-proportionally. This is an evidence run, not a
+    calibration gate, and the calibration suites keep the §8.4 generator. So the deviation is noted
+    here and in the methods note, and not changed.
+14. **Backlog (item 4, a GIAP issue, not MVP-04).**
+    - nterm-extension decoys pair with a gene only after a target row is accepted (M7-12 decision
+      28). A null gene whose rows all went to the decoy side then vanishes instead of counting as a
+      decoy win. That is anti-conservative: about +0.8 false genes at K-12, more on real searches.
+      The fix is to pair through makedb's entry-to-gene relation.
+    - Also from #238's statistician: tighten ADR-0047's q-filter condition from "some target
+      carries q" to "every target carries q".
+    - Order: the test-author goes first, then the implementer, then the code review. The end-to-end
+      run follows after #238 and #237 merge.

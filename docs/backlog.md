@@ -912,3 +912,5 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - N3: no unit or step test passes precomputed TSV layers (mutant M9).
   - N4: hardening still owed: `--sensitivity full` in the nightly e2e, and the M9 text item on threshold sensitivity.
   - N5: `test_unpatched_variants_unchanged` has an odd `assert [c for c in ...]`.
+- M7 (from MVP-04 statistician, #247): nterm-extension decoys pair with a gene only after a target row is accepted (M7-12 decision 28), so an all-decoy null gene vanishes instead of counting as a decoy win (anti-conservative, ≈ +0.8 false genes at K-12). Pair through makedb's entry→gene relation.
+- M4 (from M4-24 statistician, #238): ADR-0047 q-filter symmetry: switch the decoy q filter on only when *every* C9 target carries q (with 50 % NA-q targets FDP at q 0.05 is bimodal, top decile ≈ 0.135; Slurm 1871630). Needs an ADR-0047 amendment (Khoa).
