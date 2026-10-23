@@ -207,13 +207,13 @@ def test_detection_attack_has_short_cv_decoys_outside_the_block(seed: int) -> No
     s = sim("operon_attack_detection", (N, "prophage"), seed)
     gaps = _cv_gaps(s, _block_genes(s, "prophage"))
     assert (gaps < 50).sum() >= 10, np.sort(gaps)[:20]
-    assert gaps.min() >= 10 and gaps.max() <= 150
+    assert gaps.min() >= -20 and gaps.max() <= 300  # decision 23
 
 
 def test_missed_operon_power_has_short_cv_decoys() -> None:
     s = sim("missed_operon_power", (N, 50, 0.1), 0)
     gaps = _cv_gaps(s)
-    assert (gaps < 50).sum() >= 10 and gaps.max() <= 150
+    assert (gaps < 50).sum() >= 10 and gaps.max() <= 300  # decision 23
 
 
 # ----------------------------------------------------- decision 10: abundance-dependent detection
