@@ -676,7 +676,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   BLAS-stable `p_detect` would let them return to byte equality.
 
 ### M9-24 follow-ups
-- V08 says "No measured abundance" on sim100k run with `--abundance` (m9-24 sweep): check whether
-  RunView's abundance detection or the sim100k config is wrong.
+- **Diagnosed:** V08 (and V02, V03, V07) show no measured abundance on sim100k because 0 of 87
+  genes are detected: picked-protein q has floor 1/n_win = 1/85 > alpha 0.01
+  (genetable/detection.py:344-349; #186 added the `q_floor_above_alpha` warning, q unchanged).
+  Abundance input is intact. The sim100k end-to-end fixture therefore never exercises any
+  detected-gene branch. Options (Khoa): a larger evidence genome (> 100 eligible genes), a
+  sim100k alpha override, or a two-peptide fallback when the floor exceeds alpha. V08's title
+  could cite `q_floor_above_alpha` from run flags.
 - The checklist reads tick labels through matplotlib's private `Axis._update_ticks()`; replace when
   matplotlib offers a public way.
