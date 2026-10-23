@@ -16,24 +16,44 @@ with ``oric_frac = 0.8`` and the cosine shape (lead decision 16).
   no seed; whether it overlaps a region is left to the caller);
 - ``oriter_gradient``: ``ar1_background`` with an oriC and the cosine gradient;
 - ``draft_ar1``: a draft assembly (500-gene chromosome + 133 linear 30-gene contigs) at ``rho``.
+
+M8-14 function scenarios (drawn with ``giapsim.function_sim.draw``; the ``ExpressionConfig`` is a
+``FunctionExpressionConfig`` carrying the scenario's ``FunctionSpec``):
+
+- ``ora_null``: covariate-only detection, categories independent of detection;
+- ``ora_attack_confounded``: one GO category's members get ``member_shift`` on the detection logit
+  (members drawn at random, lead decision 3 gap 7); detection still depends on p_true only;
+- ``gsea_null``: the M4-08 model without position decay, sets independent of abundance;
+- ``gsea_attack_operon_packed``: ``n_sets`` KEGG sets of 1-3 packed chr1 TUs (10-30 genes) each
+  with a large random TU effect; no set effect;
+- ``determinants_null`` / ``determinants_planted``: TU effect (sd 1) + noise (``noise_sd``),
+  plus ``sum beta_j z(feature_j)`` for ``promoter``, ``rbs``, ``cai`` in the planted one.
 """
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from typing import Literal
 
 from giapsim.expression import DEFAULT_BETA, ExpressionConfig, FrozenMap, IslandSpec
+from giapsim.function_sim import FEATURES, PACKED_TU_SIZE, FunctionExpressionConfig, FunctionSpec
 from giapsim.layout import LayoutConfig
 
 __all__ = [
     "ABUNDANCE_BETA",
     "ORIC_FRAC",
     "ar1_background",
+    "determinants_null",
+    "determinants_planted",
     "draft_ar1",
+    "gsea_attack_operon_packed",
+    "gsea_null",
     "island_first_tu",
     "island_power",
     "label_null",
+    "ora_attack_confounded",
+    "ora_null",
     "oriter_gradient",
     "tu_null",
 ]
@@ -123,3 +143,88 @@ def draft_ar1(rho: float) -> Pair:
     """A draft assembly at AR(1) ``rho``: 500-gene ``chr1`` plus 133 linear 30-gene contigs."""
     lcfg = LayoutConfig(n_genes_chromosome=500, linear_contigs=_DRAFT_CONTIGS)
     return lcfg, ExpressionConfig(ar1_rho=rho)
+
+
+# --------------------------------------------------------------------------- M8-14 function
+
+_MIN_FUNCTION_GENES = 100  # the default regions alone take 81 chr1 genes
+_MAX_SETS = 20  # the 2-20 synthetic KEGG maps
+
+
+def _function_n(n_genes: int) -> int:
+    if isinstance(n_genes, bool) or not isinstance(n_genes, int) or n_genes < _MIN_FUNCTION_GENES:
+        raise ValueError(f"n_genes must be an int >= {_MIN_FUNCTION_GENES}, got {n_genes!r}")
+    return n_genes
+
+
+def ora_null(n_genes: int) -> Pair:
+    """Detection ~ Bernoulli(p_true) on the covariates only; categories independent of it."""
+    spec = FunctionSpec("ora")
+    return LayoutConfig(n_genes_chromosome=_function_n(n_genes)), FunctionExpressionConfig(
+        function=spec
+    )
+
+
+def ora_attack_confounded(n_genes: int, member_shift: float) -> Pair:
+    """``ora_null`` plus one confounded GO category whose members' detection logit moves by
+    ``member_shift`` (0 reproduces ``ora_null``'s detection truth)."""
+    if not math.isfinite(member_shift):
+        raise ValueError(f"member_shift must be finite, got {member_shift}")
+    spec = FunctionSpec("ora", attack=True, member_shift=float(member_shift))
+    return LayoutConfig(n_genes_chromosome=_function_n(n_genes)), FunctionExpressionConfig(
+        function=spec
+    )
+
+
+def gsea_null(n_genes: int) -> Pair:
+    """M4-08 abundance (TU level + within-TU noise, no position decay); sets independent."""
+    ecfg = FunctionExpressionConfig(position_decay_log2=0.0, function=FunctionSpec("gsea"))
+    return LayoutConfig(n_genes_chromosome=_function_n(n_genes)), ecfg
+
+
+def gsea_attack_operon_packed(n_genes: int, n_sets: int) -> Pair:
+    """``n_sets`` sets of 1, 2, 3, 1, ... packed chr1 TUs of 10-30 genes; no set effect."""
+    n = _function_n(n_genes)
+    if isinstance(n_sets, bool) or not isinstance(n_sets, int) or not 1 <= n_sets <= _MAX_SETS:
+        raise ValueError(f"n_sets must be an int in [1, {_MAX_SETS}], got {n_sets!r}")
+    lo, hi = PACKED_TU_SIZE
+    n_tus = sum(1 + k % 3 for k in range(n_sets))
+    sizes = tuple(lo + (7 * j) % (hi - lo + 1) for j in range(n_tus))
+    if sum(sizes) > n // 2:
+        raise ValueError(f"{n_sets} packed sets need {sum(sizes)} genes, more than half of {n}")
+    ecfg = FunctionExpressionConfig(position_decay_log2=0.0,
+                                    function=FunctionSpec("packed", n_sets=n_sets))  # fmt: skip
+    return LayoutConfig(n_genes_chromosome=n, packed_tus=sizes), ecfg
+
+
+def _determinants(n_genes: int, coefs: Mapping[str, float], noise_sd: float,
+                  features: str) -> Pair:  # fmt: skip
+    n = _function_n(n_genes)
+    bad = set(coefs) - set(FEATURES)
+    if bad:
+        raise ValueError(f"unknown determinants features {sorted(bad)}; use {list(FEATURES)}")
+    if not all(math.isfinite(float(v)) for v in coefs.values()):
+        raise ValueError(f"coefs must be finite, got {dict(coefs)}")
+    if not (math.isfinite(noise_sd) and noise_sd >= 0):
+        raise ValueError(f"noise_sd must be finite and >= 0, got {noise_sd}")
+    if features not in ("planted", "gaussian"):
+        raise ValueError(f"features must be 'planted' or 'gaussian', got {features!r}")
+    spec = FunctionSpec("determinants", coefs={f: float(coefs.get(f, 0.0)) for f in FEATURES},
+                        features=features)  # type: ignore[arg-type]  # fmt: skip
+    ecfg = FunctionExpressionConfig(tu_sd=1.0, ar1_rho=0.0, position_decay_log2=0.0,
+                                    stoich_sd=0.0, gene_sd=float(noise_sd),
+                                    function=spec)  # fmt: skip
+    return LayoutConfig(n_genes_chromosome=n), ecfg
+
+
+def determinants_null(n_genes: int, *, noise_sd: float = 1.0, features: str = "planted") -> Pair:
+    """Response = TU effect (sd 1) + noise (``noise_sd``), independent of every feature."""
+    return _determinants(n_genes, {}, noise_sd, features)
+
+
+def determinants_planted(
+    n_genes: int, coefs: Mapping[str, float], noise_sd: float, *, features: str = "planted"
+) -> Pair:
+    """``determinants_null`` plus ``sum_j coefs[j] * z(feature_j)`` (features ``promoter``,
+    ``rbs``, ``cai``; missing ones 0); ``features="gaussian"`` draws iid N(0, 1) features."""
+    return _determinants(n_genes, coefs, noise_sd, features)

@@ -111,9 +111,13 @@ class LayoutConfig:
     origin_crossing: bool = False
     # oriC midpoint on chr1 as a fraction of its length (M5-04); None = no oriC feature
     oric_frac: float | None = None
+    # M8-14: sizes of extra chr1 TUs ("packed operons") inserted among the geometric ones at
+    # random TU positions; () draws exactly as before
+    packed_tus: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
-        for name in ("plasmids", "linear_contigs", "regions", "uniop_beta_in", "uniop_beta_out"):
+        for name in ("plasmids", "linear_contigs", "regions", "uniop_beta_in", "uniop_beta_out",
+                     "packed_tus"):  # fmt: skip
             object.__setattr__(self, name, tuple(getattr(self, name)))
         comp = self.aa_composition
         items = comp.items() if isinstance(comp, Mapping) else comp
@@ -196,6 +200,8 @@ def _check(cfg: LayoutConfig) -> None:
         raise ValueError(f"oric_frac must be in [0, 1) or None, got {cfg.oric_frac}")
     if any(r.n_genes < 1 for r in cfg.regions):
         raise ValueError("every region needs at least one gene")
+    if any(k < 1 for k in cfg.packed_tus) or sum(cfg.packed_tus) >= cfg.n_genes_chromosome:
+        raise ValueError("packed_tus need >= 1 gene each and fewer genes in all than chr1")
     sizes = dict(_replicon_sizes(cfg))
     for r in cfg.regions:
         if (r.contig or "chr1") not in sizes:
@@ -223,13 +229,20 @@ def _replicon_sizes(cfg: LayoutConfig) -> list[tuple[str, int]]:
 
 
 def _tus_of_contig(
-    rng: np.random.Generator, n: int, cfg: LayoutConfig
+    rng: np.random.Generator, n: int, cfg: LayoutConfig, packed: tuple[int, ...] = ()
 ) -> tuple[list[int], list[str]]:
-    """TU sizes (geometric, mean ``mean_tu_size``, last one truncated) and TU strands."""
-    sizes_all = rng.geometric(1.0 / cfg.mean_tu_size, size=n)
-    k = int(np.searchsorted(np.cumsum(sizes_all), n)) + 1
+    """TU sizes (geometric, mean ``mean_tu_size``, last one truncated; the ``packed`` sizes
+    inserted at uniform TU positions) and TU strands."""
+    m = n - sum(packed)
+    sizes_all = rng.geometric(1.0 / cfg.mean_tu_size, size=m)
+    k = int(np.searchsorted(np.cumsum(sizes_all), m)) + 1
     sizes = sizes_all[:k].astype(int).tolist()
-    sizes[-1] -= sum(sizes) - n
+    sizes[-1] -= sum(sizes) - m
+    if packed:
+        at = np.sort(rng.integers(0, k + 1, size=len(packed))).tolist()
+        for pos, size in sorted(zip(at, packed, strict=True), key=lambda x: -x[0]):
+            sizes.insert(pos, int(size))
+        k = len(sizes)
     first = int(rng.random() < 0.5)
     flips = (rng.random(k - 1) >= cfg.p_same_strand).astype(int)
     idx = (first + np.concatenate([[0], np.cumsum(flips)])) % 2
@@ -467,7 +480,7 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
     tu_index: list[int] = []
     t = 0
     for cid, n, _, _ in reps:
-        sizes, strands = _tus_of_contig(rng, n, cfg)
+        sizes, strands = _tus_of_contig(rng, n, cfg, cfg.packed_tus if cid == "chr1" else ())
         for size, s in zip(sizes, strands, strict=True):
             contig += [cid] * size
             strand += [s] * size
