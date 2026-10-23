@@ -26,7 +26,8 @@ _CURVE_COLUMNS = ["t", "n_peptides", "F", "n_genes", "fp", "fdr", "fdr_2pep"]
 
 #: libm element-wise: numpy's SIMD ``exp`` / ``power`` differ in the last bits between AVX2 and
 #: AVX-512 nodes, which the cancellation in 1 - e^-λ(1 + λ) magnifies to ~1e-10 relative.
-#: glibc's exp / pow agree across FMA-capable nodes of one glibc build (both kinds here), not unconditionally
+#: glibc's exp / pow agree across FMA-capable nodes of one glibc build (both kinds here), not
+#: unconditionally
 _exp = np.frompyfunc(math.exp, 1, 1)
 _pow = np.frompyfunc(math.pow, 2, 1)
 
