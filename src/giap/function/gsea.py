@@ -469,11 +469,15 @@ _NA_ROW = EngineRow("", 0, math.nan, math.nan, math.nan, math.nan, ())
 
 
 def _checked(job: GseaJob, rows: Sequence[EngineRow]) -> tuple[EngineRow, ...]:
-    """The engine's rows of ``job``; a term not sent or a size not Python's is a ``ValueError``."""
+    """The engine's rows of ``job``; a term not sent, a size not Python's or a sent term without
+    its row is a ``ValueError`` (a dropped row would shrink BH's count)."""
     for r in rows:
         if r.term not in job.sets or r.size != len(set(job.sets[r.term])):
             raise ValueError(f"GSEA engine row {job.job_id} {r.term} (size {r.size}) does not "
                              "match the sent set")  # fmt: skip
+    missing = [t for t in job.sets if t not in {r.term for r in rows}]
+    if missing:
+        raise ValueError(f"GSEA engine returned no row for {job.job_id} {', '.join(missing)}")
     return tuple(rows)
 
 
@@ -568,8 +572,9 @@ def gsea_table(
     for coll in colls:
         tus = tu_sets(rank, coll)
         sets = {t: natural(s) for t, s in tus.items() if lo <= len(s) <= hi and len(s) < n}
-        whole = frozenset(t for t, s in tus.items() if len(s) == n and lo <= n <= hi)
         job = GseaJob(f"main:{coll.collection}", sets, lo, hi) if sets else None
+        # a collection with no job adds no row, whole-ranking sets included (lead decision 6a)
+        whole = frozenset(t for t, s in tus.items() if len(s) == n and lo <= n <= hi and sets)
         tested.append((coll, tus, job, whole))
     jobs = tuple(j for _, _, j, _ in tested if j is not None)
     if not jobs:
