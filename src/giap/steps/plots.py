@@ -20,8 +20,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from giap.config import GiapConfig
+from giap.io.fasta import read_genome_fasta
 from giap.io.plot_files import PlotFiles, read_plot_files, remove_plot_files, write_instance
+from giap.io.plot_support import SUPPORT_DIR, write_support
 from giap.io.run_view import PATHS, RunView
 from giap.runner.local import PUBLISHED, PUBLISHED_FILES
 from giap.steps.registry import InputPath, StepContext, step
@@ -161,12 +165,39 @@ def _view(ctx: StepContext) -> RunView:
     return RunView.from_inputs(ctx.inputs).with_modules(ctx.cfg.modules)
 
 
+def _first(value: InputPath) -> Path:
+    return value if isinstance(value, Path) else value[0]
+
+
+def write_plot_support(inputs: Mapping[str, InputPath], plots_dir: Path) -> list[Path]:
+    """``plots_dir/support/``: ``replicon_landmarks`` from ``replicons`` (and ``features``, absent
+    = no oriC call) and ``gc_skew`` when ``genome`` is given too (M9-03); nothing without
+    ``replicons``. Only the ``plots`` step calls this; ``giap report`` never does (ADR-0043)."""
+    from giap.viz.support import WINDOW_BP, gc_skew, replicon_landmarks
+
+    if "replicons" not in inputs:
+        return []
+    reps = pd.read_parquet(_first(inputs["replicons"]))
+    feats = pd.read_parquet(_first(inputs["features"])) if "features" in inputs else None
+    written = [write_support("replicon_landmarks", replicon_landmarks(reps, feats), plots_dir)]
+    if "genome" in inputs:
+        genome = {r.id: r.sequence for r in read_genome_fasta(_first(inputs["genome"]))}
+        written.append(write_support("gc_skew", gc_skew(genome, reps, WINDOW_BP), plots_dir))
+    return written
+
+
 @step("plots", inputs=["preflight"], optional_inputs=[*ALL_PUBLISHED_KEYS, *_SUPPORT_INPUTS],
       outputs=["plots"])  # fmt: skip
 def plots_step(ctx: StepContext) -> None:
-    """Tables -> ``plots/``: ``Vnn_*.{svg,png,pdf}`` and ``data/Vnn_*.tsv`` (behaviour 1)."""
+    """Tables -> ``plots/``: ``Vnn_*.{svg,png,pdf}`` and ``data/Vnn_*.tsv`` (behaviour 1), after
+    the support tables ``support/*.tsv[.gz]`` from the run inputs (M9-03)."""
     out = ctx.outputs["plots"]
-    for e in render_plots(_view(ctx), ctx.cfg, out, None):
+    inputs: dict[str, InputPath] = dict(ctx.inputs)
+    if write_plot_support(inputs, out):  # before rendering: V1/V2 read them (M9-03)
+        inputs["plots_support"] = out / SUPPORT_DIR
+    load_plot_modules()
+    view = RunView.from_inputs(inputs).with_modules(ctx.cfg.modules)
+    for e in render_plots(view, ctx.cfg, out, None):
         ctx.log.info("%s %s", e.event, e.data["plot"], extra={"event": e.event, "data": e.data})
 
 
