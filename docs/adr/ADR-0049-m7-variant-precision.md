@@ -73,7 +73,7 @@ current call rule:
 - A6b: `flags_for` (src/giap/variants/flags.py) flags every `swap` row `mass_equivalent`
   (75 of 75).
 
-Open, pending Khoa (reversible default): "identifiable" uses the modification-inclusive
-`mass_equivalent` test above; a strictly isobaric-residue rule is the alternative, to be recomputed
-on request.
+"Identifiable" (Khoa, 2026-10-23): it uses the modification-inclusive `mass_equivalent` test above,
+not a strictly isobaric-residue rule. The report states the share of truth this removes (26 % at
+100k, 24 % at 1M).
 
