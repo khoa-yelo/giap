@@ -388,3 +388,19 @@ unmeasured (hours); agent time about 1 day plus queue waits and Khoa's answer on
    Bruker TDF-SDK among them) or TIMSCONVERT's bundled Bruker `libtimsdata.so`.
 2. **Conditional:** a new download source if the Cascadia weights are hosted outside §3.2, or
    their terms if they are more restrictive than non-commercial.
+
+## Lead decisions (2026-10-23)
+1. **Q1–Q11:** the proposed defaults are taken, all reversible:
+   - the cut-off is the documented or CLI-default one, else `none`;
+   - peptides are counted after folding I into L;
+   - all four records are in the six-frame check, with matches reported per replicon;
+   - the tool goes in `PILOT_TOOLS`;
+   - the conversion route is B1, then B2;
+   - the sample is recorded on a pass only;
+   - one PR;
+   - run 1 decides;
+   - no ADR for the result format;
+   - the slice runs first;
+   - weights hosted outside §3.2 need an ADR and Khoa, with a Blocked entry meanwhile.
+2. **Sequencing:** M10-08 waits behind pass 1 (M10-01 to M10-05) and Khoa's answer on the vendor licences (B1/B2). Only the environment build and the asset discovery (where the weights live, and the 0.0.7 licence) may start earlier. No raw data or vendor image is used before then.
+3. **The fourth Nissle record:** CP171243.1, plasmid p15A-ILA-dapA, is in `tests/data/genomes/nissle1917.fna.gz`, but §15.1 does not name it. That affects A2, TE1 and metric 8. It goes to Khoa in the next batch, and M10-05 and M10-07 report per replicon meanwhile.
