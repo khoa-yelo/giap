@@ -65,7 +65,8 @@ def test_gene_fdr_one_replicate_through_real_mapping(tmp_path: Path) -> None:
         absent = ~pre["locus_tag"].astype(str).isin(present)
         assert absent.sum() >= 50, f"only {int(absent.sum())} absent genes: FDP would be vacuous"
         det = pre["detected"].astype(bool)
-        assert set(pre.loc[det, "detection_tier"]) <= {"decoy_picked"}, "decoys were emitted"
+        # giapsim decoys carry no q or PEP, so the tier falls back to mayu (M4-24 decision 3)
+        assert set(pre.loc[det, "detection_tier"]) <= {"mayu"}, "giapsim decoys are unscored"
         n_det = int(det.sum())
         assert n_det > 0, f"nothing detected at q = {q}"
         fdp = int((det & absent).sum()) / n_det

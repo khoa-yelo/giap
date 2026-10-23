@@ -279,8 +279,10 @@ def test_protein_decoys_stay(outs: Any) -> None:
             assert r["peptide"][::-1] in prot[pid[4:]], r
 
 
-def test_gene_tier_stays_decoy_picked(outs: Any) -> None:
-    """GIAP's own gene-level pairing on ``peptides.tsv``: ``decoy_picked``, no warning."""
+def test_gene_tier_is_mayu_while_giapsim_decoys_are_unscored(outs: Any) -> None:
+    """GIAP's own gene-level pairing on ``peptides.tsv``: the ``rev_<locus>`` decoys pair, but
+    giapsim writes them with no q, PEP or score, so M4-24 rule 4 gives ``mayu`` +
+    ``decoy_unscored``. The giapsim scored-null-decoys backlog item restores ``decoy_picked``."""
     from giap.config.model import InputConfig
     from giap.genetable.detection import choose_tier, pair_decoys
 
@@ -294,7 +296,7 @@ def test_gene_tier_stays_decoy_picked(outs: Any) -> None:
                           contaminant_prefixes=ic.contaminant_prefixes)  # fmt: skip
     empty = pd.DataFrame()
     tier, warns = choose_tier(pep, empty, empty, pairing)
-    assert (tier, warns) == ("decoy_picked", []), (tier, warns)
+    assert (tier, warns) == ("mayu", ["decoy_unscored"]), (tier, warns)
 
 
 # ---------------------------------------------------------------- decision 22: nterm territory
