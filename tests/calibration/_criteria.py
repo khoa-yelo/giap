@@ -12,6 +12,9 @@ reads it. Criteria, with k = ``se_multiplier`` and R the number of independent n
 - pooled F1 (``calibrate_pooled``, M7-13 rule 2): replicate i reports counts (tp_p, n_pred,
   tp_r, n_truth); F1 of P = sum tp_p / sum n_pred and Rc = sum tp_r / sum n_truth >= bound (point
   estimate, optional count guards and vacuity floors; jackknife SE recorded only)
+- FDR from counts (``calibrate_fdr_counts``, M7-13 rule 6): replicate i reports (n_called,
+  n_false, ...); FDP_i = n_false / max(n_called, 1), then the FDR criterion; optional vacuity
+  floors on block-1 count means
 
 Replicate ``rep`` of stream ``suite`` draws from ``default_rng(suite_seed(suite, rep))`` with
 ``suite_seed = SeedSequence([calibration_base, crc32(suite), rep])`` as one uint64, so any shard
@@ -74,6 +77,8 @@ CONFIRM_ENV = "GIAP_CALIBRATION_CONFIRM"  # JSON [[stream, criterion, level, R],
 CRITERIA = ("level", "uniform", "fdr", "fwer")
 POOLED_F1 = "pooled_f1"  # criterion of ``calibrate_pooled`` (count records, not scalars)
 F1_COUNTS = ("tp_p", "n_pred", "tp_r", "n_truth")
+FDR_COUNTS = "fdr_counts"  # criterion of ``calibrate_fdr_counts`` (count records, not scalars)
+COUNT_CRITERIA = (POOLED_F1, FDR_COUNTS)  # count-record checks: merged per (stream, key, level, R)
 VACUOUS_STATUS = "vacuous"  # pooled check whose block-1 mean of a count is below its floor
 STATUSES = ("pass", "unconfirmed", "fail")
 SHARD_STATUS = "shard"  # partial record of one shard; only ``merge_shards`` gives a verdict
@@ -633,8 +638,9 @@ def merge_shards(suite: str, log_dir: Path | None = None) -> list[dict[str, Any]
     ValueError); if it fails, block 2 (R..2R-1) decides per ADR-0015; if block 2 was not logged
     the check is ``pending`` (block-1 record, no verdict: never ``fail`` from block 1 alone).
     Records written by ``log_result`` (no ``values``) are skipped. The records of one check must
-    agree on ``m`` (pooled level, else ValueError). ``pooled_f1`` records (``calibrate_pooled``)
-    are merged per (stream, key, level, R) by ``_merge_pooled``; their verdicts come last.
+    agree on ``m`` (pooled level, else ValueError). ``pooled_f1`` and ``fdr_counts`` records
+    (``calibrate_pooled``, ``calibrate_fdr_counts``) are merged per (stream, key, level, R) by
+    ``_merge_pooled``; their verdicts come last.
     """
     directory = Path(log_dir) if log_dir is not None else _default_log_dir()
     groups: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
@@ -642,8 +648,8 @@ def merge_shards(suite: str, log_dir: Path | None = None) -> list[dict[str, Any]
     for r in read_results(directory / f"{suite}.jsonl"):
         if "values" not in r:
             continue
-        if r["criterion"] == POOLED_F1:
-            pkey = (r["stream"], str(r["key"]), float(r["level"]), int(r["R"]))
+        if r["criterion"] in COUNT_CRITERIA:
+            pkey = (r["criterion"], r["stream"], str(r["key"]), float(r["level"]), int(r["R"]))
             pooled.setdefault(pkey, []).append(r)
             continue
         key = (r.get("stream", suite), r["criterion"], float(r["level"]), int(r["R"]))
@@ -740,7 +746,28 @@ def _counts_of(v: Mapping[str, Any]) -> dict[str, int]:
     return out
 
 
+def _validate(criterion: str, values: Sequence[Mapping[str, Any]]) -> None:
+    """Fail closed on bad count records before anything is logged."""
+    if criterion == POOLED_F1:
+        _f1_totals(values)
+    else:
+        for v in values:
+            fdp_of(v)
+
+
+def _count_check(
+    criterion: str,
+    values: Sequence[Mapping[str, Any]],
+    level: float,
+    guard: Mapping[str, int] | None,
+) -> CheckResult:
+    if criterion == POOLED_F1:
+        return check_pooled_min(values, level, guard=guard)
+    return check_fdr_counts(values, level)
+
+
 def _pooled_record(
+    criterion: str,
     suite: str,
     stream: str,
     key: str,
@@ -755,11 +782,15 @@ def _pooled_record(
     guard: Mapping[str, int] | None,
     vacuous: Mapping[str, float] | None,
 ) -> dict[str, Any]:
-    rec = _record(suite, stream, POOLED_F1, bound, R, block, reps, [], duration, result, status)
+    rec = _record(suite, stream, criterion, bound, R, block, reps, [], duration, result, status)
     rec["values"] = [_counts_of(v) for v in values]
     rec["key"] = key
     rec["guard"] = None if guard is None else dict(guard)
     rec["vacuous"] = None if vacuous is None else dict(vacuous)
+    if criterion == FDR_COUNTS:
+        if values and result is None and status == VACUOUS_STATUS:
+            rec["observed"] = float(np.mean([fdp_of(v) for v in values]))
+        return rec
     rec["precision"] = rec["recall"] = rec["se"] = None
     if values:
         p, r, f1 = pooled_f1(values)
@@ -771,6 +802,7 @@ def _pooled_record(
 
 
 def _pooled_verdict(
+    criterion: str,
     v1: Sequence[Mapping[str, Any]],
     v2: Sequence[Mapping[str, Any]] | None,
     bound: float,
@@ -780,9 +812,66 @@ def _pooled_verdict(
     """(status, block-1 result, block-2 result); vacuity is judged on block 1 (rule 6)."""
     if _is_vacuous(v1, vacuous):
         return VACUOUS_STATUS, None, None
-    r1 = check_pooled_min(v1, bound, guard=guard)
-    r2 = None if r1.ok or v2 is None else check_pooled_min(v2, bound, guard=guard)
+    r1 = _count_check(criterion, v1, bound, guard)
+    r2 = None if r1.ok or v2 is None else _count_check(criterion, v2, bound, guard)
     return _verdict(r1, r2), r1, r2
+
+
+def _calibrate_counts(
+    criterion: str,
+    suite: str,
+    stream: str,
+    key: str,
+    bound: float,
+    records: Callable[[int], Mapping[str, Any]],
+    R: int,
+    guard: Mapping[str, int] | None,
+    vacuous: Mapping[str, float] | None,
+    log_dir: Path | None,
+) -> dict[str, Any]:
+    """Shared gate of the count-record criteria (``calibrate_pooled``, ``calibrate_fdr_counts``)."""
+    if suite not in array_suites():
+        raise KeyError(f"unknown calibration suite {suite!r} (not in tolerances.yaml)")
+    confirm = confirm_checks()
+    reps = range(R) if confirm is not None else replicate_range(R)
+
+    def run(block: int, local: range) -> tuple[range, list[dict[str, int]], float]:
+        offset = (block - 1) * R
+        absolute = range(offset + local.start, offset + local.stop)
+        t0 = time.perf_counter()
+        values = [_counts_of(records(i)[key]) for i in absolute]
+        _validate(criterion, values)  # fail closed before anything is logged
+        return absolute, values, time.perf_counter() - t0
+
+    def rec(block: int, rr: range, v: Sequence[Mapping[str, Any]], dt: float,
+            res: CheckResult | None, status: str) -> dict[str, Any]:  # fmt: skip
+        return _pooled_record(
+            criterion, suite, stream, key, bound, R, block, rr, v, dt, res, status, guard, vacuous
+        )
+
+    if confirm is not None:
+        if (stream, criterion, float(bound), int(R), key) not in confirm:
+            return rec(1, reps, [], 0.0, None, SKIPPED_STATUS)
+        out = rec(2, *run(2, reps), None, SHARD_STATUS)
+        _append([out], suite, log_dir)
+        return out
+    if reps != range(R):
+        block = replicate_block()
+        out = rec(block, *run(block, reps), None, SHARD_STATUS)
+        _append([out], suite, log_dir)
+        return out
+
+    reps1, v1, dt1 = run(1, reps)
+    status, r1, _ = _pooled_verdict(criterion, v1, None, bound, guard, vacuous)
+    if r1 is None or r1.ok:
+        out = rec(1, reps1, v1, dt1, r1, status)
+        _append([out], suite, log_dir)
+        return out
+    reps2, v2, dt2 = run(2, reps)
+    status, r1, r2 = _pooled_verdict(criterion, v1, v2, bound, guard, vacuous)
+    recs = [rec(1, reps1, v1, dt1, r1, status), rec(2, reps2, v2, dt2, r2, status)]
+    _append(recs, suite, log_dir)
+    return recs[1]
 
 
 def calibrate_pooled(
@@ -806,55 +895,16 @@ def calibrate_pooled(
     ``GIAP_CALIBRATION_CONFIRM`` behave as in ``calibrate``; the confirm key is
     ``_check_key(record)`` (it includes ``key``).
     """
-    if suite not in array_suites():
-        raise KeyError(f"unknown calibration suite {suite!r} (not in tolerances.yaml)")
-    confirm = confirm_checks()
-    reps = range(R) if confirm is not None else replicate_range(R)
-
-    def run(block: int, local: range) -> tuple[range, list[dict[str, int]], float]:
-        offset = (block - 1) * R
-        absolute = range(offset + local.start, offset + local.stop)
-        t0 = time.perf_counter()
-        values = [_counts_of(records(i)[key]) for i in absolute]
-        _f1_totals(values)  # fail closed before anything is logged
-        return absolute, values, time.perf_counter() - t0
-
-    def rec(block: int, rr: range, v: Sequence[Mapping[str, Any]], dt: float,
-            res: CheckResult | None, status: str) -> dict[str, Any]:  # fmt: skip
-        return _pooled_record(
-            suite, stream, key, bound, R, block, rr, v, dt, res, status, guard, vacuous
-        )
-
-    if confirm is not None:
-        if (stream, POOLED_F1, float(bound), int(R), key) not in confirm:
-            return rec(1, reps, [], 0.0, None, SKIPPED_STATUS)
-        out = rec(2, *run(2, reps), None, SHARD_STATUS)
-        _append([out], suite, log_dir)
-        return out
-    if reps != range(R):
-        block = replicate_block()
-        out = rec(block, *run(block, reps), None, SHARD_STATUS)
-        _append([out], suite, log_dir)
-        return out
-
-    reps1, v1, dt1 = run(1, reps)
-    status, r1, _ = _pooled_verdict(v1, None, bound, guard, vacuous)
-    if r1 is None or r1.ok:
-        out = rec(1, reps1, v1, dt1, r1, status)
-        _append([out], suite, log_dir)
-        return out
-    reps2, v2, dt2 = run(2, reps)
-    status, r1, r2 = _pooled_verdict(v1, v2, bound, guard, vacuous)
-    recs = [rec(1, reps1, v1, dt1, r1, status), rec(2, reps2, v2, dt2, r2, status)]
-    _append(recs, suite, log_dir)
-    return recs[1]
+    return _calibrate_counts(
+        POOLED_F1, suite, stream, key, bound, records, R, guard, vacuous, log_dir
+    )
 
 
 def _merge_pooled(
     suite: str, pkey: tuple[Any, ...], group: Sequence[Mapping[str, Any]]
 ) -> dict[str, Any]:
-    """Verdict record of one pooled check from its (shard) records (``merge_shards``)."""
-    stream, key, bound, R = pkey
+    """Verdict record of one count-record check from its (shard) records (``merge_shards``)."""
+    criterion, stream, key, bound, R = pkey
     settings = {(json.dumps(r.get("guard"), sort_keys=True),
                  json.dumps(r.get("vacuous"), sort_keys=True)) for r in group}  # fmt: skip
     if len(settings) != 1:
@@ -863,14 +913,56 @@ def _merge_pooled(
     b1 = _collect(group, 1, R, pkey, conv=_counts_of)
     if b1 is None:
         raise ValueError(f"{pkey}: no block-1 replicates logged")
-    status, r1, _ = _pooled_verdict(b1[0], None, bound, guard, vacuous)
+    status, r1, _ = _pooled_verdict(criterion, b1[0], None, bound, guard, vacuous)
     b2 = None if r1 is None or r1.ok else _collect(group, 2, R, pkey, conv=_counts_of)
     if b2 is not None:
-        status, r1, r2 = _pooled_verdict(b1[0], b2[0], bound, guard, vacuous)
-        return _pooled_record(suite, stream, key, bound, R, 2, range(R, 2 * R), b2[0], b2[1],
-                              r2, status, guard, vacuous)  # fmt: skip
-    return _pooled_record(suite, stream, key, bound, R, 1, range(R), b1[0], b1[1], r1, status,
-                          guard, vacuous)  # fmt: skip
+        status, r1, r2 = _pooled_verdict(criterion, b1[0], b2[0], bound, guard, vacuous)
+        return _pooled_record(criterion, suite, stream, key, bound, R, 2, range(R, 2 * R), b2[0],
+                              b2[1], r2, status, guard, vacuous)  # fmt: skip
+    return _pooled_record(criterion, suite, stream, key, bound, R, 1, range(R), b1[0], b1[1], r1,
+                          status, guard, vacuous)  # fmt: skip
+
+
+# --------------------------------------------------------------------------- FDR from counts
+
+
+def fdp_of(counts: Mapping[str, Any]) -> float:
+    """``n_false / max(n_called, 1)`` (M7-13 rule 6: 0 when nothing is called); fails closed on a
+    missing key (KeyError), a negative or non-integer count or ``n_false > n_called``."""
+    got: dict[str, int] = {}
+    for k in ("n_called", "n_false"):
+        v = counts[k]
+        if isinstance(v, bool) or not isinstance(v, int | np.integer) or v < 0:
+            raise ValueError(f"fdr_counts: {k} = {v!r} is not a count")
+        got[k] = int(v)
+    if got["n_false"] > got["n_called"]:
+        raise ValueError(f"fdr_counts: n_false > n_called ({dict(counts)})")
+    return got["n_false"] / max(got["n_called"], 1)
+
+
+def check_fdr_counts(values: Sequence[Mapping[str, Any]], q: float) -> CheckResult:
+    """``check_fdr`` on the per-replicate FDPs of the count records."""
+    return check_fdr([fdp_of(v) for v in values], q)
+
+
+def calibrate_fdr_counts(
+    suite: str,
+    stream: str,
+    key: str,
+    q: float,
+    records: Callable[[int], Mapping[str, Any]],
+    R: int,
+    *,
+    vacuous: Mapping[str, float] | None = None,
+    log_dir: Path | None = None,
+) -> dict[str, Any]:
+    """FDR gate (§8.4, M7-13 rule 6, ADR-0015) over the count records ``records(i)[key]``.
+
+    As ``calibrate_pooled`` with criterion ``fdr_counts``: mean FDP <= q + k SE(FDP) at
+    ``level = q``; ``vacuous`` (``{count: floor}``, e.g. ``{"n_targets": 1 / q}``) makes block 1
+    ``vacuous`` when a block mean is below its floor (no block 2, not a pass).
+    """
+    return _calibrate_counts(FDR_COUNTS, suite, stream, key, q, records, R, None, vacuous, log_dir)
 
 
 # --------------------------------------------------------------------------- job array
@@ -949,9 +1041,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def _check_key(r: Mapping[str, Any]) -> list[Any]:
-    """Confirm-list entry of a check; pooled checks (one stream, many keys) add ``key``."""
+    """Confirm-list entry of a check; count-record checks (one stream, many keys) add ``key``."""
     out = [r["stream"], r["criterion"], float(r["level"]), int(r["R"])]
-    return [*out, str(r["key"])] if r["criterion"] == POOLED_F1 else out
+    return [*out, str(r["key"])] if r["criterion"] in COUNT_CRITERIA else out
 
 
 def _run_block2(suite: str, full: bool, pending: Sequence[Mapping[str, Any]]) -> int:
