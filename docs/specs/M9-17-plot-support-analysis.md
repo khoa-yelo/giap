@@ -136,3 +136,7 @@ Definitions:
    - **Side issues to check:**
      - sim100k publishes no `null_regions`;
      - determinants.nf emits no `events`.
+9. **The NF wiring (ff2df639) departs from decision 7, and both changes are accepted:**
+   - **File glob:** GIAP_STEP's `support` output is the file glob `*_support/support/*`. When the output is a whole directory, Nextflow 26.10 publishes it without showing `saveAs` the files inside, so per-file publishing would be impossible. `supportDir()` re-forms the directory.
+   - **The plots step copies the staged support** into its own `plots/support/` (`copy_staged_support`). Publishing `plots/` replaces `OUT/plots/`, which would otherwise wipe the files the analysis steps already published.
+   - **Backlog:** a unit test for `copy_staged_support`, and determinants.nf emitting no `events` into the PLOTS pair.
