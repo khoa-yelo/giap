@@ -285,17 +285,19 @@ def isobaric_attack(seed: int) -> SimConfig:
 K12_EVIDENCE_SEED = 20261023
 #: Detection intercept b0 of the K-12 evidence run (rule 7; see ``k12_evidence``).
 K12_B0 = -5.25
-#: Six planted islands (step 3): (first TU, effect in stationary SDs), 8 TUs each, alternately up
-#: and down, spread over the chromosome; valid for the RegulonDB (2,601 TUs) and the gap-rule
-#: (2,862 TUs) partitions of the recorded annotation.
-K12_ISLANDS = ((150, 3.0), (560, -3.0), (970, 3.0), (1380, -3.0), (1790, 3.0), (2200, -3.0))
+#: Planted islands (step 3; lead decision 20): (first TU, n TUs, effect in stationary SDs). One
+#: 20-TU high island (the gated one) and three 8-TU lows (structural-zero exhibits), spread over
+#: the chromosome; valid for the RegulonDB (2,601 TUs) and the gap-rule (2,862 TUs) partitions of
+#: the recorded annotation.
+K12_ISLANDS = ((970, 20, 3.0), (560, 8, -3.0), (1380, 8, -3.0), (2200, 8, -3.0))
 
 
 def k12_evidence() -> RealGenomeConfig:
     """The MVP-04 K-12 evidence inputs (spec "giapsim on a real genome").
 
     SNVs only at 0.5 / kb (Q4); RegulonDB 14.5.0 TUs with the gap-rule fallback (Q3); TU-level
-    AR(1) at rho = 0.5 with the six ``K12_ISLANDS`` (+-3 stationary SDs, 8 TUs each);
+    AR(1) at rho = 0.5 with the four ``K12_ISLANDS`` (lead decision 20: one 20-TU high island at
+    +3 stationary SDs from TU 970, three 8-TU lows at -3 SDs from TUs 560, 1380 and 2200);
     ``NOVEL_PER_CLASS_GATE`` = 300 novel ORFs of 30-150 aa per class (Q5); 3 runs of the related
     sample (``search_db = "other"``) at pi_wrong = 0.01, with scored null decoys
     (``decoys = "scored_null"``, MVP-04 step 6).
@@ -307,6 +309,13 @@ def k12_evidence() -> RealGenomeConfig:
     b0 -2.0: 0.944 (the default saturates, example 8), -3.0: 0.894, -4.0: 0.807, -4.5: 0.741,
     -5.0: 0.669, -5.2: 0.638, -5.25: 0.631, -5.5: 0.592, -6.0: 0.503. At -5.25 the novel classes
     have 203 intergenic, 217 cds_outframe and 213 antisense truth ORFs with a true peptide.
+
+    The lows are a structural zero, not a power problem: every undetected gene shares the censored
+    score Phi^-1(q / 2), so with about 37 % of eligible genes undetected an 8-TU low window cannot
+    exceed sqrt(8) * |Phi^-1(q / 2)| ~ 2.2-2.5, below the genome-wide critical value (>= 5).
+    They are planted to exhibit that cap; gate 13 exempts them. Six 8-TU islands were infeasible
+    (0/11 seeds; three highs mask each other in the maxT null), the single 20-TU high island
+    was recovered 11/11 (Slurm 1872831, 1872881).
     """
     from giapsim.proteomics import ProteomicsConfig
     from giapsim.real_genome import RealGenomeConfig
@@ -317,7 +326,7 @@ def k12_evidence() -> RealGenomeConfig:
                             n_runs=3, decoys="scored_null")  # fmt: skip
     expr = ExpressionConfig(
         ar1_rho=0.5,
-        islands=tuple(IslandSpec("U00096.3", first, 8, eff) for first, eff in K12_ISLANDS),
+        islands=tuple(IslandSpec("U00096.3", first, n, eff) for first, n, eff in K12_ISLANDS),
     )
     return RealGenomeConfig(
         proteomics=prot,

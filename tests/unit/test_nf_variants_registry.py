@@ -41,6 +41,7 @@ OUT_SPEC = {
     "pileup": "tables/pileup.tsv.gz",
     "variants": "tables/variants.tsv",
     "variants_vcf": "tables/variants.vcf",
+    "variants_qc": "work/variants_qc.parquet",  # M7-14
 }
 TAKE = ["genome", "gene_model", "mapping", "hits_tolerant", "peptides", "reference_peptides",
         "peptide_spectra"]  # fmt: skip
@@ -128,12 +129,13 @@ def test_variants_step_called_once_through_a_giap_step_alias() -> None:
     assert re.search(rf"GIAP_STEP\s+as\s+{alias}\b", text), f"{alias} is not a GIAP_STEP alias"
 
 
-def test_out_spec_is_the_three_tables() -> None:
+def test_out_spec_is_the_three_tables_and_variants_qc() -> None:
     _, spec = _call(_text(SUBWF))
     items = dict(re.findall(r"'(\w+)=([^'\s]+)", spec))
     assert items == OUT_SPEC, f"out spec {items}"
     assert set(items) == set(_spec().outputs)
-    assert ".parquet" not in spec
+    # the only Parquet is the unpublished work intermediate (M7-14)
+    assert [k for k, v in items.items() if v.endswith(".parquet")] == ["variants_qc"]
 
 
 def test_out_spec_equals_the_local_published_files() -> None:

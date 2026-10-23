@@ -1,0 +1,16 @@
+{
+  "counts": {
+    "alt_sites": 233,
+    "high": 80,
+    "high_start_codon": 80,
+    "high_stop_codon": 0,
+    "violations": 0
+  },
+  "exceptions": [],
+  "notes": [
+    "no high stop_codon site: the selenocysteine (Sec, fdnG) peptides TE1 misses stay unmapped until M7-16, so none is expected yet"
+  ],
+  "passed": true,
+  "proxy": "TE2",
+  "shares": {}
+}
