@@ -496,3 +496,20 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
       so gate 7 is not widened.
     - **Q11's 3-seed spread** records both the FDP and the decoy-blind FDP.
     - The lead refreshed the numbers in the attack docstring.
+18. **Code review (#247): CHANGES REQUESTED on B1–B3, all fixed by the lead.**
+    - B1: the E501 in the lead's docstring refresh is fixed.
+    - B2: `fifty_fifty_violations` asserts that the realised null count equals
+      `n_wrong_requested`. This kills the six-frame shortfall mutant.
+    - B3: `test_protein_nulls_skip_products_across_a_stop` and
+      `test_every_peptide_uses_the_twenty_amino_acids` kill the removed-stop-filter mutant.
+    - Non-blocking:
+      - (2) Decision 9 is reworded. A protein null is a tryptic product of a recorded locus *as
+        expressed in the sample*, which includes the planted N-terminal extensions. Two K-12 nulls
+        lie in extensions, and gate 7 counts them as `protein_null`.
+      - (3) Size: about 1,150 lines in tests/sim and scripts. This deviation is recorded rather
+        than split, because splitting would discard the reviews already done.
+      - This PR is **MVP-04 part 1**: the simulator, the scored nulls and `gate7()`. **Part 2**
+        is a new PR: `scripts/slurm/mvp04_inputs.sbatch`, the full `mvp04_summary.py` (gates
+        1–16), `tests/e2e/test_k12_evidence.py`, and the acceptance run once #238 and #237
+        merge.
+      - (1, 5) go to the backlog.

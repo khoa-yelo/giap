@@ -39,8 +39,8 @@ report on the commit):
   ``rev_<locus>``. Six-frame nulls have ``origin = sixframe_noncoding`` and their target rows
   carry the makedb entry ID ``GIAPORF_…`` (step 5: "attributed to a ``GIAPORF_*`` entry").
 * ``provenance.json``: ``decoys`` (``"scored_null"`` / ``"unscored"``), ``decoy_collisions``
-  (int, collided null PSMs) and ``null_split`` = {``mode``: ``"fifty_fifty"``
-  (decision 10), ``search_space_protein_share``: float in (0, 1, information only), ``n_protein``: int,
+  (int, collided null PSMs) and ``null_split`` = {``mode``: ``"fifty_fifty"`` (decision 10),
+  ``search_space_protein_share``: float in (0, 1; information only), ``n_protein``: int,
   ``n_sixframe``: int (distinct null peptides of each kind)}.
 """
 
@@ -294,7 +294,31 @@ def fifty_fifty_violations(v: D.View, pool: int | None = None) -> list[str]:
     cap = n if pool is None else pool
     if n_p not in {min(n // 2, cap), min((n + 1) // 2, cap)}:
         bad.append(f"n_protein {n_p} of {n} (pool {pool}): not half")
+    want = v.meta.get("n_wrong_requested")
+    if want is not None and n != want:  # #247 review B2: the six-frame side takes the rest
+        bad.append(f"{n} null peptides realised of {want} requested")
     return bad
+
+
+def test_protein_nulls_skip_products_across_a_stop() -> None:
+    """#247 review B3 (decision 16): a pseudo protein's products spanning its premature stop are
+    never drawn; here every product spans it, so there is no protein null."""
+    import numpy as np
+
+    from giapsim.proteomics import Protein, ProteomicsConfig, _protein_nulls
+
+    prot = Protein("L1", "c", 0, 33, "+", "MAAAAG*AAAAK")
+    got = _protein_nulls(ProteomicsConfig(), np.random.default_rng(0), 1, [prot], {"L1"}, [],
+                         {}, {"c": "A" * 100})  # fmt: skip
+    assert got == ([], {})
+
+
+def test_every_peptide_uses_the_twenty_amino_acids(scored: dict[int, D.View]) -> None:
+    """#247 review B3: no peptide (target or decoy) carries a stop or a non-standard residue."""
+    aa = set("ACDEFGHIKLMNPQRSTVWY")
+    for seed, v in scored.items():
+        bad = [r["peptide"] for r in v.peptides if not set(r["peptide"]) <= aa]
+        assert not bad, (seed, bad[:5])
 
 
 def test_split_is_fifty_fifty_on_the_excerpt(scored: dict[int, D.View]) -> None:
