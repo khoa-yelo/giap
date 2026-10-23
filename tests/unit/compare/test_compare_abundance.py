@@ -279,8 +279,20 @@ def test_property_swapping_runs_negates_bias_keeps_rho(ab: tuple[list[float], ..
     assert rev["ba_loa_low"] == pytest.approx(-fwd["ba_loa_high"], abs=1e-9)
 
 
+@st.composite
+def _spaced_pairs(draw: st.DrawFn) -> tuple[list[float], list[float]]:
+    """Like ``_pairs`` but ``a`` is distinct on a 1e-3 grid, so ``scale * x + shift`` with
+    ``scale >= 0.1`` cannot collide (the ``assume`` filter rejected most draws of near-equal and
+    subnormal floats and tripped Hypothesis's filter_too_much health check in CI)."""
+    n = draw(st.integers(min_value=3, max_value=25))
+    grid = st.integers(min_value=-20_000, max_value=40_000).map(lambda k: k / 1000)
+    a = draw(st.lists(grid, min_size=n, max_size=n, unique=True))
+    b = draw(st.lists(_vals, min_size=n, max_size=n))
+    return a, b
+
+
 @FAST
-@given(_pairs(), st.floats(min_value=0.1, max_value=5), st.floats(min_value=-5, max_value=5))
+@given(_spaced_pairs(), st.floats(min_value=0.1, max_value=5), st.floats(min_value=-5, max_value=5))
 def test_property_rho_invariant_to_monotone_rescaling(
     ab: tuple[list[float], ...], scale: float, shift: float
 ) -> None:
