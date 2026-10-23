@@ -101,3 +101,24 @@ statistical
    - each skipped site is counted in one event.
 10. **Goldens:** #225 has merged. The implementer merges origin/main, regenerates them with
     `GIAP_UPDATE_GOLDEN=1` on Slurm and reruns the fast suite. Then the PR opens.
+11. **Review round (code review of 5c9695ce, #278).** Blocking:
+    - **B1, retry growth:** a retry must change the request.
+      - `time` grows with `task.attempt`: `12.h * task.attempt` on medium/high, and an explicit `2.h * task.attempt` on single/low under farmshare.
+      - A 137 retry happens only while the memory request still grows under the profile's cap (`errorStrategy` closure). Otherwise the task terminates.
+    - **B2, unit tests for the new pure functions:** one hand-made input per branch for `check_tsv`, `check_vcf`, `config_slice`, `config_hashes`, `candidate_ids` and `backfill_candidate_ids`, killing the seven surviving mutants listed in the review.
+    - **B3, the retry-policy test:** assert on `nextflow config -flat` per profile (base, farmshare, farmshare_local) rather than a regex over base.config.
+    - **B4:** the PR body explains the 8-of-39 re-run on an unchanged `--resume` (decision 6), plus items 2 and 6 and the preflight change.
+
+    Nits taken:
+    - `backfill_candidate_ids` writes every row, NA when there is no id (review 8);
+    - `candidate_ids` also matches on position within the ORF span (review 9);
+    - `check_tsv` honours the schema `pattern`, and `check_vcf` checks POS ≤ contig length (review 7);
+    - the damage test matches the exact exception type.
+
+    Backlogged:
+    - a static guard for the step-to-section map (review 5);
+    - the GIAP version in the task hash (review 6, predates this PR);
+    - the preflight keep-unchanged hunk and an all-cached assertion (review 10);
+    - recording the `cache 'deep'` hashing cost (review 11).
+
+    Paused (Khoa, 2026-10-23): the round starts when agents resume. The test-author goes first (B2, B3 and the nit tests), then the implementer (B1 and the nits), then the lead (B4).
