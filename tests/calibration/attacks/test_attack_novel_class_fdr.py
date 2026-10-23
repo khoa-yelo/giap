@@ -286,7 +286,6 @@ def test_denovo_orf_fdr_with_multi_peptide_false_orfs(full: bool) -> None:
 
 
 @pytest.mark.calibration
-@pytest.mark.xfail(strict=True, reason="PR #237 block 1: decoys without input q rank last, D = 0")
 def test_picked_decoys_without_input_q_do_not_vanish() -> None:
     rng = C.replicate_rng(f"{SUITE}.attack.picked.unscored_decoys", 0)
     w = PickedWorld()
@@ -304,7 +303,6 @@ def test_picked_decoys_without_input_q_do_not_vanish() -> None:
 
 
 @pytest.mark.calibration
-@pytest.mark.xfail(strict=True, reason="PR #237 block 1: decoy hits without E vanish from D")
 def test_denovo_decoy_hits_without_e_do_not_vanish() -> None:
     rng = C.replicate_rng(f"{SUITE}.attack.denovo.nan_decoy_e", 0)
     orfs, t, d, pi, _ = _denovo(rng, chance_w=(0.6, 0.25, 0.15), correct_w=(0.2, 0.4, 0.4))

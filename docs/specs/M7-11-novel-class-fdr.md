@@ -155,3 +155,12 @@ def denovo_class_q(orfs: Sequence[Orf], target_hits: pd.DataFrame, decoy_hits: p
     - `stats.tda.picked_fdr_rescaled` now holds the ADR-0009 rule, and M4-12 `_picked_q` uses it
       (same arithmetic). A paired share of 0 now raises instead of giving NaN.
     - M7-11b step tests pin decisions 7–9.
+11. **Statistician block on #237 (comment 6359036495).**
+    - B1, picked: a class is ranked on (q, score) only when every target and every decoy row has a
+      finite q. Otherwise it is ranked on score alone, if all rows have a score. Otherwise the class
+      is `unestimated` with reason `decoys_unscored`, mirroring the M4-24 shared-key rule.
+    - B1, de novo: a NaN E raises `ValueError`.
+    - B2: `docs/methods/novel-orfs.md` §"Class FDR" records the decision-3 anti-conservatism with
+      the statistician's numbers. M7-13 G4 measures it with false ORFs of ≥ 3 peptides, per class.
+    - Implementer round 2. The lead removes the two Block-1 strict xfails after the fix; the
+      decision-3 xfail stays until M7-13.
