@@ -12,7 +12,8 @@ m5_chain.py).
   ``features.parquet``;
 * planting an island changes the expression truth only: the layout tables (C1 replicons, genes,
   C5 tus, C7/C8 regions, C15 features) are byte-identical to the island-free build, the evidence
-  is not; an island outside its replicon raises ``ValueError``;
+  is not (unless a down island covers only genes without peptides); an island outside its
+  replicon raises ``ValueError``;
 * the build is a pure function of its arguments (the fixture half of TE7).
 """
 
@@ -25,7 +26,7 @@ from typing import Any
 
 import pandas as pd
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helpers"))
@@ -95,6 +96,7 @@ def test_default_oric_frac_is_0_8(tmp_path: Path) -> None:
     n_tus=st.integers(2, 20),
     effect=st.sampled_from([-3.0, 1.5, 3.0]),
 )
+@example(seed=1506, first=0, n_tus=2, effect=-3.0)
 def test_islands_change_the_expression_not_the_layout(
     tmp_path_factory: pytest.TempPathFactory, seed: int, first: int, n_tus: int, effect: float
 ) -> None:
@@ -105,7 +107,17 @@ def test_islands_change_the_expression_not_the_layout(
     planted = _build(root / "planted", seed, islands=(IslandSpec("chr1", first, n_tus, effect),))
     for name in LAYOUT_FILES:
         assert _sha(plain / name) == _sha(planted / name), name
+    if effect < 0 and not _has_peptides(plain, first, n_tus):
+        return  # a down island over genes without peptides cannot change the evidence (seed 1506)
     assert _sha(plain / "peptides.norm.parquet") != _sha(planted / "peptides.norm.parquet")
+
+
+def _has_peptides(work: Path, first: int, n_tus: int) -> bool:
+    tus = pd.read_parquet(work / "tus.parquet")
+    chr1 = tus[tus["contig"].astype(str) == "chr1"].iloc[first : first + n_tus]
+    genes = {str(g) for gs in chr1["genes"] for g in gs}
+    hits = pd.read_csv(work / "mapping" / "peptide_hits.tsv", sep="\t", usecols=["gene"])
+    return bool(hits["gene"].astype(str).isin(genes).any())
 
 
 def test_an_island_outside_its_replicon_raises(tmp_path: Path) -> None:

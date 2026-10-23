@@ -21,6 +21,7 @@ M6-02 (pass 2) and are not read yet. Without abundance every test is ``none``.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -181,7 +182,9 @@ def read_layer(
 
 
 def _plain(v: Any) -> Any:
-    return v.item() if hasattr(v, "item") else v
+    """numpy scalars → Python; ±∞ → None so the event line is strict JSON (backlog M6-08)."""
+    v = v.item() if hasattr(v, "item") else v
+    return None if isinstance(v, float) and math.isinf(v) else v
 
 
 @step(

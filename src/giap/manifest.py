@@ -12,6 +12,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 import re
 import zlib
 from collections.abc import Mapping, Sequence
@@ -50,6 +51,11 @@ _COPIED = (
 )  # fmt: skip
 _MODULE_LAYERS = {"genomad": "mobile", "antismash": "bgc"}  # decision 7
 _LAYER = "layer_missing:"
+_UNCAL = "uncalibrated:"
+_DIAG = ("contig", "scanned", "block_rule", "l_hat", "block_len", "morans_i_lag1", "flags")
+_SENS = ("n_primary", "n_variant", "n_shared", "jaccard")
+_DB = ("name", "version", "checksum", "retrieved", "size_bytes")
+_TOOL = ("name", "version", "container_digest", "conda_lock_hash")
 _STATUS = {"COMPLETED": "completed", "CACHED": "cached", "FAILED": "failed", "ABORTED": "failed"}
 _DUR = re.compile(r"([0-9.]+)\s*(ms|d|h|m|s)")
 _DUR_S = {"ms": 1e-3, "s": 1.0, "m": 60.0, "h": 3600.0, "d": 86400.0}
@@ -85,8 +91,11 @@ class ManifestSources:
     annotation_meta: Mapping[str, Any] | None = None
     trace: Sequence[Mapping[str, str]] | None = None
     local_steps: Sequence[Mapping[str, Any]] = ()
-    tool_reports: Sequence[Mapping[str, Any]] = ()  # read in MVP-03c
-    db_manifest: Mapping[str, Any] | None = None  # read in MVP-03c
+    tool_reports: Sequence[Mapping[str, Any]] = ()
+    db_manifest: Mapping[str, Any] | None = None
+    sensitivity: Sequence[Mapping[str, Any]] | None = None  # tables/sensitivity.tsv rows
+    island_diagnostics: Sequence[Mapping[str, Any]] | None = None  # C1 order
+    calibration: Mapping[str, Any] | None = None  # giap.data.calibration.load()
 
 
 def canonical_json(obj: Any) -> str:
@@ -230,8 +239,86 @@ def _flags(src: ManifestSources) -> list[str]:
             found |= {f for f in data["flags"] if isinstance(f, str)}
     meta_flags = (src.annotation_meta or {}).get("flags") or []
     found |= {f for f in meta_flags if isinstance(f, str)}
+    found |= {_UNCAL + k for k, v in (src.calibration or {}).items()
+              if isinstance(v, Mapping) and v.get("calibrated") is False}  # fmt: skip
     off = {_LAYER + layer for layer, mod in _MODULE_LAYERS.items() if mod not in src.cfg.modules}
     return sorted(found - off)
+
+
+def finite(obj: Any) -> Any:
+    """A copy of ``obj`` with every NaN/±∞ float replaced by None (strict JSON; M6-08)."""
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, Mapping):
+        return {k: finite(v) for k, v in obj.items()}
+    if isinstance(obj, list | tuple):
+        return [finite(v) for v in obj]
+    return obj
+
+
+def _event_data(src: ManifestSources, name: str) -> list[Mapping[str, Any]]:
+    """Unique ``data`` of the ``name`` events, ordered by last occurrence (a resume duplicate
+    collapses; the last payload in file order comes last, lead decision 20)."""
+    seen: dict[str, Mapping[str, Any]] = {}
+    for ev in src.events:
+        if ev.get("event") == name and isinstance(ev.get("data"), Mapping):
+            key = json.dumps(finite(ev["data"]), sort_keys=True)
+            seen.pop(key, None)
+            seen[key] = ev["data"]
+    return list(seen.values())
+
+
+def _content(src: ManifestSources) -> dict[str, Any]:
+    """The 03c blocks: sensitivity, context, operons, mapping, calibration (D-C rows c)."""
+    fams: dict[str, dict[str, Any]] = {}
+    for r in src.sensitivity or []:
+        fams.setdefault(r["family"], {})[r["variant"]] = finite({k: r.get(k) for k in _SENS})
+    oric = sorted((finite(d) for d in _event_data(src, "context_stats.oriter.multiple_oric")),
+                  key=lambda d: (str(d.get("contig")), json.dumps(d, sort_keys=True)))  # fmt: skip
+    missed = _event_data(src, "operons.missed_operons")
+    search = [{"search_db": d.get("search_db"), "n_queries": d.get("n_queries")}
+              for d in _event_data(src, "mapping.search_db_resolved")]  # fmt: skip
+    search = [d for d in search if any(v is not None for v in d.values())]
+    return {
+        "sensitivity": {"level": src.cfg.output.sensitivity, "n_rows": len(src.sensitivity or []),
+                        "families": fams},
+        "context": {"replicons": [finite({k: r.get(k) for k in _DIAG})
+                                  for r in src.island_diagnostics or []], "oric": oric},
+        "operons": finite({"pi0": missed[-1].get("pi0"),
+                           "bin_counts": missed[-1].get("bin_counts")}) if missed else None,
+        "mapping": search[-1] if search else None,
+        "calibration": {k: {"calibrated": bool(v.get("calibrated")),
+                            "provenance": v.get("provenance")}
+                        for k, v in (src.calibration or {}).items() if isinstance(v, Mapping)},
+    }  # fmt: skip
+
+
+def _databases(doc: Mapping[str, Any] | None) -> list[dict[str, Any]]:
+    """``ok`` items of the ``giap setup`` form, or ``{name, version}`` of the provisional form."""
+    if doc is None:
+        return []
+    if isinstance(doc.get("items"), list):
+        rows = [{k: i.get(k) for k in _DB} for i in doc["items"] if i.get("status") == "ok"]
+    else:
+        rows = [{"name": n, "version": (e.get("version") if isinstance(e, Mapping) else e),
+                 "checksum": None, "retrieved": None, "size_bytes": None}
+                for n, e in doc.items()]  # fmt: skip
+    return sorted(rows, key=lambda r: str(r["name"]))
+
+
+def _tools(reports: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """One row per (name, version) with its sorted processes; ``giap`` is ``giap_version``."""
+    rows: dict[tuple[str, str], dict[str, Any]] = {}
+    for r in reports:
+        if r["name"] == "giap":
+            continue
+        row = rows.setdefault((r["name"], r["version"]),
+                              {**{k: r.get(k) for k in _TOOL}, "processes": []})  # fmt: skip
+        for k in ("container_digest", "conda_lock_hash"):
+            row[k] = row[k] or r.get(k)
+        if r["process"] not in row["processes"]:
+            row["processes"] = sorted([*row["processes"], r["process"]])
+    return [rows[k] for k in sorted(rows)]
 
 
 def _warnings(src: ManifestSources) -> list[str]:
@@ -259,7 +346,7 @@ def _annotation(meta: Mapping[str, Any] | None) -> dict[str, Any] | None:
 
 
 def build_manifest(src: ManifestSources) -> dict[str, Any]:
-    """The 03a manifest (D-C) of ``src``; pure and deterministic."""
+    """The manifest (D-C) of ``src``; pure and deterministic."""
     cfg = src.cfg
     nf = src.executor == "nextflow"
     steps = _trace_steps(src.trace or []) if nf else _local_steps(src.local_steps)
@@ -278,8 +365,8 @@ def build_manifest(src: ManifestSources) -> dict[str, Any]:
         "config": cfg.model_dump(mode="json"),
         "inputs": _inputs(src),
         "inputs_absent": sorted(src.inputs_absent),
-        "tools": [],  # versions.yml reports: MVP-03c
-        "databases": [],  # db_manifest.json: MVP-03c
+        "tools": _tools(src.tool_reports),
+        "databases": _databases(src.db_manifest),
         "annotation": _annotation(src.annotation_meta),
         "detection_tier": src.preflight.get("evidence_tier"),
         "seeds": seeds,
@@ -290,6 +377,7 @@ def build_manifest(src: ManifestSources) -> dict[str, Any]:
         "layers_missing": sorted({f.removeprefix(_LAYER) for f in flags if f.startswith(_LAYER)}),
         "warnings": _warnings(src),
         "volatile": list(VOLATILE),
+        **_content(src),
     }
     m["provenance_digest"] = provenance_digest(provenance_core(m))
     return m
