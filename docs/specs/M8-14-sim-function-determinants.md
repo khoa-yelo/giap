@@ -106,3 +106,16 @@ def determinants_planted(n_genes: int, coefs: Mapping[str, float], noise_sd: flo
    with a real ID in the test GO/KEGG fixtures. No KEGG-derived content is committed.
 2. **Question 2 accepted:** `determinants_planted` features come from the simulator's planted
    signals in the recovery run; Gaussian features appear only in unit tests.
+3. **Test-author (83d4cb42), interface and gaps 1–10: the test-author's readings are accepted.**
+   - Gap 1: `function_sim.draw(pair, rng)` returns the world (layout, expression, OBO, KEGG links,
+     sets, features, truth).
+   - Gap 2: `synthetic_ontology(..., genes=)`.
+   - Gap 3: the synthetic namespace roots stay in the term table. Their sets cover 30–60 % of the
+     genes, which is above `max_size`, so M8-03's size filter removes them.
+   - Gap 4: five collections; a synthetic `go_slim` goes to the backlog for M8-15.
+   - Gap 5: the per-gene dominant block goes in `truth/determinants_genes.tsv`.
+   - Gap 6: `determinants_null(noise_sd=1.0)`.
+   - Gap 7: confounded members are drawn at random, not by GRAVY (spec wording corrected here).
+   - Gap 8: planted features get light tests only.
+   - Gap 9: COG keeps its letters; COG IDs are not KEGG-derived.
+   - Gap 10: the simulator never emits `GO:9999999`, the absent-term marker of the fixtures.
