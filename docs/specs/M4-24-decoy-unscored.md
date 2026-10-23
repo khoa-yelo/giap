@@ -260,3 +260,9 @@ the current `_picked_q`, with the columns outside S set to NA, which is the rank
    - The implementer regenerates the `sim100k_real` M4 golden.
    - The spec's examples 1, 4 and 6 use target q = 1e-5·i, which keeps all 150 targets under
      `q_value_max`. The test-author's reading is accepted; the example table is amended to match.
+9. **Implementer (6e8d9217).**
+   - The `sim100k_real` M4 golden moves from `decoy_picked` to `mayu`, as rule 4 requires: giapsim's decoys carry no q, PEP or score, so S = ∅. `n_detected` stays at 85 and the same genes are detected. Accepted.
+   - Accepted: MAYU computes `p`/`p2` through `math.exp`/`math.pow`, element by element. numpy's SIMD `exp`/`power` differ in the last bits between AVX2 and AVX-512 nodes (probe 1870153), and `1 − e^−λ(1+λ)` amplifies that to about 4.5e-10 relative, which breaks the byte-compared golden. Values on iron are unchanged. The cost is a Python loop over at most n_genes elements.
+   - The fast suite on HEAD passes apart from two gate-evidence tests. Those failed only because the implementer's own calibration logs sat in the worktree's local/logs; the logs were moved out and both tests pass.
+   - The full calibration suite timed out at about 90 % with no failures. The targeted M4-24 calibration files passed (17/17, Slurm 1871588).
+   - The methods paragraph "Shared ranking key" in docs/methods/detection-tiers.md goes to the statistician.
