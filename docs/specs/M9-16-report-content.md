@@ -111,3 +111,20 @@ not statistical (cards print table estimates; nothing is computed beyond counts)
    otherwise "KEGG retrieval date: not recorded in this run", never guessed.
 3. Cards print table values only (no new statistics); every number on a card is traceable to a
    named table and column, which the tests check.
+
+## Lead decisions on the tests (2026-10-22, after 1c0cea0)
+
+4. **#178 dependency.** The implementer merges origin/main once #178 (M8-10) lands (queued) and
+   reads `tables/determinants_model.tsv` through its `PATHS` key; it does not copy the schema. Until
+   then it builds the other sections first.
+5. **ALT calls card.** Only `call == "ALT"` rows count; `mixed` is not an ALT call. The estimate
+   range is over the numeric `class_error_rate` rows; when some rows are `unestimated` the card
+   appends "(N unestimated)", and when all are, the estimate is `unestimated`.
+6. **Two-peptide wording.** Both places read "(two-peptide rule; FDR unestimated)"; the card table
+   follows example 2.
+7. **Digests.** Provenance prints the manifest file's SHA-256 (the tested value) and, labelled
+   "provenance digest", the manifest's `provenance_digest` field when present.
+8. **KEGG date.** It is printed in provenance whenever the manifest records a `kegg*` database,
+   whether the function module ran or not, and in the function section as tested.
+9. **Ribosomal-gene table.** Not in M9-16; moved to the backlog (M9 pass 2).
+10. **Required snippets.** `islands` only, plus sync of every marked doc (as tested).

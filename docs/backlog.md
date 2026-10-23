@@ -668,3 +668,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   records carry no commit field, so "on main" cannot be checked from them.
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
+
+### M9 pass 2 (from M9-16 tests)
+- §7.8.2's separate ribosomal-gene report table: no M9-16 behaviour; assign to a pass-2 issue.
+- M9-16 decisions 5 and 7 (ALT card with mixed `unestimated` rows; `provenance_digest` line) are
+  implemented but untested: add tests in the hardening pass.
