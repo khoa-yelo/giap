@@ -361,3 +361,9 @@ All of these are merged to main before E1 and E2 are submitted:
    ADR-0049; update the G1 scope sentence to the ADR-0049 wording.
 7. **Q7 yes:** fast-tier-only attacks (b, GC) count, labelled fast tier.
 8. **ADR-0048 seeds:** if accepting ADR-0048 renames the streams, redo E2.
+9. **Ledger test (0a3a25e4): gaps 1–7 accepted as proposed.** A6b moves to a replicates check in
+   M7-13a2 if that PR moves it out of the harness; the novel suite name comes from
+   `GIAP_M7_NOVEL_SUITE` (default `novel_orfs`); the ledger test leaves the `GIAP_M7_GATE` switch in
+   a follow-up once #255 and M7-13b merge; vacuous G4-k3 cells count as failures; attacks a/b/d/GC,
+   TE2 and the reference-proteome arm stay in the PROGRESS record; G4-k3 gets a known-failure entry
+   only with an ADR. Backlog: a commit field in calibration records.
