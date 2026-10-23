@@ -333,3 +333,30 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
      recorded in PROGRESS.md.
    - Size: the counted lines are scripts only (10). The test harness, about 350 lines under
      tests/, is outside the size gate. Accepted.
+7. **Reviews of M7-13a (1b35b679).** The statistician BLOCKS (#255 comment 6365982711) and the
+   code review requests changes (comment 6366124265). The pooled criterion and the merge logic
+   are sound; the task-13 wrapper is not. One fix round, test-author first, then the implementer:
+   - **Shard numbering** (statistician B1): `calibration_full.sbatch` loops `seq 1 n`, while
+     `shard_replicates` counts from 0. Use `seq 0 $((n-1))`, with a wrapper test. Job 1872876,
+     labelled shard 1/2, ran replicates 50:100. Decision 6's wording is corrected here.
+   - **Exit codes** (statistician B2, code review B1): the task fails if any shard's pytest, the
+     merge or the confirm run is non-zero. Tests that bypass the harness (G2, A6a, the A6a/A6c
+     vacuity `RuntimeError`, M7-10's three full tests) skip under `GIAP_CALIBRATION_CONFIRM`, so
+     the confirm run reruns only block 2 of the confirmed records. `main()` strips a leaked
+     `GIAP_CALIBRATION_CONFIRM` from the shard environment.
+   - **Time** (code review B2): the array's `--time` becomes 04:00:00. Shards take about 40 min
+     each and block 2 of G1, A6b and A6c about 80 min.
+   - **G1 guard miss** (statistician B3): G1 raises `RuntimeError` on a guard miss (rule 7), as
+     A6a does (decision 5), so a broken scenario is never shown as the ADR-0049 XFAIL. The
+     statistician's attack null (a stubbed `n_pred = 0`) is committed under `tests/calibration/attacks/`.
+   - **Merge-path tests** (code review B3): a merge with a guard miss, a merge with a vacuous block
+     1, shards that disagree on the guard or settings, and a shard with one unflagged A6a row
+     (xfailed, not skipped). The duplicate-values check in `_collect` (N2) gets a test too.
+   - Small fixes in the implementer round: an inf in `_counts_of` becomes MERGE_ERROR (N3); the
+     `--shard=K/N` and `--merge=` forms are parsed (N4); `_merge_main`'s docstring covers
+     `vacuous` (N1).
+   - ADR-0049 is amended with the statistician's B4 facts (cc814c92).
+   - Backlog: Wilson CI in `share_ci` and G2's 3/R bound (N1); a merge-side known-failures list
+     naming ADR-0049, so a new failure in task 13 is visible (N3); atomic appends on NFS (N4); the
+     indel mask across the origin (code review N5); A6c records the high tokens at the drawn sites.
+   - The statistician's methods text for `docs/methods/variants.md` goes into M7-13c.
