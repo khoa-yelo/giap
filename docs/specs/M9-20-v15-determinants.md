@@ -83,3 +83,8 @@ few genes for the determinants model (`<n>` rows, `<t>` TUs)".
 1. Which model's ΔR² leads the title: elastic net per ADR-0033. **Proposed default:** elastic net.
 2. "promoter score" = `promotech_max` (M8-07 maps it from `promoter_score`). **Proposed default:**
    `promotech_max`.
+
+## Lead decisions (2026-10-23)
+1. **Q1 yes:** the elastic net's ΔR² leads the title (ADR-0033).
+2. **Q2 yes:** "promoter score" is `promotech_max`.
+3. **Stacking:** on m9/plot-support-analysis (M9-17 SHAP and PD support files, decision 5).
