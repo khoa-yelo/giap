@@ -284,6 +284,11 @@ def _test_side(obj: object) -> types.FunctionType | None:
     return obj
 
 
+def _is_test_side_module(mod: types.ModuleType) -> bool:
+    path = getattr(mod, "__file__", None)
+    return path is not None and Path(path).resolve().is_relative_to(TESTS_ROOT)
+
+
 def reaches_harness(roots: list[Callable[..., Any]]) -> bool:
     """True if any function reachable from ``roots`` names a harness entry point."""
     todo = [f for f in map(_test_side, roots) if f is not None]
@@ -299,6 +304,7 @@ def reaches_harness(roots: list[Callable[..., Any]]) -> bool:
         glob = fn.__globals__
         mods = [glob[n] for n in names if isinstance(glob.get(n), types.ModuleType)]
         mods += [sys.modules[n] for n in names if n in sys.modules]  # function-local imports
+        mods = [m for m in mods if _is_test_side_module(m)]  # never getattr on numpy & co.
         cands = [glob.get(n) for n in names]
         cands += [getattr(m, n, None) for m in mods for n in names]
         todo += [f for f in map(_test_side, cands) if f is not None]
