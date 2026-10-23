@@ -274,3 +274,21 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
 11. **Cost assumptions** (45 s / 90 s per replicate) are unmeasured. **Proposed default:** M7-13a's
     first commit measures one 1M replicate of each scenario on Slurm and the lead revisits R and
     sharding if either is > 2× the assumption.
+
+## Lead decisions (2026-10-23)
+1. **Q1: pending Khoa (ADR-0048).** Until Khoa decides, the module constant `GATE_R = {"fast": 10,
+   "full": 300}` in `tests/calibration/_m7_gate.py` is used. The question is listed in PROGRESS.md ›
+   Questions for Khoa.
+2. **Q2–Q11:** the proposed defaults are accepted as written.
+   - G1 gates the literal set and records the non-`mass_equivalent` subset.
+   - The indel mask is 3 nt.
+   - F1 is a point estimate with two-block confirmation.
+   - G3 is pooled over the classes, and a class mismatch counts as a false positive plus a false
+     negative.
+   - A6c is a strict xfail.
+   - The reference-proteome arm is a test-side transform.
+   - The floor wording goes into the gate record.
+   - M7-13a starts now. M7-13b waits for M7-11b, which the spec-writer is speccing.
+   - M7-13a measures costs first.
+3. **Order:** M7-13a test-author, then the implementer for the harness extension (pooled, shard-
+   mergeable criterion), then statistician review, because the PR is labelled stats.
