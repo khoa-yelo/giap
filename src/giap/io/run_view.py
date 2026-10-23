@@ -131,10 +131,16 @@ def read_schema_tsv(path: Path, table: str, schema: Mapping[str, Any]) -> pd.Dat
     return pd.DataFrame(cols, columns=order)
 
 
+#: identifier columns of the support files, read as str so "001" joins as "001" (M9-21 N3)
+KEY_COLUMNS = ("region_id", "contig", "direction", "model", "stat")
+
+
 def _read_plain_tsv(path: Path) -> pd.DataFrame:
-    """Exact floats (``round_trip``): a support file's ``repr`` cells read back unchanged."""
+    """Floats correctly rounded, like the schema reader (``round_trip``), so a support file's
+    ``repr`` cells read back unchanged; the ``KEY_COLUMNS`` present are read as str."""
     return pd.read_csv(path, sep="\t", na_values=["NA"], keep_default_na=False,
-                       compression="infer", float_precision="round_trip")  # fmt: skip
+                       dtype=dict.fromkeys(KEY_COLUMNS, str), compression="infer",
+                       float_precision="round_trip")  # fmt: skip
 
 
 def _read_bed(path: Path) -> pd.DataFrame:
@@ -276,7 +282,7 @@ class RunView:
     def support(self, name: str) -> pd.DataFrame | None:
         """``plots/support/<name>.tsv[.gz]`` (M9-03), else the file in an ``ANALYSIS_SUPPORT``
         directory or its ``support/`` (M9-17), or ``None``."""
-        bases = [p for d, p in self._dirs.items() if d == SUPPORT]
+        bases = [p for p in (self._dirs.get(SUPPORT),) if p is not None]
         bases += [b for d, p in self._dirs.items() if d.startswith(f"{SUPPORT}:")
                   for b in (p, p / "support")]  # fmt: skip
         for base in bases:
