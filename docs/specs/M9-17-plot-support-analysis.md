@@ -37,7 +37,8 @@ Definitions:
 - **Top 6 GSEA sets**: smallest `q_value`, then largest |`nes`|, then collection, term; rows with
   `p_value` NA excluded. `running_es` is fgsea's running sum for that set, computed by the same
   port function the `es` came from; the max-deviation of `running_es` equals the row's `es` to
-  1e-9 (an assertion in the step).
+  1e-9 (an assertion in the step). At a maxP = −minP tie the walk has two equal extremes; the
+  plotted ES is the table's `es`.
 - **SHAP per feature**: the mean over the 25 out-of-fold boosters of `pred_contrib` (the same
   matrix M8-09 sums by block); block sums of this file equal `determinants_attribution` block
   columns to 1e-9.
@@ -49,7 +50,9 @@ Definitions:
 - **Null draws** store the statistic each test compares, not the reported effect: for region
   `o_minus_e` the studentised statistic of ADR-0018 (and its observed value), for `hl_shift` the
   statistic of ADR-0018's amendments; the column header names it. They are the values the step already computes; no extra replicates are drawn, so no
-  RNG stream changes (§6.6).
+  RNG stream changes (§6.6). In the percentile-grid form, p cannot be recomputed from the file;
+  `regions_stats` p and n_perm are authoritative. The determinants null is one CV repeat's R² per
+  permutation, while the observed value is the mean over the repeats (conservative).
 
 ## Degenerate cases
 
