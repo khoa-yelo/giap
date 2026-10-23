@@ -260,6 +260,11 @@ def run_local(
             stale = fresh is not None and key not in supplied and key not in fresh
             if key in spec.inputs or (path.exists() and not stale):
                 inputs[key] = path
+        if name == "plots":  # M9-17: the analysis steps' support directories, as under Nextflow
+            staged = [workdir / k for k in SUPPORT_OUTPUTS if (workdir / k / "support").is_dir()
+                      and (fresh is None or k in fresh)]  # fmt: skip
+            if staged:
+                inputs["plots_support"] = staged
         outputs = {key: workdir / key for key in spec.outputs}
         wall, cpu, status = time.perf_counter(), time.process_time(), "failed"
         try:

@@ -1,11 +1,13 @@
 // DETERMINANTS subworkflow (GIAP_SPEC.md §6.2, §7.8.3, §9.1; M8-10): the final gene table plus
 // C1/C2/C5/C6, and optionally C7/C8 and context_stats' gene context, ->
-// tables/determinants_{features,model,attribution}.tsv. The py step runs through the GIAP_STEP
+// tables/determinants_{features,model,attribution}.tsv and, only when cross-validation ran, the
+// optional plot support determinants_support (M9-17; published under plots/support/). The py step runs through the GIAP_STEP
 // alias DETERMINANTS_STEP (an alias cannot be the subworkflow's own name); base.config gives it
 // process_high resources so the permutation null runs in parallel (lead decision 2).
 // Without a gene table the step does not run; without C7/C8 or the gene context (CONTEXT
 // skipped) it runs on the required inputs.
 include { GIAP_STEP as DETERMINANTS_STEP } from '../../modules/local/giap_step/main'
+include { supportDir } from '../../modules/local/giap_step/main'
 include { stepIn; kv; pick } from './annotate'
 
 workflow DETERMINANTS {
@@ -25,11 +27,13 @@ workflow DETERMINANTS {
     def d = stepIn('determinants', chans, ['gene_table', 'genes', 'replicons', 'tus', 'layers'])
     DETERMINANTS_STEP(d.files, d.keys, ['determinants_features=tables/determinants_features.tsv',
         'determinants_model=tables/determinants_model.tsv',
-        'determinants_attribution=tables/determinants_attribution.tsv'])
+        'determinants_attribution=tables/determinants_attribution.tsv',
+        'determinants_support=determinants_support'])
 
     emit:
     determinants_features    = pick(DETERMINANTS_STEP.out.outputs, 'determinants_features.tsv')
     determinants_model       = pick(DETERMINANTS_STEP.out.outputs, 'determinants_model.tsv')
     determinants_attribution = pick(DETERMINANTS_STEP.out.outputs, 'determinants_attribution.tsv')
+    determinants_support     = DETERMINANTS_STEP.out.support.map { fs -> supportDir(fs) }
     versions                 = DETERMINANTS_STEP.out.versions
 }
