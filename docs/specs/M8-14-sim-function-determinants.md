@@ -186,3 +186,12 @@ def determinants_planted(n_genes: int, coefs: Mapping[str, float], noise_sd: flo
    - Minor, to the backlog: with fewer than 10 scoring TUs a packed set could, at about 1e-5 per
      set, trip the finite-p assert in `_packed_tu_rep` at a large full-tier R.
    - Next: the test-author, then the implementer, then the statistician re-check and code review.
+7. **Test-author (da66dcc0): gaps 1–4 accepted as proposed.**
+   - A member's edited `nt` still translates to its edited `aa` wherever it did at shift 0 (codons
+     move with residues).
+   - GRAVY is unchanged exactly, so the K/R edits preserve composition (position moves that make
+     peptides fall outside 7–30 aa); no separate length assertion.
+   - There is no per-member optimality check; the mean band and the logit identity carry it.
+   - Pseudogenes without `aa`: giapsim records `n_obs` = 0 and GRAVY NaN, while GIAP translates
+     them from `nt`. Pre-existing; backlog for M8-15's p_detect refit.
+   - Next: the implementer.
