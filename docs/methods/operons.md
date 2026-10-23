@@ -447,12 +447,27 @@ apart. The opt-in `LayoutConfig.short_convergent_gaps` (on in `missed_operon_pow
 detection attack; `convergent_gap_bp = (10, 150)`) draws every convergent TU-boundary gap uniformly
 from 10–150 bp, so CV decoys reach the < 50 bp bin; off, the layouts are byte-identical to before.
 
-Generator checks (tests/calibration/test_sim_operon_calibration.py, R = 20, seed streams
-`m6_03_<scenario>`): null NO-vs-decoy small-|Δ| excess 0.003 (z = 0.58); power excess 0.108
-(z = 15.3); null OP tail beyond 2 scale 0.104 vs the t tail 0.102 (z = 0.81); discordance power
-tail 0.168 (z = 21.9). Known approximation: CV decoys compare two TU-final genes while NO and SW
-pairs compare a TU-final with a TU-first gene, so the CV Δ carries one extra within-TU walk; at
-`tu_sd = 2` this is ≈ 2 % of the small-|Δ| share, below the gate's resolution.
+Generator checks (tests/calibration/test_sim_operon_calibration.py and
+test_sim_operon_attack_calibration.py, R = 20, seed streams `m6_03_<scenario>`; commit d5ae874):
+null NO-vs-decoy small-|Δ| excess 0.003 (z = 0.58); power excess 0.108 (z = 15.3); null OP tail
+beyond 2 scale 0.104 vs the t tail 0.102 (z = 0.81); discordance power tail 0.168 (z = 21.9).
+Detection attack (lead decision 12: share of |Δ| below the null's 25th percentile c among true NO
+targets vs CV/SW decoys in the same distance bin, CMH one-sided): z = 2.18 (c = 0.98), with 29 % of
+the block's adjacent pairs both detected (decision 10) and 48 % vs 94 % of genes detected inside vs
+outside the block. The same at R = 1,000 (Slurm 1869345, commit d5ae874;
+`local/logs/m6_03_calnums_r2.py`; null excess and power excess at R = 300): null excess 0.001 (z =
+0.86); power excess 0.116 (z = 62.4); null OP tail 0.1011 vs 0.1019 (z = −2.05); discordance tail
+0.170 (z = 158.9); detection attack z = 7.78 (c = 1.00), block both-detected 30.2 %, detected 48.5 %
+vs 94.1 %. Per bin at R = 1,000 the excess sits in the 0–50 bp bin (targets 0.365 vs decoys 0.299
+below c); the < 0 bp bin holds only block pairs on both sides (0.362 vs 0.376) and the ≥ 50 bp bins
+are flat. The R = 1,000 z implies an expected z of about 1.1 at R = 20, so the fast tier's z ≥ 2
+holds at its fixed seeds but would fail for many other seed sets; the full tier is the guard.
+
+Property of the CV decoy, kept on purpose (statistician, PR #222): CV decoys compare two TU-final
+genes, while NO and SW pairs compare a TU-final gene with a TU-first gene, so the CV Δ carries one
+extra within-TU walk. Real convergent pairs are TU-final on both sides too, so the method must cope
+with it. Measured SD of Δ: NO 3.106, CV 3.126, SW 3.066. That is under 1 % in SD, in the
+anti-conservative direction, and below the gate's resolution.
 
 ## Calibration evidence
 
