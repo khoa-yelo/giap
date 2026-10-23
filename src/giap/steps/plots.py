@@ -24,8 +24,9 @@ from giap.runner.local import PUBLISHED, PUBLISHED_FILES
 from giap.steps.registry import InputPath, StepContext, step
 
 #: every key published under ``OUT/`` (and readable by ``RunView``), except the two outputs here
+#: and ``run_manifest`` (written after the run; ``giap report`` reads it from ``OUT/``, M9-16)
 ALL_PUBLISHED_KEYS = sorted(
-    {*PUBLISHED, *PUBLISHED_FILES, *PATHS} - {"plots", "report", "preflight"}
+    {*PUBLISHED, *PUBLISHED_FILES, *PATHS} - {"plots", "report", "preflight", "run_manifest"}
 )
 #: the support writers' inputs (M9-03, M9-18) and the RunView directories; ``report`` takes them
 #: too, so REPORT can hand both steps the same [key, path] channel
