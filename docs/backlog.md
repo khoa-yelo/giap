@@ -703,3 +703,11 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Origin-crossing makedb entries without replicon lengths are unestimated (decision 8); pass lengths.
 - M7-11 statistician NIT 1: c is computed over hit peptides only; decide whether to widen it (pending lead/statistician, not blocking).
 - M7-11 vs M4-24: when only some targets lack q, M7-11 falls back to score while M4-24 keeps q and ranks them last; align the two (statistician #237 round 2, safe).
+- Review #237 nits (M7-11):
+  - 1: a class with no seen entries reports `paired_share_low` even at f = 1, where it should be `no_target_score`.
+  - 2: hoist the loop-invariant `seen` (fdr.py:294).
+  - 3: without lengths, entries whose stop codon lies past the origin are unmatched; name them in the methods note.
+  - 4: `min_identity` / `min_coverage` have no lower bound, so 0/0 gives f = 0 and `run_detection` raises; this needs a config bound (protected, ADR) or a guard.
+  - 5: the methods-note status line says decisions 1–11; it should say 1–13.
+  - 6: `_decoy_tags` could return the parsed class.
+  - 7: `denovo_class_q` uses an iloc loop and does not cast strand to str.

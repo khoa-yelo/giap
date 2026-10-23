@@ -172,3 +172,17 @@ def denovo_class_q(orfs: Sequence[Orf], target_hits: pd.DataFrame, decoy_hits: p
       after the fix.
     - Not blocking: when only some targets lack q, M7-11 ranks on score alone while M4-24 keeps q.
       This is safe and goes to the backlog for alignment.
+13. **Code review #237 (pullrequestreview-5625532425):** changes requested.
+    - **B1:** the stop key is off by 3 for open-3′ ORFs (a linear contig end or an X codon). When
+      `o.end_3p_open`, use `o.stop + 3` on + and `o.stop - 3` on −, matching the makedb segment.
+      The methods-note sentence on where the stop starts is corrected. The test-author writes one
+      test per strand; the implementer applies the fix.
+    - **B2:** four deterministic `_class_rank` unit tests, as specified in the review, kill the
+      surviving mutants C3–C5, C8, C9, C13 and C14 (test-author).
+    - **B3:** direct `stats.tda.picked_fdr_rescaled` unit tests (test-author):
+      - f in {0, < 0, > 1, NaN} raises;
+      - f = 1 equals `picked_fdr`;
+      - a hand-computed case at f = 0.8 with a tie;
+      - the empty and no-target-win cases.
+    - Nits 1–8 go to the backlog. Nit 4 (`min_identity` / `min_coverage` lower bounds) is a config
+      bound on a protected file, so it is pending ADR, not blocking.
