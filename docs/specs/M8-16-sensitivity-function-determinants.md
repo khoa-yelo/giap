@@ -109,3 +109,24 @@ def determinants_family(genes: pd.DataFrame, cfg: GiapConfig, rng: np.random.Gen
      no-op (M8-08 rule 1 keeps imputed genes out), so only `single_peptide_detected` and `top3`
      can change its rows. The family stays as specified; listed in PROGRESS questions.
    - Next: the implementer.
+
+## Lead decision 5 (2026-10-23, review round: statistician 6371958269, code review 6372795283)
+- **Statistician B1:** `agreement` leaves out genes whose block is `None` in both runs, and is NA
+  when none remain. A gene with `None` in only one run still counts as a disagreement. A run
+  compared with itself gives 1. This reverses part of decision 4.
+- **Statistician B2:** the methods sections "Enriched categories" and "Determinants" come from the
+  statistician's draft (lead commit).
+- **Code-review B1:** `workflow/conf/base.config` gets a `withName: 'SENSITIVITY_RERUNS:SENSITIVITY'`
+  entry sized like `FUNCTION_STEP` (6 GB, 4 h, process_low CPUs). The step runs R fgsea and the
+  LightGBM CV.
+- **Code-review B2:** new tests for
+  - (a) ORA folds;
+  - (b) operon_flags and determinants together (the `features` collision);
+  - (c) detection calls taken from the variant gene table.
+
+  Also new tests for N2 (`None` in both runs) and N3: a variant below the minimum gets an event
+  `sensitivity.determinants_variant_skipped`, and no row and no crash.
+- **N1:** threads from `os.sched_getaffinity`, as `steps/determinants._threads` does.
+- **N4:** the skip message names its cause.
+- **Backlog:** N5–N9. The size is accepted, because the PR is stacked and its split was agreed.
+- The basic-mode no-op rows are documented in the methods note (pending Khoa).

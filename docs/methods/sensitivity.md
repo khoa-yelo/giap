@@ -81,6 +81,124 @@ abundance are not scored, M5-06 step 1) and the `single_peptide_detected` refit 
 With `context.islands.block_len` fixed, only T matters. When the draws differ, the set difference
 includes Monte Carlo error (see Interpretation).
 
+## Enriched categories
+
+For the `enriched_categories` family (M8-16) the flagged set is the IDs `<collection>:<term>:<kind>`
+of every row with q ≤ `stats.alpha.enrichment` (0.05). The kind is one of:
+- `gsea`: M8-05 abundance GSEA, BH per collection;
+- `ora_over` or `ora_under`: M8-04 detection ORA, BH per ontology and direction (§8.1).
+
+Rows flagged `redundant`, `genomic_cluster` or `detection_confounded` count like any other row. A
+`gsea` ID has no direction, so a set whose ES changes sign under a variant still counts as shared.
+
+The collections are built once from the primary gene table, and every run reuses them. The ORA
+uses the primary's TU folds (`tu_folds`) when they are given, as the function step does. ORA
+p-values are analytical (Wallenius), so the ORA IDs change only when the detection calls change,
+i.e. under `single_peptide_detected`. Under `missing=<p>` and `top3` they equal the primary's by
+construction.
+
+GSEA is rerun under every variant (`missing=<p>`, `top3`, `single_peptide_detected`). It goes
+through R fgsea (`fgseaMultilevel`, ADR-0038) at `n_perm_simple = 199`, `sample_size = 101` and
+`eps = 0`, whatever `function.gsea` says. Each variant makes its own R calls, so the step needs the
+`giap-fgsea` env.
+
+The family is skipped, with the event `sensitivity.enriched_categories_skipped`, when `function` is
+not in `modules` or no function resource is given. It then writes no rows.
+
+**Permutation depth.** With `eps = 0` the multilevel stage estimates p with no 1/(1 + B) floor. A
+row can reach q ≤ 0.05 only with p ≤ 0.05·k/m. fgsea refines such small p-values in the multilevel
+stage, whose precision depends on `sample_size` and not on `n_perm_simple`. A p above 0.05 cannot
+lower any BH q to 0.05 or below. So 199 simple permutations hardly change which rows are flagged.
+
+In the statistician's probe (PR #265 review, Slurm 1876268), the design was:
+- 1,000 TUs;
+- 150 sets of 15 TUs, 15 of them shifted;
+- 20 sets of 40 TUs, 4 of them shifted;
+- 6 worlds × 21 streams on identical data.
+
+The mean pairwise Jaccard between streams was the same at `n_perm_simple` 199 and 1,000 in 4 of 6
+worlds, and within 0.03 in the other two.
+
+**Monte Carlo noise.** The flagged set still varies between streams. A set near the BH cut can
+flip, and one flip moves the cut for the whole collection. In the same probe, two streams on
+identical data gave different sets in 26–72 % of pairs, and the mean pairwise Jaccard per world was
+0.57–0.90.
+
+The recomputed primary uses `for_step("sensitivity/enriched_categories", seed)` at B = 199. It is
+therefore an independent realisation, not the set in `enrichment_gsea.tsv` (stream
+`function.gsea`, `n_perm_simple` 1,000), and `n_primary` can differ from that table's count.
+
+Common random numbers hold only while a variant ranks the same number of TUs: the tie order, the R
+seed and fgsea's sampled index sets are then the same. This holds for `missing=min`, because imputed
+genes stay ranked. It fails for:
+- `missing=exclude`, when a TU loses all its scoring genes;
+- `top3` and `single_peptide_detected`, when a TU enters or leaves the ranking.
+
+The GSEA differences of those variants include Monte Carlo noise of the size above.
+
+## Determinants
+
+For the `determinants` family (M8-16; §8.6 "the determinants CV R² (without its permutation null)")
+each run repeats the M8-10 chain without its TU-permutation null:
+- model rows: detected genes with a finite, non-imputed log2 abundance, ribosomal proteins excluded
+  (M8-08 rule 1);
+- outer `GroupKFold(5)` TU folds, `determinants.repeats` repeats;
+- LightGBM and elastic-net CV;
+- LightGBM SHAP summed by block;
+- the attribution table.
+
+Features come from `determinants_features.tsv`. `detected`, `abundance_log2` and
+`abundance_imputed` come from the run's gene table. The folds are drawn from
+`for_step("sensitivity/determinants", seed)`, and LightGBM is seeded with `seed`. The recomputed
+primary is therefore an independent realisation of the fold assignment, not
+`determinants_attribution.tsv` (stream `determinants.cv`).
+
+- **Set.** The flagged set is the locus tags flagged `abundance_not_explained_by_sequence`: model
+  rows whose out-of-fold residual is more than 2 SD from 0. The test is two-sided, uses the run's
+  own residual SD, and flags about 4 % of model rows. A variant that changes the CV R² moves the
+  threshold for every gene. This set is a reversible default (M8-16 Q2) because §8.6 does not
+  define the determinants set.
+- **Agreement.** The top decile is the model rows whose observed `abundance_log2` is at or above
+  the 90th percentile. A top-decile gene's dominant block is the block with the largest positive
+  SHAP sum; it is `None` when no block is positive. `agreement` is computed over the genes in both
+  runs' top deciles, leaving out those whose block is `None` in both runs: it is the share whose
+  dominant block is the same. A gene with a block in one run and `None` in the other counts as a
+  disagreement. `agreement` is NA when no such gene remains. A run compared with itself gives 1.
+- **CV R².** The mean LightGBM CV R² of the primary and of every variant goes to the event
+  `sensitivity.determinants_cv_r2`. §8.6 has no R² column; the manifest's sensitivity summary
+  holds it.
+- **Minimum.** A run with fewer than 100 model rows or 25 TUs is not fitted (M8-10 rule 8). If the
+  primary is below the minimum, the family writes no rows and emits
+  `sensitivity.determinants_skipped`. If a variant is below it, that variant has no row.
+
+**What the variants can change.** Model rows exclude imputed values. So `missing=min` and
+`missing=exclude` keep the model rows, the TU list, the folds and the LightGBM seed of the primary.
+Their rows are exact copies of the primary (`jaccard` 1, or NA when nothing is flagged;
+`agreement` 1) and **say nothing about robustness**. Only two variants can change the determinants
+rows:
+- `single_peptide_detected`, which adds the single-peptide genes, with their one-peptide
+  abundance, as model rows;
+- `top3` under `full`, which changes every abundance and can move genes in or out of the model
+  rows.
+
+**Noise.** A variant that changes the model rows also changes the TU list. `tu_folds` then
+reassigns the folds, so common random numbers are lost, and the difference includes
+fold-assignment noise.
+
+In the statistician's probe (PR #265 review, Slurm 1876267), the design was:
+- planted worlds with n = 400 and 1,500 genes;
+- LightGBM CV R² 0.05–0.77;
+- 11 fold streams on identical data.
+
+The results:
+- the Jaccard of the flagged sets against stream 0 was 0.67–1.0 (median about 0.77);
+- `agreement` was 0.85–0.96 at CV R² ≤ 0.15, and 1.0 at CV R² ≈ 0.7.
+
+A determinants Jaccard of about 0.7 or more is therefore within fold-assignment noise. Read it
+together with `n_primary`, `n_variant` and `n_shared`. The denominator of `agreement` (the shared
+top-decile genes, about 10 % of model rows) is not in the table, and neither `jaccard` nor
+`agreement` has a confidence interval.
+
 ## Interpretation
 
 - Flagged sets are small (at most 2 × regions × contigs IDs, usually fewer than 20), so a single
