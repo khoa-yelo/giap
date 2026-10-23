@@ -47,6 +47,10 @@ without a strain; see ``giapsim.scenario_truth``):
 - ``isobaric_attack``: de novo errors only of the block, near-block, modification and swap
   types, no strain differences.
 
+MVP-04 (docs/specs/MVP-04-ecoli-evidence-run.md) adds ``k12_evidence``, a
+``giapsim.real_genome.RealGenomeConfig`` for ``simulate_on_genome`` on the committed K-12 genome at
+``K12_EVIDENCE_SEED`` (its docstring records the tuned detection intercept b0).
+
 Operon scenarios (M6-03; drawn with ``simulate_operons``, see ``giapsim.operons``): ``operon_null``,
 ``missed_operon_power``, ``discordance_power`` and the attacks ``operon_attack_ar1`` and
 ``operon_attack_detection``. All use the generating t ``OPERON_T`` for the within-TU increment, no
@@ -66,6 +70,7 @@ from giapsim.layout import DEFAULT_REGIONS, LayoutConfig, RegionSpec
 from giapsim.operons import OperonConfig, OperonSim, simulate_operons
 
 if TYPE_CHECKING:
+    from giapsim.real_genome import RealGenomeConfig
     from giapsim.simulate import SimConfig
 
 __all__ = [
@@ -75,6 +80,9 @@ __all__ = [
     "ATTACK_DETECT_B4",
     "ATTACK_DETECT_OFFSET",
     "BLOCK_DETECT_SHIFT",
+    "K12_B0",
+    "K12_EVIDENCE_SEED",
+    "K12_ISLANDS",
     "MATCHED_TIR",
     "NOVEL_PER_CLASS",
     "NOVEL_PER_CLASS_GATE",
@@ -90,6 +98,7 @@ __all__ = [
     "island_first_tu",
     "island_power",
     "isobaric_attack",
+    "k12_evidence",
     "label_null",
     "missed_operon_power",
     "novel_orf_power",
@@ -268,6 +277,56 @@ def isobaric_attack(seed: int) -> SimConfig:
 
     dn = DenovoConfig(error_weights=dict(_ISOBARIC_WEIGHTS))
     return _v2(SIZES["100k"], proteomics=ProteomicsConfig(), denovo=dn)
+
+
+# ---------------------------------------------------------------- MVP-04: the K-12 evidence run
+
+#: The one fixed seed of the MVP-04 acceptance run and the weekly slot (lead decision 1, Q11).
+K12_EVIDENCE_SEED = 20261023
+#: Detection intercept b0 of the K-12 evidence run (rule 7; see ``k12_evidence``).
+K12_B0 = -5.25
+#: Six planted islands (step 3): (first TU, effect in stationary SDs), 8 TUs each, alternately up
+#: and down, spread over the chromosome; valid for the RegulonDB (2,601 TUs) and the gap-rule
+#: (2,862 TUs) partitions of the recorded annotation.
+K12_ISLANDS = ((150, 3.0), (560, -3.0), (970, 3.0), (1380, -3.0), (1790, 3.0), (2200, -3.0))
+
+
+def k12_evidence() -> RealGenomeConfig:
+    """The MVP-04 K-12 evidence inputs (spec "giapsim on a real genome").
+
+    SNVs only at 0.5 / kb (Q4); RegulonDB 14.5.0 TUs with the gap-rule fallback (Q3); TU-level
+    AR(1) at rho = 0.5 with the six ``K12_ISLANDS`` (+-3 stationary SDs, 8 TUs each);
+    ``NOVEL_PER_CLASS_GATE`` = 300 novel ORFs of 30-150 aa per class (Q5); 3 runs of the related
+    sample (``search_db = "other"``) at pi_wrong = 0.01, with scored null decoys
+    (``decoys = "scored_null"``, MVP-04 step 6).
+
+    Rule 7: only the intercept b0 of the M3-19 ``detect_logit`` is tuned; b1 = 0.08, b2 = 0.9
+    stay. **b0 = -5.25**: truth-detected share 0.631 (2,757 of 4,367 eligible protein genes with
+    >= 1 true peptide; RegulonDB TUs, ``K12_EVIDENCE_SEED``), inside the [0.55, 0.70] band. A
+    giapsim-only grid on the full genome (Slurm 1870316, 1870329) measured
+    b0 -2.0: 0.944 (the default saturates, example 8), -3.0: 0.894, -4.0: 0.807, -4.5: 0.741,
+    -5.0: 0.669, -5.2: 0.638, -5.25: 0.631, -5.5: 0.592, -6.0: 0.503. At -5.25 the novel classes
+    have 203 intergenic, 217 cds_outframe and 213 antisense truth ORFs with a true peptide.
+    """
+    from giapsim.proteomics import ProteomicsConfig
+    from giapsim.real_genome import RealGenomeConfig
+    from giapsim.strain import StrainConfig
+
+    _, b1, b2 = ProteomicsConfig().detect_logit
+    prot = ProteomicsConfig(detect_logit=(K12_B0, b1, b2), pi_wrong=0.01, search_db="other",
+                            n_runs=3, decoys="scored_null")  # fmt: skip
+    expr = ExpressionConfig(
+        ar1_rho=0.5,
+        islands=tuple(IslandSpec("U00096.3", first, 8, eff) for first, eff in K12_ISLANDS),
+    )
+    return RealGenomeConfig(
+        proteomics=prot,
+        strain=StrainConfig(snv_rate_per_kb=0.5, indel_rate_per_kb=0.0),
+        expression=expr,
+        tu_source="regulondb",
+        n_novel_per_class=NOVEL_PER_CLASS_GATE,
+        novel_len_aa=(30, 150),
+    )
 
 
 #: Generating Student-t (loc, scale, df) of the within-TU increment (lead decision 8: the
