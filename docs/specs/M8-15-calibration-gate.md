@@ -160,3 +160,19 @@ confirmation and sharding apply.
      PROGRESS evidence and methods text say so.
    - Next: the test-author fixes B1 and B2, then the implementer (baseline.json; re-time 1874853).
      No second statistician round is needed.
+10. **Test-author B1/B2 fixes (f74d2364, ae638a30; Slurm 1875022, 1875069) and the re-time
+    (1874853): accepted, with a budget ruling.**
+    - Gap 1 (23 of 200 worlds have no testable KEGG map): the empty slot is filled with a random
+      untaken term from the other collections, and `substituted_slots` is recorded. Accepted: the
+      substitute is still a null term, so the level claim is unchanged.
+    - Gap 2 (the teeth arm reuses the oracle arm's `tu_folds` stream): accepted.
+    - **Budget:** the re-time (1874853, `-n 16`) took 18 min. The determinants recovery arms take
+      1,091 s and 1,030 s, because `_recovery` runs at the §5.2 defaults; the elastic-net null takes
+      977 s. The fast-tier threads cap of 8 under `-n 16` oversubscribed the node, so decision 8's
+      raise is reverted to `max(1, min(4, cpus // workers))`.
+      - The recovery arms (recorded only) move to the full tier (`calibration_full`).
+      - The ora and gsea suites keep the < 10 min fast budget.
+      - The determinants fast tier stays `calibration_nightly` with a 20 min budget; this amends
+        the acceptance criterion for that suite only. Reversible; listed for Khoa.
+    - Next: the test-author applies the budget ruling and re-times; the lead fills
+      `benchmarks/baseline.json` (`m8_calibration_fast.<suite>`) from that job; then the PR.
