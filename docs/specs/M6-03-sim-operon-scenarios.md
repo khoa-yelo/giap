@@ -104,3 +104,19 @@ def operon_attack_detection(n_genes: int, short_genes_in: str) -> Pair: ...
    implement it. Done in this commit.
 3. Feature loop: test-author → implementer (giapsim is tooling the implementer writes) → the
    statistician signs off the generators M6-09 gates on → code review.
+
+## Lead decisions on the tests (2026-10-22, after 1e35b08)
+
+4. **Pure classes in the null.** In `operon_null`, true non-operon same-strand pairs draw their
+   UniOP-like p below 0.5 and true operon pairs at or above it, so the OP class M6-09 checks is
+   exactly the true operons. "UniOP is wrong" is simulated by `missed_operon_power` and the attacks.
+5. Example 3 is accepted as the test reads it. "Background SD" is the SD of Δ among unplanted
+   true-NO pairs with both genes detected.
+6. At least 60 % of planted pairs have both genes detected (examples 3 and 4): accepted.
+7. `operon_attack_ar1(n, ρ)` returns the same configs as `operon_null(n, rho=ρ)` for every ρ; it is
+   the named attack entry point (the tests assert ρ = 0; equality for all ρ is the implementation).
+8. **Generating t.** The within-TU increment is Δ = loc + scale · t_df with loc −0.3, scale 0.5 and
+   df 5, the parameters of the methods-note simulation (Slurm 1864589), recorded in
+   `truth/operon_t.tsv`. The implementer adds this increment; the merged normal stoich/noise stays
+   for the other scenarios.
+9. An odd `n_planted` in `discordance_power` plants ceil(n/2) promoters and floor(n/2) terminators.
