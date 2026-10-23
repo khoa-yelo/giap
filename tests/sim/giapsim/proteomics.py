@@ -14,9 +14,13 @@ the Trypsin/P products of the six-frame translation of the genome that are in fr
 annotated CDS/sORF, no N-terminal extension and no novel ORF and occur in no true protein: the
 false novel candidates a six-frame search produces. They are drawn in turn from the intergenic,
 out-of-frame (same-strand CDS overlap) and antisense (opposite-strand overlap only) territories,
-so every novel class gets false candidates; their truth rows carry the source locus. Decoys are
-then reversed non-coding six-frame products (the matched decoy space), one per wrong row. These
-draws use their own stream (``[seed, 7]``).
+then (decision 22) the products in frame upstream of a CDS/sORF's true start with no stop in
+between (``nterm_extension``), so every novel class gets false candidates; their truth rows carry
+the source locus, and each lies in an entry of ``giap makedb --six-frame-orfs``. These draws use
+their own stream (``[seed, 7]``). Decision 21 (stream ``[seed, 8]``): each null PSM row of a wrong
+peptide becomes, with probability 1/2, the decoy row of its makedb entry (reversed peptide,
+``rev_GIAPORF_…``, the same null score and mixture q / PEP); gene-level decoys are reversed
+products of annotated non-pseudo proteins (``rev_<locus_tag>``, ``n_decoy_rows`` of them).
 
 All draws come from ``numpy.random.default_rng([seed, 3])``, so the genome and its truth are
 unchanged by the proteomics options. Gene-level abundance is a plain log-normal per protein
@@ -64,7 +68,8 @@ _STREAM = 3  # numpy SeedSequence key of the proteomics stream (1: features, 2: 
 _SIXFRAME_STREAM = 7  # numpy SeedSequence key of the six-frame wrong peptides (M7-12)
 WrongSource = Literal["shuffled", "other_strain", "sixframe_noncoding"]
 _WRONG_SOURCES = ("shuffled", "other_strain", "sixframe_noncoding")
-SIXFRAME_CLASSES = ("intergenic", "cds_outframe", "antisense")
+_DECOY_STREAM = 8  # numpy SeedSequence key of the six-frame decoy coin and protein decoys
+SIXFRAME_CLASSES = ("intergenic", "cds_outframe", "antisense", "nterm_extension")
 
 
 @dataclass(frozen=True)
@@ -349,10 +354,14 @@ def sixframe_noncoding_pool(
     annotated: Sequence[tuple[str, int, int, str]],
     digest_len: tuple[int, int],
     missed_cleavages: int,
+    true_starts: Sequence[tuple[str, int, str]] = (),
 ) -> SixframePool:
     """Trypsin/P products (linear, no origin crossing) of the six-frame translation of ``seqs``
     with no codon in frame with a ``coding`` span (contig, s0, e0, strand), by class of their
-    overlap with the ``annotated`` CDS/sORF spans (intergenic / cds_outframe / antisense)."""
+    overlap with the ``annotated`` CDS/sORF spans (intergenic / cds_outframe / antisense).
+    Products in frame upstream of a ``true_starts`` codon (contig, plus-strand position: the
+    codon's first base on ``+``, its end on ``-``) with no stop in between are
+    ``nterm_extension`` instead (M7-12 decision 22)."""
     lo, hi = digest_len
     frames: list[tuple[str, str, int, bytes, int]] = []
     parts: dict[str, list[np.ndarray]] = {c: [] for c in SIXFRAME_CLASSES}
@@ -372,6 +381,8 @@ def sixframe_noncoding_pool(
                 b = np.unique(np.concatenate([[0, m], np.flatnonzero(np.isin(arr, cut)) + 1,
                                               np.flatnonzero(stop)]))  # fmt: skip
                 bad = np.concatenate([[0], np.cumsum(mask[strand][off::3][:m] | stop)])
+                ups = [p for c, p, st in true_starts if c == cid and st == strand]
+                up = _upstream_mask(m, off, n, stop, strand, ups)
                 fi = len(frames)
                 frames.append((cid, strand, off, aa, n))
                 for k in range(1, 2 + missed_cleavages):
@@ -380,22 +391,41 @@ def sixframe_noncoding_pool(
                     i, j = i[keep], j[keep]
                     t0, t1 = off + 3 * i, off + 3 * j
                     s0, e0 = (t0, t1) if strand == "+" else (n - t1, n - t0)
-                    same = cov[strand][e0] > cov[strand][s0]
-                    anti = ~same & (cov[other][e0] > cov[other][s0])
+                    nterm = up[j] - up[i] == j - i
+                    same = ~nterm & (cov[strand][e0] > cov[strand][s0])
+                    anti = ~nterm & ~same & (cov[other][e0] > cov[other][s0])
                     rows = np.stack([np.full(len(i), fi), i, j], axis=1)
                     for cls, sel in (("cds_outframe", same), ("antisense", anti),
-                                     ("intergenic", ~same & ~anti)):  # fmt: skip
+                                     ("intergenic", ~nterm & ~same & ~anti),
+                                     ("nterm_extension", nterm)):  # fmt: skip
                         parts[cls].append(rows[sel])
     idx = {c: np.concatenate(v) if v else np.zeros((0, 3), dtype=np.int64)
            for c, v in parts.items()}  # fmt: skip
     return SixframePool(frames, idx)
 
 
+def _upstream_mask(
+    m: int, off: int, n: int, stop: np.ndarray, strand: str, starts: Sequence[int]
+) -> np.ndarray:
+    """Cumulative count (length ``m + 1``) of the codons of frame ``off`` (strand-local) that lie
+    upstream of a start in ``starts`` with no stop in between."""
+    mark = np.zeros(m, dtype=bool)
+    stops = np.flatnonzero(stop)
+    for p in starts:
+        loc = p if strand == "+" else n - p
+        if not 0 <= loc <= n or (loc - off) % 3:
+            continue
+        t = min((loc - off) // 3, m)
+        k = int(np.searchsorted(stops, t)) - 1
+        mark[(int(stops[k]) + 1 if k >= 0 else 0) : t] = True
+    return np.concatenate([[0], np.cumsum(mark)])
+
+
 def _sixframe_draw(
-    rng: np.random.Generator, pool: SixframePool, n: int, ok: Callable[[str], bool]
+    rng: np.random.Generator, pool: SixframePool, n: int, ok: Callable[[Locus], bool]
 ) -> list[Locus]:
     """``n`` products taken in turn from each class of ``pool`` (random order within a class)
-    whose peptide passes ``ok`` and was not taken before; a class that runs out is skipped."""
+    that pass ``ok`` and whose peptide was not taken before; a class that runs out is skipped."""
     order = {c: iter(rng.permutation(len(pool.idx[c])).tolist()) for c in SIXFRAME_CLASSES}
     out: list[Locus] = []
     seen: set[str] = set()
@@ -405,7 +435,7 @@ def _sixframe_draw(
         cls = live[k % len(live)]
         for i in order[cls]:
             loc = pool.locus(cls, i)
-            if loc[0] not in seen and ok(loc[0]):
+            if loc[0] not in seen and ok(loc):
                 seen.add(loc[0])
                 out.append(loc)
                 k += 1
@@ -503,12 +533,73 @@ def _noncoding_pool(
     novel: Sequence[Sequence[Any]],
 ) -> SixframePool:  # fmt: skip
     """The non-coding six-frame pool: out of frame of every CDS/sORF (true start to stop, pseudo
-    genes included) and every novel ORF; classes by the annotated CDS/sORF spans."""
+    genes included) and every novel ORF; classes by the annotated CDS/sORF spans, and
+    ``nterm_extension`` upstream of the true start of a CDS/sORF not crossing the origin."""
     cds = [f for f in feats if f.kind in ("cds", "sorf")]
     annotated = [(f.contig, f.start, f.end, f.strand) for f in cds]
     coding = [(f.contig, *f.span(), f.strand) for f in cds] + annotated
     coding += [(str(r[2]), int(r[3]) - 1, int(r[4]), str(r[5])) for r in novel]
-    return sixframe_noncoding_pool(seqs, coding, annotated, cfg.digest_len, cfg.missed_cleavages)
+    starts = [(f.contig, f.span()[0] if f.strand == "+" else f.span()[1], f.strand)
+              for f in cds if f.end <= len(seqs[f.contig])]  # fmt: skip
+    return sixframe_noncoding_pool(seqs, coding, annotated, cfg.digest_len, cfg.missed_cleavages,
+                                   starts)  # fmt: skip
+
+
+class OrfEntries:
+    """The class-tagged entries of ``giap makedb --six-frame-orfs`` (six-frame ORFs and
+    ``nterm_extension`` entries), indexed to name the entry a six-frame product lies in."""
+
+    def __init__(self, bakta: Path, seqs: dict[str, str], min_aa: int) -> None:
+        from bisect import bisect_right
+
+        from giap.annotate.bakta import parse_bakta_json
+        from giap.makedb.build import six_frame_orfs
+        from giap.mapping.sixframe import build_sixframe
+
+        gm = parse_bakta_json(bakta, genome=seqs).model
+        index = build_sixframe(seqs, gm.replicons, wrap_nt=0)
+        by: dict[tuple[str, str, int], list[tuple[int, int, str]]] = {}
+        for o in six_frame_orfs(index, gm, seqs, min_aa):
+            phase = (o.start if o.strand == "+" else o.end) % 3
+            by.setdefault((o.contig, o.strand, phase), []).append((o.start, o.end, o.db_id))
+        self._by = {k: sorted(v) for k, v in by.items()}
+        self._starts = {k: [x[0] for x in v] for k, v in self._by.items()}
+        self._bisect = bisect_right
+        self._lengths = {c: len(x) for c, x in seqs.items()}
+
+    def of(self, loc: Locus) -> str | None:
+        """``db_id`` of the entry holding the product ``loc`` in frame, else None."""
+        _, cid, s1, e1, strand = loc
+        for d in (0, self._lengths[cid]):
+            a, b = s1 - 1 + d, e1 + d
+            key = (cid, strand, (a if strand == "+" else b) % 3)
+            k = self._bisect(self._starts.get(key, []), a) - 1
+            if k >= 0 and b <= self._by[key][k][1]:
+                return self._by[key][k][2]
+        return None
+
+
+def _protein_decoys(
+    cfg: ProteomicsConfig,
+    rng: np.random.Generator,
+    n: int,
+    annotated: Sequence[tuple[str, str, str]],
+    target_set: set[str],
+    decoys: list[tuple[str, str, int, int]],
+) -> None:
+    """Append ``n`` reversed Trypsin/P products of annotated proteins (``rev_<locus_tag>``) to
+    ``decoys``, so gene-level decoy pairing works in six-frame mode (M7-12 decision 21)."""
+    src = [(loc, aa, sp) for loc, _, aa in annotated
+           if (sp := digest_spans(aa, cfg.digest_len, cfg.missed_cleavages))]  # fmt: skip
+    tries = 0
+    while src and len(decoys) < n and tries < 100 * n + 1000:
+        tries += 1
+        loc, aa, spans = src[int(rng.integers(len(src)))]
+        a, b = spans[int(rng.integers(len(spans)))]
+        rev = aa[a:b][::-1]
+        if rev not in target_set:
+            run = int(rng.integers(cfg.n_runs))
+            decoys.append((rev, f"rev_{loc}", run, 2 if rng.random() < P_CHARGE_2 else 3))
 
 
 def _start_codon_aa(seq: str, s0: int, e0: int, strand: str) -> str:
@@ -607,9 +698,18 @@ def simulate_proteomics(
     six = cfg.wrong_source == "sixframe_noncoding"
     pool: SixframePool | None = None
     loci: dict[str, Locus] = {}
+    entry: dict[str, str] = {}  # six-frame wrong peptide -> makedb entry db_id
     if six:
         pool = _noncoding_pool(cfg, seqs, feats, novel)
-        drawn = _sixframe_draw(xrng, pool, n_wrong, lambda q: _il(q) not in hay)
+        orfs = OrfEntries(out / "bakta_like.json", seqs, cfg.digest_len[0])
+
+        def ok(loc: Locus) -> bool:
+            db_id = orfs.of(loc) if _il(loc[0]) not in hay else None
+            if db_id is not None:
+                entry[loc[0]] = db_id
+            return db_id is not None
+
+        drawn = _sixframe_draw(xrng, pool, n_wrong, ok)
         loci = {loc[0]: loc for loc in drawn}
         wrong = [(w, f"sixframe:{c}:{a}-{b}:{st}") for w, c, a, b, st in loci.values()]
     else:
@@ -661,12 +761,13 @@ def simulate_proteomics(
         k for k, p in enumerate(prots) if digest_spans(p.aa, cfg.digest_len, cfg.missed_cleavages)
     ]
     tries = 0
-    if pool is not None:  # decoys from the same (non-coding six-frame) search space
-        rev_ok = lambda q: q[::-1] not in target_set  # noqa: E731
-        for dp, *_ in _sixframe_draw(xrng, pool, n_dec, rev_ok):
-            run = int(xrng.integers(n_runs))
-            ch = 2 if xrng.random() < P_CHARGE_2 else 3
-            decoys.append((dp[::-1], "rev_sixframe", run, ch))
+    to_decoy = np.zeros((n_runs, n_t), dtype=bool)
+    if six:  # decision 21: a 1/2 coin per null PSM, protein decoys from annotated proteins only
+        drng = np.random.default_rng([seed, _DECOY_STREAM])
+        to_decoy = is_wrong & (drng.random((n_runs, n_t)) < 0.5)
+        pseudo_loci = {f.locus for f in feats if f.pseudo_reason or f.extra.get("pseudo")}
+        real = [x for x in annotated if x[0] not in pseudo_loci]
+        _protein_decoys(cfg, drng, n_dec, real, target_set, decoys)
         usable = []
     while usable and len(decoys) < n_dec and tries < 100 * n_dec + 1000:
         tries += 1
@@ -683,6 +784,13 @@ def simulate_proteomics(
     for r in range(n_runs):
         run_rows: list[list[str]] = []
         for i, t in enumerate(targets):
+            if to_decoy[r, i]:  # the null PSM went to the decoy of its makedb entry
+                run_rows.append([
+                    t.peptide[::-1], f"rev_{entry[t.peptide]}", _fmt(qs[r, i]),
+                    _fmt(peps[r, i]), _fmt(scores[r, i]), "true", _NA, f"run{r + 1}",
+                    str(charge[r, i]),
+                ])  # fmt: skip
+                continue
             run_rows.append([
                 t.peptide, t.ids, _fmt(qs[r, i]), _fmt(peps[r, i]), _fmt(scores[r, i]), "false",
                 f"{intensity[r, i]:.6g}", f"run{r + 1}", str(charge[r, i]),
@@ -722,7 +830,8 @@ def simulate_proteomics(
                           "false"])  # fmt: skip
             continue
         truth.append([pep, "true", origin, _NA, _NA, _NA, _NA, _NA, str(counts[pep]), "false"])
-    for pep in dict.fromkeys(d[0] for d in decoys):
+    six_decoys = [t.peptide[::-1] for i, t in enumerate(targets) if to_decoy[:, i].any()]
+    for pep in dict.fromkeys([*(d[0] for d in decoys), *six_decoys]):
         truth.append([pep, "true", "decoy", _NA, _NA, _NA, _NA, _NA, _NA, _NA])
 
     pseudo = {f.locus for f in feats if f.pseudo_reason or f.extra.get("pseudo")}
