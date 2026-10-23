@@ -1,0 +1,172 @@
+// M8-06b: main.nf runs FUNCTION after GENETABLE when 'function' is in params.modules, the first
+// module switch in workflow/ (GIAP_SPEC.md §6.2, §6.3 "Optional modules ... are switched with
+// params.modules", §7.7.1, §9.1; docs/specs/M8-06-function-step-and-run.md items 6-8, lead
+// decision 1 / Q5). Stub runs only; ci.yml runs: nf-test test workflow/tests --profile test,stub.
+//
+// Pinned here: FUNCTION_STEP (tag "function") runs once from params.inputs.peptides when the
+// modules include 'function'; it takes GENETABLE's final gene table and tu_folds (both from
+// detectability), parse_bakta's C1 replicons, and the five installed resources that
+// functionResources() resolves from <db_dir>/db_manifest.json under their item names (paths as
+// db_sources.yaml: go/go-basic.obo, go/goslim_generic.obo, kegg/ko_pathway.tsv,
+// kegg/pathway_names.tsv, cog/fun-20.tab). tables/{category_summary,enrichment_detection,
+// enrichment_gsea}.tsv and genetable/tu_folds.parquet are published. With modules = ['core'], or
+// without peptides, it does not run. The tmp db_dir holds empty stand-ins (stub tasks never read
+// their inputs) and a per-name manifest (giap.preflight.environment.read_manifest's provisional
+// form, as data/genetable/db uses).
+
+nextflow_pipeline {
+
+    name "main.nf runs FUNCTION when 'function' is in params.modules (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "function"
+
+    test("modules core,function: FUNCTION_STEP runs once with the gene table, tu_folds, replicons and the five resources") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                def db = java.nio.file.Files.createTempDirectory('m806_db').toFile()
+                def rel = [cog2020_def: 'cog/cog-20.def.tab', go_basic: 'go/go-basic.obo',
+                           goslim_generic: 'go/goslim_generic.obo', kegg_ko_pathway: 'kegg/ko_pathway.tsv',
+                           kegg_pathway_names: 'kegg/pathway_names.tsv', cog2020_fun: 'cog/fun-20.tab']
+                rel.each { k, r -> def f = new File(db, r); f.parentFile.mkdirs(); f.text = '' }
+                new File(db, 'db_manifest.json').text = groovy.json.JsonOutput.toJson(
+                    rel.collectEntries { k, r -> [(k): [path: r, version: 'stub']] })
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core', 'function']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = db.canonicalPath
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // subworkflow's own name FUNCTION)
+            def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
+            def dirsTagged = { String w, String step ->
+                H.taskDirs(w).findAll { d ->
+                    def l = new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: ''
+                    H.tagOf(l.replaceFirst(/^### name:\s*['"]?/, '').replaceFirst(/['"]\s*$/, '')) == step
+                }
+            }
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            assert ranTagged('function') == 1 : "function ran ${ranTagged('function')}x; tasks: ${H.names(workflow.trace)}"
+            assert H.names(workflow.trace).any { H.procOf(it) == 'FUNCTION_STEP' } : "no FUNCTION_STEP alias: ${H.names(workflow.trace)}"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def fd = dirsTagged(work, 'function')[0]
+            def din = H.stepInputs(fd)
+            assert din.collect { it[0] }.sort() == ['cog2020_fun', 'gene_table', 'go_basic', 'goslim_generic',
+                                                    'kegg_ko_pathway', 'kegg_pathway_names', 'replicons',
+                                                    'tu_folds'] : "function inputs ${din}"
+            def src = { String k -> new File(fd, din.find { it[0] == k }[1]).canonicalPath }
+            def under = { String step -> H.stepDirs(work, step)[0].canonicalPath }
+            assert src('gene_table').startsWith(under('detectability')) && src('gene_table').endsWith('genes.parquet') : "gene_table is not detectability's genetable/genes.parquet: ${src('gene_table')}"
+            assert src('tu_folds').startsWith(under('detectability')) && src('tu_folds').endsWith('tu_folds.parquet') : "tu_folds is not detectability's: ${src('tu_folds')}"
+            assert src('replicons').startsWith(under('parse_bakta')) && src('replicons').endsWith('replicons.parquet') : "replicons is not parse_bakta's C1: ${src('replicons')}"
+            def db = new File(params.db_dir).canonicalPath
+            [go_basic: 'go/go-basic.obo', goslim_generic: 'go/goslim_generic.obo', kegg_ko_pathway: 'kegg/ko_pathway.tsv',
+             kegg_pathway_names: 'kegg/pathway_names.tsv', cog2020_fun: 'cog/fun-20.tab'].each { k, r ->
+                assert src(k) == new File(db, r).canonicalPath : "${k} staged from ${src(k)}, expected <db_dir>/${r}"
+            }
+
+            ['tables/category_summary.tsv', 'tables/enrichment_detection.tsv', 'tables/enrichment_gsea.tsv',
+             'genetable/tu_folds.parquet', 'tables/operons.tsv'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+        }
+    }
+
+    test("modules with function, db_dir without function resources: FUNCTION_STEP runs on the required inputs") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core', 'mobile', 'bgc', 'function']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
+            def dirsTagged = { String w, String step ->
+                H.taskDirs(w).findAll { d ->
+                    def l = new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: ''
+                    H.tagOf(l.replaceFirst(/^### name:\s*['"]?/, '').replaceFirst(/['"]\s*$/, '')) == step
+                }
+            }
+            assert workflow.success
+            assert ranTagged('function') == 1 : "function ran ${ranTagged('function')}x; tasks: ${H.names(workflow.trace)}"
+            def keys = H.stepInputs(dirsTagged(workDir.toString(), 'function')[0]).collect { it[0] }.sort()
+            assert keys == ['gene_table', 'replicons', 'tu_folds'] : "function inputs ${keys}"
+            ['tables/category_summary.tsv', 'tables/enrichment_detection.tsv', 'tables/enrichment_gsea.tsv'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+        }
+    }
+
+    test("modules core: FUNCTION_STEP does not run and no function table is published") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
+            assert workflow.success
+            assert ranTagged('function') == 0 : "function ran with modules = ['core']: ${H.names(workflow.trace)}"
+            assert !H.names(workflow.trace).any { H.procOf(it) == 'FUNCTION_STEP' }
+            ['category_summary.tsv', 'enrichment_detection.tsv', 'enrichment_gsea.tsv'].each { f ->
+                assert !new File("${outputDir}/tables/${f}").exists() : "tables/${f} published with modules = ['core']"
+            }
+            assert new File("${outputDir}/tables/operons.tsv").isFile() : "core tables not published"
+        }
+    }
+
+    test("no peptides: FUNCTION_STEP does not run") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString()]
+                modules = ['core', 'function']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
+            assert workflow.success
+            assert ranTagged('function') == 0 : "function ran without peptides: ${H.names(workflow.trace)}"
+            assert !new File("${outputDir}/tables").exists() : "tables/ published without peptides"
+        }
+    }
+}
