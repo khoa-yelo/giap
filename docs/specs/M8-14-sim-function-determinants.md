@@ -195,3 +195,13 @@ def determinants_planted(n_genes: int, coefs: Mapping[str, float], noise_sd: flo
    - Pseudogenes without `aa`: giapsim records `n_obs` = 0 and GRAVY NaN, while GIAP translates
      them from `nt`. Pre-existing; backlog for M8-15's p_detect refit.
    - Next: the implementer.
+8. **Implementer (aa8bd884): B1 done.**
+   - **Shift:** the realised mean over movable members is −1.44 to −1.50 across 7 seeds.
+   - **Calibration:** attack 2's fitted p_detect arm is at level and conservative (Slurm 1873380
+     fast; 1873687 full). The unweighted teeth fail at 1.0. Fast suite 1873381 passed. The other
+     scenarios are byte-identical.
+   - **Gap ruled:** a few short sORFs (7–30 aa) with too few K/R cannot lose a peptide by K/R
+     moves (0–9 per 4,000-gene seed). They keep shift 0 and count in the mean. The lead edits
+     this PR's tests from "every movable member drops" to "no member rises, and at least 95 %
+     drop". The mean band of −1.5 ± 0.15 is unchanged.
+   - Next: the statistician re-check (B1–B3) and the code review, in parallel.

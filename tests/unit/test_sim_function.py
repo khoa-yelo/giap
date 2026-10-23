@@ -580,7 +580,9 @@ def test_attack_shift_is_carried_by_the_members_covariate() -> None:
     na, nb = ca["n_obs"].to_numpy(np.int64), cb["n_obs"].to_numpy(np.int64)
     movable = inside & ok & (nb > 0)
     assert movable.sum() >= 20
-    assert np.all(na[movable] < nb[movable]), "a movable member's n_obs did not drop"
+    # M8-14 decision 8: a few short sORFs with too few K/R cannot lose a peptide; they stay put.
+    assert np.all(na[movable] <= nb[movable]), "a member gained observable peptides"
+    assert np.mean(na[movable] < nb[movable]) >= 0.95, "too few movable members lost peptides"
     still = la.index[lm & ~la.index.isin(ga.loc[movable, "locus_tag"])]
     pd.testing.assert_frame_equal(la.loc[still], lb.loc[still])  # immovable: untouched
     assert set(still) <= conf  # ... and still counted as members
@@ -641,7 +643,8 @@ def test_member_shift_moves_the_members_logit_by_the_shift() -> None:
     movable = inside & cb["has_aa"].to_numpy(bool) & (cb["n_obs"].to_numpy() > 0)
     assert movable.sum() >= 20
     np.testing.assert_allclose(diff[inside & ~movable], 0.0, atol=1e-8)
-    assert np.all(diff[movable] < 0), "a movable member moved towards higher detectability"
+    assert np.all(diff[movable] <= 1e-8), "a movable member moved towards higher detectability"
+    assert np.mean(diff[movable] < 0) >= 0.95, "too few movable members moved"
     mean = float(diff[movable].mean())
     assert abs(mean + 1.5) <= 0.15, (mean, int(movable.sum()), int(inside.sum()))
 
