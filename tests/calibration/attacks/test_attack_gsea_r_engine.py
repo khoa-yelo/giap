@@ -111,10 +111,8 @@ def _p(engine: Any, genes: pd.DataFrame, members: list[str], rng: np.random.Gene
 def _gene_level(engine: Any) -> Any:
     def rep(rng: np.random.Generator) -> float:
         genes, members = _packed(rng)
-        solo = {
-            f"TU_{k + 1}": [Gene(str(g), float(v))]
-            for k, (g, v) in enumerate(zip(genes["locus_tag"], genes["abundance_log2"], strict=True))
-        }
+        pairs = zip(genes["locus_tag"], genes["abundance_log2"], strict=True)
+        solo = {f"TU_{k + 1}": [Gene(str(g), float(v))] for k, (g, v) in enumerate(pairs)}
         return _p(engine, frame(solo), members, rng)
 
     return rep
