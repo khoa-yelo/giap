@@ -555,3 +555,13 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
     - Next: a test-author round for decision 20, then the implementer (`K12_ISLANDS`, the
       `k12_evidence` docstring, the island part of `gate13()` and its summary fields), then code
       review and the statistician's check of the summary, then the acceptance run.
+22. **Gate-13 test-author (8b3895c9): gaps 1–6 accepted as pinned.**
+    - `value` = `n_recovered_high`, expected [1, 1]; `in_expected` also needs `n_spurious == 0`
+      (1–2 spurious calls are `outside_expected`, not a failure).
+    - `low_ceilings` = {island_id: {w, q, ceiling}}, lows only.
+    - w = the island's TUs with at least one eligible gene (`tables/genes.tsv`, `detection_status`
+      not `partial_excluded`); q = the replicon's share of eligible genes not detected, from GIAP's
+      `tables/genes.tsv`; the ceiling is the raw `low_direction_ceiling`, before LOESS attenuation.
+    - The high-island part means every planted high island is recovered.
+    - Next: the implementer (`K12_ISLANDS`, the `k12_evidence` docstring, the island part of
+      `gate13()`).
