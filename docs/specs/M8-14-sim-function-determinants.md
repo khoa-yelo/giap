@@ -99,3 +99,119 @@ def determinants_planted(n_genes: int, coefs: Mapping[str, float], noise_sd: flo
 2. `determinants_planted` features from the simulator's planted signals (proposed) or drawn
    directly as Gaussians (simpler, but does not test the feature pipeline)? **Proposed default:**
    planted signals for the recovery run; Gaussian features only in unit tests.
+
+## Lead decisions (2026-10-23)
+1. **Question 1 accepted:** synthetic annotations use the reserved ranges `GO:9xxxxxx`, `K9xxxx`
+   and `map9xxxx`. A test asserts that no synthetic ID falls outside them and that none collides
+   with a real ID in the test GO/KEGG fixtures. No KEGG-derived content is committed.
+2. **Question 2 accepted:** `determinants_planted` features come from the simulator's planted
+   signals in the recovery run; Gaussian features appear only in unit tests.
+3. **Test-author (83d4cb42), interface and gaps 1–10: the test-author's readings are accepted.**
+   - Gap 1: `function_sim.draw(pair, rng)` returns the world (layout, expression, OBO, KEGG links,
+     sets, features, truth).
+   - Gap 2: `synthetic_ontology(..., genes=)`.
+   - Gap 3: the synthetic namespace roots stay in the term table. Their sets cover 30–60 % of the
+     genes, which is above `max_size`, so M8-03's size filter removes them.
+   - Gap 4: five collections; a synthetic `go_slim` goes to the backlog for M8-15.
+   - Gap 5: the per-gene dominant block goes in `truth/determinants_genes.tsv`.
+   - Gap 6: `determinants_null(noise_sd=1.0)`.
+   - Gap 7: confounded members are drawn at random, not by GRAVY (spec wording corrected here).
+   - Gap 8: planted features get light tests only.
+   - Gap 9: COG keeps its letters; COG IDs are not KEGG-derived.
+   - Gap 10: the simulator never emits `GO:9999999`, the absent-term marker of the fixtures.
+4. **Statistician review (d2338392, Slurm 1872005): BLOCKED on B1–B3. All three fixes accepted.**
+   Spec item 5 and example 4 are amended as below.
+   - **B1, attack 2 (`ora_attack_confounded`):** the member shift is carried through a covariate
+     the M4-13 detectability model sees, instead of directly on the detection logit.
+     - The default covariate is GRAVY. The implementer may choose another M4-13 covariate if it
+       gives a cleaner effect, and records the choice.
+     - Members are still drawn at random (gap 7).
+     - Gate: with the fitted p_detect, the weighted ORA stays at level on the confounded set.
+       With the shift on the logit alone, the old behaviour, no valid method could pass.
+   - **B2, attack 3 (`gsea_attack_operon_packed`):** the extra N(0, 3²) TU effect is dropped.
+     - Packed TUs draw their effect like every other TU. The shared TU level is the attack.
+     - Each packed set has at least 10 TUs, inside `gsea_size`: 1–3 packed operons of 10–30
+       genes plus single-gene TUs, as in test_gsea_tu_calibration.py.
+     - The TU-level GSEA must stay at level, and a gene-level engine must fail (teeth).
+   - **B3:** the determinants-null independence check pools the three features into one check
+     per replicate (`check_level_pooled`, m = 3). No seed is changed.
+   - **Example 2:** `members_mean_p_true_at_most_half` becomes a population-ratio assertion, with
+     the shift applied to every gene, as the statistician suggested.
+   - **Order:** the test-author updates the PR's own tests (B1–B3, example 2) and turns the
+     statistician's strict-xfail arms for B1/B2 into gated tests. Then the implementer. Then the
+     statistician re-checks, and the code review runs in parallel.
+   - **M8-15 notes:** sets go through M8-03; the GO ancestors of the confounded set stay out of
+     the null pool; the signed-argmax comparison; the gene-table column wiring; a decay-0.5 arm;
+     `resid` reading `ecfg.tu_sd`. These go to the backlog for M8-15.
+5. **Test-author (073c11de, 5432fd47): readings 1, 2, 4 and 5 are accepted.**
+   - Reading 1: `function_sim.CONFOUND_COVARIATE` is `"gravy"` or `"n_obs"`, and its column is
+     `<name>_true`.
+   - Reading 4: one new pre-declared stream for the pooled check, which is not seed shopping.
+   - **Reading 3: the covariate must be visible in the sequences.** M8-15 refits p_detect from
+     GIAP's gene table, which computes GRAVY and observability from the proteins. So the
+     members' recorded `<cov>_true` must equal the value recomputed from their `aa`. The
+     implementer edits the members' sequences, e.g. hydrophobic substitutions for GRAVY or K/R
+     changes for `n_obs`, rather than shifting the column alone.
+     - If the logit shift of `member_shift` = −1.5 cannot be reached through a realistic
+       sequence change (GRAVY within [−2, 2]), the implementer reports it. The lead then rules on
+       the shift size; the tests are not loosened.
+   - Next: the implementer.
+6. **Implementer (69ad45f3): B2 done; B1 ruled here (the GRAVY carrier is infeasible).**
+   - B2 accepted: packed sets are 1–3 chr1 operons of 10–30 genes plus `PACKED_SINGLES` = 40
+     single-gene TUs (≥ 9 on small layouts), whole TUs only, no extra TU effect. Slurm 1872913:
+     both calibration files at both tiers pass, apart from attack 2's fitted arm, which waits on B1.
+   - **B1: GRAVY cannot carry −1.5.** With coefficient −0.6 the members need GRAVY +2.5, so 97–99 %
+     land above 2 (20 seeds × 4,000 genes). A common per-member shift reachable at GRAVY ≤ 2 is
+     only about −0.55, varying by seed from −0.87 to +0.02.
+   - **Ruling: the carrier is `n_obs` (`CONFOUND_COVARIATE = "n_obs"`), and the size stays −1.5.**
+     Observable-peptide count is the strongest real detection determinant, and K/R edits leave
+     GRAVY unchanged.
+     - Each member's K/R positions are edited so that its recomputed `n_obs` gives a logit shift
+       as close to −1.5 as the integer allows. The **mean** member shift is −1.5 ± 0.15.
+     - Members with `n_obs` = 0 cannot move. They stay members, they are counted, and the mean is
+       taken over the movable members. Members are still drawn at random (gap 7).
+     - Every member's recorded `n_obs_true` equals the value recomputed from its `aa`, and its
+       logit equals the covariate model's logit from its recomputed covariates (exact, 1e-8).
+     - The gate is unchanged: with the fitted p_detect the weighted ORA stays at level, and the
+       unweighted teeth must still fail.
+   - **Test amendments (test-author, this PR's own tests):**
+     - `test_attack_shift_is_carried_by_the_members_covariate` drops the `layout.genes` equality.
+       Between shift −1.5 and 0 only the members' `aa` (and their derived columns) may differ.
+     - `test_member_shift_moves_the_members_logit_by_the_shift` changes its per-member exact −1.5
+       to the logit-from-covariates identity plus the mean over movable members.
+     - `test_confounding_covariate_is_recorded` and
+       `test_attack_logit_is_computed_from_covariates_only[-1.5]` follow `n_obs`.
+     - This is a ruling on how the shift is realised, not a widened gate (R3): the threshold and
+       the at-level gate stay.
+   - Minor, to the backlog: with fewer than 10 scoring TUs a packed set could, at about 1e-5 per
+     set, trip the finite-p assert in `_packed_tu_rep` at a large full-tier R.
+   - Next: the test-author, then the implementer, then the statistician re-check and code review.
+7. **Test-author (da66dcc0): gaps 1–4 accepted as proposed.**
+   - A member's edited `nt` still translates to its edited `aa` wherever it did at shift 0 (codons
+     move with residues).
+   - GRAVY is unchanged exactly, so the K/R edits preserve composition (position moves that make
+     peptides fall outside 7–30 aa); no separate length assertion.
+   - There is no per-member optimality check; the mean band and the logit identity carry it.
+   - Pseudogenes without `aa`: giapsim records `n_obs` = 0 and GRAVY NaN, while GIAP translates
+     them from `nt`. Pre-existing; backlog for M8-15's p_detect refit.
+   - Next: the implementer.
+8. **Implementer (aa8bd884): B1 done.**
+   - **Shift:** the realised mean over movable members is −1.44 to −1.50 across 7 seeds.
+   - **Calibration:** attack 2's fitted p_detect arm is at level and conservative (Slurm 1873380
+     fast; 1873687 full). The unweighted teeth fail at 1.0. Fast suite 1873381 passed. The other
+     scenarios are byte-identical.
+   - **Gap ruled:** a few short sORFs (7–30 aa) with too few K/R cannot lose a peptide by K/R
+     moves (0–9 per 4,000-gene seed). They keep shift 0 and count in the mean. The lead edits
+     this PR's tests from "every movable member drops" to "no member rises, and at least 95 %
+     drop". The mean band of −1.5 ± 0.15 is unchanged.
+   - Next: the statistician re-check (B1–B3) and the code review, in parallel.
+9. **Lead (review round): statistician APPROVE, code review B1/B2 fixed by the lead.**
+   - **B1:** a new test checks that each edited member's `nt` keeps its length, its bases past
+     `3 * len(aa)` and its codon multiset.
+   - **B2:** `_confound` raises `ValueError` when the realised mean shift over movable members
+     misses `member_shift` by more than `SHIFT_TOL` = 0.15 (about [−2, +0.5] is reachable). This
+     replaces silent under-delivery. Checked: −2.0, −1.5, −1.0, −0.75 and +0.5 at 400–4,000 genes
+     over 5–40 seeds never raise; −4 and +2 raise. The docstrings and the function.md Attack 2/3
+     text (the statistician's) are updated.
+   - **Backlog:** the M8-15 overlap arm at −0.75, an M8-04 projection-variance ADR, the
+     `tm_segments`/pI side effect, oracle conservatism at α 0.10, and the code-review nits.

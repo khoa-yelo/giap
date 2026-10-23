@@ -929,6 +929,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
+- M8-15: a synthetic go_slim OBO for the sixth collection (M8-14 gap 4).
 
 ### M4-24 follow-up (giapsim scored null decoys)
 - giapsim M3-19 proteomics writes decoy rows with q, PEP and score all NA, so the picked tier never
@@ -996,6 +997,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - N4: hardening still owed: `--sensitivity full` in the nightly e2e, and the M9 text item on threshold sensitivity.
   - N5: `test_unpatched_variants_unchanged` has an odd `assert [c for c in ...]`.
 - M7-11b: no run input carries makedb's `db_id_map.tsv`, so `nterm_extension` pairing comes from the run's gene model and the 80 % pairing guard cannot fire from the pipeline. A real input needs a new `defaults.yaml` key (protected, ADR, Khoa).
+- M8-15 (from M8-14 statistician, #251): build ORA sets through M8-03 (world.sets keeps 10–500 TUs, ORA tests 5–500); keep the confounded set's GO ancestors out of level checks and null pools; compare the truth's dominant block to M8-09 by signed argmax on top-decile genes; wire planted features into gene-table columns `promoter_score`, `tir_ostir`, `cai` (simulator CAI uses the bundled codon usage); record a position-decay 0.5 arm on the R engine; giapsim `resid` should read `ecfg.tu_sd` (hard-coded 1).
 - M7-14 review nits (#248): a step test mixing same-db and other support across sites (alt_peps order, variants.py:220); te2_result `notes` empty when high_stop_codon > 0; merge the duplicate `_flag_set`/`_flag_names` helpers (drop the unreachable `;` branch); `variants_qc` in `PUBLISHED_FILES`/`run_view.PATHS` though never published; test_id_mixups_sim100k returns early on missing inputs (make it skip); an nf-test with a non-empty `variants_qc` into CONTEXT.
 - M7 (from MVP-04 statistician, #247): nterm-extension decoys pair with a gene only after a target row is accepted (M7-12 decision 28), so an all-decoy null gene vanishes instead of counting as a decoy win (anti-conservative, ≈ +0.8 false genes at K-12). Pair through makedb's entry→gene relation.
 - M4 (from M4-24 statistician, #238): ADR-0047 q-filter symmetry: switch the decoy q filter on only when *every* C9 target carries q (with 50 % NA-q targets FDP at q 0.05 is bimodal, top decile ≈ 0.135; Slurm 1871630). Needs an ADR-0047 amendment (Khoa).
