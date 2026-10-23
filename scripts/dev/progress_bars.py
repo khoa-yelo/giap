@@ -3,7 +3,8 @@
 
 An issue is an ``Mx-NN`` spec in docs/specs/. It is *done* when a commit subject on ``origin/main``
 names it (squash merges are titled ``Mx-NN: …``), *running* when a commit on another
-``origin/*`` branch that is not yet on main names it, and *pending* otherwise. Milestones without
+``origin/*`` branch that is not yet on main names it, and *pending* otherwise. A split issue's parts
+(``M8-06a``, ``M8-06b``) count for ``M8-06``, done once any part merged. Milestones without
 issue specs yet (M5-M11) show as not designed. M0 has no issue specs and is done (PR #1).
 
 Usage: ``python scripts/dev/progress_bars.py [--write]`` (``git fetch`` first). With ``--write`` the
@@ -20,7 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-ISSUE = re.compile(r"\bM(\d+)-(\d{2})\b")
+ISSUE = re.compile(r"\bM(\d+)-(\d{2})[a-z]?\b")
 START, END = "<!-- progress:start -->", "<!-- progress:end -->"
 MILESTONES = {  # GIAP_SPEC.md §13 milestone table
     0: "Scaffold",
@@ -55,7 +56,7 @@ def collect() -> tuple[dict[int, list[str]], set[str], set[str]]:
         if m:
             issues.setdefault(int(m.group(1)), []).append(f"M{m.group(1)}-{m.group(2)}")
     # Squash merges are titled "Mx-NN: … (#PR)"; other subjects merely mention issues.
-    merged = re.compile(r"^M(\d+)-(\d{2}): .*\(#\d+\)$")
+    merged = re.compile(r"^M(\d+)-(\d{2})[a-z]?: .*\(#\d+\)$")
     subjects = git("log", "origin/main", "--format=%s").splitlines()
     done = {f"M{m.group(1)}-{m.group(2)}" for s in subjects if (m := merged.match(s))}
     running: set[str] = set()

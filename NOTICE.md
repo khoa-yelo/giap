@@ -18,6 +18,7 @@ codon-bias (MIT), which runs in-process. Pins, digests and licence checks: docs/
 | antiSMASH | AGPL-3.0 | 8.0.4; separate process |
 | miniprot | MIT | 0.18; separate process |
 | BLAST+ | public-domain (NCBI) | 2.16.0; separate process |
+| fgsea | MIT | 1.36.2 (bioconda `bioconductor-fgsea`); run by `workflow/bin/giap_fgsea.R` in R 4.5 (GPL-2) as a separate process (ADR-0038); R and fgsea are never imported |
 | codon-bias | MIT | 0.5.0; imported in-process (PyPI) |
 | DIA-NN | proprietary (academic licence) | used only by users' own searches; binaries never redistributed |
 
