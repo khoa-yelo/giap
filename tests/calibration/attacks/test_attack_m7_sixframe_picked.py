@@ -22,7 +22,8 @@ with an oracle that does not use GIAP's novel-ORF code:
   ORFs with a true peptide number fewer than 1 / alpha (``stats.alpha.novel_orfs`` = 0.01) cannot
   call any ORF, so G3's F1 is 0 by construction. The default ``novel_orf_power`` at 1 Mb plants 40
   per class (about 30 with >= 2 peptides; oracle min class q 0.025-0.028 over 12 seeds, 0 calls).
-  Statistician round-3 block, item 1.
+  Statistician round-3 block, item 1. Lead decision 26: the test runs at
+  ``n_per_class=NOVEL_PER_CLASS_GATE`` (300) at 1 Mb, the count M7-13 G3/G4 use.
 """
 
 from __future__ import annotations
@@ -162,7 +163,12 @@ def test_attack_picked_label_is_fair_coin(
 def test_attack_default_scenario_can_reach_class_alpha(
     tmp_path_factory: pytest.TempPathFactory, base: int
 ) -> None:
-    out = _simulate(tmp_path_factory.mktemp("m7floor"), base + 7100, "1M")
+    import giapsim.scenarios as sc
+
+    # Lead decision 26: G3/G4 plant NOVEL_PER_CLASS_GATE per class at 1 Mb (XPASS once landed).
+    out = tmp_path_factory.mktemp("m7floor")
+    cfg = sc.novel_orf_power(base + 7100, "1M", n_per_class=sc.NOVEL_PER_CLASS_GATE)
+    giapsim.simulate(cfg, base + 7100, out)
     n = defaultdict(int)
     for r in O.rows(out / "truth" / "novel_orfs.tsv"):
         n[r["class"]] += int(r["n_true_peptides"]) >= 1
