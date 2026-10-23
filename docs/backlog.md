@@ -656,3 +656,13 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
     - N8, the reviewer's alluvial geometry check (scratchpad geom.py) should become a test.
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
+
+### M8 Wallenius (statistician, PR #220)
+- **ADR-0044 (Needs Khoa):** M8-13 criterion 1 reference = exact Wallenius (urn recursion /
+  exact rational integral, committed TSV + pure-Python generator); goseq second reference at
+  `golden_r.wallenius_goseq_abs_tol: 1.0e-5`, replacing `wallenius_abs_floor`.
+- **ADR-0045 (lead recommends):** GIAP far tails (< 1e-6) by the exact urn recursion; scipy loses
+  relative accuracy below ~1e-9 and returns 0 below ~1e-14 (40-urn spot check, stat813/scipy_far.py).
+  Hardening pass; does not block M8-13.
+- G3b NES across seeds: reported as per-set z, alert at max |z| > 4.5; p rule alert at ≥ 3
+  exceedances; alerts open a `stats` issue.
