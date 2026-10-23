@@ -95,3 +95,10 @@ def score(results: Sequence[CheckResult]) -> float          # passed / gated ite
 8. **ΔE detail format** is pinned: `min ΔE before X.X → after Y.Y` (for the M9-25 packet).
 9. **Chart furniture** (legend frames, spines, grid lines, ticks in the style.RC greys) is exempt
    from the palette item; it checks data artists only.
+
+## Lead decision after the implementation (2026-10-22, dc05b9c)
+
+10. **Declared titles.** `checklist.DECLARED_TITLES` lists the titles that state a finding without
+    a number; a title starting with one passes. It holds V08's `detection.NO_ABUNDANCE` (V08 plots
+    a detected fraction when no abundance is measured), so V08's pinned title is unchanged.
+    Whether sim100k with `--abundance` should reach that branch at all is a backlog check.

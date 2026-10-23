@@ -31,7 +31,7 @@ from matplotlib.text import Text
 
 from giap.io.plot_files import read_png, write_png
 from giap.io.tsv import read_tsv
-from giap.viz import style
+from giap.viz import detection, style
 from giap.viz.base import Instance
 
 ITEMS: tuple[str, ...] = (
@@ -89,6 +89,11 @@ class CheckResult:
     detail: str
 
 
+#: Titles that state a finding without a number (lead decision 10): V08 with no measured abundance
+#: plots a detected fraction, so its title names what is shown instead.
+DECLARED_TITLES: tuple[str, ...] = (detection.NO_ABUNDANCE,)
+
+
 def is_empty_state(inst: Instance) -> bool:
     """What ``base.empty_state`` produces: a header-only frame, axes-free, the title drawn as
     the only text (lead decision 6: the phrases are derived from ``base``, not pinned)."""
@@ -138,7 +143,7 @@ def _title(inst: Instance, empty: bool) -> tuple[bool, str]:
         return False, "empty title"
     if "express" in t.lower():
         return False, f"{t!r} says 'express'"
-    if re.search(r"\d", t) or empty:
+    if re.search(r"\d", t) or empty or t.startswith(DECLARED_TITLES):
         return True, t
     return False, f"{t!r} states no number or empty-state message"
 

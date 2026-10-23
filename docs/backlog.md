@@ -674,3 +674,9 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   records carry no commit field, so "on main" cannot be checked from them.
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
+
+### M9-24 follow-ups
+- V08 says "No measured abundance" on sim100k run with `--abundance` (m9-24 sweep): check whether
+  RunView's abundance detection or the sim100k config is wrong.
+- The checklist reads tick labels through matplotlib's private `Axis._update_ticks()`; replace when
+  matplotlib offers a public way.
