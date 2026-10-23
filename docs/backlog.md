@@ -688,3 +688,26 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
+### M9 pass 2 (from M9-16 tests)
+- §7.8.2's separate ribosomal-gene report table: no M9-16 behaviour; assign to a pass-2 issue.
+- M9-16 decisions 5 and 7 (ALT card with mixed `unestimated` rows; `provenance_digest` line) are
+  implemented but untested: add tests in the hardening pass.
+
+### M9-16b (from M9-16 decision 11)
+- `giap run` re-renders report.html after writing run_manifest.json (local and Nextflow), so the
+  pipeline report shows full provenance and the KEGG date; then drop the two #178 guards in
+  build.py/content.py (`"determinants_model" in PATHS`, `getattr(..., "CAVEATS", ())`).
+
+### M9-16 review nits (PR #228)
+- Untested (surviving mutants): `call == "ALT"` filter (add a `mixed` row), "(N unestimated)" tail,
+  `provenance_digest` line, `git_dirty` → "(uncommitted changes)", sensitivity "both zero" when one
+  is zero, last vs first `operons.missed_operons` event, whitespace-only estimate in
+  `unlabelled_numbers`, KEGG `retrieved` vs `version` (fixture gives both the same date).
+- `_diagnostics` crashes the report via `render_l_hat` on an unknown/missing `block_rule`: note it.
+- Function section loses the KEGG caveat when `category_summary` is absent but GSEA is present.
+- `genomic_cluster` flag matched as a substring; split on `;`.
+- Wording scanner: attribute text (`title`, `alt`), words split by inline tags, unclosed `<q>`.
+- Sync script: missing end marker, second block, unsupported Markdown, `--docs` to a missing dir
+  without `--check` deletes every snippet.
+- Removing the two #178 guards belongs to the #178 merge into this branch, not M9-16b.
+- `content.snippets()` reads package data from report/ (like templates): documented exception.
