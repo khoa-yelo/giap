@@ -31,7 +31,12 @@ import pyarrow.parquet as pq  # type: ignore[import-untyped]
 from giap.annotate.operons import Tu
 from giap.config.model import GiapConfig
 from giap.determinants import CAVEATS
-from giap.determinants.attribution import ATTRIBUTION_COLUMNS, attribution_table, shap_blocks
+from giap.determinants.attribution import (
+    ATTRIBUTION_COLUMNS,
+    attribution_table,
+    shap_blocks,
+    shap_features,
+)
 from giap.determinants.features import FEATURE_BLOCKS, feature_frame, model_matrix
 from giap.determinants.models import (
     MODELS,
@@ -45,11 +50,13 @@ from giap.determinants.models import (
     univariate,
 )
 from giap.determinants.null import NullResult, null_p
+from giap.determinants.support import null_rows, pd_rows, shap_rows
 from giap.io.determinants_tables import (
     write_determinants_attribution,
     write_determinants_features,
     write_determinants_model,
 )
+from giap.io.plot_support import write_support
 from giap.model.coords import Interval
 from giap.rng import for_step
 from giap.steps.codon import _read_genes
@@ -65,6 +72,8 @@ METRIC_ORDER: tuple[str, ...] = (
     "cv_r2_mean", "cv_r2_sd", "null_p", "delta_r2", "spearman_rho", "auroc",
 )  # fmt: skip
 NO_ABUNDANCE_FLAG = "layer_missing:abundance"
+#: M9-17: optional directory output; the SHAP, PD and null files go to its ``support/``
+SUPPORT = "determinants_support"
 #: the null p's effect has no interval (lead decision 4, ADR-0031 pattern)
 CI_UNESTIMATED = "ci_unestimated"
 
@@ -162,6 +171,8 @@ def _events(features: pd.DataFrame, log: logging.Logger) -> None:
 def _determinants(
     inputs: Mapping[str, Path], outputs: Mapping[str, Path], cfg: GiapConfig, log: logging.Logger
 ) -> None:
+    if SUPPORT in outputs:
+        outputs[SUPPORT].mkdir(parents=True)
     features = _features(inputs)
     write_determinants_features(outputs["determinants_features"], features)
     _events(features, log)
@@ -194,16 +205,33 @@ def _determinants(
         reference = flag.all(axis=1).to_numpy(bool) & ~rows  # the CAI reference genes (Q3)
         shap = shap_blocks(cv["lightgbm"], X, blocks, extra=X_all[reference])
         shap.index = pd.Index(features.loc[shap.index, "locus_tag"].astype(str))
-    write_determinants_model(outputs["determinants_model"], _model_table(cv, uni, nulls, len(y)))
+    table = _model_table(cv, uni, nulls, len(y))
+    write_determinants_model(outputs["determinants_model"], table)
     att = attribution_table(features, rows, cv.get("lightgbm"), shap)
     write_determinants_attribution(outputs["determinants_attribution"], att)
+    if SUPPORT in outputs and cv:
+        _support(outputs[SUPPORT], cv["lightgbm"], X, blocks, features.loc[rows], nulls, table)
+
+
+def _support(
+    out: Path, cv: CvResult, X: pd.DataFrame, blocks: Mapping[str, str], model: pd.DataFrame,
+    nulls: Mapping[str, NullResult], table: pd.DataFrame,
+) -> None:  # fmt: skip
+    """``determinants_shap``, ``determinants_pd`` and ``null_determinants`` (M9-17)."""
+    tags = model["locus_tag"].astype(str).tolist()
+    write_support("determinants_shap", shap_rows(shap_features(cv, X, blocks), X, tags), out)
+    write_support("determinants_pd", pd_rows(cv, X, model), out)
+    mean = table[table["metric"] == "cv_r2_mean"]
+    observed = dict(zip(mean["model"].astype(str), mean["value"].astype(float), strict=True))
+    write_support("null_determinants", null_rows(nulls, observed), out)
 
 
 @step(
     "determinants",
     inputs=["gene_table", "genes", "tus", "layers", "replicons"],
     optional_inputs=["regions", "region_genes", "gene_context"],
-    outputs=["determinants_features", "determinants_model", "determinants_attribution"],
+    outputs=["determinants_features", "determinants_model", "determinants_attribution", SUPPORT],
+    optional_outputs=[SUPPORT],
 )
 def determinants_step(ctx: StepContext) -> None:
     """Gene table + contract tables → the three determinants tables."""

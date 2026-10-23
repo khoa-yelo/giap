@@ -112,3 +112,12 @@ Definitions:
      (test_determinants_step.py:122-123; test_function_step.py:221-222 and 256-266) and regenerates
      `workflow/tests/data/annotate/step_registry.json` after the implementer.
    - Next: the implementer.
+6. **Implementer (dbf65a5d) and lead follow-ups.**
+   - The lead adds `contig` to `null_regions` (writer, schema, contract `sa.COLUMNS` and
+     `GRID_COLUMNS`). The grid groups by (region, contig, stat), so a split region has one null
+     per contig.
+   - The lead updates the three registry tests for the new optional outputs and regenerates
+     `workflow/tests/data/annotate/step_registry.json`.
+   - PD at the written grid value (`%.6g`) is accepted, and the statistician reviews it.
+   - Follow-up (backlog): Nextflow wiring of the support keys in function.nf, determinants.nf and
+     context.nf. Today only the local executor publishes them.
