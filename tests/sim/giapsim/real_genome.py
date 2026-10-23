@@ -28,9 +28,11 @@ writes the simulated inputs of a GIAP evidence run plus their truth:
    upstream start >= 5 codons before the annotated one with no stop between (``Feat.true_start``;
    upstream = higher coordinates on ``-``). A class short of supply takes what exists, with a
    WARNING. Novel ORFs (not extensions) take abundances from the upper tercile of the genes'.
-5. **Peptides** (step 5): ``proteomics.simulate_proteomics`` on the sample with the abundance
-   above (``log_abundance`` hook). The scored null decoys (``decoys = "scored_null"``, step 6)
-   are part 2; this module runs the M3-19 decoys.
+5. **Peptides** (steps 5-6): ``proteomics.simulate_proteomics`` on the sample with the
+   abundance above (``log_abundance`` hook). With ``decoys = "scored_null"`` (the
+   ``k12_evidence`` mode) the null peptides split between protein and six-frame entries and each
+   null PSM goes to its target or its entry's decoy on a 1/2 coin (``proteomics`` module doc);
+   ``provenance.json`` records ``decoys``, ``decoy_collisions`` and ``null_split``.
 6. **Outputs** (step 8): ``peptides.tsv``, ``abundance.tsv``, ``config.yaml`` (``seed`` and
    ``sample_name`` only), ``truth/{peptides,genes,islands,alt_sites,novel_orfs}.tsv`` (+
    ``truth/novel_orfs.json``, ``truth/proteomics.json``), ``truth/sample_genome.fna`` (debugging
@@ -639,6 +641,7 @@ def simulate_on_genome(
         if n_target == 0:
             raise ValueError("no_target_peptides: refusing a peptides.tsv without target rows (D9)")
         paths["proteins"].unlink()  # the sample's proteome is not a GIAP input
+        meta = json.loads(paths["truth_meta"].read_text(encoding="utf-8"))
 
         # truth tables
         truth = stage / "truth"
@@ -667,14 +670,14 @@ def simulate_on_genome(
             sizes[t] = sizes.get(t, 0) + 1
         n_multi = sum(v > 1 for v in sizes.values())
         prov: dict[str, Any] = {
-            "generator": "giapsim.real_genome (MVP-04 part 1)",
+            "generator": "giapsim.real_genome (MVP-04)",
             "giapsim_git_sha": _git_sha(),
             "seed": int(seed),
             "b0": float(cfg.proteomics.detect_logit[0]),
             "detect_logit": [float(x) for x in cfg.proteomics.detect_logit],
             "tu_source": tu_source,
-            "decoys": "unscored",
-            "decoy_collisions": 0,
+            "decoys": cfg.proteomics.decoys,
+            "decoy_collisions": int(meta.get("decoy_collisions", 0)),
             "inputs": {
                 "genome": {
                     "name": genome_fasta.name,
@@ -695,6 +698,8 @@ def simulate_on_genome(
                 "novel_orfs": report,
             },
         }
+        if "null_split" in meta:
+            prov["null_split"] = meta["null_split"]
         (stage / "provenance.json").write_text(json.dumps(prov, indent=2, sort_keys=True) + "\n")
         _publish(stage, outdir)
     rel = {k: outdir / p.relative_to(stage) for k, p in paths.items() if k != "proteins"}

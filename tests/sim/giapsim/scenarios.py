@@ -274,7 +274,8 @@ def k12_evidence() -> RealGenomeConfig:
     SNVs only at 0.5 / kb (Q4); RegulonDB 14.5.0 TUs with the gap-rule fallback (Q3); TU-level
     AR(1) at rho = 0.5 with the six ``K12_ISLANDS`` (+-3 stationary SDs, 8 TUs each);
     ``NOVEL_PER_CLASS_GATE`` = 300 novel ORFs of 30-150 aa per class (Q5); 3 runs of the related
-    sample (``search_db = "other"``) at pi_wrong = 0.01.
+    sample (``search_db = "other"``) at pi_wrong = 0.01, with scored null decoys
+    (``decoys = "scored_null"``, MVP-04 step 6).
 
     Rule 7: only the intercept b0 of the M3-19 ``detect_logit`` is tuned; b1 = 0.08, b2 = 0.9
     stay. **b0 = -5.25**: truth-detected share 0.631 (2,757 of 4,367 eligible protein genes with
@@ -290,7 +291,7 @@ def k12_evidence() -> RealGenomeConfig:
 
     _, b1, b2 = ProteomicsConfig().detect_logit
     prot = ProteomicsConfig(detect_logit=(K12_B0, b1, b2), pi_wrong=0.01, search_db="other",
-                            n_runs=3)  # fmt: skip
+                            n_runs=3, decoys="scored_null")  # fmt: skip
     expr = ExpressionConfig(
         ar1_rho=0.5,
         islands=tuple(IslandSpec("U00096.3", first, 8, eff) for first, eff in K12_ISLANDS),
