@@ -396,3 +396,22 @@ only the TSV and the work-dir side table.
      - test_novel_nf_registry.py `TAKE` gains `hits`, and `PUBLISHED` gains the side table.
    - Acceptance items 5 (local vs Nextflow parity) and 6 (slow smoke run) go to the implementer,
      on Slurm.
+7. **Implementer (a4b10349).**
+   - The counted size is 456 lines. That is over the 400 warning and under the 800 limit, so it is
+     **accepted, not split**: the planned M7-11b-2 cut moves only about 45 lines, and splitting it
+     would cost a second review round.
+   - Accepted: `apply_evidence` takes the float `class_q` from the step, and falls back to the
+     cell only when it is called without one, by library callers. The step-level test pins the
+     float path (gap 2).
+   - Accepted: the manifest `novel_orfs` block is null without a `novel_orfs.class_fdr` event,
+     and the key is required.
+   - Accepted: the definition of `n_targets` for unestimated classes.
+   - Accepted: one `layer_missing` WARNING per missing key.
+   - Accepted: the value channel `hits`.
+   - Lead edits:
+     - the step_registry.json mirror gains `novel_class_fdr` in the `plots` and `report`
+       optional inputs;
+     - subworkflows/novel.nf.test passes `input[8] = channel.empty()`.
+   - Acceptance items 5 (local vs Nextflow parity) and 6 (slow smoke run) go to a test-author
+     round after the reviews.
+   - Next: the statistician and code review.
