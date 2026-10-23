@@ -437,31 +437,57 @@ genes detected).
 | Scenario | What it plants | What it is built to break |
 |---|---|---|
 | `operon_null(n, rho=0)` | nothing; pure UniOP classes (true OP p ≥ 0.5, true NO p < 0.5) | level: the discordance t fit and the missed-operon decoy FDR must hold their α |
-| `missed_operon_power(n, k, s)` | k true NO pairs (UniOP false negatives) with Δ ~ s · SD(NO Δ) · N(0, 1); UniOP keeps its own Beta errors; convergent TU boundaries 10–150 bp | power of the missed-operon step |
+| `missed_operon_power(n, k, s)` | k true NO pairs (UniOP false negatives) with Δ ~ s · SD(NO Δ) · N(0, 1); UniOP keeps its own Beta errors; convergent TU boundaries −20–300 bp | power of the missed-operon step |
 | `discordance_power(n, k, e)` | ceil(k/2) OP pairs +e over an internal promoter, floor(k/2) −e over an internal terminator | power of discordance and the §7.4.5 flag rows 1–2 |
 | `operon_attack_ar1(n, rho, *, n_planted=0, effect_sd=0)` | = `operon_null(n, rho=rho)`: TU abundance AR(1) along the chromosome; optionally planted pairs as `missed_operon_power` | decoys that ignore position: neighbours look alike without co-transcription |
-| `operon_attack_detection(n, type, *, n_planted=0, effect_sd=0)` | the `type` block (a third of the chromosome) has short genes (length × 0.3) and intra-TU gaps between all of them; detection depends on the final (post-walk) abundance, logit = covariates + 2 · (log2 abundance − 20) + 7 (≈ 94 % detected outside the block) and −6 on the block (≈ 49 % inside, ≈ 30 % of block pairs both detected); convergent TU boundaries 10–150 bp; optionally planted pairs as `missed_operon_power` | detection and distance confounded (ADR-0018): the both-detected filter keeps only the block's high-abundance genes, so its NO pairs, the targets of the < 50 bp bins, have smaller \|Δ\| than the CV decoys from outside the block that share those bins |
+| `operon_attack_detection(n, type, *, n_planted=0, effect_sd=0)` | the `type` block (a third of the chromosome) has short genes (length × 0.3) and intra-TU gaps between all of them; detection depends on the final (post-walk) abundance, logit = covariates + 2 · (log2 abundance − 20) + 7 (≈ 94 % detected outside the block) and −6 on the block (≈ 49 % inside, ≈ 30 % of block pairs both detected); convergent TU boundaries −20–300 bp; optionally planted pairs as `missed_operon_power` | detection and distance confounded (ADR-0018): the both-detected filter keeps only the block's high-abundance genes, so its NO pairs, the targets of the < 50 bp bins, have smaller \|Δ\| than the CV decoys from outside the block that share those bins |
 
 Decoy geometry: with the merged gaps no decoy pair is closer than 50 bp and SW decoys are ≥ 100 bp
 apart. The opt-in `LayoutConfig.short_convergent_gaps` (on in `missed_operon_power` and the
-detection attack; `convergent_gap_bp = (10, 150)`) draws every convergent TU-boundary gap uniformly
-from 10–150 bp, so CV decoys reach the < 50 bp bin; off, the layouts are byte-identical to before.
+detection attack; `convergent_gap_bp = (−20, 300)`, lead decision 23) draws every convergent
+TU-boundary gap uniformly from −20–300 bp; negative gaps are 3′ overlaps of the two convergent
+genes, as real genomes have. CV decoys then fill every bin up to 300 bp; off, the layouts are
+byte-identical to before. The earlier default (10, 150) left the 150–300 bp bin with 1.4 CV decoys
+per replicate against 188 NO targets (statistician, PR #222 round 2). Pairs per replicate by
+distance bin at 1,800 genes with both genes detected (R = 20, seeds of the fast tier, commit
+9873d53, Slurm 1869401, `local/logs/m6_03_cvbins.py`); a future gap change that empties a bin
+shows here:
+
+| scenario | class | < 0 bp | 0–50 | 50–150 | 150–300 | ≥ 300 |
+|---|---|---|---|---|---|---|
+| `missed_operon_power(1800, 50, 0.1)` | CV | 9.5 | 23.3 | 48.6 | 73.0 | 0.6 |
+| | SW | 0.0 | 0.2 | 7.3 | 32.9 | 47.9 |
+| | NO targets | 3.5 | 7.6 | 122.5 | 187.5 | 1.0 |
+| `operon_attack_detection(1800, "prophage")` | CV | 14.8 | 33.8 | 48.6 | 69.0 | 0.4 |
+| | SW | 2.4 | 6.6 | 9.8 | 31.9 | 46.0 |
+| | NO targets | 16.2 | 34.8 | 116.4 | 173.7 | 1.6 |
 
 Generator checks (tests/calibration/test_sim_operon_calibration.py and
-test_sim_operon_attack_calibration.py, R = 20, seed streams `m6_03_<scenario>`; commit d5ae874):
+test_sim_operon_attack_calibration.py, R = 20, seed streams `m6_03_<scenario>`; commit 9873d53,
+`local/logs/m6_03_calnums_r2.py`, Slurm 1869401):
 null NO-vs-decoy small-|Δ| excess 0.003 (z = 0.58); power excess 0.108 (z = 15.3); null OP tail
-beyond 2 scale 0.104 vs the t tail 0.102 (z = 0.81); discordance power tail 0.168 (z = 21.9).
+beyond 2 scale 0.104 vs the t tail 0.102 (z = 0.81); discordance power tail 0.168 (z = 21.9). The
+convergent gaps move no abundance and no class, so these four do not depend on the gap range.
 Detection attack (lead decision 12: share of |Δ| below the null's 25th percentile c among true NO
-targets vs CV/SW decoys in the same distance bin, CMH one-sided): z = 2.18 (c = 0.98), with 29 % of
+targets vs CV/SW decoys in the same distance bin, CMH one-sided): z = 1.56 (c = 0.98), with 29 % of
 the block's adjacent pairs both detected (decision 10) and 48 % vs 94 % of genes detected inside vs
-outside the block. The same at R = 1,000 (Slurm 1869345, commit d5ae874;
-`local/logs/m6_03_calnums_r2.py`; null excess and power excess at R = 300): null excess 0.001 (z =
-0.86); power excess 0.116 (z = 62.4); null OP tail 0.1011 vs 0.1019 (z = −2.05); discordance tail
-0.170 (z = 158.9); detection attack z = 7.78 (c = 1.00), block both-detected 30.2 %, detected 48.5 %
-vs 94.1 %. Per bin at R = 1,000 the excess sits in the 0–50 bp bin (targets 0.365 vs decoys 0.299
-below c); the < 0 bp bin holds only block pairs on both sides (0.362 vs 0.376) and the ≥ 50 bp bins
-are flat. The R = 1,000 z implies an expected z of about 1.1 at R = 20, so the fast tier's z ≥ 2
-holds at its fixed seeds but would fail for many other seed sets; the full tier is the guard.
+outside the block. At R = 300 (Slurm 1869401; the full tier of `missed_operons`, which is where
+decision 12's z ≥ 2 is asserted, Slurm 1869399 passed): z = 4.08. At R = 1,000 (Slurm 1869400,
+commit 9873d53; null excess and power excess at R = 300): null excess 0.001 (z = 0.86); power
+excess 0.116 (z = 62.4); null OP tail 0.1011 vs 0.1019 (z = −2.05); discordance tail 0.170 (z =
+158.9); detection attack z = 8.49 (c = 1.00), block both-detected 30.2 %, detected 48.5 % vs
+94.1 %. Per bin at R = 1,000 (targets vs decoys below c): < 0 bp 0.362 vs 0.321, 0–50 bp 0.365 vs
+0.314, ≥ 50 bp flat (0.266 vs 0.268, 0.269 vs 0.265, 0.274 vs 0.267). The R = 1,000 z implies an
+expected z of about 1.2 at R = 20 and 4.7 at R = 300, so the fast tier only prints z and checks
+that a sub-50-bp bin holds targets and decoys (lead decision 21).
+
+What the attack does not show (statistician, PR #222 round 2, `bias.py`, R = 150, gaps −20–300
+with UniOP errors): the generator-level excess barely reaches the decoy-FDR tail. The ratio of
+actual false NO targets to the decoy-estimated count below the null's 1–25 % |Δ| quantiles is
+≤ ≈ 1.05 with bin-matched CV decoys and ≈ 1.00 with one pooled bin, against ≈ 1.00 for the null,
+so attack B cannot make M6-09's FDR gate fail at the FDR scale (0.1 → ≈ 0.105 at worst). A pass of
+M6-09's gate B is therefore not evidence that the distance reweighting is needed or that it
+defends against a confounding that breaks a simpler method.
 
 Property of the CV decoy, kept on purpose (statistician, PR #222): CV decoys compare two TU-final
 genes, while NO and SW pairs compare a TU-final gene with a TU-first gene, so the CV Δ carries one
