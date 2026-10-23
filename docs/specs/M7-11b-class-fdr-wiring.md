@@ -415,3 +415,11 @@ only the TSV and the work-dir side table.
    - Acceptance items 5 (local vs Nextflow parity) and 6 (slow smoke run) go to a test-author
      round after the reviews.
    - Next: the statistician and code review.
+8. **Reviews (#256).** The statistician APPROVEs (comment 6365221592, commit 5ac8f0e1); the code
+   review asks for test-only changes (comment 6365447873).
+   - B1 (`n_called` never checked above 0) and B2 (picked `n_targets` = won + lost_pick unchecked)
+     go to a test-author round, together with acceptance items 5 (local-vs-Nextflow parity on a
+     100k `novel_orf_power` run with makedb decoys) and 6 (the slow smoke run), on Slurm.
+   - N6 (`placement_costs` via `to_parquet`): if item 5's byte parity fails on it, an implementer
+     round switches to `write_parquet_deterministic`; otherwise backlog.
+   - N1–N4, the statistician's notes 1–2 and N5's bookkeeping: backlog, by the lead.
