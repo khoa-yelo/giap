@@ -248,7 +248,7 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
 | 5 | T = 2,600 eligible target-won genes, D = 0 above the top 2,000 | q_floor = 1/2,600 = 0.000385 ≤ 0.01; no `q_floor_above_alpha`. The sim100k contrast, T = 85: q_floor 0.0118 > 0.01 and the warning |
 | 6 | K-12 base C at U00096.3:337,021 (+ strand CDS, codon 2 = `CCG`, Pro); the sample SNV makes it `CTG` (Leu) | `truth/alt_sites.tsv`: ref C, alt T, pos 337021 on both sides, `aa_change` P?L with codon index. Two detected sample peptides cover it, so `variants.tsv` has an ALT `high` call `AA_REF=P`, `AA_ALT=L` with flags `snv;strain_difference;database_derived`, and the VCF record has `REF=C`, `ALT=T` at the codon's lowest position |
 | 7 | a minus-strand CDS annotated on [s, e) whose in-frame start codon lies 12 codons above e (higher coordinate) with no in-frame stop between | `nterm_extension` truth ORF [s, e + 36); the protein is expressed from the upstream start; an N-terminal peptide maps across the annotated start; the recorded annotation is unchanged |
-| 8 | b0 = −2.0 (the M3-19 default) | truth-detected share ≈ 0.98, `n_detected` ≥ 0.95 × eligible: gates 6 and 8 fail (saturated, as in 1865149). The tuned b0 is what the scenario pins |
+| 8 | b0 = −2.0 (the M3-19 default) | truth-detected share ≈ 0.94 (measured 0.944), `n_detected` ≥ 0.95 × eligible: gates 6 and 8 fail (saturated, as in 1865149). The tuned b0 is what the scenario pins |
 | 9 | `TUSet.txt` absent | `tu_source = gap_rule`, WARNING, run proceeds; acceptance 14's RegulonDB recovery line is "not available" |
 | 10 | island 4 planted at −3 SD over 8 TUs (≈ 15 genes), few detected peptides there | `islands.tsv` has a down island overlapping ≥ 50 % of those genes (M5-11: a down island over peptide-less genes is allowed) |
 
@@ -372,3 +372,144 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
 5. **Runtime:** before submitting, sum the giap-* CPUs together with M7-15's K-12 arm. Promoter
    Calculator batching (backlog) is needed if the first run exceeds 8 h; that is measured, not
    assumed.
+6. **Test-author part 1 (54ac5d5e), spec gaps 1–8:** the test-author's readings are accepted.
+   1. RegulonDB gene coordinates come from `GeneProductSet.txt` next to `TUSet.txt`.
+   2. "Same stop" is read strand-aware: the right end on +, the left end on −.
+   3. `truth/alt_sites.tsv` uses the M7-12 columns. The SNV-only checks compare
+      `truth/sample_genome.fna` with K-12.
+   4. `simulate_on_genome(..., check_hashes=True)`; test excerpts pass `False`. The CLI is
+      `python -m giapsim.real_genome --genome --annotation --seed --outdir`.
+   5. Island truth names layout `TU_<n>` ids; excerpts pass their own island specs.
+   6. Upper tercile means at least the 2/3 quantile of gene abundances in `abundance.tsv`.
+   7. The `nterm_extension` count is bounded by `n_novel_per_class`.
+   8. The branch is stacked on #225 (merged in by the lead). When #225 squash-merges, merge its old
+      tip and then main, following the stacked-merge rule.
+7. **Implementer part 1 (4a16aa79):** the tuned b0 is −5.25, which gives a truth-detected share of
+   0.631 (2,757 / 4,367), and every novel class has more than 200 ORFs with a true peptide. The
+   implementer's unpinned choices 1–6 are accepted:
+   1. Wrong identifications stay `shuffled` until part 2.
+   2. `alt_sites` leaves out SNVs in the first codon (giap reads it as M).
+   3. The replicon is passed to the layout as linear; no TU joins across the origin.
+   4. Novel ORFs also exclude overlaps with an RNA gene or a same-strand pseudogene, and must stay
+      intact on the sample (as in makedb).
+   5. `proteins.faa` is dropped; `truth/novel_orfs.json` and `truth/proteomics.json` are added.
+   6. Provenance records `decoys: "unscored"` until part 2.
+
+   Example 8's expected share is corrected to 0.94; the test's ≥ 0.90 gate stands.
+8. **Part 2** (`decoys="scored_null"`, question 2's split between protein and six-frame entries):
+   test-author next, then the implementer, then the end-to-end run once #238, #225 and #237 have
+   merged.
+9. **Test-author part 2 (915a565e), spec gaps 1–7:**
+   1. **Gap 1, accepted as a design change.** Protein-entry nulls must be able to give false gene
+      evidence, otherwise the gene-level null is one-sided (conservative only) and gate 7 is vacuous.
+      - In `scored_null` mode a protein-entry null is a real tryptic product (within the digest
+        rules) of a recorded locus that is *not* detected in truth. Its target row carries that
+        locus tag; on the coin, its decoy is `rev_<that locus>`.
+      - The locus is drawn uniformly over loci with an undetected eligible product.
+      - Shuffled peptides are not used in this mode.
+      - The test-author adds tests for this (target maps to the genome and the locus; that locus has
+        no true peptide; gate 7's false-discovery share becomes estimable). Then the implementer.
+   2. "About 50" counts gene-level null PSMs before the coin. The two clear cases are tested.
+   3. The search-space share uses distinct tryptic products, protein entries against six-frame-only
+      products, with makedb `min_orf_aa` = 7 and ±0.04.
+   4. Examples 4 and 3b activate once #238 and #237 merge (backlog).
+   5. `decoy_collisions` counts PSMs.
+   6. M7-12 decisions 28–29 exist on #225's current head; this branch merges it again before the
+      implementer starts.
+   7. Add `.hypothesis/` to `.gitignore` if missing (lead).
+10. **Statistician review (09bb875d, review on #247, Slurm 1871592 and 1871626): BLOCKED on B1–B3.**
+    Decisions 10–14 answer it.
+    - **B1: the null split becomes a fixed 50/50 (question 2's alternative). The proportional
+      default and its "~50 PSMs" fallback are withdrawn.**
+      - Under the search-space split, K-12 gets about 21 protein nulls and 11 decoy wins.
+      - The α cut never binds, and an engine that ignores the decoys still passes gate 7 (FDP 0.0076).
+      - The fallback was also non-monotone in π_wrong.
+      - With 50/50 (10 seeds): about 83 protein nulls and 41 decoy wins. The α 0.01 cut binds on
+        10/10 seeds, with FDP 0.0104 ± 0.0013. Ignoring the decoys gives 0.030, which fails gate 7.
+      - Six-frame entries get the other half. The class-level null was already dense and stays
+        informative.
+      - Implementer: change `_scored_nulls` / `k12_evidence`.
+      - Test-author: update the split test and the gate-5 expected range (with 50/50, about 41 wins
+        fits 20–300), and remove the statistician's two strict xfails ("gate 7 can fail", "α cut
+        binds"). These become plain slow tests that must pass.
+11. **B3: what gate 7 measures.** A "true peptide" is a `truth/peptides.tsv` row with `is_wrong =
+    false`. A protein null's truth row carries its locus tag but has `is_wrong = true`, so it never
+    makes a gene "true".
+    - `mvp04_summary.py` uses this definition. It also reports false-detected genes by channel:
+      protein null, six-frame null on a `GIAPORF_nterm_extension_*` entry, and tolerant-route
+      (one-mismatch) six-frame null. That covers non-blocking item 9.
+    - Test-author: the `gene_competition` oracle gains the nterm-extension channel and
+      `multi_identical` acceptance.
+12. **Test-author items from the review:**
+    - (B2) The `gene_fdr` suite's replicate counts follow the suite convention: the full tier is
+      R = 300, not `replicates_fast`.
+    - (5) The two binomial tests of counts that are fixed by construction become exact-equality
+      asserts.
+    - (6) Teeth for the KS checks and `picked_null` (a score-dependent coin), and for `coin_pooled`
+      (a p = 0.55 coin). Raise `picked_null`'s power against P = 0.6, or record its power.
+    - (7) Use the calibration harness (`confirm` with records, `suite_seed`) rather than the file's
+      own `confirm()`. Print each estimate with its 95 % CI.
+13. **Recorded deviation (item 8).** Decision 9's protein nulls are drawn uniformly over undetected
+    loci. The §8.4 gene-FDR generator draws size-proportionally. This is an evidence run, not a
+    calibration gate, and the calibration suites keep the §8.4 generator. So the deviation is noted
+    here and in the methods note, and not changed.
+14. **Backlog (item 4, a GIAP issue, not MVP-04).**
+    - nterm-extension decoys pair with a gene only after a target row is accepted (M7-12 decision
+      28). A null gene whose rows all went to the decoy side then vanishes instead of counting as a
+      decoy win. That is anti-conservative: about +0.8 false genes at K-12, more on real searches.
+      The fix is to pair through makedb's entry-to-gene relation.
+    - Also from #238's statistician: tighten ADR-0047's q-filter condition from "some target
+      carries q" to "every target carries q".
+    - Order: the test-author goes first, then the implementer, then the code review. The end-to-end
+      run follows after #238 and #237 merge.
+15. **Test-author round 3 (fc29cb8d): the readings of gaps 1–4 are accepted.**
+    - Gap 1: the summary interface is `gate7(outdir, inputs) -> dict`, and its channels are not
+      exclusive.
+    - Gap 2: the protein side is capped by the pool and the six-frame side takes the rest.
+    - Gap 3: the mode is `fifty_fifty`, and the search-space share is recorded for information only.
+    - Gap 4: the pooled checks skip under sharding.
+    - Gate 5's expected range stays at 20–300.
+    - Next, the implementer: `_scored_nulls` is always 50/50, and a new
+      `scripts/dev/mvp04_summary.py` provides `gate7()`, with the result under `gate7` in
+      `evidence_summary.json`. After that, the code review.
+16. **Implementer round 3 (225a2b1c): accepted.**
+    - **Wider protein-null pool:** loci the sample strain truncates with a premature stop (giapsim
+      `pseudo`) are now in the protein-null pool. Products spanning the stop are skipped.
+      - GIAP treats these loci as eligible genes, and decision 9's "recorded locus not detected in
+        truth" covers them. The test oracle already counted them.
+      - This changes which loci each scored_null seed draws. No pins depend on it.
+    - **K-12 measurement** (Slurm 1872190):
+      - 174 null peptides, 87 protein and 87 six-frame;
+      - 46 decoy wins out of 77 paired genes;
+      - T = 2,744, of which 2,721 are detected at α (the cut binds);
+      - picked FDP 0.0077; a decoy-blind engine gives 0.0284, which fails gate 7 as intended.
+    - **Tests:**
+      - 1872171: the fast tier of the K-12 integration, attack and calibration tests, 17 passed.
+      - 1872199: the two full-tier attack tests, 2 passed.
+      - 1872172: the fast suite, 14,035 passed.
+    - The lead fixed a stale docstring in the round-3 tests (the mode is `fifty_fifty`).
+    - Next: the statistician re-checks B1–B3, and the code review runs in parallel.
+17. **Statistician re-check (6fcc3d95, Slurm 1872374): APPROVE.**
+    - **Gate 7 catches only gross failures.** Over 10 seeds a correct engine's FDP is 0.0109 ±
+      0.0013, and a decoy-blind engine reaches 0.023–0.029, which is 1.2–1.4 × the gate. A 1.5 × FDR
+      inflation would usually pass. The calibration suites and the dense-null attack own the mean,
+      so gate 7 is not widened.
+    - **Q11's 3-seed spread** records both the FDP and the decoy-blind FDP.
+    - The lead refreshed the numbers in the attack docstring.
+18. **Code review (#247): CHANGES REQUESTED on B1–B3, all fixed by the lead.**
+    - B1: the E501 in the lead's docstring refresh is fixed.
+    - B2: `fifty_fifty_violations` asserts that the realised null count equals
+      `n_wrong_requested`. This kills the six-frame shortfall mutant.
+    - B3: `test_protein_nulls_skip_products_across_a_stop` and
+      `test_every_peptide_uses_the_twenty_amino_acids` kill the removed-stop-filter mutant.
+    - Non-blocking:
+      - (2) Decision 9 is reworded. A protein null is a tryptic product of a recorded locus *as
+        expressed in the sample*, which includes the planted N-terminal extensions. Two K-12 nulls
+        lie in extensions, and gate 7 counts them as `protein_null`.
+      - (3) Size: about 1,150 lines in tests/sim and scripts. This deviation is recorded rather
+        than split, because splitting would discard the reviews already done.
+      - This PR is **MVP-04 part 1**: the simulator, the scored nulls and `gate7()`. **Part 2**
+        is a new PR: `scripts/slurm/mvp04_inputs.sbatch`, the full `mvp04_summary.py` (gates
+        1–16), `tests/e2e/test_k12_evidence.py`, and the acceptance run once #238 and #237
+        merge.
+      - (1, 5) go to the backlog.
