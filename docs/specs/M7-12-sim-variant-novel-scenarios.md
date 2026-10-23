@@ -85,3 +85,14 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
    blocks or not at all. **Proposed default:** excluded from `alt_sites.tsv` (truth = non-synonymous
    SNVs only) and reported separately, so the F1 gate measures substitutions, the bulk of real ALT
    calls.
+
+## Lead decisions (2026-10-22)
+
+1. No stop-codon read-through / Sec planting here; it waits for M7-16's decision on stop-spanning
+   peptides (the backlog line stays under M7-16).
+2. In-frame indels are excluded from `alt_sites.tsv` (truth = non-synonymous SNVs) and reported in a
+   separate truth file, so the F1 gate measures substitutions.
+3. Replicate counts for the variants suite come from ADR-0042 (#201, merged), not from a new
+   tolerances key.
+4. Feature loop: test-author → implementer (giapsim is tooling the implementer writes) → the
+   statistician signs off the generators M7-13 gates on → code review.
