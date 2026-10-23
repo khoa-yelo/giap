@@ -11,3 +11,4 @@ htmlcov/
 .nf-test*
 /logs/
 .coverage.*
+.hypothesis/
