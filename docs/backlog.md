@@ -663,6 +663,17 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
 
+## M9-14 review nits (#221; one round)
+- No test pins escaping of data values in twin JSON independent of plotly's own `<` escaping (a
+  `json.dumps`-built test twin would kill the `_script_json`-removed mutant); the probe was inert.
+- A string-column `NA` in a data TSV reaches a twin as NaN and is written as `"nan"`: M9-15 twins
+  should read data TSVs with `keep_default_na=False` or map NA explicitly.
+- JS vs Python string order (code point vs UTF-16 unit) and lowercasing (final sigma) differ in rare
+  cases; document in the methods/report notes. The 5 `tables.js` mutants survive (decision 1).
+- `giap run --strict` does not map `report.size_exceeded` to exit 3 (only preflight warnings reach
+  it today); wire step-level strict warnings once a second one exists.
+- `remove_uids=True` in `figure_json` is unpinned; an instance with a twin but no SVG still gets
+  "plot file absent".
 ### M9-08 (V01 circos) after the review round
 - No unit test renders V01 with empty promoter/terminator/TU tables (crash fixed in 8faffdb was
   caught only by integration tests).
@@ -721,6 +732,19 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The plots step's `oric_position` events are labelled `step: context_stats`.
 - `_plain` maps ±∞ but not NaN.
 - Schema: `oric` items lack `additionalProperties: false`; `bin_counts` items accept any numeric key.
+### M9-18 (V12) untested decisions
+- Tests for M9-18 decisions 6–9: NA window for a gene missing from genes.parquet, in-frame cover
+  rule, "(N peptides)" line, header-only `variant_windows.tsv`.
+
+### M9-18 review nits (PR #227)
+- N1 peptide ending exactly on the codon's last base; N2 ref/pep column alignment (incl. a window
+  clipped at the protein start); N3 `_best` untested; N4 duplicate `locus_tag` rows untested.
+- N5 `stop_codon` flag shares vermillion with the bold ALT residue.
+- N6 title edge cases: only mixed sites ("0 … 0 … unestimated"); min == max prints "0.004–0.004".
+- N7 panel (a) y-label "ALT sites" also covers mixed bars.
+- N8 "(N peptides)" can differ from `n_alt` (q > 0.01 placements, IL-only, other ALT residues); a
+  block before the site misplaces it.
+- N9 misleading comment about sites past the protein end (support.py).
 ### M9-16b follow-ups
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
