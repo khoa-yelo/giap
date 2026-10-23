@@ -26,7 +26,7 @@ import pandas as pd
 
 from giap.makedb import ORF_ID_PREFIX
 from giap.stats.mayu import mayu_gene_fdr
-from giap.stats.tda import monotone_q, picked_fdr
+from giap.stats.tda import picked_fdr_rescaled
 
 if TYPE_CHECKING:
     from giap.config import GiapConfig
@@ -301,21 +301,7 @@ def _picked_q(
     for k, (g, r) in enumerate(((accepted["gene"], rank[:n_t]), (paired["gene"], rank[n_t:]))):
         s = pd.Series(r).groupby(np.asarray(g.astype(str).tolist(), dtype=object)).max()
         best[k] = s.reindex(list(tags)).to_numpy(dtype=np.float64)
-    res = picked_fdr(best[0], best[1])
-    q = np.full(len(tags), np.nan)
-    win = np.flatnonzero(~np.isnan(res.q))
-    if not win.size:
-        return q
-    t = best[0, win]
-    d = np.sort(best[1, res.decoy_wins])
-    order = np.argsort(-t, kind="stable")
-    t_desc = t[order]
-    n_tt = win.size - np.searchsorted(np.sort(t), t_desc, side="left")
-    n_dd = d.size - np.searchsorted(d, t_desc, side="left")
-    qq = np.empty(win.size)
-    qq[order] = monotone_q((n_dd / f + 1.0) / n_tt)
-    q[win] = qq
-    return q
+    return picked_fdr_rescaled(best[0], best[1], f).q
 
 
 def _pep_q(pep: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
