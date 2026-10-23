@@ -191,11 +191,14 @@ def variant_windows(variants: pd.DataFrame, genes: pd.DataFrame) -> pd.DataFrame
     -------
     pandas.DataFrame
         ``VARIANT_WINDOW_COLUMNS`` in top-site order; ``aa_pos`` / ``window_start_aa`` ``Int64``,
-        ``window_start_aa`` and ``ref_window`` NA when the protein is unknown (lead decision 6).
+        ``window_start_aa`` and ``ref_window`` NA when the protein is unknown (lead decision 6);
+        a site with no gene has no row (lead decision 11).
     """
     proteins = _proteins(genes)
     rows: list[tuple[str, str, int, int | None, str | None]] = []
     for _, site in top_alt_sites(variants).iterrows():
+        if pd.isna(site["gene"]) or pd.isna(site["aa_pos"]):
+            continue  # no gene frames the codon (sixframe / novel ORF): no reference window
         gene, pos = str(site["gene"]), int(site["aa_pos"])
         aa = proteins.get(gene, "")
         lo, hi = max(1, pos - VARIANT_FLANK_AA), min(len(aa), pos + VARIANT_FLANK_AA)

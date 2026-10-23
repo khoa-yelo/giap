@@ -264,7 +264,9 @@ def _draw_b(ax: Axes, rows: Sequence[Mapping[str, object]], peps: Sequence[Mappi
     for r, cov in zip(rows, peps, strict=True):
         lines.put(0, _header(r))
         lines.next()
-        pos, unaligned = int(str(r["aa_pos"])), str(r["alt_type"]) in UNALIGNED
+        genic = not pd.isna(r["aa_pos"])  # no gene: shown unaligned (lead decision 11)
+        pos = int(str(r["aa_pos"])) if genic else 0
+        unaligned = str(r["alt_type"]) in UNALIGNED or not genic
         win = windows.get(str(r["variant_id"]))
         if win is not None and not unaligned:
             lines.put(0, "ref   " + " " * (win[0] - (pos - VARIANT_FLANK_AA)) + win[1])
@@ -276,7 +278,8 @@ def _draw_b(ax: Axes, rows: Sequence[Mapping[str, object]], peps: Sequence[Mappi
         elif unaligned:
             pep = sorted(cov)[0]
             shown = pep[:WIDTH] + ("…" if len(pep) > WIDTH else "")
-            lines.put(0, f"pep   {shown}{count}  {NOTE}")
+            note = f"  {NOTE}" if genic else "  (no gene: not aligned)"
+            lines.put(0, f"pep   {shown}{count}{note}")
         else:
             pep = _best(cov)
             k, la = cov[pep], max(1, len(str(r["alt_aa"])))

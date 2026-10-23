@@ -107,3 +107,9 @@ never names modifications).
 8. Panel (b) prints one peptide line per site plus "(N peptides)", the distinct-peptide count.
 9. A header-only `variants.tsv` gives a header-only `variant_windows.tsv` (schema-valid).
 10. Decisions 6–9 are implemented but untested here; the hardening pass adds tests (backlog).
+
+## Lead decision on the review (2026-10-22, PR #227 B1)
+
+11. A site with no gene (`gene` / `aa_pos` NA: sixframe or novel-ORF peptides) has no
+    `variant_windows` row and is shown unaligned in panel (b) with "(no gene: not aligned)".
+    Lead fix with tests in tests/unit/viz/test_v12_review_227.py.
