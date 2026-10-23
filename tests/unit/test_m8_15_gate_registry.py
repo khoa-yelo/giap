@@ -8,7 +8,8 @@
   proposed schema (test-author; the implementer may rename by lead decision):
   ``baseline["m8_calibration_fast"][<suite>]`` for each of the three suites, with ``test`` (a
   node id in one of the M8-15 gate files), ``secs`` (wall clock of the suite's fast tier,
-  < 600), ``cpus`` and ``slurm_job`` (ints).
+  < 600 for ora and gsea, < 1,200 for the nightly determinants tier; lead decision 10),
+  ``cpus`` and ``slurm_job`` (ints).
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ GATE_FILES = (
     "tests/calibration/test_determinants_calibration.py",
     "tests/calibration/attacks/test_attack_function.py",
 )
-FAST_BUDGET_S = 600.0
+FAST_BUDGET_S = {"ora": 600.0, "gsea": 600.0, "determinants": 1200.0}  # lead decision 10
 
 
 def _array_suites() -> list[str]:
@@ -58,6 +59,7 @@ def test_baseline_records_the_fast_tier_runtime(suite: str) -> None:
     node = str(entry["test"])
     assert node.split("::")[0] in GATE_FILES, node
     secs = float(entry["secs"])
-    assert 0.0 < secs < FAST_BUDGET_S, f"{suite} fast tier {secs} s (budget {FAST_BUDGET_S} s)"
+    budget = FAST_BUDGET_S[suite]
+    assert 0.0 < secs < budget, f"{suite} fast tier {secs} s (budget {budget} s)"
     assert isinstance(entry["cpus"], int) and entry["cpus"] >= 1
     assert isinstance(entry["slurm_job"], int)

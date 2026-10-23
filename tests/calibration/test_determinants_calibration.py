@@ -23,7 +23,8 @@ flag (ADR-0034): the AR(1) TU-level and ``replichore_position`` attacks of
   1,500 genes; Slurm array task ``determinants``, sharded (``--shard K/N``).
 
 **Recovery (recorded; spec table).** ``determinants_planted(1500, coefs, 1.0)`` at true R² 0.2 and
-0.5 (the M8-14 coefficient pairs), the §5.2 parameters, R = ``replicates_fast.determinants``:
+0.5 (the M8-14 coefficient pairs), the §5.2 parameters, ``calibration_full`` only (lead decision
+10: about 1,000 s per arm), R = ``replicates_fast.determinants`` (the spec table's 20):
 LightGBM ``cv_r2_mean`` against the recorded truth (band +-0.1, example 6), and the SHAP dominant
 block of the top-decile genes (``attribution_table``) against the planted truth (>= 70 %, example
 6): (a) the per-gene truth of ``truth/determinants_genes.tsv`` (largest |z beta|), (b) the signed
@@ -91,9 +92,12 @@ def _cfg(full: bool) -> DeterminantsConfig:
 
 
 def _threads(full: bool) -> int:
-    """Results do not depend on ``threads`` (M8-09 rule 6); capped per tier."""
+    """Results do not depend on ``threads`` (M8-09 rule 6). The job's CPUs are shared by the
+    xdist workers (``PYTEST_XDIST_WORKER_COUNT``, default 1); lead decision 10: the fast tier
+    caps at 4 (8 under ``-n 16`` oversubscribed the node, Slurm 1874853), the full tier at 8."""
     cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", "1"))
-    return max(1, min(8, cpus))  # lead decision 8 gap 3: the fast tier gets 8 threads too
+    workers = max(1, int(os.environ.get("PYTEST_XDIST_WORKER_COUNT", "1")))
+    return max(1, min(8 if full else 4, cpus // workers))
 
 
 def model_inputs(w: Any) -> tuple[pd.DataFrame, np.ndarray, list[str], list[str]]:
@@ -202,8 +206,7 @@ def _recovery(i: int, coefs: dict[str, float], r2: float) -> dict[str, Any]:
     }
 
 
-@pytest.mark.calibration
-@pytest.mark.calibration_nightly
+@pytest.mark.calibration_full  # lead decision 10: recorded only, §5.2 defaults (~1,000 s each)
 @pytest.mark.parametrize("arm", sorted(RECOVERY))
 def test_determinants_recovery_recorded(arm: str) -> None:
     coefs, r2 = RECOVERY[arm]
