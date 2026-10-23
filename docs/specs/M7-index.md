@@ -87,7 +87,7 @@ commit (the M6 pattern) after deciding the questions below.
 | 10 | [M7-10](M7-10-class-error-rates.md) | S | 2 | §7.5.4 paired-spectrum class error rates | 02, 04, 05 | 180 | yes |
 | 11 | [M7-11](M7-11-novel-class-fdr.md) | S | 2 | §7.6.4 picked class FDR (makedb IDs) and de novo subgroup FDR | 06, 09 | 300 | yes |
 | 12 | [M7-12](M7-12-sim-variant-novel-scenarios.md) | F | 2 | giapsim: `variant_f1`, `novel_orf_power`, `same_strain_insilico`, `isobaric_attack`, truth tables | 08 (layer) | 40 (+320 sim) | light |
-| 13 | [M7-13](M7-13-calibration-gate.md) | C | 2 | **the gate**: variant F1, same-strain check, novel F1, class-FDR suite, attack 6 | 05, 09–12 | 90 (+tests) | yes |
+| 13 | [M7-13](M7-13-calibration-gate.md) | C | 2 | **the gate**: variant F1, same-strain check, novel F1, class-FDR suite, attack 6 (3 PRs: 13a variants, 13b novel, 13c evidence) | 05, 09–12, 11b | 60 harness (+≈ 750 tests) | yes |
 | 14 | [M7-14](M7-14-te2-proxy-and-id-mixups.md) | V | 2 | **TE2 proxy** (Nissle, weekly Slurm) and the `id_mixups` QC row | 04, 05 | 170 | no |
 | 15 | [M7-15](M7-15-integration-hardening.md) | T | 2 | goldens, in-pipeline contracts, resume/failure, real-tool arm, VCF FILTER, `novel_candidate_id` | 04, 08, 09 | 200 | no |
 | 16 | [M7-16](M7-16-stop-codon-readthrough.md) | R | gated | stop-spanning peptides (Sec, read-through) — options A/B/C, ADR | decision | 220 | yes |
@@ -178,12 +178,12 @@ number. No `uncalibrated` flag anywhere (ADR-0021 Amendment 1).
 
 | Suite / check | Issue | Generator (M7-12) | Criterion | R fast / full |
 |---|---|---|---|---|
-| variant F1 (`high`) | M7-13 G1 | `variant_f1` | pooled F1 ≥ 0.90 (`f1_min.variants_high`) | 20 / 100 (Khoa Q1) |
+| variant F1 (`high`) | M7-13 G1 | `variant_f1` (100k / 1M) | pooled F1 ≥ 0.90 (`f1_min.variants_high`) | 20 / 100 (ADR-0042) |
 | same-strain `high` ALT | M7-13 G2 | `same_strain_insilico` | zero non-start/stop `high` calls per replicate | as G1 |
-| novel-ORF F1 | M7-13 G3 | `novel_orf_power` | pooled F1 ≥ 0.90 (`f1_min.novel_orfs`) | 50 / 300 |
-| `novel_orfs` class FDR | M7-13 G4 | `novel_orf_power` + false peptides + de novo errors | FDR ≤ q + 2 SE, q ∈ {0.01, 0.05, 0.10}, per regime | 50 / 300 |
+| novel-ORF F1 | M7-13 G3 | `novel_orf_power` 1M, `NOVEL_PER_CLASS_GATE` | pooled F1 ≥ 0.90 (`f1_min.novel_orfs`) | 10 / 300 (ADR-0048, pending Khoa) |
+| `novel_orfs` class FDR | M7-13 G4 | `novel_orf_power` 1M, `NOVEL_PER_CLASS_GATE` + six-frame false peptides + de novo errors | FDR ≤ q + 2 SE, q ∈ {0.01, 0.05, 0.10}, per regime and class; `vacuous` below the class q floor | 10 / 300 (ADR-0048, pending Khoa) |
 | class error rate bias | M7-10 | `variant_f1` without variants | \|bias\| ≤ 0.05 | as G1 |
-| attack 6 (§8.5) | M7-13 A6 | `isobaric_attack` | `mass_equivalent` on every isobaric call; ≤ 0.05 + 2 SE replicates with a `high` call | 50 / 300 |
+| attack 6 (§8.5) | M7-13 A6a–c | `isobaric_attack` (+ systematic transform) | `mass_equivalent` on every isobaric non-swap call; ≤ 0.05 + 2 SE replicates with a `high` swap | 20 / 100 |
 | attack (new) reversed stretches in intergenic space | M7-11/13 | de novo errors | class FDR at level (shuffled decoys) | as G4 |
 | attack (new) GC-poor intergenic false peptides | M7-11/13 | false peptides | class FDR at level | as G4 |
 | TE2 (real genome) | M7-14 | Nissle in-silico same-strain peptides | zero violations | weekly Slurm |
@@ -280,8 +280,8 @@ real-tool arm (15). All within R14 (≤ 32 CPUs at once for M7's own jobs).
 
 ## Questions that need Khoa (not the lead)
 
-1. `tests/calibration/tolerances.yaml` (protected) has no replicate count for a variants suite.
-   Add `replicates_fast.variants: 20`, `replicates_full.variants: 100`? (M7-10 Q3, M7-13 Q1)
+1. ~~Replicate count for a variants suite~~ resolved by ADR-0042 (20 / 100). New: replicate count
+   for the 1-Mb novel-ORF gate, `novel_orfs_gate: 10 / 300` (ADR-0048 proposed; M7-13 Q1).
 2. Stop-spanning peptides (M7-16): leave dormant (A), annotated-stop substitution (B, proposed), or
    any-stop substitution (C)? B and C change Module 2's search space and need an ADR.
 3. If attack 6 fails: an ADR changing the `high` rule (M7-13 risks) is a call-rule change.

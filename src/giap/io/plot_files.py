@@ -4,20 +4,24 @@
 ``data/Vnn_<name>[_<suffix>].tsv`` through ``giap.io.tsv`` (§9.2, ADR-0006). Image metadata that
 carries a date or a software version is dropped, so two renders of one instance are
 byte-identical on one platform (``svg.hashsalt`` is fixed here, whether or not
-``giap.viz.style.apply`` ran). The figures are ``matplotlib.figure.Figure`` objects that pyplot
-never manages, so nothing needs closing. The ``Instance.coords`` columns are written ``+ 1``
+``giap.viz.style.apply`` ran). An SVG carries the finding title as its ``<title>`` (M9-15). The
+figures are ``matplotlib.figure.Figure`` objects that pyplot never manages, so nothing needs
+closing. The ``Instance.coords`` columns are written ``+ 1``
 (1-based closed data TSVs, §6.5). ``read_plot_files`` reads them back for the report (M9-02).
 """
 
 from __future__ import annotations
 
+import html
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 import matplotlib
+import matplotlib.image
+import numpy as np
 
 from giap.io.tsv import write_tsv
 from giap.viz.base import Instance
@@ -51,7 +55,8 @@ def write_instance(
     with matplotlib.rc_context({"svg.hashsalt": HASHSALT}):
         for fmt in formats:
             path = plots_dir / f"{base}.{fmt}"
-            inst.figure.savefig(path, format=fmt, dpi=dpi, metadata=METADATA[fmt])
+            meta = METADATA[fmt] | ({"Title": inst.title} if fmt == "svg" else {})
+            inst.figure.savefig(path, format=fmt, dpi=dpi, metadata=meta)
             written.append(path)
     tsv = plots_dir / "data" / f"{base}.tsv"
     tsv.parent.mkdir(parents=True, exist_ok=True)
@@ -61,6 +66,20 @@ def write_instance(
     write_tsv(tsv, [str(c) for c in frame.columns], frame.itertuples(index=False, name=None))
     written.append(tsv)
     return written
+
+
+def read_png(src: Path | BinaryIO) -> np.ndarray:
+    """A PNG as float RGBA in [0, 1], shape ``(h, w, 4)`` (the M9-24 colour-blind check)."""
+    img = np.asarray(matplotlib.image.imread(src, format="png"), dtype=float)
+    if img.shape[-1] == 3:
+        img = np.concatenate([img, np.ones((*img.shape[:2], 1))], axis=-1)
+    return img
+
+
+def write_png(path: Path, rgba: np.ndarray) -> None:
+    """Write float RGBA in [0, 1] as a PNG without a software stamp."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    matplotlib.image.imsave(path, rgba, format="png", metadata=METADATA["png"])
 
 
 def remove_plot_files(plots_dir: Path, pid: str) -> None:
@@ -75,6 +94,15 @@ def remove_plot_files(plots_dir: Path, pid: str) -> None:
         for path in folder.glob(f"{pid}_*"):
             if path.is_file() and path.suffix.lstrip(".") in suffixes:
                 path.unlink()
+
+
+_SVG_TITLE = re.compile(r"<title>(.*?)</title>", re.S)
+
+
+def svg_title(svg: str) -> str | None:
+    """The finding title ``write_instance`` stores as the SVG's ``<title>`` (M9-15 decision 7)."""
+    m = _SVG_TITLE.search(svg)
+    return None if m is None else html.unescape(m.group(1))
 
 
 #: image formats in the order the report links them

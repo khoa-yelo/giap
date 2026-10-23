@@ -8,7 +8,9 @@ Without ``hits_tolerant`` frameshift rows are left out with the WARNING run flag
 carries its class error rate (``giap.variants.error_rates``), else ``unestimated``; the rates never
 change a call. ``reference_peptides`` is declared only (preflight pairs it into C17). One pass,
 no randomness. The VCF sample is ``cfg.sample_name``, which ``giap run`` resolves; an unresolved
-``auto`` fails the step (``write_vcf``).
+``auto`` fails the step (``write_vcf``). M7-14: the work Parquet ``variants_qc`` holds the §7.5.1
+``id_mixups`` count (one row: ``metric``, ``value``, ``n``), which ``context_stats`` writes into
+``detection_summary.tsv``.
 """
 
 from __future__ import annotations
@@ -19,10 +21,12 @@ from pathlib import Path
 from typing import Literal
 
 import pandas as pd
+import pyarrow as pa  # type: ignore[import-untyped]
 
 import giap
 from giap.config import GiapConfig
 from giap.io.fasta import read_genome_fasta
+from giap.io.parquet import write_parquet_deterministic
 from giap.io.variant_tables import write_pileup, write_variants
 from giap.io.vcf import VcfRecord, write_vcf
 from giap.io.work_tables import load_tables
@@ -33,6 +37,7 @@ from giap.variants.align import align_hits
 from giap.variants.error_rates import alt_support, annotate_sites, class_rates, paired_observations
 from giap.variants.flags import flags_for, start_codons
 from giap.variants.pileup import Support, eligible, pileup, sites
+from giap.variants.qc import id_mixups, site_support
 from giap.variants.vcf_records import FORMAT_FIELDS, INFO_FIELDS, vcf_records
 
 LAYER_MISSING_HITS_TOLERANT = "layer_missing:hits_tolerant"
@@ -86,23 +91,55 @@ def run_variants(
     records. ``peptide_hits`` is 0-based half-open with ``;``-joined ``diff_types``. Each site
     carries its M7-05 flags and its M7-10 class error rate from the C17 ``spectra`` (none:
     ``unestimated``); neither changes a call, confidence or count. Pure."""
+    pile, table, records, _ = run_variants_qc(peptide_hits, hits_tolerant, peptides, gm, genome,
+                                              cfg, spectra)  # fmt: skip
+    return pile, table, records
+
+
+def run_variants_qc(
+    peptide_hits: pd.DataFrame,
+    hits_tolerant: pd.DataFrame | None,
+    peptides: pd.DataFrame,
+    gm: GeneModel,
+    genome: Mapping[str, str],
+    cfg: GiapConfig,
+    spectra: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, list[VcfRecord], pd.DataFrame]:
+    """:func:`run_variants` plus the long ``(variant_id, peptide, source, search_db)`` support
+    frame of each ``variants.tsv`` row (M7-14, :func:`giap.variants.qc.id_mixups`). Pure."""
     support = support_of(peptide_hits, peptides, {g.locus_tag for g in gm.genes})
     aligns = align_hits(peptide_hits, hits_tolerant, genome, gm.replicons)
     pile = pileup(eligible(aligns, support, cfg), gm, genome, cfg, support=support)
     st = sites(pile, cfg)
     starts = start_codons(gm)
+    alt_peps = st.attrs["alt_peptides"]
     st["flags"] = [
         tuple(flags_for(r, starts, cfg, {(support[p].source, support[p].search_db) for p in peps}))
-        for r, peps in zip(st.to_dict("records"), st.attrs["alt_peptides"], strict=True)
+        for r, peps in zip(st.to_dict("records"), alt_peps, strict=True)
     ]
     rates = []
     if spectra is not None:
-        sup = alt_support(st, st.attrs["alt_peptides"])
+        sup = alt_support(st, alt_peps)
         is_dn = spectra["source"].astype(str).eq("denovo").to_numpy(dtype=bool)
         rates = class_rates(paired_observations(spectra[is_dn], spectra[~is_dn], sup))
     st = annotate_sites(st, rates)
     records, table = vcf_records(st, pile, genome, gm.replicons)
-    return pile, table, records
+    sources = {p: (str(s.source), str(s.search_db)) for p, s in support.items()}
+    return pile, table, records, site_support(table["variant_id"], alt_peps, sources)
+
+
+def qc_frame(table: pd.DataFrame, support: pd.DataFrame) -> pd.DataFrame:
+    """The ``variants_qc`` rows (``metric``, ``value``, ``n``): ``id_mixups`` (rule 3). Pure."""
+    count, n = id_mixups(table, support)
+    return pd.DataFrame({"metric": ["id_mixups"], "value": [count], "n": [n]})
+
+
+def write_variants_qc(path: Path, qc: pd.DataFrame) -> None:
+    """``work/variants_qc`` (byte-reproducible Parquet, TE7)."""
+    cols = [("metric", pa.string()), ("value", pa.int64()), ("n", pa.int64())]
+    rows = [(str(m), int(v), int(n)) for m, v, n in zip(qc["metric"], qc["value"], qc["n"],
+                                                        strict=True)]  # fmt: skip
+    write_parquet_deterministic(path, cols, rows)
 
 
 def _peptide_hits(mapping: Path) -> pd.DataFrame:
@@ -143,10 +180,10 @@ def _write_gzip(path: Path, pile: pd.DataFrame) -> None:
     "variants",
     inputs=["mapping", "genome", "genes", "replicons", "peptides"],
     optional_inputs=["hits_tolerant", "reference_peptides", "peptide_spectra"],
-    outputs=["pileup", "variants", "variants_vcf"],
+    outputs=["pileup", "variants", "variants_vcf", "variants_qc"],
 )
 def variants_step(ctx: StepContext) -> None:
-    """Codon pileup, ``variants.tsv`` and ``variants.vcf`` (Module 5)."""
+    """Codon pileup, ``variants.tsv``, ``variants.vcf`` and ``variants_qc`` (Module 5)."""
     ph = _peptide_hits(_path(ctx.inputs["mapping"]))
     ht_in = ctx.inputs.get("hits_tolerant")
     ht = None if ht_in is None else pd.read_parquet(_path(ht_in))
@@ -159,8 +196,8 @@ def variants_step(ctx: StepContext) -> None:
     genome = {r.id: r.sequence for r in read_genome_fasta(gpath)}
     gm = read_gene_model(_path(ctx.inputs["genes"]), _path(ctx.inputs["replicons"]))
     peptides = pd.read_parquet(_path(ctx.inputs["peptides"]))
-    pile, table, records = run_variants(ph, ht, peptides, gm, genome, ctx.cfg,
-                                        _spectra(ctx.inputs.get("peptide_spectra")))  # fmt: skip
+    spectra = _spectra(ctx.inputs.get("peptide_spectra"))
+    pile, table, records, support = run_variants_qc(ph, ht, peptides, gm, genome, ctx.cfg, spectra)
     data = {
         "aligned_hits": len(ph),
         "covered_codons": len(pile),
@@ -176,3 +213,4 @@ def variants_step(ctx: StepContext) -> None:
               info_fields=INFO_FIELDS, format_fields=FORMAT_FIELDS, sequences=genome)  # fmt: skip
     _write_gzip(ctx.outputs["pileup"], pile)
     write_variants(ctx.outputs["variants"], table)
+    write_variants_qc(ctx.outputs["variants_qc"], qc_frame(table, support))

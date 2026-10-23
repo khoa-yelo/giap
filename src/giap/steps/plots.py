@@ -111,12 +111,30 @@ def skipped_plots(view: RunView) -> dict[str, str]:
     return {pid: r for pid, r in reasons.items() if r is not None} | absent
 
 
-def twins(plots_dir: Path, files: Mapping[str, PlotFiles]) -> dict[str, tuple[str, str]]:
+def twin_meta(view: RunView, cfg: GiapConfig) -> dict[str, Any]:
+    """The run context of the twins (M9-15 lead decision 5): the ``stats.alpha`` levels and the
+    replicon lengths in FASTA order."""
+    reps = (view.preflight() or {}).get("replicons", [])
+    return {"alpha": cfg.stats.alpha.model_dump(),
+            "replicons": {str(r["id"]): int(r["length"]) for r in reps}}  # fmt: skip
+
+
+#: identifier columns of plot data TSVs, read as text so ``01`` / ``0001`` keep their spelling
+TWIN_ID_DTYPES = dict.fromkeys(
+    ("contig", "locus_tag", "pair_id", "label", "category", "product", "name"), str
+)
+
+
+def twins(
+    plots_dir: Path, files: Mapping[str, PlotFiles], meta: Mapping[str, Any] | None = None
+) -> dict[str, tuple[str, str]]:
     """Instance stem -> ``(div id, figure JSON)`` for every instance whose plot has a twin; the
     div id is ``plotly-<pid>[-<suffix>]`` (for an unregistered plot, the stem after the ID).
+    The twin's title is the static plot's finding title (its SVG ``<title>``), else the stem.
     A twin that raises is not caught."""
     import pandas as pd
 
+    from giap.io.plot_files import svg_title
     from giap.viz import base
     from giap.viz.interactive import figure_json, has_twin
 
@@ -127,8 +145,9 @@ def twins(plots_dir: Path, files: Mapping[str, PlotFiles]) -> dict[str, tuple[st
             if inst.data is None or not has_twin(pid):
                 continue
             data = pd.read_csv(plots_dir / inst.data, sep="\t", na_values=["NA"],
-                               keep_default_na=False)  # fmt: skip
-            text = figure_json(pid, data, inst.stem)
+                               keep_default_na=False, dtype=TWIN_ID_DTYPES)  # fmt: skip
+            title = (svg_title(inst.svg) if inst.svg else None) or inst.stem
+            text = figure_json(pid, data, title, meta)
             suffix = inst.stem.removeprefix(f"{pid}_{spec.name}" if spec else pid).lstrip("_")
             if text is not None:
                 out[inst.stem] = (f"plotly-{pid}-{suffix}" if suffix else f"plotly-{pid}", text)
@@ -147,7 +166,9 @@ def write_report(
     from giap.report.build import build_report
 
     files: Mapping[str, PlotFiles] = {} if plots_dir is None else read_plot_files(plots_dir)
-    live = None if plots_dir is None or not cfg.report.interactive else twins(plots_dir, files)
+    live = None
+    if plots_dir is not None and cfg.report.interactive:
+        live = twins(plots_dir, files, twin_meta(view, cfg))
     html = build_report(view, files, skipped_plots(view), cfg, live)
     report_dir.mkdir(parents=True, exist_ok=True)
     page = report_dir / "report.html"
