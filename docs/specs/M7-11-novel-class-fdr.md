@@ -186,3 +186,8 @@ def denovo_class_q(orfs: Sequence[Orf], target_hits: pd.DataFrame, decoy_hits: p
       - the empty and no-target-win cases.
     - Nits 1–8 go to the backlog. Nit 4 (`min_identity` / `min_coverage` lower bounds) is a config
       bound on a protected file, so it is pending ADR, not blocking.
+14. **Test-author review tests (0dd33c6b).** When `replicon_lengths` is given, the open-3′ ORF
+    key is wrapped modulo the replicon length, as the makedb entry key already is. So on − the
+    key is (stop − 3) mod L, and `test_open3_orf_pairs_with_replicon_lengths_given[-]` pins it.
+    Lengths apply to linear contigs too: wrapping changes only keys below 0 or at L or above, so it
+    is harmless there. B2 and B3 kill every listed mutant (Slurm 1870248).
