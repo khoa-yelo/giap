@@ -6,13 +6,14 @@ carries a date or a software version is dropped, so two renders of one instance 
 byte-identical on one platform (``svg.hashsalt`` is fixed here, whether or not
 ``giap.viz.style.apply`` ran). The figures are ``matplotlib.figure.Figure`` objects that pyplot
 never manages, so nothing needs closing. The ``Instance.coords`` columns are written ``+ 1``
-(1-based closed data TSVs, §6.5).
+(1-based closed data TSVs, §6.5). ``read_plot_files`` reads them back for the report (M9-02).
 """
 
 from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -74,3 +75,50 @@ def remove_plot_files(plots_dir: Path, pid: str) -> None:
         for path in folder.glob(f"{pid}_*"):
             if path.is_file() and path.suffix.lstrip(".") in suffixes:
                 path.unlink()
+
+
+#: image formats in the order the report links them
+IMAGE_FORMATS = ("svg", "png", "pdf")
+_PLOT_FILE = re.compile(r"^(V\d{2})_.+$")
+
+
+@dataclass(frozen=True)
+class InstanceFiles:
+    """One instance's files under ``plots/``: ``images`` and ``data`` are ``plots/``-relative."""
+
+    stem: str
+    svg: str | None  # the SVG text, when the SVG exists
+    images: tuple[str, ...]
+    data: str | None
+
+
+@dataclass(frozen=True)
+class PlotFiles:
+    pid: str
+    instances: tuple[InstanceFiles, ...]
+
+
+def read_plot_files(plots_dir: Path) -> dict[str, PlotFiles]:
+    """Every ``Vnn_*`` image and data TSV under ``plots_dir``, by plot ID then stem (M9-02)."""
+    stems: dict[str, dict[str, list[str]]] = {}
+    found: list[tuple[str, str]] = []
+    if plots_dir.is_dir():
+        found += [(p.name, p.suffix[1:]) for p in plots_dir.iterdir() if p.is_file()]
+    if (plots_dir / "data").is_dir():
+        found += [(f"data/{p.name}", "tsv") for p in (plots_dir / "data").glob("*.tsv")]
+    for rel, fmt in found:
+        name = Path(rel).stem
+        if _PLOT_FILE.match(name) and fmt in (*IMAGE_FORMATS, "tsv"):
+            stems.setdefault(name, {}).setdefault(fmt, []).append(rel)
+    out: dict[str, list[InstanceFiles]] = {}
+    for name in sorted(stems):
+        by = stems[name]
+        svg = by.get("svg")
+        inst = InstanceFiles(
+            stem=name,
+            svg=(plots_dir / svg[0]).read_text(encoding="utf-8") if svg else None,
+            images=tuple(by[f][0] for f in IMAGE_FORMATS if f in by),
+            data=by["tsv"][0] if "tsv" in by else None,
+        )
+        out.setdefault(name[:3], []).append(inst)
+    return {pid: PlotFiles(pid, tuple(insts)) for pid, insts in sorted(out.items())}

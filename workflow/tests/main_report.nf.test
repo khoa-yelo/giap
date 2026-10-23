@@ -1,0 +1,97 @@
+// M9-02 behaviour 8: main.nf calls REPORT last, so `giap run` publishes OUT/plots/ and
+// OUT/report/report.html (GIAP_SPEC.md §6.1 data flow, §6.3, §9.1). Stub runs only; ci.yml runs:
+// nf-test test workflow/tests --profile test,stub.
+//
+// Pinned here (test author): REPORT receives the subworkflows' published outputs as [key, path]
+// pairs, so the `plots` py step (GIAP_STEP tag `plots`) stages, at least, preflight, the CONTEXT
+// tables (genes_tsv, islands, detection_summary, regions_stats, autocorrelation, sensitivity),
+// the OPERONS tables (pairs, operon_flags), NOVEL's novel_orfs, and the published `mapping` and
+// `annotation` directories (§9.1); its staged files come from the producing tasks. A subworkflow
+// that did not run contributes nothing (no peptides: no gene table, no CONTEXT/OPERONS/NOVEL
+// tables), and the plots step still runs on what is there.
+
+nextflow_pipeline {
+
+    name "main.nf runs REPORT last (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "report"
+
+    test("peptides given: plots and report run once on every subworkflow's published outputs") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                def g = "${moduleTestDir}/data/genetable"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString(),
+                          preflight: "${g}/preflight.json".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            def nameOf = { File dir -> (new File(dir, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
+            def byTag = { String s -> H.taskDirs(work).findAll { dir -> H.tagOf(nameOf(dir)) == s } }
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            def pl = byTag('plots')
+            assert pl.size() == 1 : "plots ran ${pl.size()}x; tasks: ${H.names(workflow.trace)}"
+            assert byTag('report').size() == 1 : "report ran ${byTag('report').size()}x"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def keys = H.stepInputs(pl[0]).collect { it[0] }.toSet()
+            def want = ['preflight', 'genes_tsv', 'islands', 'detection_summary', 'regions_stats',
+                        'autocorrelation', 'sensitivity', 'pairs', 'operon_flags', 'novel_orfs',
+                        'mapping', 'annotation', 'gene_context', 'genes_pre', 'island_diagnostics']
+            assert keys.containsAll(want) : "plots lacks ${want.findAll { !(it in keys) }}; has ${keys}"
+
+            def staged = H.staged(pl[0]).collect { new File(it[0]).canonicalPath }
+            ['context_stats', 'operons', 'sensitivity'].each { s ->
+                def prod = byTag(s).collect { it.canonicalPath }
+                assert prod.size() == 1 : "${s} ran ${prod.size()}x"
+                assert staged.any { it.startsWith(prod[0]) } : "plots stages nothing of ${s}"
+            }
+
+            assert new File("${outputDir}/plots").isDirectory() : "plots/ not published"
+            assert new File("${outputDir}/report/report.html").isFile() : "report/report.html not published"
+        }
+    }
+
+    test("no peptides: plots and report still run on what ANNOTATE published") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def g = "${moduleTestDir}/data/genetable"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          preflight: "${g}/preflight.json".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def ran = { String s -> H.names(workflow.trace).count { H.tagOf(it) == s } }
+            def nameOf = { File dir -> (new File(dir, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
+            assert workflow.success
+            assert ran('plots') == 1 && ran('report') == 1 : "tasks: ${H.names(workflow.trace)}"
+            def d = H.taskDirs(workDir.toString()).find { H.tagOf(nameOf(it)) == 'plots' }
+            def keys = H.stepInputs(d).collect { it[0] }.toSet()
+            assert 'preflight' in keys && 'annotation' in keys : "plots inputs ${keys}"
+            assert !keys.any { it in ['genes_tsv', 'islands', 'pairs', 'novel_orfs'] } : "tables from steps that did not run: ${keys}"
+            assert new File("${outputDir}/report/report.html").isFile()
+        }
+    }
+}
