@@ -423,3 +423,20 @@ only the TSV and the work-dir side table.
    - N6 (`placement_costs` via `to_parquet`): if item 5's byte parity fails on it, an implementer
      round switches to `write_parquet_deterministic`; otherwise backlog.
    - N1–N4, the statistician's notes 1–2 and N5's bookkeeping: backlog, by the lead.
+9. **Review-fix tests (dbcc1ede).** B1 and B2 are covered (mutants M11 and M8 are killed) and item 5
+   passes (Slurm 1873184). Item 6's first bullet fails: 25 of 49 tagged-class ORFs are
+   `no_makedb_pair`, in intergenic, antisense and cds_outframe.
+   - Cause (giapsim, not `src`): in `novel_orf_power` database runs, target rows carry `NOVEL_…`
+     and `sixframe:…` protein IDs, and only the decoys are makedb-tagged (`rev_GIAPORF_…`). A
+     search against the `giap makedb --six-frame-orfs` FASTA reports the entry IDs for targets too.
+     `makedb_id_map` builds entries from the IDs in the peptides, so an ORF pairs only when a decoy
+     happened to hit its entry.
+   - Fix: an implementer round in `tests/sim/giapsim/proteomics.py`. When the search database is
+     the makedb FASTA, every target row's `protein_ids` names its makedb entry (`GIAPORF_…`, or the
+     gene's nterm_extension entry), the same `entry` naming its decoys use. Truth tables keep the
+     planted `NOVEL_…` IDs. Item 6 is the acceptance test; its assertions stay as written.
+   - If existing tests pin the old IDs or hashes, the implementer lists them and the lead edits
+     them (this is the sim's realism fix, not a change of intent).
+   - B2 finding, to the backlog: `no_target_score` is unreachable from the step, since
+     `orf_regimes` and `picked_class_fdr` read the same target rows. The test forces it with a
+     monkeypatch.
