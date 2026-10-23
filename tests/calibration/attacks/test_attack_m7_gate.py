@@ -29,7 +29,8 @@ M7-13b (novel-ORF gate, suite ``novel_orfs``, ``helpers.m7_gate_novel_records``;
 * d: one picked list over the six-frame classes (``pooled_side``): a confirmed FDR ``fail`` in at
   least one (class, q); the per-class ``nterm_extension`` FDP is G4's own check.
 * GC: false de novo peptides from GC-poor intergenic segments; intergenic FDP <= q + 2 SE in
-  the de novo regime (a gate, logged to the suite log; no mutant).
+  the de novo regime (a gate, logged to the suite log; no mutant). q 0.01 is a strict xfail
+  naming ADR-0050 (lead decision 10).
 * 5i (reversed stretches in intergenic space) is covered by G4-k3.
 """
 
@@ -258,9 +259,20 @@ def test_cluster_arm_filtered_g4_recorded(teeth_log: Path) -> None:
     assert got[N.g4_key("picked_decoy", N.CL_CLASS, 0.1)] != C.VACUOUS_STATUS, got
 
 
+#: lead decision 10: GC at q 0.01 fails in the full tier (0.0122 / 0.0126 against 0.0112,
+#: ADR-0050), which supersedes its fast-tier pass; a strict xfail, so a fix shows as XPASS
+GC_CASES = [
+    pytest.param(q, marks=pytest.mark.xfail(
+        strict=True, raises=AssertionError,
+        reason="ADR-0050 (proposed, pending Khoa; M7-13b lead decision 10): exact GC-poor "
+               "intergenic de novo reads above q + 2 SE")) if q == 0.01 else pytest.param(q)
+    for q in NLEVELS
+]  # fmt: skip
+
+
 @NOVEL
 @NIGHTLY
-@pytest.mark.parametrize("q", NLEVELS)
+@pytest.mark.parametrize("q", GC_CASES)
 def test_attack_gc_poor_intergenic_fdp_at_level(q: float) -> None:
     R = _nR()
     first = N.gc_record(next(iter(C.replicate_range(R))))

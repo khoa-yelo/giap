@@ -22,9 +22,13 @@ nightly; the per-PR subset is the one-replicate smoke test at 100 kb.
   scenario rules out (scored makedb decoys and every de novo input are provided) fail the check
   (spec "Degenerate cases"). The fallback calls per class are recorded, not gated.
 * G4-k3: G4's de novo regime with 20 injected false ORFs per six-frame class carrying 3-5 wrong
-  de novo reads each (rule 8; ``inject_false_orfs``). Risk 3: may fail (methods note decision 3);
-  no xfail until a run shows it (lead decision 4 pattern: a known failure becomes a strict xfail
-  naming the ADR).
+  de novo reads each (rule 8; ``inject_false_orfs``). Risk 3, confirmed by the full tier (R =
+  300, Slurm 1875441 / 1876296 / 1877124): cds_outframe and antisense at q 0.01 and 0.05 and
+  intergenic at 0.01 are strict xfails naming ADR-0050 (``raises=AssertionError``, lead decision
+  10), so a fix shows as XPASS; the other cells stay hard checks.
+* Lead decision 11: a ``no_makedb_pair`` ORF whose every peptide row names another planted
+  ORF's makedb entry (a chance shared peptide) is exempt from ``UNESTIMATED_BUGS`` and recorded
+  as ``shared_peptide_no_pair``; any other ``no_makedb_pair`` still fails.
 
 Under ``--shard`` / ``GIAP_CALIBRATION_CONFIRM`` a check has no verdict and the test skips after
 writing its record (lead decision 6). No threshold is widened (R3).
@@ -174,14 +178,16 @@ def _g4(full: bool, regime: str, cls: str, q: float) -> None:
         for why, n in r["diag"][regime]["reasons"][cls].items():
             reasons[why] = reasons.get(why, 0) + int(n)
     fallback = sum(int(r["diag"][regime]["fallback_calls"][cls]) for r in ran)
+    shared = sum(int(r["diag"][regime].get(M.SHARED_NO_PAIR, {}).get(cls, 0)) for r in ran)
     vals = [r["g4"][key] for r in ran]
     diagnostics({"check": "G4", "full": full, "regime": regime, "class": cls, "q": q,
                  "status": rec["status"], "mean_fdp": rec["observed"], "bound": rec["bound"],
                  "mean_called": float(np.mean([v["n_called"] for v in vals])) if vals else None,
                  "mean_targets": float(np.mean([v["n_targets"] for v in vals]))
                  if vals else None,
-                 "reasons": reasons, "fallback_calls": fallback})  # fmt: skip
-    bugs = {k: v for k, v in reasons.items() if k in UNESTIMATED_BUGS}
+                 "reasons": reasons, "fallback_calls": fallback,
+                 M.SHARED_NO_PAIR: shared})  # fmt: skip
+    bugs = M.unestimated_bugs(reasons, shared, UNESTIMATED_BUGS)  # lead decision 11
     assert not bugs, f"G4 {regime}/{cls}: unestimated ORFs on a scenario that rules them out {bugs}"
     verdict(rec)
 
@@ -201,7 +207,23 @@ def test_g4_class_fdr_full(regime: str, cls: str, q: float) -> None:
 # --------------------------------------------------------------------------- G4-k3 (risk 3)
 
 
-K3_CASES = [(c, q) for c in M.SIX_CLASSES for q in LEVELS]
+ADR_0050 = "ADR-0050 (proposed, pending Khoa; M7-13b lead decision 10)"
+#: G4-k3 cells confirmed failing in the full tier (ADR-0050: exact systematic de novo errors and
+#: the per-ORF minimum q); every other cell stays a hard check
+K3_XFAIL = frozenset({("cds_outframe", 0.01), ("cds_outframe", 0.05), ("antisense", 0.01),
+                      ("antisense", 0.05), ("intergenic", 0.01)})  # fmt: skip
+
+
+def xfail_0050(why: str) -> pytest.MarkDecorator:
+    """House strict xfail: only an AssertionError counts, so missing evidence still errors."""
+    return pytest.mark.xfail(strict=True, raises=AssertionError, reason=f"{ADR_0050}: {why}")
+
+
+K3_CASES = [
+    pytest.param(c, q, marks=xfail_0050("G4-k3 FDP above q + 2 SE") if (c, q) in K3_XFAIL else ())
+    for c in M.SIX_CLASSES
+    for q in LEVELS
+]
 
 
 def _g4k3(full: bool, cls: str, q: float) -> None:

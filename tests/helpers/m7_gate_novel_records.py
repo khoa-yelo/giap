@@ -48,6 +48,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import math
+import re
 import shutil
 import tempfile
 import time
@@ -230,9 +231,110 @@ def false_candidates(run: NovelRun, truth: pd.DataFrame, lengths: Mapping[str, i
     return {c: int(m[c]["n_pred"] - m[c]["tp_p"]) for c in G.NOVEL_CLASSES}
 
 
-def _diag(run: NovelRun) -> dict[str, Any]:
+def _diag(run: NovelRun, rows: pd.DataFrame, truth: pd.DataFrame,
+          lengths: Mapping[str, int]) -> dict[str, Any]:  # fmt: skip
     G = _G()
-    return {"reasons": G.reason_counts(run.side), "fallback_calls": G.fallback_calls(run.side)}
+    return {"reasons": G.reason_counts(run.side), "fallback_calls": G.fallback_calls(run.side),
+            SHARED_NO_PAIR: shared_no_pair_counts(run.novel_orfs, run.side, rows, truth,
+                                                  lengths)}  # fmt: skip
+
+
+# --------------------------------------------------------------------------- shared peptides
+
+#: lead decision 11: ``no_makedb_pair`` ORFs whose every peptide row names another planted ORF's
+#: makedb entry (chance recurrence of a short peptide at another ATG; recorded, not a bug)
+SHARED_NO_PAIR = "shared_peptide_no_pair"
+NO_PAIR = "no_makedb_pair"
+_MAKEDB_RE = re.compile(
+    r"^GIAPORF_(intergenic|cds_outframe|antisense|nterm_extension)_(.+)_(\d+)_(\d+)_([pm])$"
+)
+
+
+def _il(p: str) -> str:
+    return str(p).strip().upper().replace("I", "L")
+
+
+def parse_makedb_id(pid: str) -> tuple[str, str, int, int, str] | None:
+    """``(cls, contig, a, b, strand)`` of ``GIAPORF_<cls>_<contig>_<a>_<b>_<p|m>`` (1-based closed
+    plus-strand span without the stop codon), else None (gene loci, ``rev_`` decoys)."""
+    m = _MAKEDB_RE.match(str(pid).strip())
+    if m is None:
+        return None
+    cls, contig, a, b, s = m.groups()
+    return cls, contig, int(a), int(b), "+" if s == "p" else "-"
+
+
+def planted_in_entry(entry: tuple[str, str, int, int, str],
+                     truth: pd.DataFrame) -> set[tuple[str, str, int]]:  # fmt: skip
+    """``(contig, strand, stop)`` of the truth ORFs whose start codon (``start`` on ``+``,
+    ``end - 2`` on ``-``) lies in frame inside the entry on its strand (origin-crossing entries
+    are not unwrapped)."""
+    _, contig, a, b, strand = entry
+    out: set[tuple[str, str, int]] = set()
+    for c, st, s, e, stop in zip(truth["contig"], truth["strand"], truth["start"], truth["end"],
+                                 truth["stop"], strict=True):  # fmt: skip
+        if str(c) != contig or str(st) != strand:
+            continue
+        p = int(s) if strand == "+" else int(e) - 2  # lowest base of the start codon
+        if a <= p and p + 2 <= b and ((p - a) if strand == "+" else (b - p - 2)) % 3 == 0:
+            out.add((contig, strand, int(stop)))
+    return out
+
+
+def shared_peptide_no_pair(peptides: Sequence[str], rows: pd.DataFrame,
+                           own_key: tuple[str, str, int], truth: pd.DataFrame) -> bool:  # fmt: skip
+    """Lead decision 11: at least one input row carries one of ``peptides`` (I/L-insensitive),
+    and every such row names at least one ``GIAPORF_`` entry, each holding a planted ORF other
+    than ``own_key``. Gene loci, decoys and non-planted entries veto."""
+    want = {_il(p) for p in peptides if str(p).strip()}
+    if not want:
+        return False
+    sub = rows[rows["peptide"].map(_il).isin(want)]
+    if sub.empty:
+        return False
+    own = (str(own_key[0]), str(own_key[1]), int(own_key[2]))
+    for ids in sub["protein_ids"]:
+        names = [x.strip() for x in re.split(r"[;,]", str(ids)) if x.strip()]
+        if not names:
+            return False
+        for x in names:
+            e = parse_makedb_id(x)
+            if e is None or not (planted_in_entry(e, truth) - {own}):
+                return False
+    return True
+
+
+def shared_no_pair_counts(novel_orfs: pd.DataFrame, side: pd.DataFrame, rows: pd.DataFrame,
+                          truth: pd.DataFrame,
+                          lengths: Mapping[str, int]) -> dict[str, int]:  # fmt: skip
+    """Side rows (four classes, by side ``class``) with ``reason == no_makedb_pair`` that pass
+    ``shared_peptide_no_pair`` on their ``novel_orfs.tsv`` row."""
+    G = _G()
+    out = dict.fromkeys(NOVEL_CLASSES, 0)
+    by_id = {str(r["orf_id"]): r for r in novel_orfs.to_dict("records")}
+    for oid, cls, why in zip(side["orf_id"], side["class"], side["reason"], strict=True):
+        if cls not in out or why != NO_PAIR or str(oid) not in by_id:
+            continue
+        o = by_id[str(oid)]
+        peps = [p for p in re.split(r"[;,]", str(o.get("peptides", ""))) if p.strip()]
+        c, st = str(o["contig"]), str(o["strand"])
+        key = (c, st, int(G.novel_stop(st, int(o["end"]), lengths.get(c))))
+        out[str(cls)] += int(shared_peptide_no_pair(peps, rows, key, truth))
+    return out
+
+
+def unestimated_bugs(reasons: Mapping[str, int], shared: int,
+                     bug_reasons: frozenset[str]) -> dict[str, int]:  # fmt: skip
+    """The ``bug_reasons`` counts left once ``no_makedb_pair`` loses the ``shared`` ORFs."""
+    n = int(reasons.get(NO_PAIR, 0))
+    if not 0 <= int(shared) <= n:
+        raise ValueError(f"{SHARED_NO_PAIR} {shared} outside 0..{NO_PAIR} {n}")
+    out = {k: int(v) for k, v in reasons.items() if k in bug_reasons and int(v) > 0}
+    if NO_PAIR in out:
+        out[NO_PAIR] -= int(shared)
+        if out[NO_PAIR] == 0:
+            del out[NO_PAIR]
+    return out
 
 
 # --------------------------------------------------------------------------- attack d (pooled)
@@ -516,6 +618,7 @@ def gate_record(i: int, size: str = "1M") -> dict[str, Any]:
         db = run_giap(res, Path(res.outdir) / "peptides.tsv", root / "db" / "OUT", seed)
         dn = run_giap(res, Path(res.outdir) / "peptides_denovo.tsv", root / "dn" / "OUT", seed)
         pep = _tsv(Path(res.outdir) / "peptides.tsv")
+        dn_rows = _tsv(Path(res.outdir) / "peptides_denovo.tsv")
         stripped = root / "peptides.nodecoy.tsv"
         pep[pep["is_decoy"].str.lower() != "true"].to_csv(stripped, sep="\t", index=False)
         nd = run_giap(res, stripped, root / "nd" / "OUT", seed)
@@ -538,7 +641,8 @@ def gate_record(i: int, size: str = "1M") -> dict[str, Any]:
             "g4": g4,
             "attack_a": {c: _fdr_counts(a[c], targets[c]) for c in G.NOVEL_CLASSES},
             "attack_d": d, "attack_d_unrebuilt": missing,
-            "diag": {"picked_decoy": _diag(db), "denovo_subgroup": _diag(dn)},
+            "diag": {"picked_decoy": _diag(db, pep, truth, lengths),
+                     "denovo_subgroup": _diag(dn, dn_rows, truth, lengths)},
             "realised": report["realised"],
             "false_candidates": {"picked_decoy": false_candidates(db, truth, lengths),
                                  "denovo_subgroup": false_candidates(dn, truth, lengths)},
@@ -563,7 +667,8 @@ def k3_record(i: int, size: str = "1M") -> dict[str, Any]:
                "g4k3": g4_counts(dn, truth, "denovo_subgroup", lengths),
                "injected": {c: len(v) for c, v in info["keys"].items()},
                "n_peptides": info["n_peptides"], "entered": entered(dn, info["keys"], lengths),
-               "diag": _diag(dn), "seconds": time.perf_counter() - t0}  # fmt: skip
+               "diag": _diag(dn, _tsv(path), truth, lengths),
+               "seconds": time.perf_counter() - t0}  # fmt: skip
     finally:
         shutil.rmtree(root, ignore_errors=True)
     _log(rec)
@@ -633,7 +738,8 @@ def cluster_record(i: int, size: str = "1M") -> dict[str, Any]:
                "attack_d_unrebuilt": missing,
                "n_entries": len(info["entries"]), "n_eligible": info["n_eligible"],
                "n_target_entries": info["n_target_entries"], "n_rows": info["n_rows"],
-               "entered": entered(db, info["keys"], lengths), "diag": _diag(db),
+               "entered": entered(db, info["keys"], lengths),
+               "diag": _diag(db, _tsv(path), truth, lengths),
                "seconds": time.perf_counter() - t0}  # fmt: skip
     finally:
         shutil.rmtree(root, ignore_errors=True)
