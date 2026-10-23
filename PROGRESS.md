@@ -8,7 +8,7 @@ _Last updated: 2026-10-22 19:40 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 137/162 done (85 %), 15 running · generated 2026-10-23 03:21 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 140/162 done (86 %), 13 running · generated 2026-10-23 06:30 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -19,9 +19,9 @@ _Last updated: 2026-10-22 19:40 PDT · session https://claude.ai/code/session_01
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 11 | 0 | 0 |
 | M6 Operons | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜ 75 % | 9 | 2 | 1 |
-| M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜ 62 % | 10 | 4 | 2 |
+| M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜ 69 % | 11 | 4 | 1 |
 | M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜ 65 % | 11 | 4 | 2 |
-| M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜ 62 % | 16 | 5 | 5 |
+| M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨⬜⬜⬜⬜⬜ 69 % | 18 | 3 | 5 |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
 <!-- progress:end -->
@@ -404,21 +404,29 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 7742, 1 thread). Next: review, then the statistician's methods note (§"Wallenius ORA").
 
 ## Next actions (ordered)
-1. Watch #229 (qBL). When it merges, the queues behind it go green; relaunch any queue that has
-   used its 3 attempts.
-2. On agent reports:
-   - M7-12 round 3 → statistician re-check → code review;
-   - M7-11 round 2 → lead removes the two Block-1 strict xfails in
-     test_attack_novel_class_fdr.py → record spec decision 11 (draft in the scratchpad,
-     m711_d11.md) → code review;
-   - M7-10 statistician verdict;
-   - M6-10 implementer → PR + reviewer;
-   - M7-15 implementer → K-12 job ID into PROGRESS.md → goldens after #225 merges;
-   - M4-24 tests → implementer → lead edits the real-mapping tier assertion (decision 3).
-3. After #232 merges: M9-23 (V16 compare plot) spec decisions → test-author.
-4. After #178 merges: M9-17 (plot support from analysis steps), then M9-19/20/21.
-5. After #228 merges: M9-16b test-author; remove the #178 guards in that merge.
-6. Extend the calibration_full array to 0-14 once the variants/compare suites exist (ADR-0042).
+1. Merge queues: #242 (qCC), #178 → #228 (qCT, qCG), #238 (qCS), #248 (qCK), #247 (qCN), #257 →
+   #237 → #253 (qCP, qCQ, qCM), #259 → #230 (qCU, qCV). Relaunch any that use their 3 attempts.
+   #258 is stacked on #247: after #247 squash-merges, merge the old base tip then main by hand
+   and retarget, then queue.
+2. MVP-04 acceptance run: after #237, #238, #247 and #258 merge and the main checkout is
+   fast-forwarded (decision 24 N10), `sbatch scripts/slurm/mvp04_inputs.sbatch`, then the K-12
+   run and `mvp04_summary.py`.
+3. #256 (M7-11b): giapsim target IDs name their makedb entries (decision 9, implementer running);
+   then item 6 smoke on Slurm, then merge after #237 and #253.
+4. #255 (M7-13a): statistician BLOCKED (B1 shard numbering off by one in
+   `calibration_full.sbatch`, B2 exit codes dropped, B3 G1 guard miss hides as the ADR-0049
+   XFAIL; B4 ADR-0049 amended in cc814c92); code review running. Then one fix round.
+5. M7-13b (m7-gate-b): implementer running against #256's source; full-tier numbers after the
+   giapsim fix. G4-k3 fails at block 1 (decision 4).
+6. #251 (M8-14): B1 carried by `n_obs` (decisions 6–7); implementer running; then statistician
+   re-check and code review.
+7. After #178 merges: M9-17 (plot support from analysis steps), then M9-19/20/21. After #228:
+   M9-16b.
+8. M7-13c (evidence) after M7-13a and M7-13b.
+
+Slurm jobs this session (2026-10-23): 1872171, 1872172, 1872190, 1872199, 1872374, 1872464,
+1872558, 1872593, 1872659, 1872827, 1872828, 1872831, 1872844, 1872845, 1872875, 1872876,
+1872881, 1872913, 1872914, 1872931, 1873053, 1873054, 1873143, 1873184, 1873211.
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
@@ -452,6 +460,12 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 | 7 | Optional: reword the `input.q_value_max` comment in defaults.yaml (protected) to match ADR-0047 ("not evidence; kept in C9 and in preflight's q range") | reword / leave | leave | 2026-10-22 — **RESOLVED 2026-10-22**: reworded under ADR-0047 (#242) |
 | 8 | MVP-04 q6: add an `n_decoy_wins` tier row to `detection_summary.tsv` (new §9.3 vocabulary)? | add the row / summary script only | summary script only (in use) | 2026-10-23 |
 | 9 | MVP-04 q9: put the K-12 evidence run in the weekly scrontab (array task 2) | yes / keep it a one-off sbatch | one-off sbatch until you answer | 2026-10-23 |
+| 10 | ADR-0048: replicate counts for the 1-Mb novel-ORF gate (`replicates_fast.novel_orfs_gate` 10 / full 300 in the protected tolerances.yaml) | accept / revise | module constant `GATE_R` = 10 / 300 in `_m7_gate.py` (in use) | 2026-10-23 (#255) |
+| 11 | ADR-0049: M7 variant precision. G1 F1 0.838 (P 0.776); A6a–c fail. Options: call rule, alignment, distinct-peptide support, gate scope (option 4 also fails, F1 0.790); 277 non-substitution `high` rows (block, swap, frameshift) are in or out of scope | pick an option / combination | G1 and A6a–c are strict xfails naming ADR-0049; gate M7 not passed | 2026-10-23 (#255) |
+| 12 | M7-11b Q2: new `novel_orfs.tsv` columns (`regime`, `reason`, `fdr_class`, `class_rule_met`) vs a side table | TSV columns / side table | side table `novel/novel_class_fdr.parquet` (in use) | 2026-10-23 (#253) |
+| 13 | M7-11b Q3: `class_mismatch` as a novel-ORF flag (beyond §9.4) | add the flag / side-table bool only | side-table bool only (in use) | 2026-10-23 (#253) |
+| 14 | ADR-0047 tightening (M4-24 backlog): narrow the condition under which decoys above `q_value_max` leave the picked competition | tighten / leave | leave (ADR-0047 as accepted) | 2026-10-23 (#238) |
+| 15 | FYI, reversible: MVP-04 gate 13 re-stated before any number (decision 20). "≥ 4 of 6 islands" was infeasible (0/11 seeds); now one 20-TU high island gated (11/11), three 8-TU lows exempt (structural cap) | ok / revise | decision 20 (in use) | 2026-10-23 (#258) |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;
