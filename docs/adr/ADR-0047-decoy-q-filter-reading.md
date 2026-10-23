@@ -1,9 +1,9 @@
 # ADR-0047: Decoys above `q_value_max` leave the picked competition (reading of §5.2)
-- Status: accepted (lead-level, 2026-10-22)
+- Status: accepted-by-khoa (2026-10-22: the reading, and the defaults.yaml comment reworded)
 - Date: 2026-10-22
 - Spec sections: §5.2, §7.3.2; M4-12 decision 1; M4-24
-- Needs Khoa: no for the code, which already behaves this way. A wording change to the protected
-  `src/giap/config/defaults.yaml` comment would need Khoa; until then this ADR is the reading.
+- Needs Khoa: yes, for the wording change to the protected `src/giap/config/defaults.yaml`
+  comment; Khoa approved it on 2026-10-22. The code already behaves this way.
 
 ## Context
 §5.2 and the `input.q_value_max` comment in defaults.yaml say that rows above the cut-off are
@@ -26,5 +26,6 @@ reading holds.
 
 ## Consequences
 - No code change for the filter itself.
-- If Khoa prefers the comment reworded ("not evidence; kept in C9 and in preflight's q range"),
-  that is a protected-file change with `Gate-Change-Approved: ADR-0047`.
+- The `input.q_value_max` comment in defaults.yaml now reads "not evidence; kept in C9 and in
+  preflight's q range", a protected-file change with `Gate-Change-Approved: ADR-0047`. The
+  default value is unchanged.
