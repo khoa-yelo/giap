@@ -489,3 +489,18 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
      - the fold assignment for `precision_cv`;
      - the driver derives precision, recall and F1 for the TSV.
    - Next: the statistician and the code review, in parallel.
+9. **Reviews of part B (#264): code review CHANGES REQUESTED (6369206328), statistician BLOCK on
+   tests only (6369349361). One fix round; accepted.**
+   - **CR B1 and the statistician's item:** everything the driver writes after stream 8 is pinned by
+     an oracle continuing the same rng (`threshold_boot_q`, the coincidence null, `precision_cv`,
+     the window-gene `fixed_cutoff_ci` including its unused recall block).
+   - **Per-placement rates (lead):** part A's `coincidence_rate(..., return_rates=True)` returns the
+     R per-placement matched shares with the same draws; the driver makes one call, c =
+     mean(rates), MC SE = sd(rates, ddof=1)/√R. This replaces the 20-call batch means.
+   - **CR B2:** `terms.tsv.gz` is pinned by SHA-256 (`Pins.terms_sha256`, K12 9be61c75…a2ff).
+   - **Small fixes:** off-contig truth rows dropped with a logged count; `precision_ci_window`
+     `[null, null]` when uncalibrated; `main` returns 1 on `FileNotFoundError` without a traceback.
+   - **ADR-0022 quotes `precision_lower_bound_window`** as the 97.5 % one-sided bound (the point
+     bound exceeds true precision in about 9.5 % of the statistician's worlds).
+   - The remaining nits go to the backlog. Tests at ab9e73a1; next: the implementer. No second
+     review round (the statistician clears once the nine mutants die).
