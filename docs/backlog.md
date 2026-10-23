@@ -609,6 +609,16 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M9-04 V17 review nits (#197): when every gene is partial, (e) draws 0 % bars and should show an empty-state note; integer tick locators on the count axes; partial genes are left out of (d) although the spec restricts only (e); the "unmapped" layer of (c) includes contaminant and too_short peptides; the length-bound lines belong at 6.5/40.5 (spec + test); an empty `replicons` draws an empty axis with a warning; the TSV message rows drop the drawn text; preflight `genome.contiguity` has an empty `message` (a preflight bug); "abundance not available" is not in the spec's titles; "1 preflight warnings" should be singular; the imputed legend shows when nothing is imputed; 8 surviving mutants (exactly 10 warnings, rule fallback, (b) floor, circular markers, constant-abundance padding, (e) inverted y, absent-genes title).
 - ADR-0041 follow-up (after #196 merges): move the four tokens from RUN_FLAGS_PENDING to the accepted run vocabulary and update the vocabulary test (lead).
 
+## M9-02 review nits (#205; one round, B1–B5 and N1 local half fixed in the PR)
+- N1 Nextflow half: REPORT gets no `events`, so `layer_missing` skips fire under the local executor and `giap report` but not in a Nextflow `giap run`. Fix before the first Nextflow-run plot that declares layers.
+- Config digest reads "not available" in `giap run` but appears after `giap report`, so `report.html` changes on a rebuild of an untouched run.
+- Executor-equality test compares only `plots/data` (empty until plots register): also compare `report.html` bytes, and the run's report with a rebuilt one.
+- Peptide "of N input" counts `kind=protein` rows from `unmapped`.
+- Stale plot files from an earlier run are shown in place of a skip reason that holds now; with `formats=[png]` the report says "plot file absent" although the PNG exists.
+- PLOTS has no resource label (1 CPU / 2 GB) while REPORT_HTML gets `process_low`.
+- `ALL_PUBLISHED_KEYS` declares optional inputs never read (`peptide_hits`, `tus_tsv`); SVG id separator `-` is not provably unique.
+- Surviving mutants: `<=` boundary in the card counts, the two `nunique` peptide counts. Move `cards()` to `giap/report/cards.py` ahead of M9-16.
+- Card/table read failures are notes in the HTML only (build.py is pure); consider an event from the step.
 ## M8-17a review nits (#204; one round, B1 R_LIBS_SITE fixed in the PR)
 - 17b: `read_results` must require rows to match the in-range sets exactly (a dropped row now vanishes silently); `read_versions` should check the `seed`/`jobs` lines and the data.table version.
 - Set `TMPDIR` to the call directory in `child_env` so R's `Rtmp*` is not left behind after a timeout kill; give the post-kill `proc.communicate()` a timeout.
