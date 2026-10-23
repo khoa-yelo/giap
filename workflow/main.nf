@@ -88,7 +88,7 @@ workflow {
             OPERONS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract, ANNOTATE.out.layers_for_pairs)
             pub += [outs('mapping', MAPPING.out.mapping),
                     kv('pileup', VARIANTS.out.pileup), kv('variants', VARIANTS.out.variants),
-                    kv('variants_vcf', VARIANTS.out.variants_vcf),
+                    kv('variants_vcf', VARIANTS.out.variants_vcf), kv('variants_qc', VARIANTS.out.variants_qc),
                     kv('gene_table', GENETABLE.out.gene_table), kv('detectability_summary', GENETABLE.out.detectability_summary),
                     kv('tier_summary', GENETABLE.out.tier_summary), kv('genes_pre', GENETABLE.out.genes_pre),
                     kv('tu_folds', GENETABLE.out.tu_folds),
