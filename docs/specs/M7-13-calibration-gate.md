@@ -484,3 +484,11 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
 12. **`test_attack_oracle_picked_class_fdp_dense`** (M7-12, full tier) fails with "no calls at 0.01,
     intergenic" on #256/#267's giapsim. It goes to #267 as a follow-up (test-author check first).
     Shard the nightly block 2 (serial G4-k3 block 2 ≈ 3.2 h against `--time` 04:00); backlog.
+13. **Decision 10 amended (test-author 27ad304a, gap 1).**
+    - Fast-tier GC at q 0.01 is a hard check again. Its fixed seeds pass, so a strict xfail there
+      could never mean "fixed".
+    - A `calibration_full` GC test at q 0.01 carries the strict ADR-0050 xfail.
+    - Gaps 2–4 accepted as proposed:
+      - the G4-k3 xfails cover both tiers;
+      - origin-crossing entries fail closed;
+      - the fast tier is re-run after #267 merges into this branch.
