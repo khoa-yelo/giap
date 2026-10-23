@@ -184,6 +184,7 @@ def all_steps() -> list[StepSpec]:
 SECTION_READERS: Mapping[str, frozenset[str]] = {
     "variants": frozenset({"variants"}),
     "novel_orfs": frozenset({"novel_orfs"}),
+    "sample_name": frozenset({"variants"}),  # the VCF sample; resolved from the evidence file name
 }
 _NOT_HASHED = frozenset({"threads"})  # resources only; outputs never depend on it (§6.6)
 
