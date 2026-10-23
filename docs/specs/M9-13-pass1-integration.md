@@ -76,3 +76,15 @@ evidence before any hardening.
    land. A plot absent from the registry must fail example 1, not skip it.
 3. The integration test is marked `slow` and `integration` and runs through `test_branch.sbatch`;
    the real `giap_run.sbatch` evidence run (Work item 3) is the lead's step after the code lands.
+
+## Lead decisions on the tests (2026-10-22, after b346d7e)
+
+4. Zero detections: V07, V10 and V18 must each draw something (an empty state or honest zero rows);
+   V07's basic-group rows with observed 0 are acceptable, so header-only data is not required.
+5. Example 4 needs Nextflow inside the test job. `needs_nextflow` skipped in `test_branch.sbatch`
+   although `scripts/farmshare_env.sh` puts the `giap-wf` env's `nextflow` / `nf-test` on PATH in
+   the session; the implementer finds why (PATH order in the sbatch script, Java, or the capability
+   probe) and fixes it in `scripts/slurm/test_branch.sbatch` (not protected) so example 4 runs; a
+   skip is not evidence.
+6. The checks module is shared: M9-14 switches its local `external_loads` to `giap.report.checks`
+   when this merges.
