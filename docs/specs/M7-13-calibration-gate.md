@@ -321,3 +321,15 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
      - reference arm pooled mean of `substitution` + `mass_equivalent`: 0.974.
    - Next: the implementer writes `_m7_gate.py`, the pooled `_criteria` functions, `_check_key`
      with `key`, and calibration_full.sbatch `--array=0-14` with task 13 run under `--shard 2`.
+6. **Implementer (2a591c83; Slurm 1872593 gave 11 passed and 4 xfailed; fast suite 1872659).**
+   - Accepted: task 13 shards inside its array task, running `--shard 1/2` and `2/2` side by side
+     and then `--merge`.
+   - Accepted: records carry `guard` and `vacuous`, so a merge reaches the same verdict.
+   - **Fix (test-author):** in shard and confirm runs the checks return a `shard` status, so the
+     strict xfails XPASS and pytest exits 1. Before asserting, the gate tests now
+     `pytest.skip("shard run: the verdict comes from --merge")` when the status is `shard` or
+     `pending`.
+   - The `--merge` block-2 rerun of G2 and A6a, about 15–20 min, is measured in M7-13c and
+     recorded in PROGRESS.md.
+   - Size: the counted lines are scripts only (10). The test harness, about 350 lines under
+     tests/, is outside the size gate. Accepted.

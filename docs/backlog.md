@@ -773,6 +773,23 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
 
+### M9-15 follow-ups
+- V11 twin bars at bin index; write `bin_lo`/`bin_hi` into the V11 data TSV so the twin matches
+  the static edges.
+- Tests for M9-15 decision 5 (`meta`: α lines, kb/Mb choice, origin-crossing islands).
+
+### M9-15 code-review nits (PR #234, comment 6358615453)
+- Decision 5 (`meta`) untested: no test fails when `figure_json` never passes meta. 12 of 15 manual
+  mutants survive (V2 1-bp offsets hidden by tolerance, origin split, meta dispatch, `columns=`,
+  `html.unescape`, V7 `lo == hi`, V10/V11 alpha, V8 n = 50 boundary, FASTA order, V18 bar offset).
+- `inspect` dispatch counts keyword-only parameters and `*args`, so `(data, title, *, extra=None)`
+  raises TypeError; decide at registration instead.
+- `columns=`: a twin whose columns drift silently disappears; log a warning.
+- V11 (a) x-axis still says "|Δ| …" though the bars sit at the bin index.
+- V7: rows with the same label collapse onto one category, and some CI bars are hidden that the static draws.
+- V5 `arrangement="fixed"` without node x/y loses the M9-05 order.
+- V8 has no median mark or legend; the V10 no-meta fallback differs for flagged rows; V18's constant state has no message.
+- PR size about 2,300 lines in total (711 counted).
 ### M7-10 follow-ups
 - Switch the class-error calibration to the M7-12 `variant_f1` scenario once #225 merges (decision 7).
 - M7-13: class error rate reference-proteome arm (moved from M7-10 #239 B2); also consider a run flag when every class rate is 1 (statistician #239).
