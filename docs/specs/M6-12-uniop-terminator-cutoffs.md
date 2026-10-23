@@ -456,3 +456,18 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
      - the hard refit start, plus separated and quasi-separated cases, none of which raises.
    - **For PR B:** `parse_terminatornet` reads plain text, so the driver decompresses
      `terms.tsv.gz` first.
+7. **Part A tests (7c4ddbed, merged into `m6/cutoffs-stats`): gaps 1–10 accepted as pinned.**
+   - Example 7's window lo is 9850 (9900 − 50); the earlier value 9450 was wrong.
+   - Windows, matching and the coincidence null are pure functions in `stats/cutoffs.py`, and
+     part B's driver calls them.
+   - `threshold_boot_q` makes its own `tu_block_bootstrap` call.
+   - `precision_cv` pins only determinism, its bounds and two exact cases.
+   - Only `"separation"` is a pinned failure reason.
+   - Inside `fixed_cutoff_ci`, precision is drawn before recall.
+   - The refit percentile CI under-covers slightly (about 0.92 on synthetic data). It is
+     recorded, not gated, and the methods note states it.
+   - The 0.93 coverage criterion and the ±0.005 Wilson band stay hard-coded with citations.
+     Moving them to the protected `tolerances.yaml` is backlog.
+   - Examples 8–10 belong to parts B and C.
+   - Truth-level recall gets a helper in part B.
+   - Next: the implementer (`src/giap/stats/cutoffs.py`).
