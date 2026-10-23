@@ -366,14 +366,15 @@ def test_uncalibrated_flags_merge_sorted_with_event_flags() -> None:
     assert m["layers_missing"] == ["cog"]
 
 
-def test_uncalibrated_flag_is_pending_khoa_not_accepted() -> None:
-    """Needs Khoa item 1: ``uncalibrated:<key>`` stays in RUN_FLAGS_PENDING until the ADR."""
+def test_uncalibrated_flag_is_accepted() -> None:
+    """Needs Khoa item 1, answered by ADR-0041: ``uncalibrated:<key>`` and the three other
+    run-scope tokens are registered run flags."""
     from giap.manifest import RUN_FLAGS, RUN_FLAGS_PENDING
 
-    assert "uncalibrated:" in RUN_FLAGS_PENDING
-    assert "uncalibrated:" not in RUN_FLAGS
+    assert "uncalibrated:" in RUN_FLAGS
+    assert "uncalibrated:" not in RUN_FLAGS_PENDING
     for tok in ("input_prefiltered", "cai_reference_missing", "no_detection_limit_model"):
-        assert tok in RUN_FLAGS_PENDING and tok not in RUN_FLAGS
+        assert tok in RUN_FLAGS and tok not in RUN_FLAGS_PENDING
 
 
 def test_uncalibrated_flags_match_the_schema_pattern() -> None:
