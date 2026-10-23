@@ -73,3 +73,11 @@ def score(results: Sequence[CheckResult]) -> float          # passed / gated ite
    review.
 3. "Title states the finding" is checked only mechanically (a number or a declared phrase).
    **Proposed default:** mechanical check plus Khoa's review; no language model judges titles.
+
+## Lead decisions (2026-10-22)
+
+1. The deuteranopia ΔE is recorded, not gated; Khoa sets any threshold at M9-25.
+2. Minimum font size 6 pt; a stricter value can follow Khoa's review.
+3. "Title states the finding" is a mechanical check (a number or a declared phrase) plus Khoa's
+   review; no language model judges titles.
+4. Feature loop: test-author → implementer → code review.
