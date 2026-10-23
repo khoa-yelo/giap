@@ -14,7 +14,7 @@ Interface assumed (test-author choices, reported to the lead):
   ``detected_true`` is drawn from it after the walk. Any centring offset lives in the intercept;
 * **decision 11**: two new ``LayoutConfig`` fields next to ``short_gaps_in`` / ``uniop_pure``:
   ``short_convergent_gaps: bool = False`` (the opt-in) and
-  ``convergent_gap_bp: tuple[int, int] = (10, 150)`` (inclusive integer range, read only when the
+  ``convergent_gap_bp: tuple[int, int] = (-20, 300)`` (inclusive integer range, read only when the
   opt-in is on). When on, the gap of every convergent (``+`` then ``-``) TU boundary is drawn
   uniformly from that range instead of the 50-300 bp inter-TU range; other gaps are unchanged.
   Off, nothing changes: the golden digests below are those of fd3f3a3. ``missed_operon_power``
@@ -92,12 +92,12 @@ def _with_layout(cfgs: tuple[Any, Any], **kw: Any) -> tuple[Any, Any]:
 # --------------------------------------------------------------- decision 11: short CV gaps
 
 
-def test_short_convergent_gaps_defaults_off_with_the_10_150_range() -> None:
+def test_short_convergent_gaps_defaults_off_with_the_minus20_300_range() -> None:  # decision 23
     from giapsim.layout import LayoutConfig
 
     cfg = LayoutConfig()
     assert cfg.short_convergent_gaps is False
-    assert tuple(cfg.convergent_gap_bp) == (10, 150)
+    assert tuple(cfg.convergent_gap_bp) == (-20, 300)
 
 
 def test_short_convergent_gaps_off_explicitly_is_the_default_layout() -> None:
@@ -161,18 +161,19 @@ def test_which_scenarios_turn_short_convergent_gaps_on(
 ) -> None:
     lcfg, _ = getattr(_sc(), name)(*args)
     assert lcfg.short_convergent_gaps is on
-    assert tuple(lcfg.convergent_gap_bp) == (10, 150)
+    assert tuple(lcfg.convergent_gap_bp) == (-20, 300)
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2])
-def test_short_convergent_gaps_on_draws_cv_gaps_uniformly_from_10_to_150(seed: int) -> None:
-    """On the null layout with the opt-in on: every (non-wrap) CV gap lies in 10-150 bp, gaps below
+def test_short_convergent_gaps_on_draws_cv_gaps_uniformly_from_minus20_to_300(seed: int) -> None:
+    """On the null layout with the opt-in on: every (non-wrap) CV gap lies in -20-300 bp, gaps below
     50 bp occur, and DV and same-strand inter-TU gaps keep the 50-300 bp range."""
     sc = _sc()
     s = sc.simulate_operons(_with_layout(sc.operon_null(N), short_convergent_gaps=True), seed)
     gaps = _cv_gaps(s)
     assert len(gaps) >= 100
-    assert gaps.min() >= 10 and gaps.max() <= 150, (gaps.min(), gaps.max())
+    assert gaps.min() >= -20 and gaps.max() <= 300, (gaps.min(), gaps.max())
+    assert (gaps < 0).any() and (gaps > 150).any()  # 3' overlaps and the 150-300 bin (decision 23)
     assert (gaps < 50).mean() >= 0.15, (gaps < 50).mean()
     p = s.pairs[_not_wrap(s, s.pairs)]
     dv = p.loc[(p["class"] == "DV").to_numpy(), "intergenic_bp"].to_numpy()
@@ -182,14 +183,14 @@ def test_short_convergent_gaps_on_draws_cv_gaps_uniformly_from_10_to_150(seed: i
 
 
 def test_short_convergent_gaps_are_uniform_pooled() -> None:
-    """Pooled over 5 seeds, the CV gaps follow the discrete uniform on 10..150 (KS p > 1e-3)."""
+    """Pooled over 5 seeds, the CV gaps follow the discrete uniform on -20..300 (KS p > 1e-3)."""
     sc = _sc()
     cfgs = _with_layout(sc.operon_null(N), short_convergent_gaps=True)
     gaps = np.concatenate([_cv_gaps(sc.simulate_operons(cfgs, s)) for s in range(5)])
-    u = stats.randint(10, 151)
-    # continuity: compare x + U(0, 1) against the continuous uniform on [10, 151)
+    u = stats.randint(-20, 301)
+    # continuity: compare x + U(0, 1) against the continuous uniform on [-20, 301)
     jit = gaps + np.random.default_rng(0).random(len(gaps))
-    assert stats.kstest(jit, stats.uniform(10, 141).cdf).pvalue > 1e-3
+    assert stats.kstest(jit, stats.uniform(-20, 321).cdf).pvalue > 1e-3
     assert abs(gaps.mean() - u.mean()) <= 4 * u.std() / math.sqrt(len(gaps))
 
 

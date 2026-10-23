@@ -654,3 +654,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   statistician scripts probe.py / floor.py / teeth.py (lift into tests/calibration/attacks/).
 - Record one arm at the defaults (`p_same_strand` 0.6, `DEFAULT_BETA`); the power table reports
   the realised planted count (≈15 % of both-detected NO targets, not 10 %).
+- (M6-09, statistician round 2) example 1 is infeasible at 0.1 SD under every arm (merged engine: 0
+  calls everywhere; CV-only 1-bin: 2.5 calls); add a realistic 10 % detection-attack block arm;
+  report realised planted counts; lift stat603/probe2.py and bias.py into tests/calibration/attacks/.

@@ -164,6 +164,20 @@ built. The missed-operon generators change as follows, so M6-09's FDR gate can f
     floats at 9 significant digits; both nodes give the re-pinned values (Slurm 1869378).
 21. **Decision 12 gates in the full tier only.** At R = 20 the expected CMH z is ≈ 1.1 (R = 1,000:
     z = 7.78, Slurm 1869345), so the fast tier prints z and checks that a sub-50-bp bin holds
-    targets and decoys; z ≥ 2 is asserted at R = 1,000.
+    targets and decoys; z ≥ 2 is asserted in the full tier (R = 300 for `missed_operons`; expected
+    z ≈ 4.3).
 22. The implementer's deviations (block = a third of the chromosome, shift −6 on the logit, slope
     ≤ 2) are accepted for the statistician's re-check.
+
+## Lead decisions on the round-2 re-check (2026-10-22, PR #222 comment 6357030352)
+
+23. **Decision 11 amended: `convergent_gap_bp` defaults to (−20, 300).** (10, 150) left the
+    150–300 bp bin almost without CV decoys (1.4 per replicate vs 188 NO targets). Negative values
+    are 3′ overlaps of convergent genes, which real genomes have; they fill the < 0 bp bin. If the
+    layout cannot represent overlaps, the implementer stops and reports (fallback (10, 300)).
+    Lead re-pinned the two range tests; the digests of the scenarios that turn the gaps on and the
+    R = 1,000 numbers are re-run.
+24. **Methods note additions:** CV decoys per bin; the FDR-scale finding that attack B cannot make
+    M6-09's gate fail (ratio ≤ ~1.05), so gate B's pass is not over-read.
+25. **For M6-09 (not this PR):** a realistic 10 % block arm; report realised planted counts in the
+    detection attack; example 1 (≥ 60 % at 0.1 SD) is infeasible under every decoy arm measured.
