@@ -21,6 +21,13 @@ cd "$WT"
 export PYTHONPATH="$PWD/src:$PWD/tests/sim"
 export PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"
 echo "worktree=$WT branch=$(git rev-parse --abbrev-ref HEAD) head=$(git rev-parse --short HEAD) node=$(hostname)"
+# Warm the giap-wf JVM before pytest (M9-13 decision 5): on a node that has not run it, the first
+# `nextflow -version` reads Java and the Nextflow jars cold from NFS and took 29 s on rye-02
+# (job 1869186; 1.4 s once warm), so tests/conftest.py's 30 s capability probe timed out and every
+# needs_nextflow test skipped (jobs 1850601, 1860124, 1869158; with -n 16 the workers cold-start together).
+for probe in "nextflow -version" "nf-test version"; do
+  s=$SECONDS; $probe >/dev/null 2>&1; echo "warm-up: $probe rc=$? $((SECONDS - s))s"
+done
 if [ "$#" -eq 0 ]; then
   set -- tests -q -n "${SLURM_CPUS_PER_TASK:-16}" --cov=giap -m "not slow and not calibration_full and not calibration_nightly and not e2e"
 fi

@@ -25,6 +25,8 @@ Contract tables (key: file, producer; invariants checked here):
   ``end <= 2 length`` (unwrapped across the origin, §6.5).
 - C16 ``peptide_runs``: peptide_runs.parquet (M1-06/M1-12, optional; read by M6-02): the M1-06
   columns, one row per (``peptide``, ``run``); not part of ``M4Inputs`` (like C15).
+- C17 ``peptide_spectra``: peptide_spectra.parquet (M7-10 preflight, optional; read by the
+  ``variants`` step): every de novo row and every confident target reference row, by spectrum.
 
 C4 (``annotation_meta.json``) is read by the loader (``giap.io.work_tables``). Frames hold the
 internal representation: 0-based half-open coordinates and list cells (``list``, ``tuple`` or numpy
@@ -178,6 +180,10 @@ TABLES: Mapping[str, tuple[Column, ...]] = {
         _s("amino_acid", True), _s("anticodon", True),
     ),
     "peptide_runs": (_s("peptide"), _s("run"), _f("intensity", True), _i("n_rows")),
+    "peptide_spectra": (
+        _s("run", True), _s("spectrum_id", True), _s("peptide"),
+        _s("source", enum=("denovo", "reference")),
+    ),
 }
 # fmt: on
 

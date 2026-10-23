@@ -32,4 +32,5 @@ workflow OPERONS {
     operons      = pick(out, 'operons.tsv')
     operon_flags = pick(out, 'operon_flags.tsv')
     versions     = OPERONS_STEP.out.versions
+    events       = OPERONS_STEP.out.events
 }

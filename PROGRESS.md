@@ -8,7 +8,7 @@ _Last updated: 2026-10-22 19:40 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 131/162 done (81 %), 17 running · generated 2026-10-22 23:43 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 137/162 done (85 %), 15 running · generated 2026-10-23 03:21 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -18,52 +18,48 @@ _Last updated: 2026-10-22 19:40 PDT · session https://claude.ai/code/session_01
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 11 | 0 | 0 |
-| M6 Operons | 🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨⬜⬜ 58 % | 7 | 3 | 2 |
-| M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜ 56 % | 9 | 4 | 3 |
+| M6 Operons | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜ 75 % | 9 | 2 | 1 |
+| M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜ 62 % | 10 | 4 | 2 |
 | M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜ 65 % | 11 | 4 | 2 |
-| M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜ 50 % | 13 | 6 | 7 |
+| M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜ 62 % | 16 | 5 | 5 |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
 <!-- progress:end -->
 
 ## Current milestone
-(2026-10-22 23:45) Agents at the cap of 6 after the 22:40 usage reset. M0–M5 done. The M9 pass-1
-closer is open, M9 pass 2 is under way, and M6/M7/M8 hardening is in the feature loop.
+(2026-10-23 ~10:30) Six agent slots: four reviewers plus the M7-15 implementer are active. The
+M9-23 and M8-14 implementers are waiting on Slurm (giap-test-m923 1870959, giap-test-m814 1871571).
+M0–M5 are done. M6/M7/M8 hardening and M9 pass 2 are in the feature loop, alongside MVP-04 (the
+K-12 evidence run).
 
-**Critical path:** #229 (M5 golden tolerances). Every branch that merges main fails CI on
-`test_m5_golden[sim4500_island]` on ubuntu 3.11 and macOS. Cross-BLAS drift in the join-count
-residuals moves `value` (decision 47) and the permutation p/q by about 1 count of 1001 (decision 48,
-CI run 39911158467). Fix pushed as 291a1ee8 and requeued (qBL). #178, then #228, then #224 wait on it.
+**Merged since 23:45:** #229 (M5 golden tolerances), #222 M6-03, #224 M9-13, #232 M9-22, #235,
+#236 MVP-03c, #240, #241, #243 M6-10, #244 (ADR-0041 tokens), #245 MVP-04 spec, #246, #220 M8-13
+(ADR-0044/0045), and #239 M7-10.
 
-**Merged since 19:47:**
-- #212 (M9-08 circos), #221 (M9-14 interactive), #227 (M9-18 V12), #226 (surrogate test), #231
-  (M9-16b spec)
-- #233 (progress bars count split issues: M8-06a/b, M8-17b, M9-16b)
+**Queued** (scratchpad queue.sh):
+- qCA: #225 M7-12
+- qCB: #237 M7-11
+- qCC: #249 (ADR-0047 alone), then #242
+  - check_protected needs the ADR to be accepted on the base branch first.
+- qCD: #230 M9-24
+- qCE: #234 M9-15
+  - Retargeted to main: its base #221 has merged.
+- qCF: #178 M8-10
+- qCG: #228 M9-16, after #178
 
-**Queued** (scratchpad queue.sh), all behind the golden fix:
-- #222 M6-03
-- #232 M9-22
-- #230 M9-24
-- #219 M9-12
-- #235 (island property counterexample at seed 1506)
-- #236 MVP-03c
-- #240 (VCF property I/L fold)
-- #234 M9-15, after #221's tip
+**In review:**
+- **#248 M7-14** (TE2 proxy and `id_mixups`): code review. The Nissle TE2 proxy passed (Slurm 1871578,
+  0 violations); context.nf.test passed (1871597).
+- **#238 M4-24** (unscored decoys): statistician and code review in parallel; the code reviewer uses
+  the detached local/worktrees/rev238. Lead decision 9 records two things:
+  - the sim100k_real golden moves to tier `mayu`;
+  - MAYU exponentials use libm so the golden is portable across AVX2 and AVX-512 nodes.
+- **#247 MVP-04** (stacked on #225): statistician.
 
-**In the loop:**
-- **M7-12 #225:** round 3 implementer. Statistician B1/B2: scored makedb-style decoys with a ½ coin,
-  a fourth `nterm_extension` territory. Lead decision 23: gene-level `pair_decoys` drops all-ORF-entry
-  decoys, pinned by test_detection_orf_decoys.py.
-- **M7-11 #237:** round 2 implementer. Statistician block: unscored decoys give D = 0; the methods
-  note must record that the decision-3 minimum is anti-conservative (0.078 at q 0.05).
-- **M7-10 #239:** statistician review. The calibration gate is weak (true rate ≈ 1 without planted
-  variants).
-- **M6-10:** implementer.
-- **M7-15:** implementer; includes the K-12 real-tool arm and the `--resume` re-running 8/39 tasks.
-- **M4-24 #238** (new, unscored/partly scored decoys in gene detection, ADR-0047): test-author.
-
-**sim100k 0 genes, resolved as expected behaviour** (statistician, Slurm 1869554): the 1/T floor
-with T = 74–91 genes; scored decoys give identical counts.
+**In implementation:**
+- M7-15 (integration hardening)
+- M9-23 (V16 compare plot), Slurm 1870959
+- M8-14 (giapsim function/determinants scenarios), Slurm 1871571
 
 ## Done (with evidence)
 - [M0] `gh` authenticated as khoa-yelo (SSH protocol); repository is public (Actions minutes unlimited).

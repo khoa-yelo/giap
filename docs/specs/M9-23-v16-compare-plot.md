@@ -86,3 +86,11 @@ twin of the concordance scatter, `compare_abundance` table with BA columns), `st
    - The "detection tier per run" in the runs section is the `detection_tier` of each run's
      `detection_summary.tsv`. No test pins it yet; that is a backlog item.
    - The `# ruff: noqa: RUF001-003` line for ρ is accepted.
+4. **Implementer (e08531c8): accepted.**
+   - The counted size is 493 lines. That is above the 400 warning but under the 800 limit, and
+     the 86-line HTML template accounts for most of the excess, so the PR is not split.
+   - (1) The tier comes from the distinct `detection_tier` values in each run's `genes.tsv`;
+     decision 3's "detection_summary.tsv" is corrected to this.
+   - (2) No cap on the size of compare.html, and (3) V16's skip is not visible in report.html. Both
+     go to the backlog.
+   - The number format is `.2g`.
