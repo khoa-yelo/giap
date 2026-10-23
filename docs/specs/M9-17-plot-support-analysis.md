@@ -88,3 +88,12 @@ Definitions:
    else the null's 1st–99th percentile grid (99 values) per region, recorded in the file header.
 3. PD for LightGBM only. **Proposed default:** yes; the elastic net is linear (its PD is a line
    whose slope is the coefficient).
+
+## Lead decisions (2026-10-23)
+1. **Q1 yes:** M9-17 edits the M5 `context_stats` and the M8 `function` and `determinants` steps
+   (new outputs). Stacked on #178 (M8-10). #181 is merged. The code review covers the M8 owners'
+   concerns.
+2. **Q2 yes:** write every exhaustive-shift null value if the file is under 5 MB (R11); otherwise
+   write the 1st–99th percentile grid (99 values) per region, and record which in the file header.
+3. **Q3 yes:** PD for LightGBM only; for the elastic net, PD is the coefficient line.
+4. **Stacking:** after #178 squash-merges, merge the old base tip, then main, and retarget.
