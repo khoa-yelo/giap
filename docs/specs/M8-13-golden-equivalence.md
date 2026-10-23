@@ -445,7 +445,7 @@ error is absolute, ~3e-6, not relative 1e-7.
 
 **Consequences:**
 - **No GIAP change can pass "relative 1e-6 against goseq" on these data.**
-  → **ADR-0044 (proposed, Needs Khoa):**
+  → **ADR-0044 (accepted by Khoa, 2026-10-23):**
   - the criterion-1 reference becomes the exact distribution (R2, committed with a generator),
     at the unchanged `wallenius_rel_tol`;
   - goseq stays as a second reference under a new key, `wallenius_goseq_abs_tol: 1.0e-5`, with
@@ -461,7 +461,7 @@ error is absolute, ~3e-6, not relative 1e-7.
 
   Scipy's pmf has an absolute floor of ~1e-14. Decisions are unaffected (BH and elim, per
   function.md), but reported numbers are wrong below about 1e-8.
-  → **ADR-0045 (proposed, lead):** exact urn recursion for tails < 1e-6, scipy above. It is
+  → **ADR-0045 (accepted by Khoa, 2026-10-23):** exact urn recursion for tails < 1e-6, scipy above. It is
   independent of the gate and does not block M8-13.
 
 ### Question 2: NA `log2err` rows
@@ -529,9 +529,8 @@ An alert opens a `stats` issue (lead decision 4) but does not set the gate to "n
 
 - **Wallenius half, as written ("against goseq, relative 1e-6"): no, on any implementation.**
   The reference is off by up to 0.49 and by 1 at the zero. With ADR-0044 accepted, it passes
-  today (GIAP's max 7.1e-12 against 1e-6). **Until Khoa decides ADR-0044, A1 is blocked.** The
-  test-author can write the test against the exact reference now and mark the goseq-tolerance key
-  pending.
+  today (GIAP's max 7.1e-12 against 1e-6). Khoa accepted ADR-0044 on 2026-10-23, so A1 is unblocked. The test PR adds
+  `wallenius_goseq_abs_tol` to `tolerances.yaml` with the trailer `Gate-Change-Approved: ADR-0044`.
 - **GSEA half:** yes, with the question-4 default. G1, G2, G3a and the deterministic G3b rules
   are attainable. The literal cross-seed NES rule is not (about 24 expected misses), and it is
   correctly non-gating.
