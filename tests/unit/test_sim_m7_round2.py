@@ -240,7 +240,7 @@ def test_sixframe_wrong_peptides_map_to_noncoding_frames(outs: Any) -> None:
             assert pep[-1] in "KR" or after == "*", r
 
 
-def test_sixframe_no_shortfall_and_matched_decoys(outs: Any) -> None:
+def test_sixframe_no_shortfall_and_null_scores(outs: Any) -> None:
     import json
 
     out = outs("novel_orf_power")
@@ -251,7 +251,9 @@ def test_sixframe_no_shortfall_and_matched_decoys(outs: Any) -> None:
     assert {r["origin"] for r in wrong_rows(out)} == {"sixframe_noncoding"}
     n_wrong_rows = sum(r["is_decoy"] == "false" and r["peptide"] in wrong for r in peps)
     n_decoy_rows = sum(r["is_decoy"] == "true" for r in peps)
-    assert n_decoy_rows == n_wrong_rows > 0
+    # decision 21: six-frame decoys come from a 1/2 coin and protein decoys are added on top, so
+    # the counts are not equal; the calibration file checks the coin (lead decision 25)
+    assert n_wrong_rows > 0 and n_decoy_rows > 0
     sw = [float(r["score"]) for r in peps if r["is_decoy"] == "false" and r["peptide"] in wrong]
     sc_ = [
         float(r["score"]) for r in peps if r["is_decoy"] == "false" and r["peptide"] not in wrong

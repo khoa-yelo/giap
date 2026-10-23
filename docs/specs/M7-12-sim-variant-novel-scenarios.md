@@ -178,3 +178,15 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
     - a per-row ½ coin;
     - `origin = sixframe_noncoding` is kept;
     - the fourth territory is drawn in turn in `_sixframe_draw`.
+25. **Round-2 decoy-count test retired (implementer round 3, 9d91aa93).**
+    `test_sixframe_no_shortfall_and_matched_decoys` asserted that the decoy rows equal the wrong
+    rows. Under decision 21 they cannot: six-frame decoys come from a ½ coin, and the
+    `rev_<locus>` protein decoys are added on top (seed 7, 100k: T = 63, D6 = 54, Dp = 117).
+    - The test becomes `test_sixframe_no_shortfall_and_null_scores`: no shortfall, both kinds of
+      row present, and the wrong-ID score gap.
+    - The pooled coin is checked by the round-3 calibration file.
+    - Implementer deviations 1–4 are accepted:
+      - protein decoys count `n_decoy_rows`;
+      - giapsim restates the makedb rules, held honest by the round-3 oracle;
+      - the speed is acceptable and the baseline is not re-recorded;
+      - the `alt_sites` initiator-codon fix.
