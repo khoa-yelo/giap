@@ -120,3 +120,29 @@ def operon_attack_detection(n_genes: int, short_genes_in: str) -> Pair: ...
    `truth/operon_t.tsv`. The implementer adds this increment; the merged normal stoich/noise stays
    for the other scenarios.
 9. An odd `n_planted` in `discordance_power` plants ceil(n/2) promoters and floor(n/2) terminators.
+
+## Lead decisions on the statistician's block (2026-10-22, PR #222 comment 6356254106)
+
+The discordance generators (`operon_null` for discordance, `discordance_power`) are approved as
+built. The missed-operon generators change as follows, so M6-09's FDR gate can fail.
+
+10. **Detection attack with teeth.** In `operon_attack_detection`, detection depends on abundance
+    and is drawn **after** the within-TU walk; `operon_t` no longer requires `covariates_only`
+    detection. The block's shift is mild enough that at least 25 % of the block's adjacent pairs
+    have both genes detected (test at the default seed range).
+11. **Short-gap decoys.** A new opt-in keyword, default off so existing scenarios are byte-identical,
+    draws convergent TU-boundary gaps from a range reaching below 50 bp (default when on:
+    uniform 10–150 bp). `operon_attack_detection` and `missed_operon_power` turn it on.
+12. **Attack sanity test.** At R = 20, `operon_attack_detection` yields a larger fraction of small
+    |Δ| (below the null's 25th percentile) among NO targets than among decoys in the same distance
+    bin, one-sided z ≥ 2 pooled over replicates.
+13. **Planted pairs on the attacks.** `operon_attack_ar1` and `operon_attack_detection` take
+    `n_planted` and `effect_sd` (default 0, no `missed_operons.tsv` rows); when non-zero they plant
+    as `missed_operon_power` does and write `truth/missed_operons.tsv`.
+14. **Null sanity test.** Add a direct config assertion: the null has ρ = 0 and no planted pairs.
+15. **Evidence commit.** The R = 1,000 numbers are re-run on the implementation commit and the log
+    header names it.
+16. **Not in M6-03.** Under the merged method the SW decoy floor keeps the minimum q ≥ 0.88 in the
+    50–150 bp bin even with 10–15; the remedy is a method ADR for M6-09 (backlog, raised with Khoa).
+    The statistician's NITs (choice 1 default-arm record, choice 4 realised planted count) go to
+    M6-09's spec.

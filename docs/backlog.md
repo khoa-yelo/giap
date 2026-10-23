@@ -645,3 +645,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
     - N8, the reviewer's alluvial geometry check (scratchpad geom.py) should become a test.
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
+
+### M6-09 (from the M6-03 statistician review, PR #222)
+- **Method ADR needed (Khoa):** the SW decoy floor (≈2 SW decoys vs 131 targets in the 50–150 bp
+  bin) keeps min q ≥ 0.88 under the merged decoy-FDR method, so the missed-operon FDR gate passes
+  vacuously. Options: one phantom decoy in total, a CV-only or reweighted-maximum rule, coarser
+  bins; otherwise document the gate as "vacuous pass: no calls". Probes:
+  statistician scripts probe.py / floor.py / teeth.py (lift into tests/calibration/attacks/).
+- Record one arm at the defaults (`p_same_strand` 0.6, `DEFAULT_BETA`); the power table reports
+  the realised planted count (≈15 % of both-detected NO targets, not 10 %).
