@@ -21,8 +21,10 @@ M8-14 function scenarios (drawn with ``giapsim.function_sim.draw``; the ``Expres
 ``FunctionExpressionConfig`` carrying the scenario's ``FunctionSpec``):
 
 - ``ora_null``: covariate-only detection, categories independent of detection;
-- ``ora_attack_confounded``: one GO category's members get ``member_shift`` on the detection logit
-  (members drawn at random, lead decision 3 gap 7); detection still depends on p_true only;
+- ``ora_attack_confounded``: one GO category's members lose observable peptides by K/R moves, so
+  their recomputed ``n_obs`` shifts the covariate logit by ``member_shift`` on average (M8-14
+  decision 6; members drawn at random, lead decision 3 gap 7); detection still depends on p_true
+  only;
 - ``gsea_null``: the M4-08 model without position decay, sets independent of abundance;
 - ``gsea_attack_operon_packed``: ``n_sets`` KEGG sets of 1-3 packed chr1 TUs (10-30 genes) plus
   single-gene chr1 TUs each (>= 10 TUs); every TU draws its level alike; no set effect;
@@ -232,7 +234,10 @@ def ora_null(n_genes: int) -> Pair:
 
 def ora_attack_confounded(n_genes: int, member_shift: float) -> Pair:
     """``ora_null`` plus one confounded GO category whose members' detection logit moves by
-    ``member_shift`` (0 reproduces ``ora_null``'s detection truth)."""
+    ``member_shift`` through their sequences: K/R moves lower the recomputed ``n_obs``
+    (``CONFOUND_COVARIATE``, lead decision 6), so the logit stays the covariate model's.
+    About [-2, +0.5] is reachable; outside it, or more than ``SHIFT_TOL`` off, the draw raises.
+    0 reproduces ``ora_null``'s detection truth."""
     if not math.isfinite(member_shift):
         raise ValueError(f"member_shift must be finite, got {member_shift}")
     spec = FunctionSpec("ora", attack=True, member_shift=float(member_shift))

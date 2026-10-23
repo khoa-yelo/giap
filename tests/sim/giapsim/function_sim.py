@@ -468,6 +468,10 @@ def _kr_orders(aa: str, k: int) -> list[list[int]]:
     return out
 
 
+#: Largest |realised mean member shift - member_shift| accepted (M8-14 decision 6 band).
+SHIFT_TOL = 0.15
+
+
 def _move_kr(aa: str, nt: Any, n0: int, shift: float, b: float) -> tuple[str, Any, int] | None:
     """(edited ``aa``, ``nt`` with codons moved alongside, new ``n_obs``) whose logit shift
     ``b * (log1p(n) - log1p(n0))`` is nearest ``shift`` (same sign), or None when none is
@@ -497,16 +501,23 @@ def _confound(
     row = {str(t): i for i, t in enumerate(lg["locus_tag"])}
     aa, nt = lg["aa"].tolist(), lg["nt"].tolist()
     n_obs = genes["n_obs_true"].to_numpy(np.int64).copy()
+    movable: list[int] = []
     for i in np.flatnonzero(inside).tolist():
         r = row[str(genes["locus_tag"].iat[i])]
         a, n0 = aa[r], int(n_obs[i])
         if not (isinstance(a, str) and a) or n0 <= 0:
             continue  # immovable: stays a member, unchanged
+        movable.append(i)
         moved = _move_kr(a, nt[r], n0, shift, b)
         if moved is None:
-            continue
+            continue  # a short sORF with too few K/R: shift 0, still counted (decision 8)
         aa[r], nt[r], n_obs[i] = moved
         delta[i] = b * (math.log1p(n_obs[i]) - math.log1p(n0))
+    if movable and abs(float(delta[movable].mean()) - shift) > SHIFT_TOL:
+        raise ValueError(
+            f"member_shift {shift} is not reachable by K/R moves: the mean over "
+            f"{len(movable)} movable members is {float(delta[movable].mean()):.3f}"
+        )
     lg = lg.assign(aa=pd.Series(aa, index=lg.index, dtype=object),
                    nt=pd.Series(nt, index=lg.index, dtype=lg["nt"].dtype))  # fmt: skip
     return replace(layout, genes=lg), genes.assign(n_obs_true=n_obs), delta

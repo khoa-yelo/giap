@@ -588,6 +588,34 @@ def test_attack_shift_is_carried_by_the_members_covariate() -> None:
     assert set(still) <= conf  # ... and still counted as members
 
 
+def test_attack_kr_edits_permute_codons_only() -> None:
+    """M8-14 review B1: per edited member the K/R move permutes whole codons, so ``nt`` keeps its
+    length, its bases past ``3 * len(aa)`` and its codon multiset."""
+    a, b, _ = _shift_pair()
+    conf = _confounded(a)
+    la, lb = a.layout.genes.set_index("locus_tag"), b.layout.genes.set_index("locus_tag")
+    edited = [lt for lt in conf if la.at[lt, "aa"] != lb.at[lt, "aa"]]
+    assert len(edited) >= 20
+    for lt in edited:
+        na, nb, n = la.at[lt, "nt"], lb.at[lt, "nt"], len(str(lb.at[lt, "aa"]))
+        if not (isinstance(nb, str) and len(nb) >= 3 * n):
+            continue  # no usable nt at shift 0: only aa moves
+        assert len(na) == len(nb), lt
+        assert na[3 * n :] == nb[3 * n :], lt
+        assert sorted(na[3 * i : 3 * i + 3] for i in range(n)) == sorted(
+            nb[3 * i : 3 * i + 3] for i in range(n)
+        ), lt
+
+
+@pytest.mark.parametrize("shift", [-4.0, 2.0])
+def test_unreachable_member_shift_raises(shift: float) -> None:
+    """M8-14 review B2: a shift K/R moves cannot deliver (outside about [-2, +0.5], or more than
+    ``SHIFT_TOL`` off on average) raises rather than silently under-delivering."""
+    assert _fs().SHIFT_TOL == 0.15
+    with pytest.raises(ValueError, match="not reachable"):
+        draw(_sc().ora_attack_confounded(1500, shift), 21)
+
+
 @pytest.mark.parametrize("shift", [-1.5, 0.0])
 def test_attack_logit_is_computed_from_covariates_only(shift: float) -> None:
     """B1: p_true is the M4-09 logistic of the recorded covariates for every gene, members

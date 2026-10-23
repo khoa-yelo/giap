@@ -205,3 +205,13 @@ def determinants_planted(n_genes: int, coefs: Mapping[str, float], noise_sd: flo
      this PR's tests from "every movable member drops" to "no member rises, and at least 95 %
      drop". The mean band of −1.5 ± 0.15 is unchanged.
    - Next: the statistician re-check (B1–B3) and the code review, in parallel.
+9. **Lead (review round): statistician APPROVE, code review B1/B2 fixed by the lead.**
+   - **B1:** a new test checks that each edited member's `nt` keeps its length, its bases past
+     `3 * len(aa)` and its codon multiset.
+   - **B2:** `_confound` raises `ValueError` when the realised mean shift over movable members
+     misses `member_shift` by more than `SHIFT_TOL` = 0.15 (about [−2, +0.5] is reachable). This
+     replaces silent under-delivery. Checked: −2.0, −1.5, −1.0, −0.75 and +0.5 at 400–4,000 genes
+     over 5–40 seeds never raise; −4 and +2 raise. The docstrings and the function.md Attack 2/3
+     text (the statistician's) are updated.
+   - **Backlog:** the M8-15 overlap arm at −0.75, an M8-04 projection-variance ADR, the
+     `tm_segments`/pI side effect, oracle conservatism at α 0.10, and the code-review nits.
