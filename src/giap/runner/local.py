@@ -234,12 +234,15 @@ def run_local(
     targets: Sequence[str],
     roots: Mapping[str, Path] | None = None,
     timings: list[dict[str, Any]] | None = None,
+    live: Mapping[str, Path] | None = None,
 ) -> None:
     """Plan (validating every layer first), stage ``roots``, then run each Python step under
     ``workdir``. Without ``roots`` every planned step must find its inputs in ``workdir``.
     ``timings`` receives ``{name, status, wall_time_s, cpu_time_s}`` per step run (a failed step
-    included, as ``failed``) for the manifest."""
+    included, as ``failed``) for the manifest. ``live`` keys are passed as these paths, never
+    copied (the run's growing events log)."""
     order, supplied = _walk(cfg, targets, None if roots is None else set(roots))
+    supplied = {**supplied, **(live or {})}
     if roots is not None:
         stage_roots(workdir, roots)
     workdir.mkdir(parents=True, exist_ok=True)
@@ -270,7 +273,12 @@ def run_local(
 
 
 # §9.1 published directories: work key -> OUT subdirectory
-PUBLISHED: dict[str, str] = {"annotation": "annotation", "mapping": "mapping"}
+PUBLISHED: dict[str, str] = {
+    "annotation": "annotation",
+    "mapping": "mapping",
+    "plots": "plots",
+    "report": "report",
+}
 #: §9.1 published files: work key -> OUT path, the ``key=path`` names the Nextflow subworkflows
 #: give GIAP_STEP (pinned against workflow/ by tests/unit/test_local_publish_names.py)
 PUBLISHED_FILES: dict[str, str] = {

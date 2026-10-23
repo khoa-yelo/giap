@@ -66,6 +66,8 @@ workflow CONTEXT {
     autocorrelation  = pick(CONTEXT_STATS.out.outputs, 'autocorrelation.tsv')
     islands          = pick(CONTEXT_STATS.out.outputs, 'islands.tsv')
     genes_tsv        = pick(CONTEXT_STATS.out.outputs, 'genes.tsv')
+    gene_context     = pick(CONTEXT_STATS.out.outputs, 'gene_context.parquet')
+    island_diagnostics = pick(CONTEXT_STATS.out.outputs, 'island_diagnostics.parquet')
     sensitivity      = pick(SENSITIVITY.out.outputs, 'sensitivity.tsv')
     gene_context     = pick(CONTEXT_STATS.out.outputs, 'gene_context.parquet')
     versions         = CONTEXT_STATS.out.versions.mix(SENSITIVITY.out.versions)

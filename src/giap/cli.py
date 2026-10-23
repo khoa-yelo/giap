@@ -1,8 +1,9 @@
 """``giap`` command line (GIAP_SPEC.md §5.1).
 
 Every subcommand resolves the configuration first (an unknown key is exit code 1). ``preflight``
-(M1-12), ``_step``, ``run --executor local`` (M2-02) and ``run`` through Nextflow (M2-07) are
-implemented; the other commands report that they are not implemented yet (exit code 5).
+(M1-12), ``_step``, ``run --executor local`` (M2-02), ``run`` through Nextflow (M2-07) and
+``report`` (M9-02) are implemented; the other commands report that they are not implemented
+yet (exit code 5).
 """
 
 from __future__ import annotations
@@ -560,7 +561,9 @@ def _run_local(
     # step events (e.g. the ``search_db: auto`` resolution) go to OUT/logs/events.jsonl (§6.7)
     restore = _record_step_events(outdir / "logs")
     try:
-        local.run_local(cfg, workdir, targets, roots, timings)
+        # the live events log, so plots/report see this run's layer_missing flags (#205 B6)
+        live = {"events": outdir / "logs" / "events.jsonl"}
+        local.run_local(cfg, workdir, targets, roots, timings, live=live)
         local.publish(workdir, outdir)
         local.write_datapackage(outdir)
     except reg.StepError as exc:
@@ -743,10 +746,45 @@ def compare(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_
 @click.option("--no-interactive", is_flag=True, help="Static report only.")
 @click.option("--plots", help="Comma-separated plot IDs (V01,V02,...).")
 @shared_options
-def report(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_: Any) -> None:
+def report(
+    config_file: Path | None,
+    sets: tuple[str, ...],
+    log_level: str,
+    out: Path,
+    no_interactive: bool,
+    plots: str | None,
+    **_: Any,
+) -> None:
     """Rebuild plots and report from existing tables."""
-    _resolve(config_file, sets, log_level)
-    _not_implemented("report", "M9")
+    from giap.io.run_view import NotAGiapRun, RunView
+    from giap.steps import plots as P
+    from giap.viz.base import normalise_ids
+
+    if config_file is None:  # the run's own thresholds, formats and dpi (review B3)
+        runs = (out / "resolved_config.yaml", out / "work" / "resolved_config.yaml")
+        config_file = next((p for p in runs if p.is_file()), None)
+    cfg = _resolve(config_file, sets, log_level)
+    if no_interactive:
+        cfg = cfg.model_copy(
+            update={"report": cfg.report.model_copy(update={"interactive": False})}
+        )
+    P.load_plot_modules()
+    try:
+        view = RunView.from_outdir(out)
+        only = None if plots is None else normalise_ids(plots)
+    except (NotAGiapRun, ValueError) as exc:
+        click.echo(f"giap report: {exc}", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
+    try:
+        P.render_plots(view, cfg, out / "plots", only)
+    except P.PlotFailed as exc:
+        click.echo(f"giap report: {exc}", err=True)
+        sys.exit(ExitCode.STEP_FAILED)
+    try:
+        click.echo(str(P.write_report(view, out / "plots", out / "report", cfg)))
+    except Exception as exc:  # unreadable tables are notes; anything else is exit 4 (B5)
+        click.echo(f"giap report: {type(exc).__name__}: {exc}", err=True)
+        sys.exit(ExitCode.STEP_FAILED)
 
 
 # ---------------------------------------------------------------- hidden

@@ -5,9 +5,10 @@
 // params.inputs.peptides (peptides.norm.parquet) is given, and FUNCTION (M8-06) when 'function' is
 // in params.modules; without inputs it runs one GIAP_STEP smoke task (skeleton check, M2-06).
 // GENETABLE, CONTEXT, OPERONS and DETERMINANTS skip themselves when an input they require is absent
-// (MVP-01). Under a precomputed regions layer region_layer still writes C7/C8 (MVP-02).
+// (MVP-01). Under a precomputed regions layer region_layer still writes C7/C8 (MVP-02). REPORT runs
+// last on every published [key, path] pair (M9-02).
 include { GIAP_STEP } from './modules/local/giap_step/main'
-include { ANNOTATE } from './subworkflows/local/annotate'
+include { ANNOTATE; kv; pick } from './subworkflows/local/annotate'
 include { MAPPING } from './subworkflows/local/mapping'
 include { GENETABLE } from './subworkflows/local/genetable'
 include { CONTEXT } from './subworkflows/local/context'
@@ -15,6 +16,7 @@ include { VARIANTS } from './subworkflows/local/variants'
 include { NOVEL } from './subworkflows/local/novel'
 include { DETERMINANTS } from './subworkflows/local/determinants'
 include { OPERONS } from './subworkflows/local/operons'
+include { REPORT } from './subworkflows/local/report'
 include { FUNCTION } from './subworkflows/local/function'
 
 // A path input as a value channel, or channel.empty() when absent.
@@ -47,6 +49,8 @@ def contaminantLibrary(inputs) {
 // db_sources.yaml cog2020_def.path, as giap.setupdb.installed.cog_table resolves it).
 def cogTable() { installed('cog2020_def', 'cog/cog-20.def.tab') }
 
+// [key, path] pairs of a step's outputs channel ([step, path | list]): every path, under `key`.
+def outs(String key, ch) { ch.flatMap { s, fs -> (fs instanceof List ? fs : [fs]).collect { f -> [key, f] } } }
 // The installed function resources (M8-06 item 7) as a [setup item name, path] channel; the names
 // are giap.setupdb.installed.FUNCTION_RESOURCES and the paths db_sources.yaml's.
 def functionResources() {
@@ -63,6 +67,11 @@ workflow {
     if (inputs.genome && inputs.replicons) {
         def genome = channel.value(file(inputs.genome, checkIfExists: true))
         ANNOTATE(genome, channel.value(file(inputs.replicons, checkIfExists: true)))
+        def gm = ANNOTATE.out.gene_model
+        def pub = [kv('preflight', opt(inputs.preflight)), kv('genome', genome),
+                   kv('annotation', pick(ANNOTATE.out.context, 'annotation')),
+                   kv('genes', gm.map { a -> a[0] }), kv('features', gm.map { a -> a[1] }),
+                   kv('replicons', gm.map { a -> a[2] })]
         if (inputs.peptides) {
             def gene_model = ANNOTATE.out.gene_model
             MAPPING(genome, opt(inputs.peptides), opt(inputs.proteins_long), gene_model,
@@ -81,10 +90,32 @@ workflow {
             OPERONS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract, ANNOTATE.out.layers_for_pairs)
             DETERMINANTS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract,
                          ANNOTATE.out.regions, CONTEXT.out.gene_context)
+            pub += [outs('mapping', MAPPING.out.mapping),
+                    kv('pileup', VARIANTS.out.pileup), kv('variants', VARIANTS.out.variants),
+                    kv('variants_vcf', VARIANTS.out.variants_vcf),
+                    kv('gene_table', GENETABLE.out.gene_table), kv('detectability_summary', GENETABLE.out.detectability_summary),
+                    kv('tier_summary', GENETABLE.out.tier_summary), kv('genes_pre', GENETABLE.out.genes_pre),
+                    kv('tu_folds', GENETABLE.out.tu_folds),
+                    kv('gene_context', CONTEXT.out.gene_context),
+                    kv('island_diagnostics', CONTEXT.out.island_diagnostics),
+                    kv('regions_stats', CONTEXT.out.regions_stats), kv('detection_summary', CONTEXT.out.detection_summary),
+                    kv('autocorrelation', CONTEXT.out.autocorrelation), kv('islands', CONTEXT.out.islands),
+                    kv('genes_tsv', CONTEXT.out.genes_tsv), kv('sensitivity', CONTEXT.out.sensitivity),
+                    kv('pairs', OPERONS.out.pairs), kv('operons', OPERONS.out.operons),
+                    kv('operon_flags', OPERONS.out.operon_flags),
+                    kv('novel_orfs', NOVEL.out.novel_orfs), kv('novel_orfs_gff3', NOVEL.out.novel_orfs_gff3),
+                    kv('novel_orfs_faa', NOVEL.out.novel_orfs_faa), kv('annotation_patch', NOVEL.out.annotation_patch),
+                    kv('determinants_features', DETERMINANTS.out.determinants_features),
+                    kv('determinants_model', DETERMINANTS.out.determinants_model),
+                    kv('determinants_attribution', DETERMINANTS.out.determinants_attribution)]
             if ('function' in (params.modules ?: [])) {  // §6.3: the optional module switch
                 FUNCTION(GENETABLE.out.gene_table, gene_model, GENETABLE.out.tu_folds, functionResources())
+                pub += [kv('category_summary', FUNCTION.out.category_summary),
+                        kv('enrichment_detection', FUNCTION.out.enrichment_detection),
+                        kv('enrichment_gsea', FUNCTION.out.enrichment_gsea)]
             }
         }
+        REPORT(pub.inject(channel.empty()) { acc, c -> acc.mix(c) })
     } else {
         def keys = inputs.keySet().sort()
         def files = keys.collect { k -> file(inputs[k], checkIfExists: true) }
