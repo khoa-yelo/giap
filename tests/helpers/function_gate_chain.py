@@ -245,3 +245,42 @@ def r_engine(tmp: Path) -> Any:
     from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
 
     return r_fgsea_engine(resolve_launcher(os.environ), tmp_root=tmp)
+
+
+def workers() -> int:
+    """Processes for ``prefetch``: ``GIAP_M815_WORKERS`` (default 4), at most the job's CPUs."""
+    import os
+
+    cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", os.cpu_count() or 1))
+    return max(1, min(int(os.environ.get("GIAP_M815_WORKERS", "4")), cpus))
+
+
+def prefetch(cache: dict[Any, Any], run: Any, keys: Sequence[Any], done: Any = None) -> None:
+    """Fill ``cache[k] = run(k)`` for the missing ``keys`` in a forked process pool (results are
+    pure functions of ``k``, so the values equal a sequential run; only wall time changes).
+    ``done(value)`` False marks a cached value as incomplete (recomputed)."""
+    from concurrent.futures import ProcessPoolExecutor
+    from multiprocessing import get_context
+
+    missing = [k for k in keys if k not in cache or (done is not None and not done(cache[k]))]
+    n = workers()
+    if not missing:
+        return
+    if n == 1 or len(missing) == 1:
+        for k in missing:
+            cache[k] = run(k)
+        return
+    with ProcessPoolExecutor(n, mp_context=get_context("fork")) as ex:
+        for k, v in zip(missing, ex.map(run, missing), strict=True):
+            cache[k] = v
+
+
+def block1_indices(R: int) -> list[int]:
+    """Replicates block 1 of this process runs (the shard's range; none in a confirm run)."""
+    import os
+
+    import _criteria as C
+
+    if os.environ.get(C.CONFIRM_ENV):
+        return []
+    return list(C.replicate_range(R))

@@ -147,6 +147,7 @@ def test_ora_null_fitted_p_detect_pooled_level_per_direction(full: bool) -> None
     levels = _levels()
     gates = []
     ran: set[int] = set()
+    F.prefetch(_ORA, _ora_null_run, F.block1_indices(R))  # wall time only (pure in i)
 
     def one(i: int, d: str) -> np.ndarray:
         ran.add(i)

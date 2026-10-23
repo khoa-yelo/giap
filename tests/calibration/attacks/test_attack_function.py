@@ -169,6 +169,14 @@ def _a2(tag: str, i: int, fitted: bool) -> dict[str, Any]:
     return rec
 
 
+def _a2_cheap_key(key: tuple[str, int]) -> dict[str, Any]:
+    return _a2(key[0], key[1], False)
+
+
+def _a2_fitted_key(key: tuple[str, int]) -> dict[str, Any]:
+    return _a2(key[0], key[1], True)
+
+
 @pytest.mark.calsuite(ORA)
 @pytest.mark.parametrize("tag", sorted(SHIFTS))
 @pytest.mark.parametrize("full", MODES)
@@ -179,6 +187,8 @@ def test_attack2_fitted_p_detect_confounded_term_at_level(full: bool, tag: str) 
     levels = _levels()
     ran: set[int] = set()
     gates = []
+    F.prefetch(_A2, _a2_fitted_key, [(tag, i) for i in F.block1_indices(R)],
+               done=lambda v: "fitted_over" in v)  # fmt: skip
     for d in ("over", "under"):
         stream = f"ora.m815.attack2.{tag}.fitted.{d}{'.full' if full else ''}"
 
@@ -211,6 +221,7 @@ def test_teeth_attack2_unweighted_under_rejects_beyond_twice_alpha(
     """Gated teeth (decision 3): omega forced to 1 is a confirmed fail, > 2 x alpha per block."""
     R = C.replicates(ORA, False)
     assert R >= 100  # decision 4: the overlap arm must fail at R >= 100
+    F.prefetch(_A2, _a2_cheap_key, [(tag, i) for i in range(2 * R)])  # a confirmed fail: 2 blocks
     stream = f"ora.m815.attack2.{tag}.teeth_unweighted_under"
     rec = C.calibrate(ORA, "level", ALPHA_TEETH,
                       F.by_index(stream, R, lambda i: _a2(tag, i, False)["teeth_under"]), R,
@@ -236,6 +247,7 @@ def test_attack2_oracle_arm_level_recorded(tag: str) -> None:
         pytest.skip("recorded arm: not run under --shard / confirm runs")
     R = C.replicates(ORA, False)
     levels = _levels()
+    F.prefetch(_A2, _a2_cheap_key, [(tag, i) for i in range(R)])
     recs = [_a2(tag, i, False) for i in range(R)]
     out: dict[str, Any] = {"check": f"attack2.{tag}.oracle", "shift": SHIFTS[tag], "R": R}
     for d in ("over", "under"):
