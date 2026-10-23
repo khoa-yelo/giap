@@ -111,3 +111,18 @@ estimate ≈ 110 code lines (+ ≈ 150 test lines) · statistical (light)
    - CONTEXT gains a 12th input, `layers_for_pairs`; the lead edits context.nf.test to add
      `input[11] = channel.empty()`.
    - Behaviour 5 (one pair frame per threshold, reused) is deferred to the decision-6 backlog item.
+8. **Review #243 (comment, 2026-10-23):**
+   - **B1 (lead, done):** `test_m6_10_sensitivity_has_operon_flags_rows` in
+     tests/integration/test_m6_08_operons_run.py checks that a real `giap run` writes
+     `operon_flags` rows (n 0, J NA on sim100k). The backlog line is dropped.
+   - **B2 (accepted, option a):** a variant that only patches config runs only for the families
+     that read the patched key.
+     - `Variant` gains `families: tuple[str, ...] | None`, where `None` means every family. The
+       `pair_threshold=*` variants carry `("operon_flags",)`.
+     - `regions` and `islands` therefore get no `pair_threshold` rows: J = 1 there would be true
+       by construction, and those reruns cost four permutation/bootstrap runs each.
+     - A `Variant.patch_only` property replaces the two hand-written conditions (N6).
+   - **B3:** if any one of `genes`, `pairs_raw` or `features` is absent, the family is skipped
+     with one `sensitivity.operon_flags_skipped` event. It never raises a KeyError. The test is
+     parametrised over each single missing key and over all of them.
+   - Nits N1–N5 go to the backlog.
