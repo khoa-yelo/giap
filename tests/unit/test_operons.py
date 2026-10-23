@@ -524,25 +524,55 @@ def _get(obj: Any, key: str) -> Any:
     return obj[key] if isinstance(obj, dict) else getattr(obj, key)
 
 
-def test_calibration_yaml_placeholders() -> None:
+#: GIAP_SPEC §7.1.3 / §15.4 placeholder values, binding only while an entry is uncalibrated.
+PLACEHOLDERS = {"operon_distance": {"d0": 50, "s": 20}, "terminatornet_yes": {"value": 0.5}}
+#: calibration.yaml entries mirrored by a defaults.yaml key (M6-12 decision 2: the mirror plus
+#: this agreement test; defaults.yaml stays the value the code reads).
+MIRRORS = {
+    "terminatornet_yes": ("annotation", "terminators", "terminatornet_yes"),
+    "uniop_pair_threshold": ("annotation", "uniop", "pair_threshold"),
+}
+
+
+def test_calibration_yaml_entries() -> None:
+    """Placeholders while uncalibrated; once calibrated (ADR-0022) an entry names its
+    provenance and keeps finite values in range."""
     text = resources.files("giap.data").joinpath("calibration.yaml").read_text()
     data = yaml.safe_load(text)
-    assert data["operon_distance"] == {
-        "d0": 50,
-        "s": 20,
-        "provenance": "GIAP_SPEC §7.1.3 default",
-        "calibrated": False,
-    }
-    assert data["terminatornet_yes"]["value"] == 0.5
-    assert data["terminatornet_yes"]["calibrated"] is False
+    assert {"operon_distance", "terminatornet_yes"} <= set(data)
+    for key, entry in data.items():
+        assert isinstance(entry["calibrated"], bool), key
+        values = {k: v for k, v in entry.items() if k not in ("calibrated", "provenance")}
+        assert values and all(math.isfinite(float(v)) for v in values.values()), key
+        if not entry["calibrated"]:
+            assert values == PLACEHOLDERS.get(key, values), key
+        else:
+            assert entry.get("provenance"), key
+    od = data["operon_distance"]
+    assert od["s"] > 0
+    assert 0.0 <= data["terminatornet_yes"]["value"] <= 1.0
 
 
 def test_calibration_loader() -> None:
     from giap.data import calibration
 
     cal = calibration.load()
-    od = _get(cal, "operon_distance")
-    assert float(_get(od, "d0")) == 50.0
-    assert float(_get(od, "s")) == 20.0
-    assert _get(od, "calibrated") is False
-    assert float(_get(_get(cal, "terminatornet_yes"), "value")) == 0.5
+    text = resources.files("giap.data").joinpath("calibration.yaml").read_text()
+    assert cal == yaml.safe_load(text)
+    assert float(_get(_get(cal, "operon_distance"), "d0")) > 0
+
+
+def test_calibration_and_defaults_agree() -> None:
+    """A calibrated entry with a defaults.yaml mirror has the same value there (vacuous while
+    every mirrored entry is a placeholder)."""
+    from giap.data import calibration
+
+    text = resources.files("giap.config").joinpath("defaults.yaml").read_text()
+    defaults = yaml.safe_load(text)
+    for key, entry in calibration.load().items():
+        if key not in MIRRORS or not entry["calibrated"]:
+            continue
+        node: Any = defaults
+        for part in MIRRORS[key]:
+            node = node[part]
+        assert float(node) == float(entry["value"]), key
