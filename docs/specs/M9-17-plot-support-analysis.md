@@ -97,3 +97,18 @@ Definitions:
    write the 1st–99th percentile grid (99 values) per region, and record which in the file header.
 3. **Q3 yes:** PD for LightGBM only; for the elastic net, PD is the coefficient line.
 4. **Stacking:** after #178 squash-merges, merge the old base tip, then main, and retarget.
+5. **Test-author (a3224acf): gaps 1–10 accepted as proposed.**
+   - One optional directory output per step (`function_support`, `determinants_support`,
+     `context_stats_support`). Local `publish` places the files in `OUT/plots/support/`, and the
+     gzip rule follows ADR-0043.
+   - The Q2 grid file's third column is `percentile`; the size bound is
+     `context_stats.NULL_REGIONS_MAX_BYTES`.
+   - The block-sum identity holds for the full per-column SHAP matrix (`shap_features`); the
+     top-20 file is cut from it.
+   - The PD grid is on the feature's own scale (`tir_ostir` is logged before predicting).
+   - `null_islands` is per scanned contig, using its own per-replicon maximum, with `direction` =
+     `abs`. `null_regions` gains a `contig` column. No `gsea_running` file with zero testable sets.
+   - The lead updates the existing step tests the new outputs contradict
+     (test_determinants_step.py:122-123; test_function_step.py:221-222 and 256-266) and regenerates
+     `workflow/tests/data/annotate/step_registry.json` after the implementer.
+   - Next: the implementer.
