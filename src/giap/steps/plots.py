@@ -26,7 +26,7 @@ from giap.config import GiapConfig
 from giap.io.fasta import read_genome_fasta
 from giap.io.plot_files import PlotFiles, read_plot_files, remove_plot_files, write_instance
 from giap.io.plot_support import SUPPORT_DIR, write_support
-from giap.io.run_view import PATHS, RunView
+from giap.io.run_view import ANALYSIS_SUPPORT, PATHS, RunView
 from giap.runner.local import PUBLISHED, PUBLISHED_FILES
 from giap.steps.registry import InputPath, StepContext, step
 
@@ -216,11 +216,13 @@ def write_plot_support(inputs: Mapping[str, InputPath], plots_dir: Path) -> list
     return written
 
 
-@step("plots", inputs=["preflight"], optional_inputs=[*ALL_PUBLISHED_KEYS, *_SUPPORT_INPUTS],
+@step("plots", inputs=["preflight"],
+      optional_inputs=[*ALL_PUBLISHED_KEYS, *_SUPPORT_INPUTS, *ANALYSIS_SUPPORT],
       outputs=["plots"])  # fmt: skip
 def plots_step(ctx: StepContext) -> None:
     """Tables -> ``plots/``: ``Vnn_*.{svg,png,pdf}`` and ``data/Vnn_*.tsv`` (behaviour 1), after
-    the support tables ``support/*.tsv[.gz]`` from the run inputs (M9-03)."""
+    the support tables ``support/*.tsv[.gz]`` from the run inputs (M9-03). The M9-17 support
+    directories (``ANALYSIS_SUPPORT``) reach the plots through ``RunView.support``."""
     out = ctx.outputs["plots"]
     inputs: dict[str, InputPath] = dict(ctx.inputs)
     if write_plot_support(inputs, out):  # before rendering: V1/V2 read them (M9-03)
