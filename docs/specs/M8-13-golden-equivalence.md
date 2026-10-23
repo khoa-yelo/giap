@@ -387,3 +387,15 @@ The numbers and the Slurm job ID go into PROGRESS.md as gate evidence.
 7. **Is a G3b failure a CI concern?** G3 never runs in CI. **Proposed default:** a weekly G3
    failure opens an issue labelled `stats` with the JSON attached, and the gate status in
    PROGRESS.md goes back to "not met" until a rerun passes or an ADR lands.
+
+## Lead decisions (2026-10-22, on 4260941)
+
+1. M8-12b goes first: regenerate the golden GSEA inputs with an exactly-zero median, ties and zeros
+   kept, ORA files byte-identical, A1 rechecked.
+2. Leading edges as proposed (ordered lists in G2/G3a, sets on tie-insensitive sets in G3b).
+3. The G3a seed/tie-order wrapper lives in tests/helpers/, not src/.
+4. A weekly G3 failure opens a `stats` issue with the JSON report and puts the gate back to "not
+   met" in PROGRESS.md.
+5. Questions 2–4 (NA `log2err`, the Wallenius disagreement, what gates) go to the statistician
+   before any test is written; the Wallenius investigation comes first because it decides whether
+   the gate can pass at all.
