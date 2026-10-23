@@ -26,6 +26,10 @@ nightly; the per-PR subset is the one-replicate smoke test at 100 kb.
   300, Slurm 1875441 / 1876296 / 1877124): cds_outframe and antisense at q 0.01 and 0.05 and
   intergenic at 0.01 are strict xfails naming ADR-0050 (``raises=AssertionError``, lead decision
   10), so a fix shows as XPASS; the other cells stay hard checks.
+* G4-k3 raises ``RuntimeError`` (so no xfail can absorb it) when the injected keys reaching
+  GIAP's table, summed over the replicates run, fall below ``REACH_MIN_SHARE`` (0.90) of those
+  injected; when its ORFs are ``unestimated`` for an ``UNESTIMATED_BUGS`` reason (as G4); and
+  when an ADR-0050 xfail cell turns vacuous (review of #271, B2 and nits 2-3).
 * Lead decision 11: a ``no_makedb_pair`` ORF whose every peptide row names another planted
   ORF's makedb entry (a chance shared peptide) is exempt from ``UNESTIMATED_BUGS`` and recorded
   as ``shared_peptide_no_pair``; any other ``no_makedb_pair`` still fails.
@@ -235,10 +239,27 @@ def _g4k3(full: bool, cls: str, q: float) -> None:
                                  lambda i: M.k3_record(i)["g4k3"], R,
                                  vacuous={"n_targets": 1.0 / q})  # fmt: skip
     ran = [M.k3_record(i) for i in ran_range(rec)]
+    injected, entered = _sum([r["injected"] for r in ran]), _sum([r["entered"] for r in ran])
+    reasons: dict[str, int] = {}
+    for r in ran:
+        for why, n in r["diag"]["reasons"][cls].items():
+            reasons[why] = reasons.get(why, 0) + int(n)
+    shared = sum(int(r["diag"].get(M.SHARED_NO_PAIR, {}).get(cls, 0)) for r in ran)
     diagnostics({"check": "G4-k3", "full": full, "class": cls, "q": q, "status": rec["status"],
-                 "mean_fdp": rec["observed"], "bound": rec["bound"],
-                 "injected": _sum([r["injected"] for r in ran]),
-                 "entered": _sum([r["entered"] for r in ran])})  # fmt: skip
+                 "mean_fdp": rec["observed"], "bound": rec["bound"], "injected": injected,
+                 "entered": entered, "reasons": reasons,
+                 M.SHARED_NO_PAIR: shared})  # fmt: skip
+    # the checks below raise RuntimeError, never AssertionError: the ADR-0050 strict xfails
+    # (raises=AssertionError) must not absorb a broken injection or a degenerate scenario
+    if ran:
+        M.check_reach(entered.get("rows", 0), sum(injected.values()), f"G4-k3 {cls}")
+    bugs = M.unestimated_bugs(reasons, shared, UNESTIMATED_BUGS)  # as G4 (review nit 2)
+    if bugs:
+        raise RuntimeError(
+            f"G4-k3 {cls}: unestimated ORFs on a scenario that rules them out {bugs}"
+        )
+    if (cls, q) in K3_XFAIL and rec["status"] == C.VACUOUS_STATUS:  # review nit 3
+        raise RuntimeError(f"G4-k3 {cls} q {q}: an ADR-0050 xfail cell turned vacuous {rec}")
     verdict(rec)
 
 

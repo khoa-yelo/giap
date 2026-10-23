@@ -260,16 +260,23 @@ def test_cluster_arm_filtered_g4_recorded(teeth_log: Path) -> None:
     assert got[N.g4_key("picked_decoy", N.CL_CLASS, 0.1)] != C.VACUOUS_STATUS, got
 
 
-def _gc(R: int, q: float) -> None:
+def _gc(R: int, q: float, xfail_cell: bool = False) -> None:
     first = N.gc_record(next(iter(C.replicate_range(R))))
     if first["injected"] < 1:  # not an AssertionError: a broken transform
         raise RuntimeError(f"attack GC vacuous: nothing injected {first}")
     k = N.g4_key("denovo_subgroup", "intergenic", q)
     rec = C.calibrate_fdr_counts(NSUITE, "novel_orfs.gc", k, q, lambda i: N.gc_record(i)["gc"],
                                  R, vacuous={"n_targets": 1.0 / q})  # fmt: skip
+    # injection reach (review B2): RuntimeError, so the full-tier xfail cannot absorb it
+    if rec["status"] != C.SKIPPED_STATUS:
+        ran = [N.gc_record(i) for i in range(rec["start"], rec["stop"])]
+        N.check_reach(sum(int(r["entered"]["rows"]) for r in ran),
+                      sum(int(r["injected"]) for r in ran), f"attack GC q {q}")  # fmt: skip
     if rec["status"] in (C.SHARD_STATUS, C.PENDING_STATUS, C.SKIPPED_STATUS):
         pytest.skip("shard run: the verdict comes from --merge")
     if rec["status"] == C.VACUOUS_STATUS:
+        if xfail_cell:  # review nit 3: an xfail cell must not hide a regression to vacuity
+            raise RuntimeError(f"attack GC q {q}: the ADR-0050 xfail cell turned vacuous {rec}")
         pytest.skip(f"vacuous (rule 6): {k}")
     assert rec["status"] in ("pass", "unconfirmed"), rec
 
@@ -294,4 +301,4 @@ GC_FULL_XFAIL = pytest.mark.xfail(
 @pytest.mark.calibration_full
 @GC_FULL_XFAIL
 def test_attack_gc_poor_intergenic_fdp_at_level_full() -> None:
-    _gc(int(G.GATE_R["full"]), 0.01)
+    _gc(int(G.GATE_R["full"]), 0.01, xfail_cell=True)

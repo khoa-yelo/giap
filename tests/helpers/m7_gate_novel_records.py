@@ -251,7 +251,26 @@ _MAKEDB_RE = re.compile(
 
 
 def _il(p: str) -> str:
-    return str(p).strip().upper().replace("I", "L")
+    """I/L/J folded (M7-13 rule 3 / example 3: mass-equivalent residues compare equal)."""
+    return str(p).strip().upper().replace("I", "L").replace("J", "L")
+
+
+#: injection reach (review B2 on #271): the injected keys that reached GIAP's table, summed over
+#: the replicates run, must be at least this share of the injected ones. Fast tier (Slurm 1877255
+#: / 1878529, R = 10-20): G4-k3 600 of 600 (1.0 in every replicate), GC 399 of 400 (minimum
+#: 39 of 40 = 0.975 in one replicate); 0.90 leaves room below the lowest replicate seen.
+REACH_MIN_SHARE = 0.90
+
+
+def check_reach(rows: int, injected: int, what: str) -> None:
+    """RuntimeError (never an AssertionError, so a strict xfail cannot absorb it) when the
+    injected false ORFs did not reach GIAP: ``rows`` is 0 or below ``REACH_MIN_SHARE`` of
+    ``injected`` (``injected`` < 1 is itself a broken transform)."""
+    if injected < 1 or rows < 1 or rows < REACH_MIN_SHARE * injected:
+        raise RuntimeError(
+            f"{what}: injection did not reach GIAP ({rows} rows at {injected} injected keys,"
+            f" need >= {REACH_MIN_SHARE:.2f} of them)"
+        )
 
 
 def parse_makedb_id(pid: str) -> tuple[str, str, int, int, str] | None:
@@ -268,9 +287,11 @@ def planted_in_entry(entry: tuple[str, str, int, int, str],
                      truth: pd.DataFrame) -> set[tuple[str, str, int]]:  # fmt: skip
     """``(contig, strand, stop)`` of the truth ORFs whose start codon (``start`` on ``+``,
     ``end - 2`` on ``-``) lies in frame inside the entry on its strand (origin-crossing entries
-    are not unwrapped)."""
+    (``a > b``) are not unwrapped: no ORF)."""
     _, contig, a, b, strand = entry
     out: set[tuple[str, str, int]] = set()
+    if a > b:  # origin-crossing entry: not unwrapped, so it never exempts (fails closed)
+        return out
     for c, st, s, e, stop in zip(truth["contig"], truth["strand"], truth["start"], truth["end"],
                                  truth["stop"], strict=True):  # fmt: skip
         if str(c) != contig or str(st) != strand:

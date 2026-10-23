@@ -87,8 +87,21 @@ def test_planted_in_entry_plus_in_frame_only() -> None:
 
 def test_planted_in_entry_minus_strand() -> None:
     e = N.parse_makedb_id("GIAPORF_antisense_c1_961_990_m")
-    t = truth(("antisense", "c1", 958, 990, "-"), ("antisense", "c1", 958, 989, "-"))
+    # off-frame rows carry their own start, so their key differs from the in-frame one (S1)
+    t = truth(("antisense", "c1", 958, 990, "-"), ("antisense", "c1", 957, 989, "-"),
+              ("antisense", "c1", 956, 988, "-"))  # fmt: skip
     assert N.planted_in_entry(e, t) == {("c1", "-", 958)}
+
+
+def test_origin_crossing_entry_vetoes() -> None:
+    """``a > b`` (an entry across the origin, not unwrapped) holds no ORF: fails closed."""
+    e = N.parse_makedb_id("GIAPORF_intergenic_c1_990_30_p")
+    assert e == ("intergenic", "c1", 990, 30, "+")
+    t = truth(("intergenic", "c1", 993, 1020, "+"), ("intergenic", "c1", 3, 30, "+"),
+              ("intergenic", "c1", 1, 27, "+"))  # fmt: skip
+    assert N.planted_in_entry(e, t) == set()
+    r = rows(("MVTAAGR", "GIAPORF_intergenic_c1_990_30_p"))
+    assert not N.shared_peptide_no_pair(["MVTAAGR"], r, OWN_35, t)
 
 
 def test_planted_in_entry_nterm_upstream_start() -> None:
@@ -114,6 +127,14 @@ def test_il_insensitive_match() -> None:
     assert N.shared_peptide_no_pair(["MVTAAGR"], rows(("MVTAAGR", ENTRY_35)), OWN_35, T35)
     t = truth(("cds_outframe", "chr1", 872145, 872255, "+"))
     assert N.shared_peptide_no_pair(["MLNRLVR"], rows(("MINRIVR", ENTRY_35)), OWN_35, t)
+    assert N.shared_peptide_no_pair(["MLNRLVR"], rows(("MJNRIVR", ENTRY_35)), OWN_35, t)  # J
+
+
+def test_empty_protein_ids_row_vetoes() -> None:
+    """S3: a row naming no protein beside good rows breaks the exemption."""
+    for empty in ("", "NA", " ; "):
+        r = pd.concat([R35, rows(("MVTAAGR", empty))], ignore_index=True)
+        assert not N.shared_peptide_no_pair(["MVTAAGR"], r, OWN_35, T35), repr(empty)
 
 
 def test_no_rows_is_not_shared() -> None:
@@ -161,6 +182,53 @@ def test_shared_no_pair_counts_per_class() -> None:
     r = pd.concat([R35, rows(("MTPLWTK", "GIAPORF_antisense_chr1_10_99_p"))], ignore_index=True)
     got = N.shared_no_pair_counts(novel, side, r, T35, {"chr1": 1_000_000})
     assert got == {"intergenic": 0, "cds_outframe": 1, "antisense": 0, "nterm_extension": 0}
+
+
+def test_own_entry_counts_zero_on_both_strands() -> None:
+    """S2: a no_makedb_pair ORF whose rows name only its own planted entry is a real bug (its
+    own key comes from ``novel_stop`` of the TSV ``end``): counted 0 on either strand."""
+    t = truth(("cds_outframe", "chr1", 872145, 872255, "+"),
+              ("antisense", "chr1", 958, 990, "-"))  # fmt: skip
+    novel = pd.DataFrame([
+        _novel("P", "cds_outframe", 872255, "MVTAAGR"),
+        {**_novel("M", "antisense", 958, "MTPLWTK"), "strand": "-"},
+    ])  # fmt: skip
+    side = pd.DataFrame({"orf_id": ["P", "M"], "class": ["cds_outframe", "antisense"],
+                         "reason": ["no_makedb_pair", "no_makedb_pair"]})  # fmt: skip
+    r = rows(("MVTAAGR", ENTRY_35), ("MTPLWTK", "GIAPORF_antisense_chr1_961_990_m"))
+    got = N.shared_no_pair_counts(novel, side, r, t, {"chr1": 1_000_000})
+    assert got == {"intergenic": 0, "cds_outframe": 0, "antisense": 0, "nterm_extension": 0}
+
+
+def test_minus_strand_shared_counts_one() -> None:
+    t = truth(("antisense", "chr1", 958, 990, "-"))
+    novel = pd.DataFrame([{**_novel("M", "antisense", 5000, "MTPLWTK"), "strand": "-"}])
+    side = pd.DataFrame({"orf_id": ["M"], "class": ["antisense"], "reason": ["no_makedb_pair"]})
+    r = rows(("MTPLWTK", "GIAPORF_antisense_chr1_961_990_m"))
+    got = N.shared_no_pair_counts(novel, side, r, t, {"chr1": 1_000_000})
+    assert got["antisense"] == 1
+
+
+# --------------------------------------------------------------------------- injection reach
+
+
+def test_check_reach() -> None:
+    N.check_reach(600, 600, "k3")
+    N.check_reach(399, 400, "gc")
+    N.check_reach(36, 40, "gc")  # exactly REACH_MIN_SHARE
+    for rows_, inj in ((0, 600), (35, 40), (0, 0), (5, 0)):
+        with pytest.raises(RuntimeError):
+            N.check_reach(rows_, inj, "x")
+    assert N.REACH_MIN_SHARE == 0.90
+
+
+def test_check_reach_is_never_an_assertion() -> None:
+    try:
+        N.check_reach(0, 10, "x")
+    except AssertionError:  # pragma: no cover - the point of the test
+        pytest.fail("check_reach raised AssertionError: a strict xfail would absorb it")
+    except RuntimeError:
+        pass
 
 
 # --------------------------------------------------------------------------- bug accounting
