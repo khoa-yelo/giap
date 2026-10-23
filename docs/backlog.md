@@ -605,9 +605,26 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Example 10 runs only on FarmShare; the colour cycle leaves out black and grey (spec wording).
 - `read_tsv` now treats an empty cell as missing in genes.tsv too (matches `giap.io.genes_tsv`).
 - Mutation evidence: $GIAP_ROOT/review/pr191-mut/ (22/25 killed, 1 equivalent).
+
+## M9-03 review nits (#210; one round, oriC rounding and the 2^20 gzip boundary pinned in the PR)
+- Untested guards in `giap.viz.support`: `window_bp < 1`, the missing-contig `ValueError`, the empty-sequence skip.
+- `datapackage.json` lists `plots/support/gc_skew.tsv` uncompressed; a `.tsv.gz` write (not reachable at 10 kb windows for bacteria) would leave the descriptor pointing at a missing file — write the descriptor path from the file actually written.
+- `plots` step: with `replicons` absent but a `plots_support` input passed, plots render from the incoming directory, not this run's output.
+- No test checks that `write_datapackage` copies `schemas/plot_support/*.json` into OUT.
+- ADR-0042: when the M7-10/M7-13 (`calsuite_variants`) and M9-22 (`calsuite_compare`) calibration tests land, extend scripts/slurm/calibration_full.sbatch to `--array=0-14` (task 13 = variants, 14 = compare); until then those two keys have no tests and the array skips them.
 - M9-04 V17 review nits (#197): when every gene is partial, (e) draws 0 % bars and should show an empty-state note; integer tick locators on the count axes; partial genes are left out of (d) although the spec restricts only (e); the "unmapped" layer of (c) includes contaminant and too_short peptides; the length-bound lines belong at 6.5/40.5 (spec + test); an empty `replicons` draws an empty axis with a warning; the TSV message rows drop the drawn text; preflight `genome.contiguity` has an empty `message` (a preflight bug); "abundance not available" is not in the spec's titles; "1 preflight warnings" should be singular; the imputed legend shows when nothing is imputed; 8 surviving mutants (exactly 10 warnings, rule fallback, (b) floor, circular markers, constant-abundance padding, (e) inverted y, absent-genes title).
 - ADR-0041 follow-up (after #196 merges): move the four tokens from RUN_FLAGS_PENDING to the accepted run vocabulary and update the vocabulary test (lead).
 
+## M9-02 review nits (#205; one round, B1–B5 and N1 local half fixed in the PR)
+- N1 Nextflow half: REPORT gets no `events`, so `layer_missing` skips fire under the local executor and `giap report` but not in a Nextflow `giap run`. Fix before the first Nextflow-run plot that declares layers.
+- Config digest reads "not available" in `giap run` but appears after `giap report`, so `report.html` changes on a rebuild of an untouched run.
+- Executor-equality test compares only `plots/data` (empty until plots register): also compare `report.html` bytes, and the run's report with a rebuilt one.
+- Peptide "of N input" counts `kind=protein` rows from `unmapped`.
+- Stale plot files from an earlier run are shown in place of a skip reason that holds now; with `formats=[png]` the report says "plot file absent" although the PNG exists.
+- PLOTS has no resource label (1 CPU / 2 GB) while REPORT_HTML gets `process_low`.
+- `ALL_PUBLISHED_KEYS` declares optional inputs never read (`peptide_hits`, `tus_tsv`); SVG id separator `-` is not provably unique.
+- Surviving mutants: `<=` boundary in the card counts, the two `nunique` peptide counts. Move `cards()` to `giap/report/cards.py` ahead of M9-16.
+- Card/table read failures are notes in the HTML only (build.py is pure); consider an event from the step.
 ## M8-17a review nits (#204; one round, B1 R_LIBS_SITE fixed in the PR)
 - 17b: `read_results` must require rows to match the in-range sets exactly (a dropped row now vanishes silently); `read_versions` should check the `seed`/`jobs` lines and the data.table version.
 - Set `TMPDIR` to the call directory in `child_env` so R's `Rtmp*` is not left behind after a timeout kill; give the post-kill `proc.communicate()` a timeout.
@@ -667,3 +684,48 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Methods note: the R = 1,000 null OP tail z = −2.05 needs a "within chance" remark.
 - `_tsv_cell` / `read_operon_truth` `"int"` dtype branch unused.
 - mypy over tests/sim (MYPYPATH=tests/sim) reports 5 errors from tests/sim/giapsim/layout.py:663.
+### M9-08 (V01 circos) after the review round
+- No unit test renders V01 with empty promoter/terminator/TU tables (crash fixed in 8faffdb was
+  caught only by integration tests).
+- Inner oriC/ter labels of small adjacent replicons crowd each other near the centre (five-replicon
+  review render); consider dropping them below a sector-size threshold.
+- Counted lines 629 (> 400 warn): split the label-placement code into its own module in hardening.
+## M8-17b review nits (#214; one round each, code review and statistical review)
+- M8-15 (statistical re-review, before the gate): re-run the `test_attack_gsea_flags.py` arms on the R
+  engine, flag spillover included (unflagged rows in a collection that also has flagged rows; only
+  measured under the port, Slurm 1867330), and re-measure the N4 detection-screen and
+  `genomic_cluster` φ = 0.7 numbers on R. The methods note makes no claim for these until then.
+- Weekly `gsea` array task: 4 CPU / 2 h now also runs the `requires_r` replicates (Slurm 1869053 alone
+  took 47 min on 8 CPUs) and needs `giap-fgsea` built; `tests/calibration/_criteria.py` does not
+  exclude `requires_r`, so the harness's `gsea` suite errors where the env is absent.
+- Untested in `giap.function.gsea`: dropping `lo <= n <= hi` for whole-ranking sets; the
+  `len(tus) < min_size` and `bh(sub)[i] > alpha` boundaries; `SIMPLE_ENGINE` re-seeding per job.
+- `giap.io.fgsea_r`: an explicit `GIAP_FGSEA_PREFIX` skips the `.giap-built` check (an unbuilt env
+  says "is not a directory"); untested with no `R` in `bin/`; `engine.provenance` keeping its value
+  after a failed call is unpinned.
+- The `function.gsea_engine` event could log the seed R ran with.
+## M9-09 review nits (#218; one round, decisions 21–26)
+- V2 trend memory: up to 2.2 GB peak RSS at 20,000 points (the PLOTS process gets 2 GB on the first
+  attempt); fit the trend on ≤ 5,000 bin medians.
+- V2 rug-only panels show meaningless y ticks (±0.04); hide them.
+- V2: oriC at position 1 is hidden by the left spine; the landmark −1 is untested (decision 3).
+- V10 data TSV keeps the producer's values for `not_estimable` rows (flags alongside); the plot
+  blanks them (decision 21). Revisit if a reader takes the zeros as estimates.
+- Statistician note (TU ordinals in the islands detrend vs bp positions in V2) is in the PR body;
+  move it into docs/methods with the M9 methods index.
+## M5-11 (statistician, hardening)
+- Island power under giapsim's default `covariates_only` detection: no island at +3/+5/+10 SD on 1,000 genes (ℓ̂ = 1, ℓ' = 3; ~45 % censored regardless of abundance, rank scores saturate). The M5-11 golden uses sim4500 with `detection="abundance"`; decide whether the power table should report the covariates-only regime.
+
+## M5-11 review nits (#217; one round)
+- The `giap-bench` sbatch script used for the `context_m5` benchmark (Slurm 1869098) is not in
+  scripts/slurm/; commit it beside the other benchmark launchers.
+- M5 gate evidence: full `islands` records exist (Slurm 1868687, R = 500, all pass); the full
+  `autocorrelation` record does not — submit `calibration_full.sbatch --array=4` on main. Calibration
+  records carry no commit field, so "on main" cannot be checked from them.
+- The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
+  BLAS-stable `p_detect` would let them return to byte equality.
+
+### M9-16b follow-ups
+- Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
+  shown when the manifest write failed or in the work-dir copy); test-author step first.
+- Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
