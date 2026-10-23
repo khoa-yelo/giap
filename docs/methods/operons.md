@@ -703,6 +703,8 @@ replicon). The fit is unpenalised maximum likelihood.
 dropped (fewer than B/2 valid gives `null`). The CIs are the 95 % percentile CIs of d₀ and of s,
 taken separately. On K-12 no replicate can separate: the largest positive d is 559, and the
 smallest negative d is −59.
+On synthetic data with known d₀ and s (part A tests, R = 300, B = 200) these percentile CIs cover
+at about 0.92–0.93, slightly below 0.95 (0.89 for d₀ at B = 100). Coverage is recorded, not gated.
 
 **Fit quality.**
 - The log-loss of the refit and of the placeholder (50, 20) on L are both in-sample. The refit's
