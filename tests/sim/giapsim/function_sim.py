@@ -16,7 +16,9 @@ Sets (``sets``, one row per member) follow M8-03: GO annotations propagated over
 ``part_of`` and split by namespace, KEGG maps through the link rows, COG letters through the
 ``cog_def`` table; kept when they hold 10-500 TUs (the synthetic roots, 30-60 % of the genes, are
 above that at the calibration sizes and drop out, decision 3 gap 3). ``gsea_attack_operon_packed``
-lists its packed KEGG sets only (unfiltered: 1-3 TUs each).
+lists its packed KEGG sets only (unfiltered): 1-3 packed operons of 10-30 genes plus
+``PACKED_SINGLES`` single-gene TUs each, whole TUs; packed TUs draw their level like every other
+TU (the shared TU level is the attack; lead decision 4, B2).
 
 Detection is ``Bernoulli(p_true)`` with ``p_true`` the M4-09 covariate logistic, plus
 ``member_shift`` on the logit of the confounded members (``ora_attack_confounded``); it is drawn
@@ -72,7 +74,7 @@ BLOCKS: Mapping[str, str] = MappingProxyType(
 )
 SET_TU_RANGE = (10, 500)  # sets kept when they hold this many TUs (M8-03 gsea_size)
 PACKED_TU_SIZE = (10, 30)  # genes per packed operon
-_PACKED_EFFECT_SD = 3.0  # log2 SD of the extra random effect of a packed TU
+PACKED_SINGLES = 40  # single-gene chr1 TUs per packed set (fewer on small layouts, >= 9)
 _DET_TU_SD = 1.0  # determinants: TU random effect SD
 _COG_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 _P_COG, _P_KO, _P_NS = 0.65, 0.4, 0.75
@@ -404,7 +406,8 @@ def _confounded_sets(sets: pd.DataFrame, n_genes: int, rng: np.random.Generator)
 
 
 def _packed(layout: Layout, n_sets: int, rng: np.random.Generator) -> list[list[str]]:
-    """TU ids of each packed set: 1, 2, 3, 1, ... chr1 TUs of 10-30 genes."""
+    """TU ids of each packed set: 1, 2, 3, 1, ... chr1 TUs of 10-30 genes, then
+    up to ``PACKED_SINGLES`` single-gene chr1 TUs (at least 9, disjoint across sets)."""
     tus = layout.tus
     lo, hi = PACKED_TU_SIZE
     cand = [str(t) for t, c, gs in zip(tus["tu_id"], tus["contig"], tus["genes"], strict=True)
@@ -412,10 +415,16 @@ def _packed(layout: Layout, n_sets: int, rng: np.random.Generator) -> list[list[
     need = [1 + k % 3 for k in range(n_sets)]
     if len(cand) < sum(need):
         raise ValueError(f"layout has {len(cand)} packed TUs, {sum(need)} needed")
+    single = [str(t) for t, c, gs in zip(tus["tu_id"], tus["contig"], tus["genes"], strict=True)
+              if c == "chr1" and len(gs) == 1]  # fmt: skip
+    per = min(PACKED_SINGLES, len(single) // n_sets)
+    if per < 9:
+        raise ValueError(f"layout has {len(single)} single-gene TUs, {9 * n_sets} needed")
     order = [cand[i] for i in rng.permutation(len(cand))]
+    singles = [single[i] for i in rng.permutation(len(single))]
     out, at = [], 0
-    for k in need:
-        out.append(order[at : at + k])
+    for j, k in enumerate(need):
+        out.append(order[at : at + k] + singles[j * per : (j + 1) * per])
         at += k
     return out
 
@@ -430,7 +439,7 @@ def draw(pair: tuple[LayoutConfig, ExpressionConfig], rng: np.random.Generator) 
     spec = getattr(ecfg, "function", None)
     if not isinstance(spec, FunctionSpec):
         raise ValueError("draw needs a giapsim.scenarios function pair (FunctionSpec missing)")
-    r_lay, r_ont, r_pick, r_expr, r_det, r_feat, r_eff = _seeds(rng)
+    r_lay, r_ont, r_pick, r_expr, r_det, r_feat, _ = _seeds(rng)
     layout = simulate_layout(lcfg, r_lay)
     tags = layout.genes["locus_tag"].astype(str).tolist()
     tu_of = _tu_of(layout)
@@ -462,7 +471,7 @@ def draw(pair: tuple[LayoutConfig, ExpressionConfig], rng: np.random.Generator) 
              .drop_duplicates().reset_index(drop=True))  # fmt: skip
     layout = replace(layout, xrefs=xrefs)
     paths_all = sorted({str(p).removeprefix("path:") for p in links["pathway"]})
-    if spec.kind == "packed":  # the packed sets only, unfiltered (1-3 TUs each)
+    if spec.kind == "packed":  # the packed sets only, unfiltered
         rank_of = rank.__getitem__
         sets = pd.DataFrame(
             [(paths[k], "kegg", g, False) for k, ts in enumerate(packed)
@@ -481,14 +490,6 @@ def draw(pair: tuple[LayoutConfig, ExpressionConfig], rng: np.random.Generator) 
         sets = sets.assign(confounded=flag)
         inside = genes["locus_tag"].isin(set(sets.loc[flag, "locus_tag"])).to_numpy()
     genes = _redetect(genes, inside, spec.member_shift if spec.attack else 0.0, r_det)
-    if packed:
-        eff = r_eff.normal(0.0, _PACKED_EFFECT_SD, size=len(packed) * 3)
-        tu_eff = {t: float(eff[3 * k + j]) for k, ts in enumerate(packed)
-                  for j, t in enumerate(ts)}  # fmt: skip
-        add = np.array([tu_eff.get(tu_of[g], 0.0) for g in tags])
-        genes = genes.assign(tu_log2=genes["tu_log2"] + add,
-                             abundance_log2_true=genes["abundance_log2_true"] + add)  # fmt: skip
-
     features: pd.DataFrame | None = None
     truth: dict[str, pd.DataFrame] = {"sets": sets}
     if spec.kind == "determinants":

@@ -24,8 +24,8 @@ M8-14 function scenarios (drawn with ``giapsim.function_sim.draw``; the ``Expres
 - ``ora_attack_confounded``: one GO category's members get ``member_shift`` on the detection logit
   (members drawn at random, lead decision 3 gap 7); detection still depends on p_true only;
 - ``gsea_null``: the M4-08 model without position decay, sets independent of abundance;
-- ``gsea_attack_operon_packed``: ``n_sets`` KEGG sets of 1-3 packed chr1 TUs (10-30 genes) each
-  with a large random TU effect; no set effect;
+- ``gsea_attack_operon_packed``: ``n_sets`` KEGG sets of 1-3 packed chr1 TUs (10-30 genes) plus
+  single-gene chr1 TUs each (>= 10 TUs); every TU draws its level alike; no set effect;
 - ``determinants_null`` / ``determinants_planted``: TU effect (sd 1) + noise (``noise_sd``),
   plus ``sum beta_j z(feature_j)`` for ``promoter``, ``rbs``, ``cai`` in the planted one.
 
@@ -248,7 +248,8 @@ def gsea_null(n_genes: int) -> Pair:
 
 
 def gsea_attack_operon_packed(n_genes: int, n_sets: int) -> Pair:
-    """``n_sets`` sets of 1, 2, 3, 1, ... packed chr1 TUs of 10-30 genes; no set effect."""
+    """``n_sets`` sets of 1, 2, 3, 1, ... packed chr1 TUs of 10-30 genes plus single-gene TUs;
+    no set effect."""
     n = _function_n(n_genes)
     if isinstance(n_sets, bool) or not isinstance(n_sets, int) or not 1 <= n_sets <= _MAX_SETS:
         raise ValueError(f"n_sets must be an int in [1, {_MAX_SETS}], got {n_sets!r}")
