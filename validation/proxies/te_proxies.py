@@ -1,4 +1,4 @@
-"""TE1 and TE8 in-silico proxies (GIAP_SPEC.md §11.6, §13 gate M3; issue M3-22).
+"""TE1, TE2 and TE8 in-silico proxies (GIAP_SPEC.md §11.6, §13 gates M3 and M7; M3-22, M7-14).
 
 Both proxies digest proteins with :func:`giap.mapping.digest.digest` (trypsin_p, missed <= 1,
 7-30 aa) and send the distinct peptide sequences (lead decision 4) through the merged mapping
@@ -18,10 +18,16 @@ chain (``giap preflight`` normalisation, then the registered steps under the loc
   gene). On Nissle: accepted exact / tolerant placements, rejected placements, peptides without
   any target hit, and the pooled decoy-estimated FDR among accepted placements. Pass:
   ``k12_exact >= 0.995`` and FDR <= 0.01.
+* **TE2** (``search_db = same``, M7-14): TE1's peptides through the chain up to the ``variants``
+  step (M7-04). Pass: no ``variants.tsv`` row with ``confidence = high`` flagged neither
+  ``start_codon`` nor ``stop_codon`` (the non-ATG starts appear as ALT ``M`` at GTG/TTG starts;
+  the selenocysteine sites stay unmapped until M7-16).
 
-Usage (writes ``validation/proxies/<YYYY-MM-DD>_te1.json`` / ``_te8.json`` by default)::
+Usage (writes ``validation/proxies/<YYYY-MM-DD>_te1.json`` / ``_te2.json`` / ``_te8.json`` by
+default)::
 
     python validation/proxies/te_proxies.py te1 GENOME BAKTA_JSON [--out FILE]
+    python validation/proxies/te_proxies.py te2 GENOME BAKTA_JSON [--out FILE]
     python validation/proxies/te_proxies.py te8 K12_GENOME K12_JSON NISSLE_GENOME NISSLE_JSON
         UNIPROT_FASTA [--out FILE]
 """
@@ -55,6 +61,11 @@ from giap.model.genes import Gene
 from giap.steps.mapping import select_queries
 
 TE1_MIN, TE8_K12_MIN, TE8_FDR_MAX = 0.999, 0.995, 0.01
+TE2_EXEMPT = frozenset({"start_codon", "stop_codon"})
+TE2_NO_STOP_NOTE = (
+    "no high stop_codon site: the selenocysteine (Sec, fdnG) peptides TE1 misses stay unmapped "
+    "until M7-16, so none is expected yet"
+)
 MAX_EXCEPTIONS = 50
 INFRAME = frozenset({"cds_inframe", "sorf"})
 MASKING = frozenset({"rna_overlap", "pseudogene"})  # classes ranked above sorf/cds_inframe
@@ -71,14 +82,19 @@ class ProxyResult:
     passed: bool
     exceptions: list[dict[str, Any]] = field(default_factory=list)
 
+    notes: list[str] = field(default_factory=list)
+
     def to_json(self) -> dict[str, Any]:
-        return {
+        doc: dict[str, Any] = {
             "proxy": self.name,
             "passed": self.passed,
             "counts": self.counts,
             "shares": self.shares,
             "exceptions": self.exceptions,
         }
+        if self.notes:
+            doc["notes"] = self.notes
+        return doc
 
 
 # ---------------------------------------------------------------- pure helpers
@@ -214,6 +230,60 @@ def te1_result(
     )  # fmt: skip
 
 
+def _flag_names(v: object) -> set[str]:
+    if isinstance(v, str):
+        return {x for x in v.split(";") if x}
+    if isinstance(v, Iterable):
+        return {str(x) for x in v}
+    return set()
+
+
+def _cell(v: object) -> Any:
+    """A JSON-ready cell: None for NA, a Python int for an integer."""
+    if v is None or v is pd.NA or (isinstance(v, float) and np.isnan(v)):
+        return None
+    if isinstance(v, np.integer | int):
+        return int(v)
+    return str(v)
+
+
+def te2_result(sites: pd.DataFrame) -> ProxyResult:
+    """TE2 counts from the ``variants.tsv`` frame of ``run_variants`` (rule 1).
+
+    ``alt_sites``: rows; ``high``: ``confidence = high`` rows; ``high_start_codon`` /
+    ``high_stop_codon``: high rows with that flag (a row with both counts in both);
+    ``violations``: high rows with neither. Passed iff no violation; up to 50 violations in row
+    order as examples (locus tag, aa_pos, ref, alt). Pure.
+    """
+    n_start = n_stop = n_high = 0
+    bad: list[dict[str, Any]] = []
+    n_bad = 0
+    if len(sites):
+        cols = ("confidence", "flags", "gene", "aa_pos", "ref_aa", "alt_aa", "variant_id")
+        for conf, flags, gene, aa_pos, ref, alt, vid in zip(*(sites[c] for c in cols), strict=True):
+            if str(conf) != "high":
+                continue
+            n_high += 1
+            f = _flag_names(flags)
+            n_start += "start_codon" in f
+            n_stop += "stop_codon" in f
+            if not (TE2_EXEMPT & f):
+                n_bad += 1
+                if len(bad) < MAX_EXCEPTIONS:
+                    bad.append({"locus_tag": _cell(gene), "aa_pos": _cell(aa_pos),
+                                "ref": _cell(ref), "alt": _cell(alt),
+                                "variant_id": _cell(vid)})  # fmt: skip
+    counts = {
+        "alt_sites": len(sites),
+        "high": n_high,
+        "high_start_codon": n_start,
+        "high_stop_codon": n_stop,
+        "violations": n_bad,
+    }
+    notes = [TE2_NO_STOP_NOTE] if n_stop == 0 else []
+    return ProxyResult("TE2", counts, {}, n_bad == 0, bad, notes)
+
+
 def pooled_decoy_fdr(costs: pd.DataFrame, per: pd.DataFrame) -> float:
     """Pooled decoy-estimated FDR among accepted placements (unit decoy weights).
 
@@ -308,6 +378,21 @@ def te1_proxy(genome: Path, bakta_json: Path) -> ProxyResult:
     return te1_result(sources, excluded, hits, {g.locus_tag: g.interval for g in genes}, circular)
 
 
+def te2_proxy(genome: Path, bakta_json: Path) -> ProxyResult:
+    """TE2: TE1's same-strain peptides through the chain and ``variants``; no ``high`` ALT site
+    without the ``start_codon`` or ``stop_codon`` flag."""
+    from giap.io.variant_tables import read_variants
+
+    genes, _ = read_coding_genes(bakta_json, genome)
+    sources = peptide_sources((g.locus_tag, g.aa) for g in genes)
+    # the same strain: genome_relation same; the VCF sample needs a resolved name
+    cfg = resolve_config(overrides=["genome_relation=same", "sample_name=te2"])
+    with tempfile.TemporaryDirectory(prefix="giap-te2-") as tmp:
+        work = run_chain(cfg, genome, bakta_json, sources, "same", Path(tmp), ["variants"])
+        sites = read_variants(work / "variants")
+    return te2_result(sites)
+
+
 def te8_result(
     sources: Mapping[str, Collection[str]],
     excluded: Collection[str],
@@ -394,14 +479,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     p1 = sub.add_parser("te1")
     p1.add_argument("genome", type=Path)
     p1.add_argument("bakta_json", type=Path)
+    p2 = sub.add_parser("te2")
+    p2.add_argument("genome", type=Path)
+    p2.add_argument("bakta_json", type=Path)
     p8 = sub.add_parser("te8")
     for name in ("k12_genome", "k12_json", "nissle_genome", "nissle_json", "uniprot_fasta"):
         p8.add_argument(name, type=Path)
-    for p in (p1, p8):
+    for p in (p1, p2, p8):
         p.add_argument("--out", type=Path, default=None)
     a = ap.parse_args(argv)
     if a.proxy == "te1":
         r = te1_proxy(a.genome, a.bakta_json)
+    elif a.proxy == "te2":
+        r = te2_proxy(a.genome, a.bakta_json)
     else:
         r = te8_proxy(a.k12_genome, a.k12_json, a.nissle_genome, a.nissle_json, a.uniprot_fasta)
     out = a.out or HERE / f"{dt.date.today().isoformat()}_{a.proxy}.json"

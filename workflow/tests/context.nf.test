@@ -41,6 +41,7 @@ nextflow_workflow {
                 input[9] = channel.empty()
                 input[10] = channel.empty()
                 input[11] = channel.empty()
+                input[12] = channel.empty()
                 """
             }
         }
@@ -110,6 +111,7 @@ nextflow_workflow {
                 input[9] = channel.empty()
                 input[10] = channel.empty()
                 input[11] = channel.empty()
+                input[12] = channel.empty()
                 """
             }
         }

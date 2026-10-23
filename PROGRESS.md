@@ -62,6 +62,7 @@ K-12 evidence run).
 - M8-14 (giapsim function/determinants scenarios), Slurm 1871571
 
 ## Done (with evidence)
+- M7-14 TE2 proxy (gate M7 clause): Nissle same-strain peptides, Slurm 1871578. 233 ALT sites, 80 `high`, 80 `high_start_codon`, 0 violations. `id_mixups` is now numeric in detection_summary.tsv (#248).
 - [M0] `gh` authenticated as khoa-yelo (SSH protocol); repository is public (Actions minutes unlimited).
 - [M0] Repository connected to git@github.com:khoa-yelo/giap.git; branch `m0/scaffold` pushed.
 - [M0] Bootstrap ran (`scripts/bootstrap_farmshare.sh`): uv 0.13.1, Nextflow 26.10.0, nf-test 0.9.5,

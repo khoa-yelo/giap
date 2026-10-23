@@ -8,7 +8,9 @@ parquet (detectability diagnostics rows; locally ``genetable/detection_summary_p
 detectability.parquet``), ``tier_summary`` of ``gene_table`` (M4-20 decision 3; locally
 ``genetable/detection_summary_parts/tier.parquet``), the ADR-0019 ``stratum0_classes`` of
 ``placement`` (the ``stratum0_unmapped_share`` QC rows) and C15 ``features`` (M5-04), whose ``oric``
-rows place the origin (without it: ``no_oric`` rows and ``layer_missing:features``).
+rows place the origin (without it: ``no_oric`` rows and ``layer_missing:features``), and the
+``variants`` step's ``variants_qc`` (M7-14: the numeric ``id_mixups`` QC row; without it the row
+stays NA with flag ``requires_variants``).
 
 Outputs: ``tables/regions_stats.tsv``, ``detection_summary.tsv``, ``autocorrelation.tsv``,
 ``islands.tsv``, ``genes.tsv`` (here until §6.2's ``finalize``, M5-09 lead decision 3) and
@@ -104,10 +106,12 @@ def _context_stats(
     write_regions_stats(outputs["regions_stats"], regions_stats(tests, plasmids, subsets, regions))
 
     s0 = inputs.get("stratum0_classes")  # ADR-0019 class table (M3-25 decision 3)
+    vqc = inputs.get("variants_qc")  # M7-14 rule 3
     parts = [basic_rows(genes, cfg.stats.bootstrap, for_step("context_stats.detection_summary",
                                                                seed)),
              qc_rows(m4.peptides, m4.peptide_hits, m4.unmapped,
-                     stratum0=None if s0 is None else pd.read_parquet(s0))]  # fmt: skip
+                     stratum0=None if s0 is None else pd.read_parquet(s0),
+                     id_mixups=None if vqc is None else _id_mixups(vqc))]  # fmt: skip
     if "tier_summary" in inputs:  # M4-12 tier counts and q-threshold curve (decision 3)
         parts.append(pd.read_parquet(inputs["tier_summary"]))
     if "detectability_summary" in inputs:  # M4-15 detectability diagnostics rows
@@ -115,6 +119,15 @@ def _context_stats(
     write_detection_summary(outputs["detection_summary"], detection_summary(parts))
 
     _m5_context(inputs, outputs, cfg, log, m4, genes)
+
+
+def _id_mixups(path: Path) -> tuple[int, int]:
+    """``(count, n)`` of the ``id_mixups`` row of the ``variants`` step's ``variants_qc``."""
+    df = pd.read_parquet(path)
+    row = df[df["metric"].astype(str) == "id_mixups"]
+    if len(row) != 1:
+        raise ValueError(f"{path}: expected one id_mixups row, got {len(row)}")
+    return int(row["value"].iloc[0]), int(row["n"].iloc[0])
 
 
 def _features(inputs: Mapping[str, Path], log: logging.Logger) -> pd.DataFrame | None:
@@ -254,6 +267,9 @@ def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | No
     classes = work_dir / "mapping" / "stratum0_classes.parquet"
     if classes.exists():
         inputs["stratum0_classes"] = classes
+    vqc = work_dir / "variants_qc"  # M7-14, the variants step's work output (local layout)
+    if vqc.exists():
+        inputs["variants_qc"] = vqc
     features = work_dir / "features.parquet"  # C15 (M5-04), optional
     if features.exists():
         inputs["features"] = features
@@ -283,6 +299,7 @@ def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | No
         "replicon_depth",
         "stratum0_classes",
         "tier_summary",
+        "variants_qc",
     ],
     outputs=["regions_stats", "detection_summary", *M5_OUTPUTS],
     optional_outputs=list(M5_OUTPUTS),
