@@ -122,3 +122,13 @@ flag `missing_in:<label>`.
 3. "q ≤ 0.05" in §7.9.3 vs the config key: **Proposed default:** `stats.alpha.enrichment` (0.05 by
    default), so a user's alpha applies.
 4. Exact (UpSet) intersections vs inclusive ones: **Proposed default:** exact, as UpSet plots draw.
+
+## Lead decisions (2026-10-22)
+
+1. The genome check reads `run_manifest.json` (written since MVP-03a, #196) when present and falls
+   back to `preflight.json` otherwise; both runs must agree on the genome digest.
+2. The ρ CI's coverage is recorded, not gated, until a Khoa-approved ADR adds
+   `replicates_fast/full.compare` to `tolerances.yaml` (the ADR-0032 pattern; raised with Khoa).
+3. The threshold is the config key `stats.alpha.enrichment` (0.05 by default).
+4. Intersections are exact (UpSet semantics).
+5. Feature loop: test-author → implementer → statistician (stats label) → code review.
