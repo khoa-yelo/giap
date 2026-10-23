@@ -192,18 +192,27 @@ def _first(value: InputPath) -> Path:
 
 def write_plot_support(inputs: Mapping[str, InputPath], plots_dir: Path) -> list[Path]:
     """``plots_dir/support/``: ``replicon_landmarks`` from ``replicons`` (and ``features``, absent
-    = no oriC call) and ``gc_skew`` when ``genome`` is given too (M9-03); nothing without
-    ``replicons``. Only the ``plots`` step calls this; ``giap report`` never does (ADR-0043)."""
-    from giap.viz.support import WINDOW_BP, gc_skew, replicon_landmarks
+    = no oriC call) and ``gc_skew`` when ``genome`` is given too (M9-03); ``variant_windows``
+    from ``variants`` and ``genes`` (M9-18). Only the ``plots`` step calls this; ``giap report``
+    never does (ADR-0043)."""
+    from giap.viz.support import WINDOW_BP, gc_skew, replicon_landmarks, variant_windows
 
-    if "replicons" not in inputs:
-        return []
-    reps = pd.read_parquet(_first(inputs["replicons"]))
-    feats = pd.read_parquet(_first(inputs["features"])) if "features" in inputs else None
-    written = [write_support("replicon_landmarks", replicon_landmarks(reps, feats), plots_dir)]
-    if "genome" in inputs:
-        genome = {r.id: r.sequence for r in read_genome_fasta(_first(inputs["genome"]))}
-        written.append(write_support("gc_skew", gc_skew(genome, reps, WINDOW_BP), plots_dir))
+    written: list[Path] = []
+    if "replicons" in inputs:
+        reps = pd.read_parquet(_first(inputs["replicons"]))
+        feats = pd.read_parquet(_first(inputs["features"])) if "features" in inputs else None
+        written.append(
+            write_support("replicon_landmarks", replicon_landmarks(reps, feats), plots_dir)
+        )
+        if "genome" in inputs:
+            genome = {r.id: r.sequence for r in read_genome_fasta(_first(inputs["genome"]))}
+            written.append(write_support("gc_skew", gc_skew(genome, reps, WINDOW_BP), plots_dir))
+    variants = RunView.from_inputs(inputs).table("variants") if "genes" in inputs else None
+    if variants is not None:
+        genes = pd.read_parquet(_first(inputs["genes"]), columns=["locus_tag", "aa"])
+        written.append(
+            write_support("variant_windows", variant_windows(variants, genes), plots_dir)
+        )
     return written
 
 

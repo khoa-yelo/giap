@@ -732,6 +732,19 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - V5 `arrangement="fixed"` without node x/y loses the M9-05 order.
 - V8 has no median mark or legend; the V10 no-meta fallback differs for flagged rows; V18's constant state has no message.
 - PR size about 2,300 lines in total (711 counted).
+### M9-18 (V12) untested decisions
+- Tests for M9-18 decisions 6–9: NA window for a gene missing from genes.parquet, in-frame cover
+  rule, "(N peptides)" line, header-only `variant_windows.tsv`.
+
+### M9-18 review nits (PR #227)
+- N1 peptide ending exactly on the codon's last base; N2 ref/pep column alignment (incl. a window
+  clipped at the protein start); N3 `_best` untested; N4 duplicate `locus_tag` rows untested.
+- N5 `stop_codon` flag shares vermillion with the bold ALT residue.
+- N6 title edge cases: only mixed sites ("0 … 0 … unestimated"); min == max prints "0.004–0.004".
+- N7 panel (a) y-label "ALT sites" also covers mixed bars.
+- N8 "(N peptides)" can differ from `n_alt` (q > 0.01 placements, IL-only, other ALT residues); a
+  block before the site misplaces it.
+- N9 misleading comment about sites past the protein end (support.py).
 ### M9-16b follow-ups
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
