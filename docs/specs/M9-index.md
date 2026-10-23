@@ -71,6 +71,7 @@ Nothing is dropped; it is scheduled. A plot whose input is missing is skipped wi
 | 14 | [M9-14](M9-14-interactive-report.md) | 2 | Plotly.js inlined once, figure embedding, sortable/filterable tables, `--no-interactive`, the 25 MB budget | 02 | 320 | no |
 | 15 | [M9-15](M9-15-plotly-twins.md) | 2 | interactive twins of V2, V5 (Sankey), V6, V7, V8, V10, V11, V17, V18 | 14, 04–09, 11 | 380 | no |
 | 16 | [M9-16](M9-16-report-content.md) | 2 | all summary cards, methods and caveats snippets, sensitivity section, provenance, ADR-required caveats, wording checks | 02 | 360 | no |
+| 16b | [M9-16b](M9-16b-report-after-manifest.md) | 2 | `giap run` re-renders `report.html` after `run_manifest.json` (both executors, no plot redraw, atomic, one-way report → manifest rule); conditional removal of the #178 guards | 16; MVP-03a (KEGG half: MVP-03c) | 70 | no |
 | 17 | [M9-17](M9-17-plot-support-analysis.md) | 2 | plot support from analysis steps: GSEA running-score data, per-feature SHAP, partial dependence, null draws (regions, islands, determinants) | 03; #178, #181 merged | 340 | stats (light) |
 | 18 | [M9-18](M9-18-v12-variants.md) | 2 | V12 `variants` (+ `variant_windows.tsv` support) | 03, 10; #164, #175 merged | 320 | no |
 | 19 | [M9-19](M9-19-v14-enrichment.md) | 2 | V14 `enrichment` | 17; #181 and its `FUNCTION` wiring merged | 340 | stats (light) |
