@@ -504,3 +504,10 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
      bound exceeds true precision in about 9.5 % of the statistician's worlds).
    - The remaining nits go to the backlog. Tests at ab9e73a1; next: the implementer. No second
      review round (the statistician clears once the nine mutants die).
+10. **ADR-0022, the cut-off rule (Khoa, 2026-10-23): max-F1.** The TerminatorNet (and UniOP)
+    cut-off is the threshold that maximises F1 on the K-12 truth, as §15.4 specifies. There is
+    no one-SE rule, even though the F1 curve is flat. The statistician's flat-curve note and
+    `precision_lower_bound_window` are reported in ADR-0022 as context only. Part C runs the real K-12
+    calibration on Slurm, fills `src/giap/data/calibration.yaml`, and writes ADR-0022 (accepted-by-khoa)
+    in the same PR. `calibration.yaml` is protected, so the commit carries
+    `Gate-Change-Approved: ADR-0022`.
