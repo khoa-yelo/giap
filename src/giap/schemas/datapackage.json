@@ -6,6 +6,8 @@
   "resources": [
     {"name": "pileup", "profile": "tabular-data-resource", "path": "tables/pileup.tsv.gz", "format": "tsv", "compression": "gz", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "tables/pileup.schema.json"},
     {"name": "variants", "profile": "tabular-data-resource", "path": "tables/variants.tsv", "format": "tsv", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "tables/variants.schema.json"},
-    {"name": "novel_orfs", "profile": "tabular-data-resource", "path": "tables/novel_orfs.tsv", "format": "tsv", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "tables/novel_orfs.schema.json"}
+    {"name": "novel_orfs", "profile": "tabular-data-resource", "path": "tables/novel_orfs.tsv", "format": "tsv", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "tables/novel_orfs.schema.json"},
+    {"name": "replicon_landmarks", "role": "plot_support", "profile": "tabular-data-resource", "path": "plots/support/replicon_landmarks.tsv", "format": "tsv", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "plot_support/replicon_landmarks.json"},
+    {"name": "gc_skew", "role": "plot_support", "profile": "tabular-data-resource", "path": "plots/support/gc_skew.tsv", "format": "tsv", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "plot_support/gc_skew.json"}
   ]
 }
