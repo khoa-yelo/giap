@@ -52,3 +52,14 @@ not statistical
 
 1. Should the K-12 run here double as M8-06's "meaningful real-data run"? **Proposed default:**
    yes, one job serves both.
+
+## Lead decisions (test-author 7bcb8c2d)
+1. **V1 elements count per track**, as M9-24 states. `checklist._elements` counts V1 per track (its polar
+   axes holds every track), not by thinning bins. Each track stays at or under 20,000.
+2. Gaps 1–3, 5 and 6 are accepted as proposed:
+   - `-resume` is a pytest-driven Nextflow stub run;
+   - the benchmark entry is found by its `benchmark` field;
+   - byte identity runs on sim50k until M9-25's fixture lands;
+   - the 5-Mb per-track check lives in the benchmark;
+   - example 4 is Slurm evidence.
+3. Gap 4 (binning V2's rug past 20,000 undetected genes) is backlogged, not in this issue.
