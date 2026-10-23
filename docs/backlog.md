@@ -656,3 +656,10 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
     - N8, the reviewer's alluvial geometry check (scratchpad geom.py) should become a test.
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
+
+### M9-08 (V01 circos) after the review round
+- No unit test renders V01 with empty promoter/terminator/TU tables (crash fixed in 8faffdb was
+  caught only by integration tests).
+- Inner oriC/ter labels of small adjacent replicons crowd each other near the centre (five-replicon
+  review render); consider dropping them below a sector-size threshold.
+- Counted lines 629 (> 400 warn): split the label-placement code into its own module in hardening.
