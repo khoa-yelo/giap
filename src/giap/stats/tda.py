@@ -12,7 +12,7 @@ import numpy as np
 import numpy.typing as npt
 from numpy.typing import ArrayLike
 
-__all__ = ["PickedResult", "monotone_q", "picked_fdr", "tda_qvalues"]
+__all__ = ["PickedResult", "monotone_q", "picked_fdr", "picked_fdr_rescaled", "tda_qvalues"]
 
 
 def _scores(x: ArrayLike, name: str) -> npt.NDArray[np.float64]:
@@ -112,3 +112,32 @@ def picked_fdr(target_best: ArrayLike, decoy_best: ArrayLike) -> PickedResult:
         n_target_wins=int(target_wins.sum()),
         n_decoy_wins=int(decoy_wins.sum()),
     )
+
+
+def picked_fdr_rescaled(
+    target_best: ArrayLike, decoy_best: ArrayLike, paired_share: float
+) -> PickedResult:
+    """``picked_fdr`` with ADR-0009's rescaling: each decoy win counts 1/f, f = ``paired_share``.
+
+    FDR(t) = (D(t)/f + 1)/T(t) over the picked list, made monotone; f = 1 gives ``picked_fdr``.
+
+    Raises:
+        ValueError: if ``paired_share`` is not in (0, 1], or as ``picked_fdr``.
+    """
+    if not (0.0 < paired_share <= 1.0):
+        raise ValueError(f"paired_share must lie in (0, 1], got {paired_share}")
+    res = picked_fdr(target_best, decoy_best)
+    win = np.flatnonzero(~np.isnan(res.q))
+    if not win.size:
+        return res
+    t = _scores(target_best, "target_best")[win]
+    d = np.sort(_scores(decoy_best, "decoy_best")[res.decoy_wins])
+    order = np.argsort(-t, kind="stable")
+    t_desc = t[order]
+    n_t = win.size - np.searchsorted(np.sort(t), t_desc, side="left")
+    n_d = d.size - np.searchsorted(d, t_desc, side="left")
+    q_win = np.empty(win.size)
+    q_win[order] = monotone_q((n_d / paired_share + 1.0) / n_t)
+    q = res.q.copy()
+    q[win] = q_win
+    return PickedResult(res.decoy_wins, q, res.n_target_wins, res.n_decoy_wins)

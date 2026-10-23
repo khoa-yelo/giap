@@ -117,3 +117,77 @@ def denovo_class_q(orfs: Sequence[Orf], target_hits: pd.DataFrame, decoy_hits: p
    Bonferroni-on-peptides-per-ORF correction.
 4. The 80 % paired-share guard per class is borrowed from §7.3.2 by analogy. **Proposed default:**
    adopt it, recorded in the methods note; change only by ADR.
+
+## Lead decisions (2026-10-22)
+
+1. **Mixed-source runs:** the proposed default. Each ORF's regime follows its peptides' source,
+   database first; database and de novo q-values are never pooled into one list (methods note).
+2. **Untagged classes** (`pseudogene`, `sorf`, `cterm_extension`): `unestimated` with the
+   ≥ 2-peptide rule; no `rev_<locus_tag>` pairing in v1.
+3. **ORF-level q (de novo):** the minimum of its peptides' subgroup q, and the statistician measures
+   ORF-level FDP in M7-13. If that fails, an ADR chooses between a picked ORF-level competition on
+   the genome decoy and a per-ORF Bonferroni over peptides. The methods note names the
+   anti-conservative direction now.
+4. **80 % paired-share guard per class:** adopted from §7.3.2 by analogy and recorded in the
+   methods note; changes only by ADR.
+5. **Test-author resolutions (11a6ca30) accepted:** frame layouts, NaN for unestimated or pick-losing
+   ORFs, paired = stripped ID in `id_map`, `id_map=None` parses the tagged IDs, c = largest searched
+   π̂ (missing = 1), q before score with ties to the decoy.
+6. **Split (MVP first):** this issue ships the pure `giap.novel.fdr` module that the tests pin.
+   Wiring it into the `novel_orfs` step (the `decoys_not_makedb` warning, the rule 4 call, the
+   `class_fdr` and flag columns, rule 5 logging and manifest) is **M7-11b**, with step-level tests
+   written once the implementer has fixed the step inputs.
+7. **A tagged-class ORF with no makedb entry** is `unestimated`, with a `no_makedb_pair` reason.
+8. **Origin-crossing makedb entries** are matched modulo the replicon length when lengths are
+   given. Without lengths the ORF is `unestimated` (backlog item); `picked_class_q` keeps its
+   signature.
+9. **Class disagreement:** when the reconstructed ORF class differs from the entry's tag, the entry
+   tag wins, because pairing and the class list follow the makedb entry. The ORF is flagged
+   `class_mismatch` (M7-11b column).
+10. **Implementer choices (49811ae3), accepted:**
+    - Decision 2 beats decision 9: an untagged own class stays `untagged_class`.
+    - Locus-tag pairing is used only for `nterm_extension` without a (contig, strand, stop) match.
+    - The paired share counts distinct stripped decoy IDs.
+    - The picked score uses only non-de-novo target peptides.
+    - A de novo target's class is its ORF's class.
+    - Decoys are counted once per (peptide, class) at the minimum E.
+    - `regime()` of mixed ORFs returns the first of picked / de novo / unestimated.
+    - `stats.tda.picked_fdr_rescaled` now holds the ADR-0009 rule, and M4-12 `_picked_q` uses it
+      (same arithmetic). A paired share of 0 now raises instead of giving NaN.
+    - M7-11b step tests pin decisions 7–9.
+11. **Statistician block on #237 (comment 6359036495).**
+    - B1, picked: a class is ranked on (q, score) only when every target and every decoy row has a
+      finite q. Otherwise it is ranked on score alone, if all rows have a score. Otherwise the class
+      is `unestimated` with reason `decoys_unscored`, mirroring the M4-24 shared-key rule.
+    - B1, de novo: a NaN E raises `ValueError`.
+    - B2: `docs/methods/novel-orfs.md` §"Class FDR" records the decision-3 anti-conservatism with
+      the statistician's numbers. M7-13 G4 measures it with false ORFs of ≥ 3 peptides, per class.
+    - Implementer round 2. The lead removes the two Block-1 strict xfails after the fix; the
+      decision-3 xfail stays until M7-13.
+12. **Statistician round 2 (4704a61e), B3:** in the all-q-finite branch, score breaks ties only
+    when every decoy row in the class has a score. Otherwise the class ranks on q alone, and ties
+    go to the decoy (decision 5). This matches M4-24's shared-key rule. A target without a score
+    may still rank last, which is conservative.
+    - The strict xfail `test_picked_unscored_decoys_do_not_lose_q_ties` is removed by the lead
+      after the fix.
+    - Not blocking: when only some targets lack q, M7-11 ranks on score alone while M4-24 keeps q.
+      This is safe and goes to the backlog for alignment.
+13. **Code review #237 (pullrequestreview-5625532425):** changes requested.
+    - **B1:** the stop key is off by 3 for open-3′ ORFs (a linear contig end or an X codon). When
+      `o.end_3p_open`, use `o.stop + 3` on + and `o.stop - 3` on −, matching the makedb segment.
+      The methods-note sentence on where the stop starts is corrected. The test-author writes one
+      test per strand; the implementer applies the fix.
+    - **B2:** four deterministic `_class_rank` unit tests, as specified in the review, kill the
+      surviving mutants C3–C5, C8, C9, C13 and C14 (test-author).
+    - **B3:** direct `stats.tda.picked_fdr_rescaled` unit tests (test-author):
+      - f in {0, < 0, > 1, NaN} raises;
+      - f = 1 equals `picked_fdr`;
+      - a hand-computed case at f = 0.8 with a tie;
+      - the empty and no-target-win cases.
+    - Nits 1–8 go to the backlog. Nit 4 (`min_identity` / `min_coverage` lower bounds) is a config
+      bound on a protected file, so it is pending ADR, not blocking.
+14. **Test-author review tests (0dd33c6b).** When `replicon_lengths` is given, the open-3′ ORF
+    key is wrapped modulo the replicon length, as the makedb entry key already is. So on − the
+    key is (stop − 3) mod L, and `test_open3_orf_pairs_with_replicon_lengths_given[-]` pins it.
+    Lengths apply to linear contigs too: wrapping changes only keys below 0 or at L or above, so it
+    is harmless there. B2 and B3 kill every listed mutant (Slurm 1870248).

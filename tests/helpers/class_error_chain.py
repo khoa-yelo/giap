@@ -228,7 +228,8 @@ def run_step(inputs: Mapping[str, Path], out: Path, cfg: Any) -> tuple[dict[str,
 
     load_step_modules()
     paths = {"pileup": out / "tables/pileup.tsv.gz", "variants": out / "tables/variants.tsv",
-             "variants_vcf": out / "tables/variants.vcf"}  # fmt: skip
+             "variants_vcf": out / "tables/variants.vcf",
+             "variants_qc": out / "work/variants_qc.parquet"}  # M7-14  # fmt: skip
     records: list[logging.LogRecord] = []
 
     class _H(logging.Handler):
