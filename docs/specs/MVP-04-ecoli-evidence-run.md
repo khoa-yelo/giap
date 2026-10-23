@@ -565,3 +565,13 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
     - The high-island part means every planted high island is recovered.
     - Next: the implementer (`K12_ISLANDS`, the `k12_evidence` docstring, the island part of
       `gate13()`).
+23. **Statistician review of part 2 (d14f0468): APPROVE** (#258 comment 6365837248). Slurm 1873211:
+    the scored-null calibration files pass (14), since they use their own 8-TU island excerpt.
+    - The four methods-note corrections (M1–M4) are applied to `docs/methods/islands.md`.
+    - N1: gate 7's expected band [0, 0.01] sits below a correct engine's 10-seed mean of
+      0.0109 ± 0.0013. It stays as pre-registered; `outside_expected` is a warning, not a failure.
+      When the ranges are re-set after the first run, the statistician's [0.008, 0.014] is the
+      candidate.
+    - N2–N6 (eligible vs scored genes in q and w, detrended S past the ceiling, gate 5's
+      decoy-only wins, gate 12 precision risk at few calls, no CI on Moran's I and gate-7 FDP):
+      recorded here, not changed.
