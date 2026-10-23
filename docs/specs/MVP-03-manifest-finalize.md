@@ -346,3 +346,30 @@ merged.
 - Needs Khoa: the run-scope tokens `input_prefiltered`, `cai_reference_missing`,
   `no_detection_limit_model` and `uncalibrated:<key>` (one ADR). They stay in `RUN_FLAGS_PENDING`
   until Khoa answers; nothing is blocked.
+
+## Lead decisions on the 03c tests (2026-10-22, after 0bf8ee2a)
+
+15. The strict `MVP03C` xfail marks in the 03a tests are removed by the lead once 03c's
+    implementation lands (they will XPASS); the implementer reports which ones pass.
+16. Under the local executor the CLI tests use `fake_giap_root` for a setup-form db; the sim100k
+    integration keeps the provisional test db (`retrieved` null there).
+17. `operons` and `mapping` are null when no event exists; `context` holds empty lists. A stub
+    `mapping.search_db_resolved` event with no values gives `mapping = null`.
+18. `context.oric` is sorted by contig; `context.replicons` keeps C1 order.
+19. The `calibration` source defaults to None (no `uncalibrated:` flags) so the 03a exact-flag
+    tests stay green; the run tail and `giap _step manifest` pass `calibration.load()`.
+20. **Lead edits after the 03c implementation (2bb97710):**
+    - The 11 strict `MVP03C` xfail marks are removed (decision 15).
+    - `test_operons_step.py::test_decision_6_event_records_pi0_and_bin_counts` compares a
+      non-finite oracle edge (the −∞ first bin) as null, since `_plain` maps ±∞ to None.
+    - A 0-byte output (a `-stub-run` `touch`) reads as absent.
+    - Of several distinct `operons.missed_operons` / `mapping.search_db_resolved` payloads, the
+      last one in file order wins.
+    - `giap _step manifest` still writes `databases: []`; this is a backlog item.
+21. **Review on #236 (lead fixes):**
+    - B1: an unreadable `versions.yml` (YAML or UTF-8 error) is skipped with a warning, so the run
+      tail never fails on it.
+    - B2: tests cover the digest winning over a lock, and BaseLoader keeping `1.10` a string.
+    - Decision 20 is now honoured for distinct payloads A, B, A (A wins).
+    - B3: the backlog lines this issue closes are marked.
+    - Tests are in tests/unit/manifest/test_manifest_review_236.py; nits go to the backlog.

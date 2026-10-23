@@ -35,7 +35,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M3-17/M4: resolve makedb protein IDs (GIAPORF_, NOVEL_, *_patch) through db_id_map.tsv in annotate_protein_hits instead of flagging cross_strain_protein (M3-23 review).
 - M2: the full-DB Bakta recordings (bakta_full/*) were made without a replicon table, so every replicon is 'linear'; re-record with preflight's replicons.tsv (--replicons) so circular wraps are exercised (M3-23 review).
 - M2: one shared IUPAC-aware reverse complement (ostir.py _COMP, bakta.py, operons.py only complement ACGTN; preflight allows IUPAC) (M2-16 review).
-- M2-15: test the manifest `uncalibrated` flag and step-level `cross_check_transtermhp: false` once manifest and optional-output support exist.
+- M2-15: test the manifest `uncalibrated` flag and step-level `cross_check_transtermhp: false` once manifest and optional-output support exist. **The `uncalibrated` flag part is closed by MVP-03c (#236); the cross_check part is open.**
 - M2-15: parse_bactermfinder's input format is provisional (no recording); record a real BacTermFinder run (opt-in tool, env not built) and pin the parser to it.
 - M4-20: replace M4-16's test stand-ins (p_detect_true, fixed COG table, tier/detectability columns) with the real M4-12/M4-13 outputs once merged.
 - M4-14 (statistician): re-measure abundance.ibaq_denominator on M4-09 data before switching (fails 10–40 % at p_obs = 0.3); restate as a pooled mean Δρ if needed; add the p_obs = 0.3 attack.
@@ -70,7 +70,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Promotech sim100k recording ($GIAP_ROOT/recordings/promotech/sim100k) is a genome-wide -g run with every row labelled chr1,plasmid_1; re-record in GIAP's -s window mode (M2-21 test-author).
 - Nightly: test the newest open PR branches too (M2-21 decision 5, deferred). containers.yml / GHCR images deferred (M2-21 decision 2).
 - Benchmarks: gate only steps with a baseline ≥ 1 s (M2-21 decision 10); implement the threshold in the benchmark check.
-- M4-19 decision 7: the run manifest records `output.sensitivity = off`; decision 8: no rows for a module that is off. (Decision 16, registering and wiring `run_sensitivity`, is done: MVP-01.)
+- M4-19 decision 7: the run manifest records `output.sensitivity = off`; decision 8: no rows for a module that is off. (Decision 16, registering and wiring `run_sensitivity`, is done: MVP-01.) **Closed by MVP-03c (#236): `sensitivity.level` and `n_rows: 0`.**
 - M4-18 (#110 review): context_stats reads genes.parquet with pd.read_parquet; switch to M4-15's read_genes_parquet (output identical today) with the M5 context_stats work.
 - Flaky timing asserts on loaded nodes: tests/unit/genetable/test_evidence.py::test_m409_default_fixture_detected_true_have_evidence (1.0 s; seen 1.01–1.13 s) and test_sim_layout::test_speed_1000_genes (0.2 s; seen 0.23 s). Move to benchmarks/ or loosen.
 - Slurm test runs on barley nodes are ~8× slower (subprocess timeouts in test_cli_step_load, test_exact_review, test_criteria_review): raise those timeouts or exclude barley in scripts/slurm/test_branch.sbatch.
@@ -96,7 +96,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - MVP-01 pass 2: nothing produces `id_map` under Nextflow (C14 is an optional input of
   `gene_table` and `context_stats`; the local executor stages `annotation/id_map.tsv`), and the
   `tables/` outputs are published but not validated inside the pipeline (contract assertions).
-- MVP-01 pass 2: the registered `sensitivity` step writes a header-only `tables/sensitivity.tsv`
+- MVP-01 pass 2: the registered `sensitivity` step writes a header-only `tables/sensitivity.tsv` **Closed by MVP-03c (#236).**
   when `output.sensitivity = off` (a declared step output must exist), while `run_sensitivity`
   leaves no file under the local executor. Decide which one the §9.4 manifest should describe.
 - MVP-01 real run (jobs 1861957, 1861972, sim100k): every step runs and 1,646 peptide hits reach
@@ -381,7 +381,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - `genes=None` means molar and all eligible: the step must always pass `genes` (or make it required);
   - drop the internal `which` column before `pairs.tsv` (M6-07 decision 4);
   - mutant test gaps: `partial` on `gene_a` only; `N_NO` counting only targets; `null_model` name with a dropped set; deterministic decoys-before-targets order; decoys' `partial` symmetry.
-- M6-06 (pass 2): `bin_counts` and the π₀ actually used must reach the §9.4 run report and the manifest when the operons step is wired (M6-07/M6-08); the function returns them but nothing writes them yet.
+- M6-06 (pass 2): `bin_counts` and the π₀ actually used must reach the §9.4 run report and the manifest when the operons step is wired (M6-07/M6-08); the function returns them but nothing writes them yet. **Closed by MVP-03c (#236).**
 - M6-06 (pass 2): the missed-operon benchmark baseline was measured in the iron-15 session allocation only (0.23 s); re-measure on wheat with the other M6 entries.
 - M6-06 (pass 2): the lfdr of targets in a bin with no decoys is too small (methods note, "Known asymmetry"); set it NA or 1 there before lfdr is ever thresholded.
 - M6-05 review of #147 (code reviewer, statistician), owed to M6-05H/M6-09:
@@ -440,8 +440,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - `merge_tests` keeps the first row when a `pair_id` appears in both M6-05 and M6-06 rows (cannot happen: OP vs NO), with no warning;
   - `evidence_note` wording is placeholder prose (spec "Hardening owed"); `layer_missing:*` is not added to SW rows (pass 2);
   - `flag_pairs` builds notes with `iterrows` (fine at thousands of flagged pairs; vectorise if a benchmark says so).
-- M6-06 (pass 2): `bin_counts` and π₀ now reach `logs/events.jsonl` as the §6.7 event `operons.missed_operons` (M6-08); the §9.4 run report and `run_manifest.json` still have no writer that reads them. The first bin's `lower_bp` is written as `-Infinity` (Python `json` default), which is not strict JSON.
-- M6-06 (pass 2): `bin_counts` and the π₀ actually used must reach the §9.4 run report and the manifest when the operons step is wired (M6-07/M6-08); the function returns them but nothing writes them yet.
+- M6-06 (pass 2): `bin_counts` and π₀ now reach `logs/events.jsonl` as the §6.7 event `operons.missed_operons` (M6-08); the §9.4 run report and `run_manifest.json` still have no writer that reads them. The first bin's `lower_bp` is written as `-Infinity` (Python `json` default), which is not strict JSON. **Closed by MVP-03c (#236).**
+- M6-06 (pass 2): `bin_counts` and the π₀ actually used must reach the §9.4 run report and the manifest when the operons step is wired (M6-07/M6-08); the function returns them but nothing writes them yet. **Closed by MVP-03c (#236).**
 - M6-06 (pass 2): the missed-operon benchmark baseline was measured in the iron-15 session allocation only (0.23 s); re-measure on wheat with the other M6 entries.
 - M6-06 (pass 2): the lfdr of targets in a bin with no decoys is too small (methods note, "Known asymmetry"); set it NA or 1 there before lfdr is ever thresholded.
 - M6-07 review of #152 (non-blocking):
@@ -458,7 +458,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - `peptides`, `peptide_hits`, `peptide_runs`, `detection_summary` are declared but not staged by OPERONS nor read (M6-02, pass 2);
   - the `giap.steps.common` importers alias `one_path as _path` etc.; rename the call sites when the modules are next touched.
 - M6-08 review of #155 (approve; pass 2):
-  - **must-do before the manifest writer:** open bin bounds `±Infinity` in the `operons.missed_operons` event are not strict JSON; write them as `null` in `_plain`;
+  - **must-do before the manifest writer:** open bin bounds `±Infinity` in the `operons.missed_operons` event are not strict JSON; write them as `null` in `_plain`; **Closed by MVP-03c (#236).**
   - local executor stages `peptides` and `detection_summary` into `operons` (and orders it after `context_stats`); OPERONS under Nextflow stages neither; reconcile before M6-02 reads them;
   - missing-layer WARNINGs have no §6.7 `operons.layer_missing` event;
   - `assign_tus` on precomputed `tx_rates` in `_layer` is dead work (`pair_frame` never reads `tu_id`);
@@ -720,6 +720,23 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
 
+### MVP-03c follow-ups
+- `giap _step manifest` passes no db manifest, so `databases` is `[]` on the Nextflow step path (decision 20).
+
+### MVP-03c code-review nits (PR #236, comment 6358790241)
+- Decision 17 `mapping = null` for stub events is untested (the test accepts either).
+- `_tools`: the "first non-null in trace order" merge can give one row both a digest and a lock hash; the digest winner depends on completion order.
+- A tag-only container still gets a lock hash; `*.pip.txt` locks are not hashed.
+- A calibration key without a `calibrated` field shows `false` but adds no `uncalibrated:` flag.
+- `databases`:
+  - a non-string provisional version fails the schema;
+  - a top-level `schema_version` becomes a row;
+  - a non-dict `items` entry raises;
+  - `retrieved: ""` should be null.
+- No unit test writes a 0-byte output, so the 0-byte rule is covered only by test_mapping_nf_run_events.
+- The plots step's `oric_position` events are labelled `step: context_stats`.
+- `_plain` maps ±∞ but not NaN.
+- Schema: `oric` items lack `additionalProperties: false`; `bin_counts` items accept any numeric key.
 ### M9-18 (V12) untested decisions
 - Tests for M9-18 decisions 6–9: NA window for a gene missing from genes.parquet, in-frame cover
   rule, "(N peptides)" line, header-only `variant_windows.tsv`.
