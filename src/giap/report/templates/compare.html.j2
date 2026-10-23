@@ -1,0 +1,86 @@
+{% macro table(t) %}
+<h3>{{ t.name }} ({{ t.rows | length }} rows shown; <a href="{{ t.href }}">full table</a>)</h3>
+<input type="search" data-filter="{{ t.key }}" placeholder="filter rows" aria-label="filter {{ t.name }}">
+<div class="table-wrap">
+<table data-table="{{ t.key }}">
+<thead><tr>{% for h in t.header %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+<tbody>
+{% for r in t.rows %}
+<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endmacro %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GIAP run comparison</title>
+<style>
+{% include "report.css" %}
+</style>
+{% if plotlyjs %}
+<script>{{ plotlyjs | safe }}</script>
+{% endif %}
+</head>
+<body>
+<h1>GIAP run comparison</h1>
+<p>GIAP {{ version }}. {{ runs | length }} runs on one genome; every ρ is shown with its TU-block bootstrap 95 % CI.</p>
+<section id="runs">
+<h2>Runs</h2>
+<table data-table-runs="runs">
+<thead><tr><th>label</th><th>directory</th><th>genome SHA-256</th><th>detection tier</th></tr></thead>
+<tbody>
+{% for r in runs %}
+<tr><td>{{ r.label }}</td><td>{{ r.directory }}</td><td>{{ r.genome_sha256 }}</td><td>{{ r.detection_tier }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</section>
+<section id="detection">
+<h2>Detection across runs</h2>
+<div class="plot" data-plot="V16">
+{% for i in slot.instances %}
+<figure>
+{% if i.svg is not none %}
+{{ i.svg }}
+{% endif %}
+<figcaption class="links">{{ i.stem }}{% for label, href in i.links %} <a href="{{ href }}">{{ label }}</a>{% endfor %}</figcaption>
+</figure>
+{% endfor %}
+{% if slot.note %}
+<p class="note">V16: {{ slot.note }}</p>
+{% endif %}
+</div>
+{{ table(detection) }}
+</section>
+<section id="abundance">
+<h2>Abundance concordance</h2>
+<p>V16 panel (b) above; the shared measured log2 abundances of each pair below.</p>
+{% if live %}
+{% for i in live.instances if i.twin %}
+<figure>
+{% include "plotly_block.html.j2" %}
+</figure>
+{% endfor %}
+{% endif %}
+{{ table(abundance) }}
+</section>
+<section id="stability">
+<h2>Stability of calls</h2>
+{{ table(stability) }}
+</section>
+<section id="provenance">
+<h2>Provenance</h2>
+<p>GIAP version: {{ version }}</p>
+<p>Genome SHA-256: {{ runs[0].genome_sha256 if runs else "not available" }}</p>
+</section>
+{% if plotlyjs %}
+<footer><p>Interactive figures use plotly.js {{ plotly_version }} (MIT licence, Copyright Plotly, Inc.), inlined in this page.</p></footer>
+{% endif %}
+<script>
+{% include "tables.js" %}
+</script>
+</body>
+</html>

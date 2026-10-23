@@ -878,6 +878,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
+- M9-23: switch existing plot titles to `giap.viz.base.plural` as their tests are next touched.
+- M9-23: hide V16's `Skip` ("written by giap compare") from ordinary run reports; add a test for the runs-section detection tier per run.
 - Review #225 nits (M7-12):
   - N2: the methods-note FDP table is at 200 ORFs per class; rerun it at the gate count of 300.
   - N3: `OrfEntries` does not restate `NTERM_MIN_UPSTREAM_AA` and assumes `min_orf_aa` = 7; assert `digest_len[0]` ≥ 7 in six-frame mode.
@@ -896,3 +898,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - N3: no unit or step test passes precomputed TSV layers (mutant M9).
   - N4: hardening still owed: `--sensitivity full` in the nightly e2e, and the M9 text item on threshold sensitivity.
   - N5: `test_unpatched_variants_unchanged` has an odd `assert [c for c in ...]`.
+- M9-23: compare.html has no size warning (the 25 MB check covers report.html only); the V16 TSV/twin carry every shared gene per pair. Add the check or bin the twin past N points.
+- M9-23: V16's skip on ordinary runs happens inside the plot function, so `skip_reason()` is None and report.html's skipped notes omit it; move it to a registered skip reason.
+- M9-23 review nits (#254): PNG-only output says "plot file absent" on compare.html; binned V16 cells have per-cell colour scales and no count legend; V16 upper-cell scatters have no axis values; a locus tag literally `NA` is misread on the twin's TSV round trip; drop `NA_CELL` (= GREY) and `_mappable`.
