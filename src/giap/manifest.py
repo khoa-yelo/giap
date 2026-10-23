@@ -38,11 +38,11 @@ RUN_FLAGS: frozenset[str] = frozenset({
     "layer_missing:", "anti_sd_default", "bakta_db_light", "c_assumed",
     "operon_source_distance_model", "tu_recal_skipped", "too_few_ranked_tus",
     "no_eligible_genes", "p_detect_clipped", "null_degenerate", "tu_recal_reduced",
+    # beyond §9.4, accepted by Khoa (ADR-0041)
+    "input_prefiltered", "cai_reference_missing", "no_detection_limit_model", "uncalibrated:",
 })  # fmt: skip
-#: Run-scope tokens beyond §9.4 awaiting Khoa (MVP-03 "Needs Khoa" 1).
-RUN_FLAGS_PENDING: frozenset[str] = frozenset(
-    {"input_prefiltered", "cai_reference_missing", "no_detection_limit_model", "uncalibrated:"}
-)
+#: Run-scope tokens awaiting a Khoa decision; empty since ADR-0041 (MVP-03 "Needs Khoa" 1).
+RUN_FLAGS_PENDING: frozenset[str] = frozenset()
 
 _OPTIONAL_MODULES = ("bgc", "function", "mobile")
 _COPIED = (
