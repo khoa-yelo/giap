@@ -754,3 +754,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
+- MVP-04: origin-crossing novel ORFs excluded from the planted set on K-12 (spec question 7).

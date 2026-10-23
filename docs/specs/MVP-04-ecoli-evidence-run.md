@@ -345,3 +345,30 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
 12. **TE7 on the full run** (two runs, same seed, byte-identical `tables/`) would double the cluster
     time. **Default:** TE7 on the inputs here (gate 9). The full-run TE7 stays with the integration
     runs (sim100k) and M7-15 item 7.
+
+## Lead decisions (2026-10-23)
+1. **Questions 1–5, 7, 8, 10–12:** the proposed defaults are accepted as written.
+   - The committed `tests/data/genomes/k12_mg1655.fna.gz` (M2-10, §11.4) is used by hash, and
+     nothing derived from it is committed.
+   - Null hits split by search space, with a 50/50 fallback below about 50 gene-level nulls.
+   - RegulonDB 14.5.0 truth TUs.
+   - SNVs only, at 0.5/kb.
+   - Upper-tercile novel ORFs of 30–150 aa.
+   - Origin-crossing novel ORFs are excluded, with a backlog item.
+   - The function module is off.
+   - Range gates become constants after the first measured run.
+   - One fixed seed; a 3-seed spread is recorded, not gated.
+   - TE7 is checked on the inputs only.
+2. **Question 6 (`n_decoy_wins` tier row): pending Khoa.**
+   - Default for now: no GIAP change. The summary script computes the number.
+   - Logged in PROGRESS.md › Questions for Khoa; not blocking.
+3. **Question 9 (weekly slot):**
+   - Default: add weekly array task 2 if `weekly.sbatch` is protected; otherwise replace the
+     step (c) stand-in.
+   - Changing the scrontab is pending Khoa; not blocking, and the first run is a one-off sbatch.
+4. **Order:** the test-author starts after #225 (M7-12) merges, because `scored_null` extends its
+   decision-21 coin. #238 and #237 must merge before the implementer's end-to-end run, not before
+   the tests.
+5. **Runtime:** before submitting, sum the giap-* CPUs together with M7-15's K-12 arm. Promoter
+   Calculator batching (backlog) is needed if the first run exceeds 8 h; that is measured, not
+   assumed.
