@@ -746,13 +746,23 @@ def simulate_proteomics(
     seqs: dict[str, str],
     topology: dict[str, str],
     reference: Sequence[Feat] | None = None,
+    log_abundance: np.ndarray | None = None,
 ) -> dict[str, Path]:
-    """Write ``peptides.tsv``, ``proteins.faa``, ``abundance.tsv`` and ``truth/peptides.tsv``."""
+    """Write ``peptides.tsv``, ``proteins.faa``, ``abundance.tsv`` and ``truth/peptides.tsv``.
+
+    ``log_abundance`` (MVP-04, opt-in) gives the natural-log abundance of every expressed protein
+    in ``expressed_proteins`` order instead of drawing ``gene_log_abundance``; ``None`` keeps the
+    draw (and so every existing output byte for byte)."""
     if cfg.wrong_source == "other_strain" and reference is None:
         raise ValueError("wrong_source='other_strain' needs SimConfig.strain")
     rng = np.random.default_rng([seed, _STREAM])
     prots = expressed_proteins(feats, novel, seqs)
-    la = gene_log_abundance(rng, len(prots))
+    if log_abundance is None:
+        la = gene_log_abundance(rng, len(prots))
+    else:
+        la = np.asarray(log_abundance, dtype=float)
+        if la.shape != (len(prots),):
+            raise ValueError(f"log_abundance has shape {la.shape}, expected ({len(prots)},)")
     detected, occ, first = _detect(cfg, rng, prots, la)
     annotated = [(f.locus, f.kind, f.aa) for f in feats if f.kind in ("cds", "sorf") and f.aa]
     annotated_loci = {loc for loc, _, _ in annotated}
