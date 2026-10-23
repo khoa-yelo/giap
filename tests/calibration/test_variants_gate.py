@@ -28,6 +28,7 @@ Lead decision 4 (ADR-0049, proposed, pending Khoa): G1, A6a, A6b and A6c are str
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Callable
 from typing import Any
 
@@ -46,6 +47,16 @@ NOT_FAILED = frozenset({"pass", "unconfirmed", C.SHARD_STATUS, C.SKIPPED_STATUS}
 G1_GUARD = {"n_truth": 50, "n_pred": 50}
 REF_MIN_RATE, REF_MIN_N = 0.95, 10
 ADR_0049 = "ADR-0049 (proposed, pending Khoa)"
+#: lead decision 6: a ``--shard`` or ``GIAP_CALIBRATION_CONFIRM`` run has no verdict (``skipped``:
+#: a check not listed for block 2), so a strict xfail must not XPASS there
+NO_VERDICT = frozenset({C.SHARD_STATUS, C.PENDING_STATUS, C.SKIPPED_STATUS})
+SHARD_SKIP = "shard run: the verdict comes from --merge"
+
+
+def skip_without_verdict(status: str) -> None:
+    """Called after the record is written, before the assertion (lead decision 6)."""
+    if status in NO_VERDICT:
+        pytest.skip(SHARD_SKIP)
 
 
 def xfail_0049(why: str) -> pytest.MarkDecorator:
@@ -132,6 +143,7 @@ def _g1(full: bool) -> None:
                                                      strict=True)),
                      "high_other": other, "masked": sum(r["masked"] for r in ran),
                      "seconds_per_replicate": np.mean([r["seconds"] for r in ran])})  # fmt: skip
+    skip_without_verdict(rec["status"])
     assert rec["status"] in NOT_FAILED, rec
 
 
@@ -183,6 +195,8 @@ def _a6a(full: bool) -> None:
                  "ci": share_ci(share, len(got)), "status": "fail" if bad else "pass"})  # fmt: skip
     if got and n_rows < 1:  # not an AssertionError: never an xfail
         raise RuntimeError("A6a vacuous: no isobaric-only substitution/block row in the block")
+    if not bad and os.environ.get(C.SHARD_ENV):  # a clean partial range is no verdict
+        pytest.skip(SHARD_SKIP)
     assert not bad, f"A6a: isobaric-only ALT rows without mass_equivalent: {bad}"
 
 
@@ -208,6 +222,7 @@ def _a6_fwer(full: bool, stream: str, record: Callable[[int], dict[str, Any]], k
                  "bound": rec["bound"], "ci": share_ci(rec["observed"], len(ran)),
                  "unfolded_any": float(np.mean([r[key]["unfolded"] > 0 for r in ran]))
                  if ran else None})  # fmt: skip
+    skip_without_verdict(rec["status"])
     assert rec["status"] in NOT_FAILED, rec
 
 
