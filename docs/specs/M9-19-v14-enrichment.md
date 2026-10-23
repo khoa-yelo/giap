@@ -120,3 +120,8 @@ passes q ≤ `<alpha>`" — never "no enrichment" (ADR-0026 consequence).
      - N8: twin parity. The TSV gains a `redundant` column; the twin keeps q = 0 at the cap and draws the alpha line, (c) in O/E order, and redundant rows small and grey.
      - N11: O/E = NaN rows get a "O/E undefined (E = 0)" note.
    - **Backlogged:** N9 (`x.max()`), N10 (`_draw_b` helper split), and "es" in UNITLESS.
+6. **Test-author gaps (0d191489).**
+   - **N5:** the data TSV keeps every significant ORA row; the figure draws the top 30. This exception to "panel = drawn rows" is written into the TSV's description.
+   - **N2:** the `^` marker applies in both (b) and the (c) q strip.
+   - **N3, N4:** read as the tests pin them.
+   - **N8:** the twin's alpha line is at the default 0.05.
