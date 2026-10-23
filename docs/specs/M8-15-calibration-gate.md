@@ -32,6 +32,18 @@ the §8.4 level criterion for all three; KS is computed and **recorded** (decisi
 | recovery (recorded) | `determinants_planted(1500, …)` at true R² ∈ {0.2, 0.5} | LightGBM `cv_r2_mean` within ±0.1 of the truth; dominant block = the planted largest in ≥ 70 % of top-decile genes; recorded | 20 |
 | centring (recorded, ADR-B) | `gsea_null` and a planted `gsea` power arm, centred vs raw scores | level of both; power difference recorded | 50 |
 
+**Amendment (M8-17b, ADR-0038; statistician, PR #214 N3).** The shipped GSEA engine is R fgsea
+(`RFgseaEngine`, `fgseaMultilevel` 1.36.2 in the `giap-fgsea` env), which GitHub CI cannot run.
+So the `gsea` gate, its fast tier and the pooled `gsea_null(4000)` arm with ≥ 100 sets, and
+attack 3 and its teeth, run on `RFgseaEngine` on Slurm only (markers `slow` and `requires_r`):
+in the weekly `gsea` task of the full-calibration array (`calsuite gsea`), which needs the
+`giap-fgsea` env built (`sbatch scripts/slurm/build_envs.sbatch fgsea`). The per-PR CI arms that
+use the in-process `SIMPLE_ENGINE` (the superseded port) are a **smoke test only**; they carry no
+level claim for `enrichment_gsea.tsv`. The fast arm (R = 50) reuses replicates 0..49 of the full
+arm's stream, so it is a prefix of the full arm and not independent evidence. Existing R-engine
+arms: `tests/calibration/test_gsea_r_engine_calibration.py` and
+`tests/calibration/attacks/test_attack_gsea_r_engine.py`.
+
 `tolerances.yaml` already carries `ora: 100 / 1,000`, `gsea: 50 / 300`, `determinants: 20 / 100`
 (protected, **unchanged**). Everything goes through M4-05's `calibrate` so ADR-0015's two-block
 confirmation and sharding apply.
