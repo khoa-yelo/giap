@@ -30,7 +30,6 @@ import pandas as pd
 from giap.annotate.layers import replicons_of
 from giap.config import GiapConfig
 from giap.context import sensitivity as S
-from giap.context.sensitivity import PAIR_THRESHOLD
 from giap.genetable.covariates import COVARIATE_COLUMNS
 from giap.genetable.detectability import fit_detectability
 from giap.io.genes_tsv import read_genes_parquet
@@ -104,25 +103,28 @@ def _sensitivity(gene_table: Path, tables: Mapping[str, Path], cfg: GiapConfig, 
     pairs = _pair_tables(tables, frames, cfg)
     if pairs is None:  # the UniOP-threshold patch only means something with the pair tables
         families.pop(_OPERONS, None)
-        variants = [v for v in variants if PAIR_THRESHOLD not in v.config_patch]
     else:
         frames = {**frames, **pairs}
         if "relative" in set(genes["abundance_scale"].dropna().astype(str)):
             _log.info("sensitivity: %s: abundance scale is relative; no pair is tested, every "
                       "%s set is empty (jaccard NA)", _OPERONS, _OPERONS)  # fmt: skip
+    # a variant rerun for no remaining family (``pair_threshold=*`` without the pair tables) is
+    # dropped before its gene table is built (M6-10 lead decision 8)
+    variants = [v for v in variants if any(v.runs_for(f) for f in families)]
     base = with_overrides(cfg, {"stats.permutations": S.SENSITIVITY_B})
-    runs: list[tuple[str, pd.DataFrame, GiapConfig]] = []
+    runs: list[tuple[S.Variant, pd.DataFrame, GiapConfig]] = []
     for v in variants:
         g = S.variant_genes(genes, v, cfg)
-        runs.append((v.name, _refit(g, cfg) if v.single_peptide_detected else g,
+        runs.append((v, _refit(g, cfg) if v.single_peptide_detected else g,
                      with_overrides(base, {**v.overrides, **v.config_patch})))  # fmt: skip
     primary: dict[str, frozenset[str]] = {}
     reruns: dict[tuple[str, str], frozenset[str]] = {}
     for name, family in families.items():
         fam = _bind(family, frames)
         primary[name] = fam(genes, base, for_step(f"sensitivity/{name}", cfg.seed))
-        for vname, g, vcfg in runs:
-            reruns[(name, vname)] = fam(g, vcfg, for_step(f"sensitivity/{name}", cfg.seed))
+        for v, g, vcfg in runs:
+            if v.runs_for(name):
+                reruns[(name, v.name)] = fam(g, vcfg, for_step(f"sensitivity/{name}", cfg.seed))
     out.parent.mkdir(parents=True, exist_ok=True)
     write_sensitivity_tsv(out, S.sensitivity_rows(primary, reruns))
     _log.info("sensitivity: %d rows (%d variants)", len(reruns), len(variants))

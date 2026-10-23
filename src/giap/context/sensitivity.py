@@ -49,13 +49,25 @@ _RANK = {f: i for i, f in enumerate(GENE_FLAGS)}
 @dataclass(frozen=True, slots=True)
 class Variant:
     """One sensitivity rerun: its name, the config keys it changes (dotted), whether
-    single-peptide genes count as detected (§7.3.2) and a config patch (dotted keys) that changes
-    the analysis but not the abundances (M6-10 lead decision 1; empty for M4-19's variants)."""
+    single-peptide genes count as detected (§7.3.2), a config patch (dotted keys) that changes
+    the analysis but not the abundances (M6-10 lead decision 1; empty for M4-19's variants) and
+    the families it is rerun for (``None`` = every family; M6-10 lead decision 8)."""
 
     name: str
     overrides: Mapping[str, object]
     single_peptide_detected: bool = False
     config_patch: Mapping[str, object] = field(default_factory=dict)
+    families: tuple[str, ...] | None = None
+
+    @property
+    def patch_only(self) -> bool:
+        """True when the variant only patches config: no overrides, no single-peptide switch
+        (its gene table is the primary's)."""
+        return bool(self.config_patch) and not self.overrides and not self.single_peptide_detected
+
+    def runs_for(self, family: str) -> bool:
+        """Whether this variant is rerun for ``family`` (``families`` is ``None`` or names it)."""
+        return self.families is None or family in self.families
 
 
 #: ``(genes, cfg, rng, **tables) -> flagged IDs``; ``...`` because families add keyword-only tables
@@ -81,7 +93,12 @@ def variants(cfg: GiapConfig, tier: str) -> list[Variant]:
         out.append(Variant("top3", {"abundance.method": "top3"}))
     if level == "full":
         out += [
-            Variant(f"pair_threshold={t:g}", {}, config_patch={PAIR_THRESHOLD: t})
+            Variant(
+                f"pair_threshold={t:g}",
+                {},
+                config_patch={PAIR_THRESHOLD: t},
+                families=("operon_flags",),
+            )
             for t in UNIOP_THRESHOLDS
             if t != cfg.annotation.uniop.pair_threshold
         ]
@@ -114,7 +131,7 @@ def variant_genes(genes: pd.DataFrame, variant: Variant, cfg: GiapConfig) -> pd.
     ``imputed_abundance`` flags matching the new imputation. ``p_detect`` is left as is (the
     step refits it). A patch-only variant gives the primary table back (a copy)."""
     g = genes.copy()
-    if variant.config_patch and not variant.overrides and not variant.single_peptide_detected:
+    if variant.patch_only:
         return g
     tags = pd.Index(g["locus_tag"].astype(str))
     det = pd.Series(g["detected"].astype(bool).to_numpy(), index=tags)
