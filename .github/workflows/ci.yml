@@ -5,6 +5,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -86,22 +87,54 @@ jobs:
           tests --ignore=tests/calibration --ignore=tests/integration --ignore=tests/e2e
           --junitxml=junit.xml
 
+  # The fast suite with coverage, in parallel shards (scripts/ci/shard_tests.py); a draft PR skips it
+  # and gets it on ready_for_review. calibration-and-coverage combines the shards and applies the
+  # coverage gate. scripts/dev/waitmerge.sh never merges a draft, so a skipped run cannot merge.
+  coverage-shard:
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras
+      # the fast calibration subset (minus calibration_nightly, which scripts/slurm/nightly.sbatch
+      # runs on Slurm) with every other fast test of this shard's files
+      - name: fast suite, shard ${{ matrix.shard }} of 6
+        shell: bash
+        env:
+          COVERAGE_FILE: coverage-${{ matrix.shard }}.dat
+        run: |
+          mapfile -t files < <(python3 scripts/ci/shard_tests.py ${{ matrix.shard }} 6)
+          uv run --no-sync pytest -n auto \
+            -m "not slow and not calibration_full and not calibration_nightly and not e2e" \
+            --cov=giap --cov-report= "${files[@]}" || [ $? -eq 5 ]   # 5: no test selected in this shard
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.shard }}
+          path: coverage-${{ matrix.shard }}.dat
+
   calibration-and-coverage:
+    needs: coverage-shard
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --frozen --all-extras
-      # One run: the fast calibration subset (minus calibration_nightly, which
-      # scripts/slurm/nightly.sbatch runs on Slurm) together with the coverage gate.
-      - name: fast calibration subset and coverage gate
-        shell: bash   # -eo pipefail, so the pytest exit status survives the pipe into tee
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+      - name: coverage gate over the combined shards
+        shell: bash
         run: |
           min=$(awk '/^coverage_min:/ {print $2*100}' ci/gates.yaml)
-          uv run --no-sync pytest -n auto \
-            -m "not slow and not calibration_full and not calibration_nightly and not e2e" \
-            --cov=giap --cov-report=term-missing:skip-covered --cov-report=xml \
-            --cov-fail-under="$min" | tee coverage.txt
+          uv run --no-sync coverage combine coverage-*.dat
+          uv run --no-sync coverage report --skip-covered --fail-under="$min" | tee coverage.txt
+          uv run --no-sync coverage xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
