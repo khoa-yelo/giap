@@ -215,6 +215,7 @@ NIGHTLY: frozenset[str] = frozenset(
         "test_sim_evidence_calibration.py::test_score_components",
         "test_stats_bootstrap_calibration.py::test_recorded_coverage_twenty_tus",
         "test_tolerant_recall.py::test_planted_tolerant_peptide_recall",
+        "test_variant_class_error.py::test_class_error_rate_unbiased_with_planted_variants",
     }
 )
 

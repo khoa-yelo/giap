@@ -45,6 +45,7 @@ nextflow_workflow {
                 input[3] = channel.value(file("\${v}/hits_tolerant.parquet"))
                 input[4] = channel.value(file("\${m}/peptides.norm.parquet"))
                 input[5] = channel.value(file("\${m}/reference_peptides.tsv"))
+                input[6] = channel.empty()
                 """
             }
         }
@@ -127,6 +128,7 @@ nextflow_workflow {
                 input[3] = channel.empty()
                 input[4] = channel.value(file("\${m}/peptides.norm.parquet"))
                 input[5] = channel.empty()
+                input[6] = channel.empty()
                 """
             }
         }
@@ -166,6 +168,7 @@ nextflow_workflow {
                 input[3] = channel.value(file("\${v}/hits_tolerant.parquet"))
                 input[4] = channel.value(file("\${m}/peptides.norm.parquet"))
                 input[5] = channel.value(file("\${m}/reference_peptides.tsv"))
+                input[6] = channel.empty()
                 """
             }
         }

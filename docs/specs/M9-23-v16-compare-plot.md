@@ -47,7 +47,7 @@ twin of the concordance scatter, `compare_abundance` table with BA columns), `st
 | Situation | Behaviour |
 |---|---|
 | two runs | a 2 × 2 matrix; UpSet with ≤ 3 intersections |
-| ρ NA (`too_few_shared`) | grey cell "ρ NA (too few shared)" |
+| ρ NA (`too_few_shared`) | grey cell "ρ NA", reason "too few shared" in a footnote (decision 5) |
 | all intersections empty (no detections anywhere) | empty state "No gene detected in any run" |
 | 12 runs (2¹² intersections possible) | the 30 largest drawn |
 
@@ -71,3 +71,51 @@ twin of the concordance scatter, `compare_abundance` table with BA columns), `st
 
 1. Wording "genes" for n = 1 ("1 genes") — **Proposed default:** a tiny pluralisation helper in
    `giap.viz.base` used by every title.
+
+## Lead decisions (2026-10-23)
+1. **Question 1 accepted:** a small pluralisation helper in `giap.viz.base` (for example
+   `plural(n, "gene")` → "1 gene" / "2 genes"). Every title uses it. Existing titles switch to it
+   only when their tests are next touched; that is a backlog item, not this PR.
+2. #232 (M9-22 `giap compare`) has merged, so the test-author starts from main.
+3. **Test-author (5d830124), interface accepted:**
+   - `compare_plot(detection, abundance, genes)`, where `genes` maps each label to that run's
+     `genes.tsv`. ADR-0046 is amended (lead-level) so V16 also reads per-gene log2 from each run.
+   - V16 is registered under the name `compare`. On ordinary runs its `(view, cfg)` returns a
+     `Skip` with the reason "written by giap compare". Hiding that skip from the run report is a
+     backlog item.
+   - The "detection tier per run" in the runs section is the `detection_tier` of each run's
+     `detection_summary.tsv`. No test pins it yet; that is a backlog item.
+   - The `# ruff: noqa: RUF001-003` line for ρ is accepted.
+4. **Implementer (e08531c8): accepted.**
+   - The counted size is 493 lines. That is above the 400 warning but under the 800 limit, and
+     the 86-line HTML template accounts for most of the excess, so the PR is not split.
+   - (1) The tier comes from the distinct `detection_tier` values in each run's `genes.tsv`;
+     decision 3's "detection_summary.tsv" is corrected to this.
+   - (2) No cap on the size of compare.html, and (3) V16's skip is not visible in report.html. Both
+     go to the backlog.
+   - The number format is `.2g`.
+5. **Code review (#254): CHANGES REQUESTED, B1–B5.** The test-author writes the failing tests, then
+   the implementer fixes the code.
+   - B1: the title counts "detected in all N runs" on the full intersection table, not the
+     top-30 view.
+   - B2: no cell-text overlap at 12 runs, checked with the M9-24 label-overlap checker.
+     - Fix: with 8 or more runs, drop the CI line from the cells; the CI stays in the TSV and
+       the twin hover.
+     - Fix: shorten the NA text to "ρ NA" and give its reason in a footnote.
+   - B3: the V16 SVG has at most 20,000 elements at 12 runs × 400 shared genes.
+     - Fix: draw only non-empty bins.
+     - Fix: choose the bin count per pair so that the total stays under the cap.
+   - B4: `io/compare_io._labels` rejects labels containing `&` or `;`, and the reserved labels
+     `none` and `other`. It raises a clear error before any table is written.
+   - B5: tests for these behaviours:
+     - negative ρ is hatched and clipped to the bottom colour;
+     - the ρ cells are in the lower triangle;
+     - the identity line is drawn;
+     - no twin when `report.interactive` is off;
+     - run directories are relative;
+     - at most 30 intersection rows are shown.
+   - Nits N1–N6 go to the backlog.
+6. **Test-author (35a5ec2f).** 20 tests fail on the current code and 28 pass, and every listed
+   mutant is killed. Accepted: default labels, i.e. run-directory names such as `wt&ko`, are
+   validated as well. The lead updated `test_rho_na_too_few_shared_cell` and the degenerate-case
+   row for decision 5's shortened NA text. Next: the implementer.

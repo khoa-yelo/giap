@@ -126,6 +126,15 @@ def test_example_1_pairs_rows_and_tests(local: Path) -> None:
     assert set(df["p_value"]) == {"NA"}
 
 
+def test_m6_10_sensitivity_has_operon_flags_rows(local: Path) -> None:
+    """M6-10 acceptance: a real ``giap run`` writes the ``operon_flags`` family into
+    ``tables/sensitivity.tsv``; sim100k calls no flag, so n is 0 and J is NA (review #243 B1)."""
+    df = _read(local / "tables" / "sensitivity.tsv")
+    rows = df[df["family"] == "operon_flags"]
+    assert len(rows) > 0, sorted(set(df["family"]))
+    assert set(rows["n_primary"]) == {"0"} and set(rows["jaccard"]) == {"NA"}
+
+
 def test_example_3_no_abundance(local_noab: Path) -> None:
     pairs = local_noab / "tables" / "pairs.tsv"
     assert pairs.is_file()

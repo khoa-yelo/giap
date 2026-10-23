@@ -4,9 +4,11 @@ Module 5 (core): ``peptide_hits.tsv`` of the LOCI directory ``mapping`` (read wi
 contract reader, so 0-based half-open) → M7-01 ``align_hits`` → M7-02 ``eligible``/``pileup``/
 ``sites`` → M7-03 ``vcf_records`` → ``pileup`` (always gzip), ``variants`` and ``variants_vcf``.
 Without ``hits_tolerant`` frameshift rows are left out with the WARNING run flag
-``layer_missing:hits_tolerant``. ``reference_peptides`` is declared for M7-10 and not read yet.
-One pass, no randomness. The VCF sample is ``cfg.sample_name``, which ``giap run`` resolves; an
-unresolved ``auto`` fails the step (``write_vcf``).
+``layer_missing:hits_tolerant``. With the optional C17 ``peptide_spectra`` (M7-10) every row
+carries its class error rate (``giap.variants.error_rates``), else ``unestimated``; the rates never
+change a call. ``reference_peptides`` is declared only (preflight pairs it into C17). One pass,
+no randomness. The VCF sample is ``cfg.sample_name``, which ``giap run`` resolves; an unresolved
+``auto`` fails the step (``write_vcf``).
 """
 
 from __future__ import annotations
@@ -26,8 +28,9 @@ from giap.io.vcf import VcfRecord, write_vcf
 from giap.io.work_tables import load_tables
 from giap.model.genes import GeneModel
 from giap.steps.mapping import _path, read_gene_model, resolve_search_db
-from giap.steps.registry import StepContext, step
+from giap.steps.registry import InputPath, StepContext, step
 from giap.variants.align import align_hits
+from giap.variants.error_rates import alt_support, annotate_sites, class_rates, paired_observations
 from giap.variants.flags import flags_for, start_codons
 from giap.variants.pileup import Support, eligible, pileup, sites
 from giap.variants.vcf_records import FORMAT_FIELDS, INFO_FIELDS, vcf_records
@@ -77,10 +80,12 @@ def run_variants(
     gm: GeneModel,
     genome: Mapping[str, str],
     cfg: GiapConfig,
+    spectra: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[VcfRecord]]:
     """Rule 2's chain: the pileup (with its ``attrs``), the ``variants.tsv`` frame and the VCF
     records. ``peptide_hits`` is 0-based half-open with ``;``-joined ``diff_types``. Each site
-    carries its M7-05 flags; they never change a call, confidence or count. Pure."""
+    carries its M7-05 flags and its M7-10 class error rate from the C17 ``spectra`` (none:
+    ``unestimated``); neither changes a call, confidence or count. Pure."""
     support = support_of(peptide_hits, peptides, {g.locus_tag for g in gm.genes})
     aligns = align_hits(peptide_hits, hits_tolerant, genome, gm.replicons)
     pile = pileup(eligible(aligns, support, cfg), gm, genome, cfg, support=support)
@@ -90,6 +95,12 @@ def run_variants(
         tuple(flags_for(r, starts, cfg, {(support[p].source, support[p].search_db) for p in peps}))
         for r, peps in zip(st.to_dict("records"), st.attrs["alt_peptides"], strict=True)
     ]
+    rates = []
+    if spectra is not None:
+        sup = alt_support(st, st.attrs["alt_peptides"])
+        is_dn = spectra["source"].astype(str).eq("denovo").to_numpy(dtype=bool)
+        rates = class_rates(paired_observations(spectra[is_dn], spectra[~is_dn], sup))
+    st = annotate_sites(st, rates)
     records, table = vcf_records(st, pile, genome, gm.replicons)
     return pile, table, records
 
@@ -102,6 +113,17 @@ def _peptide_hits(mapping: Path) -> pd.DataFrame:
     ph = frames["peptide_hits"]
     ph["diff_types"] = [";".join(v) if isinstance(v, list) else v for v in ph["diff_types"]]
     return ph
+
+
+def _spectra(path: InputPath | None) -> pd.DataFrame | None:
+    """C17 ``peptide_spectra`` through the contract reader (M7-10); None when not staged."""
+    if path is None:
+        return None
+    frames, issues = load_tables({"peptide_spectra": _path(path)}, ["peptide_spectra"])
+    errors = [i for i in issues if i.severity == "error"]
+    if errors:
+        raise ValueError(f"{path}: {errors[0]}")
+    return frames["peptide_spectra"]
 
 
 def _counts(col: pd.Series) -> dict[str, int]:
@@ -120,7 +142,7 @@ def _write_gzip(path: Path, pile: pd.DataFrame) -> None:
 @step(
     "variants",
     inputs=["mapping", "genome", "genes", "replicons", "peptides"],
-    optional_inputs=["hits_tolerant", "reference_peptides"],
+    optional_inputs=["hits_tolerant", "reference_peptides", "peptide_spectra"],
     outputs=["pileup", "variants", "variants_vcf"],
 )
 def variants_step(ctx: StepContext) -> None:
@@ -137,7 +159,8 @@ def variants_step(ctx: StepContext) -> None:
     genome = {r.id: r.sequence for r in read_genome_fasta(gpath)}
     gm = read_gene_model(_path(ctx.inputs["genes"]), _path(ctx.inputs["replicons"]))
     peptides = pd.read_parquet(_path(ctx.inputs["peptides"]))
-    pile, table, records = run_variants(ph, ht, peptides, gm, genome, ctx.cfg)
+    pile, table, records = run_variants(ph, ht, peptides, gm, genome, ctx.cfg,
+                                        _spectra(ctx.inputs.get("peptide_spectra")))  # fmt: skip
     data = {
         "aligned_hits": len(ph),
         "covered_codons": len(pile),

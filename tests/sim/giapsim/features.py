@@ -6,6 +6,7 @@ features in it, block-local coordinates) that the layout places between transcri
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
@@ -17,6 +18,8 @@ from giapsim.codons import CODE_11, SENSE_USAGE, STOPS, codons_of, revcomp, tran
 
 if TYPE_CHECKING:
     from giapsim.simulate import _Sim
+
+_LOG = logging.getLogger(__name__)
 
 ANTI_SD_TAIL = "GATCACCTCCTTA"  # 3' end of 16S rRNA (anti-Shine-Dalgarno)
 NOVEL_CLASSES = ("intergenic", "cds_outframe", "antisense")
@@ -187,13 +190,13 @@ def make_blocks(sim: _Sim) -> list[Block]:
 # ---------------------------------------------------------------- novel ORFs
 
 
-def _scan(seq: str, frames: tuple[int, ...]) -> tuple[int, int] | None:
-    """First start..stop ORF (>= _MIN_NOVEL_AA aa) in ``frames`` of ``seq``: (offset, length)."""
+def _scan(seq: str, frames: tuple[int, ...], min_aa: int = _MIN_NOVEL_AA) -> tuple[int, int] | None:
+    """First start..stop ORF (>= ``min_aa`` aa) in ``frames`` of ``seq``: (offset, length)."""
     for fr in frames:
         open_at = None
         for j, c in enumerate(codons_of(seq[fr:])):
             if c in STOPS:
-                if open_at is not None and j - open_at >= _MIN_NOVEL_AA:
+                if open_at is not None and j - open_at >= min_aa:
                     return fr + 3 * open_at, 3 * (j - open_at + 1)
                 open_at = None
             elif open_at is None and c in STARTS:
@@ -206,28 +209,43 @@ def _orf_row(cls: str, contig: str, s0: int, e0: int, strand: str, nt: str) -> l
 
 
 def novel_orfs(
-    sim: _Sim, counts: Mapping[str, int], seqs: dict[str, bytearray], feats: list[Feat]
+    sim: _Sim,
+    counts: Mapping[str, int],
+    seqs: dict[str, bytearray],
+    feats: list[Feat],
+    len_aa: tuple[int, int] = (_MIN_NOVEL_AA, 30),
+    margin: int = 20,
 ) -> list[list[Any]]:
-    """Plant intergenic ORFs and find out-of-frame/antisense ORFs inside CDSs (none annotated)."""
+    """Plant intergenic ORFs and find out-of-frame/antisense ORFs inside CDSs (none annotated).
+
+    Planted ORFs have ``len_aa`` residues (closed range) and keep ``margin`` bp from the ends of
+    their gap; found ORFs have at least ``len_aa[0]`` residues (M7-12; defaults as M3-18). With
+    fewer usable gaps than requested intergenic ORFs, one is planted per gap and a WARNING is
+    logged (M7-12 decision 15; the truth table records the realised count)."""
     rng, rows = sim.rng, []
+    lo, hi = len_aa
+    # +1: rng.integers(margin, gap - len - margin) needs a non-empty range (decision 15)
+    min_gap = max(160, 3 * (hi + 1) + 2 * margin + 1)
     lengths = {c: len(s) for c, s in seqs.items()}
     known = {f.aa for f in feats if f.kind in ("cds", "sorf")}
     chrom = next(iter(seqs))
     spans = sorted(p for f in feats if f.contig == chrom for p in _split(*f.span(), lengths[chrom]))
     gaps, last = [], 0
     for s, e in spans:
-        if s - last >= 160:
+        if s - last >= min_gap:
             gaps.append((last, s))
         last = max(last, e)
     n = counts.get("intergenic", 0)
     if n > len(gaps):
-        raise ValueError(f"only {len(gaps)} intergenic gaps for {n} intergenic ORFs")
+        _LOG.warning("novel ORFs: only %d intergenic gaps for %d intergenic ORFs; planting %d",
+                     len(gaps), n, len(gaps))  # fmt: skip
+        n = len(gaps)
     for gi in sorted(rng.choice(len(gaps), size=n, replace=False).tolist()) if n else []:
         a, b = gaps[gi]
-        n_aa = int(rng.integers(_MIN_NOVEL_AA, 31))
+        n_aa = int(rng.integers(lo, hi + 1))
         nt = "".join([sim.start_codon(), *sim.sense(n_aa - 1), sim.stop_codon()])
         strand = "+" if rng.random() < 0.5 else "-"
-        s0 = a + int(rng.integers(20, b - a - len(nt) - 20))
+        s0 = a + int(rng.integers(margin, b - a - len(nt) - margin))
         seqs[chrom][s0 : s0 + len(nt)] = (nt if strand == "+" else revcomp(nt)).encode()
         rows.append(_orf_row("intergenic", chrom, s0, s0 + len(nt), strand, nt))
     cds = [
@@ -238,7 +256,7 @@ def novel_orfs(
         for k in rng.permutation(len(cds)).tolist() if want else []:
             f = cds[k]
             seq = revcomp(f.nt) if anti else f.nt
-            hit = _scan(seq, frames)
+            hit = _scan(seq, frames, lo)
             if hit is None:
                 continue
             o, ln = hit
