@@ -13,8 +13,9 @@ Lead decision 4 (ADR-0049, proposed, pending Khoa): G1, A6a, A6b and A6c are str
 
 * G1: pooled F1 of ``high`` substitutions (rules 2-4) >= ``f1_min.variants_high`` through
   ``calibrate_pooled`` (point estimate, ADR-0015 blocks), guards sum n_truth >= 50 and sum n_pred
-  >= 50 (rule 7). Fast at 100 kb, full at 1 Mb. Recorded: the non-``mass_equivalent`` subset's F1,
-  the high block/swap rows, the masked count, the jackknife SE (rule 10).
+  >= 50 (rule 7; a miss raises ``RuntimeError``, lead decision 7). Fast at 100 kb, full at 1 Mb.
+  Recorded: the non-``mass_equivalent`` subset's F1, the high block/swap rows, the masked count,
+  the jackknife SE (rule 10).
 * G2: zero ``high`` rows lacking both ``start_codon`` and ``stop_codon``, in every replicate.
 * A6a: every isobaric-only substitution/block row carries ``mass_equivalent``, in every replicate
   (and at least one such row over the block: non-vacuity).
@@ -143,8 +144,21 @@ def _g1(full: bool) -> None:
                                                      strict=True)),
                      "high_other": other, "masked": sum(r["masked"] for r in ran),
                      "seconds_per_replicate": np.mean([r["seconds"] for r in ran])})  # fmt: skip
+    if rec["status"] not in NO_VERDICT:
+        for block in (range(R), ran_range(rec)):  # block 1 always ran; the last block too
+            g1_guard(block, size)
     skip_without_verdict(rec["status"])
     assert rec["status"] in NOT_FAILED, rec
+
+
+def g1_guard(block: range, size: str) -> None:
+    """Rule 7 (lead decision 7): a G1 guard miss is a broken scenario, never the ADR-0049 XFAIL,
+    so it raises ``RuntimeError`` (not an ``AssertionError``), as an empty A6a does."""
+    sums = {k: sum(M.g1_record(i, size)["g1"][k] for i in block) for k in G1_GUARD}
+    miss = {k: v for k, v in sums.items() if v < G1_GUARD[k]}
+    if len(block) and miss:
+        raise RuntimeError(f"G1 guard miss in replicates {block.start}:{block.stop}: {miss} vs"
+                           f" {G1_GUARD} (rule 7: broken scenario)")  # fmt: skip
 
 
 @NIGHTLY
