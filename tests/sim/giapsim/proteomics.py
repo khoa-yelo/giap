@@ -22,20 +22,22 @@ peptide becomes, with probability 1/2, the decoy row of its makedb entry (revers
 ``rev_GIAPORF_…``, the same null score and mixture q / PEP); gene-level decoys are reversed
 products of annotated non-pseudo proteins (``rev_<locus_tag>``, ``n_decoy_rows`` of them).
 
-``decoys = "scored_null"`` (MVP-04 steps 5-6, opt-in) replaces the wrong peptides and decoys:
-the null peptides split between protein entries and six-frame entries in proportion to the
-distinct Trypsin/P products of each in the simulated search space (the annotated proteins against
-the six-frame products of the non-coding pool not also produced by a protein), 50/50 when that
-gives fewer than ``FALLBACK_NULL_PSMS`` gene-level null PSMs (``null_split`` in
-``truth/proteomics.json``). A protein-entry null (lead decision 9) is a real Trypsin/P product of
-an expressed annotated protein none of whose products was detected, the locus drawn uniformly
-(without replacement) over those with an undetected product and the product uniformly among its
-undetected ones (stream ``[seed, 9]``); its truth rows (``origin = undetected_product``) are
-placed like correct rows and its target rows carry the locus tag. Six-frame nulls are drawn as in
-``sixframe_noncoding`` and carry their makedb entry ID. Each null PSM row then goes, on its own
+``decoys = "scored_null"`` (MVP-04 steps 5-6, opt-in) replaces the wrong peptides and decoys: the
+null peptides split 50/50 between protein entries and six-frame entries (lead decision 10: half,
+rounded down, go to protein entries, capped by the pool of protein nulls; the six-frame side takes
+the rest). ``null_split`` in ``truth/proteomics.json`` records ``mode = "fifty_fifty"``, the
+realised counts and, for information only, the protein share of the distinct Trypsin/P products of
+the simulated search space (the annotated proteins against the six-frame products of the non-coding
+pool not also produced by a protein). A protein-entry null (lead decision 9) is a real Trypsin/P
+product of a non-pseudo recorded CDS / sORF none of whose products was detected (including those the
+sample strain made pseudo, translated on the sample, no product across a stop), the locus drawn
+uniformly (without replacement) over those with an undetected product and the product uniformly
+among its undetected ones (stream ``[seed, 9]``); its truth rows (``origin = undetected_product``)
+are placed like correct rows and its target rows carry the locus tag. Six-frame nulls are drawn as
+in ``sixframe_noncoding`` and carry their makedb entry ID. Each null PSM row then goes, on its own
 1/2 coin (stream ``[seed, 8]``), to the target or to the decoy of its entry (reversed peptide,
-``rev_<entry>``, the same score, q and PEP, intensity NA); a null whose reversal is a target
-peptide (I = L) stays a target and the PSMs the coin would have sent over are counted
+``rev_<entry>``, the same score, q and PEP, intensity NA); a null whose reversal is a target peptide
+(I = L) stays a target and the PSMs the coin would have sent over are counted
 (``decoy_collisions``). No other decoys are written.
 
 All draws come from ``numpy.random.default_rng([seed, 3])``, so the genome and its truth are
@@ -91,9 +93,6 @@ _DECOY_MODES = ("unscored", "scored_null")
 _NULL_STREAM = 9  # numpy SeedSequence key of the scored-null protein nulls (MVP-04)
 #: ``truth/peptides.tsv`` origin of a scored-null protein-entry null (MVP-04 lead decision 9).
 PROTEIN_NULL_ORIGIN = "undetected_product"
-#: MVP-04 Q2 / lead decision 1: below about this many gene-level null PSMs (before the coin) the
-#: protein / six-frame split of the null peptides falls back to 50/50.
-FALLBACK_NULL_PSMS = 50
 
 
 @dataclass(frozen=True)
@@ -714,7 +713,7 @@ def _search_space_share(
     pool: SixframePool, annotated: Sequence[tuple[str, str, str]], cfg: ProteomicsConfig
 ) -> tuple[float, int, int]:
     """(protein share, distinct protein-entry products, distinct six-frame-only products) of the
-    simulated makedb search space (MVP-04 Q2)."""
+    simulated makedb search space (MVP-04 Q2; information only, lead decision 10)."""
     prot = {x.encode() for _, _, aa in annotated
             for x in digest(aa, cfg.digest_len, cfg.missed_cleavages)}  # fmt: skip
     six: set[bytes] = set()
@@ -736,14 +735,17 @@ def _protein_nulls(
     occ: dict[str, list[tuple[int, int]]],
     seqs: dict[str, str],
 ) -> tuple[list[tuple[str, str]], dict[str, list[tuple[str, str, int, int, str, bool]]]]:
-    """``n`` protein-entry nulls (lead decision 9): ``[(peptide, locus)]`` and their placements."""
+    """``n`` protein-entry nulls (lead decision 9): ``[(peptide, locus)]`` and their placements.
+    ``prots`` may end with recorded loci the sample strain made pseudo (no ``occ`` entries);
+    products across their premature stop are skipped."""
     seen = {_il(p) for p in detected}
     hit = {prots[k].locus for p in detected for k, _ in occ[p]}
     pool = []
     for k, p in enumerate(prots):
         if p.locus not in genes or p.locus in hit:
             continue
-        spans = digest_spans(p.aa, cfg.digest_len, cfg.missed_cleavages)
+        spans = [(a, b) for a, b in digest_spans(p.aa, cfg.digest_len, cfg.missed_cleavages)
+                 if "*" not in p.aa[a:b]]  # fmt: skip
         prods = sorted({p.aa[a:b] for a, b in spans if _il(p.aa[a:b]) not in seen})
         if prods:
             pool.append((k, prods, spans))
@@ -797,13 +799,19 @@ def _scored_nulls(
     protein-null placements and the ``null_split`` record (module doc)."""
     pool = _noncoding_pool(cfg, seqs, feats, novel)
     share, n_prod_p, n_prod_s = _search_space_share(pool, annotated, cfg)
-    if share * n_wrong * cfg.n_runs >= FALLBACK_NULL_PSMS:
-        mode, n_p = "search_space", round(share * n_wrong)
-    else:
-        mode, n_p = "fifty_fifty", n_wrong // 2
+    n_p = n_wrong // 2  # lead decision 10: fixed 50/50, capped by the protein-null pool
     genes = {f.locus for f in feats if f.kind in ("cds", "sorf")}
+    # recorded loci the sample strain made pseudo are undetected recorded loci too (decision 9)
+    strain_pseudo = [
+        Protein(f.locus, f.contig, *f.span(), f.strand,
+                translate_cds(codons_of(_slice(seqs[f.contig], *f.span(), f.strand))))
+        for f in feats
+        if f.kind in ("cds", "sorf") and not f.pseudo_reason and f.extra.get("pseudo")
+    ]  # fmt: skip
     nrng = np.random.default_rng([seed, _NULL_STREAM])
-    prot_nulls, places = _protein_nulls(cfg, nrng, n_p, prots, genes, detected, occ, seqs)
+    prot_nulls, places = _protein_nulls(
+        cfg, nrng, n_p, [*prots, *strain_pseudo], genes, detected, occ, seqs
+    )
     orfs = OrfEntries(feats, seqs, topology)
     entry: dict[str, str] = {}
 
@@ -818,7 +826,7 @@ def _scored_nulls(
     wrong = prot_nulls + [(w, entry[w]) for w in loci]
     origins = {w: PROTEIN_NULL_ORIGIN for w, _ in prot_nulls}
     origins |= {w: "sixframe_noncoding" for w in loci}
-    split = {"mode": mode, "search_space_protein_share": round(share, 6),
+    split = {"mode": "fifty_fifty", "search_space_protein_share": round(share, 6),
              "n_protein_products": n_prod_p, "n_sixframe_products": n_prod_s,
              "n_protein": len(prot_nulls), "n_sixframe": len(loci)}  # fmt: skip
     return wrong, origins, loci, places, split
