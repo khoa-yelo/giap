@@ -82,3 +82,51 @@ estimate ≈ 110 code lines (+ ≈ 150 test lines) · statistical (light)
    patch applied before the pair frame is built, rather than special-casing operons.
 2. `jaccard` when both sets are empty: NA (proposed, M4-19's convention) or 1.0? **Proposed
    default:** NA — "no flags either way" is not stability evidence.
+
+## Lead decisions (2026-10-22)
+
+1. **UniOP-threshold variants:** the proposed default. `Variant` gains an optional config patch
+   that is applied before the pair frame is built; operons are not special-cased. Existing variants
+   (no patch) are byte-identical.
+2. **`jaccard` of two empty sets:** NA, per the M4-19 convention, flagged as in M4-19.
+3. **Test-author resolutions (588b219c) accepted:**
+   - the C2 gene model binds as `gene_models`;
+   - C3 `features` is required by the family;
+   - the variant names are `pair_threshold=<t:g>` in the shared `variants()`;
+   - the `regions` and `islands` rows under the threshold variants are left unpinned;
+   - example 6 has three rows;
+   - a relative scale logs "relative".
+4. **Step inputs:** C2 `genes`, `pairs_raw`, `features` and the three evidence layers are
+   **optional** step inputs. When `genes`, `pairs_raw` or `features` is absent, the `operon_flags`
+   family is skipped and the step logs `sensitivity.operon_flags_skipped`, so the M4-19/M5 step
+   tests that pass only gene_table, C1, C5, C7 and C8 keep passing.
+5. **Lead edits to existing tests** in tests/unit/context/test_sensitivity.py: `Variant` gains
+   `config_patch`, `FAMILIES` may hold `operon_flags`, and `full` lists the two
+   `pair_threshold` variants.
+6. **Runtime** ("four reruns < 2× a single run") is not pinned; this is a backlog item.
+7. **Implementer round 1 (a1c218f7):**
+   - Without the pair tables, the `pair_threshold` variants are dropped along with the family,
+     because their only patch is the UniOP threshold. Accepted: it keeps
+     `test_full_adds_top3_with_peptide_intensities`.
+   - CONTEXT gains a 12th input, `layers_for_pairs`; the lead edits context.nf.test to add
+     `input[11] = channel.empty()`.
+   - Behaviour 5 (one pair frame per threshold, reused) is deferred to the decision-6 backlog item.
+8. **Review #243 (comment, 2026-10-23):**
+   - **B1 (lead, done):** `test_m6_10_sensitivity_has_operon_flags_rows` in
+     tests/integration/test_m6_08_operons_run.py checks that a real `giap run` writes
+     `operon_flags` rows (n 0, J NA on sim100k). The backlog line is dropped.
+   - **B2 (accepted, option a):** a variant that only patches config runs only for the families
+     that read the patched key.
+     - `Variant` gains `families: tuple[str, ...] | None`, where `None` means every family. The
+       `pair_threshold=*` variants carry `("operon_flags",)`.
+     - `regions` and `islands` therefore get no `pair_threshold` rows: J = 1 there would be true
+       by construction, and those reruns cost four permutation/bootstrap runs each.
+     - A `Variant.patch_only` property replaces the two hand-written conditions (N6).
+   - **B3:** if any one of `genes`, `pairs_raw` or `features` is absent, the family is skipped
+     with one `sensitivity.operon_flags_skipped` event. It never raises a KeyError. The test is
+     parametrised over each single missing key and over all of them.
+   - Nits N1–N5 go to the backlog.
+9. **Test-author B2/B3 tests (9f77b30d):** the B3 skip path already held, and the new tests now pin
+   it (mutant M6 is killed). For B2 the lead edited two existing tests:
+   - the `Variant` field list gains `families`;
+   - `test_patch_variants_reach_the_family` registers its recorder as `operon_flags`.
