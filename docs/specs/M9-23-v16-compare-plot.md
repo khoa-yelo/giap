@@ -71,3 +71,9 @@ twin of the concordance scatter, `compare_abundance` table with BA columns), `st
 
 1. Wording "genes" for n = 1 ("1 genes") — **Proposed default:** a tiny pluralisation helper in
    `giap.viz.base` used by every title.
+
+## Lead decisions (2026-10-23)
+1. **Question 1 accepted:** a small pluralisation helper in `giap.viz.base` (for example
+   `plural(n, "gene")` → "1 gene" / "2 genes"). Every title uses it. Existing titles switch to it
+   only when their tests are next touched; that is a backlog item, not this PR.
+2. #232 (M9-22 `giap compare`) has merged, so the test-author starts from main.
