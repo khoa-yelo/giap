@@ -7,8 +7,10 @@ ADR-0031..0034). Draws the M8 ``determinants_*`` tables and the M9-17 support fi
 dependence of ``cai``, ``tai``, ``tir_ostir`` and ``promotech_max`` ("promoter score", lead
 decision 2), the ``pd_low`` to ``pd_high`` spread shaded, a rug of the model rows' values; (c) the
 SHAP beeswarm of the top 20 features, jittered and coloured by rank within the feature; (d)
-observed vs. out-of-fold predicted, unexplained genes and ribosomal references marked. The
-title names the elastic net's largest block whose CI lies wholly above 0 (decisions 1 and 4).
+observed vs. LightGBM out-of-fold predicted, unexplained genes and ribosomal references marked
+(model genes binned on a log count scale above 20,000 rows). The title names the elastic net's
+largest block whose repeat t-interval has both ends finite and lies wholly above 0, ties in
+BLOCKS order (decisions 1, 4, 5 and 6); the interval is named uncalibrated (ADR-0031).
 """
 
 from __future__ import annotations
@@ -17,9 +19,11 @@ import math
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
+import matplotlib as mpl
 import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
+from matplotlib.patches import Patch
 
 from giap.determinants import CAVEATS
 from giap.viz import base, style
@@ -47,10 +51,16 @@ MAX_DRAWN = 20_000  # the M9-01 element rule
 UNEXPLAINED = "abundance_not_explained_by_sequence"
 CAT_COLOUR = {"model": style.OKABE_ITO["blue"], "unexplained": style.OKABE_ITO["vermillion"],
               "ribosomal_reference": style.OKABE_ITO["orange"]}  # fmt: skip
-CAT_LABEL = {"model": "model genes", "unexplained": "unexplained (> 2 SD)",
+CAT_LABEL = {"model": "model genes",
+             "unexplained": "unexplained (> 2 SD of LightGBM residuals)",
              "ribosomal_reference": "ribosomal reference (not in R²)"}  # fmt: skip
 GREY = "#555555"
 UNI_FOOT = "univariate CIs uncalibrated (ADR-0032)"
+DELTA_FOOT = "ΔR² intervals uncalibrated: CV repeats share data (ADR-0031)"
+A_HEADER = "(a) block ΔR² (t-interval over CV repeats, uncalibrated)"
+D_HEADER = "(d) observed vs. LightGBM out-of-fold"
+HEX_BAR, HEX_PROXY = "genes per bin (log count)", "model genes (binned)"
+MINUS = "\u2212"
 
 
 def _na(v: object) -> bool:
@@ -78,7 +88,8 @@ def _row(panel: str, **cells: object) -> list[object]:
 
 
 def _f2(v: float) -> str:
-    return "NA" if math.isnan(v) else f"{v:.2f}"
+    """Two decimals with a Unicode minus (decision 5, S2); NaN reads "unestimated"."""
+    return "unestimated" if math.isnan(v) else f"{v:.2f}".replace("-", MINUS)
 
 
 # ---------------------------------------------------------------- data
@@ -112,26 +123,35 @@ def counts(features: pd.DataFrame | None, attribution: pd.DataFrame | None) -> t
     return int(keep.sum()), str(features.loc[keep, "tu_id"].nunique())
 
 
-def cv_text(model: pd.DataFrame) -> str:
-    """The elastic net's ``<mean> ± <sd>`` CV R²."""
-    rows = (_metric(model, "elastic_net", m) for m in ("cv_r2_mean", "cv_r2_sd"))
+def cv_text(model: pd.DataFrame, name: str = "elastic_net") -> str:
+    """``<mean> ± <sd>`` CV R² of ``name``; "unestimated" (no ± sd) when the mean is NA."""
+    rows = (_metric(model, name, m) for m in ("cv_r2_mean", "cv_r2_sd"))
     mean, sd = (math.nan if r is None else float(_floats([r["value"]])[0]) for r in rows)
-    return f"{_f2(mean)} ± {_f2(sd)}"
+    if math.isnan(mean):
+        return "unestimated"
+    return f"{_f2(mean)} ± {_f2(sd)}" if not math.isnan(sd) else f"{_f2(mean)} (SD unestimated)"
 
 
 def title(model: pd.DataFrame, n_tus: tuple[int, str] | None = None) -> str:
-    """The finding: the elastic net's CV R² and its largest block ΔR² with a CI wholly above 0."""
+    """The finding: the elastic net's CV R² and its largest block ΔR² whose repeat t-interval is
+    finite and lies wholly above 0 (decisions 4-6; ties in BLOCKS order)."""
     if n_tus is not None:
         return f"Too few genes for the determinants model ({n_tus[0]} rows, {n_tus[1]} TUs)"
-    head = f"Elastic net explains CV R² {cv_text(model)}; "
+    head = f"Elastic net CV R² {cv_text(model)}; "
     d = model[(model["model"] == "elastic_net") & (model["metric"] == "delta_r2")]
-    lo, hi, val = _floats(d["ci_low"]), _floats(d["ci_high"]), _floats(d["value"])
-    above = [(v, str(b), lo_, hi_) for v, b, lo_, hi_ in zip(val, d["feature_or_block"], lo, hi,
-                                                             strict=True) if lo_ > 0]  # fmt: skip
-    if not above:
-        return head + "no block's ΔR² CI excludes 0"
-    v, b, lo_, hi_ = max(above)
-    return head + f"largest block ΔR²: {b} {_f2(v)} (95 % CI {_f2(lo_)}–{_f2(hi_)})"
+    best: tuple[float, str, float, float] | None = None
+    for b in BLOCKS:
+        g = d[d["feature_or_block"] == b]
+        for v, lo, hi in zip(_floats(g["value"]), _floats(g["ci_low"]), _floats(g["ci_high"]),
+                             strict=True):  # fmt: skip
+            above = math.isfinite(lo) and math.isfinite(hi) and lo > 0 and math.isfinite(v)
+            if above and (best is None or v > best[0]):
+                best = (v, b, lo, hi)
+    if best is None:
+        return head + "no block's ΔR² interval lies above 0"
+    v, b, lo, hi = best
+    return head + (f"largest block ΔR²: {b} {_f2(v)} (repeat t-interval {_f2(lo)}–{_f2(hi)}, "
+                   "uncalibrated)")  # fmt: skip
 
 
 def _cap(n: int, k: int) -> np.ndarray:
@@ -242,20 +262,20 @@ def _panel_a(ax: Axes, a: pd.DataFrame) -> None:
     ax.set_ylim(len(blocks) + 0.5, -0.6)  # room for the legend below the last block
     ax.set_xlabel("ΔR² (drop-one-block, CV)")
     ax.locator_params(axis="x", nbins=4)
-    ax.legend(frameon=False, loc="lower right", fontsize=6)
-    ax.set_title("(a) block ΔR² (95 % CI)", loc="left")
+    ax.legend(frameon=False, loc="best", fontsize=6)
+    ax.set_title(A_HEADER, loc="left", x=-0.3)  # over the block labels: clear of (b)
 
 
 def _panel_b(fig: Any, cell: Any, pdf: pd.DataFrame | None, b: pd.DataFrame,
-             flags: frozenset[str], spread: str, why: str | None) -> None:  # fmt: skip
+             flags: frozenset[str], spread: str) -> None:  # fmt: skip
     if pdf is None:
-        text = why or "not available (no determinants_pd support file)"
+        text = "not available (no determinants_pd support file)"
         _note(fig.add_subplot(cell, label="b"), text, "(b) partial dependence")
         return
     grid = cell.subgridspec(2, 2, hspace=0.9, wspace=0.45)
     for i, f in enumerate(PD_FEATURES):
         ax = fig.add_subplot(grid[i // 2, i % 2], label=f"b_{f}")
-        head = f"(b) partial dependence; {spread}" if i == 0 else ""
+        head = f"(b) partial dependence, LightGBM (secondary); {spread}" if i == 0 else ""
         d = b[b["feature"] == f]
         if not len(d):
             layer = next((fl for fl in sorted(flags) if fl == f"layer_missing:{PD_LAYER[f]}"),
@@ -276,7 +296,7 @@ def _panel_b(fig: Any, cell: Any, pdf: pd.DataFrame | None, b: pd.DataFrame,
         if i % 2 == 0:
             ax.set_ylabel("PD (log2 abundance)")
         if head:
-            ax.set_title(head, loc="left", fontsize=7)
+            ax.set_title(head, loc="left", fontsize=7, wrap=True)  # wraps at the figure edge
 
 
 def _panel_c(ax: Axes, c: pd.DataFrame) -> None:
@@ -295,13 +315,27 @@ def _panel_c(ax: Axes, c: pd.DataFrame) -> None:
 
 
 def _panel_d(ax: Axes, d: pd.DataFrame, r2: str) -> None:
+    """Above 20,000 rows the model genes are binned (log counts, decision 5 B4); the flagged
+    genes stay points."""
     x, y = _floats(d["x"]), _floats(d["y"])
     cat = d["category"].astype(str).to_numpy()
-    if len(d) > MAX_DRAWN:
-        ax.hexbin(x, y, gridsize=40, cmap=style.CONTINUOUS, mincnt=1, linewidths=0)
+    binned = len(d) > MAX_DRAWN
+    proxy: list[Any] = []
+    if binned:
+        sel = cat == "model"
+        hb = ax.hexbin(x[sel], y[sel], gridsize=40, bins="log", cmap=style.CONTINUOUS, mincnt=1,
+                       linewidths=0)  # fmt: skip
+        fig, box = ax.get_figure(root=True), ax.get_position()  # a figure axes: findable
+        cax = fig.add_axes((box.x1 + 0.01, box.y0, 0.012, 0.35 * box.height),  # type: ignore[union-attr]
+                           label="d_colourbar")  # fmt: skip
+        bar = fig.colorbar(hb, cax=cax)  # type: ignore[union-attr]
+        bar.ax.tick_params(labelsize=6)
+        bar.set_label(HEX_BAR, fontsize=6)
+        swatch = mpl.colormaps[style.CONTINUOUS](0.6)
+        proxy.append(Patch(facecolor=swatch, linewidth=0, label=HEX_PROXY))
     for k, colour in CAT_COLOUR.items():
         sel = cat == k
-        if sel.any() and (k != "model" or len(d) <= MAX_DRAWN) and sel.sum() <= MAX_DRAWN:
+        if sel.any() and not (binned and k == "model") and sel.sum() <= MAX_DRAWN:
             cross = k == "ribosomal_reference"
             ax.scatter(
                 x[sel],
@@ -315,11 +349,12 @@ def _panel_d(ax: Axes, d: pd.DataFrame, r2: str) -> None:
             )
     lo, hi = float(np.nanmin([x.min(), y.min()])), float(np.nanmax([x.max(), y.max()]))
     ax.plot([lo, hi], [lo, hi], color=style.OKABE_ITO["grey"], linewidth=0.6, linestyle=":")
-    ax.text(0.03, 0.97, r2, transform=ax.transAxes, va="top", fontsize=6)
-    ax.set_xlabel("predicted log2 abundance (out-of-fold)")
+    ax.text(1.0, 1.02, r2, transform=ax.transAxes, ha="right", va="bottom", fontsize=6)
+    ax.set_xlabel("predicted log2 abundance (LightGBM out-of-fold)")
     ax.set_ylabel("observed log2 abundance")
-    ax.legend(frameon=False, loc="lower right", fontsize=6)
-    ax.set_title("(d) observed vs. predicted", loc="left")
+    handles, _ = ax.get_legend_handles_labels()
+    ax.legend(handles=[*proxy, *handles], frameon=False, loc="best", fontsize=6)
+    ax.set_title(D_HEADER, loc="left", pad=14)  # above the R² line
 
 
 def footnotes(model: pd.DataFrame) -> list[str]:
@@ -329,6 +364,8 @@ def footnotes(model: pd.DataFrame) -> list[str]:
         cal = " (uncalibrated: valid only for exchangeable TUs, ADR-0034)"
         notes.append(f"null p {float(p['value']):.2g}"
                      + (cal if "null_uncalibrated" in _flags(p["flags"]) else ""))  # fmt: skip
+    if (model["metric"] == "delta_r2").any():
+        notes.append(DELTA_FOOT)
     if (model["model"] == "univariate").any():
         notes.append(UNI_FOOT)
     return [*notes, CAVEATS[0]]
@@ -346,42 +383,37 @@ def determinants(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.S
     model = view.table("determinants_model")
     assert model is not None  # guaranteed by ``needs``
     att, features = view.table("determinants_attribution"), view.table("determinants_features")
-    few = too_few(model)
-    text = title(model, counts(features, att) if few else None)
-    d_rows = rows_d(att)
-    if few and not d_rows:
+    if too_few(model):  # M8 then writes NA predictions only: no panel has data
+        text = title(model, counts(features, att))
         return [base.empty_state("V15", "determinants", text, COLUMNS, "double")]
-    pdf, shap = (None, None) if few else (view.support("determinants_pd"),
-                                          view.support("determinants_shap"))  # fmt: skip
-    rows = [] if few else rows_a(model)
+    text = title(model)
+    pdf, shap = view.support("determinants_pd"), view.support("determinants_shap")
+    rows = rows_a(model)
     rows += [] if pdf is None else rows_b(pdf, features)
     rows += [] if shap is None or not len(shap) else rows_c(shap)
-    data = pd.DataFrame([*rows, *d_rows], columns=list(COLUMNS), dtype=object)
+    data = pd.DataFrame([*rows, *rows_d(att)], columns=list(COLUMNS), dtype=object)
     sub = {p: data[data["panel"] == p] for p in "abcd"}
     fig = style.new_figure("double", 6.6)
     fig.set_label("V15_determinants")
     outer = fig.add_gridspec(2, 2, left=0.17, right=0.95, bottom=0.15, top=0.91, hspace=0.42,
                              wspace=0.5)  # fmt: skip
-    why = "not available (too_few_rows)" if few else None
-    ax_a = fig.add_subplot(outer[0, 0], label="a")
-    if why is None:
-        _panel_a(ax_a, sub["a"])
-    else:
-        _note(ax_a, why, "(a) block ΔR²")
+    _panel_a(fig.add_subplot(outer[0, 0], label="a"), sub["a"])
     n_fits = cfg.determinants.outer_folds * cfg.determinants.repeats
     spread = f"spread over {n_fits} CV models (not a CI)"
-    _panel_b(fig, outer[0, 1], pdf, sub["b"], view.run_flags(), spread, why)
+    _panel_b(fig, outer[0, 1], pdf, sub["b"], view.run_flags(), spread)
     ax_c = fig.add_subplot(outer[1, 0], label="c")
     if len(sub["c"]):
         _panel_c(ax_c, sub["c"])
     else:
-        _note(ax_c, why or "not available (no determinants_shap support file)", "(c) SHAP")
+        _note(ax_c, "not available (no determinants_shap support file)", "(c) SHAP")
     ax_d = fig.add_subplot(outer[1, 1], label="d")
     if len(sub["d"]):
-        _panel_d(ax_d, sub["d"], f"CV R² {cv_text(model)} (elastic net)")
+        r2 = (f"CV R² {cv_text(model, 'lightgbm')} (LightGBM, plotted); "
+              f"elastic net {cv_text(model)} (primary)")  # fmt: skip
+        _panel_d(ax_d, sub["d"], r2)
     else:
-        _note(ax_d, "no out-of-fold predictions", "(d) observed vs. predicted")
+        _note(ax_d, "no out-of-fold predictions", D_HEADER)
     for i, note in enumerate(footnotes(model)):
-        fig.text(0.01, 0.055 - 0.022 * i, note, fontsize=6, color=GREY)
+        fig.text(0.01, 0.075 - 0.02 * i, note, fontsize=6, color=GREY)
     fig.suptitle(text, y=0.985)
     return [base.Instance(None, fig, data, text)]
