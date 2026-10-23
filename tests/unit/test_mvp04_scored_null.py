@@ -39,8 +39,8 @@ report on the commit):
   ``rev_<locus>``. Six-frame nulls have ``origin = sixframe_noncoding`` and their target rows
   carry the makedb entry ID ``GIAPORF_…`` (step 5: "attributed to a ``GIAPORF_*`` entry").
 * ``provenance.json``: ``decoys`` (``"scored_null"`` / ``"unscored"``), ``decoy_collisions``
-  (int, collided null PSMs) and ``null_split`` = {``mode``: ``"search_space"`` |
-  ``"fifty_fifty"``, ``search_space_protein_share``: float in (0, 1), ``n_protein``: int,
+  (int, collided null PSMs) and ``null_split`` = {``mode``: ``"fifty_fifty"``
+  (decision 10), ``search_space_protein_share``: float in (0, 1, information only), ``n_protein``: int,
   ``n_sixframe``: int (distinct null peptides of each kind)}.
 """
 

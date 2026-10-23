@@ -472,3 +472,20 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
     - Next, the implementer: `_scored_nulls` is always 50/50, and a new
       `scripts/dev/mvp04_summary.py` provides `gate7()`, with the result under `gate7` in
       `evidence_summary.json`. After that, the code review.
+16. **Implementer round 3 (225a2b1c): accepted.**
+    - **Wider protein-null pool:** loci the sample strain truncates with a premature stop (giapsim
+      `pseudo`) are now in the protein-null pool. Products spanning the stop are skipped.
+      - GIAP treats these loci as eligible genes, and decision 9's "recorded locus not detected in
+        truth" covers them. The test oracle already counted them.
+      - This changes which loci each scored_null seed draws. No pins depend on it.
+    - **K-12 measurement** (Slurm 1872190):
+      - 174 null peptides, 87 protein and 87 six-frame;
+      - 46 decoy wins out of 77 paired genes;
+      - T = 2,744, of which 2,721 are detected at α (the cut binds);
+      - picked FDP 0.0077; a decoy-blind engine gives 0.0284, which fails gate 7 as intended.
+    - **Tests:**
+      - 1872171: the fast tier of the K-12 integration, attack and calibration tests, 17 passed.
+      - 1872199: the two full-tier attack tests, 2 passed.
+      - 1872172: the fast suite, 14,035 passed.
+    - The lead fixed a stale docstring in the round-3 tests (the mode is `fifty_fifty`).
+    - Next: the statistician re-checks B1–B3, and the code review runs in parallel.
