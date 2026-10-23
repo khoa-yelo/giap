@@ -102,3 +102,14 @@ def annotate_sites(sites: pd.DataFrame, rates: Sequence[ClassRate]) -> pd.DataFr
 3. No `replicates_*` key exists for a variants suite in `tests/calibration/tolerances.yaml`
    (protected). **Proposed default:** ask Khoa to add `variants: 20` (fast) / `100` (full), shared by
    this check and the M7-13 F1 gate.
+
+## Lead decisions (2026-10-22)
+
+1. **Spectrum pairing input:** the proposed default. Preflight writes `work/peptide_spectra.parquet`
+   (`run`, `spectrum_id`, `peptide`, `source`) for de novo and reference rows, registered as optional
+   contract table C17; the `variants` step takes it as an optional input. Without it, the class
+   rates are `unestimated` (flag), never computed from guessed pairs.
+2. **Pooling:** per-class pooling over sites is enough for v1; the methods note says why a
+   site-level rate is out of reach at pilot depth.
+3. **Replicates:** `replicates_fast.variants = 20` and `replicates_full.variants = 100` already exist
+   (ADR-0042); the check reads them from tolerances.yaml and does not hard-code its own counts.
