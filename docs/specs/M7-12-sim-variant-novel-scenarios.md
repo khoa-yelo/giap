@@ -147,3 +147,18 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
     frameshifting indel (the round-2 lift test covers them); the indel_sites set check compares
     the in-frame rows only; `stop` is checked 1-based; the old 100k RBS calibration runs the
     decision 8 sanity arm (`planted_tir = (9, 0.5)`).
+
+## Lead decisions on the statistician's round 2 (2026-10-22, PR #225 comment 6358601933)
+
+21. **B1, scored makedb-style decoys in the simulator.** This applies to the six-frame mode only:
+    - Each wrong target row gets a decoy with ID `rev_GIAPORF_{class}_{contig}_{start1}_{end1}_{p|m}`.
+    - Decoy scores come from the same null as the wrong targets, and q/pep from the same mixture.
+    - Each null PSM goes to the target or to its entry's decoy with probability ½.
+    - The `rev_<locus>` protein decoys stay, so gene-level `decoy_picked` is unchanged.
+    - M7-13 keeps the simulator's decoys; `giap makedb` stays out of the calibration loop.
+22. **B2, `nterm_extension` territory.**
+    - A fourth wrong-peptide territory covers products in frame upstream of each CDS's true start,
+      split evenly with the other three.
+    - The 1M per-class test covers all four classes.
+    - The excluded products of choice 2 are still excluded, except the in-frame upstream extension
+      of a CDS, which is this class by definition.
