@@ -489,3 +489,10 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
       - 1872172: the fast suite, 14,035 passed.
     - The lead fixed a stale docstring in the round-3 tests (the mode is `fifty_fifty`).
     - Next: the statistician re-checks B1–B3, and the code review runs in parallel.
+17. **Statistician re-check (6fcc3d95, Slurm 1872374): APPROVE.**
+    - **Gate 7 catches only gross failures.** Over 10 seeds a correct engine's FDP is 0.0109 ±
+      0.0013, and a decoy-blind engine reaches 0.023–0.029, which is 1.2–1.4 × the gate. A 1.5 × FDR
+      inflation would usually pass. The calibration suites and the dense-null attack own the mean,
+      so gate 7 is not widened.
+    - **Q11's 3-seed spread** records both the FDP and the decoy-blind FDP.
+    - The lead refreshed the numbers in the attack docstring.

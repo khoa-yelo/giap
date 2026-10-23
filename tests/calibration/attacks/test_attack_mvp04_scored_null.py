@@ -28,9 +28,9 @@ PEP asc, score desc; S = {q, pep, score} for scored nulls) and the best ranks go
 - **Teeth**: the same replicates with the decoys ignored (a null-blind engine, every gene with
   target evidence detected) must be a confirmed failure at q = 0.01 and 0.05.
 - **Gate 7 on the evidence run** (full, slow; lead decision 10): on the whole K-12 genome at
-  ``K12_EVIDENCE_SEED`` the fixed 50/50 split gives about 83 protein-entry nulls and about 41
-  decoy wins against T ~ 2,700 (Slurm 1871592, 10 seeds). A null-blind engine then has a gene
-  FDP of ~0.030 (0.029-0.032), so gate 7 (<= 0.02) can fail, and the alpha = 0.01 cut binds
+  ``K12_EVIDENCE_SEED`` the fixed 50/50 split (decision 16 pool) gives 80-89 protein-entry nulls
+  and 36-54 decoy wins against T ~ 2,700 (Slurm 1872374, 10 seeds). A null-blind engine then has
+  a gene FDP of 0.023-0.029, so gate 7 (<= 0.02) can fail, and the alpha = 0.01 cut binds
   (some target-won gene is left out; 10 of 10 seeds). Under the withdrawn search-space split
   both failed (FDP 0.0076; n_detected = T), which is why these were strict xfails before.
   "True" genes are the loci of truth rows with ``is_wrong = false`` (lead decision 11).
