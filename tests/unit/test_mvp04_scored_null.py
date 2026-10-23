@@ -10,9 +10,10 @@ On the test-time 200-kb excerpt (tests/helpers/mvp04_data.py, spec rule 3):
   decoys are off, so every decoy is a null PSM and carries finite scores;
 * collisions (reversal = a target peptide, I = L) stay targets and are counted in
   ``provenance.json`` ``decoy_collisions``;
-* Q2 / decision 1: null peptides split between protein and six-frame entries in proportion to the
-  tryptic products of the simulated search space, 50/50 when that gives fewer than about 50
-  gene-level null PSMs (the excerpt is in the fallback: ~0.14 x 18 x 3 ~ 8 PSMs);
+* lead decision 10 (statistician review of PR #247, B1; Q2's alternative): the null peptides
+  split a fixed 50/50 between protein and six-frame entries, whatever pi_wrong (the
+  proportional default and its ~50-PSM fallback are withdrawn); the split is deterministic, so
+  it is checked by exact equality (review item 5), and the search-space share is still recorded;
 * a fast fairness check of the coin (binomial, and a score-independence KS), pooled over three
   seeds (~160 null PSMs); the calibration file owns the powered version;
 * GIAP's own ``pair_decoys`` + ``choose_tier`` give ``decoy_picked``, no warning, paired share
@@ -277,21 +278,48 @@ def test_no_decoy_collides_with_a_target_and_collisions_are_counted(
 # ---------------------------------------------------------------- Q2: the split
 
 
-def test_split_falls_back_to_fifty_fifty_on_the_excerpt(scored: dict[int, D.View]) -> None:
-    """Q2 / decision 1: the search-space share (~0.14) gives ~8 gene-level null PSMs here, below
-    about 50, so the split is 50/50 and the switch is recorded."""
+def fifty_fifty_violations(v: D.View, pool: int | None = None) -> list[str]:
+    """Decision 10, exactly: mode ``fifty_fifty``, the recorded counts are the realised ones,
+    and ``n_protein`` is half the null peptides (either rounding), capped by the protein-null
+    pool size ``pool`` when given."""
+    split = v.provenance["null_split"]
+    n_p = sum(n.kind == "protein" for n in v.nulls.values())
+    n_s = sum(n.kind == "sixframe" for n in v.nulls.values())
+    n = n_p + n_s
+    bad = []
+    if split["mode"] != "fifty_fifty":
+        bad.append(f"mode {split['mode']}")
+    if (split["n_protein"], split["n_sixframe"]) != (n_p, n_s):
+        bad.append(f"recorded {split['n_protein']}/{split['n_sixframe']} != {n_p}/{n_s}")
+    cap = n if pool is None else pool
+    if n_p not in {min(n // 2, cap), min((n + 1) // 2, cap)}:
+        bad.append(f"n_protein {n_p} of {n} (pool {pool}): not half")
+    return bad
+
+
+def test_split_is_fifty_fifty_on_the_excerpt(scored: dict[int, D.View]) -> None:
+    """Decision 10 at pi_wrong = 0.01 (exact; replaces the binomial test of a count that is fixed
+    by construction, review item 5)."""
     for seed, v in scored.items():
-        split = v.provenance["null_split"]
-        assert split["mode"] == "fifty_fifty", (seed, split)
-        n_p = sum(n.kind == "protein" for n in v.nulls.values())
-        n_s = sum(n.kind == "sixframe" for n in v.nulls.values())
-        assert (split["n_protein"], split["n_sixframe"]) == (n_p, n_s), (seed, split)
-        expected = split["search_space_protein_share"] * (n_p + n_s) * len(v.runs)
-        assert expected < D.FALLBACK_PSMS, (seed, expected)
-        assert n_p > 0 and n_s > 0, (seed, n_p, n_s)
-    n_p = sum(v.provenance["null_split"]["n_protein"] for v in scored.values())
-    n = n_p + sum(v.provenance["null_split"]["n_sixframe"] for v in scored.values())
-    assert stats.binomtest(n_p, n, 0.5).pvalue >= ALPHA, (n_p, n)
+        assert not fifty_fifty_violations(v), (seed, fifty_fifty_violations(v))
+        n_p = v.provenance["null_split"]["n_protein"]
+        assert n_p > 0 and v.provenance["null_split"]["n_sixframe"] > 0, (seed, n_p)
+
+
+@pytest.mark.parametrize("pi", [0.07, 0.08])
+def test_split_stays_fifty_fifty_where_the_search_space_rule_switched(
+    ex: M.Excerpt, recorded: dict[str, dict[str, Any]], tmp_path: Path, pi: float
+) -> None:
+    """Decision 10: no switch to the search-space share at any pi_wrong. On the excerpt the
+    withdrawn rule gave ``search_space`` from pi_wrong ~ 0.07 (share ~0.13, >= 50 gene-level
+    null PSMs; ~18-21 protein nulls against ~120-140 six-frame ones); with the fixed split the
+    protein side gets half, up to the pool of undetected loci (~70-75 here, binding at 0.08)."""
+    for seed in SEEDS:
+        v = D.view(run(ex, tmp_path / f"pi{pi}_{seed}", excerpt_cfg(pi_wrong=pi), seed))
+        sample = D.read_seq(v.out / "truth" / "sample_genome.fna")
+        pool = len(D.candidate_loci(v, D.locus_proteins(v.out, recorded, sample)))
+        bad = fifty_fifty_violations(v, pool)
+        assert not bad, (pi, seed, bad)
 
 
 def test_search_space_share_matches_makedb(v0: D.View, space: dict[str, Any]) -> None:
@@ -393,16 +421,16 @@ def test_protein_null_target_maps_to_the_genome(
 
 
 def test_gate7_false_discovery_share_is_estimable(ex: M.Excerpt, scored: dict[int, D.View]) -> None:
-    """Decision 9 / acceptance 7: genes with no true peptide now get null target evidence that
+    """Decision 9 / acceptance 7 (oracle with the nterm-extension channel and multi_identical
+    acceptance, decision 11): genes with no true peptide now get null target evidence that
     can win the picked competition (expected ~ 0.5 x 7/8 per protein null peptide, ~ 4 per
     seed here), so the false-discovery share among target-won genes is non-zero over three
     seeds, while true genes still dominate."""
-    eligible = {g.locus for g in ex.genes if g.eligible}
     false_won = true_won = with_null = 0
     recorded = D.annotation(ex.bakta_json)
     for v in scored.values():
         sample = D.read_seq(v.out / "truth" / "sample_genome.fna")
-        comp = D.gene_competition(v, eligible, D.locus_proteins(v.out, recorded, sample))
+        comp = D.gene_competition(v, ex.genes, D.locus_proteins(v.out, recorded, sample))
         false_won += sum(c.target_won and not c.has_true for c in comp)
         true_won += sum(c.target_won and c.has_true for c in comp)
         with_null += sum(not c.has_true for c in comp)

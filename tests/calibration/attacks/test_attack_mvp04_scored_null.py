@@ -22,18 +22,18 @@ PEP asc, score desc; S = {q, pep, score} for scored nulls) and the best ranks go
 ``giap.stats.tda.picked_fdr`` (ties to the decoy).
 
 - **Dense null, FDR** (fast R = 50, full R = 300; ``calibrate``, ADR-0015): the 200-kb excerpt at
-  pi_wrong = 0.05, where the Q2 fallback gives the 50/50 split, so about 47 protein-entry nulls
+  pi_wrong = 0.05 with the fixed 50/50 split (lead decision 10), so about 47 protein-entry nulls
   meet about 100 truth-detected genes and the (D + 1) / T cut binds at q = 0.05 and 0.10. Mean
   FDP <= q + 2 SE at q in {0.01, 0.05, 0.10}.
 - **Teeth**: the same replicates with the decoys ignored (a null-blind engine, every gene with
   target evidence detected) must be a confirmed failure at q = 0.01 and 0.05.
-- **Gate 7 on the evidence run** (full, slow): on the whole K-12 genome at ``K12_EVIDENCE_SEED``
-  the search-space split leaves about 21 protein-entry nulls against T ~ 2,700 target-won genes.
-  Even a null-blind engine that accepts every gene with target evidence then has a gene FDP of
-  ~0.0076 (Slurm 1871592, 10 seeds: 0.0073-0.0082), below gate 7's 0.02 and below alpha, and the
-  alpha = 0.01 cut never binds (n_detected = T on 10 of 10 seeds). Both are ``xfail(strict)``
-  until the lead resolves review item 1 (a 50/50 split gives 0.029-0.032 null-blind FDP and a
-  binding cut on 10 of 10 seeds, with mean FDP 0.0104 +- 0.0013 at alpha 0.01).
+- **Gate 7 on the evidence run** (full, slow; lead decision 10): on the whole K-12 genome at
+  ``K12_EVIDENCE_SEED`` the fixed 50/50 split gives about 83 protein-entry nulls and about 41
+  decoy wins against T ~ 2,700 (Slurm 1871592, 10 seeds). A null-blind engine then has a gene
+  FDP of ~0.030 (0.029-0.032), so gate 7 (<= 0.02) can fail, and the alpha = 0.01 cut binds
+  (some target-won gene is left out; 10 of 10 seeds). Under the withdrawn search-space split
+  both failed (FDP 0.0076; n_detected = T), which is why these were strict xfails before.
+  "True" genes are the loci of truth rows with ``is_wrong = false`` (lead decision 11).
 """
 
 from __future__ import annotations
@@ -71,80 +71,22 @@ MODES = [
 # ---------------------------------------------------------------- the oracle gene competition
 
 
-NTERM = "GIAPORF_nterm_extension_"
-
-
-def _nterm_gene(entry: str, genes: list[M.Gene]) -> str | None:
-    """The eligible gene an ``nterm_extension`` makedb entry overlaps on its strand, if any."""
-    *_, s1, e1, st = entry.split("_")
-    strand = "+" if st == "p" else "-"
-    hit = [
-        g.locus
-        for g in genes
-        if g.eligible and g.strand == strand and g.start < int(e1) and int(s1) - 1 < g.end
-    ]
-    return hit[0] if len(hit) == 1 else None
-
-
-def _accepted(r: dict[str, str]) -> bool:
-    return D.finite(r["q_value"]) and D.fnum(r["q_value"]) <= D.Q_VALUE_MAX
-
-
 def _gene_keys(v: D.View, genes_: list[M.Gene], proteins: dict[str, list[str]]
                ) -> tuple[list[str], np.ndarray, np.ndarray]:  # fmt: skip
-    """(genes, best target rank, best decoy rank); rank higher = better, NaN = no evidence."""
-    eligible = {g.locus for g in genes_ if g.eligible}
-    nulls = {n.peptide for n in v.nulls.values() if n.kind == "protein"}
-    nterm: dict[str, str] = {}  # six-frame null peptide on an nterm entry -> its gene
-    voted: set[str] = set()  # ... whose entry is voted to the gene (an accepted target row)
-    for n in v.nulls.values():
-        ent = sorted(n.entries())
-        if n.kind == "sixframe" and len(ent) == 1 and ent[0].startswith(NTERM):
-            g = _nterm_gene(ent[0], genes_)
-            if g is not None:
-                nterm[n.peptide] = g
-                if any(_accepted(r) for r in n.targets.values()):
-                    voted.add(n.peptide)
-    hay = {g: [D.il(a) for a in aa] for g, aa in proteins.items() if g in eligible}
-    ev: list[tuple[str, bool, tuple[float, float, float]]] = []
-    null_loci: dict[str, list[str]] = {}
-    for r in v.peptides:
-        if not _accepted(r):
-            continue
-        key = (D.fnum(r["q_value"]), D.fnum(r["pep"]), -D.fnum(r["score"]))
-        pep = r["peptide"]
-        if r["is_decoy"] == "true":
-            if r["protein_ids"].startswith("rev_" + NTERM):
-                back = pep[::-1]
-                gs = [nterm[back]] if back in voted else []
-            else:
-                gs = [x[len("rev_") :] for x in D.ids(r["protein_ids"]) if x.startswith("rev_")]
-            ev += [(g, True, key) for g in gs if g in eligible]
-            continue
-        if pep in nterm:
-            gs = [nterm[pep]]
-        elif pep in nulls:
-            if pep not in null_loci:
-                p = D.il(pep)
-                locs = sorted(g for g, aa in hay.items() if any(p in a for a in aa))
-                same = len({tuple(proteins[g]) for g in locs}) == 1
-                null_loci[pep] = locs if same else []
-            gs = null_loci[pep]
-        else:
-            loci = v.correct_loci.get(pep, set())
-            gs = list(loci) if len(loci) == 1 else []
-        ev += [(g, False, key) for g in gs if g in eligible]
-    genes = sorted({g for g, _, _ in ev})
+    """(genes, best target rank, best decoy rank) from ``D.gene_evidence`` (the oracle described
+    in the module doc); rank higher = better, NaN = no evidence."""
+    ev = D.gene_evidence(v, genes_, proteins)
+    genes = sorted({e.gene for e in ev})
     if not ev:
         return genes, np.zeros(0), np.zeros(0)
-    keys = np.array([k for _, _, k in ev], dtype=float)
+    keys = np.array([e.key for e in ev], dtype=float)
     keys = np.where(np.isnan(keys), np.inf, keys)
-    uniq, inv = np.unique(keys, axis=0, return_inverse=True)
-    rank = len(uniq) - np.ravel(inv)  # dense, higher = better (as detection._key_rank)
+    _uniq, inv = np.unique(keys, axis=0, return_inverse=True)
+    rank = len(_uniq) - np.ravel(inv)  # dense, higher = better (as detection._key_rank)
     idx = {g: i for i, g in enumerate(genes)}
     best = np.full((2, len(genes)), np.nan)
-    for (g, dec, _), rk in zip(ev, rank.tolist(), strict=True):
-        j, k = int(dec), idx[g]
+    for e, rk in zip(ev, rank.tolist(), strict=True):
+        j, k = int(e.is_decoy), idx[e.gene]
         best[j, k] = rk if np.isnan(best[j, k]) else max(best[j, k], rk)
     return genes, best[0], best[1]
 
@@ -260,12 +202,8 @@ def k12(tmp_path_factory: pytest.TempPathFactory) -> tuple[list[str], np.ndarray
     return genes, t, d, D.true_loci(v)
 
 
-PENDING = "statistician review of PR #247, item 1: the gene-level null is too sparse (lead)"
-
-
 @pytest.mark.slow
 @pytest.mark.calibration_full
-@pytest.mark.xfail(strict=True, reason=PENDING)
 def test_gate7_can_fail_on_the_evidence_run(k12: Any) -> None:
     """A null-blind engine (decoys ignored) must break gate 7, else gate 7 cannot tell a correct
     picked FDR from none."""
@@ -276,7 +214,6 @@ def test_gate7_can_fail_on_the_evidence_run(k12: Any) -> None:
 
 @pytest.mark.slow
 @pytest.mark.calibration_full
-@pytest.mark.xfail(strict=True, reason=PENDING)
 def test_alpha_cut_binds_on_the_evidence_run(k12: Any) -> None:
     """At alpha = 0.01 some target-won gene is left out; otherwise every gene q is the floor of
     the list ((D + 1) / T at the loosest threshold) and the run is saturated in the sense of the

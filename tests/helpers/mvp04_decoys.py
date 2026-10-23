@@ -19,6 +19,9 @@ Vocabulary:
 * the **entry** of a null peptide is the Bakta locus tag (protein kind) or the makedb six-frame
   ``GIAPORF_{class}_{contig}_{start1}_{end1}_{p|m}`` ID (six-frame kind).
 
+Lead decision 10 (statistician review of PR #247, B1): the protein / six-frame null split is a
+fixed 50/50; the search-space share is still recorded in ``provenance.json``.
+
 ``gene_frames`` builds the C9-shaped frames that ``giap.genetable.detection.pair_decoys`` and
 ``choose_tier`` take; ``decoy_wins`` is the §7.3.2 step-3 picked competition (key: q asc, PEP asc,
 score desc; a tie goes to the decoy) between each gene's best paired decoy and its best target that
@@ -33,7 +36,7 @@ import gzip
 import json
 import math
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -48,8 +51,6 @@ ORF_ID = re.compile(
 )
 Q_VALUE_MAX = 0.01  # input.q_value_max default (spec "The run")
 DECOY_PREFIXES = ("rev_", "REV_", "DECOY_", "decoy_", "XXX_", "##")  # input.decoy_prefixes default
-#: Q2 / lead decision 1: below about this many gene-level null PSMs the split falls back to 50/50.
-FALLBACK_PSMS = 50
 PROTEIN_NULL_ORIGIN = "undetected_product"  # lead decision 9 (MVP-04 part 2)
 MIN_ORF_AA = 7  # the shortest simulated peptide (as tests/helpers/m7_round3_oracle.py)
 
@@ -492,6 +493,107 @@ def protein_null_violations(
     return bad
 
 
+NTERM = "GIAPORF_nterm_extension_"
+
+
+def _accepted(r: Mapping[str, str]) -> bool:
+    return finite(r["q_value"]) and fnum(r["q_value"]) <= Q_VALUE_MAX
+
+
+def nterm_gene(entry: str, genes: Sequence[Any]) -> str | None:
+    """The eligible gene a ``GIAPORF_nterm_extension_*`` makedb entry overlaps on its strand, if
+    exactly one (``genes``: objects with ``locus``, ``eligible``, ``strand`` and 0-based half-open
+    ``start`` / ``end``, as ``mvp04_data.Gene``)."""
+    *_, s1, e1, st = entry.split("_")
+    strand = "+" if st == "p" else "-"
+    lo, hi = int(s1) - 1, int(e1)
+    hit = [
+        g.locus for g in genes if g.eligible and g.strand == strand and g.start < hi and lo < g.end
+    ]
+    return hit[0] if len(hit) == 1 else None
+
+
+@dataclass(frozen=True)
+class Evidence:
+    """One accepted (q <= ``Q_VALUE_MAX``) row giving gene-level evidence."""
+
+    gene: str
+    is_decoy: bool
+    key: tuple[float, float, float]  # M4-24 shared key: q asc, PEP asc, score desc
+    peptide: str
+    channel: str  # correct | protein_null | nterm_null
+
+
+def _identical(loci: Sequence[str], proteins: Mapping[str, list[str]]) -> bool:
+    return len({tuple(proteins.get(g, [])) for g in loci}) == 1
+
+
+def gene_evidence(
+    v: View, genes: Sequence[Any], proteins: Mapping[str, list[str]]
+) -> list[Evidence]:
+    """§7.3.2 gene-level evidence per eligible gene, mirroring ``giap.genetable.detection`` without
+    running the mapping (statistician review of PR #247, B3(b); MVP-04 lead decision 11):
+
+    * **correct** peptides give target evidence to their truth loci: one locus (``unique``), or
+      several whose sample proteins are identical (``multi_identical``); ``shared`` gives none;
+    * **protein-entry nulls** (decision 9) give target evidence to every eligible gene whose
+      sample protein holds the peptide (I = L), when that is one gene or several with identical
+      proteins (``multi_identical``); their ``rev_<locus>`` decoys give decoy evidence;
+    * **six-frame nulls on a ``GIAPORF_nterm_extension_*`` entry** place in the gene's
+      ``nterm_extension`` locus class, which assigns: target evidence for the one eligible gene
+      the entry overlaps on its strand; their ``rev_GIAPORF_nterm_extension_*`` decoys pair with
+      that gene only when the entry was voted to it, i.e. the peptide has an accepted target row
+      (``protein_gene_map`` step 3, M7-12 decision 28);
+    * other six-frame nulls and their decoys reach no gene (M7-12 decision 23).
+    """
+    eligible = {g.locus for g in genes if g.eligible}
+    prot_nulls = {n.peptide for n in v.nulls.values() if n.kind == "protein"}
+    nterm: dict[str, str] = {}
+    voted: set[str] = set()
+    for n in v.nulls.values():
+        ent = sorted(n.entries())
+        if n.kind == "sixframe" and len(ent) == 1 and ent[0].startswith(NTERM):
+            g = nterm_gene(ent[0], genes)
+            if g is not None:
+                nterm[n.peptide] = g
+                if any(_accepted(r) for r in n.targets.values()):
+                    voted.add(n.peptide)
+    hay = {g: [il(a) for a in aa] for g, aa in proteins.items() if g in eligible}
+    null_loci: dict[str, list[str]] = {}
+    out: list[Evidence] = []
+    for r in v.peptides:
+        if not _accepted(r):
+            continue
+        k = _key(r)
+        pep = r["peptide"]
+        if r["is_decoy"] == "true":
+            back = pep[::-1]
+            if r["protein_ids"].startswith("rev_" + NTERM):
+                gs, ch = ([nterm[back]] if back in voted else []), "nterm_null"
+            else:
+                gs = [x[len("rev_") :] for x in ids(r["protein_ids"])
+                      if x.startswith("rev_") and not x.startswith("rev_GIAPORF_")]  # fmt: skip
+                ch = "protein_null"
+            out += [Evidence(g, True, k, pep, ch) for g in gs if g in eligible]
+            continue
+        if pep in nterm:
+            gs, ch = [nterm[pep]], "nterm_null"
+        elif pep in prot_nulls:
+            if pep not in null_loci:
+                p = il(pep)
+                locs = sorted(g for g, aa in hay.items() if any(p in a for a in aa))
+                null_loci[pep] = locs if locs and _identical(locs, proteins) else []
+            gs, ch = null_loci[pep], "protein_null"
+        elif pep in v.nulls:
+            continue
+        else:
+            loci = sorted(v.correct_loci.get(pep, set()))
+            ok = len(loci) == 1 or (len(loci) > 1 and _identical(loci, proteins))
+            gs, ch = (loci if ok else []), "correct"
+        out += [Evidence(g, False, k, pep, ch) for g in gs if g in eligible]
+    return out
+
+
 @dataclass(frozen=True)
 class Competition:
     gene: str
@@ -500,32 +602,14 @@ class Competition:
 
 
 def gene_competition(
-    v: View, eligible: set[str], proteins: Mapping[str, list[str]]
+    v: View, genes: Sequence[Any], proteins: Mapping[str, list[str]]
 ) -> list[Competition]:
-    """§7.3.2 picked competition per eligible gene with evidence at q <= ``Q_VALUE_MAX``: target
-    evidence = rows of correct peptides unique to the gene in the truth, plus protein-entry null
-    target rows attributed to it whose peptide lies in one of its sample ``proteins`` (I = L:
-    they map there, decision 9; a shuffled peptide maps nowhere and gives none); decoy evidence =
-    its ``rev_<gene>`` rows. A tie goes to the decoy. ``has_true``: the gene has a true peptide."""
-    nulls = {n.peptide for n in v.nulls.values() if n.kind == "protein"}
+    """§7.3.2 picked competition per eligible gene with evidence (``gene_evidence``): the best
+    target key against the best decoy key; a tie goes to the decoy. ``has_true``: the gene has a
+    true peptide (a truth row with ``is_wrong = false``, MVP-04 lead decision 11)."""
     best: dict[tuple[str, bool], tuple[float, float, float]] = {}
-    for r in v.peptides:
-        if not finite(r["q_value"]) or fnum(r["q_value"]) > Q_VALUE_MAX:
-            continue
-        dec = r["is_decoy"] == "true"
-        if dec:
-            gs = [x[len("rev_") :] for x in ids(r["protein_ids"]) if x.startswith("rev_")]
-        elif r["peptide"] in nulls:
-            pep = il(r["peptide"])
-            gs = [g for g in ids(r["protein_ids"])
-                  if any(pep in il(aa) for aa in proteins.get(g, []))]  # fmt: skip
-        else:
-            loci = v.correct_loci.get(r["peptide"], set())
-            gs = list(loci) if len(loci) == 1 else []
-        for g in gs:
-            if g in eligible:
-                k = _key(r)
-                best[(g, dec)] = min(best.get((g, dec), k), k)
+    for e in gene_evidence(v, genes, proteins):
+        best[(e.gene, e.is_decoy)] = min(best.get((e.gene, e.is_decoy), e.key), e.key)
     done = true_loci(v)
     out = []
     for g in sorted({g for g, _ in best}):

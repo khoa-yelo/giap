@@ -12,14 +12,16 @@ Claims (single fixed seed, as the acceptance gates):
   best key beats the gene's best paired decoy) is >= 110 (q_floor <= 0.00909) and inside the
   spec's expected 2,300-3,100 (truth-detected share 0.631 x 4,367 ~ 2,757);
 * acceptance 2, 3: GIAP's ``pair_decoys`` + ``choose_tier`` give ``decoy_picked``, no warning,
-  paired share f >= 0.98; acceptance 5: at least one decoy win;
-* Q2 / decision 1: on the whole genome the search-space split gives well over 50 gene-level null
-  PSMs (~0.14 x ~400 x 3), so the mode is ``search_space``; the protein share of the null
-  peptides matches the recorded share (exact binomial, p >= 0.001), and the recorded share is
-  the makedb search space's (+-0.04);
+  paired share f >= 0.98; acceptance 5: at least one decoy win (gate), and the count inside the
+  spec's expected 20-300 (lead decision 10: ~41 decoy wins under the fixed 50/50 split, Slurm
+  1871592, 10 seeds; ~11 under the withdrawn search-space split);
+* lead decision 10 (Q2's alternative): the null peptides split a fixed 50/50 between protein and
+  six-frame entries (mode ``fifty_fifty``; exact, since the count is fixed by construction,
+  review item 5); the recorded search-space share (kept for the record) is the makedb search
+  space's (+-0.04);
 * lead decision 9: every protein-entry null is an undetected real product of its locus (no true
   peptide there) that maps to the genome, so genes without a true peptide win the picked
-  competition (~ 0.5 x 7/8 x ~56 protein null peptides ~ 25 expected) and gate 7's
+  competition (~ 0.5 x 7/8 x ~83 protein null peptides ~ 36 expected under 50/50) and gate 7's
   false-discovery share among target-won genes is estimable and non-zero;
 * rule 6 bookkeeping on every null PSM (once, target xor decoy; finite decoy scores).
 """
@@ -33,12 +35,12 @@ from typing import Any
 import pytest
 from helpers import mvp04_data as M
 from helpers import mvp04_decoys as D
-from scipy import stats
 
 pytestmark = pytest.mark.slow
 
 T_RANGE = (2_300, 3_100)  # spec acceptance 4 "Expected"
 T_MIN = 110  # spec acceptance 4 gate
+GATE5_EXPECTED = (20, 300)  # spec acceptance 5 "Expected" (decoy wins), lead decision 10
 
 
 @pytest.fixture(scope="module")
@@ -82,20 +84,19 @@ def test_giap_tier_pairing_and_decoy_wins(k12: D.View, genes: list[M.Gene]) -> N
     assert tier.paired_share >= 0.98, tier.paired_share
     eligible = {g.locus for g in genes if g.eligible}
     wins = D.decoy_wins(k12, {g.locus: g.aa for g in genes}, eligible)
-    assert sum(wins.values()) >= 1, len(wins)
+    n_wins = sum(wins.values())
+    assert n_wins >= 1, len(wins)
+    assert GATE5_EXPECTED[0] <= n_wins <= GATE5_EXPECTED[1], (n_wins, len(wins))
 
 
-def test_null_split_follows_the_search_space(
-    k12: D.View, tmp_path_factory: pytest.TempPathFactory
-) -> None:
+def test_null_split_is_fifty_fifty(k12: D.View, tmp_path_factory: pytest.TempPathFactory) -> None:
     split = k12.provenance["null_split"]
-    assert split["mode"] == "search_space", split
-    share = float(split["search_space_protein_share"])
+    assert split["mode"] == "fifty_fifty", split
     n_p = sum(n.kind == "protein" for n in k12.nulls.values())
     n = len(k12.nulls)
     assert (split["n_protein"], split["n_sixframe"]) == (n_p, n - n_p), split
-    assert n_p * len(k12.runs) >= D.FALLBACK_PSMS, (n_p, split)
-    assert stats.binomtest(n_p, n, share).pvalue >= 0.001, (n_p, n, share)
+    assert n_p in {n // 2, (n + 1) // 2}, (n_p, n)  # the K-12 pool (~1,600 loci) never binds
+    share = float(split["search_space_protein_share"])
     tmp = tmp_path_factory.mktemp("makedb_k12")
     fna = D.write_sample_fasta(k12.out, tmp / "sample.fna")
     space: dict[str, Any] = D.makedb_search_space(M.K12_JSON, fna, tmp)
@@ -117,10 +118,9 @@ def test_protein_nulls_are_undetected_products_that_map(k12: D.View) -> None:
 
 
 def test_gate7_false_discovery_share_is_estimable(k12: D.View, genes: list[M.Gene]) -> None:
-    eligible = {g.locus for g in genes if g.eligible}
     sample = D.read_seq(k12.out / "truth" / "sample_genome.fna")
     proteins = D.locus_proteins(k12.out, D.annotation(M.K12_JSON), sample)
-    comp = D.gene_competition(k12, eligible, proteins)
+    comp = D.gene_competition(k12, genes, proteins)
     false_won = sum(c.target_won and not c.has_true for c in comp)
     won = sum(c.target_won for c in comp)
     assert false_won >= 1, (false_won, won)
