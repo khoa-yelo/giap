@@ -1,7 +1,7 @@
 # `giap compare`: detection, abundance agreement and result stability
 
 Implements `giap.compare.{detection,abundance,stability}` and `giap.io.compare_io`
-(GIAP_SPEC.md §7.9.3, §8.2, §8.3; issue M9-22; layout ADR-0046). Statistician sign-off: pending.
+(GIAP_SPEC.md §7.9.3, §8.2, §8.3; issue M9-22; layout ADR-0046). Statistician sign-off: block B1 fixed (decision 11), 2026-10-22.
 
 ## Inputs and checks
 Two or more `OUT/` trees on the same genome (genome SHA-256 from `run_manifest.json`, else

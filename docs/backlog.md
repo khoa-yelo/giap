@@ -687,3 +687,25 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   "down"; the operon_flags key ignores the `flag` column.
 - Unit tests for `ci_unestimated` and NA-TU genes as their own unit; recorded heavy-tailed and
   15-TU calibration arms; attack nulls A1–A5 (comment) in tests/calibration/attacks/.
+
+### M9-22 code-review nits (PR #232, comment 6358611226)
+- Untested (surviving mutants):
+  - the 9-unit boundary of decision 11;
+  - decision 7 (TUs from the wrong run);
+  - genes without a TU as their own units;
+  - strand in the ALT key;
+  - the `end`/`strand` gene-order tie-breaks;
+  - same-size, different locus-tag sets;
+  - `abundance_type == "none"`, its sort position and its zero-count row.
+- `test_function_off_in_one_run_is_missing_in` deletes the tables, so the `resolved_config.yaml`
+  module check is never exercised; a run with only one of its two enrichment tables is untested.
+- A malformed manifest/preflight JSON or an unreadable stability table gives a traceback, not an
+  exit code (`giap report` exits 4).
+- A manifest without a genome sha256 should fall back to preflight; otherwise say so in ADR-0046.
+- The `n_units` schema description says NA when there is no CI, but the code writes 1 alongside an
+  NA CI. Fix the description.
+- One shared stream across pairs: adding a run shifts later pairs' CIs. Spawn per pair.
+- GSEA NES 0/NaN counted as "down".
+- `gene_order` duplicates the §6.5 key.
+- No manifest for `CMP/`.
+- compare.md still says "Statistician sign-off: pending".
