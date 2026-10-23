@@ -20,10 +20,15 @@ lists its packed KEGG sets only (unfiltered): 1-3 packed operons of 10-30 genes 
 ``PACKED_SINGLES`` single-gene TUs each, whole TUs; packed TUs draw their level like every other
 TU (the shared TU level is the attack; lead decision 4, B2).
 
-Detection is ``Bernoulli(p_true)`` with ``p_true`` the M4-09 covariate logistic, plus
-``member_shift`` on the logit of the confounded members (``ora_attack_confounded``); it is drawn
+Detection is ``Bernoulli(p_true)`` with ``p_true`` the M4-09 covariate logistic; it is drawn
 from its own stream, so the attack at shift 0 reproduces ``ora_null``, and the determinants null
-and planted scenarios share layout and detection for one seed. Determinants: ``abundance_log2_true
+and planted scenarios share layout and detection for one seed. ``ora_attack_confounded`` carries
+``member_shift`` through ``n_obs`` (``CONFOUND_COVARIATE``; lead decision 6, B1): each confounded
+member with an ``aa`` and ``n_obs > 0`` has its K/R residues moved (with their codons in ``nt``;
+composition, hence GRAVY and length, unchanged) so that its recomputed observable-peptide count
+gives the logit shift nearest ``member_shift``; ``n_obs_true`` and ``p_detect_true`` follow the
+edited sequence, and the logit stays the covariate model's. The edits are deterministic (no draw),
+so every other scenario is unchanged. Determinants: ``abundance_log2_true
 = mu + TU effect (sd 1) + noise (noise_sd) + sum_j beta_j z_j`` with ``z_j`` the population
 (ddof 0) z-score of feature ``j``; the true R² is ``sum beta² / (sum beta² + 1 + noise_sd²)``.
 Planted features: a sigma-70 box score per TU (``TTGACA``/``TATAAT`` matches, spacer penalty), a
@@ -44,11 +49,18 @@ import numpy as np
 import pandas as pd
 
 from giapsim.codons import CODE_11, SENSE_USAGE
-from giapsim.expression import Expression, ExpressionConfig, FrozenMap, simulate_expression
+from giapsim.expression import (
+    Expression,
+    ExpressionConfig,
+    FrozenMap,
+    simple_covariates,
+    simulate_expression,
+)
 from giapsim.layout import Layout, LayoutConfig, simulate_layout
 
 __all__ = [
     "BLOCKS",
+    "CONFOUND_COVARIATE",
     "FEATURES",
     "PACKED_TU_SIZE",
     "RESERVED_PREFIXES",
@@ -61,6 +73,9 @@ __all__ = [
     "write_truth",
 ]
 
+#: M4-13 covariate carrying ``ora_attack_confounded``'s shift (lead decision 6, B1).
+CONFOUND_COVARIATE: Literal["n_obs"] = "n_obs"
+_PEPTIDE_LEN = (7, 30)  # observable peptide lengths (giapsim.expression / GIAP defaults)
 #: Reserved ID prefixes of the synthetic annotations (lead decision 1).
 RESERVED_PREFIXES: tuple[str, ...] = ("GO:9", "K9", "map9")  # GO term, KEGG KO, KEGG map
 _GO_BASE, _GO_LAST = 9_000_000, 9_999_998  # GO:9999999 is the fixtures' absent marker
@@ -385,12 +400,116 @@ def _tu_of(layout: Layout) -> dict[str, str]:
                                             strict=True) for g in gs}  # fmt: skip
 
 
-def _redetect(genes: pd.DataFrame, inside: np.ndarray, shift: float,
-              rng: np.random.Generator) -> pd.DataFrame:  # fmt: skip
+def _redetect(genes: pd.DataFrame, delta: np.ndarray, rng: np.random.Generator) -> pd.DataFrame:
     p = genes["p_detect_true"].to_numpy(float)
     logit = np.log(p) - np.log1p(-p)
-    q = _sigmoid(logit + shift * inside)
+    q = _sigmoid(logit + delta)
     return genes.assign(p_detect_true=q, detected_true=rng.random(len(q)) < q)
+
+
+def _chunks(xs: list[int], kr: list[int], sizes: list[int]) -> tuple[list[int], int]:
+    """(position 0, then ``sizes[j]`` non-K/R positions and K/R ``j`` per chunk; positions used)."""
+    order, at = [0], 0
+    for j, size in enumerate(sizes):
+        order += [*xs[at : at + size], kr[j]]
+        at += size
+    return order, at
+
+
+def _kr_orders(aa: str, k: int) -> list[list[int]]:
+    """Residue orders of ``aa`` (position 0 fixed; non-K/R residues keep their order) with ``k``
+    leading K/R-terminated fragments of 7-30 aa, then either one fragment longer than 30 aa and
+    the remaining K/R as single residues at the C terminus, or (short proteins) the rest cut by
+    the remaining K/R into fragments shorter than 7 aa; candidates in preference order."""
+    lo, hi = _PEPTIDE_LEN
+    kr = [i for i in range(1, len(aa)) if aa[i] in "KR"]
+    xs = [i for i in range(1, len(aa)) if aa[i] not in "KR"]
+    m, nx = len(kr), len(xs)
+    if k > m:
+        return []
+    # chunk j holds x_j non-K/R residues (+ M for j = 0) and one K/R
+    mins = [lo - 2] + [lo - 1] * (k - 1) if k else []
+    maxs = [hi - 2] + [hi - 1] * (k - 1) if k else []
+    smin, smax = sum(mins), sum(maxs)
+    lead, trail = (1 if k == 0 else 0), (1 if m > k else 0)
+
+    def tail_len(total: int) -> int:
+        return lead + nx - total + trail
+
+    totals = [t for t in range(smin, min(smax, nx) + 1)
+              if not lo <= tail_len(t) <= hi]  # fmt: skip
+    totals.sort(key=lambda t: (tail_len(t) < lo, t))  # long last fragment first
+    out: list[list[int]] = []
+    for total in totals[:4]:
+        sizes, extra = list(mins), total - smin
+        for j in range(k):  # spread the extra residues evenly, capped at the maxima
+            add = min(maxs[j] - sizes[j], -(-extra // (k - j)))
+            sizes[j] += add
+            extra -= add
+        order, at = _chunks(xs, kr, sizes)
+        out.append(order + xs[at:] + kr[k:])
+    # short proteins: fill the k chunks, cut the rest into pieces of < lo aa by the remaining K/R
+    total = min(smax, nx)
+    rest, r = nx - total, m - k
+    if total >= smin and rest <= r * (lo - 2) + (lo - 1) - lead:
+        sizes, extra = list(mins), total - smin
+        for j in range(k):
+            add = min(maxs[j] - sizes[j], extra)
+            sizes[j] += add
+            extra -= add
+        order, at = _chunks(xs, kr, sizes)
+        for j in range(r + 1):  # piece j: up to lo - 2 residues (+ M when k = 0) and one K/R
+            cap = (lo - 2 if j < r else lo - 1) - (lead if j == 0 else 0)
+            take = min(cap, -(-(nx - at) // (r + 1 - j)))
+            order += [*xs[at : at + take], *kr[k + j : k + j + 1]]  # no K/R after the last
+            at += take
+        if at == nx:
+            out.append(order)
+    return out
+
+
+def _move_kr(aa: str, nt: Any, n0: int, shift: float, b: float) -> tuple[str, Any, int] | None:
+    """(edited ``aa``, ``nt`` with codons moved alongside, new ``n_obs``) whose logit shift
+    ``b * (log1p(n) - log1p(n0))`` is nearest ``shift`` (same sign), or None when none is
+    reachable by moving K/R."""
+    ks = [k for k in range(0, 2 * n0 + 2) if (k - n0) * shift > 0]
+    ks.sort(key=lambda k: (abs(b * (math.log1p(k) - math.log1p(n0)) - shift), k))
+    for k in ks:
+        for order in _kr_orders(aa, k):
+            new = "".join(aa[i] for i in order)
+            if simple_covariates(new)[0] != k:
+                continue
+            if isinstance(nt, str) and len(nt) >= 3 * len(aa):
+                nt = "".join(nt[3 * i : 3 * i + 3] for i in order) + nt[3 * len(aa) :]
+            return new, nt, k
+    return None
+
+
+def _confound(
+    layout: Layout, genes: pd.DataFrame, inside: np.ndarray, shift: float, b: float
+) -> tuple[Layout, pd.DataFrame, np.ndarray]:
+    """Carry ``shift`` through the members' ``n_obs`` (B1): (edited layout, genes with the new
+    ``n_obs_true``, logit change per gene)."""
+    delta = np.zeros(len(genes))
+    if shift == 0.0 or not inside.any():
+        return layout, genes, delta
+    lg = layout.genes
+    row = {str(t): i for i, t in enumerate(lg["locus_tag"])}
+    aa, nt = lg["aa"].tolist(), lg["nt"].tolist()
+    n_obs = genes["n_obs_true"].to_numpy(np.int64).copy()
+    for i in np.flatnonzero(inside).tolist():
+        r = row[str(genes["locus_tag"].iat[i])]
+        a, n0 = aa[r], int(n_obs[i])
+        if not (isinstance(a, str) and a) or n0 <= 0:
+            continue  # immovable: stays a member, unchanged
+        moved = _move_kr(a, nt[r], n0, shift, b)
+        if moved is None:
+            continue
+        aa[r], nt[r], n_obs[i] = moved
+        delta[i] = b * (math.log1p(n_obs[i]) - math.log1p(n0))
+    lg = lg.assign(aa=pd.Series(aa, index=lg.index, dtype=object),
+                   nt=pd.Series(nt, index=lg.index, dtype=lg["nt"].dtype))  # fmt: skip
+    return replace(layout, genes=lg), genes.assign(n_obs_true=n_obs), delta
 
 
 def _confounded_sets(sets: pd.DataFrame, n_genes: int, rng: np.random.Generator) -> list[str]:
@@ -489,7 +608,9 @@ def draw(pair: tuple[LayoutConfig, ExpressionConfig], rng: np.random.Generator) 
         flag = sets["set_id"].isin(conf).to_numpy()
         sets = sets.assign(confounded=flag)
         inside = genes["locus_tag"].isin(set(sets.loc[flag, "locus_tag"])).to_numpy()
-    genes = _redetect(genes, inside, spec.member_shift if spec.attack else 0.0, r_det)
+    shift = spec.member_shift if spec.attack else 0.0
+    layout, genes, delta = _confound(layout, genes, inside, shift, ecfg.beta["log1p_n_obs"])
+    genes = _redetect(genes, delta, r_det)
     features: pd.DataFrame | None = None
     truth: dict[str, pd.DataFrame] = {"sets": sets}
     if spec.kind == "determinants":
