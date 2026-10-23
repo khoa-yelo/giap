@@ -465,3 +465,22 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
      - no G4-k3 xfail before the full tier;
      - `gate_record`'s unused attack_a/attack_d keys stay until the smoke test is next edited.
    - Next: the statistician re-checks the arm and runs the full tier, which decides G4-k3.
+
+### M7-13b lead decisions 9–12 (2026-10-23, after the statistician's full tier)
+9. **Clustered-null arm accepted as built.**
+   - The planted-key and overlap filter removes contaminated entries without changing the null
+     (paired differences within 1–2 SE).
+   - Teeth are measured: attacks a and d confirm a fail in 30 of 30 disjoint R = 10 windows (95 %
+     lower bound 0.90). This replaces decision 8's "teeth from the full tier", since attacks run
+     in the fast tier only.
+10. **G4-k3 confirmed fail; ADR-0050 proposed** (options 1–5, pending Khoa). Interim: G4-k3
+    (cds_outframe and antisense at 0.01 and 0.05, intergenic at 0.01) and attack GC at q 0.01
+    become strict xfails naming ADR-0050. GC's full-tier result supersedes its fast-tier pass.
+11. **Chance shared peptides.** `no_makedb_pair` is right when every peptide row of a GIAP ORF names
+    another planted ORF's makedb entry: a short Met-initial 7-mer recurring at another ATG. The G4
+    harness exempts this case from `UNESTIMATED_BUGS`, counts it as the diagnostic
+    `shared_peptide_no_pair`, and still fails on any other `no_makedb_pair`. Reversible; the
+    alternative is giapsim avoiding such recurrences.
+12. **`test_attack_oracle_picked_class_fdp_dense`** (M7-12, full tier) fails with "no calls at 0.01,
+    intergenic" on #256/#267's giapsim. It goes to #267 as a follow-up (test-author check first).
+    Shard the nightly block 2 (serial G4-k3 block 2 ≈ 3.2 h against `--time` 04:00); backlog.
