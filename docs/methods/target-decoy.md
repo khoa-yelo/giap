@@ -117,6 +117,43 @@ N = 2000, π₀ = 0.8):
 | 30 % of null-gene decoys lost | 0.011 / 0.067 / 0.138 | as above |
 | π = 0.5 when true π₀ = 0.8 | 0.015 / 0.077 / 0.158 | π̂ must be conservative; M3-10's π̂_wrong (mean PEP, max q, de novo lower bound) needs its own calibration in the placement suite |
 
+## Six-frame ORF decoys in the simulator and the class q floor (M7-12, M7-11)
+
+The `novel_orf_power` scenario writes the decoys a search against `giap makedb --six-frame-orfs`
+would give. Each null PSM of a six-frame wrong peptide goes to its target row or to the
+`rev_GIAPORF_…` decoy of its makedb entry with probability ½ (stream `[seed, 8]`). The decoy keeps
+the null score, and its q and PEP come from the same score function (M7-12 decisions 21, 24).
+Statistician round 3 (PR #225, `tests/calibration/attacks/test_attack_m7_sixframe_picked.py`) found:
+
+- **The picked label is a fair coin.** The coin is drawn independently of the score, so the side
+  that holds an entry's best PSM is fair. Pooled over 27 replicates at 1 Mb, 5575 of 10955 wrong
+  peptides had their best PSM on the target side (0.509, binomial p = 0.064). The q and PEP are one
+  monotone function of the score for targets and decoys alike, so ranking by q and then by score
+  keeps the exchangeability. Under M7-11 rule 2 the procedure is therefore knockoff+.
+- **Oracle class FDP is at level.** The oracle picks at entry level, within each class, with no
+  GIAP novel code. With 200 ORFs planted per class at 1 Mb, over 15 replicates:
+
+  | Class | q = 0.01 | q = 0.05 | q = 0.10 |
+  |---|---|---|---|
+  | intergenic | 0.0095 ± 0.0036 | 0.049 ± 0.008 | 0.107 ± 0.010 |
+  | cds_outframe | 0.0063 ± 0.0021 | 0.044 ± 0.004 | 0.105 ± 0.008 |
+  | antisense | 0.0033 ± 0.0016 | 0.048 ± 0.007 | 0.096 ± 0.010 |
+
+- **The q and PEP on target rows are about 2× conservative.** The mixture uses the pre-coin wrong
+  share. After the coin, only half of the null PSMs remain targets. At 1 Mb, target PSMs at
+  q ≤ 0.01 have FDP 0.005, and the sum of PEP is 869 against 608 wrong target rows. A real engine
+  estimates q from the decoys, so its target q is not inflated in this way. Nothing in the picked
+  class FDR reads q or PEP as a probability. Any calibration check of PSM-level q or PEP on this
+  scenario must use the post-coin share instead.
+- **Class q floor.** (D + 1)/T can never fall below 1/T, so a class with fewer than 1/α = 100
+  target ORFs calls nothing at α = 0.01. This is not specific to the simulator. In a real genome,
+  the picked class FDR at 0.01 calls nothing in a class with fewer than about 100 detected
+  candidates (M7-11 example 2). The scenario defaults plant 16 per class at 300 kb and 40 at 1 Mb.
+  At those sizes the oracle's minimum class q is 0.056–0.077 at 300 kb (3 seeds) and 0.025–0.028 at
+  1 Mb (12 seeds), with 0 calls at 0.01 in every replicate. G3 (F1 ≥ 0.9 of called ORFs) is then 0
+  by construction. At 1 Mb, intergenic planting stops at about 100–145 ORFs (gap supply), whatever
+  the requested count.
+
 ## Convergent and sandwich decoys (operons, M6-01)
 
 `giap.stats.decoy_fdr` reuses `monotone_q` for the missed-operon family (§7.4.4); the full method
