@@ -74,7 +74,7 @@ sensitivity rows.
 | 10 | [M8-10](M8-10-determinants-step-and-run.md) | T | 1 | the `determinants` step, three writers + schemas, `determinants.nf`, `main.nf`, a real `giap run` | 07–09 | 300 | no |
 | 11 | [M8-11](M8-11-stats-fgsea-multilevel.md) | S | 2 | `stats/`: fgsea port II — multilevel splitting (`sampleSize = 101`, `eps = 0`), multilevel `log2err` | 02 | 330 | yes |
 | 12 | [M8-12](M8-12-golden-r-env.md) | G | 2 | R env (conda-forge + bioconda pins), frozen golden inputs, `make_golden_r.R`, `golden_r.sbatch`, `golden-r.yml`, committed outputs | 02 (inputs only) | 220 | no |
-| 13 | [M8-13](M8-13-golden-equivalence.md) | C | 2 | **gate, half 1**: Wallenius vs goseq, ES / NES / p vs fgsea, on the committed golden data | 01, 11, 12 | 40 (+tests) | yes |
+| 13 | [M8-13](M8-13-golden-equivalence.md) | C | 2 | **gate, half 1**: Wallenius vs goseq, ES / NES / p vs fgsea, on the committed golden data | 01, 12, 12b, 17 (#214) | 20 (+380 tests) | yes |
 | 14 | [M8-14](M8-14-sim-function-determinants.md) | F | 2 | giapsim: synthetic ontology + xrefs, ORA null and confounding attack, GSEA null and operon-packed attack, planted determinant effects, determinants null | none | 0 (+330 sim) | yes (light) |
 | 15 | [M8-15](M8-15-calibration-gate.md) | C | 2 | **gate, half 2**: `ora`, `gsea`, `determinants` at level; attacks 2 and 3; planted-R² recovery recorded | 04, 05, 09, 11, 14 | 60 (+tests) | yes |
 | 16 | [M8-16](M8-16-sensitivity-function-determinants.md) | R | 2 | §8.6 families "enriched categories" and "determinants" (CV R², dominant-block `agreement`) | 06, 10 | 160 | yes (light) |

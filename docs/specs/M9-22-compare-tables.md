@@ -83,7 +83,8 @@ flag `missing_in:<label>`.
 | `--labels` count ≠ runs, or duplicate labels | exit 1 |
 | no `--labels` | directory basenames; duplicates suffixed `_2`, `_3` |
 | `n_shared` < 3 | ρ, CI, BA NA, flag `too_few_shared` |
-| `n_shared` TUs < 2 | CI NA, flag `ci_few_units` (the M4-16 flag) |
+| resampling units < 2 | CI NA, flag `ci_few_units` (the M4-16 flag) |
+| resampling units 2–9 | CI kept, flag `ci_few_units` (not a 95 % interval; decision 11) |
 | abundance types or scales differ between runs (`abundance_type`, `abundance_scale`) | BA columns written, flag `scale_differs` (bias is not interpretable) |
 | a run without abundance | that pair's abundance row NA, flag `missing_in:<label>` |
 | `function` module off in one run | `enriched_categories` NA, `missing_in` |
@@ -122,3 +123,35 @@ flag `missing_in:<label>`.
 3. "q ≤ 0.05" in §7.9.3 vs the config key: **Proposed default:** `stats.alpha.enrichment` (0.05 by
    default), so a user's alpha applies.
 4. Exact (UpSet) intersections vs inclusive ones: **Proposed default:** exact, as UpSet plots draw.
+
+## Lead decisions (2026-10-22)
+
+1. The genome check reads `run_manifest.json` (written since MVP-03a, #196) when present and falls
+   back to `preflight.json` otherwise; both runs must agree on the genome digest.
+2. The ρ CI's coverage is recorded, not gated, until a Khoa-approved ADR adds
+   `replicates_fast/full.compare` to `tolerances.yaml` (the ADR-0032 pattern; raised with Khoa).
+3. The threshold is the config key `stats.alpha.enrichment` (0.05 by default).
+4. Intersections are exact (UpSet semantics).
+5. Feature loop: test-author → implementer → statistician (stats label) → code review.
+
+## Lead decisions on the tests (2026-10-22, after 67b21f9)
+
+6. **Decision 2 corrected.** ADR-0042 (accepted by Khoa 2026-10-22, #201) already added
+   `compare: 100 / 1000` to `tolerances.yaml` and names the ρ-CI test as gating, so the coverage
+   test gates (as written in 67b21f9) and also records to the calibration log.
+7. **TUs per pair.** `abundance_pairs` keeps a single `tus` series; the CLI passes, for each pair,
+   the TUs of the pair's first run (label order).
+8. **Existing CLI tests.** If `tests/unit/test_cli.py` or `test_cli_exit_codes.py` assume
+   `compare` exits 5, the implementer reports it and the lead edits them.
+9. **Calibration world.** Simulated TU pairs at giapsim sizes are accepted for this PR; full
+   giapsim pairs go to the hardening backlog.
+10. **Section order.** The matrix section first, then intersections; among equal counts `none`
+    sorts last (untested; backlog).
+
+## Lead decision on the statistician's block (2026-10-22, PR #232 comment 6357223837)
+
+11. `ci_few_units` follows the project rule (docs/methods/bootstrap.md, islands): below 10
+    resampling units the CI is kept from 2 units but flagged (not a 95 % interval), and NA below
+    2; `compare_abundance` gains `n_units` after `n_shared`. Lead fix with the test edits
+    (`test_two_tus_give_a_ci_flagged_few_units`, `test_ten_tus_are_not_few_units`, the column
+    constant in tests/helpers/compare_data.py).
