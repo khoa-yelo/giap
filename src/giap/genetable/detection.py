@@ -160,7 +160,8 @@ def pair_decoys(
     one and the same gene (unpaired). Contaminant decoys (every stripped ID starts with a
     contaminant prefix, default ``input.contaminant_prefixes``) get no row: neither paired nor
     unpaired; a mixed decoy pairs on its non-contaminant IDs only (decision 12). Decoys of makedb
-    six-frame entries (``GIAPORF_…``) are left out the same way (M7-12 decision 23)."""
+    six-frame entries (``GIAPORF_…``) that map to no gene in ``pmap`` are left out the same way;
+    an entry voted to a gene (e.g. ``nterm_extension``) pairs there (M7-12 decisions 23, 28)."""
     cols = ["peptide", "q_value", "pep", "score", "gene"]
     if peptides is None or not len(peptides):
         return pd.DataFrame({c: pd.Series([], dtype=object) for c in cols})
@@ -169,16 +170,22 @@ def pair_decoys(
     if q_value_max is not None:
         q = d["q_value"].astype("float64")
         d = d[q.isna() | (q <= q_value_max)]
-    skip = (*_contaminants(contaminant_prefixes), ORF_ID_PREFIX)
-    # Decision 12: only all-contaminant (M7-12 decision 23: or all-ORF-entry) decoys leave the
-    # counts; a mixed decoy pairs on its gene IDs.
+    cont = _contaminants(contaminant_prefixes)
+    lookup = dict(zip(pmap["protein_id"].astype(str), pmap["gene"], strict=True))
+
+    def counted(m: str) -> bool:
+        # Decision 12: contaminant IDs leave the counts; M7-12 decision 28: so do ORF-entry IDs
+        # that map to no gene. A decoy with no ID left gets no row.
+        if m.startswith(cont):
+            return False
+        return not m.startswith(ORF_ID_PREFIX) or not _is_na(lookup.get(m))
+
     stripped = [
-        [m for m in (_strip(x, decoy_prefixes) for x in _ids(c)) if not m.startswith(skip)]
+        [m for m in (_strip(x, decoy_prefixes) for x in _ids(c)) if counted(m)]
         for c in d["protein_ids"].tolist()
     ]
     keep = np.array([len(ms) > 0 for ms in stripped], dtype=bool)
     d = d[keep]
-    lookup = dict(zip(pmap["protein_id"].astype(str), pmap["gene"], strict=True))
     genes: list[Any] = []
     for ms in (s for s, k in zip(stripped, keep, strict=True) if k):
         hit = [lookup.get(m) for m in ms]
