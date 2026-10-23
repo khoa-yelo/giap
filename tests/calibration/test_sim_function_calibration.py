@@ -21,8 +21,10 @@ generator feeds (registered by ``calsuite`` markers): ``ora`` (R 100 / 1,000), `
   are exchangeable given its size (TU-correlated abundance does not break it; gene-level ranking
   would).
 - Example 6 (``determinants_null(3000)``): every feature independent of the response. TU-level
-  Spearman (first gene of each TU, genome-order ``genes[0]``) of the feature against the TU mean
-  response, one stream per feature (features of distinct TUs exchangeable).
+  Spearman (first gene of each TU, genome-order ``genes[0]``) of each feature against the TU mean
+  response (features of distinct TUs exchangeable); the three p-values of one world are pooled
+  into one level check per replicate (``check_level_pooled``, m = 3; lead decision 4, B3: nine
+  separate full-tier checks failed by multiplicity, about 0.6 % each, at fixed seeds).
 
 Cost (fast tier, 1 core): ~0.4 s per world at 4,000 genes; ~1 min for ``ora`` per arm, ~20 s for
 ``gsea``, ~10 s per feature for ``determinants``; the teeth arm runs both blocks. The full tier
@@ -45,6 +47,7 @@ MODES = [
     pytest.param(True, marks=pytest.mark.calibration_full, id="full"),
 ]
 FEATURES = ("promoter", "rbs", "cai")
+STREAM_DET_POOLED = "sim_function.determinants_null.pooled"
 
 
 def _draw(pair: Any, rng: np.random.Generator) -> Any:
@@ -162,20 +165,45 @@ def test_example3_gsea_null_membership_independent_of_abundance(full: bool) -> N
 # ----------------------------------------------------------------------------- determinants
 
 
-@pytest.mark.calsuite("determinants")
-@pytest.mark.parametrize("feature", FEATURES)
-@pytest.mark.parametrize("full", MODES)
-def test_example6_determinants_null_features_independent_of_response(
-    full: bool, feature: str
-) -> None:
-    def fn(rng: np.random.Generator) -> float:
-        w = _draw(_sc().determinants_null(3000), rng)
-        y = dict(zip(w.expression.genes["locus_tag"].astype(str),
-                     w.expression.genes["abundance_log2_true"], strict=True))  # fmt: skip
+def _determinants_null_ps(rng: np.random.Generator) -> tuple[float, float, float]:
+    """The three feature p-values of one ``determinants_null(3000)`` world."""
+    w = _draw(_sc().determinants_null(3000), rng)
+    y = dict(zip(w.expression.genes["locus_tag"].astype(str),
+                 w.expression.genes["abundance_log2_true"], strict=True))  # fmt: skip
+    tus = _tu_frame(w)
+    r = np.array([np.mean([y[g] for g in gs]) for gs in tus["genes"]])
+    out = []
+    for feature in FEATURES:
         f = dict(zip(w.features["locus_tag"].astype(str), w.features[feature], strict=True))
-        tus = _tu_frame(w)
         x = np.array([f[gs[0]] for gs in tus["genes"]], dtype=float)
-        r = np.array([np.mean([y[g] for g in gs]) for gs in tus["genes"]])
-        return float(stats.spearmanr(x, r).pvalue)
+        out.append(float(stats.spearmanr(x, r).pvalue))
+    return out[0], out[1], out[2]
 
-    _gate("determinants", f"sim_function.determinants_null.{feature}", full, fn)
+
+@pytest.mark.calsuite("determinants")
+@pytest.mark.parametrize("full", MODES)
+def test_example6_determinants_null_features_independent_of_response(full: bool) -> None:
+    """B3 (lead decision 4): one pooled check per replicate over the three features
+    (``check_level_pooled``, m = 3; the planted features are independent of each other), in
+    place of one check per feature. The world of replicate ``i`` is drawn once and reused by the
+    three alphas."""
+    cache: dict[Any, tuple[float, float, float]] = {}
+
+    def ps(rng: np.random.Generator) -> tuple[float, float, float]:
+        key = rng.bit_generator.seed_seq.entropy  # type: ignore[attr-defined]
+        if key not in cache:
+            cache[key] = _determinants_null_ps(rng)
+        return cache[key]
+
+    R = C.replicates("determinants", full)
+    statuses = []
+    for a in C.load_tolerances().levels:
+
+        def share(rng: np.random.Generator, a: float = a) -> float:
+            return sum(p <= a for p in ps(rng)) / len(FEATURES)
+
+        rec = C.calibrate("determinants", "level", a, share, R, stream=STREAM_DET_POOLED,
+                          m=len(FEATURES))  # fmt: skip
+        assert rec["m"] == len(FEATURES)
+        statuses.append(rec["status"])
+    assert "fail" not in statuses, statuses

@@ -5,23 +5,28 @@ that is the only way to say whether an attack is a fair null.
 
 Arms (probe evidence: ``$GIAP_ROOT``-free scratch probes of the PR #251 review, seeds below):
 
-* **Attack 2, fitted p_detect** (strict xfail, review B1). ``ora_attack_confounded(4000, -1.5)``
-  moves the members' detection logit directly; their covariates are untouched (members are random,
-  lead decision 3 gap 7). An M4-13 fit on the covariates therefore cannot see the shift, and the
-  weighted ORA with the fitted p_detect rejects the confounded category in every replicate
-  (probe: 30 of 30 at alpha 0.01). M8-15 gates this arm with the fitted p ("never the truth"), so
-  the gate fails by construction: from the data the category *is* under-detected beyond its
-  covariates, which no detectability-weighted method may explain away.
+* **Attack 2, fitted p_detect** (gated, nightly; review B1, lead decision 4). Before the fix
+  ``ora_attack_confounded(4000, -1.5)`` moved the members' detection logit directly, leaving their
+  covariates untouched, so an M4-13 fit could not see the shift and the weighted ORA with the
+  fitted p_detect rejected the confounded category in every replicate (probe: 30 of 30 at alpha
+  0.01). Decision 4 carries the shift through an M4-13 covariate (default GRAVY, recorded as
+  ``function_sim.CONFOUND_COVARIATE``; members still random, gap 7), so the weighted ORA with the
+  fitted p_detect must now stay at level. Teeth: the unweighted 2x2 test of the calibration file
+  (``test_example2_teeth_unweighted_test_rejects``).
 * **Attack 2, oracle p_true** (gated): the same world with ``p_detect = p_detect_true`` is at level
   (probe 0 / 0.067 / 0.10 at R = 30). This is the only arm the current generator supports.
 * **ORA null, fitted p_detect** (gated, nightly): ``ora_null(4000)`` with the M4-13 fit; the
   largest in-range category, two-sided. M8-15's main arm in its real configuration.
-* **Attack 3, testable after the TU collapse** (strict xfail, review B2): every
-  ``gsea_attack_operon_packed`` set holds 1-3 TUs, below ``function.gsea_size`` = [10, 500], so
-  the TU-collapsed engine writes no row and M8-15's "level after TU collapse" gate has m = 0.
-* **Attack 3, packed TUs exchangeable at TU level** (strict xfail, review B2): the extra
-  N(0, 3^2) effect makes the packed TUs' scores more dispersed than every other TU's, so a set
-  built from them has a genuine TU-level effect; it is not a null for any TU-level test.
+* **Attack 3, testable after the TU collapse** (gated; review B2, lead decision 4): before the
+  fix every ``gsea_attack_operon_packed`` set held 1-3 TUs, below ``function.gsea_size`` =
+  [10, 500], so the TU-collapsed engine wrote no row. Now each set is 1-3 packed operons of
+  10-30 genes plus single-gene TUs, >= 10 TUs: every set gets a finite p.
+* **Attack 3, packed TUs exchangeable at TU level** (gated; B2): the extra N(0, 3^2) effect is
+  dropped. Fligner-Killeen test of the true TU level (``tu_log2``), packed operons against the
+  other chr1 TUs (the TU *score* would mix in the gene-noise average, which depends on TU size).
+* **Attack 3, TU-level GSEA at level** (gated; B2): one random packed set per world through
+  ``gsea_table`` (``SIMPLE_ENGINE``). Teeth: the same set ranked at gene level (genes permuted
+  as if independent, as in ``test_gsea_tu_calibration.py``) is a confirmed fail.
 * **GSEA null with the default position decay** (gated): the scenario sets
   ``position_decay_log2 = 0``; with the M4-08 default 0.2 one random in-range set per replicate
   is still at level (probe, all sets pooled, R = 80: 0.0084 / 0.047 / 0.096). Engine:
@@ -36,6 +41,7 @@ Arms (probe evidence: ``$GIAP_ROOT``-free scratch probes of the PR #251 review, 
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 import _criteria as C
@@ -149,9 +155,12 @@ def _attack2_rep(fitted: bool) -> Any:
 
 @pytest.mark.calsuite("ora")
 @pytest.mark.calibration_nightly
-@pytest.mark.xfail(strict=True, reason="PR #251 B1: the member shift is invisible to covariates")
+@pytest.mark.slow
 def test_attack2_fitted_p_detect_confounded_category_at_level() -> None:
-    _gate("ora", "attack.sim_function.ora_attack.fitted", _attack2_rep(True), 20)
+    """B1 gate (lead decision 4): with the shift carried by a covariate, the weighted ORA with
+    the fitted M4-13 p_detect is at level on the confounded category."""
+    _gate("ora", "attack.sim_function.ora_attack.fitted", _attack2_rep(True),
+          C.replicates("ora", False))  # fmt: skip
 
 
 @pytest.mark.calsuite("ora")
@@ -194,8 +203,8 @@ def _gsea_genes(w: Any) -> pd.DataFrame:
 
 
 @pytest.mark.calsuite("gsea")
-@pytest.mark.xfail(strict=True, reason="PR #251 B2: packed sets are 1-3 TUs, below gsea_size")
 def test_attack3_packed_sets_are_tested_after_tu_collapse() -> None:
+    """B2: every packed set holds >= 10 scoring TUs, so the TU-collapsed engine tests all 20."""
     from giap.config.model import GseaConfig
     from giap.function import gsea
     from giap.rng import for_step
@@ -203,26 +212,85 @@ def test_attack3_packed_sets_are_tested_after_tu_collapse() -> None:
     w = _fs().draw(_sc().gsea_attack_operon_packed(4000, 20), np.random.default_rng(7))
     tab = gsea.gsea_table(_gsea_genes(w), [_coll("kegg", _members(w))], GSEA_SIZE, GseaConfig(),
                           0.05, for_step("function.gsea", 1))  # fmt: skip
-    assert int(np.isfinite(tab["p_value"].to_numpy(float)).sum()) >= 10, len(tab)
+    assert int(np.isfinite(tab["p_value"].to_numpy(float)).sum()) == 20, len(tab)
 
 
 @pytest.mark.calsuite("gsea")
-@pytest.mark.xfail(strict=True, reason="PR #251 B2: packed TUs carry an extra N(0, 3^2) effect")
 def test_attack3_packed_tus_exchangeable_with_other_tus() -> None:
-    """Fligner-Killeen test of TU-score dispersion, packed TUs vs the rest (one p per world)."""
+    """Fligner-Killeen test of the true TU level ``tu_log2``: packed operons (TUs of >= 10 genes
+    in a packed set) against the other chr1 TUs, one p per world."""
     from scipy import stats
-
-    from giap.function.gsea import tu_ranking
 
     def fn(rng: np.random.Generator) -> float:
         w = _fs().draw(_sc().gsea_attack_operon_packed(4000, 20), rng)
-        rank = tu_ranking(_gsea_genes(w))
         tu, _ = _tu_maps(w)
-        packed = {tu[g] for g in w.sets["locus_tag"].astype(str)}
-        inside = np.array([t in packed for t in rank.tu_ids])
-        return float(stats.fligner(rank.scores[inside], rank.scores[~inside]).pvalue)
+        tus = w.layout.tus
+        size = {str(t): len(gs) for t, gs in zip(tus["tu_id"], tus["genes"], strict=True)}
+        chr1 = set(tus.loc[tus["contig"] == "chr1", "tu_id"].astype(str))
+        packed = {tu[g] for g in w.sets["locus_tag"].astype(str) if size[tu[g]] >= 10}
+        g = w.expression.genes
+        lvl = g.assign(tu=g["locus_tag"].astype(str).map(tu)).groupby("tu")["tu_log2"].first()
+        inside = lvl.index.isin(packed)
+        rest = lvl.index.isin(chr1) & ~inside
+        assert inside.sum() >= 20
+        return float(stats.fligner(lvl[inside].to_numpy(float),
+                                   lvl[rest].to_numpy(float)).pvalue)  # fmt: skip
 
     _gate("gsea", "attack.sim_function.packed.exchangeable", fn, C.replicates("gsea", False))
+
+
+def _packed_pick(rng: np.random.Generator) -> tuple[pd.DataFrame, set[str]]:
+    w = _fs().draw(_sc().gsea_attack_operon_packed(4000, 20), rng)
+    sets = _members(w)
+    name = sorted(sets)[int(rng.integers(0, len(sets)))]
+    return _gsea_genes(w), sets[name]
+
+
+def _packed_tu_rep(rng: np.random.Generator) -> float:
+    from giap.config.model import GseaConfig
+    from giap.function import gsea
+    from giap.rng import for_step
+
+    genes, members = _packed_pick(rng)
+    step = for_step("function.gsea", int(rng.integers(0, 2**31 - 1)))
+    tab = gsea.gsea_table(genes, [_coll("kegg", {"S": members})], GSEA_SIZE, GseaConfig(), 0.05,
+                          step)  # fmt: skip
+    p = tab["p_value"].to_numpy(float)
+    assert p.size == 1 and np.isfinite(p[0]), tab
+    return float(p[0])
+
+
+def _packed_gene_level_rep(rng: np.random.Generator) -> float:
+    """The arm GIAP rejects: detected genes ranked individually, permuted as if independent."""
+    from giap.config.model import GseaConfig
+    from giap.rng import for_step
+    from giap.stats.fgsea import fgsea_simple, prepare
+
+    genes, members = _packed_pick(rng)
+    d = genes[genes["detected"]]
+    x = d["abundance_log2"].to_numpy(float)
+    cfg = GseaConfig()
+    prep = prepare(x - np.median(x), list(d["locus_tag"]), {"S": sorted(members)}, *GSEA_SIZE)
+    step = for_step("function.gsea", int(rng.integers(0, 2**31 - 1)))
+    res = fgsea_simple(prep, cfg.n_perm_simple, cfg.sample_size, step)
+    return float(res.p[0])
+
+
+@pytest.mark.calsuite("gsea")
+def test_attack3_tu_level_gsea_at_level_on_packed_sets() -> None:
+    """B2 gate: after the TU collapse a packed set (1-3 operons + single-gene TUs) is at level."""
+    _gate("gsea", "attack.sim_function.packed.tu_level", _packed_tu_rep,
+          C.replicates("gsea", False))  # fmt: skip
+
+
+@pytest.mark.calsuite("gsea")
+def test_teeth_attack3_gene_level_gsea_fails_on_packed_sets(teeth_log: Path) -> None:
+    """B2 teeth: gene-label permutation sees 10-30 correlated genes per packed operon and is
+    anti-conservative on the same sets: a confirmed fail at 0.05."""
+    rec = C.calibrate("gsea", "level", 0.05, _packed_gene_level_rep, C.replicates("gsea", False),
+                      stream="attack.sim_function.packed.teeth_gene_level",
+                      log_dir=teeth_log)  # fmt: skip
+    assert rec["status"] == "fail", f"the gene-level arm is not a confirmed fail: {rec}"
 
 
 @pytest.mark.calsuite("gsea")

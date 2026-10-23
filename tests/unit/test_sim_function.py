@@ -19,6 +19,9 @@ Interface assumed (the spec gives only the scenario signatures ``-> Pair``; repo
 - ``giapsim.function_sim``:
 
   * ``RESERVED_PREFIXES``: the reserved ID prefixes (``GO:9``, ``K9``, ``map9``; decision 1);
+  * ``CONFOUND_COVARIATE``: the M4-13 covariate carrying ``ora_attack_confounded``'s shift
+    (``"gravy"`` by default, or ``"n_obs"``; its column is ``<name>_true`` in the expression
+    genes; lead decision 4, B1);
   * ``synthetic_ontology(n_terms, depth, rng, *, genes=())`` -> ``(obo_text, table)``, ``table``
     a C3-shaped (``locus_tag``, ``db``, ``id``) gene -> GO term table over ``genes``;
   * ``draw(pair, rng)`` -> a world with ``layout`` (giapsim Layout; the synthetic GO/KEGG/COG
@@ -430,7 +433,39 @@ def test_ora_null_members_have_the_same_p_true_as_non_members(ora4000: Any) -> N
     assert abs(d) < 0.05, d
 
 
-def test_example2_members_mean_p_true_at_most_half(attack4000: Any) -> None:
+def _logit(p: Any) -> np.ndarray:
+    x = np.asarray(p, dtype=float)
+    return np.log(x) - np.log1p(-x)
+
+
+def _covariate_logit(world: Any) -> tuple[np.ndarray, np.ndarray]:
+    """(M4-09 covariate logit ``b0 + b1 log len + b2 log1p n_obs + b3 GRAVY`` from the world's
+    *recorded* covariates — ``aa`` length, ``n_obs_true``, ``gravy_true`` — and the mask of genes
+    with a protein sequence)."""
+    from giapsim.expression import DEFAULT_BETA as B
+
+    g = _genes(world)
+    aa = world.layout.genes.set_index("locus_tag").loc[g["locus_tag"], "aa"]
+    length = aa.map(lambda a: len(a) if isinstance(a, str) else 0).to_numpy(float)
+    ok = length > 0
+    n_obs = g["n_obs_true"].to_numpy(float)
+    gravy = g["gravy_true"].to_numpy(float)
+    logit = np.full(len(g), B["intercept"])
+    logit[ok] += (B["log_length"] * np.log(length[ok]) + B["log1p_n_obs"] * np.log1p(n_obs[ok])
+                  + B["gravy"] * gravy[ok])  # fmt: skip
+    return logit, ok
+
+
+def test_example2_population_mean_p_true_at_most_half(ora4000: Any) -> None:
+    """Example 2 as a population ratio (lead decision 4): the -1.5 shift applied to *every* gene
+    halves the mean p_true at least (statistician: 0.4655, SD 0.002 over seeds). Independent of
+    which genes the confounded category draws."""
+    p = _genes(ora4000)["p_detect_true"].to_numpy(float)
+    q = 1.0 / (1.0 + np.exp(-(_logit(p) - 1.5)))
+    assert q.mean() <= 0.5 * p.mean(), (q.mean(), p.mean(), q.mean() / p.mean())
+
+
+def test_example2_confounded_members_are_less_detectable(attack4000: Any) -> None:
     g = _genes(attack4000)
     conf = _confounded(attack4000)
     assert conf, "no confounded category"
@@ -438,9 +473,51 @@ def test_example2_members_mean_p_true_at_most_half(attack4000: Any) -> None:
     assert 20 <= inside.sum() < len(g) / 2
     pin = g.loc[inside, "p_detect_true"].mean()
     pout = g.loc[~inside, "p_detect_true"].mean()
-    assert pin <= 0.5 * pout, (pin, pout)
+    assert pin < pout, (pin, pout)
     _, ecfg = _sc().ora_attack_confounded(4000, -1.5)
     assert ecfg.detection == "covariates_only"  # detection through p_true only
+
+
+def test_confounding_covariate_is_recorded() -> None:
+    """B1: the implementer records which M4-13 covariate carries the shift (default GRAVY)."""
+    assert _fs().CONFOUND_COVARIATE in ("gravy", "n_obs")
+
+
+def test_attack_shift_is_carried_by_the_members_covariate() -> None:
+    """B1 (lead decision 4): the members' covariate moves (membrane-like: lower p_true through the
+    logistic); every other covariate, and every non-member, is unchanged (same seed, two shifts)."""
+    cov = f"{getattr(_fs(), 'CONFOUND_COVARIATE', 'gravy')}_true"  # default GRAVY
+    other = ({"gravy_true", "n_obs_true"} - {cov}).pop()
+    a = draw(_sc().ora_attack_confounded(1500, -1.5), 21)
+    b = draw(_sc().ora_attack_confounded(1500, 0.0), 21)
+    conf = _confounded(a)
+    assert conf and conf == _confounded(b)
+    pd.testing.assert_frame_equal(a.layout.genes, b.layout.genes)
+    ga, gb = _genes(a), _genes(b)
+    inside = ga["locus_tag"].isin(conf).to_numpy()
+    ok = np.isfinite(gb["gravy_true"].to_numpy(float))
+    xa, xb = ga[cov].to_numpy(float), gb[cov].to_numpy(float)
+    np.testing.assert_array_equal(xa[~inside & ok], xb[~inside & ok])
+    assert np.all(xa[inside & ok] != xb[inside & ok]), "a member's covariate did not move"
+    np.testing.assert_array_equal(ga[other].to_numpy(float)[ok], gb[other].to_numpy(float)[ok])
+    la, _ = _covariate_logit(a)
+    lb, _ = _covariate_logit(b)
+    d = (la - lb)[inside & ok]
+    assert np.all(d < 0), "the covariate moved towards higher detectability"
+    assert abs(float(d.mean()) + 1.5) < 0.05, d.mean()
+    if cov == "gravy_true":  # membrane-like: high GRAVY
+        assert xa[inside & ok].mean() > xa[~inside & ok].mean()
+
+
+@pytest.mark.parametrize("shift", [-1.5, 0.0])
+def test_attack_logit_is_computed_from_covariates_only(shift: float) -> None:
+    """B1: p_true is the M4-09 logistic of the recorded covariates for every gene, members
+    included; no direct logit term remains, so an M4-13 fit on the covariates can see the shift."""
+    w = draw(_sc().ora_attack_confounded(1500, shift), 21)
+    logit, ok = _covariate_logit(w)
+    assert ok.sum() > 1000
+    p = _genes(w)["p_detect_true"].to_numpy(float)
+    np.testing.assert_allclose(p[ok], 1.0 / (1.0 + np.exp(-logit[ok])), rtol=0, atol=1e-9)
 
 
 def test_example2_confounded_categories_are_named_categories(attack4000: Any) -> None:
@@ -463,7 +540,8 @@ def test_member_shift_zero_reduces_to_ora_null() -> None:
 
 
 def test_member_shift_moves_the_members_logit_by_the_shift() -> None:
-    """The shift is on the logit of the confounded members only (same seed, two shifts)."""
+    """The shift reaches the logit of the confounded members only, by ``member_shift`` (same
+    seed, two shifts; since lead decision 4 it is carried by a covariate, see above)."""
     a = draw(_sc().ora_attack_confounded(1500, -1.5), 21)
     b = draw(_sc().ora_attack_confounded(1500, 0.0), 21)
     conf = _confounded(a)
@@ -516,27 +594,52 @@ def test_gsea_null_membership_uncorrelated_with_abundance_one_seed(gsea4000: Any
     assert abs(float(np.mean(rhos))) < 0.03, np.mean(rhos)
 
 
-def test_example4_every_packed_set_lies_in_at_most_three_tus(packed4000: Any) -> None:
+def test_example4_every_packed_set_is_testable_after_tu_collapse(packed4000: Any) -> None:
+    """Example 4 as amended (lead decision 4, B2): each packed set holds 10-500 TUs (inside
+    ``gsea_size``): 1-3 packed operons of 10-30 genes plus single-gene TUs, whole TUs only."""
     tu = _tu_of(packed4000.layout)
+    tus_frame = packed4000.layout.tus
+    size = {str(t): len(gs) for t, gs in zip(tus_frame["tu_id"], tus_frame["genes"], strict=True)}
     members = _members(packed4000)
     assert len(members) == 20
     for sid, m in members.items():
         tus = {tu[g] for g in m}
-        assert 1 <= len(tus) <= 3, (sid, len(tus))
-        assert len(m) >= 10, (sid, len(m))
-        sizes = [len(packed4000.layout.tus.set_index("tu_id").at[t, "genes"]) for t in tus]
-        assert all(10 <= s <= 30 for s in sizes), (sid, sizes)  # packed operons, 10-30 genes
+        assert 10 <= len(tus) <= 500, (sid, len(tus))
+        assert m == {g for g, t in tu.items() if t in tus}, (sid, "a TU is split")
+        packed = sorted(size[t] for t in tus if size[t] > 1)
+        assert 1 <= len(packed) <= 3, (sid, packed)
+        assert all(10 <= k <= 30 for k in packed), (sid, packed)  # packed operons, 10-30 genes
+        assert len(tus) - len(packed) >= 7, (sid, "too few single-gene TUs")
 
 
-def test_example4_packed_tus_have_a_large_abundance_effect(packed4000: Any) -> None:
+def test_example4_packed_tus_share_their_tu_level(packed4000: Any) -> None:
     """Gene-level ranking sees each packed TU as many correlated genes: within-TU spread is
-    small against the between-TU spread of the packed TUs."""
+    small against the between-TU spread of the packed TUs (the shared TU level is the attack)."""
     g = _genes(packed4000).set_index("locus_tag")
     tu = _tu_of(packed4000.layout)
-    packed = {tu[x] for m in _members(packed4000).values() for x in m}
+    size = packed4000.layout.tus.set_index("tu_id")["genes"].map(len)
+    packed = {tu[x] for m in _members(packed4000).values() for x in m if size[tu[x]] >= 10}
     rows = g.loc[[x for x, t in tu.items() if t in packed]]
     by = rows.groupby(rows.index.map(tu))["abundance_log2_true"]
-    assert by.mean().std() > 2.0 * by.std().mean(), (by.mean().std(), by.std().mean())
+    assert by.mean().std() > 1.5 * by.std().mean(), (by.mean().std(), by.std().mean())
+
+
+def test_example4_packed_tus_have_no_extra_effect(packed4000: Any) -> None:
+    """B2: packed TUs draw their TU level like every other chr1 TU (no extra N(0, 3^2) effect).
+    One-seed sanity (the exchangeability claim is gated in the attack file): the SD of the
+    packed TUs' ``tu_log2`` is within 1.4x of the other chr1 TUs' (old design: about 1.65x)."""
+    g = _genes(packed4000)
+    tu = _tu_of(packed4000.layout)
+    tus = packed4000.layout.tus
+    chr1 = set(tus.loc[tus["contig"] == "chr1", "tu_id"].astype(str))
+    size = tus.set_index("tu_id")["genes"].map(len)
+    packed = {tu[x] for m in _members(packed4000).values() for x in m if size[tu[x]] >= 10}
+    lvl = g.assign(tu=g["locus_tag"].map(tu)).groupby("tu")["tu_log2"].first()
+    inside = lvl.index.isin(packed)
+    rest = lvl.index.isin(chr1) & ~inside
+    assert inside.sum() >= 20
+    ratio = lvl[inside].std() / lvl[rest].std()
+    assert ratio < 1.4, ratio
 
 
 # ----------------------------------------------------------------------------- determinants
