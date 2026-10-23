@@ -99,3 +99,10 @@ def determinants_planted(n_genes: int, coefs: Mapping[str, float], noise_sd: flo
 2. `determinants_planted` features from the simulator's planted signals (proposed) or drawn
    directly as Gaussians (simpler, but does not test the feature pipeline)? **Proposed default:**
    planted signals for the recovery run; Gaussian features only in unit tests.
+
+## Lead decisions (2026-10-23)
+1. **Question 1 accepted:** synthetic annotations use the reserved ranges `GO:9xxxxxx`, `K9xxxx`
+   and `map9xxxx`. A test asserts that no synthetic ID falls outside them and that none collides
+   with a real ID in the test GO/KEGG fixtures. No KEGG-derived content is committed.
+2. **Question 2 accepted:** `determinants_planted` features come from the simulator's planted
+   signals in the recovery run; Gaussian features appear only in unit tests.
