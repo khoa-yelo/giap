@@ -47,7 +47,7 @@ twin of the concordance scatter, `compare_abundance` table with BA columns), `st
 | Situation | Behaviour |
 |---|---|
 | two runs | a 2 × 2 matrix; UpSet with ≤ 3 intersections |
-| ρ NA (`too_few_shared`) | grey cell "ρ NA (too few shared)" |
+| ρ NA (`too_few_shared`) | grey cell "ρ NA", reason "too few shared" in a footnote (decision 5) |
 | all intersections empty (no detections anywhere) | empty state "No gene detected in any run" |
 | 12 runs (2¹² intersections possible) | the 30 largest drawn |
 
@@ -115,3 +115,7 @@ twin of the concordance scatter, `compare_abundance` table with BA columns), `st
      - run directories are relative;
      - at most 30 intersection rows are shown.
    - Nits N1–N6 go to the backlog.
+6. **Test-author (35a5ec2f).** 20 tests fail on the current code and 28 pass, and every listed
+   mutant is killed. Accepted: default labels, i.e. run-directory names such as `wt&ko`, are
+   validated as well. The lead updated `test_rho_na_too_few_shared_cell` and the degenerate-case
+   row for decision 5's shortened NA text. Next: the implementer.

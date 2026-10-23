@@ -408,7 +408,8 @@ def test_rho_na_too_few_shared_cell() -> None:
     d, a = vc.inputs(genes)
     assert "too_few_shared" in str(a["flags"].iloc[0])
     inst = _plot(genes, d, a)
-    assert "ρ NA (too few shared)" in _texts(inst.figure)
+    assert "ρ NA" in _texts(inst.figure)  # M9-23 decision 5: the reason moves to a footnote
+    assert any("too few shared" in t for t in _texts(inst.figure))
     assert _isna(_stats(inst)["spearman_rho"].iloc[0])
 
 
