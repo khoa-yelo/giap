@@ -1,0 +1,10 @@
+<div id="{{ i.twin.id }}" class="twin"></div>
+<script type="application/json" data-plotly="{{ i.twin.id }}">{{ i.twin.spec }}</script>
+<script>
+(function () {
+  var id = "{{ i.twin.id }}";
+  var spec = JSON.parse(document.querySelector('script[data-plotly="' + id + '"]').textContent);
+  Plotly.newPlot(id, spec.data, spec.layout,
+    {displaylogo: false, responsive: true, toImageButtonOptions: {format: "svg"}});
+})();
+</script>
