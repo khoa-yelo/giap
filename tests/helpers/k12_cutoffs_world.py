@@ -325,6 +325,7 @@ def build_world(
         "genome_sha256": sha256(genome),
         "uniop_pred_sha256": sha256(udir / "uniop.pred"),
         "uniop_gff_sha256": sha256(udir / "uniop_cds.gff"),
+        "terms_sha256": sha256(terms),
     }
     return World(
         root,
@@ -344,10 +345,11 @@ def build_world(
 
 
 def refresh_pins(w: World) -> None:
-    """Recompute the UniOP / genome pins after a test rewrote a recording file."""
+    """Recompute the UniOP / genome / terms pins after a test rewrote a recording file."""
     w.pins["genome_sha256"] = sha256(w.genome)
     w.pins["uniop_pred_sha256"] = sha256(w.uniop_dir / "uniop.pred")
     w.pins["uniop_gff_sha256"] = sha256(w.uniop_dir / "uniop_cds.gff")
+    w.pins["terms_sha256"] = sha256(w.terminatornet)
 
 
 # ----------------------------------------------------------------- spec examples 6 and 7
