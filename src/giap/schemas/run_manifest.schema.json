@@ -10,11 +10,14 @@
     "profile", "resume", "outdir", "started_at", "finished_at", "status", "exit_code",
     "failed_step", "failed_log", "publication", "config", "inputs", "inputs_absent", "tools",
     "databases", "annotation", "detection_tier", "seeds", "steps", "skipped", "modules_off",
-    "flags", "layers_missing", "warnings", "volatile", "provenance_digest"
+    "flags", "layers_missing", "warnings", "volatile", "provenance_digest", "sensitivity",
+    "context", "operons", "mapping", "calibration"
   ],
   "$defs": {
     "nstr": {"type": ["string", "null"]},
-    "strs": {"type": "array", "items": {"type": "string"}}
+    "strs": {"type": "array", "items": {"type": "string"}},
+    "nnum": {"type": ["number", "null"]},
+    "nint": {"type": ["integer", "null"]}
   },
   "properties": {
     "schema_version": {"type": "string"},
@@ -122,6 +125,112 @@
     "warnings": {"$ref": "#/$defs/strs"},
     "volatile": {"$ref": "#/$defs/strs"},
     "provenance_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "sensitivity": {"type": "object", "description": "MVP-03c."}
+    "sensitivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "n_rows", "families"],
+      "properties": {
+        "level": {"enum": ["off", "basic", "full"]},
+        "n_rows": {"type": "integer", "minimum": 0},
+        "families": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["n_primary", "n_variant", "n_shared", "jaccard"],
+              "properties": {
+                "n_primary": {"$ref": "#/$defs/nint"},
+                "n_variant": {"$ref": "#/$defs/nint"},
+                "n_shared": {"$ref": "#/$defs/nint"},
+                "jaccard": {"$ref": "#/$defs/nnum"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["replicons", "oric"],
+      "properties": {
+        "replicons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["contig", "scanned", "block_rule", "l_hat", "block_len", "morans_i_lag1",
+                         "flags"],
+            "properties": {
+              "contig": {"type": "string"},
+              "scanned": {"type": "boolean"},
+              "block_rule": {"type": "string"},
+              "l_hat": {"$ref": "#/$defs/nint"},
+              "block_len": {"$ref": "#/$defs/nint"},
+              "morans_i_lag1": {"$ref": "#/$defs/nnum"},
+              "flags": {"$ref": "#/$defs/strs"}
+            }
+          }
+        },
+        "oric": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["contig", "midpoints", "spread", "accepted", "oric"],
+            "properties": {
+              "contig": {"type": "string"},
+              "midpoints": {"type": "array", "items": {"type": "number"}},
+              "spread": {"type": "number", "minimum": 0},
+              "accepted": {"type": "boolean"},
+              "oric": {"$ref": "#/$defs/nnum"}
+            }
+          }
+        }
+      }
+    },
+    "operons": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["pi0", "bin_counts"],
+      "properties": {
+        "pi0": {"$ref": "#/$defs/nnum"},
+        "bin_counts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["bin", "lower_bp", "upper_bp"],
+            "properties": {
+              "bin": {"type": "integer", "minimum": 0},
+              "lower_bp": {"$ref": "#/$defs/nnum"},
+              "upper_bp": {"$ref": "#/$defs/nnum"}
+            },
+            "additionalProperties": {"$ref": "#/$defs/nnum"}
+          }
+        }
+      }
+    },
+    "mapping": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["search_db", "n_queries"],
+      "properties": {
+        "search_db": {"$ref": "#/$defs/nstr"},
+        "n_queries": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "calibration": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["calibrated", "provenance"],
+        "properties": {
+          "calibrated": {"type": "boolean"},
+          "provenance": {"$ref": "#/$defs/nstr"}
+        }
+      }
+    }
   }
 }

@@ -65,7 +65,8 @@ __all__ = [
 ]
 
 F64 = npt.NDArray[np.float64]
-LOGGER = logging.getLogger("giap.context.oriter")
+#: under ``giap.steps`` so the events handler records the ``multiple_oric`` event (MVP-03c)
+LOGGER = logging.getLogger("giap.steps.context_stats")
 
 #: §9.3 ``statistic`` of every row of this analysis
 STATISTIC = "oriter_slope"
