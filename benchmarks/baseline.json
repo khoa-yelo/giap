@@ -360,5 +360,19 @@
     "date": "2026-10-22",
     "issue": "M8-06a",
     "note": "one run_step('function', ...) on a cold process: reading the gene table and resources, collections, summary bootstrap, ORA with TU recalibration (tu_folds wired), GSEA with its numba compilation (fresh NUMBA_CACHE_DIR) and the three writers"
+  },
+  "sim_operon_1800_genes": {
+    "benchmark": "benchmarks/test_sim_operon_bench.py::test_sim_operon_1800_genes_budget",
+    "source": "docs/specs/M6-03-sim-operon-scenarios.md acceptance (a 1,800-gene scenario < 5 s)",
+    "n_genes": 1800,
+    "budget_s": 5.0,
+    "best_secs": {"operon_null": 0.212, "missed_operon_power": 0.21, "discordance_power": 0.198, "operon_attack_ar1": 0.198, "operon_attack_detection": 0.208},
+    "node": "wheat-04",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "slurm_job": 1869123,
+    "commit": "M6-03 implementation commit (measured on 33305a7 plus the uncommitted implementation)",
+    "date": "2026-10-22",
+    "issue": "M6-03",
+    "note": "best of 3 simulate_operons calls per scenario (layout, expression, pairs, truth), seed 1, 2 CPUs"
   }
 }

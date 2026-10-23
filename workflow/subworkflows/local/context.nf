@@ -10,6 +10,9 @@
 // C7/C8 (regions, region_genes) are required by both steps; ANNOTATE's region_layer writes them,
 // also under a precomputed regions layer (MVP-02). If the `regions` channel is empty neither step
 // runs, the way MAPPING skips its protein route. The M3 tables come out of MAPPING's loci directory.
+// sensitivity's operon_flags family (M6-10) also takes ANNOTATE's `layers_for_pairs` (pairs_raw and
+// the evidence layers) and, only beside pairs_raw, the C2 genes / C3 features: without pairs_raw the
+// step gets the M4-19 inputs alone and skips the family (lead decision 4).
 // M7-14: VARIANTS' variants_qc (optional) gives the numeric id_mixups QC row, so context_stats
 // waits for VARIANTS when peptides are given.
 include { GIAP_STEP as CONTEXT_STATS; GIAP_STEP as SENSITIVITY } from '../../modules/local/giap_step/main'
@@ -32,6 +35,7 @@ workflow CONTEXT {
     abundance             // abundance.norm.parquet, or channel.empty()
     replicon_depth        // §5.3 depth TSV, or channel.empty()
     tier_summary          // gene_table's tier counts / q-threshold curve (M4-20 decision 3), or channel.empty()
+    layers_for_pairs      // [key, path]: pairs_raw and promoter_windows / terminators / tx_rates (M6-10), or channel.empty()
     variants_qc           // VARIANTS' variants_qc.parquet (M7-14), or channel.empty()
 
     main:
@@ -59,7 +63,9 @@ workflow CONTEXT {
         'genes_tsv=tables/genes.tsv', 'gene_context=context/gene_context.parquet',
         'island_diagnostics=context/island_diagnostics.parquet'])
 
-    def se = stepIn('sensitivity', [gt, reps, c7, c8, c5],
+    def se = stepIn('sensitivity', [gt, reps, c7, c8, c5, layers_for_pairs,
+                                    layers_for_pairs.filter { k, f -> k == 'pairs_raw' }.combine(annotation)
+                                        .flatMap { e -> [['genes', e[2]], ['features', e[3]]] }],
                     ['gene_table', 'replicons', 'regions', 'region_genes', 'tus'])
     SENSITIVITY(se.files, se.keys, ['sensitivity=tables/sensitivity.tsv'])
 
@@ -73,4 +79,5 @@ workflow CONTEXT {
     island_diagnostics = pick(CONTEXT_STATS.out.outputs, 'island_diagnostics.parquet')
     sensitivity      = pick(SENSITIVITY.out.outputs, 'sensitivity.tsv')
     versions         = CONTEXT_STATS.out.versions.mix(SENSITIVITY.out.versions)
+    events           = CONTEXT_STATS.out.events.mix(SENSITIVITY.out.events)
 }

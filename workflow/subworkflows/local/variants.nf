@@ -69,4 +69,5 @@ workflow VARIANTS {
     variants_vcf = pick(T, 'variants.vcf')
     variants_qc  = pick(T, 'variants_qc.parquet')
     versions     = VARIANTS_STEP.out.versions
+    events       = VARIANTS_STEP.out.events
 }
