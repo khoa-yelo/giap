@@ -271,3 +271,19 @@ unofficial mirror or a re-hosted copy, never TLS verification off.
 3. Conditional: access if PXD078459 is login-gated or private; the vendor-licence acceptance if
    the A3 conversion route needs one (ADR-M10-B); ADR-M10-C if the A3 fallback is triggered.
 4. Conditional: a re-check of the DIA-NN flags if the runs are not diaPASEF.
+
+## Lead decisions (2026-10-23)
+1. **L1–L10 and M10-01's Q1–Q5:** the proposed defaults are taken, all reversible:
+   - one arm at a time, with a backlog chore to cap the farmshare profile at 128 CPUs including the head job;
+   - https on the same host when HEAD gives the record's byte size;
+   - the first three runs by natural sort;
+   - the record XML is not committed;
+   - TE1's denominator as proposed;
+   - the Cascadia failure rule as proposed;
+   - the standard and core benchmark variants on wheat;
+   - runtimes go into baseline.json, the guide, PROGRESS and ADR-M10-D;
+   - de novo precision is `unestimated` in the fallback;
+   - the function module is on.
+2. **The DIA-NN image:** the shared `.sif` belongs to another user and is world-writable. M10-02 checks its sha256 against the pin. On a match, it copies the image to `$GIAP_ROOT/images/diann_2.3.1.sif` with mode 0444, and every job checks and uses that copy. It is never committed.
+3. **ADR-M10-A (DIA-NN 2.3.1 vs the spec's 2.7.0):** M10-02 drafts it. Pass 1 proceeds on 2.3.1 as Khoa accepted in M3-24; the ADR records it and goes to Khoa in the next batch.
+4. **The wrong iProX URL in the M3-24 fetch script:** M10-01 replaces it, using names and URLs from the official record only (R6).
