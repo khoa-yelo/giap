@@ -462,3 +462,13 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
       carries q" to "every target carries q".
     - Order: the test-author goes first, then the implementer, then the code review. The end-to-end
       run follows after #238 and #237 merge.
+15. **Test-author round 3 (fc29cb8d): the readings of gaps 1–4 are accepted.**
+    - Gap 1: the summary interface is `gate7(outdir, inputs) -> dict`, and its channels are not
+      exclusive.
+    - Gap 2: the protein side is capped by the pool and the six-frame side takes the rest.
+    - Gap 3: the mode is `fifty_fifty`, and the search-space share is recorded for information only.
+    - Gap 4: the pooled checks skip under sharding.
+    - Gate 5's expected range stays at 20–300.
+    - Next, the implementer: `_scored_nulls` is always 50/50, and a new
+      `scripts/dev/mvp04_summary.py` provides `gate7()`, with the result under `gate7` in
+      `evidence_summary.json`. After that, the code review.
