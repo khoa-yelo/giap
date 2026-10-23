@@ -663,6 +663,15 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
 
+### M8 Wallenius (statistician, PR #220)
+- **ADR-0044 (Needs Khoa):** M8-13 criterion 1 reference = exact Wallenius (urn recursion /
+  exact rational integral, committed TSV + pure-Python generator); goseq second reference at
+  `golden_r.wallenius_goseq_abs_tol: 1.0e-5`, replacing `wallenius_abs_floor`.
+- **ADR-0045 (lead recommends):** GIAP far tails (< 1e-6) by the exact urn recursion; scipy loses
+  relative accuracy below ~1e-9 and returns 0 below ~1e-14 (40-urn spot check, stat813/scipy_far.py).
+  Hardening pass; does not block M8-13.
+- G3b NES across seeds: reported as per-set z, alert at max |z| > 4.5; p rule alert at ≥ 3
+  exceedances; alerts open a `stats` issue.
 ## M9-12 review nits (#219; one round, decisions 11–15)
 - V13 start fallback (NA `start_longest`): the span starts at the first placed peptide anywhere on the
   contig; a multi-placement peptide can stretch it, and origin crossing is ignored there.
@@ -720,6 +729,40 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
 
+### M9-22 hardening
+- ρ-CI calibration on full giapsim run pairs (now a simulated TU world at giapsim sizes).
+- Test the section order (matrix, then intersections) and the `none` row's place among ties.
+
+### M9-22 statistician nits (PR #232)
+- TUs from the pair's first run only; a union of both runs' TU maps is safer.
+- compare.md: Bland–Altman limits are as uninterpretable as the bias under `scale_differs`;
+  optionally a TU-block CI for the BA bias.
+- `enriched_categories` deflates Jaccard when only one run has GSEA; GSEA `nes == 0` maps to
+  "down"; the operon_flags key ignores the `flag` column.
+- Unit tests for `ci_unestimated` and NA-TU genes as their own unit; recorded heavy-tailed and
+  15-TU calibration arms; attack nulls A1–A5 (comment) in tests/calibration/attacks/.
+
+### M9-22 code-review nits (PR #232, comment 6358611226)
+- Untested (surviving mutants):
+  - the 9-unit boundary of decision 11;
+  - decision 7 (TUs from the wrong run);
+  - genes without a TU as their own units;
+  - strand in the ALT key;
+  - the `end`/`strand` gene-order tie-breaks;
+  - same-size, different locus-tag sets;
+  - `abundance_type == "none"`, its sort position and its zero-count row.
+- `test_function_off_in_one_run_is_missing_in` deletes the tables, so the `resolved_config.yaml`
+  module check is never exercised; a run with only one of its two enrichment tables is untested.
+- A malformed manifest/preflight JSON or an unreadable stability table gives a traceback, not an
+  exit code (`giap report` exits 4).
+- A manifest without a genome sha256 should fall back to preflight; otherwise say so in ADR-0046.
+- The `n_units` schema description says NA when there is no CI, but the code writes 1 alongside an
+  NA CI. Fix the description.
+- One shared stream across pairs: adding a run shifts later pairs' CIs. Spawn per pair.
+- GSEA NES 0/NaN counted as "down".
+- `gene_order` duplicates the §6.5 key.
+- No manifest for `CMP/`.
+- compare.md still says "Statistician sign-off: pending".
 ### MVP-03c follow-ups
 - `giap _step manifest` passes no db manifest, so `databases` is `[]` on the Nextflow step path (decision 20).
 
