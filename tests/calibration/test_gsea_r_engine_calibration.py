@@ -10,9 +10,12 @@ criterion at every ``levels`` alpha, ``replicates_fast.gsea`` / ``replicates_ful
 collection, so no re-test call).
 
 Slurm only: ``slow`` and ``requires_r`` keep these out of GitHub CI. Run with
-``pytest tests/calibration -m "calibration and requires_r" -n 8`` inside
-``scripts/slurm/calibration_full.sbatch gsea_r`` (8 CPUs, < 2 h for the full suite); the
-``giap-fgsea`` env must be built (``sbatch scripts/slurm/build_envs.sbatch fgsea``).
+``pytest tests/calibration -m "calibration and requires_r" -n 8`` through
+``scripts/slurm/test_branch.sbatch`` (Slurm 1868835: 8 CPUs, 52 min); the weekly run is the
+``gsea`` array task. The ``giap-fgsea`` env must be built
+(``sbatch scripts/slurm/build_envs.sbatch fgsea``). The fast arm is the first
+``replicates_fast.gsea`` replicates of the full arm, not independent evidence; the teeth live in
+``tests/calibration/attacks/test_attack_gsea_r_engine.py``.
 """
 
 from __future__ import annotations
