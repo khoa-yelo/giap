@@ -650,3 +650,27 @@ code 4. No table is written: the step writes after computing, as it does today.
 - Move fgsea into `TOOLS`. Then remove the lead's `{"fgsea"}` exemption in `test_every_env_file_has_a_registry_entry`, and add fgsea to `ALL_TOOLS` and `ALL_BUILDS`.
 - The step fixture yields six collections (cog, kegg, go_bp, go_mf, go_cc, go_slim), while `sim_main` was recorded for the four §6 collections. T7 must either replay only those four or re-record with six.
 - `load_call` rebuilds `params` from `GseaConfig()` defaults, but sim_main and sim_retest used `n_perm_simple` 200. T7 must pass the recorded params.
+
+## Lead decisions on the M8-17b tests (2026-10-22, after 8ab990c)
+1. A job-size mismatch raises `ValueError` from the pure `gsea_table`; the R engine keeps raising
+   `FgseaEngineError` for its own output checks.
+2. Forcing four main-call p values to reach `sim_retest` is accepted as A6 for the re-test path; the
+   test docstring says so.
+3. "Abundance given" (lead decision 8) means the same condition under which the function step runs
+   GSEA today: the `--abundance` input. Peptide intensities alone do not require fgsea.
+4. A9 is tested through `run_preflight` and `giap run`; `giap check` reuses the same preflight when it
+   exists.
+5. `function_rfgsea.nf.test` is written after #187 (FUNCTION subworkflow) merges; the `requires_r`
+   Python step test stands in for A2 until then (backlog).
+6. A collection whose only in-range term covers every ranked TU still has a job, so it gets an engine
+   call and a row (example 10 wins). "No job" means no in-range set.
+7. `log2err_unestimated` sits where `unestimated` would, as the two exclude each other.
+8. The `check_no_rscript.py` docstring test waits for #192 to be merged into the stack.
+9. The R-engine calibration reuses the generators of `test_gsea_tu_calibration.py` by import.
+10. Existing tests that break (the function-step world tests, `test_function_step_review_181.py`, the
+    two `test_fgsea_r_io.py` subset/header tests, the tool-registry and NOTICE tests) are re-pinned by
+    the lead after the implementation (lead decision 4). A NOTICE.md row for fgsea is implementation.
+6a. (amends 6, 2026-10-22, after bc0615f) A set covering every ranked TU has no complement, so its ES is
+   undefined: it never goes into a job (as `test_property_call_invariants` pins). It gets an NA
+   `unestimated` row when its collection has other jobs (example 10); a collection with no job adds no
+   row, and no job anywhere gives a header-only table.
