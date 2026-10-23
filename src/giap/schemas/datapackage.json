@@ -9,6 +9,12 @@
     {"name": "novel_orfs", "profile": "tabular-data-resource", "path": "tables/novel_orfs.tsv", "format": "tsv", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "tables/novel_orfs.schema.json"},
     {"name": "replicon_landmarks", "role": "plot_support", "profile": "tabular-data-resource", "path": "plots/support/replicon_landmarks.tsv", "format": "tsv", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "plot_support/replicon_landmarks.json"},
     {"name": "gc_skew", "role": "plot_support", "profile": "tabular-data-resource", "path": "plots/support/gc_skew.tsv", "format": "tsv", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "plot_support/gc_skew.json"},
-    {"name": "variant_windows", "role": "plot_support", "profile": "tabular-data-resource", "path": "plots/support/variant_windows.tsv", "format": "tsv", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "plot_support/variant_windows.json"}
+    {"name": "variant_windows", "role": "plot_support", "profile": "tabular-data-resource", "path": "plots/support/variant_windows.tsv", "format": "tsv", "encoding": "utf-8", "coordinates": "1-based-closed", "schema": "plot_support/variant_windows.json"},
+    {"name": "gsea_running", "role": "plot_support", "profile": "tabular-data-resource", "path": "plots/support/gsea_running.tsv", "format": "tsv", "encoding": "utf-8", "schema": "plot_support/gsea_running.json"},
+    {"name": "determinants_shap", "role": "plot_support", "profile": "tabular-data-resource", "path": "plots/support/determinants_shap.tsv", "format": "tsv", "encoding": "utf-8", "schema": "plot_support/determinants_shap.json"},
+    {"name": "determinants_pd", "role": "plot_support", "profile": "tabular-data-resource", "path": "plots/support/determinants_pd.tsv", "format": "tsv", "encoding": "utf-8", "schema": "plot_support/determinants_pd.json"},
+    {"name": "null_regions", "role": "plot_support", "profile": "tabular-data-resource", "path": "plots/support/null_regions.tsv", "format": "tsv", "encoding": "utf-8", "schema": "plot_support/null_regions.json"},
+    {"name": "null_islands", "role": "plot_support", "profile": "tabular-data-resource", "path": "plots/support/null_islands.tsv", "format": "tsv", "encoding": "utf-8", "schema": "plot_support/null_islands.json"},
+    {"name": "null_determinants", "role": "plot_support", "profile": "tabular-data-resource", "path": "plots/support/null_determinants.tsv", "format": "tsv", "encoding": "utf-8", "schema": "plot_support/null_determinants.json"}
   ]
 }

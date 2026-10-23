@@ -36,6 +36,7 @@ from giap.function import summary as _summary
 from giap.function.collections import GeneSets, Resources, build_collections
 from giap.function.gsea import SIMPLE_ENGINE, EngineCall, EngineResult, GseaEngine, gsea_table
 from giap.function.ora import detection_enrichment
+from giap.function.running import gsea_running
 from giap.function.summary import category_summary
 from giap.genetable.eligibility import eligible
 from giap.io.fgsea_r import METHOD as R_METHOD
@@ -47,6 +48,7 @@ from giap.io.function_tables import (
     write_enrichment_gsea_tsv,
 )
 from giap.io.genes_tsv import read_genes_parquet
+from giap.io.plot_support import write_support
 from giap.rng import for_step
 from giap.setupdb.installed import FUNCTION_RESOURCES
 from giap.steps.common import one_path
@@ -58,6 +60,8 @@ NO_ELIGIBLE = "no_eligible_genes"
 _FLAGS_EVENT = "function.run_flags"
 _COLL_EVENT = "function.collections"
 _ENGINE_EVENT = "function.gsea_engine"
+#: M9-17: optional directory output; ``gsea_running`` goes to its ``support/`` (ADR-0043)
+SUPPORT = "function_support"
 
 
 def _empty(columns: Sequence[str]) -> pd.DataFrame:
@@ -158,7 +162,8 @@ def read_folds(path: Path) -> dict[str, int]:
     module="function",
     inputs=["gene_table", "replicons", "tu_folds"],
     optional_inputs=list(FUNCTION_RESOURCES),
-    outputs=["category_summary", "enrichment_detection", "enrichment_gsea"],
+    outputs=["category_summary", "enrichment_detection", "enrichment_gsea", SUPPORT],
+    optional_outputs=[SUPPORT],
 )
 def function_step(ctx: StepContext) -> None:
     """Category summary, detection ORA and GSEA tables (Module 7)."""
@@ -181,3 +186,8 @@ def function_step(ctx: StepContext) -> None:
     write_category_summary_tsv(ctx.outputs["category_summary"], summary)
     write_enrichment_detection_tsv(ctx.outputs["enrichment_detection"], detection)
     write_enrichment_gsea_tsv(ctx.outputs["enrichment_gsea"], gsea)
+    if SUPPORT in ctx.outputs:
+        ctx.outputs[SUPPORT].mkdir(parents=True)
+        running = gsea_running(genes, colls, gsea)
+        if running is not None:
+            write_support("gsea_running", running, ctx.outputs[SUPPORT])

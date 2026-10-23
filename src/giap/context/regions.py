@@ -31,10 +31,10 @@ from giap.stats.multitest import bh
 from giap.stats.permutation import choose_shifts, circular_shifts, perm_p
 from giap.stats.robust import hodges_lehmann
 
-__all__ = ["COVARIATES", "LAG_MAX", "REGION_TYPES", "RegionTest", "hl_null", "hl_variance",
-           "lag_autocovariance", "o_minus_e_null", "replicon_index", "residualise",
-           "studentised_hl_null", "studentised_null", "test_all_regions",
-           "test_region"]  # fmt: skip
+__all__ = ["COVARIATES", "LAG_MAX", "REGION_TYPES", "RegionNull", "RegionTest", "hl_null",
+           "hl_variance", "lag_autocovariance", "o_minus_e_null", "region_tests",
+           "replicon_index", "residualise", "studentised_hl_null", "studentised_null",
+           "test_all_regions", "test_region"]  # fmt: skip
 
 #: region types tested here (§7.3.5(b)); ``plasmid`` regions belong to M4-18
 REGION_TYPES = ("prophage", "bgc", "crispr", "amr")
@@ -73,6 +73,19 @@ class RegionTest:
     n_genes: int
     n_eligible: int
     flags: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RegionNull:
+    """The null a region test compared its statistic with (M9-17 V18): the studentised value
+    at each used shift (NaN where undefined) and the observed studentised statistic."""
+
+    region_id: str
+    contig: str
+    stat: Literal["o_minus_e", "hl_shift"]
+    shifts: I64
+    null: F64
+    observed: float
 
 
 def replicon_index(genes: pd.DataFrame, contig: str) -> pd.DataFrame:
@@ -404,6 +417,23 @@ def test_region(
 ) -> list[RegionTest]:
     """O - E and HL rows of one region on one replicon (``circular`` topology); ``flags`` are
     appended to each row's own flags (e.g. ``split_contigs``)."""
+    return _test_region(genes, region_genes, region_type, contig, cfg, rng, region_id=region_id,
+                        circular=circular, flags=flags)[0]  # fmt: skip
+
+
+def _test_region(
+    genes: pd.DataFrame,
+    region_genes: Sequence[str],
+    region_type: str,
+    contig: str,
+    cfg: GiapConfig,
+    rng: np.random.Generator,
+    *,
+    region_id: str,
+    circular: bool,
+    flags: tuple[str, ...],
+) -> tuple[list[RegionTest], list[RegionNull]]:
+    """``test_region`` and the nulls of its rows with at least one null value."""
     on_contig = genes["contig"].astype(str) == contig
     if genes.loc[on_contig, "tu_id"].isna().any():  # decision 13: C6 makes tu_id non-null
         raise ValueError(f"missing tu_id on replicon {contig!r} (C6: every gene has a tu_id)")
@@ -420,7 +450,7 @@ def test_region(
         return [
             RegionTest(*base, "o_minus_e", na, na, na, na, na, na, 0, n_genes, 0, f),
             RegionTest(*base, "hl_shift", na, None, na, na, na, na, 0, n_genes, 0, f),
-        ]
+        ], []
     valid = circular_shifts(n, idx, circular)
     shifts, _ = choose_shifts(
         valid, cfg.context.exhaustive_shift_max_genes, n, cfg.stats.permutations, rng
@@ -430,7 +460,11 @@ def test_region(
     r, v = d - p, p * (1.0 - p)
     s_obs = float(r[idx].sum())
     t_obs = float(_student(np.array([s_obs]), np.array([v[idx].sum()]))[0])
-    p_oe = perm_p(t_obs, studentised_null(r, v, idx, shifts)) if shifts.size else na
+    null_oe = studentised_null(r, v, idx, shifts)
+    p_oe = perm_p(t_obs, null_oe) if shifts.size else na
+    nulls: list[RegionNull] = []
+    if shifts.size:
+        nulls.append(RegionNull(region_id, contig, "o_minus_e", shifts, null_oe, t_obs))
     # bootstrap frames hold one float64 block (TU codes as floats): row takes stay cheap
     tu = pd.factorize(ix["tu_id"])[0].astype(np.float64)
     df = pd.DataFrame({"tu": tu[idx], "r": r[idx]})
@@ -452,12 +486,14 @@ def test_region(
         k_hl = int(np.count_nonzero(~np.isnan(null)))
         p_hl = perm_p(float(t_all[0]), null) if k_hl and not nonpos else na
         hflag = ("hl_variance_nonpositive",) if nonpos else ()
+        if k_hl:
+            nulls.append(RegionNull(region_id, contig, "hl_shift", shifts, null, float(t_all[0])))
         hd = pd.DataFrame({"tu": tu[ok], "a": a[ok], "in": inside[ok].astype(np.float64)})
         hci = tu_block_bootstrap(hd, "tu", _hl_of, B, rng, strata_col="in")
         lo, hi = hci.ci_low, hci.ci_high
     hrow = RegionTest(*base, "hl_shift", hl, None, hl, lo, hi, p_hl, k_hl, n_genes, m,
                       _flags(m, k_hl, (*hflag, *flags)))  # fmt: skip
-    return [oe, hrow]
+    return [oe, hrow], nulls
 
 
 def _hl_of(t: pd.DataFrame) -> float:
@@ -476,6 +512,18 @@ def test_all_regions(
     """Region tests of every prophage, BGC, CRISPR and AMR region (sorted ``region_id``; a region
     with members on several replicons gets one test per replicon, flagged ``split_contigs``),
     with ``q_value`` (BH within (region_type, stat)), ``method`` and ``null_model``."""
+    return region_tests(genes, regions, region_genes, replicons, cfg, rng)[0]
+
+
+def region_tests(
+    genes: pd.DataFrame,
+    regions: pd.DataFrame,
+    region_genes: pd.DataFrame,
+    replicons: pd.DataFrame,
+    cfg: GiapConfig,
+    rng: np.random.Generator,
+) -> tuple[pd.DataFrame, list[RegionNull]]:
+    """``test_all_regions`` and every tested row's null (``RegionNull``, test order)."""
     types = [t for t in REGION_TYPES if t in cfg.context.region_types]
     reg = regions[regions["region_type"].isin(types)]
     rtype = dict(zip(reg["region_id"].astype(str), reg["region_type"].astype(str), strict=True))
@@ -489,14 +537,17 @@ def test_all_regions(
     for rid, tag in zip(rg["region_id"].astype(str), rg["locus_tag"].astype(str), strict=True):
         by_region[rid].append(tag)
     rows: list[RegionTest] = []
+    nulls: list[RegionNull] = []
     for rid in sorted(by_region):
         tags = sorted(set(by_region[rid]))
         contigs = sorted({contig_of[t] for t in tags if t in contig_of},
                          key=lambda c: (rank.get(c, len(rank)), c)) or [rcontig[rid]]  # fmt: skip
         extra = ("split_contigs",) if len(contigs) > 1 else ()
         for c in contigs:
-            rows += test_region(genes, tags, rtype[rid], c, cfg, rng, region_id=rid,
-                                circular=topo.get(c) == "circular", flags=extra)  # fmt: skip
+            got, null = _test_region(genes, tags, rtype[rid], c, cfg, rng, region_id=rid,
+                                     circular=topo.get(c) == "circular", flags=extra)  # fmt: skip
+            rows += got
+            nulls += null
     names = [f.name for f in fields(RegionTest)]
     out = pd.DataFrame([astuple(r) for r in rows], columns=names)
     floats = ("observed", "expected", "effect", "ci_low", "ci_high", "p_value")
@@ -507,4 +558,4 @@ def test_all_regions(
         out.loc[grp.index, "q_value"] = bh(grp["p_value"].to_numpy(float))
     out["method"] = out["stat"].map(METHOD)
     out["null_model"] = "circular_shift"
-    return out
+    return out, nulls
