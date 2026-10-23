@@ -428,27 +428,45 @@
     "issue": "M7-12",
     "note": "best of 3 simulate() calls per case, one invocation"
   },
-  "plots_report_5mb_sim4500": {
+  "plots_5mb_sim4500": {
     "benchmark": "benchmarks/test_plots_bench.py::test_plots_and_report_5mb_budget",
-    "budget_s": 600.0,
-    "plots": {
-      "secs": 16.529,
-      "maxrss_mb": 459.8
-    },
-    "report": {
-      "secs": 2.003,
-      "maxrss_mb": 462.9
-    },
+    "step": "plots",
+    "secs": 15.403,
+    "maxrss_mb": 468.5,
+    "budget_s": 120.0,
+    "source": "docs/specs/M9-26-scale-and-determinism.md (work item 1; lead decision 4)",
+    "n_genes": 4500,
+    "n_placements": 42413,
+    "genome_bp": 4639946,
+    "node": "wheat-01",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "cpus": 4,
+    "slurm_alloc_cpus": 6,
+    "slurm_job": 1879327,
+    "commit": "2fc69a42",
+    "date": "2026-10-23",
+    "issue": "M9-26",
+    "note": "one round; the plots step's run_step in a fresh interpreter, timed after imports, so interpreter start-up is excluded; peak RSS is that interpreter's VmHWM. Every plot passes the M9-24 element item (per axes, per V1 track). Previous record (nested entry, job 1879016 on wheat-05 at a7728f72): plots 16.5 s / 459.8 MB, report 2.0 s / 462.9 MB."
+  },
+  "report_5mb_sim4500": {
+    "benchmark": "benchmarks/test_plots_bench.py::test_plots_and_report_5mb_budget",
+    "step": "report",
+    "secs": 1.832,
+    "maxrss_mb": 465.6,
+    "budget_s": 30.0,
+    "source": "docs/specs/M9-26-scale-and-determinism.md (work item 1; lead decision 4)",
     "n_genes": 4500,
     "n_placements": 42413,
     "genome_bp": 4639946,
     "report_bytes": 8099623,
-    "node": "wheat-05",
+    "node": "wheat-01",
     "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
-    "slurm_job": 1879016,
-    "commit": "a7728f72",
+    "cpus": 4,
+    "slurm_alloc_cpus": 6,
+    "slurm_job": 1879327,
+    "commit": "2fc69a42",
     "date": "2026-10-23",
     "issue": "M9-26",
-    "note": "one round per step, each run_step in a fresh interpreter; peak RSS is that interpreter's VmHWM (ru_maxrss carries the parent pytest's 864 MB across fork + exec, job 1878941 on wheat-07: plots 19.8 s, report 2.3 s). Working tree a7728f72 plus this benchmark and the checklist change. Every plot passes the M9-24 element item (per axes, per V1 track)."
+    "note": "one round; the report step's run_step in a fresh interpreter, timed after imports, so interpreter start-up is excluded; peak RSS is that interpreter's VmHWM. Every plot passes the M9-24 element item (per axes, per V1 track). Previous record (nested entry, job 1879016 on wheat-05 at a7728f72): plots 16.5 s / 459.8 MB, report 2.0 s / 462.9 MB."
   }
 }
