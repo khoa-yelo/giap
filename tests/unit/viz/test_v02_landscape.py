@@ -63,7 +63,12 @@ from giap.viz import style
 from giap.viz.base import Instance, Skip
 
 REPO = Path(__file__).resolve().parents[3]
-COLUMNS = ["contig", "kind", "locus_tag", "position_bp", "start", "end", "value", "category"]
+# product: M9-15 lead decision 1
+COLUMNS = [
+    *("contig", "kind", "locus_tag", "position_bp", "start", "end", "value"),
+    "category",
+    "product",
+]
 KINDS = ["point", "rug", "trend", "island", "oric", "ter"]
 BLUE, GREY, ORANGE = "#0072B2", "#BBBBBB", "#E69F00"
 EX1_MIDS = [10_000, 30_000, 50_000, 70_000, 90_000]
