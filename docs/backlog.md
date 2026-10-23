@@ -668,6 +668,17 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   contig; a multi-placement peptide can stretch it, and origin crossing is ignored there.
 - One failing `render_locus` call aborts all of V13 (panel (a) included); V3 behaves the same. Render
   each view in isolation and record a per-view skip.
+## M9-14 review nits (#221; one round)
+- No test pins escaping of data values in twin JSON independent of plotly's own `<` escaping (a
+  `json.dumps`-built test twin would kill the `_script_json`-removed mutant); the probe was inert.
+- A string-column `NA` in a data TSV reaches a twin as NaN and is written as `"nan"`: M9-15 twins
+  should read data TSVs with `keep_default_na=False` or map NA explicitly.
+- JS vs Python string order (code point vs UTF-16 unit) and lowercasing (final sigma) differ in rare
+  cases; document in the methods/report notes. The 5 `tables.js` mutants survive (decision 1).
+- `giap run --strict` does not map `report.size_exceeded` to exit 3 (only preflight warnings reach
+  it today); wire step-level strict warnings once a second one exists.
+- `remove_uids=True` in `figure_json` is unpinned; an instance with a twin but no SVG still gets
+  "plot file absent".
 ### M9-08 (V01 circos) after the review round
 - No unit test renders V01 with empty promoter/terminator/TU tables (crash fixed in 8faffdb was
   caught only by integration tests).

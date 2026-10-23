@@ -5,12 +5,15 @@ the ``plots`` directory and logs ``plots.rendered`` / ``plots.skipped`` events; 
 that directory and writes ``report/report.html`` (``giap.report.build``). Both take every
 published key as an optional input, so a subworkflow that did not run contributes nothing and the
 plot skips itself. The run's modules come from ``cfg.modules`` (the steps have no resolved-config
-input). ``render_plots`` is shared with ``giap report``.
+input). ``render_plots`` is shared with ``giap report``. ``write_report`` builds the Plotly twins
+(``giap.viz.interactive``) from the data TSVs under ``plots/data/`` when ``report.interactive``
+is on, and logs ``report.size_exceeded {bytes}`` (WARNING) above ``REPORT_BUDGET`` (M9-14).
 """
 
 from __future__ import annotations
 
 import importlib
+import logging
 import pkgutil
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -26,6 +29,10 @@ from giap.io.plot_support import SUPPORT_DIR, write_support
 from giap.io.run_view import PATHS, RunView
 from giap.runner.local import PUBLISHED, PUBLISHED_FILES
 from giap.steps.registry import InputPath, StepContext, step
+
+#: the report size target (GIAP_SPEC.md §10.3: < 25 MB), static SVGs and twins together
+REPORT_BUDGET = 25_000_000
+_LOG = logging.getLogger("giap.report")
 
 #: every key published under ``OUT/`` (and readable by ``RunView``), except the two outputs here
 ALL_PUBLISHED_KEYS = sorted(
@@ -104,16 +111,52 @@ def skipped_plots(view: RunView) -> dict[str, str]:
     return {pid: r for pid, r in reasons.items() if r is not None} | absent
 
 
-def write_report(view: RunView, plots_dir: Path | None, report_dir: Path, cfg: GiapConfig) -> Path:
+def twins(plots_dir: Path, files: Mapping[str, PlotFiles]) -> dict[str, tuple[str, str]]:
+    """Instance stem -> ``(div id, figure JSON)`` for every instance whose plot has a twin; the
+    div id is ``plotly-<pid>[-<suffix>]`` (for an unregistered plot, the stem after the ID).
+    A twin that raises is not caught."""
+    import pandas as pd
+
+    from giap.viz import base
+    from giap.viz.interactive import figure_json, has_twin
+
+    out: dict[str, tuple[str, str]] = {}
+    for pid, pf in files.items():
+        spec = base.registered().get(pid)
+        for inst in pf.instances:
+            if inst.data is None or not has_twin(pid):
+                continue
+            data = pd.read_csv(plots_dir / inst.data, sep="\t", na_values=["NA"],
+                               keep_default_na=False)  # fmt: skip
+            text = figure_json(pid, data, inst.stem)
+            suffix = inst.stem.removeprefix(f"{pid}_{spec.name}" if spec else pid).lstrip("_")
+            if text is not None:
+                out[inst.stem] = (f"plotly-{pid}-{suffix}" if suffix else f"plotly-{pid}", text)
+    return out
+
+
+def write_report(
+    view: RunView,
+    plots_dir: Path | None,
+    report_dir: Path,
+    cfg: GiapConfig,
+    log: logging.Logger = _LOG,
+) -> Path:
     """Write ``report_dir/report.html`` from the plot files under ``plots_dir`` and the tables of
-    ``view``; returns its path."""
+    ``view``; returns its path. Logs ``report.size_exceeded`` when it is over budget."""
     from giap.report.build import build_report
 
     files: Mapping[str, PlotFiles] = {} if plots_dir is None else read_plot_files(plots_dir)
-    html = build_report(view, files, skipped_plots(view), cfg)
+    live = None if plots_dir is None or not cfg.report.interactive else twins(plots_dir, files)
+    html = build_report(view, files, skipped_plots(view), cfg, live)
     report_dir.mkdir(parents=True, exist_ok=True)
     page = report_dir / "report.html"
     page.write_text(html, encoding="utf-8")
+    size = page.stat().st_size
+    if size > REPORT_BUDGET:
+        data = {"bytes": size}
+        log.warning("report.size_exceeded %d bytes > %d", size, REPORT_BUDGET,
+                    extra={"event": "report.size_exceeded", "data": data})  # fmt: skip
     return page
 
 
@@ -167,4 +210,5 @@ def _plots_dir(value: InputPath) -> Path | None:
       optional_inputs=[*ALL_PUBLISHED_KEYS, *_SUPPORT_INPUTS], outputs=["report"])  # fmt: skip
 def report_step(ctx: StepContext) -> None:
     """Tables + ``plots/`` -> ``report/report.html`` (behaviour 2)."""
-    write_report(_view(ctx), _plots_dir(ctx.inputs["plots"]), ctx.outputs["report"], ctx.cfg)
+    plots = _plots_dir(ctx.inputs["plots"])
+    write_report(_view(ctx), plots, ctx.outputs["report"], ctx.cfg, ctx.log)
