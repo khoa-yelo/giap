@@ -15,9 +15,11 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 import matplotlib
+import matplotlib.image
+import numpy as np
 
 from giap.io.tsv import write_tsv
 from giap.viz.base import Instance
@@ -61,6 +63,20 @@ def write_instance(
     write_tsv(tsv, [str(c) for c in frame.columns], frame.itertuples(index=False, name=None))
     written.append(tsv)
     return written
+
+
+def read_png(src: Path | BinaryIO) -> np.ndarray:
+    """A PNG as float RGBA in [0, 1], shape ``(h, w, 4)`` (the M9-24 colour-blind check)."""
+    img = np.asarray(matplotlib.image.imread(src, format="png"), dtype=float)
+    if img.shape[-1] == 3:
+        img = np.concatenate([img, np.ones((*img.shape[:2], 1))], axis=-1)
+    return img
+
+
+def write_png(path: Path, rgba: np.ndarray) -> None:
+    """Write float RGBA in [0, 1] as a PNG without a software stamp."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    matplotlib.image.imsave(path, rgba, format="png", metadata=METADATA["png"])
 
 
 def remove_plot_files(plots_dir: Path, pid: str) -> None:
