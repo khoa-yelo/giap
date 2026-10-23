@@ -33,6 +33,10 @@ from giap.steps import registry as reg
 NOVEL_CLASSES = ("nterm_extension", "cterm_extension", "intergenic", "sorf", "antisense")
 
 
+# no surrogates: a lone "\ud800" cannot be UTF-8 encoded into the corrupt table
+_CELL_CHARS = st.characters(blacklist_characters="\t\r\n", blacklist_categories=("Cs",))
+
+
 @pytest.fixture
 def fake_registry(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     return swap_registry(monkeypatch)
@@ -331,7 +335,7 @@ _CARD_TABLES = {
     body=st.one_of(
         st.binary(max_size=200),
         st.lists(
-            st.lists(st.text(st.characters(blacklist_characters="\t\r\n"), max_size=6),
+            st.lists(st.text(_CELL_CHARS, max_size=6),
                      min_size=1, max_size=4),
             max_size=4,
         ).map(lambda rows: "\n".join("\t".join(r) for r in rows).encode("utf-8")),
