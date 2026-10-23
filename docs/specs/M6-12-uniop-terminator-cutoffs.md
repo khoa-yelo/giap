@@ -424,4 +424,4 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
 4. **Hardening owed:** the shifted M2-21 UniOP excerpt goes to the backlog.
 5. **Order:** this spec merges; then A (the statistician's methods section, then the
    test-author, then the implementer), C0 by the lead, then B. ADR-0022 then goes to Khoa as
-   proposed, and C follows his acceptance.
+   proposed, and C follows Khoa's acceptance.
