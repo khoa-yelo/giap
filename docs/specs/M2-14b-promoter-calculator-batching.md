@@ -49,3 +49,17 @@ spends about 5.5 h submitting about 2,600 jobs that each compute for seconds (Sl
 - Examples 1–6 hold.
 - The fast suite and nf-test pass.
 - A K-12 real run (MVP-04 or M6-12C) records the PROMOTER_CALCULATOR wall time in PROGRESS.md.
+
+## Lead decisions (test-author 0811ca3a)
+1. **The pinned interface is accepted:**
+   - the input stays `tuple val(meta_id), path(regions)` with `meta_id = pc_<first TU>_<last TU>`;
+   - the tag is `"${meta_id}"`;
+   - the output is `path "*.csv"`;
+   - the time is `{ 2.h * task.attempt }`;
+   - the stub's `tu_regions` lets 0 through.
+2. **Correction:** sim100k has 20 TUs, not 288. The real byte-identity test uses sim100k (1 batch) plus 250 recorded K-12 regions (3 batches).
+3. **Existing tests updated by the lead:**
+   - annotate.nf.test example 4 counts 1 PROMOTER_CALCULATOR task;
+   - workflow/tests/real/promoter_calculator.nf batches.
+   
+   test_nf_stub_headers' `promoter_calculator` target is updated after the implementer reports the stub's redirect target.
