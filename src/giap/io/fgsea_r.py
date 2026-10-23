@@ -23,13 +23,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from giap.annotate.tools import ToolSpec
+from giap.annotate.tools import TOOLS
 from giap.function.gsea import EngineCall, EngineProvenance, EngineResult, EngineRow, GseaJob
 from giap.preflight.environment import _env_built
 from giap.runner.nextflow import workflow_main
 from giap.steps.registry import StepError
 
 __all__ = [
+    "DATA_TABLE_VERSION",
     "ENV_NAME",
     "FGSEA_TOOL",
     "FGSEA_VERSION",
@@ -58,16 +59,8 @@ METHOD = "fgsea_multilevel"
 ENV_NAME = "giap-fgsea"
 RESULTS_HEADER = ("job_id", "pathway", "size", "ES", "NES", "pval", "log2err", "leadingEdge")
 STDERR_TAIL = 20
-#: The env's registry entry, used for the ``.giap-built`` test; it joins ``TOOLS`` in M8-17b.
-FGSEA_TOOL = ToolSpec(
-    name="fgsea",
-    version=FGSEA_VERSION,
-    licence="MIT",
-    env_file="workflow/envs/fgsea.yml",
-    env_name=ENV_NAME,
-    version_cmd=("R", "--vanilla", "--slave", "-e", "cat(as.character(packageVersion('fgsea')))"),
-    module="function",
-)
+DATA_TABLE_VERSION = "1.18.6.1"
+FGSEA_TOOL = TOOLS["fgsea"]  # the env's registry entry, used for the ``.giap-built`` test
 _NOT_BUILT = (
     f"the R fgsea environment {ENV_NAME} is not built: sbatch scripts/slurm/build_envs.sbatch fgsea"
 )
@@ -200,7 +193,8 @@ def _lines(path: Path, what: str) -> list[str]:
 
 
 def read_versions(path: Path) -> EngineProvenance:
-    """``versions.txt``; raises unless it names fgsea ``FGSEA_VERSION``."""
+    """``versions.txt``; raises unless it names fgsea ``FGSEA_VERSION`` and data.table
+    ``DATA_TABLE_VERSION`` and carries integer ``seed`` and ``jobs`` lines (§3)."""
     keys: dict[str, str] = {}
     warnings: list[tuple[str, str]] = []
     for line in _lines(path, "versions.txt"):
@@ -214,7 +208,15 @@ def read_versions(path: Path) -> EngineProvenance:
     fgsea = keys.get("fgsea")
     if fgsea != FGSEA_VERSION:
         raise FgseaEngineError(f"R fgsea version {fgsea!r} is not the pinned {FGSEA_VERSION}")
-    return EngineProvenance(r=keys.get("R", ""), fgsea=fgsea, warnings=tuple(warnings))
+    table = keys.get("data.table")
+    if table != DATA_TABLE_VERSION:
+        raise FgseaEngineError(f"R data.table {table!r} is not the pinned {DATA_TABLE_VERSION}")
+    counts = {k: keys.get(k, "") for k in ("seed", "jobs")}
+    for k, v in counts.items():
+        if not _SIZE.match(v):
+            raise FgseaEngineError(f"R fgsea versions.txt: {k} {v!r} is not an integer")
+    return EngineProvenance(r=keys.get("R", ""), fgsea=fgsea, warnings=tuple(warnings),
+                            seed=int(counts["seed"]), jobs=int(counts["jobs"]))  # fmt: skip
 
 
 def _number(cell: str, what: str) -> float:
@@ -252,7 +254,8 @@ def _row(fields: list[str], job: GseaJob, ranked: frozenset[str]) -> EngineRow:
 def read_results(path: Path, call: EngineCall) -> EngineResult:
     """``results.tsv`` → rows per sent job (every job is a key). Rows of a job must be in-range
     sets of that job in the sent order, sizes must equal the sent sizes and every leading-edge TU
-    must be in its set; any violation raises ``FgseaEngineError``."""
+    must be in its set; every in-range set must have its row (#204 review nit 1). Any violation
+    raises ``FgseaEngineError``."""
     lines = _lines(path, "results.tsv")
     if tuple(lines[0].split("\t")) != RESULTS_HEADER:
         raise FgseaEngineError(f"R fgsea results: unexpected header {lines[0]!r}")
@@ -279,6 +282,13 @@ def read_results(path: Path, call: EngineCall) -> EngineResult:
             raise FgseaEngineError(f"R fgsea results line {n}: rows are not in the sent order")
         last = pos
         rows[job_id].append(_row(fields, job, ranked))
+    for job in call.jobs:
+        want = [t for t, ms in job.sets.items() if job.min_size <= len(set(ms)) <= job.max_size]
+        if [r.term for r in rows[job.job_id]] != want:
+            raise FgseaEngineError(
+                f"R fgsea results: {job.job_id} has {len(rows[job.job_id])} of its "
+                f"{len(want)} in-range sets"
+            )
     return {j: tuple(r) for j, r in rows.items()}
 
 
@@ -311,6 +321,11 @@ class RFgseaEngine:
             write_call(call, tmp)
             self._run(call, tmp)
             prov = read_versions(tmp / "versions.txt")
+            if (prov.seed, prov.jobs) != (call.seed, len(call.jobs)):
+                raise FgseaEngineError(
+                    f"R fgsea ran seed {prov.seed} with {prov.jobs} jobs; sent seed {call.seed} "
+                    f"with {len(call.jobs)} jobs"
+                )
             result = read_results(tmp / "results.tsv", call)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
