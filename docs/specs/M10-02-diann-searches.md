@@ -591,3 +591,28 @@ minutes.
 | Q9 | ADR number: 0050 is taken on `origin/m7/calibration-gate-novel` and 0022 is reserved for M6-12 part C, so this draft is ADR-0051. Renumber at merge if another branch lands 0051 first? | yes; the file name and the references here move together |
 | Q10 | The search job runs from the worktree (`GIAP_REPO=…/worktrees/m10-02`) before the PR merges, so the evidence lands in the same PR. Is that acceptable, given `provenance.json` records the commit? | yes; the commit and dirty flag are in the provenance, and the PR must be clean (dirty = false) at run time |
 | Q11 | The image's labels say it was bootstrapped from Docker Hub `khoayelo189/diann:2.3.1`, and it contains no licence file. The search proceeds on Khoa's 2026-10-20 acceptance, and ADR-0051 asks him to confirm the image's origin and the licence permission for the committed sample rows. Agreed? | proceed (Khoa supplied and accepted the image); the question goes in the next Khoa batch |
+
+## Lead decisions (2026-10-23)
+1. **Q1, the three M3-24 tests that pin the direct image path:**
+   - `test_diann_pilot_uses_the_image_from_decision_1`;
+   - `test_diann_sif_override_is_honoured`;
+   - `test_the_default_image_is_the_path_of_decision_1`.
+
+   The **lead** amends them and the `tests/helpers/pilot_kit.py` sandbox, citing index decision 2, in the
+   implementation step (role guard: the test-author writes only new tests). The test-author's new tests
+   may assume the sandbox additions listed in the spec. Spell them out in a helper under a new name if
+   needed.
+2. **Q2–Q11:** the proposed defaults are taken, all reversible:
+   - the pin lives in a committed file;
+   - the sample is stratified;
+   - the sample is parquet only;
+   - diaPASEF variants stop with exit 3;
+   - on timeout, resubmit at 24 h, then at 2 days, then escalate;
+   - the copy goes in `$GIAP_ROOT/images/`;
+   - the `needs_diann` probe change goes to the backlog;
+   - the ADR is renumbered at merge if needed;
+   - the real searches run from a clean worktree;
+   - work proceeds on the 2026-10-20 acceptance.
+
+   ADR-0051's questions go to Khoa in the next batch.
+3. **Ownership:** the shared image is owned by khoang99 (Khoa), not another user, and its directory is world-writable. The verified read-only copy stands. Khoa is asked whether to chmod the source.
