@@ -24,9 +24,10 @@ import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.cm import ScalarMappable
-from matplotlib.colors import Normalize
+from matplotlib.colors import Normalize, to_rgba
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch, Polygon
+from matplotlib.ticker import FuncFormatter
 
 from giap.viz import base, style
 
@@ -44,6 +45,8 @@ UNDETECTED = "#BBBBBB"
 UNESTIMATED = style.DETECTION["unestimated"]
 PROMOTER = style.OKABE_ITO["bluish_green"]
 TERMINATOR = style.OKABE_ITO["vermillion"]
+NOVEL_ORF = style.OKABE_ITO["reddish_purple"]
+ORF_Y = 0.6  # the novel ORF arrow's centre line, above the gene arrows (V13)
 IMPUTED_HATCH = "xxx"
 COLUMNS = ("track", "id", "contig", "start", "end", "strand", "value", "category")
 INDEX_COLUMNS = ("rank", "locus_id", "kind", "contig", "start", "end", "error", "rendered")
@@ -64,6 +67,21 @@ class Locus:
     end0: int
     error: float | None
     label: str
+
+
+@dataclass(frozen=True)
+class OrfMark:
+    """V13's novel ORF on top of a ``Locus(kind="novel_orf")``: its strand, the
+    ``start_best_ostir`` tick in the window frame (``None`` = no tick) and its peptides."""
+
+    strand: str
+    tick: int | None = None
+    peptides: frozenset[str] = frozenset()
+
+
+def wrapped_formatter(length: int) -> FuncFormatter:
+    """Tick labels of an unwrapped circular window: ``x mod length``, never negative."""
+    return FuncFormatter(lambda x, _pos: f"{round(x) % length:,}")
 
 
 def _num(v: object) -> float | None:
@@ -230,13 +248,28 @@ def run_scale(genes: pd.DataFrame | None) -> tuple[float, float]:
     return (lo, hi) if hi > lo else (lo - 0.5, lo + 0.5)
 
 
-def _arrow(s: int, e: int, strand: str, head: float) -> np.ndarray:
+def _arrow(s: int, e: int, strand: str, head: float, y0: float = 0.0) -> np.ndarray:
     h, y = min(head, e - s), 0.25
     if strand == "-":
         pts = [(s, 0), (s + h, y), (e, y), (e, -y), (s + h, -y)]
     else:
         pts = [(s, y), (e - h, y), (e, 0), (e - h, -y), (s, -y)]
-    return np.asarray(pts, dtype=float)
+    return np.asarray([(x, v + y0) for x, v in pts], dtype=float)
+
+
+def _draw_orf(ax: Axes, pile: Axes, locus: Locus, orf: OrfMark, hits: list[tuple[Any, int, int]],
+              head: float) -> list[object]:  # fmt: skip
+    """The novel ORF arrow above the genes, its OSTIR start tick and its peptides' pileup."""
+    s, e = locus.start0, locus.end0
+    ax.add_patch(Polygon(_arrow(s, e, orf.strand, head, ORF_Y), closed=True, edgecolor=NOVEL_ORF,
+                         facecolor=to_rgba(NOVEL_ORF, 0.35), linewidth=1.0,
+                         zorder=3))  # fmt: skip
+    if orf.tick is not None:
+        ax.plot([orf.tick, orf.tick], [ORF_Y - 0.3, ORF_Y + 0.3], color=NOVEL_ORF, lw=1.0)
+    mine = [h for h in hits if str(h[0].peptide) in orf.peptides]
+    for ps, pe, d in _pileup_runs(mine):
+        pile.fill_between([ps, pe], 0, d, color=NOVEL_ORF, linewidth=0, zorder=3)
+    return ["novel_orf", locus.locus_id, locus.contig, s, e, orf.strand, None, None]
 
 
 def _draw_genes(ax: Axes, rows: list[tuple[Any, int, int]], scale: tuple[float, float],
@@ -309,9 +342,14 @@ def _bed(view: RunView, key: str) -> pd.DataFrame:
 
 
 def render_locus(
-    locus: Locus, view: RunView, cfg: GiapConfig, scale: tuple[float, float]
+    locus: Locus,
+    view: RunView,
+    cfg: GiapConfig,
+    scale: tuple[float, float],
+    orf: OrfMark | None = None,
 ) -> base.Instance:
-    """One V3 instance: the locus window drawn on a fresh ``Figure``; data rows 0-based."""
+    """One V3 instance: the locus window drawn on a fresh ``Figure``; data rows 0-based.
+    ``orf`` (V13) adds the novel ORF track."""
     length, circular = _replicon(view, locus.contig)
     window = _window(locus, length, circular)
     width = float(window[1] - window[0])
@@ -340,7 +378,10 @@ def render_locus(
         rows.append(["island", str(r.island_id), str(r.contig), s, e, None,
                      _num(r.mean_abundance_log2), str(r.direction)])  # fmt: skip
     rows += _draw_genes(ax, near("genes_tsv"), scale, 0.015 * width)
-    pile_runs = _pileup_runs(near("peptide_hits"))
+    hits = near("peptide_hits")
+    if orf is not None:
+        rows.append(_draw_orf(ax, pile, locus, orf, hits, 0.015 * width))
+    pile_runs = _pileup_runs(hits)
     rows += [["pileup", None, locus.contig, s, e, None, float(d), None] for s, e, d in pile_runs]
     if pile_runs:
         edges = sorted({p for s, e, _ in pile_runs for p in (s, e)})
@@ -357,6 +398,7 @@ def render_locus(
         for k in range(math.floor(window[0] / length), math.floor(window[1] / length) + 1):
             if window[0] < k * length < window[1]:
                 ax.axvline(k * length, color=style.OKABE_ITO["black"], ls="--", lw=0.6)
+        ax.xaxis.set_major_formatter(wrapped_formatter(length))
     ax.set_xlim(*window)
     ax.set_ylim(-1.0, 1.0)
     ax.set_yticks([])
