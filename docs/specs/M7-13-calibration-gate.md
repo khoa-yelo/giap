@@ -292,3 +292,22 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
    - M7-13a measures costs first.
 3. **Order:** M7-13a test-author, then the implementer for the harness extension (pooled, shard-
    mergeable criterion), then statistician review, because the PR is labelled stats.
+4. **Test-author M7-13a (e2415625, #255).** Their reference run (Slurm 1872235) fails G1, A6a, A6b
+   and the reference-proteome arm. Decisions:
+   - **G1, A6a, A6b, A6c → method ADR-0049 (proposed, pending Khoa).** All four are strict xfails
+     with `raises=AssertionError`, and their reasons name ADR-0049. Each still writes its record,
+     so the nightly shows the estimate. Gate M7 stays open. No threshold is widened (R3).
+   - **Reference-proteome arm:** it is a diagnostic, not a gate. The degeneracy assertion is
+     pooled over replicates (mean rate ≥ 0.95), not per replicate. The test-author's per-replicate
+     0.9494 (n 316) is sampling noise.
+   - **G2:** trivial on `same_strain_insilico` (0 ALT rows); its teeth come from the mutant. This
+     is recorded and accepted.
+   - **Readings in gap 6** (indel mask c−3…c+5, isobaric types, reference by substring, guard
+     miss = a failed block, vacuity on block 1, G2 with `genome_relation = same`, stream bases)
+     are accepted.
+   - **Cost:** the full G1 is about 2.8 h with block 2. Array task 13 runs with `--shard 2`, and
+     the implementer wires it into calibration_full.sbatch.
+   - **`_check_key`:** the implementer adds `key` for pooled checks.
+   - **Next:** the test-author makes the xfail and reference-arm edits. These are this PR's own
+     tests, so the lead routes the edits to the test-author. Then the implementer
+     (`_m7_gate.py`, the pooled `_criteria`, the array line), then the statistician.
