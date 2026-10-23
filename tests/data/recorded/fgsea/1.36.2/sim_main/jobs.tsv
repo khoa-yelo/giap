@@ -1,0 +1,5 @@
+job_id	min_size	max_size
+main:cog	10	500
+main:kegg	10	500
+main:go_bp	10	500
+main:go_slim	10	500

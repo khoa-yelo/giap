@@ -145,6 +145,22 @@
       "mapping"
     ]
   },
+  "manifest": {
+    "inputs": [
+      "preflight"
+    ],
+    "optional_inputs": [
+      "annotation_meta",
+      "events",
+      "island_diagnostics",
+      "provenance",
+      "sensitivity",
+      "trace"
+    ],
+    "outputs": [
+      "run_manifest"
+    ]
+  },
   "map_exact": {
     "inputs": [
       "peptides",

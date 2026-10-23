@@ -283,6 +283,7 @@ def test_example1_fasta_records(r100: Run) -> None:
     assert set(s1 + s2) <= set("ACGT")
 
 
+@pytest.mark.slow  # wall clock: flaky on loaded shared nodes, so not in the every-commit suite
 def test_example1_under_1s(tmp_path: Path) -> None:
     cfg, seed = sim100k()
     best = float("inf")
