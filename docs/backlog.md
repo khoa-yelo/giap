@@ -697,3 +697,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   records carry no commit field, so "on main" cannot be checked from them.
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
+
+### M7-10 follow-ups
+- Switch the class-error calibration to the M7-12 `variant_f1` scenario once #225 merges (decision 7).

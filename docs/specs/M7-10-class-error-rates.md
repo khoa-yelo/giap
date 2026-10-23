@@ -113,3 +113,17 @@ def annotate_sites(sites: pd.DataFrame, rates: Sequence[ClassRate]) -> pd.DataFr
    site-level rate is out of reach at pilot depth.
 3. **Replicates:** `replicates_fast.variants = 20` and `replicates_full.variants = 100` already exist
    (ADR-0042); the check reads them from tolerances.yaml and does not hard-code its own counts.
+4. **Test-author resolutions (e7d8cb50) accepted:**
+   - one observation is one de novo row per class;
+   - a site's `mass_equivalent` comes from its M7-05 `flags`;
+   - `no_spectrum_pairing` may be reported by preflight or by the step.
+5. **C17 stays at four columns.** Preflight writes only confident target reference rows
+   (q ≤ 0.01, not decoy), with `source = "reference"`, plus every de novo row (`source = "denovo"`).
+   The pure `paired_observations` still filters on q and decoy status, for callers that pass raw
+   tables.
+6. **Nextflow:** `VARIANTS` gains a `peptide_spectra` take after `reference_peptides`, staged with
+   `kv` and left out of `needed`. The lead updated the existing key sets in
+   test_variants_step.py `OPTIONAL`, test_contract.py `TABLE_KEYS` and
+   test_nf_variants_registry.py `TAKE`.
+7. **Calibration scenario:** build from giapsim pieces now and switch to M7-12 `variant_f1` after
+   #225 merges (backlog). The planted arm is diagnostic only.

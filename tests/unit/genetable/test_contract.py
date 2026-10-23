@@ -41,7 +41,7 @@ CONTRACT_PY = REPO / "src" / "giap" / "genetable" / "contract.py"
 TABLE_KEYS = (
     "replicons", "genes", "xrefs", "tus", "layers", "regions", "region_genes", "peptides",
     "abundance", "peptide_hits", "protein_hits", "unmapped", "id_map", "features",
-    "peptide_runs",
+    "peptide_runs", "peptide_spectra",
 )  # fmt: skip
 
 # Required (non-optional) columns per table, from the spec table "The contract".
