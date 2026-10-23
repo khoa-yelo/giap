@@ -21,7 +21,6 @@ Usage::
 from __future__ import annotations
 
 import argparse
-import gzip
 import hashlib
 import json
 import logging
@@ -29,7 +28,7 @@ import math
 import re
 import sys
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -73,6 +72,7 @@ class Pins:
     genome_sha256: str
     uniop_pred_sha256: str
     uniop_gff_sha256: str
+    terms_sha256: str
 
 
 K12_PINS = Pins(
@@ -80,6 +80,7 @@ K12_PINS = Pins(
     genome_sha256="918f35c7bfc8a3c8d824ed281a4185903025a0361242219b6b0e0ea6ecaa14f2",
     uniop_pred_sha256="7d852a93a436a9bcef2cf4cf38d608bcd5d59054d98bd1b1ddc21196690b5ee0",
     uniop_gff_sha256="ea5870894e26c649b4e7520c65cf57e1138e1786688db7663a7b3e3eea062906",
+    terms_sha256="9be61c75c0d7835f7d8c8f3c3948b95adfa34445003ec570ff9bbb2ca1e3a2ff",
 )
 
 
@@ -224,18 +225,11 @@ def _verify(
         got = hashlib.sha256(tables[ds].encode("utf-8")).hexdigest()
         _check(f"{ds} sha256 vs truth_summary.json", got, str(summary["sha256"].get(ds)))
     _check("TerminatorNet commit", terminatornet_commit(terminatornet), pins.terminatornet_commit)
+    _check("terms.tsv.gz sha256", _sha(terminatornet), pins.terms_sha256)
     _check("genome.norm.fa sha256", normalized_genome_sha256(genome), pins.genome_sha256)
     _check("uniop.pred sha256", _sha(uniop_dir / "uniop.pred"), pins.uniop_pred_sha256)
     _check("uniop_cds.gff sha256", _sha(uniop_dir / "uniop_cds.gff"), pins.uniop_gff_sha256)
     return tables, summary
-
-
-def _tn_calls(terms: Path, replicons: Mapping[str, Replicon]) -> list[tuple[Interval, float]]:
-    """Decompress ``terms.tsv.gz`` (the parser reads plain text) and parse it."""
-    with tempfile.TemporaryDirectory() as tmp:
-        plain = Path(tmp) / "terms.tsv"
-        plain.write_bytes(gzip.decompress(terms.read_bytes()))
-        return [(t.interval, t.confidence) for t in parse_terminatornet(plain, replicons)]
 
 
 # ------------------------------------------------------------------------------- statistics
@@ -273,13 +267,13 @@ def _coincidence(
     rng: np.random.Generator,
     R: int,
 ) -> tuple[float, float]:
-    """(c, Monte Carlo SE of c): ``gcd(R, 20)`` equal batches of placements, batch-means SE."""
-    n_b = math.gcd(R, 20)
-    rates = [
-        sc.coincidence_rate(elig, conf, ctx.windows, ctx.truth, ctx.rep, t, rng=rng, R=R // n_b)
-        for _ in range(n_b)
-    ]
-    se = float(np.std(rates, ddof=1) / math.sqrt(n_b)) if n_b > 1 else math.nan
+    """(c, Monte Carlo SE of c): one call; the mean and sd(ddof=1)/sqrt(R) of the R rates."""
+    rates = np.asarray(
+        sc.coincidence_rate(
+            elig, conf, ctx.windows, ctx.truth, ctx.rep, t, rng=rng, R=R, return_rates=True
+        )
+    )
+    se = float(np.std(rates, ddof=1) / math.sqrt(R)) if R > 1 else math.nan
     return float(np.mean(rates)), se
 
 
@@ -351,26 +345,13 @@ _TN_NULL = (
 )  # fmt: skip
 
 
-def _curve_tsv(curve: pd.DataFrame | None) -> str:
-    lines = ["threshold\ttp\tfp\tprecision\trecall\tf1"]
-    if curve is not None:
-        P = int(curve["tp"].iloc[-1])
-        for t, tp, fp in zip(curve["threshold"], curve["tp"], curve["fp"], strict=True):
-            tp, fp = int(tp), int(fp)
-            rec = repr(tp / P) if P else ""
-            f1 = repr(2 * tp / (tp + fp + P))
-            lines.append(f"{float(t)!r}\t{tp}\t{fp}\t{tp / (tp + fp)!r}\t{rec}\t{f1}")
-    return "\n".join(lines) + "\n"
-
-
-def _calls_tsv(el: pd.DataFrame) -> str:
-    lines = ["contig\tstart\tend\tstrand\tconfidence\tgene\tmatched_source_id"]
-    for r in el.itertuples():
-        lines.append(
-            f"{r.contig}\t{r.start}\t{r.end}\t{r.strand}\t{float(r.confidence)!r}\t{r.gene}\t"
-            f"{r.matched_source_id}"
-        )
-    return "\n".join(lines) + "\n"
+def _curve_frame(curve: pd.DataFrame | None) -> pd.DataFrame:
+    if curve is None:
+        return pd.DataFrame(columns=["threshold", "tp", "fp", "precision", "recall", "f1"])
+    P = int(curve["tp"].iloc[-1])
+    tp, fp = curve["tp"], curve["fp"]
+    rec = tp / P if P else math.nan
+    return curve.assign(precision=tp / (tp + fp), recall=rec, f1=2 * tp / (tp + fp + P))
 
 
 # ------------------------------------------------------------------------------- the run
@@ -414,6 +395,8 @@ def run(
     fit = sc.fit_distance_model(d, y)
 
     tdf = _read_tsv(regulondb_dir / "truth" / "terminator_truth.tsv")
+    if (off := int((tdf["contig"] != contig).sum())) > 0:
+        log.info("dropped %d terminator truth rows on other contigs", off)
     tdf = tdf[tdf["contig"] == contig]
     cols = (tdf["start"], tdf["end"], tdf["strand"])
     rdb_terms = parse_terminator_set(tables["TerminatorSet"], contig)
@@ -425,7 +408,8 @@ def run(
         list(tdf["source_id"]),
         [kinds.get(i) or "unknown" for i in tdf["source_id"]],
     )
-    all_calls = _tn_calls(terminatornet, model.replicons)
+    terms = parse_terminatornet(terminatornet, model.replicons)
+    all_calls = [(t.interval, t.confidence) for t in terms]
     calls = [(c, q) for c, q in all_calls if c.contig == contig]
     if len(calls) < len(all_calls):
         log.info("ignored %d TerminatorNet calls on other contigs", len(all_calls) - len(calls))
@@ -435,7 +419,8 @@ def run(
     boot = _uniop_streams(L, u_cut.threshold, rng, B)
     cl = L["directon_id"].to_numpy()
     q = sc.threshold_boot_q(p, y, cl, rng=rng, B=B)
-    tn = {k: [math.nan, math.nan] if k.endswith("_ci") else None for k in _TN_NULL} | tn
+    nulls = {k: [math.nan] * 2 if k.endswith(("_ci", "_ci_window")) else None for k in _TN_NULL}
+    tn = nulls | tn
     if t_cut is not None:
         conf = el["confidence"].to_numpy(dtype=float)
         c, se = _coincidence(list(el["iv"]), list(conf), ctx, t_cut.threshold, rng, R)
@@ -498,9 +483,10 @@ def run(
     }
     text = json.dumps(finite(doc), indent=2) + "\n"
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "uniop_curve.tsv").write_text(_curve_tsv(u_curve), encoding="utf-8")
-    (out_dir / "terminatornet_curve.tsv").write_text(_curve_tsv(t_curve), encoding="utf-8")
-    (out_dir / "terminatornet_calls.tsv").write_text(_calls_tsv(el), encoding="utf-8")
+    tsv: dict[str, Any] = {"sep": "\t", "index": False, "lineterminator": "\n"}
+    _curve_frame(u_curve).to_csv(out_dir / "uniop_curve.tsv", **tsv)
+    _curve_frame(t_curve).to_csv(out_dir / "terminatornet_curve.tsv", **tsv)
+    el.drop(columns="iv").to_csv(out_dir / "terminatornet_calls.tsv", **tsv)
     (out_dir / "cutoffs.json").write_text(text, encoding="utf-8")
     result: dict[str, Any] = json.loads(text)
     return result
@@ -519,7 +505,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     paths = (a.regulondb_dir, a.bakta_json, a.genome, a.uniop_dir, a.terminatornet, a.out_dir)
     try:
         run(*paths, seed=a.seed, B=a.B, pins=K12_PINS)
-    except ValueError as exc:
+    except (ValueError, FileNotFoundError) as exc:
         print(f"calibrate_cutoffs: {exc}", file=sys.stderr)
         return 1
     return 0
