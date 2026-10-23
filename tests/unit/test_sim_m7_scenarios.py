@@ -333,6 +333,8 @@ def test_rule2_alt_site_counts_match_bruteforce(vf: Any) -> None:
         by_codon[(s["contig"], cs, s["gene"])] = s
     correct = O.correct_peptide_rows(out)
     for r in O.rows(out / "truth" / "alt_sites.tsv"):
+        if O.truthy(r["frameshift_upstream"]):
+            continue  # decision 11: lifted rows, see test_alt_sites_counts_after_lift
         s = by_codon[(r["contig"], int(r["codon_start"]), r["gene"])]
         n = O.recount_site_peptides(out, s["gene"], s["contig"], int(s["pos_sample"]),
                                     len(sample[s["contig"]]), correct)  # fmt: skip
