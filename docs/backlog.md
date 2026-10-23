@@ -305,6 +305,20 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Owed (acceptance): B = 1,000 benchmark in baseline.json; methods "Null and attribution" section.
 - M8-10 carry-over (statistician #173): `cv_r2_mean` (the null p's effect) gets `ci_unestimated` (ADR-0031 pattern); `n_perm` should count non-NaN null values as `perm_p` does; optional exact test against the observed repeat-1 R².
 - Hardening (ADR-0034): spatially contiguous CV folds for observed and null, a positional-feature decision (`replichore_position`), a detection-selection model; `null_uncalibrated` comes off only when every arm of test_attack_determinants_null.py passes.
+
+## M8-10 review nits (#178, one-round MVP review: APPROVE)
+- **N1** Log the `--publication` runtime at run time; today only the CLI help states it (lead decision 3).
+- **N2** `_threads` is capped by sched_getaffinity, not by `task.cpus`. Under the local executor or a container it can oversubscribe; determinism is not affected.
+- **N3** farmshare.config: a `process_high` retry asks for 64 GB over 16 CPUs, which is 4096 MB/CPU and over FarmShare's 4000 MB limit. Fix it in farmshare.config; base.config's `cpus = 16` is pinned by a test.
+- **N4** The step uses private helpers from steps/codon.py and steps/operons.py, plus its own C5 reader. Move them into a public contract reader in io/.
+- **N5** The `_cell` `""`→NA branch is redundant or untested (mutant m07 survived).
+- **N6** Nothing checks that CAI reference rows exist (m04 and m12 survived).
+- **N7** Only the bootstrap stream is pinned. Pin the CV stream name and the null seed too (m10, m11).
+- **N8** Add a step-level test for NaN `n_perm` and `unestimated` on null_p (m02). The `features_dropped` test checks a subset rather than equality (m06).
+- **N9** main_determinants.nf.test should assert where `tus` and `replicons` come from.
+- **N10** One main.nf header line is over 100 characters.
+- **N11** Still owed: a real giap_run.sbatch run on sim100k, and the 4,500-gene runtime in benchmarks/baseline.json.
+- Mutation evidence: Slurm 1867779; scratch is in $GIAP_ROOT/scratch/review178_mut/.
 - M6-02 (test-author): `tests/unit/genetable/test_contract.py` pins `TABLE_KEYS` (no `peptide_runs`)
   and `m4_contract_fixture.build_frames` has no C16 frame. `test_tables_keys` and
   `test_missing_column[peptide_runs-*]` fail against the C16 contract that
@@ -772,6 +786,21 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
 
+<<<<<<< HEAD
+### M7-11 follow-ups
+- M7-11b: novel_orfs step wiring of `giap.novel.fdr` (decisions 6–9), step-level tests.
+- Origin-crossing makedb entries without replicon lengths are unestimated (decision 8); pass lengths.
+- M7-11 statistician NIT 1: c is computed over hit peptides only; decide whether to widen it (pending lead/statistician, not blocking).
+- M7-11 vs M4-24: when only some targets lack q, M7-11 falls back to score while M4-24 keeps q and ranks them last; align the two (statistician #237 round 2, safe).
+- Review #237 nits (M7-11):
+  - 1: a class with no seen entries reports `paired_share_low` even at f = 1, where it should be `no_target_score`.
+  - 2: hoist the loop-invariant `seen` (fdr.py:294).
+  - 3: without lengths, entries whose stop codon lies past the origin are unmatched; name them in the methods note.
+  - 4: `min_identity` / `min_coverage` have no lower bound, so 0/0 gives f = 0 and `run_detection` raises; this needs a config bound (protected, ADR) or a guard.
+  - 5: the methods-note status line says decisions 1–11; it should say 1–13.
+  - 6: `_decoy_tags` could return the parsed class.
+  - 7: `denovo_class_q` uses an iloc loop and does not cast strand to str.
+=======
 ### M9-24 follow-ups
 - **Diagnosed:** V08 (and V02, V03, V07) show no measured abundance on sim100k because 0 of 87
   genes are detected: picked-protein q has floor 1/n_win = 1/85 > alpha 0.01
@@ -814,6 +843,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - V5 `arrangement="fixed"` without node x/y loses the M9-05 order.
 - V8 has no median mark or legend; the V10 no-meta fallback differs for flagged rows; V18's constant state has no message.
 - PR size about 2,300 lines in total (711 counted).
+>>>>>>> origin/main
 ### M7-10 follow-ups
 - Switch the class-error calibration to the M7-12 `variant_f1` scenario once #225 merges (decision 7).
 - M7-13: class error rate reference-proteome arm (moved from M7-10 #239 B2); also consider a run flag when every class rate is 1 (statistician #239).
