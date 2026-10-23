@@ -63,22 +63,23 @@ def _close(a: str, b: str) -> bool:
         return False
 
 
-def autocorrelation_equal(want: bytes, got: bytes) -> bool:
-    """Byte equality except ``JOIN_NUMERIC`` on ``join_count_bb`` rows (lead decision 44)."""
+def autocorrelation_mismatch(want: bytes, got: bytes) -> str | None:
+    """``None`` when equal bytes except ``JOIN_NUMERIC`` on ``join_count_bb`` rows (lead
+    decision 44), else the first differing cell as ``line n, column: want != got``."""
     w, g = want.decode().splitlines(), got.decode().splitlines()
     if len(w) != len(g) or not w or w[0] != g[0]:
-        return False
+        return f"{len(w)} vs {len(g)} lines or a different header"
     header = w[0].split("\t")
     stat, loose = header.index("statistic"), {header.index(c) for c in JOIN_NUMERIC}
-    for lw, lg in zip(w[1:], g[1:], strict=True):
+    for n, (lw, lg) in enumerate(zip(w[1:], g[1:], strict=True), start=2):
         cw, cg = lw.split("\t"), lg.split("\t")
         if len(cw) != len(cg):
-            return False
+            return f"line {n}: {len(cw)} vs {len(cg)} fields"
         for i, (a, b) in enumerate(zip(cw, cg, strict=True)):
             ok = _close(a, b) if cw[stat] == "join_count_bb" and i in loose else a == b
             if not ok:
-                return False
-    return True
+                return f"line {n} ({cw[stat]}), {header[i]}: {a} != {b}"
+    return None
 
 
 @pytest.fixture(scope="module", params=CASES)
@@ -117,11 +118,15 @@ def test_m5_tables_equal_the_committed_golden_files(run: dict[str, Any], case: s
     assert not missing, f"golden files missing in {dest}: {missing}"
     for logical, fname in sorted(names.items()):
         want, got = m5.read_golden(dest / fname), run["bytes"][logical]
-        if logical == "autocorrelation.tsv" and autocorrelation_equal(want, got):
-            continue
+        why = None
+        if logical == "autocorrelation.tsv":
+            why = autocorrelation_mismatch(want, got)
+            if why is None:
+                continue
         if want != got:
             pytest.fail(
-                f"{case}/{fname} differs from the golden file; first lines (n, want, got):"
+                f"{case}/{fname} differs from the golden file"
+                f"{f' ({why})' if why else ''}; first lines (n, want, got):"
                 f" {m5.first_diff(want, got)}"
             )
 
