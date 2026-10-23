@@ -1,0 +1,244 @@
+// M8-06b: stub run of the FUNCTION subworkflow (workflow/subworkflows/local/function.nf;
+// GIAP_SPEC.md §6.2 step row "function", §6.3, §7.7, §9.1; docs/specs/M8-06-function-step-and-run.md
+// item 8). ci.yml runs: nf-test test workflow/tests --profile test,stub; "-stub" is set here too.
+//
+// Interface pinned here (spec item 8):
+//   take: gene_table  (genetable/genes.parquet, GENETABLE's detectability output)
+//         annotation  ([genes.parquet, features.parquet, replicons.parquet]; only replicons is used)
+//         tu_folds    (genetable/tu_folds.parquet, GENETABLE's tu_folds emission)
+//         resources   ([key, path] per installed function resource, or channel.empty())
+//   emit: category_summary, enrichment_detection, enrichment_gsea (the §9.1 file names), versions
+// The py step runs through the alias GIAP_STEP as FUNCTION_STEP (tag "function") with the
+// registry's keys: gene_table, replicons and tu_folds are required (stepIn's `need`), and each
+// resource is staged under its setup item name only when given. Published: the three
+// tables/*.tsv files only (M6-08 decision 7).
+// There is no tu_folds or function-resource fixture under workflow/tests/data, so the test writes
+// empty stand-ins with the real file names: stub tasks never read their inputs.
+
+nextflow_workflow {
+
+    name "FUNCTION subworkflow (stub)"
+    script "../subworkflows/local/function.nf"
+    workflow "FUNCTION"
+    options "-stub"
+    tag "function"
+
+    test("every input and all five resources: registry keys, item names, three tables emitted and published") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def t = java.nio.file.Files.createTempDirectory('m806_fn')
+                ['genetable/tu_folds.parquet', 'go/go-basic.obo', 'go/goslim_generic.obo', 'kegg/ko_pathway.tsv',
+                 'kegg/pathway_names.tsv', 'cog/fun-20.tab'].each { r ->
+                    def f = t.resolve(r).toFile()
+                    f.parentFile.mkdirs()
+                    f.text = ''
+                }
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value(file("\${t}/genetable/tu_folds.parquet"))
+                input[3] = channel.of(['go_basic', file("\${t}/go/go-basic.obo")],
+                                      ['goslim_generic', file("\${t}/go/goslim_generic.obo")],
+                                      ['kegg_ko_pathway', file("\${t}/kegg/ko_pathway.tsv")],
+                                      ['kegg_pathway_names', file("\${t}/kegg/pathway_names.tsv")],
+                                      ['cog2020_fun', file("\${t}/cog/fun-20.tab")])
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // subworkflow's own name FUNCTION)
+            def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
+            def dirsTagged = { String w, String step ->
+                H.taskDirs(w).findAll { d ->
+                    def l = new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: ''
+                    H.tagOf(l.replaceFirst(/^### name:\s*['"]?/, '').replaceFirst(/['"]\s*$/, '')) == step
+                }
+            }
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            def reg = new groovy.json.JsonSlurper().parse(REG)
+            assert reg.containsKey('function') : "step_registry.json has no function step"
+            assert ranTagged('function') == 1 : "function ran ${ranTagged('function')}x; tasks: ${H.names(workflow.trace)}"
+            assert H.names(workflow.trace).any { H.procOf(it) == 'FUNCTION_STEP' && H.tagOf(it) == 'function' } : "no FUNCTION_STEP alias: ${H.names(workflow.trace)}"
+            def dirs = dirsTagged(work, 'function')
+            assert dirs.size() == 1 && new File(dirs[0], '.giap_inputs').isFile() : "function did not run through GIAP_STEP"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def din = H.stepInputs(dirs[0])
+            assert din.collect { it[0] }.sort() == ['cog2020_fun', 'gene_table', 'go_basic', 'goslim_generic',
+                                                    'kegg_ko_pathway', 'kegg_pathway_names', 'replicons',
+                                                    'tu_folds'] : "function inputs ${din}"
+            def name = [gene_table: 'genes.parquet', replicons: 'replicons.parquet', tu_folds: 'tu_folds.parquet',
+                        go_basic: 'go-basic.obo', goslim_generic: 'goslim_generic.obo',
+                        kegg_ko_pathway: 'ko_pathway.tsv', kegg_pathway_names: 'pathway_names.tsv',
+                        cog2020_fun: 'fun-20.tab']
+            din.each { kv -> assert new File(kv[1]).name == name[kv[0]] : "--in ${kv[0]}=${kv[1]} (expected ${name[kv[0]]}); all: ${din}" }
+
+            ['category_summary', 'enrichment_detection', 'enrichment_gsea'].each { k ->
+                def out = workflow.out[k]
+                assert out != null && out.size() == 1 : "emit ${k}: ${out}"
+                assert out[0].toString().endsWith("${k}.tsv") : "emit ${k}: ${out}"
+                assert new File("${outputDir}/tables/${k}.tsv").isFile() : "tables/${k}.tsv not published"
+            }
+            assert workflow.out.versions != null && workflow.out.versions.size() >= 1 : "no versions emitted"
+            def published = []
+            new File("${outputDir}").eachFileRecurse { f ->
+                if (f.isFile()) published << new File("${outputDir}").toPath().relativize(f.toPath()).toString()
+            }
+            def other = published.findAll { !it.startsWith('logs/') }.sort()
+            assert other == ['tables/category_summary.tsv', 'tables/enrichment_detection.tsv',
+                             'tables/enrichment_gsea.tsv'] : "published ${other}"
+        }
+    }
+
+    test("no resource installed: the step runs on the three required inputs only") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def t = java.nio.file.Files.createTempDirectory('m806_fn').resolve('tu_folds.parquet')
+                t.toFile().text = ''
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value(file(t.toString()))
+                input[3] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
+            def dirsTagged = { String w, String step ->
+                H.taskDirs(w).findAll { d ->
+                    def l = new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: ''
+                    H.tagOf(l.replaceFirst(/^### name:\s*['"]?/, '').replaceFirst(/['"]\s*$/, '')) == step
+                }
+            }
+            assert workflow.success
+            assert ranTagged('function') == 1 : "function did not run without resources: ${H.names(workflow.trace)}"
+            def keys = H.stepInputs(dirsTagged(workDir.toString(), 'function')[0]).collect { it[0] }.sort()
+            assert keys == ['gene_table', 'replicons', 'tu_folds'] : "function inputs ${keys}"
+            ['category_summary', 'enrichment_detection', 'enrichment_gsea'].each { k ->
+                assert new File("${outputDir}/tables/${k}.tsv").isFile() : "tables/${k}.tsv not published"
+            }
+        }
+    }
+
+    test("only cog2020_fun installed: only that resource is staged") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def t = java.nio.file.Files.createTempDirectory('m806_fn')
+                ['genetable/tu_folds.parquet', 'go/go-basic.obo', 'go/goslim_generic.obo', 'kegg/ko_pathway.tsv',
+                 'kegg/pathway_names.tsv', 'cog/fun-20.tab'].each { r ->
+                    def f = t.resolve(r).toFile()
+                    f.parentFile.mkdirs()
+                    f.text = ''
+                }
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value(file("\${t}/genetable/tu_folds.parquet"))
+                input[3] = channel.of(['cog2020_fun', file("\${t}/cog/fun-20.tab")])
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def dirsTagged = { String w, String step ->
+                H.taskDirs(w).findAll { d ->
+                    def l = new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: ''
+                    H.tagOf(l.replaceFirst(/^### name:\s*['"]?/, '').replaceFirst(/['"]\s*$/, '')) == step
+                }
+            }
+            assert workflow.success
+            def dirs = dirsTagged(workDir.toString(), 'function')
+            assert dirs.size() == 1 : "function ran ${dirs.size()}x"
+            def din = H.stepInputs(dirs[0])
+            assert din.collect { it[0] }.sort() == ['cog2020_fun', 'gene_table', 'replicons', 'tu_folds'] : "function inputs ${din}"
+            assert din.find { it[0] == 'cog2020_fun' }[1].endsWith('fun-20.tab') : "${din}"
+        }
+    }
+
+    test("no tu_folds: the step does not run") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def t = java.nio.file.Files.createTempDirectory('m806_fn').resolve('fun-20.tab')
+                t.toFile().text = ''
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.empty()
+                input[3] = channel.of(['cog2020_fun', file(t.toString())])
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
+            assert workflow.success
+            assert ranTagged('function') == 0 : "function ran without tu_folds: ${H.names(workflow.trace)}"
+            assert !new File("${outputDir}/tables").exists() : "tables/ published without tu_folds"
+        }
+    }
+
+    test("no gene table: the step does not run") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def m = "${moduleTestDir}/data/mapping"
+                def t = java.nio.file.Files.createTempDirectory('m806_fn').resolve('tu_folds.parquet')
+                t.toFile().text = ''
+                input[0] = channel.empty()
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value(file(t.toString()))
+                input[3] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
+            assert workflow.success
+            assert ranTagged('function') == 0 : "function ran without a gene table: ${H.names(workflow.trace)}"
+            assert !new File("${outputDir}/tables").exists() : "tables/ published without a gene table"
+        }
+    }
+}

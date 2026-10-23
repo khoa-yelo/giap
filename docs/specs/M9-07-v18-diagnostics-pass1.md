@@ -87,3 +87,20 @@ not a test.
 2. The value of the `detectability_constant` overall row: the validation run writes 1 (checked:
    `local/runs/val-mvp-2026-10-22`, where `n_detected = 0`). **Proposed default:** treat value 1 as "constant"; the M4-13 owner confirms the
    encoding in review.
+
+## Lead decisions (2026-10-22, after the test author's 149f3c9)
+
+1. **Enrichment tables.** The M9-07 implementer adds `enrichment_detection` and `enrichment_gsea` to `RunView` (`_EXTRA`), with the §9.1 paths. M8-06 has merged, so the tables exist.
+2. **Titles.**
+   - Without `detection_summary`, the title is "Detectability not available; <k> test families shown".
+   - On a non-constant fit with a NA slope or intercept, the NA value is written as "NA" and never as "nan".
+3. **Panel (a) rows.**
+   - `table = detection_summary`, `family` NA.
+   - Write all the overall metrics the table carries; at least the three are pinned.
+   - Bin rows come first, in ascending bin order, then the overall rows sorted by `metric`.
+4. **Constant fit.** Panel (a) bin rows are still written to the TSV when the fit is constant: the data says what the table says. Only the drawing switches to the constant text.
+5. **Top-16 ties.** Families are ranked by finite-p count, descending. Ties go to spec table order, then family name.
+6. **No detectability section.** When `detection_summary` exists but has no detectability rows, panel (a) shows "detectability not available" rather than the constant text. The constant text needs `detectability_constant == 1`.
+7. **No inputs.** With every input absent, V18 renders both empty texts. It stays optional to skip; the report shows the empty state.
+8. **Marker area.** The area is proportional to n, as pinned.
+9. **Families with no finite p.** They are absent from the TSV, as pinned.

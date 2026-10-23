@@ -109,7 +109,12 @@ def operon_pairs(ctx: StepContext) -> None:
     elif DISTANCE_FLAG in flags:
         why = "no uniop.pred" if "uniop_pred" not in ctx.inputs else "uniop.pred has no pair"
         meta = {"operon_source": "distance_model", "reason": f"UniOP failed ({why})"}
-        ctx.log.warning("operon_pairs: %s; distance model used, run flag %s", why, DISTANCE_FLAG)
+        ctx.log.warning(
+            "operon_pairs: %s; distance model used, run flag %s",
+            why,
+            DISTANCE_FLAG,
+            extra={"event": "operon_pairs.run_flag", "data": {"flag": DISTANCE_FLAG}},
+        )
     else:
         meta = {"operon_source": "uniop", "reason": "UniOP probabilities (pin 3ed14dfc)"}
     ctx.outputs["operon_meta"].write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n")
@@ -194,9 +199,11 @@ def operons_step(ctx: StepContext) -> None:
     for key, name in _LAYERS.items():
         if key not in layers:
             ctx.log.warning("%s%s: layer not available; its pair evidence is NA",
-                            LAYER_MISSING, name)  # fmt: skip
+                            LAYER_MISSING, name, extra={"event": "operons.layer_missing", "data":
+                                {"layer": name, "flag": f"{LAYER_MISSING}{name}"}})  # fmt: skip
     ctx.log.info("%s: pass 1 has no detection-limit model; one-detected pairs are untested",
-                 NO_DL_MODEL)  # fmt: skip
+                 NO_DL_MODEL,
+                 extra={"event": "operons.run_flag", "data": {"flag": NO_DL_MODEL}})  # fmt: skip
     gt = read_genes_parquet(ins["gene_table"])
     pairs, ops, flagged, bins = run_operons(
         gt, rd(ins["genes"]), replicons, tus, rd(ins["pairs_raw"]), rd(ins["features"]), layers,
