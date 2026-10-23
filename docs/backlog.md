@@ -723,3 +723,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - N6 `check_instance` rebinds `inst.figure.canvas`; `_tsv` calls `Path.is_file()` from viz/.
 - N7 the snapshot sweep skips until M9-25 fixtures; sim100k exercises only no-abundance branches.
 - N8 pin matplotlib in pyproject.toml while the checklist uses `Axis._update_ticks()`.
+### M9-16b follow-ups
+- Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
+  shown when the manifest write failed or in the work-dir copy); test-author step first.
+- Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
