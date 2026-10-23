@@ -90,3 +90,9 @@ never names modifications).
 
 1. Top-site order (above): **Proposed default:** confidence, n_alt, class error, ID.
 2. Window ±10 aa: a display choice. **Proposed default:** ±10.
+
+## Lead decisions (2026-10-22)
+
+1. Top-site order: confidence, then n_alt, then class error, then ID (the proposed default).
+2. The display window is ±10 aa (the proposed default).
+3. Feature loop: test-author → implementer → code review (no stats label).
