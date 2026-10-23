@@ -59,7 +59,8 @@
       "peptides",
       "replicon_depth",
       "stratum0_classes",
-      "tier_summary"
+      "tier_summary",
+      "variants_qc"
     ],
     "outputs": [
       "autocorrelation",
@@ -80,6 +81,25 @@
       "detectability_summary",
       "gene_table",
       "tu_folds"
+    ]
+  },
+  "determinants": {
+    "inputs": [
+      "gene_table",
+      "genes",
+      "layers",
+      "replicons",
+      "tus"
+    ],
+    "optional_inputs": [
+      "gene_context",
+      "region_genes",
+      "regions"
+    ],
+    "outputs": [
+      "determinants_attribution",
+      "determinants_features",
+      "determinants_model"
     ]
   },
   "function": {
@@ -344,6 +364,9 @@
       "category_summary",
       "detectability_summary",
       "detection_summary",
+      "determinants_attribution",
+      "determinants_features",
+      "determinants_model",
       "enrichment_detection",
       "enrichment_gsea",
       "events",
@@ -381,6 +404,7 @@
       "tus_tsv",
       "unmapped",
       "variants",
+      "variants_qc",
       "variants_vcf"
     ],
     "outputs": [
@@ -459,6 +483,9 @@
       "category_summary",
       "detectability_summary",
       "detection_summary",
+      "determinants_attribution",
+      "determinants_features",
+      "determinants_model",
       "enrichment_detection",
       "enrichment_gsea",
       "events",
@@ -496,6 +523,7 @@
       "tus_tsv",
       "unmapped",
       "variants",
+      "variants_qc",
       "variants_vcf"
     ],
     "outputs": [
@@ -510,7 +538,14 @@
       "replicons",
       "tus"
     ],
-    "optional_inputs": [],
+    "optional_inputs": [
+      "features",
+      "genes",
+      "pairs_raw",
+      "promoter_windows",
+      "terminators",
+      "tx_rates"
+    ],
     "outputs": [
       "sensitivity"
     ]
@@ -581,11 +616,13 @@
     ],
     "optional_inputs": [
       "hits_tolerant",
+      "peptide_spectra",
       "reference_peptides"
     ],
     "outputs": [
       "pileup",
       "variants",
+      "variants_qc",
       "variants_vcf"
     ]
   }

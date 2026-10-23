@@ -13,6 +13,7 @@
 // The optional logs/events.jsonl that `giap _step` writes (§6.7) is published as
 // OUT/logs/steps/<step>.events.jsonl; `giap run` appends those to OUT/logs/events.jsonl after
 // Nextflow ends, in trace order (giap.runner.nextflow.append_step_events; M3-17 decision 15).
+// Outputs named work/<file> are intermediates (M7-14 variants_qc): passed on, never published.
 
 // Stub runs: steps whose real run always logs an event write one §6.7 line of the same shape
 // (ts, step, level, event, data). Only what the stub knows goes in: placement's
@@ -32,7 +33,7 @@ process GIAP_STEP {
     label 'process_single'
     cache 'deep'   // content, not path/mtime: a re-run step with unchanged outputs caches its dependants
     publishDir "${params.outdir}", mode: 'copy', saveAs: { fn ->
-        fn == 'versions.yml' ? null : fn == 'logs/events.jsonl' ? "logs/steps/${step}.events.jsonl" : fn }
+        fn == 'versions.yml' || fn.startsWith('work/') ? null : fn == 'logs/events.jsonl' ? "logs/steps/${step}.events.jsonl" : fn }
 
     input:
     tuple val(step), path(inputs, stageAs: 'in?/*'), val(config_hash)

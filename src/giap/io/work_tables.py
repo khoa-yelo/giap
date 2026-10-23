@@ -65,7 +65,10 @@ FILE_NAMES: Mapping[str, str] = {
 M4_INPUT_KEYS: tuple[str, ...] = tuple(FILE_NAMES)
 OPTIONAL_KEYS = frozenset({"peptides", "abundance", "id_map"})
 #: Optional contract tables read only through ``load_tables`` (not in ``M4Inputs``): C16 (M6-02).
-EXTRA_FILE_NAMES: Mapping[str, str] = {"peptide_runs": "peptide_runs.parquet"}
+EXTRA_FILE_NAMES: Mapping[str, str] = {
+    "peptide_runs": "peptide_runs.parquet",
+    "peptide_spectra": "peptide_spectra.parquet",  # C17 (M7-10)
+}
 _ALL_FILES: Mapping[str, str] = {**FILE_NAMES, **EXTRA_FILE_NAMES}
 _ONE_BASED = frozenset({"peptide_hits", "protein_hits"})  # M3 TSVs with coordinates
 

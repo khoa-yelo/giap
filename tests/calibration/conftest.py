@@ -9,13 +9,21 @@
   (``_criteria.pytest_args``). A calibration test in no entry
   runs in no array task; ``test_criteria_review.py`` fails on such orphans, so register new files.
 - Results are appended by ``_criteria`` to ``local/logs/calibration/<suite>.jsonl``.
+- Confirm runs (``GIAP_CALIBRATION_CONFIRM``, set only by ``--merge``'s block-2 run; M7-13 lead
+  decisions 7-8): a calibration test that cannot reach the harness skips before setup, and a
+  harness test that stops before its first harness call skips (its block-1 path was judged in
+  the shards). See ``reaches_harness``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import os
+import sys
+import types
+from collections.abc import Callable, Generator, Iterator, Mapping
 from pathlib import Path
 from types import MappingProxyType
+from typing import Any
 
 import _criteria as C
 import pytest
@@ -93,6 +101,7 @@ SUITE_REGISTRY: Mapping[str, str] = MappingProxyType(
         "attacks/test_attack_chance_hits.py": "placement",
         "attacks/test_attack_denovo_precision.py": "placement",
         "attacks/test_detection_tiers_attack_decoy_loss.py": "gene_fdr",
+        "attacks/test_detection_tiers_attack_unscored.py": "gene_fdr",
         "attacks/test_attack_detectability.py": "detectability",
         "attacks/test_attack_fdr_engine.py": "gene_fdr",
         "attacks/test_attack_genome_decoys.py": "placement",
@@ -175,6 +184,7 @@ NIGHTLY: frozenset[str] = frozenset(
         "attacks/test_detection_summary_attack_low_e.py::test_low_e_unflagged_miss_rate_exceeds_level",
         "attacks/test_detection_tiers_attack_decoy_loss.py::test_picked_fdr_under_random_decoy_loss",
         "attacks/test_detection_tiers_attack_inputs.py::test_gene_fdr_under_input_attack",
+        "attacks/test_detection_tiers_attack_unscored.py::test_gene_fdr_with_unscored_decoys",
         "attacks/test_region_tests_attacks.py::test_a2_detection_by_abundance_prophage_hl_at_level",
         "attacks/test_region_tests_attacks.py::test_a2_mid_range_prophage_p_o_minus_e_at_level",
         "attacks/test_region_tests_attacks.py::test_a2_short_prophage_genes_o_minus_e_at_level",
@@ -215,6 +225,7 @@ NIGHTLY: frozenset[str] = frozenset(
         "test_sim_evidence_calibration.py::test_score_components",
         "test_stats_bootstrap_calibration.py::test_recorded_coverage_twenty_tus",
         "test_tolerant_recall.py::test_planted_tolerant_peptide_recall",
+        "test_variant_class_error.py::test_class_error_rate_unbiased_with_planted_variants",
     }
 )
 
@@ -237,3 +248,112 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             continue
         if f"{rel}::{item.originalname}" in NIGHTLY and any(item.iter_markers("calibration")):
             item.add_marker(pytest.mark.calibration_nightly)
+
+
+# --------------------------------------------------------------------------- confirm runs
+# M7-13 lead decisions 7-8. The block-2 confirm run reruns only the harness checks listed in
+# GIAP_CALIBRATION_CONFIRM. A test that asserts directly (G2, A6a, the reference arm, M7-10's
+# class-error tests) has no block 2: its verdict is its shard exit code, so rerunning it there
+# repeats block 1 and its result would be thrown away. Such tests skip before setup. Harness
+# tests are found statically (no marker to maintain): the test function, its fixtures and the
+# test-side functions they reach (tests/ only, never _criteria itself) name ``calibrate`` or
+# ``calibrate_pooled``. A harness test still runs; if it stops before its first harness call
+# (for example A6c's block-1 vacuity ``RuntimeError``, already raised in the shard), it skips.
+# A miss here fails closed: a harness test skipped by mistake leaves its block 2 unlogged, and
+# ``--merge`` reports MERGE_ERROR.
+
+HARNESS_NAMES: frozenset[str] = frozenset({"calibrate", "calibrate_pooled"})
+TESTS_ROOT = HERE.parent
+CONFIRM_SKIP = "confirm run: no harness check (its verdict is the shard exit code)"
+CONFIRM_SKIP_EARLY = "confirm run: stopped before the harness (block 1 is judged in the shards)"
+
+
+def _codes(code: types.CodeType) -> Iterator[types.CodeType]:
+    yield code
+    for const in code.co_consts:
+        if isinstance(const, types.CodeType):
+            yield from _codes(const)
+
+
+def _test_side(obj: object) -> types.FunctionType | None:
+    """``obj`` as a plain function defined under tests/ (not in _criteria), else None."""
+    obj = getattr(obj, "__wrapped__", obj)
+    if not isinstance(obj, types.FunctionType):
+        return None
+    path = Path(obj.__code__.co_filename).resolve()
+    if path == Path(C.__file__).resolve() or not path.is_relative_to(TESTS_ROOT):
+        return None
+    return obj
+
+
+def _is_test_side_module(mod: types.ModuleType) -> bool:
+    path = getattr(mod, "__file__", None)
+    return path is not None and Path(path).resolve().is_relative_to(TESTS_ROOT)
+
+
+def reaches_harness(roots: list[Callable[..., Any]]) -> bool:
+    """True if any function reachable from ``roots`` names a harness entry point."""
+    todo = [f for f in map(_test_side, roots) if f is not None]
+    seen: set[types.CodeType] = set()
+    while todo:
+        fn = todo.pop()
+        if fn.__code__ in seen:
+            continue
+        seen.add(fn.__code__)
+        names = {n for code in _codes(fn.__code__) for n in code.co_names}
+        if names & HARNESS_NAMES:
+            return True
+        glob = fn.__globals__
+        mods = [glob[n] for n in names if isinstance(glob.get(n), types.ModuleType)]
+        mods += [sys.modules[n] for n in names if n in sys.modules]  # function-local imports
+        mods = [m for m in mods if _is_test_side_module(m)]  # never getattr on numpy & co.
+        cands = [glob.get(n) for n in names]
+        cands += [getattr(m, n, None) for m in mods for n in names]
+        todo += [f for f in map(_test_side, cands) if f is not None]
+    return False
+
+
+def _is_calibration(item: pytest.Item) -> bool:
+    return isinstance(item, pytest.Function) and (
+        any(item.iter_markers("calibration")) or any(item.iter_markers("calibration_full"))
+    )
+
+
+def _item_reaches_harness(item: pytest.Function) -> bool:
+    fixtures = [d.func for defs in item._fixtureinfo.name2fixturedefs.values() for d in defs]
+    return reaches_harness([item.function, *fixtures])
+
+
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    if C.CONFIRM_ENV not in os.environ or not _is_calibration(item):
+        return
+    assert isinstance(item, pytest.Function)
+    if not _item_reaches_harness(item):
+        pytest.skip(CONFIRM_SKIP)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> Generator[None, object, object]:
+    if C.CONFIRM_ENV not in os.environ or not _is_calibration(pyfuncitem):
+        return (yield)
+    calls = [0]
+    saved = {n: getattr(C, n) for n in HARNESS_NAMES}
+
+    def counted(f: Callable[..., Any]) -> Callable[..., Any]:
+        def call(*a: Any, **k: Any) -> Any:
+            calls[0] += 1
+            return f(*a, **k)
+
+        return call
+
+    for n, f in saved.items():
+        setattr(C, n, counted(f))
+    try:
+        return (yield)
+    except Exception:
+        if calls[0] == 0 and C.CONFIRM_ENV in os.environ:
+            pytest.skip(CONFIRM_SKIP_EARLY)
+        raise
+    finally:
+        for n, f in saved.items():
+            setattr(C, n, f)

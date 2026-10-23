@@ -20,6 +20,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
+import numpy as np
 import pandas as pd
 
 import giap
@@ -40,6 +41,7 @@ from giap.io.issues import Issue
 from giap.io.peptides import aggregate_peptides, read_peptide_table, validate_peptides
 from giap.io.protein_fasta import ProteinRecord, Route, read_protein_fasta, route_by_length
 from giap.io.tsv import write_tsv
+from giap.mapping.denovo_precision import REF_MAX_Q
 from giap.model import Replicon
 from giap.preflight.checks import Check, JsonValue
 from giap.preflight.environment import (
@@ -96,6 +98,7 @@ class PreflightInputs:
     peptides: Path | None = None
     abundance: Path | None = None
     annotation: Path | None = None
+    reference_peptides: Path | None = None  # --reference-peptides (C17, M7-10)
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -108,6 +111,7 @@ class NormalisedInputs:
     peptides: pd.DataFrame | None = None
     peptide_runs: pd.DataFrame | None = None
     abundance: pd.DataFrame | None = None
+    peptide_spectra: pd.DataFrame | None = None  # C17 (M7-10), with --reference-peptides
     resources: tuple[int, int] | None = None  # live (free_disk, ram) bytes; logged, not reported
 
 
@@ -270,6 +274,11 @@ def run_preflight(
         user_peptides, more = validate_peptides(raw, cfg.input)
         checks_peptides = peptide_checks([*issues, *more], user_peptides, cfg.input)
 
+    spectra: pd.DataFrame | None = None
+    if inp.reference_peptides is not None:
+        spectra, pairing = _peptide_spectra(user_peptides, inp.reference_peptides, cfg)
+        checks_peptides += pairing
+
     routes = [route_by_length(len(r.sequence), (lo, hi)) for r in proteins or []]
     frames = [f for f in (user_peptides,) if f is not None and len(f)]
     if proteins:
@@ -358,9 +367,38 @@ def run_preflight(
         peptides=peptides,
         peptide_runs=runs,
         abundance=abundance,
+        peptide_spectra=spectra,
         resources=resources,
     )
     return report, norm
+
+
+def _peptide_spectra(
+    user: pd.DataFrame | None, reference: Path, cfg: GiapConfig
+) -> tuple[pd.DataFrame, list[Check]]:
+    """C17 (M7-10 lead decisions 1, 5): every de novo row of ``--peptides`` (``source = denovo``)
+    and every target ``--reference-peptides`` row with ``q_value <= 0.01`` and a ``spectrum_id``
+    (``source = reference``); a warning ``no_spectrum_pairing`` when no reference row has one."""
+    try:
+        raw, _issues = read_peptide_table(reference)
+    except ValueError:
+        raw = pd.DataFrame()
+    ref = validate_peptides(raw, cfg.input)[0]
+    checks: list[Check] = []
+    if len(ref) and not ref["spectrum_id"].notna().any():
+        checks.append(Check(
+            "peptides.spectrum_pairing", "peptides", "warn",
+            "reference rows need spectrum_id to pair with de novo rows (§7.5.4)", len(ref),
+            "no_spectrum_pairing: no --reference-peptides row has a spectrum_id; "
+            "class error rates are unestimated",
+        ))  # fmt: skip
+    q = ref["q_value"].to_numpy(dtype="float64", na_value=np.nan)
+    ok = (q <= REF_MAX_Q) & ~ref["is_decoy"].to_numpy(dtype=bool) & ref["spectrum_id"].notna()
+    dn = user[user["source"] == "denovo"] if user is not None else ref.iloc[0:0]
+    parts = [dn.assign(source="denovo"), ref[ok].assign(source="reference")]
+    cols = ["run", "spectrum_id", "peptide", "source"]
+    frame = pd.concat([p[cols] for p in parts], ignore_index=True)
+    return frame.astype(pd.StringDtype()), checks
 
 
 def _abundance_frame(table: AbundanceTable) -> pd.DataFrame:
@@ -441,6 +479,7 @@ def _write_work(work: Path, norm: NormalisedInputs) -> None:
         ("peptides.norm.parquet", norm.peptides),
         ("peptide_runs.parquet", norm.peptide_runs),
         ("abundance.norm.parquet", norm.abundance),
+        ("peptide_spectra.parquet", norm.peptide_spectra),
     ):
         if frame is not None:
             frame.to_parquet(work / name, engine="pyarrow", index=False)

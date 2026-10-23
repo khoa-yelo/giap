@@ -198,10 +198,13 @@ def qc_rows(
     peptide_hits: pd.DataFrame,
     unmapped: pd.DataFrame | None,
     stratum0: pd.DataFrame | None = None,
+    id_mixups: tuple[int, int] | None = None,
 ) -> pd.DataFrame:
     """QC rows (section ``qc``, group ``run``/``all``) from C9, C11 and C13 (§7.5.1, §9.3).
 
-    ``id_mixups``: NA with flag ``requires_variants`` (same-database ALT sites need M7).
+    ``id_mixups``: the variant module's ``(count, n)`` (M7-14 rule 3: same-db ALT sites flagged
+    neither ``start_codon`` nor ``stop_codon``, of ``n`` same-db ALT sites); without it (no
+    ``variants_qc``, e.g. no peptides) NA with flag ``requires_variants`` (M4-16).
     ``engine_protein_mismatch_rate``: distinct C11 peptides flagged ``engine_protein_mismatch``
     over distinct placed (C11) peptides; NA without C11 rows.
     ``genome_inconsistent_rate``: share of distinct C9 target, non-contaminant (``is_contaminant``)
@@ -246,7 +249,9 @@ def qc_rows(
 
     nan = math.nan
     vals: list[tuple[str, float, Any, str]] = [
-        ("id_mixups", nan, pd.NA, REQUIRES_VARIANTS_FLAG),
+        ("id_mixups", nan, pd.NA, REQUIRES_VARIANTS_FLAG)
+        if id_mixups is None
+        else ("id_mixups", float(id_mixups[0]), int(id_mixups[1]), ""),
         ("engine_protein_mismatch_rate", mm_rate, n_placed, ""),
         ("genome_inconsistent_rate", rate, n_other, ""),
         ("contaminant_peptides", count("contaminant", "peptide"), pd.NA, ""),

@@ -22,9 +22,9 @@ import pyarrow.parquet as pq
 if TYPE_CHECKING:
     from giapsim.layout import Layout
 
-__all__ = ["ANNOTATION_SOURCE", "CONTRACT_COLUMNS", "CONTRACT_TYPES", "REQUIRED_COLUMNS",
-           "layers_frame",
-           "write_contract_tables"]  # fmt: skip
+__all__ = ["ANNOTATION_SOURCE", "CONTRACT_COLUMNS", "CONTRACT_TYPES", "OPERON_TRUTH_TYPES",
+           "REQUIRED_COLUMNS", "layers_frame", "read_operon_truth", "write_contract_tables",
+           "write_operon_truth"]  # fmt: skip
 
 ANNOTATION_SOURCE = "bakta_full"  # §9.3 enum (M4-15 lead decision 7)
 
@@ -218,3 +218,68 @@ def write_contract_tables(layout: Layout, work_dir: Path) -> None:
     (work_dir / "annotation_meta.json").write_text(
         json.dumps(meta, sort_keys=True, indent=1) + "\n", encoding="utf-8"
     )
+
+
+#: Operon-scenario truth files ``truth/<key>.tsv`` (M6-03; giapsim truth, not giap contract
+#: tables): (column, logical dtype) in file order.
+OPERON_TRUTH_TYPES: Mapping[str, tuple[tuple[str, str], ...]] = {
+    "pairs": (
+        ("pair_id", "str"), ("class", "str"), ("gene_a", "str"), ("gene_b", "str"),
+        ("true_operon", "bool"), ("promoter_between_true", "bool"),
+        ("terminator_between_true", "bool"),
+    ),
+    "missed_operons": (("pair_id", "str"), ("gene_a", "str"), ("gene_b", "str")),
+    "discordant_pairs": (
+        ("pair_id", "str"), ("gene_a", "str"), ("gene_b", "str"), ("direction", "str"),
+        ("element", "str"), ("effect_log2", "float"),
+    ),
+    "operon_t": (("loc", "float"), ("scale", "float"), ("df", "float")),
+}  # fmt: skip
+
+
+def _tsv_cell(v: Any, dtype: str) -> str:
+    if v is None or (not isinstance(v, str) and pd.isna(v)):
+        return "NA"
+    if dtype == "bool":
+        return "true" if bool(v) else "false"
+    if dtype == "float":
+        return repr(float(v))
+    if dtype == "int":
+        return str(int(v))
+    return str(v)
+
+
+def write_operon_truth(sim: Any, out_dir: Path) -> dict[str, Path]:
+    """Write ``sim.truth`` as ``out_dir/truth/<key>.tsv`` (giap TSV: ``true``/``false``, ``NA``);
+    byte-identical for equal frames. Returns key -> path."""
+    (out_dir / "truth").mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for key, cols in OPERON_TRUTH_TYPES.items():
+        df = sim.truth[key]
+        lines = ["\t".join(c for c, _ in cols)]
+        data = [df[c].tolist() for c, _ in cols]
+        for row in zip(*data, strict=True):
+            lines.append("\t".join(_tsv_cell(v, d) for v, (_, d) in zip(row, cols, strict=True)))
+        paths[key] = out_dir / "truth" / f"{key}.tsv"
+        paths[key].write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return paths
+
+
+def read_operon_truth(out_dir: Path) -> dict[str, pd.DataFrame]:
+    """Read the ``write_operon_truth`` files back with their declared dtypes."""
+    out: dict[str, pd.DataFrame] = {}
+    for key, cols in OPERON_TRUTH_TYPES.items():
+        df = pd.read_csv(out_dir / "truth" / f"{key}.tsv", sep="\t", dtype=str,
+                         keep_default_na=False)  # fmt: skip
+        for c, d in cols:
+            v = df[c]
+            if d == "bool":
+                df[c] = v.map({"true": True, "false": False}).astype(bool)
+            elif d == "float":
+                df[c] = pd.to_numeric(v.replace("NA", "nan"), errors="raise").astype(float)
+            elif d == "int":
+                df[c] = v.map(lambda x: pd.NA if x == "NA" else int(x)).astype("Int64")
+            else:
+                df[c] = v.astype(object)
+        out[key] = df[[c for c, _ in cols]]
+    return out

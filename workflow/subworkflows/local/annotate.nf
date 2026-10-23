@@ -70,6 +70,7 @@ workflow ANNOTATE {
     def gid = genome.map { f -> f.simpleName }
     def gin = genome.map { f -> [f.simpleName, f] }
     def layers = []
+    def ev = []   // every GIAP_STEP's optional logs/events.jsonl, for REPORT (M9-13)
 
     def bjson = channel.empty()
     def gbff = null   // null: no GBFF (precomputed bakta_json alone) -> antiSMASH skipped
@@ -90,6 +91,7 @@ workflow ANNOTATE {
         'replicons=replicons.parquet', 'rrna16s=rrna16s.fa', 'trna_counts=trna_counts.tsv',
         'xrefs=xrefs.parquet', 'annotation_meta=annotation_meta.json'])
     def P = PARSE_BAKTA.out.outputs
+    ev += [PARSE_BAKTA.out.events]
     def genes = kv('genes', pick(P, 'genes.parquet'))
     def reps = kv('replicons', pick(P, 'replicons.parquet'))
     def core = [genes, kv('features', pick(P, 'features.parquet')), reps]
@@ -105,6 +107,7 @@ workflow ANNOTATE {
         def ui = stepIn('uniop_input', [genes, reps])
         UNIOP_INPUT(ui.files, ui.keys, ['uniop_cds=uniop_cds.gff', 'uniop_map=uniop_map.tsv'])
         def U = UNIOP_INPUT.out.outputs
+        ev += [UNIOP_INPUT.out.events]
         def cds = pick(U, 'uniop_cds.gff')
         UNIOP(gid.combine(cds))
         pairs = [kv('uniop_cds', cds), kv('uniop_map', pick(U, 'uniop_map.tsv')),
@@ -114,6 +117,7 @@ workflow ANNOTATE {
     OPERON_PAIRS(op.files, op.keys, ['pairs_raw=pairs_raw.parquet', 'tus=tus.parquet', 'operon_meta=operon_meta.json'] +
         scatterSpec('tu_upstream', 'tu_upstream/tu*.fa', params.stub?.tu_regions ?: 1, true))
     def O = OPERON_PAIRS.out.outputs
+    ev += [OPERON_PAIRS.out.events]
     def tus = kv('tus', pick(O, 'tus.parquet'))
     layers += [kv('pairs_raw', pick(O, 'pairs_raw.parquet')), tus]
     // OPERONS' pair evidence (M6-08 decision 1): pairs_raw and each layer this run has, a
@@ -134,6 +138,7 @@ workflow ANNOTATE {
             kv('promotech', byName(PROMOTECH.out.dir.collect(sort: true)))])
         PROMOTER_LAYER(pl.files, pl.keys, ['promoter_windows=promoter_windows.parquet'])
         layers += [kv('promoter_windows', pick(PROMOTER_LAYER.out.outputs, 'promoter_windows.parquet'))]
+        ev += [PROMOTER_WINDOWS.out.events, PROMOTER_LAYER.out.events]
         forPairs += [layers[-1]]
     }
 
@@ -146,6 +151,7 @@ workflow ANNOTATE {
         def tx = stepIn('tx_layer', [kv('pc', byName(PROMOTER_CALCULATOR.out.csv.collect(sort: true))), tus, reps])
         TX_LAYER(tx.files, tx.keys, ['tx_rates=tx_rates.parquet'])
         layers += [kv('tx_rates', pick(TX_LAYER.out.outputs, 'tx_rates.parquet'))]
+        ev += [TX_LAYER.out.events]
         forPairs += [layers[-1]]
     }
 
@@ -164,6 +170,7 @@ workflow ANNOTATE {
             TRANSTERM_INPUT(ti.files, ti.keys, ['genes_coords=genes.coords'])
             TRANSTERMHP(gin.combine(pick(TRANSTERM_INPUT.out.outputs, 'genes.coords')))
             tools += [kv('transtermhp', TRANSTERMHP.out.tt)]
+            ev += [TRANSTERM_INPUT.out.events]
         }
         if (term.bactermfinder) {
             BACTERMFINDER(gin)
@@ -174,6 +181,7 @@ workflow ANNOTATE {
         layers += [kv('terminators', pick(TERMINATOR_LAYER.out.outputs, 'terminators.parquet')),
                    kv('terminators_crosscheck', pick(TERMINATOR_LAYER.out.outputs, 'terminators_crosscheck.tsv'))]
         forPairs += [layers[-2]]
+        ev += [TERMINATOR_LAYER.out.events]
     }
 
     if (pc.rbs) {
@@ -186,11 +194,13 @@ workflow ANNOTATE {
         def rl = stepIn('rbs_layer', [kv('ostir', OSTIR.out.csv), kv('ostir_input', oin)])
         RBS_LAYER(rl.files, rl.keys, ['rbs=rbs.parquet'])
         layers += [kv('rbs', pick(RBS_LAYER.out.outputs, 'rbs.parquet'))]
+        ev += [OSTIR_INPUT.out.events, RBS_LAYER.out.events]
     }
 
     def cu = stepIn('codon_usage', [genes, kv('trna_counts', pick(P, 'trna_counts.tsv'))])
     CODON_USAGE(cu.files, cu.keys, ['codon=codon.parquet'])
     layers += [kv('codon', pick(CODON_USAGE.out.outputs, 'codon.parquet'))]
+    ev += [CODON_USAGE.out.events]
 
     // C7/C8 as the M4-06 contract Parquet, written by region_layer. A precomputed regions layer
     // replaces geNOMAD and antiSMASH only: region_layer still runs and reads the M2-02 TSV from
@@ -215,10 +225,12 @@ workflow ANNOTATE {
     def c7 = pick(R, 'regions.parquet')
     def c8 = pick(R, 'region_genes.parquet')
     layers += [kv('regions', c7), kv('region_genes', c8)]
+    ev += [REGION_LAYER.out.events]
 
     def cl = stepIn('context_layers', core + layers + [kv('genome', genome)])
     CONTEXT_LAYERS(cl.files, cl.keys, ['layers=layers.parquet', 'annotation=annotation'])
     def layers_pq = pick(CONTEXT_LAYERS.out.outputs, 'layers.parquet')
+    ev += [CONTEXT_LAYERS.out.events]
     // every [key, path] layer pair, for the second round (NOVEL: promoter_windows, terminators)
     def all_layers = layers.inject(channel.empty()) { acc, c -> acc.mix(c) }
     // The M4-06 contract tables the gene table and the context statistics read, beside the
@@ -233,4 +245,5 @@ workflow ANNOTATE {
     regions    = c7.combine(c8)     // [regions, region_genes] from region_layer
     layer_pairs = all_layers     // [key, path] of every layer (M7-08 NOVEL)
     layers_for_pairs = forPairs.inject(channel.empty()) { acc, c -> acc.mix(c) }  // [key, path] (M6-08)
+    events     = ev.inject(channel.empty()) { acc, c -> acc.mix(c) }  // step event logs (M9-13)
 }
