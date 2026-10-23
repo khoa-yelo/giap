@@ -440,3 +440,17 @@ only the TSV and the work-dir side table.
    - B2 finding, to the backlog: `no_target_score` is unreachable from the step, since
      `orf_regimes` and `picked_class_fdr` read the same target rows. The test forces it with a
      monkeypatch.
+10. **giapsim fix (a0526b4d): accepted.** In six-frame mode (`wrong_source = sixframe_noncoding`)
+    target rows now name their makedb entry: `GIAPORF_…` for wrong six-frame peptides and planted
+    novel ORFs, and the gene's `nterm_extension` entry for residues upstream of the annotated
+    start. Annotated CDS peptides keep the bare locus tag, which is makedb's own entry name. The
+    other modes are byte-identical.
+    - Item 6's smoke run now has 0 `no_makedb_pair` (it was 25 of 49), and item 5 still holds:
+      Slurm 1873420 gave 6 passed. The fast suite (1873419) passed with no existing test changed.
+    - Annotated peptides inside the first 30 codons do not also list the nterm entry, to keep
+      gene-level razor and uniqueness unchanged. Backlog, together with the remaining makedb
+      mismatches: 27 non-ATG-start peptides beginning with `M`, and 18 rows naming entries
+      shorter than `min_orf_aa` = 20.
+    - The M7-13 1M sim caches are regenerated before any picked-regime G4 number is read.
+    - #256 has had its review round. It merges after #237 and #253 (stacked: merge the old base
+      tip, then main).
