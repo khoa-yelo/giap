@@ -67,3 +67,24 @@ statistical
    tolerance pattern rather than byte equality.
 2. **Real-tool arm genome:** K-12 with in-silico TE8 peptides now; Nissle with A2 in M10. The
    real-tool arm runs on Slurm only (never in the session), from `scripts/slurm/`.
+3. **Test-author resolutions (2d5f534c) accepted:**
+   - the fixture uses SNVs only;
+   - `BLAS_NUMERIC` is empty;
+   - example 3 uses the M2-21 `.command.log` path;
+   - item 6 is the back-fill reading;
+   - the writer names stay module-level, as the damage hook needs.
+4. **Sequencing:**
+   - Items 2, 3, 4 and 6 are implemented now.
+   - The `sim50k_m7` goldens are generated only after M7-12 (#225) merges; the implementer then
+     merges origin/main and runs `GIAP_UPDATE_GOLDEN=1` on Slurm.
+   - The PR does not merge before that.
+5. **Real-tool arm (item 4):**
+   - The implementer submits the K-12 `farmshare,apptainer` run with
+     `scripts/slurm/giap_run.sbatch`.
+   - It records `novel_second_round_k12` in `benchmarks/baseline.json` and the job ID in
+     PROGRESS.md (the lead adds that line), and sets `$GIAP_M7_15_K12_OUT` for the e2e check.
+   - No genome FASTA is committed.
+6. **Resume (example 2):** finding why an unchanged `--resume` re-runs 8 of 39 tasks is part of
+   this issue; the cause goes in the PR body.
+7. **Item 3:** each step's config slice becomes part of its task hash, so changing one step's key
+   re-runs only that step and its dependants.
