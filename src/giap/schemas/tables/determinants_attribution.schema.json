@@ -1,0 +1,19 @@
+{
+  "name": "determinants_attribution",
+  "description": "Per-gene LightGBM SHAP attribution by feature block, dominant block, residual and flags (GIAP_SPEC.md §7.8.2, §7.8.3, §9.3, §9.4).",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "locus_tag", "type": "string", "description": "Gene locus tag", "constraints": {"required": true}},
+    {"name": "abundance_log2", "type": "number", "description": "Observed log2 abundance"},
+    {"name": "predicted_log2", "type": "number", "description": "LightGBM out-of-fold prediction (mean over CV repeats); NA below the 100-row minimum"},
+    {"name": "residual", "type": "number", "description": "abundance_log2 - predicted_log2"},
+    {"name": "shap_transcription", "type": "number", "description": "Sum of LightGBM SHAP values of the transcription block; NA for a block with no column"},
+    {"name": "shap_translation", "type": "number", "description": "Sum of LightGBM SHAP values of the translation block; NA for a block with no column"},
+    {"name": "shap_codon", "type": "number", "description": "Sum of LightGBM SHAP values of the codon block; NA for a block with no column"},
+    {"name": "shap_protein", "type": "number", "description": "Sum of LightGBM SHAP values of the protein block; NA for a block with no column"},
+    {"name": "shap_context", "type": "number", "description": "Sum of LightGBM SHAP values of the context block; NA for a block with no column"},
+    {"name": "dominant_block", "type": "string", "description": "Block with the largest positive SHAP sum (top-decile genes only)", "constraints": {"enum": ["transcription", "translation", "codon", "protein", "context"]}},
+    {"name": "top_decile", "type": "boolean", "description": "abundance_log2 at or above the 90th percentile of the model rows"},
+    {"name": "flags", "type": "string", "description": "';'-joined flags: too_few_rows, unestimated, abundance_not_explained_by_sequence, cai_reference"}
+  ]
+}
