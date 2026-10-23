@@ -333,3 +333,30 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
      recorded in PROGRESS.md.
    - Size: the counted lines are scripts only (10). The test harness, about 350 lines under
      tests/, is outside the size gate. Accepted.
+
+## Lead decisions, M7-13b (2026-10-23)
+1. **Test-author (6f27c93a): readings accepted.**
+   - Vacuity: a vacuous check skips as "vacuous". List size counts ORFs (finite q or `lost_pick`)
+     per `fdr_class`, and de novo counts ORFs too.
+   - G4-k3 injects only into the three six-frame classes. Rule 8's reversed stretches are
+     `k // 2` reads with a 3–6-residue internal reversal. GC attack: 40 intergenic segments from
+     the GC-poorest quartile, gated at every level, fast tier only. Attack d pools the three
+     six-frame classes; nterm keeps its locus-tag list. Attacks a, b, d and GC run in the fast
+     tier only.
+   - The new `fdr_counts` criterion in `_criteria`, which keeps rule-6 vacuity across `--merge`,
+     is accepted.
+2. **The simulator gap is fixed upstream.** In `novel_orf_power`, giapsim target rows carry
+   `NOVEL_…` and `sixframe:…` IDs, not makedb entry IDs, so picked lists held 38–60 ORFs per class
+   (Slurm 1873143). M7-11b lead decision 9 (#256) fixes giapsim. M7-13b merges #256 when it
+   lands and re-measures; no M7-13b number before then counts.
+3. **Degenerate cases: the spec stands.** A class with ORFs `unestimated` for `paired_share_low`,
+   `decoys_unscored`, `no_makedb_pair`, `decoys_not_makedb` or `denovo_inputs_missing` fails that
+   class's G4 checks. Separately, calls made through the fallback are left out of the FDP and
+   recorded per class (statistician note, #256). The two do not conflict: the first is a
+   failure condition, the second is accounting for the calls that remain.
+4. **G4-k3 (block 1: intergenic 0.021 > 0.017; cds_outframe and antisense about 0.07 > 0.011 at
+   0.01).** These stay plain tests until a full-tier run confirms them. If it does, they become
+   strict xfails naming the method ADR for decision 3 (the per-ORF minimum q, which the M7-11b
+   statistician also flags as anti-conservative). The tolerance is never widened (R3).
+5. **Next:** the implementer (`_m7_gate.py` novel helpers, `_criteria.FDR_COUNTS`, the gate
+   harness), working against #256's source. Then the full-tier run, after the giapsim fix.
