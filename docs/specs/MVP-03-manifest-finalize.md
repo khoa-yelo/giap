@@ -346,3 +346,15 @@ merged.
 - Needs Khoa: the run-scope tokens `input_prefiltered`, `cai_reference_missing`,
   `no_detection_limit_model` and `uncalibrated:<key>` (one ADR). They stay in `RUN_FLAGS_PENDING`
   until Khoa answers; nothing is blocked.
+
+## Lead decisions on the 03c tests (2026-10-22, after 0bf8ee2a)
+
+15. The strict `MVP03C` xfail marks in the 03a tests are removed by the lead once 03c's
+    implementation lands (they will XPASS); the implementer reports which ones pass.
+16. Under the local executor the CLI tests use `fake_giap_root` for a setup-form db; the sim100k
+    integration keeps the provisional test db (`retrieved` null there).
+17. `operons` and `mapping` are null when no event exists; `context` holds empty lists. A stub
+    `mapping.search_db_resolved` event with no values gives `mapping = null`.
+18. `context.oric` is sorted by contig; `context.replicons` keeps C1 order.
+19. The `calibration` source defaults to None (no `uncalibrated:` flags) so the 03a exact-flag
+    tests stay green; the run tail and `giap _step manifest` pass `calibration.load()`.
