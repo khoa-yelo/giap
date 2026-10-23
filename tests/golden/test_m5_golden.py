@@ -8,7 +8,7 @@ Cases (tests/helpers/m5_chain.py):
   empty path).
 * the island case ``m5_chain.ISLAND`` -- an oriC at 0.8 and one planted +3 SD island of 20 TUs,
   the shipped defaults (B = 1,000, ``block_len: auto``). The spec names it ``sim1000_island``; the
-  helper's docstring has the measurements behind ``sim4500_island`` (lead decision pending).
+  helper's docstring has the measurements behind ``sim4500_island`` (lead decision 40).
 
 For each case ``tests/data/golden/<case>/m5/`` holds ``autocorrelation.tsv``, ``islands.tsv`` and
 ``genes_context.tsv`` (``locus_tag`` plus the three genes.tsv columns M5 fills: ``island_id``,
@@ -23,12 +23,21 @@ tests/integration/test_m5_pipeline.py.
 than the planted island) and the example 2 check (one ``high`` island overlapping the planted TUs);
 otherwise the regeneration fails and writes nothing. The same checks also run on every comparison.
 
+**Lead decision 44: the join-count null columns are compared numerically** (review of #217). The
+``join_count_bb`` statistic uses Pearson residuals of ``p_detect``, which on the island case
+(``detection = "abundance"``) comes from the sklearn lbfgs detectability fit, which differs across
+BLAS builds in the 4th-6th significant digit (CI ubuntu 3.11 / macOS 3.12 vs Slurm). So on
+``join_count_bb`` rows ``JOIN_NUMERIC`` is compared with ``math.isclose`` (``JOIN_REL_TOL``,
+``JOIN_ABS_TOL``); every other cell -- the observed count, p, q, flags, every Moran row, islands.tsv
+and genes_context -- stays byte for byte, as M4-20 decision 9 does for ``regions_stats.tsv``.
+
 Regenerating (on purpose, reviewed in the PR diff as data):
 ``GIAP_UPDATE_GOLDEN=1 pytest tests/golden/test_m5_golden.py`` writes the files and skips.
 """
 
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -40,6 +49,36 @@ import m4_chain as mc
 import m5_chain as m5
 
 CASES = ("sim50k", m5.ISLAND.name)
+#: join_count_bb columns compared numerically (lead decision 44)
+JOIN_NUMERIC = ("null_mean", "null_lo", "null_hi", "effect")
+JOIN_REL_TOL, JOIN_ABS_TOL = 1e-3, 1e-3
+
+
+def _close(a: str, b: str) -> bool:
+    if a == b:
+        return True
+    try:
+        return math.isclose(float(a), float(b), rel_tol=JOIN_REL_TOL, abs_tol=JOIN_ABS_TOL)
+    except ValueError:
+        return False
+
+
+def autocorrelation_equal(want: bytes, got: bytes) -> bool:
+    """Byte equality except ``JOIN_NUMERIC`` on ``join_count_bb`` rows (lead decision 44)."""
+    w, g = want.decode().splitlines(), got.decode().splitlines()
+    if len(w) != len(g) or not w or w[0] != g[0]:
+        return False
+    header = w[0].split("\t")
+    stat, loose = header.index("statistic"), {header.index(c) for c in JOIN_NUMERIC}
+    for lw, lg in zip(w[1:], g[1:], strict=True):
+        cw, cg = lw.split("\t"), lg.split("\t")
+        if len(cw) != len(cg):
+            return False
+        for i, (a, b) in enumerate(zip(cw, cg, strict=True)):
+            ok = _close(a, b) if cw[stat] == "join_count_bb" and i in loose else a == b
+            if not ok:
+                return False
+    return True
 
 
 @pytest.fixture(scope="module", params=CASES)
@@ -78,6 +117,8 @@ def test_m5_tables_equal_the_committed_golden_files(run: dict[str, Any], case: s
     assert not missing, f"golden files missing in {dest}: {missing}"
     for logical, fname in sorted(names.items()):
         want, got = m5.read_golden(dest / fname), run["bytes"][logical]
+        if logical == "autocorrelation.tsv" and autocorrelation_equal(want, got):
+            continue
         if want != got:
             pytest.fail(
                 f"{case}/{fname} differs from the golden file; first lines (n, want, got):"

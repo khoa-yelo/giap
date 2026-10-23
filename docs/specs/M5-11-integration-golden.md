@@ -75,3 +75,15 @@ grid (M5-07) run as `giap-` jobs; nothing heavy in the session allocation
 42. `expression=` (ExpressionConfig pass-through, as `layout=`) is accepted as an interface addition.
 43. The benchmark times the whole `context_stats` step (the M5 part has no public entry point); the
     120 s budget holds a fortiori.
+
+## Lead decisions on the review round (2026-10-22, review of 1e72caf)
+
+44. **Join-count null columns compared numerically.** On `join_count_bb` rows of the island golden,
+    `null_mean`, `null_lo`, `null_hi` and `effect` are compared with `math.isclose` (rel 1e-3, abs
+    1e-3); every other cell stays byte for byte. Cause: Pearson residuals of `p_detect` from the
+    sklearn lbfgs detectability fit, which differs across BLAS builds in the 4th–6th significant
+    digit (CI ubuntu 3.11 / macOS 3.12 vs Slurm); observed counts, p and q agree everywhere. Same
+    pattern as M4-20 decision 9. The golden is never regenerated on a CI runner.
+45. NITs N1, N2, N6 and the N3 fixture pins are fixed by the lead in this round; N4 (the `giap-bench`
+    script) and the gate evidence (the full `autocorrelation` record, `calibration_full.sbatch
+    --array=4`) go to the backlog and PROGRESS.md.

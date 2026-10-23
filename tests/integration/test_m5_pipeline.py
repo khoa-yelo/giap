@@ -10,8 +10,8 @@ with ``frictionless`` against its §9.5 resource.
   ``detection_summary.tsv`` and ``sensitivity.tsv`` byte for byte against
   ``tests/data/golden/sim50k/m4/``, ``regions_stats.tsv`` with the M4-20 decision 9 float
   tolerance on its four lstsq columns, ``genes.tsv`` byte for byte outside the three columns M5
-  fills (``island_id``, ``replichore``, ``replichore_position``: whether sim50k gets an oriC is a
-  lead decision, see the report).
+  fills (``island_id``, ``replichore``, ``replichore_position``; sim50k gets an oriC at 0.8, lead
+  decision 41).
 * Example 2 -- the island case ``m5_chain.ISLAND`` at the shipped defaults: exactly one ``high``
   island overlapping the planted TUs, the l' check of decision 39, three ori-ter rows labelled
   ``descriptive``, and the genes.tsv context columns consistent with islands.tsv. Byte equality
@@ -277,7 +277,8 @@ def test_the_oric_does_not_change_the_m4_tables(tmp_path: Path, db: Path) -> Non
 
 def test_example_5_k12_bakta_json_resolves_the_oric(tmp_path: Path) -> None:
     """Recorded K-12 (Bakta 1.12.2 full): ``parse_bakta`` writes C15 with two oriC calls; M5-08
-    resolves one origin (their circular mean, 3,904,925.5 +- 1) and labels every chromosome gene
+    resolves one origin (the mean of the two calls, 3,904,925.5 +- 1; the circular mean equals it
+    here, as nothing wraps) and labels every chromosome gene
     ``right`` / ``left``; nothing needs proteomics."""
     from giap.config.model import GiapConfig
     from giap.context.oriter import gene_replichores, oric_position

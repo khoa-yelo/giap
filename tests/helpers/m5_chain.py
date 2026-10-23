@@ -17,7 +17,7 @@ islands: Sequence[IslandSpec] = ())``):
   planted high island of ``n_tus`` TUs shifted by ``effect_sd`` stationary SDs, starting at
   ``giapsim.scenarios.island_first_tu(n_genes)``.
 
-**Which island case (lead decision pending, see the test-author report).** The spec and
+**Which island case (lead decision 40).** The spec and
 decision 39 name ``sim1000_island``: 1,000 genes, +3 SD, 20 TUs, giapsim default detection
 (``SPEC_ISLAND``). Checked against l' before freezing (decision 39) with the merged M5 code on a
 prototype of the fixture (default config, B = 1,000), that case reports **no island at all**:
@@ -116,7 +116,7 @@ class IslandCase:
 SPEC_ISLAND = IslandCase("sim1000_island", "sim1000", 1000, 20, 3.0, "covariates_only")
 #: the test author's proposal, measured to be found at every seed tried
 PROPOSED_ISLAND = IslandCase("sim4500_island", "sim4500", 4500, 20, 3.0, "abundance")
-#: the case the tests and the golden use (lead decision pending)
+#: the case the tests and the golden use (lead decision 40)
 ISLAND = PROPOSED_ISLAND
 
 

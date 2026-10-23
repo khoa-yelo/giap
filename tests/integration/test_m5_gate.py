@@ -159,7 +159,8 @@ def test_m5_gate_evidence_is_recorded(suite: str) -> None:
     if not demanded() and not has_full_run(records, full):
         pytest.skip(
             f"no nightly full record (R >= {full}) for suite {suite} in {log_dir()}: submit"
-            " scripts/slurm/calibration_full.sbatch on main, or set GIAP_M5_GATE=1"
+            " scripts/slurm/calibration_full.sbatch --array=4,5 on main and point"
+            " GIAP_CALIBRATION_LOG_DIR at its records, or set GIAP_M5_GATE=1"
         )
     by_key: dict[tuple[str, str, float], list[dict[str, Any]]] = {}
     for rec in records:
