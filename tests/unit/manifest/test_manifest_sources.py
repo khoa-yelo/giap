@@ -43,7 +43,6 @@ DIGEST = "9" * 64
 
 
 #: The tools/databases readers moved to MVP-03c (c06f140); 03c reverts it and drops this mark.
-MVP03C = pytest.mark.xfail(reason="MVP-03c: tools/databases readers", strict=True)
 
 
 def _ms():  # type: ignore[no-untyped-def]
@@ -128,7 +127,6 @@ def _task(tmp_path: Path, name: str, versions: str | None) -> Path:
     return d
 
 
-@MVP03C
 def test_tool_reports_with_container_digest(tmp_path: Path) -> None:
     d = _task(tmp_path, "ab", '"ANNOTATE:GENOMAD":\n    genomad: 1.12.0\n')
     ref = f"docker://quay.io/biocontainers/genomad@sha256:{DIGEST}"
@@ -138,7 +136,6 @@ def test_tool_reports_with_container_digest(tmp_path: Path) -> None:
                      "container_digest": f"sha256:{DIGEST}", "conda_lock_hash": None}]  # fmt: skip
 
 
-@MVP03C
 def test_tool_reports_apptainer_cache_name(tmp_path: Path) -> None:
     d = _task(tmp_path, "ab", '"ANNOTATE:BAKTA":\n    bakta: 1.11.4\n')
     img = f"/g/containers/quay.io-biocontainers-bakta@sha256-{DIGEST}.img"
@@ -147,7 +144,6 @@ def test_tool_reports_apptainer_cache_name(tmp_path: Path) -> None:
     assert rep["container_digest"] == f"sha256:{DIGEST}"
 
 
-@MVP03C
 def test_tool_reports_conda_lock_hash_without_container(tmp_path: Path) -> None:
     d = _task(tmp_path, "ab", '"ANNOTATE:PROMOTECH":\n    promotech: 1.0\n')
     locks = tmp_path / "locks"
@@ -160,7 +156,6 @@ def test_tool_reports_conda_lock_hash_without_container(tmp_path: Path) -> None:
     assert rep["conda_lock_hash"] == want
 
 
-@MVP03C
 def test_tool_reports_skip_missing_versions_and_failed_rows(tmp_path: Path) -> None:
     gone = _task(tmp_path, "cleaned", None)
     failed = _task(tmp_path, "failed", '"A:PROMOTECH":\n    promotech: 1.0\n')
@@ -169,7 +164,6 @@ def test_tool_reports_skip_missing_versions_and_failed_rows(tmp_path: Path) -> N
     assert _ms().tool_reports(rows, tmp_path / "work", tmp_path / "locks") == []
 
 
-@MVP03C
 def test_tool_reports_every_tool_line(tmp_path: Path) -> None:
     d = _task(tmp_path, "ab", '"NOVEL:TBLASTN":\n    blast: 2.16.0\n    python: 3.12.1\n')
     row = trace_row("NOVEL:TBLASTN (x)", workdir=str(d))

@@ -358,3 +358,11 @@ merged.
 18. `context.oric` is sorted by contig; `context.replicons` keeps C1 order.
 19. The `calibration` source defaults to None (no `uncalibrated:` flags) so the 03a exact-flag
     tests stay green; the run tail and `giap _step manifest` pass `calibration.load()`.
+20. **Lead edits after the 03c implementation (2bb97710):**
+    - The 11 strict `MVP03C` xfail marks are removed (decision 15).
+    - `test_operons_step.py::test_decision_6_event_records_pi0_and_bin_counts` compares a
+      non-finite oracle edge (the −∞ first bin) as null, since `_plain` maps ±∞ to None.
+    - A 0-byte output (a `-stub-run` `touch`) reads as absent.
+    - Of several distinct `operons.missed_operons` / `mapping.search_db_resolved` payloads, the
+      last one in file order wins.
+    - `giap _step manifest` still writes `databases: []`; this is a backlog item.

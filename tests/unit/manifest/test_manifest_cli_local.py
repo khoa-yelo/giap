@@ -48,7 +48,6 @@ FLAG_EVENT = {"event": "x.run_flag", "data": {"flag": "c_assumed"}}
 
 
 #: The tools/databases readers moved to MVP-03c (c06f140); 03c reverts it and drops this mark.
-MVP03C = pytest.mark.xfail(reason="MVP-03c: tools/databases readers", strict=True)
 
 
 def _with_manifest_step(reg: ModuleType) -> None:
@@ -233,7 +232,6 @@ def test_success_flags_and_warnings_from_events(ok_run: Path) -> None:
     assert "x:x.run_flag" in m["warnings"]
 
 
-@MVP03C
 def test_success_databases_from_the_test_db(ok_run: Path) -> None:
     dbs = _manifest(ok_run)["databases"]
     assert dbs, "write_test_db lists every requirement"

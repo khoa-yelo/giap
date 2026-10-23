@@ -683,3 +683,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   records carry no commit field, so "on main" cannot be checked from them.
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
+
+### MVP-03c follow-ups
+- `giap _step manifest` passes no db manifest, so `databases` is `[]` on the Nextflow step path (decision 20).

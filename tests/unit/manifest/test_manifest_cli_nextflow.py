@@ -50,7 +50,6 @@ STEP_EVENT = {"ts": "2026-10-22T00:00:00+00:00", "step": "parse_bakta", "level":
 
 
 #: The tools/databases readers moved to MVP-03c (c06f140); 03c reverts it and drops this mark.
-MVP03C = pytest.mark.xfail(reason="MVP-03c: tools/databases readers", strict=True)
 
 
 @pytest.fixture
@@ -178,7 +177,6 @@ def test_success_steps_from_the_trace(ok: Path) -> None:
     assert steps[1]["wall_time_s"] == pytest.approx(120.0)
 
 
-@MVP03C
 def test_success_tools_from_versions_yml(ok: Path) -> None:
     tools = _manifest(ok)["tools"]
     assert [(t["name"], t["version"]) for t in tools] == [("genomad", "1.12.0")]  # giap left out
@@ -200,7 +198,6 @@ def test_success_step_events_reach_flags(ok: Path) -> None:
     assert "parse_bakta:parse_bakta.run_flag" in m["warnings"]
 
 
-@MVP03C
 def test_success_databases_and_provenance(ok: Path) -> None:
     import hashlib
 
