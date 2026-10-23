@@ -102,3 +102,12 @@ not statistical (cards print table estimates; nothing is computed beyond counts)
 2. The KEGG retrieval date lives in `db_manifest.json`, which is not in `OUT/`. Without the run
    manifest, **Proposed default:** print "KEGG retrieval date: not recorded in this run (manifest
    step pending)", never guess.
+
+## Lead decisions (2026-10-22)
+
+1. The run manifest exists since MVP-03a (#196, `giap.manifest`): M9-16 reads it when present and
+   says so when absent; it never recomputes provenance itself.
+2. The KEGG retrieval date is printed from the manifest's database entries when recorded there;
+   otherwise "KEGG retrieval date: not recorded in this run", never guessed.
+3. Cards print table values only (no new statistics); every number on a card is traceable to a
+   named table and column, which the tests check.
