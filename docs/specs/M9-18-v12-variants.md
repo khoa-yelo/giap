@@ -96,3 +96,14 @@ never names modifications).
 1. Top-site order: confidence, then n_alt, then class error, then ID (the proposed default).
 2. The display window is ±10 aa (the proposed default).
 3. Feature loop: test-author → implementer → code review (no stats label).
+
+## Lead decisions on the tests (2026-10-22, after e01a6a9)
+
+4. Title counts and the class-error range cover `call == "ALT"` sites only (as M9-16 decision 5).
+5. The `same` title reads "No ALT calls (genome relation same)" — no literal backticks.
+6. A top site whose gene is missing from `genes.parquet` or has an empty `aa` keeps its row with
+   an NA `ref_window` (and NA window start); panel (b) shows it unaligned.
+7. A covering peptide must be in frame with the codon; out-of-frame placements do not cover.
+8. Panel (b) prints one peptide line per site plus "(N peptides)", the distinct-peptide count.
+9. A header-only `variants.tsv` gives a header-only `variant_windows.tsv` (schema-valid).
+10. Decisions 6–9 are implemented but untested here; the hardening pass adds tests (backlog).

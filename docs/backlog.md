@@ -674,3 +674,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   records carry no commit field, so "on main" cannot be checked from them.
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
+
+### M9-18 (V12) untested decisions
+- Tests for M9-18 decisions 6–9: NA window for a gene missing from genes.parquet, in-frame cover
+  rule, "(N peptides)" line, header-only `variant_windows.tsv`.
