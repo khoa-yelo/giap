@@ -1,0 +1,701 @@
+"""giapsim function and determinants scenarios (issue M8-14; GIAP_SPEC.md §7.7.5, §7.8.3, §8.4,
+§8.5 attacks 2 and 3, §11.3, §11.4; docs/specs/M8-14-sim-function-determinants.md).
+
+The spec's ``tests/sim/tests/test_function_sim.py`` lives in tests/unit like the other giapsim
+tests (the simulator tree is the implementer's). Examples 1, 3 and 6's "over seeds" claims (and the
+"detection depends only on p_true" half of example 2) are gated in
+tests/calibration/test_sim_function_calibration.py; the ontology invariants are Hypothesis
+properties in tests/property/test_sim_function_props.py.
+
+Interface assumed (the spec gives only the scenario signatures ``-> Pair``; reported to the lead):
+
+- ``giapsim.scenarios``: ``ora_null(n)``, ``ora_attack_confounded(n, member_shift)``,
+  ``gsea_null(n)``, ``gsea_attack_operon_packed(n, n_sets)``,
+  ``determinants_null(n, *, noise_sd=1.0, features="planted")`` and
+  ``determinants_planted(n, coefs, noise_sd, *, features="planted")``, each returning
+  ``Pair = (LayoutConfig, ExpressionConfig)``; ``coefs`` keys are ``promoter``, ``rbs``, ``cai``
+  (blocks ``transcription``, ``translation``, ``codon``); ``features="gaussian"`` draws iid N(0, 1)
+  features (unit tests only, lead decision 2).
+- ``giapsim.function_sim``:
+
+  * ``RESERVED_PREFIXES``: the reserved ID prefixes (``GO:9``, ``K9``, ``map9``; decision 1);
+  * ``synthetic_ontology(n_terms, depth, rng, *, genes=())`` -> ``(obo_text, table)``, ``table``
+    a C3-shaped (``locus_tag``, ``db``, ``id``) gene -> GO term table over ``genes``;
+  * ``draw(pair, rng)`` -> a world with ``layout`` (giapsim Layout; the synthetic GO/KEGG/COG
+    xrefs in its C3 ``xrefs``), ``expression`` (giapsim Expression), ``obo`` (str),
+    ``kegg_links`` (``ko``, ``pathway``: ``ko:K9xxxx``, ``path:map9xxxx``), ``sets`` (one row per
+    member: ``set_id``, ``collection``, ``locus_tag``, ``confounded``), ``features`` (determinants
+    scenarios: ``locus_tag``, ``promoter``, ``rbs``, ``cai``) and ``truth`` (a mapping of frames);
+  * ``write_truth(world, outdir)`` -> ``{name: path}``, writing ``truth/determinants.tsv`` (one row
+    per feature: ``feature``, ``block``, ``beta``, ``true_r2``, ``residual_var``) and
+    ``truth/determinants_genes.tsv`` (``locus_tag``, ``dominant_block``) for the determinants
+    scenarios; the same frames are ``world.truth["determinants"]`` / ``["determinants_genes"]``.
+
+Readings: "true R² from the β and feature variances" (example 5) is, for independent unit-variance
+z features, ``Σβ² / (Σβ² + residual_var)``; the per-gene dominant block is the block of
+``argmax_j |β_j z_ij|`` with ``z`` the population (ddof 0) z-score over all genes; "TU sizes
+identical to the base layout" (example 6) is read as the null keeping the planted scenario's
+layout and detection pattern for the same seed.
+"""
+
+from __future__ import annotations
+
+import math
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+GIAPSIM = ROOT / "tests" / "sim" / "giapsim"
+sys.path.insert(0, str(ROOT / "tests" / "helpers"))
+SCENARIOS = ("ora_null", "ora_attack_confounded", "gsea_null", "gsea_attack_operon_packed",
+             "determinants_null", "determinants_planted")  # fmt: skip
+EX5 = {"promoter": 0.5, "rbs": 0.4, "cai": 0.3}
+BLOCKS = {"promoter": "transcription", "rbs": "translation", "cai": "codon"}
+FEATURES = ("promoter", "rbs", "cai")
+BAD_IDS = ["ora_n0", "gsea_neg", "shift_nan", "shift_inf", "n_sets0", "coef_key", "noise_neg",
+           "coef_nan", "features_mode", "det_n0"]  # fmt: skip
+COG_LETTERS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+GO_COLLECTIONS = ("go_bp", "go_mf", "go_cc")
+
+RE_GO = re.compile(r"^GO:9\d{6}$")
+RE_KO = re.compile(r"^K9\d{4}$")
+RE_MAP = re.compile(r"^map9\d{4}$")
+# any GO / KO / KEGG-map shaped token, reserved or not
+ANY_GO = re.compile(r"GO:\d{7}")
+ANY_KO = re.compile(r"(?<![A-Za-z0-9])K\d{5}(?!\d)")
+ANY_MAP = re.compile(r"(?<![A-Za-z0-9])map\d{5}(?!\d)")
+
+
+def _fs() -> Any:
+    import giapsim.function_sim
+
+    return giapsim.function_sim
+
+
+def _sc() -> Any:
+    import giapsim.scenarios
+
+    return giapsim.scenarios
+
+
+def draw(pair: Any, seed: int) -> Any:
+    return _fs().draw(pair, np.random.default_rng(seed))
+
+
+def _genes(world: Any) -> pd.DataFrame:
+    return world.expression.genes.reset_index(drop=True)
+
+
+def _tu_of(layout: Any) -> dict[str, str]:
+    return {str(g): str(t) for t, gs in zip(layout.tus["tu_id"], layout.tus["genes"], strict=True)
+            for g in gs}  # fmt: skip
+
+
+def _members(world: Any) -> dict[str, set[str]]:
+    out: dict[str, set[str]] = {}
+    for s, g in zip(world.sets["set_id"], world.sets["locus_tag"], strict=True):
+        out.setdefault(str(s), set()).add(str(g))
+    return out
+
+
+def _confounded(world: Any) -> set[str]:
+    s = world.sets
+    return set(s.loc[s["confounded"].astype(bool), "locus_tag"].astype(str))
+
+
+def _obo_ids(obo: str) -> list[str]:
+    return re.findall(r"^id:\s*(\S+)", obo, flags=re.M)
+
+
+def _read_go(obo: str, tmp: Path) -> Any:
+    from giap.io.function_resources import read_go
+
+    path = tmp / "synthetic.obo"
+    path.write_text(obo)
+    return read_go(path)
+
+
+def _z(x: Any) -> np.ndarray:
+    a = np.asarray(x, dtype=float)
+    return (a - a.mean()) / a.std()
+
+
+def _frames_equal(a: Any, b: Any) -> None:
+    for name in ("genes", "tus", "xrefs", "truth"):
+        pd.testing.assert_frame_equal(getattr(a.layout, name), getattr(b.layout, name))
+    pd.testing.assert_frame_equal(a.expression.genes, b.expression.genes)
+
+
+@pytest.fixture(scope="module")
+def ora4000() -> Any:
+    return draw(_sc().ora_null(4000), 1)
+
+
+@pytest.fixture(scope="module")
+def attack4000() -> Any:
+    return draw(_sc().ora_attack_confounded(4000, -1.5), 1)
+
+
+@pytest.fixture(scope="module")
+def gsea4000() -> Any:
+    return draw(_sc().gsea_null(4000), 2)
+
+
+@pytest.fixture(scope="module")
+def packed4000() -> Any:
+    return draw(_sc().gsea_attack_operon_packed(4000, 20), 3)
+
+
+@pytest.fixture(scope="module")
+def planted3000() -> Any:
+    return draw(_sc().determinants_planted(3000, EX5, 1.0, features="gaussian"), 4)
+
+
+# ----------------------------------------------------------------------------- interface
+
+
+def test_every_scenario_exists_and_returns_a_pair() -> None:
+    from giapsim.expression import ExpressionConfig
+    from giapsim.layout import LayoutConfig
+
+    sc = _sc()
+    pairs = [sc.ora_null(600), sc.ora_attack_confounded(600, -1.0), sc.gsea_null(600),
+             sc.gsea_attack_operon_packed(600, 5), sc.determinants_null(600),
+             sc.determinants_planted(600, EX5, 1.0)]  # fmt: skip
+    for name in SCENARIOS:
+        assert callable(getattr(sc, name)), name
+        assert name in sc.__all__, name
+    for p in pairs:
+        assert isinstance(p, tuple) and len(p) == 2
+        assert isinstance(p[0], LayoutConfig) and isinstance(p[1], ExpressionConfig)
+        assert p[0].n_genes_chromosome == 600
+
+
+def test_function_sim_exports() -> None:
+    fs = _fs()
+    for name in ("RESERVED_PREFIXES", "synthetic_ontology", "draw", "write_truth"):
+        assert hasattr(fs, name), name
+    prefixes = fs.RESERVED_PREFIXES
+    values = set(prefixes.values()) if isinstance(prefixes, dict) else set(prefixes)
+    assert values == {"GO:9", "K9", "map9"}
+
+
+def test_function_sim_imports_nothing_from_giap() -> None:
+    """Sequence-free giapsim modules import nothing from ``giap`` (as layout and expression)."""
+    code = (
+        "import sys, giapsim.function_sim, giapsim.scenarios; "
+        "print(sorted(m for m in sys.modules if m == 'giap' or m.startswith('giap.')))"
+    )
+    env_path = f"{GIAPSIM.parent}"
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                         env={"PYTHONPATH": env_path, "PATH": "/usr/bin:/bin"},
+                         check=True)  # fmt: skip
+    assert out.stdout.strip() == "[]", out.stdout
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda sc: sc.ora_null(0),
+        lambda sc: sc.gsea_null(-5),
+        lambda sc: sc.ora_attack_confounded(1000, math.nan),
+        lambda sc: sc.ora_attack_confounded(1000, math.inf),
+        lambda sc: sc.gsea_attack_operon_packed(1000, 0),
+        lambda sc: sc.determinants_planted(1000, {"promoter": 0.5, "bogus": 1.0}, 1.0),
+        lambda sc: sc.determinants_planted(1000, EX5, -1.0),
+        lambda sc: sc.determinants_planted(1000, {"promoter": math.nan}, 1.0),
+        lambda sc: sc.determinants_planted(1000, EX5, 1.0, features="uniform"),
+        lambda sc: sc.determinants_null(0),
+    ],
+    ids=BAD_IDS,
+)
+def test_bad_arguments_are_refused(call: Any) -> None:
+    with pytest.raises(ValueError):
+        call(_sc())
+
+
+# ----------------------------------------------------------------------------- ontology (§1)
+
+
+def test_synthetic_ontology_parses_with_goatools_and_m803_reader(tmp_path: Path) -> None:
+    from goatools.obo_parser import GODag
+
+    genes = [f"G{i:04d}" for i in range(1000)]
+    obo, table = _fs().synthetic_ontology(120, 5, np.random.default_rng(0), genes=genes)
+    path = tmp_path / "s.obo"
+    path.write_text(obo)
+    dag = GODag(str(path), optional_attrs={"relationship"}, load_obsolete=False, prt=None)
+    live = {k for k, t in dag.items() if k == t.id}
+    assert len(live) == 120
+    assert all(RE_GO.match(t) for t in live), sorted(live)[:5]
+    m803 = _read_go(obo, tmp_path)
+    assert set(m803.names) == live
+    assert {m803.namespace[t] for t in live} == {"biological_process", "molecular_function",
+                                                 "cellular_component"}  # fmt: skip
+    # is_a and part_of both used
+    assert any(t.parents for k, t in dag.items() if k == t.id)
+    assert any(getattr(t, "relationship", {}).get("part_of") for k, t in dag.items()
+               if k == t.id)  # fmt: skip
+    assert list(table.columns) == ["locus_tag", "db", "id"]
+    assert set(table["db"]) == {"GO"}
+    assert set(table["id"]) <= live
+    assert set(table["locus_tag"]) <= set(genes)
+
+
+def test_synthetic_ontology_is_a_dag_of_the_requested_depth(tmp_path: Path) -> None:
+    obo, _ = _fs().synthetic_ontology(200, 6, np.random.default_rng(1), genes=[])
+    dag = _read_go(obo, tmp_path)
+    memo: dict[str, int] = {}
+
+    def height(t: str, stack: frozenset[str] = frozenset()) -> int:
+        assert t not in stack, f"cycle through {t}"
+        if t not in memo:
+            ps = dag.parents[t]
+            memo[t] = 0 if not ps else 1 + max(height(p, stack | {t}) for p in ps)
+        return memo[t]
+
+    longest = max(height(t) for t in dag.names)
+    assert longest in (5, 6), longest  # depth in edges or in levels
+    for t, ps in dag.parents.items():
+        assert ps <= set(dag.names), t  # no dangling parent
+        assert {dag.namespace[p] for p in ps} <= {dag.namespace[t]} or ps == frozenset()
+
+
+def test_synthetic_ontology_annotates_30_to_60_percent_of_genes() -> None:
+    genes = [f"G{i:05d}" for i in range(4000)]
+    for seed in range(5):
+        _, table = _fs().synthetic_ontology(150, 5, np.random.default_rng(seed), genes=genes)
+        share = table["locus_tag"].nunique() / len(genes)
+        assert 0.3 - 0.02 <= share <= 0.6 + 0.02, (seed, share)
+
+
+def test_deep_ontology_keeps_terms_with_zero_genes(tmp_path: Path) -> None:
+    """Degenerate row: deeper than the gene count supports -> 0-gene terms kept in the OBO."""
+    genes = [f"G{i}" for i in range(10)]
+    obo, table = _fs().synthetic_ontology(300, 12, np.random.default_rng(2), genes=genes)
+    dag = _read_go(obo, tmp_path)
+    assert len(dag.names) == 300
+    assert table["id"].nunique() < 300  # most terms have no gene, still in the OBO
+
+
+def test_synthetic_ontology_same_seed_same_output() -> None:
+    genes = [f"G{i}" for i in range(500)]
+    a = _fs().synthetic_ontology(80, 4, np.random.default_rng(7), genes=genes)
+    b = _fs().synthetic_ontology(80, 4, np.random.default_rng(7), genes=genes)
+    c = _fs().synthetic_ontology(80, 4, np.random.default_rng(8), genes=genes)
+    assert a[0] == b[0]
+    pd.testing.assert_frame_equal(a[1], b[1])
+    assert (a[0], a[1].to_csv()) != (c[0], c[1].to_csv())
+
+
+# ----------------------------------------------------------------------------- reserved IDs
+
+
+def _world_ids(world: Any) -> dict[str, set[str]]:
+    x = world.layout.xrefs
+    kl = world.kegg_links
+    return {
+        "go": set(x.loc[x["db"] == "GO", "id"].astype(str)) | set(_obo_ids(world.obo)),
+        "ko": set(x.loc[x["db"] == "KEGG", "id"].astype(str))
+        | {str(k).removeprefix("ko:") for k in kl["ko"]},
+        "map": {str(p).removeprefix("path:") for p in kl["pathway"]},
+    }
+
+
+@pytest.mark.parametrize("which", ["ora", "attack", "gsea", "packed"])
+def test_every_synthetic_id_is_in_a_reserved_range(
+    which: str, ora4000: Any, attack4000: Any, gsea4000: Any, packed4000: Any
+) -> None:
+    world = {"ora": ora4000, "attack": attack4000, "gsea": gsea4000, "packed": packed4000}[which]
+    ids = _world_ids(world)
+    assert ids["go"] and ids["ko"] and ids["map"]
+    assert not [t for t in ids["go"] if not RE_GO.match(t)]
+    assert not [t for t in ids["ko"] if not RE_KO.match(t)]
+    assert all(RE_MAP.match(t) for t in ids["map"]), sorted(ids["map"])
+    assert set(world.layout.xrefs["db"]) <= {"COG", "GO", "KEGG"}
+    # the KEGG link/name formats: every link row is ``ko:K9xxxx`` -> ``path:map9xxxx``
+    assert all(str(k).startswith("ko:K9") for k in world.kegg_links["ko"])
+    assert all(str(p).startswith("path:map9") for p in world.kegg_links["pathway"])
+    assert 2 <= len(ids["map"]) <= 20
+    # every annotated ID is defined: GO in the OBO, KO in the link table
+    x = world.layout.xrefs
+    assert set(x.loc[x["db"] == "GO", "id"]) <= set(_obo_ids(world.obo))
+    assert set(x.loc[x["db"] == "KEGG", "id"]) <= {str(k).removeprefix("ko:")
+                                                   for k in world.kegg_links["ko"]}  # fmt: skip
+
+
+def _fixture_ids() -> dict[str, set[str]]:
+    """GO / KO / map IDs that appear in the test GO/KEGG fixtures."""
+    files = [*sorted((ROOT / "tests" / "helpers").glob("*.py")),
+             *sorted((ROOT / "tests" / "unit" / "function").glob("*.py")),
+             ROOT / "tests" / "unit" / "test_setup_resources.py",
+             ROOT / "tests" / "property" / "test_collections_props.py",
+             *sorted((ROOT / "tests" / "data" / "recorded" / "fgsea").rglob("*.tsv")),
+             *sorted((ROOT / "tests" / "data" / "expected").rglob("*.tsv"))]  # fmt: skip
+    out: dict[str, set[str]] = {"go": set(), "ko": set(), "map": set()}
+    for f in files:
+        if not f.is_file():
+            continue
+        text = f.read_text(errors="replace")
+        out["go"] |= set(ANY_GO.findall(text))
+        out["ko"] |= set(ANY_KO.findall(text))
+        out["map"] |= set(ANY_MAP.findall(text))
+    return out
+
+
+def test_fixture_scan_finds_the_known_fixture_ids() -> None:
+    """The collision scan below is not vacuous: it sees the M8-03 fixture's real-range IDs."""
+    seen = _fixture_ids()
+    assert {"GO:0008150", "GO:0000101", "GO:9999999"} <= seen["go"]
+    assert {"K00001", "K99999"} <= seen["ko"]
+    assert {"map00010", "map01100"} <= seen["map"]
+
+
+def test_no_synthetic_id_collides_with_a_real_fixture_id(
+    ora4000: Any, attack4000: Any, gsea4000: Any, packed4000: Any
+) -> None:
+    """Lead decision 1: no synthetic ID equals a real (non-reserved) ID of the test fixtures;
+    nor the fixtures' "absent" sentinel ``GO:9999999``."""
+    from function_resources_data import ABSENT  # tests/helpers
+
+    fixture = _fixture_ids()
+    real = {
+        "go": {t for t in fixture["go"] if not RE_GO.match(t)} | {ABSENT},
+        "ko": {t for t in fixture["ko"] if not RE_KO.match(t)},
+        "map": {t for t in fixture["map"] if not RE_MAP.match(t)},
+    }
+    assert real["go"] and real["ko"] and real["map"]
+    for world in (ora4000, attack4000, gsea4000, packed4000):
+        ids = _world_ids(world)
+        for kind in ("go", "ko", "map"):
+            assert not ids[kind] & real[kind], (kind, sorted(ids[kind] & real[kind])[:5])
+
+
+def test_simulator_files_carry_no_real_go_kegg_literal() -> None:
+    """Acceptance: no real GO/KEGG content in the simulator's function files (a grep for IDs
+    outside the reserved prefixes)."""
+    for name in ("function_sim.py", "scenarios.py"):
+        path = GIAPSIM / name
+        assert path.is_file(), name
+        text = path.read_text()
+        bad = [t for t in ANY_GO.findall(text) if not RE_GO.match(t)]
+        bad += [t for t in ANY_KO.findall(text) if not RE_KO.match(t)]
+        bad += [t for t in ANY_MAP.findall(text) if not RE_MAP.match(t)]
+        assert not bad, (name, bad[:5])
+        assert "rest.kegg.jp" not in text and "geneontology.org" not in text, name
+
+
+# ----------------------------------------------------------------------------- ORA (examples 1, 2)
+
+
+def test_ora_null_detection_is_covariates_only(ora4000: Any) -> None:
+    from giapsim.expression import DEFAULT_BETA
+
+    _, ecfg = _sc().ora_null(4000)
+    assert ecfg.detection == "covariates_only"
+    assert dict(ecfg.beta) == dict(DEFAULT_BETA)
+    assert not ecfg.region_detect_shift
+
+
+def test_ora_null_categories_cover_the_collections(ora4000: Any) -> None:
+    s = ora4000.sets
+    assert list(s.columns[:4]) == ["set_id", "collection", "locus_tag", "confounded"]
+    assert {"cog", "kegg", *GO_COLLECTIONS} <= set(s["collection"])
+    assert not s["confounded"].astype(bool).any()
+    assert set(s["locus_tag"]) <= set(ora4000.layout.genes["locus_tag"])
+    cog = s.loc[s["collection"] == "cog", "set_id"].astype(str)
+    assert set(cog) <= COG_LETTERS
+    go = s.loc[s["collection"].isin(GO_COLLECTIONS), "set_id"].astype(str)
+    assert all(RE_GO.match(t) for t in go)
+    kegg = s.loc[s["collection"] == "kegg", "set_id"].astype(str)
+    assert all(RE_MAP.match(t) for t in kegg)
+
+
+def test_ora_null_members_have_the_same_p_true_as_non_members(ora4000: Any) -> None:
+    """One-seed sanity of example 1 (the level claim is in the calibration file): the largest
+    category's mean p_true is within 0.05 of the rest's."""
+    g = _genes(ora4000)
+    biggest = max(_members(ora4000).values(), key=len)
+    inside = g["locus_tag"].isin(biggest)
+    assert inside.sum() >= 100
+    d = g.loc[inside, "p_detect_true"].mean() - g.loc[~inside, "p_detect_true"].mean()
+    assert abs(d) < 0.05, d
+
+
+def test_example2_members_mean_p_true_at_most_half(attack4000: Any) -> None:
+    g = _genes(attack4000)
+    conf = _confounded(attack4000)
+    assert conf, "no confounded category"
+    inside = g["locus_tag"].isin(conf)
+    assert 20 <= inside.sum() < len(g) / 2
+    pin = g.loc[inside, "p_detect_true"].mean()
+    pout = g.loc[~inside, "p_detect_true"].mean()
+    assert pin <= 0.5 * pout, (pin, pout)
+    _, ecfg = _sc().ora_attack_confounded(4000, -1.5)
+    assert ecfg.detection == "covariates_only"  # detection through p_true only
+
+
+def test_example2_confounded_categories_are_named_categories(attack4000: Any) -> None:
+    s = attack4000.sets
+    conf_sets = set(s.loc[s["confounded"].astype(bool), "set_id"])
+    assert conf_sets
+    # a confounded set is confounded on all its rows (a category property, not a gene one)
+    per = s.groupby("set_id")["confounded"].agg(lambda v: set(v.astype(bool)))
+    assert all(len(v) == 1 for v in per), per[per.map(len) > 1]
+
+
+def test_member_shift_zero_reduces_to_ora_null() -> None:
+    """Degenerate row: ``member_shift = 0`` gives ``ora_null``'s detection truth."""
+    for seed in (11, 12):
+        a = draw(_sc().ora_attack_confounded(1500, 0.0), seed)
+        b = draw(_sc().ora_null(1500), seed)
+        pd.testing.assert_frame_equal(a.layout.genes, b.layout.genes)
+        for col in ("p_detect_true", "detected_true"):
+            pd.testing.assert_series_equal(_genes(a)[col], _genes(b)[col])
+
+
+def test_member_shift_moves_the_members_logit_by_the_shift() -> None:
+    """The shift is on the logit of the confounded members only (same seed, two shifts)."""
+    a = draw(_sc().ora_attack_confounded(1500, -1.5), 21)
+    b = draw(_sc().ora_attack_confounded(1500, 0.0), 21)
+    conf = _confounded(a)
+    assert conf == _confounded(b)
+    ga, gb = _genes(a), _genes(b)
+
+    def logit(p: pd.Series) -> np.ndarray:
+        x = p.to_numpy(float)
+        return np.log(x) - np.log1p(-x)
+
+    diff = logit(ga["p_detect_true"]) - logit(gb["p_detect_true"])
+    inside = ga["locus_tag"].isin(conf).to_numpy()
+    np.testing.assert_allclose(diff[inside], -1.5, atol=1e-8)
+    np.testing.assert_allclose(diff[~inside], 0.0, atol=1e-8)
+
+
+# ----------------------------------------------------------------------------- GSEA (examples 3, 4)
+
+
+def test_gsea_null_set_sizes_spread_over_10_to_500_tus(gsea4000: Any) -> None:
+    tu = _tu_of(gsea4000.layout)
+    sizes = [len({tu[g] for g in m}) for m in _members(gsea4000).values()]
+    assert len(sizes) >= 100  # M8-15: >= 100 sets per replicate
+    assert min(sizes) >= 10 and max(sizes) <= 500, (min(sizes), max(sizes))
+    assert min(sizes) < 50 and max(sizes) > 200, (min(sizes), max(sizes))  # spread
+    assert not gsea4000.sets["confounded"].astype(bool).any()
+
+
+def test_gsea_null_abundance_has_tu_structure(gsea4000: Any) -> None:
+    """Abundance from the M4-08 model (TU level + within-TU noise): within-TU ICC well above 0."""
+    g = _genes(gsea4000)
+    tu = _tu_of(gsea4000.layout)
+    g = g.assign(tu=g["locus_tag"].map(tu))
+    multi = g.groupby("tu")["abundance_log2_true"].transform("size") >= 2
+    within = g[multi].groupby("tu")["abundance_log2_true"].var().mean()
+    total = g["abundance_log2_true"].var()
+    assert within < 0.6 * total, (within, total)
+
+
+def test_gsea_null_membership_uncorrelated_with_abundance_one_seed(gsea4000: Any) -> None:
+    """One-seed sanity of example 3: the mean over sets of Spearman(membership, abundance) is
+    near 0 (|mean| < 0.03; the level claim is in the calibration file)."""
+    from scipy import stats
+
+    g = _genes(gsea4000)
+    rhos = []
+    for m in _members(gsea4000).values():
+        ind = g["locus_tag"].isin(m).to_numpy(float)
+        rhos.append(stats.spearmanr(ind, g["abundance_log2_true"]).statistic)
+    assert abs(float(np.mean(rhos))) < 0.03, np.mean(rhos)
+
+
+def test_example4_every_packed_set_lies_in_at_most_three_tus(packed4000: Any) -> None:
+    tu = _tu_of(packed4000.layout)
+    members = _members(packed4000)
+    assert len(members) == 20
+    for sid, m in members.items():
+        tus = {tu[g] for g in m}
+        assert 1 <= len(tus) <= 3, (sid, len(tus))
+        assert len(m) >= 10, (sid, len(m))
+        sizes = [len(packed4000.layout.tus.set_index("tu_id").at[t, "genes"]) for t in tus]
+        assert all(10 <= s <= 30 for s in sizes), (sid, sizes)  # packed operons, 10-30 genes
+
+
+def test_example4_packed_tus_have_a_large_abundance_effect(packed4000: Any) -> None:
+    """Gene-level ranking sees each packed TU as many correlated genes: within-TU spread is
+    small against the between-TU spread of the packed TUs."""
+    g = _genes(packed4000).set_index("locus_tag")
+    tu = _tu_of(packed4000.layout)
+    packed = {tu[x] for m in _members(packed4000).values() for x in m}
+    rows = g.loc[[x for x, t in tu.items() if t in packed]]
+    by = rows.groupby(rows.index.map(tu))["abundance_log2_true"]
+    assert by.mean().std() > 2.0 * by.std().mean(), (by.mean().std(), by.std().mean())
+
+
+# ----------------------------------------------------------------------------- determinants
+
+
+def test_example5_recorded_true_r2_is_analytic(planted3000: Any, tmp_path: Path) -> None:
+    paths = _fs().write_truth(planted3000, tmp_path)
+    assert Path(paths["determinants"]) == tmp_path / "truth" / "determinants.tsv"
+    t = pd.read_csv(paths["determinants"], sep="\t")
+    assert list(t.columns[:5]) == ["feature", "block", "beta", "true_r2", "residual_var"]
+    assert list(t["feature"]) == list(FEATURES)
+    assert dict(zip(t["feature"], t["block"], strict=True)) == BLOCKS
+    assert dict(zip(t["feature"], t["beta"], strict=True)) == pytest.approx(EX5, abs=1e-12)
+    assert t["true_r2"].nunique() == 1 and t["residual_var"].nunique() == 1
+    s = sum(b * b for b in EX5.values())
+    resid = float(t["residual_var"].iloc[0])
+    assert resid >= 1.0 - 1e-12  # at least the noise variance noise_sd^2
+    assert float(t["true_r2"].iloc[0]) == pytest.approx(s / (s + resid), abs=1e-6)
+    pd.testing.assert_frame_equal(t, planted3000.truth["determinants"], check_dtype=False)
+
+
+def test_example5_response_follows_the_planted_model(planted3000: Any) -> None:
+    g = _genes(planted3000).set_index("locus_tag")
+    f = planted3000.features.set_index("locus_tag").loc[g.index]
+    assert list(planted3000.features.columns[:4]) == ["locus_tag", *FEATURES]
+    z = np.column_stack([_z(f[c]) for c in FEATURES])
+    beta = np.array([EX5[c] for c in FEATURES])
+    y = g["abundance_log2_true"].to_numpy(float)
+    resid = y - y.mean() - z @ beta
+    t = planted3000.truth["determinants"]
+    want = float(t["residual_var"].iloc[0])
+    assert resid.var() == pytest.approx(want, rel=0.15), (resid.var(), want)
+    for j in range(3):
+        assert abs(np.corrcoef(resid, z[:, j])[0, 1]) < 0.06, FEATURES[j]
+    # realised R^2 of the planted signal within MC error of the recorded truth
+    realised = (z @ beta).var() / y.var()
+    assert realised == pytest.approx(float(t["true_r2"].iloc[0]), abs=0.06)
+
+
+def test_example5_dominant_block_per_gene(planted3000: Any, tmp_path: Path) -> None:
+    paths = _fs().write_truth(planted3000, tmp_path)
+    d = pd.read_csv(paths["determinants_genes"], sep="\t")
+    assert list(d.columns[:2]) == ["locus_tag", "dominant_block"]
+    f = planted3000.features.set_index("locus_tag")
+    assert set(d["locus_tag"]) == set(f.index)
+    contrib = np.column_stack([np.abs(EX5[c] * _z(f[c])) for c in FEATURES])
+    want = dict(zip(f.index, np.array([BLOCKS[c] for c in FEATURES])[contrib.argmax(1)],
+                    strict=True))  # fmt: skip
+    got = dict(zip(d["locus_tag"], d["dominant_block"], strict=True))
+    assert got == want
+
+
+def test_coefs_all_zero_true_r2_is_zero(tmp_path: Path) -> None:
+    w = draw(_sc().determinants_planted(800, dict.fromkeys(FEATURES, 0.0), 1.0,
+                                        features="gaussian"), 5)  # fmt: skip
+    t = w.truth["determinants"]
+    assert (t["beta"] == 0).all()
+    assert (t["true_r2"] == 0).all()
+
+
+def test_coefs_all_zero_equals_null_in_distribution() -> None:
+    """Degenerate row: zero coefs -> the null's response law (pooled mean and SD, 4 seeds)."""
+    zero = dict.fromkeys(FEATURES, 0.0)
+    a = [_genes(draw(_sc().determinants_planted(1500, zero, 1.0), s))["abundance_log2_true"]
+         for s in range(4)]  # fmt: skip
+    b = [_genes(draw(_sc().determinants_null(1500, noise_sd=1.0), 100 + s))["abundance_log2_true"]
+         for s in range(4)]  # fmt: skip
+    ya, yb = pd.concat(a), pd.concat(b)
+    assert abs(ya.mean() - yb.mean()) < 0.5 * yb.std()
+    assert 0.85 < ya.std() / yb.std() < 1.15, (ya.std(), yb.std())
+
+
+def test_example6_null_keeps_the_layout_and_detection_pattern() -> None:
+    for seed in (31, 32):
+        n = draw(_sc().determinants_null(3000), seed)
+        p = draw(_sc().determinants_planted(3000, EX5, 1.0), seed)
+        pd.testing.assert_frame_equal(n.layout.tus, p.layout.tus)
+        pd.testing.assert_series_equal(_genes(n)["detected_true"], _genes(p)["detected_true"])
+        assert list(n.features.columns[:4]) == ["locus_tag", *FEATURES]
+
+
+def test_example6_null_response_has_tu_structure() -> None:
+    w = draw(_sc().determinants_null(3000), 33)
+    g = _genes(w).assign(tu=lambda d: d["locus_tag"].map(_tu_of(w.layout)))
+    multi = g.groupby("tu")["abundance_log2_true"].transform("size") >= 2
+    within = g[multi].groupby("tu")["abundance_log2_true"].var().mean()
+    assert within < 0.8 * g["abundance_log2_true"].var()
+
+
+def test_planted_features_come_from_the_simulator_layers() -> None:
+    """Lead decision 2: the default (recovery-run) features are the planted signals, not
+    Gaussians: CAI lies in (0, 1]; promoter and RBS scores are not N(0, 1) draws."""
+    from scipy import stats
+
+    w = draw(_sc().determinants_planted(1500, EX5, 1.0), 6)
+    f = w.features
+    assert f["cai"].between(0.0, 1.0, inclusive="right").all()
+    for c in FEATURES:
+        assert f[c].notna().all() and f[c].nunique() > 10, c
+    gauss = all(stats.kstest(f[c], "norm").pvalue > 1e-3 for c in FEATURES)
+    assert not gauss
+    t = w.truth["determinants"]
+    assert 0.0 < float(t["true_r2"].iloc[0]) < 1.0
+
+
+def test_small_gene_counts_are_allowed() -> None:
+    """Degenerate row: n_genes < 500 allowed (M8-15 fast tier uses 400)."""
+    w = draw(_sc().determinants_null(400), 7)
+    assert len(w.layout.genes) == 400
+    assert len(w.features) == 400
+
+
+# ----------------------------------------------------------------------------- example 7, TE7
+
+
+@pytest.mark.parametrize("name", SCENARIOS)
+def test_example7_same_seed_identical_outputs(name: str, tmp_path: Path) -> None:
+    sc = _sc()
+    pair = {
+        "ora_null": lambda: sc.ora_null(1200),
+        "ora_attack_confounded": lambda: sc.ora_attack_confounded(1200, -1.5),
+        "gsea_null": lambda: sc.gsea_null(1200),
+        "gsea_attack_operon_packed": lambda: sc.gsea_attack_operon_packed(1200, 5),
+        "determinants_null": lambda: sc.determinants_null(1200),
+        "determinants_planted": lambda: sc.determinants_planted(1200, EX5, 1.0),
+    }[name]
+    a, b, c = draw(pair(), 42), draw(pair(), 42), draw(pair(), 43)
+    _frames_equal(a, b)
+    assert a.obo == b.obo
+    pd.testing.assert_frame_equal(a.sets, b.sets)
+    pd.testing.assert_frame_equal(a.kegg_links, b.kegg_links)
+    assert set(a.truth) == set(b.truth)
+    for k in a.truth:
+        pd.testing.assert_frame_equal(a.truth[k], b.truth[k])
+    if a.features is not None:
+        pd.testing.assert_frame_equal(a.features, b.features)
+    pa = _fs().write_truth(a, tmp_path / "a")
+    pb = _fs().write_truth(b, tmp_path / "b")
+    assert {k: Path(v).read_bytes() for k, v in pa.items()} == {
+        k: Path(v).read_bytes() for k, v in pb.items()
+    }
+    differs = not a.expression.genes.equals(c.expression.genes) or a.obo != c.obo
+    assert differs, "seed 43 reproduced seed 42"
+
+
+@pytest.mark.parametrize("name", SCENARIOS)
+def test_example7_under_one_second_for_4000_genes(name: str) -> None:
+    sc = _sc()
+    pair = {
+        "ora_null": lambda: sc.ora_null(4000),
+        "ora_attack_confounded": lambda: sc.ora_attack_confounded(4000, -1.5),
+        "gsea_null": lambda: sc.gsea_null(4000),
+        "gsea_attack_operon_packed": lambda: sc.gsea_attack_operon_packed(4000, 20),
+        "determinants_null": lambda: sc.determinants_null(4000),
+        "determinants_planted": lambda: sc.determinants_planted(4000, EX5, 1.0),
+    }[name]()
+    best = math.inf
+    for s in range(3):
+        t0 = time.perf_counter()
+        draw(pair, s)
+        best = min(best, time.perf_counter() - t0)
+    assert best < 1.0, best
