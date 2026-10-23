@@ -14,6 +14,7 @@ Genes are drawn with plain matplotlib patches on our own ``Figure`` (decision 9:
 from __future__ import annotations
 
 import math
+import textwrap
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -22,8 +23,10 @@ import matplotlib
 import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
+from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
-from matplotlib.patches import Polygon
+from matplotlib.figure import Figure
+from matplotlib.patches import Patch, Polygon
 
 from giap.viz import base, style
 
@@ -136,7 +139,7 @@ def _flag_loci(view: RunView, alpha: float) -> list[Locus]:
         if isinstance(tu_a, str) and tu_a == tu_b and tu_a in tu_span:
             span = tu_span[tu_a]
         else:
-            span = (min(int(a.start), int(b.start)), max(int(a.end), int(b.end)))
+            span = _pair_span(view, a, b)
         clause = f"{f.flag} between {f.gene_a} and {f.gene_b} (q = {_g(q)})"
         kept.append((q, str(f.pair_id), str(a.contig), span, clause))
     merged: dict[tuple[str, int, int], list[tuple[float, str, str]]] = {}
@@ -147,6 +150,17 @@ def _flag_loci(view: RunView, alpha: float) -> list[Locus]:
               "; ".join(c for _, _, c in group))
         for (contig, s, e), group in merged.items()
     ]  # fmt: skip
+
+
+def _pair_span(view: RunView, a: Any, b: Any) -> tuple[int, int]:
+    """The span of genes ``a`` and ``b``; on a circular contig the shorter arc (``b`` unwrapped
+    by +/- the length relative to ``a``), with the start shifted into ``[0, length)``."""
+    length, circular = _replicon(view, str(a.contig))
+    shifts = (0, -length, length) if circular and length else (0,)
+    sa, ea = int(a.start), int(a.end)
+    spans = [(min(sa, int(b.start) + k), max(ea, int(b.end) + k)) for k in shifts]
+    s, e = min(spans, key=lambda t: t[1] - t[0])
+    return (s + length, e + length) if s < 0 and length else (s, e)
 
 
 def _order(lo: Locus) -> tuple[bool, float, int, str]:
@@ -245,7 +259,8 @@ def _draw_genes(ax: Axes, rows: list[tuple[Any, int, int]], scale: tuple[float, 
         if i % step == 0:  # ceil(n / step) <= MAX_LABELS
             name = g.gene if isinstance(g.gene, str) and g.gene else str(g.locus_tag)
             ax.text((s + e) / 2, 0.32, name, ha="center", va="bottom", fontsize=6, rotation=30)
-        data.append(["gene", str(g.locus_tag), str(g.contig), s, e, strand, log2, status])
+        value, category = (None, "imputed") if imputed else (log2, status)
+        data.append(["gene", str(g.locus_tag), str(g.contig), s, e, strand, value, category])
     return data
 
 
@@ -304,7 +319,10 @@ def render_locus(
     def near(key: str, contig_col: str = "contig") -> list[tuple[Any, int, int]]:
         return _in_window(_frame(view, key), contig_col, locus.contig, window, length, circular)
 
-    fig = style.new_figure("single" if width <= SINGLE_MAX_BP else "double", HEIGHT_IN,
+    size: Literal["single", "double"] = "single" if width <= SINGLE_MAX_BP else "double"
+    chars = int((style.SINGLE_IN if size == "single" else style.DOUBLE_IN) * 72 / (0.6 * 7))
+    title = "\n".join(textwrap.fill(c, chars) for c in locus.label.split("; "))
+    fig = style.new_figure(size, HEIGHT_IN + 0.12 * (title.count("\n") + 1) + 0.45,
                            layout="constrained")  # fmt: skip
     gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 1.8])
     pile = fig.add_subplot(gs[0], label="pileup")
@@ -345,10 +363,29 @@ def render_locus(
     ax.set_xlabel(f"{locus.contig} position (bp)")
     pile.set_ylabel("peptides")
     pile.tick_params(labelbottom=False)
-    fig.suptitle(locus.label, fontsize=7)
+    fig.suptitle(title, fontsize=7)
+    _colour_key(fig, [pile, ax], scale)
     data = pd.DataFrame(rows, columns=list(COLUMNS)) if rows else _empty(COLUMNS)
     data = data.astype({"start": "int64", "end": "int64", "value": float})
     return base.Instance(locus.locus_id, fig, data, locus.label, ("start",))
+
+
+def _colour_key(fig: Figure, axes: list[Axes], scale: tuple[float, float]) -> None:
+    """A horizontal cividis colorbar over the run-wide ``scale`` plus the no-colour swatches."""
+    mappable = ScalarMappable(Normalize(*scale), matplotlib.colormaps[style.LOCUS_ABUNDANCE])
+    cbar = fig.colorbar(mappable, ax=axes, location="bottom", shrink=0.5, aspect=30, pad=0.02)
+    cbar.set_label("log2 abundance", fontsize=6)
+    cbar.ax.tick_params(labelsize=6)
+    cbar.dividers.set_cmap(mappable.cmap)  # the (empty) edge lines share the key's scale
+    cbar.dividers.set_norm(mappable.norm)
+    swatches = [
+        Patch(facecolor=UNDETECTED, edgecolor="#333333", lw=0.3, label="undetected"),
+        Patch(facecolor=UNDETECTED, edgecolor="#333333", lw=0.3, hatch=IMPUTED_HATCH,
+              label="imputed"),
+        Patch(facecolor="white", edgecolor=UNESTIMATED, lw=0.8,
+              label="single peptide, unestimated"),
+    ]  # fmt: skip
+    fig.legend(handles=swatches, loc="outside lower center", ncols=3, fontsize=6, frameon=False)
 
 
 def _empty(columns: Iterable[str]) -> pd.DataFrame:

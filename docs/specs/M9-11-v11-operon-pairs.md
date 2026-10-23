@@ -75,3 +75,20 @@ pair_id.
    choice. The lfdr itself uses a Silverman KDE (§7.4). **Proposed default:** histograms.
 2. Panel (c) restricted to same-strand pairs (CV and SW have no upstream/downstream). **Proposed
    default:** yes.
+
+## Lead decisions (2026-10-22, after the test author's 16e368b)
+
+1. **Upstream.** `gene_a` is upstream on both strands: pairs.tsv is already in transcription order (M6-04), so V11 never swaps. This overrides the spec's `-` strand rule and its example 3, as pinned by `test_upstream_is_gene_a_on_both_strands`.
+2. **Validation run.** It carries finite iBAQ `delta_log2`, so panels (a) and (c) draw. The slow test pins its real counts. The spec's "unmeasured" degenerate row is covered by the synthetic test.
+3. **Imputed abundances.** Panels (a) and (c) drop pairs flagged `abundance_imputed` (decision 13: measured values only). The count rows' `n` counts the pairs kept.
+4. **k.** k is the number of operon_flags.tsv rows with q ≤ α. This is a documented exception to index decision 5: the title reads operon_flags, not only the data TSV.
+5. **Row details.**
+   - A pair with an operon_flags row carries both `flag` and `q_value`, whatever q is.
+   - There are always five count rows, zeros included.
+   - `n` on bin rows is NA.
+6. **The rest.**
+   - pair_id rows keep pairs.tsv order.
+   - Bins are 0-based.
+   - Title medians use `%.2g`.
+   - A header-only pairs.tsv gives "No gene pairs in this run".
+   - Axis labels for (a) and (b) are the implementer's choice, stated in the report.

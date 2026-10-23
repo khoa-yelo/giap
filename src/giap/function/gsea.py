@@ -22,7 +22,7 @@ import math
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, TypeAlias
+from typing import Any, Protocol, TypeAlias
 
 import numpy as np
 import numpy.typing as npt
@@ -37,6 +37,12 @@ __all__ = [
     "CLUSTER_TAU",
     "COLUMNS",
     "DETECTION_Z0",
+    "EngineCall",
+    "EngineProvenance",
+    "EngineResult",
+    "EngineRow",
+    "GseaEngine",
+    "GseaJob",
     "TuRanking",
     "cluster_delta",
     "cluster_deltas",
@@ -82,6 +88,74 @@ COLUMNS = (
 _FLOAT = ("es", "nes", "log2err", "coverage", "stat", "effect", "ci_low", "ci_high",
           "p_value", "q_value")  # fmt: skip
 _INT = ("size_tus", "n_perm")
+
+
+# ---------------------------------------------------------------- the engine interface (M8-17 §7)
+
+
+@dataclass(frozen=True, slots=True)
+class GseaJob:
+    """One engine job: ``main:<collection>`` or ``retest:<collection>:<term>`` (M8-17 §7)."""
+
+    job_id: str
+    sets: Mapping[str, tuple[str, ...]]  # term -> member TU IDs, natural order
+    min_size: int
+    max_size: int
+
+
+@dataclass(frozen=True, slots=True)
+class EngineCall:
+    """One engine call: a ranking in the seeded tie order (§5), its jobs, parameters and seed.
+    Every score is finite and every TU ID unique, otherwise ``ValueError`` (§8 edge cases)."""
+
+    tu_ids: tuple[str, ...]  # perm order (§5)
+    scores: F64  # same order, all finite
+    jobs: tuple[GseaJob, ...]
+    params: GseaConfig
+    seed: int
+
+    def __post_init__(self) -> None:
+        scores = np.asarray(self.scores, dtype=np.float64)
+        if scores.ndim != 1 or scores.size != len(self.tu_ids):
+            raise ValueError(f"{scores.size} scores for {len(self.tu_ids)} TUs")
+        if not np.isfinite(scores).all():
+            bad = [t for t, ok in zip(self.tu_ids, np.isfinite(scores), strict=True) if not ok]
+            raise ValueError(f"non-finite GSEA scores for {len(bad)} TUs, e.g. {bad[0]}")
+        if len(set(self.tu_ids)) != len(self.tu_ids):
+            raise ValueError("duplicate TU IDs in the GSEA ranking")
+
+
+@dataclass(frozen=True, slots=True)
+class EngineRow:
+    """One tested set of one job; NaN where the engine gives NA."""
+
+    term: str
+    size: int
+    es: float
+    nes: float
+    p: float
+    log2err: float
+    leading_edge: tuple[str, ...]  # TU IDs, fgsea's order
+
+
+EngineResult: TypeAlias = Mapping[str, tuple[EngineRow, ...]]  # job_id -> rows
+
+
+@dataclass(frozen=True, slots=True)
+class EngineProvenance:
+    """What the engine reported about itself for one call (M8-17a lead decision 2)."""
+
+    r: str
+    fgsea: str
+    warnings: tuple[tuple[str, str], ...]  # (job_id, message), distinct, in R's order
+
+
+class GseaEngine(Protocol):
+    """A callable GSEA engine; ``method`` is written to the table's ``method`` column."""
+
+    method: str
+
+    def __call__(self, call: EngineCall) -> EngineResult: ...
 
 
 @dataclass(frozen=True, slots=True)
