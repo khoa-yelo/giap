@@ -415,7 +415,7 @@ def test_panel_c_points_are_the_shap_rows(tmp_path: Path, cfg: GiapConfig) -> No
     want = {(str(t), str(f)): float(s) for t, f, s in zip(*cols, strict=True)}
     assert len(got) == len(c)
     assert set(got) == set(want)
-    assert all(got[k] == pytest.approx(want[k]) for k in want)
+    assert all(got[k] == pytest.approx(want[k], rel=1e-5) for k in want)  # %.6g file
 
 
 def test_panel_c_feature_order_and_x_sorted(tmp_path: Path, cfg: GiapConfig) -> None:
