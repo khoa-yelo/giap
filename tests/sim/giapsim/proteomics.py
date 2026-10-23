@@ -22,6 +22,24 @@ peptide becomes, with probability 1/2, the decoy row of its makedb entry (revers
 ``rev_GIAPORF_…``, the same null score and mixture q / PEP); gene-level decoys are reversed
 products of annotated non-pseudo proteins (``rev_<locus_tag>``, ``n_decoy_rows`` of them).
 
+``decoys = "scored_null"`` (MVP-04 steps 5-6, opt-in) replaces the wrong peptides and decoys: the
+null peptides split 50/50 between protein entries and six-frame entries (lead decision 10: half,
+rounded down, go to protein entries, capped by the pool of protein nulls; the six-frame side takes
+the rest). ``null_split`` in ``truth/proteomics.json`` records ``mode = "fifty_fifty"``, the
+realised counts and, for information only, the protein share of the distinct Trypsin/P products of
+the simulated search space (the annotated proteins against the six-frame products of the non-coding
+pool not also produced by a protein). A protein-entry null (lead decision 9) is a real Trypsin/P
+product of a non-pseudo recorded CDS / sORF none of whose products was detected (including those the
+sample strain made pseudo, translated on the sample, no product across a stop), the locus drawn
+uniformly (without replacement) over those with an undetected product and the product uniformly
+among its undetected ones (stream ``[seed, 9]``); its truth rows (``origin = undetected_product``)
+are placed like correct rows and its target rows carry the locus tag. Six-frame nulls are drawn as
+in ``sixframe_noncoding`` and carry their makedb entry ID. Each null PSM row then goes, on its own
+1/2 coin (stream ``[seed, 8]``), to the target or to the decoy of its entry (reversed peptide,
+``rev_<entry>``, the same score, q and PEP, intensity NA); a null whose reversal is a target peptide
+(I = L) stays a target and the PSMs the coin would have sent over are counted
+(``decoy_collisions``). No other decoys are written.
+
 All draws come from ``numpy.random.default_rng([seed, 3])``, so the genome and its truth are
 unchanged by the proteomics options. Gene-level abundance is a plain log-normal per protein
 (``gene_log_abundance``; M4 replaces it with the TU/region/AR(1) model).
@@ -70,6 +88,11 @@ WrongSource = Literal["shuffled", "other_strain", "sixframe_noncoding"]
 _WRONG_SOURCES = ("shuffled", "other_strain", "sixframe_noncoding")
 _DECOY_STREAM = 8  # numpy SeedSequence key of the six-frame decoy coin and protein decoys
 SIXFRAME_CLASSES = ("intergenic", "cds_outframe", "antisense", "nterm_extension")
+DecoyMode = Literal["unscored", "scored_null"]
+_DECOY_MODES = ("unscored", "scored_null")
+_NULL_STREAM = 9  # numpy SeedSequence key of the scored-null protein nulls (MVP-04)
+#: ``truth/peptides.tsv`` origin of a scored-null protein-entry null (MVP-04 lead decision 9).
+PROTEIN_NULL_ORIGIN = "undetected_product"
 
 
 @dataclass(frozen=True)
@@ -103,6 +126,7 @@ class ProteomicsConfig:
     search_db: Literal["same", "other"] = "same"
     n_runs: int = 3
     proteins: ProteinSimConfig | None = None
+    decoys: DecoyMode = "unscored"
 
     def __post_init__(self) -> None:
         for name in ("digest_len", "detect_logit", "score_mixture"):
@@ -126,6 +150,8 @@ class ProteomicsConfig:
             raise ValueError("n_decoy_rows must be 'match_wrong' or an int >= 0")
         if self.n_runs < 1:
             raise ValueError("n_runs must be >= 1")
+        if self.decoys not in _DECOY_MODES:
+            raise ValueError(f"decoys must be one of {_DECOY_MODES}, got {self.decoys!r}")
 
 
 # ---------------------------------------------------------------- digest
@@ -667,6 +693,145 @@ def _protein_decoys(
             decoys.append((rev, f"rev_{loc}", run, 2 if rng.random() < P_CHARGE_2 else 3))
 
 
+def _place(p: Protein, a: int, pep: str, seqs: dict[str, str]) -> tuple[int, int, bool]:
+    """0-based ``[s0, e0)`` of ``pep`` at residue ``a`` of ``p`` (folded into the contig) and
+    whether it starts at the initiator with a non-ATG start codon read as M."""
+    n = len(seqs[p.contig])
+    if p.strand == "+":
+        s0 = p.start + 3 * a
+        e0 = s0 + 3 * len(pep)
+    else:
+        e0 = p.end - 3 * a
+        s0 = e0 - 3 * len(pep)
+    if s0 >= n:
+        s0, e0 = s0 - n, e0 - n
+    codon_aa = _start_codon_aa(seqs[p.contig], s0, e0, p.strand)
+    return s0, e0, a == 0 and pep[0] == "M" and codon_aa != "M"
+
+
+def _search_space_share(
+    pool: SixframePool, annotated: Sequence[tuple[str, str, str]], cfg: ProteomicsConfig
+) -> tuple[float, int, int]:
+    """(protein share, distinct protein-entry products, distinct six-frame-only products) of the
+    simulated makedb search space (MVP-04 Q2; information only, lead decision 10)."""
+    prot = {x.encode() for _, _, aa in annotated
+            for x in digest(aa, cfg.digest_len, cfg.missed_cleavages)}  # fmt: skip
+    six: set[bytes] = set()
+    for arr in pool.idx.values():
+        for f, a0, b0 in arr.tolist():
+            six.add(pool.frames[f][3][a0:b0])
+    six -= prot
+    n_p, n_s = len(prot), len(six)
+    return (n_p / (n_p + n_s) if n_p + n_s else 0.5), n_p, n_s
+
+
+def _protein_nulls(
+    cfg: ProteomicsConfig,
+    rng: np.random.Generator,
+    n: int,
+    prots: list[Protein],
+    genes: set[str],
+    detected: Sequence[str],
+    occ: dict[str, list[tuple[int, int]]],
+    seqs: dict[str, str],
+) -> tuple[list[tuple[str, str]], dict[str, list[tuple[str, str, int, int, str, bool]]]]:
+    """``n`` protein-entry nulls (lead decision 9): ``[(peptide, locus)]`` and their placements.
+    ``prots`` may end with recorded loci the sample strain made pseudo (no ``occ`` entries);
+    products across their premature stop are skipped."""
+    seen = {_il(p) for p in detected}
+    hit = {prots[k].locus for p in detected for k, _ in occ[p]}
+    pool = []
+    for k, p in enumerate(prots):
+        if p.locus not in genes or p.locus in hit:
+            continue
+        spans = [(a, b) for a, b in digest_spans(p.aa, cfg.digest_len, cfg.missed_cleavages)
+                 if "*" not in p.aa[a:b]]  # fmt: skip
+        prods = sorted({p.aa[a:b] for a, b in spans if _il(p.aa[a:b]) not in seen})
+        if prods:
+            pool.append((k, prods, spans))
+    out: list[tuple[str, str]] = []
+    places: dict[str, list[tuple[str, str, int, int, str, bool]]] = {}
+    used: set[str] = set()
+    for i in rng.permutation(len(pool)).tolist() if n else []:
+        k, prods, spans = pool[i]
+        free = [x for x in prods if _il(x) not in used]
+        if not free:
+            continue
+        pep = free[int(rng.integers(len(free)))]
+        used.add(_il(pep))
+        p = prots[k]
+        out.append((pep, p.locus))
+        rows = []
+        for a, b in spans:
+            if p.aa[a:b] == pep:
+                s0, e0, alt = _place(p, a, pep, seqs)
+                rows.append((p.locus, p.contig, s0, e0, p.strand, alt))
+        places[pep] = rows
+        if len(out) == n:
+            break
+    if len(out) < n:
+        _LOG.warning("proteomics: only %d protein-entry nulls for %d requested", len(out), n)
+    return out, places
+
+
+def _scored_nulls(
+    cfg: ProteomicsConfig,
+    seed: int,
+    xrng: np.random.Generator,
+    prots: list[Protein],
+    detected: Sequence[str],
+    occ: dict[str, list[tuple[int, int]]],
+    feats: Sequence[Feat],
+    novel: Sequence[Sequence[Any]],
+    seqs: dict[str, str],
+    topology: dict[str, str],
+    hay: str,
+    annotated: Sequence[tuple[str, str, str]],
+    n_wrong: int,
+) -> tuple[
+    list[tuple[str, str]],
+    dict[str, str],
+    dict[str, Locus],
+    dict[str, list[tuple[str, str, int, int, str, bool]]],
+    dict[str, Any],
+]:
+    """The ``scored_null`` null peptides: ``[(peptide, entry ID)]``, origins, six-frame loci,
+    protein-null placements and the ``null_split`` record (module doc)."""
+    pool = _noncoding_pool(cfg, seqs, feats, novel)
+    share, n_prod_p, n_prod_s = _search_space_share(pool, annotated, cfg)
+    n_p = n_wrong // 2  # lead decision 10: fixed 50/50, capped by the protein-null pool
+    genes = {f.locus for f in feats if f.kind in ("cds", "sorf")}
+    # recorded loci the sample strain made pseudo are undetected recorded loci too (decision 9)
+    strain_pseudo = [
+        Protein(f.locus, f.contig, *f.span(), f.strand,
+                translate_cds(codons_of(_slice(seqs[f.contig], *f.span(), f.strand))))
+        for f in feats
+        if f.kind in ("cds", "sorf") and not f.pseudo_reason and f.extra.get("pseudo")
+    ]  # fmt: skip
+    nrng = np.random.default_rng([seed, _NULL_STREAM])
+    prot_nulls, places = _protein_nulls(
+        cfg, nrng, n_p, [*prots, *strain_pseudo], genes, detected, occ, seqs
+    )
+    orfs = OrfEntries(feats, seqs, topology)
+    entry: dict[str, str] = {}
+
+    def ok(loc: Locus) -> bool:
+        db_id = orfs.of(loc) if _il(loc[0]) not in hay else None
+        if db_id is not None:
+            entry[loc[0]] = db_id
+        return db_id is not None
+
+    drawn = _sixframe_draw(xrng, pool, n_wrong - len(prot_nulls), ok)
+    loci = {loc[0]: loc for loc in drawn}
+    wrong = prot_nulls + [(w, entry[w]) for w in loci]
+    origins = {w: PROTEIN_NULL_ORIGIN for w, _ in prot_nulls}
+    origins |= {w: "sixframe_noncoding" for w in loci}
+    split = {"mode": "fifty_fifty", "search_space_protein_share": round(share, 6),
+             "n_protein_products": n_prod_p, "n_sixframe_products": n_prod_s,
+             "n_protein": len(prot_nulls), "n_sixframe": len(loci)}  # fmt: skip
+    return wrong, origins, loci, places, split
+
+
 def _start_codon_aa(seq: str, s0: int, e0: int, strand: str) -> str:
     """Amino acid that code 11 assigns to the first codon of ``[s0, e0)`` on ``strand`` (the span
     may run past the end of a circular contig)."""
@@ -746,13 +911,23 @@ def simulate_proteomics(
     seqs: dict[str, str],
     topology: dict[str, str],
     reference: Sequence[Feat] | None = None,
+    log_abundance: np.ndarray | None = None,
 ) -> dict[str, Path]:
-    """Write ``peptides.tsv``, ``proteins.faa``, ``abundance.tsv`` and ``truth/peptides.tsv``."""
+    """Write ``peptides.tsv``, ``proteins.faa``, ``abundance.tsv`` and ``truth/peptides.tsv``.
+
+    ``log_abundance`` (MVP-04, opt-in) gives the natural-log abundance of every expressed protein
+    in ``expressed_proteins`` order instead of drawing ``gene_log_abundance``; ``None`` keeps the
+    draw (and so every existing output byte for byte)."""
     if cfg.wrong_source == "other_strain" and reference is None:
         raise ValueError("wrong_source='other_strain' needs SimConfig.strain")
     rng = np.random.default_rng([seed, _STREAM])
     prots = expressed_proteins(feats, novel, seqs)
-    la = gene_log_abundance(rng, len(prots))
+    if log_abundance is None:
+        la = gene_log_abundance(rng, len(prots))
+    else:
+        la = np.asarray(log_abundance, dtype=float)
+        if la.shape != (len(prots),):
+            raise ValueError(f"log_abundance has shape {la.shape}, expected ({len(prots)},)")
     detected, occ, first = _detect(cfg, rng, prots, la)
     annotated = [(f.locus, f.kind, f.aa) for f in feats if f.kind in ("cds", "sorf") and f.aa]
     annotated_loci = {loc for loc, _, _ in annotated}
@@ -760,11 +935,20 @@ def simulate_proteomics(
     pi = cfg.pi_wrong
     n_wrong = round(len(detected) * pi / (1 - pi))
     xrng = np.random.default_rng([seed, _SIXFRAME_STREAM])  # six-frame draws (M7-12)
-    six = cfg.wrong_source == "sixframe_noncoding"
+    scored = cfg.decoys == "scored_null"
+    six = cfg.wrong_source == "sixframe_noncoding" and not scored
     pool: SixframePool | None = None
     loci: dict[str, Locus] = {}
     entry: dict[str, str] = {}  # six-frame wrong peptide -> makedb entry db_id
-    if six:
+    origins: dict[str, str] = {}  # wrong peptide -> truth origin (scored_null)
+    places: dict[str, list[tuple[str, str, int, int, str, bool]]] = {}
+    null_split: dict[str, Any] | None = None
+    if scored:
+        nulls = _scored_nulls(cfg, seed, xrng, prots, detected, occ, feats, novel, seqs,
+                              topology, hay, annotated, n_wrong)  # fmt: skip
+        wrong, origins, loci, places, null_split = nulls
+        entry = dict(wrong)
+    elif six:
         pool = _noncoding_pool(cfg, seqs, feats, novel)
         orfs = OrfEntries(feats, seqs, topology)
 
@@ -803,7 +987,8 @@ def simulate_proteomics(
         for pep in detected
     ]
     targets += [
-        _Target(pep, True, origin, int(rng.integers(len(prots))), loc) for pep, loc in wrong
+        _Target(pep, True, origins.get(pep, origin), int(rng.integers(len(prots))), loc)
+        for pep, loc in wrong
     ]
 
     # target rows: every target peptide is identified once in every run
@@ -827,7 +1012,17 @@ def simulate_proteomics(
     ]
     tries = 0
     to_decoy = np.zeros((n_runs, n_t), dtype=bool)
-    if six:  # decision 21: a 1/2 coin per null PSM, protein decoys from annotated proteins only
+    collisions = 0
+    if scored:  # MVP-04 rule 6: a 1/2 coin per null PSM row, no other decoys
+        drng = np.random.default_rng([seed, _DECOY_STREAM])
+        coin = is_wrong & (drng.random((n_runs, n_t)) < 0.5)
+        target_il = {_il(t.peptide) for t in targets}
+        collide = np.array([t.wrong and _il(t.peptide[::-1]) in target_il for t in targets],
+                           dtype=bool)  # fmt: skip
+        to_decoy = coin & ~collide
+        collisions = int((coin & collide).sum())
+        usable = []
+    elif six:  # decision 21: a 1/2 coin per null PSM, protein decoys from annotated proteins only
         drng = np.random.default_rng([seed, _DECOY_STREAM])
         to_decoy = is_wrong & (drng.random((n_runs, n_t)) < 0.5)
         pseudo_loci = {f.locus for f in feats if f.pseudo_reason or f.extra.get("pseudo")}
@@ -873,26 +1068,21 @@ def simulate_proteomics(
         n_loci = str(counts[pep])
         for k, a in occ[pep]:
             p = prots[k]
-            n = len(seqs[p.contig])
-            if p.strand == "+":
-                s0 = p.start + 3 * a
-                e0 = s0 + 3 * len(pep)
-            else:
-                e0 = p.end - 3 * a
-                s0 = e0 - 3 * len(pep)
-            if s0 >= n:
-                s0, e0 = s0 - n, e0 - n
-            codon_aa = _start_codon_aa(seqs[p.contig], s0, e0, p.strand)
-            alt = a == 0 and pep[0] == "M" and codon_aa != "M"
+            s0, e0, alt = _place(p, a, pep, seqs)
             truth.append([
                 pep, "false", "gene", p.locus, p.contig, str(s0 + 1), str(e0), p.strand, n_loci,
                 "true" if alt else "false",
             ])  # fmt: skip
     for pep, _loc in wrong:
+        if pep in places:  # scored_null protein nulls: placed like correct rows
+            for loc_tag, c, s0, e0, st, alt in places[pep]:
+                truth.append([pep, "true", PROTEIN_NULL_ORIGIN, loc_tag, c, str(s0 + 1), str(e0),
+                              st, str(counts[pep]), "true" if alt else "false"])  # fmt: skip
+            continue
         if pep in loci:
             _, c, a, b, st = loci[pep]
-            truth.append([pep, "true", origin, _NA, c, str(a), str(b), st, str(counts[pep]),
-                          "false"])  # fmt: skip
+            truth.append([pep, "true", origins.get(pep, origin), _NA, c, str(a), str(b), st,
+                          str(counts[pep]), "false"])  # fmt: skip
             continue
         truth.append([pep, "true", origin, _NA, _NA, _NA, _NA, _NA, str(counts[pep]), "false"])
     six_decoys = [t.peptide[::-1] for i, t in enumerate(targets) if to_decoy[:, i].any()]
@@ -923,12 +1113,14 @@ def simulate_proteomics(
         [[p.locus, f"{x:.6f}"] for p, x in zip(prots, la.tolist(), strict=True)],
     )
     _write_tsv(paths["truth"], TRUTH_HEADER, truth)
-    meta = {
+    meta: dict[str, Any] = {
         "pi_wrong": pi,
         "pi_wrong_realised": round(pi_realised, 10),
         "n_correct": len(detected),
         "n_wrong": len(wrong),
         "n_wrong_requested": n_wrong,
     }
+    if scored:
+        meta |= {"decoys": cfg.decoys, "decoy_collisions": collisions, "null_split": null_split}
     paths["truth_meta"].write_text(json.dumps(meta, indent=2) + "\n")
     return paths

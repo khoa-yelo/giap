@@ -67,6 +67,7 @@ OUTPUTS = {
     "pileup": "tables/pileup.tsv.gz",
     "variants": "tables/variants.tsv",
     "variants_vcf": "tables/variants.vcf",
+    "variants_qc": "work/variants_qc.parquet",  # M7-14: unpublished work intermediate
 }
 STEP_KEYS = ("mapping", "genome", "genes", "replicons", "peptides", "hits_tolerant")
 EVENT = "variants.summary"
@@ -366,6 +367,11 @@ def test_example_1_three_files_written_with_their_headers(full: Run) -> None:
     assert f"##source=giap-{giap.__version__}" in head
 
 
+def _tables(paths: dict[str, Path]) -> dict[str, Path]:
+    """The published tables; the oracle (``run_variants``) writes no ``variants_qc`` (M7-14)."""
+    return {k: v for k, v in paths.items() if k != "variants_qc"}
+
+
 def _without_flags(key: str, path: Path) -> object:
     """The file with M7-05's flags removed: the ``flags`` column of ``variants.tsv`` and the
     ``FLAGS`` INFO entry of the VCF. M7-05 fills both; test_variants_step_flags.py checks them."""
@@ -386,7 +392,7 @@ def _without_flags(key: str, path: Path) -> object:
 
 
 def test_example_1_tables_equal_the_rule_2_chain(full: Run, full_oracle: dict[str, Any]) -> None:
-    for key, path in full.paths.items():
+    for key, path in _tables(full.paths).items():
         want = full_oracle["paths"][key]
         assert _without_flags(key, path) == _without_flags(key, want), key
 
@@ -520,7 +526,7 @@ def test_example_3_same_strain_database_peptides_give_no_alt_except_non_atg_star
         assert key in starts, f"ALT site off any gene start: {r}"
         assert starts[key] != "ATG" and r.alt_aa == "M", r
     want = oracle(run.inputs, _cfg(), tmp_path / "oracle")
-    for key, path in run.paths.items():
+    for key, path in _tables(run.paths).items():
         assert _without_flags(key, path) == _without_flags(key, want["paths"][key]), key
 
 
@@ -576,7 +582,7 @@ def test_without_hits_tolerant_frameshift_rows_are_skipped_with_a_run_flag(
     assert not (df["alt_type"] == "frameshift").any()
     assert (df["alt_type"] == "substitution").any(), "the other rows still count"
     want = oracle(ins, _cfg(), tmp_path / "oracle")
-    for key, path in run.paths.items():
+    for key, path in _tables(run.paths).items():
         assert _without_flags(key, path) == _without_flags(key, want["paths"][key]), key
 
 

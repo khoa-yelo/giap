@@ -61,13 +61,15 @@ def genome_digest(out: Path) -> str | None:
 def _labels(paths: Sequence[Path], labels: str | None) -> list[str]:
     if len(paths) < 2:
         raise CompareInputError(f"giap compare needs two or more runs, got {len(paths)}")
-    if labels is None:
-        return default_labels(paths)
-    out = [s.strip() for s in labels.split(",")]
+    out = default_labels(paths) if labels is None else [s.strip() for s in labels.split(",")]
     if len(out) != len(paths):
         raise CompareInputError(f"--labels has {len(out)} labels for {len(paths)} runs")
     if len(set(out)) != len(out) or not all(out):
         raise CompareInputError(f"--labels must be distinct and non-empty: {labels!r}")
+    for lab in out:  # "&" and ";" join labels in the tables; "none" and "other" are rows there
+        if "&" in lab or ";" in lab or lab in ("none", "other"):
+            raise CompareInputError(f"run label {lab!r} must not hold '&' or ';' or be "
+                                    "'none' or 'other' (set --labels)")  # fmt: skip
     return out
 
 

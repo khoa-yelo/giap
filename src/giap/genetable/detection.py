@@ -8,13 +8,15 @@ contaminant evidence counts toward detection in every tier; in the ``mayu`` tier
 ``unspecific_search`` fires when more than half of the accepted non-C-terminal peptides do not end
 in K/R. Review decisions 5-8: PEP-only input gets peptide q from the running mean of the sorted
 PEPs; all-contaminant decoys are neither paired nor unpaired (decision 12); the longest decoy
-prefix is stripped first; ``Detection.protein_gene_map`` is the map ``detect`` used. Everything
-here is pure.
+prefix is stripped first; ``Detection.protein_gene_map`` is the map ``detect`` used. M4-24: the
+picked ranking uses only the key columns both sides carry (``shared_key_columns``); with none
+shared the decoys are treated as absent for the tier and ``decoy_unscored`` warns; the decoy q
+filter applies only when some C9 target carries q (ADR-0047). Everything here is pure.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -31,16 +33,22 @@ if TYPE_CHECKING:
 
 __all__ = [
     "CURVE_THRESHOLDS",
+    "KEY_COLUMNS",
     "MIN_DECOY_PAIRING",
     "Detection",
+    "KeyColumn",
     "Tier",
     "choose_tier",
     "detect",
     "pair_decoys",
     "protein_gene_map",
+    "shared_key_columns",
 ]
 
 Tier = Literal["decoy_picked", "mayu", "two_peptide", "protein_list"]
+KeyColumn = Literal["q_value", "pep", "score"]
+#: lexicographic order of the picked key: q ascending, PEP ascending, score descending
+KEY_COLUMNS: tuple[KeyColumn, ...] = ("q_value", "pep", "score")
 MIN_DECOY_PAIRING = 0.80
 CURVE_THRESHOLDS = (0.001, 0.005, 0.01, 0.02, 0.05, 0.1)
 UNSPECIFIC_SHARE = 0.5
@@ -199,6 +207,17 @@ def pair_decoys(
     return out
 
 
+def shared_key_columns(targets: pd.DataFrame, paired: pd.DataFrame) -> tuple[KeyColumn, ...]:
+    """The ``KEY_COLUMNS`` (in that order) carried by ``targets`` (>= 1 non-NA value) and complete
+    on ``paired`` (no NA value); an empty ``paired`` frame keeps every carried column (M4-24)."""
+    return tuple(
+        c
+        for c in KEY_COLUMNS
+        if bool(targets[c].astype("float64").notna().any())
+        and not bool(paired[c].astype("float64").isna().any())
+    )
+
+
 def choose_tier(
     peptides: pd.DataFrame | None,
     peptide_hits: pd.DataFrame,
@@ -208,16 +227,33 @@ def choose_tier(
     accepted: pd.DataFrame | None = None,
     min_pairing: float = MIN_DECOY_PAIRING,
 ) -> tuple[Tier, list[str]]:
-    """Tier of the §7.3.2 table and warnings (``decoy_pairing_low``).
+    """Tier of the §7.3.2 table and warnings (``decoy_pairing_low``, ``decoy_unscored``).
 
     q / PEP presence is read from ``accepted`` when given, else from C9 targets (or C11 without C9).
+    M4-24 rule 4: (a) share < ``min_pairing`` -> ``mayu``; (b) no target row -> ``decoy_picked``;
+    (c) S = ``shared_key_columns(target side, paired decoys)``: S = C_T -> ``decoy_picked``,
+    S a non-empty proper subset -> ``decoy_picked`` + ``decoy_unscored``, S empty ->
+    ``decoy_unscored`` and the no-decoy chain below; (d) no pairing rows -> the no-decoy chain.
     """
     warns: list[str] = []
     if len(pairing):
         share = float(pairing["gene"].notna().mean())
-        if share >= min_pairing:
+        if share < min_pairing:
+            return "mayu", ["decoy_pairing_low"]
+        if accepted is not None:
+            side = accepted
+        elif peptides is not None:
+            side = peptides[~peptides["is_decoy"].astype(bool)]
+        else:
+            side = pd.DataFrame({c: pd.Series([], dtype="float64") for c in KEY_COLUMNS})
+        if not len(side):
             return "decoy_picked", warns
-        return "mayu", ["decoy_pairing_low"]
+        carried = shared_key_columns(side, side.iloc[:0])
+        shared = shared_key_columns(side, pairing[pairing["gene"].notna()])
+        if shared != carried or not shared:
+            warns.append("decoy_unscored")
+        if shared:
+            return "decoy_picked", warns
     if accepted is not None:
         qp = accepted[["q_value", "pep"]]
     elif peptides is not None:
@@ -231,27 +267,36 @@ def choose_tier(
     return "protein_list", warns
 
 
-def _key_rank(q: Iterable[float], pep: Iterable[float], score: Iterable[float]) -> npt.NDArray[Any]:
-    """Dense rank of (q asc, PEP asc, score desc), NA last; higher = better."""
+def _key_rank(columns: Mapping[KeyColumn, Iterable[float]], n: int) -> npt.NDArray[Any]:
+    """Dense rank of the ``n`` rows on the given key columns (``KEY_COLUMNS`` order; q and PEP
+    ascending, score descending), NA last; higher = better. No column: one shared rank."""
+    if not n:
+        return np.zeros(0, dtype=np.float64)
+    keys = [c for c in KEY_COLUMNS if c in columns]
+    if not keys:
+        return np.ones(n, dtype=np.float64)
     a = np.column_stack(
-        [np.asarray(list(q), dtype=np.float64), np.asarray(list(pep), dtype=np.float64),
-         -np.asarray(list(score), dtype=np.float64)]
+        [(-1.0 if c == "score" else 1.0) * np.asarray(list(columns[c]), dtype=np.float64)
+         for c in keys]
     )  # fmt: skip
     a = np.where(np.isnan(a), np.inf, a) + 0.0
-    if not len(a):
-        return np.zeros(0, dtype=np.float64)
     uniq, inv = np.unique(a, axis=0, return_inverse=True)
     return (len(uniq) - np.ravel(inv)).astype(np.float64)
 
 
 def _picked_q(
-    tags: Sequence[str], accepted: pd.DataFrame, pairing: pd.DataFrame, f: float
+    tags: Sequence[str],
+    accepted: pd.DataFrame,
+    pairing: pd.DataFrame,
+    f: float,
+    key: Sequence[KeyColumn] = KEY_COLUMNS,
 ) -> npt.NDArray[np.float64]:
-    """Picked gene q (ADR-0009: each decoy win counts 1/f); NaN for decoy wins / no target."""
+    """Picked gene q (ADR-0009: each decoy win counts 1/f); NaN for decoy wins / no target.
+    Targets and paired decoys are ranked on ``key`` only (M4-24 rule 1)."""
     paired = pairing[pairing["gene"].notna()]
     n_t = len(accepted)
-    cols = ("q_value", "pep", "score")
-    rank = _key_rank(*(np.r_[accepted[c].astype(float), paired[c].astype(float)] for c in cols))
+    cols = {c: np.r_[accepted[c].astype(float), paired[c].astype(float)] for c in key}
+    rank = _key_rank(cols, n_t + len(paired))
     best = np.full((2, len(tags)), np.nan)
     for k, (g, r) in enumerate(((accepted["gene"], rank[:n_t]), (paired["gene"], rank[n_t:]))):
         s = pd.Series(r).groupby(np.asarray(g.astype(str).tolist(), dtype=object)).max()
@@ -318,8 +363,12 @@ def detect(
     ev = evidence.set_index(evidence["locus_tag"].astype(str)).reindex(tags)
     pmap = protein_gene_map(genes, peptides, peptide_hits, protein_hits, accepted=accepted,
                             contaminant_prefixes=cfg.input.contaminant_prefixes)  # fmt: skip
+    # M4-24 rule 6 / ADR-0047: the decoy q filter only when some C9 target row carries q
+    tq = (peptides is not None and len(peptides)
+          and bool(peptides.loc[~peptides["is_decoy"].astype(bool), "q_value"]
+                   .astype("float64").notna().any()))  # fmt: skip
     pairing = pair_decoys(peptides, pmap, cfg.input.decoy_prefixes,
-                          q_value_max=cfg.input.q_value_max,
+                          q_value_max=cfg.input.q_value_max if tq else None,
                           contaminant_prefixes=cfg.input.contaminant_prefixes)  # fmt: skip
     min_pair = max(cfg.mapping.proteins.min_identity, cfg.mapping.proteins.min_coverage)
     tier, warns = choose_tier(peptides, peptide_hits, protein_hits, pairing, accepted=accepted,
@@ -337,7 +386,8 @@ def detect(
     elig_tags = [t for t, e in zip(tags, eligible, strict=True) if e]
     q_floor = np.nan
     if tier == "decoy_picked" and elig_tags:
-        q[eligible] = _picked_q(elig_tags, accepted, pairing, f)
+        key = shared_key_columns(accepted, pairing[pairing["gene"].notna()])
+        q[eligible] = _picked_q(elig_tags, accepted, pairing, f, key)
         n_win = int(np.isfinite(q).sum())
         q_floor = 1.0 / n_win if n_win else np.nan  # smallest picked q: no decoy win, all T wins
         if q_floor > alpha:  # Khoa 2026-10-22: flag a too-small genome; q is reported unchanged

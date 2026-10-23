@@ -40,7 +40,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M4-20: replace M4-16's test stand-ins (p_detect_true, fixed COG table, tier/detectability columns) with the real M4-12/M4-13 outputs once merged.
 - M4-14 (statistician): re-measure abundance.ibaq_denominator on M4-09 data before switching (fails 10–40 % at p_obs = 0.3); restate as a pooled mean Δρ if needed; add the p_obs = 0.3 attack.
 - M4 notes: median imputation pulls detected-but-unquantified genes toward the centre; the min/exclude sensitivity reruns bracket it (statistician, #82).
-- M7: compute the M4-16 QC metric id_mixups (§7.5.1: same-database ALT sites that are not start/stop sites); M4-16 reports NA + requires_variants until then.
 - M7-01: co-optimal alignments with equal cost, diff-type multiset and difference positions but different op shapes are broken by DP move order (1:1, 2:2, 1:2, 2:1), not pinned by a test; the frameshift property oracle sorts kinds alphabetically, not by DIFF_TYPES precedence (no divergence found in 200k random junction cases).
 - M7-01: align_hits loops rows in Python (~110 µs/hit); batch the DP in numba if Module 5 ever aligns far more than 10^5 hits.
 - M7-02: frameshift site `alt_aa` is the placeholder `fs+1`/`fs-1` and `ref_codon` the last prefix codon; settle both in M7-03 with the VCF writer (lead decision 3). The M7-03 writer must drop the internal `_ref_codon`/`_alts` pileup columns; pandas `attrs` (frameshifts, contig order) do not survive `pd.concat`.
@@ -773,6 +772,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
 
+<<<<<<< HEAD
 ### M7-11 follow-ups
 - M7-11b: novel_orfs step wiring of `giap.novel.fdr` (decisions 6–9), step-level tests.
 - Origin-crossing makedb entries without replicon lengths are unestimated (decision 8); pass lengths.
@@ -786,6 +786,50 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - 5: the methods-note status line says decisions 1–11; it should say 1–13.
   - 6: `_decoy_tags` could return the parsed class.
   - 7: `denovo_class_q` uses an iloc loop and does not cast strand to str.
+=======
+### M9-24 follow-ups
+- **Diagnosed:** V08 (and V02, V03, V07) show no measured abundance on sim100k because 0 of 87
+  genes are detected: picked-protein q has floor 1/n_win = 1/85 > alpha 0.01
+  (genetable/detection.py:344-349; #186 added the `q_floor_above_alpha` warning, q unchanged).
+  Abundance input is intact. The sim100k end-to-end fixture therefore never exercises any
+  detected-gene branch. Options (Khoa): a larger evidence genome (> 100 eligible genes), a
+  sim100k alpha override, or a two-peptide fallback when the floor exceeds alpha. V08's title
+  could cite `q_floor_above_alpha` from run flags.
+- The checklist reads tick labels through matplotlib's private `Axis._update_ticks()`; replace when
+  matplotlib offers a public way.
+
+### M9-24 review nits (PR #230)
+- N1 any axhline/axvline is exempt from the palette check in any colour (a red axvline passes);
+  `style.RC` defines no greys, so restrict the exemption to grey/black reference lines and test it.
+- N2 COG + detection check: palettes share #0072B2/#E69F00 → false fail and false pass cases.
+- N3 units allow-list too permissive (generic suffixes "rate", "density", "fraction"; any
+  parenthetical counts as a unit).
+- N4 overlap: clipped texts outside the view false-fail; text off the figure edge undetected;
+  rotated text uses an axis-aligned box (false fails at 30–45°).
+- N5 surviving mutants: `_update_ticks` vs `get_major_ticks`, axis labels in the text list,
+  collections by offsets only, `ax.texts` in the count, each half of `is_empty_state`, `pid_`
+  prefix in `_tsv`, `score()` with nothing gated.
+- N6 `check_instance` rebinds `inst.figure.canvas`; `_tsv` calls `Path.is_file()` from viz/.
+- N7 the snapshot sweep skips until M9-25 fixtures; sim100k exercises only no-abundance branches.
+- N8 pin matplotlib in pyproject.toml while the checklist uses `Axis._update_ticks()`.
+### M9-15 follow-ups
+- V11 twin bars at bin index; write `bin_lo`/`bin_hi` into the V11 data TSV so the twin matches
+  the static edges.
+- Tests for M9-15 decision 5 (`meta`: α lines, kb/Mb choice, origin-crossing islands).
+
+### M9-15 code-review nits (PR #234, comment 6358615453)
+- Decision 5 (`meta`) untested: no test fails when `figure_json` never passes meta. 12 of 15 manual
+  mutants survive (V2 1-bp offsets hidden by tolerance, origin split, meta dispatch, `columns=`,
+  `html.unescape`, V7 `lo == hi`, V10/V11 alpha, V8 n = 50 boundary, FASTA order, V18 bar offset).
+- `inspect` dispatch counts keyword-only parameters and `*args`, so `(data, title, *, extra=None)`
+  raises TypeError; decide at registration instead.
+- `columns=`: a twin whose columns drift silently disappears; log a warning.
+- V11 (a) x-axis still says "|Δ| …" though the bars sit at the bin index.
+- V7: rows with the same label collapse onto one category, and some CI bars are hidden that the static draws.
+- V5 `arrangement="fixed"` without node x/y loses the M9-05 order.
+- V8 has no median mark or legend; the V10 no-meta fallback differs for flagged rows; V18's constant state has no message.
+- PR size about 2,300 lines in total (711 counted).
+>>>>>>> origin/main
 ### M7-10 follow-ups
 - Switch the class-error calibration to the M7-12 `variant_f1` scenario once #225 merges (decision 7).
 - M7-13: class error rate reference-proteome arm (moved from M7-10 #239 B2); also consider a run flag when every class rate is 1 (statistician #239).
@@ -874,6 +918,54 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
+
+### M4-24 follow-up (giapsim scored null decoys)
+- giapsim M3-19 proteomics writes decoy rows with q, PEP and score all NA, so the picked tier never
+  sees decoy competition (D = 0 above every target; after M4-24 such runs fall back to `mayu`). Give
+  decoys null scores: each null PSM lands on a target or a decoy with probability ½ (decoy count
+  Binomial(2 · n_wrong_rows, ½)), with score, PEP and q drawn from the null component like the wrong
+  targets, and add null-only target genes (genes whose only evidence is null PSMs), so calibration
+  exercises decoy wins on genes that also have a target. Evidence: Slurm 1869554 and
+  local/scratch/qfloor/ (patched proteomics.py: `decoy_score_na` false, decoy wins still only on
+  target-less genes because no gene is null-only). Then restore `decoy_picked` on the sim100k_real
+  golden and in tests/calibration/test_gene_fdr_real_mapping.py (M4-24 question 3).
+- M4-24 decision 7: preflight `candidate_tier` should use the shared key columns, so it does not
+  preview `decoy_picked` for all-unscored decoys.
+- M9-23: switch existing plot titles to `giap.viz.base.plural` as their tests are next touched.
+- M9-23: hide V16's `Skip` ("written by giap compare") from ordinary run reports; add a test for the runs-section detection tier per run.
+- Review #225 nits (M7-12):
+  - N2: the methods-note FDP table is at 200 ORFs per class; rerun it at the gate count of 300.
+  - N3: `OrfEntries` does not restate `NTERM_MIN_UPSTREAM_AA` and assumes `min_orf_aa` = 7; assert `digest_len[0]` ≥ 7 in six-frame mode.
+  - N4: drop the throwaway `Builder(10)` in the mixed-decoy test.
+  - N5: validate that `n_per_class` ≥ 0.
+  - N6: add a 1M gate-count case to the benchmark and refresh the `novel_orf_power` baseline.
+  - N7: `_protein_decoys` checks the target set without I/L folding.
+  - N8: the spec names `tests/sim/test_m7_scenarios.py`; the file is `tests/unit/test_sim_m7_scenarios.py`.
+- MVP-04: origin-crossing novel ORFs excluded from the planted set on K-12 (spec question 7).
+### M7-12 statistician NITs (PR #225) → M7-13
+- F1 matching folds I/L/J; precision over all truth sites (n_true_peptides counts database
+  peptides only); use the method's own peptide rule as the N-terminal-extension denominator.
+- Isobaric attack: a "systematic" error option keyed by protein site; run with
+  `--genome-relation same`. Document `variant_f1` sample peptides labelled `search_db = same`.
+- `same_strain_insilico`: all 11 non-ATG N-terminal peptides unmapped; the start-codon exception
+  is never exercised.
+- Three attack nulls proposed in the comment for M7-13 (tests/calibration/attacks/).
+- GIAP: genomes below ~200 genes hit a 1/n gene-level q floor above 0.01 and detect 0 genes;
+  decide the small-genome behaviour (warn, or a method that can reach q ≤ 0.01).
+- (M7-12 round 2) per-class expected false novel candidates in the truth; an I/L `ms_observable` column in alt_sites.
+
+### M7-12 statistician round 2 (PR #225)
+- **Possible cause of the sim100k 0-genes floor:** the older (non-six-frame) giapsim decoy rows
+  carry no score/q/pep, so gene-level `decoy_picked` q is 1/T. Check this before the M9-13 evidence
+  run and the q-floor question to Khoa.
+- M7-13: the de novo arm of the class-FDR gate gets 0–2 false candidates per class per replicate at
+  300k; run it at ≥ 1M.
+- M7-13 G1: a policy is needed for `mass_equivalent` calls. On variant_f1 seed 7, high-confidence
+  substitution precision is 0.82, and 5 of 6 FPs are A>S / N>D modification errors.
+- Attack-null proposals in comment 6358601933.
+- M7-12 N1 (statistician round 3): six-frame target q/PEP come from the wrong share before the coin (about 2× conservative). PSM-level calibration on six-frame scenarios needs the post-coin share.
+- M7-12 N3: G4 for `nterm_extension` must go through M7-11's locus-tag pairing (planted peptides carry the gene's locus tag).
+- M7-13: the report says a class with fewer than about 100 candidates cannot be called at α 0.01 (class q floor).
 - Review #225 nits (M7-12):
   - N2: the methods-note FDP table is at 200 ORFs per class; rerun it at the gate count of 300.
   - N3: `OrfEntries` does not restate `NTERM_MIN_UPSTREAM_AA` and assumes `min_orf_aa` = 7; assert `digest_len[0]` ≥ 7 in six-frame mode.
@@ -892,3 +984,22 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - N3: no unit or step test passes precomputed TSV layers (mutant M9).
   - N4: hardening still owed: `--sensitivity full` in the nightly e2e, and the M9 text item on threshold sensitivity.
   - N5: `test_unpatched_variants_unchanged` has an odd `assert [c for c in ...]`.
+- M7-14 review nits (#248): a step test mixing same-db and other support across sites (alt_peps order, variants.py:220); te2_result `notes` empty when high_stop_codon > 0; merge the duplicate `_flag_set`/`_flag_names` helpers (drop the unreachable `;` branch); `variants_qc` in `PUBLISHED_FILES`/`run_view.PATHS` though never published; test_id_mixups_sim100k returns early on missing inputs (make it skip); an nf-test with a non-empty `variants_qc` into CONTEXT.
+- M7 (from MVP-04 statistician, #247): nterm-extension decoys pair with a gene only after a target row is accepted (M7-12 decision 28), so an all-decoy null gene vanishes instead of counting as a decoy win (anti-conservative, ≈ +0.8 false genes at K-12). Pair through makedb's entry→gene relation.
+- M4 (from M4-24 statistician, #238): ADR-0047 q-filter symmetry: switch the decoy q filter on only when *every* C9 target carries q (with 50 % NA-q targets FDP at q 0.05 is bimodal, top decile ≈ 0.135; Slurm 1871630). Needs an ADR-0047 amendment (Khoa).
+- MVP-04 review nits (#247): the scored_null collision rule is tested only vacuously (0 collisions everywhere): force a palindromic null; `gate7` writes NaN (invalid JSON) when nothing is detected; `_publish` merges into an existing outdir (stale files survive); `_read_fasta` KeyErrors on sequence before the first header.
+- M4 (from MVP-04 part 2, #258): gene_table logs the detection warnings `decoy_pairing_low`, `decoy_unscored`, `q_floor_above_alpha` as plain text with no event or run flag, so run_manifest.json cannot carry them; log them with an event (and decide flag tokens, ADR-0041).
+- M9-23: compare.html has no size warning (the 25 MB check covers report.html only); the V16 TSV/twin carry every shared gene per pair. Add the check or bin the twin past N points.
+- M9-23: V16's skip on ordinary runs happens inside the plot function, so `skip_reason()` is None and report.html's skipped notes omit it; move it to a registered skip reason.
+- M9-23 review nits (#254): PNG-only output says "plot file absent" on compare.html; binned V16 cells have per-cell colour scales and no count legend; V16 upper-cell scatters have no axis values; a locus tag literally `NA` is misread on the twin's TSV round trip; drop `NA_CELL` (= GREY) and `_mappable`.
+- (M7-11b, statistician #256 note 2) Floor warning for picked classes quotes `n_targets`; quote `n_target_wins` (the floor's denominator). Implementer follow-up.
+- (M7-11b, statistician #256 note 1) Fallback calls (`no_makedb_pair`, `no_target_score`, `decoys_unscored`, untagged) have no error control; M7-13 reports the per-class fallback count.
+- (MVP-04 gate 13, statistician) Multiple strong islands mask each other under the stationary block-bootstrap maxT null (islands inflate ℓ̂, ℓ′ ≥ w copies them into M_b). Candidates: ℓ̂ with top windows masked, or a step-down scan. Needs an ADR-0021 amendment + calibration.
+- (M7-11b review N1) `class_call.py:133-137` re-derives `fdr_class` from private `fdr` helpers; have `PickedClassFdr` return the entry per ORF.
+- (M7-11b review N2/N3) `reason` typed `str | None` (spec: `Reason | None`); redundant guard at `class_call.py:145`.
+- (M7-11b review N4, next to Q11) `best_costs` keeps the first row's `source` for duplicate peptides while `orf_regimes` uses the union; a db+de novo peptide without makedb decoys can end `no_target_hit` (conservative).
+- (M7-11b review N5, lead) close backlog line 777 (M7-11b), re-point 688, add the Q10 V13 floor-caveat line.
+- (M7-11b TA, decision 9) `no_target_score` is unreachable from the novel step (orf_regimes and picked_class_fdr read the same target rows); test forces it via monkeypatch. Either drop the reason or document it as library-only.
+- (M8-14 decision 6) packed set with < 10 scoring TUs could trip the finite-p assert in `_packed_tu_rep` (~1e-5/set) at large full-tier R; consider raising PACKED_SINGLES.
+- (M8-14 decision 7, for M8-15) giapsim pseudogenes without `aa` record n_obs=0 / GRAVY NaN while GIAP translates them from `nt`; M8-15's p_detect refit sees different covariates for them.
+- (MVP-04 #258 review) boundary tests for summary gates 4, 6, 8, 11, 13 (p) and a gate-13 no-high-island case; sbatch seed from `K12_EVIDENCE_SEED` as `MVP04_SEED`, tested as passed through; gate 15 counts the `empty_state` SVG as content (N2); N3–N9 tidying in `scripts/dev/mvp04_summary.py`.
