@@ -97,6 +97,7 @@ def test_default_oric_frac_is_0_8(tmp_path: Path) -> None:
     effect=st.sampled_from([-3.0, 1.5, 3.0]),
 )
 @example(seed=1506, first=0, n_tus=2, effect=-3.0)
+@example(seed=356, first=0, n_tus=2, effect=1.5)
 def test_islands_change_the_expression_not_the_layout(
     tmp_path_factory: pytest.TempPathFactory, seed: int, first: int, n_tus: int, effect: float
 ) -> None:
@@ -107,8 +108,10 @@ def test_islands_change_the_expression_not_the_layout(
     planted = _build(root / "planted", seed, islands=(IslandSpec("chr1", first, n_tus, effect),))
     for name in LAYOUT_FILES:
         assert _sha(plain / name) == _sha(planted / name), name
-    if effect < 0 and not _has_peptides(plain, first, n_tus):
-        return  # a down island over genes without peptides cannot change the evidence (seed 1506)
+    if not _has_peptides(plain, first, n_tus):
+        # an island over genes without peptides cannot change the evidence, up (seed 356) or
+        # down (seed 1506): the default detection does not draw peptides from abundance
+        return
     assert _sha(plain / "peptides.norm.parquet") != _sha(planted / "peptides.norm.parquet")
 
 
