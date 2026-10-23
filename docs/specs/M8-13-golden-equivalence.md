@@ -399,3 +399,141 @@ The numbers and the Slurm job ID go into PROGRESS.md as gate evidence.
 5. Questions 2–4 (NA `log2err`, the Wallenius disagreement, what gates) go to the statistician
    before any test is written; the Wallenius investigation comes first because it decides whether
    the gate can pass at all.
+
+## Statistician (2026-10-22, on d70315b)
+
+Reproduction scripts (scratch, not committed): urn recursion, exact rational integral, NES Monte
+Carlo estimate. Their method is stated in ADR-0044 "Context" and is reproducible from it.
+
+### Question 3: the Wallenius disagreement. Verdict: goseq is wrong, GIAP is right
+
+**The reference.** Both sides were compared with the exact Wallenius distribution, computed from
+the definition, with no goseq or BiasedUrn code, in two independent ways:
+- **R1**, the urn recursion in float64 and in 80-bit precision. The two agree to 3.8e-15 on all
+  300 tails;
+- **R2**, the exact rational evaluation of the integral (ADR-0044). It equals R1 to < 1e-15 on
+  every tail checked.
+
+R2 rows checked:
+
+| tail | exact (R2) | GIAP rel. error | goseq rel. error |
+|---|---|---|---|
+| CAT_002 under | 9.916048474169236e-01 | 2.7e-12 | 4.6e-10 |
+| CAT_004 over | 4.169557888115581e-07 | 3.8e-12 | **0.49** |
+| CAT_011 over | 4.437463978224081e-27 | 5.8e-12 | **0.16** |
+| CAT_012 over | 2.228389516151712e-10 | 4.6e-12 | **0.050** |
+| CAT_013 under | 1.059794389378412e-17 | 4.3e-12 | **1** (goseq 0) |
+| CAT_004 under | 9.999997971724875e-01 | 3.0e-12 | 2.0e-07 (goseq 1) |
+| CAT_137 over | 1.935413910355931e-02 | 1.1e-12 | **1.4e-04** |
+| CAT_105 over | 1.058876845699827e-01 | 3.0e-12 | **1.8e-05** |
+| CAT_003 over (agrees) | 1.497505205155841e-04 | 1.9e-12 | 7.8e-08 |
+
+**All 300 tails against R1:**
+- GIAP: 0 tails > 1e-6, max relative error **7.1e-12**;
+- goseq: **36** tails > 1e-6, the same 36 as F3, max absolute error **2.6e-6**.
+
+**Why goseq is wrong**, from its outputs alone:
+- its point mass `dWNCHypergeo(k)` (over + under − 1) is right to 5.5e-8;
+- its cdf `pWNCHypergeo` carries an absolute error up to 2.6e-6 (about 26× the nominal
+  `precision = 1e-7`), with equal and opposite errors in the two tails;
+- small tails inherit it. CAT_004's and CAT_011's P(X > k) is exactly 0, so goseq reports
+  pmf(k) alone, about half the truth. CAT_012 keeps only the first term of P(X > k). CAT_013's
+  lower tail is 0 instead of 1.06e-17.
+
+The spec-writer's suspicion is confirmed in direction (BiasedUrn's precision) but not in size: the
+error is absolute, ~3e-6, not relative 1e-7.
+
+**Consequences:**
+- **No GIAP change can pass "relative 1e-6 against goseq" on these data.**
+  → **ADR-0044 (proposed, Needs Khoa):**
+  - the criterion-1 reference becomes the exact distribution (R2, committed with a generator),
+    at the unchanged `wallenius_rel_tol`;
+  - goseq stays as a second reference under a new key, `wallenius_goseq_abs_tol: 1.0e-5`, with
+    the rule `|p − p_goseq| ≤ max(1e-6 · p_goseq, 1e-5)`;
+  - this supersedes the interim `wallenius_abs_floor`;
+  - mutation check (example 10, inverted ω): the goseq rule catches 145/150 categories and the
+    exact rule catches 150/150.
+- **GIAP is not wrong on the golden data, but it is elsewhere.** A spot check of 40 random
+  urns against R1 found:
+  - relative error 3.5e-6 at p ≈ 2e-9;
+  - 1.5e-4 at 5e-11;
+  - **p = 0 for true tails of 1e-15 to 1e-19** (a wrong decade).
+
+  Scipy's pmf has an absolute floor of ~1e-14. Decisions are unaffected (BH and elim, per
+  function.md), but reported numbers are wrong below about 1e-8.
+  → **ADR-0045 (proposed, lead):** exact urn recursion for tails < 1e-6, scipy above. It is
+  independent of the gate and does not block M8-13.
+
+### Question 2: NA `log2err` rows
+
+The proposed default is accepted, with one change: the 5 % cap is an **alert**, not a pass
+condition, because G3b's p rule does not gate (question 4).
+- **NA on one side:** use the finite side's e alone. This understates the combined sd, so it
+  can only over-flag. That is the safe direction.
+- **NA on both sides:** not p-checked, counted.
+- **Both NA classes together > ⌊0.05 · compared⌋ (5 of 119):** raise a `stats` alert in the
+  JSON (`na_log2err_over_cap: true`). It is not a gate failure.
+- **NA `pval` or `NES` on exactly one side stays a gate failure.** With eps = 0, minSize 10 and
+  nPermSimple = 1000, an NA NES needs no same-sign null ES among about 500 draws. Under correct
+  wiring that probability is negligible, and the golden side has none. So a one-sided NA is a
+  wiring signal, not Monte Carlo noise.
+
+### Question 4: what gates in G3b. The default is accepted, and the NES rule could never gate
+
+**The gate:**
+- G1, G2, G3a;
+- G3b's deterministic rules:
+  - the oracle equals `calc_gsea_stat`;
+  - live ES equals the oracle under GIAP's order;
+  - tie-insensitive ES equals golden at 1e-9;
+  - leading edges;
+- the one-sided `pval`/`NES` NA rule.
+
+G3a meets all four §7.7.5 criteria literally: equal seeds, exact strings. Under ADR-0038 that is
+the reading that tests GIAP and not fgsea's Monte Carlo error.
+
+**The ES oracle is feasible.** A ~20-line ES from the definition (gseaParam 1, ties in file order)
+matches `calc_gsea_stat.tsv.gz` to **9.4e-16** on all 120 sets.
+
+**NES across seeds (measured, not just bounded).** The estimate: the null ES of each golden set
+size was drawn from the definition (4,000 random sets per size). Then
+sd(ΔNES) ≈ √2 · |NES| · cv(same-sign null ES) / √(1000 · P(same sign)). Over the 119 sets:
+- median sd 0.013, max 0.034 (SET_007, NES 2.28);
+- **expected sets with |ΔNES| > 0.02: about 24**, and P(none) ≈ 0;
+- predicted max |ΔNES|: median 0.067, 99th percentile 0.11 (independence; the shared fgsea
+  permutations correlate the sets, which lowers this somewhat).
+
+So the literal rule "NES within 0.02" across seeds **fails on every seed**. It measures fgsea's
+nPermSimple = 1000 error, not GIAP. Gating on it (the alternative) would need a Khoa ADR on
+`fgsea_nes_abs_tol` **before** the test is written, and the value would be about 0.15 at
+nPermSimple = 1000. I do not recommend that: G3a already pins the wiring exactly.
+- **Report:**
+  - max and 95th percentile of |ΔNES|;
+  - per set, z = ΔNES / predicted sd. The predicted sd comes from a test-side null-ES sample of
+    the definition, as above, ≤ 10 s;
+- **Alert:** max |z| > 4.5 (Bonferroni over 119 at a family-wise 1e-3).
+
+**p across seeds at k = 3.**
+- If `log2err` is calibrated and Gaussian on the log₂ scale, then per set P = 0.0027 and the
+  expected count over 119 sets is 0.32. P(≥ 1) = 0.27, P(≥ 2) = 0.042, P(≥ 3) = 0.0044.
+- If `log2err` understates the sd by 1.25× (function-gsea.md says "slightly"), P(≥ 1) = 0.86.
+
+The seed is fixed, so a miss is a fixed property of the derived seed, not flakiness. One or two
+exceedances say nothing about GIAP.
+- **Report:** the count and the max |Δlog10 p| / bound;
+- **Alert:** ≥ 3 exceedances (0.4 % under calibration).
+
+An alert opens a `stats` issue (lead decision 4) but does not set the gate to "not met".
+
+### Can the gate be met as specified?
+
+- **Wallenius half, as written ("against goseq, relative 1e-6"): no, on any implementation.**
+  The reference is off by up to 0.49 and by 1 at the zero. With ADR-0044 accepted, it passes
+  today (GIAP's max 7.1e-12 against 1e-6). **Until Khoa decides ADR-0044, A1 is blocked.** The
+  test-author can write the test against the exact reference now and mark the goseq-tolerance key
+  pending.
+- **GSEA half:** yes, with the question-4 default. G1, G2, G3a and the deterministic G3b rules
+  are attainable. The literal cross-seed NES rule is not (about 24 expected misses), and it is
+  correctly non-gating.
+- A5 vacuity floor: unchanged for GSEA. For Wallenius, use the exact values. Two exact tails
+  are in (0, 1e-20): CAT_010 6.1e-46 and CAT_011 4.4e-27.
