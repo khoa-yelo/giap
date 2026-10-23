@@ -762,6 +762,16 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - 5: the methods-note status line says decisions 1–11; it should say 1–13.
   - 6: `_decoy_tags` could return the parsed class.
   - 7: `denovo_class_q` uses an iloc loop and does not cast strand to str.
+### M7-10 follow-ups
+- Switch the class-error calibration to the M7-12 `variant_f1` scenario once #225 merges (decision 7).
+- M7-13: class error rate reference-proteome arm (moved from M7-10 #239 B2); also consider a run flag when every class rate is 1 (statistician #239).
+- M7-10: `paired_observations` keeps the last reference row per spectrum (`keep="last"`), so raw callers with conflicting rows depend on row order (pipeline safe: preflight drops conflicts). Also a run flag when every class rate is 1, and a `low_n` flag or interval columns (statistician #239).
+- Review #239 nits (M7-10):
+  - 1: `_peptide_spectra` swallows reference `ValueError`s and validate issues, so a malformed reference file is silently `unestimated`.
+  - 2: edge-case tests are missing for a frameshift with `mass_equivalent`, a raw NaN reference q, NA `is_decoy`, and NA `spectrum_id` on both sides.
+  - 3: the methods note "Observations" bullet should say distinct `(run, spectrum_id, peptide)`.
+  - 4: `site_class` ignores `;`-joined string flags cells; document this or split them.
+  - 5: the `# fmt: skip` on the cli.py `files` dict is unneeded.
 ### M9-13 review nits (PR #224)
 - N1 checks.py test gaps (surviving mutants): `<script defer src=…>`, `url(http…)` outside style,
   uppercase `DATA:` URI, query-only `href="?q=1"`.
@@ -840,6 +850,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
+- MVP-04: origin-crossing novel ORFs excluded from the planted set on K-12 (spec question 7).
 
 ### M6-10 follow-ups
 - Runtime: build the pair frame once per threshold and keep reruns under 2× a single run; not pinned (timing is flaky on the shared node).
