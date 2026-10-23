@@ -892,3 +892,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - N3: no unit or step test passes precomputed TSV layers (mutant M9).
   - N4: hardening still owed: `--sensitivity full` in the nightly e2e, and the M9 text item on threshold sensitivity.
   - N5: `test_unpatched_variants_unchanged` has an odd `assert [c for c in ...]`.
+- M7-11b: no run input carries makedb's `db_id_map.tsv`, so `nterm_extension` pairing comes from the run's gene model and the 80 % pairing guard cannot fire from the pipeline. A real input needs a new `defaults.yaml` key (protected, ADR, Khoa).
