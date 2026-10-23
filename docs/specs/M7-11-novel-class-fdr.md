@@ -144,3 +144,14 @@ def denovo_class_q(orfs: Sequence[Orf], target_hits: pd.DataFrame, decoy_hits: p
 9. **Class disagreement:** when the reconstructed ORF class differs from the entry's tag, the entry
    tag wins, because pairing and the class list follow the makedb entry. The ORF is flagged
    `class_mismatch` (M7-11b column).
+10. **Implementer choices (49811ae3), accepted:**
+    - Decision 2 beats decision 9: an untagged own class stays `untagged_class`.
+    - Locus-tag pairing is used only for `nterm_extension` without a (contig, strand, stop) match.
+    - The paired share counts distinct stripped decoy IDs.
+    - The picked score uses only non-de-novo target peptides.
+    - A de novo target's class is its ORF's class.
+    - Decoys are counted once per (peptide, class) at the minimum E.
+    - `regime()` of mixed ORFs returns the first of picked / de novo / unestimated.
+    - `stats.tda.picked_fdr_rescaled` now holds the ADR-0009 rule, and M4-12 `_picked_q` uses it
+      (same arithmetic). A paired share of 0 now raises instead of giving NaN.
+    - M7-11b step tests pin decisions 7–9.
