@@ -53,9 +53,11 @@ def annotate_sites(sites: pd.DataFrame, rates: Sequence[ClassRate]) -> pd.DataFr
    (and VCF `CLASS_ERR`), the rate of its class; `n = 0` or no reference table → `unestimated`.
    Frameshift rows: their own class `(frameshift, false)`.
 5. **What the rate means** (methods note): when the sample truly carries a variant, the reference
-   search (against a database without it) disagrees with a *correct* de novo read, so the rate is an
-   upper bound on the error rate in strain-difference runs. The note says so; the gate (M7-13)
-   measures the bias on simulations with planted variants.
+   search (against a database without it) disagrees with a *correct* de novo read, which inflates
+   the rate. Reference false matches and the confident-spectrum selection push the other way, so the
+   rate estimates the de novo error share *on confidently identified spectra*; it is **not** an upper
+   bound in general (statistician, methods note §"Class error rates"). The gate (M7-13) measures the
+   bias on simulations with planted variants.
 
 ## Degenerate cases
 
@@ -127,3 +129,10 @@ def annotate_sites(sites: pd.DataFrame, rates: Sequence[ClassRate]) -> pd.DataFr
    test_nf_variants_registry.py `TAKE`.
 7. **Calibration scenario:** build from giapsim pieces now and switch to M7-12 `variant_f1` after
    #225 merges (backlog). The planted arm is diagnostic only.
+8. **Statistician BLOCK on #239 (d8e40d28):**
+   - B1 (implementer): `paired_observations` counts one observation per `(run, spectrum_id, peptide)`.
+     De novo rows repeated over charges must not count twice
+     (`test_duplicate_charge_rows_count_once`).
+   - B2 (test-author): the planted-variant arm becomes diagnostic and gated; it records the bias and
+     does not assert a bound. The reference-proteome arm moves to M7-13 (backlog).
+   - B3 (lead): rule 5 is reworded above, so it no longer claims an upper bound.

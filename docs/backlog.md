@@ -700,3 +700,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 
 ### M7-10 follow-ups
 - Switch the class-error calibration to the M7-12 `variant_f1` scenario once #225 merges (decision 7).
+- M7-13: class error rate reference-proteome arm (moved from M7-10 #239 B2); also consider a run flag when every class rate is 1 (statistician #239).
