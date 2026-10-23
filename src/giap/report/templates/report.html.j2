@@ -6,6 +6,9 @@
 <style>
 {% include "report.css" %}
 </style>
+{% if plotlyjs %}
+<script>{{ plotlyjs }}</script>
+{% endif %}
 </head>
 <body>
 <h1>GIAP report</h1>
@@ -35,7 +38,14 @@
 <div class="plot" data-plot="{{ p.pid }}">
 {% for i in p.instances %}
 <figure>
-{% if i.svg is not none %}
+{% if i.twin %}
+{% include "plotly_block.html.j2" %}
+{% endif %}
+{% if i.svg is not none and i.twin %}
+<details><summary>static figure</summary>
+{{ i.svg }}
+</details>
+{% elif i.svg is not none %}
 {{ i.svg }}
 {% endif %}
 <figcaption class="links">{{ i.stem }}{% for label, href in i.links %} <a href="{{ href }}">{{ label }}</a>{% endfor %}</figcaption>
@@ -53,6 +63,7 @@
 <p class="note">{{ t.name }}: not produced in this run.</p>
 {% else %}
 <h3>{{ t.name }} (first {{ t.rows | length }} rows; <a href="{{ t.href }}">full table</a>)</h3>
+<input type="search" data-filter="{{ t.key }}" placeholder="filter rows" aria-label="filter {{ t.name }}">
 <div class="table-wrap">
 <table data-table="{{ t.key }}">
 <thead><tr>{% for h in t.header %}<th>{{ h }}</th>{% endfor %}</tr></thead>
@@ -81,5 +92,11 @@
 {% endif %}
 </section>
 {% endfor %}
+{% if plotlyjs %}
+<footer><p>Interactive figures use plotly.js {{ plotly_version }} (MIT licence, Copyright Plotly, Inc.), inlined in this page.</p></footer>
+{% endif %}
+<script>
+{% include "tables.js" %}
+</script>
 </body>
 </html>

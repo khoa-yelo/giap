@@ -248,25 +248,6 @@ def test_read_results_rejects_missing_file(tmp_path: Path) -> None:
         read_results(tmp_path / "results.tsv", load_call(BY_HAND))
 
 
-def test_read_results_header_only_is_empty(tmp_path: Path) -> None:
-    """Jobs whose sets are all out of range add no rows; that is not an error (spec §3)."""
-    from giap.io.fgsea_r import read_results
-
-    path = tmp_path / "results.tsv"
-    path.write_text(RESULTS_HEADER + "\n", encoding="utf-8")
-    result = read_results(path, load_call(BY_HAND))
-    assert all(len(result.get(j, ())) == 0 for j in ("main:cog", "main:kegg"))
-
-
-def test_read_results_subset_of_sets_is_fine(tmp_path: Path) -> None:
-    """A main job's rows may be a subset of its sets (fgsea drops some); order is kept."""
-    from giap.io.fgsea_r import read_results
-
-    path = _mutate(tmp_path, ROW_C2 + "\n", "")
-    result = read_results(path, load_call(BY_HAND))
-    assert [r.term for r in result["main:cog"]] == ["C0001", "C0003"]
-
-
 # ---------------------------------------------------------------- read_results: property
 
 

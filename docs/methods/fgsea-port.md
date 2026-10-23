@@ -1,7 +1,16 @@
-# fgsea port (G15; GIAP_SPEC.md §7.7.4)
+# fgsea port (G15; GIAP_SPEC.md §7.7.4) — superseded by ADR-0038
 
-GIAP's preranked GSEA is a Python/numba port of **fgsea 1.36.2** (MIT, © 2016-2019 Alexey
-Sergushichev; licence text in NOTICE.md), the version the golden environment runs (M8-12).
+> **Superseded.** Since M8-17b, `enrichment_gsea.tsv` comes from R fgsea 1.36.2
+> (`fgsea::fgseaMultilevel`), run as a separate process (ADR-0038; docs/methods/function-gsea.md).
+> The port below no longer produces any pipeline output. This note is kept as the history of
+> M8-02 and as a reference: its function map names the fgsea 1.36.2 source behind each column of
+> the recorded R calls that `ReplayEngine` replays (tests/helpers/fgsea_switch_data.py), and it
+> documents `SIMPLE_ENGINE`, the in-process stand-in that unit tests inject in place of R. The hardening pass removes `giap.stats.fgsea` and its
+> kernels unless Khoa keeps a no-R fallback (ADR-0038 item 6). Its 1/(1 + modeFraction) floor and
+> the evidence below describe the port only, not the shipped engine.
+
+GIAP's former preranked GSEA engine is a Python/numba port of **fgsea 1.36.2** (MIT, © 2016-2019
+Alexey Sergushichev; licence text in NOTICE.md), the version the golden environment runs (M8-12).
 
 ## Source
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Fail if any file under src/ mentions ``Rscript`` (M8-12 licence boundary; GIAP_SPEC.md R5).
 
-R, fgsea, goseq and BiasedUrn live only in the conda env giap-golden-r; GIAP never shells out
-to R. Every file is scanned, not only ``*.py``.  Usage: check_no_rscript.py [ROOT] (default src).
+goseq and BiasedUrn live only in the conda env giap-golden-r; R fgsea runs in giap-fgsea, and
+src/ starts R only through workflow/bin/giap_fgsea.R (ADR-0038). Every file is scanned, not only
+``*.py``.  Usage: check_no_rscript.py [ROOT] (default src).
 """
 
 from __future__ import annotations

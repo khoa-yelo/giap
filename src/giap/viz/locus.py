@@ -24,9 +24,10 @@ import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.cm import ScalarMappable
-from matplotlib.colors import Normalize
+from matplotlib.colors import Normalize, to_rgba
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch, Polygon
+from matplotlib.ticker import FuncFormatter
 
 from giap.viz import base, style
 
@@ -44,6 +45,11 @@ UNDETECTED = "#BBBBBB"
 UNESTIMATED = style.DETECTION["unestimated"]
 PROMOTER = style.OKABE_ITO["bluish_green"]
 TERMINATOR = style.OKABE_ITO["vermillion"]
+NOVEL_ORF = style.OKABE_ITO["reddish_purple"]
+ORF_Y = 1.7  # the novel ORF arrow's centre line: its own band above gene labels and marks (V13)
+ORF_TOP = 2.2  # the genes axes' top with a novel ORF band
+ORF_EXTRA_IN = 0.7  # extra figure height for the band and the key
+ORF_KEY = "novel ORF; tick: OSTIR start; purple pileup: its peptides"
 IMPUTED_HATCH = "xxx"
 COLUMNS = ("track", "id", "contig", "start", "end", "strand", "value", "category")
 INDEX_COLUMNS = ("rank", "locus_id", "kind", "contig", "start", "end", "error", "rendered")
@@ -64,6 +70,21 @@ class Locus:
     end0: int
     error: float | None
     label: str
+
+
+@dataclass(frozen=True)
+class OrfMark:
+    """V13's novel ORF on top of a ``Locus(kind="novel_orf")``: its strand, the
+    ``start_best_ostir`` tick in the window frame (``None`` = no tick) and its peptides."""
+
+    strand: str
+    tick: int | None = None
+    peptides: frozenset[str] = frozenset()
+
+
+def wrapped_formatter(length: int) -> FuncFormatter:
+    """Tick labels of an unwrapped circular window: ``x mod length``, never negative."""
+    return FuncFormatter(lambda x, _pos: f"{round(x) % length:,}")
 
 
 def _num(v: object) -> float | None:
@@ -230,13 +251,29 @@ def run_scale(genes: pd.DataFrame | None) -> tuple[float, float]:
     return (lo, hi) if hi > lo else (lo - 0.5, lo + 0.5)
 
 
-def _arrow(s: int, e: int, strand: str, head: float) -> np.ndarray:
+def _arrow(s: int, e: int, strand: str, head: float, y0: float = 0.0) -> np.ndarray:
     h, y = min(head, e - s), 0.25
     if strand == "-":
         pts = [(s, 0), (s + h, y), (e, y), (e, -y), (s + h, -y)]
     else:
         pts = [(s, y), (e - h, y), (e, 0), (e - h, -y), (s, -y)]
-    return np.asarray(pts, dtype=float)
+    return np.asarray([(x, v + y0) for x, v in pts], dtype=float)
+
+
+def _draw_orf(ax: Axes, pile: Axes, locus: Locus, orf: OrfMark, hits: list[tuple[Any, int, int]],
+              head: float) -> list[object]:  # fmt: skip
+    """The novel ORF arrow in its own band above the gene arrows, their labels and the ``+``
+    marks (decision 11), its OSTIR start tick and its peptides' pileup."""
+    s, e = locus.start0, locus.end0
+    ax.add_patch(Polygon(_arrow(s, e, orf.strand, head, ORF_Y), closed=True, edgecolor=NOVEL_ORF,
+                         facecolor=to_rgba(NOVEL_ORF, 0.35), linewidth=1.0,
+                         zorder=3))  # fmt: skip
+    if orf.tick is not None:
+        ax.plot([orf.tick, orf.tick], [ORF_Y - 0.3, ORF_Y + 0.3], color=NOVEL_ORF, lw=1.0)
+    mine = [h for h in hits if str(h[0].peptide) in orf.peptides]
+    for ps, pe, d in _pileup_runs(mine):
+        pile.fill_between([ps, pe], 0, d, color=NOVEL_ORF, linewidth=0, zorder=3)
+    return ["novel_orf", locus.locus_id, locus.contig, s, e, orf.strand, None, None]
 
 
 def _draw_genes(ax: Axes, rows: list[tuple[Any, int, int]], scale: tuple[float, float],
@@ -309,9 +346,14 @@ def _bed(view: RunView, key: str) -> pd.DataFrame:
 
 
 def render_locus(
-    locus: Locus, view: RunView, cfg: GiapConfig, scale: tuple[float, float]
+    locus: Locus,
+    view: RunView,
+    cfg: GiapConfig,
+    scale: tuple[float, float],
+    orf: OrfMark | None = None,
 ) -> base.Instance:
-    """One V3 instance: the locus window drawn on a fresh ``Figure``; data rows 0-based."""
+    """One V3 instance: the locus window drawn on a fresh ``Figure``; data rows 0-based.
+    ``orf`` (V13) adds the novel ORF track."""
     length, circular = _replicon(view, locus.contig)
     window = _window(locus, length, circular)
     width = float(window[1] - window[0])
@@ -322,9 +364,10 @@ def render_locus(
     size: Literal["single", "double"] = "single" if width <= SINGLE_MAX_BP else "double"
     chars = int((style.SINGLE_IN if size == "single" else style.DOUBLE_IN) * 72 / (0.6 * 7))
     title = "\n".join(textwrap.fill(c, chars) for c in locus.label.split("; "))
-    fig = style.new_figure(size, HEIGHT_IN + 0.12 * (title.count("\n") + 1) + 0.45,
+    extra = 0.0 if orf is None else ORF_EXTRA_IN
+    fig = style.new_figure(size, HEIGHT_IN + extra + 0.12 * (title.count("\n") + 1) + 0.45,
                            layout="constrained")  # fmt: skip
-    gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 1.8])
+    gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 1.8 if orf is None else 2.6])
     pile = fig.add_subplot(gs[0], label="pileup")
     ax = fig.add_subplot(gs[1], label="genes", sharex=pile)
     rows: list[list[object]] = []
@@ -340,7 +383,10 @@ def render_locus(
         rows.append(["island", str(r.island_id), str(r.contig), s, e, None,
                      _num(r.mean_abundance_log2), str(r.direction)])  # fmt: skip
     rows += _draw_genes(ax, near("genes_tsv"), scale, 0.015 * width)
-    pile_runs = _pileup_runs(near("peptide_hits"))
+    hits = near("peptide_hits")
+    if orf is not None:
+        rows.append(_draw_orf(ax, pile, locus, orf, hits, 0.015 * width))
+    pile_runs = _pileup_runs(hits)
     rows += [["pileup", None, locus.contig, s, e, None, float(d), None] for s, e, d in pile_runs]
     if pile_runs:
         edges = sorted({p for s, e, _ in pile_runs for p in (s, e)})
@@ -357,14 +403,17 @@ def render_locus(
         for k in range(math.floor(window[0] / length), math.floor(window[1] / length) + 1):
             if window[0] < k * length < window[1]:
                 ax.axvline(k * length, color=style.OKABE_ITO["black"], ls="--", lw=0.6)
+        ax.xaxis.set_major_formatter(wrapped_formatter(length))
     ax.set_xlim(*window)
-    ax.set_ylim(-1.0, 1.0)
+    ax.set_ylim(-1.0, 1.0 if orf is None else ORF_TOP)
     ax.set_yticks([])
     ax.set_xlabel(f"{locus.contig} position (bp)")
     pile.set_ylabel("peptides")
     pile.tick_params(labelbottom=False)
     fig.suptitle(title, fontsize=7)
     _colour_key(fig, [pile, ax], scale)
+    if orf is not None:
+        _orf_key(pile)
     data = pd.DataFrame(rows, columns=list(COLUMNS)) if rows else _empty(COLUMNS)
     data = data.astype({"start": "int64", "end": "int64", "value": float})
     return base.Instance(locus.locus_id, fig, data, locus.label, ("start",))
@@ -386,6 +435,14 @@ def _colour_key(fig: Figure, axes: list[Axes], scale: tuple[float, float]) -> No
               label="single peptide, unestimated"),
     ]  # fmt: skip
     fig.legend(handles=swatches, loc="outside lower center", ncols=3, fontsize=6, frameon=False)
+
+
+def _orf_key(pile: Axes) -> None:
+    """The one-entry novel ORF key (V13 decision 13; the BGC shading shares its colour), just
+    above the pileup axes so the constrained layout makes room for it under the title."""
+    handle = Patch(facecolor=to_rgba(NOVEL_ORF, 0.35), edgecolor=NOVEL_ORF, lw=1.0, label=ORF_KEY)
+    pile.legend(handles=[handle], loc="lower center", bbox_to_anchor=(0.5, 1.0), fontsize=6,
+                frameon=False, borderaxespad=0.2)  # fmt: skip
 
 
 def _empty(columns: Iterable[str]) -> pd.DataFrame:
