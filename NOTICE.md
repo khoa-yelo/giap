@@ -30,6 +30,12 @@ Contaminant library: the universal protein contaminant FASTA of Frankenfield et 
 file found in the repository (checked 2026-10-15), so it is downloaded by `giap setup --contaminants` and
 never vendored (R11).
 
+## Inlined in the report
+
+| Code | Licence | Notes |
+|---|---|---|
+| plotly.js | MIT | 4.1.1 (from the plotly 7.1.0 Python package); inlined once in `report.html` when interactive figures are shown; the page footer names it |
+
 ## Ported code
 
 | Source | Licence | Notes |

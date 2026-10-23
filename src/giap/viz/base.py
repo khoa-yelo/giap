@@ -169,7 +169,13 @@ def binned(
         return None
     if length < 1:
         raise ValueError(f"replicon length {length} < 1")
-    n = min(max_elements, length)
+    return bin_edges(length, min(max_elements, length))
+
+
+def bin_edges(length: int, n: int) -> np.ndarray:
+    """The ``n + 1`` integer edges (``int64``) of ``n`` near-equal bins over ``[0, length)``;
+    ``n`` is capped to ``[1, length]`` so every bin is at least 1 bp."""
+    n = max(1, min(n, length))
     return (np.arange(n + 1, dtype=np.int64) * np.int64(length)) // np.int64(n)
 
 

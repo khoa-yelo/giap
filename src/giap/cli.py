@@ -1,9 +1,9 @@
 """``giap`` command line (GIAP_SPEC.md §5.1).
 
 Every subcommand resolves the configuration first (an unknown key is exit code 1). ``preflight``
-(M1-12), ``_step``, ``run --executor local`` (M2-02), ``run`` through Nextflow (M2-07) and
-``report`` (M9-02) are implemented; the other commands report that they are not implemented
-yet (exit code 5).
+(M1-12), ``_step``, ``run --executor local`` (M2-02), ``run`` through Nextflow (M2-07),
+``report`` (M9-02) and ``compare`` (M9-22) are implemented; an engine ``convert`` does not support
+yet is exit code 5.
 """
 
 from __future__ import annotations
@@ -83,11 +83,6 @@ def _resolve(
     except ValueError as exc:
         click.echo(f"giap: invalid configuration: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
-
-
-def _not_implemented(command: str, milestone: str) -> None:
-    click.echo(f"giap {command}: not implemented (milestone {milestone})", err=True)
-    sys.exit(ExitCode.INTERNAL)
 
 
 class _Cli(click.Group):
@@ -727,10 +722,46 @@ def convert(
 @click.option("--outdir", type=_out_path, required=True, help="Comparison output directory.")
 @click.option("--labels", help="Comma-separated run labels.")
 @shared_options
-def compare(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_: Any) -> None:
-    """Compare runs on the same genome."""
-    _resolve(config_file, sets, log_level)
-    _not_implemented("compare", "M9")
+def compare(
+    config_file: Path | None,
+    sets: tuple[str, ...],
+    log_level: str,
+    runs: tuple[Path, ...],
+    outdir: Path,
+    labels: str | None,
+    **_: Any,
+) -> None:
+    """Compare runs on the same genome (writes CMP/tables/compare_*.tsv)."""
+    import pandas as pd
+
+    from giap.compare.abundance import abundance_pairs
+    from giap.compare.detection import detection_matrix, intersections
+    from giap.compare.stability import stability
+    from giap.io.compare_io import CompareInputError, load_runs, write_tables
+    from giap.rng import for_step
+
+    cfg = _resolve(config_file, sets, log_level)
+    try:
+        loaded = load_runs(list(runs), labels)
+    except CompareInputError as exc:
+        click.echo(f"giap compare: {exc}", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
+    labs, genes = loaded.labels, loaded.genes
+    matrix = detection_matrix(genes)
+    rng = for_step("compare", cfg.seed)
+    pairs = []
+    for i, la in enumerate(labs):  # decision 7: the TUs of the pair's first run
+        tus = pd.Series(genes[la]["tu_id"].to_numpy(), index=genes[la]["locus_tag"].to_numpy())
+        for lb in labs[i + 1 :]:
+            pairs.append(abundance_pairs({la: genes[la], lb: genes[lb]}, tus,
+                                         cfg.stats.bootstrap, rng))  # fmt: skip
+    tables = {
+        "compare_detection": pd.concat([matrix, intersections(matrix, labs)], ignore_index=True),
+        "compare_abundance": pd.concat(pairs, ignore_index=True),
+        "compare_stability": stability(loaded.views, labs, cfg),
+    }
+    for path in write_tables(outdir, tables):
+        click.echo(str(path))
 
 
 # ---------------------------------------------------------------- report
@@ -740,6 +771,7 @@ def compare(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_
 @click.argument("out", type=_existing_dir)
 @click.option("--no-interactive", is_flag=True, help="Static report only.")
 @click.option("--plots", help="Comma-separated plot IDs (V01,V02,...).")
+@click.option("--strict", is_flag=True, help="Exit 3 when the report exceeds its size budget.")
 @shared_options
 def report(
     config_file: Path | None,
@@ -748,6 +780,7 @@ def report(
     out: Path,
     no_interactive: bool,
     plots: str | None,
+    strict: bool,
     **_: Any,
 ) -> None:
     """Rebuild plots and report from existing tables."""
@@ -776,10 +809,13 @@ def report(
         click.echo(f"giap report: {exc}", err=True)
         sys.exit(ExitCode.STEP_FAILED)
     try:
-        click.echo(str(P.write_report(view, out / "plots", out / "report", cfg)))
+        page = P.write_report(view, out / "plots", out / "report", cfg)
     except Exception as exc:  # unreadable tables are notes; anything else is exit 4 (B5)
         click.echo(f"giap report: {type(exc).__name__}: {exc}", err=True)
         sys.exit(ExitCode.STEP_FAILED)
+    click.echo(str(page))
+    if strict and page.stat().st_size > P.REPORT_BUDGET:  # report.size_exceeded (M9-14)
+        sys.exit(ExitCode.WARNINGS_STRICT)
 
 
 # ---------------------------------------------------------------- hidden
