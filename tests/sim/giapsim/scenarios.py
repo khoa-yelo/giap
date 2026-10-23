@@ -36,6 +36,10 @@ from giapsim.operons import OperonConfig, OperonSim, simulate_operons
 
 __all__ = [
     "ABUNDANCE_BETA",
+    "ATTACK_BETA",
+    "ATTACK_BLOCK_FRAC",
+    "ATTACK_DETECT_B4",
+    "ATTACK_DETECT_OFFSET",
     "BLOCK_DETECT_SHIFT",
     "OPERON_BETA",
     "OPERON_P_SAME_STRAND",
@@ -157,8 +161,21 @@ OPERON_BETA: Mapping[str, float] = FrozenMap({**DEFAULT_BETA, "intercept": _OPER
 OPERON_P_SAME_STRAND = 0.5
 
 
-#: Detection logit shift on the ``operon_attack_detection`` block (short and hydrophobic genes).
-BLOCK_DETECT_SHIFT = -1.5
+#: ``operon_attack_detection`` detection (lead decision 10): logit = the merged covariate logit at
+#: the operon intercept + ``ATTACK_DETECT_B4`` x (final abundance - 20) + ``ATTACK_DETECT_OFFSET``,
+#: plus ``BLOCK_DETECT_SHIFT`` on the block. Detection is then mostly a soft threshold on the
+#: abundance: ~94 % detected outside the block, ~49 % inside (>= 25 % of block pairs both detected).
+ATTACK_DETECT_B4 = 2.0
+ATTACK_DETECT_OFFSET = 7.0
+#: Logit shift on the short, hydrophobic block (= -3 log2 of abundance at slope 2).
+BLOCK_DETECT_SHIFT = -6.0
+ATTACK_BETA: Mapping[str, float] = FrozenMap(
+    {**DEFAULT_BETA, "log2_abundance": ATTACK_DETECT_B4,
+     "intercept": _OPERON_INTERCEPT + ATTACK_DETECT_OFFSET - 20.0 * ATTACK_DETECT_B4}
+)  # fmt: skip
+#: Share of the chromosome's genes in the ``operon_attack_detection`` block: the within-bin excess
+#: lives only in the block's pairs, so a 40-gene block cannot move a 1,800-gene CMH z (R = 20).
+ATTACK_BLOCK_FRAC = 1.0 / 3.0
 
 
 def _regions(n_genes: int) -> tuple[RegionSpec, ...]:
@@ -188,11 +205,22 @@ def operon_null(n_genes: int, *, rho: float = 0.0) -> Pair:
     return _lcfg(n_genes, uniop_pure=True), _operon_cfg(rho)
 
 
+def _plant(cfgs: Pair, n_planted: int, effect_sd: float) -> Pair:
+    """``cfgs`` with ``n_planted`` co-abundant NO pairs (the ``missed_operon_power`` mechanism)."""
+    if n_planted == 0 and effect_sd == 0.0:
+        return cfgs
+    lcfg, ecfg = cfgs
+    assert isinstance(ecfg, OperonConfig)
+    return lcfg, replace(ecfg, n_missed=n_planted, missed_effect_sd=effect_sd)
+
+
 def missed_operon_power(n_genes: int, n_planted: int, effect_sd: float) -> Pair:
     """``n_planted`` true NO pairs (UniOP false negatives) with ``|Delta| ~ effect_sd`` x the
-    background NO SD; UniOP keeps its own errors (default Beta classes). A ``ValueError`` from
-    ``simulate_operons`` when fewer NO pairs exist. The M6-09 suite needs >= 1,000 genes."""
-    lcfg = _lcfg(n_genes)
+    background NO SD; UniOP keeps its own errors (default Beta classes) and convergent TU
+    boundaries get 10-150 bp gaps, so CV decoys reach the < 50 bp bin (lead decision 11). A
+    ``ValueError`` from ``simulate_operons`` when fewer NO pairs exist. The M6-09 suite needs
+    >= 1,000 genes."""
+    lcfg = _lcfg(n_genes, short_convergent_gaps=True)
     return lcfg, _operon_cfg(n_missed=n_planted, missed_effect_sd=effect_sd)
 
 
@@ -205,23 +233,36 @@ def discordance_power(n_genes: int, n_planted: int, effect_log2: float) -> Pair:
     return lcfg, _operon_cfg(n_discordant=n_planted, discordant_effect_log2=effect_log2)
 
 
-def operon_attack_ar1(n_genes: int, rho: float) -> Pair:
+def operon_attack_ar1(
+    n_genes: int, rho: float, *, n_planted: int = 0, effect_sd: float = 0.0
+) -> Pair:
     """Attack 1 (§8.5): ``operon_null(n_genes, rho=rho)`` (lead decision 7), TU abundance AR(1)
-    along the chromosome and nothing planted: neighbours look alike by position, which the
-    distance-reweighted decoys must absorb. ``rho = 0`` is ``operon_null``; the suite needs >= 1,000
-    genes."""
-    return operon_null(n_genes, rho=rho)
+    along the chromosome: neighbours look alike by position, which the distance-reweighted decoys
+    must absorb. ``rho = 0`` is ``operon_null``. ``n_planted`` / ``effect_sd`` (default nothing)
+    plant co-abundant NO pairs as ``missed_operon_power`` does (lead decision 13), so the FDR gate
+    has calls. The suite needs >= 1,000 genes."""
+    return _plant(operon_null(n_genes, rho=rho), n_planted, effect_sd)
 
 
-def operon_attack_detection(n_genes: int, short_genes_in: str) -> Pair:
-    """Detection-distance confounding (ADR-0018): genes of the ``short_genes_in`` region block are
-    drawn short (lower detection through length and peptide count) with intra-TU gaps, so the
-    distance bins of the decoy reweighting and the detection filter interact. UniOP keeps its own
-    errors. Hydrophobicity is carried by the logit shift ``BLOCK_DETECT_SHIFT`` on the block's
-    genes (GRAVY + 2.5 at the merged coefficient -0.6) rather than by a second amino-acid
-    composition, so the detected share in the block is well under half the rest. The suite needs
-    >= 1,000 genes (the block is the default region's size)."""
-    lcfg = _lcfg(n_genes, short_genes_in=short_genes_in,
-                 short_gaps_in=short_genes_in)  # fmt: skip
+def operon_attack_detection(
+    n_genes: int, short_genes_in: str, *, n_planted: int = 0, effect_sd: float = 0.0
+) -> Pair:
+    """Detection-distance confounding (ADR-0018; lead decisions 10, 11): the ``short_genes_in``
+    block (a third of the chromosome, ``ATTACK_BLOCK_FRAC``) has short genes and intra-TU gaps
+    between all of them; detection depends on the final (post-walk, post-planting) abundance
+    (``ATTACK_BETA``) with the block shift ``BLOCK_DETECT_SHIFT`` standing in for hydrophobicity;
+    convergent TU boundaries get 10-150 bp gaps. The both-detected filter keeps only the block's
+    high-abundance genes, so its NO pairs (the targets of the < 50 bp bins) have smaller |Delta|
+    than the CV decoys from outside the block sharing those bins: the attack on the decoy
+    distance reweighting. UniOP keeps its own errors. ``n_planted`` / ``effect_sd`` plant as
+    ``missed_operon_power`` does (lead decision 13). The suite needs >= 1,000 genes."""
+    k = int(n_genes * ATTACK_BLOCK_FRAC)
+    regions = tuple(replace(r, n_genes=max(r.n_genes, k)) if r.region_type == short_genes_in
+                    else r for r in _regions(n_genes))  # fmt: skip
+    lcfg = LayoutConfig(n_genes_chromosome=n_genes, p_same_strand=OPERON_P_SAME_STRAND,
+                        regions=regions, short_genes_in=short_genes_in,
+                        short_gaps_in=short_genes_in, short_convergent_gaps=True)  # fmt: skip
     shift = FrozenMap({short_genes_in: BLOCK_DETECT_SHIFT})
-    return lcfg, _operon_cfg(region_detect_shift=shift)
+    ecfg = OperonConfig(ar1_rho=0.0, position_decay_log2=0.0, beta=ATTACK_BETA, operon_t=OPERON_T,
+                        detection="abundance", region_detect_shift=shift)  # fmt: skip
+    return _plant((lcfg, ecfg), n_planted, effect_sd)

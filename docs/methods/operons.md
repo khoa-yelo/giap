@@ -426,7 +426,8 @@ The operon generators live in `tests/sim/giapsim/scenarios.py` (configs) and
 pair table the simulator can know and the truth files `truth/pairs.tsv`, `missed_operons.tsv`,
 `discordant_pairs.tsv`, `operon_t.tsv`, declared in `giapsim.contract_tables.OPERON_TRUTH_TYPES`).
 Common to all: half the TU boundaries flip strand (`p_same_strand = 0.5`, so CV, DV and SW decoys
-are frequent), no position decay, ~80 % of genes detected (`covariates_only`, intercept −7.3), and
+are frequent), no position decay, ~80 % of genes detected (`covariates_only`, intercept −7.3; the
+detection attack is the exception), and
 the within-TU increment Δ = −0.3 + 0.5 · t₅ (the methods-note simulation, Slurm 1864589): each TU's
 first gene keeps the merged TU + stoichiometry + noise model and each later gene adds one t draw.
 A promoter sits upstream of every TU and a terminator after it; nothing inside a TU unless planted.
@@ -436,10 +437,15 @@ genes detected).
 | Scenario | What it plants | What it is built to break |
 |---|---|---|
 | `operon_null(n, rho=0)` | nothing; pure UniOP classes (true OP p ≥ 0.5, true NO p < 0.5) | level: the discordance t fit and the missed-operon decoy FDR must hold their α |
-| `missed_operon_power(n, k, s)` | k true NO pairs (UniOP false negatives) with Δ ~ s · SD(NO Δ) · N(0, 1); UniOP keeps its own Beta errors | power of the missed-operon step |
+| `missed_operon_power(n, k, s)` | k true NO pairs (UniOP false negatives) with Δ ~ s · SD(NO Δ) · N(0, 1); UniOP keeps its own Beta errors; convergent TU boundaries 10–150 bp | power of the missed-operon step |
 | `discordance_power(n, k, e)` | ceil(k/2) OP pairs +e over an internal promoter, floor(k/2) −e over an internal terminator | power of discordance and the §7.4.5 flag rows 1–2 |
-| `operon_attack_ar1(n, rho)` | = `operon_null(n, rho=rho)`: TU abundance AR(1) along the chromosome | decoys that ignore position: neighbours look alike without co-transcription |
-| `operon_attack_detection(n, type)` | the `type` block's genes short (length × 0.3), intra-TU gaps between all of them, and a detection logit shift −1.5 standing in for hydrophobicity | detection and distance confounded: the decoy distance reweighting and the detection filter act on targets and decoys at different rates |
+| `operon_attack_ar1(n, rho, *, n_planted=0, effect_sd=0)` | = `operon_null(n, rho=rho)`: TU abundance AR(1) along the chromosome; optionally planted pairs as `missed_operon_power` | decoys that ignore position: neighbours look alike without co-transcription |
+| `operon_attack_detection(n, type, *, n_planted=0, effect_sd=0)` | the `type` block (a third of the chromosome) has short genes (length × 0.3) and intra-TU gaps between all of them; detection depends on the final (post-walk) abundance, logit = covariates + 2 · (log2 abundance − 20) + 7 (≈ 94 % detected outside the block) and −6 on the block (≈ 49 % inside, ≈ 30 % of block pairs both detected); convergent TU boundaries 10–150 bp; optionally planted pairs as `missed_operon_power` | detection and distance confounded (ADR-0018): the both-detected filter keeps only the block's high-abundance genes, so its NO pairs, the targets of the < 50 bp bins, have smaller \|Δ\| than the CV decoys from outside the block that share those bins |
+
+Decoy geometry: with the merged gaps no decoy pair is closer than 50 bp and SW decoys are ≥ 100 bp
+apart. The opt-in `LayoutConfig.short_convergent_gaps` (on in `missed_operon_power` and the
+detection attack; `convergent_gap_bp = (10, 150)`) draws every convergent TU-boundary gap uniformly
+from 10–150 bp, so CV decoys reach the < 50 bp bin; off, the layouts are byte-identical to before.
 
 Generator checks (tests/calibration/test_sim_operon_calibration.py, R = 20, seed streams
 `m6_03_<scenario>`): null NO-vs-decoy small-|Δ| excess 0.003 (z = 0.58); power excess 0.108

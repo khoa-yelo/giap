@@ -17,11 +17,15 @@ is exactly that t. Planted pairs change that increment:
   planted internal promoter (``+``, ``downstream_higher``), floor(n/2) with an internal terminator
   (``-``, ``upstream_higher``; lead decision 9).
 
-Planted pairs are drawn with both genes detected first (detection is ``covariates_only``, hence
-independent of abundance), then from the rest. True elements (§11.3): a promoter upstream of every
-TU start and a terminator after every TU end, and nothing inside a TU unless planted (lead decision
-1). Randomness: ``SeedSequence(seed).spawn(3)`` (layout, expression, operon planting), so a plain
-``ExpressionConfig`` gives the merged expression model unchanged. Nothing is imported from ``giap``.
+Planted pairs are drawn with both genes detected first, then from the rest. With ``detection =
+"abundance"`` (lead decision 10) the detection drawn by ``simulate_expression`` is provisional (it
+picks the planted pairs and the background SD); after the walk and the planting the logit is
+recomputed on the final ``abundance_log2_true`` and ``detected_true`` is redrawn from the operon
+stream, so detection selects on the abundance the pairs compare. True elements (§11.3): a promoter
+upstream of every TU start and a terminator after every TU end, and nothing inside a TU unless
+planted (lead decision 1). Randomness: ``SeedSequence(seed).spawn(3)`` (layout, expression, operon
+planting), so a plain ``ExpressionConfig`` gives the merged expression model unchanged. Nothing is
+imported from ``giap``.
 """
 
 from __future__ import annotations
@@ -34,7 +38,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from giapsim.expression import Expression, ExpressionConfig, simulate_expression
+from giapsim.expression import (
+    Expression,
+    ExpressionConfig,
+    detection_terms,
+    simulate_expression,
+)
 from giapsim.layout import Layout, LayoutConfig, simulate_layout
 
 __all__ = ["OperonConfig", "OperonSim", "simulate_operons"]
@@ -59,8 +68,6 @@ class OperonConfig(ExpressionConfig):
             object.__setattr__(self, "operon_t", tuple(float(v) for v in self.operon_t))
             if self.operon_t[1] <= 0 or self.operon_t[2] <= 0:
                 raise ValueError(f"operon_t scale and df must be > 0, got {self.operon_t}")
-            if self.detection != "covariates_only":
-                raise ValueError("operon_t needs detection = 'covariates_only'")
         if min(self.n_missed, self.n_discordant) < 0 or self.missed_effect_sd < 0:
             raise ValueError("planted counts and missed_effect_sd must be >= 0")
 
@@ -235,6 +242,13 @@ def simulate_operons(cfgs: tuple[LayoutConfig, ExpressionConfig], seed: int) -> 
     if ocfg.operon_t is not None or ocfg.n_missed or ocfg.n_discordant:
         genes = genes.copy()
         genes["abundance_log2_true"] = ab
+        if ocfg.detection == "abundance":  # lead decision 10: detect on the final abundance
+            logit, shift, _, _ = detection_terms(layout, ocfg)
+            logit += ocfg.beta["log2_abundance"] * ab
+            logit += shift
+            genes["p_detect_true"] = 1.0 / (1.0 + np.exp(-logit))
+            det = r_op.random(n) < genes["p_detect_true"].to_numpy(float)
+            genes["detected_true"] = det
         expr = Expression(genes, expr.islands)
     p_det = genes["p_detect_true"].to_numpy(float)
     obs = np.where(det, ab, np.nan)

@@ -6,11 +6,13 @@ with ``p_same_strand``), log-normal protein lengths with sORFs and pseudogenes, 
 ``nt``, UniOP-like pair probabilities, region blocks and xrefs. No nucleotide genome is built:
 gene coordinates are synthetic but consistent (span 3·(len_aa + 1) bp; -20...+40 bp between genes
 of a TU, 50-300 bp between TUs). With ``oric_frac`` set, a 232-bp ``oric`` feature (C15, M5-04) is
-centred in the chr1 gap nearest to ``oric_frac * length`` that fits it; placing it draws nothing
-and moves no gene. M6-03 opt-ins (neither draws anything): ``short_gaps_in`` gives every gap inside
-that region type's blocks an intra-TU draw, ``uniop_pure`` reflects UniOP p about 0.5 so the classes
-match the TUs exactly. ``layout_from_simulation`` turns the M0 full simulator output into the same
-frames. Randomness only from the generator passed in; nothing is imported from ``giap``.
+centred in the chr1 gap nearest to ``oric_frac * length`` that fits it; placing it draws nothing and
+moves no gene. M6-03 opt-ins (neither draws anything): ``short_gaps_in`` gives every gap inside that
+region type's blocks an intra-TU draw, ``uniop_pure`` reflects UniOP p about 0.5 so the classes
+match the TUs exactly. A third opt-in, ``short_convergent_gaps``, draws every convergent TU-boundary
+gap from ``convergent_gap_bp`` (default 10-150 bp; one extra draw, only when on).
+``layout_from_simulation`` turns the M0 full simulator output into the same frames. Randomness only
+from the generator passed in; nothing is imported from ``giap``.
 """
 
 from __future__ import annotations
@@ -118,8 +120,16 @@ class LayoutConfig:
     # M6-03: pure UniOP classes (true intra-TU pairs p >= 0.5, the others p < 0.5) by reflecting
     # each drawn p about 0.5; draws nothing extra
     uniop_pure: bool = False
+    # M6-03 (lead decision 11): draw the gap of every convergent (+ then -) TU boundary uniformly
+    # from ``convergent_gap_bp`` (inclusive) instead of the inter-TU range; off draws nothing
+    short_convergent_gaps: bool = False
+    convergent_gap_bp: tuple[int, int] = (10, 150)
 
     def __post_init__(self) -> None:
+        cv = tuple(int(v) for v in self.convergent_gap_bp)
+        if len(cv) != 2 or cv[0] > cv[1]:
+            raise ValueError(f"convergent_gap_bp must be (lo, hi) with lo <= hi, got {cv}")
+        object.__setattr__(self, "convergent_gap_bp", cv)
         for name in ("plasmids", "linear_contigs", "regions", "uniop_beta_in", "uniop_beta_out"):
             object.__setattr__(self, name, tuple(getattr(self, name)))
         comp = self.aa_composition
@@ -549,6 +559,12 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
     span = 3 * (len_aa + 1)
     gap_intra = rng.integers(_INTRA_GAP[0], _INTRA_GAP[1] + 1, size=total)
     gap_inter = rng.integers(_INTER_GAP[0], _INTER_GAP[1] + 1, size=total + len(reps))
+    if cfg.short_convergent_gaps:  # opt-in: the only extra draw, so off is byte-identical
+        cv_lo, cv_hi = cfg.convergent_gap_bp
+        conv = np.array([j > 0 and contig[j - 1] == contig[j] and strand[j - 1] + strand[j] == "+-"
+                         for j in range(total)], dtype=bool)  # fmt: skip
+        gap_inter[:total] = np.where(conv, rng.integers(cv_lo, cv_hi + 1, size=total),
+                                     gap_inter[:total])  # fmt: skip
     start = np.zeros(total, dtype=np.int64)
     end = np.zeros(total, dtype=np.int64)
     lengths: list[int] = []
