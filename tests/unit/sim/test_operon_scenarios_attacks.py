@@ -112,7 +112,8 @@ def test_short_convergent_gaps_off_explicitly_is_the_default_layout() -> None:
 def _digest(*frames: pd.DataFrame) -> str:
     m = hashlib.sha256()
     for f in frames:
-        m.update(f.to_csv(index=False).encode())
+        # 9 significant digits: the last-ulp float noise differs across CPUs (lead decision 20)
+        m.update(f.to_csv(index=False, float_format="%.9g").encode())
     return m.hexdigest()
 
 
@@ -127,11 +128,11 @@ def test_default_layout_is_byte_identical_to_fd3f3a3() -> None:
     "name,args,digest",
     [
         ("operon_null", (600,),
-         "512dcd2b517106e22cb2ab934d440597fefc2c4d4899aa8c490f8ab4971cb85b"),
+         "6af312e99ef72ed5920517156a7245c0a7bf1716e5a4feeb2d9894261158fad6"),
         ("discordance_power", (600, 10, 2.0),
-         "77651d45e9ee67b181e2aa3e5d4ed76f118079fe7cdae381909fb2f411d56c65"),
+         "84d1c4a4cbaeee098b6fb899d49c64bd767d0b8a684429d76c59c9221db70935"),
         ("operon_attack_ar1", (600, 0.9),
-         "b0cc59b6e9b783483543d51e54f58412658ef010ff5f6956824bff6afc3cbd90"),
+         "baf078c879e022522831b1cca029684acbe369931f2110fc9a448a14af7a8c22"),
     ],
 )  # fmt: skip
 def test_scenarios_without_short_gaps_are_byte_identical_to_fd3f3a3(
@@ -139,7 +140,8 @@ def test_scenarios_without_short_gaps_are_byte_identical_to_fd3f3a3(
 ) -> None:
     """Decision 11 "default off so existing scenarios are byte-identical" (and decision 13's
     default ``n_planted = 0`` on ``operon_attack_ar1``): seed 7, layout genes, expression genes and
-    the pair table as CSV, digests taken at fd3f3a3."""
+    the pair table as CSV (floats to 9 significant digits), digests equal at fd3f3a3 and on
+    iron-01 and barley-04 (lead decision 20)."""
     s = sim(name, args, 7)
     assert _digest(s.layout.genes, s.expression.genes, s.pairs) == digest
 

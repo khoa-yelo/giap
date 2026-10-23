@@ -156,3 +156,14 @@ built. The missed-operon generators change as follows, so M6-09's FDR gate can f
     a dependency bump that changes float formatting re-pins them in the same PR.
 19. **Decision 12 cut-off** is one global 25th percentile of |Δ| among the null's both-detected
     true NO pairs (as the tests read it), not per bin.
+
+## Lead decisions on round 2 (2026-10-22, after d5ae874)
+
+20. **CPU-independent golden digests.** The expression floats differ in the last ulp between
+    nodes (barley-04 vs iron-01, Slurm 1869367), at fd3f3a3 as at d5ae874. The digests now hash
+    floats at 9 significant digits; both nodes give the re-pinned values (Slurm 1869378).
+21. **Decision 12 gates in the full tier only.** At R = 20 the expected CMH z is ≈ 1.1 (R = 1,000:
+    z = 7.78, Slurm 1869345), so the fast tier prints z and checks that a sub-50-bp bin holds
+    targets and decoys; z ≥ 2 is asserted at R = 1,000.
+22. The implementer's deviations (block = a third of the chromosome, shift −6 on the logit, slope
+    ≤ 2) are accepted for the statistician's re-check.

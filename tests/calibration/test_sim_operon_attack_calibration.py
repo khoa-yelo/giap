@@ -118,7 +118,9 @@ def test_detection_attack_creates_a_within_bin_small_delta_excess(full: bool) ->
     z, cells = _cmh(R, c)
     short = [r for r in cells[:2] if r[1] and r[3]]
     assert short, cells  # some bin below 50 bp holds targets and decoys
-    assert z >= 2.0, (z, c, cells)
+    print(f"decision 12: R={R} CMH z={z:.2f} cut={c:.3f}")
+    if full:  # R = 20 has expected z ~ 1.1; only the full tier gates (lead decision 21)
+        assert z >= 2.0, (z, c, cells)
 
 
 @pytest.mark.calsuite("missed_operons")
