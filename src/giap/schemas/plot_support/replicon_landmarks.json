@@ -1,0 +1,14 @@
+{
+  "name": "replicon_landmarks",
+  "description": "Plot support table (ADR-0043): oriC and terminus of every replicon, for V1 and V2 (GIAP_SPEC.md §7.3.5(e), §10.2). Not a result table.",
+  "coordinates": "1-based-closed",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "contig", "type": "string", "description": "Replicon name (C1 = FASTA order)", "constraints": {"required": true}},
+    {"name": "length_bp", "type": "integer", "description": "Replicon length in bp", "constraints": {"required": true, "minimum": 1}},
+    {"name": "topology", "type": "string", "description": "Replicon topology", "constraints": {"required": true, "enum": ["circular", "linear"]}},
+    {"name": "oric_position", "type": "integer", "description": "1-based oriC position (giap.context.oriter.oric_position); NA on linear and no_oric replicons", "constraints": {"minimum": 1}},
+    {"name": "ter_position", "type": "integer", "description": "1-based terminus position, ((oriC0 + L // 2) mod L) + 1; NA with oric_position", "constraints": {"minimum": 1}},
+    {"name": "status", "type": "string", "description": "called, no_oric (no call or calls too far apart) or linear", "constraints": {"required": true, "enum": ["called", "no_oric", "linear"]}}
+  ]
+}

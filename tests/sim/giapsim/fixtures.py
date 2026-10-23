@@ -1,10 +1,12 @@
 """M4 work directories for the integration, golden and property tests (issue M4-20).
 
 ``build_m4_fixture`` writes the M4-06 contract tables C1-C14 of one synthetic genome into a work
-directory, in both layouts the M4 steps read: flat (``giap.io.work_tables.default_paths``, used by
-``run_context_stats`` and ``run_sensitivity``) and with the three M3 TSVs also under ``mapping/``
-(``giap.steps.gene_table.work_inputs``). The result is a pure function of ``(size, seed, evidence,
-layout)``, so the whole M4 chain can be run on it twice and compared byte for byte (§11.6 TE7).
+directory, with C15 ``features`` (since M5-11 a chr1 oriC at ``oric_frac`` = 0.8 by default) and
+optional planted islands, in both layouts the M4 steps read: flat
+(``giap.io.work_tables.default_paths``, used by ``run_context_stats`` and ``run_sensitivity``) and
+with the three M3 TSVs also under ``mapping/`` (``giap.steps.gene_table.work_inputs``). The result
+is a pure function of ``(size, seed, evidence, layout, oric_frac, islands, expression)``, so the
+whole M4 chain can be run on it twice and compared byte for byte (§11.6 TE7).
 
 Sizes (spec "Interface"):
 
@@ -37,17 +39,18 @@ import numpy as np
 
 from giapsim.contract_tables import write_contract_tables
 from giapsim.evidence import EvidenceConfig, simulate_evidence, write_evidence_tables
-from giapsim.expression import ExpressionConfig, simulate_expression
+from giapsim.expression import ExpressionConfig, IslandSpec, simulate_expression
 from giapsim.layout import (
     Layout,
     LayoutConfig,
     RegionSpec,
     layout_from_simulation,
+    place_oric,
     plant_regions,
     simulate_layout,
 )
 
-__all__ = ["M3_TSVS", "SIZES", "build_m4_fixture", "fixture_layout"]
+__all__ = ["DEFAULT_ORIC_FRAC", "M3_TSVS", "SIZES", "build_m4_fixture", "fixture_layout"]
 
 #: fixture sizes of the M4-20 spec
 SIZES: tuple[str, ...] = ("sim50k", "sim1000", "sim4500")
@@ -58,6 +61,8 @@ M3_TSVS: tuple[str, ...] = ("peptide_hits.tsv", "protein_hits.tsv", "unmapped.ts
 #: ``sim50k`` planted regions as a share of the gene count, with floors (lead decision 5)
 _PROPHAGE_SHARE, _PROPHAGE_MIN = 0.15, 3
 _AMR_SHARE, _AMR_MIN = 0.06, 2
+#: oriC midpoint of the M5-11 fixtures as a fraction of chr1 (spec "Interface", lead decision 41)
+DEFAULT_ORIC_FRAC = 0.8
 
 
 def _streams(seed: int) -> tuple[np.random.Generator, ...]:
@@ -111,18 +116,33 @@ def build_m4_fixture(
     size: str = "sim1000",
     evidence: EvidenceConfig | None = None,
     layout: Mapping[str, Any] | None = None,
+    oric_frac: float | None = DEFAULT_ORIC_FRAC,
+    islands: Sequence[IslandSpec] = (),
+    expression: Mapping[str, Any] | None = None,
 ) -> None:
-    """Write the M4-06 contract tables of the fixture ``(size, seed, evidence, layout)``.
+    """Write the M4-06 contract tables of the fixture ``(size, seed, evidence, layout, oric_frac,
+    islands, expression)``.
 
     ``work_dir`` is created if needed and receives C1-C8 (``replicons``, ``genes``, ``xrefs``,
     ``annotation_meta.json``, ``tus``, ``layers``, ``regions``, ``region_genes``), C15
     ``features``, C9 ``peptides.norm.parquet`` (C10 ``abundance.norm.parquet`` only with
     ``EvidenceConfig.abundance_table``), C11-C13 under ``mapping/`` and as flat copies, and C14
     ``id_map.tsv``.
+
+    M5-11: ``oric_frac`` places one 232-bp chr1 ``oric`` row in C15 (None: header-only C15). It
+    wins over an ``oric_frac`` in ``layout=``; placing it draws nothing and the ori-ter gradient
+    stays 0, so the other tables do not change. ``islands`` plants ``IslandSpec`` shifts in the
+    expression truth (the layout tables do not change); ``expression=`` passes ``ExpressionConfig``
+    fields through as ``layout=`` passes ``LayoutConfig`` fields (``islands`` wins over an
+    ``islands`` entry there when non-empty).
     """
     _, rng_expr, rng_ev = _streams(seed)
-    lay = fixture_layout(seed, size, layout)
-    expr = simulate_expression(lay, ExpressionConfig(), rng_expr)
+    lay_kw = {k: v for k, v in dict(layout or {}).items() if k != "oric_frac"}
+    lay = place_oric(fixture_layout(seed, size, lay_kw or None), oric_frac)
+    expr_kw = dict(expression or {})
+    if islands:
+        expr_kw["islands"] = tuple(islands)
+    expr = simulate_expression(lay, ExpressionConfig(**expr_kw), rng_expr)
     ev = simulate_evidence(lay, expr, evidence or EvidenceConfig(), rng_ev)
     work_dir = Path(work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
