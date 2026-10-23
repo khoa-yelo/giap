@@ -656,3 +656,15 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
     - N8, the reviewer's alluvial geometry check (scratchpad geom.py) should become a test.
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
+
+## M5-11 (statistician, hardening)
+- Island power under giapsim's default `covariates_only` detection: no island at +3/+5/+10 SD on 1,000 genes (ℓ̂ = 1, ℓ' = 3; ~45 % censored regardless of abundance, rank scores saturate). The M5-11 golden uses sim4500 with `detection="abundance"`; decide whether the power table should report the covariates-only regime.
+
+## M5-11 review nits (#217; one round)
+- The `giap-bench` sbatch script used for the `context_m5` benchmark (Slurm 1869098) is not in
+  scripts/slurm/; commit it beside the other benchmark launchers.
+- M5 gate evidence: full `islands` records exist (Slurm 1868687, R = 500, all pass); the full
+  `autocorrelation` record does not — submit `calibration_full.sbatch --array=4` on main. Calibration
+  records carry no commit field, so "on main" cannot be checked from them.
+- The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
+  BLAS-stable `p_detect` would let them return to byte equality.

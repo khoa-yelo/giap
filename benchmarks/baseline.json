@@ -141,6 +141,25 @@
     "issue": "M4-20",
     "note": "budgets are the test author's generous first numbers (3x these medians would be the tightened ones); an earlier run on barley-04 (EPYC 9384X, job 1863121) measured 2.05 / 4.65 / 9.82 s for the whole case including its prerequisite steps"
   },
+  "context_m5": {
+    "benchmark": "benchmarks/test_context_m5.py::test_context_stats_m5_budget_sim4500",
+    "source": "docs/specs/M5-11-integration-golden.md (context_stats M5 part, < 2 min on 4 CPUs; lead decision 43: the whole step is timed)",
+    "secs": 13.62,
+    "peak_mb": 469.2,
+    "maxrss_mb": 994.6,
+    "budget_s": 120.0,
+    "cpus": 4,
+    "n_genes": 4500,
+    "permutations": 1000,
+    "bootstrap": 1000,
+    "node": "wheat-05",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "slurm_job": 1869098,
+    "commit": "01052cd",
+    "date": "2026-10-22",
+    "issue": "M5-11",
+    "note": "single timed run of run_context_stats (M4 + M5 parts) on build_m4_fixture(size=sim4500, oric_frac=0.8) with the sim4500_island island planted; peak_mb is the tracemalloc peak of a second run, maxrss_mb the process high-water mark"
+  },
   "islands_4500_genes_b1000": {
     "benchmark": "benchmarks/test_islands_bench.py::test_islands_4500_genes_b1000_budget",
     "budget_s": 20.0,

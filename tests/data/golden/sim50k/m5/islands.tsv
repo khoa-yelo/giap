@@ -1,0 +1,1 @@
+island_id	direction	contig	start	end	tu_first	tu_last	n_tus	n_genes	genes	mean_abundance_log2	detected_frac	scan_s	block_len	stat	effect	ci_low	ci_high	p_value	q_value	method	null_model	n_perm	flags
