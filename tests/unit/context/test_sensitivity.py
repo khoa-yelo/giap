@@ -46,7 +46,7 @@ def test_variant_is_a_frozen_slotted_dataclass() -> None:
     S = _S()
     assert dataclasses.is_dataclass(S.Variant)
     assert [f.name for f in dataclasses.fields(S.Variant)] == [
-        "name", "overrides", "single_peptide_detected",
+        "name", "overrides", "single_peptide_detected", "config_patch",  # + M6-10 decision 1
     ]  # fmt: skip
     assert S.Variant.__dataclass_params__.frozen
     assert hasattr(S.Variant, "__slots__")
@@ -59,7 +59,7 @@ def test_variant_is_a_frozen_slotted_dataclass() -> None:
 def test_families_registers_regions_only_in_m4() -> None:
     """M4-index decision 7: M4 registers ``regions``; M5-M8 add theirs (M5-10: ``islands``)."""
     S = _S()
-    assert {"regions", "islands"} >= set(S.FAMILIES) >= {"regions"}
+    assert {"regions", "islands", "operon_flags"} >= set(S.FAMILIES) >= {"regions"}  # + M6-10
     assert callable(S.FAMILIES["regions"])
 
 
@@ -114,14 +114,16 @@ def test_off_gives_no_variants() -> None:
         assert S.variants(sd.config(output={"sensitivity": "off"}), tier) == []
 
 
-def test_full_adds_top3_and_no_uniop_variant() -> None:
-    """``full`` adds ``top3`` (UniOP thresholds are M6's family and are not run here)."""
+def test_full_adds_top3_and_the_uniop_threshold_variants() -> None:
+    """``full`` adds ``top3`` and (M6-10 lead decision 1) the UniOP thresholds 0.3 / 0.7 as
+    config-patch variants."""
     S = _S()
     vs = S.variants(sd.config(output={"sensitivity": "full"}), "two_peptide")
-    assert _names(vs) == ["missing=min", "missing=exclude", "single_peptide_detected", "top3"]
-    top3 = vs[-1]
+    assert _names(vs) == ["missing=min", "missing=exclude", "single_peptide_detected", "top3",
+                          "pair_threshold=0.3", "pair_threshold=0.7"]  # fmt: skip
+    top3 = vs[3]
     assert any(str(k).endswith("method") and v == "top3" for k, v in top3.overrides.items())
-    assert not any("uniop" in v.name.lower() for v in vs)
+    assert all(not v.config_patch for v in vs[:4])
 
 
 def test_basic_has_no_top3() -> None:

@@ -89,3 +89,18 @@ estimate ≈ 110 code lines (+ ≈ 150 test lines) · statistical (light)
    that is applied before the pair frame is built; operons are not special-cased. Existing variants
    (no patch) are byte-identical.
 2. **`jaccard` of two empty sets:** NA, per the M4-19 convention, flagged as in M4-19.
+3. **Test-author resolutions (588b219c) accepted:**
+   - the C2 gene model binds as `gene_models`;
+   - C3 `features` is required by the family;
+   - the variant names are `pair_threshold=<t:g>` in the shared `variants()`;
+   - the `regions` and `islands` rows under the threshold variants are left unpinned;
+   - example 6 has three rows;
+   - a relative scale logs "relative".
+4. **Step inputs:** C2 `genes`, `pairs_raw`, `features` and the three evidence layers are
+   **optional** step inputs. When `genes`, `pairs_raw` or `features` is absent, the `operon_flags`
+   family is skipped and the step logs `sensitivity.operon_flags_skipped`, so the M4-19/M5 step
+   tests that pass only gene_table, C1, C5, C7 and C8 keep passing.
+5. **Lead edits to existing tests** in tests/unit/context/test_sensitivity.py: `Variant` gains
+   `config_patch`, `FAMILIES` may hold `operon_flags`, and `full` lists the two
+   `pair_threshold` variants.
+6. **Runtime** ("four reruns < 2× a single run") is not pinned; this is a backlog item.
