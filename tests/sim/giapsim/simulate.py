@@ -702,7 +702,8 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
             truth = {"denovo": dp["denovo"], "denovo_precision": dp["denovo_precision"]}
             res = replace(res, truth={**res.truth, **truth})
     if config.m7_truth:
-        m7 = write_m7_truth(out, novel, feats, text, planted, strain_out)
+        requested = {**dict(config.n_novel_orfs), "nterm_extension": config.n_nterm_extensions}
+        m7 = write_m7_truth(out, novel, feats, text, planted, strain_out, requested)
         res = replace(res, truth={**res.truth, **m7})
     return res
 

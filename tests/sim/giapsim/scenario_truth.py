@@ -20,6 +20,11 @@ every pre-M7-12 config keeps its outputs byte for byte.
   stop codon, decision 16), ``true_start`` (1-based first base of the start codon in
   transcription direction), ``n_true_peptides`` and ``rbs_planted``; the N-terminal extensions
   follow the novel ORFs as class ``nterm_extension`` rows (true start to stop, true protein).
+* ``truth/novel_orfs.json`` (lead decision 26), only when novel ORFs or N-terminal extensions are
+  requested: ``{"requested": {class: int}, "realised": {class: int}, "shortfall": {class: int}}``
+  over the four classes of ``NOVEL_CLASSES``; ``realised`` is the class's row count in
+  ``truth/novel_orfs.tsv`` and ``shortfall = requested - realised`` (intergenic planting stops at
+  the number of usable gaps, decision 15).
 
 ``n_true_peptides`` (rule 2, decision 7) counts distinct I/L-folded correct database peptides of
 ``truth/peptides.tsv`` (``is_wrong = false``, not decoys) covering the object: for a site, the
@@ -32,6 +37,7 @@ one residue upstream of the annotated start. Coordinates of novel ORFs are on ``
 from __future__ import annotations
 
 import csv
+import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -45,7 +51,9 @@ from giapsim.signals import RBS, clean_rbs, put
 __all__ = [
     "ALT_COLUMNS",
     "INDEL_COLUMNS",
+    "NOVEL_CLASSES",
     "NOVEL_COLUMNS",
+    "novel_report",
     "plant_novel_rbs",
     "strong_tirs",
     "write_m7_truth",
@@ -57,6 +65,7 @@ INDEL_COLUMNS = ["contig", "pos_sample", "pos_reference", "ref", "alt", "type", 
                  "frameshift", "junction"]  # fmt: skip
 NOVEL_COLUMNS = ["orf_id", "class", "contig", "start", "end", "strand", "aa",
                  "stop", "true_start", "n_true_peptides", "rbs_planted"]  # fmt: skip
+NOVEL_CLASSES = ("intergenic", "cds_outframe", "antisense", "nterm_extension")
 
 Key = tuple[str, str, int]  # contig, strand, 0-based first base of the start codon
 
@@ -232,6 +241,17 @@ def novel_rows(
     return rows
 
 
+def novel_report(
+    requested: Mapping[str, int], rows: Sequence[Sequence[Any]]
+) -> dict[str, dict[str, int]]:
+    """Requested, realised and shortfall counts per class of ``NOVEL_CLASSES`` (decision 26);
+    ``rows`` are ``truth/novel_orfs.tsv`` rows (class in column 1)."""
+    req = {c: int(requested.get(c, 0)) for c in NOVEL_CLASSES}
+    got = {c: sum(1 for r in rows if r[1] == c) for c in NOVEL_CLASSES}
+    return {"requested": req, "realised": got,
+            "shortfall": {c: req[c] - got[c] for c in NOVEL_CLASSES}}  # fmt: skip
+
+
 def write_m7_truth(
     out: Path,
     novel: Sequence[Sequence[Any]],
@@ -239,9 +259,12 @@ def write_m7_truth(
     text: Mapping[str, str],
     planted: set[Key],
     strain: tuple[Sequence[Sequence[Any]], Mapping[str, str]] | None,
+    requested: Mapping[str, int] | None = None,
 ) -> dict[str, Path]:
     """Write the M7-12 truth tables (after proteomics); ``strain`` = (strain_differences rows,
-    reference sequences) or None. Returns the truth paths by key."""
+    reference sequences) or None; ``requested`` = per-class novel counts asked for (the
+    ``truth/novel_orfs.json`` report is written when any is positive). Returns the truth paths
+    by key."""
     peps = _correct(out)
     paths = {"alt_sites": out / "truth" / "alt_sites.tsv", "novel_orfs": out / "truth" /
              "novel_orfs.tsv"}  # fmt: skip
@@ -252,5 +275,10 @@ def write_m7_truth(
         paths["indel_sites"] = out / "truth" / "indel_sites.tsv"
         _tsv(paths["indel_sites"], INDEL_COLUMNS, indel_site_rows(rows))
     _tsv(paths["alt_sites"], ALT_COLUMNS, alt)
-    _tsv(paths["novel_orfs"], NOVEL_COLUMNS, novel_rows(novel, feats, text, planted, peps))
+    nrows = novel_rows(novel, feats, text, planted, peps)
+    _tsv(paths["novel_orfs"], NOVEL_COLUMNS, nrows)
+    if requested is not None and any(v > 0 for v in requested.values()):
+        paths["novel_report"] = out / "truth" / "novel_orfs.json"
+        rep = novel_report(requested, nrows)
+        paths["novel_report"].write_text(json.dumps(rep, indent=2) + "\n", encoding="utf-8")
     return paths

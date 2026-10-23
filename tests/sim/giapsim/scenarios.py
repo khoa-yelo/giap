@@ -33,8 +33,10 @@ without a strain; see ``giapsim.scenario_truth``):
 - ``novel_orf_power``: intergenic ORFs of 30-80 aa, out-of-frame and antisense ORFs (>= 30 aa)
   found in CDSs and N-terminal extensions, ``NOVEL_PER_CLASS[size]`` of each (fewer intergenic
   ones, with a WARNING, when the genome has too few gaps: ``truth/novel_orfs.tsv`` holds the
-  realised rows); ``AGGAGG`` at spacer 5-10 before every planted intergenic start and N-terminal
-  true start, whose ``rbs_novel`` TIRs are lognormal(``SimConfig.planted_tir``) = (8, 0.8), the
+  realised rows and ``truth/novel_orfs.json`` the requested / realised / shortfall counts;
+  ``n_per_class`` overrides the count, ``NOVEL_PER_CLASS_GATE`` for M7-13 G3/G4, decision 26);
+  ``AGGAGG`` at spacer 5-10 before every planted intergenic start and N-terminal true start,
+  whose ``rbs_novel`` TIRs are lognormal(``SimConfig.planted_tir``) = (8, 0.8), the
   first-round TU RBS distribution (decision 14: the matched arm; the decision 8 sanity arm sets
   (9, 0.5)); peptides with 2 % wrong identifications drawn from non-coding six-frame
   translations (``wrong_source = "sixframe_noncoding"``, decision 12: the false novel candidates
@@ -62,6 +64,7 @@ __all__ = [
     "ABUNDANCE_BETA",
     "MATCHED_TIR",
     "NOVEL_PER_CLASS",
+    "NOVEL_PER_CLASS_GATE",
     "ORIC_FRAC",
     "SIZES",
     "ar1_background",
@@ -171,6 +174,11 @@ Size = Literal["100k", "300k", "1M"]
 SIZES: Mapping[str, int] = MappingProxyType({"100k": 100_000, "300k": 300_000, "1M": 1_000_000})
 #: Planted / found novel ORFs and N-terminal extensions per class of ``novel_orf_power``.
 NOVEL_PER_CLASS: Mapping[str, int] = MappingProxyType({"100k": 8, "300k": 16, "1M": 40})
+# Lead decision 26 (class q floor): the picked class q (D + 1) / T is >= 1 / T, so a class needs
+# >= 1 / alpha = 100 targets to call anything at alpha 0.01; M7-13 G3/G4 plant this many per
+# class at 1M (intergenic saturates at the usable-gap supply, about 100-145; reported in
+# truth/novel_orfs.json, not forced).
+NOVEL_PER_CLASS_GATE = 300
 #: (mu, sigma) of the planted starts' log TIR in ``novel_orf_power`` (decision 14).
 MATCHED_TIR = (8.0, 0.8)
 _ISOBARIC_WEIGHTS = (("block", 0.4), ("near_block", 0.2), ("modification", 0.2), ("swap", 0.2))
@@ -199,14 +207,16 @@ def variant_f1(seed: int, size: Size = "100k") -> SimConfig:
     return _v2(_length(size), strain=strain, proteomics=ProteomicsConfig(), denovo=DenovoConfig())
 
 
-def novel_orf_power(seed: int, size: Size = "100k") -> SimConfig:
+def novel_orf_power(seed: int, size: Size = "100k", n_per_class: int | None = None) -> SimConfig:
     """Planted and found novel ORFs for the class-FDR / power gate (§7.6.6, §8.4); ``seed`` is
-    not used. Planted RBS TIRs follow the first-round distribution (module doc)."""
+    not used. Planted RBS TIRs follow the first-round distribution (module doc). ``n_per_class``
+    (lead decision 26) replaces ``NOVEL_PER_CLASS[size]`` for all four classes; M7-13 G3/G4 use
+    ``NOVEL_PER_CLASS_GATE`` at 1M. ``None`` keeps the default (byte-identical outputs)."""
     from giapsim.denovo import DenovoConfig
     from giapsim.proteomics import ProteomicsConfig
 
     length = _length(size)
-    n = NOVEL_PER_CLASS[size]
+    n = NOVEL_PER_CLASS[size] if n_per_class is None else n_per_class
     return _v2(
         length,
         n_novel_orfs=(("intergenic", n), ("cds_outframe", n), ("antisense", n)),
