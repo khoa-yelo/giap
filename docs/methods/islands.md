@@ -4,6 +4,27 @@ Issues M5-01 (scores, detrending) and M5-03 (scan engine) add the engine helpers
 itself is M5-06 (GIAP_SPEC.md §7.3.5(d)). Each section records its own statistician sign-off; the
 block-bootstrap null and its calibration are signed off with M5-06/M5-07.
 
+## Report text (M9-16)
+
+The block below is copied into the run report's methods section by
+`scripts/dev/sync_report_snippets.py` (plain paragraphs and lists only).
+
+<!-- report:begin -->
+Islands are runs of adjacent transcription units whose detrended abundance scores are jointly high
+or low along a replicon. Each window sum is compared with the maximum of a TU-block bootstrap of
+the same scores, taken over every scanned replicon, so one family-wise error rate covers the whole
+run; a window is reported when its p-value is at most stats.alpha.context.
+
+The FWER is claimed for a dependence regime, not for a replicon size. It is not claimed where
+strong TU-level autocorrelation is resolved by Moran's I only to a short lag (block length 7 or
+less). No per-replicon statistic certifies the domain, so nothing is flagged; instead the report
+lists, per replicon:
+
+- the estimated correlation length (l-hat), or why it was not estimated;
+- the bootstrap block length used (block_len);
+- the lag-1 Moran's I of the detrended TU scores.
+<!-- report:end -->
+
 ## Gene scores: left-censored Blom
 
 `giap.stats.scores.blom_scores(x, censored_mask)` (§7.3.5(d) step 1, §8.3). Within a replicon the
