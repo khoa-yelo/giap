@@ -434,6 +434,10 @@ Slurm jobs this session (2026-10-23): 1872171, 1872172, 1872190, 1872199, 187237
 | 2026-10-14 | ~~RegulonDB v12 download~~ **RESOLVED 2026-10-21** | Not an outage: RegulonDB serves a cert (GlobalSign GCC R46 OV TLS CA 2025, issued 2026-10-14) **without the intermediate**, so verification fails. The intermediate from GlobalSign's own CA endpoint verifies against `GlobalSign Root R46`, already in FarmShare's trust store; with it, the site and `/datasets` return HTTP 200. Khoa approved completing the chain (2026-10-21). | nothing — M6-11/M6-12 unblocked |
 
 ## Answered by Khoa
+- 2026-10-23: **ADR-0044** (the exact Wallenius distribution is the criterion-1 golden reference; goseq is a second reference under `wallenius_goseq_abs_tol`) and **ADR-0045** (urn recursion for far tails): both accepted as the lead recommended (#220).
+- 2026-10-22 (late): **MVP evidence genome**: run on a real E. coli genome (K-12 MG1655) instead of sim100k, whose 1/T floor (T ≈ 85) blocks α 0.01. Peptides are simulated on that genome until the M10 pilot.
+- 2026-10-22 (late): **M6-09 missed-operon floor**: option 1, keep the method and label it "near-powerless by construction"; a gate with no calls is a recorded vacuous pass (docs/specs/M6-09-calibration-gate.md).
+- 2026-10-22 (late): **ADR-0047 wording**: reword the `input.q_value_max` comment in defaults.yaml.
 - 2026-10-15: force-push blocked → merge main into feature branches instead of rebasing (option 3).
 - 2026-10-15: light mode (no new agents) 01:30–03:30 for the usage reset; per-process Slurm testing for M2-07 wanted.
 - 2026-10-14: ADR-0013 cterm_extension, ADR-0015 two-block confirmation, ADR-0016 size gate excludes workflow/tests (all accepted-by-khoa).

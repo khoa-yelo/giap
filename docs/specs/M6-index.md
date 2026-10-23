@@ -67,8 +67,8 @@ all three have merged.
 | 8 | [M6-03](M6-03-sim-operon-scenarios.md) | F | 2 | giapsim: operon null, planted co-abundant NO pairs, planted discordance, AR(1) attack, detection truth | none | 40 (+260 sim) | yes (light) |
 | 9 | [M6-09](M6-09-calibration-gate.md) | C | 2 | **the gate**: `missed_operons` FDR, `discordance` level, attack null, power recorded | 03, 05, 06 (+02) | 60 (+tests) | yes |
 | 10 | [M6-10](M6-10-sensitivity-operon-flags.md) | R | 2 | sensitivity family `operon_flags`; `full` variants UniOP 0.3 / 0.7 | 07, 08 | 110 | yes (light) |
-| 11 | [M6-11](M6-11-regulondb-fetch.md) | V | **blocked** | `validation/fetch_regulondb.py`, RegulonDB 14.5.0 TU and terminator truth on K-12 | network (see below) | 180 | no |
-| 12 | [M6-12](M6-12-uniop-terminator-cutoffs.md) | V | **blocked** | UniOP AUROC + cut-off, d₀/s refit, TerminatorNet cut-off → `calibration.yaml` + **ADR-0022** | 11 | 200 | yes |
+| 11 | [M6-11](M6-11-regulondb-fetch.md) | V | merged (#141) | `validation/fetch_regulondb.py`, RegulonDB 14.5.0 TU and terminator truth on K-12 | network (see below) | 180 | no |
+| 12 | [M6-12](M6-12-uniop-terminator-cutoffs.md) | V | ready (spec refreshed) | UniOP AUROC + cut-off, d₀/s refit, TerminatorNet cut-off → **ADR-0022** (proposed), then `calibration.yaml` + `defaults.yaml` once Khoa accepts; PRs A / B / C0 / C | 11 | ≈ 165 counted (A ≈ 140, C ≈ 25; `validation/` ≈ 230 uncounted) | yes |
 
 Total ≈ 2,410 code lines in `src/` and `validation/` (+ ≈ 260 simulator lines, ≈ 3,000 test lines);
 about 1,600 of those lines are pass 1. The spec's 1.5 weeks fits if pass 1 runs while M6-02 and
@@ -97,7 +97,7 @@ split across two authors if needed. 05, 06 and 07 all need 04's frame, so 04 is 
 | B | 05, 06 | after A; both read one frame |
 | C | 07, 08 | 08 is the integration milestone: a real `sbatch scripts/slurm/giap_run.sbatch` on sim100k |
 | D (hardening) | 02, 03 in parallel; then 05H, 09, 10 | 09 submits `calibration_full.sbatch` tasks `discordance`, `missed_operons` (≤ 2 jobs, ≤ 32 CPUs) |
-| E (blocked) | 11, 12 | only when RegulonDB is fetchable; ADR-0022 goes to Khoa |
+| E | 11 (merged), 12 | 12's PRs A, B, C0 land now; PR C waits for ADR-0022 accepted-by-khoa |
 
 ## What M6 consumes (checked against merged main, 1189648)
 
