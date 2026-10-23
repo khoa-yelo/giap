@@ -374,4 +374,21 @@ cells 18/900 = 0.020 (covariates_only) and 16/900 = 0.018 (abundance); low cells
 above the complete-null 0.020. All of these are high-direction islands, mostly more than 300 TUs
 from the planted one (see "Scan and maximum statistic").
 
+**Several strong islands mask each other (MVP-04 gate 13, Slurm 1872831, 1872881).** The block
+bootstrap resamples the observed series, planted islands included, so the null maxima M_b contain
+copies of the islands. When the islands are few and short relative to ℓ′, the copies are often
+intact and M_b sits at the islands' own S. On the K-12 evidence layout (RegulonDB TUs, ρ = 0.5,
+q ≈ 0.38) three 8-TU high islands at +3 SD have S 4.4–7.0, raise ℓ̂ from a median of 4 to 5
+(ℓ′ 7–17 ≥ 8), and lift the 95th percentile of M_b from 5.0–5.7 (no islands) to 6.3–7.4. They
+were recovered in 3 of 33 island-seeds (Wilson [0.03, 0.24]), with best-window p 0.04–0.95. A
+single 20-TU island at +3 SD exceeds its partial copies and was recovered in 21 of 22 seeds
+([0.78, 0.99]). The one miss had ℓ̂ = 12, ℓ′ = 20, so an intact copy fits in a block. The three
+8-TU low islands of the same layout had S −1.6 to −3.3 against a ceiling of 2.2–2.5 and were never
+recovered (0/330 across all variants, [0, 0.012]). This is the structural zero above. The FWER is
+unaffected: no spurious island appeared in 220 runs ([0, 0.017]). The effect is a power loss
+specific to the stationary maxT null, and it is conservative. A missing call among several
+similar islands is therefore not evidence that they are absent. MVP-04 gates one 20-TU high island
+for this reason and reports its low islands as exempt with their ceiling. A null that masks the
+top windows before estimating ℓ̂ is on the backlog.
+
 Signed off by the statistician (PR #188 review).

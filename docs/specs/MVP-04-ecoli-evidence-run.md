@@ -211,7 +211,7 @@ margin) in a recorded decision and does not widen a gate** (R3).
 | 10 | mapping | `mapping_summary` exact / tolerant / unmapped shares | exact ≥ 0.95 | reported; tolerant > 0 (SNV peptides) |
 | 11 | variants | `variants.tsv` `high` ALT rows vs `truth/alt_sites.tsv` (same codon, same ALT residue) | 60–300 `high`; precision ≥ 0.97 | ≥ 30 `high`; precision ≥ 0.95; recall ≥ 0.90 among truth sites with ≥ 2 distinct true covering peptides; every row carries `strain_difference` and `database_derived`; VCF validates (pysam) |
 | 12 | novel ORFs | `novel_orfs.tsv` calls at class q ≤ 0.01 vs `truth/novel_orfs.tsv` (contig, strand, stop) | per class with ≥ 100 truth ORFs having a true peptide: ≥ 30 calls | ≥ 2 classes non-vacuous (≥ 1 call); called precision ≥ 0.95 per non-vacuous class; a class below 100 is reported as "below 1/α by construction" (M7-12 decision 26) |
-| 13 | context | `regions_stats.tsv`, `autocorrelation`, `islands.tsv` vs `truth/islands.tsv` | Moran-type autocorrelation positive with p ≤ 0.01 (AR(1) ρ = 0.5); 5–6 of 6 islands recovered | autocorrelation p ≤ 0.01; ≥ 4 of 6 planted islands recovered (≥ 50 % gene overlap); ≤ 2 island calls overlapping no planted island; `regions_stats` has a row for every region type the tools call, with non-NA statistics where the type has ≥ the minimum gene count |
+| 13 | context | `regions_stats.tsv`, `autocorrelation`, `islands.tsv` vs `truth/islands.tsv` | Moran p = 1/(B+1), I ≈ 0.5; the planted high island recovered (11/11 seeds, Slurm 1872881); lows 0/3 with ceiling ≈ 2.2–2.5 against a critical value ≥ 5; spurious 0 | lag-1 Moran's I > 0 under `tu_block` with p ≤ 0.01; the planted high island (20 TUs, +3 SD) recovered by a `high` call covering ≥ 50 % of its genes; ≤ 2 island calls overlapping no planted island; `regions_stats` has a row for every region type the tools call, with non-NA statistics where the type has ≥ the minimum gene count. The three planted low islands are **exempt (structural cap)**: reported with the ceiling √w·\|Φ⁻¹(q/2)\| (w = scored TUs, q = undetected share of eligible genes from `genes.tsv`), not gated (decision 20) |
 | 14 | operons | `pairs.tsv`, `operons.tsv`, `operon_flags.tsv` | ≈ 4,373 adjacent pairs (circular, one replicon); OP pairs ≥ 1,500 | tests not all `none`; no `too_few_op_pairs`; `operons.tsv` ≥ 1,000 TUs; RegulonDB TU recovery reported (not gated) |
 | 15 | report | `report/report.html`, manifest | every module card has content | the detection, context, operons, variants, novel ORF cards are present and not the "no data" placeholder; the q-floor caveat is absent |
 | 16 | runtime | `scripts/measure_runtimes.py` on the trace | 3–8 h wall | recorded under `mvp04_k12_evidence` in PROGRESS.md › Measured numbers; budget overrun → backlog, not failure |
@@ -527,3 +527,31 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
         gate is changed by a recorded decision before any number is seen, not widened after).
     - Next steps, in parallel: the implementer (the full `mvp04_summary.py` and
       `scripts/slurm/mvp04_inputs.sbatch`) and the statistician's gate-13 feasibility check.
+20. **Gate 13 re-stated before any acceptance number (R3), from the statistician's feasibility
+    ruling (Slurm 1872831, 1872881; #258 comment 6365158721).**
+    - "≥ 4 of 6 islands" was infeasible: 0/11 seeds (Wilson [0, 0.26]). The 8-TU lows are capped
+      (ceiling 2.2–2.5 against a critical value of 6.3–7.4), and three 8-TU highs mask each other
+      in the block-bootstrap maxT null (3/33 recovered).
+    - `K12_ISLANDS` becomes one high island of 20 TUs at +3 SD from TU 970, plus three 8-TU lows
+      at −3 SD from TUs 560, 1380 and 2200 (structural-zero exhibits). Measured: the high island
+      recovered 11/11 in both detection arms; pooled with the no-lows variant 21/22 (Wilson
+      [0.78, 0.99]), so a single-seed gate carries about a 5 % risk of a miss by masking. Recorded,
+      not hidden. The detected share is unchanged, so gate 8 is unaffected.
+    - Gate 13's criterion is the table row above. The summary gains `n_recovered_high`,
+      `low_exempt` and the per-low ceilings; the e2e `MIN_ISLANDS` follows.
+    - Rejected fallback: recovery recorded and not gated (a no-op islands step would pass).
+    - Methods: the masking paragraph goes in `docs/methods/islands.md`; the method fix (ℓ̂ with
+      top windows masked, or a step-down scan) is backlog, needing an ADR-0021 amendment.
+    - Reversible (test scenario only); FYI for Khoa in PROGRESS › Questions.
+21. **Part 2 implementer (cac56aa7): readings accepted, size deviation recorded.**
+    - Gate 12 matches a call against truth ORFs of any class on (contig, strand, stop), per the
+      spec wording; gate 13 fails `regions_ok` when `annotation/regions.tsv` is missing or empty;
+      gate 13 keys planted TUs by the `TU_<n>` suffix without a replicon filter (K-12 has one);
+      gate 16 labels node class from the trace hostname, "?" otherwise; gate 9 with no second
+      call returns `None` and fails.
+    - Size: 494 counted script lines against an estimate of about 120. Accepted as for part 1
+      (decision 18): the 16 gate functions are one unit and splitting them would leave gates
+      untested in the acceptance path.
+    - Next: a test-author round for decision 20, then the implementer (`K12_ISLANDS`, the
+      `k12_evidence` docstring, the island part of `gate13()` and its summary fields), then code
+      review and the statistician's check of the summary, then the acceptance run.
