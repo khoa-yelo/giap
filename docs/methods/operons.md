@@ -419,6 +419,35 @@ Until that is decided, two things hold:
 - **M-3.** The M6-01 attacks: AR(1) abundance (attack A), and detection confounded with distance
   (attack B).
 
+## Simulations (M6-03)
+
+The operon generators live in `tests/sim/giapsim/scenarios.py` (configs) and
+`tests/sim/giapsim/operons.py` (`simulate_operons(cfgs, seed)`: layout, expression truth, the §9.3
+pair table the simulator can know and the truth files `truth/pairs.tsv`, `missed_operons.tsv`,
+`discordant_pairs.tsv`, `operon_t.tsv`, declared in `giapsim.contract_tables.OPERON_TRUTH_TYPES`).
+Common to all: half the TU boundaries flip strand (`p_same_strand = 0.5`, so CV, DV and SW decoys
+are frequent), no position decay, ~80 % of genes detected (`covariates_only`, intercept −7.3), and
+the within-TU increment Δ = −0.3 + 0.5 · t₅ (the methods-note simulation, Slurm 1864589): each TU's
+first gene keeps the merged TU + stoichiometry + noise model and each later gene adds one t draw.
+A promoter sits upstream of every TU and a terminator after it; nothing inside a TU unless planted.
+The M6-09 suites need ≥ 1,000 genes (1,800 give ≈ 490 OP, 300 NO, 150 CV and 80 SW pairs with both
+genes detected).
+
+| Scenario | What it plants | What it is built to break |
+|---|---|---|
+| `operon_null(n, rho=0)` | nothing; pure UniOP classes (true OP p ≥ 0.5, true NO p < 0.5) | level: the discordance t fit and the missed-operon decoy FDR must hold their α |
+| `missed_operon_power(n, k, s)` | k true NO pairs (UniOP false negatives) with Δ ~ s · SD(NO Δ) · N(0, 1); UniOP keeps its own Beta errors | power of the missed-operon step |
+| `discordance_power(n, k, e)` | ceil(k/2) OP pairs +e over an internal promoter, floor(k/2) −e over an internal terminator | power of discordance and the §7.4.5 flag rows 1–2 |
+| `operon_attack_ar1(n, rho)` | = `operon_null(n, rho=rho)`: TU abundance AR(1) along the chromosome | decoys that ignore position: neighbours look alike without co-transcription |
+| `operon_attack_detection(n, type)` | the `type` block's genes short (length × 0.3), intra-TU gaps between all of them, and a detection logit shift −1.5 standing in for hydrophobicity | detection and distance confounded: the decoy distance reweighting and the detection filter act on targets and decoys at different rates |
+
+Generator checks (tests/calibration/test_sim_operon_calibration.py, R = 20, seed streams
+`m6_03_<scenario>`): null NO-vs-decoy small-|Δ| excess 0.003 (z = 0.58); power excess 0.108
+(z = 15.3); null OP tail beyond 2 scale 0.104 vs the t tail 0.102 (z = 0.81); discordance power
+tail 0.168 (z = 21.9). Known approximation: CV decoys compare two TU-final genes while NO and SW
+pairs compare a TU-final with a TU-first gene, so the CV Δ carries one extra within-TU walk; at
+`tu_sd = 2` this is ≈ 2 % of the small-|Δ| share, below the gate's resolution.
+
 ## Calibration evidence
 
 Fast tier (`tests/calibration/test_operon_fdr_calibration.py`, R = 50; 1,200 targets, 1,200 decoys

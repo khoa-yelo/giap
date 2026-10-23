@@ -16,25 +16,44 @@ with ``oric_frac = 0.8`` and the cosine shape (lead decision 16).
   no seed; whether it overlaps a region is left to the caller);
 - ``oriter_gradient``: ``ar1_background`` with an oriC and the cosine gradient;
 - ``draft_ar1``: a draft assembly (500-gene chromosome + 133 linear 30-gene contigs) at ``rho``.
+
+Operon scenarios (M6-03; drawn with ``simulate_operons``, see ``giapsim.operons``): ``operon_null``,
+``missed_operon_power``, ``discordance_power`` and the attacks ``operon_attack_ar1`` and
+``operon_attack_detection``. All use the generating t ``OPERON_T`` for the within-TU increment, no
+position decay, and the detection intercept ``OPERON_BETA`` (~80 % of genes detected, so 1,800 genes
+give >= 300 OP, >= 200 NO, >= 100 CV and >= 30 SW pairs with both genes detected).
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Literal
+from dataclasses import replace
+from typing import Any, Literal
 
 from giapsim.expression import DEFAULT_BETA, ExpressionConfig, FrozenMap, IslandSpec
-from giapsim.layout import LayoutConfig
+from giapsim.layout import DEFAULT_REGIONS, LayoutConfig, RegionSpec
+from giapsim.operons import OperonConfig, OperonSim, simulate_operons
 
 __all__ = [
     "ABUNDANCE_BETA",
+    "BLOCK_DETECT_SHIFT",
+    "OPERON_BETA",
+    "OPERON_P_SAME_STRAND",
+    "OPERON_T",
     "ORIC_FRAC",
+    "OperonSim",
     "ar1_background",
+    "discordance_power",
     "draft_ar1",
     "island_first_tu",
     "island_power",
     "label_null",
+    "missed_operon_power",
+    "operon_attack_ar1",
+    "operon_attack_detection",
+    "operon_null",
     "oriter_gradient",
+    "simulate_operons",
     "tu_null",
 ]
 
@@ -123,3 +142,86 @@ def draft_ar1(rho: float) -> Pair:
     """A draft assembly at AR(1) ``rho``: 500-gene ``chr1`` plus 133 linear 30-gene contigs."""
     lcfg = LayoutConfig(n_genes_chromosome=500, linear_contigs=_DRAFT_CONTIGS)
     return lcfg, ExpressionConfig(ar1_rho=rho)
+
+
+#: Generating Student-t (loc, scale, df) of the within-TU increment (lead decision 8: the
+#: methods-note simulation, Slurm 1864589).
+OPERON_T: tuple[float, float, float] = (-0.3, 0.5, 5.0)
+_OPERON_INTERCEPT = -7.3  # ~80 % detected on the default layout (DEFAULT_BETA gives ~55 %)
+#: Detection coefficients of the operon scenarios (``covariates_only``).
+OPERON_BETA: Mapping[str, float] = FrozenMap({**DEFAULT_BETA, "intercept": _OPERON_INTERCEPT})
+
+
+#: Same-strand probability of adjacent TUs in the operon scenarios: half the TU boundaries flip,
+#: so CV, DV and SW decoys are frequent (§11.3 "set convergent and divergent frequencies").
+OPERON_P_SAME_STRAND = 0.5
+
+
+#: Detection logit shift on the ``operon_attack_detection`` block (short and hydrophobic genes).
+BLOCK_DETECT_SHIFT = -1.5
+
+
+def _regions(n_genes: int) -> tuple[RegionSpec, ...]:
+    """The default regions, shrunk proportionally (>= 1 gene each) when they would take more than
+    a quarter of a small genome."""
+    total = sum(r.n_genes for r in DEFAULT_REGIONS)
+    if 4 * total <= n_genes:
+        return DEFAULT_REGIONS
+    f = n_genes / (4.0 * total)
+    return tuple(replace(r, n_genes=max(1, int(r.n_genes * f))) for r in DEFAULT_REGIONS)
+
+
+def _lcfg(n_genes: int, **kw: Any) -> LayoutConfig:
+    return LayoutConfig(n_genes_chromosome=n_genes, p_same_strand=OPERON_P_SAME_STRAND,
+                        regions=_regions(n_genes), **kw)  # fmt: skip
+
+
+def _operon_cfg(rho: float = 0.0, **plan: Any) -> OperonConfig:
+    return OperonConfig(ar1_rho=rho, position_decay_log2=0.0, beta=OPERON_BETA,
+                        operon_t=OPERON_T, **plan)  # fmt: skip
+
+
+def operon_null(n_genes: int, *, rho: float = 0.0) -> Pair:
+    """Missed-operon and discordance null: OP Delta ~ ``OPERON_T``, NO pairs independent (TU-level
+    AR(1) at ``rho``), pure UniOP classes (lead decision 4) and no internal promoter or terminator
+    (lead decision 1). Small genomes are allowed; the M6-09 suites need >= 1,000 genes."""
+    return _lcfg(n_genes, uniop_pure=True), _operon_cfg(rho)
+
+
+def missed_operon_power(n_genes: int, n_planted: int, effect_sd: float) -> Pair:
+    """``n_planted`` true NO pairs (UniOP false negatives) with ``|Delta| ~ effect_sd`` x the
+    background NO SD; UniOP keeps its own errors (default Beta classes). A ``ValueError`` from
+    ``simulate_operons`` when fewer NO pairs exist. The M6-09 suite needs >= 1,000 genes."""
+    lcfg = _lcfg(n_genes)
+    return lcfg, _operon_cfg(n_missed=n_planted, missed_effect_sd=effect_sd)
+
+
+def discordance_power(n_genes: int, n_planted: int, effect_log2: float) -> Pair:
+    """``operon_null`` plus ``n_planted`` true OP pairs shifted by ``+effect_log2`` over a planted
+    internal promoter (ceil(n/2)) or ``-effect_log2`` over an internal terminator (floor(n/2)). A
+    ``ValueError`` from ``simulate_operons`` when fewer OP pairs exist; the suite needs >= 1,000
+    genes."""
+    lcfg = _lcfg(n_genes, uniop_pure=True)
+    return lcfg, _operon_cfg(n_discordant=n_planted, discordant_effect_log2=effect_log2)
+
+
+def operon_attack_ar1(n_genes: int, rho: float) -> Pair:
+    """Attack 1 (§8.5): ``operon_null(n_genes, rho=rho)`` (lead decision 7), TU abundance AR(1)
+    along the chromosome and nothing planted: neighbours look alike by position, which the
+    distance-reweighted decoys must absorb. ``rho = 0`` is ``operon_null``; the suite needs >= 1,000
+    genes."""
+    return operon_null(n_genes, rho=rho)
+
+
+def operon_attack_detection(n_genes: int, short_genes_in: str) -> Pair:
+    """Detection-distance confounding (ADR-0018): genes of the ``short_genes_in`` region block are
+    drawn short (lower detection through length and peptide count) with intra-TU gaps, so the
+    distance bins of the decoy reweighting and the detection filter interact. UniOP keeps its own
+    errors. Hydrophobicity is carried by the logit shift ``BLOCK_DETECT_SHIFT`` on the block's
+    genes (GRAVY + 2.5 at the merged coefficient -0.6) rather than by a second amino-acid
+    composition, so the detected share in the block is well under half the rest. The suite needs
+    >= 1,000 genes (the block is the default region's size)."""
+    lcfg = _lcfg(n_genes, short_genes_in=short_genes_in,
+                 short_gaps_in=short_genes_in)  # fmt: skip
+    shift = FrozenMap({short_genes_in: BLOCK_DETECT_SHIFT})
+    return lcfg, _operon_cfg(region_detect_shift=shift)
