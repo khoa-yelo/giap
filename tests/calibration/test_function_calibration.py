@@ -24,8 +24,9 @@ jsonl). R = ``replicates_fast/full.<suite>`` (protected tolerances.yaml: ora 100
   the six collections, ``gsea_table(..., engine=RFgseaEngine)``; ``M_GSEA`` = 100 distinct
   tested terms per replicate pooled (spec: ">= 100 sets per replicate"). KS recorded.
 
-Fast-tier timings (test-author pre-run, one core, iron-01): ORA ~5.5 s per replicate (fit 3.5 s),
-so ~9 min for R = 100 (``calibration_nightly``: > 60 s); GSEA ~6 s per replicate with the R call.
+Fast-tier timings: ORA ~5.5 s per replicate on one core (fit 3.5 s); with the forked prefetch the
+R = 100 test took 207 s under ``-n 16`` at 16 CPUs (Slurm 1875111; ``calibration_nightly``:
+> 60 s). GSEA ~6 s per replicate with the R call (285 s in 1875111).
 """
 
 from __future__ import annotations
@@ -193,7 +194,7 @@ def test_ora_null_fitted_p_detect_pooled_level_per_direction(full: bool) -> None
     levels = _levels()
     gates = []
     ran: set[int] = set()
-    F.prefetch(_ORA, _ora_null_run, F.block1_indices(R))  # wall time only (pure in i)
+    F.prefetch(_ORA, _ora_null_run, F.prefetch_indices(R))  # wall time only (pure in i)
 
     def one(i: int, d: str) -> np.ndarray:
         ran.add(i)

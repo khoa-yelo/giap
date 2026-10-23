@@ -99,12 +99,6 @@ def _draw(pair: Any, rng: np.random.Generator) -> Any:
     return fs.draw(pair, rng)
 
 
-def _sharded() -> bool:
-    import os
-
-    return any(os.environ.get(v) for v in (C.SHARD_ENV, C.CONFIRM_ENV))
-
-
 def _teeth_blocks(log: Path, suite: str, stream: str) -> list[dict[str, Any]]:
     recs = [json.loads(x) for x in (log / f"{suite}.jsonl").read_text().splitlines() if x]
     return [r for r in recs if r.get("stream") == stream]
@@ -202,7 +196,7 @@ def test_attack2_fitted_p_detect_confounded_term_at_level(full: bool, tag: str) 
     levels = _levels()
     ran: set[int] = set()
     gates = []
-    F.prefetch(_A2, _a2_fitted_key, [(tag, i) for i in F.block1_indices(R)],
+    F.prefetch(_A2, _a2_fitted_key, [(tag, i) for i in F.prefetch_indices(R)],
                done=lambda v: "fitted_over" in v)  # fmt: skip
     for d in ("over", "under"):
         stream = f"ora.m815.attack2.{tag}.fitted.{d}{'.full' if full else ''}"
@@ -264,7 +258,7 @@ def test_teeth_attack2_flat_p_detect_under_rejects_beyond_twice_alpha(
 def test_attack2_oracle_arm_level_recorded(tag: str) -> None:
     """Recorded (decision 6): the oracle arm's rate and §8.4 band per alpha; below the lower
     bound is reported (warning), never gated."""
-    if _sharded():
+    if F.sharded():
         pytest.skip("recorded arm: not run under --shard / confirm runs")
     R = C.replicates(ORA, False)
     levels = _levels()

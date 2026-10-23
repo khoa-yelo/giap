@@ -40,7 +40,6 @@ gave LightGBM CV R² 0.32 and 0.41 (elastic net 0.45 and 0.52).
 
 from __future__ import annotations
 
-import os
 import time
 import warnings
 from typing import Any
@@ -95,9 +94,7 @@ def _threads(full: bool) -> int:
     """Results do not depend on ``threads`` (M8-09 rule 6). The job's CPUs are shared by the
     xdist workers (``PYTEST_XDIST_WORKER_COUNT``, default 1); lead decision 10: the fast tier
     caps at 4 (8 under ``-n 16`` oversubscribed the node, Slurm 1874853), the full tier at 8."""
-    cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", "1"))
-    workers = max(1, int(os.environ.get("PYTEST_XDIST_WORKER_COUNT", "1")))
-    return max(1, min(8 if full else 4, cpus // workers))
+    return max(1, min(8 if full else 4, F.cpu_share()))
 
 
 def model_inputs(w: Any) -> tuple[pd.DataFrame, np.ndarray, list[str], list[str]]:
@@ -209,6 +206,8 @@ def _recovery(i: int, coefs: dict[str, float], r2: float) -> dict[str, Any]:
 @pytest.mark.calibration_full  # lead decision 10: recorded only, §5.2 defaults (~1,000 s each)
 @pytest.mark.parametrize("arm", sorted(RECOVERY))
 def test_determinants_recovery_recorded(arm: str) -> None:
+    if F.sharded():
+        pytest.skip("recorded arm: not run under --shard / confirm runs (review B1)")
     coefs, r2 = RECOVERY[arm]
     R = C.replicates(SUITE, False)
     t0 = time.perf_counter()

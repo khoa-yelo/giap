@@ -247,12 +247,22 @@ def r_engine(tmp: Path) -> Any:
     return r_fgsea_engine(resolve_launcher(os.environ), tmp_root=tmp)
 
 
-def workers() -> int:
-    """Processes for ``prefetch``: ``GIAP_M815_WORKERS`` (default 4), at most the job's CPUs."""
+def cpu_share() -> int:
+    """This process's share of the job's CPUs: ``SLURM_CPUS_PER_TASK`` (default 1) divided by
+    the xdist worker count (``PYTEST_XDIST_WORKER_COUNT``, default 1); at least 1."""
     import os
 
-    cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", os.cpu_count() or 1))
-    return max(1, min(int(os.environ.get("GIAP_M815_WORKERS", "4")), cpus))
+    cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", "1"))
+    n = max(1, int(os.environ.get("PYTEST_XDIST_WORKER_COUNT", "1")))
+    return max(1, cpus // n)
+
+
+def workers() -> int:
+    """Processes for ``prefetch``: ``GIAP_M815_WORKERS`` (default 4), at most ``cpu_share()``
+    (review nit 1: the same per-xdist-worker share as the determinants ``_threads``)."""
+    import os
+
+    return max(1, min(int(os.environ.get("GIAP_M815_WORKERS", "4")), cpu_share()))
 
 
 def prefetch(cache: dict[Any, Any], run: Any, keys: Sequence[Any], done: Any = None) -> None:
@@ -275,12 +285,29 @@ def prefetch(cache: dict[Any, Any], run: Any, keys: Sequence[Any], done: Any = N
             cache[k] = v
 
 
-def block1_indices(R: int) -> list[int]:
-    """Replicates block 1 of this process runs (the shard's range; none in a confirm run)."""
+def prefetch_indices(R: int) -> list[int]:
+    """Absolute replicate indices the first ``calibrate`` pass of this process runs: unsharded,
+    block 1 (``0..R-1``); under ``--shard K/N`` the shard's range of block
+    ``GIAP_CALIBRATION_BLOCK``, offset by ``(block - 1) * R`` (review B2); none in a confirm run
+    (``GIAP_CALIBRATION_CONFIRM``: its block-2 checks are only known to ``calibrate``)."""
     import os
 
     import _criteria as C
 
     if os.environ.get(C.CONFIRM_ENV):
         return []
-    return list(C.replicate_range(R))
+    local = C.replicate_range(R)
+    if local == range(R):
+        return list(range(R))
+    offset = (C.replicate_block() - 1) * R
+    return [offset + i for i in local]
+
+
+def sharded() -> bool:
+    """A ``--shard`` or ``--merge`` confirm run: recorded-only arms (no ``calibrate`` verdict)
+    skip there, so they run once per suite run, not once per shard (review B1)."""
+    import os
+
+    import _criteria as C
+
+    return any(os.environ.get(v) for v in (C.SHARD_ENV, C.CONFIRM_ENV))
