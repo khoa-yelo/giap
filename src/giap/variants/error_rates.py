@@ -77,8 +77,9 @@ def paired_observations(
     alt_support: pd.DataFrame,
     q_max: float = 0.01,
 ) -> pd.DataFrame:
-    """One row per (de novo row, class) of rules 1-3: ``run``, ``spectrum_id``, ``peptide``,
-    ``reference_peptide``, ``alt_type``, ``mass_equivalent`` and ``error``.
+    """One row per (distinct de novo ``(run, spectrum_id, peptide)``, class) of rules 1-3:
+    ``run``, ``spectrum_id``, ``peptide``, ``reference_peptide``, ``alt_type``,
+    ``mass_equivalent`` and ``error``; rows repeated over charges count once (lead decision 8).
 
     ``reference`` rows count when not decoys and ``q_value <= q_max``; a table without the
     ``q_value`` / ``is_decoy`` columns is taken as already filtered (C17, lead decision 5).
@@ -91,7 +92,8 @@ def paired_observations(
     ref = _keyed(reference[keep.to_numpy(dtype=bool)])
     ref = ref.drop_duplicates(_KEY, keep="last").rename(columns={"peptide": "reference_peptide"})
     classes = alt_support[["peptide", *_CLASS]].drop_duplicates().astype({"peptide": str})
-    obs = _keyed(denovo).merge(ref, on=_KEY).merge(classes, on="peptide")
+    dn = _keyed(denovo).drop_duplicates()  # one observation per (run, spectrum_id, peptide)
+    obs = dn.merge(ref, on=_KEY).merge(classes, on="peptide")
     obs["mass_equivalent"] = obs["mass_equivalent"].astype(bool)
     obs["error"] = (_fold(obs["peptide"]) != _fold(obs["reference_peptide"])).astype(bool)
     return obs.reset_index(drop=True)
