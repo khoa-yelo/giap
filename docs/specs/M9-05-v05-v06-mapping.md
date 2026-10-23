@@ -97,3 +97,16 @@ or, when a stratum is NA, "… stratum 2 unestimated (no targets)".
 2. "rejected by FDR" cannot be split by route (`unmapped.tsv` has no route column). **Proposed
    default:** route `unmapped` for every unmapped row (index decision 14); adding a route column
    to `unmapped.tsv` would be an M3 schema change and is not proposed.
+
+## Lead decisions (2026-10-22, after the test author's a6c601c)
+
+1. The V6 data TSV gets `score_bin` as its 4th column (`panel, length_class, n_diff, score_bin, metric, value, ci_low, ci_high, flags`).
+2. Panel (b) has six rows per run: `fdr_stratum` and `n_accepted` for each n_diff. The title reads its count from them (index decision 5).
+3. **`decoy_type`.** Panels (a) and (b) use the `reverse` rows (database peptides). The `shuffle` rows (de novo) are used only when the reverse rows have no targets. A run with targets under both decoy types is left for the hardening pass (backlog).
+4. **Title wording.** The title says "<n> FDR-tested placements accepted". Exact `same_db` placements are not FDR-tested, so "placements accepted" alone would understate the placed peptides. The test strings were updated by the lead.
+5. The test author's readings of gaps 5–8 are accepted as tested:
+   - the edge-case titles;
+   - the V5 empty state and its 10-row grid;
+   - the matching keys: `sequence` for peptides, `sequence_id` for proteins;
+   - `contaminant_id` counts as contaminant;
+   - placed is `#0072B2`, and the other outcomes take the next Okabe–Ito colours in palette order.

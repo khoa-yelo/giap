@@ -631,3 +631,22 @@ code 4. No table is written: the step writes after computing, as it does today.
 8. **When fgsea is required.** Preflight requires the fgsea env only when `function` is enabled **and** abundance is given, which is when GSEA runs.
 9. **Apptainer.** fgsea is conda-only under every profile for now. The BioContainers pin in ADR-0038 item 1 is deferred to the hardening pass (backlog). The step never calls `apptainer exec` itself.
 10. **M8-13.** Its fgsea half is superseded by the M8-17a contract test; its Wallenius half stays.
+
+## Lead decisions on the M8-17a tests (2026-10-22, after 9d1b517)
+
+1. **Golden contract.** Python restricts each set to the ranked TUs before handing it to R, in file order, as `gsea.py` already does. The R script's exit 3 for unranked members stays as an input check. So the contract compares 119 rows: SET_027 drops below minSize.
+2. The §7 types `GseaJob`, `EngineCall`, `EngineRow` and `EngineProvenance(r, fgsea, warnings)` are added to `giap.function.gsea` in M8-17a, without the engine switch, which stays in 17b.
+3. **Results header.** `job_id pathway size ES NES pval log2err leadingEdge`, as pinned.
+4. **Warnings.** The R script replaces embedded newlines in warnings with a space.
+5. **Provenance.** The engine object keeps the `EngineProvenance` of its last call as `engine.provenance`, which is `None` before the first call. 17b reads it for the `function.gsea_engine` event.
+6. **Missing R.** The wrapper checks for `<prefix>/bin/R` and raises `FgseaEngineUnavailable` when it is absent.
+7. **The `requires_r` marker.** It stays registered in `tests/contract/conftest.py` for 17a and moves to `pyproject.toml` in 17b with the calibration tests.
+8. **EXPECTED_ENVS.** The lead added `fgsea` to `EXPECTED_ENVS` and `CONDA_ONLY` in `tests/unit/annotate/test_tool_env_files.py`.
+9. **check_no_rscript.** Its test passes once #192 is merged into this branch.
+10. **No PROVENANCE line in the lock.** Provenance lives in the recordings' README and the versions file.
+11. **Fixtures.** `by_hand/` stays as a permanent format fixture. The five real recordings are made on Slurm by `scripts/slurm/record_fgsea.sbatch` once the env is built.
+
+## Lead notes for M8-17b (after the 17a implementation)
+- Move fgsea into `TOOLS`. Then remove the lead's `{"fgsea"}` exemption in `test_every_env_file_has_a_registry_entry`, and add fgsea to `ALL_TOOLS` and `ALL_BUILDS`.
+- The step fixture yields six collections (cog, kegg, go_bp, go_mf, go_cc, go_slim), while `sim_main` was recorded for the four §6 collections. T7 must either replay only those four or re-record with six.
+- `load_call` rebuilds `params` from `GseaConfig()` defaults, but sim_main and sim_retest used `n_perm_simple` 200. T7 must pass the recorded params.

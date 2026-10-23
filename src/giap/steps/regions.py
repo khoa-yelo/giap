@@ -101,6 +101,12 @@ def _precomputed(
     return regions, precomputed_members(regions, genes, reps)
 
 
+def _layer_missing(layer: str) -> dict[str, object]:
+    """The ``extra`` of a ``layer_missing:<layer>`` run-flag event (MVP-03 D-E)."""
+    return {"event": "region_layer.layer_missing",
+            "data": {"layer": layer, "flag": f"layer_missing:{layer}"}}  # fmt: skip
+
+
 def _from_tools(
     ctx: StepContext, genes: list[Gene], reps: dict[str, Replicon]
 ) -> tuple[list[Region], list[RegionGene]]:
@@ -108,11 +114,17 @@ def _from_tools(
     if "genomad" in ctx.inputs:
         gm = _genomad(_path(ctx.inputs["genomad"]), reps)
     else:
-        ctx.log.warning("layer_missing:genomad: no geNOMAD output; no prophage regions")
+        ctx.log.warning(
+            "layer_missing:genomad: no geNOMAD output; no prophage regions",
+            extra=_layer_missing("genomad"),
+        )
     if "antismash" in ctx.inputs:
         bgc = _antismash(_path(ctx.inputs["antismash"]), reps)
     else:
-        ctx.log.warning("layer_missing:antismash: no antiSMASH output; no BGC regions")
+        ctx.log.warning(
+            "layer_missing:antismash: no antiSMASH output; no BGC regions",
+            extra=_layer_missing("antismash"),
+        )
     feats = _features(_path(ctx.inputs["features"]))
     return build_regions(genes, feats, reps, gm, bgc, ctx.cfg)
 

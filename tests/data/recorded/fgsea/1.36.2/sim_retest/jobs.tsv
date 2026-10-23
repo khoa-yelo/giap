@@ -1,0 +1,3 @@
+job_id	min_size	max_size
+retest:go_bp:GO:0990100	1	242
+retest:go_bp:GO:0990101	1	242
