@@ -817,3 +817,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
+
+### M6-10 follow-ups
+- Runtime: build the pair frame once per threshold and keep reruns under 2× a single run; not pinned (timing is flaky on the shared node).
+- Review #243 nits:
+  - N1: `giap.context.sensitivity` imports `giap.steps.operons`, the first context→steps import. Move `run_operons` to a pure module and `read_layer` to io/.
+  - N2: the "relative" log has no `extra` event, and its wording fits only this family.
+  - N3: no unit or step test passes precomputed TSV layers (mutant M9).
+  - N4: hardening still owed: `--sensitivity full` in the nightly e2e, and the M9 text item on threshold sensitivity.
+  - N5: `test_unpatched_variants_unchanged` has an odd `assert [c for c in ...]`.

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import math
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -136,7 +137,7 @@ def operon_pairs(ctx: StepContext) -> None:
 
 
 #: optional evidence key -> layer name of ``layer_missing:<layer>`` (as ``context_layers``)
-_LAYERS = {"promoter_windows": "promoters", "terminators": "terminators", "tx_rates": "tx_rates"}
+LAYERS = {"promoter_windows": "promoters", "terminators": "terminators", "tx_rates": "tx_rates"}
 _MISSED_EVENT = "operons.missed_operons"
 
 
@@ -163,17 +164,18 @@ def run_operons(
     pairs = pair_frame(gene_table, genes_of(genes), replicons_of(replicons), pairs_raw, ev, cfg)
     d = discordance(pairs, gene_table, cfg, None)
     m = missed_operons(pairs, cfg, genes=gene_table)
-    missing = [name for key, name in _LAYERS.items() if key not in layers]
+    missing = [name for key, name in LAYERS.items() if key not in layers]
     merged = merge_tests(pairs, d.rows, m.rows, gene_table, missing_layers=missing)
     flagged = flag_pairs(merged, cfg)
     return merged, operons_table(tus, merged, gene_table, flagged), flagged, m.bin_counts
 
 
-def _layer(ctx: StepContext, key: str, reps: dict[str, Replicon], tus: pd.DataFrame) -> Any:
+def read_layer(
+    cfg: GiapConfig, key: str, path: Path, reps: dict[str, Replicon], tus: pd.DataFrame
+) -> Any:
     """The evidence layer under ``key`` (producer Parquet, or the M2-02 TSV when precomputed)."""
     pre = "promoters" if key == "promoter_windows" else key
-    path = _path(ctx.inputs[key])
-    if getattr(ctx.cfg.annotation.precomputed, pre) is None:
+    if getattr(cfg.annotation.precomputed, pre) is None:
         return pd.read_parquet(path)
     df = load_precomputed(pre, path, reps)
     return assign_tus(df, tus_of(tus), reps) if key == "tx_rates" else df
@@ -198,8 +200,8 @@ def operons_step(ctx: StepContext) -> None:
     rd = pd.read_parquet
     replicons, tus = rd(ins["replicons"]), rd(ins["tus"])
     reps = replicons_of(replicons)
-    layers = {k: _layer(ctx, k, reps, tus) for k in _LAYERS if k in ins}
-    for key, name in _LAYERS.items():
+    layers = {k: read_layer(ctx.cfg, k, ins[k], reps, tus) for k in LAYERS if k in ins}
+    for key, name in LAYERS.items():
         if key not in layers:
             ctx.log.warning("%s%s: layer not available; its pair evidence is NA",
                             LAYER_MISSING, name, extra={"event": "operons.layer_missing", "data":
