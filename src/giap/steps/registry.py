@@ -9,7 +9,9 @@ so the graph is complete. A step with a ``precomputed`` key is replaced by that
 
 from __future__ import annotations
 
+import hashlib
 import heapq
+import json
 import logging
 import shutil
 import traceback
@@ -174,6 +176,36 @@ def get(name: str) -> StepSpec:
 def all_steps() -> list[StepSpec]:
     """Every registered step, sorted by name."""
     return [_REGISTRY[n] for n in sorted(_REGISTRY)]
+
+
+#: top-level config sections read only by the named steps (M7-15 lead decision 7). Any other
+#: section, and every other top-level value except ``_NOT_HASHED``, is in every step's slice,
+#: so a change re-runs too much rather than too little.
+SECTION_READERS: Mapping[str, frozenset[str]] = {
+    "variants": frozenset({"variants"}),
+    "novel_orfs": frozenset({"novel_orfs"}),
+}
+_NOT_HASHED = frozenset({"threads"})  # resources only; outputs never depend on it (§6.6)
+
+
+def config_slice(dumped: Mapping[str, object], name: str) -> dict[str, object]:
+    """The part of a dumped config (``model_dump(mode="json")``) that step ``name`` reads. Pure."""
+    mine = frozenset({name})
+    return {
+        k: v
+        for k, v in dumped.items()
+        if k not in _NOT_HASHED and name in SECTION_READERS.get(k, mine)
+    }
+
+
+def config_hashes(dumped: Mapping[str, object], names: Iterable[str]) -> dict[str, str]:
+    """Per step, the SHA-256 of its ``config_slice`` (canonical JSON), for the task hash. Pure."""
+    return {
+        n: hashlib.sha256(
+            json.dumps(config_slice(dumped, n), sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        for n in names
+    }
 
 
 def topo_order(names: Iterable[str], members: Mapping[str, str] | None = None) -> list[str]:

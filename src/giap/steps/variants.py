@@ -21,6 +21,7 @@ import pandas as pd
 import giap
 from giap.config import GiapConfig
 from giap.io.fasta import read_genome_fasta
+from giap.io.output_checks import check_tsv, check_vcf
 from giap.io.variant_tables import write_pileup, write_variants
 from giap.io.vcf import VcfRecord, write_vcf
 from giap.io.work_tables import load_tables
@@ -153,3 +154,6 @@ def variants_step(ctx: StepContext) -> None:
               info_fields=INFO_FIELDS, format_fields=FORMAT_FIELDS, sequences=genome)  # fmt: skip
     _write_gzip(ctx.outputs["pileup"], pile)
     write_variants(ctx.outputs["variants"], table)
+    check_vcf("variants_vcf", ctx.outputs["variants_vcf"])  # M7-15 item 2
+    check_tsv("pileup", ctx.outputs["pileup"], "pileup")
+    check_tsv("variants", ctx.outputs["variants"], "variants")

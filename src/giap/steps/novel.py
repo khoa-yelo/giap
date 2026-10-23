@@ -17,6 +17,7 @@ replace the tool and layer steps and arrive here instead of the Parquet files.
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -37,8 +38,10 @@ from giap.io.novel_tables import (
     write_novel_orfs,
     write_pragma_gff3,
 )
+from giap.io.output_checks import check_gff3, check_tsv
 from giap.io.parquet import write_parquet_deterministic
 from giap.io.protein_fasta import read_protein_fasta
+from giap.io.tsv import read_tsv
 from giap.io.work_tables import FILE_NAMES, _read_tsv_table
 from giap.model.coords import Interval, Replicon
 from giap.model.genes import Gene, GeneModel
@@ -53,7 +56,7 @@ from giap.novel.candidates import (
     window_chunks,
 )
 from giap.novel.evidence import apply_evidence
-from giap.novel.outputs import orf_table
+from giap.novel.outputs import candidate_ids, orf_table
 from giap.steps.common import one_path as _path
 from giap.steps.common import read_genes as _genes
 from giap.steps.common import read_replicons as _replicons
@@ -360,4 +363,43 @@ def novel_orfs(ctx: StepContext) -> None:
     else:  # rule 3: no candidate -> pragma-only GFF3s
         write_pragma_gff3(ctx.outputs["novel_orfs_gff3"], reps)
         write_pragma_gff3(ctx.outputs["annotation_patch"], reps)
+    check_tsv("novel_orfs", ctx.outputs["novel_orfs"], "novel_orfs")  # M7-15 item 2
+    for key in ("novel_orfs_gff3", "annotation_patch"):
+        check_gff3(key, ctx.outputs[key], reps)
     ctx.log.info("novel_orfs: %d ORFs, %d called", len(table), int(table["called"].sum()))
+
+
+# ---------------------------------------------------------------- finalize (M7-15 item 6)
+
+
+_HIT_KEYS = frozenset({"peptide", "contig", "strand", "locus_class", "novel_candidate_id"})
+
+
+def _records(path: Path) -> tuple[list[str], list[dict[str, str | None]]]:
+    header, rows = read_tsv(path)
+    return header, [dict(zip(header, r, strict=True)) for r in rows]
+
+
+def backfill_candidate_ids(outdir: Path) -> int:
+    """Fill ``novel_candidate_id`` in the published ``OUT/mapping/peptide_hits.tsv`` from
+    ``OUT/tables/novel_orfs.tsv`` (M7-06 Q6), after both executors published; only that column's
+    cells change. Returns the rows filled (0 when either file is absent or empty: stub runs)."""
+    hits_p, orfs_p = outdir / "mapping" / "peptide_hits.tsv", outdir / "tables" / "novel_orfs.tsv"
+    if not all(p.is_file() and p.stat().st_size for p in (hits_p, orfs_p)):
+        return 0
+    header, hits = _records(hits_p)
+    _, orfs = _records(orfs_p)
+    if not orfs or not _HIT_KEYS.issubset(header):
+        return 0
+    ids = candidate_ids(hits, orfs)
+    col = header.index("novel_candidate_id")
+    lines = hits_p.read_text(encoding="utf-8").split("\n")
+    for i, oid in enumerate(ids, start=1):
+        if oid is not None:
+            cells = lines[i].split("\t")
+            cells[col] = oid
+            lines[i] = "\t".join(cells)
+    tmp = hits_p.with_name(f".tmp.{hits_p.name}")
+    tmp.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    os.replace(tmp, hits_p)
+    return sum(oid is not None for oid in ids)

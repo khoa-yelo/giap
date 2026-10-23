@@ -23,7 +23,7 @@ from giap.io.tsv import format_value
 from giap.mapping.sixframe import translate11_text
 from giap.model.coords import Interval, Replicon, check_interval
 from giap.model.genes import GeneModel
-from giap.novel.candidates import Orf, _il, _stops, _strand_view, _walk_up
+from giap.novel.candidates import NOVEL_CLASSES, Orf, _il, _stops, _strand_view, _walk_up
 
 Kind = Literal["str", "int", "float", "bool"]
 NOVEL_ORFS_TYPES: dict[str, Kind] = {
@@ -278,3 +278,24 @@ def protein_records(
             out.append(ProteinRecord(header, (header,), header, aa, aa.count("*"),
                                      LetterCounts(()), LetterCounts(())))  # fmt: skip
     return out
+
+
+def candidate_ids(
+    hits: Sequence[Mapping[str, str | None]], orfs: Sequence[Mapping[str, str | None]]
+) -> list[str | None]:
+    """``novel_candidate_id`` per ``peptide_hits`` row (M7-06 Q6, back-filled in M7-15): the
+    ``orf_id`` of the first ORF listing the row's peptide (I = L folded) on its contig and
+    strand, for rows of a novel locus class; else ``None``. ``candidate_rows`` keeps one locus
+    per folded peptide, so the match is that locus. Rows and ORFs are published-table cells. Pure.
+    """
+    owner: dict[tuple[str | None, str | None, str], str] = {}
+    for o in orfs:
+        for pep in (o["peptides"] or "").split(";"):
+            if pep and o["orf_id"]:
+                owner.setdefault((o["contig"], o["strand"], _il(pep)), o["orf_id"])
+    return [
+        owner.get((h["contig"], h["strand"], _il(h["peptide"] or "")))
+        if h["locus_class"] in NOVEL_CLASSES
+        else None
+        for h in hits
+    ]

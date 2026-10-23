@@ -463,16 +463,19 @@ def write_outputs(outdir: Path, report: PreflightReport, norm: NormalisedInputs)
     Atomic: the previous marker is removed and a stale ``work/preflight/`` is moved into a
     temporary directory under ``outdir`` first; everything is written into that directory and
     moved into place with ``os.replace``, ``preflight.json`` last. A crash leaves neither the
-    marker nor normalised files behind. Work files with unchanged content are the earlier files
-    (mtime kept), so a ``--resume`` run caches.
+    marker nor normalised files behind. Work files and report files with unchanged content are
+    the earlier files (mtime kept), so a ``--resume`` run caches.
     """
     rep, work = outdir / "preflight", outdir / "work" / "preflight"
     rep.mkdir(parents=True, exist_ok=True)
-    (rep / "preflight.json").unlink(missing_ok=True)
-    if norm.resources is not None:
-        _log_resources(outdir, norm.resources)
     tmp = Path(tempfile.mkdtemp(prefix=".preflight-", dir=outdir))
     try:
+        (tmp / "old_report").mkdir()
+        for name in ("preflight.json", "preflight.md"):  # marker out first; kept if unchanged
+            if (rep / name).is_file():
+                os.replace(rep / name, tmp / "old_report" / name)
+        if norm.resources is not None:
+            _log_resources(outdir, norm.resources)
         if work.is_dir():
             os.replace(work, tmp / "old")
         else:
@@ -484,6 +487,7 @@ def write_outputs(outdir: Path, report: PreflightReport, norm: NormalisedInputs)
         with open_text_write(tmp / "preflight.md") as fh:
             fh.write(render_preflight_md(report))
         write_preflight_json(tmp / "preflight.json", report)
+        _keep_unchanged(tmp / "old_report", tmp)  # gene_table and plots read it (M7-15 item 3)
         if (tmp / "work").exists():
             work.parent.mkdir(exist_ok=True)
             os.replace(tmp / "work", work)
