@@ -27,5 +27,7 @@ where the genome digest comes from before `run_manifest.json` existed (M9-22 spe
 byte-identical reruns); `tests/unit/compare/`.
 
 ## Consequences
-V16 and `report/compare.html` (M9-23) read these three files only. Runs annotated separately
+V16 and `report/compare.html` (M9-23) read these three files, plus each run's `tables/genes.tsv`
+for the per-gene log2 values of the V16 panel (b) scatters (amended 2026-10-23, M9-23 lead decision 3;
+the three tables hold no per-gene abundance). Runs annotated separately
 (different locus tags) cannot be compared until a locus-tag mapping exists (backlog).

@@ -108,6 +108,6 @@ qc	run	all	contaminant_peptides	0	NA	NA	NA
 qc	run	all	contaminant_proteins	0	NA	NA	NA	
 qc	run	all	engine_protein_mismatch_rate	0.0006082725060827251	NA	NA	1644	
 qc	run	all	genome_inconsistent_rate	NA	NA	NA	NA	
-qc	run	all	id_mixups	NA	NA	NA	NA	requires_variants
+qc	run	all	id_mixups	0	NA	NA	0	
 qc	run	all	unmapped_peptides	24	NA	NA	NA	
 qc	run	all	unmapped_proteins	0	NA	NA	NA	
