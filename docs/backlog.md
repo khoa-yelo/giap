@@ -305,6 +305,20 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Owed (acceptance): B = 1,000 benchmark in baseline.json; methods "Null and attribution" section.
 - M8-10 carry-over (statistician #173): `cv_r2_mean` (the null p's effect) gets `ci_unestimated` (ADR-0031 pattern); `n_perm` should count non-NaN null values as `perm_p` does; optional exact test against the observed repeat-1 R².
 - Hardening (ADR-0034): spatially contiguous CV folds for observed and null, a positional-feature decision (`replichore_position`), a detection-selection model; `null_uncalibrated` comes off only when every arm of test_attack_determinants_null.py passes.
+
+## M8-10 review nits (#178, one-round MVP review: APPROVE)
+- **N1** Log the `--publication` runtime at run time; today only the CLI help states it (lead decision 3).
+- **N2** `_threads` is capped by sched_getaffinity, not by `task.cpus`. Under the local executor or a container it can oversubscribe; determinism is not affected.
+- **N3** farmshare.config: a `process_high` retry asks for 64 GB over 16 CPUs, which is 4096 MB/CPU and over FarmShare's 4000 MB limit. Fix it in farmshare.config; base.config's `cpus = 16` is pinned by a test.
+- **N4** The step uses private helpers from steps/codon.py and steps/operons.py, plus its own C5 reader. Move them into a public contract reader in io/.
+- **N5** The `_cell` `""`→NA branch is redundant or untested (mutant m07 survived).
+- **N6** Nothing checks that CAI reference rows exist (m04 and m12 survived).
+- **N7** Only the bootstrap stream is pinned. Pin the CV stream name and the null seed too (m10, m11).
+- **N8** Add a step-level test for NaN `n_perm` and `unestimated` on null_p (m02). The `features_dropped` test checks a subset rather than equality (m06).
+- **N9** main_determinants.nf.test should assert where `tus` and `replicons` come from.
+- **N10** One main.nf header line is over 100 characters.
+- **N11** Still owed: a real giap_run.sbatch run on sim100k, and the 4,500-gene runtime in benchmarks/baseline.json.
+- Mutation evidence: Slurm 1867779; scratch is in $GIAP_ROOT/scratch/review178_mut/.
 - M6-02 (test-author): `tests/unit/genetable/test_contract.py` pins `TABLE_KEYS` (no `peptide_runs`)
   and `m4_contract_fixture.build_frames` has no C16 frame. `test_tables_keys` and
   `test_missing_column[peptide_runs-*]` fail against the C16 contract that

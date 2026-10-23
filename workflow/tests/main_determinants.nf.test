@@ -1,0 +1,109 @@
+// M8-10: main.nf runs DETERMINANTS after CONTEXT in one stub run (GIAP_SPEC.md §6.2, §6.3,
+// §7.8.3, §9.1; docs/specs/M8-10-determinants-step-and-run.md step 6). Stub runs only; ci.yml
+// runs: nf-test test workflow/tests --profile test,stub.
+//
+// Pinned here: DETERMINANTS runs whenever GENETABLE does (from params.inputs.peptides), also with
+// modules = ['core'] (Module 8 is core); it takes GENETABLE's final gene table (detectability's), ANNOTATE's C1/C2/C5/C6
+// (parse_bakta, operon_pairs, context_layers), region_layer's C7/C8 and the gene context that
+// context_stats writes (CONTEXT.out's gene_context, spec step 6); tables/determinants_*.tsv are
+// published. Without peptides it does not run.
+
+nextflow_pipeline {
+
+    name "main.nf runs DETERMINANTS after CONTEXT (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "determinants"
+
+    test("peptides given: determinants gets the gene table, the contract tables and CONTEXT's gene context") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // subworkflow's own name DETERMINANTS: "`DETERMINANTS` is already included")
+            def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
+            def dirsTagged = { String w, String step ->
+                H.taskDirs(w).findAll { d ->
+                    def l = new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: ''
+                    H.tagOf(l.replaceFirst(/^### name:\s*['"]?/, '').replaceFirst(/['"]\s*$/, '')) == step
+                }
+            }
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            assert new groovy.json.JsonSlurper().parse(REG).containsKey('determinants') : "step_registry.json has no determinants step"
+
+            assert ranTagged('determinants') == 1 : "determinants ran ${ranTagged('determinants')}x; tasks: ${H.names(workflow.trace)}"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def dd = dirsTagged(work, 'determinants')[0]
+            def din = H.stepInputs(dd)
+            def keys = din.collect { it[0] }.sort()
+            assert keys == ['gene_context', 'gene_table', 'genes', 'layers', 'region_genes',
+                            'regions', 'replicons', 'tus'] : "determinants inputs ${din}"
+
+            def src = { String k ->
+                def staged = din.find { it[0] == k }[1]
+                new File(dd, staged).canonicalPath
+            }
+            def under = { String step -> H.stepDirs(work, step)[0].canonicalPath }
+            assert src('gene_context').startsWith(under('context_stats')) : "gene_context is not context_stats' output: ${src('gene_context')}"
+            assert src('gene_context').endsWith('gene_context.parquet')
+            assert src('gene_table').startsWith(under('detectability')) : "gene_table is not GENETABLE's final gene table (detectability's genetable/genes.parquet): ${src('gene_table')}"
+            assert src('genes').startsWith(under('parse_bakta')) : "genes is not parse_bakta's C2: ${src('genes')}"
+            assert src('layers').startsWith(under('context_layers')) : "layers is not context_layers' C6: ${src('layers')}"
+            ['regions', 'region_genes'].each { k ->
+                assert src(k).startsWith(under('region_layer')) : "${k} is not region_layer's: ${src(k)}"
+            }
+
+            ['tables/determinants_features.tsv', 'tables/determinants_model.tsv',
+             'tables/determinants_attribution.tsv'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+        }
+    }
+
+    test("no peptides: DETERMINANTS does not run") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            // the step by its GIAP_STEP tag, whatever the alias (a process alias cannot be the
+            // subworkflow's own name DETERMINANTS: "`DETERMINANTS` is already included")
+            def ranTagged = { String step -> H.names(workflow.trace).count { H.tagOf(it) == step } }
+            def dirsTagged = { String w, String step ->
+                H.taskDirs(w).findAll { d ->
+                    def l = new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: ''
+                    H.tagOf(l.replaceFirst(/^### name:\s*['"]?/, '').replaceFirst(/['"]\s*$/, '')) == step
+                }
+            }
+            assert workflow.success
+            assert ranTagged('determinants') == 0 : "determinants ran without peptides: ${H.names(workflow.trace)}"
+            assert !new File("${outputDir}/tables").exists() : "tables/ published without peptides"
+        }
+    }
+}
