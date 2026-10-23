@@ -248,7 +248,7 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
 | 5 | T = 2,600 eligible target-won genes, D = 0 above the top 2,000 | q_floor = 1/2,600 = 0.000385 ≤ 0.01; no `q_floor_above_alpha`. The sim100k contrast, T = 85: q_floor 0.0118 > 0.01 and the warning |
 | 6 | K-12 base C at U00096.3:337,021 (+ strand CDS, codon 2 = `CCG`, Pro); the sample SNV makes it `CTG` (Leu) | `truth/alt_sites.tsv`: ref C, alt T, pos 337021 on both sides, `aa_change` P?L with codon index. Two detected sample peptides cover it, so `variants.tsv` has an ALT `high` call `AA_REF=P`, `AA_ALT=L` with flags `snv;strain_difference;database_derived`, and the VCF record has `REF=C`, `ALT=T` at the codon's lowest position |
 | 7 | a minus-strand CDS annotated on [s, e) whose in-frame start codon lies 12 codons above e (higher coordinate) with no in-frame stop between | `nterm_extension` truth ORF [s, e + 36); the protein is expressed from the upstream start; an N-terminal peptide maps across the annotated start; the recorded annotation is unchanged |
-| 8 | b0 = −2.0 (the M3-19 default) | truth-detected share ≈ 0.98, `n_detected` ≥ 0.95 × eligible: gates 6 and 8 fail (saturated, as in 1865149). The tuned b0 is what the scenario pins |
+| 8 | b0 = −2.0 (the M3-19 default) | truth-detected share ≈ 0.94 (measured 0.944), `n_detected` ≥ 0.95 × eligible: gates 6 and 8 fail (saturated, as in 1865149). The tuned b0 is what the scenario pins |
 | 9 | `TUSet.txt` absent | `tu_source = gap_rule`, WARNING, run proceeds; acceptance 14's RegulonDB recovery line is "not available" |
 | 10 | island 4 planted at −3 SD over 8 TUs (≈ 15 genes), few detected peptides there | `islands.tsv` has a down island overlapping ≥ 50 % of those genes (M5-11: a down island over peptide-less genes is allowed) |
 
@@ -384,3 +384,18 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
    7. The `nterm_extension` count is bounded by `n_novel_per_class`.
    8. The branch is stacked on #225 (merged in by the lead). When #225 squash-merges, merge its old
       tip and then main, following the stacked-merge rule.
+7. **Implementer part 1 (4a16aa79):** the tuned b0 is −5.25, which gives a truth-detected share of
+   0.631 (2,757 / 4,367), and every novel class has more than 200 ORFs with a true peptide. The
+   implementer's unpinned choices 1–6 are accepted:
+   1. Wrong identifications stay `shuffled` until part 2.
+   2. `alt_sites` leaves out SNVs in the first codon (giap reads it as M).
+   3. The replicon is passed to the layout as linear; no TU joins across the origin.
+   4. Novel ORFs also exclude overlaps with an RNA gene or a same-strand pseudogene, and must stay
+      intact on the sample (as in makedb).
+   5. `proteins.faa` is dropped; `truth/novel_orfs.json` and `truth/proteomics.json` are added.
+   6. Provenance records `decoys: "unscored"` until part 2.
+
+   Example 8's expected share is corrected to 0.94; the test's ≥ 0.90 gate stands.
+8. **Part 2** (`decoys="scored_null"`, question 2's split between protein and six-frame entries):
+   test-author next, then the implementer, then the end-to-end run once #238, #225 and #237 have
+   merged.
