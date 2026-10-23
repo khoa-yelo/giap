@@ -128,3 +128,8 @@ few genes for the determinants model (`<n>` rows, `<t>` TUs)".
      - N4: break ties in BLOCKS order.
      - Delete the unreachable `few and d_rows` branch.
      - N2 and N5 are backlogged.
+6. **Test-author gaps (63a90074).**
+   - A block is named only when both ends of its interval are finite and the low end is above 0.
+   - NA reads "CV R² unestimated", with no "± sd".
+   - Panel (d)'s R² text uses the title's formatter, with a Unicode minus.
+   - The twin's reversed axis applies to panel (a) only.
