@@ -81,3 +81,17 @@ def score(results: Sequence[CheckResult]) -> float          # passed / gated ite
 3. "Title states the finding" is a mechanical check (a number or a declared phrase) plus Khoa's
    review; no language model judges titles.
 4. Feature loop: test-author → implementer → code review.
+
+## Lead decisions on the tests (2026-10-22, after 55b96f9)
+
+5. **Evidence.** The implementer runs the slow sim100k sweep (tests/integration/
+   test_checklist_sim100k.py) on Slurm before review. Every registered plot must pass the gated
+   items; a small fix to an existing plot belongs in this PR, a large one is reported to the lead.
+6. **Empty-state phrases** are exactly what `base.empty_state` produces; the checklist derives
+   them from `base`, no separate pinned list.
+7. **Units.** The checklist keeps an explicit, documented allow-list of unitless and categorical
+   axis labels (a module constant), extended as plots need it; anything else naming a quantity
+   needs a unit.
+8. **ΔE detail format** is pinned: `min ΔE before X.X → after Y.Y` (for the M9-25 packet).
+9. **Chart furniture** (legend frames, spines, grid lines, ticks in the style.RC greys) is exempt
+   from the palette item; it checks data artists only.
