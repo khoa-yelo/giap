@@ -121,3 +121,18 @@ Definitions:
    - PD at the written grid value (`%.6g`) is accepted, and the statistician reviews it.
    - Follow-up (backlog): Nextflow wiring of the support keys in function.nf, determinants.nf and
      context.nf. Today only the local executor publishes them.
+7. **Nextflow wiring (follow-up, test-author 9b229c4c). Gaps 1, 2 and 4–6 accepted as proposed.**
+   - **Optional output:** GIAP_STEP gains a separate optional `*_support` output
+     (`path '*_support', optional: true, emit: support`). The steps are unchanged.
+   - **Publishing:** the out spec is `'<key>=<key>'`, and `saveAs` maps `<key>/support/<f>` to `plots/support/<f>`,
+     file by file. Never publish a whole `plots/` directory from two tasks.
+   - **Staging:**
+     - main.nf passes each emission as `plots_support` to PLOTS and on to REPORT.
+     - The local runner stages SUPPORT_OUTPUTS as `plots_support` for the plots step.
+     - The search across every `plots_support` directory in RunView is M9-21's change (m9/v18-null-panels); don't duplicate it here.
+   - **Stub file names:** each step's real support file names.
+   - **report** reads support only from the `plots` directory.
+   - **Existing tests needing updates:** function.nf.test's published-file list, test_local_publish_names, and test_determinants_step's alias count. These belong to the lead after the implementer reports.
+   - **Side issues to check:**
+     - sim100k publishes no `null_regions`;
+     - determinants.nf emits no `events`.
