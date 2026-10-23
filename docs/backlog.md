@@ -708,3 +708,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
+
+### M4-24 follow-up (giapsim scored null decoys)
+- giapsim M3-19 proteomics writes decoy rows with q, PEP and score all NA, so the picked tier never
+  sees decoy competition (D = 0 above every target; after M4-24 such runs fall back to `mayu`). Give
+  decoys null scores: each null PSM lands on a target or a decoy with probability ½ (decoy count
+  Binomial(2 · n_wrong_rows, ½)), with score, PEP and q drawn from the null component like the wrong
+  targets, and add null-only target genes (genes whose only evidence is null PSMs), so calibration
+  exercises decoy wins on genes that also have a target. Evidence: Slurm 1869554 and
+  local/scratch/qfloor/ (patched proteomics.py: `decoy_score_na` false, decoy wins still only on
+  target-less genes because no gene is null-only). Then restore `decoy_picked` on the sim100k_real
+  golden and in tests/calibration/test_gene_fdr_real_mapping.py (M4-24 question 3).
