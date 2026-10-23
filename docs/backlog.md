@@ -694,3 +694,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   records carry no commit field, so "on main" cannot be checked from them.
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
+
+### M9-15 follow-ups
+- V11 twin bars at bin index; write `bin_lo`/`bin_hi` into the V11 data TSV so the twin matches
+  the static edges.
+- Tests for M9-15 decision 5 (`meta`: α lines, kb/Mb choice, origin-crossing islands).
