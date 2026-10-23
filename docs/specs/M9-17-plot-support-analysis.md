@@ -121,3 +121,27 @@ Definitions:
    - PD at the written grid value (`%.6g`) is accepted, and the statistician reviews it.
    - Follow-up (backlog): Nextflow wiring of the support keys in function.nf, determinants.nf and
      context.nf. Today only the local executor publishes them.
+8. **Review round (code review and statistician on 1268c1a9; PR #272).**
+   - **Tie (statistician B1, review N3):** at a maxP = −minP tie, the check also accepts
+     `abs(abs(dev) - abs(es)) <= ES_TOL`. V14 takes the ES marker and its sign from the table's `es`.
+   - **Stale sibling (review B1b):** publishing unlinks the other-suffix sibling (`.tsv` vs `.tsv.gz`) before
+     copying, through one helper shared with write_support.
+   - **Plots in `giap run` (review B1a):** owned by M9-21 (the RunView analysis-support lookup and the plots
+     inputs) and m9/support-nf-wiring (runner staging and Nextflow). Not changed here; the
+     integration parity test there pins it.
+   - **Split-contig test (review B2):** a fixture region on two replicons. Two (region, contig, stat) groups,
+     each with its own shifts and observed value, in both the exhaustive and the grid form.
+   - **Small nulls (statistician N1):** in the grid form, a (region, contig, stat) with K ≤ 99 finite values keeps its exact
+     values. Their `percentile` holds the 1-based rank, and a schema note explains it. ±inf values
+     are dropped before percentiles. An all-NaN null writes NA rows (review N5).
+   - **Unused null (statistician N2 = review N8):** no hl_shift null when `hl_variance_nonpositive` is set.
+   - **Island observed (review N2):** `observed_max` is |S|, and a test pins it.
+   - **Wording (statistician N3, review N1):** the null_determinants `cv_r2` description says "pooled
+     out-of-fold R² of one CV repeat; observed is the mean over repeats (conservative)". The
+     null_regions text says the fourth column. The grid form validates against a grid schema
+     (`null_regions_grid.json`). The datapackage notes that a path may resolve to `.gz`.
+   - **Methods note:** the statistician's three sentences, in the spec's "Null draws" and gsea_running definitions.
+   - **Attack tests:** the statistician's R1–R3 and G1 go under tests/calibration/attacks/test_attack_plot_support.py
+     (R3 is a strict xfail until the small-null change, then a hard check).
+   - **Backlogged:** N4 (`attrs` rank labels → explicit return), N6 (SHAP computed twice), N7
+     (redundant filter), PD grid ≤ 0 for LOG_FEATURES.
