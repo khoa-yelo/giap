@@ -85,9 +85,11 @@ def annotate_sites(sites: pd.DataFrame, rates: Sequence[ClassRate]) -> pd.DataFr
 
 - [ ] `tests/unit/variants/test_error_rates.py`: examples 1–6 and every degenerate row.
 - [ ] `tests/calibration/test_variant_class_error.py` (`calibration`, R = 20 fast / 100 full,
-  decision 3): on the M7-12 scenario **without** planted variants, the class rate is unbiased for
-  the true per-class error rate (|bias| ≤ 0.05, the `denovo_precision_max_abs_bias` constant); with
-  planted variants, the measured upward bias is recorded, not gated.
+  decision 3): with planted variants, the gate is |bias| ≤ 0.05 (`denovo_precision_max_abs_bias`,
+  two-sided) on the classes estimated in at least half of the replicates. It needs ≥ 3 gated
+  classes, ≥ 2 of them with truth below 1 − 2·bound, so a constant-1 estimator fails. The bias is
+  also recorded to the diagnostics jsonl. The arm without variants stays as a sanity check
+  (decision 9).
 - [ ] `docs/methods/variants.md` §"Class error rates" (rule 5); statistician sign-off.
 
 ## Questions for the lead
@@ -136,3 +138,10 @@ def annotate_sites(sites: pd.DataFrame, rates: Sequence[ClassRate]) -> pd.DataFr
    - B2 (test-author): the planted-variant arm becomes diagnostic and gated; it records the bias and
      does not assert a bound. The reference-proteome arm moves to M7-13 (backlog).
    - B3 (lead): rule 5 is reworded above, so it no longer claims an upper bound.
+9. **Test-author B2 (c9525eb3):**
+   - The planted arm gates |bias| ≤ 0.05 in both directions, with a teeth guard. The arm without
+     variants is a sanity check. Acceptance 2 is amended to match.
+   - The fast planted test takes 71 s and so moves to `NIGHTLY` (the conftest rule for runs over
+     60 s). Accepted: CI keeps the 46 s sanity test, and the nightly run gates the planted arm.
+   - Measured at R = 100: frameshift bias 0.0087 (SE 0.0031), a small upward bias about 2.8 SE from
+     0. It is inside the bound and noted in the backlog for the statistician.

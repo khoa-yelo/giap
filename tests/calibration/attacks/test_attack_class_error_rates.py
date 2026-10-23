@@ -1,9 +1,9 @@
 """Attack nulls for the M7-10 class false-ALT rate (GIAP_SPEC.md §7.5.4, §8.1 row "ALT call is
 real", §8.5; docs/specs/M7-10-class-error-rates.md rules 1-5; statistician review of PR #239).
 
-The M7-10 calibration gate (tests/calibration/test_variant_class_error.py) runs on a scenario
-without planted variants, where every ALT-supporting de novo read is an error: truth and
-estimate both sit at 0.97-1.0, so a constant ``rate = 1`` estimator passes it. These attacks
+The M7-10 calibration gate (tests/calibration/test_variant_class_error.py) first ran only on a
+scenario without planted variants, where truth and estimate both sit at 0.97-1.0, so a constant
+``rate = 1`` estimator passed it. The planted arm now gates too (lead decision 9). These attacks
 work on the pure functions with synthetic paired tables whose per-class error rate is planted,
 so a broken estimator fails:
 
