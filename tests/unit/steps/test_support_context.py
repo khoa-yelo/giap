@@ -294,7 +294,7 @@ def test_q2_percentile_grid_above_the_bound(
 def test_q2_exhaustive_below_the_bound(full: dict[str, Path]) -> None:
     path = sa.need(full[KEY], "null_regions")
     assert path.stat().st_size < sa.NULL_REGIONS_MAX_BYTES
-    assert sa.header(path)[2] == "shift_k"
+    assert sa.header(path)[3] == "shift_k"  # region_id, contig, stat, shift_k
 
 
 # ----------------------------------------------------------------------------- null_islands

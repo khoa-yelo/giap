@@ -46,12 +46,14 @@ COLUMNS: Mapping[str, tuple[str, ...]] = {
     ),
     "determinants_shap": ("locus_tag", "feature", "feature_value", "shap"),
     "determinants_pd": ("feature", "grid_value", "pd_mean", "pd_low", "pd_high"),
-    "null_regions": ("region_id", "stat", "shift_k", "null_value", "observed"),
+    "null_regions": ("region_id", "contig", "stat", "shift_k", "null_value", "observed"),
     "null_islands": ("contig", "direction", "replicate", "max_scan_s", "observed_max"),
     "null_determinants": ("model", "permutation", "cv_r2", "observed_cv_r2_mean"),
 }  # fmt: skip
 #: Q2 (lead decision 2): the percentile-grid file names its third column ``percentile``
-GRID_COLUMNS: tuple[str, ...] = ("region_id", "stat", "percentile", "null_value", "observed")
+GRID_COLUMNS: tuple[str, ...] = (
+    "region_id", "contig", "stat", "percentile", "null_value", "observed",
+)  # fmt: skip
 #: Q2: the exhaustive file is written while it is under 5 MB (1 MB = 2^20 bytes, ADR-0043)
 NULL_REGIONS_MAX_BYTES = 5 * 2**20
 #: the PD features (V15(b))
