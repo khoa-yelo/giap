@@ -122,9 +122,11 @@ def jaccard(a: frozenset[str], b: frozenset[str]) -> float | None:
 
 
 def agreement(a: DeterminantsSensitivity, b: DeterminantsSensitivity) -> float | None:
-    """Share of the genes in both top deciles whose dominant block is the same (a block of
-    ``None`` in both never agrees); ``None`` when no top-decile gene is shared."""
-    shared = a.dominant.keys() & b.dominant.keys()
+    """Share of the genes in both top deciles whose dominant block is the same. Genes with a
+    block of ``None`` in both runs are left out; ``None`` in one run only is a disagreement.
+    ``None`` (NA) when no gene is left (M8-16 lead decision 5)."""
+    shared = [g for g in a.dominant.keys() & b.dominant.keys()
+              if not (a.dominant[g] is None and b.dominant[g] is None)]  # fmt: skip
     if not shared:
         return None
     same = sum(a.dominant[g] is not None and a.dominant[g] == b.dominant[g] for g in shared)

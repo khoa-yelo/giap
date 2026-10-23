@@ -69,7 +69,8 @@ def determinants_family(
     X = X_all[rows]
     y = pd.to_numeric(f.loc[rows, "abundance_log2"]).to_numpy(float)
     d = cfg.determinants
-    threads = max(1, min(cfg.threads, os.cpu_count() or 1))
+    cpus = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count()
+    threads = max(1, min(cfg.threads, cpus or 1))
     folds = tu_folds(tu, d.outer_folds, d.repeats, rng)
     lgbm = cross_validate(X, y, folds, blocks, d, cfg.seed, threads, tu=tu)["lightgbm"]
     shap = shap_blocks(lgbm, X, blocks)

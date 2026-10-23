@@ -156,13 +156,15 @@ def _sensitivity(gene_table: Path, tables: Mapping[str, Path], cfg: GiapConfig, 
         fam = _bind(family, {**frames, **own.get(name, {})})
         p = fam(genes, base, for_step(f"sensitivity/{name}", cfg.seed))
         if p is None:
-            _skip(name, "too few model rows (below the 100-row / 25-TU minimum)")
+            _skip(name, _below_minimum_cause(genes))
             continue
         primary[name] = p
         for v, g, vcfg in runs:
             if v.runs_for(name):
                 r = fam(g, vcfg, for_step(f"sensitivity/{name}", cfg.seed))
-                if r is not None:  # a variant below the minimum has no row
+                if r is None:  # a variant below the minimum has no row
+                    _variant_skip(name, v.name, _below_minimum_cause(g))
+                else:
                     reruns[(name, v.name)] = r
         _cv_event(name, primary, reruns)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -173,6 +175,22 @@ def _sensitivity(gene_table: Path, tables: Mapping[str, Path], cfg: GiapConfig, 
 def _skip(family: str, why: str) -> None:
     event = {"event": f"sensitivity.{family}_skipped", "data": {"reason": why}}
     _log.info("sensitivity: %s skipped: %s", family, why, extra=event)
+
+
+def _variant_skip(family: str, variant: str, why: str) -> None:
+    event = {"event": f"sensitivity.{family}_variant_skipped",
+             "data": {"variant": variant, "reason": why}}  # fmt: skip
+    _log.info("sensitivity: %s variant %s skipped (no row): %s", family, variant, why, extra=event)
+
+
+def _below_minimum_cause(genes: pd.DataFrame) -> str:
+    """Why a family returned ``None``: no abundance at all, or too few model rows."""
+    if (
+        "abundance_log2" in genes
+        and pd.to_numeric(genes["abundance_log2"], errors="coerce").notna().any()
+    ):
+        return "too few model rows (below the 100-row / 25-TU minimum)"
+    return "no abundance (every abundance_log2 is NA)"
 
 
 def _function_inputs(
