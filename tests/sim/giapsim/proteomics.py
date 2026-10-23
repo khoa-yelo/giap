@@ -24,8 +24,10 @@ products of annotated non-pseudo proteins (``rev_<locus_tag>``, ``n_decoy_rows``
 M7-11b decision 9: in this mode the search database is the makedb FASTA, so target rows name
 makedb entries too: a wrong peptide's row its entry, a novel ORF's peptide the entry it lies in
 (``GIAPORF_…``), a peptide of a true protein upstream of its annotated start the gene's
-``nterm_extension`` entry (both: the planted ID when makedb has none) and any other peptide of an
-annotated protein its locus tag (makedb's ``db_id``). Truth rows keep the planted IDs.
+``nterm_extension`` entry and any other peptide of an annotated protein its locus tag (makedb's
+``db_id``). Truth rows keep the planted IDs. A target occurrence in no makedb entry (e.g. upstream
+of a gene whose upstream part is < 7 aa, which makedb drops) is not in the search database, so a
+peptide with no other occurrence is not detected.
 
 All draws come from ``numpy.random.default_rng([seed, 3])``, so the genome and its truth are
 unchanged by the proteomics options. Gene-level abundance is a plain log-normal per protein
@@ -550,9 +552,11 @@ def _noncoding_pool(
                                    starts)  # fmt: skip
 
 
-#: ``giap.makedb.ORF_ID_PREFIX`` and ``NTERM_PROTEIN_AA`` (restated: giapsim imports no giap).
+#: ``giap.makedb.ORF_ID_PREFIX``, ``NTERM_PROTEIN_AA`` and ``NTERM_MIN_UPSTREAM_AA`` (restated:
+#: giapsim imports no giap).
 ORF_ID_PREFIX = "GIAPORF_"
 NTERM_PROTEIN_AA = 30
+NTERM_MIN_UPSTREAM_AA = 7  # giap.makedb.build: shorter upstream parts get no entry
 _RNA_KINDS = frozenset({"rrna", "trna", "tmrna", "ncrna"})
 
 
@@ -567,7 +571,8 @@ class OrfEntries:
     classed ``cds_outframe`` / ``antisense`` / ``intergenic`` by its overlap with the annotated
     CDS/sORFs (none when it overlaps an RNA or a same-strand pseudogene); when that ORF is in frame
     with an annotated CDS/sORF, the gene's ``nterm_extension`` entry (upstream part + its first
-    30 codons; none when the upstream walk runs off a linear contig)."""
+    30 codons; none when the upstream walk runs off a linear contig or the upstream part is
+    shorter than ``NTERM_MIN_UPSTREAM_AA``)."""
 
     def __init__(self, feats: Sequence[Feat], seqs: dict[str, str],
                  topology: dict[str, str]) -> None:  # fmt: skip
@@ -637,6 +642,8 @@ class OrfEntries:
             if g is None or open5:
                 return None
             gs = lo + (((g.start if strand == "+" else n - g.end) - lo) % n)
+            if gs - lo < 3 * NTERM_MIN_UPSTREAM_AA:
+                return None
             hi, cls = gs + 3 * min(NTERM_PROTEIN_AA, (g.end - g.start) // 3 - 1), "nterm_extension"
         s, e = (lo, hi) if strand == "+" else (n - hi, n - lo)
         s, e = s % n, e - (s - s % n)
@@ -773,19 +780,40 @@ def simulate_proteomics(
     prots = expressed_proteins(feats, novel, seqs)
     la = gene_log_abundance(rng, len(prots))
     detected, occ, first = _detect(cfg, rng, prots, la)
+    six = cfg.wrong_source == "sixframe_noncoding"
+    orfs = OrfEntries(feats, seqs, topology) if six else None
+    novel_ids = {str(r[0]) for r in novel}
+    # codons of a true protein upstream of its annotated start (N-terminal extensions)
+    upstream = {f.locus: ((f.start - f.span()[0]) if f.strand == "+" else (f.span()[1] - f.end))
+                // 3 for f in feats if f.kind in ("cds", "sorf")}  # fmt: skip
+
+    def db_id(pep: str, k: int, a: int) -> str | None:
+        """The protein ID a search reports for occurrence ``(k, a)``. In six-frame mode
+        (decision 9) a novel ORF's peptide names its makedb entry, and an annotated protein's
+        peptide reaching upstream of the annotated start names the gene's ``nterm_extension``
+        entry (either None when makedb has no such entry: the occurrence is not in the search
+        database); any other peptide of an annotated protein names its locus tag, makedb's
+        ``db_id``."""
+        p = prots[k]
+        if orfs is None or (p.locus not in novel_ids and a >= upstream.get(p.locus, 0)):
+            return p.locus
+        s0, e0 = _occurrence(p, a, len(pep), len(seqs[p.contig]))
+        return orfs.of((pep, p.contig, s0 + 1, e0, p.strand))
+
+    found = {pep: [d for k, a in occ[pep] if (d := db_id(pep, k, a)) is not None]
+           for pep in detected}  # fmt: skip
+    detected = [pep for pep in detected if found[pep]]  # a search cannot report the others
     annotated = [(f.locus, f.kind, f.aa) for f in feats if f.kind in ("cds", "sorf") and f.aa]
     annotated_loci = {loc for loc, _, _ in annotated}
     hay = "|".join(_il(p.aa) for p in prots) + "|" + "|".join(_il(a) for _, _, a in annotated)
     pi = cfg.pi_wrong
     n_wrong = round(len(detected) * pi / (1 - pi))
     xrng = np.random.default_rng([seed, _SIXFRAME_STREAM])  # six-frame draws (M7-12)
-    six = cfg.wrong_source == "sixframe_noncoding"
     pool: SixframePool | None = None
     loci: dict[str, Locus] = {}
     entry: dict[str, str] = {}  # six-frame wrong peptide -> makedb entry db_id (target + decoy)
-    if six:
+    if orfs is not None:
         pool = _noncoding_pool(cfg, seqs, feats, novel)
-        orfs = OrfEntries(feats, seqs, topology)
 
         def ok(loc: Locus) -> bool:
             db_id = orfs.of(loc) if _il(loc[0]) not in hay else None
@@ -811,30 +839,13 @@ def simulate_proteomics(
             n_wrong,
         )
     origin = cfg.wrong_source
-    novel_ids = {str(r[0]) for r in novel}
-    # codons of a true protein upstream of its annotated start (N-terminal extensions)
-    upstream = {f.locus: ((f.start - f.span()[0]) if f.strand == "+" else (f.span()[1] - f.end))
-                // 3 for f in feats if f.kind in ("cds", "sorf")}  # fmt: skip
-
-    def db_id(pep: str, k: int, a: int) -> str:
-        """The protein ID a search reports for occurrence ``(k, a)``. In six-frame mode
-        (decision 9) a novel ORF's peptide names its makedb entry, and an annotated protein's
-        peptide reaching upstream of the annotated start names the gene's ``nterm_extension``
-        entry (either falls back to the planted ID when makedb has no such entry); any other
-        peptide of an annotated protein names its locus tag, makedb's ``db_id``."""
-        p = prots[k]
-        if not six or (p.locus not in novel_ids and a >= upstream.get(p.locus, 0)):
-            return p.locus
-        s0, e0 = _occurrence(p, a, len(pep), len(seqs[p.contig]))
-        return orfs.of((pep, p.contig, s0 + 1, e0, p.strand)) or p.locus
-
     targets = [
         _Target(
             pep,
             False,
             "gene",
             first[pep],
-            ";".join(dict.fromkeys(db_id(pep, k, a) for k, a in occ[pep])),
+            ";".join(dict.fromkeys(found[pep])),
         )
         for pep in detected
     ]
