@@ -27,6 +27,9 @@ so a broken estimator fails:
    (``validate_peptides`` dedups on (run, spectrum_id, peptide, charge)) and C17 drops ``charge``,
    so one spectrum yields two identical C17 rows. Rule 2 counts one observation per spectrum;
    counting both is pseudo-replication (n inflated, interval too narrow).
+5. ``reference_false_matches`` (characterisation): a confident reference ID that is wrong turns a
+   correct de novo read into an "error", so the estimate is e + (1 - e) * phi for false-match
+   share phi; this explains the small upward bias of the planted calibration arm.
 
 R = ``replicates_fast.variants`` (``replicates_full.variants`` under ``calibration_full``).
 Seeds: ``replicate_rng("variants.class_error.attack.<name>", i)``.
@@ -265,3 +268,36 @@ def test_duplicate_charge_rows_count_once() -> None:
     obs = paired_observations(dn, ref, _support([("PEPTMDEKAA", "substitution", False)]))
     (r,) = class_rates(obs)
     assert (r.n, r.errors) == (1, 1), f"one spectrum counted {r.n} times"
+
+
+def test_reference_false_matches() -> None:
+    """Confident reference IDs are wrong at share phi (q <= 0.01 bounds the FDP only on average):
+    a correct de novo read on such a spectrum counts as an error. The estimate is then
+    e + (1 - e) * phi for de novo error rate e on paired spectra, biased up by (1 - e) * phi, and
+    estimate - paired truth equals (spurious - missed) / n exactly. This is the +0.004 to +0.009
+    bias of the planted calibration arm (methods note, "Reference false matches")."""
+    e_true, phi, n = 0.2, 0.05, 2000
+    d_formula = []
+    for rng in _seeds("reference_false_matches", False):
+        dn, ref, sup = [], [], []
+        n_err = spurious = missed = 0
+        for k in range(n):
+            true = _peptide(rng)
+            err = bool(rng.random() < e_true)
+            read = _mutate(rng, true) if err else true
+            ref_wrong = bool(rng.random() < phi)
+            hit = (read if rng.random() < 0.1 else _mutate(rng, true)) if ref_wrong else true
+            n_err += int(err)
+            spurious += int(not err and hit != true)
+            missed += int(err and hit == read)
+            dn.append(("r", f"s{k}", read))
+            sup.append((read, "substitution", False))
+            ref.append(("r", f"s{k}", hit, 0.001, False))
+        obs = paired_observations(
+            pd.DataFrame(dn, columns=["run", "spectrum_id", "peptide"]), _ref(ref), _support(sup)
+        )
+        (r,) = class_rates(obs)
+        assert r.n == n
+        assert r.rate == pytest.approx(n_err / n + (spurious - missed) / n)
+        d_formula.append(r.rate - (e_true + (1 - e_true) * phi))
+    assert abs(float(np.mean(d_formula))) <= 0.01, "estimate != e + (1 - e) * phi on average"
