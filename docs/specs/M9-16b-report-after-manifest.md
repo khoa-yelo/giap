@@ -215,3 +215,8 @@ in-graph `report` step. No new CLI option, config key, schema field or Nextflow 
    reviews a report with full provenance.
 6. Staging `work/provenance.json` into the in-graph step is rejected (the proposed default).
 7. M9-16b starts after #228 merges; feature loop test-author → implementer → code review.
+8. **Test-author (3d6222e9): gaps accepted.** The implementer starts only after #178 and #228 merge
+   and the lead merges origin/main into this branch; the merge brings #236's `databases[]` reader
+   and M9-14's twins. `rerender_report` builds through the same twins path as `write_report`, and
+   its size warning does not reach events.jsonl. Example 2 (Nextflow) runs in the implementer's
+   Slurm check. The 16 failing test_cards/test_caveats tests wait on #178.
