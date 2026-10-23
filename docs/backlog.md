@@ -569,6 +569,22 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - **Statistician:** cross-fitting does not remove leakage when a category is a large share of one TU-size group. In the tested worlds this was only conservative.
 - **Flaky?** `tests/unit/function/test_gsea_flags.py::test_detection_flag_with_the_real_engine_d1_d2` failed only in the 16-worker fast suite (Slurm 1867909 and 1867927, es = −0.5 for top=True). It passes alone and in its file. Check main and look for state leaking between tests.
 
+## M8-06b review nits (#187; one round, approved)
+- Groovy `installed()` uses `path.exists()`, Python `is_file()`: a directory at a resource path is staged by Nextflow only.
+- `installed()` re-parses `db_manifest.json` per call (five more callers); parse once.
+- The local executor stages function resources (up to 32 MB) even when the step cannot run (no peptides); Nextflow does not.
+- `genetable.nf` header comment line is ~150 characters.
+- No test pins that `tu_folds.parquet` is published under `--modules core` by both executors.
+- Example 1 builds GO and KEGG xrefs but asserts only `cog` rows; assert kegg / go_slim too.
+- Mutation evidence: $GIAP_ROOT/review/pr187-mut/ (5/5 killed).
+## M8-12 review nits (#192; one round, B1–B3 fixed in the PR)
+- `check_golden_provenance.py` could check that the lock sha agrees across PROVENANCE, VERSIONS and the lock; add a fixture where the base branch moved.
+- Guard bypasses: the Rscript guard is case-sensitive and misses `R CMD`, `["R", "--vanilla"]` and concatenation; `check_imports` misses `importlib.import_module("rpy2")` / `__import__`.
+- golden-r.yml: pin actions by SHA, move `contents: write` to the job, add the R / package version-pin check the sbatch does.
+- Add an input set with exactly 10 names matched after absent names drop (sharper `minSize`).
+- Precision test: per-field `repr(float(s))` round trip.
+- VERSIONS.txt carries host-specific absolute paths (BLAS); the FarmShare and workflow routes always differ there.
+- Open with Khoa: R6 (bioconda post-link downloads from bioconductor.org) and the PR-size gate counting `*.explicit.txt` (ci/gates.yaml is protected).
 ## M9 design follow-ups (lead, 2026-10-22)
 - MVP-03: build the §6.2 / §6.7 `manifest` and `finalize` steps (run_manifest.json; KEGG retrieval date, provenance), before M9-16.
 - M4: should `detection_summary` carry a region-**type** O − E row (§10.2 V7 lists region types; no table has them)?
@@ -595,3 +611,53 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - `datapackage.json` lists `plots/support/gc_skew.tsv` uncompressed; a `.tsv.gz` write (not reachable at 10 kb windows for bacteria) would leave the descriptor pointing at a missing file — write the descriptor path from the file actually written.
 - `plots` step: with `replicons` absent but a `plots_support` input passed, plots render from the incoming directory, not this run's output.
 - No test checks that `write_datapackage` copies `schemas/plot_support/*.json` into OUT.
+- M9-04 V17 review nits (#197): when every gene is partial, (e) draws 0 % bars and should show an empty-state note; integer tick locators on the count axes; partial genes are left out of (d) although the spec restricts only (e); the "unmapped" layer of (c) includes contaminant and too_short peptides; the length-bound lines belong at 6.5/40.5 (spec + test); an empty `replicons` draws an empty axis with a warning; the TSV message rows drop the drawn text; preflight `genome.contiguity` has an empty `message` (a preflight bug); "abundance not available" is not in the spec's titles; "1 preflight warnings" should be singular; the imputed legend shows when nothing is imputed; 8 surviving mutants (exactly 10 warnings, rule fallback, (b) floor, circular markers, constant-abundance padding, (e) inverted y, absent-genes title).
+- ADR-0041 follow-up (after #196 merges): move the four tokens from RUN_FLAGS_PENDING to the accepted run vocabulary and update the vocabulary test (lead).
+
+## M9-02 review nits (#205; one round, B1–B5 and N1 local half fixed in the PR)
+- N1 Nextflow half: REPORT gets no `events`, so `layer_missing` skips fire under the local executor and `giap report` but not in a Nextflow `giap run`. Fix before the first Nextflow-run plot that declares layers.
+- Config digest reads "not available" in `giap run` but appears after `giap report`, so `report.html` changes on a rebuild of an untouched run.
+- Executor-equality test compares only `plots/data` (empty until plots register): also compare `report.html` bytes, and the run's report with a rebuilt one.
+- Peptide "of N input" counts `kind=protein` rows from `unmapped`.
+- Stale plot files from an earlier run are shown in place of a skip reason that holds now; with `formats=[png]` the report says "plot file absent" although the PNG exists.
+- PLOTS has no resource label (1 CPU / 2 GB) while REPORT_HTML gets `process_low`.
+- `ALL_PUBLISHED_KEYS` declares optional inputs never read (`peptide_hits`, `tus_tsv`); SVG id separator `-` is not provably unique.
+- Surviving mutants: `<=` boundary in the card counts, the two `nunique` peptide counts. Move `cards()` to `giap/report/cards.py` ahead of M9-16.
+- Card/table read failures are notes in the HTML only (build.py is pure); consider an event from the step.
+## M8-17a review nits (#204; one round, B1 R_LIBS_SITE fixed in the PR)
+- 17b: `read_results` must require rows to match the in-range sets exactly (a dropped row now vanishes silently); `read_versions` should check the `seed`/`jobs` lines and the data.table version.
+- Set `TMPDIR` to the call directory in `child_env` so R's `Rtmp*` is not left behind after a timeout kill; give the post-kill `proc.communicate()` a timeout.
+- `write_call` accepts IDs with tab, newline or `;` (corrupts the R inputs): reject them.
+- `scripts/build_envs.sh`: a failed lock check on an existing env leaves the `.giap-built` marker; the marker hashes only `fgsea.yml`, so a lock-only change never rebuilds.
+- `giap_fgsea.R`: an empty input file exits 1, not 3.
+- `FgseaEngineError` imitates a `StepError` and is then wrapped in a second one by `run_step`.
+- Surviving mutants: duplicate leading-edge check, size-range check, trailing-newline check, `R_HOME` filter, `set(edge) <= ranked` check.
+## M9-11 review nits (#208; one round, B1 overlap fixed, B2–B5 pinned by test_v11_review.py)
+- Title medians come from pairs.tsv, so the data TSV cannot reproduce them (index decision 5): widen decision 4's exception to cover medians, or add per-pair (a) rows; (a) rows carry a bin index but no edges.
+- Flag legend handles take the first point's class colour; use a neutral face (`other` can be OP or NO).
+- Surviving minor mutants: outline colour, flagged points drawn twice, flagged markers not class-coloured, `set_xlim` removed, degenerate (c) range padding, legend `ncol`.
+- (a)/(b) x-label "|Δ| partner log2 abundance" reads awkwardly; the spec's title template gives "1 pairs".
+## M9-07 review nits (#203; one round, B1 out-of-range p and NITs 2–3 fixed in the PR)
+- V18 fit title and corner text ignore `recalibration_separated = 1` (prints "slope 41"): append "; recalibration separated".
+- "1 test families shown": singular for k = 1.
+- Carry the slope/intercept Wald CIs (`ci_low`/`ci_high`) into the TSV and corner text (pass 2).
+- Both real fixtures are constant fits; add a non-constant-fit golden when M4-13's fixture allows (the synthetic render's bin n sum 875 ≠ n_eligible 100).
+- Open in the spec: where `n_outside_0_1` sorts (now after the 20 bin rows); a family with every p outside [0, 1] now draws 20 empty bins plus the outside count.
+## M9-06 review nits (#202; one round, B1 fixed in the PR)
+- V7 title: when no row has an estimated CI, say "O − E CI unestimated in every group" (not the vacuous "matches … with a CI"); basic-only title uses `%.1f` (→ "-0.0"), switch to `%.2g` and prefix the block ("COG J:").
+- Dead E = 0 branches (`detection.py` o/e helpers); `_pct` duplicates `base.title_pct` (widen it to floats); share the `flags` parsing.
+- Region rows with NA O − E show only "CI unestimated": add "O − E NA" to the label.
+- `ci_few_units` rows are drawn as ordinary CIs and can headline the title; `small_region` rows can headline too — lead reading needed in hardening.
+- Figure height grows 0.17 in per row uncapped (26 COG + ~100 regions > 20 in): cap or hand to M9-26.
+- V8 "none" grey equals the "poorly" super-category grey (two identical legend patches): hatch "none" or merge the entries.
+- V8 strips lack the median tick the violins have; title wording at `detection.py:328/331`.
+- M9-05 V6: a run with targets under both `reverse` and `shuffle` decoy types (database + de novo placements) — split or overlay the strata (lead decision 3, 2026-10-22).
+- M9-05 review nits (#198):
+  - **Labels:** N4, the "rejected by FDR" label is pushed beside the placed bar with no leader line, and the (b) "0" label sits on the α line.
+  - **Test gaps:**
+    - N5b, no case with targets under both decoy types;
+    - N6, no test with a contaminant label and `reason=no_hit`;
+    - N7, no title test with FDR = α, and none with every stratum estimated and above α;
+    - N8, the reviewer's alluvial geometry check (scratchpad geom.py) should become a test.
+  - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
+  - **Size:** about 25 lines of simplifications listed in the review.

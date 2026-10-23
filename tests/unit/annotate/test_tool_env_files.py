@@ -27,6 +27,7 @@ EXPECTED_ENVS = {
     "antismash",
     "miniprot",
     "blast",
+    "fgsea",  # M8-17a (ADR-0038)
 }
 # Q3 (lead decision 1): no upstream image yet -> no withName entry; conda even under apptainer.
 CONDA_ONLY = {
@@ -36,6 +37,7 @@ CONDA_ONLY = {
     "terminatornet",
     "bactermfinder",
     "ostir",
+    "fgsea",  # M8-17 lead decision 9: conda-only under every profile
 }
 
 

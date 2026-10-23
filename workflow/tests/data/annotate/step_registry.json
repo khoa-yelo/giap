@@ -145,6 +145,22 @@
       "mapping"
     ]
   },
+  "manifest": {
+    "inputs": [
+      "preflight"
+    ],
+    "optional_inputs": [
+      "annotation_meta",
+      "events",
+      "island_diagnostics",
+      "provenance",
+      "sensitivity",
+      "trace"
+    ],
+    "outputs": [
+      "run_manifest"
+    ]
+  },
   "map_exact": {
     "inputs": [
       "peptides",
@@ -325,8 +341,11 @@
       "annotation",
       "annotation_patch",
       "autocorrelation",
+      "category_summary",
       "detectability_summary",
       "detection_summary",
+      "enrichment_detection",
+      "enrichment_gsea",
       "events",
       "features",
       "gene_context",
@@ -358,6 +377,7 @@
       "step_events",
       "terminators_bed",
       "tier_summary",
+      "tu_folds",
       "tus_tsv",
       "unmapped",
       "variants",
@@ -436,8 +456,11 @@
       "annotation",
       "annotation_patch",
       "autocorrelation",
+      "category_summary",
       "detectability_summary",
       "detection_summary",
+      "enrichment_detection",
+      "enrichment_gsea",
       "events",
       "features",
       "gene_context",
@@ -469,6 +492,7 @@
       "step_events",
       "terminators_bed",
       "tier_summary",
+      "tu_folds",
       "tus_tsv",
       "unmapped",
       "variants",

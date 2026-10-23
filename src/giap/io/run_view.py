@@ -51,6 +51,8 @@ _EXTRA: dict[str, str] = {
     "promoters_bed": "annotation/promoters.bed",
     "terminators_bed": "annotation/terminators.bed",
     "events": "logs/events.jsonl",
+    "enrichment_detection": "tables/enrichment_detection.tsv",
+    "enrichment_gsea": "tables/enrichment_gsea.tsv",
     "resolved_config": "resolved_config.yaml",
 }
 #: key -> ``OUT/``-relative path (behaviour 3)
