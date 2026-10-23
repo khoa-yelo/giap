@@ -904,9 +904,16 @@ def test_example7_same_seed_identical_outputs(name: str, tmp_path: Path) -> None
     assert differs, "seed 43 reproduced seed 42"
 
 
-# Example 7's 1 s budget is pinned on Linux, in CPU time: the macOS CI runner, shared by the xdist
-# workers, took 1.1-1.8 s wall clock (#228's run 40023186211) while Linux CI and Slurm pass.
+def _coverage_active() -> bool:
+    cov = sys.modules.get("coverage")
+    return cov is not None and cov.Coverage.current() is not None
+
+
+# Example 7's 1 s budget is pinned on Linux without coverage, in CPU time: the macOS CI runner,
+# shared by the xdist workers, took 1.1-1.8 s wall clock (#228's run 40023186211), and a Linux
+# coverage shard 1.06 s (#273); Slurm's fast suite (no --cov) and Linux CI pass.
 @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="timing budget pinned on Linux")
+@pytest.mark.skipif(_coverage_active(), reason="timing budget not measured under coverage")
 @pytest.mark.parametrize("name", SCENARIOS)
 def test_example7_under_one_second_for_4000_genes(name: str) -> None:
     sc = _sc()
