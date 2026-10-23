@@ -183,10 +183,14 @@ def _metric(en: pd.DataFrame, metric: str) -> tuple[float | None, list[str]]:
 
 
 def _strata(fdr: pd.DataFrame | None) -> list[str]:
+    """The descriptive placement rows of ``mapping_fdr``, each with its full key (decoy type,
+    differences, length class); they are not q-values (review B1 on #228, lead decision 15)."""
     if fdr is None:
         return []
-    rows = fdr[fdr["section"] == "placement"][["length_class", "fdr_stratum"]]
-    return [f"{lc} {format_value(v)}" for lc, v in rows.itertuples(index=False) if not pd.isna(v)]
+    cols = ["decoy_type", "n_diff", "length_class", "fdr_stratum"]
+    rows = fdr[fdr["section"] == "placement"].reindex(columns=cols)
+    return [f"{d} {format_value(n)} diff {lc}: {format_value(v)}"
+            for d, n, lc, v in rows.itertuples(index=False) if not pd.isna(v)]  # fmt: skip
 
 
 def cards(view: RunView, cfg: GiapConfig) -> tuple[list[dict[str, Any]], list[str]]:
@@ -239,9 +243,12 @@ def cards(view: RunView, cfg: GiapConfig) -> tuple[list[dict[str, Any]], list[st
         n_in = hits["peptide"].nunique() + n_unmapped("peptide")
         strata = _strata(table("mapping_fdr"))
         q = format_value(a.placement)
-        est = f"placement FDR per length class {', '.join(strata)} at q ≤ {q}" if strata else None
+        est = f"placement q ≤ {q} per family (0 / ≥ 1 difference, per decoy type)"
+        if strata:
+            est += f"; descriptive stratum FDR (not q-values): {', '.join(strata)}"
         sources = src("peptide_hits", "peptide", "placement_q") + src("unmapped", "kind")
-        sources += src("mapping_fdr", "length_class", "fdr_stratum") if strata else []
+        keys = ("decoy_type", "n_diff", "length_class", "fdr_stratum")
+        sources += src("mapping_fdr", *keys) if strata else []
         add("peptides_placed", f"peptides placed of {n_in} input", placed["peptide"].nunique(),
             est, sources)  # fmt: skip
 

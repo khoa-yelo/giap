@@ -15,9 +15,12 @@ or low along a replicon. Each window sum is compared with the maximum of a TU-bl
 the same scores, taken over every scanned replicon, so one family-wise error rate covers the whole
 run; a window is reported when its p-value is at most stats.alpha.context.
 
-The FWER is claimed for a dependence regime, not for a replicon size. It is not claimed where
-strong TU-level autocorrelation is resolved by Moran's I only to a short lag (block length 7 or
-less). No per-replicon statistic certifies the domain, so nothing is flagged; instead the report
+The FWER is claimed for a dependence regime, not for a replicon size. The calibration supports
+it for TU-level autocorrelation up to rho = 0.5 at every replicon size measured, and up to
+rho = 0.9 at 4,500 genes; there is no evidence beyond that (rho above 0.95, or dependence longer
+than the 20-TU bootstrap block cap). It is not claimed where strong TU-level autocorrelation is
+resolved by Moran's I only to a short lag (block length 7 or less): a high Moran's I with
+block_len 7 or less is outside the claimed domain. No per-replicon statistic certifies the domain, so nothing is flagged; instead the report
 lists, per replicon:
 
 - the estimated correlation length (l-hat), or why it was not estimated;

@@ -23,7 +23,7 @@ not statistical (cards print table estimates; nothing is computed beyond counts)
    | Card | Number | Error estimate |
    |---|---|---|
    | Genes detected | `detected = true` count, per `detection_tier`; `detected_2pep` count beside it | tier FDR at `stats.alpha.identification` (`detection_summary` tier rows); the `two_peptide` tier says "FDR unestimated" |
-   | Mapping | peptides placed / input; proteins placed / input | placement FDR per stratum at `stats.alpha.placement` (from `mapping_fdr`) |
+   | Mapping | peptides placed / input; proteins placed / input | placement q ≤ `stats.alpha.placement` per family (0 / ≥ 1 difference, per decoy type); `mapping_fdr` stratum rows shown only as descriptive values with their full key (decision 15) |
    | Islands | count with `p_value ≤ stats.alpha.context` | "FWER ≤ `<alpha>`" |
    | Flagged operons | `operon_flags` rows with `q_value ≤ stats.alpha.operon_flags` | "FDR ≤ `<alpha>`" |
    | ALT calls | `variants.tsv` rows by `confidence` | `class_error_rate` range, or `unestimated` |
@@ -141,3 +141,13 @@ not statistical (cards print table estimates; nothing is computed beyond counts)
     accepted. proteins_placed and multi-tier gene estimates read "unestimated"; accepted.
 14. **Size.** 610 counted lines (warn > 400, fail > 800) accepted for this integration-pass PR; the
     islands `report:` wording gets a light statistician read in review.
+
+## Lead decisions on the review (2026-10-22, PR #228)
+
+15. **B1 Mapping card.** The estimate reads "placement q ≤ α per family (0 / ≥ 1 difference, per
+    decoy type)"; the `mapping_fdr` placement rows follow as "descriptive stratum FDR (not
+    q-values)", each keyed by decoy type, differences and length class. Lead fix, tests in
+    tests/unit/report/test_cards_review_228.py.
+16. **B2 islands wording.** The `report:` block names the supported regime (ρ ≤ 0.5 at every size
+    measured, ρ = 0.9 at 4,500 genes), says there is no evidence beyond ρ 0.95 or the 20-TU block
+    cap, and how to read a high Moran's I with block_len ≤ 7; snippet regenerated.
