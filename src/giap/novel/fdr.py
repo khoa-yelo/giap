@@ -66,13 +66,15 @@ class ClassStats:
     n_decoy_wins: int
     paired_share: float
     estimated: bool
+    reason: str | None = None  # why not estimated: paired_share_low, decoys_unscored
 
 
 @dataclass(frozen=True)
 class PickedClassFdr:
     """``q`` per ORF (NaN unless estimated and won), ``reason`` per unestimated ORF
     (``decoys_not_makedb``, ``untagged_class``, ``no_makedb_pair``, ``paired_share_low``,
-    ``lost_pick``, ``no_target_score``), ORFs whose class differs from their entry's tag."""
+    ``decoys_unscored``, ``lost_pick``, ``no_target_score``), ORFs whose class differs from their
+    entry's tag."""
 
     q: dict[str, float]
     reason: dict[str, str]
@@ -94,7 +96,7 @@ def _ids(x: object) -> list[str]:
 
 
 def _strip(pid: str, prefixes: Sequence[str]) -> str:
-    for p in prefixes:
+    for p in sorted(prefixes, key=len, reverse=True):  # longest prefix first, as M4-12
         if pid.startswith(p):
             return pid[len(p) :]
     return pid
@@ -200,6 +202,30 @@ def _stop(e: _Entry, lengths: Mapping[str, int] | None) -> int:
     return s % n if n else s
 
 
+def _class_rank(
+    keys: Sequence[str],
+    rows_t: Mapping[str, set[int]],
+    rows_d: Mapping[str, set[int]],
+    qv: np.ndarray,
+    sc: np.ndarray,
+) -> dict[int, float] | None:
+    """Dense rank (higher = better) of a class's target and decoy rows on a key every row has
+    (decision 11, as M4-24): (q, then score) when every q is finite, else score alone when every
+    score is finite, else None (``decoys_unscored``)."""
+    rows = sorted({i for k in keys for i in (*rows_t.get(k, ()), *rows_d.get(k, ()))})
+    if not rows:
+        return {}
+    q, s = qv[rows], sc[rows]
+    if np.isfinite(q).all():
+        key = np.column_stack([q, np.where(np.isnan(s), np.inf, -s)])
+    elif np.isfinite(s).all():
+        key = -s[:, None]
+    else:
+        return None
+    uniq, inv = np.unique(key, axis=0, return_inverse=True)
+    return dict(zip(rows, (len(uniq) - np.ravel(inv)).astype(np.float64).tolist(), strict=True))
+
+
 def picked_class_fdr(
     orfs: Sequence[Orf],
     peptides: pd.DataFrame,
@@ -218,10 +244,8 @@ def picked_class_fdr(
     tags = _decoy_tags(peptides, decoy_prefixes)
     if not tags:
         return PickedClassFdr(q, dict.fromkeys(q, "decoys_not_makedb"), frozenset(), {})
-    qv = peptides["q_value"].astype("float64").fillna(math.inf).to_numpy()
-    sc = peptides["score"].astype("float64").fillna(-math.inf).to_numpy()
-    uniq, inv = np.unique(np.column_stack([qv, -sc]), axis=0, return_inverse=True)
-    rank = (len(uniq) - np.ravel(inv)).astype(np.float64)  # higher = better (q, then score)
+    qv = peptides["q_value"].astype("float64").to_numpy()
+    sc = peptides["score"].astype("float64").to_numpy()
     all_tagged = {_strip(pid, decoy_prefixes) for ids in peptides["protein_ids"]
                   for pid in _ids(ids)}  # fmt: skip
     entries = _entries(id_map, all_tagged)
@@ -231,10 +255,10 @@ def picked_class_fdr(
               if e.cls == "nterm_extension" and e.locus_tag}  # fmt: skip
     is_t = ~peptides["is_decoy"].astype(bool).to_numpy()
     is_t &= peptides["source"].astype(str).to_numpy() != "denovo"
-    t_rank: dict[str, float] = {}
-    for p, r in zip(peptides["peptide"].astype(str)[is_t], rank[is_t], strict=True):
-        t_rank[_il(p)] = max(t_rank.get(_il(p), -math.inf), r)
-    best_t: dict[str, float] = {}
+    t_rows: dict[str, list[int]] = {}
+    for j in np.flatnonzero(is_t).tolist():
+        t_rows.setdefault(_il(str(peptides["peptide"].iat[j])), []).append(j)
+    rows_t: dict[str, set[int]] = {}
     of_orf: dict[str, str] = {}
     mismatch = set()
     for o in orfs:
@@ -250,35 +274,38 @@ def picked_class_fdr(
         of_orf[o.orf_id] = k
         if entries[k].cls != o.cls:
             mismatch.add(o.orf_id)  # decision 9: the entry tag wins
-        r = max((t_rank.get(p, math.nan) for p in o.peptides), default=math.nan)
-        if not math.isnan(r):
-            best_t[k] = max(best_t.get(k, -math.inf), r)
-    best_d: dict[str, float] = {}
+        mine = [i for p in o.peptides for i in t_rows.get(p, [])]
+        if mine:
+            rows_t.setdefault(k, set()).update(mine)
+    rows_d: dict[str, set[int]] = {}
     n_dec: dict[str, set[str]] = {}
     for sid, i in tags:
         n_dec.setdefault(parse_orf_id(sid)[0], set()).add(sid)  # type: ignore[index]
         if sid in entries:
-            best_d[sid] = max(best_d.get(sid, -math.inf), float(rank[i]))
+            rows_d.setdefault(sid, set()).add(i)
     entry_q: dict[str, float] = {}
     classes: dict[str, ClassStats] = {}
     for cls in sorted({e.cls for e in entries.values()}):
-        seen = best_t.keys() | best_d.keys()
+        seen = rows_t.keys() | rows_d.keys()
         keys = sorted(k for k, e in entries.items() if e.cls == cls and k in seen)
         dec = n_dec.get(cls, set())
         f = len(dec & entries.keys()) / len(dec) if dec else 1.0
-        if f < MIN_DECOY_PAIRING or not keys:
-            classes[cls] = ClassStats(0, 0, f, False)
-            entry_q.update(dict.fromkeys(keys, math.nan))
+        rank = _class_rank(keys, rows_t, rows_d, qv, sc)
+        why = "paired_share_low" if f < MIN_DECOY_PAIRING or not keys else None
+        why = why or (None if rank is not None else "decoys_unscored")
+        if why is not None or rank is None:
+            classes[cls] = ClassStats(0, 0, f, False, why)
             continue
-        res = picked_fdr_rescaled([best_t.get(k, math.nan) for k in keys],
-                                  [best_d.get(k, math.nan) for k in keys], f)  # fmt: skip
+        t = [max((rank[i] for i in rows_t.get(k, ())), default=math.nan) for k in keys]
+        d = [max((rank[i] for i in rows_d.get(k, ())), default=math.nan) for k in keys]
+        res = picked_fdr_rescaled(t, d, f)
         classes[cls] = ClassStats(res.n_target_wins, res.n_decoy_wins, f, True)
         entry_q.update(zip(keys, res.q.tolist(), strict=True))
     for oid, k in of_orf.items():
-        cls = entries[k].cls
-        if not classes[cls].estimated:
-            reason[oid] = "paired_share_low"
-        elif k not in best_t:
+        st = classes[entries[k].cls]
+        if not st.estimated:
+            reason[oid] = st.reason or "paired_share_low"
+        elif k not in rows_t:
             reason[oid] = "no_target_score"
         elif math.isnan(entry_q[k]):
             reason[oid] = "lost_pick"
@@ -309,7 +336,14 @@ def denovo_class_q(
     Per class (the ORF's for targets, the mirrored interval's for decoys at each peptide's best
     decoy cost): ``stratum_qvalues`` over peptides by E with decoy weights π̂ (missing = 1) and
     c = the largest π̂ over every searched peptide (ADR-0010).
+
+    Raises:
+        ValueError: if a target or decoy hit has no E (``e_target`` / ``e_decoy`` NaN).
     """
+    for frame, col in ((target_hits, "e_target"), (decoy_hits, "e_decoy")):
+        bad = frame["peptide"][frame[col].astype("float64").isna().to_numpy()]
+        if len(bad):
+            raise ValueError(f"{col} is missing for peptide {bad.iat[0]!r} (decision 11)")
     pif = {_il(k): float(v) for k, v in pi.items()}
     t_peps = [_il(p) for p in target_hits["peptide"].astype(str)]
     d_peps = [_il(p) for p in decoy_hits["peptide"].astype(str)]
