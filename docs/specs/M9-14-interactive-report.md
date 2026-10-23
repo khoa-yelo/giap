@@ -83,3 +83,25 @@ def figure_json(pid: str, data: pd.DataFrame, title: str) -> str | None        #
    script, and have Khoa exercise sorting during the M9-25 review.
 2. Static SVG beside every twin roughly doubles figure bytes. **Proposed default:** keep both (the
    static one is what was approved and snapshotted).
+
+## Lead decisions (2026-10-22)
+
+1. No headless browser: the JS stays minimal; its rules are tested through a Python mirror plus a
+   structural check of the inlined script; Khoa exercises sorting and filtering in the M9-25 review.
+2. Every twin keeps its static SVG beside it (the static figure is what is approved and
+   snapshotted); the 25 MB budget is measured with both.
+3. Pass 2 starts here while M9-13 closes pass 1; this branch merges main as the pass-1 plots land
+   and registers no twin itself (twins are M9-15), so its tests use test-only twins.
+
+## Lead decisions on the tests (2026-10-22, after d44717b)
+
+4. The test author's interface choices 1–10 (module docstrings) are accepted.
+5. `giap report` gains `--strict` (page still written, exit 3 on `report.size_exceeded`); under
+   `giap run --strict` the report step's warning maps to exit 3 the same way as other strict
+   warnings (implementation detail, tested if cheap).
+6. No real twin in M9-14 (decision 3 wins over behaviour 1); V17's twin is M9-15.
+7. The plotly.js footer notice appears only when plotly.js is inlined; a `--no-interactive` page
+   names no plotly anywhere (example 2).
+8. Filter matching is a case-insensitive substring within any one cell.
+9. Example 6 (sim100k ≈ 5 MB, K-12) is a measurement recorded in the PR body, not a unit test.
+10. `report.interactive` already exists in `defaults.yaml` (true); no protected-file change.
