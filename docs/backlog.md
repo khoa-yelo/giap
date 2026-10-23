@@ -702,3 +702,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M7-11b: novel_orfs step wiring of `giap.novel.fdr` (decisions 6–9), step-level tests.
 - Origin-crossing makedb entries without replicon lengths are unestimated (decision 8); pass lengths.
 - M7-11 statistician NIT 1: c is computed over hit peptides only; decide whether to widen it (pending lead/statistician, not blocking).
+- M7-11 vs M4-24: when only some targets lack q, M7-11 falls back to score while M4-24 keeps q and ranks them last; align the two (statistician #237 round 2, safe).

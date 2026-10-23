@@ -164,3 +164,11 @@ def denovo_class_q(orfs: Sequence[Orf], target_hits: pd.DataFrame, decoy_hits: p
       the statistician's numbers. M7-13 G4 measures it with false ORFs of ≥ 3 peptides, per class.
     - Implementer round 2. The lead removes the two Block-1 strict xfails after the fix; the
       decision-3 xfail stays until M7-13.
+12. **Statistician round 2 (4704a61e), B3:** in the all-q-finite branch, score breaks ties only
+    when every decoy row in the class has a score. Otherwise the class ranks on q alone, and ties
+    go to the decoy (decision 5). This matches M4-24's shared-key rule. A target without a score
+    may still rank last, which is conservative.
+    - The strict xfail `test_picked_unscored_decoys_do_not_lose_q_ties` is removed by the lead
+      after the fix.
+    - Not blocking: when only some targets lack q, M7-11 ranks on score alone while M4-24 keeps q.
+      This is safe and goes to the backlog for alignment.
