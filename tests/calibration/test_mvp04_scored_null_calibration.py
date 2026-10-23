@@ -23,6 +23,15 @@ x 3 runs = 54 null PSMs per replicate. Claims, each pooled over the replicates:
 * **50/50 fallback (Q2, decision 1).** The excerpt is below the ~50 gene-level null PSM
   threshold, so the protein share of the null peptides is 1/2: exact binomial test, p >= 0.001.
 
+* **Protein nulls drawn uniformly over loci (lead decision 9).** The locus of a protein-entry
+  null is uniform over the expressible recorded loci with no true peptide and >= 1 undetected
+  product, not over products: the mean number of undetected products of the drawn loci matches
+  the pool mean (z test, |z| <= 3.29, two-sided 0.001). A draw over products is size-biased
+  (mean of k^2 / mean of k) and fails.
+* **The coin gives the picked gene FDR its null (rule 6, decision 9).** Among eligible genes with
+  no true peptide and null evidence at q <= 0.01, target and decoy each win the picked
+  competition with probability 1/2: exact binomial test, p >= 0.001.
+
 Fast (``calibration``): 20 replicates, ~0.5 s each. Full (``calibration_full``):
 ``replicates_fast.gene_fdr`` replicates.
 """
@@ -66,7 +75,7 @@ def _rep(ex: M.Excerpt, out: Path, seed: int) -> D.View:
     return D.view(out)
 
 
-def _check(reps: list[D.View], ks_min_p: float) -> None:
+def _check(reps: list[D.View], ks_min_p: float, ex: M.Excerpt) -> None:
     _, _, mu0, sd0 = (float(x) for x in _cfg().proteomics.score_mixture)
     psms = [(i, p) for i, v in enumerate(reps) for p in D.null_psms(v)]
     ds = np.array([float(r["score"]) for _, (_, _, r, d) in psms if d])
@@ -113,6 +122,33 @@ def _check(reps: list[D.View], ks_min_p: float) -> None:
     assert all(v.provenance["null_split"]["mode"] == "fifty_fifty" for v in reps)
     assert stats.binomtest(n_p, n_all, 0.5).pvalue >= ALPHA, (n_p, n_all)
 
+    # decision 9: loci uniform over the pool, not size-biased by their product counts
+    recorded = D.annotation(ex.bakta_json)
+    num = var = 0.0
+    k_draws = 0
+    for v in reps:
+        sample = D.read_seq(v.out / "truth" / "sample_genome.fna")
+        pool = D.candidate_loci(v, D.locus_proteins(v.out, recorded, sample))
+        ks = np.array(list(pool.values()), dtype=float)
+        for nl in v.nulls.values():
+            if nl.kind != "protein":
+                continue
+            (tag,) = nl.entries()
+            assert tag in pool, (tag, nl.peptide)
+            num += pool[tag] - ks.mean()
+            var += ks.var()
+            k_draws += 1
+    assert k_draws >= 100, k_draws
+    z = num / np.sqrt(var)
+    assert abs(z) <= 3.29, ("protein-null loci not uniform over the pool", z, k_draws)
+
+    # the coin is the picked null: genes with only null evidence, target vs decoy wins
+    eligible = {g.locus for g in ex.genes if g.eligible}
+    comp = [c for v in reps for c in D.gene_competition(v, eligible) if not c.has_true]
+    won = sum(c.target_won for c in comp)
+    assert len(comp) >= 100, len(comp)
+    assert stats.binomtest(won, len(comp), 0.5).pvalue >= ALPHA, (won, len(comp))
+
 
 @pytest.fixture(scope="module")
 def ex(tmp_path_factory: pytest.TempPathFactory) -> M.Excerpt:
@@ -131,7 +167,7 @@ def test_scored_null_coin_fast(
 ) -> None:  # fmt: skip
     reps = [_rep(ex, tmp_path_factory.mktemp(f"mvp04c{r}"), base + 8400 + r)
             for r in range(N_FAST)]  # fmt: skip
-    _check(reps, float(tolerances["ks_min_p"]))
+    _check(reps, float(tolerances["ks_min_p"]), ex)
 
 
 @pytest.mark.calibration_full
@@ -142,4 +178,4 @@ def test_scored_null_coin_full(
     n = int(tolerances["replicates_fast"]["gene_fdr"])
     reps = [_rep(ex, tmp_path_factory.mktemp(f"mvp04cF{r}"), base + 8500 + r)
             for r in range(n)]  # fmt: skip
-    _check(reps, float(tolerances["ks_min_p"]))
+    _check(reps, float(tolerances["ks_min_p"]), ex)

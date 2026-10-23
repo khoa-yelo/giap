@@ -18,6 +18,9 @@ On the test-time 200-kb excerpt (tests/helpers/mvp04_data.py, spec rule 3):
 * GIAP's own ``pair_decoys`` + ``choose_tier`` give ``decoy_picked``, no warning, paired share
   >= 0.98 (``rev_GIAPORF_*`` leave pairing, M7-12 decision 23) and at least one decoy win over
   the three seeds (gate 5's shape; expected ~3 per seed);
+* lead decision 9: protein-entry nulls are undetected real products of their locus, map to the
+  genome there and give genes without a true peptide false target evidence, so gate 7's
+  false-discovery share is estimable (non-zero over three seeds);
 * the default ``decoys = "unscored"`` reproduces the part-1 tables byte for byte.
 
 Assumed interface (spec "Interface"; names the implementer may refine within giapsim, see the
@@ -26,10 +29,14 @@ report on the commit):
 * ``ProteomicsConfig.decoys: Literal["unscored", "scored_null"] = "unscored"``; another value is
   a ``ValueError``; ``scenarios.k12_evidence().proteomics.decoys == "scored_null"``.
 * In ``scored_null`` mode the null peptides are drawn from both sources regardless of
-  ``wrong_source``: protein-entry nulls keep a non-``sixframe_noncoding`` truth ``origin``
-  (``shuffled``) and their target rows carry the attributed Bakta locus tag; six-frame nulls
-  have ``origin = sixframe_noncoding`` and their target rows carry the makedb entry ID
-  ``GIAPORF_…`` (step 5: "attributed to a ``GIAPORF_*`` entry").
+  ``wrong_source``. Lead decision 9: a protein-entry null is a real Trypsin/P product (digest
+  rules of the config) of an expressible recorded locus with no true peptide, the locus drawn
+  uniformly over the loci with an undetected product; no shuffled peptides. Its truth row has
+  ``is_wrong = true``, ``origin = undetected_product`` and is placed like a correct row
+  (``locus_tag`` = the attributed locus, ``contig``, 1-based closed ``start`` / ``end``,
+  ``strand`` on the sample); its target rows carry that locus tag and its decoy is
+  ``rev_<locus>``. Six-frame nulls have ``origin = sixframe_noncoding`` and their target rows
+  carry the makedb entry ID ``GIAPORF_…`` (step 5: "attributed to a ``GIAPORF_*`` entry").
 * ``provenance.json``: ``decoys`` (``"scored_null"`` / ``"unscored"``), ``decoy_collisions``
   (int, collided null PSMs) and ``null_split`` = {``mode``: ``"search_space"`` |
   ``"fifty_fifty"``, ``search_space_protein_share``: float in (0, 1), ``n_protein``: int,
@@ -336,6 +343,70 @@ def test_giap_tier_is_decoy_picked_with_full_pairing_and_decoy_wins(
         assert t.n_pairing == n_prot, (seed, t.n_pairing, n_prot)
         wins += sum(D.decoy_wins(v, proteins, eligible).values())
     assert wins >= 1
+
+
+# ---------------------------------------------------------------- decision 9: protein nulls
+
+
+def _protein_null_bad(ex: M.Excerpt, v: D.View) -> dict[str, list[str]]:
+    recorded = D.annotation(ex.bakta_json)
+    sample = D.read_seq(v.out / "truth" / "sample_genome.fna")
+    proteins = D.locus_proteins(v.out, recorded, sample)
+    return D.protein_null_violations(v, recorded, proteins, sample, ex.seq)
+
+
+@pytest.fixture(scope="module")
+def null_bad(ex: M.Excerpt, scored: dict[int, D.View]) -> dict[int, dict[str, list[str]]]:
+    return {s: _protein_null_bad(ex, v) for s, v in scored.items()}
+
+
+def test_protein_nulls_are_labelled_undetected_product(scored: dict[int, D.View]) -> None:
+    """Decision 9: no shuffled peptides in this mode; the protein-entry origin label."""
+    for seed, v in scored.items():
+        origins = {n.origin for n in v.nulls.values()}
+        assert origins == {D.PROTEIN_NULL_ORIGIN, "sixframe_noncoding"}, (seed, origins)
+
+
+def test_protein_null_is_a_product_of_its_locus_on_the_sample(
+    null_bad: dict[int, dict[str, list[str]]],
+) -> None:
+    """Decision 9: the target peptide is a Trypsin/P product (7-30 aa, <= 1 missed cleavage) of
+    the sample protein of the locus it is attributed to, an expressible recorded locus."""
+    for seed, bad in null_bad.items():
+        assert not bad["product"], (seed, bad["product"][:5])
+
+
+def test_protein_null_locus_has_no_true_peptide(
+    null_bad: dict[int, dict[str, list[str]]],
+) -> None:
+    for seed, bad in null_bad.items():
+        assert not bad["undetected"], (seed, bad["undetected"][:5])
+
+
+def test_protein_null_target_maps_to_the_genome(
+    null_bad: dict[int, dict[str, list[str]]],
+) -> None:
+    """Decision 9: its truth row places it on the attributed locus; the sample segment
+    translates to it and the K-12 sequence GIAP is given differs by SNVs only."""
+    for seed, bad in null_bad.items():
+        assert not bad["maps"], (seed, bad["maps"][:5])
+
+
+def test_gate7_false_discovery_share_is_estimable(ex: M.Excerpt, scored: dict[int, D.View]) -> None:
+    """Decision 9 / acceptance 7: genes with no true peptide now get null target evidence that
+    can win the picked competition (expected ~ 0.5 x 7/8 per protein null peptide, ~ 4 per
+    seed here), so the false-discovery share among target-won genes is non-zero over three
+    seeds, while true genes still dominate."""
+    eligible = {g.locus for g in ex.genes if g.eligible}
+    false_won = true_won = with_null = 0
+    for v in scored.values():
+        comp = D.gene_competition(v, eligible)
+        false_won += sum(c.target_won and not c.has_true for c in comp)
+        true_won += sum(c.target_won and c.has_true for c in comp)
+        with_null += sum(not c.has_true for c in comp)
+    assert with_null >= 5, with_null
+    assert false_won >= 1, (false_won, with_null)
+    assert 0 < false_won / (false_won + true_won) < 0.5, (false_won, true_won)
 
 
 # ---------------------------------------------------------------- provenance and TE7

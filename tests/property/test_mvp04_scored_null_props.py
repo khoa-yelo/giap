@@ -8,7 +8,10 @@ On the test-time 200-kb excerpt (tests/helpers/mvp04_data.py), for random seeds:
   a ``GIAPORF_…`` six-frame entry), with finite q / PEP / score and intensity NA;
 * no decoy equals a target peptide (I = L); ``decoy_collisions`` is a non-negative int bounded by
   the null PSMs whose reversal collides;
-* the q / PEP of every null row are the mixture's at its score and ``pi_wrong_realised``.
+* the q / PEP of every null row are the mixture's at its score and ``pi_wrong_realised``;
+* lead decision 9: every protein-entry null is ``undetected_product``, a Trypsin/P product of the
+  sample protein of its attributed locus, which has no true peptide, and its truth row maps it
+  to that locus on the genome.
 
 Interface: as tests/unit/test_mvp04_scored_null.py.
 """
@@ -87,3 +90,8 @@ def test_scored_null_invariants_hold_for_any_seed(seed: int) -> None:
                             abs_tol=1e-12), r  # fmt: skip
         assert math.isclose(float(r["pep"]), D.mixture_pep(s, pi, mix), rel_tol=1e-6,
                             abs_tol=1e-12), r  # fmt: skip
+
+    sample = D.read_seq(out / "truth" / "sample_genome.fna")
+    proteins = D.locus_proteins(out, recorded, sample)
+    nb = D.protein_null_violations(v, recorded, proteins, sample, ex.seq)
+    assert not any(nb.values()), {k: x[:3] for k, x in nb.items() if x}

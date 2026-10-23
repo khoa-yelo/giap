@@ -17,6 +17,10 @@ Claims (single fixed seed, as the acceptance gates):
   PSMs (~0.14 x ~400 x 3), so the mode is ``search_space``; the protein share of the null
   peptides matches the recorded share (exact binomial, p >= 0.001), and the recorded share is
   the makedb search space's (+-0.04);
+* lead decision 9: every protein-entry null is an undetected real product of its locus (no true
+  peptide there) that maps to the genome, so genes without a true peptide win the picked
+  competition (~ 0.5 x 7/8 x ~56 protein null peptides ~ 25 expected) and gate 7's
+  false-discovery share among target-won genes is estimable and non-zero;
 * rule 6 bookkeeping on every null PSM (once, target xor decoy; finite decoy scores).
 """
 
@@ -102,3 +106,20 @@ def test_inputs_untouched(k12: D.View) -> None:
     assert M.sha256(M.K12_FASTA) == M.SHA_FASTA_FILE
     assert M.sha256(M.K12_JSON) == M.SHA_JSON_FILE
     assert Path(k12.out / "truth" / "sample_genome.fna").is_file()
+
+
+def test_protein_nulls_are_undetected_products_that_map(k12: D.View) -> None:
+    recorded = D.annotation(M.K12_JSON)
+    sample = D.read_seq(k12.out / "truth" / "sample_genome.fna")
+    proteins = D.locus_proteins(k12.out, recorded, sample)
+    bad = D.protein_null_violations(k12, recorded, proteins, sample, M.k12_text()[1])
+    assert not any(bad.values()), {k: x[:5] for k, x in bad.items() if x}
+
+
+def test_gate7_false_discovery_share_is_estimable(k12: D.View, genes: list[M.Gene]) -> None:
+    eligible = {g.locus for g in genes if g.eligible}
+    comp = D.gene_competition(k12, eligible)
+    false_won = sum(c.target_won and not c.has_true for c in comp)
+    won = sum(c.target_won for c in comp)
+    assert false_won >= 1, (false_won, won)
+    assert 0 < false_won / won < 0.5, (false_won, won)

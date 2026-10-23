@@ -12,6 +12,10 @@ Vocabulary:
 * a **null PSM** is one (null peptide, run) pair. Rule 6: it is written exactly once, either as
   the target row (the peptide, its entry ID) or as the decoy row of its entry (the reversed
   peptide, ``rev_<entry>``), with the q / PEP / score of the same null draw;
+* lead decision 9: a protein-entry null is a real Trypsin/P product of a recorded locus with no
+  true peptide, truth ``origin = PROTEIN_NULL_ORIGIN`` (``undetected_product``), its truth row(s)
+  placed like correct rows (``locus_tag``, ``contig``, 1-based closed ``start``/``end``,
+  ``strand`` on the sample); so it maps to the genome and can give a gene false evidence;
 * the **entry** of a null peptide is the Bakta locus tag (protein kind) or the makedb six-frame
   ``GIAPORF_{class}_{contig}_{start1}_{end1}_{p|m}`` ID (six-frame kind).
 
@@ -46,6 +50,7 @@ Q_VALUE_MAX = 0.01  # input.q_value_max default (spec "The run")
 DECOY_PREFIXES = ("rev_", "REV_", "DECOY_", "decoy_", "XXX_", "##")  # input.decoy_prefixes default
 #: Q2 / lead decision 1: below about this many gene-level null PSMs the split falls back to 50/50.
 FALLBACK_PSMS = 50
+PROTEIN_NULL_ORIGIN = "undetected_product"  # lead decision 9 (MVP-04 part 2)
 MIN_ORF_AA = 7  # the shortest simulated peptide (as tests/helpers/m7_round3_oracle.py)
 
 
@@ -80,6 +85,7 @@ class Null:
     origin: str
     targets: dict[str, dict[str, str]] = field(default_factory=dict)  # run -> target row
     decoys: dict[str, dict[str, str]] = field(default_factory=dict)  # run -> decoy row
+    truth: list[dict[str, str]] = field(default_factory=list)  # its truth/peptides.tsv rows
 
     def entries(self) -> set[str]:
         """Entry IDs this null peptide is written under (``rev_`` stripped from decoys)."""
@@ -124,7 +130,7 @@ def view(out: Path) -> View:
             continue
         if r["is_wrong"] == "true":
             kind = "sixframe" if r["origin"] == "sixframe_noncoding" else "protein"
-            nulls.setdefault(r["peptide"], Null(r["peptide"], kind, r["origin"]))
+            nulls.setdefault(r["peptide"], Null(r["peptide"], kind, r["origin"])).truth.append(r)
         else:
             correct.add(r["peptide"])
             if r["locus_tag"] not in ("", "NA"):
@@ -370,3 +376,155 @@ def write_sample_fasta(out: Path, dest: Path) -> Path:
     dest.write_text("".join(f">{c} sample [topology=circular]\n" + "".join(s) + "\n"
                             for c, s in seqs.items()))  # fmt: skip
     return dest
+
+
+# ---------------------------------------------------------------- decision 9: protein nulls
+
+_BASES = "TCAG"
+_AA11 = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+CODE11 = {a + b + c: _AA11[16 * i + 4 * j + k] for i, a in enumerate(_BASES)
+          for j, b in enumerate(_BASES) for k, c in enumerate(_BASES)}  # fmt: skip
+_COMP = str.maketrans("ACGT", "TGCA")
+EXT_BP = 3000  # a placement may lie this far outside the recorded span (N-terminal extension)
+
+
+def _seg(seq: str, s1: int, e1: int, strand: str) -> str:
+    nt = seq[s1 - 1 : e1]
+    return nt.translate(_COMP)[::-1] if strand == "-" else nt
+
+
+def _tr(nt: str) -> str:
+    return "".join(CODE11.get(nt[i : i + 3], "X") for i in range(0, len(nt) - len(nt) % 3, 3))
+
+
+def read_seq(path: Path) -> str:
+    """The one sequence of a plain FASTA (``truth/sample_genome.fna``)."""
+    return "".join(x.strip() for x in path.read_text().splitlines()[1:]).upper()
+
+
+def locus_proteins(out: Path, recorded: Mapping[str, Mapping[str, Any]], sample: str
+                   ) -> dict[str, list[str]]:  # fmt: skip
+    """``locus -> sample proteins``: the recorded span translated on the sample (initiator read
+    as M), plus the N-terminally extended protein when ``truth/novel_orfs.tsv`` has an
+    ``nterm_extension`` row sharing the locus's stop. Expressible, non-origin-crossing loci."""
+    ext: dict[tuple[str, int], str] = {}
+    for r in rows(out / "truth" / "novel_orfs.tsv"):
+        if r["class"] == "nterm_extension":
+            key = (r["strand"], int(r["end"]) if r["strand"] == "+" else int(r["start"]))
+            ext[key] = r["aa"]
+    res: dict[str, list[str]] = {}
+    for tag, f in recorded.items():
+        s1, e1, st = int(f["start"]), int(f["stop"]), str(f["strand"])
+        if not expressible(f) or e1 < s1:
+            continue
+        aa = ("M" + _tr(_seg(sample, s1, e1, st))[1:]).rstrip("*")
+        res[tag] = [aa]
+        e = ext.get((st, e1 if st == "+" else s1))
+        if e:
+            res[tag].append(e.rstrip("*"))
+    return res
+
+
+def true_loci(v: View) -> set[str]:
+    return {g for loci in v.correct_loci.values() for g in loci}
+
+
+def candidate_loci(v: View, proteins: Mapping[str, list[str]]) -> dict[str, int]:
+    """Decision 9's draw pool: ``locus -> number of its undetected products`` (distinct
+    Trypsin/P products of its sample proteins, I = L, that are no correct peptide) for every
+    expressible recorded locus with no true peptide and at least one such product."""
+    seen = {il(p) for p in v.correct}
+    done = true_loci(v)
+    out = {}
+    for tag, prots in proteins.items():
+        if tag in done:
+            continue
+        k = len({il(x) for aa in prots for x in tryptic(aa)} - seen)
+        if k:
+            out[tag] = k
+    return out
+
+
+def protein_null_violations(
+    v: View, recorded: Mapping[str, Mapping[str, Any]], proteins: Mapping[str, list[str]],
+    sample: str, genome: str,
+) -> dict[str, list[str]]:  # fmt: skip
+    """Decision 9 per protein-entry null, by rule: ``origin``; ``product`` (a Trypsin/P product
+    of a sample protein of its attributed locus, an expressible recorded locus); ``undetected``
+    (the locus has no true peptide and the peptide is no correct peptide, I = L); ``maps`` (a
+    truth row places it on the attributed locus: the sample segment translates to it, initiator
+    M allowed, and the genome GIAP gets differs in at most 2 residues, SNVs only)."""
+    bad: dict[str, list[str]] = {k: [] for k in ("origin", "product", "undetected", "maps")}
+    done = true_loci(v)
+    seen = {il(p) for p in v.correct}
+    for n in v.nulls.values():
+        if n.kind != "protein":
+            continue
+        if n.origin != PROTEIN_NULL_ORIGIN:
+            bad["origin"].append(f"{n.peptide}: origin {n.origin}")
+        ent = sorted(n.entries())
+        tag = ent[0] if len(ent) == 1 else ""
+        f = recorded.get(tag)
+        if f is None or not expressible(f):
+            bad["product"].append(f"{n.peptide}: entry {ent} is no expressible recorded locus")
+            continue
+        if not any(n.peptide in tryptic(aa) for aa in proteins.get(tag, [])):
+            bad["product"].append(f"{n.peptide}: no Trypsin/P product of {tag} on the sample")
+        if tag in done or il(n.peptide) in seen:
+            bad["undetected"].append(f"{n.peptide}: {tag} has a true peptide / peptide detected")
+        ok = False
+        for r in n.truth:
+            if r["locus_tag"] != tag or r["contig"] in ("", "NA"):
+                continue
+            s1, e1, st = int(r["start"]), int(r["end"]), r["strand"]
+            lo, hi = int(f["start"]) - EXT_BP, int(f["stop"]) + EXT_BP  # N-term extensions
+            if st != f["strand"] or s1 < lo or e1 > hi:
+                continue
+            on_s, on_g = _tr(_seg(sample, s1, e1, st)), _tr(_seg(genome, s1, e1, st))
+            if len(on_s) != len(n.peptide):
+                continue
+            same = on_s == n.peptide or ("M" + on_s[1:] == n.peptide)
+            diff = sum(a != b for a, b in zip(on_g[1:], n.peptide[1:], strict=True))
+            if same and diff <= 2:
+                ok = True
+        if not ok:
+            bad["maps"].append(f"{n.peptide}: no truth placement on {tag} that maps")
+    return bad
+
+
+@dataclass(frozen=True)
+class Competition:
+    gene: str
+    has_true: bool
+    target_won: bool
+
+
+def gene_competition(v: View, eligible: set[str]) -> list[Competition]:
+    """§7.3.2 picked competition per eligible gene with evidence at q <= ``Q_VALUE_MAX``: target
+    evidence = rows of correct peptides unique to the gene in the truth, plus protein-entry null
+    target rows attributed to it (they map there, decision 9); decoy evidence = its
+    ``rev_<gene>`` rows. A tie goes to the decoy. ``has_true``: the gene has a true peptide."""
+    nulls = {n.peptide for n in v.nulls.values() if n.kind == "protein"}
+    best: dict[tuple[str, bool], tuple[float, float, float]] = {}
+    for r in v.peptides:
+        if not finite(r["q_value"]) or fnum(r["q_value"]) > Q_VALUE_MAX:
+            continue
+        dec = r["is_decoy"] == "true"
+        if dec:
+            gs = [x[len("rev_") :] for x in ids(r["protein_ids"]) if x.startswith("rev_")]
+        elif r["peptide"] in nulls:
+            gs = ids(r["protein_ids"])
+        else:
+            loci = v.correct_loci.get(r["peptide"], set())
+            gs = list(loci) if len(loci) == 1 else []
+        for g in gs:
+            if g in eligible:
+                k = _key(r)
+                best[(g, dec)] = min(best.get((g, dec), k), k)
+    done = true_loci(v)
+    out = []
+    for g in sorted({g for g, _ in best}):
+        t, d = best.get((g, False)), best.get((g, True))
+        won = t is not None and (d is None or t < d)
+        out.append(Competition(g, g in done, won))
+    return out
