@@ -21,6 +21,11 @@ their own stream (``[seed, 7]``). Decision 21 (stream ``[seed, 8]``): each null 
 peptide becomes, with probability 1/2, the decoy row of its makedb entry (reversed peptide,
 ``rev_GIAPORF_…``, the same null score and mixture q / PEP); gene-level decoys are reversed
 products of annotated non-pseudo proteins (``rev_<locus_tag>``, ``n_decoy_rows`` of them).
+M7-11b decision 9: in this mode the search database is the makedb FASTA, so target rows name
+makedb entries too: a wrong peptide's row its entry, a novel ORF's peptide the entry it lies in
+(``GIAPORF_…``), a peptide of a true protein upstream of its annotated start the gene's
+``nterm_extension`` entry (both: the planted ID when makedb has none) and any other peptide of an
+annotated protein its locus tag (makedb's ``db_id``). Truth rows keep the planted IDs.
 
 All draws come from ``numpy.random.default_rng([seed, 3])``, so the genome and its truth are
 unchanged by the proteomics options. Gene-level abundance is a plain log-normal per protein
@@ -667,6 +672,20 @@ def _protein_decoys(
             decoys.append((rev, f"rev_{loc}", run, 2 if rng.random() < P_CHARGE_2 else 3))
 
 
+def _occurrence(p: Protein, a: int, length: int, n: int) -> tuple[int, int]:
+    """0-based ``[s0, e0)`` of the peptide at residue ``a`` (``length`` aa) of ``p`` on a contig
+    of length ``n`` (``s0 < n``; ``e0`` may exceed ``n`` across the origin)."""
+    if p.strand == "+":
+        s0 = p.start + 3 * a
+        e0 = s0 + 3 * length
+    else:
+        e0 = p.end - 3 * a
+        s0 = e0 - 3 * length
+    if s0 >= n:
+        s0, e0 = s0 - n, e0 - n
+    return s0, e0
+
+
 def _start_codon_aa(seq: str, s0: int, e0: int, strand: str) -> str:
     """Amino acid that code 11 assigns to the first codon of ``[s0, e0)`` on ``strand`` (the span
     may run past the end of a circular contig)."""
@@ -763,7 +782,7 @@ def simulate_proteomics(
     six = cfg.wrong_source == "sixframe_noncoding"
     pool: SixframePool | None = None
     loci: dict[str, Locus] = {}
-    entry: dict[str, str] = {}  # six-frame wrong peptide -> makedb entry db_id
+    entry: dict[str, str] = {}  # six-frame wrong peptide -> makedb entry db_id (target + decoy)
     if six:
         pool = _noncoding_pool(cfg, seqs, feats, novel)
         orfs = OrfEntries(feats, seqs, topology)
@@ -792,18 +811,36 @@ def simulate_proteomics(
             n_wrong,
         )
     origin = cfg.wrong_source
+    novel_ids = {str(r[0]) for r in novel}
+    # codons of a true protein upstream of its annotated start (N-terminal extensions)
+    upstream = {f.locus: ((f.start - f.span()[0]) if f.strand == "+" else (f.span()[1] - f.end))
+                // 3 for f in feats if f.kind in ("cds", "sorf")}  # fmt: skip
+
+    def db_id(pep: str, k: int, a: int) -> str:
+        """The protein ID a search reports for occurrence ``(k, a)``. In six-frame mode
+        (decision 9) a novel ORF's peptide names its makedb entry, and an annotated protein's
+        peptide reaching upstream of the annotated start names the gene's ``nterm_extension``
+        entry (either falls back to the planted ID when makedb has no such entry); any other
+        peptide of an annotated protein names its locus tag, makedb's ``db_id``."""
+        p = prots[k]
+        if not six or (p.locus not in novel_ids and a >= upstream.get(p.locus, 0)):
+            return p.locus
+        s0, e0 = _occurrence(p, a, len(pep), len(seqs[p.contig]))
+        return orfs.of((pep, p.contig, s0 + 1, e0, p.strand)) or p.locus
+
     targets = [
         _Target(
             pep,
             False,
             "gene",
             first[pep],
-            ";".join(dict.fromkeys(prots[k].locus for k, _ in occ[pep])),
+            ";".join(dict.fromkeys(db_id(pep, k, a) for k, a in occ[pep])),
         )
         for pep in detected
     ]
     targets += [
-        _Target(pep, True, origin, int(rng.integers(len(prots))), loc) for pep, loc in wrong
+        _Target(pep, True, origin, int(rng.integers(len(prots))), entry.get(pep, loc))
+        for pep, loc in wrong
     ]
 
     # target rows: every target peptide is identified once in every run
@@ -873,15 +910,7 @@ def simulate_proteomics(
         n_loci = str(counts[pep])
         for k, a in occ[pep]:
             p = prots[k]
-            n = len(seqs[p.contig])
-            if p.strand == "+":
-                s0 = p.start + 3 * a
-                e0 = s0 + 3 * len(pep)
-            else:
-                e0 = p.end - 3 * a
-                s0 = e0 - 3 * len(pep)
-            if s0 >= n:
-                s0, e0 = s0 - n, e0 - n
+            s0, e0 = _occurrence(p, a, len(pep), len(seqs[p.contig]))
             codon_aa = _start_codon_aa(seqs[p.contig], s0, e0, p.strand)
             alt = a == 0 and pep[0] == "M" and codon_aa != "M"
             truth.append([
