@@ -308,8 +308,12 @@ PUBLISHED_FILES: dict[str, str] = {
     "tu_folds": "genetable/tu_folds.parquet",
     "variants": "tables/variants.tsv",
     "variants_vcf": "tables/variants.vcf",
-    "variants_qc": "variants/variants_qc.parquet",
+    "variants_qc": "work/variants_qc.parquet",  # an intermediate: never published (M7-14)
 }
+
+
+#: outputs named ``work/<file>`` are intermediates: GIAP_STEP and :func:`publish` skip them
+UNPUBLISHED_PREFIX = "work/"
 
 
 def publish(workdir: Path, outdir: Path) -> list[Path]:
@@ -321,6 +325,8 @@ def publish(workdir: Path, outdir: Path) -> list[Path]:
             shutil.copytree(src, dst, dirs_exist_ok=True)
             done.append(dst)
     for key, rel in sorted(PUBLISHED_FILES.items()):
+        if rel.startswith(UNPUBLISHED_PREFIX):
+            continue
         src, dst = workdir / key, outdir / rel
         if src.is_file():
             dst.parent.mkdir(parents=True, exist_ok=True)

@@ -2,8 +2,8 @@
 // core) reads the loci directory `mapping` (its peptide_hits.tsv), MAP_TOLERANT's hits_tolerant
 // (optional: without it frameshift rows are skipped with a run flag), the C2/C1 gene model, the
 // genome and the C9 peptides, and publishes tables/pileup.tsv.gz, tables/variants.tsv and
-// tables/variants.vcf, plus the M7-14 QC Parquet variants/variants_qc.parquet (the id_mixups
-// count CONTEXT's context_stats writes into detection_summary.tsv; not a REPORT input). The
+// tables/variants.vcf. Its M7-14 QC Parquet work/variants_qc.parquet (the id_mixups count that
+// CONTEXT's context_stats writes into detection_summary.tsv) is emitted, never published. The
 // required keys go to stepIn's `need` explicitly, so the step does not run when one of their
 // channels is empty. reference_peptides is for M7-10.
 include { GIAP_STEP as VARIANTS_STEP } from '../../modules/local/giap_step/main'
@@ -60,7 +60,7 @@ workflow VARIANTS {
     def v = stepIn('variants', chans, needed)
     VARIANTS_STEP(v.files, v.keys, variantsSpec(['pileup=tables/pileup.tsv.gz',
         'variants=tables/variants.tsv', 'variants_vcf=tables/variants.vcf',
-        'variants_qc=variants/variants_qc.parquet']))
+        'variants_qc=work/variants_qc.parquet']))
     def T = VARIANTS_STEP.out.outputs
 
     emit:
