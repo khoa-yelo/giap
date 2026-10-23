@@ -156,3 +156,33 @@ def determinants_planted(n_genes: int, coefs: Mapping[str, float], noise_sd: flo
        sequence change (GRAVY within [−2, 2]), the implementer reports it. The lead then rules on
        the shift size; the tests are not loosened.
    - Next: the implementer.
+6. **Implementer (69ad45f3): B2 done; B1 ruled here (the GRAVY carrier is infeasible).**
+   - B2 accepted: packed sets are 1–3 chr1 operons of 10–30 genes plus `PACKED_SINGLES` = 40
+     single-gene TUs (≥ 9 on small layouts), whole TUs only, no extra TU effect. Slurm 1872913:
+     both calibration files at both tiers pass, apart from attack 2's fitted arm, which waits on B1.
+   - **B1: GRAVY cannot carry −1.5.** With coefficient −0.6 the members need GRAVY +2.5, so 97–99 %
+     land above 2 (20 seeds × 4,000 genes). A common per-member shift reachable at GRAVY ≤ 2 is
+     only about −0.55, varying by seed from −0.87 to +0.02.
+   - **Ruling: the carrier is `n_obs` (`CONFOUND_COVARIATE = "n_obs"`), and the size stays −1.5.**
+     Observable-peptide count is the strongest real detection determinant, and K/R edits leave
+     GRAVY unchanged.
+     - Each member's K/R positions are edited so that its recomputed `n_obs` gives a logit shift
+       as close to −1.5 as the integer allows. The **mean** member shift is −1.5 ± 0.15.
+     - Members with `n_obs` = 0 cannot move. They stay members, they are counted, and the mean is
+       taken over the movable members. Members are still drawn at random (gap 7).
+     - Every member's recorded `n_obs_true` equals the value recomputed from its `aa`, and its
+       logit equals the covariate model's logit from its recomputed covariates (exact, 1e-8).
+     - The gate is unchanged: with the fitted p_detect the weighted ORA stays at level, and the
+       unweighted teeth must still fail.
+   - **Test amendments (test-author, this PR's own tests):**
+     - `test_attack_shift_is_carried_by_the_members_covariate` drops the `layout.genes` equality.
+       Between shift −1.5 and 0 only the members' `aa` (and their derived columns) may differ.
+     - `test_member_shift_moves_the_members_logit_by_the_shift` changes its per-member exact −1.5
+       to the logit-from-covariates identity plus the mean over movable members.
+     - `test_confounding_covariate_is_recorded` and
+       `test_attack_logit_is_computed_from_covariates_only[-1.5]` follow `n_obs`.
+     - This is a ruling on how the shift is realised, not a widened gate (R3): the threshold and
+       the at-level gate stay.
+   - Minor, to the backlog: with fewer than 10 scoring TUs a packed set could, at about 1e-5 per
+     set, trip the finite-p assert in `_packed_tu_rep` at a large full-tier R.
+   - Next: the test-author, then the implementer, then the statistician re-check and code review.
