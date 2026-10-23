@@ -46,7 +46,10 @@ UNESTIMATED = style.DETECTION["unestimated"]
 PROMOTER = style.OKABE_ITO["bluish_green"]
 TERMINATOR = style.OKABE_ITO["vermillion"]
 NOVEL_ORF = style.OKABE_ITO["reddish_purple"]
-ORF_Y = 0.6  # the novel ORF arrow's centre line, above the gene arrows (V13)
+ORF_Y = 1.7  # the novel ORF arrow's centre line: its own band above gene labels and marks (V13)
+ORF_TOP = 2.2  # the genes axes' top with a novel ORF band
+ORF_EXTRA_IN = 0.7  # extra figure height for the band and the key
+ORF_KEY = "novel ORF; tick: OSTIR start; purple pileup: its peptides"
 IMPUTED_HATCH = "xxx"
 COLUMNS = ("track", "id", "contig", "start", "end", "strand", "value", "category")
 INDEX_COLUMNS = ("rank", "locus_id", "kind", "contig", "start", "end", "error", "rendered")
@@ -259,7 +262,8 @@ def _arrow(s: int, e: int, strand: str, head: float, y0: float = 0.0) -> np.ndar
 
 def _draw_orf(ax: Axes, pile: Axes, locus: Locus, orf: OrfMark, hits: list[tuple[Any, int, int]],
               head: float) -> list[object]:  # fmt: skip
-    """The novel ORF arrow above the genes, its OSTIR start tick and its peptides' pileup."""
+    """The novel ORF arrow in its own band above the gene arrows, their labels and the ``+``
+    marks (decision 11), its OSTIR start tick and its peptides' pileup."""
     s, e = locus.start0, locus.end0
     ax.add_patch(Polygon(_arrow(s, e, orf.strand, head, ORF_Y), closed=True, edgecolor=NOVEL_ORF,
                          facecolor=to_rgba(NOVEL_ORF, 0.35), linewidth=1.0,
@@ -360,9 +364,10 @@ def render_locus(
     size: Literal["single", "double"] = "single" if width <= SINGLE_MAX_BP else "double"
     chars = int((style.SINGLE_IN if size == "single" else style.DOUBLE_IN) * 72 / (0.6 * 7))
     title = "\n".join(textwrap.fill(c, chars) for c in locus.label.split("; "))
-    fig = style.new_figure(size, HEIGHT_IN + 0.12 * (title.count("\n") + 1) + 0.45,
+    extra = 0.0 if orf is None else ORF_EXTRA_IN
+    fig = style.new_figure(size, HEIGHT_IN + extra + 0.12 * (title.count("\n") + 1) + 0.45,
                            layout="constrained")  # fmt: skip
-    gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 1.8])
+    gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 1.8 if orf is None else 2.6])
     pile = fig.add_subplot(gs[0], label="pileup")
     ax = fig.add_subplot(gs[1], label="genes", sharex=pile)
     rows: list[list[object]] = []
@@ -400,13 +405,15 @@ def render_locus(
                 ax.axvline(k * length, color=style.OKABE_ITO["black"], ls="--", lw=0.6)
         ax.xaxis.set_major_formatter(wrapped_formatter(length))
     ax.set_xlim(*window)
-    ax.set_ylim(-1.0, 1.0)
+    ax.set_ylim(-1.0, 1.0 if orf is None else ORF_TOP)
     ax.set_yticks([])
     ax.set_xlabel(f"{locus.contig} position (bp)")
     pile.set_ylabel("peptides")
     pile.tick_params(labelbottom=False)
     fig.suptitle(title, fontsize=7)
     _colour_key(fig, [pile, ax], scale)
+    if orf is not None:
+        _orf_key(pile)
     data = pd.DataFrame(rows, columns=list(COLUMNS)) if rows else _empty(COLUMNS)
     data = data.astype({"start": "int64", "end": "int64", "value": float})
     return base.Instance(locus.locus_id, fig, data, locus.label, ("start",))
@@ -428,6 +435,14 @@ def _colour_key(fig: Figure, axes: list[Axes], scale: tuple[float, float]) -> No
               label="single peptide, unestimated"),
     ]  # fmt: skip
     fig.legend(handles=swatches, loc="outside lower center", ncols=3, fontsize=6, frameon=False)
+
+
+def _orf_key(pile: Axes) -> None:
+    """The one-entry novel ORF key (V13 decision 13; the BGC shading shares its colour), just
+    above the pileup axes so the constrained layout makes room for it under the title."""
+    handle = Patch(facecolor=to_rgba(NOVEL_ORF, 0.35), edgecolor=NOVEL_ORF, lw=1.0, label=ORF_KEY)
+    pile.legend(handles=[handle], loc="lower center", bbox_to_anchor=(0.5, 1.0), fontsize=6,
+                frameon=False, borderaxespad=0.2)  # fmt: skip
 
 
 def _empty(columns: Iterable[str]) -> pd.DataFrame:
