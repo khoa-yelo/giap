@@ -154,6 +154,84 @@ Statistician round 3 (PR #225, `tests/calibration/attacks/test_attack_m7_sixfram
   by construction. At 1 Mb, intergenic planting stops at about 100–145 ORFs (gap supply), whatever
   the requested count.
 
+## Scored null decoys on the real K-12 genome (MVP-04, PR #247)
+
+`decoys = "scored_null"` (giapsim, MVP-04 step 6) models a DIA-NN `--report-decoys` search
+against `giap makedb --six-frame-orfs`. Every null PSM row goes to its target or to its entry's
+decoy on an independent ½ coin (stream `[seed, 8]`; scores come from stream `[seed, 3]`). The
+decoy keeps the row's score, q and PEP. Protein-entry nulls are real tryptic products of loci
+with no true peptide, with the locus drawn uniformly (lead decision 9). Statistician review of
+PR #247 (Slurm 1871592: K-12, 10 seeds; 1871626: attack file):
+
+- **Why the coin gives the picked gene FDR its null.** A null gene's PSMs are i.i.d. and their
+  coins are independent of the scores. The side that holds the gene's best row is therefore a fair
+  coin, independent of the picked score, and (D + 1)/T is knockoff+ on the null genes. Targets and
+  decoys carry the same key columns, so the M4-24 shared key is S = {q, pep, score} and there is no
+  `decoy_unscored`. q and PEP are one monotone function of the score on both sides. The mixture q
+  is at most π_wrong_realised ≈ 0.01, so at π_wrong = 0.01 the ADR-0047 decoy filter removes
+  almost nothing, and what it removes is symmetric. Collisions: 0 in 10 seeds.
+- **Why `match_wrong` decoys are off.** They are reversed random proteins that no null target
+  matches. On a true gene they can only take a win from it; on a gene with no target they are a
+  decoy-only win. Either way D grows with no null target behind it, which mixes a conservative
+  bias into the null being measured.
+- **The 1/T floor.** T ≈ 2,700 target-won genes (b0 −5.25; truth-detected share 0.631), so
+  q_floor ≈ 0.00037 ≪ 0.01. The floor is not what limits the run.
+- **The gene-level null is too sparse for the α = 0.01 gates under the search-space split.**
+  Protein entries are 12.5 % of the distinct tryptic products, which leaves about 21 protein-entry
+  nulls per run (mean 20.7, range 20–22), about 11 decoy wins (7–15) and about 10 false target-won
+  genes, against T ≈ 2,700.
+  - (D + 1)/T at the loosest threshold is 0.004, so the α cut never binds: n_detected = T on 10 of
+    10 seeds. Realised gene FDP is 0.0037 ± 0.0004.
+  - An engine that ignores the decoys would reach only FDP ≈ 0.0076 (0.0073–0.0082), which is below
+    α and below gate 7 (0.02). Gate 7 therefore cannot fail.
+  - With the Q2 alternative (a fixed 50/50 split) there are about 83 protein nulls and about 41
+    decoy wins. The cut binds on 10 of 10 seeds, mean FDP at α = 0.01 is 0.0104 ± 0.0013, and an
+    engine that ignores the decoys reaches 0.029–0.032, so gate 7 can fail.
+  - π_wrong 0.03 or 0.05 under the search-space split still leaves the decoy-blind FDP below 0.02.
+  - The Q2 fallback (50/50 when there are fewer than 50 gene-level null PSMs) is not monotone. On
+    the 200-kb excerpt, π_wrong 0.05 gives 47 protein nulls (50/50), while π_wrong 0.10 gives 26
+    (search space).
+- **A second gene-level channel.** Six-frame nulls on `GIAPORF_nterm_extension_*` entries place
+  in a gene's `nterm_extension` class, which assigns to the gene (about 11 undetected genes per
+  K-12 run, next to the ~21 protein nulls). Their `rev_GIAPORF_*` decoys pair with the gene only
+  when a target row of the entry was accepted, so that the entry is voted to the gene (M7-12
+  decision 28). If every row went to the decoy side, the gene vanishes instead of being a decoy
+  win. With k rows, P(target wins | the gene is seen) = ½ / (1 − 2^−k), which is 4/7 for k = 3:
+  anti-conservative, and small at K-12 (≈ +0.8 false genes against D ≈ 11).
+- **Dense-null attack** (`tests/calibration/attacks/test_attack_mvp04_scored_null.py`). This is
+  the 200-kb excerpt at π_wrong 0.05 with the 50/50 split, and it includes the nterm channel.
+  Mean gene FDP at q = 0.01 / 0.05 / 0.10 is 0.0092 / 0.0517 / 0.0915 at R = 50, and 0.0087 /
+  0.0463 / 0.0866 at R = 300. All pass. A decoy-blind engine is a confirmed failure at 0.01 and
+  0.05. Two slow tests ("gate 7 can fail", "the α cut binds") check the K-12 run; they were strict
+  xfails under the search-space split.
+
+### What the evidence run uses (MVP-04 lead decisions 10–16; statistician re-check, Slurm 1872374)
+
+- **Fixed 50/50 split** (decision 10): half the null peptides, rounded down, go to protein
+  entries, capped by the pool. The search-space share (0.125) is recorded for information only.
+  The pool also holds the loci that the sample strain makes pseudo through a premature stop
+  (decision 16). GIAP sees them as intact, eligible genes. Products that span the stop are skipped.
+  No protein null lands on a recorded pseudo or truncated locus.
+- **K-12, seeds 1–10, oracle with the nterm-extension and `multi_identical` channels:**
+  - 80–89 protein nulls per run and 81–95 genes with null evidence. Collisions: 0.
+  - D = 42.5 ± 1.9 (36–54); T ≈ 2,740.
+  - The α = 0.01 cut binds on 10 of 10 seeds.
+  - Mean gene FDP at α 0.01 is 0.0109 ± 0.0013 (0.0051–0.0183), at level against
+    q + 2 SE = 0.0126.
+  - A decoy-blind engine gives 0.0262 ± 0.0006 (0.0233–0.0287), above gate 7's 0.02.
+  - False detected genes come mostly from protein nulls; the nterm channel adds 0–6 per run.
+  - At `K12_EVIDENCE_SEED`: T 2,744, 2,721 detected, FDP 0.0077, decoy-blind 0.0284, which matches
+    Slurm 1872190.
+- **Gate 7 catches only gross failures.** Per seed, a correct engine has FDP sd ≈ 0.004 and a
+  maximum of 0.018 over 10 seeds. A decoy-blind engine is only 1.2–1.4 × the gate. An engine that
+  inflates FDR by 1.5× (mean ≈ 0.016) would usually still pass. The calibration suites and the
+  dense-null attack own the mean; gate 7 is a single-run check of the gross picture. With one
+  fixed seed the result is deterministic, so this is a power limit, not flakiness.
+- **Recorded deviation** (decision 13): decision 9 draws the protein-null locus uniformly. The
+  §8.4 gene-FDR generator draws size-proportionally. Picked validity does not depend on it, because
+  each null gene is exchangeable either way. A MAYU-tier check on these inputs would see a
+  different null from its calibration suite.
+
 ## Convergent and sandwich decoys (operons, M6-01)
 
 `giap.stats.decoy_fdr` reuses `monotone_q` for the missed-operon family (§7.4.4); the full method
