@@ -27,6 +27,7 @@ LOCK = REPO / "workflow" / "envs" / "locks" / "fgsea.explicit.txt"
 WRAPPER = REPO / "src" / "giap" / "io" / "fgsea_r.py"
 SCRIPT = REPO / "workflow" / "bin" / "giap_fgsea.R"
 CHECK = REPO / "scripts" / "ci" / "check_no_rscript.py"
+RECORD = REPO / "scripts" / "slurm" / "record_fgsea.sbatch"
 
 # The three builds of #192's scripts/golden/golden_r.explicit.txt (spec §1).
 GOLDEN_BUILDS = (
@@ -264,3 +265,20 @@ def test_script_accepts_exactly_the_spec_arguments() -> None:
         "--versions",
     ):
         assert arg in text, arg
+
+
+# ---------------------------------------------------------------- record_fgsea.sbatch (R14)
+
+
+def test_record_sbatch_header() -> None:
+    text = RECORD.read_text(encoding="utf-8")
+    assert text.splitlines()[0] == "#!/bin/bash"
+    assert re.search(r"^#SBATCH --job-name=giap-record-fgsea$", text, re.M)
+    cpus = re.search(r"^#SBATCH --cpus-per-task=(\d+)$", text, re.M)
+    assert cpus and int(cpus.group(1)) <= 2
+    assert re.search(r"^#SBATCH --time=00:30:00$", text, re.M)
+    assert "scripts/farmshare_env.sh" in text
+    for name in ("sim_main", "sim_retest", "ties", "unbalanced", "tiny_p"):
+        assert name in text, name
+    proc = subprocess.run(["bash", "-n", str(RECORD)], capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
