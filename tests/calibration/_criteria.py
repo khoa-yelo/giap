@@ -359,7 +359,8 @@ def summary_markdown(records: Sequence[Mapping[str, Any]]) -> str:
     """Markdown table of results for the PR summary.
 
     ``ok`` is the block's own result (``pass`` / ``FAIL``); ``status`` is the gate verdict of the
-    check (pass | unconfirmed | fail, ADR-0015; ``-`` for records without one).
+    check (pass | unconfirmed | fail, ADR-0015; vacuous, M7-13 rule 7; ``-`` for records without
+    one).
     """
     lines = [
         "| suite | criterion | level | block | observed | bound | R | seed | duration (s) | ok |"
@@ -731,10 +732,16 @@ def _is_vacuous(values: Sequence[Mapping[str, Any]], vacuous: Mapping[str, float
 
 
 def _counts_of(v: Mapping[str, Any]) -> dict[str, int]:
-    """A count record as plain ints; refuses non-integer values (fail closed)."""
+    """A count record as plain ints; refuses non-integer or non-finite values (fail closed: a
+    ``ValueError``, so ``--merge`` gives ``MERGE_ERROR``, never an ``OverflowError``)."""
     out: dict[str, int] = {}
     for k, x in v.items():
-        if isinstance(x, bool) or not isinstance(x, int | np.integer | float) or int(x) != x:
+        if (
+            isinstance(x, bool)
+            or not isinstance(x, int | np.integer | float)
+            or not math.isfinite(x)
+            or int(x) != x
+        ):
             raise ValueError(f"count {k} = {x!r} is not an integer")
         out[str(k)] = int(x)
     return out
@@ -966,9 +973,13 @@ def _run_block2(suite: str, full: bool, pending: Sequence[Mapping[str, Any]]) ->
 def _merge_main(suite: str, full: bool) -> int:
     """Merge the shard records of ``suite``, running block 2 of failing checks (decision 5).
 
-    0 if every check is pass or unconfirmed, ``MERGE_FAIL`` (1) if one fails in both blocks,
-    ``MERGE_ERROR`` (2) if the records cannot be merged or block 2 could not be obtained.
+    0 if every check is pass, unconfirmed or ``vacuous`` (rule 7: vacuous is neither a pass nor
+    a fail; the summary names it), ``MERGE_FAIL`` (1) if one fails in both blocks, ``MERGE_ERROR``
+    (2) if the records cannot be merged, block 2 could not be obtained, or the confirm run's
+    pytest exited non-zero with no confirmed fail (a test outside the harness failed; M7-13 lead
+    decisions 7-8). A confirmed fail keeps ``MERGE_FAIL`` whatever the confirm run's exit.
     """
+    code = 0
     try:
         merged = merge_shards(suite)
         pending = [r for r in merged if r["status"] == PENDING_STATUS]
@@ -990,7 +1001,12 @@ def _merge_main(suite: str, full: bool) -> int:
     path = log_dir() / f"{suite}.merged.jsonl"
     path.write_text("".join(json.dumps(r) + "\n" for r in merged))
     print(summary_markdown(merged), end="")
-    return MERGE_FAIL if any(r["status"] == "fail" for r in merged) else 0
+    if any(r["status"] == "fail" for r in merged):
+        return MERGE_FAIL
+    if code != 0:
+        print(f"merge {suite}: the block-2 confirm run's pytest exited {code}", file=sys.stderr)
+        return MERGE_ERROR
+    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -1005,7 +1021,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(" ".join([*(f"{k}={v}" for k, v in env.items()), shlex.join(cmd)]))
     if ns.dry_run:
         return 0
-    base = {k: v for k, v in os.environ.items() if k not in (SHARD_ENV, BLOCK_ENV)}
+    # a leaked GIAP_CALIBRATION_CONFIRM would make every gate test skip (statistician note 4)
+    base = {k: v for k, v in os.environ.items() if k not in (SHARD_ENV, BLOCK_ENV, CONFIRM_ENV)}
+    if CONFIRM_ENV in os.environ:
+        print(f"main: ignoring {CONFIRM_ENV} (set only by --merge's block-2 run)", file=sys.stderr)
     return subprocess.run(cmd, env={**base, **env}, check=False).returncode
 
 
