@@ -17,6 +17,36 @@ with ``oric_frac = 0.8`` and the cosine shape (lead decision 16).
 - ``oriter_gradient``: ``ar1_background`` with an oriC and the cosine gradient;
 - ``draft_ar1``: a draft assembly (500-gene chromosome + 133 linear 30-gene contigs) at ``rho``.
 
+M7-12 (docs/specs/M7-12-sim-variant-novel-scenarios.md; §7.5.6, §7.6.6, §8.4, §8.5 attack 6,
+§11.6 TE2) adds four nucleotide scenarios returning a ``giapsim.SimConfig`` for
+``giapsim.simulate(cfg, seed, outdir)``. The config does not depend on ``seed`` (the simulation
+seed draws everything); ``size`` "100k" / "300k" / "1M" sets ``genome_length`` (100 kb is for
+fast unit tests only; novel-ORF power and FDR gates use >= 300 kb, >= 200 genes, so GIAP's
+detection q floor 1 / n is below 0.01: lead decision 13). All are simulator-v2
+genomes (signals at strength 0.8) with ``m7_truth`` (``truth/alt_sites.tsv`` always, header only
+without a strain; see ``giapsim.scenario_truth``):
+
+- ``variant_f1``: sample vs reference by SNVs (1 / kb) and indels (0.2 / kb); sample-derived
+  database peptides (labelled ``search_db = same``: the reference identification carries the
+  ALT, which is what the pairing needs), de novo reads with every error type and paired
+  ``reference_peptides.tsv``;
+- ``novel_orf_power``: intergenic ORFs of 30-80 aa, out-of-frame and antisense ORFs (>= 30 aa)
+  found in CDSs and N-terminal extensions, ``NOVEL_PER_CLASS[size]`` of each (fewer intergenic
+  ones, with a WARNING, when the genome has too few gaps: ``truth/novel_orfs.tsv`` holds the
+  realised rows and ``truth/novel_orfs.json`` the requested / realised / shortfall counts;
+  ``n_per_class`` overrides the count, ``NOVEL_PER_CLASS_GATE`` for M7-13 G3/G4, decision 26);
+  ``AGGAGG`` at spacer 5-10 before every planted intergenic start and N-terminal true start,
+  whose ``rbs_novel`` TIRs are lognormal(``SimConfig.planted_tir``) = (8, 0.8), the
+  first-round TU RBS distribution (decision 14: the matched arm; the decision 8 sanity arm sets
+  (9, 0.5)); peptides with 2 % wrong identifications drawn from non-coding six-frame
+  translations (``wrong_source = "sixframe_noncoding"``, decision 12: the false novel candidates
+  the class-FDR gate controls) with matched decoys, de novo errors and the precomputed layers.
+  Database peptides are sample-derived and labelled ``search_db = same``;
+- ``same_strain_insilico``: every Trypsin/P peptide (7-30 aa, <= 1 missed cleavage) of every
+  annotated protein, detected with probability 1, no wrong peptide, ``search_db = same``;
+- ``isobaric_attack``: de novo errors only of the block, near-block, modification and swap
+  types, no strain differences.
+
 Operon scenarios (M6-03; drawn with ``simulate_operons``, see ``giapsim.operons``): ``operon_null``,
 ``missed_operon_power``, ``discordance_power`` and the attacks ``operon_attack_ar1`` and
 ``operon_attack_detection``. All use the generating t ``OPERON_T`` for the within-TU increment, no
@@ -28,11 +58,15 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import replace
-from typing import Any, Literal
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, Literal
 
 from giapsim.expression import DEFAULT_BETA, ExpressionConfig, FrozenMap, IslandSpec
 from giapsim.layout import DEFAULT_REGIONS, LayoutConfig, RegionSpec
 from giapsim.operons import OperonConfig, OperonSim, simulate_operons
+
+if TYPE_CHECKING:
+    from giapsim.simulate import SimConfig
 
 __all__ = [
     "ABUNDANCE_BETA",
@@ -41,24 +75,32 @@ __all__ = [
     "ATTACK_DETECT_B4",
     "ATTACK_DETECT_OFFSET",
     "BLOCK_DETECT_SHIFT",
+    "MATCHED_TIR",
+    "NOVEL_PER_CLASS",
+    "NOVEL_PER_CLASS_GATE",
     "OPERON_BETA",
     "OPERON_P_SAME_STRAND",
     "OPERON_T",
     "ORIC_FRAC",
+    "SIZES",
     "OperonSim",
     "ar1_background",
     "discordance_power",
     "draft_ar1",
     "island_first_tu",
     "island_power",
+    "isobaric_attack",
     "label_null",
     "missed_operon_power",
+    "novel_orf_power",
     "operon_attack_ar1",
     "operon_attack_detection",
     "operon_null",
     "oriter_gradient",
+    "same_strain_insilico",
     "simulate_operons",
     "tu_null",
+    "variant_f1",
 ]
 
 Detection = Literal["covariates_only", "abundance"]
@@ -146,6 +188,86 @@ def draft_ar1(rho: float) -> Pair:
     """A draft assembly at AR(1) ``rho``: 500-gene ``chr1`` plus 133 linear 30-gene contigs."""
     lcfg = LayoutConfig(n_genes_chromosome=500, linear_contigs=_DRAFT_CONTIGS)
     return lcfg, ExpressionConfig(ar1_rho=rho)
+
+
+# ---------------------------------------------------------------- M7-12 nucleotide scenarios
+
+Size = Literal["100k", "300k", "1M"]
+#: Genome length of each scenario size.
+SIZES: Mapping[str, int] = MappingProxyType({"100k": 100_000, "300k": 300_000, "1M": 1_000_000})
+#: Planted / found novel ORFs and N-terminal extensions per class of ``novel_orf_power``.
+NOVEL_PER_CLASS: Mapping[str, int] = MappingProxyType({"100k": 8, "300k": 16, "1M": 40})
+# Lead decision 26 (class q floor): the picked class q (D + 1) / T is >= 1 / T, so a class needs
+# >= 1 / alpha = 100 targets to call anything at alpha 0.01; M7-13 G3/G4 plant this many per
+# class at 1M (intergenic saturates at the usable-gap supply, about 100-145; reported in
+# truth/novel_orfs.json, not forced).
+NOVEL_PER_CLASS_GATE = 300
+#: (mu, sigma) of the planted starts' log TIR in ``novel_orf_power`` (decision 14).
+MATCHED_TIR = (8.0, 0.8)
+_ISOBARIC_WEIGHTS = (("block", 0.4), ("near_block", 0.2), ("modification", 0.2), ("swap", 0.2))
+
+
+def _length(size: str) -> int:
+    if size not in SIZES:
+        raise ValueError(f"unknown size {size!r}; expected one of {sorted(SIZES)}")
+    return SIZES[size]
+
+
+def _v2(genome_length: int, **kw: object) -> SimConfig:
+    from giapsim.simulate import SimConfig
+
+    return SimConfig(genome_length=genome_length, rbs_strength=0.8, promoter_strength=0.8,
+                     terminator_strength=0.8, m7_truth=True, **kw)  # type: ignore[arg-type]  # fmt: skip
+
+
+def variant_f1(seed: int, size: Size = "100k") -> SimConfig:
+    """Strain differences for the ALT-classification F1 (§7.5.6); ``seed`` is not used."""
+    from giapsim.denovo import DenovoConfig
+    from giapsim.proteomics import ProteomicsConfig
+    from giapsim.strain import StrainConfig
+
+    strain = StrainConfig(snv_rate_per_kb=1.0, indel_rate_per_kb=0.2)
+    return _v2(_length(size), strain=strain, proteomics=ProteomicsConfig(), denovo=DenovoConfig())
+
+
+def novel_orf_power(seed: int, size: Size = "100k", n_per_class: int | None = None) -> SimConfig:
+    """Planted and found novel ORFs for the class-FDR / power gate (§7.6.6, §8.4); ``seed`` is
+    not used. Planted RBS TIRs follow the first-round distribution (module doc). ``n_per_class``
+    (lead decision 26) replaces ``NOVEL_PER_CLASS[size]`` for all four classes; M7-13 G3/G4 use
+    ``NOVEL_PER_CLASS_GATE`` at 1M. ``None`` keeps the default (byte-identical outputs)."""
+    from giapsim.denovo import DenovoConfig
+    from giapsim.proteomics import ProteomicsConfig
+
+    length = _length(size)
+    n = NOVEL_PER_CLASS[size] if n_per_class is None else n_per_class
+    return _v2(
+        length,
+        n_novel_orfs=(("intergenic", n), ("cds_outframe", n), ("antisense", n)),
+        n_nterm_extensions=n,
+        novel_orf_len_aa=(30, 80),
+        plant_novel_rbs=True,
+        planted_tir=MATCHED_TIR,
+        write_precomputed=True,
+        proteomics=ProteomicsConfig(pi_wrong=0.02, wrong_source="sixframe_noncoding"),
+        denovo=DenovoConfig(),
+    )
+
+
+def same_strain_insilico(seed: int) -> SimConfig:
+    """TE2's in-silico same-strain peptide set (§11.6) on a 100-kb genome; ``seed`` is not used."""
+    from giapsim.proteomics import ProteomicsConfig
+
+    prot = ProteomicsConfig(pi_wrong=0.0, detect_logit=(50.0, 0.0, 0.0), search_db="same")
+    return _v2(SIZES["100k"], n_sorfs=3, proteomics=prot)
+
+
+def isobaric_attack(seed: int) -> SimConfig:
+    """§8.5 attack 6: isobaric de novo errors only, no strain (100 kb); ``seed`` is not used."""
+    from giapsim.denovo import DenovoConfig
+    from giapsim.proteomics import ProteomicsConfig
+
+    dn = DenovoConfig(error_weights=dict(_ISOBARIC_WEIGHTS))
+    return _v2(SIZES["100k"], proteomics=ProteomicsConfig(), denovo=dn)
 
 
 #: Generating Student-t (loc, scale, df) of the within-TU increment (lead decision 8: the

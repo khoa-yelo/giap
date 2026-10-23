@@ -43,7 +43,8 @@ OUT_SPEC = {
     "variants_vcf": "tables/variants.vcf",
     "variants_qc": "work/variants_qc.parquet",  # M7-14
 }
-TAKE = ["genome", "gene_model", "mapping", "hits_tolerant", "peptides", "reference_peptides"]
+TAKE = ["genome", "gene_model", "mapping", "hits_tolerant", "peptides", "reference_peptides",
+        "peptide_spectra"]  # fmt: skip
 
 
 def _strip(text: str) -> str:
