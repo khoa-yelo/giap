@@ -210,14 +210,19 @@ def _class_rank(
     sc: np.ndarray,
 ) -> dict[int, float] | None:
     """Dense rank (higher = better) of a class's target and decoy rows on a key every row has
-    (decision 11, as M4-24): (q, then score) when every q is finite, else score alone when every
-    score is finite, else None (``decoys_unscored``)."""
-    rows = sorted({i for k in keys for i in (*rows_t.get(k, ()), *rows_d.get(k, ()))})
+    (decisions 11-12, as M4-24): q when every q is finite, broken by score only when every decoy
+    row has one (an unscored target ranks last on it); else score alone when every score is
+    finite; else None (``decoys_unscored``). Equal keys tie, and ties go to the decoy."""
+    dec = {i for k in keys for i in rows_d.get(k, ())}
+    rows = sorted(dec | {i for k in keys for i in rows_t.get(k, ())})
     if not rows:
         return {}
     q, s = qv[rows], sc[rows]
     if np.isfinite(q).all():
-        key = np.column_stack([q, np.where(np.isnan(s), np.inf, -s)])
+        if np.isfinite(sc[sorted(dec)]).all():
+            key = np.column_stack([q, np.where(np.isnan(s), np.inf, -s)])
+        else:
+            key = q[:, None]
     elif np.isfinite(s).all():
         key = -s[:, None]
     else:
