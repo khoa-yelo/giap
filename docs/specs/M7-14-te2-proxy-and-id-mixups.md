@@ -92,3 +92,13 @@ def te2_proxy(genome: Path, bakta_json: Path) -> ProxyResult: ...   # Nissle, as
 2. The weekly Slurm TE2 proxy follows R14: jobs named `giap-*`, with the CPU total checked before
    submitting. A change to the weekly scrontab, if one is needed, is pending Khoa and not blocking,
    as in MVP-04 decision 3. Until then the job is a one-off sbatch.
+3. **Test-author (cbea786c), gaps 1–9: the test-author's readings are accepted.**
+   - Gap 1: the lead adds `variants_qc` to the step-output assertion in test_variants_step.py.
+   - Gap 2: the tests live in new files.
+   - Gap 3: `support` is a long `(variant_id, peptide, source, search_db)` frame.
+   - Gap 4: the TE2 JSON mentions M7-16 when there are 0 stop_codon sites.
+   - Gap 5: no ALT sites counts as a pass.
+   - Gap 6: TE2 runs on weekly.sbatch's Nissle task (not protected). The first run is a one-off
+     sbatch; the scrontab is unchanged (decision 2).
+   - Gap 7: example 5 runs as the sim100k integration test on Slurm.
+   - Gap 8: example 1 activates once #225 merges.

@@ -313,7 +313,7 @@ def test_variants_step_is_registered_with_the_spec_keys() -> None:
     assert spec.precomputed is None
     assert set(spec.inputs) == REQUIRED
     assert set(spec.optional_inputs) == OPTIONAL
-    assert set(spec.outputs) == set(OUTPUTS)
+    assert set(spec.outputs) == set(OUTPUTS) | {"variants_qc"}  # + M7-14 (work Parquet)
     assert spec.optional_outputs == ()
 
 
