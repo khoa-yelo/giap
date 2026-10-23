@@ -454,6 +454,8 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 | 4 | ADR-0045 Wallenius far tails by urn recursion, #220 | accept (lead recommends) / revise | accept | 2026-10-22 — **RESOLVED 2026-10-23**: accepted |
 | 5 | M6-09 SW decoy floor: a method ADR, or record the gate as a vacuous pass | method ADR / vacuous pass | — | 2026-10-22 — **RESOLVED 2026-10-22**: vacuous pass (option 1) |
 | 7 | Optional: reword the `input.q_value_max` comment in defaults.yaml (protected) to match ADR-0047 ("not evidence; kept in C9 and in preflight's q range") | reword / leave | leave | 2026-10-22 — **RESOLVED 2026-10-22**: reworded under ADR-0047 (#242) |
+| 8 | MVP-04 q6: add an `n_decoy_wins` tier row to `detection_summary.tsv` (new §9.3 vocabulary)? | add the row / summary script only | summary script only (in use) | 2026-10-23 |
+| 9 | MVP-04 q9: put the K-12 evidence run in the weekly scrontab (array task 2) | yes / keep it a one-off sbatch | one-off sbatch until you answer | 2026-10-23 |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;
