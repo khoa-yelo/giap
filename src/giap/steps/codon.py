@@ -67,7 +67,11 @@ def codon_usage_step(ctx: StepContext) -> None:
         ctx.cfg.annotation.translation_table,
     )
     for flag in flags:
-        ctx.log.warning("codon_usage: run flag %s", flag)
+        ctx.log.warning(
+            "codon_usage: run flag %s",
+            flag,
+            extra={"event": "codon_usage.run_flag", "data": {"flag": flag}},
+        )
     if n_warned:
         ctx.log.info("codon_usage: suppressed codon-bias RuntimeWarnings for %d genes", n_warned)
     rows = [

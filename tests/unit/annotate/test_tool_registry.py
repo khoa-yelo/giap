@@ -137,7 +137,8 @@ def test_only_codon_bias_in_process(tools) -> None:  # type: ignore[no-untyped-d
 def test_every_env_file_has_a_registry_entry(tools) -> None:  # type: ignore[no-untyped-def]
     stems = {p.stem for p in (REPO / "workflow" / "envs").glob("*.yml")}
     out_of_process = {n for n, s in tools.items() if not s.in_process}
-    assert stems == out_of_process
+    # fgsea's entry is giap.io.fgsea_r.FGSEA_TOOL until M8-17b moves it into TOOLS (lead, 17a)
+    assert stems - {"fgsea"} == out_of_process
 
 
 def test_toolspec_is_frozen(tools) -> None:  # type: ignore[no-untyped-def]
