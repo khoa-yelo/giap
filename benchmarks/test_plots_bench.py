@@ -4,10 +4,13 @@
 The run is the M4 chain on ``build_m4_fixture(size="sim4500")`` (≈ 4.6 Mb, 4,500 genes,
 ≈ 45,000 peptide placements, an iBAQ abundance table), prepared once and not timed. Each step
 then runs through ``giap.steps.registry.run_step`` in a fresh interpreter, so its wall time and
-peak RSS (``VmHWM``) are its own. The measured entry lives in ``benchmarks/baseline.json``
-(found by its ``benchmark`` field). After the timed runs every registered plot is rendered once
-more and the M9-24 checklist item "≤ 20,000 drawn elements" (per axes, per V1 track) must pass
-on each instance (M9-26 lead decision 2, gap 5). The budget is the spec's 10-minute line.
+peak RSS (``VmHWM``) are its own. The measured entries live in ``benchmarks/baseline.json`` as
+two flat entries, ``plots_5mb_sim4500`` and ``report_5mb_sim4500`` (found by their ``benchmark``
+field; M9-26 lead decision 4). After the timed runs every registered plot is rendered once more
+and the M9-24 checklist item "≤ 20,000 drawn elements" (per axes, per V1 track) must pass
+on each instance (M9-26 lead decision 2, gap 5). Budgets (lead decision 4): 120 s for
+``plots`` and 30 s for ``report``; the spec's 10-minute line stays the K-12 one. The timed span
+starts after imports, so interpreter start-up is excluded.
 
 Run with ``pytest benchmarks/test_plots_bench.py --benchmark-only -p no:xdist`` (needs
 ``tests/sim`` on PYTHONPATH for giapsim).
@@ -30,7 +33,10 @@ import m4_chain as mc
 from helpers.viz_landscape import write_preflight
 
 SEED = 20261023
-BUDGET_S = 600.0  # M9-26 degenerate case "render time > 10 min": the speed loop applies
+#: per-step wall-time budgets in seconds (M9-26 lead decision 4)
+BUDGETS_S = {"plots": 120.0, "report": 30.0}
+#: the 5-Mb run's placement lower bound (sim4500 gives ≈ 42k; lead decision 4)
+MIN_PLACEMENTS = 35_000
 MAX_ELEMENTS = 20_000
 ELEMENT_ITEM = "≤ 20,000 drawn elements"
 
@@ -137,7 +143,9 @@ def test_plots_and_report_5mb_budget(benchmark: Any, prepared: Prepared, tmp_pat
     rec |= size | {"report_bytes": (report / "report.html").stat().st_size}
     benchmark.extra_info.update(rec)
     print("PLOTS_BENCH " + json.dumps(rec, sort_keys=True))
-    assert 4_000 <= size["n_genes"] <= 5_500 and 40_000 <= size["n_placements"] <= 60_000, size
+    assert 4_000 <= size["n_genes"] <= 5_500, size
+    assert MIN_PLACEMENTS <= size["n_placements"] <= 60_000, size
     assert _element_failures(ins, plots, tmp_path / "plots") == []
     for step in ("plots", "report"):
-        assert rec[step]["secs"] <= BUDGET_S, f"{step} took {rec[step]['secs']:.1f} s"
+        budget = BUDGETS_S[step]
+        assert rec[step]["secs"] <= budget, f"{step} took {rec[step]['secs']:.1f} s > {budget:g} s"
