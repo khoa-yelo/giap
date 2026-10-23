@@ -70,3 +70,26 @@ determinants_model), `family` (region_id/stat, contig/direction, model), `bin`, 
      published (test_report_nf_input_keys.py).
    - **`sa.COLUMNS["null_regions"]`:** the lead adds `contig` to it after the M9-17 implementer
      reports.
+4. **Review round (code review of aa50e573).**
+   - **B1, split regions:** key regions on (region_id, contig) in the ranking, the null filter and
+     `observed`. When a region spans more than one contig, the family is `"<rid> (<contig>) / <stat>"`.
+     Tests cover a split region in both the exhaustive and the grid file; the grid step CDF stays
+     monotone per contig.
+   - **B2, island null:** draw one genome-wide multiple, family `genome / abs`:
+     - its values are the replicate-wise maximum of `max_scan_s` over the scanned replicons (NaN skipped as `scan_with_nulls` does);
+     - its observed value is the maximum `observed_max`;
+     - its caption is "FWER p <min islands p_value>".
+     
+     Per-replicon multiples are captioned "per-replicon maximum", with no FWER p.
+   - **S1, cap:** the genome-wide multiple plus at most 7 per-replicon multiples, ranked by
+     `observed_max` descending with ties broken by contig. Write a `metric = n_not_drawn` row.
+   - **Nits taken:**
+     - N1: "observed NA" in the caption;
+     - N2: x labels "max |S_w| over windows" and "mean CV R² (null: permuted response)";
+     - N3: read the key columns as str;
+     - the ADR-0034 uncalibrated note is unconditional;
+     - "p not available" replaces "p NA";
+     - tests for `function_support` reaching V14 through the plots step, and for plots/support taking precedence over an analysis directory;
+     - simplify `run_view.py:279`;
+     - docstring wording "correctly rounded, like the schema reader".
+   - **Backlogged:** p ≥ 0.995 printing as "1" (use `.3g` above 0.1).
