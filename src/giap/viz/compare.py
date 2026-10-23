@@ -7,7 +7,7 @@ run. ``compare_plot`` draws ``compare_detection`` (panel a: exact intersections 
 dot matrix, detected genes per run at the left; the 30 largest drawn, the rest summed as
 ``other``, the ``none`` count a footnote) and ``compare_abundance`` (panel b: lower triangle
 cells coloured by ρ with "ρ r [lo, hi]", upper triangle the shared measured log2 of each pair,
-read from each run's ``genes.tsv``, with the identity line; an image of counts when the drawn
+read from each run's ``genes.tsv``, with the identity line; non-empty count bins when the drawn
 points would exceed 20,000). Custom matplotlib: UpSetPlot fails on the locked pandas (index
 decision 29). Pure: frames in, one ``Instance`` out.
 """
@@ -22,6 +22,8 @@ import numpy as np
 import pandas as pd
 from matplotlib import colormaps
 from matplotlib.axes import Axes
+from matplotlib.cm import ScalarMappable
+from matplotlib.collections import PolyCollection
 from matplotlib.colors import Normalize
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
@@ -39,8 +41,8 @@ EMPTY = "No gene detected in any run"
 SKIP = "written by giap compare"
 MAX_BARS = 30
 MAX_POINTS = 20_000
-BLUE, GREY, NA_CELL, TEXT = style.DETECTION["detected"], "#BBBBBB", "#BBBBBB", "#555555"
-_BINS = 24
+BLUE, GREY, TEXT = style.DETECTION["detected"], "#BBBBBB", "#555555"
+_BINS = 24  # per side, at most; fewer when many pairs share the MAX_POINTS // 2 bin budget
 _CMAP = colormaps["cividis"]
 
 
@@ -114,9 +116,9 @@ def _frame(a: pd.DataFrame, b: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def title(labels: list[str], a: pd.DataFrame, stats: pd.DataFrame) -> str:
-    everyone = "&".join(labels)
-    n_all = int(a.loc[a["intersection"] == everyone, "n_genes"].sum())
+def title(labels: list[str], inter: pd.DataFrame, stats: pd.DataFrame) -> str:
+    """``inter``: every intersection row (not only the 30 drawn)."""
+    n_all = int(inter.loc[inter["intersection"] == "&".join(labels), "n_genes"].sum())
     rho = stats["spearman_rho"].to_numpy(dtype=float)
     rho = rho[np.isfinite(rho)]
     med = _g(float(np.median(rho))) if rho.size else "NA"
@@ -160,17 +162,17 @@ def _upset(fig: Figure, a: pd.DataFrame, labels: list[str], sizes: list[int]) ->
         sets.spines[side].set_visible(False)
 
 
-def _cell_text(r: pd.Series[Any], flags: str, sep: str = " ") -> str:
+def _cell_text(r: pd.Series[Any], sep: str | None) -> str:
+    """ "ρ r [lo, hi]"; no CI when ``sep`` is None (8 or more runs: the CI is in the TSV)."""
     rho, lo, hi = (float(r[c]) for c in ("spearman_rho", "ci_low", "ci_high"))
-    if not math.isfinite(rho):
-        if "too_few_shared" in flags.split(";"):
-            return f"ρ NA{sep}(too few shared)"
-        return "ρ NA"  # the flags are in compare_abundance
+    if not math.isfinite(rho) or sep is None:
+        return f"ρ {_g(rho)}" if math.isfinite(rho) else "ρ NA"
     ci = f" [{_g(lo)}, {_g(hi)}]" if math.isfinite(lo) and math.isfinite(hi) else " [NA]"
     return f"ρ {_g(rho)}{sep}{ci.strip()}"
 
 
-def _scatter(ax: Axes, row: int, col: int, pts: pd.DataFrame, binned: bool) -> None:
+def _scatter(ax: Axes, row: int, col: int, pts: pd.DataFrame, bins: int) -> None:
+    """Points, or (``bins`` > 0) one square per non-empty bin of a ``bins`` x ``bins`` grid."""
     x, y = pts["x"].to_numpy(dtype=float), pts["y"].to_numpy(dtype=float)
     ax.plot([col + 0.08, col + 0.92], [row + 0.92, row + 0.08], color=TEXT, lw=0.5, zorder=2)
     if not len(x):
@@ -178,12 +180,15 @@ def _scatter(ax: Axes, row: int, col: int, pts: pd.DataFrame, binned: bool) -> N
     lo, hi = float(min(x.min(), y.min())), float(max(x.max(), y.max()))
     span = hi - lo or 1.0
     u, v = 0.08 + 0.84 * (x - lo) / span, 0.08 + 0.84 * (y - lo) / span
-    if not binned:
+    if not bins:
         ax.scatter(col + u, row + 1 - v, s=2, color=BLUE, linewidths=0, zorder=3)
         return
-    counts, vs, us = np.histogram2d(v, u, bins=_BINS, range=((0.08, 0.92), (0.08, 0.92)))
-    ax.pcolormesh(col + us, row + 1 - vs, np.ma.masked_equal(counts, 0), cmap="viridis",
-                  rasterized=False, zorder=3)  # fmt: skip
+    counts, vs, us = np.histogram2d(v, u, bins=bins, range=((0.08, 0.92), (0.08, 0.92)))
+    i, j = np.nonzero(counts)
+    x0, x1, y0, y1 = col + us[j], col + us[j + 1], row + 1 - vs[i], row + 1 - vs[i + 1]
+    verts = np.stack([np.column_stack(c) for c in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))], 1)
+    ax.add_collection(PolyCollection(list(verts), array=counts[i, j], cmap="viridis",
+                                     linewidths=0, zorder=3))  # fmt: skip
 
 
 def _matrix(fig: Figure, b: pd.DataFrame, abundance: pd.DataFrame, labels: list[str]) -> None:
@@ -191,28 +196,27 @@ def _matrix(fig: Figure, b: pd.DataFrame, abundance: pd.DataFrame, labels: list[
     lay = _layout(k)
     side, left = lay["side"], (7.2 - lay["side"]) / 2 - 0.3
     ax = fig.add_axes(_box(fig, left, lay["b_top"], side, side), label="b")
-    sep = " " if k <= 3 else "\n"
+    sep = " " if k <= 3 else "\n" if k < 8 else None
     norm = Normalize(0.0, 1.0)
     stats = b[b["locus_tag"].isna()]
     pts = b[b["locus_tag"].notna()]
-    binned = len(pts) > MAX_POINTS
-    flags = {(str(r["run_a"]), str(r["run_b"])): "" if pd.isna(r["flags"]) else str(r["flags"])
-             for _, r in abundance.iterrows()}  # fmt: skip
+    bins = min(_BINS, math.isqrt(MAX_POINTS // 2 // max(len(stats), 1)))
+    bins = bins if len(pts) > MAX_POINTS else 0
     for i, lab in enumerate(labels):
         ax.text(i + 0.5, i + 0.5, lab, ha="center", va="center", fontsize=7, weight="bold")
     for _, r in stats.iterrows():
         ia, ib = labels.index(str(r["run_a"])), labels.index(str(r["run_b"]))
         rho = float(r["spearman_rho"])
-        face = NA_CELL if not math.isfinite(rho) else _CMAP(norm(max(rho, 0.0)))
+        face = GREY if not math.isfinite(rho) else _CMAP(norm(max(rho, 0.0)))
         hatch = "///" if math.isfinite(rho) and rho < 0 else None
         ax.add_patch(Rectangle((ia, ib), 1, 1, facecolor=face, edgecolor="white", hatch=hatch))
         dark = math.isfinite(rho) and rho < 0.55
-        cell = _cell_text(r, flags.get((str(r["run_a"]), str(r["run_b"])), ""), sep)
+        cell = _cell_text(r, sep)
         box = {"facecolor": face, "edgecolor": "none", "pad": 1} if hatch else None
         ax.text(ia + 0.5, ib + 0.5, cell, ha="center", va="center", fontsize=6, bbox=box,
                 color="white" if dark else "black", linespacing=1.1)  # fmt: skip
         sub = pts[(pts["run_a"] == r["run_a"]) & (pts["run_b"] == r["run_b"])]
-        _scatter(ax, ia, ib, sub, binned)
+        _scatter(ax, ia, ib, sub, bins)
     ax.set_xlim(0, k)
     ax.set_ylim(k, 0)
     ax.set_aspect("equal")
@@ -222,14 +226,8 @@ def _matrix(fig: Figure, b: pd.DataFrame, abundance: pd.DataFrame, labels: list[
         _box(fig, left + side + 0.25, lay["b_top"] + side / 2, 0.1, side / 2), label="b_colourbar"
     )
     steps = np.linspace(0.0, 1.0, 11)  # stepped: < 50 solids stay vector in the SVG
-    fig.colorbar(_mappable(norm), cax=cax, boundaries=steps, ticks=steps[::5],
+    fig.colorbar(ScalarMappable(norm=norm, cmap=_CMAP), cax=cax, boundaries=steps, ticks=steps[::5],
                  label="ρ (< 0 hatched)")  # fmt: skip
-
-
-def _mappable(norm: Normalize) -> Any:
-    from matplotlib.cm import ScalarMappable
-
-    return ScalarMappable(norm=norm, cmap=_CMAP)
 
 
 def compare_plot(
@@ -242,7 +240,8 @@ def compare_plot(
         return base.empty_state("V16", "compare", EMPTY, COLUMNS, "double")
     b = _panel_b(abundance, genes)
     data = _frame(a, b)
-    text = title(labels, a, b[b["locus_tag"].isna()] if "locus_tag" in b else b)
+    inter = detection[detection["section"] == "intersection"]
+    text = title(labels, inter, b[b["locus_tag"].isna()] if "locus_tag" in b else b)
     matrix = detection[detection["section"] == "matrix"]
     hit = matrix[matrix["detected"].fillna(False).astype(bool)]
     sizes = [int((hit["run"] == lab).sum()) for lab in labels]
@@ -257,8 +256,11 @@ def compare_plot(
     height = float(fig.get_size_inches()[1])
     fig.text(0.05, 1 - (_layout(len(labels))["b_top"] - 0.3) / height, "; ".join(notes),
              fontsize=6, color=TEXT)  # fmt: skip
+    few = abundance["flags"].fillna("").astype(str).str.split(";").map(
+        lambda f: "too_few_shared" in f).any()  # fmt: skip
     fig.text(0.05, 0.15 / height, "upper cells: shared measured log2 abundance, x = row run, "
-             "y = column run, grey line = identity", fontsize=6, color=TEXT)  # fmt: skip
+             "y = column run, grey line = identity" + "; ρ NA: too few shared measured genes"
+             * bool(few), fontsize=6, color=TEXT)  # fmt: skip
     fig.suptitle(text, y=1 - 0.12 / height, va="top")
     return base.Instance(None, fig, data, text)
 
