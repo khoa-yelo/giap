@@ -90,3 +90,13 @@ passes q ≤ `<alpha>`" — never "no enrichment" (ADR-0026 consequence).
 2. **Q2 yes:** ORA effect points without bars, labelled "CI unestimated", until M8 hardening.
 3. **Stacking:** on m9/plot-support-analysis (M9-17; `gsea_running` per its tests a3224acf and
    decision 5). Merge M9-17 into this branch when it lands, then main.
+4. **Test-author (be22ed42): pinned choices 1–7 and gaps accepted as proposed.**
+   - Axes labels: `a`, `b` and `c*`.
+   - Panel (b) is NES against −log10 q; panel (c) uses a log2 O/E axis.
+   - O/E = 0 is drawn at the axis floor with a note, and the data keeps 0.
+   - A support set missing from the table raises `ValueError`.
+   - Both tables header-only gives an empty state with a generic message.
+   - The implementer may add "TUs" to `checklist.UNITLESS` (M9-24 decision 7), and may move V14
+     out of `LATER` in the twin helpers. That is a lead edit if an existing test must change:
+     report it.
+   - If a test's own assumption is wrong, report it; the fix goes to the test-author or lead.
