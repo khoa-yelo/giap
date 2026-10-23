@@ -12,6 +12,11 @@ folds). Level of ``null_p`` per model at every alpha of ``levels``, one p per mo
 (R = ``replicates_fast/full.determinants`` = 20 / 100; example 5: at most 2 rejections at 0.05 for
 R = 20). KS recorded (lead decision 2).
 
+Reading (lead decision 9): this null passes in an **exchangeable** world only (TU effects iid,
+features drawn independently of the TU structure). It does not lift the ``null_uncalibrated``
+flag (ADR-0034): the AR(1) TU-level and ``replichore_position`` attacks of
+``attacks/test_attack_determinants_null.py`` still fail.
+
 * Fast tier (lead decision 1): 400 genes, B = 99, LightGBM ``n_estimators = 50``, elastic net as
   configured, **1 CV repeat** for the observed value (generator settings, not tolerances: R3).
 * Full tier: the §5.2 parameters (``DeterminantsConfig()``: 5 repeats, 500 trees), B = 999,

@@ -12,15 +12,22 @@ gene table and tested alone (its collection name kept; one term, so ``p_value = 
   covariates ``covariate_table`` recomputes from the sequences (never ``n_obs_true``), the M4-13
   folds to the TU recalibration; §8.4 level of the over **and** the under p at every alpha.
   Expected strongly conservative at -1.5 (decision 5: plug-in variance); a level gate only.
-* *teeth* (gated, decision 3): the unweighted hypergeometric (omega forced to 1) on the same
-  term, **gene-level** (M = eligible genes, n = members, N = detected, k = detected members):
-  the under-representation p ``hypergeom(M, n, N).cdf(k)`` must be a confirmed ``fail`` through
-  ``calibrate`` (both blocks) **and** reject in > 2 x alpha at alpha = 0.05 in each block. The
-  -0.75 arm must also be a confirmed fail at R >= 100 (decision 4; statistician probe 0.95 —
-  a gene-level number, as the M8-14 teeth ``test_example2_teeth_unweighted_test_rejects``).
-  The TU-level omega = 1 variant (GIAP's TU units, every q equal) is **recorded** beside it: the
-  test-author pre-run found it barely moves (replicate 0: p 0.021 at -1.5, 0.53 at -0.75),
-  because members are random genes, so any-gene TU membership dilutes the confounding.
+* *teeth* (gated, decisions 3 and 9 B1): GIAP's own engine with the detectability weights
+  removed. ``p_detect`` is one constant for every eligible gene (the eligible detection share),
+  run through ``detection_enrichment(..., [term], ORA_SIZE, 0.05, folds=<the oracle arm's
+  tu_folds>)``; the ``under`` p must be a confirmed ``fail`` through ``calibrate`` (both
+  blocks) **and** reject in > 2 x alpha at alpha = 0.05 in each block, at -1.5 and at -0.75
+  (decision 4: R >= 100; statistician probe 1, ``$GIAP_ROOT/stat/m815-review/probe1.py``:
+  1.00 at -1.5, 0.96 / 0.97 at -0.75). The TU null keeps each TU's size through
+  q_t = 1 - (1 - p)^{n_t}, so only the weights are removed.
+* *recorded beside the teeth* (``function_gate_diagnostics.jsonl``):
+  - "world is confounded": the gene-level hypergeometric (M = eligible genes, n = members,
+    N = detected, k = detected members), under p ``hypergeom(M, n, N).cdf(k)``;
+  - "equal q per TU (ignores TU size)": the TU hypergeometric (every TU the same q). It barely
+    rejects (test-author pre-run, Slurm 1874380: 0.605 at -1.5, 0.02 at -0.75 at alpha 0.05)
+    because the any-gene membership rule makes the member TUs larger than average, and a larger
+    TU is more often detected; with equal q that size effect offsets the members' lower
+    detection. Keeping the TU size in q (the gated arm) removes the offset.
 * *oracle* (recorded, decision 6): p_detect = p_true through the same ORA engine; the rate and
   the two-sided §8.4 band per alpha go to ``function_gate_diagnostics.jsonl``; below the lower
   bound (probes 0.025-0.067 at alpha 0.10) is reported with a warning, never gated.
@@ -121,7 +128,8 @@ def _a2_world(tag: str, i: int) -> tuple[Any, pd.DataFrame, Any]:
 
 
 def _a2_cheap(tag: str, i: int, w: Any, genes: pd.DataFrame, one: Any) -> dict[str, Any]:
-    """Oracle p (p_true through the ORA engine) and the unweighted TU hypergeometric p."""
+    """Oracle p (p_true through the ORA engine), the gated teeth p (the same engine and folds
+    with one constant p_detect, decision 9 B1) and the two recorded hypergeometric p."""
     from giap.function import ora
     from giap.genetable.detectability import tu_folds
 
@@ -130,6 +138,10 @@ def _a2_cheap(tag: str, i: int, w: Any, genes: pd.DataFrame, one: Any) -> dict[s
                                    ORA_SIZE, 0.05, folds=folds)  # fmt: skip
     assert len(tab) == 2, tab
     by = tab.set_index("direction")
+    el_mask = ~genes["partial"].to_numpy(bool)
+    share = float(genes["detected"].to_numpy(bool)[el_mask].mean())
+    flat = ora.detection_enrichment(F.with_p_detect(genes, np.full(len(genes), share)), [one],
+                                    ORA_SIZE, 0.05, folds=folds).set_index("direction")  # fmt: skip
     mu, n, nd, k = (int(by.loc["under", c]) for c in
                     ("n_universe", "n_in_set", "n_detected", "k_detected_in_set"))  # fmt: skip
     el = ~genes["partial"].to_numpy(bool)
@@ -139,9 +151,12 @@ def _a2_cheap(tag: str, i: int, w: Any, genes: pd.DataFrame, one: Any) -> dict[s
     return {
         "oracle_over": float(by.loc["over", "p_value"]),
         "oracle_under": float(by.loc["under", "p_value"]),
-        "teeth_under": float(min(1.0, hypergeom(gm, gn, gnd).cdf(gk))),
-        "teeth_over": float(min(1.0, hypergeom(gm, gn, gnd).sf(gk - 1))),
-        "teeth_tu_under": float(min(1.0, hypergeom(mu, n, nd).cdf(k))),
+        "teeth_under": float(flat.loc["under", "p_value"]),
+        "teeth_over": float(flat.loc["over", "p_value"]),
+        "detected_share": share,
+        "gene_hyper_under": float(min(1.0, hypergeom(gm, gn, gnd).cdf(gk))),
+        "gene_hyper_over": float(min(1.0, hypergeom(gm, gn, gnd).sf(gk - 1))),
+        "equal_q_tu_under": float(min(1.0, hypergeom(mu, n, nd).cdf(k))),
         "n_in_set_tus": n, "k_tus": k, "n_in_set_genes": gn, "k_genes": gk,
         "expected_genes_unweighted": gn * gnd / gm,
     }  # fmt: skip
@@ -215,24 +230,30 @@ def test_attack2_fitted_p_detect_confounded_term_at_level(full: bool, tag: str) 
 @NIGHTLY
 @pytest.mark.calsuite(ORA)
 @pytest.mark.parametrize("tag", sorted(SHIFTS))
-def test_teeth_attack2_unweighted_under_rejects_beyond_twice_alpha(
+def test_teeth_attack2_flat_p_detect_under_rejects_beyond_twice_alpha(
     tag: str, teeth_log: Path
 ) -> None:
-    """Gated teeth (decision 3): omega forced to 1 is a confirmed fail, > 2 x alpha per block."""
+    """Gated teeth (decisions 3, 9 B1): GIAP's engine with one constant p_detect is a confirmed
+    fail, > 2 x alpha per block; the gene-level and equal-q TU hypergeometrics are recorded."""
     R = C.replicates(ORA, False)
     assert R >= 100  # decision 4: the overlap arm must fail at R >= 100
     F.prefetch(_A2, _a2_cheap_key, [(tag, i) for i in range(2 * R)])  # a confirmed fail: 2 blocks
-    stream = f"ora.m815.attack2.{tag}.teeth_unweighted_under"
+    stream = f"ora.m815.attack2.{tag}.teeth_flat_p_detect_under"
     rec = C.calibrate(ORA, "level", ALPHA_TEETH,
                       F.by_index(stream, R, lambda i: _a2(tag, i, False)["teeth_under"]), R,
                       stream=stream, log_dir=teeth_log)  # fmt: skip
     blocks = _teeth_blocks(teeth_log, ORA, stream)
-    tu_p = np.array([_A2[(tag, i)]["teeth_tu_under"] for i in range(2 * R) if (tag, i) in _A2])
-    F.diagnostics({"check": f"attack2.{tag}.teeth", "shift": SHIFTS[tag], "R": R,
-                   "status": rec["status"],
-                   "observed_by_block": {r["block"]: r["observed"] for r in blocks},
-                   "tu_level_omega1_under": F.rate_record(tu_p, [ALPHA_TEETH])})  # fmt: skip
-    assert rec["status"] == "fail", f"the unweighted arm is not a confirmed fail: {rec}"
+    ran = [_A2[(tag, i)] for i in range(2 * R) if (tag, i) in _A2]
+    F.diagnostics({
+        "check": f"attack2.{tag}.teeth", "shift": SHIFTS[tag], "R": R, "status": rec["status"],
+        "arm": "detection_enrichment, constant p_detect = eligible detection share",
+        "observed_by_block": {r["block"]: r["observed"] for r in blocks},
+        "world_is_confounded_gene_hypergeometric_under": F.rate_record(
+            [r["gene_hyper_under"] for r in ran], [ALPHA_TEETH]),
+        "equal_q_per_tu_ignores_tu_size_under": F.rate_record(
+            [r["equal_q_tu_under"] for r in ran], [ALPHA_TEETH]),
+    })  # fmt: skip
+    assert rec["status"] == "fail", f"the flat p_detect arm is not a confirmed fail: {rec}"
     assert len(blocks) == 2 and all(r["observed"] > 2 * ALPHA_TEETH for r in blocks), blocks
 
 

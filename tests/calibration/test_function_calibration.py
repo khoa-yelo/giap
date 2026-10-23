@@ -13,10 +13,12 @@ jsonl). R = ``replicates_fast/full.<suite>`` (protected tolerances.yaml: ora 100
   the six M8-03 collections of the synthetic ontology (``go_slim`` is a synthetic slim, M8-14
   gap 4), p_detect **fitted** by M4-13 with the default ``DetectabilityConfig()`` on covariates
   recomputed from the sequences by ``covariate_table``, the M4-13 folds passed to the TU
-  recalibration. ``detection_enrichment`` over all six collections; per replicate ``M_ORA``
-  distinct tested terms are drawn at random (own stream) and their ``p_value`` pooled
-  (``check_level_pooled``, m = ``M_ORA``), **per direction** (over, under). Recorded: the oracle
-  arm (p_true) on the same terms, ``p_noelim``, per-collection rates over every tested term, KS.
+  recalibration. ``detection_enrichment`` over all six collections; per replicate **one** tested
+  term per collection (m = ``M_ORA`` = 6; lead decision 9 B2), drawn at random (own stream) in
+  the fixed order ``ORA_ORDER``, ``go_slim`` excluding term IDs already picked; their
+  ``p_value`` pooled (``check_level_pooled``), **per direction** (over, under). Recorded: the
+  oracle arm (p_true) on the same terms, ``p_noelim``, per-collection rates over every tested
+  term by TU-size band (``SIZE_BANDS``), KS.
 * ``gsea`` (gate; ADR-0038 amendment: Slurm only, ``slow`` + ``requires_r``): ``gsea_null(4000)``,
   the six collections, ``gsea_table(..., engine=RFgseaEngine)``; ``M_GSEA`` = 100 distinct
   tested terms per replicate pooled (spec: ">= 100 sets per replicate"). KS recorded.
@@ -42,7 +44,9 @@ from helpers import function_gate_chain as F
 ORA, GSEA = "ora", "gsea"
 ORA_SIZE = (5, 500)  # function.ora_size
 GSEA_SIZE = (10, 500)  # function.gsea_size
-M_ORA = 6
+ORA_ORDER = ("cog", "kegg", "go_bp", "go_mf", "go_cc", "go_slim")  # B2: fixed pick order
+M_ORA = len(ORA_ORDER)
+SIZE_BANDS = ((5, 9), (10, 49), (50, 500))  # n_in_set (TUs), as statistician probe 5
 M_GSEA = 100
 N_GENES = 4000
 DIRECTIONS = ("over", "under")
@@ -124,19 +128,41 @@ def _ora_null_run(i: int) -> dict[Any, Any]:
         F.with_p_detect(genes, F.true_p_detect(w, genes)), colls, ORA_SIZE, 0.05,
         folds=tu_folds(list(genes["tu_id"]), 5, o_rng),
     )  # fmt: skip
-    terms = _distinct_terms(fitted)
-    assert len(terms) >= M_ORA, len(terms)
-    pick = sorted(C.replicate_rng(SIM_ORA + ".pick", i).choice(terms, M_ORA, replace=False))
-    out: dict[Any, Any] = {"collections": sorted({c.collection for c in colls})}
+    pick = pick_one_per_collection(fitted, C.replicate_rng(SIM_ORA + ".pick", i))
+    out: dict[Any, Any] = {"collections": sorted({c.collection for c in colls}), "pick": pick}
     for d in DIRECTIONS:
         for name, tab in (("fitted", fitted), ("oracle", oracle)):
-            sub = tab[tab["direction"] == d].drop_duplicates("term").set_index("term")
+            sub = tab[tab["direction"] == d].set_index(["collection", "term"])
             out[(name, d)] = sub.loc[pick, "p_value"].to_numpy(float)
             out[(name, d, "noelim")] = sub.loc[pick, "p_noelim"].to_numpy(float)
         sub = fitted[fitted["direction"] == d]
         out[("by_collection", d)] = {
-            str(c): g["p_value"].to_numpy(float) for c, g in sub.groupby("collection")
+            str(c): (g["p_value"].to_numpy(float), g["n_in_set"].to_numpy(int))
+            for c, g in sub.groupby("collection")
         }
+    return out
+
+
+def pick_one_per_collection(tab: pd.DataFrame, rng: np.random.Generator) -> list[tuple[str, str]]:
+    """B2: one tested term (finite p) per collection, in ``ORA_ORDER``; a term ID picked in an
+    earlier collection is excluded later (``go_slim`` repeats GO IDs)."""
+    ok = tab[np.isfinite(tab["p_value"].to_numpy(float))]
+    picked: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for c in ORA_ORDER:
+        cand = sorted(set(ok.loc[ok["collection"] == c, "term"].astype(str)) - seen)
+        assert cand, f"no tested term left in {c}"
+        t = str(cand[int(rng.integers(0, len(cand)))])
+        picked.append((c, t))
+        seen.add(t)
+    return picked
+
+
+def _banded(p: np.ndarray, n: np.ndarray, levels: list[float]) -> dict[str, Any]:
+    out: dict[str, Any] = {"all": F.rate_record(p, levels)}
+    for lo, hi in SIZE_BANDS:
+        sel = (n >= lo) & (n <= hi)
+        out[f"{lo}-{hi}"] = {"n": int(sel.sum()), **F.rate_record(p[sel], levels)}
     return out
 
 
@@ -170,8 +196,12 @@ def test_ora_null_fitted_p_detect_pooled_level_per_direction(full: bool) -> None
                     np.concatenate([r[("fitted", d, "noelim")] for r in recs]), levels),
                 "oracle": F.rate_record(orc, levels), "oracle_ks": F.ks_record(orc),
                 "by_collection": {
-                    c: F.rate_record(np.concatenate([r[("by_collection", d)].get(c, [])
-                                                     for r in recs]), levels)
+                    c: _banded(
+                        np.concatenate([r[("by_collection", d)].get(c, ([], []))[0]
+                                        for r in recs]).astype(float),
+                        np.concatenate([r[("by_collection", d)].get(c, ([], []))[1]
+                                        for r in recs]).astype(int),
+                        levels)
                     for c in recs[0]["collections"]
                 },
             }  # fmt: skip
