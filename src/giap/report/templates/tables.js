@@ -4,7 +4,11 @@
 (function () {
   "use strict";
   var NA = "NA";
-  var NUM = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+  var NUM = /^[+-]?((\d+\.?\d*|\.\d+)([eE][+-]?\d+)?|INF)$/;
+  function num(c) {  /* Number("INF") is NaN: ADR-0006 writes infinities as INF / -INF */
+    var m = /^([+-]?)INF$/.exec(c);
+    return m ? (m[1] === "-" ? -Infinity : Infinity) : Number(c);
+  }
   function order(cells, descending) {
     var idx = cells.map(function (c, i) { return i; });
     var keep = idx.filter(function (i) { return cells[i] !== NA; });
@@ -12,8 +16,8 @@
     var numeric = keep.every(function (i) { return NUM.test(cells[i]); });
     var sign = descending ? -1 : 1;
     keep.sort(function (a, b) {
-      var x = numeric ? Number(cells[a]) : cells[a];
-      var y = numeric ? Number(cells[b]) : cells[b];
+      var x = numeric ? num(cells[a]) : cells[a];
+      var y = numeric ? num(cells[b]) : cells[b];
       return x < y ? -sign : x > y ? sign : 0;
     });
     return keep.concat(na);

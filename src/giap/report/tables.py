@@ -1,10 +1,11 @@
 """The sort and filter rules of the report tables (M9-14 behaviour 4): the pure reference that
 ``templates/tables.js`` follows line for line.
 
-A column sorts numerically when every non-``NA`` cell is a plain decimal number (the ``_NUM``
-pattern, shared with the JS), else by string (code-point order); ties keep their order and ``NA``
-is last in both directions. A row matches a filter when the query is a case-insensitive substring
-of any one cell; an empty query matches every row.
+A column sorts numerically when every non-``NA`` cell is a plain decimal number or ``INF`` /
+``-INF`` (ADR-0006; the ``_NUM`` pattern, ASCII digits only, shared with the JS), else by string
+(code-point order); ties keep their order and ``NA`` is last in both directions. A row matches a
+filter when the query is a case-insensitive substring of any one cell; an empty query matches every
+row.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import re
 from collections.abc import Sequence
 
 NA = "NA"
-_NUM = re.compile(r"[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?")
+_NUM = re.compile(r"[+-]?((\d+\.?\d*|\.\d+)([eE][+-]?\d+)?|INF)", re.ASCII)
 
 
 def is_number(cell: str) -> bool:
