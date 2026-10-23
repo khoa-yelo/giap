@@ -656,3 +656,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
     - N8, the reviewer's alluvial geometry check (scratchpad geom.py) should become a test.
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
+
+### M7-12 statistician NITs (PR #225) → M7-13
+- F1 matching folds I/L/J; precision over all truth sites (n_true_peptides counts database
+  peptides only); use the method's own peptide rule as the N-terminal-extension denominator.
+- Isobaric attack: a "systematic" error option keyed by protein site; run with
+  `--genome-relation same`. Document `variant_f1` sample peptides labelled `search_db = same`.
+- `same_strain_insilico`: all 11 non-ATG N-terminal peptides unmapped; the start-codon exception
+  is never exercised.
+- Three attack nulls proposed in the comment for M7-13 (tests/calibration/attacks/).
+- GIAP: genomes below ~200 genes hit a 1/n gene-level q floor above 0.01 and detect 0 genes;
+  decide the small-genome behaviour (warn, or a method that can reach q ≤ 0.01).

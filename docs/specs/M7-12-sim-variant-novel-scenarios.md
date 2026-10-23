@@ -113,3 +113,24 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
 9. File names keep M3-20's `peptides_denovo.tsv` and `reference_peptides.tsv` (example 1's wording
    is loose).
 10. The optional ADR-0012 σ70 promoter / terminator after planted ORFs is not in M7-12 (backlog).
+
+## Lead decisions on the statistician's block (2026-10-22, PR #225 comment 6356933329)
+
+11. **ALT truth in the sample frame.** After a frameshifting indel upstream in the same gene, the
+    ALT codon is taken in the sample's frame and lifted to the reference; rows that become
+    synonymous are dropped; `alt_sites.tsv` gains `frameshift_upstream` (bool). Frameshift indels
+    are listed in `indel_sites.tsv` (with their junction), so M7-13 can mask them.
+12. **False novel candidates.** A new opt-in wrong-peptide source draws peptides from non-coding
+    six-frame translations (with matched decoys); `novel_orf_power` turns it on, so the novel-ORF
+    FDR gate has false candidates to control.
+13. **Genome size for novel-ORF gates.** `novel_orf_power` gates use a ≥ 300-kb genome (a new
+    `sim300k` size, ≥ 200 genes) so gene detection is not at the 1/n q floor; 100 kb stays for fast
+    unit tests. The GIAP small-genome q floor goes to the backlog.
+14. **Planted TIR is a `SimConfig` field.** `novel_orf_power` defaults to the first-round
+    distribution lognormal(8, 0.8); the calibration sanity arm keeps lognormal(9, 0.5) (decision 8).
+    M7-13 adds the matched arm with an SE allowance.
+15. **No crashes.** `features.novel_orfs` fixes the `min_gap` off-by-one; when a genome has too few
+    intergenic gaps, the scenario plants as many as fit and the truth records the realised count
+    (power denominators read the truth).
+16. **Coordinates.** `novel_orfs.tsv` `stop` is written 1-based like the rest of that table.
+17. Feature loop: test-author (tests for 11–16) → implementer → statistician re-check → code review.
