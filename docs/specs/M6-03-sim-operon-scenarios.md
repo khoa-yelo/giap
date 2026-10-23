@@ -181,3 +181,7 @@ built. The missed-operon generators change as follows, so M6-09's FDR gate can f
     M6-09's gate fail (ratio ≤ ~1.05), so gate B's pass is not over-read.
 25. **For M6-09 (not this PR):** a realistic 10 % block arm; report realised planted counts in the
     detection attack; example 1 (≥ 60 % at 0.1 SD) is infeasible under every decoy arm measured.
+22. **The scenario digests are pinned on numpy ≥ 2.5 / scipy 1.18.** uv.lock resolves numpy 2.4.6 and
+    scipy 1.17.1 for Python < 3.12, and their draws differ, so CI ubuntu 3.11 failed all three
+    `test_scenarios_without_short_gaps_are_byte_identical_to_fd3f3a3` cases. The test skips on
+    numpy < 2.5. The default-layout digest still runs everywhere.

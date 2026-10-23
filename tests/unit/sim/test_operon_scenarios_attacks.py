@@ -124,6 +124,12 @@ def test_default_layout_is_byte_identical_to_fd3f3a3() -> None:
     assert _digest(g) == "c889d561360d77be959edf0ad618d38bcffb8fdd635be93c8c8b97f4f895ea7e"
 
 
+# Python < 3.12 resolves numpy 2.4 / scipy 1.17 (uv.lock), whose draws differ from the pinned
+# numpy 2.5 / scipy 1.18 digests (lead decision 22).
+OLD_NUMPY = tuple(int(x) for x in np.__version__.split(".")[:2]) < (2, 5)
+
+
+@pytest.mark.skipif(OLD_NUMPY, reason="digests pinned on numpy >= 2.5 (lead decision 22)")
 @pytest.mark.parametrize(
     "name,args,digest",
     [
