@@ -311,3 +311,13 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
    - **Next:** the test-author makes the xfail and reference-arm edits. These are this PR's own
      tests, so the lead routes the edits to the test-author. Then the implementer
      (`_m7_gate.py`, the pooled `_criteria`, the array line), then the statistician.
+5. **Test-author edits (8a3c4774, Slurm 1872441: 11 passed, 4 xfailed).**
+   - Accepted: an empty A6a now raises `RuntimeError`, so a vacuous arm cannot hide as an XFAIL.
+   - Recorded estimates:
+     - G1 F1 0.838, CI [0.807, 0.869];
+     - A6a: 24 unflagged rows out of 20,925;
+     - A6b share 0.95;
+     - A6c share 1.0;
+     - reference arm pooled mean of `substitution` + `mass_equivalent`: 0.974.
+   - Next: the implementer writes `_m7_gate.py`, the pooled `_criteria` functions, `_check_key`
+     with `key`, and calibration_full.sbatch `--array=0-14` with task 13 run under `--shard 2`.
