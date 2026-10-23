@@ -270,7 +270,8 @@ def _packed_gene_level_rep(rng: np.random.Generator) -> float:
     d = genes[genes["detected"]]
     x = d["abundance_log2"].to_numpy(float)
     cfg = GseaConfig()
-    prep = prepare(x - np.median(x), list(d["locus_tag"]), {"S": sorted(members)}, *GSEA_SIZE)
+    # min size 1: the teeth is about gene-label permutation, not the size filter
+    prep = prepare(x - np.median(x), list(d["locus_tag"]), {"S": sorted(members)}, 1, 10**6)
     step = for_step("function.gsea", int(rng.integers(0, 2**31 - 1)))
     res = fgsea_simple(prep, cfg.n_perm_simple, cfg.sample_size, step)
     return float(res.p[0])
