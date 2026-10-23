@@ -117,3 +117,16 @@ def denovo_class_q(orfs: Sequence[Orf], target_hits: pd.DataFrame, decoy_hits: p
    Bonferroni-on-peptides-per-ORF correction.
 4. The 80 % paired-share guard per class is borrowed from §7.3.2 by analogy. **Proposed default:**
    adopt it, recorded in the methods note; change only by ADR.
+
+## Lead decisions (2026-10-22)
+
+1. **Mixed-source runs:** the proposed default. Each ORF's regime follows its peptides' source,
+   database first; database and de novo q-values are never pooled into one list (methods note).
+2. **Untagged classes** (`pseudogene`, `sorf`, `cterm_extension`): `unestimated` with the
+   ≥ 2-peptide rule; no `rev_<locus_tag>` pairing in v1.
+3. **ORF-level q (de novo):** the minimum of its peptides' subgroup q, and the statistician measures
+   ORF-level FDP in M7-13. If that fails, an ADR chooses between a picked ORF-level competition on
+   the genome decoy and a per-ORF Bonferroni over peptides. The methods note names the
+   anti-conservative direction now.
+4. **80 % paired-share guard per class:** adopted from §7.3.2 by analogy and recorded in the
+   methods note; changes only by ADR.
