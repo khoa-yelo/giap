@@ -575,3 +575,13 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
     - N2–N6 (eligible vs scored genes in q and w, detrended S past the ceiling, gate 5's
       decoy-only wins, gate 12 precision risk at few calls, no CI on Moran's I and gate-7 FDP):
       recorded here, not changed.
+24. **Code review of part 2 (d14f0468): APPROVE** (#258 comment 6366000222). 31 of 49 summary
+    mutants were killed; the surviving threshold mutants are re-asserted by
+    `tests/e2e/test_k12_evidence.py`'s own constants. One review round: the nits go to the backlog.
+    - Backlog: boundary tests for gates 4, 6, 8, 11 and 13 (p) and a gate-13 case with no planted
+      high island; the sbatch seed from `K12_EVIDENCE_SEED`, renamed `MVP04_SEED`, and tested as
+      passed through; gate 15 counts the `empty_state` placeholder SVG as content (N2, a weaker
+      check than "a figure or a table"); N3–N9 tidying.
+    - **N10, binding for the acceptance run:** `mvp04_inputs.sbatch` runs the code in
+      `$GIAP_REPO`. The acceptance inputs are made only after #258 merges and the main checkout is
+      fast-forwarded, so they carry decision 20's `K12_ISLANDS`.
