@@ -449,12 +449,11 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 |---|---|---|---|---|
 | 1 | GIAP_SPEC.md §15.3/§15.4 name "RegulonDB v12", but v12.0.0 is the 2023-10-23 release and the live one is **14.5.0** (2026-01-28). The fetcher records the release the endpoint reports. | (a) use the current release (14.5.0) and cite it in ADR-0022; (b) pin v12 and ask RegulonDB for the archived files | (a) — ADR-0017: record the version and the hash of what we actually fetched | 2026-10-21 (M6-11) — **RESOLVED 2026-10-21**: Khoa: 'cite RegulonDB 14.5.0' (option a) |
 
-| 2 | MVP/golden evidence runs at α 0.01 cannot detect genes on sim100k: the 1/T floor with T = 74–91 (Slurm 1869554). The q-floor "flag it" answer stands. | (a) evidence runs on a genome with ≥ ~110 eligible target-won genes; (b) keep sim100k at α 0.05 | (a) | 2026-10-22 (reworded 23:40) |
-| 3 | ADR-0044 Wallenius golden reference (goseq is wrong on 36 tails; GIAP is right), #220 | accept / revise | — | 2026-10-22 |
-| 4 | ADR-0045 Wallenius far tails by urn recursion, #220 | accept (lead recommends) / revise | accept | 2026-10-22 |
-| 5 | M6-09 SW decoy floor: a method ADR, or record the gate as a vacuous pass | method ADR / vacuous pass | — | 2026-10-22 |
-| 6 | Pending run tokens (MVP-03 Needs Khoa 1, ADR-0041 follow-up) | — | — | 2026-10-22 |
-| 7 | Optional: reword the `input.q_value_max` comment in defaults.yaml (protected) to match ADR-0047 ("not evidence; kept in C9 and in preflight's q range") | reword / leave | leave | 2026-10-22 |
+| 2 | MVP/golden evidence runs at α 0.01 cannot detect genes on sim100k: the 1/T floor with T = 74–91 (Slurm 1869554). The q-floor "flag it" answer stands. | (a) evidence runs on a genome with ≥ ~110 eligible target-won genes; (b) keep sim100k at α 0.05 | (a) | 2026-10-22 (reworded 23:40) — **RESOLVED 2026-10-22**: real E. coli K-12 MG1655 genome, simulated peptides until M10 |
+| 3 | ADR-0044 Wallenius golden reference (goseq is wrong on 36 tails; GIAP is right), #220 | accept / revise | — | 2026-10-22 — **RESOLVED 2026-10-23**: accepted (exact reference) |
+| 4 | ADR-0045 Wallenius far tails by urn recursion, #220 | accept (lead recommends) / revise | accept | 2026-10-22 — **RESOLVED 2026-10-23**: accepted |
+| 5 | M6-09 SW decoy floor: a method ADR, or record the gate as a vacuous pass | method ADR / vacuous pass | — | 2026-10-22 — **RESOLVED 2026-10-22**: vacuous pass (option 1) |
+| 7 | Optional: reword the `input.q_value_max` comment in defaults.yaml (protected) to match ADR-0047 ("not evidence; kept in C9 and in preflight's q range") | reword / leave | leave | 2026-10-22 — **RESOLVED 2026-10-22**: reworded under ADR-0047 (#242) |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;
