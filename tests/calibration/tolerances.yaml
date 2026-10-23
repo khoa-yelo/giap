@@ -11,7 +11,9 @@ golden_r: {wallenius_rel_tol: 1.0e-6, fgsea_es_abs_tol: 1.0e-9, fgsea_nes_abs_to
 seeds: {GOLDEN_SEED: 50000, calibration_base: 20261014}
 replicates_fast: {placement: 50, gene_fdr: 50, detectability: 20, regions: 100, autocorrelation: 100,
                   islands: 50, discordance: 100, missed_operons: 50, ora: 100, gsea: 50,
-                  determinants: 20, novel_orfs: 50, denovo_precision: 50}
+                  determinants: 20, novel_orfs: 50, denovo_precision: 50,
+                  variants: 20, compare: 100}   # ADR-0042
 replicates_full: {placement: 300, gene_fdr: 300, detectability: 100, regions: 1000, autocorrelation: 1000,
                   islands: 500, discordance: 1000, missed_operons: 300, ora: 1000, gsea: 300,
-                  determinants: 100, novel_orfs: 300, denovo_precision: 300}
+                  determinants: 100, novel_orfs: 300, denovo_precision: 300,
+                  variants: 100, compare: 1000}   # ADR-0042
