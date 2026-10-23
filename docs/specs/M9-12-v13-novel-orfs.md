@@ -87,3 +87,19 @@ candidates unestimated".
 3. Stacked on `m9/locus-plots` (#209): use `giap.viz.locus` as it stands there, and take any
    interface change from #209's review round by merging that branch, never by copying.
 4. Orf-id sanitising for file names reuses the helper M9-10 uses for `locus_<id>`.
+
+## Lead decisions on the tests (2026-10-22, after c921374)
+
+5. `called` is authoritative: a `called = true` row is status `called` even if its `class_fdr` is
+   NA or `unestimated` (the title then reads "class FDR unestimated"); status `unestimated` is for
+   rows that are not called.
+6. `RunView` subtracts 1 from `start_longest` / `start_best_ostir` on both strands; on `−` those are
+   the high coordinates, so V13 adds 1 back for `−` rows when building the half-open span.
+7. Origin-crossing rows are read as the tests pin them: on `+`, `end < start_longest`; on `−`,
+   `start_longest < end` (the wrapped positions `giap.novel.outputs` writes); the span is unwrapped
+   past the length.
+8. `#CC79A7` for the ORF outline and the pileup highlight is accepted; the BGC shading under it is at
+   alpha 0.2 and the outline stays legible.
+9. The wrapped tick formatter belongs in `giap.viz.locus` (V3 shares the problem); taking it there
+   is in scope for M9-12 and stays within #209's renderer, not a second implementation.
+10. The test file's length (≈ 880 lines) is accepted.
