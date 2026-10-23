@@ -10,12 +10,16 @@ by name (lead decisions 5, 13). Pure functions: randomness only from the generat
 
 The ``islands`` family (M5-10) flags ``<direction>:<locus_tag>`` for every gene of every M5-06
 island, rerunning the scan at ``stats.bootstrap = stats.permutations = 199``.
+
+The ``operon_flags`` family (M6-10) flags the ``pair_id`` values of the M6-08 chain's
+``operon_flags`` frame. Its ``full`` variants ``pair_threshold=<t>`` carry a ``config_patch``
+(lead decision 1): they change the UniOP threshold, hence the pair classes, not the abundances.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import cast
 
 import numpy as np
@@ -26,26 +30,32 @@ from giap.context import islands as _islands
 from giap.context.regions import replicon_index, test_all_regions
 from giap.genetable.abundance import impute
 from giap.genetable.assemble import GENE_FLAGS
+from giap.steps.operons import run_operons
 
-__all__ = ["COLUMNS", "FAMILIES", "SENSITIVITY_B", "Family", "Variant", "flagged_ids",
-           "islands_family", "jaccard", "regions_family", "sensitivity_rows", "variant_genes",
-           "variants"]  # fmt: skip
+__all__ = ["COLUMNS", "FAMILIES", "PAIR_THRESHOLD", "SENSITIVITY_B", "UNIOP_THRESHOLDS", "Family",
+           "Variant", "flagged_ids", "islands_family", "jaccard", "operon_flags_family",
+           "regions_family", "sensitivity_rows", "variant_genes", "variants"]  # fmt: skip
 
 #: §8.6 ``sensitivity.tsv`` columns (``agreement`` is NA except for the determinants family)
 COLUMNS = ("family", "variant", "n_primary", "n_variant", "n_shared", "jaccard", "agreement")
 #: §8.6 "Sensitivity reruns use B = 199"
 SENSITIVITY_B = 199
+#: §8.6 ``full``: "UniOP thresholds 0.3 and 0.7" (dotted config key of the patch)
+UNIOP_THRESHOLDS = (0.3, 0.7)
+PAIR_THRESHOLD = "annotation.uniop.pair_threshold"
 _RANK = {f: i for i, f in enumerate(GENE_FLAGS)}
 
 
 @dataclass(frozen=True, slots=True)
 class Variant:
-    """One sensitivity rerun: its name, the config keys it changes (dotted) and whether
-    single-peptide genes count as detected (§7.3.2)."""
+    """One sensitivity rerun: its name, the config keys it changes (dotted), whether
+    single-peptide genes count as detected (§7.3.2) and a config patch (dotted keys) that changes
+    the analysis but not the abundances (M6-10 lead decision 1; empty for M4-19's variants)."""
 
     name: str
     overrides: Mapping[str, object]
     single_peptide_detected: bool = False
+    config_patch: Mapping[str, object] = field(default_factory=dict)
 
 
 #: ``(genes, cfg, rng, **tables) -> flagged IDs``; ``...`` because families add keyword-only tables
@@ -55,7 +65,8 @@ Family = Callable[..., frozenset[str]]
 def variants(cfg: GiapConfig, tier: str) -> list[Variant]:
     """Variants of ``output.sensitivity`` for detection ``tier`` (the primary choice is never
     rerun): ``missing=<p>`` per ``abundance.sensitivity`` policy, ``single_peptide_detected`` for
-    ``two_peptide``, and ``top3`` under ``full``."""
+    ``two_peptide``, and ``top3`` then ``pair_threshold=<t>`` (``UNIOP_THRESHOLDS``) under
+    ``full``."""
     level = cfg.output.sensitivity
     if level == "off":
         return []
@@ -68,6 +79,12 @@ def variants(cfg: GiapConfig, tier: str) -> list[Variant]:
         out.append(Variant("single_peptide_detected", {}, single_peptide_detected=True))
     if level == "full" and cfg.abundance.method != "top3":
         out.append(Variant("top3", {"abundance.method": "top3"}))
+    if level == "full":
+        out += [
+            Variant(f"pair_threshold={t:g}", {}, config_patch={PAIR_THRESHOLD: t})
+            for t in UNIOP_THRESHOLDS
+            if t != cfg.annotation.uniop.pair_threshold
+        ]
     return out
 
 
@@ -95,8 +112,10 @@ def variant_genes(genes: pd.DataFrame, variant: Variant, cfg: GiapConfig) -> pd.
     asked, then the M4-14 imputation redone with the variant's policy on the observed values
     (``top3_log2`` for ``top3``, with the Top3 raw values and ``abundance_type``), and
     ``imputed_abundance`` flags matching the new imputation. ``p_detect`` is left as is (the
-    step refits it)."""
+    step refits it). A patch-only variant gives the primary table back (a copy)."""
     g = genes.copy()
+    if variant.config_patch and not variant.overrides and not variant.single_peptide_detected:
+        return g
     tags = pd.Index(g["locus_tag"].astype(str))
     det = pd.Series(g["detected"].astype(bool).to_numpy(), index=tags)
     if variant.single_peptide_detected:
@@ -202,5 +221,33 @@ def islands_family(
     )
 
 
-#: registered families (M4: ``regions``; M5: ``islands``; M6-M8 add theirs)
-FAMILIES: dict[str, Family] = {"regions": regions_family, "islands": islands_family}
+def operon_flags_family(
+    genes: pd.DataFrame,
+    cfg: GiapConfig,
+    rng: np.random.Generator,
+    *,
+    pairs_raw: pd.DataFrame,
+    tus: pd.DataFrame,
+    replicons: pd.DataFrame,
+    gene_models: pd.DataFrame,
+    features: pd.DataFrame,
+    promoter_windows: pd.DataFrame | None = None,
+    terminators: pd.DataFrame | None = None,
+    tx_rates: pd.DataFrame | None = None,
+) -> frozenset[str]:
+    """The ``pair_id`` values of the M6-08 ``operon_flags`` frame (``run_operons``) on the gene
+    table ``genes``, C2 ``gene_models``, C1, C5, ``pairs_raw`` and C3 ``features`` (M6-10).
+
+    An evidence layer left at ``None`` is a missing layer (``layer_missing:<layer>``), as in the
+    ``operons`` step. Module 4 draws no random number, so ``rng`` is unused. Pure.
+    """
+    given = {"promoter_windows": promoter_windows, "terminators": terminators, "tx_rates": tx_rates}
+    layers = {k: v for k, v in given.items() if v is not None}
+    flagged = run_operons(genes, gene_models, replicons, tus, pairs_raw, features, layers, cfg)[2]
+    return frozenset(str(p) for p in flagged["pair_id"])
+
+
+#: registered families (M4: ``regions``; M5: ``islands``; M6: ``operon_flags``; M7-M8 add theirs)
+FAMILIES: dict[str, Family] = {
+    "regions": regions_family, "islands": islands_family, "operon_flags": operon_flags_family,
+}  # fmt: skip
