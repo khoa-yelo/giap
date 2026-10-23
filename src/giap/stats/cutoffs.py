@@ -483,17 +483,20 @@ def coincidence_rate(
     rng: np.random.Generator,
     R: int = 200,
     tol_bp: int = 50,
-) -> float:
+    return_rates: bool = False,
+) -> float | Floats:
     """B2 placement null: the mean over ``R`` placements of the matched share of eligible calls
     with confidence >= ``threshold``. Each call moves to a uniform same-strand window long enough
     to hold it, keeping its length and its offset from the window's 3' side (lo for +, hi for -).
-    NaN when no call is at or above the threshold; ``ValueError`` on an ineligible call."""
+    NaN when no call is at or above the threshold; ``ValueError`` on an ineligible call. With
+    ``return_rates`` the (R,) float64 per-placement shares from the same draws (all NaN, no
+    draws, when no call is kept)."""
     conf = np.asarray(confidence, dtype=np.float64).ravel()
     if conf.size != len(calls):
         raise ValueError(f"{len(calls)} calls but {conf.size} confidences")
     kept = [c for c, p in zip(calls, conf, strict=True) if p >= threshold]
     if not kept:
-        return math.nan
+        return np.full(R, math.nan) if return_rates else math.nan
     shifts = np.asarray(_shifts(replicon))[:, None, None]
     matched = np.zeros(R, dtype=np.int64)
     for strand in ("+", "-"):
@@ -515,7 +518,8 @@ def coincidence_rate(
             s, e = starts[r][:, None], (starts[r] + ln)[:, None]
             near = (ts + shifts - e <= tol_bp) & (s - te - shifts <= tol_bp)
             matched[r] += int(near.any(axis=(0, 2)).sum())
-    return float(np.mean(matched / len(kept)))
+    rates = matched / len(kept)
+    return rates if return_rates else float(np.mean(rates))
 
 
 def _offset(c: Interval, windows: Sequence[Window], replicon: Replicon) -> int:

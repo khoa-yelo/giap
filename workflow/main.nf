@@ -1,11 +1,12 @@
 // GIAP entry workflow (GIAP_SPEC.md §6.3). Parameters come only from OUT/work/params.json
 // written by `giap run`. With a genome and replicons.tsv it runs ANNOTATE (M2-07), then MAPPING
 // (M3-17), VARIANTS (M7-04), GENETABLE (M4-15), CONTEXT (M4-18, M4-19), beside CONTEXT, OPERONS
-// (M6-08) and NOVEL (M7-08) when params.inputs.peptides (peptides.norm.parquet) is given, and
-// FUNCTION (M8-06) when 'function' is in params.modules; without inputs it runs one GIAP_STEP smoke
-// task (skeleton check, M2-06). GENETABLE, CONTEXT and OPERONS skip themselves when an input they
-// require is absent (MVP-01). Under a precomputed regions layer region_layer still writes C7/C8
-// (MVP-02). REPORT runs last on every published [key, path] pair (M9-02).
+// (M6-08), NOVEL (M7-08) and DETERMINANTS (M8-10, after CONTEXT: it takes the gene context) when
+// params.inputs.peptides (peptides.norm.parquet) is given, and FUNCTION (M8-06) when 'function' is
+// in params.modules; without inputs it runs one GIAP_STEP smoke task (skeleton check, M2-06).
+// GENETABLE, CONTEXT, OPERONS and DETERMINANTS skip themselves when an input they require is absent
+// (MVP-01). Under a precomputed regions layer region_layer still writes C7/C8 (MVP-02). REPORT runs
+// last on every published [key, path] pair (M9-02).
 include { GIAP_STEP } from './modules/local/giap_step/main'
 include { ANNOTATE; kv; pick } from './subworkflows/local/annotate'
 include { MAPPING } from './subworkflows/local/mapping'
@@ -13,6 +14,7 @@ include { GENETABLE } from './subworkflows/local/genetable'
 include { CONTEXT } from './subworkflows/local/context'
 include { VARIANTS } from './subworkflows/local/variants'
 include { NOVEL } from './subworkflows/local/novel'
+include { DETERMINANTS } from './subworkflows/local/determinants'
 include { OPERONS } from './subworkflows/local/operons'
 include { REPORT } from './subworkflows/local/report'
 include { FUNCTION } from './subworkflows/local/function'
@@ -87,6 +89,8 @@ workflow {
             NOVEL(genome, gene_model, ANNOTATE.out.contract, MAPPING.out.mapping, opt(inputs.peptides),
                   opt(contaminantLibrary(inputs)), GENETABLE.out.gene_table, ANNOTATE.out.layer_pairs)
             OPERONS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract, ANNOTATE.out.layers_for_pairs)
+            DETERMINANTS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract,
+                         ANNOTATE.out.regions, CONTEXT.out.gene_context)
             pub += [outs('mapping', MAPPING.out.mapping),
                     kv('pileup', VARIANTS.out.pileup), kv('variants', VARIANTS.out.variants),
                     kv('variants_vcf', VARIANTS.out.variants_vcf), kv('variants_qc', VARIANTS.out.variants_qc),
@@ -101,7 +105,10 @@ workflow {
                     kv('pairs', OPERONS.out.pairs), kv('operons', OPERONS.out.operons),
                     kv('operon_flags', OPERONS.out.operon_flags),
                     kv('novel_orfs', NOVEL.out.novel_orfs), kv('novel_orfs_gff3', NOVEL.out.novel_orfs_gff3),
-                    kv('novel_orfs_faa', NOVEL.out.novel_orfs_faa), kv('annotation_patch', NOVEL.out.annotation_patch)]
+                    kv('novel_orfs_faa', NOVEL.out.novel_orfs_faa), kv('annotation_patch', NOVEL.out.annotation_patch),
+                    kv('determinants_features', DETERMINANTS.out.determinants_features),
+                    kv('determinants_model', DETERMINANTS.out.determinants_model),
+                    kv('determinants_attribution', DETERMINANTS.out.determinants_attribution)]
             if ('function' in (params.modules ?: [])) {  // §6.3: the optional module switch
                 FUNCTION(GENETABLE.out.gene_table, gene_model, GENETABLE.out.tu_folds, functionResources())
                 pub += [kv('category_summary', FUNCTION.out.category_summary),
