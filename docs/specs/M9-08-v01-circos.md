@@ -117,3 +117,25 @@ sites, `<m>` novel ORFs" when those tables exist). Counts only.
    (sectors, ticks, region arcs), titled "0 of 0 genes detected (NA)": the sector layout comes from
    preflight, and several tests render from a zero-gene fixture. Sector rows carry `value` = replicon
    length. (Backlog: revisit with M9-16's empty-state rules.)
+
+## Lead decisions on the review round (2026-10-22, review of 6470439)
+
+14. **Wrapped features.** `novel_orfs.tsv` writes wrapped positions; an ORF whose stop lies before
+    its start in transcription direction crosses the origin and is drawn as the short arc across
+    it (two pieces), never as min/max. The same holds for a `−`-strand TU start past the length:
+    positions are taken modulo the replicon length, never clamped.
+15. **Novel-ORF position** (amends 11; there is no `start` column): `start_best_ostir`, else
+    `start_longest`, else the stop codon (`end`) as a 1-bp mark.
+16. **rcParams.** `giap.viz.style.RC` pins `savefig.bbox` (`None`, the standard) and
+    `savefig.pad_inches` (0.1) so importing pyCirclize changes no other figure; a test imports
+    `giap.viz.circos` and then saves a figure from another module at the stated size.
+17. **Layout.** Every text element (bottom note, oriC/ter labels, sector names) lies inside the
+    7.2-in canvas and overlaps no other text, measured with FigureCanvasAgg after draw; labels are
+    staggered radially where needed, and a small sector's long name is truncated with "…" when it
+    does not fit its arc.
+18. **Missing-layers note** names only the layers that have a ring on V1; layers without one
+    (cog, go, promoters when not a ring) are not listed.
+19. **Tick tracks** switch to per-bin counts above 20,000 elements, with the same binning as the
+    gene tracks (`giap.viz.base.binned`, the duplicate `bin_edges` removed).
+20. NITs (a ring key, absent legend categories, colour scales, NA cell contrast, end-of-sector tick
+    label) go to the backlog for the hardening pass.
