@@ -13,8 +13,8 @@ once M7-11b (#256) lands, so every record raises ``FileNotFoundError`` before th
 
 Seeds (rule 1): replicate ``i`` simulates with ``int(replicate_rng(GATE_BASE, i).integers(0,
 2**31 - 1))``; every arm of replicate i (database, de novo, decoys stripped, G4-k3, GC, RBS
-mutant) re-simulates that same seed, so the arms are paired. Test-side draws use
-``replicate_rng(K3_BASE | GC_BASE, i)``.
+mutant, clustered null) re-simulates that same seed, so the arms are paired. Test-side draws use
+``replicate_rng(K3_BASE | GC_BASE | CL_BASE, i)``.
 
 Test-side transforms (no simulator change):
 
@@ -28,6 +28,15 @@ Test-side transforms (no simulator change):
   gene, and a false N-terminal candidate is an extension of that gene, not a segment.
 * ``gc_poor_peptides`` (attack GC): 40 intergenic segments drawn from the GC-poorest quartile of
   segments with >= 2 products, 1-3 exact products each.
+* ``inject_null_entries`` (the clustered-null arm of attacks a and d, M7-13b lead decision 7;
+  statistician probe, Slurm 1874863): ``CL_ENTRIES`` = 400 null ``antisense`` makedb entries
+  appended to the database ``peptides.tsv``. An entry is a segment with >= 5 products whose
+  makedb ID (``makedb_id``) the simulation did not hit (no target or ``rev_`` row) and that
+  shares no key with, and does not overlap, any planted ORF (either strand). Each entry goes to
+  the target or the decoy side with p = 1/2 and gets k = 3-5 distinct products as PSM rows
+  (decoy: the product reversed, protein ``rev_<id>``), each with a ``(q_value, pep, score)``
+  triple resampled from the simulation's ``rev_GIAPORF_`` rows (the null component); target
+  intensity resampled from the ``GIAPORF_`` target rows, ``run1``-``run3``, charge 2-3.
 
 Appended reads copy the de novo TSV columns: fresh ``spectrum_id`` ``inj.<tag>.<n>`` in ``run1``,
 charge 2, score and intensity resampled from the file's own rows. Every record is appended as one
@@ -52,6 +61,7 @@ import pandas as pd
 import pytest
 
 GATE_BASE, K3_BASE, GC_BASE = "novel_orfs.gate", "novel_orfs.g4k3", "novel_orfs.gc"
+CL_BASE = "novel_orfs.cluster"
 RECORDS_FILE = "novel_orfs_gate_replicates.jsonl"
 REGIMES = ("picked_decoy", "denovo_subgroup")
 #: the four gated classes (restated so test modules collect before ``_m7_gate`` has them)
@@ -59,6 +69,7 @@ NOVEL_CLASSES = ("intergenic", "cds_outframe", "antisense", "nterm_extension")
 SIX_CLASSES = ("intergenic", "cds_outframe", "antisense")
 K3_PER_CLASS, K3_PEPTIDES, K3_MIN_PRODUCTS = 20, (3, 5), 5
 GC_SEGMENTS, GC_PEPTIDES = 40, (1, 3)
+CL_CLASS, CL_ENTRIES, CL_PEPTIDES, CL_MIN_PRODUCTS, CL_DECOY_P = "antisense", 400, (3, 5), 5, 0.5
 RBS_MUTANT_QUANTILE = 0.50
 FDR_KEYS = ("n_called", "n_false", "n_targets")
 
@@ -385,6 +396,94 @@ def gc_poor_peptides(res: Any, rng: np.random.Generator) -> tuple[Path, dict[str
                  "poor_gc_max": float(np.quantile(gc, 0.25)) if len(gc) else None}  # fmt: skip
 
 
+def makedb_id(cls: str, seg: Mapping[str, Any]) -> str:
+    """giapsim's makedb ID of a segment (stop codon excluded, 1-based closed, plus-strand
+    coordinates): ``GIAPORF_<cls>_<contig>_<a>_<b>_<p|m>`` with ``a = nt0 + 1, b = t`` on ``+``
+    and ``a = n - t + 1, b = n - nt0`` on ``-`` (``seg["nt"] = (nt0, t, n)`` strand-local)."""
+    nt0, t, n = seg["nt"]
+    if seg["strand"] == "+":
+        return f"GIAPORF_{cls}_{seg['contig']}_{nt0 + 1}_{t}_p"
+    return f"GIAPORF_{cls}_{seg['contig']}_{n - t + 1}_{n - nt0}_m"
+
+
+def segment_span(seg: Mapping[str, Any]) -> tuple[int, int]:
+    """0-based half-open plus-strand span of a segment with its stop codon."""
+    nt0, t, n = seg["nt"]
+    return (nt0, t + 3) if seg["strand"] == "+" else (n - t - 3, n - nt0)
+
+
+def _planted(res: Any) -> tuple[set[tuple[str, str, int]], dict[str, list[tuple[int, int]]]]:
+    tr = _truth(res)
+    keys = {(str(c), str(s), int(p)) for c, s, p in zip(tr["contig"], tr["strand"], tr["stop"],
+                                                       strict=True)}  # fmt: skip
+    spans: dict[str, list[tuple[int, int]]] = {}
+    for c, a, b in zip(tr["contig"], tr["start"], tr["end"], strict=True):
+        lo, hi = sorted((int(a), int(b)))
+        spans.setdefault(str(c), []).append((lo - 1, hi))
+    return keys, spans
+
+
+def null_segments(res: Any, cls: str = CL_CLASS) -> list[dict[str, Any]]:
+    """Segments of ``cls`` eligible as clustered-null entries (module doc), with ``id``."""
+    pep = _tsv(Path(res.outdir) / "peptides.tsv")
+    seen = {p.removeprefix("rev_") for p in pep["protein_ids"] if "GIAPORF_" in p}
+    keys, spans = _planted(res)
+    out = []
+    for s in _segments(res, (cls,))[cls]:
+        oid = makedb_id(cls, s)
+        if len(s["products"]) < CL_MIN_PRODUCTS or oid in seen:
+            continue
+        if (s["contig"], s["strand"], s["stop"]) in keys:
+            continue
+        lo, hi = segment_span(s)
+        if any(a < hi and lo < b for a, b in spans.get(s["contig"], ())):
+            continue
+        out.append({**s, "id": oid})
+    return out
+
+
+def inject_null_entries(res: Any, rng: np.random.Generator,
+                        m: int = CL_ENTRIES) -> tuple[Path, dict[str, Any]]:  # fmt: skip
+    """The clustered-null transform (module doc); the database file and the injected entries."""
+    pep = _tsv(Path(res.outdir) / "peptides.tsv")
+    ids = pep["protein_ids"]
+    null = pep[ids.str.startswith("rev_GIAPORF_")]
+    tgt_int = pep.loc[ids.str.startswith("GIAPORF_"), "intensity"].to_numpy()
+    if null.empty or not len(tgt_int):  # not an AssertionError: a broken transform
+        raise RuntimeError("clustered null: no GIAPORF_ target or rev_GIAPORF_ rows to resample")
+    segs = null_segments(res)
+    take = rng.choice(len(segs), size=min(m, len(segs)), replace=False)
+    rows: list[dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
+    for j in sorted(int(x) for x in take):
+        s = segs[j]
+        decoy = bool(rng.random() < CL_DECOY_P)
+        k = int(rng.integers(CL_PEPTIDES[0], CL_PEPTIDES[1] + 1))
+        pick = rng.choice(len(s["products"]), size=k, replace=False)
+        prods = [s["products"][int(x)] for x in pick]
+        for p in prods:
+            r = null.iloc[int(rng.integers(0, len(null)))]
+            rows.append({"peptide": p[::-1] if decoy else p,
+                         "protein_ids": ("rev_" if decoy else "") + s["id"],
+                         "q_value": r["q_value"], "pep": r["pep"], "score": r["score"],
+                         "is_decoy": "true" if decoy else "false",
+                         "intensity": "NA" if decoy else tgt_int[int(rng.integers(0,
+                                                                                  len(tgt_int)))],
+                         "run": f"run{int(rng.integers(1, 4))}",
+                         "charge": str(int(rng.integers(2, 4))),
+                         "spectrum_id": f"inj.cl.{len(rows)}", "source": "database",
+                         "search_db": "same"})  # fmt: skip
+        entries.append({"id": s["id"], "decoy": decoy, "key": [s["contig"], s["strand"], s["stop"]],
+                        "span": list(segment_span(s)), "contig": s["contig"],
+                        "products": prods})  # fmt: skip
+    add = pd.DataFrame(rows).reindex(columns=pep.columns, fill_value="NA")
+    dst = Path(res.outdir) / "peptides.cluster.tsv"
+    pd.concat([pep, add], ignore_index=True).to_csv(dst, sep="\t", index=False)
+    targets = [e["key"] for e in entries if not e["decoy"]]
+    return dst, {"keys": {CL_CLASS: targets}, "entries": entries, "n_eligible": len(segs),
+                 "n_target_entries": len(targets), "n_rows": len(rows)}  # fmt: skip
+
+
 def entered(run: NovelRun, keys: Mapping[str, Sequence[Sequence[Any]]],
             lengths: Mapping[str, int]) -> dict[str, int]:  # fmt: skip
     """Rows of the run at an injected key (any class): total, with a finite q, called."""
@@ -504,6 +603,37 @@ def rbs_record(i: int, size: str = "1M") -> dict[str, Any]:
                       sets=[f"novel_orfs.rbs_min_quantile={RBS_MUTANT_QUANTILE}"])  # fmt: skip
         rec = {"stream": f"{GATE_BASE}.rbs", "replicate": i, "seed": seed, "size": size,
                "g3_by_class": g3_counts(db, truth, lengths),
+               "seconds": time.perf_counter() - t0}  # fmt: skip
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    _log(rec)
+    return rec
+
+
+@cache
+def cluster_record(i: int, size: str = "1M") -> dict[str, Any]:
+    """The clustered-null arm of replicate ``i`` (lead decision 7): the database arm on
+    ``inject_null_entries``; attacks a and d and the arm's filtered G4 (recorded, not gated)."""
+    G = _G()
+    root, t0 = _root("cl"), time.perf_counter()
+    try:
+        res = simulate(i, size, root)
+        seed, lengths, truth = sim_seed(i), _lengths(res), _truth(res)
+        path, info = inject_null_entries(res, _C().replicate_rng(CL_BASE, i))
+        db = run_giap(res, path, root / "cl" / "OUT", seed)
+        a = G.match_novel(G.g4_predictions(db.novel_orfs, db.side, None, regime="picked_decoy",
+                                           lengths=lengths), truth, lengths)  # fmt: skip
+        targets = G.list_targets(db.side, "picked_decoy")
+        pside, missing = pooled_side(db, res)
+        rec = {"stream": CL_BASE, "replicate": i, "seed": seed, "size": size,
+               "cls": CL_CLASS, "m": CL_ENTRIES, "k": list(CL_PEPTIDES),
+               "g4": g4_counts(db, truth, "picked_decoy", lengths),
+               "attack_a": {c: _fdr_counts(a[c], targets[c]) for c in G.NOVEL_CLASSES},
+               "attack_d": g4_counts(db, truth, "picked_decoy", lengths, side=pside),
+               "attack_d_unrebuilt": missing,
+               "n_entries": len(info["entries"]), "n_eligible": info["n_eligible"],
+               "n_target_entries": info["n_target_entries"], "n_rows": info["n_rows"],
+               "entered": entered(db, info["keys"], lengths), "diag": _diag(db),
                "seconds": time.perf_counter() - t0}  # fmt: skip
     finally:
         shutil.rmtree(root, ignore_errors=True)

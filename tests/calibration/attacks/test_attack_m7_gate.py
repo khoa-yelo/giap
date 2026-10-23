@@ -17,6 +17,12 @@ M7-13b (novel-ORF gate, suite ``novel_orfs``, ``helpers.m7_gate_novel_records``;
 
 * a: G4's picked regime with the class-FDR filter removed (every candidate meeting the class
   rule called): a confirmed FDR ``fail`` at q = 0.10 in at least one class.
+* a and d run on the clustered-null arm (``cluster_record``: 400 null ``antisense`` makedb
+  entries with 3-5 products each, lead decision 7; statistician Slurm 1874863, R = 200: a
+  0.356 / 0.364 against 0.104, d 0.131 / 0.136 against 0.105 at q 0.10). On the plain gate
+  replicates nearly every false ORF has one peptide and fails the class rule, so neither has
+  teeth there. The arm's filtered G4 is recorded in ``novel_orfs_gate_diagnostics.jsonl``, not
+  gated (statistician: at level, 0.004 / 0.037 / 0.078 against 0.011 / 0.053 / 0.105).
 * b: the matched-TIR arm (``planted_tir = MATCHED_TIR``) at ``rbs_min_quantile`` 0.10 (G3's own
   database run) against a mutant run at 0.50: intergenic + ``nterm_extension`` recall (recorded)
   drops by more than 2 SE (paired over replicates).
@@ -117,7 +123,7 @@ def test_smoke_one_novel_attack_replicate_record_is_complete() -> None:
 @NIGHTLY
 def test_attack_a_without_class_fdr_filter_fails(teeth_log: Path) -> None:
     got = {c: C.calibrate_fdr_counts(NSUITE, "novel_orfs.attack_a", c, 0.10,
-                                     lambda i: N.gate_record(i)["attack_a"], _nR(),
+                                     lambda i: N.cluster_record(i)["attack_a"], _nR(),
                                      log_dir=teeth_log)["status"]
            for c in N.NOVEL_CLASSES}  # fmt: skip
     assert "fail" in got.values(), f"attack a has no teeth: {got}"
@@ -162,10 +168,94 @@ def test_attack_d_pooled_list_fails_in_a_class(teeth_log: Path) -> None:
         for q in NLEVELS:
             k = N.g4_key("picked_decoy", c, q)
             got[k] = C.calibrate_fdr_counts(NSUITE, "novel_orfs.attack_d", k, q,
-                                            lambda i: N.gate_record(i)["attack_d"], _nR(),
+                                            lambda i: N.cluster_record(i)["attack_d"], _nR(),
                                             vacuous={"n_targets": 1.0 / q},
                                             log_dir=teeth_log)["status"]  # fmt: skip
     assert "fail" in got.values(), f"attack d has no teeth: {got}"
+
+
+def _diagnostics(record: dict[str, Any]) -> None:
+    d = C.log_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    with (d / "novel_orfs_gate_diagnostics.jsonl").open("a") as fh:
+        fh.write(json.dumps(record, default=float) + "\n")
+
+
+@NOVEL
+def test_smoke_cluster_null_entries_avoid_planted_orfs_and_sim_hits() -> None:
+    """The clustered-null transform at 100 kb: eligible entries are null by construction (no
+    planted key, no overlap with a planted ORF on either strand, no simulated hit) and each has
+    3-5 distinct products of its own segment; decoys are reversed under ``rev_<id>``."""
+    import shutil
+    import tempfile
+
+    root = Path(tempfile.mkdtemp(prefix="m7gate-novel-cltest-"))
+    try:
+        res = N.simulate(0, "100k", root)
+        pep = N._tsv(Path(res.outdir) / "peptides.tsv")
+        seen = {p.removeprefix("rev_") for p in pep["protein_ids"] if "GIAPORF_" in p}
+        truth = N._truth(res)
+        keys = set(zip(truth["contig"].astype(str), truth["strand"].astype(str),
+                       truth["stop"].astype(int), strict=True))  # fmt: skip
+        segs = {N.makedb_id(N.CL_CLASS, s): s for s in N._segments(res, (N.CL_CLASS,))[N.CL_CLASS]}
+        path, info = N.inject_null_entries(res, C.replicate_rng(N.CL_BASE, 0), m=60)
+        out = N._tsv(path)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    entries = info["entries"]
+    assert len(entries) == min(60, info["n_eligible"]) and entries, info["n_eligible"]
+    assert len({e["id"] for e in entries}) == len(entries)
+    assert seen, "the simulation hit no GIAPORF_ entry"
+    for e in entries:
+        assert e["id"].startswith("GIAPORF_antisense_") and e["id"] not in seen, e["id"]
+        assert tuple(e["key"]) not in keys, e
+        lo, hi = e["span"]
+        for c, a, b in zip(truth["contig"], truth["start"], truth["end"], strict=True):
+            s0, e0 = sorted((int(a), int(b)))
+            assert c != e["contig"] or not (s0 - 1 < hi and lo < e0), (e["id"], a, b)
+        seg = segs[e["id"]]
+        assert N.CL_PEPTIDES[0] <= len(e["products"]) <= N.CL_PEPTIDES[1]
+        assert len(set(e["products"])) == len(e["products"])
+        assert set(e["products"]) <= set(seg["products"])
+        prot = ("rev_" if e["decoy"] else "") + e["id"]
+        rows = out[out["protein_ids"] == prot]
+        want = sorted(p[::-1] if e["decoy"] else p for p in e["products"])
+        assert sorted(rows["peptide"]) == want, e["id"]
+        assert set(rows["is_decoy"]) == {"true" if e["decoy"] else "false"}
+    assert len(out) == len(pep) + info["n_rows"]
+    assert out.iloc[: len(pep)].equals(pep), "the simulated rows must be kept unchanged"
+    null = pep[pep["protein_ids"].str.startswith("rev_GIAPORF_")]
+    trip = set(zip(null["q_value"], null["pep"], null["score"], strict=True))
+    add = out.iloc[len(pep) :]
+    assert set(zip(add["q_value"], add["pep"], add["score"], strict=True)) <= trip
+
+
+@NOVEL
+@NIGHTLY
+def test_cluster_arm_filtered_g4_recorded(teeth_log: Path) -> None:
+    """The clustered-null arm's own G4 (picked regime, q filter on): recorded, not gated (lead
+    decision 7); the arm must give a non-vacuous antisense list at q = 0.10."""
+    got = {}
+    for c in N.NOVEL_CLASSES:
+        for q in NLEVELS:
+            k = N.g4_key("picked_decoy", c, q)
+            rec = C.calibrate_fdr_counts(NSUITE, "novel_orfs.cluster.g4", k, q,
+                                         lambda i: N.cluster_record(i)["g4"], _nR(),
+                                         vacuous={"n_targets": 1.0 / q},
+                                         log_dir=teeth_log)  # fmt: skip
+            ran = [N.cluster_record(i) for i in range(rec["stop"])]  # every block run
+            vals = [r["g4"][k] for r in ran]
+            got[k] = rec["status"]
+            _diagnostics({"check": "cluster_g4", "regime": "picked_decoy", "class": c, "q": q,
+                          "status": rec["status"], "mean_fdp": rec["observed"],
+                          "bound": rec["bound"], "gated": False, "replicates": len(ran),
+                          "mean_called": float(np.mean([v["n_called"] for v in vals])),
+                          "mean_targets": float(np.mean([v["n_targets"] for v in vals])),
+                          "n_target_entries": float(np.mean([r["n_target_entries"]
+                                                             for r in ran])),
+                          "entered": {e: int(sum(r["entered"][e] for r in ran))
+                                      for e in ("rows", "finite_q", "called")}})  # fmt: skip
+    assert got[N.g4_key("picked_decoy", N.CL_CLASS, 0.1)] != C.VACUOUS_STATUS, got
 
 
 @NOVEL
