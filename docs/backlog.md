@@ -880,3 +880,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - N3: no unit or step test passes precomputed TSV layers (mutant M9).
   - N4: hardening still owed: `--sensitivity full` in the nightly e2e, and the M9 text item on threshold sensitivity.
   - N5: `test_unpatched_variants_unchanged` has an odd `assert [c for c in ...]`.
+- M8-15 (from M8-14 statistician, #251): build ORA sets through M8-03 (world.sets keeps 10–500 TUs, ORA tests 5–500); keep the confounded set's GO ancestors out of level checks and null pools; compare the truth's dominant block to M8-09 by signed argmax on top-decile genes; wire planted features into gene-table columns `promoter_score`, `tir_ostir`, `cai` (simulator CAI uses the bundled codon usage); record a position-decay 0.5 arm on the R engine; giapsim `resid` should read `ecfg.tu_sd` (hard-coded 1).

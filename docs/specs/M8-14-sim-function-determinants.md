@@ -119,3 +119,27 @@ def determinants_planted(n_genes: int, coefs: Mapping[str, float], noise_sd: flo
    - Gap 8: planted features get light tests only.
    - Gap 9: COG keeps its letters; COG IDs are not KEGG-derived.
    - Gap 10: the simulator never emits `GO:9999999`, the absent-term marker of the fixtures.
+4. **Statistician review (d2338392, Slurm 1872005): BLOCKED on B1–B3. All three fixes accepted.**
+   Spec item 5 and example 4 are amended as below.
+   - **B1, attack 2 (`ora_attack_confounded`):** the member shift is carried through a covariate
+     the M4-13 detectability model sees, instead of directly on the detection logit.
+     - The default covariate is GRAVY. The implementer may choose another M4-13 covariate if it
+       gives a cleaner effect, and records the choice.
+     - Members are still drawn at random (gap 7).
+     - Gate: with the fitted p_detect, the weighted ORA stays at level on the confounded set.
+       With the shift on the logit alone, the old behaviour, no valid method could pass.
+   - **B2, attack 3 (`gsea_attack_operon_packed`):** the extra N(0, 3²) TU effect is dropped.
+     - Packed TUs draw their effect like every other TU. The shared TU level is the attack.
+     - Each packed set has at least 10 TUs, inside `gsea_size`: 1–3 packed operons of 10–30
+       genes plus single-gene TUs, as in test_gsea_tu_calibration.py.
+     - The TU-level GSEA must stay at level, and a gene-level engine must fail (teeth).
+   - **B3:** the determinants-null independence check pools the three features into one check
+     per replicate (`check_level_pooled`, m = 3). No seed is changed.
+   - **Example 2:** `members_mean_p_true_at_most_half` becomes a population-ratio assertion, with
+     the shift applied to every gene, as the statistician suggested.
+   - **Order:** the test-author updates the PR's own tests (B1–B3, example 2) and turns the
+     statistician's strict-xfail arms for B1/B2 into gated tests. Then the implementer. Then the
+     statistician re-checks, and the code review runs in parallel.
+   - **M8-15 notes:** sets go through M8-03; the GO ancestors of the confounded set stay out of
+     the null pool; the signed-argmax comparison; the gene-table column wiring; a decay-0.5 arm;
+     `resid` reading `ecfg.tu_sd`. These go to the backlog for M8-15.
