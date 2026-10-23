@@ -366,8 +366,8 @@ def _block_genes(s: Any, kind: str) -> set[str]:
 
 def test_example6_detection_attack_confounds_detection_and_distance() -> None:
     """``operon_attack_detection(1800, "prophage")``: the detected share inside the prophage block
-    is <= half the share outside; the median gap between consecutive block genes is below the
-    chr1 median gap (3 seeds)."""
+    is below 0.9 x the share outside (decision 17); the median gap between consecutive block
+    genes is below the chr1 median gap (3 seeds)."""
     lcfg, _ = _call("operon_attack_detection", N, "prophage")
     assert lcfg.short_genes_in == "prophage"
     for seed in range(3):
@@ -377,7 +377,7 @@ def test_example6_detection_attack_confounds_detection_and_distance() -> None:
         ex = s.expression.genes
         inside = ex["locus_tag"].astype(str).isin(block).to_numpy()
         det = ex["detected_true"].astype(bool).to_numpy()
-        assert det[inside].mean() <= 0.5 * det[~inside].mean(), seed
+        assert det[inside].mean() < 0.9 * det[~inside].mean(), seed
         g = s.layout.genes[s.layout.genes["contig"] == "chr1"].sort_values("start")
         tags = g["locus_tag"].astype(str).to_numpy()
         gaps = g["start"].to_numpy()[1:] - g["end"].to_numpy()[:-1]

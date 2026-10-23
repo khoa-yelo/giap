@@ -146,3 +146,13 @@ built. The missed-operon generators change as follows, so M6-09's FDR gate can f
     50–150 bp bin even with 10–15; the remedy is a method ADR for M6-09 (backlog, raised with Khoa).
     The statistician's NITs (choice 1 default-arm record, choice 4 realised planted count) go to
     M6-09's spec.
+
+## Lead decisions on the round-2 tests (2026-10-22, after 2ea7253)
+
+17. **Example 6 relaxed.** Decision 10 (≥ 25 % both-detected block pairs) cannot hold with block
+    detection ≤ 0.5 × outside; example 6 now requires block detection < 0.9 × outside (lead edit of
+    the existing test). The attack's teeth are checked by decision 12, not by the detection ratio.
+18. **Golden digests** pinned to the locked numpy/pandas are accepted as the byte-identical guard;
+    a dependency bump that changes float formatting re-pins them in the same PR.
+19. **Decision 12 cut-off** is one global 25th percentile of |Δ| among the null's both-detected
+    true NO pairs (as the tests read it), not per bin.
