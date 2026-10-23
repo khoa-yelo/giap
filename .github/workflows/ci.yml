@@ -133,8 +133,9 @@ jobs:
         run: |
           min=$(awk '/^coverage_min:/ {print $2*100}' ci/gates.yaml)
           uv run --no-sync coverage combine coverage-*.dat
-          uv run --no-sync coverage report --skip-covered --fail-under="$min" | tee coverage.txt
-          uv run --no-sync coverage xml
+          # tests import throwaway modules from pytest's tmp dirs; their source is gone by now
+          uv run --no-sync coverage report --omit='/tmp/*' --skip-covered --fail-under="$min" | tee coverage.txt
+          uv run --no-sync coverage xml --omit='/tmp/*'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
