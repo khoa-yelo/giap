@@ -663,6 +663,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
 
+### M9-08 (V01 circos) after the review round
+- No unit test renders V01 with empty promoter/terminator/TU tables (crash fixed in 8faffdb was
+  caught only by integration tests).
+- Inner oriC/ter labels of small adjacent replicons crowd each other near the centre (five-replicon
+  review render); consider dropping them below a sector-size threshold.
+- Counted lines 629 (> 400 warn): split the label-placement code into its own module in hardening.
 ## M8-17b review nits (#214; one round each, code review and statistical review)
 - M8-15 (statistical re-review, before the gate): re-run the `test_attack_gsea_flags.py` arms on the R
   engine, flag spillover included (unflagged rows in a collection that also has flagged rows; only
