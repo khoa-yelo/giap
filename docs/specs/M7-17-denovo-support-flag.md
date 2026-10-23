@@ -311,3 +311,11 @@ Tests ≈ 280, not gated: unit ≈ 140, step ≈ 70, report ≈ 20, calibration 
 10. **ADR status.** ADR-0050 still says "proposed" and its interim default says the flag "is not
     added until Khoa decides". **Default:** the lead marks it accepted (option 3) before this
     spec's test-author starts.
+
+## Lead decisions (spec-writer 2e7f3fd4)
+1. **Q1:** the default stands. The RBS exemption applies, as Khoa's option 3 wording says, but not for intergenic or nterm_extension. The
+   calibration test exempts injected cds_outframe/antisense rows that pass RBS by chance, and records
+   that escape share per class. If the share exceeds 0.2 in either class, the lead takes "drop the
+   RBS exemption" to Khoa with the numbers.
+2. Q2–Q9: the defaults are accepted. The mixed-arm and `orf_regimes` auto-source fixes go to the backlog.
+3. Q10: the lead marks ADR-0050 accepted (option 3 with the flag, option 1 later) before the test-author starts.
