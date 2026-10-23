@@ -162,3 +162,19 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
     - The 1M per-class test covers all four classes.
     - The excluded products of choice 2 are still excluded, except the in-frame upstream extension
       of a CDS, which is this class by definition.
+23. **ORF-entry decoys leave gene-level pairing (GIAP change, test-author round 3, 70bf13bc).**
+    - In a real makedb search, as in the six-frame scenarios, `rev_GIAPORF_*` decoys reach
+      gene-level detection, where they are unpaired; at about 50 % passing q ≤ 0.01 they drop the
+      paired share below 80 %.
+    - They belong to the M7-11 class FDR. `detection.pair_decoys` therefore drops a decoy whose
+      every stripped ID is a makedb ORF entry, as it drops all-contaminant decoys (M4-12
+      decision 12); a mixed decoy pairs on its gene IDs.
+    - Pinned by tests/unit/genetable/test_detection_orf_decoys.py (lead).
+    - Protein decoys are `rev_<annotated locus_tag>` only (no `rev_NOVEL_*`), per test-author
+      interface 5.
+24. **Test-author interfaces 1–6 (70bf13bc) accepted:**
+    - a decoy's class is the makedb entry's class;
+    - N(mu0, sd0) scores with mixture q/pep at `pi_wrong_realised`;
+    - a per-row ½ coin;
+    - `origin = sixframe_noncoding` is kept;
+    - the fourth territory is drawn in turn in `_sixframe_draw`.
