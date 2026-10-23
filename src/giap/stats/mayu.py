@@ -9,6 +9,7 @@ FDR(t) = Σ_b FP_b / Σ_b n_b (clipped to 1), and q_g = min over t ≥ best_q_g 
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -21,6 +22,12 @@ from giap.stats.tda import monotone_q
 __all__ = ["MayuResult", "mayu_gene_fdr"]
 
 _CURVE_COLUMNS = ["t", "n_peptides", "F", "n_genes", "fp", "fdr", "fdr_2pep"]
+
+
+#: libm element-wise: numpy's SIMD ``exp`` / ``power`` differ in the last bits between AVX2 and
+#: AVX-512 nodes, which the cancellation in 1 - e^-λ(1 + λ) magnifies to ~1e-10 relative
+_exp = np.frompyfunc(math.exp, 1, 1)
+_pow = np.frompyfunc(math.pow, 2, 1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,10 +129,9 @@ def mayu_gene_fdr(
 
     big_f = f_t[:, None]
     # (1 - w)^F with 0^0 = 1, so w = 1 and F = 0 gives p = 0 (no log1p(-1)·0 = NaN)
-    p = 1.0 - np.power(1.0 - w[None, :], big_f)
-    p = np.clip(p, 0.0, 1.0)
+    p = np.clip(1.0 - _pow(1.0 - w[None, :], big_f).astype(np.float64), 0.0, 1.0)
     lam = big_f * w[None, :]
-    p2 = np.clip(1.0 - np.exp(-lam) * (1.0 + lam), 0.0, 1.0)
+    p2 = np.clip(1.0 - _exp(-lam).astype(np.float64) * (1.0 + lam), 0.0, 1.0)
     p2 = np.minimum(p2, p)  # P(≥2 hits) ≤ P(≥1 hit); guards rounding
 
     fp = _fp(missing, p).sum(axis=1)
