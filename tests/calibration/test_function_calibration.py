@@ -15,7 +15,8 @@ jsonl). R = ``replicates_fast/full.<suite>`` (protected tolerances.yaml: ora 100
   recomputed from the sequences by ``covariate_table``, the M4-13 folds passed to the TU
   recalibration. ``detection_enrichment`` over all six collections; per replicate **one** tested
   term per collection (m = ``M_ORA`` = 6; lead decision 9 B2), drawn at random (own stream) in
-  the fixed order ``ORA_ORDER``, ``go_slim`` excluding term IDs already picked; their
+  the fixed order ``ORA_ORDER``, ``go_slim`` excluding term IDs already picked (a collection
+  with no tested term gets a substitute from the others, recorded); their
   ``p_value`` pooled (``check_level_pooled``), **per direction** (over, under). Recorded: the
   oracle arm (p_true) on the same terms, ``p_noelim``, per-collection rates over every tested
   term by TU-size band (``SIZE_BANDS``), KS.
@@ -128,8 +129,9 @@ def _ora_null_run(i: int) -> dict[Any, Any]:
         F.with_p_detect(genes, F.true_p_detect(w, genes)), colls, ORA_SIZE, 0.05,
         folds=tu_folds(list(genes["tu_id"]), 5, o_rng),
     )  # fmt: skip
-    pick = pick_one_per_collection(fitted, C.replicate_rng(SIM_ORA + ".pick", i))
-    out: dict[Any, Any] = {"collections": sorted({c.collection for c in colls}), "pick": pick}
+    pick, short = pick_one_per_collection(fitted, C.replicate_rng(SIM_ORA + ".pick", i))
+    out: dict[Any, Any] = {"collections": sorted({c.collection for c in colls}), "pick": pick,
+                           "substituted": short}  # fmt: skip
     for d in DIRECTIONS:
         for name, tab in (("fitted", fitted), ("oracle", oracle)):
             sub = tab[tab["direction"] == d].set_index(["collection", "term"])
@@ -143,19 +145,37 @@ def _ora_null_run(i: int) -> dict[Any, Any]:
     return out
 
 
-def pick_one_per_collection(tab: pd.DataFrame, rng: np.random.Generator) -> list[tuple[str, str]]:
+def pick_one_per_collection(
+    tab: pd.DataFrame, rng: np.random.Generator
+) -> tuple[list[tuple[str, str]], int]:
     """B2: one tested term (finite p) per collection, in ``ORA_ORDER``; a term ID picked in an
-    earlier collection is excluded later (``go_slim`` repeats GO IDs)."""
+    earlier collection is excluded later (``go_slim`` repeats GO IDs).
+
+    A collection with no tested term (KEGG in about 12 % of ``ora_null(4000)`` worlds: 2-20
+    synthetic maps, test-author count over 200 worlds, 23 with none in [5, 500] TUs) has its slot
+    filled, after the loop, by a random untaken term of the other collections (``ORA_ORDER``
+    order), so m stays 6. Returns the picks and the number of substituted slots."""
     ok = tab[np.isfinite(tab["p_value"].to_numpy(float))]
+    by = {c: sorted(set(ok.loc[ok["collection"] == c, "term"].astype(str))) for c in ORA_ORDER}
     picked: list[tuple[str, str]] = []
     seen: set[str] = set()
+    short = 0
     for c in ORA_ORDER:
-        cand = sorted(set(ok.loc[ok["collection"] == c, "term"].astype(str)) - seen)
-        assert cand, f"no tested term left in {c}"
-        t = str(cand[int(rng.integers(0, len(cand)))])
+        cand = [t for t in by[c] if t not in seen]
+        if not cand:
+            short += 1
+            continue
+        t = cand[int(rng.integers(0, len(cand)))]
         picked.append((c, t))
         seen.add(t)
-    return picked
+    for _ in range(short):
+        pool = [(c, t) for c in ORA_ORDER for t in by[c] if t not in seen]
+        assert pool, "no tested term left for a substitute slot"
+        c, t = pool[int(rng.integers(0, len(pool)))]
+        picked.append((c, t))
+        seen.add(t)
+    assert len(picked) == M_ORA, picked
+    return picked, short
 
 
 def _banded(p: np.ndarray, n: np.ndarray, levels: list[float]) -> dict[str, Any]:
@@ -186,7 +206,10 @@ def test_ora_null_fitted_p_detect_pooled_level_per_direction(full: bool) -> None
     if ran:
         recs = [_ora_null(i) for i in sorted(ran)]
         rec: dict[str, Any] = {"check": "ora.null", "full": full, "R_run": len(ran), "m": M_ORA,
-                               "collections": recs[0]["collections"]}  # fmt: skip
+                               "collections": recs[0]["collections"],
+                               "substituted_slots": int(sum(r["substituted"] for r in recs)),
+                               "replicates_with_substitute": int(sum(r["substituted"] > 0
+                                                                     for r in recs))}  # fmt: skip
         for d in DIRECTIONS:
             fit = np.concatenate([r[("fitted", d)] for r in recs])
             orc = np.concatenate([r[("oracle", d)] for r in recs])
