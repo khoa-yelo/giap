@@ -88,7 +88,7 @@ def _cfg(full: bool) -> DeterminantsConfig:
 def _threads(full: bool) -> int:
     """Results do not depend on ``threads`` (M8-09 rule 6); capped per tier."""
     cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", "1"))
-    return max(1, min(8 if full else 4, cpus))
+    return max(1, min(8, cpus))  # lead decision 8 gap 3: the fast tier gets 8 threads too
 
 
 def model_inputs(w: Any) -> tuple[pd.DataFrame, np.ndarray, list[str], list[str]]:

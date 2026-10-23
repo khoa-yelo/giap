@@ -120,3 +120,21 @@ confirmation and sharding apply.
    (two-sided criterion only where §8.4 says so).
 7. **Stacking:** this branch starts from #251 (M8-14). Anything that needs M8-11 (#193, open) is a
    strict xfail naming #193 until it merges.
+8. **Test-author (e66b3559, 6fc522c0, caabc5d7; Slurm 1874380, 1874770).** Every gate passes on
+   the current code and every teeth arm is a confirmed fail; only the three baseline.json checks
+   fail before implementation. Gaps:
+   - **1 (teeth unit):** the gene-level unweighted hypergeometric is gated; the TU-level ω = 1
+     version (rate 0.605 at −1.5, 0.02 at −0.75: any-gene TU membership dilutes random members) is
+     recorded. Pending the statistician's confirmation.
+   - **2 (ORA pool m = 6 over nested terms):** kept; the statistician may lower it to one term per
+     collection.
+   - **3 (fast budget, 12.6 min):** the lead raises the fast tier's threads cap from 4 to 8 (results
+     do not depend on threads, M8-09 rule 6) and re-times on Slurm. Stays `calibration_nightly`.
+   - **4, 5, 7, 9, 10:** accepted as proposed (synthetic go_slim; teeth at the suite's R = 50;
+     X = planted features + `tu_position`/`tu_size`; the `m8_calibration_fast.<suite>` baseline
+     schema; the 22 pseudogenes as M8-14 decision 7 left them).
+   - **6 (recovery):** recorded only. LightGBM CV R² −0.001 at true 0.2 and 0.364 at true 0.5 (elastic
+     net 0.176 / 0.478) goes to the statistician as a finding.
+   - **8 (centring arm, annotated-universe arm):** backlog follow-up.
+   - **No #193 xfails:** ADR-0038 sends GSEA level claims to RFgseaEngine, so nothing needs M8-11.
+   - Next: the re-time, the baseline.json entries, then the PR and the statistician.
