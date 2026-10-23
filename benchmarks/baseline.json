@@ -428,25 +428,26 @@
     "issue": "M7-12",
     "note": "best of 3 simulate() calls per case, one invocation"
   },
-  "plots_5mb_sim4500": {
-    "benchmark": "benchmarks/test_plots_bench.py::test_plots_and_report_5mb_budget",
-    "step": "plots",
-    "secs": 15.403,
-    "maxrss_mb": 468.5,
-    "budget_s": 120.0,
-    "source": "docs/specs/M9-26-scale-and-determinism.md (work item 1; lead decision 4)",
-    "n_genes": 4500,
-    "n_placements": 42413,
-    "genome_bp": 4639946,
-    "node": "wheat-01",
-    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
-    "cpus": 4,
-    "slurm_alloc_cpus": 6,
-    "slurm_job": 1879327,
-    "commit": "2fc69a42",
-    "date": "2026-10-23",
-    "issue": "M9-26",
-    "note": "one round; the plots step's run_step in a fresh interpreter, timed after imports, so interpreter start-up is excluded; peak RSS is that interpreter's VmHWM. Every plot passes the M9-24 element item (per axes, per V1 track). Previous record (nested entry, job 1879016 on wheat-05 at a7728f72): plots 16.5 s / 459.8 MB, report 2.0 s / 462.9 MB."
+  "m8_calibration_fast": {
+    "_comment": "M8-15 fast-tier wall time per suite (span under xdist -n 16, one test per worker), Slurm 1875111; budgets ora/gsea 600 s, determinants 1200 s (lead decision 10)",
+    "ora": {
+      "test": "tests/calibration/test_function_calibration.py::test_ora_null_fitted_p_detect_pooled_level_per_direction[fast]",
+      "secs": 206.8,
+      "cpus": 16,
+      "slurm_job": 1875111
+    },
+    "gsea": {
+      "test": "tests/calibration/attacks/test_attack_function.py::test_teeth_attack3_gene_level_r_engine_confirmed_fail",
+      "secs": 462.0,
+      "cpus": 16,
+      "slurm_job": 1875111
+    },
+    "determinants": {
+      "test": "tests/calibration/test_determinants_calibration.py::test_determinants_null_level_per_model[fast-elastic_net]",
+      "secs": 532.5,
+      "cpus": 16,
+      "slurm_job": 1875111
+    }
   },
   "report_5mb_sim4500": {
     "benchmark": "benchmarks/test_plots_bench.py::test_plots_and_report_5mb_budget",
@@ -468,5 +469,25 @@
     "date": "2026-10-23",
     "issue": "M9-26",
     "note": "one round; the report step's run_step in a fresh interpreter, timed after imports, so interpreter start-up is excluded; peak RSS is that interpreter's VmHWM. Every plot passes the M9-24 element item (per axes, per V1 track). Previous record (nested entry, job 1879016 on wheat-05 at a7728f72): plots 16.5 s / 459.8 MB, report 2.0 s / 462.9 MB."
+  },
+  "plots_5mb_sim4500": {
+    "benchmark": "benchmarks/test_plots_bench.py::test_plots_and_report_5mb_budget",
+    "step": "plots",
+    "secs": 15.403,
+    "maxrss_mb": 468.5,
+    "budget_s": 120.0,
+    "source": "docs/specs/M9-26-scale-and-determinism.md (work item 1; lead decision 4)",
+    "n_genes": 4500,
+    "n_placements": 42413,
+    "genome_bp": 4639946,
+    "node": "wheat-01",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "cpus": 4,
+    "slurm_alloc_cpus": 6,
+    "slurm_job": 1879327,
+    "commit": "2fc69a42",
+    "date": "2026-10-23",
+    "issue": "M9-26",
+    "note": "one round; the plots step's run_step in a fresh interpreter, timed after imports, so interpreter start-up is excluded; peak RSS is that interpreter's VmHWM. Every plot passes the M9-24 element item (per axes, per V1 track). Previous record (nested entry, job 1879016 on wheat-05 at a7728f72): plots 16.5 s / 459.8 MB, report 2.0 s / 462.9 MB."
   }
 }
