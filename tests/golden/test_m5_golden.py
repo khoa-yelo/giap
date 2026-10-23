@@ -50,7 +50,7 @@ import m5_chain as m5
 
 CASES = ("sim50k", m5.ISLAND.name)
 #: join_count_bb columns compared numerically (lead decision 44)
-JOIN_NUMERIC = ("null_mean", "null_lo", "null_hi", "stat", "effect")
+JOIN_NUMERIC = ("value", "null_mean", "null_lo", "null_hi", "stat", "effect")
 JOIN_REL_TOL, JOIN_ABS_TOL = 1e-3, 1e-3
 
 

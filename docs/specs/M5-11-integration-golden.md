@@ -91,3 +91,6 @@ grid (M5-07) run as `giap-` jobs; nothing heavy in the session allocation
 46. **`stat` joins the numeric join-count columns.** The standardised `stat` of `join_count_bb` rows
     is derived from the same BLAS-dependent null, so it drifts like `null_mean` (621.875 vs 621.876
     on CI ubuntu 3.11, #219 run 39890993815); it is compared with the decision 44 tolerance too.
+47. **`value` joins them too.** CI (#229, run 39904322170, ubuntu 3.11 and macOS) shows the observed
+    `join_count_bb` value drifting in the fourth decimal (−2.45409 vs −2.45423), because it is
+    computed from the same Pearson residuals as the null; it is compared with the same tolerances.
