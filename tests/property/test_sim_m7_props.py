@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 from helpers import m7_sim_oracle as O
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 
 import giapsim
@@ -32,6 +32,7 @@ def _sim(name: str, seed: int, d: Path) -> Path:
 
 @_SETTINGS
 @given(seed=seeds)
+@example(seed=29297)  # non-ATG initiator SNV (review #225 R2)
 def test_alt_sites_consistent_for_any_seed(seed: int) -> None:
     with tempfile.TemporaryDirectory() as td:
         out = _sim("variant_f1", seed, Path(td))

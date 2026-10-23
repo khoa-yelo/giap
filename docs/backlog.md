@@ -820,3 +820,11 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
+- Review #225 nits (M7-12):
+  - N2: the methods-note FDP table is at 200 ORFs per class; rerun it at the gate count of 300.
+  - N3: `OrfEntries` does not restate `NTERM_MIN_UPSTREAM_AA` and assumes `min_orf_aa` = 7; assert `digest_len[0]` ≥ 7 in six-frame mode.
+  - N4: drop the throwaway `Builder(10)` in the mixed-decoy test.
+  - N5: validate that `n_per_class` ≥ 0.
+  - N6: add a 1M gate-count case to the benchmark and refresh the `novel_orf_power` baseline.
+  - N7: `_protein_decoys` checks the target set without I/L folding.
+  - N8: the spec names `tests/sim/test_m7_scenarios.py`; the file is `tests/unit/test_sim_m7_scenarios.py`.

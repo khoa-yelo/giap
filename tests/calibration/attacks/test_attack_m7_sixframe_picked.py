@@ -18,12 +18,14 @@ with an oracle that does not use GIAP's novel-ORF code:
   is planted densely (200 per class) so that q = 0.01 is reachable at all; ``nterm_extension`` is
   left out because its planted peptides carry the gene's locus tag (M7-11 pairs it by locus tag).
   The same mutant must break the bound at q = 0.10 in at least one class.
-- **Class q floor** (fast, strict xfail until fixed): with (D + 1) / T, a class whose planted
+- **Class q floor** (fast): with (D + 1) / T, a class whose planted
   ORFs with a true peptide number fewer than 1 / alpha (``stats.alpha.novel_orfs`` = 0.01) cannot
   call any ORF, so G3's F1 is 0 by construction. The default ``novel_orf_power`` at 1 Mb plants 40
   per class (about 30 with >= 2 peptides; oracle min class q 0.025-0.028 over 12 seeds, 0 calls).
   Statistician round-3 block, item 1. Lead decision 26: the test runs at
-  ``n_per_class=NOVEL_PER_CLASS_GATE`` (300) at 1 Mb, the count M7-13 G3/G4 use.
+  ``n_per_class=NOVEL_PER_CLASS_GATE`` (300) at 1 Mb, the count M7-13 G3/G4 use. Intergenic is
+  limited by gap supply (88-122 ORFs with a peptide over seeds 1-8), so the floor is asserted on
+  the other three classes only (lead decision 28).
 """
 
 from __future__ import annotations
@@ -164,14 +166,15 @@ def test_attack_default_scenario_can_reach_class_alpha(
 ) -> None:
     import giapsim.scenarios as sc
 
-    # Lead decision 26: G3/G4 plant NOVEL_PER_CLASS_GATE per class at 1 Mb (XPASS once landed).
+    # Lead decision 26: G3/G4 plant NOVEL_PER_CLASS_GATE per class at 1 Mb; decision 28: the
+    # gap-limited intergenic class is not asserted
     out = tmp_path_factory.mktemp("m7floor")
     cfg = sc.novel_orf_power(base + 7100, "1M", n_per_class=sc.NOVEL_PER_CLASS_GATE)
     giapsim.simulate(cfg, base + 7100, out)
     n = defaultdict(int)
     for r in O.rows(out / "truth" / "novel_orfs.tsv"):
         n[r["class"]] += int(r["n_true_peptides"]) >= 1
-    floor = {c: 1 / max(n[c], 1) for c in Q.CLASSES4}
+    floor = {c: 1 / max(n[c], 1) for c in Q.CLASSES4 if c != "intergenic"}
     assert all(f <= ALPHA_NOVEL for f in floor.values()), floor
 
 
