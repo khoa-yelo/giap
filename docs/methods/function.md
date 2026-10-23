@@ -703,3 +703,59 @@ whole-TU and single-gene categories in every world.
     weaker evidence than its nominal level.
 
   Raising `CI_MIN_UNITS` to about 30, or a BCa or studentized bootstrap, is owed (backlog).
+
+## Simulator worlds for the M8-15 gate (giapsim, M8-14)
+
+`tests/sim/giapsim/function_sim.py` and the `giapsim.scenarios` function pairs (issue M8-14, PR
+#251; GIAP_SPEC.md §8.4, §8.5 attacks 2 and 3, §11.3). Statistician review of PR #251
+(2026-10-23); the attack arms are in `tests/calibration/attacks/test_attack_sim_function.py`.
+
+**Annotations.** A random GO-shaped DAG in the reserved range `GO:9000000`–`GO:9999998` (three
+namespaces, `is_a` and `part_of`), 35–55 % of genes annotated directly, COG letters on synthetic
+`COG<n>` IDs, 2–20 synthetic KEGG maps (`K9xxxx`, `map9xxxx`). Annotations are drawn from their
+own stream, independently of every covariate, of abundance and of detection. `world.sets` keeps
+sets of 10–500 TUs (the GSEA filter), so the 5–9-TU sets the ORA filter (`function.ora_size`
+[5, 500]) would test are absent there; an ORA gate should build its sets through M8-03 from
+`world.obo` and `world.layout.xrefs`.
+
+**ORA null (`ora_null`).** Detection is redrawn as Bernoulli(p_true), with p_true the M4-09
+covariate logistic (length, observable peptides, GRAVY). Membership is independent of detection
+given p_true, so the conditional Poisson-binomial law holds exactly with q from p_true. With the
+fitted M4-13 p_detect the null is the M8-04 claim itself (arm `ora_null.fitted`).
+
+**Attack 2 (`ora_attack_confounded`).** One random GO set covering 8–20 % of genes (321–551 of
+4,000 genes over 40 seeds); its members get `member_shift` on the detection logit. At −1.5 the
+members' mean p_true is 0.467 of the others' (SD 0.015 over 40 seeds, maximum 0.499; the
+population ratio for the same shift on every gene is 0.4655, SD 0.002). Ancestors of the set
+inherit part of the shift through propagation.
+- *What it tests:* the weighting mechanics, given correct p. With p_detect = p_true the ORA is at
+  level (probe R = 30: 0 / 0.067 / 0.10 at α 0.01 / 0.05 / 0.10, two-sided); with constant ω every
+  replicate rejects.
+- *What it does not test:* the end-to-end claim of §7.7.5. The members' covariates are untouched,
+  so an M4-13 fit on the covariates cannot see the shift: with the fitted p_detect the confounded
+  set is rejected in 30 of 30 replicates at α 0.01. From the data such a category *is*
+  under-detected beyond its covariates, and no detectability-weighted method may explain it away.
+  An end-to-end attack has to carry the confounding through a covariate the detectability model
+  sees (for example the members' `tm_segments` or GRAVY), keeping the members random (lead
+  decision 3 gap 7).
+
+**GSEA null (`gsea_null`).** The M4-08 model (AR(1) TU levels with ρ 0.5 and SD 2, stoichiometry
+0.7, gene noise 0.5) with `position_decay_log2 = 0`. Gene-level abundance is independent of
+membership for any decay. The TU score (mean of the scoring genes) falls with TU size under decay,
+and any-gene membership favours large TUs, so decay is a potential TU-level confounder. It is not
+one at the M4-08 default: with decay 0.2, the pooled rate over every in-range set (about 268 per
+world, R = 80, `SIMPLE_ENGINE`) was 0.0084 / 0.047 / 0.096, against 0.0087 / 0.045 / 0.094 at
+decay 0; at 0.5 it was 0.011 / 0.060 / 0.115 (pooled over dependent sets, so indicative only).
+The arm `gsea_null.decay0.2` gates one random set per world at the default decay.
+
+**Attack 3 (`gsea_attack_operon_packed`).** As shipped, each set is 1–3 packed chr1 TUs of 10–30
+genes, each TU with an extra N(0, 3²) effect. Two problems (review B2):
+- every set is below `function.gsea_size` [10, 500] in TUs, so the TU-collapsed engine writes no
+  row and a level gate over these sets has nothing to count;
+- the extra effect makes the packed TUs more dispersed than all other TUs (Fligner test rejects
+  in 0.98 of worlds at α 0.05), so a set built from them has a real TU-level effect and is not a
+  null for a TU-level test.
+A fair attack keeps the packed TUs exchangeable with the other TUs (their shared TU level already
+makes 10–30 genes move together; gene noise 0.86 against a TU SD of 2.3) and puts at least
+10 TUs in each set, for example 1–3 packed operons plus single-gene TUs, as in
+`tests/calibration/test_gsea_tu_calibration.py` (12 operons of 5 genes).
