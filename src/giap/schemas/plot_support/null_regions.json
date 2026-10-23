@@ -4,6 +4,7 @@
   "missingValues": ["NA", ""],
   "fields": [
     {"name": "region_id", "type": "string", "description": "Region (regions_stats.tsv)", "constraints": {"required": true}},
+    {"name": "contig", "type": "string", "description": "Replicon the region was tested on (a region split across contigs has one null per contig)", "constraints": {"required": true}},
     {"name": "stat", "type": "string", "description": "Test statistic of the region test", "constraints": {"required": true, "enum": ["o_minus_e", "hl_shift"]}},
     {"name": "shift_k", "type": "integer", "description": "Circular gene-index shift k of the null draw (percentile 1-99 in the percentile-grid form of the file)", "constraints": {"required": true, "minimum": 1}},
     {"name": "null_value", "type": "number", "description": "The studentised statistic at this shift (or the null's percentile in the grid form); NA when undefined"},

@@ -22,7 +22,7 @@ from giap.context.regions import RegionNull
 
 __all__ = ["null_islands", "null_regions", "null_regions_grid"]
 
-_KEY = ["region_id", "stat"]
+_KEY = ["region_id", "contig", "stat"]
 
 
 def null_regions(table: pd.DataFrame, nulls: Sequence[RegionNull]) -> pd.DataFrame | None:
@@ -35,19 +35,20 @@ def null_regions(table: pd.DataFrame, nulls: Sequence[RegionNull]) -> pd.DataFra
     for key in dict.fromkeys(k for k in keys if k in by):
         n = by[key]
         o = np.argsort(n.shifts, kind="stable")
-        parts.append(pd.DataFrame({"region_id": n.region_id, "stat": n.stat,
+        parts.append(pd.DataFrame({"region_id": n.region_id, "contig": n.contig, "stat": n.stat,
                                    "shift_k": n.shifts[o], "null_value": n.null[o],
                                    "observed": n.observed}))  # fmt: skip
     return pd.concat(parts, ignore_index=True) if parts else None
 
 
 def null_regions_grid(exhaustive: pd.DataFrame) -> pd.DataFrame:
-    """The 1st-99th percentile grid of each (region, stat) null of ``null_regions``."""
+    """The 1st-99th percentile grid of each (region, contig, stat) null of ``null_regions``."""
     pct = np.arange(1, 100)
     parts = []
-    for (rid, stat), grp in exhaustive.groupby(_KEY, sort=False):
+    for (rid, contig, stat), grp in exhaustive.groupby(_KEY, sort=False):
         v = grp["null_value"].to_numpy(float)
-        parts.append(pd.DataFrame({"region_id": rid, "stat": stat, "percentile": pct,
+        parts.append(pd.DataFrame({"region_id": rid, "contig": contig, "stat": stat,
+                                   "percentile": pct,
                                    "null_value": np.percentile(v[~np.isnan(v)], pct),
                                    "observed": grp["observed"].iloc[0]}))  # fmt: skip
     return pd.concat(parts, ignore_index=True)
