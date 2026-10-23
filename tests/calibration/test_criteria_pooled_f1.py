@@ -172,11 +172,11 @@ def test_unknown_suite_refused(tmp_path: Path) -> None:
 
 
 def _shards(monkeypatch: pytest.MonkeyPatch, tmp: Path, rec_fn: Any, parts: list[str],
-            block: str = "1", R: int = 6) -> None:  # fmt: skip
+            block: str = "1", R: int = 6, **kw: Any) -> None:  # fmt: skip
     for p in parts:
         monkeypatch.setenv(C.SHARD_ENV, p)
         monkeypatch.setenv(C.BLOCK_ENV, block)
-        rec = C.calibrate_pooled(SUITE, STREAM, "k", 0.9, rec_fn, R, log_dir=tmp)
+        rec = C.calibrate_pooled(SUITE, STREAM, "k", 0.9, rec_fn, R, log_dir=tmp, **kw)
         assert rec["status"] == C.SHARD_STATUS
     monkeypatch.delenv(C.SHARD_ENV)
     monkeypatch.delenv(C.BLOCK_ENV)
@@ -220,6 +220,196 @@ def test_confirm_runs_block_two_of_the_listed_pooled_check_only(
     monkeypatch.delenv(C.CONFIRM_ENV)
     final = {r["key"]: r["status"] for r in C.merge_shards(SUITE, tmp_path) if "key" in r}
     assert final == {"k": "unconfirmed", "other": "pass"}
+
+
+# --------------------------------------------------------------------------- merge path
+# Lead decision 7 (code review B3, N2-N4): the merge must reach the unsharded verdict on guards,
+# vacuity and settings, fail closed on stale or non-finite records, and the job's exit code must
+# carry the confirm run's pytest exit code.
+
+GUARD = {"n_truth": 100}  # 6 x 10 recall-truth rows < 100: a guard miss in each block
+
+
+def _keyed(tmp: Path) -> list[dict[str, Any]]:
+    return [r for r in C.merge_shards(SUITE, tmp) if r.get("key") == "k"]
+
+
+def test_merge_guard_miss_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    whole = C.calibrate_pooled(SUITE, STREAM, "k", 0.9, table(), 6, log_dir=tmp_path / "a",
+                               guard=GUARD)  # fmt: skip
+    assert whole["status"] == "fail"
+    b = tmp_path / "b"
+    _shards(monkeypatch, b, table(), ["0:3", "3:6"], guard=GUARD)
+    assert [r["status"] for r in _keyed(b)] == [C.PENDING_STATUS]  # F1 1.0, yet block 1 fails
+    _shards(monkeypatch, b, table(), ["0:2", "2:6"], block="2", guard=GUARD)
+    assert [r["status"] for r in _keyed(b)] == ["fail"]
+
+
+def test_merge_guard_miss_in_block_one_only_is_unconfirmed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rec_fn = table(good=set(range(12)))  # F1 1.0 everywhere
+    big = {"n_truth": 60}
+    _shards(monkeypatch, tmp_path, rec_fn, ["0:3", "3:6"], guard=big)
+    assert [r["status"] for r in _keyed(tmp_path)] == ["pass"]  # 60 >= 60
+    c = tmp_path / "c"
+    _shards(monkeypatch, c, rec_fn, ["0:3", "3:6"], guard={"n_truth": 61})
+    assert [r["status"] for r in _keyed(c)] == [C.PENDING_STATUS]
+
+
+def test_merge_vacuous_block_one_is_vacuous(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    vac = {"n_pred": 11.0}  # block mean 10 < 11
+    whole = C.calibrate_pooled(SUITE, STREAM, "k", 0.9, table(), 6, log_dir=tmp_path / "a",
+                               vacuous=vac)  # fmt: skip
+    _shards(monkeypatch, tmp_path / "b", table(), ["0:3", "3:6"], vacuous=vac)
+    merged = _keyed(tmp_path / "b")
+    assert [r["status"] for r in merged] == [whole["status"]] == [C.VACUOUS_STATUS]
+    assert merged[0]["block"] == 1
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [({"guard": {"n_truth": 10}}, {"guard": {"n_truth": 20}}),
+     ({"guard": {"n_truth": 10}}, {}),
+     ({"vacuous": {"n_pred": 1.0}}, {"vacuous": {"n_pred": 2.0}}),
+     ({}, {"vacuous": {"n_pred": 1.0}})],
+)  # fmt: skip
+def test_merge_refuses_shards_that_disagree_on_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, first: dict[str, Any], second: dict[str, Any]
+) -> None:
+    _shards(monkeypatch, tmp_path, table(), ["0:3"], **first)
+    _shards(monkeypatch, tmp_path, table(), ["3:6"], **second)
+    with pytest.raises(ValueError, match="disagree"):
+        C.merge_shards(SUITE, tmp_path)
+    monkeypatch.setenv(C.LOG_DIR_ENV, str(tmp_path))
+    assert C._merge_main(SUITE, False) == C.MERGE_ERROR
+
+
+def test_merge_refuses_a_replicate_logged_twice_with_different_values(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``_collect``'s stale-merge guard (code review N2), pooled records."""
+    _shards(monkeypatch, tmp_path, table(), ["0:3", "3:6"])
+    _shards(monkeypatch, tmp_path, table(good=set()), ["0:3"])  # a stale rerun, other counts
+    with pytest.raises(ValueError, match="twice"):
+        C.merge_shards(SUITE, tmp_path)
+
+
+def test_merge_accepts_a_replicate_logged_twice_with_the_same_values(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _shards(monkeypatch, tmp_path, table(), ["0:3", "3:6", "0:3"])
+    assert [r["status"] for r in _keyed(tmp_path)] == ["pass"]
+
+
+def test_merge_refuses_a_stale_calibrate_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same guard for scalar ``calibrate`` records (predates the PR; N2)."""
+    for part, value in (("0:5", 0.0), ("5:10", 0.0), ("0:5", 1.0)):
+        monkeypatch.setenv(C.SHARD_ENV, part)
+        monkeypatch.setenv(C.BLOCK_ENV, "1")
+        C.calibrate(SUITE, "fwer", 0.05, lambda rng, v=value: v, 10, stream=f"{STREAM}.fwer",
+                    log_dir=tmp_path)  # fmt: skip
+    with pytest.raises(ValueError, match="twice"):
+        C.merge_shards(SUITE, tmp_path)
+
+
+@pytest.mark.parametrize("bad", [float("inf"), float("-inf"), float("nan")])
+def test_merge_non_finite_count_is_a_merge_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, bad: float
+) -> None:
+    """A non-finite count in a shard record (json round-trips ``Infinity``) fails closed as a
+    ValueError, so ``--merge`` exits MERGE_ERROR, never an uncaught OverflowError (N3)."""
+    _shards(monkeypatch, tmp_path, table(), ["0:3", "3:6"])
+    path = tmp_path / f"{SUITE}.jsonl"
+    recs = C.read_results(path)
+    recs[0]["values"][1]["n_pred"] = bad
+    path.write_text("".join(json.dumps(r) + "\n" for r in recs))
+    with pytest.raises(ValueError):
+        C.merge_shards(SUITE, tmp_path)
+    monkeypatch.setenv(C.LOG_DIR_ENV, str(tmp_path))
+    assert C._merge_main(SUITE, False) == C.MERGE_ERROR
+
+
+def _pending_then_block2(
+    tmp: Path, monkeypatch: pytest.MonkeyPatch, code: int, good2: bool
+) -> list[Any]:
+    """Block 1 fails in shards; the fake confirm run logs block 2 and exits ``code``."""
+    _shards(monkeypatch, tmp, table(good=set(range(6, 12))), ["0:3", "3:6"])
+    monkeypatch.setenv(C.LOG_DIR_ENV, str(tmp))
+    seen: list[Any] = []
+
+    def fake_block2(suite: str, full: bool, pending: Any) -> int:
+        seen.append([C._check_key(r) for r in pending])
+        rec_fn = table(good=set(range(6, 12)) if good2 else set())
+        _shards(monkeypatch, tmp, rec_fn, ["0:3", "3:6"], block="2")
+        monkeypatch.setenv(C.LOG_DIR_ENV, str(tmp))
+        return code
+
+    monkeypatch.setattr(C, "_run_block2", fake_block2)
+    return seen
+
+
+@pytest.mark.parametrize("code", [1, 2, 4])
+def test_merge_fails_when_the_confirm_run_pytest_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, code: int
+) -> None:
+    """Lead decision 7 (statistician B2, code review B1): block 2 passes (``unconfirmed``) but the
+    confirm run's pytest exited non-zero (a test outside the harness failed): not exit 0."""
+    seen = _pending_then_block2(tmp_path, monkeypatch, code, good2=True)
+    assert C._merge_main(SUITE, False) != 0
+    assert seen == [[[STREAM, C.POOLED_F1, 0.9, 6, "k"]]]
+
+
+@pytest.mark.parametrize(("good2", "want"), [(True, 0), (False, C.MERGE_FAIL)])
+def test_merge_exit_with_a_clean_confirm_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, good2: bool, want: int
+) -> None:
+    _pending_then_block2(tmp_path, monkeypatch, 0, good2=good2)
+    assert C._merge_main(SUITE, False) == want
+
+
+def _capture_child_env(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, str]]:
+    envs: list[dict[str, str]] = []
+
+    class Done:
+        returncode = 0
+
+    def fake_run(cmd: Any, env: dict[str, str] | None = None, **kw: Any) -> Done:
+        envs.append(dict(env or {}))
+        return Done()
+
+    monkeypatch.setattr(C.subprocess, "run", fake_run)
+    return envs
+
+
+@pytest.mark.parametrize("argv", [["--shard", "0/2"], ["--shard=1/2"], []])
+def test_main_strips_a_leaked_confirm_variable(
+    monkeypatch: pytest.MonkeyPatch, argv: list[str]
+) -> None:
+    """A ``GIAP_CALIBRATION_CONFIRM`` left in the environment would make every gate test skip
+    and exit 0; ``main()`` removes it from the shard (and unsharded) pytest environment."""
+    monkeypatch.setenv(C.CONFIRM_ENV, json.dumps([[STREAM, "fwer", 0.05, 6]]))
+    envs = _capture_child_env(monkeypatch)
+    assert C.main(["--suite", SUITE, *argv]) == 0
+    assert len(envs) == 1 and C.CONFIRM_ENV not in envs[0], envs
+
+
+@pytest.mark.parametrize(("argv", "want"), [(["--shard=0/2"], range(0, 50)),
+                                            (["--shard=1/2"], range(50, 100)),
+                                            (["--shard", "1/2"], range(50, 100))])  # fmt: skip
+def test_parse_args_shard_forms(argv: list[str], want: range) -> None:
+    ns = C.parse_args(["--suite", SUITE, *argv])
+    assert ns.replicates == want and not ns.merge
+    with pytest.raises(SystemExit):
+        C.parse_args(["--suite", SUITE, "--shard=2/2"])  # 0-based: K < N
+
+
+def test_parse_args_merge_form() -> None:
+    assert C.parse_args(["--suite", SUITE, "--merge"]).merge
 
 
 # --------------------------------------------------------------------------- calibration
