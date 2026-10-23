@@ -67,4 +67,5 @@ workflow VARIANTS {
     variants     = pick(T, 'variants.tsv')
     variants_vcf = pick(T, 'variants.vcf')
     versions     = VARIANTS_STEP.out.versions
+    events       = VARIANTS_STEP.out.events
 }
