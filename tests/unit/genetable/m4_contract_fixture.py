@@ -276,6 +276,16 @@ def build_frames(n_genes: int = 20, tu_sizes: Sequence[int] = (1, 2, 3)) -> dict
         columns=list(PEPTIDE_RUN_COLUMNS),
     )
 
+    # C17 (M7-10): one de novo and one reference read of the same spectrum.
+    peptide_spectra = pd.DataFrame(
+        {
+            "run": ["run1", "run1"],
+            "spectrum_id": ["scan=1", "scan=1"],
+            "peptide": [pep_rows[0][0], pep_rows[0][0]],
+            "source": ["denovo", "reference"],
+        }
+    )
+
     abundance = pd.DataFrame(
         {
             "protein_id": [tag(i) for i in range(min(n_genes, 5))],
@@ -365,6 +375,7 @@ def build_frames(n_genes: int = 20, tu_sizes: Sequence[int] = (1, 2, 3)) -> dict
         "region_genes": region_genes,
         "peptides": peptides,
         "peptide_runs": peptide_runs,
+        "peptide_spectra": peptide_spectra,
         "abundance": abundance,
         "peptide_hits": peptide_hits,
         "protein_hits": protein_hits,

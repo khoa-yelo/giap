@@ -144,9 +144,10 @@ def _literals(path: Path) -> list[str]:
 
 
 #: ``checks.py`` holds the pattern itself and is left out
-_PY = sorted((ROOT / "src" / "giap" / "viz").rglob("*.py")) + sorted(
-    p for p in REPORT.rglob("*.py") if p.name != "checks.py"
-)
+# checklist.py (M9-24) states the "express" rule itself, as report/checks.py does
+_PY = sorted(
+    p for p in (ROOT / "src" / "giap" / "viz").rglob("*.py") if p.name != "checklist.py"
+) + sorted(p for p in REPORT.rglob("*.py") if p.name != "checks.py")
 
 
 @pytest.mark.parametrize("path", _PY, ids=lambda p: str(p.relative_to(ROOT)))

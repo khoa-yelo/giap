@@ -1,0 +1,15 @@
+{
+  "name": "compare_detection",
+  "description": "giap compare: the gene x run detection matrix (section matrix) and the exact UpSet intersections of the detected sets (section intersection), long form (GIAP_SPEC.md §7.9.3; M9-22, ADR-0046). The table has no coordinate fields.",
+  "coordinates": "1-based-closed",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "section", "type": "string", "description": "Row kind", "constraints": {"required": true, "enum": ["matrix", "intersection"]}},
+    {"name": "locus_tag", "type": "string", "description": "Gene (matrix rows; NA on intersection rows)"},
+    {"name": "run", "type": "string", "description": "Run label (matrix rows; NA on intersection rows)"},
+    {"name": "detected", "type": "boolean", "description": "Gene detected in the run (matrix rows)", "trueValues": ["true"], "falseValues": ["false"]},
+    {"name": "detection_status", "type": "string", "description": "The run's detection status of the gene (matrix rows)", "constraints": {"enum": ["detected", "not_detected", "single_peptide_unestimated", "partial_excluded"]}},
+    {"name": "intersection", "type": "string", "description": "Runs whose detected sets hold exactly these genes, joined by & in label order, or none (intersection rows)"},
+    {"name": "n_genes", "type": "integer", "description": "Genes in the exact intersection (intersection rows)", "constraints": {"minimum": 0}}
+  ]
+}

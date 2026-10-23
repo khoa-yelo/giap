@@ -43,7 +43,7 @@ def annotate_sites(sites: pd.DataFrame, rates: Sequence[ClassRate]) -> pd.DataFr
    reference row must be a target (not decoy) with `q_value ≤ 0.01` (§7.5.4; the same `REF_MAX_Q`
    as M3-11). One reference identification per spectrum (preflight already rejects a
    `(run, spectrum_id)` with two different peptides, ADR-0005).
-2. **Observations.** One observation per de novo **row** (spectrum) whose stripped peptide supports
+2. **Observations.** One observation per distinct de novo `(run, spectrum_id, peptide)` (rows repeated over charges count once; decision 8) whose stripped peptide supports
    at least one ALT site (M7-02) and which pairs (rule 1). Its classes are the `(alt_type,
    mass_equivalent)` of each ALT it supports (a peptide supporting two ALTs contributes to both
    classes).
@@ -53,9 +53,11 @@ def annotate_sites(sites: pd.DataFrame, rates: Sequence[ClassRate]) -> pd.DataFr
    (and VCF `CLASS_ERR`), the rate of its class; `n = 0` or no reference table → `unestimated`.
    Frameshift rows: their own class `(frameshift, false)`.
 5. **What the rate means** (methods note): when the sample truly carries a variant, the reference
-   search (against a database without it) disagrees with a *correct* de novo read, so the rate is an
-   upper bound on the error rate in strain-difference runs. The note says so; the gate (M7-13)
-   measures the bias on simulations with planted variants.
+   search (against a database without it) disagrees with a *correct* de novo read, which inflates
+   the rate. Reference false matches and the confident-spectrum selection push the other way, so the
+   rate estimates the de novo error share *on confidently identified spectra*; it is **not** an upper
+   bound in general (statistician, methods note §"Class error rates"). The gate (M7-13) measures the
+   bias on simulations with planted variants.
 
 ## Degenerate cases
 
@@ -83,9 +85,11 @@ def annotate_sites(sites: pd.DataFrame, rates: Sequence[ClassRate]) -> pd.DataFr
 
 - [ ] `tests/unit/variants/test_error_rates.py`: examples 1–6 and every degenerate row.
 - [ ] `tests/calibration/test_variant_class_error.py` (`calibration`, R = 20 fast / 100 full,
-  decision 3): on the M7-12 scenario **without** planted variants, the class rate is unbiased for
-  the true per-class error rate (|bias| ≤ 0.05, the `denovo_precision_max_abs_bias` constant); with
-  planted variants, the measured upward bias is recorded, not gated.
+  decision 3): with planted variants, the gate is |bias| ≤ 0.05 (`denovo_precision_max_abs_bias`,
+  two-sided) on the classes estimated in at least half of the replicates. It needs ≥ 3 gated
+  classes, ≥ 2 of them with truth below 1 − 2·bound, so a constant-1 estimator fails. The bias is
+  also recorded to the diagnostics jsonl. The arm without variants stays as a sanity check
+  (decision 9).
 - [ ] `docs/methods/variants.md` §"Class error rates" (rule 5); statistician sign-off.
 
 ## Questions for the lead
@@ -102,3 +106,50 @@ def annotate_sites(sites: pd.DataFrame, rates: Sequence[ClassRate]) -> pd.DataFr
 3. No `replicates_*` key exists for a variants suite in `tests/calibration/tolerances.yaml`
    (protected). **Proposed default:** ask Khoa to add `variants: 20` (fast) / `100` (full), shared by
    this check and the M7-13 F1 gate.
+
+## Lead decisions (2026-10-22)
+
+1. **Spectrum pairing input:** the proposed default. Preflight writes `work/peptide_spectra.parquet`
+   (`run`, `spectrum_id`, `peptide`, `source`) for de novo and reference rows, registered as optional
+   contract table C17; the `variants` step takes it as an optional input. Without it, the class
+   rates are `unestimated` (flag), never computed from guessed pairs.
+2. **Pooling:** per-class pooling over sites is enough for v1; the methods note says why a
+   site-level rate is out of reach at pilot depth.
+3. **Replicates:** `replicates_fast.variants = 20` and `replicates_full.variants = 100` already exist
+   (ADR-0042); the check reads them from tolerances.yaml and does not hard-code its own counts.
+4. **Test-author resolutions (e7d8cb50) accepted:**
+   - one observation is one de novo row per class;
+   - a site's `mass_equivalent` comes from its M7-05 `flags`;
+   - `no_spectrum_pairing` may be reported by preflight or by the step.
+5. **C17 stays at four columns.** Preflight writes only confident target reference rows
+   (q ≤ 0.01, not decoy), with `source = "reference"`, plus every de novo row (`source = "denovo"`).
+   The pure `paired_observations` still filters on q and decoy status, for callers that pass raw
+   tables.
+6. **Nextflow:** `VARIANTS` gains a `peptide_spectra` take after `reference_peptides`, staged with
+   `kv` and left out of `needed`. The lead updated the existing key sets in
+   test_variants_step.py `OPTIONAL`, test_contract.py `TABLE_KEYS` and
+   test_nf_variants_registry.py `TAKE`.
+7. **Calibration scenario:** build from giapsim pieces now and switch to M7-12 `variant_f1` after
+   #225 merges (backlog). The planted arm is diagnostic only.
+8. **Statistician BLOCK on #239 (d8e40d28):**
+   - B1 (implementer): `paired_observations` counts one observation per `(run, spectrum_id, peptide)`.
+     De novo rows repeated over charges must not count twice
+     (`test_duplicate_charge_rows_count_once`).
+   - B2 (test-author): the planted-variant arm becomes diagnostic and gated; it records the bias and
+     does not assert a bound. The reference-proteome arm moves to M7-13 (backlog).
+   - B3 (lead): rule 5 is reworded above, so it no longer claims an upper bound.
+9. **Test-author B2 (c9525eb3):**
+   - The planted arm gates |bias| ≤ 0.05 in both directions, with a teeth guard. The arm without
+     variants is a sanity check. Acceptance 2 is amended to match.
+   - The fast planted test takes 71 s and so moves to `NIGHTLY` (the conftest rule for runs over
+     60 s). Accepted: CI keeps the 46 s sanity test, and the nightly run gates the planted arm.
+   - Measured at R = 100: frameshift bias 0.0087 (SE 0.0031), a small upward bias about 2.8 SE from
+     0. It is inside the bound and noted in the backlog for the statistician.
+10. **Code review #239:** the implementation is correct; the review raised two test defects and a
+    stale branch.
+    - **B1 (lead):** the brute-force oracle in test_error_rates_props.py counts distinct
+      `(run, spectrum_id, peptide)` (decision 8).
+    - **B2 (lead):** test_preflight_writes_peptide_spectra asserts that the confident decoy and the
+      q 0.02 target are dropped from C17. Its docstring now states decision 5.
+    - **B3 (lead):** origin/main is merged in.
+    - Nits 1–5 go to the backlog, together with the surviving edge-case mutants.

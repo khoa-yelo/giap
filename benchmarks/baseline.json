@@ -1,5 +1,5 @@
 {
-  "_comment": "Accepted runtime and accuracy numbers (GIAP_SPEC.md \u00a712; updates by ADR with before/after numbers). Seconds are wall clock.",
+  "_comment": "Accepted runtime and accuracy numbers (GIAP_SPEC.md §12; updates by ADR with before/after numbers). Seconds are wall clock.",
   "annotation_steps": {
     "_comment": "M2-21: median of 5 rounds (after 1 warm-up) per node class; nightly task 1 (wheat) fails on > benchmark_slowdown_max (ci/gates.yaml) above the entry of its class.",
     "wheat": {
@@ -126,9 +126,18 @@
   "m4_chain": {
     "_comment": "M4-20: wall clock per M4 step on the giapsim sim4500 fixture; secs is the timed step alone (the prerequisite steps of the same case are not counted).",
     "benchmark": "benchmarks/test_m4_chain_bench.py::test_m4_step_budget_sim4500",
-    "gene_table": {"budget_s": 120.0, "secs": 3.81},
-    "detectability": {"budget_s": 300.0, "secs": 5.36},
-    "context_stats": {"budget_s": 600.0, "secs": 9.94},
+    "gene_table": {
+      "budget_s": 120.0,
+      "secs": 3.81
+    },
+    "detectability": {
+      "budget_s": 300.0,
+      "secs": 5.36
+    },
+    "context_stats": {
+      "budget_s": 600.0,
+      "secs": 9.94
+    },
     "n_genes": 4500,
     "permutations": 1000,
     "bootstrap": 1000,
@@ -360,5 +369,63 @@
     "date": "2026-10-22",
     "issue": "M8-06a",
     "note": "one run_step('function', ...) on a cold process: reading the gene table and resources, collections, summary bootstrap, ORA with TU recalibration (tu_folds wired), GSEA with its numba compilation (fresh NUMBA_CACHE_DIR) and the three writers"
+  },
+  "sim_operon_1800_genes": {
+    "benchmark": "benchmarks/test_sim_operon_bench.py::test_sim_operon_1800_genes_budget",
+    "source": "docs/specs/M6-03-sim-operon-scenarios.md acceptance (a 1,800-gene scenario < 5 s)",
+    "n_genes": 1800,
+    "budget_s": 5.0,
+    "best_secs": {
+      "operon_null": 0.212,
+      "missed_operon_power": 0.21,
+      "discordance_power": 0.198,
+      "operon_attack_ar1": 0.198,
+      "operon_attack_detection": 0.208
+    },
+    "node": "wheat-04",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "slurm_job": 1869123,
+    "commit": "M6-03 implementation commit (measured on 33305a7 plus the uncommitted implementation)",
+    "date": "2026-10-22",
+    "issue": "M6-03",
+    "note": "best of 3 simulate_operons calls per scenario (layout, expression, pairs, truth), seed 1, 2 CPUs"
+  },
+  "sim_m7_scenarios": {
+    "benchmark": "benchmarks/test_sim_m7_bench.py::test_sim_m7_scenario_budget",
+    "source": "docs/specs/M7-12-sim-variant-novel-scenarios.md rule 4 and lead decision 5 (each scenario < 2 s at 100 kb, < 20 s at 1 Mb)",
+    "seed": 20261022,
+    "cases": {
+      "variant_f1_100k": {
+        "budget_s": 2.0,
+        "best_secs": 0.201
+      },
+      "novel_orf_power_100k": {
+        "budget_s": 2.0,
+        "best_secs": 0.375
+      },
+      "same_strain_insilico_100k": {
+        "budget_s": 2.0,
+        "best_secs": 0.143
+      },
+      "isobaric_attack_100k": {
+        "budget_s": 2.0,
+        "best_secs": 0.218
+      },
+      "variant_f1_1M": {
+        "budget_s": 20.0,
+        "best_secs": 2.641
+      },
+      "novel_orf_power_1M": {
+        "budget_s": 20.0,
+        "best_secs": 3.993
+      }
+    },
+    "node_class": "FarmShare barley (AMD EPYC 9384X)",
+    "node": "barley-01",
+    "slurm_job": 1869297,
+    "commit": "4051d7d + M7-12 implementer tree (feat(M7-12) commit)",
+    "date": "2026-10-22",
+    "issue": "M7-12",
+    "note": "best of 3 simulate() calls per case, one invocation"
   }
 }

@@ -20,7 +20,7 @@ from markupsafe import Markup
 import giap
 import giap.determinants
 from giap.context.diagnostics import render_l_hat
-from giap.io.run_view import PATHS, RunView
+from giap.io.run_view import RunView
 from giap.io.tsv import format_value
 
 #: GIAP_SPEC.md §7.4, verbatim
@@ -158,9 +158,8 @@ def extras(view: RunView, doc: Mapping[str, Any] | None) -> dict[str, list[dict[
     out: dict[str, list[dict[str, Any]]] = {}
     if view.has("pairs") or view.has("operon_flags"):
         out["operons"] = [_p(SIGMA70), *_missed(view)]
-    if "determinants_model" in PATHS and view.has("determinants_model"):  # #178
-        caveats = getattr(giap.determinants, "CAVEATS", ())
-        out["determinants"] = [_p(t) for t in (*caveats, *DETERMINANTS)]
+    if view.has("determinants_model"):
+        out["determinants"] = [_p(t) for t in (*giap.determinants.CAVEATS, *DETERMINANTS)]
     out["function"] = _function(view, doc)
     ctx = [_p(f"{ISLANDS} See the islands methods note.")] if view.has("islands") else []
     out["genome-context"] = ctx + _diagnostics(view)

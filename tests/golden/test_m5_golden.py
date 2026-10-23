@@ -28,8 +28,10 @@ otherwise the regeneration fails and writes nothing. The same checks also run on
 (``detection = "abundance"``) comes from the sklearn lbfgs detectability fit, which differs across
 BLAS builds in the 4th-6th significant digit (CI ubuntu 3.11 / macOS 3.12 vs Slurm). So on
 ``join_count_bb`` rows ``JOIN_NUMERIC`` is compared with ``math.isclose`` (``JOIN_REL_TOL``,
-``JOIN_ABS_TOL``); every other cell -- the observed count, p, q, flags, every Moran row, islands.tsv
-and genes_context -- stays byte for byte, as M4-20 decision 9 does for ``regions_stats.tsv``.
+``JOIN_ABS_TOL``; decisions 46-47 add ``stat`` and ``value``), and their permutation p and BH q
+within ``JOIN_PERM_COUNTS`` permutation counts (decision 48: a drifted observed value moves the
+count); every other cell -- flags, every Moran row, islands.tsv and genes_context -- stays byte
+for byte, as M4-20 decision 9 does for ``regions_stats.tsv``.
 
 Regenerating (on purpose, reviewed in the PR diff as data):
 ``GIAP_UPDATE_GOLDEN=1 pytest tests/golden/test_m5_golden.py`` writes the files and skips.
@@ -50,35 +52,57 @@ import m5_chain as m5
 
 CASES = ("sim50k", m5.ISLAND.name)
 #: join_count_bb columns compared numerically (lead decision 44)
-JOIN_NUMERIC = ("null_mean", "null_lo", "null_hi", "effect")
+JOIN_NUMERIC = ("value", "null_mean", "null_lo", "null_hi", "stat", "effect")
 JOIN_REL_TOL, JOIN_ABS_TOL = 1e-3, 1e-3
+#: the permutation-null summaries drift more than the observed value (lead decision 49, macOS)
+JOIN_NULL, JOIN_NULL_REL_TOL = ("null_mean", "null_lo", "null_hi"), 5e-3
+#: join_count_bb permutation p / BH q: within JOIN_PERM_COUNTS / (n_perm + 1) (lead decision 48)
+JOIN_PERM, JOIN_PERM_COUNTS = ("p_value", "q_value"), 5
 
 
-def _close(a: str, b: str) -> bool:
+def _close(a: str, b: str, rel_tol: float = JOIN_REL_TOL) -> bool:
     if a == b:
         return True
     try:
-        return math.isclose(float(a), float(b), rel_tol=JOIN_REL_TOL, abs_tol=JOIN_ABS_TOL)
+        return math.isclose(float(a), float(b), rel_tol=rel_tol, abs_tol=JOIN_ABS_TOL)
     except ValueError:
         return False
 
 
-def autocorrelation_equal(want: bytes, got: bytes) -> bool:
-    """Byte equality except ``JOIN_NUMERIC`` on ``join_count_bb`` rows (lead decision 44)."""
+def _perm_close(a: str, b: str, n_perm: str) -> bool:
+    if a == b:
+        return True
+    try:
+        return abs(float(a) - float(b)) <= JOIN_PERM_COUNTS / (int(n_perm) + 1)
+    except ValueError:
+        return False
+
+
+def autocorrelation_mismatch(want: bytes, got: bytes) -> str | None:
+    """``None`` when equal bytes except ``JOIN_NUMERIC`` on ``join_count_bb`` rows (lead
+    decision 44), else the first differing cell as ``line n, column: want != got``."""
     w, g = want.decode().splitlines(), got.decode().splitlines()
     if len(w) != len(g) or not w or w[0] != g[0]:
-        return False
+        return f"{len(w)} vs {len(g)} lines or a different header"
     header = w[0].split("\t")
     stat, loose = header.index("statistic"), {header.index(c) for c in JOIN_NUMERIC}
-    for lw, lg in zip(w[1:], g[1:], strict=True):
+    null = {header.index(c) for c in JOIN_NULL}
+    perm, n_perm = {header.index(c) for c in JOIN_PERM}, header.index("n_perm")
+    for n, (lw, lg) in enumerate(zip(w[1:], g[1:], strict=True), start=2):
         cw, cg = lw.split("\t"), lg.split("\t")
         if len(cw) != len(cg):
-            return False
+            return f"line {n}: {len(cw)} vs {len(cg)} fields"
         for i, (a, b) in enumerate(zip(cw, cg, strict=True)):
-            ok = _close(a, b) if cw[stat] == "join_count_bb" and i in loose else a == b
+            join = cw[stat] == "join_count_bb"
+            if join and i in loose:
+                ok = _close(a, b, JOIN_NULL_REL_TOL if i in null else JOIN_REL_TOL)
+            elif join and i in perm:
+                ok = _perm_close(a, b, cw[n_perm])
+            else:
+                ok = a == b
             if not ok:
-                return False
-    return True
+                return f"line {n} ({cw[stat]}), {header[i]}: {a} != {b}"
+    return None
 
 
 @pytest.fixture(scope="module", params=CASES)
@@ -117,11 +141,15 @@ def test_m5_tables_equal_the_committed_golden_files(run: dict[str, Any], case: s
     assert not missing, f"golden files missing in {dest}: {missing}"
     for logical, fname in sorted(names.items()):
         want, got = m5.read_golden(dest / fname), run["bytes"][logical]
-        if logical == "autocorrelation.tsv" and autocorrelation_equal(want, got):
-            continue
+        why = None
+        if logical == "autocorrelation.tsv":
+            why = autocorrelation_mismatch(want, got)
+            if why is None:
+                continue
         if want != got:
             pytest.fail(
-                f"{case}/{fname} differs from the golden file; first lines (n, want, got):"
+                f"{case}/{fname} differs from the golden file"
+                f"{f' ({why})' if why else ''}; first lines (n, want, got):"
                 f" {m5.first_diff(want, got)}"
             )
 

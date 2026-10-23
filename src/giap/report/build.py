@@ -5,7 +5,9 @@ Pure: a ``RunView``, the plot files read by ``giap.io.plot_files.read_plot_files
 reasons in, one HTML string out. The 13 ``SECTIONS`` always exist; each shows its plots (SVG text
 inlined, ids prefixed with the instance stem so no two SVGs share an id), then the first
 ``TOP_ROWS`` rows of its tables as written, with a link to the full TSV. The template inlines its
-CSS; every link is relative (``../plots/...``, ``../tables/...``) and names a file that exists.
+CSS and ``tables.js``; ``twins`` (instance stem -> ``(div id, figure JSON)``, M9-14) adds one Plotly
+div per instance beside its static SVG and inlines plotly.js once in ``<head>`` (only when a twin
+exists). Every link is relative (``../plots/...``, ``../tables/...``) and names a file that exists.
 """
 
 from __future__ import annotations
@@ -28,6 +30,9 @@ from giap.report import content
 
 TOP_ROWS = 20
 UNESTIMATED = "unestimated"
+#: a Plotly twin: ``(div id, figure JSON)``
+Twin = tuple[str, str]
+_BANNER = re.compile(r"plotly\.js v(\S+)")
 
 
 @dataclass(frozen=True)
@@ -81,6 +86,11 @@ def embed_svg(text: str, prefix: str) -> str:
     return _URL.sub(lambda m: f"url(#{prefix}-{m.group(1)})", body)
 
 
+def _script_json(text: str) -> str:
+    """JSON that cannot end its ``<script>`` element (``<`` written as ``\\u003c``)."""
+    return text.replace("<", "\\u003c")
+
+
 def reason_words(reason: str) -> str:
     """``module_off:function`` -> "the function module is off" (behaviour 2)."""
     kind, _, what = reason.partition(":")
@@ -93,7 +103,9 @@ def reason_words(reason: str) -> str:
     return words.get(kind, reason)
 
 
-def _plot_slot(pid: str, files: PlotFiles | None, skipped: Mapping[str, str]) -> dict[str, Any]:
+def _plot_slot(
+    pid: str, files: PlotFiles | None, skipped: Mapping[str, str], twins: Mapping[str, Twin]
+) -> dict[str, Any]:
     if files is None or not files.instances:
         note = f"not run: {reason_words(skipped[pid])}" if pid in skipped else "plot file absent"
         return {"pid": pid, "note": note, "instances": []}
@@ -103,7 +115,9 @@ def _plot_slot(pid: str, files: PlotFiles | None, skipped: Mapping[str, str]) ->
         if inst.data is not None:
             links.append(("data TSV", f"../plots/{inst.data}"))
         svg = None if inst.svg is None else Markup(embed_svg(inst.svg, inst.stem))
-        insts.append({"stem": inst.stem, "svg": svg, "links": links})
+        twin = twins.get(inst.stem)
+        spec = None if twin is None else {"id": twin[0], "spec": Markup(_script_json(twin[1]))}
+        insts.append({"stem": inst.stem, "svg": svg, "links": links, "twin": spec})
     absent = None if any(i["svg"] is not None for i in insts) else "plot file absent"
     return {"pid": pid, "note": absent, "instances": insts}
 
@@ -298,9 +312,7 @@ def cards(view: RunView, cfg: GiapConfig) -> tuple[list[dict[str, Any]], list[st
 
     specs = [("genes_tsv", genes), ("peptide_hits", peptides), ("protein_hits", proteins),
              ("islands", islands), ("operon_flags", operons), ("variants", variants),
-             ("novel_orfs", novel)]  # fmt: skip
-    if "determinants_model" in PATHS:  # #178 (M8-10)
-        specs.append(("determinants_model", model))
+             ("novel_orfs", novel), ("determinants_model", model)]  # fmt: skip
     for key, card in specs:
         frame = table(key)
         if frame is None:
@@ -313,19 +325,37 @@ def cards(view: RunView, cfg: GiapConfig) -> tuple[list[dict[str, Any]], list[st
 
 
 def build_report(
-    view: RunView, plots: Mapping[str, PlotFiles], skipped: Mapping[str, str], cfg: GiapConfig
+    view: RunView,
+    plots: Mapping[str, PlotFiles],
+    skipped: Mapping[str, str],
+    cfg: GiapConfig,
+    twins: Mapping[str, Twin] | None = None,
 ) -> str:
     """The report page (behaviour 2-6); deterministic, offline, no absolute path."""
+    twins = twins or {}
     sections = [
         {"id": s.id, "heading": s.heading,
-         "plots": [_plot_slot(p, plots.get(p), skipped) for p in s.plots],
+         "plots": [_plot_slot(p, plots.get(p), skipped, twins) for p in s.plots],
          "tables": [_table(view, k) for k in s.tables]}
         for s in SECTIONS
     ]  # fmt: skip
     summary, notes = cards(view, cfg)
     doc, note = content.read_manifest(view)
+    shown = any(i.stem in twins for s in SECTIONS for p in s.plots if p in plots
+                for i in plots[p].instances)  # fmt: skip
+    plotlyjs = _plotlyjs() if shown else None
+    version = None if plotlyjs is None else _BANNER.search(plotlyjs)
     return _ENV.get_template("report.html.j2").render(
         sections=sections, cards=summary, notes=notes, version=giap.__version__,
         provenance=content.provenance(view, doc, note), extras=content.extras(view, doc),
-        snippets=content.snippets(),
+        snippets=content.snippets(), plotlyjs=plotlyjs and Markup(plotlyjs),
+        plotly_version=version and version.group(1),
     )  # fmt: skip
+
+
+def _plotlyjs() -> str:
+    """plotly.js as bundled in the plotly package (no network)."""
+    import plotly.offline
+
+    text: str = plotly.offline.get_plotlyjs()
+    return text

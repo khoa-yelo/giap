@@ -8,6 +8,9 @@ also refits ``p_detect`` (M4-13) on the primary's folds, ``for_step("detectabili
 call from the same family stream ``for_step("sensitivity/<family>", seed)`` (common random
 numbers, lead decision 2). Tables a family declares as keyword parameters (``replicons``,
 ``regions``, ``region_genes``, ``tus``) are bound with ``functools.partial`` (lead decision 5).
+``operon_flags`` (M6-10) also takes C2 ``genes`` (as ``gene_models``), ``pairs_raw``, C3
+``features`` and the optional evidence layers; without C2, ``pairs_raw`` or C3 it is skipped
+(lead decision 4). A variant's config is ``base`` with its ``overrides`` and ``config_patch``.
 
 The registered step ``sensitivity`` (M4-19 decision 16, wired by MVP-01) takes those files as
 explicit inputs instead of a work directory, so ``giap run`` can call it like any other step;
@@ -24,6 +27,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from giap.annotate.layers import replicons_of
 from giap.config import GiapConfig
 from giap.context import sensitivity as S
 from giap.genetable.covariates import COVARIATE_COLUMNS
@@ -33,6 +37,7 @@ from giap.io.sensitivity_tsv import write_sensitivity_tsv
 from giap.io.work_tables import load_tables
 from giap.rng import for_step
 from giap.steps.gene_table import check_issues, contract_paths
+from giap.steps.operons import LAYERS, read_layer
 from giap.steps.registry import InputPath, StepContext, step
 
 __all__ = ["run_sensitivity", "sensitivity", "with_overrides"]
@@ -40,6 +45,9 @@ __all__ = ["run_sensitivity", "sensitivity", "with_overrides"]
 _log = logging.getLogger("giap.steps.sensitivity")
 #: C1 / C7 / C8 / C5, bound to the families that take them (lead decisions 5, 12, 13; M5-10)
 _TABLES = ("replicons", "regions", "region_genes", "tus")
+#: the ``operon_flags`` tables (M6-10 lead decision 4): step key -> family keyword
+_PAIRS = {"genes": "gene_models", "pairs_raw": "pairs_raw", "features": "features"}
+_OPERONS = "operon_flags"
 
 
 def with_overrides(cfg: GiapConfig, overrides: Mapping[str, object]) -> GiapConfig:
@@ -81,7 +89,7 @@ def _sensitivity(gene_table: Path, tables: Mapping[str, Path], cfg: GiapConfig, 
     """Rerun every registered family under every variant and write the §8.6 table to ``out``.
 
     ``gene_table`` is M4-15's ``genes.parquet``; ``tables`` maps the C1 / C5 / C7 / C8 contract keys
-    (``_TABLES``) to their files.
+    (``_TABLES``) and any of the pair keys (``_PAIRS``, ``LAYERS``) to their files.
     """
     genes = read_genes_parquet(gene_table)
     tier = str(genes["detection_tier"].iloc[0]) if len(genes) else ""
@@ -91,22 +99,56 @@ def _sensitivity(gene_table: Path, tables: Mapping[str, Path], cfg: GiapConfig, 
         variants = [v for v in variants if v.name != "top3"]
     frames, issues = load_tables(tables, _TABLES)
     check_issues(issues, _log, "sensitivity")
+    families = dict(S.FAMILIES)
+    pairs = _pair_tables(tables, frames, cfg)
+    if pairs is None:  # the UniOP-threshold patch only means something with the pair tables
+        families.pop(_OPERONS, None)
+    else:
+        frames = {**frames, **pairs}
+        if "relative" in set(genes["abundance_scale"].dropna().astype(str)):
+            _log.info("sensitivity: %s: abundance scale is relative; no pair is tested, every "
+                      "%s set is empty (jaccard NA)", _OPERONS, _OPERONS)  # fmt: skip
+    # a variant rerun for no remaining family (``pair_threshold=*`` without the pair tables) is
+    # dropped before its gene table is built (M6-10 lead decision 8)
+    variants = [v for v in variants if any(v.runs_for(f) for f in families)]
     base = with_overrides(cfg, {"stats.permutations": S.SENSITIVITY_B})
-    runs: list[tuple[str, pd.DataFrame, GiapConfig]] = []
+    runs: list[tuple[S.Variant, pd.DataFrame, GiapConfig]] = []
     for v in variants:
         g = S.variant_genes(genes, v, cfg)
-        runs.append((v.name, _refit(g, cfg) if v.single_peptide_detected else g,
-                     with_overrides(base, v.overrides)))  # fmt: skip
+        runs.append((v, _refit(g, cfg) if v.single_peptide_detected else g,
+                     with_overrides(base, {**v.overrides, **v.config_patch})))  # fmt: skip
     primary: dict[str, frozenset[str]] = {}
     reruns: dict[tuple[str, str], frozenset[str]] = {}
-    for name, family in S.FAMILIES.items():
+    for name, family in families.items():
         fam = _bind(family, frames)
         primary[name] = fam(genes, base, for_step(f"sensitivity/{name}", cfg.seed))
-        for vname, g, vcfg in runs:
-            reruns[(name, vname)] = fam(g, vcfg, for_step(f"sensitivity/{name}", cfg.seed))
+        for v, g, vcfg in runs:
+            if v.runs_for(name):
+                reruns[(name, v.name)] = fam(g, vcfg, for_step(f"sensitivity/{name}", cfg.seed))
     out.parent.mkdir(parents=True, exist_ok=True)
     write_sensitivity_tsv(out, S.sensitivity_rows(primary, reruns))
     _log.info("sensitivity: %d rows (%d variants)", len(reruns), len(variants))
+
+
+def _pair_tables(
+    paths: Mapping[str, Path], frames: Mapping[str, pd.DataFrame], cfg: GiapConfig
+) -> dict[str, pd.DataFrame] | None:
+    """The ``operon_flags`` tables under their family keywords, or ``None`` (logged) when C2,
+    ``pairs_raw`` or C3 is absent: the family and the ``pair_threshold`` variants are then
+    skipped. Evidence layers are read as the ``operons`` step reads them."""
+    absent = sorted(k for k in _PAIRS if k not in paths)
+    if absent:
+        _log.info("sensitivity: %s and the pair_threshold variants skipped: no %s", _OPERONS,
+                  ", ".join(absent),
+                  extra={"event": "sensitivity.operon_flags_skipped",
+                         "data": {"missing": absent}})  # fmt: skip
+        return None
+    out = {kw: pd.read_parquet(paths[k]) for k, kw in _PAIRS.items()}
+    reps = replicons_of(frames["replicons"])
+    for key in LAYERS:
+        if key in paths:
+            out[key] = read_layer(cfg, key, paths[key], reps, frames["tus"])
+    return out
 
 
 def run_sensitivity(work_dir: Path, cfg: GiapConfig) -> Path | None:
@@ -130,9 +172,11 @@ def _one(p: InputPath) -> Path:
     return p
 
 
-@step("sensitivity", inputs=["gene_table", *_TABLES], outputs=["sensitivity"])
+@step("sensitivity", inputs=["gene_table", *_TABLES], optional_inputs=[*_PAIRS, *LAYERS],
+      outputs=["sensitivity"])  # fmt: skip
 def sensitivity(ctx: StepContext) -> None:
-    """Gene table + C1 / C5 / C7 / C8 → the §8.6 sensitivity table (M4-19 decision 16).
+    """Gene table + C1 / C5 / C7 / C8 (+ the M6-10 pair tables) → the §8.6 sensitivity table
+    (M4-19 decision 16).
 
     ``output.sensitivity = off`` writes the table with its header and no row: a declared step
     output must exist, so the pipeline cannot hand a half-written run to the next step.
@@ -146,5 +190,5 @@ def sensitivity(ctx: StepContext) -> None:
         out.parent.mkdir(parents=True, exist_ok=True)
         write_sensitivity_tsv(out, S.sensitivity_rows({}, {}))
         return
-    tables = {k: _one(v) for k, v in ctx.inputs.items() if k in _TABLES}
+    tables = {k: _one(v) for k, v in ctx.inputs.items() if k in (*_TABLES, *_PAIRS, *LAYERS)}
     _sensitivity(_one(ctx.inputs["gene_table"]), tables, ctx.cfg, out)

@@ -267,7 +267,8 @@ def test_missed_operons_bin_counts_and_pi0(tmp_path: Path) -> None:
     assert len(body) == 3, body
     cells = [c for r in body for c in r]
     assert "−∞" in cells and "∞" in cells, body
-    assert "-Infinity" not in p.html and "Infinity" not in p.html
+    text = table.text()  # the page's own sort script (M9-14) mentions Infinity
+    assert "Infinity" not in text, text
     for n in ("3", "7", "11", "1", "4", "6", "2", "5", "9"):
         assert n in cells, (n, body)
     text = section_text(p, "operons")

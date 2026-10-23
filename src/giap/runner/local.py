@@ -286,6 +286,9 @@ PUBLISHED_FILES: dict[str, str] = {
     "category_summary": "tables/category_summary.tsv",
     "detectability_summary": "genetable/detection_summary_parts/detectability.parquet",
     "detection_summary": "tables/detection_summary.tsv",
+    "determinants_attribution": "tables/determinants_attribution.tsv",
+    "determinants_features": "tables/determinants_features.tsv",
+    "determinants_model": "tables/determinants_model.tsv",
     "enrichment_detection": "tables/enrichment_detection.tsv",
     "enrichment_gsea": "tables/enrichment_gsea.tsv",
     "gene_context": "context/gene_context.parquet",
@@ -308,7 +311,12 @@ PUBLISHED_FILES: dict[str, str] = {
     "tu_folds": "genetable/tu_folds.parquet",
     "variants": "tables/variants.tsv",
     "variants_vcf": "tables/variants.vcf",
+    "variants_qc": "work/variants_qc.parquet",  # an intermediate: never published (M7-14)
 }
+
+
+#: outputs named ``work/<file>`` are intermediates: GIAP_STEP and :func:`publish` skip them
+UNPUBLISHED_PREFIX = "work/"
 
 
 def publish(workdir: Path, outdir: Path) -> list[Path]:
@@ -320,6 +328,8 @@ def publish(workdir: Path, outdir: Path) -> list[Path]:
             shutil.copytree(src, dst, dirs_exist_ok=True)
             done.append(dst)
     for key, rel in sorted(PUBLISHED_FILES.items()):
+        if rel.startswith(UNPUBLISHED_PREFIX):
+            continue
         src, dst = workdir / key, outdir / rel
         if src.is_file():
             dst.parent.mkdir(parents=True, exist_ok=True)
