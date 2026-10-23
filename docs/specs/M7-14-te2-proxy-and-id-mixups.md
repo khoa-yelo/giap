@@ -85,3 +85,39 @@ def te2_proxy(genome: Path, bakta_json: Path) -> ProxyResult: ...   # Nissle, as
    mix-up signal; TE2 is the `high`-only test.
 2. CONTEXT now depends on VARIANTS (one more optional channel). **Proposed default:** accept; the
    alternative (VARIANTS rewriting `detection_summary.tsv`) gives one table two writers.
+
+## Lead decisions (2026-10-23)
+1. **Question 1 accepted:** `id_mixups` counts contradicting sites of any confidence. It is a QC
+   count, and TE2 is the `high`-only test.
+2. The weekly Slurm TE2 proxy follows R14: jobs named `giap-*`, with the CPU total checked before
+   submitting. A change to the weekly scrontab, if one is needed, is pending Khoa and not blocking,
+   as in MVP-04 decision 3. Until then the job is a one-off sbatch.
+3. **Test-author (cbea786c), gaps 1–9: the test-author's readings are accepted.**
+   - Gap 1: the lead adds `variants_qc` to the step-output assertion in test_variants_step.py.
+   - Gap 2: the tests live in new files.
+   - Gap 3: `support` is a long `(variant_id, peptide, source, search_db)` frame.
+   - Gap 4: the TE2 JSON mentions M7-16 when there are 0 stop_codon sites.
+   - Gap 5: no ALT sites counts as a pass.
+   - Gap 6: TE2 runs on weekly.sbatch's Nissle task (not protected). The first run is a one-off
+     sbatch; the scrontab is unchanged (decision 2).
+   - Gap 7: example 5 runs as the sim100k integration test on Slurm.
+   - Gap 8: example 1 activates once #225 merges.
+4. **Implementer (c47da49e).** The Nissle TE2 proxy passed (Slurm 1871578): 233 ALT sites, 80
+   `high`, 80 `high_start_codon`, 0 violations. Lead edits to existing tests:
+   - `variants_qc` (`work/variants_qc.parquet`) was added to OUTPUTS in test_variants_step.py and to
+     OUT_SPEC in test_nf_variants_registry.py. It is the only Parquet output. The oracle
+     comparisons cover the published tables only.
+   - context.nf.test passes `input[11]`.
+   - The `sim100k_real` M4 golden was regenerated; only the `id_mixups` row changes, now
+     value 0 / n 0.
+   - The GTG TE2 test runs at 400 kb: placing N-terminal peptides needs at least 100 in the
+     tolerant stratum, and 100 kb gave 44.
+   - Accepted: GIAP_STEP publishDir and the local `publish()` skip `work/...` outputs. Work
+     intermediates are never published, and no other step had a `work/` output.
+   - Accepted: the regenerated step_registry.json mirror.
+5. **Code review (#248): CHANGES REQUESTED.**
+   - B1: the backlog line "M7: compute the M4-16 QC metric id_mixups" is deleted. The TE2 evidence
+     (1871578) is now under PROGRESS.md › Done.
+   - B2: the lead adds `test_id_mixups_row_keeps_count_and_n_apart` (count 1, n 3). It kills the
+     value/n swap mutant.
+   - Nits 1–6 go to the backlog.

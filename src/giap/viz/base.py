@@ -187,3 +187,8 @@ def title_pct(n: int, d: int) -> str:
     if 0 < n < d:  # never round a partial share to 0 % or 100 %
         pct = min(max(pct, 1), 99)
     return f"{pct} %"
+
+
+def plural(n: int, word: str) -> str:
+    """``"1 gene"`` / ``"2 genes"``: the count and the word, ``s`` added unless ``n == 1``."""
+    return f"{n} {word}" if n == 1 else f"{n} {word}s"

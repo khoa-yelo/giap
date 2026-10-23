@@ -74,7 +74,7 @@ workflow {
             def gene_model = ANNOTATE.out.gene_model
             MAPPING(genome, opt(inputs.peptides), opt(inputs.proteins_long), gene_model,
                     opt(inputs.reference_peptides), opt(contaminantLibrary(inputs)))
-            // Module 5 (M7-04): independent of GENETABLE and CONTEXT
+            // Module 5 (M7-04): independent of GENETABLE; CONTEXT takes its variants_qc (M7-14)
             VARIANTS(genome, gene_model, MAPPING.out.mapping, MAPPING.out.hits_tolerant,
                      opt(inputs.peptides), opt(inputs.reference_peptides), opt(inputs.peptide_spectra))
             GENETABLE(gene_model, ANNOTATE.out.contract, MAPPING.out.mapping, opt(inputs.peptides),
@@ -83,14 +83,14 @@ workflow {
                     ANNOTATE.out.contract, ANNOTATE.out.regions, MAPPING.out.mapping,
                     MAPPING.out.stratum0, opt(inputs.peptides), opt(inputs.abundance),
                     opt(inputs.replicon_depth), GENETABLE.out.tier_summary,
-                    ANNOTATE.out.layers_for_pairs)
+                    ANNOTATE.out.layers_for_pairs, VARIANTS.out.variants_qc)
             NOVEL(genome, gene_model, ANNOTATE.out.contract, MAPPING.out.mapping, opt(inputs.peptides),
                   opt(contaminantLibrary(inputs)), GENETABLE.out.gene_table, ANNOTATE.out.layer_pairs,
                   MAPPING.out.hits_exact.combine(MAPPING.out.hits_tolerant).combine(MAPPING.out.placement_costs).first())
             OPERONS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract, ANNOTATE.out.layers_for_pairs)
             pub += [outs('mapping', MAPPING.out.mapping),
                     kv('pileup', VARIANTS.out.pileup), kv('variants', VARIANTS.out.variants),
-                    kv('variants_vcf', VARIANTS.out.variants_vcf),
+                    kv('variants_vcf', VARIANTS.out.variants_vcf), kv('variants_qc', VARIANTS.out.variants_qc),
                     kv('gene_table', GENETABLE.out.gene_table), kv('detectability_summary', GENETABLE.out.detectability_summary),
                     kv('tier_summary', GENETABLE.out.tier_summary), kv('genes_pre', GENETABLE.out.genes_pre),
                     kv('tu_folds', GENETABLE.out.tu_folds),
