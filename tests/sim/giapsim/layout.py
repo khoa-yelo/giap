@@ -37,6 +37,7 @@ __all__ = [
     "LayoutConfig",
     "RegionSpec",
     "layout_from_simulation",
+    "place_oric",
     "plant_regions",
     "simulate_layout",
 ]
@@ -639,6 +640,36 @@ def simulate_layout(cfg: LayoutConfig, rng: np.random.Generator) -> Layout:
                 else _place_oric(cfg.oric_frac, contig, start, end, lengths[0]))  # fmt: skip
     return Layout(replicons, genes, tus, pairs, regions, region_genes,
                   _truth(tags, gene_tu, region_genes), xrefs, features)  # fmt: skip
+
+
+def place_oric(layout: Layout, frac: float | None) -> Layout:
+    """``layout`` with its C15 ``features`` replaced by one chr1 ``oric`` row at ``frac`` (M5-11).
+
+    The row is placed as ``simulate_layout`` places it with ``LayoutConfig.oric_frac``: centred in
+    the chr1 gap nearest to ``frac * length`` that fits ``ORIC_LEN`` bp. Nothing is drawn and no
+    other frame changes; ``frac = None`` gives a header-only C15 frame. Existing ``oric`` rows are
+    replaced (other C15 rows, e.g. M0 ``crispr`` arrays, are kept).
+    """
+    if frac is not None and not 0.0 <= frac < 1.0:  # NaN fails too
+        raise ValueError(f"oric_frac must be in [0, 1) or None, got {frac}")
+    old = layout.features
+    keep = old[old["type"].astype(str) != "oric"]
+    if frac is None:
+        return replace(layout, features=keep.reset_index(drop=True))
+    genes, reps = layout.genes, layout.replicons
+    chr1 = reps[reps["contig"].astype(str) == "chr1"]
+    if len(chr1) != 1:
+        raise ValueError("an oriC needs exactly one chr1 replicon")
+    row = _place_oric(frac, genes["contig"].astype(str).tolist(), genes["start"].to_numpy(),
+                      genes["end"].to_numpy(), int(chr1["length"].iloc[0]))  # fmt: skip
+    if len(keep) == 0:
+        return replace(layout, features=row)
+    rank = {str(c): i for i, c in enumerate(reps["contig"])}
+    both = pd.concat([keep, row], ignore_index=True)
+    both = (both.assign(_r=both["contig"].astype(str).map(rank))
+            .sort_values(["_r", "start", "end", "feature_id"], kind="mergesort")
+            .drop(columns="_r").reset_index(drop=True))  # fmt: skip
+    return replace(layout, features=both.astype({"start": "int64", "end": "int64"}))
 
 
 def plant_regions(layout: Layout, specs: Sequence[RegionSpec], rng: np.random.Generator) -> Layout:
