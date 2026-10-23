@@ -1,0 +1,11 @@
+# R fgsea engine for the function step's GSEA (ADR-0038; GIAP_SPEC.md §7.7.4, R5).
+# fgsea is MIT, R is GPL-2: run only as a separate process. Exact solve: locks/fgsea.explicit.txt
+# (the builds of #192's golden_r.explicit.txt restricted to fgsea's dependency closure; no
+# goseq, no Bioconductor data package).
+# frozen-lock: scripts/build_envs.sh installs this env from that lock, not from a solve.
+name: giap-fgsea
+channels: [conda-forge, bioconda]
+dependencies:
+  - r-base=4.5.3
+  - bioconductor-fgsea=1.36.2
+  - r-data.table=1.18.6.1

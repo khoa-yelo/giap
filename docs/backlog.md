@@ -606,8 +606,22 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - `read_tsv` now treats an empty cell as missing in genes.tsv too (matches `giap.io.genes_tsv`).
 - Mutation evidence: $GIAP_ROOT/review/pr191-mut/ (22/25 killed, 1 equivalent).
 - ADR-0042: when the M7-10/M7-13 (`calsuite_variants`) and M9-22 (`calsuite_compare`) calibration tests land, extend scripts/slurm/calibration_full.sbatch to `--array=0-14` (task 13 = variants, 14 = compare); until then those two keys have no tests and the array skips them.
+- M9-04 V17 review nits (#197): when every gene is partial, (e) draws 0 % bars and should show an empty-state note; integer tick locators on the count axes; partial genes are left out of (d) although the spec restricts only (e); the "unmapped" layer of (c) includes contaminant and too_short peptides; the length-bound lines belong at 6.5/40.5 (spec + test); an empty `replicons` draws an empty axis with a warning; the TSV message rows drop the drawn text; preflight `genome.contiguity` has an empty `message` (a preflight bug); "abundance not available" is not in the spec's titles; "1 preflight warnings" should be singular; the imputed legend shows when nothing is imputed; 8 surviving mutants (exactly 10 warnings, rule fallback, (b) floor, circular markers, constant-abundance padding, (e) inverted y, absent-genes title).
 - ADR-0041 follow-up (after #196 merges): move the four tokens from RUN_FLAGS_PENDING to the accepted run vocabulary and update the vocabulary test (lead).
 
+## M8-17a review nits (#204; one round, B1 R_LIBS_SITE fixed in the PR)
+- 17b: `read_results` must require rows to match the in-range sets exactly (a dropped row now vanishes silently); `read_versions` should check the `seed`/`jobs` lines and the data.table version.
+- Set `TMPDIR` to the call directory in `child_env` so R's `Rtmp*` is not left behind after a timeout kill; give the post-kill `proc.communicate()` a timeout.
+- `write_call` accepts IDs with tab, newline or `;` (corrupts the R inputs): reject them.
+- `scripts/build_envs.sh`: a failed lock check on an existing env leaves the `.giap-built` marker; the marker hashes only `fgsea.yml`, so a lock-only change never rebuilds.
+- `giap_fgsea.R`: an empty input file exits 1, not 3.
+- `FgseaEngineError` imitates a `StepError` and is then wrapped in a second one by `run_step`.
+- Surviving mutants: duplicate leading-edge check, size-range check, trailing-newline check, `R_HOME` filter, `set(edge) <= ranked` check.
+## M9-11 review nits (#208; one round, B1 overlap fixed, B2–B5 pinned by test_v11_review.py)
+- Title medians come from pairs.tsv, so the data TSV cannot reproduce them (index decision 5): widen decision 4's exception to cover medians, or add per-pair (a) rows; (a) rows carry a bin index but no edges.
+- Flag legend handles take the first point's class colour; use a neutral face (`other` can be OP or NO).
+- Surviving minor mutants: outline colour, flagged points drawn twice, flagged markers not class-coloured, `set_xlim` removed, degenerate (c) range padding, legend `ncol`.
+- (a)/(b) x-label "|Δ| partner log2 abundance" reads awkwardly; the spec's title template gives "1 pairs".
 ## M9-07 review nits (#203; one round, B1 out-of-range p and NITs 2–3 fixed in the PR)
 - V18 fit title and corner text ignore `recalibration_separated = 1` (prints "slope 41"): append "; recalibration separated".
 - "1 test families shown": singular for k = 1.

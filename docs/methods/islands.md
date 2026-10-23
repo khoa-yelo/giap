@@ -281,7 +281,7 @@ with the ADR-0015 two-block confirmation. Levels and bounds come from
 `tests/calibration/tolerances.yaml` (0.05 + 2 SE: 0.0189 / 0.0695 / 0.1268 at α = 0.01 / 0.05 /
 0.10, R = 500). The layout is a circular 4,500-gene chromosome (median 2,501 scored TUs) plus a
 circular 60-gene plasmid, in one genome-wide family. Branch run: Slurm 1868005 (commit fdbfc77).
-Main run: Slurm ⟨ID⟩. Every cell passed on block 1. Rates carry Wilson 95 % intervals.
+Main run: Slurm 1868687 (commit ed129c4, barley-01, 1 h 10 min), rates identical to the branch run. Every cell passed on block 1. Rates carry Wilson 95 % intervals.
 
 | Cell (R = 500) | α = 0.01 | α = 0.05 | α = 0.10 |
 |---|---|---|---|
