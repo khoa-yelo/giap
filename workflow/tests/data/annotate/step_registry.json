@@ -536,11 +536,18 @@
       "tus"
     ],
     "optional_inputs": [
+      "cog2020_fun",
+      "determinants_features",
       "features",
       "genes",
+      "go_basic",
+      "goslim_generic",
+      "kegg_ko_pathway",
+      "kegg_pathway_names",
       "pairs_raw",
       "promoter_windows",
       "terminators",
+      "tu_folds",
       "tx_rates"
     ],
     "outputs": [
