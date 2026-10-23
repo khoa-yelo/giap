@@ -60,3 +60,13 @@ determinants_model), `family` (region_id/stat, contig/direction, model), `bin`, 
    (studentised O − E)".
 2. **Stacking:** on m9/plot-support-analysis (M9-17 null support files; `null_regions` has a
    `contig` column, `null_islands` is per scanned contig, decision 5).
+3. **Test-author (2d7fdb4e): gaps 1–10 accepted as proposed.**
+   - **Plots-step wiring** (gap 7): `plots` declares the M9-17 step outputs `context_stats_support`,
+     `determinants_support` and `function_support` as optional inputs. Its view finds files in
+     those directories directly or under `support/`.
+   - **V14:** M9-19 uses the same `function_support` key. Whichever of M9-19 or M9-21 merges second
+     reconciles the declaration.
+   - **Nextflow:** wiring main.nf → REPORT/PLOTS for these keys follows once M9-17's outputs are
+     published (test_report_nf_input_keys.py).
+   - **`sa.COLUMNS["null_regions"]`:** the lead adds `contig` to it after the M9-17 implementer
+     reports.
