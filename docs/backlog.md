@@ -669,6 +669,20 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Inner oriC/ter labels of small adjacent replicons crowd each other near the centre (five-replicon
   review render); consider dropping them below a sector-size threshold.
 - Counted lines 629 (> 400 warn): split the label-placement code into its own module in hardening.
+## M8-17b review nits (#214; one round each, code review and statistical review)
+- M8-15 (statistical re-review, before the gate): re-run the `test_attack_gsea_flags.py` arms on the R
+  engine, flag spillover included (unflagged rows in a collection that also has flagged rows; only
+  measured under the port, Slurm 1867330), and re-measure the N4 detection-screen and
+  `genomic_cluster` φ = 0.7 numbers on R. The methods note makes no claim for these until then.
+- Weekly `gsea` array task: 4 CPU / 2 h now also runs the `requires_r` replicates (Slurm 1869053 alone
+  took 47 min on 8 CPUs) and needs `giap-fgsea` built; `tests/calibration/_criteria.py` does not
+  exclude `requires_r`, so the harness's `gsea` suite errors where the env is absent.
+- Untested in `giap.function.gsea`: dropping `lo <= n <= hi` for whole-ranking sets; the
+  `len(tus) < min_size` and `bh(sub)[i] > alpha` boundaries; `SIMPLE_ENGINE` re-seeding per job.
+- `giap.io.fgsea_r`: an explicit `GIAP_FGSEA_PREFIX` skips the `.giap-built` check (an unbuilt env
+  says "is not a directory"); untested with no `R` in `bin/`; `engine.provenance` keeping its value
+  after a failed call is unpinned.
+- The `function.gsea_engine` event could log the seed R ran with.
 ## M9-09 review nits (#218; one round, decisions 21–26)
 - V2 trend memory: up to 2.2 GB peak RSS at 20,000 points (the PLOTS process gets 2 GB on the first
   attempt); fit the trend on ≤ 5,000 bin medians.

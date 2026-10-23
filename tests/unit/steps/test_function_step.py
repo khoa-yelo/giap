@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +49,19 @@ from helpers.function_step_data import (
 )
 
 from giap.config import GiapConfig
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _simple_gsea_engine() -> Iterator[None]:
+    """The step runs on ``fgsea_simple``, never R: unit tests use fakes (ADR-0038 §4, M8-17b 10).
+    Module scope, so module-scoped fixtures that run the step see it too."""
+    import giap.steps.function as fn
+    from giap.function.gsea import SIMPLE_ENGINE
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(fn, "_LazyRFgsea", lambda log: SIMPLE_ENGINE)
+        yield
+
 
 SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "schemas" / "tables"
 REGISTRY_JSON = (Path(__file__).resolve().parents[3] / "workflow" / "tests" / "data" / "annotate"
