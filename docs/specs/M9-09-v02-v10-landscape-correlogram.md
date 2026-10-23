@@ -127,3 +127,20 @@ first contig in FASTA order with a finite row; else "Autocorrelation not estimab
 11. An origin-crossing island is one data row with end > length (index decision 11), drawn as two spans.
 12. The interface in the test docstrings (V2 axes labelled by contig, V10 axes "a:<contig>"/"b:<contig>",
     `%g` numbers, `position_bp = (start0+end)/2 mod L + 1`) is accepted.
+
+## Lead decisions on the review round (2026-10-22, review of 1f5fba6)
+
+21. **Not-estimable rows are NA.** An `autocorrelation.tsv` row flagged `not_estimable` or
+    `few_values` is not drawn, whatever its value (the producer writes the join count as 0), and
+    counts as NA for the empty-state check (example 6). The test helper now writes those rows as
+    the producer does.
+22. **V2 legend** never overlaps the title or the data, with or without the oriC/ter entries
+    (measured with FigureCanvasAgg after draw); place it below the axes or reserve the space.
+23. **V10 with many replicons** wraps its contig columns into rows of at most 3, the figure height
+    growing per row; no text overlaps at 6 replicons.
+24. **The detection-only rug** (decision 9 stands): when no gene is a point, the rug holds every
+    gene, `all_rug = not measured`. The property test is re-pinned by the lead.
+25. Lead decision 6's statistic order is pinned by a new test (the alphabetical-sort mutant C7).
+26. NITs (untested lines, the 20k-point memory bound — fit on ≤ 5,000 bin medians later —, rug-only
+    y ticks, the V10 legend source, the size trims) go to the backlog; the statistician note (TU
+    ordinals in the islands detrend vs bp positions with period L in V2) goes into the PR body.

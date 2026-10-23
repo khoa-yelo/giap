@@ -182,17 +182,16 @@ def correlogram_rows(
 
 
 def na_correlogram_rows(contig: str = "chr1") -> list[dict[str, object]]:
-    """The validation run's rows: every value NA with ``few_values`` / ``not_estimable``."""
+    """The validation run's rows, flagged ``few_values`` / ``not_estimable``: Moran's I NA, the
+    join count written as 0 with zero nulls and q NA, as the producer writes it (#218 review B1)."""
     rows = []
-    for statistic, flags in (
-        ("morans_i", "ci_unestimated;few_values;not_estimable"),
-        ("join_count_bb", "ci_unestimated;not_estimable"),
+    for statistic, flags, v in (
+        ("morans_i", "ci_unestimated;few_values;not_estimable", None),
+        ("join_count_bb", "ci_unestimated;not_estimable", 0.0),
     ):
         for null_model in ("gene_label", "tu_block"):
             for lag in range(1, 21):
-                rows.append(
-                    ac_row(contig, statistic, null_model, lag, None, None, None, None, None, flags)
-                )
+                rows.append(ac_row(contig, statistic, null_model, lag, v, v, v, v, None, flags))
     rows.append(
         {
             **ac_row(contig, "oriter_slope", "bootstrap", None, None, None, None, None, None),

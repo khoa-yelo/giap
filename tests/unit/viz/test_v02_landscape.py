@@ -575,7 +575,8 @@ def test_property_points_rug_and_trend(
     slots: list[tuple[int, str, bool, bool, int]], frac: float
 ) -> None:
     """Points are exactly the detected, measured, non-imputed, non-partial genes; the rug is
-    every ``detected = false`` gene; the trend is the statsmodels lowess at the islands' span."""
+    every ``detected = false`` gene, or every gene when no gene is a point (lead decisions 9 and
+    24); the trend is the statsmodels lowess at the islands' span."""
     style.apply()
     cfg = resolve_config(overrides=[f"context.islands.detrend_span_frac={frac}"])
     genes, want_pts, want_rug = [], {}, set()
@@ -591,6 +592,8 @@ def test_property_points_rug_and_trend(
         inst = _render(landscape_out(Path(tmp), genes=genes, islands=[]), cfg)
     pts = _kind(inst.data, "point")
     assert set(pts["locus_tag"]) == set(want_pts)
+    if not want_pts:
+        want_rug = {g["locus_tag"] for g in genes}
     assert set(_kind(inst.data, "rug")["locus_tag"]) == want_rug
     trend = [float(v) for v in _kind(inst.data, "trend")["value"]]
     order = sorted(want_pts.values())
