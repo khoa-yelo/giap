@@ -82,3 +82,14 @@ two-block confirmation and sharding apply (the standing backlog item about migra
 2. The gate text says "decoy FDR calibrated on simulations" — does attack B (detection confounded
    with distance) belong to the gate or to the record? **Proposed default:** gate it; it is cheap
    and it is the ADR-0018 failure mode in a new place.
+
+## Khoa's decision (2026-10-22): missed-operon power floor
+
+Option 1 of docs/methods/operons.md "Fix space", **keep the method and label it** (no method ADR):
+- The missed-operon calls are reported as they are, and lfdr is the ranking.
+- The report and M6-09's power table state that this family is "near-powerless by construction":
+  a call needs near-identical abundance of the two genes, and the absence of calls is not evidence
+  against missed operons.
+- The `missed_operons` FDR gate is recorded as a **vacuous pass** when it makes no calls, and the
+  record names that reason. It is never read as power evidence.
+- Option 2 (a stronger combined score) may be revisited after the M10 pilot.

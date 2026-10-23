@@ -260,7 +260,7 @@ def _panel_c(ax: Axes, c: pd.DataFrame, alpha: float) -> None:
     lo, hi = float(min(x.min(), y.min())), float(max(x.max(), y.max()))
     if hi <= lo:
         lo, hi = lo - 1.0, hi + 1.0
-    ax.plot([lo, hi], [lo, hi], color=GREY, linewidth=0.6, linestyle=":")
+    ax.plot([lo, hi], [lo, hi], color=style.OKABE_ITO["grey"], linewidth=0.6, linestyle=":")
     for k in ("OP", "NO"):
         sel = (cls == k) & ~hit
         if sel.any():

@@ -17,7 +17,9 @@
 # $GIAP_ROOT/recordings/bakta_full/<genome>/bakta/<genome>.json);
 # (d) K-12 only: TE6 (§11.6) on the live Bakta JSON: an oriC call whose nearest gene is mnmG or
 # mioC with mnmG within 2 kb; (e) K-12 only: TE8 (§11.6, M3-22): validation/fetch_uniprot_k12.py,
-# then validation/proxies/te_proxies.py te8 -> $GIAP_ROOT/ci/validation/<date>_te8_<job>.json.
+# then validation/proxies/te_proxies.py te8 -> $GIAP_ROOT/ci/validation/<date>_te8_<job>.json;
+# (f) Nissle only: TE2 (§11.6, M7-14): validation/proxies/te_proxies.py te2 on the committed Nissle
+# genome and recorded full-DB JSON -> $GIAP_ROOT/ci/validation/<date>_te2_<job>.json.
 # Measured runtimes: scripts/measure_runtimes.py on each trace.
 # Evidence stand-in (M2 annotation track only; MAPPING is M3): `giap run` requires --proteins or
 # --peptides, so the evidence is a deterministic 60 % subset of the recorded Bakta proteins
@@ -168,6 +170,16 @@ if [ "$S" = k12_mg1655 ]; then
          "$B/k12/k12_mg1655.json.gz" "$D/genomes/nissle1917.fna.gz" "$B/nissle/nissle1917.json.gz" \
          "$GIAP_DATA_DIR/uniprot/UP000000625.fasta" --out "$te8" 2>&1 | tee "$RUN/te8.log" | tail -1
   step "${PIPESTATUS[0]}" "TE8 $te8"
+fi
+# (f) Nissle task only: TE2 (§11.6, M7-14) on the committed genome and the recorded full-DB Bakta
+# JSON (no download); a violation turns the weekly line red. Result JSON kept as gate-M7 evidence
+if [ "$S" = nissle1917 ]; then
+  stage="TE2"
+  te2="$CI/validation/$(date +%F)_te2_${JOB}.json"; mkdir -p "$CI/validation"
+  D=tests/data; B=$D/recorded/bakta/1.12.2-full
+  python validation/proxies/te_proxies.py te2 "$D/genomes/nissle1917.fna.gz" \
+    "$B/nissle/nissle1917.json.gz" --out "$te2" 2>&1 | tee "$RUN/te2.log" | tail -1
+  step "${PIPESTATUS[0]}" "TE2 $te2"
 fi
 report "$rc" "$summary"
 exit "$rc"

@@ -10,7 +10,7 @@ input:
   search_db: auto                 # auto | same | other; auto = same if ≥95 % of protein_ids match the gene model
   decoy_prefixes: ["rev_", "REV_", "DECOY_", "decoy_", "XXX_", "##"]
   contaminant_prefixes: ["Cont_", "CON__", "CONT_", "cRAP"]
-  q_value_max: 0.01               # peptides with q above this are not evidence (still used to estimate FDR)
+  q_value_max: 0.01               # peptides with q above this are not evidence (kept in C9 and in preflight's q range; ADR-0047)
   peptide_len: [7, 40]            # shorter are dropped; longer protein records go to miniprot
   i_equals_l: true
 
