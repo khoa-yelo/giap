@@ -222,7 +222,8 @@ def _record(chain: Chain, tmp_path: Path, cfg: Any, monkeypatch: pytest.MonkeyPa
     from giap.steps.sensitivity import sensitivity
 
     rec = _Recorder()
-    monkeypatch.setattr(_S(), "FAMILIES", {"recorder": rec})
+    # registered as operon_flags: pair_threshold variants run only there (decision 8, review B2)
+    monkeypatch.setattr(_S(), "FAMILIES", {"operon_flags": rec})
     gt = so.gene_table(so.tables(chain)["genes"], imputed=(1, 2, 3))
     ins = so.write_inputs(chain, tmp_path / "in", gt)
     out = tmp_path / "tables" / "sensitivity.tsv"

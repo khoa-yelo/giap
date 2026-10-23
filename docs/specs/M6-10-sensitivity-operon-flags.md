@@ -126,3 +126,7 @@ estimate ≈ 110 code lines (+ ≈ 150 test lines) · statistical (light)
      with one `sensitivity.operon_flags_skipped` event. It never raises a KeyError. The test is
      parametrised over each single missing key and over all of them.
    - Nits N1–N5 go to the backlog.
+9. **Test-author B2/B3 tests (9f77b30d):** the B3 skip path already held, and the new tests now pin
+   it (mutant M6 is killed). For B2 the lead edited two existing tests:
+   - the `Variant` field list gains `families`;
+   - `test_patch_variants_reach_the_family` registers its recorder as `operon_flags`.

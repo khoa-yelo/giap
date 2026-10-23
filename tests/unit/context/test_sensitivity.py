@@ -47,6 +47,7 @@ def test_variant_is_a_frozen_slotted_dataclass() -> None:
     assert dataclasses.is_dataclass(S.Variant)
     assert [f.name for f in dataclasses.fields(S.Variant)] == [
         "name", "overrides", "single_peptide_detected", "config_patch",  # + M6-10 decision 1
+        "families",  # + M6-10 decision 8 (review B2)
     ]  # fmt: skip
     assert S.Variant.__dataclass_params__.frozen
     assert hasattr(S.Variant, "__slots__")
