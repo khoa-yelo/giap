@@ -10,7 +10,9 @@ change a call. ``reference_peptides`` is declared only (preflight pairs it into 
 no randomness. The VCF sample is ``cfg.sample_name``, which ``giap run`` resolves; an unresolved
 ``auto`` fails the step (``write_vcf``). M7-14: the work Parquet ``variants_qc`` holds the §7.5.1
 ``id_mixups`` count (one row: ``metric``, ``value``, ``n``), which ``context_stats`` writes into
-``detection_summary.tsv``.
+``detection_summary.tsv``. M7-18: when the pileup skipped any op on a B, J, O, U, X or Z
+peptide residue, one INFO event ``variants.nonstandard_residues`` carries
+``attrs["nonstandard"]``.
 """
 
 from __future__ import annotations
@@ -42,6 +44,7 @@ from giap.variants.vcf_records import FORMAT_FIELDS, INFO_FIELDS, vcf_records
 
 LAYER_MISSING_HITS_TOLERANT = "layer_missing:hits_tolerant"
 SUMMARY_EVENT = "variants.summary"
+NONSTANDARD_EVENT = "variants.nonstandard_residues"
 
 
 def _has_frameshift(v: object) -> bool:
@@ -207,6 +210,11 @@ def variants_step(ctx: StepContext) -> None:
     ctx.log.info("variants: %d aligned hits, %d covered codons, %d sites (by call %s)",
                  len(ph), len(pile), len(table), data["sites_by_call"],
                  extra={"event": SUMMARY_EVENT, "data": data})  # fmt: skip
+    ns = pile.attrs["nonstandard"]
+    if ns["skipped_sites"]:
+        ctx.log.info("variants: %d site(s) with an ambiguous or rare peptide residue skipped (%s)",
+                     ns["skipped_sites"], ns["by_residue"],
+                     extra={"event": NONSTANDARD_EVENT, "data": ns})  # fmt: skip
     sha = hashlib.sha256(gpath.read_bytes()).hexdigest()
     write_vcf(ctx.outputs["variants_vcf"], records, list(gm.replicons.values()),
               giap_version=giap.__version__, genome_sha256=sha, sample=ctx.cfg.sample_name,
