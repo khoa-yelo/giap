@@ -707,3 +707,140 @@ def test_giap_run_publishes_the_side_table_and_the_makedb_warning(
     assert f"novel_orfs:{MAKEDB_EVENT}" in man["warnings"]
     assert man["novel_orfs"] is None  # no class event in a decoys_not_makedb run
     assert not any("decoys_not_makedb" in f for f in man["flags"])
+
+
+# ---------------------------------------------------------------- review round (#256 B1, B2)
+#
+# B1: ``n_called`` of a ``novel_orfs.class_fdr`` event on a class with calls (mutant M11). With
+# nine candidate ORFs a picked list has q >= 1 / 9, so the picked test runs at
+# ``stats.alpha.novel_orfs = 0.5``; the de novo test keeps alpha 0.01 (q = c / T < alpha).
+# B2: picked ``n_targets`` = won + lost_pick (mutant M8). ``orf_regimes`` and
+# ``picked_class_fdr`` look an ORF's peptides up in the same target rows, so a picked-regime ORF
+# always has a target score through the step; the test forces one ORF without target rows into
+# the picked regime (``giap.novel.fdr.orf_regimes`` wrapped), with its makedb entry kept in the
+# run by an unrelated target peptide on the same ID.
+
+
+def _n_called_by_list(side: Mapping[str, Mapping[str, Any]]) -> dict[tuple[str, str], int]:
+    out: dict[tuple[str, str], int] = {}
+    for r in side.values():
+        if bool(r["called"]):
+            k = (str(r["regime"]), str(r["fdr_class"]))
+            out[k] = out.get(k, 0) + 1
+    return out
+
+
+def _mismatch_peptides(w: dict[str, Any]) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """``_makedb_peptides`` with antisense[1] (its class rule holds) on the ``cds_outframe``-tagged
+    entry closed by its stop instead of its own entry (decision 9)."""
+    peps, role = _makedb_peptides(w)
+    a1 = role["a1"]
+    own, tagged = _entry(a1), _entry(a1, "cds_outframe")
+    peps["protein_ids"] = [[tagged if i == own else i for i in ids] for ids in peps["protein_ids"]]
+    return peps, role
+
+
+def test_b1_picked_n_called_counts_calls_under_the_entry_class(
+    run1: tuple[Any, Path, Path], world: dict[str, Any], tmp_path: Path
+) -> None:
+    from giap.config import resolve_config
+
+    sim, _, work = run1
+    cfg = resolve_config(Path(sim.config_yaml), [f"seed={nf.SEED}", "stats.alpha.novel_orfs=0.75"])
+    assert cfg.stats.alpha.novel_orfs == 0.75
+    peps, role = _mismatch_peptides(world)
+    p = _write(peps, tmp_path / "peptides.parquet")
+    o, rec = _run("novel_orfs", cfg, _base(run1, cfg, peptides=p, features=_features(work)),
+                  tmp_path / "o")  # fmt: skip
+    side = _rows(o)
+    a1 = side[role["a1"].orf_id]
+    assert (a1["class"], a1["fdr_class"], bool(a1["class_mismatch"])) == (
+        "antisense", "cds_outframe", True)  # fmt: skip
+    assert bool(a1["class_rule_met"]) and bool(a1["called"]), a1  # called from cds_outframe
+    by_list = _n_called_by_list(side)
+    t_cds = len(role["cds"]) + 2  # the cds_outframe ORFs, ig and a1 (both on tagged entries)
+    called_cds = sum(bool(side[x.orf_id]["called"]) for x in [*role["cds"], role["ig"]])
+    assert called_cds >= 1
+    assert by_list[("picked_decoy", "cds_outframe")] == called_cds + 1
+    evs = {(e.data["regime"], e.data["class"]): e.data for e in _events(rec, CLASS_EVENT)}  # type: ignore[attr-defined]
+    cds = evs[("picked_decoy", "cds_outframe")]
+    assert (cds["n_targets"], cds["alpha"], cds["floor_above_alpha"]) == (t_cds, 0.75, False)
+    assert cds["n_called"] == called_cds + 1 >= 2
+    anti = evs[("picked_decoy", "antisense")]
+    assert (anti["n_targets"], anti["n_called"]) == (1, 0)  # a0 lost_pick; a1 is not counted here
+    for k, d in evs.items():
+        assert d["n_called"] == by_list.get(k, 0), k
+    tsv_called = sum(r["called"] == "true" for r in _tsv(o))
+    untagged = sum(bool(r["called"]) for r in side.values() if r["reason"] == "untagged_class")
+    assert sum(d["n_called"] for d in evs.values()) == tsv_called - untagged
+
+
+def test_b1_denovo_n_called_counts_the_called_class(
+    run1: tuple[Any, Path, Path], cfg1: Any, world: dict[str, Any], tmp_path: Path
+) -> None:
+    cds = world["by_cls"]["cds_outframe"]
+    n_t = len({p for o in cds for p in o.peptides})
+    files = _denovo_inputs(world, tmp_path, dn=cds, pi=0.0099999 * n_t)  # q = 0.0099999
+    o, rec = _run("novel_orfs", cfg1, _dn_ins(run1, cfg1, files), tmp_path / "o")
+    side = _rows(o)
+    assert all(bool(side[x.orf_id]["called"]) for x in cds)
+    d = next(e.data for e in _events(rec, CLASS_EVENT)  # type: ignore[attr-defined]
+             if (e.data["regime"], e.data["class"]) == ("denovo_subgroup", "cds_outframe"))  # type: ignore[attr-defined]  # fmt: skip
+    assert d["n_called"] == len(cds) >= 1
+    assert d["n_called"] == _n_called_by_list(side)[("denovo_subgroup", "cds_outframe")]
+
+
+def test_b2_picked_n_targets_excludes_no_target_score(
+    run1: tuple[Any, Path, Path], cfg1: Any, world: dict[str, Any], tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:  # fmt: skip
+    from giap.novel import fdr as F
+
+    _, _, work = run1
+    peps, role = _makedb_peptides(world)
+    ig, a1 = role["ig"], role["a1"]
+    gone = set(ig.peptides) | set(a1.peptides)
+    peps = peps[~peps["peptide"].isin(gone)].reset_index(drop=True)
+    # keep both entries in the run (an unrelated target peptide on each ID), no ORF score on them
+    extra = [pep_row("GGGGGGGGK", [_entry(ig, "cds_outframe")], 950, is_decoy=False),
+             pep_row("GGGGGGGGGK", [_entry(a1)], 951, is_decoy=False)]  # fmt: skip
+    peps = pd.concat([peps, peptides_frame(extra)], ignore_index=True)
+    p = _write(peps, tmp_path / "peptides.parquet")
+    forced = {ig.orf_id, a1.orf_id}
+    orig = F.orf_regimes
+
+    def regimes(*a: Any, **k: Any) -> dict[str, Any]:
+        out = orig(*a, **k)
+        assert {out[i] for i in forced} == {"unestimated"}  # no target row of their own
+        return {i: ("picked_decoy" if i in forced else r) for i, r in out.items()}
+
+    monkeypatch.setattr(F, "orf_regimes", regimes)
+    o, rec = _run("novel_orfs", cfg1, _base(run1, cfg1, peptides=p, features=_features(work)),
+                  tmp_path / "o")  # fmt: skip
+    side = _rows(o)
+    for oid, cls in ((ig.orf_id, "cds_outframe"), (a1.orf_id, "antisense")):
+        r = side[oid]
+        assert (r["regime"], r["fdr_class"], r["reason"], r["class_fdr"]) == (
+            "picked_decoy", cls, "no_target_score", "unestimated"), r  # fmt: skip
+    a0 = side[role["a0"].orf_id]
+    assert a0["reason"] == "lost_pick"
+    evs = {(e.data["regime"], e.data["class"]): e.data for e in _events(rec, CLASS_EVENT)}  # type: ignore[attr-defined]
+    for cls in ("cds_outframe", "antisense"):
+        d = evs[("picked_decoy", cls)]
+        rows = [r for r in side.values() if (r["regime"], r["fdr_class"]) == ("picked_decoy", cls)]
+        won = sum(1 for r in rows if r["reason"] is None)
+        lost = sum(1 for r in rows if r["reason"] == "lost_pick")
+        assert d["estimated"] is True, (cls, d)
+        assert d["n_targets"] == won + lost, (cls, d, won, lost)
+    t = len(role["cds"])  # the cds_outframe ORFs win; ig has no target score
+    cds = evs[("picked_decoy", "cds_outframe")]
+    assert (cds["n_targets"], cds["n_target_wins"], cds["floor_above_alpha"]) == (t, t, True)
+    anti = evs[("picked_decoy", "antisense")]
+    assert (anti["n_targets"], anti["n_target_wins"], anti["n_decoys"]) == (1, 0, 1)
+    floors = {(e.data["regime"], e.data["class"]): e for e in _events(rec, FLOOR_EVENT)}  # type: ignore[attr-defined]
+    f = floors[("picked_decoy", "cds_outframe")]
+    assert f.data["n_targets"] == t  # type: ignore[attr-defined]
+    assert f.getMessage().startswith(
+        f"novel_orfs: class cds_outframe (picked_decoy) has {t} targets; "
+    ), f.getMessage()
+    assert ("picked_decoy", "antisense") not in floors  # no target win: no floor
