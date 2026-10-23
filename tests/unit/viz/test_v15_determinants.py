@@ -1,7 +1,8 @@
 # ruff: noqa: RUF001, RUF003  (Δ, ², ± and – are the spec's own characters)
 """V15 ``determinants``: what explains abundance? (M9-20; GIAP_SPEC.md §10.2 V15, §7.8.2, §9.3
 ``determinants_model.tsv`` / ``determinants_attribution.tsv``; ADR-0031..0034; M9-17 support
-files, its lead decision 5; M9-20 lead decisions 1-3 of 2026-10-23).
+files, its lead decision 5; M9-20 lead decisions 1-5 of 2026-10-23; decision 5 is the review
+round: B1-B4, S1-S3, N3, N4).
 
 Covers examples 1-6, the four panels, the title rule (the elastic net's ΔR² leads, decision 1),
 the feature naming ("promoter score" = ``promotech_max``, decision 2), the footnotes, the
@@ -56,7 +57,7 @@ import pandas as pd
 import pytest
 from helpers import support_analysis_data as sa
 from helpers import viz_determinants as vd
-from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from matplotlib.axes import Axes
 from matplotlib.collections import Collection
@@ -72,10 +73,19 @@ from giap.viz.base import Instance, Skip
 COLUMNS = ["panel", "model", "block", "feature", "x", "y", "ci_low", "ci_high", "locus_tag",
            "category", "flags"]  # fmt: skip
 VERMILLION, ORANGE = "#D55E00", "#E69F00"
-EX1_TITLE = (
-    "Elastic net explains CV R² 0.21 ± 0.03; largest block ΔR²: transcription 0.08 "
-    "(95 % CI 0.05–0.11)"
+EX1_TITLE = (  # lead decision 5, B1 and S2: neutral head, the interval named honestly
+    "Elastic net CV R² 0.21 ± 0.03; largest block ΔR²: transcription 0.08 "
+    "(repeat t-interval 0.05–0.11, uncalibrated)"
 )
+NONE_ABOVE = "no block's ΔR² interval lies above 0"  # decision 5, B3
+A_HEADER = "(a) block ΔR² (t-interval over CV repeats, uncalibrated)"  # B1
+DELTA_FOOT = "ΔR² intervals uncalibrated: CV repeats share data (ADR-0031)"  # B1
+D_HEADER = "(d) observed vs. LightGBM out-of-fold"  # B2
+D_R2 = "CV R² 0.25 ± 0.04 (LightGBM, plotted); elastic net 0.21 ± 0.03 (primary)"  # B2
+D_FLAG = "unexplained (> 2 SD of LightGBM residuals)"  # B2
+B_LABEL = "partial dependence, LightGBM (secondary); spread over 25 CV models (not a CI)"  # S1
+HEX_BAR, HEX_PROXY = "genes per bin (log count)", "model genes (binned)"  # B4
+MINUS = "\u2212"
 NULL_FOOT = "null p 0.02 (uncalibrated: valid only for exchangeable TUs, ADR-0034)"
 UNI_FOOT = "univariate CIs uncalibrated (ADR-0032)"
 EN_LEGEND, LGB_LEGEND = "elastic net (primary, ADR-0033)", "LightGBM (secondary check)"
@@ -125,6 +135,10 @@ def _isna(v: object) -> bool:
 
 def _f(v: object) -> float:
     return math.nan if _isna(v) else float(str(v))
+
+
+def _f2(v: float) -> str:
+    return f"{v:.2f}".replace("-", MINUS)
 
 
 def _rows(inst: Instance, panel: str) -> pd.DataFrame:
@@ -266,8 +280,8 @@ def test_title_uses_the_elastic_net_not_lightgbm(tmp_path: Path, cfg: GiapConfig
 def test_example_2_no_block_ci_excludes_zero(tmp_path: Path, cfg: GiapConfig) -> None:
     out = vd.build_out(tmp_path, model=vd.model_table(vd.EN_DELTAS_NULL))
     t = _render(out, cfg).title
-    assert t.startswith("Elastic net explains CV R² 0.21 ± 0.03"), t
-    assert t.endswith("no block's ΔR² CI excludes 0"), t
+    assert t.startswith("Elastic net CV R² 0.21 ± 0.03"), t  # decision 5, S2
+    assert t.endswith(NONE_ABOVE), t  # decision 5, B3
     assert "largest block" not in t
 
 
@@ -498,7 +512,7 @@ def test_example_5_ribosomal_reference_category_and_colour(tmp_path: Path, cfg: 
 def test_example_5_r2_text_is_the_elastic_net_cv_r2(tmp_path: Path, cfg: GiapConfig) -> None:
     """The R² text quotes the model table (model rows only), not a refit with ribosomal genes."""
     texts = _ax_texts(_axes(_main(tmp_path, cfg), "d"))
-    assert any("CV R² 0.21 ± 0.03 (elastic net)" in t for t in texts), texts
+    assert any(D_R2 in t for t in texts), texts  # decision 5, B2
 
 
 def test_panel_d_identity_line(tmp_path: Path, cfg: GiapConfig) -> None:
@@ -626,24 +640,310 @@ def test_property_title_rule_and_panel_a_rows(draw: dict[str, tuple[int, int]]) 
     block's CI excludes 0 it is named, with its value and CI; one (a) row per input row."""
     cfg = resolve_config()
     en = {b: (v / 100, (v - h) / 100, (v + h) / 100) for b, (v, h) in draw.items()}
-    # a CI wholly below 0 is left out: whether it "excludes 0" for the title is open (gap)
-    assume(all(hi > 0 for _, _, hi in en.values()))  # type: ignore[operator]
     excl = {b for b, (_, lo, _) in en.items() if lo > 0}  # type: ignore[operator]
     with tempfile.TemporaryDirectory() as tmp:
         out = vd.build_out(Path(tmp), model=vd.model_table(en), support=False)
         inst = _render(out, cfg)
         t = inst.title
-        assert t.startswith("Elastic net explains CV R² 0.21 ± 0.03; "), t
+        assert t.startswith("Elastic net CV R² 0.21 ± 0.03; "), t
         if not excl:
-            assert t.endswith("no block's ΔR² CI excludes 0"), (t, en)
+            assert t.endswith(NONE_ABOVE), (t, en)
         else:
             assert "largest block ΔR²: " in t, (t, en)
             named = re.search(r"largest block ΔR²: (\w+) ", t)
             assert named and named.group(1) in excl, (t, en)
-            top = max(en, key=lambda b: (en[b][0], b))
-            if top in excl and sum(en[b][0] == en[top][0] for b in en) == 1:
-                assert named.group(1) == top, (t, en)
+            best = max(en[b][0] for b in excl)  # decision 4; N4: ties in BLOCKS order
+            top = next(b for b in vd.BLOCKS if b in excl and en[b][0] == best)
+            assert named.group(1) == top, (t, en)
+            v, lo, hi = en[top]
+            assert t.endswith(f"{top} {_f2(v)} (repeat t-interval {_f2(lo)}–{_f2(hi)}, "
+                              "uncalibrated)"), (t, en)  # fmt: skip
         a = _rows(inst, "a")
         en_rows = a[a["model"].astype(str) == "elastic_net"]
         assert sorted(en_rows["block"].astype(str)) == sorted(en)
         inst.figure.clear()
+
+
+# --- review round (lead decision 5) -----------------------------------------------------------
+
+
+def _en(**over: tuple[float, float | None, float | None]) -> dict:
+    """``EN_DELTAS_NULL`` (every interval includes 0) with ``over`` replacing blocks."""
+    return {**vd.EN_DELTAS_NULL, **over}
+
+
+def _title_of(tmp: Path, cfg: GiapConfig, en: dict, **kw: object) -> str:
+    out = vd.build_out(tmp, model=vd.model_table(en, **kw), support=False)  # type: ignore[arg-type]
+    return _render(out, cfg).title
+
+
+def test_b1_title_names_the_repeat_t_interval_uncalibrated(tmp_path: Path, cfg: GiapConfig) -> None:
+    t = _main(tmp_path, cfg).title
+    assert "(repeat t-interval 0.05–0.11, uncalibrated)" in t, t
+    assert "95 % CI" not in t and "CI" not in t.replace("CV", ""), t
+
+
+def test_b1_panel_a_header(tmp_path: Path, cfg: GiapConfig) -> None:
+    ax = _axes(_main(tmp_path, cfg), "a")
+    assert ax.get_title(loc="left") == A_HEADER
+
+
+def test_b1_delta_r2_footnote(tmp_path: Path, cfg: GiapConfig) -> None:
+    text = _alltext(_main(tmp_path, cfg))
+    assert DELTA_FOOT in text
+    assert NULL_FOOT in text  # the other footnotes stay
+
+
+def test_b3_interval_wholly_below_zero_is_not_named(tmp_path: Path, cfg: GiapConfig) -> None:
+    """Transcription's interval lies wholly below 0 (|ΔR²| the largest): no block is named."""
+    t = _title_of(tmp_path, cfg, _en(transcription=(-0.09, -0.12, -0.06)))
+    assert t == f"Elastic net CV R² 0.21 ± 0.03; {NONE_ABOVE}", t
+
+
+def test_b3_below_zero_beside_above_zero_names_the_above(tmp_path: Path, cfg: GiapConfig) -> None:
+    t = _title_of(tmp_path, cfg, _en(transcription=(-0.09, -0.12, -0.06),
+                                     codon=(0.04, 0.01, 0.07)))  # fmt: skip
+    assert t.endswith(
+        "largest block ΔR²: codon 0.04 (repeat t-interval 0.01–0.07, uncalibrated)"
+    ), t
+
+
+def test_n3_interval_low_end_exactly_zero_is_not_above(tmp_path: Path, cfg: GiapConfig) -> None:
+    """An interval [0, hi] does not lie above 0 (strict ``lo > 0``)."""
+    t = _title_of(tmp_path, cfg, _en(transcription=(0.10, 0.0, 0.20)))
+    assert t.endswith(NONE_ABOVE), t
+    assert "transcription" not in t
+
+
+def test_n4_ties_are_broken_in_blocks_order(tmp_path: Path, cfg: GiapConfig) -> None:
+    """transcription precedes translation in BLOCKS; alphabetically it would lose the tie."""
+    t = _title_of(tmp_path, cfg, _en(transcription=(0.05, 0.01, 0.09),
+                                     translation=(0.05, 0.02, 0.08)))  # fmt: skip
+    assert "largest block ΔR²: transcription 0.05 (repeat t-interval 0.01–0.09" in t, t
+
+
+def test_s2_title_uses_a_unicode_minus(tmp_path: Path, cfg: GiapConfig) -> None:
+    t = _title_of(tmp_path, cfg, vd.EN_DELTAS_NULL, en_cv=(-0.05, 0.03, 0.5))
+    assert t == f"Elastic net CV R² {MINUS}0.05 ± 0.03; {NONE_ABOVE}", t
+    assert "-" not in t
+
+
+def test_s2_na_cv_r2_reads_unestimated(tmp_path: Path, cfg: GiapConfig) -> None:
+    rows = [r for r in vd.model_table(vd.EN_DELTAS_NULL)
+            if not (r["model"] == "elastic_net" and r["metric"] == "cv_r2_mean")]  # fmt: skip
+    rows.append(vd.mrow("elastic_net", "all", "cv_r2_mean", None, flags="ci_unestimated"))
+    out = vd.build_out(tmp_path, model=rows, support=False)
+    t = _render(out, cfg).title
+    assert t.startswith("Elastic net CV R² "), t
+    assert "unestimated" in t, t
+    assert not re.search(r"\bNA\b", t), t
+
+
+def test_b2_panel_d_header_r2_text_and_flag_label(tmp_path: Path, cfg: GiapConfig) -> None:
+    ax = _axes(_main(tmp_path, cfg), "d")
+    assert ax.get_title(loc="left") == D_HEADER
+    texts = _ax_texts(ax)
+    assert D_R2 in texts, texts
+    legend = ax.get_legend()
+    assert legend is not None
+    labels = [t.get_text() for t in legend.get_texts()]
+    assert D_FLAG in labels, labels
+    assert "unexplained (> 2 SD)" not in labels
+
+
+def test_b2_panel_d_r2_text_unicode_minus(tmp_path: Path, cfg: GiapConfig) -> None:
+    """A null-world LightGBM (CV R² below 0) reads with a Unicode minus (S2's formatter)."""
+    out = vd.build_out(tmp_path, model=vd.model_table(lgb_cv=(-0.27, 0.05, 0.6)), support=False)
+    texts = _ax_texts(_axes(_render(out, cfg), "d"))
+    want = f"CV R² {MINUS}0.27 ± 0.05 (LightGBM, plotted); elastic net 0.21 ± 0.03 (primary)"
+    assert want in texts, texts
+
+
+def test_s1_panel_b_label(tmp_path: Path, cfg: GiapConfig) -> None:
+    assert B_LABEL in _alltext(_main(tmp_path, cfg))
+
+
+def _big(tmp: Path) -> tuple[Path, int]:
+    """20,500 genes, every 20th flagged unexplained, plus two ribosomal references; returns the
+    OUT tree and the number of ``model``-category rows."""
+    n = 20_500
+    att = vd.many_attribution(n)
+    for i, r in enumerate(att):
+        if i % 20 == 0:
+            r["flags"] = vd.UNEXPLAINED
+    att += [{"locus_tag": t, "abundance_log2": 25.0 + j, "predicted_log2": 23.5 + j,
+             "residual": 1.5, "top_decile": False, "flags": "cai_reference"}
+            for j, t in enumerate(vd.RIBOSOMAL)]  # fmt: skip
+    n_model = sum(1 for i in range(n) if i % 20)
+    return vd.build_out(tmp, attribution=att, features=vd.many_features(n), support=False), n_model
+
+
+def _hexbins(ax: Axes) -> list[Collection]:
+    return [c for c in ax.collections if type(c).__name__ == "PolyCollection"
+            and c.get_array() is not None]  # fmt: skip
+
+
+def test_b4_hexbin_bins_model_genes_only_on_a_log_scale(tmp_path: Path, cfg: GiapConfig) -> None:
+    out, n_model = _big(tmp_path)
+    inst = _render(out, cfg)
+    ax = _axes(inst, "d")
+    hexes = _hexbins(ax)
+    assert len(hexes) == 1, ax.collections
+    counts = np.asarray(hexes[0].get_array(), float)
+    assert counts.sum() == pytest.approx(n_model)  # unexplained and ribosomal not binned
+    assert isinstance(hexes[0].norm, mcolors.LogNorm), hexes[0].norm  # bins="log"
+    assert VERMILLION in _colours(ax) and ORANGE in _colours(ax)  # flagged rows still drawn
+    d = _rows(inst, "d")
+    assert (d["category"].astype(str) == "model").sum() == n_model
+
+
+def test_b4_hexbin_colourbar_and_legend_proxy(tmp_path: Path, cfg: GiapConfig) -> None:
+    inst = _render(_big(tmp_path)[0], cfg)
+    labels = [ax.get_ylabel() for ax in inst.figure.axes] + [
+        ax.get_xlabel() for ax in inst.figure.axes]  # fmt: skip
+    assert HEX_BAR in labels, labels
+    legend = _axes(inst, "d").get_legend()
+    assert legend is not None
+    assert HEX_PROXY in [t.get_text() for t in legend.get_texts()]
+
+
+def test_b4_checklist_big_genome(tmp_path: Path, cfg: GiapConfig) -> None:
+    out, _ = _big(tmp_path / "in")
+    assert _gated_failures(_render(out, cfg), tmp_path / "plots") == []
+
+
+def test_n3_imputed_rows_are_not_model_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+    """Detected genes with an imputed abundance in TUs of their own leave the counts at 60/20."""
+    feats = vd.feature_rows(60, tu=3)
+    for k in range(5):
+        feats.append({**feats[0], "locus_tag": f"I_{k:04d}", "tu_id": f"TUI{k:04d}",
+                      "abundance_imputed": True})  # fmt: skip
+    out = vd.build_out(tmp_path, model=vd.too_few_model_table(),
+                       attribution=vd.too_few_attribution(60), features=feats,
+                       support=False)  # fmt: skip
+    assert _render(out, cfg).title == "Too few genes for the determinants model (60 rows, 20 TUs)"
+
+
+def test_n3_imputed_rows_are_not_in_the_pd_rug(tmp_path: Path, cfg: GiapConfig) -> None:
+    feats = vd.feature_rows()
+    feats.append({**feats[0], "locus_tag": "I_0000", "tu_id": "TUI0000",
+                  "abundance_imputed": True})  # fmt: skip
+    b = _rows(_main(tmp_path, cfg, features=feats), "b")
+    assert "I_0000" not in set(b["locus_tag"].dropna().astype(str))
+    assert "G_0000" in set(b["locus_tag"].dropna().astype(str))
+
+
+def test_n3_each_feature_sits_at_its_own_tick(tmp_path: Path, cfg: GiapConfig) -> None:
+    inst = _main(tmp_path, cfg)
+    ax = _axes(inst, "c")
+    pairs = zip(ax.get_yticks(), ax.get_yticklabels(), strict=True)
+    tick = {lab.get_text(): float(y) for y, lab in pairs if lab.get_text()}
+    c = _rows(inst, "c")
+    assert set(c["feature"].astype(str)) <= set(tick), tick
+    for f, grp in c.groupby(c["feature"].astype(str)):
+        ys = np.array([_f(v) for v in grp["y"]])
+        assert abs(ys.mean() - tick[f]) < 0.4, (f, ys.mean(), tick[f])
+        assert np.all(np.abs(ys - tick[f]) <= 0.5), f
+
+
+def test_n3_half_na_ci_is_unestimated(tmp_path: Path, cfg: GiapConfig) -> None:
+    """Protein's interval has a low end but no high end: no bar, "CI unestimated" (as context)."""
+    en = {**vd.EN_DELTAS, "protein": (0.01, -0.02, None)}
+    inst = _main(tmp_path, cfg, model=vd.model_table(en), support=False)
+    a = _rows(inst, "a")
+    prot = a[(a["model"].astype(str) == "elastic_net") & (a["block"].astype(str) == "protein")]
+    assert _f(prot.iloc[0]["ci_low"]) == pytest.approx(-0.02)
+    assert _isna(prot.iloc[0]["ci_high"])
+    ax = _axes(inst, "a")
+    assert sum(t == "CI unestimated" for t in _ax_texts(ax)) == 2  # context and protein
+    n_bars = sum(len(c.get_segments()) for c in ax.collections
+                 if type(c).__name__ == "LineCollection")  # fmt: skip
+    finite = sum(not _isna(lo) and not _isna(hi) for lo, hi in zip(a["ci_low"], a["ci_high"],
+                                                                   strict=True))  # fmt: skip
+    assert n_bars == finite, (n_bars, finite)
+
+
+# --- the Plotly twin (decision 5, S3) ---------------------------------------------------------
+
+
+def _twin(tmp: Path, cfg: GiapConfig) -> dict:
+    from giap.steps.plots import TWIN_ID_DTYPES
+    from giap.viz.interactive import figure_json
+
+    inst = _main(tmp, cfg)
+    write_instance(inst, "V15", "determinants", tmp / "plots", ["svg"], 50)
+    data = pd.read_csv(tmp / "plots" / "data" / "V15_determinants.tsv", sep="\t",
+                       na_values=["NA"], keep_default_na=False, dtype=TWIN_ID_DTYPES)  # fmt: skip
+    text = figure_json("V15", data, inst.title, None)
+    assert text is not None
+    return json.loads(text)
+
+
+def _arr(v: object) -> list[object]:
+    """A plotly JSON array: a list, or a typed array ``{"dtype", "bdata"}`` (plotly >= 6)."""
+    if isinstance(v, dict) and "bdata" in v:
+        import base64
+
+        return list(np.frombuffer(base64.b64decode(v["bdata"]), dtype=np.dtype(v["dtype"])))
+    return list(v) if isinstance(v, list | tuple) else [v]
+
+
+def _a_traces(fig: dict) -> dict[str, dict]:
+    return {t["name"]: t for t in fig["data"] if t.get("name") in (EN_LEGEND, LGB_LEGEND)}
+
+
+def _yaxis(fig: dict, trace: dict) -> dict:
+    ref = trace.get("yaxis", "y")
+    return fig["layout"].get("yaxis" + ref[1:], {})
+
+
+def test_s3_twin_panel_a_dodged_numeric_y(tmp_path: Path, cfg: GiapConfig) -> None:
+    fig = _twin(tmp_path, cfg)
+    tr = _a_traces(fig)
+    assert set(tr) == {EN_LEGEND, LGB_LEGEND}
+    ys = {k: _arr(t["y"]) for k, t in tr.items()}
+    for y in ys.values():
+        assert all(isinstance(v, int | float | np.number) for v in y), y
+    en = tr[EN_LEGEND]
+    # shared blocks in BLOCKS order: transcription, translation, codon, protein
+    for i in range(4):
+        gap = abs(float(ys[EN_LEGEND][i]) - float(ys[LGB_LEGEND][i]))  # type: ignore[arg-type]
+        assert 0 < gap < 0.5, (i, ys)
+    ax = _yaxis(fig, en)
+    assert set(vd.BLOCKS) <= set(ax.get("ticktext", []))
+
+
+def test_s3_twin_panel_a_markers(tmp_path: Path, cfg: GiapConfig) -> None:
+    tr = _a_traces(_twin(tmp_path, cfg))
+    assert tr[EN_LEGEND]["marker"].get("symbol") == "circle"
+    assert tr[LGB_LEGEND]["marker"].get("symbol") == "diamond-open"
+
+
+def test_s3_twin_panel_a_y_axis_reversed(tmp_path: Path, cfg: GiapConfig) -> None:
+    fig = _twin(tmp_path, cfg)
+    ax = _yaxis(fig, _a_traces(fig)[EN_LEGEND])
+    rng = ax.get("range")
+    assert ax.get("autorange") == "reversed" or (rng and rng[0] > rng[1]), ax
+
+
+def _annotations(fig: dict) -> list[str]:
+    return [str(a.get("text", "")) for a in fig["layout"].get("annotations", [])]
+
+
+def test_s3_twin_footnotes_are_an_annotation(tmp_path: Path, cfg: GiapConfig) -> None:
+    from giap.determinants import CAVEATS
+
+    notes = "\n".join(_annotations(_twin(tmp_path, cfg)))
+    assert DELTA_FOOT in notes, notes
+    assert CAVEATS[0] in notes, notes
+
+
+def test_s3_twin_marks_ci_unestimated(tmp_path: Path, cfg: GiapConfig) -> None:
+    """A visible mark (annotation or text trace), not only hover text, for the NA interval."""
+    fig = _twin(tmp_path, cfg)
+    shown = _annotations(fig)
+    for t in fig["data"]:
+        if "text" in str(t.get("mode", "")):
+            txt = t.get("text")
+            shown += [str(x) for x in _arr(txt)]
+    assert sum("CI unestimated" in s for s in shown) >= 1, shown
