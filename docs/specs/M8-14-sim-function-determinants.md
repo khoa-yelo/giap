@@ -143,3 +143,16 @@ def determinants_planted(n_genes: int, coefs: Mapping[str, float], noise_sd: flo
    - **M8-15 notes:** sets go through M8-03; the GO ancestors of the confounded set stay out of
      the null pool; the signed-argmax comparison; the gene-table column wiring; a decay-0.5 arm;
      `resid` reading `ecfg.tu_sd`. These go to the backlog for M8-15.
+5. **Test-author (073c11de, 5432fd47): readings 1, 2, 4 and 5 are accepted.**
+   - Reading 1: `function_sim.CONFOUND_COVARIATE` is `"gravy"` or `"n_obs"`, and its column is
+     `<name>_true`.
+   - Reading 4: one new pre-declared stream for the pooled check, which is not seed shopping.
+   - **Reading 3: the covariate must be visible in the sequences.** M8-15 refits p_detect from
+     GIAP's gene table, which computes GRAVY and observability from the proteins. So the
+     members' recorded `<cov>_true` must equal the value recomputed from their `aa`. The
+     implementer edits the members' sequences, e.g. hydrophobic substitutions for GRAVY or K/R
+     changes for `n_obs`, rather than shifting the column alone.
+     - If the logit shift of `member_shift` = −1.5 cannot be reached through a realistic
+       sequence change (GRAVY within [−2, 2]), the implementer reports it. The lead then rules on
+       the shift size; the tests are not loosened.
+   - Next: the implementer.
