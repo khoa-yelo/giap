@@ -118,7 +118,9 @@ def test_protein_nulls_are_undetected_products_that_map(k12: D.View) -> None:
 
 def test_gate7_false_discovery_share_is_estimable(k12: D.View, genes: list[M.Gene]) -> None:
     eligible = {g.locus for g in genes if g.eligible}
-    comp = D.gene_competition(k12, eligible)
+    sample = D.read_seq(k12.out / "truth" / "sample_genome.fna")
+    proteins = D.locus_proteins(k12.out, D.annotation(M.K12_JSON), sample)
+    comp = D.gene_competition(k12, eligible, proteins)
     false_won = sum(c.target_won and not c.has_true for c in comp)
     won = sum(c.target_won for c in comp)
     assert false_won >= 1, (false_won, won)

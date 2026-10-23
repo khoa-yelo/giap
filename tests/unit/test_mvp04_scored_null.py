@@ -399,8 +399,10 @@ def test_gate7_false_discovery_share_is_estimable(ex: M.Excerpt, scored: dict[in
     seeds, while true genes still dominate."""
     eligible = {g.locus for g in ex.genes if g.eligible}
     false_won = true_won = with_null = 0
+    recorded = D.annotation(ex.bakta_json)
     for v in scored.values():
-        comp = D.gene_competition(v, eligible)
+        sample = D.read_seq(v.out / "truth" / "sample_genome.fna")
+        comp = D.gene_competition(v, eligible, D.locus_proteins(v.out, recorded, sample))
         false_won += sum(c.target_won and not c.has_true for c in comp)
         true_won += sum(c.target_won and c.has_true for c in comp)
         with_null += sum(not c.has_true for c in comp)

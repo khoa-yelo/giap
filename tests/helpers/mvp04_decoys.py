@@ -499,11 +499,14 @@ class Competition:
     target_won: bool
 
 
-def gene_competition(v: View, eligible: set[str]) -> list[Competition]:
+def gene_competition(
+    v: View, eligible: set[str], proteins: Mapping[str, list[str]]
+) -> list[Competition]:
     """§7.3.2 picked competition per eligible gene with evidence at q <= ``Q_VALUE_MAX``: target
     evidence = rows of correct peptides unique to the gene in the truth, plus protein-entry null
-    target rows attributed to it (they map there, decision 9); decoy evidence = its
-    ``rev_<gene>`` rows. A tie goes to the decoy. ``has_true``: the gene has a true peptide."""
+    target rows attributed to it whose peptide lies in one of its sample ``proteins`` (I = L:
+    they map there, decision 9; a shuffled peptide maps nowhere and gives none); decoy evidence =
+    its ``rev_<gene>`` rows. A tie goes to the decoy. ``has_true``: the gene has a true peptide."""
     nulls = {n.peptide for n in v.nulls.values() if n.kind == "protein"}
     best: dict[tuple[str, bool], tuple[float, float, float]] = {}
     for r in v.peptides:
@@ -513,7 +516,9 @@ def gene_competition(v: View, eligible: set[str]) -> list[Competition]:
         if dec:
             gs = [x[len("rev_") :] for x in ids(r["protein_ids"]) if x.startswith("rev_")]
         elif r["peptide"] in nulls:
-            gs = ids(r["protein_ids"])
+            pep = il(r["peptide"])
+            gs = [g for g in ids(r["protein_ids"])
+                  if any(pep in il(aa) for aa in proteins.get(g, []))]  # fmt: skip
         else:
             loci = v.correct_loci.get(r["peptide"], set())
             gs = list(loci) if len(loci) == 1 else []

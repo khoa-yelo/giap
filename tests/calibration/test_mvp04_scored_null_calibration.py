@@ -126,9 +126,11 @@ def _check(reps: list[D.View], ks_min_p: float, ex: M.Excerpt) -> None:
     recorded = D.annotation(ex.bakta_json)
     num = var = 0.0
     k_draws = 0
+    prots = []
     for v in reps:
         sample = D.read_seq(v.out / "truth" / "sample_genome.fna")
-        pool = D.candidate_loci(v, D.locus_proteins(v.out, recorded, sample))
+        prots.append(D.locus_proteins(v.out, recorded, sample))
+        pool = D.candidate_loci(v, prots[-1])
         ks = np.array(list(pool.values()), dtype=float)
         for nl in v.nulls.values():
             if nl.kind != "protein":
@@ -144,7 +146,8 @@ def _check(reps: list[D.View], ks_min_p: float, ex: M.Excerpt) -> None:
 
     # the coin is the picked null: genes with only null evidence, target vs decoy wins
     eligible = {g.locus for g in ex.genes if g.eligible}
-    comp = [c for v in reps for c in D.gene_competition(v, eligible) if not c.has_true]
+    comp = [c for v, pr in zip(reps, prots, strict=True)
+            for c in D.gene_competition(v, eligible, pr) if not c.has_true]  # fmt: skip
     won = sum(c.target_won for c in comp)
     assert len(comp) >= 100, len(comp)
     assert stats.binomtest(won, len(comp), 0.5).pvalue >= ALPHA, (won, len(comp))
