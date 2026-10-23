@@ -176,3 +176,8 @@ confirmation and sharding apply.
         the acceptance criterion for that suite only. Reversible; listed for Khoa.
     - Next: the test-author applies the budget ruling and re-times; the lead fills
       `benchmarks/baseline.json` (`m8_calibration_fast.<suite>`) from that job; then the PR.
+11. **Re-time (a28b7c5e; Slurm 1875111, 9 min, 12 passed): within budget.** Per-suite spans: ora
+    207 s, gsea 462 s, determinants 532 s (the elastic-net null fell from 977 s to 532 s with the
+    corrected thread cap). The full tier keeps a cap of 8 threads, `min(8, cpus // workers)`
+    (accepted). The lead fills `benchmarks/baseline.json` from this job. The PR follows, with a
+    code review; no further statistician round (decision 9).
