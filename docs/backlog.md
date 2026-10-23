@@ -678,3 +678,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M7-13 G1: a policy is needed for `mass_equivalent` calls. On variant_f1 seed 7, high-confidence
   substitution precision is 0.82, and 5 of 6 FPs are A>S / N>D modification errors.
 - Attack-null proposals in comment 6358601933.
+- M7-12 N1 (statistician round 3): six-frame target q/PEP come from the wrong share before the coin (about 2× conservative). PSM-level calibration on six-frame scenarios needs the post-coin share.
+- M7-12 N3: G4 for `nterm_extension` must go through M7-11's locus-tag pairing (planted peptides carry the gene's locus tag).
+- M7-13: the report says a class with fewer than about 100 candidates cannot be called at α 0.01 (class q floor).

@@ -177,6 +177,12 @@ above:
   *more* alike than null targets (anti-conservative), which only an attack null can reveal.
 - **π₀ = 1** and N_NO,b counts every target, so the estimate is conservative by ≈ π₀.
 
+### Consequence for real genomes
+The same floor applies outside the simulator. At α = 0.01 the picked class FDR calls nothing in a
+novel-ORF class with fewer than about 100 target candidates, because q ≥ 1/T. A small class is
+then reported with zero calls; this is not evidence that it has no novel ORFs. The report states
+this (M7-13), and M7-12 gates use `NOVEL_PER_CLASS_GATE = 300` at 1M (M7-12 lead decision 26).
+
 ## Numerical notes
 
 - Counts use `searchsorted` on sorted arrays (O(n log n)); no floating-point equality beyond the

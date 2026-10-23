@@ -190,3 +190,26 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
       - giapsim restates the makedb rules, held honest by the round-3 oracle;
       - the speed is acceptable and the baseline is not re-recorded;
       - the `alt_sites` initiator-codon fix.
+26. **Statistician round 3 (2c96c2c0): the null is valid; B1 is the class q floor.** The picked
+    class q `(D+1)/T` cannot fall below 1/T. With 16 ORFs per class at 300k and 40 at 1M, nothing
+    is callable at α = 0.01, so G3 is 0 by construction and the q = 0.01 arm of G4 is vacuous.
+    The lead chooses **option (a) without moving the existing pins**:
+    - `novel_orf_power` gains `n_per_class: int | None = None`. `None` keeps `NOVEL_PER_CLASS[size]`,
+      so every existing byte pin is unchanged.
+    - The new constant `NOVEL_PER_CLASS_GATE = 300` is what M7-13 G3/G4 use, at 1M only.
+    - Intergenic saturates at about 100–145 ORFs (gap supply). That is accepted and documented,
+      not forced.
+    - Test-author first:
+      - add a per-class test that, at the gate count and 1M, the ORFs with
+        `n_true_peptides ≥ 1` number at least 1/α = 100 in every class except intergenic;
+      - for intergenic, add a test that its count is ≥ 90 and that it is reported;
+      - the statistician's strict-xfail floor test should be pointed at the gate count. The lead
+        removes the xfail after the implementer's change.
+    - Then the implementer, who also re-checks the benchmark (about 7.5 s at 200 per class).
+    - The methods note gains the real-genome consequence: at α = 0.01 the picked class FDR calls
+      nothing in a class with fewer than about 100 candidates (lead, below).
+    - Backlog:
+      - N1: target q/PEP use the pre-coin wrong share, about 2× conservative, so PSM-level checks
+        need the post-coin share;
+      - N2: already covered at backlog line 471;
+      - N3: G4 for `nterm_extension` goes through M7-11's locus-tag pairing.
