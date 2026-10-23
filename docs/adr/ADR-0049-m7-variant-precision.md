@@ -15,6 +15,10 @@ current call rule:
 - **A6b:** at random adjacent swaps the share of replicates with a `high` call is 0.95. Two
   overlapping true peptides that carry the same swap give two distinct peptides.
 - **A6c:** systematic swaps are expected to fail (M7-13 risk 1).
+- **Rows outside G1 (statistician, #255).** Besides the 669 gated substitution predictions, GIAP
+  emits 277 `high` rows that are not substitutions (block 218, swap 49, frameshift 10). §7.5.6
+  speaks of "high ALT calls", so if these are false, precision over all `high` rows is 0.549
+  (F1 0.685). Whether G1 covers them (M7-13 Q2 scopes G1 to substitutions) is part of the choice.
 
 ## Options (for Khoa)
 1. **Call rule:** `mass_equivalent` substitutions and swap-type ALTs never reach `high` without
@@ -24,6 +28,8 @@ current call rule:
 3. **Distinct-peptide support:** require that the distinct supporting peptides disagree at more
    than the swapped pair (for example, different cleavage ends).
 4. **Gate scope:** gate G1 on the non-`mass_equivalent` set. This changes what §8.4 measures.
+   On current evidence it also fails: F1 0.790 (P 0.951, Rc 0.675). Option 1 is likely to cost
+   recall the same way, since it removes the same calls from `high`.
 
 ## Decision
 None yet. Until Khoa decides, M7-13a commits G1, A6a, A6b and A6c as strict xfails that name
