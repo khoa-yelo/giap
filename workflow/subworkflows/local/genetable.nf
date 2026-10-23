@@ -54,4 +54,5 @@ workflow GENETABLE {
     tier_summary          = pick(GENE_TABLE.out.outputs, 'tier.parquet')
     genes_pre             = pick(GENE_TABLE.out.outputs, 'genes_pre.parquet')
     versions              = GENE_TABLE.out.versions.mix(DETECTABILITY.out.versions)
+    events                = GENE_TABLE.out.events.mix(DETECTABILITY.out.events)
 }

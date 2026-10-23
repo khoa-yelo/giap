@@ -763,6 +763,26 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
 
+### M7-10 follow-ups
+- Switch the class-error calibration to the M7-12 `variant_f1` scenario once #225 merges (decision 7).
+- M7-13: class error rate reference-proteome arm (moved from M7-10 #239 B2); also consider a run flag when every class rate is 1 (statistician #239).
+- M7-10: `paired_observations` keeps the last reference row per spectrum (`keep="last"`), so raw callers with conflicting rows depend on row order (pipeline safe: preflight drops conflicts). Also a run flag when every class rate is 1, and a `low_n` flag or interval columns (statistician #239).
+- Review #239 nits (M7-10):
+  - 1: `_peptide_spectra` swallows reference `ValueError`s and validate issues, so a malformed reference file is silently `unestimated`.
+  - 2: edge-case tests are missing for a frameshift with `mass_equivalent`, a raw NaN reference q, NA `is_decoy`, and NA `spectrum_id` on both sides.
+  - 3: the methods note "Observations" bullet should say distinct `(run, spectrum_id, peptide)`.
+  - 4: `site_class` ignores `;`-joined string flags cells; document this or split them.
+  - 5: the `# fmt: skip` on the cli.py `files` dict is unneeded.
+### M9-13 review nits (PR #224)
+- N1 checks.py test gaps (surviving mutants): `<script defer src=…>`, `url(http…)` outside style,
+  uppercase `DATA:` URI, query-only `href="?q=1"`.
+- N2 external loads not detected: `srcset`, `<object data>`, `<video poster>`, SVG `<feImage href>`,
+  `<base href>`, meta refresh — extend before M9-14/M9-25 rely on checks.py.
+- N3 `relative_links` treats root-absolute paths as relative (docstring); tab/newline URL cleanup.
+- N4 examples 2–3 checked on the local report only, not the Nextflow-published one.
+- N5 untested: Nextflow run with a module off gives `module_off`; main.nf passes `events` to PLOTS.
+- N6 main.nf repeats the `function` condition for FUNCTION's events; fold into the existing `if`.
+- N7 test_branch.sbatch warm-up ≥ 25 s should warn loudly (30 s probe in tests/conftest.py).
 ### M9-22 hardening
 - ρ-CI calibration on full giapsim run pairs (now a simulated TU world at giapsim sizes).
 - Test the section order (matrix, then intersections) and the `none` row's place among ties.
@@ -831,6 +851,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
+- MVP-04: origin-crossing novel ORFs excluded from the planted set on K-12 (spec question 7).
 
 ### M6-10 follow-ups
 - Runtime: build the pair frame once per threshold and keep reruns under 2× a single run; not pinned (timing is flaky on the shared node).

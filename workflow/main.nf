@@ -78,7 +78,7 @@ workflow {
                     opt(inputs.reference_peptides), opt(contaminantLibrary(inputs)))
             // Module 5 (M7-04): independent of GENETABLE and CONTEXT
             VARIANTS(genome, gene_model, MAPPING.out.mapping, MAPPING.out.hits_tolerant,
-                     opt(inputs.peptides), opt(inputs.reference_peptides))
+                     opt(inputs.peptides), opt(inputs.reference_peptides), opt(inputs.peptide_spectra))
             GENETABLE(gene_model, ANNOTATE.out.contract, MAPPING.out.mapping, opt(inputs.peptides),
                       opt(inputs.abundance), opt(inputs.preflight), opt(cogTable()))
             CONTEXT(GENETABLE.out.gene_table, GENETABLE.out.detectability_summary, gene_model,
@@ -116,6 +116,12 @@ workflow {
                         kv('enrichment_gsea', FUNCTION.out.enrichment_gsea)]
             }
         }
+        // the step event logs, merged in a content order, under the key 'events' as the local
+        // executor's live logs/events.jsonl: the plots read their run flags from it (M9-13)
+        def ev = inputs.peptides ? ANNOTATE.out.events.mix(MAPPING.out.events, VARIANTS.out.events,
+            GENETABLE.out.events, CONTEXT.out.events, NOVEL.out.events, OPERONS.out.events) : ANNOTATE.out.events
+        if (inputs.peptides && 'function' in (params.modules ?: [])) ev = ev.mix(FUNCTION.out.events)
+        pub += [kv('events', ev.collectFile(name: 'events.jsonl', sort: { f -> f.text }))]
         REPORT(pub.inject(channel.empty()) { acc, c -> acc.mix(c) })
     } else {
         def keys = inputs.keySet().sort()
