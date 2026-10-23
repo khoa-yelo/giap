@@ -339,7 +339,9 @@ def test_decision_6_event_records_pi0_and_bin_counts(full: Run, tmp_path: Path) 
     assert got.columns.tolist() == want.columns.tolist()
     assert len(got) == len(want) == len(_cfg().operons.distance_bins_bp) - 1
     for col in want.columns:
-        assert [float(x) for x in got[col]] == [float(x) for x in want[col]], col
+        # MVP-03c decision: a non-finite edge (the -inf first bin) is null in the event
+        fin = [x if math.isfinite(x) else None for x in map(float, want[col])]
+        assert [None if pd.isna(x) else float(x) for x in got[col]] == fin, col
     json.dumps(data)  # §6.7 events are plain JSON (no numpy scalars)
 
 
