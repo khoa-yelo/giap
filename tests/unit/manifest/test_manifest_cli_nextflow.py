@@ -49,9 +49,6 @@ STEP_EVENT = {"ts": "2026-10-22T00:00:00+00:00", "step": "parse_bakta", "level":
               "event": "parse_bakta.run_flag", "data": {"flag": "anti_sd_default"}}  # fmt: skip
 
 
-#: The tools/databases readers moved to MVP-03c (c06f140); 03c reverts it and drops this mark.
-
-
 @pytest.fixture
 def nf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
     monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "giap_root")))

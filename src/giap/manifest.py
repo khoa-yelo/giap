@@ -257,11 +257,14 @@ def finite(obj: Any) -> Any:
 
 
 def _event_data(src: ManifestSources, name: str) -> list[Mapping[str, Any]]:
-    """Unique ``data`` of the ``name`` events in file order (a resume duplicate collapses)."""
+    """Unique ``data`` of the ``name`` events, ordered by last occurrence (a resume duplicate
+    collapses; the last payload in file order comes last, lead decision 20)."""
     seen: dict[str, Mapping[str, Any]] = {}
     for ev in src.events:
         if ev.get("event") == name and isinstance(ev.get("data"), Mapping):
-            seen.setdefault(json.dumps(finite(ev["data"]), sort_keys=True), ev["data"])
+            key = json.dumps(finite(ev["data"]), sort_keys=True)
+            seen.pop(key, None)
+            seen[key] = ev["data"]
     return list(seen.values())
 
 

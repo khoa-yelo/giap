@@ -60,9 +60,6 @@ KEYS_03A = {
 # ----------------------------------------------------------------------------- shape
 
 
-#: The tools/databases readers moved to MVP-03c (c06f140); 03c reverts it and drops this mark.
-
-
 def test_builder_output_has_every_03a_field_and_validates() -> None:
     m = build()
     missing = KEYS_03A - set(m)

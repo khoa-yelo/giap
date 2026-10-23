@@ -366,3 +366,10 @@ merged.
     - Of several distinct `operons.missed_operons` / `mapping.search_db_resolved` payloads, the
       last one in file order wins.
     - `giap _step manifest` still writes `databases: []`; this is a backlog item.
+21. **Review on #236 (lead fixes):**
+    - B1: an unreadable `versions.yml` (YAML or UTF-8 error) is skipped with a warning, so the run
+      tail never fails on it.
+    - B2: tests cover the digest winning over a lock, and BaseLoader keeping `1.10` a string.
+    - Decision 20 is now honoured for distinct payloads A, B, A (A wins).
+    - B3: the backlog lines this issue closes are marked.
+    - Tests are in tests/unit/manifest/test_manifest_review_236.py; nits go to the backlog.

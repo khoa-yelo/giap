@@ -42,9 +42,6 @@ from helpers.manifest_data import trace_row
 DIGEST = "9" * 64
 
 
-#: The tools/databases readers moved to MVP-03c (c06f140); 03c reverts it and drops this mark.
-
-
 def _ms():  # type: ignore[no-untyped-def]
     from giap.io import manifest_sources
 

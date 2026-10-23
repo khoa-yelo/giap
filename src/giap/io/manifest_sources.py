@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import logging
 import re
 import subprocess
 from collections.abc import Mapping, Sequence
@@ -21,6 +22,8 @@ import yaml
 
 from giap.manifest import canonical_json
 from giap.runner.nextflow import _task_dir
+
+LOGGER = logging.getLogger(__name__)
 
 _DIGEST = re.compile(r"sha256[:-]([0-9a-f]{64})")
 _COUNTS = ("n_primary", "n_variant", "n_shared")
@@ -136,8 +139,13 @@ def read_db_manifest(db_dir: Path | None) -> dict[str, Any] | None:
 
 
 def _yaml(path: Path) -> Any:
-    """``versions.yml`` with every scalar a string (``1.10`` stays ``1.10``)."""
-    return yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    """``versions.yml`` with every scalar a string (``1.10`` stays ``1.10``); ``None`` when it is
+    unreadable (a tool's stderr in its ``--version`` line), so the run tail never fails on it."""
+    try:
+        return yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    except (yaml.YAMLError, UnicodeDecodeError) as exc:
+        LOGGER.warning("unreadable versions.yml skipped: %s (%s)", path, type(exc).__name__)
+        return None
 
 
 def tool_reports(

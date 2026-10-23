@@ -47,9 +47,6 @@ FLAG_EVENT = {"event": "x.run_flag", "data": {"flag": "c_assumed"}}
 # ----------------------------------------------------------------------------- toy graph
 
 
-#: The tools/databases readers moved to MVP-03c (c06f140); 03c reverts it and drops this mark.
-
-
 def _with_manifest_step(reg: ModuleType) -> None:
     importlib.reload(importlib.import_module("giap.steps.manifest"))
     assert "manifest" in {s.name for s in reg.all_steps()}
