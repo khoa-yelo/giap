@@ -28,8 +28,10 @@ otherwise the regeneration fails and writes nothing. The same checks also run on
 (``detection = "abundance"``) comes from the sklearn lbfgs detectability fit, which differs across
 BLAS builds in the 4th-6th significant digit (CI ubuntu 3.11 / macOS 3.12 vs Slurm). So on
 ``join_count_bb`` rows ``JOIN_NUMERIC`` is compared with ``math.isclose`` (``JOIN_REL_TOL``,
-``JOIN_ABS_TOL``); every other cell -- the observed count, p, q, flags, every Moran row, islands.tsv
-and genes_context -- stays byte for byte, as M4-20 decision 9 does for ``regions_stats.tsv``.
+``JOIN_ABS_TOL``; decisions 46-47 add ``stat`` and ``value``), and their permutation p and BH q
+within ``JOIN_PERM_COUNTS`` permutation counts (decision 48: a drifted observed value moves the
+count); every other cell -- flags, every Moran row, islands.tsv and genes_context -- stays byte
+for byte, as M4-20 decision 9 does for ``regions_stats.tsv``.
 
 Regenerating (on purpose, reviewed in the PR diff as data):
 ``GIAP_UPDATE_GOLDEN=1 pytest tests/golden/test_m5_golden.py`` writes the files and skips.
@@ -52,6 +54,8 @@ CASES = ("sim50k", m5.ISLAND.name)
 #: join_count_bb columns compared numerically (lead decision 44)
 JOIN_NUMERIC = ("value", "null_mean", "null_lo", "null_hi", "stat", "effect")
 JOIN_REL_TOL, JOIN_ABS_TOL = 1e-3, 1e-3
+#: join_count_bb permutation p / BH q: within JOIN_PERM_COUNTS / (n_perm + 1) (lead decision 48)
+JOIN_PERM, JOIN_PERM_COUNTS = ("p_value", "q_value"), 5
 
 
 def _close(a: str, b: str) -> bool:
@@ -59,6 +63,15 @@ def _close(a: str, b: str) -> bool:
         return True
     try:
         return math.isclose(float(a), float(b), rel_tol=JOIN_REL_TOL, abs_tol=JOIN_ABS_TOL)
+    except ValueError:
+        return False
+
+
+def _perm_close(a: str, b: str, n_perm: str) -> bool:
+    if a == b:
+        return True
+    try:
+        return abs(float(a) - float(b)) <= JOIN_PERM_COUNTS / (int(n_perm) + 1)
     except ValueError:
         return False
 
@@ -71,12 +84,19 @@ def autocorrelation_mismatch(want: bytes, got: bytes) -> str | None:
         return f"{len(w)} vs {len(g)} lines or a different header"
     header = w[0].split("\t")
     stat, loose = header.index("statistic"), {header.index(c) for c in JOIN_NUMERIC}
+    perm, n_perm = {header.index(c) for c in JOIN_PERM}, header.index("n_perm")
     for n, (lw, lg) in enumerate(zip(w[1:], g[1:], strict=True), start=2):
         cw, cg = lw.split("\t"), lg.split("\t")
         if len(cw) != len(cg):
             return f"line {n}: {len(cw)} vs {len(cg)} fields"
         for i, (a, b) in enumerate(zip(cw, cg, strict=True)):
-            ok = _close(a, b) if cw[stat] == "join_count_bb" and i in loose else a == b
+            join = cw[stat] == "join_count_bb"
+            if join and i in loose:
+                ok = _close(a, b)
+            elif join and i in perm:
+                ok = _perm_close(a, b, cw[n_perm])
+            else:
+                ok = a == b
             if not ok:
                 return f"line {n} ({cw[stat]}), {header[i]}: {a} != {b}"
     return None

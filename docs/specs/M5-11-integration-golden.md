@@ -94,3 +94,6 @@ grid (M5-07) run as `giap-` jobs; nothing heavy in the session allocation
 47. **`value` joins them too.** CI (#229, run 39904322170, ubuntu 3.11 and macOS) shows the observed
     `join_count_bb` value drifting in the fourth decimal (−2.45409 vs −2.45423), because it is
     computed from the same Pearson residuals as the null; it is compared with the same tolerances.
+48. **Permutation p and BH q of `join_count_bb` rows** are compared within 5 permutation counts
+    (5 / (n_perm + 1)). CI #229 (run 39911158467, ubuntu 3.11) shows line 60 p 0.682318 vs
+    0.68331, one count apart, because the drifted observed value moves the permutation count.
