@@ -4,11 +4,11 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01FctC7kZEMou2AYwYy1KhJa_
+_Last updated: 2026-10-22 19:40 PDT · session https://claude.ai/code/session_01FctC7kZEMou2AYwYy1KhJa_
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 117/162 done (72 %), 13 running · generated 2026-10-22 15:13 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 123/162 done (76 %), 15 running · generated 2026-10-22 19:47 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -17,22 +17,28 @@ _Last updated: 2026-10-21 14:00 PDT · session https://claude.ai/code/session_01
 | M2 Annotation wrappers | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
-| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 91 % | 10 | 0 | 1 |
-| M6 Operons | 🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜⬜ 58 % | 7 | 1 | 4 |
-| M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜⬜⬜⬜⬜ 56 % | 9 | 0 | 7 |
-| M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜⬜⬜ 47 % | 8 | 4 | 5 |
-| M9 Visualisation and report | 🟩🟩🟩🟨🟨🟨🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 12 % | 3 | 8 | 15 |
+| M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 11 | 0 | 0 |
+| M6 Operons | 🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜ 58 % | 7 | 2 | 3 |
+| M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜⬜⬜⬜ 56 % | 9 | 1 | 6 |
+| M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜ 47 % | 8 | 5 | 4 |
+| M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 31 % | 8 | 7 | 11 |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
 <!-- progress:end -->
 
 ## Current milestone
-(2026-10-22 15:15) M0–M4 done (M3-24 merged as #122 with the DIA-NN sif). M5: 10/11, M5-11
-(integration golden) in test-author step. M6/M7: integration pass done; remaining issues are the
-hardening pass. M8: R fgsea engine (ADR-0038) M8-17a #204 (+ split #207) waits on #192; M8-17b in
-implementation. M9 (pass 1) is the main front. MVP-03a manifest #196 queued (split #206 merged).
-**Agents paused by Khoa 15:15 → 17:45 (2 h 30 min):** the five running agents finish their current
-step; no new feature-loop steps start until 17:45. Merge queues keep running.
+(2026-10-22 evening) Agents resumed 17:43 (cap 6). M0–M4 done; **M5 done in code** (#217 M5-11
+merged: goldens sim50k / sim4500_island, decision 44 tolerance on the join-count null columns,
+benchmark context_m5 13.6 s of 120 s on Slurm 1869098); M5 gate evidence: full `islands` records
+pass (Slurm 1868687), full `autocorrelation` running as Slurm 1869177. M9 pass 1: #209 V3 merged;
+V1 #212 in its review round (implementer), V2/V10 #218, V13 #219, M9-03 #210 queued; M9-13 closer in
+implementation (tests b346d7e; Nextflow-in-test-job fix owed). M9 pass 2 started: M9-14 #221 queued,
+M9-16 in test-author step. M8: #214 (M8-17b, R fgsea in the function step) cleared by the
+statistician (R attacks Slurm 1869053: 12 passed; BH null FWER 0.050 at α 0.05), queued; #178 M8-10
+blocked on nf-test-stub (reproducing on Slurm 1869244); M8-13 spec amended for ADR-0038 (#220) and
+the statistician is investigating Wallenius vs goseq (36 of 300 golden tails disagree). Hardening:
+M6-03 #222 awaiting the statistician's generator sign-off; M7-12 in implementation. #216 (Wallenius
+test tolerance) merged.
 
 ## Done (with evidence)
 - [M0] `gh` authenticated as khoa-yelo (SSH protocol); repository is public (Actions minutes unlimited).

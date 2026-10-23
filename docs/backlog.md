@@ -663,6 +663,15 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
 
+## M9-09 review nits (#218; one round, decisions 21–26)
+- V2 trend memory: up to 2.2 GB peak RSS at 20,000 points (the PLOTS process gets 2 GB on the first
+  attempt); fit the trend on ≤ 5,000 bin medians.
+- V2 rug-only panels show meaningless y ticks (±0.04); hide them.
+- V2: oriC at position 1 is hidden by the left spine; the landmark −1 is untested (decision 3).
+- V10 data TSV keeps the producer's values for `not_estimable` rows (flags alongside); the plot
+  blanks them (decision 21). Revisit if a reader takes the zeros as estimates.
+- Statistician note (TU ordinals in the islands detrend vs bp positions in V2) is in the PR body;
+  move it into docs/methods with the M9 methods index.
 ## M5-11 (statistician, hardening)
 - Island power under giapsim's default `covariates_only` detection: no island at +3/+5/+10 SD on 1,000 genes (ℓ̂ = 1, ℓ' = 3; ~45 % censored regardless of abundance, rank scores saturate). The M5-11 golden uses sim4500 with `detection="abundance"`; decide whether the power table should report the covariates-only regime.
 
