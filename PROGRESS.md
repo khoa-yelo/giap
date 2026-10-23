@@ -8,7 +8,7 @@ _Last updated: 2026-10-22 19:40 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 123/162 done (76 %), 15 running · generated 2026-10-22 19:47 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 131/162 done (81 %), 17 running · generated 2026-10-22 23:43 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -18,27 +18,52 @@ _Last updated: 2026-10-22 19:40 PDT · session https://claude.ai/code/session_01
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 21 | 0 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 11 | 0 | 0 |
-| M6 Operons | 🟩🟩🟩🟩🟩🟩🟩🟨🟨⬜⬜⬜ 58 % | 7 | 2 | 3 |
-| M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜⬜⬜⬜⬜⬜ 56 % | 9 | 1 | 6 |
-| M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨🟨⬜⬜⬜⬜ 47 % | 8 | 5 | 4 |
-| M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 31 % | 8 | 7 | 11 |
+| M6 Operons | 🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨⬜⬜ 58 % | 7 | 3 | 2 |
+| M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜⬜ 56 % | 9 | 4 | 3 |
+| M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨⬜⬜ 65 % | 11 | 4 | 2 |
+| M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜ 50 % | 13 | 6 | 7 |
 | M10 Pilot validation | _not designed yet_ | - | - | - |
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
 <!-- progress:end -->
 
 ## Current milestone
-(2026-10-22 evening) Agents resumed 17:43 (cap 6). M0–M4 done; **M5 done in code** (#217 M5-11
-merged: goldens sim50k / sim4500_island, decision 44 tolerance on the join-count null columns,
-benchmark context_m5 13.6 s of 120 s on Slurm 1869098); M5 gate evidence: full `islands` records
-pass (Slurm 1868687), full `autocorrelation` running as Slurm 1869177. M9 pass 1: #209 V3 merged;
-V1 #212 in its review round (implementer), V2/V10 #218, V13 #219, M9-03 #210 queued; M9-13 closer in
-implementation (tests b346d7e; Nextflow-in-test-job fix owed). M9 pass 2 started: M9-14 #221 queued,
-M9-16 in test-author step. M8: #214 (M8-17b, R fgsea in the function step) cleared by the
-statistician (R attacks Slurm 1869053: 12 passed; BH null FWER 0.050 at α 0.05), queued; #178 M8-10
-blocked on nf-test-stub (reproducing on Slurm 1869244); M8-13 spec amended for ADR-0038 (#220) and
-the statistician is investigating Wallenius vs goseq (36 of 300 golden tails disagree). Hardening:
-M6-03 #222 awaiting the statistician's generator sign-off; M7-12 in implementation. #216 (Wallenius
-test tolerance) merged.
+(2026-10-22 23:45) Agents at the cap of 6 after the 22:40 usage reset. M0–M5 done. The M9 pass-1
+closer is open, M9 pass 2 is under way, and M6/M7/M8 hardening is in the feature loop.
+
+**Critical path:** #229 (M5 golden tolerances). Every branch that merges main fails CI on
+`test_m5_golden[sim4500_island]` on ubuntu 3.11 and macOS. Cross-BLAS drift in the join-count
+residuals moves `value` (decision 47) and the permutation p/q by about 1 count of 1001 (decision 48,
+CI run 39911158467). Fix pushed as 291a1ee8 and requeued (qBL). #178, then #228, then #224 wait on it.
+
+**Merged since 19:47:**
+- #212 (M9-08 circos), #221 (M9-14 interactive), #227 (M9-18 V12), #226 (surrogate test), #231
+  (M9-16b spec)
+- #233 (progress bars count split issues: M8-06a/b, M8-17b, M9-16b)
+
+**Queued** (scratchpad queue.sh), all behind the golden fix:
+- #222 M6-03
+- #232 M9-22
+- #230 M9-24
+- #219 M9-12
+- #235 (island property counterexample at seed 1506)
+- #236 MVP-03c
+- #240 (VCF property I/L fold)
+- #234 M9-15, after #221's tip
+
+**In the loop:**
+- **M7-12 #225:** round 3 implementer. Statistician B1/B2: scored makedb-style decoys with a ½ coin,
+  a fourth `nterm_extension` territory. Lead decision 23: gene-level `pair_decoys` drops all-ORF-entry
+  decoys, pinned by test_detection_orf_decoys.py.
+- **M7-11 #237:** round 2 implementer. Statistician block: unscored decoys give D = 0; the methods
+  note must record that the decision-3 minimum is anti-conservative (0.078 at q 0.05).
+- **M7-10 #239:** statistician review. The calibration gate is weak (true rate ≈ 1 without planted
+  variants).
+- **M6-10:** implementer.
+- **M7-15:** implementer; includes the K-12 real-tool arm and the `--resume` re-running 8/39 tasks.
+- **M4-24 #238** (new, unscored/partly scored decoys in gene detection, ADR-0047): test-author.
+
+**sim100k 0 genes, resolved as expected behaviour** (statistician, Slurm 1869554): the 1/T floor
+with T = 74–91 genes; scored decoys give identical counts.
 
 ## Done (with evidence)
 - [M0] `gh` authenticated as khoa-yelo (SSH protocol); repository is public (Actions minutes unlimited).
@@ -383,16 +408,21 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 7742, 1 thread). Next: review, then the statistician's methods note (§"Wallenius ORA").
 
 ## Next actions (ordered)
-1. Merge queues (scratchpad queue.sh logs): #187→#197, #199, #200→#201, #178, #202→#196, #203,
-   #208, #211, #205→#210 (after.sh), #192 then #204→#207 (after.sh). #197's stale `guards` run was
-   rerun; #201's protected-file check clears once #200 (ADR-0042) is on main.
-2. After 17:45: code review of #212 (M9-08 circos, 570 lines). On each agent report: #209 review tests → implementer; M9-08 implementer → PR +
-   reviewer; M9-09 tests → lead decisions → implementer (+ statistician, stats light); M5-11 tests →
-   implementer; M8-17b implementer → lead re-pins the existing tests it breaks (lead decision 10) → PR.
-3. After #196 merges: ADR-0041 follow-up (move the four tokens out of RUN_FLAGS_PENDING).
-4. After #205/#210/#209 merge: M9-12 (V13 novel ORFs, needs the V3 renderer), then M9-13 (pass-1 closer).
-5. Islands calibration_full on main, Slurm 1868687 (running): record rates in docs/methods/islands.md.
-6. Extend calibration_full array to 0-14 once the variants/compare suites exist (ADR-0042).
+1. Watch #229 (qBL). When it merges, the queues behind it go green; relaunch any queue that has
+   used its 3 attempts.
+2. On agent reports:
+   - M7-12 round 3 → statistician re-check → code review;
+   - M7-11 round 2 → lead removes the two Block-1 strict xfails in
+     test_attack_novel_class_fdr.py → record spec decision 11 (draft in the scratchpad,
+     m711_d11.md) → code review;
+   - M7-10 statistician verdict;
+   - M6-10 implementer → PR + reviewer;
+   - M7-15 implementer → K-12 job ID into PROGRESS.md → goldens after #225 merges;
+   - M4-24 tests → implementer → lead edits the real-mapping tier assertion (decision 3).
+3. After #232 merges: M9-23 (V16 compare plot) spec decisions → test-author.
+4. After #178 merges: M9-17 (plot support from analysis steps), then M9-19/20/21.
+5. After #228 merges: M9-16b test-author; remove the #178 guards in that merge.
+6. Extend the calibration_full array to 0-14 once the variants/compare suites exist (ADR-0042).
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
@@ -422,6 +452,14 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 | # | Question | Options | Default if no answer | Asked |
 |---|---|---|---|---|
 | 1 | GIAP_SPEC.md §15.3/§15.4 name "RegulonDB v12", but v12.0.0 is the 2023-10-23 release and the live one is **14.5.0** (2026-01-28). The fetcher records the release the endpoint reports. | (a) use the current release (14.5.0) and cite it in ADR-0022; (b) pin v12 and ask RegulonDB for the archived files | (a) — ADR-0017: record the version and the hash of what we actually fetched | 2026-10-21 (M6-11) — **RESOLVED 2026-10-21**: Khoa: 'cite RegulonDB 14.5.0' (option a) |
+
+| 2 | MVP/golden evidence runs at α 0.01 cannot detect genes on sim100k: the 1/T floor with T = 74–91 (Slurm 1869554). The q-floor "flag it" answer stands. | (a) evidence runs on a genome with ≥ ~110 eligible target-won genes; (b) keep sim100k at α 0.05 | (a) | 2026-10-22 (reworded 23:40) — **RESOLVED 2026-10-22**: real E. coli K-12 MG1655 genome, simulated peptides until M10 |
+| 3 | ADR-0044 Wallenius golden reference (goseq is wrong on 36 tails; GIAP is right), #220 | accept / revise | — | 2026-10-22 — **RESOLVED 2026-10-23**: accepted (exact reference) |
+| 4 | ADR-0045 Wallenius far tails by urn recursion, #220 | accept (lead recommends) / revise | accept | 2026-10-22 — **RESOLVED 2026-10-23**: accepted |
+| 5 | M6-09 SW decoy floor: a method ADR, or record the gate as a vacuous pass | method ADR / vacuous pass | — | 2026-10-22 — **RESOLVED 2026-10-22**: vacuous pass (option 1) |
+| 7 | Optional: reword the `input.q_value_max` comment in defaults.yaml (protected) to match ADR-0047 ("not evidence; kept in C9 and in preflight's q range") | reword / leave | leave | 2026-10-22 — **RESOLVED 2026-10-22**: reworded under ADR-0047 (#242) |
+| 8 | MVP-04 q6: add an `n_decoy_wins` tier row to `detection_summary.tsv` (new §9.3 vocabulary)? | add the row / summary script only | summary script only (in use) | 2026-10-23 |
+| 9 | MVP-04 q9: put the K-12 evidence run in the weekly scrontab (array task 2) | yes / keep it a one-off sbatch | one-off sbatch until you answer | 2026-10-23 |
 
 ## Environment notes
 - capabilities: allocation cpus=8, mem=31.2 GB, time left at 16:32 UTC=4:18; local/ used=1.75 GB;
