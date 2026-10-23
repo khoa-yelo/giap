@@ -797,3 +797,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
 - M9-23: switch existing plot titles to `giap.viz.base.plural` as their tests are next touched.
+- M9-23: hide V16's `Skip` ("written by giap compare") from ordinary run reports; add a test for the runs-section detection tier per run.

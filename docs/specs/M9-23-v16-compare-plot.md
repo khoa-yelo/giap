@@ -77,3 +77,12 @@ twin of the concordance scatter, `compare_abundance` table with BA columns), `st
    `plural(n, "gene")` → "1 gene" / "2 genes"). Every title uses it. Existing titles switch to it
    only when their tests are next touched; that is a backlog item, not this PR.
 2. #232 (M9-22 `giap compare`) has merged, so the test-author starts from main.
+3. **Test-author (5d830124), interface accepted:**
+   - `compare_plot(detection, abundance, genes)`, where `genes` maps each label to that run's
+     `genes.tsv`. ADR-0046 is amended (lead-level) so V16 also reads per-gene log2 from each run.
+   - V16 is registered under the name `compare`. On ordinary runs its `(view, cfg)` returns a
+     `Skip` with the reason "written by giap compare". Hiding that skip from the run report is a
+     backlog item.
+   - The "detection tier per run" in the runs section is the `detection_tier` of each run's
+     `detection_summary.tsv`. No test pins it yet; that is a backlog item.
+   - The `# ruff: noqa: RUF001-003` line for ρ is accepted.
