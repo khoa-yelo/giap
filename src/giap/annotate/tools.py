@@ -84,6 +84,8 @@ def _git_tool(name: str, licence: str, module: Module) -> ToolSpec:
     return _tool(name, f"git:{sha}", licence, _git_commit(name), module, repo)
 
 
+_R_FGSEA_VERSION = ("R", "--vanilla", "--slave", "-e", "cat(as.character(packageVersion('fgsea')))")
+
 TOOLS: Mapping[str, ToolSpec] = MappingProxyType(
     {
         t.name: t
@@ -112,6 +114,8 @@ TOOLS: Mapping[str, ToolSpec] = MappingProxyType(
             _tool("antismash", "8.0.4", "AGPL-3.0", ("antismash", "--version"), "bgc"),
             _tool("miniprot", "0.18", "MIT", ("miniprot", "--version"), "mapping"),
             _tool("blast", "2.16.0", "public-domain", ("tblastn", "-version"), "mapping"),
+            # R fgsea for the function step's GSEA, started by giap.io.fgsea_r (ADR-0038)
+            _tool("fgsea", "1.36.2", "MIT", _R_FGSEA_VERSION, "function"),
             ToolSpec(
                 name="codon_bias",
                 version="0.5.0",
@@ -127,8 +131,10 @@ TOOLS: Mapping[str, ToolSpec] = MappingProxyType(
 )
 
 
-def required_tools(cfg: GiapConfig) -> list[ToolSpec]:
-    """External tools a run with ``cfg`` needs (registry order); precomputed layers skip theirs."""
+def required_tools(cfg: GiapConfig, abundance: bool = False) -> list[ToolSpec]:
+    """External tools a run with ``cfg`` needs (registry order); precomputed layers skip theirs.
+    fgsea only when ``function`` runs GSEA, i.e. ``--abundance`` is given (M8-17 lead
+    decision 8)."""
     ann = cfg.annotation
     pre = ann.precomputed
     term = ann.terminators
@@ -147,6 +153,7 @@ def required_tools(cfg: GiapConfig) -> list[ToolSpec]:
         "antismash": "bgc" in mods and pre.regions is None,
         "miniprot": True,
         "blast": True,
+        "fgsea": "function" in mods and abundance,
     }
     return [spec for name, spec in TOOLS.items() if need.get(name, False)]
 

@@ -21,9 +21,9 @@
     {"name": "ci_high", "type": "number", "description": "Upper CI bound; NA when not estimated (ci_unestimated)"},
     {"name": "p_value", "type": "number", "description": "Permutation p-value", "constraints": {"minimum": 0, "maximum": 1}},
     {"name": "q_value", "type": "number", "description": "BH q-value within the collection", "constraints": {"minimum": 0, "maximum": 1}},
-    {"name": "method", "type": "string", "description": "Method (fgsea_multilevel is reserved for M8-11)", "constraints": {"required": true, "enum": ["fgsea_simple", "fgsea_multilevel"]}},
+    {"name": "method", "type": "string", "description": "Method: fgsea_multilevel (R fgsea, ADR-0038) or fgsea_simple (the M8-02 port)", "constraints": {"required": true, "enum": ["fgsea_simple", "fgsea_multilevel"]}},
     {"name": "null_model", "type": "string", "description": "Null model", "constraints": {"required": true, "enum": ["tu_set_permutation"]}},
     {"name": "n_perm", "type": "integer", "description": "Permutations behind the p-value", "constraints": {"required": true, "minimum": 0}},
-    {"name": "flags", "type": "string", "description": "Semicolon-joined row flags", "constraints": {"pattern": "(?:ci_unestimated|unestimated|size_filtered|genomic_cluster|detection_confounded)(?:;(?:ci_unestimated|unestimated|size_filtered|genomic_cluster|detection_confounded))*"}}
+    {"name": "flags", "type": "string", "description": "Semicolon-joined row flags", "constraints": {"pattern": "(?:ci_unestimated|unestimated|log2err_unestimated|size_filtered|genomic_cluster|detection_confounded)(?:;(?:ci_unestimated|unestimated|log2err_unestimated|size_filtered|genomic_cluster|detection_confounded))*"}}
   ]
 }

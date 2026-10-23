@@ -663,6 +663,29 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
 
+## M8-17b review nits (#214; one round each, code review and statistical review)
+- M8-15 (statistical re-review, before the gate): re-run the `test_attack_gsea_flags.py` arms on the R
+  engine, flag spillover included (unflagged rows in a collection that also has flagged rows; only
+  measured under the port, Slurm 1867330), and re-measure the N4 detection-screen and
+  `genomic_cluster` φ = 0.7 numbers on R. The methods note makes no claim for these until then.
+- Weekly `gsea` array task: 4 CPU / 2 h now also runs the `requires_r` replicates (Slurm 1869053 alone
+  took 47 min on 8 CPUs) and needs `giap-fgsea` built; `tests/calibration/_criteria.py` does not
+  exclude `requires_r`, so the harness's `gsea` suite errors where the env is absent.
+- Untested in `giap.function.gsea`: dropping `lo <= n <= hi` for whole-ranking sets; the
+  `len(tus) < min_size` and `bh(sub)[i] > alpha` boundaries; `SIMPLE_ENGINE` re-seeding per job.
+- `giap.io.fgsea_r`: an explicit `GIAP_FGSEA_PREFIX` skips the `.giap-built` check (an unbuilt env
+  says "is not a directory"); untested with no `R` in `bin/`; `engine.provenance` keeping its value
+  after a failed call is unpinned.
+- The `function.gsea_engine` event could log the seed R ran with.
+## M9-09 review nits (#218; one round, decisions 21–26)
+- V2 trend memory: up to 2.2 GB peak RSS at 20,000 points (the PLOTS process gets 2 GB on the first
+  attempt); fit the trend on ≤ 5,000 bin medians.
+- V2 rug-only panels show meaningless y ticks (±0.04); hide them.
+- V2: oriC at position 1 is hidden by the left spine; the landmark −1 is untested (decision 3).
+- V10 data TSV keeps the producer's values for `not_estimable` rows (flags alongside); the plot
+  blanks them (decision 21). Revisit if a reader takes the zeros as estimates.
+- Statistician note (TU ordinals in the islands detrend vs bp positions in V2) is in the PR body;
+  move it into docs/methods with the M9 methods index.
 ## M5-11 (statistician, hardening)
 - Island power under giapsim's default `covariates_only` detection: no island at +3/+5/+10 SD on 1,000 genes (ℓ̂ = 1, ℓ' = 3; ~45 % censored regardless of abundance, rank scores saturate). The M5-11 golden uses sim4500 with `detection="abundance"`; decide whether the power table should report the covariates-only regime.
 
