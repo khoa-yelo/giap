@@ -331,3 +331,24 @@ Tests ≈ 220 lines, not gated. One PR.
 6. **Counting a skip that another hit of the same peptide resolves.** **Proposed default:** count
    it (the event reports what was skipped, not what was lost). The alternative counts only pairs
    left with no category.
+
+## Lead decisions (2026-10-23)
+1. **Q1 (U/O over a stop):** M7-15 decision 9's "U over TGA / O over TAG is a REF match" conflicts
+   with §7.5.1 ("Sec sites … appear as ALT calls") and §7.5.3 (`stop_codon`). Neither case can
+   reach the pileup today, because the DP never consumes a target `*`, and the spec is read-only.
+   So M7-18 doesn't settle the question: **every U and O is skipped as `rare`**, and
+   `readthrough_sites` is dropped from the event. Sec/Pyl readthrough calls go to the M7-16 ADR
+   (option B), which will add the rule when that path becomes live. The `eligible` keep-condition
+   for `ref == '*'` is not added. This supersedes the U/O-over-stop examples and that part of
+   the estimate.
+2. **Q2–Q6:** the proposed defaults are taken:
+   - B, J and Z are skipped, as in the mapper;
+   - the event is logged at INFO;
+   - skipped codons count toward frameshift-spanning coverage;
+   - a literal J is not folded into L;
+   - a skip that another hit resolves still counts.
+
+   Q2's ambiguous-match idea and Q3's preflight peptide count go to the backlog.
+3. **Literal J over an I codon** (the silent REF = ALT bug): it is in scope. A J op is skipped
+   before I/L → `J` folding is applied, and a regression test pins that no VCF record has
+   ALT == REF.
