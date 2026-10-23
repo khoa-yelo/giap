@@ -85,3 +85,135 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
    blocks or not at all. **Proposed default:** excluded from `alt_sites.tsv` (truth = non-synonymous
    SNVs only) and reported separately, so the F1 gate measures substitutions, the bulk of real ALT
    calls.
+
+## Lead decisions (2026-10-22)
+
+1. No stop-codon read-through / Sec planting here; it waits for M7-16's decision on stop-spanning
+   peptides (the backlog line stays under M7-16).
+2. In-frame indels are excluded from `alt_sites.tsv` (truth = non-synonymous SNVs) and reported in a
+   separate truth file, so the F1 gate measures substitutions.
+3. Replicate counts for the variants suite come from ADR-0042 (#201, merged), not from a new
+   tolerances key.
+4. Feature loop: test-author → implementer (giapsim is tooling the implementer writes) → the
+   statistician signs off the generators M7-13 gates on → code review.
+
+## Lead decisions on the tests (2026-10-22, after 070a167)
+
+5. The benchmark (`benchmarks/test_sim_m7_bench.py`: each scenario best of 3 under 2 s at 100 kb,
+   under 20 s at 1 Mb, recorded in `benchmarks/baseline.json` from a Slurm run) is written by the
+   implementer, as giapsim tooling.
+6. No site-level error truth file in M7-12: `truth/denovo.tsv` (error type per spectrum) joined
+   with `truth/alt_sites.tsv` by peptide is enough; if M7-10's tests need a `(spectrum, site)` file,
+   M7-10 adds it.
+7. `n_true_peptides` counts database-correct peptides (`truth/peptides.tsv`, `is_wrong = false`),
+   as the tests read it; de novo reads are not counted.
+8. **RBS bar.** The ≥ 0.90 point-estimate bar stays. Planted ORF RBSs may be drawn from a stronger
+   distribution than first-round TU RBSs (documented in the scenario docstring) so the bar is met by
+   design, not by false-positive `rbs.tsv` rows; the statistician reviews the generator at sign-off.
+9. File names keep M3-20's `peptides_denovo.tsv` and `reference_peptides.tsv` (example 1's wording
+   is loose).
+10. The optional ADR-0012 σ70 promoter / terminator after planted ORFs is not in M7-12 (backlog).
+
+## Lead decisions on the statistician's block (2026-10-22, PR #225 comment 6356933329)
+
+11. **ALT truth in the sample frame.** After a frameshifting indel upstream in the same gene, the
+    ALT codon is taken in the sample's frame and lifted to the reference; rows that become
+    synonymous are dropped; `alt_sites.tsv` gains `frameshift_upstream` (bool). Frameshift indels
+    are listed in `indel_sites.tsv` (with their junction), so M7-13 can mask them.
+12. **False novel candidates.** A new opt-in wrong-peptide source draws peptides from non-coding
+    six-frame translations (with matched decoys); `novel_orf_power` turns it on, so the novel-ORF
+    FDR gate has false candidates to control.
+13. **Genome size for novel-ORF gates.** `novel_orf_power` gates use a ≥ 300-kb genome (a new
+    `sim300k` size, ≥ 200 genes) so gene detection is not at the 1/n q floor; 100 kb stays for fast
+    unit tests. The GIAP small-genome q floor goes to the backlog.
+14. **Planted TIR is a `SimConfig` field.** `novel_orf_power` defaults to the first-round
+    distribution lognormal(8, 0.8); the calibration sanity arm keeps lognormal(9, 0.5) (decision 8).
+    M7-13 adds the matched arm with an SE allowance.
+15. **No crashes.** `features.novel_orfs` fixes the `min_gap` off-by-one; when a genome has too few
+    intergenic gaps, the scenario plants as many as fit and the truth records the realised count
+    (power denominators read the truth).
+16. **Coordinates.** `novel_orfs.tsv` `stop` is written 1-based like the rest of that table.
+17. Feature loop: test-author (tests for 11–16) → implementer → statistician re-check → code review.
+
+## Lead decisions on the round-2 tests (2026-10-22, after c2cd9102)
+
+18. The size key is `"300k"` (matching `"100k"` / `"1M"`); `junction = pos_reference + 1` (first
+    reference base after the VCF anchor) is accepted.
+19. Realised planted counts: the `novel_orfs.tsv` rows plus a WARNING are the record; no extra
+    truth file. The per-class expected false-candidate count and the I/L `ms_observable` column go
+    to M7-13 (backlog).
+20. **Lead edits to existing tests** for decisions 11, 14 and 16: the alt_sites header test accepts
+    the appended `frameshift_upstream`; the reference-frame alt_sites checks skip genes with a
+    frameshifting indel (the round-2 lift test covers them); the indel_sites set check compares
+    the in-frame rows only; `stop` is checked 1-based; the old 100k RBS calibration runs the
+    decision 8 sanity arm (`planted_tir = (9, 0.5)`).
+
+## Lead decisions on the statistician's round 2 (2026-10-22, PR #225 comment 6358601933)
+
+21. **B1, scored makedb-style decoys in the simulator.** This applies to the six-frame mode only:
+    - Each wrong target row gets a decoy with ID `rev_GIAPORF_{class}_{contig}_{start1}_{end1}_{p|m}`.
+    - Decoy scores come from the same null as the wrong targets, and q/pep from the same mixture.
+    - Each null PSM goes to the target or to its entry's decoy with probability ½.
+    - The `rev_<locus>` protein decoys stay, so gene-level `decoy_picked` is unchanged.
+    - M7-13 keeps the simulator's decoys; `giap makedb` stays out of the calibration loop.
+22. **B2, `nterm_extension` territory.**
+    - A fourth wrong-peptide territory covers products in frame upstream of each CDS's true start,
+      split evenly with the other three.
+    - The 1M per-class test covers all four classes.
+    - The excluded products of choice 2 are still excluded, except the in-frame upstream extension
+      of a CDS, which is this class by definition.
+23. **ORF-entry decoys leave gene-level pairing (GIAP change, test-author round 3, 70bf13bc).**
+    - In a real makedb search, as in the six-frame scenarios, `rev_GIAPORF_*` decoys reach
+      gene-level detection, where they are unpaired; at about 50 % passing q ≤ 0.01 they drop the
+      paired share below 80 %.
+    - They belong to the M7-11 class FDR. `detection.pair_decoys` therefore drops a decoy whose
+      every stripped ID is a makedb ORF entry, as it drops all-contaminant decoys (M4-12
+      decision 12); a mixed decoy pairs on its gene IDs.
+    - Pinned by tests/unit/genetable/test_detection_orf_decoys.py (lead).
+    - Protein decoys are `rev_<annotated locus_tag>` only (no `rev_NOVEL_*`), per test-author
+      interface 5.
+24. **Test-author interfaces 1–6 (70bf13bc) accepted:**
+    - a decoy's class is the makedb entry's class;
+    - N(mu0, sd0) scores with mixture q/pep at `pi_wrong_realised`;
+    - a per-row ½ coin;
+    - `origin = sixframe_noncoding` is kept;
+    - the fourth territory is drawn in turn in `_sixframe_draw`.
+25. **Round-2 decoy-count test retired (implementer round 3, 9d91aa93).**
+    `test_sixframe_no_shortfall_and_matched_decoys` asserted that the decoy rows equal the wrong
+    rows. Under decision 21 they cannot: six-frame decoys come from a ½ coin, and the
+    `rev_<locus>` protein decoys are added on top (seed 7, 100k: T = 63, D6 = 54, Dp = 117).
+    - The test becomes `test_sixframe_no_shortfall_and_null_scores`: no shortfall, both kinds of
+      row present, and the wrong-ID score gap.
+    - The pooled coin is checked by the round-3 calibration file.
+    - Implementer deviations 1–4 are accepted:
+      - protein decoys count `n_decoy_rows`;
+      - giapsim restates the makedb rules, held honest by the round-3 oracle;
+      - the speed is acceptable and the baseline is not re-recorded;
+      - the `alt_sites` initiator-codon fix.
+26. **Statistician round 3 (2c96c2c0): the null is valid; B1 is the class q floor.** The picked
+    class q `(D+1)/T` cannot fall below 1/T. With 16 ORFs per class at 300k and 40 at 1M, nothing
+    is callable at α = 0.01, so G3 is 0 by construction and the q = 0.01 arm of G4 is vacuous.
+    The lead chooses **option (a) without moving the existing pins**:
+    - `novel_orf_power` gains `n_per_class: int | None = None`. `None` keeps `NOVEL_PER_CLASS[size]`,
+      so every existing byte pin is unchanged.
+    - The new constant `NOVEL_PER_CLASS_GATE = 300` is what M7-13 G3/G4 use, at 1M only.
+    - Intergenic saturates at about 100–145 ORFs (gap supply). That is accepted and documented,
+      not forced.
+    - Test-author first:
+      - add a per-class test that, at the gate count and 1M, the ORFs with
+        `n_true_peptides ≥ 1` number at least 1/α = 100 in every class except intergenic;
+      - for intergenic, add a test that its count is ≥ 90 and that it is reported;
+      - the statistician's strict-xfail floor test should be pointed at the gate count. The lead
+        removes the xfail after the implementer's change.
+    - Then the implementer, who also re-checks the benchmark (about 7.5 s at 200 per class).
+    - The methods note gains the real-genome consequence: at α = 0.01 the picked class FDR calls
+      nothing in a class with fewer than about 100 candidates (lead, below).
+    - Backlog:
+      - N1: target q/PEP use the pre-coin wrong share, about 2× conservative, so PSM-level checks
+        need the post-coin share;
+      - N2: already covered at backlog line 471;
+      - N3: G4 for `nterm_extension` goes through M7-11's locus-tag pairing.
+27. **Implementer, decision 26 (7ddcf089).** The lead removes the class-floor strict xfail, which
+    now XPASSes, and excludes `config.yaml` (it holds output paths) from the digest in
+    `test_none_output_byte_identical_at_100k`, as the other pin helpers already do. The 1M
+    gate-count benchmark is 7.2 s.

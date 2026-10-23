@@ -372,3 +372,15 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
 5. **Runtime:** before submitting, sum the giap-* CPUs together with M7-15's K-12 arm. Promoter
    Calculator batching (backlog) is needed if the first run exceeds 8 h; that is measured, not
    assumed.
+6. **Test-author part 1 (54ac5d5e), spec gaps 1–8:** the test-author's readings are accepted.
+   1. RegulonDB gene coordinates come from `GeneProductSet.txt` next to `TUSet.txt`.
+   2. "Same stop" is read strand-aware: the right end on +, the left end on −.
+   3. `truth/alt_sites.tsv` uses the M7-12 columns. The SNV-only checks compare
+      `truth/sample_genome.fna` with K-12.
+   4. `simulate_on_genome(..., check_hashes=True)`; test excerpts pass `False`. The CLI is
+      `python -m giapsim.real_genome --genome --annotation --seed --outdir`.
+   5. Island truth names layout `TU_<n>` ids; excerpts pass their own island specs.
+   6. Upper tercile means at least the 2/3 quantile of gene abundances in `abundance.tsv`.
+   7. The `nterm_extension` count is bounded by `n_novel_per_class`.
+   8. The branch is stacked on #225 (merged in by the lead). When #225 squash-merges, merge its old
+      tip and then main, following the stacked-merge rule.

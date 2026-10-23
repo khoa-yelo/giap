@@ -22,6 +22,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
+from giap.makedb import ORF_ID_PREFIX
 from giap.stats.mayu import mayu_gene_fdr
 from giap.stats.tda import monotone_q, picked_fdr
 
@@ -158,7 +159,8 @@ def pair_decoys(
     ``peptide, q_value, pep, score, gene``; ``gene`` NA when the stripped IDs do not all map to
     one and the same gene (unpaired). Contaminant decoys (every stripped ID starts with a
     contaminant prefix, default ``input.contaminant_prefixes``) get no row: neither paired nor
-    unpaired; a mixed decoy pairs on its non-contaminant IDs only (decision 12)."""
+    unpaired; a mixed decoy pairs on its non-contaminant IDs only (decision 12). Decoys of makedb
+    six-frame entries (``GIAPORF_…``) are left out the same way (M7-12 decision 23)."""
     cols = ["peptide", "q_value", "pep", "score", "gene"]
     if peptides is None or not len(peptides):
         return pd.DataFrame({c: pd.Series([], dtype=object) for c in cols})
@@ -167,11 +169,11 @@ def pair_decoys(
     if q_value_max is not None:
         q = d["q_value"].astype("float64")
         d = d[q.isna() | (q <= q_value_max)]
-    cont = _contaminants(contaminant_prefixes)
-    # Decision 12: only all-contaminant decoys leave the counts; a mixed decoy pairs on its
-    # non-contaminant IDs.
+    skip = (*_contaminants(contaminant_prefixes), ORF_ID_PREFIX)
+    # Decision 12: only all-contaminant (M7-12 decision 23: or all-ORF-entry) decoys leave the
+    # counts; a mixed decoy pairs on its gene IDs.
     stripped = [
-        [m for m in (_strip(x, decoy_prefixes) for x in _ids(c)) if not m.startswith(cont)]
+        [m for m in (_strip(x, decoy_prefixes) for x in _ids(c)) if not m.startswith(skip)]
         for c in d["protein_ids"].tolist()
     ]
     keep = np.array([len(ms) > 0 for ms in stripped], dtype=bool)
