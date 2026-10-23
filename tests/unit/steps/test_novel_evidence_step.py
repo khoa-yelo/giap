@@ -145,6 +145,7 @@ def test_published_table_threshold(run1: tuple[Any, Path, Path], cfg1: Any) -> N
     sim, out, work = run1
     gt = pd.read_parquet(work / "gene_table")
     thr = _threshold(gt, cfg1.novel_orfs.rbs_min_quantile)
+    assert thr is not None, "M4-24 decision 8: detected genes give an estimated RBS threshold"
     table = read_novel_orfs(out / "tables" / "novel_orfs.tsv")
     assert set(table["class"]) & set(RBS_CLASSES), "the run plants nterm/intergenic ORFs"
     _check(table, work, sim, cfg1, thr)
