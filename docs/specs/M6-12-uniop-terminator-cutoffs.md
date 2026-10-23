@@ -471,3 +471,21 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
    - Examples 8–10 belong to parts B and C.
    - Truth-level recall gets a helper in part B.
    - Next: the implementer (`src/giap/stats/cutoffs.py`).
+8. **Part A implementer (1afd2b92): accepted.** The targeted tests pass (108). Slurm 1873873 gives
+   13 passed for calibration and attacks, including the nightly directon null at R = 500. The
+   fast suite (1873874) passed.
+   - **Size:** 533 counted lines against the estimate of 140. Decisions 6 and 7 grew the pinned
+     interface to 27 public names (windows, matching, the coincidence null, `precision_cv`,
+     `threshold_boot_q`, `auroc_diff_ci`, `distance_fit_ci`). That is over the 400-line warning
+     and under the 800-line limit. Accepted, not split: a split would move only the terminator
+     functions and cost a second review round.
+   - **Readings accepted:**
+     - the failure reason `"one_class"`;
+     - a 2⁻³⁰ floor step;
+     - `calibrated` as a property;
+     - `coincidence_rate` raises on a called terminator outside any window;
+     - NaN for replicates with only one class;
+     - a lone gene on a circular replicon is its own neighbour;
+     - the fold assignment for `precision_cv`;
+     - the driver derives precision, recall and F1 for the TSV.
+   - Next: the statistician and the code review, in parallel.

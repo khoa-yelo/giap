@@ -388,7 +388,8 @@ def test_example10_tie_goes_to_the_decoy() -> None:
         ((0.001, 0.01, 50.0), (0.001, 0.02, 99.0), True),  # then lower PEP
         ((0.001, 0.01, 50.0), (0.001, 0.01, 49.0), True),  # then higher score
         ((0.001, 0.01, 50.0), (0.001, 0.005, 1.0), False),
-        ((0.001, None, 50.0), (0.001, 0.5, 1.0), False),  # NA last: PEP NA loses to any PEP
+        # PEP only on the decoy side: not a key column, so the score decides (M4-24 rule 5)
+        ((0.001, None, 50.0), (0.001, 0.5, 1.0), True),
     ],
 )
 def test_lexicographic_score_key(
