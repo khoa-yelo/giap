@@ -152,10 +152,10 @@ the current `_picked_q`, with the columns outside S set to NA, which is the rank
 
 | # | Input | Main | Expected (this issue) |
 |---|---|---|---|
-| 1 | 150 genes G001–G150, targets q = 1e-4·i, PEP and score NA; 150 paired decoys (one per gene), q, PEP, score all NA | `decoy_picked`, no warning; every gene q = 1/150 = 0.006667, 150 detected | C_T = {q}, S = ∅ → tier `mayu`, warnings contain `decoy_unscored`; `table` and `q_threshold` rows equal `detect` on the same input with the 150 decoy rows removed; `n_decoys_paired` = 150, `n_decoys_unpaired` = 0; `q_floor` NA |
+| 1 | 150 genes G001–G150, targets q = 1e-5·i, PEP and score NA; 150 paired decoys (one per gene), q, PEP, score all NA | `decoy_picked`, no warning; every gene q = 1/150 = 0.006667, 150 detected | C_T = {q}, S = ∅ → tier `mayu`, warnings contain `decoy_unscored`; `table` and `q_threshold` rows equal `detect` on the same input with the 150 decoy rows removed; `n_decoys_paired` = 150, `n_decoys_unpaired` = 0; `q_floor` NA |
 | 2 | targets G1–G4 q (0.001, 0.002, 0.003, 0.004), score (50, 40, 30, 20), PEP NA; paired decoys of G1, G3, G4 with score (10, 35, 25), q and PEP NA | `decoy_picked`; all 4 genes q = 0.25 | S = {score} → `decoy_picked` + `decoy_unscored`; G1, G2 q = 0.5; G3, G4 decoy wins → `not_detected`, q NA |
 | 3 | 300 genes, targets q = 1e-5·i, score = 301 − i, PEP NA; paired decoys of G201–G300 with score = 301 − i + 0.5 (each beats its target), q and PEP NA | 300 detected, q = 1/300 = 0.003333 | S = {score}, `decoy_unscored`; G001–G200 q = 1/200 = 0.005 (detected); G201–G300 `not_detected`, q NA |
-| 4 | 150 genes, targets q = 1e-4·i, PEP = 1e-5·i, score NA; one paired decoy of G001 with q = 1e-4, PEP NA, score NA | 150 detected (G001's target wins on PEP), q = 0.006667 | S = {q}, `decoy_unscored`; G001 q tie → decoy wins → `not_detected`; G002–G150 q = (1 + 1)/149 = 0.013423 → 0 detected |
+| 4 | 150 genes, targets q = 1e-5·i, PEP = 1e-5·i, score NA; one paired decoy of G001 with q = 1e-5, PEP NA, score NA | 150 detected (G001's target wins on PEP), q = 0.006667 | S = {q}, `decoy_unscored`; G001 q tie → decoy wins → `not_detected`; G002–G150 q = (1 + 1)/149 = 0.013423 → 0 detected |
 | 5 | 400 genes, targets q = 1e-5·i, score = 1000 − i, PEP NA; paired decoys: G101 (q 5e-4, score 949.5) and G102 (q NA, score 949.4) | `decoy_picked`; G101 decoy wins, G102's NA-q decoy ranks last; 399 target wins, q = 2/399 = 0.005013 | q not complete on decoys → S = {score}, `decoy_unscored`; G101, G102 decoy wins (`not_detected`); 398 target wins, q = 3/398 = 0.007538 (detected) |
 | 6 | targets carry q only (PEP, score NA); 4 paired decoys, q on 3 rows and NA on 1, PEP and score NA | `decoy_picked`; the NA-q decoy ranks last | S = ∅ → tier `mayu`, `decoy_unscored`; table equals the decoy-free run (as in example 1) |
 | 7 | 151 genes, targets G001–G150 q = 1e-5·i, G151 accepted with q NA; PEP, score NA; one paired decoy of G151, q 0.005 | G151 decoy wins; 150 detected, q = 1/150 = 0.006667 | identical to main: S = C_T = {q}, no `decoy_unscored` (partial NA on the target side only) |
@@ -249,3 +249,14 @@ the current `_picked_q`, with the columns outside S set to NA, which is the rank
 5. **One warning,** `decoy_unscored`, for both cases; the methods note explains it.
 6. **A sparse target column stays in S** (main's behaviour, conservative).
 7. **Preflight `candidate_tier`** is out of scope; this is a backlog item.
+8. **Lead edits after the test-author step (9c0b7626):** these are existing tests the fix flips.
+   - test_gene_fdr_real_mapping expects `mayu` (decision 3).
+   - `test_lexicographic_score_key` case 5 expects `target_wins=True`, since a PEP present only on
+     the decoy side is not a key column (rule 5).
+   - `test_published_table_threshold_unestimated` becomes `test_published_table_threshold`: sim100k
+     now detects genes under `mayu`, so the threshold is estimated.
+   - The oracle of `test_tier_depends_on_pairing_share` switches the decoy q filter off when there
+     are no targets (rule 6).
+   - The implementer regenerates the `sim100k_real` M4 golden.
+   - The spec's examples 1, 4 and 6 use target q = 1e-5·i, which keeps all 150 targets under
+     `q_value_max`. The test-author's reading is accepted; the example table is amended to match.
