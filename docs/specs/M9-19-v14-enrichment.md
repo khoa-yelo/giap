@@ -84,3 +84,9 @@ passes q ≤ `<alpha>`" — never "no enrichment" (ADR-0026 consequence).
    **Proposed default:** the 20 smallest, so the reader sees how far they are.
 2. ORA's `effect` CI is NA in pass 1 (M8-04). **Proposed default:** points without bars, labelled
    "CI unestimated", until M8 hardening adds it.
+
+## Lead decisions (2026-10-23)
+1. **Q1 yes:** with nothing significant, panel (c) shows the 20 smallest q with the alpha line.
+2. **Q2 yes:** ORA effect points without bars, labelled "CI unestimated", until M8 hardening.
+3. **Stacking:** on m9/plot-support-analysis (M9-17; `gsea_running` per its tests a3224acf and
+   decision 5). Merge M9-17 into this branch when it lands, then main.
