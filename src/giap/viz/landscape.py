@@ -30,7 +30,9 @@ if TYPE_CHECKING:
     from giap.config import GiapConfig
     from giap.io.run_view import RunView
 
-COLUMNS = ("contig", "kind", "locus_tag", "position_bp", "start", "end", "value", "category")
+#: ``product`` (from ``genes.tsv``) is last: M9-15 lead decisions 1 and 4
+COLUMNS = ("contig", "kind", "locus_tag", "position_bp", "start", "end", "value", "category",
+           "product")  # fmt: skip
 KINDS = ("point", "rug", "trend", "island", "oric", "ter")
 _INT_COLUMNS = ("position_bp", "start", "end")
 NO_ABUNDANCE = "No measured abundance: detection only"
@@ -132,25 +134,15 @@ def _gene_rows(
     rug = np.ones(len(g), dtype=bool) if all_rug else ~detected
     tags = g["locus_tag"].astype(str).to_numpy()
     status = g["detection_status"].astype(str).to_numpy()
-    rows = [
-        _row(rep.contig, "rug", locus_tag=tags[i], position_bp=int(mids[i]), category=status[i])
-        for i in np.flatnonzero(rug)
-    ]
+    prod = [None if pd.isna(p) else str(p) for p in g.get("product", pd.Series([None] * len(g)))]
+    cells = [{"locus_tag": tags[i], "position_bp": int(mids[i]), "category": status[i],
+              "product": prod[i]} for i in range(len(g))]  # fmt: skip
+    rows = [_row(rep.contig, "rug", **cells[i]) for i in np.flatnonzero(rug)]
     idx = np.flatnonzero(point & ~rug)
     idx = idx[np.lexsort((tags[idx], mids[idx]))]
     pts = _binned_points(rep.contig, mids[idx], y[idx], rep.length)
     if pts is None:
-        pts = [
-            _row(
-                rep.contig,
-                "point",
-                locus_tag=tags[i],
-                position_bp=int(mids[i]),
-                value=float(y[i]),
-                category=status[i],
-            )
-            for i in idx
-        ]
+        pts = [_row(rep.contig, "point", **cells[i], value=float(y[i])) for i in idx]
     return [*rows, *pts, *_trend(rep, pts, frac)]
 
 
