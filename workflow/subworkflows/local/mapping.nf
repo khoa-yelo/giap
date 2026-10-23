@@ -74,4 +74,6 @@ workflow MAPPING {
     hits_tolerant = pick(MAP_TOLERANT.out.outputs, 'hits_tolerant.parquet')   // VARIANTS (M7-04)
     stratum0 = pick(P, 'stratum0_classes.parquet')   // ADR-0019 table, an input of context_stats
     versions = ch_versions
+    events   = SIXFRAME_INDEX.out.events.mix(MAP_EXACT.out.events, MAP_TOLERANT.out.events,
+                   PLACEMENT.out.events, PROTEIN_LEFTOVERS.out.events, LOCI.out.events)
 }
