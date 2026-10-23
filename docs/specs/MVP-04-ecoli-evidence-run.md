@@ -513,3 +513,17 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
         1–16), `tests/e2e/test_k12_evidence.py`, and the acceptance run once #238 and #237
         merge.
       - (1, 5) go to the backlog.
+19. **Part 2 test-author (2a95422f, #258): the readings of gaps 1, 2 and 4–10 are accepted.**
+    - Gap 2: detection warnings are logged as plain text and carry no flag or event. This goes to
+      the backlog as a GIAP change: gene_table logs `decoy_pairing_low` / `decoy_unscored` /
+      `q_floor_above_alpha` with an event, so the manifest carries them.
+    - **Gap 3 (gate 13 islands, "≥ 4 of 6 recovered") may be infeasible.** Low islands are
+      structurally capped once more than about a quarter of genes are undetected, and K-12 has about
+      37 % undetected.
+      - The statistician rules on it before the acceptance run. That covers the islands
+        (direction-matched, as the test-author reads it) and the lag-1 Moran's I under the
+        `tu_block` null (gap 4).
+      - If the gate is infeasible, the lead re-states it before the first measured run (R3: the
+        gate is changed by a recorded decision before any number is seen, not widened after).
+    - Next steps, in parallel: the implementer (the full `mvp04_summary.py` and
+      `scripts/slurm/mvp04_inputs.sbatch`) and the statistician's gate-13 feasibility check.
