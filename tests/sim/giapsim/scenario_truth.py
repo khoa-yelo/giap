@@ -4,17 +4,22 @@ docs/specs/M7-12-sim-variant-novel-scenarios.md rules 1-3 (lead decisions 2, 7 a
 only with ``SimConfig.m7_truth`` (and RBSs planted only with ``SimConfig.plant_novel_rbs``), so
 every pre-M7-12 config keeps its outputs byte for byte.
 
-* ``truth/alt_sites.tsv``: one row per non-synonymous SNV of ``truth/strain_differences.tsv``
-  whose residues are both sense (nonsense SNVs are left out), on the **reference** codon (the
-  genome GIAP receives): ``codon_start`` is the lowest 1-based coordinate of the codon, ``strand``
-  and ``gene`` the lifted gene's, ``ref_aa`` / ``alt_aa`` the two letters of ``aa_change``. Rows
-  in (contig order, codon_start, strand) order.
-* ``truth/indel_sites.tsv``: the in-frame indels inside genes, columns copied from
-  ``strain_differences.tsv`` (decision 2: kept out of ``alt_sites``).
-* ``truth/novel_orfs.tsv``: the seven M3-18 columns, then ``stop`` (0-based lowest base of the
-  stop codon), ``true_start`` (1-based first base of the start codon in transcription direction),
-  ``n_true_peptides`` and ``rbs_planted``; the N-terminal extensions follow the novel ORFs as
-  class ``nterm_extension`` rows (true start to stop, true protein).
+* ``truth/alt_sites.tsv``: one row per codon holding an SNV of ``truth/strain_differences.tsv``
+  inside a gene, taken in the **sample** gene's reading frame and lifted to the reference
+  (decision 11): ``codon_start`` = 1-based lowest coordinate of ``cs_sample + pos_reference -
+  pos_sample``, ``ref_aa`` / ``alt_aa`` the code-11 translations of that codon on the reference /
+  sample; rows synonymous or with a stop on either side are left out. ``frameshift_upstream`` is
+  true when a frameshifting indel of the same gene lies upstream (transcription direction) of the
+  SNV, so the reference frame there differs from the annotated one. Rows in (contig order,
+  codon_start, strand) order, one per codon.
+* ``truth/indel_sites.tsv``: every indel inside a gene, columns copied from
+  ``strain_differences.tsv`` plus ``frameshift`` (length change not a multiple of 3) and
+  ``junction`` (``pos_reference + 1``: the first reference base after the VCF anchor), so M7-13
+  can stratify or mask; decision 2 keeps them out of ``alt_sites``.
+* ``truth/novel_orfs.tsv``: the seven M3-18 columns, then ``stop`` (1-based lowest base of the
+  stop codon, decision 16), ``true_start`` (1-based first base of the start codon in
+  transcription direction), ``n_true_peptides`` and ``rbs_planted``; the N-terminal extensions
+  follow the novel ORFs as class ``nterm_extension`` rows (true start to stop, true protein).
 
 ``n_true_peptides`` (rule 2, decision 7) counts distinct I/L-folded correct database peptides of
 ``truth/peptides.tsv`` (``is_wrong = false``, not decoys) covering the object: for a site, the
@@ -27,14 +32,13 @@ one residue upstream of the annotated start. Coordinates of novel ORFs are on ``
 from __future__ import annotations
 
 import csv
-import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from giapsim.codons import codons_of, revcomp, translate_cds
+from giapsim.codons import CODE_11, codons_of, revcomp, translate_cds
 from giapsim.features import Feat
 from giapsim.signals import RBS, clean_rbs, put
 
@@ -42,21 +46,17 @@ __all__ = [
     "ALT_COLUMNS",
     "INDEL_COLUMNS",
     "NOVEL_COLUMNS",
-    "PLANTED_TIR",
     "plant_novel_rbs",
     "strong_tirs",
     "write_m7_truth",
 ]
 
-ALT_COLUMNS = ["contig", "codon_start", "strand", "gene", "ref_aa", "alt_aa", "n_true_peptides"]
-INDEL_COLUMNS = ["contig", "pos_sample", "pos_reference", "ref", "alt", "type", "gene", "aa_change"]
+ALT_COLUMNS = ["contig", "codon_start", "strand", "gene", "ref_aa", "alt_aa", "n_true_peptides",
+               "frameshift_upstream"]  # fmt: skip
+INDEL_COLUMNS = ["contig", "pos_sample", "pos_reference", "ref", "alt", "type", "gene", "aa_change",
+                 "frameshift", "junction"]  # fmt: skip
 NOVEL_COLUMNS = ["orf_id", "class", "contig", "start", "end", "strand", "aa",
                  "stop", "true_start", "n_true_peptides", "rbs_planted"]  # fmt: skip
-#: ``(mu, sigma)`` of the log TIR of planted novel starts in ``rbs_novel`` (decision 8): stronger
-#: than first-round TU RBSs (lognormal(8, 0.8)) so ≥ 90 % of planted starts clear the detected
-#: genes' 10 % quantile by design.
-PLANTED_TIR = (9.0, 0.5)
-_SNV = re.compile(r"^([A-Z*])(\d+)([A-Z*])$")
 
 Key = tuple[str, str, int]  # contig, strand, 0-based first base of the start codon
 
@@ -92,12 +92,19 @@ def plant_novel_rbs(
     return keys
 
 
-def strong_tirs(rng: np.random.Generator, rows: list[list[Any]], keys: set[Key]) -> None:
-    """Redraw ``tir_ostir`` of the ``rbs_novel`` rows at ``keys`` from ``PLANTED_TIR``."""
+def strong_tirs(
+    rng: np.random.Generator,
+    rows: list[list[Any]],
+    keys: set[Key],
+    tir: tuple[float, float],
+) -> None:
+    """Redraw ``tir_ostir`` of the ``rbs_novel`` rows at ``keys`` from lognormal(``tir``)
+    (``SimConfig.planted_tir``, decision 14). One draw per key whatever the arm, so changing it
+    changes only these values."""
     at = {(r[0], r[1], int(r[2]) - 1): i for i, r in enumerate(rows)}
     for k in sorted(keys):
         if k in at:
-            rows[at[k]][3] = round(float(rng.lognormal(*PLANTED_TIR)), 4)
+            rows[at[k]][3] = round(float(rng.lognormal(*tir)), 4)
 
 
 def _correct(out: Path) -> dict[str, list[tuple[str, int, int, str]]]:
@@ -120,37 +127,72 @@ def _covers(s1: int, e1: int, p0: int, n: int) -> bool:
     return any(s1 - 1 <= q < e1 for q in (p0, p0 + n))
 
 
-def _codon_start(g: Feat, p0: int, n: int) -> int:
-    """1-based lowest coordinate of ``g``'s codon holding 0-based ``p0`` (contig length ``n``)."""
+def _sample_codon(g: Feat, p0: int, n: int) -> int:
+    """0-based lowest coordinate (unwrapped, may exceed ``n``) of the codon of sample gene ``g``
+    holding 0-based ``p0`` (contig length ``n``), in ``g``'s annotated frame."""
     if p0 < g.start:
         p0 += n
     if g.strand == "+":
-        c0 = g.start + 3 * ((p0 - g.start) // 3)
-    else:
-        c0 = g.end - 3 * ((g.end - 1 - p0) // 3 + 1)
-    return c0 % n + 1
+        return g.start + 3 * ((p0 - g.start) // 3)
+    return g.end - 3 * ((g.end - 1 - p0) // 3 + 1)
+
+
+def _codon(seq: str, c0: int, strand: str) -> str:
+    n = len(seq)
+    nt = "".join(seq[(c0 + i) % n] for i in range(3))
+    return revcomp(nt) if strand == "-" else nt
+
+
+def _is_indel(r: Sequence[Any]) -> bool:
+    return r[5] in ("ins", "del")
+
+
+def _shift(r: Sequence[Any]) -> int:
+    return len(str(r[4])) - len(str(r[3]))
 
 
 def alt_site_rows(
     strain_rows: Sequence[Sequence[Any]],
-    lifted: Sequence[Feat],
-    ref_len: Mapping[str, int],
-    sample_len: Mapping[str, int],
+    genes: Sequence[Feat],
+    sample: Mapping[str, str],
+    ref: Mapping[str, str],
     peps: Mapping[str, list[tuple[str, int, int, str]]],
 ) -> list[list[Any]]:
-    by_locus = {g.locus: g for g in lifted}
-    order = {c: k for k, c in enumerate(ref_len)}
-    out = []
-    for cid, pos_s, pos_r, _ref, _alt, typ, gene, change in strain_rows:
-        m = _SNV.match(str(change))
-        if typ != "snv" or not gene or m is None or "*" in (m[1], m[3]):
+    """``truth/alt_sites.tsv`` rows (decision 11): each SNV codon in the sample gene's frame
+    (``genes`` = sample features), lifted to the reference by ``pos_reference - pos_sample``."""
+    by_locus = {g.locus: g for g in genes}
+    order = {c: k for k, c in enumerate(ref)}
+    fs_at: dict[str, list[int]] = {}  # gene -> 0-based sample positions of frameshifting indels
+    for r in strain_rows:
+        if _is_indel(r) and r[6] and _shift(r) % 3:
+            fs_at.setdefault(str(r[6]), []).append(int(r[1]) - 1)
+    out: dict[tuple[str, int, str, str], list[Any]] = {}
+    for cid, pos_s, pos_r, _ref, _alt, typ, gene, _change in strain_rows:
+        if typ != "snv" or not gene:
             continue
-        cs = _codon_start(by_locus[gene], int(pos_r) - 1, ref_len[cid])
-        hits = {p for c, s1, e1, p in peps.get(gene, ())
-                if c == cid and _covers(s1, e1, int(pos_s) - 1, sample_len[cid])}  # fmt: skip
-        out.append([cid, cs, by_locus[gene].strand, gene, m[1], m[3], len(hits)])
-    out.sort(key=lambda r: (order[r[0]], r[1], r[2]))
-    return out
+        g, ns, nr = by_locus[str(gene)], len(sample[cid]), len(ref[cid])
+        ps, pr = int(pos_s) - 1, int(pos_r) - 1
+        cs = _sample_codon(g, ps, ns)
+        rc = (cs + (pr - ps)) % nr
+        ra = CODE_11[_codon(ref[cid], rc, g.strand)]
+        aa = CODE_11[_codon(sample[cid], cs, g.strand)]
+        if ra == aa or "*" in (ra, aa):
+            continue
+        key = (str(cid), rc + 1, g.strand, str(gene))
+        if key in out:
+            continue  # one row per codon
+        plus = g.strand == "+"
+        fs = any((q < ps) if plus else (q > ps) for q in fs_at.get(str(gene), ()))
+        hits = {p for c, s1, e1, p in peps.get(str(gene), ())
+                if c == cid and _covers(s1, e1, ps, ns)}  # fmt: skip
+        out[key] = [cid, rc + 1, g.strand, gene, ra, aa, len(hits), "true" if fs else "false"]
+    return sorted(out.values(), key=lambda r: (order[r[0]], r[1], r[2]))
+
+
+def indel_site_rows(strain_rows: Sequence[Sequence[Any]]) -> list[list[Any]]:
+    """``truth/indel_sites.tsv`` rows: every indel in a gene, ``frameshift`` and ``junction``."""
+    return [[*r, "true" if _shift(r) % 3 else "false", int(r[2]) + 1]
+            for r in strain_rows if _is_indel(r) and r[6]]  # fmt: skip
 
 
 def novel_rows(
@@ -163,7 +205,7 @@ def novel_rows(
     rows = []
     for orf_id, cls, cid, s1, e0, strand, aa in novel:
         ts = int(s1) if strand == "+" else int(e0)
-        stop = int(e0) - 3 if strand == "+" else int(s1) - 1
+        stop = int(e0) - 2 if strand == "+" else int(s1)  # 1-based (decision 16)
         n = len({p for *_, p in peps.get(str(orf_id), ())})
         rows.append([orf_id, cls, cid, s1, e0, strand, aa, stop, ts, n, (cid, strand, ts - 1)])
     for f in _nterm_feats(feats):
@@ -173,7 +215,7 @@ def novel_rows(
         plus, a1, b1 = f.strand == "+", f.start + 1, f.end  # annotated CDS, 1-based closed
         n = len({p for c, s1, e1, p in peps.get(f.locus, ())
                  if c == f.contig and (s1 < a1 if plus else e1 > b1)})  # fmt: skip
-        stop = e0 - 3 if f.strand == "+" else s0
+        stop = e0 - 2 if f.strand == "+" else s0 + 1
         assert f.true_start is not None
         rows.append([f"NOVEL_{len(rows) + 1:04d}", "nterm_extension", f.contig, s0 + 1, e0,
                      f.strand, translate_cds(codons_of(nt)), stop, f.true_start, n,
@@ -189,22 +231,19 @@ def write_m7_truth(
     feats: Sequence[Feat],
     text: Mapping[str, str],
     planted: set[Key],
-    strain: tuple[Sequence[Sequence[Any]], Sequence[Feat], Mapping[str, str]] | None,
+    strain: tuple[Sequence[Sequence[Any]], Mapping[str, str]] | None,
 ) -> dict[str, Path]:
     """Write the M7-12 truth tables (after proteomics); ``strain`` = (strain_differences rows,
-    lifted features, reference sequences) or None. Returns the truth paths by key."""
+    reference sequences) or None. Returns the truth paths by key."""
     peps = _correct(out)
     paths = {"alt_sites": out / "truth" / "alt_sites.tsv", "novel_orfs": out / "truth" /
              "novel_orfs.tsv"}  # fmt: skip
     alt: list[list[Any]] = []
     if strain is not None:
-        rows, lifted, ref = strain
-        sample_len = {c: len(s) for c, s in text.items()}
-        alt = alt_site_rows(rows, lifted, {c: len(s) for c, s in ref.items()}, sample_len, peps)
+        rows, ref = strain
+        alt = alt_site_rows(rows, feats, text, ref, peps)
         paths["indel_sites"] = out / "truth" / "indel_sites.tsv"
-        indels = [r for r in rows if r[5] in ("ins", "del") and r[6]
-                  and (len(str(r[3])) - len(str(r[4]))) % 3 == 0]  # fmt: skip
-        _tsv(paths["indel_sites"], INDEL_COLUMNS, indels)
+        _tsv(paths["indel_sites"], INDEL_COLUMNS, indel_site_rows(rows))
     _tsv(paths["alt_sites"], ALT_COLUMNS, alt)
     _tsv(paths["novel_orfs"], NOVEL_COLUMNS, novel_rows(novel, feats, text, planted, peps))
     return paths

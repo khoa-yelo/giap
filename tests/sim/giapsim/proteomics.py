@@ -9,6 +9,15 @@ related strain's proteome and never occur, up to I/L, in a protein of the sample
 two-component normal mixture from which PEP and q-values are computed consistently; decoy rows
 are reversed tryptic peptides with null scores.
 
+``wrong_source = "sixframe_noncoding"`` (M7-12 decision 12, opt-in) draws the wrong peptides from
+the Trypsin/P products of the six-frame translation of the genome that are in frame with no
+annotated CDS/sORF, no N-terminal extension and no novel ORF and occur in no true protein: the
+false novel candidates a six-frame search produces. They are drawn in turn from the intergenic,
+out-of-frame (same-strand CDS overlap) and antisense (opposite-strand overlap only) territories,
+so every novel class gets false candidates; their truth rows carry the source locus. Decoys are
+then reversed non-coding six-frame products (the matched decoy space), one per wrong row. These
+draws use their own stream (``[seed, 7]``).
+
 All draws come from ``numpy.random.default_rng([seed, 3])``, so the genome and its truth are
 unchanged by the proteomics options. Gene-level abundance is a plain log-normal per protein
 (``gene_log_abundance``; M4 replaces it with the TU/region/AR(1) model).
@@ -19,7 +28,7 @@ from __future__ import annotations
 import json
 import logging
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -52,6 +61,10 @@ LOG_ABUNDANCE = (1.0, 1.5)
 INTENSITY_SD = 0.5
 P_CHARGE_2 = 0.6
 _STREAM = 3  # numpy SeedSequence key of the proteomics stream (1: features, 2: signals)
+_SIXFRAME_STREAM = 7  # numpy SeedSequence key of the six-frame wrong peptides (M7-12)
+WrongSource = Literal["shuffled", "other_strain", "sixframe_noncoding"]
+_WRONG_SOURCES = ("shuffled", "other_strain", "sixframe_noncoding")
+SIXFRAME_CLASSES = ("intergenic", "cds_outframe", "antisense")
 
 
 @dataclass(frozen=True)
@@ -79,7 +92,7 @@ class ProteomicsConfig:
     missed_cleavages: int = 1  # trypsin: after K/R, also before P (Trypsin/P)
     detect_logit: tuple[float, float, float] = (-2.0, 0.08, 0.9)  # intercept, per aa, log abund.
     pi_wrong: float = 0.01
-    wrong_source: Literal["shuffled", "other_strain"] = "shuffled"
+    wrong_source: WrongSource = "shuffled"
     score_mixture: tuple[float, float, float, float] = (3.0, 1.0, 0.0, 1.0)  # mu1, sd1, mu0, sd0
     n_decoy_rows: Literal["match_wrong"] | int = "match_wrong"
     search_db: Literal["same", "other"] = "same"
@@ -96,8 +109,8 @@ class ProteomicsConfig:
             raise ValueError("missed_cleavages must be >= 0")
         if not 0.0 <= self.pi_wrong < 1.0:
             raise ValueError("pi_wrong must be in [0, 1)")
-        if self.wrong_source not in ("shuffled", "other_strain"):
-            raise ValueError("wrong_source must be 'shuffled' or 'other_strain'")
+        if self.wrong_source not in _WRONG_SOURCES:
+            raise ValueError(f"wrong_source must be one of {_WRONG_SOURCES}")
         if self.search_db not in ("same", "other"):
             raise ValueError("search_db must be 'same' or 'other'")
         if self.score_mixture[1] <= 0 or self.score_mixture[3] <= 0:
@@ -279,6 +292,129 @@ def sixframe_counts(
     return {p: len(loci.get(_il(p), ())) for p in peptides}
 
 
+# ---------------------------------------------------------------- six-frame non-coding peptides
+
+#: A six-frame product: (peptide, contig, 1-based start, 1-based end (closed), strand).
+Locus = tuple[str, str, int, int, str]
+
+
+def _codon_mask(n: int, spans: Sequence[tuple[int, int, str]]) -> dict[str, np.ndarray]:
+    """Per strand, ``True`` at the strand-local first base of every codon in frame with a span
+    ``[s0, e0)`` (``e0`` may exceed ``n``: crossing the origin) and overlapping it."""
+    mask = {"+": np.zeros(n, dtype=bool), "-": np.zeros(n, dtype=bool)}
+    for s0, e0, strand in spans:
+        if strand == "+":
+            mask["+"][np.arange(s0, e0, 3) % n] = True
+        else:
+            c = np.arange(e0 - 3, s0 - 3, -3) % n  # plus-strand low base of each codon
+            loc = n - c - 3
+            mask["-"][loc[loc >= 0]] = True
+    return mask
+
+
+def _cover(n: int, spans: Sequence[tuple[int, int, str]]) -> dict[str, np.ndarray]:
+    """Per strand, the cumulative count of plus-strand bases covered by a span (length n + 1)."""
+    out = {}
+    for st in "+-":
+        d = np.zeros(n + 1, dtype=np.int64)
+        for s0, e0, strand in spans:
+            if strand != st:
+                continue
+            for a, b in ((s0, min(e0, n)), (0, e0 - n)) if e0 > n else ((s0, e0),):
+                if b > a:
+                    d[a] += 1
+                    d[b] -= 1
+        out[st] = np.concatenate([[0], np.cumsum((np.cumsum(d[:n]) > 0).astype(np.int64))])
+    return out
+
+
+@dataclass
+class SixframePool:
+    """Trypsin/P products of six frames by class: ``idx[cls]`` rows (frame, aa start, aa end)."""
+
+    frames: list[tuple[str, str, int, bytes, int]]  # contig, strand, offset, translation, length
+    idx: dict[str, np.ndarray]
+
+    def locus(self, cls: str, i: int) -> Locus:
+        f, a0, b0 = (int(x) for x in self.idx[cls][i])
+        cid, strand, off, aa, n = self.frames[f]
+        t0, t1 = off + 3 * a0, off + 3 * b0  # strand-local nt
+        s0, e0 = (t0, t1) if strand == "+" else (n - t1, n - t0)
+        return aa[a0:b0].decode(), cid, s0 + 1, e0, strand
+
+
+def sixframe_noncoding_pool(
+    seqs: dict[str, str],
+    coding: Sequence[tuple[str, int, int, str]],
+    annotated: Sequence[tuple[str, int, int, str]],
+    digest_len: tuple[int, int],
+    missed_cleavages: int,
+) -> SixframePool:
+    """Trypsin/P products (linear, no origin crossing) of the six-frame translation of ``seqs``
+    with no codon in frame with a ``coding`` span (contig, s0, e0, strand), by class of their
+    overlap with the ``annotated`` CDS/sORF spans (intergenic / cds_outframe / antisense)."""
+    lo, hi = digest_len
+    frames: list[tuple[str, str, int, bytes, int]] = []
+    parts: dict[str, list[np.ndarray]] = {c: [] for c in SIXFRAME_CLASSES}
+    cut = np.frombuffer(b"KR*", dtype=np.uint8)
+    for cid, seq in seqs.items():
+        n = len(seq)
+        mask = _codon_mask(n, [(a, b, st) for c, a, b, st in coding if c == cid])
+        cov = _cover(n, [(a, b, st) for c, a, b, st in annotated if c == cid])
+        for strand, src in (("+", seq), ("-", revcomp(seq))):
+            other = "-" if strand == "+" else "+"
+            raw = src.encode()
+            for off in range(3):
+                aa = _translate_np(raw[off:])
+                m = len(aa)
+                arr = np.frombuffer(aa, dtype=np.uint8)
+                stop = arr == ord("*")
+                b = np.unique(np.concatenate([[0, m], np.flatnonzero(np.isin(arr, cut)) + 1,
+                                              np.flatnonzero(stop)]))  # fmt: skip
+                bad = np.concatenate([[0], np.cumsum(mask[strand][off::3][:m] | stop)])
+                fi = len(frames)
+                frames.append((cid, strand, off, aa, n))
+                for k in range(1, 2 + missed_cleavages):
+                    i, j = b[:-k], b[k:]
+                    keep = (j - i >= lo) & (j - i <= hi) & (bad[j] == bad[i])
+                    i, j = i[keep], j[keep]
+                    t0, t1 = off + 3 * i, off + 3 * j
+                    s0, e0 = (t0, t1) if strand == "+" else (n - t1, n - t0)
+                    same = cov[strand][e0] > cov[strand][s0]
+                    anti = ~same & (cov[other][e0] > cov[other][s0])
+                    rows = np.stack([np.full(len(i), fi), i, j], axis=1)
+                    for cls, sel in (("cds_outframe", same), ("antisense", anti),
+                                     ("intergenic", ~same & ~anti)):  # fmt: skip
+                        parts[cls].append(rows[sel])
+    idx = {c: np.concatenate(v) if v else np.zeros((0, 3), dtype=np.int64)
+           for c, v in parts.items()}  # fmt: skip
+    return SixframePool(frames, idx)
+
+
+def _sixframe_draw(
+    rng: np.random.Generator, pool: SixframePool, n: int, ok: Callable[[str], bool]
+) -> list[Locus]:
+    """``n`` products taken in turn from each class of ``pool`` (random order within a class)
+    whose peptide passes ``ok`` and was not taken before; a class that runs out is skipped."""
+    order = {c: iter(rng.permutation(len(pool.idx[c])).tolist()) for c in SIXFRAME_CLASSES}
+    out: list[Locus] = []
+    seen: set[str] = set()
+    live = [c for c in SIXFRAME_CLASSES if len(pool.idx[c])]
+    k = 0
+    while len(out) < n and live:
+        cls = live[k % len(live)]
+        for i in order[cls]:
+            loc = pool.locus(cls, i)
+            if loc[0] not in seen and ok(loc[0]):
+                seen.add(loc[0])
+                out.append(loc)
+                k += 1
+                break
+        else:
+            live.remove(cls)
+    return out
+
+
 # ---------------------------------------------------------------- simulation
 
 
@@ -360,6 +496,19 @@ def _wrong_peptides(
         if ok(pep):
             out[pep] = p.locus
     return list(out.items())
+
+
+def _noncoding_pool(
+    cfg: ProteomicsConfig, seqs: dict[str, str], feats: Sequence[Feat],
+    novel: Sequence[Sequence[Any]],
+) -> SixframePool:  # fmt: skip
+    """The non-coding six-frame pool: out of frame of every CDS/sORF (true start to stop, pseudo
+    genes included) and every novel ORF; classes by the annotated CDS/sORF spans."""
+    cds = [f for f in feats if f.kind in ("cds", "sorf")]
+    annotated = [(f.contig, f.start, f.end, f.strand) for f in cds]
+    coding = [(f.contig, *f.span(), f.strand) for f in cds] + annotated
+    coding += [(str(r[2]), int(r[3]) - 1, int(r[4]), str(r[5])) for r in novel]
+    return sixframe_noncoding_pool(seqs, coding, annotated, cfg.digest_len, cfg.missed_cleavages)
 
 
 def _start_codon_aa(seq: str, s0: int, e0: int, strand: str) -> str:
@@ -454,7 +603,17 @@ def simulate_proteomics(
     hay = "|".join(_il(p.aa) for p in prots) + "|" + "|".join(_il(a) for _, _, a in annotated)
     pi = cfg.pi_wrong
     n_wrong = round(len(detected) * pi / (1 - pi))
-    wrong = _wrong_peptides(cfg, rng, n_wrong, prots, reference or (), hay)
+    xrng = np.random.default_rng([seed, _SIXFRAME_STREAM])  # six-frame draws (M7-12)
+    six = cfg.wrong_source == "sixframe_noncoding"
+    pool: SixframePool | None = None
+    loci: dict[str, Locus] = {}
+    if six:
+        pool = _noncoding_pool(cfg, seqs, feats, novel)
+        drawn = _sixframe_draw(xrng, pool, n_wrong, lambda q: _il(q) not in hay)
+        loci = {loc[0]: loc for loc in drawn}
+        wrong = [(w, f"sixframe:{c}:{a}-{b}:{st}") for w, c, a, b, st in loci.values()]
+    else:
+        wrong = _wrong_peptides(cfg, rng, n_wrong, prots, reference or (), hay)
     # PEP and q follow the wrong share actually produced (spec M3-19, review decision 1)
     n_all = len(detected) + len(wrong)
     pi_realised = len(wrong) / n_all if n_all else 0.0
@@ -467,7 +626,7 @@ def simulate_proteomics(
             len(wrong),
             n_wrong,
         )
-    origin = "other_strain" if cfg.wrong_source == "other_strain" else "shuffled"
+    origin = cfg.wrong_source
     targets = [
         _Target(
             pep,
@@ -502,6 +661,13 @@ def simulate_proteomics(
         k for k, p in enumerate(prots) if digest_spans(p.aa, cfg.digest_len, cfg.missed_cleavages)
     ]
     tries = 0
+    if pool is not None:  # decoys from the same (non-coding six-frame) search space
+        rev_ok = lambda q: q[::-1] not in target_set  # noqa: E731
+        for dp, *_ in _sixframe_draw(xrng, pool, n_dec, rev_ok):
+            run = int(xrng.integers(n_runs))
+            ch = 2 if xrng.random() < P_CHARGE_2 else 3
+            decoys.append((dp[::-1], "rev_sixframe", run, ch))
+        usable = []
     while usable and len(decoys) < n_dec and tries < 100 * n_dec + 1000:
         tries += 1
         p = prots[usable[int(rng.integers(len(usable)))]]
@@ -550,6 +716,11 @@ def simulate_proteomics(
                 "true" if alt else "false",
             ])  # fmt: skip
     for pep, _loc in wrong:
+        if pep in loci:
+            _, c, a, b, st = loci[pep]
+            truth.append([pep, "true", origin, _NA, c, str(a), str(b), st, str(counts[pep]),
+                          "false"])  # fmt: skip
+            continue
         truth.append([pep, "true", origin, _NA, _NA, _NA, _NA, _NA, str(counts[pep]), "false"])
     for pep in dict.fromkeys(d[0] for d in decoys):
         truth.append([pep, "true", "decoy", _NA, _NA, _NA, _NA, _NA, _NA, _NA])

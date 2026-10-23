@@ -116,6 +116,9 @@ class SimConfig:
     novel_orf_len_aa: tuple[int, int] = (10, 30)  # planted intergenic ORFs; min of found ones
     plant_novel_rbs: bool = False  # AGGAGG before planted intergenic / N-terminal true starts
     m7_truth: bool = False  # alt_sites, indel_sites and the extended novel_orfs truth
+    # (mu, sigma) of the log TIR of planted novel starts in rbs_novel (M7-12 decision 14); the
+    # default is the first-round TU RBS distribution; used only with plant_novel_rbs
+    planted_tir: tuple[float, float] = (8.0, 0.8)
 
     @property
     def v2(self) -> bool:
@@ -128,6 +131,9 @@ class SimConfig:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "novel_orf_len_aa", tuple(self.novel_orf_len_aa))
+        object.__setattr__(self, "planted_tir", tuple(float(x) for x in self.planted_tir))
+        if len(self.planted_tir) != 2 or not self.planted_tir[1] > 0:
+            raise ValueError("planted_tir must be (mu, sigma) with sigma > 0")
         lo, hi = self.novel_orf_len_aa
         if not 2 <= lo <= hi:
             raise ValueError("novel_orf_len_aa must satisfy 2 <= lo <= hi")
@@ -627,7 +633,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     )
     ref_pseudo: dict[str, bool] = {}
     lifted: list[Feat] | None = None
-    strain_out: tuple[list[list[Any]], list[Feat], dict[str, str]] | None = None
+    strain_out: tuple[list[list[Any]], dict[str, str]] | None = None
     res = SimResult(
         out, fasta, bakta, truth, len(genes), gff, feat_truth, novel_truth, gff3=gff,
         truth={"genes": truth, "features": feat_truth},
@@ -650,7 +656,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         ]
         _tsv(strain_truth, header, rows)
         ref_pseudo = {g.locus: bool(g.extra.get("pseudo")) for g in lifted}
-        strain_out = (rows, lifted, ref_seqs)
+        strain_out = (rows, ref_seqs)
         res = replace(
             res, reference_fasta=ref_fasta, reference_json=ref_json, strain_truth=strain_truth
         )
@@ -679,7 +685,8 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     )
     if srng is not None and config.write_precomputed:
         res = _write_v2(out, config, srng, st, chrom, feats, text, bakta, res)
-        _write_rbs_novel(out, seed, text, novel, feats, bakta, res, planted, mrng)
+        _write_rbs_novel(out, seed, text, novel, feats, bakta, res, planted, mrng,
+                         config.planted_tir)  # fmt: skip
     if prot is not None:
         topo_map = {cid: topo for cid, _, topo in contigs}
         paths = simulate_proteomics(prot, seed, out, feats, novel, text, topo_map, lifted)
@@ -739,17 +746,18 @@ def _write_rbs_novel(
     res: SimResult,
     planted: set[tuple[str, str, int]] | None = None,
     mrng: np.random.Generator | None = None,
+    planted_tir: tuple[float, float] = (8.0, 0.8),
 ) -> None:
     """``precomputed/rbs_novel.tsv`` from its own RNG stream (the other layers are unchanged)
     and its ``annotation.precomputed.rbs_novel`` key in ``config.yaml`` (M7-08 rule 6). Planted
-    novel starts (M7-12) get TIRs from ``scenario_truth.PLANTED_TIR`` drawn with ``mrng``."""
+    novel starts (M7-12) get TIRs from lognormal(``planted_tir``) drawn with ``mrng``."""
     truth = {(str(r[2]), str(r[5]), int(r[3]) - 1 if r[5] == "+" else int(r[4]) - 1)
              for r in novel}  # fmt: skip
     truth |= {(f.contig, f.strand, f.true_start - 1) for f in feats
               if f.kind == "cds" and f.true_start}  # fmt: skip
     rows = layers.rbs_novel_rows(np.random.default_rng([seed, _RBS_NOVEL_STREAM]), text, truth)
     if planted and mrng is not None:
-        strong_tirs(mrng, rows, planted)
+        strong_tirs(mrng, rows, planted, planted_tir)
     path = layers.write_rbs_novel(out, rows)
     assert res.config_yaml is not None
     layers.write_config(res.config_yaml, bakta, {**res.precomputed, "rbs_novel": path})

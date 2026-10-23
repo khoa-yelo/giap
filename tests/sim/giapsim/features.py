@@ -6,6 +6,7 @@ features in it, block-local coordinates) that the layout places between transcri
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
@@ -17,6 +18,8 @@ from giapsim.codons import CODE_11, SENSE_USAGE, STOPS, codons_of, revcomp, tran
 
 if TYPE_CHECKING:
     from giapsim.simulate import _Sim
+
+_LOG = logging.getLogger(__name__)
 
 ANTI_SD_TAIL = "GATCACCTCCTTA"  # 3' end of 16S rRNA (anti-Shine-Dalgarno)
 NOVEL_CLASSES = ("intergenic", "cds_outframe", "antisense")
@@ -216,10 +219,13 @@ def novel_orfs(
     """Plant intergenic ORFs and find out-of-frame/antisense ORFs inside CDSs (none annotated).
 
     Planted ORFs have ``len_aa`` residues (closed range) and keep ``margin`` bp from the ends of
-    their gap; found ORFs have at least ``len_aa[0]`` residues (M7-12; defaults as M3-18)."""
+    their gap; found ORFs have at least ``len_aa[0]`` residues (M7-12; defaults as M3-18). With
+    fewer usable gaps than requested intergenic ORFs, one is planted per gap and a WARNING is
+    logged (M7-12 decision 15; the truth table records the realised count)."""
     rng, rows = sim.rng, []
     lo, hi = len_aa
-    min_gap = max(160, 3 * (hi + 1) + 2 * margin)
+    # +1: rng.integers(margin, gap - len - margin) needs a non-empty range (decision 15)
+    min_gap = max(160, 3 * (hi + 1) + 2 * margin + 1)
     lengths = {c: len(s) for c, s in seqs.items()}
     known = {f.aa for f in feats if f.kind in ("cds", "sorf")}
     chrom = next(iter(seqs))
@@ -231,7 +237,9 @@ def novel_orfs(
         last = max(last, e)
     n = counts.get("intergenic", 0)
     if n > len(gaps):
-        raise ValueError(f"only {len(gaps)} intergenic gaps for {n} intergenic ORFs")
+        _LOG.warning("novel ORFs: only %d intergenic gaps for %d intergenic ORFs; planting %d",
+                     len(gaps), n, len(gaps))  # fmt: skip
+        n = len(gaps)
     for gi in sorted(rng.choice(len(gaps), size=n, replace=False).tolist()) if n else []:
         a, b = gaps[gi]
         n_aa = int(rng.integers(lo, hi + 1))

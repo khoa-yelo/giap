@@ -20,18 +20,26 @@ with ``oric_frac = 0.8`` and the cosine shape (lead decision 16).
 M7-12 (docs/specs/M7-12-sim-variant-novel-scenarios.md; §7.5.6, §7.6.6, §8.4, §8.5 attack 6,
 §11.6 TE2) adds four nucleotide scenarios returning a ``giapsim.SimConfig`` for
 ``giapsim.simulate(cfg, seed, outdir)``. The config does not depend on ``seed`` (the simulation
-seed draws everything); ``size`` "100k" / "1M" sets ``genome_length``. All are simulator-v2
+seed draws everything); ``size`` "100k" / "300k" / "1M" sets ``genome_length`` (100 kb is for
+fast unit tests only; novel-ORF power and FDR gates use >= 300 kb, >= 200 genes, so GIAP's
+detection q floor 1 / n is below 0.01: lead decision 13). All are simulator-v2
 genomes (signals at strength 0.8) with ``m7_truth`` (``truth/alt_sites.tsv`` always, header only
 without a strain; see ``giapsim.scenario_truth``):
 
 - ``variant_f1``: sample vs reference by SNVs (1 / kb) and indels (0.2 / kb); sample-derived
-  database peptides, de novo reads with every error type and paired ``reference_peptides.tsv``;
+  database peptides (labelled ``search_db = same``: the reference identification carries the
+  ALT, which is what the pairing needs), de novo reads with every error type and paired
+  ``reference_peptides.tsv``;
 - ``novel_orf_power``: intergenic ORFs of 30-80 aa, out-of-frame and antisense ORFs (>= 30 aa)
-  found in CDSs and N-terminal extensions, ``NOVEL_PER_CLASS[size]`` of each; ``AGGAGG`` at
-  spacer 5-10 before every planted intergenic start and N-terminal true start, whose
-  ``rbs_novel`` TIRs come from ``scenario_truth.PLANTED_TIR`` = lognormal(9, 0.5), stronger than
-  the first-round TU RBSs' lognormal(8, 0.8) (lead decision 8: the >= 90 % calibration bar holds
-  by design); peptides (2 % wrong), de novo errors and the precomputed layers;
+  found in CDSs and N-terminal extensions, ``NOVEL_PER_CLASS[size]`` of each (fewer intergenic
+  ones, with a WARNING, when the genome has too few gaps: ``truth/novel_orfs.tsv`` holds the
+  realised rows); ``AGGAGG`` at spacer 5-10 before every planted intergenic start and N-terminal
+  true start, whose ``rbs_novel`` TIRs are lognormal(``SimConfig.planted_tir``) = (8, 0.8), the
+  first-round TU RBS distribution (decision 14: the matched arm; the decision 8 sanity arm sets
+  (9, 0.5)); peptides with 2 % wrong identifications drawn from non-coding six-frame
+  translations (``wrong_source = "sixframe_noncoding"``, decision 12: the false novel candidates
+  the class-FDR gate controls) with matched decoys, de novo errors and the precomputed layers.
+  Database peptides are sample-derived and labelled ``search_db = same``;
 - ``same_strain_insilico``: every Trypsin/P peptide (7-30 aa, <= 1 missed cleavage) of every
   annotated protein, detected with probability 1, no wrong peptide, ``search_db = same``;
 - ``isobaric_attack``: de novo errors only of the block, near-block, modification and swap
@@ -52,6 +60,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "ABUNDANCE_BETA",
+    "MATCHED_TIR",
     "NOVEL_PER_CLASS",
     "ORIC_FRAC",
     "SIZES",
@@ -157,11 +166,13 @@ def draft_ar1(rho: float) -> Pair:
 
 # ---------------------------------------------------------------- M7-12 nucleotide scenarios
 
-Size = Literal["100k", "1M"]
+Size = Literal["100k", "300k", "1M"]
 #: Genome length of each scenario size.
-SIZES: Mapping[str, int] = MappingProxyType({"100k": 100_000, "1M": 1_000_000})
+SIZES: Mapping[str, int] = MappingProxyType({"100k": 100_000, "300k": 300_000, "1M": 1_000_000})
 #: Planted / found novel ORFs and N-terminal extensions per class of ``novel_orf_power``.
-NOVEL_PER_CLASS: Mapping[str, int] = MappingProxyType({"100k": 8, "1M": 40})
+NOVEL_PER_CLASS: Mapping[str, int] = MappingProxyType({"100k": 8, "300k": 16, "1M": 40})
+#: (mu, sigma) of the planted starts' log TIR in ``novel_orf_power`` (decision 14).
+MATCHED_TIR = (8.0, 0.8)
 _ISOBARIC_WEIGHTS = (("block", 0.4), ("near_block", 0.2), ("modification", 0.2), ("swap", 0.2))
 
 
@@ -190,7 +201,7 @@ def variant_f1(seed: int, size: Size = "100k") -> SimConfig:
 
 def novel_orf_power(seed: int, size: Size = "100k") -> SimConfig:
     """Planted and found novel ORFs for the class-FDR / power gate (§7.6.6, §8.4); ``seed`` is
-    not used. Planted RBS TIRs are deliberately stronger than first-round ones (module doc)."""
+    not used. Planted RBS TIRs follow the first-round distribution (module doc)."""
     from giapsim.denovo import DenovoConfig
     from giapsim.proteomics import ProteomicsConfig
 
@@ -202,8 +213,9 @@ def novel_orf_power(seed: int, size: Size = "100k") -> SimConfig:
         n_nterm_extensions=n,
         novel_orf_len_aa=(30, 80),
         plant_novel_rbs=True,
+        planted_tir=MATCHED_TIR,
         write_precomputed=True,
-        proteomics=ProteomicsConfig(pi_wrong=0.02),
+        proteomics=ProteomicsConfig(pi_wrong=0.02, wrong_source="sixframe_noncoding"),
         denovo=DenovoConfig(),
     )
 

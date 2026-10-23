@@ -1,7 +1,7 @@
 """Readers of the M7-12 truth tables shared by the calibration tests (giapsim.scenario_truth).
 
 Each returns a pandas DataFrame with the file's columns in order (strings), integer coordinates
-and counts, and ``rbs_planted`` as bool; a header-only file gives an empty frame with the columns.
+and counts, and the flag columns as bool; a header-only file gives an empty frame with the columns.
 """
 
 from __future__ import annotations
@@ -26,13 +26,17 @@ def _read(path: Path, ints: Sequence[str], bools: Sequence[str] = ()) -> pd.Data
 
 
 def read_alt_sites(outdir: Path | str) -> pd.DataFrame:
-    """``truth/alt_sites.tsv``: one row per non-synonymous SNV codon on the reference."""
-    return _read(Path(outdir) / "truth" / "alt_sites.tsv", ("codon_start", "n_true_peptides"))
+    """``truth/alt_sites.tsv``: one row per non-synonymous SNV codon (sample frame, lifted to
+    the reference; ``frameshift_upstream`` as bool)."""
+    path = Path(outdir) / "truth" / "alt_sites.tsv"
+    return _read(path, ("codon_start", "n_true_peptides"), ("frameshift_upstream",))
 
 
 def read_indel_sites(outdir: Path | str) -> pd.DataFrame:
-    """``truth/indel_sites.tsv``: in-frame indels inside genes (lead decision 2)."""
-    return _read(Path(outdir) / "truth" / "indel_sites.tsv", ("pos_sample", "pos_reference"))
+    """``truth/indel_sites.tsv``: every indel inside a gene (``frameshift`` as bool, ``junction``
+    as int; lead decisions 2 and 11)."""
+    path = Path(outdir) / "truth" / "indel_sites.tsv"
+    return _read(path, ("pos_sample", "pos_reference", "junction"), ("frameshift",))
 
 
 def read_novel_orfs(outdir: Path | str) -> pd.DataFrame:
