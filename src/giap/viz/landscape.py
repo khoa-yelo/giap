@@ -4,22 +4,23 @@ M9-03 landmarks; the only computation is the display trend.
 
 One panel per replicon with genes (FASTA order): measured detected genes (detected, not imputed,
 not partial, finite ``abundance_log2``) as points, ``detected = false`` genes as a rug coloured
-by status (every gene when no gene has an abundance value; the title is "No measured
-abundance: detection only" whenever no gene is a point, lead decision 9), a
+by status (every gene, with the title "No measured abundance: detection only", whenever no
+gene is a point; lead decisions 9 and 24), a
 gene-level LOESS trend at the islands' span (``giap.stats.smooth.loess_detrend``; the legend
 names the span and nothing is claimed from it), islands with ``p_value ≤ stats.alpha.context``
 shaded (an origin-crossing island is one row, two spans) and oriC / ter lines when
-``plots/support/replicon_landmarks.tsv`` calls them.
+``plots/support/replicon_landmarks.tsv`` calls them. One shared legend sits in the figure foot,
+below every panel (lead decision 22).
 """
 
 from __future__ import annotations
 
-import math
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 import numpy as np
 import pandas as pd
+from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 
 from giap.stats.smooth import loess_detrend, loess_span_points
@@ -35,7 +36,7 @@ _INT_COLUMNS = ("position_bp", "start", "end")
 NO_ABUNDANCE = "No measured abundance: detection only"
 NO_ISLANDS = "islands table absent: no islands shaded"
 GREY = "#555555"
-_ROW_IN, _HEAD_IN, _FOOT_IN = 1.5, 0.45, 0.3
+_ROW_IN, _HEAD_IN, _FOOT_IN, _LEGEND_IN, _NOTE_IN = 1.5, 0.45, 0.42, 0.32, 0.16
 
 
 class Replicon(NamedTuple):
@@ -82,17 +83,16 @@ def _binned_points(
     if edges is None:
         return None
     which = np.searchsorted(edges, mids, side="right") - 1
-    rows = []
-    for b in np.unique(which):
-        centre = int((edges[b] + edges[b + 1]) // 2)
-        median = float(np.median(ys[which == b]))
-        rows.append(_row(contig, "point", position_bp=centre, value=median, category="detected"))
-    return rows
+    return [
+        _row(contig, "point", position_bp=int((edges[b] + edges[b + 1]) // 2),
+             value=float(np.median(ys[which == b])), category="detected")
+        for b in np.unique(which)
+    ]  # fmt: skip
 
 
 def _trend(rep: Replicon, pts: list[dict[str, Any]], frac: float) -> list[dict[str, Any]]:
     """The LOESS fit on the drawn points in position order (mean of tied positions)."""
-    x = np.array([p["x"] for p in pts], dtype=float)
+    x = np.array([p["position_bp"] for p in pts], dtype=float)
     y = np.array([p["value"] for p in pts], dtype=float)
     ux, first, inv = np.unique(x, return_index=True, return_inverse=True)
     if loess_span_points(len(ux), frac) < 3:
@@ -106,9 +106,8 @@ def _trend(rep: Replicon, pts: list[dict[str, Any]], frac: float) -> list[dict[s
             locus_tag=pts[i].get("locus_tag"),
             position_bp=pts[i]["position_bp"],
             value=float(f),
-            x=float(ux[j]),
         )
-        for j, (i, f) in enumerate(zip(first, fit, strict=True))
+        for i, f in zip(first, fit, strict=True)
     ]
 
 
@@ -133,10 +132,10 @@ def _gene_rows(
     rug = np.ones(len(g), dtype=bool) if all_rug else ~detected
     tags = g["locus_tag"].astype(str).to_numpy()
     status = g["detection_status"].astype(str).to_numpy()
-    rows: list[dict[str, Any]] = []
-    for i in np.flatnonzero(rug):
-        rows.append(_row(rep.contig, "rug", locus_tag=tags[i], position_bp=int(mids[i]),
-                         x=float(mids[i]), category=status[i]))  # fmt: skip
+    rows = [
+        _row(rep.contig, "rug", locus_tag=tags[i], position_bp=int(mids[i]), category=status[i])
+        for i in np.flatnonzero(rug)
+    ]
     idx = np.flatnonzero(point & ~rug)
     idx = idx[np.lexsort((tags[idx], mids[idx]))]
     pts = _binned_points(rep.contig, mids[idx], y[idx], rep.length)
@@ -149,12 +148,9 @@ def _gene_rows(
                 position_bp=int(mids[i]),
                 value=float(y[i]),
                 category=status[i],
-                x=float(mids[i]),
             )
             for i in idx
         ]
-    for p in pts:
-        p.setdefault("x", float(p["position_bp"]))
     return [*rows, *pts, *_trend(rep, pts, frac)]
 
 
@@ -183,31 +179,21 @@ def _landmark_rows(rep: Replicon, landmarks: pd.DataFrame | None) -> list[dict[s
     rows = []
     for _, r in hit.iterrows():
         for kind, col in (("oric", "oric_position"), ("ter", "ter_position")):
-            v = pd.to_numeric(pd.Series([r[col]])).iloc[0]
+            v = pd.to_numeric(r[col], errors="coerce")
             if pd.notna(v):
-                rows.append(_row(rep.contig, kind, position_bp=int(v) - 1, x=float(int(v) - 1)))
+                rows.append(_row(rep.contig, kind, position_bp=int(v) - 1))
     return rows
 
 
 def _sort_key(r: Mapping[str, Any]) -> tuple[Any, ...]:
-    pos = r.get("position_bp")
-    return (r["contig"], KINDS.index(r["kind"]), math.inf if pos is None else pos,
-            r.get("locus_tag") or "")  # fmt: skip
+    return (r["contig"], KINDS.index(r["kind"]), r["position_bp"], r.get("locus_tag") or "")
 
 
 def data_frame(rows: Sequence[Mapping[str, Any]]) -> pd.DataFrame:
     """The V2 data TSV rows (0-based ``position_bp`` and ``start``; see ``Instance.coords``)."""
-    ordered = sorted(rows, key=_sort_key)
-    cols: dict[str, pd.Series] = {}
-    for c in COLUMNS:
-        values = [r.get(c) for r in ordered]
-        if c in _INT_COLUMNS:
-            cols[c] = pd.Series(values, dtype="Int64")
-        elif c == "value":
-            cols[c] = pd.Series([math.nan if v is None else v for v in values], dtype=float)
-        else:
-            cols[c] = pd.Series(values, dtype=object)
-    return pd.DataFrame(cols, columns=list(COLUMNS))
+    frame = pd.DataFrame(sorted(rows, key=_sort_key), columns=list(COLUMNS), dtype=object)
+    frame["value"] = pd.to_numeric(frame["value"]).astype(float)
+    return frame.astype(dict.fromkeys(_INT_COLUMNS, "Int64"))
 
 
 def _lag1_clause(view: RunView, order: Sequence[str]) -> str:
@@ -237,6 +223,10 @@ def title(rows: Sequence[Mapping[str, Any]], alpha: float, clause: str) -> str:
     return f"{n_high} high and {n_low} low abundance islands at FWER ≤ {alpha:g}{clause}"
 
 
+def _xs(rows: Sequence[Mapping[str, Any]], scale: float) -> list[float]:
+    return [r["position_bp"] / scale for r in rows]
+
+
 def _panel(ax: Axes, rep: Replicon, rows: Sequence[Mapping[str, Any]], frac: float) -> None:
     scale, unit = (1e6, "Mb") if rep.length > 2_000_000 else (1e3, "kb")
     kind: dict[str, list[Mapping[str, Any]]] = {k: [] for k in KINDS}
@@ -253,28 +243,25 @@ def _panel(ax: Axes, rep: Replicon, rows: Sequence[Mapping[str, Any]], frac: flo
                        alpha=0.25, linewidth=0, zorder=0)  # fmt: skip
     pts = kind["point"]
     if pts:
-        ax.plot([p["x"] / scale for p in pts], [p["value"] for p in pts], linestyle="none",
+        ax.plot(_xs(pts, scale), [p["value"] for p in pts], linestyle="none",
                 marker="o", markersize=2, color=style.DETECTION["detected"],
                 markeredgewidth=0, label="detected (measured)", zorder=2)  # fmt: skip
     if kind["trend"]:
-        ax.plot([t["x"] / scale for t in kind["trend"]], [t["value"] for t in kind["trend"]],
+        ax.plot(_xs(kind["trend"], scale), [t["value"] for t in kind["trend"]],
                 color="#000000", linewidth=1.0, label=f"trend (LOESS, span {frac:g})",
                 zorder=3)  # fmt: skip
     for status in sorted({str(r["category"]) for r in kind["rug"]}):
-        xs = [r["x"] / scale for r in kind["rug"] if r["category"] == status]
+        xs = _xs([r for r in kind["rug"] if r["category"] == status], scale)
         colour = style.STATUS_COLOUR.get(status, style.DETECTION["not_detected"])
         ax.vlines(xs, 0.0, 0.07, transform=ax.get_xaxis_transform(), colors=colour,
                   linewidth=0.6, label=status.replace("_", " "))  # fmt: skip
     for k, ls, name in (("oric", "-", "oriC"), ("ter", ":", "ter")):
         for r in kind[k]:
-            ax.axvline(r["x"] / scale, color=GREY, linestyle=ls, linewidth=0.8, label=name)
+            ax.axvline(r["position_bp"] / scale, color=GREY, linestyle=ls, lw=0.8, label=name)
     ax.set_xlim(0.0, rep.length / scale)
     ax.set_xlabel(f"position ({unit})")
     ax.set_ylabel("log2 abundance")
     ax.set_title(rep.contig, loc="left")
-    if pts:
-        ax.legend(frameon=False, loc="lower right", bbox_to_anchor=(1.0, 1.0), fontsize=6, ncol=4,
-                  borderaxespad=0.1)  # fmt: skip
 
 
 @base.plot(
@@ -291,26 +278,33 @@ def abundance_landscape(view: RunView, cfg: GiapConfig) -> list[base.Instance] |
     if not reps:
         return [base.empty_state("V02", "abundance_landscape", "No genes", COLUMNS, "double")]
     measured = bool(point_mask(genes).any())
-    raw = np.asarray(pd.to_numeric(genes["abundance_log2"]), dtype=float)
-    no_abundance = not np.isfinite(raw).any()  # no value at all: every gene is a rug tick
     landmarks = view.support("replicon_landmarks")
     per: dict[str, list[dict[str, Any]]] = {}
     for rep in reps:
-        rows = _gene_rows(rep, genes, frac, all_rug=no_abundance)
+        rows = _gene_rows(rep, genes, frac, all_rug=not measured)
         if islands is not None:
             rows += _island_rows(rep, islands, alpha)
         per[rep.contig] = rows + _landmark_rows(rep, landmarks)
     every = [r for rows in per.values() for r in rows]
     text = title(every, alpha, _lag1_clause(view, [r.contig for r in reps]) if measured else "")
-    height = _HEAD_IN + _FOOT_IN + _ROW_IN * len(reps)
+    foot = _FOOT_IN + _LEGEND_IN + _NOTE_IN
+    height = _HEAD_IN + foot + _ROW_IN * len(reps)
     fig = style.new_figure("double", height)
     fig.set_label("V02_abundance_landscape")
-    grid = fig.add_gridspec(len(reps), 1, left=0.09, right=0.98, bottom=_FOOT_IN / height + 0.06,
+    grid = fig.add_gridspec(len(reps), 1, left=0.09, right=0.98, bottom=foot / height,
                             top=1 - _HEAD_IN / height, hspace=0.75)  # fmt: skip
     for i, rep in enumerate(reps):
         _panel(fig.add_subplot(grid[i, 0], label=rep.contig), rep, per[rep.contig], frac)
+    entries: dict[str, Artist] = {}  # one legend for every panel, in the figure foot
+    for ax in fig.axes:
+        for handle, label in zip(*ax.get_legend_handles_labels(), strict=True):
+            entries.setdefault(label, handle)
+    if entries:
+        fig.legend(list(entries.values()), list(entries), frameon=False, loc="upper center",
+                   bbox_to_anchor=(0.5, (_LEGEND_IN + _NOTE_IN) / height), ncol=5, fontsize=6,
+                   borderaxespad=0.0)  # fmt: skip
     fig.suptitle(text, y=1 - 0.12 / height, va="top")
     if islands is None:
-        fig.text(0.01, 0.01, NO_ISLANDS, fontsize=6, color=GREY, va="bottom")
+        fig.text(0.01, 0.02 / height, NO_ISLANDS, fontsize=6, color=GREY, va="bottom")
     data = data_frame(every)
     return [base.Instance(None, fig, data, text, coords=("position_bp", "start"))]

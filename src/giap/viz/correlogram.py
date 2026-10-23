@@ -5,8 +5,10 @@ Draws ``tables/autocorrelation.tsv`` and recomputes nothing: per replicon (FASTA
 Moran's I and panel (b) the raw BB join count against the lag, each with the gene-label (light
 grey) and TU-block (``#56B4E9``) 2.5-97.5 % envelopes (``null_lo``-``null_hi``) and dashed null
 means. A marker is filled when the TU-block row's ``q_value ≤ stats.alpha.context`` (the
-conservative null ADR-0020 gates); NA rows draw nothing, and a panel whose rows are all NA says
-"not estimable (<flags>)". ``oriter_slope`` rows are context-table rows and are not drawn.
+conservative null ADR-0020 gates); NA rows, and rows flagged ``not_estimable`` or ``few_values``
+whatever their value (lead decision 21), draw nothing, and a panel whose rows are all NA says
+"not estimable (<flags>)". Contigs wrap into rows of at most 3 columns, each (b) panel under its
+(a) panel (lead decision 23). ``oriter_slope`` rows are context-table rows and are not drawn.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 
 from giap.viz import base, style
@@ -36,6 +39,8 @@ NULL_LABEL = {"gene_label": "gene-label", "tu_block": "TU-block"}
 YLABEL = {"morans_i": "Moran's I", "join_count_bb": "BB joins (detected\u2013detected)"}
 NOT_ESTIMABLE = "Autocorrelation not estimable on this genome"
 GREY = "#555555"
+NA_FLAGS = frozenset({"not_estimable", "few_values"})
+_COLS, _HEAD_IN, _FOOT_IN, _ROW_IN = 3, 0.45, 0.62, 3.4
 
 
 def data_frame(ac: pd.DataFrame, alpha: float) -> pd.DataFrame:
@@ -60,6 +65,15 @@ def data_frame(ac: pd.DataFrame, alpha: float) -> pd.DataFrame:
         columns=list(COLUMNS),
     )
     return out.reset_index(drop=True)
+
+
+def drawn(data: pd.DataFrame) -> pd.DataFrame:
+    """``data`` with the flagged rows' numbers set to NA: what the figure and title read."""
+    na = [f is not None and not NA_FLAGS.isdisjoint(f.split(";")) for f in data["flags"]]
+    out = data.copy()
+    out.loc[na, list(_NUM)] = math.nan
+    out.loc[na, "significant"] = False
+    return out
 
 
 def contig_order(data: pd.DataFrame, fasta: Sequence[str]) -> list[str]:
@@ -159,21 +173,26 @@ def correlogram(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.Sk
     fasta = [str(r["id"]) for r in (view.preflight() or {}).get("replicons", [])]
     order = contig_order(data, fasta)
     lags = (int(cfg.context.moran_lags[0]), int(cfg.context.moran_lags[-1]))
-    text = title(data, order)
-    fig = style.new_figure("double", 4.2)
+    shown = drawn(data)
+    text = title(shown, order)
+    n_rows, n_cols = -(-len(order) // _COLS), min(_COLS, len(order))
+    height = _HEAD_IN + _FOOT_IN + _ROW_IN * n_rows
+    fig = style.new_figure("double", height)
     fig.set_label("V10_correlogram")
-    grid = fig.add_gridspec(2, len(order), left=0.09, right=0.98, bottom=0.17, top=0.88,
-                            hspace=0.45, wspace=0.42)  # fmt: skip
-    for j, contig in enumerate(order):
+    grid = fig.add_gridspec(2 * n_rows, n_cols, left=0.09, right=0.98, bottom=_FOOT_IN / height,
+                            top=1 - _HEAD_IN / height, hspace=0.6, wspace=0.42)  # fmt: skip
+    for k, contig in enumerate(order):
         for i, (panel, statistic) in enumerate(zip("ab", STATISTICS, strict=True)):
-            ax = fig.add_subplot(grid[i, j], label=f"{panel}:{contig}")
-            rows = data[(data["contig"] == contig) & (data["statistic"] == statistic)]
+            ax = fig.add_subplot(grid[2 * (k // _COLS) + i, k % _COLS], label=f"{panel}:{contig}")
+            rows = shown[(shown["contig"] == contig) & (shown["statistic"] == statistic)]
             _panel(ax, rows, statistic, lags)
             ax.set_title(f"({panel}) {contig}", loc="left")
-    legends = [ax.get_legend_handles_labels() for ax in fig.axes]
-    handles, labels = next((hl for hl in legends if hl[0]), ([], []))
-    if handles:
-        fig.legend(handles, labels, frameon=False, loc="lower center", ncol=4, fontsize=6,
-                   bbox_to_anchor=(0.5, 0.0))  # fmt: skip
-    fig.suptitle(text, y=0.99, va="top")
+    entries: dict[str, Artist] = {}  # every panel's entries, so an NA panel loses none
+    for ax in fig.axes:
+        for handle, label in zip(*ax.get_legend_handles_labels(), strict=True):
+            entries.setdefault(label, handle)
+    if entries:
+        fig.legend(list(entries.values()), list(entries), frameon=False, loc="lower center",
+                   ncol=4, fontsize=6, bbox_to_anchor=(0.5, 0.0))  # fmt: skip
+    fig.suptitle(text, y=1 - 0.05 / height, va="top")
     return [base.Instance(None, fig, data, text)]
