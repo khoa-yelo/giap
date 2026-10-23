@@ -40,7 +40,7 @@ from typing import Any, Literal
 import numpy as np
 from scipy import stats
 
-from giapsim.codons import CODE_11, codons_of, revcomp, translate_cds
+from giapsim.codons import CODE_11, STOPS, codons_of, revcomp, translate_cds
 from giapsim.features import Feat
 
 _LOG = logging.getLogger(__name__)
@@ -545,38 +545,103 @@ def _noncoding_pool(
                                    starts)  # fmt: skip
 
 
+#: ``giap.makedb.ORF_ID_PREFIX`` and ``NTERM_PROTEIN_AA`` (restated: giapsim imports no giap).
+ORF_ID_PREFIX = "GIAPORF_"
+NTERM_PROTEIN_AA = 30
+_RNA_KINDS = frozenset({"rrna", "trna", "tmrna", "ncrna"})
+
+
+def _json_pseudo(f: Feat) -> bool:
+    """Pseudogene as GIAP's Bakta parser reads ``bakta_like.json`` (a CDS flagged ``pseudo``)."""
+    return f.kind == "cds" and (bool(f.extra.get("pseudo")) or "pseudogene" in f.extra)
+
+
 class OrfEntries:
-    """The class-tagged entries of ``giap makedb --six-frame-orfs`` (six-frame ORFs and
-    ``nterm_extension`` entries), indexed to name the entry a six-frame product lies in."""
+    """Names the ``giap makedb --six-frame-orfs`` entry a six-frame product lies in
+    (giap.makedb.build, restated). An entry is the stop-to-stop ORF of the product's frame,
+    classed ``cds_outframe`` / ``antisense`` / ``intergenic`` by its overlap with the annotated
+    CDS/sORFs (none when it overlaps an RNA or a same-strand pseudogene); when that ORF is in frame
+    with an annotated CDS/sORF, the gene's ``nterm_extension`` entry (upstream part + its first
+    30 codons; none when the upstream walk runs off a linear contig)."""
 
-    def __init__(self, bakta: Path, seqs: dict[str, str], min_aa: int) -> None:
-        from bisect import bisect_right
+    def __init__(self, feats: Sequence[Feat], seqs: dict[str, str],
+                 topology: dict[str, str]) -> None:  # fmt: skip
+        self.seqs = seqs
+        self.rc = {c: revcomp(x) for c, x in seqs.items()}
+        self.circ = {c: topology.get(c, "circular") == "circular" for c in seqs}
+        genes = [f for f in feats if f.kind in ("cds", "sorf") and not _json_pseudo(f)]
+        self.mask, self.cov, self.pcov, self.rcov = {}, {}, {}, {}
+        self.by_stop: dict[tuple[str, str, int], Feat] = {}
+        pseudo = [f for f in feats if _json_pseudo(f)]
+        rna = [f for f in feats if f.kind.lower() in _RNA_KINDS]
+        for c, x in seqs.items():
+            n = len(x)
+            spans = [(f.start, f.end, f.strand) for f in genes if f.contig == c]
+            self.mask[c] = _codon_mask(n, spans)
+            self.cov[c] = _cover(n, spans)
+            self.pcov[c] = _cover(n, [(f.start, f.end, f.strand) for f in pseudo if f.contig == c])
+            self.rcov[c] = _cover(n, [(f.start, f.end, "+") for f in rna if f.contig == c])
+        for f in genes:
+            n = len(seqs[f.contig])
+            loc = (f.end - 3) % n if f.strand == "+" else (n - f.start - 3) % n
+            self.by_stop[(f.contig, f.strand, loc)] = f
 
-        from giap.annotate.bakta import parse_bakta_json
-        from giap.makedb.build import six_frame_orfs
-        from giap.mapping.sixframe import build_sixframe
+    def _orf(self, cid: str, a: int, b: int, strand: str) -> tuple[int, int, bool] | None:
+        """Strand-local ``[lo, hi)`` of the stop-to-stop ORF holding ``[a, b)`` and whether its
+        5' end is the end of a linear contig; None without a stop within one turn."""
+        t, circ = (self.seqs if strand == "+" else self.rc)[cid], self.circ[cid]
+        n = len(t)
 
-        gm = parse_bakta_json(bakta, genome=seqs).model
-        index = build_sixframe(seqs, gm.replicons, wrap_nt=0)
-        by: dict[tuple[str, str, int], list[tuple[int, int, str]]] = {}
-        for o in six_frame_orfs(index, gm, seqs, min_aa):
-            phase = (o.start if o.strand == "+" else o.end) % 3
-            by.setdefault((o.contig, o.strand, phase), []).append((o.start, o.end, o.db_id))
-        self._by = {k: sorted(v) for k, v in by.items()}
-        self._starts = {k: [x[0] for x in v] for k, v in self._by.items()}
-        self._bisect = bisect_right
-        self._lengths = {c: len(x) for c, x in seqs.items()}
+        def stop(q: int) -> bool:
+            q %= n
+            return (t[q : q + 3] if q + 3 <= n else t[q:] + t[: q + 3 - n]) in STOPS
+
+        lo, open5 = a, False
+        while True:
+            if not circ and lo < 3:
+                open5 = True
+                break
+            if stop(lo - 3):
+                break
+            lo -= 3
+            if b - lo > n:
+                return None
+        hi = b
+        while (circ or hi + 3 <= n) and not stop(hi):
+            hi += 3
+            if hi - lo > n:
+                return None
+        return lo, hi, open5
+
+    def _hits(self, cov: np.ndarray, s: int, e: int) -> bool:
+        n = len(cov) - 1
+        return any(cov[min(y, n)] > cov[x] for x, y in ((s, e), (0, e - n)) if y > x)
 
     def of(self, loc: Locus) -> str | None:
         """``db_id`` of the entry holding the product ``loc`` in frame, else None."""
         _, cid, s1, e1, strand = loc
-        for d in (0, self._lengths[cid]):
-            a, b = s1 - 1 + d, e1 + d
-            key = (cid, strand, (a if strand == "+" else b) % 3)
-            k = self._bisect(self._starts.get(key, []), a) - 1
-            if k >= 0 and b <= self._by[key][k][1]:
-                return self._by[key][k][2]
-        return None
+        n = len(self.seqs[cid])
+        a, b = (s1 - 1, e1) if strand == "+" else (n - e1, n - s1 + 1)
+        orf = self._orf(cid, a, b, strand)
+        if orf is None:
+            return None
+        lo, hi, open5 = orf
+        cls = ""
+        if self.mask[cid][strand][np.arange(lo, hi, 3) % n].any():  # in frame with a gene
+            g = self.by_stop.get((cid, strand, hi % n))
+            if g is None or open5:
+                return None
+            gs = lo + (((g.start if strand == "+" else n - g.end) - lo) % n)
+            hi, cls = gs + 3 * min(NTERM_PROTEIN_AA, (g.end - g.start) // 3 - 1), "nterm_extension"
+        s, e = (lo, hi) if strand == "+" else (n - hi, n - lo)
+        s, e = s % n, e - (s - s % n)
+        if not cls:
+            other = "-" if strand == "+" else "+"
+            if self._hits(self.rcov[cid]["+"], s, e) or self._hits(self.pcov[cid][strand], s, e):
+                return None
+            same, anti = (self._hits(self.cov[cid][st], s, e) for st in (strand, other))
+            cls = "cds_outframe" if same else "antisense" if anti else "intergenic"
+        return f"{ORF_ID_PREFIX}{cls}_{cid}_{s + 1}_{e}_{'p' if strand == '+' else 'm'}"
 
 
 def _protein_decoys(
@@ -701,7 +766,7 @@ def simulate_proteomics(
     entry: dict[str, str] = {}  # six-frame wrong peptide -> makedb entry db_id
     if six:
         pool = _noncoding_pool(cfg, seqs, feats, novel)
-        orfs = OrfEntries(out / "bakta_like.json", seqs, cfg.digest_len[0])
+        orfs = OrfEntries(feats, seqs, topology)
 
         def ok(loc: Locus) -> bool:
             db_id = orfs.of(loc) if _il(loc[0]) not in hay else None
