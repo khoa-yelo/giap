@@ -100,3 +100,23 @@ passes q ≤ `<alpha>`" — never "no enrichment" (ADR-0026 consequence).
      out of `LATER` in the twin helpers. That is a lead edit if an existing test must change:
      report it.
    - If a test's own assumption is wrong, report it; the fix goes to the test-author or lead.
+5. **Review round (code review of 7410ec5b).** The implementer's choices 1, 2 and 4–7 are accepted. Choice 3 is reworked.
+   - **B1, labels overlap:** compute panel (c)'s left edge from the measured width of (b)'s label column
+     (renderer extents), so the two can't collide. Add a checklist case with maximum-length names in
+     both panels.
+   - **Test gaps (surviving mutants):**
+     - the negative-set leading edge, which runs from peak to n;
+     - the `_REL` boundary: one %.6g step is accepted, 1e-4 relative raises;
+     - panel (c) drawn O/E-descending, top to bottom;
+     - one `layer_missing` flag gives the generic EMPTY message.
+   - **Nits taken:**
+     - N1: ORA q = 0 noted in the footnote too.
+     - N2: a q = 0 point uses marker `^`.
+     - N3: leaders start at the label column with a short elbow, and the legend is pinned to `upper left`, outside the label rows.
+     - N4: the "not calibrated" banner goes under the title.
+     - N5: panel (c) is capped at 30 rows, plus "+N more in the TSV".
+     - N6: ORA ties break on collection, term and direction.
+     - N7: "no testable sets" when no GSEA row has a finite NES or q.
+     - N8: twin parity. The TSV gains a `redundant` column; the twin keeps q = 0 at the cap and draws the alpha line, (c) in O/E order, and redundant rows small and grey.
+     - N11: O/E = NaN rows get a "O/E undefined (E = 0)" note.
+   - **Backlogged:** N9 (`x.max()`), N10 (`_draw_b` helper split), and "es" in UNITLESS.
