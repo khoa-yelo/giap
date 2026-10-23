@@ -405,3 +405,23 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
 10. **Partial calibration.** If the TerminatorNet half or the refit degenerates, does PR-C land
     with only the halves that worked? **Default: yes.** Each entry has its own `calibrated` flag,
     and the gate's clauses are separable.
+
+## Lead decisions (2026-10-23)
+1. **Q1, precision rule:** the stable reading. The cut-off is the smallest t such that every
+   candidate t′ ≥ t has precision ≥ 0.90, so a low-threshold spike in a non-monotone precision
+   curve cannot set the cut-off. The ADR also shows the literal smallest t when the two differ.
+   If no t qualifies, the max-F1 fallback applies as written.
+2. **Q2–Q8, Q10:** the proposed defaults are accepted. That means:
+   - Rebuild the UniOP map from GFF coordinates, and stop on any unmatched row.
+   - Bootstrap over directons with B = 2,000, with the single-pair CI as a comparison line.
+   - "Within ±50 bp" is the interval gap.
+   - Windows come from the gene model only.
+   - Match all terminator types, and report recall by type.
+   - Keep the §8.6 variants; file a backlog note if the cut-off is ≥ 0.7.
+   - Mirror the threshold in `calibration.yaml`, with an agreement test.
+   - PR C lands with whichever halves worked.
+3. **Q9:** PR C0 is lead work and runs in parallel with A.
+4. **Hardening owed:** the shifted M2-21 UniOP excerpt goes to the backlog.
+5. **Order:** this spec merges; then A (the statistician's methods section, then the
+   test-author, then the implementer), C0 by the lead, then B. ADR-0022 then goes to Khoa as
+   proposed, and C follows his acceptance.
