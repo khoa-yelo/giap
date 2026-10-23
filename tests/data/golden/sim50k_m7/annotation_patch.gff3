@@ -1,0 +1,15 @@
+##gff-version 3
+##sequence-region chr1 1 50000
+chr1	giap	region	1	50000	.	.	.	ID=chr1;Is_circular=true
+chr1	GIAP	CDS	1725	2693	.	-	0	ID=GSIM_00015;locus_tag=GSIM_00015;Note=nterm_extension
+chr1	GIAP	CDS	6521	6628	.	-	0	ID=NOVEL_chr1_6521_m;product=hypothetical protein (GIAP novel ORF)
+chr1	GIAP	CDS	9586	9678	.	+	0	ID=NOVEL_chr1_9586_p;product=hypothetical protein (GIAP novel ORF)
+chr1	GIAP	CDS	12035	12883	.	-	0	ID=GSIM_00065;locus_tag=GSIM_00065;Note=nterm_extension
+chr1	GIAP	CDS	14520	15341	.	-	0	ID=GSIM_00080;locus_tag=GSIM_00080;Note=nterm_extension
+chr1	GIAP	CDS	22150	22311	.	-	0	ID=NOVEL_chr1_22150_m;product=hypothetical protein (GIAP novel ORF)
+chr1	GIAP	CDS	24072	24440	.	-	0	ID=NOVEL_chr1_24072_m;product=hypothetical protein (GIAP novel ORF)
+chr1	GIAP	CDS	24909	25037	.	+	0	ID=NOVEL_chr1_24909_p;product=hypothetical protein (GIAP novel ORF)
+chr1	GIAP	CDS	28053	28157	.	-	0	ID=NOVEL_chr1_28053_m;product=hypothetical protein (GIAP novel ORF)
+chr1	GIAP	CDS	36871	37086	.	-	0	ID=NOVEL_chr1_36871_m;product=hypothetical protein (GIAP novel ORF)
+chr1	GIAP	CDS	42660	42752	.	+	0	ID=NOVEL_chr1_42660_p;product=hypothetical protein (GIAP novel ORF)
+chr1	GIAP	CDS	45670	45819	.	+	0	ID=NOVEL_chr1_45652_p;product=hypothetical protein (GIAP novel ORF)
