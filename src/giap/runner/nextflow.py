@@ -101,11 +101,12 @@ def launch_command(
 
 
 def _step_name(name: str) -> str:
-    """Step of a trace task name: the process name, or the tag for ``GIAP_STEP``."""
+    """Step of a trace task name: the process name, or the tag for ``GIAP_STEP`` and an alias
+    named ``*_STEP`` (``OPERONS:OPERONS_STEP (operons)`` runs ``operons``)."""
     m = _NAME.fullmatch(name.strip())
     proc, tag = (m["proc"], m["tag"]) if m else (name, None)
     step = proc.split(":")[-1].lower()
-    return tag if step == "giap_step" and tag else step
+    return tag if step.endswith("_step") and tag else step
 
 
 def _task_dir(row: Mapping[str, str | None], work: Path) -> str:
