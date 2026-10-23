@@ -61,3 +61,11 @@ M9-23. §10.1 colours apply to the twins (the style module exports a Plotly temp
 
 1. V2 hover would be more useful with the gene product. **Proposed default:** add `product` to the
    V2 data TSV (a column, written by M9-09's code path) so the twin stays TSV-only.
+
+## Lead decisions (2026-10-22)
+
+1. V2's data TSV gains a `product` column (written by M9-09's code path), so the twin's hover reads
+   the TSV only.
+2. M9-15 is stacked on M9-14 (#221, queued); after #221 squash-merges, the branch merges the old
+   base tip, then origin/main.
+3. Feature loop: test-author → implementer → code review.
