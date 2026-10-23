@@ -177,6 +177,10 @@ above:
   *more* alike than null targets (anti-conservative), which only an attack null can reveal.
 - **π₀ = 1** and N_NO,b counts every target, so the estimate is conservative by ≈ π₀.
 
+At `NOVEL_PER_CLASS_GATE` = 300 the intergenic class is limited by gap supply: 88–122 ORFs have
+a true peptide over seeds 1–8 at 1M, so in about 3 of 8 replicates it stays above the class q
+floor at α = 0.01. The other three classes clear it on every seed (M7-12 lead decision 28).
+
 ### Consequence for real genomes
 The same floor applies outside the simulator. At α = 0.01 the picked class FDR calls nothing in a
 novel-ORF class with fewer than about 100 target candidates, because q ≥ 1/T. A small class is

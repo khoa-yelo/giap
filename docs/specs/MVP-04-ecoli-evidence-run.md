@@ -399,3 +399,21 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
 8. **Part 2** (`decoys="scored_null"`, question 2's split between protein and six-frame entries):
    test-author next, then the implementer, then the end-to-end run once #238, #225 and #237 have
    merged.
+9. **Test-author part 2 (915a565e), spec gaps 1–7:**
+   1. **Gap 1, accepted as a design change.** Protein-entry nulls must be able to give false gene
+      evidence, otherwise the gene-level null is one-sided (conservative only) and gate 7 is vacuous.
+      - In `scored_null` mode a protein-entry null is a real tryptic product (within the digest
+        rules) of a recorded locus that is *not* detected in truth. Its target row carries that
+        locus tag; on the coin, its decoy is `rev_<that locus>`.
+      - The locus is drawn uniformly over loci with an undetected eligible product.
+      - Shuffled peptides are not used in this mode.
+      - The test-author adds tests for this (target maps to the genome and the locus; that locus has
+        no true peptide; gate 7's false-discovery share becomes estimable). Then the implementer.
+   2. "About 50" counts gene-level null PSMs before the coin. The two clear cases are tested.
+   3. The search-space share uses distinct tryptic products, protein entries against six-frame-only
+      products, with makedb `min_orf_aa` = 7 and ±0.04.
+   4. Examples 4 and 3b activate once #238 and #237 merge (backlog).
+   5. `decoy_collisions` counts PSMs.
+   6. M7-12 decisions 28–29 exist on #225's current head; this branch merges it again before the
+      implementer starts.
+   7. Add `.hypothesis/` to `.gitignore` if missing (lead).

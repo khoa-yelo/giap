@@ -613,7 +613,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - No test checks that `write_datapackage` copies `schemas/plot_support/*.json` into OUT.
 - ADR-0042: when the M7-10/M7-13 (`calsuite_variants`) and M9-22 (`calsuite_compare`) calibration tests land, extend scripts/slurm/calibration_full.sbatch to `--array=0-14` (task 13 = variants, 14 = compare); until then those two keys have no tests and the array skips them.
 - M9-04 V17 review nits (#197): when every gene is partial, (e) draws 0 % bars and should show an empty-state note; integer tick locators on the count axes; partial genes are left out of (d) although the spec restricts only (e); the "unmapped" layer of (c) includes contaminant and too_short peptides; the length-bound lines belong at 6.5/40.5 (spec + test); an empty `replicons` draws an empty axis with a warning; the TSV message rows drop the drawn text; preflight `genome.contiguity` has an empty `message` (a preflight bug); "abundance not available" is not in the spec's titles; "1 preflight warnings" should be singular; the imputed legend shows when nothing is imputed; 8 surviving mutants (exactly 10 warnings, rule fallback, (b) floor, circular markers, constant-abundance padding, (e) inverted y, absent-genes title).
-- ADR-0041 follow-up (after #196 merges): move the four tokens from RUN_FLAGS_PENDING to the accepted run vocabulary and update the vocabulary test (lead).
 
 ## M9-02 review nits (#205; one round, B1–B5 and N1 local half fixed in the PR)
 - N1 Nextflow half: REPORT gets no `events`, so `layer_missing` skips fire under the local executor and `giap report` but not in a Nextflow `giap run`. Fix before the first Nextflow-run plot that declares layers.
@@ -663,6 +662,39 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
 
+### M7-12 statistician NITs (PR #225) → M7-13
+- F1 matching folds I/L/J; precision over all truth sites (n_true_peptides counts database
+  peptides only); use the method's own peptide rule as the N-terminal-extension denominator.
+- Isobaric attack: a "systematic" error option keyed by protein site; run with
+  `--genome-relation same`. Document `variant_f1` sample peptides labelled `search_db = same`.
+- `same_strain_insilico`: all 11 non-ATG N-terminal peptides unmapped; the start-codon exception
+  is never exercised.
+- Three attack nulls proposed in the comment for M7-13 (tests/calibration/attacks/).
+- GIAP: genomes below ~200 genes hit a 1/n gene-level q floor above 0.01 and detect 0 genes;
+  decide the small-genome behaviour (warn, or a method that can reach q ≤ 0.01).
+- (M7-12 round 2) per-class expected false novel candidates in the truth; an I/L `ms_observable` column in alt_sites.
+
+### M7-12 statistician round 2 (PR #225)
+- **Possible cause of the sim100k 0-genes floor:** the older (non-six-frame) giapsim decoy rows
+  carry no score/q/pep, so gene-level `decoy_picked` q is 1/T. Check this before the M9-13 evidence
+  run and the q-floor question to Khoa.
+- M7-13: the de novo arm of the class-FDR gate gets 0–2 false candidates per class per replicate at
+  300k; run it at ≥ 1M.
+- M7-13 G1: a policy is needed for `mass_equivalent` calls. On variant_f1 seed 7, high-confidence
+  substitution precision is 0.82, and 5 of 6 FPs are A>S / N>D modification errors.
+- Attack-null proposals in comment 6358601933.
+- M7-12 N1 (statistician round 3): six-frame target q/PEP come from the wrong share before the coin (about 2× conservative). PSM-level calibration on six-frame scenarios needs the post-coin share.
+- M7-12 N3: G4 for `nterm_extension` must go through M7-11's locus-tag pairing (planted peptides carry the gene's locus tag).
+- M7-13: the report says a class with fewer than about 100 candidates cannot be called at α 0.01 (class q floor).
+### M8 Wallenius (statistician, PR #220)
+- **ADR-0044 (Needs Khoa):** M8-13 criterion 1 reference = exact Wallenius (urn recursion /
+  exact rational integral, committed TSV + pure-Python generator); goseq second reference at
+  `golden_r.wallenius_goseq_abs_tol: 1.0e-5`, replacing `wallenius_abs_floor`.
+- **ADR-0045 (lead recommends):** GIAP far tails (< 1e-6) by the exact urn recursion; scipy loses
+  relative accuracy below ~1e-9 and returns 0 below ~1e-14 (40-urn spot check, stat813/scipy_far.py).
+  Hardening pass; does not block M8-13.
+- G3b NES across seeds: reported as per-set z, alert at max |z| > 4.5; p rule alert at ≥ 3
+  exceedances; alerts open a `stats` issue.
 ## M9-12 review nits (#219; one round, decisions 11–15)
 - V13 start fallback (NA `start_longest`): the span starts at the first placed peptide anywhere on the
   contig; a multi-placement peptide can stretch it, and origin crossing is ignored there.
@@ -720,6 +752,40 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
 
+### M9-22 hardening
+- ρ-CI calibration on full giapsim run pairs (now a simulated TU world at giapsim sizes).
+- Test the section order (matrix, then intersections) and the `none` row's place among ties.
+
+### M9-22 statistician nits (PR #232)
+- TUs from the pair's first run only; a union of both runs' TU maps is safer.
+- compare.md: Bland–Altman limits are as uninterpretable as the bias under `scale_differs`;
+  optionally a TU-block CI for the BA bias.
+- `enriched_categories` deflates Jaccard when only one run has GSEA; GSEA `nes == 0` maps to
+  "down"; the operon_flags key ignores the `flag` column.
+- Unit tests for `ci_unestimated` and NA-TU genes as their own unit; recorded heavy-tailed and
+  15-TU calibration arms; attack nulls A1–A5 (comment) in tests/calibration/attacks/.
+
+### M9-22 code-review nits (PR #232, comment 6358611226)
+- Untested (surviving mutants):
+  - the 9-unit boundary of decision 11;
+  - decision 7 (TUs from the wrong run);
+  - genes without a TU as their own units;
+  - strand in the ALT key;
+  - the `end`/`strand` gene-order tie-breaks;
+  - same-size, different locus-tag sets;
+  - `abundance_type == "none"`, its sort position and its zero-count row.
+- `test_function_off_in_one_run_is_missing_in` deletes the tables, so the `resolved_config.yaml`
+  module check is never exercised; a run with only one of its two enrichment tables is untested.
+- A malformed manifest/preflight JSON or an unreadable stability table gives a traceback, not an
+  exit code (`giap report` exits 4).
+- A manifest without a genome sha256 should fall back to preflight; otherwise say so in ADR-0046.
+- The `n_units` schema description says NA when there is no CI, but the code writes 1 alongside an
+  NA CI. Fix the description.
+- One shared stream across pairs: adding a run shifts later pairs' CIs. Spawn per pair.
+- GSEA NES 0/NaN counted as "down".
+- `gene_order` duplicates the §6.5 key.
+- No manifest for `CMP/`.
+- compare.md still says "Statistician sign-off: pending".
 ### MVP-03c follow-ups
 - `giap _step manifest` passes no db manifest, so `databases` is `[]` on the Nextflow step path (decision 20).
 
@@ -779,3 +845,11 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M7-12 N1 (statistician round 3): six-frame target q/PEP come from the wrong share before the coin (about 2× conservative). PSM-level calibration on six-frame scenarios needs the post-coin share.
 - M7-12 N3: G4 for `nterm_extension` must go through M7-11's locus-tag pairing (planted peptides carry the gene's locus tag).
 - M7-13: the report says a class with fewer than about 100 candidates cannot be called at α 0.01 (class q floor).
+- Review #225 nits (M7-12):
+  - N2: the methods-note FDP table is at 200 ORFs per class; rerun it at the gate count of 300.
+  - N3: `OrfEntries` does not restate `NTERM_MIN_UPSTREAM_AA` and assumes `min_orf_aa` = 7; assert `digest_len[0]` ≥ 7 in six-frame mode.
+  - N4: drop the throwaway `Builder(10)` in the mixed-decoy test.
+  - N5: validate that `n_per_class` ≥ 0.
+  - N6: add a 1M gate-count case to the benchmark and refresh the `novel_orf_power` baseline.
+  - N7: `_protein_decoys` checks the target set without I/L folding.
+  - N8: the spec names `tests/sim/test_m7_scenarios.py`; the file is `tests/unit/test_sim_m7_scenarios.py`.

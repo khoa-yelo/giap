@@ -217,3 +217,19 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
     now XPASSes, and excludes `config.yaml` (it holds output paths) from the digest in
     `test_none_output_byte_identical_at_100k`, as the other pin helpers already do. The 1M
     gate-count benchmark is 7.2 s.
+28. **Code review #225 (5625683803):**
+    - **B1, accepted. Decision 23 is amended:** an all-GIAPORF decoy is dropped from gene pairing
+      only when none of its stripped IDs maps to a gene in `pmap`. An `nterm_extension` entry
+      votes to its gene, so its decoy pairs there, as on main. Otherwise the gene's target competes
+      without its decoy, which is anti-conservative.
+      - The test-author adds the nterm case (the reviewer's Builder repro) and a stressed-config
+        slow oracle test (R1); then the implementer changes `pair_decoys`.
+    - **B2:** main is merged in (d93cab1f), so CI runs again.
+    - **B3 (lead):** the class-floor attack asserts on cds_outframe, antisense and nterm_extension
+      only. Intergenic is limited by gap supply, as the methods note now says.
+    - **R2 (lead):** `@example(seed=29297)` is added to the `alt_sites` property.
+    - Nits N1–N8 go to the backlog; N1 is fixed with B3.
+29. **Implementer, review B1 (2ee76714):** `pair_decoys` ignores, per decoy, contaminant IDs and
+    `GIAPORF_` IDs that map to no gene. A decoy left with no ID gets no row. An all-ORF decoy with
+    one mapped and one unmapped entry therefore pairs on the mapped gene. This is accepted: it is
+    the same per-ID rule, and pairing is the conservative choice.
