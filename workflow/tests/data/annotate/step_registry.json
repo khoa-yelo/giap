@@ -59,7 +59,8 @@
       "peptides",
       "replicon_depth",
       "stratum0_classes",
-      "tier_summary"
+      "tier_summary",
+      "variants_qc"
     ],
     "outputs": [
       "autocorrelation",
@@ -403,6 +404,7 @@
       "tus_tsv",
       "unmapped",
       "variants",
+      "variants_qc",
       "variants_vcf"
     ],
     "outputs": [
@@ -521,6 +523,7 @@
       "tus_tsv",
       "unmapped",
       "variants",
+      "variants_qc",
       "variants_vcf"
     ],
     "outputs": [
@@ -626,6 +629,7 @@
     "outputs": [
       "pileup",
       "variants",
+      "variants_qc",
       "variants_vcf"
     ]
   }
