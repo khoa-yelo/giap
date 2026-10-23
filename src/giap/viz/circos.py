@@ -370,7 +370,7 @@ def _ticks(plot: _Plot, canvas: _Canvas, view: RunView) -> None:
             continue
         frame = plot.known(frame, "chrom")
         minus = (frame["strand"] == "-") if "strand" in frame else False
-        lengths = frame["chrom"].astype(str).map(plot.length)
+        lengths = frame["chrom"].astype(str).map(plot.length).to_numpy(dtype=np.int64)
         tss = (np.where(minus, frame["end"].astype(int) - 1, frame["start"].astype(int))) % lengths
         frame = frame.assign(tss=tss, minus=minus)
         segs = []
