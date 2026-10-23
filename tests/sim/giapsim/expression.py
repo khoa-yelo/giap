@@ -34,6 +34,7 @@ __all__ = [
     "ExpressionConfig",
     "FrozenMap",
     "IslandSpec",
+    "detection_terms",
     "expression_for_simulation",
     "simple_covariates",
     "simulate_expression",
@@ -289,12 +290,13 @@ def _chr1_oric(layout: Any) -> tuple[float, float] | None:
     return mid % length, length
 
 
-def simulate_expression(layout: Any, cfg: ExpressionConfig, rng: np.random.Generator) -> Expression:
-    """Expression and detection truth for a ``giapsim.layout.Layout`` (not mutated)."""
+def detection_terms(
+    layout: Any, cfg: ExpressionConfig
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """(covariate logit ``b0 + b1 log len + b2 log1p n_obs + b3 GRAVY``, region shift, n_obs,
+    GRAVY) per gene in ``layout.genes`` order; the abundance term is added by the caller."""
     genes = layout.genes
     types = _gene_region_types(layout)
-    oric = _chr1_oric(layout)
-    parts, islands = _abundance(genes, layout.tus, types, cfg, rng, oric)
     b = cfg.beta
     n_obs = np.zeros(len(genes), dtype=np.int64)
     gravy = np.full(len(genes), math.nan)
@@ -304,11 +306,23 @@ def simulate_expression(layout: Any, cfg: ExpressionConfig, rng: np.random.Gener
             n_obs[i], gravy[i] = simple_covariates(aa)
             logit[i] += (b["log_length"] * math.log(len(aa)) + b["log1p_n_obs"]
                          * math.log1p(n_obs[i]) + b["gravy"] * gravy[i])  # fmt: skip
-    if cfg.detection == "abundance":
-        logit += b["log2_abundance"] * parts["abundance"]
     tags = genes["locus_tag"].astype(str).tolist()
-    logit += np.array([sum(cfg.region_detect_shift.get(t, 0.0) for t in types.get(g, ()))
-                       for g in tags])  # fmt: skip
+    shift = np.array([sum(cfg.region_detect_shift.get(t, 0.0) for t in types.get(g, ()))
+                      for g in tags], dtype=float)  # fmt: skip
+    return logit, shift, n_obs, gravy
+
+
+def simulate_expression(layout: Any, cfg: ExpressionConfig, rng: np.random.Generator) -> Expression:
+    """Expression and detection truth for a ``giapsim.layout.Layout`` (not mutated)."""
+    genes = layout.genes
+    types = _gene_region_types(layout)
+    oric = _chr1_oric(layout)
+    parts, islands = _abundance(genes, layout.tus, types, cfg, rng, oric)
+    logit, shift, n_obs, gravy = detection_terms(layout, cfg)
+    if cfg.detection == "abundance":
+        logit += cfg.beta["log2_abundance"] * parts["abundance"]
+    tags = genes["locus_tag"].astype(str).tolist()
+    logit += shift
     p = _sigmoid(logit)
     detected = rng.random(len(tags)) < p
     frame = pd.DataFrame(

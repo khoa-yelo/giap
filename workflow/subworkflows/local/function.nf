@@ -29,4 +29,5 @@ workflow FUNCTION {
     enrichment_detection = pick(out, 'enrichment_detection.tsv')
     enrichment_gsea      = pick(out, 'enrichment_gsea.tsv')
     versions             = FUNCTION_STEP.out.versions
+    events               = FUNCTION_STEP.out.events
 }
