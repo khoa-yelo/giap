@@ -16,6 +16,7 @@ from typing import Any
 
 import giap
 from giap.config import GiapConfig
+from giap.data import calibration
 from giap.io import manifest_sources as ms
 from giap.manifest import ManifestSources, build_manifest, provenance_core
 from giap.runner.local import TAIL_STEPS
@@ -55,6 +56,8 @@ def launch_sources(
             extra.append(ms.input_row(f"precomputed:{key}", Path(layer).absolute()))
     commit, dirty = ms.git_info(_source_root())
     return {
+        "db_manifest": ms.read_db_manifest(db_dir),
+        "calibration": calibration.load(),
         "cfg": cfg,
         "preflight": preflight,
         "registered": [s for s in all_steps() if s.name not in TAIL_STEPS],
@@ -89,6 +92,15 @@ def _nf_annotation_meta(trace: Sequence[Mapping[str, str]], outdir: Path) -> Any
     return None
 
 
+def _content_files(outdir: Path) -> dict[str, Any]:
+    """The published 03c sources (``giap.runner.local.publish`` names; Nextflow publishDir)."""
+    return {
+        "sensitivity": ms.read_sensitivity(outdir / "tables" / "sensitivity.tsv"),
+        "island_diagnostics": ms.read_island_diagnostics(
+            outdir / "context" / "island_diagnostics.parquet"),
+    }  # fmt: skip
+
+
 def run_tail(
     outdir: Path, base: Mapping[str, Any], exit_code: int, *, failed_step: str | None = None,
     failed_log: str | None = None, local_steps: Sequence[Mapping[str, Any]] = (),
@@ -96,14 +108,18 @@ def run_tail(
     """Write ``OUT/run_manifest.json`` after the graph (D-B step 5); raises on any error."""
     events = ms.read_events(outdir / "logs" / "events.jsonl")
     trace = meta = None
+    reports: list[dict[str, Any]] = []
     if base["executor"] == "nextflow":
         trace = ms.read_trace(outdir / "logs" / "trace.tsv")
         meta = _nf_annotation_meta(trace or [], outdir)
+        locks = _source_root() / "workflow" / "envs" / "locks"
+        reports = ms.tool_reports(trace or [], outdir / "work", locks)
     else:
         meta = ms.read_json(outdir / "work" / "annotation_meta")
     src = ManifestSources(**base, finished_at=_now(), exit_code=exit_code,
                           failed_step=failed_step, failed_log=failed_log, events=events,
-                          annotation_meta=meta, trace=trace, local_steps=local_steps)  # fmt: skip
+                          annotation_meta=meta, trace=trace, local_steps=local_steps,
+                          tool_reports=reports, **_content_files(outdir))  # fmt: skip
     ms.write_manifest(outdir / "run_manifest.json", build_manifest(src))
 
 
@@ -127,5 +143,8 @@ def manifest_step(ctx: StepContext) -> None:
         finished_at=_now(), publication=bool(prov.get("publication")), git_commit=commit,
         git_dirty=dirty, events=ms.read_events(ins["events"]) if "events" in ins else (),
         annotation_meta=ms.read_json(ins.get("annotation_meta")), trace=trace,
+        sensitivity=ms.read_sensitivity(ins.get("sensitivity")),
+        island_diagnostics=ms.read_island_diagnostics(ins.get("island_diagnostics")),
+        calibration=calibration.load(),
     )  # fmt: skip
     ms.write_manifest(ctx.outputs["run_manifest"], build_manifest(src))

@@ -1,7 +1,8 @@
 """File readers and the strict writer behind ``run_manifest.json`` (MVP-03 D-B, D-C; ADR-0040).
 
-Everything here touches the file system; :mod:`giap.manifest` stays pure. The ``versions.yml``
-(``tools``) and ``db_manifest.json`` (``databases``) readers are MVP-03c.
+Everything here touches the file system; :mod:`giap.manifest` stays pure. MVP-03c adds the
+``versions.yml`` (``tools``), ``db_manifest.json`` (``databases``), ``sensitivity.tsv`` and
+``island_diagnostics.parquet`` readers.
 """
 
 from __future__ import annotations
@@ -9,12 +10,20 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import re
 import subprocess
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import pyarrow.parquet as pq  # type: ignore[import-untyped]
+import yaml
+
 from giap.manifest import canonical_json
+from giap.runner.nextflow import _task_dir
+
+_DIGEST = re.compile(r"sha256[:-]([0-9a-f]{64})")
+_COUNTS = ("n_primary", "n_variant", "n_shared")
 
 
 def rotate_events(logs_dir: Path) -> None:
@@ -90,3 +99,59 @@ def write_manifest(path: Path, manifest: Mapping[str, Any]) -> None:
     text = canonical_json(manifest)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def read_sensitivity(path: Path | None) -> list[dict[str, Any]] | None:
+    """Rows of ``tables/sensitivity.tsv`` (counts ``int``, other numbers ``float``, ``NA`` →
+    None); ``[]`` when header-only, None when absent."""
+    if path is None or not path.is_file():
+        return None
+    with path.open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh, delimiter="\t"))
+    out = []
+    for r in rows:
+        num = {k: None if r[k] in ("", "NA") else (int if k in _COUNTS else float)(r[k])
+               for k in (*_COUNTS, "jaccard", "agreement")}  # fmt: skip
+        out.append({"family": r["family"], "variant": r["variant"], **num})
+    return out
+
+
+def read_island_diagnostics(path: Path | None) -> list[dict[str, Any]] | None:
+    """Rows of ``context/island_diagnostics.parquet`` in file (C1) order; None when absent."""
+    if path is None or not path.is_file():
+        return None
+    rows: list[dict[str, Any]] = pq.read_table(path).to_pylist()
+    return rows
+
+
+def read_db_manifest(db_dir: Path | None) -> dict[str, Any] | None:
+    """``<db_dir>/db_manifest.json`` (either shape), None without a directory or file."""
+    doc = read_json(db_dir / "db_manifest.json") if db_dir is not None else None
+    return doc if isinstance(doc, dict) else None
+
+
+def _yaml(path: Path) -> Any:
+    """``versions.yml`` with every scalar a string (``1.10`` stays ``1.10``)."""
+    return yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+
+
+def tool_reports(
+    trace: Sequence[Mapping[str, str]], work: Path, locks: Path
+) -> list[dict[str, Any]]:
+    """One ``{process, name, version, container_digest, conda_lock_hash}`` per tool line of the
+    ``versions.yml`` of each COMPLETED/CACHED task (lead decision 9); a missing file is skipped."""
+    out: list[dict[str, Any]] = []
+    for row in trace:
+        versions = Path(_task_dir(row, work)) / "versions.yml"
+        done = (row.get("status") or "").strip() in {"COMPLETED", "CACHED"}
+        if not done or not versions.is_file():
+            continue
+        m = _DIGEST.search(row.get("container") or "")
+        for process, tools in (_yaml(versions) or {}).items():
+            for name, version in (tools or {}).items():
+                lock = locks / f"{name}.explicit.txt"
+                out.append({"process": str(process), "name": str(name), "version": str(version),
+                            "container_digest": f"sha256:{m.group(1)}" if m else None,
+                            "conda_lock_hash": _sha256(lock) if not m and lock.is_file()
+                            else None})  # fmt: skip
+    return out
