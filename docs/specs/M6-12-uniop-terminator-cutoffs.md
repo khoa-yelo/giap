@@ -425,3 +425,34 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
 5. **Order:** this spec merges; then A (the statistician's methods section, then the
    test-author, then the implementer), C0 by the lead, then B. ADR-0022 then goes to Khoa as
    proposed, and C follows Khoa's acceptance.
+6. **Statistician design review (46124d74; methods section "K-12 cut-off calibration (M6-12)"):
+   B1 and B2 accepted; the methods section is now the authority wherever it is more specific than
+   this spec.**
+   - **B1, refit:** before fitting, run an exact 1-D separation check. Start from (logit ȳ, 0).
+     Halve the Newton step until the log-likelihood does not fall (at most 30 halvings). A
+     `LinAlgError` is a failure, not an exception. |β₁| > 1 is a backstop. The test that
+     separates the two methods is d ∈ {−20, …, 400}, with 100 pairs per d drawn from d₀ = 100,
+     s = 50, and must give 100.14 ± 0.05 and 50.06 ± 0.05. Preliminary K-12 fit: d₀ ≈ 102.7,
+     s ≈ 47.2.
+   - **B2, TerminatorNet precision:** add a placement null with R = 200. Each call moves to a
+     random same-strand window and keeps its offset from the window's 3′ side. Report
+     `coincidence_rate` c and `precision_lower_bound` = (obs − c)/(1 − c). The §15.4 sentence in
+     the ADR is qualified accordingly.
+   - **Example 4** under decision 1 expects 0.92. A top tie group below 0.90 sends the rule to
+     max-F1, and that case has its own test.
+   - **Accepted:**
+     - R1: `precision_cv` (10-fold directon CV) and the bootstrap quantiles of t*.
+     - R2: a window-cluster CI for TerminatorNet precision.
+     - R4: the paired UniOP − distance AUROC difference with its CI.
+     - R5: the ADR wording.
+   - **R3:** TerminatorNet's F1 curve is flat (best precision 0.229, so the rule falls back to
+     max-F1 and t* ≈ 1 − 4e-12). The rule stays as specified. Whether to use a one-SE rule instead
+     changes §15.4, so it goes to Khoa in the ADR-0022 question. Pending Khoa; default: max-F1
+     as specified.
+   - **Attack nulls,** test-author, under `tests/calibration/attacks/`:
+     - a directon-clustered null with AUROC 0.5 (CI coverage ≥ 93 % at R = 500);
+     - the chance-match null;
+     - a top-group spike that sends the rule to max-F1;
+     - the hard refit start, plus separated and quasi-separated cases, none of which raises.
+   - **For PR B:** `parse_terminatornet` reads plain text, so the driver decompresses
+     `terms.tsv.gz` first.
