@@ -976,3 +976,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M9-23: compare.html has no size warning (the 25 MB check covers report.html only); the V16 TSV/twin carry every shared gene per pair. Add the check or bin the twin past N points.
 - M9-23: V16's skip on ordinary runs happens inside the plot function, so `skip_reason()` is None and report.html's skipped notes omit it; move it to a registered skip reason.
 - M9-23 review nits (#254): PNG-only output says "plot file absent" on compare.html; binned V16 cells have per-cell colour scales and no count legend; V16 upper-cell scatters have no axis values; a locus tag literally `NA` is misread on the twin's TSV round trip; drop `NA_CELL` (= GREY) and `_mappable`.
+- (M7-11b, statistician #256 note 2) Floor warning for picked classes quotes `n_targets`; quote `n_target_wins` (the floor's denominator). Implementer follow-up.
+- (M7-11b, statistician #256 note 1) Fallback calls (`no_makedb_pair`, `no_target_score`, `decoys_unscored`, untagged) have no error control; M7-13 reports the per-class fallback count.
+- (MVP-04 gate 13, statistician) Multiple strong islands mask each other under the stationary block-bootstrap maxT null (islands inflate ℓ̂, ℓ′ ≥ w copies them into M_b). Candidates: ℓ̂ with top windows masked, or a step-down scan. Needs an ADR-0021 amendment + calibration.
+- (M7-11b review N1) `class_call.py:133-137` re-derives `fdr_class` from private `fdr` helpers; have `PickedClassFdr` return the entry per ORF.
+- (M7-11b review N2/N3) `reason` typed `str | None` (spec: `Reason | None`); redundant guard at `class_call.py:145`.
+- (M7-11b review N4, next to Q11) `best_costs` keeps the first row's `source` for duplicate peptides while `orf_regimes` uses the union; a db+de novo peptide without makedb decoys can end `no_target_hit` (conservative).
+- (M7-11b review N5, lead) close backlog line 777 (M7-11b), re-point 688, add the Q10 V13 floor-caveat line.
+- (M7-11b TA, decision 9) `no_target_score` is unreachable from the novel step (orf_regimes and picked_class_fdr read the same target rows); test forces it via monkeypatch. Either drop the reason or document it as library-only.
+- (M8-14 decision 6) packed set with < 10 scoring TUs could trip the finite-p assert in `_packed_tu_rep` (~1e-5/set) at large full-tier R; consider raising PACKED_SINGLES.
+- (M8-14 decision 7, for M8-15) giapsim pseudogenes without `aa` record n_obs=0 / GRAVY NaN while GIAP translates them from `nt`; M8-15's p_detect refit sees different covariates for them.
+- (MVP-04 #258 review) boundary tests for summary gates 4, 6, 8, 11, 13 (p) and a gate-13 no-high-island case; sbatch seed from `K12_EVIDENCE_SEED` as `MVP04_SEED`, tested as passed through; gate 15 counts the `empty_state` SVG as content (N2); N3–N9 tidying in `scripts/dev/mvp04_summary.py`.
