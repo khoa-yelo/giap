@@ -11,6 +11,9 @@
 #   - the version command must succeed and print the registry version (commit SHA for git tools);
 #     otherwise that tool fails and no lock is written.
 #   - locks: workflow/envs/locks/<tool>.explicit.txt (conda) and <tool>.pip.txt (pip freeze).
+#   - frozen tools (a `# frozen-lock` line in the yml; M8-17a: fgsea) are installed from their
+#     committed explicit lock instead of a solve; the export must list exactly the lock's
+#     packages, the lock is never rewritten or removed, and there is no pip lock.
 # The script continues with the next tool after a failure and exits 1 if any tool failed.
 # Run it through `sbatch scripts/slurm/build_envs.sbatch`, never on a login node.
 set -euo pipefail
@@ -67,7 +70,9 @@ registry() {
 import hashlib, shlex, sys
 from pathlib import Path
 from giap.annotate.tools import TOOLS
-t = TOOLS[sys.argv[1]]
+from giap.io.fgsea_r import FGSEA_TOOL
+frozen = {FGSEA_TOOL.name: FGSEA_TOOL}  # joins TOOLS in M8-17b
+t = TOOLS[sys.argv[1]] if sys.argv[1] in TOOLS else frozen[sys.argv[1]]
 print(t.env_name)
 print(t.version)
 print(t.source_repo or "")
@@ -76,14 +81,22 @@ print(hashlib.sha256((Path(sys.argv[2]) / f"{sys.argv[1]}.yml").read_bytes()).he
 PYEOF
 }
 
+# The committed explicit lock is the source of the env (never rewritten or removed here).
+frozen() { grep -q '^# frozen-lock' "$ENV_DIR/$1.yml"; }
+
 build_one() {
-  local tool="$1" reg env_name version repo version_cmd prefix marker want sha src out
+  local tool="$1" reg env_name version repo version_cmd prefix marker want sha src out mode
   reg="$(registry "$tool")" || return 1
   { IFS= read -r env_name; IFS= read -r version; IFS= read -r repo
     IFS= read -r version_cmd; IFS= read -r want; } <<< "$reg"
+  mode=solve; if frozen "$tool"; then mode=frozen; fi
   prefix="$MAMBA_ROOT_PREFIX/envs/$env_name"
   marker="$prefix/.giap-built"
-  rm -f "$LOCKS/$tool.explicit.txt" "$LOCKS/$tool.pip.txt"
+  if [ "$mode" = "frozen" ]; then
+    [ -s "$LOCKS/$tool.explicit.txt" ] || { echo "$tool: no committed lock" >&2; return 1; }
+  else
+    rm -f "$LOCKS/$tool.explicit.txt" "$LOCKS/$tool.pip.txt"
+  fi
 
   if [ -d "$prefix" ] && [ "$(cat "$marker" 2>/dev/null || true)" = "$want" ]; then
     echo "$env_name exists"
@@ -93,9 +106,15 @@ build_one() {
       micromamba env remove -y -n "$env_name" > /dev/null || true
       rm -rf "$prefix"
     fi
-    echo "creating $env_name from workflow/envs/$tool.yml"
-    micromamba create -y -n "$env_name" -c conda-forge -c bioconda --override-channels \
-      -f "$ENV_DIR/$tool.yml" || return 1
+    if [ "$mode" = "frozen" ]; then
+      echo "creating $env_name from workflow/envs/locks/$tool.explicit.txt"
+      micromamba create -y -n "$env_name" --override-channels \
+        -f "$LOCKS/$tool.explicit.txt" || return 1
+    else
+      echo "creating $env_name from workflow/envs/$tool.yml"
+      micromamba create -y -n "$env_name" -c conda-forge -c bioconda --override-channels \
+        -f "$ENV_DIR/$tool.yml" || return 1
+    fi
   fi
   if [ -n "$repo" ]; then
     sha="${version#git:}"
@@ -119,6 +138,18 @@ build_one() {
     return 1
   fi
 
+  if [ "$mode" = "frozen" ]; then  # the env must be exactly the committed lock
+    micromamba env export -n "$env_name" --explicit > "$LOCKS/$tool.explicit.txt.tmp" || return 1
+    if ! diff <(grep '^https://' "$LOCKS/$tool.explicit.txt" | sort) \
+              <(grep '^https://' "$LOCKS/$tool.explicit.txt.tmp" | sort); then
+      echo "$env_name: installed packages differ from locks/$tool.explicit.txt" >&2
+      return 1
+    fi
+    rm -f "$LOCKS/$tool.explicit.txt.tmp"
+    echo "$want" > "$marker"
+    return 0
+  fi
+
   # Locks (decision 1), then the marker (decision 2).
   micromamba env export -n "$env_name" --explicit > "$LOCKS/$tool.explicit.txt.tmp" || return 1
   micromamba run -n "$env_name" pip freeze > "$LOCKS/$tool.pip.txt.tmp" || return 1
@@ -130,7 +161,10 @@ build_one() {
 failed=
 for tool in "$@"; do
   if ! build_one "$tool"; then
-    rm -f "$LOCKS/$tool".*.tmp "$LOCKS/$tool.explicit.txt" "$LOCKS/$tool.pip.txt"
+    rm -f "$LOCKS/$tool".*.tmp
+    if ! frozen "$tool"; then
+      rm -f "$LOCKS/$tool.explicit.txt" "$LOCKS/$tool.pip.txt"
+    fi
     failed="$failed $tool"
     echo "FAILED: $tool" >&2
   fi
