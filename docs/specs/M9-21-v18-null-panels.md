@@ -93,3 +93,6 @@ determinants_model), `family` (region_id/stat, contig/direction, model), `bin`, 
      - simplify `run_view.py:279`;
      - docstring wording "correctly rounded, like the schema reader".
    - **Backlogged:** p ≥ 0.995 printing as "1" (use `.3g` above 0.1).
+5. **Review round (d819cad7):**
+   - **`UNITLESS` entry:** the `"max |s_w| over windows"` entry in checklist.py is accepted. |S_w| is a standardised scan statistic with no unit, and the list is meant to grow as plots need it. The label N2 pins stays.
+   - **Backlog:** the constant-null bar (width 1/30 of the x range) is a near-invisible hairline on wide ranges; it needs a minimum drawn width.
