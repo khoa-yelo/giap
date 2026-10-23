@@ -772,6 +772,31 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
 
+### M9-24 follow-ups
+- **Diagnosed:** V08 (and V02, V03, V07) show no measured abundance on sim100k because 0 of 87
+  genes are detected: picked-protein q has floor 1/n_win = 1/85 > alpha 0.01
+  (genetable/detection.py:344-349; #186 added the `q_floor_above_alpha` warning, q unchanged).
+  Abundance input is intact. The sim100k end-to-end fixture therefore never exercises any
+  detected-gene branch. Options (Khoa): a larger evidence genome (> 100 eligible genes), a
+  sim100k alpha override, or a two-peptide fallback when the floor exceeds alpha. V08's title
+  could cite `q_floor_above_alpha` from run flags.
+- The checklist reads tick labels through matplotlib's private `Axis._update_ticks()`; replace when
+  matplotlib offers a public way.
+
+### M9-24 review nits (PR #230)
+- N1 any axhline/axvline is exempt from the palette check in any colour (a red axvline passes);
+  `style.RC` defines no greys, so restrict the exemption to grey/black reference lines and test it.
+- N2 COG + detection check: palettes share #0072B2/#E69F00 → false fail and false pass cases.
+- N3 units allow-list too permissive (generic suffixes "rate", "density", "fraction"; any
+  parenthetical counts as a unit).
+- N4 overlap: clipped texts outside the view false-fail; text off the figure edge undetected;
+  rotated text uses an axis-aligned box (false fails at 30–45°).
+- N5 surviving mutants: `_update_ticks` vs `get_major_ticks`, axis labels in the text list,
+  collections by offsets only, `ax.texts` in the count, each half of `is_empty_state`, `pid_`
+  prefix in `_tsv`, `score()` with nothing gated.
+- N6 `check_instance` rebinds `inst.figure.canvas`; `_tsv` calls `Path.is_file()` from viz/.
+- N7 the snapshot sweep skips until M9-25 fixtures; sim100k exercises only no-abundance branches.
+- N8 pin matplotlib in pyproject.toml while the checklist uses `Axis._update_ticks()`.
 ### M9-15 follow-ups
 - V11 twin bars at bin index; write `bin_lo`/`bin_hi` into the V11 data TSV so the twin matches
   the static edges.
