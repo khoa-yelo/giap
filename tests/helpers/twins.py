@@ -65,7 +65,10 @@ def tsv_text(columns: Sequence[str], rows: Iterable[Row]) -> str:
 
 def read(text: str) -> pd.DataFrame:
     """A data TSV's text as ``giap.steps.plots.twins`` reads the file."""
-    return pd.read_csv(io.StringIO(text), sep="\t", na_values=["NA"], keep_default_na=False)
+    from giap.steps.plots import TWIN_ID_DTYPES
+
+    return pd.read_csv(io.StringIO(text), sep="\t", na_values=["NA"], keep_default_na=False,
+                       dtype=TWIN_ID_DTYPES)  # fmt: skip
 
 
 def frame(columns: Sequence[str], rows: Iterable[Row]) -> pd.DataFrame:

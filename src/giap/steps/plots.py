@@ -119,6 +119,12 @@ def twin_meta(view: RunView, cfg: GiapConfig) -> dict[str, Any]:
             "replicons": {str(r["id"]): int(r["length"]) for r in reps}}  # fmt: skip
 
 
+#: identifier columns of plot data TSVs, read as text so ``01`` / ``0001`` keep their spelling
+TWIN_ID_DTYPES = dict.fromkeys(
+    ("contig", "locus_tag", "pair_id", "label", "category", "product", "name"), str
+)
+
+
 def twins(
     plots_dir: Path, files: Mapping[str, PlotFiles], meta: Mapping[str, Any] | None = None
 ) -> dict[str, tuple[str, str]]:
@@ -139,7 +145,7 @@ def twins(
             if inst.data is None or not has_twin(pid):
                 continue
             data = pd.read_csv(plots_dir / inst.data, sep="\t", na_values=["NA"],
-                               keep_default_na=False)  # fmt: skip
+                               keep_default_na=False, dtype=TWIN_ID_DTYPES)  # fmt: skip
             title = (svg_title(inst.svg) if inst.svg else None) or inst.stem
             text = figure_json(pid, data, title, meta)
             suffix = inst.stem.removeprefix(f"{pid}_{spec.name}" if spec else pid).lstrip("_")

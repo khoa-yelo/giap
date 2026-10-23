@@ -87,3 +87,7 @@ M9-23. §10.1 colours apply to the twins (the style module exports a Plotly temp
    title of decision 7, which `write_instance` stores as the static SVG's `<title>`;
    `test_page_twins_equal_figure_json_of_the_data_tsvs` builds its expected JSON with
    `svg_title(<the instance SVG>)`, falling back to the stem.
+9. **Review B1 on #234 (lead fix).** Data TSVs are read with the identifier columns (`contig`,
+   `locus_tag`, `pair_id`, `label`, `category`, `product`, `name`) as text
+   (`steps.plots.TWIN_ID_DTYPES`), so `01` and `0001` keep their spelling. Covered by
+   tests/unit/viz/test_twins_review_234.py; the test helper's `read` uses the same dtypes.
