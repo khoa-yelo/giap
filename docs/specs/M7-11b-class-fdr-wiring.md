@@ -454,3 +454,15 @@ only the TSV and the work-dir side table.
     - The M7-13 1M sim caches are regenerated before any picked-regime G4 number is read.
     - #256 has had its review round. It merges after #237 and #253 (stacked: merge the old base
       tip, then main).
+11. **Implementer (635fde34): nterm `no_makedb_pair` fixed; accepted.**
+   - Cause: giapsim's `OrfEntries.of` missed makedb's `NTERM_MIN_UPSTREAM_AA` = 7 rule (M3-23), so
+     5–6-codon upstream parts got IDs with no makedb entry.
+   - In six-frame mode an occurrence without a makedb entry is not in the search database, so a
+     peptide with no other occurrence is no longer reported. This replaces decision 10's
+     planted-ID fallback; it is what a real search does, so the lead accepts it. Truth rows keep
+     every occurrence.
+   - The new test `tests/unit/test_sim_m7_nterm_makedb_ids.py` (the implementer wrote it, as giapsim
+     tooling; it edits no existing test) is accepted by the lead.
+   - Evidence: Slurm 1874355 (M7-13b fast tier on this source: nterm `no_makedb_pair` 0, fallback
+     0; only G4-k3 fails, as M7-13b decision 4 foresaw), 1874356 (fast suite passed), 1874358
+     (108 slow giapsim/integration tests passed).
