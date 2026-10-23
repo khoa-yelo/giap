@@ -94,3 +94,24 @@ twin of the concordance scatter, `compare_abundance` table with BA columns), `st
    - (2) No cap on the size of compare.html, and (3) V16's skip is not visible in report.html. Both
      go to the backlog.
    - The number format is `.2g`.
+5. **Code review (#254): CHANGES REQUESTED, B1–B5.** The test-author writes the failing tests, then
+   the implementer fixes the code.
+   - B1: the title counts "detected in all N runs" on the full intersection table, not the
+     top-30 view.
+   - B2: no cell-text overlap at 12 runs, checked with the M9-24 label-overlap checker.
+     - Fix: with 8 or more runs, drop the CI line from the cells; the CI stays in the TSV and
+       the twin hover.
+     - Fix: shorten the NA text to "ρ NA" and give its reason in a footnote.
+   - B3: the V16 SVG has at most 20,000 elements at 12 runs × 400 shared genes.
+     - Fix: draw only non-empty bins.
+     - Fix: choose the bin count per pair so that the total stays under the cap.
+   - B4: `io/compare_io._labels` rejects labels containing `&` or `;`, and the reserved labels
+     `none` and `other`. It raises a clear error before any table is written.
+   - B5: tests for these behaviours:
+     - negative ρ is hatched and clipped to the bottom colour;
+     - the ρ cells are in the lower triangle;
+     - the identity line is drawn;
+     - no twin when `report.interactive` is off;
+     - run directories are relative;
+     - at most 30 intersection rows are shown.
+   - Nits N1–N6 go to the backlog.

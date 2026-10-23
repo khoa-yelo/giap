@@ -883,3 +883,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - N5: `test_unpatched_variants_unchanged` has an odd `assert [c for c in ...]`.
 - M9-23: compare.html has no size warning (the 25 MB check covers report.html only); the V16 TSV/twin carry every shared gene per pair. Add the check or bin the twin past N points.
 - M9-23: V16's skip on ordinary runs happens inside the plot function, so `skip_reason()` is None and report.html's skipped notes omit it; move it to a registered skip reason.
+- M9-23 review nits (#254): PNG-only output says "plot file absent" on compare.html; binned V16 cells have per-cell colour scales and no count legend; V16 upper-cell scatters have no axis values; a locus tag literally `NA` is misread on the twin's TSV round trip; drop `NA_CELL` (= GREY) and `_mappable`.
