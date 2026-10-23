@@ -678,3 +678,12 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 ### M9-22 hardening
 - ρ-CI calibration on full giapsim run pairs (now a simulated TU world at giapsim sizes).
 - Test the section order (matrix, then intersections) and the `none` row's place among ties.
+
+### M9-22 statistician nits (PR #232)
+- TUs from the pair's first run only; a union of both runs' TU maps is safer.
+- compare.md: Bland–Altman limits are as uninterpretable as the bias under `scale_differs`;
+  optionally a TU-block CI for the BA bias.
+- `enriched_categories` deflates Jaccard when only one run has GSEA; GSEA `nes == 0` maps to
+  "down"; the operon_flags key ignores the `flag` column.
+- Unit tests for `ci_unestimated` and NA-TU genes as their own unit; recorded heavy-tailed and
+  15-TU calibration arms; attack nulls A1–A5 (comment) in tests/calibration/attacks/.

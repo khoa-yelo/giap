@@ -37,7 +37,7 @@ DETECTION_COLUMNS = (
     "section", "locus_tag", "run", "detected", "detection_status", "intersection", "n_genes",
 )  # fmt: skip
 ABUNDANCE_COLUMNS = (
-    "run_a", "run_b", "n_shared", "spearman_rho", "ci_low", "ci_high", "ba_bias_log2",
+    "run_a", "run_b", "n_shared", "n_units", "spearman_rho", "ci_low", "ci_high", "ba_bias_log2",
     "ba_loa_low", "ba_loa_high", "method", "n_boot", "flags",
 )  # fmt: skip
 STABILITY_COLUMNS = ("family", "run_a", "run_b", "n_a", "n_b", "n_shared", "jaccard", "flags")

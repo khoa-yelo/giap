@@ -153,8 +153,19 @@ def test_one_tu_gives_ci_few_units() -> None:
     assert not _na(row["ba_bias_log2"])
 
 
-def test_two_tus_is_enough_for_a_ci() -> None:
+def test_two_tus_give_a_ci_flagged_few_units() -> None:
+    """Review B1 on #232 (decision 11): 2-9 units keep the CI but flag ``ci_few_units``."""
     row = _row(_pair([1, 2, 3, 4, 5, 6], [1, 3, 2, 4, 6, 5], tus=["T1"] * 3 + ["T2"] * 3))
+    assert "ci_few_units" in flag_set(row["flags"])
+    assert row["n_units"] == 2
+    assert math.isfinite(row["ci_low"]) and math.isfinite(row["ci_high"])
+
+
+def test_ten_tus_are_not_few_units() -> None:
+    a = list(range(1, 21))
+    b = [x + (0.5 if x % 2 else -0.5) for x in a]
+    row = _row(_pair(a, b, tus=[f"T{i // 2}" for i in range(20)]))
+    assert row["n_units"] == 10
     assert "ci_few_units" not in flag_set(row["flags"])
 
 

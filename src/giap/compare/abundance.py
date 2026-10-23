@@ -19,12 +19,15 @@ from giap.stats.bootstrap import tu_block_bootstrap
 __all__ = ["COLUMNS", "METHOD", "abundance_pairs", "spearman"]
 
 COLUMNS = (
-    "run_a", "run_b", "n_shared", "spearman_rho", "ci_low", "ci_high", "ba_bias_log2",
+    "run_a", "run_b", "n_shared", "n_units", "spearman_rho", "ci_low", "ci_high", "ba_bias_log2",
     "ba_loa_low", "ba_loa_high", "method", "n_boot", "flags",
 )  # fmt: skip
 METHOD = "spearman_tu_bootstrap"
 MIN_SHARED = 3
 MIN_UNITS = 2
+#: below this many resampling units the CI is kept but flagged ``ci_few_units`` (not a 95 %
+#: interval; docs/methods/bootstrap.md, islands' ``CI_MIN_UNITS``; review B1 on #232)
+CI_MIN_UNITS = 10
 LOA_Z = 1.96
 _STATS = ("spearman_rho", "ci_low", "ci_high", "ba_bias_log2", "ba_loa_low", "ba_loa_high")
 
@@ -69,6 +72,7 @@ def _pair(
     rng: np.random.Generator,
 ) -> dict[str, object]:  # fmt: skip
     row: dict[str, object] = dict.fromkeys(_STATS, math.nan)
+    row["n_units"] = None
     row.update(run_a=la, run_b=lb, method=METHOD, n_boot=B)
     flags = [f"missing_in:{lab}" for lab, f in ((la, fa), (lb, fb)) if not _has_abundance(f)]
     ok_b = _measured(fb)
@@ -92,9 +96,10 @@ def _pair(
     units = units.where(units.notna(), pd.Series(tags, index=units.index, dtype=object))
     df = pd.DataFrame({"tu": units.to_numpy(), "a": a, "b": b})
     row["spearman_rho"] = _rho_frame(df)
-    if df["tu"].nunique() < MIN_UNITS:
+    row["n_units"] = n_units = int(df["tu"].nunique())
+    if n_units < CI_MIN_UNITS:
         flags.append("ci_few_units")
-    else:
+    if n_units >= MIN_UNITS:
         ci = tu_block_bootstrap(df, "tu", _rho_frame, B=B, rng=rng)
         row.update(ci_low=ci.ci_low, ci_high=ci.ci_high)
         if not (math.isfinite(ci.ci_low) and math.isfinite(ci.ci_high)):
@@ -115,4 +120,4 @@ def abundance_pairs(
     """
     rows = [_pair(la, lb, runs[la], runs[lb], tus, B, rng) for la, lb in combinations(runs, 2)]
     out = pd.DataFrame(rows, columns=list(COLUMNS))
-    return out.astype({"n_shared": "Int64", "n_boot": "Int64"})
+    return out.astype({"n_shared": "Int64", "n_units": "Int64", "n_boot": "Int64"})

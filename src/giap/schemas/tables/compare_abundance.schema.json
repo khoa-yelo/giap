@@ -7,6 +7,7 @@
     {"name": "run_a", "type": "string", "description": "First run of the pair (label order)", "constraints": {"required": true}},
     {"name": "run_b", "type": "string", "description": "Second run of the pair", "constraints": {"required": true}},
     {"name": "n_shared", "type": "integer", "description": "Genes detected with a measured (not imputed) abundance in both runs", "constraints": {"minimum": 0}},
+    {"name": "n_units", "type": "integer", "description": "Resampling units (TUs; a gene without a TU is its own unit) behind the CI; NA when no CI is computed; below 10 the CI is flagged ci_few_units", "constraints": {"minimum": 1}},
     {"name": "spearman_rho", "type": "number", "description": "Spearman rank correlation (average ranks for ties)", "constraints": {"minimum": -1, "maximum": 1}},
     {"name": "ci_low", "type": "number", "description": "Lower bound of the 95% TU-block bootstrap percentile CI of rho", "constraints": {"minimum": -1, "maximum": 1}},
     {"name": "ci_high", "type": "number", "description": "Upper bound of the 95% TU-block bootstrap percentile CI of rho", "constraints": {"minimum": -1, "maximum": 1}},

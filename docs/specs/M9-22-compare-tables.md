@@ -83,7 +83,8 @@ flag `missing_in:<label>`.
 | `--labels` count ≠ runs, or duplicate labels | exit 1 |
 | no `--labels` | directory basenames; duplicates suffixed `_2`, `_3` |
 | `n_shared` < 3 | ρ, CI, BA NA, flag `too_few_shared` |
-| `n_shared` TUs < 2 | CI NA, flag `ci_few_units` (the M4-16 flag) |
+| resampling units < 2 | CI NA, flag `ci_few_units` (the M4-16 flag) |
+| resampling units 2–9 | CI kept, flag `ci_few_units` (not a 95 % interval; decision 11) |
 | abundance types or scales differ between runs (`abundance_type`, `abundance_scale`) | BA columns written, flag `scale_differs` (bias is not interpretable) |
 | a run without abundance | that pair's abundance row NA, flag `missing_in:<label>` |
 | `function` module off in one run | `enriched_categories` NA, `missing_in` |
@@ -146,3 +147,11 @@ flag `missing_in:<label>`.
    giapsim pairs go to the hardening backlog.
 10. **Section order.** The matrix section first, then intersections; among equal counts `none`
     sorts last (untested; backlog).
+
+## Lead decision on the statistician's block (2026-10-22, PR #232 comment 6357223837)
+
+11. `ci_few_units` follows the project rule (docs/methods/bootstrap.md, islands): below 10
+    resampling units the CI is kept from 2 units but flagged (not a 95 % interval), and NA below
+    2; `compare_abundance` gains `n_units` after `n_shared`. Lead fix with the test edits
+    (`test_two_tus_give_a_ci_flagged_few_units`, `test_ten_tus_are_not_few_units`, the column
+    constant in tests/helpers/compare_data.py).

@@ -28,7 +28,7 @@ log2 abundance in both runs.
   under-coverage.
 - **Bland–Altman** on log2: bias = mean(a − b), limits = bias ± 1.96 SD(a − b), ddof = 1.
 
-Flags: `too_few_shared` (< 3 shared genes: every statistic NA), `ci_few_units` (< 2 TUs: CI NA),
+Flags: `too_few_shared` (< 3 shared genes: every statistic NA), `ci_few_units` (fewer than 10 resampling units, reported in `n_units`: the CI is kept from 2 units but is not a 95 % interval; below 2 it is NA),
 `ci_unestimated` (fewer than B/2 finite replicates), `scale_differs` (`abundance_type` or
 `abundance_scale` differ: the bias is not interpretable but is written), `missing_in:<label>` (a
 run without abundance: the row is NA).
