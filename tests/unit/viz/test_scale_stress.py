@@ -14,6 +14,10 @@ frames only, not a pipeline run). Oracles are recomputed from the written ``gene
 - V2 bins the measured detected genes by their 0-based midpoint ``(start0 + end) / 2 mod L``
   over the same edges and draws one point per non-empty bin at the bin centre with the median
   ``abundance_log2``; undetected genes stay a rug (2,500 rows here, under the limit).
+- Origin wrap (lead decision 4, review N7): the fixture's two origin-crossing genes are stored
+  unwrapped (``length < end < 2 length``). V1 puts each in the bin of its 0-based start (the last
+  bin); V2 puts each at the bin of its midpoint mod L: one before the origin (the last bin), one
+  past it (the first bin).
 
 The whole module renders V1 and V2 once at 25,000 genes (≈ 20-40 s): marked ``slow``.
 """
@@ -96,6 +100,27 @@ def test_stress_fixture_is_25000_genes_on_one_20_mb_contig(stress: StressRun) ->
     assert stress.n_plus <= MAX_ELEMENTS and stress.n_minus <= MAX_ELEMENTS
 
 
+def _crossing(stress: StressRun, genes: pd.DataFrame) -> pd.DataFrame:
+    g = genes[genes["locus_tag"].astype(str).isin(stress.crossing)]
+    assert len(g) == 2, stress.crossing
+    return g
+
+
+def test_stress_fixture_has_two_origin_crossing_genes_stored_unwrapped(
+    stress: StressRun, genes: pd.DataFrame
+) -> None:
+    g = _crossing(stress, genes)
+    assert set(g["crosses_origin"].astype(bool)) == {True}
+    s, e, L = g["start"].astype(int), g["end"].astype(int), stress.length
+    assert ((s >= 0) & (s < L) & (e > L) & (e < 2 * L)).all(), g[["start", "end"]]
+    assert (g["detection_status"] == "detected").all()
+    assert int(genes["crosses_origin"].astype(bool).sum()) == 2
+    # one midpoint before the origin, one past it (wrapped by mod L)
+    mids = np.sort(np.mod((s + e) / 2.0, float(L)).to_numpy())
+    edges = _edges(stress)
+    assert _bin_of(edges, mids).tolist() == [0, len(edges) - 2], mids
+
+
 # ---------------------------------------------------------------- V1
 
 
@@ -159,6 +184,20 @@ def test_v1_abundance_bins_hold_the_median_measured_log2(
     assert set(rows["category"]) == {"bin_median"}
 
 
+def test_v1_origin_crossing_genes_land_in_the_bin_of_their_start(
+    v01: base.Instance, stress: StressRun, genes: pd.DataFrame
+) -> None:
+    edges = _edges(stress)
+    track = {"+": "gene_plus", "-": "gene_minus"}
+    for g in _crossing(stress, genes).itertuples(index=False):
+        k = int(_bin_of(edges, np.array([int(g.start)]))[0])
+        assert k == len(edges) - 2, (g.locus_tag, k)  # the last bin, never wrapped to bin 0
+        rows = v01.data[v01.data["track"] == track[str(g.strand)]]
+        hit = rows[rows["start"].astype(int) == int(edges[k])]
+        assert len(hit) == 1 and int(hit["end"].iloc[0]) == stress.length, (g.locus_tag, hit)
+        assert int(rows["end"].astype(int).max()) <= stress.length
+
+
 @pytest.mark.parametrize("track", GENE_TRACKS)
 def test_v1_each_track_draws_at_most_20000_elements(v01: base.Instance, track: str) -> None:
     n = len(elements(v01.figure, track))
@@ -198,6 +237,21 @@ def test_example_1_v2_points_binned_to_bin_medians(
     got = dict(zip(pts["position_bp"].astype(int), pts["value"].astype(float), strict=True))
     assert got.keys() == want.keys()
     np.testing.assert_allclose([got[k] for k in want], list(want.values()), atol=1e-12)
+
+
+def test_v2_origin_crossing_genes_sit_at_their_midpoint_bin_mod_l(
+    v02: base.Instance, stress: StressRun, genes: pd.DataFrame
+) -> None:
+    edges = _edges(stress)
+    g = _crossing(stress, genes)
+    s, e = g["start"].astype(float).to_numpy(), g["end"].astype(float).to_numpy()
+    mids = np.mod((s + e) / 2.0, float(stress.length))
+    pts = v02.data[v02.data["kind"] == "point"]
+    centres = set(pts["position_bp"].astype(int).tolist())
+    for k in _bin_of(edges, mids).tolist():
+        assert int((edges[k] + edges[k + 1]) // 2) in centres, k
+    assert int(pts["position_bp"].astype(float).max()) < stress.length
+    assert int(pts["position_bp"].astype(float).min()) >= 0
 
 
 def test_v2_rug_stays_one_row_per_undetected_gene_under_the_limit(

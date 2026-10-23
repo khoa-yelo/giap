@@ -10,6 +10,19 @@ are ``detected`` with a measured (not imputed) ``abundance_log2 ~ N(20, 2)``, so
 20,000 points on its one panel; the rest are ``not_detected`` (no abundance). ``genes.tsv`` is
 written 1-based closed under the ``genes`` schema (``helpers.viz_out_tree``), ``preflight.json``
 names the replicon. Nothing here touches ``$GIAP_DB_DIR`` or the network.
+
+Two genes cross the origin (M9-26 lead decision 4, review N7), written as the genes contract
+stores them (``crosses_origin = True``, unwrapped ``length < end < 2 length``; GIAP_SPEC.md
+§6.5 ``Interval``), not as ``start > end``:
+
+- the last gene by start keeps its start and ends ``c = first_start0 // 2`` bp past the origin,
+  so its 0-based midpoint stays before the origin (V1 and V2: the last bin);
+- the first gene by start moves to begin halfway into the gap before the origin and keeps its
+  end, unwrapped by ``+ L``; its midpoint ``(start0 + end) / 2`` lies past ``L``, so ``mod L``
+  wraps it into the first bin (V1 still bins it by its start: the last bin).
+
+The two overlap by a few hundred bp across the origin (allowed; nothing here checks overlaps).
+Both are detected with a measured abundance, so each is a V2 point.
 """
 
 from __future__ import annotations
@@ -38,6 +51,7 @@ class StressRun:
     n_plus: int
     n_minus: int
     n_points: int  # detected, measured, not imputed, not partial
+    crossing: tuple[str, ...] = ()  # locus tags of the origin-crossing genes
 
 
 def stress_out(tmp: Path, seed: int = SEED, n_genes: int = N_GENES) -> StressRun:
@@ -50,9 +64,19 @@ def stress_out(tmp: Path, seed: int = SEED, n_genes: int = N_GENES) -> StressRun
     )
     rep = lay.replicons.iloc[0]
     contig, length = str(rep["contig"]), int(rep["length"])
-    genes = lay.genes
+    genes = lay.genes.sort_values("start", kind="stable").reset_index(drop=True)
+    starts = genes["start"].to_numpy(dtype=np.int64, copy=True)
+    ends = genes["end"].to_numpy(dtype=np.int64, copy=True)
+    first, last = 0, len(genes) - 1
+    gap_before_origin = length - int(ends[last])
+    ends[last] = length + int(starts[first]) // 2
+    starts[first], ends[first] = length - gap_before_origin // 2, length + int(ends[first])
+    cross = np.zeros(len(genes), dtype=bool)
+    cross[[first, last]] = True
+    genes = genes.assign(start=starts, end=ends)
     rng = np.random.default_rng(seed + 1)
     det = rng.random(len(genes)) < DETECTED_FRAC
+    det[cross] = True  # both crossing genes are V2 points
     log2 = rng.normal(20.0, 2.0, size=len(genes))
     rows = []
     for i, g in enumerate(genes.itertuples(index=False)):
@@ -68,7 +92,7 @@ def stress_out(tmp: Path, seed: int = SEED, n_genes: int = N_GENES) -> StressRun
                 detection_status="detected" if det[i] else "not_detected",
                 detected=bool(det[i]),
                 partial=False,
-                crosses_origin=False,
+                crosses_origin=bool(cross[i]),
                 replicon_type="chromosome",
                 abundance_log2=float(log2[i]) if det[i] else None,
                 abundance_raw=float(2.0 ** log2[i]) if det[i] else None,
@@ -89,4 +113,5 @@ def stress_out(tmp: Path, seed: int = SEED, n_genes: int = N_GENES) -> StressRun
         n_plus=int((strands == "+").sum()),
         n_minus=int((strands == "-").sum()),
         n_points=int(det.sum()),
+        crossing=tuple(str(t) for t in genes["locus_tag"][cross]),
     )

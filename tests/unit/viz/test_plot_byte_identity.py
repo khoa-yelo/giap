@@ -11,7 +11,8 @@ matplotlib patch versions": expected).
   the same comparison in tests/snapshot/test_snapshot_byte_identity.py once it is committed.
 - V07 (the spec's example 2) is also rendered twice in one process.
 - A Hypothesis property: for small giapsim layouts (``helpers.scale_fixture.stress_out``), V1 and
-  V2 rendered twice in one process are byte-identical in all three formats.
+  V2 rendered twice in one process are byte-identical in all three formats (the layouts carry
+  two origin-crossing genes; no shrink phase, M9-26 lead decision 4).
 - ``giap report OUT`` is run in two fresh interpreters (different hash seeds) on two copies of
   one ``OUT/``: ``report/report.html`` and every file under ``plots/`` are equal. Marked
   ``slow``.
@@ -35,7 +36,7 @@ from helpers.byte_identity import (
     render_in_subprocess,
     tree_bytes,
 )
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, Phase, given, settings
 from hypothesis import strategies as st
 
 #: plots the golden sim50k tables are rich enough to draw (each must render, not skip)
@@ -71,6 +72,8 @@ def test_example_2_v07_two_renders_identical_in_all_formats(golden: Path, tmp_pa
 @settings(
     max_examples=6,
     deadline=None,
+    # no shrink phase: a failing example re-renders V1/V2 per shrink step (≈ 333 s, review N6)
+    phases=[Phase.explicit, Phase.generate],
     suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.too_slow],
 )
 @given(n_genes=st.integers(20, 300), seed=st.integers(0, 2**31 - 1))
