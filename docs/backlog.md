@@ -657,3 +657,13 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (M6-09, statistician round 2) example 1 is infeasible at 0.1 SD under every arm (merged engine: 0
   calls everywhere; CV-only 1-bin: 2.5 calls); add a realistic 10 % detection-attack block arm;
   report realised planted counts; lift stat603/probe2.py and bias.py into tests/calibration/attacks/.
+
+### M6-03 code-review nits (PR #222)
+- Decision 9 (odd `n_planted`) untested: `discordance_power(1800, 41, 2.0)` gives 21/20.
+- Untested edges: SW triple across the origin; convergent boundary at a second replicon's first gene;
+  2-gene circular replicon; the inclusive 300-bp upper gap bound; background SD from both-detected pairs only.
+- The circular wrap boundary never gets the short convergent gap, though layout.py and the methods
+  note say "every" boundary: fix the wording or the generator.
+- Methods note: the R = 1,000 null OP tail z = −2.05 needs a "within chance" remark.
+- `_tsv_cell` / `read_operon_truth` `"int"` dtype branch unused.
+- mypy over tests/sim (MYPYPATH=tests/sim) reports 5 errors from tests/sim/giapsim/layout.py:663.
