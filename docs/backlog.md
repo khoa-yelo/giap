@@ -772,6 +772,21 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
 
+<<<<<<< HEAD
+### M7-11 follow-ups
+- M7-11b: novel_orfs step wiring of `giap.novel.fdr` (decisions 6–9), step-level tests.
+- Origin-crossing makedb entries without replicon lengths are unestimated (decision 8); pass lengths.
+- M7-11 statistician NIT 1: c is computed over hit peptides only; decide whether to widen it (pending lead/statistician, not blocking).
+- M7-11 vs M4-24: when only some targets lack q, M7-11 falls back to score while M4-24 keeps q and ranks them last; align the two (statistician #237 round 2, safe).
+- Review #237 nits (M7-11):
+  - 1: a class with no seen entries reports `paired_share_low` even at f = 1, where it should be `no_target_score`.
+  - 2: hoist the loop-invariant `seen` (fdr.py:294).
+  - 3: without lengths, entries whose stop codon lies past the origin are unmatched; name them in the methods note.
+  - 4: `min_identity` / `min_coverage` have no lower bound, so 0/0 gives f = 0 and `run_detection` raises; this needs a config bound (protected, ADR) or a guard.
+  - 5: the methods-note status line says decisions 1–11; it should say 1–13.
+  - 6: `_decoy_tags` could return the parsed class.
+  - 7: `denovo_class_q` uses an iloc loop and does not cast strand to str.
+=======
 ### M9-24 follow-ups
 - **Diagnosed:** V08 (and V02, V03, V07) show no measured abundance on sim100k because 0 of 87
   genes are detected: picked-protein q has floor 1/n_win = 1/85 > alpha 0.01
@@ -814,6 +829,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - V5 `arrangement="fixed"` without node x/y loses the M9-05 order.
 - V8 has no median mark or legend; the V10 no-meta fallback differs for flagged rows; V18's constant state has no message.
 - PR size about 2,300 lines in total (711 counted).
+>>>>>>> origin/main
 ### M7-10 follow-ups
 - Switch the class-error calibration to the M7-12 `variant_f1` scenario once #225 merges (decision 7).
 - M7-13: class error rate reference-proteome arm (moved from M7-10 #239 B2); also consider a run flag when every class rate is 1 (statistician #239).
