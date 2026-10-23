@@ -369,3 +369,20 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
    - The sbatch keeps its `GIAP_REPO`, `uv run` and `GIAP_WORKTREE` hooks.
    - A leaked CONFIRM variable is stripped in sharded and unsharded `main()` runs alike.
    - Next: the implementer.
+9. **Review-fix implementer (07766776, da2839de): accepted.**
+   - **Shards and exit codes:** task-13 shards are 0..n−1, `--time` is 04:00:00, and a non-zero
+     shard or merge fails the task.
+   - **Confirm-mode skip:** a static scan in `tests/calibration/conftest.py` classifies
+     calibration tests as harness or non-harness (510 / 228). It fails closed: a missed harness
+     test gives MERGE_ERROR.
+   - **Fast task-13 check (Slurm 1873691_13):** shards 0:10 and 10:20 ran, block 2 confirmed
+     G1 (F1 0.838), A6b (0.95) and A6c (1.0) as fails, and the task exited 1, as ADR-0049 expects.
+   - **Deviation accepted:** a fail that block 2 confirms returns `MERGE_FAIL`, even when the
+     confirm pytest also exits non-zero. `MERGE_ERROR` is kept for a non-zero confirm run with no
+     confirmed fail. Otherwise every real confirmed fail would read as a merge error.
+   - **Lead test edit:** the fast-suite failures (Slurm 1873690 and 1873867, 26 failed with
+     `No module named 'helpers'`) came from the subprocess tests' child `PYTHONPATH`, which
+     lacked `tests/`. `test_branch.sbatch` sets only `src:tests/sim`. Both files now add `tests/`.
+   - **Known consequence:** task 13 is red every night while ADR-0049 is open. The merge-side
+     known-failures list (statistician N3) moves up the backlog, so that new failures stay visible.
+   - Next: a confirm check of the fast suite on Slurm, then the queue.

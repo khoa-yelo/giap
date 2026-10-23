@@ -85,7 +85,10 @@ def run_gate(
     report = tmp / "report.json"
     keep = {k: v for k, v in os.environ.items() if k not in (C.SHARD_ENV, C.BLOCK_ENV,
                                                              C.CONFIRM_ENV)}  # fmt: skip
-    path = os.pathsep.join([str(tmp), str(GATE.parent), keep.get("PYTHONPATH", "")])
+    # tests/ for the -p plugins' `helpers` imports (test_branch.sbatch sets only src:tests/sim)
+    tests_dir = GATE.parent.parent
+    parts = [str(tmp), str(GATE.parent), str(tests_dir), keep.get("PYTHONPATH", "")]
+    path = os.pathsep.join(parts)
     plugin = (
         "import json, sys\n"
         "out = {}\n"

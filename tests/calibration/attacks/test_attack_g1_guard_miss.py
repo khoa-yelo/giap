@@ -59,7 +59,10 @@ def test_g1_with_no_predictions_errors_not_xfails(tmp_path: Path) -> None:
     (tmp_path / "count_g1.py").write_text(f"REPORT = {str(report)!r}\n" + PLUGIN)
     keep = {k: v for k, v in os.environ.items() if k not in (C.SHARD_ENV, C.BLOCK_ENV,
                                                              C.CONFIRM_ENV)}  # fmt: skip
-    path = os.pathsep.join([str(tmp_path), str(GATE.parent), keep.get("PYTHONPATH", "")])
+    # tests/ for the -p plugins' `helpers` imports (test_branch.sbatch sets only src:tests/sim)
+    tests_dir = GATE.parent.parent
+    parts = [str(tmp_path), str(GATE.parent), str(tests_dir), keep.get("PYTHONPATH", "")]
+    path = os.pathsep.join(parts)
     cmd = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-p", "stub_g1",
            "-p", "count_g1", "-o", "addopts=", f"{GATE}::test_g1_variant_f1"]  # fmt: skip
     env = {**keep, "PYTHONPATH": path, C.LOG_DIR_ENV: str(tmp_path / "log")}
