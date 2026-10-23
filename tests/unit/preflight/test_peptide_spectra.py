@@ -13,9 +13,8 @@ Interface pinned here (test-author reading; see the report to the lead):
   is one row with ``source = denovo`` and its stripped ``peptide``; every confident
   (``q_value <= 0.01``) target reference row is one row whose ``source`` is not ``denovo``.
   Database rows of ``--peptides`` are *not* reference rows (§7.5.4 pairs with
-  ``--reference-peptides`` only). Whether low-confidence or decoy reference rows are dropped
-  here or kept with their ``q_value``/``is_decoy`` is the implementer's choice; the step-level
-  tests pin the behaviour.
+  ``--reference-peptides`` only). Decoy and low-confidence (q > 0.01) reference rows are dropped
+  here: preflight is the only decoy filter on the pipeline path (M7-10 lead decision 5).
 * C17 is registered in ``giap.genetable.contract.TABLES["peptide_spectra"]`` with the required
   columns ``run``, ``spectrum_id``, ``peptide`` and ``source`` (more columns allowed), in
   ``giap.io.work_tables.EXTRA_FILE_NAMES`` as ``peptide_spectra.parquet`` (like C16), and
@@ -136,6 +135,10 @@ def test_preflight_writes_peptide_spectra(tmp_path: Path) -> None:
     assert ("run1", "run1.2", "NCPEPTKA") in ref
     # the database row of --peptides is not a reference row
     assert not any(s == "run1.9" for _r, s, _p in ref)
+    # decision 5: the confident decoy and the q 0.02 target are dropped (review #239 B2)
+    assert ("run2", "run2.7", "KAVWNLSM") not in ref
+    assert ("run2", "run2.1", "PEPTLDEKR") not in ref
+    assert len(ref) == 2, ref
 
 
 def test_peptide_spectra_is_contract_table_c17(tmp_path: Path) -> None:

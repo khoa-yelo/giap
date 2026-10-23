@@ -145,3 +145,11 @@ def annotate_sites(sites: pd.DataFrame, rates: Sequence[ClassRate]) -> pd.DataFr
      60 s). Accepted: CI keeps the 46 s sanity test, and the nightly run gates the planted arm.
    - Measured at R = 100: frameshift bias 0.0087 (SE 0.0031), a small upward bias about 2.8 SE from
      0. It is inside the bound and noted in the backlog for the statistician.
+10. **Code review #239:** the implementation is correct; the review raised two test defects and a
+    stale branch.
+    - **B1 (lead):** the brute-force oracle in test_error_rates_props.py counts distinct
+      `(run, spectrum_id, peptide)` (decision 8).
+    - **B2 (lead):** test_preflight_writes_peptide_spectra asserts that the confident decoy and the
+      q 0.02 target are dropped from C17. Its docstring now states decision 5.
+    - **B3 (lead):** origin/main is merged in.
+    - Nits 1–5 go to the backlog, together with the surviving edge-case mutants.

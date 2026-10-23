@@ -95,7 +95,7 @@ def oracle(dn: Any, ref: Any, sup: Any, q_max: float = 0.01) -> dict[tuple[str, 
     for _vid, pep, cls in sup:
         classes.setdefault(pep, set()).add(cls)
     out: dict[tuple[str, bool], list[int]] = {}
-    for run, sid, pep in dn:
+    for run, sid, pep in sorted(set(dn), key=str):  # one per (run, spectrum_id, peptide): dec. 8
         if sid is None or pep not in classes:
             continue
         hit = ref.get((run, sid))
