@@ -745,6 +745,7 @@ def compare(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_
 @click.argument("out", type=_existing_dir)
 @click.option("--no-interactive", is_flag=True, help="Static report only.")
 @click.option("--plots", help="Comma-separated plot IDs (V01,V02,...).")
+@click.option("--strict", is_flag=True, help="Exit 3 when the report exceeds its size budget.")
 @shared_options
 def report(
     config_file: Path | None,
@@ -753,6 +754,7 @@ def report(
     out: Path,
     no_interactive: bool,
     plots: str | None,
+    strict: bool,
     **_: Any,
 ) -> None:
     """Rebuild plots and report from existing tables."""
@@ -781,10 +783,13 @@ def report(
         click.echo(f"giap report: {exc}", err=True)
         sys.exit(ExitCode.STEP_FAILED)
     try:
-        click.echo(str(P.write_report(view, out / "plots", out / "report", cfg)))
+        page = P.write_report(view, out / "plots", out / "report", cfg)
     except Exception as exc:  # unreadable tables are notes; anything else is exit 4 (B5)
         click.echo(f"giap report: {type(exc).__name__}: {exc}", err=True)
         sys.exit(ExitCode.STEP_FAILED)
+    click.echo(str(page))
+    if strict and page.stat().st_size > P.REPORT_BUDGET:  # report.size_exceeded (M9-14)
+        sys.exit(ExitCode.WARNINGS_STRICT)
 
 
 # ---------------------------------------------------------------- hidden

@@ -677,6 +677,51 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
 
+## M9-12 review nits (#219; one round, decisions 11–15)
+- V13 start fallback (NA `start_longest`): the span starts at the first placed peptide anywhere on the
+  contig; a multi-placement peptide can stretch it, and origin crossing is ignored there.
+- One failing `render_locus` call aborts all of V13 (panel (a) included); V3 behaves the same. Render
+  each view in isolation and record a per-view skip.
+## M9-14 review nits (#221; one round)
+- No test pins escaping of data values in twin JSON independent of plotly's own `<` escaping (a
+  `json.dumps`-built test twin would kill the `_script_json`-removed mutant); the probe was inert.
+- A string-column `NA` in a data TSV reaches a twin as NaN and is written as `"nan"`: M9-15 twins
+  should read data TSVs with `keep_default_na=False` or map NA explicitly.
+- JS vs Python string order (code point vs UTF-16 unit) and lowercasing (final sigma) differ in rare
+  cases; document in the methods/report notes. The 5 `tables.js` mutants survive (decision 1).
+- `giap run --strict` does not map `report.size_exceeded` to exit 3 (only preflight warnings reach
+  it today); wire step-level strict warnings once a second one exists.
+- `remove_uids=True` in `figure_json` is unpinned; an instance with a twin but no SVG still gets
+  "plot file absent".
+### M9-08 (V01 circos) after the review round
+- No unit test renders V01 with empty promoter/terminator/TU tables (crash fixed in 8faffdb was
+  caught only by integration tests).
+- Inner oriC/ter labels of small adjacent replicons crowd each other near the centre (five-replicon
+  review render); consider dropping them below a sector-size threshold.
+- Counted lines 629 (> 400 warn): split the label-placement code into its own module in hardening.
+## M8-17b review nits (#214; one round each, code review and statistical review)
+- M8-15 (statistical re-review, before the gate): re-run the `test_attack_gsea_flags.py` arms on the R
+  engine, flag spillover included (unflagged rows in a collection that also has flagged rows; only
+  measured under the port, Slurm 1867330), and re-measure the N4 detection-screen and
+  `genomic_cluster` φ = 0.7 numbers on R. The methods note makes no claim for these until then.
+- Weekly `gsea` array task: 4 CPU / 2 h now also runs the `requires_r` replicates (Slurm 1869053 alone
+  took 47 min on 8 CPUs) and needs `giap-fgsea` built; `tests/calibration/_criteria.py` does not
+  exclude `requires_r`, so the harness's `gsea` suite errors where the env is absent.
+- Untested in `giap.function.gsea`: dropping `lo <= n <= hi` for whole-ranking sets; the
+  `len(tus) < min_size` and `bh(sub)[i] > alpha` boundaries; `SIMPLE_ENGINE` re-seeding per job.
+- `giap.io.fgsea_r`: an explicit `GIAP_FGSEA_PREFIX` skips the `.giap-built` check (an unbuilt env
+  says "is not a directory"); untested with no `R` in `bin/`; `engine.provenance` keeping its value
+  after a failed call is unpinned.
+- The `function.gsea_engine` event could log the seed R ran with.
+## M9-09 review nits (#218; one round, decisions 21–26)
+- V2 trend memory: up to 2.2 GB peak RSS at 20,000 points (the PLOTS process gets 2 GB on the first
+  attempt); fit the trend on ≤ 5,000 bin medians.
+- V2 rug-only panels show meaningless y ticks (±0.04); hide them.
+- V2: oriC at position 1 is hidden by the left spine; the landmark −1 is untested (decision 3).
+- V10 data TSV keeps the producer's values for `not_estimable` rows (flags alongside); the plot
+  blanks them (decision 21). Revisit if a reader takes the zeros as estimates.
+- Statistician note (TU ordinals in the islands detrend vs bp positions in V2) is in the PR body;
+  move it into docs/methods with the M9 methods index.
 ## M5-11 (statistician, hardening)
 - Island power under giapsim's default `covariates_only` detection: no island at +3/+5/+10 SD on 1,000 genes (ℓ̂ = 1, ℓ' = 3; ~45 % censored regardless of abundance, rank scores saturate). The M5-11 golden uses sim4500 with `detection="abundance"`; decide whether the power table should report the covariates-only regime.
 
@@ -688,3 +733,21 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   records carry no commit field, so "on main" cannot be checked from them.
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
+
+### M9-18 (V12) untested decisions
+- Tests for M9-18 decisions 6–9: NA window for a gene missing from genes.parquet, in-frame cover
+  rule, "(N peptides)" line, header-only `variant_windows.tsv`.
+
+### M9-18 review nits (PR #227)
+- N1 peptide ending exactly on the codon's last base; N2 ref/pep column alignment (incl. a window
+  clipped at the protein start); N3 `_best` untested; N4 duplicate `locus_tag` rows untested.
+- N5 `stop_codon` flag shares vermillion with the bold ALT residue.
+- N6 title edge cases: only mixed sites ("0 … 0 … unestimated"); min == max prints "0.004–0.004".
+- N7 panel (a) y-label "ALT sites" also covers mixed bars.
+- N8 "(N peptides)" can differ from `n_alt` (q > 0.01 placements, IL-only, other ALT residues); a
+  block before the site misplaces it.
+- N9 misleading comment about sites past the protein end (support.py).
+### M9-16b follow-ups
+- Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
+  shown when the manifest write failed or in the work-dir copy); test-author step first.
+- Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.

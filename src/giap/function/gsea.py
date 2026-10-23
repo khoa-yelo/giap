@@ -2,12 +2,16 @@
 
 Pure. The ranked units are TUs: a TU's score is the mean ``abundance_log2`` of its detected,
 eligible genes (imputed values included), median-centred (ADR-B), and a TU is in a set when any
-of its scoring genes is. Sets are sized in TUs. Per collection, M8-02's ``fgsea_simple`` runs on
-the TUs in a seeded random order (M8-02 lead decision 7: ties are never broken by TU ID); q is BH
-within the collection. A significant GO parent is ``redundant`` when, re-tested without the genes
-of its significant descendants, its p substituted into the collection's BH vector gives q > alpha
-(lead decisions 3, 6 and 7: a re-test with 0 TUs is redundant, an unestimated re-test leaves
-``redundant`` NA). The writer joins the list cells ``leading_edge`` and ``flags``.
+of its scoring genes is. Sets are sized in TUs. The statistics come from an injected engine
+(M8-17 §7, ADR-0038): the step passes R ``fgseaMultilevel`` (``giap.io.fgsea_r``), the default
+is the M8-02 ``fgsea_simple`` port. One call holds a ``main:<collection>`` job per collection
+with in-range sets, the TUs in a seeded random order (M8-02 lead decision 7: ties are never
+broken by TU ID) and one seed drawn after that order; a set covering every ranked TU gets an NA
+row (M8-17 lead decision 3). q is BH within the collection. A significant GO parent is
+``redundant`` when, re-tested without the genes of its significant descendants, its p
+substituted into the collection's BH vector gives q > alpha (lead decisions 3, 6 and 7: a
+re-test with 0 TUs is redundant, an unestimated re-test leaves ``redundant`` NA); every re-test
+goes into one second call. The writer joins the list cells ``leading_edge`` and ``flags``.
 
 Every main-run row also carries the position flags of lead decision 9 (ADR-0025, ADR-0026), both
 pure and RNG-free: ``genomic_cluster`` when the set's AR(1) variance inflation delta along the
@@ -30,13 +34,14 @@ import pandas as pd
 
 from giap.config.model import GseaConfig
 from giap.function.collections import GeneSets
-from giap.stats.fgsea import Prepared, SimpleResult, fgsea_simple, prepare
+from giap.stats.fgsea import fgsea_simple, prepare
 from giap.stats.multitest import bh
 
 __all__ = [
     "CLUSTER_TAU",
     "COLUMNS",
     "DETECTION_Z0",
+    "SIMPLE_ENGINE",
     "EngineCall",
     "EngineProvenance",
     "EngineResult",
@@ -148,6 +153,8 @@ class EngineProvenance:
     r: str
     fgsea: str
     warnings: tuple[tuple[str, str], ...]  # (job_id, message), distinct, in R's order
+    seed: int = 0  # the seed R ran with (#204 review nit 2)
+    jobs: int = 0  # the number of jobs R ran
 
 
 class GseaEngine(Protocol):
@@ -400,48 +407,91 @@ def is_detection_confounded(z: float, es: float) -> bool:
     return bool(z * es < 0 and abs(z) >= DETECTION_Z0)
 
 
+class _SimpleEngine:
+    """The M8-02 ``fgsea_simple`` port as a ``GseaEngine`` (ADR-0038 item 6: kept until the
+    hardening pass). Each job draws from a fresh ``np.random.default_rng(call.seed)``, as R's
+    ``set.seed`` runs before every job."""
+
+    method = METHOD
+
+    def __call__(self, call: EngineCall) -> EngineResult:
+        stats = np.asarray(call.scores, dtype=np.float64)
+        labels = list(call.tu_ids)
+        p = call.params
+        out: dict[str, tuple[EngineRow, ...]] = {}
+        for job in call.jobs:
+            prep = prepare(stats, labels, job.sets, job.min_size, job.max_size)
+            if not prep.names:
+                out[job.job_id] = ()
+                continue
+            rng = np.random.default_rng(call.seed)
+            res = fgsea_simple(prep, p.n_perm_simple, p.sample_size, rng)
+            out[job.job_id] = tuple(
+                EngineRow(
+                    term=t,
+                    size=int(prep.sizes[i]),
+                    es=float(res.es[i]),
+                    nes=float(res.nes[i]),
+                    p=float(res.p[i]),
+                    log2err=float(res.log2err[i]),
+                    leading_edge=tuple(labels[int(j)] for j in res.leading_edge[i]),
+                )
+                for i, t in enumerate(prep.names)
+            )
+        return out
+
+
+SIMPLE_ENGINE: GseaEngine = _SimpleEngine()
+
+
 @dataclass(frozen=True, slots=True)
 class _Main:
+    """One collection's main run: the engine rows of its tested terms, their q, and the terms
+    covering every ranked TU (no job, NA row; lead decision 3)."""
+
     coll: GeneSets
     tus: dict[str, frozenset[str]]
-    prep: Prepared
-    res: SimpleResult | None
+    rows: tuple[EngineRow, ...]
     q: F64
+    whole: frozenset[str]
 
 
-_Ctx = tuple[F64, list[str], dict[str, str], GseaConfig, np.random.Generator]
+@dataclass(frozen=True, slots=True)
+class _Hierarchy:
+    redundant: dict[str, Any]
+    size_filtered: set[str]
+    group: dict[str, str]
+    retests: dict[str, tuple[int, int]]  # job_id -> (row index, k) awaiting the re-test call
 
 
-def _retest(
-    m: _Main,
-    term: str,
-    removed: frozenset[str],
-    ctx: _Ctx,
-) -> tuple[float, int]:
-    """Re-test ``term`` without ``removed`` genes (min size 1): (p, size in TUs). An empty set
-    is not tested (p NaN, size 0); an unestimated re-test has p NaN."""
-    stats, labels, tu_of, cfg, rng = ctx
-    tus = _members(tu_of, m.coll.sets[term] - removed)
-    if not tus:
-        return math.nan, 0
-    prep = prepare(stats, labels, {term: sorted(tus)}, 1, len(labels))
-    res = fgsea_simple(prep, cfg.n_perm_simple, cfg.sample_size, rng)
-    return float(res.p[0]), len(tus)
+_Natural = Callable[[Iterable[str]], tuple[str, ...]]
+_NA_ROW = EngineRow("", 0, math.nan, math.nan, math.nan, math.nan, ())
+
+
+def _checked(job: GseaJob, rows: Sequence[EngineRow]) -> tuple[EngineRow, ...]:
+    """The engine's rows of ``job``; a term not sent, a size not Python's or a sent term without
+    its row is a ``ValueError`` (a dropped row would shrink BH's count)."""
+    for r in rows:
+        if r.term not in job.sets or r.size != len(set(job.sets[r.term])):
+            raise ValueError(f"GSEA engine row {job.job_id} {r.term} (size {r.size}) does not "
+                             "match the sent set")  # fmt: skip
+    missing = [t for t in job.sets if t not in {r.term for r in rows}]
+    if missing:
+        raise ValueError(f"GSEA engine returned no row for {job.job_id} {', '.join(missing)}")
+    return tuple(rows)
 
 
 def _go_hierarchy(
-    m: _Main, alpha: float, min_size: int, ctx: _Ctx
-) -> tuple[dict[str, Any], set[str], dict[str, str]]:
-    """``redundant`` (True / False / NA), the ``size_filtered`` terms and ``parent_group`` of a
-    GO collection's significant terms; re-tests run in term order."""
-    assert m.res is not None
-    coll, p, names = m.coll, m.res.p, m.prep.names
+    m: _Main, alpha: float, min_size: int, tu_of: Mapping[str, str], natural: _Natural, n: int
+) -> tuple[_Hierarchy, list[GseaJob]]:
+    """``redundant`` (True / False, decided later for re-tested terms), ``size_filtered`` and
+    ``parent_group`` of a GO collection's significant terms, plus their re-test jobs."""
+    coll, names = m.coll, [r.term for r in m.rows]
     sig = {t for t, q in zip(names, m.q, strict=True) if q <= alpha}
-    redundant: dict[str, Any] = dict.fromkeys(names, False)
-    size_filtered: set[str] = set()
-    group: dict[str, str] = {}
+    h = _Hierarchy(dict.fromkeys(names, False), set(), {}, {})
+    jobs: list[GseaJob] = []
     if coll.collection not in GO_NAMESPACES or not sig:
-        return redundant, size_filtered, group
+        return h, jobs
     children: dict[str, set[str]] = {}
     for t, ps in coll.parents.items():
         for parent in ps:
@@ -451,22 +501,36 @@ def _go_hierarchy(
         if t not in sig:
             continue
         anc = above(t) & sig  # the term itself only when no ancestor is significant
-        group[t] = min(anc, key=lambda a: (depth(a), a)) if anc else t
+        h.group[t] = min(anc, key=lambda a: (depth(a), a)) if anc else t
         desc = below(t) & sig
         if not desc:
             continue
-        p_re, k = _retest(m, t, frozenset().union(*(coll.sets[d] for d in desc)), ctx)
-        if k < min_size:
-            size_filtered.add(t)
-        if k == 0:  # the parent is the union of its significant descendants
-            redundant[t] = True
-        elif math.isnan(p_re):  # lead decision 7.4: undecided
-            redundant[t] = pd.NA
+        removed = frozenset().union(*(coll.sets[d] for d in desc))
+        tus = _members(tu_of, coll.sets[t] - removed)
+        if len(tus) < min_size:
+            h.size_filtered.add(t)
+        if not tus:  # the parent is the union of its significant descendants
+            h.redundant[t] = True
+            continue
+        job = GseaJob(f"retest:{coll.collection}:{t}", {t: natural(tus)}, 1, n)
+        jobs.append(job)
+        h.retests[job.job_id] = (i, len(tus))
+    return h, jobs
+
+
+def _resolve(m: _Main, h: _Hierarchy, alpha: float, result: EngineResult) -> None:
+    """``redundant`` of each re-tested term from its re-test p (NaN or no row: NA)."""
+    p = np.array([r.p for r in m.rows], dtype=np.float64)
+    for job_id, (i, _) in h.retests.items():
+        got = result.get(job_id, ())
+        p_re = float(got[0].p) if got else math.nan
+        t = m.rows[i].term
+        if math.isnan(p_re):  # lead decision 7.4: undecided
+            h.redundant[t] = pd.NA
         else:
-            sub = np.array(p, dtype=np.float64)
+            sub = p.copy()
             sub[i] = p_re
-            redundant[t] = bool(bh(sub)[i] > alpha)
-    return redundant, size_filtered, group
+            h.redundant[t] = bool(bh(sub)[i] > alpha)
 
 
 def gsea_table(
@@ -477,9 +541,16 @@ def gsea_table(
     alpha: float,
     rng: np.random.Generator,
     replicons: Replicons = None,
+    *,
+    engine: GseaEngine = SIMPLE_ENGINE,
 ) -> pd.DataFrame:
     """The enrichment_gsea rows of every collection (§9.3); run flags in ``attrs["run_flags"]``.
-    ``replicons`` (C1 frame or contig -> topology) marks circular contigs; others are linear."""
+    ``replicons`` (C1 frame or contig -> topology) marks circular contigs; others are linear.
+
+    ``engine`` runs at most two calls (M8-17 §8): one ``main:<collection>`` job per collection
+    with in-range sets, then one call with every GO re-test job. ``rng`` gives the seeded tie
+    order and then the one engine seed (§5). Raises ``ValueError`` when an engine row does not
+    match its sent set."""
     if _no_abundance(genes):
         return _frame([], ["layer_missing:abundance"])
     rank = tu_ranking(genes)
@@ -487,65 +558,106 @@ def gsea_table(
     if n < 2:
         return _frame([], ["too_few_ranked_tus"])
     perm = rng.permutation(n)  # seeded tie order (M8-02 lead decision 7)
-    labels = [rank.tu_ids[int(i)] for i in perm]
+    seed = int(rng.integers(1, 2**31 - 1))  # one R seed for both calls (§5)
+    labels = tuple(rank.tu_ids[int(i)] for i in perm)
     stats = np.asarray(rank.scores, dtype=np.float64)[perm]
     tu_of = _tus_of(rank)
+    pos = {t: i for i, t in enumerate(rank.tu_ids)}
 
-    mains: list[_Main] = []
+    def natural(tus: Iterable[str]) -> tuple[str, ...]:
+        return tuple(sorted(tus, key=pos.__getitem__))
+
+    lo, hi = size
+    tested: list[tuple[GeneSets, dict[str, frozenset[str]], GseaJob | None, frozenset[str]]] = []
     for coll in colls:
         tus = tu_sets(rank, coll)
-        prep = prepare(stats, labels, {t: sorted(s) for t, s in tus.items()}, size[0], size[1])
-        res = fgsea_simple(prep, cfg.n_perm_simple, cfg.sample_size, rng) if prep.names else None
-        q = bh(res.p) if res is not None else np.empty(0)
-        mains.append(_Main(coll, tus, prep, res, q))
+        sets = {t: natural(s) for t, s in tus.items() if lo <= len(s) <= hi and len(s) < n}
+        job = GseaJob(f"main:{coll.collection}", sets, lo, hi) if sets else None
+        # a collection with no job adds no row, whole-ranking sets included (lead decision 6a)
+        whole = frozenset(t for t, s in tus.items() if len(s) == n and lo <= n <= hi and sets)
+        tested.append((coll, tus, job, whole))
+    jobs = tuple(j for _, _, j, _ in tested if j is not None)
+    if not jobs:
+        return _frame([], [])
+    result = engine(EngineCall(labels, stats, jobs, cfg, seed))
 
-    ctx = (stats, labels, tu_of, cfg, rng)
-    detection = _Detection.of(genes)
-    rows: list[dict[str, Any]] = []
+    mains: list[_Main] = []
+    for coll, tus, job, whole in tested:
+        rows = _checked(job, result.get(job.job_id, ())) if job is not None else ()
+        q = bh(np.array([r.p for r in rows], dtype=np.float64)) if rows else np.empty(0)
+        mains.append(_Main(coll, tus, rows, q, whole))
+    hier: list[_Hierarchy] = []
+    retests: list[GseaJob] = []
     for m in mains:
-        if m.res is None:
-            continue
-        coll, res, names = m.coll, m.res, m.prep.names
-        redundant, size_filtered, group = _go_hierarchy(m, alpha, size[0], ctx)
-        deltas = cluster_deltas(rank, genes, replicons, {t: m.tus[t] for t in names})
-        for i, t in enumerate(names):
-            p = float(res.p[i])
-            es = float(res.es[i])
-            edge_tus = [labels[int(j)] for j in res.leading_edge[i]] if es != 0 else []
-            gs = coll.sets[t]
-            edge = [g for tu in edge_tus for g in rank.tu_genes[tu] if g in gs]
-            flags = ["ci_unestimated"]
-            if math.isnan(p):
-                flags.append("unestimated")
-            if t in size_filtered:
-                flags.append("size_filtered")
-            if is_genomic_cluster(deltas[t]):
-                flags.append("genomic_cluster")
-            if is_detection_confounded(detection.z(gs), es):
-                flags.append("detection_confounded")
-            rows.append(
-                {
-                    "collection": coll.collection,
-                    "term": t,
-                    "name": coll.names.get(t, "NA"),
-                    "size_tus": int(m.prep.sizes[i]),
-                    "es": es,
-                    "nes": float(res.nes[i]),
-                    "log2err": float(res.log2err[i]),
-                    "leading_edge": edge,
-                    "redundant": redundant[t],
-                    "parent_group": group.get(t),
-                    "coverage": float(coll.coverage),
-                    "stat": es,
-                    "effect": float(res.nes[i]),
-                    "ci_low": math.nan,
-                    "ci_high": math.nan,
-                    "p_value": p,
-                    "q_value": float(m.q[i]),
-                    "method": METHOD,
-                    "null_model": NULL_MODEL,
-                    "n_perm": int(cfg.n_perm_simple),
-                    "flags": flags,
-                }
-            )
-    return _frame(rows, [])
+        h, more = _go_hierarchy(m, alpha, lo, tu_of, natural, n)
+        hier.append(h)
+        retests += more
+    if retests:
+        jobs_re = tuple(retests)
+        got = engine(EngineCall(labels, stats, jobs_re, cfg, seed))
+        checked = {j.job_id: _checked(j, got.get(j.job_id, ())) for j in jobs_re}
+        for m, h in zip(mains, hier, strict=True):
+            _resolve(m, h, alpha, checked)
+
+    detection = _Detection.of(genes)
+    out: list[dict[str, Any]] = []
+    for m, h in zip(mains, hier, strict=True):
+        by_term = {r.term: (r, float(q)) for r, q in zip(m.rows, m.q, strict=True)}
+        terms = [t for t in m.coll.sets if t in by_term or t in m.whole]
+        deltas = cluster_deltas(rank, genes, replicons, {t: m.tus[t] for t in terms})
+        for t in terms:
+            r, qv = by_term.get(t, (_NA_ROW, math.nan))
+            out.append(_out_row(m, t, r, qv, h, deltas[t], detection, rank, engine.method, cfg))
+    return _frame(out, [])
+
+
+def _out_row(
+    m: _Main,
+    t: str,
+    r: EngineRow,
+    q: float,
+    h: _Hierarchy,
+    delta: float,
+    detection: _Detection,
+    rank: TuRanking,
+    method: str,
+    cfg: GseaConfig,
+) -> dict[str, Any]:
+    """One table row from an engine row (§8 row mapping, flags, leading edge in genes)."""
+    gs = m.coll.sets[t]
+    edge_tus = r.leading_edge if r.es != 0 else ()
+    edge = [g for tu in edge_tus for g in rank.tu_genes[tu] if g in gs]
+    flags = ["ci_unestimated"]
+    if math.isnan(r.p):
+        flags.append("unestimated")
+    elif math.isnan(r.log2err):
+        flags.append("log2err_unestimated")
+    if t in h.size_filtered:
+        flags.append("size_filtered")
+    if is_genomic_cluster(delta):
+        flags.append("genomic_cluster")
+    if is_detection_confounded(detection.z(gs), r.es):
+        flags.append("detection_confounded")
+    return {
+        "collection": m.coll.collection,
+        "term": t,
+        "name": m.coll.names.get(t, "NA"),
+        "size_tus": len(m.tus[t]),
+        "es": float(r.es),
+        "nes": float(r.nes),
+        "log2err": float(r.log2err),
+        "leading_edge": edge,
+        "redundant": h.redundant.get(t, False),
+        "parent_group": h.group.get(t),
+        "coverage": float(m.coll.coverage),
+        "stat": float(r.es),
+        "effect": float(r.nes),
+        "ci_low": math.nan,
+        "ci_high": math.nan,
+        "p_value": float(r.p),
+        "q_value": q,
+        "method": method,
+        "null_model": NULL_MODEL,
+        "n_perm": int(cfg.n_perm_simple),
+        "flags": flags,
+    }
