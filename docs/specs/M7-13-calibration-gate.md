@@ -360,3 +360,12 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
      naming ADR-0049, so a new failure in task 13 is visible (N3); atomic appends on NFS (N4); the
      indel mask across the origin (code review N5); A6c records the high tokens at the drawn sites.
    - The statistician's methods text for `docs/methods/variants.md` goes into M7-13c.
+8. **Review-fix tests (88d007f3): gaps 1–6 accepted as proposed.**
+   - `--merge=` is not supported; the wrapper `case` recognises `--shard=*` and `--merge`.
+   - A non-zero confirm-run pytest gives `MERGE_ERROR` (2).
+   - Under `GIAP_CALIBRATION_CONFIRM` a conftest-level hook skips every calibration test that does
+     not reach the harness, at every tier (the reference arm and M7-10's fast tests included).
+   - A merged G1 guard miss is `fail` (`MERGE_FAIL`); the gate's `RuntimeError` covers unsharded runs.
+   - The sbatch keeps its `GIAP_REPO`, `uv run` and `GIAP_WORKTREE` hooks.
+   - A leaked CONFIRM variable is stripped in sharded and unsharded `main()` runs alike.
+   - Next: the implementer.
