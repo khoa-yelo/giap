@@ -385,3 +385,14 @@ only the TSV and the work-dir side table.
    then the implementer, then the statistician and code review. The PR is labelled stats. If the
    PR goes past 400 counted lines, the manifest block and side-table publication split out as
    M7-11b-2.
+6. **Test-author (199ca703, #256): the readings of gaps 1–12 are accepted.**
+   - Gap 2: the implementer passes the float q to the call rule, and q is never re-parsed from
+     the formatted cell.
+   - Gap 12: lead decision 3 governs. There is no `class_mismatch` flag, and the interface text
+     about `FLAG_ORDER` is superseded.
+   - Lead edits to existing tests:
+     - `SPEC["novel_orfs"]` in test_novel_steps.py gains the five optional inputs and the
+       `novel_class_fdr` output.
+     - test_novel_nf_registry.py `TAKE` gains `hits`, and `PUBLISHED` gains the side table.
+   - Acceptance items 5 (local vs Nextflow parity) and 6 (slow smoke run) go to the implementer,
+     on Slurm.
