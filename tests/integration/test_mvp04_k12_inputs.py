@@ -12,7 +12,8 @@ Statistical claims checked here (single fixed seed, as the acceptance gates):
 * Q4: 0.5 SNV/kb -> about 2,300 SNVs (Poisson SD ~48; band [2,100, 2,500]);
 * step 3: AR(1) rho = 0.5 over TUs -> lag-1 correlation of adjacent non-island TU means near
   0.5 * 5.33 / (5.33 + ~0.5) ~ 0.46 (band [0.30, 0.60], SE ~0.02); genes of one TU share the TU
-  value (correlation > 0.70, expected ~0.88); the six islands shift by +-3 stationary SDs
+  value (correlation > 0.70, expected ~0.88); the four islands (one 20-TU high, three 8-TU
+  lows, lead decision 20) shift by +-3 stationary SDs
   (+-4.8 natural-log units), checked at more than half that;
 * Q5 / M7-12 decision 26: upper-tercile novel ORFs let at least 2 classes reach >= 100 ORFs with a
   true peptide.
@@ -105,24 +106,26 @@ def test_snv_count_matches_half_per_kb(k12: tuple[Path, list[Any]], k12_seq: str
     assert len(M.read_tsv(k12[0] / "truth" / "alt_sites.tsv")) >= 1_000
 
 
-def test_six_islands_spread_and_not_overlapping(
+def test_one_high_and_three_low_islands_spread_and_not_overlapping(
     k12: tuple[Path, list[Any]], genes: list[M.Gene]
 ) -> None:
+    """Lead decision 20: one 20-TU high island at +3 SD from TU 970 and three 8-TU lows at -3 SD
+    from TUs 560, 1380 and 2200 (0-based ``first_tu``), disjoint and spread."""
     out = k12[0]
     rows = M.read_tsv(out / "truth" / "islands.tsv")
-    assert len(rows) == 6
-    eff = sorted(float(r["effect_sd"]) for r in rows)
-    assert eff == [-3.0, -3.0, -3.0, 3.0, 3.0, 3.0]
-    assert all(int(r["n_tus"]) == 8 for r in rows)
+    got = sorted((int(r["first_tu"]), int(r["n_tus"]), float(r["effect_sd"])) for r in rows)
+    assert got == [(560, 8, -3.0), (970, 20, 3.0), (1380, 8, -3.0), (2200, 8, -3.0)]
     sets = M.island_genes(out)
+    by_id = {r["island_id"]: int(r["n_tus"]) for r in rows}
+    assert all(len(v) >= by_id[iid] for iid, v in sets.items())
     vals = list(sets.values())
-    assert all(len(v) >= 8 for v in vals)
     for i in range(len(vals)):
         for j in range(i + 1, len(vals)):
             assert not vals[i] & vals[j]
     pos = {g.locus: (g.start + g.end) / 2 for g in genes}
     centres = sorted(float(np.mean([pos[g] for g in v])) for v in vals)
     assert centres[-1] - centres[0] >= M.K12_LENGTH / 2  # spread over the chromosome
+    assert min(b - a for a, b in itertools.pairwise(centres)) >= M.K12_LENGTH / 20
 
 
 def test_islands_shift_abundance(k12: tuple[Path, list[Any]], genes: list[M.Gene]) -> None:

@@ -1,14 +1,16 @@
 # Detection tiers and gene-level FDR (M4-12)
 
-Status: statistician re-review 2026-10-15 (PR #92, after f297600): PEP-only path approved;
+Status: M4-24 shared ranking key approved by the statistician 2026-10-23 (PR #238). Earlier: statistician re-review 2026-10-15 (PR #92, after f297600): PEP-only path approved;
 **changes requested** on the contaminant-decoy rule (lead decision 11), see Sign-off. Code: `src/giap/genetable/detection.py`.
 Spec: GIAP_SPEC.md §2.1 decision 4, §7.3, §7.3.2, §9.3; ADR-0009; docs/specs/M4-12-detection-tiers.md.
 
 ## Tier choice (once per run, from the input)
 1. `decoy_picked`: at least one C9 decoy row with `protein_ids` passes q <= `input.q_value_max`
    (NA q passes), and the paired share f = paired / (paired + unpaired) is at least
-   max(`mapping.proteins.min_identity`, `mapping.proteins.min_coverage`) (0.80 by default).
-   Decoys above `q_value_max` are neither paired nor unpaired.
+   max(`mapping.proteins.min_identity`, `mapping.proteins.min_coverage`) (0.80 by default),
+   and the paired decoys share at least one ranking column with the targets (M4-24, see
+   "Shared ranking key"). Decoys above `q_value_max` are neither paired nor unpaired; that
+   filter applies only when some C9 target row carries q (ADR-0047).
 2. `mayu`: decoys exist but f is below the cut-off (warning `decoy_pairing_low`), or an accepted
    target carries a q-value or a PEP.
 3. `two_peptide`: C11 has rows but no accepted q or PEP.
@@ -60,6 +62,37 @@ won by a target, no gene can be detected at that alpha. The run then warns `q_fl
 and q-values and detection calls are reported unchanged (Khoa, 2026-10-22). The row is NA outside
 the picked tier: MAYU has no +1 term (its q → 0 as the expected false-peptide count → 0), and the
 `two_peptide` and `protein_list` tiers have no gene q.
+
+## Shared ranking key (M4-24)
+A target and a decoy can only be compared on a column both of them carry. The picked tier therefore
+ranks on S, the shared key. Let C_T be the key columns (q, PEP, score) that at least one accepted
+target carries. S is the part of C_T that has a value on every paired decoy, kept in key order with
+the same directions. Columns outside S are ignored on both sides. Before M4-24 a column that the
+decoys lacked was NA on the decoy side, so every decoy ranked last, D(t) = 0 and every target-won
+gene got q = 1/T. That was a no-decoy estimate labelled `decoy_picked`.
+1. **S = C_T:** unchanged, no warning. DIA-NN input (q and PEP on both sides) is in this case.
+2. **∅ ≠ S ⊊ C_T:** `decoy_picked` on S, with warning `decoy_unscored`. One NA value in a decoy
+   column takes that column out of S for every row. No decoy row is dropped, because dropping
+   decoys that lack a value is loss that depends on the input, and 1/f does not correct it. A target
+   with NA in a column of S still ranks last and loses to its decoy. That costs power and is
+   conservative. Shorter keys give more ties, and ties go to the decoy (also conservative). The
+   spec's examples 3–5 show this case: with S = {score}, a decoy that outscores its target wins even
+   though it has no q.
+3. **S = ∅:** the decoys cannot compete. They are treated as absent for the tier choice, with
+   `decoy_unscored`. The no-decoy chain applies (`mayu` when an accepted target has q or PEP,
+   else `two_peptide` or `protein_list`). The gene table equals that of the same input without its
+   decoy rows. The `tier` rows still report the decoy counts and f. Two inputs reach this case:
+   decoys with no ranking value at all (giapsim M3-19), and targets with none.
+4. **q filter (ADR-0047).** Decoys with q above `q_value_max` leave the competition only when some
+   C9 target row carries q. Without that, filtering only the decoys would remove weak decoys whose
+   targets all stay. When q ∈ S and q is monotone in the ranking, the filter changes no target's
+   gene q. It changes f, the 80 % guard and the counts.
+Why ranking on S still controls the gene FDR: the competition needs decoys that are a null for the
+ranked column on the side that was selected. Targets are accepted on q, but decoys whose q is NA
+are not filtered. Selection can only remove false targets, so in expectation D(t)/f over the unselected decoys is
+at least the false-target count above t, and the estimate errs conservative when the score and q
+disagree (table below, `score + noise`). The one input this does not cover is accepted targets
+whose q is NA while their decoys have a q and are filtered (see Sign-off of M4-24, note 1).
 
 ## MAYU tier
 `giap.stats.mayu.mayu_gene_fdr` (see mayu-gene-fdr.md) on eligible genes, with sizes
@@ -193,3 +226,44 @@ MAYU) are **approved** as calibrated on the evidence above. Sign-off of the modu
 on two code fixes, listed in the PR #92 review: (a) PEP-only input reaches the `mayu` tier but
 detects no gene, because the gene thresholds come from q alone; (b) decoys of contaminant proteins
 count as unpaired and lower f.
+
+### M4-24 statistician review (PR #238; Slurm jobs 1871621, 1871625, 1871630)
+Script local/scratch/stat238/exp.py and exp2.py, `detection_tiers_calsim` picked input, 2,000 genes,
+pi 0.05, R = 300 (200 for the last block), seeds `SeedSequence([20261023, 238, 50, rep])`. Mean FDP
++- SE.
+
+| decoy input | q = 0.01 | q = 0.05 | tier / warning |
+|---|---|---|---|
+| all columns (baseline) | 0.00959 +- 0.00025 | 0.04762 +- 0.00044 | `decoy_picked` |
+| score only (S = {score}) | 0.00959 +- 0.00025 | 0.04762 +- 0.00044 | `decoy_picked` + `decoy_unscored` |
+| PEP only (S = {pep}) | same as baseline | same | `decoy_picked` + `decoy_unscored` |
+| q NA on 5 % of decoys (S = {pep, score}) | same as baseline | same | `decoy_picked` + `decoy_unscored` |
+| score only, score + N(0, 1) on both sides | 0.00729 +- 0.00021 | 0.02838 +- 0.00031 | `decoy_picked` + `decoy_unscored` |
+| score only, score + N(0, 2^2) on both sides | 0.00418 +- 0.00014 | 0.01881 +- 0.00025 | `decoy_picked` + `decoy_unscored` |
+| targets: q NA on 50 % of rows, decoys complete | 0.00460 +- 0.00014 | 0.05302 +- 0.00290 (p90 0.135) | `decoy_picked` |
+| same, decoy q filter off when a target q is NA (mutant) | 0.00423 +- 0.00018 | 0.02234 +- 0.00039 | `decoy_picked` |
+
+Reading: in giapsim, q and PEP are monotone in the score, so any non-empty S gives the same
+ordering and the same FDP as the baseline. When the ranked score disagrees with the q that
+accepted the targets (noise rows), the estimate is conservative, as argued above. The targeted
+calibration files (attacks `unscored`, `decoy_loss`, `inputs`, and `test_gene_fdr_real_mapping`)
+pass on the branch (job 1871621). The MAYU change through libm `exp` / `pow` is bit-identical to
+numpy on an AVX2 node (EPYC 7742, 22,000 random (w, F) pairs, plus 0^0 and empty shapes).
+
+## Sign-off (M4-24, 2026-10-23)
+Approved: rules 1-6 and the S = ∅ fallback. Notes, none blocking:
+1. Existing before M4-24, unchanged by it: accepted targets whose q is NA (NA passes the filter)
+   compete only with the decoys that pass q <= `q_value_max`. Their null peptides above the cut-off
+   stay, but the matching decoys are filtered out. All NA-q targets tie at the bottom rank, so the
+   whole block enters together or not at all. With 50 % of target q NA the FDP at q = 0.05 is
+   bimodal (mean 0.053 +- 0.003, p90 0.135). Switching the decoy filter off whenever some C9
+   target q is NA restores the margin (0.022). Rule 6 calls the sparse target column
+   "conservative". That holds for the ranking, not for the ranking combined with the filter.
+   Backlog: extend ADR-0047's symmetry from "some target carries q" to "every target carries q".
+2. The calibration attack `decoys_score_only` has teeth against the defect (D = 0). In giapsim it
+   cannot tell S = {score} from S = {q}, because the columns are monotone in each other. A variant
+   with an engine-like q that is not monotone in the score (M4-12 replication, Reading 2) would separate
+   them.
+3. libm `exp` / `pow` are the same on nodes that share a glibc build and the FMA code path. A node
+   without FMA would take another glibc variant (correctly rounded in practice, but not
+   guaranteed). Every FarmShare node with AVX2 has FMA.
