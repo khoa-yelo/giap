@@ -311,7 +311,9 @@ def run_preflight(
     if probe is None and profile is not None:
         # unset $GIAP_ROOT: an empty root, so every tool that needs one is reported missing
         root = giap_root or Path(os.environ.get("GIAP_ROOT") or "/nonexistent/GIAP_ROOT")
-        tools_missing = missing_tools(required_tools(cfg), profile, root)
+        tools_missing = missing_tools(
+            required_tools(cfg, abundance=inp.abundance is not None), profile, root
+        )
     where = Path.cwd() if outdir is None else outdir
     env, resources = _environment(cfg, probe, mode, where, db, tools_missing)
     tier = candidate_tier(user_peptides, inp.proteins is not None)
