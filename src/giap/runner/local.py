@@ -294,6 +294,7 @@ PUBLISHED_FILES: dict[str, str] = {
     "genes_tsv": "tables/genes.tsv",
     "island_diagnostics": "context/island_diagnostics.parquet",
     "islands": "tables/islands.tsv",
+    "novel_class_fdr": "novel/novel_class_fdr.parquet",
     "novel_orfs": "tables/novel_orfs.tsv",
     "novel_orfs_faa": "tables/novel_orfs.faa",
     "novel_orfs_gff3": "tables/novel_orfs.gff3",
