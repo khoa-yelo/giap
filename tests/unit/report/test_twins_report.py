@@ -24,6 +24,8 @@ from helpers import twins as tw
 from helpers.interactive_fixtures import BANNER, page_of, run_steps, twin_divs
 from helpers.report_fixtures import Page
 
+from giap.io.plot_files import svg_title
+
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
 
 RENDERED = {"V02", "V08", "V10", "V17", "V18"}
@@ -102,7 +104,10 @@ def test_page_twins_equal_figure_json_of_the_data_tsvs(
         pid = stem[:3]
         if f"plotly-{pid}" not in specs:
             continue
-        text = tw.figure_text(pid, tw.read(path.read_text(encoding="utf-8")), stem)
+        # decision 7: the page title is the finding title stored in the static SVG
+        svg = path.parents[1] / f"{stem}.svg"
+        title = (svg_title(svg.read_text(encoding="utf-8")) if svg.exists() else None) or stem
+        text = tw.figure_text(pid, tw.read(path.read_text(encoding="utf-8")), title)
         assert text is not None
         assert specs[f"plotly-{pid}"] == json.loads(text), pid
 

@@ -82,3 +82,8 @@ M9-23. §10.1 colours apply to the twins (the style module exports a Plotly temp
 6. **V11 bins.** The twin draws bars at the bin index (heights from `density`); exact bin edges
    are a backlog item.
 7. **Titles.** `steps.plots.twins` passes the static plot's finding title, not the stem.
+
+8. **Twin title test (lead edit, implementer round 1, 7478236f).** The page twins carry the finding
+   title of decision 7, which `write_instance` stores as the static SVG's `<title>`;
+   `test_page_twins_equal_figure_json_of_the_data_tsvs` builds its expected JSON with
+   `svg_title(<the instance SVG>)`, falling back to the stem.
