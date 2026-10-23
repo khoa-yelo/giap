@@ -352,3 +352,10 @@ Tests ≈ 220 lines, not gated. One PR.
 3. **Literal J over an I codon** (the silent REF = ALT bug): it is in scope. A J op is skipped
    before I/L → `J` folding is applied, and a regression test pins that no VCF record has
    ALT == REF.
+4. **After the tests (673d3868):**
+   - **The twin property:** "adding a nonstandard twin changes nothing" holds only at the twin's
+     own codon. The twin is a distinct folded peptide, so it adds `n_ref` at the other codons it
+     covers. The acceptance line is narrowed to that codon.
+   - **The event message:** it drops the readthrough count (decision 1).
+   - **A swap containing X:** it is skipped and counted under `by_residue` as its letters (e.g.
+     `KX`), with rule `ambiguous`.
