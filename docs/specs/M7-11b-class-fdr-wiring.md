@@ -370,3 +370,18 @@ only the TSV and the work-dir side table.
     decoy hits and π̂ enter the de novo lists, and c is the maximum π̂ over de novo peptides.
     This leaves M7-11 NIT 1 (c over hit peptides only) where it is, and the backlog line stays
     open.
+
+## Lead decisions (2026-10-23)
+1. **Q1, Q4, Q6–Q11:** the proposed defaults are accepted as written.
+2. **Q2, new `novel_orfs.tsv` columns: pending Khoa.** The reversible default is in use: the TSV
+   keeps exactly its §9.3 columns, and `regime`, `reason`, `fdr_class` and `class_rule_met` live in
+   `novel/novel_class_fdr.parquet`. Listed in PROGRESS.md › Questions for Khoa.
+3. **Q3, `class_mismatch` as a novel-ORF flag: pending Khoa.** It is a flag beyond §9.4. For now
+   it is only the side-table bool, and no flag is added. If Khoa accepts the flag, a one-line follow-up
+   adds it.
+4. **Q5:** no `db_id_map.tsv` input in v1. A backlog line records that the 80 % pairing guard cannot
+   fire from the pipeline.
+5. **Order:** test-author on a branch stacked on m7/novel-class-fdr (#237, in the merge queue),
+   then the implementer, then the statistician and code review. The PR is labelled stats. If the
+   PR goes past 400 counted lines, the manifest block and side-table publication split out as
+   M7-11b-2.
