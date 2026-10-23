@@ -84,7 +84,8 @@ workflow {
             CONTEXT(GENETABLE.out.gene_table, GENETABLE.out.detectability_summary, gene_model,
                     ANNOTATE.out.contract, ANNOTATE.out.regions, MAPPING.out.mapping,
                     MAPPING.out.stratum0, opt(inputs.peptides), opt(inputs.abundance),
-                    opt(inputs.replicon_depth), GENETABLE.out.tier_summary)
+                    opt(inputs.replicon_depth), GENETABLE.out.tier_summary,
+                    ANNOTATE.out.layers_for_pairs)
             NOVEL(genome, gene_model, ANNOTATE.out.contract, MAPPING.out.mapping, opt(inputs.peptides),
                   opt(contaminantLibrary(inputs)), GENETABLE.out.gene_table, ANNOTATE.out.layer_pairs)
             OPERONS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract, ANNOTATE.out.layers_for_pairs)
