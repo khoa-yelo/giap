@@ -47,6 +47,10 @@ def _aa(seq: str, codon: int, strand: str) -> str:
     return translate(rc(nt) if strand == "-" else nt)
 
 
+def _fold(peptide: str) -> str:
+    return peptide.replace("I", "L")
+
+
 @st.composite
 def scenario(draw: st.DrawFn) -> dict[str, Any]:
     seq = "".join(draw(st.lists(st.sampled_from(SENSE), min_size=L // 3, max_size=L // 3)))
@@ -67,9 +71,8 @@ def scenario(draw: st.DrawFn) -> dict[str, Any]:
             alt = "".join(draw(st.sampled_from(PEPTIDE_AAS)) for _ in ref)
             if any(a == r or (a in "IL" and r in "IL") for a, r in zip(alt, ref, strict=True)):
                 continue
-        if alt in {a for a, _ in alleles} or (
-            kind == "substitution" and alt in "IL" and any(a in "IL" for a, _ in alleles)
-        ):
+        # alleles equal after I/L folding are one allele (block AI / AL, substitution I / L)
+        if _fold(alt) in {_fold(a) for a, _ in alleles}:
             continue
         alleles.append((alt, draw(st.integers(1, 3))))
     if not alleles:
