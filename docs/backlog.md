@@ -673,3 +673,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - §7.8.2's separate ribosomal-gene report table: no M9-16 behaviour; assign to a pass-2 issue.
 - M9-16 decisions 5 and 7 (ALT card with mixed `unestimated` rows; `provenance_digest` line) are
   implemented but untested: add tests in the hardening pass.
+
+### M9-16b (from M9-16 decision 11)
+- `giap run` re-renders report.html after writing run_manifest.json (local and Nextflow), so the
+  pipeline report shows full provenance and the KEGG date; then drop the two #178 guards in
+  build.py/content.py (`"determinants_model" in PATHS`, `getattr(..., "CAVEATS", ())`).

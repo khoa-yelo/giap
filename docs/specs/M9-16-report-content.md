@@ -128,3 +128,16 @@ not statistical (cards print table estimates; nothing is computed beyond counts)
    whether the function module ran or not, and in the function section as tested.
 9. **Ribosomal-gene table.** Not in M9-16; moved to the backlog (M9 pass 2).
 10. **Required snippets.** `islands` only, plus sync of every marked doc (as tested).
+
+## Lead decisions after the implementation (2026-10-22, 4c7592d)
+
+11. **Manifest in pipeline runs.** The manifest is written after the run, so the pipeline's report
+    step cannot read it. `giap run` (both executors) re-renders `report.html` once the manifest is
+    written; that is a follow-up issue (M9-16b, backlog), not this PR. Until then the absent-manifest
+    sentence stays as tested and `giap report OUT` gives full provenance.
+12. **checks.py add/add with M9-13 (#224).** Whichever merges second keeps both modules' functions
+    and both `__all__` lists.
+13. **Sensitivity tables** carry both `data-table="sensitivity"` and `data-sensitivity-family`;
+    accepted. proteins_placed and multi-tier gene estimates read "unestimated"; accepted.
+14. **Size.** 610 counted lines (warn > 400, fail > 800) accepted for this integration-pass PR; the
+    islands `report:` wording gets a light statistician read in review.
