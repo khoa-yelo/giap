@@ -429,19 +429,29 @@ def _urn(draw: st.DrawFn) -> tuple[int, int, int, float]:
     return M, n, N, w
 
 
-@settings(max_examples=20, deadline=None)
-@given(_urn())
-def test_property_complement_identity_and_range(urn: tuple[int, int, int, float]) -> None:
-    M, n, N, w = urn
+def _check_complement_identity_and_range(M: int, n: int, N: int, w: float) -> None:
     lo, hi = _support(M, n, N)
     pmf = nchypergeom_wallenius(M, n, N, w).pmf(np.arange(lo, hi + 1))
+    # The tails sum SciPy's pmf, so the identity holds only as well as SciPy normalises it.
+    tol = PMF_SUM_TOL + abs(float(pmf.sum()) - 1.0)
     prev = math.inf
     for k in range(lo, hi + 1):
         o, u = wallenius_tails(k, M, n, N, w)
         assert 0.0 <= o <= 1.0 and 0.0 <= u <= 1.0
-        assert o + u - float(pmf[k - lo]) == pytest.approx(1.0, abs=PMF_SUM_TOL)
+        assert o + u - float(pmf[k - lo]) == pytest.approx(1.0, abs=tol)
         assert o <= prev * (1 + 1e-12) + 1e-300  # p_over non-increasing in k
         prev = o
+
+
+def test_complement_identity_where_scipy_pmf_sums_past_tolerance() -> None:
+    # Hypothesis found this urn: SciPy's pmf sums to 1 + 1.08e-10 (> PMF_SUM_TOL).
+    _check_complement_identity_and_range(151, 76, 112, 4.0)
+
+
+@settings(max_examples=20, deadline=None)
+@given(_urn())
+def test_property_complement_identity_and_range(urn: tuple[int, int, int, float]) -> None:
+    _check_complement_identity_and_range(*urn)
 
 
 @settings(max_examples=20, deadline=None)
