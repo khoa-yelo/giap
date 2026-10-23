@@ -1,7 +1,8 @@
 """M7-10 calibration: the class error rate is unbiased for the true per-class de novo error rate
-when the sample carries no variant (docs/specs/M7-10-class-error-rates.md acceptance 2, rule 5,
-lead decision 3; GIAP_SPEC.md §7.5.4, §8.1 row "ALT call is real", §8.4; M7-index "class error
-rate bias | M7-10 | variant_f1 without variants | |bias| <= 0.05").
+on the planted-variant arm, whose reference is variant-aware; the no-variant arm is a sanity check
+(docs/specs/M7-10-class-error-rates.md acceptance 2, rule 5, lead decisions 3, 7 and 8 (B2);
+docs/methods/variants.md §"Class error rates"; GIAP_SPEC.md §7.5.4, §8.1 row "ALT call is real",
+§8.4; M7-index "class error rate bias | M7-10 | variant_f1 without variants | |bias| <= 0.05").
 
 R comes from ``tolerances.yaml``: ``replicates_fast.variants`` / ``replicates_full.variants``
 (ADR-0042; never hard-coded here). Bound: ``denovo_precision_max_abs_bias`` (0.05), as the
@@ -17,16 +18,30 @@ step with ``peptide_spectra``. The estimate is the written ``variants.tsv`` valu
 ``truth/denovo.tsv``: read != true peptide after I/L folding) among *all* de novo reads that
 support an ALT of class c (paired or not), the sites and classes taken from the merged M7-02/05
 chain. Per class, bias = mean over the replicates where c is estimated of (rate_hat - rate_true);
-classes estimated in at least half of the replicates are gated.
+classes estimated in at least half of the replicates are gated. The bias against the paired-only
+truth is recorded next to it.
 
-**Scenario.** M7-12's ``variant_f1`` scenario is not merged yet; this is its no-variant arm built
-from the same giapsim pieces (M3-19 + M3-20, no strain layer). When M7-12 lands, the replicate
-should switch to ``giapsim.scenarios.variant_f1(seed)`` without its strain layer.
+**Planted arm (gated, recorded; B2).** The same with an M3-18 strain layer (sample peptides on the
+reference genome). giapsim's reference peptides are the sample's own identifications, so the
+reference search can return the ALT peptide: true rates are well below 1 (about 0.24 for
+frameshift, 0.63 and 0.73 for substitution), and the gate requires at least
+``MIN_INFORMATIVE_CLASSES`` gated classes whose truth is below ``1 - 2 * bound``, so a constant
+``rate = 1`` estimator fails it. Each class's measured bias (and its SE) is written to
+``variants_class_error_diagnostics.jsonl`` and gated two-sided at |bias| <= bound. No sign is
+asserted: rule 5 says the rate is not an upper bound in general.
 
-**Planted arm (recorded, not gated; rule 5).** The same with an M3-18 strain layer (sample
-peptides on the reference genome): the measured bias is written to the diagnostics only.
-giapsim's reference peptides are the sample's own identifications, so this arm does not yet model
-a reference search against a database without the variant (M7-12/M7-13 to refine).
+**No-variant arm (sanity check).** Every ALT-supporting read is an error, so truth and estimate
+sit at 0.97-1.0 and a constant ``rate = 1`` estimator passes; it is kept as a sanity check with
+the same rule.
+
+**Not here.** The arm whose reference search runs against the reference proteome (a database
+without the variant; the estimate is 1 by construction, rule 5) is M7-13's, on M7-12's
+``variant_f1`` scenario (backlog); ``attacks/test_attack_class_error_rates.py`` pins that
+degeneracy on synthetic tables.
+
+**Scenario.** M7-12's ``variant_f1`` scenario is not merged yet; both arms are built from the same
+giapsim pieces (M3-18 + M3-19 + M3-20). When M7-12 lands, the replicate should switch to
+``giapsim.scenarios.variant_f1(seed)`` (lead decision 7, backlog).
 """
 
 from __future__ import annotations
@@ -132,20 +147,47 @@ def _reps(stream: str, R: int, tmp: Path, *, planted: bool) -> list[dict[str, An
     ]
 
 
-def _run(full: bool, tmp: Path) -> None:
+MIN_GATED_PLANTED = 3  # substitution (both), frameshift; block and swap sit at truth ~1
+MIN_INFORMATIVE_CLASSES = 2  # gated planted classes with truth < 1 - 2 * bound (teeth)
+
+
+def _gated(summary: Mapping[str, dict[str, Any]], R: int) -> dict[str, dict[str, Any]]:
+    return {k: s for k, s in summary.items() if s["R_estimated"] >= max(2, R // 2)}
+
+
+def _assert_unbiased(gated: Mapping[str, dict[str, Any]], max_bias: float, arm: str) -> None:
+    bad = {k: round(s["bias"], 4) for k, s in gated.items() if abs(s["bias"]) > max_bias}
+    assert not bad, f"{arm}: |bias| > {max_bias} for classes {bad}; summary {dict(gated)}"
+
+
+def _run_planted(full: bool, tmp: Path) -> None:
+    R = C.replicates(SUITE, full)
+    max_bias = _max_bias()
+    reps = _reps(f"{STREAM}.planted", R, tmp / "planted", planted=True)
+    summary = _summarise(reps)
+    gated = _gated(summary, len(reps))
+    informative = sorted(k for k, s in gated.items() if s["mean_true"] < 1.0 - 2 * max_bias)
+    _diagnostics({"suite": f"{STREAM}.planted", "arm": "planted", "full": full,
+                  "R_run": len(reps), "max_abs_bias": max_bias, "gated": sorted(gated),
+                  "informative": informative, "planted": summary})  # fmt: skip
+    assert len(gated) >= MIN_GATED_PLANTED, f"too few estimated planted classes: {summary}"
+    assert len(informative) >= MIN_INFORMATIVE_CLASSES, (
+        f"planted arm has no teeth: gated classes with truth < {1 - 2 * max_bias} are "
+        f"{informative}; summary {summary}"
+    )
+    _assert_unbiased(gated, max_bias, "planted")
+
+
+def _run_no_variants(full: bool, tmp: Path) -> None:
     R = C.replicates(SUITE, full)
     max_bias = _max_bias()
     reps = _reps(STREAM, R, tmp / "null", planted=False)
     summary = _summarise(reps)
-    planted = _summarise(_reps(f"{STREAM}.planted", R, tmp / "planted", planted=True))
-    _diagnostics({"suite": STREAM, "full": full, "R_run": len(reps), "max_abs_bias": max_bias,
-                  "no_variants": summary, "planted_recorded": planted})  # fmt: skip
-    gated = {k: s for k, s in summary.items() if s["R_estimated"] >= max(2, len(reps) // 2)}
+    _diagnostics({"suite": STREAM, "arm": "no_variants", "full": full, "R_run": len(reps),
+                  "max_abs_bias": max_bias, "no_variants": summary})  # fmt: skip
+    gated = _gated(summary, len(reps))
     assert len(gated) >= MIN_GATED_CLASSES, f"too few estimated classes: {summary}"
-    bad = {k: round(s["bias"], 4) for k, s in gated.items() if abs(s["bias"]) > max_bias}
-    assert not bad, f"|bias| > {max_bias} for classes {bad}; summary {summary}"
-    for k, s in planted.items():  # recorded only, but it must be computable
-        assert s["R_estimated"] == 0 or s["bias"] is not None, k
+    _assert_unbiased(gated, max_bias, "no_variants")
 
 
 def test_replicate_counts_come_from_tolerances() -> None:
@@ -154,10 +196,19 @@ def test_replicate_counts_come_from_tolerances() -> None:
     assert C.replicates(SUITE, True) == int(raw["replicates_full"]["variants"])
 
 
-def test_class_error_rate_unbiased_without_variants(tmp_path: Path) -> None:
-    _run(False, tmp_path)
+def test_class_error_rate_unbiased_with_planted_variants(tmp_path: Path) -> None:
+    _run_planted(False, tmp_path)
 
 
 @pytest.mark.calibration_full
-def test_class_error_rate_unbiased_without_variants_full(tmp_path: Path) -> None:
-    _run(True, tmp_path)
+def test_class_error_rate_unbiased_with_planted_variants_full(tmp_path: Path) -> None:
+    _run_planted(True, tmp_path)
+
+
+def test_class_error_rate_sanity_without_variants(tmp_path: Path) -> None:
+    _run_no_variants(False, tmp_path)
+
+
+@pytest.mark.calibration_full
+def test_class_error_rate_sanity_without_variants_full(tmp_path: Path) -> None:
+    _run_no_variants(True, tmp_path)
