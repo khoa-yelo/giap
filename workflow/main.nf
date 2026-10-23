@@ -12,7 +12,8 @@ include { GIAP_STEP } from './modules/local/giap_step/main'
 include { ANNOTATE; kv; pick } from './subworkflows/local/annotate'
 include { MAPPING } from './subworkflows/local/mapping'
 include { GENETABLE } from './subworkflows/local/genetable'
-include { CONTEXT; SENSITIVITY_RERUNS } from './subworkflows/local/context'
+include { CONTEXT } from './subworkflows/local/context'
+include { SENSITIVITY_RERUNS } from './subworkflows/local/sensitivity'
 include { VARIANTS } from './subworkflows/local/variants'
 include { NOVEL } from './subworkflows/local/novel'
 include { DETERMINANTS } from './subworkflows/local/determinants'
@@ -92,6 +93,11 @@ workflow {
             OPERONS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract, ANNOTATE.out.layers_for_pairs)
             DETERMINANTS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract,
                          ANNOTATE.out.regions, CONTEXT.out.gene_context)
+            // M8-16: after DETERMINANTS and beside FUNCTION (its enriched categories family)
+            SENSITIVITY_RERUNS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract, ANNOTATE.out.regions,
+                               ANNOTATE.out.layers_for_pairs, GENETABLE.out.tu_folds,
+                               DETERMINANTS.out.determinants_features,
+                               'function' in (params.modules ?: []) ? functionResources() : channel.empty())
             pub += [outs('mapping', MAPPING.out.mapping),
                     kv('pileup', VARIANTS.out.pileup), kv('variants', VARIANTS.out.variants),
                     kv('variants_vcf', VARIANTS.out.variants_vcf),
@@ -110,13 +116,7 @@ workflow {
                     kv('determinants_features', DETERMINANTS.out.determinants_features),
                     kv('determinants_model', DETERMINANTS.out.determinants_model),
                     kv('determinants_attribution', DETERMINANTS.out.determinants_attribution)]
-            // M8-16: after DETERMINANTS and beside FUNCTION (its enriched categories family)
-            def withFunction = 'function' in (params.modules ?: [])
-            SENSITIVITY_RERUNS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract, ANNOTATE.out.regions,
-                               ANNOTATE.out.layers_for_pairs, GENETABLE.out.tu_folds,
-                               DETERMINANTS.out.determinants_features,
-                               withFunction ? functionResources() : channel.empty())
-            if (withFunction) {  // §6.3: the optional module switch
+            if ('function' in (params.modules ?: [])) {  // §6.3: the optional module switch
                 FUNCTION(GENETABLE.out.gene_table, gene_model, GENETABLE.out.tu_folds, functionResources())
                 pub += [kv('category_summary', FUNCTION.out.category_summary),
                         kv('enrichment_detection', FUNCTION.out.enrichment_detection),

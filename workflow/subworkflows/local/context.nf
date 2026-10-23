@@ -1,8 +1,8 @@
 // CONTEXT subworkflow (GIAP_SPEC.md §6.2, §9.4; M4-18, MVP-01, M5-09): the final gene table plus
 // the M4-06 contract tables -> tables/regions_stats.tsv, tables/detection_summary.tsv,
 // tables/autocorrelation.tsv, tables/islands.tsv and tables/genes.tsv (context_stats, through a
-// GIAP_STEP alias). The §8.6 reruns (sensitivity) moved to SENSITIVITY_RERUNS (this file,
-// below, M8-16), which main.nf runs after DETERMINANTS.
+// GIAP_STEP alias). The §8.6 reruns (sensitivity) moved to SENSITIVITY_RERUNS (sensitivity.nf,
+// M8-16), which main.nf runs after DETERMINANTS.
 // context_stats also writes two intermediate parquet files under context/: the genes.tsv
 // context group it left-joins into genes.tsv, and the ADR-0021 Amendment 1 island diagnostics.
 // The optional C15 features table (the oriC of the ori-ter rows) is the annotation channel's
@@ -11,7 +11,7 @@
 // precomputed regions layer (MVP-02). If the `regions` channel is empty context_stats does not
 // run, the way MAPPING skips its protein route. The M3 tables come out of MAPPING's loci directory.
 // `layers_for_pairs` is no longer used here (SENSITIVITY_RERUNS takes it); the take: is kept.
-include { GIAP_STEP as CONTEXT_STATS; GIAP_STEP as SENSITIVITY } from '../../modules/local/giap_step/main'
+include { GIAP_STEP as CONTEXT_STATS } from '../../modules/local/giap_step/main'
 include { stepIn; kv; pick; inDir } from './annotate'
 
 // One named file of the loci output: a file of the mapping/ directory in a real run, the
@@ -68,40 +68,4 @@ workflow CONTEXT {
     island_diagnostics = pick(CONTEXT_STATS.out.outputs, 'island_diagnostics.parquet')
     versions         = CONTEXT_STATS.out.versions
     events           = CONTEXT_STATS.out.events
-}
-
-// SENSITIVITY_RERUNS (GIAP_SPEC.md §6.2 "sensitivity" row, §8.6; M4-19, M6-10, M8-16): the gene
-// table plus C1/C5/C7/C8 -> tables/sensitivity.tsv. Out of CONTEXT since M8-16 (lead decision 4,
-// gap 12): main.nf calls it after DETERMINANTS (which needs CONTEXT's gene context) and beside
-// FUNCTION, so the determinants family gets DETERMINANTS' features table and the enriched
-// categories family the function resources and GENETABLE's TU folds. The operon_flags family
-// (M6-10) takes ANNOTATE's layers_for_pairs and, only beside pairs_raw, the C2 genes / C3
-// features. Every M8-16 input is optional (the step skips a family without its inputs). Without
-// C7/C8 the step does not run.
-workflow SENSITIVITY_RERUNS {
-    take:
-    gene_table            // genetable/genes.parquet
-    annotation            // [genes.parquet, features.parquet, replicons.parquet]
-    contract              // [xrefs.parquet, annotation_meta.json, tus.parquet, layers.parquet]
-    regions               // [regions.parquet, region_genes.parquet] (region_layer)
-    layers_for_pairs      // [key, path]: pairs_raw and the evidence layers (M6-10), or channel.empty()
-    tu_folds              // genetable/tu_folds.parquet, or channel.empty()
-    determinants_features // tables/determinants_features.tsv (DETERMINANTS), or channel.empty()
-    function_resources    // [setup item name, path] (main.nf functionResources()), or channel.empty()
-
-    main:
-    def se = stepIn('sensitivity', [kv('gene_table', gene_table), kv('replicons', annotation.map { a -> a[2] }),
-                                    kv('regions', regions.map { r -> r[0] }), kv('region_genes', regions.map { r -> r[1] }),
-                                    kv('tus', contract.map { c -> c[2] }), layers_for_pairs,
-                                    layers_for_pairs.filter { k, f -> k == 'pairs_raw' }.combine(annotation)
-                                        .flatMap { e -> [['genes', e[2]], ['features', e[3]]] },
-                                    kv('tu_folds', tu_folds), kv('determinants_features', determinants_features),
-                                    function_resources],
-                    ['gene_table', 'replicons', 'regions', 'region_genes', 'tus'])
-    SENSITIVITY(se.files, se.keys, ['sensitivity=tables/sensitivity.tsv'])
-
-    emit:
-    sensitivity = pick(SENSITIVITY.out.outputs, 'sensitivity.tsv')
-    versions    = SENSITIVITY.out.versions
-    events      = SENSITIVITY.out.events
 }

@@ -121,6 +121,9 @@ def _sensitivity(gene_table: Path, tables: Mapping[str, Path], cfg: GiapConfig, 
     check_issues(issues, _log, "sensitivity")
     frames: dict[str, object] = dict(loaded)
     families = dict(S.FAMILIES)
+    # per-family tables: ``determinants`` and ``operon_flags`` both name a ``features`` keyword
+    # (M8-07's TSV vs C3), so the M8-16 tables are bound to their own family only
+    own: dict[str, dict[str, object]] = {}
     for name in (_ENRICHED, _DETERMINANTS):
         if name not in families:
             continue
@@ -129,7 +132,7 @@ def _sensitivity(gene_table: Path, tables: Mapping[str, Path], cfg: GiapConfig, 
         if extra is None:
             families.pop(name)
         else:
-            frames |= extra
+            own[name] = extra
     pairs = _pair_tables(tables, loaded, cfg)
     if pairs is None:  # the UniOP-threshold patch only means something with the pair tables
         families.pop(_OPERONS, None)
@@ -150,7 +153,7 @@ def _sensitivity(gene_table: Path, tables: Mapping[str, Path], cfg: GiapConfig, 
     primary: dict[str, S.Flagged] = {}
     reruns: dict[tuple[str, str], S.Flagged] = {}
     for name, family in families.items():
-        fam = _bind(family, frames)
+        fam = _bind(family, {**frames, **own.get(name, {})})
         p = fam(genes, base, for_step(f"sensitivity/{name}", cfg.seed))
         if p is None:
             _skip(name, "too few model rows (below the 100-row / 25-TU minimum)")
