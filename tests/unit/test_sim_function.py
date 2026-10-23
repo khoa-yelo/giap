@@ -19,9 +19,9 @@ Interface assumed (the spec gives only the scenario signatures ``-> Pair``; repo
 - ``giapsim.function_sim``:
 
   * ``RESERVED_PREFIXES``: the reserved ID prefixes (``GO:9``, ``K9``, ``map9``; decision 1);
-  * ``CONFOUND_COVARIATE``: the M4-13 covariate carrying ``ora_attack_confounded``'s shift
-    (``"gravy"`` by default, or ``"n_obs"``; its column is ``<name>_true`` in the expression
-    genes; lead decision 4, B1);
+  * ``CONFOUND_COVARIATE``: the M4-13 covariate carrying ``ora_attack_confounded``'s shift,
+    ``"n_obs"`` (column ``n_obs_true``), realised by K/R edits of the members' ``aa`` (lead
+    decisions 4 and 6, B1);
   * ``synthetic_ontology(n_terms, depth, rng, *, genes=())`` -> ``(obo_text, table)``, ``table``
     a C3-shaped (``locus_tag``, ``db``, ``id``) gene -> GO term table over ``genes``;
   * ``draw(pair, rng)`` -> a world with ``layout`` (giapsim Layout; the synthetic GO/KEGG/COG
@@ -65,6 +65,7 @@ BLOCKS = {"promoter": "transcription", "rbs": "translation", "cai": "codon"}
 FEATURES = ("promoter", "rbs", "cai")
 BAD_IDS = ["ora_n0", "gsea_neg", "shift_nan", "shift_inf", "n_sets0", "coef_key", "noise_neg",
            "coef_nan", "features_mode", "det_n0"]  # fmt: skip
+AA_DERIVED = ("aa", "nt")  # layout.genes columns a K/R edit of a member may change
 COG_LETTERS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 GO_COLLECTIONS = ("go_bp", "go_mf", "go_cc")
 
@@ -456,6 +457,50 @@ def _covariate_logit(world: Any) -> tuple[np.ndarray, np.ndarray]:
     return logit, ok
 
 
+def _recomputed_covariates(world: Any) -> pd.DataFrame:
+    """GIAP's gene-table covariates (``giap.genetable.covariates.covariates`` with the default
+    ``abundance.enzyme`` / ``observable_len``) recomputed from each gene's ``aa``, indexed like
+    ``_genes(world)``; ``has_aa`` marks genes with an amino-acid sequence (pseudogenes without one
+    are translated from ``nt`` by GIAP but carry no covariates in giapsim, so they are excluded)."""
+    from giap.config import GiapConfig
+    from giap.genetable.covariates import covariates
+
+    ab = GiapConfig().abundance
+    g = _genes(world)
+    aa = world.layout.genes.set_index("locus_tag").loc[g["locus_tag"], "aa"].tolist()
+    rows = []
+    for a in aa:
+        if isinstance(a, str) and a:
+            c = covariates(a, ab.enzyme, tuple(ab.observable_len))
+            rows.append((True, c.length_aa, c.n_observable_peptides, c.gravy))
+        else:
+            rows.append((False, 0, 0, math.nan))
+    return pd.DataFrame(rows, columns=["has_aa", "length_aa", "n_obs", "gravy"])
+
+
+def _recomputed_logit(world: Any) -> tuple[np.ndarray, np.ndarray]:
+    """(M4-09 covariate logit from the covariates *recomputed from ``aa``*, has-aa mask)."""
+    from giapsim.expression import DEFAULT_BETA as B
+
+    c = _recomputed_covariates(world)
+    ok = c["has_aa"].to_numpy(bool)
+    logit = np.full(len(c), B["intercept"])
+    logit[ok] += (B["log_length"] * np.log(c["length_aa"].to_numpy(float)[ok])
+                  + B["log1p_n_obs"] * np.log1p(c["n_obs"].to_numpy(float)[ok])
+                  + B["gravy"] * c["gravy"].to_numpy(float)[ok])  # fmt: skip
+    return logit, ok
+
+
+def _shift_pair() -> tuple[Any, Any, np.ndarray]:
+    """(world at member_shift -1.5, world at 0, member mask over ``_genes``), same seed."""
+    a = draw(_sc().ora_attack_confounded(1500, -1.5), 21)
+    b = draw(_sc().ora_attack_confounded(1500, 0.0), 21)
+    conf = _confounded(a)
+    assert conf and conf == _confounded(b)
+    pd.testing.assert_series_equal(_genes(a)["locus_tag"], _genes(b)["locus_tag"])
+    return a, b, _genes(a)["locus_tag"].isin(conf).to_numpy()
+
+
 def test_example2_population_mean_p_true_at_most_half(ora4000: Any) -> None:
     """Example 2 as a population ratio (lead decision 4): the -1.5 shift applied to *every* gene
     halves the mean p_true at least (statistician: 0.4655, SD 0.002 over seeds). Independent of
@@ -479,34 +524,66 @@ def test_example2_confounded_members_are_less_detectable(attack4000: Any) -> Non
 
 
 def test_confounding_covariate_is_recorded() -> None:
-    """B1: the implementer records which M4-13 covariate carries the shift (default GRAVY)."""
-    assert _fs().CONFOUND_COVARIATE in ("gravy", "n_obs")
+    """B1 (lead decision 6): ``n_obs`` carries the shift, and every member's recorded
+    ``n_obs_true`` is GIAP's observable-peptide count recomputed from its ``aa`` (M8-15 refits
+    p_detect from the gene table, which sees only the sequences); likewise every gene with an
+    ``aa``."""
+    assert _fs().CONFOUND_COVARIATE == "n_obs"
+    a, _, inside = _shift_pair()
+    rec = _genes(a)["n_obs_true"].to_numpy(np.int64)
+    c = _recomputed_covariates(a)
+    ok = c["has_aa"].to_numpy(bool)
+    new = c["n_obs"].to_numpy(np.int64)
+    assert (inside & ok).sum() >= 20
+    np.testing.assert_array_equal(rec[inside & ok], new[inside & ok])
+    np.testing.assert_array_equal(rec[ok], new[ok])
 
 
 def test_attack_shift_is_carried_by_the_members_covariate() -> None:
-    """B1 (lead decision 4): the members' covariate moves (membrane-like: lower p_true through the
-    logistic); every other covariate, and every non-member, is unchanged (same seed, two shifts)."""
-    cov = f"{getattr(_fs(), 'CONFOUND_COVARIATE', 'gravy')}_true"  # default GRAVY
-    other = ({"gravy_true", "n_obs_true"} - {cov}).pop()
-    a = draw(_sc().ora_attack_confounded(1500, -1.5), 21)
-    b = draw(_sc().ora_attack_confounded(1500, 0.0), 21)
+    """B1 (lead decision 6): between shift -1.5 and 0 (same seed) only the confounded members'
+    ``aa`` (and ``nt``, derived from it) differ in the layout, and only their ``n_obs_true`` /
+    ``p_detect_true`` / ``detected_true`` in the expression; non-members are identical; K/R edits
+    leave every member's GRAVY unchanged; movable members (``n_obs`` > 0 at shift 0) lose
+    observable peptides, immovable ones stay members, unchanged."""
+    from giap.genetable.covariates import protein_sequence
+
+    a, b, inside = _shift_pair()
     conf = _confounded(a)
-    assert conf and conf == _confounded(b)
-    pd.testing.assert_frame_equal(a.layout.genes, b.layout.genes)
+    la, lb = a.layout.genes.set_index("locus_tag"), b.layout.genes.set_index("locus_tag")
+    pd.testing.assert_index_equal(la.index, lb.index)
+    lm = la.index.isin(conf)
+    pd.testing.assert_frame_equal(la[~lm], lb[~lm])
+    keep = [c for c in la.columns if c not in AA_DERIVED]
+    pd.testing.assert_frame_equal(la.loc[lm, keep], lb.loc[lm, keep])
+    for name in ("replicons", "tus", "operon_pairs", "regions", "region_genes", "truth", "xrefs",
+                 "features"):  # fmt: skip
+        pd.testing.assert_frame_equal(getattr(a.layout, name), getattr(b.layout, name))
+    # nt stays the coding sequence of the edited aa wherever it was at shift 0
+    for lt in la.index[lm]:
+        aa_b, nt_b, ft = lb.at[lt, "aa"], lb.at[lt, "nt"], lb.at[lt, "feature_type"]
+        if isinstance(aa_b, str) and protein_sequence(None, nt_b, ft) == aa_b.strip("*"):
+            assert protein_sequence(None, la.at[lt, "nt"], ft) == str(la.at[lt, "aa"]).strip("*"), (
+                lt
+            )
+
     ga, gb = _genes(a), _genes(b)
-    inside = ga["locus_tag"].isin(conf).to_numpy()
-    ok = np.isfinite(gb["gravy_true"].to_numpy(float))
-    xa, xb = ga[cov].to_numpy(float), gb[cov].to_numpy(float)
-    np.testing.assert_array_equal(xa[~inside & ok], xb[~inside & ok])
-    assert np.all(xa[inside & ok] != xb[inside & ok]), "a member's covariate did not move"
-    np.testing.assert_array_equal(ga[other].to_numpy(float)[ok], gb[other].to_numpy(float)[ok])
-    la, _ = _covariate_logit(a)
-    lb, _ = _covariate_logit(b)
-    d = (la - lb)[inside & ok]
-    assert np.all(d < 0), "the covariate moved towards higher detectability"
-    assert abs(float(d.mean()) + 1.5) < 0.05, d.mean()
-    if cov == "gravy_true":  # membrane-like: high GRAVY
-        assert xa[inside & ok].mean() > xa[~inside & ok].mean()
+    pd.testing.assert_frame_equal(ga[~inside].reset_index(drop=True),
+                                  gb[~inside].reset_index(drop=True))  # fmt: skip
+    keep = [c for c in ga.columns if c not in ("n_obs_true", "p_detect_true", "detected_true")]
+    pd.testing.assert_frame_equal(ga.loc[inside, keep], gb.loc[inside, keep])  # gravy_true too
+
+    ca, cb = _recomputed_covariates(a), _recomputed_covariates(b)
+    ok = cb["has_aa"].to_numpy(bool)
+    m = inside & ok
+    np.testing.assert_allclose(ca["gravy"].to_numpy(float)[m], cb["gravy"].to_numpy(float)[m],
+                               rtol=0, atol=1e-12)  # fmt: skip
+    na, nb = ca["n_obs"].to_numpy(np.int64), cb["n_obs"].to_numpy(np.int64)
+    movable = inside & ok & (nb > 0)
+    assert movable.sum() >= 20
+    assert np.all(na[movable] < nb[movable]), "a movable member's n_obs did not drop"
+    still = la.index[lm & ~la.index.isin(ga.loc[movable, "locus_tag"])]
+    pd.testing.assert_frame_equal(la.loc[still], lb.loc[still])  # immovable: untouched
+    assert set(still) <= conf  # ... and still counted as members
 
 
 @pytest.mark.parametrize("shift", [-1.5, 0.0])
@@ -518,6 +595,16 @@ def test_attack_logit_is_computed_from_covariates_only(shift: float) -> None:
     assert ok.sum() > 1000
     p = _genes(w)["p_detect_true"].to_numpy(float)
     np.testing.assert_allclose(p[ok], 1.0 / (1.0 + np.exp(-logit[ok])), rtol=0, atol=1e-9)
+    # lead decision 6: the recorded covariates are the ones GIAP recomputes from the sequences
+    c = _recomputed_covariates(w)
+    assert np.array_equal(c["has_aa"].to_numpy(bool), ok)
+    g = _genes(w)
+    np.testing.assert_array_equal(g["n_obs_true"].to_numpy(np.int64)[ok],
+                                  c["n_obs"].to_numpy(np.int64)[ok])  # fmt: skip
+    np.testing.assert_allclose(g["gravy_true"].to_numpy(float)[ok],
+                               c["gravy"].to_numpy(float)[ok], rtol=0, atol=1e-12)  # fmt: skip
+    rl, _ = _recomputed_logit(w)
+    np.testing.assert_allclose(_logit(p)[ok], rl[ok], rtol=0, atol=1e-8)
 
 
 def test_example2_confounded_categories_are_named_categories(attack4000: Any) -> None:
@@ -540,22 +627,23 @@ def test_member_shift_zero_reduces_to_ora_null() -> None:
 
 
 def test_member_shift_moves_the_members_logit_by_the_shift() -> None:
-    """The shift reaches the logit of the confounded members only, by ``member_shift`` (same
-    seed, two shifts; since lead decision 4 it is carried by a covariate, see above)."""
-    a = draw(_sc().ora_attack_confounded(1500, -1.5), 21)
-    b = draw(_sc().ora_attack_confounded(1500, 0.0), 21)
-    conf = _confounded(a)
-    assert conf == _confounded(b)
+    """B1 (lead decision 6): every member's logit is the covariate model's logit from the
+    covariates recomputed from its ``aa`` (1e-8); non-members' and immovable members' logits do
+    not move; the mean shift over movable members (``n_obs`` > 0 at shift 0) is -1.5 +- 0.15 (an
+    integer ``n_obs`` cannot hit -1.5 exactly)."""
+    a, b, inside = _shift_pair()
     ga, gb = _genes(a), _genes(b)
-
-    def logit(p: pd.Series) -> np.ndarray:
-        x = p.to_numpy(float)
-        return np.log(x) - np.log1p(-x)
-
-    diff = logit(ga["p_detect_true"]) - logit(gb["p_detect_true"])
-    inside = ga["locus_tag"].isin(conf).to_numpy()
-    np.testing.assert_allclose(diff[inside], -1.5, atol=1e-8)
+    rl, _ = _recomputed_logit(a)
+    np.testing.assert_allclose(_logit(ga["p_detect_true"])[inside], rl[inside], rtol=0, atol=1e-8)
+    diff = _logit(ga["p_detect_true"]) - _logit(gb["p_detect_true"])
     np.testing.assert_allclose(diff[~inside], 0.0, atol=1e-8)
+    cb = _recomputed_covariates(b)
+    movable = inside & cb["has_aa"].to_numpy(bool) & (cb["n_obs"].to_numpy() > 0)
+    assert movable.sum() >= 20
+    np.testing.assert_allclose(diff[inside & ~movable], 0.0, atol=1e-8)
+    assert np.all(diff[movable] < 0), "a movable member moved towards higher detectability"
+    mean = float(diff[movable].mean())
+    assert abs(mean + 1.5) <= 0.15, (mean, int(movable.sum()), int(inside.sum()))
 
 
 # ----------------------------------------------------------------------------- GSEA (examples 3, 4)
