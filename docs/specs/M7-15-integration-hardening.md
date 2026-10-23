@@ -58,3 +58,12 @@ statistical
    existing goldens are not regenerated.
 2. Real-tool arm genome: K-12 with in-silico TE8 peptides (proposed) or Nissle with A2 once the pilot
    data exist (M10)? **Proposed default:** K-12 now; Nissle in M10.
+
+## Lead decisions (2026-10-22)
+
+1. **Golden with planted strain differences:** the proposed default. Add a second golden directory,
+   `tests/data/golden/sim50k_m7/`, with the M7 settings; the existing sim50k goldens are not
+   regenerated. Numeric columns that depend on BLAS (if any) follow the M5-11 decision 44/46/47
+   tolerance pattern rather than byte equality.
+2. **Real-tool arm genome:** K-12 with in-silico TE8 peptides now; Nissle with A2 in M10. The
+   real-tool arm runs on Slurm only (never in the session), from `scripts/slurm/`.
