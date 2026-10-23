@@ -343,3 +343,21 @@ All of these are merged to main before E1 and E2 are submitted:
    (M7-13b decision 1), so their R is 10, not 300. **Proposed default:** they count for rule 5,
    labelled "fast tier, R = 10". This follows that decision, and §8.5 asks for a passing attack,
    not a particular R.
+
+## Lead decisions (2026-10-23)
+1. **Q1 yes:** the test-author adds `tests/integration/test_m7_gate.py` (known-failures map naming
+   the ADR for A6c; `GIAP_M7_GATE=1` switch) in a small PR before the evidence PR.
+2. **Q2 yes:** A6c stays a strict xfail, recorded as a known failure accepted by Khoa (ADR-0049
+   decision 5); the gate can read `met` with A6c listed as open. Record the flagged share of
+   systematic swaps. Pending Khoa (reversible): confirm that this reading of decision 5 against §8.5
+   is intended; asked in the next batch.
+3. **Q3 yes:** separate test-author PR "M7-13a2: ADR-0049 gate criteria" after #255 and the flag PR
+   merge; M7-13c waits for it.
+4. **Q4 yes:** no strand split.
+5. **Q5 yes:** rerun on main; the branch run is the determinism check. Interim `partially met` on a
+   file-for-file source match only if the cluster is busy.
+6. **Q6:** the statistician's variants.md text (#255 review) is saved at
+   `local/handoff/m713c_methods_draft.md` (lead scratch, not committed). It describes G1 before
+   ADR-0049; update the G1 scope sentence to the ADR-0049 wording.
+7. **Q7 yes:** fast-tier-only attacks (b, GC) count, labelled fast tier.
+8. **ADR-0048 seeds:** if accepting ADR-0048 renames the streams, redo E2.
