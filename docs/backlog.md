@@ -719,3 +719,5 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   local/scratch/qfloor/ (patched proteomics.py: `decoy_score_na` false, decoy wins still only on
   target-less genes because no gene is null-only). Then restore `decoy_picked` on the sim100k_real
   golden and in tests/calibration/test_gene_fdr_real_mapping.py (M4-24 question 3).
+- M4-24 decision 7: preflight `candidate_tier` should use the shared key columns, so it does not
+  preview `decoy_picked` for all-unscored decoys.

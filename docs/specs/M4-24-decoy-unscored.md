@@ -234,3 +234,18 @@ the current `_picked_q`, with the columns outside S set to NA, which is the rank
    `decoy_picked`. The value is marked `provisional`. **Proposed default:** out of scope here (M4
    decides the tier); a one-line backlog follow-up if the lead wants preflight to apply
    `shared_key_columns` on C9.
+
+## Lead decisions (2026-10-22)
+
+1. **q filter:** the proposed default. Keep the filter; the reading is recorded in ADR-0047
+   (lead-level). The defaults.yaml wording stays until Khoa chooses to change it.
+2. **Partly NA decoy column:** drop the column for everyone and warn (rule 5).
+3. **Sequencing:** land this fix first.
+   - The implementer regenerates the sim100k_real golden with the project's update mechanism.
+   - The lead edits the tier assertion in `tests/calibration/test_gene_fdr_real_mapping.py` to
+     "`mayu` while giapsim's decoys are unscored".
+   - The giapsim backlog item (scored null decoys) restores `decoy_picked` later.
+4. **No `key_*` tier rows;** the warning is enough.
+5. **One warning,** `decoy_unscored`, for both cases; the methods note explains it.
+6. **A sparse target column stays in S** (main's behaviour, conservative).
+7. **Preflight `candidate_tier`** is out of scope; this is a backlog item.
