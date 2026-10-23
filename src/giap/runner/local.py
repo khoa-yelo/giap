@@ -308,6 +308,7 @@ PUBLISHED_FILES: dict[str, str] = {
     "tu_folds": "genetable/tu_folds.parquet",
     "variants": "tables/variants.tsv",
     "variants_vcf": "tables/variants.vcf",
+    "variants_qc": "variants/variants_qc.parquet",
 }
 
 

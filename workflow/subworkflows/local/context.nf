@@ -10,6 +10,8 @@
 // C7/C8 (regions, region_genes) are required by both steps; ANNOTATE's region_layer writes them,
 // also under a precomputed regions layer (MVP-02). If the `regions` channel is empty neither step
 // runs, the way MAPPING skips its protein route. The M3 tables come out of MAPPING's loci directory.
+// M7-14: VARIANTS' variants_qc (optional) gives the numeric id_mixups QC row, so context_stats
+// waits for VARIANTS when peptides are given.
 include { GIAP_STEP as CONTEXT_STATS; GIAP_STEP as SENSITIVITY } from '../../modules/local/giap_step/main'
 include { stepIn; kv; pick; inDir } from './annotate'
 
@@ -30,6 +32,7 @@ workflow CONTEXT {
     abundance             // abundance.norm.parquet, or channel.empty()
     replicon_depth        // §5.3 depth TSV, or channel.empty()
     tier_summary          // gene_table's tier counts / q-threshold curve (M4-20 decision 3), or channel.empty()
+    variants_qc           // VARIANTS' variants_qc.parquet (M7-14), or channel.empty()
 
     main:
     def gt = kv('gene_table', gene_table)
@@ -45,7 +48,7 @@ workflow CONTEXT {
                     kv('detectability_summary', detectability_summary),
                     kv('features', annotation.map { a -> a[1] }),
                     kv('stratum0_classes', stratum0_classes), kv('replicon_depth', replicon_depth),
-                    kv('tier_summary', tier_summary)]
+                    kv('tier_summary', tier_summary), kv('variants_qc', variants_qc)]
     def needed = ['gene_table', 'genes', 'replicons', 'xrefs', 'annotation_meta', 'tus', 'layers',
                   'regions', 'region_genes', 'peptide_hits', 'protein_hits', 'unmapped']
 

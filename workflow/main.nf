@@ -74,7 +74,7 @@ workflow {
             def gene_model = ANNOTATE.out.gene_model
             MAPPING(genome, opt(inputs.peptides), opt(inputs.proteins_long), gene_model,
                     opt(inputs.reference_peptides), opt(contaminantLibrary(inputs)))
-            // Module 5 (M7-04): independent of GENETABLE and CONTEXT
+            // Module 5 (M7-04): independent of GENETABLE; CONTEXT takes its variants_qc (M7-14)
             VARIANTS(genome, gene_model, MAPPING.out.mapping, MAPPING.out.hits_tolerant,
                      opt(inputs.peptides), opt(inputs.reference_peptides))
             GENETABLE(gene_model, ANNOTATE.out.contract, MAPPING.out.mapping, opt(inputs.peptides),
@@ -82,7 +82,7 @@ workflow {
             CONTEXT(GENETABLE.out.gene_table, GENETABLE.out.detectability_summary, gene_model,
                     ANNOTATE.out.contract, ANNOTATE.out.regions, MAPPING.out.mapping,
                     MAPPING.out.stratum0, opt(inputs.peptides), opt(inputs.abundance),
-                    opt(inputs.replicon_depth), GENETABLE.out.tier_summary)
+                    opt(inputs.replicon_depth), GENETABLE.out.tier_summary, VARIANTS.out.variants_qc)
             NOVEL(genome, gene_model, ANNOTATE.out.contract, MAPPING.out.mapping, opt(inputs.peptides),
                   opt(contaminantLibrary(inputs)), GENETABLE.out.gene_table, ANNOTATE.out.layer_pairs)
             OPERONS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract, ANNOTATE.out.layers_for_pairs)
