@@ -69,9 +69,10 @@ from giap.io.run_view import RunView
 from giap.viz import base, style
 from giap.viz.base import Instance, Skip
 
+# review round (decision 5 N8): the TSV gains ``redundant``, appended last
 COLUMNS = [
     "panel", "collection", "term", "name", "direction", "rank_position", "running_es", "in_set",
-    "nes", "q_value", "o_over_e", "coverage", "flags",
+    "nes", "q_value", "o_over_e", "coverage", "flags", "redundant",
 ]  # fmt: skip
 OVER, UNDER = "#0072B2", "#D55E00"
 XLABEL_C = "observed / expected detected TUs"
@@ -395,12 +396,20 @@ def test_panel_a_running_sum_line(tmp_path: Path, cfg: GiapConfig) -> None:
 
 def test_panel_a_leading_edge_shaded_up_to_the_peak(tmp_path: Path, cfg: GiapConfig) -> None:
     inst = _main(tmp_path, cfg)
+    negative = 0
     for ax, s in zip(_axes(inst, "a"), _sets(), strict=True):
         peak = ve.peak_rank(s["running"])  # type: ignore[arg-type]
-        if float(s["es"]) <= 0 or peak < 3:  # type: ignore[arg-type]
-            continue  # negative sets: the leading edge is after the peak; rank 1: no width
         ext = _x_extents(ax)
+        if float(s["es"]) <= 0:  # type: ignore[arg-type]
+            # decision 5: a negative set's leading edge runs from the peak to n
+            negative += 1
+            assert any(abs(lo - peak) <= 0.5 and hi >= ve.N_TUS - 0.5 for lo, hi in ext), (
+                s["term"], peak, ext)  # fmt: skip
+            continue
+        if peak < 3:
+            continue  # rank 1: no width
         assert any(abs(hi - peak) <= 0.5 and lo <= 1.5 for lo, hi in ext), (s["term"], peak, ext)
+    assert negative >= 1  # cog J (members 17, 19, 20) is the negative set
 
 
 @pytest.mark.parametrize(("term", "flag"), [("GO:0006412", "genomic_cluster"),
@@ -862,3 +871,344 @@ def test_property_panel_c_selection_o_over_e_and_title(
     else:
         assert inst.title.startswith(f"{n_gsea_sig} set")
         assert f"; {len(sig)} categor" in inst.title
+
+
+# --- review round (lead decision 5): B1, the surviving mutants, nits N1-N8, N11 ---------------
+#
+# Geometry is read in display pixels after a draw (``helpers.viz_artists.draw``). The panel-(b)
+# label texts are the ``ax.texts`` of the axes labelled "b"; a leader is a marker-less line of
+# that axes (not the alpha line) and is compared through its own transform, so it may be drawn in
+# data, axes or blended coordinates.
+
+_PX = 1.0  # display-pixel slack for "touches" / "starts at"
+
+
+def _renderer(inst: Instance) -> object:
+    from helpers.viz_artists import draw
+
+    return draw(inst.figure).get_renderer()
+
+
+def _long_names_out(tmp: Path) -> Path:
+    """B1: maximum-length names in both panels; 30 GSEA rows, 40 significant ORA rows."""
+    gsea = [
+        ve.gsea_row(
+            ve.COLLECTIONS[i % 6],
+            f"GO:00{i:05d}",
+            name="very long pathway name exceeding every label limit",
+            nes=(-1) ** i * (1 + i / 10),
+            q=0.0005 * (i + 1),
+        )
+        for i in range(30)
+    ]
+    ora = [ve.ora_row(ve.COLLECTIONS[i % 6], f"GO:00{i:05d}", "over" if i % 2 else "under",
+                      5 + i % 4, 1 if i % 2 else -2, 0.001 * (i + 1),
+                      name="a rather long category name for testing the label column")
+           for i in range(40)]  # fmt: skip
+    return ve.build_out(tmp, gsea, ora)
+
+
+def test_b1_checklist_long_names_no_overlapping_labels(tmp_path: Path, cfg: GiapConfig) -> None:
+    """B1: (c)'s left edge follows the measured width of (b)'s label column."""
+    fails = _check(_render(_long_names_out(tmp_path / "run"), cfg), tmp_path / "plots")
+    assert not [f for f in fails if f.startswith("no overlapping labels")], fails
+    assert fails == []
+
+
+def test_b1_panel_b_labels_left_of_panel_c(tmp_path: Path, cfg: GiapConfig) -> None:
+    inst = _render(_long_names_out(tmp_path), cfg)
+    renderer = _renderer(inst)
+    right = max(t.get_window_extent(renderer).x1 for t in _one(inst, "b").texts if t.get_text())
+    ax_c = _one(inst, "c")
+    left = min([ax_c.get_window_extent(renderer).x0]
+               + [t.get_window_extent(renderer).x0 for t in ax_c.get_yticklabels()
+                  if t.get_text() and t.get_visible()])  # fmt: skip
+    assert right <= left + 0.5, (right, left)
+
+
+# --- the surviving mutants
+
+
+def test_es_one_g6_step_apart_is_accepted(tmp_path: Path, cfg: GiapConfig) -> None:
+    """``_REL``: support 0.623456 vs table 0.623457 (one %.6g step, ~1.6e-6 relative) passes."""
+    inst = _render(_one_set_out(tmp_path, 0.623456, 0.623457), cfg)
+    assert len(_rows(inst, "a")) == 4
+
+
+def test_es_1e4_relative_apart_raises(tmp_path: Path, cfg: GiapConfig) -> None:
+    """``_REL``: 0.620062 vs 0.62 (1e-4 relative) is a mismatch."""
+    with pytest.raises(ValueError):
+        _result(_one_set_out(tmp_path, 0.620062, 0.62), cfg)
+
+
+def test_panel_c_o_over_e_descending_top_to_bottom(tmp_path: Path, cfg: GiapConfig) -> None:
+    spec = (("C", 4, 8), ("E", 9, 3), ("J", 12, 8), ("K", 2, 4), ("L", 6, 6))
+    ora = [ve.ora_row("cog", t, "over" if s > e else "under", s, s - e, 0.01) for t, s, e in spec]
+    inst = _render(ve.build_out(tmp_path, ve.main_gsea(), ora, ve.running_rows(_sets())), cfg)
+    ax = _one(inst, "c")
+    _renderer(inst)
+    pts = [(float(ax.transData.transform((m.x, m.y))[1]), m.x) for m in markers(ax)]
+    assert len(pts) == 5
+    top_down = [x for _, x in sorted(pts, key=lambda p: -p[0])]
+    assert top_down == sorted(top_down, reverse=True), top_down
+
+
+def test_one_layer_missing_flag_is_the_generic_empty_state(tmp_path: Path, cfg: GiapConfig) -> None:
+    from giap.viz import checklist, enrichment
+
+    inst = _render(ve.build_out(tmp_path, [], [], flags=["layer_missing:go"]), cfg)
+    assert inst.title != NO_RESOURCES
+    assert inst.title == enrichment.EMPTY
+    assert checklist.is_empty_state(inst)
+
+
+# --- nits
+
+
+def _ora_q0() -> list[dict[str, object]]:
+    return [ve.ora_row("cog", "J", "over", 12, 4, 0.0, name="Translation"),
+            ve.ora_row("kegg", "ko00010", "under", 2, -6, 0.03, name="Glycolysis")]  # fmt: skip
+
+
+def test_n1_ora_q_zero_noted_in_the_footnote(tmp_path: Path, cfg: GiapConfig) -> None:
+    inst = _render(ve.build_out(tmp_path, ve.main_gsea(), _ora_q0(), ve.running_rows(_sets())),
+                   cfg)  # fmt: skip
+    assert "cap" in _all_text(inst).lower()
+
+
+def _triangle_up(path: object) -> bool:
+    from matplotlib.markers import MarkerStyle
+
+    ref = MarkerStyle("^")
+    want = ref.get_path().transformed(ref.get_transform()).vertices
+    got = np.asarray(path.vertices, dtype=float)  # type: ignore[attr-defined]
+    return got.shape == want.shape and bool(np.allclose(got, want))
+
+
+def _shape_at(ax: Axes, x: float, y: float, tol: float = 1e-6) -> list[bool]:
+    """Per drawn point at ``(x, y)``: whether its marker is ``^``."""
+    out = []
+    for line in ax.get_lines():
+        if line.get_marker() in (None, "", "None", " ", "none") or not line.get_visible():
+            continue
+        xs = np.asarray(line.get_xdata(), dtype=float)
+        ys = np.asarray(line.get_ydata(), dtype=float)
+        hit = (np.abs(xs - x) <= tol) & (np.abs(ys - y) <= tol)
+        out += [line.get_marker() == "^"] * int(hit.sum())
+    for coll in ax.collections:
+        if not isinstance(coll, PathCollection) or not coll.get_visible():
+            continue
+        offs = np.asarray(coll.get_offsets(), dtype=float).reshape(-1, 2)
+        paths = coll.get_paths()
+        for i, (ox, oy) in enumerate(offs):
+            if abs(ox - x) <= tol and abs(oy - y) <= tol:
+                out.append(_triangle_up(paths[i if len(paths) > 1 else 0]))
+    return out
+
+
+def test_n2_q_zero_point_uses_a_triangle_in_panel_b(tmp_path: Path, cfg: GiapConfig) -> None:
+    rows = [ve.gsea_row("kegg", "ko00010", nes=2.0, p=0.0, q=0.0),
+            ve.gsea_row("cog", "J", nes=1.0, p=0.001, q=0.004)]  # fmt: skip
+    ax = _one(_render(ve.build_out(tmp_path, rows, ve.main_ora()), cfg), "b")
+    (top,) = [m for m in markers(ax) if abs(m.x - 2.0) < 1e-9]
+    assert _shape_at(ax, top.x, top.y) == [True]
+    assert _shape_at(ax, 1.0, -math.log10(0.004)) == [False]
+
+
+def test_n2_q_zero_point_uses_a_triangle_in_the_panel_c_q_strip(
+    tmp_path: Path, cfg: GiapConfig
+) -> None:
+    inst = _render(ve.build_out(tmp_path, ve.main_gsea(), _ora_q0(), ve.running_rows(_sets())),
+                   cfg)  # fmt: skip
+    strips = [ax for ax in _c_axes(inst) if ax.get_label() != "c" and markers(ax)]
+    assert len(strips) == 1
+    ms = markers(strips[0])
+    assert len(ms) == 2 and all(math.isfinite(m.x) for m in ms)
+    # the q = 0 row (cog J, O/E 1.5) is drawn at the cap; the q = 0.03 row keeps its marker
+    shapes = [s for m in ms for s in _shape_at(strips[0], m.x, m.y, tol=1e-9)]
+    assert sorted(shapes) == [False, True], shapes
+
+
+def _leaders(ax: Axes) -> list[np.ndarray]:
+    """Marker-less lines of ``ax`` other than horizontal / vertical reference lines, in pixels."""
+    out = []
+    for ln in ax.get_lines():
+        if ln.get_marker() not in (None, "", "None", " ", "none"):
+            continue
+        if ln.get_transform() in (ax.get_yaxis_transform(), ax.get_xaxis_transform()):
+            continue
+        xy = np.asarray(ln.get_xydata(), dtype=float)
+        if len(xy) < 2:
+            continue
+        out.append(ln.get_transform().transform(xy))
+    return out
+
+
+def test_n3_leaders_start_at_the_label_column_with_an_elbow(
+    tmp_path: Path, cfg: GiapConfig
+) -> None:
+    inst = _main(tmp_path, cfg)
+    ax = _one(inst, "b")
+    renderer = _renderer(inst)
+    leaders = _leaders(ax)
+    pts = [ax.transData.transform((m.x, m.y)) for m in markers(ax)]
+    labels = [t for t in ax.texts if t.get_text() and t.get_visible()]
+    assert labels
+    for t in labels:
+        box = t.get_window_extent(renderer)
+        anchor = np.array([box.x0, (box.y0 + box.y1) / 2])
+        mine = [p for p in leaders if min(np.hypot(*(p[0] - anchor)), np.hypot(*(p[-1] - anchor)))
+                <= 3 * _PX]  # fmt: skip
+        assert len(mine) == 1, (t.get_text(), anchor, [p.tolist() for p in leaders])
+        p = mine[0] if np.hypot(*(mine[0][0] - anchor)) <= 3 * _PX else mine[0][::-1]
+        assert len(p) >= 3, (t.get_text(), p.tolist())  # label end, elbow, point
+        assert abs(p[1][1] - p[0][1]) <= 0.5 and p[1][0] < p[0][0] - 0.5, p.tolist()  # elbow
+        assert any(np.hypot(*(p[-1] - q)) <= _PX for q in pts), (t.get_text(), p.tolist())
+
+
+def test_n3_legend_upper_left_and_clear_of_the_labels(tmp_path: Path, cfg: GiapConfig) -> None:
+    inst = _main(tmp_path, cfg)
+    ax = _one(inst, "b")
+    leg = ax.get_legend()
+    assert leg is not None
+    assert leg._loc in (2, "upper left")  # matplotlib's code for "upper left"
+    renderer = _renderer(inst)
+    lb = leg.get_window_extent(renderer)
+    for t in ax.texts:
+        if not t.get_text():
+            continue
+        tb = t.get_window_extent(renderer)
+        w = min(lb.x1, tb.x1) - max(lb.x0, tb.x0)
+        h = min(lb.y1, tb.y1) - max(lb.y0, tb.y0)
+        assert not (w > 0.5 and h > 0.5), t.get_text()
+
+
+def test_n4_banner_sits_under_the_title_not_over_the_axes(tmp_path: Path, cfg: GiapConfig) -> None:
+    inst = _main(tmp_path, cfg)
+    axes = dict(zip((str(s["term"]) for s in _sets()), _axes(inst, "a"), strict=True))
+    renderer = _renderer(inst)
+    for term in ("GO:0006412", "GO:0005840"):
+        ax = axes[term]
+        (banner,) = [t for t in ax.texts if "not calibrated" in t.get_text()]
+        bb = banner.get_window_extent(renderer)
+        ab = ax.get_window_extent(renderer)
+        tb = ax.title.get_window_extent(renderer)
+        assert bb.y0 >= ab.y1 - 0.5, (term, bb, ab)  # above the plot area
+        assert bb.y1 <= tb.y0 + 0.5, (term, bb, tb)  # below the title
+
+
+def test_n5_panel_c_capped_at_30_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+    ora = [ve.ora_row("cog", f"T{i:03d}", "over", 6, 2, 0.001 * (i + 1)) for i in range(40)]
+    inst = _render(ve.build_out(tmp_path, ve.main_gsea(), ora, ve.running_rows(_sets())), cfg)
+    assert len(markers(_one(inst, "c"))) == 30
+    assert "+10 more in the TSV" in _all_text(inst)
+
+
+def test_n5_no_note_at_30_rows(tmp_path: Path, cfg: GiapConfig) -> None:
+    ora = [ve.ora_row("cog", f"T{i:03d}", "over", 6, 2, 0.001 * (i + 1)) for i in range(30)]
+    inst = _render(ve.build_out(tmp_path, ve.main_gsea(), ora, ve.running_rows(_sets())), cfg)
+    assert len(markers(_one(inst, "c"))) == 30
+    assert "more in the TSV" not in _all_text(inst)
+
+
+def test_n6_tied_q_selection_is_independent_of_input_order(tmp_path: Path, cfg: GiapConfig) -> None:
+    """Nothing significant, ties at the 20th q: broken on collection, term, direction."""
+    tied = [ve.ora_row("cog", f"T{i:03d}", d, 6, 2, 0.2)
+            for i in range(11) for d in ("over", "under")]  # fmt: skip
+    ora = [ve.ora_row("cog", "A", "over", 6, 2, 0.1), *tied]
+    want = {("A", "over")} | {(f"T{i:03d}", d) for i in range(9) for d in ("over", "under")}
+    want.add(("T009", "over"))
+    datas = []
+    for name, rows in (("fwd", ora), ("rev", ora[::-1])):
+        inst = _render(ve.build_out(tmp_path / name, ve.main_gsea(), rows,
+                                    ve.running_rows(_sets())), cfg)  # fmt: skip
+        c = _rows(inst, "c")
+        assert set(zip(c["term"].astype(str), c["direction"].astype(str), strict=True)) == want
+        datas.append(inst.data.reset_index(drop=True))
+    pd.testing.assert_frame_equal(datas[0], datas[1])
+
+
+def test_n7_no_testable_sets(tmp_path: Path, cfg: GiapConfig) -> None:
+    gsea = [ve.gsea_row("kegg", "ko00010", es=None, nes=None, p=None, q=None,
+                        flags="size_filtered", size=1)]  # fmt: skip
+    inst = _render(ve.build_out(tmp_path, gsea, ve.main_ora()), cfg)
+    assert "no testable sets" in _all_text(inst)
+    assert len(markers(_one(inst, "c"))) == 2
+
+
+def test_n8_data_redundant_column(tmp_path: Path, cfg: GiapConfig) -> None:
+    b = _rows(_main(tmp_path, cfg), "b").set_index("term")
+    assert "redundant" in b.columns
+    assert _bool(b.loc["GO:0003735", "redundant"])
+    assert not any(_bool(v) for t, v in b["redundant"].items() if t != "GO:0003735")
+
+
+def _twin_of(inst: Instance) -> dict[str, object]:
+    return tw.spec("V14", tw.instance_frame(inst.data), inst.title)
+
+
+def _b_traces(s: dict[str, object]) -> list[dict[str, object]]:
+    return [t for t in tw.on_axes(s, "NES") if "markers" in tw.mode(t)]
+
+
+def test_n8_twin_keeps_q_zero_at_the_cap(tmp_path: Path, cfg: GiapConfig) -> None:
+    rows = [ve.gsea_row("kegg", "ko00010", nes=2.0, p=0.0, q=0.0),
+            ve.gsea_row("cog", "J", nes=1.0, p=0.001, q=0.004)]  # fmt: skip
+    s = _twin_of(_render(ve.build_out(tmp_path, rows, ve.main_ora()), cfg))
+    pts = [p for t in _b_traces(s) for p in zip(tw.floats(t["x"]), tw.floats(t["y"]), strict=True)]
+    (top,) = [y for x, y in pts if abs(x - 2.0) < 1e-9]
+    assert math.isfinite(top) and top >= -math.log10(0.004), pts
+
+
+def test_n8_twin_draws_the_alpha_line(tmp_path: Path, cfg: GiapConfig) -> None:
+    s = _twin_of(_main(tmp_path, cfg))
+    want = -math.log10(0.05)
+    shapes = s.get("layout", {}).get("shapes", [])  # type: ignore[attr-defined]
+    hits = [sh for sh in shapes if sh.get("type", "line") == "line"
+            and abs(float(sh.get("y0", math.nan)) - want) < 1e-6
+            and abs(float(sh.get("y1", math.nan)) - want) < 1e-6]  # fmt: skip
+    lines = [t for t in tw.on_axes(s, "NES") if "lines" in tw.mode(t) and tw.floats(t.get("y"))
+             and all(abs(y - want) < 1e-6 for y in tw.floats(t["y"]))]  # fmt: skip
+    assert hits or lines, (shapes, [t.get("mode") for t in tw.traces(s)])
+
+
+def test_n8_twin_panel_c_in_o_over_e_order(tmp_path: Path, cfg: GiapConfig) -> None:
+    ora = [ve.ora_row("cog", t, "over" if s > e else "under", s, s - e, 0.01)
+           for t, s, e in (("C", 4, 8), ("E", 9, 3), ("J", 12, 8), ("K", 2, 4))]  # fmt: skip
+    s = _twin_of(_render(ve.build_out(tmp_path, ve.main_gsea(), ora, ve.running_rows(_sets())),
+                         cfg))  # fmt: skip
+    cs = [t for t in tw.on_axes(s, XLABEL_C) if "markers" in tw.mode(t)]
+    assert cs
+    oe: dict[object, float] = {}
+    for t in cs:
+        oe.update(zip(tw.values(t["y"]), tw.floats(t["x"]), strict=True))
+    yax = tw.axis(s, tw.axis_key(cs[0], "y"))
+    # plotly draws the first category at the bottom
+    cats = list(yax["categoryarray"]) if yax.get("categoryorder") == "array" else list(oe)
+    top_down = cats if yax.get("autorange") == "reversed" else cats[::-1]
+    got = [oe[c] for c in top_down]
+    assert got == sorted(got, reverse=True), (top_down, got)
+
+
+def test_n8_twin_redundant_rows_small_and_grey(tmp_path: Path, cfg: GiapConfig) -> None:
+    red = next(r for r in ve.main_gsea() if r["redundant"])
+    s = _twin_of(_main(tmp_path, cfg))
+    points = []  # (nes, colour, size)
+    for t in _b_traces(s):
+        xs = tw.floats(t["x"])
+        marker = t.get("marker", {})
+        col, size = marker.get("color"), marker.get("size", 6)
+        cols = col if isinstance(col, list) else [col] * len(xs)
+        sizes = tw.floats(size) if isinstance(size, (list, dict)) else [float(size)] * len(xs)
+        points += list(zip(xs, cols, sizes, strict=True))
+    (rp,) = [p for p in points if abs(p[0] - float(red["nes"])) < 1e-9]  # type: ignore[arg-type]
+    others = [p for p in points if p is not rp]
+    assert all(rp[2] < o[2] for o in others), (rp, others)
+    hexc = tw.to_hex(str(rp[1]))
+    assert hexc is not None and hexc[1:3] == hexc[3:5] == hexc[5:7], rp
+
+
+def test_n11_o_over_e_undefined_note(tmp_path: Path, cfg: GiapConfig) -> None:
+    ora = [*ve.main_ora()[:2], ve.ora_row("cog", "L", "over", 3, 3, 0.01)]  # E = 0
+    inst = _render(ve.build_out(tmp_path, ve.main_gsea(), ora, ve.running_rows(_sets())), cfg)
+    assert "O/E undefined (E = 0)" in _all_text(inst)
