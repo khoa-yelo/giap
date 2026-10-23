@@ -217,9 +217,9 @@ def _plant(cfgs: Pair, n_planted: int, effect_sd: float) -> Pair:
 def missed_operon_power(n_genes: int, n_planted: int, effect_sd: float) -> Pair:
     """``n_planted`` true NO pairs (UniOP false negatives) with ``|Delta| ~ effect_sd`` x the
     background NO SD; UniOP keeps its own errors (default Beta classes) and convergent TU
-    boundaries get 10-150 bp gaps, so CV decoys reach the < 50 bp bin (lead decision 11). A
-    ``ValueError`` from ``simulate_operons`` when fewer NO pairs exist. The M6-09 suite needs
-    >= 1,000 genes."""
+    boundaries get -20...300 bp gaps (negative: 3' overlaps), so CV decoys fill every bin up to
+    300 bp (lead decisions 11, 23). A ``ValueError`` from ``simulate_operons`` when fewer NO pairs
+    exist. The M6-09 suite needs >= 1,000 genes."""
     lcfg = _lcfg(n_genes, short_convergent_gaps=True)
     return lcfg, _operon_cfg(n_missed=n_planted, missed_effect_sd=effect_sd)
 
@@ -251,7 +251,7 @@ def operon_attack_detection(
     block (a third of the chromosome, ``ATTACK_BLOCK_FRAC``) has short genes and intra-TU gaps
     between all of them; detection depends on the final (post-walk, post-planting) abundance
     (``ATTACK_BETA``) with the block shift ``BLOCK_DETECT_SHIFT`` standing in for hydrophobicity;
-    convergent TU boundaries get 10-150 bp gaps. The both-detected filter keeps only the block's
+    convergent TU boundaries get -20...300 bp gaps. The both-detected filter keeps only the block's
     high-abundance genes, so its NO pairs (the targets of the < 50 bp bins) have smaller |Delta|
     than the CV decoys from outside the block sharing those bins: the attack on the decoy
     distance reweighting. UniOP keeps its own errors. ``n_planted`` / ``effect_sd`` plant as

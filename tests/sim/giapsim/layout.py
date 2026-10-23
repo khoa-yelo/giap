@@ -10,7 +10,8 @@ centred in the chr1 gap nearest to ``oric_frac * length`` that fits it; placing 
 moves no gene. M6-03 opt-ins (neither draws anything): ``short_gaps_in`` gives every gap inside that
 region type's blocks an intra-TU draw, ``uniop_pure`` reflects UniOP p about 0.5 so the classes
 match the TUs exactly. A third opt-in, ``short_convergent_gaps``, draws every convergent TU-boundary
-gap from ``convergent_gap_bp`` (default 10-150 bp; one extra draw, only when on).
+gap from ``convergent_gap_bp`` (default -20...300 bp, negative gaps are 3' overlaps; one extra
+draw, only when on).
 ``layout_from_simulation`` turns the M0 full simulator output into the same frames. Randomness only
 from the generator passed in; nothing is imported from ``giap``.
 """
@@ -121,9 +122,10 @@ class LayoutConfig:
     # each drawn p about 0.5; draws nothing extra
     uniop_pure: bool = False
     # M6-03 (lead decision 11): draw the gap of every convergent (+ then -) TU boundary uniformly
-    # from ``convergent_gap_bp`` (inclusive) instead of the inter-TU range; off draws nothing
+    # from ``convergent_gap_bp`` (inclusive) instead of the inter-TU range; off draws nothing.
+    # Decision 23: (-20, 300), negative gaps are 3' overlaps of convergent genes (as intra-TU gaps)
     short_convergent_gaps: bool = False
-    convergent_gap_bp: tuple[int, int] = (10, 150)
+    convergent_gap_bp: tuple[int, int] = (-20, 300)
 
     def __post_init__(self) -> None:
         cv = tuple(int(v) for v in self.convergent_gap_bp)
