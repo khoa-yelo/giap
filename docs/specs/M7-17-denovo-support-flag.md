@@ -319,3 +319,9 @@ Tests ≈ 280, not gated: unit ≈ 140, step ≈ 70, report ≈ 20, calibration 
    RBS exemption" to Khoa with the numbers.
 2. Q2–Q9: the defaults are accepted. The mixed-arm and `orf_regimes` auto-source fixes go to the backlog.
 3. Q10: the lead marks ADR-0050 accepted (option 3 with the flag, option 1 later) before the test-author starts.
+4. **After the tests (cef45b31):**
+   - **Escape share:** 0.060 for cds_outframe and 0.075 for antisense; intergenic is never exempt (Slurm 1879351, fast tier, R = 10, 1M). This is below the 0.2 line, so the RBS exemption stands and Khoa isn't needed.
+   - **The existing test** `test_novel_evidence.py::test_flag_order_matches_the_schema_pattern` and its fixture's 12-token `FLAG_ORDER` will be updated by the lead when the flag lands. Acceptance criterion 5 means "existing tests unchanged except that flag list".
+   - **The calibration test imports #271's harness,** so this PR merges after #271.
+   - **The test reruns its own G4-k3 arm** instead of reusing the G4-k3 runs. That is accepted for now: it costs one extra simulation per replicate. Reusing them goes to the backlog.
+   - **"q, called and rank unchanged"** is covered by the `apply_evidence` unit tests only.
