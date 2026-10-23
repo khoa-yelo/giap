@@ -90,16 +90,21 @@ workflow ANNOTATE {
     def reps = kv('replicons', pick(P, 'replicons.parquet'))
     def core = [genes, kv('features', pick(P, 'features.parquet')), reps]
 
-    // M2-12 registry: operon_pairs always gets uniop_cds / uniop_map; a precomputed operon_pairs
-    // layer (read by the step from the config) replaces only UniOP itself.
-    def ui = stepIn('uniop_input', [genes, reps])
-    UNIOP_INPUT(ui.files, ui.keys, ['uniop_cds=uniop_cds.gff', 'uniop_map=uniop_map.tsv'])
-    def U = UNIOP_INPUT.out.outputs
-    def cds = pick(U, 'uniop_cds.gff')
-    def pairs = [kv('uniop_cds', cds), kv('uniop_map', pick(U, 'uniop_map.tsv'))]
-    if (!pc.operon_pairs) {
+    // M2-12 registry: operon_pairs always gets uniop_cds / uniop_map. A precomputed operon_pairs
+    // layer (read by the step from the config) replaces uniop_input and UniOP, and is staged under
+    // both keys, as the local executor does (registry precomputed="operon_pairs"; MVP-03 example 10).
+    def pairs
+    if (pc.operon_pairs) {
+        def layer = channel.value(file(pc.operon_pairs, checkIfExists: true))
+        pairs = [kv('uniop_cds', layer), kv('uniop_map', layer)]
+    } else {
+        def ui = stepIn('uniop_input', [genes, reps])
+        UNIOP_INPUT(ui.files, ui.keys, ['uniop_cds=uniop_cds.gff', 'uniop_map=uniop_map.tsv'])
+        def U = UNIOP_INPUT.out.outputs
+        def cds = pick(U, 'uniop_cds.gff')
         UNIOP(gid.combine(cds))
-        pairs += [kv('uniop_pred', UNIOP.out.pred)]
+        pairs = [kv('uniop_cds', cds), kv('uniop_map', pick(U, 'uniop_map.tsv')),
+                 kv('uniop_pred', UNIOP.out.pred)]
     }
     def op = stepIn('operon_pairs', [genes, reps, kv('genome', genome)] + pairs)
     OPERON_PAIRS(op.files, op.keys, ['pairs_raw=pairs_raw.parquet', 'tus=tus.parquet', 'operon_meta=operon_meta.json'] +
