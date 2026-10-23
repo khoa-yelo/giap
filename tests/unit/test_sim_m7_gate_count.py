@@ -56,7 +56,7 @@ def _digest(out: Path) -> dict[str, str]:
     return {
         str(p.relative_to(out)): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in sorted(out.rglob("*"))
-        if p.is_file()
+        if p.is_file() and p.name != "config.yaml"  # holds the output path
     }
 
 

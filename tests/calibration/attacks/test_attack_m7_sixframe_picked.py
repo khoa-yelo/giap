@@ -159,7 +159,6 @@ def test_attack_picked_label_is_fair_coin(
 
 
 @pytest.mark.calibration
-@pytest.mark.xfail(strict=True, reason="statistician PR #225 round 3, item 1: class q floor")
 def test_attack_default_scenario_can_reach_class_alpha(
     tmp_path_factory: pytest.TempPathFactory, base: int
 ) -> None:

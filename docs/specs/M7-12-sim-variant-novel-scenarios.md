@@ -213,3 +213,7 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
         need the post-coin share;
       - N2: already covered at backlog line 471;
       - N3: G4 for `nterm_extension` goes through M7-11's locus-tag pairing.
+27. **Implementer, decision 26 (7ddcf089).** The lead removes the class-floor strict xfail, which
+    now XPASSes, and excludes `config.yaml` (it holds output paths) from the digest in
+    `test_none_output_byte_identical_at_100k`, as the other pin helpers already do. The 1M
+    gate-count benchmark is 7.2 s.
