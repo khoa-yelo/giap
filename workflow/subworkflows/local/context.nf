@@ -70,4 +70,5 @@ workflow CONTEXT {
     island_diagnostics = pick(CONTEXT_STATS.out.outputs, 'island_diagnostics.parquet')
     sensitivity      = pick(SENSITIVITY.out.outputs, 'sensitivity.tsv')
     versions         = CONTEXT_STATS.out.versions.mix(SENSITIVITY.out.versions)
+    events           = CONTEXT_STATS.out.events.mix(SENSITIVITY.out.events)
 }

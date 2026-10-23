@@ -46,6 +46,7 @@ workflow NOVEL {
         'novel_windows_map=novel_windows_map.parquet', 'ostir_input_novel=ostir_input_novel.csv'] +
         scatterSpec('novel_windows', 'novel_windows/windows_*.fa', n_chunks, true))
     def C = NOVEL_CANDIDATES.out.outputs
+    def ev = [NOVEL_CANDIDATES.out.events]   // step event logs, for REPORT (M9-13)
     def cand = kv('novel_candidates', pick(C, 'novel_candidates.parquet'))
 
     def npw = channel.empty()
@@ -58,6 +59,7 @@ workflow NOVEL {
             ['novel_windows_map', 'promotech_novel'])
         NOVEL_PROMOTER_LAYER(pl.files, pl.keys, ['novel_promoter_windows=novel_promoter_windows.parquet'])
         npw = kv('novel_promoter_windows', pick(NOVEL_PROMOTER_LAYER.out.outputs, 'novel_promoter_windows.parquet'))
+        ev += [NOVEL_PROMOTER_LAYER.out.events]
     }
 
     def rbn = channel.empty()
@@ -73,6 +75,7 @@ workflow NOVEL {
             kv('ostir_input_novel', oin), cand], ['ostir_novel', 'ostir_input_novel', 'novel_candidates'])
         NOVEL_RBS_LAYER(rl.files, rl.keys, ['rbs_novel=rbs_novel.parquet'])
         rbn = kv('rbs_novel', pick(NOVEL_RBS_LAYER.out.outputs, 'rbs_novel.parquet'))
+        ev += [NOVEL_RBS_LAYER.out.events]
     }
 
     def first = layers.filter { p -> p[0] in ['promoter_windows', 'terminators'] }
@@ -88,4 +91,5 @@ workflow NOVEL {
     novel_orfs_gff3  = pick(O, 'novel_orfs.gff3')
     novel_orfs_faa   = pick(O, 'novel_orfs.faa')
     annotation_patch = pick(O, 'annotation_patch.gff3')
+    events           = ev.inject(NOVEL_ORFS.out.events) { acc, c -> acc.mix(c) }
 }

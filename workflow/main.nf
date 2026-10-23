@@ -108,6 +108,12 @@ workflow {
                         kv('enrichment_gsea', FUNCTION.out.enrichment_gsea)]
             }
         }
+        // the step event logs, merged in a content order, under the key 'events' as the local
+        // executor's live logs/events.jsonl: the plots read their run flags from it (M9-13)
+        def ev = inputs.peptides ? ANNOTATE.out.events.mix(MAPPING.out.events, VARIANTS.out.events,
+            GENETABLE.out.events, CONTEXT.out.events, NOVEL.out.events, OPERONS.out.events) : ANNOTATE.out.events
+        if (inputs.peptides && 'function' in (params.modules ?: [])) ev = ev.mix(FUNCTION.out.events)
+        pub += [kv('events', ev.collectFile(name: 'events.jsonl', sort: { f -> f.text }))]
         REPORT(pub.inject(channel.empty()) { acc, c -> acc.mix(c) })
     } else {
         def keys = inputs.keySet().sort()
