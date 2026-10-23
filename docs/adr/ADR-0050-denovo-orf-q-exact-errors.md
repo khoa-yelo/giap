@@ -1,5 +1,5 @@
 # ADR-0050: ORF-level q in the de novo subgroup regime under exact systematic errors (G4-k3, attack GC)
-- Status: proposed
+- Status: accepted-by-khoa (2026-10-23)
 - Date: 2026-10-23
 - Spec sections: §7.6 (novel ORFs), §8.4 (class FDR), §8.5 (attacks), §13 gate M7; M7-11 decision 3; M7-13 rule 8
 - Needs Khoa: yes. Options 4 and 5 change a gate generator or the call rule (R3); option 3 records a
@@ -60,3 +60,17 @@ Khoa decides. The gate (M7-13c) lists these as open known failures, not as met.
 
 Source: the M7-13b statistician's full-tier report (2026-10-23); its scripts and logs are in
 `local/stat/m713b-full/`.
+
+## Decision (Khoa, 2026-10-23)
+1. **Option 3 now:**
+   - exact systematic de novo errors are a documented limitation of the class FDR;
+   - G4-k3 (cds_outframe and antisense at 0.01 and 0.05, intergenic at 0.01) and attack GC at
+     q 0.01 stay strict xfails naming this ADR;
+   - the M7 gate (M7-13c) lists them as **accepted known failures**, so the gate can read "met"
+     with them open.
+2. **The flag:** de novo-only novel-ORF calls with no database PSM and no RBS/TIR support are
+   flagged. That is M7-17, `m7/denovo-support-flag`.
+3. **Option 1 later:** picked ORF-level competition on the genome decoy goes to the backlog for the
+   reversed-stretch arm. It cannot fix the exact arm.
+4. **A6c (ADR-0049):** stays a strict xfail as an accepted known failure (Khoa, 2026-10-23). It is
+   recorded in M7-13c part 2.
