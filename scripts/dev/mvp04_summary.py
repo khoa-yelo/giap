@@ -1,5 +1,5 @@
 """MVP-04 evidence-run summary (docs/specs/MVP-04-ecoli-evidence-run.md "The run", acceptance
-gates 1-16; lead decisions 11, 15 and 19).
+gates 1-16; lead decisions 11, 15, 19, 20 and 22).
 
 Reads only published GIAP outputs and the giapsim inputs (plus a second giapsim call with the same
 seed for gate 9) and writes ``<outdir>/evidence_summary.json`` (strict JSON: NaN as null):
@@ -8,6 +8,8 @@ seed for gate 9) and writes ``<outdir>/evidence_summary.json`` (strict JSON: NaN
 ``outside_expected`` = gate met but value outside the expected range, reported; ``fail``) plus
 per-gate keys; the gate definitions are pinned in tests/unit/test_mvp04_summary_gates.py. Each
 ``gate<N>`` only reads files and never raises on a missing output (the gate then fails).
+Gate 13 (decision 20) gates the one planted high island; the three planted lows are exempt
+(structural cap) and reported with their ceiling from ``giap.context.islands``.
 
 Gate 7 (part 1, ``gate7()``):
 
@@ -38,6 +40,8 @@ import sys
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
+
+from giap.context.islands import low_direction_ceiling
 
 PROTEIN_NULL_ORIGIN = "undetected_product"  # MVP-04 lead decision 9
 SIXFRAME_NULL_ORIGIN = "sixframe_noncoding"
@@ -413,25 +417,43 @@ def _tu_num(tu: str | None) -> int | None:
 
 
 def gate13(outdir: Path, inputs: Path) -> dict[str, Any]:
-    """Context: lag-1 tu_block Moran's I, planted islands recovered, region stats present."""
+    """Context: lag-1 tu_block Moran's I, the planted high island recovered, region stats present.
+
+    Lead decisions 20 and 22: every planted high island must be recovered by a ``high`` call
+    covering >= 50 % of its genes; a spurious call shares no gene with any planted island (lows
+    included). The lows are exempt (structural cap) and reported in ``low_ceilings`` with w (the
+    island's TUs holding >= 1 eligible ``tables/genes.tsv`` gene), q (the undetected share of the
+    eligible genes) and the raw ``low_direction_ceiling(q, w)``.
+    """
     outdir, inputs = Path(outdir), Path(inputs)
     tu_genes: dict[int, set[str]] = {}
     for g in _read(inputs / "truth" / "genes.tsv"):
         n = _tu_num(g.get("tu_id"))
         if n is not None:
             tu_genes.setdefault(n, set()).add(g["locus_tag"])
-    planted: list[tuple[str, set[str]]] = []
+    planted: list[tuple[str, str, dict[int, set[str]]]] = []
     for isl in _read(inputs / "truth" / "islands.tsv"):
         lo, hi = _tu_num(isl.get("first_tu_id")), _tu_num(isl.get("last_tu_id"))
-        genes = set().union(*(v for k, v in tu_genes.items() if lo is not None and hi is not None
-                              and lo <= k <= hi))  # fmt: skip
-        planted.append(("high" if (_num(isl.get("effect_sd")) or 0) > 0 else "low", genes))
+        tus = {k: v for k, v in tu_genes.items() if lo is not None and hi is not None
+               and lo <= k <= hi}  # fmt: skip
+        d = "high" if (_num(isl.get("effect_sd")) or 0) > 0 else "low"
+        planted.append((isl.get("island_id", ""), d, tus))
     calls = [(c.get("direction"), set(_ids(c.get("genes"))))
              for c in _read(outdir / "tables" / "islands.tsv")]  # fmt: skip
-    n_rec = sum(1 for d, gs in planted if gs and any(
-        cd == d and len(cg & gs) >= 0.5 * len(gs) for cd, cg in calls))  # fmt: skip
-    all_planted = set().union(*(gs for _, gs in planted))
+    highs = [set().union(*tus.values()) for _, d, tus in planted if d == "high"]
+    n_rec = sum(1 for gs in highs if gs and any(
+        cd == "high" and len(cg & gs) >= 0.5 * len(gs) for cd, cg in calls))  # fmt: skip
+    all_planted = set().union(*(v for _, _, tus in planted for v in tus.values()))
     n_spur = sum(1 for _, cg in calls if not cg & all_planted)
+    eligible = _eligible(outdir)
+    scored = {g["locus_tag"] for g in eligible}
+    n_und = sum(1 for g in eligible if not _true(g.get("detected")))
+    q = n_und / len(eligible) if eligible else math.nan
+    low_ceilings: dict[str, dict[str, Any]] = {}
+    for iid, d, tus in planted:
+        if d == "low":
+            w = sum(1 for v in tus.values() if v & scored)
+            low_ceilings[iid] = {"w": w, "q": q, "ceiling": low_direction_ceiling(q, w)}
     ac = next((r for r in _read(outdir / "tables" / "autocorrelation.tsv")
                if r.get("statistic") == "morans_i" and _int(r.get("lag")) == 1
                and r.get("null_model") == "tu_block"), {})  # fmt: skip
@@ -444,10 +466,12 @@ def gate13(outdir: Path, inputs: Path) -> dict[str, Any]:
                and not any(_num(s.get("effect")) is not None for s in ss)]  # fmt: skip
     missing = sorted(t for t, ss in by_type.items() if not ss)
     regions_ok = bool(types) and not missing and not na_only
-    ok = (mi is not None and mi > 0 and p is not None and p <= 0.01 and n_rec >= 4
-          and n_spur <= 2 and regions_ok)  # fmt: skip
-    return _entry(n_rec, [5, 6], "Moran's I > 0, p <= 0.01; >= 4 of 6 islands; <= 2 spurious; "
-                  "regions_stats rows", ok, _within(n_rec, 5, 6), n_spurious=n_spur,
+    ok = (mi is not None and mi > 0 and p is not None and p <= 0.01 and bool(highs)
+          and n_rec == len(highs) and n_spur <= 2 and regions_ok)  # fmt: skip
+    return _entry(n_rec, [1, 1], "Moran's I > 0, p <= 0.01; every planted high island; <= 2 "
+                  "spurious; regions_stats rows; lows exempt", ok,
+                  _within(n_rec, 1, 1) and n_spur == 0, n_recovered_high=n_rec,
+                  n_spurious=n_spur, low_exempt=True, low_ceilings=low_ceilings,
                   autocorrelation={"morans_i": mi, "p_value": p}, regions_ok=regions_ok,
                   regions_missing_types=missing)  # fmt: skip
 
