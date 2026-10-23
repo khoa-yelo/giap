@@ -663,6 +663,17 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
 
+## M9-14 review nits (#221; one round)
+- No test pins escaping of data values in twin JSON independent of plotly's own `<` escaping (a
+  `json.dumps`-built test twin would kill the `_script_json`-removed mutant); the probe was inert.
+- A string-column `NA` in a data TSV reaches a twin as NaN and is written as `"nan"`: M9-15 twins
+  should read data TSVs with `keep_default_na=False` or map NA explicitly.
+- JS vs Python string order (code point vs UTF-16 unit) and lowercasing (final sigma) differ in rare
+  cases; document in the methods/report notes. The 5 `tables.js` mutants survive (decision 1).
+- `giap run --strict` does not map `report.size_exceeded` to exit 3 (only preflight warnings reach
+  it today); wire step-level strict warnings once a second one exists.
+- `remove_uids=True` in `figure_json` is unpinned; an instance with a twin but no SVG still gets
+  "plot file absent".
 ### M9-08 (V01 circos) after the review round
 - No unit test renders V01 with empty promoter/terminator/TU tables (crash fixed in 8faffdb was
   caught only by integration tests).
