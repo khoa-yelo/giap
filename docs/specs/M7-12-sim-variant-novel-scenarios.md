@@ -96,3 +96,20 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
    tolerances key.
 4. Feature loop: test-author → implementer (giapsim is tooling the implementer writes) → the
    statistician signs off the generators M7-13 gates on → code review.
+
+## Lead decisions on the tests (2026-10-22, after 070a167)
+
+5. The benchmark (`benchmarks/test_sim_m7_bench.py`: each scenario best of 3 under 2 s at 100 kb,
+   under 20 s at 1 Mb, recorded in `benchmarks/baseline.json` from a Slurm run) is written by the
+   implementer, as giapsim tooling.
+6. No site-level error truth file in M7-12: `truth/denovo.tsv` (error type per spectrum) joined
+   with `truth/alt_sites.tsv` by peptide is enough; if M7-10's tests need a `(spectrum, site)` file,
+   M7-10 adds it.
+7. `n_true_peptides` counts database-correct peptides (`truth/peptides.tsv`, `is_wrong = false`),
+   as the tests read it; de novo reads are not counted.
+8. **RBS bar.** The ≥ 0.90 point-estimate bar stays. Planted ORF RBSs may be drawn from a stronger
+   distribution than first-round TU RBSs (documented in the scenario docstring) so the bar is met by
+   design, not by false-positive `rbs.tsv` rows; the statistician reviews the generator at sign-off.
+9. File names keep M3-20's `peptides_denovo.tsv` and `reference_peptides.tsv` (example 1's wording
+   is loose).
+10. The optional ADR-0012 σ70 promoter / terminator after planted ORFs is not in M7-12 (backlog).
