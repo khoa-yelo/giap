@@ -16,26 +16,56 @@ with ``oric_frac = 0.8`` and the cosine shape (lead decision 16).
   no seed; whether it overlaps a region is left to the caller);
 - ``oriter_gradient``: ``ar1_background`` with an oriC and the cosine gradient;
 - ``draft_ar1``: a draft assembly (500-gene chromosome + 133 linear 30-gene contigs) at ``rho``.
+
+M7-12 (docs/specs/M7-12-sim-variant-novel-scenarios.md; §7.5.6, §7.6.6, §8.4, §8.5 attack 6,
+§11.6 TE2) adds four nucleotide scenarios returning a ``giapsim.SimConfig`` for
+``giapsim.simulate(cfg, seed, outdir)``. The config does not depend on ``seed`` (the simulation
+seed draws everything); ``size`` "100k" / "1M" sets ``genome_length``. All are simulator-v2
+genomes (signals at strength 0.8) with ``m7_truth`` (``truth/alt_sites.tsv`` always, header only
+without a strain; see ``giapsim.scenario_truth``):
+
+- ``variant_f1``: sample vs reference by SNVs (1 / kb) and indels (0.2 / kb); sample-derived
+  database peptides, de novo reads with every error type and paired ``reference_peptides.tsv``;
+- ``novel_orf_power``: intergenic ORFs of 30-80 aa, out-of-frame and antisense ORFs (>= 30 aa)
+  found in CDSs and N-terminal extensions, ``NOVEL_PER_CLASS[size]`` of each; ``AGGAGG`` at
+  spacer 5-10 before every planted intergenic start and N-terminal true start, whose
+  ``rbs_novel`` TIRs come from ``scenario_truth.PLANTED_TIR`` = lognormal(9, 0.5), stronger than
+  the first-round TU RBSs' lognormal(8, 0.8) (lead decision 8: the >= 90 % calibration bar holds
+  by design); peptides (2 % wrong), de novo errors and the precomputed layers;
+- ``same_strain_insilico``: every Trypsin/P peptide (7-30 aa, <= 1 missed cleavage) of every
+  annotated protein, detected with probability 1, no wrong peptide, ``search_db = same``;
+- ``isobaric_attack``: de novo errors only of the block, near-block, modification and swap
+  types, no strain differences.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Literal
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Literal
 
 from giapsim.expression import DEFAULT_BETA, ExpressionConfig, FrozenMap, IslandSpec
 from giapsim.layout import LayoutConfig
 
+if TYPE_CHECKING:
+    from giapsim.simulate import SimConfig
+
 __all__ = [
     "ABUNDANCE_BETA",
+    "NOVEL_PER_CLASS",
     "ORIC_FRAC",
+    "SIZES",
     "ar1_background",
     "draft_ar1",
     "island_first_tu",
     "island_power",
+    "isobaric_attack",
     "label_null",
+    "novel_orf_power",
     "oriter_gradient",
+    "same_strain_insilico",
     "tu_null",
+    "variant_f1",
 ]
 
 Detection = Literal["covariates_only", "abundance"]
@@ -123,3 +153,73 @@ def draft_ar1(rho: float) -> Pair:
     """A draft assembly at AR(1) ``rho``: 500-gene ``chr1`` plus 133 linear 30-gene contigs."""
     lcfg = LayoutConfig(n_genes_chromosome=500, linear_contigs=_DRAFT_CONTIGS)
     return lcfg, ExpressionConfig(ar1_rho=rho)
+
+
+# ---------------------------------------------------------------- M7-12 nucleotide scenarios
+
+Size = Literal["100k", "1M"]
+#: Genome length of each scenario size.
+SIZES: Mapping[str, int] = MappingProxyType({"100k": 100_000, "1M": 1_000_000})
+#: Planted / found novel ORFs and N-terminal extensions per class of ``novel_orf_power``.
+NOVEL_PER_CLASS: Mapping[str, int] = MappingProxyType({"100k": 8, "1M": 40})
+_ISOBARIC_WEIGHTS = (("block", 0.4), ("near_block", 0.2), ("modification", 0.2), ("swap", 0.2))
+
+
+def _length(size: str) -> int:
+    if size not in SIZES:
+        raise ValueError(f"unknown size {size!r}; expected one of {sorted(SIZES)}")
+    return SIZES[size]
+
+
+def _v2(genome_length: int, **kw: object) -> SimConfig:
+    from giapsim.simulate import SimConfig
+
+    return SimConfig(genome_length=genome_length, rbs_strength=0.8, promoter_strength=0.8,
+                     terminator_strength=0.8, m7_truth=True, **kw)  # type: ignore[arg-type]  # fmt: skip
+
+
+def variant_f1(seed: int, size: Size = "100k") -> SimConfig:
+    """Strain differences for the ALT-classification F1 (§7.5.6); ``seed`` is not used."""
+    from giapsim.denovo import DenovoConfig
+    from giapsim.proteomics import ProteomicsConfig
+    from giapsim.strain import StrainConfig
+
+    strain = StrainConfig(snv_rate_per_kb=1.0, indel_rate_per_kb=0.2)
+    return _v2(_length(size), strain=strain, proteomics=ProteomicsConfig(), denovo=DenovoConfig())
+
+
+def novel_orf_power(seed: int, size: Size = "100k") -> SimConfig:
+    """Planted and found novel ORFs for the class-FDR / power gate (§7.6.6, §8.4); ``seed`` is
+    not used. Planted RBS TIRs are deliberately stronger than first-round ones (module doc)."""
+    from giapsim.denovo import DenovoConfig
+    from giapsim.proteomics import ProteomicsConfig
+
+    length = _length(size)
+    n = NOVEL_PER_CLASS[size]
+    return _v2(
+        length,
+        n_novel_orfs=(("intergenic", n), ("cds_outframe", n), ("antisense", n)),
+        n_nterm_extensions=n,
+        novel_orf_len_aa=(30, 80),
+        plant_novel_rbs=True,
+        write_precomputed=True,
+        proteomics=ProteomicsConfig(pi_wrong=0.02),
+        denovo=DenovoConfig(),
+    )
+
+
+def same_strain_insilico(seed: int) -> SimConfig:
+    """TE2's in-silico same-strain peptide set (§11.6) on a 100-kb genome; ``seed`` is not used."""
+    from giapsim.proteomics import ProteomicsConfig
+
+    prot = ProteomicsConfig(pi_wrong=0.0, detect_logit=(50.0, 0.0, 0.0), search_db="same")
+    return _v2(SIZES["100k"], n_sorfs=3, proteomics=prot)
+
+
+def isobaric_attack(seed: int) -> SimConfig:
+    """§8.5 attack 6: isobaric de novo errors only, no strain (100 kb); ``seed`` is not used."""
+    from giapsim.denovo import DenovoConfig
+    from giapsim.proteomics import ProteomicsConfig
+
+    dn = DenovoConfig(error_weights=dict(_ISOBARIC_WEIGHTS))
+    return _v2(SIZES["100k"], proteomics=ProteomicsConfig(), denovo=dn)
