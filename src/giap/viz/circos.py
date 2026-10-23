@@ -13,6 +13,7 @@ as two pieces. A track with more than 20,000 elements is binned (index decision 
 from __future__ import annotations
 
 import math
+import textwrap
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -20,17 +21,22 @@ import matplotlib
 import numpy as np
 import pandas as pd
 from matplotlib.artist import Artist
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.collections import LineCollection, PatchCollection
 from matplotlib.colors import Normalize
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
+from matplotlib.text import Text
+from matplotlib.textpath import TextPath
 from pycirclize import Circos
 from pycirclize.patches import ArcRectangle
+from pycirclize.utils.plot import get_label_params_by_rad
 
 from giap.viz import base, style
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
     from pycirclize.sector import Sector
 
     from giap.config import GiapConfig
@@ -55,6 +61,13 @@ RADII: dict[str, tuple[float, float]] = {
     "alt_site": (34.0, 34.0),
     "novel_orf": (30.0, 30.0),
 }
+LABEL_R = (24.0, 18.0, 12.0, 6.0)  # oriC / ter label radii, staggered inwards
+NAME_R, NAME_PT = (106.0, 113.0, 120.0), 7.0  # sector name radii, staggered outwards
+AX_RECT = (0.13, 0.05, 0.56, 0.83)  # the circle's axes, figure fraction
+#: ``layer_missing:<layer>`` flags that empty a ring of V1 (decision 18)
+RING_LAYERS = frozenset(
+    {"abundance", "antismash", "genomad", "promoters", "regions", "terminators"}
+)
 MAX_ELEMENTS = 20_000
 DENSITY_BP = 10_000
 PARTIAL_HATCH = "////"
@@ -64,6 +77,9 @@ PROMOTER = style.OKABE_ITO["bluish_green"]
 TERMINATOR = style.OKABE_ITO["vermillion"]
 NOVEL = style.OKABE_ITO["reddish_purple"]
 Row = tuple[str, str, int, int, object, object, bool]
+Label = tuple[
+    float, list[tuple[float, str]], float, str
+]  # theta, (r, text) options, pt, orientation
 
 
 def _na(v: object) -> bool:
@@ -103,25 +119,38 @@ def tick_label(x: float, step: int) -> str:
     return f"{x / 1e3:g} kb" if step >= 1_000 else f"{x:g} bp"
 
 
-def bin_edges(length: int, n: int) -> np.ndarray:
-    """``n + 1`` integer edges of ``n`` equal-width bins over ``[0, length)``, as in
-    ``base.binned``."""
-    n = max(1, min(n, length))
-    return (np.arange(n + 1, dtype=np.int64) * np.int64(length)) // np.int64(n)
+def _bins(
+    plot: _Plot, frame: pd.DataFrame, pos: str, values: str, reduce: Callable[[np.ndarray], Any]
+) -> list[tuple[str, int, int, Any]]:
+    """Non-empty bins ``(contig, start, end, reduce(values in bin))`` of ``frame`` by the 0-based
+    column ``pos``; each sector gets its length's share of ``MAX_ELEMENTS`` bins
+    (``base.bin_edges``, as ``base.binned``)."""
+    total = sum(plot.length(c) for c in plot.reps)
+    out = []
+    for c in plot.reps:
+        g = frame[frame["contig"] == c]
+        edges = base.bin_edges(plot.length(c), MAX_ELEMENTS * plot.length(c) // total)
+        idx = np.searchsorted(edges, g[pos].astype(int).to_numpy(), side="right") - 1
+        order = np.argsort(idx, kind="stable")
+        keys, first = np.unique(idx[order], return_index=True)
+        vals = g[values].to_numpy()
+        for k, ix in zip(keys.tolist(), np.split(order, first[1:])[: len(keys)], strict=True):
+            out.append((c, int(edges[k]), int(edges[k + 1]), reduce(vals[ix])))
+    return out
 
 
-def _groups(
-    starts: pd.Series, length: int, total: int
-) -> tuple[np.ndarray, list[tuple[int, np.ndarray]]]:
-    """This sector's share of ``MAX_ELEMENTS`` bins and the row indices per non-empty bin."""
-    edges = bin_edges(length, MAX_ELEMENTS * length // total)
-    pos = starts.astype(int).to_numpy()
-    if len(pos) == 0:
-        return edges, []
-    idx = np.clip(np.searchsorted(edges, pos, side="right") - 1, 0, len(edges) - 2)
-    order = np.argsort(idx, kind="stable")
-    keys, first = np.unique(idx[order], return_index=True)
-    return edges, list(zip(keys.tolist(), np.split(order, first[1:]), strict=True))
+def _median(v: np.ndarray) -> float | None:
+    m = [float(x) for x in v if not _na(x)]
+    return float(np.median(m)) if m else None
+
+
+def name_options(name: str, room_pt: float) -> tuple[list[tuple[float, str]], str]:
+    """Candidate ``(r, text)`` of a sector name and its orientation: tangential at staggered
+    radii when it fits ``room_pt`` (its arc), else radial, whole, then ever shorter + "…"."""
+    if TextPath((0, 0), name, size=NAME_PT).get_extents().width <= room_pt:
+        return [(r, name) for r in NAME_R], "horizontal"
+    cut = [name[:k] + "…" for k in range(len(name) - 1, 0, -1)]
+    return [(NAME_R[0], t) for t in [name, *cut]], "vertical"
 
 
 def _plural(n: int, word: str) -> str:
@@ -169,10 +198,30 @@ class _Canvas:
 
     def __init__(self, ax: Axes, sectors: dict[str, Sector]) -> None:
         self.ax, self.sectors = ax, sectors
+        self.labels: list[Label] = []
+
+    def place_labels(self, fig: Figure) -> None:
+        """Sector names, then oriC / ter labels, each at its first candidate ``(r, text)`` that
+        lies inside the figure and overlaps no text already drawn, measured with
+        FigureCanvasAgg after draw (decision 17); with none, the last candidate."""
+        canvas = FigureCanvasAgg(fig)
+        canvas.draw()  # type: ignore[no-untyped-call]  # polar axes turn square at draw time
+        renderer = canvas.get_renderer()  # type: ignore[no-untyped-call]
+        boxes = [t.get_window_extent(renderer) for t in fig.findobj(Text) if t.get_text()]
+        for rad, options, size, orientation in self.labels:
+            for r, label in options:
+                kw = get_label_params_by_rad(rad, orientation, outer=r > 100)
+                t = self.ax.text(rad, r, label, fontsize=size, **kw)
+                box = t.get_window_extent(renderer)
+                inside = fig.bbox.containsx(box.x0) and fig.bbox.containsx(box.x1)
+                inside &= fig.bbox.containsy(box.y0) and fig.bbox.containsy(box.y1)
+                if (r, label) == options[-1] or (inside and not any(map(box.overlaps, boxes))):
+                    break
+                t.remove()
+            boxes.append(box)
 
     def rad(self, contig: str, x: float) -> float:
-        sector = self.sectors[contig]
-        return float(sector.x_to_rad(min(max(x, 0.0), sector.size)))
+        return float(self.sectors[contig].x_to_rad(x))
 
     def arc(self, contig: str, a: float, b: float, r0: float, r1: float) -> ArcRectangle:
         ra, rb = self.rad(contig, a), self.rad(contig, b)
@@ -240,7 +289,6 @@ def _genes(plot: _Plot, canvas: _Canvas, genes: pd.DataFrame) -> bool:
         None if i or _na(v) else float(v)
         for v, i in zip(genes["abundance_log2"], imputed, strict=True)
     ]
-    total_len = sum(plot.length(c) for c in plot.reps)
     binned = len(genes) > MAX_ELEMENTS
     for track, strand in (("gene_plus", "+"), ("gene_minus", "-")):
         sub = genes[genes["strand"] == strand]
@@ -257,36 +305,24 @@ def _genes(plot: _Plot, canvas: _Canvas, genes: pd.DataFrame) -> bool:
                 )
             continue
         arcs = []
-        for c in plot.reps:
-            g = sub[sub["contig"] == c]
-            edges, groups = _groups(g["start"], plot.length(c), total_len)
-            det = (g["detection_status"] == "detected").to_numpy()
-            for k, ix in groups:
-                share = float(det[ix].mean())
-                plot.add(track, c, int(edges[k]), int(edges[k + 1]), share, "detected_share", True)
-                hexc = matplotlib.colors.to_hex(matplotlib.colormaps[style.CONTINUOUS](share))
-                arcs.append((canvas.arc(c, edges[k], edges[k + 1], r0, r1), hexc))
+        sub = sub.assign(det=sub["detection_status"] == "detected")
+        for c, s0, e0, share in _bins(plot, sub, "start", "det", lambda v: float(v.mean())):
+            plot.add(track, c, s0, e0, share, "detected_share", True)
+            hexc = matplotlib.colors.to_hex(matplotlib.colormaps[style.CONTINUOUS](share))
+            arcs.append((canvas.arc(c, s0, e0, r0, r1), hexc))
         canvas.rects(track, arcs, edgecolors="none", linewidths=0)
-    _abundance(plot, canvas, genes, binned, total_len)
+    _abundance(plot, canvas, genes, binned)
     return binned
 
 
-def _abundance(plot: _Plot, canvas: _Canvas, genes: pd.DataFrame, binned: bool, total: int) -> None:
+def _abundance(plot: _Plot, canvas: _Canvas, genes: pd.DataFrame, binned: bool) -> None:
     r0, r1 = RADII["abundance"]
-    cells: list[tuple[str, int, int, float | None]] = []
-    for c in plot.reps:
-        g = genes[genes["contig"] == c]
-        if not binned:
-            cells += [
-                (c, int(s), int(e), _num(v))
-                for s, e, v in zip(g["start"], g["end"], g["measured"], strict=True)
-            ]
-            continue
-        edges, groups = _groups(g["start"], plot.length(c), total)
-        vals = [_num(v) for v in g["measured"]]
-        for k, ix in groups:
-            m = [vals[i] for i in ix.tolist() if vals[i] is not None]
-            cells.append((c, int(edges[k]), int(edges[k + 1]), float(np.median(m)) if m else None))
+    cols = (genes[k] for k in ("contig", "start", "end", "measured"))
+    cells = (
+        _bins(plot, genes, "start", "measured", _median)
+        if binned
+        else [(str(c), int(s), int(e), _num(v)) for c, s, e, v in zip(*cols, strict=True)]
+    )
     colours = _abundance_colours([v for *_, v in cells])
     arcs = []
     for (c, s, e, v), hexc in zip(cells, colours, strict=True):
@@ -316,36 +352,43 @@ def _density(plot: _Plot, canvas: _Canvas, hits: pd.DataFrame) -> None:
 
 
 def _ticks(plot: _Plot, canvas: _Canvas, view: RunView) -> None:
+    """TU starts and promoter / terminator ticks at the transcription start (modulo the length);
+    per-bin counts above ``MAX_ELEMENTS`` elements."""
     r0, r1 = RADII["ticks"]
     mid = (r0 + r1) / 2
     tus = view.table("tus_tsv")
     if tus is not None:
-        segs = []
-        for r in plot.known(tus).itertuples(index=False):
-            s, e, c = int(r.start), int(r.end), str(r.contig)
-            x = s if r.strand == "+" else e - 1
-            plot.add("tu_start", c, x, x + 1, None, r.tu_id)
-            segs.append((c, float(x if r.strand == "+" else x + 1), r0, r1))
-        canvas.ticks("tu_start", segs, BLACK)
-    for key, track, colour, (lo, hi) in (
-        ("promoters_bed", "promoter", PROMOTER, (mid, r1)),
-        ("terminators_bed", "terminator", TERMINATOR, (r0, mid)),
+        tus = plot.known(tus)
+        x = np.where(tus["strand"] == "+", tus["start"].astype(int), tus["end"].astype(int) - 1)
+        tus = tus.assign(chrom=tus["contig"], start=x, end=x + 1, score=None, name=tus["tu_id"])
+    for frame, track, colour, (lo, hi) in (
+        (tus, "tu_start", BLACK, (r0, r1)),
+        (view.table("promoters_bed"), "promoter", PROMOTER, (mid, r1)),
+        (view.table("terminators_bed"), "terminator", TERMINATOR, (r0, mid)),
     ):
-        bed = view.table(key)
-        if bed is None:
+        if frame is None:
             continue
+        frame = plot.known(frame, "chrom")
+        minus = (frame["strand"] == "-") if "strand" in frame else False
+        lengths = frame["chrom"].astype(str).map(plot.length)
+        tss = (np.where(minus, frame["end"].astype(int) - 1, frame["start"].astype(int))) % lengths
+        frame = frame.assign(tss=tss, minus=minus)
         segs = []
-        for r in plot.known(bed, "chrom").itertuples(index=False):
-            c, strand = str(r.chrom), getattr(r, "strand", "+")
-            plot.add(
-                track,
-                c,
-                int(r.start),
-                int(r.end),
-                _num(getattr(r, "score", None)),
-                getattr(r, "name", None),
-            )
-            segs.append((c, float(r.start if strand != "-" else r.end), lo, hi))
+        if len(frame) > MAX_ELEMENTS:  # per-bin counts, bar length to the sector maximum
+            bins = _bins(plot, frame.assign(contig=frame["chrom"]), "tss", "tss", len)
+            top: dict[str, int] = {}
+            for c, *_, n in bins:
+                top[c] = max(top.get(c, 1), n)
+            for c, s0, e0, n in bins:
+                plot.add(track, c, s0, e0, n, "count", True)
+                segs.append((c, (s0 + e0) / 2, lo, lo + (hi - lo) * n / top[c]))
+            canvas.ticks(track, segs, colour)
+            continue
+        for r in frame.itertuples(index=False):
+            c = str(r.chrom)
+            s0, e0 = (r.tss, r.tss + 1) if track == "tu_start" else (int(r.start), int(r.end))
+            plot.add(track, c, s0, e0, _num(getattr(r, "score", None)), getattr(r, "name", None))
+            segs.append((c, float(r.tss + bool(r.minus)), lo, hi))
         canvas.ticks(track, segs, colour)
 
 
@@ -388,14 +431,8 @@ def _support(plot: _Plot, canvas: _Canvas, view: RunView) -> None:
                 linewidth=0.6,
                 gid=track,
             )
-            canvas.ax.text(
-                rad,
-                RADII["novel_orf"][0] - 8,
-                "oriC" if track == "oric" else "ter",
-                ha="center",
-                va="center",
-                fontsize=6,
-            )
+            text = "oriC" if track == "oric" else "ter"
+            canvas.labels.append((rad, [(r, text) for r in LABEL_R], 6.0, "horizontal"))
 
 
 def _markers(plot: _Plot, canvas: _Canvas, view: RunView) -> list[str]:
@@ -419,12 +456,14 @@ def _markers(plot: _Plot, canvas: _Canvas, view: RunView) -> list[str]:
         o = plot.known(orfs[orfs["called"].astype("boolean").fillna(False).astype(bool)])
         counts.append(_plural(len(o), "novel ORF"))
         pts_o = []
-        for r in o.itertuples(index=False):
-            first = r.start_longest if not _na(r.start_longest) else r.start_best_ostir
-            ends = [int(r.end)] + ([] if _na(first) else [int(first) + 1])  # 1-based
-            lo, hi = min(ends), max(ends)
-            plot.add("novel_orf", str(r.contig), lo - 1, hi, _num(r.n_peptides), r[1])
-            pts_o.append((str(r.contig), (lo - 1 + hi) / 2))
+        for r, kind in zip(o.itertuples(index=False), o["class"], strict=True):
+            c, n, end = str(r.contig), plot.length(str(r.contig)), int(r.end)
+            # RunView reads the start columns 0-based; back to 1-based (decision 15)
+            starts = [int(v) + 1 for v in (r.start_best_ostir, r.start_longest) if not _na(v)]
+            lo, hi = (starts[0], end) if starts and r.strand == "+" else (end, [*starts, end][0])
+            hi += n if hi < lo else 0  # wrapped across the origin (decision 14), 1-based
+            plot.add("novel_orf", c, lo - 1, hi, _num(r.n_peptides), kind)
+            pts_o.append((c, ((lo - 1 + hi) / 2) % n))
         canvas.markers(
             "novel_orf",
             pts_o,
@@ -472,7 +511,8 @@ def _legend(fig: Any, binned: bool, notes: Sequence[str]) -> None:
     )
     key = "gene colour: detected share (viridis)" if binned else "gene colour: detection status"
     text = [key, "abundance: log2, viridis 2nd-98th pct; white = NA or imputed", *notes]
-    fig.text(0.70, 0.04, "\n".join(text), ha="left", va="bottom", fontsize=6, color="#555555")
+    wrapped = [line for t in text for line in textwrap.wrap(t, 46, subsequent_indent="  ")]
+    fig.text(0.70, 0.02, "\n".join(wrapped), ha="left", va="bottom", fontsize=6, color="#555555")
 
 
 @base.plot(
@@ -491,8 +531,14 @@ def circos(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.Skip:
     assert genes is not None and pre is not None  # guaranteed by ``needs``
     plot = _Plot([r for r in pre["replicons"] if int(r["length"]) > 0])
     one = len(plot.reps) == 1 and plot.circular(next(iter(plot.reps)))
-    layout = Circos({c: plot.length(c) for c in plot.reps}, space=0 if one else 2)
+    space = 0 if one else 2
+    layout = Circos({c: plot.length(c) for c in plot.reps}, space=space)
+    fig = style.new_figure("double", 6.0)
+    fig.set_label("V01_circos")
+    width, height = fig.get_size_inches()
+    radius_pt = min(AX_RECT[2] * width, AX_RECT[3] * height) * 36  # half the axes, in points
     step = tick_step(max(plot.length(c) for c in plot.reps))
+    names: list[Label] = []
     for sector in layout.sectors:
         c = sector.name
         plot.add("sector", c, 0, plot.length(c), plot.length(c), str(plot.reps[c].get("topology")))
@@ -501,14 +547,15 @@ def circos(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.Skip:
         track.xticks_by_interval(
             step, label_size=6, tick_length=1.5, label_formatter=lambda x: tick_label(x, step)
         )
-        sector.text(c, r=112, size=7)
+        room = (sector.rad_size + math.radians(space)) * NAME_R[0] / 105 * radius_pt  # rlim 105
+        options, orientation = name_options(c, room)
+        names.append((float(np.mean(sector.rad_lim)), options, NAME_PT, orientation))
         for name in ("region", "gene_plus", "gene_minus", "abundance"):
             sector.add_track(RADII[name]).axis(fc="#F4F4F4", ec="none")
-    fig = style.new_figure("double", 6.0)
-    fig.set_label("V01_circos")
-    ax = fig.add_axes((0.02, 0.04, 0.64, 0.86), projection="polar")
+    ax = fig.add_axes(AX_RECT, projection="polar")
     layout.plotfig(ax=ax)
     canvas = _Canvas(ax, {s.name: s for s in layout.sectors})
+    canvas.labels += names
     linear = [
         (c, float(x), 60.0, 100.0)
         for c in plot.reps
@@ -533,9 +580,9 @@ def circos(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.Skip:
             edgecolors="none",
             linewidths=0,
         )
-    missing = sorted(f.split(":", 1)[1] for f in view.run_flags() if f.startswith("layer_missing:"))
-    if missing:
-        plot.notes.append(f"layers missing (their arcs absent): {', '.join(missing)}")
+    flags = {f.split(":", 1)[1] for f in view.run_flags() if f.startswith("layer_missing:")}
+    if missing := sorted(flags & RING_LAYERS):
+        plot.notes.append(f"layers missing (their rings absent): {', '.join(missing)}")
     binned = _genes(plot, canvas, genes)
     hits = view.table("peptide_hits")
     if hits is None:
@@ -567,4 +614,5 @@ def circos(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.Skip:
     title = "; ".join(parts)
     fig.suptitle(title, y=0.98)
     _legend(fig, binned, plot.notes)
+    canvas.place_labels(fig)
     return [base.Instance(None, fig, plot.frame(), title, coords=("start",))]
