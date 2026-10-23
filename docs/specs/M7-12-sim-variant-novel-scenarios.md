@@ -134,3 +134,16 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
     (power denominators read the truth).
 16. **Coordinates.** `novel_orfs.tsv` `stop` is written 1-based like the rest of that table.
 17. Feature loop: test-author (tests for 11–16) → implementer → statistician re-check → code review.
+
+## Lead decisions on the round-2 tests (2026-10-22, after c2cd9102)
+
+18. The size key is `"300k"` (matching `"100k"` / `"1M"`); `junction = pos_reference + 1` (first
+    reference base after the VCF anchor) is accepted.
+19. Realised planted counts: the `novel_orfs.tsv` rows plus a WARNING are the record; no extra
+    truth file. The per-class expected false-candidate count and the I/L `ms_observable` column go
+    to M7-13 (backlog).
+20. **Lead edits to existing tests** for decisions 11, 14 and 16: the alt_sites header test accepts
+    the appended `frameshift_upstream`; the reference-frame alt_sites checks skip genes with a
+    frameshifting indel (the round-2 lift test covers them); the indel_sites set check compares
+    the in-frame rows only; `stop` is checked 1-based; the old 100k RBS calibration runs the
+    decision 8 sanity arm (`planted_tir = (9, 0.5)`).

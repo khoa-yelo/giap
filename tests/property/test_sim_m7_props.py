@@ -45,6 +45,8 @@ def test_alt_sites_consistent_for_any_seed(seed: int) -> None:
             snv[(s["contig"], cs, s["gene"])] = s
         correct = O.correct_peptide_rows(out)
         for r in O.rows(out / "truth" / "alt_sites.tsv"):
+            if O.truthy(r["frameshift_upstream"]):
+                continue  # sample-frame lift, checked by the round-2 tests (decision 11)
             s = snv[(r["contig"], int(r["codon_start"]), r["gene"])]
             assert (r["ref_aa"], r["alt_aa"]) == (s["ref_aa"], s["alt_aa"])
             n = O.recount_site_peptides(out, s["gene"], s["contig"], int(s["pos_sample"]),
@@ -64,7 +66,7 @@ def test_novel_truth_consistent_for_any_seed(seed: int) -> None:
             nt = O.strand_slice(genome[r["contig"]], s1 - 1, e1, st_)
             assert nt[:3] in O.STARTS and nt[-3:] in O.STOPS
             assert O.translate_orf(nt) == r["aa"]
-            assert int(r["stop"]) == ((e1 - 3) if st_ == "+" else (s1 - 1))
+            assert int(r["stop"]) == ((e1 - 2) if st_ == "+" else s1)  # 1-based (decision 16)
             assert int(r["true_start"]) == (s1 if st_ == "+" else e1)
             assert int(r["n_true_peptides"]) == O.recount_orf_peptides(out, r, correct)
 

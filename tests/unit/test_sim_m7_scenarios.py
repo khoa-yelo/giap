@@ -229,7 +229,8 @@ def test_every_scenario_writes_alt_sites(name: str, request: pytest.FixtureReque
     path = out / "truth" / "alt_sites.tsv"
     assert path.exists()
     assert Path(res.truth["alt_sites"]).resolve() == path.resolve()
-    assert O.header(path) == O.ALT_COLUMNS
+    head = O.header(path)  # decision 11 appends frameshift_upstream (lead edit)
+    assert head[: len(O.ALT_COLUMNS)] == O.ALT_COLUMNS and "frameshift_upstream" in head
 
 
 # ---------------------------------------------------------------- example 1: variant_f1
@@ -273,7 +274,10 @@ def test_example1_peptides_are_sample_derived(vf: Any) -> None:
 def test_alt_sites_match_strain_differences(vf: Any) -> None:
     out, _ = vf()
     alt = O.rows(out / "truth" / "alt_sites.tsv")
-    snvs = O.nonsyn_snvs(out)
+    # decision 11 (lead edit): genes with a frameshifting indel are checked by the round-2 lift
+    fs = {r["gene"] for r in O.rows(out / "truth" / "indel_sites.tsv") if O.truthy(r["frameshift"])}
+    alt = [r for r in alt if r["gene"] not in fs]
+    snvs = [s for s in O.nonsyn_snvs(out) if s["gene"] not in fs]
     ref_genes = O.bakta_features(out / "reference_bakta_like.json")
     ref_seq = O.read_fasta(out / "reference.fasta")
     want = set()
@@ -340,7 +344,9 @@ def test_decision2_indels_excluded_and_reported_separately(vf: Any) -> None:
     path = out / "truth" / "indel_sites.tsv"
     assert Path(res.truth["indel_sites"]).resolve() == path.resolve()
     assert set(O.INDEL_COLUMNS) <= set(O.header(path))
-    got = {tuple(r[c] for c in O.INDEL_COLUMNS) for r in O.rows(path)}
+    # decision 11 (lead edit): frameshifts are listed too, flagged; the in-frame ones are as before
+    rows = [r for r in O.rows(path) if not O.truthy(r["frameshift"])]
+    got = {tuple(r[c] for c in O.INDEL_COLUMNS) for r in rows}
     assert got == set(O.inframe_indels(out))
     # no alt_sites row sits on an indel
     alt = O.rows(out / "truth" / "alt_sites.tsv")
@@ -392,8 +398,9 @@ def test_novel_ids_unique(nop: Any) -> None:
 
 def test_novel_coordinates_stop_true_start_and_protein(nop: Any) -> None:
     """Rule 1: ``start..end`` (1-based closed) spans true start to stop on the receiving genome;
-    ``stop`` is the 0-based lowest base of the stop codon; ``true_start`` is the transcription-first
-    base of the start codon; ``aa`` is the translation (initiator as M, stop dropped)."""
+    ``stop`` is the 1-based lowest base of the stop codon (decision 16); ``true_start`` is the
+    transcription-first base of the start codon; ``aa`` is the translation (initiator as M,
+    stop dropped)."""
     out, _ = nop()
     genome = O.receiving_genome(out)
     for r in novel_rows(out):
@@ -403,7 +410,7 @@ def test_novel_coordinates_stop_true_start_and_protein(nop: Any) -> None:
         assert len(nt) % 3 == 0, r
         assert nt[:3] in O.STARTS and nt[-3:] in O.STOPS, (r["orf_id"], nt[:3], nt[-3:])
         assert O.translate_orf(nt) == r["aa"], r["orf_id"]
-        assert int(r["stop"]) == ((e1 - 3) if st == "+" else (s1 - 1)), r
+        assert int(r["stop"]) == ((e1 - 2) if st == "+" else s1), r  # 1-based (decision 16)
         assert int(r["true_start"]) == (s1 if st == "+" else e1), r
 
 

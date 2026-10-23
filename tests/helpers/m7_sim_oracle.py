@@ -10,8 +10,9 @@ Conventions (pinned by the tests; see the unit-test docstring):
 * every truth table is tab-separated with a header and 1-based closed coordinates;
 * ``truth/novel_orfs.tsv`` keeps its seven M3-18 columns first (``orf_id, class, contig, start,
   end, strand, aa``; ``start..end`` includes the stop codon and, for ``nterm_extension``, runs
-  from the true start) and adds ``stop`` (0-based lowest coordinate of the stop codon, as M7-06's
-  ``Orf.stop``), ``true_start`` (1-based first base of the true start codon in transcription
+  from the true start) and adds ``stop`` (1-based lowest coordinate of the stop codon, decision
+  16; M7-06's ``Orf.stop`` is its 0-based form), ``true_start`` (1-based first base of the true
+  start codon in transcription
   direction: ``start`` on ``+``, ``end`` on ``-``), ``n_true_peptides`` and ``rbs_planted``;
 * ``n_true_peptides`` counts distinct I/L-folded peptides of ``truth/peptides.tsv`` with
   ``is_wrong = false`` that cover the object: for a variant site, peptides of the site's gene

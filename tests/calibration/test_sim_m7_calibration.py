@@ -23,6 +23,7 @@ estimate (no SE allowance): the generator is supposed to clear it by design. Sui
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 from typing import Any
@@ -44,7 +45,8 @@ N_FAST = 4
 def _sim(d: Path, seed: int, size: str) -> Path:
     import giapsim.scenarios as sc
 
-    giapsim.simulate(sc.novel_orf_power(seed, size), seed, d)
+    cfg = dataclasses.replace(sc.novel_orf_power(seed, size), planted_tir=(9.0, 0.5))
+    giapsim.simulate(cfg, seed, d)  # the decision 8 sanity arm (decision 14; lead edit)
     return d
 
 

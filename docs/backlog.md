@@ -667,3 +667,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Three attack nulls proposed in the comment for M7-13 (tests/calibration/attacks/).
 - GIAP: genomes below ~200 genes hit a 1/n gene-level q floor above 0.01 and detect 0 genes;
   decide the small-genome behaviour (warn, or a method that can reach q ≤ 0.01).
+- (M7-12 round 2) per-class expected false novel candidates in the truth; an I/L `ms_observable` column in alt_sites.
