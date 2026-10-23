@@ -11,8 +11,8 @@ is finite, else ``decoys_unscored``. These attacks probe the two branches:
   q plateau every scored target beats every unscored decoy: the tie no longer goes to the decoy and
   D collapses at the top. All-null world; claim: at most one ORF reaches q <= 0.05. M4-24 drops a
   key column that is incomplete on the paired decoys (``shared_key_columns``), which ranks on q
-  alone here with ties to the decoy. ``xfail(strict=True)`` until the implementer applies the same
-  rule to the secondary key.
+  alone here with ties to the decoy; M7-11 applies the same rule to its secondary key
+  (lead decision 12).
 - ``score_only_fallback``: decoys carry a score but no q, so the class ranks on score alone (the
   remedy chosen for B1). Mixed true/false world (intergenic, 40 % true); FDP within level, criterion
   ``fdr`` with ADR-0015 confirmation, as the other picked attacks.
@@ -104,7 +104,6 @@ def _gate(name: str, make: Callable[[np.random.Generator], Replicate], full: boo
                             stream=stream)  # fmt: skip
 
 
-@pytest.mark.xfail(strict=True, reason="PR #237 round-2 block B3: NaN decoy score loses q ties")
 @pytest.mark.calibration
 def test_picked_unscored_decoys_do_not_lose_q_ties() -> None:
     rng = C.replicate_rng(f"{SUITE}.attack.picked.tied_q_unscored_decoys", 0)
