@@ -83,3 +83,12 @@ def figure_json(pid: str, data: pd.DataFrame, title: str) -> str | None        #
    script, and have Khoa exercise sorting during the M9-25 review.
 2. Static SVG beside every twin roughly doubles figure bytes. **Proposed default:** keep both (the
    static one is what was approved and snapshotted).
+
+## Lead decisions (2026-10-22)
+
+1. No headless browser: the JS stays minimal; its rules are tested through a Python mirror plus a
+   structural check of the inlined script; Khoa exercises sorting and filtering in the M9-25 review.
+2. Every twin keeps its static SVG beside it (the static figure is what is approved and
+   snapshotted); the 25 MB budget is measured with both.
+3. Pass 2 starts here while M9-13 closes pass 1; this branch merges main as the pass-1 plots land
+   and registers no twin itself (twins are M9-15), so its tests use test-only twins.
