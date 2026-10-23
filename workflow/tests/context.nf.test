@@ -40,6 +40,7 @@ nextflow_workflow {
                 input[8] = channel.value(file("\${g}/abundance.norm.parquet"))
                 input[9] = channel.empty()
                 input[10] = channel.empty()
+                input[11] = channel.empty()
                 """
             }
         }
@@ -108,6 +109,7 @@ nextflow_workflow {
                 input[8] = channel.value(file("\${g}/abundance.norm.parquet"))
                 input[9] = channel.empty()
                 input[10] = channel.empty()
+                input[11] = channel.empty()
                 """
             }
         }

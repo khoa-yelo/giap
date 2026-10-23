@@ -95,3 +95,93 @@ def operon_attack_detection(n_genes: int, short_genes_in: str) -> Pair: ...
    ADR-0013) for `cterm_extension` calibration" sits under the M6 heading but belongs to the
    novel-ORF / variant work. **Proposed default:** move it to the M7 backlog line; M6-03 does not
    implement it. Needs the lead's word so it is not silently dropped.
+
+## Lead decisions (2026-10-22)
+
+1. `operon_null` plants **no** internal promoters or terminators between operon members, so the
+   level check is clean; the attack scenarios carry the realistic false-positive rates.
+2. The stop-codon read-through simulator line moves to the M7 backlog (M7-12 / M7-16); M6-03 does not
+   implement it. Done in this commit.
+3. Feature loop: test-author → implementer (giapsim is tooling the implementer writes) → the
+   statistician signs off the generators M6-09 gates on → code review.
+
+## Lead decisions on the tests (2026-10-22, after 1e35b08)
+
+4. **Pure classes in the null.** In `operon_null`, true non-operon same-strand pairs draw their
+   UniOP-like p below 0.5 and true operon pairs at or above it, so the OP class M6-09 checks is
+   exactly the true operons. "UniOP is wrong" is simulated by `missed_operon_power` and the attacks.
+5. Example 3 is accepted as the test reads it. "Background SD" is the SD of Δ among unplanted
+   true-NO pairs with both genes detected.
+6. At least 60 % of planted pairs have both genes detected (examples 3 and 4): accepted.
+7. `operon_attack_ar1(n, ρ)` returns the same configs as `operon_null(n, rho=ρ)` for every ρ; it is
+   the named attack entry point (the tests assert ρ = 0; equality for all ρ is the implementation).
+8. **Generating t.** The within-TU increment is Δ = loc + scale · t_df with loc −0.3, scale 0.5 and
+   df 5, the parameters of the methods-note simulation (Slurm 1864589), recorded in
+   `truth/operon_t.tsv`. The implementer adds this increment; the merged normal stoich/noise stays
+   for the other scenarios.
+9. An odd `n_planted` in `discordance_power` plants ceil(n/2) promoters and floor(n/2) terminators.
+
+## Lead decisions on the statistician's block (2026-10-22, PR #222 comment 6356254106)
+
+The discordance generators (`operon_null` for discordance, `discordance_power`) are approved as
+built. The missed-operon generators change as follows, so M6-09's FDR gate can fail.
+
+10. **Detection attack with teeth.** In `operon_attack_detection`, detection depends on abundance
+    and is drawn **after** the within-TU walk; `operon_t` no longer requires `covariates_only`
+    detection. The block's shift is mild enough that at least 25 % of the block's adjacent pairs
+    have both genes detected (test at the default seed range).
+11. **Short-gap decoys.** A new opt-in keyword, default off so existing scenarios are byte-identical,
+    draws convergent TU-boundary gaps from a range reaching below 50 bp (default when on:
+    uniform 10–150 bp). `operon_attack_detection` and `missed_operon_power` turn it on.
+12. **Attack sanity test.** At R = 20, `operon_attack_detection` yields a larger fraction of small
+    |Δ| (below the null's 25th percentile) among NO targets than among decoys in the same distance
+    bin, one-sided z ≥ 2 pooled over replicates.
+13. **Planted pairs on the attacks.** `operon_attack_ar1` and `operon_attack_detection` take
+    `n_planted` and `effect_sd` (default 0, no `missed_operons.tsv` rows); when non-zero they plant
+    as `missed_operon_power` does and write `truth/missed_operons.tsv`.
+14. **Null sanity test.** Add a direct config assertion: the null has ρ = 0 and no planted pairs.
+15. **Evidence commit.** The R = 1,000 numbers are re-run on the implementation commit and the log
+    header names it.
+16. **Not in M6-03.** Under the merged method the SW decoy floor keeps the minimum q ≥ 0.88 in the
+    50–150 bp bin even with 10–15; the remedy is a method ADR for M6-09 (backlog, raised with Khoa).
+    The statistician's NITs (choice 1 default-arm record, choice 4 realised planted count) go to
+    M6-09's spec.
+
+## Lead decisions on the round-2 tests (2026-10-22, after 2ea7253)
+
+17. **Example 6 relaxed.** Decision 10 (≥ 25 % both-detected block pairs) cannot hold with block
+    detection ≤ 0.5 × outside; example 6 now requires block detection < 0.9 × outside (lead edit of
+    the existing test). The attack's teeth are checked by decision 12, not by the detection ratio.
+18. **Golden digests** pinned to the locked numpy/pandas are accepted as the byte-identical guard;
+    a dependency bump that changes float formatting re-pins them in the same PR.
+19. **Decision 12 cut-off** is one global 25th percentile of |Δ| among the null's both-detected
+    true NO pairs (as the tests read it), not per bin.
+
+## Lead decisions on round 2 (2026-10-22, after d5ae874)
+
+20. **CPU-independent golden digests.** The expression floats differ in the last ulp between
+    nodes (barley-04 vs iron-01, Slurm 1869367), at fd3f3a3 as at d5ae874. The digests now hash
+    floats at 9 significant digits; both nodes give the re-pinned values (Slurm 1869378).
+21. **Decision 12 gates in the full tier only.** At R = 20 the expected CMH z is ≈ 1.1 (R = 1,000:
+    z = 7.78, Slurm 1869345), so the fast tier prints z and checks that a sub-50-bp bin holds
+    targets and decoys; z ≥ 2 is asserted in the full tier (R = 300 for `missed_operons`; expected
+    z ≈ 4.3).
+22. The implementer's deviations (block = a third of the chromosome, shift −6 on the logit, slope
+    ≤ 2) are accepted for the statistician's re-check.
+
+## Lead decisions on the round-2 re-check (2026-10-22, PR #222 comment 6357030352)
+
+23. **Decision 11 amended: `convergent_gap_bp` defaults to (−20, 300).** (10, 150) left the
+    150–300 bp bin almost without CV decoys (1.4 per replicate vs 188 NO targets). Negative values
+    are 3′ overlaps of convergent genes, which real genomes have; they fill the < 0 bp bin. If the
+    layout cannot represent overlaps, the implementer stops and reports (fallback (10, 300)).
+    Lead re-pinned the two range tests; the digests of the scenarios that turn the gaps on and the
+    R = 1,000 numbers are re-run.
+24. **Methods note additions:** CV decoys per bin; the FDR-scale finding that attack B cannot make
+    M6-09's gate fail (ratio ≤ ~1.05), so gate B's pass is not over-read.
+25. **For M6-09 (not this PR):** a realistic 10 % block arm; report realised planted counts in the
+    detection attack; example 1 (≥ 60 % at 0.1 SD) is infeasible under every decoy arm measured.
+22. **The scenario digests are pinned on numpy ≥ 2.5 / scipy 1.18.** uv.lock resolves numpy 2.4.6 and
+    scipy 1.17.1 for Python < 3.12, and their draws differ, so CI ubuntu 3.11 failed all three
+    `test_scenarios_without_short_gaps_are_byte_identical_to_fd3f3a3` cases. The test skips on
+    numpy < 2.5. The default-layout digest still runs everywhere.
