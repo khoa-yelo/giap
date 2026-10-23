@@ -38,6 +38,7 @@ K-12 evidence run).
 
 **Queued** (scratchpad queue.sh):
 - M9-26 plots/report benchmark: **Slurm 1879016** (wheat-05; sim4500, 4.64 Mb, 42,413 placements: plots 16.5 s / 460 MB, report 2.0 s / 463 MB, report.html 8.1 MB); 1878941 discarded (RSS from the parent pytest); fast suite 1879063 (15,068 passed).
+- M9-26 review round: benchmark re-recorded at 2fc69a42, **Slurm 1879327** (wheat-01): plots 15.4 s / 469 MB (budget 120 s), report 1.8 s / 466 MB (budget 30 s).
 - qCA: #225 M7-12
 - qCB: #237 M7-11
 - qCC: #249 (ADR-0047 alone), then #242
