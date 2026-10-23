@@ -1,5 +1,5 @@
 # ADR-0046: `giap compare` output layout (ADR-M9-B)
-- Status: accepted
+- Status: accepted (lead-level, 2026-10-22)
 - Date: 2026-10-22
 - Spec sections: §5.1, §7.9.3, §9.2, §9.5
 - Needs Khoa: no (layout of new outputs; no default, threshold or protected file changes)
