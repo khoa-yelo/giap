@@ -100,3 +100,23 @@ confirmation and sharding apply.
    not fit 10 minutes.
 2. "Uniform" = the §8.4 level criterion for all three suites, KS recorded (proposed)?
 3. Teeth thresholds (unweighted attack 2 must reject > 2 × α): acceptable as a gated check?
+
+## Lead decisions (2026-10-23)
+
+1. **Q1 yes:** the determinants fast tier runs at reduced size (400 genes, B = 99, 50 trees,
+   1 repeat); the full tier runs at the §5.2 parameters on Slurm.
+2. **Q2 yes:** "uniform" is the §8.4 level criterion for all three suites; the KS statistic is
+   recorded, not gated.
+3. **Q3 yes:** the teeth check (the unweighted attack-2 arm rejects in > 2 × α) is gated.
+4. **Attack 2 arms (statistician, #251):** gate `member_shift` −1.5 as the separation arm and add
+   an overlap arm at −0.75 (unweighted teeth 0.95 at α 0.05; it must be a confirmed fail at
+   R ≥ 100). Both arms fit p_detect with GIAP's default `DetectabilityConfig()` on covariates
+   recomputed from the sequences by `covariate_table`, never on the `n_obs_true` column.
+5. **Expected conservatism:** the fitted arm is strongly conservative at −1.5 (plug-in variance,
+   M8-04 treats q̂ as known; see function.md attack 2). The gate is a level gate only; the power
+   cost is backlog (an M8-04 projection-variance ADR), not part of this gate.
+6. **Oracle arm at α 0.10:** record the oracle arm's level through the ORA engine (0.025–0.067 in
+   the statistician's probes); if it stays below the §8.4 lower bound, report it, do not gate it
+   (two-sided criterion only where §8.4 says so).
+7. **Stacking:** this branch starts from #251 (M8-14). Anything that needs M8-11 (#193, open) is a
+   strict xfail naming #193 until it merges.
