@@ -697,3 +697,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   records carry no commit field, so "on main" cannot be checked from them.
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
+
+### M7-11 follow-ups
+- M7-11b: novel_orfs step wiring of `giap.novel.fdr` (decisions 6–9), step-level tests.
+- Origin-crossing makedb entries without replicon lengths are unestimated (decision 8); pass lengths.

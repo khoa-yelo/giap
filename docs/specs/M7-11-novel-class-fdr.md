@@ -130,3 +130,17 @@ def denovo_class_q(orfs: Sequence[Orf], target_hits: pd.DataFrame, decoy_hits: p
    anti-conservative direction now.
 4. **80 % paired-share guard per class:** adopted from §7.3.2 by analogy and recorded in the
    methods note; changes only by ADR.
+5. **Test-author resolutions (11a6ca30) accepted:** frame layouts, NaN for unestimated or pick-losing
+   ORFs, paired = stripped ID in `id_map`, `id_map=None` parses the tagged IDs, c = largest searched
+   π̂ (missing = 1), q before score with ties to the decoy.
+6. **Split (MVP first):** this issue ships the pure `giap.novel.fdr` module that the tests pin.
+   Wiring it into the `novel_orfs` step (the `decoys_not_makedb` warning, the rule 4 call, the
+   `class_fdr` and flag columns, rule 5 logging and manifest) is **M7-11b**, with step-level tests
+   written once the implementer has fixed the step inputs.
+7. **A tagged-class ORF with no makedb entry** is `unestimated`, with a `no_makedb_pair` reason.
+8. **Origin-crossing makedb entries** are matched modulo the replicon length when lengths are
+   given. Without lengths the ORF is `unestimated` (backlog item); `picked_class_q` keeps its
+   signature.
+9. **Class disagreement:** when the reconstructed ORF class differs from the entry's tag, the entry
+   tag wins, because pairing and the class list follow the makedb entry. The ORF is flagged
+   `class_mismatch` (M7-11b column).
