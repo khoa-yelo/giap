@@ -88,3 +88,14 @@ few genes for the determinants model (`<n>` rows, `<t>` TUs)".
 1. **Q1 yes:** the elastic net's ΔR² leads the title (ADR-0033).
 2. **Q2 yes:** "promoter score" is `promotech_max`.
 3. **Stacking:** on m9/plot-support-analysis (M9-17 SHAP and PD support files, decision 5).
+4. **Test-author (a85b325a): gaps 1–9 accepted as proposed.**
+   - The title names the largest block whose ΔR² CI is wholly above 0; a CI wholly below 0 does
+     not count.
+   - The title quotes a finite CI even though M8 flags every ΔR² row `ci_unestimated`. The
+     statistician reviews the wording in the PR (backlog: the meaning of that flag on finite CIs).
+   - Too-few-rows counts are model rows (detected, non-imputed, not ribosomal) and their distinct
+     `tu_id`.
+   - The missing-layer name is read from the run flags, falling back to the map tir_ostir→ostir,
+     promotech_max→promoters, cai/tai→codon.
+   - V15 declares `layers=("abundance",)`.
+   - The pinned axes labels and category names are the interface.
