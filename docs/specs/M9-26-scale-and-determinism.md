@@ -63,3 +63,23 @@ not statistical
    - the 5-Mb per-track check lives in the benchmark;
    - example 4 is Slurm evidence.
 3. Gap 4 (binning V2's rug past 20,000 undetected genes) is backlogged, not in this issue.
+4. **Review round (code review of fdc18237, #274).**
+   - **B1, gid grouping:** `_elements` splits an axes only by gids in V1's exported track set
+     (`circos.TRACK_GIDS`). Any other gid, and untagged artists, count together per axes. An
+     untagged artist on a V1 axes counts in its own group of untagged artists. Four fast unit tests
+     pin this:
+     - one track gid with 25k elements fails;
+     - two track gids with 15k each pass;
+     - two non-track gids with 15k each fail;
+     - the mixed untagged + tagged case is defined and asserted.
+   - **B2, the K-12 report run (example 4):** moved to the MVP-04 K-12 acceptance run, which runs after M2-14b
+     batching. Its Slurm job, report.html size and plots go into PROGRESS.md, and M9-25 uses them.
+     This PR does not wait for it.
+   - **Nits taken:**
+     - budgets of 120 s for plots and 30 s for report;
+     - the baseline entries split into two flat entries (`plots_5mb_sim4500`, `report_5mb_sim4500`) with `secs`, `maxrss_mb`, `source`, `cpus`, `commit` and a note that interpreter start-up is excluded, re-recorded at the implementation commit;
+     - the placement bound loosened to ≥ 35,000;
+     - the Hypothesis shrink phase turned off (or fewer examples) for the V1/V2 property;
+     - one or two origin-crossing genes in the stress fixture, with the oracles extended;
+     - the PROGRESS bullet moved under the M9 notes (lead).
+   - **Backlogged:** byte_identity's PYTHONPATH order; V1 binning decided per track rather than on the total gene count; `needs_nextflow` being over-strict.

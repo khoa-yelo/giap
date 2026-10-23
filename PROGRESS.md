@@ -26,7 +26,6 @@ _Last updated: 2026-10-22 19:40 PDT · session https://claude.ai/code/session_01
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
 <!-- progress:end -->
 
-- M9-26 plots/report benchmark: **Slurm 1879016** (wheat-05; sim4500, 4.64 Mb, 42,413 placements: plots 16.5 s / 460 MB, report 2.0 s / 463 MB, report.html 8.1 MB); 1878941 discarded (RSS from the parent pytest); fast suite 1879063 (15,068 passed).
 ## Current milestone
 (2026-10-23 ~10:30) Six agent slots: four reviewers plus the M7-15 implementer are active. The
 M9-23 and M8-14 implementers are waiting on Slurm (giap-test-m923 1870959, giap-test-m814 1871571).
@@ -38,6 +37,7 @@ K-12 evidence run).
 (ADR-0044/0045), and #239 M7-10.
 
 **Queued** (scratchpad queue.sh):
+- M9-26 plots/report benchmark: **Slurm 1879016** (wheat-05; sim4500, 4.64 Mb, 42,413 placements: plots 16.5 s / 460 MB, report 2.0 s / 463 MB, report.html 8.1 MB); 1878941 discarded (RSS from the parent pytest); fast suite 1879063 (15,068 passed).
 - qCA: #225 M7-12
 - qCB: #237 M7-11
 - qCC: #249 (ADR-0047 alone), then #242
