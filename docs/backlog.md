@@ -786,7 +786,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
 
-<<<<<<< HEAD
 ### M7-11 follow-ups
 - M7-11b: novel_orfs step wiring of `giap.novel.fdr` (decisions 6–9), step-level tests.
 - Origin-crossing makedb entries without replicon lengths are unestimated (decision 8); pass lengths.
@@ -800,7 +799,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - 5: the methods-note status line says decisions 1–11; it should say 1–13.
   - 6: `_decoy_tags` could return the parsed class.
   - 7: `denovo_class_q` uses an iloc loop and does not cast strand to str.
-=======
 ### M9-24 follow-ups
 - **Diagnosed:** V08 (and V02, V03, V07) show no measured abundance on sim100k because 0 of 87
   genes are detected: picked-protein q has floor 1/n_win = 1/85 > alpha 0.01
@@ -843,7 +841,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - V5 `arrangement="fixed"` without node x/y loses the M9-05 order.
 - V8 has no median mark or legend; the V10 no-meta fallback differs for flagged rows; V18's constant state has no message.
 - PR size about 2,300 lines in total (711 counted).
->>>>>>> origin/main
 ### M7-10 follow-ups
 - Switch the class-error calibration to the M7-12 `variant_f1` scenario once #225 merges (decision 7).
 - M7-13: class error rate reference-proteome arm (moved from M7-10 #239 B2); also consider a run flag when every class rate is 1 (statistician #239).
@@ -932,9 +929,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
-<<<<<<< HEAD
 - M8-15: a synthetic go_slim OBO for the sixth collection (M8-14 gap 4).
-=======
 
 ### M4-24 follow-up (giapsim scored null decoys)
 - giapsim M3-19 proteomics writes decoy rows with q, PEP and score all NA, so the picked tier never
@@ -948,7 +943,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   golden and in tests/calibration/test_gene_fdr_real_mapping.py (M4-24 question 3).
 - M4-24 decision 7: preflight `candidate_tier` should use the shared key columns, so it does not
   preview `decoy_picked` for all-unscored decoys.
->>>>>>> origin/main
 - M9-23: switch existing plot titles to `giap.viz.base.plural` as their tests are next touched.
 - M9-23: hide V16's `Skip` ("written by giap compare") from ordinary run reports; add a test for the runs-section detection tier per run.
 - Review #225 nits (M7-12):
@@ -1002,6 +996,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - N3: no unit or step test passes precomputed TSV layers (mutant M9).
   - N4: hardening still owed: `--sensitivity full` in the nightly e2e, and the M9 text item on threshold sensitivity.
   - N5: `test_unpatched_variants_unchanged` has an odd `assert [c for c in ...]`.
+- M7-11b: no run input carries makedb's `db_id_map.tsv`, so `nterm_extension` pairing comes from the run's gene model and the 80 % pairing guard cannot fire from the pipeline. A real input needs a new `defaults.yaml` key (protected, ADR, Khoa).
 - M8-15 (from M8-14 statistician, #251): build ORA sets through M8-03 (world.sets keeps 10–500 TUs, ORA tests 5–500); keep the confounded set's GO ancestors out of level checks and null pools; compare the truth's dominant block to M8-09 by signed argmax on top-decile genes; wire planted features into gene-table columns `promoter_score`, `tir_ostir`, `cai` (simulator CAI uses the bundled codon usage); record a position-decay 0.5 arm on the R engine; giapsim `resid` should read `ecfg.tu_sd` (hard-coded 1).
 - M7-14 review nits (#248): a step test mixing same-db and other support across sites (alt_peps order, variants.py:220); te2_result `notes` empty when high_stop_codon > 0; merge the duplicate `_flag_set`/`_flag_names` helpers (drop the unreachable `;` branch); `variants_qc` in `PUBLISHED_FILES`/`run_view.PATHS` though never published; test_id_mixups_sim100k returns early on missing inputs (make it skip); an nf-test with a non-empty `variants_qc` into CONTEXT.
 - M7 (from MVP-04 statistician, #247): nterm-extension decoys pair with a gene only after a target row is accepted (M7-12 decision 28), so an all-decoy null gene vanishes instead of counting as a decoy win (anti-conservative, ≈ +0.8 false genes at K-12). Pair through makedb's entry→gene relation.
