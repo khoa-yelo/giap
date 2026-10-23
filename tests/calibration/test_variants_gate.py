@@ -6,6 +6,11 @@ R is ``replicates_fast/full.variants`` (20 / 100, ADR-0042); every check is fixe
 ``helpers.m7_gate_records`` (seed bases there). Fast checks are nightly (> 60 s); the per-PR
 subset is the one-replicate smoke test. Full tier: array task 13 (``variants``).
 
+Lead decision 4 (ADR-0049, proposed, pending Khoa): G1, A6a, A6b and A6c are strict xfails
+(``raises=AssertionError``) until the method ADR is decided; each writes its diagnostics record
+(estimate, CI, status) before it asserts, so the nightly shows the number. Vacuity raises
+``RuntimeError`` (never an xfail). No threshold is widened (R3).
+
 * G1: pooled F1 of ``high`` substitutions (rules 2-4) >= ``f1_min.variants_high`` through
   ``calibrate_pooled`` (point estimate, ADR-0015 blocks), guards sum n_truth >= 50 and sum n_pred
   >= 50 (rule 7). Fast at 100 kb, full at 1 Mb. Recorded: the non-``mass_equivalent`` subset's F1,
@@ -16,7 +21,8 @@ subset is the one-replicate smoke test. Full tier: array task 13 (``variants``).
 * A6b: FWER of "a folded high swap token" <= 0.05 + 2 SE (``calibrate``, criterion ``fwer``).
 * A6c: as A6b after the systematic transform; expected to fail (risk 1): strict xfail naming the
   pending call-rule ADR (lead decision 2).
-* Reference-proteome arm (Q8): every class with ``class_error_n >= 10`` has rate >= 0.95.
+* Reference-proteome arm (Q8; a diagnostic, lead decision 4): per class, the mean rate over the
+  replicates with ``class_error_n >= 10`` is >= 0.95 (pooled, not per replicate; CI recorded).
 """
 
 from __future__ import annotations
@@ -39,9 +45,29 @@ SUITE = "variants"
 NOT_FAILED = frozenset({"pass", "unconfirmed", C.SHARD_STATUS, C.SKIPPED_STATUS})
 G1_GUARD = {"n_truth": 50, "n_pred": 50}
 REF_MIN_RATE, REF_MIN_N = 0.95, 10
-A6C_ADR = ("M7-13 risk 1: swap-ALT call-rule ADR (pending Khoa; options (i) a swap ALT is never"
-           " high, (ii) high needs class_error_rate <= a bound, (iii) restate attack 6 as random"
-           " swaps only)")  # fmt: skip
+ADR_0049 = "ADR-0049 (proposed, pending Khoa)"
+
+
+def xfail_0049(why: str) -> pytest.MarkDecorator:
+    return pytest.mark.xfail(strict=True, raises=AssertionError, reason=f"{ADR_0049}: {why}")
+
+
+G1_XFAIL = xfail_0049("G1 F1 below f1_min (risk 2)")
+A6A_XFAIL = xfail_0049("isobaric blocks aligned as substitutions")
+A6B_XFAIL = xfail_0049("coincident random swaps reach high")
+A6C_XFAIL = xfail_0049("systematic swaps reach high (risk 1)")
+
+
+def k_se() -> float:
+    return C.load_tolerances().se_multiplier
+
+
+def share_ci(p: float | None, n: int) -> list[float] | None:
+    """``p +- k sqrt(p (1 - p) / n)`` clipped to [0, 1] (recorded only)."""
+    if p is None or n < 1:
+        return None
+    h = k_se() * (p * (1 - p) / n) ** 0.5
+    return [max(0.0, p - h), min(1.0, p + h)]
 
 
 def f1_min() -> float:
@@ -100,6 +126,8 @@ def _g1(full: bool) -> None:
         diagnostics({"check": "G1", "full": full, "size": size, "status": rec["status"],
                      "f1": rec["observed"], "precision": rec["precision"],
                      "recall": rec["recall"], "se": rec["se"],
+                     "ci": None if rec["observed"] is None or rec["se"] is None else
+                     [rec["observed"] - k_se() * rec["se"], rec["observed"] + k_se() * rec["se"]],
                      "non_mass_equivalent": dict(zip(("precision", "recall", "f1"), sub,
                                                      strict=True)),
                      "high_other": other, "masked": sum(r["masked"] for r in ran),
@@ -108,11 +136,13 @@ def _g1(full: bool) -> None:
 
 
 @NIGHTLY
+@G1_XFAIL
 def test_g1_variant_f1() -> None:
     _g1(False)
 
 
 @pytest.mark.calibration_full
+@G1_XFAIL
 def test_g1_variant_f1_full() -> None:
     _g1(True)
 
@@ -145,18 +175,25 @@ def test_g2_same_strain_no_internal_high_full() -> None:
 def _a6a(full: bool) -> None:
     got = [M.a6_record(i) for i in reps(C.replicates(SUITE, full))]
     n_rows = sum(r["a6a"]["n_rows"] for r in got)
-    diagnostics({"check": "A6a", "full": full, "R_run": len(got), "n_rows": n_rows})
+    n_unflagged = sum(r["a6a"]["n_unflagged"] for r in got)
     bad = {r["replicate"]: r["a6a"] for r in got if r["a6a"]["n_unflagged"]}
+    share = len(bad) / len(got) if got else None
+    diagnostics({"check": "A6a", "full": full, "R_run": len(got), "n_rows": n_rows,
+                 "n_unflagged": n_unflagged, "share_replicates_unflagged": share,
+                 "ci": share_ci(share, len(got)), "status": "fail" if bad else "pass"})  # fmt: skip
+    if got and n_rows < 1:  # not an AssertionError: never an xfail
+        raise RuntimeError("A6a vacuous: no isobaric-only substitution/block row in the block")
     assert not bad, f"A6a: isobaric-only ALT rows without mass_equivalent: {bad}"
-    assert n_rows >= 1, "A6a vacuous: no isobaric-only substitution/block row in the block"
 
 
 @NIGHTLY
+@A6A_XFAIL
 def test_a6a_isobaric_rows_flagged() -> None:
     _a6a(False)
 
 
 @pytest.mark.calibration_full
+@A6A_XFAIL
 def test_a6a_isobaric_rows_flagged_full() -> None:
     _a6a(True)
 
@@ -168,17 +205,20 @@ def _a6_fwer(full: bool, stream: str, record: Callable[[int], dict[str, Any]], k
                       stream=stream)  # fmt: skip
     ran = [record(i) for i in ran_range(rec)]
     diagnostics({"check": key, "full": full, "status": rec["status"], "share": rec["observed"],
+                 "bound": rec["bound"], "ci": share_ci(rec["observed"], len(ran)),
                  "unfolded_any": float(np.mean([r[key]["unfolded"] > 0 for r in ran]))
                  if ran else None})  # fmt: skip
     assert rec["status"] in NOT_FAILED, rec
 
 
 @NIGHTLY
+@A6B_XFAIL
 def test_a6b_random_swaps_fwer() -> None:
     _a6_fwer(False, "variants.a6b", M.a6_record, "a6b")
 
 
 @pytest.mark.calibration_full
+@A6B_XFAIL
 def test_a6b_random_swaps_fwer_full() -> None:
     _a6_fwer(True, "variants.a6b", M.a6_record, "a6b")
 
@@ -195,13 +235,13 @@ def _a6c(full: bool) -> None:
 
 
 @NIGHTLY
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason=A6C_ADR)
+@A6C_XFAIL
 def test_a6c_systematic_swaps_fwer() -> None:
     _a6c(False)
 
 
 @pytest.mark.calibration_full
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason=A6C_ADR)
+@A6C_XFAIL
 def test_a6c_systematic_swaps_fwer_full() -> None:
     _a6c(True)
 
@@ -212,12 +252,20 @@ def test_a6c_systematic_swaps_fwer_full() -> None:
 @NIGHTLY
 def test_reference_proteome_arm_is_degenerate() -> None:
     got = [M.ref_arm_record(i) for i in reps(C.replicates(SUITE, False))]
+    per_class: dict[str, list[float]] = {}
+    for r in got:
+        for c, (rate, n) in r["rates"].items():
+            if n >= REF_MIN_N:
+                per_class.setdefault(c, []).append(float(rate))
+    pooled = {}
+    for c, v in sorted(per_class.items()):
+        m = float(np.mean(v))
+        h = k_se() * float(np.std(v, ddof=1)) / len(v) ** 0.5 if len(v) > 1 else None
+        pooled[c] = {"mean_rate": m, "R": len(v), "ci": None if h is None else [m - h, m + h]}
     diagnostics({"check": "reference_proteome_arm", "R_run": len(got),
-                 "n_dropped": [r["n_dropped"] for r in got],
+                 "n_dropped": [r["n_dropped"] for r in got], "pooled": pooled,
                  "rates": [r["rates"] for r in got]})  # fmt: skip
     assert all(r["n_dropped"] > 0 for r in got), "transform removed nothing: no ALT pairing left"
-    informative = [(r["replicate"], c, rn) for r in got for c, rn in r["rates"].items()
-                   if rn[1] >= REF_MIN_N]  # fmt: skip
-    assert informative, f"no class with class_error_n >= {REF_MIN_N}: {got}"
-    low = [x for x in informative if x[2][0] < REF_MIN_RATE]
-    assert not low, f"reference-proteome arm: class rate < {REF_MIN_RATE}: {low}"
+    assert pooled, f"no class with class_error_n >= {REF_MIN_N}: {got}"
+    low = {c: p for c, p in pooled.items() if p["mean_rate"] < REF_MIN_RATE}
+    assert not low, f"reference-proteome arm: pooled mean rate < {REF_MIN_RATE}: {low}"
