@@ -662,6 +662,30 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
 
+### M7-12 statistician NITs (PR #225) → M7-13
+- F1 matching folds I/L/J; precision over all truth sites (n_true_peptides counts database
+  peptides only); use the method's own peptide rule as the N-terminal-extension denominator.
+- Isobaric attack: a "systematic" error option keyed by protein site; run with
+  `--genome-relation same`. Document `variant_f1` sample peptides labelled `search_db = same`.
+- `same_strain_insilico`: all 11 non-ATG N-terminal peptides unmapped; the start-codon exception
+  is never exercised.
+- Three attack nulls proposed in the comment for M7-13 (tests/calibration/attacks/).
+- GIAP: genomes below ~200 genes hit a 1/n gene-level q floor above 0.01 and detect 0 genes;
+  decide the small-genome behaviour (warn, or a method that can reach q ≤ 0.01).
+- (M7-12 round 2) per-class expected false novel candidates in the truth; an I/L `ms_observable` column in alt_sites.
+
+### M7-12 statistician round 2 (PR #225)
+- **Possible cause of the sim100k 0-genes floor:** the older (non-six-frame) giapsim decoy rows
+  carry no score/q/pep, so gene-level `decoy_picked` q is 1/T. Check this before the M9-13 evidence
+  run and the q-floor question to Khoa.
+- M7-13: the de novo arm of the class-FDR gate gets 0–2 false candidates per class per replicate at
+  300k; run it at ≥ 1M.
+- M7-13 G1: a policy is needed for `mass_equivalent` calls. On variant_f1 seed 7, high-confidence
+  substitution precision is 0.82, and 5 of 6 FPs are A>S / N>D modification errors.
+- Attack-null proposals in comment 6358601933.
+- M7-12 N1 (statistician round 3): six-frame target q/PEP come from the wrong share before the coin (about 2× conservative). PSM-level calibration on six-frame scenarios needs the post-coin share.
+- M7-12 N3: G4 for `nterm_extension` must go through M7-11's locus-tag pairing (planted peptides carry the gene's locus tag).
+- M7-13: the report says a class with fewer than about 100 candidates cannot be called at α 0.01 (class q floor).
 ### M6-09 (from the M6-03 statistician review, PR #222)
 - **Method ADR needed (Khoa):** the SW decoy floor (≈2 SW decoys vs 131 targets in the 50–150 bp
   bin) keeps min q ≥ 0.88 under the merged decoy-FDR method, so the missed-operon FDR gate passes
@@ -850,6 +874,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
+- Review #225 nits (M7-12):
+  - N2: the methods-note FDP table is at 200 ORFs per class; rerun it at the gate count of 300.
+  - N3: `OrfEntries` does not restate `NTERM_MIN_UPSTREAM_AA` and assumes `min_orf_aa` = 7; assert `digest_len[0]` ≥ 7 in six-frame mode.
+  - N4: drop the throwaway `Builder(10)` in the mixed-decoy test.
+  - N5: validate that `n_per_class` ≥ 0.
+  - N6: add a 1M gate-count case to the benchmark and refresh the `novel_orf_power` baseline.
+  - N7: `_protein_decoys` checks the target set without I/L folding.
+  - N8: the spec names `tests/sim/test_m7_scenarios.py`; the file is `tests/unit/test_sim_m7_scenarios.py`.
 - MVP-04: origin-crossing novel ORFs excluded from the planted set on K-12 (spec question 7).
 
 ### M6-10 follow-ups

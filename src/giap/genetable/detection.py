@@ -22,6 +22,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
+from giap.makedb import ORF_ID_PREFIX
 from giap.stats.mayu import mayu_gene_fdr
 from giap.stats.tda import picked_fdr_rescaled
 
@@ -158,7 +159,9 @@ def pair_decoys(
     ``peptide, q_value, pep, score, gene``; ``gene`` NA when the stripped IDs do not all map to
     one and the same gene (unpaired). Contaminant decoys (every stripped ID starts with a
     contaminant prefix, default ``input.contaminant_prefixes``) get no row: neither paired nor
-    unpaired; a mixed decoy pairs on its non-contaminant IDs only (decision 12)."""
+    unpaired; a mixed decoy pairs on its non-contaminant IDs only (decision 12). Decoys of makedb
+    six-frame entries (``GIAPORF_…``) that map to no gene in ``pmap`` are left out the same way;
+    an entry voted to a gene (e.g. ``nterm_extension``) pairs there (M7-12 decisions 23, 28)."""
     cols = ["peptide", "q_value", "pep", "score", "gene"]
     if peptides is None or not len(peptides):
         return pd.DataFrame({c: pd.Series([], dtype=object) for c in cols})
@@ -168,15 +171,21 @@ def pair_decoys(
         q = d["q_value"].astype("float64")
         d = d[q.isna() | (q <= q_value_max)]
     cont = _contaminants(contaminant_prefixes)
-    # Decision 12: only all-contaminant decoys leave the counts; a mixed decoy pairs on its
-    # non-contaminant IDs.
+    lookup = dict(zip(pmap["protein_id"].astype(str), pmap["gene"], strict=True))
+
+    def counted(m: str) -> bool:
+        # Decision 12: contaminant IDs leave the counts; M7-12 decision 28: so do ORF-entry IDs
+        # that map to no gene. A decoy with no ID left gets no row.
+        if m.startswith(cont):
+            return False
+        return not m.startswith(ORF_ID_PREFIX) or not _is_na(lookup.get(m))
+
     stripped = [
-        [m for m in (_strip(x, decoy_prefixes) for x in _ids(c)) if not m.startswith(cont)]
+        [m for m in (_strip(x, decoy_prefixes) for x in _ids(c)) if counted(m)]
         for c in d["protein_ids"].tolist()
     ]
     keep = np.array([len(ms) > 0 for ms in stripped], dtype=bool)
     d = d[keep]
-    lookup = dict(zip(pmap["protein_id"].astype(str), pmap["gene"], strict=True))
     genes: list[Any] = []
     for ms in (s for s, k in zip(stripped, keep, strict=True) if k):
         hit = [lookup.get(m) for m in ms]
