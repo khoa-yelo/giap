@@ -451,3 +451,17 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
      `tests/helpers/m7_gate_novel_records.py`; attacks a and d in
      `tests/calibration/attacks/test_attack_m7_gate.py` read it), then a statistician re-check, then
      the full tier.
+8. **Test-author, clustered-null arm (4746a840; Slurm 1875074, fast tier R = 10, 47 passed,
+   5 failed): accepted.**
+   - Attacks a and d are confirmed fails: a 0.352 / 0.349 against about 0.11; d 0.139 / 0.141
+     against about 0.115 at q 0.10. The filtered G4 on the arm is at level and recorded only.
+   - G3 passes (F1 0.930); all 24 G4 checks pass; nterm shows only `lost_pick` on #256 0e058465.
+     The only failures are G4-k3's five checks (decision 4).
+   - Gaps accepted as proposed:
+     - injected segments also avoid planted-ORF keys and overlaps (the pool at 1M goes from 9,090
+       to about 4,890);
+     - the stream is `novel_orfs.cluster`;
+     - the teeth rate comes from the full tier;
+     - no G4-k3 xfail before the full tier;
+     - `gate_record`'s unused attack_a/attack_d keys stay until the smoke test is next edited.
+   - Next: the statistician re-checks the arm and runs the full tier, which decides G4-k3.
