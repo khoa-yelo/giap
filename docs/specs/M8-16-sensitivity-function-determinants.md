@@ -86,3 +86,13 @@ def determinants_family(genes: pd.DataFrame, cfg: GiapConfig, rng: np.random.Gen
 2. The determinants family's `n_*`/`jaccard` on the `abundance_not_explained_by_sequence` gene
    sets (proposed; §8.6 does not say what the determinants "set" is), with `agreement` for the
    dominant block?
+
+## Lead decisions (2026-10-23)
+
+1. **Q1 yes:** GSEA variants under `min`, `exclude`, `top3` and `two_peptide`; ORA under
+   `two_peptide` only.
+2. **Q2 yes:** the determinants family's `n_*` and `jaccard` are computed on the
+   `abundance_not_explained_by_sequence` gene sets, with `agreement` for the dominant block.
+   Reversible; listed for Khoa in PROGRESS questions.
+3. **Stacking:** this branch starts from #178 (M8-10, queued). After #178 squash-merges, merge the
+   old base tip, then main, and retarget.
