@@ -34,6 +34,7 @@ from giap.io.fasta import read_genome_fasta
 from giap.io.gff3 import AttrValue, read_gff3
 from giap.io.protein_fasta import read_protein_fasta, write_protein_fasta
 from giap.io.tsv import write_tsv
+from giap.makedb import ORF_ID_PREFIX
 from giap.mapping.loci import LocusClassifier, in_frame
 from giap.mapping.sixframe import SixFrameIndex, translate11_text
 from giap.model.coords import Interval, Replicon
@@ -79,7 +80,7 @@ class OrfRecord:
     @property
     def db_id(self) -> str:
         sfx = "p" if self.strand == "+" else "m"
-        return f"GIAPORF_{self.cls}_{self.contig}_{self.start + 1}_{self.end}_{sfx}"
+        return f"{ORF_ID_PREFIX}{self.cls}_{self.contig}_{self.start + 1}_{self.end}_{sfx}"
 
 
 @dataclass(frozen=True)
