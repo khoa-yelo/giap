@@ -1,5 +1,5 @@
 # ADR-0045: Wallenius far tails by the exact urn recursion
-- Status: proposed
+- Status: accepted-by-khoa (2026-10-23; lead recommendation)
 - Date: 2026-10-22
 - Spec sections: §7.7.3, §8.2–8.3; M8-01 lead decision 2 (hardening owed); docs/methods/function.md
   "Far-tail precision of scipy's pmf"

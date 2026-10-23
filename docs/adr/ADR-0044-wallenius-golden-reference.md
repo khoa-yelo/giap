@@ -1,5 +1,5 @@
 # ADR-0044: The Wallenius golden reference is the exact distribution, not goseq
-- Status: proposed
+- Status: accepted-by-khoa (2026-10-23)
 - Date: 2026-10-22
 - Spec sections: §7.7.5 (criterion 1), §13 row M8, §11.4–11.5; M8-13 §1.1, question 3
 - Needs Khoa: yes (changes the reference of a §7.7.5 criterion and adds a key to the protected
