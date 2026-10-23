@@ -427,5 +427,28 @@
     "date": "2026-10-22",
     "issue": "M7-12",
     "note": "best of 3 simulate() calls per case, one invocation"
+  },
+  "plots_report_5mb_sim4500": {
+    "benchmark": "benchmarks/test_plots_bench.py::test_plots_and_report_5mb_budget",
+    "budget_s": 600.0,
+    "plots": {
+      "secs": 16.529,
+      "maxrss_mb": 459.8
+    },
+    "report": {
+      "secs": 2.003,
+      "maxrss_mb": 462.9
+    },
+    "n_genes": 4500,
+    "n_placements": 42413,
+    "genome_bp": 4639946,
+    "report_bytes": 8099623,
+    "node": "wheat-05",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "slurm_job": 1879016,
+    "commit": "a7728f72",
+    "date": "2026-10-23",
+    "issue": "M9-26",
+    "note": "one round per step, each run_step in a fresh interpreter; peak RSS is that interpreter's VmHWM (ru_maxrss carries the parent pytest's 864 MB across fork + exec, job 1878941 on wheat-07: plots 19.8 s, report 2.3 s). Working tree a7728f72 plus this benchmark and the checklist change. Every plot passes the M9-24 element item (per axes, per V1 track)."
   }
 }

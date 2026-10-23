@@ -209,14 +209,20 @@ def _tsv(files: Sequence[Path], pid: str, name: str, empty: bool) -> tuple[bool,
 
 
 def _elements(fig: Figure) -> tuple[bool, str]:
+    """Counts per axes and, within one axes, per track ``gid`` (M9-24: V1's polar axes holds
+    every track, each tagged with its gid); untagged artists form one group per axes."""
     worst: list[str] = []
     for i, ax in enumerate(fig.axes):
-        n = len(ax.patches) + len(ax.lines) + len(ax.texts)
-        n += sum(
-            max(len(np.asarray(c.get_offsets())), len(c.get_paths()), 1) for c in ax.collections
-        )
-        if n > MAX_ELEMENTS:
-            worst.append(f"axes {i}: {n:,} elements")
+        counts: dict[str | None, int] = {}
+        for a in [*ax.patches, *ax.lines, *ax.texts]:
+            counts[a.get_gid()] = counts.get(a.get_gid(), 0) + 1
+        for c in ax.collections:
+            n = max(len(np.asarray(c.get_offsets())), len(c.get_paths()), 1)
+            counts[c.get_gid()] = counts.get(c.get_gid(), 0) + n
+        for gid, n in counts.items():
+            if n > MAX_ELEMENTS:
+                where = f"axes {i}" if gid is None else f"axes {i} track {gid}"
+                worst.append(f"{where}: {n:,} elements")
     return (not worst, "; ".join(worst) or "ok")
 
 
