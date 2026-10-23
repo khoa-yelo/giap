@@ -62,7 +62,7 @@ from giap.variants.vcf_records import VARIANTS_COLUMNS
 SEED = 11
 SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "giap" / "schemas" / "tables"
 REQUIRED = {"mapping", "genome", "genes", "replicons", "peptides"}
-OPTIONAL = {"hits_tolerant", "reference_peptides"}
+OPTIONAL = {"hits_tolerant", "reference_peptides", "peptide_spectra"}  # M7-10 C17
 OUTPUTS = {
     "pileup": "tables/pileup.tsv.gz",
     "variants": "tables/variants.tsv",
