@@ -231,3 +231,14 @@ and §15.5 metric 8's "only wild-type runs" are satisfied here.
 | Q3 | Count diaPASEF variants (synchro-, slice-, midia-PASEF) as `diaPASEF`? DIA-NN 2.3.1 supports some of them. | yes, with `notes`; M10-02 checks the window scheme against the DIA-NN documentation |
 | Q4 | Check all three runs or only the first (§15.2 says "the first run")? | all three; it costs seconds and catches a mixed dataset |
 | Q5 | Should the resolve job's draft manifest be committed before the download, then again with `sha256` filled, or once at the end? | twice, two commits in the same PR: the reviewed selection first, the hashes after the download |
+
+## Lead decisions (2026-10-23, after the tests at 0041b05e)
+1. **The M3-24 fetch tests vs the committed manifest:** at implementation, the lead amends the M3-24 tests (`test_fetch_downloads_three_runs…` and the others that run the script bare against stub payloads) and their sandbox. They then pass an explicit sandbox manifest instead of relying on the defaults. The script gets no stub-detection path.
+2. **The committed-data tests (acceptance 8–10):** the implementation PR is opened only after the real `--resolve` job has run and its manifest and README section are committed, so those tests are green on CI. The download stage's hashes are a second commit in the same PR, before it is marked ready.
+3. **The test-author's readings are accepted:**
+   - escaping symlinks are refused as an "unsafe archive member";
+   - the zip-bomb limit gives exit 1 or 2;
+   - the filled manifest is written in the data directory;
+   - the HEAD upgrade may happen at resolve or at download.
+
+   The 1/K0 range and the Q3 variant notes are backlogged.
