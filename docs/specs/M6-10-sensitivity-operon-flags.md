@@ -82,3 +82,10 @@ estimate ≈ 110 code lines (+ ≈ 150 test lines) · statistical (light)
    patch applied before the pair frame is built, rather than special-casing operons.
 2. `jaccard` when both sets are empty: NA (proposed, M4-19's convention) or 1.0? **Proposed
    default:** NA — "no flags either way" is not stability evidence.
+
+## Lead decisions (2026-10-22)
+
+1. **UniOP-threshold variants:** the proposed default. `Variant` gains an optional config patch
+   that is applied before the pair frame is built; operons are not special-cased. Existing variants
+   (no patch) are byte-identical.
+2. **`jaccard` of two empty sets:** NA, per the M4-19 convention, flagged as in M4-19.
