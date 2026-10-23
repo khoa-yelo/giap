@@ -740,7 +740,7 @@ def compare(
     labels: str | None,
     **_: Any,
 ) -> None:
-    """Compare runs on the same genome (writes CMP/tables/compare_*.tsv)."""
+    """Compare runs on the same genome (CMP/tables/compare_*.tsv, V16, report/compare.html)."""
     import pandas as pd
 
     from giap.compare.abundance import abundance_pairs
@@ -769,8 +769,46 @@ def compare(
         "compare_abundance": pd.concat(pairs, ignore_index=True),
         "compare_stability": stability(loaded.views, labs, cfg),
     }
-    for path in write_tables(outdir, tables):
+    for path in [*write_tables(outdir, tables), *_compare_report(outdir, list(runs), loaded,
+                                                                  tables, cfg)]:  # fmt: skip
         click.echo(str(path))
+
+
+def _compare_report(
+    cmp: Path, paths: list[Path], loaded: Any, tables: dict[str, Any], cfg: Any
+) -> list[Path]:
+    """V16 (``CMP/plots``) and ``CMP/report/compare.html`` (M9-23); returns the paths written."""
+    import os
+
+    import pandas as pd
+
+    from giap.io.compare_io import genome_digest
+    from giap.io.plot_files import read_plot_files, write_instance
+    from giap.report.compare import RunInfo, build_compare
+    from giap.viz import style
+    from giap.viz.compare import compare_plot
+    from giap.viz.interactive import figure_json
+
+    style.apply()
+    inst = compare_plot(tables["compare_detection"], tables["compare_abundance"], loaded.genes)
+    plots = cmp / "plots"
+    written = write_instance(inst, "V16", "compare", plots, cfg.report.formats, cfg.report.dpi)
+    twin = None
+    if cfg.report.interactive:
+        data = pd.read_csv(plots / "data" / "V16_compare.tsv", sep="\t", na_values=["NA"],
+                           keep_default_na=False)  # fmt: skip
+        text = figure_json("V16", data, inst.title)
+        twin = None if text is None else ("plotly-V16", text)
+    runs = []
+    for lab, path in zip(loaded.labels, paths, strict=True):
+        tiers = sorted({str(t) for t in loaded.genes[lab]["detection_tier"].dropna()})
+        runs.append(RunInfo(lab, os.path.relpath(path.resolve(), cmp.resolve()),
+                            genome_digest(path) or "NA", ", ".join(tiers) or "NA"))  # fmt: skip
+    page = cmp / "report" / "compare.html"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    html = build_compare(runs, read_plot_files(plots).get("V16"), tables, twin)
+    page.write_text(html, encoding="utf-8")
+    return [*written, page]
 
 
 # ---------------------------------------------------------------- report
