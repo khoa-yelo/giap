@@ -77,3 +77,13 @@ candidates unestimated".
 2. Example 3: a minus-strand ORF near position 1 on a circular contig has a window below 0.
    **Proposed default:** draw unwrapped (negative coordinates shown as `length + x` tick labels);
    linear contigs clip at 0.
+
+## Lead decisions (2026-10-22)
+
+1. Yes: the top 20 are taken by `rank` among `called = true` rows only; uncalled rows are not claims.
+2. Example 3: a window that runs below 0 (or past the length) on a circular contig is drawn
+   unwrapped, with ticks labelled by their wrapped position (`length + x`); on a linear contig the
+   window clips at 0 and at the length.
+3. Stacked on `m9/locus-plots` (#209): use `giap.viz.locus` as it stands there, and take any
+   interface change from #209's review round by merging that branch, never by copying.
+4. Orf-id sanitising for file names reuses the helper M9-10 uses for `locus_<id>`.
