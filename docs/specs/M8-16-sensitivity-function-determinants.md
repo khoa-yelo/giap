@@ -33,6 +33,12 @@ def determinants_family(genes: pd.DataFrame, cfg: GiapConfig, rng: np.random.Gen
    and the multilevel stage at `sampleSize = 101`; the `two_peptide` single-peptide variant reruns
    **ORA** (detection-driven; analytical, no B) and GSEA; `top3` (full) reruns GSEA. ORA under
    `min`/`exclude` is unchanged by construction (detection does not change) and is not rerun.
+   **Amendment (M8-17b, ADR-0038; statistician, PR #214 N3):** every GSEA rerun goes through
+   `gsea_table`'s engine, which is R fgsea (`RFgseaEngine`, a separate process in the `giap-fgsea`
+   env). Each variant therefore makes its own R calls (a main call and, with GO re-tests, a second
+   call) at `n_perm_simple = 199`, and the `sensitivity` step needs the fgsea env whenever it
+   reruns GSEA. Its tests inject a fake or `SIMPLE_ENGINE`; a `requires_r` test on Slurm should cover the
+   real engine.
 2. **Determinants.** Per variant, LightGBM CV R² (5 repeats, **no** permutation null) and the
    dominant block of each top-decile gene. Rows: `family = determinants`, `n_primary` /
    `n_variant` = counts of genes flagged `abundance_not_explained_by_sequence`, `n_shared`,

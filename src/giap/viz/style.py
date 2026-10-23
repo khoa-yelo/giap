@@ -91,6 +91,9 @@ RC: Mapping[str, Any] = MappingProxyType(
         "pdf.fonttype": 42,
         "ps.fonttype": 42,
         "path.simplify": True,
+        # pinned: importing pyCirclize sets a tight bbox and 0.5-in padding (M9-08 decision 16)
+        "savefig.bbox": None,
+        "savefig.pad_inches": 0.1,
     }
 )
 
