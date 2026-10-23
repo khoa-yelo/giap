@@ -701,4 +701,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 ### M7-10 follow-ups
 - Switch the class-error calibration to the M7-12 `variant_f1` scenario once #225 merges (decision 7).
 - M7-13: class error rate reference-proteome arm (moved from M7-10 #239 B2); also consider a run flag when every class rate is 1 (statistician #239).
-- M7-10: frameshift class-rate bias +0.0087 (2.8 SE at R = 100) on the planted arm; inside the 0.05 bound. Statistician to note or explain in variants.md.
+- M7-10: `paired_observations` keeps the last reference row per spectrum (`keep="last"`), so raw callers with conflicting rows depend on row order (pipeline safe: preflight drops conflicts). Also a run flag when every class rate is 1, and a `low_n` flag or interval columns (statistician #239).

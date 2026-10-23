@@ -43,7 +43,7 @@ def annotate_sites(sites: pd.DataFrame, rates: Sequence[ClassRate]) -> pd.DataFr
    reference row must be a target (not decoy) with `q_value ≤ 0.01` (§7.5.4; the same `REF_MAX_Q`
    as M3-11). One reference identification per spectrum (preflight already rejects a
    `(run, spectrum_id)` with two different peptides, ADR-0005).
-2. **Observations.** One observation per de novo **row** (spectrum) whose stripped peptide supports
+2. **Observations.** One observation per distinct de novo `(run, spectrum_id, peptide)` (rows repeated over charges count once; decision 8) whose stripped peptide supports
    at least one ALT site (M7-02) and which pairs (rule 1). Its classes are the `(alt_type,
    mass_equivalent)` of each ALT it supports (a peptide supporting two ALTs contributes to both
    classes).
