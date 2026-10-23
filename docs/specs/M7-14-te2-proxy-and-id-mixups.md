@@ -85,3 +85,10 @@ def te2_proxy(genome: Path, bakta_json: Path) -> ProxyResult: ...   # Nissle, as
    mix-up signal; TE2 is the `high`-only test.
 2. CONTEXT now depends on VARIANTS (one more optional channel). **Proposed default:** accept; the
    alternative (VARIANTS rewriting `detection_summary.tsv`) gives one table two writers.
+
+## Lead decisions (2026-10-23)
+1. **Question 1 accepted:** `id_mixups` counts contradicting sites of any confidence. It is a QC
+   count, and TE2 is the `high`-only test.
+2. The weekly Slurm TE2 proxy follows R14: jobs named `giap-*`, with the CPU total checked before
+   submitting. A change to the weekly scrontab, if one is needed, is pending Khoa and not blocking,
+   as in MVP-04 decision 3. Until then the job is a one-off sbatch.
