@@ -510,7 +510,14 @@
       "replicons",
       "tus"
     ],
-    "optional_inputs": [],
+    "optional_inputs": [
+      "features",
+      "genes",
+      "pairs_raw",
+      "promoter_windows",
+      "terminators",
+      "tx_rates"
+    ],
     "outputs": [
       "sensitivity"
     ]
@@ -581,6 +588,7 @@
     ],
     "optional_inputs": [
       "hits_tolerant",
+      "peptide_spectra",
       "reference_peptides"
     ],
     "outputs": [

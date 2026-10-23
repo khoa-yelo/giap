@@ -42,7 +42,8 @@ OUT_SPEC = {
     "variants": "tables/variants.tsv",
     "variants_vcf": "tables/variants.vcf",
 }
-TAKE = ["genome", "gene_model", "mapping", "hits_tolerant", "peptides", "reference_peptides"]
+TAKE = ["genome", "gene_model", "mapping", "hits_tolerant", "peptides", "reference_peptides",
+        "peptide_spectra"]  # fmt: skip
 
 
 def _strip(text: str) -> str:

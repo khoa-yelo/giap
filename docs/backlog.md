@@ -16,7 +16,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - [ ] M11 release 1.0
 
 - M3: `mapping.tolerant.swaps` and `mapping.tolerant.mass_equivalents` config keys are not consumed by M3-07; decide which issue implements them or remove them (from M3-07 review, PR #48).
-- M6: the simulator plants stop-codon readthrough (C-terminal extensions, ADR-0013) for cterm_extension calibration (from M3-19 test-author note).
+- M7 (moved from M6 by M6-03 lead decision 2; M7-12 or M7-16): the simulator plants stop-codon readthrough (C-terminal extensions, ADR-0013) for cterm_extension calibration (from M3-19 test-author note).
 - M2-09: antiSMASH databases with `url: "image"` (databases bundled in the image) — setup edge case from M2-08 review.
 - M2-09 (from M2-08 review, low): delete the geNOMAD tarball after unpacking (§3.9); reject non-200 responses before hashing; cap redirects; test `_provenance` requires prev status ok; drop redundant tar `filter` weakening check.
 - M2-09 follow-up: GO release directories can announce a different `data-version` date in the OBO header (2026-06-19 → 2026-06-15, 2026-08-05 → 2026-07-26), so `verify_go` rejects them and the pin stays at 2026-05-19; verify the header against a pinned `data_version` instead of the directory date.
@@ -662,6 +662,51 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
 
+### M7-12 statistician NITs (PR #225) → M7-13
+- F1 matching folds I/L/J; precision over all truth sites (n_true_peptides counts database
+  peptides only); use the method's own peptide rule as the N-terminal-extension denominator.
+- Isobaric attack: a "systematic" error option keyed by protein site; run with
+  `--genome-relation same`. Document `variant_f1` sample peptides labelled `search_db = same`.
+- `same_strain_insilico`: all 11 non-ATG N-terminal peptides unmapped; the start-codon exception
+  is never exercised.
+- Three attack nulls proposed in the comment for M7-13 (tests/calibration/attacks/).
+- GIAP: genomes below ~200 genes hit a 1/n gene-level q floor above 0.01 and detect 0 genes;
+  decide the small-genome behaviour (warn, or a method that can reach q ≤ 0.01).
+- (M7-12 round 2) per-class expected false novel candidates in the truth; an I/L `ms_observable` column in alt_sites.
+
+### M7-12 statistician round 2 (PR #225)
+- **Possible cause of the sim100k 0-genes floor:** the older (non-six-frame) giapsim decoy rows
+  carry no score/q/pep, so gene-level `decoy_picked` q is 1/T. Check this before the M9-13 evidence
+  run and the q-floor question to Khoa.
+- M7-13: the de novo arm of the class-FDR gate gets 0–2 false candidates per class per replicate at
+  300k; run it at ≥ 1M.
+- M7-13 G1: a policy is needed for `mass_equivalent` calls. On variant_f1 seed 7, high-confidence
+  substitution precision is 0.82, and 5 of 6 FPs are A>S / N>D modification errors.
+- Attack-null proposals in comment 6358601933.
+- M7-12 N1 (statistician round 3): six-frame target q/PEP come from the wrong share before the coin (about 2× conservative). PSM-level calibration on six-frame scenarios needs the post-coin share.
+- M7-12 N3: G4 for `nterm_extension` must go through M7-11's locus-tag pairing (planted peptides carry the gene's locus tag).
+- M7-13: the report says a class with fewer than about 100 candidates cannot be called at α 0.01 (class q floor).
+### M6-09 (from the M6-03 statistician review, PR #222)
+- **Method ADR needed (Khoa):** the SW decoy floor (≈2 SW decoys vs 131 targets in the 50–150 bp
+  bin) keeps min q ≥ 0.88 under the merged decoy-FDR method, so the missed-operon FDR gate passes
+  vacuously. Options: one phantom decoy in total, a CV-only or reweighted-maximum rule, coarser
+  bins; otherwise document the gate as "vacuous pass: no calls". Probes:
+  statistician scripts probe.py / floor.py / teeth.py (lift into tests/calibration/attacks/).
+- Record one arm at the defaults (`p_same_strand` 0.6, `DEFAULT_BETA`); the power table reports
+  the realised planted count (≈15 % of both-detected NO targets, not 10 %).
+- (M6-09, statistician round 2) example 1 is infeasible at 0.1 SD under every arm (merged engine: 0
+  calls everywhere; CV-only 1-bin: 2.5 calls); add a realistic 10 % detection-attack block arm;
+  report realised planted counts; lift stat603/probe2.py and bias.py into tests/calibration/attacks/.
+
+### M6-03 code-review nits (PR #222)
+- Decision 9 (odd `n_planted`) untested: `discordance_power(1800, 41, 2.0)` gives 21/20.
+- Untested edges: SW triple across the origin; convergent boundary at a second replicon's first gene;
+  2-gene circular replicon; the inclusive 300-bp upper gap bound; background SD from both-detected pairs only.
+- The circular wrap boundary never gets the short convergent gap, though layout.py and the methods
+  note say "every" boundary: fix the wording or the generator.
+- Methods note: the R = 1,000 null OP tail z = −2.05 needs a "within chance" remark.
+- `_tsv_cell` / `read_operon_truth` `"int"` dtype branch unused.
+- mypy over tests/sim (MYPYPATH=tests/sim) reports 5 errors from tests/sim/giapsim/layout.py:663.
 ### M8 Wallenius (statistician, PR #220)
 - **ADR-0044 (Needs Khoa):** M8-13 criterion 1 reference = exact Wallenius (urn recursion /
   exact rational integral, committed TSV + pure-Python generator); goseq second reference at
@@ -728,6 +773,26 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
 
+### M7-10 follow-ups
+- Switch the class-error calibration to the M7-12 `variant_f1` scenario once #225 merges (decision 7).
+- M7-13: class error rate reference-proteome arm (moved from M7-10 #239 B2); also consider a run flag when every class rate is 1 (statistician #239).
+- M7-10: `paired_observations` keeps the last reference row per spectrum (`keep="last"`), so raw callers with conflicting rows depend on row order (pipeline safe: preflight drops conflicts). Also a run flag when every class rate is 1, and a `low_n` flag or interval columns (statistician #239).
+- Review #239 nits (M7-10):
+  - 1: `_peptide_spectra` swallows reference `ValueError`s and validate issues, so a malformed reference file is silently `unestimated`.
+  - 2: edge-case tests are missing for a frameshift with `mass_equivalent`, a raw NaN reference q, NA `is_decoy`, and NA `spectrum_id` on both sides.
+  - 3: the methods note "Observations" bullet should say distinct `(run, spectrum_id, peptide)`.
+  - 4: `site_class` ignores `;`-joined string flags cells; document this or split them.
+  - 5: the `# fmt: skip` on the cli.py `files` dict is unneeded.
+### M9-13 review nits (PR #224)
+- N1 checks.py test gaps (surviving mutants): `<script defer src=…>`, `url(http…)` outside style,
+  uppercase `DATA:` URI, query-only `href="?q=1"`.
+- N2 external loads not detected: `srcset`, `<object data>`, `<video poster>`, SVG `<feImage href>`,
+  `<base href>`, meta refresh — extend before M9-14/M9-25 rely on checks.py.
+- N3 `relative_links` treats root-absolute paths as relative (docstring); tab/newline URL cleanup.
+- N4 examples 2–3 checked on the local report only, not the Nextflow-published one.
+- N5 untested: Nextflow run with a module off gives `module_off`; main.nf passes `events` to PLOTS.
+- N6 main.nf repeats the `function` condition for FUNCTION's events; fold into the existing `if`.
+- N7 test_branch.sbatch warm-up ≥ 25 s should warn loudly (30 s probe in tests/conftest.py).
 ### M9-22 hardening
 - ρ-CI calibration on full giapsim run pairs (now a simulated TU world at giapsim sizes).
 - Test the section order (matrix, then intersections) and the `none` row's place among ties.
@@ -797,3 +862,21 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
 - M8-15: a synthetic go_slim OBO for the sixth collection (M8-14 gap 4).
+- Review #225 nits (M7-12):
+  - N2: the methods-note FDP table is at 200 ORFs per class; rerun it at the gate count of 300.
+  - N3: `OrfEntries` does not restate `NTERM_MIN_UPSTREAM_AA` and assumes `min_orf_aa` = 7; assert `digest_len[0]` ≥ 7 in six-frame mode.
+  - N4: drop the throwaway `Builder(10)` in the mixed-decoy test.
+  - N5: validate that `n_per_class` ≥ 0.
+  - N6: add a 1M gate-count case to the benchmark and refresh the `novel_orf_power` baseline.
+  - N7: `_protein_decoys` checks the target set without I/L folding.
+  - N8: the spec names `tests/sim/test_m7_scenarios.py`; the file is `tests/unit/test_sim_m7_scenarios.py`.
+- MVP-04: origin-crossing novel ORFs excluded from the planted set on K-12 (spec question 7).
+
+### M6-10 follow-ups
+- Runtime: build the pair frame once per threshold and keep reruns under 2× a single run; not pinned (timing is flaky on the shared node).
+- Review #243 nits:
+  - N1: `giap.context.sensitivity` imports `giap.steps.operons`, the first context→steps import. Move `run_operons` to a pure module and `read_layer` to io/.
+  - N2: the "relative" log has no `extra` event, and its wording fits only this family.
+  - N3: no unit or step test passes precomputed TSV layers (mutant M9).
+  - N4: hardening still owed: `--sensitivity full` in the nightly e2e, and the M9 text item on threshold sensitivity.
+  - N5: `test_unpatched_variants_unchanged` has an odd `assert [c for c in ...]`.
