@@ -426,3 +426,28 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
    - Measuring against another branch's giapsim needs `-o pythonpath=<that>/tests/sim`, because
      `pyproject.toml` puts this branch's `tests/sim` first (backlog).
    - Next: #256 nterm fix; the statistician on attacks a and d; then the full tier.
+7. **Statistician on attacks a and d (Slurm 1874863; probes in local/stat/m713b-attacks/):
+   accepted.**
+   - **Cause:** the scenario, not the criterion or the harness. giapsim draws wrong peptides one
+     product at a time over a large non-coding pool, so nearly every false ORF has one peptide and
+     fails the class rule. The "no filter" set is already ≥ 95 % true (intergenic 0.055 at q 0.10),
+     and pooling (d) cannot exceed it. G4's own cds_outframe/antisense picked checks are close to
+     vacuous for the same reason.
+   - **Fix (test-side, giapsim unchanged):** a clustered-null arm. Per replicate, on the gate seed
+     and its own stream, M = 400 null `antisense` makedb entries are added: non-coding stop-to-stop
+     segments with ≥ 5 products that the simulation did not hit, each sent to the target or decoy
+     side with p = 1/2, with k = 3–5 distinct products (decoys reversed, `rev_<id>`) and (q, pep,
+     score) resampled from the simulation's `rev_GIAPORF_` rows. GIAP's database arm runs once
+     more on it. Attacks a and d run on this arm; its filtered G4 is recorded (not gated) as a
+     non-trivial picked-regime FDR measurement.
+   - **Evidence at M = 400 (R = 200, two blocks):** a 0.356 / 0.364 against a bound of 0.104 and d
+     0.131 / 0.136 against 0.105 at q 0.10, both confirmed fails. Filtered G4 is at level (0.004 /
+     0.037 / 0.078 against 0.011 / 0.053 / 0.105). Fast tier R = 10: a and d fail 10 of 10. Cost
+     about +5.5 min.
+   - **Erratum to the attacks table:** for attack a, "calling every candidate gives FDP ≈ 0.7"
+     counted candidates without the class rule; it is replaced by the clustered-null-arm numbers
+     above. Attack d runs on the clustered-null arm. No tolerance changes (R3).
+   - Next: the test-author (`cluster_record(i)` and the transform in
+     `tests/helpers/m7_gate_novel_records.py`; attacks a and d in
+     `tests/calibration/attacks/test_attack_m7_gate.py` read it), then a statistician re-check, then
+     the full tier.
