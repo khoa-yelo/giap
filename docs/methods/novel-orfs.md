@@ -2,7 +2,7 @@
 
 Status: §"Class FDR" written for the statistician's round-2 review of PR #237 (M7-11). Code:
 `src/giap/novel/fdr.py` (pure; the `novel_orfs` step wiring is M7-11b). Spec: GIAP_SPEC.md §7.6.4,
-§7.9.2, §8.1, §8.2; ADR-0009, ADR-0010; docs/specs/M7-11-novel-class-fdr.md, lead decisions 1–11.
+§7.9.2, §8.1, §8.2; ADR-0009, ADR-0010; docs/specs/M7-11-novel-class-fdr.md, lead decisions 1–14.
 
 ## Class FDR
 
@@ -29,10 +29,15 @@ single decoy model.
 
 ### Picked class FDR (rule 2; ADR-0009)
 **Matching.** Each target ORF is matched to the makedb six-frame ORF with the same
-`(contig, strand, stop)`. A makedb ORF is stop to stop, so its closing stop identifies it. On the
-plus strand that stop starts at the entry's 0-based end. On the minus strand it starts 3 nt below
-the entry's start. Origin-crossing entries are matched modulo the replicon length when the lengths
-are given; without them the ORF is unestimated (decision 8). An `nterm_extension` ORF with no stop
+`(contig, strand, stop)`. A makedb ORF is stop to stop, so the codon position just past its 3′
+end identifies it: the entry's 0-based end on the plus strand, and 3 nt below the entry's start
+on the minus strand. For an ORF closed by a stop codon, that position is where `Orf.stop` (the
+stop's lowest coordinate) lies. A 3′-open ORF (linear contig end or an `X` codon) has no closing
+stop: `Orf.stop` is its last whole codon, and makedb ends the segment at that codon's end. Its key
+is therefore `Orf.stop + 3` on the plus strand and `Orf.stop − 3` on the minus strand
+(decision 13). When replicon lengths are given, both keys are wrapped modulo the length, so
+origin-crossing entries match (decisions 8 and 14). Without lengths, an ORF whose entry crosses
+the origin is unestimated. An `nterm_extension` ORF with no stop
 match is paired by locus tag. Its makedb entry covers the upstream part plus the first 30 codons,
 so its stop lies inside the gene.
 

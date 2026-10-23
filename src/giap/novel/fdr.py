@@ -202,6 +202,14 @@ def _stop(e: _Entry, lengths: Mapping[str, int] | None) -> int:
     return s % n if n else s
 
 
+def _orf_key(o: Orf, lengths: Mapping[str, int] | None) -> tuple[str, str, int]:
+    """Pairing key of ``o``; a 3'-open ORF's ``stop`` is its last whole codon, so the key moves
+    one codon to the makedb segment's end (decisions 13-14), wrapped like the entry key."""
+    s = o.stop + (_STOP_LEN if o.strand == "+" else -_STOP_LEN) * o.end_3p_open
+    n = None if lengths is None else lengths.get(o.contig)
+    return o.contig, o.strand, s % n if n else s
+
+
 def _class_rank(
     keys: Sequence[str],
     rows_t: Mapping[str, set[int]],
@@ -270,7 +278,7 @@ def picked_class_fdr(
         if o.cls not in TAGGED_CLASSES:
             reason[o.orf_id] = "untagged_class"
             continue
-        k = by_key.get((o.contig, o.strand, o.stop))
+        k = by_key.get(_orf_key(o, replicon_lengths))
         if k is None and o.cls == "nterm_extension" and o.overlapping_gene:
             k = by_tag.get(o.overlapping_gene)
         if k is None:
