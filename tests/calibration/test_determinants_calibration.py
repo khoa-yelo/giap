@@ -176,7 +176,8 @@ def _recovery(i: int, coefs: dict[str, float], r2: float) -> dict[str, Any]:
                           "detected": True, "abundance_imputed": False})  # fmt: skip
     tab = at.attribution_table(feats, np.ones(len(tags), dtype=bool), cv["lightgbm"], shap)
     top = tab[tab["top_decile"].astype(bool)].set_index("locus_tag")
-    got = top["dominant_block"].astype(object).to_numpy()
+    # no positive SHAP sum -> NA dominant block: counted as a disagreement
+    got = np.array([None if pd.isna(v) else str(v) for v in top["dominant_block"]], dtype=object)
     truth_abs = (w.truth["determinants_genes"].set_index("locus_tag")
                  .loc[top.index, "dominant_block"].to_numpy(object))  # fmt: skip
     beta = np.array([coefs.get(f, 0.0) for f in fs.FEATURES])
