@@ -108,3 +108,16 @@ def determinants_step(ctx: StepContext) -> None: ...
 3. `--publication` multiplies the null's cost by 10 (B = 10,000, §8.2) — roughly 5–7 CPU-hours per
    model on a 4,500-gene genome if M8-09's estimate holds. **Proposed default:** honour §8.2 as
    written and print the expected runtime; a Besag–Clifford early stop would need an ADR.
+
+## Lead decisions (2026-10-22)
+
+1. **Q1:** `abundance_not_explained_by_sequence` goes in `determinants_attribution.tsv` for now. A backlog line adds it to `genes.tsv` when `finalize` (§6.2) is built. One writer per file.
+2. **Q2:** `withName: 'DETERMINANTS'` at `process_high`. No second module.
+3. **Q3:** `--publication` follows §8.2 as written (B = 10,000) and logs the expected runtime. A Besag–Clifford early stop needs an ADR and goes to hardening.
+4. **Carry-overs from M8-09** (statistician #173, ADR-0034):
+   - the `null_p` row carries `null_uncalibrated` on every model, and `unestimated` when the observed R² is NaN;
+   - `cv_r2_mean`, the null p's effect, gets `ci_unestimated` (ADR-0031 pattern);
+   - `n_perm` counts the non-NaN null values, as `perm_p` does.
+
+   The univariate rows keep `ci_unestimated` (ADR-0032).
+5. **Branch:** m8/determinants-step is stacked on m8/attribution (#173). MVP: wire the step end to end through `giap run` before any polish.
