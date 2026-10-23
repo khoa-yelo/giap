@@ -101,10 +101,15 @@ def write_manifest(path: Path, manifest: Mapping[str, Any]) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def _nonempty(path: Path) -> bool:
+    """False for a missing or 0-byte file (a ``-stub-run`` ``touch`` output)."""
+    return path.is_file() and path.stat().st_size > 0
+
+
 def read_sensitivity(path: Path | None) -> list[dict[str, Any]] | None:
     """Rows of ``tables/sensitivity.tsv`` (counts ``int``, other numbers ``float``, ``NA`` →
-    None); ``[]`` when header-only, None when absent."""
-    if path is None or not path.is_file():
+    None); ``[]`` when header-only, None when absent or empty."""
+    if path is None or not _nonempty(path):
         return None
     with path.open(newline="", encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh, delimiter="\t"))
@@ -117,8 +122,8 @@ def read_sensitivity(path: Path | None) -> list[dict[str, Any]] | None:
 
 
 def read_island_diagnostics(path: Path | None) -> list[dict[str, Any]] | None:
-    """Rows of ``context/island_diagnostics.parquet`` in file (C1) order; None when absent."""
-    if path is None or not path.is_file():
+    """Rows of ``context/island_diagnostics.parquet`` in file (C1) order; None if absent/empty."""
+    if path is None or not _nonempty(path):
         return None
     rows: list[dict[str, Any]] = pq.read_table(path).to_pylist()
     return rows
@@ -147,8 +152,9 @@ def tool_reports(
         if not done or not versions.is_file():
             continue
         m = _DIGEST.search(row.get("container") or "")
-        for process, tools in (_yaml(versions) or {}).items():
-            for name, version in (tools or {}).items():
+        doc = _yaml(versions)
+        for process, tools in (doc if isinstance(doc, dict) else {}).items():
+            for name, version in (tools if isinstance(tools, dict) else {}).items():
                 lock = locks / f"{name}.explicit.txt"
                 out.append({"process": str(process), "name": str(name), "version": str(version),
                             "container_digest": f"sha256:{m.group(1)}" if m else None,
