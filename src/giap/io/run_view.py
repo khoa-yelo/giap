@@ -9,8 +9,8 @@ the same keys and read the same frames. In an input map, a file under a ``PUBLIS
 ``regions`` and ``terminators`` (Parquet) never shadow the published ``tus_tsv``, ``regions_tsv``,
 ``promoters_bed`` and ``terminators_bed``; any other key may name the file or a directory holding
 it (``preflight`` is the directory ``work/preflight/`` under the local executor).
-M9-02 must add ``step_events`` (``logs/steps``) and ``plots_support`` (``plots/support``) to the
-``plots`` step's optional inputs; ``from_inputs`` reads those directories from them.
+The ``plots`` step takes ``step_events`` (``logs/steps``) and ``plots_support``
+(``plots/support``) as optional inputs (M9-02); ``from_inputs`` reads those directories from them.
 
 TSVs that have a Frictionless schema (``giap/schemas/tables/<stem>.schema.json``) are read with
 its types and its ``missingValues``; a schema column missing from the file raises ``ValueError``.
@@ -24,6 +24,7 @@ converted on read (``start - 1``, ends unchanged), as ``giap.io.genes_tsv``, ``w
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from functools import cache
@@ -50,6 +51,8 @@ _EXTRA: dict[str, str] = {
     "promoters_bed": "annotation/promoters.bed",
     "terminators_bed": "annotation/terminators.bed",
     "events": "logs/events.jsonl",
+    "enrichment_detection": "tables/enrichment_detection.tsv",
+    "enrichment_gsea": "tables/enrichment_gsea.tsv",
     "resolved_config": "resolved_config.yaml",
 }
 #: key -> ``OUT/``-relative path (behaviour 3)
@@ -197,6 +200,30 @@ class RunView:
         extra = {STEP_EVENTS: "step_events", SUPPORT: "plots_support"}
         found_dirs = {d: _as_list(inputs[k]) for d, k in extra.items() if k in inputs}
         return cls(files, {d: paths[0] for d, paths in found_dirs.items() if paths})
+
+    def with_modules(self, modules: Sequence[str]) -> RunView:
+        """The same files, with the optional modules off taken from ``modules`` (a step's
+        ``cfg.modules``) instead of ``resolved_config.yaml``."""
+        view = RunView(self._files, self._dirs)
+        view._modules_off = frozenset(set(get_args(Module)) - set(modules) - {"core"})
+        return view
+
+    def head(self, key: str, n: int) -> tuple[list[str], list[list[str]]] | None:
+        """Header and first ``n`` rows of the TSV behind ``key``, cells as written; ``None``
+        when absent (the report's table previews, M9-02 behaviour 4)."""
+        path = self.path(key)
+        if path is None:
+            return None
+        with open_text(path) as fh:
+            lines = [line.rstrip("\r\n") for _, line in zip(range(n + 1), fh, strict=False)]
+        if not lines:
+            return [], []
+        return lines[0].split("\t"), [line.split("\t") for line in lines[1:]]
+
+    def digest(self, key: str) -> str | None:
+        """SHA-256 of the file behind ``key``, or ``None`` when it is absent."""
+        path = self.path(key)
+        return None if path is None else hashlib.sha256(path.read_bytes()).hexdigest()
 
     def path(self, key: str) -> Path | None:
         """The file behind ``key``, or ``None`` when it is absent; unknown keys raise."""

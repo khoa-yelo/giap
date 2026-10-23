@@ -84,6 +84,11 @@ def _skip_reason(spec: PlotSpec, view: RunView) -> str | None:
     return None
 
 
+def skip_reason(pid: str, view: RunView) -> str | None:
+    """The declared skip of the registered plot ``pid`` on ``view``, or ``None``."""
+    return _skip_reason(_REGISTRY[pid], view)
+
+
 def plot(
     pid: str,
     name: str,
@@ -172,4 +177,7 @@ def title_pct(n: int, d: int) -> str:
     """``n / d`` as a whole percent for titles (``"12 %"``); ``d == 0`` -> ``"NA"``."""
     if d == 0:
         return "NA"
-    return f"{int(100 * n / d + 0.5)} %"
+    pct = int(100 * n / d + 0.5)
+    if 0 < n < d:  # never round a partial share to 0 % or 100 %
+        pct = min(max(pct, 1), 99)
+    return f"{pct} %"

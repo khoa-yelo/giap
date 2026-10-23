@@ -1,0 +1,124 @@
+// M9-02 example 9: stub run of the REPORT subworkflow (workflow/subworkflows/local/report.nf;
+// GIAP_SPEC.md §6.2 rows "plots" and "report", §6.3, §9.1; docs/specs/M9-02-plots-report-steps-
+// and-cli.md behaviour 8). ci.yml runs: nf-test test workflow/tests --profile test,stub.
+//
+// Interface pinned here (test author):
+//   take: published  (one channel of [key, path] pairs: the subworkflows' published outputs,
+//                     'preflight', and their `events` emissions under the key 'events')
+//   emit: plots      (the plots/ directory of the `plots` step)
+//         report     (report/report.html, or the report/ directory holding it)
+//         versions
+// The `plots` and `report` py steps run through GIAP_STEP aliases (PLOTS, REPORT_HTML), tagged
+// `plots` and `report`; REPORT_HTML stages PLOTS's output. `preflight` is the only required
+// key: without it neither step runs; a missing optional key (here `pairs`) is simply not staged.
+// Published: OUT/plots/ and OUT/report/report.html (a stub must create both, so the stub out spec
+// names report/report.html; cf. mapping.nf's lociSpec()).
+
+nextflow_workflow {
+
+    name "REPORT subworkflow (stub)"
+    script "../subworkflows/local/report.nf"
+    workflow "REPORT"
+    options "-stub"
+    tag "report"
+
+    test("published keys and events: plots then report run once; plots/ and report/report.html are emitted and published") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def a = "${moduleTestDir}/data/annotate"
+                def g = "${moduleTestDir}/data/genetable"
+                input[0] = channel.of(['preflight', file("\${g}/preflight.json")],
+                                      ['pairs', file("\${a}/operon_pairs.tsv")],
+                                      ['regions_tsv', file("\${a}/regions.tsv")],
+                                      ['events', file("\${a}/annotation.json")])
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def reg = new groovy.json.JsonSlurper().parse(REG)
+            def work = workDir.toString()
+            def nameOf = { File d -> (new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
+            def byTag = { String s -> H.taskDirs(work).findAll { d -> H.tagOf(nameOf(d)) == s } }
+            def ran = { String s -> H.names(workflow.trace).count { H.tagOf(it) == s } }
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+
+            assert reg.containsKey('plots') && reg.containsKey('report') : "step_registry.json lacks plots/report"
+            assert ran('plots') == 1 : "plots ran ${ran('plots')}x; tasks: ${H.names(workflow.trace)}"
+            assert ran('report') == 1 : "report ran ${ran('report')}x; tasks: ${H.names(workflow.trace)}"
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def pdir = byTag('plots')
+            assert pdir.size() == 1 && new File(pdir[0], '.giap_inputs').isFile() : "plots did not run through GIAP_STEP"
+            def pkeys = H.stepInputs(pdir[0]).collect { it[0] }
+            assert pkeys.toSet() == ['preflight', 'pairs', 'regions_tsv', 'events'].toSet() : "plots inputs ${pkeys}"
+
+            def rdir = byTag('report')
+            assert rdir.size() == 1
+            def rin = H.stepInputs(rdir[0])
+            assert rin.collect { it[0] }.toSet().containsAll(['plots', 'preflight']) : "report inputs ${rin}"
+            def staged = H.staged(rdir[0]).collect { new File(it[0]).canonicalPath }
+            assert staged.any { it.startsWith(pdir[0].canonicalPath) } : "report does not stage the plots output: ${staged}"
+
+            assert workflow.out.plots != null && workflow.out.plots.size() == 1 : "emit plots: ${workflow.out.plots}"
+            assert workflow.out.report != null && workflow.out.report.size() == 1 : "emit report: ${workflow.out.report}"
+            assert new File("${outputDir}/plots").isDirectory() : "plots/ not published"
+            assert new File("${outputDir}/report/report.html").isFile() : "report/report.html not published"
+        }
+    }
+
+    test("an absent optional key: the steps still run without it") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                input[0] = channel.of(['preflight', file("\${g}/preflight.json")])
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def ran = { String s -> H.names(workflow.trace).count { H.tagOf(it) == s } }
+            assert workflow.success
+            assert ran('plots') == 1 && ran('report') == 1 : "tasks: ${H.names(workflow.trace)}"
+            assert new File("${outputDir}/report/report.html").isFile()
+        }
+    }
+
+    test("no preflight: neither step runs") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def a = "${moduleTestDir}/data/annotate"
+                input[0] = channel.of(['pairs', file("\${a}/operon_pairs.tsv")])
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def ran = { String s -> H.names(workflow.trace).count { H.tagOf(it) == s } }
+            assert workflow.success
+            assert ran('plots') == 0 && ran('report') == 0 : "tasks: ${H.names(workflow.trace)}"
+            assert !new File("${outputDir}/report").exists()
+        }
+    }
+}

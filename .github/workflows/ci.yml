@@ -25,6 +25,7 @@ jobs:
       - run: uv run --no-sync ruff format --check .
       - run: uv run --no-sync mypy src/giap
       - run: uv run --no-sync python scripts/ci/check_imports.py src
+      - run: python3 scripts/ci/check_no_rscript.py src
       - run: uv run --no-sync python scripts/write_config_schema.py --check
 
   guards:
@@ -39,6 +40,8 @@ jobs:
         run: python3 scripts/ci/check_protected.py origin/${{ github.base_ref }}
       - name: test/implementation roles (R2)
         run: python3 scripts/ci/check_roles.py origin/${{ github.base_ref }}
+      - name: R golden data carry a PROVENANCE.md update (M8-12)
+        run: python3 scripts/ci/check_golden_provenance.py origin/${{ github.base_ref }}
       - name: unique test module names
         run: python3 scripts/ci/check_test_names.py
       - name: PR size (code only, ADR-0007, ADR-0016)
