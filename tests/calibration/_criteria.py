@@ -9,6 +9,9 @@ reads it. Criteria, with k = ``se_multiplier`` and R the number of independent n
 - FWER:    share of replicates with >= 1 false discovery <= alpha + k * sqrt(alpha (1 - alpha) / R)
 - pooled level (``m=``, PR #69 lead decision 1): each replicate pools m independent p-values and
   reports its rejection share s_i = #{p <= alpha} / m; sum_i s_i / R <= level_bound(alpha, R m)
+- pooled F1 (``calibrate_pooled``, M7-13 rule 2): replicate i reports counts (tp_p, n_pred,
+  tp_r, n_truth); F1 of P = sum tp_p / sum n_pred and Rc = sum tp_r / sum n_truth >= bound (point
+  estimate, optional count guards and vacuity floors; jackknife SE recorded only)
 
 Replicate ``rep`` of stream ``suite`` draws from ``default_rng(suite_seed(suite, rep))`` with
 ``suite_seed = SeedSequence([calibration_base, crc32(suite), rep])`` as one uint64, so any shard
@@ -69,6 +72,9 @@ SHARD_ENV = "GIAP_CALIBRATION_REPLICATES"
 BLOCK_ENV = "GIAP_CALIBRATION_BLOCK"
 CONFIRM_ENV = "GIAP_CALIBRATION_CONFIRM"  # JSON [[stream, criterion, level, R], ...]: block 2 only
 CRITERIA = ("level", "uniform", "fdr", "fwer")
+POOLED_F1 = "pooled_f1"  # criterion of ``calibrate_pooled`` (count records, not scalars)
+F1_COUNTS = ("tp_p", "n_pred", "tp_r", "n_truth")
+VACUOUS_STATUS = "vacuous"  # pooled check whose block-1 mean of a count is below its floor
 STATUSES = ("pass", "unconfirmed", "fail")
 SHARD_STATUS = "shard"  # partial record of one shard; only ``merge_shards`` gives a verdict
 PENDING_STATUS = "pending"  # merged check whose block 1 fails and whose block 2 is not logged yet
@@ -483,7 +489,16 @@ def _verdict(r1: CheckResult, r2: CheckResult | None) -> str:
     return "fail" if not r2.ok else "unconfirmed"
 
 
-CheckKey = tuple[str, str, float, int]  # (stream, criterion, level, R)
+#: (stream, criterion, level, R), plus the count-record key for pooled checks
+CheckKey = tuple[str, str, float, int] | tuple[str, str, float, int, str]
+
+
+def _parse_check_key(item: Sequence[Any]) -> CheckKey:
+    if len(item) == 4:
+        return (str(item[0]), str(item[1]), float(item[2]), int(item[3]))
+    if len(item) == 5:
+        return (str(item[0]), str(item[1]), float(item[2]), int(item[3]), str(item[4]))
+    raise ValueError(f"check key {item!r}: expected 4 or 5 items")
 
 
 def confirm_checks() -> frozenset[CheckKey] | None:
@@ -493,7 +508,7 @@ def confirm_checks() -> frozenset[CheckKey] | None:
         return None
     try:
         items = json.loads(raw)
-        return frozenset((str(a), str(b), float(c), int(d)) for a, b, c, d in items)
+        return frozenset(_parse_check_key(item) for item in items)
     except (ValueError, TypeError) as exc:
         raise ValueError(f"{CONFIRM_ENV}={raw!r}: {exc}") from None
 
@@ -576,11 +591,15 @@ def calibrate(
 
 
 def _collect(
-    group: Sequence[Mapping[str, Any]], block: int, R: int, key: tuple[Any, ...]
-) -> tuple[list[float], float] | None:
-    """Values of replicates ``(block-1)R .. block R - 1`` from the records of one check."""
+    group: Sequence[Mapping[str, Any]],
+    block: int,
+    R: int,
+    key: tuple[Any, ...],
+    conv: Callable[[Any], Any] = float,
+) -> tuple[list[Any], float] | None:
+    """Values (through ``conv``) of replicates ``(block-1)R .. block R - 1`` of one check."""
     offset = (block - 1) * R
-    got: dict[int, float] = {}
+    got: dict[int, Any] = {}
     duration = 0.0
     seen: set[tuple[int, int]] = set()
     for r in group:
@@ -590,9 +609,9 @@ def _collect(
         if len(values) != stop - start or not (offset <= start < stop <= offset + R):
             raise ValueError(f"{key}: malformed record for replicates {start}:{stop}")
         for i, v in zip(range(start, stop), values, strict=True):
-            if i in got and got[i] != float(v):
+            if i in got and got[i] != conv(v):
                 raise ValueError(f"{key}: replicate {i} logged twice with different values")
-            got[i] = float(v)
+            got[i] = conv(v)
         if (start, stop) not in seen:
             seen.add((start, stop))
             duration += float(r.get("duration", 0.0))
@@ -614,12 +633,18 @@ def merge_shards(suite: str, log_dir: Path | None = None) -> list[dict[str, Any]
     ValueError); if it fails, block 2 (R..2R-1) decides per ADR-0015; if block 2 was not logged
     the check is ``pending`` (block-1 record, no verdict: never ``fail`` from block 1 alone).
     Records written by ``log_result`` (no ``values``) are skipped. The records of one check must
-    agree on ``m`` (pooled level, else ValueError).
+    agree on ``m`` (pooled level, else ValueError). ``pooled_f1`` records (``calibrate_pooled``)
+    are merged per (stream, key, level, R) by ``_merge_pooled``; their verdicts come last.
     """
     directory = Path(log_dir) if log_dir is not None else _default_log_dir()
     groups: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
+    pooled: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
     for r in read_results(directory / f"{suite}.jsonl"):
         if "values" not in r:
+            continue
+        if r["criterion"] == POOLED_F1:
+            pkey = (r["stream"], str(r["key"]), float(r["level"]), int(r["R"]))
+            pooled.setdefault(pkey, []).append(r)
             continue
         key = (r.get("stream", suite), r["criterion"], float(r["level"]), int(r["R"]))
         groups.setdefault(key, []).append(r)
@@ -641,7 +666,211 @@ def merge_shards(suite: str, log_dir: Path | None = None) -> list[dict[str, Any]
         reps = range((block - 1) * R, block * R)
         rec = _record(suite, stream, criterion, level, R, block, reps, values, dt, res, status, m)
         out.append(rec)
+    out.extend(_merge_pooled(suite, pkey, group) for pkey, group in pooled.items())
     return out
+
+
+# --------------------------------------------------------------------------- pooled F1 (M7-13)
+
+
+def _f1_totals(counts: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    """Sums of ``F1_COUNTS`` over replicates; fails closed on bad counts."""
+    if len(counts) == 0:
+        raise ValueError("pooled_f1: no replicates")
+    tot = dict.fromkeys(F1_COUNTS, 0)
+    for i, c in enumerate(counts):
+        for k in F1_COUNTS:
+            v = c[k]
+            if isinstance(v, bool) or not isinstance(v, int | np.integer) or v < 0:
+                raise ValueError(f"pooled_f1: replicate {i} {k} = {v!r} is not a count")
+            tot[k] += int(v)
+        if c["tp_p"] > c["n_pred"] or c["tp_r"] > c["n_truth"]:
+            raise ValueError(f"pooled_f1: replicate {i} has tp > n ({dict(c)})")
+    return tot
+
+
+def pooled_f1(counts: Sequence[Mapping[str, Any]]) -> tuple[float, float, float]:
+    """(precision, recall, F1) from the summed counts (M7-13 rule 2); F1 = 0 when either
+    denominator sum is 0."""
+    t = _f1_totals(counts)
+    if t["n_pred"] == 0 or t["n_truth"] == 0:
+        p = t["tp_p"] / t["n_pred"] if t["n_pred"] else 0.0
+        r = t["tp_r"] / t["n_truth"] if t["n_truth"] else 0.0
+        return p, r, 0.0
+    p, r = t["tp_p"] / t["n_pred"], t["tp_r"] / t["n_truth"]
+    return p, r, (2 * p * r / (p + r) if p + r > 0 else 0.0)
+
+
+def jackknife_se(counts: Sequence[Mapping[str, Any]]) -> float:
+    """Leave-one-replicate-out jackknife SE of the pooled F1 (recorded only); NaN when R < 2."""
+    n = len(counts)
+    _f1_totals(counts)
+    if n < 2:
+        return math.nan
+    loo = np.array([pooled_f1([c for j, c in enumerate(counts) if j != i])[2] for i in range(n)])
+    return math.sqrt((n - 1) / n * float(((loo - loo.mean()) ** 2).sum()))
+
+
+def check_pooled_min(
+    counts: Sequence[Mapping[str, Any]], bound: float, *, guard: Mapping[str, int] | None = None
+) -> CheckResult:
+    """Pooled F1 >= ``bound`` and every ``guard`` count sum >= its minimum (rule 7)."""
+    p, r, f1 = pooled_f1(counts)
+    sums = {k: sum(int(c[k]) for c in counts) for k in (guard or {})}
+    miss = {k: sums[k] for k, m in (guard or {}).items() if sums[k] < m}
+    detail = f"pooled F1 {f1:.6g} (P {p:.4g}, Rc {r:.4g}) vs >= {bound} (R={len(counts)})"
+    if miss:
+        detail += f"; guard miss {miss} vs {dict(guard or {})}"
+    return CheckResult(f1 >= bound and not miss, f1, float(bound), len(counts), detail)
+
+
+def _is_vacuous(values: Sequence[Mapping[str, Any]], vacuous: Mapping[str, float] | None) -> bool:
+    return bool(vacuous) and any(
+        float(np.mean([float(v[k]) for v in values])) < float(m) for k, m in (vacuous or {}).items()
+    )
+
+
+def _counts_of(v: Mapping[str, Any]) -> dict[str, int]:
+    """A count record as plain ints; refuses non-integer values (fail closed)."""
+    out: dict[str, int] = {}
+    for k, x in v.items():
+        if isinstance(x, bool) or not isinstance(x, int | np.integer | float) or int(x) != x:
+            raise ValueError(f"count {k} = {x!r} is not an integer")
+        out[str(k)] = int(x)
+    return out
+
+
+def _pooled_record(
+    suite: str,
+    stream: str,
+    key: str,
+    bound: float,
+    R: int,
+    block: int,
+    reps: range,
+    values: Sequence[Mapping[str, Any]],
+    duration: float,
+    result: CheckResult | None,
+    status: str,
+    guard: Mapping[str, int] | None,
+    vacuous: Mapping[str, float] | None,
+) -> dict[str, Any]:
+    rec = _record(suite, stream, POOLED_F1, bound, R, block, reps, [], duration, result, status)
+    rec["values"] = [_counts_of(v) for v in values]
+    rec["key"] = key
+    rec["guard"] = None if guard is None else dict(guard)
+    rec["vacuous"] = None if vacuous is None else dict(vacuous)
+    rec["precision"] = rec["recall"] = rec["se"] = None
+    if values:
+        p, r, f1 = pooled_f1(values)
+        se = jackknife_se(values)
+        rec.update(precision=p, recall=r, se=se if math.isfinite(se) else None)
+        if result is None and status == VACUOUS_STATUS:
+            rec["observed"] = f1
+    return rec
+
+
+def _pooled_verdict(
+    v1: Sequence[Mapping[str, Any]],
+    v2: Sequence[Mapping[str, Any]] | None,
+    bound: float,
+    guard: Mapping[str, int] | None,
+    vacuous: Mapping[str, float] | None,
+) -> tuple[str, CheckResult | None, CheckResult | None]:
+    """(status, block-1 result, block-2 result); vacuity is judged on block 1 (rule 6)."""
+    if _is_vacuous(v1, vacuous):
+        return VACUOUS_STATUS, None, None
+    r1 = check_pooled_min(v1, bound, guard=guard)
+    r2 = None if r1.ok or v2 is None else check_pooled_min(v2, bound, guard=guard)
+    return _verdict(r1, r2), r1, r2
+
+
+def calibrate_pooled(
+    suite: str,
+    stream: str,
+    key: str,
+    bound: float,
+    records: Callable[[int], Mapping[str, Any]],
+    R: int,
+    *,
+    guard: Mapping[str, int] | None = None,
+    vacuous: Mapping[str, float] | None = None,
+    log_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Pooled-F1 gate (M7-13 rule 2, ADR-0015) over the count records ``records(i)[key]``.
+
+    ``records`` takes the absolute replicate index (block 2 is R..2R-1). Pass when the pooled F1
+    of block 1 is >= ``bound`` and the ``guard`` sums are met; else block 2 decides (``fail``
+    only if both blocks fail). ``vacuous`` (``{count: floor}``) makes block 1 ``vacuous`` (no
+    block 2, not a pass) when a block mean is below its floor. Sharding and
+    ``GIAP_CALIBRATION_CONFIRM`` behave as in ``calibrate``; the confirm key is
+    ``_check_key(record)`` (it includes ``key``).
+    """
+    if suite not in array_suites():
+        raise KeyError(f"unknown calibration suite {suite!r} (not in tolerances.yaml)")
+    confirm = confirm_checks()
+    reps = range(R) if confirm is not None else replicate_range(R)
+
+    def run(block: int, local: range) -> tuple[range, list[dict[str, int]], float]:
+        offset = (block - 1) * R
+        absolute = range(offset + local.start, offset + local.stop)
+        t0 = time.perf_counter()
+        values = [_counts_of(records(i)[key]) for i in absolute]
+        _f1_totals(values)  # fail closed before anything is logged
+        return absolute, values, time.perf_counter() - t0
+
+    def rec(block: int, rr: range, v: Sequence[Mapping[str, Any]], dt: float,
+            res: CheckResult | None, status: str) -> dict[str, Any]:  # fmt: skip
+        return _pooled_record(
+            suite, stream, key, bound, R, block, rr, v, dt, res, status, guard, vacuous
+        )
+
+    if confirm is not None:
+        if (stream, POOLED_F1, float(bound), int(R), key) not in confirm:
+            return rec(1, reps, [], 0.0, None, SKIPPED_STATUS)
+        out = rec(2, *run(2, reps), None, SHARD_STATUS)
+        _append([out], suite, log_dir)
+        return out
+    if reps != range(R):
+        block = replicate_block()
+        out = rec(block, *run(block, reps), None, SHARD_STATUS)
+        _append([out], suite, log_dir)
+        return out
+
+    reps1, v1, dt1 = run(1, reps)
+    status, r1, _ = _pooled_verdict(v1, None, bound, guard, vacuous)
+    if r1 is None or r1.ok:
+        out = rec(1, reps1, v1, dt1, r1, status)
+        _append([out], suite, log_dir)
+        return out
+    reps2, v2, dt2 = run(2, reps)
+    status, r1, r2 = _pooled_verdict(v1, v2, bound, guard, vacuous)
+    recs = [rec(1, reps1, v1, dt1, r1, status), rec(2, reps2, v2, dt2, r2, status)]
+    _append(recs, suite, log_dir)
+    return recs[1]
+
+
+def _merge_pooled(
+    suite: str, pkey: tuple[Any, ...], group: Sequence[Mapping[str, Any]]
+) -> dict[str, Any]:
+    """Verdict record of one pooled check from its (shard) records (``merge_shards``)."""
+    stream, key, bound, R = pkey
+    settings = {(json.dumps(r.get("guard"), sort_keys=True),
+                 json.dumps(r.get("vacuous"), sort_keys=True)) for r in group}  # fmt: skip
+    if len(settings) != 1:
+        raise ValueError(f"{pkey}: records disagree on guard / vacuous ({sorted(settings)})")
+    guard, vacuous = group[0].get("guard"), group[0].get("vacuous")
+    b1 = _collect(group, 1, R, pkey, conv=_counts_of)
+    if b1 is None:
+        raise ValueError(f"{pkey}: no block-1 replicates logged")
+    status, r1, _ = _pooled_verdict(b1[0], None, bound, guard, vacuous)
+    b2 = None if r1 is None or r1.ok else _collect(group, 2, R, pkey, conv=_counts_of)
+    if b2 is not None:
+        status, r1, r2 = _pooled_verdict(b1[0], b2[0], bound, guard, vacuous)
+        return _pooled_record(suite, stream, key, bound, R, 2, range(R, 2 * R), b2[0], b2[1],
+                              r2, status, guard, vacuous)  # fmt: skip
+    return _pooled_record(suite, stream, key, bound, R, 1, range(R), b1[0], b1[1], r1, status,
+                          guard, vacuous)  # fmt: skip
 
 
 # --------------------------------------------------------------------------- job array
@@ -720,7 +949,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def _check_key(r: Mapping[str, Any]) -> list[Any]:
-    return [r["stream"], r["criterion"], float(r["level"]), int(r["R"])]
+    """Confirm-list entry of a check; pooled checks (one stream, many keys) add ``key``."""
+    out = [r["stream"], r["criterion"], float(r["level"]), int(r["R"])]
+    return [*out, str(r["key"])] if r["criterion"] == POOLED_F1 else out
 
 
 def _run_block2(suite: str, full: bool, pending: Sequence[Mapping[str, Any]]) -> int:
