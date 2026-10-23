@@ -57,10 +57,10 @@ def _check_shape(r: Any) -> None:
         assert {"locus_tag", "aa_pos", "ref", "alt"} <= set(ex)
 
 
-def _sim(tmp: Path, seed: int, **kw: Any) -> Any:
+def _sim(tmp: Path, seed: int, length: int = 100_000, **kw: Any) -> Any:
     from giapsim.simulate import SimConfig, simulate
 
-    return simulate(SimConfig(genome_length=100_000, write_precomputed=True, **kw), seed, tmp)
+    return simulate(SimConfig(genome_length=length, write_precomputed=True, **kw), seed, tmp)
 
 
 # ------------------------------------------------------------------ the proxy on giapsim
@@ -77,8 +77,10 @@ def test_te2_proxy_on_an_all_atg_sim_has_no_alt_site(tmp_path: Path) -> None:
 
 def test_te2_proxy_on_gtg_starts_flags_every_high_site_start_codon(tmp_path: Path) -> None:
     """Rule 2: Bakta's M at GTG/TTG starts appears as ALT ``M`` flagged ``start_codon``; with
-    50 % GTG starts some reach ``high`` and none is a violation."""
-    res = _sim(tmp_path / "sim", 2221, start_codons=(("ATG", 0.5), ("GTG", 0.5)))
+    50 % GTG starts some reach ``high`` and none is a violation. 400 kb: the N-terminal peptides
+    need >= 1 / alpha.placement = 100 in the tolerant stratum to be placeable at all (100 kb gave
+    44, so q >= 1/44; M7-14 lead decision 4)."""
+    res = _sim(tmp_path / "sim", 2221, 400_000, start_codons=(("ATG", 0.5), ("GTG", 0.5)))
     r = _te_proxies().te2_proxy(res.genome_fasta, res.bakta_json)
     _check_shape(r)
     assert r.counts["alt_sites"] > 0, "the GTG starts are meant to give ALT M sites"

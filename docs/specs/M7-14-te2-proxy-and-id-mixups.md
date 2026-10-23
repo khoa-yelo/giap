@@ -102,3 +102,16 @@ def te2_proxy(genome: Path, bakta_json: Path) -> ProxyResult: ...   # Nissle, as
      sbatch; the scrontab is unchanged (decision 2).
    - Gap 7: example 5 runs as the sim100k integration test on Slurm.
    - Gap 8: example 1 activates once #225 merges.
+4. **Implementer (c47da49e).** The Nissle TE2 proxy passed (Slurm 1871578): 233 ALT sites, 80
+   `high`, 80 `high_start_codon`, 0 violations. Lead edits to existing tests:
+   - `variants_qc` (`work/variants_qc.parquet`) was added to OUTPUTS in test_variants_step.py and to
+     OUT_SPEC in test_nf_variants_registry.py. It is the only Parquet output. The oracle
+     comparisons cover the published tables only.
+   - context.nf.test passes `input[11]`.
+   - The `sim100k_real` M4 golden was regenerated; only the `id_mixups` row changes, now
+     value 0 / n 0.
+   - The GTG TE2 test runs at 400 kb: placing N-terminal peptides needs at least 100 in the
+     tolerant stratum, and 100 kb gave 44.
+   - Accepted: GIAP_STEP publishDir and the local `publish()` skip `work/...` outputs. Work
+     intermediates are never published, and no other step had a `work/` output.
+   - Accepted: the regenerated step_registry.json mirror.
