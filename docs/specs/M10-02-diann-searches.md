@@ -616,3 +616,15 @@ minutes.
 
    ADR-0051's questions go to Khoa in the next batch.
 3. **Ownership:** the shared image is owned by khoang99 (Khoa), not another user, and its directory is world-writable. The verified read-only copy stands. Khoa is asked whether to chmod the source.
+4. **Recorded samples (Khoa, 2026-10-23): FarmShare only.**
+   - `diann_report.py sample` writes to `$GIAP_ROOT/pilot/recorded/diann/2.3.1/<arm>/` and is never committed.
+   - Under `tests/data/recorded/diann/2.3.1/` the repo holds only `PROVENANCE.md` and `<arm>/schema.tsv`, which carries column metadata only, with no rows or summaries.
+   - Tests that need real rows read `$GIAP_ROOT` and skip on CI. This supersedes the committed-sample parts of the spec above.
+5. **After the tests (d109b51e):** the interfaces the test-author fixed are accepted as the contract:
+   - `select_rows`;
+   - the provenance and install-record shapes;
+   - the check failure strings;
+   - `check.json`;
+   - the exit codes.
+
+   The free-space check and the `mv -n` race are untested and backlogged.
