@@ -86,6 +86,7 @@ markers = [
   "calibration: fast calibration subset",
   "calibration_full: full calibration suite",
   "e2e: end-to-end runs on real genomes",
+  "requires_r: runs R fgsea in the giap-fgsea env (Slurm only, never in CI)",
   "pending_sample: contract test waiting for a recorded tool output sample (§5.4)",
 ]
 

@@ -668,6 +668,26 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   contig; a multi-placement peptide can stretch it, and origin crossing is ignored there.
 - One failing `render_locus` call aborts all of V13 (panel (a) included); V3 behaves the same. Render
   each view in isolation and record a per-view skip.
+### M9-08 (V01 circos) after the review round
+- No unit test renders V01 with empty promoter/terminator/TU tables (crash fixed in 8faffdb was
+  caught only by integration tests).
+- Inner oriC/ter labels of small adjacent replicons crowd each other near the centre (five-replicon
+  review render); consider dropping them below a sector-size threshold.
+- Counted lines 629 (> 400 warn): split the label-placement code into its own module in hardening.
+## M8-17b review nits (#214; one round each, code review and statistical review)
+- M8-15 (statistical re-review, before the gate): re-run the `test_attack_gsea_flags.py` arms on the R
+  engine, flag spillover included (unflagged rows in a collection that also has flagged rows; only
+  measured under the port, Slurm 1867330), and re-measure the N4 detection-screen and
+  `genomic_cluster` φ = 0.7 numbers on R. The methods note makes no claim for these until then.
+- Weekly `gsea` array task: 4 CPU / 2 h now also runs the `requires_r` replicates (Slurm 1869053 alone
+  took 47 min on 8 CPUs) and needs `giap-fgsea` built; `tests/calibration/_criteria.py` does not
+  exclude `requires_r`, so the harness's `gsea` suite errors where the env is absent.
+- Untested in `giap.function.gsea`: dropping `lo <= n <= hi` for whole-ranking sets; the
+  `len(tus) < min_size` and `bh(sub)[i] > alpha` boundaries; `SIMPLE_ENGINE` re-seeding per job.
+- `giap.io.fgsea_r`: an explicit `GIAP_FGSEA_PREFIX` skips the `.giap-built` check (an unbuilt env
+  says "is not a directory"); untested with no `R` in `bin/`; `engine.provenance` keeping its value
+  after a failed call is unpinned.
+- The `function.gsea_engine` event could log the seed R ran with.
 ## M9-09 review nits (#218; one round, decisions 21–26)
 - V2 trend memory: up to 2.2 GB peak RSS at 20,000 points (the PLOTS process gets 2 GB on the first
   attempt); fit the trend on ≤ 5,000 bin medians.
@@ -688,3 +708,8 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   records carry no commit field, so "on main" cannot be checked from them.
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
+
+### M9-16b follow-ups
+- Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
+  shown when the manifest write failed or in the work-dir copy); test-author step first.
+- Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
