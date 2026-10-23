@@ -39,7 +39,7 @@ from typing import Any
 import numpy as np
 
 from giapsim.codons import CODE_11, codons_of, revcomp, translate_cds
-from giapsim.features import Feat
+from giapsim.features import STARTS, Feat
 from giapsim.signals import RBS, clean_rbs, put
 
 __all__ = [
@@ -143,6 +143,12 @@ def _codon(seq: str, c0: int, strand: str) -> str:
     return revcomp(nt) if strand == "-" else nt
 
 
+def _residue(codon: str, first: bool) -> str:
+    """Code-11 residue; a valid start codon at the annotated start reads M, as in
+    ``strain_differences.tsv`` ``aa_change``."""
+    return "M" if first and codon in STARTS else CODE_11[codon]
+
+
 def _is_indel(r: Sequence[Any]) -> bool:
     return r[5] in ("ins", "del")
 
@@ -174,8 +180,9 @@ def alt_site_rows(
         ps, pr = int(pos_s) - 1, int(pos_r) - 1
         cs = _sample_codon(g, ps, ns)
         rc = (cs + (pr - ps)) % nr
-        ra = CODE_11[_codon(ref[cid], rc, g.strand)]
-        aa = CODE_11[_codon(sample[cid], cs, g.strand)]
+        first = cs == (g.start if g.strand == "+" else g.end - 3)  # initiator reads M (strain)
+        ra = _residue(_codon(ref[cid], rc, g.strand), first)
+        aa = _residue(_codon(sample[cid], cs, g.strand), first)
         if ra == aa or "*" in (ra, aa):
             continue
         key = (str(cid), rc + 1, g.strand, str(gene))
