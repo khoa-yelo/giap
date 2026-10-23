@@ -202,8 +202,35 @@ PR #247 (Slurm 1871592: K-12, 10 seeds; 1871626: attack file):
   the 200-kb excerpt at π_wrong 0.05 with the 50/50 split, and it includes the nterm channel.
   Mean gene FDP at q = 0.01 / 0.05 / 0.10 is 0.0092 / 0.0517 / 0.0915 at R = 50, and 0.0087 /
   0.0463 / 0.0866 at R = 300. All pass. A decoy-blind engine is a confirmed failure at 0.01 and
-  0.05. Two strict-xfail tests pin the K-12 findings above (gate 7 cannot fail; the cut never
-  binds) until the lead decides.
+  0.05. Two slow tests ("gate 7 can fail", "the α cut binds") check the K-12 run; they were strict
+  xfails under the search-space split.
+
+### What the evidence run uses (MVP-04 lead decisions 10–16; statistician re-check, Slurm 1872374)
+
+- **Fixed 50/50 split** (decision 10): half the null peptides, rounded down, go to protein
+  entries, capped by the pool. The search-space share (0.125) is recorded for information only.
+  The pool also holds the loci that the sample strain makes pseudo through a premature stop
+  (decision 16). GIAP sees them as intact, eligible genes. Products that span the stop are skipped.
+  No protein null lands on a recorded pseudo or truncated locus.
+- **K-12, seeds 1–10, oracle with the nterm-extension and `multi_identical` channels:**
+  - 80–89 protein nulls per run and 81–95 genes with null evidence. Collisions: 0.
+  - D = 42.5 ± 1.9 (36–54); T ≈ 2,740.
+  - The α = 0.01 cut binds on 10 of 10 seeds.
+  - Mean gene FDP at α 0.01 is 0.0109 ± 0.0013 (0.0051–0.0183), at level against
+    q + 2 SE = 0.0126.
+  - A decoy-blind engine gives 0.0262 ± 0.0006 (0.0233–0.0287), above gate 7's 0.02.
+  - False detected genes come mostly from protein nulls; the nterm channel adds 0–6 per run.
+  - At `K12_EVIDENCE_SEED`: T 2,744, 2,721 detected, FDP 0.0077, decoy-blind 0.0284, which matches
+    Slurm 1872190.
+- **Gate 7 catches only gross failures.** Per seed, a correct engine has FDP sd ≈ 0.004 and a
+  maximum of 0.018 over 10 seeds. A decoy-blind engine is only 1.2–1.4 × the gate. An engine that
+  inflates FDR by 1.5× (mean ≈ 0.016) would usually still pass. The calibration suites and the
+  dense-null attack own the mean; gate 7 is a single-run check of the gross picture. With one
+  fixed seed the result is deterministic, so this is a power limit, not flakiness.
+- **Recorded deviation** (decision 13): decision 9 draws the protein-null locus uniformly. The
+  §8.4 gene-FDR generator draws size-proportionally. Picked validity does not depend on it, because
+  each null gene is exchangeable either way. A MAYU-tier check on these inputs would see a
+  different null from its calibration suite.
 
 ## Convergent and sandwich decoys (operons, M6-01)
 
