@@ -628,3 +628,4 @@ minutes.
    - the exit codes.
 
    The free-space check and the `mv -n` race are untested and backlogged.
+6. **No column list either (Khoa, 2026-10-23: "drop").** Nothing derived from the DIA-NN reports is committed. `schema.tsv` stays with the sample under `$GIAP_ROOT`, and the repo holds only `2.3.1/PROVENANCE.md`. The guard test fails on any committed `schema.tsv`.

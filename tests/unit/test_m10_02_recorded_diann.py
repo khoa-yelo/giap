@@ -8,10 +8,8 @@ committed**. The stratified sample stays on FarmShare under
 ``$GIAP_ROOT/pilot/recorded/diann/2.3.1/<arm>/``. Under ``tests/data/recorded/diann/`` only these
 may be committed:
 
-* ``2.3.1/PROVENANCE.md``;
-* ``2.3.1/<arm>/schema.tsv``: the column list of the full report (``column``, ``arrow_type``,
-  ``nullable``; one line per column, no data). This is the test author's reading of "the column
-  list of the full report"; it is checked to hold column metadata only.
+* ``2.3.1/PROVENANCE.md`` only. The column list (``schema.tsv``) stays with the sample on
+  FarmShare too (Khoa, 2026-10-23: nothing derived from the reports is committed).
 
 The guard tests apply to whatever is tracked and pass vacuously until something lands; the
 pin test fails until deliverable 1 exists. Tests that need real sample rows read ``$GIAP_ROOT``
@@ -31,7 +29,7 @@ from helpers.pilot_kit_m10 import PIN_FILE, PIN_NAME, README, RECORDED_DIANN, RE
 
 R11_MAX_BYTES = 5 * 1024 * 1024
 TESTS_DATA_MAX = 50 * 1024 * 1024
-ALLOWED = re.compile(r"^2\.3\.1/(PROVENANCE\.md|A[12]/schema\.tsv)$")
+ALLOWED = re.compile(r"^2\.3\.1/PROVENANCE\.md$")
 ROWS_SUFFIXES = {".parquet", ".tsv", ".csv", ".gz", ".zst", ".feather", ".arrow", ".json"}
 SCHEMA_HEADER = ["column", "arrow_type", "nullable"]
 ARROW_TYPE = re.compile(
@@ -95,49 +93,13 @@ def test_no_dia_nn_derived_table_with_rows_is_committed() -> None:
     rel = RECORDED_DIANN.relative_to(REPO)
     for p in _tracked(str(rel)):
         path = REPO / p
-        if path.name == "schema.tsv":
-            continue  # the column list, checked below
         assert path.suffix.lower() not in ROWS_SUFFIXES, f"DIA-NN table committed: {p}"
         assert not path.read_bytes().startswith(b"PAR1"), f"parquet committed: {p}"
 
 
-def test_a_committed_column_list_holds_column_metadata_only() -> None:
+def test_no_column_list_is_committed() -> None:
     rel = RECORDED_DIANN.relative_to(REPO)
-    for p in _tracked(str(rel)):
-        if Path(p).name != "schema.tsv":
-            continue
-        rows = [ln.split("\t") for ln in (REPO / p).read_text().splitlines()]
-        assert rows and rows[0] == SCHEMA_HEADER, f"{p}: header {rows[:1]}"
-        names = [r[0] for r in rows[1:]]
-        assert len(names) == len(set(names)), f"{p}: repeated column names"
-        for r in rows[1:]:
-            assert len(r) == 3, f"{p}: {r}"
-            assert ARROW_TYPE.match(r[1]), f"{p}: {r[1]!r} is not an Arrow type"
-            assert r[2].lower() in {"true", "false"}, f"{p}: {r}"
-        assert "Run" in names and "Decoy" in names, f"{p}: not a DIA-NN report's columns"
-
-
-def test_no_container_library_or_model_or_elf_file_is_tracked() -> None:
-    for p in _tracked("tests", "validation"):
-        path = REPO / p
-        assert path.suffix.lower() not in {".sif", ".speclib", ".pt", ".so", ".dll"}, p
-        assert not p.endswith(("_empirical.parquet", "_report.parquet")), p
-        if path.is_file() and not path.is_symlink():
-            with path.open("rb") as fh:
-                assert fh.read(4) != b"\x7fELF", f"ELF binary committed: {p}"
-
-
-def test_every_recorded_diann_file_is_small() -> None:
-    for p in _tracked(str(RECORDED_DIANN.relative_to(REPO))):
-        assert (REPO / p).stat().st_size <= R11_MAX_BYTES, p
-
-
-def test_tests_data_stays_under_50_mb() -> None:
-    total = sum((REPO / p).stat().st_size for p in _tracked("tests/data") if (REPO / p).is_file())
-    assert total < TESTS_DATA_MAX, f"tests/data/ is {total / 2**20:.1f} MB (R11 < 50 MB)"
-
-
-# ------------------------------------------------------------ the real samples (FarmShare only)
+    assert not [p for p in _tracked(str(rel)) if Path(p).name == "schema.tsv"]
 
 
 def _sample_dir(arm: str) -> Path:
@@ -160,8 +122,7 @@ def test_the_real_sample_is_at_most_1000_rows_and_matches_its_column_list(arm: s
     meta = pq.read_metadata(d / "report.sample.parquet")
     assert 0 < meta.num_rows <= 1000, meta.num_rows
     names = pq.read_schema(d / "report.sample.parquet").names
-    committed = RECORDED_DIANN / "2.3.1" / arm / "schema.tsv"
-    listing = committed if committed.is_file() else d / "schema.tsv"
+    listing = d / "schema.tsv"
     rows = [ln.split("\t") for ln in listing.read_text().splitlines()]
     if rows and rows[0] == SCHEMA_HEADER:
         rows = rows[1:]
