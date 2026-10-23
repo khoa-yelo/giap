@@ -95,3 +95,12 @@ def operon_attack_detection(n_genes: int, short_genes_in: str) -> Pair: ...
    ADR-0013) for `cterm_extension` calibration" sits under the M6 heading but belongs to the
    novel-ORF / variant work. **Proposed default:** move it to the M7 backlog line; M6-03 does not
    implement it. Needs the lead's word so it is not silently dropped.
+
+## Lead decisions (2026-10-22)
+
+1. `operon_null` plants **no** internal promoters or terminators between operon members, so the
+   level check is clean; the attack scenarios carry the realistic false-positive rates.
+2. The stop-codon read-through simulator line moves to the M7 backlog (M7-12 / M7-16); M6-03 does not
+   implement it. Done in this commit.
+3. Feature loop: test-author → implementer (giapsim is tooling the implementer writes) → the
+   statistician signs off the generators M6-09 gates on → code review.
