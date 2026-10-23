@@ -104,3 +104,10 @@ estimate ≈ 110 code lines (+ ≈ 150 test lines) · statistical (light)
    `config_patch`, `FAMILIES` may hold `operon_flags`, and `full` lists the two
    `pair_threshold` variants.
 6. **Runtime** ("four reruns < 2× a single run") is not pinned; this is a backlog item.
+7. **Implementer round 1 (a1c218f7):**
+   - Without the pair tables, the `pair_threshold` variants are dropped along with the family,
+     because their only patch is the UniOP threshold. Accepted: it keeps
+     `test_full_adds_top3_with_peptide_intensities`.
+   - CONTEXT gains a 12th input, `layers_for_pairs`; the lead edits context.nf.test to add
+     `input[11] = channel.empty()`.
+   - Behaviour 5 (one pair frame per threshold, reused) is deferred to the decision-6 backlog item.
