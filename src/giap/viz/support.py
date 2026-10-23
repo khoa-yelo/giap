@@ -1,9 +1,11 @@
 """Plot support tables from the run's inputs (M9-03; ADR-0043; spec §10.2 V1, V2).
 
 ``replicon_landmarks`` places the oriC and the terminus of every replicon, and ``gc_skew`` tiles
-every replicon with GC-skew windows. Both compute in 0-based half-open coordinates and return the
-table **as written** (1-based positions, 1-based closed windows), converting once where the frame
-is built (lead decision 3); ``giap.io.plot_support.write_support`` writes them unchanged.
+every replicon with GC-skew windows (M9-03); ``variant_windows`` cuts the reference protein
+around each V12 top ALT site (M9-18). All compute in 0-based half-open coordinates (protein
+positions 1-based) and return the table **as written** (1-based positions, 1-based closed
+windows), converting once where the frame is built (lead decision 3);
+``giap.io.plot_support.write_support`` writes them unchanged.
 
 - **oriC.** ``giap.context.oriter.oric_position`` on the contig (the ori-ter analysis's own rule,
   so the V1/V2 marks and the replichores agree). A non-integral midpoint (an odd-length call,
@@ -12,6 +14,11 @@ is built (lead decision 3); ``giap.io.plot_support.write_support`` writes them u
 - **GC skew.** (G - C) / (G + C) per window, case-insensitive, other letters not counted; NA when
   G + C = 0. The cumulative skew is the running sum along the contig, an NA window adding 0
   (decision 5). Windows of ``window_bp`` from position 1, the last shorter, never wrapping.
+- **Variant windows.** The gene's protein (``genes.parquet`` ``aa``, transcription order on both
+  strands) from ``aa_pos - VARIANT_FLANK_AA`` to ``aa_pos + VARIANT_FLANK_AA``, clipped to the
+  protein, for the at most ``MAX_TOP_SITES`` ``call = ALT`` sites of ``top_alt_sites`` (M9-18
+  lead decisions 1, 2). A gene absent from ``genes`` or with an empty ``aa`` keeps its row with
+  NA ``window_start_aa`` and ``ref_window`` (lead decision 6).
 
 Pure: no file I/O.
 """
@@ -26,7 +33,11 @@ import pandas as pd
 
 from giap.context.oriter import oric_position
 
-__all__ = ["LANDMARK_COLUMNS", "SKEW_COLUMNS", "WINDOW_BP", "gc_skew", "replicon_landmarks"]
+__all__ = [
+    "LANDMARK_COLUMNS", "MAX_TOP_SITES", "SKEW_COLUMNS", "VARIANT_FLANK_AA",
+    "VARIANT_WINDOW_COLUMNS", "WINDOW_BP", "class_error_value", "gc_skew", "replicon_landmarks",
+    "top_alt_sites", "variant_windows",
+]  # fmt: skip
 
 #: GC-skew window (lead decision 1: the V1 peptide-density bin; a constant, not a config key)
 WINDOW_BP = 10_000
@@ -34,6 +45,13 @@ LANDMARK_COLUMNS: tuple[str, ...] = (
     "contig", "length_bp", "topology", "oric_position", "ter_position", "status",
 )  # fmt: skip
 SKEW_COLUMNS: tuple[str, ...] = ("contig", "start", "end", "gc_skew", "cumulative_gc_skew")
+#: residues shown each side of a V12 site (M9-18 lead decision 2: a display choice)
+VARIANT_FLANK_AA = 10
+#: V12 panel (b) sites (§10.2 V12: "up to 30 top ALT sites")
+MAX_TOP_SITES = 30
+VARIANT_WINDOW_COLUMNS: tuple[str, ...] = (
+    "variant_id", "gene", "aa_pos", "window_start_aa", "ref_window",
+)  # fmt: skip
 
 
 def _oric0(features: pd.DataFrame | None, contig: str, length: int) -> int | None:
@@ -120,3 +138,71 @@ def gc_skew(genome: Mapping[str, str], replicons: pd.DataFrame, window_bp: int) 
                  "gc_skew": "float64", "cumulative_gc_skew": "float64"}  # fmt: skip
         return pd.DataFrame({k: pd.Series([], dtype=v) for k, v in empty.items()})
     return pd.concat(parts, ignore_index=True)
+
+
+def class_error_value(value: object) -> float | None:
+    """A ``variants.tsv`` ``class_error_rate`` cell as a number; ``None`` for NA, ``unestimated``
+    or any other non-numeric text."""
+    if value is None or value is pd.NA:
+        return None
+    try:
+        rate = float(str(value))
+    except ValueError:
+        return None
+    return rate if math.isfinite(rate) else None
+
+
+def top_alt_sites(variants: pd.DataFrame, limit: int = MAX_TOP_SITES) -> pd.DataFrame:
+    """The ``call = ALT`` rows in the V12 top-site order, at most ``limit`` (lead decision 1):
+    ``confidence`` high first, ``n_alt`` descending, ``class_error_rate`` ascending (NA last),
+    then ``variant_id``. A copy with a fresh index; ``variants`` is not modified."""
+    alt = variants[variants["call"].astype(str) == "ALT"]
+    rates = [class_error_value(v) for v in alt["class_error_rate"]]
+    keys = [
+        (0 if str(conf) == "high" else 1, -int(n), r is None, 0.0 if r is None else r, str(vid))
+        for conf, n, r, vid in zip(
+            alt["confidence"], alt["n_alt"], rates, alt["variant_id"], strict=True
+        )
+    ]
+    order = sorted(range(len(alt)), key=keys.__getitem__)[:limit]
+    return alt.iloc[order].reset_index(drop=True)
+
+
+def _proteins(genes: pd.DataFrame) -> dict[str, str]:
+    """``locus_tag`` -> its first non-empty ``aa``."""
+    out: dict[str, str] = {}
+    for tag, aa in zip(genes["locus_tag"], genes["aa"], strict=True):
+        if isinstance(aa, str) and aa and str(tag) not in out:
+            out[str(tag)] = aa
+    return out
+
+
+def variant_windows(variants: pd.DataFrame, genes: pd.DataFrame) -> pd.DataFrame:
+    """The reference protein window of every V12 top ALT site, as written (1-based).
+
+    Parameters
+    ----------
+    variants : pandas.DataFrame
+        ``variants.tsv`` as ``RunView.table("variants")`` reads it.
+    genes : pandas.DataFrame
+        C2 ``genes.parquet`` (``locus_tag``, ``aa``).
+
+    Returns
+    -------
+    pandas.DataFrame
+        ``VARIANT_WINDOW_COLUMNS`` in top-site order; ``aa_pos`` / ``window_start_aa`` ``Int64``,
+        ``window_start_aa`` and ``ref_window`` NA when the protein is unknown (lead decision 6).
+    """
+    proteins = _proteins(genes)
+    rows: list[tuple[str, str, int, int | None, str | None]] = []
+    for _, site in top_alt_sites(variants).iterrows():
+        gene, pos = str(site["gene"]), int(site["aa_pos"])
+        aa = proteins.get(gene, "")
+        lo, hi = max(1, pos - VARIANT_FLANK_AA), min(len(aa), pos + VARIANT_FLANK_AA)
+        if lo > hi:  # protein unknown (or shorter than aa_pos): kept, unaligned
+            rows.append((str(site["variant_id"]), gene, pos, None, None))
+        else:
+            rows.append((str(site["variant_id"]), gene, pos, lo, aa[lo - 1 : hi]))
+    out = pd.DataFrame(rows, columns=list(VARIANT_WINDOW_COLUMNS))
+    return out.astype({"variant_id": object, "gene": object, "aa_pos": "Int64",
+                       "window_start_aa": "Int64", "ref_window": object})  # fmt: skip
