@@ -3,9 +3,10 @@ decisions 2026-10-22; GIAP_SPEC.md §9.4 Run row, ADR-0036 §2, ADR-0037).
 
 Interface assumed: ``giap.manifest.RUN_FLAGS`` and ``giap.manifest.RUN_FLAGS_PENDING`` are
 disjoint ``frozenset[str]``. An entry ending in ``:`` is a prefix (``layer_missing:`` covers every
-``layer_missing:<layer>``). Per the lead decisions the run-scope tokens beyond §9.4 —
+``layer_missing:<layer>``). The run-scope tokens beyond §9.4 —
 ``input_prefiltered``, ``cai_reference_missing``, ``no_detection_limit_model`` and the
-``uncalibrated:`` prefix — sit in ``RUN_FLAGS_PENDING`` until Khoa answers.
+``uncalibrated:`` prefix — sat in ``RUN_FLAGS_PENDING`` until Khoa accepted ADR-0041; they are now
+registered and ``RUN_FLAGS_PENDING`` is empty.
 
 "Every token emitted anywhere in ``src/giap``": the run-scope constants named in D-E (imported
 here, so a rename is caught), the ``bakta_db_light`` and ``c_assumed`` literals, the function
@@ -68,10 +69,15 @@ def test_registered_tokens(token: str) -> None:
 
 
 @pytest.mark.parametrize("token", PENDING)
-def test_pending_tokens_wait_for_khoa(token: str) -> None:
+def test_adr_0041_tokens_are_registered(token: str) -> None:
     flags, pending = _vocab()
-    assert token in pending
-    assert token not in flags
+    assert token in flags
+    assert token not in pending
+
+
+def test_nothing_awaits_khoa() -> None:
+    _, pending = _vocab()
+    assert pending == frozenset()
 
 
 @pytest.mark.parametrize(("module", "name"), CONSTANTS)
