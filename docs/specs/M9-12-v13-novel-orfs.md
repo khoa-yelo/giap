@@ -77,3 +77,44 @@ candidates unestimated".
 2. Example 3: a minus-strand ORF near position 1 on a circular contig has a window below 0.
    **Proposed default:** draw unwrapped (negative coordinates shown as `length + x` tick labels);
    linear contigs clip at 0.
+
+## Lead decisions (2026-10-22)
+
+1. Yes: the top 20 are taken by `rank` among `called = true` rows only; uncalled rows are not claims.
+2. Example 3: a window that runs below 0 (or past the length) on a circular contig is drawn
+   unwrapped, with ticks labelled by their wrapped position (`length + x`); on a linear contig the
+   window clips at 0 and at the length.
+3. Stacked on `m9/locus-plots` (#209): use `giap.viz.locus` as it stands there, and take any
+   interface change from #209's review round by merging that branch, never by copying.
+4. Orf-id sanitising for file names reuses the helper M9-10 uses for `locus_<id>`.
+
+## Lead decisions on the tests (2026-10-22, after c921374)
+
+5. `called` is authoritative: a `called = true` row is status `called` even if its `class_fdr` is
+   NA or `unestimated` (the title then reads "class FDR unestimated"); status `unestimated` is for
+   rows that are not called.
+6. `RunView` subtracts 1 from `start_longest` / `start_best_ostir` on both strands; on `−` those are
+   the high coordinates, so V13 adds 1 back for `−` rows when building the half-open span.
+7. Origin-crossing rows are read as the tests pin them: on `+`, `end < start_longest`; on `−`,
+   `start_longest < end` (the wrapped positions `giap.novel.outputs` writes); the span is unwrapped
+   past the length.
+8. `#CC79A7` for the ORF outline and the pileup highlight is accepted; the BGC shading under it is at
+   alpha 0.2 and the outline stays legible.
+9. The wrapped tick formatter belongs in `giap.viz.locus` (V3 shares the problem); taking it there
+   is in scope for M9-12 and stays within #209's renderer, not a second implementation.
+10. The test file's length (≈ 880 lines) is accepted.
+
+## Lead decisions on the review round (2026-10-22, review of 06781fa)
+
+11. **The ORF gets its own band** above the gene arrows, their labels and the `+` promoter /
+    terminator marks; the arrow intersects no gene label or mark (measured after draw).
+12. **The OSTIR tick is pinned exactly:** `+` at `start_best_ostir`, `−` with the add-back, `−` on an
+    origin-crossing ORF shifted by the length, and no tick when `start_best_ostir` equals the drawn
+    start.
+13. A one-entry key on each locus view says what the purple arrow is ("novel ORF; tick: OSTIR
+    start; purple pileup: its peptides"), since the BGC shading shares the colour (decision 8).
+14. "none called" (a class with only uncalled rows, finite FDRs) and the singular "1 novel ORF
+    called" are part of the spec; the title's FDR bound is the maximum over every called row of every
+    class; a called row with NA `rank` sorts after every ranked row.
+15. NITs 6 (multi-placement peptide fallback, origin crossing there) and 7 (one failing view aborts
+    V13) go to the backlog.

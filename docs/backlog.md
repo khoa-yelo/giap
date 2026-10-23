@@ -663,6 +663,11 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - **Wording:** N9, the sky-blue "rejected" ribbons are hard to tell from the placed ones; N10, "strata 0" should be singular, and the (c) label should say "95 % CI".
   - **Size:** about 25 lines of simplifications listed in the review.
 
+## M9-12 review nits (#219; one round, decisions 11–15)
+- V13 start fallback (NA `start_longest`): the span starts at the first placed peptide anywhere on the
+  contig; a multi-placement peptide can stretch it, and origin crossing is ignored there.
+- One failing `render_locus` call aborts all of V13 (panel (a) included); V3 behaves the same. Render
+  each view in isolation and record a per-view skip.
 ## M9-14 review nits (#221; one round)
 - No test pins escaping of data values in twin JSON independent of plotly's own `<` escaping (a
   `json.dumps`-built test twin would kill the `_script_json`-removed mutant); the probe was inert.
