@@ -54,3 +54,9 @@ determinants_model), `family` (region_id/stat, contig/direction, model), `bin`, 
 
 1. Regions draw the statistic the test used (studentised, ADR-0018), not the reported raw O − E.
    **Proposed default:** yes, with the x label "test statistic (studentised O − E)".
+
+## Lead decisions (2026-10-23)
+1. **Q1 yes:** regions draw the studentised test statistic (ADR-0018), x label "test statistic
+   (studentised O − E)".
+2. **Stacking:** on m9/plot-support-analysis (M9-17 null support files; `null_regions` has a
+   `contig` column, `null_islands` is per scanned contig, decision 5).
