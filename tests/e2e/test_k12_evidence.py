@@ -39,13 +39,14 @@ MAX_GENE_FDP = 0.02  # 7
 TRUTH_SHARE_BAND = (0.55, 0.70)  # 8
 MIN_HIGH, MIN_PRECISION, MIN_RECALL = 30, 0.95, 0.90  # 11
 MIN_NOVEL_CLASSES, MIN_NOVEL_PRECISION = 2, 0.95  # 12
-MAX_AUTOCORR_P, MIN_ISLANDS, MAX_SPURIOUS = 0.01, 4, 2  # 13
+MAX_AUTOCORR_P, MIN_HIGH_ISLANDS, MAX_SPURIOUS = 0.01, 1, 2  # 13 (lead decision 20)
+N_LOW_ISLANDS = 3  # 13: exempt (structural cap), reported with their ceiling
 MIN_TUS = 1000  # 14
 
 # ---- expected ranges (spec column "Expected"; re-set after the first run, decision 1)
 EXPECTED: dict[str, tuple[float | None, float | None]] = {
     "3": (0.98, 1.0), "4": (2300, 3100), "5": (20, 300), "7": (0.0, 0.01), "10": (0.95, 1.0),
-    "11": (60, 300), "13": (5, 6), "14": (1500, None), "16": (3, 8),
+    "11": (60, 300), "13": (1, 1), "14": (1500, None), "16": (3, 8),
 }  # fmt: skip
 
 
@@ -162,7 +163,10 @@ def test_gate13_context(summary: dict[str, Any]) -> None:
     e = g(summary, "13")
     ac = e["autocorrelation"]
     assert _num(ac["morans_i"]) > 0 and _num(ac["p_value"]) <= MAX_AUTOCORR_P, ac
-    assert _num(e["value"]) >= MIN_ISLANDS and e["n_spurious"] <= MAX_SPURIOUS, e
+    assert e["n_recovered_high"] >= MIN_HIGH_ISLANDS and e["n_spurious"] <= MAX_SPURIOUS, e
+    assert e["low_exempt"] is True and len(e["low_ceilings"]) == N_LOW_ISLANDS, e
+    for iid, c in e["low_ceilings"].items():
+        assert c["w"] >= 1 and 0 < _num(c["q"]) < 1 and math.isfinite(_num(c["ceiling"])), (iid, c)
     assert e["regions_ok"] is True, e
 
 

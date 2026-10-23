@@ -75,14 +75,20 @@ with ``is_wrong = false`` (decision 11). Per gate (extra keys in brackets):
     M7-12 decision 26). value = non-vacuous classes (>= 1 call); gate >= 2 and precision >= 0.95
     in each; in_expected iff every class not below 1/alpha has >= 30 calls.
 13. planted islands = truth genes whose ``tu_id`` lies in ``first_tu_id..last_tu_id``, direction
-    ``high`` for ``effect_sd > 0``; a planted island is recovered by an ``islands.tsv`` row of the
-    same ``direction`` whose ``genes`` cover >= 50 % of it; a spurious call shares no gene with any
-    planted island. value = ``n_recovered`` [``n_spurious``, ``autocorrelation``:
-    ``{"morans_i", "p_value"}`` of the lag-1 ``morans_i`` row under the ``tu_block`` null,
-    ``regions_ok``, ``regions_missing_types``]. Regions: every ``region_type`` of
-    ``annotation/regions.tsv`` has a ``regions_stats.tsv`` row, and a type with a region of
-    ``n_eligible >= 3`` has a row with a non-NA ``effect``. Gate: lag-1 tu_block Moran's I > 0 with
-    p <= 0.01, n_recovered >= 4, n_spurious <= 2, regions_ok; expected n_recovered [5, 6].
+    ``high`` for ``effect_sd > 0`` (lead decision 20: one 20-TU high island, three 8-TU lows); a
+    planted island is recovered by an ``islands.tsv`` row of the same ``direction`` whose
+    ``genes`` cover >= 50 % of it; a spurious call shares no gene with any planted island (lows
+    included). value = ``n_recovered_high`` (high islands recovered) [``n_spurious``,
+    ``low_exempt`` (always true: the lows are a structural cap, not gated), ``low_ceilings``:
+    ``{island_id: {"w", "q", "ceiling"}}`` for each low island, w = its scored TUs (TUs with >= 1
+    eligible ``tables/genes.tsv`` gene), q = undetected (``detected`` not true) share of eligible
+    genes, ceiling = sqrt(w) * |Phi^-1(q / 2)|; ``autocorrelation``: ``{"morans_i", "p_value"}``
+    of the lag-1 ``morans_i`` row under the ``tu_block`` null, ``regions_ok``,
+    ``regions_missing_types``]. Regions: every ``region_type`` of ``annotation/regions.tsv`` has a
+    ``regions_stats.tsv`` row, and a type with a region of ``n_eligible >= 3`` has a row with a
+    non-NA ``effect``. Gate: lag-1 tu_block Moran's I > 0 with p <= 0.01, every planted high
+    island recovered, n_spurious <= 2, regions_ok; expected ``[1, 1]``, and in_expected also needs
+    n_spurious = 0 (spec expected column "spurious 0").
 14. value = OP pairs in ``pairs.tsv`` [``n_pairs``, ``n_tus`` (``operons.tsv`` rows),
     ``tests_run`` (some ``test != none``), ``too_few_op_pairs`` (the flag on any pair),
     ``regulondb_recovery``: share of multi-gene truth TUs whose gene set is an ``operons.tsv``
@@ -719,52 +725,177 @@ def test_gate12_low_precision_fails(d: S.Dirs) -> None:
 
 
 # ---------------------------------------------------------------- gate 13: context
+# Lead decision 20: one planted high island (20 TUs, +3 SD) is gated; the three 8-TU lows are
+# exempt (structural cap) and reported with their ceiling sqrt(w) * |Phi^-1(q / 2)|.
+
+#: Fixture q = undetected / eligible = 1,590 / 3,990; Phi^-1(q / 2) = -0.8443099264674118.
+FIXTURE_Q = 1590 / 3990
+FIXTURE_LOW_CEILING = math.sqrt(8) * 0.8443099264674118  # 2.3880690977128887
+LOW_IDS = [f"ISL_{k + 1}" for k in S.LOWS]
+HIGH_ID = f"ISL_{S.HIGH + 1}"
+
+
+def _calls(d: S.Dirs, fn: Any) -> None:
+    S.edit_tsv(d.out / "tables" / "islands.tsv", fn)
+
+
+def _row(k: int, genes: list[str], direction: str | None = None) -> dict[str, str]:
+    return dict(zip(S.ISLAND_HEADER, map(str, S.island_call(k, genes, direction)), strict=True))
+
+
+def _spurious(n: int) -> list[dict[str, str]]:
+    return [_row(S.HIGH, [S.locus(3500 + 2 * k)]) for k in range(n)]
 
 
 def test_gate13_values(d: S.Dirs) -> None:
     res = gate(13, d)
-    assert res["value"] == 6 and res["n_spurious"] == 0
+    assert res["value"] == 1 and res["n_recovered_high"] == 1 and res["n_spurious"] == 0
+    assert list(res["expected"]) == [1, 1]
+    assert res["low_exempt"] is True
     assert res["autocorrelation"]["morans_i"] == pytest.approx(0.22)
     assert res["autocorrelation"]["p_value"] == pytest.approx(0.001)
     assert res["regions_ok"] is True and res["regions_missing_types"] == []
+    assert res["status"] == "pass"
 
 
-def test_gate13_example10_half_overlap_recovers_a_down_island(d: S.Dirs) -> None:
-    genes = S.island_genes(4)
+def test_gate13_high_recovered_with_every_low_missed_passes(d: S.Dirs) -> None:
+    """The lows are exempt: missing all three (the expected outcome on K-12) does not fail."""
+    _calls(d, lambda rows: [r for r in rows if r["direction"] == "high"])
+    res = gate(13, d)
+    assert (res["value"], res["n_recovered_high"], res["n_spurious"]) == (1, 1, 0)
+    assert res["low_exempt"] is True and res["status"] == "pass"
+
+
+def test_gate13_high_missed_fails_even_with_every_low_recovered(d: S.Dirs) -> None:
+    _calls(d, lambda rows: [r for r in rows if r["direction"] == "low"])
+    res = gate(13, d)
+    assert len(S.read_tsv(d.out / "tables" / "islands.tsv")) == 3
+    assert (res["value"], res["n_recovered_high"], res["n_spurious"]) == (0, 0, 0)
+    assert res["status"] == "fail"
+
+
+@pytest.mark.parametrize(("n_genes", "ok"), [(20, True), (19, False)])
+def test_gate13_high_island_needs_half_its_genes(d: S.Dirs, n_genes: int, ok: bool) -> None:
+    """Example 10's rule on the high island: 20 / 40 genes = 50 % recovers it, 19 / 40 does not."""
+    genes = S.island_genes(S.HIGH)
+    assert len(genes) == 40
 
     def fn(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-        rows[4]["genes"] = ";".join(genes[:8])  # 8 / 16 = 50 %
-        rows[5]["genes"] = ";".join(S.island_genes(5)[:7])  # 7 / 16 < 50 %
+        rows[S.HIGH]["genes"] = ";".join(genes[:n_genes])
         return rows
 
-    S.edit_tsv(d.out / "tables" / "islands.tsv", fn)
+    _calls(d, fn)
     res = gate(13, d)
-    assert res["value"] == 5 and res["status"] == "pass"
+    assert res["n_recovered_high"] == int(ok) and res["n_spurious"] == 0
+    assert res["status"] == ("pass" if ok else "fail")
 
 
-def test_gate13_wrong_direction_is_no_recovery(d: S.Dirs) -> None:
+def test_gate13_high_island_covered_only_by_a_low_call_fails(d: S.Dirs) -> None:
     def fn(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-        for r in rows[3:]:
-            r["direction"] = "high"
+        rows[S.HIGH]["direction"] = "low"
         return rows
 
-    S.edit_tsv(d.out / "tables" / "islands.tsv", fn)
+    _calls(d, fn)
     res = gate(13, d)
-    assert res["value"] == 3 and res["n_spurious"] == 0 and res["status"] == "fail"
+    assert res["n_recovered_high"] == 0 and res["n_spurious"] == 0 and res["status"] == "fail"
 
 
-def test_gate13_four_recovered_is_outside_expected(d: S.Dirs) -> None:
-    S.edit_tsv(d.out / "tables" / "islands.tsv", lambda rows: rows[:4])
-    res = gate(13, d)
-    assert (res["value"], res["status"]) == (4, "outside_expected")
-
-
-def test_gate13_spurious_calls(d: S.Dirs) -> None:
-    extra = [dict(zip(S.ISLAND_HEADER, map(str, S.island_call(0, [S.locus(3500 + 2 * k)])),
-                      strict=True)) for k in range(3)]  # fmt: skip
+def test_gate13_a_call_overlapping_a_low_island_is_not_spurious(d: S.Dirs) -> None:
+    """Spurious = sharing no gene with any planted island, lows included: one shared gene with a
+    low island (in either direction) or with the high island is enough."""
+    extra = [
+        _row(S.LOWS[0], [S.island_genes(S.LOWS[0])[0], S.locus(3600)], "high"),
+        _row(S.LOWS[1], [S.island_genes(S.LOWS[1])[-1], S.locus(3602), S.locus(3604)]),
+        _row(S.HIGH, [S.island_genes(S.HIGH)[0], S.locus(3606)]),
+    ]
     S.append_tsv(d.out / "tables" / "islands.tsv", extra)
     res = gate(13, d)
-    assert res["n_spurious"] == 3 and res["status"] == "fail"
+    assert res["n_spurious"] == 0 and res["status"] == "pass"
+
+
+def test_gate13_two_spurious_calls_pass_outside_expected(d: S.Dirs) -> None:
+    """Gate <= 2 spurious; the spec's expected column says 0, so 1-2 are reported, not failed."""
+    S.append_tsv(d.out / "tables" / "islands.tsv", _spurious(2))
+    res = gate(13, d)
+    assert res["n_spurious"] == 2 and res["gate_ok"] is True
+    assert res["status"] == "outside_expected"
+
+
+def test_gate13_three_spurious_calls_fail(d: S.Dirs) -> None:
+    S.append_tsv(d.out / "tables" / "islands.tsv", _spurious(3))
+    res = gate(13, d)
+    assert res["n_spurious"] == 3 and res["n_recovered_high"] == 1 and res["status"] == "fail"
+
+
+def test_gate13_low_ceilings_on_the_fixture(d: S.Dirs) -> None:
+    """Every low gets w (scored TUs), q (undetected share of eligible ``genes.tsv`` genes) and
+    sqrt(w) * |Phi^-1(q / 2)|; the high island has no ceiling entry."""
+    res = gate(13, d)
+    lc = res["low_ceilings"]
+    assert sorted(lc) == LOW_IDS
+    for iid in LOW_IDS:
+        assert lc[iid]["w"] == 8
+        assert lc[iid]["q"] == pytest.approx(FIXTURE_Q)
+        assert lc[iid]["ceiling"] == pytest.approx(FIXTURE_LOW_CEILING, rel=1e-9)
+
+
+def test_gate13_low_ceiling_hand_example(d: S.Dirs) -> None:
+    """Hand-computed: half the eligible genes undetected gives q = 0.5 and Phi^-1(0.25) =
+    -0.6744897501960817 (table value).
+
+    * ISL_3 (TUs 400-407): genes of TUs 400 and 401 made ``partial_excluded`` -> those TUs have
+      no scored gene, w = 6, ceiling sqrt(6) * 0.67449 = 1.6521557;
+    * ISL_4 (TUs 1300-1307): one gene of TU 1300 partial, its partner still eligible -> w = 8,
+      ceiling sqrt(8) * 0.67449 = 1.9077451;
+    * ISL_2 untouched: w = 8, 1.9077451.
+
+    Partial genes: 0-9, 798-801, 2598 and 3999 -> 3,984 eligible; the first 1,992 eligible genes
+    (by index) are detected, the other 1,992 not.
+    """
+    partial = {*range(10), *range(798, 802), 2598, 3999}
+    eligible = [i for i in range(S.N_GENES) if i not in partial]
+    assert len(eligible) == 3984
+    detected = set(eligible[:1992])
+
+    def fn(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+        for i, r in enumerate(rows):
+            assert r["locus_tag"] == S.locus(i)
+            if i in partial:
+                r.update(detection_status="partial_excluded", detected="false", gene_q_value="NA")
+            elif i in detected:
+                r.update(detection_status="detected", detected="true", gene_q_value="0.001")
+            else:
+                r.update(detection_status="not_detected", detected="false", gene_q_value="NA")
+        return rows
+
+    S.edit_tsv(d.out / "tables" / "genes.tsv", fn)
+    lc = gate(13, d)["low_ceilings"]
+    assert {k: v["w"] for k, v in lc.items()} == {"ISL_2": 8, "ISL_3": 6, "ISL_4": 8}
+    assert all(v["q"] == pytest.approx(0.5) for v in lc.values())
+    assert lc["ISL_3"]["ceiling"] == pytest.approx(1.6521557247176901, rel=1e-9)
+    assert lc["ISL_2"]["ceiling"] == pytest.approx(1.9077451048178795, rel=1e-9)
+    assert lc["ISL_4"]["ceiling"] == pytest.approx(1.9077451048178795, rel=1e-9)
+
+
+def test_gate13_low_exempt_whatever_the_lows_do(d: S.Dirs) -> None:
+    """The lows are never gated: recovered, missed or called in the wrong direction, the gate and
+    ``low_exempt`` do not move."""
+
+    def fn(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+        for k in S.LOWS:
+            rows[k]["direction"] = "high"
+        return rows
+
+    _calls(d, fn)
+    res = gate(13, d)
+    assert res["low_exempt"] is True and res["n_spurious"] == 0
+    assert (res["n_recovered_high"], res["status"]) == (1, "pass")
+
+
+def test_gate13_summary_is_strict_json(d: S.Dirs) -> None:
+    """The new fields survive the summary's strict-JSON write."""
+    res = json.loads(json.dumps(gate(13, d), allow_nan=False))
+    assert {"n_recovered_high", "low_exempt", "low_ceilings"} <= set(res)
 
 
 def test_gate13_uses_the_tu_block_null(d: S.Dirs) -> None:

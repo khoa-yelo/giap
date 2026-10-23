@@ -19,7 +19,10 @@ The numbers (``N`` below) are chosen so that every gate's value can be checked b
   unmapped: exact share 2,540 / 2,620 (gate 10);
 * 60 truth ALT sites (50 with 2 true covering peptides), 60 matching ``high`` rows (gate 11);
 * 120 truth ORFs per novel class (110 with a true peptide), 40 correct calls per class (gate 12);
-* 2,000 two-gene TUs, 6 planted islands of 8 TUs, all recovered in their direction (gate 13);
+* 2,000 two-gene TUs; 4 planted islands (lead decision 20): one high of 20 TUs (``HIGH``, index 0)
+  and three lows of 8 TUs, all four called in their direction (gate 13; the lows are exempt, so
+  calling them is allowed but not required). Every island TU is scored (no partial genes), so
+  w = 20 / 8 and q = 1,590 / 3,990 undetected eligible genes;
 * 3,999 adjacent pairs, 2,000 of them OP; 2,000 operons (gate 14);
 * a report with content in the five module sections (gate 15); 5 h wall, 8 CPU-h (gate 16).
 """
@@ -51,9 +54,12 @@ N_NOVEL_TRUTH = 120
 N_NOVEL_WITH_PEPTIDE = 110
 N_NOVEL_CALLS = 40
 N_TUS = N_GENES // 2
-ISLAND_FIRST_TUS = (100, 400, 700, 1000, 1300, 1600)
-ISLAND_EFFECT_SD = (3.0, 3.0, 3.0, -3.0, -3.0, -3.0)
-ISLAND_N_TUS = 8
+#: Planted islands in truth order: the high one first (``HIGH``), then the three lows.
+ISLAND_FIRST_TUS = (700, 100, 400, 1300)
+ISLAND_EFFECT_SD = (3.0, -3.0, -3.0, -3.0)
+ISLAND_N_TUS = (20, 8, 8, 8)
+HIGH = 0
+LOWS = (1, 2, 3)
 Q_FLOOR = 1 / 2600
 REPORT_SECTIONS = ("detection", "genome-context", "operons", "variants", "novel-orfs")
 ALL_SECTIONS = ("summary", "inputs-qc", "mapping", *REPORT_SECTIONS, "function",
@@ -204,13 +210,15 @@ def _write_inputs(inp: Path) -> None:
                 f"ISL_{k + 1}",
                 CONTIG,
                 t,
-                ISLAND_N_TUS,
+                n,
                 e,
                 e * 1.6,
                 f"TU_{t}",
-                f"TU_{t + ISLAND_N_TUS - 1}",
+                f"TU_{t + n - 1}",
             ]
-            for k, (t, e) in enumerate(zip(ISLAND_FIRST_TUS, ISLAND_EFFECT_SD, strict=True))
+            for k, (t, n, e) in enumerate(
+                zip(ISLAND_FIRST_TUS, ISLAND_N_TUS, ISLAND_EFFECT_SD, strict=True)
+            )
         ],
     )
     tsv(inp / "truth" / "alt_sites.tsv",
@@ -345,8 +353,8 @@ def _novel(out: Path) -> None:
 
 
 def island_genes(k: int) -> list[str]:
-    first = ISLAND_FIRST_TUS[k]
-    return [locus(i) for i in range(N_GENES) if first <= i // 2 + 1 < first + ISLAND_N_TUS]
+    first, n = ISLAND_FIRST_TUS[k], ISLAND_N_TUS[k]
+    return [locus(i) for i in range(N_GENES) if first <= i // 2 + 1 < first + n]
 
 
 ISLAND_HEADER = ["island_id", "direction", "contig", "start", "end", "n_tus", "n_genes", "genes",
@@ -355,8 +363,8 @@ ISLAND_HEADER = ["island_id", "direction", "contig", "start", "end", "n_tus", "n
 
 def island_call(k: int, genes: Sequence[str], direction: str | None = None) -> list[Any]:
     d = direction or ("high" if ISLAND_EFFECT_SD[k] > 0 else "low")
-    return [f"island_{k + 1}", d, CONTIG, 1, 2, ISLAND_N_TUS, len(genes), ";".join(genes), 0.001,
-            "NA", "NA"]  # fmt: skip
+    return [f"island_{k + 1}", d, CONTIG, 1, 2, ISLAND_N_TUS[k], len(genes), ";".join(genes),
+            0.001, "NA", "NA"]  # fmt: skip
 
 
 def _context(out: Path) -> None:
