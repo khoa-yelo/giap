@@ -3,24 +3,30 @@ docs/specs/M7-05-variant-flags.md rules 1-7).
 
 Flags annotate a ``sites`` row; they never change its call, confidence or counts. The mass list is
 recomputed at the configured tolerance from the B.5 masses (lead decision 2): the committed
-``mass_equivalents.tsv`` is never read here.
+``mass_equivalents.tsv`` is never read here. ADR-0049: every swap row and every substitution that an
+ALT peptide also reads as a left 2->1 block (:func:`left_block_read`) is ``mass_equivalent``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from typing import Literal
 
 from giap.config.model import GiapConfig
 from giap.mapping.masses import DELTA_DECIMALS, MOD_DELTA, RESIDUE_MASS
 from giap.mapping.sixframe import translate11_text
+from giap.model.coords import Replicon
 from giap.model.genes import GeneModel
+from giap.variants.align import HitAlignment, translate_locus
 from giap.variants.vcf_records import minimal_alt_codon
 
 __all__ = [
     "FLAG_ORDER",
     "M705_FLAGS",
     "flags_for",
+    "identifiable",
+    "left_block_read",
+    "left_block_site",
     "mass_equivalent",
     "nt_class",
     "site_flags",
@@ -60,6 +66,77 @@ def mass_equivalent(ref: str, alt: str, tol_da: float) -> bool:
     return False
 
 
+def identifiable(ref_aa: str, alt_aa: str, tol_da: float) -> bool:
+    """ADR-0049 decision 4: a truth row counts in the G1 recall denominator iff its ALT is not
+    :func:`mass_equivalent` to its REF. Pure."""
+    return not mass_equivalent(ref_aa, alt_aa, tol_da)
+
+
+def _fold_il(residues: str) -> str:
+    return residues.replace("I", "L")
+
+
+def left_block_read(peptide: str, q: int, ref: str, k: int, tol_da: float) -> bool:
+    """ADR-0049 A6a: peptide residue ``q``, read as a substitution of ``ref[k]``, also aligns as the
+    2->1 block ``ref[k-1:k+1] -> peptide[q]`` with its prefix shifted by one: ``q == 0`` or
+    ``peptide[:q] == ref[k-1-q:k-1]`` (I and L folded). No right-hand or looser form. False when
+    the pair or the shifted prefix runs off ``ref``. Pure."""
+    if k < 1 or k >= len(ref) or not 0 <= q < len(peptide):
+        return False
+    if not mass_equivalent(ref[k - 1 : k + 1], peptide[q], tol_da):
+        return False
+    lo = k - 1 - q
+    return q == 0 or (lo >= 0 and _fold_il(peptide[:q]) == _fold_il(ref[lo : k - 1]))
+
+
+def _left_window(c: int, q: int, strand: str, rep: Replicon) -> tuple[int, int] | None:
+    """``[start, end)`` of the ``q + 2`` codons ending (transcription direction) at codon ``c``;
+    None when it runs off a linear contig."""
+    if strand == "+":
+        s, e = c - 3 * (q + 1), c + 3
+        if s < 0:
+            if rep.topology != "circular":
+                return None
+            s, e = s + rep.length, e + rep.length
+    else:
+        s, e = c, c + 3 * (q + 2)
+        if e > rep.length and rep.topology != "circular":
+            return None
+    return (s, e) if e - s <= rep.length else None
+
+
+def left_block_site(
+    site: Mapping[str, object],
+    alignments: Iterable[HitAlignment],
+    genome: Mapping[str, str],
+    replicons: Mapping[str, Replicon],
+    tol_da: float,
+) -> bool:
+    """True iff ``site`` is a substitution and one of ``alignments`` (those of its ALT peptides)
+    has a substitution op at the site codon that :func:`left_block_read` accepts against the
+    reference translated over the codon and the ``q + 1`` codons before it. Pure."""
+    if site["alt_type"] != "substitution":
+        return False
+    contig, strand = str(site["contig"]), str(site["strand"])
+    c = int(site["codon_start"])  # type: ignore[call-overload]
+    rep = replicons[contig]
+    for a in alignments:
+        if a.contig != contig or a.strand != strand:
+            continue
+        for op in a.ops:
+            if op.kind != "substitution" or not op.codons:
+                continue
+            oc = op.codons[0] % rep.length if rep.topology == "circular" else op.codons[0]
+            q = op.pep[0]
+            win = _left_window(c, q, strand, rep) if oc == c else None
+            if win is None:
+                continue
+            ref = translate_locus(genome[contig], rep, win[0], win[1], strand)
+            if left_block_read(a.peptide, q, ref, q + 1, tol_da):
+                return True
+    return False
+
+
 def nt_class(ref_codon: str, alt_aa: str) -> Literal["snv", "multi_nt"]:
     """Rule 2: ``snv`` when a table-11 codon at most one base from ``ref_codon`` encodes
     ``alt_aa`` (``J``: any I or L codon), else ``multi_nt``."""
@@ -86,14 +163,17 @@ def flags_for(
     starts: Collection[_StartKey],
     cfg: GiapConfig,
     alt_sources: Collection[tuple[str, str]],
+    *,
+    left_block: bool = False,
 ) -> list[str]:
-    """:func:`site_flags` with the start codons precomputed (``start_codons``)."""
+    """:func:`site_flags` with the start codons precomputed (``start_codons``). ``left_block``
+    (:func:`left_block_site`) flags a substitution ``mass_equivalent`` (ADR-0049 A6a)."""
     kind, alt = str(site["alt_type"]), str(site["alt_aa"])
     ref_aa, ref_nt = str(site["ref_aa"]), str(site["ref_codon"])
     tol = cfg.variants.mass_equivalent_tol_da
     found: set[str] = set()
     if kind == "substitution":
-        if mass_equivalent(ref_aa, alt, tol):
+        if left_block or mass_equivalent(ref_aa, alt, tol):
             found.add("mass_equivalent")
         found.add(nt_class(ref_nt, alt))
         key = (str(site["contig"]), str(site["strand"]), int(site["codon_start"]))  # type: ignore[call-overload]
@@ -101,6 +181,8 @@ def flags_for(
             found.add("start_codon")
         if ref_aa == "*":
             found.add("stop_codon")
+    elif kind == "swap":
+        found.add("mass_equivalent")  # ADR-0049 A6b: every swap
     elif kind == "block" and mass_equivalent(translate11_text(ref_nt), alt, tol):
         found.add("mass_equivalent")
     if cfg.genome_relation == "related":
@@ -119,6 +201,7 @@ def site_flags(
     """Rules 1-6 for one ``giap.variants.pileup.sites`` row (0-based ``codon_start``).
 
     ``alt_sources`` holds the ``(source, search_db)`` of the peptides supporting the ALT. Returns
-    each flag once in §9.4 order, never ``vcf_unrepresentable`` (M7-03). Swaps and frameshifts
-    get rules 3-4 only; blocks also rule 1 on the translation of ``ref_codon``. Pure."""
+    each flag once in §9.4 order, never ``vcf_unrepresentable`` (M7-03). Frameshifts get rules
+    3-4 only; blocks also rule 1 on the translation of ``ref_codon``; swaps are always
+    ``mass_equivalent`` (ADR-0049). Pure."""
     return flags_for(site, start_codons(gm), cfg, alt_sources)
