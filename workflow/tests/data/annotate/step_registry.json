@@ -581,6 +581,7 @@
     ],
     "optional_inputs": [
       "hits_tolerant",
+      "peptide_spectra",
       "reference_peptides"
     ],
     "outputs": [

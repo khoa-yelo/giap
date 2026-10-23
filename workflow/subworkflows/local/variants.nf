@@ -3,7 +3,8 @@
 // (optional: without it frameshift rows are skipped with a run flag), the C2/C1 gene model, the
 // genome and the C9 peptides, and publishes tables/pileup.tsv.gz, tables/variants.tsv and
 // tables/variants.vcf (no work Parquet). The required keys go to stepIn's `need` explicitly, so
-// the step does not run when one of their channels is empty. reference_peptides is for M7-10.
+// the step does not run when one of their channels is empty. peptide_spectra (C17, optional,
+// M7-10) carries the paired de novo and reference spectra for the class error rates.
 include { GIAP_STEP as VARIANTS_STEP } from '../../modules/local/giap_step/main'
 include { stepIn; kv; pick } from './annotate'
 
@@ -48,12 +49,13 @@ workflow VARIANTS {
     hits_tolerant
     peptides
     reference_peptides
+    peptide_spectra
 
     main:
     def chans = [kv('mapping', lociDir(mapping)), kv('genome', genome),
                  kv('genes', gene_model.map { a -> a[0] }), kv('replicons', gene_model.map { a -> a[2] }),
                  kv('peptides', peptides), kv('hits_tolerant', hits_tolerant),
-                 kv('reference_peptides', reference_peptides)]
+                 kv('reference_peptides', reference_peptides), kv('peptide_spectra', peptide_spectra)]
     def needed = ['mapping', 'genome', 'genes', 'replicons', 'peptides']
     def v = stepIn('variants', chans, needed)
     VARIANTS_STEP(v.files, v.keys, variantsSpec(['pileup=tables/pileup.tsv.gz',

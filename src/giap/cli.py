@@ -202,6 +202,7 @@ _NORM_INPUTS = {
     "peptides": ("peptides", "peptides.norm.parquet"),
     "proteins_long": ("proteins", "proteins.long.faa"),
     "abundance": ("abundance", "abundance.norm.parquet"),
+    "peptide_spectra": ("reference_peptides", "peptide_spectra.parquet"),  # C17 (M7-10)
 }
 
 
@@ -409,6 +410,7 @@ def _run_preflight(
         peptides=inputs.get("peptides"),
         abundance=inputs.get("abundance"),
         annotation=inputs.get("annotation"),
+        reference_peptides=inputs.get("reference_peptides"),
     )
     root = os.environ.get("GIAP_ROOT")
     report, norm = run_preflight(
@@ -478,6 +480,7 @@ def _local_roots(
         inputs["peptides"],
         inputs.get("abundance"),
         inputs["annotation"],
+        inputs.get("reference_peptides"),
     )
     report, norm = run_preflight(inp, cfg, None, "preflight", outdir)
     write_outputs(outdir, report, norm)
@@ -488,7 +491,8 @@ def _local_roots(
                 click.echo(f"giap run: preflight error {c.rule_id}: {c.message}", err=True)
         sys.exit(code)
     work = outdir / "work" / "preflight"
-    files = {"genome": "genome.norm.fa", "peptides": "peptides.norm.parquet"}
+    files = {"genome": "genome.norm.fa", "peptides": "peptides.norm.parquet",
+             "peptide_spectra": "peptide_spectra.parquet"}  # fmt: skip
     roots = {k: work / f for k, f in files.items() if (work / f).is_file()}
     if (work / "proteins.long.faa").is_file():
         roots["proteins_long"] = work / "proteins.long.faa"
