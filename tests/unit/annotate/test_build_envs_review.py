@@ -88,7 +88,7 @@ exit 0
 """
 
 # Tools `all` must build (no pinned container, not opt-in) and must skip (decision 4).
-ALL_BUILDS = {"uniop", "promotech", "promoter_calculator", "terminatornet", "ostir"}
+ALL_BUILDS = {"uniop", "promotech", "promoter_calculator", "terminatornet", "ostir", "fgsea"}
 ALL_SKIPS = {"bakta", "transtermhp", "genomad", "antismash", "miniprot", "blast", "bactermfinder"}
 
 
@@ -103,13 +103,21 @@ class Sandbox:
         (self.repo / "scripts").symlink_to(REPO / "scripts")
         for yml in (REPO / "workflow" / "envs").glob("*.yml"):
             shutil.copy(yml, self.repo / "workflow" / "envs" / yml.name)
+        # frozen-lock tools (fgsea, M8-17a) build only from a committed lock: here the one the
+        # fake micromamba exports, so the post-build lock check passes
+        locks = self.repo / "workflow" / "envs" / "locks"
+        locks.mkdir()
+        (locks / "fgsea.explicit.txt").write_text(
+            "@EXPLICIT\nhttps://conda.anaconda.org/conda-forge/linux-64/fake-1.0-0.conda#giap-fgsea\n"
+        )
         shutil.copy(
             REPO / "workflow" / "conf" / "containers.config",
             self.repo / "workflow" / "conf" / "containers.config",
         )
         bin_dir = self.root / "bin"
         bin_dir.mkdir(parents=True)
-        for name, body in (("micromamba", FAKE_MICROMAMBA), ("git", FAKE_GIT)):
+        fake_r = "#!/bin/bash\necho '[1] \u20181.36.2\u2019'\n"  # fgsea's version command (M8-17a)
+        for name, body in (("micromamba", FAKE_MICROMAMBA), ("git", FAKE_GIT), ("R", fake_r)):
             path = bin_dir / name
             path.write_text(body)
             path.chmod(0o755)
