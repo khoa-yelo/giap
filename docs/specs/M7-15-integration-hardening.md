@@ -88,3 +88,16 @@ statistical
    this issue; the cause goes in the PR body.
 7. **Item 3:** each step's config slice becomes part of its task hash, so changing one step's key
    re-runs only that step and its dependants.
+
+## Lead decisions after implementer step 3 (876ee82f)
+8. **Config fixes accepted in this PR:** the farmshare 12 h time request for process_medium/high,
+   VARIANTS_STEP 8 GB, and `maxRetries = 2` for 137/143 (Khoa 2026-10-23). The lead adds
+   tests/unit/test_base_config_retry.py and records Slurm 1879271 in PROGRESS.md.
+9. **The variants crash on X/U residues** (`minimal_alt_codon`, "no table-11 codon encodes 'X'") becomes a
+   separate issue, M7-18, kept out of this PR. Reversible default for its spec:
+   - an ambiguous residue (B, J, X, Z) is never an ALT residue;
+   - U over a TGA codon and O over a TAG codon count as matches (selenocysteine and pyrrolysine readthrough), not ALTs;
+   - any other U or O is never an ALT;
+   - each skipped site is counted in one event.
+10. **Goldens:** #225 has merged. The implementer merges origin/main, regenerates them with
+    `GIAP_UPDATE_GOLDEN=1` on Slurm and reruns the fast suite. Then the PR opens.

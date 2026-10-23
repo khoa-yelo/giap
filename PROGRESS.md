@@ -26,6 +26,7 @@ _Last updated: 2026-10-22 19:40 PDT · session https://claude.ai/code/session_01
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
 <!-- progress:end -->
 
+- M7-15 K-12 real-tool arm: **Slurm 1879271** (COMPLETED 4 m 41 s; 2,647 cached from 1873779, 4 rerun; d11f7608 + VARIANTS 8 GB; 4fcc29da is cache-key-only, outputs byte-identical). Earlier attempts 1869642, 1871633, 1873779, 1878443 (cancelled).
 ## Current milestone
 (2026-10-22 evening) Agents resumed 17:43 (cap 6). M0–M4 done; **M5 done in code** (#217 M5-11
 merged: goldens sim50k / sim4500_island, decision 44 tolerance on the join-count null columns,
