@@ -96,3 +96,16 @@ def determinants_family(genes: pd.DataFrame, cfg: GiapConfig, rng: np.random.Gen
    Reversible; listed for Khoa in PROGRESS questions.
 3. **Stacking:** this branch starts from #178 (M8-10, queued). After #178 squash-merges, merge the
    old base tip, then main, and retarget.
+4. **Test-author (26687185): gaps 1–12 accepted as proposed.**
+   - Engine: keyword-only `engine=` with a default; the step binds the lazy R engine, the tests
+     force `SIMPLE_ENGINE`.
+   - ORA folds (gap 2): the family takes an optional `folds` keyword and the step an optional
+     `tu_folds` input, so n_primary matches `enrichment_detection.tsv`; the implementer adds both.
+   - `DeterminantsSensitivity(flagged, dominant, cv_r2)`; agreement is the share of genes in both
+     top deciles with the same block, NA when none is shared; a block of None in both runs does not
+     count as agreeing.
+   - SENSITIVITY moves after DETERMINANTS in the workflow (gap 12).
+   - Gap 11 (a finding, for Khoa): under `basic` on the 1 % FDR tier the determinants rerun is a
+     no-op (M8-08 rule 1 keeps imputed genes out), so only `single_peptide_detected` and `top3`
+     can change its rows. The family stays as specified; listed in PROGRESS questions.
+   - Next: the implementer.
