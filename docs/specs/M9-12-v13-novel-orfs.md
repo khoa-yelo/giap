@@ -103,3 +103,18 @@ candidates unestimated".
 9. The wrapped tick formatter belongs in `giap.viz.locus` (V3 shares the problem); taking it there
    is in scope for M9-12 and stays within #209's renderer, not a second implementation.
 10. The test file's length (≈ 880 lines) is accepted.
+
+## Lead decisions on the review round (2026-10-22, review of 06781fa)
+
+11. **The ORF gets its own band** above the gene arrows, their labels and the `+` promoter /
+    terminator marks; the arrow intersects no gene label or mark (measured after draw).
+12. **The OSTIR tick is pinned exactly:** `+` at `start_best_ostir`, `−` with the add-back, `−` on an
+    origin-crossing ORF shifted by the length, and no tick when `start_best_ostir` equals the drawn
+    start.
+13. A one-entry key on each locus view says what the purple arrow is ("novel ORF; tick: OSTIR
+    start; purple pileup: its peptides"), since the BGC shading shares the colour (decision 8).
+14. "none called" (a class with only uncalled rows, finite FDRs) and the singular "1 novel ORF
+    called" are part of the spec; the title's FDR bound is the maximum over every called row of every
+    class; a called row with NA `rank` sorts after every ranked row.
+15. NITs 6 (multi-placement peptide fallback, origin crossing there) and 7 (one failing view aborts
+    V13) go to the backlog.
