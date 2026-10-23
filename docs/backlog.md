@@ -674,3 +674,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   records carry no commit field, so "on main" cannot be checked from them.
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
+
+### M9-22 hardening
+- ρ-CI calibration on full giapsim run pairs (now a simulated TU world at giapsim sizes).
+- Test the section order (matrix, then intersections) and the `none` row's place among ties.

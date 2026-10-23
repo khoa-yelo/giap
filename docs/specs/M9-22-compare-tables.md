@@ -132,3 +132,17 @@ flag `missing_in:<label>`.
 3. The threshold is the config key `stats.alpha.enrichment` (0.05 by default).
 4. Intersections are exact (UpSet semantics).
 5. Feature loop: test-author → implementer → statistician (stats label) → code review.
+
+## Lead decisions on the tests (2026-10-22, after 67b21f9)
+
+6. **Decision 2 corrected.** ADR-0042 (accepted by Khoa 2026-10-22, #201) already added
+   `compare: 100 / 1000` to `tolerances.yaml` and names the ρ-CI test as gating, so the coverage
+   test gates (as written in 67b21f9) and also records to the calibration log.
+7. **TUs per pair.** `abundance_pairs` keeps a single `tus` series; the CLI passes, for each pair,
+   the TUs of the pair's first run (label order).
+8. **Existing CLI tests.** If `tests/unit/test_cli.py` or `test_cli_exit_codes.py` assume
+   `compare` exits 5, the implementer reports it and the lead edits them.
+9. **Calibration world.** Simulated TU pairs at giapsim sizes are accepted for this PR; full
+   giapsim pairs go to the hardening backlog.
+10. **Section order.** The matrix section first, then intersections; among equal counts `none`
+    sorts last (untested; backlog).
