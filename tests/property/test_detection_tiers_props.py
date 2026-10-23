@@ -152,9 +152,10 @@ def test_row_permutation_invariant(sc: dict[str, Any], seed: int) -> None:
 @given(sc=scenario("scored"))
 def test_tier_depends_on_pairing_share(sc: dict[str, Any]) -> None:
     """The tier follows the §7.3.2 table from the input columns: decoy_picked iff >= 1 decoy with
-    q <= q_value_max carries protein_ids and >= 80 % of those pair."""
+    q <= q_value_max carries protein_ids and >= 80 % of those pair. Without any target q the
+    decoy q filter is off (M4-24 rule 6, ADR-0047)."""
     r = _run(sc)
-    passing = [d for d in sc["decoys"] if d[1] <= 0.01]
+    passing = [d for d in sc["decoys"] if not sc["targets"] or d[1] <= 0.01]
     n_pass = len(passing) + sc["unpaired"]
     expect_picked = n_pass > 0 and len(passing) / n_pass >= 0.8
     assert (r.det.tier == "decoy_picked") == expect_picked, (r.det.tier, len(passing), n_pass)
