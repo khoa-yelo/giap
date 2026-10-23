@@ -161,7 +161,8 @@ def _shards(monkeypatch: pytest.MonkeyPatch, tmp: Path, rec_fn: Any, parts: list
 def test_shards_merge_to_the_unsharded_verdict(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    good = {0, 1, 2, 4, 6, 7, 8, 9, 10, 11}  # block 1 fails (two FDP 0.5), block 2 passes
+    # block 1 fails (five FDP 0.5: mean 0.417 > 0.05 + 2 sd/sqrt 6 = 0.217), block 2 passes
+    good = {0, 6, 7, 8, 9, 10, 11}
     whole = C.calibrate_fdr_counts(SUITE, STREAM, "k", 0.05, table(good), 6,
                                    log_dir=tmp_path / "a")  # fmt: skip
     _shards(monkeypatch, tmp_path / "b", table(good), ["0:2", "2:5", "5:6"])
