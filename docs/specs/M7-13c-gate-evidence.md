@@ -63,7 +63,7 @@ the full tier on main and writes down what they say.
 |---|---|---|---|---|
 | E1 | variants gate, full | `sbatch --array=13 scripts/slurm/calibration_full.sbatch` (runs in-task shards 0/2 and 1/2 side by side, then `--merge`) | G1 `variant_f1` 1M, R = 100; G2, A6a–c and the reference-proteome arm at 100k, R = 100; M7-10's full tests | ≈ 40 min of shards plus ≈ 70–80 min of merge and block 2 on 4 CPUs, inside `--time=04:00:00` (M7-13a decisions 6–7) |
 | E2 | novel gate, full, block 1 | ten jobs `sbatch --array=<T> scripts/slurm/calibration_full.sbatch --shard K/10`, K = 0…9, where T is 11 now and 15 after ADR-0048 | `novel_orf_power(…, "1M", n_per_class=NOVEL_PER_CLASS_GATE)`, R = 300; G3, the 24 G4 checks, G4-k3 | ≈ 45–90 min per shard (statistician's shard of 30 replicates: G3 record 2,458 s); 40 CPUs |
-| E2b | novel gate, block 2 | only for checks that are `pending` after E2: `--shard K/10 --block 2` | R = 300, replicates 300–599 | as E2 |
+| E2b | novel gate, block 2 | only for checks that are `pending` after E2: list them with `grep '"status": "pending"' <log>/novel_orfs.merged.jsonl` after a first `--merge`, then `GIAP_CALIBRATION_CONFIRM=<checks> … --shard K/10 --block 2` (without `GIAP_CALIBRATION_CONFIRM` every check reruns block 2, ≈ 60 CPU-h more) | R = 300, replicates 300–599 | as E2 |
 | E2m | novel merge | `sbatch --array=<T> scripts/slurm/calibration_full.sbatch --merge`, after E2 (and E2b) | none | minutes, because no block 2 is left to run |
 | E3 | fast tier, timings | the fast gate tests of both halves, through `scripts/slurm/test_branch.sbatch` on C | `variants` 20, `novel_orfs` gate 10 | for `benchmarks/baseline.json` |
 | E4 | TE2 proxy | the M7-14 weekly Nissle run on C, or a hand-submitted one if no weekly run has used a C at or after the ADR-0049 flag merge | Nissle same-strain peptides | as Slurm 1871578 |
@@ -367,3 +367,8 @@ All of these are merged to main before E1 and E2 are submitted:
    a follow-up once #255 and M7-13b merge; vacuous G4-k3 cells count as failures; attacks a/b/d/GC,
    TE2 and the reference-proteome arm stay in the PROGRESS record; G4-k3 gets a known-failure entry
    only with an ADR. Backlog: a commit field in calibration records.
+10. **#268 review (one round):** B1, B2 and nits 1, 2, 3 and 5 are fixed in the ledger test (477ee87c).
+    The lead fixed nit 6 (the E2b command sets `GIAP_CALIBRATION_CONFIRM` and lists the pending
+    checks first). Nits 4 and 7 go to the backlog. The G4-k3 cells stay hard checks in the ledger:
+    with ADR-0050 proposed, a G4-k3 fail makes the gate `partially met` (status rule), not a
+    known failure.
