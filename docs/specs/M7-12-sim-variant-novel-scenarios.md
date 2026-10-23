@@ -229,3 +229,7 @@ tests share (`tests/calibration/_m7.py` is test code; the 40 lines are a truth-t
       only. Intergenic is limited by gap supply, as the methods note now says.
     - **R2 (lead):** `@example(seed=29297)` is added to the `alt_sites` property.
     - Nits N1–N8 go to the backlog; N1 is fixed with B3.
+29. **Implementer, review B1 (2ee76714):** `pair_decoys` ignores, per decoy, contaminant IDs and
+    `GIAPORF_` IDs that map to no gene. A decoy left with no ID gets no row. An all-ORF decoy with
+    one mapped and one unmapped entry therefore pairs on the mapped gene. This is accepted: it is
+    the same per-ID rule, and pairing is the conservative choice.
