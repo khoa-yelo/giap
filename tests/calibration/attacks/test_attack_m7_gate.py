@@ -29,8 +29,9 @@ M7-13b (novel-ORF gate, suite ``novel_orfs``, ``helpers.m7_gate_novel_records``;
 * d: one picked list over the six-frame classes (``pooled_side``): a confirmed FDR ``fail`` in at
   least one (class, q); the per-class ``nterm_extension`` FDP is G4's own check.
 * GC: false de novo peptides from GC-poor intergenic segments; intergenic FDP <= q + 2 SE in
-  the de novo regime (a gate, logged to the suite log; no mutant). q 0.01 is a strict xfail
-  naming ADR-0050 (lead decision 10).
+  the de novo regime (a gate, logged to the suite log; no mutant). Fast tier: every level a hard
+  check. Full tier (R = ``GATE_R["full"]``): q 0.01 only, a strict xfail naming ADR-0050 (lead
+  decisions 10 and 13).
 * 5i (reversed stretches in intergenic space) is covered by G4-k3.
 """
 
@@ -259,22 +260,7 @@ def test_cluster_arm_filtered_g4_recorded(teeth_log: Path) -> None:
     assert got[N.g4_key("picked_decoy", N.CL_CLASS, 0.1)] != C.VACUOUS_STATUS, got
 
 
-#: lead decision 10: GC at q 0.01 fails in the full tier (0.0122 / 0.0126 against 0.0112,
-#: ADR-0050), which supersedes its fast-tier pass; a strict xfail, so a fix shows as XPASS
-GC_CASES = [
-    pytest.param(q, marks=pytest.mark.xfail(
-        strict=True, raises=AssertionError,
-        reason="ADR-0050 (proposed, pending Khoa; M7-13b lead decision 10): exact GC-poor "
-               "intergenic de novo reads above q + 2 SE")) if q == 0.01 else pytest.param(q)
-    for q in NLEVELS
-]  # fmt: skip
-
-
-@NOVEL
-@NIGHTLY
-@pytest.mark.parametrize("q", GC_CASES)
-def test_attack_gc_poor_intergenic_fdp_at_level(q: float) -> None:
-    R = _nR()
+def _gc(R: int, q: float) -> None:
     first = N.gc_record(next(iter(C.replicate_range(R))))
     if first["injected"] < 1:  # not an AssertionError: a broken transform
         raise RuntimeError(f"attack GC vacuous: nothing injected {first}")
@@ -286,3 +272,26 @@ def test_attack_gc_poor_intergenic_fdp_at_level(q: float) -> None:
     if rec["status"] == C.VACUOUS_STATUS:
         pytest.skip(f"vacuous (rule 6): {k}")
     assert rec["status"] in ("pass", "unconfirmed"), rec
+
+
+@NOVEL
+@NIGHTLY
+@pytest.mark.parametrize("q", NLEVELS)
+def test_attack_gc_poor_intergenic_fdp_at_level(q: float) -> None:
+    """Fast tier, every level a hard check (lead decision 13: its fixed seeds pass at 0.01)."""
+    _gc(_nR(), q)
+
+
+#: lead decision 13 (amending 10): GC at q 0.01 fails in the full tier (R = 300: 0.0122 / 0.0126
+#: against 0.0112, ADR-0050); a strict xfail there, so a fix shows as XPASS
+GC_FULL_XFAIL = pytest.mark.xfail(
+    strict=True, raises=AssertionError,
+    reason="ADR-0050 (proposed, pending Khoa; M7-13b lead decisions 10 and 13): exact GC-poor "
+           "intergenic de novo reads above q + 2 SE")  # fmt: skip
+
+
+@NOVEL
+@pytest.mark.calibration_full
+@GC_FULL_XFAIL
+def test_attack_gc_poor_intergenic_fdp_at_level_full() -> None:
+    _gc(int(G.GATE_R["full"]), 0.01)

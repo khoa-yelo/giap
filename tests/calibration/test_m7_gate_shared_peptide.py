@@ -1,5 +1,6 @@
 """Chance shared peptides in G4's ``UNESTIMATED_BUGS`` check (M7-13b lead decision 11) and the
-ADR-0050 strict xfails of G4-k3 and attack GC (lead decision 10). Unmarked: runs on every commit.
+ADR-0050 strict xfails of G4-k3 and full-tier attack GC (lead decisions 10, 13). Unmarked: runs
+on every commit.
 
 Decision 11: ``no_makedb_pair`` is right when every peptide row of a GIAP ORF names another
 planted ORF's makedb entry (a short Met-initial 7-mer recurring at another ATG; statistician
@@ -236,9 +237,18 @@ def test_g4k3_xfail_cells_are_exactly_decision_10() -> None:
         _check(got[k])
 
 
-def test_gc_xfail_only_at_001() -> None:
+def test_gc_xfail_only_in_the_full_tier_at_001() -> None:
+    """Lead decision 13: fast GC is a hard check at every level; the full-tier test (q 0.01
+    only) carries the strict ADR-0050 xfail."""
     A = _load(HERE / "attacks" / "test_attack_m7_gate.py", "_attack_m7_for_marks")
-    got = _xfails(A.GC_CASES)
-    assert {k for k, m in got.items() if m is not None} == {(0.01,)}
-    assert len(got) == 3
-    _check(got[(0.01,)])
+    fast = A.test_attack_gc_poor_intergenic_fdp_at_level
+    assert not [m for m in getattr(fast, "pytestmark", []) if m.name == "xfail"]
+    par = [m for m in fast.pytestmark if m.name == "parametrize"]
+    assert len(par) == 1
+    assert all(not getattr(p, "marks", ()) for p in par[0].args[1])
+    full = A.test_attack_gc_poor_intergenic_fdp_at_level_full
+    names = [m.name for m in full.pytestmark]
+    assert "calibration_full" in names and "parametrize" not in names
+    xf = [m for m in full.pytestmark if m.name == "xfail"]
+    assert len(xf) == 1
+    _check(xf[0])
