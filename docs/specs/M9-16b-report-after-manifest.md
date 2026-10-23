@@ -198,3 +198,20 @@ in-graph `report` step. No new CLI option, config key, schema field or Nextflow 
 | #178 guard removal (conditional) | ≈ −4 / +2 |
 | docstrings and ADR-0040 amendment (docs, not counted) | — |
 | **Total** | **≈ 60–70** (tests ≈ 220) |
+
+## Lead decisions (2026-10-22)
+
+1. **ADR-0040 Amendment 1** (lead-level, written in the implementation PR): the run tail ends
+   datapackage → run_manifest.json → report re-render; dependencies run one way (the report reads
+   the manifest, the manifest records nothing under `report/` or `plots/`); a failed re-render
+   exits 4.
+2. **Absent-manifest sentence.** M9-16's tested text stays; rewording goes to the backlog (it needs
+   a test-author step first).
+3. **Exit 4** on a failed re-render, keeping the in-graph page (the proposed default).
+4. **#178 guards.** Whichever of #178 / #228 merges second removes them (the lead does it in that
+   merge); M9-16b removes them only if they are still on main.
+5. **KEGG date.** Tested with a stubbed manifest here (example 5); the end-to-end KEGG check moves
+   into MVP-03c's acceptance. MVP-03c is scheduled before the M9-25 approval packet, so Khoa
+   reviews a report with full provenance.
+6. Staging `work/provenance.json` into the in-graph step is rejected (the proposed default).
+7. M9-16b starts after #228 merges; feature loop test-author → implementer → code review.
