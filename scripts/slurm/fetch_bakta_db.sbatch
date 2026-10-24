@@ -17,11 +17,13 @@ cd "$GIAP_REPO"
 
 RECORD=14916843                                   # Bakta DB v6.0, 2025-02-24, doi:10.5281/zenodo.14916843
 BASE="https://zenodo.org/records/$RECORD/files"
-declare -A MD5=(
-  [db-light.tar.xz]=4a6e059ded39e9c5537ef4137d2f5648
-  [db.tar.xz]=4c1115e40abfa2b464ae5dd988bdd88e
-)
-declare -A DIR=([db-light.tar.xz]=db-light [db.tar.xz]=db)
+md5_of() {  # bash 3.2 has no associative arrays (macOS CI: scripts/ci/check_bash32.py)
+  case "$1" in
+    db-light.tar.xz) echo 4a6e059ded39e9c5537ef4137d2f5648 ;;
+    db.tar.xz) echo 4c1115e40abfa2b464ae5dd988bdd88e ;;
+  esac
+}
+dir_of() { case "$1" in db-light.tar.xz) echo db-light ;; db.tar.xz) echo db ;; esac; }
 OUT="$GIAP_DB_DIR/bakta"
 # The image pinned for the BAKTA process (workflow/conf/containers.config), as pulled by build_envs.
 DIGEST=$(grep -oP "withName: 'BAKTA' \\{ container = 'docker://oschwengers/bakta@sha256:\\K[0-9a-f]{64}" \
@@ -31,12 +33,12 @@ IMG="$GIAP_ROOT/containers/oschwengers-bakta@sha256-$DIGEST.img"
 mkdir -p "$OUT"
 
 for f in db-light.tar.xz db.tar.xz; do
-  if [ -d "$OUT/${DIR[$f]}" ] && [ -f "$OUT/${DIR[$f]}/version.json" ]; then
-    echo "$f: ${DIR[$f]} already installed"; continue
+  if [ -d "$OUT/$(dir_of "$f")" ] && [ -f "$OUT/$(dir_of "$f")/version.json" ]; then
+    echo "$f: $(dir_of "$f") already installed"; continue
   fi
   # A partial file without an aria2 control file (e.g. from `bakta_db download`) cannot be resumed safely.
   if [ -f "$OUT/$f" ] && [ ! -f "$OUT/$f.aria2" ]; then
-    if ! echo "${MD5[$f]}  $OUT/$f" | md5sum -c --status; then
+    if ! echo "$(md5_of "$f")  $OUT/$f" | md5sum -c --status; then
       echo "$f: removing partial download without a resume record"; rm -f "$OUT/$f"
     fi
   fi
@@ -48,10 +50,10 @@ for f in db-light.tar.xz db.tar.xz; do
       --console-log-level=warn --dir="$OUT" --out="$f" "$BASE/$f?download=1"
   fi
   echo "$f: verifying md5"
-  echo "${MD5[$f]}  $OUT/$f" | md5sum -c -
+  echo "$(md5_of "$f")  $OUT/$f" | md5sum -c -
   echo "$f: installing with $(basename "$IMG")"
   apptainer exec --bind "$OUT" "$IMG" bakta_db install --db-file "$OUT/$f" --output "$OUT"
-  [ -f "$OUT/${DIR[$f]}/version.json" ] && rm -f "$OUT/$f"
+  [ -f "$OUT/$(dir_of "$f")/version.json" ] && rm -f "$OUT/$f"
 done
 ls -la "$OUT"; du -sh "$OUT"/*
 cat "$OUT"/db*/version.json 2>/dev/null | grep -E '"(type|major|minor|date)"' || true
