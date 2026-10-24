@@ -737,6 +737,14 @@ class A3Sandbox:
 def a3_sandbox(tmp: Path, template: Path) -> A3Sandbox:
     pilot = pilot_sandbox(tmp, sif=False, raws=0)
     sb = pilot.sb
+    # pilot_sandbox (m10_02=True) overwrites inputs/acquisition.json with the M10-02 runs
+    # wt_rep1-3; mzml_pilot.sbatch and mzml-check need the committed WT_1-WT_3 rows back.
+    committed = json.loads(require(ACQUISITION, "acquisition.json").read_text())["runs"]
+    runs = {r["run"]: {k: v for k, v in r.items() if k != "run"} for r in committed}
+    write_acquisition(sb.repo / "validation" / "pilot" / "inputs" / "acquisition.json", runs)
+    for args in (["add", "-A"], ["commit", "-q", "-m", "m10-08 acquisition"]):
+        subprocess.run(["git", "-C", str(sb.repo), *args], check=True, capture_output=True,
+                       env=sb.env)  # fmt: skip
     src = sb.repo / "src"
     if not src.exists():
         src.symlink_to(REPO / "src")  # mzml-check imports giap; untracked, ignored below
