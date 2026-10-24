@@ -214,9 +214,15 @@ def _check(full: bool) -> None:
     d = C.log_dir()
     d.mkdir(parents=True, exist_ok=True)
     escape = {c: s["per_class"][c]["escape_share"] for c in sorted(EXEMPT_CLASSES)}
+    reached = [r for rec in recs for r in rec["rows"] if _reached(r)]
+    moved: dict[str, int] = {}  # injected -> TSV class of reached rows (stat note 7f8e4ed0)
+    for r in reached:
+        k = f"{r['injected_class']}->{r['class']}"
+        moved[k] = moved.get(k, 0) + 1
     diag = {"check": "G4-k3 flag", "full": full, "R": len(recs), "per_class": s["per_class"],
             "true": s["true"], "n_violations": len(s["violations"]),
-            "escape_above_report": {c: v > ESCAPE_REPORT for c, v in escape.items()}}  # fmt: skip
+            "escape_above_report": {c: v > ESCAPE_REPORT for c, v in escape.items()},
+            "injected_to_tsv_class": dict(sorted(moved.items()))}  # fmt: skip
     with (d / "novel_orfs_gate_diagnostics.jsonl").open("a") as fh:
         fh.write(json.dumps(diag, default=float) + "\n")
     injected = {c: sum(r["injected"].get(c, 0) for r in recs) for c in SIX_CLASSES}
@@ -228,7 +234,15 @@ def _check(full: bool) -> None:
                                f"with the class rule over {len(recs)} replicates")  # fmt: skip
     assert all(r["side_has_flag"] for r in recs), f"novel_class_fdr has no {FLAG} column"
     assert not s["violations"], s["violations"][:10]
-    assert s["per_class"]["intergenic"]["flagged"] == s["per_class"]["intergenic"]["reached"]
+    # Every reached row whose TSV class is intergenic carries the flag (rule 4 has no intergenic
+    # exemption). Binned by TSV class, not the injected class: an injected segment can share its
+    # stop with a planted antisense ORF and then *is* that ORF (§7.6.2 grouping, §7.2.6 priority);
+    # statistician verdict on stat/m7-17-gate 7f8e4ed0. Rule 4 is still checked both ways on every
+    # reached row above, with zero tolerance.
+    tsv_intergenic = [r for r in reached if r["class"] == "intergenic"]
+    assert tsv_intergenic, "G4-k3 flag vacuous: no reached row of TSV class intergenic"
+    unflagged = [r for r in tsv_intergenic if not (r["side_flag"] and r["tsv_flag"])]
+    assert not unflagged, unflagged[:10]
 
 
 @NIGHTLY
