@@ -69,7 +69,7 @@ def test_missed_operon_fdr_gate(full: bool) -> None:
     recs = G.missed_fdr_gate(
         MO, stream, G.missed_replicate_fn(stream, cfgs, G.giap_cfg()), C.replicates(MO, full)
     )
-    print("\n".join(G.assert_fdr_ok(recs, allow_vacuous=True)))
+    G.assert_fdr_ok(recs, allow_vacuous=True)
 
 
 @pytest.mark.calsuite(MO)
@@ -81,7 +81,7 @@ def test_missed_operon_fdr_nonvacuous(full: bool) -> None:
     records = G.missed_replicate_fn(stream, cfgs, G.giap_cfg(G.CV_ONLY))
     r = C.replicates(MO, full)
     recs = G.missed_fdr_gate(MO, stream, records, r)
-    print("\n".join(G.assert_fdr_ok(recs, allow_vacuous=True, need_calls_at=0.1)))
+    G.assert_fdr_ok(recs, allow_vacuous=True, need_calls_at=0.1)
     print(f"{stream} at q 0.1: {G.fdp_summary(records, r, 0.1)}")
 
 
@@ -161,6 +161,7 @@ def test_discordance_p_uniform(full: bool) -> None:
 
     rec = C.calibrate(DI, "uniform", 0.0, rep, C.replicates(DI, full), stream=DISC_STREAM)
     print(f"KS p = {rec['observed']} (R = {rec['R']}, status {rec['status']})")
+    G.skip_without_verdict([rec])
     assert rec["status"] in {"pass", "unconfirmed"}, rec
 
 
@@ -181,18 +182,16 @@ def test_discordance_bh_family_fdr(full: bool) -> None:
 @pytest.mark.calsuite(DI)
 @pytest.mark.calibration
 def test_teeth_normal_tail_fails(teeth_log: object) -> None:
-    from giap.operons.discordance import fit_rows
-    from giap.stats.tdist import fit_student_t
+    """Reuses the gate's genomes (same stream, so the same seeds and, on one worker, the cached
+    runs) and logs to the private teeth directory."""
 
     def rep(rng: np.random.Generator) -> float:
-        sim = G.simulate(G.scenario("operon_null", G.N_GENES), _seed(rng))
-        d = fit_rows(sim.pairs)
-        fit = fit_student_t(d)
-        x = rng.choice(d, M_POOLED, replace=False)
-        p = 2 * stats.norm.sf(np.abs(x - fit.loc) / fit.scale)
+        run = _null_run(_seed(rng))
+        x = rng.choice(run.ratios, M_POOLED, replace=False)
+        p = 2 * stats.norm.sf(np.abs(x - run.fit.loc) / run.fit.scale)
         return float((p <= 0.01).mean())
 
     rec = C.calibrate(DI, "level", 0.01, rep, C.replicates(DI, False), m=M_POOLED,
-                      stream=f"{DI}.teeth.normal_tail", log_dir=teeth_log)  # type: ignore[arg-type]  # fmt: skip
+                      stream=DISC_STREAM, log_dir=teeth_log)  # type: ignore[arg-type]  # fmt: skip
     print(f"teeth normal tail: {rec['status']} rate={rec['observed']} bound={rec['bound']}")
     assert rec["status"] == "fail", rec

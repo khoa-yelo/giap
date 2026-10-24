@@ -18,12 +18,16 @@ Gated, failing: strict xfails naming ADR-0055 (proposed, pending Khoa), the ADR-
 
 - **D-1** (PR #147 review): the discordance Delta SD proportional to exp(-0.5 z), z the
   standardised pair-mean abundance; the pooled level through the harness and the rate in the
-  lowest-abundance quartile. Both fail (full tier, Slurm 1884412: pooled 0.0521 / 0.1064 against
+  lowest-abundance quartile, in one test (``test_attack_d1_level``). Both fail (full tier, Slurm
+  1884412: pooled 0.0521 / 0.1064 against
   0.0510 / 0.1013 at alpha 0.05 / 0.10; lowest quartile ~3x nominal). **The M6 discordance claim
-  is not met** until Khoa decides ADR-0055. R = ``discordance`` 100 / 1,000.
+  is not met** until Khoa decides ADR-0055. R = ``discordance`` 100 / 1,000. A sharded
+  ``discordance`` task followed by ``--merge`` therefore exits 1 (a confirmed ``fail`` record;
+  the ADR-0049 precedent of the variants task); see the test's docstring.
 
 Recorded (numbers printed, logged and copied to docs/methods/operons.md "M6-09"; never gated, but
-an escalation threshold fails the test so the breach cannot pass silently):
+an escalation threshold fails the test so the breach cannot pass silently: A' and M-1 at mean FDP
+> 0.15 at q 0.1, C at a rate > 2 alpha):
 
 - **A'** ``operon_attack_ar1(1800, 0.9)``: both arms, R = 20 / 100 (module constants; the spec's
   counts, which no accepted ADR puts in tolerances.yaml). Escalation: mean FDP > 0.15 at q 0.1
@@ -41,7 +45,6 @@ an escalation threshold fails the test so the breach cannot pass silently):
 from __future__ import annotations
 
 import json
-import warnings
 from functools import cache
 from typing import Any
 
@@ -53,6 +56,8 @@ import pytest
 from _gate import calibrate_levels
 from scipy.special import expit, logit
 
+from giapsim.scenarios import OPERON_T
+
 MODES = [
     pytest.param(False, marks=pytest.mark.calibration, id="fast"),
     pytest.param(True, marks=pytest.mark.calibration_full, id="full"),
@@ -63,7 +68,6 @@ R_A_PRIME = (20, 100)
 R_C = (50, 300)
 ESCALATE_FDR = 0.15
 M_POOLED = 200
-LOC = -0.3  # giapsim.scenarios.OPERON_T location
 M1_LARGE_GENES = 6000
 R_M1_LARGE = 50
 
@@ -85,8 +89,7 @@ def _arms(name: str, *args: Any) -> list[tuple[str, Any, Any]]:
 def _gate(stream: str, cfgs: Any, gcfg: Any, R: int, nonvac: bool, transform: Any = None) -> None:
     records = G.missed_replicate_fn(stream, cfgs, gcfg, transform)
     recs = G.missed_fdr_gate(MO, stream, records, R)
-    lines = G.assert_fdr_ok(recs, allow_vacuous=True, need_calls_at=0.1 if nonvac else None)
-    print("\n".join(lines))
+    G.assert_fdr_ok(recs, allow_vacuous=True, need_calls_at=0.1 if nonvac else None)
     print(f"{stream} at q 0.1: {G.fdp_summary(records, R, 0.1)}")
 
 
@@ -193,9 +196,7 @@ def test_recorded_attack_m1_co_imputation(decoys: str, full: bool) -> None:
     s = G.fdp_summary(G.missed_replicate_fn(stream, cfgs, gcfg, _co_impute), r, 0.1)
     print(f"recorded M-1 {decoys}: {json.dumps(s)}")
     _log("attack_m1", {"decoys": decoys, **s})
-    if s["mean_fdp"] > G.levels()[-1]:
-        warnings.warn(f"M-1 {decoys}: mean FDP {s['mean_fdp']:.3f} (ADR pending: exclude imputed"
-                      " pairs)", stacklevel=1)  # fmt: skip
+    assert s["mean_fdp"] <= ESCALATE_FDR, f"M-1 {s} > {ESCALATE_FDR}: escalate (imputed-pair ADR)"
 
 
 @pytest.mark.calsuite(MO)
@@ -209,62 +210,62 @@ def test_recorded_attack_m1_large_genome() -> None:
                       R_M1_LARGE, 0.1)  # fmt: skip
     print(f"recorded M-1 large genome: {json.dumps(s)}")
     _log("attack_m1", {"decoys": "shipped", "n_genes": M1_LARGE_GENES, **s})
-    if s["mean_fdp"] > G.levels()[-1]:
-        warnings.warn(f"M-1 large: mean FDP {s['mean_fdp']:.3f} (ADR pending)", stacklevel=1)
+    assert s["mean_fdp"] <= ESCALATE_FDR, f"M-1 large {s} > {ESCALATE_FDR}: escalate (ADR)"
 
 
 # --------------------------------------------------------------------------- D-1
 
 
 def _d1(seed: int) -> G.DiscRun:
+    """One D-1 genome. ``abundance`` is the pre-transform pair mean, the z the noise was planted
+    on (the transform changes ``abundance_log2_b``), so the quartile is cut on the planted z."""
     sim = G.simulate(G.scenario("operon_null", G.N_GENES), seed)
-    return G.discordance_run(sim, pairs=_noise_by_abundance(sim.pairs, ["OP"], 0.0, LOC))
+    noisy = _noise_by_abundance(sim.pairs, ["OP"], 0.0, OPERON_T[0])
+    return G.discordance_run(sim, pairs=noisy, abundance_pairs=sim.pairs)
 
 
 _d1_cached = cache(_d1)
 D1_STREAM = f"{DI}.attack_d1.noise_by_abundance"
 
 
-#: ADR-0055 (proposed, pending Khoa): D-1 fails the discordance level; strict xfails, as the M7
+#: ADR-0055 (proposed, pending Khoa): D-1 fails the discordance level; strict xfail, as the M7
 #: gate's ADR-0049 xfails (test_variants_gate.py). Seeds are fixed, so the failure is
 #: deterministic and an XPASS means the method or the generator changed. No bound is widened (R3).
 ADR_0055 = "ADR-0055 pending: D-1 abundance-dependent noise; M6 discordance claim not met"
 D1_XFAIL = pytest.mark.xfail(strict=True, raises=AssertionError, reason=ADR_0055)
-#: a shard or confirm run has no verdict, so a strict xfail must not XPASS there
-NO_VERDICT = frozenset({C.SHARD_STATUS, C.PENDING_STATUS, C.SKIPPED_STATUS})
 
 
 @D1_XFAIL
 @pytest.mark.calsuite(DI)
 @pytest.mark.parametrize("full", MODES)
-def test_attack_d1_pooled_level(full: bool) -> None:
-    """Gated D-1: the pooled level criterion through the harness (suite log, ADR-0015). Confirmed
-    ``fail`` at alpha 0.10 in the fast tier (0.110 vs 0.104) and at 0.05 and 0.10 in the full tier
-    (0.0521 / 0.1064 vs 0.0510 / 0.1013, Slurm 1884412)."""
+def test_attack_d1_level(full: bool) -> None:
+    """Gated D-1, one test so both checks read the same genomes (one simulation per replicate):
+
+    - the pooled level criterion through the harness (suite log ``discordance.jsonl``, ADR-0015):
+      a confirmed ``fail`` at alpha 0.10 in the fast tier (0.110 vs 0.104) and at 0.05 and 0.10
+      in the full tier (0.0521 / 0.1064 vs 0.0510 / 0.1013);
+    - the lowest-abundance quartile (cut on the planted z): the rate over every tested pair of
+      the quartile against ``level_bound(alpha, n)`` (n pairs treated as independent, the
+      optimistic bound); about 3x nominal (full tier 0.0273 / 0.157 / 0.277).
+
+    Both are recorded before the assertion. **Sharded runs:** a shard has no verdict and skips
+    (after logging), but the records are in the suite log, so ``_criteria.py --shard ... --merge``
+    of the ``discordance`` task merges them into a confirmed ``fail`` and exits 1 (MERGE_FAIL;
+    ``_merge_main`` knows nothing of xfails). That is intended until ADR-0055 is decided: a
+    failing attack blocks the gate, as the variants task does under ADR-0049. Do not move this
+    log out of the suite to make the task green.
+    """
     lv = G.levels()
+    r = C.replicates(DI, full)
 
     def rep(rng: np.random.Generator) -> np.ndarray:
         run = _d1_cached(int(rng.bit_generator.seed_seq.entropy))
         p = rng.choice(run.p, M_POOLED, replace=False)
         return np.array([float((p <= a).mean()) for a in lv])
 
-    gate = calibrate_levels(DI, "level", lv, rep, C.replicates(DI, full), stream=D1_STREAM,
-                            m=M_POOLED)  # fmt: skip
+    gate = calibrate_levels(DI, "level", lv, rep, r, stream=D1_STREAM, m=M_POOLED)
     print("D-1 pooled:\n" + "\n".join(gate.detail()))
-    if any(r["status"] in NO_VERDICT for r in gate.records):
-        pytest.skip("shard or confirm run: the verdict comes from --merge")
-    gate.assert_ok()
-
-
-@D1_XFAIL
-@pytest.mark.calsuite(DI)
-@pytest.mark.parametrize("full", MODES)
-def test_attack_d1_lowest_quartile(full: bool) -> None:
-    """Gated D-1, lowest-abundance quartile: the rate over every tested pair of the quartile
-    against ``level_bound(alpha, n)`` (n pairs, treated as independent: the optimistic bound).
-    About 3x nominal (full tier 0.0273 / 0.157 / 0.277)."""
-    lv = G.levels()
-    r = C.replicates(DI, full)
+    G.skip_without_verdict(gate.records)
     hits, n = np.zeros(len(lv)), 0
     for i in range(r):
         run = _d1_cached(C.suite_seed(D1_STREAM, i))
@@ -276,7 +277,8 @@ def test_attack_d1_lowest_quartile(full: bool) -> None:
     print(f"D-1 lowest quartile: R = {r}, n = {n}, rate {rate.round(4).tolist()}"
           f" (bounds {np.round(bounds, 4).tolist()})")  # fmt: skip
     _log("attack_d1_lowest_quartile", {"R": r, "n": n, "rate": rate.tolist(), "bounds": bounds})
-    assert np.all(rate <= bounds), f"D-1 lowest quartile {rate} > {bounds} ({ADR_0055})"
+    failed = gate.failed
+    assert not failed and np.all(rate <= bounds), (gate.detail(), rate.tolist(), ADR_0055)
 
 
 # --------------------------------------------------------------------------- C

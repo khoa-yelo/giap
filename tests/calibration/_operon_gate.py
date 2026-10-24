@@ -24,6 +24,7 @@ import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cache
+from pathlib import Path
 from typing import Any
 
 import _criteria as C
@@ -70,21 +71,42 @@ def scenario(name: str, *args: Any, **kw: Any) -> Cfgs:
 
 
 def reclass(pairs: pd.DataFrame, threshold: float) -> pd.DataFrame:
-    """Same-strand pairs re-classed OP / NO at ``threshold`` (OP iff ``uniop_p >= threshold``, as
-    ``giap.operons.pairs.classify``); CV, DV and SW unchanged."""
+    """Same-strand pairs re-classed OP / NO at ``threshold`` by the step's own rule,
+    ``giap.operons.pairs.classify`` (OP iff ``uniop_p >= threshold``); CV, DV and SW unchanged.
+    ``classify`` reads only the strand and the locus tag of the two genes, so they are passed as
+    stand-ins."""
+    from types import SimpleNamespace
+
+    from giap.operons.pairs import classify
+
+    def gene(tag: object, strand: object) -> Any:
+        return SimpleNamespace(locus_tag=str(tag), interval=SimpleNamespace(strand=str(strand)))
+
     out = pairs.copy()
     same = out["class"].isin(["OP", "NO"]).to_numpy()
-    p = out["uniop_p"].astype(float).to_numpy()
-    out.loc[same, "class"] = np.where(p[same] >= threshold, "OP", "NO")
+    sub = out.loc[same]
+    out.loc[same, "class"] = [
+        classify(gene(a, st), gene(b, st), float(u), threshold)
+        for a, b, st, u in zip(sub["gene_a"], sub["gene_b"], sub["strand"], sub["uniop_p"],
+                               strict=True)
+    ]  # fmt: skip
     return out
 
 
 def simulate(cfgs: Cfgs, seed: int) -> Any:
-    """One replicate, its pair classes at the calibrated UniOP threshold."""
+    """One replicate, its pair classes at the calibrated UniOP threshold. The planted
+    co-abundant pairs must still be NO (giapsim draws them with ``uniop_p < 0.5``): a threshold
+    move that turns them OP would take them out of the missed-operon family."""
     import giapsim.scenarios as sc
 
     s = sc.simulate_operons(cfgs, int(seed))
-    return _Sim(s.layout, s.expression, reclass(s.pairs, uniop_threshold()), s.truth)
+    pairs = reclass(s.pairs, uniop_threshold())
+    planted = set(s.truth["missed_operons"]["pair_id"].astype(str))
+    cls = pairs.loc[pairs["pair_id"].astype(str).isin(planted), "class"]
+    if not (cls == "NO").all():
+        raise ValueError(f"planted missed operons re-classed {sorted(set(cls))} at the UniOP "
+                         f"threshold {uniop_threshold()}")  # fmt: skip
+    return _Sim(s.layout, s.expression, pairs, s.truth)
 
 
 @dataclass(frozen=True)
@@ -159,14 +181,26 @@ def missed_replicate_fn(
 
 
 def missed_fdr_gate(
-    suite: str, stream: str, records: Callable[[int], dict[str, Any]], R: int
+    suite: str,
+    stream: str,
+    records: Callable[[int], dict[str, Any]],
+    R: int,
+    *,
+    log_dir: Path | None = None,
 ) -> list[dict[str, Any]]:
     """The FDR criterion at every q through ``calibrate_fdr_counts`` (ADR-0015). A level with no
     call in block 1 is ``vacuous`` (Khoa's decision 2026-10-22: recorded as a vacuous pass, never
     read as power evidence): the floor 0.5 / R on the mean call count is crossed by one call."""
     return [
         C.calibrate_fdr_counts(
-            suite, stream, f"q{a:g}", a, records, R, vacuous={"n_called": 0.5 / R}
+            suite,
+            stream,
+            f"q{a:g}",
+            a,
+            records,
+            R,
+            vacuous={"n_called": 0.5 / R},
+            log_dir=log_dir,
         )
         for a in levels()
     ]
@@ -179,21 +213,42 @@ VACUOUS_REASON = (
 )
 
 
+#: statuses with no verdict: a ``--shard`` range (``shard``), a merged check awaiting block 2
+#: (``pending``) and a check not listed in a ``--merge`` confirm run (``skipped``); as
+#: ``_gate.NOT_FAILED``, they are never a failure
+NO_VERDICT = frozenset({C.SHARD_STATUS, C.PENDING_STATUS, C.SKIPPED_STATUS})
+NO_VERDICT_SKIP = "shard or confirm run: the verdict comes from --merge"
+
+
+def skip_without_verdict(recs: Sequence[Mapping[str, Any]]) -> None:
+    """``pytest.skip`` when any record has no verdict. Called after ``calibrate*`` has logged, so
+    the shard records still reach ``--merge``."""
+    import pytest
+
+    if any(r["status"] in NO_VERDICT for r in recs):
+        pytest.skip(NO_VERDICT_SKIP)
+
+
 def assert_fdr_ok(
     recs: Sequence[Mapping[str, Any]], *, allow_vacuous: bool, need_calls_at: float | None = None
 ) -> list[str]:
-    """Fail on a confirmed ``fail``; ``vacuous`` passes only when ``allow_vacuous``, and never at
-    the level ``need_calls_at``. Returns one summary line per level (printed by the caller)."""
-    ok = {"pass", "unconfirmed", *(["vacuous"] if allow_vacuous else [])}
-    if need_calls_at is not None:
-        hit = [r for r in recs if r["level"] == need_calls_at]
-        assert hit and hit[0]["status"] != "vacuous", f"no call at q = {need_calls_at}: {hit}"
+    """Skip a shard or confirm run (no verdict, ``skip_without_verdict``); otherwise fail on a
+    confirmed ``fail``, accept ``vacuous`` only when ``allow_vacuous`` and never at the level
+    ``need_calls_at``. The vacuity check runs after the skip, so a shard record (whose status is
+    ``shard``, never ``vacuous``) can neither trip nor satisfy it. Returns one summary line per
+    level (printed by the caller)."""
     lines = [
         f"{r['stream']} q={r['level']:g} status={r['status']} meanFDP={r['observed']}"
         f" bound={r['bound']} R={r['R']} block={r['block']}"
         + (f" [{VACUOUS_REASON}]" if r["status"] == "vacuous" else "")
         for r in recs
     ]
+    print("\n".join(lines))
+    skip_without_verdict(recs)
+    ok = {"pass", "unconfirmed", *(["vacuous"] if allow_vacuous else [])}
+    if need_calls_at is not None:
+        hit = [r for r in recs if r["level"] == need_calls_at]
+        assert hit and hit[0]["status"] != "vacuous", f"no call at q = {need_calls_at}: {hit}"
     bad = [line for r, line in zip(recs, lines, strict=True) if r["status"] not in ok]
     assert not bad, bad
     return lines
@@ -224,19 +279,31 @@ def fdp_summary(records: Callable[[int], dict[str, Any]], R: int, q: float) -> d
 class DiscRun:
     p: np.ndarray  # both_detected_t p-values, pair order
     q: np.ndarray  # their BH q
-    abundance: np.ndarray  # mean log2 abundance of the two genes of each tested pair
+    abundance: np.ndarray  # mean log2 abundance of each tested pair (of ``abundance_pairs``)
     n_one_detected: int
     pmiss: np.ndarray  # one_detected_pmiss p-values (empty until M6-05H)
+    ratios: np.ndarray  # the Delta sample of the t fit (``Discordance.ratios``)
+    fit: Any  # the fitted ``StudentT``
 
 
-def discordance_run(sim: Any, *, pairs: pd.DataFrame | None = None, p_miss: Any = None) -> DiscRun:
+def discordance_run(
+    sim: Any,
+    *,
+    pairs: pd.DataFrame | None = None,
+    p_miss: Any = None,
+    abundance_pairs: pd.DataFrame | None = None,
+) -> DiscRun:
+    """The discordance step on ``pairs`` (default: the simulated table). ``abundance`` is the
+    pair mean read from ``abundance_pairs`` (default ``pairs``), so an attack can stratify on the
+    abundances it planted from rather than on its transformed ones."""
     from giap.config import GiapConfig
     from giap.operons.discordance import discordance
 
     p = sim.pairs if pairs is None else pairs
     genes = sim.expression.genes[["locus_tag"]]
     res = discordance(p, genes, GiapConfig(), p_miss)
-    rows = res.rows.merge(p[["pair_id", "abundance_log2_a", "abundance_log2_b"]], on="pair_id")
+    ap = p if abundance_pairs is None else abundance_pairs
+    rows = res.rows.merge(ap[["pair_id", "abundance_log2_a", "abundance_log2_b"]], on="pair_id")
     t = rows["test"].to_numpy() == "both_detected_t"
     m = rows["test"].to_numpy() == "one_detected_pmiss"
     op = p[p["class"] == "OP"]
@@ -248,4 +315,6 @@ def discordance_run(sim: Any, *, pairs: pd.DataFrame | None = None, p_miss: Any 
         abundance=ab[t].to_numpy(float),
         n_one_detected=int(one.sum()),
         pmiss=rows.loc[m, "p_value"].astype(float).to_numpy(),
+        ratios=np.asarray(res.ratios, dtype=float),
+        fit=res.fit,
     )
