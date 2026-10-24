@@ -35,28 +35,15 @@ import ahocorasick
 import numpy as np
 import pandas as pd
 from scipy.stats import binom
-from validation.pilot.metrics import (
-    Q_ACCEPT,
-    Inconsistent,
-    Precondition,
-    _dump,
-    _json,
-    _load,
-    _outside_repo,
-    _q,
-    _routes,
-    _rows,
-    _run_table,
-    _spec_sha,
-    _table,
-    _target,
-    genome_inconsistent,
-    resolve_attempt,
-    sha256,
-)
+from validation.pilot import metrics as m5
+from validation.pilot.metrics import Inconsistent, Precondition, sha256
 
 from giap.config import resolve_config
 from giap.config.model import Enzyme, TolerantConfig
+from giap.io.fasta import read_genome_fasta
+from giap.io.peptides import read_peptide_table
+from giap.io.protein_fasta import read_protein_fasta
+from giap.io.tsv import write_tsv
 from giap.mapping.decoys import DecoyType
 from giap.mapping.digest import digest
 from giap.mapping.exact import match_exact
@@ -123,11 +110,10 @@ def _digest(proteins: Iterable[str], settings: Settings) -> tuple[set[str], set[
     """(standard, non-standard) normalised digest products."""
     std: set[str] = set()
     other: set[str] = set()
-    for prot in proteins:
-        for _, _, p in digest(
-            prot, settings.enzyme, settings.missed, settings.min_len, settings.max_len
-        ):
-            (std if STANDARD.issuperset(p) else other).add(norm(p))
+    st = settings
+    for p in (p for f in proteins
+              for _, _, p in digest(f, st.enzyme, st.missed, st.min_len, st.max_len)):  # fmt: skip
+        (std if STANDARD.issuperset(p) else other).add(norm(p))
     return std, other
 
 
@@ -188,12 +174,9 @@ class Presence:
         return self.rule is not None or any(t and t <= BROAD for t in self.tolerant)
 
 
-def build_index(
-    genome: Mapping[str, str],
-    replicons: Mapping[str, Replicon],
-    strain_db: Sequence[str] | None = None,
-    tolerant: TolerantConfig | None = None,
-) -> Index:
+def build_index(genome: Mapping[str, str], replicons: Mapping[str, Replicon],
+                strain_db: Sequence[str] | None = None, tolerant: TolerantConfig | None = None,
+                ) -> Index:  # fmt: skip
     """``strain_db`` None: L2 answered "no" (six-frame translation only)."""
     text = None if strain_db is None else "*".join(norm(p) for p in strain_db)
     cfg = tolerant if tolerant is not None else resolve_config().mapping.tolerant
@@ -223,41 +206,31 @@ def present(peptides: Iterable[str], index: Index) -> dict[str, Presence]:
     sdb = _substrings(rest, index.strain_text or "")
     left = [t for t in rest if t not in sdb]
     rows: dict[str, list[frozenset[str]]] = {}
-    if left and index.tolerant.enabled:
-        dec = {t: _NO_DECOY for t in left}
-        cfg = index.tolerant
-        parts = [
-            match_tolerant(left, index.sixframe, _NO_DECOYS, dec, set(left), cfg),
-            match_frameshift(left, index.sixframe, _NO_DECOYS, dec, set(left), cfg),
-        ]
-        for part in parts:
-            tgt = part[part["search"] == "target"]
-            for p, d in zip(tgt["peptide"], tgt["diff_types"], strict=True):
-                rows.setdefault(str(p), []).append(frozenset(x for x in str(d).split(";") if x))
-    out: dict[str, Presence] = {}
-    for p, t in q.items():
-        if t in exact:
-            out[p] = Presence("exact")
-        elif t in sdb:
-            out[p] = Presence("strain_db")
-        else:
-            types = tuple(sorted(set(rows.get(t, [])), key=sorted))
-            me = any(x and x <= {"block"} for x in types)
-            out[p] = Presence("mass_equivalent" if me else None, types)
-    return out
+    # frameshift rows too (GIAP's tolerant route); they only move the ``far`` stratum (N1)
+    for match in (match_tolerant, match_frameshift) if left and index.tolerant.enabled else ():
+        part = match(left, index.sixframe, _NO_DECOYS, dict.fromkeys(left, _NO_DECOY), set(left),
+                     index.tolerant)  # fmt: skip
+        tgt = part[part["search"] == "target"]
+        for p, d in zip(tgt["peptide"], tgt["diff_types"], strict=True):
+            rows.setdefault(str(p), []).append(frozenset(x for x in str(d).split(";") if x))
+
+    def presence(t: str) -> Presence:
+        if t in exact or t in sdb:
+            return Presence("exact" if t in exact else "strain_db")
+        types = tuple(sorted(set(rows.get(t, [])), key=sorted))
+        return Presence("mass_equivalent" if any(x and x <= {"block"} for x in types) else None,
+                        types)  # fmt: skip
+
+    return {p: presence(t) for p, t in q.items()}
 
 
 # ---------------------------------------------------------------- the estimator (pure API)
 
 
 def _defined(n_t: int, n_e: int, k: int, s: int) -> bool:
-    if n_t + n_e == 0 or s == 0:
-        return False
-    if k == 0:
-        if n_e:
-            raise ValueError("an entrapment discovery with no entrapment space (|k12_only| = 0)")
-        return False
-    return True
+    if n_e and s and not k:
+        raise ValueError("an entrapment discovery with no entrapment space (|k12_only| = 0)")
+    return n_t + n_e > 0 and s > 0 and k > 0
 
 
 def combined(n_t: int, n_e: int, n_k12_only: int, n_shared: int) -> Fraction | None:
@@ -291,9 +264,10 @@ def assess(combined: Fraction | None, lower: Fraction | None, alpha: Fraction = 
     return "consistent_with_control" if combined <= alpha else "inconclusive"
 
 
-def _estimates(
-    n_t: int, n_e: int, k: int, s: int
-) -> tuple[dict[str, Any], Fraction | None, Fraction | None]:
+Fracs = tuple[dict[str, Any], Fraction | None, Fraction | None]
+
+
+def _estimates(n_t: int, n_e: int, k: int, s: int) -> Fracs:
     """(the float block, combined, lower); the reason precedence is no shared peptide, no
     discovery, no entrapment space."""
     reason = "no_shared_peptides" if s == 0 else "empty_discoveries" if n_t + n_e == 0 else None
@@ -301,11 +275,9 @@ def _estimates(
     if reason is None:
         c, lo = combined(n_t, n_e, k, s), lower(n_t, n_e)
         reason = "no_entrapment_space" if c is None else None
-    out: dict[str, Any] = {
-        "fdp_combined": None if c is None else float(c),
-        "fdp_lower": None if lo is None else float(lo),
-        "ucb95": ucb95(n_t, n_e, k, s) if s and n_t + n_e else None,
-    }
+    out: dict[str, Any] = {"fdp_combined": None if c is None else float(c),
+                           "fdp_lower": None if lo is None else float(lo),
+                           "ucb95": ucb95(n_t, n_e, k, s) if s and n_t + n_e else None}  # fmt: skip
     return out | ({"reason": reason} if reason else {}), c, lo
 
 
@@ -313,9 +285,8 @@ def _ratio(a: int | float, b: int | float) -> float | None:
     return None if b == 0 else a / b
 
 
-def _level(
-    n_t: int, n_e: int, k: int, s: int, other: Mapping[str, int], scope: str
-) -> dict[str, Any]:
+def _level(n_t: int, n_e: int, k: int, s: int, other: Mapping[str, int],
+           scope: str) -> dict[str, Any]:  # fmt: skip
     """One level's block; ``scope`` is ``precursor`` (assessed), ``peptide`` or ``per_run``."""
     est, c, lo = _estimates(n_t, n_e, k, s)
     ci = {"ucb95": est.pop("ucb95"), "method": CI_METHOD, "assumes": CI_ASSUMES}
@@ -333,17 +304,12 @@ def _level(
 
 def _accepted(rows: pd.DataFrame) -> pd.DataFrame:
     """M10-05's rule: a target row (NA ``is_decoy`` reads as target) with q <= Q_ACCEPT."""
-    q = _q(rows)
-    return rows[_target(rows) & ~np.isnan(q) & (q <= Q_ACCEPT)]
+    q = m5._q(rows)
+    return rows[m5._target(rows) & ~np.isnan(q) & (q <= m5.Q_ACCEPT)]
 
 
-def evaluate(
-    k12: Sequence[str],
-    contaminants: Sequence[str],
-    index: Index,
-    rows: pd.DataFrame,
-    settings: Settings = DEFAULT_SETTINGS,
-) -> dict[str, Any]:
+def evaluate(k12: Sequence[str], contaminants: Sequence[str], index: Index, rows: pd.DataFrame,
+             settings: Settings = DEFAULT_SETTINGS) -> dict[str, Any]:  # fmt: skip
     """The ``entrapment.json`` blocks (``universe``, ``peptide``, ``precursor``, ``per_run``,
     ``warnings``) and ``discoveries`` (peptide, bucket, present_rule) for the TSV."""
     k12_all, k12_ns = _digest(k12, settings)
@@ -355,20 +321,13 @@ def evaluate(
     only = [p for p in uni if not pres_u[p].rule]
     S, K = sum(nprec[p] for p in shared), sum(nprec[p] for p in only)
     rules = [pres_u[p].rule for p in shared]
-    universe = {
-        "k12_peptides": len(k12_all),
-        "excluded_contaminant": len(k12_all & cont),
-        "non_standard": len(k12_ns),
-        "shared": len(shared),
-        "k12_only": len(only),
-        "shared_exact": rules.count("exact"),
-        "shared_strain_db_only": rules.count("strain_db"),
-        "shared_mass_equivalent": rules.count("mass_equivalent"),
-        "r": _ratio(len(only), len(shared)),
-        "shared_precursors": S,
-        "k12_only_precursors": K,
-        "r_prec": _ratio(K, S),
-    }
+    universe = {"k12_peptides": len(k12_all), "excluded_contaminant": len(k12_all & cont),
+                "non_standard": len(k12_ns), "shared": len(shared), "k12_only": len(only),
+                "shared_exact": rules.count("exact"),
+                "shared_strain_db_only": rules.count("strain_db"),
+                "shared_mass_equivalent": rules.count("mass_equivalent"),
+                "r": _ratio(len(only), len(shared)), "shared_precursors": S,
+                "k12_only_precursors": K, "r_prec": _ratio(K, S)}  # fmt: skip
 
     acc = _accepted(rows)
     peps = [norm(str(p)) for p in acc["peptide"]]
@@ -390,11 +349,8 @@ def evaluate(
     k, s = len(only), len(shared)
     n_t, n_e, oth = counts(set(peps))
     peptide = _level(n_t, n_e, k, s, oth, "peptide")
-    prec = {
-        (norm(str(m)), int(z), p)
-        for m, z, p in zip(acc["modified_peptide"], acc["charge"], peps, strict=True)
-    }
-    pt, pe, po = counts(p for _, _, p in prec)
+    mods = zip(acc["modified_peptide"], acc["charge"], peps, strict=True)
+    pt, pe, po = counts(p for _, _, p in {(norm(str(m)), int(z), p) for m, z, p in mods})
     precursor = _level(pt, pe, K, S, po, "precursor")
     runs = [str(r) for r in acc["run"]]
     per_run = {}
@@ -407,23 +363,13 @@ def evaluate(
     # S2: present_broad
     bs = [p for p in uni if pres_u[p].broad]
     bt = sum(pres_d[p].broad for p in found)
-    broad = {
-        "shared": len(bs),
-        "k12_only": len(uni) - len(bs),
-        "r": _ratio(len(uni) - len(bs), len(bs)),
-        "N_T": bt,
-        "N_E": len(found) - bt,
-        **_estimates(bt, len(found) - bt, len(uni) - len(bs), len(bs))[0],
-    }
+    bk, be = len(uni) - len(bs), len(found) - bt
+    broad = {"shared": len(bs), "k12_only": bk, "r": _ratio(bk, len(bs)), "N_T": bt, "N_E": be,
+             **_estimates(bt, be, bk, len(bs))[0]}  # fmt: skip
     # S4: r_prec weighted
     rp = _estimates(n_t, n_e, K, S)[0]
-    weighted = {
-        "fdp_combined_rprec": rp["fdp_combined"],
-        "mean_nprec_shared": _ratio(S, s),
-        "mean_nprec_k12_only": _ratio(K, k),
-    }
-    if "reason" in rp:
-        weighted["reason"] = rp["reason"]
+    weighted = {"fdp_combined_rprec": rp["fdp_combined"], "mean_nprec_shared": _ratio(S, s),
+                "mean_nprec_k12_only": _ratio(K, k)} | _reason(rp)  # fmt: skip
     # S4: far stratum
     min10 = index.tolerant.min_len
 
@@ -436,42 +382,30 @@ def evaluate(
     nt10 = sum(len(p) >= min10 for p in found if pres_d[p].rule)
     nef = sum(stratum(p) == "far" for p in e_found)
     est = _estimates(nt10, nef, len(e_far), len(t10))[0]
-    far = {
-        "r_far": _ratio(len(e_far), len(t10)),
-        "N_T_10": nt10,
-        "N_E_far": nef,
-        "fdp_combined_far": est["fdp_combined"],
-        "fdp_lower_far": est["fdp_lower"],
-        "ucb95_far": est["ucb95"],
-        "breakdown": {
-            "k12_only": _strata([stratum(p) for p in only]),
-            "N_E": _strata([stratum(p) for p in e_found]),
-        },
-    }
-    if "reason" in est:
-        far["reason"] = est["reason"]
+    breakdown = {"k12_only": _strata([stratum(p) for p in only]),
+                 "N_E": _strata([stratum(p) for p in e_found])}  # fmt: skip
+    far = {"r_far": _ratio(len(e_far), len(t10)), "N_T_10": nt10, "N_E_far": nef,
+           "fdp_combined_far": est["fdp_combined"], "fdp_lower_far": est["fdp_lower"],
+           "ucb95_far": est["ucb95"], "breakdown": breakdown} | _reason(est)  # fmt: skip
     peptide["sensitivity"] = {"present_broad": broad, "r_prec_weighted": weighted, "far": far}
 
     warnings: list[Any] = []
     if oth["not_in_universe"]:
         warnings.append({"code": "digest_mismatch", "count": oth["not_in_universe"]})
     if n_t + n_e and not n_e:
-        warnings.append(
-            {"code": "n_entrapment_zero", "message": "no K-12-only peptide was accepted"}
-        )
+        warnings.append({"code": "n_entrapment_zero",
+                         "message": "no K-12-only peptide was accepted"})  # fmt: skip
     discoveries = [(p, bucket(p), (pres_d[p].rule or "") if p in found else "") for p in disc]
-    return {
-        "universe": universe,
-        "peptide": peptide,
-        "precursor": precursor,
-        "per_run": per_run,
-        "warnings": warnings,
-        "discoveries": discoveries,
-    }
+    return {"universe": universe, "peptide": peptide, "precursor": precursor, "per_run": per_run,
+            "warnings": warnings, "discoveries": discoveries}  # fmt: skip
 
 
 def _strata(labels: Sequence[str]) -> dict[str, int]:
     return {x: labels.count(x) for x in ("lt10", "near_homolog", "far")}
+
+
+def _reason(est: Mapping[str, Any]) -> dict[str, Any]:
+    return {"reason": est["reason"]} if "reason" in est else {}
 
 
 # ---------------------------------------------------------------- cross-checks and settings
@@ -495,17 +429,11 @@ def settings_mismatch(flags: Mapping[str, list[str]], settings: Settings) -> lis
     """Differences between the search's flags and ``settings`` (cross-check 4)."""
     cut = {"trypsin_p": "K*,R*", "trypsin": "K*,R*,!*P"}[settings.enzyme]
     want: dict[str, str | float] = {
-        "--cut": cut,
-        "--missed-cleavages": settings.missed,
-        "--min-pep-len": settings.min_len,
-        "--max-pep-len": settings.max_len,
-        "--min-pr-charge": settings.charges[0],
-        "--max-pr-charge": settings.charges[1],
-        "--min-pr-mz": settings.mz[0],
-        "--max-pr-mz": settings.mz[1],
-        "--var-mods": settings.var_mods,
-        "--var-mod": "UniMod:35,15.994915,M",
-    }
+        "--cut": cut, "--missed-cleavages": settings.missed, "--min-pep-len": settings.min_len,
+        "--max-pep-len": settings.max_len, "--min-pr-charge": settings.charges[0],
+        "--max-pr-charge": settings.charges[1], "--min-pr-mz": settings.mz[0],
+        "--max-pr-mz": settings.mz[1], "--var-mods": settings.var_mods,
+        "--var-mod": "UniMod:35,15.994915,M"}  # fmt: skip
     bad = []
     for f, v in want.items():
         got = flags.get(f, [])
@@ -529,34 +457,34 @@ def _num(s: str) -> float | None:
 CLASSIFIED = ("target", "entrapment")
 
 
-def cross_check_run(
-    discoveries: Sequence[tuple[str, str, str]], out_a1: Path, n_e: int
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+Discovery = tuple[str, str, str]  # (peptide, bucket, present_rule)
+
+
+def cross_check_run(discoveries: Sequence[Discovery], out_a1: Path, n_e: int,
+                    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:  # fmt: skip
     """Cross-checks 1 and 2 against the A1 run directory. 1 looks at the T and E buckets only
     and raises ``Inconsistent`` when an A1 ``route = exact`` peptide is not ``exact`` here (the
     exact route is six-frame only, so ``strain_db`` is no agreement)."""
-    hits = _run_table(out_a1, "peptide_hits.tsv")
+    hits = m5._run_table(out_a1, "peptide_hits.tsv")
     if hits is None:
         raise Precondition(f"{out_a1}: no peptide_hits.tsv under tables/ or mapping/")
-    routes = _routes(_table(hits, "peptide_hits"))
+    routes = m5._routes(m5._table(hits, "peptide_hits"))
     exact = {norm(p) for p, r in routes.items() if "exact" in r}
     rule = {p: r for p, b, r in discoveries if b in CLASSIFIED}
     if bad := sorted(p for p in exact & set(rule) if rule[p] != "exact"):
         raise Inconsistent(f"{len(bad)} discovered peptide(s) have a route = exact row in "
                            f"{hits} but no exact match here")  # fmt: skip
-    ds = _run_table(out_a1, "detection_summary.tsv")
-    count = None if ds is None else genome_inconsistent(_table(ds, "detection_summary"))["count"]
+    ds = m5._run_table(out_a1, "detection_summary.tsv")
+    gi = None if ds is None else m5.genome_inconsistent(m5._table(ds, "detection_summary"))
+    count = None if gi is None else gi["count"]
     targets = [(p, r) for p, b, r in discoveries if b == "target"]
     unclassified = sum(p in exact and b not in CLASSIFIED for p, b, _ in discoveries)
-    check = {
-        "exact_route_agrees": True,
-        "n_exact_route": len(exact & set(rule)),
-        "n_exact_route_unclassified": unclassified,
-        "genome_inconsistent_count": count,
-        "n_entrapment": n_e,
-        "present_not_exact": sum(r in ("strain_db", "mass_equivalent") for _, r in targets),
-        "exact_rejected": sum(r == "exact" and p not in exact for p, r in targets),
-    }
+    check = {"exact_route_agrees": True, "n_exact_route": len(exact & set(rule)),
+             "n_exact_route_unclassified": unclassified, "genome_inconsistent_count": count,
+             "n_entrapment": n_e,
+             "present_not_exact": sum(r in ("strain_db", "mass_equivalent") for _, r in targets),
+             "exact_rejected": sum(r == "exact" and p not in exact
+                                   for p, r in targets)}  # fmt: skip
     if count is None:
         return check, [{"code": "genome_inconsistent_unavailable", "out_a1": str(out_a1)}]
     if n_e > count:
@@ -590,15 +518,11 @@ def check_provenance(prov: Any, path: Path, files: Mapping[str, Path]) -> None:
 
 
 def _proteins(path: Path) -> list[str]:
-    from giap.io.protein_fasta import read_protein_fasta
-
-    return _load(path, lambda p: [r.sequence for r in read_protein_fasta(p)])
+    return m5._load(path, lambda p: [r.sequence for r in read_protein_fasta(p)])
 
 
 def _index(genome: Path, strain_db: Path) -> Index:
-    from giap.io.fasta import read_genome_fasta
-
-    recs = _load(genome, read_genome_fasta)
+    recs = m5._load(genome, read_genome_fasta)
     if not any(r.circular_tag for r in recs):
         raise Precondition(f"{genome}: no topology tag on any contig")
     reps = {r.id: Replicon(r.id, len(r.sequence), "circular" if r.circular_tag else "linear")
@@ -607,14 +531,12 @@ def _index(genome: Path, strain_db: Path) -> Index:
 
 
 def _pep_rows(path: Path, manifest: Path) -> pd.DataFrame:
-    from giap.io.peptides import read_peptide_table
-
-    rows = _load(path, lambda p: read_peptide_table(p)[0])
+    rows = m5._load(path, lambda p: read_peptide_table(p)[0])
     if missing := [c for c in PEP_COLUMNS if c not in rows.columns]:
         raise Precondition(f"{path}: missing column(s) {', '.join(missing)}")
     if _accepted(rows)["charge"].isna().any():
         raise Precondition(f"{path}: NA charge on an accepted row")
-    wt = _rows(manifest)
+    wt = m5._rows(manifest)
     if not wt or "run" not in wt[0]:
         raise Precondition(f"{manifest}: no run column")
     if foreign := sorted({str(r) for r in rows["run"]} - {str(r["run"]) for r in wt}):
@@ -622,21 +544,20 @@ def _pep_rows(path: Path, manifest: Path) -> pd.DataFrame:
     return rows
 
 
-def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[tuple[str, str, str]]]:
+def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[Discovery]]:
     """``entrapment.json`` and the discovery rows from the parsed arguments (reads only)."""
-    _outside_repo(a.out, "--out", allow_ignored=True)
+    m5._outside_repo(a.out, "--out", allow_ignored=True)  # B2: ``git check-ignore``
     files = {k: getattr(a, k) for k in (*INPUTS, *OPTIONAL) if getattr(a, k) is not None}
     for p in files.values():
         if not p.exists():
             raise Precondition(f"missing input: {p}")
     files.pop("out_a1", None)
     if a.provenance is not None:
-        check_provenance(_json(a.provenance), a.provenance, files)
+        check_provenance(m5._json(a.provenance), a.provenance, files)
     settings = DEFAULT_SETTINGS
     if a.diann_cmd is not None:
-        lines = _load(a.diann_cmd, lambda p: p.read_text(encoding="utf-8").splitlines())
-        if bad := settings_mismatch(parse_diann_cmd([t.strip() for t in lines if t.strip()]),
-                                    settings):  # fmt: skip
+        lines = m5._load(a.diann_cmd, lambda p: p.read_text(encoding="utf-8").split())
+        if bad := settings_mismatch(parse_diann_cmd(lines), settings):
             raise Precondition(f"{a.diann_cmd}: settings differ: {'; '.join(bad)}")
     rows = _pep_rows(a.pep_a1, a.runs_manifest)
     if not (k12 := _proteins(a.k12_fasta)):
@@ -649,28 +570,23 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[tuple[str, str,
     if a.diann_cmd is not None:
         checks["settings"] = {"agrees": True}
     if a.out_a1 is not None:
-        out_a1 = resolve_attempt(a.out_a1)[0]
+        out_a1 = m5.resolve_attempt(a.out_a1)[0]
         checks["run"], warn = cross_check_run(discoveries, out_a1, doc["peptide"]["N_E"])
         doc["warnings"] += warn
-    doc |= {
-        "schema": SCHEMA,
-        "spec": _spec_sha(SPEC),
-        "cross_checks": checks,
-        "caveats": list(CAVEATS),
-        "inputs": {k: {"path": str(p.resolve()), "sha256": sha256(p)} for k, p in files.items()},
-        "settings": asdict(settings) | {"tolerant": index.tolerant.model_dump()},
-    }
+    doc |= {"schema": SCHEMA, "spec": m5._spec_sha(SPEC), "cross_checks": checks,
+            "caveats": list(CAVEATS),
+            "inputs": {k: {"path": str(p.resolve()), "sha256": sha256(p)}
+                       for k, p in files.items()},
+            "settings": asdict(settings) | {"tolerant": index.tolerant.model_dump()}}  # fmt: skip
     return doc, discoveries
 
 
 def write_outputs(out: Path, doc: Mapping[str, Any], discoveries: Sequence[Sequence[str]]) -> None:
     """The TSV first, then the JSON (written last, so a failed TSV leaves no JSON behind)."""
-    from giap.io.tsv import write_tsv
-
     out.mkdir(parents=True, exist_ok=True)
-    cols = ["peptide", "bucket", "present_rule"]
-    write_tsv(out / "entrapment_discoveries.tsv", cols, discoveries)
-    (out / "entrapment.json").write_text(_dump(doc), encoding="utf-8")
+    write_tsv(out / "entrapment_discoveries.tsv", ["peptide", "bucket", "present_rule"],
+              discoveries)  # fmt: skip
+    (out / "entrapment.json").write_text(m5._dump(doc), encoding="utf-8")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -693,10 +609,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         traceback.print_exc()
         return 4
     p = doc["precursor"]
-    print(
-        f"wrote {a.out}/entrapment.json; precursor {p['assessment']}; "
-        f"{len(doc['warnings'])} warning(s)"
-    )
+    print(f"wrote {a.out}/entrapment.json; precursor {p['assessment']}; "
+          f"{len(doc['warnings'])} warning(s)")  # fmt: skip
     return 0
 
 
