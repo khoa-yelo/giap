@@ -18,8 +18,8 @@ merged), M8-12 (#192, committed golden data, merged), M8-17 (#204 and #207 merge
 ## What the gate says
 
 §13 row M8: "GSEA and ORA match fgsea and goseq on golden data". §7.7.5 states the criteria and
-`tests/calibration/tolerances.yaml` holds them. It is **protected and unchanged**; changing any
-key needs a Khoa ADR (R3):
+`tests/calibration/tolerances.yaml` holds them. It is **protected**; changing any key needs a Khoa
+ADR (R3). ADR-0044 added `wallenius_goseq_abs_tol` (PR #297):
 `golden_r: {wallenius_rel_tol: 1.0e-6, fgsea_es_abs_tol: 1.0e-9, fgsea_nes_abs_tol: 0.02,
 fgsea_log10p_k: 3.0}`.
 
@@ -150,7 +150,8 @@ The checks, from cheapest to strongest:
     - the live ES equals the golden ES for every set where the two oracle values agree. Such a set
       is *tie-insensitive*. The others are counted and reported.
   - **NES** and **p**, per §3.
-  - **Leading edges** are compared as exact sets on tie-insensitive sets (§4).
+  - **Leading edges** equal the oracle's on every set, and golden's as exact sets on
+    *edge-tie-insensitive* sets (§4; classified separately from ES tie-insensitivity).
 
 ### 1.3 What the existing contract tests already cover
 
@@ -186,7 +187,8 @@ consumption.
 ## 3. Tolerances and NA rows [statistician]
 
 All keys come from `tolerances.yaml` `golden_r` and are read, never copied. A change to any of
-them needs a **Khoa ADR** (protected file, R3). This spec changes none.
+them needs a **Khoa ADR** (protected file, R3). This spec's only change is ADR-0044's
+`wallenius_goseq_abs_tol: 1.0e-5`.
 
 | Criterion | G3a (seed and ties normalised) | G3b (GIAP's own seed and ties) |
 |---|---|---|
@@ -233,8 +235,16 @@ block the gate.
 - **G2 and G3a:** the leading edge must equal the golden one as an **exact ordered list**: TUs
   in fgsea's order, mapped to genes in G2. Given the ranking and ES this is deterministic, so
   order is free to check.
-- **G3b:** exact **set** equality on tie-insensitive sets, plus equality with the oracle's
-  leading edge under GIAP's order on all sets. A tie-sensitive set may legitimately differ.
+- **G3b:** (a) on every compared set, the live leading edge equals, as a set, the oracle's
+  leading edge on GIAP's sent ranking; (b) on every *edge-tie-insensitive* set, the live leading
+  edge equals the golden leading edge as a set. A set is edge-tie-insensitive when its oracle
+  leading edges under GIAP's sent order and under golden file order are equal as sets. This is
+  classified separately from ES tie-insensitivity (§1.2), because a tie block that straddles the
+  running-sum extreme can swap edge members without changing the running sum (SET_016). The
+  report lists the edge-tie-sensitive sets by name. Rule (b) is implied by (a) and by the CI
+  check "oracle on file order = golden edges"; it is kept as a direct consistency check.
+  G3b also has a floor (PR #297 review, R1): ≥ 60 tie-insensitive and ≥ 60
+  edge-tie-insensitive sets, and ≥ 1 tie-insensitive set with golden p < 1e-10.
 - It is not in §7.7.5, so it is a test rule and needs no ADR.
 
 ## 5. The report
@@ -511,7 +521,10 @@ nPermSimple = 1000. I do not recommend that: G3a already pins the wiring exactly
   - max and 95th percentile of |ΔNES|;
   - per set, z = ΔNES / predicted sd. The predicted sd comes from a test-side null-ES sample of
     the definition, as above, ≤ 10 s;
-- **Alert:** max |z| > 4.5 (Bonferroni over 119 at a family-wise 1e-3).
+- **Alert:** max |z| > 4.5 (Bonferroni over 119 at a family-wise 1e-3). **Dropped (2026-10-24,
+  PR #297 review):** unadjusted z fires on tie-sensitive ES changes, and the adjusted z measures
+  only fgsea's Monte Carlo error; replaced by |ΔNES| and p exceedances reported separately for
+  tie-insensitive and tie-sensitive sets, with the ≥ 3 alert computed on tie-insensitive sets.
 
 **p across seeds at k = 3.**
 - If `log2err` is calibrated and Gaussian on the log₂ scale, then per set P = 0.0027 and the

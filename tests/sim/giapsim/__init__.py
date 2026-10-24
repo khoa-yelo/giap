@@ -12,7 +12,16 @@ import sys
 import types
 from typing import Any
 
-__all__ = ["SIM100K", "SIM100K_SEED", "SimConfig", "SimResult", "StrainConfig", "simulate"]
+__all__ = [
+    "SIM5M",
+    "SIM5M_SEED",
+    "SIM100K",
+    "SIM100K_SEED",
+    "SimConfig",
+    "SimResult",
+    "StrainConfig",
+    "simulate",
+]
 _LAZY = {name: "giapsim.simulate" for name in __all__} | {"StrainConfig": "giapsim.strain"}
 
 
