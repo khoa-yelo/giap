@@ -159,3 +159,12 @@ def test_partitioned_xpass() -> None:
     if not bad and os.environ.get(C.SHARD_ENV):
         pytest.skip(C.SHARD_SKIP)
     assert not bad, bad
+
+
+@pytest.mark.calibration_unshardable
+def test_unshardable() -> None:
+    """Marked unshardable: runs whole (both blocks, every replicate) in shard 0 only, as unsharded;
+    its full records still reach --merge."""
+    rec = level("unshardable", 4, 0.0, 0.5)  # unconfirmed: block 2 runs inside shard 0
+    direct("unshardable")
+    assert rec["status"] == "unconfirmed", rec

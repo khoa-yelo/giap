@@ -255,3 +255,8 @@ def test_merge_of_a_suite_without_harness_checks(
     for k in shards:
         C.main(["--suite", SUITE, "--shard", f"{k}/3"])
     assert C._merge_main(SUITE, True) == want
+
+
+def test_unshardable_marker_is_registered(pytestconfig: pytest.Config) -> None:
+    lines = pytestconfig.getini("markers")
+    assert any(str(x).startswith("calibration_unshardable") for x in lines), lines
