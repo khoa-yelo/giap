@@ -146,7 +146,7 @@ in-graph `report` step. No new CLI option, config key, schema field or Nextflow 
   examples stay green.
 - [ ] `grep -n '"determinants_model" in PATHS\|getattr(giap.determinants' src/giap/report` is
   empty **if** behaviour 8's condition held; otherwise the PR body says why the guards remain.
-- [ ] ADR-0040 gains an amendment (lead-level) for behaviours 1, 5 and 6 (Q1).
+- [x] ADR-0040 gains an amendment (lead-level) for behaviours 1, 5 and 6 (Q1): Amendment 1.
 - [ ] The backlog line "M9-16b" is closed; the KEGG end-to-end check (a real run with a `kegg*`
   database in `databases[]`) goes to the MVP-03c acceptance as a backlog line, if 03c has not
   merged.
