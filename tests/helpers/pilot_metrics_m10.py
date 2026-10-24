@@ -11,7 +11,8 @@ from a DIA-NN report.
   ``tables/unmapped.tsv``, ``tables/detection_summary.tsv`` (every table under its schema
   header), ``run_manifest.json`` (built by ``giap.manifest.build_manifest`` and checked against
   ``run_manifest.schema.json``), ``logs/trace.tsv``, ``preflight/preflight.json``;
-* ``cmp``: ``compare_detection.tsv``, ``compare_abundance.tsv``, ``compare_stability.tsv``;
+* ``cmp``: ``tables/compare_detection.tsv``, ``tables/compare_abundance.tsv``,
+  ``tables/compare_stability.tsv`` (``giap compare``'s layout);
 * ``pep_a1``, ``pep_a2`` (gzip TSV in the generic peptide-table layout), ``conv_a*``,
   ``sum_a*``, ``k12`` (a small FASTA), ``bakta`` and ``genome``.
 
@@ -46,6 +47,8 @@ N_PEPTIDES = 20
 CONT_PEPTIDE = "WWWGGGWWK"
 DECOY_PEPTIDE = "KEDITPEPWW"
 HOST = "sh04-01n01"
+#: the GIAP commit every fixture manifest records (``run_manifest.json`` ``git_commit``)
+GIAP_COMMIT = "0123456789abcdef0123456789abcdef01234567"
 
 
 def load_metrics() -> Any:
@@ -65,9 +68,12 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run_cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+def run_cli(
+    *args: str, cwd: Path | None = None, path_prefix: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     """``python validation/pilot/metrics.py ARGS`` with ``PYTHONPATH=$REPO/src:$REPO``.
 
+    ``path_prefix``: a directory put first on ``PATH`` (a fake ``git``, for example).
     Fails the calling test when the script is absent: Python's own "can't open file" exit code
     is 2, the code the precondition tests expect."""
     import pytest
@@ -76,6 +82,8 @@ def run_cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[
         pytest.fail(f"{METRICS_PY.relative_to(REPO)} does not exist")
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(REPO / "src"), str(REPO), str(REPO / "tests" / "sim")])
+    if path_prefix is not None:
+        env["PATH"] = os.pathsep.join([str(path_prefix), env.get("PATH", "")])
     return subprocess.run(
         [sys.executable, str(METRICS_PY), *args],
         capture_output=True,
@@ -220,6 +228,7 @@ def write_manifest(
     peptides_sha: str,
     exit_code: int = 0,
     steps: Sequence[Mapping[str, Any]] | None = None,
+    git_commit: str | None = GIAP_COMMIT,
 ) -> Path:
     """A schema-valid ``run_manifest.json`` (``giap.manifest.build_manifest``)."""
     from helpers.manifest_data import build, preflight_doc, validate
@@ -229,7 +238,7 @@ def write_manifest(
         {"role": "peptides", "file": "peptides.tsv.gz", "sha256": peptides_sha, "size": 100},
     ])  # fmt: skip
     m = build(preflight=pf, exit_code=exit_code, started_at="2026-10-22T10:00:00+00:00",
-              finished_at="2026-10-22T10:42:30+00:00")  # fmt: skip
+              finished_at="2026-10-22T10:42:30+00:00", git_commit=git_commit)  # fmt: skip
     m["steps"] = [dict(s) for s in (steps if steps is not None else default_steps())]
     validate(m)
     path = out / "run_manifest.json"
@@ -309,16 +318,26 @@ def build_pilot(
     exit_a1: int = 0,
     genome_sha_a1: str | None = None,
     stability_rows: Sequence[Mapping[str, object]] | None = None,
+    abundance_over: Mapping[str, object] | None = None,
+    unknown_source: int = 0,
+    na_q_a2: int = 0,
 ) -> Pilot:
     """The synthetic pilot (module docstring). ``raw_vs_written``: ``summary.json``'s
     ``distinct_stripped_q01`` is ``peptides.all - raw_vs_written``; ``conv_offset`` is added to
-    ``convert.json``'s ``distinct_peptides_target_q01``."""
+    ``convert.json``'s ``distinct_peptides_target_q01``. ``abundance_over`` updates the A1/A2
+    ``compare_abundance.tsv`` row. ``unknown_source``: the last that many A2 strain peptides carry
+    a UniProt-like ``protein_ids`` (no locus tag of ``genes.tsv``; their hits are unchanged).
+    ``na_q_a2``: that many extra A2 target peptides whose only row has an NA q-value (no
+    placement, ``unmapped.tsv`` reason ``no_hit``; metric 1 and ``convert.json`` unchanged)."""
     by_tag = {g.locus_tag: g for g in world.genes}
-    peps = unique_peptides(world.genes, N_PEPTIDES)
+    all_peps = unique_peptides(world.genes, N_PEPTIDES + na_q_a2)
+    peps, na_peps = all_peps[:N_PEPTIDES], all_peps[N_PEPTIDES:]
     genome_sha = sha256(world.genome)
 
     # peptide tables
-    a2_rows = [pep_row(p, t) for t, p in peps]
+    unknown = {p for _, p in peps[N_PEPTIDES - unknown_source :]} if unknown_source else set()
+    a2_rows = [pep_row(p, f"Q9{i:04d}" if p in unknown else t) for i, (t, p) in enumerate(peps)]
+    a2_rows += [pep_row(p, t, q=None) for t, p in na_peps]
     a2_rows += [pep_row(DECOY_PEPTIDE, "rev_" + peps[0][0], q=0.005, decoy=True),
                 pep_row(CONT_PEPTIDE, "Cont_P00761", q=0.002)]  # fmt: skip
     a1_rows = [pep_row(p, f"P{i:05d}", search_db="other") for i, (_, p) in enumerate(peps)]
@@ -347,7 +366,7 @@ def build_pilot(
         write_table(out / "tables" / "genes.tsv", "genes", rows)
 
     hits2 = [hit_row(p, by_tag[t]) for t, p in peps if p not in missed]
-    unm2 = [unmapped_row(p) for p in sorted(missed)]
+    unm2 = [unmapped_row(p) for p in sorted(missed | {p for _, p in na_peps})]
     unm2.append(unmapped_row(CONT_PEPTIDE, label="contaminant", reason="contaminant_id"))
     write_table(out_a2 / "tables" / "peptide_hits.tsv", "peptide_hits", hits2)
     write_table(out_a2 / "tables" / "unmapped.tsv", "unmapped", unm2)
@@ -383,9 +402,11 @@ def build_pilot(
             det_rows.append({"section": "matrix", "locus_tag": g.locus_tag, "run": label,
                              "detected": d,
                              "detection_status": "detected" if d else "not_detected"})  # fmt: skip
-    write_table(cmp / "compare_detection.tsv", "compare_detection", det_rows)
-    write_table(cmp / "compare_abundance.tsv", "compare_abundance", [ABUNDANCE_ROW])
-    write_table(cmp / "compare_stability.tsv", "compare_stability",
+    tables = cmp / "tables"  # giap compare's layout: CMP/tables/<stem>.tsv
+    write_table(tables / "compare_detection.tsv", "compare_detection", det_rows)
+    write_table(tables / "compare_abundance.tsv", "compare_abundance",
+                [{**ABUNDANCE_ROW, **(abundance_over or {})}])  # fmt: skip
+    write_table(tables / "compare_stability.tsv", "compare_stability",
                 stability_rows if stability_rows is not None else STABILITY_ROWS)  # fmt: skip
 
     # K-12 side: the proteins of the first five strain genes are "shared"

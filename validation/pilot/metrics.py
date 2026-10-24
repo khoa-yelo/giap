@@ -10,9 +10,10 @@ Pure functions (frames and dicts in, dicts out) plus a thin CLI that reads and w
     python validation/pilot/metrics.py render --metrics METRICS_DIR/metrics.json \\
         [--notes METRICS_DIR/notes.md] --out METRICS_DIR/REPORT.md
 
-Exit codes: 0 written; 1 an internal inconsistency (metric 1 vs ``convert.json``, a render
-placeholder missing, a rejected notes file); 2 a precondition. The outputs hold DIA-NN-derived
-data and are never written inside the checkout (Khoa 2026-10-23, Q-K1 default).
+Exit codes: 0 written; 1 an internal inconsistency only (metric 1 vs ``convert.json``, a render
+placeholder missing under a computed metric, a rejected notes file); 2 a precondition (a missing,
+unreadable or schema-invalid input, a failed run, a hash mismatch, git unavailable, ``--out``
+inside the checkout). Nothing is written on exit 1 or 2.
 """
 
 from __future__ import annotations
@@ -26,22 +27,18 @@ import math
 import re
 import subprocess
 import sys
-from collections.abc import Collection, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import numpy as np
 import pandas as pd
 from scipy.stats import binomtest
-from validation.proxies.te_proxies import (
-    INFRAME,
-    MAX_EXCEPTIONS,
-    non_atg_nterm,
-    read_coding_genes,
-    te1_result,
-)
+from validation.proxies.te_proxies import INFRAME, non_atg_nterm, read_coding_genes, te1_result
 
-from giap.config import GiapConfig, resolve_config
+from giap.config import GiapConfig
+from giap.io.peptides import validate_peptides
 from giap.mapping.digest import digest
 from giap.model.genes import Gene
 from giap.stats.cutoffs import wilson_ci
@@ -50,6 +47,7 @@ from giap.steps.mapping import select_queries
 REPO = Path(__file__).resolve().parents[2]
 SPEC = "docs/specs/M10-05-pilot-metrics.md"
 SCHEMA = "giap-pilot-metrics/1"
+ARMS = ("A1", "A2")
 Q_ACCEPT = 0.01  # accepted: q_value <= 0.01 (inclusive), the converter's written value
 TE1_MIN = 0.995  # §11.6, point estimate (R3: not tuned)
 H1_ALPHA, H1_MOSTLY = 0.05, 0.5
@@ -58,15 +56,18 @@ UNMAPPED_REASONS = ("no_hit", "rejected_placement_fdr", "below_identity", "too_s
 H3_FAMILIES = ("islands", "operon_flags", "enriched_categories")
 OTHER_FAMILIES = ("novel_orfs", "alt_sites")
 CODING = ("cds", "sorf")
+STRAIN_CLASSES = ("strain_specific", "k12_shared", "no_peptides")
 SOURCE_SEP = " \u203a "
+T = TypeVar("T")
 
 
 class Precondition(Exception):
-    """Exit 2: a missing input, a failed run, a hash mismatch, ``--out`` inside the checkout."""
+    """Exit 2: a missing or invalid input, a failed run, a hash mismatch, ``--out`` inside the
+    checkout."""
 
 
 class Inconsistent(Exception):
-    """Exit 1: two computations of the same number disagree."""
+    """Exit 1: two computations of the same number disagree (or a rejected notes file)."""
 
 
 # ---------------------------------------------------------------- small pure helpers
@@ -88,14 +89,8 @@ def clean(v: Any) -> Any:
 def share(k: int, n: int) -> dict[str, Any]:
     """k / n with its 95 % Wilson interval; ``value`` None and a reason when n = 0."""
     if n == 0:
-        return {
-            "value": None,
-            "ci_low": None,
-            "ci_high": None,
-            "k": 0,
-            "n": 0,
-            "reason": "empty_denominator",
-        }
+        return {"value": None, "ci_low": None, "ci_high": None, "k": 0, "n": 0,
+                "reason": "empty_denominator"}  # fmt: skip
     lo, hi = wilson_ci(k, n)
     return {"value": k / n, "ci_low": lo, "ci_high": hi, "k": k, "n": n}
 
@@ -151,8 +146,9 @@ def _ident(rows: pd.DataFrame, prefixes: Sequence[str]) -> dict[str, dict[str, i
         key = (str(pep) if clean(mod) is None else str(mod), clean(z))
         prec[key] = prec.get(key, True) and cont
         peps[str(pep)] = peps.get(str(pep), True) and cont
-        groups.setdefault(tuple(sorted(set(items(ids)))), set()).add(str(pep))
-    gcls = {g: bool(g) and all(i.startswith(tuple(prefixes)) for i in g) for g in groups}
+        if group := tuple(sorted(set(items(ids)))):  # a row without protein_ids is no group
+            groups.setdefault(group, set()).add(str(pep))
+    gcls = {g: all(i.startswith(tuple(prefixes)) for i in g) for g in groups}
     min2 = {g: c for g, c in gcls.items() if len(groups[g]) >= 2}
     return {
         "precursors": _class_counts(prec),
@@ -164,7 +160,8 @@ def _ident(rows: pd.DataFrame, prefixes: Sequence[str]) -> dict[str, dict[str, i
 
 def identifications(P: pd.DataFrame, prefixes: Sequence[str]) -> dict[str, Any]:
     """Metric 1: distinct precursors, peptides, protein groups (and groups with >= 2 accepted
-    peptides) among accepted target rows, by contaminant class; union and per run."""
+    peptides) among accepted target rows of the raw table, by contaminant class; union and per
+    run."""
     acc = P.loc[_target(P) & (_q(P) <= Q_ACCEPT)]
     runs = sorted({str(r) for r in _col(acc, "run", None) if clean(r) is not None})
     per_run = {r: _ident(acc.loc[acc["run"].astype(str) == r], prefixes) for r in runs}
@@ -174,28 +171,19 @@ def identifications(P: pd.DataFrame, prefixes: Sequence[str]) -> dict[str, Any]:
 # ---------------------------------------------------------------- metric 2 and TE1 universes
 
 
-def universe(P: pd.DataFrame, cfg: GiapConfig) -> tuple[list[str], dict[str, list[int]]]:
-    """**U** = ``select_queries(P, cfg)`` and, per peptide of U, the indices of its target rows
-    that ``select_queries`` keeps (q <= q_value_max or NA)."""
-    U = [str(p) for p in select_queries(P, cfg)["peptide"]]
-    keep = _target(P) & ~(_q(P) > cfg.input.q_value_max)
-    wanted = set(U)
-    rows: dict[str, list[int]] = {}
-    for i, (pep, k) in enumerate(zip(P["peptide"].astype(str), keep, strict=True)):
-        if k and pep in wanted:
-            rows.setdefault(pep, []).append(i)
-    return U, rows
-
-
 def split_contaminants(
     P: pd.DataFrame, cfg: GiapConfig
-) -> tuple[list[str], list[str], dict[str, list[int]]]:
-    """(U, D, rows): D = U minus the peptides whose kept rows are all contaminant-only."""
-    U, rows = universe(P, cfg)
-    ids = list(P["protein_ids"]) if "protein_ids" in P.columns else [None] * len(P)
-    pre = cfg.input.contaminant_prefixes
-    D = [p for p in U if not all(contaminant_only(ids[i], pre) for i in rows.get(p, []))]
-    return U, D, rows
+) -> tuple[list[str], list[str], pd.DataFrame]:
+    """(U, D, R) as GIAP's mapping step sees the table: **U** =
+    ``select_queries(validate_peptides(P)[0], cfg)``; R its validated target rows that
+    ``select_queries`` keeps (q <= q_value_max or NA); D = U minus the peptides whose rows of R
+    are all contaminant-only (``validate_peptides``' ``is_contaminant``)."""
+    V, _ = validate_peptides(P, cfg.input)
+    U = [str(p) for p in select_queries(V, cfg)["peptide"]]
+    keep = ~V["is_decoy"].to_numpy(dtype=bool) & ~(_q(V) > cfg.input.q_value_max)
+    R = V.loc[keep & V["peptide"].astype(str).isin(U).to_numpy(dtype=bool)]
+    cont = R.groupby(R["peptide"].astype(str))["is_contaminant"].all()
+    return U, [p for p in U if not cont.get(p, False)], R
 
 
 def _routes(hits: pd.DataFrame) -> dict[str, set[str]]:
@@ -290,6 +278,30 @@ def _region_types(v: Any) -> set[str]:
     return {i.split("_", 1)[0] for i in items(v)}
 
 
+def gene_subsets(genes: pd.DataFrame, strain_classes: Mapping[str, str]) -> dict[str, set[str]]:
+    """Locus tags of **G** (cds, sorf) per metric-3 subset, in the report's row order (a tag
+    missing from ``strain_classes`` counts as ``no_peptides``)."""
+    G = genes[genes["feature_type"].astype(str).isin(CODING)]
+    tags, rep = list(G["locus_tag"].astype(str)), list(G["replicon_type"].astype(str))
+    contig = list(G["contig"].astype(str))
+    regions = [_region_types(v) for v in G["region_ids"]]
+    cls = [strain_classes.get(t, "no_peptides") for t in tags]
+
+    def pick(ok: Iterable[bool]) -> set[str]:
+        return {t for t, o in zip(tags, ok, strict=True) if o}
+
+    subs = {"all": set(tags), "chromosome": pick(r == "chromosome" for r in rep)}
+    subs["plasmid"] = pick(r == "plasmid" for r in rep)
+    for c in sorted({c for c, r in zip(contig, rep, strict=True) if r == "plasmid"}):
+        subs[f"plasmid:{c}"] = subs["plasmid"] & pick(x == c for x in contig)
+    subs["unknown"] = pick(r not in ("chromosome", "plasmid") for r in rep)
+    for kind in ("prophage", "bgc"):
+        subs[kind] = pick(kind in r for r in regions)
+    for c in STRAIN_CLASSES:
+        subs[c] = pick(x == c for x in cls)
+    return subs
+
+
 def _cov(sub: pd.DataFrame) -> dict[str, Any]:
     st = sub["detection_status"].astype(str).value_counts()
     det = int(st.get("detected", 0))
@@ -303,44 +315,21 @@ def _cov(sub: pd.DataFrame) -> dict[str, Any]:
 
 def coverage(genes: pd.DataFrame, strain_specific: Mapping[str, str]) -> dict[str, Any]:
     """Metric 3: detected share of **G** (cds, sorf) per subset; pseudogenes on their own."""
-    G = genes[genes["feature_type"].astype(str).isin(CODING)]
-    rep = G["replicon_type"].astype(str)
-    regions = [_region_types(v) for v in G["region_ids"]]
-    cls = [strain_specific.get(str(t), "no_peptides") for t in G["locus_tag"]]
-    subs: dict[str, pd.Series] = {"all": pd.Series(True, index=G.index)}
-    subs["chromosome"] = rep == "chromosome"
-    subs["plasmid"] = rep == "plasmid"
-    for contig in sorted(set(G.loc[subs["plasmid"], "contig"].astype(str))):
-        subs[f"plasmid:{contig}"] = subs["plasmid"] & (G["contig"].astype(str) == contig)
-    subs["unknown"] = ~rep.isin(["chromosome", "plasmid"])
-    for kind in ("prophage", "bgc"):
-        subs[kind] = pd.Series([kind in r for r in regions], index=G.index)
-    for c in ("strain_specific", "k12_shared", "no_peptides"):
-        subs[c] = pd.Series([x == c for x in cls], index=G.index)
-    out = {name: {"subset": name, **_cov(G[mask])} for name, mask in subs.items()}
-    out["pseudogene"] = {
-        "subset": "pseudogene",
-        **_cov(genes[genes["feature_type"].astype(str) == "pseudogene"]),
+    tags = genes["locus_tag"].astype(str)
+    coding = genes["feature_type"].astype(str).isin(CODING)
+    out = {
+        name: _cov(genes[coding & tags.isin(s)])
+        for name, s in gene_subsets(genes, strain_specific).items()
     }
+    out["pseudogene"] = _cov(genes[genes["feature_type"].astype(str) == "pseudogene"])
     return {"subsets": out, "order": list(out)}
 
 
 # ---------------------------------------------------------------- metrics 4, 5
 
 
-ABUNDANCE_FIELDS = (
-    "n_shared",
-    "n_units",
-    "spearman_rho",
-    "ci_low",
-    "ci_high",
-    "method",
-    "n_boot",
-    "ba_bias_log2",
-    "ba_loa_low",
-    "ba_loa_high",
-    "flags",
-)
+ABUNDANCE_FIELDS = ("n_shared", "n_units", "spearman_rho", "ci_low", "ci_high", "method", "n_boot",
+                    "ba_bias_log2", "ba_loa_low", "ba_loa_high", "flags")  # fmt: skip
 STABILITY_FIELDS = ("n_a", "n_b", "n_shared", "jaccard", "flags")
 
 
@@ -350,10 +339,11 @@ def _pair(frame: pd.DataFrame, labels: Sequence[str]) -> pd.DataFrame:
 
 
 def abundance_agreement(compare_abundance: pd.DataFrame, labels: Sequence[str]) -> dict[str, Any]:
-    """Metric 4: the A1/A2 ``compare_abundance.tsv`` row, copied unchanged."""
+    """Metric 4: the A1/A2 ``compare_abundance.tsv`` row, copied unchanged (no row: every field
+    None and ``reason = "missing_row"``)."""
     row = _pair(compare_abundance, labels)
     if not len(row):
-        return {**dict.fromkeys(ABUNDANCE_FIELDS), "flags": "missing_row", "reason": "missing_row"}
+        return {**dict.fromkeys(ABUNDANCE_FIELDS), "reason": "missing_row"}
     return {k: clean(row[k].iloc[0]) if k in row.columns else None for k in ABUNDANCE_FIELDS}
 
 
@@ -377,7 +367,7 @@ def stability(compare_stability: pd.DataFrame, labels: Sequence[str]) -> dict[st
     def one(family: str) -> dict[str, Any]:
         r = rows[fam == family]
         if not len(r):
-            return {**dict.fromkeys(STABILITY_FIELDS), "flags": "missing_row", "note": "no row"}
+            return {**dict.fromkeys(STABILITY_FIELDS), "reason": "missing_row", "note": "no row"}
         rec = {k: clean(r[k].iloc[0]) for k in STABILITY_FIELDS}
         return {**rec, "note": _family_note(family, rec["flags"])}
 
@@ -395,15 +385,8 @@ def _seconds(started: str, finished: str) -> float:
     ).total_seconds()
 
 
-STEP_FIELDS = (
-    "name",
-    "status",
-    "n_tasks",
-    "n_retries",
-    "wall_time_s",
-    "cpu_time_s",
-    "peak_rss_bytes",
-)
+STEP_FIELDS = ("name", "status", "n_tasks", "n_retries", "wall_time_s", "cpu_time_s",
+               "peak_rss_bytes")  # fmt: skip
 SACCT_FIELDS = ("JobID", "JobName", "State", "Elapsed", "MaxRSS", "NodeList", "AllocCPUS")
 
 
@@ -420,7 +403,7 @@ def runtime(
     rss = [s["peak_rss_bytes"] for s in steps if s["peak_rss_bytes"] is not None]
     cached = [str(s["name"]) for s in steps if s["status"] == "cached"]
     hosts = sorted({str(r.get("hostname")) for r in trace_rows} - {"", "-", "None"})
-    head = [r for r in sacct_rows if "." not in str(r.get("JobID", ""))] or list(sacct_rows)
+    head = [r for r in sacct_rows if "." not in str(r.get("JobID", ""))]
     started, finished = manifest.get("started_at"), manifest.get("finished_at")
     return {
         "steps": steps,
@@ -436,37 +419,6 @@ def runtime(
 
 
 # ---------------------------------------------------------------- TE1 on real data
-
-
-def _te1_sources(
-    P: pd.DataFrame, D: Sequence[str], rows: Mapping[str, list[int]], prefixes: Sequence[str]
-) -> dict[str, set[str]]:
-    ids = list(P["protein_ids"]) if "protein_ids" in P.columns else [None] * len(P)
-    out: dict[str, set[str]] = {}
-    for p in D:
-        own = {
-            i for r in rows.get(p, []) for i in items(ids[r]) if not i.startswith(tuple(prefixes))
-        }
-        out[p] = own or {"NA"}
-    return out
-
-
-def _miss_rows(
-    sources: Mapping[str, set[str]],
-    hits: pd.DataFrame,
-    genes: Mapping[str, Any],
-    circular: Mapping[str, int | None],
-) -> list[dict[str, Any]]:
-    """The proxy's miss rows, uncapped: one ``te1_result`` call per chunk of at most
-    ``MAX_EXCEPTIONS`` peptides when the full call hit the cap."""
-    peps = sorted(sources)
-    hp = hits["peptide"].astype(str)
-    out: list[dict[str, Any]] = []
-    for i in range(0, len(peps), MAX_EXCEPTIONS):
-        chunk = {p: sources[p] for p in peps[i : i + MAX_EXCEPTIONS]}
-        res = te1_result(chunk, {}, hits[hp.isin(set(chunk))], genes, circular)
-        out += [r for r in res.exceptions if r["kind"] == "miss"]
-    return out
 
 
 def _miss_cause(
@@ -508,27 +460,26 @@ def te1_real(
     """TE1 on A2 (§11.6): share of **D₂** exact in frame at an own gene, through the proxy's
     ``te1_result`` with ``excluded = {}`` (L5); its 0.999 ``passed`` is ignored. Returns the TE1
     summary (no sequence) and the uncapped miss rows."""
-    _, D, rows = split_contaminants(P, cfg)
-    sources = _te1_sources(P, D, rows, cfg.input.contaminant_prefixes)
+    _, D, R = split_contaminants(P, cfg)
+    pre = tuple(cfg.input.contaminant_prefixes)
+    own: dict[str, set[str]] = {p: set() for p in D}
+    qs: dict[str, list[float]] = {p: [] for p in D}
+    for pep, ids, q in zip(R["peptide"].astype(str), R["protein_ids"], _q(R), strict=True):
+        if pep in own:
+            own[pep] |= {i for i in items(ids) if not i.startswith(pre)}
+            qs[pep].append(q)
     intervals = {g.locus_tag: g.interval for g in genes}
-    res = te1_result(sources, {}, peptide_hits, intervals, circular)
-    exc = [r for r in res.exceptions if r["kind"] == "miss"]
-    if len(exc) < res.counts["misses"]:
-        exc = _miss_rows(sources, peptide_hits, intervals, circular)
-    exc.sort(key=lambda r: (r["kind"], r["locus_tag"], r["peptide"]))
+    # "NA": a peptide without a strain item still needs a source for the proxy's miss row
+    sources = {p: s or {"NA"} for p, s in own.items()}
+    res = te1_result(sources, {}, peptide_hits, intervals, circular, max_exceptions=None)
+    exc = sorted(res.exceptions, key=lambda r: (r["kind"], r["locus_tag"], r["peptide"]))
     missed = {r["peptide"] for r in exc}
     hp = peptide_hits["peptide"].astype(str)
-    by_pep = {p: peptide_hits[hp == p] for p in missed}
     reasons = _reasons(unmapped)
-    misses: dict[str, Any] = {
-        "non_atg_nterm": 0,
-        "exact_other_gene": 0,
-        "exact_other_class": {},
-        "tolerant_only": 0,
-        "unplaced": {},
-    }
+    misses: dict[str, Any] = {"non_atg_nterm": 0, "exact_other_gene": 0, "exact_other_class": {},
+                              "tolerant_only": 0, "unplaced": {}}  # fmt: skip
     for p in sorted(missed):
-        cause, sub = _miss_cause(p, sources[p], by_pep[p], reasons.get(p), non_atg)
+        cause, sub = _miss_cause(p, sources[p], peptide_hits[hp == p], reasons.get(p), non_atg)
         if sub is None:
             misses[cause] += 1
         else:
@@ -537,31 +488,17 @@ def te1_real(
     s = share(k, n)
     na_peps = set(non_atg) & set(D)
     na_miss = len(na_peps & missed)
-    qv = _q(P)
-    at_cut = {
-        p
-        for p in D
-        if (qs := [qv[i] for i in rows[p] if not math.isnan(qv[i])])
-        and all(q == Q_ACCEPT for q in qs)
-    }
+    known = [[q for q in qs[p] if not math.isnan(q)] for p in D]
+    at_cut = {p for p, v in zip(D, known, strict=True) if v and all(q == Q_ACCEPT for q in v)}
     passed = s["value"] is not None and s["value"] >= TE1_MIN
     if q_crossings == 0:
-        sq: dict[str, Any] = {
-            "value": None,
-            "ci_low": None,
-            "ci_high": None,
-            "reason": "no_crossings",
-            "removed": None,
-            "q_crossings": 0,
-            "pass_becomes_fail": False,
-        }
+        sq = {**share(0, 0), "reason": "no_crossings", "removed": None, "q_crossings": 0,
+              "pass_becomes_fail": False}  # fmt: skip
     else:
         sq = share(k - len(at_cut - missed), n - len(at_cut))
-        sq |= {
-            "removed": len(at_cut),
-            "q_crossings": q_crossings,
-            "pass_becomes_fail": passed and (sq["value"] or 0.0) < TE1_MIN,
-        }
+        # an empty superset denominator (value None) counts as a fail, with its reason
+        sq |= {"removed": len(at_cut), "q_crossings": q_crossings,
+               "pass_becomes_fail": passed and (sq["value"] or 0.0) < TE1_MIN}  # fmt: skip
     te1 = {
         "n_peptides": n,
         "exact_inframe": k,
@@ -572,7 +509,8 @@ def te1_real(
         "threshold": TE1_MIN,
         "passed": passed,
         "ci_low_below_threshold": s["ci_low"] is not None and s["ci_low"] < TE1_MIN,
-        "target_q_na": sum(all(math.isnan(qv[i]) for i in rows[p]) for p in D),
+        "target_q_na": sum(not v for v in known),
+        "unknown_source": sum(not (own[p] & intervals.keys()) for p in D),
         "non_atg_nterm": {"peptides": len(na_peps), "misses": na_miss},
         "misses": misses,
         "n_misses": len(missed),
@@ -687,35 +625,30 @@ def _status(evaluable: bool, holds: bool) -> str:
 
 
 def hypothesis3(m4: Mapping[str, Any] | None, m5: Mapping[str, Any] | None) -> dict[str, Any]:
-    """H3 rule (lead decision 5): rho ``ci_low >= 0.7``; per family with union >= 5,
-    Jaccard >= 0.5; supported / not_supported / not_evaluable."""
+    """H3 rule (lead decision 5): rho ``ci_low >= 0.7`` (a rho without ``ci_low`` is not
+    evaluable); per family with union >= 5, Jaccard >= 0.5; supported / not_supported /
+    not_evaluable. Every criterion carries its numbers whatever its status (lead decision 6)."""
     m4, m5 = m4 or {}, m5 or {}
     lo: float | None = m4.get("ci_low")
     rho = m4.get("spearman_rho")
     ev = rho is not None and lo is not None and "too_few_shared" not in items(m4.get("flags"))
-    crit: dict[str, dict[str, Any]] = {
-        "rho": {"status": _status(ev, ev and lo is not None and lo >= H3_RHO_MIN), "ci_low": lo}
-    }
+    rho_ok = ev and lo is not None and lo >= H3_RHO_MIN
+    rec = {"status": _status(ev, rho_ok), "rho": rho, "ci_low": lo, "ci_high": m4.get("ci_high")}
+    crit: dict[str, dict[str, Any]] = {"rho": rec}
     for f in H3_FAMILIES:
         r = m5.get(f) or {}
         na, nb, ns = (r.get(k) for k in ("n_a", "n_b", "n_shared"))
         j: float | None = r.get("jaccard")
         union = None if na is None or nb is None or ns is None else int(na) + int(nb) - int(ns)
         flags = items(r.get("flags"))
-        flagged = any(
-            x in ("both_empty", "missing_row") or x.startswith("missing_in") for x in flags
-        )
+        flagged = any(x == "both_empty" or x.startswith("missing_in") for x in flags)
         e = union is not None and union >= H3_UNION_MIN and j is not None and not flagged
-        crit[f] = {
-            "status": _status(e, e and j is not None and j >= H3_J_MIN),
-            "union": union,
-            "jaccard": j,
-        }
+        crit[f] = {"status": _status(e, e and j is not None and j >= H3_J_MIN), "n_a": na,
+                   "n_b": nb, "n_shared": ns, "union": union, "jaccard": j}  # fmt: skip
     st = [c["status"] for c in crit.values()]
-    fam = st[1:]
     if "fails" in st:
         verdict = "not_supported"
-    elif st[0] == "holds" and "holds" in fam:
+    elif st[0] == "holds" and "holds" in st[1:]:
         verdict = "supported"
     else:
         verdict = "not_evaluable"
@@ -724,7 +657,8 @@ def hypothesis3(m4: Mapping[str, Any] | None, m5: Mapping[str, Any] | None) -> d
 
 def checklist(metrics: Mapping[str, Any], run_states: Mapping[str, Any]) -> list[dict[str, str]]:
     """§15.6 checklist in pass 1 (spec table order). ``run_states``: arm -> exit code (None when
-    absent) and ``compare_ok`` (the three compare tables read under their schemas)."""
+    absent) and ``compare_ok`` (the three compare tables present and valid under their
+    schemas)."""
     ok = {a: run_states.get(a) == 0 for a in ("A1", "A2", "A3")}
     if all(ok.values()):
         runs = "pass"
@@ -803,31 +737,52 @@ def diagnosis_problems(metrics: Mapping[str, Any], notes: str | None) -> list[st
 
 PLACEHOLDER = re.compile(r"\{\{\s*([^}\s]+)\s*\}\}")
 NOTES_MARK = "<!-- notes -->"
+M3_MARK = "<!-- m3 rows -->"
 PEPTIDE_LIKE = re.compile(r"[ACDEFGHIKLMNPQRSTVWY]{7,}")
 _MISSING = object()
 
 
+class Gap(str):
+    """An unresolved path under a metric that carries a ``reason``: rendered as a marker."""
+
+
 def resolve(doc: Any, path: str) -> Any:
-    cur = doc
+    """The value at a dotted path; ``Gap(reason)`` when it stops under a dict with a
+    ``reason`` (the nearest one), else ``_MISSING``."""
+    cur, reason = doc, None
     for part in path.split("."):
+        if isinstance(cur, Mapping):
+            reason = cur.get("reason", reason)
         if isinstance(cur, Mapping) and part in cur:
             cur = cur[part]
         elif isinstance(cur, list) and part.isdigit() and int(part) < len(cur):
             cur = cur[int(part)]
         else:
-            return _MISSING
+            return _MISSING if reason is None else Gap(reason)
     return cur
+
+
+def _fine(v: float) -> str:
+    """4 significant figures, more when that would round a value below 1 up to "1"."""
+    for d in range(4, 10):
+        out = f"{v:.{d}g}"
+        if v >= 1 or float(out) < 1:
+            break
+    return out
 
 
 def fmt_value(key: str, v: Any) -> str:
     """Formats by key name: ``p_*`` 2 significant digits, ``*_s`` h:mm:ss, ``*_bytes`` GiB with
-    1 decimal; other floats 3 significant digits; shares as ``v [lo, hi]``."""
+    1 decimal, shares (``value``, ``share*``, ``ci_*``) 4 significant figures; other floats 3;
+    a share dict as ``v [lo, hi]``, another dict as ``k: v`` pairs (``none`` when empty)."""
     if isinstance(v, Mapping) and "value" in v:
         if v["value"] is None:
             return f"NA ({v.get('reason', 'no value')})"
         lo, hi = v.get("ci_low"), v.get("ci_high")
-        ci = "" if lo is None else f" [{fmt_value('', lo)}, {fmt_value('', hi)}]"
-        return fmt_value(key, v["value"]) + ci
+        ci = "" if lo is None else f" [{fmt_value('ci_low', lo)}, {fmt_value('ci_high', hi)}]"
+        return fmt_value("value", v["value"]) + ci
+    if isinstance(v, Mapping):
+        return "; ".join(f"{k}: {fmt_value(str(k), x)}" for k, x in v.items()) or "none"
     if v is None:
         return "NA"
     if isinstance(v, bool):
@@ -845,42 +800,56 @@ def fmt_value(key: str, v: Any) -> str:
         return f"{v / 1024**3:.1f} GiB"
     if isinstance(v, int) or float(v).is_integer():
         return str(int(v))
+    if key == "value" or key.startswith(("share", "ci_")):
+        return _fine(float(v))
     return f"{v:.3g}" if abs(v) < 1000 else f"{v:.1f}"
 
 
-def _numbers(doc: Any) -> set[str]:
-    return set(re.findall(r"\d{4,}", json.dumps(doc, sort_keys=True)))
+def _numbers(text: str) -> set[str]:
+    """Digit runs with grouping commas removed ("9,999" -> "9999")."""
+    return {n.replace(",", "") for n in re.findall(r"\d[\d,]*", text)}
 
 
 def check_notes(notes: str, metrics: Mapping[str, Any]) -> None:
-    """Raise ``ValueError`` for a peptide-like string or a 4+ digit number not in metrics."""
+    """Raise ``Inconsistent`` for a peptide-like string or a 4+ digit number not in metrics."""
     if m := PEPTIDE_LIKE.search(notes):
-        raise ValueError(f"notes: peptide-like string at offset {m.start()}")
-    known = _numbers(metrics)
-    for num in re.findall(r"\d{4,}", notes):
-        if num not in known:
-            raise ValueError(f"notes: number {num} is not in metrics.json")
+        raise Inconsistent(f"notes: peptide-like string at offset {m.start()}")
+    known = _numbers(json.dumps(metrics, sort_keys=True))
+    for num in sorted(_numbers(notes)):
+        if len(num) >= 4 and num not in known:
+            raise Inconsistent(f"notes: number {num} is not in metrics.json")
+
+
+def expand(template: str, metrics: Mapping[str, Any]) -> str:
+    """The template with the metric-3 rows generated (one per subset of ``m3.<arm>.order``)."""
+    m3 = metrics.get("m3") or {}
+    names = dict.fromkeys(n for a in ARMS for n in (m3.get(a) or {}).get("order", []))
+    rows = [f"| {n} | " + " | ".join(f"{{{{m3.{a}.subsets.{n}.share}}}}" for a in ARMS) + " |"
+            for n in names]  # fmt: skip
+    return template.replace(M3_MARK, "\n".join(rows))
 
 
 def missing_paths(template: str, metrics: Mapping[str, Any]) -> list[str]:
-    return [p for p in PLACEHOLDER.findall(template) if resolve(metrics, p) is _MISSING]
+    paths = PLACEHOLDER.findall(expand(template, metrics))
+    return [p for p in paths if resolve(metrics, p) is _MISSING]
 
 
 def render(template: str, metrics: Mapping[str, Any], notes: str | None) -> str:
     """The report: each ``{{path}}`` becomes its formatted value and its source
-    ``(metrics.json SOURCE_SEP parent)``; an unresolved path ``**missing: <path>**``."""
+    ``(metrics.json SOURCE_SEP parent)``; a path under a metric with a reason becomes
+    ``**missing: <reason>**``, any other unresolved path ``**missing: <path>**``."""
     if notes is not None:
         check_notes(notes, metrics)
 
     def sub(m: re.Match[str]) -> str:
         path = m.group(1)
         v = resolve(metrics, path)
-        if v is _MISSING:
-            return f"**missing: {path}**"
+        if v is _MISSING or isinstance(v, Gap):
+            return f"**missing: {path if v is _MISSING else v}**"
         parent = path.rsplit(".", 1)[0]
         return f"{fmt_value(path.rsplit('.', 1)[-1], v)} (metrics.json{SOURCE_SEP}{parent})"
 
-    text = PLACEHOLDER.sub(sub, template)
+    text = PLACEHOLDER.sub(sub, expand(template, metrics))
     body = notes.strip() if notes and notes.strip() else "No notes."
     if NOTES_MARK in text:
         return text.replace(NOTES_MARK, body)
@@ -888,6 +857,16 @@ def render(template: str, metrics: Mapping[str, Any], notes: str | None) -> str:
 
 
 # ---------------------------------------------------------------- CLI (file I/O)
+
+#: hashed input files (argparse dests); ``cmp``, ``a1``, ``a2``, ``a3`` are directories
+#: M10-06 inputs: ``te_real.json`` and ``te7.json`` (optional; absent -> ``te_placeholders()``)
+TE_INPUTS = ("te_real", "te7")
+INPUTS = ("peptides_a1", "peptides_a2", "convert_a1", "convert_a2", "summary_a1", "summary_a2",
+          "bakta_json", "genome", "k12_fasta", "sacct", *TE_INPUTS)  # fmt: skip
+OPTIONAL = ("summary_a1", "summary_a2", "sacct", "a3", *TE_INPUTS)
+REQUIRED = ("a1", "a2", "cmp", *(k for k in INPUTS if k not in OPTIONAL), "out")
+COMPARE = ("compare_detection", "compare_abundance", "compare_stability")
+MAP_TABLES = "peptide_hits.tsv/unmapped.tsv"
 
 
 def sha256(path: Path) -> str:
@@ -900,24 +879,31 @@ def _need(path: Path) -> Path:
     return path
 
 
-def _read_json(path: Path) -> dict[str, Any]:
-    doc: dict[str, Any] = json.loads(_need(path).read_text(encoding="utf-8"))
+def _load(path: Path, read: Callable[[Path], T]) -> T:
+    """``read(path)``; a missing file or a read, parse, key or schema error is a precondition."""
+    try:
+        return read(_need(path))
+    except (ValueError, KeyError, OSError) as err:
+        raise Precondition(f"{path}: {err}") from err
+
+
+def _json(path: Path) -> dict[str, Any]:
+    doc: dict[str, Any] = _load(path, lambda p: json.loads(p.read_text(encoding="utf-8")))
+    return doc
+
+
+def table_schema(stem: str) -> dict[str, Any]:
+    res = resources.files("giap.schemas").joinpath("tables", f"{stem}.schema.json")
+    doc: dict[str, Any] = json.loads(res.read_text(encoding="utf-8"))
     return doc
 
 
 def _table(path: Path, stem: str) -> pd.DataFrame:
-    from giap.io.run_view import _schema, read_schema_tsv
+    # read_schema_tsv keeps the written 1-based coordinates, which te1_result expects;
+    # RunView.table would convert them to 0-based.
+    from giap.io.run_view import read_schema_tsv
 
-    schema = _schema(stem)
-    assert schema is not None, stem
-    return read_schema_tsv(path, stem, schema)
-
-
-def _run_table(out: Path, name: str) -> Path | None:
-    for rel in (f"tables/{name}", f"mapping/{name}"):
-        if (out / rel).is_file():
-            return out / rel
-    return None
+    return _load(path, lambda p: read_schema_tsv(p, stem, table_schema(stem)))
 
 
 def _rows(path: Path | None) -> list[dict[str, str]]:
@@ -926,6 +912,16 @@ def _rows(path: Path | None) -> list[dict[str, str]]:
     text = path.read_text(encoding="utf-8")
     delim = "|" if "|" in text.split("\n", 1)[0] else "\t"
     return list(csv.DictReader(text.splitlines(), delimiter=delim))
+
+
+def _run_table(out: Path, name: str) -> Path | None:
+    """GIAP writes ``mapping/{peptide_hits,unmapped}.tsv`` and ``tables/detection_summary.tsv``."""
+    return next((f for d in ("tables", "mapping") if (f := out / d / name).is_file()), None)
+
+
+def _input_sha(manifest: Mapping[str, Any], role: str) -> str | None:
+    return next((i.get("sha256") for i in manifest.get("inputs", []) if i.get("role") == role),
+                None)  # fmt: skip
 
 
 def resolve_attempt(path: Path) -> tuple[Path, str | None]:
@@ -942,72 +938,83 @@ def resolve_attempt(path: Path) -> tuple[Path, str | None]:
     return path.parent / Path(rows[-1]["outdir"]).name, rows[-1].get("job")
 
 
-def _input_sha(manifest: Mapping[str, Any], role: str) -> str | None:
-    return next(
-        (i.get("sha256") for i in manifest.get("inputs", []) if i.get("role") == role), None
-    )
-
-
-def _cfg(manifest: Mapping[str, Any]) -> GiapConfig:
-    raw = manifest.get("config")
-    return GiapConfig.model_validate(raw) if raw else resolve_config()
+def _cfg(manifest: Mapping[str, Any], path: Path) -> GiapConfig:
+    if not manifest.get("config"):
+        raise Precondition(f"{path}: no resolved config")
+    try:
+        return GiapConfig.model_validate(manifest["config"])
+    except ValueError as err:
+        raise Precondition(f"{path}: invalid config: {err}") from err
 
 
 def _spec_sha() -> str:
-    res = subprocess.run(
-        ["git", "-C", str(REPO), "log", "-1", "--format=%H", "--", SPEC],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    sha = res.stdout.strip()
-    return sha if re.fullmatch(r"[0-9a-f]{40}", sha) else "0" * 40
+    try:
+        res = subprocess.run(
+            ["git", "-C", str(REPO), "log", "-1", "--format=%H", "--", SPEC],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as err:
+        raise Precondition(f"git log {SPEC}: {err}") from err
+    if not re.fullmatch(r"[0-9a-f]{40}", sha := res.stdout.strip()):
+        raise Precondition(f"git log {SPEC}: no commit found")
+    return sha
 
 
-def _arm(
-    label: str,
-    out: Path,
-    pep: Path,
-    conv: Path,
-    summary: Path | None,
-    genome_sha: str,
-    sacct: list[dict[str, str]],
-    job: str | None,
-) -> dict[str, Any]:
+def _outside_repo(path: Path, flag: str) -> None:
+    p = path.resolve()
+    if p == REPO or REPO in p.parents:
+        raise Precondition(f"{flag} {path} is inside the repository")
+
+
+def _arm(label: str, out: Path, a: argparse.Namespace, genome_sha: str, job: str | None,
+         sacct: list[dict[str, str]]) -> dict[str, Any]:  # fmt: skip
     """Reads one arm and checks its preconditions."""
+    from giap.io.compare_io import genome_digest
     from giap.io.peptides import read_peptide_table
 
-    man = _read_json(out / "run_manifest.json")
+    x = label.lower()
+    pep, summary = getattr(a, f"peptides_{x}"), getattr(a, f"summary_{x}")
+    mp = out / "run_manifest.json"
+    man = _json(mp)
     if man.get("exit_code") != 0:
-        raise Precondition(f"{out / 'run_manifest.json'}: exit_code {man.get('exit_code')}")
-    if _input_sha(man, "genome") != genome_sha:
-        raise Precondition(f"{out / 'run_manifest.json'}: genome sha256 differs from --genome")
+        raise Precondition(f"{mp}: exit_code {man.get('exit_code')}")
+    if genome_digest(out) != genome_sha:
+        raise Precondition(f"{mp}: genome sha256 differs from --genome")
     if _input_sha(man, "peptides") != sha256(_need(pep)):
         raise Precondition(f"{pep}: sha256 differs from the run's peptides input ({out})")
-    P, _ = read_peptide_table(pep)
-    hits, unm, ds = (
-        _run_table(out, n) for n in ("peptide_hits.tsv", "unmapped.tsv", "detection_summary.tsv")
-    )
-    trace = _rows(out / "logs" / "trace.tsv")
-    head = [r for r in sacct if job is not None and r.get("JobID") == job]
+    sm = None if summary is None else _json(summary)
+    if sm is not None and not isinstance(sm.get("distinct_stripped_q01"), int):
+        raise Precondition(f"{summary}: no integer distinct_stripped_q01")
+    t: dict[str, pd.DataFrame | None] = {}
+    for n in ("peptide_hits", "unmapped", "detection_summary"):
+        f = _run_table(out, f"{n}.tsv")
+        t[n] = None if f is None else _table(f, n)
     return {
         "label": label,
         "out": out,
         "manifest": man,
-        "cfg": _cfg(man),
-        "P": P,
-        "genes": _table(_need(out / "tables" / "genes.tsv"), "genes"),
-        "hits": None if hits is None else _table(hits, "peptide_hits"),
-        "unm": None if unm is None else _table(unm, "unmapped"),
-        "ds": None if ds is None else _table(ds, "detection_summary"),
-        "conv": _read_json(conv),
-        "sum": None if summary is None else _read_json(summary),
-        "runtime": runtime(man, trace, head),
-    }
+        "cfg": _cfg(man, mp),
+        "P": _load(pep, lambda p: read_peptide_table(p)[0]),
+        "genes": _table(out / "tables" / "genes.tsv", "genes"),
+        "hits": t["peptide_hits"],
+        "unm": t["unmapped"],
+        "ds": t["detection_summary"],
+        "conv": _json(getattr(a, f"convert_{x}")),
+        "sum": sm,
+        "runtime": runtime(man, _rows(out / "logs" / "trace.tsv"),
+                           [r for r in sacct if job is not None and r.get("JobID") == job]),
+    }  # fmt: skip
 
 
 def _missing(name: str) -> dict[str, str]:
     return {"reason": f"missing:{name}"}
+
+
+def _or_missing(name: str, fn: Callable[..., Any], *args: Any) -> Any:
+    """``fn(*args)``, or the ``missing:<name>`` stub when a table argument is absent."""
+    return _missing(name) if any(x is None for x in args) else fn(*args)
 
 
 def _cross_checks(arm: Mapping[str, Any], m1: Mapping[str, Any], warnings: list[Any]) -> None:
@@ -1019,158 +1026,99 @@ def _cross_checks(arm: Mapping[str, Any], m1: Mapping[str, Any], warnings: list[
             f"distinct_peptides_target_q01 {counts.get('distinct_peptides_target_q01')}"
         )
     if arm["sum"] is not None:
-        diff = n - int(arm["sum"]["distinct_stripped_q01"])
+        diff = n - arm["sum"]["distinct_stripped_q01"]
         qc = int(counts.get("q_crossings", 0))
         if not 0 <= diff <= qc:
-            warnings.append(
-                {
-                    "code": "raw_vs_written_q01_out_of_range",
-                    "arm": arm["label"],
-                    "raw_vs_written_q01": diff,
-                    "q_crossings": qc,
-                }
-            )
+            warnings.append({"code": "raw_vs_written_q01_out_of_range", "arm": arm["label"],
+                             "raw_vs_written_q01": diff, "q_crossings": qc})  # fmt: skip
 
 
 def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Every metric from the parsed arguments (reads only; raises on a precondition)."""
-    out = a.out.resolve()
-    if out == REPO or REPO in out.parents:
-        raise Precondition(f"--out {a.out} is inside the repository")
-    for p in (
-        a.bakta_json,
-        a.genome,
-        a.k12_fasta,
-        a.cmp,
-        a.peptides_a1,
-        a.peptides_a2,
-        a.convert_a1,
-        a.convert_a2,
-        *(x for x in (a.summary_a1, a.summary_a2, a.sacct) if x),
-    ):
-        _need(p)
+    from giap.io.output_checks import check_tsv
+    from giap.io.protein_fasta import read_protein_fasta
+
+    _outside_repo(a.out, "--out")
+    for k in ("cmp", *INPUTS):
+        if getattr(a, k) is not None:
+            _need(getattr(a, k))
     genome_sha = sha256(a.genome)
     sacct = _rows(a.sacct)
+    warnings: list[Any] = []
     arms = {}
-    for label, d, pep, conv, sm in (
-        ("A1", a.a1, a.peptides_a1, a.convert_a1, a.summary_a1),
-        ("A2", a.a2, a.peptides_a2, a.convert_a2, a.summary_a2),
-    ):
-        out_dir, job = resolve_attempt(d)
-        arms[label] = _arm(label, _need(out_dir), pep, conv, sm, genome_sha, sacct, job)
-    genes, circular = read_coding_genes(a.bakta_json, a.genome)
-    a2 = arms["A2"]
+    for label in ARMS:
+        out_dir, job = resolve_attempt(getattr(a, label.lower()))
+        arms[label] = _arm(label, _need(out_dir), a, genome_sha, job, sacct)
+        if a.sacct is not None and arms[label]["runtime"]["sacct"] is None:
+            code = "sacct_ignored_no_attempts" if job is None else "sacct_unmatched"
+            warnings.append({"code": code, "arm": label})
+    genes, circular = _load(a.bakta_json, lambda p: read_coding_genes(p, a.genome))
+    a1, a2 = arms["A1"], arms["A2"]
     g2 = a2["genes"]
     tags = set(g2.loc[g2["feature_type"].astype(str).isin([*CODING, "pseudogene"]), "locus_tag"])
     if {g.locus_tag for g in genes} != {str(t) for t in tags}:
         raise Precondition(f"{a.bakta_json}: locus tags differ from {a2['out']}/tables/genes.tsv")
-    from giap.io.protein_fasta import read_protein_fasta
-
-    k12 = {r.id: r.sequence for r in read_protein_fasta(a.k12_fasta)}
+    k12 = _load(a.k12_fasta, lambda p: {r.id: r.sequence for r in read_protein_fasta(p)})
     classes = strain_specific_set({g.locus_tag: g.aa for g in genes}, k12)
-    warnings: list[Any] = []
-    doc: dict[str, Any] = {"schema": SCHEMA, "spec": _spec_sha(), "warnings": warnings}
+    doc: dict[str, Any] = {"schema": SCHEMA, "spec": _spec_sha(), "warnings": warnings,
+                           "giap_commit": a2["manifest"].get("git_commit")}  # fmt: skip
+    if a1["manifest"].get("git_commit") != doc["giap_commit"]:
+        warnings.append({"code": "giap_commit_differs", "A1": a1["manifest"].get("git_commit")})
     doc["m1"], doc["m2"], doc["m3"], doc["m7"] = {}, {}, {}, {}
     for label, arm in arms.items():
-        pre = arm["cfg"].input.contaminant_prefixes
-        doc["m1"][label] = identifications(arm["P"], pre)
+        doc["m1"][label] = identifications(arm["P"], arm["cfg"].input.contaminant_prefixes)
         _cross_checks(arm, doc["m1"][label], warnings)
-        if arm["hits"] is None or arm["unm"] is None:
-            doc["m2"][label] = _missing("peptide_hits.tsv/unmapped.tsv")
-        else:
-            m2 = mapping_shares(arm["P"], arm["hits"], arm["unm"], arm["cfg"])
-            gi: dict[str, Any] = (
-                genome_inconsistent(arm["ds"])
-                if arm["ds"] is not None
-                else _missing("detection_summary.tsv")
-            )
+        m2 = _or_missing(MAP_TABLES, mapping_shares, arm["P"], arm["hits"], arm["unm"], arm["cfg"])
+        if "counts" in m2:
+            gi = _or_missing("detection_summary.tsv", genome_inconsistent, arm["ds"])
             tu = m2["counts"]["tolerant"] + m2["counts"]["unmapped"]
             gi["consistent"] = None if gi.get("count") is None else gi["count"] == tu
             m2["genome_inconsistent"] = gi
-            doc["m2"][label] = m2
+        doc["m2"][label] = m2
         doc["m3"][label] = coverage(arm["genes"], classes)
         doc["m7"][label] = arm["runtime"]
-    cmp_tables: dict[str, pd.DataFrame | None] = {}
-    for stem in ("compare_detection", "compare_abundance", "compare_stability"):
-        # giap compare writes CMP/tables/<stem>.tsv; a flat CMP/<stem>.tsv is read too
-        f = next((x for x in (a.cmp / "tables", a.cmp) if (x / f"{stem}.tsv").is_file()), None)
-        cmp_tables[stem] = None if f is None else _table(f / f"{stem}.tsv", stem)
-    ab, st = cmp_tables["compare_abundance"], cmp_tables["compare_stability"]
-    labels = ("A1", "A2")
-    doc["m4"] = (
-        abundance_agreement(ab, labels) if ab is not None else _missing("compare_abundance.tsv")
-    )
-    doc["m5"] = stability(st, labels) if st is not None else _missing("compare_stability.tsv")
+    cmp: dict[str, pd.DataFrame | None] = {}
+    compare_ok = True
+    for stem in COMPARE:  # giap compare writes CMP/tables/<stem>.tsv
+        f = a.cmp / "tables" / f"{stem}.tsv"
+        cmp[stem] = _table(f, stem) if f.is_file() else None
+        compare_ok &= cmp[stem] is not None
+        try:  # enum, minimum, pattern, required: a fail and a warning, not an exit code
+            if cmp[stem] is not None:
+                check_tsv(stem, f, stem)
+        except ValueError as err:
+            compare_ok = False
+            warnings.append({"code": "compare_table_invalid", "table": f"{stem}.tsv",
+                             "error": str(err)})  # fmt: skip
+    doc["m4"] = _or_missing("compare_abundance.tsv", abundance_agreement,
+                            cmp["compare_abundance"], ARMS)  # fmt: skip
+    doc["m5"] = _or_missing("compare_stability.tsv", stability, cmp["compare_stability"], ARMS)
     exceptions: list[dict[str, Any]] = []
     if a2["hits"] is None or a2["unm"] is None:
-        doc["te1"] = {
-            **_missing("peptide_hits.tsv"),
-            "passed": False,
-            "n_peptides": 0,
-            "share_exact_inframe": None,
-        }
+        doc["te1"] = _missing(MAP_TABLES)
     else:
         qc = int(a2["conv"].get("counts", {}).get("q_crossings", 0))
-        doc["te1"], exceptions = te1_real(
-            a2["P"],
-            a2["hits"],
-            a2["unm"],
-            genes,
-            circular,
-            non_atg_nterm(genes),
-            a2["cfg"],
-            q_crossings=qc,
-        )
-    a1 = arms["A1"]
-    doc["te1_a1_diagnostic"] = (
-        _missing("peptide_hits.tsv")
-        if a1["hits"] is None
-        else te1_diagnostic(a1["P"], a1["hits"], a1["cfg"])
-    )
-    subsets = {
-        "plasmid": set(g2.loc[g2["replicon_type"].astype(str) == "plasmid", "locus_tag"]),
-        "strain_specific": {t for t, c in classes.items() if c == "strain_specific"},
-    }
-    for kind in ("prophage", "bgc"):
-        subsets[kind] = {
-            str(t)
-            for t, r in zip(g2["locus_tag"], g2["region_ids"], strict=True)
-            if kind in _region_types(r)
-        }
-    doc["h1"] = hypothesis1(a1["genes"], g2, cmp_tables["compare_detection"], subsets)
+        doc["te1"], exceptions = te1_real(a2["P"], a2["hits"], a2["unm"], genes, circular,
+                                          non_atg_nterm(genes), a2["cfg"],
+                                          q_crossings=qc)  # fmt: skip
+        for code in ("unknown_source", "target_q_na"):
+            if doc["te1"][code]:
+                warnings.append({"code": code, "arm": "A2", "n": doc["te1"][code]})
+    doc["te1_a1_diagnostic"] = _or_missing("peptide_hits.tsv", te1_diagnostic, a1["P"],
+                                           a1["hits"], a1["cfg"])  # fmt: skip
+    doc["h1"] = hypothesis1(a1["genes"], g2, cmp["compare_detection"], gene_subsets(g2, classes))
     warnings += doc["h1"]["warnings"]
-    doc["h3"] = hypothesis3(
-        doc["m4"] if "reason" not in doc["m4"] else None,
-        doc["m5"] if "reason" not in doc["m5"] else None,
-    )
-    states: dict[str, Any] = {
-        "A1": 0,
-        "A2": 0,
-        "A3": None,
-        "compare_ok": all(t is not None for t in cmp_tables.values()),
-    }
+    doc["h3"] = hypothesis3(doc["m4"], doc["m5"])
+    states: dict[str, Any] = {"A1": 0, "A2": 0, "A3": None, "compare_ok": compare_ok}
     if a.a3 is not None:
-        states["A3"] = _read_json(resolve_attempt(a.a3)[0] / "run_manifest.json").get("exit_code")
+        states["A3"] = _json(resolve_attempt(a.a3)[0] / "run_manifest.json").get("exit_code")
     doc |= te_placeholders()
-    for key, path in (("te_real", a.te_real), ("te7", a.te7)):
-        if path is not None:
-            doc[key] = _read_json(path)
+    for key in TE_INPUTS:
+        if getattr(a, key) is not None:
+            doc[key] = _json(getattr(a, key))
     doc["checklist"] = checklist(doc, states)
-    files = {
-        "peptides_a1": a.peptides_a1,
-        "peptides_a2": a.peptides_a2,
-        "convert_a1": a.convert_a1,
-        "convert_a2": a.convert_a2,
-        "summary_a1": a.summary_a1,
-        "summary_a2": a.summary_a2,
-        "bakta_json": a.bakta_json,
-        "genome": a.genome,
-        "k12_fasta": a.k12_fasta,
-        "sacct": a.sacct,
-        "te_real": a.te_real,
-        "te7": a.te7,
-        "manifest_a1": arms["A1"]["out"] / "run_manifest.json",
-        "manifest_a2": arms["A2"]["out"] / "run_manifest.json",
+    files = {k: getattr(a, k) for k in INPUTS} | {
+        f"manifest_{x.lower()}": arms[x]["out"] / "run_manifest.json" for x in ARMS
     }
     doc["inputs"] = {
         k: {"path": str(Path(p).resolve()), "sha256": sha256(Path(p))}
@@ -1181,7 +1129,7 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
 
 
 def _dump(doc: Any) -> str:
-    return json.dumps(doc, sort_keys=True, indent=2) + "\n"
+    return json.dumps(doc, sort_keys=True, indent=2, allow_nan=False) + "\n"
 
 
 def write_outputs(
@@ -1189,33 +1137,34 @@ def write_outputs(
 ) -> None:
     from giap.io.tsv import write_tsv
 
+    text = _dump(doc)  # before any file is written (a NaN raises)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "metrics.json").write_text(_dump(doc), encoding="utf-8")
+    (out / "metrics.json").write_text(text, encoding="utf-8")
     (out / "te1.json").write_text(_dump(doc["te1"]), encoding="utf-8")
     cols = ["kind", "locus_tag", "peptide", "hits"]
     write_tsv(out / "te1_exceptions.tsv", cols, [[r.get(c) for c in cols] for r in exceptions])
+
+
+def _render(a: argparse.Namespace) -> int:
+    _outside_repo(a.out, "render --out")
+    metrics = _json(a.metrics)
+    template = _need(a.template).read_text(encoding="utf-8")
+    notes = None if a.notes is None else _need(a.notes).read_text(encoding="utf-8")
+    text = render(template, metrics, notes)
+    if missing := missing_paths(template, metrics):
+        raise Inconsistent(f"render: missing paths in {a.metrics}: {', '.join(missing)}")
+    if problems := diagnosis_problems(metrics, notes):
+        raise Inconsistent("render: " + "; ".join(problems))
+    a.out.write_text(text, encoding="utf-8")
+    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("compute")
-    for name in (
-        "a1",
-        "a2",
-        "cmp",
-        "peptides-a1",
-        "peptides-a2",
-        "convert-a1",
-        "convert-a2",
-        "bakta-json",
-        "genome",
-        "k12-fasta",
-        "out",
-    ):
-        c.add_argument(f"--{name}", type=Path, required=True)
-    for name in ("summary-a1", "summary-a2", "sacct", "a3", "te-real", "te7"):
-        c.add_argument(f"--{name}", type=Path, default=None)
+    for dest in (*REQUIRED, *OPTIONAL):
+        c.add_argument(f"--{dest.replace('_', '-')}", type=Path, required=dest in REQUIRED)
     r = sub.add_parser("render")
     r.add_argument("--metrics", type=Path, required=True)
     r.add_argument("--notes", type=Path, default=None)
@@ -1223,30 +1172,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     r.add_argument("--template", type=Path, default=Path(__file__).with_name("report_template.md"))
     a = ap.parse_args(argv)
     try:
-        if a.cmd == "compute":
-            doc, exc = compute(a)
-            write_outputs(a.out, doc, exc)
-            print(
-                f"wrote {a.out}/metrics.json; TE1 passed={doc['te1'].get('passed')}; "
-                f"{len(doc['warnings'])} warning(s)"
-            )
-            return 0
-        metrics = _read_json(a.metrics)
-        template = _need(a.template).read_text(encoding="utf-8")
-        notes = _need(a.notes).read_text(encoding="utf-8") if a.notes else None
-        text = render(template, metrics, notes)
-        if missing := missing_paths(template, metrics):
-            print(f"render: missing paths in {a.metrics}: {', '.join(missing)}", file=sys.stderr)
-            return 1
-        if problems := diagnosis_problems(metrics, notes):
-            print("render: " + "; ".join(problems), file=sys.stderr)
-            return 1
-        a.out.write_text(text, encoding="utf-8")
+        if a.cmd == "render":
+            return _render(a)
+        doc, exc = compute(a)
+        write_outputs(a.out, doc, exc)
+        print(
+            f"wrote {a.out}/metrics.json; TE1 passed={doc['te1'].get('passed')}; "
+            f"{len(doc['warnings'])} warning(s)"
+        )
         return 0
     except Precondition as err:
         print(f"precondition: {err}", file=sys.stderr)
         return 2
-    except (Inconsistent, ValueError) as err:
+    except Inconsistent as err:
         print(f"inconsistent: {err}", file=sys.stderr)
         return 1
 

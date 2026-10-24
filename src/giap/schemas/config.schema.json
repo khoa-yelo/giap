@@ -1180,7 +1180,7 @@
           "type": "boolean"
         },
         "terminatornet_yes": {
-          "default": 0.5,
+          "default": 0.9999999999961204,
           "title": "Terminatornet Yes",
           "type": "number"
         },

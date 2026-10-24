@@ -436,7 +436,12 @@ def test_diann_pilot_uses_the_image_from_decision_1() -> None:
     code = _code(SCRIPTS["diann_pilot"])
     m = re.search(r"DIANN_SIF:-(\S+?)\}", code)
     assert m, "diann_pilot.sbatch: DIANN_SIF has no ${DIANN_SIF:-…} default (decision 3)"
-    assert m.group(1).strip("\"'") == DIANN_SIF, m.group(1)
+    # M10-02 lead decision 1: the pilot runs the verified copy; Khoa's image is the source of
+    # diann_image.sbatch
+    assert m.group(1).strip("\"'") == "$GIAP_ROOT/images/diann_2.3.1.sif", m.group(1)
+    image_job = _code(REPO / "scripts" / "slurm" / "diann_image.sbatch")
+    shared = re.search(r"DIANN_SIF_SHARED:-(\S+?)\}", image_job)
+    assert shared and shared.group(1).strip("\"'") == DIANN_SIF, image_job[:200]
     assert DIANN_BIN in code, f"the binary inside the image is {DIANN_BIN}"
     for bind in BINDS:
         assert re.search(rf"(-B|--bind[= ])\s*\S*{re.escape(bind)}\b", code), (

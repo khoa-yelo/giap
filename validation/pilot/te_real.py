@@ -385,7 +385,7 @@ def _write(
 
 
 def _manifest(out: Path) -> dict[str, Any]:
-    man = pm._read_json(out / "run_manifest.json")
+    man = pm._json(out / "run_manifest.json")
     if man.get("exit_code") != 0:
         raise pm.Precondition(f"{out / 'run_manifest.json'}: exit_code {man.get('exit_code')}")
     return man
@@ -437,7 +437,8 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[list[Any]]]:
             doc["te5"][label] = {"status": "not_evaluable", "share_bucket": pm.share(0, 0),
                                  "reason": ["missing:peptide_hits.tsv/unmapped.tsv"]}  # fmt: skip
             continue
-        doc["te5"][label] = te5_arm(arm["P"], arm["hits"], arm["unm"], fam, pm._cfg(arm["man"]))
+        cfg = pm._cfg(arm["man"], arm["out"] / "run_manifest.json")
+        doc["te5"][label] = te5_arm(arm["P"], arm["hits"], arm["unm"], fam, cfg)
         bad = doc["te5"][label].pop("_violations")
         rows += [["TE5", f"te5_{k}", p, label] for p, k in bad.items()]
     doc["te5"]["status"] = _status([doc["te5"]["A1"]["status"], doc["te5"]["A2"]["status"]])

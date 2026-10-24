@@ -341,7 +341,7 @@ def _diann(a: argparse.Namespace, pair_peptides: Sequence[str | None]) -> dict[s
         sums.append({ln.split(None, 1)[1].strip().lstrip("*"): ln.split(None, 1)[0]
                      for ln in text.splitlines() if ln.strip()})  # fmt: skip
         prov = d / "provenance.json"
-        nodes.append(pm._read_json(prov).get("node") if prov.is_file() else None)
+        nodes.append(pm._json(prov).get("node") if prov.is_file() else None)
 
     def read(p: Path) -> Callable[[], pd.DataFrame]:
         return lambda: pd.read_csv(p, sep="\t", dtype=str, keep_default_na=False)
@@ -354,7 +354,7 @@ def te7(a: argparse.Namespace) -> tuple[dict[str, Any], list[list[Any]]]:
     """te7.json and the te7_files.tsv rows (reads only; raises on a precondition)."""
     _out_dir(a.out)
     (ref, ref_job), (rep, rep_job) = pm.resolve_attempt(a.ref), pm.resolve_attempt(a.rep)
-    mans = [pm._read_json(pm._need(d) / "run_manifest.json") for d in (ref, rep)]
+    mans = [pm._json(pm._need(d) / "run_manifest.json") for d in (ref, rep)]
     if problems := pair_problems(*mans):
         raise pm.Precondition("not a TE7 pair: " + ", ".join(problems))
     commits = [str(m.get("git_commit") or "") for m in mans]

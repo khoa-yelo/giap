@@ -880,3 +880,9 @@ Two notes, neither blocking:
 
 The test-author may start. The attack `test_attack_h1_tu_clustering.py` is still owed by the
 statistician before the implementation PR merges.
+
+## Lead decision 6 (Khoa, 2026-10-24, Q-K2 final)
+H3 is **both descriptive and decided**. The report always shows ρ with its CI, and every family's
+`n_a`, `n_b`, `n_shared`, union and J, including families that are not evaluable. The
+pre-registered rule (decision 5) then gives the verdict beside these numbers. The template must
+render the descriptive numbers even when the verdict is `not_evaluable`.

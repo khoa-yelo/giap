@@ -36,6 +36,8 @@ from giapsim.signals import TuPlan, apply_plan, plan_tu, plant_gene_rbs
 from giapsim.strain import StrainConfig, derive_reference
 
 __all__ = [
+    "SIM5M",
+    "SIM5M_SEED",
     "SIM100K",
     "SIM100K_SEED",
     "SimConfig",
@@ -784,3 +786,21 @@ SIM100K = SimConfig(
     write_precomputed=True,
 )
 SIM100K_SEED = 20261014
+
+#: The 5-Mb speed-loop genome of M10-12 (spec §14.4): SIM100K's signals at bacterial scale, no
+#: precomputed layers (the real tools must run), with simulated peptides.
+SIM5M = replace(
+    SIM100K,
+    genome_length=5_000_000,
+    n_plasmids=1,
+    plasmid_length=(80_000, 80_000),
+    n_rrna_operons=7,
+    n_trna=86,
+    prophage_bp=60_000,
+    bgc_bp=40_000,
+    n_pseudogenes=40,
+    n_sorfs=30,
+    write_precomputed=False,
+    proteomics=ProteomicsConfig(),
+)
+SIM5M_SEED = 20261014
