@@ -25,8 +25,8 @@ Interface assumed where the spec leaves it open (reported to the lead):
   ``"genes"`` axes at the codon's first base (``+``) within 1 bp.
 - Origin-crossing rows: on ``+`` ``end < start_longest``, on ``-`` ``start_longest < end``; the
   span is unwrapped past the length.
-- Circular windows: the ``"genes"`` x major formatter labels a position ``x`` as the integer
-  ``x mod length`` (thousands separators allowed); linear windows clip to ``[0, length]``.
+- Circular windows: the ``"genes"`` x major formatter labels a position ``x`` as ``x mod length``
+  in kb (the real-data fixes); linear windows clip to ``[0, length]``.
 """
 
 from __future__ import annotations
@@ -601,8 +601,9 @@ def test_example3_window_is_unwrapped_below_zero(
 
 
 def _tick_int(label: str) -> int:
+    """The bp position of a kb tick label."""
     s = label.strip().replace(",", "").replace(THIN, "").replace(NNBSP, "")
-    return int(s.replace(" ", ""))
+    return round(float(s.replace(" ", "")) * 1000)
 
 
 def test_example3_ticks_are_labelled_by_wrapped_position(
