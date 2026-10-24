@@ -77,8 +77,9 @@ def test_signature_binds_features_by_keyword() -> None:
 def test_matches_the_m8_chain_without_null(
     world: tuple[pd.DataFrame, pd.DataFrame], no_null: None
 ) -> None:
-    """CV R², the ``abundance_not_explained_by_sequence`` set and the top-decile dominant blocks
-    equal the M8-10 chain's on the same folds; ``null_p`` is never called."""
+    """CV R², the ``abundance_not_explained_by_sequence`` set and the dominant blocks of the
+    explained genes (M8-16c) equal the M8-10 chain's on the same folds; ``null_p`` is never
+    called."""
     genes, feats = world
     cfg = sf.base_config()
     res = sf.det_result(genes, feats, cfg, _rng())
@@ -88,7 +89,7 @@ def test_matches_the_m8_chain_without_null(
     assert float(res.cv_r2) == pytest.approx(want.cv_r2, rel=1e-9, abs=1e-12)
     assert frozenset(res.flagged) == want.flagged
     assert sf.non_none(res.dominant) == want.dominant
-    assert set(res.dominant) <= want.top
+    assert set(res.dominant) == want.explained
 
 
 def test_uses_the_variant_gene_table(world: tuple[pd.DataFrame, pd.DataFrame]) -> None:
