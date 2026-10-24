@@ -338,7 +338,7 @@ def test_attack_c_through_the_step() -> None:
     ``one_detected_pmiss`` rows; then the oracle arm above moves here (statistician)."""
     cfgs = G.scenario("operon_null", G.N_GENES)
     sim = G.simulate(cfgs, C.suite_seed(f"{DI}.attack_c.step", 0))
-    run = G.discordance_run(sim, p_miss=lambda u, a_v, ratios: 0.5)
+    run = G.discordance_run(sim, p_miss=lambda u, a_v, ratios, v: 0.5)
     if run.pmiss.size == 0:
         n = run.n_one_detected
         pytest.skip(f"M6-05H not merged: no one_detected_pmiss rows ({n} one-detected OP pairs);"
