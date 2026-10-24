@@ -249,23 +249,28 @@ Verdict recorded on the PR.
 
 ### Exact systematic de novo errors (ADR-0050)
 
-The class FDR treats wrong peptides as decoy hits treat them: a wrong read lands on the genome by chance, so a reversed or shuffled genome
-decoy is as likely to receive it. A de novo read that is wrong but **exactly equals** the
-translation of a non-coding six-frame segment breaks that assumption. It places with zero
-cost, like a true peptide, and no decoy can match it except by chance, so no decoy-based
-estimate counts it. When several such reads fall in one segment, the ORF also gets several
-chances at a small q (decision 3). In M7-13 G4-k3 (20 injected false ORFs per class, 3–5 wrong
-reads each) the ORF-level FDP was 0.075 for `cds_outframe` and 0.072 for `antisense` at both
-q = 0.01 and 0.05, and 0.017 for `intergenic` at 0.01; the exact reads alone account for all of
-it. GIAP therefore does not claim class-FDR control against exact systematic de novo errors.
-q values and calls are unchanged. Calls that this limitation can affect carry
-`denovo_only_unsupported`: every peptide is de novo, none is a database PSM, and there is no RBS
-support beyond what the class rule already requires. RBS support at the 0.10 quantile is weak
-evidence: in the simulator a non-coding start passes it with probability 0.060 for
-`cds_outframe` and 0.075 for `antisense` (`intergenic` is never exempt; Slurm 1879351, fast tier,
-R = 10), so the flag is a pointer to the evidence gap, not a second error estimate. Users who need such calls
-should confirm them by a database search against the `giap makedb` six-frame database, or by
-independent evidence.
+The class FDR treats wrong peptides as decoy hits treat them: a wrong read lands on the genome by
+chance, so a reversed or shuffled genome decoy is as likely to receive it. A de novo read that is
+wrong but **exactly equals** the translation of a non-coding six-frame segment breaks that
+assumption. It places with zero cost, like a true peptide, and no decoy can match it except by
+chance, so no decoy-based estimate counts it. When several such reads fall in one segment, the ORF
+also gets several chances at a small q (decision 3). In M7-13 G4-k3 (a stress design: 20 injected
+false ORFs per class, 3–5 wrong reads each; R = 300) the ORF-level FDP was 0.072–0.075 for
+`cds_outframe` and `antisense` at both q = 0.01 and 0.05, and 0.015–0.017 for `intergenic` at 0.01.
+The exact reads account for the excess; error-bearing reads alone leave only a small excess at q =
+0.01. The size of the excess scales with how many such errors a run contains, so it is not a
+prediction for real data. GIAP therefore does not claim class-FDR control against exact systematic
+de novo errors. q values and calls are unchanged. Calls that this limitation can affect carry
+`denovo_only_unsupported` unless chance RBS support exempts them (below): every peptide is de novo,
+none is a database PSM, and there is no RBS support beyond what the class rule already requires. RBS
+support at the 0.10 quantile is weak evidence: in M7-13 G4-k3, the chosen start of an injected false
+ORF that reached q ≤ 0.05 passed it in 12 of 199 `cds_outframe` rows (0.060) and 15 of 199
+`antisense` rows (0.075) (Slurm 1879351, fast tier, R = 10), so those calls escape the flag;
+`intergenic` and `nterm_extension` are never exempt. The flag is therefore a pointer to an evidence
+gap, not a second error estimate: flagged calls are not estimated to be false, and unflagged de
+novo-only calls are not estimated to be correct. In a run with only de novo input nearly every call
+carries it. Users who need such calls should confirm them by a database search against the `giap
+makedb` six-frame database, or by independent evidence.
 
 ### Limitations
 - **c over hit peptides only.** ADR-0010 reads "the peptides … searched"; c here is the largest π̂
