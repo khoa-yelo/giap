@@ -86,3 +86,47 @@ def determinants_family(genes: pd.DataFrame, cfg: GiapConfig, rng: np.random.Gen
 2. The determinants family's `n_*`/`jaccard` on the `abundance_not_explained_by_sequence` gene
    sets (proposed; §8.6 does not say what the determinants "set" is), with `agreement` for the
    dominant block?
+
+## Lead decisions (2026-10-23)
+
+1. **Q1 yes:** GSEA variants under `min`, `exclude`, `top3` and `two_peptide`; ORA under
+   `two_peptide` only.
+2. **Q2 yes:** the determinants family's `n_*` and `jaccard` are computed on the
+   `abundance_not_explained_by_sequence` gene sets, with `agreement` for the dominant block.
+   Reversible; listed for Khoa in PROGRESS questions.
+3. **Stacking:** this branch starts from #178 (M8-10, queued). After #178 squash-merges, merge the
+   old base tip, then main, and retarget.
+4. **Test-author (26687185): gaps 1–12 accepted as proposed.**
+   - Engine: keyword-only `engine=` with a default; the step binds the lazy R engine, the tests
+     force `SIMPLE_ENGINE`.
+   - ORA folds (gap 2): the family takes an optional `folds` keyword and the step an optional
+     `tu_folds` input, so n_primary matches `enrichment_detection.tsv`; the implementer adds both.
+   - `DeterminantsSensitivity(flagged, dominant, cv_r2)`; agreement is the share of genes in both
+     top deciles with the same block, NA when none is shared; a block of None in both runs does not
+     count as agreeing.
+   - SENSITIVITY moves after DETERMINANTS in the workflow (gap 12).
+   - Gap 11 (a finding, for Khoa): under `basic` on the 1 % FDR tier the determinants rerun is a
+     no-op (M8-08 rule 1 keeps imputed genes out), so only `single_peptide_detected` and `top3`
+     can change its rows. The family stays as specified; listed in PROGRESS questions.
+   - Next: the implementer.
+
+## Lead decision 5 (2026-10-23, review round: statistician 6371958269, code review 6372795283)
+- **Statistician B1:** `agreement` leaves out genes whose block is `None` in both runs, and is NA
+  when none remain. A gene with `None` in only one run still counts as a disagreement. A run
+  compared with itself gives 1. This reverses part of decision 4.
+- **Statistician B2:** the methods sections "Enriched categories" and "Determinants" come from the
+  statistician's draft (lead commit).
+- **Code-review B1:** `workflow/conf/base.config` gets a `withName: 'SENSITIVITY_RERUNS:SENSITIVITY'`
+  entry sized like `FUNCTION_STEP` (6 GB, 4 h, process_low CPUs). The step runs R fgsea and the
+  LightGBM CV.
+- **Code-review B2:** new tests for
+  - (a) ORA folds;
+  - (b) operon_flags and determinants together (the `features` collision);
+  - (c) detection calls taken from the variant gene table.
+
+  Also new tests for N2 (`None` in both runs) and N3: a variant below the minimum gets an event
+  `sensitivity.determinants_variant_skipped`, and no row and no crash.
+- **N1:** threads from `os.sched_getaffinity`, as `steps/determinants._threads` does.
+- **N4:** the skip message names its cause.
+- **Backlog:** N5–N9. The size is accepted, because the PR is stacked and its split was agreed.
+- The basic-mode no-op rows are documented in the methods note (pending Khoa).

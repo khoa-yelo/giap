@@ -77,6 +77,9 @@ def site_flags(site: Mapping[str, object], gm: GeneModel, cfg: GiapConfig,
    `giap.mapping.masses.mass_equivalents(tol)` and the B.5 masses at the configured tolerance; the
    committed `mass_equivalents.tsv` is the default-tolerance list and a test checks the two agree
    (decision 2).
+   *Superseded by ADR-0049 (Khoa, 2026-10-23): every swap row is flagged `mass_equivalent`, and a
+   substitution is also flagged when an ALT peptide reads as the left 2->1 block
+   `ref[p-1:p+1] -> alt` (`giap.variants.flags.left_block_read`).*
 2. **`snv` / `multi_nt`** (substitutions only): `snv` when some codon one nucleotide from the
    genome codon encodes the ALT residue (table 11; `J` = any I or L codon), else `multi_nt`.
    Swaps, blocks and frameshifts carry neither (decision 3); their `nt_changes` column (M7-03)
@@ -150,6 +153,7 @@ from swaps alone at q ≤ 0.01" — run in M7-13 on the M7-12 scenario. This iss
    construction; flagging every swap would make the flag carry no information. §8.5 attack 6 names
    "isobaric swaps", which the M7-12 scenario plants as blocks/near-blocks *and* swaps; M7-13 reports
    them separately.
+   *Superseded by ADR-0049: swaps are always flagged `mass_equivalent`.*
 2. Run-time list: recompute in process at the configured tolerance (proposed), or read the committed
    TSV? **Proposed default:** recompute; the TSV is the documented, reviewed default-tolerance
    artefact and a test pins the two together, so a user's `--set
@@ -163,6 +167,7 @@ from swaps alone at q ≤ 0.01" — run in M7-13 on the M7-12 scenario. This iss
 ## Lead decisions (2026-10-22)
 
 1. **Swaps carry no `mass_equivalent`.** This is the proposed default. Every swap is isobaric, so a flag on swaps would carry no information. M7-13 reports swaps separately under attack 6.
+   *Superseded by ADR-0049 (Khoa, 2026-10-23): every swap carries `mass_equivalent`.*
 2. **The mass-equivalence list is recomputed in process at the configured tolerance.** The committed `mass_equivalents.tsv` is the reviewed list at the default tolerance, and a unit test pins the two together. The TSV is never read at run time.
 3. **`snv` / `multi_nt` apply to substitutions only.** Swaps, blocks and frameshifts carry neither; `nt_changes` already counts their bases.
 4. **`stop_codon` is implemented now and unit-tested on hand-built alignments** (example 13). It becomes reachable only if M7-16 makes stop-spanning hits possible.

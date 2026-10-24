@@ -112,8 +112,10 @@ def test_site_flags_never_touch_the_call(
         assert ("database_derived" in got) == (("database", "other") in sources)
     nt = [f for f in got if f in ("snv", "multi_nt")]
     assert len(nt) == (1 if s["alt_type"] == "substitution" else 0), got
-    if s["alt_type"] in ("swap", "frameshift"):
+    if s["alt_type"] == "frameshift":
         assert "mass_equivalent" not in got
+    if s["alt_type"] == "swap":  # ADR-0049 decision 2: same composition, always flagged
+        assert "mass_equivalent" in got
     if s["alt_type"] != "substitution":
         assert "start_codon" not in got
     if s["ref_aa"] != "*":
