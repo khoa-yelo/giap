@@ -622,6 +622,20 @@ def test_c3_a_duplicated_matrix_row(pair: tuple[Path, Path]) -> None:
     assert _compare(cmp, cmp2)["failures"] == ["matrix_rows:24"]
 
 
+def test_c3_an_extra_duplicate_matrix_row(pair: tuple[Path, Path]) -> None:
+    """A second (TST_00002, A2) row appended: the tag set is right, the count is 25."""
+    cmp, cmp2 = pair
+
+    def extra(header: list[str], rows: list[list[str]]) -> list[list[str]]:
+        sec, tag, run = header.index("section"), header.index("locus_tag"), header.index("run")
+        i = next(i for i, r in enumerate(rows)
+                 if r[sec] == "matrix" and (r[tag], r[run]) == ("TST_00002", "A2"))  # fmt: skip
+        return [*rows[: i + 1], list(rows[i]), *rows[i + 1 :]]
+
+    _edit_both(cmp, cmp2, "compare_detection", extra)
+    assert _compare(cmp, cmp2)["failures"] == ["matrix_rows:25"]
+
+
 def test_c3_a_tag_missing_from_one_run(pair: tuple[Path, Path]) -> None:
     """Mutant 31: (TST_00003, A2) relabelled to run ``B``: count and tag set kept, A2 lacks it."""
     cmp, cmp2 = pair

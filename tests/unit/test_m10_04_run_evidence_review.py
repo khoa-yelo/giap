@@ -161,6 +161,15 @@ def test_missing_manifest_commit_is_a_mismatch(tmp_path: Path) -> None:
     assert any(f.startswith("commit_mismatch") for f in failures), failures
 
 
+def test_empty_expected_commit_never_matches(tmp_path: Path) -> None:
+    """``arm_evidence`` called without a commit (the CLI rejects it): a mismatch, not a pass."""
+    out = write_arm(tmp_path / "out_a2")
+    assert arm_doc(out, commit="")["failures"] == [f"commit_mismatch:{FULL_COMMIT}"]
+    out = write_arm(tmp_path / "out_null", commit=None)
+    failures = arm_doc(out, commit="")["failures"]
+    assert len(failures) == 1 and failures[0].startswith("commit_mismatch"), failures
+
+
 @pytest.mark.parametrize(
     "bad", ["0", "0123ab", "0123ABC", "g123abc", " 0123abc", FULL_COMMIT + "0", "", "HEAD"]
 )
