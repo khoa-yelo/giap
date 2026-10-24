@@ -121,6 +121,9 @@ Caveats:
 - {{m8.caveats.2}}
 - {{m8.caveats.3}}
 
+The 95 % bound assumes {{m8.precursor.ci.assumes}}.
+Warning codes of `entrapment.py` (details in `entrapment.json`; a digest mismatch is a lead finding): {{m8.warning_codes}}.
+
 <!-- end m8.universe -->
 <!-- ifnot m8.universe -->
 ### Metric 8: free entrapment FDP on A1 (M10-07)

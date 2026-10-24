@@ -12,20 +12,20 @@ Pure functions plus a thin CLI::
         [--out-a1 OUT_A1] [--diann-cmd command_step1.txt] [--provenance provenance.json]
 
 Exit codes: 0 written; 1 cross-check 1 failed (two exact matchers disagree); 2 a precondition
-(missing input, non-wild-type run, FASTA hash, topology tags, DIA-NN settings, ``--out`` inside
-the checkout). Nothing is written unless the exit code is 0.
+(a missing, unreadable or malformed input, non-wild-type run, FASTA hash, topology tags, DIA-NN
+settings, git unavailable, ``--out`` inside the checkout unless ``git check-ignore`` says it is
+ignored); 4 an unexpected exception (its traceback goes to stderr). Nothing is written unless
+the exit code is 0. File helpers, ``Precondition`` and ``Inconsistent`` are M10-05's
+(``metrics.py``).
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
-import json
-import re
-import subprocess
 import sys
+import traceback
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from fractions import Fraction
 from itertools import combinations
 from pathlib import Path
@@ -35,6 +35,25 @@ import ahocorasick
 import numpy as np
 import pandas as pd
 from scipy.stats import binom
+from validation.pilot.metrics import (
+    Q_ACCEPT,
+    Inconsistent,
+    Precondition,
+    _dump,
+    _json,
+    _load,
+    _outside_repo,
+    _q,
+    _routes,
+    _rows,
+    _run_table,
+    _spec_sha,
+    _table,
+    _target,
+    genome_inconsistent,
+    resolve_attempt,
+    sha256,
+)
 
 from giap.config import resolve_config
 from giap.config.model import Enzyme, TolerantConfig
@@ -47,11 +66,9 @@ from giap.mapping.sixframe import Frame, SixFrameIndex, build_sixframe
 from giap.mapping.tolerant import match_tolerant
 from giap.model.coords import Replicon
 
-REPO = Path(__file__).resolve().parents[2]
 SPEC = "docs/specs/M10-07-free-entrapment.md"
 SCHEMA = "giap-pilot-entrapment/1"
 ALPHA = Fraction(1, 100)
-Q_ACCEPT = 0.01  # accepted: q_value <= 0.01 (inclusive, the written value); NA not accepted
 WATER, PROTON = 18.010565, 1.007276
 STANDARD = frozenset("ACDEFGHIKLMNPQRSTVWY")
 BROAD = frozenset({"block", "swap", "near_block"})  # S2 sensitivity ``present_broad``
@@ -66,7 +83,8 @@ CAVEATS = (
 NOT_ASSESSED = {
     "peptide": "peptide-level FDR is not controlled by the search (q_value is DIA-NN's "
     "precursor-level Global.Q.Value)",
-    "per_run": "runs were selected by the global q-value, not a run-level q-value",
+    "per_run": "runs were selected by the global and the run-level q-value together; no FDR "
+    "claim attaches to a run's intersection",
 }
 CI_METHOD = "binomial_inversion_equal_chance"
 CI_ASSUMES = (
@@ -76,14 +94,6 @@ CI_ASSUMES = (
 # no-op (every query still needs a decoy type).
 _NO_DECOY: DecoyType = "shuffle"
 _NO_DECOYS: dict[DecoyType, tuple[Frame, ...]] = {_NO_DECOY: ()}
-
-
-class Precondition(Exception):
-    """Exit 2: nothing is written."""
-
-
-class Inconsistent(Exception):
-    """Exit 1: two exact matchers disagree on one genome (cross-check 1)."""
 
 
 # ---------------------------------------------------------------- the searchable space
@@ -281,19 +291,22 @@ def assess(combined: Fraction | None, lower: Fraction | None, alpha: Fraction = 
     return "consistent_with_control" if combined <= alpha else "inconclusive"
 
 
-def _estimates(n_t: int, n_e: int, k: int, s: int) -> dict[str, Any]:
-    if s == 0 or n_t + n_e == 0:
-        reason = "no_shared_peptides" if s == 0 else "empty_discoveries"
-        return {"fdp_combined": None, "fdp_lower": None, "ucb95": None, "reason": reason}
-    c, lo = combined(n_t, n_e, k, s), lower(n_t, n_e)
+def _estimates(
+    n_t: int, n_e: int, k: int, s: int
+) -> tuple[dict[str, Any], Fraction | None, Fraction | None]:
+    """(the float block, combined, lower); the reason precedence is no shared peptide, no
+    discovery, no entrapment space."""
+    reason = "no_shared_peptides" if s == 0 else "empty_discoveries" if n_t + n_e == 0 else None
+    c = lo = None
+    if reason is None:
+        c, lo = combined(n_t, n_e, k, s), lower(n_t, n_e)
+        reason = "no_entrapment_space" if c is None else None
     out: dict[str, Any] = {
         "fdp_combined": None if c is None else float(c),
-        "fdp_lower": float(lo or 0),
-        "ucb95": ucb95(n_t, n_e, k, s),
+        "fdp_lower": None if lo is None else float(lo),
+        "ucb95": ucb95(n_t, n_e, k, s) if s and n_t + n_e else None,
     }
-    if c is None:
-        out["reason"] = "no_entrapment_space"
-    return out
+    return out | ({"reason": reason} if reason else {}), c, lo
 
 
 def _ratio(a: int | float, b: int | float) -> float | None:
@@ -304,22 +317,12 @@ def _level(
     n_t: int, n_e: int, k: int, s: int, other: Mapping[str, int], scope: str
 ) -> dict[str, Any]:
     """One level's block; ``scope`` is ``precursor`` (assessed), ``peptide`` or ``per_run``."""
-    est = _estimates(n_t, n_e, k, s)
-    ub = est.pop("ucb95")
-    b: dict[str, Any] = {
-        "N_T": n_t,
-        "N_E": n_e,
-        **other,
-        **est,
-        "ci": {"ucb95": ub, "method": CI_METHOD, "assumes": CI_ASSUMES},
-    }
-    b["above_one"] = est["fdp_combined"] is not None and est["fdp_combined"] > 1
+    est, c, lo = _estimates(n_t, n_e, k, s)
+    ci = {"ucb95": est.pop("ucb95"), "method": CI_METHOD, "assumes": CI_ASSUMES}
+    b: dict[str, Any] = {"N_T": n_t, "N_E": n_e, **other, **est, "ci": ci}
+    b["above_one"] = c is not None and c > 1
     if scope == "precursor":
-        defined = est["fdp_combined"] is not None
-        b["assessment"] = assess(
-            combined(n_t, n_e, k, s) if defined else None,
-            lower(n_t, n_e) if est["fdp_lower"] is not None else None,
-        )
+        b["assessment"] = assess(c, lo)
     else:
         b["assessment"], b["assessment_reason"] = "not_assessed", NOT_ASSESSED[scope]
     return b
@@ -329,9 +332,9 @@ def _level(
 
 
 def _accepted(rows: pd.DataFrame) -> pd.DataFrame:
-    q = pd.to_numeric(rows["q_value"], errors="coerce")
-    decoy = rows["is_decoy"].astype("boolean").fillna(False).astype(bool)
-    return rows[(~decoy & q.notna() & (q <= Q_ACCEPT)).to_numpy()]
+    """M10-05's rule: a target row (NA ``is_decoy`` reads as target) with q <= Q_ACCEPT."""
+    q = _q(rows)
+    return rows[_target(rows) & ~np.isnan(q) & (q <= Q_ACCEPT)]
 
 
 def evaluate(
@@ -410,10 +413,10 @@ def evaluate(
         "r": _ratio(len(uni) - len(bs), len(bs)),
         "N_T": bt,
         "N_E": len(found) - bt,
-        **_estimates(bt, len(found) - bt, len(uni) - len(bs), len(bs)),
+        **_estimates(bt, len(found) - bt, len(uni) - len(bs), len(bs))[0],
     }
     # S4: r_prec weighted
-    rp = _estimates(n_t, n_e, K, S)
+    rp = _estimates(n_t, n_e, K, S)[0]
     weighted = {
         "fdp_combined_rprec": rp["fdp_combined"],
         "mean_nprec_shared": _ratio(S, s),
@@ -432,7 +435,7 @@ def evaluate(
     t10 = [p for p in shared if len(p) >= min10]
     nt10 = sum(len(p) >= min10 for p in found if pres_d[p].rule)
     nef = sum(stratum(p) == "far" for p in e_found)
-    est = _estimates(nt10, nef, len(e_far), len(t10))
+    est = _estimates(nt10, nef, len(e_far), len(t10))[0]
     far = {
         "r_far": _ratio(len(e_far), len(t10)),
         "N_T_10": nt10,
@@ -523,196 +526,159 @@ def _num(s: str) -> float | None:
         return None
 
 
-def _table(path: Path) -> list[dict[str, str | None]]:
-    from giap.io.tsv import read_tsv
-
-    header, rows = read_tsv(path)
-    return [dict(zip(header, r, strict=True)) for r in rows]
+CLASSIFIED = ("target", "entrapment")
 
 
 def cross_check_run(
     discoveries: Sequence[tuple[str, str, str]], out_a1: Path, n_e: int
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Cross-checks 1 and 2 against the A1 run directory (raises ``Inconsistent`` for 1)."""
-    hits = next(
-        (
-            out_a1 / d / "peptide_hits.tsv"
-            for d in ("tables", "mapping")
-            if (out_a1 / d / "peptide_hits.tsv").is_file()
-        ),
-        None,
-    )
+    """Cross-checks 1 and 2 against the A1 run directory. 1 looks at the T and E buckets only
+    and raises ``Inconsistent`` when an A1 ``route = exact`` peptide is not ``exact`` here (the
+    exact route is six-frame only, so ``strain_db`` is no agreement)."""
+    hits = _run_table(out_a1, "peptide_hits.tsv")
     if hits is None:
-        raise Precondition(f"{out_a1}: no tables/peptide_hits.tsv")
-    exact = {norm(str(r["peptide"])) for r in _table(hits) if r.get("route") == "exact"}
-    rule = {p: r for p, _, r in discoveries}
-    bad = sorted(p for p in exact & set(rule) if rule[p] not in ("exact", "strain_db"))
-    if bad:
-        raise Inconsistent(
-            f"{len(bad)} discovered peptide(s) have a route = exact row in "
-            f"{hits} but are not present here"
-        )
-    ds = out_a1 / "tables" / "detection_summary.tsv"
-    gi = [
-        r
-        for r in (_table(ds) if ds.is_file() else [])
-        if r.get("section") == "qc" and r.get("metric") == "genome_inconsistent_rate"
-    ]
-    value, n = (gi[0]["value"], gi[0]["n"]) if gi else (None, None)
-    count = None if value is None or n is None else round(float(value) * int(n))
+        raise Precondition(f"{out_a1}: no peptide_hits.tsv under tables/ or mapping/")
+    routes = _routes(_table(hits, "peptide_hits"))
+    exact = {norm(p) for p, r in routes.items() if "exact" in r}
+    rule = {p: r for p, b, r in discoveries if b in CLASSIFIED}
+    if bad := sorted(p for p in exact & set(rule) if rule[p] != "exact"):
+        raise Inconsistent(f"{len(bad)} discovered peptide(s) have a route = exact row in "
+                           f"{hits} but no exact match here")  # fmt: skip
+    ds = _run_table(out_a1, "detection_summary.tsv")
+    count = None if ds is None else genome_inconsistent(_table(ds, "detection_summary"))["count"]
     targets = [(p, r) for p, b, r in discoveries if b == "target"]
+    unclassified = sum(p in exact and b not in CLASSIFIED for p, b, _ in discoveries)
     check = {
         "exact_route_agrees": True,
         "n_exact_route": len(exact & set(rule)),
+        "n_exact_route_unclassified": unclassified,
         "genome_inconsistent_count": count,
         "n_entrapment": n_e,
         "present_not_exact": sum(r in ("strain_db", "mass_equivalent") for _, r in targets),
         "exact_rejected": sum(r == "exact" and p not in exact for p, r in targets),
     }
-    warn = []
-    if count is None or n_e > count:
-        warn.append(
-            {
-                "code": "n_entrapment_above_genome_inconsistent",
-                "n_entrapment": n_e,
-                "genome_inconsistent_count": count,
-            }
-        )
-    return check, warn
+    if count is None:
+        return check, [{"code": "genome_inconsistent_unavailable", "out_a1": str(out_a1)}]
+    if n_e > count:
+        return check, [{"code": "n_entrapment_above_genome_inconsistent", "n_entrapment": n_e,
+                        "genome_inconsistent_count": count}]  # fmt: skip
+    return check, []
 
 
 # ---------------------------------------------------------------- CLI (file I/O)
 
+INPUTS = ("pep_a1", "k12_fasta", "contaminants", "genome", "strain_db", "runs_manifest")
+OPTIONAL = ("out_a1", "diann_cmd", "provenance")
+#: provenance.json ``inputs.fasta[]`` basename -> the argument it vouches for (S2: by role)
+PROVENANCE_ROLES = {"UP000000625.fasta": "k12_fasta", "contaminants.fasta": "contaminants"}
+PEP_COLUMNS = ("peptide", "modified_peptide", "charge", "run", "q_value")
 
-def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def check_provenance(prov: Any, path: Path, files: Mapping[str, Path]) -> None:
+    """Each role's record (by basename) holds exactly the sha256 of its argument."""
+    inputs = prov.get("inputs") if isinstance(prov, dict) else None
+    recs = inputs.get("fasta") if isinstance(inputs, dict) else None
+    if not isinstance(recs, list):
+        raise Precondition(f"{path}: no inputs.fasta list")
+    by: dict[str, set[Any]] = {}
+    for r in recs:
+        if isinstance(r, dict):
+            by.setdefault(Path(str(r.get("path", ""))).name, set()).add(r.get("sha256"))
+    for name, dest in PROVENANCE_ROLES.items():
+        if by.get(name) != {sha256(files[dest])}:
+            raise Precondition(f"{files[dest]}: sha256 is not the one {path} records for {name}")
 
 
-def _spec_sha() -> str:
-    res = subprocess.run(
-        ["git", "-C", str(REPO), "log", "-1", "--format=%H", "--", SPEC],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    sha = res.stdout.strip()
-    return sha if re.fullmatch(r"[0-9a-f]{40}", sha) else "0" * 40
+def _proteins(path: Path) -> list[str]:
+    from giap.io.protein_fasta import read_protein_fasta
+
+    return _load(path, lambda p: [r.sequence for r in read_protein_fasta(p)])
+
+
+def _index(genome: Path, strain_db: Path) -> Index:
+    from giap.io.fasta import read_genome_fasta
+
+    recs = _load(genome, read_genome_fasta)
+    if not any(r.circular_tag for r in recs):
+        raise Precondition(f"{genome}: no topology tag on any contig")
+    reps = {r.id: Replicon(r.id, len(r.sequence), "circular" if r.circular_tag else "linear")
+            for r in recs}  # fmt: skip
+    return build_index({r.id: r.sequence for r in recs}, reps, _proteins(strain_db))
+
+
+def _pep_rows(path: Path, manifest: Path) -> pd.DataFrame:
+    from giap.io.peptides import read_peptide_table
+
+    rows = _load(path, lambda p: read_peptide_table(p)[0])
+    if missing := [c for c in PEP_COLUMNS if c not in rows.columns]:
+        raise Precondition(f"{path}: missing column(s) {', '.join(missing)}")
+    if _accepted(rows)["charge"].isna().any():
+        raise Precondition(f"{path}: NA charge on an accepted row")
+    wt = _rows(manifest)
+    if not wt or "run" not in wt[0]:
+        raise Precondition(f"{manifest}: no run column")
+    if foreign := sorted({str(r) for r in rows["run"]} - {str(r["run"]) for r in wt}):
+        raise Precondition(f"{path}: run(s) not in {manifest}: {', '.join(foreign)}")
+    return rows
 
 
 def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[tuple[str, str, str]]]:
     """``entrapment.json`` and the discovery rows from the parsed arguments (reads only)."""
-    from giap.io.fasta import read_genome_fasta
-    from giap.io.peptides import read_peptide_table
-    from giap.io.protein_fasta import read_protein_fasta
-
-    out = a.out.resolve()
-    if out == REPO or REPO in out.parents:
-        raise Precondition(f"--out {a.out} is inside the repository")
-    files = {
-        "pep_a1": a.pep_a1,
-        "k12_fasta": a.k12_fasta,
-        "contaminants": a.contaminants,
-        "genome": a.genome,
-        "strain_db": a.strain_db,
-        "runs_manifest": a.runs_manifest,
-        "diann_cmd": a.diann_cmd,
-        "provenance": a.provenance,
-    }
-    files = {k: v for k, v in files.items() if v is not None}
-    for p in [*files.values(), *([a.out_a1] if a.out_a1 else [])]:
+    _outside_repo(a.out, "--out", allow_ignored=True)
+    files = {k: getattr(a, k) for k in (*INPUTS, *OPTIONAL) if getattr(a, k) is not None}
+    for p in files.values():
         if not p.exists():
             raise Precondition(f"missing input: {p}")
+    files.pop("out_a1", None)
     if a.provenance is not None:
-        prov = json.loads(a.provenance.read_text(encoding="utf-8"))
-        recorded = {f.get("sha256") for f in prov.get("inputs", {}).get("fasta", [])}
-        for p in (a.k12_fasta, a.contaminants):
-            if sha256(p) not in recorded:
-                raise Precondition(f"{p}: sha256 is not the one {a.provenance} records")
+        check_provenance(_json(a.provenance), a.provenance, files)
     settings = DEFAULT_SETTINGS
     if a.diann_cmd is not None:
-        tokens = [t.strip() for t in a.diann_cmd.read_text(encoding="utf-8").splitlines()]
-        if bad := settings_mismatch(parse_diann_cmd([t for t in tokens if t]), settings):
+        lines = _load(a.diann_cmd, lambda p: p.read_text(encoding="utf-8").splitlines())
+        if bad := settings_mismatch(parse_diann_cmd([t.strip() for t in lines if t.strip()]),
+                                    settings):  # fmt: skip
             raise Precondition(f"{a.diann_cmd}: settings differ: {'; '.join(bad)}")
-    rows, _ = read_peptide_table(a.pep_a1)
-    wt = {r.get("run") for r in _table(a.runs_manifest)}
-    if foreign := sorted({str(r) for r in rows["run"]} - {str(r) for r in wt}):
-        raise Precondition(f"{a.pep_a1}: run(s) not in {a.runs_manifest}: {', '.join(foreign)}")
-    k12 = [r.sequence for r in read_protein_fasta(a.k12_fasta)]
-    if not k12:
+    rows = _pep_rows(a.pep_a1, a.runs_manifest)
+    if not (k12 := _proteins(a.k12_fasta)):
         raise Precondition(f"{a.k12_fasta}: no protein")
-    recs = read_genome_fasta(a.genome)
-    if not any(r.circular_tag for r in recs):
-        raise Precondition(f"{a.genome}: no topology tag on any contig")
-    reps = {
-        r.id: Replicon(r.id, len(r.sequence), "circular" if r.circular_tag else "linear")
-        for r in recs
-    }
-    index = build_index(
-        {r.id: r.sequence for r in recs},
-        reps,
-        [r.sequence for r in read_protein_fasta(a.strain_db)],
-    )
-    cont = [r.sequence for r in read_protein_fasta(a.contaminants)]
-    doc = evaluate(k12, cont, index, rows, settings)
+    index = _index(a.genome, a.strain_db)
+    doc = evaluate(k12, _proteins(a.contaminants), index, rows, settings)
     discoveries = doc.pop("discoveries")
-    checks: dict[str, Any] = {
-        "digest": {
-            "not_in_universe": doc["peptide"]["not_in_universe"],
-            "agrees": doc["peptide"]["not_in_universe"] == 0,
-        }
-    }
+    nu = doc["peptide"]["not_in_universe"]
+    checks: dict[str, Any] = {"digest": {"not_in_universe": nu, "agrees": nu == 0}}
     if a.diann_cmd is not None:
         checks["settings"] = {"agrees": True}
     if a.out_a1 is not None:
-        checks["run"], warn = cross_check_run(discoveries, a.out_a1, doc["peptide"]["N_E"])
+        out_a1 = resolve_attempt(a.out_a1)[0]
+        checks["run"], warn = cross_check_run(discoveries, out_a1, doc["peptide"]["N_E"])
         doc["warnings"] += warn
     doc |= {
         "schema": SCHEMA,
-        "spec": _spec_sha(),
+        "spec": _spec_sha(SPEC),
         "cross_checks": checks,
         "caveats": list(CAVEATS),
         "inputs": {k: {"path": str(p.resolve()), "sha256": sha256(p)} for k, p in files.items()},
-        "settings": {
-            "enzyme": settings.enzyme,
-            "missed": settings.missed,
-            "min_len": settings.min_len,
-            "max_len": settings.max_len,
-            "charges": list(settings.charges),
-            "mz": list(settings.mz),
-            "var_mods": settings.var_mods,
-            "tolerant": index.tolerant.model_dump(),
-        },
+        "settings": asdict(settings) | {"tolerant": index.tolerant.model_dump()},
     }
     return doc, discoveries
 
 
 def write_outputs(out: Path, doc: Mapping[str, Any], discoveries: Sequence[Sequence[str]]) -> None:
+    """The TSV first, then the JSON (written last, so a failed TSV leaves no JSON behind)."""
     from giap.io.tsv import write_tsv
 
     out.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(doc, sort_keys=True, indent=2) + "\n"
-    (out / "entrapment.json").write_text(text, encoding="utf-8")
-    write_tsv(
-        out / "entrapment_discoveries.tsv", ["peptide", "bucket", "present_rule"], discoveries
-    )
+    cols = ["peptide", "bucket", "present_rule"]
+    write_tsv(out / "entrapment_discoveries.tsv", cols, discoveries)
+    (out / "entrapment.json").write_text(_dump(doc), encoding="utf-8")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("compute")
-    for name in (
-        "pep-a1",
-        "k12-fasta",
-        "contaminants",
-        "genome",
-        "strain-db",
-        "runs-manifest",
-        "out",
-    ):
-        c.add_argument(f"--{name}", type=Path, required=True)
-    for name in ("out-a1", "diann-cmd", "provenance"):
-        c.add_argument(f"--{name}", type=Path, default=None)
+    for dest in (*INPUTS, "out", *OPTIONAL):
+        c.add_argument(f"--{dest.replace('_', '-')}", type=Path, required=dest not in OPTIONAL)
     a = ap.parse_args(argv)
     try:
         doc, discoveries = compute(a)
@@ -723,6 +689,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     except Inconsistent as err:
         print(f"inconsistent: {err}", file=sys.stderr)
         return 1
+    except Exception:  # exit 1 is cross-check 1's: a bug exits 4 with its traceback
+        traceback.print_exc()
+        return 4
     p = doc["precursor"]
     print(
         f"wrote {a.out}/entrapment.json; precursor {p['assessment']}; "

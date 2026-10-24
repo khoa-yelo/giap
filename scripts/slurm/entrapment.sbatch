@@ -12,9 +12,12 @@
 #
 # FarmShare's `dev` is a QOS on the `normal` partition (GIAP_SPEC.md §3: 8 h, 8 CPU, 32 GB, one job).
 # Inputs default to the spec's table and can be overridden from the environment: PEP_A1, K12_FASTA,
-# CONTAMINANTS, GENOME, STRAIN_DB, RUNS_MANIFEST, METRICS_DIR, and the optional OUT_A1, DIANN_CMD and
-# PROVENANCE (each passed only when the file or directory exists). Everything is written under
-# $METRICS_DIR (default $GIAP_ROOT/pilot/metrics), never inside the checkout. The expected run is
+# CONTAMINANTS, GENOME, STRAIN_DB, RUNS_MANIFEST, METRICS_DIR, and the optional OUT_A1 (default: the
+# M10-04 A1 directory, resolved through ATTEMPTS.tsv by entrapment.py), DIANN_CMD and PROVENANCE.
+# An optional input set explicitly but missing exits 2 before anything runs; a default one that is
+# absent is skipped and the skipped check is logged. Everything is written under $METRICS_DIR
+# (default $GIAP_ROOT/pilot/metrics): outside the checkout or in a git-ignored part of it
+# (`git check-ignore`; farmshare_env.sh puts GIAP_ROOT at $GIAP_REPO/local). The expected run is
 # minutes, dominated by the tolerant search of the K-12-only peptides of >= 10 aa.
 set -euo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
@@ -30,14 +33,29 @@ GENOME="${GENOME:-tests/data/genomes/nissle1917.fna.gz}"
 STRAIN_DB="${STRAIN_DB:-validation/pilot/db_a2/strain_db.faa.gz}"
 RUNS_MANIFEST="${RUNS_MANIFEST:-validation/pilot/inputs/pxd078459_files.tsv}"
 METRICS_DIR="${METRICS_DIR:-$GIAP_ROOT/pilot/metrics}"
-OUT_A1="${OUT_A1:-}"
+for v in OUT_A1 DIANN_CMD PROVENANCE; do  # S5: an explicit path must exist
+  if [ -n "${!v+set}" ] && [ ! -e "${!v}" ]; then
+    echo "precondition: $v=${!v} does not exist" >&2; exit 2
+  fi
+done
+OUT_A1="${OUT_A1:-$GIAP_ROOT/runs/pilot/pass1/out_a1}"
 DIANN_CMD="${DIANN_CMD:-$GIAP_ROOT/pilot/A1/command_step1.txt}"
 PROVENANCE="${PROVENANCE:-$GIAP_ROOT/pilot/A1/provenance.json}"
+case "$(realpath -m "$METRICS_DIR")/" in
+  "$(realpath "$GIAP_REPO")"/*)
+    git -C "$GIAP_REPO" check-ignore -q "$METRICS_DIR" || {
+      echo "precondition: METRICS_DIR=$METRICS_DIR is inside the checkout and not git-ignored" >&2
+      exit 2
+    } ;;
+esac
 
 opt=()
-[ -n "$OUT_A1" ] && [ -d "$OUT_A1" ] && opt+=(--out-a1 "$OUT_A1")
-[ -f "$DIANN_CMD" ] && opt+=(--diann-cmd "$DIANN_CMD")
-[ -f "$PROVENANCE" ] && opt+=(--provenance "$PROVENANCE")
+if [ -d "$OUT_A1" ]; then opt+=(--out-a1 "$OUT_A1")
+else echo "cross-checks 1 and 2 skipped: no A1 run directory $OUT_A1"; fi
+if [ -f "$DIANN_CMD" ]; then opt+=(--diann-cmd "$DIANN_CMD")
+else echo "cross-check 4 (DIA-NN settings) skipped: no $DIANN_CMD"; fi
+if [ -f "$PROVENANCE" ]; then opt+=(--provenance "$PROVENANCE")
+else echo "provenance check skipped: no $PROVENANCE"; fi
 
 echo "node=$(hostname) head=$(git rev-parse --short HEAD) out=$METRICS_DIR optional=${opt[*]:-none}"
 rc=0
