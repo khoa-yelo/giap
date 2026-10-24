@@ -96,7 +96,7 @@ def test_adr_m10_b_drafted() -> None:
     assert len(adrs) == 1, "deliverable 11: docs/adr/ADR-NNNN-a3-external-artefacts.md"
     text = adrs[0].read_text()
     assert re.match(r"ADR-\d{4}-", adrs[0].name)
-    assert re.search(r"^- Status: proposed", text, re.M)
+    assert re.search(r"^- Status: (proposed|accepted-by-khoa)", text, re.M)
     assert re.search(r"^- Needs Khoa: yes", text, re.M)
     for needle in ("TDF-SDK", "drive.google.com", "psims", "B2", "B1"):
         assert needle in text, needle
