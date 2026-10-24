@@ -202,6 +202,8 @@ def fetch(row: Row, target: Path, get: Callable[[str, Path], int]) -> str | None
         rc = get(row["url"], target)
         if rc != 0:
             error = f"download failed after one retry: {name} (curl exit {rc})"
+            if rc in (33, 36):  # the server refused the range: restart from zero, not resume
+                target.unlink(missing_ok=True)
         elif verified(target, row):
             return None
         else:

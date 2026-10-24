@@ -268,9 +268,8 @@ def test_fetch_downloads_three_runs_and_records_their_checksums(pilot: PilotSand
         listed[Path(m.group(2)).as_posix()] = m.group(1)
     created = [Path(p) for c in calls for p in c["created"]]
     assert created, calls
-    # every run has its own analysis.tdf, and curl writes to a temporary name first (M10-01), so
-    # each listed path is checked against the file it names
-    assert len(listed) >= len(created), (sorted(listed), created)
+    names = {(p.relative_to(dest) if p.is_relative_to(dest) else p).as_posix() for p in created}
+    assert names <= set(listed), (sorted(names - set(listed)), sorted(listed))
     for rel, want in listed.items():
         assert (dest / rel).is_file(), f"{rel} is listed but not under {dest}"
         assert hashlib.sha256((dest / rel).read_bytes()).hexdigest() == want, rel

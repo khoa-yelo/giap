@@ -129,17 +129,29 @@ PXD078459 (ProteomeXchange; hosted by iProX as IPX0017169000) is the pilot's raw
   data are public. To confirm with Khoa before any redistribution (none is planned: nothing raw is
   committed).
 - **Instrument:** timsTOF HT (MS:1003404, from the record).
-- **Selected runs:** the first three wild-type runs by natural sort (M10-01 decision 1), WT_1–WT_3:
+- **Selected runs:** the first three wild-type runs by natural sort (M10-01 Q2), WT_1–WT_3:
   `MLA1914689_WT_P1_1_Y-D7_1_13119.d.zip`, `MLA1914690_WT_P2_2_Y-D8_1_13120.d.zip`,
-  `MLA1914691_WT_P3_3_Y-D9_1_13121.d.zip` (about 1.0 GB each). The ROS-condition and DGC runs are
-  not selected.
+  `MLA1914691_WT_P3_3_Y-D9_1_13121.d.zip` (about 1.0 GB each).
+- **Not selected** (resolve job 1879851, `file`, reason):
+
+  | file | reason |
+  |---|---|
+  | `20260203_201309_sp_MJ20260114273_PP20260127494.sne` | not_raw (a Spectronaut file) |
+  | `MLA1914692_DGC_P1_4_Y-D10_1_13122.d.zip` … `MLA1914694_DGC_P3_6_Y-D12_1_13124.d.zip` (3) | not_wild_type |
+  | `MLA1914698_DGC_ROS_P1_10_Y-E4_1_13128.d.zip` … `MLA1914700_DGC_ROS_P3_12_Y-E6_1_13130.d.zip` (3) | not_wild_type |
+  | `MLA1914695_WT_ROS_P1_7_Y-E1_1_13125.d.zip` … `MLA1914697_WT_ROS_P3_9_Y-E3_1_13127.d.zip` (3) | beyond_three |
+
+  The `WT_ROS` runs are wild type under ROS treatment and also carry the `WT` token. The selector
+  does not tell them apart by name: P1–P3 are the untreated wild-type runs only because the
+  untreated set comes first in the MLA numbering (MLA1914689–91 before MLA1914695–97). This was
+  checked by hand against the file names.
 - **Transport (R6):** the record lists plain-HTTP links on `download.iprox.org`. That host's
   certificate does not name it, so HTTPS fails verification there. iProX's own domain
   `download.iprox.cn` (www.iprox.org redirects to www.iprox.cn) serves the same files over verified
   HTTPS: same sizes and same first MiB (checked 2026-10-24). The manifest's `url` is that HTTPS
   route; `url_record` keeps the record's link. TLS verification is never disabled.
-- **Manifest:** `validation/pilot/inputs/pxd078459_files.tsv`. The record gives no checksums, so
-  `sha256` is filled by the download job (`SHA256SUMS` next to the data).
+- **Manifest:** `validation/pilot/inputs/pxd078459_files.tsv`. The record gives no checksums, so integrity rests on
+  TLS only; `sha256` is filled by the download job (`SHA256SUMS` next to the data).
 - **Download:** Slurm job 1879859 (2026-10-24, 23 min, COMPLETED) fetched the three archives over
   HTTPS (about 2.9 GB), unpacked them to `$GIAP_DATA_DIR/pxd078459/` as WT_1.d, WT_2.d and WT_3.d and wrote
   `SHA256SUMS`; the archive sha256s are in the manifest.
