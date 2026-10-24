@@ -396,12 +396,13 @@ def test_strain_difference_on_every_alt_under_related_only() -> None:
         assert "strain_difference" not in flags_of(s, cfg("same"))
 
 
-def test_swaps_carry_no_mass_equivalent_and_no_nt_class() -> None:
-    """Lead decisions 1 and 3: a swap keeps composition but is never ``mass_equivalent``, and
-    swaps and blocks carry neither ``snv`` nor ``multi_nt``."""
-    assert flags_of(site("AAAGCT", "AK", "swap")) == ["strain_difference"]
-    assert flags_of(site("GGTACT", "TG", "swap")) == ["strain_difference"]
-    assert flags_of(site("GGTACT", "TG", "swap"), cfg("same")) == []
+def test_swaps_are_mass_equivalent_and_carry_no_nt_class() -> None:
+    """ADR-0049 decision 2 (replaces M7-05 lead decision 1): a swap keeps composition, so it is
+    always ``mass_equivalent``; lead decision 3 stands: swaps and blocks carry neither ``snv`` nor
+    ``multi_nt``."""
+    assert flags_of(site("AAAGCT", "AK", "swap")) == ["mass_equivalent", "strain_difference"]
+    assert flags_of(site("GGTACT", "TG", "swap")) == ["mass_equivalent", "strain_difference"]
+    assert flags_of(site("GGTACT", "TG", "swap"), cfg("same")) == ["mass_equivalent"]
     for s in (site("GGTGGC", "N", "block"), site("TGG", "AD", "block")):
         got = flags_of(s)
         assert "snv" not in got and "multi_nt" not in got

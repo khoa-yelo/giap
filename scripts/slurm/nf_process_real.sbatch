@@ -43,7 +43,7 @@ REPO="${NF_REAL_REPO:-${SLURM_SUBMIT_DIR:-$PWD}}"   # sbatch runs a spooled copy
 export PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH" NXF_ANSI_LOG=false
 S="${1:-sim100k}"
 PROCS=(BAKTA GENOMAD ANTISMASH TERMINATORNET TRANSTERMHP OSTIR PROMOTECH PROMOTER_CALCULATOR UNIOP)
-P="${PROCS[${SLURM_ARRAY_TASK_ID:-0}]}"; t="${P,,}"
+P="${PROCS[${SLURM_ARRAY_TASK_ID:-0}]}"; t=$(printf '%s' "$P" | tr '[:upper:]' '[:lower:]')
 REC="$GIAP_ROOT/recordings"; PRE="$REC/bakta_full/$S/preflight/work/preflight"; B="$REC/bakta_full/$S/bakta"
 FIX="$REPO/tests/data/recorded"
 J="$GIAP_ROOT/scratch/nf-process-real/${NF_REAL_JOB:-${SLURM_ARRAY_JOB_ID:-manual}}"
