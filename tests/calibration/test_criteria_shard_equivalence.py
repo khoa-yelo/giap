@@ -10,7 +10,14 @@ Driven through ``_criteria.main`` exactly as ``calibration_full.sbatch`` drives 
 fixture file. Scenarios (``-k``) give the exit cases: ``ok`` (strict-xfail fail, loose xfail, a
 strict xfail on ``assert_ok``: exit 0 both ways), ``xpass`` (strict-xfail check passes: non-zero
 both ways), ``direct_xpass`` (strict-xfail partitioned direct test is clean: non-zero both ways),
-``fail`` (unmarked confirmed fail: non-zero both ways). Unmarked: runs on every commit (about 30 s).
+``fail`` (unmarked confirmed fail: non-zero both ways). Review of PR #327 adds ``shard0_fail`` (an
+unmarked direct assertion fails in shard 0: shard 0 exits 1 and so must the merge, B2),
+``shard0_xpass`` (a strict-xfail test without harness checks passes in shard 0: strict XPASS
+there, never turned into a skip, and the merge exits 1), ``raises_other`` / ``loose_xpass``
+(``raises`` and ``strict=False`` reach the records) and ``mixed_xfail`` / ``mixed_xpass`` (a test
+whose shard-0 statuses are [pass, shard]: the shard defers, the merge decides). The fail-closed
+shard-exit cases (usage error, collection error, ``-k`` selecting nothing) are at the end.
+Unmarked: runs on every commit (about 90 s).
 """
 
 from __future__ import annotations
@@ -30,11 +37,26 @@ FIXTURE = HERE / "_shard_fixture_suite.py"
 SUITE = "discordance"
 N = 3
 SCENARIOS = {
-    "ok": "not unmarked_fail and not strict_xfail_pass and not partitioned_xpass",
+    "ok": "not unmarked_fail and not strict_xfail_pass and not partitioned_xpass and not rr_",
     "xpass": "strict_xfail_pass or levels",
     "direct_xpass": "partitioned_xpass or levels",
     "fail": "unmarked_fail or levels",
+    # review of PR #327
+    "shard0_fail": "rr_shard0_assert_fails or levels",  # B2: verdict only in shard 0's exit
+    "shard0_xpass": "rr_shard0_strict_xpass or levels",  # B2 + mutant (a)
+    "raises_other": "rr_raises_other or levels",  # mutant (c): raises= is honoured
+    "loose_xpass": "rr_loose_xpass or levels",  # mutant (d): strict=False is honoured
+    "mixed_xfail": "rr_mixed_xfail or levels",  # mutant (b): one check without a verdict defers
+    "mixed_xpass": "rr_mixed_xpass or levels",
 }
+#: unsharded (= merged) exit of each scenario: 0, or non-zero (merge: MERGE_FAIL)
+WANT = {"ok": 0, "xpass": 1, "direct_xpass": 1, "fail": 1, "shard0_fail": 1, "shard0_xpass": 1,
+        "raises_other": 1, "loose_xpass": 0, "mixed_xfail": 0, "mixed_xpass": 1}  # fmt: skip
+#: shard exits per scenario (default: all 0, a shard has no verdict of its own; None: any). A
+#: direct assertion (or a strict XPASS of a test without harness checks) is judged in shard 0
+#: only, so shard 0 exits 1 there, and ``--merge`` must fold that exit in (B2).
+SHARD_RCS: dict[str, list[int] | None] = {"shard0_fail": [1, 0, 0], "shard0_xpass": [1, 0, 0],
+                                         "mixed_xpass": None}  # fmt: skip
 
 
 def _args(selection: str) -> list[str]:
@@ -88,9 +110,11 @@ def test_three_shards_and_merge_equal_the_unsharded_run(
     assert ref, "the fixture logged no check"
     assert _direct(many) == _direct(one)  # every direct part ran exactly once, as unsharded
 
-    want = {"ok": 0, "xpass": 1, "direct_xpass": 1, "fail": 1}[scenario]
+    want = WANT[scenario]
     assert rc_one == want, rc_one
-    assert all(rc == 0 for rc in shards), shards  # shards have no verdict of their own
+    rcs = SHARD_RCS.get(scenario, [0] * N)
+    if rcs is not None:
+        assert shards == rcs, shards
     assert rc_merge == (0 if want == 0 else C.MERGE_FAIL), rc_merge
 
 
@@ -114,3 +138,51 @@ def test_partitioned_direct_test_runs_every_replicate_once(
     """A direct test over ``replicate_range`` runs in every shard (each on its own range)."""
     _sharded(tmp_path, "partitioned_direct", monkeypatch)
     assert _direct(tmp_path) == Counter(f"part{i}" for i in range(5))
+
+
+# --------------------------------------------------------------------------- B1 (review of #327)
+# Shards whose pytest exits non-zero without logging a calibrate record must never merge to 0
+# (origin/main: MERGE_ERROR "no calibrate records"). Exit 1 (a test failed) is MERGE_FAIL; any
+# other non-zero exit (usage error 4, collection error 2, nothing selected 5) is MERGE_ERROR.
+
+
+def test_usage_error_in_every_shard_is_a_merge_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PYTEST_ADDOPTS", "--no-such-option")
+    shards, rc_merge = _sharded(tmp_path, SCENARIOS["ok"], monkeypatch)
+    assert shards == [4] * N, shards
+    assert rc_merge == C.MERGE_ERROR, rc_merge
+
+
+def test_nothing_selected_is_a_merge_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    shards, rc_merge = _sharded(tmp_path, "rr_no_such_test_selected", monkeypatch)
+    assert shards == [5] * N, shards
+    assert rc_merge == C.MERGE_ERROR, rc_merge
+
+
+def test_collection_error_is_a_merge_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    bad = tmp_path / "suite" / "test_broken_import.py"
+    bad.parent.mkdir()
+    bad.write_text("import giap_no_such_module_xyz  # noqa: F401\n\n\ndef test_x() -> None:\n"
+                   "    pass\n")  # fmt: skip
+    for k, v in _env(tmp_path / "log").items():
+        monkeypatch.setenv(k, v)
+    for var in (C.SHARD_ENV, C.BLOCK_ENV, C.CONFIRM_ENV):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.chdir(C.REPO)
+    monkeypatch.setattr(C, "pytest_args", lambda _s, _f: [str(bad), "-p", "no:cacheprovider", "-q"])
+    shards = [C.main(["--suite", SUITE, "--fast", "--shard", f"{k}/{N}"]) for k in range(N)]
+    assert all(rc not in (0, 1) for rc in shards), shards
+    assert C.main(["--suite", SUITE, "--fast", "--merge"]) == C.MERGE_ERROR
+
+
+def test_direct_failure_of_a_suite_without_records_is_a_merge_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A denovo_precision-like suite (no harness check at all): its only verdict is shard 0's exit
+    (1); the "no calibrate records; every shard finished" branch must not return 0."""
+    shards, rc_merge = _sharded(tmp_path, "rr_shard0_assert_fails", monkeypatch)
+    assert not (tmp_path / f"{SUITE}.jsonl").exists()
+    assert shards == [1, 0, 0], shards
+    assert rc_merge == C.MERGE_FAIL, rc_merge

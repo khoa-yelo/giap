@@ -168,3 +168,57 @@ def test_unshardable() -> None:
     rec = level("unshardable", 4, 0.0, 0.5)  # unconfirmed: block 2 runs inside shard 0
     direct("unshardable")
     assert rec["status"] == "unconfirmed", rec
+
+
+# --------------------------------------------------------------------------- review of PR #327
+# (``rr_`` tests: excluded from the ``ok`` scenario; each has its own scenario in the teeth)
+
+
+def test_rr_shard0_assert_fails() -> None:
+    """Unmarked direct assertion, no harness check (as the D-1 quartiles): runs in shard 0 only and
+    fails there. Unsharded exit 1, so ``--merge`` must exit 1 (B2: it reads shard 0's exit)."""
+    direct("rr_shard0_fail")
+    raise AssertionError("direct assertion of shard 0")
+
+
+@STRICT
+def test_rr_shard0_strict_xpass() -> None:
+    """Strict xfail, no harness check, clean: a strict XPASS in shard 0 (conftest must not turn it
+    into a skip: it has no harness records) and unsharded; ``--merge`` must exit 1 (B2)."""
+    direct("rr_shard0_xpass")
+
+
+@pytest.mark.xfail(strict=True, raises=ValueError, reason="fixture: other exception")
+def test_rr_raises_other() -> None:
+    """``raises=ValueError``: an AssertionError check failure is a plain FAILED unsharded, so the
+    records carry no xfail and ``--merge`` must call the confirmed fail ``MERGE_FAIL``."""
+    verdict(level("rr_raises", 4, 0.0, 0.0))
+
+
+@LOOSE
+def test_rr_loose_xpass() -> None:
+    """Non-strict xfail whose check passes: XPASS, exit 0 unsharded and at ``--merge``."""
+    verdict(level("rr_loose_pass", 4, 0.5, 0.5))
+
+
+def _mixed(b_value: float) -> None:
+    """Check A (R = 1: shard 0 holds all of it, so it gets a verdict there) passes; check B
+    (R = 4, sharded: no verdict in a shard) is ``b_value`` in both blocks. No skip: the test
+    asserts that no check is a confirmed fail, as ``Gate.assert_ok`` does."""
+    a = level(f"rr_mixed{b_value}_a", 1, 0.5, 0.5)
+    b = level(f"rr_mixed{b_value}_b", 4, b_value, b_value)
+    assert a["status"] != "fail" and b["status"] != "fail", (a["status"], b["status"])
+
+
+@STRICT
+def test_rr_mixed_xfail() -> None:
+    """B fails in both blocks: XFAIL unsharded (exit 0). In shard 0 the statuses are [pass, shard]
+    and the test passes; that XPASS is not final (B is decided at ``--merge``), so shard 0 must
+    not report a strict XPASS, and ``--merge`` must exit 0."""
+    _mixed(0.0)
+
+
+@STRICT
+def test_rr_mixed_xpass() -> None:
+    """B passes: strict XPASS unsharded (exit 1); ``--merge`` must exit 1."""
+    _mixed(0.5)
