@@ -160,6 +160,26 @@ PXD078459 (ProteomeXchange; hosted by iProX as IPX0017169000) is the pilot's raw
   734 MS1 frames and 8804–8805 diaPASEF frames (MsMsType 9) per run.
   `validation/pilot/inputs/acquisition.json` records it.
 
+## Searches (M10-02)
+
+DIA-NN 2.3.1 Academia ran from the verified read-only copy `$GIAP_ROOT/images/diann_2.3.1.sif`
+(installed by `scripts/slurm/diann_image.sbatch`, Slurm 1879883; its sha256 is the pin in
+`validation/pilot/diann_image.sha256`). Both arms ran at commit `81272fc0` of `m10/diann-searches`
+from a clean worktree (spec Q10), on the three diaPASEF runs of PXD078459 (`acquisition.json`).
+
+| arm | Slurm job | node | state | elapsed | MaxRSS |
+|---|---|---|---|---|---|
+| A1 | 1879955 | rye-02 | COMPLETED, exit 0 | 00:14:21 | 6.6 GiB |
+| A2 | 1879956 | rye-02 | COMPLETED, exit 0 | 00:14:21 | 6.4 GiB |
+
+- **Outputs:** they stay under `$GIAP_ROOT/pilot/<arm>/`: report, library, `provenance.json`,
+  `outputs.sha256`, and both command lines. Nothing derived from the reports is committed (Khoa,
+  2026-10-23). Report row counts wait for Q-K1; the default is that they are not committed.
+- **Superseded attempts:**
+  - 1879913 (A1) and 1879914 (A2) ran concurrently without `--temp`;
+  - A2 failed with "library size mismatch", because the two arms shared `<run>.d.quant` files next to the raw runs;
+  - both arms were rerun with a per-arm `--temp`.
+
 ## Running the pilot (§15.2 steps 4-9)
 
 Every step is a batch job; nothing runs on a login node or in the session allocation.
