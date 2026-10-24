@@ -4,6 +4,7 @@
 #   bash scripts/build_envs.sh all   (conda envs only for tools without a pinned container in
 #                                     workflow/conf/containers.config, opt-in tools skipped; §3.9)
 # A named tool is always built (conda profile on demand).
+# Pilot-only envs (giap.annotate.tools.PILOT_TOOLS, M10-08) build by name with conda-forge only.
 # Per tool (M2-01 review decisions 1-3):
 #   - $prefix/.giap-built holds the sha256 of workflow/envs/<tool>.yml after a successful build;
 #     a missing or different marker removes the env and rebuilds it (half-built envs, changed ymls).
@@ -69,15 +70,16 @@ registry() {
   PYTHONPATH="$GIAP_REPO/src" "$PY" - "$1" "$ENV_DIR" <<'PYEOF'
 import hashlib, shlex, sys
 from pathlib import Path
-from giap.annotate.tools import TOOLS
+from giap.annotate.tools import PILOT_TOOLS, TOOLS
 from giap.io.fgsea_r import FGSEA_TOOL
 frozen = {FGSEA_TOOL.name: FGSEA_TOOL}  # joins TOOLS in M8-17b
-t = TOOLS[sys.argv[1]] if sys.argv[1] in TOOLS else frozen[sys.argv[1]]
+t = {**frozen, **PILOT_TOOLS, **TOOLS}[sys.argv[1]]  # PILOT_TOOLS: M10-08, never in `all`
 print(t.env_name)
 print(t.version)
 print(t.source_repo or "")
 print(shlex.join(t.version_cmd))
 print(hashlib.sha256((Path(sys.argv[2]) / f"{sys.argv[1]}.yml").read_bytes()).hexdigest())
+print("-c conda-forge" if t.module == "pilot" else "-c conda-forge -c bioconda")  # M10-08
 PYEOF
 }
 
@@ -85,10 +87,10 @@ PYEOF
 frozen() { grep -q '^# frozen-lock' "$ENV_DIR/$1.yml"; }
 
 build_one() {
-  local tool="$1" reg env_name version repo version_cmd prefix marker want sha src out mode
+  local tool="$1" reg env_name version repo version_cmd prefix marker want sha src out mode chans
   reg="$(registry "$tool")" || return 1
   { IFS= read -r env_name; IFS= read -r version; IFS= read -r repo
-    IFS= read -r version_cmd; IFS= read -r want; } <<< "$reg"
+    IFS= read -r version_cmd; IFS= read -r want; IFS= read -r chans; } <<< "$reg"
   mode=solve; if frozen "$tool"; then mode=frozen; fi
   prefix="$MAMBA_ROOT_PREFIX/envs/$env_name"
   marker="$prefix/.giap-built"
@@ -112,7 +114,8 @@ build_one() {
         -f "$LOCKS/$tool.explicit.txt" || return 1
     else
       echo "creating $env_name from workflow/envs/$tool.yml"
-      micromamba create -y -n "$env_name" -c conda-forge -c bioconda --override-channels \
+      # shellcheck disable=SC2086  # $chans: "-c conda-forge [-c bioconda]"
+      micromamba create -y -n "$env_name" $chans --override-channels \
         -f "$ENV_DIR/$tool.yml" || return 1
     fi
   fi

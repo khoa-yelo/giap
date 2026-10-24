@@ -729,9 +729,9 @@ def convert(
         sys.exit(ExitCode.INTERNAL)
     if engine == "generic":
         res = CONVERTERS[engine](list(inputs), source=source, search_db=search_db, cfg=cfg.input)
-    elif source == "denovo":
+    elif source is not None and source != ("denovo" if engine == "cascadia" else "database"):
         click.echo(
-            f"giap convert: error: --source denovo is invalid with --from {engine}", err=True
+            f"giap convert: error: --source {source} is invalid with --from {engine}", err=True
         )
         sys.exit(ExitCode.INVALID_INPUT)
     else:
