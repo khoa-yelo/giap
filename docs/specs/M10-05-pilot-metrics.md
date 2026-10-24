@@ -505,3 +505,214 @@ Tests ≈ 450 lines. One PR.
 2. **L2–L7: the defaults are accepted.**
 3. **Q-K1 and Q-K2 are parked for Khoa** with the defaults as written. Nothing under `$GIAP_ROOT/pilot/metrics/` is committed until Khoa answers. Hypothesis 3 stays descriptive.
 4. **Next:** the statistician reviews the metric definitions and the hypothesis section, then the test-author.
+
+## Statistician review (pre-test)
+
+Reviewer: statistician subagent, 2026-10-23. Scope: "Metric definitions" 1–3 and 7, "TE1 on
+real data", "Hypotheses 1 and 3", and the lead decisions. The ρ, bootstrap CI and Jaccards of
+M9-22 are copied, not re-reviewed. Checked against GIAP_SPEC §8.1–8.5, §11.6 and §15.5–15.7;
+`validation/proxies/te_proxies.py` (`te1_result`, `non_atg_nterm`, `read_coding_genes`); the
+M10-02 search commands and `summary.json`; the M10-03 `convert.json` counts. Examples 3, 4, 6, 9
+and 10 were recomputed with `wilson_ci` and `scipy.stats.binomtest`; every CI and p-value in the
+table is correct to the digits shown.
+
+**Verdict: BLOCK until changes S1–S7 are in the spec.** The edits are small and none changes the
+architecture. S3 and S4 have to land before the test-author starts: as written they would lead to
+tests built on an input that does not exist (S3) and on an identity that does not hold (S4).
+Re-review needs only the changed paragraphs.
+
+### Required changes
+
+**S1. H1 needs an effect size with a CI (§8.2: "Effect sizes with 95 % CIs accompany every p or
+q").** The H1 p-value has none. Report:
+- `prop_a2_only = b / (b + c)` with its Wilson 95 % CI (`wilson_ci(b, b + c)`);
+- the paired coverage difference `(b − c) / |G|`, which is A2's coverage minus A1's.
+
+State that the CI describes the effect and is not the test: a two-sided 95 % interval and a
+one-sided 0.05 test can disagree near the boundary. Example 6 then adds `prop_a2_only` 0.857
+[0.601, 0.960] and a difference of 10/|G|.
+
+**S2. H1's test unit is the TU, not the gene (§8.2: "Resample TUs, not genes").** Genes in one
+transcription unit are co-detected, because they share an abundance and often a protein group.
+A deleted or divergent operon therefore enters as several discordant genes that all point the
+same way. Treating them as independent Bernoulli draws makes the gene-level binomial
+anticonservative. The rule:
+- Each unit is a `tu_id` of `genes.tsv` (A2's run). A gene of **G** with an empty `tu_id` is a
+  unit by itself.
+- `b_tu`: units with ≥ 1 A2-only gene and no A1-only gene. `c_tu`: the reverse. `mixed_tu`: both
+  directions. Mixed units are reported and left out of the test, as ties are in a sign test.
+- Verdict p: `p_tu = P(X ≥ b_tu | X ~ Bin(b_tu + c_tu, ½))` (`binomtest`, `alternative="greater"`).
+  The gene-level p stays in `metrics.json` as `p_gene`, labelled "assumes independent genes".
+- Effect for the unit test: `b_tu / (b_tu + c_tu)` with its Wilson CI. The gene-level effects of
+  S1 remain the headline numbers.
+- `not_evaluable` when `b_tu + c_tu = 0`.
+
+The null is the paired-sign (exact McNemar) null: conditional on the discordant units, each is
+equally likely to go either way. Equivalently, the arms have equal marginal detection. That null
+is right for "A2 detects more strain CDS than A1", because b > c is the same event as A2 detecting
+more genes of **G**. The p-value is conditional on the observed discordant set. It treats the
+units as exchangeable, which they are not entirely: the arms are two database searches of the same
+spectra, so discordance is largely fixed by sequence divergence, and dependence at the scale of a
+region (one prophage spans many TUs) remains. The report states these two caveats in one sentence
+and does not present p as a replication probability.
+
+`examples` and `acceptance criterion 1` add an H1 fixture in which 6 A2-only genes fall in 2 TUs
+and 2 A1-only genes in 2 TUs. The expected values are `b_tu = 2`, `c_tu = 2`,
+`p_tu = P(X ≥ 2 | Bin(4, ½)) = 11/16 = 0.6875`, and verdict `not_supported`, while the gene-level
+p is 0.145.
+
+**S3. The `q_crossings` sensitivity (L4) cannot be computed as written.** M10-03's `convert.json`
+gives `counts.q_crossings` as a row count. The raw `Global.Q.Value` is not in the converted table
+and the raw report is not an input here, so "the share recomputed with those peptides removed"
+has no peptide list to work from. Replace it with a conservative superset that is computable:
+- `te1.share_without_q_at_cutoff`: remove from **D₂** every peptide whose accepted target rows all
+  have a written `q_value` equal to exactly `0.01`. Every crossing row is written as `0.01`, so
+  this set contains all the peptides that depend on a crossing.
+- Report how many peptides were removed, and `q_crossings`, beside the share.
+- When `q_crossings = 0`, report the field as `null` with `reason: no_crossings`.
+- The verdict stays on the share as GIAP saw it (L4 accepted). The report flags a pass that
+  becomes a fail under the superset.
+- The edge case "q at the cut-off" and acceptance criterion 1 (example 9 or a new example) follow
+  this definition.
+
+**S4. The metric 1 cross-check `raw_vs_written_q01` is an inequality, not an identity.** A peptide
+can have a crossing row and also a genuinely accepted row in another run or charge. Crossing rows
+can also be decoys. In those cases the difference is smaller than the number of crossing peptides,
+and the "distinct peptides among `q_crossings` rows" cannot be identified anyway (S3). Rounding
+only ever adds peptides: `%.6g` cannot push a value ≤ 0.01 above 0.01. So the check becomes
+`0 ≤ peptides.all − SUM.distinct_stripped_q01 ≤ CONV.counts.q_crossings`. It is recorded in
+`warnings` when violated and is not an exit code. When `q_crossings = 0` the difference must be 0.
+The first cross-check (`peptides.all = distinct_peptides_target_q01`, exit 1) is correct and
+stays.
+
+**S5. Metric 1 contaminant classes need a rule for keys that span several rows.** The rule:
+- A precursor, peptide or group is `contaminant_only` when every `;` item of every accepted target
+  row with that key is contaminant-prefixed. This is the rule metric 2 already uses for **C**, so
+  metric 1's peptide split equals |**C**| on peptides that pass `select_queries`.
+- A group (its sorted item set) is classed by its own items.
+
+Two labels are also required:
+- The per-run counts are "accepted at global q ≤ 0.01 among rows DIA-NN reported for that run".
+  The main report is already filtered at run-level `Q.Value ≤ 0.01` (`--qvalue 0.01`, M10-02), so
+  a per-run count is the intersection of the two filters, not a per-run FDR.
+- Only the precursor count is at a controlled 1 % FDR. Peptide-level FDR is not controlled
+  exactly, and protein-group FDR is not controlled at all (L2; §8.7: false precursors pile up on
+  single-precursor groups). The report says "groups with ≥ 1 accepted precursor (no protein-level
+  FDR control)" and adds `protein_groups_min2` (groups with ≥ 2 distinct accepted peptides) as a
+  descriptive companion that is less sensitive to that pile-up.
+
+**S6. TE1 wording: say what the test can and cannot show.** A2's search database is
+`strain_db.faa`, one record per Bakta CDS/sORF protein (M3-23, M3-24), plus contaminants, which
+**D₂** removes. Every A2 target identification, true or false, is therefore a substring of an
+annotated protein. TE1 on real data checks the agreement between database, genome and mapping,
+which is what §11.6 means by it. It says nothing about identification error: a false
+identification passes TE1 as easily as a true one. The expected misses are structural:
+- N-terminal products of non-ATG starts, which Bakta writes as M while the genome codon translates
+  to V/L/I. There is no `--met-excision`, so DIA-NN searches the M-initial peptide.
+- Sec sites.
+- Anything else is a mapping defect.
+
+Under L5 the non-ATG products stay in the denominator, and they alone could put the share near
+0.995. Add `te1.share_excluding_non_atg` (with its Wilson CI) as a pre-registered secondary
+number, never the verdict, so that a fail caused by L5 is visible as such. The report template
+carries both sentences.
+
+**S7. H3: state what metric 5 does not cover (R4).** §15.7 names islands, region tests and operon
+concordance "on shared genes". Two parts of that are not covered:
+- `compare_stability.tsv` has no region-test family, so region tests are "not compared in pass 1".
+- M9-22's Jaccards are taken over the whole flagged sets, not restricted to genes detected in
+  both arms. Islands made of strain-specific genes, which A1 cannot detect by an exact match,
+  lower the island Jaccard mechanically, so the number is a conservative stand-in for "on shared
+  genes".
+
+Both go into "Deviations from the spec" and the H3 paragraph.
+
+### Accepted as written (with reasons)
+
+**TE1 point-estimate rule (0.995).** §11.6 and §15.6 state a share of the observed A2 peptides,
+"≥ 99.5 % of A2 peptides map exactly". That is a property of a census, not a parameter estimated
+from a sample. The point estimate is the quantity named, and gating on the CI would be a stricter
+rule than the one specified, which R3 does not allow to be introduced here. The Wilson interval is
+correct as a nominal descriptive interval (peptides as Bernoulli draws of the pipeline's
+per-peptide success rate). Misses cluster by gene (a Sec gene, an operon of non-ATG starts), so
+its coverage is optimistic, and the report calls it "nominal". Showing "CI lower end below 0.995"
+next to a pass is right and stays. A CI is never described as a test.
+
+**Mapping shares, coverage and strain-specific proxy (metrics 2 and 3; L3).**
+- The universes are well defined, and **U** = `select_queries` ties metric 2 to what GIAP queried.
+- Coverage CIs are nominal and descriptive. A1 and A2 are paired on the same genes, so the report
+  must not compare arms by CI overlap: H1 is the paired comparison. Add one sentence saying so.
+- The peptide-identity proxy is the right definition for H1: a gene with no shared in-silico
+  tryptic peptide cannot be detected by A1 through an exact match. Its digest settings equal the
+  DIA-NN search's (`--cut K*,R*`, 1 missed cleavage, 7–30 aa; M10-02), which they must. Note in the
+  report that A1 can still "detect" a strain-specific gene through tolerant placements, so
+  "strain-specific" does not mean "undetectable by A1".
+- Add an `unknown` replicon row so the replicon subsets partition **G**.
+
+**H1 "mostly" clause.** Keep it as written: the gene-level point share of A2-only genes in
+plasmid ∪ prophage ∪ BGC is > 0.5, with its Wilson CI and the base rate in **G** for context. It
+is a statement about the composition of one genome's difference set, and no sampling null fits
+it. Prophages and BGCs are contiguous blocks, so neither genes nor TUs are exchangeable units for
+a test of composition. The literal 0.5 is fixed by the hypothesis wording, not tuned (R3). The
+verdict must say which clause failed: add `h1.failed_clauses` ⊆ {`direction`, `test`, `mostly`}.
+Wording "not supported by the pre-registered rule" is used, never "refuted".
+
+**Multiplicity.** The spec has one test: H1's TU-level p. Its other clauses are conjunctive
+conditions without a p-value, so it is an intersection–union rule and needs no correction. The
+gene-level p is reported, is not a decision, and is not in any family. Metrics 1–3 and 7 and TE1
+carry no p-values. Metric 4's CI and metric 5's Jaccards are M9-22's. None of the families in
+§8.1 is touched. State "test family for this issue: {H1}, size 1, no BH" in the statistics
+paragraph. With S1–S7 in the spec, L6 holds: no separate methods note is needed.
+
+**Metric 7.** Not inferential. Taking the max (not the sum) for peak RSS and the lower-bound flag
+for cached steps are correct.
+
+**Minor (recommended, not blocking).**
+- D₂ inherits `select_queries`'s rule that keeps NA-q targets, while TE1's text says
+  "q ≤ 0.01". Say that D₂ is `select_queries`'s set and that NA-q targets, if any (expected 0),
+  are kept and counted in `target_q_na`.
+- `hypothesis1` should read the per-run `detection_status` and count only `detected`, matching
+  metric 3, whatever encoding `compare_detection.tsv` uses.
+
+### Attack nulls (§8.5)
+
+None of attacks 1–6 applies: no islands, autocorrelation, region, ORA, GSEA, placement-FDR or ALT
+method is added here. S2 adds one new attack, which is required before the implementation PR
+merges. The statistician writes it at PR review, once `hypothesis1` exists:
+`tests/calibration/attacks/test_attack_h1_tu_clustering.py`.
+- **Null:** about 4,000 genes in TUs of geometric size (mean 2.5); 300 discordant TUs; each TU's
+  direction is a fair coin, shared by all its discordant genes (H0 true).
+- **Replicates:** R = 1,000 (fast; pure NumPy/SciPy, < 10 s), with seeds from
+  `tests/calibration/tolerances.yaml`.
+- **Pass:** `p_tu` stays at level α ∈ {0.01, 0.05, 0.10} within α + 2√(α(1 − α)/R) (§8.4).
+- **Documentation, not a gate:** the test records the gene-level p's rejection rate, which is
+  expected above level, to show why S2 is needed.
+
+### Q-K2 recommendation (Khoa decides; the lead's default is "descriptive")
+
+I recommend fixing an H3 rule now. §15.7 calls the hypotheses "fixed before running", and a
+hypothesis without a decision rule can neither be supported nor fail. A descriptive H3 is
+acceptable only if the report labels it "no pre-registered rule; descriptive". The rule has to be
+committed before any M10-04 compare output exists. The `spec` SHA in `metrics.json` and the
+commit date record that. Proposed rule:
+- **ρ criterion:** evaluable when the A1/A2 `compare_abundance.tsv` row has a ρ and no
+  `too_few_shared` flag. It holds when `ci_low ≥ 0.7` (the TU-block bootstrap lower end, so
+  "ρ > 0.7" at one-sided 97.5 %).
+- **Jaccard criterion,** per family in {`islands`, `operon_flags`, `enriched_categories`}:
+  - evaluable when the union `n_a + n_b − n_shared ≥ 5`. Smaller sets give Jaccards that move by
+    0.2 or more per element, and `both_empty` or `missing_in` rows are not evaluable;
+  - it holds when `jaccard ≥ 0.5`. With equal set sizes that means each arm shares two thirds of
+    its set with the other.
+- **Verdict:**
+  - `supported`: the ρ criterion is evaluable and holds, at least one family is evaluable, and
+    every evaluable family holds;
+  - `not_supported`: any evaluable criterion fails;
+  - `not_evaluable`: otherwise.
+- **Reported with it:** the per-criterion status, and the S7 caveats (no region tests; the
+  Jaccards are not restricted to shared genes, which biases them against H3).
+- **Multiplicity:** this is also an intersection–union rule on M9-22's quantities and needs no
+  correction.
+
+The thresholds 0.7 and 0.5 are conventional "strong agreement" and "majority overlap" values,
+chosen without data, as R3 requires. If Khoa answers after the numbers are seen, the rule is
+reported as post hoc, as the spec already says.
