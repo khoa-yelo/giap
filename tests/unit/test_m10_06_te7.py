@@ -1,5 +1,6 @@
-"""TE7 of ``validation/pilot/te_real.py``: ``classify_tree``, ``diann_layer`` and the ``te7`` CLI
-(M10-06 acceptance criteria 6, 7, 8 (pair half) and 10 (``te7`` half)).
+"""M10-06b, TE7: ``validation/pilot/te7.py`` (``classify_tree``, ``diann_layer``) and the ``te7``
+subcommand that ``te_real.py`` keeps and delegates (M10-06 acceptance criteria 6, 7, 8 (pair half)
+and 10 (``te7`` half); review round 1 S1-S4, N3 and test gaps 1-3 and 5-7).
 
 Spec: docs/specs/M10-06-te-real-and-te7.md ("TE7: a second A2 run, byte for byte", examples 7-10,
 edge cases "TE7 reference resumed or on another commit", "TE7 with a module switched off", ".gz
@@ -7,7 +8,8 @@ gate files", "DIA-NN replicate fails or lands on another class"). Trees, ``outpu
 and converted tables are hand-made; the code-equivalence check runs on a temporary git
 repository.
 
-Interface fixed here (test-author reading of the spec "Interface"):
+Interface fixed here (test-author reading of the spec "Interface"; lead decisions of review
+round 1: TE7 lives in ``validation/pilot/te7.py``, the CLI ``te_real.py te7`` is unchanged):
 
 * ``classify_tree(files_a, files_b, known_columns, producers, labels=("ref", "rep1"))``:
   ``files_*`` map an OUT-relative POSIX path to a zero-argument callable returning the bytes;
@@ -30,7 +32,12 @@ Interface fixed here (test-author reading of the spec "Interface"):
   ``both``, ``jaccard_precursors``, ``jaccard_peptides``, ``q_value_differs``,
   ``acceptance_flips``, ``intensity_differs``, ``max_abs_log2_intensity_ratio``});
 * ``te_real.py te7`` writes ``te7.json`` (schema ``giap-pilot-te7/1``) and ``te7_files.tsv``
-  (``path``, ``class``, ``sha256_a``, ``sha256_b``, ``equal``).
+  (``path``, ``class``, ``sha256_a``, ``sha256_b``, ``equal``). Run labels: the ``rep\\d+`` of
+  each run directory's name, else ``ref`` for the reference and ``rep1`` for the replicate (N3).
+  The producing step of a gate file and its CPU classes come from ``logs/trace.tsv``'s ``name``
+  (Nextflow aliases such as ``VARIANTS_STEP`` map to the registry step ``variants``; S3);
+  ``known_lapack`` needs both runs' class lists non-empty and different (S1); ``--peptides-a``
+  must have the sha256 of both manifests' ``peptides`` input, else exit 2 (S2).
 """
 
 from __future__ import annotations
@@ -38,6 +45,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -45,26 +53,30 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import pytest
-from helpers.te_real_m10 import (
+from helpers.te7_m10 import (
     GENES_TSV,
     KNOWN,
     KNOWN_COLUMNS,
+    REGIONS_TSV_LAPACK,
     REPO,
     base_tree,
     conv_frame,
     edit_manifest,
     ex7_replicate,
     ex8_replicate,
-    load_te_real,
+    gz,
+    load_te7,
     make_repo,
     producers_for,
     readers,
-    run_te_real,
+    set_peptides_sha,
     sha256_bytes,
     sums_text,
     write_conv,
+    write_named_trace,
     write_run,
 )
+from helpers.te_real_m10 import load_te_real, run_te_real
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -73,7 +85,16 @@ LABELS = ("ref", "rep1")
 
 @pytest.fixture(scope="module")
 def tr() -> Any:
-    return load_te_real()
+    return load_te7()
+
+
+def test_te7_module_is_the_one_copy(tr: Any) -> None:
+    """TE7 moved to ``te7.py`` (L14 split); ``te_real.py`` keeps no second copy of it."""
+    te_real = load_te_real()
+    for name in ("classify_tree", "diann_layer", "path_class", "pair_problems"):
+        fn = getattr(tr, name)
+        assert callable(fn), name
+        assert getattr(te_real, name, fn) is fn, f"te_real.{name} is a second copy"
 
 
 def classify(tr: Any, a: dict[str, bytes], b: dict[str, bytes], producers: Any = None) -> Any:
@@ -229,12 +250,48 @@ def test_only_in_ref(tr: Any) -> None:
 
 
 def test_gzip_with_different_payload_is_not_header_only(tr: Any) -> None:
-    from helpers.te_real_m10 import gz
-
     rep = base_tree()
     rep["tables/pileup.tsv.gz"] = gz(b"contig\tpos\tdepth\nchr1\t1\t3\nchr1\t2\t5\n", 0)
     c = _by_path(classify(tr, base_tree(), rep))["tables/pileup.tsv.gz"]["class"]
     assert c != "gzip_header_only"
+
+
+def test_gz_gate_file_that_is_not_gzip_is_content(tr: Any) -> None:
+    """Test gap 7: a ``.gz`` path whose bytes are no gzip stream falls back to ``content``."""
+    a, b = base_tree(), base_tree()
+    a["tables/pileup.tsv.gz"] = b"contig\tpos\tdepth\nchr1\t1\t3\n"
+    b["tables/pileup.tsv.gz"] = b"contig\tpos\tdepth\nchr1\t1\t4\n"
+    g = classify(tr, a, b)
+    assert g["status"] == "fail"
+    assert _by_path(g)["tables/pileup.tsv.gz"]["class"] == "content"
+
+
+def test_non_utf8_gate_file_is_content(tr: Any) -> None:
+    """Test gap 7: bytes that do not decode as UTF-8 are ``content`` (no crash, no exit 1)."""
+    a, b = base_tree(), base_tree()
+    a["annotation/genes.gff3"] = b"##gff-version 3\n\xff\xfe\x00\x01\n"
+    b["annotation/genes.gff3"] = b"##gff-version 3\n\xff\xfe\x00\x02\n"
+    d = _by_path(classify(tr, a, b))["annotation/genes.gff3"]
+    assert d["class"] == "content" and d["sub_class"] is None
+
+
+@pytest.mark.parametrize(
+    ("ref_classes", "rep_classes"),
+    [(["rye"], []), ([], ["wheat"]), ([], [])],
+    ids=["rep_has_none", "ref_has_none", "neither_has_any"],
+)
+def test_known_lapack_needs_cpu_classes_in_both_runs(
+    tr: Any, ref_classes: list[str], rep_classes: list[str]
+) -> None:
+    """S1: a step absent from one run's trace (an empty class list) is no evidence of different
+    CPU classes: listed columns only, still ``numeric_only`` without ``known_lapack``."""
+    rep = base_tree()
+    rep["tables/regions_stats.tsv"] = REGIONS_TSV_LAPACK
+    prod = producers_for("tables/regions_stats.tsv", "context_stats", ref_classes, rep_classes)
+    rs = _by_path(classify(tr, base_tree(), rep, prod))["tables/regions_stats.tsv"]
+    assert rs["class"] == "numeric_only"
+    assert rs["sub_class"] is None
+    assert rs["producer"] == "context_stats"
 
 
 @settings(max_examples=40, deadline=None)
@@ -261,7 +318,7 @@ def test_gzip_with_different_payload_is_not_header_only(tr: Any) -> None:
 def test_property_identical_trees_pass_one_gate_byte_fails(
     files: dict[str, bytes], data: Any
 ) -> None:
-    tr = load_te_real()
+    tr = load_te7()
     g = tr.classify_tree(readers(files), readers(dict(files)), KNOWN, {}, labels=LABELS)
     assert g["status"] == "pass" and g["differing"] == []
     gate = sorted(
@@ -356,6 +413,32 @@ def test_example_10_nondeterministic(tr: Any) -> None:
     assert l3["max_abs_log2_intensity_ratio"] == pytest.approx(0.004, abs=1e-9)
 
 
+@pytest.mark.parametrize(
+    ("ia", "ib"),
+    [(0.0, 1000.0), (1000.0, 0.0), (float("nan"), 1000.0), (1000.0, float("nan"))],
+    ids=["zero_in_a", "zero_in_b", "na_in_a", "na_in_b"],
+)
+def test_l3_max_log2_ratio_skips_zero_and_na_intensities(tr: Any, ia: float, ib: float) -> None:
+    """Surviving mutant 19: the maximum |log2 ratio| is over the pairs with both intensities
+    finite and positive; a zero or NA intensity is counted in ``intensity_differs`` only."""
+    rows = [("WT_1", f"PEPTIDE{i:02d}K", 2, False, 0.001, 1000.0) for i in range(4)]
+    a, b = list(rows), list(rows)
+    b[1] = ("WT_1", rows[1][1], 2, False, 0.001, 1000.0 * 2**0.25)  # the one finite ratio
+    a[2] = ("WT_1", rows[2][1], 2, False, 0.001, ia)
+    b[2] = ("WT_1", rows[2][1], 2, False, 0.001, ib)
+    r = tr.diann_layer(
+        {"A2_report.parquet": H["rep"]},
+        {"A2_report.parquet": H["rep2"]},
+        conv_frame(a),
+        conv_frame(b),
+        conv_sha=(H["conv"], H["conv2"]),
+    )
+    l3 = r["l3"]
+    assert l3["max_abs_log2_intensity_ratio"] == pytest.approx(0.25, abs=1e-12)
+    assert l3["intensity_differs"] == 2
+    assert l3["both"] == 4 and l3["only_a"] == l3["only_b"] == 0
+
+
 # ------------------------------------------------------------------ te7 CLI fixtures
 
 
@@ -370,17 +453,24 @@ def _pair(
     repo: tuple[Path, dict[str, str]],
     rep_files: dict[str, bytes] | None = None,
     rep_commit: str = "base",
+    *,
+    ref_files: dict[str, bytes] | None = None,
+    names: tuple[str, str] = ("out_a2", "out_a2_rep1"),
     **rep_over: Any,
 ) -> tuple[Path, Path]:
     _, shas = repo
     ref = write_run(
-        tmp / "out_a2", base_tree(), commit=shas["base"], outdir_label="out_a2", hosts=("rye-02",)
+        tmp / names[0],
+        ref_files if ref_files is not None else base_tree(),
+        commit=shas["base"],
+        outdir_label=names[0],
+        hosts=("rye-02",),
     )
     rep = write_run(
-        tmp / "out_a2_rep1",
+        tmp / names[1],
         rep_files if rep_files is not None else ex7_replicate(),
         commit=shas[rep_commit],
-        outdir_label="out_a2_rep1",
+        outdir_label=names[1],
         hosts=("wheat-03",),
         **rep_over,
     )
@@ -431,6 +521,7 @@ def test_te7_cli_pass_and_layout(tmp_path: Path, repo: Any) -> None:
     assert rows and set(rows[0]) == {"path", "class", "sha256_a", "sha256_b", "equal"}
     assert [r["path"] for r in rows] == sorted(r["path"] for r in rows)
     # the DIA-NN layer was not given: never part of the verdict, no end-to-end claim
+    assert doc["diann"]["status"] == "not_run"  # test gap 5
     assert doc["end_to_end"] is False
 
 
@@ -508,6 +599,9 @@ def _manifest_case(name: str) -> Any:
         ("ref", "resume"),
         ("ref", "cached"),
         ("ref", "dirty"),
+        ("rep", "resume"),  # test gap 6: both runs must be fresh, not only the reference
+        ("rep", "cached"),
+        ("rep", "dirty"),
         ("rep", "failed"),
         ("ref", "failed"),
     ],
@@ -565,7 +659,14 @@ def test_te7_different_hosts_no_difference_pass_hosts_recorded(tmp_path: Path, r
 # ------------------------------------------------------------------ DIA-NN layer through the CLI
 
 
-def _diann_dirs(tmp: Path, report_same: bool, conv_same: bool) -> list[str]:
+def _diann_dirs(
+    tmp: Path,
+    report_same: bool,
+    conv_same: bool,
+    pair: tuple[Path, Path] | None = None,
+) -> list[str]:
+    """The four DIA-NN flags. With ``pair``, both manifests' ``peptides`` input gets the sha256 of
+    ``--peptides-a`` (the GIAP pair ran on the first search's converted table; S2)."""
     da, db = tmp / "diann_a" / "A2", tmp / "diann_b" / "A2"
     for d, rep, node in (
         (da, H["rep"], "rye-02"),
@@ -580,6 +681,8 @@ def _diann_dirs(tmp: Path, report_same: bool, conv_same: bool) -> list[str]:
     a, b = _ex10_tables()
     pa = write_conv(tmp / "conv_a" / "a2.tsv.gz", a)
     pb = write_conv(tmp / "conv_b" / "a2.tsv.gz", a if conv_same else b)
+    for out in pair or ():
+        set_peptides_sha(out, sha256_bytes(pa.read_bytes()))
     return [
         "--diann-a",
         str(da),
@@ -595,7 +698,7 @@ def _diann_dirs(tmp: Path, report_same: bool, conv_same: bool) -> list[str]:
 def test_te7_cli_example_9_end_to_end(tmp_path: Path, repo: Any) -> None:
     ref, rep = _pair(tmp_path, repo)
     out = tmp_path / "metrics"
-    _ok(_te7(ref, rep, repo, out, *_diann_dirs(tmp_path, report_same=False, conv_same=True)))
+    _ok(_te7(ref, rep, repo, out, *_diann_dirs(tmp_path, False, True, (ref, rep))))
     doc = _doc(out)
     assert doc["diann"]["status"] == "identical_converted"
     assert doc["diann"]["l3"] is None
@@ -607,7 +710,7 @@ def test_te7_cli_example_9_end_to_end(tmp_path: Path, repo: Any) -> None:
 def test_te7_cli_example_10_nondeterministic_is_not_the_verdict(tmp_path: Path, repo: Any) -> None:
     ref, rep = _pair(tmp_path, repo)
     out = tmp_path / "metrics"
-    _ok(_te7(ref, rep, repo, out, *_diann_dirs(tmp_path, report_same=False, conv_same=False)))
+    _ok(_te7(ref, rep, repo, out, *_diann_dirs(tmp_path, False, False, (ref, rep))))
     doc = _doc(out)
     assert doc["diann"]["status"] == "nondeterministic"
     assert doc["diann"]["l3"]["only_a"] == 12 and doc["diann"]["l3"]["only_b"] == 9
@@ -621,10 +724,164 @@ def test_te7_end_to_end_false_when_giap_fails(tmp_path: Path, repo: Any) -> None
     rep_files["tables/islands.tsv"] = ex8_replicate()["tables/islands.tsv"]
     ref, rep = _pair(tmp_path, repo, rep_files)
     out = tmp_path / "metrics"
-    _ok(_te7(ref, rep, repo, out, *_diann_dirs(tmp_path, report_same=True, conv_same=True)))
+    _ok(_te7(ref, rep, repo, out, *_diann_dirs(tmp_path, True, True, (ref, rep))))
     doc = _doc(out)
     assert doc["diann"]["status"] == "identical_report"
     assert doc["giap"]["status"] == "fail" and doc["end_to_end"] is False
+
+
+def test_te7_peptides_a_not_the_pairs_input_exit_2(tmp_path: Path, repo: Any) -> None:
+    """S2: ``end_to_end`` rests on ``--peptides-a`` being the table the GIAP pair read; a
+    ``--peptides-a`` whose sha256 differs from the manifests' ``peptides`` input is exit 2."""
+    ref, rep = _pair(tmp_path, repo)
+    out = tmp_path / "metrics"
+    extra = _diann_dirs(tmp_path, False, True)  # manifests keep their own peptides sha256
+    res = _te7(ref, rep, repo, out, *extra)
+    assert res.returncode == 2, f"exit {res.returncode}\n{res.stdout}\n{res.stderr}"
+    assert _nothing_written(out)
+
+
+@pytest.mark.parametrize("drop", ["--diann-a", "--diann-b", "--peptides-a", "--peptides-b"])
+def test_te7_some_diann_flags_only_exit_2(tmp_path: Path, repo: Any, drop: str) -> None:
+    """Test gap 5: the four DIA-NN flags go together; three of them is a precondition."""
+    ref, rep = _pair(tmp_path, repo)
+    extra = _diann_dirs(tmp_path, False, True, (ref, rep))
+    i = extra.index(drop)
+    del extra[i : i + 2]
+    out = tmp_path / "metrics"
+    res = _te7(ref, rep, repo, out, *extra)
+    assert res.returncode == 2, f"exit {res.returncode}\n{res.stdout}\n{res.stderr}"
+    assert _nothing_written(out)
+
+
+# ------------------------------------------------------------------ run labels (N3)
+
+
+def test_te7_two_fresh_replicates_are_labelled_rep1_and_rep2(tmp_path: Path, repo: Any) -> None:
+    """N3: with two fresh replicates (``out_a2_rep1``, ``out_a2_rep2``) both labels are the
+    ``rep\\d+`` of the directory; a file only in the first is ``only_in:rep1``, not ``ref``."""
+    ref_files = base_tree()
+    ref_files["tables/extra_first.tsv"] = b"a\n1\n"
+    ref, rep = _pair(
+        tmp_path, repo, base_tree(), ref_files=ref_files, names=("out_a2_rep1", "out_a2_rep2")
+    )
+    out = tmp_path / "metrics"
+    _ok(_te7(ref, rep, repo, out))
+    doc = _doc(out)
+    assert set(doc["pair"]) == {"rep1", "rep2"}
+    assert _by_path(doc["giap"])["tables/extra_first.tsv"]["class"] == "only_in:rep1"
+
+
+def test_te7_reference_without_rep_number_is_ref(tmp_path: Path, repo: Any) -> None:
+    ref, rep = _pair(tmp_path, repo, base_tree())
+    out = tmp_path / "metrics"
+    _ok(_te7(ref, rep, repo, out))
+    assert set(_doc(out)["pair"]) == {"ref", "rep1"}
+
+
+# ------------------------------------------------------- producers from real traces (S1, S3, S4)
+
+#: real trace ``name`` values: the Nextflow alias after the last ``:`` (S3)
+TRACE_NAMES = (
+    "GIAP:CONTEXT:CONTEXT_STATS (chr1)",
+    "GIAP:VARIANTS:VARIANTS_STEP (chr1)",
+    "GIAP:FUNCTION:FUNCTION_STEP",
+    "GIAP:OPERONS:OPERONS_STEP",
+    "GIAP:DETERMINANTS:DETERMINANTS_STEP",
+    "GIAP:REPORT:PLOTS",
+    "GIAP:REPORT:REPORT_HTML",
+)
+REGIONS_A = (
+    b"region_id\tmetric\tn_genes\thl_shift_log2\teffect\tci_low\tci_high\tp_value\n"
+    b"prophage_1\tdetected\t12\t0.5\t0.25\t0.1\t0.4\t0.031\n"
+)
+#: only M4-20 decision 9 columns move (effect, ci_low); the p-value does not (decision 9)
+REGIONS_B = REGIONS_A.replace(b"\t0.25\t0.1\t", b"\t0.25000000000000006\t0.10000000000000002\t")
+AUTOCORR_HEADER = (
+    b"contig\tstatistic\tlag\tnull_model\tvalue\tnull_mean\tnull_lo\tnull_hi\tstat\teffect"
+    b"\tci_low\tci_high\tp_value\tq_value\tmethod\tn_perm\tflags\n"
+)
+AUTOCORR_A = AUTOCORR_HEADER + (
+    b"chr1\tjoin_count_bb\t1\tpermutation\t1382\t760.125\t700.0\t820.0\tjoin_count_bb"
+    b"\t621.875\tNA\tNA\t0.0009\t0.0018\tpermutation\t1000\tNA\n"
+)
+#: M5-11 decisions 44/46/48: null_mean, effect (decision 46's drifting stat), p_value, q_value
+AUTOCORR_B = (
+    AUTOCORR_A.replace(b"\t760.125\t", b"\t760.1250000000001\t")
+    .replace(b"\tjoin_count_bb\t621.875\t", b"\tjoin_count_bb\t621.8749999999999\t")
+    .replace(b"\t0.0009\t0.0018\t", b"\t0.001\t0.002\t")
+)
+STEP_FILES = {
+    "tables/variants.tsv": "variants",
+    "tables/category_summary.tsv": "function",
+    "tables/operons.tsv": "operons",
+    "tables/determinants_features.tsv": "determinants",
+}
+
+
+def _producer_pair(
+    tmp: Path, repo: Any, rep_trace: tuple[str, ...] | None = TRACE_NAMES
+) -> dict[str, Any]:
+    """Ref on rye, replicate on wheat; every STEP_FILES table and the two LAPACK tables differ.
+    ``rep_trace`` None: the replicate has no ``logs/trace.tsv`` at all."""
+    a, b = base_tree(), base_tree()
+    a["tables/regions_stats.tsv"], b["tables/regions_stats.tsv"] = REGIONS_A, REGIONS_B
+    a["tables/autocorrelation.tsv"], b["tables/autocorrelation.tsv"] = AUTOCORR_A, AUTOCORR_B
+    for path in STEP_FILES:
+        a[path] = b"id\tscore\nx\t1.0\n"
+        b[path] = b"id\tscore\nx\t1.5\n"
+    ref, rep = _pair(tmp, repo, b, ref_files=a)
+    write_named_trace(ref, [(n, "rye-02") for n in TRACE_NAMES])
+    if rep_trace is None:
+        (rep / "logs" / "trace.tsv").unlink()
+    else:
+        write_named_trace(rep, [(n, "wheat-03") for n in rep_trace])
+    out = tmp / "metrics"
+    _ok(_te7(ref, rep, repo, out))
+    return _by_path(_doc(out)["giap"])
+
+
+def test_producers_from_real_trace_names_and_aliases(tmp_path: Path, repo: Any) -> None:
+    """S3: ``*_STEP`` aliases map to their registry steps; each table reports its producer's
+    CPU classes per run."""
+    d = _producer_pair(tmp_path, repo)
+    both = {"ref": ["rye"], "rep1": ["wheat"]}
+    for path, step in STEP_FILES.items():
+        assert d[path]["producer"] == step, path
+        assert d[path]["cpu_classes"] == both, path
+        assert d[path]["sub_class"] is None, path  # score is not a listed LAPACK column
+    rs = d["tables/regions_stats.tsv"]
+    assert rs["producer"] == "context_stats" and rs["cpu_classes"] == both
+    assert rs["class"] == "numeric_only" and rs["sub_class"] == "known_lapack"
+    assert rs["columns"] == ["effect", "ci_low"]
+
+
+def test_autocorrelation_permutation_p_values_are_known_lapack(tmp_path: Path, repo: Any) -> None:
+    """S4 (M5-11 decision 48): the join-count p_value and q_value move with the BLAS-drifted
+    observed value; with null_mean and effect they are all in te7_known_columns.tsv."""
+    ac = _producer_pair(tmp_path, repo)["tables/autocorrelation.tsv"]
+    assert ac["producer"] == "context_stats"
+    assert ac["class"] == "numeric_only"
+    assert ac["columns"] == ["null_mean", "effect", "p_value", "q_value"]
+    assert ac["sub_class"] == "known_lapack"
+
+
+def test_step_missing_from_one_trace_is_not_known_lapack(tmp_path: Path, repo: Any) -> None:
+    """S1 / test gap 1: the replicate's trace has no CONTEXT_STATS task."""
+    rep_trace = tuple(n for n in TRACE_NAMES if "CONTEXT_STATS" not in n)
+    rs = _producer_pair(tmp_path, repo, rep_trace)["tables/regions_stats.tsv"]
+    assert rs["class"] == "numeric_only" and rs["producer"] == "context_stats"
+    assert rs["cpu_classes"] == {"ref": ["rye"], "rep1": []}
+    assert rs["sub_class"] is None
+
+
+def test_missing_trace_file_is_not_known_lapack(tmp_path: Path, repo: Any) -> None:
+    """S1 / test gap 1: the replicate has no logs/trace.tsv."""
+    d = _producer_pair(tmp_path, repo, None)
+    for path in ("tables/regions_stats.tsv", "tables/autocorrelation.tsv"):
+        assert d[path]["class"] == "numeric_only", path
+        assert d[path]["cpu_classes"] == {"ref": ["rye"], "rep1": []}, path
+        assert d[path]["sub_class"] is None, path
 
 
 # ------------------------------------------------------------------ criterion 10 (te7 half)
@@ -634,7 +891,7 @@ def test_te7_twice_is_byte_identical(tmp_path: Path, repo: Any) -> None:
     rep_files = ex8_replicate()
     ref, rep = _pair(tmp_path, repo, rep_files)
     o1, o2 = tmp_path / "m1", tmp_path / "m2"
-    extra = _diann_dirs(tmp_path, report_same=False, conv_same=False)
+    extra = _diann_dirs(tmp_path, False, False, (ref, rep))
     _ok(_te7(ref, rep, repo, o1, *extra))
     _ok(_te7(ref, rep, repo, o2, *extra))
     for name in ("te7.json", "te7_files.tsv"):
@@ -663,6 +920,47 @@ def test_known_columns_file_lists_numeric_schema_columns() -> None:
         }
         assert r["column"] in types, r
         assert types[r["column"]] in ("number", "integer"), r
+
+
+def _known_rows() -> tuple[list[str], list[dict[str, str]]]:
+    lines = KNOWN_COLUMNS.read_text(encoding="utf-8").splitlines()
+    comments = [ln for ln in lines if ln.startswith("#")]
+    rows = list(csv.DictReader((ln for ln in lines if not ln.startswith("#")), delimiter="\t"))
+    return comments, rows
+
+
+def test_known_columns_exact_sets_per_table() -> None:
+    """S4 (lead decision): regions_stats keeps its M4-20 decision 9 lstsq columns; autocorrelation
+    lists null_mean, null_lo, null_hi, effect (decisions 44, 46, 47) and p_value, q_value
+    (decision 48), and drops ``value`` (an integer join count)."""
+    _, rows = _known_rows()
+    by: dict[str, set[str]] = {}
+    for r in rows:
+        by.setdefault(r["table"], set()).add(r["column"])
+    assert by == {
+        "tables/regions_stats.tsv": {"hl_shift_log2", "effect", "ci_low", "ci_high"},
+        "tables/autocorrelation.tsv": {
+            "null_mean",
+            "null_lo",
+            "null_hi",
+            "effect",
+            "p_value",
+            "q_value",
+        },
+    }
+    for r in rows:
+        if r["table"] == "tables/autocorrelation.tsv" and r["column"] in ("p_value", "q_value"):
+            assert "48" in r["source"], r
+    assert len(rows) == len({(r["table"], r["column"]) for r in rows})  # no duplicate row
+
+
+def test_known_columns_comment_places_decision_46_in_effect() -> None:
+    """S4: the comment says decision 46's drifting value is today's ``effect`` column (not a
+    string column)."""
+    comments, _ = _known_rows()
+    text = " ".join(c.lstrip("# ") for c in comments)
+    assert re.search(r"46.{0,160}effect|effect.{0,160}46", text), comments
+    assert "string column" not in text
 
 
 def test_numeric_cells_numpy_float_parsing_sanity() -> None:

@@ -1,16 +1,18 @@
-"""The ``metrics.py`` hook, the ``render`` diagnosis rule, the template section and the guard
-(M10-06 acceptance criteria 9 and 11; §15.6 bullet 5).
+"""M10-06a: the ``metrics.py`` hook for TE2-TE5 (``--te-real``), the ``render`` diagnosis rule,
+the template section and the guard (M10-06 acceptance criteria 9 and 11; §15.6 bullet 5; review
+round 1 N2). The TE7 half (``--te7``, the TE7 row, a TE7 diagnosis) is
+``test_m10_06_te7_hook.py`` (M10-06b).
 
 Spec: docs/specs/M10-06-te-real-and-te7.md ("Investigation of failures", "Outputs" > "metrics.py
 hook", "Committed"); Khoa's rule of 2026-10-24 (aggregates and named example genes may be
 committed, row-level DIA-NN content may not: the two TSVs are never tracked; a tracked
 ``te_real.json`` / ``te7.json`` must hold no sequence).
 
-``te_real.json`` and ``te7.json`` come from ``te_real.py`` on the synthetic pilot and a hand-made
-TE7 pair; scenarios edit only their ``status`` fields. Interface fixed here: ``metrics.py
-compute`` copies them under ``te_real`` and ``te7`` of ``metrics.json``; checklist bullet 5 is
-``checklist.4.status``; a TE is "not passed" when its ``status`` is not ``pass`` (TE5 by its
-combined ``te5.status``); ``render`` exit 1 names the TE (``TE3``) on stderr.
+``te_real.json`` comes from ``te_real.py compute`` on the synthetic pilot; scenarios edit only its
+``status`` fields. Interface fixed here: ``metrics.py compute`` copies it under ``te_real`` of
+``metrics.json``; checklist bullet 5 is ``checklist.4.status``; a TE is "not passed" when its
+``status`` is not ``pass`` (TE5 by its combined ``te5.status``); ``render`` exit 1 names the TE
+(``TE3``) on stderr; a diagnosis section names exactly one cause class (N2).
 """
 
 from __future__ import annotations
@@ -27,15 +29,13 @@ from helpers.pilot_metrics_m10 import TEMPLATE, run_cli, sim_world
 from helpers.te_real_m10 import (
     CAUSE_CLASSES,
     REPO,
-    base_tree,
     build_te_pilot,
-    make_repo,
     run_te_real,
     te_compute_args,
-    write_run,
 )
 
-SECTION = "True examples (TE2\u2013TE5) and determinism (TE7)"
+#: the 06a heading may stop here; 06b completes it with " and determinism (TE7)"
+SECTION_PREFIX = "True examples (TE2\u2013TE5)"
 
 
 @pytest.fixture(scope="module")
@@ -46,44 +46,19 @@ def inputs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     te_out = root / "te_metrics"
     res = run_te_real(*te_compute_args(p, contam, te_out), cwd=p.root)
     assert res.returncode == 0, res.stdout + res.stderr
-    shas = make_repo(root / "repo")
-    ref = write_run(
-        root / "runs" / "out_a2", base_tree(), commit=shas["base"], outdir_label="out_a2"
-    )
-    rep = write_run(root / "runs" / "rep1", base_tree(), commit=shas["base"], outdir_label="rep1")
-    res = run_te_real(
-        "te7",
-        "--ref",
-        str(ref),
-        "--rep",
-        str(rep),
-        "--repo",
-        str(root / "repo"),
-        "--out",
-        str(te_out),
-    )
-    assert res.returncode == 0, res.stdout + res.stderr
     te_real = json.loads((te_out / "te_real.json").read_text(encoding="utf-8"))
-    te7 = json.loads((te_out / "te7.json").read_text(encoding="utf-8"))
     assert te_real["te2"]["status"] == te_real["te3"]["status"] == "pass"
-    assert te7["giap"]["status"] == "pass"
-    return {"root": root, "pilot": p, "te_real": te_real, "te7": te7}
+    return {"root": root, "pilot": p, "te_real": te_real}
 
 
-def _variant(
-    inputs: dict[str, Any], tmp: Path, *, fail: tuple[str, ...] = (), te7_fail: bool = False
-) -> tuple[Path, Path]:
-    """Copies of te_real.json / te7.json with the named TEs set to ``fail``."""
+def _variant(inputs: dict[str, Any], tmp: Path, *, fail: tuple[str, ...] = ()) -> Path:
+    """A copy of te_real.json with the named TEs set to ``fail``."""
     te_real = json.loads(json.dumps(inputs["te_real"]))
     for te in fail:
         te_real[te]["status"] = "fail"
-    te7 = json.loads(json.dumps(inputs["te7"]))
-    if te7_fail:
-        te7["giap"]["status"] = "fail"
-    a, b = tmp / "te_real.json", tmp / "te7.json"
+    a = tmp / "te_real.json"
     a.write_text(json.dumps(te_real, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    b.write_text(json.dumps(te7, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    return a, b
+    return a
 
 
 def _metrics(inputs: dict[str, Any], out: Path, *extra: str) -> dict[str, Any]:
@@ -116,11 +91,10 @@ def test_bullet_5_pending_without_te_real(inputs: dict[str, Any], tmp_path: Path
 
 
 def test_bullet_5_pass_with_four_passes(inputs: dict[str, Any], tmp_path: Path) -> None:
-    a, b = _variant(inputs, tmp_path)
-    doc = _metrics(inputs, tmp_path / "m", "--te-real", str(a), "--te7", str(b))
+    a = _variant(inputs, tmp_path)
+    doc = _metrics(inputs, tmp_path / "m", "--te-real", str(a))
     assert _bullet5(doc) == "pass"
     assert doc["te_real"] == inputs["te_real"]  # copied unchanged
-    assert doc["te7"] == inputs["te7"]
 
 
 @pytest.mark.parametrize(
@@ -129,24 +103,18 @@ def test_bullet_5_pass_with_four_passes(inputs: dict[str, Any], tmp_path: Path) 
 def test_bullet_5_reported_k_not_passed(
     inputs: dict[str, Any], tmp_path: Path, fail: tuple[str, ...], k: int
 ) -> None:
-    a, b = _variant(inputs, tmp_path, fail=fail)
-    doc = _metrics(inputs, tmp_path / "m", "--te-real", str(a), "--te7", str(b))
+    a = _variant(inputs, tmp_path, fail=fail)
+    doc = _metrics(inputs, tmp_path / "m", "--te-real", str(a))
     assert _bullet5(doc) == f"reported ({k} not passed, explained)"
-
-
-def test_te7_is_not_a_bullet(inputs: dict[str, Any], tmp_path: Path) -> None:
-    a, b = _variant(inputs, tmp_path, te7_fail=True)
-    doc = _metrics(inputs, tmp_path / "m", "--te-real", str(a), "--te7", str(b))
-    assert _bullet5(doc) == "pass"  # TE7 has its own report section
     assert len(doc["checklist"]) == 5
 
 
 def test_not_evaluable_counts_as_not_passed(inputs: dict[str, Any], tmp_path: Path) -> None:
-    a, b = _variant(inputs, tmp_path)
+    a = _variant(inputs, tmp_path)
     doc = json.loads(a.read_text(encoding="utf-8"))
     doc["te4"]["status"] = "not_evaluable"
     a.write_text(json.dumps(doc, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    m = _metrics(inputs, tmp_path / "m", "--te-real", str(a), "--te7", str(b))
+    m = _metrics(inputs, tmp_path / "m", "--te-real", str(a))
     assert _bullet5(m) == "reported (1 not passed, explained)"
 
 
@@ -154,9 +122,9 @@ def test_not_evaluable_counts_as_not_passed(inputs: dict[str, Any], tmp_path: Pa
 
 
 def _computed(inputs: dict[str, Any], tmp: Path, **kw: Any) -> Path:
-    a, b = _variant(inputs, tmp, **kw)
+    a = _variant(inputs, tmp, **kw)
     out = tmp / "m"
-    _metrics(inputs, out, "--te-real", str(a), "--te7", str(b))
+    _metrics(inputs, out, "--te-real", str(a))
     return out / "metrics.json"
 
 
@@ -166,7 +134,7 @@ def test_render_all_pass_without_notes(inputs: dict[str, Any], tmp_path: Path) -
     res = _render(metrics, report, None)
     assert res.returncode == 0, res.stdout + res.stderr
     text = report.read_text(encoding="utf-8")
-    assert SECTION in text
+    assert SECTION_PREFIX in text
     assert "**missing:" not in text
 
 
@@ -201,24 +169,28 @@ def test_render_exit_1_when_the_section_names_no_cause_class(
     assert res.returncode == 1 and "TE3" in res.stderr, res.stdout + res.stderr
 
 
-def test_render_exit_1_for_te7_fail_without_diagnosis(
-    inputs: dict[str, Any], tmp_path: Path
+@pytest.mark.parametrize(
+    "line",
+    ["Cause class: annotation, biology.", "Cause class: search or definition."],
+    ids=["two_classes", "either_or"],
+)
+def test_render_exit_1_when_the_section_names_two_cause_classes(
+    inputs: dict[str, Any], tmp_path: Path, line: str
 ) -> None:
-    metrics = _computed(inputs, tmp_path, te7_fail=True)
-    res = _render(metrics, tmp_path / "REPORT.md", None)
-    assert res.returncode == 1 and "TE7" in res.stderr, res.stdout + res.stderr
-    notes = "## Diagnosis: TE7\n\nCause class: pipeline_bug. Linked backlog entry.\n"
+    """N2: "names one cause class" means exactly one of the five, not one or more."""
+    metrics = _computed(inputs, tmp_path, fail=("te3",))
+    notes = f"## Diagnosis: TE3\n\n{line} Evidence: the aggregates above.\n"
     res = _render(metrics, tmp_path / "REPORT.md", notes)
-    assert res.returncode == 0, res.stdout + res.stderr
+    assert res.returncode == 1 and "TE3" in res.stderr, res.stdout + res.stderr
 
 
 def test_vacuous_te2_pass_needs_no_diagnosis(inputs: dict[str, Any], tmp_path: Path) -> None:
-    a, b = _variant(inputs, tmp_path)
+    a = _variant(inputs, tmp_path)
     doc = json.loads(a.read_text(encoding="utf-8"))
     doc["te2"]["vacuous"] = True
     a.write_text(json.dumps(doc, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     out = tmp_path / "m"
-    m = _metrics(inputs, out, "--te-real", str(a), "--te7", str(b))
+    m = _metrics(inputs, out, "--te-real", str(a))
     assert _bullet5(m) == "pass"
     res = _render(out / "metrics.json", tmp_path / "REPORT.md", None)
     assert res.returncode == 0, res.stdout + res.stderr
@@ -229,20 +201,20 @@ def test_vacuous_te2_pass_needs_no_diagnosis(inputs: dict[str, Any], tmp_path: P
 
 def test_template_has_the_te_section() -> None:
     text = TEMPLATE.read_text(encoding="utf-8")
-    assert SECTION in text
-    for te in ("TE2", "TE3", "TE4", "TE5", "TE7"):
-        assert te in text.split(SECTION, 1)[1], te
+    assert SECTION_PREFIX in text
+    for te in ("TE2", "TE3", "TE4", "TE5"):
+        assert te in text.split(SECTION_PREFIX, 1)[1], te
     paths = re.findall(r"\{\{\s*([^}\s]+)\s*\}\}", text)
     assert any(p.startswith("te_real.") for p in paths)
-    assert any(p.startswith("te7.") for p in paths)
 
 
-def test_template_pending_section_drops_te2_to_te7() -> None:
+def test_template_pending_section_drops_te2_to_te5() -> None:
     text = TEMPLATE.read_text(encoding="utf-8")
     m = re.search(r"^## [^\n]*Pending in pass 2[^\n]*\n(.*?)(?=^## |\Z)", text, re.M | re.S)
     assert m, "the 'Pending in pass 2' section is kept"
     pending = m.group(1)
-    assert "TE2" not in pending and "TE7" not in pending and "M10-06" not in pending
+    for te in ("TE2", "TE3", "TE4", "TE5"):
+        assert te not in pending, te
 
 
 # ------------------------------------------------------------------ criterion 11: guard
@@ -289,4 +261,3 @@ def test_guard_patterns_catch_the_outputs() -> None:
 def test_committed_pieces_are_tracked() -> None:
     tracked = set(_tracked("validation/pilot/"))
     assert "validation/pilot/te_real.py" in tracked
-    assert "validation/pilot/te7_known_columns.tsv" in tracked

@@ -191,6 +191,36 @@ def test_contaminant_fasta_changed_exit_2(tmp_path: Path, world: World) -> None:
     assert _nothing_written(out)
 
 
+def test_unknown_checksum_algorithm_exit_2(tmp_path: Path, world: World) -> None:
+    """N7: a contaminants checksum with an algorithm GIAP does not know is a precondition (exit
+    2), not an internal inconsistency."""
+    p, contam = build_te_pilot(tmp_path / "pilot", world)
+    for out_dir in (p.out_a1, p.out_a2):
+        edit_manifest(out_dir, _pin("crc99:" + sha256(contam)))
+    out = tmp_path / "metrics"
+    res = _compute(p, contam, out)
+    assert res.returncode == 2, f"exit {res.returncode}\n{res.stdout}\n{res.stderr}"
+    assert _nothing_written(out)
+
+
+@pytest.mark.parametrize("name", ["peptide_hits.tsv", "unmapped.tsv"])
+def test_te5_arm_without_its_tables_is_not_evaluable(
+    tmp_path: Path, world: World, name: str
+) -> None:
+    """Test gap 4: an arm whose run has no peptide_hits.tsv or unmapped.tsv cannot be judged;
+    the other arm still is, and TE5 is ``not_evaluable`` (no fail anywhere)."""
+    p, contam = build_te_pilot(tmp_path / "pilot", world)
+    for rel in (f"tables/{name}", f"mapping/{name}"):
+        (p.out_a1 / rel).unlink(missing_ok=True)
+    out = tmp_path / "metrics"
+    _ok(_compute(p, contam, out))
+    te5 = _doc(out)["te5"]
+    assert te5["A1"]["status"] == "not_evaluable"
+    assert any(str(r).startswith("missing") for r in te5["A1"]["reason"]), te5["A1"]
+    assert te5["A2"]["status"] == "pass"
+    assert te5["status"] == "not_evaluable"
+
+
 def test_failed_run_exit_2(tmp_path: Path, world: World) -> None:
     p, contam = build_te_pilot(tmp_path / "pilot", world)
     edit_manifest(p.out_a1, lambda m: m.update(exit_code=1, status="failed"))

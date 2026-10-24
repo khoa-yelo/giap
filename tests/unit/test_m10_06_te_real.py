@@ -159,6 +159,47 @@ def test_te2_cross_check_warns_when_violations_exceed_id_mixups(tr: Any) -> None
     assert r["status"] == "fail"  # a warning, never the verdict
 
 
+def test_te2_violations_equal_to_id_mixups_is_no_warning(tr: Any) -> None:
+    """Surviving mutant 10: the cross-check is ``violations <= id_mixups``; equality is fine."""
+    v = vframe([*ex1_variants(), ex2_extra()])
+    r = tr.te2(v, gframe(EX1_GENES), ds_frame(1))
+    assert r["counts"]["violations"] == 1
+    assert "te2_id_mixups_inconsistent" not in codes(r["warnings"])
+
+
+def test_te2_breakdown_disagreeing_with_te2_result_is_inconsistent(
+    tr: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S5: the breakdown rows must be as many as te2_result's ``counts.violations``; otherwise
+    an internal inconsistency (exit 1), never a silently drifting breakdown."""
+    import dataclasses
+
+    from validation.pilot.metrics import Inconsistent
+
+    tp = load_te_proxies()
+    real = tp.te2_result
+
+    def drifted(sites: pd.DataFrame) -> Any:
+        res = real(sites)
+        counts = {**res.counts, "violations": res.counts["violations"] + 1}
+        return dataclasses.replace(res, counts=counts)
+
+    monkeypatch.setattr(tp, "te2_result", drifted)
+    if hasattr(tr, "te2_result"):
+        monkeypatch.setattr(tr, "te2_result", drifted)
+    with pytest.raises(Inconsistent):
+        tr.te2(vframe([*ex1_variants(), ex2_extra()]), gframe(EX1_GENES), ds_frame(2))
+
+
+def test_te2_gene_not_in_genes_is_not_in_genes_for_replicon_and_region(tr: Any) -> None:
+    """N1: a violation whose gene has no genes.tsv row gets the same token in both breakdowns."""
+    v = vframe([vrow("v9", "JMJJOG_09999", 12, "N", "D", "high", "database_derived")])
+    r = tr.te2(v, gframe(EX1_GENES), ds_frame(1))
+    assert r["counts"]["violations"] == 1
+    assert r["breakdown"]["replicon"] == {"not_in_genes": 1}
+    assert r["breakdown"]["region"] == {"not_in_genes": 1}
+
+
 def test_te2_id_mixups_na(tr: Any) -> None:
     r = tr.te2(vframe(ex1_variants()), gframe(EX1_GENES), ds_frame(None))
     assert "id_mixups_na" in codes(r["warnings"])
@@ -622,6 +663,36 @@ def test_te5_peptides_outside_select_queries_are_not_in_s(tr: Any, cfg: Any) -> 
     assert r["n_s"] == 3 and r["status"] == "pass"  # none of the three counts as absent
 
 
+def test_te5_decoy_row_with_a_family_id_does_not_put_a_target_peptide_in_s(
+    tr: Any, cfg: Any
+) -> None:
+    """Surviving mutant 9: S takes family IDs from accepted *target* rows only. The peptide is in
+    **U** through its target row (a genome protein); its accepted decoy row names trypsin."""
+    from giap.steps.mapping import select_queries
+
+    P, hits, unm = ex6_inputs(with_tolerant=False)
+    mixed = "MIXEDPEPTK"
+    extra = pframe([prow(mixed, "JMJJOG_00099"), prow(mixed, "Cont_P00761", decoy=True)])
+    P2 = pd.concat([P, extra], ignore_index=True)
+    assert mixed in set(select_queries(P2, cfg)["peptide"])  # the fixture's premise
+    r = tr.te5_arm(P2, hits, unm, EX6_FAMILIES, cfg)
+    assert r["n_s"] == 3 and r["counts"]["absent"] == 0
+    assert r["status"] == "pass"
+
+
+@pytest.mark.parametrize("match", [None, ""], ids=["na", "empty"])
+def test_te5_bucket_row_without_a_match_is_not_other_entry(
+    tr: Any, cfg: Any, match: str | None
+) -> None:
+    """Surviving mutant 8: an empty ``contaminant_match`` names no other entry."""
+    P = pframe([prow("VATVSLPR", "Cont_P00761")])
+    unm = unmapped_frame([("VATVSLPR", "contaminant", match)])
+    r = tr.te5_arm(P, hits_frame([]), unm, EX6_FAMILIES, cfg)
+    assert r["counts"]["bucket"] == 1
+    assert r["counts"]["match_other_entry"] == 0
+    assert r["status"] == "pass"
+
+
 def test_te5_labelled_unmapped_and_absent(tr: Any, cfg: Any) -> None:
     P = pframe(
         [
@@ -675,9 +746,12 @@ def test_te5_exact_beats_bucket_first_match(tr: Any, cfg: Any) -> None:
 
 
 def test_te5_json_holds_no_peptide(tr: Any, cfg: Any) -> None:
-    """te_real.json is aggregate-only: the arm result names no sequence."""
+    """te_real.json is aggregate-only: the arm result names no sequence. A private key (leading
+    ``_``, review trim T1) may carry the per-peptide classes that ``compute`` pops before writing;
+    the written file is checked in test_m10_06_cli.py."""
     P, hits, unm = ex6_inputs()
-    text = json.dumps(tr.te5_arm(P, hits, unm, EX6_FAMILIES, cfg), default=str)
+    r = tr.te5_arm(P, hits, unm, EX6_FAMILIES, cfg)
+    text = json.dumps({k: v for k, v in r.items() if not str(k).startswith("_")}, default=str)
     for pep in ("VATVSLPR", "SLNNQFASFIDK", "LSSPATLNSR", "LASYLDK", ALBUMIN_PEPTIDE):
         assert pep not in text
     assert not re.search(r"[ACDEFGHIKLMNPQRSTVWY]{7,}", text)
