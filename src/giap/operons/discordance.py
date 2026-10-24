@@ -13,6 +13,9 @@ exactly one gene seen (M6-02 lead decision 9: ``n_seen >= k_min`` observable pep
 it is unestimated with ``no_detection_limit_model`` (or the caller's ``no_model_flag``). A row
 whose seen partner v has no abundance is untested with no flag. ``P(miss)`` is a probability, not
 a p-value: it gets no q and never enters the BH family (M6-index decision 1, M6-02 decision 4).
+M6-13 (ADR-0055 option (a)): by default the t scale is log-linear in the pair-mean log2 abundance
+m (``sigma_model = "loglinear"``, :func:`giap.stats.tdist.fit_student_t_scaled`); ``"constant"``
+is the M6-05 null. P(miss) still receives the raw Delta of the fit pairs (M6-13 Q1).
 Pure and deterministic: no I/O, no RNG.
 """
 
@@ -21,8 +24,8 @@ from __future__ import annotations
 import logging
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import Protocol
+from dataclasses import dataclass, replace
+from typing import Literal, Protocol
 
 import numpy as np
 import numpy.typing as npt
@@ -32,15 +35,34 @@ from giap.config import GiapConfig
 from giap.genetable.abundance import MOLAR_TYPES
 from giap.operons.pairs import TEST_COLUMNS
 from giap.stats.multitest import bh
-from giap.stats.tdist import StudentT, fit_student_t, student_t_two_sided
+from giap.stats.tdist import (
+    ScaledStudentT,
+    StudentT,
+    fit_student_t,
+    fit_student_t_scaled,
+    scaled_t_two_sided,
+    student_t_two_sided,
+)
 
-__all__ = ["MIN_OP_PAIRS", "Discordance", "PMissFn", "discordance", "fit_rows"]
+__all__ = [
+    "MIN_OP_PAIRS",
+    "SIGMA_MODEL",
+    "Discordance",
+    "PMissFn",
+    "discordance",
+    "fit_pairs",
+    "fit_rows",
+]
 
 F64 = npt.NDArray[np.float64]
 log = logging.getLogger(__name__)
 
 #: fewest usable OP pairs for the t fit (lead decision 1)
 MIN_OP_PAIRS: int = 20
+#: the default scale model (M6-13 Q2: no config key yet)
+SIGMA_MODEL: Literal["loglinear", "constant"] = "loglinear"
+#: scaled-fit fallbacks that log a WARNING (M6-13 step 5)
+FALLBACK_WARN = frozenset({"not_converged", "collapsed", "worse_than_constant"})
 ROW_COLUMNS: tuple[str, ...] = ("pair_id", "test", *TEST_COLUMNS, "flags")
 
 TOO_FEW = "too_few_op_pairs"
@@ -65,14 +87,16 @@ class Discordance:
     """Result of :func:`discordance`.
 
     Attributes:
-        fit: the within-operon t fit (NaN parameters, ``converged = False`` when not made).
+        fit: the constant within-operon t fit (NaN parameters, ``converged = False`` when not made).
         ratios: the Delta values the fit used, sorted ascending.
         rows: one row per OP pair: ``pair_id``, ``test``, the §9.2 test columns and ``flags``.
+        scaled: the null of every both-detected p (M6-13); ``model = "constant"`` is ``fit``.
     """
 
     fit: StudentT
     ratios: F64
     rows: pd.DataFrame
+    scaled: ScaledStudentT
 
 
 def _bool(s: pd.Series) -> npt.NDArray[np.bool_]:
@@ -96,6 +120,32 @@ def fit_rows(pairs: pd.DataFrame) -> F64:
     keep = (pairs["class"] == "OP").to_numpy() & _usable(pairs)
     d = pairs["delta_log2"].astype(float).to_numpy()[keep]
     return np.sort(d[np.isfinite(d)])
+
+
+def fit_pairs(pairs: pd.DataFrame) -> tuple[F64, F64]:
+    """(Delta, m) of the OP pairs usable for the fit, m the pair-mean log2 abundance, sorted
+    lexicographically on (Delta, m)."""
+    keep = (pairs["class"] == "OP").to_numpy() & _usable(pairs)
+    d = pairs["delta_log2"].astype(float).to_numpy()[keep]
+    a = pairs["abundance_log2_a"].astype(float).to_numpy()[keep]
+    m = (a + pairs["abundance_log2_b"].astype(float).to_numpy()[keep]) / 2
+    ok = np.isfinite(d)
+    order = np.lexsort((m[ok], d[ok]))
+    return d[ok][order], m[ok][order]
+
+
+def _scaled(x: F64, m: F64, sigma_model: str) -> ScaledStudentT:
+    """The M6-13 null; ``constant`` never runs the four-parameter fit (``reason = disabled``)."""
+    if sigma_model not in ("loglinear", "constant"):
+        raise ValueError(f"sigma_model must be 'loglinear' or 'constant', got {sigma_model!r}")
+    if sigma_model == "constant":
+        s = fit_student_t_scaled(x, m, min_sd=math.inf, min_n=MIN_OP_PAIRS)
+        return s if s.model == "none" else replace(s, reason="disabled")
+    s = fit_student_t_scaled(x, m, min_n=MIN_OP_PAIRS)
+    if s.reason in FALLBACK_WARN:
+        log.warning("within-operon log-linear scale fit fell back to the constant null (%s) on "
+                    "n=%d OP pairs", s.reason, s.n)  # fmt: skip
+    return s
 
 
 def _is_relative(genes: pd.DataFrame) -> bool:
@@ -193,6 +243,7 @@ def discordance(
     n_seen: Mapping[str, int] | None = None,
     k_min: int = 1,
     no_model_flag: str = NO_DL_MODEL,
+    sigma_model: Literal["loglinear", "constant"] = SIGMA_MODEL,
 ) -> Discordance:
     """Test every OP pair for discordant abundance (§7.4.3).
 
@@ -210,6 +261,8 @@ def discordance(
         no_model_flag: the reason flag of one-detected rows when ``p_miss`` is ``None``
             (``no_detection_limit_model``; the step passes ``pmiss_covariates_missing`` when the
             model in force needs covariates it cannot join).
+        sigma_model: ``loglinear`` (M6-13, the default) or ``constant`` (the M6-05 null, bit for
+            bit).
 
     Returns:
         The fit, the Delta sample it used and one row per OP pair; ``q_value`` is BH over the
@@ -234,6 +287,7 @@ def discordance(
 
     delta = fit_rows(work.loc[eligible])
     fit = _fit(delta)
+    scaled = _scaled(*fit_pairs(work.loc[eligible]), sigma_model)
 
     det_a, det_b = _bool(work["detected_a"]), _bool(work["detected_b"])
     a = work["abundance_log2_a"].astype(float).to_numpy()
@@ -253,10 +307,13 @@ def discordance(
         extra = {i: [TOO_FEW, UNESTIMATED] for i in range(n) if eligible[i]}
     else:
         idx = np.flatnonzero(both)
-        p = student_t_two_sided(d[idx], fit)
+        if scaled.model == "loglinear":
+            p = scaled_t_two_sided(d[idx], (a[idx] + b[idx]) / 2, scaled)
+        else:
+            p = student_t_two_sided(d[idx], fit)
         rows.loc[idx, "test"] = "both_detected_t"
         rows.loc[idx, "stat"] = d[idx]
-        rows.loc[idx, "effect"] = d[idx] - fit.loc
+        rows.loc[idx, "effect"] = d[idx] - scaled.loc
         rows.loc[idx, "p_value"] = p
         rows.loc[idx, "q_value"] = bh(p)  # the family: t p-values only (M6-index decision 1)
         rows.loc[idx, "method"] = "student_t"
@@ -268,4 +325,4 @@ def discordance(
     for i, add in extra.items():
         flags[i] = flags[i] + [f for f in add if f not in flags[i]]
     rows["flags"] = flags
-    return Discordance(fit=fit, ratios=delta, rows=rows[list(ROW_COLUMNS)])
+    return Discordance(fit=fit, ratios=delta, rows=rows[list(ROW_COLUMNS)], scaled=scaled)

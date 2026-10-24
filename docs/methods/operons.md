@@ -27,6 +27,61 @@ iterations); M6-05 marks the tests `unestimated` when it is False.
 **Two-sided p.** p = 2 · min(F, 1 − F), F = F_t((Δ − μ)/σ; ν) (`student_t_two_sided`): exactly 1 at
 Δ = μ, asymmetric about 0 whenever μ ≠ 0, NaN in → NaN out, all-NaN under an unestimated fit.
 
+**Abundance-dependent scale (M6-13, ADR-0055 option (a)).** Proteomics noise grows at low
+abundance. One σ for every OP pair is therefore too narrow for low-abundance pairs and too wide
+for high-abundance ones. Attack D-1 measured the consequence through the step: the pooled level
+failed at α = 0.05 and 0.10, and the lowest-abundance quartile ran at about 3× nominal
+(Slurm 1884493). The scale is therefore modelled as σ_i = σ₀ · exp(γ z_i), where z_i is the
+pair's mean log2 abundance, standardised over the fit pairs (`fit_student_t_scaled`).
+- μ, σ₀, γ and ν are fitted jointly by maximum likelihood, by Nelder–Mead from the constant
+  fit, with ν ∈ [2, 50] and γ ∈ [−2, 2].
+- γ = 0 is the constant model above, and the p of a pair is 2 · sf_t(|Δ − μ̂| / σ̂_i; ν̂)
+  (`scaled_t_two_sided`). It applies from the same 20 usable pairs as the constant model. At
+  n = 20–50 it was measured at level, and more conservative than the constant fit
+  (statistician, M6-13 S-5).
+- The fitted σ̂_i does not depend on how z is centred or scaled. γ is reported per SD of
+  pair-mean log2 abundance, and per log2 unit.
+
+Tested pairs outside the fit's abundance range (imputed pairs) are evaluated at the nearest end
+of that range, not extrapolated.
+
+The constant model is used instead, and the run log says why, when:
+- the pair means vary by less than 0.1 log2 (SD). This is a relevance guard, not an
+  identifiability one: over so narrow a range no noise curve changes σ appreciably;
+- the four-parameter fit fails to converge, collapses, or fits worse than the constant one.
+
+There is no model-selection step: when the four-parameter fit is available it is used. The
+likelihood ratio against γ = 0 is reported, not acted on.
+
+γ̂ describes the spread of Δ **among pairs whose two genes were both detected, given their
+observed mean abundance**. It is not the instrument's noise curve, for two reasons.
+- Detection truncation can narrow the spread at low abundance (in the simulator the effect is
+  not measurable: γ̂ is 0.001 under the null).
+- m carries the same measurement noise as Δ, which attenuates γ̂.
+
+The conditional spread is the right null for the test, which is conditional on detection.
+
+**What the level claim covers.** The claim is the pooled per-pair level. m = a + Δ/2 contains
+the response, so even under homoscedastic noise the pairs in the outer quartiles of m are
+enriched for large |Δ − μ| (1.05–1.17× nominal at α = 0.01, for the constant and the
+log-linear model alike). Within quartiles of an abundance that is independent of Δ (the
+upstream gene's), the null is at level.
+
+The one-detected P(miss) still averages over the raw within-operon ratios. Under
+abundance-dependent noise that sample is too narrow for a low-abundance partner (open, M6-13
+Q1).
+
+The log-linear form is an assumption. Attack D-1b checks a step and a variance floor, and D-1c
+checks per-gene measurement noise. *[After the full run: the D-1/D-1b/D-1c numbers, the γ̂
+under the null and under D-1, and the power comparison.]*
+
+The claim covers the **pooled** level under smooth, monotone abundance-dependent noise.
+- Under the variance floor and under per-gene measurement noise, the top-abundance quartile
+  still runs at up to about 1.7× nominal at α = 0.01. The constant model runs at about 3×,
+  in the lowest quartile.
+- A **discontinuous** σ (D-1b-step) fails even the pooled level. No smooth σ(z) removes that,
+  and it is outside the claim (ADR-0055 amendment).
+
 **What the p means.** M6-05 fits the t on the same OP pairs it then tests, so its p is a
 **plug-in** p: the parameters absorb part of each pair's own deviation. With a fit on 400 draws the
 plug-in rejection rate is 0.0102 / 0.0506 / 0.1007 at α = 0.01 / 0.05 / 0.10 (R = 1,000, recorded
@@ -53,13 +108,18 @@ below.
 Module `giap.operons.discordance` (GIAP_SPEC.md §7.4.3, §8.1 row "Operon discordance"; lead
 decisions in `docs/specs/M6-05-discordance.md` and M6-index decision 1).
 
-**Test.** The t of the previous section is fitted to Δ over the *usable* OP pairs: both genes
-eligible (not `partial`), both detected, both log2 abundances finite, neither imputed. Fewer than
-20 usable pairs, or a fit with `converged = False`, leaves every OP pair `test = none` with
-`too_few_op_pairs` and `unestimated`, and no family is formed. Otherwise every eligible
-both-detected OP pair with a finite Δ is tested: `p = 2 · min(F, 1 − F)` under the fit. Pairs whose
-abundance is imputed are tested but not fitted (spec §7.4.2, example 5). The fit and the test use
-the same pairs, so p is a plug-in p (below).
+**Test.** The t of the previous section, with the abundance-dependent scale (M6-13;
+`sigma_model = "loglinear"`, the default; `"constant"` is the M6-05 null), is fitted to Δ and the
+pair-mean log2 abundance m over the *usable* OP pairs: both genes eligible (not `partial`), both
+detected, both log2 abundances finite, neither imputed. Fewer than 20 usable pairs, or a constant
+fit with `converged = False`, leaves every OP pair `test = none` with `too_few_op_pairs` and
+`unestimated`, and no family is formed. A failed four-parameter fit is not that case: it falls
+back to the constant null with a WARNING. Otherwise every eligible both-detected OP pair with a
+finite Δ is tested: `p = 2 · min(F, 1 − F)`, F = F_t((Δ − μ̂) / σ̂_i; ν̂). Pairs whose abundance
+is imputed are tested but not fitted (spec §7.4.2, example 5); their z is clamped to the fit
+range. The run-log event `operons.discordance_fit` records the null in force (γ̂ per SD and per
+log2, the fallback reason, the LR). The fit and the test use the same pairs, so p is a plug-in p
+(below).
 
 **Effect and CI.** `effect = Δ − μ̂` in log2 units: how far the pair sits from the typical
 within-operon ratio. No CI is reported for it (`ci_low`, `ci_high` NA): a single pair has no
