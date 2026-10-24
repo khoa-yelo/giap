@@ -338,9 +338,7 @@ def _envelopes(s: dict[str, Any]) -> list[dict[str, Any]]:
 
 def test_v10_axis_titles_and_types() -> None:
     s = tw.spec("V10", tw.v10())
-    assert {"lag (genes)", "Moran's I", "BB joins (detected\N{EN DASH}detected)"} <= tw.axis_titles(
-        s
-    )
+    assert {"lag (genes)", "Moran's I", "BB join statistic (Pearson residual)"} <= tw.axis_titles(s)
     assert {tw.ttype(t) for t in tw.traces(s)} <= set(SCATTER)
 
 

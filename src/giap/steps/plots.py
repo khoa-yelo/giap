@@ -180,7 +180,7 @@ def rerender_report(outdir: Path, cfg: GiapConfig) -> Path:
     ``giap run`` tail (after ``run_manifest.json``) and ``giap report`` (M9-16b)."""
     load_plot_modules()
     plots_dir = outdir / "plots" if (outdir / "plots").is_dir() else None
-    html = _report_html(RunView.from_outdir(outdir), plots_dir, cfg)
+    html = _report_html(RunView.from_outdir(outdir).with_modules(cfg.modules), plots_dir, cfg)
     report_dir = outdir / "report"
     report_dir.mkdir(parents=True, exist_ok=True)
     page, tmp = report_dir / "report.html", report_dir / ".report.html.tmp"

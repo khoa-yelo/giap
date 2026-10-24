@@ -353,10 +353,8 @@ def test_median_ties_broken_by_letter(tmp_path: Path, cfg: GiapConfig) -> None:
 
 def test_example4_title(tmp_path: Path, cfg: GiapConfig) -> None:
     title = _render(_out(tmp_path, EXAMPLE4), cfg).title
-    head = "J (Translation, ribosomal structure and biogenesis) has the highest median abundance ("
-    assert title.startswith(head)
-    assert "log2" in title
-    assert title.endswith(" genes)")
+    # J has 3 measured genes: below the n >= 5 needed to claim the highest median (real-data fixes)
+    assert title == "No COG category has 5 or more measured genes (most: J, 3 genes)"
 
 
 def test_no_measured_abundance_draws_bars(tmp_path: Path, cfg: GiapConfig) -> None:

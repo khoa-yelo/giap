@@ -2,13 +2,16 @@
 (GIAP_SPEC.md §10.2 V10, §7.3.5(c); ADR-0020; M9-09 and its lead decisions 2 and 4-7).
 
 Draws ``tables/autocorrelation.tsv`` and recomputes nothing: per replicon (FASTA order) panel (a)
-Moran's I and panel (b) the raw BB join count against the lag, each with the gene-label (light
+Moran's I and panel (b) the BB join statistic S_k against the lag, each with the gene-label (light
 grey) and TU-block (``#56B4E9``) 2.5-97.5 % envelopes (``null_lo``-``null_hi``) and dashed null
 means. A marker is filled when the TU-block row's ``q_value ≤ stats.alpha.context`` (the
 conservative null ADR-0020 gates); NA rows, and rows flagged ``not_estimable`` or ``few_values``
 whatever their value (lead decision 21), draw nothing, and a panel whose rows are all NA says
 "not estimable (<flags>)". Contigs wrap into rows of at most 3 columns, each (b) panel under its
 (a) panel (lead decision 23). ``oriter_slope`` rows are context-table rows and are not drawn.
+A ``join_count_bb`` row's ``value`` is the raw count BB_k while its ``null_*`` and ``effect`` are on
+the Pearson-residual statistic S_k (ADR-0020 Amendment 1), so (b) plots S_k = ``effect +
+null_mean`` against the envelopes (docs/specs/stat-m5-joincount-scale.md).
 """
 
 from __future__ import annotations
@@ -29,14 +32,14 @@ if TYPE_CHECKING:
     from giap.io.run_view import RunView
 
 COLUMNS = ("contig", "statistic", "null_model", "lag", "value", "null_mean", "null_lo",
-           "null_hi", "q_value", "significant", "flags")  # fmt: skip
+           "null_hi", "effect", "q_value", "significant", "flags")  # fmt: skip
 STATISTICS = ("morans_i", "join_count_bb")  # schema enum order
 NULLS = ("gene_label", "tu_block")
-_NUM = ("value", "null_mean", "null_lo", "null_hi", "q_value")
+_NUM = ("value", "null_mean", "null_lo", "null_hi", "effect", "q_value")
 #: null -> (band colour, band alpha, mean-line colour)
 NULL_STYLE = {"gene_label": ("#CCCCCC", 0.6, "#777777"), "tu_block": ("#56B4E9", 0.3, "#0072B2")}
 NULL_LABEL = {"gene_label": "gene-label", "tu_block": "TU-block"}
-YLABEL = {"morans_i": "Moran's I", "join_count_bb": "BB joins (detected\u2013detected)"}
+YLABEL = {"morans_i": "Moran's I", "join_count_bb": "BB join statistic (Pearson residual)"}
 NOT_ESTIMABLE = "Autocorrelation not estimable on this genome"
 GREY = "#555555"
 NA_FLAGS = frozenset({"not_estimable", "few_values"})
@@ -65,6 +68,15 @@ def data_frame(ac: pd.DataFrame, alpha: float) -> pd.DataFrame:
         columns=list(COLUMNS),
     )
     return out.reset_index(drop=True)
+
+
+def plotted(
+    statistic: Sequence[object], value: np.ndarray, effect: np.ndarray, null_mean: np.ndarray
+) -> np.ndarray:
+    """The drawn statistic: Moran's I ``value``; for ``join_count_bb`` rows S_k = ``effect +
+    null_mean`` (the envelopes' scale; ``value`` is the raw BB_k)."""
+    bb = np.asarray([str(s) == "join_count_bb" for s in statistic], dtype=bool)
+    return np.where(bb, effect + null_mean, value)
 
 
 def drawn(data: pd.DataFrame) -> pd.DataFrame:
@@ -104,8 +116,7 @@ def title(data: pd.DataFrame, order: Sequence[str]) -> str:
             continue
         v, lo, hi, q = (float(row[c]) for c in ("value", "null_lo", "null_hi", "q_value"))
         word = "above" if v > hi else "below" if v < lo else "within"
-        qs = f"{q:g}" if math.isfinite(q) else "NA"
-        return f"Lag-1 Moran's I {v:g}: {word} the TU-block envelope (q = {qs})"
+        return f"Lag-1 Moran's I {base.sig(v)}: {word} the TU-block envelope (q = {base.sig(q)})"
     return NOT_ESTIMABLE
 
 
@@ -118,7 +129,10 @@ def _flags(rows: pd.DataFrame) -> str:
 
 
 def _panel(ax: Axes, rows: pd.DataFrame, statistic: str, lags: tuple[int, int]) -> None:
-    if not np.isfinite(rows["value"].to_numpy(dtype=float)).any():
+    num = {c: rows[c].to_numpy(dtype=float) for c in ("value", "effect", "null_mean")}
+    rows = rows.assign(y=plotted(list(rows["statistic"]), num["value"], num["effect"],
+                                 num["null_mean"]))  # fmt: skip
+    if not np.isfinite(rows["y"].to_numpy(dtype=float)).any():
         ax.set_axis_off()
         ax.text(0.5, 0.5, f"not estimable ({_flags(rows)})", ha="center", va="center",
                 transform=ax.transAxes, color=GREY, fontsize=6, wrap=True)  # fmt: skip
@@ -140,9 +154,9 @@ def _panel(ax: Axes, rows: pd.DataFrame, statistic: str, lags: tuple[int, int]) 
     gl = by_null["gene_label"].set_index("lag")
     xs, ys, filled = [], [], []
     for lag in sorted({int(v) for v in rows["lag"].dropna()}):
-        v = tu["value"].get(lag, math.nan)
+        v = tu["y"].get(lag, math.nan)
         if not math.isfinite(v):
-            v = gl["value"].get(lag, math.nan)
+            v = gl["y"].get(lag, math.nan)
         if math.isfinite(v):
             xs.append(float(lag))
             ys.append(float(v))

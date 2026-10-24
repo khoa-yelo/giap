@@ -56,6 +56,10 @@ Jitter is deterministic: offsets from the gene's rank within the category, not r
 
 **Title:** "`<letter>` (`<description>`) has the highest median abundance (`<m>` log2, `<n>`
 genes)"; with no measured abundance: "No measured abundance; detected fraction per COG category".
+*Amended 2026-10-24 (lead, real-data fixes #322):* the claim is made only among categories with at
+least 5 measured genes and says so ("… has the highest median abundance among categories with ≥ 5
+genes (…)"); with none: "No COG category has 5 or more measured genes (most: `<letter>`, `<n>`
+genes)". Gene counts use the singular for 1.
 
 Data TSV `V08_cog_abundance.tsv`: `category`, `super_category`, `locus_tag`, `abundance_log2`,
 `detected`, plus per-category summary rows with `locus_tag = NA` carrying `median_log2`,

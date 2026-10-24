@@ -14,6 +14,7 @@ import functools
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
@@ -192,3 +193,26 @@ def title_pct(n: int, d: int) -> str:
 def plural(n: int, word: str) -> str:
     """``"1 gene"`` / ``"2 genes"``: the count and the word, ``s`` added unless ``n == 1``."""
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
+
+
+def sig(value: object, digits: int = 2) -> str:
+    """``value`` rounded to ``digits`` significant digits for titles and labels, trailing zeros
+    dropped: plain inside ``1e-3 <= |x| < 1e5`` after rounding (``"0.0029"``, ``"0.49"``,
+    ``"1200"``), scientific notation in the ``%g`` style outside it (``"1.2e-12"``,
+    ``"1.2e+20"``) so the text stays short; zero (and -0.0) -> ``"0"``; ``None`` / NaN /
+    ``pd.NA`` / infinity -> ``"NA"`` (the ``title_pct`` convention)."""
+    if value is None or value is pd.NA:
+        return "NA"
+    x = float(value)  # type: ignore[arg-type]
+    if not np.isfinite(x):
+        return "NA"
+    if x == 0.0:
+        return "0"
+    rounded = f"{x:.{digits - 1}e}"  # correctly rounded mantissa and exponent
+    mant, exp = rounded.split("e")
+    if -3 <= int(exp) < 5:
+        out = format(Decimal(rounded), "f")
+        return out.rstrip("0").rstrip(".") if "." in out else out
+    if "." in mant:
+        mant = mant.rstrip("0").rstrip(".")
+    return f"{mant}e{exp}"
