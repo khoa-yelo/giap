@@ -200,7 +200,13 @@ def test_item_6_novel_candidate_id_back_filled(local: Path) -> None:
     annotated = [h for h in filled if h["locus_class"] in ("cds_inframe", "rna_overlap")]
     assert not annotated, annotated[:3]
     for o in orfs:
-        ends = [int(o["end"])] + ([int(o["start_longest"])] if o["start_longest"] != "NA" else [])
+        end = int(o["end"])
+        if o["start_longest"] != "NA":
+            start = int(o["start_longest"])
+        else:  # no_start_codon: the first codon is length_aa_longest codons + the stop before end
+            nt = 3 * (int(o["length_aa_longest"]) + 1) - 1
+            start = end - nt if o["strand"] != "-" else end + nt
+        ends = [end, start]
         lo, hi = min(ends), max(ends)
         mine = [h for h in filled if h["novel_candidate_id"] == o["orf_id"]]
         for h in mine:

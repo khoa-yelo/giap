@@ -286,13 +286,20 @@ def _cell_int(v: str | None) -> int | None:
 
 def _orf_span(o: Mapping[str, str | None]) -> tuple[int, int] | None:
     """The ORF's 1-based closed span in transcription order, (start, end): ``start_longest``
-    (``start_best_ostir``, then ``start``, when NA) to ``end``; ``None`` without both ends."""
+    (``start_best_ostir``, then ``start``, when NA) to ``end``. A ``no_start_codon`` ORF has no
+    start column; its first codon is ``length_aa_longest`` codons plus the stop before ``end``.
+    ``None`` without an end or a way to place the start."""
+    end = _cell_int(o.get("end"))
+    if end is None:
+        return None
     start = next(
         (s for k in ("start_longest", "start_best_ostir", "start") if (s := _cell_int(o.get(k)))),
         None,
     )
-    end = _cell_int(o.get("end"))
-    return None if start is None or end is None else (start, end)
+    if start is None and (n_aa := _cell_int(o.get("length_aa_longest"))) is not None:
+        nt = 3 * (n_aa + 1) - 1  # the codons and the stop, minus the end position itself
+        start = end - nt if o.get("strand") != "-" else end + nt
+    return None if start is None else (start, end)
 
 
 def _within(hit_start: int, hit_end: int, strand: str | None, span: tuple[int, int]) -> bool:
