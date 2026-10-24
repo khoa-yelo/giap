@@ -327,7 +327,7 @@ def provenance(a: argparse.Namespace, env: Mapping[str, str], now: float) -> dic
     banner_file = out / "diann_version.txt"
     image: dict[str, Any] = file_record(Path(a.image)) if a.image else {"path": None}
     image.update(pin=read_pin(Path(a.pin_file)), pin_file=a.pin_file,
-                 banner=banner_file.read_text().splitlines()[:2]
+                 banner=[ln for ln in banner_file.read_text().splitlines() if ln.strip()][:2]
                  if banner_file.is_file() else None)  # fmt: skip
     image.setdefault("mode", None)
     acq: dict[str, Any] = file_record(Path(a.acquisition))

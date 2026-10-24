@@ -19,7 +19,8 @@ Both edits to the sandbox repository are committed there, so ``repo_is_clean`` k
 
 The extended fake ``apptainer``/``singularity`` never executes anything. Environment knobs:
 
-* ``FAKE_DIANN_BANNER``: first banner line (default ``DIA-NN 2.3.1 Academia (…)``);
+* ``FAKE_DIANN_BANNER``: the banner line, printed after a blank line as the real binary does
+  (default ``DIA-NN 2.3.1 Academia (…)``);
 * ``FAKE_DIANN_RC``: exit code of every real (non-smoke) DIA-NN call;
 * ``FAKE_DIANN_RC_STEP1`` / ``FAKE_DIANN_RC_STEP2``: exit code of the predict call (it has
   ``--predictor``) or of the search call (it has ``--lib`` or ``--f``) only;
@@ -189,6 +190,7 @@ if not os.path.exists(rec["image"]):
 inner = rec["inner"][1:]
 if not inner or set(inner) <= {"--help", "--version", "--dry-run"}:
     rec["smoke"] = True
+    print()  # the real binary prints a blank line first (job 1879883)
     print(banner)
     print("Compiled on Dec  5 2025")
     if "--version" in inner:

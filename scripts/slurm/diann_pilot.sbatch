@@ -218,8 +218,8 @@ sha() { sha256sum "$1" | cut -d' ' -f1; }
 echo "== arm $ARM; image $SIF; settings $CFG; output $OUT"
 APPTAINER_VERSION="$(apptainer --version 2>/dev/null || true)"
 diann --version >"$OUT/diann_version.txt" 2>&1 || true
-head -n 2 "$OUT/diann_version.txt" || true
-case "$(head -n 1 "$OUT/diann_version.txt")" in
+grep -m 2 . "$OUT/diann_version.txt" || true
+case "$(grep -m 1 . "$OUT/diann_version.txt" || true)" in  # first non-empty line
   *"DIA-NN 2.3.1 Academia"*) ;;
   *) echo "the image's banner is not 'DIA-NN 2.3.1 Academia' (ADR-0051)" >&2; exit 2 ;;
 esac

@@ -229,6 +229,7 @@ if not os.path.exists(rec["image"]):
 inner = rec["inner"][1:]
 if not inner or set(inner) <= {"--help", "--version", "--dry-run"}:
     rec["smoke"] = True
+    print()  # the real binary prints a blank line first (job 1879883)
     print("DIA-NN 2.3.1 Academia (Data-Independent Acquisition by Neural Networks)")
     print("Compiled on Dec  5 2025")
     log(0)

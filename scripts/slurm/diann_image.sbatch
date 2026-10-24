@@ -102,12 +102,14 @@ print(json.dumps({
     "source": source, "copy": record(copy, sha256=sha), "pin": pin, "pin_file": pin_file,
     "installed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "job_id": job,
     "hostname": host, "labels": parsed, "apptainer_version": version,
-    "banner": banner.splitlines()[:2],
+    "banner": [line for line in banner.splitlines() if line.strip()][:2],
 }, indent=2))
 PY
 
-case "$(printf '%s\n' "$BANNER" | head -n 1)" in
+# the binary prints a blank line before its banner: compare the first non-empty line
+BANNER1="$(printf '%s\n' "$BANNER" | grep -m 1 . || true)"
+case "$BANNER1" in
   *"$BANNER_WANT"*) ;;
-  *) die "the copy's banner is not '$BANNER_WANT': $(printf '%s\n' "$BANNER" | head -n 1)" ;;
+  *) die "the copy's banner is not '$BANNER_WANT': $BANNER1" ;;
 esac
 echo "installed: $SIF (sha256 $PIN, mode 0444); record $SIF.json"
