@@ -171,3 +171,22 @@ def test_only_the_exact_tokens_are_reported(d: S.Dirs) -> None:
                "data": {"flag": "decoy_pairing_low"}})  # fmt: skip
     res = gate2(d)
     assert res["warnings_found"] == ["decoy_pairing_low"] and res["status"] == "fail", res
+
+
+# --------------------------------------------------------------- #326 review S1 (surviving mutants)
+
+
+@pytest.mark.parametrize("token", TOKENS)
+@pytest.mark.parametrize("form", ["gene_table:{t}", "/{t}", '"{t}"'])
+def test_a_colon_slash_or_quote_bounded_token_fails_gate2(d: S.Dirs, token: str, form: str) -> None:
+    _manifest_warning(d, form.format(t=token))
+    res = gate2(d)
+    assert res["warnings_found"] == [token] and res["status"] == "fail", res
+
+
+@pytest.mark.parametrize("token", TOKENS)
+@pytest.mark.parametrize("form", ["{t}_x", "novel_{t}", "gene_{t}", "{t}2", "x{t}"])
+def test_a_token_inside_a_longer_word_does_not_fail_gate2(d: S.Dirs, token: str, form: str) -> None:
+    _manifest_warning(d, f"novel_orfs:{form.format(t=token)}")
+    res = gate2(d)
+    assert res["warnings_found"] == [] and res["status"] == "pass", res

@@ -21,7 +21,8 @@ their own stream (``[seed, 7]``). Decision 21 (stream ``[seed, 8]``): each null 
 peptide becomes, with probability 1/2, the decoy row of its makedb entry (reversed peptide,
 ``rev_GIAPORF_…``, the same null score and mixture q / PEP); gene-level decoys are reversed
 products of annotated non-pseudo proteins (``rev_<locus_tag>``, ``n_decoy_rows`` of them).
-M7-11b decision 9: in this mode the search database is the makedb FASTA, so target rows name
+M7-11b decision 9: in this mode, and in ``decoys = "scored_null"`` mode whatever
+``wrong_source`` (MVP-04 step 5), the search database is the makedb FASTA, so target rows name
 makedb entries too: a wrong peptide's row its entry, a novel ORF's peptide the entry it lies in
 (``GIAPORF_…``), a peptide of a true protein upstream of its annotated start the gene's
 ``nterm_extension`` entry and any other peptide of an annotated protein its locus tag (makedb's
@@ -956,12 +957,12 @@ def simulate_proteomics(
                 // 3 for f in feats if f.kind in ("cds", "sorf")}  # fmt: skip
 
     def db_id(pep: str, k: int, a: int) -> str | None:
-        """The protein ID a search reports for occurrence ``(k, a)``. In six-frame mode
-        (decision 9) a novel ORF's peptide names its makedb entry, and an annotated protein's
-        peptide reaching upstream of the annotated start names the gene's ``nterm_extension``
-        entry (either None when makedb has no such entry: the occurrence is not in the search
-        database); any other peptide of an annotated protein names its locus tag, makedb's
-        ``db_id``."""
+        """The protein ID a search reports for occurrence ``(k, a)``. In six-frame and
+        scored_null mode (decision 9) a novel ORF's peptide names its makedb entry, and an
+        annotated protein's peptide reaching upstream of the annotated start names the
+        gene's ``nterm_extension`` entry (either None when makedb has no such entry: the
+        occurrence is not in the search database); any other peptide of an annotated protein
+        names its locus tag, makedb's ``db_id``."""
         p = prots[k]
         if orfs is None or (p.locus not in novel_ids and a >= upstream.get(p.locus, 0)):
             return p.locus
