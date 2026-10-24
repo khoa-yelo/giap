@@ -127,7 +127,9 @@ def test_summary_names_the_expected_failure(log: Path, capsys: pytest.CaptureFix
     _shards("discordance.x.summary", FAIL, "t.py::test_i", STRICT, log)
     assert C._merge_main(SUITE, True) == 0
     out = capsys.readouterr().out
-    line = next(x for x in out.splitlines() if "discordance.x.summary" in x or "| discordance |" in x)
+    line = next(
+        x for x in out.splitlines() if "discordance.x.summary" in x or "| discordance |" in x
+    )
     assert "xfail" in line
 
 
@@ -135,6 +137,8 @@ def test_records_without_owner_fields_merge_as_before(log: Path) -> None:
     """Logs written before ADR-0057 (no ``test`` / ``xfail``) merge unchanged."""
     _shards("discordance.x.old", FAIL, "t.py::test_j", None, log)
     path = log / f"{SUITE}.jsonl"
-    recs = [{k: v for k, v in r.items() if k not in ("test", "xfail")} for r in C.read_results(path)]
+    recs = [
+        {k: v for k, v in r.items() if k not in ("test", "xfail")} for r in C.read_results(path)
+    ]
     path.write_text("".join(json.dumps(r) + "\n" for r in recs))
     assert C._merge_main(SUITE, True) == C.MERGE_FAIL

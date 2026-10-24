@@ -93,7 +93,7 @@ def test_strict_xfail_direct_fails() -> None:
     if not C.owns_direct_checks():
         C.skip_without_verdict(rec)
     direct("strict_direct")
-    assert False, "direct part of a strict-xfail test"
+    raise AssertionError("direct part of a strict-xfail test")
 
 
 def _counts(i: int) -> dict[str, Any]:

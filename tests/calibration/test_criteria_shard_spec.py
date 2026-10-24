@@ -122,7 +122,9 @@ def _essence(rec: dict[str, Any]) -> tuple[Any, ...]:
 
 @settings(max_examples=25, deadline=None)
 @given(R=st.integers(1, 23), n=st.integers(1, 10), suite_r=st.sampled_from([100, 1000, 7]))
-def test_sharded_merge_equals_unsharded(R: int, n: int, suite_r: int, tmp_path_factory: Any) -> None:
+def test_sharded_merge_equals_unsharded(
+    R: int, n: int, suite_r: int, tmp_path_factory: Any
+) -> None:
     one, many = tmp_path_factory.mktemp("one"), tmp_path_factory.mktemp("many")
     with pytest.MonkeyPatch.context() as mp:
         for var in SHARD_VARS:
@@ -130,8 +132,9 @@ def test_sharded_merge_equals_unsharded(R: int, n: int, suite_r: int, tmp_path_f
         _run_checks(R, one)
         for k in range(n):
             mp.setenv(C.SHARD_ENV, _spec(k, n, suite_r))
-            for rec in _run_checks(R, many):
-                assert rec["status"] == C.SHARD_STATUS
+            for rec in _run_checks(R, many):  # a shard that is the check's whole R decides it
+                whole = C.replicate_range(rec["R"]) == range(rec["R"])
+                assert whole or rec["status"] == C.SHARD_STATUS, rec
         mp.delenv(C.SHARD_ENV)
         ref = {_essence(r)[:4]: _essence(r) for r in C.merge_shards(SUITE, one)}
         got = {_essence(r)[:4]: _essence(r) for r in C.merge_shards(SUITE, many)}
@@ -166,7 +169,9 @@ def test_empty_shard_logs_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         ({C.CONFIRM_ENV: "[]"}, False),
     ],
 )
-def test_owns_direct_checks(monkeypatch: pytest.MonkeyPatch, env: dict[str, str], owns: bool) -> None:
+def test_owns_direct_checks(
+    monkeypatch: pytest.MonkeyPatch, env: dict[str, str], owns: bool
+) -> None:
     for k, v in env.items():
         monkeypatch.setenv(k, v)
     assert C.owns_direct_checks() is owns
@@ -198,11 +203,13 @@ def test_cli_shard_exports_the_suffix(capsys: pytest.CaptureFixture[str]) -> Non
 # --------------------------------------------------------------------------- owning test
 
 
-def test_records_name_the_test_that_wrote_them(tmp_path: Path, request: pytest.FixtureRequest) -> None:
+def test_records_name_the_test_that_wrote_them(
+    tmp_path: Path, request: pytest.FixtureRequest
+) -> None:
     rec = C.calibrate(SUITE, "level", 0.05, _uniform, 3, stream="discordance.shard_spec.owner",
                       log_dir=tmp_path)  # fmt: skip
-    (logged,) = C.read_results(tmp_path / f"{SUITE}.jsonl")
-    assert rec["test"] == logged["test"] == request.node.nodeid
+    logged = C.read_results(tmp_path / f"{SUITE}.jsonl")
+    assert {r["test"] for r in logged} == {rec["test"]} == {request.node.nodeid}
     assert rec["xfail"] is None
 
 

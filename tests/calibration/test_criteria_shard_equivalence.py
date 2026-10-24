@@ -40,8 +40,8 @@ def _args(selection: str) -> list[str]:
 
 
 def _env(log: Path) -> dict[str, str]:
-    keep = {k: v for k, v in os.environ.items() if k not in (C.SHARD_ENV, C.BLOCK_ENV,
-                                                            C.CONFIRM_ENV, "PYTEST_XDIST_WORKER")}  # fmt: skip
+    drop = (C.SHARD_ENV, C.BLOCK_ENV, C.CONFIRM_ENV, "PYTEST_XDIST_WORKER")
+    keep = {k: v for k, v in os.environ.items() if k not in drop}
     return {**keep, C.LOG_DIR_ENV: str(log), "GIAP_SHARD_FIXTURE": "1"}
 
 

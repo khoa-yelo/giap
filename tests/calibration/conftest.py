@@ -13,6 +13,11 @@
   decisions 7-8): a calibration test that cannot reach the harness skips before setup, and a
   harness test that stops before its first harness call skips (its block-1 path was judged in
   the shards). See ``reaches_harness``.
+- Shards (``--shard K/N``): a calibration test that reaches no harness entry point, and every
+  teeth test (``teeth_log``), runs in shard 0 of block 1 only (``_criteria.owns_direct_checks``);
+  teeth tests never run in a confirm run. See the "shards" section below.
+- ADR-0057: every record names the running test and its xfail mark (``pytest_runtest_call``), and
+  an expected failure in a shard is logged for ``--merge`` (``pytest_runtest_makereport``).
 """
 
 from __future__ import annotations
@@ -326,11 +331,85 @@ def _item_reaches_harness(item: pytest.Function) -> bool:
 
 
 def pytest_runtest_setup(item: pytest.Item) -> None:
-    if C.CONFIRM_ENV not in os.environ or not _is_calibration(item):
+    sharded = C.SHARD_ENV in os.environ
+    if (C.CONFIRM_ENV not in os.environ and not sharded) or not _is_calibration(item):
         return
     assert isinstance(item, pytest.Function)
+    if C.CONFIRM_ENV in os.environ:
+        if not _item_reaches_harness(item):
+            pytest.skip(CONFIRM_SKIP)
+        if TEETH_FIXTURE in item.fixturenames:
+            pytest.skip(TEETH_SKIP)
+        return
+    if C.owns_direct_checks():
+        return
     if not _item_reaches_harness(item):
-        pytest.skip(CONFIRM_SKIP)
+        pytest.skip(SHARD_DIRECT_SKIP)
+    if TEETH_FIXTURE in item.fixturenames:
+        pytest.skip(TEETH_SKIP)
+
+
+# --------------------------------------------------------------------------- shards
+# Sharding (``--shard K/N``, GIAP_CALIBRATION_REPLICATES=start:stop@K/N). A harness check runs its
+# shard of replicates in every shard and gets its verdict from --merge. Everything else in a test is
+# a *direct* part (an assertion on all replicates, a recorded quartile table, a fixed fit): it runs
+# exactly once, where ``C.owns_direct_checks()`` is true (shard 0 of block 1), so its verdict is
+# shard 0's exit code, as it is the unsharded run's. conftest enforces that for whole tests:
+# - a calibration test that reaches no harness entry point runs in shard 0 only;
+# - a teeth test (``teeth_log``: unsharded by construction, private log) runs in shard 0 only and
+#   never in the confirm run.
+# A harness test with a direct part guards it itself: ``if not C.owns_direct_checks():
+# C.skip_without_verdict(recs)`` after its last harness call, then the direct part, then
+# ``C.skip_without_verdict(recs)`` before asserting on a status.
+
+TEETH_FIXTURE = "teeth_log"
+SHARD_DIRECT_SKIP = "shard run: a test without harness checks runs in shard 0 only"
+TEETH_SKIP = "shard or confirm run: teeth tests run unsharded, in shard 0 only"
+
+
+def item_xfail(item: pytest.Item) -> dict[str, Any] | None:
+    """The xfail mark of ``item`` that would turn a check's ``AssertionError`` into XFAIL, as
+    ``{"strict": bool, "reason": str}`` (pytest's own evaluation: conditions, ``xfail_strict``),
+    else None (no mark, a false condition, ``run=False`` or ``raises`` excluding AssertionError)."""
+    from _pytest.skipping import evaluate_xfail_marks
+
+    x = evaluate_xfail_marks(item)  # type: ignore[arg-type]
+    if x is None or not x.run:
+        return None
+    if x.raises is not None and not issubclass(AssertionError, x.raises):
+        return None
+    return {"strict": bool(x.strict), "reason": str(x.reason)}
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item: pytest.Item) -> Generator[None, object, object]:
+    """Name the running test in every record it writes (ADR-0057: --merge honours its xfail)."""
+    C.set_current_test(item.nodeid, item_xfail(item))
+    try:
+        return (yield)
+    finally:
+        C.set_current_test(None, None)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(
+    item: pytest.Item, call: pytest.CallInfo[None]
+) -> Generator[None, pytest.TestReport, pytest.TestReport]:
+    """In a shard or confirm run, log an expected failure (XFAIL) of a calibration test, so
+    --merge does not call its passing checks a strict XPASS (ADR-0057)."""
+    report = yield
+    if (
+        report.when == "call"
+        and report.skipped
+        and hasattr(report, "wasxfail")
+        and (C.SHARD_ENV in os.environ or C.CONFIRM_ENV in os.environ)
+        and isinstance(item, pytest.Function)
+        and _is_calibration(item)
+    ):
+        suite = item_suite(item)
+        if suite is not None:
+            C.log_test_outcome(suite, item.nodeid, C.XFAILED, item_xfail(item))
+    return report
 
 
 @pytest.hookimpl(wrapper=True)

@@ -31,7 +31,9 @@ echo "$((1000 + n));cluster"
 """
 
 
-def run(tmp: Path, *args: str, env: dict[str, str] | None = None) -> tuple[int, list[list[str]], str]:
+def run(
+    tmp: Path, *args: str, env: dict[str, str] | None = None
+) -> tuple[int, list[list[str]], str]:
     stub_repo = tmp / "giap"
     (stub_repo / "scripts").mkdir(parents=True, exist_ok=True)
     (stub_repo / "scripts" / "farmshare_env.sh").write_text("# stub\n")
@@ -90,7 +92,9 @@ def test_submits_n_shards_then_a_dependent_merge(tmp_path: Path, n: int) -> None
         exp = str(opt(call, "export"))
         assert f"GIAP_CALIBRATION_LOG_DIR={logdir}" in exp.split(","), exp
         assert f"GIAP_WORKTREE={REPO}" in exp.split(","), exp
-        assert call[-len(harness_args(call)) - 1] == str(REPO / "scripts/slurm/calibration_full.sbatch")
+        assert call[-len(harness_args(call)) - 1] == str(
+            REPO / "scripts/slurm/calibration_full.sbatch"
+        )
     assert f"shards={','.join(ids)} merge={1001 + n} log={logdir}" in out
 
 
@@ -115,7 +119,9 @@ def test_default_log_dir_is_fresh_under_giap_root(tmp_path: Path) -> None:
 
 
 def test_sbatch_extra_options_reach_every_job(tmp_path: Path) -> None:
-    rc, calls, out = run(tmp_path, "discordance", "2", env={"GIAP_SBATCH_EXTRA": "--time=01:00:00 --qos=normal"})
+    rc, calls, out = run(
+        tmp_path, "discordance", "2", env={"GIAP_SBATCH_EXTRA": "--time=01:00:00 --qos=normal"}
+    )
     assert rc == 0, out
     assert all(opt(c, "time") == "01:00:00" and opt(c, "qos") == "normal" for c in calls), calls
 
@@ -136,12 +142,16 @@ def test_existing_suite_log_is_refused(tmp_path: Path) -> None:
     logdir = tmp_path / "old"
     logdir.mkdir()
     (logdir / "discordance.jsonl").write_text("{}\n")
-    rc, calls, out = run(tmp_path, "discordance", "3", env={"GIAP_CALIBRATION_LOG_DIR": str(logdir)})
+    rc, calls, out = run(
+        tmp_path, "discordance", "3", env={"GIAP_CALIBRATION_LOG_DIR": str(logdir)}
+    )
     assert rc == 2 and calls == [], out
 
 
 @pytest.mark.parametrize("fail_at", [1, 2, 4])
-def test_failed_submission_stops_and_never_merges_a_partial_set(tmp_path: Path, fail_at: int) -> None:
+def test_failed_submission_stops_and_never_merges_a_partial_set(
+    tmp_path: Path, fail_at: int
+) -> None:
     """3 shards: a failed shard submission (call 1 or 2) submits no merge; a failed merge
     submission (call 4) exits non-zero and names the shards left without one."""
     rc, calls, out = run(tmp_path, "discordance", "3", env={"STUB_FAIL_AT": str(fail_at)})
