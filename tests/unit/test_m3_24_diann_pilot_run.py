@@ -29,7 +29,6 @@ from helpers.pilot_kit import (
     BINDS,
     CFG,
     DIANN_BIN,
-    DIANN_SIF,
     PilotSandbox,
     pilot_sandbox,
     read_cfg,
@@ -82,22 +81,28 @@ def test_diann_sif_override_is_honoured(tmp_path: Path) -> None:
     pilot = pilot_sandbox(tmp_path)
     other = pilot.sb.tmp / "images" / "elsewhere.sif"
     other.write_text("stub sif\n")
+    other.chmod(0o444)  # M10-02: the pilot runs only a read-only copy whose sha256 is the pin
     _run(pilot, "A1", DIANN_SIF=str(other))
     images = {c["image"] for c in _steps(pilot)}
     assert images == {str(other)}, images
 
 
 def test_the_default_image_is_the_path_of_decision_1(tmp_path: Path) -> None:
-    """With ``DIANN_SIF`` unset the script falls back to Khoa's image, wherever it lives."""
+    """With ``DIANN_SIF`` unset the pilot runs the verified copy
+    ``$GIAP_ROOT/images/diann_2.3.1.sif`` (M10-02 lead decision 1; diann_image.sbatch makes it
+    from Khoa's image); without that copy it exits 2 naming the path and diann_image.sbatch."""
     pilot = pilot_sandbox(tmp_path)
     pilot.sb.env.pop("DIANN_SIF")
     res = pilot.run("diann_pilot", "A1")
-    if Path(DIANN_SIF).is_file():
-        assert res.returncode == 0, f"{res.stdout}\n{res.stderr}"
-        assert {c["image"] for c in _steps(pilot)} == {DIANN_SIF}
-    else:  # the image was moved: the script must still name the documented default
-        assert res.returncode == 2, res.stdout + res.stderr
-        assert DIANN_SIF in res.stdout + res.stderr
+    copy = pilot.sb.root / "images" / "diann_2.3.1.sif"
+    assert res.returncode == 2, res.stdout + res.stderr
+    assert str(copy) in res.stdout + res.stderr and "diann_image.sbatch" in res.stdout + res.stderr
+    copy.parent.mkdir(parents=True, exist_ok=True)
+    copy.write_text("stub sif\n")
+    copy.chmod(0o444)
+    res = pilot.run("diann_pilot", "A1")
+    assert res.returncode == 0, f"{res.stdout}\n{res.stderr}"
+    assert {c["image"] for c in _steps(pilot)} == {str(copy)}
 
 
 def test_the_container_call_binds_the_cluster_filesystems(pilot: PilotSandbox) -> None:
