@@ -9,7 +9,7 @@
 # Pilot arm A3, de novo sequencing (GIAP_SPEC.md §15.1, §15.2 step 6; M3-24).
 #
 #   sbatch scripts/slurm/denovo_pilot.sbatch              # Cascadia 0.0.7 on WT_1, WT_2, WT_3
-#   RUN=WT_1 sbatch --time=04:00:00 scripts/slurm/denovo_pilot.sbatch cascadia   # one run
+#   A3_RUN=WT_1 sbatch --time=04:00:00 scripts/slurm/denovo_pilot.sbatch cascadia   # one run
 #   sbatch scripts/slurm/denovo_pilot.sbatch cascadia WT_2                      # the same
 #   sbatch scripts/slurm/denovo_pilot.sbatch casanovo     # the documented fallback
 #
@@ -28,7 +28,7 @@
 # UTI89 is a different strain, so the A3 comparison then measures de novo against A2's peptides
 # rather than against the same spectra; §15.5 metric 6 is reported with that caveat.
 #
-# Environment: DENOVO_ENV (micromamba env name), DENOVO_MODEL (model weights), RUN (Cascadia
+# Environment: DENOVO_ENV (micromamba env name), DENOVO_MODEL (model weights), A3_RUN (Cascadia
 # runs), MZML_DIR (Cascadia input), RAW_DIR (Casanovo input runs), OUT_DIR (parent of the output directory); outputs go under $GIAP_ROOT.
 set -euo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
@@ -96,7 +96,7 @@ if [ "$TOOL" = "cascadia" ]; then
   }
   verify cascadia_weights "$MODEL"
   verify unimod_table "$UNIMOD"
-  RUN_LIST="${RUN:-${2:-WT_1 WT_2 WT_3}}"
+  RUN_LIST="${A3_RUN:-${2:-WT_1 WT_2 WT_3}}"
   for r in $RUN_LIST; do
     [ -f "$MZML_DIR/$r.mzML" ] || { echo "no mzML for $r: $MZML_DIR/$r.mzML" >&2; exit 2; }
   done

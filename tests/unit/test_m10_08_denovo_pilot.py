@@ -13,7 +13,7 @@ here, a stub ``torch`` (``$STUB_CUDA`` decides ``torch.cuda.is_available()``) an
 launcher ``scripts/pilot/cascadia_offline.py`` runs against the stubs. No GPU, no Cascadia, no
 network, no real ``$GIAP_ROOT``. No statistical claim, so no calibration test.
 
-Conventions settled by the test author: the run comes from ``$RUN`` or the second argument
+Conventions settled by the test author: the run comes from ``$A3_RUN`` or the second argument
 (``denovo_pilot.sbatch cascadia WT_2``); the expected sha256 values come from
 ``$GIAP_REPO/validation/pilot/a3_assets.tsv`` (as in ``fetch_a3_assets.sbatch``); a missing mzML
 for a requested run is a precondition (exit 2).
@@ -165,7 +165,7 @@ def _same(a: str, b: Path) -> bool:
 
 def test_one_run_calls_cascadia_through_the_offline_launcher(box: A3Sandbox) -> None:
     _ready(box)
-    res = _run(box, RUN="WT_1")
+    res = _run(box, A3_RUN="WT_1")
     assert res.returncode == 0, _out(res)
     calls = _sequence_calls(box)
     assert len(calls) == 1, calls
@@ -192,7 +192,7 @@ def test_one_run_calls_cascadia_through_the_offline_launcher(box: A3Sandbox) -> 
 def test_launcher_hands_cascadia_the_sequence_argv(box: A3Sandbox) -> None:
     _ready(box)
     log = box.sb.tmp / "stub_cascadia.json"
-    res = _run(box, RUN="WT_1", STUB_LOG=str(log))
+    res = _run(box, A3_RUN="WT_1", STUB_LOG=str(log))
     assert res.returncode == 0, _out(res)
     import json
 
@@ -201,9 +201,19 @@ def test_launcher_hands_cascadia_the_sequence_argv(box: A3Sandbox) -> None:
     assert _same(rec["url_in_main"], box.db / "cascadia" / "unimod_tables.xml")
 
 
+def test_an_inherited_run_variable_is_ignored(box: A3Sandbox) -> None:
+    """A login shell may export ``RUN`` for something else (FarmShare's BIOS 270 ~/.bashrc sets it
+    to a singularity command); sbatch exports it into the job, so the script reads ``A3_RUN``
+    only (lead fix, 2026-10-24)."""
+    _ready(box)
+    res = _run(box, RUN="singularity run -B /farmshare/x /farmshare/y.sif")
+    assert res.returncode == 0, _out(res)
+    assert len(_sequence_calls(box)) == 3
+
+
 def test_working_directory_is_the_runs_tmpdir(box: A3Sandbox) -> None:
     _ready(box)
-    res = _run(box, RUN="WT_1")
+    res = _run(box, A3_RUN="WT_1")
     assert res.returncode == 0, _out(res)
     (call,) = _sequence_calls(box)
     tmpdir = Path(box.sb.env["TMPDIR"])
@@ -235,7 +245,7 @@ def test_run_as_the_second_argument(box: A3Sandbox) -> None:
 
 def test_help_gpu_and_threshold_are_logged_first(box: A3Sandbox) -> None:
     _ready(box)
-    res = _run(box, RUN="WT_1")
+    res = _run(box, A3_RUN="WT_1")
     assert res.returncode == 0, _out(res)
     calls = box.calls("micromamba.jsonl")
     first_seq = next(i for i, c in enumerate(calls) if "sequence" in c["argv"])
@@ -255,7 +265,7 @@ def test_sha256_mismatch_exits_2_before_cascadia(box: A3Sandbox, which: str) -> 
     wrong = "0" * 64
     _ready(box, weights_sha=wrong if which == "weights" else None,
            unimod_sha=wrong if which == "unimod" else None)  # fmt: skip
-    res = _run(box, RUN="WT_1")
+    res = _run(box, A3_RUN="WT_1")
     assert res.returncode == 2, _out(res)
     assert "sha256" in _msg(box, res), "exit 2 for the sha256 check, not another precondition"
     assert not _sequence_calls(box)
@@ -264,7 +274,7 @@ def test_sha256_mismatch_exits_2_before_cascadia(box: A3Sandbox, which: str) -> 
 def test_unpinned_weights_exit_2(box: A3Sandbox) -> None:
     # The committed a3_assets.tsv has no sha256 until the fetch is resolved: never run unverified.
     _ready(box, weights_sha="")
-    res = _run(box, RUN="WT_1")
+    res = _run(box, A3_RUN="WT_1")
     assert res.returncode == 2, _out(res)
     assert "sha256" in _msg(box, res), "exit 2 for the missing pin, not another precondition"
     assert not _sequence_calls(box)
@@ -272,14 +282,14 @@ def test_unpinned_weights_exit_2(box: A3Sandbox) -> None:
 
 def test_no_cuda_exits_1_before_cascadia(box: A3Sandbox) -> None:
     _ready(box)
-    res = _run(box, RUN="WT_1", STUB_CUDA="0")
+    res = _run(box, A3_RUN="WT_1", STUB_CUDA="0")
     assert res.returncode == 1, _out(res)
     assert not _sequence_calls(box)
 
 
 def test_missing_mzml_is_a_precondition(box: A3Sandbox) -> None:
     _ready(box, runs=("WT_1",))
-    res = _run(box, RUN="WT_3")
+    res = _run(box, A3_RUN="WT_3")
     assert res.returncode == 2, _out(res)
     assert "wt_3.mzml" in _msg(box, res), "name the missing input"
     assert not _sequence_calls(box)
@@ -287,7 +297,7 @@ def test_missing_mzml_is_a_precondition(box: A3Sandbox) -> None:
 
 def test_cascadia_failure_propagates(box: A3Sandbox) -> None:
     _ready(box)
-    res = _run(box, RUN="WT_1", STUB_RC="7")
+    res = _run(box, A3_RUN="WT_1", STUB_RC="7")
     assert len(_sequence_calls(box)) == 1, _out(res)
     assert res.returncode != 0, _out(res)
 
@@ -360,7 +370,7 @@ def test_s2_a_foreign_tmpdir_run_directory_is_untouched(box: A3Sandbox) -> None:
     (theirs / "their_scratch.bin").write_bytes(b"not ours\n")
     theirs.chmod(0o555)
     try:
-        res = _run(box, RUN="WT_1")
+        res = _run(box, A3_RUN="WT_1")
         survived = (theirs / "their_scratch.bin").read_bytes() == b"not ours\n"
         mode = theirs.stat().st_mode & 0o777
     finally:
@@ -374,7 +384,7 @@ def test_s2_a_foreign_tmpdir_run_directory_is_untouched(box: A3Sandbox) -> None:
 
 def test_s2_scratch_is_removed_when_cascadia_fails(box: A3Sandbox) -> None:
     _ready(box)
-    res = _run(box, RUN="WT_1", STUB_RC="7")
+    res = _run(box, A3_RUN="WT_1", STUB_RC="7")
     assert res.returncode == 1, _out(res)
     (call,) = _sequence_calls(box)
     cwd = Path(call["cwd"]).resolve()
@@ -384,7 +394,7 @@ def test_s2_scratch_is_removed_when_cascadia_fails(box: A3Sandbox) -> None:
 
 def test_s2_unset_tmpdir_falls_back_to_tmp(box: A3Sandbox) -> None:
     _ready(box)
-    res = box.run("denovo_pilot", "cascadia", unset=("TMPDIR",), RUN="WT_1",
+    res = box.run("denovo_pilot", "cascadia", unset=("TMPDIR",), A3_RUN="WT_1",
                   STUB_LOG=str(box.sb.tmp / "stub_cascadia.json"))  # fmt: skip
     assert res.returncode == 0, _out(res)
     (call,) = _sequence_calls(box)
@@ -395,7 +405,7 @@ def test_s2_unset_tmpdir_falls_back_to_tmp(box: A3Sandbox) -> None:
 
 def test_s4b_unimod_url_in_the_log_exits_1(box: A3Sandbox) -> None:
     _ready(box)
-    res = _run(box, RUN="WT_1", STUB_ECHO=f"downloading {UNIMOD_URL}")
+    res = _run(box, A3_RUN="WT_1", STUB_ECHO=f"downloading {UNIMOD_URL}")
     assert res.returncode == 1, _out(res)
     assert "unimod" in res.stderr.lower(), "say why on stderr: " + res.stderr
     log = box.root / "pilot" / "A3_cascadia" / "WT_1" / "cascadia.log"
@@ -411,7 +421,7 @@ def test_s4b_unimod_url_stops_before_the_next_run(box: A3Sandbox) -> None:
 
 def test_n4_exit_0_without_an_ssl_is_exit_1(box: A3Sandbox) -> None:
     _ready(box)
-    res = _run(box, RUN="WT_1", STUB_NO_SSL="1")
+    res = _run(box, A3_RUN="WT_1", STUB_NO_SSL="1")
     assert len(_sequence_calls(box)) == 1, _out(res)
     assert res.returncode == 1, _out(res)
     assert "wt_1.ssl" in _msg(box, res), "name the missing .ssl"
@@ -419,7 +429,7 @@ def test_n4_exit_0_without_an_ssl_is_exit_1(box: A3Sandbox) -> None:
 
 def test_n4_a_header_only_ssl_is_still_a_success(box: A3Sandbox) -> None:
     _ready(box)
-    res = _run(box, RUN="WT_1")
+    res = _run(box, A3_RUN="WT_1")
     assert res.returncode == 0, _out(res)
     ssl = box.root / "pilot" / "A3_cascadia" / "WT_1" / "WT_1.ssl"
     assert ssl.is_file() and len(ssl.read_text().splitlines()) == 1
@@ -427,7 +437,7 @@ def test_n4_a_header_only_ssl_is_still_a_success(box: A3Sandbox) -> None:
 
 def test_n5_a_crash_with_a_unimod_url_gives_the_unimod_message(box: A3Sandbox) -> None:
     _ready(box)
-    res = _run(box, RUN="WT_1", STUB_RC="7", STUB_ECHO=f"lxml: failed to load {UNIMOD_URL}")
+    res = _run(box, A3_RUN="WT_1", STUB_RC="7", STUB_ECHO=f"lxml: failed to load {UNIMOD_URL}")
     assert res.returncode == 1, _out(res)
     assert "unimod" in res.stderr.lower(), (
         "a Cascadia crash on a Unimod fetch must say the launcher did not take effect: "

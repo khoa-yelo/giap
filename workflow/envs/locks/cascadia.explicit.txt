@@ -209,7 +209,7 @@ https://conda.anaconda.org/conda-forge/linux-64/libpq-18.6-h3883810_3.conda#cc99
 https://conda.anaconda.org/conda-forge/linux-64/libprotobuf-4.24.4-hf27288f_0.conda#1a0287ab734591ad63603734f923016b
 https://conda.anaconda.org/conda-forge/linux-64/librdkit-2026.03.6-h61648e3_0.conda#ae8c0eed22f6124876ccc998913d64eb
 https://conda.anaconda.org/conda-forge/linux-64/libxslt-1.1.45-h8e12856_1.conda#5c8ce6af1772fcfc2b86d17b825abc8e
-https://conda.anaconda.org/conda-forge/noarch/setuptools-84.0.0-pyh332efcf_0.conda#62ac906f1cd582c6c264c95625cb9d6f
+https://conda.anaconda.org/conda-forge/noarch/setuptools-80.10.2-pyh332efcf_0.conda#7b446fcbb6779ee479debb4fd7453e6c
 https://conda.anaconda.org/conda-forge/linux-64/protobuf-4.24.4-py310h620c231_0.conda#26b481407c457a2fde193b3717aa88d9
 https://conda.anaconda.org/conda-forge/noarch/pyjwt-2.13.0-pyhcf101f3_0.conda#edb808d7f7396478ab6e457e697b8ec5
 https://conda.anaconda.org/conda-forge/noarch/requests-2.34.2-pyhcf101f3_0.conda#4a85203c1d80c1059086ae860836ffb9
