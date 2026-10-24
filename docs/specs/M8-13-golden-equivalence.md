@@ -18,8 +18,8 @@ merged), M8-12 (#192, committed golden data, merged), M8-17 (#204 and #207 merge
 ## What the gate says
 
 §13 row M8: "GSEA and ORA match fgsea and goseq on golden data". §7.7.5 states the criteria and
-`tests/calibration/tolerances.yaml` holds them. It is **protected and unchanged**; changing any
-key needs a Khoa ADR (R3):
+`tests/calibration/tolerances.yaml` holds them. It is **protected**; changing any key needs a Khoa
+ADR (R3). ADR-0044 added `wallenius_goseq_abs_tol` (PR #297):
 `golden_r: {wallenius_rel_tol: 1.0e-6, fgsea_es_abs_tol: 1.0e-9, fgsea_nes_abs_tol: 0.02,
 fgsea_log10p_k: 3.0}`.
 
@@ -187,7 +187,8 @@ consumption.
 ## 3. Tolerances and NA rows [statistician]
 
 All keys come from `tolerances.yaml` `golden_r` and are read, never copied. A change to any of
-them needs a **Khoa ADR** (protected file, R3). This spec changes none.
+them needs a **Khoa ADR** (protected file, R3). This spec's only change is ADR-0044's
+`wallenius_goseq_abs_tol: 1.0e-5`.
 
 | Criterion | G3a (seed and ties normalised) | G3b (GIAP's own seed and ties) |
 |---|---|---|

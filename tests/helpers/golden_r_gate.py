@@ -18,6 +18,7 @@ import fcntl
 import gzip
 import json
 import math
+import os
 from pathlib import Path
 from typing import Any
 
@@ -106,6 +107,13 @@ def decade(p: float) -> str:
     return str(max(0, math.ceil(-math.log10(p)) - 1))
 
 
+def _session() -> str:
+    """The test session writing the report: the Slurm job (if any) and the xdist run id, which
+    every worker of one pytest run shares."""
+    job = os.environ.get("SLURM_JOB_ID", "local")
+    return f"{job}:{os.environ.get('PYTEST_XDIST_TESTRUNUID', os.getpid())}"
+
+
 def update_report(section: str, payload: dict[str, Any], *, merge: bool = False) -> Path:
     """Write ``payload`` as ``section`` of the §5 JSON report (file-locked, xdist-safe);
     ``merge`` updates the section's existing fields instead of replacing it."""
@@ -113,6 +121,9 @@ def update_report(section: str, payload: dict[str, Any], *, merge: bool = False)
     with (REPORT.parent / ".m8_golden.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         data = json.loads(REPORT.read_text(encoding="utf-8")) if REPORT.is_file() else {}
-        data[section] = {**data.get(section, {}), **payload} if merge else payload
+        old = data.get(section, {})
+        if old.get("session") != _session():  # never mix fields from an earlier run (#297 review)
+            old = {}
+        data[section] = {**(old if merge else {}), **payload, "session": _session()}
         REPORT.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return REPORT
