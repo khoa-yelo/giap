@@ -1,0 +1,168 @@
+// M9-17 follow-up: main.nf hands the analysis steps' plot support to the plots step and publishes
+// it under OUT/plots/support/ (docs/specs/M9-17-plot-support-analysis.md lead decisions 5-6;
+// GIAP_SPEC.md §6.2 row "plots", §6.4 executor equality, §9.1). Stub runs only; ci.yml runs:
+// nf-test test workflow/tests --profile test,stub.
+//
+// Pinned here:
+//   * the plots task (tag "plots") stages one `plots_support` input per support step that ran
+//     (giap.steps.plots._SUPPORT_INPUTS), each from that step's task: function, determinants and
+//     context_stats with modules core,function; determinants and context_stats with modules core
+//     (function off); none without peptides;
+//   * what each staged support input holds is published under OUT/plots/support/ by its file
+//     name, nothing is published as OUT/<key>_support/, and the plots output (plots/stub.done)
+//     and report/report.html are still there (the support publish does not replace OUT/plots);
+//   * every py step's --in keys are registry keys (H.registryProblems; plots_support is one).
+// Inputs and the function db_dir as main_function.nf.test, plus preflight (the plots step's one
+// required input) as main_report.nf.test.
+
+nextflow_pipeline {
+
+    name "main.nf passes the plot support to the plots step (stub, M9-17)"
+    script "../main.nf"
+    options "-stub"
+    tag "support"
+    tag "report"
+
+    test("modules core,function: plots gets function, determinants and context_stats support; published under plots/support/") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                def db = java.nio.file.Files.createTempDirectory('m917_db').toFile()
+                def rel = [cog2020_def: 'cog/cog-20.def.tab', go_basic: 'go/go-basic.obo',
+                           goslim_generic: 'go/goslim_generic.obo', kegg_ko_pathway: 'kegg/ko_pathway.tsv',
+                           kegg_pathway_names: 'kegg/pathway_names.tsv', cog2020_fun: 'cog/fun-20.tab']
+                rel.each { k, r -> def f = new File(db, r); f.parentFile.mkdirs(); f.text = '' }
+                new File(db, 'db_manifest.json').text = groovy.json.JsonOutput.toJson(
+                    rel.collectEntries { k, r -> [(k): [path: r, version: 'stub']] })
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString(),
+                          preflight: "${moduleTestDir}/data/genetable/preflight.json".toString()]
+                modules = ['core', 'function']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = db.canonicalPath
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
+            def dirsTagged = { String w, String step ->
+                H.taskDirs(w).findAll { d ->
+                    def l = new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: ''
+                    H.tagOf(l.replaceFirst(/^### name:\s*['"]?/, '').replaceFirst(/['"]\s*$/, '')) == step
+                }
+            }
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def pd = dirsTagged(work, 'plots')
+            assert pd.size() == 1 : "plots ran ${pd.size()}x"
+            def sup = H.stepInputs(pd[0]).findAll { it[0] == 'plots_support' }
+            def srcs = sup.collect { new File(pd[0], it[1]).canonicalFile }
+            def owner = { File f ->
+                ['function', 'determinants', 'context_stats'].find { s ->
+                    dirsTagged(work, s).any { f.path.startsWith(it.canonicalPath + File.separator) }
+                }
+            }
+            def owners = srcs.collect { owner(it) }
+            assert owners.sort() == ['context_stats', 'determinants', 'function'] :
+                "plots_support inputs ${sup} come from ${owners}; expected one each from function, determinants, context_stats"
+
+            def names = srcs.collectMany { f ->
+                def fs = []
+                if (f.isDirectory()) f.eachFileRecurse { x -> if (x.isFile()) fs << x.name } else fs << f.name
+                fs
+            }
+            assert !names.isEmpty() : "the staged plots_support inputs hold no file: ${srcs}"
+            names.each { n ->
+                assert new File("${outputDir}/plots/support/${n}").isFile() :
+                    "plots/support/${n} not published; published: ${S.published("${outputDir}")}"
+            }
+            assert S.supportDirs("${outputDir}").isEmpty() : "support published as its own directory: ${S.supportDirs("${outputDir}")}"
+            assert new File("${outputDir}/plots/stub.done").isFile() : "the plots output is gone from OUT/plots/"
+            assert new File("${outputDir}/report/report.html").isFile() : "report/report.html not published"
+        }
+    }
+
+    test("modules core (function off): plots gets determinants and context_stats support only; the run succeeds") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString(),
+                          preflight: "${moduleTestDir}/data/genetable/preflight.json".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
+            def dirsTagged = { String w, String step ->
+                H.taskDirs(w).findAll { d ->
+                    def l = new File(d, '.command.run').readLines().find { it.startsWith('### name:') } ?: ''
+                    H.tagOf(l.replaceFirst(/^### name:\s*['"]?/, '').replaceFirst(/['"]\s*$/, '')) == step
+                }
+            }
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            assert workflow.success : "a run with function off failed"
+            assert workflow.trace.failed().size() == 0
+            assert H.registryProblems(work, REG).isEmpty() : "${H.registryProblems(work, REG)}"
+            assert dirsTagged(work, 'function').isEmpty() : "function ran with modules = ['core']"
+
+            def pd = dirsTagged(work, 'plots')
+            assert pd.size() == 1 : "plots ran ${pd.size()}x"
+            def srcs = H.stepInputs(pd[0]).findAll { it[0] == 'plots_support' }.collect { new File(pd[0], it[1]).canonicalFile }
+            def owners = srcs.collect { f ->
+                ['function', 'determinants', 'context_stats'].find { s ->
+                    dirsTagged(work, s).any { f.path.startsWith(it.canonicalPath + File.separator) }
+                }
+            }
+            assert owners.sort() == ['context_stats', 'determinants'] :
+                "plots_support inputs come from ${owners}; expected determinants and context_stats"
+            assert S.supportDirs("${outputDir}").isEmpty() : "support published as its own directory: ${S.supportDirs("${outputDir}")}"
+            assert new File("${outputDir}/report/report.html").isFile() : "report/report.html not published"
+        }
+    }
+
+    test("no peptides: no analysis step runs, plots gets no plots_support and the run succeeds") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          preflight: "${moduleTestDir}/data/genetable/preflight.json".toString()]
+                modules = ['core', 'function']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
+            def work = workDir.toString()
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def pd = H.stepDirs(work, 'plots')
+            assert pd.size() == 1 : "plots ran ${pd.size()}x: ${H.names(workflow.trace)}"
+            def keys = H.stepInputs(pd[0]).collect { it[0] }
+            assert !('plots_support' in keys) : "plots_support staged without any analysis step: ${keys}"
+            assert S.supportDirs("${outputDir}").isEmpty()
+            assert new File("${outputDir}/report/report.html").isFile() : "report/report.html not published"
+        }
+    }
+}

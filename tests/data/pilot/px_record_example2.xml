@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ProteomeXchangeDataset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="PXD078459" formatVersion="1.4.0" xsi:noNamespaceSchemaLocation="proteomeXchange-1.4.0.xsd">
+  <DatasetSummary announceDate="2026-01-15" hostingRepository="iProX" title="Synthetic test record: E. coli Nissle 1917 proteome">
+    <Description>Synthetic fixture for the GIAP M10-01 tests; not real data.</Description>
+    <ReviewLevel><cvParam cvRef="PRIDE" accession="PRIDE:0000414" name="Peer-reviewed dataset"/></ReviewLevel>
+  </DatasetSummary>
+  <DatasetIdentifierList><DatasetIdentifier>
+    <cvParam cvRef="MS" accession="MS:1001919" name="ProteomeXchange accession number" value="PXD078459"/>
+  </DatasetIdentifier></DatasetIdentifierList>
+  <SpeciesList><Species>
+    <cvParam cvRef="MS" accession="MS:1001469" name="taxonomy: scientific name" value="Escherichia coli Nissle 1917"/>
+  </Species></SpeciesList>
+  <InstrumentList>
+    <Instrument id="Instrument_1">
+      <cvParam cvRef="MS" accession="MS:1000031" name="timsTOF HT"/>
+    </Instrument>
+  </InstrumentList>
+  <FullDatasetLinkList><FullDatasetLink>
+    <cvParam cvRef="PRIDE" accession="PRIDE:0000411" name="Dataset FTP location" value="ftp://download.iprox.cn/IPX0012345000/"/>
+  </FullDatasetLink></FullDatasetLinkList>
+  <DatasetFileList>
+    <DatasetFile id="FILE_1" name="S01.d.zip">
+      <cvParam cvRef="PRIDE" accession="PRIDE:0000404" name="Associated raw file URI" value="https://download.iprox.cn/IPX0012345000/IPX0012345001/S01.d.zip"/>
+      <cvParam cvRef="NCIT" accession="NCIT:C25683" name="file size" value="2000000001" unitName="byte"/>
+      <cvParam cvRef="MS" accession="MS:1000568" name="MD5" value="4cfe35d8825ba802868fabe687dc860d"/>
+      <userParam name="characteristics[genotype]" value="wild type"/>
+    </DatasetFile>
+    <DatasetFile id="FILE_2" name="S02.d.zip">
+      <cvParam cvRef="PRIDE" accession="PRIDE:0000404" name="Associated raw file URI" value="https://download.iprox.cn/IPX0012345000/IPX0012345001/S02.d.zip"/>
+      <cvParam cvRef="NCIT" accession="NCIT:C25683" name="file size" value="2000000002" unitName="byte"/>
+      <cvParam cvRef="MS" accession="MS:1000568" name="MD5" value="3aebec09aed29cb42464817e942cfb5b"/>
+      <userParam name="characteristics[genotype]" value="wild type"/>
+    </DatasetFile>
+    <DatasetFile id="FILE_3" name="S03.d.zip">
+      <cvParam cvRef="PRIDE" accession="PRIDE:0000404" name="Associated raw file URI" value="https://download.iprox.cn/IPX0012345000/IPX0012345001/S03.d.zip"/>
+      <cvParam cvRef="NCIT" accession="NCIT:C25683" name="file size" value="2000000003" unitName="byte"/>
+      <cvParam cvRef="MS" accession="MS:1000568" name="MD5" value="e8209ee123ab67cc8605bc8f1ace98ee"/>
+      <userParam name="characteristics[genotype]" value="wild type"/>
+    </DatasetFile>
+    <DatasetFile id="FILE_4" name="S04.d.zip">
+      <cvParam cvRef="PRIDE" accession="PRIDE:0000404" name="Associated raw file URI" value="https://download.iprox.cn/IPX0012345000/IPX0012345001/S04.d.zip"/>
+      <cvParam cvRef="NCIT" accession="NCIT:C25683" name="file size" value="2000000004" unitName="byte"/>
+      <cvParam cvRef="MS" accession="MS:1000568" name="MD5" value="49b5e94782813c8b320a9f7957f659c5"/>
+      <userParam name="characteristics[genotype]" value="ΔfliC"/>
+    </DatasetFile>
+    <DatasetFile id="FILE_5" name="S05.d.zip">
+      <cvParam cvRef="PRIDE" accession="PRIDE:0000404" name="Associated raw file URI" value="https://download.iprox.cn/IPX0012345000/IPX0012345001/S05.d.zip"/>
+      <cvParam cvRef="NCIT" accession="NCIT:C25683" name="file size" value="2000000005" unitName="byte"/>
+      <cvParam cvRef="MS" accession="MS:1000568" name="MD5" value="57ef94b52fceba143ba19b7cb960846a"/>
+      <userParam name="characteristics[genotype]" value="ΔfliC"/>
+    </DatasetFile>
+    <DatasetFile id="FILE_6" name="S06.d.zip">
+      <cvParam cvRef="PRIDE" accession="PRIDE:0000404" name="Associated raw file URI" value="https://download.iprox.cn/IPX0012345000/IPX0012345001/S06.d.zip"/>
+      <cvParam cvRef="NCIT" accession="NCIT:C25683" name="file size" value="2000000006" unitName="byte"/>
+      <cvParam cvRef="MS" accession="MS:1000568" name="MD5" value="280734d4073cd47d8d91558304a4b9eb"/>
+      <userParam name="characteristics[genotype]" value="ΔfliC"/>
+    </DatasetFile>
+  </DatasetFileList>
+  <RepositoryRecordList><RepositoryRecord repositoryID="iProX" uri="https://www.iprox.cn/page/project.html?id=IPX0012345000" label="PXD078459" name="synthetic"/></RepositoryRecordList>
+</ProteomeXchangeDataset>

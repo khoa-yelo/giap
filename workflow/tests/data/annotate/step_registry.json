@@ -64,6 +64,7 @@
     ],
     "outputs": [
       "autocorrelation",
+      "context_stats_support",
       "detection_summary",
       "gene_context",
       "genes_tsv",
@@ -99,7 +100,8 @@
     "outputs": [
       "determinants_attribution",
       "determinants_features",
-      "determinants_model"
+      "determinants_model",
+      "determinants_support"
     ]
   },
   "function": {
@@ -118,7 +120,8 @@
     "outputs": [
       "category_summary",
       "enrichment_detection",
-      "enrichment_gsea"
+      "enrichment_gsea",
+      "function_support"
     ]
   },
   "gene_table": {
@@ -231,13 +234,19 @@
       "replicons"
     ],
     "optional_inputs": [
+      "features",
+      "hits_exact",
+      "hits_tolerant",
       "novel_promoter_windows",
+      "peptides",
+      "placement_costs",
       "promoter_windows",
       "rbs_novel",
       "terminators"
     ],
     "outputs": [
       "annotation_patch",
+      "novel_class_fdr",
       "novel_orfs",
       "novel_orfs_faa",
       "novel_orfs_gff3"
@@ -350,6 +359,7 @@
     "outputs": [
       "mapping_fdr",
       "placement",
+      "placement_costs",
       "stratum0_classes"
     ]
   },
@@ -362,15 +372,18 @@
       "annotation_patch",
       "autocorrelation",
       "category_summary",
+      "context_stats_support",
       "detectability_summary",
       "detection_summary",
       "determinants_attribution",
       "determinants_features",
       "determinants_model",
+      "determinants_support",
       "enrichment_detection",
       "enrichment_gsea",
       "events",
       "features",
+      "function_support",
       "gene_context",
       "gene_table",
       "genes",
@@ -381,6 +394,7 @@
       "islands",
       "mapping",
       "mapping_fdr",
+      "novel_class_fdr",
       "novel_orfs",
       "novel_orfs_faa",
       "novel_orfs_gff3",
@@ -500,6 +514,7 @@
       "islands",
       "mapping",
       "mapping_fdr",
+      "novel_class_fdr",
       "novel_orfs",
       "novel_orfs_faa",
       "novel_orfs_gff3",

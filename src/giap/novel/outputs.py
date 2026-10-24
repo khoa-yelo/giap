@@ -23,7 +23,7 @@ from giap.io.tsv import format_value
 from giap.mapping.sixframe import translate11_text
 from giap.model.coords import Interval, Replicon, check_interval
 from giap.model.genes import GeneModel
-from giap.novel.candidates import Orf, _il, _stops, _strand_view, _walk_up
+from giap.novel.candidates import NOVEL_CLASSES, Orf, _il, _stops, _strand_view, _walk_up
 
 Kind = Literal["str", "int", "float", "bool"]
 NOVEL_ORFS_TYPES: dict[str, Kind] = {
@@ -278,3 +278,69 @@ def protein_records(
             out.append(ProteinRecord(header, (header,), header, aa, aa.count("*"),
                                      LetterCounts(()), LetterCounts(())))  # fmt: skip
     return out
+
+
+def _cell_int(v: str | None) -> int | None:
+    return int(v) if v is not None and v not in ("", "NA") else None
+
+
+def _orf_span(o: Mapping[str, str | None]) -> tuple[int, int] | None:
+    """The ORF's 1-based closed span in transcription order, (start, end): ``start_longest``
+    (``start_best_ostir``, then ``start``, when NA) to ``end``. A ``no_start_codon`` ORF has no
+    start column; its first codon is ``length_aa_longest`` codons plus the stop before ``end``.
+    ``None`` without an end or a way to place the start."""
+    end = _cell_int(o.get("end"))
+    if end is None:
+        return None
+    start = next(
+        (s for k in ("start_longest", "start_best_ostir", "start") if (s := _cell_int(o.get(k)))),
+        None,
+    )
+    if start is None and (n_aa := _cell_int(o.get("length_aa_longest"))) is not None:
+        nt = 3 * (n_aa + 1) - 1  # the codons and the stop, minus the end position itself
+        start = end - nt if o.get("strand") != "-" else end + nt
+    return None if start is None else (start, end)
+
+
+def _within(hit_start: int, hit_end: int, strand: str | None, span: tuple[int, int]) -> bool:
+    """Hit ``[hit_start, hit_end]`` (1-based closed; ``hit_end`` past the replicon end when it
+    crosses the origin) lies in the ORF span: ``[start, end]`` on ``+``, ``[end, start]`` on
+    ``-``; an ORF whose span wraps (``end < start`` on ``+``) covers ``[start, ...]`` and
+    ``[..., end]``."""
+    lo, hi = span if strand != "-" else (span[1], span[0])
+    if lo <= hi:
+        return lo <= hit_start and hit_end <= hi
+    return hit_start >= lo or hit_end <= hi
+
+
+def candidate_ids(
+    hits: Sequence[Mapping[str, str | None]], orfs: Sequence[Mapping[str, str | None]]
+) -> list[str | None]:
+    """``novel_candidate_id`` per ``peptide_hits`` row (M7-06 Q6, back-filled in M7-15): the
+    ``orf_id`` of the first ORF listing the row's peptide (I = L folded) on its contig and
+    strand whose span holds the hit (``[start_longest, end]``, ``[end, start_longest]`` on
+    ``-``; the ORF's own start when ``start_longest`` is NA), for rows of a novel locus class;
+    else ``None``. Rows and ORFs are published-table cells (1-based closed). Pure.
+    """
+    owners: dict[tuple[str | None, str | None, str], list[tuple[str, tuple[int, int] | None]]]
+    owners = {}
+    for o in orfs:
+        oid = o["orf_id"]
+        if not oid:
+            continue
+        span = _orf_span(o)
+        for pep in dict.fromkeys(_il(p) for p in (o["peptides"] or "").split(";") if p):
+            owners.setdefault((o["contig"], o["strand"], pep), []).append((oid, span))
+
+    def owner(h: Mapping[str, str | None]) -> str | None:
+        if h["locus_class"] not in NOVEL_CLASSES:
+            return None
+        start, end = _cell_int(h.get("start")), _cell_int(h.get("end"))
+        for oid, span in owners.get((h["contig"], h["strand"], _il(h["peptide"] or "")), []):
+            if span is None or start is None or end is None:
+                continue
+            if _within(start, end, h["strand"], span):
+                return oid
+        return None
+
+    return [owner(h) for h in hits]

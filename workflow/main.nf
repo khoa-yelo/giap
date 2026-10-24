@@ -89,7 +89,8 @@ workflow {
                     opt(inputs.replicon_depth), GENETABLE.out.tier_summary,
                     ANNOTATE.out.layers_for_pairs, VARIANTS.out.variants_qc)
             NOVEL(genome, gene_model, ANNOTATE.out.contract, MAPPING.out.mapping, opt(inputs.peptides),
-                  opt(contaminantLibrary(inputs)), GENETABLE.out.gene_table, ANNOTATE.out.layer_pairs)
+                  opt(contaminantLibrary(inputs)), GENETABLE.out.gene_table, ANNOTATE.out.layer_pairs,
+                  MAPPING.out.hits_exact.combine(MAPPING.out.hits_tolerant).combine(MAPPING.out.placement_costs).first())
             OPERONS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract, ANNOTATE.out.layers_for_pairs)
             DETERMINANTS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract,
                          ANNOTATE.out.regions, CONTEXT.out.gene_context)
@@ -113,14 +114,19 @@ workflow {
                     kv('operon_flags', OPERONS.out.operon_flags),
                     kv('novel_orfs', NOVEL.out.novel_orfs), kv('novel_orfs_gff3', NOVEL.out.novel_orfs_gff3),
                     kv('novel_orfs_faa', NOVEL.out.novel_orfs_faa), kv('annotation_patch', NOVEL.out.annotation_patch),
+                    kv('novel_class_fdr', NOVEL.out.novel_class_fdr),
                     kv('determinants_features', DETERMINANTS.out.determinants_features),
                     kv('determinants_model', DETERMINANTS.out.determinants_model),
-                    kv('determinants_attribution', DETERMINANTS.out.determinants_attribution)]
+                    kv('determinants_attribution', DETERMINANTS.out.determinants_attribution),
+                    // M9-17: the analysis steps' optional plot support, staged for the plots step
+                    kv('plots_support', CONTEXT.out.context_stats_support),
+                    kv('plots_support', DETERMINANTS.out.determinants_support)]
             if ('function' in (params.modules ?: [])) {  // §6.3: the optional module switch
                 FUNCTION(GENETABLE.out.gene_table, gene_model, GENETABLE.out.tu_folds, functionResources())
                 pub += [kv('category_summary', FUNCTION.out.category_summary),
                         kv('enrichment_detection', FUNCTION.out.enrichment_detection),
-                        kv('enrichment_gsea', FUNCTION.out.enrichment_gsea)]
+                        kv('enrichment_gsea', FUNCTION.out.enrichment_gsea),
+                        kv('plots_support', FUNCTION.out.function_support)]
             }
         }
         // the step event logs, merged in a content order, under the key 'events' as the local
@@ -134,6 +140,6 @@ workflow {
     } else {
         def keys = inputs.keySet().sort()
         def files = keys.collect { k -> file(inputs[k], checkIfExists: true) }
-        GIAP_STEP(channel.of(['smoke', files]), keys, ['marker=smoke.done'])
+        GIAP_STEP(channel.of(['smoke', files, '']), keys, ['marker=smoke.done'])
     }
 }

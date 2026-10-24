@@ -239,9 +239,18 @@ def test_an_empty_raw_directory_fails_before_the_search(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- fetch_pxd078459.sbatch
 
 
+# M10-01 decision 1: the fetch reads a committed manifest (or this override) and unpacks archives;
+# the stub curl returns text, so the override names files inside the three ``<run>.d`` folders.
+FETCH_OVERRIDE = {
+    "PXD078459_BASE_URL": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2026/10/PXD078459",
+    "PXD078459_FILES": " ".join(f"WT_{r}.d/{f}" for r in (1, 2, 3)
+                                for f in ("analysis.tdf", "analysis.tdf_bin")),
+}  # fmt: skip
+
+
 def test_fetch_downloads_three_runs_and_records_their_checksums(pilot: PilotSandbox) -> None:
     """§15.2 step 4 and deliverable 5: three wild-type runs under $GIAP_DATA_DIR with SHA256SUMS."""
-    res = pilot.run("fetch_pxd078459")
+    res = pilot.run("fetch_pxd078459", **FETCH_OVERRIDE)
     assert res.returncode == 0, f"exit {res.returncode}\n{res.stdout}\n{res.stderr}"
     calls = pilot.fetch_calls()
     assert calls, "nothing was downloaded (the stubbed wget/curl was never called)"
@@ -256,16 +265,18 @@ def test_fetch_downloads_three_runs_and_records_their_checksums(pilot: PilotSand
     for line in sums.read_text().splitlines():
         m = re.match(r"^([0-9a-f]{64})\s+\*?(\S+)$", line.strip())
         assert m, f"unparsable SHA256SUMS line: {line!r}"
-        listed[Path(m.group(2)).name] = m.group(1)
+        listed[Path(m.group(2)).as_posix()] = m.group(1)
     created = [Path(p) for c in calls for p in c["created"]]
     assert created, calls
-    for path in created:
-        assert path.name in listed, f"{path.name} is not in SHA256SUMS: {sorted(listed)}"
-        assert listed[path.name] == hashlib.sha256(path.read_bytes()).hexdigest(), path
+    names = {(p.relative_to(dest) if p.is_relative_to(dest) else p).as_posix() for p in created}
+    assert names <= set(listed), (sorted(names - set(listed)), sorted(listed))
+    for rel, want in listed.items():
+        assert (dest / rel).is_file(), f"{rel} is listed but not under {dest}"
+        assert hashlib.sha256((dest / rel).read_bytes()).hexdigest() == want, rel
 
 
 def test_fetch_writes_only_under_giap_data_dir(pilot: PilotSandbox) -> None:
-    res = pilot.run("fetch_pxd078459")
+    res = pilot.run("fetch_pxd078459", **FETCH_OVERRIDE)
     assert res.returncode == 0, f"{res.stdout}\n{res.stderr}"
     assert pilot.repo_is_clean() == "", pilot.repo_is_clean()
     dest = str(pilot.sb.root / "data" / "pxd078459")

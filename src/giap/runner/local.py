@@ -260,6 +260,11 @@ def run_local(
             stale = fresh is not None and key not in supplied and key not in fresh
             if key in spec.inputs or (path.exists() and not stale):
                 inputs[key] = path
+        if name == "plots":  # M9-17: the analysis steps' support directories, as under Nextflow
+            staged = [workdir / k for k in SUPPORT_OUTPUTS if (workdir / k / "support").is_dir()
+                      and (fresh is None or k in fresh)]  # fmt: skip
+            if staged:
+                inputs["plots_support"] = staged
         outputs = {key: workdir / key for key in spec.outputs}
         wall, cpu, status = time.perf_counter(), time.process_time(), "failed"
         try:
@@ -297,6 +302,7 @@ PUBLISHED_FILES: dict[str, str] = {
     "genes_tsv": "tables/genes.tsv",
     "island_diagnostics": "context/island_diagnostics.parquet",
     "islands": "tables/islands.tsv",
+    "novel_class_fdr": "novel/novel_class_fdr.parquet",
     "novel_orfs": "tables/novel_orfs.tsv",
     "novel_orfs_faa": "tables/novel_orfs.faa",
     "novel_orfs_gff3": "tables/novel_orfs.gff3",
@@ -313,6 +319,13 @@ PUBLISHED_FILES: dict[str, str] = {
     "variants_vcf": "tables/variants.vcf",
     "variants_qc": "work/variants_qc.parquet",  # an intermediate: never published (M7-14)
 }
+
+
+#: M9-17: the analysis steps' optional support directories; ``publish`` merges their
+#: ``support/`` subdirectories (``giap.io.plot_support.write_support``) into ``OUT/plots/support``
+SUPPORT_OUTPUTS: tuple[str, ...] = (
+    "context_stats_support", "determinants_support", "function_support",
+)  # fmt: skip
 
 
 #: outputs named ``work/<file>`` are intermediates: GIAP_STEP and :func:`publish` skip them
@@ -335,6 +348,15 @@ def publish(workdir: Path, outdir: Path) -> list[Path]:
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src, dst)
             done.append(dst)
+    from giap.io.plot_support import drop_sibling
+
+    support = outdir / "plots" / "support"
+    for key in SUPPORT_OUTPUTS:
+        if (workdir / key / "support").is_dir():
+            for f in (workdir / key / "support").iterdir():
+                drop_sibling(support / f.name)
+            shutil.copytree(workdir / key / "support", support, dirs_exist_ok=True)
+            done += [] if support in done else [support]
     return done
 
 

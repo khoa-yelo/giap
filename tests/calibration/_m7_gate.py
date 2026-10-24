@@ -7,6 +7,7 @@ strand).
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable, Mapping
 from types import MappingProxyType
 
@@ -161,3 +162,174 @@ def a6_high_swaps(variants: pd.DataFrame, min_peptides: int = 2) -> dict[str, in
         "folded": sum(h or n >= min_peptides for h, n in groups.values()),
         "unfolded": int((swaps["confidence"] == "high").sum()),
     }
+
+
+# --------------------------------------------------------------------------- novel ORFs (M7-13b)
+
+#: the four gated novel-ORF classes (rule 5)
+NOVEL_CLASSES = ("intergenic", "cds_outframe", "antisense", "nterm_extension")
+NOVEL_COUNT_KEYS = ("n_pred", "tp_p", "n_truth", "tp_r", "start_ok", "mismatch", "rbs_planted",
+                    "rbs_pass")  # fmt: skip
+NOVEL_PRED_COLUMNS = ("orf_id", "class", "contig", "strand", "stop", "start_longest",
+                      "start_best_ostir", "rbs_supported")  # fmt: skip
+NovelKey = tuple[str, str, int]  # (contig, strand, stop: 1-based lowest base of the stop codon)
+
+
+def _wrap(pos: int, length: int | None) -> int:
+    return pos if length is None else (pos - 1) % length + 1
+
+
+def novel_stop(strand: str, end: int, length: int | None = None) -> int:
+    """1-based lowest base of the stop codon from ``novel_orfs.tsv`` ``end`` (the last base of the
+    stop in transcription direction): ``end - 2`` on ``+``, ``end`` on ``-``; wrapped into
+    ``1..length`` when ``length`` is given (origin-crossing keys, rule 5)."""
+    return _wrap(int(end) - 2 if str(strand) == "+" else int(end), length)
+
+
+def _true(v: object) -> bool:
+    if isinstance(v, str):
+        return v.strip().lower() == "true"
+    return False if pd.isna(v) else bool(v)  # type: ignore[call-overload]
+
+
+def _int_or_na(v: object) -> object:
+    if isinstance(v, str):
+        return pd.NA if v in ("", "NA") else int(v)
+    return pd.NA if pd.isna(v) else int(v)  # type: ignore[call-overload]
+
+
+def _pred_frame(
+    rows: Iterable[Mapping[str, object]], lengths: Mapping[str, int] | None
+) -> pd.DataFrame:
+    lens = lengths or {}
+    data = [
+        [str(r["orf_id"]), str(r["class"]), str(r["contig"]), str(r["strand"]),
+         novel_stop(str(r["strand"]), int(str(r["end"])), lens.get(str(r["contig"]))),
+         _int_or_na(r["start_longest"]), _int_or_na(r["start_best_ostir"]),
+         _true(r["rbs_supported"])]
+        for r in rows
+    ]  # fmt: skip
+    out = pd.DataFrame(data, columns=list(NOVEL_PRED_COLUMNS))
+    return out.astype({"stop": "int64", "start_longest": "Int64", "start_best_ostir": "Int64",
+                       "rbs_supported": bool})  # fmt: skip
+
+
+def g3_predictions(
+    novel_orfs: pd.DataFrame, lengths: Mapping[str, int] | None = None
+) -> pd.DataFrame:
+    """G3 prediction set: ``called = true`` rows of the four classes (``NOVEL_PRED_COLUMNS``)."""
+    called = pd.Series([_true(c) for c in novel_orfs["called"]], index=novel_orfs.index, dtype=bool)
+    sel = novel_orfs[called & novel_orfs["class"].isin(NOVEL_CLASSES)]
+    return _pred_frame(sel.to_dict("records"), lengths)
+
+
+def g4_predictions(
+    novel_orfs: pd.DataFrame,
+    side: pd.DataFrame,
+    level: float | None,
+    *,
+    regime: str | None = None,
+    lengths: Mapping[str, int] | None = None,
+) -> pd.DataFrame:
+    """G4 prediction set: side rows with ``class_rule_met`` and ``q <= level`` (NaN q never enters;
+    ``level=None``: no q filter), of ``regime`` when given, of the four classes by side ``class``;
+    coordinates from ``novel_orfs`` (ValueError when a side row is missing there)."""
+    s = side[side["class_rule_met"].astype(bool) & side["class"].isin(NOVEL_CLASSES)]
+    if regime is not None:
+        s = s[s["regime"] == regime]
+    if level is not None:
+        s = s[s["q"].astype(float) <= float(level)]  # NaN compares false
+    by_id = {str(r["orf_id"]): r for r in novel_orfs.to_dict("records")}
+    rows = []
+    for oid, cls in zip(s["orf_id"], s["class"], strict=True):
+        if str(oid) not in by_id:
+            raise ValueError(f"g4_predictions: side row {oid!r} is not in novel_orfs.tsv")
+        rows.append({**by_id[str(oid)], "class": str(cls)})
+    return _pred_frame(rows, lengths)
+
+
+def match_novel(
+    pred: pd.DataFrame,
+    truth: pd.DataFrame,
+    lengths: Mapping[str, int] | None = None,
+    min_peptides: int = 2,
+) -> dict[str, dict[str, int]]:
+    """Counts ``NOVEL_COUNT_KEYS`` per class of ``NOVEL_CLASSES`` (rule 5; interface pinned in
+    ``test_m7_gate_novel_helpers.py``): match by ``(contig, strand, stop)`` and class."""
+    lens = lengths or {}
+    truth_rows: dict[str, dict[NovelKey, dict[str, object]]] = {c: {} for c in NOVEL_CLASSES}
+    recall: dict[str, list[NovelKey]] = {c: [] for c in NOVEL_CLASSES}
+    for r in truth.to_dict("records"):
+        cls = str(r["class"])
+        if cls not in truth_rows:
+            continue
+        key = (
+            str(r["contig"]),
+            str(r["strand"]),
+            _wrap(int(r["stop"]), lens.get(str(r["contig"]))),
+        )
+        truth_rows[cls].setdefault(key, r)
+        if int(r["n_true_peptides"]) >= min_peptides:
+            recall[cls].append(key)
+    first: dict[str, dict[NovelKey, dict[str, object]]] = {c: {} for c in NOVEL_CLASSES}
+    out = {c: dict.fromkeys(NOVEL_COUNT_KEYS, 0) for c in NOVEL_CLASSES}
+    for p in pred.to_dict("records"):
+        cls = str(p["class"])
+        if cls not in out:
+            continue
+        key = (str(p["contig"]), str(p["strand"]), int(p["stop"]))
+        out[cls]["n_pred"] += 1
+        if key in truth_rows[cls]:
+            first[cls].setdefault(key, p)
+        elif any(key in truth_rows[c] for c in NOVEL_CLASSES if c != cls):
+            out[cls]["mismatch"] += 1
+    for cls in NOVEL_CLASSES:
+        o = out[cls]
+        o["tp_p"] = len(first[cls])
+        o["n_truth"] = len(recall[cls])
+        o["tp_r"] = sum(k in first[cls] for k in recall[cls])
+        for key, p in first[cls].items():
+            t = truth_rows[cls][key]
+            starts = (p["start_longest"], p["start_best_ostir"])
+            want = int(str(t["true_start"]))
+            o["start_ok"] += any(
+                _int_or_na(s) is not pd.NA and _int_or_na(s) == want for s in starts
+            )
+            if _true(t["rbs_planted"]):
+                o["rbs_planted"] += 1
+                o["rbs_pass"] += bool(p["rbs_supported"])
+    return out
+
+
+def _per_class(values: Iterable[object]) -> dict[str, int]:
+    out = dict.fromkeys(NOVEL_CLASSES, 0)
+    for c in values:
+        if c in out:
+            out[str(c)] += 1
+    return out
+
+
+def list_targets(side: pd.DataFrame, regime: str) -> dict[str, int]:
+    """Side rows of ``regime`` per ``fdr_class`` that entered the class list (finite ``q`` or
+    ``reason = "lost_pick"``): the rule 6 vacuity input."""
+    s = side[side["regime"] == regime]
+    q = s["q"].astype(float).to_numpy()
+    entered = [math.isfinite(x) or r == "lost_pick" for x, r in zip(q, s["reason"], strict=True)]
+    return _per_class(s.loc[entered, "fdr_class"])
+
+
+def reason_counts(side: pd.DataFrame) -> dict[str, dict[str, int]]:
+    """Non-null ``reason`` values per side ``class`` (the four classes)."""
+    out: dict[str, dict[str, int]] = {c: {} for c in NOVEL_CLASSES}
+    for c, r in zip(side["class"], side["reason"], strict=True):
+        if c in out and r is not None and not (isinstance(r, float) and math.isnan(r)):
+            out[str(c)][str(r)] = out[str(c)].get(str(r), 0) + 1
+    return out
+
+
+def fallback_calls(side: pd.DataFrame) -> dict[str, int]:
+    """``called`` rows with a non-finite ``q`` per side ``class`` (the >= 2-peptide fallback; not
+    error-controlled, recorded and not gated)."""
+    q = side["q"].astype(float).to_numpy()
+    fb = [bool(c) and not math.isfinite(x) for c, x in zip(side["called"], q, strict=True)]
+    return _per_class(side.loc[fb, "class"])

@@ -1,0 +1,80 @@
+{
+  "dataset_mode": "diaPASEF",
+  "runs": [
+    {
+      "run": "WT_1",
+      "source_folder": "MLA1914689_WT_P1_1_Y-D7_1_13119.d",
+      "notes": [],
+      "mode": "diaPASEF",
+      "msms_type_counts": {
+        "0": 734,
+        "9": 8804
+      },
+      "dia_window_rows": 65,
+      "pasef_rows": 0,
+      "window_groups": 12,
+      "mz_range": [
+        343.83,
+        1188.83
+      ],
+      "gradient_length_s": 539.861036,
+      "metadata": {
+        "AcquisitionSoftwareVersion": "6.0.6",
+        "AcquisitionDateTime": "2026-02-03T01:57:47.434+08:00",
+        "InstrumentName": "timsTOF HT",
+        "InstrumentFamily": "9"
+      },
+      "incomplete_run": false
+    },
+    {
+      "run": "WT_2",
+      "source_folder": "MLA1914690_WT_P2_2_Y-D8_1_13120.d",
+      "notes": [],
+      "mode": "diaPASEF",
+      "msms_type_counts": {
+        "0": 734,
+        "9": 8805
+      },
+      "dia_window_rows": 65,
+      "pasef_rows": 0,
+      "window_groups": 12,
+      "mz_range": [
+        343.83,
+        1188.83
+      ],
+      "gradient_length_s": 539.847301,
+      "metadata": {
+        "AcquisitionSoftwareVersion": "6.0.6",
+        "AcquisitionDateTime": "2026-02-03T02:10:07.486+08:00",
+        "InstrumentName": "timsTOF HT",
+        "InstrumentFamily": "9"
+      },
+      "incomplete_run": false
+    },
+    {
+      "run": "WT_3",
+      "source_folder": "MLA1914691_WT_P3_3_Y-D9_1_13121.d",
+      "notes": [],
+      "mode": "diaPASEF",
+      "msms_type_counts": {
+        "0": 734,
+        "9": 8805
+      },
+      "dia_window_rows": 65,
+      "pasef_rows": 0,
+      "window_groups": 12,
+      "mz_range": [
+        343.83,
+        1188.83
+      ],
+      "gradient_length_s": 539.900803,
+      "metadata": {
+        "AcquisitionSoftwareVersion": "6.0.6",
+        "AcquisitionDateTime": "2026-02-03T02:22:25.140+08:00",
+        "InstrumentName": "timsTOF HT",
+        "InstrumentFamily": "9"
+      },
+      "incomplete_run": false
+    }
+  ]
+}
