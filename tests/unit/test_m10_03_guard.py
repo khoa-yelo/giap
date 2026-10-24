@@ -19,6 +19,8 @@ from helpers.slurm_sandbox import REPO
 INPUTS_ALLOWED = {"pxd078459_files.tsv", "acquisition.json", "README.md"}
 # ``.*.tmp.*``: the job's temporary names, left behind when SIGKILL/OOM skips the EXIT trap (S2)
 FORBIDDEN = ("a[1-3]*.tsv*", "*_abundance.tsv*", "*.convert.json", "*.convert.log", ".*.tmp.*")
+# M10-08 asset manifest (URLs and sha256 only); its name matches a[1-3]*.tsv by accident
+NOT_CONVERTED = {"validation/pilot/a3_assets.tsv"}
 
 
 def _tracked(*paths: str) -> list[str]:
@@ -44,7 +46,8 @@ def test_no_converted_table_is_tracked_anywhere() -> None:
     bad = [
         p
         for p in _tracked()
-        if any(fnmatch.fnmatchcase(PurePosixPath(p).name, pat) for pat in FORBIDDEN)
+        if p not in NOT_CONVERTED
+        and any(fnmatch.fnmatchcase(PurePosixPath(p).name, pat) for pat in FORBIDDEN)
     ]
     assert not bad, f"converted DIA-NN tables are never committed (Khoa 2026-10-23): {bad}"
 
