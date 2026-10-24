@@ -52,6 +52,7 @@ FLAG_ORDER: tuple[str, ...] = (
     "junction_spanned", "homopolymer_junction", "class_fdr_unestimated", "rbs_supported",
     "no_start_codon", "partial", "ostir_missing", "rbs_threshold_unestimated", "junction_unknown",
     "promoter_supported", "terminator_supported", "readthrough_candidate",
+    "denovo_only_unsupported",
 )  # fmt: skip
 _FLAG_RANK = {f: i for i, f in enumerate(FLAG_ORDER)}
 

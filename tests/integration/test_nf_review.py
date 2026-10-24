@@ -156,10 +156,11 @@ _LABELS = {
 }
 
 
-def _labels_script() -> str:
+def _labels_script(fail_first: bool = True) -> str:
+    """One process per label; ``fail_first`` makes attempt 1 exit 137 (the memory retry)."""
+    body = "if [ ${task.attempt} -eq 1 ]; then exit 137; fi" if fail_first else "true"
     procs = [
-        f"process {name} {{\n    label '{label}'\n    script:\n"
-        f'    "if [ ${{task.attempt}} -eq 1 ]; then exit 137; fi"\n}}\n'
+        f"process {name} {{\n    label '{label}'\n    script:\n    \"{body}\"\n}}\n"
         for name, label in _LABELS.items()
     ]
     return "".join(procs) + "workflow {\n" + "".join(f"    {n}()\n" for n in _LABELS) + "}\n"
@@ -176,10 +177,17 @@ def _override(executor_cpus: int | None) -> str:
 
 
 def _profile_run(
-    tmp_path: Path, profile: str, threads: int, memory: str, executor_cpus: int | None, **env: str
+    tmp_path: Path,
+    profile: str,
+    threads: int,
+    memory: str,
+    executor_cpus: int | None,
+    *,
+    fail_first: bool = True,
+    **env: str,
 ) -> list[dict[str, str]]:
     tmp_path.mkdir(parents=True, exist_ok=True)
-    (tmp_path / "main.nf").write_text(_labels_script())
+    (tmp_path / "main.nf").write_text(_labels_script(fail_first))
     (tmp_path / "override.config").write_text(_override(executor_cpus))
     (tmp_path / "params.json").write_text(json.dumps({"threads": threads, "memory": memory}))
     cmd = ["nextflow", "-q", "run", "main.nf", "-c", str(WF / "nextflow.config")]
@@ -230,8 +238,12 @@ def test_farmshare_local_executor_defaults_4_cpus_30_gb() -> None:
 # ---------------------------------------------------------------- decision 5
 
 
+# The limits tests run a script that succeeds: under the caps here the first request is already at
+# the cap, so a 137 terminates without a retry (M7-15 decision 11 B1; test_m7_15_retry_growth.py).
+
+
 def test_farmshare_user_limits_below_profile_win(tmp_path: Path) -> None:
-    rows = _profile_run(tmp_path, "farmshare", 4, "8 GB", executor_cpus=64)
+    rows = _profile_run(tmp_path, "farmshare", 4, "8 GB", executor_cpus=64, fail_first=False)
     for r in rows:
         assert int(r["cpus"]) <= 4, r
         assert _mem(r["memory"]) <= 8 * GB, r
@@ -242,13 +254,17 @@ def test_farmshare_user_limits_below_profile_win(tmp_path: Path) -> None:
 
 def test_farmshare_local_user_limits_vs_allocation(tmp_path: Path) -> None:
     env = {"SLURM_CPUS_PER_TASK": "8", "SLURM_MEM_PER_NODE": "34816"}  # 34 GB -> 32 GB
-    big = _profile_run(tmp_path / "big", "farmshare_local", 64, "256 GB", None, **env)
+    big = _profile_run(
+        tmp_path / "big", "farmshare_local", 64, "256 GB", None, fail_first=False, **env
+    )
     high = [r for r in big if r["name"] == "HIGH"]
     assert high
     for r in high:
         assert int(r["cpus"]) == 8, r
         assert _mem(r["memory"]) <= 32 * GB, r
-    small = _profile_run(tmp_path / "small", "farmshare_local", 2, "4 GB", None, **env)
+    small = _profile_run(
+        tmp_path / "small", "farmshare_local", 2, "4 GB", None, fail_first=False, **env
+    )
     for r in small:
         assert int(r["cpus"]) <= 2, r
         assert _mem(r["memory"]) <= 4 * GB, r

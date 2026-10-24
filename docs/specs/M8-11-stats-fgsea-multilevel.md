@@ -1,5 +1,8 @@
 # M8-11: fgsea port II — the multilevel splitting stage (`sampleSize = 101`, `eps = 0`)
 
+Status: superseded by ADR-0038 (GSEA runs R `fgsea::fgseaMultilevel` instead of a Python port; PR #193
+closed)
+
 Milestone M8 · track S (statistics engine) · **pass 2** · depends on: M8-02 · estimate ≈ 330 code
 lines (+ ≈ 380 test lines) · **statistical** (label `stats`) · numba
 

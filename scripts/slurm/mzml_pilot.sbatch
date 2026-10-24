@@ -3,7 +3,7 @@
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=32G
+#SBATCH --mem=32000M
 #SBATCH --time=02:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
 # .d -> mzML for ONE PXD078459 run, then the structural mzML check (M10-08 deliverable 7).

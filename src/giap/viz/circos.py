@@ -478,7 +478,12 @@ def _markers(plot: _Plot, canvas: _Canvas, view: RunView) -> list[str]:
     return counts
 
 
-def _legend(fig: Any, binned: bool, notes: Sequence[str]) -> None:
+def _legend(fig: Any, binned: bool, notes: Sequence[str], rows: Sequence[Row]) -> None:
+    """The key, with an entry only for a category the figure draws (its data ``rows``)."""
+    drawn = {(str(r[0]), str(r[5])) for r in rows}
+    tracks = {t for t, _ in drawn}
+    genes = {c for t, c in drawn if t in ("gene_plus", "gene_minus")}
+
     def box(colour: str, label: str, hatch: str | None = None) -> tuple[Patch, str]:
         return Patch(
             facecolor=colour, edgecolor="#555555" if hatch else colour, hatch=hatch, linewidth=0
@@ -490,28 +495,41 @@ def _legend(fig: Any, binned: bool, notes: Sequence[str]) -> None:
         else [
             box(c, k.replace("_", " "), PARTIAL_HATCH if k == "partial_excluded" else None)
             for k, c in style.STATUS_COLOUR.items()
+            if k in genes
         ]
     )
-    items += [box(c, f"{k} arc") for k, c in style.REGION.items()]
-    items += [box(c, f"island {k}", h) for k, (c, h) in style.ISLAND.items()]
-    lines = [(BLACK, "TU start"), (PROMOTER, "promoter"), (TERMINATOR, "terminator")]
+    items += [box(c, f"{k} arc") for k, c in style.REGION.items() if ("region", k) in drawn]
+    items += [
+        box(c, f"island {k}", h) for k, (c, h) in style.ISLAND.items() if ("island", k) in drawn
+    ]
+    lines = [
+        (c, lab)
+        for t, c, lab in (
+            ("tu_start", BLACK, "TU start"),
+            ("promoter", PROMOTER, "promoter"),
+            ("terminator", TERMINATOR, "terminator"),
+        )
+        if t in tracks
+    ]
     handles: list[Artist] = [h for h, _ in items]
     handles += [Line2D([], [], color=c) for c, _ in lines]
     labels = [lab for _, lab in items] + [lab for _, lab in lines]
-    for marker, face, edge, lab in (
-        ("^", BLACK, BLACK, "ALT site (high)"),
-        ("^", "none", BLACK, "ALT site (candidate)"),
-        ("o", NOVEL, NOVEL, "novel ORF"),
+    for marker, face, edge, lab, shown in (
+        ("^", BLACK, BLACK, "ALT site (high)", ("alt_site", "high") in drawn),
+        ("^", "none", BLACK, "ALT site (candidate)", ("alt_site", "candidate") in drawn),
+        ("o", NOVEL, NOVEL, "novel ORF", "novel_orf" in tracks),
     ):
+        if not shown:
+            continue
         handles.append(
             Line2D(
                 [], [], marker=marker, linestyle="none", markerfacecolor=face, markeredgecolor=edge
             )
         )
         labels.append(lab)
-    fig.legend(
-        handles, labels, loc="upper left", bbox_to_anchor=(0.70, 0.92), frameon=False, fontsize=6
-    )
+    if handles:
+        fig.legend(handles, labels, loc="upper left", bbox_to_anchor=(0.70, 0.92), frameon=False,
+                   fontsize=6)  # fmt: skip
     key = "gene colour: detected share (viridis)" if binned else "gene colour: detection status"
     text = [key, "abundance: log2, viridis 2nd-98th pct; white = NA or imputed", *notes]
     wrapped = [line for t in text for line in textwrap.wrap(t, 46, subsequent_indent="  ")]
@@ -616,6 +634,6 @@ def circos(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.Skip:
         parts.append(", ".join(markers))
     title = "; ".join(parts)
     fig.suptitle(title, y=0.98)
-    _legend(fig, binned, plot.notes)
+    _legend(fig, binned, plot.notes, plot.rows)
     canvas.place_labels(fig)
     return [base.Instance(None, fig, plot.frame(), title, coords=("start",))]

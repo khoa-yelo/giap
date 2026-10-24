@@ -973,7 +973,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M4-24 decision 7: preflight `candidate_tier` should use the shared key columns, so it does not
   preview `decoy_picked` for all-unscored decoys.
 - M9-23: switch existing plot titles to `giap.viz.base.plural` as their tests are next touched.
-- M9-23: hide V16's `Skip` ("written by giap compare") from ordinary run reports; add a test for the runs-section detection tier per run.
+- M9-23: hide V16's `Skip` (`input_absent:compare`) from ordinary run reports; add a test for the runs-section detection tier per run.
 - Review #225 nits (M7-12):
   - N2: the methods-note FDP table is at 200 ORFs per class; rerun it at the gate count of 300.
   - N3: `OrfEntries` does not restate `NTERM_MIN_UPSTREAM_AA` and assumes `min_orf_aa` = 7; assert `digest_len[0]` ≥ 7 in six-frame mode.
@@ -1048,6 +1048,18 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (MVP-04 #258 review) boundary tests for summary gates 4, 6, 8, 11, 13 (p) and a gate-13 no-high-island case; sbatch seed from `K12_EVIDENCE_SEED` as `MVP04_SEED`, tested as passed through; gate 15 counts the `empty_state` SVG as content (N2); N3–N9 tidying in `scripts/dev/mvp04_summary.py`.
 - (M2-14b item 7) `PC_BATCH = 100` (regions per PROMOTER_CALCULATOR task) is a constant in annotate.nf; make it a config key (ADR, defaults.yaml) if a genome needs a different batch size.
 
+### M7-17 follow-ups (PR #291)
+- (Q6) The flagged share of true ORFs is fixed by construction in the two existing arms (0 picked, ≈ 1 de novo). Add a mixed database + de novo input arm (M7-13c or MVP-04) to measure it.
+- (Q8) `orf_regimes` treats an unresolved `auto` C9 source as non-`denovo`, while mapping and the flag resolve it table-wide (`resolve_sources`); a source-less de novo table gives `unestimated` ORFs instead of `denovo_subgroup`. M7-11 follow-up: resolve sources the same way (this changes regimes and q, so it needs its own issue).
+- (Decision 4) `test_denovo_support_flag_gate.py` reruns its own G4-k3 arm (one extra simulation per replicate); reuse the G4-k3 runs.
+- (#291 review nits)
+  - report card `sources` misses `novel_orfs:flags` (build.py:304);
+  - `_FLAG` is defined after its first use in steps/novel.py;
+  - `rbs is True` in evidence.py:60 should be `rbs is not None and bool(rbs)`;
+  - the Hypothesis ORF-side alphabet includes `I`;
+  - the gate test should count `side_flag != tsv_flag` as a violation.
+- (M7-17 gate, statistician 7f8e4ed0) `inject_false_orfs` should skip segments at truth keys, as `null_segments` does: about 0.5 % of G4-k3 injections land on a planted ORF's stop and add no false ORF. Makes G4-k3 slightly stricter and changes its stream (rerun); needs Khoa's batch. Do not exclude every CDS-overlapping segment (replicate 130 is correct behaviour).
+
 ### 2026-10-24 review nits (deferred)
 - (#297 review nit 2) Size: about 1,280 test lines against the ~400 guide; next time, ship the Wallenius half (`test_golden_wallenius.py` plus most of `tests/helpers/golden_r_gate.py`) as its own PR (process note, no code change).
 - (#297 review nit 3) Empty leading edges: `GoldenReplayEngine` maps an empty `leadingEdge` cell to `()`, but `_leading_edges_in_fgsea_order`, `test_es_oracle_leading_edges_match_golden` and `_g3b` (`tests/golden/test_golden_gsea_wiring.py:225`, `:299`, `:585`) call `.split(";")` and get `[""]`; add a shared `_edge(cell)` helper and exercise the oracle's `top == -bottom → ES 0` branch.
@@ -1078,3 +1090,11 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (M10-10 spec finding 1) `mzml_pilot.sbatch` asks `--mem=32G` and `denovo_pilot.sbatch` asks `--mem=64G` with 8 CPUs; at MaxMemPerCPU=4000 Slurm raises them to 9 and 17 CPUs. Use `--mem=32000M` and size denovo from the smoke MaxRSS (M10-10 overrides both on the command line).
 - (M10-10 spec finding 3) the plus-strand `orf_id` depends on where the peptides fall, so compare's `novel_orfs` Jaccard can count one ORF as two across arms; key on the stop codon (as M10-10 metric 6 does).
 - (M10-10 statistician S6) add a per-bin n column to `mapping_fdr.tsv` (M3 owner), so the de novo bins can be cross-checked directly.
+
+### 2026-10-24 afternoon (lead)
+- (M6-13 statistician) a variance-floor σ model σ² = σ_f² + σ₁²·e^(2γz), gated on D-1b-floor, D-1c and the null quartile check cut on a. It lowers the D-1c top-quartile excess from 1.7× to about 1.4×, at a 1.03–1.10× level cost in the null a-quartiles.
+- (M6-13 Q1) P(miss) from the scaled fit's rescaled residuals (ADR-0055 Consequences). Measure with attack C under D-1 and D-1c noise.
+- (#310 review N-4) no test checks that giapsim's own pair table agrees with `build_pairs` (classes, distances, wrap-around pairs).
+- (M10-07 review) N1, the methods-note sentence; N3, the `outside_bounds` count. `metrics.py`'s `_outside_repo` stays strict, because main's M10-05 tests pin exit 2 for a git-ignored path; revisit whether it should accept git-ignored paths, as entrapment.py does.
+- (M10-08b review N10) timsconvert's lock pulls in `pyBaf2Sql`, which bundles Bruker's baf2sql library. ADR-0054 covers only the TDF-SDK. Confirm the licence note, or record that baf2sql is unused for .d/TDF input.
+- (Khoa, 2026-10-24) running GIAP on macOS is untested. The Python package passes on macOS CI; the full pipeline would need `-profile docker`, which spec §3 keeps but doesn't test. Candidate for M11: a Docker-profile test run, and documenting the platforms.

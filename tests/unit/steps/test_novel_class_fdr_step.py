@@ -42,8 +42,10 @@ from helpers.novel_fdr_fixture import db_id, pep_row, peptides_frame
 from giap.model.coords import Interval
 
 NEW_INPUTS = ("peptides", "features", "hits_exact", "hits_tolerant", "placement_costs")
+# M7-17: denovo_only_unsupported last, bool; null without peptides
 SIDE_COLUMNS = ("orf_id", "class", "fdr_class", "regime", "q", "class_fdr", "reason",
-                "class_mismatch", "class_rule_met", "called")  # fmt: skip
+                "class_mismatch", "class_rule_met", "called",
+                "denovo_only_unsupported")  # fmt: skip
 TABLE_KEYS = ("novel_orfs", "novel_orfs_gff3", "novel_orfs_faa", "annotation_patch")
 CLASS_EVENT = "novel_orfs.class_fdr"
 FLOOR_EVENT = "novel_orfs.class_q_floor_above_alpha"
