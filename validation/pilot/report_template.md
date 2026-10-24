@@ -14,7 +14,7 @@ This template holds no numbers. Only aggregates appear here: no sequence, no gen
 | Measured runtimes replace the estimates | {{checklist.3.status}} |
 | TE2–TE5 are reported; failures explained | {{checklist.4.status}} |
 
-Spec SHA: {{spec}}.
+GIAP commit: {{giap_commit}}. Spec SHA: {{spec}}.
 
 ## 2. Data and arms
 
@@ -62,13 +62,11 @@ which can still detect such genes through tolerant placements.
 
 | subset | A1 | A2 |
 |---|---|---|
-| all | {{m3.A1.subsets.all.share}} | {{m3.A2.subsets.all.share}} |
-| chromosome | {{m3.A1.subsets.chromosome.share}} | {{m3.A2.subsets.chromosome.share}} |
-| plasmid | {{m3.A1.subsets.plasmid.share}} | {{m3.A2.subsets.plasmid.share}} |
-| prophage | {{m3.A1.subsets.prophage.share}} | {{m3.A2.subsets.prophage.share}} |
-| BGC | {{m3.A1.subsets.bgc.share}} | {{m3.A2.subsets.bgc.share}} |
-| strain-specific | {{m3.A1.subsets.strain_specific.share}} | {{m3.A2.subsets.strain_specific.share}} |
-| K-12 shared | {{m3.A1.subsets.k12_shared.share}} | {{m3.A2.subsets.k12_shared.share}} |
+<!-- m3 rows -->
+
+Subsets: all of G (cds, sorf), by replicon (`plasmid:<contig>` per plasmid; `unknown`: neither
+chromosome nor plasmid), by region (prophage, bgc), by K-12 class (`no_peptides`: no in-silico
+tryptic peptide); `pseudogene` is outside G.
 
 ### Metric 4: quantitative agreement (shared genes, from `giap compare`)
 
@@ -100,9 +98,11 @@ The expected misses are structural (N-terminal products of non-ATG starts, Sec s
 Share exact in frame at an own gene: {{te1.share_exact_inframe}} of {{te1.n_peptides}} peptides, nominal 95 % Wilson interval [{{te1.ci_low}}, {{te1.ci_high}}] (misses cluster by gene, so its coverage is optimistic; the interval is not a test).
 Pass (point estimate at or above the threshold): {{te1.passed}}; lower end below the threshold: {{te1.ci_low_below_threshold}}.
 
-Misses: non-ATG N-terminal {{te1.misses.non_atg_nterm}}, exact at another gene {{te1.misses.exact_other_gene}}, tolerant only {{te1.misses.tolerant_only}}; masked exact in frame {{te1.exact_inframe_masked}}.
+Misses ({{te1.n_misses}}, first matching cause): non-ATG N-terminal {{te1.misses.non_atg_nterm}}, exact at another gene {{te1.misses.exact_other_gene}}, exact in another class {{te1.misses.exact_other_class}}, tolerant only {{te1.misses.tolerant_only}}, unplaced {{te1.misses.unplaced}}; masked exact in frame {{te1.exact_inframe_masked}}.
+Non-ATG N-terminal products in the denominator: {{te1.non_atg_nterm.peptides}}. Peptides with no locus tag of `genes.tsv` among their sources: {{te1.unknown_source}}; with only NA q-values: {{te1.target_q_na}}.
 
 Secondary, never the verdict: excluding non-ATG products {{te1.share_excluding_non_atg}}; without peptides whose accepted rows are all at the cut-off {{te1.share_without_q_at_cutoff}}.
+Removed {{te1.share_without_q_at_cutoff.removed}} peptides (A2 q_crossings {{te1.share_without_q_at_cutoff.q_crossings}}); a pass that becomes a fail under this superset: {{te1.share_without_q_at_cutoff.pass_becomes_fail}}.
 A1 diagnostic (exact in frame at any gene, no pass flag): {{te1_a1_diagnostic.share}}.
 
 ## 5. Hypotheses
@@ -110,15 +110,24 @@ A1 diagnostic (exact in frame at any gene, no pass flag): {{te1_a1_diagnostic.sh
 Test family for this issue: {H1}, size 1, no BH.
 
 **H1** (A2 detects more strain CDS than A1, mostly plasmid, prophage and BGC genes): verdict {{h1.verdict}}; failed clauses: {{h1.failed_clauses}}.
-A verdict other than "supported" means not supported by the pre-registered rule.
-A2-only share of discordant genes {{h1.prop_a2_only}}; coverage difference {{h1.coverage_diff}}.
+`not_supported` means not supported by the pre-registered rule; `not_evaluable` means the rule could not be applied (no discordant TU).
+A2-only genes b {{h1.b}}, A1-only genes c {{h1.c}}; A2-only share of discordant genes {{h1.prop_a2_only}}; coverage difference {{h1.coverage_diff}}.
+These are nominal 95 % Wilson intervals; they describe the effects and are not the test (a
+two-sided 95 % interval and the one-sided 0.05 test can disagree near the boundary).
 TU-level test: {{h1.b_tu}} against {{h1.c_tu}} units ({{h1.mixed_tu}} mixed, left out), p_tu {{h1.p_tu}}, unit effect {{h1.unit_effect}}.
 Gene-level p_gene {{h1.p_gene}} (assumes independent genes; decides nothing).
-Share of A2-only genes in plasmid, prophage or BGC {{h1.mostly}} (base rate {{h1.mostly_base_rate}}).
+Share of A2-only genes in plasmid, prophage or BGC {{h1.mostly}} (base rate {{h1.mostly_base_rate}}); strain-specific share of A2-only genes {{h1.strain_specific_share}}.
 The arms are two database searches of the same spectra, so discordance is largely fixed by sequence
 divergence rather than sampled, and dependence at the scale of a region remains; p is not a replication probability.
 
 **H3** (context conclusions agree between A1 and A2): verdict {{h3.verdict}}; rho criterion {{h3.criteria.rho.status}}; islands {{h3.criteria.islands.status}}; operon flags {{h3.criteria.operon_flags.status}}; enriched categories {{h3.criteria.enriched_categories.status}}.
+The numbers are shown whatever the verdict: rho {{h3.criteria.rho.rho}} [{{h3.criteria.rho.ci_low}}, {{h3.criteria.rho.ci_high}}].
+
+| family | n_a | n_b | n_shared | union | Jaccard | status |
+|---|---|---|---|---|---|---|
+| islands | {{h3.criteria.islands.n_a}} | {{h3.criteria.islands.n_b}} | {{h3.criteria.islands.n_shared}} | {{h3.criteria.islands.union}} | {{h3.criteria.islands.jaccard}} | {{h3.criteria.islands.status}} |
+| operon flags | {{h3.criteria.operon_flags.n_a}} | {{h3.criteria.operon_flags.n_b}} | {{h3.criteria.operon_flags.n_shared}} | {{h3.criteria.operon_flags.union}} | {{h3.criteria.operon_flags.jaccard}} | {{h3.criteria.operon_flags.status}} |
+| enriched categories | {{h3.criteria.enriched_categories.n_a}} | {{h3.criteria.enriched_categories.n_b}} | {{h3.criteria.enriched_categories.n_shared}} | {{h3.criteria.enriched_categories.union}} | {{h3.criteria.enriched_categories.jaccard}} | {{h3.criteria.enriched_categories.status}} |
 
 **H2** and **H4**: deferred (they need A3, M10-07/M10-10 and the full validation).
 
