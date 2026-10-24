@@ -926,9 +926,11 @@ def _arm(label: str, out: Path, a: argparse.Namespace, genome_sha: str, job: str
     sm = None if summary is None else _json(summary)
     if sm is not None and not isinstance(sm.get("distinct_stripped_q01"), int):
         raise Precondition(f"{summary}: no integer distinct_stripped_q01")
-    tables = {n: out / "tables" / f"{n}.tsv" for n in ("peptide_hits", "unmapped",
-                                                       "detection_summary")}  # fmt: skip
-    t = {n: _table(f, n) if f.is_file() else None for n, f in tables.items()}
+    t: dict[str, pd.DataFrame | None] = {}
+    for n in ("peptide_hits", "unmapped", "detection_summary"):
+        # GIAP writes mapping/{peptide_hits,unmapped}.tsv and tables/detection_summary.tsv
+        f = next((f for d in ("tables", "mapping") if (f := out / d / f"{n}.tsv").is_file()), None)
+        t[n] = None if f is None else _table(f, n)
     return {
         "label": label,
         "out": out,
