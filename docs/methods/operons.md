@@ -850,6 +850,26 @@ directons above. PR-B's run is the record and replaces these numbers.
   opposite-strand terminator. That is a crude coincidence-plus-bidirectional rate, consistent
   with c.
 
+### The record: the real K-12 run (part C, 2026-10-24, Slurm 1879748)
+
+`validation/calibrate_cutoffs.py` on the inputs above (seed 20261014, B = 2,000, R = 200); the
+rerun 1879749 is identical apart from `date`; `cutoffs.json` sha256 edcf9044…d6eb. It reproduces
+the design check. Full table in ADR-0022.
+- **UniOP AUROC 0.911, directon 95 % CI [0.898, 0.923]** (iid [0.900, 0.922]); L = 2,739
+  (1,730 / 1,009), 773 directons, `n_without_p` = 0. This is the M6 gate's third clause.
+- `pair_threshold` t* = 0.529415 (`precision_0.90`; stable = literal): precision 0.902
+  [0.884, 0.918], recall 0.848 [0.827, 0.868] at fixed t*; CV precision of the rule 0.900;
+  re-selected t* quantiles 0.457 / 0.529 / 0.610.
+- **Recorded `pair_threshold`: 0.5** (Khoa, 2026-10-24). At 0.5 the K-12 curve gives precision
+  0.896, recall 0.853 and F1 0.8739, the same operating point as t*; the rule-selected 0.529415 is
+  kept above as the calibration result. TerminatorNet stays at its max-F1 value: at 0.5 it would
+  call every eligible candidate, with precision 0.120 against 0.226.
+- Refit: d₀ = 102.69 [94.59, 111.47], s = 47.16 [41.19, 53.64]; AUROC(−d) 0.907
+  [0.892, 0.920]; paired difference 0.0041 [0.0009, 0.0077].
+- TerminatorNet: t* = 0.9999999999961204 (`max_f1`; Khoa, decision 10), 727 calls, precision
+  0.226 (Wilson [0.197, 0.257]), c = 0.091, corrected bound 0.148, window 97.5 % bound 0.115;
+  recall 0.556 [0.499, 0.612] over 295 window-eligible terminators.
+
 ### Limitations, and what transfers to other genomes
 
 - **One genome, one truth set.** Every number is about K-12 MG1655 against RegulonDB 14.5.0. The
