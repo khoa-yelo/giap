@@ -280,7 +280,7 @@ def test_mzml_pilot_header_and_no_network() -> None:
     assert name is not None and name.startswith("giap-")
     assert _header_value(text, "partition") == "normal"
     assert _header_value(text, "cpus-per-task") == "8"
-    assert _header_value(text, "mem") == "32G"
+    assert _header_value(text, "mem") == "32000M"  # MaxMemPerCPU 4000M x 8 CPUs
     assert _header_value(text, "time") == "02:00:00"
     assert _header_value(text, "gres") is None
     assert "set -euo pipefail" in text
