@@ -315,6 +315,13 @@ PUBLISHED_FILES: dict[str, str] = {
 }
 
 
+#: M9-17: the analysis steps' optional support directories; ``publish`` merges their
+#: ``support/`` subdirectories (``giap.io.plot_support.write_support``) into ``OUT/plots/support``
+SUPPORT_OUTPUTS: tuple[str, ...] = (
+    "context_stats_support", "determinants_support", "function_support",
+)  # fmt: skip
+
+
 #: outputs named ``work/<file>`` are intermediates: GIAP_STEP and :func:`publish` skip them
 UNPUBLISHED_PREFIX = "work/"
 
@@ -335,6 +342,15 @@ def publish(workdir: Path, outdir: Path) -> list[Path]:
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src, dst)
             done.append(dst)
+    from giap.io.plot_support import drop_sibling
+
+    support = outdir / "plots" / "support"
+    for key in SUPPORT_OUTPUTS:
+        if (workdir / key / "support").is_dir():
+            for f in (workdir / key / "support").iterdir():
+                drop_sibling(support / f.name)
+            shutil.copytree(workdir / key / "support", support, dirs_exist_ok=True)
+            done += [] if support in done else [support]
     return done
 
 

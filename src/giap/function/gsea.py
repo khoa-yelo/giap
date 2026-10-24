@@ -608,7 +608,9 @@ def gsea_table(
         for t in terms:
             r, qv = by_term.get(t, (_NA_ROW, math.nan))
             out.append(_out_row(m, t, r, qv, h, deltas[t], detection, rank, engine.method, cfg))
-    return _frame(out, [])
+    table = _frame(out, [])
+    table.attrs["rank_labels"] = labels  # the engine's TU order (M9-17 running sums)
+    return table
 
 
 def _out_row(
