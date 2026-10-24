@@ -54,7 +54,7 @@ is in the feature loop.
 
 **Pending outside M10:**
 - M8-11 is held by ADR-0038 (the pipeline calls R fgsea).
-- M6-09 waits for M6-12 part C.
+- M6-09 (the M6 gate, simulation half) is unblocked now that M6-12c (#292) and ADR-0022 have landed: statistician attacks, then the gate run on Slurm.
 - M7-16 waits for Khoa's K2.
 - M9-25 needs Khoa's approval.
 
