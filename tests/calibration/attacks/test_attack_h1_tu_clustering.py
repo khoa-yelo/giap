@@ -28,7 +28,8 @@ Gated (each scenario, R = 10 x ``replicates_fast.compare`` = 1,000; the full tie
 - the H1 verdict ``supported`` occurs in at most ``level_bound(0.05, R)`` of replicates (the rule
   as a whole does not report support beyond its nominal rate).
 
-Recorded (documentation, spec "Test plan"): ``p_gene``'s rejection rates, which the TU
+Recorded (documentation, spec "Test plan"; ``compare_attack_h1_recorded.jsonl``): ``p_gene``'s
+rejection rates, which the TU
 clustering pushes above level. One teeth check keeps the attack honest: in the ``uniform``
 scenario ``p_gene`` at 0.05 must exceed ``level_bound(0.05, R)``. If it did not, the null would
 not be clustered enough to tell a TU-level test from a gene-level one.
@@ -39,6 +40,7 @@ through ``giap.rng.for_step`` seeded from ``tolerances.yaml`` (``_criteria.suite
 
 from __future__ import annotations
 
+import json
 import sys
 import time
 from dataclasses import dataclass
@@ -166,6 +168,15 @@ def _run(scenario: str, R: int) -> dict[str, np.ndarray]:
     return {"p_tu": p_tu, "p_gene": p_gene, "supported": supported, "mixed_tu": mixed}
 
 
+def _log(record: dict[str, object]) -> None:
+    """Recorded (not gated) numbers, kept out of ``compare.jsonl`` so the PR summary shows no
+    FAIL row for a statistic that is expected above level."""
+    path = C.log_dir() / f"{SUITE}_attack_h1_recorded.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as fh:
+        fh.write(json.dumps(record) + "\n")
+
+
 @pytest.mark.parametrize("scenario", SCENARIOS)
 @pytest.mark.parametrize("full", MODES)
 def test_h1_tu_level_and_verdict_under_tu_clustered_null(full: bool, scenario: str) -> None:
@@ -182,7 +193,8 @@ def test_h1_tu_level_and_verdict_under_tu_clustered_null(full: bool, scenario: s
         if not res.ok:
             failures.append(res.message)
         gene = C.check_level(out["p_gene"], alpha)  # recorded, expected above level
-        C.log_result(SUITE, f"h1_attack.{scenario}.p_gene_recorded", alpha, gene, seed, dt)
+        _log({"scenario": scenario, "statistic": "p_gene", "alpha": alpha, "R": R,
+              "rate": gene.observed, "bound": gene.bound, "full": full})  # fmt: skip
     rate = float(out["supported"].mean())
     bound = C.level_bound(0.05, R)
     verdict = C.CheckResult(
