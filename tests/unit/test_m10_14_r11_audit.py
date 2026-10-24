@@ -129,7 +129,13 @@ def rule3_parquet(entries: Iterable[Entry]) -> list[str]:
 
 
 #: committed M10-08 asset manifest (URLs and sha256 only); its name matches a[1-3]*.tsv by accident
-NOT_DIANN = {"validation/pilot/a3_assets.tsv"}
+NOT_DIANN = {
+    "validation/pilot/a3_assets.tsv",
+    # M9-25 snapshot fixtures: giapsim output of `giap compare` (tests/data/snapshot/PROVENANCE.md),
+    # no DIA-NN content; the name is the compare table's own
+    "tests/data/snapshot/sim_empty/CMP/tables/compare_abundance.tsv",
+    "tests/data/snapshot/sim_plots/CMP/tables/compare_abundance.tsv",
+}
 
 
 def rule4_diann_names(entries: Iterable[Entry]) -> list[str]:

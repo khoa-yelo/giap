@@ -20,7 +20,13 @@ INPUTS_ALLOWED = {"pxd078459_files.tsv", "acquisition.json", "README.md"}
 # ``.*.tmp.*``: the job's temporary names, left behind when SIGKILL/OOM skips the EXIT trap (S2)
 FORBIDDEN = ("a[1-3]*.tsv*", "*_abundance.tsv*", "*.convert.json", "*.convert.log", ".*.tmp.*")
 # M10-08 asset manifest (URLs and sha256 only); its name matches a[1-3]*.tsv by accident
-NOT_CONVERTED = {"validation/pilot/a3_assets.tsv"}
+NOT_CONVERTED = {
+    "validation/pilot/a3_assets.tsv",
+    # M9-25 snapshot fixtures: giapsim output of `giap compare` (tests/data/snapshot/PROVENANCE.md),
+    # no DIA-NN content; the name is the compare table's own
+    "tests/data/snapshot/sim_empty/CMP/tables/compare_abundance.tsv",
+    "tests/data/snapshot/sim_plots/CMP/tables/compare_abundance.tsv",
+}
 
 
 def _tracked(*paths: str) -> list[str]:
