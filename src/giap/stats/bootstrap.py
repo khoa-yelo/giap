@@ -8,8 +8,9 @@ comes from the ``np.random.Generator`` passed in by the caller (obtained via
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -57,6 +58,8 @@ def tu_block_bootstrap(
     rng: np.random.Generator,
     level: float = 0.95,
     strata_col: str | None = None,
+    *,
+    columns: Sequence[str] | None = None,
 ) -> BootCI:
     """Bootstrap ``stat_fn`` by resampling whole TUs with replacement (within strata).
 
@@ -65,6 +68,10 @@ def tu_block_bootstrap(
     their input order. ``stat_fn`` is called exactly ``B + 1`` times; its errors propagate. NaN
     replicate statistics are dropped; fewer than ``B/2`` valid gives CI (NaN, NaN). A TU's
     stratum is that of its first row.
+
+    With ``columns``, ``stat_fn`` receives those columns as arrays instead of a data frame --
+    ``stat_fn(*arrays)`` on every row for the estimate, on each replicate's rows (same draws,
+    same rows) for the replicates -- so no frame is built per replicate.
 
     Raises:
         ValueError: on NA TU IDs, ``B < 1`` or ``level`` outside (0, 1).
@@ -76,8 +83,24 @@ def tu_block_bootstrap(
     if bool(tu.isna().any()):
         raise ValueError(f"column {tu_col!r} has NA TU IDs")
 
-    estimate = float(stat_fn(df))
+    strata = None if strata_col is None else df[strata_col].to_numpy()
+    boot = np.empty(B, dtype=np.float64)
+    if columns is None:
+        estimate = float(stat_fn(df))
+        for b, rows in enumerate(_resampled_rows(tu, strata, B, rng)):
+            boot[b] = float(stat_fn(df.iloc[rows].reset_index(drop=True)))
+    else:
+        cols = [df[c].to_numpy() for c in columns]
+        estimate = float(stat_fn(*cols))
+        for b, rows in enumerate(_resampled_rows(tu, strata, B, rng)):
+            boot[b] = float(stat_fn(*(c[rows] for c in cols)))
+    return _boot_ci(estimate, boot, B, level)
 
+
+def _resampled_rows(
+    tu: pd.Series, strata: npt.NDArray[Any] | None, B: int, rng: np.random.Generator
+) -> Iterator[npt.NDArray[np.int64]]:
+    """Row indices of each of the ``B`` replicates (draws made from ``rng`` up front)."""
     # TU codes in order of first appearance; rows grouped by TU, input order within a TU.
     codes, _ = pd.factorize(tu, sort=False)
     codes = np.asarray(codes, dtype=np.int64)
@@ -89,26 +112,26 @@ def tu_block_bootstrap(
         starts[1:] = np.cumsum(lens)[:-1]
 
     first_row = np.unique(codes, return_index=True)[1]
-    if strata_col is None:
-        strata = [np.arange(n_tu, dtype=np.int64)]
+    if strata is None:
+        groups = [np.arange(n_tu, dtype=np.int64)]
     else:
-        tu_stratum = df[strata_col].to_numpy()[first_row]
+        tu_stratum = strata[first_row]
         keys = sorted(pd.unique(tu_stratum).tolist())
-        strata = [np.flatnonzero(tu_stratum == k) for k in keys]
+        groups = [np.flatnonzero(tu_stratum == k) for k in keys]
 
     # Draw order fixed: strata in sorted order, each a (B, n_s) block of draws.
-    draws = [s[rng.integers(0, s.size, size=(B, s.size))] for s in strata if s.size]
+    draws = [s[rng.integers(0, s.size, size=(B, s.size))] for s in groups if s.size]
     picks = np.concatenate(draws, axis=1) if draws else np.zeros((B, 0), dtype=np.int64)
 
-    boot = np.empty(B, dtype=np.float64)
     for b in range(B):
         t = picks[b]
         ln = lens[t]
         total = int(ln.sum())
         offs = np.repeat(starts[t] - (np.cumsum(ln) - ln), ln) + np.arange(total)
-        rep = df.iloc[order[offs]].reset_index(drop=True)
-        boot[b] = float(stat_fn(rep))
+        yield order[offs]
 
+
+def _boot_ci(estimate: float, boot: npt.NDArray[np.float64], B: int, level: float) -> BootCI:
     valid = boot[~np.isnan(boot)]
     n_valid = int(valid.size)
     if n_valid == 0 or n_valid < B / 2:

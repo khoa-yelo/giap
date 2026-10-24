@@ -368,8 +368,9 @@ def _finalize(outdir: Path) -> None:
 
 
 def _run_tail(outdir: Path, base: dict[str, Any], code: int, **kw: Any) -> int:
-    """The run tail (MVP-03 D-B steps 5-6): the manifest, even after a failed step. A tail error
-    after a successful graph is exit 4; after a failed graph it is only logged."""
+    """The run tail (MVP-03 D-B steps 5-6): the manifest, even after a failed step, then the
+    ``report.html`` re-render when the manifest says ``completed`` (M9-16b, ADR-0040 amendment
+    1). A tail error after a successful graph is exit 4; after a failed graph it is only logged."""
     import traceback
 
     from giap.steps.manifest import run_tail
@@ -385,6 +386,20 @@ def _run_tail(outdir: Path, base: dict[str, Any], code: int, **kw: Any) -> int:
             click.echo(f"giap run: step manifest failed; log: {log}", err=True)
             return ExitCode.STEP_FAILED
         click.echo(f"giap run: the run manifest was not written; log: {log}", err=True)
+        return int(code)
+    manifest = json.loads((outdir / "run_manifest.json").read_text(encoding="utf-8"))
+    if manifest.get("status") != "completed":
+        return int(code)
+    from giap.steps import plots as P
+
+    try:  # the page reads the manifest just written (M9-16b); nothing writes OUT/ after it
+        P.rerender_report(outdir, base["cfg"])
+    except Exception:
+        log = outdir / "logs" / "report_tail.log"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        log.write_text(traceback.format_exc(), encoding="utf-8")
+        click.echo(f"giap run: report re-render failed; log: {log}", err=True)
+        return ExitCode.STEP_FAILED
     return int(code)
 
 
@@ -867,7 +882,7 @@ def report(
         click.echo(f"giap report: {exc}", err=True)
         sys.exit(ExitCode.STEP_FAILED)
     try:
-        page = P.write_report(view, out / "plots", out / "report", cfg)
+        page = P.rerender_report(out, cfg)
     except Exception as exc:  # unreadable tables are notes; anything else is exit 4 (B5)
         click.echo(f"giap report: {type(exc).__name__}: {exc}", err=True)
         sys.exit(ExitCode.STEP_FAILED)
