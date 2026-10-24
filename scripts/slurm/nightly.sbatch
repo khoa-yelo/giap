@@ -14,7 +14,8 @@
 #      farmshare,apptainer the pinned images replace the fakes and 9 of 30 tests fail, job 1852060)
 #   1  benchmarks pinned to the wheat node class (CPU_SKU:6148): a task that lands elsewhere
 #      resubmits itself with --constraint and exits; > 15 % slower than benchmarks/baseline.json fails
-#   2  the calibration_nightly tests (the pre-M2-21 nightly)
+#   2  the whole fast suite, i.e. the fast calibration tier including calibration_nightly, with the
+#      coverage gate (ci/gates.yaml coverage_min): moved here from PR CI by ADR-0052
 #   3  real `giap run` on sim100k (giapsim SIM100K + its proteins): Bakta with the light DB, and
 #      with the recorded full-DB JSON (annotation.precomputed.bakta_json; its GBFF feeds
 #      antiSMASH); measured runtimes via scripts/measure_runtimes.py
@@ -165,8 +166,11 @@ task_benchmarks() {
   summary="$summary (wheat $(hostname -s))"
 }
 
+# ADR-0052: the fast calibration tier (with calibration_nightly) and the coverage gate
 task_calibration() {
-  pyt calibration_nightly tests/calibration -q -n "$N" -m calibration_nightly --durations=15
+  local min; min=$(awk '/^coverage_min:/ {print $2*100}' ci/gates.yaml)
+  pyt calibration_nightly tests -q -n "$N" -m "not slow and not calibration_full and not e2e" \
+    --cov=giap --cov-report=term-missing:skip-covered --cov-fail-under="$min" --durations=30
 }
 
 task_giap_run() {
