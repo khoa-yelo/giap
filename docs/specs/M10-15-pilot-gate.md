@@ -148,7 +148,7 @@ Khoa reads it on FarmShare; nothing from it is posted to GitHub except the path 
 1. **One status line**, from the rules below: `Gate M10: awaiting Khoa's review` /
    `not met: <bullets>` / `met`.
 2. **The §15.6 table** (the five rows with status and evidence, as in `REPORT.md`), plus a sixth
-   row `Khoa has reviewed the report (§14.8 item 4)` whose status is `awaiting` until his answer.
+   row `Khoa has reviewed the report (§14.8 item 4)` whose status is `awaiting` until their answer.
 3. **The report's identity:** the sha256 of `validation/pilot/REPORT.md` (file content, so it
    survives the squash merge), F, the packet path and round.
 4. **The §14.9 checklist for M10:** tests per layer (the M10 test files, CI run link), coverage of
@@ -177,7 +177,7 @@ review, round r<k>"). The PR is not merged before the verdict (M9-25's precedent
 
 **How the review is recorded.**
 
-- The only valid source is **Khoa's own message**: a user turn in a session, or his edit of
+- The only valid source is **Khoa's own message**: a user turn in a session, or their edit of
   PROGRESS. A message from any agent, a subagent report, a PR comment, or silence is not a review.
   GitHub comments do not count, because the agents post through Khoa's `gh` login and the two
   cannot be told apart.
@@ -191,7 +191,7 @@ review, round r<k>"). The PR is not merged before the verdict (M9-25's precedent
   to `met`, and merges. After `changes`: the requested edits are made (prose in
   `report_notes.md` or the template; a method change re-opens the relevant issue and, if code
   changes, a new freeze per M10-14), the report is re-rendered, and a new round `r<k+1>` is posted.
-  After `reject`: the gate stays `not met`, and the lead writes the follow-up issues from his
+  After `reject`: the gate stays `not met`, and the lead writes the follow-up issues from their
   reasons. After three rounds without `accept`, R9: a Questions-for-Khoa row asks how to proceed.
 
 ## Examples
@@ -321,7 +321,7 @@ no Slurm job.
 | L1 | ≈ 155 code lines against the index's 60. One PR, or 15a (tooling + tests, mergeable before the freeze) and 15b (evidence, `needs-khoa`)? | split; 15b holds no code beyond the lead's allow-list lines |
 | L2 | Bullet 4: is ADR-M10-D `accepted` by the lead enough, or must it be `accepted-by-khoa`? It supersedes the §13.2 estimates (a spec number, R13). | `accepted` suffices for the bullet; the ADR is `Needs Khoa: yes` and goes into the same review round, so his verdict covers it |
 | L3 | No A3 run at all (example 6): status `not met`, with a waiver ADR in the same round, or `awaiting review` with the gap noted? | `not met: bullet 1` plus a waiver ADR (Needs Khoa: yes); the gate can read `met` only if Khoa accepts both the ADR and the report |
-| L4 | Recording the review: only Khoa's own message (user turn or his PROGRESS edit), quoted verbatim with the report's content sha256; GitHub comments excluded? | yes |
+| L4 | Recording the review: only Khoa's own message (user turn or their PROGRESS edit), quoted verbatim with the report's content sha256; GitHub comments excluded? | yes |
 | L5 | Commit the notes as `validation/pilot/report_notes.md`, so CI can re-render the report byte for byte? (The guard forbids new names under `metrics/`.) | yes |
 | L6 | Identifier lists in the committed `metrics.json` (warnings, TE7 `differing` paths, contig names): ban arrays of more than 20 locus tags or accessions as row-level content? | yes, criterion 6; table paths, column names and contig names stay |
 | L7 | The two existing guard tests (M10-05 guard, M10-14 R11 audit) need matching allow-lists: the lead edits them in 15b (role guard)? | yes, the lead, in 15b, with the trailer `Agent-Role: lead` |
@@ -338,4 +338,10 @@ no Slurm job.
 | K1 | The gate itself: verdict on `validation/pilot/REPORT.md` (sha256 in the packet): accept, accept with changes, or reject (§14.8 item 4). |
 | K2 | ADR-M10-D (benchmark definition; the measured runtimes replace §13.2's estimates): accept? |
 | K3 | Conditional: a waiver ADR when A3 did not run (example 6), or the fallback's "different strain" caveat when it did (example 5): accept the pilot on that basis? |
-| K4 | Conditional: every TE with cause class `definition` or `search` (M10-06): the deviation it states, for his decision (no definition or setting is changed by the agents). |
+| K4 | Conditional: every TE with cause class `definition` or `search` (M10-06): the deviation it states, for their decision (no definition or setting is changed by the agents). |
+
+## Lead decisions (2026-10-24)
+
+L1–L12 take the recommended defaults above. On G1, M10-10 is being specced now (m10/spec-10): 15a uses
+the provisional `m6`/`h4` keys and renames them to M10-10's final names when that spec lands. On G5,
+the lead edits the guard allow-lists in 15b (L7). K1–K4 go to Khoa with the packet; there is no default.
