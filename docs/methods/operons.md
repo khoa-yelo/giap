@@ -72,15 +72,58 @@ abundance-dependent noise that sample is too narrow for a low-abundance partner 
 Q1).
 
 The log-linear form is an assumption. Attack D-1b checks a step and a variance floor, and D-1c
-checks per-gene measurement noise. *[After the full run: the D-1/D-1b/D-1c numbers, the γ̂
-under the null and under D-1, and the power comparison.]*
+checks per-gene measurement noise.
+
+**The record (full tier, Slurm 1886733 task 6, commit fd701591, R = 1,000; records in
+`local/logs/calibration/m6-13-fd701591-full/`).** Rates are at α = 0.01 / 0.05 / 0.10. Pooled
+rates use 200 random tested pairs per replicate, with bounds 0.0104 / 0.0510 / 0.1013.
+
+| arm | pooled level | worst quartile (cut, × nominal) | γ̂ per SD (SD over replicates) | mean LR |
+|---|---|---|---|---|
+| gate null, `operon_null(1800)` | 0.00982 / 0.04991 / 0.09983, pass | upstream a: 1.06× (Q3, α = 0.01); pair mean m: 1.14× (Q4) | −0.0014 (0.042) | 1.11 |
+| D-1, σ ∝ e^(−z/2) | 0.00979 / 0.05016 / 0.09930, pass | planted z, Q1: 0.00929 / 0.0478 / 0.0969, pass (bounds 0.0106 / 0.0512 / 0.1017); Q4 1.06× | −0.513 (0.041); planted −0.5 | 140.2 |
+| D-1b-floor | 0.00986 / 0.05013 / 0.09934, pass | planted z, Q4: 1.22× / 1.15× / 1.11× | −0.430 (0.042) | 105.0 |
+| D-1b-step | 0.00954 / **0.05168** / **0.10212**, confirmed fail (block 2: 0.05173 / 0.10312) | planted z, Q2: 1.81× / 1.82× / 1.66×; Q3: 0.22× / 0.35× / 0.43× | −0.286 (0.042) | 45.7 |
+| D-1c, per-gene noise | 0.01012 / 0.04794 / 0.09688, pass | true upstream a, Q4: 1.68× / 1.25× / 1.14× | −0.229 (0.040) | 42.0 |
+
+- No quartile in any arm reaches the 2α escalation. The highest is D-1b-step Q2, at 1.82×.
+- The constant model under the same null gives a worst upstream-a quartile of 1.04× and a worst
+  m quartile of 1.14×. On m, the log-linear model is no worse than the constant one.
+- Every one of the 1,000 fits in every arm is `loglinear:None`. No arm fell back to the constant
+  model.
+- γ̂ per log2 unit: null −0.0005, D-1 −0.220, floor −0.185, step −0.124, D-1c −0.098.
+- Under D-1c, γ̂ is less than half of D-1's. This is the attenuation that measurement noise in m
+  causes (above).
+- The gate itself (null, R = 1,000): KS p = 0.511, and the BH any-call share is 0.004 / 0.034 /
+  0.075 (bounds 0.0140 / 0.0615 / 0.1167).
+
+Power uses `discordance_power(1800, 40, effect)`, R = 1,000. The share of planted pairs with
+p ≤ α is shown for each model, with d = log-linear − constant (SE):
+
+| effect | model | α = 0.01 | 0.05 | 0.10 |
+|---|---|---|---|---|
+| 2.0 (gated at α = 0.05) | log-linear | 0.0186 | 0.6393 | 0.8841 |
+| | constant | 0.0174 | 0.6453 | 0.8872 |
+| | d (SE) | +0.0013 (0.0004) | **−0.0059 (0.0011)** | −0.0031 (0.0006) |
+| 4.0 (recorded) | log-linear | 0.0789 | 0.9919 | 0.9979 |
+| | constant | 0.0637 | 0.9928 | 0.9979 |
+| | d (SE) | +0.0152 (0.0011) | −0.0009 (0.0002) | +0.00003 (0.00008) |
+
+- Non-inferiority passes: d − 2 SE = −0.0082 ≥ −0.02. The cost at α = 0.05 is 0.6 points.
+- BH recall at q = 0.10 is 0 for both models at both effects, consistent with D-3: no
+  per-pair discordance call at these effects.
+- The records do not hold a per-replicate CI for the quartile rates. The bounds treat the pairs
+  of a quartile as independent (as for D-1, M6-09).
+- The teeth check (D-1 with `sigma_model = "constant"` must still fail) runs in the fast tier
+  only. It passed at f9c06a4c, and its numbers go to a private log, not this record.
 
 The claim covers the **pooled** level under smooth, monotone abundance-dependent noise.
 - Under the variance floor and under per-gene measurement noise, the top-abundance quartile
   still runs at up to about 1.7× nominal at α = 0.01. The constant model runs at about 3×,
   in the lowest quartile.
 - A **discontinuous** σ (D-1b-step) fails even the pooled level. No smooth σ(z) removes that,
-  and it is outside the claim (ADR-0055 amendment).
+  and it is outside the claim (ADR-0055 Amendment 1, accepted by Khoa 2026-10-24). In the full
+  tier it is a strict xfail, confirmed in both blocks at α = 0.05 and 0.10 (above).
 
 **What the p means.** M6-05 fits the t on the same OP pairs it then tests, so its p is a
 **plug-in** p: the parameters absorb part of each pair's own deviation. With a fit on 400 draws the
@@ -1101,6 +1144,24 @@ Lead defaults are in docs/specs/M6-09-calibration-gate.md.
   in the fourth decimal.
 - Fast tier: the session allocation at -n 2, 180 s (18 passed, 1 skipped, 1 xfailed).
 - Logs: `local/logs/calibration/m6_09_full_24267fd3/`.
+- M6-13 full tier, `discordance` suite only: Slurm **1886733** task 6, commit fd701591, barley-03,
+  8 CPUs. The wall time is 1:04:30 (pytest 3,866 s). Result: 24 passed and 1 xfailed, the strict
+  D-1b-step xfail.
+  - The tests ran from the frozen worktree `local/worktrees/cal-m613`, clean at fd701591 (the
+    pytest rootdir).
+  - The log does not print `giap.__file__`. The shared venv's editable giap points at main's
+    `src`, which has no `fit_student_t_scaled`, so the passing σ tests must have imported a
+    worktree's `src`. src/ is identical from 1abae97e to f9c06a4c.
+  - The frozen xfail reason still reads "amendment pending". f9c06a4c changes only that string.
+  - Log: `local/logs/giap-cal-m613.1886733_6.out`. Records:
+    `local/logs/calibration/m6-13-fd701591-full/`.
+- M6-13 fast tier, `-m calibration -k calsuite_discordance`, at f9c06a4c: the session allocation
+  at -n 2, 593 s, 27 passed and 1 xpassed.
+  - The xpass is D-1b-step, which is non-strict in the fast tier: pooled 0.00925 / 0.05065 /
+    0.0999 against 0.0114 / 0.0531 / 0.1042, Q2 1.82×. That matches the earlier fast run (0.0507,
+    Q2 1.8×).
+  - The earlier count of 41 passed came from a selection that was not recorded, so the two counts
+    are not comparable.
 
 ### Missed operons (§7.4.7 criterion 1; §8.1: one decoy-FDR family per run)
 
@@ -1169,6 +1230,16 @@ Scenario: `operon_null(1800)`, R = 1,000 (full).
 | C, oracle P(miss), detection attack | recorded, below 2α | 300 | 0.0176 / 0.0649 / 0.1189 (27,660 pairs) |
 | **D-1**, Δ SD ∝ e^(−z/2), pooled | gated, **confirmed fail** (strict xfail `test_attack_d1_level`, ADR-0055) | 1,000 | 0.00760 / **0.0521** / **0.1064** (bounds 0.0104 / 0.0510 / 0.1013) |
 | **D-1**, lowest-abundance quartile (planted z) | gated, **fail** (same strict xfail) | 1,000 | 0.0273 / 0.157 / 0.277 (2.7×, 3.1×, 2.8×) |
+| **D-1**, log-linear σ (M6-13), pooled | gated, **pass** (`test_attack_d1_level`, xfail removed) | 1,000 | 0.00979 / 0.05016 / **0.09930** (bounds 0.0104 / 0.0510 / 0.1013) |
+| **D-1**, log-linear σ, lowest quartile (planted z) | gated, **pass** | 1,000 | 0.00929 / 0.0478 / **0.0969** (bounds 0.0106 / 0.0512 / 0.1017); worst quartile 1.06× |
+| D-1, log-linear σ, γ̂ | gated (γ̂ ∈ [−0.6, −0.4]), **pass** | 1,000 | −0.513 (SD 0.041; planted −0.5) |
+| D-1, constant σ (teeth) | gated, fast tier only, **confirmed fail** as required | 100 | private log |
+| **D-1b-floor**, log-linear σ | gated, **pass**; quartiles recorded | 1,000 | 0.00986 / 0.05013 / **0.09934**; worst quartile Q4 1.22× (below 2α) |
+| **D-1b-step**, log-linear σ | gated, **confirmed fail**: strict xfail, outside the claim (ADR-0055 Amendment 1) | 1,000 (+ block 2) | 0.00954 / **0.05168** / **0.10212** (block 2: 0.05173 / 0.10312); Q2 1.82× (below 2α) |
+| **D-1c**, per-gene noise, log-linear σ | gated, **pass**; quartiles recorded | 1,000 | 0.01012 / 0.04794 / **0.09688**; worst quartile (true a) Q4 1.68× (below 2α) |
+| null quartiles on m and on a, both models | recorded (2α escalation) | 1,000 | worst on a 1.06× (log-linear), 1.04× (constant); on m 1.14× for both |
+| null γ̂, log-linear σ | gated (\|γ̂\| ≤ 0.02 + 3 SD/√R; ≥ 95 % `loglinear:None`), **pass** | 1,000 | −0.0014 (SD 0.042); 1,000 of 1,000 `loglinear:None` |
+| power non-inferiority, effect 2.0, α = 0.05 | gated (d − 2 SE ≥ −0.02), **pass** | 1,000 | 0.6393 vs 0.6453; d = −0.0059 (SE 0.0011) |
 
 What the attacks show:
 
@@ -1221,6 +1292,20 @@ below their thresholds.
 - **Discordance gate: NOT MET (D-1), pending Khoa (ADR-0055).** The §15.4 half of the gate
 (M6-11/M6-12, RegulonDB) is separate.
 
+**Verdict after M6-13 (Slurm 1886733, fd701591).** ADR-0055 option (a) is in place.
+- **Discordance gate: MET** for the claim of ADR-0055 and its Amendment 1: the pooled per-pair
+  level under smooth, monotone σ(abundance).
+- D-1, D-1b-floor and D-1c pass the pooled level at R = 1,000, and D-1's lowest quartile passes
+  its bound.
+- The gate null is unchanged: level, KS and BH all pass.
+- The log-linear σ is non-inferior in power.
+- D-1b-step is a confirmed fail, as pre-registered. It is outside the claim and stays a strict
+  xfail.
+- Recorded limits:
+  - top-quartile excess up to 1.68× at α = 0.01 under D-1c, and 1.22× under the floor (below 2α);
+  - the pair-mean-m quartiles are not a level check;
+  - one-detected P(miss) under abundance-dependent noise is still open (M6-13 Q1).
+
 ## Sign-off
 
 Statistician (PR #140 review, 2026-10-21): FDR control and the KDE evaluation **approved**; the
@@ -1269,3 +1354,20 @@ Statistician (M6-13 design review, 2026-10-24; scratch oracles at R = 1,000, Slu
 - Power non-inferiority uses an absolute margin of 0.02. The measured difference is −0.006 at
   α = 0.05.
 - Decisions S-1 to S-11 and the Q1–Q8 rulings are in docs/specs/M6-13-discordance-abundance-sigma.md.
+
+Statistician (M6-13 full-tier record, 2026-10-24; Slurm 1886733 task 6 at fd701591, R = 1,000;
+`local/logs/calibration/m6-13-fd701591-full/`): **signed off.**
+- D-1 under the log-linear σ is at level: pooled 0.00979 / 0.05016 / 0.09930, and the lowest
+  planted-z quartile is 0.00929 / 0.0478 / 0.0969, both within their bounds. γ̂ = −0.513
+  against a planted −0.5.
+- D-1b-floor and D-1c pass the pooled level. Their worst quartiles (1.22× and 1.68× at
+  α = 0.01) are below the 2α escalation.
+- D-1b-step is a confirmed fail in both blocks at α = 0.05 and 0.10, as pre-registered. It is a
+  strict xfail under ADR-0055 Amendment 1.
+- The null is unchanged: level, KS p = 0.511 and BH. γ̂ = −0.0014, and every fit stays
+  log-linear.
+- Power non-inferiority passes, with d = −0.0059 (SE 0.0011) at α = 0.05.
+- The fast tier at f9c06a4c (27 passed, 1 xpassed) agrees.
+- No bound, tolerance or R changed (R3).
+- Condition: the text of ADR-0055 Amendment 1 is not in `docs/adr/` on this branch. It must be
+  committed before merge so that the strict xfail's reason resolves to a document.
