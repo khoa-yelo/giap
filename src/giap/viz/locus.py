@@ -85,7 +85,7 @@ class OrfMark:
 
 def _kb(bp: float) -> str:
     out = f"{bp / 1_000:.3f}".rstrip("0").rstrip(".")
-    return "0" if out in ("-0", "") else out
+    return "0" if out == "-0" else out
 
 
 def wrapped_formatter(length: int | None) -> FuncFormatter:

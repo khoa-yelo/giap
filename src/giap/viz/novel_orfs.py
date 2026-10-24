@@ -138,10 +138,15 @@ def _span(row: Any, view: RunView, length: int | None) -> tuple[int, int]:
     """The 0-based half-open span (decisions 6, 7); ``start_longest`` NA -> first peptide."""
     minus, end, first = str(row.strand) == "-", int(row.end), _int(row.start_longest)
     if first is None:
-        peps = set(str(row.peptides).split(";")) if isinstance(row.peptides, str) else set()
+        peps = (
+            {locus.fold_il(p) for p in row.peptides.split(";")}
+            if isinstance(row.peptides, str)
+            else set()
+        )
         hits = view.table("peptide_hits")
         if hits is not None and len(hits):
-            hits = hits[(hits["contig"] == row.contig) & hits["peptide"].isin(peps)]
+            keys = hits["peptide"].astype(str).map(locus.fold_il)
+            hits = hits[(hits["contig"] == row.contig) & keys.isin(peps)]
         if hits is None or hits.empty:
             return (end - 1, end + 2) if minus else (end - 3, end)
         return (end - 1, int(hits["end"].max())) if minus else (int(hits["start"].min()), end)

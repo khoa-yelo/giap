@@ -335,7 +335,8 @@ def v08_title(cats: Sequence[_Cat], flags: frozenset[str]) -> str:
                 f"{most.letter}, {plural(len(most.values), 'gene')})")  # fmt: skip
     m, n = best.median, len(best.values)
     desc = cog_descriptions().get(best.letter, best.letter)
-    return (f"{best.letter} ({desc}) has the highest median abundance ({m:.1f} log2, "
+    return (f"{best.letter} ({desc}) has the highest median abundance among categories "
+            f"with ≥ {MIN_HIGHEST} genes ({m:.1f} log2, "
             f"{plural(n, 'gene')})")  # fmt: skip
 
 
