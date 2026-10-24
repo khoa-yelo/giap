@@ -7,13 +7,22 @@ New definition (lead):
 * an **explained gene** is a model row not flagged ``abundance_not_explained_by_sequence`` in
   that run;
 * the sensitivity rerun's ``DeterminantsSensitivity.dominant`` gives a block for **every
-  explained model row** (not only the top decile), by the same ``_dominant`` rule on that row's
-  LightGBM SHAP block sums; ``None`` means no positive block;
+  explained model row** (not only the top decile) from that row's LightGBM SHAP block sums;
+* that block is the **agreement block** (Khoa, option (a) of the #299 statistician review,
+  2026-10-24): the block with the largest **|SHAP|** sum, not M8-08 rule 3's largest positive
+  sum, so a gene predicted below the mean keeps its informative (negative) block instead of a
+  noise block just above 0. Interface: ``giap.determinants.sensitivity.agreement_block(sums)``.
+  Ties and degenerate rows mirror ``_dominant``: NaN ignored, ties go to the first block in
+  ``BLOCKS`` order (whatever the signs), ``None`` when every |sum| is 0 or NaN;
 * ``agreement`` is the share of the genes explained in both runs whose dominant block is the
   same: both-``None`` genes left out, ``None`` in one run a disagreement, NA when no gene is
   left, a run against itself 1;
-* ``determinants_attribution.tsv`` is unchanged (``dominant_block`` still top-decile only); the
-  sensitivity.tsv columns are unchanged.
+* ``determinants_attribution.tsv`` is unchanged (``dominant_block`` still rule 3, top-decile
+  only); the sensitivity.tsv columns are unchanged.
+
+The oracles here (``sf.abs_block`` / ``sf.positive_block``) are written out, not ``_dominant``
+(statistician finding 6). Calibration of the fix: tests/calibration/
+test_determinants_agreement_calibration.py.
 
 Interpretation (test author, reported to the lead): ``agreement`` excludes a gene that is in a
 run's ``flagged`` set even if a hand-built ``dominant`` lists it, so "explained in both runs" is
@@ -31,6 +40,8 @@ import pytest
 from helpers import sensitivity_function_data as sf
 from hypothesis import given, settings
 from hypothesis import strategies as st
+
+from giap.determinants.attribution import SHAP_COLUMNS
 
 
 def _S() -> Any:
@@ -130,6 +141,93 @@ def test_self_agreement_na_when_only_flagged_genes_have_a_block() -> None:
     assert _agree(r, r) is None
 
 
+# --------------------------------------------------------------------------- the block rule
+
+
+def _block(sums: list[float]) -> Any:
+    from giap.determinants.sensitivity import agreement_block
+
+    return agreement_block(np.asarray(sums, dtype=float))
+
+
+def _B() -> tuple[str, ...]:
+    from giap.determinants.attribution import BLOCKS
+
+    return BLOCKS
+
+
+def test_negative_dominant_row_picks_the_negative_block() -> None:
+    """A gene predicted below the mean: block 1 carries -2.0, the others noise around 0. The
+    agreement block is block 1; rule 3 (largest positive) would pick block 2 (0.3)."""
+    from giap.determinants.attribution import _dominant
+
+    B = _B()
+    row = [0.1, -2.0, 0.3, -0.05, 0.0]
+    assert _block(row) == B[1]
+    assert _dominant(np.asarray(row)) == B[2], "rule 3 itself must stay as it is"
+
+
+def test_all_negative_row_has_a_block() -> None:
+    """Every sum negative: rule 3 gives ``None``, the agreement block the largest |sum|."""
+    B = _B()
+    assert _block([-0.2, -0.1, -0.9, -0.3, -0.4]) == B[2]
+
+
+def test_ties_mirror_dominant() -> None:
+    """Ties at the largest |sum| go to the first block in ``BLOCKS`` order, as ``_dominant``
+    breaks a positive tie; a +x / -x tie the same way."""
+    from giap.determinants.attribution import _dominant
+
+    B = _B()
+    assert _dominant(np.asarray([0.0, 1.0, 1.0, 0.0, 0.0])) == B[1]
+    assert _block([0.0, 1.0, 1.0, 0.0, 0.0]) == B[1]
+    assert _block([0.0, -1.0, 1.0, 0.0, 0.0]) == B[1]
+    assert _block([0.0, 1.0, -1.0, 0.0, 0.0]) == B[1]
+    assert _block([0.5, 0.0, 0.0, -1.0, -1.0]) == B[3]
+
+
+@pytest.mark.parametrize(
+    "row",
+    [[0.0] * 5, [-0.0] * 5, [math.nan] * 5, [math.nan, 0.0, 0.0, math.nan, 0.0]],
+    ids=["zeros", "neg-zeros", "all-nan", "nan-and-zeros"],
+)
+def test_all_zero_or_nan_row_is_none(row: list[float]) -> None:
+    """No block carries any SHAP mass: ``None`` (as ``_dominant`` on an all-zero row)."""
+    from giap.determinants.attribution import _dominant
+
+    assert _block(row) is None
+    assert _dominant(np.asarray(row)) is None
+
+
+def test_nan_is_ignored() -> None:
+    """A NaN block (absent from the model matrix) never wins."""
+    B = _B()
+    assert _block([math.nan, -0.5, 0.2, math.nan, 0.1]) == B[1]
+
+
+_SUM = st.one_of(
+    st.floats(min_value=-5, max_value=5, allow_nan=False),
+    st.just(0.0),
+    st.just(math.nan),
+    st.sampled_from([-1.0, 1.0]),
+)
+
+
+@settings(max_examples=200, deadline=None)
+@given(row=st.lists(_SUM, min_size=5, max_size=5))
+def test_agreement_block_property(row: list[float]) -> None:
+    """Property: the agreement block equals the written-out |SHAP| rule; on a row without a
+    negative sum it equals rule 3; it is ``None`` exactly when no |sum| is > 0."""
+    from giap.determinants.attribution import _dominant
+
+    got = _block(row)
+    assert got == sf.abs_block(row)
+    finite = [x for x in row if not math.isnan(x)]
+    assert (got is None) == (not any(abs(x) > 0 for x in finite))
+    if all(x >= 0 for x in finite):
+        assert got == _dominant(np.asarray(row, dtype=float))
+
+
 # --------------------------------------------------------------------------- properties
 
 _BLOCKS = st.sampled_from(["transcription", "translation", "codon", "protein", "context"])
@@ -176,12 +274,12 @@ def test_agreement_matches_the_explained_definition(
 def _wide_oracle(
     genes: pd.DataFrame, features: pd.DataFrame, cfg: Any, rng: np.random.Generator
 ) -> tuple[dict[str, str | None], pd.DataFrame]:
-    """The M8-10 chain without its null (as ``sf.det_oracle``) and ``_dominant`` on the SHAP
-    block sums of every explained model row; also the attribution table."""
+    """The M8-10 chain without its null (as ``sf.det_oracle``) and the written-out |SHAP| rule
+    (``sf.abs_block``) on the SHAP block sums of every explained model row; also the attribution
+    table."""
     from giap.determinants.attribution import (
         SHAP_COLUMNS,
         UNEXPLAINED,
-        _dominant,
         attribution_table,
         shap_blocks,
     )
@@ -204,8 +302,11 @@ def _wide_oracle(
     dom: dict[str, str | None] = {}
     for t, fl in zip(att["locus_tag"].astype(str), att["flags"], strict=True):
         if t in model_tags and UNEXPLAINED not in str(fl).split(";"):
-            dom[t] = _dominant(np.asarray(shap.loc[t, list(SHAP_COLUMNS)], dtype=float))
+            dom[t] = sf.abs_block(np.asarray(shap.loc[t, list(SHAP_COLUMNS)], dtype=float))
     return dom, att
+
+
+_SHAP = SHAP_COLUMNS
 
 
 @pytest.fixture(scope="module")
@@ -217,7 +318,8 @@ def test_dominant_covers_every_explained_model_row(
     world: tuple[pd.DataFrame, pd.DataFrame],
 ) -> None:
     """``dominant`` has one entry per explained model row (top decile or not), none for a
-    flagged gene, each the ``_dominant`` block of that row's SHAP sums."""
+    flagged gene, each the |SHAP| block of that row's SHAP sums (not rule 3's: the two differ on
+    many genes predicted below the mean)."""
     genes, feats = world
     cfg = sf.base_config()
     res = sf.det_result(genes, feats, cfg, _rng())
@@ -229,15 +331,18 @@ def test_dominant_covers_every_explained_model_row(
     assert set(res.dominant) == set(want)
     assert not set(res.dominant) & set(res.flagged)
     assert set(res.dominant) - top, "dominant still covers the top decile only"
+    rule3 = {t: sf.positive_block(att.set_index("locus_tag").loc[t, list(_SHAP)].to_numpy(float))
+             for t in want}  # fmt: skip
+    assert sum(want[t] != rule3[t] for t in want) > 20, "fixture: rules agree on most genes"
     assert dict(res.dominant) == want
 
 
-def test_top_decile_blocks_match_the_attribution_table(
+def test_top_decile_blocks_follow_the_agreement_rule(
     world: tuple[pd.DataFrame, pd.DataFrame],
 ) -> None:
-    """On explained top-decile rows the wider map gives the block the unchanged
-    ``determinants_attribution.tsv`` gives; the table still leaves ``dominant_block`` NA off the
-    top decile."""
+    """On explained top-decile rows the wider map gives the |SHAP| block of the row's SHAP
+    columns in the attribution table (the same sums the table's rule-3 ``dominant_block`` is read
+    from); the table still leaves ``dominant_block`` NA off the top decile."""
     genes, feats = world
     cfg = sf.base_config()
     res = sf.det_result(genes, feats, cfg, _rng())
@@ -245,11 +350,36 @@ def test_top_decile_blocks_match_the_attribution_table(
     assert res is not None
     is_top = att["top_decile"].astype(bool)
     assert att.loc[~is_top, "dominant_block"].isna().all()
-    for t, b in zip(att.loc[is_top, "locus_tag"].astype(str),
-                    att.loc[is_top, "dominant_block"], strict=True):  # fmt: skip
+    top = att[is_top]
+    for t, row in zip(top["locus_tag"].astype(str), top[list(_SHAP)].to_numpy(float),
+                      strict=True):  # fmt: skip
         if t in res.flagged:
             continue
-        assert res.dominant[t] == (None if pd.isna(b) else str(b))
+        assert res.dominant[t] == sf.abs_block(row)
+
+
+def test_attribution_dominant_block_keeps_rule_3() -> None:
+    """``determinants_attribution.tsv``'s ``dominant_block`` is unchanged: rule 3 (largest
+    positive SHAP sum) on top-decile rows, NA elsewhere, even where the |SHAP| block differs
+    (n = 400, signal 0.35: about 19 top-decile rows). The rerun's ``dominant`` takes the
+    |SHAP| block on those same rows."""
+    genes, feats = sf.planted_world(n=400, signal=0.35)
+    cfg = sf.base_config()
+    res = sf.det_result(genes, feats, cfg, _rng())
+    _, att = _wide_oracle(genes, feats, cfg, _rng())
+    assert res is not None
+    is_top = att["top_decile"].astype(bool)
+    assert att.loc[~is_top, "dominant_block"].isna().all()
+    top = att[is_top]
+    differ = 0
+    for t, b, row in zip(top["locus_tag"].astype(str), top["dominant_block"],
+                         top[list(_SHAP)].to_numpy(float), strict=True):  # fmt: skip
+        assert (None if pd.isna(b) else str(b)) == sf.positive_block(row)
+        if sf.abs_block(row) != sf.positive_block(row):
+            differ += 1
+            if t not in res.flagged:
+                assert res.dominant[t] == sf.abs_block(row)
+    assert differ >= 5, "fixture: the rules agree on the top decile"
 
 
 def test_variant_agreement_is_over_genes_explained_in_both(
