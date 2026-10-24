@@ -17,7 +17,7 @@ import yaml
 
 from giap.config import GiapConfig
 
-Module = Literal["core", "mobile", "bgc", "function", "opt_in", "mapping"]
+Module = Literal["core", "mobile", "bgc", "function", "opt_in", "mapping", "pilot"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +125,30 @@ TOOLS: Mapping[str, ToolSpec] = MappingProxyType(
                 version_cmd=_pkg_version("codon-bias"),
                 module="core",
                 in_process=True,
+            ),
+        )
+    }
+)
+
+
+# M10-08 (ADR-0054): envs of the A3 de novo pilot only. Never in TOOLS, so required_tools,
+# `build_envs.sh all` and a run's tool versions never see them; `build_envs.sh <name>` builds them.
+_TIMSCONVERT_COMMIT = "3cb96aef35bc0a15ce1b6cfe547386acc26a8b8b"  # tag v2.0.0
+_PIP_GIT_COMMIT = (  # pip records the commit of a `git+https` install in direct_url.json
+    "python",
+    "-c",
+    "import importlib.metadata as m, json; "
+    "print(json.loads(m.distribution('timsconvert').read_text('direct_url.json'))"
+    "['vcs_info']['commit_id'])",
+)
+
+PILOT_TOOLS: Mapping[str, ToolSpec] = MappingProxyType(
+    {
+        t.name: t
+        for t in (
+            _tool("cascadia", "0.0.7", "Apache-2.0", _pkg_version("cascadia"), "pilot"),
+            _tool(
+                "timsconvert", f"git:{_TIMSCONVERT_COMMIT}", "Apache-2.0", _PIP_GIT_COMMIT, "pilot"
             ),
         )
     }

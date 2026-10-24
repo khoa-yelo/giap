@@ -1,0 +1,18 @@
+# TIMSCONVERT 2.0.0 for the A3 pilot's .d -> mzML conversion, route B2 (M10-08; ADR-0054 =
+# ADR-M10-B). Not a pipeline tool: giap.annotate.tools.PILOT_TOOLS (`build_envs.sh timsconvert`).
+# Source: GitHub gtluu/timsconvert, tag v2.0.0 = commit 3cb96aef35bc0a15ce1b6cfe547386acc26a8b8b
+#   (not on PyPI or bioconda); its requirements.txt pins pyTDFSDK at commit
+#   4808da81d3e37f82da96f392dbb446c3733edacb. Both Apache-2.0.
+# pyTDFSDK bundles Bruker's proprietary TDF-SDK (libtimsdata.so), used under the Bruker TDF-SDK
+#   licence agreement that Khoa accepted for route B2 on 2026-10-24 (ADR-0054). Use only:
+#   never redistribute the env, the SDK or any file from it; never commit them (R11; TDF-SDK §3.2).
+# conda-forge only (build_envs.sh passes --override-channels -c conda-forge). Pinned 2026-10-24.
+# Locks: workflow/envs/locks/timsconvert.{explicit,pip}.txt, written by build_envs.sh.
+name: giap-timsconvert
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+    - timsconvert @ git+https://github.com/gtluu/timsconvert@3cb96aef35bc0a15ce1b6cfe547386acc26a8b8b

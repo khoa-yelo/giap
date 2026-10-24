@@ -1,0 +1,5 @@
+asset	version	url	sha256	bytes	licence	path	retrieved
+cascadia_weights	0.0.7 (Drive file cascadia.ckpt)	https://drive.usercontent.google.com/download?id=14b7Y2-5ZqLY807MYtggoNocSfELdfHy9&export=download&confirm=t			Apache-2.0	$GIAP_DB_DIR/cascadia/cascadia_0.0.7.ckpt	
+unimod_table	psims 1.4.0 vendored unimod_tables.xml.gz	https://anaconda.org/conda-forge/psims/files?version=1.4.0			Unimod public domain (copyleft); psims Apache-2.0	$GIAP_DB_DIR/cascadia/unimod_tables.xml	
+timsconvert	3cb96aef35bc0a15ce1b6cfe547386acc26a8b8b	https://github.com/gtluu/timsconvert/tree/3cb96aef35bc0a15ce1b6cfe547386acc26a8b8b	NA		Apache-2.0	$GIAP_ROOT/micromamba/envs/giap-timsconvert	2026-10-24
+pytdfsdk	4808da81d3e37f82da96f392dbb446c3733edacb	https://github.com/gtluu/pyTDFSDK/tree/4808da81d3e37f82da96f392dbb446c3733edacb	NA		Apache-2.0; bundled TDF-SDK: Bruker TDF-SDK licence (ADR-0054)	$GIAP_ROOT/micromamba/envs/giap-timsconvert	2026-10-24

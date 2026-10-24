@@ -1,0 +1,32 @@
+# Cascadia 0.0.7 for the A3 de novo pilot only (M10-08; GIAP_SPEC.md §15.1; ADR-0054 = ADR-M10-B).
+# Not a pipeline tool: giap.annotate.tools.PILOT_TOOLS (`build_envs.sh cascadia`, never `all`).
+# Source: PyPI only (0.0.7 uploaded 2025-02-14; no git tag, no GitHub release); homepage
+#   https://github.com/Noble-Lab/cascadia. Licence: Apache-2.0 (code; weights per the paper).
+# Wheel cascadia-0.0.7-py3-none-any.whl sha256 (PyPI JSON, read 2026-10-24):
+#   50b5204349ab91d6bc34f9313ad18e9d2d305814d19e53cd1cd75d8208f092a3
+# conda-forge only (build_envs.sh passes --override-channels -c conda-forge). Python 3.10,
+# PyTorch 2.0.x as a CUDA build, CUDA 11.8 (L40S = sm_89); lightning 2.0 + pytorch-lightning 1.9
+# solved here so pip does not resolve them (Cascadia PR #18). pyteomics pinned to 4.7.5, the
+# release current when 0.0.7 shipped (lead decision Q10). psims 1.4.0 vendors
+# unimod_tables.xml.gz, the offline Unimod table (fetch_a3_assets.sbatch, cascadia_offline.py).
+# Locks: workflow/envs/locks/cascadia.{explicit,pip}.txt, written by build_envs.sh.
+name: giap-cascadia
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - cuda-version=11.8
+  - pytorch=2.0.*=cuda*
+  - lightning=2.0.*
+  - pytorch-lightning=1.9.*
+  - numpy<2
+  - pyteomics=4.7.5
+  - psims=1.4.0
+  - lxml
+  - rdkit
+  - numba
+  - h5py
+  - sqlalchemy>=2
+  - pip
+  - pip:
+    - cascadia==0.0.7
