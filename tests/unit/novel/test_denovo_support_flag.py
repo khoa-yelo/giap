@@ -416,7 +416,10 @@ def test_flag_does_not_change_rank_or_called_on_a_multi_orf_table() -> None:
     a = _evidence(case, orfs, best=best, tir=tir)
     b = _evidence(case, orfs, best=best, tir=tir, support=sup)
     assert list(a["orf_id"]) == list(b["orf_id"])
-    for ra, rb, o in zip(a.to_dict("records"), b.to_dict("records"), orfs, strict=True):
+    by_id = {o.orf_id: o for o in orfs}  # the table is in output order, not orfs_of order
+    assert set(by_id) == set(b["orf_id"])
+    for ra, rb in zip(a.to_dict("records"), b.to_dict("records"), strict=True):
+        o = by_id[rb["orf_id"]]
         _same_but_flag(ra, rb)
         assert (FLAG in flags_of(rb)) is ev().denovo_only_unsupported(
             o.cls, *sup[o.orf_id], None if is_na(rb["rbs_supported"]) else
