@@ -482,3 +482,17 @@ measured 6 h on K-12), so 12–32 h plus queue waits; S14 about 1 h; the clean-u
 |---|---|---|
 | K1 | Are sha256 hashes of files derived from the DIA-NN reports (converted tables, `report.html`, gate digests) acceptable in the committed runbook? | yes, hashes only (L2) |
 | K2 | After the pilot, delete the DIA-NN reports and libraries (§3.9), keeping the converted tables under `$GIAP_ROOT` as the only copy? | yes; the searches can be repeated from the kept raw runs |
+
+## Lead decisions (2026-10-24)
+
+- L1, L3–L11 take their defaults.
+- L2, and K1: Khoa already answered (2026-10-24, items 2–3). Hashes and row counts may be committed
+  in READMEs and the runbook, and aggregates (counts, ρ, Jaccards, shares, named example genes) in
+  REPORT.md / metrics.json. Only row-level DIA-NN content is banned. So the runbook may carry
+  hashes and counts, the "no 3+-digit numbers outside provenance columns" check is dropped, and
+  M10-07's aggregates in PROGRESS are fine (G3 resolved).
+- K2 (deleting the DIA-NN reports and libraries): parked for Khoa. **Default until answered: keep
+  them.** `pilot_cleanup.sbatch` deletes only the Nextflow work directories and the mzML files;
+  the reports and libraries are listed in the dry run as "kept pending K2".
+- G1: M10-09 is now specified (origin/m10/spec-09); M10-10 extends `pilot_compare.sbatch` to
+  three runs.
