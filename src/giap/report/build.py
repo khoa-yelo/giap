@@ -191,7 +191,7 @@ def _alt_estimate(alt: pd.DataFrame) -> str | None:
         return None
     lo, hi = format_value(float(known.min())), format_value(float(known.max()))
     tail = f" ({n_un} unestimated)" if n_un else ""
-    return f"class error rate {lo if lo == hi else f'{lo}–{hi}'}{tail}"
+    return f"class error rate {lo if lo == hi else f'{lo}–{hi}'} (pooled per class){tail}"
 
 
 def _metric(en: pd.DataFrame, metric: str) -> tuple[float | None, list[str]]:
