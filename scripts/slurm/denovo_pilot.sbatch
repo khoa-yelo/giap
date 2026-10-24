@@ -2,8 +2,8 @@
 #SBATCH --job-name=giap-denovo
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=64G
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=64000M
 #SBATCH --time=24:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
 # Pilot arm A3, de novo sequencing (GIAP_SPEC.md §15.1, §15.2 step 6; M3-24).
@@ -17,10 +17,11 @@
 # `gpu` partition), one call per run, on $GIAP_DATA_DIR/pxd078459/mzml/<RUN>.mzML (from
 # mzml_pilot.sbatch). The weights and the Unimod table must match the sha256 committed in
 # validation/pilot/a3_assets.tsv (exit 2 otherwise, R6). Cascadia runs through
-# scripts/pilot/cascadia_offline.py (no Unimod download) in $TMPDIR/<RUN> (its scratch goes to
-# the cwd), with its default score threshold 0.8, and writes
-# $GIAP_ROOT/pilot/A3_cascadia/<RUN>/<RUN>.ssl. Exit 1 when CUDA is not available, when Cascadia
-# fails, or when its log shows a unimod.org URL (the launcher did not take effect).
+# scripts/pilot/cascadia_offline.py (no Unimod download) in a per-job mktemp -d
+# ${TMPDIR:-/tmp}/giap-a3.XXXXXX/<RUN> (its scratch goes to the cwd; removed on exit), with its
+# default score threshold 0.8, and writes $GIAP_ROOT/pilot/A3_cascadia/<RUN>/<RUN>.ssl. Exit 1
+# when CUDA is not available, when its log shows a unimod.org URL (the launcher did not take
+# effect), when Cascadia fails, or when it writes no <RUN>.ssl. 64000M = 16 x MaxMemPerCPU 4000M.
 #
 # Fallback branch (§15.1): if DIA de novo fails on timsTOF data, run Casanovo 5.2.1 on three UTI89
 # DDA runs of PXD053727 (genome GCA_000013265.1) instead, and say so in validation/pilot/REPORT.md.
@@ -106,23 +107,24 @@ if [ "$TOOL" = "cascadia" ]; then
     || cuda="error"
   echo "torch.cuda.is_available(): $cuda"
   [ "$cuda" = "True" ] || { echo "CUDA is not available: Cascadia would run on the CPU" >&2; exit 1; }
-  trap 'rm -rf "${SCRATCH:-}"' EXIT
+  SCRATCH_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/giap-a3.XXXXXX")"
+  trap 'rm -rf "$SCRATCH_ROOT"' EXIT
   for r in $RUN_LIST; do
     mkdir -p "$OUT/$r"
-    SCRATCH="$TMPDIR/$r"
-    mkdir -p "$SCRATCH"
+    SCRATCH="$SCRATCH_ROOT/$r"
+    mkdir "$SCRATCH"
     log="$OUT/$r/cascadia.log"
     rc=0
     (cd "$SCRATCH" && micromamba run -n "$ENV_NAME" python -I \
       "$GIAP_REPO/scripts/pilot/cascadia_offline.py" "$UNIMOD" sequence "$MZML_DIR/$r.mzML" \
       "$MODEL" -o "$OUT/$r/$r" -b 32) 2>&1 | tee "$log" || rc=$?
-    rm -rf "$SCRATCH"
-    [ "$rc" -eq 0 ] || { echo "Cascadia failed on $r (exit $rc): R9" >&2; exit 1; }
     if grep -q 'unimod\.org' "$log"; then
       echo "the job log shows a unimod.org URL: the offline launcher did not take effect" >&2
       exit 1
     fi
-    ls -l "$OUT/$r/$r.ssl" 2>/dev/null || true
+    [ "$rc" -eq 0 ] || { echo "Cascadia failed on $r (exit $rc): R9" >&2; exit 1; }
+    [ -f "$OUT/$r/$r.ssl" ] || { echo "Cascadia exited 0 but wrote no $OUT/$r/$r.ssl: R9" >&2; exit 1; }
+    ls -l "$OUT/$r/$r.ssl"
   done
   echo "== A3 done: $OUT (next: a3_feasibility.py evaluate, then giap convert --from cascadia)"
   [ -z "${SLURM_JOB_ID:-}" ] || seff "$SLURM_JOB_ID" 2>/dev/null || true

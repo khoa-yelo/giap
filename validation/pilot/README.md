@@ -262,6 +262,7 @@ python validation/pilot/a3_feasibility.py evaluate $GIAP_ROOT/pilot/A3_cascadia/
   --run WT_1 --out validation/pilot/metrics/a3_feasibility.json \
   --route B2 --route-version <commit> --weights-sha256 <sha> --mzml-sha256 <sha> \
   --mzml-check $GIAP_DATA_DIR/pxd078459/mzml/WT_1.mzml_check.json --job-id <id> \
+  --date <YYYY-MM-DD> \
   --detail $GIAP_ROOT/pilot/A3_cascadia/WT_1/feasibility_top1000.tsv
 ```
 
@@ -269,7 +270,8 @@ The verdict is rule L6 on WT_1 (spec M10-08): fail when fewer than 500 distinct 
 Cascadia's own cut-off (0.8), or fewer than 20 % of the top 1,000 match the Nissle six-frame
 translation exactly; exit 0 pass, 3 fail. `early-fail --reason … --evidence …` records E1-E3.
 `metrics/a3_feasibility.json` holds aggregates only; the job IDs, wall times, sizes and the
-verdict itself come from the smoke run (pending).
+verdict itself come from the smoke run (pending). `--date` defaults to today (UTC); pass it so a
+rerun is byte-identical.
 
 ## Running the pilot (§15.2 steps 4-9)
 

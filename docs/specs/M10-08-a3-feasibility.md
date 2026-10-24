@@ -629,3 +629,24 @@ Lead decisions for 08b; they supersede the earlier text where they differ:
   run list is `$RUN`, else the second argument, else `WT_1 WT_2 WT_3`.
 - **Env build:** building `cascadia` on a CPU node needs `CONDA_OVERRIDE_CUDA=11.8` (the README's
   A3 section).
+
+## Amendments after the 08b code review (lead, 2026-10-24)
+
+These supersede the earlier text where they differ:
+- **S1, resources:** `denovo_pilot.sbatch` asks for `--cpus-per-task=16 --mem=64000M`. The `gpu`
+  partition has MaxMemPerCPU 4000M, so `--mem=64G` on 8 CPUs was silently raised to 17 CPUs; the
+  CPUs asked for are now the CPUs held (R14 accounting).
+- **S2, scratch:** the job makes one per-job directory
+  `SCRATCH_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/giap-a3.XXXXXX")"` and runs each Cascadia call in
+  `$SCRATCH_ROOT/<RUN>`; an EXIT trap removes `$SCRATCH_ROOT`. It never creates or removes
+  `$TMPDIR/<RUN>` (deliverable 8, the scratch row and the command block above read accordingly).
+  The scratch is still under `$TMPDIR`. The log's `unimod.org` check runs before the exit-code
+  check, and an exit 0 without `<RUN>.ssl` is exit 1 (a header-only `.ssl` is still a result).
+- **S3, named modifications:** the edge case "modified sequences without mass shifts → exit 1" is
+  implemented: a `[...]` group whose content is not a signed number (`[+-]\d+(\.\d+)?`, e.g.
+  `[Oxidation]`, `[UNIMOD:4]`, `[]`) is an `InputError` (exit 1, R9) naming the `.ssl` line.
+  `(...)` groups are still stripped. Step 2's separate deletion of signed masses and `-` is
+  subsumed by deleting every character outside A–Z after uppercasing.
+- **N6, preconditions (exit 2):** a missing `--mzml-check` file (an unreadable one, or one without
+  `rules`, is exit 1), a whitespace-only `.ssl` (no header; it counts as an empty file), and a
+  `--detail` path inside the checkout that is not git-ignored.

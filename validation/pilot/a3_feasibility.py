@@ -19,7 +19,10 @@ against the six-frame translation with ``giap.mapping`` (contaminant hits count 
 
 Exit codes: 0 pass; 3 fail (L6 or early-fail); 1 an error (failed check, unreadable mzML or
 ``.ssl``, missing column, bad score); 2 a precondition (missing or empty file, unknown run,
-unknown option or reason). Never imports Cascadia.
+unknown option or reason; a whitespace-only ``.ssl``, a missing ``--mzml-check`` file, a
+``--detail`` path in the checkout that is not git-ignored). A ``[...]`` group that is not a signed
+mass shift (a modification name Cascadia did not convert) is an unreadable ``.ssl`` (exit 1).
+Never imports Cascadia.
 """
 
 import argparse
@@ -30,6 +33,7 @@ import json
 import math
 import os
 import re
+import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -52,10 +56,13 @@ from giap.stats.cutoffs import wilson_ci
 REPO = Path(__file__).resolve().parents[2]
 NISSLE_FNA = REPO / "tests/data/genomes/nissle1917.fna.gz"
 NISSLE_JSON = REPO / "tests/data/recorded/bakta/1.12.2-full/nissle/nissle1917.json.gz"
-RULE = {"min_peptides": 500, "min_share": 0.20, "top_n": 1000}
+TOP_N, MIN_PEPTIDES = 1000, 500
+RULE: dict[str, Any] = {"min_peptides": MIN_PEPTIDES, "min_share": 0.20, "top_n": TOP_N}
 EARLY = ("route_unavailable", "structurally_incompatible", "tool_incompatible")
 STANDARD = frozenset("ACDEFGHKLMNPQRSTVWY")  # I is folded into L
-_GROUPS, _MASSES = re.compile(r"\[[^\]]*\]|\([^)]*\)"), re.compile(r"[+-]\d+(?:\.\d+)?|-")
+_GROUPS = re.compile(r"\[[^\]]*\]|\([^)]*\)")
+_SHIFT = re.compile(r"\[([^\]]*)\]")  # a [...] group must hold a signed mass shift (S3)
+_SIGNED = re.compile(r"[+-]\d+(?:\.\d+)?")
 
 RULES = tuple(f"M{i}" for i in range(1, 9))
 MS_LEVEL, CENTROID, PROFILE, SCAN_START = "MS:1000511", "MS:1000127", "MS:1000128", "MS:1000016"
@@ -207,9 +214,9 @@ class InputError(ValueError):
 
 
 def fold(seq: str) -> str:
-    """Spec step 2: drop ``[…]``/``(…)``, signed masses and ``-``; uppercase; keep A-Z; I -> L."""
-    s = _MASSES.sub("", _GROUPS.sub("", seq)).upper()
-    return re.sub(r"[^A-Z]", "", s).replace("I", "L")
+    """Spec step 2: drop ``[…]``/``(…)``; uppercase; keep A-Z (this also drops signed masses and
+    ``-``); I -> L."""
+    return re.sub(r"[^A-Z]", "", _GROUPS.sub("", seq).upper()).replace("I", "L")
 
 
 @dataclass
@@ -254,7 +261,11 @@ def read_ssl(path: Path) -> list[tuple[str, float]]:
                 score = math.nan
             if not math.isfinite(score):
                 raise InputError(f"{path} line {reader.line_num}: score {r['score']!r}")
-            rows.append((r["sequence"] or "", score))
+            seq = r["sequence"] or ""
+            bad = [g for g in _SHIFT.findall(seq) if not _SIGNED.fullmatch(g)]
+            if bad:  # a modification name Cascadia could not convert (no local Unimod entry)
+                raise InputError(f"{path} line {reader.line_num}: [{bad[0]}] is not a mass shift")
+            rows.append((seq, score))
     return rows
 
 
@@ -274,7 +285,7 @@ def genome_hits(
 
 def verdict(n_pass: int, n_top: int, n_match: int) -> dict[str, Any]:
     """Pure: rule L6 (both rules say "fewer than"); ``low_genome_match`` is null at ``n_top`` 0."""
-    few = n_pass < RULE["min_peptides"]
+    few = n_pass < MIN_PEPTIDES
     low = None if n_top == 0 else 100 * n_match < 20 * n_top  # min_share 0.20, exact integers
     reason = {(False, False): None, (True, False): "too_few_peptides", (False, True):
               "low_genome_match", (True, True): "both"}[(few, bool(low))]  # fmt: skip
@@ -284,7 +295,7 @@ def verdict(n_pass: int, n_top: int, n_match: int) -> dict[str, Any]:
 
 def _record(args: argparse.Namespace, **fields: Any) -> dict[str, Any]:
     """The verdict JSON skeleton (every field) with the job's provenance options."""
-    check = json.loads(args.mzml_check.read_text())["rules"] if args.mzml_check else None
+    check = args.mzml_check_rules
     nulls = ("genome_sha256", "cutoff", "cutoff_source", "n_rows", "n_below_cutoff", "n_len_7_30",
              "n_pass", "n_top", "n_match", "n_nonstandard", "share", "share_ci95", "decoy_share",
              "contaminant_share", "matches_by_replicon", "length_hist", "evidence")  # fmt: skip
@@ -302,21 +313,43 @@ def _write(out: Path, j: dict[str, Any]) -> int:
     return 0 if j["verdict"] == "pass" else 3
 
 
+def _inside_checkout(path: Path) -> bool:
+    """True when ``path`` is in this checkout and not git-ignored (it could be committed)."""
+    p = path.resolve()
+    if REPO not in p.parents:
+        return False
+    res = subprocess.run(["git", "-C", str(REPO), "check-ignore", "-q", str(p)],
+                         capture_output=True, check=False)  # fmt: skip
+    return res.returncode != 0
+
+
 def _evaluate(args: argparse.Namespace) -> int:
     db = os.environ.get("GIAP_DB_DIR")
     cont = args.contaminants or (Path(db) / "contaminants/contaminants.fasta" if db else None)
+    if cont is None:
+        print("evaluate: no --contaminants and no $GIAP_DB_DIR", file=sys.stderr)
+        return 2
     for p in (args.ssl, args.genome, args.bakta_json, cont):
-        if p is None or not p.is_file() or p.stat().st_size == 0:
+        if not p.is_file() or p.stat().st_size == 0:
             print(f"evaluate: missing or empty: {p} (no Cascadia result for {args.run}?)",
                   file=sys.stderr)  # fmt: skip
             return 2
+    with args.ssl.open("rb") as fh:  # stops at the first non-blank line (the header)
+        blank = not any(line.strip() for line in fh)
+    if blank:
+        print(f"evaluate: whitespace only: {args.ssl} (no header)", file=sys.stderr)
+        return 2
+    if args.detail and _inside_checkout(args.detail):
+        print(f"evaluate: --detail {args.detail} is in the checkout and not git-ignored "
+              "(per-peptide data stays under $GIAP_ROOT)", file=sys.stderr)  # fmt: skip
+        return 2
     try:
         t = tally(read_ssl(args.ssl), args.cutoff)
     except (InputError, csv.Error, UnicodeDecodeError) as exc:
         print(f"evaluate: {exc}", file=sys.stderr)
         return 1
     ranked = t.ranked()
-    top = ranked[: RULE["top_n"]]
+    top = ranked[:TOP_N]
     seqs = {r.id: r.sequence for r in read_genome_fasta(args.genome)}  # step 8
     replicons = parse_bakta_json(args.bakta_json, genome=seqs).model.replicons
     target, decoy, tgt = genome_hits(top, seqs, replicons) if top else (set(), set(), None)
@@ -396,6 +429,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.cmd == "evaluate":
         args.cutoff_given = args.cutoff is not None
         args.cutoff = 0.8 if args.cutoff is None else args.cutoff
+    args.mzml_check_rules = None
+    if args.cmd != "mzml-check" and args.mzml_check is not None:
+        if not args.mzml_check.is_file():
+            print(f"{args.cmd}: no such --mzml-check file: {args.mzml_check}", file=sys.stderr)
+            return 2
+        try:
+            args.mzml_check_rules = json.loads(args.mzml_check.read_text())["rules"]
+        except (ValueError, KeyError, TypeError) as exc:
+            print(f"{args.cmd}: unreadable --mzml-check {args.mzml_check}: {exc}", file=sys.stderr)
+            return 1
+    if args.cmd == "evaluate":
         return _evaluate(args)
     return _early_fail(args) if args.cmd == "early-fail" else _mzml_check(args)
 
