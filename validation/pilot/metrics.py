@@ -811,7 +811,22 @@ def check_notes(notes: str, metrics: Mapping[str, Any]) -> None:
             raise ValueError(f"notes: number {num} is not in metrics.json")
 
 
+SECTION = re.compile(r"^<!-- (if|ifnot) ([\w.]+) -->\n(.*?)^<!-- end \2 -->\n", re.M | re.S)
+
+
+def sections(template: str, metrics: Mapping[str, Any]) -> str:
+    """Keeps ``<!-- if PATH -->`` blocks when PATH resolves, ``<!-- ifnot PATH -->`` blocks
+    when it does not (M10-07: metric 8 only with ``--entrapment``); drops the markers."""
+
+    def keep(m: re.Match[str]) -> str:
+        has = resolve(metrics, m.group(2)) is not _MISSING
+        return m.group(3) if has == (m.group(1) == "if") else ""
+
+    return SECTION.sub(keep, template)
+
+
 def missing_paths(template: str, metrics: Mapping[str, Any]) -> list[str]:
+    template = sections(template, metrics)
     return [p for p in PLACEHOLDER.findall(template) if resolve(metrics, p) is _MISSING]
 
 
@@ -829,7 +844,7 @@ def render(template: str, metrics: Mapping[str, Any], notes: str | None) -> str:
         parent = path.rsplit(".", 1)[0]
         return f"{fmt_value(path.rsplit('.', 1)[-1], v)} (metrics.json{SOURCE_SEP}{parent})"
 
-    text = PLACEHOLDER.sub(sub, template)
+    text = PLACEHOLDER.sub(sub, sections(template, metrics))
     body = notes.strip() if notes and notes.strip() else "No notes."
     if NOTES_MARK in text:
         return text.replace(NOTES_MARK, body)
@@ -1115,12 +1130,26 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
         "manifest_a1": arms["A1"]["out"] / "run_manifest.json",
         "manifest_a2": arms["A2"]["out"] / "run_manifest.json",
     }
+    if getattr(a, "entrapment", None) is not None:  # M10-07 hook
+        doc["m8"], files["entrapment"] = entrapment_block(_read_json(a.entrapment)), a.entrapment
     doc["inputs"] = {
         k: {"path": str(Path(p).resolve()), "sha256": sha256(Path(p))}
         for k, p in files.items()
         if p is not None
     }
     return doc, exceptions
+
+
+M8_KEYS = ("peptide", "precursor", "universe", "caveats", "cross_checks")
+
+
+def entrapment_block(ent: Mapping[str, Any]) -> dict[str, Any]:
+    """Metric 8: the blocks of ``entrapment.json`` (validation/pilot/entrapment.py, M10-07)."""
+    if ent.get("schema") != "giap-pilot-entrapment/1":
+        raise Precondition(
+            f"--entrapment: schema {ent.get('schema')!r}, not giap-pilot-entrapment/1"
+        )
+    return {k: ent[k] for k in M8_KEYS}
 
 
 def _dump(doc: Any) -> str:
@@ -1157,7 +1186,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "out",
     ):
         c.add_argument(f"--{name}", type=Path, required=True)
-    for name in ("summary-a1", "summary-a2", "sacct", "a3"):
+    for name in ("summary-a1", "summary-a2", "sacct", "a3", "entrapment"):
         c.add_argument(f"--{name}", type=Path, default=None)
     r = sub.add_parser("render")
     r.add_argument("--metrics", type=Path, required=True)

@@ -91,6 +91,34 @@ Spearman rho {{m4.spearman_rho}} [{{m4.ci_low}}, {{m4.ci_high}}] on {{m4.n_share
 | max step peak RSS (one task, not the arm's total memory) | {{m7.A1.max_step_peak_rss_bytes}} | {{m7.A2.max_step_peak_rss_bytes}} |
 | complete (no cached step; else totals are lower bounds) | {{m7.A1.runtime_complete}} | {{m7.A2.runtime_complete}} |
 
+<!-- if m8.peptide -->
+### Metric 8: A1's free entrapment (from `entrapment.py`, M10-07)
+
+The entrapment is free: it is the K-12-only part of A1's own database, the K-12 peptides absent from
+Nissle's translation after the I/L and mass-equivalent rules. Estimator: Wen et al. 2025 (combined
+method). r = K-12-only / shared in-silico peptides = {{m8.universe.r}} ({{m8.universe.k12_only}} K-12-only, {{m8.universe.shared}} shared); at precursor level
+r_prec = {{m8.universe.r_prec}} (from the configured charge and m/z bounds, not the library).
+The assessment is made only at precursor level, the unit DIA-NN's global q-value controls; the peptide level is §15.5's number and is not assessed.
+
+| | peptide (§15.5) | precursor (assessed) |
+|---|---|---|
+| N_T (shared) | {{m8.peptide.N_T}} | {{m8.precursor.N_T}} |
+| N_E (K-12-only) | {{m8.peptide.N_E}} | {{m8.precursor.N_E}} |
+| excluded as contaminant | {{m8.peptide.excluded_contaminant}} | {{m8.precursor.excluded_contaminant}} |
+| not in the in-silico universe | {{m8.peptide.not_in_universe}} | {{m8.precursor.not_in_universe}} |
+| `fdp_combined` (estimated upper bound in expectation) | {{m8.peptide.fdp_combined}} | {{m8.precursor.fdp_combined}} |
+| `fdp_lower` (realised lower bound, conditional on the caveats) | {{m8.peptide.fdp_lower}} | {{m8.precursor.fdp_lower}} |
+| with 95 % confidence, under equal chance, the FDP is at most | {{m8.peptide.ci.ucb95}} | {{m8.precursor.ci.ucb95}} |
+| assessment | {{m8.peptide.assessment}} | {{m8.precursor.assessment}} |
+
+Caveats:
+
+- {{m8.caveats.0}}
+- {{m8.caveats.1}}
+- {{m8.caveats.2}}
+- {{m8.caveats.3}}
+
+<!-- end m8.peptide -->
 ## 4. TE1 on real data (A2)
 
 Every A2 target identification, true or false, is a substring of an annotated protein, so TE1 checks
@@ -120,12 +148,21 @@ divergence rather than sampled, and dependence at the scale of a region remains;
 
 **H3** (context conclusions agree between A1 and A2): verdict {{h3.verdict}}; rho criterion {{h3.criteria.rho.status}}; islands {{h3.criteria.islands.status}}; operon flags {{h3.criteria.operon_flags.status}}; enriched categories {{h3.criteria.enriched_categories.status}}.
 
+<!-- if m8.peptide -->
+**H2** (A1's genome-inconsistent FDP is at least its entrapment FDP): deferred (it needs the full validation, FDRBench); shown side by side only: A1 genome-inconsistent share {{m2.A1.genome_inconsistent.value}}, free-entrapment `fdp_combined` {{m8.peptide.fdp_combined}}.
+**H4**: deferred (it needs A3 and M10-10).
+<!-- end m8.peptide -->
+<!-- ifnot m8.peptide -->
 **H2** and **H4**: deferred (they need A3, M10-07/M10-10 and the full validation).
+<!-- end m8.peptide -->
 
 ## 6. Pending in pass 2
 
-Metric 6 (M10-10), metric 8 (M10-07), TE2–TE5 and TE7 (M10-06), A3 (M10-08–11), benchmark (M10-12),
-report-freeze re-runs (M10-14).
+Metric 6 (M10-10),
+<!-- ifnot m8.peptide -->
+metric 8 (M10-07),
+<!-- end m8.peptide -->
+TE2–TE5 and TE7 (M10-06), A3 (M10-08–11), benchmark (M10-12), report-freeze re-runs (M10-14).
 
 ## 7. Deviations from the spec
 
