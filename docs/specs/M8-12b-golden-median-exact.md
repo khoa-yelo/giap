@@ -511,3 +511,17 @@ is a branch, so that is expected.
 9. **The `VERSIONS.txt` warnings caveat.** goseq's warnings come from the ORA call, so the text
    should be identical. **Default:** any `VERSIONS.txt` difference is reported in the PR, and only
    a warnings-only difference is accepted without asking.
+
+## Lead decisions (2026-10-23)
+1. **Q1–Q9: the defaults are accepted.**
+   - **Q1:** `_balance_signs` flips the 8 values.
+   - **Q2:** the sets are planted on the final scores.
+   - **Q3:** ω is the exactly computed mean ratio, rounded once.
+   - **Q4:** one PR, with commits in the order median → R rerun → Wallenius.
+   - **Q5:** the ORA guard can be overridden with `GOLDEN_R_ALLOW_ORA_CHANGE=1`.
+   - **Q6:** `check_golden_provenance.py` is extended to `tests/data/golden/wallenius/`.
+   - **Q7:** the Wallenius generator runs twice in the job.
+   - **Q8:** a miss stops the work and is raised with the lead; never reseed.
+   - **Q9:** a `VERSIONS.txt` difference is accepted only in its warnings section.
+2. **The tolerance key.** The lead commits `golden_r.wallenius_goseq_abs_tol: 1.0e-5` with `Gate-Change-Approved: ADR-0044` in the M8-13 PR, not here.
+3. **Order of work:** test-author, then implementer (the generators and the sbatch), then the lead runs the two Slurm jobs and commits the generated data with PROVENANCE. `test_committed_inputs_equal_a_fresh_generation` stays red between the generator commit and the data commit; that is expected.
