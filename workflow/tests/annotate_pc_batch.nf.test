@@ -4,7 +4,7 @@
 //
 // The stubbed operon_pairs step emits params.stub.tu_regions regions tu_upstream/tu000.fa ...
 // (annotate.nf scatterSpec), so the TU ids are tu000, tu001, ... and sort like their numbers.
-// Example 3 sets tu_regions: 0; this needs annotate.nf to honour 0 (today `?: 1` turns 0 into 1).
+// Example 3 sets tu_regions: 0, which annotate.nf passes through (no `?: 1` fallback).
 // Task tags are pinned to the spec's first form, pc_<first TU>_<last TU>.
 // Inputs as workflow/tests/annotate.nf.test. ci.yml runs: nf-test test workflow/tests --profile test,stub
 nextflow_pipeline {
