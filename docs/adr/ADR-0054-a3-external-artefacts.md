@@ -1,5 +1,5 @@
 # ADR-0054: External artefacts of the A3 de novo arm (ADR-M10-B): conversion route, TDF-SDK licence, Cascadia weights host, Unimod table
-- Status: proposed
+- Status: accepted-by-khoa (2026-10-24, in session: "go with your recommendation": Bruker TDF-SDK accepted for route B2; `cascadia.ckpt` allowed from the authors' Drive folder with its sha256 pinned; the ProteoWizard route not accepted)
 - Date: 2026-10-24
 - Spec sections: §15.1 (arm A3), §15.2 steps 6-7, §17, §3.2, §14.8 item 1; R5, R6, R9, R11, R14
 - Needs Khoa: yes (a new download source, `drive.google.com`, and a proprietary licence, Bruker's TDF-SDK agreement)
