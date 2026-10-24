@@ -10,9 +10,11 @@ a cell with 3 valid repeats and equal input sha256 values is ``complete`` (media
 ``baseline.json``; every other key is kept byte-for-byte, and an entry measured on another
 commit is replaced only with ``--replace`` (else exit 1, file unchanged). The noisy threshold
 is ``benchmark_slowdown_max`` of ``ci/gates.yaml``. Exit 2 on an unreadable or schema-invalid
-record. The numbers are reported against GIAP_SPEC.md §13.2, never gated.
+record (a minimal ``record_error`` record is accepted: a failed repeat) or a bad ``--adr``.
+The numbers are reported against GIAP_SPEC.md §13.2, never gated.
 
-    python scripts/dev/benchmark_summary.py BENCH_DIR/<bench_id> [--baseline B --write [--replace]]
+    python scripts/dev/benchmark_summary.py BENCH_DIR/<bench_id> [--baseline B --write
+        [--replace] [--adr ADR-NNNN]]
 """
 
 from __future__ import annotations
@@ -34,25 +36,11 @@ NOISY_MAX: float = float(
     yaml.safe_load((REPO / "ci" / "gates.yaml").read_text())["benchmark_slowdown_max"]
 )
 SCHEMA = "giap-bench-run/1"
-RUN_KEYS = (
-    "schema",
-    "bench_id",
-    "commit",
-    "genome",
-    "variant",
-    "repeat",
-    "attempt",
-    "argv",
-    "inputs",
-    "sacct",
-    "wall_s",
-    "status",
-    "trace",
-    "steps",
-    "node",
-    "cpu_sku",
-    "job_id",
-)
+RUN_KEYS = ("schema", "bench_id", "commit", "genome", "variant", "repeat", "attempt", "argv",
+            "inputs", "sacct", "wall_s", "status", "trace", "steps", "node", "cpu_sku",
+            "job_id")  # fmt: skip
+MIN_KEYS = ("schema", "genome", "variant", "repeat", "attempt", "status")  # a record_error record
+SAME_FLAGS = ("--profile", "--memory", "--modules", "--threads", "--seed", "--set")
 GENOMES = ("k12", "sim5m")
 VARIANTS = ("standard", "core")
 ROUNDS = 3
@@ -160,12 +148,16 @@ def cell_summary(runs: Sequence[Run], estimate: Estimate) -> dict[str, Any]:
     if not valid:
         return cell
     walls = [float(r["wall_s"]) for r in valid]
-    shas = {
-        json.dumps({n: v["sha256"] for n, v in r["inputs"].items()}, sort_keys=True) for r in valid
-    }
+    same = {
+        json.dumps([{n: v["sha256"] for n, v in r["inputs"].items()}, r["commit"],
+                    [_flag(r["argv"], f) for f in SAME_FLAGS]], sort_keys=True)
+        for r in valid
+    }  # fmt: skip
     classes = {r["cpu_sku"] for r in valid}
-    cell["reasons"] = (["inputs_differ"] if len(shas) > 1 else []) + (
-        ["mixed_node_class"] if len(classes) > 1 else []
+    cell["reasons"] = (
+        (["inputs_differ"] if len(same) > 1 else [])
+        + (["mixed_node_class"] if len(classes) > 1 else [])
+        + [f"node_class:{c}" for c in sorted(classes) if c not in NODE_CLASSES]  # never summarised
     )
     cell["valid_runs"] = len(valid)
     if len(valid) != ROUNDS or cell["reasons"]:
@@ -174,7 +166,7 @@ def cell_summary(runs: Sequence[Run], estimate: Estimate) -> dict[str, Any]:
     med = statistics.median(walls)
     median_run = valid[walls.index(med)]
     sku = valid[0]["cpu_sku"]
-    node_class, cpu = NODE_CLASSES.get(sku, (re.sub(r"\W+", "_", sku).lower(), sku))
+    node_class, cpu = NODE_CLASSES[sku]
     within = None
     if estimate.low is not None and estimate.high is not None:
         within = estimate.low <= med <= estimate.high
@@ -216,28 +208,10 @@ def baseline_entry(cell: Mapping[str, Any]) -> dict[str, Any]:
     """The ``standard_run`` entry of a complete cell (spec "Baseline entry")."""
     if cell["status"] != "complete":
         raise ValueError(f"only a complete cell has a baseline entry, not {cell['status']}")
-    keys = (
-        "median_s",
-        "runs_s",
-        "spread",
-        "noisy",
-        "nodes",
-        "cpu",
-        "profile",
-        "modules",
-        "bakta",
-        "peak_rss_sacct_max_bytes",
-        "task_peak_rss_max_bytes",
-        "cpu_efficiency_median",
-        "steps",
-        "estimate_s",
-        "ratio_to_estimate",
-        "within_estimate_range",
-        "slurm_jobs",
-        "commit",
-        "date",
-        "inputs_sha256",
-    )
+    keys = ("median_s", "runs_s", "spread", "noisy", "nodes", "cpu", "profile", "modules", "bakta",
+            "peak_rss_sacct_max_bytes", "task_peak_rss_max_bytes", "cpu_efficiency_median", "steps",
+            "estimate_s", "ratio_to_estimate", "within_estimate_range", "slurm_jobs", "commit",
+            "date", "inputs_sha256")  # fmt: skip
     entry = {k: cell[k] for k in keys}
     return entry | {
         "threads": THREADS,
@@ -302,7 +276,7 @@ def guide_rows(cells: Sequence[Mapping[str, Any]]) -> list[str]:
             m = round(c["median_s"] / 60)
             rows.append(
                 f"| {c['variant']} | {m // 60}:{m % 60:02d} | {_hms(min(c['runs_s']))}-"
-                f"{_hms(max(c['runs_s']))} | {_gib(c['task_peak_rss_max_bytes'])} | "
+                f"{_hms(max(c['runs_s']))} | {_gib(c['peak_rss_sacct_max_bytes'])} | "
                 f"{c['node_class']} | {c['date']} | {str(c['commit'])[:7]} |"
             )
     return rows
@@ -315,7 +289,12 @@ def _load(bench: Path) -> list[dict[str, Any]]:
             rec = json.loads(p.read_text())
         except (OSError, ValueError) as exc:
             raise ValueError(f"{p}: unreadable ({exc})") from exc
-        missing = [k for k in RUN_KEYS if not isinstance(rec, dict) or k not in rec]
+        err = isinstance(rec, dict) and any(
+            str(x).startswith("record_error") for x in rec.get("invalid_reasons") or []
+        )
+        missing = [
+            k for k in (MIN_KEYS if err else RUN_KEYS) if not isinstance(rec, dict) or k not in rec
+        ]
         if missing or rec.get("schema") != SCHEMA:
             raise ValueError(f"{p}: not a {SCHEMA} record (missing {missing})")
         runs.append(rec)
@@ -328,7 +307,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--baseline", type=Path, default=REPO / "benchmarks" / "baseline.json")
     ap.add_argument("--write", action="store_true", help="add the complete cells to --baseline")
     ap.add_argument("--replace", action="store_true", help="replace entries of another commit")
+    ap.add_argument("--adr", help="ADR-NNNN of the entries (kept on a same-commit rewrite)")
     args = ap.parse_args(argv)
+    if args.adr is not None and not re.fullmatch(r"ADR-\d{4}", args.adr):
+        print(f"benchmark_summary: --adr {args.adr!r} is not ADR-NNNN", file=sys.stderr)
+        return 2
     try:
         runs = _load(args.bench)
     except ValueError as exc:
@@ -365,7 +348,9 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
     for key, c in entries.items():
-        sr.setdefault(c["node_class"], {})[key] = baseline_entry(c)
+        old = sr.get(c["node_class"], {}).get(key) or {}
+        keep = old.get("adr") if old.get("commit") == c["commit"] else None
+        sr.setdefault(c["node_class"], {})[key] = baseline_entry(c | {"adr": args.adr or keep})
     data["standard_run"] = sr
     args.baseline.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     return 0
