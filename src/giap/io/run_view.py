@@ -54,6 +54,7 @@ _EXTRA: dict[str, str] = {
     "enrichment_detection": "tables/enrichment_detection.tsv",
     "enrichment_gsea": "tables/enrichment_gsea.tsv",
     "resolved_config": "resolved_config.yaml",
+    "run_manifest": "run_manifest.json",
 }
 #: key -> ``OUT/``-relative path (behaviour 3)
 PATHS: Mapping[str, str] = {**PUBLISHED_FILES, **_EXTRA}
@@ -265,6 +266,27 @@ class RunView:
         with open_text(path) as fh:
             data: dict[str, Any] = json.load(fh)
         return data
+
+    def manifest(self) -> Mapping[str, Any] | None:
+        """``run_manifest.json`` (MVP-03a), or ``None``; a non-object document raises."""
+        path = self.path("run_manifest")
+        if path is None:
+            return None
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("run_manifest.json is not a JSON object")
+        return data
+
+    def events(self, name: str) -> list[Mapping[str, Any]]:
+        """The ``data`` of every ``name`` event of every events file, in file order (M9-16)."""
+        found: list[Mapping[str, Any]] = []
+        for path in self._event_files():
+            with open_text(path) as fh:
+                for line in fh:
+                    rec = json.loads(line) if line.strip() else {}
+                    if rec.get("event") == name and isinstance(rec.get("data"), dict):
+                        found.append(rec["data"])
+        return found
 
     def support(self, name: str) -> pd.DataFrame | None:
         """``plots/support/<name>.tsv[.gz]`` (M9-03), or ``None``."""

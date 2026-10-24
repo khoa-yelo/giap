@@ -37,7 +37,8 @@ Definitions:
 - **Top 6 GSEA sets**: smallest `q_value`, then largest |`nes`|, then collection, term; rows with
   `p_value` NA excluded. `running_es` is fgsea's running sum for that set, computed by the same
   port function the `es` came from; the max-deviation of `running_es` equals the row's `es` to
-  1e-9 (an assertion in the step).
+  1e-9 (an assertion in the step). At a maxP = −minP tie the walk has two equal extremes; the
+  plotted ES is the table's `es`.
 - **SHAP per feature**: the mean over the 25 out-of-fold boosters of `pred_contrib` (the same
   matrix M8-09 sums by block); block sums of this file equal `determinants_attribution` block
   columns to 1e-9.
@@ -49,7 +50,9 @@ Definitions:
 - **Null draws** store the statistic each test compares, not the reported effect: for region
   `o_minus_e` the studentised statistic of ADR-0018 (and its observed value), for `hl_shift` the
   statistic of ADR-0018's amendments; the column header names it. They are the values the step already computes; no extra replicates are drawn, so no
-  RNG stream changes (§6.6).
+  RNG stream changes (§6.6). In the percentile-grid form, p cannot be recomputed from the file;
+  `regions_stats` p and n_perm are authoritative. The determinants null is one CV repeat's R² per
+  permutation, while the observed value is the mean over the repeats (conservative).
 
 ## Degenerate cases
 
@@ -88,3 +91,79 @@ Definitions:
    else the null's 1st–99th percentile grid (99 values) per region, recorded in the file header.
 3. PD for LightGBM only. **Proposed default:** yes; the elastic net is linear (its PD is a line
    whose slope is the coefficient).
+
+## Lead decisions (2026-10-23)
+1. **Q1 yes:** M9-17 edits the M5 `context_stats` and the M8 `function` and `determinants` steps
+   (new outputs). Stacked on #178 (M8-10). #181 is merged. The code review covers the M8 owners'
+   concerns.
+2. **Q2 yes:** write every exhaustive-shift null value if the file is under 5 MB (R11); otherwise
+   write the 1st–99th percentile grid (99 values) per region, and record which in the file header.
+3. **Q3 yes:** PD for LightGBM only; for the elastic net, PD is the coefficient line.
+4. **Stacking:** after #178 squash-merges, merge the old base tip, then main, and retarget.
+5. **Test-author (a3224acf): gaps 1–10 accepted as proposed.**
+   - One optional directory output per step (`function_support`, `determinants_support`,
+     `context_stats_support`). Local `publish` places the files in `OUT/plots/support/`, and the
+     gzip rule follows ADR-0043.
+   - The Q2 grid file's third column is `percentile`; the size bound is
+     `context_stats.NULL_REGIONS_MAX_BYTES`.
+   - The block-sum identity holds for the full per-column SHAP matrix (`shap_features`); the
+     top-20 file is cut from it.
+   - The PD grid is on the feature's own scale (`tir_ostir` is logged before predicting).
+   - `null_islands` is per scanned contig, using its own per-replicon maximum, with `direction` =
+     `abs`. `null_regions` gains a `contig` column. No `gsea_running` file with zero testable sets.
+   - The lead updates the existing step tests the new outputs contradict
+     (test_determinants_step.py:122-123; test_function_step.py:221-222 and 256-266) and regenerates
+     `workflow/tests/data/annotate/step_registry.json` after the implementer.
+   - Next: the implementer.
+6. **Implementer (dbf65a5d) and lead follow-ups.**
+   - The lead adds `contig` to `null_regions` (writer, schema, contract `sa.COLUMNS` and
+     `GRID_COLUMNS`). The grid groups by (region, contig, stat), so a split region has one null
+     per contig.
+   - The lead updates the three registry tests for the new optional outputs and regenerates
+     `workflow/tests/data/annotate/step_registry.json`.
+   - PD at the written grid value (`%.6g`) is accepted, and the statistician reviews it.
+   - Follow-up (backlog): Nextflow wiring of the support keys in function.nf, determinants.nf and
+     context.nf. Today only the local executor publishes them.
+7. **Nextflow wiring (follow-up, test-author 9b229c4c). Gaps 1, 2 and 4–6 accepted as proposed.**
+   - **Optional output:** GIAP_STEP gains a separate optional `*_support` output
+     (`path '*_support', optional: true, emit: support`). The steps are unchanged.
+   - **Publishing:** the out spec is `'<key>=<key>'`, and `saveAs` maps `<key>/support/<f>` to `plots/support/<f>`,
+     file by file. Never publish a whole `plots/` directory from two tasks.
+   - **Staging:**
+     - main.nf passes each emission as `plots_support` to PLOTS and on to REPORT.
+     - The local runner stages SUPPORT_OUTPUTS as `plots_support` for the plots step.
+     - The search across every `plots_support` directory in RunView is M9-21's change (m9/v18-null-panels); don't duplicate it here.
+   - **Stub file names:** each step's real support file names.
+   - **report** reads support only from the `plots` directory.
+   - **Existing tests needing updates:** function.nf.test's published-file list, test_local_publish_names, and test_determinants_step's alias count. These belong to the lead after the implementer reports.
+   - **Side issues to check:**
+     - sim100k publishes no `null_regions`;
+     - determinants.nf emits no `events`.
+8. **Review round (code review and statistician on 1268c1a9; PR #272).**
+   - **Tie (statistician B1, review N3):** at a maxP = −minP tie, the check also accepts
+     `abs(abs(dev) - abs(es)) <= ES_TOL`. V14 takes the ES marker and its sign from the table's `es`.
+   - **Stale sibling (review B1b):** publishing unlinks the other-suffix sibling (`.tsv` vs `.tsv.gz`) before
+     copying, through one helper shared with write_support.
+   - **Plots in `giap run` (review B1a):** owned by M9-21 (the RunView analysis-support lookup and the plots
+     inputs) and m9/support-nf-wiring (runner staging and Nextflow). Not changed here; the
+     integration parity test there pins it.
+   - **Split-contig test (review B2):** a fixture region on two replicons. Two (region, contig, stat) groups,
+     each with its own shifts and observed value, in both the exhaustive and the grid form.
+   - **Small nulls (statistician N1):** in the grid form, a (region, contig, stat) with K ≤ 99 finite values keeps its exact
+     values. Their `percentile` holds the 1-based rank, and a schema note explains it. ±inf values
+     are dropped before percentiles. An all-NaN null writes NA rows (review N5).
+   - **Unused null (statistician N2 = review N8):** no hl_shift null when `hl_variance_nonpositive` is set.
+   - **Island observed (review N2):** `observed_max` is |S|, and a test pins it.
+   - **Wording (statistician N3, review N1):** the null_determinants `cv_r2` description says "pooled
+     out-of-fold R² of one CV repeat; observed is the mean over repeats (conservative)". The
+     null_regions text says the fourth column. The grid form validates against a grid schema
+     (`null_regions_grid.json`). The datapackage notes that a path may resolve to `.gz`.
+   - **Methods note:** the statistician's three sentences, in the spec's "Null draws" and gsea_running definitions.
+   - **Attack tests:** the statistician's R1–R3 and G1 go under tests/calibration/attacks/test_attack_plot_support.py
+     (R3 is a strict xfail until the small-null change, then a hard check).
+   - **Backlogged:** N4 (`attrs` rank labels → explicit return), N6 (SHAP computed twice), N7
+     (redundant filter), PD grid ≤ 0 for LOG_FEATURES.
+9. **The NF wiring (ff2df639) departs from decision 7, and both changes are accepted:**
+   - **File glob:** GIAP_STEP's `support` output is the file glob `*_support/support/*`. When the output is a whole directory, Nextflow 26.10 publishes it without showing `saveAs` the files inside, so per-file publishing would be impossible. `supportDir()` re-forms the directory.
+   - **The plots step copies the staged support** into its own `plots/support/` (`copy_staged_support`). Publishing `plots/` replaces `OUT/plots/`, which would otherwise wipe the files the analysis steps already published.
+   - **Backlog:** a unit test for `copy_staged_support`, and determinants.nf emitting no `events` into the PLOTS pair.

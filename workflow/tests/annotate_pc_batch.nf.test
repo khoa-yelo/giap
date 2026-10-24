@@ -1,0 +1,113 @@
+// M2-14b examples 1-3: ANNOTATE (stub, through ../main.nf) groups the TU upstream regions, sorted
+// by TU id, into PROMOTER_CALCULATOR batches of at most 100 (PC_BATCH; collate with remainder)
+// (docs/specs/M2-14b-promoter-calculator-batching.md items 1, 2, 4, 8).
+//
+// The stubbed operon_pairs step emits params.stub.tu_regions regions tu_upstream/tu000.fa ...
+// (annotate.nf scatterSpec), so the TU ids are tu000, tu001, ... and sort like their numbers.
+// Example 3 sets tu_regions: 0, which annotate.nf passes through (no `?: 1` fallback).
+// Task tags are pinned to the spec's first form, pc_<first TU>_<last TU>.
+// Inputs as workflow/tests/annotate.nf.test. ci.yml runs: nf-test test workflow/tests --profile test,stub
+nextflow_pipeline {
+
+    name "ANNOTATE: PROMOTER_CALCULATOR batches (stub, M2-14b)"
+    script "../main.nf"
+    options "-stub"
+    tag "annotate"
+
+    test("example 1: 250 regions -> 3 tasks of 100, 100 and 50; 250 CSVs named <TU>.csv reach tx_layer sorted") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                stub = [windows_chunks: 1, tu_regions: 250]
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            assert workflow.success
+            def pc = H.names(workflow.trace).findAll { H.procOf(it) == 'PROMOTER_CALCULATOR' }
+            assert pc.size() == 3 : "PROMOTER_CALCULATOR should run 3 batch tasks, ran ${pc.size()}: ${pc.take(5)} ..."
+            assert pc.collect { H.tagOf(it) }.sort() == ['pc_tu000_tu099', 'pc_tu100_tu199', 'pc_tu200_tu249'] : "batch tags: ${pc}"
+
+            def ids = { int a, int b -> (a..b).collect { String.format('tu%03d', it) } }
+            def want = [pc_tu000_tu099: ids(0, 99), pc_tu100_tu199: ids(100, 199), pc_tu200_tu249: ids(200, 249)]
+            def hdr = new File("${moduleTestDir}/../../tests/data/recorded/headers/promoter_calculator.csv.txt").readLines()
+            def dirs = H.procDirs(work, 'PROMOTER_CALCULATOR')
+            assert dirs.size() == 3 : "task directories: ${dirs}"
+            dirs.each { d ->
+                def name = new File(d, '.command.run').readLines().find { it.startsWith('### name:') }
+                def tag = H.tagOf(name.replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, ''))
+                assert want.containsKey(tag) : "unexpected batch tag ${tag}"
+                def staged = H.staged(d).collect { new File(it[1]).name }.findAll { it.endsWith('.fa') }.collect { it - '.fa' }.sort()
+                assert staged == want[tag] : "${tag}: staged regions ${staged.size()} (${staged.take(3)} ...) != ${want[tag].size()}"
+                def csvs = d.listFiles().findAll { it.isFile() && it.name.endsWith('.csv') }
+                assert csvs*.name.sort() == want[tag].collect { "${it}.csv" } : "${tag}: CSVs ${csvs*.name.sort().take(3)} ..."
+                csvs.each { c -> assert c.readLines() == hdr : "${tag}/${c.name}: stub must write the real header" }
+            }
+
+            assert H.stepCount(workflow.trace, 'tx_layer') == 1
+            def tx = H.stepDirs(work, 'tx_layer')
+            def ins = H.stepInputs(tx[0])
+            def pcs = ins.findAll { it[0] == 'pc' }.collect { new File(it[1]).name }
+            assert pcs == ids(0, 249).collect { "${it}.csv" } : "tx_layer pc inputs: ${pcs.size()} CSVs, first ${pcs.take(3)}"
+        }
+    }
+
+    test("example 2: 100 regions -> exactly 1 task, pc_tu000_tu099, 100 CSVs") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                stub = [windows_chunks: 1, tu_regions: 100]
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            def pc = H.names(workflow.trace).findAll { H.procOf(it) == 'PROMOTER_CALCULATOR' }
+            assert pc.size() == 1 : "PROMOTER_CALCULATOR should run 1 task, ran ${pc.size()}"
+            assert H.tagOf(pc[0]) == 'pc_tu000_tu099' : "batch tag: ${pc}"
+            def tx = H.stepDirs(workDir.toString(), 'tx_layer')
+            def pcs = H.stepInputs(tx[0]).findAll { it[0] == 'pc' }.collect { new File(it[1]).name }
+            assert pcs == (0..99).collect { String.format('tu%03d.csv', it) } : "tx_layer pc inputs: ${pcs.size()}"
+        }
+    }
+
+    test("example 3: 0 regions -> no PROMOTER_CALCULATOR task; tx_layer runs once without pc inputs") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                stub = [windows_chunks: 1, tu_regions: 0]
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            assert workflow.success
+            def ran = H.names(workflow.trace)
+            assert H.count(workflow.trace, 'PROMOTER_CALCULATOR') == 0 : "0 regions -> no task: ${ran.findAll { H.procOf(it) == 'PROMOTER_CALCULATOR' }}"
+            // as with zero regions before batching: the empty gather emits nothing, so tx_layer
+            // receives its other inputs (tus, replicons) and no pc entry
+            assert H.stepCount(workflow.trace, 'tx_layer') == 1 : "tx_layer: ${ran}"
+            def keys = H.stepInputs(H.stepDirs(workDir.toString(), 'tx_layer')[0]).collect { it[0] }
+            assert !('pc' in keys) : "tx_layer --in keys: ${keys}"
+            assert 'tus' in keys && 'replicons' in keys : "tx_layer --in keys: ${keys}"
+        }
+    }
+}

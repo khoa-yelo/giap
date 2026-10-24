@@ -57,8 +57,10 @@ SPEC: dict[str, tuple[str, set[str], set[str], set[str], str | None]] = {
                         "rbs_novel"),
     "novel_orfs": (
         "py", {"novel_candidates", "gene_table", "genes", "replicons", "genome"},
-        {"novel_promoter_windows", "rbs_novel", "promoter_windows", "terminators"},
-        {"novel_orfs", "novel_orfs_gff3", "novel_orfs_faa", "annotation_patch"}, None,
+        {"novel_promoter_windows", "rbs_novel", "promoter_windows", "terminators",
+         "peptides", "features", "hits_exact", "hits_tolerant", "placement_costs"},  # M7-11b
+        {"novel_orfs", "novel_orfs_gff3", "novel_orfs_faa", "annotation_patch",
+         "novel_class_fdr"}, None,
     ),
 }  # fmt: skip
 NOVEL_LOCUS_CLASSES = {"nterm_extension", "cterm_extension", "intergenic", "cds_outframe",
