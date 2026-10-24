@@ -5,6 +5,10 @@ set -uo pipefail
 pr=$1; title=$2; expected=${3:-8}
 cd "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}"
 source scripts/farmshare_env.sh
+# A draft skips the coverage shards (ci.yml), and skipped checks count as passed below: never merge one.
+if [ "$(gh pr view "$pr" --json isDraft -q .isDraft 2>/dev/null)" = true ]; then
+  echo "NOT MERGED: #$pr is a draft (gh pr ready $pr first)"; exit 1
+fi
 sleep 30
 while true; do
   # A PR that conflicts with its base gets no CI run at all: stop instead of waiting forever.

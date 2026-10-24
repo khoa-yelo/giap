@@ -427,5 +427,26 @@
     "date": "2026-10-22",
     "issue": "M7-12",
     "note": "best of 3 simulate() calls per case, one invocation"
+  },
+  "m8_calibration_fast": {
+    "_comment": "M8-15 fast-tier wall time per suite (span under xdist -n 16, one test per worker), Slurm 1875111; budgets ora/gsea 600 s, determinants 1200 s (lead decision 10)",
+    "ora": {
+      "test": "tests/calibration/test_function_calibration.py::test_ora_null_fitted_p_detect_pooled_level_per_direction[fast]",
+      "secs": 206.8,
+      "cpus": 16,
+      "slurm_job": 1875111
+    },
+    "gsea": {
+      "test": "tests/calibration/attacks/test_attack_function.py::test_teeth_attack3_gene_level_r_engine_confirmed_fail",
+      "secs": 462.0,
+      "cpus": 16,
+      "slurm_job": 1875111
+    },
+    "determinants": {
+      "test": "tests/calibration/test_determinants_calibration.py::test_determinants_null_level_per_model[fast-elastic_net]",
+      "secs": 532.5,
+      "cpus": 16,
+      "slurm_job": 1875111
+    }
   }
 }
