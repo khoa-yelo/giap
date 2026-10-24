@@ -261,6 +261,12 @@ if out is not None:
 log(int(os.environ.get("FAKE_DIANN_RC", "0")))
 """
 
+_DF = """#!/bin/sh
+# Fake df -Pk: one filesystem with 1 PiB available.
+echo "Filesystem 1024-blocks Used Available Capacity Mounted on"
+echo "fake 1099511627776 0 1099511627776 0% /"
+"""
+
 _FETCH = r"""#!{python}
 '''Fake wget/curl: logs the call and writes a stand-in payload. Nothing reaches the network.'''
 import json, os, sys
@@ -352,6 +358,9 @@ def pilot_sandbox(tmp: Path, *, sif: bool = True, raws: int = 3) -> PilotSandbox
         write_exe(sb.bin / name, _APPTAINER.replace("{python}", py))
     for name in ("wget", "curl"):
         write_exe(sb.bin / name, _FETCH.replace("{python}", py))
+    # pxd_fetch needs 3 x the recorded download free (90 GB for PXD078459); the stand-in payloads
+    # are a few KB, so report 1 PiB rather than depend on the runner's disk (CI had 89.8 GB)
+    write_exe(sb.bin / "df", _DF)
 
     image = sb.tmp / "images" / "diann_2.3.1.sif"
     image.parent.mkdir(parents=True, exist_ok=True)
