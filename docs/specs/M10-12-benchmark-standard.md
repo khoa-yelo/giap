@@ -381,8 +381,10 @@ On CI (nothing submitted; stubs for `srun`, `sacct`, `squeue`, `scontrol`, `giap
 On FarmShare (evidence; PR description, ADR-M10-D and PROGRESS, not CI):
 
 9. The 3 array tasks finish; every cell is `complete` (replacements allowed, ≤ 3 attempts per
-   cell); each run's `sacct` step shows `AllocCPUS 16` and a node with `CPU_SKU:6148`; the job log
-   prints `SLURM_CPUS_PER_TASK=16` and `SLURM_MEM_PER_NODE=64000` inside each step.
+   cell); each run's `sacct` step shows `AllocCPUS 16` and a node with `CPU_SKU:6148`, recorded in
+   `bench_run.json` (`alloc_cpus`, checked as invalid reason `alloc_cpus:<n>`). Lead, 2026-10-24:
+   the step's command is `timeout` itself, so the in-step `SLURM_*` print is dropped; the `sacct`
+   record is the evidence.
 10. `benchmarks/baseline.json` › `standard_run.wheat` holds the 4 entries written by `--write`;
     ADR-M10-D states each median against §13.2 (including when outside 16–55 min or above 25 min,
     which is a finding handed to M10-13, not a failure of this issue); the user-guide table and
