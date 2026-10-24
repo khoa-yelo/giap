@@ -128,11 +128,15 @@ def rule3_parquet(entries: Iterable[Entry]) -> list[str]:
     return bad
 
 
+#: committed M10-08 asset manifest (URLs and sha256 only); its name matches a[1-3]*.tsv by accident
+NOT_DIANN = {"validation/pilot/a3_assets.tsv"}
+
+
 def rule4_diann_names(entries: Iterable[Entry]) -> list[str]:
     bad = []
     for path, _, _ in entries:
         name = PurePosixPath(path).name
-        if any(fnmatch.fnmatchcase(name, pat) for pat in DIANN_NAMES):
+        if path not in NOT_DIANN and any(fnmatch.fnmatchcase(name, pat) for pat in DIANN_NAMES):
             bad.append(f"diann_name:{path}")
         if path.startswith(RECORDED_DIANN) and name in RECORDED_DIANN_NAMES:
             bad.append(f"diann_recorded:{path}")
