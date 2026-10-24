@@ -106,12 +106,13 @@ def decade(p: float) -> str:
     return str(max(0, math.ceil(-math.log10(p)) - 1))
 
 
-def update_report(section: str, payload: dict[str, Any]) -> Path:
-    """Merge ``payload`` as ``section`` into the §5 JSON report (file-locked, xdist-safe)."""
+def update_report(section: str, payload: dict[str, Any], *, merge: bool = False) -> Path:
+    """Write ``payload`` as ``section`` of the §5 JSON report (file-locked, xdist-safe);
+    ``merge`` updates the section's existing fields instead of replacing it."""
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     with (REPORT.parent / ".m8_golden.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         data = json.loads(REPORT.read_text(encoding="utf-8")) if REPORT.is_file() else {}
-        data[section] = payload
+        data[section] = {**data.get(section, {}), **payload} if merge else payload
         REPORT.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return REPORT

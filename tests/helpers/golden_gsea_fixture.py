@@ -7,6 +7,8 @@
   drops them); one linear replicon.
 - :class:`CapturingEngine` records every ``EngineCall`` and delegates (default: the replay).
 - :class:`GoldenReplayEngine` returns the golden ``outputs/fgsea.tsv.gz`` rows for one job.
+- :class:`NormalisingEngine` (G3a, lead decision 3): sets the seed to GOLDEN_SEED and reorders
+  the TUs inside each tie block to golden file order, then delegates. Nothing else changes.
 - :func:`oracle_es`: ES and leading edge from the GSEA definition (gseaParam 1, ``std``): the
   ranking is the scores sorted decreasing, ties in input order; a hit steps up by |r| / Σ|r_hits|,
   a miss steps down by 1 / (N - m); ES is the extreme of the running sum (0 if max = -min). No
@@ -54,7 +56,14 @@ def golden_fgsea() -> dict[str, dict[str, str]]:
     return {r["pathway"]: r for r in read_gz(GOLDEN / "outputs" / "fgsea.tsv.gz")}
 
 
-def golden_world(collection: str = "golden") -> GoldenWorld:
+def golden_file_order() -> dict[str, int]:
+    """TU -> its row index in ``inputs/gsea_stats.tsv.gz`` (the order R saw)."""
+    return {t: i for i, t in enumerate(golden_stats())}
+
+
+def golden_world(collection: str = "golden", shift: float = 0.0) -> GoldenWorld:
+    """``shift`` is added to every ``abundance_log2`` (the mutation of example 9); ``stats``
+    stays the golden reference."""
     from giap.function.collections import GeneSets
 
     stats, sets = golden_stats(), golden_sets()
@@ -71,7 +80,7 @@ def golden_world(collection: str = "golden") -> GoldenWorld:
             "partial": False,
             "p_detect": 0.5,
             "detected": True,
-            "abundance_log2": [stats[t] for t in tus],
+            "abundance_log2": [stats[t] + shift for t in tus],
             "abundance_scale": "log2",
         }
     )
@@ -130,6 +139,35 @@ class GoldenReplayEngine:
                 rows.append(replace(row, **dict(self.override.get(term, {}))))
             out[job.job_id] = tuple(rows)
         return out
+
+
+@dataclass
+class NormalisingEngine:
+    """G3a's wrapper: ``seed`` replaces the call's seed and every tie block (TUs with equal
+    scores) is put in ``order`` (golden file order) on the positions it occupies; scores, jobs
+    and parameters are passed through unchanged."""
+
+    inner: Callable[[Any], Any]
+    seed: int
+    order: Mapping[str, int]
+    method: str = "fgsea_multilevel"
+    calls: list[Any] = field(default_factory=list)
+
+    def __call__(self, call: Any) -> Any:
+        from dataclasses import replace
+
+        tus = list(call.tu_ids)
+        blocks: dict[float, list[int]] = {}
+        for i, v in enumerate(np.asarray(call.scores, dtype=np.float64).tolist()):
+            blocks.setdefault(v, []).append(i)
+        for idx in blocks.values():
+            if len(idx) > 1:
+                block = sorted((tus[i] for i in idx), key=self.order.__getitem__)
+                for i, t in zip(idx, block, strict=True):
+                    tus[i] = t
+        norm = replace(call, tu_ids=tuple(tus), seed=self.seed)
+        self.calls.append(norm)
+        return self.inner(norm)
 
 
 def oracle_es(

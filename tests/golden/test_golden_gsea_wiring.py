@@ -5,23 +5,27 @@ order (``outputs/fgsea.tsv.gz``, 119 rows: SET_027 drops below minSize). ``gsea_
 the fixture of ``helpers.golden_gsea_fixture`` with ``rng = for_step("function.gsea",
 GOLDEN_SEED)``.
 
-Written now (they do not need M8-12b):
+The golden GSEA scores are median-exact (M8-12b, Slurm job 1879857), so every check is exact.
 
 - **G1 call construction (CI, pure):** one job ``main:golden`` [10, 500]; its sets are the golden
   sets restricted to ranked TUs in golden set order, SET_027 absent; params 101 / 0 / 1000; the
   seed is the second draw after the tie permutation; tie blocks follow the seeded permutation, not
-  TU-ID order; scores are the golden scores after GIAP's centring (``tu_ranking`` subtracts the
-  median); ``write_call`` round-trips them.
+  TU-ID order; ``{tu_id: score}`` equals the golden stats exactly and ``write_call`` round-trips
+  them.
 - **G2 result mapping (CI, replay):** the golden rows map to the table exactly (es, nes, p,
   log2err, size, leading edges in fgsea's order, q = BH, constants, flags); the written table
   validates against its schema.
-- The ES oracle reproduces ``calc_gsea_stat.tsv.gz`` (CI) and the §3 p rule's NA classes (CI).
-- **G3b, the M8-12b-independent part (Slurm, slow + requires_r):** on GIAP's own call the live
-  ES equals the oracle under GIAP's order, and leading edges equal the oracle's as sets.
-
-**Not written, because the golden GSEA scores are not median-exact (F1, M8-12b missing):** G1's
-exact ``{tu_id: score}`` equality and sorted-score equality, example 9 (the centring mutation),
-G3a (exact strings against ``fgsea.tsv.gz``) and G3b's comparisons with the golden ES / NES / p.
+- **Example 9 (mutation, A2/A6):** a ``tu_ranking`` that skips the median, on a fixture whose
+  abundances are shifted by F1's old median: G1's score equality fails on every TU (CI) and G3a
+  fails on every ES (Slurm). Injected by monkeypatch; ``src/`` is untouched.
+- The ES oracle reproduces ``calc_gsea_stat.tsv.gz`` (CI), the §3 p rule's NA classes (CI) and
+  the A5 vacuity floor (CI).
+- **G3a exact wiring (slow + requires_r, A3/example 6):** the live engine behind
+  :class:`NormalisingEngine` (seed -> GOLDEN_SEED, tie blocks -> file order): R's
+  ``results.tsv`` equals ``fgsea.tsv.gz`` as strings, row for row, and G2's table rules hold.
+- **G3b GIAP's own run (slow + requires_r, A4/examples 7-8):** gated on the deterministic rules
+  (live ES = oracle on GIAP's order, tie-insensitive ES and leading edges = golden, no one-sided
+  NA pval/NES); |ΔNES| and the p rule are recorded in the ``gsea_live`` report section.
 """
 
 from __future__ import annotations
@@ -38,17 +42,29 @@ from helpers.golden_gsea_fixture import (
     GENE,
     CapturingEngine,
     GoldenReplayEngine,
+    NormalisingEngine,
     golden_fgsea,
+    golden_file_order,
     golden_world,
     log10p_check,
     na_log2err_over_cap,
     oracle_es,
     run_gsea,
 )
-from helpers.golden_r_gate import GOLDEN, golden_r_tol, golden_seed, num, read_gz, update_report
+from helpers.golden_r_gate import (
+    GOLDEN,
+    decade,
+    golden_r_tol,
+    golden_seed,
+    num,
+    read_gz,
+    update_report,
+)
 
 N_TESTED = 119
 DROPPED = "SET_027"
+F1_MEDIAN = 0.005705  # the old golden median (F1): the shift of the example-9 mutation
+RESULT_COLUMNS = ("pathway", "pval", "log2err", "ES", "NES", "size", "leadingEdge")
 
 
 def _natural(tus: list[str]) -> list[str]:
@@ -119,15 +135,59 @@ def test_g1_tie_blocks_follow_the_seeded_permutation(world, call) -> None:
         assert order != _natural(order), f"tie block {v} is in TU-ID order"
 
 
-def test_g1_scores_are_the_centred_golden_scores(world, call) -> None:
-    """TU collapse and centring: each TU's score is golden - median(golden), exactly. Once M8-12b
-    makes the median exactly 0 this is G1's exact equality."""
-    gold = np.array(list(world.stats.values()), dtype=np.float64)
-    med = float(np.median(gold))
+def _score_mismatches(stats: dict[str, float], call) -> dict[str, tuple[float, float]]:
+    """G1's exact rule: TU -> (sent score, golden score) wherever they differ (float ``==``)."""
     got = dict(zip(call.tu_ids, np.asarray(call.scores).tolist(), strict=True))
-    assert set(got) == set(world.stats)
-    bad = {t: (got[t], s) for t, s in world.stats.items() if got[t] != s - med}
-    assert bad == {}
+    assert set(got) == set(stats)
+    return {t: (got[t], s) for t, s in stats.items() if got[t] != s}
+
+
+def test_g1_scores_equal_the_golden_scores(world, call) -> None:
+    """TU collapse and centring on median-exact data (M8-12b): {tu_id: score} == golden."""
+    assert float(np.median(list(world.stats.values()))) == 0.0
+    assert _score_mismatches(world.stats, call) == {}
+
+
+def test_g1_sorted_scores_equal_the_golden_sorted_scores(world, call) -> None:
+    got = sorted(np.asarray(call.scores).tolist(), reverse=True)
+    assert got == sorted(world.stats.values(), reverse=True)
+
+
+def _skip_median(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Example 9's fault: ``tu_ranking`` returns the TU means without subtracting the median."""
+    import giap.function.gsea as gsea
+
+    real = gsea.tu_ranking
+
+    def uncentred(genes):
+        rank = real(genes)
+        means = genes.groupby("tu_id")["abundance_log2"].mean()
+        scores = np.array([means[t] for t in rank.tu_ids], dtype=np.float64)
+        return gsea.TuRanking(rank.tu_ids, scores, rank.tu_genes)
+
+    monkeypatch.setattr(gsea, "tu_ranking", uncentred)
+
+
+def test_example9_shift_alone_is_centred_away() -> None:
+    """Control: with the real ``tu_ranking`` the shifted fixture still sends golden scores (to
+    float rounding of the shift), so the mutation below fails because of the fault alone."""
+    world = golden_world(shift=F1_MEDIAN)
+    eng = CapturingEngine()
+    run_gsea(world, eng, golden_seed())
+    (call,) = eng.calls
+    bad = _score_mismatches(world.stats, call)
+    assert max((abs(a - b) for a, b in bad.values()), default=0.0) <= 1e-15
+
+
+def test_example9_uncentred_scores_fail_g1(monkeypatch: pytest.MonkeyPatch) -> None:
+    _skip_median(monkeypatch)
+    world = golden_world(shift=F1_MEDIAN)
+    eng = CapturingEngine()
+    run_gsea(world, eng, golden_seed())
+    (call,) = eng.calls
+    bad = _score_mismatches(world.stats, call)
+    assert len(bad) == len(world.stats), "G1 must catch the fault on every TU"
+    assert all(abs(a - b - F1_MEDIAN) <= 1e-12 for a, b in bad.values())
 
 
 def test_g1_write_call_round_trips_the_scores(call) -> None:
@@ -149,37 +209,46 @@ def replayed(world):
     return run_gsea(world, GoldenReplayEngine(), golden_seed())
 
 
-def test_g2_numbers_equal_golden(replayed) -> None:
+def _numbers_equal_golden(df) -> None:
     gold = golden_fgsea()
-    assert replayed["term"].tolist() == list(gold)
-    for r in replayed.itertuples():
+    assert df["term"].tolist() == list(gold)
+    for r in df.itertuples():
         g = gold[r.term]
         for col, key in (("es", "ES"), ("nes", "NES"), ("p_value", "pval"), ("log2err", "log2err")):
             assert getattr(r, col) == num(g[key]), (r.term, col)
         assert r.size_tus == int(g["size"]), r.term
 
 
-def test_g2_leading_edges_in_fgsea_order(replayed) -> None:
+def _leading_edges_in_fgsea_order(df) -> None:
     gold = golden_fgsea()
-    for r in replayed.itertuples():
+    for r in df.itertuples():
         want = [GENE + t for t in gold[r.term]["leadingEdge"].split(";")]
         assert list(r.leading_edge) == want, r.term
 
 
-def test_g2_q_is_bh_of_golden_p(replayed) -> None:
+def _q_is_bh_of_golden_p(df) -> None:
     from giap.stats.multitest import bh
 
     gold = golden_fgsea()
-    want = bh(np.array([num(gold[t]["pval"]) for t in replayed["term"]], dtype=np.float64))
-    assert replayed["q_value"].to_numpy().tolist() == want.tolist()
+    want = bh(np.array([num(gold[t]["pval"]) for t in df["term"]], dtype=np.float64))
+    assert df["q_value"].to_numpy().tolist() == want.tolist()
 
 
-def test_g2_constants_and_flags(replayed) -> None:
-    assert set(replayed["method"]) == {"fgsea_multilevel"}
-    assert set(replayed["null_model"]) == {"tu_set_permutation"}
-    assert set(replayed["n_perm"]) == {1000}
-    assert all("ci_unestimated" in f for f in replayed["flags"])
-    assert not any({"log2err_unestimated", "unestimated"} & set(f) for f in replayed["flags"])
+def _constants_and_flags(df) -> None:
+    assert set(df["method"]) == {"fgsea_multilevel"}
+    assert set(df["null_model"]) == {"tu_set_permutation"}
+    assert set(df["n_perm"]) == {1000}
+    assert all("ci_unestimated" in f for f in df["flags"])
+    assert not any({"log2err_unestimated", "unestimated"} & set(f) for f in df["flags"])
+
+
+G2_RULES = (_numbers_equal_golden, _leading_edges_in_fgsea_order, _q_is_bh_of_golden_p,
+            _constants_and_flags)  # fmt: skip
+
+
+@pytest.mark.parametrize("rule", G2_RULES, ids=lambda f: f.__name__.lstrip("_"))
+def test_g2_table_rules(replayed, rule) -> None:
+    rule(replayed)
 
 
 def test_g2_na_log2err_and_pval_rows_are_flagged(world) -> None:
@@ -256,7 +325,53 @@ def test_log10p_rule_bounds() -> None:
     assert na_log2err_over_cap(["na_log2err_one"] * 3 + ["na_log2err_both"] * 3, N_TESTED)
 
 
-# ---------------------------------------------------------------- G3b on real R (Slurm)
+def _oracles(
+    world, call
+) -> dict[str, tuple[tuple[float, frozenset[str]], tuple[float, frozenset[str]]]]:
+    """Per sent set: (oracle on GIAP's sent order, oracle on golden file order)."""
+    tus, scores = list(world.stats), list(world.stats.values())
+    return {
+        term: (oracle_es(call.tu_ids, call.scores, members), oracle_es(tus, scores, members))
+        for term, members in call.jobs[0].sets.items()
+    }
+
+
+def _tie_insensitive(oracles) -> set[str]:
+    """Sets whose oracle ES agrees under GIAP's and golden order at fgsea_es_abs_tol (§1.2)."""
+    tol = golden_r_tol()["fgsea_es_abs_tol"]
+    return {t for t, ((es, _), (es_g, _)) in oracles.items() if abs(es - es_g) <= tol}
+
+
+def _edge_tie_insensitive(oracles) -> set[str]:
+    """Sets whose oracle leading edge is the same set under both orders. Not implied by ES
+    agreement: SET_016's ES is identical under both orders, but its edge (a negative ES, edge
+    after the minimum) swaps TU_0795 for TU_1719, two TUs tied at -0.734567. §4's leading-edge
+    rule is therefore applied on these sets (a tie-sensitive edge may legitimately differ)."""
+    return {t for t, ((_, edge), (_, edge_g)) in oracles.items() if edge == edge_g}
+
+
+def test_a5_gsea_vacuity_floor(world, call) -> None:
+    """A5: >= 5 golden sets with p_R < 1e-10 and >= 1 of them tie-insensitive under GIAP's
+    order (computable without R: the oracle on the captured call)."""
+    gold = golden_fgsea()
+    deep = {t for t, g in gold.items() if num(g["pval"]) < 1e-10}
+    insensitive = _tie_insensitive(_oracles(world, call))
+    update_report(
+        "gsea_wiring",
+        {
+            "n_sets": len(gold),
+            "n_p_below_1e-10": len(deep),
+            "n_tie_insensitive": len(insensitive),
+            "n_tie_insensitive_p_below_1e-10": len(deep & insensitive),
+        },
+        merge=True,
+    )
+    assert len(gold) == N_TESTED
+    assert len(deep) >= 5
+    assert len(deep & insensitive) >= 1
+
+
+# ---------------------------------------------------------------- G3 on real R (Slurm)
 
 PREFIX = real_prefix()
 NO_R = (
@@ -265,50 +380,162 @@ NO_R = (
 )
 
 
+def _live(tmp_path: Path):
+    from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
+
+    return r_fgsea_engine(resolve_launcher({"GIAP_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path)
+
+
+def _capture_results(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """The raw ``results.tsv`` text of every live call, before the wrapper parses and deletes
+    it (G3a compares strings)."""
+    import giap.io.fgsea_r as fr
+
+    texts: list[str] = []
+    real = fr.read_results
+
+    def capturing(path: Path, call):
+        texts.append(path.read_text(encoding="utf-8"))
+        return real(path, call)
+
+    monkeypatch.setattr(fr, "read_results", capturing)
+    return texts
+
+
+def _string_rows(text: str) -> list[dict[str, str]]:
+    import csv
+    import io
+
+    return list(csv.DictReader(io.StringIO(text), delimiter="\t", quoting=csv.QUOTE_NONE))
+
+
+def _string_mismatches(text: str) -> list[tuple[int, str, str, str]]:
+    """(row, column, live, golden) for every cell of RESULT_COLUMNS that differs."""
+    got = _string_rows(text)
+    want = read_gz(GOLDEN / "outputs" / "fgsea.tsv.gz")
+    assert len(got) == len(want) == N_TESTED, (len(got), len(want))
+    assert {r["job_id"] for r in got} == {"main:golden"}
+    return [
+        (i, c, g[c], w[c])
+        for i, (g, w) in enumerate(zip(got, want, strict=True))
+        for c in RESULT_COLUMNS
+        if g[c] != w[c]
+    ]
+
+
 @pytest.mark.slow
 @pytest.mark.requires_r
 @pytest.mark.skipif(PREFIX is None, reason=NO_R)
-def test_g3b_live_es_and_leading_edges_follow_giap_order(world, tmp_path: Path) -> None:
-    """GIAP's own seed and tie order: live ES equals the oracle on the sent ranking at
-    fgsea_es_abs_tol for all 119 sets, leading edges equal it as sets, and no row has NA pval
-    or NES (the golden side has none: a one-sided NA fails)."""
-    from giap.io.fgsea_r import r_fgsea_engine, resolve_launcher
+def test_g3a_normalised_live_run_equals_golden_strings(
+    world, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Example 6: live R, seed -> 50000, ties -> file order: the 119 rows of R's results equal
+    ``fgsea.tsv.gz`` as strings, and G2's table rules hold on the live table."""
+    texts = _capture_results(monkeypatch)
+    live = _live(tmp_path)
+    eng = NormalisingEngine(live, golden_seed(), golden_file_order())
+    df = run_gsea(world, eng, golden_seed())
+    (text,) = texts
+    (sent,) = eng.calls
+    assert sent.seed == golden_seed()
+    bad = _string_mismatches(text)
+    prov = live.provenance
+    update_report(
+        "gsea_live",
+        {
+            "g3a_pass": not bad,
+            "g3a_mismatches": len(bad),
+            "g3a_first_mismatches": bad[:20],
+            "r": prov.r if prov else None,
+            "fgsea": prov.fgsea if prov else None,
+        },
+        merge=True,
+    )
+    assert bad == [], f"{len(bad)} cells differ, first: {bad[:10]}"
+    for rule in G2_RULES:
+        rule(df)
 
+
+@pytest.mark.slow
+@pytest.mark.requires_r
+@pytest.mark.skipif(PREFIX is None, reason=NO_R)
+def test_example9_uncentred_scores_fail_g3a_on_every_es(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Example 9 on real R: with the median skipped (and F1's shift in the fixture) G3a's
+    string comparison fails on every ES."""
+    _skip_median(monkeypatch)
+    texts = _capture_results(monkeypatch)
+    eng = NormalisingEngine(_live(tmp_path), golden_seed(), golden_file_order())
+    run_gsea(golden_world(shift=F1_MEDIAN), eng, golden_seed())
+    (text,) = texts
+    es_bad = {i for i, c, _, _ in _string_mismatches(text) if c == "ES"}
+    assert es_bad == set(range(N_TESTED))
+
+
+@pytest.mark.slow
+@pytest.mark.requires_r
+@pytest.mark.skipif(PREFIX is None, reason=NO_R)
+def test_g3b_giap_own_run(world, tmp_path: Path) -> None:
+    """Examples 7-8, GIAP's own seed and tie order. Gated: live ES equals the oracle on the sent
+    ranking (all 119 sets) and its leading edge as a set; on tie-insensitive sets live ES equals
+    golden at fgsea_es_abs_tol; on edge-tie-insensitive sets the leading edge equals golden as a
+    set; no one-sided NA pval or NES. Recorded, not gated (question 4): |ΔNES|, the p rule at
+    k = fgsea_log10p_k, NA log2err classes, the live p decades."""
     tol = golden_r_tol()
-    live = r_fgsea_engine(resolve_launcher({"GIAP_FGSEA_PREFIX": str(PREFIX)}), tmp_root=tmp_path)
+    live = _live(tmp_path)
     eng = CapturingEngine(inner=live)
     df = run_gsea(world, eng, golden_seed()).set_index("term")
     (call,) = eng.calls
     assert len(df) == N_TESTED
     gold = golden_fgsea()
-    classes, ratios, d_nes = [], [], []
-    for term, members in call.jobs[0].sets.items():
-        es, edge = oracle_es(call.tu_ids, call.scores, members)
+    oracles = _oracles(world, call)
+    insensitive = _tie_insensitive(oracles)
+    edge_insensitive = _edge_tie_insensitive(oracles)
+    classes, ratios, d_nes, d_es = [], [], [], []
+    for term, ((es, edge), _) in oracles.items():
         row = df.loc[term]
-        assert abs(row["es"] - es) <= tol["fgsea_es_abs_tol"], term
-        assert {g.removeprefix(GENE) for g in row["leading_edge"]} == edge, term
-        assert not math.isnan(row["p_value"]) and not math.isnan(row["nes"]), term
         g = gold[term]
+        live_edge = {x.removeprefix(GENE) for x in row["leading_edge"]}
+        assert abs(row["es"] - es) <= tol["fgsea_es_abs_tol"], term
+        assert live_edge == edge, term
+        if term in insensitive:
+            d_es.append(abs(row["es"] - num(g["ES"])))
+            assert d_es[-1] <= tol["fgsea_es_abs_tol"], term
+        if term in edge_insensitive:
+            assert live_edge == set(g["leadingEdge"].split(";")), term
+        assert math.isnan(row["p_value"]) == math.isnan(num(g["pval"])), term
+        assert math.isnan(row["nes"]) == math.isnan(num(g["NES"])), term
         c, r = log10p_check(row["p_value"], row["log2err"], num(g["pval"]), num(g["log2err"]),
                             tol["fgsea_log10p_k"])  # fmt: skip
         classes.append(c)
         ratios.append(r)
         d_nes.append(abs(row["nes"] - num(g["NES"])))
     prov = live.provenance
+    exceed = int(sum(r > 1.0 for r in ratios if not math.isnan(r)))
     update_report(
-        "gsea_live_pre_m8_12b",
+        "gsea_live",
         {
-            "note": "golden scores not median-exact (F1): NES/p deltas are not the gate's",
             "seed": call.seed,
             "r": prov.r if prov else None,
             "fgsea": prov.fgsea if prov else None,
             "es_oracle_pass": True,
+            "n_tie_insensitive": len(insensitive),
+            "n_tie_sensitive": N_TESTED - len(insensitive),
+            "n_edge_tie_insensitive": len(edge_insensitive),
+            "max_abs_delta_es_tie_insensitive": float(max(d_es, default=0.0)),
             "max_abs_delta_nes": float(np.max(d_nes)),
             "p95_abs_delta_nes": float(np.percentile(d_nes, 95)),
-            "p_exceedances": int(sum(r > 1.0 for r in ratios if not math.isnan(r))),
+            "nes_abs_tol": tol["fgsea_nes_abs_tol"],
+            "n_nes_over_tol": int(sum(d > tol["fgsea_nes_abs_tol"] for d in d_nes)),
+            "log10p_k": tol["fgsea_log10p_k"],
+            "p_exceedances": exceed,
+            "p_exceedances_alert": exceed >= 3,
             "max_ratio": float(np.nanmax(ratios)),
             "na_log2err": dict(Counter(c for c in classes if c.startswith("na_"))),
             "na_log2err_over_cap": na_log2err_over_cap(classes, N_TESTED),
+            "p_decades": dict(Counter(decade(float(p)) for p in df["p_value"])),
         },
+        merge=True,
     )
     assert "na_fail" not in classes
