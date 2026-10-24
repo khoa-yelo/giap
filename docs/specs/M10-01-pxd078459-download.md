@@ -242,3 +242,10 @@ and §15.5 metric 8's "only wild-type runs" are satisfied here.
    - the HEAD upgrade may happen at resolve or at download.
 
    The 1/K0 range and the Q3 variant notes are backlogged.
+4. **(Lead, 2026-10-24) The HTTPS route is iProX's `.cn` host.** The record's links are
+   `http://download.iprox.org/…`. HTTPS on that host fails certificate verification (no matching
+   name), so the Q1 "https on the same host" rule cannot apply. `https://download.iprox.cn/…`
+   is iProX's own domain (www.iprox.org 301 → www.iprox.cn) and serves verified HTTPS, with the
+   same Content-Length and the same first MiB for all three runs. The committed manifest uses it
+   as `url` and keeps the record link as `url_record`. This is reversible (one column) and parked
+   for Khoa (local/handoff/khoa_q.md).
