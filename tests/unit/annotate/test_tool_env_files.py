@@ -165,8 +165,13 @@ def test_env_name_must_match_stem(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- the committed env files
 
 
+# M10-08: pilot-only envs (giap.annotate.tools.PILOT_TOOLS), not pipeline tools; their own
+# rules (conda-forge only, version ranges) are tested in tests/unit/test_m10_08_registry.py.
+PILOT_ENVS = {"cascadia", "timsconvert"}
+
+
 def test_all_env_files_present() -> None:
-    assert {p.stem for p in _env_files()} == EXPECTED_ENVS
+    assert {p.stem for p in _env_files()} - PILOT_ENVS == EXPECTED_ENVS
 
 
 @pytest.mark.parametrize("stem", sorted(EXPECTED_ENVS))

@@ -136,7 +136,9 @@ def test_only_codon_bias_in_process(tools) -> None:  # type: ignore[no-untyped-d
 
 
 def test_every_env_file_has_a_registry_entry(tools) -> None:  # type: ignore[no-untyped-def]
-    stems = {p.stem for p in (REPO / "workflow" / "envs").glob("*.yml")}
+    from giap.annotate.tools import PILOT_TOOLS  # M10-08: pilot envs, kept out of TOOLS
+
+    stems = {p.stem for p in (REPO / "workflow" / "envs").glob("*.yml")} - set(PILOT_TOOLS)
     out_of_process = {n for n, s in tools.items() if not s.in_process}
     assert stems == out_of_process
 
