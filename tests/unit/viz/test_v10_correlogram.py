@@ -67,6 +67,7 @@ COLUMNS = [
     "null_mean",
     "null_lo",
     "null_hi",
+    "effect",
     "q_value",
     "significant",
     "flags",
@@ -268,7 +269,7 @@ def test_axes_labels_and_lag_ticks(tmp_path: Path, cfg: GiapConfig) -> None:
         ticks = [float(t) for t in ax.get_xticks() if 1 <= t <= 20]
         assert 1.0 in ticks and 20.0 in ticks
         assert all(t == int(t) for t in ticks)
-    assert _ax(inst, "b:chrA").get_ylabel() == "BB joins (detected\u2013detected)"
+    assert _ax(inst, "b:chrA").get_ylabel() == "BB join statistic (Pearson residual)"
 
 
 def test_lag_ticks_follow_moran_lags(tmp_path: Path) -> None:
@@ -555,7 +556,10 @@ def test_data_tsv_and_images_are_byte_identical(tmp_path: Path, cfg: GiapConfig)
     assert written[0] == written[1]
     tsv = written[0][Path("data/V10_correlogram.tsv")].decode("utf-8").splitlines()
     assert tsv[0] == "\t".join(COLUMNS)
-    assert "chrA\tmorans_i\ttu_block\t1\t0.31\t-0.004\t-0.05\t0.12\t0.002\ttrue\t" in "\n".join(tsv)
+    assert (
+        "chrA\tmorans_i\ttu_block\t1\t0.31\t-0.004\t-0.05\t0.12\t0.314\t0.002\ttrue\t"
+        in "\n".join(tsv)
+    )
 
 
 def test_render_does_not_mutate_between_calls(tmp_path: Path, cfg: GiapConfig) -> None:

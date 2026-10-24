@@ -231,7 +231,9 @@ def test_s2_a_skipped_step1_names_the_job_and_commit_that_built_it(m10: M10Sandb
     step1 = json.dumps(prov["step1"])
     assert "1111" in step1, f"provenance step1 lacks the job that built the library: {step1}"
     assert built_at in step1, f"provenance step1 lacks the commit that built it: {step1}"
-    assert "2222" not in step1 and m10.sb.head not in step1, step1
+    # compare the job id field, not a substring: a commit hash can contain "2222" (CI flake)
+    built_by = prov["step1"]["built_by"]
+    assert str(built_by["job_id"]) != "2222" and m10.sb.head not in step1, step1
     assert str(prov["job"]["id"]) == "2222"
 
 

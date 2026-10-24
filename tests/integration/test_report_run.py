@@ -108,7 +108,7 @@ def test_example_7_offline_and_links_resolve(local: Path) -> None:
     page = parse((local / "report" / "report.html").read_text(encoding="utf-8"))
     for url in page.links():
         assert not EXTERNAL.match(url), url
-        if not url.startswith("#"):
+        if not url.startswith(("#", "data:")):  # inlined images (V13 colorbar; M9-13: allowed)
             assert (local / "report" / url).resolve().is_file(), url
     assert "../tables/islands.tsv" in page.links()
     assert str(local.parent) not in page.html

@@ -87,7 +87,8 @@ def chain(
 
 
 def run(pairs: pd.DataFrame, genes: pd.DataFrame, cfg: GiapConfig | None = None) -> Any:
-    return disc.discordance(pairs, genes, cfg or _cfg(), None)
+    # M6-05's constant-scale null; M6-13's abundance-dependent scale has its own tests
+    return disc.discordance(pairs, genes, cfg or _cfg(), None, sigma_model="constant")
 
 
 def rows_by_id(res: Any) -> pd.DataFrame:

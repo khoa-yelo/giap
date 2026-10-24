@@ -27,7 +27,7 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize, to_rgba
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch, Polygon
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from giap.viz import base, style
 
@@ -39,8 +39,10 @@ Kind = Literal["prophage", "bgc", "island", "operon_flag", "novel_orf"]
 KIND_ORDER: tuple[str, ...] = ("prophage", "bgc", "island", "operon_flag", "novel_orf")
 FLANK = 2_000  # bp each side of the span (index decision 20)
 SINGLE_MAX_BP = 20_000
+MAX_TICKS = 5  # labelled position ticks at most (K-12 survey: 7-digit bp labels collided)
 HEIGHT_IN = 2.2
 MAX_LABELS = 12
+GENE_LABEL = "gene_label"  # gid of the gene name texts, thinned by _thin_labels
 UNDETECTED = "#BBBBBB"
 UNESTIMATED = style.DETECTION["unestimated"]
 PROMOTER = style.OKABE_ITO["bluish_green"]
@@ -82,9 +84,22 @@ class OrfMark:
     peptides: frozenset[str] = frozenset()
 
 
-def wrapped_formatter(length: int) -> FuncFormatter:
-    """Tick labels of an unwrapped circular window: ``x mod length``, never negative."""
-    return FuncFormatter(lambda x, _pos: f"{round(x) % length:,}")
+def _kb(bp: float) -> str:
+    out = f"{bp / 1_000:.3f}".rstrip("0").rstrip(".")
+    return "0" if out == "-0" else out
+
+
+def wrapped_formatter(length: int | None) -> FuncFormatter:
+    """Tick labels in kb; on an unwrapped circular window (``length``) ``x mod length``, never
+    negative."""
+    if length is None:
+        return FuncFormatter(lambda x, _pos: _kb(round(x)))
+    return FuncFormatter(lambda x, _pos: _kb(round(x) % length))
+
+
+def fold_il(peptide: str) -> str:
+    """The house I/L-folded peptide key (``giap.mapping``: I is read as L)."""
+    return peptide.upper().replace("I", "L")
 
 
 def _num(v: object) -> float | None:
@@ -93,10 +108,6 @@ def _num(v: object) -> float | None:
         return None
     f = float(str(v)) if not isinstance(v, int | float | np.number) else float(v)
     return f if math.isfinite(f) else None
-
-
-def _g(v: float | None) -> str:
-    return "NA" if v is None else f"{v:g}"
 
 
 def _pct(x: float | None, n: float | None) -> str:
@@ -126,7 +137,8 @@ def _region_loci(view: RunView) -> list[Locus]:
             continue
         q = _num(r.q_value)
         obs, exp, n = _num(r.observed), _num(r.expected), _num(r.n_eligible)
-        label = f"{r.region_id}: {_pct(obs, n)} detected vs {_pct(exp, n)} expected (q = {_g(q)})"
+        label = (f"{r.region_id}: {_pct(obs, n)} detected vs {_pct(exp, n)} expected "
+                 f"(q = {base.sig(q, 3)})")  # fmt: skip
         out.append(
             Locus(str(r.region_id), r.region_type, str(r.contig), int(start), int(end), q, label)
         )
@@ -137,7 +149,9 @@ def _island_loci(view: RunView) -> list[Locus]:
     out = []
     for r in _frame(view, "islands").itertuples(index=False):
         p, mean = _num(r.p_value), _num(r.mean_abundance_log2)
-        label = f"{r.island_id} ({r.direction}): mean log2 {_g(mean)}, FWER p {_g(p)}"
+        label = (
+            f"{r.island_id} ({r.direction}): mean log2 {base.sig(mean, 3)}, FWER p {base.sig(p, 3)}"
+        )
         out.append(Locus(str(r.island_id), "island", str(r.contig), int(r.start), int(r.end), p,
                          label))  # fmt: skip
     return out
@@ -162,7 +176,7 @@ def _flag_loci(view: RunView, alpha: float) -> list[Locus]:
             span = tu_span[tu_a]
         else:
             span = _pair_span(view, a, b)
-        clause = f"{f.flag} between {f.gene_a} and {f.gene_b} (q = {_g(q)})"
+        clause = f"{f.flag} between {f.gene_a} and {f.gene_b} (q = {base.sig(q, 3)})"
         kept.append((q, str(f.pair_id), str(a.contig), span, clause))
     merged: dict[tuple[str, int, int], list[tuple[float, str, str]]] = {}
     for q, pid, contig, span, clause in sorted(kept, key=lambda k: (k[0], k[1])):
@@ -275,7 +289,8 @@ def _draw_orf(ax: Axes, pile: Axes, locus: Locus, orf: OrfMark, hits: list[tuple
                          zorder=3))  # fmt: skip
     if orf.tick is not None:
         ax.plot([orf.tick, orf.tick], [ORF_Y - 0.3, ORF_Y + 0.3], color=NOVEL_ORF, lw=1.0)
-    mine = [h for h in hits if str(h[0].peptide) in orf.peptides]
+    keys = {fold_il(p) for p in orf.peptides}
+    mine = [h for h in hits if fold_il(str(h[0].peptide)) in keys]
     for ps, pe, d in _pileup_runs(mine):
         pile.fill_between([ps, pe], 0, d, color=NOVEL_ORF, linewidth=0, zorder=3)
     return ["novel_orf", locus.locus_id, locus.contig, s, e, orf.strand, None, None]
@@ -300,10 +315,31 @@ def _draw_genes(ax: Axes, rows: list[tuple[Any, int, int]], scale: tuple[float, 
                              hatch=IMPUTED_HATCH if imputed else None))  # fmt: skip
         if i % step == 0:  # ceil(n / step) <= MAX_LABELS
             name = g.gene if isinstance(g.gene, str) and g.gene else str(g.locus_tag)
-            ax.text((s + e) / 2, 0.32, name, ha="center", va="bottom", fontsize=6, rotation=30)
+            ax.text((s + e) / 2, 0.32, name, ha="center", va="bottom", fontsize=6, rotation=30,
+                    gid=GENE_LABEL)  # fmt: skip
         value, category = (None, "imputed") if imputed else (log2, status)
         data.append(["gene", str(g.locus_tag), str(g.contig), s, e, strand, value, category])
     return data
+
+
+def _thin_labels(fig: Figure, ax: Axes) -> None:
+    """Hide each gene label whose laid-out box meets the last one kept, left to right (sim100k:
+    adjacent short genes collided). Layout is repeated until no label is hidden."""
+    for _ in range(3):
+        fig.draw_without_rendering()
+        renderer = fig._get_renderer()  # type: ignore[attr-defined]
+        labels = [t for t in ax.texts if t.get_gid() == GENE_LABEL and t.get_visible()]
+        boxes = sorted(((t.get_window_extent(renderer), t) for t in labels),
+                       key=lambda bt: (bt[0].x0, bt[1].get_text()))  # fmt: skip
+        hidden, right = 0, -math.inf
+        for box, t in boxes:
+            if box.x0 < right:
+                t.set_visible(False)
+                hidden += 1
+            else:
+                right = box.x1
+        if not hidden:
+            return
 
 
 def _pileup_runs(rows: list[tuple[Any, int, int]]) -> list[tuple[int, int, int]]:
@@ -408,17 +444,19 @@ def render_locus(
         for k in range(math.floor(window[0] / length), math.floor(window[1] / length) + 1):
             if window[0] < k * length < window[1]:
                 ax.axvline(k * length, color=style.OKABE_ITO["black"], ls="--", lw=0.6)
-        ax.xaxis.set_major_formatter(wrapped_formatter(length))
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=MAX_TICKS - 1, steps=[1, 2, 2.5, 5, 10]))
+    ax.xaxis.set_major_formatter(wrapped_formatter(length if circular and length else None))
     ax.set_xlim(*window)
     ax.set_ylim(-1.0, 1.0 if orf is None else ORF_TOP)
     ax.set_yticks([])
-    ax.set_xlabel(f"{locus.contig} position (bp)")
+    ax.set_xlabel(f"{locus.contig} position (kb)")
     pile.set_ylabel("peptides")
     pile.tick_params(labelbottom=False)
     fig.suptitle(title, fontsize=7)
     _colour_key(fig, [pile, ax], scale)
     if orf is not None:
         _orf_key(pile)
+    _thin_labels(fig, ax)
     data = pd.DataFrame(rows, columns=list(COLUMNS)) if rows else _empty(COLUMNS)
     data = data.astype({"start": "int64", "end": "int64", "value": float})
     return base.Instance(locus.locus_id, fig, data, locus.label, ("start",))
@@ -467,8 +505,8 @@ def _index(loci: Sequence[Locus], n_rendered: int) -> base.Instance:
     for i, lo in enumerate(loci):
         mark = "" if i < n_rendered else " (not rendered)"
         y = 1.0 - (i + 0.5) / len(loci)
-        ax.text(0.0, y, f"{i + 1}. {lo.locus_id} [{lo.kind}] {_g(lo.error)}{mark}", fontsize=6,
-                va="center", transform=ax.transAxes)  # fmt: skip
+        text = f"{i + 1}. {lo.locus_id} [{lo.kind}] {base.sig(lo.error, 3)}{mark}"
+        ax.text(0.0, y, text, fontsize=6, va="center", transform=ax.transAxes)
     return base.Instance(None, fig, data, f"V3 loci: {n_rendered} of {len(loci)} rendered",
                          ("start",))  # fmt: skip
 

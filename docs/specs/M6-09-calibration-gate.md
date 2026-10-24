@@ -93,3 +93,55 @@ Option 1 of docs/methods/operons.md "Fix space", **keep the method and label it*
 - The `missed_operons` FDR gate is recorded as a **vacuous pass** when it makes no calls, and the
   record names that reason. It is never read as power evidence.
 - Option 2 (a stronger combined score) may be revisited after the M10 pilot.
+
+## Lead defaults (2026-10-24, recorded by the statistician at the lead's instruction)
+
+1. **Q1, A′ at ρ = 0.9: recorded, not gated** (the proposed default; the ADR-0021 islands
+   precedent). The test fails only above the escalation threshold, mean FDP > 0.15 at q = 0.1, and
+   the failure message asks for an ADR. R = 20 / 100 are module constants of
+   `tests/calibration/attacks/test_attack_operons.py`, because no accepted ADR puts them in the
+   protected `tolerances.yaml`. Attack C's R = 50 / 300 is handled the same way.
+2. **Q2, attack B: gated** (the proposed default).
+3. **The gate is the shipped-decoy check, a vacuous pass. The non-vacuous arms are extra.**
+   - The §7.4.7 criterion 1 gate is `missed_operon_power(1800, 50, 0.1)` with the shipped decoys
+     (convergent + sandwich). It makes **no call**, so per Khoa's decision of 2026-10-22 it is a
+     **recorded vacuous pass**. The same holds for attacks A and B with the shipped decoys.
+   - **Additionally** (statistician; this adds checks and replaces none), each FDR check also runs
+     where calls exist:
+     - 100 planted pairs at 10⁻³ background SD, with `operons.decoys = [convergent]`;
+     - SW decoys are absent from the < 150 bp bins of these layouts, and with them every q is at
+       least the target share of those bins;
+     - this arm must make calls at q = 0.1, and it is gated.
+   - The teeth (`operons.pi0 = 0.1`) must be a confirmed fail.
+4. **Example 1's "≥ 60 % recovered at 0.1 SD"** is superseded by Khoa's decision: the power table
+   is recorded, never gated, and states that the family is near-powerless by construction.
+5. **Attacks owed by the PR #147 and #148 reviews:**
+   - M-2 is gated (non-vacuous arm) and passes.
+   - **D-1 is gated and fails.** Its test (`test_attack_d1_level`, pooled level and quartile) is a strict xfail naming ADR-0055 (proposed, pending
+     Khoa), which is the ADR-0049 pattern of the M7 gate. No bound was widened and the demotion to
+     "recorded" was withdrawn.
+   - M-1 is recorded. The ADR on excluding imputed pairs stays open.
+   - D-2 (TU-chained Δ) is built into every operon scenario: each later TU gene adds one t step.
+   - D-3 stays with the M6-05 review numbers.
+6. **Attack C** runs on an oracle P(miss) (the generating detection model) until M6-05H wires the
+   one-detected arm. `test_attack_c_through_the_step` skips until then.
+7. **UniOP cut-off:** pair classes are re-derived at `calibration.yaml`'s
+   `uniop_pair_threshold` (0.5, ADR-0022) as it stands.
+
+## Sign-off (statistician, 2026-10-24; Slurm 1884493 at 24267fd3, a rerun of 1884412)
+
+- **missed_operons: MET (vacuous with the shipped decoys; extra arm FDP 0.033).**
+  - §7.4.7 criterion 1 with the shipped decoys is a recorded vacuous pass (Khoa, 2026-10-22).
+  - Criterion 2 (attack A) and attack B are also vacuous with the shipped decoys.
+  - FDR evidence comes only from the extra convergent-only arm (100 pairs at 10⁻³ SD): FDP 0.033
+    at q 0.1 for the gate generator, 0.044 for A, 0.019 for B and 0.063 for M-2.
+  - This is not power evidence.
+- A′ and C are recorded below their thresholds.
+- M-1 made no call in any arm, so it is untested on these layouts.
+- **discordance gate: NOT MET (attack D-1), pending Khoa (ADR-0055).**
+  - Criterion 3 passes on the gate null (level and KS uniformity).
+  - D-1 is a confirmed failure of the level when Δ noise depends on abundance: pooled 0.052 /
+    0.106 at α 0.05 / 0.10, and about 3× nominal in the lowest quartile.
+  - `test_attack_d1_level` is a strict xfail. A sharded `discordance` task followed by `--merge`
+    exits 1 until the ADR is decided, which is intended (the ADR-0049 precedent).
+- The §15.4 half of the M6 gate (M6-11/M6-12) is separate.

@@ -8,8 +8,9 @@ and one seed, with the test DB from tests/helpers/mapping_steps.py.
 
 * Example 1: ``--executor local`` with ``--abundance`` writes ``OUT/tables/pairs.tsv``,
   ``operons.tsv`` and ``operon_flags.tsv`` and exits 0. ``pairs.tsv`` has one row per adjacent
-  pair plus the SW rows. On sim100k every test is ``none``, because there are too few pairs
-  (index risk "Small genomes"). Publishing ``tables/`` under the local executor relies on
+  pair plus the SW rows. Since M4-24 (sim100k under ``mayu``, detection q estimated) pairs get
+  ``both_detected_t`` and ``missed_operon_decoy`` tests, and untested (``none``) rows have p
+  NA. Publishing ``tables/`` under the local executor relies on
   ``PUBLISHED_FILES`` (PR #145, lead decision 5).
 * Example 3: the same run without ``--abundance`` writes ``pairs.tsv``, and ``operon_flags.tsv``
   is header-only.
@@ -122,8 +123,10 @@ def test_example_1_pairs_rows_and_tests(local: Path) -> None:
     n_adj, n_sw = _chain_counts(local)
     assert len(df) == n_adj + n_sw
     assert int((df["class"] == "SW").sum()) == n_sw
-    assert set(df["test"]) == {"none"}
-    assert set(df["p_value"]) == {"NA"}
+    tests = {"both_detected_t", "one_detected_pmiss", "missed_operon_decoy", "none"}
+    assert set(df["test"]) <= tests
+    assert set(df["test"]) - {"none"}, "no pair tested (M4-24: detection q is estimated)"
+    assert set(df.loc[df["test"] == "none", "p_value"]) <= {"NA"}
 
 
 def test_m6_10_sensitivity_has_operon_flags_rows(local: Path) -> None:

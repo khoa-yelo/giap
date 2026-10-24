@@ -41,7 +41,7 @@ V07_COLUMNS = ("block", "group", "region_type", "n", "observed", "expected", "o_
 V08_COLUMNS = ("category", "super_category", "locus_tag", "abundance_log2", "detected",
                "median_log2", "n_genes", "n_detected", "n_imputed")  # fmt: skip
 V10_COLUMNS = ("contig", "statistic", "null_model", "lag", "value", "null_mean", "null_lo",
-               "null_hi", "q_value", "significant", "flags")  # fmt: skip
+               "null_hi", "effect", "q_value", "significant", "flags")  # fmt: skip
 V11_COLUMNS = ("panel", "pair_id", "class", "abs_delta_log2", "lfdr", "upstream_log2",
                "downstream_log2", "flag", "q_value", "bin", "density", "n")  # fmt: skip
 V17_COLUMNS = ("panel", "group", "key", "value", "n")
@@ -210,8 +210,10 @@ def v10_rows(contig: str = "chr1", lags: Sequence[int] = (1, 2, 3, 4, 5)) -> lis
                 else:
                     v, mean, half = float(40 - lag), 38.0 if null == "gene_label" else 37.5, 3.0
                 q = 0.001 if (stat, null, lag) == ("morans_i", "tu_block", 1) else 0.5
+                # effect = value - null_mean, so the plotted statistic (effect + null_mean) is value
                 rows.append((contig, stat, null, lag, v, mean, round(mean - half, 4),
-                             round(mean + half, 4), q, q <= 0.05, "ci_unestimated"))  # fmt: skip
+                             round(mean + half, 4), round(v - mean, 4), q, q <= 0.05,
+                             "ci_unestimated"))  # fmt: skip
     return rows
 
 
@@ -225,7 +227,7 @@ def v10_not_estimable() -> pd.DataFrame:
     for stat, v in (("morans_i", None), ("join_count_bb", 0.0)):
         for null in ("gene_label", "tu_block"):
             for lag in (1, 2, 3):
-                rows.append(("chr1", stat, null, lag, v, v, v, v, None, False,
+                rows.append(("chr1", stat, null, lag, v, v, v, v, v, None, False,
                              "ci_unestimated;not_estimable"))  # fmt: skip
     return frame(V10_COLUMNS, rows)
 
