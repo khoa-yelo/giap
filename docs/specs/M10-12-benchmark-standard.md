@@ -316,8 +316,8 @@ Numbers are hand-made, not measurements.
 - **Node heterogeneity.** Inside `CPU_SKU:6148` the nodes are the same model; the three repeats may
   land on 1–3 different nodes (`nodes[]` records them; `single_node: true` when all are the same,
   not a flaw). A different class is possible only by overriding the constraint
-  (`sbatch --constraint=…`), and then the runs are summarised under that class's key, never mixed
-  with wheat. Every task must run on the job's node (`host_mismatch` otherwise).
+  (`sbatch --constraint=…`); such runs are invalid (`node_class:<sku>`) and are never
+  summarised or mixed with wheat (lead, 2026-10-24, PR #300 review nit 20). Every task must run on the job's node (`host_mismatch` otherwise).
 - **No wheat node available** (all drained or the queue waits days): the array pends; after 48 h
   pending the lead logs it under PROGRESS › Blocked and decides on another class by a lead decision
   recorded in ADR-M10-D. Never a silent fallback.
@@ -437,3 +437,7 @@ time.
 | L10 | Work directories on NFS (`$GIAP_ROOT/bench`, as a user runs) or on node-local `/tmp` (less NFS noise, but not what users do)? | NFS; ADR-M10-D names NFS as a noise source |
 | L11 | §12's nightly benchmarks use a median of 5 with a 15 % slowdown fail; §15.2 says median of 3 for this one. Should the nightly ever re-run the standard benchmark against `standard_run`? | no: median of 3, run on demand by the speed loop (M10-13) and before release; the nightly is unchanged |
 | L12 | `BENCH_COMMIT`: the main HEAD at submission, after M10-04's fixes have merged, and the report-freeze runs (M10-14) on the same or a later commit? | main HEAD at submission; ADR-M10-D names it; a re-benchmark is the speed loop's |
+
+## Lead decisions (2026-10-24)
+
+Every lead question L1–L12 takes its default. L9: docs/user-guide/runtimes.md is created by the docs role in the evidence PR.
