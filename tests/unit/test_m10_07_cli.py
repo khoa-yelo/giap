@@ -374,8 +374,9 @@ def world(tmp_path_factory: pytest.TempPathFactory) -> Any:
 
 
 def _pending_section(report: str) -> str:
-    m = re.search(r"^## [^\n]*Pending in pass 2[^\n]*\n(.*?)(?=^## |\Z)", report, re.M | re.S)
-    assert m, "the report has no 'Pending in pass 2' section"
+    """The final template's "Not evaluated" section (M10-15 replaced "Pending in pass 2")."""
+    m = re.search(r"^## [^\n]*Not evaluated[^\n]*\n(.*?)(?=^## |\Z)", report, re.M | re.S)
+    assert m, "the report has no 'Not evaluated' section"
     return m.group(1)
 
 
@@ -406,15 +407,15 @@ def test_hook_copies_the_blocks_under_m8_and_render_resolves_them(
     assert "{{" not in report
     for caveat in CAVEATS:
         assert caveat in report, caveat
-    assert "metric 8" not in _pending_section(report).lower()
+    assert "`m8`" not in _pending_section(report)
     assert "evidence_of_failure" in report or "evidence of failure" in report.lower()
 
 
 def test_without_entrapment_metric_8_stays_pending(world: Any, tmp_path: Path) -> None:
     metrics, report = _metrics_and_report(world, tmp_path)
-    assert "metric 8" in _pending_section(report).lower()
+    assert "`m8`: pending (M10-07)" in _pending_section(report)
     m8 = metrics.get("m8")
-    assert m8 is None or "peptide" not in m8
+    assert m8 is None or "universe" not in m8  # M10-15's pending placeholder has no universe
 
 
 def test_template_has_a_metric_8_section_and_an_h2_line_without_verdict() -> None:
