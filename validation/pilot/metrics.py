@@ -655,31 +655,176 @@ def hypothesis3(m4: Mapping[str, Any] | None, m5: Mapping[str, Any] | None) -> d
     return {"verdict": verdict, "criteria": crit, "region_tests": "not compared in pass 1"}
 
 
-def checklist(metrics: Mapping[str, Any], run_states: Mapping[str, Any]) -> list[dict[str, str]]:
-    """§15.6 checklist in pass 1 (spec table order). ``run_states``: arm -> exit code (None when
-    absent) and ``compare_ok`` (the three compare tables present and valid under their
-    schemas)."""
-    ok = {a: run_states.get(a) == 0 for a in ("A1", "A2", "A3")}
-    if all(ok.values()):
-        runs = "pass"
-    elif ok["A1"] and ok["A2"] and run_states.get("A3") is None:
-        runs = "partial (A1, A2; A3 pending M10-10)"
+def _bullet1(run_states: Mapping[str, Any], evidence: Mapping[str, Any]) -> str:
+    """Bullet 1: M10-05's plain ``pass`` / ``partial`` / ``fail`` without a runbook; with one
+    (M10-15) the A3 branch is named and a failure says which arm or why A3 did not run."""
+    codes = {a: run_states.get(a) for a in ("A1", "A2", "A3")}
+    rb = evidence.get("runbook") or {}
+    if "reason" in rb:  # no --runbook
+        if all(c == 0 for c in codes.values()):
+            return "pass"
+        if codes["A1"] == codes["A2"] == 0 and codes["A3"] is None:
+            return "partial (A1, A2; A3 pending M10-10)"
+        return "fail"
+    if bad := [(a, c) for a, c in codes.items() if c not in (0, None)]:
+        return f"fail ({bad[0][0]} exit {bad[0][1]})"
+    if codes["A1"] is None or codes["A2"] is None:
+        return f"fail ({'A1' if codes['A1'] is None else 'A2'} not run)"
+    feas = evidence.get("a3_feasibility") or {}
+    if codes["A3"] is None:
+        if rb.get("a3_branch") in ("pending", "", None):
+            return "partial (A1, A2; A3 pending M10-10)"
+        return f"fail (A3 not run: {feas.get('reason') or 'no A3 run'})"
+    branch = rb.get("a3_branch")
+    if branch not in A3_LABELS:
+        branch = "cascadia" if feas.get("verdict") == "pass" else "fallback"
+    return f"pass (A3 = {A3_LABELS[branch]})"
+
+
+def _bullet4(bench: Mapping[str, Any]) -> str:
+    """Bullet 4: the 4 ``standard_run.wheat`` cells complete (non-null ``median_s``) and
+    ADR-M10-D accepted; an incomplete cell wins over the ADR status."""
+    if "reason" in bench:  # no --baseline
+        return "pending (M10-12)"
+    if bench["incomplete"]:
+        return f"fail (incomplete: {', '.join(bench['incomplete'])})"
+    status = bench.get("adr_status")
+    return "pass" if status in ADR_ACCEPTED else f"pending (ADR-M10-D {status or 'missing'})"
+
+
+def _evidence_strings(metrics: Mapping[str, Any], evidence: Mapping[str, Any]) -> list[str]:
+    """One ``file SOURCE_SEP key`` string per checklist row, with the runbook's job IDs."""
+    steps = evidence.get("steps") or {}
+
+    def jobs(*ids: str) -> str:
+        return ", ".join(
+            f"{s} {steps[s].get('job')} ({steps[s].get('state')}, exit {steps[s].get('exit')}, "
+            f"{str(steps[s].get('commit'))[:7]})"
+            for s in ids
+            if s in steps
+        )
+
+    def job(step: str) -> str:
+        return f"; {step} {steps[step].get('job')}" if step in steps else ""
+
+    runs = (
+        f"reproduce.md{SOURCE_SEP}Evidence {jobs('S8', 'S9', 'S11')}"
+        if jobs("S8", "S9", "S11")
+        else f"metrics.json{SOURCE_SEP}inputs.manifest_a1, inputs.manifest_a2 (exit_code)"
+    )
+    bench = evidence.get("benchmark") or {}
+    if "reason" in bench:
+        b4 = f"baseline.json{SOURCE_SEP}standard_run.wheat (not given, M10-12)"
     else:
-        runs = "fail"
+        b4 = (
+            f"baseline.json{SOURCE_SEP}standard_run.wheat.{{{','.join(CELLS)}}}.median_s; "
+            f"{bench.get('adr') or 'ADR-M10-D'} {bench.get('adr_status') or 'missing'}; "
+            "docs/user-guide/runtimes.md"
+        )
+    b5 = f"metrics.json{SOURCE_SEP}te_real.te2-te5.status" + "".join(
+        f"; {t} not passed: report_notes.md{SOURCE_SEP}Diagnosis: {t}"
+        for t in _not_passed(metrics)
+        if t != "TE7"
+    )
+    return [
+        runs,
+        f"metrics.json{SOURCE_SEP}te1.share_exact_inframe, te1.passed{job('S14')}",
+        f"metrics.json{SOURCE_SEP}m4, m5{job('S12')}",
+        b4,
+        b5,
+    ]
+
+
+def checklist(metrics: Mapping[str, Any], run_states: Mapping[str, Any]) -> list[dict[str, str]]:
+    """§15.6 checklist (spec table order) with one ``evidence`` string per row. ``run_states``:
+    arm -> exit code (None when absent) and ``compare_ok`` (the three compare tables present and
+    valid under their schemas). Bullets 1 and 4 read ``metrics["evidence"]`` (M10-15)."""
+    evidence = metrics.get("evidence") or gate_evidence(None, None, None, None)
     te1 = metrics.get("te1") or {}
     te = "pass" if te1.get("passed") else "fail (no data)" if not te1.get("n_peptides") else "fail"
     m4 = metrics.get("m4") or {}
     cmp_ok = bool(run_states.get("compare_ok")) and "reason" not in m4
-    return [
-        {"bullet": "GIAP runs end to end on A1, A2 and A3", "status": runs},
-        {"bullet": ">= 99.5 % of A2 peptides map exactly (TE1)", "status": te},
-        {
-            "bullet": "A1 and A2 detections and abundances are compared",
-            "status": "pass" if cmp_ok else "fail",
-        },
-        {"bullet": "Measured runtimes replace the estimates", "status": "pending (M10-12)"},
-        {"bullet": "TE2-TE5 are reported; failures explained", "status": _bullet5(metrics)},
+    statuses = [
+        _bullet1(run_states, evidence),
+        te,
+        "pass" if cmp_ok else "fail",
+        _bullet4(evidence["benchmark"]),
+        _bullet5(metrics),
     ]
+    ev = _evidence_strings(metrics, evidence)
+    return [
+        {"bullet": b, "status": s, "evidence": e}
+        for b, s, e in zip(BULLETS, statuses, ev, strict=True)
+    ]
+
+
+# ---------------------------------------------------------------- M10-15 gate inputs
+
+BULLETS = (
+    "GIAP runs end to end on A1, A2 and A3",
+    ">= 99.5 % of A2 peptides map exactly (TE1)",
+    "A1 and A2 detections and abundances are compared",
+    "Measured runtimes replace the estimates",
+    "TE2-TE5 are reported; failures explained",
+)
+CELLS = ("k12_standard", "k12_core", "sim5m_standard", "sim5m_core")  # M10-12
+ADR_ACCEPTED = ("accepted", "accepted-by-khoa")
+A3_LABELS = {"cascadia": "Cascadia", "fallback": "Casanovo fallback on UTI89, different strain"}
+EVIDENCE_STEPS = (*(f"S{n}" for n in range(8, 15)), "S-bench")
+ADR_STATUS = re.compile(r"^-?\s*Status:\s*([\w-]+)", re.M)
+
+
+def adr_status(text: str) -> str | None:
+    """The first word of an ADR's ``Status:`` line (``accepted (lead)`` -> ``accepted``)."""
+    m = ADR_STATUS.search(text)
+    return m.group(1).lower() if m else None
+
+
+def gate_evidence(
+    runbook: Any | None,
+    baseline: Mapping[str, Any] | None,
+    adr: tuple[str, str | None] | None,
+    feasibility: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """The ``evidence`` key: the runbook header and its Evidence rows S8-S14 and S-bench
+    (``reproduce_check.parse`` output), the benchmark cells of ``baseline.json`` with ADR-M10-D
+    (name, status) and M10-08's verdict. An absent input leaves a ``pending`` reason."""
+    if runbook is None:
+        rb: dict[str, Any] = {"status": None, "freeze_commit": None, "a3_branch": None,
+                              "reason": "pending (M10-14)"}  # fmt: skip
+        steps: dict[str, Any] = {}
+    else:
+        rb = {k: getattr(runbook, k) for k in ("status", "freeze_commit", "a3_branch")}
+        steps = {r["step"]: r for r in runbook.evidence if r.get("step") in EVIDENCE_STEPS}
+    wheat = ((baseline or {}).get("standard_run") or {}).get("wheat") or {}
+    cells: dict[str, Mapping[str, Any]] = {
+        c: e if isinstance(e := wheat.get(c), Mapping) else {} for c in CELLS
+    }
+    bench: dict[str, Any] = {
+        "cells": {
+            c: {k: e.get(k) for k in ("median_s", "commit", "cpu")} for c, e in cells.items()
+        },
+        "incomplete": [c for c, e in cells.items() if e.get("median_s") is None],
+        "adr": None if adr is None else adr[0],
+        "adr_status": None if adr is None else adr[1],
+    }
+    if baseline is None:
+        bench["reason"] = "pending (M10-12)"
+    feas = {k: (feasibility or {}).get(k) for k in ("verdict", "reason")}
+    return {"runbook": rb, "steps": steps, "benchmark": bench, "a3_feasibility": feas}
+
+
+def pending_placeholders() -> dict[str, Any]:
+    """``m6``, ``h4`` (M10-10) and ``m8`` (M10-07) before their hooks exist: every path of the
+    final template resolves; the ``pending`` reason makes ``render --final`` refuse them."""
+    level = {"fdp_combined": None, "fdp_lower": None, "assessment": None}
+    return {
+        "m6": {"overlap_a2_a3": {"novel_orfs": {"called": {"jaccard": None}},
+                                 "alt_sites": {"high": {"jaccard": None}}},
+               "reason": "pending (M10-10)"},
+        "h4": {"verdict": None, "reason": "pending (M10-10)"},
+        "m8": {"peptide": dict(level), "precursor": dict(level), "reason": "pending (M10-07)"},
+    }  # fmt: skip
 
 
 # ---------------------------------------------------------------- M10-06 hook (TE2-TE5, TE7)
@@ -738,6 +883,8 @@ def diagnosis_problems(metrics: Mapping[str, Any], notes: str | None) -> list[st
 PLACEHOLDER = re.compile(r"\{\{\s*([^}\s]+)\s*\}\}")
 NOTES_MARK = "<!-- notes -->"
 M3_MARK = "<!-- m3 rows -->"
+NOT_EVALUATED_MARK = "<!-- not evaluated -->"
+DEFECT_REASONS = ("missing:", "pending")  # a defect in the final report, never a finding
 PEPTIDE_LIKE = re.compile(r"[ACDEFGHIKLMNPQRSTVWY]{7,}")
 _MISSING = object()
 
@@ -746,9 +893,8 @@ class Gap(str):
     """An unresolved path under a metric that carries a ``reason``: rendered as a marker."""
 
 
-def resolve(doc: Any, path: str) -> Any:
-    """The value at a dotted path; ``Gap(reason)`` when it stops under a dict with a
-    ``reason`` (the nearest one), else ``_MISSING``."""
+def _walk(doc: Any, path: str) -> tuple[Any, Any]:
+    """(value or ``_MISSING``, the nearest ``reason`` of the dicts walked through)."""
     cur, reason = doc, None
     for part in path.split("."):
         if isinstance(cur, Mapping):
@@ -758,7 +904,16 @@ def resolve(doc: Any, path: str) -> Any:
         elif isinstance(cur, list) and part.isdigit() and int(part) < len(cur):
             cur = cur[int(part)]
         else:
-            return _MISSING if reason is None else Gap(reason)
+            return _MISSING, reason
+    return cur, reason
+
+
+def resolve(doc: Any, path: str) -> Any:
+    """The value at a dotted path; ``Gap(reason)`` when it stops under a dict with a
+    ``reason`` (the nearest one), else ``_MISSING``."""
+    cur, reason = _walk(doc, path)
+    if cur is _MISSING and reason is not None:
+        return Gap(reason)
     return cur
 
 
@@ -834,15 +989,53 @@ def missing_paths(template: str, metrics: Mapping[str, Any]) -> list[str]:
     return [p for p in paths if resolve(metrics, p) is _MISSING]
 
 
-def render(template: str, metrics: Mapping[str, Any], notes: str | None) -> str:
+def not_evaluated(metrics: Mapping[str, Any]) -> list[str]:
+    """One line per metric or hypothesis (and its direct sub-blocks) carrying a ``reason``."""
+    out = []
+    for key in sorted(k for k in metrics if re.fullmatch(r"m\d|h\d|te1", k)):
+        blocks = [(key, metrics[key])]
+        if isinstance(metrics[key], Mapping):
+            blocks += [(f"{key}.{k}", v) for k, v in sorted(metrics[key].items())]
+        for path, v in blocks:
+            if isinstance(v, Mapping) and isinstance(r := v.get("reason"), str):
+                finding = not r.startswith(DEFECT_REASONS)
+                out.append(f"- `{path}`: " + (f"not evaluable ({r})" if finding else r))
+    return out or ["- none: every metric and hypothesis has a value."]
+
+
+def final_problems(metrics: Mapping[str, Any]) -> list[str]:
+    """Statuses the final report refuses: a ``pending``/``partial`` checklist row, a
+    ``pending`` (or absent) TE2-TE5 or TE7 status."""
+    out = [
+        f"checklist.{i}.status is {row.get('status')!r}"
+        for i, row in enumerate(metrics["checklist"])
+        if str(row.get("status")).startswith(("pending", "partial"))
+    ]
+    te, te7 = metrics.get("te_real") or {}, metrics.get("te7") or {}
+    statuses = {f"te_real.{k}.status": (te.get(k) or {}).get("status") for k in TE_KEYS}
+    statuses["te7.giap.status"] = (te7.get("giap") or {}).get("status")
+    out += [f"{p} is {s!r}" for p, s in statuses.items() if s is None or s.startswith("pending")]
+    return out
+
+
+def render(
+    template: str, metrics: Mapping[str, Any], notes: str | None, final: bool = False
+) -> str:
     """The report: each ``{{path}}`` becomes its formatted value and its source
     ``(metrics.json SOURCE_SEP parent)``; a path under a metric with a reason becomes
-    ``**missing: <reason>**``, any other unresolved path ``**missing: <path>**``."""
+    ``**missing: <reason>**``, any other unresolved path ``**missing: <path>**``. ``final``
+    (M10-15): a null or absent value under a finding reason (not ``missing:``/``pending``)
+    renders as ``not evaluable (<reason>)``, and a null one under a defect reason as
+    ``**missing: <reason>**``."""
     if notes is not None:
         check_notes(notes, metrics)
 
     def sub(m: re.Match[str]) -> str:
         path = m.group(1)
+        v, reason = _walk(metrics, path)
+        if final and isinstance(reason, str) and (v is None or v is _MISSING):
+            ok = not reason.startswith(DEFECT_REASONS)
+            return f"not evaluable ({reason})" if ok else f"**missing: {reason}**"
         v = resolve(metrics, path)
         if v is _MISSING or isinstance(v, Gap):
             return f"**missing: {path if v is _MISSING else v}**"
@@ -850,6 +1043,7 @@ def render(template: str, metrics: Mapping[str, Any], notes: str | None) -> str:
         return f"{fmt_value(path.rsplit('.', 1)[-1], v)} (metrics.json{SOURCE_SEP}{parent})"
 
     text = PLACEHOLDER.sub(sub, expand(template, metrics))
+    text = text.replace(NOT_EVALUATED_MARK, "\n".join(not_evaluated(metrics)))
     body = notes.strip() if notes and notes.strip() else "No notes."
     if NOTES_MARK in text:
         return text.replace(NOTES_MARK, body)
@@ -861,9 +1055,12 @@ def render(template: str, metrics: Mapping[str, Any], notes: str | None) -> str:
 #: hashed input files (argparse dests); ``cmp``, ``a1``, ``a2``, ``a3`` are directories
 #: M10-06 inputs: ``te_real.json`` and ``te7.json`` (optional; absent -> ``te_placeholders()``)
 TE_INPUTS = ("te_real", "te7")
+#: M10-15 inputs (committed, read-only): ``benchmarks/baseline.json``, ADR-M10-D,
+#: ``a3_feasibility.json`` and ``reproduce.md``
+GATE_INPUTS = ("baseline", "benchmark_adr", "a3_feasibility", "runbook")
 INPUTS = ("peptides_a1", "peptides_a2", "convert_a1", "convert_a2", "summary_a1", "summary_a2",
-          "bakta_json", "genome", "k12_fasta", "sacct", *TE_INPUTS)  # fmt: skip
-OPTIONAL = ("summary_a1", "summary_a2", "sacct", "a3", *TE_INPUTS)
+          "bakta_json", "genome", "k12_fasta", "sacct", *TE_INPUTS, *GATE_INPUTS)  # fmt: skip
+OPTIONAL = ("summary_a1", "summary_a2", "sacct", "a3", *TE_INPUTS, *GATE_INPUTS)
 REQUIRED = ("a1", "a2", "cmp", *(k for k in INPUTS if k not in OPTIONAL), "out")
 COMPARE = ("compare_detection", "compare_abundance", "compare_stability")
 MAP_TABLES = "peptide_hits.tsv/unmapped.tsv"
@@ -1112,10 +1309,11 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
     states: dict[str, Any] = {"A1": 0, "A2": 0, "A3": None, "compare_ok": compare_ok}
     if a.a3 is not None:
         states["A3"] = _json(resolve_attempt(a.a3)[0] / "run_manifest.json").get("exit_code")
-    doc |= te_placeholders()
+    doc |= te_placeholders() | pending_placeholders()
     for key in TE_INPUTS:
         if getattr(a, key) is not None:
             doc[key] = _json(getattr(a, key))
+    doc["evidence"] = _gate_evidence(a)
     doc["checklist"] = checklist(doc, states)
     files = {k: getattr(a, k) for k in INPUTS} | {
         f"manifest_{x.lower()}": arms[x]["out"] / "run_manifest.json" for x in ARMS
@@ -1126,6 +1324,22 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
         if p is not None
     }
     return doc, exceptions
+
+
+def _gate_evidence(a: argparse.Namespace) -> dict[str, Any]:
+    """Reads the M10-15 inputs for ``gate_evidence``."""
+    from validation.pilot.reproduce_check import parse as parse_runbook
+
+    def text(p: Path) -> str:
+        return _load(p, lambda q: q.read_text(encoding="utf-8"))
+
+    rb = None if a.runbook is None else parse_runbook(text(a.runbook))
+    adr = None
+    if a.benchmark_adr is not None:
+        adr = (a.benchmark_adr.stem, adr_status(text(a.benchmark_adr)))
+    baseline = None if a.baseline is None else _json(a.baseline)
+    feas = None if a.a3_feasibility is None else _json(a.a3_feasibility)
+    return gate_evidence(rb, baseline, adr, feas)
 
 
 def _dump(doc: Any) -> str:
@@ -1145,16 +1359,33 @@ def write_outputs(
     write_tsv(out / "te1_exceptions.tsv", cols, [[r.get(c) for c in cols] for r in exceptions])
 
 
+def render_report(
+    template: str, metrics: Mapping[str, Any], notes: str | None, final: bool = False
+) -> str:
+    """``render`` plus its refusals (``Inconsistent``): an absent placeholder path, a
+    not-passed TE without its diagnosis; ``final`` adds ``final_problems`` and any
+    ``**missing:`` string (a ``metrics.json`` without ``checklist`` is a ``Precondition``)."""
+    if final and not isinstance(metrics.get("checklist"), list):
+        raise Precondition("render --final: metrics.json has no checklist")
+    text = render(template, metrics, notes, final)
+    if missing := missing_paths(template, metrics):
+        raise Inconsistent(f"render: missing paths: {', '.join(missing)}")
+    problems = diagnosis_problems(metrics, notes)
+    if final:
+        problems += final_problems(metrics)
+        if "**missing:" in text:
+            problems.append("the report holds a '**missing:' marker")
+    if problems:
+        raise Inconsistent("render: " + "; ".join(problems))
+    return text
+
+
 def _render(a: argparse.Namespace) -> int:
     _outside_repo(a.out, "render --out")
     metrics = _json(a.metrics)
     template = _need(a.template).read_text(encoding="utf-8")
     notes = None if a.notes is None else _need(a.notes).read_text(encoding="utf-8")
-    text = render(template, metrics, notes)
-    if missing := missing_paths(template, metrics):
-        raise Inconsistent(f"render: missing paths in {a.metrics}: {', '.join(missing)}")
-    if problems := diagnosis_problems(metrics, notes):
-        raise Inconsistent("render: " + "; ".join(problems))
+    text = render_report(template, metrics, notes, a.final)
     a.out.write_text(text, encoding="utf-8")
     return 0
 
@@ -1167,6 +1398,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         c.add_argument(f"--{dest.replace('_', '-')}", type=Path, required=dest in REQUIRED)
     r = sub.add_parser("render")
     r.add_argument("--metrics", type=Path, required=True)
+    r.add_argument("--final", action="store_true", help="the gate report (M10-15)")
     r.add_argument("--notes", type=Path, default=None)
     r.add_argument("--out", type=Path, required=True)
     r.add_argument("--template", type=Path, default=Path(__file__).with_name("report_template.md"))
