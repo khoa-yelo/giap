@@ -48,8 +48,8 @@ committed); the default does not wait for him.
 
 | Name | Path (default) | Metric |
 |---|---|---|
-| `OUT_A1`, `OUT_A2` | `$GIAP_ROOT/pilot/runs/out_a{1,2}/` | 2, 3, 7, TE1 |
-| `CMP` | `$GIAP_ROOT/pilot/runs/cmp_a1_a2/` | 4, 5, H1, H3 |
+| `OUT_A1`, `OUT_A2` | `$GIAP_ROOT/runs/pilot/pass1/out_a{1,2}` (lead decision 1: resolved through M10-04's `ATTEMPTS.tsv` to the final attempt, `.r<n>` suffix included) | 2, 3, 7, TE1, H1 |
+| `CMP` | `$GIAP_ROOT/runs/pilot/pass1/cmp_a1_a2` (same resolution) | 4, 5, H1, H3 |
 | `PEP_A1`, `PEP_A2` | `$GIAP_ROOT/pilot/inputs/a{1,2}.tsv.gz` (M10-03) | 1, 2, TE1 |
 | `CONV_A1`, `CONV_A2` | `$GIAP_ROOT/pilot/inputs/a{1,2}.convert.json` | 1 (cross-check), TE1 (`q_crossings`) |
 | `SUM_A1`, `SUM_A2` | M10-02 `summary.json` of each arm (path as M10-02 lead decision 4 leaves it) | 1 (cross-check) |
@@ -80,18 +80,35 @@ From **P** only (accepted target rows):
 - `precursors` = distinct (`modified_peptide`, `charge`);
 - `peptides` = distinct `peptide` (stripped sequence);
 - `protein_groups` = distinct `protein_ids` values after sorting the `;` items of each value (so
-  `B;A` and `A;B` are one group).
+  `B;A` and `A;B` are one group);
+- `protein_groups_min2` = the groups with ≥ 2 distinct accepted peptides (descriptive companion,
+  less sensitive to false precursors piling up on single-precursor groups, §8.7).
 
-Each count is given three ways: `all`, `contaminant_only`, `non_contaminant` (= all −
-contaminant-only), and both over the union of runs and per run (`run` value). The FDR is DIA-NN's
-global precursor q-value (`Global.Q.Value`, M10-03 F3); protein groups are **the groups of
-accepted precursors, not groups at 1 % protein-group FDR**: the converter does not carry
-`PG.Q.Value` (question L2). The label in the report says so.
+**Contaminant classes** (`all`, `contaminant_only`, `non_contaminant` = all − contaminant-only).
+A precursor or peptide is `contaminant_only` when **every** `;` item of **every** accepted target
+row with that key is contaminant-prefixed; one row with a strain or K-12 item makes it
+non-contaminant. This is the rule of metric 2's **C**, so metric 1's peptide split equals |**C**|
+on the peptides that pass `select_queries`. A group (its sorted item set) is classed by its own
+items.
 
-Cross-checks (recorded, not failed): `peptides.all` must equal `CONV.counts.distinct_peptides_target_q01`
-(else exit 1: the metric and the converter disagree on the same file); the difference to
-`SUM.distinct_stripped_q01` is reported as `raw_vs_written_q01` and must equal the number of
-distinct peptides among `CONV.counts.q_crossings` rows (rounded across the cut-off by `%.6g`).
+**Union and per run.** The union is over all runs. A per-run count is "accepted at global
+q ≤ 0.01 among the rows DIA-NN reported for that run" (`run` value). The main report is already
+filtered at run-level `Q.Value ≤ 0.01` (`--qvalue 0.01`, M10-02), so a per-run count is the
+intersection of the two filters, not a per-run FDR; the report labels it so.
+
+**FDR labels.** Only the precursor count is at a controlled 1 % FDR (DIA-NN's global precursor
+q-value, `Global.Q.Value`, M10-03 F3). The peptide count is not FDR-controlled exactly, and the
+group count not at all: the report says "groups with ≥ 1 accepted precursor (no protein-level FDR
+control)". The converter does not carry `PG.Q.Value` (L2).
+
+**Cross-checks.**
+- `peptides.all` must equal `CONV.counts.distinct_peptides_target_q01`, else exit 1 (the metric
+  and the converter disagree on the same file).
+- `raw_vs_written_q01 = peptides.all − SUM.distinct_stripped_q01` must satisfy
+  `0 ≤ raw_vs_written_q01 ≤ CONV.counts.q_crossings` (rounding by `%.6g` only adds peptides; a
+  crossing peptide may also have a genuinely accepted row, and crossing rows may be decoys, so the
+  difference can be smaller than the crossings). With `q_crossings = 0` the difference must be 0.
+  A violation is a `warnings` entry, not an exit code.
 
 ### Metric 2: mapping shares; genome-inconsistent peptides in A1
 
@@ -127,7 +144,7 @@ inside the denominator. Per arm and per subset: genes, detected, share and CI.
 | Subset | Definition (per gene) |
 |---|---|
 | `all` | **G** |
-| `chromosome`, `plasmid` | `replicon_type`; `plasmid` also split per `contig` (pMUT1, pMUT2 by their contig names) |
+| `chromosome`, `plasmid`, `unknown` | `replicon_type` (the three rows partition **G**); `plasmid` also split per `contig` (pMUT1, pMUT2 by their contig names) |
 | `prophage` | some `region_ids` item starts with `prophage_` |
 | `bgc` | some `region_ids` item starts with `bgc_` |
 | `strain_specific` | the gene's protein has ≥ 1 in-silico tryptic peptide, and none of them occurs in the K-12 digest (below) |
@@ -140,8 +157,14 @@ cleavage, 7–30 aa; the TE proxies' settings), I and L collapsed to one letter 
 side: every protein of `K12_FASTA`. Nissle side: the Bakta protein of each gene of **G**
 (`coding_genes` of the parsed Bakta JSON, joined by locus tag). This is the set A1 cannot detect by
 an exact match **by construction**, which is what hypothesis 1 asks about; the report states the
-definition and that it is a proxy (question L3). The set and its size are a pure function of two
-public inputs; its size, not its members, goes into `metrics.json`.
+definition and that it is a proxy (question L3). The digest settings equal the DIA-NN search's
+(`--cut K*,R*`, 1 missed cleavage, 7–30 aa; M10-02), which they must. A1 can still "detect" a
+strain-specific gene through tolerant placements, so the report says that "strain-specific" does
+not mean "undetectable by A1". The set and its size are a pure function of two public inputs; its
+size, not its members, goes into `metrics.json`.
+
+The coverage CIs are nominal and descriptive. A1 and A2 are paired on the same genes, so the
+report never compares the arms by CI overlap; H1 is the paired comparison.
 
 ### Metric 4: quantitative agreement
 
@@ -179,10 +202,21 @@ estimates; §15.6 bullet 4 stays `pending` here).
 
 ### TE1 on real data (A2)
 
-**Definition** (index L5, lead decision 1, unchanged): the denominator **D₂** is metric 2's **D**
-for A2: distinct target peptides with `q_value ≤ 0.01` (`Global.Q.Value` as converted), decoys
-out, contaminant-only peptides out, within the mapping length range. N-terminal products of strict
-non-ATG genes stay **in** the denominator; they are counted (`non_atg_nterm`) and reported.
+**What TE1 shows.** A2's search database is `strain_db.faa`, one record per Bakta CDS/sORF
+protein (M3-23, M3-24), plus contaminants, which **D₂** removes. Every A2 target identification,
+true or false, is therefore a substring of an annotated protein. TE1 on real data checks that
+**database, genome and mapping agree** (what §11.6 means by it); it says **nothing about
+identification error**: a false identification passes TE1 as easily as a true one. The expected
+misses are structural: N-terminal products of non-ATG starts (Bakta writes M where the genome codon
+translates to V/L/I; without `--met-excision` DIA-NN searches the M-initial peptide) and Sec
+sites. Anything else is a mapping defect. The report template carries these two sentences.
+
+**Definition** (index L5, unchanged): the denominator **D₂** is metric 2's **D** for A2, i.e.
+`select_queries`'s set minus contaminant-only peptides: distinct target peptides with
+`q_value ≤ 0.01` (`Global.Q.Value` as converted), decoys out, within the mapping length range.
+`select_queries` also keeps target rows with an NA q-value; such peptides (expected 0) stay in
+**D₂** and are counted in `target_q_na`. N-terminal products of strict non-ATG genes stay **in**
+the denominator; they are counted (`non_atg_nterm`) and reported.
 
 **Computation**, reusing the proxy:
 
@@ -207,10 +241,21 @@ non-ATG genes stay **in** the denominator; they are counted (`non_atg_nterm`) an
 
 **Judgement:** `share_exact_inframe = exact_inframe / |D₂|`; **pass iff share ≥ 0.995** (§11.6,
 point estimate, as written; R3: not tuned). The Wilson 95 % CI is reported beside it, and the
-report states when the CI's lower end is below 0.995 although the point estimate passes. Also
-reported: `q_crossings` of A2 (M10-03) and the share recomputed with those peptides removed, so
-a pass that depends on `%.6g` rounding at the cut-off is visible (question L4). `|D₂| = 0` gives
-share `null`, `passed: false`, `reason: empty_denominator`.
+report calls it "nominal" (misses cluster by gene, so its coverage is optimistic) and states when
+its lower end is below 0.995 although the point estimate passes. The CI is never a test.
+`|D₂| = 0` gives share `null`, `passed: false`, `reason: empty_denominator`.
+
+Two pre-registered **secondary** numbers, never the verdict:
+
+- `share_excluding_non_atg` with its Wilson CI: the share with the `non_atg_nterm` peptides
+  removed from numerator and denominator, so a fail caused by L5's denominator is visible as such.
+- `share_without_q_at_cutoff` (L4, as the statistician's S3 restates it): remove from **D₂** every
+  peptide whose accepted target rows **all** have a written `q_value` of exactly `0.01`. Every row
+  rounded across the cut-off by `%.6g` is written as `0.01`, so this conservative superset holds
+  every peptide that depends on a crossing (the raw q-values are not an input here). Reported with
+  the number of peptides removed and A2's `q_crossings`. With `q_crossings = 0` the field is
+  `null`, `reason: no_crossings`. The verdict stays on GIAP's share; the report flags a pass that
+  becomes a fail under the superset.
 
 TE1 is also computed for A1 as a **diagnostic only** (`te1_a1_diagnostic`, no pass flag): A1's
 `sources` are UniProt accessions, not locus tags, so the "own gene" test does not apply; the
@@ -218,17 +263,62 @@ diagnostic reports the share of A1's **D** with an exact in-frame CDS/sORF row a
 
 ### Hypotheses 1 and 3 (reported, not gated)
 
-**H1** "A2 detects more strain CDS than A1, mostly plasmid, prophage and BGC genes". From the
-`compare_detection.tsv` matrix on **G**: b = genes detected in A2 only, c = in A1 only. Test:
-exact one-sided binomial, p = P(X ≥ b | X ~ Bin(b + c, ½)) (`scipy.stats.binomtest`,
-`alternative="greater"`); b + c = 0 gives p `null`. "Mostly": the share of the b genes in
-plasmid ∪ prophage ∪ BGC, with its Wilson CI, and the same share among all of **G** for context;
-also the share of the b genes that are strain-specific. **Verdict** `supported` iff b > c,
-p ≤ 0.05 and the share > 0.5; `not_supported` otherwise; `not_evaluable` when b + c = 0. The
-thresholds are fixed here, before M10-04's runs report numbers (question K2).
+**Test family for this issue: {H1}, size 1, no BH.** H1's TU-level p is the only p-value that
+decides anything. Its other clauses and H3's criteria are conjunctive conditions without a p-value
+(intersection–union rules), so no correction applies. The gene-level p is reported, decides
+nothing and is in no family. Metrics 1–3, 7 and TE1 carry no p-values; metrics 4 and 5 are M9-22's.
 
-**H3** "context conclusions agree between A1 and A2 on shared genes": the metric 5 Jaccards and the
-metric 4 ρ with CI, **without a verdict** (the spec fixes no agreement threshold; question K2).
+**H1** "A2 detects more strain CDS than A1, mostly plasmid, prophage and BGC genes".
+
+- *Detection.* Per gene of **G**, each arm's `detection_status` from its own `genes.tsv`; only
+  `detected` counts (as in metric 3), whatever encoding `compare_detection.tsv` uses. The compare
+  matrix is a cross-check (difference → `warnings`).
+- *Genes.* b = genes detected in A2 only, c = in A1 only.
+- *Effect sizes (headline).* `prop_a2_only = b / (b + c)` with `wilson_ci(b, b + c)`, and the paired
+  coverage difference `coverage_diff = (b − c) / |G|` (A2's coverage minus A1's). The CI describes
+  the effect and is not the test: a two-sided 95 % interval and a one-sided 0.05 test can disagree
+  near the boundary.
+- *Test unit: the TU* (§8.2 "resample TUs, not genes"). Genes of one transcription unit are
+  co-detected, so a divergent operon would enter as several discordant genes pointing one way. A
+  unit is a `tu_id` of A2's `genes.tsv`; a gene of **G** with an empty `tu_id` is a unit by itself.
+  `b_tu` = units with ≥ 1 A2-only gene and no A1-only gene; `c_tu` the reverse; `mixed_tu` = units
+  with both, reported and left out of the test (ties in a sign test).
+- *Test.* `p_tu = P(X ≥ b_tu | X ~ Bin(b_tu + c_tu, ½))` (`scipy.stats.binomtest`,
+  `alternative="greater"`), the exact paired-sign (McNemar) null, conditional on the discordant
+  units; its effect is `b_tu / (b_tu + c_tu)` with its Wilson CI. `p_gene` (the same test on b, c)
+  stays in `metrics.json`, labelled "assumes independent genes".
+- *Caveats* (one sentence in the report): the arms are two database searches of **the same
+  spectra**, so discordance is largely fixed by sequence divergence rather than sampled, and
+  dependence at the scale of a region (one prophage spans many TUs) remains; p is not a
+  replication probability.
+- *"Mostly".* The gene-level share of the b genes in plasmid ∪ prophage ∪ BGC, with its Wilson CI,
+  and the same share among all of **G** (base rate) for context; also the share of the b genes
+  that are strain-specific. No test (composition of one genome's difference set).
+- *Verdict.* `supported` iff b > c (`direction`), `p_tu ≤ 0.05` (`test`) and the "mostly" share
+  > 0.5 (`mostly`); else `not_supported` with `failed_clauses` ⊆ {`direction`, `test`, `mostly`};
+  `not_evaluable` when `b_tu + c_tu = 0`. The report says "not supported by the pre-registered
+  rule", never "refuted". Thresholds are fixed here, before M10-04's runs report numbers.
+
+The statistician's attack `tests/calibration/attacks/test_attack_h1_tu_clustering.py` checks that
+`p_tu` holds its level under TU-clustered discordance (see "Test plan").
+
+**H3** "context conclusions (islands, region tests, operon concordance) agree between A1 and A2
+on shared genes". Pre-registered rule (lead decision 5; Khoa may downgrade it to descriptive,
+Q-K2):
+
+- *ρ criterion:* evaluable when the A1/A2 `compare_abundance.tsv` row has a ρ and no
+  `too_few_shared` flag; holds when `ci_low ≥ 0.7` (the TU-block bootstrap lower end).
+- *Jaccard criterion*, per family in {`islands`, `operon_flags`, `enriched_categories`}: evaluable
+  when the union `n_a + n_b − n_shared ≥ 5` (`both_empty` and `missing_in` rows are not
+  evaluable); holds when `jaccard ≥ 0.5`.
+- *Verdict:* `supported` when the ρ criterion is evaluable and holds, at least one family is
+  evaluable, and every evaluable family holds; `not_supported` when any evaluable criterion fails;
+  `not_evaluable` otherwise. Each criterion's status is reported.
+- *What it does not cover* (R4; also under "Deviations from the spec"): `compare_stability.tsv`
+  has no region-test family, so region tests are "not compared in pass 1"; and M9-22's Jaccards are
+  over the whole flagged sets, not restricted to genes detected in both arms. Islands of
+  strain-specific genes lower the island Jaccard mechanically, so the number is a conservative
+  stand-in for "on shared genes" (biased against H3).
 
 ## Outputs
 
@@ -283,12 +373,17 @@ Sections:
 2. **Data and arms**: PXD078459 runs (from M10-01's committed manifest), DIA-NN 2.3.1 Academia
    (ADR-0051), the databases, job IDs of M10-02/03/04 (from `SACCT` and PROGRESS).
 3. **Metric 1–5, 7** tables, one per metric, A1 and A2 side by side.
-4. **TE1** with its miss breakdown and the `q_crossings` sensitivity line.
-5. **Hypotheses**: H1 verdict and numbers; H3 numbers; H2 and H4 `deferred` with the reason.
+4. **TE1** with its miss breakdown, the two "what TE1 shows" sentences, the nominal CI, and the
+   secondary `share_excluding_non_atg` and `share_without_q_at_cutoff` lines.
+5. **Hypotheses**: H1 verdict, `failed_clauses`, effect sizes with CIs, `p_tu` (and `p_gene`
+   labelled), the caveat sentence; H3 verdict and per-criterion statuses; H2 and H4 `deferred` with
+   the reason.
 6. **Pending in pass 2**: metric 6 (M10-10), metric 8 (M10-07), TE2–TE5 and TE7 (M10-06), A3
    (M10-08–11), benchmark (M10-12), report-freeze re-runs (M10-14).
 7. **Deviations from the spec**: DIA-NN version (ADR-0051), inputs not committed (Khoa's rule),
-   protein groups at precursor FDR (metric 1), strain-specific by peptide identity (metric 3).
+   protein groups with ≥ 1 accepted precursor and no protein-level FDR control (metric 1),
+   strain-specific by peptide identity (metric 3), region tests not compared in pass 1 and
+   Jaccards not restricted to genes detected in both arms (H3).
 8. **Notes** (optional, from `notes.md`).
 
 ### §15.6 checklist in pass 1
@@ -308,7 +403,8 @@ Pure functions (DataFrames and dicts in, dicts out; no file access): `identifica
 `coverage(genes, strain_specific)`, `strain_specific_set(nissle_proteins, k12_proteins)`,
 `abundance_agreement(compare_abundance, labels)`, `stability(compare_stability, labels)`,
 `runtime(manifest, trace_rows, sacct_rows)`, `te1_real(P, peptide_hits, unmapped, genes,
-circular, non_atg, cfg)` (genes and circular from `read_coding_genes`), `hypothesis1(compare_detection, coverage_subsets)`,
+circular, non_atg, cfg)` (genes and circular from `read_coding_genes`), `hypothesis1(genes_a1, genes_a2, compare_detection, subsets)` (`tu_id` and `detection_status`
+from each arm's `genes.tsv`), `hypothesis3(m4, m5)`,
 `checklist(metrics, run_states)`, `render(template, metrics, notes) -> str`. A thin CLI does the
 reading and writing:
 
@@ -322,7 +418,8 @@ python validation/pilot/metrics.py render --metrics METRICS_DIR/metrics.json \
     [--notes METRICS_DIR/notes.md] --out METRICS_DIR/REPORT.md
 ```
 
-Exit codes: 0 written; 1 an internal inconsistency (metric 1 vs `convert.json`, a render
+Exit codes: 0 written (cross-check inequalities that fail, such as `raw_vs_written_q01`, are
+`warnings`); 1 an internal inconsistency (metric 1 vs `convert.json` distinct peptides, a render
 placeholder missing, a rejected notes file); 2 a precondition (missing file, run exit ≠ 0, genome
 or peptide-table hash mismatch, `--out` inside the checkout). Run with the shared venv Python and
 `PYTHONPATH=$REPO/src:$REPO` (for `validation.proxies.te_proxies`); no `uv run`. It reads only
@@ -334,8 +431,9 @@ a login node; if it exceeds 10 min it moves to a `dev` job (question L5).
 
 The PR carries the `stats` label. The statistician reviews, before the test step (methods first,
 §14.1), the sections "Metric definitions" (CIs, the strain-specific proxy, the metric 2 and TE1
-universes) and "Hypotheses 1 and 3" (the one-sided exact binomial test, the "mostly" rule, the
-decision to give H3 no verdict); and in the PR: that `wilson_ci` and `binomtest` are called as
+universes) and "Hypotheses 1 and 3" (the TU-level exact binomial test, the "mostly" rule, the
+H3 rule); its pre-test review (S1–S7, below) is applied in this text. In the PR it writes the
+attack `tests/calibration/attacks/test_attack_h1_tu_clustering.py` and checks that `wilson_ci` and `binomtest` are called as
 specified, that no threshold depends on the data (R3), and that the report wording does not read
 an unsupported hypothesis as refuted or a CI as a test. ρ, its bootstrap CI and the Jaccards are
 M9-22's (already reviewed) and are copied, not re-reviewed. No methods note is added: this section
@@ -347,16 +445,20 @@ Hand-made values (not from the real reports).
 
 | # | Input | Expected |
 |---|---|---|
-| 1 | **Metric 1.** A2 table: WT_1 `PEPTIDEK`/`PEPTIDEK`/z2/q 0.001/target/`JMJJOG_00010`; WT_1 `PEPTIDEK`/z3/q 0.004/target/`JMJJOG_00010`; WT_2 `PEPTIDEK`/z2/q 0.002/target/`JMJJOG_00010`; WT_2 `AAAAGGGK`/z2/q 0.02/target/`JMJJOG_00020`; WT_2 `KEDITPEP`/z2/q 0.005/**decoy**; WT_2 `LLLGGGR`/z2/q **0.01**/target/`Cont_P00761` | union: precursors all 3 (contaminant-only 1, non-contaminant 2); peptides all 2 (1, 1); protein groups all 2 (1, 1). Per run: WT_1 precursors 2, peptides 1; WT_2 precursors 2 (`PEPTIDEK`/2, `LLLGGGR`/2), peptides 2. `AAAAGGGK` (q > 0.01) and the decoy are not counted; q = 0.01 is |
-| 2 | **Metric 1 groups.** two accepted rows with `protein_ids` `JMJJOG_00031;JMJJOG_00030` and `JMJJOG_00030;JMJJOG_00031` | `protein_groups.all` = 1 |
-| 3 | **Metric 2.** A1 **D** of 10 peptides: 7 with an exact row, 2 with tolerant rows only, 1 in `unmapped.tsv` as `no_hit`; one more peptide with `protein_ids = Cont_P02769` | \|U\| 11, \|C\| 1, \|D\| 10; exact 0.7 [0.397, 0.892], tolerant 0.2, unmapped 0.1 (no_hit 1). `detection_summary` row `genome_inconsistent_rate` value 0.3, n 10 → count 3 = tolerant + unmapped, `consistent: true` |
-| 4 | **Metric 3.** **G** = 100 genes (90 chromosome, 10 plasmid); A2 detects 60 (8 plasmid), A1 50 (2 plasmid) | A2 all 0.60 [0.502, 0.691]; A1 all 0.50 [0.404, 0.596]; plasmid A2 0.8 [0.490, 0.943], A1 0.2 [0.057, 0.510] |
-| 5 | **Strain-specific.** Nissle gene X digests to {`AAAGGGLK`, `PEPTLDEK`}; K-12 digest contains `PEPTIDEK`; gene Y digests to {`QQQWWWR`} absent from K-12; gene Z is 5 aa long (no peptide of 7–30 aa) | X `k12_shared` (I/L collapsed, `PEPTLDEK` ≡ `PEPTIDEK`); Y `strain_specific`; Z `no_peptides` |
-| 6 | **H1.** b = 12 A2-only, c = 2 A1-only; 7 of the 12 in plasmid ∪ prophage ∪ BGC | p = 106/16384 = 0.00647; share 0.583 [0.320, 0.807]; verdict `supported` |
-| 7 | **Metrics 4, 5.** `compare_abundance` A1,A2: n_shared 45, ρ 0.83 [0.76, 0.88]; `compare_stability`: islands jaccard 0.5; operon_flags NA `both_empty`; enriched_categories NA `missing_in:A1` | values copied unchanged with their flags; report: islands 0.5; operon flags "none in either arm"; enriched categories "function module off in A1" |
-| 8 | **Metric 7.** manifest `started_at` 10:00:00, `finished_at` 10:42:30; steps `mapping` completed 120 s, 2 GiB; `bakta` cached; `gene_table` completed 30 s, `peak_rss_bytes` absent | arm wall 2550 s; `sum_task_wall_s` 150; `max_step_peak_rss_bytes` 2147483648; `cached_steps` ["bakta"], `runtime_complete: false`; `gene_table` peak `null` |
-| 9 | **TE1 pass.** \|D₂\| = 1,000: 996 exact in frame at an own gene (3 of them masked by `rna_overlap`), 2 `non_atg_nterm` misses, 1 exact only as `cds_outframe`, 1 `no_hit`; `q_crossings` 0 | share 0.996 [0.990, 0.998], `passed: true`, note "CI lower end below 0.995"; misses `non_atg_nterm` 2, `exact_other_class` {cds_outframe: 1}, `unplaced` {no_hit: 1}; `exact_inframe_masked` 3 |
-| 10 | **TE1 fail and contaminants.** \|D₂\| = 1,000 with 994 exact in frame; a peptide `Cont_P00722;JMJJOG_00350` is in **D₂** with sources {`JMJJOG_00350`}; a `Cont_P00761`-only peptide is not | share 0.994 [0.987, 0.997], `passed: false`; checklist TE1 `fail`; the fail is listed for the notes |
+| 1 | **Metric 1.** A2 table: WT_1 `PEPTIDEK`/`PEPTIDEK`/z2/q 0.001/target/`JMJJOG_00010`; WT_1 `PEPTIDEK`/z3/q 0.004/target/`JMJJOG_00010`; WT_2 `PEPTIDEK`/z2/q 0.002/target/`JMJJOG_00010`; WT_2 `AAAAGGGK`/z2/q 0.02/target/`JMJJOG_00020`; WT_2 `KEDITPEP`/z2/q 0.005/**decoy**; WT_2 `LLLGGGR`/z2/q **0.01**/target/`Cont_P00761` | union: precursors all 3 (contaminant-only 1, non-contaminant 2); peptides all 2 (1, 1); protein groups all 2 (1, 1); `protein_groups_min2` 0 (each group has one accepted peptide). Per run (accepted at global q among the rows reported for the run): WT_1 precursors 2, peptides 1; WT_2 precursors 2 (`PEPTIDEK`/2, `LLLGGGR`/2), peptides 2. `AAAAGGGK` (q > 0.01) and the decoy are not counted; q = 0.01 is |
+| 2 | **Metric 1 groups and multi-row contaminant rule.** Two accepted rows with `protein_ids` `JMJJOG_00031;JMJJOG_00030` (peptide `AAAWWWK`) and `JMJJOG_00030;JMJJOG_00031` (peptide `CCCWWWK`); peptide `SAMPLEPEPK` accepted in WT_1 with `Cont_P00722` and in WT_2 with `JMJJOG_00350` | `protein_groups.all` 1 for the first pair, `protein_groups_min2` counts it (2 distinct peptides). `SAMPLEPEPK` (peptide and precursor) is **not** contaminant-only: one of its accepted rows has a strain item. The group `Cont_P00722` is classed by its own items, so it is a contaminant-only group |
+| 3 | **Metric 1 cross-check (S4).** `peptides.all` 1,205, `CONV.distinct_peptides_target_q01` 1,205, `SUM.distinct_stripped_q01` 1,203; (a) `q_crossings` 4; (b) `q_crossings` 1; (c) `CONV` says 1,204 | (a) `raw_vs_written_q01` 2, within [0, 4], no warning; (b) 2 > 1: `warnings` entry `raw_vs_written_q01_out_of_range`, exit 0; (c) exit 1 |
+| 4 | **Metric 2.** A1 **D** of 10 peptides: 7 with an exact row, 2 with tolerant rows only, 1 in `unmapped.tsv` as `no_hit`; one more peptide with `protein_ids = Cont_P02769` | \|U\| 11, \|C\| 1, \|D\| 10; exact 0.7 [0.397, 0.892], tolerant 0.2, unmapped 0.1 (no_hit 1). `detection_summary` row `genome_inconsistent_rate` value 0.3, n 10 → count 3 = tolerant + unmapped, `consistent: true` |
+| 5 | **Metric 3.** **G** = 100 genes (88 chromosome, 10 plasmid, 2 `unknown`); A2 detects 60 (8 plasmid), A1 50 (2 plasmid) | A2 all 0.60 [0.502, 0.691]; A1 all 0.50 [0.404, 0.596]; plasmid A2 0.8 [0.490, 0.943], A1 0.2 [0.057, 0.510]; the chromosome, plasmid and unknown rows sum to 100 |
+| 6 | **Strain-specific.** Nissle gene X digests to {`AAAGGGLK`, `PEPTLDEK`}; K-12 digest contains `PEPTIDEK`; gene Y digests to {`QQQWWWR`} absent from K-12; gene Z is 5 aa long (no peptide of 7–30 aa) | X `k12_shared` (I/L collapsed, `PEPTLDEK` ≡ `PEPTIDEK`); Y `strain_specific`; Z `no_peptides` |
+| 7 | **H1, genes = TUs.** \|G\| = 100; b = 12 A2-only genes, each with an empty `tu_id`; c = 2 A1-only genes in 2 TUs; 7 of the 12 in plasmid ∪ prophage ∪ BGC | `prop_a2_only` 0.857 [0.601, 0.960]; `coverage_diff` 10/100 = 0.10; `b_tu` 12, `c_tu` 2, `mixed_tu` 0; `p_tu` = `p_gene` = 106/16384 = 0.00647; "mostly" 0.583 [0.320, 0.807]; verdict `supported`, `failed_clauses` [] |
+| 8 | **H1, TU clustering (S2).** 6 A2-only genes in 2 TUs (4 + 2 genes), 2 A1-only genes in 2 TUs; all 6 A2-only genes on a plasmid | `prop_a2_only` 0.75 [0.409, 0.929]; `b_tu` 2, `c_tu` 2; `p_tu` = P(X ≥ 2 \| Bin(4, ½)) = 11/16 = 0.6875; unit effect 0.5 [0.150, 0.850]; `p_gene` = 37/256 = 0.145 ("assumes independent genes"); "mostly" 1.0; verdict `not_supported`, `failed_clauses` [`test`] |
+| 9 | **H3.** `compare_abundance` A1,A2 ρ 0.83 [0.76, 0.88], no flag; islands n_a 10, n_b 8, n_shared 6; operon_flags n_a 3, n_b 1, n_shared 1; enriched_categories NA `missing_in:A1` | ρ evaluable, holds (0.76 ≥ 0.7); islands union 12, J 0.5, holds; operon_flags union 3 < 5, not evaluable; enriched_categories not evaluable; verdict `supported`. With islands n_shared 5 instead: union 13, J 0.385, fails → `not_supported` |
+| 10 | **Metrics 4, 5.** `compare_abundance` A1,A2: n_shared 45, ρ 0.83 [0.76, 0.88]; `compare_stability`: islands jaccard 0.5; operon_flags NA `both_empty`; enriched_categories NA `missing_in:A1` | values copied unchanged with their flags; report: islands 0.5; operon flags "none in either arm"; enriched categories "function module off in A1" |
+| 11 | **Metric 7.** manifest `started_at` 10:00:00, `finished_at` 10:42:30; steps `mapping` completed 120 s, 2 GiB; `bakta` cached; `gene_table` completed 30 s, `peak_rss_bytes` absent | arm wall 2550 s; `sum_task_wall_s` 150; `max_step_peak_rss_bytes` 2147483648; `cached_steps` ["bakta"], `runtime_complete: false`; `gene_table` peak `null` |
+| 12 | **TE1 pass.** \|D₂\| = 1,000: 996 exact in frame at an own gene (3 of them masked by `rna_overlap`), 2 `non_atg_nterm` misses, 1 exact only as `cds_outframe`, 1 `no_hit`; `q_crossings` 0 | share 0.996 [0.990, 0.998] (nominal), `passed: true`, note "CI lower end below 0.995"; misses `non_atg_nterm` 2, `exact_other_class` {cds_outframe: 1}, `unplaced` {no_hit: 1}; `exact_inframe_masked` 3; `share_excluding_non_atg` 996/998 = 0.998 [0.993, 0.999]; `share_without_q_at_cutoff` `null`, `reason: no_crossings` |
+| 13 | **TE1 at the cut-off (S3).** \|D₂\| = 1,000 with 995 exact in frame; `q_crossings` 3; 5 peptides, all exact in frame, have every accepted row at written q = `0.01` | share 0.995 [0.988, 0.998], `passed: true`; `share_without_q_at_cutoff` 990/995 = 0.99497, 5 removed; flagged "pass becomes fail under the superset" |
+| 14 | **TE1 fail and contaminants.** \|D₂\| = 1,000 with 994 exact in frame; a peptide `Cont_P00722;JMJJOG_00350` is in **D₂** with sources {`JMJJOG_00350`}; a `Cont_P00761`-only peptide is not | share 0.994 [0.987, 0.997], `passed: false`; checklist TE1 `fail`; the fail is listed for the notes |
 
 ## Edge cases
 
@@ -368,20 +470,27 @@ Hand-made values (not from the real reports).
 - **Circular and linear contigs.** The Nissle chromosome and plasmids are circular-tagged. A hit or
   gene across the origin: `te1_result` → `inframe_inside` already tries shifts ±L (unit-tested in
   M3-22); `circular` comes from `read_coding_genes` (the genome's topology tags). A linear contig
-  gets `None` and no shift. Coverage and metric 2 read no coordinates. Test fixture: a gene with `crosses_origin =
-  true` whose masked exact hit is reported unwrapped.
+  gets `None` and no shift. Coverage and metric 2 read no coordinates. Test fixture: a gene with
+  `crosses_origin = true` whose masked exact hit is reported unwrapped.
 - **Minus strand.** The in-frame test for `-` genes uses the gene end (`(fe − b) % 3`), in the
   reused function. `peptide_hits.tsv` is 1-based closed; `te1_result` already converts
   (`int(s1) - 1`). `metrics.py` adds no coordinate conversion; a fixture with a minus-strand gene
   and a masked exact hit checks that the reused path is wired with the right inputs.
 - **Ties and ordering.** Distinct-counts have no ties. Miss causes use a fixed first-match order.
-  The unmapped-reason split uses a fixed order. H1's test is exact (no rank ties). ρ ties are
-  compare's (average ranks). `te1_exceptions.tsv` is sorted by (`kind`, `locus_tag`, `peptide`).
+  The unmapped-reason split uses a fixed order. H1's test is exact (no rank ties); a TU with both
+  A2-only and A1-only genes is a tie (`mixed_tu`), reported and left out of the TU test but kept in
+  b, c and `p_gene`. ρ ties are compare's (average ranks). `te1_exceptions.tsv` is sorted by (`kind`, `locus_tag`, `peptide`).
 - **q at the cut-off.** `q = 0.01` is accepted. Values above 0.01 rounded to `0.01` by the
-  converter (`q_crossings`) are accepted because GIAP accepts them; TE1 reports the share without
-  them as well.
-- **Target rows with NA q-value.** Not expected (M10-03 F3). `select_queries` would keep them; the
-  metrics count them in a warning `target_q_na` and, for metric 1, do not count them as accepted.
+  converter (`q_crossings`) are accepted because GIAP accepts them. The crossing rows cannot be
+  identified (no raw q-value here), so TE1's `share_without_q_at_cutoff` drops the superset of
+  peptides whose accepted rows are all at exactly `0.01` (example 13); metric 1's raw-vs-written
+  check is an inequality (example 3).
+- **Target rows with NA q-value.** Not expected (M10-03 F3). `select_queries` keeps them, so they
+  stay in **U**, **D** and **D₂** and are counted in `target_q_na` (a warning); metric 1 does not
+  count them as accepted.
+- **H1 with no discordant unit.** `b_tu + c_tu = 0` (including all discordant genes in mixed TUs):
+  `p_tu` `null`, verdict `not_evaluable`.
+- **H3 with every family not evaluable.** Verdict `not_evaluable` even when ρ holds.
 - **Peptide in several runs or charges.** One peptide in metric 2 and TE1; several precursors in
   metric 1.
 - **I/L.** DIA-NN's `Stripped.Sequence` is literal; mapping is I/L-tolerant by its own rules. Only
@@ -401,14 +510,22 @@ Hand-made values (not from the real reports).
 
 On CI (no real data; every input is built in `tmp_path`):
 
-1. Each pure function reproduces its example above exactly (examples 1–10), with CIs equal to
-   `wilson_ci` to 1e-12 and the H1 p-value to 1e-12.
+1. Each pure function reproduces its example above exactly (examples 1–14), with CIs equal to
+   `wilson_ci` to 1e-12 and the H1 p-values (`p_tu`, `p_gene`) equal to `binomtest` to 1e-12.
+   Example 8 gives `p_tu` 0.6875 and `not_supported` although `p_gene` is 0.145 and b > c.
+2a. H1 reads `detection_status` from each arm's `genes.tsv` and counts only `detected` (a gene
+   `single_peptide_unestimated` in A2 is not A2-only); a mixed TU is in `mixed_tu`, not in
+   `b_tu`/`c_tu`; `failed_clauses` names exactly the failing clauses for each of the three single
+   failures. H3 reports each criterion as `holds`/`fails`/`not_evaluable` and reaches the three
+   verdicts on fixtures built for each (example 9 and its variant, and all families not
+   evaluable).
 2. Metric 2's universe equals `select_queries` on the same table and cfg (a fixture with a decoy,
    a q = 0.02 row, a 41-aa peptide and a q-NA target shows each filtered or kept as
    `select_queries` does), and its three shares sum to 1.
 3. TE1 calls `validation.proxies.te_proxies.te1_result` (asserted with a spy), passes
    `excluded={}`, and ignores the proxy's `passed`: a fixture with share 0.997 passes (proxy would
-   fail at 0.999); 0.994 fails.
+   fail at 0.999); 0.994 fails. `share_excluding_non_atg` and `share_without_q_at_cutoff` never
+   change `passed` (example 13); an NA-q target is in **D₂** and in `target_q_na`.
 4. Coordinates: the minus-strand and origin-crossing fixtures (edge cases) give the masked
    exact hit as in frame; the same hit shifted by one base is a miss (`exact_other_class`).
 5. `compute` on a hand-made pair of run directories plus a compare directory (minimal
@@ -417,8 +534,9 @@ On CI (no real data; every input is built in `tmp_path`):
    schemas) writes `metrics.json`, `te1.json`, `te1_exceptions.tsv`; a second call gives
    byte-identical files.
 6. Preconditions: run exit ≠ 0, genome hashes differ, peptide-table hash ≠ manifest, a missing
-   input, `--out` under the repository → exit 2 and nothing written. Metric 1 disagreeing with
-   `convert.json` → exit 1.
+   input, `--out` under the repository → exit 2 and nothing written. Metric 1's distinct peptides
+   disagreeing with `convert.json` → exit 1; `raw_vs_written_q01` outside [0, `q_crossings`] →
+   a `warnings` entry and exit 0 (example 3).
 7. `render`: every placeholder of the committed template resolves on the fixture's
    `metrics.json`; a removed key gives exit 1 naming the path; every number in the rendered file
    is followed by its source; `notes.md` with a 7-letter amino-acid string or an unknown 4-digit
@@ -459,6 +577,15 @@ Owner: the test-author, tests first (R2), new files only:
 - `tests/unit/test_m10_05_guard.py`: criterion 9.
 - `tests/integration/test_m10_05_sim_pilot.py`: criterion 10 (`slow`).
 
+The **statistician** owns one attack (§8.5), written at PR review once `hypothesis1` exists and
+**due before the implementation PR merges**:
+`tests/calibration/attacks/test_attack_h1_tu_clustering.py`. Null: about 4,000 genes in TUs of
+geometric size (mean 2.5), 300 discordant TUs, each TU's direction a fair coin shared by all its
+discordant genes. R = 1,000 replicates (pure NumPy/SciPy, < 10 s), seeds from
+`tests/calibration/tolerances.yaml`. Pass: `p_tu`'s rejection rate at α ∈ {0.01, 0.05, 0.10}
+within α + 2√(α(1 − α)/R) (§8.4). It also records `p_gene`'s rejection rate (expected above
+level) as documentation, not a gate.
+
 Local runs are targeted only (venv Python, `PYTHONPATH=$PWD/src:$PWD/tests/sim:$PWD`); the
 integration test runs on Slurm.
 
@@ -471,10 +598,10 @@ integration test runs on Slurm.
 | metrics 4, 5 (readers of compare tables) | 25 |
 | metric 7 | 35 |
 | TE1 real (+ A1 diagnostic, miss causes) | 60 |
-| H1, checklist | 35 |
+| H1 (gene and TU level, effects, clauses), H3 rule, checklist | 60 |
 | render + notes checks | 40 |
 | CLI, preconditions, writers | 40 |
-| **Total** | **≈ 360** (index: 360) + template (prose) |
+| **Total** | **≈ 385** (index: 360; +25 for S1–S5 and the H3 rule) + template (prose) |
 
 Tests ≈ 450 lines. One PR.
 
@@ -487,7 +614,7 @@ Tests ≈ 450 lines. One PR.
 | L1 | M10-04 is not specced yet: run and compare directory paths? | `$GIAP_ROOT/pilot/runs/out_a1`, `out_a2`, `cmp_a1_a2`; M10-04 adopts them or this runbook follows M10-04 (arguments make it a one-line change) |
 | L2 | Metric 1 "protein groups at 1 % FDR": the converter drops `PG.Q.Value`. Add it to the converted table (a converter change in M10-03), read the raw report (deleted at M10-14), or report groups of accepted precursors? | groups of accepted precursors, labelled so in the report |
 | L3 | "Strain-specific genes": peptide identity against the K-12 digest (no shared in-silico tryptic peptide, I/L collapsed) as the proxy for "no K-12 counterpart"? | yes; the definition is printed in the report |
-| L4 | TE1 when `q_crossings > 0`: the verdict uses the share as GIAP saw it (crossings included); the share without them is shown. Should the verdict use the stricter share? | verdict on the share as GIAP saw it; both shown |
+| L4 | TE1 when `q_crossings > 0`: the verdict uses the share as GIAP saw it; `share_without_q_at_cutoff` (the superset rule of S3) is shown. Should the verdict use the stricter share? | verdict on the share as GIAP saw it; both shown (accepted, lead decision 2) |
 | L5 | `metrics.py compute` in the session allocation (1 CPU, < 2 min), or always a `dev` job? | session allocation; `dev` job if > 10 min |
 | L6 | Is this spec's statistics section enough as the methods note, or does the statistician want `docs/methods/pilot_metrics.md`? | the spec section; a note only if the statistician asks |
 | L7 | The index evidence table names `validation/pilot/metrics/te1.json` (committed). Under Q-K1's default it is `$GIAP_ROOT/pilot/metrics/te1.json`. Update the index row now? | yes, in the implementation PR |
@@ -497,14 +624,15 @@ Tests ≈ 450 lines. One PR.
 | # | Question | Default (reversible) |
 |---|---|---|
 | Q-K1 | (a) May `REPORT.md`, `metrics.json` and `te1.json` be committed when they hold aggregates only (counts, shares, CIs, ρ, Jaccard, p-values, runtimes), with no sequence, no ID list, no per-gene value and no hash of a DIA-NN-derived file? (b) May the final report name a few genes as examples (for example "the ribosomal proteins")? | (a) not committed until you answer; kept under `$GIAP_ROOT/pilot/metrics/`, review packet in `local/review/` (M10-15); content already restricted to aggregates. (b) no names |
-| Q-K2 | §15.7 calls the hypotheses "fixed before running", but gives no decision rule. This spec fixes H1 (`supported` iff b > c, one-sided exact binomial p ≤ 0.05, and > 50 % of A2-only genes in plasmid ∪ prophage ∪ BGC) and gives H3 no verdict. Do you want a threshold for H3 (for example every Jaccard ≥ 0.5 and ρ's CI lower end ≥ 0.7) fixed before the M10-04 numbers are seen? | H1 as stated; H3 descriptive only. A rule set after the numbers are seen would not be pre-specified, so it is reported as post hoc |
+| Q-K2 | §15.7 calls the hypotheses "fixed before running", but gives no decision rule. This spec fixes H1 (`supported` iff b > c, one-sided exact TU-level binomial `p_tu` ≤ 0.05, and > 50 % of A2-only genes in plasmid ∪ prophage ∪ BGC) and H3 (ρ `ci_low` ≥ 0.7; per family with union ≥ 5, Jaccard ≥ 0.5). Keep the H3 rule, or downgrade H3 to descriptive? | both rules as written (lead decision 5). A downgrade after the numbers are seen is reported as such; a new rule set then is post hoc |
 
 ## Lead decisions (2026-10-24)
 
 1. **L1:** the M10-04 spec (branch m10/spec-04, fc2758aa) puts the runs at `$GIAP_ROOT/runs/pilot/pass1/{out_a2,out_a1,cmp_a1_a2}`, with `.r<n>` suffixes for fresh re-runs and an `ATTEMPTS.tsv` index. Use those as the defaults. A run directory resolves through `ATTEMPTS.tsv` to its final attempt.
 2. **L2–L7: the defaults are accepted.**
-3. **Q-K1 and Q-K2 are parked for Khoa** with the defaults as written. Nothing under `$GIAP_ROOT/pilot/metrics/` is committed until Khoa answers. Hypothesis 3 stays descriptive.
+3. **Q-K1 and Q-K2 are parked for Khoa** with the defaults as written. Nothing under `$GIAP_ROOT/pilot/metrics/` is committed until Khoa answers. ~~Hypothesis 3 stays descriptive.~~ (superseded by decision 5)
 4. **Next:** the statistician reviews the metric definitions and the hypothesis section, then the test-author.
+5. **Q-K2 (2026-10-24): the statistician's H3 rule is the pre-registered default now**, as in their review: ρ holds when `ci_low ≥ 0.7`; a Jaccard family is evaluable when the union ≥ 5 and holds when J ≥ 0.5; the verdict is `supported`, `not_supported` or `not_evaluable`. Khoa may later downgrade it to descriptive. S1–S7 and the minor items of the pre-test review are applied in the body.
 
 ## Statistician review (pre-test)
 
