@@ -26,7 +26,7 @@ build of §15.2 step 3 (reference invocation:
 |---|---|
 | Version string | `DIA-NN 2.3.1 Academia`, compiled 2025-12-05 |
 | Image | `/farmshare/home/classes/bios/270/jordan/diann_2.3.1.sif` (532 MB, world-readable) |
-| sha256 of the image | `1946452d56d2fb0f66e05ced473df88e53484e28040f1ecbd83c4a43405a6381` (2026-10-20) |
+| sha256 of the image | `1946452d56d2fb0f66e05ced473df88e53484e28040f1ecbd83c4a43405a6381` (2026-10-20); the scripts read it from `validation/pilot/diann_image.sha256` |
 | Binary inside | `/diann-2.3.1/diann-linux` |
 | Module | `apptainer/1.4.4`; binds `/home/classes`, `/scratch`, `/farmshare` |
 | Override | `DIANN_SIF=/path/to/image.sif sbatch scripts/slurm/diann_pilot.sbatch A1` |
@@ -34,8 +34,9 @@ build of §15.2 step 3 (reference invocation:
 
 The image is **never copied into the repository** (532 MB, R11; decision 3): the repository keeps
 only the two cfg files, this README, `db_a2/` and the sbatch scripts.
-`scripts/slurm/diann_pilot.sbatch` reads `DIANN_SIF`, defaults to the path above and exits 2 with
-a clear message when the image is not there. The pin above is checked by `tests/unit/test_m3_24_pilot_kit.py`; if
+`scripts/slurm/diann_image.sbatch` verifies the image above against the pin and installs a
+read-only copy at `$GIAP_ROOT/images/diann_2.3.1.sif` (M10-02); `scripts/slurm/diann_pilot.sbatch`
+reads `DIANN_SIF`, defaults to that copy and exits 2 when it is missing, writable or off the pin. The pin above is checked by `tests/unit/test_m3_24_pilot_kit.py`; if
 the image is replaced, re-pin it there and here.
 
 ## Version actually used
