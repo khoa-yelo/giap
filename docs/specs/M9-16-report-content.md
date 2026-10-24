@@ -23,7 +23,7 @@ not statistical (cards print table estimates; nothing is computed beyond counts)
    | Card | Number | Error estimate |
    |---|---|---|
    | Genes detected | `detected = true` count, per `detection_tier`; `detected_2pep` count beside it | tier FDR at `stats.alpha.identification` (`detection_summary` tier rows); the `two_peptide` tier says "FDR unestimated" |
-   | Mapping | peptides placed / input; proteins placed / input | placement FDR per stratum at `stats.alpha.placement` (from `mapping_fdr`) |
+   | Mapping | peptides placed / input; proteins placed / input | placement q ≤ `stats.alpha.placement` per family (0 / ≥ 1 difference, per decoy type); `mapping_fdr` stratum rows shown only as descriptive values with their full key (decision 15) |
    | Islands | count with `p_value ≤ stats.alpha.context` | "FWER ≤ `<alpha>`" |
    | Flagged operons | `operon_flags` rows with `q_value ≤ stats.alpha.operon_flags` | "FDR ≤ `<alpha>`" |
    | ALT calls | `variants.tsv` rows by `confidence` | `class_error_rate` range, or `unestimated` |
@@ -102,3 +102,52 @@ not statistical (cards print table estimates; nothing is computed beyond counts)
 2. The KEGG retrieval date lives in `db_manifest.json`, which is not in `OUT/`. Without the run
    manifest, **Proposed default:** print "KEGG retrieval date: not recorded in this run (manifest
    step pending)", never guess.
+
+## Lead decisions (2026-10-22)
+
+1. The run manifest exists since MVP-03a (#196, `giap.manifest`): M9-16 reads it when present and
+   says so when absent; it never recomputes provenance itself.
+2. The KEGG retrieval date is printed from the manifest's database entries when recorded there;
+   otherwise "KEGG retrieval date: not recorded in this run", never guessed.
+3. Cards print table values only (no new statistics); every number on a card is traceable to a
+   named table and column, which the tests check.
+
+## Lead decisions on the tests (2026-10-22, after 1c0cea0)
+
+4. **#178 dependency.** The implementer merges origin/main once #178 (M8-10) lands (queued) and
+   reads `tables/determinants_model.tsv` through its `PATHS` key; it does not copy the schema. Until
+   then it builds the other sections first.
+5. **ALT calls card.** Only `call == "ALT"` rows count; `mixed` is not an ALT call. The estimate
+   range is over the numeric `class_error_rate` rows; when some rows are `unestimated` the card
+   appends "(N unestimated)", and when all are, the estimate is `unestimated`.
+6. **Two-peptide wording.** Both places read "(two-peptide rule; FDR unestimated)"; the card table
+   follows example 2.
+7. **Digests.** Provenance prints the manifest file's SHA-256 (the tested value) and, labelled
+   "provenance digest", the manifest's `provenance_digest` field when present.
+8. **KEGG date.** It is printed in provenance whenever the manifest records a `kegg*` database,
+   whether the function module ran or not, and in the function section as tested.
+9. **Ribosomal-gene table.** Not in M9-16; moved to the backlog (M9 pass 2).
+10. **Required snippets.** `islands` only, plus sync of every marked doc (as tested).
+
+## Lead decisions after the implementation (2026-10-22, 4c7592d)
+
+11. **Manifest in pipeline runs.** The manifest is written after the run, so the pipeline's report
+    step cannot read it. `giap run` (both executors) re-renders `report.html` once the manifest is
+    written; that is a follow-up issue (M9-16b, backlog), not this PR. Until then the absent-manifest
+    sentence stays as tested and `giap report OUT` gives full provenance.
+12. **checks.py add/add with M9-13 (#224).** Whichever merges second keeps both modules' functions
+    and both `__all__` lists.
+13. **Sensitivity tables** carry both `data-table="sensitivity"` and `data-sensitivity-family`;
+    accepted. proteins_placed and multi-tier gene estimates read "unestimated"; accepted.
+14. **Size.** 610 counted lines (warn > 400, fail > 800) accepted for this integration-pass PR; the
+    islands `report:` wording gets a light statistician read in review.
+
+## Lead decisions on the review (2026-10-22, PR #228)
+
+15. **B1 Mapping card.** The estimate reads "placement q ≤ α per family (0 / ≥ 1 difference, per
+    decoy type)"; the `mapping_fdr` placement rows follow as "descriptive stratum FDR (not
+    q-values)", each keyed by decoy type, differences and length class. Lead fix, tests in
+    tests/unit/report/test_cards_review_228.py.
+16. **B2 islands wording.** The `report:` block names the supported regime (ρ ≤ 0.5 at every size
+    measured, ρ = 0.9 at 4,500 genes), says there is no evidence beyond ρ 0.95 or the 20-TU block
+    cap, and how to read a high Moran's I with block_len ≤ 7; snippet regenerated.
