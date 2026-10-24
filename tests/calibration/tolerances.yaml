@@ -7,7 +7,7 @@ detection_limit_citl_max_abs: 0.2          # ADR-0030
 determinants_delta_r2_max_abs_bias: 0.05    # ADR-0031
 mapping_recall_min: 0.999
 f1_min: {variants_high: 0.90, novel_orfs: 0.90}
-golden_r: {wallenius_rel_tol: 1.0e-6, fgsea_es_abs_tol: 1.0e-9, fgsea_nes_abs_tol: 0.02, fgsea_log10p_k: 3.0}
+golden_r: {wallenius_rel_tol: 1.0e-6, wallenius_goseq_abs_tol: 1.0e-5, fgsea_es_abs_tol: 1.0e-9, fgsea_nes_abs_tol: 0.02, fgsea_log10p_k: 3.0}
 seeds: {GOLDEN_SEED: 50000, calibration_base: 20261014}
 replicates_fast: {placement: 50, gene_fdr: 50, detectability: 20, regions: 100, autocorrelation: 100,
                   islands: 50, discordance: 100, missed_operons: 50, ora: 100, gsea: 50,
