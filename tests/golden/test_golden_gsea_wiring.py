@@ -371,6 +371,31 @@ def test_a5_gsea_vacuity_floor(world, call) -> None:
     assert len(deep & insensitive) >= 1
 
 
+G1_CHECKS = (test_g1_one_main_job_with_the_size_range, test_g1_params,
+             test_g1_write_call_round_trips_the_scores)  # fmt: skip
+G1_WORLD_CHECKS = (test_g1_sets_are_the_golden_sets_on_ranked_tus, test_g1_seed_is_the_second_draw,
+                   test_g1_tie_blocks_follow_the_seeded_permutation,
+                   test_g1_scores_equal_the_golden_scores,
+                   test_g1_sorted_scores_equal_the_golden_sorted_scores)  # fmt: skip
+
+
+def _passes(check, *args) -> bool:
+    try:
+        check(*args)
+    except AssertionError:
+        return False
+    return True
+
+
+def test_gsea_wiring_report_records_g1_and_g2(world, call, replayed) -> None:
+    """§5 lists "G1/G2 pass" (R3): every G1 check on the captured call and every G2 table rule
+    on the replayed table, recorded under ``gsea_wiring``."""
+    g1 = [_passes(c, call) for c in G1_CHECKS] + [_passes(c, world, call) for c in G1_WORLD_CHECKS]
+    g2 = [_passes(rule, replayed) for rule in G2_RULES]
+    update_report("gsea_wiring", {"g1_pass": all(g1), "g2_pass": all(g2)}, merge=True)
+    assert all(g1) and all(g2), (g1, g2)
+
+
 # ---------------------------------------------------------------- G3 on real R (Slurm)
 
 PREFIX = real_prefix()
@@ -473,69 +498,176 @@ def test_example9_uncentred_scores_fail_g3a_on_every_es(
     assert es_bad == set(range(N_TESTED))
 
 
+def _deep() -> set[str]:
+    """Golden sets with p_R < 1e-10 (A5's deep tail)."""
+    return {t for t, g in golden_fgsea().items() if num(g["pval"]) < 1e-10}
+
+
+def _g3b_floor_failures(insensitive: set[str], edge_insensitive: set[str]) -> list[str]:
+    """G3b's own vacuity floor (R1, PR #297 review). Under a fault that moves every ES (example
+    9) every set is tie-sensitive, so the rules against golden would check nothing; the weekly
+    ``gsea`` task runs only G3, so G3b holds A5's floor itself. Half the sets is robust to the
+    seed: the tie blocks cover 106 of 2,000 TUs."""
+    half = math.ceil(N_TESTED / 2)
+    bad = []
+    if len(insensitive) < half:
+        bad.append(f"floor: {len(insensitive)} tie-insensitive sets < {half}")
+    if len(edge_insensitive) < half:
+        bad.append(f"floor: {len(edge_insensitive)} edge-tie-insensitive sets < {half}")
+    if not _deep() & insensitive:
+        bad.append("floor: no tie-insensitive set with golden p < 1e-10")
+    return bad
+
+
+def test_example9_uncentred_scores_fail_the_g3b_floor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Example 9 against G3b (CI, no R: the classification uses only the oracle on the captured
+    call). With the median skipped every ES moves, so no set is tie-insensitive and the floor
+    fails; without the floor G3b passed under this fault (PR #297 review)."""
+    _skip_median(monkeypatch)
+    world = golden_world(shift=F1_MEDIAN)
+    eng = CapturingEngine()
+    run_gsea(world, eng, golden_seed())
+    (call,) = eng.calls
+    oracles = _oracles(world, call)
+    insensitive = _tie_insensitive(oracles)
+    bad = _g3b_floor_failures(insensitive, _edge_tie_insensitive(oracles))
+    assert insensitive == set()
+    assert f"floor: 0 tie-insensitive sets < {math.ceil(N_TESTED / 2)}" in bad
+    assert "floor: no tie-insensitive set with golden p < 1e-10" in bad
+
+
+def test_g3b_floor_holds_on_the_golden_call(world, call) -> None:
+    """Control: on GIAP's real call (its own seed and tie order) the floor holds."""
+    oracles = _oracles(world, call)
+    assert _g3b_floor_failures(_tie_insensitive(oracles), _edge_tie_insensitive(oracles)) == []
+
+
+def _nes_p_summary(terms: list[str], d_nes: dict[str, float], ratios: dict[str, float],
+                   nes_tol: float) -> dict[str, object]:  # fmt: skip
+    """|ΔNES| and the p rule over one family of sets (R2: reported per tie class)."""
+    dn = [d_nes[t] for t in terms if not math.isnan(d_nes[t])]
+    rs = [ratios[t] for t in terms if not math.isnan(ratios[t])]
+    return {
+        "n_sets": len(terms),
+        "max_abs_delta_nes": float(max(dn, default=0.0)),
+        "p95_abs_delta_nes": float(np.percentile(dn, 95)) if dn else 0.0,
+        "n_nes_over_tol": int(sum(d > nes_tol for d in dn)),
+        "p_exceedances": int(sum(r > 1.0 for r in rs)),
+        "p_exceedance_sets": sorted(t for t in terms if ratios[t] > 1.0),
+        "max_ratio": float(max(rs, default=0.0)),
+    }
+
+
+def _g3b(world, call, df) -> tuple[list[str], dict[str, object]]:
+    """G3b's rules on one live run: (failures, the ``gsea_live`` report fields)."""
+    tol = golden_r_tol()
+    gold = golden_fgsea()
+    oracles = _oracles(world, call)
+    insensitive = _tie_insensitive(oracles)
+    edge_insensitive = _edge_tie_insensitive(oracles)
+    bad = _g3b_floor_failures(insensitive, edge_insensitive)
+    classes: list[str] = []
+    ratios: dict[str, float] = {}
+    d_nes: dict[str, float] = {}
+    d_es: list[float] = []
+    for term, ((es, edge), _) in oracles.items():
+        row = df.loc[term]
+        g = gold[term]
+        live_edge = {x.removeprefix(GENE) for x in row["leading_edge"]}
+        if not abs(row["es"] - es) <= tol["fgsea_es_abs_tol"]:
+            bad.append(f"{term}: live ES != oracle on the sent order")
+        if live_edge != edge:
+            bad.append(f"{term}: live edge != oracle edge on the sent order")
+        if term in insensitive:
+            d_es.append(abs(row["es"] - num(g["ES"])))
+            if not d_es[-1] <= tol["fgsea_es_abs_tol"]:
+                bad.append(f"{term}: tie-insensitive live ES != golden")
+        if term in edge_insensitive and live_edge != set(g["leadingEdge"].split(";")):
+            bad.append(f"{term}: edge-tie-insensitive live edge != golden")
+        if math.isnan(row["p_value"]) != math.isnan(num(g["pval"])):
+            bad.append(f"{term}: one-sided NA pval")
+        if math.isnan(row["nes"]) != math.isnan(num(g["NES"])):
+            bad.append(f"{term}: one-sided NA NES")
+        c, r = log10p_check(row["p_value"], row["log2err"], num(g["pval"]), num(g["log2err"]),
+                            tol["fgsea_log10p_k"])  # fmt: skip
+        classes.append(c)
+        ratios[term] = r
+        d_nes[term] = abs(row["nes"] - num(g["NES"]))
+    if "na_fail" in classes:
+        bad.append("one-sided NA p (na_fail)")
+    terms = list(oracles)
+    nes_tol = tol["fgsea_nes_abs_tol"]
+    overall = _nes_p_summary(terms, d_nes, ratios, nes_tol)
+    ins = _nes_p_summary([t for t in terms if t in insensitive], d_nes, ratios, nes_tol)
+    sens = _nes_p_summary([t for t in terms if t not in insensitive], d_nes, ratios, nes_tol)
+    report: dict[str, object] = {
+        "seed": call.seed,
+        "es_oracle_pass": not any("oracle" in b for b in bad),
+        "g3b_pass": not bad,
+        "g3b_failures": bad[:20],
+        "n_tie_insensitive": len(insensitive),
+        "n_tie_sensitive": N_TESTED - len(insensitive),
+        "n_edge_tie_insensitive": len(edge_insensitive),
+        "n_tie_insensitive_p_below_1e-10": len(_deep() & insensitive),
+        "es_tie_sensitive_sets": sorted(set(terms) - insensitive),
+        "edge_tie_sensitive_sets": sorted(set(terms) - edge_insensitive),
+        "max_abs_delta_es_tie_insensitive": float(max(d_es, default=0.0)),
+        "max_abs_delta_nes": overall["max_abs_delta_nes"],
+        "p95_abs_delta_nes": overall["p95_abs_delta_nes"],
+        "nes_abs_tol": nes_tol,
+        "n_nes_over_tol": overall["n_nes_over_tol"],
+        "log10p_k": tol["fgsea_log10p_k"],
+        "p_exceedances": overall["p_exceedances"],
+        "max_ratio": overall["max_ratio"],
+        "tie_insensitive": ins,
+        "tie_sensitive": sens,
+        # §3's P(>= 3 of n) = 0.4 % holds only where both runs estimate the same ES (R2)
+        "p_exceedances_alert": ins["p_exceedances"] >= 3,
+        "na_log2err": dict(Counter(c for c in classes if c.startswith("na_"))),
+        "na_log2err_over_cap": na_log2err_over_cap(classes, N_TESTED),
+        "p_decades": dict(Counter(decade(float(p)) for p in df["p_value"])),
+    }
+    return bad, report
+
+
 @pytest.mark.slow
 @pytest.mark.requires_r
 @pytest.mark.skipif(PREFIX is None, reason=NO_R)
 def test_g3b_giap_own_run(world, tmp_path: Path) -> None:
-    """Examples 7-8, GIAP's own seed and tie order. Gated: live ES equals the oracle on the sent
-    ranking (all 119 sets) and its leading edge as a set; on tie-insensitive sets live ES equals
-    golden at fgsea_es_abs_tol; on edge-tie-insensitive sets the leading edge equals golden as a
-    set; no one-sided NA pval or NES. Recorded, not gated (question 4): |ΔNES|, the p rule at
-    k = fgsea_log10p_k, NA log2err classes, the live p decades."""
-    tol = golden_r_tol()
+    """Examples 7-8, GIAP's own seed and tie order. Gated: the floor (>= ceil(119/2) tie- and
+    edge-tie-insensitive sets, >= 1 tie-insensitive set with golden p < 1e-10); live ES equals
+    the oracle on the sent ranking (all 119 sets) and its leading edge as a set; on
+    tie-insensitive sets live ES equals golden at fgsea_es_abs_tol; on edge-tie-insensitive sets
+    the leading edge equals golden as a set; no one-sided NA pval or NES. Recorded, not gated
+    (question 4): |ΔNES| and the p rule at k = fgsea_log10p_k, overall and per tie class (the
+    exceedance alert on tie-insensitive sets only), NA log2err classes, the live p decades."""
     live = _live(tmp_path)
     eng = CapturingEngine(inner=live)
     df = run_gsea(world, eng, golden_seed()).set_index("term")
     (call,) = eng.calls
     assert len(df) == N_TESTED
-    gold = golden_fgsea()
-    oracles = _oracles(world, call)
-    insensitive = _tie_insensitive(oracles)
-    edge_insensitive = _edge_tie_insensitive(oracles)
-    classes, ratios, d_nes, d_es = [], [], [], []
-    for term, ((es, edge), _) in oracles.items():
-        row = df.loc[term]
-        g = gold[term]
-        live_edge = {x.removeprefix(GENE) for x in row["leading_edge"]}
-        assert abs(row["es"] - es) <= tol["fgsea_es_abs_tol"], term
-        assert live_edge == edge, term
-        if term in insensitive:
-            d_es.append(abs(row["es"] - num(g["ES"])))
-            assert d_es[-1] <= tol["fgsea_es_abs_tol"], term
-        if term in edge_insensitive:
-            assert live_edge == set(g["leadingEdge"].split(";")), term
-        assert math.isnan(row["p_value"]) == math.isnan(num(g["pval"])), term
-        assert math.isnan(row["nes"]) == math.isnan(num(g["NES"])), term
-        c, r = log10p_check(row["p_value"], row["log2err"], num(g["pval"]), num(g["log2err"]),
-                            tol["fgsea_log10p_k"])  # fmt: skip
-        classes.append(c)
-        ratios.append(r)
-        d_nes.append(abs(row["nes"] - num(g["NES"])))
+    bad, report = _g3b(world, call, df)
     prov = live.provenance
-    exceed = int(sum(r > 1.0 for r in ratios if not math.isnan(r)))
-    update_report(
-        "gsea_live",
-        {
-            "seed": call.seed,
-            "r": prov.r if prov else None,
-            "fgsea": prov.fgsea if prov else None,
-            "es_oracle_pass": True,
-            "n_tie_insensitive": len(insensitive),
-            "n_tie_sensitive": N_TESTED - len(insensitive),
-            "n_edge_tie_insensitive": len(edge_insensitive),
-            "max_abs_delta_es_tie_insensitive": float(max(d_es, default=0.0)),
-            "max_abs_delta_nes": float(np.max(d_nes)),
-            "p95_abs_delta_nes": float(np.percentile(d_nes, 95)),
-            "nes_abs_tol": tol["fgsea_nes_abs_tol"],
-            "n_nes_over_tol": int(sum(d > tol["fgsea_nes_abs_tol"] for d in d_nes)),
-            "log10p_k": tol["fgsea_log10p_k"],
-            "p_exceedances": exceed,
-            "p_exceedances_alert": exceed >= 3,
-            "max_ratio": float(np.nanmax(ratios)),
-            "na_log2err": dict(Counter(c for c in classes if c.startswith("na_"))),
-            "na_log2err_over_cap": na_log2err_over_cap(classes, N_TESTED),
-            "p_decades": dict(Counter(decade(float(p)) for p in df["p_value"])),
-        },
-        merge=True,
-    )
-    assert "na_fail" not in classes
+    report |= {"r": prov.r if prov else None, "fgsea": prov.fgsea if prov else None}
+    update_report("gsea_live", report, merge=True)
+    assert bad == [], bad[:10]
+
+
+@pytest.mark.slow
+@pytest.mark.requires_r
+@pytest.mark.skipif(PREFIX is None, reason=NO_R)
+def test_example9_uncentred_scores_fail_g3b(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Example 9 on real R against G3b's whole rule set: every ES moves, so no set is
+    tie-insensitive and only the floor can fail (live ES still equals the oracle on the sent,
+    uncentred ranking). Before the floor (PR #297 review, R1) G3b passed under this fault."""
+    _skip_median(monkeypatch)
+    world = golden_world(shift=F1_MEDIAN)
+    eng = CapturingEngine(inner=_live(tmp_path))
+    df = run_gsea(world, eng, golden_seed()).set_index("term")
+    (call,) = eng.calls
+    bad, report = _g3b(world, call, df)
+    assert report["n_tie_insensitive"] == 0
+    assert bad and all(b.startswith("floor: ") for b in bad), bad[:10]
+    assert "floor: no tie-insensitive set with golden p < 1e-10" in bad
