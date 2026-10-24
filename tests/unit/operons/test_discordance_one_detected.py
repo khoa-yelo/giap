@@ -239,6 +239,7 @@ def test_example6_row_columns_follow_item4(fixed_fit: Any) -> None:
     assert r["null_model"] == "p_detect_model"
     assert "no_detection_limit_model" not in flags_of(r["flags"])
     assert "too_few_op_pairs" not in flags_of(r["flags"])
+    assert "ci_unestimated" in flags_of(r["flags"])  # effect and CI are NA (§8; ADR-0056)
 
 
 def test_example6_callable_gets_u_av_and_the_fit_ratios(fixed_fit: Any) -> None:

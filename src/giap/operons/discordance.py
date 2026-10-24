@@ -176,6 +176,7 @@ def _one_detected(
             continue
         rows.loc[i, ["test", "stat", "p_value", "method", "null_model"]] = [
             PMISS_TEST, a_v, p, "detection_limit", "p_detect_model"]  # fmt: skip
+        out[i] = [CI_UNESTIMATED]  # no effect or CI for P(miss) (§8; ADR-0056 decision 4)
     return out
 
 
