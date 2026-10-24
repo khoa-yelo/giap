@@ -203,8 +203,9 @@ def test_example5_strip_fold_distinct_strict_cutoff(tmp_path: Path) -> None:
 
 def test_stripping_rule_variants(tmp_path: Path) -> None:
     # (...) groups, unbracketed signed masses and '-' go; I folds to L; all fold to one peptide.
+    # A named [...] group (no mass shift) is an error since review S3, so it is not a form here.
     forms = ["PEPTIDEKR", "PEPT(ox)LDEKR", "PEPM+15.995TLDEKR", "[+42.011]-PEPTLDEKR",
-             "PEPTLDEK-17.03R", "PEPTL[Oxidation]DEKR"]  # fmt: skip
+             "PEPTLDEK-17.03R", "PEPTL[-17.027]DEKR"]  # fmt: skip
     rows = [Row(f, 0.95 - 0.01 * i) for i, f in enumerate(forms)]
     case = make_case(tmp_path, rows, _empty_genome(random.Random(6)))
     j = _j(case.evaluate())
@@ -621,3 +622,189 @@ def test_minimal_cli_defaults_to_the_nissle_genome(
     j = _j(res)
     assert j["genome_sha256"] == sha256_hex(NISSLE.read_bytes())
     assert j["n_rows"] == 0 and j["verdict"] == "fail"
+
+
+# ================================================================== review round 1 (M10-08b)
+# Findings of the 08b code review, lead decisions of 2026-10-24: S3, S4a, N2, N6, N7, N8.
+
+
+def _evaluate_or_fail(case: Case, *extra: str) -> Any:
+    """``case.evaluate`` that turns an uncaught exception into a test failure naming it."""
+    try:
+        return case.evaluate(*extra)
+    except Exception as exc:  # a traceback is exit 1, never the spec's exit 2
+        pytest.fail(f"evaluate raised {type(exc).__name__}: {exc} (want an exit code)")
+
+
+@pytest.mark.parametrize("named", ["M[Oxidation]PEPTLDEK", "[Acetyl]-PEPTLDEKR",
+                                   "PEPC[UNIMOD:4]TLDEK", "PEPTLDEK[]R"])  # fmt: skip
+def test_s3_a_named_modification_without_mass_is_an_input_error(tmp_path: Path, named: str) -> None:
+    # Spec edge case "Unimod": the .ssl has modified sequences without mass shifts -> exit 1
+    # (Cascadia's convert_mods_to_shifts leaves the name when the local table lacks it).
+    rows = [Row("PEPTLDEK", 0.95), Row("SAMPLERK", 0.9), Row(named, 0.9)]
+    case = make_case(tmp_path, rows, _empty_genome(random.Random(40)))
+    res = _evaluate_or_fail(case)
+    assert res.rc == 1 and res.j is None, _ok(res)
+    err = res.stderr.replace(str(case.ssl), "")
+    assert re.search(r"(?<![\d.])4(?![\d.])", err), "name the line (header = line 1): " + err
+
+
+def test_s3_input_error_is_the_modules_input_error() -> None:
+    has_subcommand("evaluate")
+    from helpers.a3_eval_kit import module, write_ssl
+
+    mod = module()
+    with tempfile.TemporaryDirectory() as d:
+        p = write_ssl(Path(d) / "WT_1.ssl", [Row("M[Oxidation]PEPTLDEK", 0.95)])
+        with pytest.raises(mod.InputError):
+            mod.tally(mod.read_ssl(p), 0.8)
+
+
+@pytest.mark.parametrize("shifted", ["M[+15.995]PEPTLDEK", "PEPTLDEK[-17.027]R",
+                                     "[+42.011]-PEPTLDEKR", "M[+16]PEPTLDEK"])  # fmt: skip
+def test_s3_signed_mass_shifts_are_accepted(tmp_path: Path, shifted: str) -> None:
+    case = make_case(tmp_path, [Row(shifted, 0.95)], _empty_genome(random.Random(41)))
+    res = case.evaluate()
+    assert res.rc == 3, _ok(res)
+    assert _j(res)["n_pass"] == 1
+
+
+def test_s4a_a_contaminant_also_in_the_genome_is_a_non_match(tmp_path: Path) -> None:
+    # 08b amendment: a contaminant counts as a non-match even if it also matches the genome.
+    rng = random.Random(42)
+    peps = random_peptides(6, rng)
+    both, only_cont = peps[4], peps[5]
+    cont = {"CONT_KRT": "MSRQ" + both + "GGSG" + only_cont + "FSRS"}
+    genome = Genome([planted_contig("rep1", peps[:5], rng)])  # peps[4] planted too
+    rows = [Row(p, 0.95 - 0.001 * i) for i, p in enumerate(peps)]
+    case = make_case(tmp_path, rows, genome, contaminants=cont)
+    j = _j(case.evaluate())
+    oracle = _oracle(genome, peps)
+    assert both in oracle["target"], "fixture: the contaminant peptide must match the genome"
+    assert len(oracle["target"]) == 5
+    assert j["n_top"] == 6 and j["n_match"] == 4, "the contaminant hit was counted as a match"
+    assert _close(j["share"], 4 / 6, 1e-9)
+    lo, hi = wilson_ci(4, 6)
+    assert _close(j["share_ci95"][0], lo, 1e-9) and _close(j["share_ci95"][1], hi, 1e-9)
+    assert j["matches_by_replicon"] == {"rep1": 4}, "matches_by_replicon counts the contaminant"
+    assert _close(j["contaminant_share"], 2 / 6, 1e-9), "still counted as a contaminant"
+
+
+def test_n2_nonstandard_counts_every_distinct_passing_peptide(tmp_path: Path) -> None:
+    # 1,000 standard peptides fill the top 1,000; three nonstandard ones rank after it.
+    rng = random.Random(43)
+    std = random_peptides(1000, rng)
+    rows = [Row(p, s) for p, s in zip(std, ladder(1000, top=0.99), strict=True)]
+    rows += [Row(s, 0.81) for s in ("PEPBTLDEK", "PEPXTLDEK", "PEPZTLDEK")]
+    rows += [Row("PEPUTLDEKR", 0.999)]  # one inside the top
+    case = make_case(tmp_path, rows, _empty_genome(rng))
+    j = _j(case.evaluate())
+    assert j["n_pass"] == 1004 and j["n_top"] == 1000
+    assert j["n_nonstandard"] == 4, "n_nonstandard counts the distinct passing set, not the top"
+
+
+def test_n6_missing_mzml_check_file_is_a_precondition(tmp_path: Path) -> None:
+    case = make_case(tmp_path, [Row("PEPTLDEK", 0.95)], _empty_genome(random.Random(44)))
+    res = _evaluate_or_fail(case, "--mzml-check", str(tmp_path / "no_such_check.json"))
+    assert res.rc == 2 and res.j is None, _ok(res)
+    assert "no_such_check.json" in res.stderr, "name the missing file: " + res.stderr
+
+
+def test_n6_mzml_check_rules_are_copied(tmp_path: Path) -> None:
+    case = make_case(tmp_path, [Row("PEPTLDEK", 0.95)], _empty_genome(random.Random(45)))
+    check = tmp_path / "WT_1.mzml_check.json"
+    rules = {f"M{i}": True for i in range(1, 9)}
+    check.write_text(json.dumps({"run": "WT_1", "rules": rules, "pass": True, "failed": []}))
+    res = case.evaluate("--mzml-check", str(check))
+    assert res.rc == 3, _ok(res)
+    assert _j(res)["mzml_check"] == rules
+
+
+@pytest.mark.parametrize("body", [" ", "\n", "\n\n", "  \t \n \n", "\r\n"])
+def test_n6_whitespace_only_ssl_is_a_precondition(tmp_path: Path, body: str) -> None:
+    # Spec exit codes: 2 for an empty file; a whitespace-only .ssl holds no header either.
+    case = make_case(tmp_path, [Row("PEPTLDEK", 0.95)], _empty_genome(random.Random(46)))
+    case.ssl.write_text(body)
+    res = _evaluate_or_fail(case)
+    assert res.rc == 2 and res.j is None, _ok(res)
+
+
+def test_n7_without_date_the_json_is_stable_within_a_day(tmp_path: Path) -> None:
+    import datetime
+
+    case = ranked_case(tmp_path, 520, range(200), seed=47)
+    before = datetime.datetime.now(datetime.UTC).date().isoformat()
+    a = case.evaluate(out=tmp_path / "a.json")
+    b = case.evaluate(out=tmp_path / "b.json")
+    after = datetime.datetime.now(datetime.UTC).date().isoformat()
+    assert _j(a)["date"] in (before, after), "the default date is today (UTC)"
+    assert _j(b)["date"] == _j(a)["date"] or before != after
+    if before == after:
+        assert a.raw == b.raw
+
+
+def test_n7_with_date_the_json_is_byte_identical(tmp_path: Path) -> None:
+    case = ranked_case(tmp_path, 520, range(200), seed=48)
+    a = case.evaluate("--date", "2026-10-24", out=tmp_path / "a.json")
+    b = case.evaluate("--date", "2026-10-24", out=tmp_path / "b.json")
+    assert _j(a)["date"] == "2026-10-24"
+    assert a.raw == b.raw
+
+
+def test_n7_readme_evaluate_command_passes_date() -> None:
+    text = require(REPO / "validation" / "pilot" / "README.md", "deliverable 12").read_text()
+    start = text.find("a3_feasibility.py evaluate ")
+    assert start >= 0, "the README has no a3_feasibility.py evaluate command"
+    cmd = text[start : text.index("```", start)]
+    assert "--date" in cmd, "the README's evaluate command must pass --date:\n" + cmd
+
+
+def _git_ignored(path: Path) -> bool:
+    res = subprocess.run(["git", "-C", str(REPO), "check-ignore", "-q", str(path)],
+                         capture_output=True, check=False)  # fmt: skip
+    assert res.returncode in (0, 1), res.stderr
+    return res.returncode == 0
+
+
+def test_n8_detail_inside_the_checkout_not_git_ignored_is_refused(tmp_path: Path) -> None:
+    import uuid
+
+    detail = REPO / "validation" / "pilot" / f"_a3_detail_test_{uuid.uuid4().hex}.tsv"
+    assert not _git_ignored(detail), "fixture: the path must not be git-ignored"
+    case = ranked_case(tmp_path, 30, range(10), seed=49)
+    try:
+        res = _evaluate_or_fail(case, "--detail", str(detail))
+        written = detail.exists()
+    finally:
+        detail.unlink(missing_ok=True)
+    assert res.rc == 2 and res.j is None, _ok(res)
+    assert not written, "the per-peptide list was written inside the checkout"
+
+
+def test_n8_detail_outside_the_checkout_is_written(tmp_path: Path) -> None:
+    case = ranked_case(tmp_path, 30, range(10), seed=50)
+    detail = tmp_path / "giap_root" / "pilot" / "feasibility_top1000.tsv"
+    res = case.evaluate("--detail", str(detail))
+    j = _j(res)
+    lines = detail.read_text().splitlines()
+    assert lines[0].split("\t")[:2] == ["rank", "sequence"]
+    assert len(lines) == 1 + j["n_top"]
+    match = lines[0].split("\t").index("match")
+    assert sum(int(ln.split("\t")[match]) for ln in lines[1:]) == j["n_match"]
+
+
+def test_n8_detail_in_a_git_ignored_path_of_the_checkout_is_allowed(tmp_path: Path) -> None:
+    import shutil
+    import uuid
+
+    d = REPO / "local" / f"_a3_detail_test_{uuid.uuid4().hex}"
+    detail = d / "feasibility_top1000.tsv"
+    assert _git_ignored(detail), "fixture: local/ is git-ignored"
+    case = ranked_case(tmp_path, 30, range(10), seed=51)
+    try:
+        res = case.evaluate("--detail", str(detail))
+        written = detail.is_file()
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    assert res.rc in (0, 3), _ok(res)
+    assert written
