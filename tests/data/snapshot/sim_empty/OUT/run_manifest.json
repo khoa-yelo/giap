@@ -497,8 +497,8 @@
     "tu_recal_skipped"
   ],
   "giap_version": "0.0.1",
-  "git_commit": "67a6dfa7ba4a839e40f4e835f0662536c3cb88b0",
-  "git_dirty": true,
+  "git_commit": "e75e4b63f2970841c284076dea9337adab31544a",
+  "git_dirty": false,
   "inputs": [
     {
       "file": "reference.fasta",
@@ -743,7 +743,7 @@
   },
   "outdir": "WORK/run_a/OUT",
   "profile": null,
-  "provenance_digest": "6d6c211e83a6e3773d88401b2dfb4808dc3ef5f3656d297475f7f31aad00e2b2",
+  "provenance_digest": "84a83896ca955014040a339defba68a8b36d9d8ed6ce41d5cbbea8ad6b612a8f",
   "publication": false,
   "resume": false,
   "schema_version": "1.0",
