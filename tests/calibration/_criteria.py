@@ -1320,7 +1320,7 @@ def _merge_main(suite: str, full: bool) -> int:
         return MERGE_ERROR
     for test, strict in direct:
         print(f"merge {suite}: XPASS{'(strict)' if strict else ''} {test}: clean in every shard")
-    xpass += [test for test, strict in direct if strict]
+    direct_strict = [test for test, strict in direct if strict]
     path = log_dir() / f"{suite}.merged.jsonl"
     path.write_text("".join(json.dumps(r) + "\n" for r in merged))
     print(summary_markdown(merged), end="")
@@ -1328,7 +1328,7 @@ def _merge_main(suite: str, full: bool) -> int:
         print(f"merge {suite}: XPASS(strict) {test}: every check passed under a strict xfail")
     if any(r["status"] == "fail" and r.get("outcome") != "xfail" for r in merged):
         return MERGE_FAIL
-    if xpass:
+    if xpass or direct_strict:
         return MERGE_FAIL
     if code != 0:
         print(f"merge {suite}: the block-2 confirm run's pytest exited {code}", file=sys.stderr)
