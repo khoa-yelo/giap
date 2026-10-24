@@ -159,7 +159,7 @@ def test_diann_search_db_flag_adds_column(runner: CliRunner, tmp_path: Path) -> 
     assert first.endswith("\tdatabase\tother")
 
 
-@pytest.mark.parametrize("engine", ["casanovo", "instanovo", "cascadia"])
+@pytest.mark.parametrize("engine", ["casanovo", "instanovo"])  # cascadia: M10-09
 def test_other_engines_not_implemented(runner: CliRunner, tmp_path: Path, engine: str) -> None:
     src = _generic(tmp_path, "x\n")
     out = tmp_path / "peptides.tsv"
