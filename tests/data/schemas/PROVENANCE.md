@@ -10,7 +10,7 @@ validate `CITATION.cff` offline (M11-02, item 5). Unmodified copy.
 - `$id`: https://citation-file-format.github.io/1.2.0/schema.json
 - sha256: `0b8d22140da702d766df318dcff3a91af2f39521298dcf36d76315fd99cc169b`
 - Size: 63763 bytes
-- Licence: CC-BY-4.0 (Creative Commons Attribution 4.0 International), per the `LICENSE` file at
+- Licence: CC-BY-4.0 ([Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/)), per the `LICENSE` file at
   the same tag. Attribution: Druskat, S., Spaaks, J. H., Chue Hong, N., Haines, R., Baker, J.,
   Bliven, S., Willighagen, E., Pérez-Suárez, D., Konovalov, A. "Citation File Format",
   https://github.com/citation-file-format/citation-file-format.

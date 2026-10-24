@@ -1,3 +1,4 @@
 <!-- m00 -->
-Project scaffold: FarmShare environment and bootstrap, capability probe, agent files, CI, CLI and
-config skeletons, and the simulator skeleton.
+GIAP installs as a Python package with a `giap` command line, a validated YAML configuration
+and a Nextflow workflow. It ships with a built-in genome and proteomics simulator for testing, and
+continuous integration covers both.
