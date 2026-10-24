@@ -496,3 +496,18 @@ measured 6 h on K-12), so 12–32 h plus queue waits; S14 about 1 h; the clean-u
   the reports and libraries are listed in the dry run as "kept pending K2".
 - G1: M10-09 is now specified (origin/m10/spec-09); M10-10 extends `pilot_compare.sbatch` to
   three runs.
+
+## Lead decisions (2026-10-24), from the 14a tests
+
+- Step ids: a step heading is `### S<n> …` **or** `### S-<word> …` (the steps table names
+  `S-check` and `S-bench`). `reproduce_check.py` and the tests accept both forms. Only the numbered
+  steps must be in ascending order.
+- Dev-job steps: a step that runs in a dev job without a script (S3 `acquisition_mode.py`, and later
+  S13/S14) writes `script=-` in its `Job:` line. All other fields are still required. There is no
+  `#SBATCH` header, so the class fields are not compared.
+- Example 4 correction: the Nissle genome hash `fe7480…` is **not** in
+  `validation/pilot/db_a2/makedb_manifest.json`, which records only the Bakta JSON. It is recorded
+  in `tests/data/genomes/PROVENANCE.md` and in
+  `tests/data/recorded/bakta/1.12.2-full/nissle/PROVENANCE.md`, and the runbook's `genome` row
+  names those two files. The "Committed input hashes" table above is wrong on the same point. The
+  test fixture keeps example 4 verbatim against a synthetic manifest.
