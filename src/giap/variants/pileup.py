@@ -13,6 +13,10 @@ Frameshift events are never pileup rows: they travel in ``attrs["frameshifts"]``
 with the contig order in ``attrs["contig_order"]``. :func:`sites` puts the supporting peptides
 of each row (a frozenset, aligned with the rows) in ``attrs["alt_peptides"]`` for M7-05 flags.
 
+M7-18: an op whose peptide side holds one of ``NONSTANDARD`` (B J X Z ``ambiguous``, O U ``rare``;
+the raw letter, before I/L folding) gives no category at its codon but still spans ``cover``;
+the skipped ``(codon, folded peptide)`` pairs are counted in ``attrs["nonstandard"]``.
+
 ``ref_codon`` (M7-03) is the gene-strand bases of every codon the REF allele spans: 3 nt for a
 substitution or a one-codon block, 6 nt for a swap or a two-codon block (first codon in peptide
 order first). A frameshift row has ``alt_aa = fs+1`` or ``fs-1`` (the signed shift) and
@@ -34,6 +38,7 @@ from giap.model.genes import Gene, GeneModel
 from giap.variants.align import HitAlignment, ResidueOp, translate_locus
 
 __all__ = [
+    "NONSTANDARD",
     "PILEUP_COLUMNS",
     "SITE_COLUMNS",
     "AltType",
@@ -59,6 +64,8 @@ _INTERNAL = ("_alts",)
 _DIFF = frozenset({"substitution", "swap", "block", "near_block"})
 _IL = frozenset("IL")
 _STRAND_RANK = {"+": 0, "-": 1}
+NONSTANDARD: frozenset[str] = frozenset("BJOUXZ")  # peptide letters that are never ALT
+_AMBIGUOUS = frozenset("BJXZ")  # the rest of NONSTANDARD (O, U) is ``rare``
 _COMP = str.maketrans("ACGTNacgtn", "TGCANtgcan")
 
 _Key = tuple[str, str, int]  # (contig, strand, wrapped codon)
@@ -131,6 +138,24 @@ def _category(op: ResidueOp) -> _Cat:
         return ("ALT", alt, "substitution", alt)
     kind = "swap" if op.kind == "swap" else "block"
     return ("ALT", f"{op.ref}>{op.alt}", kind, op.alt)
+
+
+def _skipped(op: ResidueOp) -> bool:
+    return not NONSTANDARD.isdisjoint(op.alt)
+
+
+def _nonstandard(skipped: Mapping[tuple[_Key, str], str], examples: set[str]) -> dict[str, object]:
+    """``attrs["nonstandard"]`` (rule 6): JSON-native, keys sorted."""
+    letters = list(skipped.values())
+    rare = sum(1 for x in letters if _AMBIGUOUS.isdisjoint(x))
+    return {
+        "by_residue": {x: letters.count(x) for x in sorted(set(letters))},
+        "by_rule": {"ambiguous": len(letters) - rare, "rare": rare},
+        "examples": sorted(examples)[:10],
+        "skipped_codons": len({k for k, _ in skipped}),
+        "skipped_peptides": len({f for _, f in skipped}),
+        "skipped_sites": len(letters),
+    }
 
 
 def _wrap(codon: int, rep: Replicon) -> int:
@@ -206,6 +231,8 @@ def pileup(
     peps: dict[tuple[_Key, str], set[str]] = {}  # (key, folded) -> original peptides
     cover: dict[_Key, set[str]] = {}
     events: dict[tuple[_Key, int], set[str]] = {}
+    skipped: dict[tuple[_Key, str], str] = {}  # (key, folded) -> the skipped op's peptide side
+    examples: set[str] = set()
     for a in aligns:
         if a.contig not in reps:
             raise ValueError(f"peptide {a.peptide}: unknown contig {a.contig!r}")
@@ -214,6 +241,10 @@ def pileup(
             ks = [(a.contig, a.strand, _wrap(c, rep)) for c in op.codons]
             for k in ks:
                 cover.setdefault(k, set()).add(f)
+            if _skipped(op):
+                skipped.setdefault((ks[0], f), op.alt)
+                examples.add(a.peptide)
+                continue
             cats.setdefault(ks[0], {}).setdefault(f, set()).add(_category(op))
             peps.setdefault((ks[0], f), set()).add(a.peptide)
         if a.frameshift is not None:
@@ -261,6 +292,7 @@ def pileup(
     pile = _frame(rows, [*PILEUP_COLUMNS, *_INTERNAL])
     pile.attrs["frameshifts"] = tuple(fs)
     pile.attrs["contig_order"] = tuple(reps)
+    pile.attrs["nonstandard"] = _nonstandard(skipped, examples)
     return pile
 
 
