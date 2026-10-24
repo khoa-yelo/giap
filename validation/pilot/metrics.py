@@ -744,8 +744,56 @@ def checklist(metrics: Mapping[str, Any], run_states: Mapping[str, Any]) -> list
             "status": "pass" if cmp_ok else "fail",
         },
         {"bullet": "Measured runtimes replace the estimates", "status": "pending (M10-12)"},
-        {"bullet": "TE2-TE5 are reported; failures explained", "status": "pending (M10-06)"},
+        {"bullet": "TE2-TE5 are reported; failures explained", "status": _bullet5(metrics)},
     ]
+
+
+# ---------------------------------------------------------------- M10-06 hook (TE2-TE5, TE7)
+
+TE_PENDING = "pending (M10-06)"
+TE_KEYS = ("te2", "te3", "te4", "te5")
+CAUSE_CLASSES = ("pipeline_bug", "annotation", "search", "biology", "definition")
+
+
+def te_placeholders() -> dict[str, Any]:
+    """``te_real`` and ``te7`` when ``compute`` has no ``--te-real`` / ``--te7`` (the template's
+    paths resolve; bullet 5 stays pending)."""
+    p = {"status": TE_PENDING}
+    pairs = {k: {"log2_ratio": None} for k in ("rplL/rplJ", "atpA/atpD")}
+    return {
+        "te_real": {"te2": p | {"counts": {"violations": None}},
+                    "te3": p | {"detection": {"share": None},
+                                "abundance": {"percentile_rank": None}},
+                    "te4": p | {"pairs": pairs},
+                    "te5": p | {"A1": {"share_bucket": None}, "A2": {"share_bucket": None}}},
+        "te7": {"giap": p | {"n_gate": None}, "diann": dict(p), "end_to_end": None},
+    }  # fmt: skip
+
+
+def _not_passed(metrics: Mapping[str, Any]) -> list[str]:
+    """TEs (``TE3``) with a computed status other than ``pass``; pending ones are not listed."""
+    te, te7 = metrics.get("te_real") or {}, metrics.get("te7") or {}
+    out = [f"TE{k[2:]}" for k in TE_KEYS if "schema" in te and te[k].get("status") != "pass"]
+    return out + (["TE7"] if "schema" in te7 and te7["giap"].get("status") != "pass" else [])
+
+
+def _bullet5(metrics: Mapping[str, Any]) -> str:
+    if "schema" not in (metrics.get("te_real") or {}):
+        return TE_PENDING
+    k = len([t for t in _not_passed(metrics) if t != "TE7"])
+    return "pass" if k == 0 else f"reported ({k} not passed, explained)"
+
+
+def diagnosis_problems(metrics: Mapping[str, Any], notes: str | None) -> list[str]:
+    """Each not-passed TE needs a ``## Diagnosis: TE<n>`` notes section naming a cause class."""
+    out = []
+    for te in _not_passed(metrics):
+        m = re.search(rf"^## Diagnosis: {te}\b[^\n]*\n?(.*?)(?=^## |\Z)", notes or "", re.M | re.S)
+        if m is None:
+            out.append(f"{te}: no '## Diagnosis: {te}' section in the notes")
+        elif not re.search(rf"\b({'|'.join(CAUSE_CLASSES)})\b", m.group(1)):
+            out.append(f"{te}: the diagnosis names no cause class ({', '.join(CAUSE_CLASSES)})")
+    return out
 
 
 # ---------------------------------------------------------------- render
@@ -1100,6 +1148,10 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
     }
     if a.a3 is not None:
         states["A3"] = _read_json(resolve_attempt(a.a3)[0] / "run_manifest.json").get("exit_code")
+    doc |= te_placeholders()
+    for key, path in (("te_real", a.te_real), ("te7", a.te7)):
+        if path is not None:
+            doc[key] = _read_json(path)
     doc["checklist"] = checklist(doc, states)
     files = {
         "peptides_a1": a.peptides_a1,
@@ -1112,6 +1164,8 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
         "genome": a.genome,
         "k12_fasta": a.k12_fasta,
         "sacct": a.sacct,
+        "te_real": a.te_real,
+        "te7": a.te7,
         "manifest_a1": arms["A1"]["out"] / "run_manifest.json",
         "manifest_a2": arms["A2"]["out"] / "run_manifest.json",
     }
@@ -1157,7 +1211,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "out",
     ):
         c.add_argument(f"--{name}", type=Path, required=True)
-    for name in ("summary-a1", "summary-a2", "sacct", "a3"):
+    for name in ("summary-a1", "summary-a2", "sacct", "a3", "te-real", "te7"):
         c.add_argument(f"--{name}", type=Path, default=None)
     r = sub.add_parser("render")
     r.add_argument("--metrics", type=Path, required=True)
@@ -1180,6 +1234,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         text = render(template, metrics, notes)
         if missing := missing_paths(template, metrics):
             print(f"render: missing paths in {a.metrics}: {', '.join(missing)}", file=sys.stderr)
+            return 1
+        if problems := diagnosis_problems(metrics, notes):
+            print("render: " + "; ".join(problems), file=sys.stderr)
             return 1
         a.out.write_text(text, encoding="utf-8")
         return 0
