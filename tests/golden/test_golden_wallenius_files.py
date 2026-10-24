@@ -174,7 +174,7 @@ def _urn_pmf(M: int, n: int, N: int, omega: float) -> np.ndarray:
         white = np.maximum(m2 - (t - r), 0.0)
         den = red + white
         p_red = np.divide(red, den, out=np.zeros_like(den), where=den > 0)
-        p_white = np.divide(white, den, out=np.zeros_like(den), where=den > 0)
+        p_white = np.where(den > 0, 1.0 - p_red, 0.0)  # mass-conserving (two divisions drift)
         new = np.zeros(min(probs.size + 1, n + 1))
         new[: probs.size] += probs * p_white
         new[1 : probs.size + 1] += (probs * p_red)[: new.size - 1]

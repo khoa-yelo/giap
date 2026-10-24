@@ -54,8 +54,12 @@ def odds(p: Sequence[Fraction], members: Sequence[int]) -> float:
     return float((s_in / n) / ((s_all - s_in) / (M - n)))
 
 
-def r1_pmf(M: int, n: int, N: int, omega: float, dtype: Any = np.longdouble) -> np.ndarray:
-    """The urn recursion over N draws; ``pmf[x - lo]`` for x = lo..hi."""
+def r1_pmf(
+    M: int, n: int, N: int, omega: float, dtype: Any = np.longdouble, *, conserve: bool = False
+) -> np.ndarray:
+    """The urn recursion over N draws; ``pmf[x - lo]`` for x = lo..hi. ``conserve`` takes
+    ``p_white = 1 - p_red``, so each step keeps the total mass: two separate float64 divisions
+    drift by up to 6e-14 over ~1,500 draws (the §3.4 float64 cross-check; #289 statistician)."""
     lo, hi = support(M, n, N)
     m2, w = M - n, dtype(omega)
     probs = np.ones(1, dtype=dtype)
@@ -66,7 +70,10 @@ def r1_pmf(M: int, n: int, N: int, omega: float, dtype: Any = np.longdouble) -> 
         den = red + white
         zero = np.zeros_like(den)
         p_red = np.divide(red, den, out=zero.copy(), where=den > 0)
-        p_white = np.divide(white, den, out=zero, where=den > 0)
+        if conserve:
+            p_white = np.where(den > 0, dtype(1) - p_red, zero)
+        else:
+            p_white = np.divide(white, den, out=zero, where=den > 0)
         new = np.zeros(min(probs.size + 1, n + 1), dtype=dtype)
         new[: probs.size] += probs * p_white
         new[1 : probs.size + 1] += (probs * p_red)[: new.size - 1]
@@ -208,7 +215,7 @@ def _numpy_odds(inputs: Path, cats: dict[str, Cat]) -> dict[str, float]:
 
 def _r1_task(c: Cat) -> tuple[np.ndarray, np.ndarray]:
     M, n, N, _, omega = c
-    return r1_pmf(M, n, N, omega), r1_pmf(M, n, N, omega, dtype=np.float64)
+    return r1_pmf(M, n, N, omega), r1_pmf(M, n, N, omega, dtype=np.float64, conserve=True)
 
 
 def _r2_task(job: tuple[int, int, int, int, float]) -> Fraction:
