@@ -1078,3 +1078,11 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (M10-10 spec finding 1) `mzml_pilot.sbatch` asks `--mem=32G` and `denovo_pilot.sbatch` asks `--mem=64G` with 8 CPUs; at MaxMemPerCPU=4000 Slurm raises them to 9 and 17 CPUs. Use `--mem=32000M` and size denovo from the smoke MaxRSS (M10-10 overrides both on the command line).
 - (M10-10 spec finding 3) the plus-strand `orf_id` depends on where the peptides fall, so compare's `novel_orfs` Jaccard can count one ORF as two across arms; key on the stop codon (as M10-10 metric 6 does).
 - (M10-10 statistician S6) add a per-bin n column to `mapping_fdr.tsv` (M3 owner), so the de novo bins can be cross-checked directly.
+
+### 2026-10-24 afternoon (lead)
+- (M6-13 statistician) a variance-floor σ model σ² = σ_f² + σ₁²·e^(2γz), gated on D-1b-floor, D-1c and the null quartile check cut on a. It lowers the D-1c top-quartile excess from 1.7× to about 1.4×, at a 1.03–1.10× level cost in the null a-quartiles.
+- (M6-13 Q1) P(miss) from the scaled fit's rescaled residuals (ADR-0055 Consequences). Measure with attack C under D-1 and D-1c noise.
+- (#310 review N-4) no test checks that giapsim's own pair table agrees with `build_pairs` (classes, distances, wrap-around pairs).
+- (M10-07 review) N1, the methods-note sentence; N3, the `outside_bounds` count. `metrics.py`'s `_outside_repo` stays strict, because main's M10-05 tests pin exit 2 for a git-ignored path; revisit whether it should accept git-ignored paths, as entrapment.py does.
+- (M10-08b review N10) timsconvert's lock pulls in `pyBaf2Sql`, which bundles Bruker's baf2sql library. ADR-0054 covers only the TDF-SDK. Confirm the licence note, or record that baf2sql is unused for .d/TDF input.
+- (Khoa, 2026-10-24) running GIAP on macOS is untested. The Python package passes on macOS CI; the full pipeline would need `-profile docker`, which spec §3 keeps but doesn't test. Candidate for M11: a Docker-profile test run, and documenting the platforms.

@@ -307,6 +307,7 @@ def _assert_gzip_house_format(raw: bytes) -> None:
     assert raw[8] == 2, "compression level 9"
 
 
+@pytest.mark.x87_longdouble
 def test_cli_tiny_inputs_layout_and_values(tmp_path: Path) -> None:
     inputs = _tiny_inputs(tmp_path / "in")
     out, log = tmp_path / "exact.tsv.gz", tmp_path / "log.json"
@@ -336,6 +337,7 @@ def test_cli_tiny_inputs_layout_and_values(tmp_path: Path) -> None:
     assert isinstance(json.loads(log.read_text()), dict)
 
 
+@pytest.mark.x87_longdouble
 def test_cli_rows_do_not_depend_on_the_other_categories(tmp_path: Path) -> None:
     inputs = _tiny_inputs(tmp_path / "in")
     a, b = tmp_path / "a.tsv.gz", tmp_path / "b.tsv.gz"
@@ -345,6 +347,7 @@ def test_cli_rows_do_not_depend_on_the_other_categories(tmp_path: Path) -> None:
     assert _rows(a)[1:] == [r for r in _rows(b)[1:] if r[0] == "CAT_B"]
 
 
+@pytest.mark.x87_longdouble
 def test_cli_is_deterministic(tmp_path: Path) -> None:
     inputs = _tiny_inputs(tmp_path / "in")
     outs = [tmp_path / f"{i}.tsv.gz" for i in range(2)]
@@ -363,6 +366,7 @@ def test_cli_empty_categories_exit_without_writing(tmp_path: Path) -> None:
     assert not list(tmp_path.glob("exact*")), "no partial or temp file left"
 
 
+@pytest.mark.x87_longdouble
 def test_cli_undefined_omega_names_the_category(tmp_path: Path) -> None:
     p = ["0.500000"] * 4 + ["0.000000"] * 8  # mean_out = 0 for CAT_Z
     inputs = _tiny_inputs(tmp_path / "in", cats={"CAT_Z": [0, 1, 2, 3]}, p=p)
@@ -436,6 +440,7 @@ def golden_runs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
 
 
 @pytest.mark.slow
+@pytest.mark.x87_longdouble
 def test_cat_010_bytes_do_not_depend_on_workers(golden_runs: dict[str, Path]) -> None:
     assert golden_runs["w1"].read_bytes() == golden_runs["w2"].read_bytes()
     _assert_gzip_house_format(golden_runs["w1"].read_bytes())
@@ -447,6 +452,7 @@ def test_cat_010_bytes_do_not_depend_on_workers(golden_runs: dict[str, Path]) ->
 
 
 @pytest.mark.slow
+@pytest.mark.x87_longdouble
 def test_adr_0044_spot_values(golden_runs: dict[str, Path]) -> None:
     rows = {(c, t): v for c, t, v in _rows(golden_runs["pair"])[1:]}
     assert list(rows) == [
