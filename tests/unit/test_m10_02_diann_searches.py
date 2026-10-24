@@ -107,7 +107,8 @@ def test_example4_two_calls_on_the_copy_and_the_outputs(m10: M10Sandbox, arm: st
 
 def test_example4_step1_done_records_the_speclib_hash(m10: M10Sandbox) -> None:
     _ok(_run(m10))
-    marker = (m10.out("A1") / "step1.done").read_text().strip()
+    # the first line; the job, commit and input hashes follow it (review S2)
+    marker = (m10.out("A1") / "step1.done").read_text().splitlines()[0].strip()
     m = re.fullmatch(r"([0-9a-f]{64})\s+\*?(\S+)", marker)
     assert m, f"step1.done is not '<sha256>  A1.predicted.speclib': {marker!r}"
     assert Path(m.group(2)).name == "A1.predicted.speclib"
@@ -522,7 +523,8 @@ def test_the_jobs_table_resources() -> None:
     assert (_directive("job-name") or "").startswith("giap-diann")
     assert _directive("partition") == "normal" and _directive("qos") == "normal"
     assert _directive("cpus-per-task") == "16"
-    assert (_directive("mem") or "").upper().rstrip("B") in {"64G", "65536M"}
+    # 16 x MaxMemPerCPU (4000 MB on FarmShare): 64G would make Slurm allocate 17-18 CPUs (S1)
+    assert _directive("mem") == "64000M", _directive("mem")
     assert _directive("time") == "24:00:00"
 
 

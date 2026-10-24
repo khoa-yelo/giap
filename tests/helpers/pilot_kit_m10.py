@@ -24,12 +24,26 @@ The extended fake ``apptainer``/``singularity`` never executes anything. Environ
 * ``FAKE_DIANN_RC``: exit code of every real (non-smoke) DIA-NN call;
 * ``FAKE_DIANN_RC_STEP1`` / ``FAKE_DIANN_RC_STEP2``: exit code of the predict call (it has
   ``--predictor``) or of the search call (it has ``--lib`` or ``--f``) only;
-* ``FAKE_DIANN_NO_REPORT=1``: the search call exits 0 but writes no ``--out`` file.
+* ``FAKE_DIANN_NO_REPORT=1``: the search call exits 0 but writes no ``--out`` file;
+* ``FAKE_DIANN_NO_LIB=1``: the predict call exits 0 but writes no ``.predicted.speclib``;
+* ``FAKE_DIANN_SLEEP`` / ``FAKE_DIANN_SLEEP_STEP1`` / ``FAKE_DIANN_SLEEP_STEP2``: seconds a real
+  call (or only the predict / the search call) sleeps before it writes anything; while it sleeps
+  ``$FAKE_SLURM_DIR/diann.sleeping`` holds ``step1``/``step2`` (``wait_for_sleep``), so a test can
+  signal the job mid-search (Slurm TIMEOUT, scancel).
+
+The image of an ``exec`` is the first non-option token after ``exec`` (``-B``/``--bind`` take a
+value), whatever its name, so a banner check on a temporary copy is seen; ``image_sha256`` is
+the sha256 of that file when the call starts.
+
+A search call with ``--f`` runs writes ``<basename of run>.quant`` into its ``--temp`` directory,
+or next to the run when no ``--temp`` is given (DIA-NN's default); ``temp`` and
+``temp_listing`` (the ``--temp`` directory's file names when the call starts) are logged.
 
 Each call is logged to ``$FAKE_SLURM_DIR/diann.jsonl`` with the fields of the M3-24 stub plus
 ``inspect`` (an ``apptainer inspect``) and ``preexisting``: for each of ``--out``, ``--out-lib``,
-``--lib`` and the ``.predicted.speclib`` sibling of ``--out-lib``, whether it existed when the
-call started (so a test can tell that a leftover file was deleted *before* the call).
+``--lib`` and the ``.predicted.speclib`` and ``.log.txt`` siblings of ``--out-lib``, whether it
+existed when the call started (so a test can tell that a leftover file was deleted *before*
+the call).
 """
 
 from __future__ import annotations
@@ -37,8 +51,10 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
+import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -131,13 +147,14 @@ def write_json(path: Path, doc: Any) -> Path:
 
 _APPTAINER = r"""#!{python}
 '''Extended fake apptainer/singularity (tests/helpers/pilot_kit_m10.py): never executes anything.'''
-import json, os, sys
+import hashlib, json, os, sys, time
 
 state = os.environ["FAKE_SLURM_DIR"]
 argv = sys.argv[1:]
 rec = {"tool": os.path.basename(sys.argv[0]), "argv": argv, "cwd": os.getcwd(),
        "binds": [], "image": None, "inner": [], "created": [], "smoke": False,
-       "inspect": False, "preexisting": {}}
+       "inspect": False, "preexisting": {}, "image_sha256": None, "temp": None,
+       "temp_listing": None}
 
 def log(rc):
     rec["rc"] = rc
@@ -165,18 +182,18 @@ if argv and argv[0] == "inspect":
             print(k + ": " + v)
     log(0)
 
-i = 0
+i = 1 if argv and argv[0] in ("exec", "run") else 0
 while i < len(argv):
     a = argv[i]
     if a in ("-B", "--bind"):
         rec["binds"] += argv[i + 1].split(","); i += 2; continue
     if a.startswith("--bind="):
         rec["binds"] += a.split("=", 1)[1].split(","); i += 1; continue
-    if a.endswith((".sif", ".simg", ".img")):
-        rec["image"] = a
-        rec["inner"] = argv[i + 1:]
-        break
-    i += 1
+    if a.startswith("-"):
+        i += 1; continue
+    rec["image"] = a
+    rec["inner"] = argv[i + 1:]
+    break
 
 if rec["image"] is None:
     rec["smoke"] = True
@@ -186,6 +203,11 @@ if rec["image"] is None:
 if not os.path.exists(rec["image"]):
     print("FATAL: image not found: " + rec["image"], file=sys.stderr)
     log(255)
+try:
+    with open(rec["image"], "rb") as fh:
+        rec["image_sha256"] = hashlib.sha256(fh.read()).hexdigest()
+except OSError:
+    pass
 
 inner = rec["inner"][1:]
 if not inner or set(inner) <= {"--help", "--version", "--dry-run"}:
@@ -205,7 +227,13 @@ out, out_lib, lib = value("--out"), value("--out-lib"), value("--lib")
 watch = [p for p in (out, out_lib, lib) if p]
 if out_lib:
     watch.append(os.path.splitext(out_lib)[0] + ".predicted.speclib")
+    watch.append(os.path.splitext(out_lib)[0] + ".log.txt")
 rec["preexisting"] = {p: os.path.exists(p) for p in watch}
+temp = value("--temp")
+rec["temp"] = temp
+if temp is not None:
+    rec["temp_listing"] = sorted(os.listdir(temp)) if os.path.isdir(temp) else None
+runs = [inner[k + 1] for k, a in enumerate(inner) if a == "--f" and k + 1 < len(inner)]
 
 def touch(path):
     d = os.path.dirname(path)
@@ -224,13 +252,23 @@ rc = int(os.environ.get("FAKE_DIANN_RC", "0"))
 step_rc = os.environ.get("FAKE_DIANN_RC_STEP2" if search else "FAKE_DIANN_RC_STEP1")
 if step_rc:
     rc = int(step_rc)
+nap = os.environ.get("FAKE_DIANN_SLEEP_STEP2" if search else "FAKE_DIANN_SLEEP_STEP1") \
+    or os.environ.get("FAKE_DIANN_SLEEP")
+if nap:
+    with open(os.path.join(state, "diann.sleeping"), "w") as fh:
+        fh.write("step2" if search else "step1")
+    time.sleep(float(nap))
 if rc:
     print("DIA-NN: fake failure", file=sys.stderr)
     log(rc)
 
+for r in runs:
+    q = os.path.basename(r.rstrip("/")) + ".quant"
+    touch(os.path.join(temp, q) if temp is not None else r.rstrip("/") + ".quant")
 if out_lib is not None:
     touch(out_lib)
-    touch(os.path.splitext(out_lib)[0] + ".predicted.speclib")
+    if search or not os.environ.get("FAKE_DIANN_NO_LIB"):
+        touch(os.path.splitext(out_lib)[0] + ".predicted.speclib")
 if out is not None and not os.environ.get("FAKE_DIANN_NO_REPORT"):
     touch(out)
     touch(os.path.splitext(out)[0] + ".stats.tsv")
@@ -241,6 +279,16 @@ _CP = r"""#!/bin/bash
 # Logs every cp call (one line, tab-separated argv) and runs the real cp.
 ( IFS=$'\t'; printf '%s\n' "$*" ) >> "$FAKE_SLURM_DIR/cp.log"
 exec /bin/cp "$@"
+"""
+
+_GZIP = r"""#!/bin/bash
+# gzip/gunzip wrapper (tests/helpers/pilot_kit_m10.py): FAKE_GZIP_FAIL=1 is a gunzip killed partway.
+printf '%s\n' "$(basename "$0") $*" >> "$FAKE_SLURM_DIR/gzip.log"
+if [ -n "${FAKE_GZIP_FAIL:-}" ]; then
+  printf '>truncated_protein\nMKK\n'
+  exit 1
+fi
+exec "{real}" "$@"
 """
 
 
@@ -290,6 +338,45 @@ class M10Sandbox:
         return self.sb.run(
             ["bash", str(path), *args], env=env, cwd=self.sb.tmp, unset=tuple(unset), timeout=300
         )
+
+    def popen(self, script: str, *args: str, **env: str) -> subprocess.Popen[str]:
+        """Start ``scripts/slurm/<script>.sbatch`` in its own session (a process group, like a
+        Slurm job step), so a test can signal the whole job as ``scancel``/TIMEOUT does."""
+        path = self.repo / "scripts" / "slurm" / f"{script}.sbatch"
+        return subprocess.Popen(
+            ["bash", str(path), *args],
+            env={**self.sb.env, **env},
+            cwd=str(self.sb.tmp),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
+
+    def wait_for_sleep(self, proc: subprocess.Popen[str], timeout: float = 120) -> str:
+        """Wait until the fake DIA-NN sleeps (``FAKE_DIANN_SLEEP*``); return ``step1``/``step2``."""
+        flag = self.sb.state / "diann.sleeping"
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if flag.is_file() and flag.read_text().strip():
+                return flag.read_text().strip()
+            if proc.poll() is not None:
+                out, err = proc.communicate()
+                raise AssertionError(f"the job ended (exit {proc.returncode}) before DIA-NN "
+                                     f"slept\n{out}\n{err}")  # fmt: skip
+            time.sleep(0.05)
+        proc.kill()
+        raise AssertionError("the fake DIA-NN never started sleeping")
+
+    def install_gzip_wrappers(self) -> None:
+        """``gzip``/``gunzip`` on the sandbox PATH that run the real tools, except that with
+        ``FAKE_GZIP_FAIL=1`` they print a truncated FASTA and exit 1 (a gunzip killed partway)."""
+        path = os.pathsep.join(d for d in self.sb.env["PATH"].split(os.pathsep)
+                               if d != str(self.sb.bin))  # fmt: skip
+        for name in ("gzip", "gunzip"):
+            real = shutil.which(name, path=path)
+            assert real, f"no real {name} on {path}"
+            write_exe(self.sb.bin / name, _GZIP.replace("{real}", real))
 
     def calls(self) -> list[dict[str, Any]]:
         """Every container call, smoke checks and ``inspect`` included."""

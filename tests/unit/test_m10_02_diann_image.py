@@ -129,7 +129,11 @@ def test_example1_checks_the_banner_on_the_copy(m10: M10Sandbox) -> None:
     _ok(_install(m10))
     execs = _execs(m10)
     assert execs, "the banner check (apptainer exec … --version) never ran"
-    assert {c["image"] for c in execs} == {str(m10.copy)}, "the banner check must run the copy"
+    # review S3: the banner is checked on the temporary copy before it is renamed into place,
+    # so the image run is the copy or a file beside it, with the pinned bytes
+    for c in execs:
+        assert Path(str(c["image"])).parent == m10.copy.parent, c["image"]
+        assert c["image_sha256"] == STAND_IN_SHA256, "the banner check must run the hashed copy"
     assert all(c["image"] != str(m10.shared) for c in m10.calls()), "the source was executed"
 
 
