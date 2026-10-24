@@ -444,3 +444,271 @@ Tests come to about 320 lines, plus the methods note (prose). One PR. It depends
 | L5 | Where metric 8 lives. A separate `entrapment.json` plus a `--entrapment` hook in M10-05's `metrics.py`, or code inside `metrics.py`? | separate script and file (§15.5 names `entrapment.py`), with a small hook in `metrics.py` (≈ 15 lines in this PR) |
 | L6 | Run on Slurm (`dev`, 4 CPUs, 16 GB, 1 h) or in the session allocation? | Slurm: the tolerant search over ~10⁵ K-12-only peptides can exceed a few minutes on the shared 8-CPU session |
 | L7 | Should the in-silico DIA-NN library (`A1.predicted.speclib`, on FarmShare) be used to check that the precursor space (charges 1–4, m/z bounds) matches DIA-NN's? The library is binary, and parsing it needs DIA-NN or a format reader | no library check in this issue. The peptide-level estimate does not depend on it (the m/z fact above); r_prec is labelled "from the configured bounds, not the library" |
+
+## Statistician decisions (2026-10-24; binding)
+
+Reviewer: statistician. Verdict: **approved, with the binding changes below**. Where this section
+conflicts with the text above, this section wins; the "Supersedes" list names the lines it
+replaces. The test-author writes tests against the body as amended here.
+
+### What was verified
+
+- **Source (R6).** Wen et al. 2025, *Nat. Methods*, doi:10.1038/s41592-025-02719-x, read from the
+  publisher's article page (nature.com, open access) on 2026-10-24. Equation (1) is
+  `N_E(1 + 1/r)/(N_T + N_E)`, with r "the effective ratio of the entrapment to original target
+  database size", proved in Supplementary Note 2.2 to be "an estimated upper bound, that is, on
+  average it overestimates the true FDP" under an equal-chance-like assumption. Equation (2) is
+  `N_E/(N_T + N_E)`, a lower bound "assuming that any entrapment discovery is indeed false"
+  (Suppl. Note 2.1). The sample method (3) is "inherently flawed". The three Fig. 1b readings are
+  as the spec states. The paper evaluated DIA-NN at the **precursor** level ("each discovery is a
+  (possibly modified) peptide and a corresponding charge state"). It also warns that a foreign
+  entrapment may coincide with a source of contamination. The spec's quotations are accurate.
+  The supplementary notes themselves were not read; nothing below depends on them beyond the
+  statements quoted from the main text.
+- **Algebra.** `1 + 1/r = (k + s)/k` with k = |k12_only| and s = |shared|. The rational form is
+  therefore exact.
+- **Examples 1–9 and the `MMGGGGGK` edge case** were recomputed with `giap.mapping.digest` and
+  `giap.mapping.masses`. Every digest product, bucket, r, r_prec, precursor count, m/z value
+  (719.41201, 360.20964, 735.40693, 368.20710, VEPTLDEK z1 930.47783) and FDP is correct.
+  Examples 3–7 are also correct: 0.0201207 and 0.0040241; 0.0030272 and 0.0010091; 0.2 and 0.1;
+  exactly 0.01; 0.0100033.
+- **The m/z claim.** It holds. The mass range of a 7–30-aa peptide is [417.160785, 5600.389865]
+  Da (all-G and all-W). Carbamidomethyl-C (160.03) and oxidised M (147.04) both lie inside the
+  G–W residue range, so they cannot leave it. Charge 1 covers [298.99, 1798.99] Da and charge 4
+  covers [1195.97, 7195.97] Da. These two intervals already overlap and contain the whole range,
+  so every peptide in the searchable space has at least one in-bounds charge. The claim depends
+  on `--min-pr-charge 1`, `--max-pr-charge 4` and the 300–1800 bounds, which is why criterion 4
+  keeps its "bounds applied" test. It says nothing about any implicit pruning of charges inside
+  DIA-NN (L7).
+- **The q column.** M10-03 writes `q_value` from `Global.Q.Value`, with no fallback to the
+  run-level `Q.Value`. That is an experiment-wide **precursor** q-value. The set of distinct
+  precursors with `q_value ≤ 0.01`, pooled over the three runs, is therefore the unit whose FDR
+  DIA-NN claims to control at 1 %. Peptide-level sets and per-run sets carry no such claim.
+- **The search structure.** A1's "two step" is a library prediction followed by **one** search
+  against the full predicted library (`diann_A1.cfg`). The competed space is the full in-silico
+  digest, so the in-silico r is the right r. DIA-NN does not know which library entries are T and
+  which are E, and its precursor q-values use no protein information. The search therefore
+  treats T and E symmetrically, which is the precondition for the paper's argument.
+
+### S1: level — **changed**
+
+Exact text:
+
+> The §15.5 metric-8 value is the **peptide-level** `fdp_combined`, with r at peptide level
+> (primary number, unchanged). The **assessment** (the paper's three readings against α) is
+> issued **only at the precursor level, pooled over runs**: distinct (`norm(modified_peptide)`,
+> `charge`) of the accepted rows. This is the unit `Global.Q.Value` controls at α = 0.01. The
+> peptide block carries `assessment: "not_assessed"` with `assessment_reason:
+> "peptide-level FDR is not controlled by the search (q_value is DIA-NN's precursor-level
+> Global.Q.Value)"`. Every `per_run` block carries `assessment: "not_assessed"` with
+> `assessment_reason: "runs were selected by the global q-value, not a run-level q-value"`.
+> Per-run numbers are descriptive.
+
+Why: Fig. 1b compares an FDP bound with the FDR the tool claims **for that list**. DIA-NN claims
+nothing for the distinct peptides derived from its precursor list. False precursors spread over
+distinct peptides, while true ones cluster several precursors per peptide, so a peptide-level FDP
+above 1 % is not evidence that DIA-NN failed. The spec's default would print
+`evidence_of_failure` for exactly that case (example 2), which R4 forbids.
+
+Example 2 changes accordingly. Peptide block: `assessment: not_assessed`, and the numbers are
+unchanged (0.75, 0.25). Precursor block: `evidence_of_failure` (fdp_lower 0.2 > 0.01). `per_run`:
+`not_assessed` everywhere, and the numbers are unchanged.
+
+The pure `assess(combined, lower, alpha)` function keeps the three labels, and examples 3–7 test
+it directly.
+
+### S2: mass-equivalent rules — **default approved, plus one sensitivity**
+
+> "Present" by rule 2 requires a tolerant target row whose `diff_types` is non-empty and ⊆
+> {`block`}: the §7.2.4 "mass-equivalent block exchange" list, Δ < `BLOCK_DELTA_DA`. `swap`,
+> `near_block`, `substitution` and `frameshift` rows do not make a peptide present. This follows
+> §7.2.4's own vocabulary, where only the block list is called mass-equivalent.
+
+Required addition, a pre-registered descriptive sensitivity `sensitivity.present_broad` in the
+peptide block. Rule 2 is widened to rows with `diff_types` ⊆ {`block`, `swap`, `near_block`}:
+adjacent swaps are isobaric, and near-blocks are within 0.05 Da (§7.2.4, §8.5 attack 6). The block
+reports `shared`, `k12_only`, `r`, `N_T`, `N_E`, `fdp_combined`, `fdp_lower` and `ucb95` (S3),
+with no assessment. It reuses the tolerant rows already computed, so no new search is needed.
+
+A known limit goes in the methods note's bias table, direction high and negligible: the tolerant
+route reports only the minimal-cost loci, and breaks ties within a locus in favour of
+`substitution`. A block-only locus that sits behind a cheaper non-block locus is therefore not
+seen.
+
+New example **1c** (swap). This is example 1, but the translation holds `AGNVLTEPRW` instead of
+`AGGGVLTEPWR`. Primary: `AGNVLTEPWR` has a `swap` row (10 aa, budget 1), so it is `k12_only`;
+shared 3, k12_only 3, **r = 1.0**. `present_broad`: it becomes shared; shared 4, k12_only 2,
+**r = 0.5**.
+
+### S3: interval — **changed (an upper confidence bound is added)**
+
+> `fdp_lower` gets no interval. It is not an estimate: if every entrapment discovery is false, the
+> realised FDP of this list is ≥ `fdp_lower`, with no sampling error. The condition is that the
+> genome is complete and identical to the sample's strain, and that no K-12 material is in the
+> sample. The report calls it "realised lower bound (conditional on …)".
+>
+> `fdp_combined` gets a one-sided 95 % **upper confidence bound** `ucb95`. The model is the
+> paper's equal-chance assumption in its plainest form, with false matches independent: given M
+> false discoveries among the N = N_T + N_E, N_E ~ Binomial(M, π) with π = k/(k + s) = r/(1 + r).
+> Then `fdp_combined` = N_E/(π N), and E[N_E/π] = M. The bound inverts the one-sided test:
+>
+> `M_max = max{ M ∈ {N_E, …, N} : BinomCDF(N_E; M, π) > 0.05 }`, `ucb95 = M_max / N`
+>
+> CDF(N_E; N_E, π) = 1, so M_max ≥ N_E. Use `scipy.stats.binom.cdf` and a monotone scan or
+> bisection over M. `ucb95` is `null` whenever `fdp_combined` is `null`, with the same reason.
+> At the precursor level, π = K/(K + S) from the precursor sums.
+>
+> The JSON field `ci` becomes `{"ucb95": <float|null>, "method":
+> "binomial_inversion_equal_chance", "assumes": "equal chance and independent false matches;
+> not valid under clustered (protein-level) errors"}`. No two-sided interval is given.
+
+Why: a bare `0.0` (example 7) or a per-run 3.0 says nothing about precision. The binomial bound
+costs about 10 lines and has nominal coverage under the stated model (the attack checks this). A
+protein-block bootstrap was rejected because the discoveries are a single realised list; the
+resampling unit for false matches is not the protein of the discovered peptides.
+
+`ucb95` values, added to the examples (tolerance 1e-12, since they are rationals M_max/N):
+
+| Example | π | N_E, N | M_max | ucb95 |
+|---|---|---|---|---|
+| 2, peptide | 1/3 | 1, 4 | 4 | 1.0 |
+| 2, precursor | 1/4 | 1, 5 | 5 | 1.0 |
+| 2, per run WT_3, peptide | 1/3 | 1, 1 | 1 | 1.0 |
+| 3 | 1/5 | 20, 4,970 | 140 | 140/4,970 = 0.0281690 |
+| 4 | 1/3 | 10, 9,910 | 47 | 47/9,910 = 0.0047427 |
+| 5 | 1/2 | 100, 1,000 | 225 | 0.225 |
+| 6 | 1/3 | 10, 3,000 | 47 | 47/3,000 = 0.0156667 (N_T 2,989: 47/2,999 = 0.0156719) |
+| 7 | 2/7 | 0, 5,000 | 8 | 8/5,000 = 0.0016 |
+
+The labels stay on the point estimates, as in the paper (S6). `ucb95` is reported beside them.
+The report states it in words: "with 95 % confidence, under equal chance, the FDP is at most …".
+
+### S4: equal-chance bias — **attack required; a stratum replaces the "foreign-like" proposal**
+
+Does free entrapment work? Yes, with these caveats in the bias table:
+
+- Every K-12-only peptide is false only if the genome is complete and is the sample's strain, and
+  no K-12 material (carryover, lab contamination) is present. K-12 is a common lab strain, and the
+  paper names contamination as the foreign-entrapment risk. If any of these fails, the direction
+  is high, and the lower bound stops being a bound.
+- Neighbour-driven errors concentrate on E, because every K-12-only peptide near a Nissle variant
+  has its neighbour's signal in the sample. Direction: high (§15.5).
+- Six-frame chance hits move short K-12-only peptides into `shared`. About 0.08 expected exact
+  chance hits per 7-mer and 0.005 per 8-mer (§7.2.5 table). Direction: slightly lower N_E, so a
+  more conservative lower bound; negligible for the combined estimate.
+- E and T may differ in length and charge composition (variant-bearing peptides are longer).
+  Under equal chance **per precursor**, a peptide's chance of a false discovery scales with
+  n_prec, so r at peptide level may be mis-weighted. Direction: either.
+- A false-match attraction towards T (for example interference from abundant co-eluting shared
+  proteins) biases low. Unquantified.
+- The report has no protein-level filter, and must not get one. A `PG.Q.Value` filter would
+  remove K-12-only proteins first and bias low. The methods note states, from the DIA-NN 2.3.1
+  documentation, which filters the main report applies. A protein-level filter is a lead finding.
+
+Required additions:
+
+1. **`sensitivity.r_prec_weighted`** (peptide block): `fdp_combined_rprec = N_E (1 + 1/r_prec) /
+   (N_T + N_E)`, plus `mean_nprec_shared` and `mean_nprec_k12_only`. Example 2: 1 · 4/4 =
+   **1.0**; means 18/4 = 4.5 and 6/2 = 3.0.
+2. **`sensitivity.far`** (peptide block), pre-registered and descriptive, with no assessment.
+   E_far = `k12_only` peptides of ≥ 10 aa with **no tolerant target row of any type** (no Nissle
+   near-homolog within the §7.2.4 budget). T_10 = `shared` peptides of ≥ 10 aa.
+   r_far = |E_far| / |T_10|. Discoveries are restricted the same way:
+   `fdp_combined_far = N_E_far (1 + 1/r_far) / (N_T_10 + N_E_far)`, plus `fdp_lower_far` and
+   `ucb95_far`. It also reports the breakdown of `k12_only` and of N_E into `lt10` (not searched),
+   `near_homolog` (≥ 1 tolerant target row) and `far`. This replaces the "K-12 proteins with no
+   shared peptide" stratum: a protein with no shared peptide can still be a close homolog, whereas
+   "no tolerant row" directly measures the neighbour that drives the high bias, and costs nothing
+   (the rows exist). Example 1 / 2: `k12_only` lt10 1 (`AAGGWWR`), near_homolog 1
+   (`VEPTLDEKAAGGWWR`, `substitution`), far 0. N_E lt10 1, near_homolog 0, far 0. |E_far| = 0, so
+   `fdp_combined_far` is `null` (`no_entrapment_space`), `fdp_lower_far` = 0.0, N_T_10 = 1
+   (`AGNVLTEPWR`).
+3. **Attack** `tests/calibration/attacks/test_attack_free_entrapment.py`, marker `calibration`
+   (fast). It is written by the statistician against the pure API below, after the test-author's
+   files are committed. Under §8.5 it gates the merge of the implementation PR. Seed
+   `seeds.calibration_base` + 707, k = `se_multiplier` (no `tolerances.yaml` change), R = 2,000
+   replicates (a module constant; pure numpy, seconds). The simulated universe keeps the real
+   structure: peptides grouped into proteins (sizes 1–30, geometric), s = 4,000 shared peptides,
+   k = 1,000 K-12-only peptides (r = 0.25), and a true-present subset of 2,000 shared peptides.
+   Each replicate draws true discoveries (each present peptide with probability 0.9) and
+   M ~ Poisson(30) false matches. The scenarios:
+   - **A, edge equal chance:** each false match lands in E with probability π. Check that
+     mean(`fdp_combined`) ≥ mean(true FDP) − k·SE.
+   - **B, uniform over null elements** (E ∪ absent shared): the same check.
+   - **C, homolog attraction λ ∈ {1, 2, 4}** (E weight × λ): the mean excess
+     `fdp_combined − FDP` is increasing in λ.
+   - **D, attraction to T** (λ = 0.5): mean(`fdp_combined`) < mean(FDP). This confirms the
+     low-direction row of the bias table.
+   - **E, clustered:** false matches arrive in whole proteins, each cluster in E with
+     probability π. The mean check of A passes; `ucb95` coverage is not gated, which is why its
+     `assumes` string says so.
+
+   Further checks, in every scenario and replicate:
+   - `fdp_lower` ≤ true FDP (deterministic, since E is false by construction);
+   - no replicate with true FDP ≤ α is labelled `evidence_of_failure`;
+   - in A and B, the coverage P(FDP ≤ `ucb95`) ≥ 0.95 − k·√(0.95·0.05/R).
+
+**Pure API** (in `validation/pilot/entrapment.py`, used by the attack and the unit tests):
+`combined(n_t, n_e, n_k12_only, n_shared) -> Fraction | None`, `lower(n_t, n_e) -> Fraction |
+None`, `ucb95(n_t, n_e, n_k12_only, n_shared, level=0.05) -> float | None`, `assess(combined,
+lower, alpha=Fraction(1, 100)) -> str`. The `None` cases follow "Edge cases".
+
+### S5: distinctness — **default approved**
+
+> I/L-collapsed on both sides and at both levels. At the precursor level the unit is
+> (`norm(modified_peptide)`, `charge`), and `n_prec` is counted on collapsed universe elements.
+
+Two K-12 library entries that differ only by I/L would give a collapsed element two chances of a
+false match. This is rare, and the methods note mentions it.
+
+### S6: labels and boundaries — **approved**
+
+> `consistent_with_control` iff `combined ≤ α`; `evidence_of_failure` iff `lower > α` (checked
+> first; the two cannot both hold, since lower ≤ combined); else `inconclusive`. Both comparisons
+> are made in `fractions.Fraction`, with α = `Fraction(1, 100)` (never the float 0.01). The labels
+> are issued only where S1 allows.
+
+### Testing families (§8.1) and calibration
+
+Metric 8 is a descriptive estimate. It makes no p or q, and it is not in any §8.1 family: the
+precursor row "audited with entrapment in validation" is exactly this audit. The assessment label
+is a reading, not a test, so no level criterion applies. The calibration evidence is the attack
+above: the bias direction, the deterministic lower bound, and `ucb95` coverage.
+
+### Other required changes
+
+- **Mapping wording.** Replace "is exactly the FDP of A1's accepted set" with "is the FDP of
+  A1's accepted set after removing contaminant-sequence and `not_in_universe` discoveries".
+- **Data rule (Khoa, 2026-10-24).** Aggregates may be committed; row-level DIA-NN content may
+  not. `entrapment_discoveries.tsv` is row-level and is never committed. `entrapment.json` holds
+  aggregates only. Committing it is the lead's decision at report time, not this PR's. Criterion
+  10 becomes:
+  - `git ls-files` lists no `entrapment_discoveries.tsv`;
+  - a content guard: in the CLI test, no discovered peptide string, and no `modified_peptide`,
+    occurs anywhere in the `entrapment.json` text.
+- **Caveat strings.** The third caveat becomes "assumes the Nissle genome is complete, is the
+  sample's strain, and that no K-12 material is in the sample". A fourth is added: "assessment is
+  made at precursor level, the unit DIA-NN's global q controls".
+- **Methods note.** It adds the S3 bound with its assumption and the S4 bias rows above. It
+  states that `fdp_lower` is a realised, conditional bound, and why the peptide level carries no
+  assessment.
+- **Acceptance criteria**, additions in the same style:
+  - **S-1:** examples 1c, the `ucb95` table, and the S4 sensitivity values hold, with
+    `assessment` per S1.
+  - **S-2:** `ucb95` equals a brute-force scan over M for 200 seeded (N_T, N_E, k, s).
+  - **S-3:** `ucb95` ≥ `fdp_combined` whenever both are defined and N_E ≥ 1. (With N_E = 0,
+    `ucb95` is ≥ 0 = `fdp_combined` trivially.)
+- **Estimate:** about +45 code lines (ucb95 10, the three sensitivities 30, assessment scoping
+  5) and about +60 test lines. The attack (about 150 lines) is the statistician's and does not
+  count against the PR.
+
+### Supersedes
+
+- Line "R4: … its sampling uncertainty is `unestimated` unless the statistician says otherwise"
+  → S3.
+- Estimates: the `assessment` bullet → S1 and S6 (scope); the `ci` bullet → S3; the `caveats`
+  bullet → "Other required changes".
+- Levels paragraph → S1.
+- Example 2's peptide-level and per-run labels → S1.
+- Criterion 10 → "Other required changes".
+- "Attack (statistician, optional; S4)" → required, as specified in S4.
