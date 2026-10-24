@@ -75,7 +75,8 @@ code wins (M10-08).
   `WT_1`; `WT_2.mzml.gz` → `WT_2`; `run3` → `run3`. Reason: the verbatim value is an absolute
   FarmShare path, which §6.6 keeps out of `tables/` and which would differ between hosts for the
   same data. (For DIA-NN, M10-03 Q3 kept `Run` verbatim because DIA-NN already writes a stem.)
-  An empty or missing `file`, or one whose stem is empty, is an error. (Q1)
+  An empty or missing `file`, or one whose stem is empty, is the error `bad_value:file` (with
+  rows; lead, 2026-10-24). (Q1)
 - **D2 `spectrum_id` = `cascadia:<scan>`.** W3: `scan` is a prediction index, not a scan number.
   Written bare, it could pair by accident with a reference search that uses real scan numbers in
   the same run (§7.5.4, preflight C17), and would then give wrong ALT error rates. The prefix keeps
@@ -132,7 +133,7 @@ to `CONVERTERS` as `"cascadia"` and to `__all__`. The function is pure apart fro
    `unknown_column` warn per file. A required column missing → error
    `missing_column:<name>`. A header-only file → info `empty_input` naming the file (it is not an
    error by itself; see step 8).
-3. **Run** (D1) per row; across inputs, a run that comes from more than one input file → error
+3. **Run** (D1) per row (no stem → error `bad_value:file` with rows); across inputs, a run that comes from more than one input file → error
    `run_in_several_inputs`, naming both paths. This covers the same `.ssl` passed twice, a re-run
    on the same mzML, and two mzMLs with the same stem in different directories.
 4. **spectrum_id** (D2): `scan` must fullmatch `[0-9]+`, else error `bad_type:scan` with rows.
