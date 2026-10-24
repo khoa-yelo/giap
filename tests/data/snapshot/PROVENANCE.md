@@ -28,14 +28,14 @@ About 6 minutes on one CPU. `scripts/dev/make_snapshot_fixture.py`:
    `report.max_locus_plots=2`, `context.islands.detrend_span_frac=0.5` (the planted island is
    wider than the default 10 % span on a 300-kb genome), `determinants.permutations=19`,
    `stats.bootstrap=199`, then `giap compare run_a run_b`;
-5. keeps the `OUT/` files `RunView` reads (minus the VCF, pileup, FASTA/GFF3 and Parquet files no
-   plot or page reads), `logs/steps` and `plots/support`, writes `resolved_config.yaml` (defaults +
+5. keeps the `OUT/` files `RunView` reads (minus the VCF, pileup, FASTA/GFF3 and every Parquet
+   file: no plot reads them, and R11 allows no committed Parquet here), `logs/steps` and
+   `plots/support`, writes `resolved_config.yaml` (defaults +
    the settings above; no input paths), replaces the scratch path by `WORK` and time stamps by
    `2026-01-01T00:00:00+00:00` and step timings and free disk by 0 (so a rebuild gives the same
    bytes), and gzips TSVs over 16 kB (in place for schema tables, which are
    read by magic bytes; as `.tsv.gz` for support files);
-6. copies that tree to `sim_empty/` with every TSV cut to its header (support files included)
-   and every Parquet cut to zero rows.
+6. copies that tree to `sim_empty/` with every TSV cut to its header (support files included).
 
 | directory | content |
 |---|---|

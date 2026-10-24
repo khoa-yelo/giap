@@ -12,7 +12,7 @@ the real one), then ``giap compare`` on the two runs. It writes, under ``DEST`` 
 * ``sim_plots/OUT/``: the ``OUT/`` subset ``RunView`` reads, from the first run, with
   ``report.max_locus_plots: 2`` in ``resolved_config.yaml``; ``sim_plots/CMP/``: the compare
   tables and, per run, ``tables/genes.tsv`` and ``preflight/preflight.json``;
-* ``sim_empty/``: the same tree with every TSV cut to its header and every Parquet to zero rows.
+* ``sim_empty/``: the same tree with every TSV cut to its header.
 
 TSVs over 16 kB are gzipped in place (the readers detect gzip by magic bytes). Deterministic:
 the same giapsim seed and run seeds give the same bytes (paths, time stamps and timings are
@@ -48,10 +48,12 @@ SETS = (
 )
 #: ``OUT/``-relative directories kept besides the ``RunView`` files
 KEEP_DIRS = ("logs/steps", "plots/support")
-#: ``RunView`` keys no plot or report page reads (left out to keep the fixture small)
+#: ``RunView`` keys left out: none of them is read by a plot, and R11 (the M10-14 audit) allows
+#: no Parquet outside workflow/tests/data, so the report's island-diagnostics table says "not
+#: produced in this run" on the fixtures
 DROP = ("variants_vcf", "pileup", "novel_orfs_faa", "novel_orfs_gff3", "annotation_patch",
         "gene_table", "genes_pre", "gene_context", "tu_folds", "detectability_summary",
-        "tier_summary", "novel_class_fdr")  # fmt: skip
+        "tier_summary", "novel_class_fdr", "island_diagnostics")  # fmt: skip
 #: run_b keeps 2 of every 3 de novo peptide rows, so the two runs' detections differ (V16)
 KEEP_EVERY = 3
 #: the planted abundance island: ``ISLAND_GENES`` consecutive genes from ``ISLAND_FIRST`` (in
@@ -268,9 +270,7 @@ def compress(root: Path) -> None:
 
 def header_only(root: Path) -> None:
     """Cut every TSV under ``root`` (support files included, written as plain ``.tsv``) to its
-    header and every Parquet to zero rows."""
-    import pandas as pd
-
+    header."""
     for p in sorted(root.rglob("*")):
         if ".tsv" in p.name:
             raw = p.read_bytes()
@@ -279,8 +279,6 @@ def header_only(root: Path) -> None:
             p.with_name(p.name.removesuffix(".gz")).write_text(
                 text.split("\n", 1)[0] + "\n", encoding="utf-8"
             )
-        elif p.suffix == ".parquet":
-            pd.read_parquet(p).iloc[:0].to_parquet(p, index=False)
 
 
 def build(work: Path, dest: Path) -> None:
