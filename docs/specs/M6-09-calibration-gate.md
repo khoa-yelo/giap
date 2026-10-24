@@ -102,25 +102,40 @@ Option 1 of docs/methods/operons.md "Fix space", **keep the method and label it*
    `tests/calibration/attacks/test_attack_operons.py`, because no accepted ADR puts them in the
    protected `tolerances.yaml`. Attack C's R = 50 / 300 is handled the same way.
 2. **Q2, attack B: gated** (the proposed default).
-3. **Non-vacuous arms** (statistician, not in the issue text). With the shipped decoys
-   (convergent + sandwich), the gate generator `missed_operon_power(1800, 50, 0.1)` and attacks A
-   and B make **no call**, so under Khoa's decision of 2026-10-22 they are recorded vacuous passes.
-   A gate that cannot fail checks nothing, so each FDR check also runs in the one regime where
-   calls exist:
-   - 100 planted pairs at 10⁻³ background SD, with `operons.decoys = [convergent]`;
-   - SW decoys are absent from the < 150 bp bins of these layouts, and with them every q is at
-     least the target share of those bins;
-   - this arm must make calls at q = 0.1, and it is gated.
-   The teeth (`operons.pi0 = 0.1`) must be a confirmed fail.
+3. **The gate is the shipped-decoy check, a vacuous pass. The non-vacuous arms are extra.**
+   - The §7.4.7 criterion 1 gate is `missed_operon_power(1800, 50, 0.1)` with the shipped decoys
+     (convergent + sandwich). It makes **no call**, so per Khoa's decision of 2026-10-22 it is a
+     **recorded vacuous pass**. The same holds for attacks A and B with the shipped decoys.
+   - **Additionally** (statistician; this adds checks and replaces none), each FDR check also runs
+     where calls exist:
+     - 100 planted pairs at 10⁻³ background SD, with `operons.decoys = [convergent]`;
+     - SW decoys are absent from the < 150 bp bins of these layouts, and with them every q is at
+       least the target share of those bins;
+     - this arm must make calls at q = 0.1, and it is gated.
+   - The teeth (`operons.pi0 = 0.1`) must be a confirmed fail.
 4. **Example 1's "≥ 60 % recovered at 0.1 SD"** is superseded by Khoa's decision: the power table
    is recorded, never gated, and states that the family is near-powerless by construction.
 5. **Attacks owed by the PR #147 and #148 reviews:**
-   - M-2 is gated (non-vacuous arm).
-   - D-1 and M-1 are recorded and escalated. Their method fixes are ADRs for Khoa: σ as a function
-     of abundance, or a pooled-only claim, for D-1; excluding imputed pairs for M-1.
+   - M-2 is gated (non-vacuous arm) and passes.
+   - **D-1 is gated and fails.** Its two tests are strict xfails naming ADR-0055 (proposed, pending
+     Khoa), which is the ADR-0049 pattern of the M7 gate. No bound was widened and the demotion to
+     "recorded" was withdrawn.
+   - M-1 is recorded. The ADR on excluding imputed pairs stays open.
    - D-2 (TU-chained Δ) is built into every operon scenario: each later TU gene adds one t step.
-   - D-3 (contamination power) stays with the M6-05 review numbers.
+   - D-3 stays with the M6-05 review numbers.
 6. **Attack C** runs on an oracle P(miss) (the generating detection model) until M6-05H wires the
    one-detected arm. `test_attack_c_through_the_step` skips until then.
 7. **UniOP cut-off:** pair classes are re-derived at `calibration.yaml`'s
    `uniop_pair_threshold` (0.5, ADR-0022) as it stands.
+
+## Sign-off (statistician, 2026-10-24; Slurm 1884412)
+
+- **missed_operons: MET.** §7.4.7 criterion 1 is a recorded vacuous pass with the shipped decoys.
+  The extra convergent-only arm passes non-vacuously: FDP 0.033 ± 0.002 at q 0.1.
+- Attacks A (ρ = 0.5), B and M-2 pass. A′ and C are recorded below their thresholds.
+- **discordance gate: NOT MET (attack D-1), pending Khoa (ADR-0055).** Criterion 3 passes on the
+  gate null (level and KS uniformity). D-1 is a confirmed failure of the level when Δ noise
+  depends on abundance:
+  - pooled 0.052 / 0.106 at α 0.05 / 0.10;
+  - lowest quartile about 3× nominal.
+- The §15.4 half of the M6 gate (M6-11/M6-12) is separate.

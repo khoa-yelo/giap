@@ -14,6 +14,14 @@ Gated (a confirmed ``fail`` fails the test; ADR-0015 two-block confirmation):
   abundance of the pair, and the NO pairs' z shifted by +1 SD (NO pairs tighter than the decoys
   for a reason other than co-transcription). Non-vacuous arm only; R as A.
 
+Gated, failing: strict xfails naming ADR-0055 (proposed, pending Khoa), the ADR-0049 pattern:
+
+- **D-1** (PR #147 review): the discordance Delta SD proportional to exp(-0.5 z), z the
+  standardised pair-mean abundance; the pooled level through the harness and the rate in the
+  lowest-abundance quartile. Both fail (full tier, Slurm 1884412: pooled 0.0521 / 0.1064 against
+  0.0510 / 0.1013 at alpha 0.05 / 0.10; lowest quartile ~3x nominal). **The M6 discordance claim
+  is not met** until Khoa decides ADR-0055. R = ``discordance`` 100 / 1,000.
+
 Recorded (numbers printed, logged and copied to docs/methods/operons.md "M6-09"; never gated, but
 an escalation threshold fails the test so the breach cannot pass silently):
 
@@ -25,12 +33,6 @@ an escalation threshold fails the test so the breach cannot pass silently):
   oracle P(miss) (the generating detection model, the fitted within-operon Delta sample) is
   recorded; ``test_attack_c_through_the_step`` skips until the step makes ``one_detected_pmiss``
   rows. Escalation: > 2 alpha revisits M6-05 Q3. R = 50 / 300 (module constants).
-- **D-1** (PR #147 review): the discordance Delta SD proportional to exp(-0.5 z), z the
-  standardised pair-mean abundance; the pooled level through the harness (logged under
-  ``recorded/``) and the rate in the lowest-abundance quartile. Planned as gated on the pooled
-  level, it is a **confirmed fail** at alpha 0.10 (fast tier 0.110 against 0.104; the PR #147
-  oracle had 0.108), so it is recorded and escalated: a method ADR (sigma as a function of
-  abundance) or a narrowed claim, Khoa decides. R = ``discordance`` 100 / 1,000.
 - **M-1** co-imputation surplus in NO pairs (PR #148 review: Delta = 0 point masses). Recorded at
   1,800 genes (shipped and convergent-only decoys) and, full tier only, 6,000 genes; the PR #148
   oracle broke on its large genome, which the ADR on excluding imputed pairs addresses.
@@ -223,12 +225,22 @@ _d1_cached = cache(_d1)
 D1_STREAM = f"{DI}.attack_d1.noise_by_abundance"
 
 
+#: ADR-0055 (proposed, pending Khoa): D-1 fails the discordance level; strict xfails, as the M7
+#: gate's ADR-0049 xfails (test_variants_gate.py). Seeds are fixed, so the failure is
+#: deterministic and an XPASS means the method or the generator changed. No bound is widened (R3).
+ADR_0055 = "ADR-0055 pending: D-1 abundance-dependent noise; M6 discordance claim not met"
+D1_XFAIL = pytest.mark.xfail(strict=True, raises=AssertionError, reason=ADR_0055)
+#: a shard or confirm run has no verdict, so a strict xfail must not XPASS there
+NO_VERDICT = frozenset({C.SHARD_STATUS, C.PENDING_STATUS, C.SKIPPED_STATUS})
+
+
+@D1_XFAIL
 @pytest.mark.calsuite(DI)
 @pytest.mark.parametrize("full", MODES)
-def test_recorded_attack_d1_pooled_level(full: bool) -> None:
-    """The pooled level criterion through the harness, logged under ``recorded/`` (not the suite
-    log, so the nightly merge does not read it as a gate): a confirmed ``fail`` at alpha 0.10 in
-    the fast tier (0.110 against 0.104), so D-1 is recorded pending the method ADR."""
+def test_attack_d1_pooled_level(full: bool) -> None:
+    """Gated D-1: the pooled level criterion through the harness (suite log, ADR-0015). Confirmed
+    ``fail`` at alpha 0.10 in the fast tier (0.110 vs 0.104) and at 0.05 and 0.10 in the full tier
+    (0.0521 / 0.1064 vs 0.0510 / 0.1013, Slurm 1884412)."""
     lv = G.levels()
 
     def rep(rng: np.random.Generator) -> np.ndarray:
@@ -237,16 +249,20 @@ def test_recorded_attack_d1_pooled_level(full: bool) -> None:
         return np.array([float((p <= a).mean()) for a in lv])
 
     gate = calibrate_levels(DI, "level", lv, rep, C.replicates(DI, full), stream=D1_STREAM,
-                            m=M_POOLED, log_dir=C.log_dir() / "recorded")  # fmt: skip
-    print("recorded D-1 pooled:\n" + "\n".join(gate.detail()))
-    if gate.failed:
-        warnings.warn("D-1 pooled: confirmed level failure (method ADR, Khoa decides)",
-                      stacklevel=1)  # fmt: skip
+                            m=M_POOLED)  # fmt: skip
+    print("D-1 pooled:\n" + "\n".join(gate.detail()))
+    if any(r["status"] in NO_VERDICT for r in gate.records):
+        pytest.skip("shard or confirm run: the verdict comes from --merge")
+    gate.assert_ok()
 
 
+@D1_XFAIL
 @pytest.mark.calsuite(DI)
 @pytest.mark.parametrize("full", MODES)
-def test_recorded_attack_d1_lowest_quartile(full: bool) -> None:
+def test_attack_d1_lowest_quartile(full: bool) -> None:
+    """Gated D-1, lowest-abundance quartile: the rate over every tested pair of the quartile
+    against ``level_bound(alpha, n)`` (n pairs, treated as independent: the optimistic bound).
+    About 3x nominal (full tier 0.0273 / 0.157 / 0.277)."""
     lv = G.levels()
     r = C.replicates(DI, full)
     hits, n = np.zeros(len(lv)), 0
@@ -257,12 +273,10 @@ def test_recorded_attack_d1_lowest_quartile(full: bool) -> None:
         n += int(low.sum())
     rate = hits / n
     bounds = [C.level_bound(a, n) for a in lv]
-    print(f"recorded D-1 lowest quartile: R = {r}, n = {n}, rate {rate.round(4).tolist()}"
-          f" (pooled bounds {np.round(bounds, 4).tolist()})")  # fmt: skip
+    print(f"D-1 lowest quartile: R = {r}, n = {n}, rate {rate.round(4).tolist()}"
+          f" (bounds {np.round(bounds, 4).tolist()})")  # fmt: skip
     _log("attack_d1_lowest_quartile", {"R": r, "n": n, "rate": rate.tolist(), "bounds": bounds})
-    if np.any(rate > bounds):
-        warnings.warn("D-1: lowest-quartile level above the bound (method ADR or pooled-only "
-                      "claim, Khoa decides)", stacklevel=1)  # fmt: skip
+    assert np.all(rate <= bounds), f"D-1 lowest quartile {rate} > {bounds} ({ADR_0055})"
 
 
 # --------------------------------------------------------------------------- C

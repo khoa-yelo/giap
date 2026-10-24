@@ -1089,8 +1089,8 @@ Scenario: `operon_null(1800)`, R = 1,000 (full).
 | M-1, 6,000 genes, shipped | recorded | 50 | no call (median min q 0.85) |
 | C, oracle P(miss), `operon_null` | recorded | 300 | 0 / 0.0127 / 0.0832 at α 0.01 / 0.05 / 0.10 (80,275 pairs) |
 | C, oracle P(miss), detection attack | recorded, below 2α | 300 | 0.0176 / 0.0649 / 0.1189 (27,660 pairs) |
-| **D-1**, Δ SD ∝ e^(−z/2), pooled | **confirmed fail** → recorded | 1,000 | 0.00760 / **0.0521** / **0.1064** (bounds 0.0104 / 0.0510 / 0.1013) |
-| **D-1**, lowest-abundance quartile | recorded | 1,000 | 0.0273 / 0.157 / 0.277 (2.7×, 3.1×, 2.8×) |
+| **D-1**, Δ SD ∝ e^(−z/2), pooled | gated, **confirmed fail** (strict xfail, ADR-0055) | 1,000 | 0.00760 / **0.0521** / **0.1064** (bounds 0.0104 / 0.0510 / 0.1013) |
+| **D-1**, lowest-abundance quartile | gated, **fail** (strict xfail, ADR-0055) | 1,000 | 0.0273 / 0.157 / 0.277 (2.7×, 3.1×, 2.8×) |
 
 What the attacks show:
 
@@ -1109,20 +1109,24 @@ What the attacks show:
 - **D-1 fails the pooled level.** Confirmed at α = 0.05 and 0.10, the rate is 4–6 % above
   nominal; within the lowest quartile it is about 3× nominal. One t for all pairs puts null calls
   on noisy, low-abundance pairs.
-  - The issue planned D-1 as gated. Because of this failure it is recorded and escalated.
-  - Khoa decides between a method ADR (σ as a function of mean abundance) and a claim narrowed to
-    abundance-homoscedastic Δ.
-  - Until then, the discordance level claim covers Δ noise that does not depend on abundance.
+  - Both D-1 tests stay gated, as strict xfails naming ADR-0055 (proposed), in the ADR-0049
+    pattern.
+  - In an oracle check (scratch only, R = 150), a heteroscedastic t with σ_i = σ₀ e^(γ z_i)
+    restores the level: pooled 0.0103 / 0.0510 / 0.1004, lowest quartile 0.0085 / 0.047 / 0.095.
+    Under the gate null it changes nothing.
+  - Khoa decides ADR-0055: (a) that method, recommended, or (b) a narrowed and labelled claim.
 - **D-2** (TU-chained Δ) is built into every scenario. **D-3** is the M6-05 review table above.
 
 **Verdict (simulation half).** §7.4.7 criteria 1–3 pass at full R:
-- criterion 1 passes non-vacuously in the CV-only arm, and as a recorded vacuous pass with the
-  shipped decoys;
+- criterion 1, the gate with the shipped decoys, is a recorded vacuous pass (Khoa, 2026-10-22).
+  The extra convergent-only arm also passes, non-vacuously;
 - criterion 2 is attack A (ρ = 0.5);
 - criterion 3 is the KS test and the pooled level.
 
-Attacks A, B and M-2 pass. A′ and C are recorded below their thresholds. D-1 is an open,
-confirmed attack failure that blocks an unqualified discordance claim. The §15.4 half of the gate
+Attacks A, B and M-2 pass, and A′ and C are recorded below their thresholds.
+
+**Discordance gate: NOT MET (D-1), pending Khoa (ADR-0055).** **Missed operons: met** (a vacuous
+pass with the shipped decoys, plus the extra non-vacuous arm). The §15.4 half of the gate
 (M6-11/M6-12, RegulonDB) is separate.
 
 ## Sign-off
@@ -1152,5 +1156,5 @@ are sound.
 
 Statistician (M6-09, 2026-10-24): the simulation half of the M6 gate passes §7.4.7 criteria 1–3 and
 attacks A, B and M-2 at full R (Slurm 1884412). The missed-operon gate with the shipped decoys is
-a recorded vacuous pass. Attack D-1 is a confirmed failure of the discordance level and is
-escalated: a method ADR or a narrowed claim, Khoa decides.
+a recorded vacuous pass. **Discordance gate: NOT MET (D-1), pending Khoa:** attack D-1 is a
+confirmed failure of the discordance level, gated as strict xfails naming ADR-0055 (proposed).
