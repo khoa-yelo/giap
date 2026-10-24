@@ -1,0 +1,20 @@
+# LAPACK/BLAS-dependent float columns of GIAP's own tables (docs/specs/M10-06-te-real-and-te7.md, TE7
+# "numeric_only" sub-class known_lapack). Column names only, no values.
+# regions_stats.tsv: M4-20 decision 9 (np.linalg.lstsq in giap.context.regions.residualise); its
+# p-values stay byte-identical (decision 9), so p_value is not listed.
+# autocorrelation.tsv: M5-11 decisions 44 and 47 (the join_count_bb null from the BLAS-dependent
+# detectability fit; decision 47's drifting value sits in null_mean), decision 46 (the drifting
+# observed statistic is today's effect column, effect = observed - null_mean) and decision 48 (the
+# permutation p_value and q_value move by permutation counts when the observed value moves).
+# value (an integer join count) is not listed.
+table	column	source
+tables/regions_stats.tsv	hl_shift_log2	M4-20 decision 9
+tables/regions_stats.tsv	effect	M4-20 decision 9
+tables/regions_stats.tsv	ci_low	M4-20 decision 9
+tables/regions_stats.tsv	ci_high	M4-20 decision 9
+tables/autocorrelation.tsv	null_mean	M5-11 decisions 44 and 47
+tables/autocorrelation.tsv	null_lo	M5-11 decision 44
+tables/autocorrelation.tsv	null_hi	M5-11 decision 44
+tables/autocorrelation.tsv	effect	M5-11 decision 46
+tables/autocorrelation.tsv	p_value	M5-11 decision 48
+tables/autocorrelation.tsv	q_value	M5-11 decision 48
