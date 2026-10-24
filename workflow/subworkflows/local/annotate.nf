@@ -76,8 +76,10 @@ workflow ANNOTATE {
     def gbff = null   // null: no GBFF (precomputed bakta_json alone) -> antiSMASH skipped
     if (pc.bakta_json) {
         bjson = channel.value(file(pc.bakta_json, checkIfExists: true))
-        def g = file(pc.bakta_json.toString().replaceFirst(/\.json$/, '.gbff'))
-        gbff = g.exists() ? channel.value(g) : null
+        // the GBFF next to x.json / x.json.gz (any case): x.gbff, else x.gbff.gz
+        def stem = pc.bakta_json.toString().replaceFirst(/(?i)\.json(\.gz)?$/, '')
+        def g = ["${stem}.gbff", "${stem}.gbff.gz"].collect { p -> file(p) }.find { f -> f.exists() }
+        gbff = g ? channel.value(g) : null
     } else {
         def light = ann.bakta.db == 'light' || (ann.bakta.db == 'auto' && !file("${db}/bakta/db").exists())
         def bdb = light ? "${db}/bakta/db-light" : ann.bakta.db in ['auto', 'full'] ? "${db}/bakta/db" : ann.bakta.db

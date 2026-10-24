@@ -147,7 +147,7 @@ def _check_profile(_ctx: click.Context, _param: click.Parameter, value: str) -> 
 @click.option("--proteins", type=_existing_file, help="Protein FASTA.")
 @click.option("--peptides", type=_existing_file, help="Peptide table (TSV).")
 @click.option("--abundance", type=_existing_file, help="Protein abundance table (TSV).")
-@click.option("--annotation", type=_existing_file, help="bakta.json, GFF3 or GenBank.")
+@click.option("--annotation", type=_existing_file, help="bakta.json(.gz), GFF3 or GenBank.")
 @click.option("--outdir", type=_out_path, help="Output directory.")
 @click.option("--strict", is_flag=True, help="Treat warnings as errors (exit code 3).")
 @shared_options
@@ -206,7 +206,7 @@ _NORM_INPUTS = {
 @click.option("--peptides", type=_existing_file, help="Peptide table (TSV).")
 @click.option("--proteins", type=_existing_file, help="Protein FASTA.")
 @click.option("--abundance", type=_existing_file, help="Protein abundance table (TSV).")
-@click.option("--annotation", type=_existing_file, help="bakta.json, GFF3 or GenBank.")
+@click.option("--annotation", type=_existing_file, help="bakta.json(.gz), GFF3 or GenBank.")
 @click.option("--reference-peptides", type=_existing_file, help="Reference peptide table.")
 @click.option("--replicon-depth", type=_existing_file, help="Replicon depth table (TSV).")
 @click.option("--outdir", type=_out_path, required=True, help="Output directory.")
@@ -403,10 +403,15 @@ def _run_tail(outdir: Path, base: dict[str, Any], code: int, **kw: Any) -> int:
     return int(code)
 
 
+def _is_bakta_json(annotation: Path) -> bool:
+    """True when ``annotation`` is named like a Bakta JSON: ``.json`` or ``.json.gz``, any case."""
+    return Path(annotation).name.lower().endswith((".json", ".json.gz"))
+
+
 def _bakta_json(annotation: Path | None) -> str | None:
-    """The absolute path of ``--annotation`` when it is a Bakta JSON, else None (GFF3/GBFF go
-    through Bakta ``--regions``, §5.3)."""
-    if annotation is None or Path(annotation).suffix.lower() != ".json":
+    """The absolute path of ``--annotation`` when it is a Bakta JSON (``.json`` or ``.json.gz``,
+    passed as given), else None (GFF3/GBFF go through Bakta ``--regions``, §5.3)."""
+    if annotation is None or not _is_bakta_json(annotation):
         return None
     return str(Path(annotation).absolute())
 
@@ -522,7 +527,7 @@ def _local_roots(
     if (work / "proteins.long.faa").is_file():
         roots["proteins_long"] = work / "proteins.long.faa"
     ann, ref = inputs["annotation"], inputs["reference_peptides"]
-    is_json = ann is not None and ann.name.lower().endswith(".json")
+    is_json = ann is not None and _is_bakta_json(ann)
     bakta = ann if is_json else cfg.annotation.precomputed.bakta_json
     if ann is not None and bakta is None:  # a GFF3/GenBank annotation cannot replace Bakta JSON
         click.echo("giap run: error: annotation.precomputed.bakta_json is required with "
