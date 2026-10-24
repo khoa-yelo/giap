@@ -130,3 +130,21 @@ def determinants_family(genes: pd.DataFrame, cfg: GiapConfig, rng: np.random.Gen
 - **N4:** the skip message names its cause.
 - **Backlog:** N5–N9. The size is accepted, because the PR is stacked and its split was agreed.
 - The basic-mode no-op rows are documented in the methods note (pending Khoa).
+
+## Lead decision 6 (Khoa, 2026-10-24)
+- `agreement` covers the genes the features explain, not the top decile. A gene is explained in a
+  run when it is a model row not flagged `abundance_not_explained_by_sequence` in that run.
+- `DeterminantsSensitivity.dominant` gives a block for every explained model row:
+  `agreement_block` on that row's LightGBM SHAP block sums, i.e. the block with the largest
+  |sum| (NaN ignored, ties to the first block in `BLOCKS` order, `None` when no |sum| > 0). This
+  is Khoa's option (a) (2026-10-24, PR #299 review): M8-08 rule 3 (`_dominant`, the largest
+  positive sum) picks a noise block for genes predicted below the mean, and `agreement` then
+  floors at about 0.7 with or without signal. `_dominant` itself is unchanged.
+- `agreement` is the share of the genes explained in both runs whose dominant block is the same.
+  A gene flagged in either run is excluded; a gene with `None` in both runs is excluded; `None` in
+  one run only is a disagreement; NA when no gene is left. A run against itself gives 1.
+- Genes that are model rows in only one run are outside the denominator. Each variant's
+  denominator is `n_agreement` in the event `sensitivity.determinants_cv_r2`.
+- `determinants_attribution.tsv` (`dominant_block` still rule 3, top-decile only) and the
+  `sensitivity.tsv` columns are unchanged. This supersedes the top-decile wording of item 2,
+  decision 4 and example 3 (whose three genes are now read as explained in both runs).

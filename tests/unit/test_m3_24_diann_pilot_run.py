@@ -29,7 +29,6 @@ from helpers.pilot_kit import (
     BINDS,
     CFG,
     DIANN_BIN,
-    DIANN_SIF,
     PilotSandbox,
     pilot_sandbox,
     read_cfg,
@@ -82,22 +81,28 @@ def test_diann_sif_override_is_honoured(tmp_path: Path) -> None:
     pilot = pilot_sandbox(tmp_path)
     other = pilot.sb.tmp / "images" / "elsewhere.sif"
     other.write_text("stub sif\n")
+    other.chmod(0o444)  # M10-02: the pilot runs only a read-only copy whose sha256 is the pin
     _run(pilot, "A1", DIANN_SIF=str(other))
     images = {c["image"] for c in _steps(pilot)}
     assert images == {str(other)}, images
 
 
 def test_the_default_image_is_the_path_of_decision_1(tmp_path: Path) -> None:
-    """With ``DIANN_SIF`` unset the script falls back to Khoa's image, wherever it lives."""
+    """With ``DIANN_SIF`` unset the pilot runs the verified copy
+    ``$GIAP_ROOT/images/diann_2.3.1.sif`` (M10-02 lead decision 1; diann_image.sbatch makes it
+    from Khoa's image); without that copy it exits 2 naming the path and diann_image.sbatch."""
     pilot = pilot_sandbox(tmp_path)
     pilot.sb.env.pop("DIANN_SIF")
     res = pilot.run("diann_pilot", "A1")
-    if Path(DIANN_SIF).is_file():
-        assert res.returncode == 0, f"{res.stdout}\n{res.stderr}"
-        assert {c["image"] for c in _steps(pilot)} == {DIANN_SIF}
-    else:  # the image was moved: the script must still name the documented default
-        assert res.returncode == 2, res.stdout + res.stderr
-        assert DIANN_SIF in res.stdout + res.stderr
+    copy = pilot.sb.root / "images" / "diann_2.3.1.sif"
+    assert res.returncode == 2, res.stdout + res.stderr
+    assert str(copy) in res.stdout + res.stderr and "diann_image.sbatch" in res.stdout + res.stderr
+    copy.parent.mkdir(parents=True, exist_ok=True)
+    copy.write_text("stub sif\n")
+    copy.chmod(0o444)
+    res = pilot.run("diann_pilot", "A1")
+    assert res.returncode == 0, f"{res.stdout}\n{res.stderr}"
+    assert {c["image"] for c in _steps(pilot)} == {str(copy)}
 
 
 def test_the_container_call_binds_the_cluster_filesystems(pilot: PilotSandbox) -> None:
@@ -239,9 +244,18 @@ def test_an_empty_raw_directory_fails_before_the_search(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- fetch_pxd078459.sbatch
 
 
+# M10-01 decision 1: the fetch reads a committed manifest (or this override) and unpacks archives;
+# the stub curl returns text, so the override names files inside the three ``<run>.d`` folders.
+FETCH_OVERRIDE = {
+    "PXD078459_BASE_URL": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2026/10/PXD078459",
+    "PXD078459_FILES": " ".join(f"WT_{r}.d/{f}" for r in (1, 2, 3)
+                                for f in ("analysis.tdf", "analysis.tdf_bin")),
+}  # fmt: skip
+
+
 def test_fetch_downloads_three_runs_and_records_their_checksums(pilot: PilotSandbox) -> None:
     """§15.2 step 4 and deliverable 5: three wild-type runs under $GIAP_DATA_DIR with SHA256SUMS."""
-    res = pilot.run("fetch_pxd078459")
+    res = pilot.run("fetch_pxd078459", **FETCH_OVERRIDE)
     assert res.returncode == 0, f"exit {res.returncode}\n{res.stdout}\n{res.stderr}"
     calls = pilot.fetch_calls()
     assert calls, "nothing was downloaded (the stubbed wget/curl was never called)"
@@ -256,16 +270,18 @@ def test_fetch_downloads_three_runs_and_records_their_checksums(pilot: PilotSand
     for line in sums.read_text().splitlines():
         m = re.match(r"^([0-9a-f]{64})\s+\*?(\S+)$", line.strip())
         assert m, f"unparsable SHA256SUMS line: {line!r}"
-        listed[Path(m.group(2)).name] = m.group(1)
+        listed[Path(m.group(2)).as_posix()] = m.group(1)
     created = [Path(p) for c in calls for p in c["created"]]
     assert created, calls
-    for path in created:
-        assert path.name in listed, f"{path.name} is not in SHA256SUMS: {sorted(listed)}"
-        assert listed[path.name] == hashlib.sha256(path.read_bytes()).hexdigest(), path
+    names = {(p.relative_to(dest) if p.is_relative_to(dest) else p).as_posix() for p in created}
+    assert names <= set(listed), (sorted(names - set(listed)), sorted(listed))
+    for rel, want in listed.items():
+        assert (dest / rel).is_file(), f"{rel} is listed but not under {dest}"
+        assert hashlib.sha256((dest / rel).read_bytes()).hexdigest() == want, rel
 
 
 def test_fetch_writes_only_under_giap_data_dir(pilot: PilotSandbox) -> None:
-    res = pilot.run("fetch_pxd078459")
+    res = pilot.run("fetch_pxd078459", **FETCH_OVERRIDE)
     assert res.returncode == 0, f"{res.stdout}\n{res.stderr}"
     assert pilot.repo_is_clean() == "", pilot.repo_is_clean()
     dest = str(pilot.sb.root / "data" / "pxd078459")

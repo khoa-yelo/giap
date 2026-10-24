@@ -147,8 +147,10 @@ def test_operons_and_mapping_blocks_follow_their_events(
 @pytest.mark.parametrize("executor", EXECUTORS)
 def test_calibration_block(outs: dict[str, Path], executor: str) -> None:
     m = _manifest(outs[executor])
-    assert set(m["calibration"]) == {"operon_distance", "terminatornet_yes"}
-    assert {"uncalibrated:operon_distance", "uncalibrated:terminatornet_yes"} <= set(m["flags"])
+    # all three calibration.yaml keys, calibrated since ADR-0022 (M6-12 C): no uncalibrated flag
+    assert set(m["calibration"]) == {"operon_distance", "uniop_pair_threshold", "terminatornet_yes"}
+    assert all(e["calibrated"] is True for e in m["calibration"].values())
+    assert not [f for f in m["flags"] if f.startswith("uncalibrated:")]
 
 
 @pytest.mark.parametrize("executor", EXECUTORS)

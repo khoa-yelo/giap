@@ -136,7 +136,8 @@ def _imputed_world(n: int, seed: int, signal: float, n_imputed: int) -> tuple[An
 def test_missing_min_on_imputed_genes_reads_jaccard_1_agreement_1() -> None:
     """Statistician B1 attack (n = 400, signal 0.6, 40 detected genes imputed; seed 3 has a
     top-decile gene without a positive block): the ``missing=min`` rerun equals the primary,
-    so its row reads jaccard 1 and agreement 1."""
+    so its row reads jaccard 1 and agreement 1. Since M8-16c (|SHAP| rule) a None block needs an
+    all-zero row, so the fixture only requires explained genes with a block."""
     from giap.rng import for_step
 
     S = _S()
@@ -148,9 +149,7 @@ def test_missing_min_on_imputed_genes_reads_jaccard_1_agreement_1() -> None:
     g_min = S.variant_genes(genes, var, cfg)
     v = sf.det_result(g_min, feats, cfg, for_step(stream, sf.SEED))
     assert p is not None and v is not None
-    assert any(b is None for b in p.dominant.values()), (
-        "fixture: no top-decile gene without a block"
-    )
+    assert any(b is not None for b in p.dominant.values()), "fixture: no explained gene"
     assert p == v, "fixture: missing=min should reproduce the primary"
     r = S.sensitivity_rows({sf.DET: p}, {(sf.DET, "missing=min"): v}).iloc[0]
     assert float(r["jaccard"]) == 1.0

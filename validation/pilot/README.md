@@ -26,17 +26,20 @@ build of §15.2 step 3 (reference invocation:
 |---|---|
 | Version string | `DIA-NN 2.3.1 Academia`, compiled 2025-12-05 |
 | Image | `/farmshare/home/classes/bios/270/jordan/diann_2.3.1.sif` (532 MB, world-readable) |
-| sha256 of the image | `1946452d56d2fb0f66e05ced473df88e53484e28040f1ecbd83c4a43405a6381` (2026-10-20) |
+| sha256 of the image | `1946452d56d2fb0f66e05ced473df88e53484e28040f1ecbd83c4a43405a6381` (2026-10-20); the scripts read it from `validation/pilot/diann_image.sha256` |
 | Binary inside | `/diann-2.3.1/diann-linux` |
 | Module | `apptainer/1.4.4`; binds `/home/classes`, `/scratch`, `/farmshare` |
-| Override | `DIANN_SIF=/path/to/image.sif sbatch scripts/slurm/diann_pilot.sbatch A1` |
+| Override | `DIANN_SIF=/path/to/image.sif sbatch scripts/slurm/diann_pilot.sbatch A1`; the override must be mode 0444 and hash to the pin, or the job exits 2 |
 | Smoke check | the job logs `… --version` into `$OUT_DIR/<arm>/diann_version.txt`; 2.3.1 prints the banner, warns `unrecognised option [--version]` and exits 0 |
 
 The image is **never copied into the repository** (532 MB, R11; decision 3): the repository keeps
 only the two cfg files, this README, `db_a2/` and the sbatch scripts.
-`scripts/slurm/diann_pilot.sbatch` reads `DIANN_SIF`, defaults to the path above and exits 2 with
-a clear message when the image is not there. The pin above is checked by `tests/unit/test_m3_24_pilot_kit.py`; if
-the image is replaced, re-pin it there and here.
+`scripts/slurm/diann_image.sbatch` verifies the image above against the pin and installs a
+read-only copy at `$GIAP_ROOT/images/diann_2.3.1.sif` (M10-02); `scripts/slurm/diann_pilot.sbatch`
+reads `DIANN_SIF`, defaults to that copy and exits 2 when it is missing, writable or off the pin.
+The pin above is checked by `tests/unit/test_m3_24_pilot_kit.py`; the scripts read it from
+`validation/pilot/diann_image.sha256`, and the test fakes use `DIANN_SIF_SHA256`
+(`tests/helpers/pilot_kit.py`). If the image is replaced, re-pin it in all of these and here.
 
 ## Version actually used
 
@@ -118,6 +121,128 @@ NCBI:
 curl -O https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/043/228/065/GCA_043228065.1_ASM4322806v1/GCA_043228065.1_ASM4322806v1_genomic.fna.gz
 ```
 
+## Raw data
+
+PXD078459 (ProteomeXchange; hosted by iProX as IPX0017169000) is the pilot's raw data.
+
+- **Record:** https://proteomecentral.proteomexchange.org/cgi/GetDataset?ID=PXD078459&outputMode=XML,
+  retrieved 2026-10-24 (02:43:27 UTC), sha256
+  `5d3f16c3137fb11ecae7f79ad02063d8e3008b21380784fcfc8aa77b7fb533f9` (Slurm job 1879851, `--resolve`).
+- **Licence:** the record states no data licence (no licence cvParam in the XML); ProteomeXchange
+  data are public. To confirm with Khoa before any redistribution (none is planned: nothing raw is
+  committed).
+- **Instrument:** timsTOF HT (MS:1003404, from the record).
+- **Selected runs:** the first three wild-type runs by natural sort (M10-01 Q2), WT_1–WT_3:
+  `MLA1914689_WT_P1_1_Y-D7_1_13119.d.zip`, `MLA1914690_WT_P2_2_Y-D8_1_13120.d.zip`,
+  `MLA1914691_WT_P3_3_Y-D9_1_13121.d.zip` (about 1.0 GB each).
+- **Not selected** (resolve job 1879851, `file`, reason):
+
+  | file | reason |
+  |---|---|
+  | `20260203_201309_sp_MJ20260114273_PP20260127494.sne` | not_raw (a Spectronaut file) |
+  | `MLA1914692_DGC_P1_4_Y-D10_1_13122.d.zip` … `MLA1914694_DGC_P3_6_Y-D12_1_13124.d.zip` (3) | not_wild_type |
+  | `MLA1914698_DGC_ROS_P1_10_Y-E4_1_13128.d.zip` … `MLA1914700_DGC_ROS_P3_12_Y-E6_1_13130.d.zip` (3) | not_wild_type |
+  | `MLA1914695_WT_ROS_P1_7_Y-E1_1_13125.d.zip` … `MLA1914697_WT_ROS_P3_9_Y-E3_1_13127.d.zip` (3) | beyond_three |
+
+  The `WT_ROS` runs are wild type under ROS treatment and also carry the `WT` token. The selector
+  does not tell them apart by name: P1–P3 are the untreated wild-type runs only because the
+  untreated set comes first in the MLA numbering (MLA1914689–91 before MLA1914695–97). This was
+  checked by hand against the file names.
+- **Transport (R6):** the record lists plain-HTTP links on `download.iprox.org`. That host's
+  certificate does not name it, so HTTPS fails verification there. iProX's own domain
+  `download.iprox.cn` (www.iprox.org redirects to www.iprox.cn) serves the same files over verified
+  HTTPS: same sizes and same first MiB (checked 2026-10-24). The manifest's `url` is that HTTPS
+  route; `url_record` keeps the record's link. TLS verification is never disabled.
+- **Manifest:** `validation/pilot/inputs/pxd078459_files.tsv`. The record gives no checksums, so integrity rests on
+  TLS only; `sha256` is filled by the download job (`SHA256SUMS` next to the data).
+- **Download:** Slurm job 1879859 (2026-10-24, 23 min, COMPLETED) fetched the three archives over
+  HTTPS (about 2.9 GB), unpacked them to `$GIAP_DATA_DIR/pxd078459/` as WT_1.d, WT_2.d and WT_3.d and wrote
+  `SHA256SUMS`; the archive sha256s are in the manifest.
+- **Acquisition mode:** diaPASEF for all three runs (`acquisition_mode.py`, Slurm job 1879882):
+  734 MS1 frames and 8804–8805 diaPASEF frames (MsMsType 9) per run.
+  `validation/pilot/inputs/acquisition.json` records it.
+
+## Searches (M10-02)
+
+DIA-NN 2.3.1 Academia ran from the read-only copy `$GIAP_ROOT/images/diann_2.3.1.sif`.
+- **The install:** `scripts/slurm/diann_image.sbatch`, Slurm 1879883, copied and hashed the image
+  but ended FAILED with exit 2: it ran before the banner fix (e7edc457), and its banner check read
+  the blank line the binary prints first. The copy was verified afterwards: mode 444, sha256 equal
+  to the pin in `validation/pilot/diann_image.sha256`. Its `diann_2.3.1.sif.json` keeps the
+  pre-fix banner shape. The banner itself was checked by the searches (`diann_version.txt` of
+  1879955/1879956). The install job now checks the banner on the temporary copy, before it is
+  renamed into place, so a failed banner installs nothing.
+- **Step 1 (the predicted libraries):** built by 1879913 (A1) and 1879914 (A2), submitted from
+  commit `26adc18c`. 1879955/1879956 found a matching `step1.done` and reused them (`step1:
+  skipped`), so their `command_step1.txt` is that of 1879913/1879914. Step 1 passes no raw files
+  and its code is the same at both commits. `step1.done` now records the job and commit that built
+  the library, and a skipped step 1 names them in `provenance.json`.
+- **Step 2 (the searches):** both arms ran at commit `81272fc0` of `m10/diann-searches` from a
+  clean worktree (spec Q10), on the three diaPASEF runs of PXD078459 (`acquisition.json`).
+- **CPUs:** these jobs asked for `--mem=64G` (65,536 MB), more than 16 x `MaxMemPerCPU` (4,000 MB),
+  so Slurm gave each 17 CPUs per task (18 allocated) and DIA-NN ran with `--threads 17`. The
+  script now asks for `--mem=64000M`, which gives exactly 16.
+
+| arm | Slurm job | node | state | elapsed | MaxRSS |
+|---|---|---|---|---|---|
+| A1 | 1879955 | rye-02 | COMPLETED, exit 0 | 00:14:21 | 6.6 GiB |
+| A2 | 1879956 | rye-02 | COMPLETED, exit 0 | 00:14:21 | 6.4 GiB |
+
+- **Outputs:** they stay under `$GIAP_ROOT/pilot/<arm>/`: report, library, `provenance.json`,
+  `outputs.sha256`, and both command lines. Nothing derived from the reports is committed (Khoa,
+  2026-10-23). Report row counts wait for Q-K1; the default is that they are not committed.
+- **Superseded attempts:**
+  - 1879913 (A1) and 1879914 (A2) ran concurrently without `--temp`;
+  - A2 failed with "library size mismatch", because the two arms shared `<run>.d.quant` files next to the raw runs;
+  - both arms were rerun with a per-arm `--temp`.
+- **One submission per arm at a time:** two concurrent jobs of the *same* arm delete each other's
+  `quant/` and outputs.
+
+## Conversion (M10-03)
+
+`scripts/slurm/diann_convert.sbatch <arm>` ran `giap convert --from diann` on each arm's DIA-NN
+2.3.1 report, at commit `fdf586be` of `m10/diann-convert-tests` from a clean worktree. The job
+converts twice and compares the hashes (determinism), then runs the five contract checks
+(`tests/contract/test_m10_03_diann_contract.py`, 0 skipped).
+
+```
+giap convert --from diann $GIAP_ROOT/pilot/A1/A1_report.parquet --out $GIAP_ROOT/pilot/inputs/a1.tsv.gz \
+  --abundance-out $GIAP_ROOT/pilot/inputs/a1_abundance.tsv.gz --search-db other
+giap convert --from diann $GIAP_ROOT/pilot/A2/A2_report.parquet --out $GIAP_ROOT/pilot/inputs/a2.tsv.gz \
+  --abundance-out $GIAP_ROOT/pilot/inputs/a2_abundance.tsv.gz --search-db same
+```
+
+| arm | Slurm job | node | state | elapsed | MaxRSS |
+|---|---|---|---|---|---|
+| A1 | 1880219 | wheat-01 | COMPLETED, exit 0 | 00:00:17 | 0.3 GiB |
+| A2 | 1880220 | wheat-05 | COMPLETED, exit 0 | 00:00:17 | 0.3 GiB |
+
+sha256 of each input report and of the two tables written from it:
+
+| arm | file | sha256 |
+|---|---|---|
+| A1 | `A1_report.parquet` (input) | `f217a40fc0777e99783f3d410743bc80d301290dcdb219a6c69574ee6a4926d7` |
+| A1 | `a1.tsv.gz` | `81818184f0cd222f091ae6b835ff72cc5743b6ce7e6403e7a2cb1740bbf24f3a` |
+| A1 | `a1_abundance.tsv.gz` | `20284d4234055b26cf779dc405548087e4efc9bf1007dc3bebc031c5b6c74c54` |
+| A2 | `A2_report.parquet` (input) | `733a3884a15664f13385b241e48186e538308993ff2d5a8cc3ec9ff212866d36` |
+| A2 | `a2.tsv.gz` | `1eb5e1e9a8855fc8ac62bed4d60f2715f9270f2b96f40206dd35a3a754adf14f` |
+| A2 | `a2_abundance.tsv.gz` | `c61122f3afc9aa31986de8bbfef1c542719627d3d632ec9113e7719582b41c19` |
+
+- **Where the tables live:** they are derived from the DIA-NN reports, so they stay under
+  `$GIAP_ROOT/pilot/inputs/` and are not committed (Khoa, 2026-10-23). This departs from §15.2
+  step 7; the amendment goes to ADR-0051.
+- **Row counts** (data rows, header excluded; aggregates are allowed, Khoa 2026-10-24):
+
+  | arm | peptide rows (`aN.tsv.gz`) | protein groups (`aN_abundance.tsv.gz`) |
+  |---|---|---|
+  | A1 | 81,278 | 2,878 |
+  | A2 | 93,781 | 3,257 |
+- **Reproducing:** conversion is deterministic, so rerunning the job and matching these hashes is a
+  full check (M10-14).
+- **Superseded runs:** 1880208 and 1880209 ran at `b051c2b7`, before main's
+  `acquisition.json`, so one contract check was skipped. Their outputs were overwritten by the
+  runs above.
+
 ## Running the pilot (§15.2 steps 4-9)
 
 Every step is a batch job; nothing runs on a login node or in the session allocation.
@@ -125,7 +250,7 @@ Every step is a batch job; nothing runs on a login node or in the session alloca
 ```bash
 # step 4 - the three wild-type runs (~5-10 GB) into $GIAP_DATA_DIR/pxd078459/, with SHA256SUMS
 sbatch scripts/slurm/fetch_pxd078459.sbatch
-# step 5 - DIA-NN 2.3.1 for A1 and A2 (normal, 16 CPU, 64 GB, two calls each)
+# step 5 - DIA-NN 2.3.1 for A1 and A2 (normal, 16 CPU, 64000 MB, two calls each)
 sbatch -J giap-diann-A1 scripts/slurm/diann_pilot.sbatch A1
 sbatch -J giap-diann-A2 scripts/slurm/diann_pilot.sbatch A2
 # step 6 - A3 de novo on one GPU (Cascadia 0.0.7; `casanovo` selects the fallback)

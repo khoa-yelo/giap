@@ -60,15 +60,15 @@ def test_newly_detected_genes_enter_the_rerun(world: tuple[pd.DataFrame, pd.Data
     want = sf.det_oracle(genes, feats, cfg, _rng())
     assert got is not None
     assert got.flagged == want.flagged
-    assert set(got.dominant) == set(want.top)
+    assert set(got.dominant) == set(want.explained)
     assert sf.non_none(got.dominant) == want.dominant
     assert got.cv_r2 == pytest.approx(want.cv_r2, rel=1e-9, abs=1e-12)
     stale = genes.copy()
     stale["detected"] = feats["detected"].astype(bool).to_numpy()
     old = sf.det_oracle(stale, feats, cfg, _rng())
-    assert set(got.dominant) != set(old.top) or got.cv_r2 != pytest.approx(old.cv_r2)
+    assert set(got.dominant) != set(old.explained) or got.cv_r2 != pytest.approx(old.cv_r2)
     flipped = set(feats["locus_tag"].iloc[:N_FLIP].astype(str))
-    assert set(got.dominant) & flipped, "no newly detected gene in the rerun's top decile"
+    assert set(got.dominant) & flipped, "no newly detected gene among the rerun's explained genes"
 
 
 def test_undetected_in_genes_leaves_the_model_rows() -> None:

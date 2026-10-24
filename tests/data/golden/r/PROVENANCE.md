@@ -2,11 +2,13 @@
 
 - Command: `sbatch scripts/slurm/golden_r.sbatch` (runs `scripts/golden/make_golden_inputs.py
   --seed 50000` and `Rscript --vanilla scripts/golden/make_golden_r.R` in env `giap-golden-r`).
-- Slurm job: 1868639 on barley-01, 2026-10-22 (19:40 UTC).
+- Slurm job: 1879857 on wheat-01, 2026-10-24 (02:52 UTC).
+- Reason: M8-12b: median-exact GSEA inputs (M8-13 lead decision 1)
+- Supersedes: Slurm job 1868639
 - Env lock: `scripts/golden/golden_r.explicit.txt`, sha256 `eb4448ffcc114159f125021649dc3a870bf31a06a796c88117de1a5eeba10b7c`
   (R 4.5.3,
   fgsea 1.36.2, goseq 1.62.0, BiasedUrn 2.0.12; conda-forge and bioconda only).
-- Scripts: git commit `88627e4056c88acdf872eced16acca8065fd80b4`.
+- Scripts: git commit `0dd47715a755fe8b880bdd3428abbf33e719ecee`.
 - Seed: GOLDEN_SEED = 50000 (`tests/calibration/tolerances.yaml`); `set.seed(GOLDEN_SEED)`
   before `fgseaMultilevel` and before `goseq`; `nproc = 1`.
 - Reproducibility: the inputs and the R outputs were each generated twice in this job and were
