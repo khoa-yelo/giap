@@ -29,6 +29,7 @@ import pandas as pd
 import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from giap.io.plot_files import write_instance
@@ -481,6 +482,96 @@ def test_polar_track_axes_are_counted(tmp_path: Path) -> None:
     ax = fig.add_subplot(projection="polar")
     ax.scatter(rng.random(25_000) * 6.28, rng.random(25_000), s=1, color="#0072B2")
     assert _check(_inst(fig), tmp_path)[ELEMENTS].passed is False
+
+
+def _tagged_scatter(ax: Axes, n: int, gid: str | None, seed: int) -> None:
+    rng = np.random.default_rng(seed)
+    ax.scatter(rng.random(n) * 6.28, rng.random(n), s=1, color="#0072B2", gid=gid)
+
+
+def _track_gids() -> list[str]:
+    """Two of V1's exported track gids (M9-26 lead decision 4, B1: ``circos.TRACK_GIDS``)."""
+    from giap.viz import circos
+
+    gids = sorted(str(g) for g in circos.TRACK_GIDS)
+    assert {"gene_plus", "gene_minus", "abundance"} <= set(gids), gids
+    return ["gene_plus", "gene_minus"]
+
+
+def test_b1_one_track_gid_with_25000_elements_fails(tmp_path: Path) -> None:
+    """A tagged collection counts its offsets, not 1; a tagged group can fail."""
+    plus, _ = _track_gids()
+    fig = _figure(style.SINGLE_IN, style.SINGLE_IN)
+    ax = fig.add_subplot(projection="polar")
+    _tagged_scatter(ax, 25_000, plus, 3)
+    res = _check(_inst(fig), tmp_path)[ELEMENTS]
+    assert res.passed is False
+    assert "25,000" in res.detail, res.detail
+
+
+def test_b1_two_track_gids_with_15000_each_pass(tmp_path: Path) -> None:
+    """V1's polar axes holds every track; each V1 track counts on its own (M9-24)."""
+    plus, minus = _track_gids()
+    fig = _figure(style.SINGLE_IN, style.SINGLE_IN)
+    ax = fig.add_subplot(projection="polar")
+    _tagged_scatter(ax, 15_000, plus, 4)
+    _tagged_scatter(ax, 15_000, minus, 5)
+    res = _check(_inst(fig), tmp_path)[ELEMENTS]
+    assert res.passed is True, res.detail
+
+
+def test_b1_two_non_track_gids_with_15000_each_fail(tmp_path: Path) -> None:
+    """Only V1's track gids split an axes; any other gid counts in the axes total."""
+    from giap.viz import circos
+
+    assert "hover_a" not in circos.TRACK_GIDS and "hover_b" not in circos.TRACK_GIDS
+    fig = _figure()
+    ax = fig.add_subplot()
+    _tagged_scatter(ax, 15_000, "hover_a", 6)
+    _tagged_scatter(ax, 15_000, "hover_b", 7)
+    ax.set_xlabel("position (Mb)")
+    ax.set_ylabel("log2 abundance")
+    res = _check(_inst(fig), tmp_path)[ELEMENTS]
+    assert res.passed is False, res.detail
+    assert "30,000" in res.detail, res.detail
+
+
+def test_b1_untagged_and_a_non_track_gid_count_together(tmp_path: Path) -> None:
+    """Decision 4: "Any other gid, and untagged artists, count together per axes"."""
+    from giap.viz import circos
+
+    assert "hover_a" not in circos.TRACK_GIDS
+    fig = _figure()
+    ax = fig.add_subplot()
+    _tagged_scatter(ax, 15_000, None, 8)
+    _tagged_scatter(ax, 15_000, "hover_a", 9)
+    ax.set_xlabel("position (Mb)")
+    ax.set_ylabel("log2 abundance")
+    res = _check(_inst(fig), tmp_path)[ELEMENTS]
+    assert res.passed is False, res.detail
+    assert "30,000" in res.detail, res.detail
+
+
+def test_b1_untagged_artists_on_a_v1_axes_count_in_their_own_group(tmp_path: Path) -> None:
+    """Decision 4: 15,000 untagged plus 15,000 of one track gid pass (each group ≤ 20,000)."""
+    plus, _ = _track_gids()
+    fig = _figure(style.SINGLE_IN, style.SINGLE_IN)
+    ax = fig.add_subplot(projection="polar")
+    _tagged_scatter(ax, 15_000, None, 10)
+    _tagged_scatter(ax, 15_000, plus, 11)
+    res = _check(_inst(fig), tmp_path)[ELEMENTS]
+    assert res.passed is True, res.detail
+
+
+def test_b1_untagged_artists_on_a_v1_axes_can_still_fail(tmp_path: Path) -> None:
+    """The untagged group of a V1 axes is gated too (kills ``gid is None`` exemptions)."""
+    plus, _ = _track_gids()
+    fig = _figure(style.SINGLE_IN, style.SINGLE_IN)
+    ax = fig.add_subplot(projection="polar")
+    _tagged_scatter(ax, 25_000, None, 12)
+    _tagged_scatter(ax, 100, plus, 13)
+    res = _check(_inst(fig), tmp_path)[ELEMENTS]
+    assert res.passed is False, res.detail
 
 
 def test_many_patches_fail(tmp_path: Path) -> None:
