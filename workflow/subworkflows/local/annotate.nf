@@ -17,14 +17,18 @@ include { OSTIR } from '../../modules/local/ostir/main'
 include { GENOMAD } from '../../modules/local/genomad/main'
 include { ANTISMASH } from '../../modules/local/antismash/main'
 
-// Channels of [key, path | list] → GIAP_STEP inputs: files = [step, paths], keys aligned (key order).
-// Emits nothing unless every key of `need` arrived (a step gated on an optional input, e.g. proteins).
+// The step's config slice hash (params.config_hashes; M7-15 decision 7), '' when absent.
+def configHash(String step) { (params.config_hashes ?: [:])[step] ?: '' }
+
+// Channels of [key, path | list] → GIAP_STEP inputs: files = [step, paths, config hash], keys
+// aligned (key order). Emits nothing unless every key of `need` arrived (a step gated on an
+// optional input, e.g. proteins).
 def stepIn(String step, List chans, List need = []) {
     chans.inject(channel.empty()) { acc, c -> acc.mix(c) }.toList()
         .filter { kvs -> kvs.collect { kv -> kv[0] }.containsAll(need) }
         .map { kvs -> kvs.sort { kv -> kv[0] }.collectMany { kv -> (kv[1] instanceof List ? kv[1] : [kv[1]]).collect { f -> [kv[0], f] } } }
         .multiMap { kvs ->
-            files: [step, kvs.collect { kv -> kv[1] }]
+            files: [step, kvs.collect { kv -> kv[1] }, configHash(step)]
             keys: kvs.collect { kv -> kv[0] }
         }
 }

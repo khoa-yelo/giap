@@ -370,6 +370,42 @@
     "issue": "M8-06a",
     "note": "one run_step('function', ...) on a cold process: reading the gene table and resources, collections, summary bootstrap, ORA with TU recalibration (tu_folds wired), GSEA with its numba compilation (fresh NUMBA_CACHE_DIR) and the three writers"
   },
+  "novel_second_round_k12": {
+    "_comment": "M7-15 item 4 real-tool arm: the second round (Promotech, OSTIR) on real K-12 novel candidates. Outputs from d11f7608 plus the VARIANTS_STEP 8 GB memory hunk (resume of Slurm 1873779 in the same work dir: 2647 tasks cached, 4 completed); 4fcc29da changes task hashes only.",
+    "source": "scripts/measure_runtimes.py OUT/logs/trace.tsv --sacct 1879271 --genome k12_mg1655",
+    "genome": "k12_mg1655",
+    "peptides": "TE8 in-silico set: validation/proxies/te_proxies.peptide_sources of UniProt UP000000625 (sha256 a8052a60...), 151411 peptides after dropping 13 with B/J/O/U/X/Z; search_db other",
+    "profile": "farmshare,apptainer",
+    "genome_relation": "related",
+    "slurm_job": 1879271,
+    "date": "2026-10-23",
+    "processes": {
+      "promotech_novel": {
+        "wall_s": 123.0,
+        "peak_rss": "7.5 GB",
+        "node_class": "wheat",
+        "tasks": 1
+      },
+      "ostir_novel": {
+        "wall_s": 4.0,
+        "peak_rss": "274.3 MB",
+        "node_class": "wheat",
+        "tasks": 1
+      },
+      "novel_promoter_layer": {
+        "wall_s": 6.8,
+        "peak_rss": "398.6 MB",
+        "node_class": "wheat",
+        "tasks": 1
+      },
+      "variants_step": {
+        "wall_s": 106.0,
+        "peak_rss": "3.9 GB",
+        "node_class": "wheat",
+        "tasks": 1
+      }
+    }
+  },
   "sim_operon_1800_genes": {
     "benchmark": "benchmarks/test_sim_operon_bench.py::test_sim_operon_1800_genes_budget",
     "source": "docs/specs/M6-03-sim-operon-scenarios.md acceptance (a 1,800-gene scenario < 5 s)",

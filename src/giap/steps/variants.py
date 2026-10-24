@@ -28,6 +28,7 @@ import pyarrow as pa  # type: ignore[import-untyped]
 import giap
 from giap.config import GiapConfig
 from giap.io.fasta import read_genome_fasta
+from giap.io.output_checks import check_tsv, check_vcf
 from giap.io.parquet import write_parquet_deterministic
 from giap.io.variant_tables import write_pileup, write_variants
 from giap.io.vcf import VcfRecord, write_vcf
@@ -229,3 +230,6 @@ def variants_step(ctx: StepContext) -> None:
     _write_gzip(ctx.outputs["pileup"], pile)
     write_variants(ctx.outputs["variants"], table)
     write_variants_qc(ctx.outputs["variants_qc"], qc_frame(table, support))
+    check_vcf("variants_vcf", ctx.outputs["variants_vcf"])  # M7-15 item 2
+    check_tsv("pileup", ctx.outputs["pileup"], "pileup")
+    check_tsv("variants", ctx.outputs["variants"], "variants")

@@ -321,6 +321,8 @@ def run(
         code = _run_nextflow(
             cfg, outdir, inputs, str(_["memory"]), str(_["profile"]), bool(_["resume"]), db_dir
         )
+        if code == ExitCode.SUCCESS:
+            _finalize(outdir)
     except Exception:  # past the provenance core: exit 5, the tail still runs (review B2)
         code = _internal_error(outdir)
     from giap.runner.nextflow import failed_step
@@ -355,6 +357,14 @@ def _internal_error(outdir: Path) -> ExitCode:
     log.write_text(tb := traceback.format_exc(), encoding="utf-8")
     click.echo(f"{tb}{REPORT_MESSAGE} (log: {log})", err=True)
     return ExitCode.INTERNAL
+
+
+def _finalize(outdir: Path) -> None:
+    """Edits of published files that need several steps' outputs, for either executor:
+    ``novel_candidate_id`` in ``mapping/peptide_hits.tsv`` (M7-15 item 6)."""
+    from giap.steps.novel import backfill_candidate_ids
+
+    backfill_candidate_ids(outdir)
 
 
 def _run_tail(outdir: Path, base: dict[str, Any], code: int, **kw: Any) -> int:
@@ -579,6 +589,7 @@ def _run_local(
         live = {"events": outdir / "logs" / "events.jsonl"}
         local.run_local(cfg, workdir, targets, roots, timings, live=live)
         local.publish(workdir, outdir)
+        _finalize(outdir)
         local.write_datapackage(outdir)
     except reg.StepError as exc:
         log = exc.write_log(workdir.parent / "logs")
