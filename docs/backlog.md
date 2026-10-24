@@ -973,7 +973,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M4-24 decision 7: preflight `candidate_tier` should use the shared key columns, so it does not
   preview `decoy_picked` for all-unscored decoys.
 - M9-23: switch existing plot titles to `giap.viz.base.plural` as their tests are next touched.
-- M9-23: hide V16's `Skip` ("written by giap compare") from ordinary run reports; add a test for the runs-section detection tier per run.
+- M9-23: hide V16's `Skip` (`input_absent:compare`) from ordinary run reports; add a test for the runs-section detection tier per run.
 - Review #225 nits (M7-12):
   - N2: the methods-note FDP table is at 200 ORFs per class; rerun it at the gate count of 300.
   - N3: `OrfEntries` does not restate `NTERM_MIN_UPSTREAM_AA` and assumes `min_orf_aa` = 7; assert `digest_len[0]` ≥ 7 in six-frame mode.
