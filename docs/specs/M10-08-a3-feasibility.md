@@ -585,3 +585,19 @@ Wall time:
    published checksum).
 3. Conditional (Q2): accept the six other vendor EULAs bundled with the ProteoWizard image, only
    needed if B2 fails.
+
+## Amendments after the PR #301 code review (lead, 2026-10-24)
+
+These supersede the earlier text where they differ:
+- **Unimod:** Cascadia 0.0.7 fetches Unimod over plain HTTP twice: at the end of a run via
+  pyteomics, and at the start of every run via psims (`GenericModification(...).mass`). The
+  launcher blocks both. It points pyteomics at the local table, registers a local psims resolver,
+  and installs a Python socket guard. `cascadia.yml` pins `lxml>=5.4`.
+- **cascadia.yml:** the conda channel is conda-forge only; the pip part installs
+  `cascadia @ <PyPI wheel URL>#sha256=50b52043…f092a3` and `==`-pinned dependencies from PyPI.
+  The env is therefore not "conda-forge only" overall (rows 1 and 2 of the deliverables).
+- **Vendor licences:** the ProteoWizard route needs Bruker's plus **five** other vendor EULAs
+  (six in all), not six others (§B1, Q2, Khoa item 3).
+- **The weights fetch** rejects an HTML page or a body without the zip magic in both modes, and
+  its `--time` is 02:00:00 so curl's worst case fits.
+- **mzml-check M7:** the time unit is read from `unitAccession`, else `unitName`; no unit fails M7.
