@@ -5,12 +5,20 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 
 from giap.io.converters.base import ConvertResult
+from giap.io.converters.cascadia import convert_cascadia
 from giap.io.converters.diann import convert_diann
 from giap.io.converters.generic import convert_generic
 
-__all__ = ["CONVERTERS", "ConvertResult", "convert_diann", "convert_generic"]
+__all__ = [
+    "CONVERTERS",
+    "ConvertResult",
+    "convert_cascadia",
+    "convert_diann",
+    "convert_generic",
+]
 
 CONVERTERS: Mapping[str, Callable[..., ConvertResult]] = {
+    "cascadia": convert_cascadia,
     "diann": convert_diann,
     "generic": convert_generic,
 }
