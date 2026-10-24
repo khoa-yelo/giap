@@ -54,7 +54,7 @@ CI="$GIAP_ROOT/ci"
 W="${NIGHTLY_WORKTREE:-$GIAP_ROOT/ci/$(echo "${REF#origin/}" | tr '/' '-')-t$TASK}"
 RUN="$CI/runs/${JOB}_$TASK"
 commit=$(git -C "$GIAP_REPO" rev-parse -q --short --verify "$REF^0" 2>/dev/null || echo unknown)
-stage="setup"; reported=""; numba_tmp=""
+stage="setup"; reported=""; numba_tmp=""; tmp_dir=""
 mkdir -p "$CI/runs" "$GIAP_ROOT/logs"
 
 tsv_line() {  # tsv_line <job_task> <exit> <summary>
@@ -74,6 +74,7 @@ on_exit() {  # decision 14: a task that ends without its line (early exit, error
   [ "${BASHPID:-$$}" = "$$" ] || return 0   # a forked child hit by the group SIGTERM before its exec (bash < 4 has no BASHPID: old behaviour)
   [ -n "$reported" ] || report "$(( rc ? rc : 1 ))" "task $TASK: ended during $stage without a result (exit $rc)"
   [ -z "$numba_tmp" ] || rm -rf "$numba_tmp"   # only this task's cache, never the shared one
+  [ -z "$tmp_dir" ] || rm -rf "$tmp_dir"       # this task's node-local TMPDIR
 }
 trap on_exit EXIT
 # decision 23: a row only if none was written yet (SIGTERM may land inside report itself)
@@ -86,7 +87,7 @@ case ",$PROFILE," in
     report 2 "task $TASK: NIGHTLY_PROFILE=$PROFILE refused (R14: use farmshare_local)"; exit 2 ;;
 esac
 find "$CI/runs" -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} + 2>/dev/null
-rm -rf "$RUN"; mkdir -p "$RUN/tmp"
+rm -rf "$RUN"; mkdir -p "$RUN"
 stage="checkout of $REF"
 (
   flock 9   # the array tasks share one repository: fetch and worktree add one at a time
@@ -96,7 +97,8 @@ stage="checkout of $REF"
 ) 9>"$CI/.git.lock" || { echo "cannot check out $REF in $W" >&2; exit 2; }
 cd "$W" || exit 2
 numba_tmp="$(mktemp -d /tmp/giap-numba.XXXXXX)"
-export TMPDIR="$RUN/tmp" NXF_ANSI_LOG=false NUMBA_CACHE_DIR="$numba_tmp"
+tmp_dir="$(mktemp -d /tmp/giap.XXXXXX)"   # node-local, as test_branch.sbatch (not NFS under $RUN)
+export TMPDIR="$tmp_dir" NXF_ANSI_LOG=false NUMBA_CACHE_DIR="$numba_tmp"
 export PYTHONPATH="$PWD/src:$PWD/tests/sim"
 commit=$(git -C "$W" rev-parse --short HEAD)
 stage="task $TASK"
@@ -109,7 +111,11 @@ pyt() {  # pyt <label> <pytest args...>: sets rc and summary
 }
 
 task_integration() {
-  local caps r0 s0
+  local caps r0 s0 s
+  # Warm the giap-wf JVM first, as test_branch.sbatch (M9-13 decision 5): a cold `nextflow
+  # -version` from NFS outlasts tests/conftest.py's 30 s probe and every needs_nextflow test skips.
+  # Not `nf-test version`: decision 23 pins that nf-test never starts before pytest ends.
+  s=$SECONDS; nextflow -version >/dev/null 2>&1; echo "warm-up: nextflow -version rc=$? $((SECONDS - s))s"
   caps=$(python -c 'import yaml; print(",".join(yaml.safe_load(open("ci/gates.yaml"))["required_capabilities"]["farmshare_nightly"]))')
   pyt integration tests/integration tests/contract -q -n 8 --require-capabilities "$caps"
   r0=$rc; s0=$summary

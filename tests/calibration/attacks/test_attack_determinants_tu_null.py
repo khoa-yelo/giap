@@ -108,8 +108,8 @@ def test_univariate_ci_level(full: bool) -> None:
         x = X["promotech_tu"].to_numpy()
         gr = pd.DataFrame({"tu": np.arange(det.sum()).astype(str), "x": x[det], "y": y[det]})
         ga = pd.DataFrame({"tu": np.arange(det.size).astype(str), "x": x, "y": det})
-        cr = bootstrap.tu_block_bootstrap(gr, "tu", m._rho, B, rng)
-        ca = bootstrap.tu_block_bootstrap(ga, "tu", m._auroc, B, rng)
+        cr = bootstrap.tu_block_bootstrap(gr, "tu", m._rho, B, rng, columns=("x", "y"))
+        ca = bootstrap.tu_block_bootstrap(ga, "tu", m._auroc, B, rng, columns=("x", "y"))
         miss["rho_gene"].append(_miss(cr.ci_low, cr.ci_high, 0.0))
         miss["auroc_gene"].append(_miss(ca.ci_low, ca.ci_high, 0.5))
     rates = {k: float(np.mean(v)) for k, v in miss.items()}
