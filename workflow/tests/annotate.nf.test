@@ -275,7 +275,7 @@ nextflow_pipeline {
         }
     }
 
-    test("example 4: 3 window chunks and 5 TU regions: PROMOTECH x3, PROMOTER_CALCULATOR x5, gathered sorted") {
+    test("example 4: 3 window chunks and 5 TU regions: PROMOTECH x3, PROMOTER_CALCULATOR x1 (one batch), gathered sorted") {
 
         when {
             params {
@@ -294,7 +294,7 @@ nextflow_pipeline {
             assert workflow.success
             def ran = H.names(workflow.trace)
             assert H.count(workflow.trace, 'PROMOTECH') == 3 : "PROMOTECH: ${ran}"
-            assert H.count(workflow.trace, 'PROMOTER_CALCULATOR') == 5 : "PROMOTER_CALCULATOR: ${ran}"
+            assert H.count(workflow.trace, 'PROMOTER_CALCULATOR') == 1 : "PROMOTER_CALCULATOR: ${ran}"
             assert H.stepCount(workflow.trace, 'promoter_layer') == 1
             assert H.stepCount(workflow.trace, 'tx_layer') == 1
 

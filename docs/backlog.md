@@ -786,6 +786,27 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
 
+### M9-16b follow-ups
+- Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
+  shown when the manifest write failed or in the work-dir copy); test-author step first.
+- Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
+### M9 pass 2 (from M9-16 tests)
+- §7.8.2's separate ribosomal-gene report table: no M9-16 behaviour; assign to a pass-2 issue.
+- M9-16 decisions 5 and 7 (ALT card with mixed `unestimated` rows; `provenance_digest` line) are
+  implemented but untested: add tests in the hardening pass.
+
+### M9-16 review nits (PR #228)
+- Untested (surviving mutants): `call == "ALT"` filter (add a `mixed` row), "(N unestimated)" tail,
+  `provenance_digest` line, `git_dirty` → "(uncommitted changes)", sensitivity "both zero" when one
+  is zero, last vs first `operons.missed_operons` event, whitespace-only estimate in
+  `unlabelled_numbers`, KEGG `retrieved` vs `version` (fixture gives both the same date).
+- `_diagnostics` crashes the report via `render_l_hat` on an unknown/missing `block_rule`: note it.
+- Function section loses the KEGG caveat when `category_summary` is absent but GSEA is present.
+- `genomic_cluster` flag matched as a substring; split on `;`.
+- Wording scanner: attribute text (`title`, `alt`), words split by inline tags, unclosed `<q>`.
+- Sync script: missing end marker, second block, unsupported Markdown, `--docs` to a missing dir
+  without `--check` deletes every snippet.
+- `content.snippets()` reads package data from report/ (like templates): documented exception.
 ### M7-11 follow-ups
 - M7-11b: novel_orfs step wiring of `giap.novel.fdr` (decisions 6–9), step-level tests.
 - Origin-crossing makedb entries without replicon lengths are unestimated (decision 8); pass lengths.
@@ -1017,3 +1038,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (M8-14 decision 6) packed set with < 10 scoring TUs could trip the finite-p assert in `_packed_tu_rep` (~1e-5/set) at large full-tier R; consider raising PACKED_SINGLES.
 - (M8-14 decision 7, for M8-15) giapsim pseudogenes without `aa` record n_obs=0 / GRAVY NaN while GIAP translates them from `nt`; M8-15's p_detect refit sees different covariates for them.
 - (MVP-04 #258 review) boundary tests for summary gates 4, 6, 8, 11, 13 (p) and a gate-13 no-high-island case; sbatch seed from `K12_EVIDENCE_SEED` as `MVP04_SEED`, tested as passed through; gate 15 counts the `empty_state` SVG as content (N2); N3–N9 tidying in `scripts/dev/mvp04_summary.py`.
+- (M2-14b item 7) `PC_BATCH = 100` (regions per PROMOTER_CALCULATOR task) is a constant in annotate.nf; make it a config key (ADR, defaults.yaml) if a genome needs a different batch size.

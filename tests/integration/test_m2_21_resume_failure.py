@@ -15,7 +15,7 @@ tests/integration/test_nf_run_wiring_stub.py).
 Faults (settled by the test author):
 
 * "kill one Promotech task": ``beforeScript = 'exit 137'`` on ``PROMOTECH`` (the status of a
-  SIGKILLed task; base.config retries 137 once, the retry is killed too, the run stops). The
+  SIGKILLed task; base.config retries 137 twice, every retry is killed too, the run stops). The
   resumed run has no fault.
 * "a tool exits 1 (broken env var)": ``PROMOTECH_HOME`` pointed at a missing directory. In stub
   mode the stub never reads it, so a ``beforeScript`` checks it and exits 1; the real variant

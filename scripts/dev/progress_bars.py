@@ -2,10 +2,12 @@
 """Milestone progress bars for PROGRESS.md (done / running / pending per issue).
 
 An issue is an ``Mx-NN`` spec in docs/specs/. It is *done* when a commit subject on ``origin/main``
-names it (squash merges are titled ``Mx-NN: …``), *running* when a commit on another
-``origin/*`` branch that is not yet on main names it, and *pending* otherwise. A split issue's parts
-(``M8-06a``, ``M8-06b``) count for ``M8-06``, done once any part merged. Milestones without
-issue specs yet (M5-M11) show as not designed. M0 has no issue specs and is done (PR #1).
+names it (squash merges are titled ``Mx-NN: …`` or ``feat(Mx-NN): …``), *running* when a commit
+on another ``origin/*`` branch that is not yet on main names it, and *pending* otherwise. Branches
+whose tip is the head of a closed or merged PR are leftovers and do not count as running. A split
+issue's parts (``M8-06a``, ``M8-06b``) count for ``M8-06``, done once any part merged.
+Milestones without issue specs yet (M5-M11) show as not designed.
+M0 has no issue specs and is done (PR #1).
 
 Usage: ``python scripts/dev/progress_bars.py [--write]`` (``git fetch`` first). With ``--write`` the
 block between the ``<!-- progress:start -->`` and ``<!-- progress:end -->`` markers in PROGRESS.md
@@ -14,6 +16,7 @@ is replaced; without it the block is printed.
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import sys
@@ -45,6 +48,22 @@ def git(*args: str) -> str:
     return proc.stdout
 
 
+def closed_heads() -> set[str]:
+    """Head commits of closed and merged PRs (gh); empty when gh is unavailable."""
+    try:
+        out = subprocess.run(
+            ["gh", "pr", "list", "--state", "closed", "--limit", "1000", "--json", "headRefOid"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    return {pr["headRefOid"] for pr in json.loads(out)}
+
+
 def ids(text: str) -> set[str]:
     return {f"M{m}-{n}" for m, n in ISSUE.findall(text)}
 
@@ -55,13 +74,18 @@ def collect() -> tuple[dict[int, list[str]], set[str], set[str]]:
         m = ISSUE.match(spec.name)
         if m:
             issues.setdefault(int(m.group(1)), []).append(f"M{m.group(1)}-{m.group(2)}")
-    # Squash merges are titled "Mx-NN: … (#PR)"; other subjects merely mention issues.
-    merged = re.compile(r"^M(\d+)-(\d{2})[a-z]?: .*\(#\d+\)$")
+    # Squash merges are titled "Mx-NN: … (#PR)" or "feat(Mx-NN): … (#PR)"; other subjects
+    # (docs/test/fix follow-ups, partial merges such as "Mx-NN part B: …") merely mention issues.
+    merged = re.compile(r"^(?:feat\()?M(\d+)-(\d{2})[a-z]?\)?: .*\(#\d+\)$")
     subjects = git("log", "origin/main", "--format=%s").splitlines()
     done = {f"M{m.group(1)}-{m.group(2)}" for s in subjects if (m := merged.match(s))}
     running: set[str] = set()
-    for ref in git("for-each-ref", "--format=%(refname:short)", "refs/remotes/origin").split():
-        if ref in ("origin/main", "origin/HEAD", "origin"):
+    stale = closed_heads()
+    for line in git(
+        "for-each-ref", "--format=%(refname:short) %(objectname)", "refs/remotes/origin"
+    ).splitlines():
+        ref, sha = line.split()
+        if ref in ("origin/main", "origin/HEAD", "origin") or sha in stale:
             continue
         # A branch works on the issue its unmerged commits name most often.
         counts: dict[str, int] = {}

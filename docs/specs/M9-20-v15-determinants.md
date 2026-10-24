@@ -83,3 +83,53 @@ few genes for the determinants model (`<n>` rows, `<t>` TUs)".
 1. Which model's ΔR² leads the title: elastic net per ADR-0033. **Proposed default:** elastic net.
 2. "promoter score" = `promotech_max` (M8-07 maps it from `promoter_score`). **Proposed default:**
    `promotech_max`.
+
+## Lead decisions (2026-10-23)
+1. **Q1 yes:** the elastic net's ΔR² leads the title (ADR-0033).
+2. **Q2 yes:** "promoter score" is `promotech_max`.
+3. **Stacking:** on m9/plot-support-analysis (M9-17 SHAP and PD support files, decision 5).
+4. **Test-author (a85b325a): gaps 1–9 accepted as proposed.**
+   - The title names the largest block whose ΔR² CI is wholly above 0; a CI wholly below 0 does
+     not count.
+   - The title quotes a finite CI even though M8 flags every ΔR² row `ci_unestimated`. The
+     statistician reviews the wording in the PR (backlog: the meaning of that flag on finite CIs).
+   - Too-few-rows counts are model rows (detected, non-imputed, not ribosomal) and their distinct
+     `tu_id`.
+   - The missing-layer name is read from the run flags, falling back to the map tir_ostir→ostir,
+     promotech_max→promoters, cai/tai→codon.
+   - V15 declares `layers=("abundance",)`.
+   - The pinned axes labels and category names are the interface.
+5. **Review round (code review of 4efbd957). Decision 4 amended.**
+   - **B1, ΔR² interval:** keep the numbers but name the interval honestly.
+     - Title: "… largest block ΔR²: <block> <v> (repeat t-interval <lo>–<hi>, uncalibrated)".
+     - Panel (a) header: "(a) block ΔR² (t-interval over CV repeats, uncalibrated)".
+     - Footnote: "ΔR² intervals uncalibrated: CV repeats share data (ADR-0031)".
+     - "CI unestimated" stays for NaN intervals. The naming rule (interval wholly above 0) is unchanged.
+   - **B3:** the sentence for no named block reads "no block's ΔR² interval lies above 0". Add an example
+     with an interval wholly below 0.
+   - **B2, panel (d):**
+     - Retitle it "(d) observed vs. LightGBM out-of-fold".
+     - Its R² text quotes both models: "CV R² <v> ± <sd> (LightGBM, plotted); elastic net <v> ± <sd> (primary)".
+     - The flag label is "unexplained (> 2 SD of LightGBM residuals)".
+     - Elastic-net out-of-fold predictions in M8 go to the backlog.
+   - **B4, hexbin:**
+     - Bin only `category == "model"`, with `bins="log"`.
+     - Add a colourbar "genes per bin (log count)" and a legend proxy "model genes (binned)".
+     - The big-genome test runs the M9-24 checklist.
+   - **S1:** label panel (b) "partial dependence, LightGBM (secondary); spread over <n> CV models (not a CI)".
+   - **S2:** neutral title "Elastic net CV R² …", with a Unicode minus and "unestimated" for NA.
+   - **S3, twin:**
+     - Dodged numeric y, with circle vs. diamond-open markers.
+     - Reversed y axis.
+     - The footnotes as an annotation, and "CI unestimated" marks.
+   - **Nits:**
+     - N1: legend at loc="best".
+     - N3: tests for the four surviving mutants (low end exactly 0, imputed rows, a feature's points at its own tick, a half-NA CI).
+     - N4: break ties in BLOCKS order.
+     - Delete the unreachable `few and d_rows` branch.
+     - N2 and N5 are backlogged.
+6. **Test-author gaps (63a90074).**
+   - A block is named only when both ends of its interval are finite and the low end is above 0.
+   - NA reads "CV R² unestimated", with no "± sd".
+   - Panel (d)'s R² text uses the title's formatter, with a Unicode minus.
+   - The twin's reversed axis applies to panel (a) only.

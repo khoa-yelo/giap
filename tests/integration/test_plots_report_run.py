@@ -66,6 +66,7 @@ PASS1 = (
     ("V18", "stat_diagnostics"),
 )
 REASON = re.compile(r"^(module_off|layer_missing|input_absent):\S+$")
+COMPARE_SKIP = "written by giap compare"  # giap.viz.compare.SKIP
 ZERO_EMPTY = ("V07", "V10", "V18")
 
 
@@ -193,7 +194,9 @@ def test_every_registered_plot_rendered_or_skipped_with_reason(local: Path) -> N
         assert len(mine) == 1, (pid, mine)
         ev = mine[0]
         if ev["event"] == "plots.skipped":
-            assert REASON.match(str(ev["data"].get("reason", ""))), (pid, ev)
+            reason = str(ev["data"].get("reason", ""))
+            # V16 is written only by `giap compare` (M9-23 decision 2): its run-time skip says so
+            assert REASON.match(reason) or (pid == "V16" and reason == COMPARE_SKIP), (pid, ev)
         else:
             files = ev["data"]["files"]
             assert files, (pid, ev)

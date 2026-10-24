@@ -35,7 +35,8 @@ CASES = {
     ),
     "genomad.virus_genes.tsv.txt": ("genomad", r"genome_virus_genes\.tsv", "*_virus_genes.tsv"),
     "ostir.ostir.csv.txt": ("ostir", r"ostir\.csv", "ostir.csv"),
-    "promoter_calculator.csv.txt": ("promoter_calculator", r"\$\{meta_id\}\.csv", "*.csv"),
+    # M2-14b: the stub writes one header per region in the batch loop
+    "promoter_calculator.csv.txt": ("promoter_calculator", r"\$\{tu\}\.csv\"", "*.csv"),
     "promotech.sequences_predictions.csv.txt": (
         "promotech",
         r"sequences_predictions\.csv",

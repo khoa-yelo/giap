@@ -17,7 +17,10 @@ replace the tool and layer steps and arrive here instead of the Parquet files.
 from __future__ import annotations
 
 import json
+import math
+import os
 from collections.abc import Mapping, Sequence
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -37,11 +40,15 @@ from giap.io.novel_tables import (
     write_novel_orfs,
     write_pragma_gff3,
 )
+from giap.io.output_checks import check_gff3, check_tsv
 from giap.io.parquet import write_parquet_deterministic
 from giap.io.protein_fasta import read_protein_fasta
+from giap.io.tsv import read_tsv
 from giap.io.work_tables import FILE_NAMES, _read_tsv_table
+from giap.mapping.loci import LocusClassifier
 from giap.model.coords import Interval, Replicon
 from giap.model.genes import Gene, GeneModel
+from giap.novel import class_call as cc
 from giap.novel.candidates import (
     Orf,
     candidate_rows,
@@ -52,12 +59,13 @@ from giap.novel.candidates import (
     reconstruct,
     window_chunks,
 )
-from giap.novel.evidence import apply_evidence
-from giap.novel.outputs import orf_table
+from giap.novel.evidence import apply_evidence, class_rules
+from giap.novel.fdr import orf_regimes
+from giap.novel.outputs import candidate_ids, orf_table
 from giap.steps.common import one_path as _path
 from giap.steps.common import read_genes as _genes
 from giap.steps.common import read_replicons as _replicons
-from giap.steps.mapping import _gene_model
+from giap.steps.mapping import _gene_model, _hits, read_gene_model
 from giap.steps.promoters import _LAYER_COLS, _prediction_files, _rows
 from giap.steps.rbs import _RBS_COLS
 from giap.steps.registry import StepContext, external, step
@@ -76,6 +84,12 @@ _MAP_COLS = [
 ]  # fmt: skip
 _RBS_NOVEL_COLS = [("contig", _STR), ("strand", _STR), ("start", _INT), *_RBS_COLS[1:]]
 _PARQUET_MAGIC = b"PAR1"
+_SIDE_COLS = [
+    ("orf_id", _STR), ("class", _STR), ("fdr_class", _STR), ("regime", _STR), ("q", _F64),
+    ("class_fdr", _STR), ("reason", _STR), ("class_mismatch", _BOOL), ("class_rule_met", _BOOL),
+    ("called", _BOOL),
+]  # fmt: skip
+_DENOVO_KEYS = ("hits_exact", "hits_tolerant", "placement_costs")
 
 
 def first_base(strand: str, lowest: int, n: int) -> int:
@@ -311,12 +325,15 @@ def second_round_scores(
 @step(
     "novel_orfs",
     inputs=["novel_candidates", "gene_table", "genes", "replicons", "genome"],
-    optional_inputs=["novel_promoter_windows", "rbs_novel", "promoter_windows", "terminators"],
-    outputs=["novel_orfs", "novel_orfs_gff3", "novel_orfs_faa", "annotation_patch"],
-)
+    optional_inputs=["novel_promoter_windows", "rbs_novel", "promoter_windows", "terminators",
+                     "peptides", "features", *_DENOVO_KEYS],
+    outputs=["novel_orfs", "novel_orfs_gff3", "novel_orfs_faa", "annotation_patch",
+             "novel_class_fdr"],
+)  # fmt: skip
 def novel_orfs(ctx: StepContext) -> None:
-    """Candidates + second-round scores + evidence (M7-09) → ``novel_orfs.tsv``/``.gff3``/
-    ``.faa`` and ``annotation_patch.gff3`` (class FDR: M7-11)."""
+    """Candidates + second-round scores + class FDR (M7-11b) + evidence (M7-09) →
+    ``novel_orfs.tsv``/``.gff3``/``.faa``, ``annotation_patch.gff3`` and the per-ORF class-FDR
+    side table ``novel_class_fdr.parquet``."""
     ins, cfg = ctx.inputs, ctx.cfg
     reps = _replicons(_path(ins["replicons"]))
     gm = GeneModel(replicons=reps, genes=tuple(_genes(_path(ins["genes"]))), features=())
@@ -343,15 +360,24 @@ def novel_orfs(ctx: StepContext) -> None:
     pcfg = cfg.annotation.promoters
     k_range = (pcfg.window_3p_range[0], pcfg.window_3p_range[1])
     sec = second_round_scores(orfs, rbs, prom, gm, genome, k_range, pcfg.window_nt)
+    res = _class_fdr(ctx, orfs, genome)
     scored = minimal_call(orfs, cfg).merge(sec, on="orf_id", how="left")
+    scored["class_fdr"] = pd.Series([cc.class_fdr_cell(res.orfs[i]) for i in scored["orf_id"]],
+                                    dtype="object")  # fmt: skip
     table = orf_table(orfs, scored, genome=genome, replicons=reps)
     terms_df = _layer(ctx, "terminators", "terminators", reps)
+    gene_table = pd.read_parquet(_path(ins["gene_table"]))
+    pep_ivs = read_peptide_intervals(_path(ins["novel_candidates"]))
+    rules = class_rules(table, orfs, gene_table=gene_table, gm=gm, genome=genome, cfg=cfg,
+                        peptide_intervals=pep_ivs)  # fmt: skip
     table = apply_evidence(
-        table, orfs, gene_table=pd.read_parquet(_path(ins["gene_table"])),
+        table, orfs, gene_table=gene_table,
         terminators=None if terms_df is None else terminators_of(terms_df), gm=gm,
-        genome=genome, cfg=cfg,
-        peptide_intervals=read_peptide_intervals(_path(ins["novel_candidates"])),
+        genome=genome, cfg=cfg, peptide_intervals=pep_ivs,
+        class_q={k: r.q for k, r in res.orfs.items() if math.isfinite(r.q)},
     )  # fmt: skip
+    _write_side(ctx.outputs["novel_class_fdr"], table, res, rules)
+    _class_events(ctx, res, table)
     write_novel_orfs(ctx.outputs["novel_orfs"], table)
     write_novel_faa(ctx.outputs["novel_orfs_faa"], table, genome, reps)
     if len(table):
@@ -360,4 +386,121 @@ def novel_orfs(ctx: StepContext) -> None:
     else:  # rule 3: no candidate -> pragma-only GFF3s
         write_pragma_gff3(ctx.outputs["novel_orfs_gff3"], reps)
         write_pragma_gff3(ctx.outputs["annotation_patch"], reps)
+    check_tsv("novel_orfs", ctx.outputs["novel_orfs"], "novel_orfs")  # M7-15 item 2
+    for key in ("novel_orfs_gff3", "annotation_patch"):
+        check_gff3(key, ctx.outputs[key], reps)
     ctx.log.info("novel_orfs: %d ORFs, %d called", len(table), int(table["called"].sum()))
+
+
+def _class_fdr(
+    ctx: StepContext, orfs: Sequence[Orf], genome: Mapping[str, str]
+) -> cc.ClassFdrResult:
+    """Steps 1-3 of the M7-11b step body: the class FDR of every ORF (all ``no_decoys`` without
+    ``peptides``); the de novo inputs are read only when a de novo ORF needs them."""
+    ins = ctx.inputs
+    if "peptides" not in ins:
+        none = {o.orf_id: cc.OrfClassFdr(o.orf_id, "unestimated", o.cls, math.nan,
+                                         "no_decoys", False) for o in orfs}  # fmt: skip
+        return cc.ClassFdrResult(none, (), 0, False)
+    peptides = pd.read_parquet(_path(ins["peptides"]))
+    feats = _path(ins["features"]) if "features" in ins else None
+    gm = read_gene_model(_path(ins["genes"]), _path(ins["replicons"]), feats)
+    regimes = orf_regimes(peptides, orfs, ctx.cfg.input.decoy_prefixes)
+    denovo: cc.DenovoInputs | None = None
+    if "denovo_subgroup" in regimes.values():
+        missing = [k for k in _DENOVO_KEYS if k not in ins]
+        for key in missing:
+            ctx.log.warning(
+                "layer_missing:%s: no %s; de novo ORFs get class_fdr unestimated", key, key,
+                extra={"event": "novel_orfs.layer_missing",
+                       "data": {"layer": key, "flag": f"layer_missing:{key}"}},
+            )  # fmt: skip
+        if not missing:
+            costs = pd.read_parquet(_path(ins["placement_costs"]))
+            hits = _hits(ctx, "hits_exact", "hits_tolerant")
+            denovo = cc.denovo_inputs(costs, hits, LocusClassifier(gm, genome))
+    return cc.class_fdr(orfs, peptides, gm=gm, genome=genome, cfg=ctx.cfg, denovo=denovo)
+
+
+def _write_side(
+    path: Path, table: pd.DataFrame, res: cc.ClassFdrResult, rules: Mapping[str, bool]
+) -> None:
+    """``novel_class_fdr.parquet``: one row per ``novel_orfs.tsv`` row, in its order (rule 11)."""
+    rows = []
+    for t in table.to_dict("records"):
+        r = res.orfs[str(t["orf_id"])]
+        rows.append((r.orf_id, t["class"], r.fdr_class, r.regime, r.q, t["class_fdr"], r.reason,
+                     r.class_mismatch, rules[r.orf_id], bool(t["called"])))  # fmt: skip
+    write_parquet_deterministic(path, _SIDE_COLS, rows)
+
+
+def _g(v: float | None) -> str:
+    return "NA" if v is None else f"{v:.6g}"
+
+
+def _class_events(ctx: StepContext, res: cc.ClassFdrResult, table: pd.DataFrame) -> None:
+    """Rule 9: one ``novel_orfs.class_fdr`` INFO per class list, the floor and makedb WARNINGs."""
+    alpha = ctx.cfg.stats.alpha.novel_orfs
+    called = {str(i) for i, c in zip(table["orf_id"], table["called"], strict=True) if c}
+    for s in res.classes:
+        n_called = sum(1 for r in res.orfs.values() if r.orf_id in called
+                       and (r.regime, r.fdr_class) == (s.regime, s.cls))  # fmt: skip
+        data = {("class" if k == "cls" else k): v for k, v in asdict(s).items()}
+        data.update(alpha=alpha, n_called=n_called)
+        ctx.log.info("novel_orfs: class %s (%s): %d targets, %d called", s.cls, s.regime,
+                     s.n_targets, n_called, extra={"event": "novel_orfs.class_fdr", "data": data},
+                     )  # fmt: skip
+        if s.floor_above_alpha:
+            ctx.log.warning(
+                "novel_orfs: class %s (%s) has %d targets; its q floor %s > alpha %s, so none "
+                "can be called (a class with fewer than about 1/alpha = %s candidates cannot be "
+                "called at alpha = %s)", s.cls, s.regime, s.n_targets, _g(s.q_floor), _g(alpha),
+                _g(1 / alpha), _g(alpha),
+                extra={"event": "novel_orfs.class_q_floor_above_alpha",
+                       "data": {"regime": s.regime, "class": s.cls, "n_targets": s.n_targets,
+                                "q_floor": s.q_floor, "alpha": alpha}},
+            )  # fmt: skip
+    if res.decoys_not_makedb:
+        ctx.log.warning(
+            "novel_orfs: %d decoy rows, none with a makedb class-tagged ID; class FDR "
+            "unestimated (the >= 2-peptide rule applies)", res.n_decoy_rows,
+            extra={"event": "novel_orfs.decoys_not_makedb",
+                   "data": {"n_decoy_rows": res.n_decoy_rows}},
+        )  # fmt: skip
+
+
+# ---------------------------------------------------------------- finalize (M7-15 item 6)
+
+
+_HIT_KEYS = frozenset({"peptide", "contig", "strand", "locus_class", "novel_candidate_id"})
+
+
+def _records(path: Path) -> tuple[list[str], list[dict[str, str | None]]]:
+    header, rows = read_tsv(path)
+    return header, [dict(zip(header, r, strict=True)) for r in rows]
+
+
+def backfill_candidate_ids(outdir: Path) -> int:
+    """Fill ``novel_candidate_id`` in the published ``OUT/mapping/peptide_hits.tsv`` from
+    ``OUT/tables/novel_orfs.tsv`` (M7-06 Q6), after both executors published; only that column's
+    cells change. Every row is written (``NA`` without an id), so an id left by an earlier run
+    (a cached task's published file on ``-resume``) is cleared. Returns the rows filled (0 when
+    either file is absent or empty: stub runs)."""
+    hits_p, orfs_p = outdir / "mapping" / "peptide_hits.tsv", outdir / "tables" / "novel_orfs.tsv"
+    if not all(p.is_file() and p.stat().st_size for p in (hits_p, orfs_p)):
+        return 0
+    header, hits = _records(hits_p)
+    _, orfs = _records(orfs_p)
+    if not orfs or not _HIT_KEYS.issubset(header):
+        return 0
+    ids = candidate_ids(hits, orfs)
+    col = header.index("novel_candidate_id")
+    lines = hits_p.read_text(encoding="utf-8").split("\n")
+    for i, oid in enumerate(ids, start=1):
+        cells = lines[i].split("\t")
+        cells[col] = oid if oid is not None else "NA"
+        lines[i] = "\t".join(cells)
+    tmp = hits_p.with_name(f".tmp.{hits_p.name}")
+    tmp.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    os.replace(tmp, hits_p)
+    return sum(oid is not None for oid in ids)

@@ -31,11 +31,12 @@ import pyarrow as pa  # type: ignore[import-untyped]
 from giap.config.model import GiapConfig
 from giap.context.autocorrelation import autocorrelation_rows
 from giap.context.diagnostics import DIAGNOSTICS_COLUMNS, island_diagnostics
-from giap.context.islands import islands_frame, scan_replicons, tu_series
+from giap.context.islands import islands_frame, scan_with_nulls, tu_series
 from giap.context.oriter import oriter_rows
-from giap.context.regions import replicon_index, test_all_regions
+from giap.context.regions import RegionNull, region_tests, replicon_index
 from giap.context.regions_table import depth_gaps, plasmid_rows, regions_stats, subset_rows
 from giap.context.summary import basic_rows, detection_summary, qc_rows
+from giap.context.support import null_islands, null_regions, null_regions_grid
 from giap.context.tables import (
     GENE_CONTEXT_COLUMNS,
     autocorrelation_table,
@@ -47,6 +48,7 @@ from giap.io.context_tsv import write_autocorrelation, write_islands
 from giap.io.depth import read_replicon_depth
 from giap.io.genes_tsv import write_genes_tsv
 from giap.io.parquet import write_parquet_deterministic
+from giap.io.plot_support import write_support
 from giap.io.regions_tsv import write_regions_stats
 from giap.io.summary_tsv import write_detection_summary
 from giap.io.work_tables import (
@@ -60,10 +62,14 @@ from giap.rng import for_step
 from giap.steps.gene_table import contract_paths
 from giap.steps.registry import InputPath, StepContext, step
 
-__all__ = ["context_stats", "run_context_stats"]
+__all__ = ["NULL_REGIONS_MAX_BYTES", "context_stats", "run_context_stats"]
 
 _LOG = logging.getLogger("giap.steps.context_stats")
 _REQUIRED = [k for k in M4_INPUT_KEYS if k not in OPTIONAL_KEYS]
+#: M9-17: optional directory output; ``null_regions`` / ``null_islands`` go to its ``support/``
+SUPPORT = "context_stats_support"
+#: lead decision 2 (M9-17 Q2): at or above this written size ``null_regions`` is the percentile grid
+NULL_REGIONS_MAX_BYTES = 5 * 2**20
 #: the M5 half's output keys, all optional at the registry level (wired together or not at all)
 M5_OUTPUTS: tuple[str, ...] = (
     "autocorrelation", "islands", "gene_context", "island_diagnostics", "genes_tsv",
@@ -98,12 +104,17 @@ def _context_stats(
         log.info("replicon_depth: not given; no dosage-adjusted plasmid rows")
     seed = cfg.seed
     regions = m4.regions[m4.regions["region_type"].isin(cfg.context.region_types)]
-    tests = test_all_regions(genes, regions, m4.region_genes, m4.replicons, cfg,
-                             for_step("context_stats", seed))  # fmt: skip
+    tests, nulls = region_tests(genes, regions, m4.region_genes, m4.replicons, cfg,
+                                for_step("context_stats", seed))  # fmt: skip
     plasmids = plasmid_rows(genes, m4.replicons, depth, cfg, for_step("context_stats.plasmids",
                                                                        seed))  # fmt: skip
     subsets = subset_rows(genes, regions, m4.region_genes)
-    write_regions_stats(outputs["regions_stats"], regions_stats(tests, plasmids, subsets, regions))
+    table = regions_stats(tests, plasmids, subsets, regions)
+    write_regions_stats(outputs["regions_stats"], table)
+    support = outputs.get(SUPPORT)
+    if support is not None:
+        support.mkdir(parents=True)
+        _write_null_regions(support, table, nulls)
 
     s0 = inputs.get("stratum0_classes")  # ADR-0019 class table (M3-25 decision 3)
     vqc = inputs.get("variants_qc")  # M7-14 rule 3
@@ -119,6 +130,15 @@ def _context_stats(
     write_detection_summary(outputs["detection_summary"], detection_summary(parts))
 
     _m5_context(inputs, outputs, cfg, log, m4, genes)
+
+
+def _write_null_regions(out: Path, table: pd.DataFrame, nulls: list[RegionNull]) -> None:
+    """Every null value, or the percentile grid once that file reaches the bound (Q2)."""
+    rows = null_regions(table, nulls)
+    if rows is not None:
+        path = write_support("null_regions", rows, out)
+        if path.stat().st_size >= NULL_REGIONS_MAX_BYTES:
+            write_support("null_regions", null_regions_grid(rows), out)
 
 
 def _id_mixups(path: Path) -> tuple[int, int]:
@@ -189,9 +209,12 @@ def _m5_context(
             m4.replicons["contig"], m4.replicons["topology"], m4.replicons["length"], strict=True
         )
     ]
-    scan = scan_replicons(series, cfg, island_rng)
+    scan, scan_nulls = scan_with_nulls(series, cfg, island_rng)
     islands = islands_table(islands_frame(scan, genes, cfg, island_rng), m4.replicons)
     write_islands(outputs["islands"], islands)
+    support = outputs.get(SUPPORT)
+    if support is not None and (null := null_islands(scan, scan_nulls)) is not None:
+        write_support("null_islands", null, support)
     _write_diagnostics(outputs["island_diagnostics"], island_diagnostics(scan, cfg))
 
     context = gene_context_table(genes, islands, m4.replicons, features)
@@ -301,8 +324,8 @@ def run_context_stats(work_dir: Path, cfg: GiapConfig, replicon_depth: Path | No
         "tier_summary",
         "variants_qc",
     ],
-    outputs=["regions_stats", "detection_summary", *M5_OUTPUTS],
-    optional_outputs=list(M5_OUTPUTS),
+    outputs=["regions_stats", "detection_summary", *M5_OUTPUTS, SUPPORT],
+    optional_outputs=[*M5_OUTPUTS, SUPPORT],
 )
 def context_stats(ctx: StepContext) -> None:
     """Region statistics, autocorrelation, islands, ori-ter and genes.tsv from the gene table."""
