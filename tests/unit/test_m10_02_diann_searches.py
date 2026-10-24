@@ -524,3 +524,13 @@ def test_the_jobs_table_resources() -> None:
     assert _directive("cpus-per-task") == "16"
     assert (_directive("mem") or "").upper().rstrip("B") in {"64G", "65536M"}
     assert _directive("time") == "24:00:00"
+
+
+def test_step2_keeps_its_quant_files_under_the_arm(m10: M10Sandbox) -> None:
+    """DIA-NN writes ``<run>.d.quant`` next to the raw runs unless ``--temp`` is given, so two
+    arms searching the same runs at once read each other's (Slurm 1879914, "library size
+    mismatch"): step 2 passes ``--temp <out>/quant``."""
+    _ok(_run(m10, "A1"))
+    step2 = m10.searches()[-1]["inner"]
+    assert "--temp" in step2, step2
+    assert step2[step2.index("--temp") + 1] == str(m10.out("A1") / "quant")

@@ -248,8 +248,13 @@ rm -f "${OUT:?}/${ARM:?}_report"* "${OUT:?}/${ARM:?}_empirical"*
 load_step step2
 resolve_fastas
 STEP2=ran STEP2_RC=0
+# --temp: DIA-NN writes <run>.d.quant next to the raw runs by default, so two arms searching the
+# same runs at once read each other's (job 1879914: "library size mismatch"); each arm keeps its own
+QUANT="$OUT/quant"
+rm -rf "${QUANT:?}"
+mkdir -p "$QUANT"
 run_step 2 "${STEP_ARGS[@]}" "${RAW_FILES[@]}" --threads "$THREADS" --lib "$PREDICTED_LIB" \
-  --out "$REPORT" --out-lib "$OUT/${ARM}_empirical.parquet" || STEP2_RC=$?
+  --temp "$QUANT" --out "$REPORT" --out-lib "$OUT/${ARM}_empirical.parquet" || STEP2_RC=$?
 [ "$STEP2_RC" -eq 0 ] || fail step2 "$STEP2_RC"
 [ -s "$REPORT" ] || { echo "step 2 wrote no report $REPORT" >&2; fail step2 0; }
 
