@@ -233,6 +233,11 @@ def test_relative_scale_run_reports_no_null(chain: Chain, tmp_path: Path) -> Non
     json.dumps(data, allow_nan=False)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="stat N3 deferred to the sigma_model config key (M6-13 Q2): the step has no way to"
+    " pass a model today, so the event reports the module constant (lead decision)",
+)
 def test_event_sigma_model_is_the_value_passed(
     chain: Chain, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
