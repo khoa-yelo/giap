@@ -91,6 +91,21 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
+def _skip_host_only(item: pytest.Item) -> None:
+    """``gnu_userland`` / ``x87_longdouble``: FarmShare-only scripts (spec G19) skip elsewhere."""
+    from helpers.gnu_userland import (
+        GNU_USERLAND_REASON,
+        X87_LONGDOUBLE_REASON,
+        have_gnu_userland,
+        have_x87_longdouble,
+    )
+
+    if item.get_closest_marker("gnu_userland") and not have_gnu_userland():
+        item.add_marker(pytest.mark.skip(reason=GNU_USERLAND_REASON))
+    if item.get_closest_marker("x87_longdouble") and not have_x87_longdouble():
+        item.add_marker(pytest.mark.skip(reason=X87_LONGDOUBLE_REASON))
+
+
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     # trylast: runs after ``-m``/``-k`` deselection, so capability probes (including the
@@ -100,6 +115,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     if unknown:
         raise pytest.UsageError(f"unknown capabilities: {sorted(unknown)}")
     for item in items:
+        _skip_host_only(item)
         missing: list[str] = []
         for mark in item.iter_markers():
             if mark.name in CHECKS and not _have(mark.name):
