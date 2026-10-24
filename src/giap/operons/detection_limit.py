@@ -45,6 +45,7 @@ __all__ = [
     "observable_peptides",
     "p_detect",
     "p_miss",
+    "p_miss_for_genes",
 ]
 
 Array = npt.NDArray[np.float64]
@@ -163,6 +164,31 @@ def model_for_tu(model: PMissModel, tu_id: str) -> PMissModel:
     if j is None or not model.fold_coef:
         return model
     return dataclasses.replace(model, coef=model.fold_coef[j])
+
+
+def p_miss_for_genes(
+    model: PMissModel, genes: pd.DataFrame, cfg: GiapConfig
+) -> Callable[[str, float, ArrayLike], float]:
+    """``p_miss(u, a_v, ratios)`` for the genes of ``genes`` (``locus_tag``, ``tu_id``, ``aa``):
+    the out-of-fold model of u's TU (:func:`model_for_tu`) on u's :func:`observable_peptides`
+    (the M6-05 ``PMissModel`` callable, M6-05H). NaN for an unknown gene or one without a
+    protein sequence; ``observable_peptides`` is computed once per gene."""
+    g = genes.drop_duplicates("locus_tag").set_index("locus_tag")
+    tu = g["tu_id"] if "tu_id" in g.columns else pd.Series(None, index=g.index, dtype=object)
+    aa = g["aa"] if "aa" in g.columns else pd.Series(None, index=g.index, dtype=object)
+    peps: dict[str, list[tuple[int, float]]] = {}
+
+    def fn(u: str, a_v: float, ratios: ArrayLike) -> float:
+        seq = aa.get(u)
+        if not isinstance(seq, str):
+            return math.nan
+        if u not in peps:
+            peps[u] = observable_peptides(seq, cfg)
+        t = tu.get(u)
+        m = model_for_tu(model, str(t)) if isinstance(t, str) else model
+        return p_miss(m, a_v, ratios, peps[u])
+
+    return fn
 
 
 # ------------------------------------------------------------------------------ likelihoods
