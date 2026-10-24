@@ -1,5 +1,5 @@
 # ADR-0055: Operon discordance under abundance-dependent Δ noise (attack D-1)
-- Status: proposed
+- Status: accepted-by-khoa (2026-10-24, in session: "1. Go with (a)"): option (a), σ as a function of mean abundance, with attack D-1b gated before the claim; the interim label from (b) is not adopted
 - Date: 2026-10-24
 - Spec sections: §7.4.2 (within-operon distribution), §7.4.3 (discordance test), §8.1 row "Operon
   discordance", §8.4 suite `discordance`, §8.5, §13 gate M6
