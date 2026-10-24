@@ -786,7 +786,29 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - The island golden's join-count rows depend on the lbfgs detectability fit (decision 44); a
   BLAS-stable `p_detect` would let them return to byte equality.
 
-<<<<<<< HEAD
+### M9 pass 2 (from M9-16 tests)
+- §7.8.2's separate ribosomal-gene report table: no M9-16 behaviour; assign to a pass-2 issue.
+- M9-16 decisions 5 and 7 (ALT card with mixed `unestimated` rows; `provenance_digest` line) are
+  implemented but untested: add tests in the hardening pass.
+
+### M9-16b (from M9-16 decision 11)
+- `giap run` re-renders report.html after writing run_manifest.json (local and Nextflow), so the
+  pipeline report shows full provenance and the KEGG date; then drop the two #178 guards in
+  build.py/content.py (`"determinants_model" in PATHS`, `getattr(..., "CAVEATS", ())`).
+
+### M9-16 review nits (PR #228)
+- Untested (surviving mutants): `call == "ALT"` filter (add a `mixed` row), "(N unestimated)" tail,
+  `provenance_digest` line, `git_dirty` → "(uncommitted changes)", sensitivity "both zero" when one
+  is zero, last vs first `operons.missed_operons` event, whitespace-only estimate in
+  `unlabelled_numbers`, KEGG `retrieved` vs `version` (fixture gives both the same date).
+- `_diagnostics` crashes the report via `render_l_hat` on an unknown/missing `block_rule`: note it.
+- Function section loses the KEGG caveat when `category_summary` is absent but GSEA is present.
+- `genomic_cluster` flag matched as a substring; split on `;`.
+- Wording scanner: attribute text (`title`, `alt`), words split by inline tags, unclosed `<q>`.
+- Sync script: missing end marker, second block, unsupported Markdown, `--docs` to a missing dir
+  without `--check` deletes every snippet.
+- Removing the two #178 guards belongs to the #178 merge into this branch, not M9-16b.
+- `content.snippets()` reads package data from report/ (like templates): documented exception.
 ### M7-11 follow-ups
 - M7-11b: novel_orfs step wiring of `giap.novel.fdr` (decisions 6–9), step-level tests.
 - Origin-crossing makedb entries without replicon lengths are unestimated (decision 8); pass lengths.
@@ -800,7 +822,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - 5: the methods-note status line says decisions 1–11; it should say 1–13.
   - 6: `_decoy_tags` could return the parsed class.
   - 7: `denovo_class_q` uses an iloc loop and does not cast strand to str.
-=======
 ### M9-24 follow-ups
 - **Diagnosed:** V08 (and V02, V03, V07) show no measured abundance on sim100k because 0 of 87
   genes are detected: picked-protein q has floor 1/n_win = 1/85 > alpha 0.01
@@ -843,7 +864,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - V5 `arrangement="fixed"` without node x/y loses the M9-05 order.
 - V8 has no median mark or legend; the V10 no-meta fallback differs for flagged rows; V18's constant state has no message.
 - PR size about 2,300 lines in total (711 counted).
->>>>>>> origin/main
 ### M7-10 follow-ups
 - Switch the class-error calibration to the M7-12 `variant_f1` scenario once #225 merges (decision 7).
 - M7-13: class error rate reference-proteome arm (moved from M7-10 #239 B2); also consider a run flag when every class rate is 1 (statistician #239).
@@ -932,9 +952,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - Reword "run_manifest.json not written by this GIAP version" once the tail re-render lands (only
   shown when the manifest write failed or in the work-dir copy); test-author step first.
 - Schedule MVP-03c (tools[] / databases[] in the manifest) before the M9-25 approval packet.
-<<<<<<< HEAD
 - M8-15: a synthetic go_slim OBO for the sixth collection (M8-14 gap 4).
-=======
 
 ### M4-24 follow-up (giapsim scored null decoys)
 - giapsim M3-19 proteomics writes decoy rows with q, PEP and score all NA, so the picked tier never
@@ -948,7 +966,6 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   golden and in tests/calibration/test_gene_fdr_real_mapping.py (M4-24 question 3).
 - M4-24 decision 7: preflight `candidate_tier` should use the shared key columns, so it does not
   preview `decoy_picked` for all-unscored decoys.
->>>>>>> origin/main
 - M9-23: switch existing plot titles to `giap.viz.base.plural` as their tests are next touched.
 - M9-23: hide V16's `Skip` ("written by giap compare") from ordinary run reports; add a test for the runs-section detection tier per run.
 - Review #225 nits (M7-12):
@@ -1002,6 +1019,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - N3: no unit or step test passes precomputed TSV layers (mutant M9).
   - N4: hardening still owed: `--sensitivity full` in the nightly e2e, and the M9 text item on threshold sensitivity.
   - N5: `test_unpatched_variants_unchanged` has an odd `assert [c for c in ...]`.
+- M7-11b: no run input carries makedb's `db_id_map.tsv`, so `nterm_extension` pairing comes from the run's gene model and the 80 % pairing guard cannot fire from the pipeline. A real input needs a new `defaults.yaml` key (protected, ADR, Khoa).
 - M8-15 (from M8-14 statistician, #251): build ORA sets through M8-03 (world.sets keeps 10–500 TUs, ORA tests 5–500); keep the confounded set's GO ancestors out of level checks and null pools; compare the truth's dominant block to M8-09 by signed argmax on top-decile genes; wire planted features into gene-table columns `promoter_score`, `tir_ostir`, `cai` (simulator CAI uses the bundled codon usage); record a position-decay 0.5 arm on the R engine; giapsim `resid` should read `ecfg.tu_sd` (hard-coded 1).
 - M7-14 review nits (#248): a step test mixing same-db and other support across sites (alt_peps order, variants.py:220); te2_result `notes` empty when high_stop_codon > 0; merge the duplicate `_flag_set`/`_flag_names` helpers (drop the unreachable `;` branch); `variants_qc` in `PUBLISHED_FILES`/`run_view.PATHS` though never published; test_id_mixups_sim100k returns early on missing inputs (make it skip); an nf-test with a non-empty `variants_qc` into CONTEXT.
 - M7 (from MVP-04 statistician, #247): nterm-extension decoys pair with a gene only after a target row is accepted (M7-12 decision 28), so an all-decoy null gene vanishes instead of counting as a decoy win (anti-conservative, ≈ +0.8 false genes at K-12). Pair through makedb's entry→gene relation.
@@ -1022,3 +1040,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (M8-14 decision 6) packed set with < 10 scoring TUs could trip the finite-p assert in `_packed_tu_rep` (~1e-5/set) at large full-tier R; consider raising PACKED_SINGLES.
 - (M8-14 decision 7, for M8-15) giapsim pseudogenes without `aa` record n_obs=0 / GRAVY NaN while GIAP translates them from `nt`; M8-15's p_detect refit sees different covariates for them.
 - (MVP-04 #258 review) boundary tests for summary gates 4, 6, 8, 11, 13 (p) and a gate-13 no-high-island case; sbatch seed from `K12_EVIDENCE_SEED` as `MVP04_SEED`, tested as passed through; gate 15 counts the `empty_state` SVG as content (N2); N3–N9 tidying in `scripts/dev/mvp04_summary.py`.
+- (M2-14b item 7) `PC_BATCH = 100` (regions per PROMOTER_CALCULATOR task) is a constant in annotate.nf; make it a config key (ADR, defaults.yaml) if a genome needs a different batch size.

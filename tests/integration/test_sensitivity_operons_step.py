@@ -27,6 +27,7 @@ from helpers.layers_chain import Chain, build_chain
 
 REPO = Path(__file__).resolve().parents[2]
 CONTEXT_NF = REPO / "workflow" / "subworkflows" / "local" / "context.nf"
+SENSITIVITY_NF = REPO / "workflow" / "subworkflows" / "local" / "sensitivity.nf"
 PAIR_INPUTS = {"genes", "pairs_raw", "features"}
 
 
@@ -108,15 +109,16 @@ def test_step_declares_the_pair_inputs() -> None:
 
 
 def test_context_nf_passes_the_pair_channels() -> None:
-    """Behaviour 7: ``context.nf`` passes the pair channels to the ``sensitivity`` step (static
-    check of its ``stepIn('sensitivity', ...)`` call; the run-time check is the e2e)."""
-    text = re.sub(r"(?m)//.*$", "", CONTEXT_NF.read_text(encoding="utf-8"))
+    """Behaviour 7: the ``sensitivity`` step gets the pair channels (static check of its
+    ``stepIn('sensitivity', ...)`` call; the run-time check is the e2e). Since M8-16 (gap 12) the
+    call lives in ``sensitivity.nf`` (SENSITIVITY_RERUNS), not ``context.nf``."""
+    text = re.sub(r"(?m)//.*$", "", SENSITIVITY_NF.read_text(encoding="utf-8"))
     m = re.search(r"stepIn\(\s*'sensitivity'\s*,(.*?)\)\s*\n\s*SENSITIVITY\(", text, re.S)
     assert m, "no stepIn('sensitivity', ...) followed by SENSITIVITY(...)"
     call = m.group(1)
     for key in ("pairs_raw", "features"):
-        assert key in call, f"context.nf: sensitivity does not receive {key}"
-    assert re.search(r"\bgenes\b|kv\('genes'", text), "context.nf: no C2 genes channel"
+        assert key in call, f"sensitivity.nf: sensitivity does not receive {key}"
+    assert re.search(r"\bgenes\b|kv\('genes'", text), "sensitivity.nf: no C2 genes channel"
 
 
 # --------------------------------------------------------------------------- rows
