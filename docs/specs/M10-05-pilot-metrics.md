@@ -844,3 +844,39 @@ commit date record that. Proposed rule:
 The thresholds 0.7 and 0.5 are conventional "strong agreement" and "majority overlap" values,
 chosen without data, as R3 requires. If Khoa answers after the numbers are seen, the rule is
 reported as post hoc, as the spec already says.
+
+### Re-review
+
+Reviewer: statistician subagent, 2026-10-24, on eaed9a3e. The re-review covers only the changed
+sections: Inputs, metrics 1 and 3, TE1, H1/H3, template sections 4/5/7, Interface, examples 1–14,
+edge cases, acceptance criteria 1/2a/3/6, the test plan and the estimate.
+
+**Verdict: APPROVE.** S1–S7 and the minor items are applied as asked.
+
+- **S1, S2:** the effect sizes are in the H1 rule, and the test now runs on TUs rather than genes.
+- **S3, S4:** the q-at-cut-off superset is used, and the raw-vs-written check is an inequality
+  that raises a warning.
+- **S5:** the multi-row contaminant rule, the per-run and FDR labels, and `protein_groups_min2`
+  are in.
+- **S6:** the TE1 wording and `share_excluding_non_atg` are in.
+- **S7:** the H3 deviations are stated.
+- **Lead decision 5:** reproduces the proposed H3 rule exactly.
+
+The stated family is {H1}, size 1. It is correct: H1's other clauses and H3's criteria are
+intersection–union conditions with no p-value of their own.
+
+Every new or changed number in examples 1–14 was recomputed with `wilson_ci` and
+`scipy.stats.binomtest`; all match the digits shown. The recomputed examples:
+- example 7: 0.857 [0.601, 0.960] and p = 106/16384;
+- example 8: 0.75 [0.409, 0.929], unit effect 0.5 [0.150, 0.850], `p_tu` 11/16 and `p_gene` 37/256;
+- example 9: J 6/12 and 5/13;
+- example 12: 996/998 = 0.998 [0.993, 0.999];
+- example 13: 0.995 [0.988, 0.998] and 990/995 = 0.99497.
+
+Two notes, neither blocking:
+1. Criterion "2a" sits before "2"; renumbering is cosmetic.
+2. The `direction` clause uses the gene-level b > c, while `test` uses the TUs. When they
+   disagree, the result is `not_supported`, which is the conservative outcome and is acceptable.
+
+The test-author may start. The attack `test_attack_h1_tu_clustering.py` is still owed by the
+statistician before the implementation PR merges.
