@@ -56,7 +56,7 @@ def test_sbatch_request() -> None:
     assert "--cpus-per-task=4" in text
     assert "--mem=16G" in text
     assert any(t in text for t in ("--time=01:00:00", "--time=1:00:00", "--time=60"))
-    assert "--partition=dev" in text
+    assert "--qos=dev" in text  # FarmShare: dev is a QOS, not a partition (GIAP_SPEC §3)
 
 
 def test_methods_note_exists_and_cites_the_doi() -> None:

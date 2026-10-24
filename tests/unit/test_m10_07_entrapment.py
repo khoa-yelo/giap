@@ -330,7 +330,7 @@ def test_far_stratum_counts_a_k12_only_peptide_without_any_tolerant_row(ex1: Any
     assert f["r_far"] == approx(0.5)
     assert f["fdp_combined_far"] == approx(1 * 3 / 2)  # 1 (1 + 2) / (1 + 1)
     assert f["fdp_lower_far"] == approx(0.5)
-    assert f["ucb95_far"] == approx(E().ucb95(1, 1, 1, 2), abs=TOL)
+    assert f["ucb95_far"] == approx(E().ucb95(1, 1, 1, 2))
     assert out["peptide"]["N_E"] == 2
 
 
@@ -555,7 +555,7 @@ def test_example_7_shape_n_entrapment_zero_warning(ex1: Any) -> None:
     assert p["N_E"] == 0
     assert p["fdp_combined"] == approx(0.0) and p["fdp_lower"] == approx(0.0)
     assert p["assessment"] == "consistent_with_control"
-    assert p["ci"]["ucb95"] == approx(E().ucb95(4, 0, 6, 18), abs=TOL)
+    assert p["ci"]["ucb95"] == approx(E().ucb95(4, 0, 6, 18))
     assert "n_entrapment_zero" in codes(out["warnings"])
 
 

@@ -35,6 +35,7 @@ from helpers.pilot_metrics_m10 import (
     Pilot,
     World,
     build_pilot,
+    load_metrics,
     output_files,
     pep_row,
     run_cli,
@@ -310,10 +311,11 @@ def test_template_placeholders_resolve_and_numbers_cite_sources(
     computed: tuple[Pilot, Path],
 ) -> None:
     p, out = computed
-    template = TEMPLATE.read_text(encoding="utf-8")
+    doc = _metrics(out)
+    # M10-07: <!-- if/ifnot PATH --> blocks are applied first (metric 8 only with --entrapment)
+    template = load_metrics().sections(TEMPLATE.read_text(encoding="utf-8"), doc)
     paths = PLACEHOLDER.findall(template)
     assert paths, "the template has no placeholder"
-    doc = _metrics(out)
     for path in paths:
         _resolve(doc, path)  # every placeholder of the committed template resolves
     report = out / "REPORT.md"
