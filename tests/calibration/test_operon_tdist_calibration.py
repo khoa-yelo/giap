@@ -20,10 +20,6 @@ simulated genome) is M6-09 on M6-03's generators. R is ``replicates_fast/full.di
   owns the verdict.
 - ``test_fit_recovers_its_parameters``: the MLE is close to the drawing parameters on average
   (example 1 over R replicates instead of one seed).
-
-Sharded (``--shard K/N``): the three harness tests log their block and skip; ``--merge`` gives the
-verdict. The recorded plug-in rate and the fit recovery compute over every replicate without the
-harness, so they run in shard 0 only (conftest.py) and their verdict is shard 0's exit code.
 """
 
 from __future__ import annotations
@@ -68,7 +64,6 @@ def test_two_sided_p_uniform_under_a_known_fit(full: bool) -> None:
     rec = C.calibrate(
         SUITE, "uniform", 0.0, rep, r, stream=f"{SUITE}.engine_tdist.uniform_known_fit"
     )
-    C.skip_without_verdict(rec)  # a shard has no verdict: --merge gives it
     assert rec["status"] in {"pass", "unconfirmed"}, rec
 
 
@@ -90,7 +85,6 @@ def test_two_sided_p_pooled_level_under_a_known_fit(full: bool) -> None:
         stream=f"{SUITE}.engine_tdist.pooled_known_fit",
         m=M_POOLED,
     )
-    C.skip_without_verdict(gate.records)
     gate.assert_ok()
     if not full:
         assert gate.block_seconds.get(1, 0.0) < FAST_SECONDS, gate.block_seconds
@@ -110,7 +104,6 @@ def test_two_sided_p_level_on_a_held_out_draw(full: bool) -> None:
     gate = calibrate_levels(
         SUITE, "level", levels, rep, r, stream=f"{SUITE}.engine_tdist.level_held_out"
     )
-    C.skip_without_verdict(gate.records)
     gate.assert_ok()
     if not full:
         assert gate.block_seconds.get(1, 0.0) < FAST_SECONDS, gate.block_seconds
