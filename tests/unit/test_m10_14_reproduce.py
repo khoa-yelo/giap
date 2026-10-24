@@ -186,9 +186,9 @@ def test_job_name_must_start_with_giap(rc: Any, tmp_path: Path) -> None:
 def test_example_4_inputs_row(rc: Any, tmp_path: Path) -> None:
     repo = synthetic_repo(tmp_path)
     assert sha256_file(repo / GENOME_REL) == GENOME_SHA
-    assert _issues(rc, runbook(inputs=[INPUT_GENOME]), repo) == []
+    assert _issues(rc, runbook(inputs=[INPUT_GENOME, INPUT_IMAGE]), repo) == []
     bad = INPUT_GENOME.replace(GENOME_SHA, GENOME_SHA[:-1] + "f")
-    issues = _issues(rc, runbook(inputs=[bad]), repo)
+    issues = _issues(rc, runbook(inputs=[bad, INPUT_IMAGE]), repo)
     assert "hash_mismatch:genome" in issues, issues
     assert f"not_recorded:genome:{MANIFEST_REL}" in issues, issues
 
