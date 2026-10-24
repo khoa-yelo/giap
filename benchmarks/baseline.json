@@ -370,6 +370,42 @@
     "issue": "M8-06a",
     "note": "one run_step('function', ...) on a cold process: reading the gene table and resources, collections, summary bootstrap, ORA with TU recalibration (tu_folds wired), GSEA with its numba compilation (fresh NUMBA_CACHE_DIR) and the three writers"
   },
+  "novel_second_round_k12": {
+    "_comment": "M7-15 item 4 real-tool arm: the second round (Promotech, OSTIR) on real K-12 novel candidates. Outputs from d11f7608 plus the VARIANTS_STEP 8 GB memory hunk (resume of Slurm 1873779 in the same work dir: 2647 tasks cached, 4 completed); 4fcc29da changes task hashes only.",
+    "source": "scripts/measure_runtimes.py OUT/logs/trace.tsv --sacct 1879271 --genome k12_mg1655",
+    "genome": "k12_mg1655",
+    "peptides": "TE8 in-silico set: validation/proxies/te_proxies.peptide_sources of UniProt UP000000625 (sha256 a8052a60...), 151411 peptides after dropping 13 with B/J/O/U/X/Z; search_db other",
+    "profile": "farmshare,apptainer",
+    "genome_relation": "related",
+    "slurm_job": 1879271,
+    "date": "2026-10-23",
+    "processes": {
+      "promotech_novel": {
+        "wall_s": 123.0,
+        "peak_rss": "7.5 GB",
+        "node_class": "wheat",
+        "tasks": 1
+      },
+      "ostir_novel": {
+        "wall_s": 4.0,
+        "peak_rss": "274.3 MB",
+        "node_class": "wheat",
+        "tasks": 1
+      },
+      "novel_promoter_layer": {
+        "wall_s": 6.8,
+        "peak_rss": "398.6 MB",
+        "node_class": "wheat",
+        "tasks": 1
+      },
+      "variants_step": {
+        "wall_s": 106.0,
+        "peak_rss": "3.9 GB",
+        "node_class": "wheat",
+        "tasks": 1
+      }
+    }
+  },
   "sim_operon_1800_genes": {
     "benchmark": "benchmarks/test_sim_operon_bench.py::test_sim_operon_1800_genes_budget",
     "source": "docs/specs/M6-03-sim-operon-scenarios.md acceptance (a 1,800-gene scenario < 5 s)",
@@ -427,5 +463,95 @@
     "date": "2026-10-22",
     "issue": "M7-12",
     "note": "best of 3 simulate() calls per case, one invocation"
+  },
+  "m8_calibration_fast": {
+    "_comment": "M8-15 fast-tier wall time per suite (span under xdist -n 16, one test per worker), Slurm 1875111; budgets ora/gsea 600 s, determinants 1200 s (lead decision 10)",
+    "ora": {
+      "test": "tests/calibration/test_function_calibration.py::test_ora_null_fitted_p_detect_pooled_level_per_direction[fast]",
+      "secs": 206.8,
+      "cpus": 16,
+      "slurm_job": 1875111
+    },
+    "gsea": {
+      "test": "tests/calibration/attacks/test_attack_function.py::test_teeth_attack3_gene_level_r_engine_confirmed_fail",
+      "secs": 462.0,
+      "cpus": 16,
+      "slurm_job": 1875111
+    },
+    "determinants": {
+      "test": "tests/calibration/test_determinants_calibration.py::test_determinants_null_level_per_model[fast-elastic_net]",
+      "secs": 532.5,
+      "cpus": 16,
+      "slurm_job": 1875111
+    }
+  },
+  "report_5mb_sim4500": {
+    "benchmark": "benchmarks/test_plots_bench.py::test_plots_and_report_5mb_budget",
+    "step": "report",
+    "secs": 1.832,
+    "maxrss_mb": 465.6,
+    "budget_s": 30.0,
+    "source": "docs/specs/M9-26-scale-and-determinism.md (work item 1; lead decision 4)",
+    "n_genes": 4500,
+    "n_placements": 42413,
+    "genome_bp": 4639946,
+    "report_bytes": 8099623,
+    "node": "wheat-01",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "cpus": 4,
+    "slurm_alloc_cpus": 6,
+    "slurm_job": 1879327,
+    "commit": "2fc69a42",
+    "date": "2026-10-23",
+    "issue": "M9-26",
+    "note": "one round; the report step's run_step in a fresh interpreter, timed after imports, so interpreter start-up is excluded; peak RSS is that interpreter's VmHWM. Every plot passes the M9-24 element item (per axes, per V1 track). Previous record (nested entry, job 1879016 on wheat-05 at a7728f72): plots 16.5 s / 459.8 MB, report 2.0 s / 462.9 MB."
+  },
+  "plots_5mb_sim4500": {
+    "benchmark": "benchmarks/test_plots_bench.py::test_plots_and_report_5mb_budget",
+    "step": "plots",
+    "secs": 15.403,
+    "maxrss_mb": 468.5,
+    "budget_s": 120.0,
+    "source": "docs/specs/M9-26-scale-and-determinism.md (work item 1; lead decision 4)",
+    "n_genes": 4500,
+    "n_placements": 42413,
+    "genome_bp": 4639946,
+    "node": "wheat-01",
+    "cpu": "Intel Xeon Gold 6148 (CPU_SKU:6148)",
+    "cpus": 4,
+    "slurm_alloc_cpus": 6,
+    "slurm_job": 1879327,
+    "commit": "2fc69a42",
+    "date": "2026-10-23",
+    "issue": "M9-26",
+    "note": "one round; the plots step's run_step in a fresh interpreter, timed after imports, so interpreter start-up is excluded; peak RSS is that interpreter's VmHWM. Every plot passes the M9-24 element item (per axes, per V1 track). Previous record (nested entry, job 1879016 on wheat-05 at a7728f72): plots 16.5 s / 459.8 MB, report 2.0 s / 462.9 MB."
+  },
+  "determinants_univariate_b1000_n400": {
+    "benchmark": "benchmarks/test_determinants_bench.py::test_determinants_univariate_b1000_n400_budget",
+    "budget_s": 5.0,
+    "secs": 1.57,
+    "secs_before": 7.29,
+    "bootstrap": 1000,
+    "threads": 1,
+    "node": "iron-13 (session allocation)",
+    "cpu": "AMD EPYC 7742",
+    "date": "2026-10-23",
+    "issue": "perf/fast-suite-hotpaths (ADR-0053, proposed)",
+    "fixture": "tests/helpers/determinants_models_data.py planted(rng), 400 genes, TUs of 1-5, seed 20261023",
+    "note": "before = origin/main d29a2ea5 on the same node; tu_block_bootstrap columns= path and exact average ranks"
+  },
+  "determinants_null_b50_n400": {
+    "benchmark": "benchmarks/test_determinants_bench.py::test_determinants_null_b50_n400_budget",
+    "budget_s": 45.0,
+    "secs": 11.09,
+    "secs_before": 33.74,
+    "permutations": 50,
+    "threads": 4,
+    "node": "iron-13 (session allocation)",
+    "cpu": "AMD EPYC 7742",
+    "date": "2026-10-23",
+    "issue": "perf/fast-suite-hotpaths (ADR-0053, proposed)",
+    "fixture": "tests/helpers/determinants_models_data.py planted(rng), 400 genes, TUs of 1-5, seed 20261023",
+    "note": "before = origin/main d29a2ea5 on the same node; enet_path check_input=False, elastic net serial, LightGBM pooled"
   }
 }

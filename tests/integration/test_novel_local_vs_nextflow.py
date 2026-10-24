@@ -68,3 +68,51 @@ def test_example_2_local_and_nextflow_byte_identical(
     local, flow = _four(root / "LOCAL" / "OUT"), _four(root / "NF" / "OUT")
     differ = sorted(k for k in local if local[k] != flow[k])
     assert not differ, f"local and Nextflow differ: {differ}"
+
+
+# ---------------------------------------------------------------- M7-11b acceptance criterion 5
+#
+# The class-FDR wiring (docs/specs/M7-11b-class-fdr-wiring.md criterion 5): a giapsim
+# ``novel_orf_power(seed, "100k")`` run, whose database peptide table carries makedb six-frame
+# ``rev_GIAPORF_...`` decoys, under both executors. The four tables and the published side table
+# ``novel/novel_class_fdr.parquet`` must be the same bytes. The side table must show the picked
+# regime, so the parity covers the wired class FDR and not only its ``decoys_not_makedb`` path.
+
+SIDE = "novel/novel_class_fdr.parquet"
+
+
+@pytest.fixture(scope="module")
+def power_sim(tmp_path_factory: pytest.TempPathFactory) -> Any:
+    import giapsim
+    import giapsim.scenarios as sc
+
+    seed = giapsim.SIM100K_SEED
+    root = tmp_path_factory.mktemp("m7_11b_power")
+    return giapsim.simulate(sc.novel_orf_power(seed, "100k"), seed, root / "sim")
+
+
+@pytest.mark.needs_nextflow
+@pytest.mark.slow
+def test_m7_11b_power_run_local_and_nextflow_byte_identical_with_side_table(
+    power_sim: Any, tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import pandas as pd
+
+    root = tmp_path_factory.mktemp("m7_11b_ex5")
+    monkeypatch.setenv("NXF_ANSI_LOG", "false")
+    with nf.db_env(root):
+        code, log = nf.run_giap(power_sim, root / "LOCAL" / "OUT")
+        assert code == 0, log
+        code, log = nf.run_giap(power_sim, root / "NF" / "OUT", "--profile", "farmshare_local",
+                                executor="nextflow")  # fmt: skip
+        assert code == 0, log
+    lo, fl = root / "LOCAL" / "OUT", root / "NF" / "OUT"
+    local, flow = _four(lo), _four(fl)
+    for name, d in (("local", lo), ("nextflow", fl)):
+        assert (d / SIDE).is_file(), f"{name}: {SIDE} not published"
+    local[SIDE], flow[SIDE] = (lo / SIDE).read_bytes(), (fl / SIDE).read_bytes()
+    side = pd.read_parquet(lo / SIDE)
+    assert "picked_decoy" in set(side["regime"]), sorted(set(side["regime"]))
+    assert local["novel_orfs.tsv"].count(b"\n") > 1, "no novel ORF row on the power genome"
+    differ = sorted(k for k in local if local[k] != flow[k])
+    assert not differ, f"local and Nextflow differ: {differ}"

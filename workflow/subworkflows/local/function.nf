@@ -4,8 +4,11 @@
 // (the `function` py step, through a GIAP_STEP alias). main.nf calls it only when 'function' is
 // in params.modules. gene_table, replicons and tu_folds are required (stepIn's `need`); each
 // resource ([setup item name, path]) is staged only when installed, else the step records
-// layer_missing:<layer>. Only the three tables/*.tsv are published (M6-08 decision 7).
+// layer_missing:<layer>. Only the three tables/*.tsv are published (M6-08 decision 7), and the
+// optional plot support (M9-17: function_support, the gsea_running file, published under
+// plots/support/; empty when no set was testable).
 include { GIAP_STEP as FUNCTION_STEP } from '../../modules/local/giap_step/main'
+include { supportDir } from '../../modules/local/giap_step/main'
 include { stepIn; kv; pick } from './annotate'
 
 workflow FUNCTION {
@@ -21,13 +24,14 @@ workflow FUNCTION {
     def v = stepIn('function', chans, ['gene_table', 'replicons', 'tu_folds'])
     FUNCTION_STEP(v.files, v.keys, ['category_summary=tables/category_summary.tsv',
         'enrichment_detection=tables/enrichment_detection.tsv',
-        'enrichment_gsea=tables/enrichment_gsea.tsv'])
+        'enrichment_gsea=tables/enrichment_gsea.tsv', 'function_support=function_support'])
     def out = FUNCTION_STEP.out.outputs
 
     emit:
     category_summary     = pick(out, 'category_summary.tsv')
     enrichment_detection = pick(out, 'enrichment_detection.tsv')
     enrichment_gsea      = pick(out, 'enrichment_gsea.tsv')
+    function_support     = FUNCTION_STEP.out.support.map { fs -> supportDir(fs) }
     versions             = FUNCTION_STEP.out.versions
     events               = FUNCTION_STEP.out.events
 }

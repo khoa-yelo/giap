@@ -58,6 +58,7 @@
     "outputs": [
       "mapping_fdr",
       "placement",
+      "placement_costs",
       "stratum0_classes"
     ]
   },

@@ -36,8 +36,11 @@ from giap.stats.tda import picked_fdr_rescaled
 
 __all__ = [
     "ClassStats",
+    "DenovoClassFdr",
+    "DenovoClassStats",
     "PickedClassFdr",
     "Regime",
+    "denovo_class_fdr",
     "denovo_class_q",
     "orf_regimes",
     "parse_orf_id",
@@ -337,6 +340,24 @@ def picked_class_q(
 # ---------------------------------------------------------------- de novo (rule 3)
 
 
+@dataclass(frozen=True)
+class DenovoClassStats:
+    """One de novo class list: target peptides, best-cost decoy peptides, their pi-hat sum, c."""
+
+    n_targets: int
+    n_decoys: int
+    w_decoys: float
+    c: float
+
+
+@dataclass(frozen=True)
+class DenovoClassFdr:
+    """``q`` per ORF (as ``denovo_class_q``) and the stats of every class list."""
+
+    q: dict[str, float]
+    classes: dict[str, DenovoClassStats]
+
+
 def denovo_class_q(
     orfs: Sequence[Orf],
     target_hits: pd.DataFrame,
@@ -344,7 +365,19 @@ def denovo_class_q(
     classifier: Classifier,
     pi: Mapping[str, float],
 ) -> dict[str, float]:
-    """``orf_id`` -> de novo subgroup class q (rule 3, decision 3; NaN without a target hit).
+    """``orf_id`` -> de novo subgroup class q (``denovo_class_fdr(...).q``)."""
+    return denovo_class_fdr(orfs, target_hits, decoy_hits, classifier, pi).q
+
+
+def denovo_class_fdr(
+    orfs: Sequence[Orf],
+    target_hits: pd.DataFrame,
+    decoy_hits: pd.DataFrame,
+    classifier: Classifier,
+    pi: Mapping[str, float],
+) -> DenovoClassFdr:
+    """De novo subgroup class q per ORF (rule 3, decision 3; NaN without a target hit) and the
+    per-class list stats.
 
     Per class (the ORF's for targets, the mirrored interval's for decoys at each peptide's best
     decoy cost): ``stratum_qvalues`` over peptides by E with decoy weights π̂ (missing = 1) and
@@ -382,13 +415,16 @@ def denovo_class_q(
             if p in e_t:
                 lists.setdefault(o.cls, {})[p] = e_t[p]
     pep_q: dict[tuple[str, str], float] = {}
+    stats: dict[str, DenovoClassStats] = {}
     for cls, tl in lists.items():
         dk = [(p, e) for (k, p), e in decoys.items() if k == cls]
-        qs = stratum_qvalues(list(tl.values()), [e for _, e in dk],
-                             [pif.get(p, 1.0) for p, _ in dk], c)  # fmt: skip
+        w = [pif.get(p, 1.0) for p, _ in dk]
+        qs = stratum_qvalues(list(tl.values()), [e for _, e in dk], w, c)
         pep_q.update({(cls, p): float(v) for p, v in zip(tl, qs, strict=True)})
-    return {
+        stats[cls] = DenovoClassStats(len(tl), len(dk), float(sum(w)), c)
+    q = {
         o.orf_id: min((pep_q[(o.cls, p)] for p in o.peptides if (o.cls, p) in pep_q),
                       default=math.nan)
         for o in orfs
     }  # fmt: skip
+    return DenovoClassFdr(q, stats)

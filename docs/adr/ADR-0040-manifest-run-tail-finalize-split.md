@@ -26,3 +26,23 @@ Alternative rejected: run `finalize`, `plots`, `report` and `manifest` all in th
 - §6.3's "one process per Python step" has one exception, `manifest`. The tail is identical under both executors because it runs in the `giap run` process.
 - The manifest's `provenance_digest` is the SHA-256 of `OUT/work/provenance.json`, written before launch, so the in-graph `report` (M9-16) can stage it and print the same digest (lead decision 6).
 - MVP-03b adds `finalize.nf` and the datapackage writer of the tail. Later tail work (for example the pass-2 Frictionless validation of published tables) goes in the same tail.
+
+## Amendment 1 (M9-16b, 2026-10-23; lead-level, no output path, default or config key changes)
+- **The tail re-renders the report after the manifest.** After `run_manifest.json` is written
+  with `status == "completed"`, `giap run` (under either executor) re-renders
+  `OUT/report/report.html` from `OUT/` and the existing `OUT/plots/`. It draws no plot, and it
+  writes atomically (`report/.report.html.tmp`, then `os.replace`). `giap report` uses the same
+  `rerender_report`. The tail is therefore no longer the manifest alone (decision 1).
+- **One-way dependency.** The report depends on the manifest, never the reverse.
+  - The report prints the manifest's file SHA-256 and its `provenance_digest`.
+  - The manifest records no checksum of `report/` or `plots/`.
+  - A future output-checksum field must leave out `report/`, or be added after the re-render
+    with an ADR.
+  - The re-render is not a registered step: it does not appear in `steps[]` and emits no event
+    to `logs/events.jsonl`.
+- **Exit 4 on failure.** A re-render failure after a completed graph and a written manifest is
+  exit 4 (`logs/report_tail.log`): the same rule as a tail error after a successful graph.
+  `report.html` keeps the in-graph page and the manifest is unchanged.
+- **Skipped when the run did not complete.** There is no re-render after a failed graph (exit
+  4/5), a failed manifest write, or a preflight exit (1/2/3). Work-directory copies keep the
+  in-graph page, so `-resume` still caches `REPORT_HTML`.

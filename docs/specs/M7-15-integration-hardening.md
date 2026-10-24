@@ -58,3 +58,67 @@ statistical
    existing goldens are not regenerated.
 2. Real-tool arm genome: K-12 with in-silico TE8 peptides (proposed) or Nissle with A2 once the pilot
    data exist (M10)? **Proposed default:** K-12 now; Nissle in M10.
+
+## Lead decisions (2026-10-22)
+
+1. **Golden with planted strain differences:** the proposed default. Add a second golden directory,
+   `tests/data/golden/sim50k_m7/`, with the M7 settings; the existing sim50k goldens are not
+   regenerated. Numeric columns that depend on BLAS (if any) follow the M5-11 decision 44/46/47
+   tolerance pattern rather than byte equality.
+2. **Real-tool arm genome:** K-12 with in-silico TE8 peptides now; Nissle with A2 in M10. The
+   real-tool arm runs on Slurm only (never in the session), from `scripts/slurm/`.
+3. **Test-author resolutions (2d5f534c) accepted:**
+   - the fixture uses SNVs only;
+   - `BLAS_NUMERIC` is empty;
+   - example 3 uses the M2-21 `.command.log` path;
+   - item 6 is the back-fill reading;
+   - the writer names stay module-level, as the damage hook needs.
+4. **Sequencing:**
+   - Items 2, 3, 4 and 6 are implemented now.
+   - The `sim50k_m7` goldens are generated only after M7-12 (#225) merges; the implementer then
+     merges origin/main and runs `GIAP_UPDATE_GOLDEN=1` on Slurm.
+   - The PR does not merge before that.
+5. **Real-tool arm (item 4):**
+   - The implementer submits the K-12 `farmshare,apptainer` run with
+     `scripts/slurm/giap_run.sbatch`.
+   - It records `novel_second_round_k12` in `benchmarks/baseline.json` and the job ID in
+     PROGRESS.md (the lead adds that line), and sets `$GIAP_M7_15_K12_OUT` for the e2e check.
+   - No genome FASTA is committed.
+6. **Resume (example 2):** finding why an unchanged `--resume` re-runs 8 of 39 tasks is part of
+   this issue; the cause goes in the PR body.
+7. **Item 3:** each step's config slice becomes part of its task hash, so changing one step's key
+   re-runs only that step and its dependants.
+
+## Lead decisions after implementer step 3 (876ee82f)
+8. **Config fixes accepted in this PR:** the farmshare 12 h time request for process_medium/high,
+   VARIANTS_STEP 8 GB, and `maxRetries = 2` for 137/143 (Khoa 2026-10-23). The lead adds
+   tests/unit/test_base_config_retry.py and records Slurm 1879271 in PROGRESS.md.
+9. **The variants crash on X/U residues** (`minimal_alt_codon`, "no table-11 codon encodes 'X'") becomes a
+   separate issue, M7-18, kept out of this PR. Reversible default for its spec:
+   - an ambiguous residue (B, J, X, Z) is never an ALT residue;
+   - U over a TGA codon and O over a TAG codon count as matches (selenocysteine and pyrrolysine readthrough), not ALTs;
+   - any other U or O is never an ALT;
+   - each skipped site is counted in one event.
+10. **Goldens:** #225 has merged. The implementer merges origin/main, regenerates them with
+    `GIAP_UPDATE_GOLDEN=1` on Slurm and reruns the fast suite. Then the PR opens.
+11. **Review round (code review of 5c9695ce, #278).** Blocking:
+    - **B1, retry growth:** a retry must change the request.
+      - `time` grows with `task.attempt`: `12.h * task.attempt` on medium/high, and an explicit `2.h * task.attempt` on single/low under farmshare.
+      - A 137 retry happens only while the memory request still grows under the profile's cap (`errorStrategy` closure). Otherwise the task terminates.
+    - **B2, unit tests for the new pure functions:** one hand-made input per branch for `check_tsv`, `check_vcf`, `config_slice`, `config_hashes`, `candidate_ids` and `backfill_candidate_ids`, killing the seven surviving mutants listed in the review.
+    - **B3, the retry-policy test:** assert on `nextflow config -flat` per profile (base, farmshare, farmshare_local) rather than a regex over base.config.
+    - **B4:** the PR body explains the 8-of-39 re-run on an unchanged `--resume` (decision 6), plus items 2 and 6 and the preflight change.
+
+    Nits taken:
+    - `backfill_candidate_ids` writes every row, NA when there is no id (review 8);
+    - `candidate_ids` also matches on position within the ORF span (review 9);
+    - `check_tsv` honours the schema `pattern`, and `check_vcf` checks POS ≤ contig length (review 7);
+    - the damage test matches the exact exception type.
+
+    Backlogged:
+    - a static guard for the step-to-section map (review 5);
+    - the GIAP version in the task hash (review 6, predates this PR);
+    - the preflight keep-unchanged hunk and an all-cached assertion (review 10);
+    - recording the `cache 'deep'` hashing cost (review 11).
+
+    Paused (Khoa, 2026-10-23): the round starts when agents resume. The test-author goes first (B2, B3 and the nit tests), then the implementer (B1 and the nits), then the lead (B4).

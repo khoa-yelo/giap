@@ -26,6 +26,7 @@ _Last updated: 2026-10-22 19:40 PDT · session https://claude.ai/code/session_01
 | M11 Release 1.0 | _not designed yet_ | - | - | - |
 <!-- progress:end -->
 
+- M7-15 K-12 real-tool arm: **Slurm 1879271** (COMPLETED 4 m 41 s; 2,647 cached from 1873779, 4 rerun; d11f7608 + VARIANTS 8 GB; 4fcc29da is cache-key-only, outputs byte-identical). Earlier attempts 1869642, 1871633, 1873779, 1878443 (cancelled).
 ## Current milestone
 (2026-10-23 ~10:30) Six agent slots: four reviewers plus the M7-15 implementer are active. The
 M9-23 and M8-14 implementers are waiting on Slurm (giap-test-m923 1870959, giap-test-m814 1871571).
@@ -37,6 +38,8 @@ K-12 evidence run).
 (ADR-0044/0045), and #239 M7-10.
 
 **Queued** (scratchpad queue.sh):
+- M9-26 plots/report benchmark: **Slurm 1879016** (wheat-05; sim4500, 4.64 Mb, 42,413 placements: plots 16.5 s / 460 MB, report 2.0 s / 463 MB, report.html 8.1 MB); 1878941 discarded (RSS from the parent pytest); fast suite 1879063 (15,068 passed).
+- M9-26 review round: benchmark re-recorded at 2fc69a42, **Slurm 1879327** (wheat-01): plots 15.4 s / 469 MB (budget 120 s), report 1.8 s / 466 MB (budget 30 s).
 - qCA: #225 M7-12
 - qCB: #237 M7-11
 - qCC: #249 (ADR-0047 alone), then #242
