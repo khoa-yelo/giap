@@ -23,7 +23,8 @@ is read back; when absent, panel (b) shows peptides only.
 
 ## Panel (a)
 
-Grouped bars: x = `call` (ALT, mixed), groups = `confidence` (high, candidate), stacked by flag. A
+Grouped bars: x = `call` (ALT, mixed), groups = `confidence` (high, candidate), one dodged bar per
+flag (*amended 2026-10-24, lead, #322:* stacking counted a multi-flag site several times). A
 site with several flags is counted once in each flag and once in "all"; sites without flags count
 under "no flag". The "all" total is printed above each bar. Colours: Okabe–Ito in the §9.4 flag
 order.

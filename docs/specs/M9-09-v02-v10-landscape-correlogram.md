@@ -49,8 +49,11 @@ abundance: "No measured abundance: detection only" (points absent; rug drawn for
   each `null_model` ∈ {gene_label, tu_block} a shaded band `null_lo`–`null_hi` (gene label light
   grey, TU block `#56B4E9` at alpha 0.3) and a dashed `null_mean` line. Points with `q_value ≤
   stats.alpha.context` under the **TU-block** null are filled; others open.
-- **(b) Join count:** the same layout for `statistic = join_count_bb` (raw BB value, ADR-0020),
-  y label "BB joins (detected–detected)".
+- **(b) Join count:** the same layout for `statistic = join_count_bb`, plotting the Pearson join
+  statistic S_k = `effect + null_mean`, the scale of the null envelopes (ADR-0020 Amendment 1),
+  y label "BB join statistic (Pearson residual)"; the twin's hover also shows the raw BB_k
+  (`value`). *Amended 2026-10-24 (lead):* the raw BB value on the S-scale envelope was a scale
+  mismatch found on K-12 (stat note stat/m5-joincount-scale); the table is unchanged.
 - x axis "lag (genes)", ticks 1–20 (`context.moran_lags`).
 - Rows with `value` NA (flags `not_estimable`, `few_values`): no point; if every row of a contig is
   NA the contig column shows "not estimable (`<flags>`)".
