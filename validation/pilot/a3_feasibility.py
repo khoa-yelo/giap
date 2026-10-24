@@ -27,7 +27,8 @@ from typing import Any
 RULES = tuple(f"M{i}" for i in range(1, 9))
 MS_LEVEL, CENTROID, PROFILE, SCAN_START = "MS:1000511", "MS:1000127", "MS:1000128", "MS:1000016"
 TARGET, LOWER, UPPER = "MS:1000827", "MS:1000828", "MS:1000829"
-MINUTE = "UO:0000031"
+# scan start time unit -> seconds, by unitAccession or else unitName; no unit is never seconds.
+RT_SCALE = {"UO:0000031": 60.0, "minute": 60.0, "UO:0000010": 1.0, "second": 1.0}
 
 
 @dataclass
@@ -41,6 +42,7 @@ class Summary:
     n_not_centroid: int = 0
     max_width: float = 0.0
     max_rt_s: float | None = None
+    n_rt_no_unit: int = 0  # scan start times without a known unit (M7 fails)
     windows: set[tuple[float, float, float]] = field(default_factory=set)
 
 
@@ -64,16 +66,21 @@ def _add_spectrum(s: Summary, spec: ET.Element) -> None:
     if CENTROID not in own or PROFILE in own:
         s.n_not_centroid += 1
     for scan in (e for e in spec.iter() if _local(e.tag) == "scan"):
-        rt = _float(_params(scan).get(SCAN_START))
-        if rt is not None:
-            rt *= 60.0 if _params(scan)[SCAN_START].get("unitAccession") == MINUTE else 1.0
-            s.max_rt_s = rt if s.max_rt_s is None else max(s.max_rt_s, rt)
+        start = _params(scan).get(SCAN_START)
+        rt = _float(start)
+        if start is None or rt is None:
+            continue
+        scale = RT_SCALE.get(start.get("unitAccession") or start.get("unitName") or "")
+        if scale is None:
+            s.n_rt_no_unit += 1
+            continue
+        s.max_rt_s = rt * scale if s.max_rt_s is None else max(s.max_rt_s, rt * scale)
     level = own.get(MS_LEVEL)
     if level is None or level.get("value") == "1":
         s.n_ms1 += level is not None
         return
     s.n_ms2 += 1
-    s.n_ms2_empty += int(spec.get("defaultArrayLength", "0") or 0) < 1
+    s.n_ms2_empty += int(spec.get("defaultArrayLength", "0") or 0) < 1  # ValueError: unreadable
     precursors = [e for e in spec.iter() if _local(e.tag) == "precursor"]
     good = 0
     for prec in precursors:
@@ -89,7 +96,8 @@ def _add_spectrum(s: Summary, spec: ET.Element) -> None:
 
 
 def summarise(path: Path) -> Summary:
-    """Stream ``path``; raises ``ET.ParseError`` on malformed XML."""
+    """Stream ``path``; raises ``ET.ParseError`` on malformed XML, ``ValueError`` on a
+    non-integer ``defaultArrayLength``."""
     s = Summary()
     for _, elem in ET.iterparse(path, events=("end",)):
         if _local(elem.tag) == "spectrum":
@@ -111,7 +119,9 @@ def check(s: Summary, acq: dict[str, Any]) -> dict[str, Any]:
         "M4": s.max_width <= (hi_mz - lo_mz) / 2,
         "M5": groups <= len(s.windows) <= rows,
         "M6": s.n_not_centroid == 0,
-        "M7": s.max_rt_s is not None and s.max_rt_s >= 0.9 * float(acq["gradient_length_s"]),
+        "M7": s.n_rt_no_unit == 0
+        and s.max_rt_s is not None
+        and s.max_rt_s >= 0.9 * float(acq["gradient_length_s"]),
         "M8": s.n_ms2_empty == 0,
     }
     failed = sorted(r for r, ok in rules.items() if not ok)
@@ -139,9 +149,13 @@ def _mzml_check(args: argparse.Namespace) -> int:
         return 2
     try:
         summary = summarise(args.mzml)
-    except ET.ParseError as exc:
+    except (ET.ParseError, ValueError) as exc:
         print(f"mzml-check: unreadable mzML {args.mzml}: {exc}", file=sys.stderr)
         return 1
+    if summary.n_rt_no_unit:
+        print(
+            f"mzml-check: {summary.n_rt_no_unit} scan start times without a unit", file=sys.stderr
+        )
     j = {"run": args.run, **check(summary, runs[args.run])}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(j, indent=2, sort_keys=True) + "\n")

@@ -12,7 +12,7 @@
 #
 # MZML_ROUTE=timsconvert (default, route B2: TIMSCONVERT 2.0.0 + pyTDFSDK's TDF-SDK, ADR-0054)
 # or pwiz (route B1: ProteoWizard msconvert under Wine; needs PWIZ_SIF, an image pulled by digest,
-# and Khoa's acceptance of the six non-Bruker EULAs, which he has not given). Reads
+# and Khoa's acceptance of the five non-Bruker EULAs, which he has not given). Reads
 # $GIAP_DATA_DIR/pxd078459/<RUN>.d, writes $GIAP_DATA_DIR/pxd078459/mzml/<RUN>.mzML and
 # <RUN>.mzml_check.json (validation/pilot/a3_feasibility.py mzml-check). No network (R6).
 # Exit codes: 0 converted and the check passed; 1 conversion or check failed; 2 a precondition
@@ -34,6 +34,10 @@ case "$ROUTE" in
   *) echo "unknown MZML_ROUTE: $ROUTE (timsconvert | pwiz)" >&2; exit 2 ;;
 esac
 [ -d "$SRC" ] || { echo "no such run: $SRC" >&2; exit 2; }
+ACQ="$GIAP_REPO/validation/pilot/inputs/acquisition.json"
+"$PY" -I -c 'import json, sys
+sys.exit(sys.argv[2] not in {r["run"] for r in json.load(open(sys.argv[1]))["runs"]})' "$ACQ" "$RUN" \
+  || { echo "run $RUN not in $ACQ: not converting" >&2; exit 2; }
 
 # Disk: free space under $GIAP_DATA_DIR >= 4 x the .d size (apparent bytes).
 size=$("$PY" -I -c 'import os, sys
@@ -69,7 +73,7 @@ fi
 ls -l "$OUT/$RUN.mzML"
 
 PYTHONPATH="$GIAP_REPO/src" "$PY" "$GIAP_REPO/validation/pilot/a3_feasibility.py" mzml-check \
-  "$OUT/$RUN.mzML" --acquisition "$GIAP_REPO/validation/pilot/inputs/acquisition.json" \
+  "$OUT/$RUN.mzML" --acquisition "$ACQ" \
   --run "$RUN" --out "$OUT/$RUN.mzml_check.json" || rc=$?
 cat "$OUT/$RUN.mzml_check.json" 2>/dev/null || true
 [ "$rc" -eq 0 ] || echo "mzml-check failed for $RUN (route $ROUTE): a route failure, not a verdict" >&2

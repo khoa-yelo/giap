@@ -4,7 +4,7 @@
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=4G
-#SBATCH --time=01:00:00
+#SBATCH --time=02:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
 # The external A3 assets (M10-08 deliverable 6; ADR-0054 = ADR-M10-B). The only A3 script that
 # reaches the network.
@@ -14,13 +14,16 @@
 #
 # - Cascadia weights: HTTPS from the Drive file ID in validation/pilot/a3_assets.tsv to
 #   $GIAP_DB_DIR/cascadia/cascadia_0.0.7.ckpt (0444). Drive is not a §3.2 source: only once
-#   ADR-M10-B is accepted (A3_WEIGHTS_HOST_OK=1), otherwise exit 2 before any request.
+#   ADR-M10-B is accepted (A3_WEIGHTS_HOST_OK=1 exactly), otherwise exit 2 before any request.
+#   The body must be a zip (Lightning checkpoint, PK\x03\x04), never an HTML page, in both modes.
+#   curl: 2 attempts x 3000 s + 60 s delay = 6060 s < the 2 h --time.
 # - Unimod table: psims' vendored unimod_tables.xml.gz, gunzipped from the built giap-cascadia
-#   env to $GIAP_DB_DIR/cascadia/unimod_tables.xml (0444). No network.
+#   env to $GIAP_DB_DIR/cascadia/unimod_tables.xml (0444). No network, so it runs without the
+#   weights gate.
 # - --resolve prints each asset's sha256 and bytes (trust on first use: no checksum is
 #   published) for the lead to commit into a3_assets.tsv; it installs nothing. Without --resolve
 #   every file must match the committed sha256 (R6), else exit 1 and no file at the final path.
-# - No image is pulled: route B1 (ProteoWizard, six more vendor EULAs) is not accepted.
+# - No image is pulled: route B1 (ProteoWizard, five more vendor EULAs) is not accepted.
 # R6: https only, TLS verification never off. R11: nothing is written into the checkout.
 # Exit codes: 0 done; 1 a download or verification failed; 2 a precondition.
 set -euo pipefail
@@ -35,11 +38,6 @@ case "${1:-}" in
   --resolve) RESOLVE=1 ;;
   *) echo "usage: fetch_a3_assets.sbatch [--resolve]" >&2; exit 2 ;;
 esac
-if [ -z "${A3_WEIGHTS_HOST_OK:-}" ]; then
-  echo "weights host not in §3.2: ADR-M10-B (ADR-0054) must be accepted first;" \
-    "then set A3_WEIGHTS_HOST_OK=1" >&2
-  exit 2
-fi
 [ -f "$ASSETS" ] || { echo "no $ASSETS" >&2; exit 2; }
 
 field() {  # field ASSET COLUMN: one cell of a3_assets.tsv
@@ -52,9 +50,15 @@ sha256_of() {  # GNU sha256sum or the BSD shasum of macOS CI
     | cut -d' ' -f1
 }
 
-# install_asset ASSET PART FINAL: verify PART against the committed sha256, then move it into place.
+# install_asset ASSET PART FINAL [zip]: verify PART against the committed sha256 (and, with zip,
+# the zip magic), then move it into place.
 install_asset() {
   local asset="$1" part="$2" final="$3" want got bytes
+  if [ "${4:-}" = zip ] && [ "$(head -c 4 "$part" | od -An -tx1 | tr -d ' \n')" != 504b0304 ]; then
+    rm -f "$part"
+    echo "$asset: Drive returned a page, not the file (no zip magic): nothing installed" >&2
+    return 1
+  fi
   want="$(field "$asset" sha256)"
   got="$(sha256_of "$part")"
   bytes="$(wc -c < "$part" | tr -d ' ')"
@@ -84,6 +88,10 @@ needs_sha() {  # without --resolve, an asset with no committed sha256 is never f
 
 mkdir -p "$DEST"
 rc=0
+u_part="" w_part=""
+cleanup() { local p; for p in "$u_part" "$w_part"; do [ -z "$p" ] || rm -f -- "$p"; done; }
+trap cleanup EXIT
+newpart() { mktemp "$DEST/.$1.part.XXXXXX"; }  # unique per job (N8)
 fail() { [ "$rc" -ne 0 ] || rc="$1"; }  # the first failure decides the exit code
 
 # Unimod table (offline, from the env build).
@@ -95,7 +103,7 @@ if needs_sha unimod_table; then
     exit 2
   fi
   echo "== unimod_table from $gz"
-  part="$DEST/.unimod_tables.xml.part"
+  u_part="$(newpart unimod_tables.xml)"; part="$u_part"
   if gzip -dc "$gz" > "$part"; then
     install_asset unimod_table "$part" "$DEST/unimod_tables.xml" || fail 1
   else
@@ -107,14 +115,27 @@ else
 fi
 
 # Cascadia weights (HTTPS, Drive).
+if [ "${A3_WEIGHTS_HOST_OK:-}" != 1 ]; then
+  echo "weights host not in §3.2: ADR-M10-B (ADR-0054) must be accepted first;" \
+    "then set A3_WEIGHTS_HOST_OK=1" >&2
+  fail 2
+  exit "$rc"
+fi
 url="$(field cascadia_weights url)"
 case "$url" in https://*) ;; *) echo "cascadia_weights: not an https URL: $url" >&2; exit 2 ;; esac
 if needs_sha cascadia_weights; then
-  part="$DEST/.cascadia_0.0.7.ckpt.part"
+  w_part="$(newpart cascadia_0.0.7.ckpt)"; part="$w_part"
   echo "== cascadia_weights from $url"
-  if curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' \
-      --retry 1 --retry-delay 60 --max-time 3000 --output "$part" "$url"; then
-    install_asset cascadia_weights "$part" "$DEST/cascadia_0.0.7.ckpt" || fail 1
+  if info="$(curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' \
+      --retry 1 --retry-delay 60 --max-time 3000 --write-out '%{content_type} %{size_download}' \
+      --output "$part" "$url")"; then
+    echo "cascadia_weights: content type and bytes: $info"
+    case "$info" in
+      text/html*) rm -f "$part"
+        echo "cascadia_weights: Drive returned a page, not the file: nothing installed" >&2
+        fail 1 ;;
+      *) install_asset cascadia_weights "$part" "$DEST/cascadia_0.0.7.ckpt" zip || fail 1 ;;
+    esac
   else
     rm -f "$part"
     echo "cascadia_weights: download failed: retry once later, then a Blocked row (R6)" >&2

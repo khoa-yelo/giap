@@ -6,7 +6,9 @@
 # pyTDFSDK bundles Bruker's proprietary TDF-SDK (libtimsdata.so), used under the Bruker TDF-SDK
 #   licence agreement that Khoa accepted for route B2 on 2026-10-24 (ADR-0054). Use only:
 #   never redistribute the env, the SDK or any file from it; never commit them (R11; TDF-SDK §3.2).
-# conda-forge only (build_envs.sh passes --override-channels -c conda-forge). Pinned 2026-10-24.
+# conda channel: conda-forge only (build_envs.sh passes --override-channels -c conda-forge);
+# pip: timsconvert from GitHub at the commit, its requirements from PyPI (and pyTDFSDK from
+# GitHub), pinned by that commit only; the exact set is in the pip lock. Pinned 2026-10-24.
 # Locks: workflow/envs/locks/timsconvert.{explicit,pip}.txt, written by build_envs.sh.
 name: giap-timsconvert
 channels:
