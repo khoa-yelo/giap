@@ -1,11 +1,13 @@
 """M6-13: the ``operons.discordance_fit`` event of the ``operons`` step
 (docs/specs/M6-13-discordance-abundance-sigma.md "Public interface", steps/operons.py; §6.7).
 
-One INFO event per run, ``operons.discordance_fit``, whose ``data`` is strict JSON (NaN -> null)
-with the keys below; a WARNING when the scaled fit fell back for ``not_converged``, ``collapsed``
-or ``worse_than_constant``. ``gamma_per_log2 = gamma_per_sd / abundance_sd_log2`` (S-1). The
-fields must equal ``Discordance.scaled`` of the same chain (``discordance`` on the step's own pair
-frame). No table gains a column: the existing step tests pin the tables and schemas.
+One event per run, ``operons.discordance_fit``, whose ``data`` is strict JSON (NaN -> null)
+with the keys below. It is INFO, or WARNING when the scaled fit fell back for ``not_converged``,
+``collapsed`` or ``worse_than_constant`` (review CR S-1: the WARNING-level event is what reaches
+``logs/events.jsonl`` and the manifest warnings). ``gamma_per_log2 = gamma_per_sd /
+abundance_sd_log2`` (S-1). The fields must equal ``Discordance.scaled`` of the same chain
+(``discordance`` on the step's own pair frame). No table gains a column: the existing step tests
+pin the tables and schemas.
 
 Inputs: the sim100k chain of ``test_operons_step`` (36 both-detected OP pairs with abundance,
 none without).
@@ -42,10 +44,10 @@ def _events(records: list[logging.LogRecord]) -> list[logging.LogRecord]:
     return [r for r in records if getattr(r, "event", None) == EVENT]
 
 
-def _data(records: list[logging.LogRecord]) -> dict[str, Any]:
+def _data(records: list[logging.LogRecord], level: int = logging.INFO) -> dict[str, Any]:
     found = _events(records)
     assert len(found) == 1, f"expected one {EVENT} event, got {len(found)}"
-    assert found[0].levelno == logging.INFO
+    assert found[0].levelno == level, logging.getLevelName(found[0].levelno)
     data = found[0].data  # type: ignore[attr-defined]
     assert isinstance(data, dict)
     return data
@@ -127,9 +129,10 @@ def test_bound_flags_are_booleans(with_abundance: Any) -> None:
     run, _ = with_abundance
     data = _data(run.records)
     assert isinstance(data["df_at_bound"], bool) and isinstance(data["gamma_at_bound"], bool)
+    if data["sigma_model_used"] != "none":
+        assert data["df_at_bound"] == (data["df"] in tdist.DF_BOUNDS)
     if data["sigma_model_used"] == "loglinear":
-        assert data["gamma_at_bound"] == (abs(data["gamma_per_sd"]) == 2.0)
-        assert data["df_at_bound"] == (data["df"] in (2.0, 50.0))
+        assert data["gamma_at_bound"] == (data["gamma_per_sd"] in tdist.GAMMA_BOUNDS)
 
 
 def test_chain_with_abundance_fits_the_loglinear_null(with_abundance: Any) -> None:
@@ -151,26 +154,174 @@ def test_no_abundance_event_is_none(chain: Chain, tmp_path: Path) -> None:
     assert data["gamma_per_sd"] is None and data["loc_log2"] is None
 
 
-def test_fallback_logs_a_warning(chain: Chain, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                                 caplog: pytest.LogCaptureFixture) -> None:  # fmt: skip
-    """A scaled fit that does not converge: constant null, ``reason = not_converged``, WARNING."""
+def _patch_scaled(monkeypatch: pytest.MonkeyPatch, edit: Any) -> None:
+    """Patch the four-parameter optimiser only; the constant fit runs unchanged."""
 
     def fake(fun: Any, x0: Any, *a: Any, **k: Any) -> Any:
         res = _REAL_MINIMIZE(fun, x0, *a, **k)
-        if np.asarray(x0).size == 4:
-            res = scipy.optimize.OptimizeResult(dict(res))
-            res.update(success=False, status=2)
-        return res
+        if np.asarray(x0).size != 4:
+            return res
+        out = scipy.optimize.OptimizeResult(dict(res))
+        out.update(edit(res, np.asarray(x0, dtype=float)))
+        return out
 
     monkeypatch.setattr(scipy.optimize, "minimize", fake)
     if hasattr(tdist, "minimize"):
         monkeypatch.setattr(tdist, "minimize", fake)
+
+
+def _not_converged(res: Any, x0: np.ndarray) -> dict[str, Any]:
+    return {"success": False, "status": 2}
+
+
+def _collapsed(res: Any, x0: np.ndarray) -> dict[str, Any]:
+    x = x0.copy()
+    x[1] -= 40.0  # sigma0 at e^-40 of the constant scale: under the collapse floor
+    return {"x": x, "success": True}
+
+
+def _worse(res: Any, x0: np.ndarray) -> dict[str, Any]:
+    x = x0.copy()
+    x[0] += 5.0 * math.exp(x0[1])  # mu five scales off: fits worse than the constant start
+    return {"x": x, "success": True}
+
+
+FALLBACKS = {"not_converged": _not_converged, "collapsed": _collapsed,
+             "worse_than_constant": _worse}  # fmt: skip
+
+
+@pytest.mark.parametrize("reason", sorted(FALLBACKS))
+def test_fallback_logs_a_warning(chain: Chain, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                 reason: str) -> None:  # fmt: skip
+    """CR S-1, T-2: a scaled fit that falls back (not converged, collapsed, worse than constant)
+    gives the constant null with that reason, and the ``operons.discordance_fit`` event itself is
+    WARNING in the step's event records (the records that become ``logs/events.jsonl`` and the
+    manifest warnings), not only a stderr line on another logger."""
+    _patch_scaled(monkeypatch, FALLBACKS[reason])
     gt = write_gene_table(chain, tmp_path / "genetable" / "genes.parquet", abundance=True)
-    with caplog.at_level(logging.WARNING, logger="giap"):
-        run = run_operons_step(step_inputs(chain, gt), tmp_path / "out", _cfg())
-    data = _data(run.records)
-    assert data["sigma_model_used"] == "constant" and data["reason"] == "not_converged"
+    run = run_operons_step(step_inputs(chain, gt), tmp_path / "out", _cfg())
+    data = _data(run.records, logging.WARNING)
+    assert data["sigma_model_used"] == "constant" and data["reason"] == reason
     assert data["gamma_per_sd"] == 0.0
-    warned = [r for r in [*run.records, *caplog.records]
-              if r.levelno >= logging.WARNING and "not_converged" in r.getMessage()]  # fmt: skip
-    assert warned
+
+
+def _relative_gene_table(chain: Chain, path: Path) -> Path:
+    from giap.io.genes_tsv import read_genes_parquet, write_genes_parquet
+
+    write_gene_table(chain, path, abundance=True)
+    df = read_genes_parquet(path)
+    df["abundance_type"] = "lfq"
+    df["abundance_scale"] = "relative"
+    write_genes_parquet(path, df)
+    return path
+
+
+def test_relative_scale_run_reports_no_null(chain: Chain, tmp_path: Path) -> None:
+    """Stat S2: on a relative-scale run no p is computed (every OP pair is ``relative_scale``), so
+    the event must not report a fitted log-linear null with a gamma-hat. Choice (the spec leaves
+    it open; ``sigma_model_used`` is ``loglinear | constant | none`` in the spec): the null used
+    is ``none`` and the reason is the existing ``relative_scale`` flag; no fit values."""
+    gt = _relative_gene_table(chain, tmp_path / "genetable" / "genes.parquet")
+    run = run_operons_step(step_inputs(chain, gt), tmp_path / "out", _cfg())
+    data = _data(run.records)
+    assert data["sigma_model_used"] == "none"
+    assert data["reason"] == "relative_scale"
+    for key in ("gamma_per_sd", "gamma_per_log2", "loc_log2", "scale0_log2", "df", "lr_stat",
+                "lr_p"):  # fmt: skip
+        assert data[key] is None, key
+    assert data["df_at_bound"] is False and data["gamma_at_bound"] is False
+    json.dumps(data, allow_nan=False)
+
+
+def test_event_sigma_model_is_the_value_passed(
+    chain: Chain, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stat N3: the event's ``sigma_model`` is the model ``discordance`` was actually called with,
+    not the module constant ``SIGMA_MODEL``. The step has no ``sigma_model`` option yet (M6-13
+    Q2), so the call is forced to ``constant`` at the ``discordance`` the step uses."""
+    import giap.steps.operons as step_mod
+
+    real = step_mod.discordance
+    seen: list[str] = []
+
+    def forced(*a: Any, **k: Any) -> Any:
+        k["sigma_model"] = "constant"
+        seen.append(k["sigma_model"])
+        return real(*a, **k)
+
+    monkeypatch.setattr(step_mod, "discordance", forced)
+    gt = write_gene_table(chain, tmp_path / "genetable" / "genes.parquet", abundance=True)
+    run = run_operons_step(step_inputs(chain, gt), tmp_path / "out", _cfg())
+    assert seen == ["constant"]
+    data = _data(run.records)
+    assert data["sigma_model"] == "constant"
+    assert data["sigma_model_used"] == "constant" and data["reason"] == "disabled"
+
+
+# --------------------------------------------------------------------------- bound flags (S-3)
+
+
+def _fit(model: str, *, gamma: float, df: float, reason: str | None = None) -> Any:
+    from giap.stats.tdist import ScaledStudentT
+
+    nan = math.nan
+    return ScaledStudentT(
+        loc=0.0, scale0=0.5, gamma=gamma, df=df, n=40, converged=model != "none", model=model,
+        reason=reason, center=12.0, sd=0.7, z_min=-1.5, z_max=1.5, nll=nan, nll_constant=nan,
+        lr_stat=nan, lr_p=nan,
+    )  # type: ignore[arg-type]  # fmt: skip
+
+
+@pytest.mark.parametrize("df", [2.0, 50.0])
+def test_df_at_bound_is_reported_for_the_constant_null(df: float) -> None:
+    """CR S-3 / stat N1: the unchanged nu-on-a-bound rule applies to the constant fallback too."""
+    from giap.steps.operons import discordance_fit_data
+
+    data = discordance_fit_data(_fit("constant", gamma=0.0, df=df, reason="flat_abundance"))
+    assert data["df_at_bound"] is True
+    assert data["gamma_at_bound"] is False
+    inner = discordance_fit_data(_fit("constant", gamma=0.0, df=7.5, reason="flat_abundance"))
+    assert inner["df_at_bound"] is False
+
+
+def test_bound_flags_read_the_module_constants(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CR S-3 / stat N2: the flags come from ``GAMMA_BOUNDS`` and ``DF_BOUNDS`` (giap.stats.tdist),
+    not hard-coded 2 / 50 and +-2: with the constants moved, the flags move with them."""
+    import giap.steps.operons as step_mod
+
+    monkeypatch.setattr(tdist, "GAMMA_BOUNDS", (-1.5, 1.5))
+    monkeypatch.setattr(tdist, "DF_BOUNDS", (3.0, 40.0))
+    for mod in (step_mod,):
+        if hasattr(mod, "GAMMA_BOUNDS"):
+            monkeypatch.setattr(mod, "GAMMA_BOUNDS", (-1.5, 1.5))
+        if hasattr(mod, "DF_BOUNDS"):
+            monkeypatch.setattr(mod, "DF_BOUNDS", (3.0, 40.0))
+    on = step_mod.discordance_fit_data(_fit("loglinear", gamma=-1.5, df=40.0))
+    assert on["gamma_at_bound"] is True and on["df_at_bound"] is True
+    off = step_mod.discordance_fit_data(_fit("loglinear", gamma=-2.0, df=50.0))
+    assert off["gamma_at_bound"] is False and off["df_at_bound"] is False
+
+
+# --------------------------------------------------------------------------- CR S-2
+
+
+def test_run_operons_returns_the_null_and_run_operons_fit_is_gone(with_abundance: Any) -> None:
+    """CR S-2 (lead decision): ``run_operons`` itself returns the five values (pairs, operons,
+    operon_flags, bin_counts, ``Discordance.scaled``); the ``run_operons_fit`` duplicate is merged
+    back."""
+    import pandas as pd
+
+    import giap.steps.operons as step_mod
+    from giap.io.genes_tsv import read_genes_parquet
+    from giap.stats.tdist import ScaledStudentT
+
+    assert not hasattr(step_mod, "run_operons_fit")
+    _, ins = with_abundance
+    rd = pd.read_parquet
+    layers = {k: rd(ins[k]) for k in ("promoter_windows", "terminators", "tx_rates")}
+    out = step_mod.run_operons(read_genes_parquet(ins["gene_table"]), rd(ins["genes"]),
+                               rd(ins["replicons"]), rd(ins["tus"]), rd(ins["pairs_raw"]),
+                               rd(ins["features"]), layers, _cfg())  # fmt: skip
+    assert len(out) == 5
+    assert isinstance(out[4], ScaledStudentT)
+    assert out[4] == _scaled(ins)

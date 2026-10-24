@@ -341,31 +341,57 @@ def test_e5_imputed_tested_pair_is_clamped_to_the_fit_range() -> None:
 # --------------------------------------------------------------------------- fallbacks
 
 
-@pytest.fixture
-def fail_scaled(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The four-parameter optimiser reports failure; the constant fit runs unchanged."""
+def _patch_scaled(monkeypatch: pytest.MonkeyPatch, edit: Any) -> None:
+    """Patch the four-parameter optimiser only; the constant fit runs unchanged."""
 
     def fake(fun: Any, x0: Any, *a: Any, **k: Any) -> Any:
         res = _REAL_MINIMIZE(fun, x0, *a, **k)
-        if np.asarray(x0).size == 4:
-            res = scipy.optimize.OptimizeResult(dict(res))
-            res.update(success=False, status=2)
-        return res
+        if np.asarray(x0).size != 4:
+            return res
+        out = scipy.optimize.OptimizeResult(dict(res))
+        out.update(edit(np.asarray(x0, dtype=float)))
+        return out
 
     monkeypatch.setattr(scipy.optimize, "minimize", fake)
     if hasattr(tdist, "minimize"):
         monkeypatch.setattr(tdist, "minimize", fake)
 
 
+def _shifted(i: int, by: Any) -> Any:
+    def edit(x0: np.ndarray) -> dict[str, Any]:
+        x = x0.copy()
+        x[i] += by(x0)
+        return {"x": x, "success": True}
+
+    return edit
+
+
+#: the scaled-fit failures of M6-13 step 5, each made by a patched optimiser result
+FAILURES: dict[str, Any] = {
+    "not_converged": lambda x0: {"success": False, "status": 2},
+    "collapsed": _shifted(1, lambda x0: -40.0),  # sigma0 under the collapse floor
+    "worse_than_constant": _shifted(0, lambda x0: 5.0 * math.exp(x0[1])),
+}
+
+
+@pytest.fixture
+def fail_scaled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The four-parameter optimiser reports failure; the constant fit runs unchanged."""
+    _patch_scaled(monkeypatch, FAILURES["not_converged"])
+
+
+@pytest.mark.parametrize("reason", sorted(FAILURES))
 def test_non_converged_scaled_fit_is_the_constant_null_not_too_few(
-    fail_scaled: None, caplog: pytest.LogCaptureFixture
+    monkeypatch: pytest.MonkeyPatch, reason: str
 ) -> None:
-    """Q3: a failed scaled fit falls back to gamma = 0 with a WARNING; a valid null exists, so it
-    is not ``too_few_op_pairs``."""
+    """Q3, T-2: a failed scaled fit (each step-5 reason) falls back to gamma = 0; a valid null
+    exists, so it is not ``too_few_op_pairs``. The WARNING that reaches the run record is the
+    step's event (tests/unit/steps/test_operons_step_sigma.py, CR S-1)."""
+    _patch_scaled(monkeypatch, FAILURES[reason])
     pairs, genes = frame(*hetero(200, 3))
-    with caplog.at_level(logging.WARNING, logger="giap"):
-        res = run(pairs, genes)
-    assert res.scaled.model == "constant" and res.scaled.reason == "not_converged"
+    res = run(pairs, genes)
+    assert res.scaled.model == "constant" and res.scaled.reason == reason
+    assert res.scaled.gamma == 0.0
     t = t_rows(res)
     assert len(t) == 200
     assert not any(disc.TOO_FEW in _flags(f) for f in res.rows["flags"])
@@ -375,9 +401,14 @@ def test_non_converged_scaled_fit_is_the_constant_null_not_too_few(
         student_t_two_sided(t["stat"].to_numpy(float), ref),
         rtol=1e-12,
     )
-    warned = [r for r in caplog.records if r.levelno >= logging.WARNING
-              and "not_converged" in r.getMessage()]  # fmt: skip
-    assert warned, [r.getMessage() for r in caplog.records]
+
+
+@pytest.mark.parametrize("bad", ["foo", "Constant", "", "relative_scale"])
+def test_invalid_sigma_model_raises(bad: str) -> None:
+    """T-2: only ``loglinear`` and ``constant`` are scale models."""
+    pairs, genes = frame(*hetero(60, 3))
+    with pytest.raises(ValueError, match="sigma_model"):
+        run(pairs, genes, sigma_model=bad)
 
 
 def test_constant_model_does_not_try_the_scaled_fit(

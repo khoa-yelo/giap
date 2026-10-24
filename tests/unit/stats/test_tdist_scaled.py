@@ -518,3 +518,117 @@ def test_property_fallback_reasons_exhaustive_and_exclusive(
         assert (f.reason == "flat_abundance") == (float(np.std(m, ddof=1)) < 0.1)
     else:
         assert not c.converged
+
+
+# --------------------------------------------------------------------------- review round (PR #321)
+
+
+def _gaussian(n: int = 400, seed: int = 7) -> tuple[np.ndarray, np.ndarray]:
+    """Gaussian Delta (the constant nu-hat is on its upper bound, 50) with a varied covariate."""
+    rng = np.random.default_rng(seed)
+    z = rng.standard_normal(n)
+    return 0.5 * rng.standard_normal(n), z
+
+
+def test_df_bounds_constant_is_the_default_of_both_fits() -> None:
+    """CR S-3 / stat N2: one module constant holds the nu bounds (2, 50)."""
+    import inspect
+
+    assert tdist.DF_BOUNDS == (2.0, 50.0)
+    for fn in (fit_student_t, fit_student_t_scaled):
+        assert inspect.signature(fn).parameters["df_bounds"].default == tdist.DF_BOUNDS
+    assert inspect.signature(fit_student_t_scaled).parameters["gamma_bounds"].default == (
+        tdist.GAMMA_BOUNDS)  # fmt: skip
+
+
+def test_inward_nu_step_at_the_upper_bound(monkeypatch: pytest.MonkeyPatch) -> None:
+    """T-1 / S-6: with nu_c = 50 the nu step of the initial simplex points inward (every vertex
+    nu <= 50) and is not zero (the nu column is not flat)."""
+    x, m = _gaussian()
+    assert fit_student_t(np.sort(x)).df == 50.0
+    seen: dict[str, Any] = {}
+
+    def spy(fun: Any, x0: Any, *a: Any, **k: Any) -> Any:
+        if np.asarray(x0).size == 4:
+            seen["simplex"] = np.asarray((k.get("options") or {})["initial_simplex"], dtype=float)
+        return _REAL_MINIMIZE(fun, x0, *a, **k)
+
+    monkeypatch.setattr(scipy.optimize, "minimize", spy)
+    if hasattr(tdist, "minimize"):
+        monkeypatch.setattr(tdist, "minimize", spy)
+    fit_student_t_scaled(x, m)
+    nu = seen["simplex"][:, 3]
+    assert np.all(nu <= 50.0), nu
+    assert float(np.ptp(nu)) > 0.0
+    assert float(np.ptp(nu)) == pytest.approx(5.0, rel=1e-9)  # 0.1 nu_c, inward
+
+
+def test_nu_just_inside_the_bound_snaps_exactly(patch_scaled: Any) -> None:
+    """T-1: an optimiser result at nu = 50 - 1e-9 on Gaussian Delta is snapped to exactly 50."""
+
+    def near(res: Any, x0: np.ndarray) -> Any:
+        x = np.asarray(res.x, dtype=float).copy()
+        x[3] = 50.0 - 1e-9
+        return _with(res, x=x, success=True)
+
+    patch_scaled(near)
+    f = fit_student_t_scaled(*_gaussian())
+    assert f.model == "loglinear", f.reason
+    assert f.df == 50.0
+
+
+def test_gamma_just_inside_the_bound_snaps_exactly(patch_scaled: Any) -> None:
+    """T-1: an optimiser result at gamma = -2 + 1e-9 on a planted gamma = -3 is snapped to -2."""
+
+    def near(res: Any, x0: np.ndarray) -> Any:
+        x = np.asarray(res.x, dtype=float).copy()
+        x[2] = tdist.GAMMA_BOUNDS[0] + 1e-9
+        return _with(res, x=x, success=True)
+
+    patch_scaled(near)
+    f = fit_student_t_scaled(*_planted_gamma(-3.0))
+    assert f.model == "loglinear", f.reason
+    assert f.gamma == -2.0
+
+
+def test_sd_equal_to_min_sd_is_not_flat() -> None:
+    """T-3: the flat guard is s >= min_sd (s == min_sd fits the scaled model)."""
+    x, m = e9()
+    m = 20.0 + 0.15 * np.random.default_rng(4).standard_normal(x.size)
+    order = np.lexsort((m, x))
+    x, m = x[order], m[order]  # the engine's own order, so s is computed identically
+    s = float(np.std(m, ddof=1))
+    at = fit_student_t_scaled(x, m, min_sd=s)
+    assert at.sd == s
+    assert at.reason != "flat_abundance"
+    assert fit_student_t_scaled(x, m, min_sd=float(np.nextafter(s, np.inf))).reason == (
+        "flat_abundance")  # fmt: skip
+
+
+def test_lr_is_clamped_at_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """T-3: an accepted fit whose NLL is above the constant one (within the 1e-9 relative
+    tolerance) reports ``lr_stat = 0`` and ``lr_p = 1``, never a negative LR."""
+
+    def fake(fun: Any, x0: Any, *a: Any, **k: Any) -> Any:
+        res = _REAL_MINIMIZE(fun, x0, *a, **k)
+        if np.asarray(x0).size != 4:
+            return res
+        args = k.get("args", ())
+        start = np.asarray(x0, dtype=float)
+        f0 = float(fun(start, *args))
+        for e in range(4, 14):
+            for sign in (1.0, -1.0):
+                x = start.copy()
+                x[0] += sign * 10.0 ** (-e) * math.exp(start[1])
+                if 1e-9 < float(fun(x, *args)) - f0 < 1e-7:
+                    return _with(res, x=x, success=True)
+        raise AssertionError("no small worsening step found")
+
+    monkeypatch.setattr(scipy.optimize, "minimize", fake)
+    if hasattr(tdist, "minimize"):
+        monkeypatch.setattr(tdist, "minimize", fake)
+    f = fit_student_t_scaled(*e8())
+    assert f.model == "loglinear", f.reason
+    assert f.nll > f.nll_constant
+    assert f.lr_stat == 0.0
+    assert f.lr_p == 1.0
