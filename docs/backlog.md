@@ -407,7 +407,15 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M6-05 pass 1 simplifications (implementer): `discordance()` accepts `cfg` and `p_miss` but uses
   neither — a NaN abundance is untested under every `abundance.missing` mode, not only `exclude`, and
   the one-detected branch is always `unestimated (no_detection_limit_model)`; `PMissModel` is a
-  placeholder Protocol until M6-02 merges (replace with its real type in M6-05H).
+  placeholder Protocol until M6-02 merges (replace with its real type in M6-05H). **Closed by
+  M6-05H (#311):** the Protocol stays as the adaptor, renamed `PMissFn` (`p_miss(u, a_v, ratios, v)`);
+  `detection_limit.p_miss_for_genes` binds M6-02's `PMissModel` to it.
+- M6-05H (#311): F5 ADR owed: keeping P(miss) out of the BH family (M6-index lead decision 1) departs
+  from §7.4.3's "both kinds together"; write it with M6-09 attack C, which measures the mixture.
+- M6-05H (#311), deferred: the `operons` step does not read `peptide_runs` (C16) yet, so the
+  replicate model is never fitted there, and it does not join the M4-10 covariates. A replicate model
+  with covariate coefficients is guarded (`pmiss_covariates_missing` + WARNING, review S2); wire
+  `peptide_runs` and pass `cov=` from the covariate table together.
 
 ## M7-04 review nits (PR #164)
 - `OUT/schemas/datapackage.json` names `tables/...`, which Frictionless resolves under `OUT/schemas/`, not `OUT`. Lead decision 5 already owes this; the test checks only `OUT / path`.

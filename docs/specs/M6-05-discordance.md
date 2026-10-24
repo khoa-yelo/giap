@@ -47,6 +47,21 @@ def discordance(pairs: pd.DataFrame, genes: pd.DataFrame, cfg: GiapConfig,
    `method = "detection_limit"`, `null_model = "p_detect_model"`. `ratios` are the oriented r of
    §7.4.3: Δ when the undetected gene u is downstream, −Δ when upstream, taken from the same pairs
    as the fit.
+   *As built (M6-05H, review of #311, 2026-10-24):* the callable is `PMissFn`,
+   `p_miss(u, a_v, ratios, v)` (positional; v = the detected partner), and
+   `discordance(..., p_miss, *, n_seen=None, k_min=1)`. (a) **TU of v:** the adaptor
+   `detection_limit.p_miss_for_genes` scores u's observable peptides with
+   `model_for_tu(model, tu(v))` (M6-02 lead decision 9: v's abundance enters, so v must be out of
+   fold; the full model when v has no TU). (b) **The k_min event:** with `n_seen`
+   (`detection_limit.observable_peptides_seen`, distinct observable peptides with a C11
+   assignment) a gene is seen when `n_seen >= k_min`; a one-detected row is an eligible OP pair
+   with exactly one seen gene and no t test (the t test takes precedence); u is the unseen gene.
+   Without `n_seen` the event is `detected_a xor detected_b`. The step passes `n_seen` and
+   `k_min = model.k_min` only when the model in force is usable. (c) **Covariates guard:** a usable
+   replicate model with `detectability.covariates` coefficients, which the step does not join yet,
+   leaves the one-detected rows `none` with `pmiss_covariates_missing` + `unestimated` and a
+   WARNING, instead of a silent NaN. (d) A row whose partner v has no abundance is `none` with no
+   flag, with or without a model (item 5).
 5. **Neither detected**, or an abundance missing under `abundance.missing = exclude`:
    `test = "none"`, no p.
 6. **Relative scale.** When the run's `abundance_scale` is `relative` (§7.3.4; from the gene table's

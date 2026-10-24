@@ -7,17 +7,20 @@ pair is then tested two-sided against that fit and the t p-values form one BH fa
 
 Lead decisions (2026-10-21): fewer than ``MIN_OP_PAIRS`` usable pairs or a degenerate fit leaves
 every OP pair unestimated with ``too_few_op_pairs``; ``ci_low``/``ci_high`` stay NA. A pair with
-exactly one detected gene ``u`` undetected is scored by M6-02's ``P(miss)`` (``one_detected_pmiss``,
-M6-05H) when a ``p_miss`` callable is given, else (or when it returns NaN) it is unestimated with
-``no_detection_limit_model``. ``P(miss)`` is a probability, not a p-value: it gets no q and never
-enters the BH family (M6-index decision 1, M6-02 decision 4). Pure and deterministic: no I/O, no
-RNG.
+exactly one gene seen (M6-02 lead decision 9: ``n_seen >= k_min`` observable peptides; without
+``n_seen``, ``detected``) and no t test is scored by M6-02's ``P(miss)`` of the unseen gene u
+(``one_detected_pmiss``, M6-05H) when a ``p_miss`` callable is given, else (or when it returns NaN)
+it is unestimated with ``no_detection_limit_model`` (or the caller's ``no_model_flag``). A row
+whose seen partner v has no abundance is untested with no flag. ``P(miss)`` is a probability, not
+a p-value: it gets no q and never enters the BH family (M6-index decision 1, M6-02 decision 4).
+Pure and deterministic: no I/O, no RNG.
 """
 
 from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -31,7 +34,7 @@ from giap.operons.pairs import TEST_COLUMNS
 from giap.stats.multitest import bh
 from giap.stats.tdist import StudentT, fit_student_t, student_t_two_sided
 
-__all__ = ["MIN_OP_PAIRS", "Discordance", "PMissModel", "discordance", "fit_rows"]
+__all__ = ["MIN_OP_PAIRS", "Discordance", "PMissFn", "discordance", "fit_rows"]
 
 F64 = npt.NDArray[np.float64]
 log = logging.getLogger(__name__)
@@ -49,11 +52,12 @@ RELATIVE = "relative_scale"
 PMISS_TEST = "one_detected_pmiss"
 
 
-class PMissModel(Protocol):
-    """M6-02's detection-limit model: ``P(miss)`` of gene ``u`` given its partner's abundance
-    ``a_v`` and the oriented ratio sample r (§7.4.3); NaN when it cannot be scored (M6-05H)."""
+class PMissFn(Protocol):
+    """M6-02's detection-limit model as a callable: ``P(miss)`` of the unseen gene ``u`` given
+    its seen partner ``v``'s abundance ``a_v`` and the oriented ratio sample r (§7.4.3); ``v``
+    selects the out-of-fold model (M6-02 lead decision 9). NaN when it cannot be scored."""
 
-    def __call__(self, u: str, a_v: float, ratios: F64, /) -> float: ...
+    def __call__(self, u: str, a_v: float, ratios: F64, v: str, /) -> float: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,27 +146,31 @@ def _one_detected(
     rows: pd.DataFrame,
     work: pd.DataFrame,
     idx: npt.NDArray[np.intp],
+    v_is_a: npt.NDArray[np.bool_],
     delta: F64,
-    p_miss: PMissModel | None,
+    p_miss: PMissFn | None,
+    no_model_flag: str,
 ) -> dict[int, list[str]]:
     """Score the one-detected rows ``idx`` in place with ``P(miss)`` (spec item 4) and return the
-    flags of the rows left unestimated. The undetected gene u is ``gene_b`` (downstream, r = Δ)
-    or ``gene_a`` (upstream, r = -Δ); ``a_v`` is the detected partner's ``abundance_log2``. A row
-    whose ``a_v`` is missing is untested with no flag (item 5); no q is written (decision 1)."""
-    if p_miss is None:
-        return {int(i): [NO_DL_MODEL, UNESTIMATED] for i in idx}
-    det_a = _bool(work["detected_a"])
+    flags of the rows left unestimated. The unseen gene u is ``gene_b`` (downstream, r = Δ, when
+    ``v_is_a``) or ``gene_a`` (upstream, r = -Δ); ``a_v`` is the seen partner v's
+    ``abundance_log2``. A row whose ``a_v`` is missing is untested with no flag, with or without a
+    model (item 5); no q is written (decision 1)."""
     a = work["abundance_log2_a"].astype(float).to_numpy()
     b = work["abundance_log2_b"].astype(float).to_numpy()
     upstream = -delta[::-1]  # still ascending
     out: dict[int, list[str]] = {}
     for i in (int(j) for j in idx):
-        down = bool(det_a[i])  # gene_a detected: u = gene_b is downstream
+        down = bool(v_is_a[i])  # v = gene_a: u = gene_b is downstream
         a_v = float(a[i] if down else b[i])
         if not math.isfinite(a_v):
             continue
+        if p_miss is None:
+            out[i] = [no_model_flag, UNESTIMATED]
+            continue
         u = str(work.at[i, "gene_b" if down else "gene_a"])
-        p = float(p_miss(u, a_v, delta.copy() if down else upstream.copy()))
+        v = str(work.at[i, "gene_a" if down else "gene_b"])
+        p = float(p_miss(u, a_v, delta.copy() if down else upstream.copy(), v))
         if not math.isfinite(p):
             out[i] = [NO_DL_MODEL, UNESTIMATED]
             continue
@@ -171,8 +179,19 @@ def _one_detected(
     return out
 
 
+def _seen(tags: pd.Series, n_seen: Mapping[str, int], k_min: int) -> npt.NDArray[np.bool_]:
+    return np.array([int(n_seen.get(str(t), 0)) >= k_min for t in tags], dtype=bool)
+
+
 def discordance(
-    pairs: pd.DataFrame, genes: pd.DataFrame, cfg: GiapConfig, p_miss: PMissModel | None
+    pairs: pd.DataFrame,
+    genes: pd.DataFrame,
+    cfg: GiapConfig,
+    p_miss: PMissFn | None,
+    *,
+    n_seen: Mapping[str, int] | None = None,
+    k_min: int = 1,
+    no_model_flag: str = NO_DL_MODEL,
 ) -> Discordance:
     """Test every OP pair for discordant abundance (§7.4.3).
 
@@ -181,8 +200,15 @@ def discordance(
         genes: the gene table; reads ``locus_tag``, ``partial``, ``abundance_imputed``,
             ``abundance_type`` and ``abundance_scale``.
         cfg: run configuration (``abundance.missing``).
-        p_miss: M6-02's detection-limit model as ``p_miss(u, a_v, ratios)``, or ``None`` when
-            there is none (one-detected rows are then ``unestimated (no_detection_limit_model)``).
+        p_miss: M6-02's detection-limit model as ``p_miss(u, a_v, ratios, v)``, or ``None`` when
+            there is none (one-detected rows are then ``unestimated`` with ``no_model_flag``).
+        n_seen: locus tag -> distinct observable peptides seen in C11 (absent = 0); a gene is
+            seen when ``n_seen >= k_min`` and a one-detected row has exactly one gene seen
+            (M6-02 lead decision 9). ``None``: the event is ``detected_a xor detected_b``.
+        k_min: the ``k_min`` of the model in force.
+        no_model_flag: the reason flag of one-detected rows when ``p_miss`` is ``None``
+            (``no_detection_limit_model``; the step passes ``pmiss_covariates_missing`` when the
+            model in force needs covariates it cannot join).
 
     Returns:
         The fit, the Delta sample it used and one row per OP pair; ``q_value`` is BH over the
@@ -213,7 +239,12 @@ def discordance(
     b = work["abundance_log2_b"].astype(float).to_numpy()
     d = work["delta_log2"].astype(float).to_numpy()
     both = eligible & det_a & det_b & np.isfinite(a) & np.isfinite(b) & np.isfinite(d)
-    one = eligible & (det_a ^ det_b)
+    if n_seen is None:
+        seen_a, seen_b = det_a, det_b
+    else:
+        seen_a = _seen(work["gene_a"], n_seen, k_min)
+        seen_b = _seen(work["gene_b"], n_seen, k_min)
+    one = eligible & (seen_a ^ seen_b) & ~both  # the t test takes precedence
 
     if _is_relative(genes):
         extra = {i: [RELATIVE, UNESTIMATED] for i in range(n) if eligible[i]}
@@ -230,7 +261,9 @@ def discordance(
         rows.loc[idx, "method"] = "student_t"
         rows.loc[idx, "null_model"] = "within_operon_t"
         extra = {int(i): [CI_UNESTIMATED] for i in idx}  # no CI for a single pair (decision 2)
-        extra.update(_one_detected(rows, work, np.flatnonzero(one), delta, p_miss))
+        extra.update(
+            _one_detected(rows, work, np.flatnonzero(one), seen_a, delta, p_miss, no_model_flag)
+        )
     for i, add in extra.items():
         flags[i] = flags[i] + [f for f in add if f not in flags[i]]
     rows["flags"] = flags
