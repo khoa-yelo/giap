@@ -4,16 +4,17 @@ A step calls these after its writers; any problem raises ``ValueError`` naming t
 the file, so the step fails (``giap run`` exit 4 naming the step) instead of a downstream reader.
 
 * ``check_tsv``: the TSV against its Frictionless resource (``giap/schemas/tables/<stem>``): the
-  schema columns present, the integer/number/boolean types, ``required``, ``enum`` and
-  ``minimum``. The dev-only ``frictionless`` package is not needed.
+  schema columns present, the integer/number/boolean types, ``required``, ``enum``,
+  ``minimum`` and ``pattern`` (a full match). The dev-only ``frictionless`` package is not needed.
 * ``check_vcf``: the VCF 4.x structure GIAP writes (header, ``#CHROM`` line, eight or more columns
-  per record, a declared contig, a positive integer POS).
+  per record, a declared contig, a positive integer POS no greater than the contig ``length``).
 * ``check_gff3``: the M1-05 ``read_gff3`` reader on the file.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from functools import cache
 from importlib import resources
@@ -37,6 +38,11 @@ def _schema(stem: str) -> dict[str, Any]:
     return data
 
 
+@cache
+def _pattern(pattern: str) -> re.Pattern[str]:
+    return re.compile(pattern)
+
+
 def _cell_problem(value: str, field: Mapping[str, Any]) -> str | None:
     kind = field.get("type", "string")
     cons = field.get("constraints", {})
@@ -54,6 +60,8 @@ def _cell_problem(value: str, field: Mapping[str, Any]) -> str | None:
         return f"{value!r} is not one of {cons['enum']}"
     if num is not None and "minimum" in cons and num < cons["minimum"]:
         return f"{value!r} is below the minimum {cons['minimum']}"
+    if "pattern" in cons and _pattern(cons["pattern"]).fullmatch(value) is None:
+        return f"{value!r} does not match the pattern {cons['pattern']!r}"
     return None
 
 
@@ -89,11 +97,14 @@ def check_vcf(key: str, path: Path) -> None:
     where = f"output {key} ({path})"
     if not lines or not lines[0].startswith("##fileformat=VCF"):
         raise ValueError(f"{where}: no ##fileformat=VCF header line")
-    contigs: set[str] = set()
+    contigs: dict[str, int | None] = {}  # ID -> length (None when the line has none)
     n_cols = 0
     for lineno, line in enumerate(lines, start=1):
         if line.startswith("##contig=<ID="):
-            contigs.add(line[len("##contig=<ID=") :].split(",")[0].rstrip(">"))
+            body = line[len("##contig=<") : -1 if line.endswith(">") else None]
+            fields = dict(kv.split("=", 1) for kv in body.split(",") if "=" in kv)
+            declared = fields.get("length", "")
+            contigs[fields["ID"]] = int(declared) if declared.isdigit() else None
         elif line.startswith("#CHROM"):
             n_cols = len(line.split("\t"))
         elif not line.startswith("#"):
@@ -106,6 +117,12 @@ def check_vcf(key: str, path: Path) -> None:
                 raise ValueError(f"{where}: line {lineno}: undeclared contig {cells[0]!r}")
             if not cells[1].isdigit() or int(cells[1]) < 1:
                 raise ValueError(f"{where}: line {lineno}: POS {cells[1]!r} is not >= 1")
+            length = contigs[cells[0]]
+            if length is not None and int(cells[1]) > length:
+                raise ValueError(
+                    f"{where}: line {lineno}: POS {cells[1]} is past the end of "
+                    f"{cells[0]!r} (length {length})"
+                )
     if not n_cols:
         raise ValueError(f"{where}: no #CHROM line")
 

@@ -280,22 +280,60 @@ def protein_records(
     return out
 
 
+def _cell_int(v: str | None) -> int | None:
+    return int(v) if v is not None and v not in ("", "NA") else None
+
+
+def _orf_span(o: Mapping[str, str | None]) -> tuple[int, int] | None:
+    """The ORF's 1-based closed span in transcription order, (start, end): ``start_longest``
+    (``start_best_ostir``, then ``start``, when NA) to ``end``; ``None`` without both ends."""
+    start = next(
+        (s for k in ("start_longest", "start_best_ostir", "start") if (s := _cell_int(o.get(k)))),
+        None,
+    )
+    end = _cell_int(o.get("end"))
+    return None if start is None or end is None else (start, end)
+
+
+def _within(hit_start: int, hit_end: int, strand: str | None, span: tuple[int, int]) -> bool:
+    """Hit ``[hit_start, hit_end]`` (1-based closed; ``hit_end`` past the replicon end when it
+    crosses the origin) lies in the ORF span: ``[start, end]`` on ``+``, ``[end, start]`` on
+    ``-``; an ORF whose span wraps (``end < start`` on ``+``) covers ``[start, ...]`` and
+    ``[..., end]``."""
+    lo, hi = span if strand != "-" else (span[1], span[0])
+    if lo <= hi:
+        return lo <= hit_start and hit_end <= hi
+    return hit_start >= lo or hit_end <= hi
+
+
 def candidate_ids(
     hits: Sequence[Mapping[str, str | None]], orfs: Sequence[Mapping[str, str | None]]
 ) -> list[str | None]:
     """``novel_candidate_id`` per ``peptide_hits`` row (M7-06 Q6, back-filled in M7-15): the
     ``orf_id`` of the first ORF listing the row's peptide (I = L folded) on its contig and
-    strand, for rows of a novel locus class; else ``None``. ``candidate_rows`` keeps one locus
-    per folded peptide, so the match is that locus. Rows and ORFs are published-table cells. Pure.
+    strand whose span holds the hit (``[start_longest, end]``, ``[end, start_longest]`` on
+    ``-``; the ORF's own start when ``start_longest`` is NA), for rows of a novel locus class;
+    else ``None``. Rows and ORFs are published-table cells (1-based closed). Pure.
     """
-    owner: dict[tuple[str | None, str | None, str], str] = {}
+    owners: dict[tuple[str | None, str | None, str], list[tuple[str, tuple[int, int] | None]]]
+    owners = {}
     for o in orfs:
-        for pep in (o["peptides"] or "").split(";"):
-            if pep and o["orf_id"]:
-                owner.setdefault((o["contig"], o["strand"], _il(pep)), o["orf_id"])
-    return [
-        owner.get((h["contig"], h["strand"], _il(h["peptide"] or "")))
-        if h["locus_class"] in NOVEL_CLASSES
-        else None
-        for h in hits
-    ]
+        oid = o["orf_id"]
+        if not oid:
+            continue
+        span = _orf_span(o)
+        for pep in dict.fromkeys(_il(p) for p in (o["peptides"] or "").split(";") if p):
+            owners.setdefault((o["contig"], o["strand"], pep), []).append((oid, span))
+
+    def owner(h: Mapping[str, str | None]) -> str | None:
+        if h["locus_class"] not in NOVEL_CLASSES:
+            return None
+        start, end = _cell_int(h.get("start")), _cell_int(h.get("end"))
+        for oid, span in owners.get((h["contig"], h["strand"], _il(h["peptide"] or "")), []):
+            if span is None or start is None or end is None:
+                continue
+            if _within(start, end, h["strand"], span):
+                return oid
+        return None
+
+    return [owner(h) for h in hits]

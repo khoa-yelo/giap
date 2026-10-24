@@ -383,7 +383,9 @@ def _records(path: Path) -> tuple[list[str], list[dict[str, str | None]]]:
 def backfill_candidate_ids(outdir: Path) -> int:
     """Fill ``novel_candidate_id`` in the published ``OUT/mapping/peptide_hits.tsv`` from
     ``OUT/tables/novel_orfs.tsv`` (M7-06 Q6), after both executors published; only that column's
-    cells change. Returns the rows filled (0 when either file is absent or empty: stub runs)."""
+    cells change. Every row is written (``NA`` without an id), so an id left by an earlier run
+    (a cached task's published file on ``-resume``) is cleared. Returns the rows filled (0 when
+    either file is absent or empty: stub runs)."""
     hits_p, orfs_p = outdir / "mapping" / "peptide_hits.tsv", outdir / "tables" / "novel_orfs.tsv"
     if not all(p.is_file() and p.stat().st_size for p in (hits_p, orfs_p)):
         return 0
@@ -395,10 +397,9 @@ def backfill_candidate_ids(outdir: Path) -> int:
     col = header.index("novel_candidate_id")
     lines = hits_p.read_text(encoding="utf-8").split("\n")
     for i, oid in enumerate(ids, start=1):
-        if oid is not None:
-            cells = lines[i].split("\t")
-            cells[col] = oid
-            lines[i] = "\t".join(cells)
+        cells = lines[i].split("\t")
+        cells[col] = oid if oid is not None else "NA"
+        lines[i] = "\t".join(cells)
     tmp = hits_p.with_name(f".tmp.{hits_p.name}")
     tmp.write_text("\n".join(lines), encoding="utf-8", newline="\n")
     os.replace(tmp, hits_p)
