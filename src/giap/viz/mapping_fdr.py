@@ -222,7 +222,7 @@ def _panel_b(ax: Axes, b: pd.DataFrame, alpha: float) -> None:
             marker="o",
             linestyle="none",
             markerfacecolor="none",
-            markeredgecolor="#555555",
+            markeredgecolor="#999999",  # Okabe-Ito grey (§10.1)
             markersize=4,
             clip_on=False,
         )
@@ -261,7 +261,7 @@ def _panel_c(ax: Axes, c: pd.DataFrame) -> bool:
             y[ci],
             yerr=[y[ci] - lo[ci], hi[ci] - y[ci]],
             fmt="none",
-            ecolor="#555555",
+            ecolor="#000000",
             elinewidth=0.8,
             capsize=0,
         )

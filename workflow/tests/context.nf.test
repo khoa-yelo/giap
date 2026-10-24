@@ -8,8 +8,9 @@
 //         peptides, abundance, replicon_depth
 // context_stats takes the three M3 tables out of the loci directory and both the gene table and
 // the C2 genes.parquet (same file name: GIAP_STEP stages each input into its own in<n>/).
-// sensitivity (M4-19 decision 16) takes the gene table and C1/C5/C7/C8. Without C7/C8 neither step
-// runs, as MAPPING skips its protein route.
+// Without C7/C8 context_stats does not run, as MAPPING skips its protein route. The sensitivity step
+// left CONTEXT in M8-16 (gap 12; SENSITIVITY_RERUNS in sensitivity.nf, called from main.nf): CONTEXT
+// must no longer run it.
 
 nextflow_workflow {
 
@@ -19,7 +20,7 @@ nextflow_workflow {
     options "-stub"
     tag "context"
 
-    test("context_stats and sensitivity: registry keys, no file name collision, tables published") {
+    test("context_stats: registry keys, no file name collision, tables published; no sensitivity") {
 
         when {
             params {
@@ -40,6 +41,8 @@ nextflow_workflow {
                 input[8] = channel.value(file("\${g}/abundance.norm.parquet"))
                 input[9] = channel.empty()
                 input[10] = channel.empty()
+                input[11] = channel.empty()
+                input[12] = channel.empty()
                 """
             }
         }
@@ -51,7 +54,8 @@ nextflow_workflow {
             assert workflow.success
             assert workflow.trace.failed().size() == 0
 
-            ['context_stats', 'sensitivity'].each { s ->
+            assert H.stepCount(workflow.trace, 'sensitivity') == 0 : "CONTEXT ran sensitivity (moved out in M8-16)"
+            ['context_stats'].each { s ->
                 assert H.stepCount(workflow.trace, s) == 1 : "py step ${s} ran ${H.stepCount(workflow.trace, s)}x; tasks: ${H.names(workflow.trace)}"
                 assert new File(H.stepDirs(work, s)[0], '.giap_inputs').isFile() : "${s} did not run through GIAP_STEP"
             }
@@ -73,10 +77,7 @@ nextflow_workflow {
             assert same.size() == 2 : "expected gene_table and genes to be staged: ${cin}"
             assert same[0][1] != same[1][1] : "input file name collision: ${same}"
 
-            def sin = H.stepInputs(H.stepDirs(work, 'sensitivity')[0])
-            assert sin.collect { it[0] }.sort() == ['gene_table', 'region_genes', 'regions', 'replicons', 'tus'] : "sensitivity inputs ${sin}"
-
-            ['tables/regions_stats.tsv', 'tables/detection_summary.tsv', 'tables/sensitivity.tsv'].each { f ->
+            ['tables/regions_stats.tsv', 'tables/detection_summary.tsv'].each { f ->
                 assert new File("${outputDir}/${f}").isFile() : "${f} not published"
             }
         }
@@ -108,6 +109,8 @@ nextflow_workflow {
                 input[8] = channel.value(file("\${g}/abundance.norm.parquet"))
                 input[9] = channel.empty()
                 input[10] = channel.empty()
+                input[11] = channel.empty()
+                input[12] = channel.empty()
                 """
             }
         }

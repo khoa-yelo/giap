@@ -2,8 +2,11 @@
 // core) reads the loci directory `mapping` (its peptide_hits.tsv), MAP_TOLERANT's hits_tolerant
 // (optional: without it frameshift rows are skipped with a run flag), the C2/C1 gene model, the
 // genome and the C9 peptides, and publishes tables/pileup.tsv.gz, tables/variants.tsv and
-// tables/variants.vcf (no work Parquet). The required keys go to stepIn's `need` explicitly, so
-// the step does not run when one of their channels is empty. reference_peptides is for M7-10.
+// tables/variants.vcf. Its M7-14 QC Parquet work/variants_qc.parquet (the id_mixups count that
+// CONTEXT's context_stats writes into detection_summary.tsv) is emitted, never published. The
+// required keys go to stepIn's `need` explicitly, so the step does not run when one of their
+// channels is empty. peptide_spectra (C17, optional, M7-10) carries the paired de novo and
+// reference spectra for the class error rates.
 include { GIAP_STEP as VARIANTS_STEP } from '../../modules/local/giap_step/main'
 include { stepIn; kv; pick } from './annotate'
 
@@ -37,7 +40,7 @@ def variantsSpec(List spec) {
         ['#CHROM POS ID REF ALT QUAL FILTER INFO FORMAT sample'.tokenize(' ').join('\\t')]
     def hdr = [pileup: pile.tokenize(' ').join('\t'), variants: vars.tokenize(' ').join('\t'),
                variants_vcf: vcf.join('\\n')]
-    return spec.collect { o -> "${o} ${hdr[o.tokenize('=')[0]]}".toString() }
+    return spec.collect { o -> def h = hdr[o.tokenize('=')[0]]; (h ? "${o} ${h}" : o).toString() }
 }
 
 workflow VARIANTS {
@@ -48,21 +51,25 @@ workflow VARIANTS {
     hits_tolerant
     peptides
     reference_peptides
+    peptide_spectra
 
     main:
     def chans = [kv('mapping', lociDir(mapping)), kv('genome', genome),
                  kv('genes', gene_model.map { a -> a[0] }), kv('replicons', gene_model.map { a -> a[2] }),
                  kv('peptides', peptides), kv('hits_tolerant', hits_tolerant),
-                 kv('reference_peptides', reference_peptides)]
+                 kv('reference_peptides', reference_peptides), kv('peptide_spectra', peptide_spectra)]
     def needed = ['mapping', 'genome', 'genes', 'replicons', 'peptides']
     def v = stepIn('variants', chans, needed)
     VARIANTS_STEP(v.files, v.keys, variantsSpec(['pileup=tables/pileup.tsv.gz',
-        'variants=tables/variants.tsv', 'variants_vcf=tables/variants.vcf']))
+        'variants=tables/variants.tsv', 'variants_vcf=tables/variants.vcf',
+        'variants_qc=work/variants_qc.parquet']))
     def T = VARIANTS_STEP.out.outputs
 
     emit:
     pileup       = pick(T, 'pileup.tsv.gz')
     variants     = pick(T, 'variants.tsv')
     variants_vcf = pick(T, 'variants.vcf')
+    variants_qc  = pick(T, 'variants_qc.parquet')
     versions     = VARIANTS_STEP.out.versions
+    events       = VARIANTS_STEP.out.events
 }

@@ -91,6 +91,9 @@ RC: Mapping[str, Any] = MappingProxyType(
         "pdf.fonttype": 42,
         "ps.fonttype": 42,
         "path.simplify": True,
+        # pinned: importing pyCirclize sets a tight bbox and 0.5-in padding (M9-08 decision 16)
+        "savefig.bbox": None,
+        "savefig.pad_inches": 0.1,
     }
 )
 
@@ -114,3 +117,27 @@ def new_figure(width: Literal["single", "double"], height_in: float, **kw: Any) 
 def cog_colour(letter: str) -> str:
     """The super-category colour of one COG letter; unknown letters are poorly characterised."""
     return COG_SUPER_COLOUR[COG_SUPER.get(letter, "poorly")]
+
+
+def plotly_template() -> Any:
+    """The §10.1 look for the Plotly twins: DejaVu Sans (sans-serif in the browser), the rcParams
+    font sizes, white background, the category cycle as the colorway (M9-15 behaviour 1)."""
+    import plotly.graph_objects as go
+
+    axis = {"tickfont": {"size": RC["xtick.labelsize"]}, "linecolor": "#000000",
+            "gridcolor": "#EEEEEE", "zeroline": False, "showline": True, "ticks": "outside",
+            "title": {"font": {"size": RC["axes.labelsize"]}}}  # fmt: skip
+    font = {"family": "DejaVu Sans, sans-serif", "size": RC["font.size"], "color": "#000000"}
+    return go.layout.Template(
+        layout={
+            "font": font,
+            "title": {"font": {"size": RC["axes.titlesize"]}, "x": 0.01},
+            "xaxis": axis,
+            "yaxis": axis,
+            "legend": {"font": {"size": RC["legend.fontsize"]}},
+            "paper_bgcolor": "#FFFFFF",
+            "plot_bgcolor": "#FFFFFF",
+            "colorway": list(_CYCLE),
+            "hoverlabel": {"font": {"size": RC["font.size"] + 2}},
+        }
+    )

@@ -57,7 +57,8 @@ def test_lock_files_present(tool: str) -> None:
     pip = LOCKS / f"{tool}.pip.txt"
     assert explicit.is_file(), explicit
     assert "@EXPLICIT" in explicit.read_text()
-    assert pip.is_file(), pip
+    if tool != "fgsea":  # frozen explicit lock only, no pip layer (M8-17 spec §1)
+        assert pip.is_file(), pip
 
 
 @pytest.mark.parametrize("tool", CONDA_TOOLS)

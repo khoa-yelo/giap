@@ -8,7 +8,8 @@
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
 # Run pytest for one worktree on a batch node instead of the shared 8-CPU session allocation.
 # Usage: sbatch scripts/slurm/test_branch.sbatch <worktree-dir> [pytest args...]
-#   default pytest args: tests -q -n 16 --cov=giap -m "not slow and not calibration_full and not calibration_nightly and not e2e"
+#   default pytest args: tests -q -n 16 --durations=25 -m "not slow and not calibration_full and not calibration_nightly and not e2e"
+#   No coverage by default (CI measures it, and it slows every test); GIAP_TEST_COV=1 adds --cov=giap.
 # The last log line is "PYTEST_EXIT=<code>"; poll with `squeue -j <id>` and read the log. Read-only on the
 # worktree apart from pytest caches/coverage files. R14: 16 CPUs; keep at most 4 giap-test jobs at a time.
 set -uo pipefail
@@ -21,8 +22,16 @@ cd "$WT"
 export PYTHONPATH="$PWD/src:$PWD/tests/sim"
 export PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"
 echo "worktree=$WT branch=$(git rev-parse --abbrev-ref HEAD) head=$(git rev-parse --short HEAD) node=$(hostname)"
+# Warm the giap-wf JVM before pytest (M9-13 decision 5): on a node that has not run it, the first
+# `nextflow -version` reads Java and the Nextflow jars cold from NFS and took 29 s on rye-02
+# (job 1869186; 1.4 s once warm), so tests/conftest.py's 30 s capability probe timed out and every
+# needs_nextflow test skipped (jobs 1850601, 1860124, 1869158; with -n 16 the workers cold-start together).
+for probe in "nextflow -version" "nf-test version"; do
+  s=$SECONDS; $probe >/dev/null 2>&1; echo "warm-up: $probe rc=$? $((SECONDS - s))s"
+done
 if [ "$#" -eq 0 ]; then
-  set -- tests -q -n "${SLURM_CPUS_PER_TASK:-16}" --cov=giap -m "not slow and not calibration_full and not calibration_nightly and not e2e"
+  set -- tests -q -n "${SLURM_CPUS_PER_TASK:-16}" --durations=25 -m "not slow and not calibration_full and not calibration_nightly and not e2e"
+  [ "${GIAP_TEST_COV:-0}" = 1 ] && set -- "$@" --cov=giap
 fi
 python -m pytest -p no:cacheprovider "$@"
 rc=$?

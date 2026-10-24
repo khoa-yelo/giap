@@ -1,9 +1,9 @@
 """``giap`` command line (GIAP_SPEC.md §5.1).
 
 Every subcommand resolves the configuration first (an unknown key is exit code 1). ``preflight``
-(M1-12), ``_step``, ``run --executor local`` (M2-02), ``run`` through Nextflow (M2-07) and
-``report`` (M9-02) are implemented; the other commands report that they are not implemented
-yet (exit code 5).
+(M1-12), ``_step``, ``run --executor local`` (M2-02), ``run`` through Nextflow (M2-07),
+``report`` (M9-02) and ``compare`` (M9-22) are implemented; an engine ``convert`` does not support
+yet is exit code 5.
 """
 
 from __future__ import annotations
@@ -83,11 +83,6 @@ def _resolve(
     except ValueError as exc:
         click.echo(f"giap: invalid configuration: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
-
-
-def _not_implemented(command: str, milestone: str) -> None:
-    click.echo(f"giap {command}: not implemented (milestone {milestone})", err=True)
-    sys.exit(ExitCode.INTERNAL)
 
 
 class _Cli(click.Group):
@@ -202,6 +197,7 @@ _NORM_INPUTS = {
     "peptides": ("peptides", "peptides.norm.parquet"),
     "proteins_long": ("proteins", "proteins.long.faa"),
     "abundance": ("abundance", "abundance.norm.parquet"),
+    "peptide_spectra": ("reference_peptides", "peptide_spectra.parquet"),  # C17 (M7-10)
 }
 
 
@@ -225,7 +221,12 @@ _NORM_INPUTS = {
 @click.option("--promoters", type=_choice(m.PromoterMode))
 @click.option("--terminators", type=_choice(m.TerminatorTool))
 @click.option("--add-bactermfinder", is_flag=True, default=None)
-@click.option("--publication", is_flag=True, help="10,000 permutations and bootstrap draws.")
+@click.option(
+    "--publication",
+    is_flag=True,
+    help="10,000 permutations and bootstrap draws (also the determinants null); the run takes "
+    "about 10x longer.",
+)
 @click.option("--seed", type=int, help="Master seed (config: seed).")
 @click.option("--parquet", is_flag=True, default=None, help="Also write Parquet tables.")
 @click.option("--sensitivity", type=_choice(m.SensitivityLevel))
@@ -409,6 +410,7 @@ def _run_preflight(
         peptides=inputs.get("peptides"),
         abundance=inputs.get("abundance"),
         annotation=inputs.get("annotation"),
+        reference_peptides=inputs.get("reference_peptides"),
     )
     root = os.environ.get("GIAP_ROOT")
     report, norm = run_preflight(
@@ -478,6 +480,7 @@ def _local_roots(
         inputs["peptides"],
         inputs.get("abundance"),
         inputs["annotation"],
+        inputs.get("reference_peptides"),
     )
     report, norm = run_preflight(inp, cfg, None, "preflight", outdir)
     write_outputs(outdir, report, norm)
@@ -488,7 +491,8 @@ def _local_roots(
                 click.echo(f"giap run: preflight error {c.rule_id}: {c.message}", err=True)
         sys.exit(code)
     work = outdir / "work" / "preflight"
-    files = {"genome": "genome.norm.fa", "peptides": "peptides.norm.parquet"}
+    files = {"genome": "genome.norm.fa", "peptides": "peptides.norm.parquet",
+             "peptide_spectra": "peptide_spectra.parquet"}  # fmt: skip
     roots = {k: work / f for k, f in files.items() if (work / f).is_file()}
     if (work / "proteins.long.faa").is_file():
         roots["proteins_long"] = work / "proteins.long.faa"
@@ -727,10 +731,84 @@ def convert(
 @click.option("--outdir", type=_out_path, required=True, help="Comparison output directory.")
 @click.option("--labels", help="Comma-separated run labels.")
 @shared_options
-def compare(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_: Any) -> None:
-    """Compare runs on the same genome."""
-    _resolve(config_file, sets, log_level)
-    _not_implemented("compare", "M9")
+def compare(
+    config_file: Path | None,
+    sets: tuple[str, ...],
+    log_level: str,
+    runs: tuple[Path, ...],
+    outdir: Path,
+    labels: str | None,
+    **_: Any,
+) -> None:
+    """Compare runs on the same genome (CMP/tables/compare_*.tsv, V16, report/compare.html)."""
+    import pandas as pd
+
+    from giap.compare.abundance import abundance_pairs
+    from giap.compare.detection import detection_matrix, intersections
+    from giap.compare.stability import stability
+    from giap.io.compare_io import CompareInputError, load_runs, write_tables
+    from giap.rng import for_step
+
+    cfg = _resolve(config_file, sets, log_level)
+    try:
+        loaded = load_runs(list(runs), labels)
+    except CompareInputError as exc:
+        click.echo(f"giap compare: {exc}", err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
+    labs, genes = loaded.labels, loaded.genes
+    matrix = detection_matrix(genes)
+    rng = for_step("compare", cfg.seed)
+    pairs = []
+    for i, la in enumerate(labs):  # decision 7: the TUs of the pair's first run
+        tus = pd.Series(genes[la]["tu_id"].to_numpy(), index=genes[la]["locus_tag"].to_numpy())
+        for lb in labs[i + 1 :]:
+            pairs.append(abundance_pairs({la: genes[la], lb: genes[lb]}, tus,
+                                         cfg.stats.bootstrap, rng))  # fmt: skip
+    tables = {
+        "compare_detection": pd.concat([matrix, intersections(matrix, labs)], ignore_index=True),
+        "compare_abundance": pd.concat(pairs, ignore_index=True),
+        "compare_stability": stability(loaded.views, labs, cfg),
+    }
+    for path in [*write_tables(outdir, tables), *_compare_report(outdir, list(runs), loaded,
+                                                                  tables, cfg)]:  # fmt: skip
+        click.echo(str(path))
+
+
+def _compare_report(
+    cmp: Path, paths: list[Path], loaded: Any, tables: dict[str, Any], cfg: Any
+) -> list[Path]:
+    """V16 (``CMP/plots``) and ``CMP/report/compare.html`` (M9-23); returns the paths written."""
+    import os
+
+    import pandas as pd
+
+    from giap.io.compare_io import genome_digest
+    from giap.io.plot_files import read_plot_files, write_instance
+    from giap.report.compare import RunInfo, build_compare
+    from giap.viz import style
+    from giap.viz.compare import compare_plot
+    from giap.viz.interactive import figure_json
+
+    style.apply()
+    inst = compare_plot(tables["compare_detection"], tables["compare_abundance"], loaded.genes)
+    plots = cmp / "plots"
+    written = write_instance(inst, "V16", "compare", plots, cfg.report.formats, cfg.report.dpi)
+    twin = None
+    if cfg.report.interactive:
+        data = pd.read_csv(plots / "data" / "V16_compare.tsv", sep="\t", na_values=["NA"],
+                           keep_default_na=False)  # fmt: skip
+        text = figure_json("V16", data, inst.title)
+        twin = None if text is None else ("plotly-V16", text)
+    runs = []
+    for lab, path in zip(loaded.labels, paths, strict=True):
+        tiers = sorted({str(t) for t in loaded.genes[lab]["detection_tier"].dropna()})
+        runs.append(RunInfo(lab, os.path.relpath(path.resolve(), cmp.resolve()),
+                            genome_digest(path) or "NA", ", ".join(tiers) or "NA"))  # fmt: skip
+    page = cmp / "report" / "compare.html"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    html = build_compare(runs, read_plot_files(plots).get("V16"), tables, twin)
+    page.write_text(html, encoding="utf-8")
+    return [*written, page]
 
 
 # ---------------------------------------------------------------- report
@@ -740,6 +818,7 @@ def compare(config_file: Path | None, sets: tuple[str, ...], log_level: str, **_
 @click.argument("out", type=_existing_dir)
 @click.option("--no-interactive", is_flag=True, help="Static report only.")
 @click.option("--plots", help="Comma-separated plot IDs (V01,V02,...).")
+@click.option("--strict", is_flag=True, help="Exit 3 when the report exceeds its size budget.")
 @shared_options
 def report(
     config_file: Path | None,
@@ -748,6 +827,7 @@ def report(
     out: Path,
     no_interactive: bool,
     plots: str | None,
+    strict: bool,
     **_: Any,
 ) -> None:
     """Rebuild plots and report from existing tables."""
@@ -776,10 +856,13 @@ def report(
         click.echo(f"giap report: {exc}", err=True)
         sys.exit(ExitCode.STEP_FAILED)
     try:
-        click.echo(str(P.write_report(view, out / "plots", out / "report", cfg)))
+        page = P.write_report(view, out / "plots", out / "report", cfg)
     except Exception as exc:  # unreadable tables are notes; anything else is exit 4 (B5)
         click.echo(f"giap report: {type(exc).__name__}: {exc}", err=True)
         sys.exit(ExitCode.STEP_FAILED)
+    click.echo(str(page))
+    if strict and page.stat().st_size > P.REPORT_BUDGET:  # report.size_exceeded (M9-14)
+        sys.exit(ExitCode.WARNINGS_STRICT)
 
 
 # ---------------------------------------------------------------- hidden

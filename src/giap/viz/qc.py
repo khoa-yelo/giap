@@ -252,7 +252,7 @@ def _panel_e(ax: Axes, whole: pd.DataFrame) -> list[Row]:
             rows.append(("e", group, col, share, n))
     ys = list(range(len(rows)))
     widths = [0.0 if r[3] is None else 100 * r[3] for r in rows]
-    ax.barh(ys, widths, color=_MUTED, height=0.7)
+    ax.barh(ys, widths, color=OKABE_ITO["grey"], height=0.7)
     for i in range(1, len(rows)):  # thin rules between feature groups (the TSV names them)
         if rows[i][1] != rows[i - 1][1]:
             ax.axhline(i - 0.5, color="#BBBBBB", linewidth=0.5)

@@ -41,7 +41,7 @@ CONTRACT_PY = REPO / "src" / "giap" / "genetable" / "contract.py"
 TABLE_KEYS = (
     "replicons", "genes", "xrefs", "tus", "layers", "regions", "region_genes", "peptides",
     "abundance", "peptide_hits", "protein_hits", "unmapped", "id_map", "features",
-    "peptide_runs",
+    "peptide_runs", "peptide_spectra",
 )  # fmt: skip
 
 # Required (non-optional) columns per table, from the spec table "The contract".
@@ -64,6 +64,7 @@ REQUIRED: dict[str, tuple[str, ...]] = {
     "id_map": ("source_id", "locus_tag"),
     "features": FEATURE_COLUMNS,  # C15 (M5-04): parse_bakta's columns, in its order
     "peptide_runs": PEPTIDE_RUN_COLUMNS,  # C16 (M6-02): M1-06's columns, in its order
+    "peptide_spectra": ("run", "spectrum_id", "peptide", "source"),  # C17 (M7-10)
 }  # fmt: skip
 OPTIONAL: dict[str, tuple[str, ...]] = {
     "genes": ("ribosomal_protein", "amr"),

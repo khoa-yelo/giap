@@ -169,7 +169,13 @@ def binned(
         return None
     if length < 1:
         raise ValueError(f"replicon length {length} < 1")
-    n = min(max_elements, length)
+    return bin_edges(length, min(max_elements, length))
+
+
+def bin_edges(length: int, n: int) -> np.ndarray:
+    """The ``n + 1`` integer edges (``int64``) of ``n`` near-equal bins over ``[0, length)``;
+    ``n`` is capped to ``[1, length]`` so every bin is at least 1 bp."""
+    n = max(1, min(n, length))
     return (np.arange(n + 1, dtype=np.int64) * np.int64(length)) // np.int64(n)
 
 
@@ -181,3 +187,8 @@ def title_pct(n: int, d: int) -> str:
     if 0 < n < d:  # never round a partial share to 0 % or 100 %
         pct = min(max(pct, 1), 99)
     return f"{pct} %"
+
+
+def plural(n: int, word: str) -> str:
+    """``"1 gene"`` / ``"2 genes"``: the count and the word, ``s`` added unless ``n == 1``."""
+    return f"{n} {word}" if n == 1 else f"{n} {word}s"

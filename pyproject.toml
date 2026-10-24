@@ -85,7 +85,9 @@ markers = [
   "slow: longer than 60 s",
   "calibration: fast calibration subset",
   "calibration_full: full calibration suite",
+  "calsuite(name): tolerances.yaml suite (array task) of a calibration test (also registered in tests/calibration/conftest.py)",
   "e2e: end-to-end runs on real genomes",
+  "requires_r: runs R fgsea in the giap-fgsea env (Slurm only, never in CI)",
   "pending_sample: contract test waiting for a recorded tool output sample (§5.4)",
 ]
 

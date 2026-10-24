@@ -1,0 +1,16 @@
+{
+  "name": "determinants_model",
+  "description": "Determinants models per model and metric: CV R² mean and SD, permutation null p, drop-one-block ΔR² with t-interval, univariate Spearman rho and AUROC (GIAP_SPEC.md §7.8.2, §7.8.3, §9.3).",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "model", "type": "string", "description": "Model", "constraints": {"required": true, "enum": ["lightgbm", "elastic_net", "univariate"]}},
+    {"name": "feature_or_block", "type": "string", "description": "all (whole model), a block (delta_r2) or an encoded feature column (univariate)", "constraints": {"required": true}},
+    {"name": "metric", "type": "string", "description": "Metric", "constraints": {"required": true, "enum": ["cv_r2_mean", "cv_r2_sd", "null_p", "delta_r2", "spearman_rho", "auroc"]}},
+    {"name": "value", "type": "number", "description": "Metric value; NA when unestimated"},
+    {"name": "ci_low", "type": "number", "description": "Lower 95% confidence bound; NA when there is no interval"},
+    {"name": "ci_high", "type": "number", "description": "Upper 95% confidence bound; NA when there is no interval"},
+    {"name": "n", "type": "integer", "description": "Rows the metric was computed on", "constraints": {"minimum": 0}},
+    {"name": "n_perm", "type": "integer", "description": "Permutations behind null_p (non-NaN null values); 0 otherwise", "constraints": {"minimum": 0}},
+    {"name": "flags", "type": "string", "description": "';'-joined flags: too_few_rows, unestimated, null_degenerate, null_uncalibrated, ci_unestimated"}
+  ]
+}

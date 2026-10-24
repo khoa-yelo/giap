@@ -1,16 +1,19 @@
-// CONTEXT subworkflow (GIAP_SPEC.md §6.2, §8.6, §9.4; M4-18, M4-19, MVP-01, M5-09): the final
-// gene table plus the M4-06 contract tables -> tables/regions_stats.tsv,
-// tables/detection_summary.tsv, tables/autocorrelation.tsv, tables/islands.tsv and
-// tables/genes.tsv (context_stats), and the §8.6 reruns -> tables/sensitivity.tsv
-// (sensitivity, registered by M4-19 decision 16). Both py steps run through GIAP_STEP aliases.
+// CONTEXT subworkflow (GIAP_SPEC.md §6.2, §9.4; M4-18, MVP-01, M5-09): the final gene table plus
+// the M4-06 contract tables -> tables/regions_stats.tsv, tables/detection_summary.tsv,
+// tables/autocorrelation.tsv, tables/islands.tsv and tables/genes.tsv (context_stats, through a
+// GIAP_STEP alias). The §8.6 reruns (sensitivity) moved to SENSITIVITY_RERUNS (sensitivity.nf,
+// M8-16), which main.nf runs after DETERMINANTS.
 // context_stats also writes two intermediate parquet files under context/: the genes.tsv
 // context group it left-joins into genes.tsv, and the ADR-0021 Amendment 1 island diagnostics.
 // The optional C15 features table (the oriC of the ori-ter rows) is the annotation channel's
 // second file, so CONTEXT needs no further take: channel (M4-20 note).
-// C7/C8 (regions, region_genes) are required by both steps; ANNOTATE's region_layer writes them,
-// also under a precomputed regions layer (MVP-02). If the `regions` channel is empty neither step
-// runs, the way MAPPING skips its protein route. The M3 tables come out of MAPPING's loci directory.
-include { GIAP_STEP as CONTEXT_STATS; GIAP_STEP as SENSITIVITY } from '../../modules/local/giap_step/main'
+// C7/C8 (regions, region_genes) are required; ANNOTATE's region_layer writes them, also under a
+// precomputed regions layer (MVP-02). If the `regions` channel is empty context_stats does not
+// run, the way MAPPING skips its protein route. The M3 tables come out of MAPPING's loci directory.
+// `layers_for_pairs` is no longer used here (SENSITIVITY_RERUNS takes it); the take: is kept.
+// M7-14: VARIANTS' variants_qc (optional) gives the numeric id_mixups QC row, so context_stats
+// waits for VARIANTS when peptides are given.
+include { GIAP_STEP as CONTEXT_STATS } from '../../modules/local/giap_step/main'
 include { stepIn; kv; pick; inDir } from './annotate'
 
 // One named file of the loci output: a file of the mapping/ directory in a real run, the
@@ -30,6 +33,8 @@ workflow CONTEXT {
     abundance             // abundance.norm.parquet, or channel.empty()
     replicon_depth        // §5.3 depth TSV, or channel.empty()
     tier_summary          // gene_table's tier counts / q-threshold curve (M4-20 decision 3), or channel.empty()
+    layers_for_pairs      // [key, path]: pairs_raw and promoter_windows / terminators / tx_rates (M6-10), or channel.empty()
+    variants_qc           // VARIANTS' variants_qc.parquet (M7-14), or channel.empty()
 
     main:
     def gt = kv('gene_table', gene_table)
@@ -45,7 +50,7 @@ workflow CONTEXT {
                     kv('detectability_summary', detectability_summary),
                     kv('features', annotation.map { a -> a[1] }),
                     kv('stratum0_classes', stratum0_classes), kv('replicon_depth', replicon_depth),
-                    kv('tier_summary', tier_summary)]
+                    kv('tier_summary', tier_summary), kv('variants_qc', variants_qc)]
     def needed = ['gene_table', 'genes', 'replicons', 'xrefs', 'annotation_meta', 'tus', 'layers',
                   'regions', 'region_genes', 'peptide_hits', 'protein_hits', 'unmapped']
 
@@ -56,10 +61,6 @@ workflow CONTEXT {
         'genes_tsv=tables/genes.tsv', 'gene_context=context/gene_context.parquet',
         'island_diagnostics=context/island_diagnostics.parquet'])
 
-    def se = stepIn('sensitivity', [gt, reps, c7, c8, c5],
-                    ['gene_table', 'replicons', 'regions', 'region_genes', 'tus'])
-    SENSITIVITY(se.files, se.keys, ['sensitivity=tables/sensitivity.tsv'])
-
     emit:
     regions_stats    = pick(CONTEXT_STATS.out.outputs, 'regions_stats.tsv')
     detection_summary = pick(CONTEXT_STATS.out.outputs, 'detection_summary.tsv')
@@ -68,6 +69,6 @@ workflow CONTEXT {
     genes_tsv        = pick(CONTEXT_STATS.out.outputs, 'genes.tsv')
     gene_context     = pick(CONTEXT_STATS.out.outputs, 'gene_context.parquet')
     island_diagnostics = pick(CONTEXT_STATS.out.outputs, 'island_diagnostics.parquet')
-    sensitivity      = pick(SENSITIVITY.out.outputs, 'sensitivity.tsv')
-    versions         = CONTEXT_STATS.out.versions.mix(SENSITIVITY.out.versions)
+    versions         = CONTEXT_STATS.out.versions
+    events           = CONTEXT_STATS.out.events
 }
