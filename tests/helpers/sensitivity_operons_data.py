@@ -198,7 +198,7 @@ def oracle_frames(
     from giap.steps.operons import run_operons
 
     layers = {k: t[k] for k in LAYER_KEYS if k in t}
-    merged, _, flagged, _ = run_operons(genes, t["genes"], t["replicons"], t["tus"],
+    merged, _, flagged, *_ = run_operons(genes, t["genes"], t["replicons"], t["tus"],
                                         t["pairs_raw"], t["features"], layers, cfg)  # fmt: skip
     return merged, flagged
 

@@ -172,6 +172,7 @@ def run(
     cfg: GiapConfig | None = None,
     **kw: Any,
 ) -> Any:
+    kw.setdefault("sigma_model", "constant")  # M6-05's null; M6-13 is tested separately
     return disc.discordance(pairs, genes, cfg or _cfg(), p_miss, **kw)
 
 

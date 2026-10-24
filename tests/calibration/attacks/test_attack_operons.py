@@ -228,32 +228,25 @@ _d1_cached = cache(_d1)
 D1_STREAM = f"{DI}.attack_d1.noise_by_abundance"
 
 
-#: ADR-0055 (proposed, pending Khoa): D-1 fails the discordance level; strict xfail, as the M7
-#: gate's ADR-0049 xfails (test_variants_gate.py). Seeds are fixed, so the failure is
-#: deterministic and an XPASS means the method or the generator changed. No bound is widened (R3).
-ADR_0055 = "ADR-0055 pending: D-1 abundance-dependent noise; M6 discordance claim not met"
-D1_XFAIL = pytest.mark.xfail(strict=True, raises=AssertionError, reason=ADR_0055)
+#: ADR-0055 (accepted by Khoa, option (a)): M6-13's abundance-dependent scale makes D-1 pass; the
+#: strict xfail it carried in M6-09 is removed. The constant model's failure on these genomes is
+#: kept as a teeth check in test_attack_operons_sigma.py. No bound is widened (R3).
 
 
-@D1_XFAIL
 @pytest.mark.calsuite(DI)
 @pytest.mark.parametrize("full", MODES)
 def test_attack_d1_level(full: bool) -> None:
     """Gated D-1, one test so both checks read the same genomes (one simulation per replicate):
 
-    - the pooled level criterion through the harness (suite log ``discordance.jsonl``, ADR-0015):
-      a confirmed ``fail`` at alpha 0.10 in the fast tier (0.110 vs 0.104) and at 0.05 and 0.10
-      in the full tier (0.0521 / 0.1064 vs 0.0510 / 0.1013);
+    - the pooled level criterion through the harness (suite log ``discordance.jsonl``, ADR-0015);
     - the lowest-abundance quartile (cut on the planted z): the rate over every tested pair of
-      the quartile against ``level_bound(alpha, n)`` (n pairs treated as independent, the
-      optimistic bound); about 3x nominal (full tier 0.0273 / 0.157 / 0.277).
+      the quartile against ``level_bound(alpha, n)`` (n pairs treated as independent).
 
-    Both are recorded before the assertion. **Sharded runs:** a shard has no verdict and skips
-    (after logging), but the records are in the suite log, so ``_criteria.py --shard ... --merge``
-    of the ``discordance`` task merges them into a confirmed ``fail`` and exits 1 (MERGE_FAIL;
-    ``_merge_main`` knows nothing of xfails). That is intended until ADR-0055 is decided: a
-    failing attack blocks the gate, as the variants task does under ADR-0049. Do not move this
-    log out of the suite to make the task green.
+    Both pass with M6-13's abundance-dependent scale (ADR-0055 (a); statistician R = 1000: pooled
+    0.0101 / 0.0505 / 0.1002, lowest quartile 0.0093 / 0.0478 / 0.0969). Under M6-05's constant
+    scale they failed (pooled 0.0521 / 0.1064 vs 0.0510 / 0.1013; lowest quartile about 3x
+    nominal); that failure is the teeth check in test_attack_operons_sigma.py. Both are recorded
+    before the assertion; a shard has no verdict and skips after logging.
     """
     lv = G.levels()
     r = C.replicates(DI, full)
@@ -278,7 +271,7 @@ def test_attack_d1_level(full: bool) -> None:
           f" (bounds {np.round(bounds, 4).tolist()})")  # fmt: skip
     _log("attack_d1_lowest_quartile", {"R": r, "n": n, "rate": rate.tolist(), "bounds": bounds})
     failed = gate.failed
-    assert not failed and np.all(rate <= bounds), (gate.detail(), rate.tolist(), ADR_0055)
+    assert not failed and np.all(rate <= bounds), (gate.detail(), rate.tolist())
 
 
 # --------------------------------------------------------------------------- C

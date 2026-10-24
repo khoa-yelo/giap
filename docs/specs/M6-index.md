@@ -69,6 +69,7 @@ all three have merged.
 | 10 | [M6-10](M6-10-sensitivity-operon-flags.md) | R | 2 | sensitivity family `operon_flags`; `full` variants UniOP 0.3 / 0.7 | 07, 08 | 110 | yes (light) |
 | 11 | [M6-11](M6-11-regulondb-fetch.md) | V | merged (#141) | `validation/fetch_regulondb.py`, RegulonDB 14.5.0 TU and terminator truth on K-12 | network (see below) | 180 | no |
 | 12 | [M6-12](M6-12-uniop-terminator-cutoffs.md) | V | ready (spec refreshed) | UniOP AUROC + cut-off, d₀/s refit, TerminatorNet cut-off → **ADR-0022** (proposed), then `calibration.yaml` + `defaults.yaml` once Khoa accepts; PRs A / B / C0 / C | 11 | ≈ 165 counted (A ≈ 140, C ≈ 25; `validation/` ≈ 230 uncounted) | yes |
+| 13 | [M6-13](M6-13-discordance-abundance-sigma.md) | S + R | 2 | ADR-0055 (a): σ_i = σ₀·exp(γ z_i) in the within-operon t; D-1 un-xfailed, D-1b-floor and D-1c gated pooled, D-1b-step a strict xfail (ADR-0055 amendment), power non-inferiority (−0.02); implemented on `m6/discordance-sigma` (stacked on #310), full tier owed | 05, 09 | ≈ 60–75 | yes |
 
 Total ≈ 2,410 code lines in `src/` and `validation/` (+ ≈ 260 simulator lines, ≈ 3,000 test lines);
 about 1,600 of those lines are pass 1. The spec's 1.5 weeks fits if pass 1 runs while M6-02 and
