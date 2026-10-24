@@ -26,6 +26,7 @@ jobs:
       - run: uv run --no-sync mypy src/giap
       - run: uv run --no-sync python scripts/ci/check_imports.py src
       - run: python3 scripts/ci/check_no_rscript.py src
+      - run: python3 scripts/ci/check_bash32.py
       - run: uv run --no-sync python scripts/write_config_schema.py --check
 
   guards:
