@@ -29,10 +29,9 @@ Gated (each scenario, R = 10 x ``replicates_fast.compare`` = 1,000; the full tie
   as a whole does not report support beyond its nominal rate).
 
 Recorded (documentation, spec "Test plan"; ``compare_attack_h1_recorded.jsonl``): ``p_gene``'s
-rejection rates, which the TU
-clustering pushes above level. One teeth check keeps the attack honest: in the ``uniform``
-scenario ``p_gene`` at 0.05 must exceed ``level_bound(0.05, R)``. If it did not, the null would
-not be clustered enough to tell a TU-level test from a gene-level one.
+rejection rates, which the TU clustering pushes above level. One teeth check keeps the attack
+honest: in the ``uniform`` scenario ``p_gene`` at 0.05 must exceed ``level_bound(0.05, R)``. If it
+did not, the null would not be clustered enough to tell a TU-level test from a gene-level one.
 
 Calls the implementation, ``validation.pilot.metrics.hypothesis1``, unchanged. Randomness only
 through ``giap.rng.for_step`` seeded from ``tolerances.yaml`` (``_criteria.suite_seed``).
