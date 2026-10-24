@@ -427,5 +427,33 @@
     "date": "2026-10-22",
     "issue": "M7-12",
     "note": "best of 3 simulate() calls per case, one invocation"
+  },
+  "determinants_univariate_b1000_n400": {
+    "benchmark": "benchmarks/test_determinants_bench.py::test_determinants_univariate_b1000_n400_budget",
+    "budget_s": 5.0,
+    "secs": 1.57,
+    "secs_before": 7.29,
+    "bootstrap": 1000,
+    "threads": 1,
+    "node": "iron-13 (session allocation)",
+    "cpu": "AMD EPYC 7742",
+    "date": "2026-10-23",
+    "issue": "perf/fast-suite-hotpaths (ADR-0053, proposed)",
+    "fixture": "tests/helpers/determinants_models_data.py planted(rng), 400 genes, TUs of 1-5, seed 20261023",
+    "note": "before = origin/main d29a2ea5 on the same node; tu_block_bootstrap columns= path and exact average ranks"
+  },
+  "determinants_null_b50_n400": {
+    "benchmark": "benchmarks/test_determinants_bench.py::test_determinants_null_b50_n400_budget",
+    "budget_s": 45.0,
+    "secs": 11.09,
+    "secs_before": 33.74,
+    "permutations": 50,
+    "threads": 4,
+    "node": "iron-13 (session allocation)",
+    "cpu": "AMD EPYC 7742",
+    "date": "2026-10-23",
+    "issue": "perf/fast-suite-hotpaths (ADR-0053, proposed)",
+    "fixture": "tests/helpers/determinants_models_data.py planted(rng), 400 genes, TUs of 1-5, seed 20261023",
+    "note": "before = origin/main d29a2ea5 on the same node; enet_path check_input=False, elastic net serial, LightGBM pooled"
   }
 }

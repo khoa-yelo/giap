@@ -33,8 +33,9 @@ DEGENERATE = "null_degenerate"
 #: pass 1 (ADR-0034): the permutation p is valid only for exchangeable TUs; on every result
 UNCALIBRATED = "null_uncalibrated"
 UNESTIMATED = "unestimated"
-#: models refitted serially in the calling thread while the pool runs the others: the elastic
-#: net's path holds the GIL, so threading it is slower than one thread (2.5x at 4 threads)
+#: models refitted serially, with no pool running: the elastic net's path holds the GIL, so
+#: threading it -- or overlapping it with the LightGBM pool (GIL convoy on a loaded node) -- is
+#: slower than one thread (2.5x at 4 threads)
 _SERIAL: frozenset[ModelName] = frozenset({"elastic_net"})
 
 
@@ -98,8 +99,8 @@ def null_p(
 
     Permutation b draws from child b of ``SeedSequence([seed, crc32(NULL_STREAM)]).spawn(B)``
     (independent of B), so results are reproducible and identical for any ``threads``: each fit
-    is single-threaded and independent; LightGBM refits run on ``threads`` workers while the
-    elastic net's (GIL-bound) run serially alongside, collected in b order.
+    is single-threaded and independent; model by model, LightGBM refits run on ``threads``
+    workers and the elastic net's (GIL-bound) serially, collected in b order.
     Every TU size unique: every permutation is the identity, so no refit is made, each null R²
     is the observed value, b = B, p = 1 and the result is flagged ``null_degenerate``."""
     if B < 1:
@@ -125,15 +126,12 @@ def null_p(
         return [one(m, yb) for yb in ys]
 
     null = np.empty((B, len(models)), dtype=np.float64)
-    pooled = [m for m in models if m not in _SERIAL] if threads > 1 else []
-    with ThreadPoolExecutor(max_workers=max(1, threads)) as pool:
-        futures = {m: [pool.submit(one, m, yb) for yb in ys] for m in pooled}
-        for j, m in enumerate(models):  # serial models run here, overlapping the pool
-            if m not in futures:
-                null[:, j] = column(m)
-        for j, m in enumerate(models):
-            if m in futures:
-                null[:, j] = [f.result() for f in futures[m]]
+    for j, m in enumerate(models):
+        if threads > 1 and m not in _SERIAL:
+            with ThreadPoolExecutor(max_workers=threads) as pool:
+                null[:, j] = list(pool.map(lambda yb, m=m: one(m, yb), ys))
+        else:
+            null[:, j] = column(m)
     out: dict[str, NullResult] = {}
     for j, m in enumerate(models):
         obs = float(observed_mean_r2[m])

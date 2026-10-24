@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -255,10 +256,18 @@ def _repeated_oof(
     model: ModelName, X: F64, y: F64, folds: I64, groups: npt.NDArray[Any], cols: B8,
     names: list[str], cfg: DeterminantsConfig, seed: int, threads: int,
 ) -> tuple[F64, list[object], set[str]]:  # fmt: skip
-    """Out-of-fold predictions (repeats, n) on the columns ``cols``; boosters; dropped columns."""
+    """Out-of-fold predictions (repeats, n) on the columns ``cols``; boosters; dropped columns.
+
+    Every fit is single-threaded; with ``threads`` > 1 the LightGBM fits (one per repeat and
+    fold) run on a pool of ``threads`` workers, collected in (repeat, fold) order. One
+    ``threads``-wide OpenMP fit of a few hundred rows is dominated by thread hand-offs (one CV
+    repeat of 354 rows: 0.3 s at 1 thread, 204 s at 16 on a shared node); LightGBM's
+    ``deterministic`` training gives the same model at any thread count. The elastic net holds
+    the GIL, so its fits stay serial."""
     pred = np.empty(folds.shape, dtype=float)
-    boosters: list[object] = []
     dropped: set[str] = set()
+    tasks: list[tuple[int, npt.NDArray[np.bool_], npt.NDArray[np.bool_], npt.NDArray[np.intp], int]]
+    tasks = []
     for r in range(folds.shape[0]):
         for k in np.unique(folds[r]).tolist():
             test = folds[r] == k
@@ -267,12 +276,25 @@ def _repeated_oof(
             dropped |= {n for n, c, v in zip(names, cols, varying, strict=True) if c and not v}
             use = np.flatnonzero(cols & varying)
             s = int(np.random.SeedSequence([seed, r, k]).generate_state(1)[0] >> 1)
-            pred[r, test], b = _fit_predict(
-                model, X[np.ix_(train, use)], y[train], X[np.ix_(test, use)], groups[train],
-                [names[i] for i in use], cfg, s, threads,
-            )  # fmt: skip
-            if b is not None:
-                boosters.append(b)
+            tasks.append((r, test, train, use, s))
+
+    def fit(task: tuple[int, Any, Any, npt.NDArray[np.intp], int]) -> tuple[F64, object | None]:
+        _, test, train, use, s = task
+        return _fit_predict(
+            model, X[np.ix_(train, use)], y[train], X[np.ix_(test, use)], groups[train],
+            [names[i] for i in use], cfg, s, 1,
+        )  # fmt: skip
+
+    if threads > 1 and model == "lightgbm" and len(tasks) > 1:
+        with ThreadPoolExecutor(max_workers=min(threads, len(tasks))) as pool:
+            fitted = list(pool.map(fit, tasks))
+    else:
+        fitted = [fit(t) for t in tasks]
+    boosters: list[object] = []
+    for (r, test, _, _, _), (p, b) in zip(tasks, fitted, strict=True):
+        pred[r, test] = p
+        if b is not None:
+            boosters.append(b)
     return pred, boosters, dropped
 
 
