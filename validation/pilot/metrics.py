@@ -1007,8 +1007,23 @@ def expand(template: str, metrics: Mapping[str, Any]) -> str:
     return template.replace(M3_MARK, "\n".join(rows))
 
 
+SECTION = re.compile(r"^<!-- (if|ifnot) ([\w.]+) -->\n(.*?)^<!-- end \2 -->\n", re.M | re.S)
+
+
+def sections(template: str, metrics: Mapping[str, Any]) -> str:
+    """Keeps ``<!-- if PATH -->`` blocks when PATH resolves, ``<!-- ifnot PATH -->`` blocks
+    when it does not (M10-07: metric 8 only with ``--entrapment``); drops the markers."""
+
+    def keep(m: re.Match[str]) -> str:
+        v = resolve(metrics, m.group(2))
+        has = v is not _MISSING and not isinstance(v, Gap)
+        return m.group(3) if has == (m.group(1) == "if") else ""
+
+    return SECTION.sub(keep, template)
+
+
 def missing_paths(template: str, metrics: Mapping[str, Any]) -> list[str]:
-    paths = PLACEHOLDER.findall(expand(template, metrics))
+    paths = PLACEHOLDER.findall(sections(expand(template, metrics), metrics))
     return [p for p in paths if resolve(metrics, p) is _MISSING]
 
 
@@ -1073,7 +1088,7 @@ def render(
             f"{fmt_value(path.rsplit('.', 1)[-1], v)} ({src or 'metrics.json'}{SOURCE_SEP}{parent})"
         )
 
-    text = PLACEHOLDER.sub(sub, expand(template, metrics))
+    text = PLACEHOLDER.sub(sub, sections(expand(template, metrics), metrics))
     text = text.replace(NOT_EVALUATED_MARK, "\n".join(not_evaluated(metrics)))
     body = notes.strip() if notes and notes.strip() else "No notes."
     if NOTES_MARK in text:
@@ -1090,8 +1105,9 @@ TE_INPUTS = ("te_real", "te7")
 #: ``a3_feasibility.json``; the runbook is an input of ``render --final`` only (B1)
 GATE_INPUTS = ("baseline", "benchmark_adr", "a3_feasibility")
 INPUTS = ("peptides_a1", "peptides_a2", "convert_a1", "convert_a2", "summary_a1", "summary_a2",
-          "bakta_json", "genome", "k12_fasta", "sacct", *TE_INPUTS, *GATE_INPUTS)  # fmt: skip
-OPTIONAL = ("summary_a1", "summary_a2", "sacct", "a3", *TE_INPUTS, *GATE_INPUTS)
+          "bakta_json", "genome", "k12_fasta", "sacct", *TE_INPUTS, *GATE_INPUTS,
+          "entrapment")  # fmt: skip
+OPTIONAL = ("summary_a1", "summary_a2", "sacct", "a3", *TE_INPUTS, *GATE_INPUTS, "entrapment")
 REQUIRED = ("a1", "a2", "cmp", *(k for k in INPUTS if k not in OPTIONAL), "out")
 COMPARE = ("compare_detection", "compare_abundance", "compare_stability")
 MAP_TABLES = "peptide_hits.tsv/unmapped.tsv"
@@ -1175,24 +1191,37 @@ def _cfg(manifest: Mapping[str, Any], path: Path) -> GiapConfig:
         raise Precondition(f"{path}: invalid config: {err}") from err
 
 
-def _spec_sha() -> str:
+def _spec_sha(spec: str = SPEC) -> str:
+    """The commit of ``spec`` (git log); git unavailable or no commit is a ``Precondition``."""
     try:
         res = subprocess.run(
-            ["git", "-C", str(REPO), "log", "-1", "--format=%H", "--", SPEC],
+            ["git", "-C", str(REPO), "log", "-1", "--format=%H", "--", spec],
             capture_output=True,
             text=True,
             check=True,
         )
     except (OSError, subprocess.CalledProcessError) as err:
-        raise Precondition(f"git log {SPEC}: {err}") from err
+        raise Precondition(f"git log {spec}: {err}") from err
     if not re.fullmatch(r"[0-9a-f]{40}", sha := res.stdout.strip()):
-        raise Precondition(f"git log {SPEC}: no commit found")
+        raise Precondition(f"git log {spec}: no commit found")
     return sha
 
 
-def _outside_repo(path: Path, flag: str) -> None:
+def _git_ignored(path: Path) -> bool:
+    """``git check-ignore``: ``path`` (existing or not) is ignored in the checkout."""
+    try:
+        res = subprocess.run(["git", "-C", str(REPO), "check-ignore", "-q", str(path)],
+                             capture_output=True, check=False)  # fmt: skip
+    except OSError:
+        return False
+    return res.returncode == 0
+
+
+def _outside_repo(path: Path, flag: str, allow_ignored: bool = False) -> None:
+    """``path`` lies outside the checkout, or (``allow_ignored``, M10-07 B2) in a git-ignored
+    part of it such as ``local/``, where farmshare_env.sh puts ``GIAP_ROOT``."""
     p = path.resolve()
-    if p == REPO or REPO in p.parents:
+    if (p == REPO or REPO in p.parents) and not (allow_ignored and _git_ignored(p)):
         raise Precondition(f"{flag} {path} is inside the repository")
 
 
@@ -1344,6 +1373,8 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
     for key in TE_INPUTS:
         if getattr(a, key) is not None:
             doc[key] = _json(getattr(a, key))
+    if a.entrapment is not None:  # M10-07 hook
+        doc["m8"] = entrapment_block(_json(a.entrapment))
     doc["evidence"] = _gate_evidence(a, states)
     doc["checklist"] = checklist(doc, states)
     files = {k: getattr(a, k) for k in INPUTS} | {
@@ -1355,6 +1386,17 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
         if p is not None
     }
     return doc, exceptions
+
+
+M8_KEYS = ("peptide", "precursor", "universe", "caveats", "cross_checks", "warnings")
+
+
+def entrapment_block(ent: Mapping[str, Any]) -> dict[str, Any]:
+    """Metric 8: the blocks of ``entrapment.json`` (validation/pilot/entrapment.py, M10-07)."""
+    if ent.get("schema") != "giap-pilot-entrapment/1" or any(k not in ent for k in M8_KEYS):
+        raise Precondition(f"--entrapment: not a giap-pilot-entrapment/1 document with {M8_KEYS}")
+    codes = sorted({str(w.get("code") if isinstance(w, Mapping) else w) for w in ent["warnings"]})
+    return {k: ent[k] for k in M8_KEYS} | {"warning_codes": codes}
 
 
 def _gate_evidence(a: argparse.Namespace, states: Mapping[str, Any]) -> dict[str, Any]:
