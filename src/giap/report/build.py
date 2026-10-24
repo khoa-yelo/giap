@@ -153,12 +153,17 @@ def _tier_fdr(ds: pd.DataFrame | None, alpha: float) -> str | None:
 
 
 def _novel_fdr(novel: pd.DataFrame) -> str | None:
-    """The max class FDR over CALLED rows; ``None`` (unestimated) if any called row is (B1)."""
+    """The max class FDR over CALLED rows; ``None`` (unestimated) if any called row is (B1).
+    M7-17: a suffix counts the called rows flagged ``denovo_only_unsupported`` (ADR-0050)."""
     called = novel[novel["called"].fillna(False).astype(bool)]
     fdrs = pd.to_numeric(called["class_fdr"], errors="coerce")
+    flags = called["flags"].fillna("").astype(str).str.split(";")
+    k = int(flags.map(lambda f: "denovo_only_unsupported" in f).sum())
+    suffix = (f"; {k} of {len(called)} calls de novo-only without database or RBS support "
+              "(exact de novo errors are not covered by the class FDR)") if k else ""  # fmt: skip
     if called.empty or bool(fdrs.isna().any()):
-        return None
-    return f"class FDR ≤ {format_value(float(fdrs.max()))}"
+        return UNESTIMATED + suffix if k else None
+    return f"class FDR ≤ {format_value(float(fdrs.max()))}{suffix}"
 
 
 def cards(view: RunView, cfg: GiapConfig) -> tuple[list[dict[str, str]], list[str]]:

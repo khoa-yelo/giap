@@ -58,11 +58,11 @@ from giap.novel.candidates import (
 )
 from giap.novel.evidence import apply_evidence, class_rules
 from giap.novel.fdr import orf_regimes
-from giap.novel.outputs import orf_table
+from giap.novel.outputs import is_na, orf_table
 from giap.steps.common import one_path as _path
 from giap.steps.common import read_genes as _genes
 from giap.steps.common import read_replicons as _replicons
-from giap.steps.mapping import _gene_model, _hits, read_gene_model
+from giap.steps.mapping import _gene_model, _hits, read_gene_model, resolve_sources
 from giap.steps.promoters import _LAYER_COLS, _prediction_files, _rows
 from giap.steps.rbs import _RBS_COLS
 from giap.steps.registry import StepContext, external, step
@@ -84,7 +84,7 @@ _PARQUET_MAGIC = b"PAR1"
 _SIDE_COLS = [
     ("orf_id", _STR), ("class", _STR), ("fdr_class", _STR), ("regime", _STR), ("q", _F64),
     ("class_fdr", _STR), ("reason", _STR), ("class_mismatch", _BOOL), ("class_rule_met", _BOOL),
-    ("called", _BOOL),
+    ("called", _BOOL), ("denovo_only_unsupported", _BOOL),
 ]  # fmt: skip
 _DENOVO_KEYS = ("hits_exact", "hits_tolerant", "placement_costs")
 
@@ -357,7 +357,7 @@ def novel_orfs(ctx: StepContext) -> None:
     pcfg = cfg.annotation.promoters
     k_range = (pcfg.window_3p_range[0], pcfg.window_3p_range[1])
     sec = second_round_scores(orfs, rbs, prom, gm, genome, k_range, pcfg.window_nt)
-    res = _class_fdr(ctx, orfs, genome)
+    res, support = _class_fdr(ctx, orfs, genome)
     scored = minimal_call(orfs, cfg).merge(sec, on="orf_id", how="left")
     scored["class_fdr"] = pd.Series([cc.class_fdr_cell(res.orfs[i]) for i in scored["orf_id"]],
                                     dtype="object")  # fmt: skip
@@ -372,9 +372,12 @@ def novel_orfs(ctx: StepContext) -> None:
         terminators=None if terms_df is None else terminators_of(terms_df), gm=gm,
         genome=genome, cfg=cfg, peptide_intervals=pep_ivs,
         class_q={k: r.q for k, r in res.orfs.items() if math.isfinite(r.q)},
+        denovo_support=support,
     )  # fmt: skip
-    _write_side(ctx.outputs["novel_class_fdr"], table, res, rules)
+    _write_side(ctx.outputs["novel_class_fdr"], table, res, rules, support is not None)
     _class_events(ctx, res, table)
+    if support is not None:
+        _denovo_event(ctx, table, support)
     write_novel_orfs(ctx.outputs["novel_orfs"], table)
     write_novel_faa(ctx.outputs["novel_orfs_faa"], table, genome, reps)
     if len(table):
@@ -388,15 +391,17 @@ def novel_orfs(ctx: StepContext) -> None:
 
 def _class_fdr(
     ctx: StepContext, orfs: Sequence[Orf], genome: Mapping[str, str]
-) -> cc.ClassFdrResult:
+) -> tuple[cc.ClassFdrResult, dict[str, tuple[bool, bool]] | None]:
     """Steps 1-3 of the M7-11b step body: the class FDR of every ORF (all ``no_decoys`` without
-    ``peptides``); the de novo inputs are read only when a de novo ORF needs them."""
+    ``peptides``); the de novo inputs are read only when a de novo ORF needs them. Also the M7-17
+    ``db_supported`` pairs (``None`` without ``peptides``)."""
     ins = ctx.inputs
     if "peptides" not in ins:
         none = {o.orf_id: cc.OrfClassFdr(o.orf_id, "unestimated", o.cls, math.nan,
                                          "no_decoys", False) for o in orfs}  # fmt: skip
-        return cc.ClassFdrResult(none, (), 0, False)
+        return cc.ClassFdrResult(none, (), 0, False), None
     peptides = pd.read_parquet(_path(ins["peptides"]))
+    support = cc.db_supported(orfs, peptides, resolve_sources(peptides, ctx.cfg))
     feats = _path(ins["features"]) if "features" in ins else None
     gm = read_gene_model(_path(ins["genes"]), _path(ins["replicons"]), feats)
     regimes = orf_regimes(peptides, orfs, ctx.cfg.input.decoy_prefixes)
@@ -413,19 +418,49 @@ def _class_fdr(
             costs = pd.read_parquet(_path(ins["placement_costs"]))
             hits = _hits(ctx, "hits_exact", "hits_tolerant")
             denovo = cc.denovo_inputs(costs, hits, LocusClassifier(gm, genome))
-    return cc.class_fdr(orfs, peptides, gm=gm, genome=genome, cfg=ctx.cfg, denovo=denovo)
+    res = cc.class_fdr(orfs, peptides, gm=gm, genome=genome, cfg=ctx.cfg, denovo=denovo)
+    return res, support
 
 
 def _write_side(
-    path: Path, table: pd.DataFrame, res: cc.ClassFdrResult, rules: Mapping[str, bool]
+    path: Path, table: pd.DataFrame, res: cc.ClassFdrResult, rules: Mapping[str, bool], ok: bool
 ) -> None:
-    """``novel_class_fdr.parquet``: one row per ``novel_orfs.tsv`` row, in its order (rule 11)."""
+    """``novel_class_fdr.parquet``: one row per ``novel_orfs.tsv`` row, in its order (rule 11);
+    the M7-17 flag cell is null unless ``ok`` (sources known: ``peptides`` given)."""
     rows = []
     for t in table.to_dict("records"):
         r = res.orfs[str(t["orf_id"])]
+        flag = _FLAG in _flag_set(t["flags"]) if ok else None
         rows.append((r.orf_id, t["class"], r.fdr_class, r.regime, r.q, t["class_fdr"], r.reason,
-                     r.class_mismatch, rules[r.orf_id], bool(t["called"])))  # fmt: skip
+                     r.class_mismatch, rules[r.orf_id], bool(t["called"]), flag))  # fmt: skip
     write_parquet_deterministic(path, _SIDE_COLS, rows)
+
+
+_FLAG = "denovo_only_unsupported"
+
+
+def _flag_set(v: Any) -> set[str]:
+    return set() if is_na(v) else set(str(v).split(";"))
+
+
+def _denovo_event(
+    ctx: StepContext, table: pd.DataFrame, support: Mapping[str, tuple[bool, bool]]
+) -> None:
+    """M7-17: one ``novel_orfs.denovo_support`` INFO per run with ``peptides`` (Q4)."""
+    n = dict.fromkeys(("n_orfs", "n_denovo_only", "n_flagged", "n_called", "n_flagged_called"), 0)
+    for oid, called, flags in zip(table["orf_id"], table["called"], table["flags"], strict=True):
+        dn, db = support[str(oid)]
+        hit = _FLAG in _flag_set(flags)
+        n["n_orfs"] += 1
+        n["n_denovo_only"] += int(dn and not db)
+        n["n_flagged"] += int(hit)
+        n["n_called"] += int(bool(called))
+        n["n_flagged_called"] += int(hit and bool(called))
+    ctx.log.info(
+        "novel_orfs: %d of %d calls are de novo-only without database or RBS support (ADR-0050: "
+        "exact de novo errors are outside the class FDR)", n["n_flagged_called"], n["n_called"],
+        extra={"event": "novel_orfs.denovo_support", "data": n},
+    )  # fmt: skip
 
 
 def _g(v: float | None) -> str:

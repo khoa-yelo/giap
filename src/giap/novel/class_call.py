@@ -173,3 +173,20 @@ def class_fdr_cell(r: OrfClassFdr) -> float | str:
     if math.isfinite(r.q):
         return float(r.q)
     return 1.0 if r.reason == "lost_pick" else "unestimated"
+
+
+def db_supported(
+    orfs: Sequence[Orf], peptides: pd.DataFrame, sources: pd.Series
+) -> dict[str, tuple[bool, bool]]:
+    """``orf_id`` -> ``(has_denovo, db_support)`` from the ORF's own peptides' resolved C9
+    ``sources`` (index-aligned with ``peptides``); decoy and contaminant rows are ignored and a
+    folded key takes the union of its rows' sources (M7-17 rules 1-3)."""
+    keep = ~(peptides["is_decoy"].astype(bool) | peptides["is_contaminant"].astype(bool))
+    src: dict[str, set[str]] = {}
+    for p, s in zip(peptides.loc[keep, "peptide"].astype(str), sources[keep], strict=True):
+        src.setdefault(F._il(p), set()).add(str(s))
+    out: dict[str, tuple[bool, bool]] = {}
+    for o in orfs:
+        got: set[str] = set().union(*(src.get(p, set()) for p in o.peptides))
+        out[o.orf_id] = ("denovo" in got, "database" in got)
+    return out
