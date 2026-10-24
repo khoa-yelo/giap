@@ -101,7 +101,7 @@ No new public function, no new column and no schema change.
 
 ```python
 NONSTANDARD: frozenset[str] = frozenset("BJOUXZ")     # peptide letters that are never ALT
-READTHROUGH: Mapping[str, str] = {"U": "TGA", "O": "TAG"}   # peptide residue -> gene-strand codon
+READTHROUGH: Mapping[str, str] = {"U": "TGA", "O": "TAG"}   # superseded by lead decision 1: no readthrough
 NONSTANDARD_EVENT = "variants.nonstandard_residues"   # defined in steps/variants.py
 ```
 
@@ -176,14 +176,14 @@ the letters are taken **before** the internal I/L → `J` token of M7-02 rule 5 
    | `skipped_peptides` | int: distinct folded peptides with ≥ 1 skipped pair |
    | `by_residue` | dict `{letter: n_pairs}` over skipped pairs, keys sorted (for example `{"J": 1, "X": 3}`) |
    | `by_rule` | dict `{"ambiguous": n, "rare": n}`: rule 4d versus 4c pairs |
-   | `readthrough_sites` | int: rule 4b pairs (`U` at TGA plus `O` at TAG) |
+   | `readthrough_sites` | *superseded by lead decision 1: not emitted (every U/O is `rare`)* |
    | `examples` | list of ≤ 10 original peptide strings with a skipped or readthrough pair, sorted lexicographically |
 
    With nothing skipped and no readthrough, it is the same dict with all zeros, empty `by_residue`,
    zero `by_rule` entries and an empty `examples` list.
 7. **The event.** After `run_variants_qc`, `variants_step` emits **exactly one** event
    `variants.nonstandard_residues` at INFO (Q3), with `data = pile.attrs["nonstandard"]`. It does
-   so only when `skipped_sites + readthrough_sites > 0`. The message is
+   so only when `skipped_sites + readthrough_sites > 0` (after lead decision 1: `skipped_sites > 0`). The message is
    `"variants: %d site(s) with an ambiguous or rare peptide residue skipped (%s), %d readthrough
    match(es)"`, with `by_residue`. With no such sites there is no event, so the event log of an
    all-standard run is unchanged. `variants.summary` is unchanged.
