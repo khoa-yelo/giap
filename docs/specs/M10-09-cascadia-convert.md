@@ -400,3 +400,7 @@ Cascadia's CLI default, recorded, never applied by GIAP).
 | Q11 | RT columns: ignore entirely (D6), or validate them as numeric, which would make a corrupt RT fail an otherwise good file? | ignore |
 | Q12 | The index estimate was 200 lines; this design is ≈ 140, because the A3 conversion job and its summary belong to M10-10. Confirm that split? | yes; M10-10 reuses `diann_convert.sbatch`'s pattern for `cascadia_convert.sbatch` |
 | Q13 | `scan` → `spectrum_id` relies on W3 (unique per file). If a later Cascadia version reuses indices across output files of one run, the `run_in_several_inputs` rule already stops a merge. Is any other cross-version protection wanted (a `cascadia_version` check)? | no: the `.ssl` carries no version; the version is pinned in the env (M10-08) and recorded in PROVENANCE |
+
+## Lead decisions (2026-10-24)
+
+Q1–Q13 all take their defaults. The lead removes the `"cascadia"` case of `tests/unit/test_cli_convert.py::test_other_engines_not_implemented` during implementation (criterion 8, role guard).
