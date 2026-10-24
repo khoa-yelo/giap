@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 COLUMNS = ("panel", "intersection", "n_genes", "runs", "run_a", "run_b", "spearman_rho",
            "ci_low", "ci_high", "n_shared", "locus_tag", "x", "y")  # fmt: skip
 EMPTY = "No gene detected in any run"
-SKIP = "written by giap compare"
+SKIP = "input_absent:compare"  # the giap compare tables: V16 is written only by giap compare
 MAX_BARS = 30
 MAX_POINTS = 20_000
 BLUE, GREY, TEXT = style.DETECTION["detected"], "#BBBBBB", "#555555"

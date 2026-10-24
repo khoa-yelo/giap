@@ -42,6 +42,7 @@ SINGLE_MAX_BP = 20_000
 MAX_TICKS = 5  # labelled position ticks at most (K-12 survey: 7-digit bp labels collided)
 HEIGHT_IN = 2.2
 MAX_LABELS = 12
+GENE_LABEL = "gene_label"  # gid of the gene name texts, thinned by _thin_labels
 UNDETECTED = "#BBBBBB"
 UNESTIMATED = style.DETECTION["unestimated"]
 PROMOTER = style.OKABE_ITO["bluish_green"]
@@ -314,10 +315,31 @@ def _draw_genes(ax: Axes, rows: list[tuple[Any, int, int]], scale: tuple[float, 
                              hatch=IMPUTED_HATCH if imputed else None))  # fmt: skip
         if i % step == 0:  # ceil(n / step) <= MAX_LABELS
             name = g.gene if isinstance(g.gene, str) and g.gene else str(g.locus_tag)
-            ax.text((s + e) / 2, 0.32, name, ha="center", va="bottom", fontsize=6, rotation=30)
+            ax.text((s + e) / 2, 0.32, name, ha="center", va="bottom", fontsize=6, rotation=30,
+                    gid=GENE_LABEL)  # fmt: skip
         value, category = (None, "imputed") if imputed else (log2, status)
         data.append(["gene", str(g.locus_tag), str(g.contig), s, e, strand, value, category])
     return data
+
+
+def _thin_labels(fig: Figure, ax: Axes) -> None:
+    """Hide each gene label whose laid-out box meets the last one kept, left to right (sim100k:
+    adjacent short genes collided). Layout is repeated until no label is hidden."""
+    for _ in range(3):
+        fig.draw_without_rendering()
+        renderer = fig._get_renderer()  # type: ignore[attr-defined]
+        labels = [t for t in ax.texts if t.get_gid() == GENE_LABEL and t.get_visible()]
+        boxes = sorted(((t.get_window_extent(renderer), t) for t in labels),
+                       key=lambda bt: (bt[0].x0, bt[1].get_text()))  # fmt: skip
+        hidden, right = 0, -math.inf
+        for box, t in boxes:
+            if box.x0 < right:
+                t.set_visible(False)
+                hidden += 1
+            else:
+                right = box.x1
+        if not hidden:
+            return
 
 
 def _pileup_runs(rows: list[tuple[Any, int, int]]) -> list[tuple[int, int, int]]:
@@ -434,6 +456,7 @@ def render_locus(
     _colour_key(fig, [pile, ax], scale)
     if orf is not None:
         _orf_key(pile)
+    _thin_labels(fig, ax)
     data = pd.DataFrame(rows, columns=list(COLUMNS)) if rows else _empty(COLUMNS)
     data = data.astype({"start": "int64", "end": "int64", "value": float})
     return base.Instance(locus.locus_id, fig, data, locus.label, ("start",))
