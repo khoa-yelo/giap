@@ -125,6 +125,11 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers", "calsuite(name): tolerances.yaml suite (array task) of a calibration test"
     )
+    config.addinivalue_line(
+        "markers",
+        "calibration_unshardable: runs whole (unsharded, both blocks) in shard 0 only; never in"
+        " another shard or the --merge confirm run",
+    )
 
 
 @pytest.fixture
@@ -338,6 +343,8 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
     if (C.CONFIRM_ENV not in os.environ and not sharded) or not _is_calibration(item):
         return
     assert isinstance(item, pytest.Function)
+    if item.get_closest_marker(UNSHARDABLE) is not None and not C.owns_direct_checks():
+        pytest.skip(UNSHARDABLE_SKIP)
     if C.CONFIRM_ENV in os.environ:
         if not _item_reaches_harness(item):
             pytest.skip(CONFIRM_SKIP)
@@ -361,12 +368,17 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
 # - a calibration test that reaches neither a harness entry point nor ``replicate_range`` runs in
 #   shard 0 only (a test over ``replicate_range`` checks its own shard's replicates everywhere);
 # - a teeth test (``teeth_log``: unsharded by construction, private log) runs in shard 0 only and
-#   never in the confirm run.
+#   never in the confirm run;
+# - a test marked ``calibration_unshardable`` runs whole in shard 0 (the shard variables hidden
+#   for its call: every replicate, both blocks, its full records logged to the suite log, so
+#   --merge reads its verdict) and is skipped in every other shard and the confirm run.
 # A harness test with a direct part guards it itself: ``if not C.owns_direct_checks():
 # C.skip_without_verdict(recs)`` after its last harness call, then the direct part, then
 # ``C.skip_without_verdict(recs)`` before asserting on a status.
 
 TEETH_FIXTURE = "teeth_log"
+UNSHARDABLE = "calibration_unshardable"
+UNSHARDABLE_SKIP = "shard or confirm run: an unshardable test runs whole in shard 0 only"
 #: a test naming one of these runs in every shard: harness checks, or a direct check over its own
 #: shard's replicates (``replicate_range``, as G2 / A6a)
 SHARD_AWARE_NAMES = HARNESS_NAMES | {"replicate_range"}
@@ -392,9 +404,14 @@ def item_xfail(item: pytest.Item) -> dict[str, Any] | None:
 def pytest_runtest_call(item: pytest.Item) -> Generator[None, object, object]:
     """Name the running test in every record it writes (ADR-0057: --merge honours its xfail)."""
     C.set_current_test(item.nodeid, item_xfail(item))
+    # an unshardable test in shard 0 runs unsharded: every replicate, both blocks, full records
+    hidden = {}
+    if item.get_closest_marker(UNSHARDABLE) is not None and C.owns_direct_checks():
+        hidden = {v: os.environ.pop(v) for v in (C.SHARD_ENV, C.BLOCK_ENV) if v in os.environ}
     try:
         return (yield)
     finally:
+        os.environ.update(hidden)
         item.stash[STATUSES_KEY] = C.current_statuses()
         C.set_current_test(None, None)
 
