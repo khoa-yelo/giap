@@ -125,3 +125,31 @@ directory = "changelog.d"
 filename = "CHANGELOG.md"
 package = "giap"
 package_dir = "src"
+name = "GIAP"
+title_format = "## GIAP {version} ({project_date})"
+issue_format = "[#{issue}](https://github.com/khoa-yelo/giap/pull/{issue})"
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removal"
+name = "Removals and breaking changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Other"
+showcontent = true
