@@ -1,10 +1,12 @@
-# Fast checks on every push and pull request (GIAP_SPEC.md §12). Heavy suites run on FarmShare.
+# Fast checks on every push and pull request (GIAP_SPEC.md §12, ADR-0052). Heavy suites, the
+# calibration subset and the coverage gate run on FarmShare (scripts/slurm/nightly.sbatch).
 name: ci
 
 on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -26,6 +28,7 @@ jobs:
       - run: uv run --no-sync mypy src/giap
       - run: uv run --no-sync python scripts/ci/check_imports.py src
       - run: python3 scripts/ci/check_no_rscript.py src
+      - run: python3 scripts/ci/check_bash32.py
       - run: uv run --no-sync python scripts/write_config_schema.py --check
 
   guards:
@@ -61,17 +64,42 @@ jobs:
           if [ "$lines" -gt "$fail" ]; then echo "::error::PR too large ($lines > $fail)"; exit 1; fi
           if [ "$lines" -gt "$warn" ]; then echo "::warning::PR above $warn lines ($lines)"; fi
 
+  # PR CI stays under ~15 min (ADR-0052): the unit, property, golden, contract and snapshot tests in
+  # 4 parallel shards on ubuntu 3.13 (scripts/ci/shard_tests.py). Calibration, integration and the
+  # coverage gate run in scripts/slurm/nightly.sbatch; agents run the whole fast suite on Slurm
+  # (scripts/slurm/test_branch.sbatch) before a PR opens.
   test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      UV_PYTHON: "3.13"   # overrides .python-version, so uv never rebuilds the venv
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras
+      - name: unit, property, golden, contract, snapshot — shard ${{ matrix.shard }} of 4
+        shell: bash
+        run: |
+          mapfile -t files < <(python3 scripts/ci/shard_tests.py ${{ matrix.shard }} 4 \
+                               | grep -vE '^tests/(calibration|integration|e2e)/')
+          uv run --no-sync pytest -n auto -m "not slow and not calibration and not calibration_full and not e2e" \
+            --junitxml=junit.xml "${files[@]}" || [ $? -eq 5 ]   # 5: no test selected in this shard
+
+  # Python 3.11 and macOS 3.12 (§12's matrix) run after the merge, on pushes to main only.
+  test-compat:
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
         include:
           - {os: ubuntu-latest, python: "3.11"}
-          - {os: ubuntu-latest, python: "3.13"}
           - {os: macos-latest, python: "3.12"}
     runs-on: ${{ matrix.os }}
     env:
-      UV_PYTHON: ${{ matrix.python }}   # overrides .python-version, so uv never rebuilds the venv
+      UV_PYTHON: ${{ matrix.python }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -80,33 +108,9 @@ jobs:
         run: brew install libomp
       - run: uv sync --frozen --all-extras
       - name: unit, property, golden, contract, snapshot
-        # whole tests/ tree minus the slow layers; empty layer directories are not tracked by git
         run: >
           uv run --no-sync pytest -n auto -m "not slow and not calibration and not calibration_full and not e2e"
           tests --ignore=tests/calibration --ignore=tests/integration --ignore=tests/e2e
-          --junitxml=junit.xml
-
-  calibration-and-coverage:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - run: uv sync --frozen --all-extras
-      # One run: the fast calibration subset (minus calibration_nightly, which
-      # scripts/slurm/nightly.sbatch runs on Slurm) together with the coverage gate.
-      - name: fast calibration subset and coverage gate
-        shell: bash   # -eo pipefail, so the pytest exit status survives the pipe into tee
-        run: |
-          min=$(awk '/^coverage_min:/ {print $2*100}' ci/gates.yaml)
-          uv run --no-sync pytest -n auto \
-            -m "not slow and not calibration_full and not calibration_nightly and not e2e" \
-            --cov=giap --cov-report=term-missing:skip-covered --cov-report=xml \
-            --cov-fail-under="$min" | tee coverage.txt
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage
-          path: coverage.xml
 
   nf-test-stub:
     runs-on: ubuntu-latest
@@ -125,7 +129,7 @@ jobs:
 
   summary:
     if: always() && github.event_name == 'pull_request'
-    needs: [lint, guards, test, calibration-and-coverage, nf-test-stub]
+    needs: [lint, guards, test, nf-test-stub]
     runs-on: ubuntu-latest
     steps:
       - name: post result summary as a PR comment (§3.10)
@@ -138,6 +142,5 @@ jobs:
           | lint | ${{ needs.lint.result }} |
           | guards | ${{ needs.guards.result }} |
           | tests | ${{ needs.test.result }} |
-          | calibration + coverage | ${{ needs.calibration-and-coverage.result }} |
           | nf-test stub | ${{ needs.nf-test-stub.result }} |"
           gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body "$body"
