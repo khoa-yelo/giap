@@ -27,11 +27,13 @@ marker (``style="default"``) restores at save time.
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import json
+import os
 import shutil
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from importlib import resources
@@ -51,6 +53,13 @@ COMPARE_TABLES = ("compare_detection", "compare_abundance", "compare_stability")
 MAX_FIXTURE_BYTES = 2_000_000  # spec work item 1: "< 2 MB" (both fixtures together)
 MAX_FILE_BYTES = 5_000_000  # R11
 MAX_BASELINE_BYTES = 300_000  # spec work item 2
+#: A directory shared by every xdist worker of one pytest session, set by
+#: ``tests/snapshot/conftest.py`` (``None`` elsewhere: scripts and other test layers render
+#: afresh on every call). With it, ``raw_results`` is computed once per process and
+#: ``render_plot_files`` once per session (file-locked; later calls copy the rendered tree).
+SESSION_CACHE: Path | None = None
+#: environment variable naming the directory of the session's case lists (see ``_case_keys``)
+CASES_ENV = "GIAP_SNAPSHOT_CASES"
 
 
 @dataclass(frozen=True)
@@ -146,7 +155,20 @@ def keep_instances(pid: str, insts: list[Any]) -> list[Any]:
 
 def raw_results(fixture: str) -> dict[str, Any]:
     """``pid -> list[Instance] | Skip`` of every registered plot (V16 from ``CMP/``); call
-    inside ``styled``."""
+    inside ``styled``. Under ``SESSION_CACHE`` the result is computed once per process (the
+    callers only read the instances)."""
+    if SESSION_CACHE is not None:
+        return _raw_results_cached(fixture)
+    return _raw_results(fixture)
+
+
+@functools.cache
+def _raw_results_cached(fixture: str) -> dict[str, Any]:
+    return _raw_results(fixture)
+
+
+def _raw_results(fixture: str, pids: tuple[str, ...] = ()) -> dict[str, Any]:
+    """``raw_results`` of every registered plot, or only of ``pids``."""
     from giap.io.run_view import RunView
     from giap.steps.plots import load_plot_modules
     from giap.viz import base
@@ -157,6 +179,8 @@ def raw_results(fixture: str) -> dict[str, Any]:
     view = RunView.from_outdir(fixture_out(fixture))
     out: dict[str, Any] = {}
     for pid, spec in base.registered().items():
+        if pids and pid not in pids:
+            continue
         if pid == "V16":
             _, loaded, tables = compare_inputs(fixture)
             det, ab = tables["compare_detection"], tables["compare_abundance"]
@@ -166,24 +190,55 @@ def raw_results(fixture: str) -> dict[str, Any]:
     return out
 
 
-@functools.cache
-def rendered(fixture: str) -> dict[tuple[str, str], Any]:
-    """``(pid, stem) -> Instance`` of the snapshot cases of ``fixture`` (cached per process)."""
+def _snapshot_instances(results: dict[str, Any]) -> dict[tuple[str, str], Any]:
     from giap.io.plot_files import stem
     from giap.viz import base
 
-    def run() -> dict[tuple[str, str], Any]:
-        found: dict[tuple[str, str], Any] = {}
-        for pid, result in raw_results(fixture).items():
-            if isinstance(result, base.Skip):
-                continue
-            name = base.registered()[pid].name
-            for inst in keep_instances(pid, list(result)):
-                found[(pid, stem(pid, name, inst.suffix))] = inst
-        return found
+    found: dict[tuple[str, str], Any] = {}
+    for pid, result in results.items():
+        if isinstance(result, base.Skip):
+            continue
+        name = base.registered()[pid].name
+        for inst in keep_instances(pid, list(result)):
+            found[(pid, stem(pid, name, inst.suffix))] = inst
+    return found
 
-    out: dict[tuple[str, str], Any] = styled(run)
+
+#: fixture -> ``rendered(fixture)``, once computed in this process
+_RENDERED: dict[str, dict[tuple[str, str], Any]] = {}
+
+
+def rendered(fixture: str) -> dict[tuple[str, str], Any]:
+    """``(pid, stem) -> Instance`` of the snapshot cases of ``fixture`` (cached per process)."""
+    if fixture not in _RENDERED:
+        _RENDERED[fixture] = styled(lambda: _snapshot_instances(raw_results(fixture)))
+    return _RENDERED[fixture]
+
+
+@functools.cache
+def _rendered_pid(fixture: str, pid: str) -> dict[tuple[str, str], Any]:
+    """``rendered(fixture)`` restricted to plot ``pid``, drawing only that plot."""
+    out: dict[tuple[str, str], Any] = styled(
+        lambda: _snapshot_instances(_raw_results(fixture, (pid,)))
+    )
     return out
+
+
+def _case_keys(fixture: str) -> list[tuple[str, str]]:
+    """The ``(pid, stem)`` keys of ``rendered(fixture)``. Under ``$GIAP_SNAPSHOT_CASES`` (set by
+    ``tests/snapshot/conftest.py`` for the session and inherited by the subprocesses the tests
+    start) the first process to render writes them there and later processes read them."""
+    where = os.environ.get(CASES_ENV)
+    path = Path(where) / f"cases-{fixture}.json" if where else None
+    if path is not None and path.is_file() and fixture not in _RENDERED:
+        return [(pid, s) for pid, s in json.loads(path.read_text(encoding="utf-8"))]
+    keys = list(rendered(fixture))
+    if path is not None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        part = path.with_name(f"{path.name}.{os.getpid()}.part")
+        part.write_text(json.dumps(keys), encoding="utf-8")
+        os.replace(part, path)
+    return keys
 
 
 def cases() -> list[Case]:
@@ -194,7 +249,7 @@ def cases() -> list[Case]:
         why = missing(fixture)
         if why is None:
             try:
-                keys = list(rendered(fixture))
+                keys = _case_keys(fixture)
             except Exception as exc:  # reported by the error case, never at collection
                 why = f"rendering {fixture} raised {type(exc).__name__}: {exc}"
         if why is not None:
@@ -205,14 +260,55 @@ def cases() -> list[Case]:
 
 
 def figure(case: Case) -> Any:
-    return rendered(case.fixture)[(case.pid, case.stem)].figure
+    """The figure of ``case``. A process that took its cases from ``$GIAP_SNAPSHOT_CASES``
+    without rendering, outside the snapshot session (a test's subprocess), draws only
+    ``case.pid``."""
+    key = (case.pid, case.stem)
+    if case.fixture in _RENDERED or SESSION_CACHE is not None:
+        return rendered(case.fixture)[key].figure
+    return _rendered_pid(case.fixture, case.pid)[key].figure
 
 
 # ---------------------------------------------------------------- report and compare pages
 
 
+@contextlib.contextmanager
+def _locked(path: Path) -> Iterator[None]:
+    """An exclusive ``flock`` on ``path`` (no lock where ``fcntl`` is absent)."""
+    try:
+        import fcntl
+    except ImportError:  # pragma: no cover - not POSIX
+        yield
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+
+
 def render_plot_files(fixture: str, plots_dir: Path, formats: tuple[str, ...]) -> None:
-    """Every instance (no locus cap) of every registered plot of ``OUT/`` into ``plots_dir``."""
+    """Every instance (no locus cap) of every registered plot of ``OUT/`` into ``plots_dir``.
+
+    Under ``SESSION_CACHE`` the first call of the session renders into the cache (one worker at
+    a time, under a lock) and every call copies that tree: the renders are byte-identical
+    (``test_snapshot_byte_identity.py``), so the copy is what a fresh render would write."""
+    if SESSION_CACHE is None:
+        _render_plot_files(fixture, plots_dir, formats)
+        return
+    done = SESSION_CACHE / f"plots-{fixture}-{'-'.join(formats)}"
+    with _locked(SESSION_CACHE / f"{done.name}.lock"):
+        if not done.is_dir():
+            part = SESSION_CACHE / f"{done.name}.part"
+            shutil.rmtree(part, ignore_errors=True)
+            _render_plot_files(fixture, part, formats)
+            part.rename(done)
+    shutil.copytree(done, plots_dir, dirs_exist_ok=True)
+
+
+def _render_plot_files(fixture: str, plots_dir: Path, formats: tuple[str, ...]) -> None:
     from giap.io.plot_files import write_instance
     from giap.io.run_view import RunView
     from giap.steps.plots import load_plot_modules
