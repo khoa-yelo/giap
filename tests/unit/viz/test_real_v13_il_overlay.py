@@ -122,3 +122,38 @@ def test_other_residue_differences_do_not_match(tmp_path: Path, cfg: GiapConfig)
     hits = [vl.hit("PEPTIDEQ", "chr1", 5_101, 5_124)]
     spans = _orf_spans(_figure(tmp_path, cfg, "PEPTIDEK", hits))
     assert not _covered(spans, 5_100, 5_124), spans
+
+
+# --------------------------------------------------------------------- #322 review S2
+
+
+def _span_view(tmp: Path, cfg: GiapConfig, peptides: str, hit_peptide: str):  # type: ignore[no-untyped-def]
+    """``start_longest`` NA: ``novel_orfs._span`` falls back to the first placed peptide."""
+    import giap.viz.novel_orfs  # noqa: F401  (registers V13)
+
+    row = {**_orf(peptides), "start_longest": None, "start_best_ostir": None}
+    hits = [vl.hit(hit_peptide, "chr1", 5_101, 5_124)]
+    out = vl.build_out(tmp, novel_orfs=[row], hits=hits)
+    result = base.registered()["V13"].fn(RunView.from_outdir(out), cfg)
+    assert not isinstance(result, Skip), result
+    (view,) = [i for i in result if i.suffix and i.suffix.startswith("locus_")]
+    nv = view.data[view.data["track"] == "novel_orf"]
+    return [(int(r.start), int(r.end)) for r in nv.itertuples()]
+
+
+def test_span_fallback_finds_an_exact_peptide(tmp_path: Path, cfg: GiapConfig) -> None:
+    """Guard: the exact match already works (0-based span from the first peptide to ``end``)."""
+    assert _span_view(tmp_path, cfg, "PEPTIDEK", "PEPTIDEK") == [(5_100, 5_600)]
+
+
+@pytest.mark.parametrize(("orf_pep", "hit_pep"), [("PEPTIDEK", "PEPTLDEK"),
+                                                  ("PEPTLDEK", "PEPTIDEK")])  # fmt: skip
+def test_span_fallback_finds_an_il_variant_peptide(
+    tmp_path: Path, cfg: GiapConfig, orf_pep: str, hit_pep: str
+) -> None:
+    assert _span_view(tmp_path, cfg, orf_pep, hit_pep) == [(5_100, 5_600)]
+
+
+def test_span_fallback_does_not_fold_other_residues(tmp_path: Path, cfg: GiapConfig) -> None:
+    """Guard: K/Q is not folded, so no peptide is found and the 3-bp stop-codon span is used."""
+    assert _span_view(tmp_path, cfg, "PEPTIDEK", "PEPTIDEQ") == [(5_597, 5_600)]

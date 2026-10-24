@@ -7,10 +7,12 @@ small, non-zero SD as "± 0.00" and a narrow interval as "0.02–0.02".
 
 Interface assumed (test-author choice, reported to the lead): ``giap.viz.base.sig(value,
 digits=2) -> str`` is the shared formatter (V07's "q = 0.23" style): ``value`` rounded to
-``digits`` significant digits, no exponent for ``1e-3 <= |value| < 1e4``, ``"NA"`` for ``None`` /
-NaN (the ``base.title_pct`` NA convention). Titles may use 2 or 3 significant digits, so the plot
-tests check that every decimal number has at most 3 significant digits and stays within rounding
-of the input.
+``digits`` significant digits, ``"NA"`` for ``None`` / NaN (the ``base.title_pct`` NA convention),
+zero (and -0.0) as ``"0"``. Lead decision on #322 review B1: plain for ``1e-3 <= |x| < 1e5``,
+otherwise scientific notation with the same significant digits in the house (``%g``) style,
+``"1.2e-12"``; a positive exponent may be written ``e+20`` or ``e20``. Bounded length always.
+Titles may use 2 or 3 significant digits, so the plot tests check that every decimal number
+has at most 3 significant digits and stays within rounding of the input.
 """
 
 from __future__ import annotations
@@ -103,13 +105,80 @@ def test_sig_has_no_exponent_in_the_title_range(value: float) -> None:
     assert _parse(out) == pytest.approx(value, rel=0.05)
 
 
-@given(st.floats(min_value=1e-4, max_value=9.9, allow_nan=False), st.sampled_from([2, 3]))
+@given(st.floats(min_value=1e-3, max_value=9.9, allow_nan=False), st.sampled_from([2, 3]))
 def test_property_sig_rounds_to_the_digits(value: float, digits: int) -> None:
     out = _sig()(value, digits)  # type: ignore[operator]
     got = _parse(out)
     step = 10 ** (math.floor(math.log10(value)) - digits + 1)
     assert abs(got - value) <= 0.5 * step * (1 + 1e-9) + 1e-15, (value, out)
     assert _sig_digits(out) <= digits, (value, out)
+
+
+# --------------------------------------------------------------------- B1: zero and exponents
+
+_SCI = re.compile(r"^-?\d(?:\.\d+)?e[-+]?\d+$")
+
+
+@pytest.mark.parametrize("value", [0, 0.0, -0.0])
+@pytest.mark.parametrize("digits", [2, 3])
+def test_sig_zero_is_zero(value: float, digits: int) -> None:
+    assert _sig()(value, digits) == "0"  # type: ignore[operator]
+
+
+@pytest.mark.parametrize(
+    ("value", "digits", "want"),
+    [(1e-12, 2, "1e-12"), (1.234e-12, 2, "1.2e-12"), (1.234e-12, 3, "1.23e-12"),
+     (-1.7e-17, 2, "-1.7e-17"), (1e-300, 2, "1e-300"), (0.000987, 2, "9.9e-04"),
+     (2.85429e-5, 3, "2.85e-05")],
+)  # fmt: skip
+def test_sig_small_values_use_scientific_notation(value: float, digits: int, want: str) -> None:
+    out = _sig()(value, digits)  # type: ignore[operator]
+    assert _SCI.match(out), out
+    m, e = out.split("e")
+    wm, we = want.split("e")
+    assert (m, int(e)) == (wm, int(we)), (out, want)
+
+
+@pytest.mark.parametrize(
+    ("value", "digits", "want"),
+    [(1.234e20, 2, 1.2e20), (1e100, 2, 1e100), (123_456.0, 2, 1.2e5), (9.87654e250,
+     3, 9.88e250), (-4.2e7, 2, -4.2e7)],
+)  # fmt: skip
+def test_sig_large_values_use_scientific_notation(value: float, digits: int, want: float) -> None:
+    out = _sig()(value, digits)  # type: ignore[operator]
+    assert _SCI.match(out), out
+    assert _parse(out) == want, out
+    assert _sig_digits(out) <= digits, out
+
+
+def test_sig_smallest_subnormal_is_short() -> None:
+    out = _sig()(5e-324)  # type: ignore[operator]
+    assert _SCI.match(out) and len(out) <= 8, out
+    assert out.endswith("e-324"), out
+
+
+@pytest.mark.parametrize("value", [0.0012, 0.5, 99_000.0, 12_345.6])
+def test_sig_stays_plain_inside_the_title_range(value: float) -> None:
+    out = _sig()(value)  # type: ignore[operator]
+    assert "e" not in out.lower(), out
+
+
+@given(
+    st.floats(allow_nan=False, allow_infinity=False).filter(lambda v: v != 0.0),
+    st.sampled_from([2, 3]),
+)
+def test_property_sig_is_short_correctly_rounded_and_plain_only_in_range(
+    value: float, digits: int
+) -> None:
+    out = _sig()(value, digits)  # type: ignore[operator]
+    assert len(out) <= digits + 8, out  # e.g. "-1.23e-300"
+    assert _parse(out) == float(f"{value:.{digits - 1}e}"), (value, out)
+    assert _sig_digits(out) <= digits, (value, out)
+    a = abs(value)
+    if 1.1e-3 <= a < 9e4:
+        assert "e" not in out, (value, out)
+    elif a < 9e-4 or a >= 1.1e5:
+        assert _SCI.match(out), (value, out)
 
 
 # --------------------------------------------------------------------- V02
@@ -195,6 +264,22 @@ def test_v03_index_rounds_the_error_column_text(tmp_path: Path, cfg: GiapConfig)
     assert bad == [], bad
 
 
+def test_v03_tiny_q_prints_in_scientific_notation(tmp_path: Path, cfg: GiapConfig) -> None:
+    """#322 B1: an analytic region q far below 1e-12 must not print a run of zeros."""
+    import giap.viz.locus  # noqa: F401  (registers V03)
+
+    out = vl.build_out(
+        tmp_path,
+        genes=[vl.gene("g1", "chr1", 10_101, 11_000, log2=20.0)],
+        regions_stats=[vl.region_stat("prophage_1", "prophage", "chr1", 10_001, 12_000,
+                                      3.2e-15)],
+    )  # fmt: skip
+    result = base.registered()["V03"].fn(RunView.from_outdir(out), cfg)
+    assert not isinstance(result, Skip), result
+    (inst,) = [i for i in result if i.suffix == "prophage_1"]
+    assert "(q = 3.2e-15)" in inst.title, inst.title
+
+
 # --------------------------------------------------------------------- V13 locus label
 
 
@@ -245,3 +330,22 @@ def test_v15_narrow_interval_ends_stay_distinct(tmp_path: Path, cfg: GiapConfig)
     assert lo < hi, t
     assert (v, lo, hi) == pytest.approx((0.0203, 0.0151, 0.0249), rel=0.05), t
     assert _too_precise(t) == [], t
+
+
+@pytest.mark.parametrize("value", [-1.7e-17, 1e-12, 3.3e-9, -2.5e-6])
+def test_v15_f2_float_noise_is_short(value: float) -> None:
+    """#322 B1: ``_f2`` routes small values through ``sig``; float noise must not print as a
+    long run of zeros."""
+    from giap.viz.determinants import _f2
+
+    out = _f2(value)
+    assert "0000" not in out, out
+    assert len(out) <= 9, out
+    assert _parse(out) == pytest.approx(value, rel=0.05), out
+
+
+def test_v15_title_with_a_float_noise_mean_is_short(tmp_path: Path, cfg: GiapConfig) -> None:
+    t = _v15_title(tmp_path, cfg, en_cv=(-1.7e-17, 0.03, 0.02))
+    m = re.search(r"CV R² (\S+) ± ", t)
+    assert m, t
+    assert "0000" not in m.group(1) and len(m.group(1)) <= 9, t

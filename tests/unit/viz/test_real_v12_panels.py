@@ -131,3 +131,31 @@ def test_b_header_of_a_site_without_a_gene_has_no_python_none(tmp_path: Path) ->
     assert not [t for t in texts if "None" in t], [t for t in texts if "None" in t]
     joined = "".join(t.get_text() for t in _ax(inst, "b").texts)
     assert any(m in joined for m in ("NA aa NA", "intergenic", "–", "NA")), joined
+
+
+# --------------------------------------------------------------------- #322 review N2
+
+
+def test_a_all_label_sits_on_the_tallest_bar_of_its_group(tmp_path: Path) -> None:
+    """Dodged bars: the total is printed at the tallest bar (2), not the stacked sum (4)."""
+    ax = _ax(_render(vv.build_out(tmp_path, SITES, [])), "a")
+    bars = _flag_bars(ax)
+    for t in [t for t in ax.texts if t.get_text().strip().isdigit()]:
+        x, y = t.get_position()
+        group = [b for b in bars if abs(b.get_x() + b.get_width() / 2 - x) <= 0.4 + 1e-9]
+        assert group, (t.get_text(), x)
+        assert y == pytest.approx(max(b.get_height() for b in group)), (t.get_text(), y)
+
+
+def test_b_gene_present_with_aa_pos_na_is_na_safe(tmp_path: Path) -> None:
+    """A site whose gene is known but whose ``aa_pos`` is NA: no "None", the position reads NA,
+    and the site is listed in the data."""
+    row = vv.variant("VAR0002", aa_pos=30, codon_start=7_001)
+    row.update(aa_pos=None)
+    inst = _render(vv.build_out(tmp_path, [vv.variant("VAR0001"), row], []))
+    texts = [t.get_text() for t in inst.figure.findobj(Text) if t.get_text()]
+    assert not [t for t in texts if "None" in t], [t for t in texts if "None" in t]
+    b = inst.data[inst.data["panel"] == "b"]
+    assert "VAR0002" in set(b["variant_id"])
+    joined = "".join(t.get_text() for t in _ax(inst, "b").texts)
+    assert "NA" in joined, joined

@@ -24,6 +24,8 @@ from giap.viz import base, style
 from giap.viz.base import Instance, Skip
 
 MIN_N = 5
+#: M9-06 as amended on 2026-10-24 (#322 review S5): the claim names its eligibility rule
+AMONG = "among categories with ≥ 5 genes"
 LETTERS = "JAKLBDVTMNUOCGEFHIPQRSWYZ"  # 25 COG letters
 
 
@@ -62,6 +64,7 @@ def test_a_single_gene_category_is_not_named_highest(tmp_path: Path) -> None:
     assert title.startswith("J ("), title
     assert "highest median" in title
     assert "6 genes" in title, title
+    assert AMONG in title, title
 
 
 def test_exactly_five_measured_genes_may_carry_the_claim(tmp_path: Path) -> None:
@@ -69,6 +72,7 @@ def test_exactly_five_measured_genes_may_carry_the_claim(tmp_path: Path) -> None
     genes += [g(f"j{i}", "J", 20.0) for i in range(8)]
     title = _render(tmp_path, genes).title
     assert title.startswith("C (") and "highest median" in title, title
+    assert AMONG in title, title
 
 
 def test_no_category_with_five_measured_genes_makes_no_highest_claim(tmp_path: Path) -> None:
@@ -108,3 +112,10 @@ def test_n_over_n_labels_do_not_overlap_at_k12_scale(tmp_path: Path) -> None:
            if min(ea.x1, eb.x1) - max(ea.x0, eb.x0) > 0.5
            and min(ea.y1, eb.y1) - max(ea.y0, eb.y0) > 0.5]  # fmt: skip
     assert bad == [], bad[:5]
+
+
+def test_the_claim_is_scoped_even_when_no_smaller_category_beats_it(tmp_path: Path) -> None:
+    """The wording does not depend on whether a small category has a higher median."""
+    genes = [g(f"j{i}", "J", 22.0 + i) for i in range(6)] + [g("c1", "C", 18.0)]
+    title = _render(tmp_path, genes).title
+    assert title.startswith("J (") and AMONG in title, title
