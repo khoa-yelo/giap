@@ -57,6 +57,7 @@ fi
 
 rc=0
 "$GIAP_PYTHON" "$GIAP_REPO/validation/pilot/run_evidence.py" compare "$CMP" \
-  --second "$TMPDIR/cmp2" --labels A1,A2 --out "$EVIDENCE" || rc=$?
+  --second "$TMPDIR/cmp2" --labels A1,A2 --genes "$OUT_A1/tables/genes.tsv" \
+  --out "$EVIDENCE" || rc=$?
 echo "evidence: $EVIDENCE (exit $rc)"
 exit "$rc"
