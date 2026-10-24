@@ -43,7 +43,7 @@
   "terminators": {
     "bactermfinder": false,
     "cross_check_transtermhp": true,
-    "terminatornet_yes": 0.5,
+    "terminatornet_yes": 0.9999999999961204,
     "tool": "terminatornet"
   },
   "translation_table": 11,
@@ -53,6 +53,6 @@
   ],
   "uniop": {
     "fallback": "distance",
-    "pair_threshold": 0.5
+    "pair_threshold": 0.529415
   }
 }
