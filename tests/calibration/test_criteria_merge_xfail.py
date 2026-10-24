@@ -142,3 +142,28 @@ def test_records_without_owner_fields_merge_as_before(log: Path) -> None:
     ]
     path.write_text("".join(json.dumps(r) + "\n" for r in recs))
     assert C._merge_main(SUITE, True) == C.MERGE_FAIL
+
+
+@pytest.mark.parametrize(("deferred", "want"), [([0, 1, 2], C.MERGE_FAIL), ([0, 2], 0)])
+def test_direct_strict_xfail_test_clean_in_every_shard_is_a_strict_xpass(
+    log: Path, deferred: list[int], want: int
+) -> None:
+    """A strict-xfail test without harness checks that checks its shard's range (A6a) and
+    defers in every block-1 shard (clean range, ``SHARD_SKIP``) is a strict XPASS, as unsharded;
+    with a shard missing there is no XPASS claim."""
+    _shards("discordance.x.other", PASS, "t.py::test_other", None, log)
+    for k in deferred:
+        C.log_test_outcome(
+            SUITE, "t.py::test_a6a", C.DEFERRED, STRICT, log_dir=log, shard=(k, 3, 1)
+        )
+    assert C._merge_main(SUITE, True) == want
+
+
+def test_direct_strict_xfail_test_xfailed_in_one_shard_is_expected(log: Path) -> None:
+    _shards("discordance.x.other", PASS, "t.py::test_other", None, log)
+    for k in (0, 2):
+        C.log_test_outcome(
+            SUITE, "t.py::test_a6a", C.DEFERRED, STRICT, log_dir=log, shard=(k, 3, 1)
+        )
+    C.log_test_outcome(SUITE, "t.py::test_a6a", C.XFAILED, STRICT, log_dir=log, shard=(1, 3, 1))
+    assert C._merge_main(SUITE, True) == 0

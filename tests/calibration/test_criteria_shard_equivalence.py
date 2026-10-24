@@ -7,9 +7,10 @@ test, and strict / non-strict xfails of ADR-0057).
 
 Driven through ``_criteria.main`` exactly as ``calibration_full.sbatch`` drives it
 (``--suite discordance --fast --shard K/3``, then ``--merge``), with ``pytest_args`` pointed at the
-fixture file. Scenarios (``-k``) give the four exit cases: ``ok`` (strict-xfail fail, loose xfail:
-exit 0 both ways), ``xpass`` (strict-xfail pass: non-zero both ways), ``fail`` (unmarked confirmed
-fail: non-zero both ways). Unmarked: runs on every commit (about 30 s).
+fixture file. Scenarios (``-k``) give the exit cases: ``ok`` (strict-xfail fail, loose xfail, a
+strict xfail on ``assert_ok``: exit 0 both ways), ``xpass`` (strict-xfail check passes: non-zero
+both ways), ``direct_xpass`` (strict-xfail partitioned direct test is clean: non-zero both ways),
+``fail`` (unmarked confirmed fail: non-zero both ways). Unmarked: runs on every commit (about 30 s).
 """
 
 from __future__ import annotations
@@ -29,8 +30,9 @@ FIXTURE = HERE / "_shard_fixture_suite.py"
 SUITE = "discordance"
 N = 3
 SCENARIOS = {
-    "ok": "not unmarked_fail and not strict_xfail_pass",
+    "ok": "not unmarked_fail and not strict_xfail_pass and not partitioned_xpass",
     "xpass": "strict_xfail_pass or levels",
+    "direct_xpass": "partitioned_xpass or levels",
     "fail": "unmarked_fail or levels",
 }
 
@@ -86,7 +88,7 @@ def test_three_shards_and_merge_equal_the_unsharded_run(
     assert ref, "the fixture logged no check"
     assert _direct(many) == _direct(one)  # every direct part ran exactly once, as unsharded
 
-    want = {"ok": 0, "xpass": 1, "fail": 1}[scenario]
+    want = {"ok": 0, "xpass": 1, "direct_xpass": 1, "fail": 1}[scenario]
     assert rc_one == want, rc_one
     assert all(rc == 0 for rc in shards), shards  # shards have no verdict of their own
     assert rc_merge == (0 if want == 0 else C.MERGE_FAIL), rc_merge
@@ -103,3 +105,12 @@ def test_ok_scenario_reports_the_expected_failures(
     assert merged[f"{fx}.strict_direct"]["outcome"] == "xfail"  # shard 0's direct failure
     assert merged[f"{fx}.unconfirmed"]["status"] == "unconfirmed"
     assert merged[f"{fx}.unconfirmed"].get("outcome") is None
+    assert merged[f"{fx}.assert_ok"]["outcome"] == "xfail"  # no shard XPASSed it
+
+
+def test_partitioned_direct_test_runs_every_replicate_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A direct test over ``replicate_range`` runs in every shard (each on its own range)."""
+    _sharded(tmp_path, "partitioned_direct", monkeypatch)
+    assert _direct(tmp_path) == Counter(f"part{i}" for i in range(5))

@@ -131,3 +131,31 @@ def test_teeth(teeth_log: Any) -> None:
                       log_dir=teeth_log)  # fmt: skip
     direct("teeth")
     assert rec["status"] == "fail", rec
+
+
+@STRICT
+def test_strict_xfail_assert_ok() -> None:
+    """A strict xfail on ``gate.assert_ok()`` with no skip: unsharded XFAIL; a shard must not
+    XPASS on its no-verdict records (conftest turns that XPASS into a skip, ADR-0057)."""
+    gate = calibrate_levels(S, "level", [0.05], lambda _rng: 0.0, 4, stream=f"{FX}.assert_ok")
+    gate.assert_ok()
+
+
+R_PART = 5
+
+
+def test_partitioned_direct() -> None:
+    """A direct test over ``replicate_range`` (as G2 / A6a): every shard checks its own range."""
+    for i in C.replicate_range(R_PART):
+        direct(f"part{i}")
+        assert C.replicate_rng(f"{FX}.part", i).uniform() < 1.0
+
+
+@STRICT
+def test_partitioned_xpass() -> None:
+    """Strict xfail, partitioned direct check that is clean: unsharded a strict XPASS; sharded each
+    shard skips its clean range, and ``--merge`` must call the test a strict XPASS."""
+    bad = [i for i in C.replicate_range(R_PART) if C.replicate_rng(f"{FX}.px", i).uniform() > 1.0]
+    if not bad and os.environ.get(C.SHARD_ENV):
+        pytest.skip(C.SHARD_SKIP)
+    assert not bad, bad

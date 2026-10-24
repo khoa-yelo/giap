@@ -232,8 +232,9 @@ def _fake_pytest(rc: int) -> Any:
 
 
 def test_shard_run_records_its_completion(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``main --shard K/N`` appends ``{shard, n, block, pytest_exit}`` to ``<suite>.shards.jsonl``
-    after its pytest run, so ``--merge`` can tell a suite without harness checks from dead shards."""
+    """``main --shard K/N`` appends ``{shard, n, block, pytest_exit}`` to
+    ``<suite>.shards.jsonl`` after its pytest run, so ``--merge`` can tell a suite without
+    harness checks from dead shards."""
     monkeypatch.setenv(C.LOG_DIR_ENV, str(tmp_path))
     monkeypatch.setattr(C.subprocess, "run", _fake_pytest(1))
     assert C.main(["--suite", SUITE, "--shard", "1/3"]) == 1
