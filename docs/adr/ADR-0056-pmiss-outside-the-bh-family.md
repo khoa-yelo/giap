@@ -1,5 +1,5 @@
 # ADR-0056: P(miss) is reported without a q and stays out of the discordance BH family
-- Status: proposed
+- Status: accepted-by-khoa (2026-10-24, in session: "Accept it", after the P(miss) interpretation was explained)
 - Date: 2026-10-24
 - Spec sections: §7.4.3 "One detected, one not" and "Multiple testing", §8.1 row "Operon
   discordance", §8.5, §9.3 `pairs.tsv`
