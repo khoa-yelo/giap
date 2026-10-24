@@ -1,5 +1,5 @@
 <!-- m06b -->
-`validation/fetch_regulondb.py` downloads the RegulonDB transcription units, terminators and gene
-coordinates into `$GIAP_DATA_DIR` with SHA-256 provenance, completing the TLS chain the server omits
-with a pinned GlobalSign intermediate (verification is never disabled), and
-`validation/regulondb_truth.py` builds the K-12 pair and terminator truth sets of GIAP_SPEC.md §15.4.
+Operon and terminator calls can be checked against RegulonDB: `validation/fetch_regulondb.py`
+downloads the RegulonDB transcription units, terminators and gene coordinates with SHA-256
+provenance (TLS verification stays on), and `validation/regulondb_truth.py` builds the E. coli
+K-12 pair and terminator truth sets used for validation.
