@@ -297,8 +297,11 @@ def _is_test_side_module(mod: types.ModuleType) -> bool:
     return path is not None and Path(path).resolve().is_relative_to(TESTS_ROOT)
 
 
-def reaches_harness(roots: list[Callable[..., Any]]) -> bool:
-    """True if any function reachable from ``roots`` names a harness entry point."""
+def reaches_harness(
+    roots: list[Callable[..., Any]], targets: frozenset[str] = HARNESS_NAMES
+) -> bool:
+    """True if any function reachable from ``roots`` names one of ``targets`` (default: a harness
+    entry point)."""
     todo = [f for f in map(_test_side, roots) if f is not None]
     seen: set[types.CodeType] = set()
     while todo:
@@ -307,7 +310,7 @@ def reaches_harness(roots: list[Callable[..., Any]]) -> bool:
             continue
         seen.add(fn.__code__)
         names = {n for code in _codes(fn.__code__) for n in code.co_names}
-        if names & HARNESS_NAMES:
+        if names & targets:
             return True
         glob = fn.__globals__
         mods = [glob[n] for n in names if isinstance(glob.get(n), types.ModuleType)]
@@ -325,9 +328,9 @@ def _is_calibration(item: pytest.Item) -> bool:
     )
 
 
-def _item_reaches_harness(item: pytest.Function) -> bool:
+def _item_reaches_harness(item: pytest.Function, targets: frozenset[str] = HARNESS_NAMES) -> bool:
     fixtures = [d.func for defs in item._fixtureinfo.name2fixturedefs.values() for d in defs]
-    return reaches_harness([item.function, *fixtures])
+    return reaches_harness([item.function, *fixtures], targets)
 
 
 def pytest_runtest_setup(item: pytest.Item) -> None:
@@ -343,7 +346,7 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         return
     if C.owns_direct_checks():
         return
-    if not _item_reaches_harness(item):
+    if not _item_reaches_harness(item, SHARD_AWARE_NAMES):
         pytest.skip(SHARD_DIRECT_SKIP)
     if TEETH_FIXTURE in item.fixturenames:
         pytest.skip(TEETH_SKIP)
@@ -355,7 +358,8 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
 # a *direct* part (an assertion on all replicates, a recorded quartile table, a fixed fit): it runs
 # exactly once, where ``C.owns_direct_checks()`` is true (shard 0 of block 1), so its verdict is
 # shard 0's exit code, as it is the unsharded run's. conftest enforces that for whole tests:
-# - a calibration test that reaches no harness entry point runs in shard 0 only;
+# - a calibration test that reaches neither a harness entry point nor ``replicate_range`` runs in
+#   shard 0 only (a test over ``replicate_range`` checks its own shard's replicates everywhere);
 # - a teeth test (``teeth_log``: unsharded by construction, private log) runs in shard 0 only and
 #   never in the confirm run.
 # A harness test with a direct part guards it itself: ``if not C.owns_direct_checks():
@@ -363,6 +367,9 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
 # ``C.skip_without_verdict(recs)`` before asserting on a status.
 
 TEETH_FIXTURE = "teeth_log"
+#: a test naming one of these runs in every shard: harness checks, or a direct check over its own
+#: shard's replicates (``replicate_range``, as G2 / A6a)
+SHARD_AWARE_NAMES = HARNESS_NAMES | {"replicate_range"}
 SHARD_DIRECT_SKIP = "shard run: a test without harness checks runs in shard 0 only"
 TEETH_SKIP = "shard or confirm run: teeth tests run unsharded, in shard 0 only"
 
@@ -388,27 +395,56 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, object, object]:
     try:
         return (yield)
     finally:
+        item.stash[STATUSES_KEY] = C.current_statuses()
         C.set_current_test(None, None)
+
+
+STATUSES_KEY = pytest.StashKey[list[str]]()
+
+
+def _is_xpass(report: pytest.TestReport) -> bool:
+    strict = report.failed and str(report.longrepr).startswith("[XPASS(strict)]")
+    return strict or (report.passed and hasattr(report, "wasxfail"))
 
 
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_makereport(
     item: pytest.Item, call: pytest.CallInfo[None]
 ) -> Generator[None, pytest.TestReport, pytest.TestReport]:
-    """In a shard or confirm run, log an expected failure (XFAIL) of a calibration test, so
-    --merge does not call its passing checks a strict XPASS (ADR-0057)."""
+    """ADR-0057, in a shard or confirm run, for a calibration test with an xfail mark:
+
+    - an XPASS whose harness records all lack a verdict (``shard`` / ``skipped``) is not a pass:
+      the report becomes a skip (``SHARD_SKIP``) and the verdict comes from --merge;
+    - an XFAIL is logged (``xfailed``), so --merge does not call its passing checks an XPASS;
+    - a test without harness records that skipped with ``SHARD_SKIP`` (a clean shard of a direct
+      check over ``replicate_range``) is logged ``deferred`` with its shard: deferred in every
+      shard, it is an XPASS at --merge, as unsharded.
+    """
     report = yield
     if (
-        report.when == "call"
-        and report.skipped
-        and hasattr(report, "wasxfail")
-        and (C.SHARD_ENV in os.environ or C.CONFIRM_ENV in os.environ)
-        and isinstance(item, pytest.Function)
-        and _is_calibration(item)
+        report.when != "call"
+        or (C.SHARD_ENV not in os.environ and C.CONFIRM_ENV not in os.environ)
+        or not isinstance(item, pytest.Function)
+        or not _is_calibration(item)
     ):
-        suite = item_suite(item)
-        if suite is not None:
-            C.log_test_outcome(suite, item.nodeid, C.XFAILED, item_xfail(item))
+        return report
+    xfail = item_xfail(item)
+    suite = item_suite(item)
+    if xfail is None or suite is None:
+        return report
+    statuses = item.stash.get(STATUSES_KEY, [])
+    spec = C.shard_spec()
+    shard = None if spec is None or C.CONFIRM_ENV in os.environ else (*spec, C.replicate_block())
+    if _is_xpass(report) and statuses and all(s in C.NO_VERDICT_STATUSES for s in statuses):
+        report.outcome = "skipped"
+        report.longrepr = (str(item.path), item.location[1] or 0, f"Skipped: {C.SHARD_SKIP}")
+        if hasattr(report, "wasxfail"):
+            del report.wasxfail
+    elif report.skipped and hasattr(report, "wasxfail"):
+        C.log_test_outcome(suite, item.nodeid, C.XFAILED, xfail, shard=shard)
+    elif report.skipped and not statuses and "verdict comes from --merge" in str(report.longrepr):
+        if shard is not None:
+            C.log_test_outcome(suite, item.nodeid, C.DEFERRED, xfail, shard=shard)
     return report
 
 

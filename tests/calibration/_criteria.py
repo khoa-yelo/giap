@@ -98,6 +98,7 @@ SKIPPED_STATUS = "skipped"  # check not listed in GIAP_CALIBRATION_CONFIRM (not 
 NO_VERDICT_STATUSES = frozenset({SHARD_STATUS, PENDING_STATUS, SKIPPED_STATUS})
 SHARD_SKIP = "shard or confirm run: the verdict comes from --merge"
 XFAILED = "xfailed"  # outcome record of a test that failed as expected in a shard (ADR-0057)
+DEFERRED = "deferred"  # outcome record of a direct test that skipped a clean shard (SHARD_SKIP)
 MERGE_FAIL, MERGE_ERROR = 1, 2  # --merge exit codes: confirmed calibration failure / merge error
 MAX_TIE_SHARE = 0.05  # §8.4 discrete-p rule: more repeated values than this means discrete p
 
@@ -497,7 +498,7 @@ def skip_without_verdict(records: Mapping[str, Any] | Sequence[Mapping[str, Any]
 
 #: test that is running (node ID) and its evaluated xfail mark; set by conftest.py around each
 #: test call and written into every record (ADR-0057)
-_OWNER: dict[str, Any] = {"test": None, "xfail": None}
+_OWNER: dict[str, Any] = {"test": None, "xfail": None, "statuses": []}
 
 
 def set_current_test(test: str | None, xfail: Mapping[str, Any] | None) -> None:
@@ -507,6 +508,12 @@ def set_current_test(test: str | None, xfail: Mapping[str, Any] | None) -> None:
     applies to an assertion failure, else None."""
     _OWNER["test"] = test
     _OWNER["xfail"] = None if xfail is None else dict(xfail)
+    _OWNER["statuses"] = []
+
+
+def current_statuses() -> list[str]:
+    """Statuses of the records the current (or last) test got from ``calibrate*``."""
+    return list(_OWNER["statuses"])
 
 
 def log_test_outcome(
@@ -515,16 +522,20 @@ def log_test_outcome(
     outcome: str,
     xfail: Mapping[str, Any] | None,
     log_dir: Path | None = None,
+    shard: tuple[int, int, int] | None = None,
 ) -> Path:
     """Append the outcome of ``test`` in a shard to ``<log_dir>/<suite>.outcomes.jsonl``.
 
     conftest.py writes ``xfailed`` when a test with an xfail mark failed as expected in a shard
-    (a direct assertion of shard 0), so ``--merge`` does not call the test an XPASS."""
+    (a direct assertion of shard 0), so ``--merge`` does not call the test an XPASS, and
+    ``deferred`` when a test without harness checks skipped its clean range (``SHARD_SKIP``):
+    deferred in every block-1 shard ``(K, N, block)`` 0..N-1 is a clean run, i.e. an XPASS."""
     directory = Path(log_dir) if log_dir is not None else _default_log_dir()
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"{suite}.outcomes.jsonl"
     rec = {"suite": suite, "test": test, "outcome": outcome,
-           "xfail": None if xfail is None else dict(xfail)}  # fmt: skip
+           "xfail": None if xfail is None else dict(xfail),
+           "shard": None if shard is None else list(shard)}  # fmt: skip
     with path.open("a") as fh:
         fh.write(json.dumps(rec) + "\n")
     return path
@@ -572,6 +583,8 @@ def _record(
     status: str,
     m: int | None = None,
 ) -> dict[str, Any]:
+    if _OWNER["test"] is not None:
+        _OWNER["statuses"].append(status)
     return {
         "suite": suite,
         "stream": stream,
@@ -813,13 +826,32 @@ def _owned(
     return rec
 
 
-def xfailed_tests(suite: str, log_dir: Path | None = None) -> frozenset[str]:
-    """Tests with an ``xfailed`` outcome record in ``<log_dir>/<suite>.outcomes.jsonl``."""
+def read_outcomes(suite: str, log_dir: Path | None = None) -> list[dict[str, Any]]:
+    """Records of ``<log_dir>/<suite>.outcomes.jsonl`` (``log_test_outcome``), else []."""
     directory = Path(log_dir) if log_dir is not None else _default_log_dir()
     path = directory / f"{suite}.outcomes.jsonl"
-    if not path.exists():
-        return frozenset()
-    return frozenset(str(r["test"]) for r in read_results(path) if r.get("outcome") == XFAILED)
+    return read_results(path) if path.exists() else []
+
+
+def direct_xpasses(
+    outcomes: Sequence[Mapping[str, Any]], checked: set[str]
+) -> list[tuple[str, bool]]:
+    """``(test, strict)`` of xfail tests without harness checks (not in ``checked``) that
+    deferred in every block-1 shard 0..N-1 and never xfailed: clean everywhere, an XPASS."""
+    by: dict[str, list[Mapping[str, Any]]] = {}
+    for o in outcomes:
+        if o.get("xfail") is not None and str(o["test"]) not in checked:
+            by.setdefault(str(o["test"]), []).append(o)
+    out = []
+    for test, os_ in by.items():
+        if any(o["outcome"] == XFAILED for o in os_):
+            continue
+        shards = [o["shard"] for o in os_ if o["outcome"] == DEFERRED and o.get("shard")]
+        b1 = [(int(k), int(n)) for k, n, b in shards if int(b) == 1]
+        ns = {n for _k, n in b1}
+        if len(ns) == 1 and {k for k, _n in b1} == set(range(ns.pop())):
+            out.append((test, bool(os_[0]["xfail"].get("strict"))))
+    return out
 
 
 def apply_xfail(merged: Sequence[dict[str, Any]], xfailed: frozenset[str]) -> list[str]:
@@ -1253,7 +1285,12 @@ def _merge_main(suite: str, full: bool) -> int:
     if not (log_dir() / f"{suite}.jsonl").exists() and _shards_complete(suite):
         # no harness check in the suite (e.g. denovo_precision): its verdicts are the shard exits
         print(f"merge {suite}: no calibrate records; every shard finished (verdicts: shard exits)")
-        return 0
+        direct = direct_xpasses(read_outcomes(suite), set())
+        for test, strict in direct:
+            print(
+                f"merge {suite}: XPASS{'(strict)' if strict else ''} {test}: clean in every shard"
+            )
+        return MERGE_FAIL if any(strict for _t, strict in direct) else 0
     try:
         merged = merge_shards(suite)
         pending = [r for r in merged if r["status"] == PENDING_STATUS]
@@ -1273,10 +1310,17 @@ def _merge_main(suite: str, full: bool) -> int:
         print(f"merge {suite}: no calibrate records in {log_dir()}", file=sys.stderr)
         return MERGE_ERROR
     try:
-        xpass = apply_xfail(merged, xfailed_tests(suite))
-    except (OSError, ValueError, KeyError) as exc:
+        outcomes = read_outcomes(suite)
+        xfailed = frozenset(str(o["test"]) for o in outcomes if o.get("outcome") == XFAILED)
+        xpass = apply_xfail(merged, xfailed)
+        checked = {str(r["test"]) for r in merged if r.get("test") is not None}
+        direct = direct_xpasses(outcomes, checked)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f"merge {suite}: outcome records: {exc}", file=sys.stderr)
         return MERGE_ERROR
+    for test, strict in direct:
+        print(f"merge {suite}: XPASS{'(strict)' if strict else ''} {test}: clean in every shard")
+    xpass += [test for test, strict in direct if strict]
     path = log_dir() / f"{suite}.merged.jsonl"
     path.write_text("".join(json.dumps(r) + "\n" for r in merged))
     print(summary_markdown(merged), end="")
