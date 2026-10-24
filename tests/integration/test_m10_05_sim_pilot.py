@@ -154,12 +154,15 @@ def _doc(w: dict[str, Any]) -> dict[str, Any]:
 
 
 def _d2(w: dict[str, Any]) -> set[str]:
-    from giap.config import resolve_config
-    from giap.io.peptides import read_peptide_table
+    from giap.config import GiapConfig
+    from giap.io.peptides import read_peptide_table, validate_peptides
     from giap.steps.mapping import select_queries
 
-    table, _ = read_peptide_table(w["root"] / "inputs" / "a2.tsv")
-    return set(select_queries(table, resolve_config())["peptide"].astype(str))  # no Cont_ rows
+    man = json.loads((w["out_a2"] / "run_manifest.json").read_text(encoding="utf-8"))
+    cfg = GiapConfig.model_validate(man["config"])  # the run's own config (review S7)
+    raw, _ = read_peptide_table(w["root"] / "inputs" / "a2.tsv")
+    table, _ = validate_peptides(raw, cfg.input)  # GIAP's mapping front end (review S2)
+    return set(select_queries(table, cfg)["peptide"].astype(str))  # no Cont_ rows
 
 
 def test_te1_misses_are_the_planted_truth(world: dict[str, Any]) -> None:
@@ -226,3 +229,10 @@ def test_hypotheses_and_render(world: dict[str, Any]) -> None:
     assert rend.returncode == 0, rend.stdout + rend.stderr
     text = (world["metrics"] / "REPORT.md").read_text(encoding="utf-8")
     assert world["oof"] not in text and world["planted_nonatg"] not in text
+    assert "**missing:" not in text  # every table is present: no marker (review B2)
+    assert (
+        doc["giap_commit"]
+        == json.loads((world["out_a2"] / "run_manifest.json").read_text(encoding="utf-8"))[
+            "git_commit"
+        ]
+    )  # review S4

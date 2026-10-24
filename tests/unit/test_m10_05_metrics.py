@@ -33,9 +33,12 @@ and their arguments, these tests fix the returned keys):
   ``exact_inframe_masked``, ``share_exact_inframe``, ``ci_low``, ``ci_high``, ``passed``,
   ``ci_low_below_threshold``, ``target_q_na``, ``non_atg_nterm`` {peptides, misses},
   ``misses`` {non_atg_nterm, exact_other_gene, exact_other_class: {class: n}, tolerant_only,
-  unplaced: {reason: n}, unknown_source}, ``share_excluding_non_atg`` (a share) and
+  unplaced: {reason: n}} (first match; the counts sum to ``n_misses``), ``unknown_source``
+  (review S1: a separate count, not a miss cause: peptides of D2 none of whose sources is a
+  locus tag of ``genes``), ``share_excluding_non_atg`` (a share) and
   ``share_without_q_at_cutoff`` (a share plus ``removed``, ``q_crossings``,
-  ``pass_becomes_fail``; ``value`` None with ``reason = "no_crossings"`` when q_crossings = 0);
+  ``pass_becomes_fail``; ``value`` None with ``reason = "no_crossings"`` when q_crossings = 0;
+  an empty superset denominator keeps ``pass_becomes_fail`` True with a ``reason``);
   ``exceptions`` is the uncapped miss list (rows ``kind``, ``locus_tag``, ``peptide``, ``hits``),
   kept out of ``te1`` (no sequence enters ``metrics.json``). ``q_crossings`` is a keyword: the
   spec's signature does not carry it, but example 12 needs it;
@@ -48,7 +51,16 @@ and their arguments, these tests fix the returned keys):
 * ``hypothesis3(m4, m5)`` -> ``verdict`` and ``criteria`` {rho, islands, operon_flags,
   enriched_categories}: a status string or a dict with ``status``;
 * ``render(template, metrics, notes) -> str`` (an unresolved path renders ``**missing: <path>**``;
-  a rejected notes text raises ``ValueError``).
+  a rejected notes text raises ``Inconsistent``, review B1: exit 1 means only that);
+* review S2: ``mapping_shares``, ``te1_real`` and ``te1_diagnostic`` take the raw
+  ``read_peptide_table`` frame and build **U** as GIAP's mapping step does,
+  ``select_queries(validate_peptides(P, cfg.input)[0], cfg)``; ``identifications`` (metric 1)
+  keeps the raw rows (its cross-check is against the converter's count on the same file);
+* review S6: a missing compare row is ``reason = "missing_row"`` with ``flags`` None (no
+  synthesized flag);
+* review S9: shares (a share dict, and the scalar keys ``share*`` / ``ci_*``) render with 4
+  significant figures and never as a bare "1" below 1; a dict without ``value`` renders as
+  ``k: v`` pairs (``none`` when empty).
 """
 
 from __future__ import annotations
@@ -975,7 +987,7 @@ def test_render_missing_path_is_marked(m: Any) -> None:
     ],
 )
 def test_render_rejects_notes(m: Any, notes: str) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(m.Inconsistent):  # review B1: a rejected notes file is the exit-1 class
         m.render("# Report\n", METRICS_SMALL, notes)
 
 
@@ -996,3 +1008,350 @@ def test_wilson_ci_reference_values_match_the_spec() -> None:
         wlo, whi = wilson_ci(k, n)
         assert (round(wlo, 3), round(whi, 3)) == (lo, hi), (k, n)
     assert math.isclose(binomtest(12, 14, 0.5, alternative="greater").pvalue, 106 / 16384)
+
+
+# ================================================================== review-round fixes
+# Code review (rev-1005) and statistician review (stat-1005) of 83ba1a99; lead decisions of the
+# review round. One block per finding; S10 rows name the mutant of rev-1005/mutants.log they kill.
+
+
+def _miss_total(misses: Mapping[str, Any]) -> int:
+    return sum(sum(v.values()) if isinstance(v, Mapping) else int(v) for v in misses.values())
+
+
+def _add(
+    w: dict[str, Any],
+    rows: Sequence[tuple[Any, ...]] = (),
+    hits: Sequence[tuple[Any, ...]] = (),
+    unm: Sequence[tuple[str, str, str]] = (),
+) -> None:
+    """Append peptide rows, hit rows and unmapped rows to a ``_te1_world``."""
+    w["P"] = pd.concat([w["P"], _peptides(rows)], ignore_index=True)
+    if hits:
+        w["hits"] = pd.concat([w["hits"], _hits(hits)], ignore_index=True)
+    if unm:
+        w["unm"] = pd.concat([w["unm"], _unmapped(unm)], ignore_index=True)
+
+
+# ---------------------------------------------------------------- S1: unknown_source
+
+
+def test_s1_unknown_source_is_a_separate_count(m: Any, cfg: Any) -> None:
+    """A peptide whose sources hold no locus tag of ``genes`` (a UniProt-like ID, or no ID at
+    all) is counted in ``te1.unknown_source``; it is still a miss under its first-match cause."""
+    w = _te1_world(n_exact=4, n_masked=0, n_nonatg=0, n_outframe=0, n_nohit=0)
+    uni, empty = _pep(900, "UNI"), _pep(901, "EMP")
+    _add(w, [_p(uni, "P12345"), _p(empty, None)],  # type: ignore[arg-type]
+         hits=[(uni, "exact", "cds_inframe", "G1", "chr", 1, 24, "+")],
+         unm=[(empty, "unmapped", "no_hit")])  # fmt: skip
+    te1, exc = _te1(m, cfg, w)
+    assert te1["n_peptides"] == 6 and te1["exact_inframe"] == 4
+    assert te1["unknown_source"] == 2
+    assert "unknown_source" not in te1["misses"]  # a count beside the cause chain
+    assert te1["n_misses"] == 2 == _miss_total(te1["misses"]) == len(exc)
+
+
+def test_s1_unknown_source_zero_on_example_12(m: Any, cfg: Any) -> None:
+    te1, _ = _te1(m, cfg, _te1_world())
+    assert te1["unknown_source"] == 0
+    assert _miss_total(te1["misses"]) == te1["n_misses"] == 4
+
+
+# ---------------------------------------------------------------- S2: validate_peptides first
+
+
+def test_s2_universe_goes_through_validate_peptides(m: Any, cfg: Any) -> None:
+    from giap.io.peptides import validate_peptides
+
+    P = _peptides([
+        _p("PEPTIDEK", "G1"),
+        _p("REVPEPTK", "rev_G1", decoy=None),  # type: ignore[arg-type]  # NA is_decoy: a decoy by prefix
+        _p("PEPT1DEK", "G1"),  # not A-Z only: validate_peptides drops it
+        _p("WWWGGGWWK", " Cont_P00761 ; Cont_P02769"),  # whitespace normalised: contaminant-only
+    ])  # fmt: skip
+    valid, _ = validate_peptides(P, cfg.input)
+    oracle = set(select_queries(valid, cfg)["peptide"].astype(str))  # GIAP's mapping front end
+    assert oracle == {"PEPTIDEK", "WWWGGGWWK"}
+    hits = _hits([("PEPTIDEK", "exact", "cds_inframe", "G1", "chr", 1, 24, "+")])
+    out = m.mapping_shares(P, hits, _unmapped([]), cfg)
+    assert (out["n_universe"], out["n_contaminant_only"], out["n_denominator"]) == (2, 1, 1)
+    te1, _ = m.te1_real(P, hits, _unmapped([]), [G1], {"chr": None}, {}, cfg)
+    assert te1["n_peptides"] == 1 and te1["exact_inframe"] == 1
+    assert m.te1_diagnostic(P, hits, cfg)["n_peptides"] == 1
+
+
+# ---------------------------------------------------------------- S6: reason, not a made-up flag
+
+
+def test_s6_missing_compare_rows_carry_a_reason_and_no_flag(m: Any) -> None:
+    ab = _abundance()
+    m4 = m.abundance_agreement(ab[ab["run_b"] != "A2"], ("A1", "A2"))  # only the A1/A3 row
+    assert m4["reason"] == "missing_row" and m4["flags"] is None
+    assert m4["spearman_rho"] is None and m4["ci_low"] is None
+    m5 = m.stability(_stab([r for r in EX9 if r[0] != "islands"]), ("A1", "A2"))
+    assert m5["islands"].get("reason") == "missing_row" and m5["islands"]["flags"] is None
+    h3 = m.hypothesis3(m4, m5)
+    assert _status(h3["criteria"]["rho"]) == "not_evaluable"
+    assert _status(h3["criteria"]["islands"]) == "not_evaluable"
+    assert h3["verdict"] == "not_evaluable"
+
+
+# ---------------------------------------------------------------- H3 (should-fix 5, decision 6)
+
+
+def test_h3_rho_present_but_ci_low_na_is_not_evaluable(m: Any) -> None:
+    out = _h3(m, _abundance(ci_low=np.nan, ci_high=np.nan), EX9)
+    assert _status(out["criteria"]["rho"]) == "not_evaluable"
+    assert out["verdict"] == "not_evaluable"
+
+
+def test_h3_criteria_carry_rho_ci_and_family_counts_even_when_not_evaluable(m: Any) -> None:
+    """Lead decision 6: H3 is descriptive; rho with its CI and every family's n_a, n_b,
+    n_shared, union and J are reported whatever the verdict."""
+    out = _h3(m, _abundance(flags="too_few_shared"), EX10[:3])
+    rho = out["criteria"]["rho"]
+    assert _status(rho) == "not_evaluable" and out["verdict"] == "not_evaluable"
+    assert rho["rho"] == pytest.approx(0.83)
+    assert rho["ci_low"] == pytest.approx(0.76) and rho["ci_high"] == pytest.approx(0.88)
+    isl = out["criteria"]["islands"]
+    assert (isl["n_a"], isl["n_b"], isl["n_shared"], isl["union"]) == (10, 8, 6, 12)
+    assert isl["jaccard"] == pytest.approx(0.5)
+    op = out["criteria"]["operon_flags"]
+    assert _status(op) == "not_evaluable"
+    assert (op["n_a"], op["n_b"], op["n_shared"], op["union"]) == (0, 0, 0, 0)
+    assert op["jaccard"] is None
+    ec = out["criteria"]["enriched_categories"]
+    assert ec["n_a"] is None and ec["n_b"] == 3 and ec["union"] is None
+
+
+def test_s10_h3_union_exactly_5_is_evaluable(m: Any) -> None:  # mutant 52
+    out = _h3(m, _abundance(), [("islands", 4, 4, 3, 0.6, None), *EX9[1:]])
+    assert out["criteria"]["islands"]["union"] == 5
+    assert _status(out["criteria"]["islands"]) == "holds"
+    assert out["verdict"] == "supported"
+
+
+# ---------------------------------------------------------------- TE1 (should-fix 6, S10)
+
+
+def test_q_at_cutoff_empty_denominator_keeps_the_flag_with_a_reason(m: Any, cfg: Any) -> None:
+    w = _te1_world(n_exact=5, n_masked=0, n_nonatg=0, n_outframe=0, n_nohit=0, n_qcut=5)
+    te1, _ = _te1(m, cfg, w, q_crossings=2)
+    assert te1["passed"] is True
+    sq = te1["share_without_q_at_cutoff"]
+    assert sq["value"] is None and sq["removed"] == 5
+    assert sq["pass_becomes_fail"] is True and sq["reason"] == "empty_denominator"
+
+
+def test_s10_q_at_cutoff_missed_and_mixed_rows(m: Any, cfg: Any) -> None:  # mutants 31, 32
+    """Example 13 plus one missed peptide at q = 0.01 and one exact peptide with rows at 0.01
+    and 0.001 (not all rows at the cut-off: stays in the superset's denominator)."""
+    w = _te1_world(n_exact=995, n_masked=0, n_nonatg=0, n_outframe=0, n_nohit=5, n_qcut=5)
+    cut, mix = _pep(950, "CUT"), _pep(951, "MIX")
+    rows = [_p(cut, "G1", 0.01), _p(mix, "G1", 0.01, run="WT_1"), _p(mix, "G1", 0.001, run="WT_2")]
+    _add(w, rows, hits=[(mix, "exact", "cds_inframe", "G1", "chr", 1, 24, "+")],
+         unm=[(cut, "unmapped", "no_hit")])  # fmt: skip
+    te1, _ = _te1(m, cfg, w, q_crossings=3)
+    assert (te1["n_peptides"], te1["exact_inframe"]) == (1002, 996)
+    sq = te1["share_without_q_at_cutoff"]
+    assert sq["removed"] == 6  # 5 exact + 1 missed, all rows at 0.01; not the mixed one
+    assert_wilson(sq, 991, 996)
+
+
+def test_s10_non_atg_product_that_maps_leaves_both_sides(m: Any, cfg: Any) -> None:  # mutant 35
+    w = _te1_world(n_exact=4, n_masked=0, n_nonatg=1, n_outframe=0, n_nohit=0)
+    mapped = _pep(960, "MEP")
+    _add(
+        w,
+        [_p(mapped, "G2")],
+        hits=[(mapped, "exact", "cds_inframe", "G2", "chr", 70001, 70024, "+")],
+    )
+    w["non_atg"] = {**w["non_atg"], mapped: "G2"}
+    te1, _ = _te1(m, cfg, w)
+    assert (te1["n_peptides"], te1["exact_inframe"]) == (6, 5)
+    assert te1["non_atg_nterm"] == {"peptides": 2, "misses": 1}
+    assert_wilson(te1["share_excluding_non_atg"], 4, 4)
+
+
+def test_s10_target_q_na_needs_every_row_na(m: Any, cfg: Any) -> None:  # mutant 36
+    w = _te1_world(n_exact=3, n_masked=0, n_nonatg=0, n_outframe=0, n_nohit=0)
+    half, alln = _pep(970, "HAL"), _pep(971, "ALL")
+    _add(w, [_p(half, "G1", None, run="WT_1"), _p(half, "G1", 0.001, run="WT_2"),
+             _p(alln, "G1", None)])  # fmt: skip
+    te1, _ = _te1(m, cfg, w)
+    assert te1["n_peptides"] == 5 and te1["target_q_na"] == 1
+
+
+def test_s10_exceptions_sorted_by_locus_tag_before_peptide(m: Any, cfg: Any) -> None:  # mutant 73
+    late, early = _pep(0, "CAA"), _pep(0, "DAA")  # CAA... < DAA..., but its locus tag is later
+    P = _peptides([_p(late, "G2"), _p(early, "G1")])
+    w = {"P": P, "hits": _hits([]), "unm": _unmapped([(late, "unmapped", "no_hit"),
+                                                      (early, "unmapped", "no_hit")]),
+         "genes": [G1, G2], "circular": {"chr": None}, "non_atg": {}}  # fmt: skip
+    _, exc = _te1(m, cfg, w)
+    rows = list(exc.to_dict("records")) if isinstance(exc, pd.DataFrame) else list(exc)
+    assert [(r["locus_tag"], r["peptide"]) for r in rows] == [("G1", early), ("G2", late)]
+
+
+def test_s10_a1_diagnostic_counts_in_frame_rows_only(m: Any, cfg: Any) -> None:  # mutant 38
+    a, b = _pep(980, "DIA"), _pep(981, "DIA")
+    P = _peptides([_p(a, "P00001"), _p(b, "P00002")])
+    hits = _hits([(a, "exact", "cds_inframe", "G1", "chr", 1, 24, "+"),
+                  (b, "exact", "cds_outframe", "G1", "chr", 2, 25, "+")])  # fmt: skip
+    diag = m.te1_diagnostic(P, hits, cfg)
+    assert diag["n_peptides"] == 2 and diag["exact_inframe_any_gene"] == 1
+    assert_wilson(diag["share"], 1, 2)
+
+
+# ---------------------------------------------------------------- metrics 1, 2 (should-fix 7, S10)
+
+
+def test_metric_1_skips_rows_without_protein_ids_in_groups(m: Any) -> None:
+    P = _peptides([_p("PEPTIDEK", "G1"), _p("QQQNNNK", None)])  # type: ignore[arg-type]
+    u = m.identifications(P, PREFIXES)["union"]
+    assert u["peptides"]["all"] == 2
+    assert u["protein_groups"]["all"] == 1 and u["protein_groups"]["non_contaminant"] == 1
+
+
+def test_s10_contaminant_row_last_does_not_win(m: Any) -> None:  # mutants 2, 3
+    P = _peptides([_p("SAMPLEPEPK", "JMJJOG_00350", run="WT_1"),
+                   _p("SAMPLEPEPK", "Cont_P00722", run="WT_2")])  # fmt: skip
+    u = m.identifications(P, PREFIXES)["union"]
+    assert u["peptides"]["contaminant_only"] == 0 and u["peptides"]["non_contaminant"] == 1
+    assert u["precursors"]["contaminant_only"] == 0 and u["precursors"]["all"] == 1
+
+
+def test_s10_d_keeps_a_peptide_with_one_strain_row(m: Any, cfg: Any) -> None:  # mutants 7, 10
+    a, mixed = _pep(990, "STR"), _pep(991, "MXD")
+    P = _peptides([_p(a, "G1"), _p(mixed, "Cont_P00722", run="WT_1"), _p(mixed, "G1", run="WT_2"),
+                   _p("WWWGGGWWK", "Cont_P02769")])  # fmt: skip
+    hits = _hits([(a, "exact", "cds_inframe", "G1", "chr", 1, 24, "+"),
+                  (mixed, "exact", "cds_inframe", "G1", "chr", 1, 24, "+")])  # fmt: skip
+    out = m.mapping_shares(P, hits, _unmapped([]), cfg)  # unmapped.tsv lists no contaminant
+    assert (out["n_universe"], out["n_contaminant_only"], out["n_denominator"]) == (3, 1, 2)
+    assert out["counts"]["exact"] == 2
+    assert out["contaminant_difference"] == 1  # |C| = 1, none listed in unmapped.tsv
+
+
+# ---------------------------------------------------------------- metric 7 (S10)
+
+
+def test_s10_runtime_max_rss_sacct_head_and_trace_hosts(m: Any) -> None:  # mutants 18, 20, 21
+    manifest = {
+        "started_at": "2026-10-22T10:00:00+00:00", "finished_at": "2026-10-22T11:00:00+00:00",
+        "exit_code": 0,
+        "steps": [
+            {"name": "a", "status": "completed", "wall_time_s": 5.0, "peak_rss_bytes": 2 * GIB},
+            {"name": "b", "status": "completed", "wall_time_s": 6.0, "peak_rss_bytes": 3 * GIB},
+        ],
+    }  # fmt: skip
+    trace = [{"hostname": "-"}, {"hostname": ""}, {"hostname": "n1"}, {"hostname": "None"}]
+    sacct = [{"JobID": "123.batch", "State": "COMPLETED", "Elapsed": "00:59:00"},
+             {"JobID": "123", "JobName": "giap-run-a2", "State": "COMPLETED",
+              "Elapsed": "01:00:00", "NodeList": "sh04-01n01"},
+             {"JobID": "123.extern", "State": "COMPLETED", "Elapsed": "01:00:01"}]  # fmt: skip
+    out = m.runtime(manifest, trace, sacct)
+    assert out["max_step_peak_rss_bytes"] == 3 * GIB  # the max of the steps, not their sum
+    assert out["hosts"] == ["n1"]
+    assert out["sacct"]["JobID"] == "123" and out["sacct"]["Elapsed"] == "01:00:00"
+
+
+def test_s10_render_hours_minutes_seconds(m: Any) -> None:  # mutant 60
+    out = m.render("x {{m7.A1.wall_time_s}} y", {"m7": {"A1": {"wall_time_s": 3725.0}}}, None)
+    assert "1:02:05" in out
+
+
+# ---------------------------------------------------------------- H1 (S10)
+
+
+def test_s10_h1_mostly_exactly_half_fails(m: Any) -> None:  # mutant 44
+    out = _h1(m, _ex7(n_plasmid=6))
+    assert out["mostly"]["value"] == pytest.approx(0.5, abs=TOL)
+    assert out["verdict"] == "not_supported" and list(out["failed_clauses"]) == ["mostly"]
+
+
+def test_s10_h1_bgc_genes_count_for_mostly(m: Any) -> None:  # mutant 49
+    spec = [(t, tu, s1, s2, "bgc" if i < 7 else r) for i, (t, tu, s1, s2, r) in
+            enumerate(_ex7(n_plasmid=0))]  # fmt: skip
+    out = _h1(m, spec)
+    assert_wilson(out["mostly"], 7, 12)
+    assert out["verdict"] == "supported"
+
+
+def test_s10_h1_not_evaluable_has_no_failed_clauses(m: Any) -> None:  # mutant 46
+    spec = [("g0", "TU_M", N, D, "plasmid"), ("g1", "TU_M", D, N, ""),
+            *[(f"g{i}", f"TU_{i}", D, D, "") for i in range(2, 10)]]  # fmt: skip
+    out = _h1(m, spec)
+    assert out["verdict"] == "not_evaluable" and list(out["failed_clauses"]) == []
+
+
+# ---------------------------------------------------------------- checklist (S10)
+
+
+def test_s10_checklist_a3_failed_te1_no_data_and_m4_missing_row(m: Any) -> None:  # 56-58
+    cl = m.checklist({"te1": {"n_peptides": 0, "passed": False}, "m4": {"reason": "missing_row"}},
+                     {"A1": 0, "A2": 0, "A3": 1, "compare_ok": True})  # fmt: skip
+    assert [_status(c) for c in cl[:3]] == ["fail", "fail (no data)", "fail"]
+    cl = m.checklist({"te1": {"n_peptides": 10, "passed": False}, "m4": {"spearman_rho": 0.8}},
+                     {"A1": 0, "A2": 0, "A3": None, "compare_ok": True})  # fmt: skip
+    assert _status(cl[1]) == "fail" and _status(cl[2]) == "pass"
+    assert _status(cl[0]).startswith("partial")
+
+
+# ---------------------------------------------------------------- render (S9, S8, S10)
+
+
+def test_s10_notes_reject_a_7_letter_peptide(m: Any) -> None:  # mutant 62
+    with pytest.raises(m.Inconsistent):
+        m.render("# Report\n", METRICS_SMALL, "We saw QQWWRAK here.")
+
+
+def _first_token(text: str) -> str:
+    return text.split()[1]  # "x <value> ..." -> <value>
+
+
+@pytest.mark.parametrize(
+    ("doc", "path"),
+    [
+        ({"te1": {"share_exact_inframe": 0.9996}}, "te1.share_exact_inframe"),
+        ({"te1": {"ci_low": 0.9996}}, "te1.ci_low"),
+        ({"m2": {"A2": {"shares": {"exact": {"value": 0.9996, "ci_low": 0.99, "ci_high": 0.9999,
+                                              "k": 9996, "n": 10000}}}}}, "m2.A2.shares.exact"),
+    ],
+)  # fmt: skip
+def test_s9_share_0_9996_renders_with_4_significant_figures(
+    m: Any, doc: dict[str, Any], path: str
+) -> None:
+    out = m.render("x {{" + path + "}} y", doc, None)
+    assert _first_token(out) == "0.9996", out
+
+
+def test_s9_shares_near_one_never_render_as_one(m: Any) -> None:
+    from hypothesis import given, settings
+    from hypothesis import strategies as st
+
+    @settings(max_examples=200, deadline=None)
+    @given(st.floats(min_value=0.9995, max_value=0.99999))
+    def prop(v: float) -> None:
+        for doc, path in (
+            ({"te1": {"share_exact_inframe": v}}, "te1.share_exact_inframe"),
+            ({"x": {"s": {"value": v, "ci_low": None, "ci_high": None}}}, "x.s"),
+        ):
+            tok = _first_token(m.render("x {{" + path + "}} y", doc, None))
+            assert tok not in ("1", "1.0"), (v, tok)
+            assert abs(float(tok) - v) <= 5e-5, (v, tok)
+
+    prop()
+
+
+def test_render_rho_and_p_values_keep_their_formats(m: Any) -> None:
+    out = m.render("x {{m4.spearman_rho}} y", {"m4": {"spearman_rho": 0.83}}, None)
+    assert _first_token(out) == "0.83"
+
+
+def test_s8_render_breakdown_dicts_as_k_v_pairs(m: Any) -> None:
+    doc = {"te1": {"misses": {"unplaced": {"no_hit": 2, "too_short": 1}, "exact_other_class": {}}}}
+    out = m.render("a {{te1.misses.unplaced}} b {{te1.misses.exact_other_class}} c", doc, None)
+    assert "no_hit: 2" in out and "too_short: 1" in out
+    assert "{'" not in out and "{}" not in out
+    assert "b none" in out

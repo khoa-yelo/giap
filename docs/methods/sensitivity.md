@@ -158,15 +158,31 @@ primary is therefore an independent realisation of the fold assignment, not
   own residual SD, and flags about 4 % of model rows. A variant that changes the CV R² moves the
   threshold for every gene. This set is a reversible default (M8-16 Q2) because §8.6 does not
   define the determinants set.
-- **Agreement.** The top decile is the model rows whose observed `abundance_log2` is at or above
-  the 90th percentile. A top-decile gene's dominant block is the block with the largest positive
-  SHAP sum; it is `None` when no block is positive. `agreement` is computed over the genes in both
-  runs' top deciles, leaving out those whose block is `None` in both runs: it is the share whose
-  dominant block is the same. A gene with a block in one run and `None` in the other counts as a
-  disagreement. `agreement` is NA when no such gene remains. A run compared with itself gives 1.
+- **Agreement.** A gene is *explained* in a run when it is a model row and is not flagged
+  `abundance_not_explained_by_sequence` in that run. "Explained" means only "not flagged at 2
+  residual SD": it is not a claim that the features predict the gene well. Its block is the block
+  with the largest **absolute** LightGBM SHAP sum (ties go to the first block in the order
+  transcription, translation, codon, protein, context); it is `None` when every block sum is 0.
+  The absolute value matters: for a gene predicted below the mean, the block that drives the
+  prediction carries a large negative sum, and M8-08 rule 3 (the largest positive sum) would pick
+  whichever noise block happens to sit just above 0. Under rule 3, `agreement` floored at about 0.7
+  whether or not the features carried signal (PR #299 review). `agreement` is computed over the
+  genes explained in **both** runs: a gene flagged in either run is left out, and so is a gene
+  whose block is `None` in both runs. A gene that is a model row in only one run is left out too.
+  This matters for `single_peptide_detected` and `top3`, which move genes in or out of the model
+  rows; those genes never enter the denominator. `agreement` is the share of the remaining genes
+  whose block is the same. A gene with a block in one run and `None` in the other counts as a
+  disagreement. `agreement` is NA when no such gene remains. A run compared with itself gives 1
+  (NA if none of its explained genes has a block). This follows Khoa's decisions of 2026-10-24
+  (M8-16 lead decision 6, option (a)); before them, `agreement` covered the top decile only and
+  used rule 3. `determinants_attribution.tsv` is unchanged: its `dominant_block` keeps rule 3 and
+  is still reported for the top-decile genes only.
+- **Denominator.** The number of genes behind each variant's `agreement` (`n_agreement`) goes to
+  the event `sensitivity.determinants_cv_r2`, next to the CV R². §8.6 has no column for it.
 - **CV R².** The mean LightGBM CV R² of the primary and of every variant goes to the event
-  `sensitivity.determinants_cv_r2`. §8.6 has no R² column; the manifest's sensitivity summary
-  holds it.
+  `sensitivity.determinants_cv_r2` (`data.cv_r2`; `data.n_agreement` holds the denominators).
+  §8.6 has no R² column, and the manifest's sensitivity block is built from `sensitivity.tsv`
+  only, so the event is the one record of both.
 - **Minimum.** A run with fewer than 100 model rows or 25 TUs is not fitted (M8-10 rule 8). If the
   primary is below the minimum, the family writes no rows and emits
   `sensitivity.determinants_skipped`. If a variant is below it, that variant has no row.
@@ -185,19 +201,24 @@ rows:
 reassigns the folds, so common random numbers are lost, and the difference includes
 fold-assignment noise.
 
-In the statistician's probe (PR #265 review, Slurm 1876267), the design was:
-- planted worlds with n = 400 and 1,500 genes;
-- LightGBM CV R² 0.05–0.77;
-- 11 fold streams on identical data.
+**Fold-noise reference.** The determinants calibration test
+(`tests/calibration/test_determinants_agreement_calibration.py`; PR #299 review) reruns planted
+worlds of 400 genes (log2 abundance = signal × CAI + noise) under fold streams 1–5 against
+stream 0 on identical data, so only the fold assignment differs:
+- with negligible signal (mean LightGBM CV R² 0.01–0.08), `agreement` was 0.73–0.86;
+- with strong signal (CV R² about 0.55–0.59), it was 0.89–0.99.
 
-The results:
-- the Jaccard of the flagged sets against stream 0 was 0.67–1.0 (median about 0.77);
-- `agreement` was 0.85–0.96 at CV R² ≤ 0.15, and 1.0 at CV R² ≈ 0.7.
+On every world, each strong-signal pair beat each no-signal pair; the test gates that separation,
+not the levels. An `agreement` of about 0.8 is therefore what fold noise alone gives when the
+features explain nothing; values near 1 need signal. The Jaccard figures of the earlier probe
+(PR #265 review, Slurm 1876267: 11 fold streams, CV R² 0.05–0.77) still hold for the flagged set:
+0.67–1.0 against stream 0, median about 0.77.
 
 A determinants Jaccard of about 0.7 or more is therefore within fold-assignment noise. Read it
-together with `n_primary`, `n_variant` and `n_shared`. The denominator of `agreement` (the shared
-top-decile genes, about 10 % of model rows) is not in the table, and neither `jaccard` nor
-`agreement` has a confidence interval.
+together with `n_primary`, `n_variant` and `n_shared`. The denominator of `agreement` (the genes
+explained in both runs, most of the model rows) is not in the table; it is `n_agreement` in the
+event `sensitivity.determinants_cv_r2`. Neither `jaccard` nor `agreement` has a confidence
+interval.
 
 ## Interpretation
 
@@ -212,8 +233,8 @@ top-decile genes, about 10 % of model rows) is not in the table, and neither `ja
   topology (C1), the detectability covariates and B = 199 (the primary is recomputed at the same
   B). `missing=<p>` and `top3` also keep detection and `p_detect`, so every O − E p, q and flag is
   identical to the primary's when shifts are exhaustive; above 20,000 genes they can differ only
-  through sampled-shift noise. `single_peptide_detected` keeps the observed abundance values and the TU folds of the
-  detectability fit.
+  through sampled-shift noise. `single_peptide_detected` keeps the observed abundance values and
+  the TU folds of the detectability fit.
 
 - Islands (M5-10) are flagged by one two-sided genome-wide FWER (both directions), not
   by BH. Their IDs are

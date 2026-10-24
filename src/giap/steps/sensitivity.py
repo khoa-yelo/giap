@@ -18,7 +18,8 @@ optional ``tu_folds`` as ``folds`` and the lazy R fgsea engine; it is skipped wi
 ``function`` in ``modules`` or without any resource. ``determinants`` takes the M8-10
 ``determinants_features`` table; it is skipped without it, and writes no row when the primary
 rerun is below the 100-row minimum. Each skip is an event naming the family; the determinants
-CV R² of every run is the event ``sensitivity.determinants_cv_r2``.
+CV R² of every run and each variant's ``agreement`` denominator (``n_agreement``) are the event
+``sensitivity.determinants_cv_r2``.
 
 The registered step ``sensitivity`` (M4-19 decision 16, wired by MVP-01) takes those files as
 explicit inputs instead of a work directory, so ``giap run`` can call it like any other step;
@@ -222,14 +223,18 @@ def _determinants_inputs(paths: Mapping[str, Path]) -> dict[str, object] | None:
 def _cv_event(
     name: str, primary: Mapping[str, S.Flagged], reruns: Mapping[tuple[str, str], S.Flagged]
 ) -> None:
-    """The CV R² of every determinants run (§8.6 has no R² column; spec item 2)."""
+    """The CV R² of every determinants run (§8.6 has no R² column; spec item 2) and, per
+    variant, ``n_agreement``: the genes explained in both runs behind ``agreement``."""
     p = primary[name]
     if not isinstance(p, DeterminantsSensitivity):
         return
     runs = {"primary": p, **{v: r for (f, v), r in reruns.items() if f == name}}
-    data = {k: (float(r.cv_r2) if math.isfinite(r.cv_r2) else None)
-            for k, r in runs.items() if isinstance(r, DeterminantsSensitivity)}  # fmt: skip
-    _log.info("sensitivity: %s CV R² per run", name,
+    det = {k: r for k, r in runs.items() if isinstance(r, DeterminantsSensitivity)}
+    data = {"cv_r2": {k: (float(r.cv_r2) if math.isfinite(r.cv_r2) else None)
+                      for k, r in det.items()},
+            "n_agreement": {k: S.n_agreement(p, r) for k, r in det.items()
+                            if k != "primary"}}  # fmt: skip
+    _log.info("sensitivity: %s CV R² and agreement denominator per run", name,
               extra={"event": "sensitivity.determinants_cv_r2", "data": data})  # fmt: skip
 
 
