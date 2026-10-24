@@ -461,3 +461,43 @@ def test_property_every_violation_reported_once_per_path(
         art, _, rest = f[len("FAIL ") :].partition(": ")
         flagged.add((art, rest.rsplit(": ", 1)[-1]))
     assert flagged == {(names[k], p) for k, p in chosen}, lines
+
+
+# --- review #330 S2 (lead): boundaries the hand mutants survived ------------------------------
+
+
+@pytest.mark.parametrize(("size", "ok"), [(5 * MB, True), (5 * MB + 1, False), (5_000_001, True)])
+def test_5mb_limit_is_strictly_greater_than_5_mib(dist: Path, size: int, ok: bool) -> None:
+    """The R11 limit is 5 MiB (``MB`` here is 2**20): exactly 5 MiB passes (``>``, not ``>=``), and
+    5,000,001 bytes (over a decimal 5 MB) passes too."""
+    _wheel(dist, add={"giap/data/edge.bin": b"\0" * size})
+    _sdist(dist)
+    code, lines = _run(dist)
+    assert (code == 0) is ok, lines
+
+
+def test_hardlink_in_sdist_rejected(dist: Path) -> None:
+    sdist = _sdist(dist)
+    with tarfile.open(sdist, "r:gz") as tf:
+        members = [(m, tf.extractfile(m).read() if m.isfile() else None)  # type: ignore[union-attr]
+                   for m in tf.getmembers()]  # fmt: skip
+    link = tarfile.TarInfo(f"giap-{V}/src/giap/hard.py")
+    link.type, link.linkname = tarfile.LNKTYPE, f"giap-{V}/README.md"
+    with tarfile.open(sdist, "w:gz") as tf:
+        for m, data in members:
+            tf.addfile(m, io.BytesIO(data) if data is not None else None)
+        tf.addfile(link)
+    _wheel(dist)
+    code, lines = _run(dist)
+    assert code == 1, lines
+    assert f"FAIL {_sdist_name()}: symlink: giap-{V}/src/giap/hard.py" in lines, lines
+
+
+def test_metadata_with_two_version_headers_fails(dist: Path) -> None:
+    di = f"giap-{V}.dist-info"
+    meta = _metadata(V, "License-Expression: MIT") + f"Version: {V}\n".encode()
+    _wheel(dist, add={f"{di}/METADATA": meta})
+    _sdist(dist)
+    code, lines = _run(dist)
+    assert code == 1, lines
+    assert [ln for ln in _fails(lines) if ": version: " in ln], lines
