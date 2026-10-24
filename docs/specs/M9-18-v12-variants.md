@@ -114,3 +114,7 @@ never names modifications).
 11. A site with no gene (`gene` / `aa_pos` NA: sixframe or novel-ORF peptides) has no
     `variant_windows` row and is shown unaligned in panel (b) with "(no gene: not aligned)".
     Lead fix with tests in tests/unit/viz/test_v12_review_227.py.
+
+**Amendment (lead, 2026-10-24, viz batch 2 on the M9-25 fixtures; #325 review S3).** The class-error range in the title, and panel (b)'s per-site class-error labels, are printed
+with `base.sig` (2 significant digits, e.g. "0.87–1"). When both ends round to the same text, the
+range prints once.

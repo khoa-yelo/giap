@@ -139,3 +139,7 @@ sites, `<m>` novel ORFs" when those tables exist). Counts only.
     gene tracks (`giap.viz.base.binned`, the duplicate `bin_edges` removed).
 20. NITs (a ring key, absent legend categories, colour scales, NA cell contrast, end-of-sector tick
     label) go to the backlog for the hardening pass.
+
+**Amendment (lead, 2026-10-24, viz batch 2 on the M9-25 fixtures; #325 review S3).** The peptide-density ring is drawn in the neutral envelope grey `style.NEUTRAL_GREY["envelope"]`
+(#CCCCCC; `circos.DENSITY_COLOUR`), not Okabe-Ito grey #999999, so the figure uses one categorical
+palette (§10.1). Not-detected (#BBBBBB) sits on a different ring.

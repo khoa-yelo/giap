@@ -104,3 +104,8 @@ not a test.
 7. **No inputs.** With every input absent, V18 renders both empty texts. It stays optional to skip; the report shows the empty state.
 8. **Marker area.** The area is proportional to n, as pinned.
 9. **Families with no finite p.** They are absent from the TSV, as pinned.
+
+**Amendment (lead, 2026-10-24, viz batch 2 on the M9-25 fixtures; #325 review S3).** A run with no V18 input at all writes one explanatory data row instead of a header-only TSV:
+`panel` NA, `metric` `empty_state`, and `value` naming what is missing ("detectability not
+available; no p-values in this run; null draws not available"). `panel` is therefore enum{a, b}
+or NA (NA only on that row). Runs with any input keep zero rows for each empty panel, as before.

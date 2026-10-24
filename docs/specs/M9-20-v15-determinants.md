@@ -133,3 +133,6 @@ few genes for the determinants model (`<n>` rows, `<t>` TUs)".
    - NA reads "CV R² unestimated", with no "± sd".
    - Panel (d)'s R² text uses the title's formatter, with a Unicode minus.
    - The twin's reversed axis applies to panel (a) only.
+
+**Amendment (lead, 2026-10-24, viz batch 2 on the M9-25 fixtures; #325 review S3).** A determinants model table that is empty (header only) takes the same "too few" empty-state
+branch as one with too few rows (`if model.empty or too_few(model)`).
