@@ -347,9 +347,13 @@ def publish(workdir: Path, outdir: Path) -> list[Path]:
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src, dst)
             done.append(dst)
+    from giap.io.plot_support import drop_sibling
+
     support = outdir / "plots" / "support"
     for key in SUPPORT_OUTPUTS:
         if (workdir / key / "support").is_dir():
+            for f in (workdir / key / "support").iterdir():
+                drop_sibling(support / f.name)
             shutil.copytree(workdir / key / "support", support, dirs_exist_ok=True)
             done += [] if support in done else [support]
     return done

@@ -1,0 +1,13 @@
+{
+  "name": "null_regions_grid",
+  "description": "Percentile-grid form of null_regions (docs/specs/M9-17-plot-support-analysis.md, lead decisions 2 and 8), written by the context_stats step when the exhaustive null_regions file reaches 5 MB (2^20 bytes per MB). Per tested (region, contig, stat): the 1st-99th (numpy linear) percentiles of the null's finite values (±inf and NaN dropped first); a null of K <= 99 finite values keeps its exact values ascending, ranked 1..K; an all-NaN null gives NA null_value rows. In this form p cannot be recomputed from the file; regions_stats p_value and n_perm are authoritative. Not a result table.",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "region_id", "type": "string", "description": "Region (regions_stats.tsv)", "constraints": {"required": true}},
+    {"name": "contig", "type": "string", "description": "Replicon the region was tested on (a region split across contigs has one null per contig)", "constraints": {"required": true}},
+    {"name": "stat", "type": "string", "description": "Test statistic of the region test", "constraints": {"required": true, "enum": ["o_minus_e", "hl_shift"]}},
+    {"name": "percentile", "type": "integer", "description": "Percentile 1-99 of the null; for a null of at most 99 finite values, the 1-based rank of the exact value instead", "constraints": {"required": true, "minimum": 1, "maximum": 99}},
+    {"name": "null_value", "type": "number", "description": "The null's studentised statistic at this percentile (or rank); NA when the null has no finite value"},
+    {"name": "observed", "type": "number", "description": "The observed studentised statistic the null is compared with", "constraints": {"required": true}}
+  ]
+}

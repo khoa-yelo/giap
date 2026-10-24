@@ -37,7 +37,8 @@ Definitions:
 - **Top 6 GSEA sets**: smallest `q_value`, then largest |`nes`|, then collection, term; rows with
   `p_value` NA excluded. `running_es` is fgsea's running sum for that set, computed by the same
   port function the `es` came from; the max-deviation of `running_es` equals the row's `es` to
-  1e-9 (an assertion in the step).
+  1e-9 (an assertion in the step). At a maxP = −minP tie the walk has two equal extremes; the
+  plotted ES is the table's `es`.
 - **SHAP per feature**: the mean over the 25 out-of-fold boosters of `pred_contrib` (the same
   matrix M8-09 sums by block); block sums of this file equal `determinants_attribution` block
   columns to 1e-9.
@@ -49,7 +50,9 @@ Definitions:
 - **Null draws** store the statistic each test compares, not the reported effect: for region
   `o_minus_e` the studentised statistic of ADR-0018 (and its observed value), for `hl_shift` the
   statistic of ADR-0018's amendments; the column header names it. They are the values the step already computes; no extra replicates are drawn, so no
-  RNG stream changes (§6.6).
+  RNG stream changes (§6.6). In the percentile-grid form, p cannot be recomputed from the file;
+  `regions_stats` p and n_perm are authoritative. The determinants null is one CV repeat's R² per
+  permutation, while the observed value is the mean over the repeats (conservative).
 
 ## Degenerate cases
 
@@ -136,6 +139,30 @@ Definitions:
    - **Side issues to check:**
      - sim100k publishes no `null_regions`;
      - determinants.nf emits no `events`.
+8. **Review round (code review and statistician on 1268c1a9; PR #272).**
+   - **Tie (statistician B1, review N3):** at a maxP = −minP tie, the check also accepts
+     `abs(abs(dev) - abs(es)) <= ES_TOL`. V14 takes the ES marker and its sign from the table's `es`.
+   - **Stale sibling (review B1b):** publishing unlinks the other-suffix sibling (`.tsv` vs `.tsv.gz`) before
+     copying, through one helper shared with write_support.
+   - **Plots in `giap run` (review B1a):** owned by M9-21 (the RunView analysis-support lookup and the plots
+     inputs) and m9/support-nf-wiring (runner staging and Nextflow). Not changed here; the
+     integration parity test there pins it.
+   - **Split-contig test (review B2):** a fixture region on two replicons. Two (region, contig, stat) groups,
+     each with its own shifts and observed value, in both the exhaustive and the grid form.
+   - **Small nulls (statistician N1):** in the grid form, a (region, contig, stat) with K ≤ 99 finite values keeps its exact
+     values. Their `percentile` holds the 1-based rank, and a schema note explains it. ±inf values
+     are dropped before percentiles. An all-NaN null writes NA rows (review N5).
+   - **Unused null (statistician N2 = review N8):** no hl_shift null when `hl_variance_nonpositive` is set.
+   - **Island observed (review N2):** `observed_max` is |S|, and a test pins it.
+   - **Wording (statistician N3, review N1):** the null_determinants `cv_r2` description says "pooled
+     out-of-fold R² of one CV repeat; observed is the mean over repeats (conservative)". The
+     null_regions text says the fourth column. The grid form validates against a grid schema
+     (`null_regions_grid.json`). The datapackage notes that a path may resolve to `.gz`.
+   - **Methods note:** the statistician's three sentences, in the spec's "Null draws" and gsea_running definitions.
+   - **Attack tests:** the statistician's R1–R3 and G1 go under tests/calibration/attacks/test_attack_plot_support.py
+     (R3 is a strict xfail until the small-null change, then a hard check).
+   - **Backlogged:** N4 (`attrs` rank labels → explicit return), N6 (SHAP computed twice), N7
+     (redundant filter), PD grid ≤ 0 for LOG_FEATURES.
 9. **The NF wiring (ff2df639) departs from decision 7, and both changes are accepted:**
    - **File glob:** GIAP_STEP's `support` output is the file glob `*_support/support/*`. When the output is a whole directory, Nextflow 26.10 publishes it without showing `saveAs` the files inside, so per-file publishing would be impossible. `supportDir()` re-forms the directory.
    - **The plots step copies the staged support** into its own `plots/support/` (`copy_staged_support`). Publishing `plots/` replaces `OUT/plots/`, which would otherwise wipe the files the analysis steps already published.

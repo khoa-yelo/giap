@@ -157,6 +157,17 @@ def ok_run(registry: ModuleType, env: dict[str, Path], tmp_path: Path) -> Iterat
 # ----------------------------------------------------------------------------- blocks
 
 
+def _calibration() -> dict[str, Any]:
+    from giap.data.calibration import load
+
+    return load()
+
+
+def _uncalibrated_flags() -> set[str]:
+    """The ``uncalibrated:<key>`` run flags calibration.yaml implies (M6-12 C0)."""
+    return {f"uncalibrated:{k}" for k, e in _calibration().items() if not e["calibrated"]}
+
+
 def test_content_manifest_validates(ok_run: Path) -> None:
     m = _manifest(ok_run)
     validate(m)
@@ -202,11 +213,11 @@ def test_calibration_block_and_flags(ok_run: Path) -> None:
 
     m = _manifest(ok_run)
     cal = load()
-    assert set(m["calibration"]) == set(cal) == {"operon_distance", "terminatornet_yes"}
+    assert set(m["calibration"]) == set(cal)
     for key, entry in cal.items():
         assert m["calibration"][key]["calibrated"] is entry["calibrated"]
         assert m["calibration"][key]["provenance"] == entry.get("provenance")
-    assert {"uncalibrated:operon_distance", "uncalibrated:terminatornet_yes"} <= set(m["flags"])
+    assert _uncalibrated_flags() == {f for f in m["flags"] if f.startswith("uncalibrated:")}
     assert m["flags"] == sorted(set(m["flags"]))
 
 
@@ -275,7 +286,7 @@ def test_without_content_steps_the_blocks_are_empty(
     assert m["sensitivity"] == {"level": "basic", "n_rows": 0, "families": {}}
     assert m["context"] == {"replicons": [], "oric": []}
     assert m["operons"] is None and m["mapping"] is None
-    assert set(m["calibration"]) == {"operon_distance", "terminatornet_yes"}
+    assert set(m["calibration"]) == set(_calibration())
     validate(m)
 
 
@@ -333,4 +344,4 @@ def test_step_manifest_reads_the_optional_content_inputs(
     tail = _manifest(ok_run)
     for key in ("sensitivity", "context", "operons", "mapping", "calibration"):
         assert m[key] == tail[key], key
-    assert "uncalibrated:operon_distance" in m["flags"]
+    assert _uncalibrated_flags() <= set(m["flags"])

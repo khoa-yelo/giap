@@ -33,9 +33,9 @@ from giap.io.work_tables import load_tables
 from giap.model.genes import GeneModel
 from giap.steps.mapping import _path, read_gene_model, resolve_search_db
 from giap.steps.registry import InputPath, StepContext, step
-from giap.variants.align import align_hits
+from giap.variants.align import HitAlignment, align_hits
 from giap.variants.error_rates import alt_support, annotate_sites, class_rates, paired_observations
-from giap.variants.flags import flags_for, start_codons
+from giap.variants.flags import flags_for, left_block_site, start_codons
 from giap.variants.pileup import Support, eligible, pileup, sites
 from giap.variants.qc import id_mixups, site_support
 from giap.variants.vcf_records import FORMAT_FIELDS, INFO_FIELDS, vcf_records
@@ -113,10 +113,17 @@ def run_variants_qc(
     st = sites(pile, cfg)
     starts = start_codons(gm)
     alt_peps = st.attrs["alt_peptides"]
-    st["flags"] = [
-        tuple(flags_for(r, starts, cfg, {(support[p].source, support[p].search_db) for p in peps}))
-        for r, peps in zip(st.to_dict("records"), alt_peps, strict=True)
-    ]
+    by_pep: dict[str, list[HitAlignment]] = {}
+    for a in aligns:
+        by_pep.setdefault(a.peptide, []).append(a)
+    tol = cfg.variants.mass_equivalent_tol_da
+    flags = []
+    for r, peps in zip(st.to_dict("records"), alt_peps, strict=True):
+        alt_aligns = [a for p in sorted(peps) for a in by_pep.get(p, ())]
+        left = left_block_site(r, alt_aligns, genome, gm.replicons, tol)
+        alt_src = {(support[p].source, support[p].search_db) for p in peps}
+        flags.append(tuple(flags_for(r, starts, cfg, alt_src, left_block=left)))
+    st["flags"] = flags
     rates = []
     if spectra is not None:
         sup = alt_support(st, alt_peps)

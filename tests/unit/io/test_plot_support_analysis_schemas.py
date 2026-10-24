@@ -98,3 +98,41 @@ def test_pd_schema_says_spread_not_ci() -> None:
         desc = fields[col].get("description", "").lower()
         assert "spread" in desc and "booster" in desc, (col, desc)
         assert "confidence" not in desc or "not a confidence" in desc, (col, desc)
+
+
+# ----------------------------------------------------------------------------- review round
+# Lead decision 8 (PR #272): the grid form's own schema and the wording fixes.
+
+
+def test_grid_schema_fields_are_the_grid_columns() -> None:
+    """``plot_support/null_regions_grid.json``: ``sa.GRID_COLUMNS`` in order, ``NA`` missing,
+    ``percentile`` an integer 1..99 whose description says it is the 1-based rank for a null of
+    at most 99 finite values (statistician N1)."""
+    schema = _schema("null_regions_grid")
+    assert [f["name"] for f in schema["fields"]] == list(sa.GRID_COLUMNS)
+    assert "NA" in schema.get("missingValues", [])
+    assert schema.get("name") == "null_regions_grid"
+    f = _fields("null_regions_grid")
+    assert f["percentile"]["type"] == "integer"
+    c = f["percentile"].get("constraints", {})
+    assert c.get("minimum") == 1 and c.get("maximum") == 99, c
+    assert "rank" in f["percentile"].get("description", "").lower()
+    for col in ("null_value", "observed"):
+        assert f[col]["type"] == "number", col
+    assert set(f["stat"]["constraints"]["enum"]) == {"o_minus_e", "hl_shift"}
+
+
+def test_null_regions_schema_names_the_fourth_column() -> None:
+    """Review N1: the grid's ``percentile`` replaces ``shift_k``, the fourth column (``contig``
+    is the second), not the third."""
+    text = _schema("null_regions")["description"].lower()
+    assert "fourth column" in text, text
+    assert "third column" not in text, text
+
+
+def test_null_determinants_cv_r2_says_one_repeat_and_conservative() -> None:
+    """Statistician N3: ``cv_r2`` is the pooled out-of-fold R² of one CV repeat; the observed
+    value is the mean over repeats (conservative)."""
+    desc = _fields("null_determinants")["cv_r2"].get("description", "").lower()
+    for word in ("pooled", "out-of-fold", "one cv repeat", "conservative"):
+        assert word in desc, (word, desc)

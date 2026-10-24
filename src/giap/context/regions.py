@@ -486,7 +486,7 @@ def _test_region(
         k_hl = int(np.count_nonzero(~np.isnan(null)))
         p_hl = perm_p(float(t_all[0]), null) if k_hl and not nonpos else na
         hflag = ("hl_variance_nonpositive",) if nonpos else ()
-        if k_hl:
+        if k_hl and not nonpos:  # no null to plot without a p (M9-17 decision 8)
             nulls.append(RegionNull(region_id, contig, "hl_shift", shifts, null, float(t_all[0])))
         hd = pd.DataFrame({"tu": tu[ok], "a": a[ok], "in": inside[ok].astype(np.float64)})
         hci = tu_block_bootstrap(hd, "tu", _hl_of, B, rng, strata_col="in")
