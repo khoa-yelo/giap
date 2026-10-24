@@ -1,0 +1,63 @@
+// M6-05H: main.nf hands MAPPING's C11 `peptide_hits.tsv` to the operons py step, which fits
+// M6-02's detection-limit model on it and scores the one-detected OP pairs with P(miss)
+// (docs/specs/M6-05-discordance.md item 4; review of #311, S3). Stub runs only; ci.yml runs:
+// nf-test test workflow/tests --profile test,stub.
+//
+// Pinned here (test author): the operons task gets the key `peptide_hits`, staged as a file named
+// `peptide_hits.tsv` that comes from the same task directory as the one context_stats stages
+// (MAPPING's loci output). Without peptides there is no gene table and OPERONS does not run
+// (main_operons.nf.test), so there is no peptide_hits case to pin.
+
+nextflow_pipeline {
+
+    name "main.nf wires peptide_hits into OPERONS (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "operons"
+
+    test("peptides given: operons stages MAPPING's peptide_hits.tsv") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                annotation = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+
+            def nameOf = { File dir -> (new File(dir, '.command.run').readLines().find { it.startsWith('### name:') } ?: '').replaceFirst(/^### name:\s*['"]/, '').replaceFirst(/['"]\s*$/, '') }
+            def byTag = { String s -> H.taskDirs(work).findAll { dir -> H.tagOf(nameOf(dir)) == s } }
+            def ops = byTag('operons')
+            assert ops.size() == 1 : "operons ran ${ops.size()}x; tasks: ${H.names(workflow.trace)}"
+            def oin = H.stepInputs(ops[0])
+            def keys = oin.collect { it[0] }.toSet()
+            assert 'peptide_hits' in keys : "peptide_hits not wired into operons: ${keys}"
+            def hits = oin.findAll { it[0] == 'peptide_hits' }
+            assert hits.size() == 1 : "peptide_hits staged ${hits.size()}x: ${oin}"
+            assert new File(hits[0][1]).name == 'peptide_hits.tsv' : "operons peptide_hits is ${hits[0][1]}"
+
+            // the same C11 file context_stats reads: both resolve into MAPPING's task directory
+            def real = { File dir, String name ->
+                H.staged(dir).collect { new File(it[0]) }.findAll { it.name == name }.collect { it.canonicalPath }
+            }
+            def fromOps = real(ops[0], 'peptide_hits.tsv')
+            def fromCtx = real(byTag('context_stats')[0], 'peptide_hits.tsv')
+            assert fromOps.size() == 1 && fromCtx.size() == 1 : "staged peptide_hits.tsv: operons ${fromOps}, context_stats ${fromCtx}"
+            assert fromOps[0] == fromCtx[0] : "operons and context_stats stage different peptide_hits.tsv: ${fromOps} vs ${fromCtx}"
+        }
+    }
+}
