@@ -73,6 +73,7 @@ __all__ = [
     "islands_frame",
     "low_direction_ceiling",
     "scan_replicons",
+    "scan_with_nulls",
     "tu_series",
 ]
 
@@ -412,6 +413,13 @@ def _is_scanned(ts: TuSeries, cfg: GiapConfig) -> bool:
 def scan_replicons(
     series: Sequence[TuSeries], cfg: GiapConfig, rng: np.random.Generator
 ) -> IslandScan:
+    """The scan (``scan_with_nulls`` without the per-replicon nulls); see there."""
+    return scan_with_nulls(series, cfg, rng)[0]
+
+
+def scan_with_nulls(
+    series: Sequence[TuSeries], cfg: GiapConfig, rng: np.random.Generator
+) -> tuple[IslandScan, tuple[F64, ...]]:
     """Scan every replicon against one genome-wide null maximum (§7.3.5(d) steps 4-6).
 
     Parameters
@@ -427,8 +435,10 @@ def scan_replicons(
 
     Returns
     -------
-    IslandScan
-        One ``null_max`` for the whole genome (decisions 21 and 46): M_b is the maximum of
+    (IslandScan, per-replicon null maxima)
+        Second item (M9-17 V18): per replicon its own max |S_w| per replicate (empty when not
+        scanned); their ``fmax`` is ``null_max``. One ``null_max`` for the whole genome
+        (decisions 21 and 46): M_b is the maximum of
         |S_w| over the windows of every scanned replicon, so a replicon that is not scanned
         contributes nothing and draws nothing. Windows are significant when ``p <= alpha``, so a
         NaN p never counts (decision 42).
@@ -447,11 +457,14 @@ def scan_replicons(
         block_len.append(ell)
 
     null = np.full(n_boot, np.nan) if any(scanned) else np.zeros(0, dtype=np.float64)
+    per: list[F64] = []
     for ts, ok, ell in zip(series, scanned, block_len, strict=True):
         if not ok:
+            per.append(np.zeros(0, dtype=np.float64))
             continue
         reps = circular_block_bootstrap(ts.detrended, ell, n_boot, rng)
-        np.fmax(null, scan_null_max(reps, wmin, wmax, ts.circular), out=null)
+        per.append(np.asarray(scan_null_max(reps, wmin, wmax, ts.circular), dtype=np.float64))
+        np.fmax(null, per[-1], out=null)
 
     windows: list[ScanResult] = []
     p_values: list[F64] = []
@@ -485,7 +498,7 @@ def scan_replicons(
         null_max=null,
         n_perm=int(np.count_nonzero(~np.isnan(null))),
         flags=tuple((FEW_VALUES,) if not ok else () for ok in scanned),
-    )
+    ), tuple(per)
 
 
 # ----------------------------------------------------------------------------- the table

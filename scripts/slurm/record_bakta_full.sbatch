@@ -42,7 +42,7 @@ for s in ${SAMPLES:-sim100k k12_mg1655 nissle1917}; do
   "$UV_PROJECT_ENVIRONMENT/bin/giap" preflight --genome "$GENOME" --proteins "$d/placeholder.faa" \
     --outdir "$d/preflight"
   w="$d/preflight/work/preflight"
-  mapfile -t CMD < <("$PY" - "$w/genome.norm.fa" "$d/bakta" "$s" "$DB" "$w/replicons.tsv" <<'EOF'
+  CMD=(); while IFS= read -r a || [ -n "$a" ]; do CMD+=("$a"); done < <("$PY" - "$w/genome.norm.fa" "$d/bakta" "$s" "$DB" "$w/replicons.tsv" <<'EOF'
 import sys
 from pathlib import Path
 from giap.annotate.bakta_cmd import bakta_command

@@ -31,7 +31,7 @@ from matplotlib.text import Text
 
 from giap.io.plot_files import read_png, write_png
 from giap.io.tsv import read_tsv
-from giap.viz import detection, style
+from giap.viz import circos, detection, style
 from giap.viz.base import Instance
 
 ITEMS: tuple[str, ...] = (
@@ -57,7 +57,7 @@ MACHADO_DEUTERANOPIA: np.ndarray = np.array(
 UNITLESS: tuple[str, ...] = (
     "log2 abundance", "q", "lfdr", "local fdr", "fdr", "\u03c1", "nes", "p-value", "p_detect",
     "counts", "count", "checks", "genes", "peptides", "placements", "density", "fraction",
-    "rate", "category", "score bin",
+    "rate", "category", "score bin", "tus",
 )  # fmt: skip
 MIN_PT = 6.0  # index decision 31, lead decision 2
 WIDTHS_IN = (style.SINGLE_IN, style.DOUBLE_IN)
@@ -209,14 +209,25 @@ def _tsv(files: Sequence[Path], pid: str, name: str, empty: bool) -> tuple[bool,
 
 
 def _elements(fig: Figure) -> tuple[bool, str]:
+    """Counts per axes and, within one axes, per V1 track ``gid`` (``circos.TRACK_GIDS``; M9-24:
+    V1's polar axes holds every track). Any other gid and untagged artists count together as one
+    group per axes (M9-26 lead decision 4, B1); every group is gated at ``MAX_ELEMENTS``."""
     worst: list[str] = []
     for i, ax in enumerate(fig.axes):
-        n = len(ax.patches) + len(ax.lines) + len(ax.texts)
-        n += sum(
-            max(len(np.asarray(c.get_offsets())), len(c.get_paths()), 1) for c in ax.collections
-        )
-        if n > MAX_ELEMENTS:
-            worst.append(f"axes {i}: {n:,} elements")
+        counts: dict[str | None, int] = {}
+
+        def add(gid: str | None, n: int, counts: dict[str | None, int] = counts) -> None:
+            key = gid if gid in circos.TRACK_GIDS else None
+            counts[key] = counts.get(key, 0) + n
+
+        for a in [*ax.patches, *ax.lines, *ax.texts]:
+            add(a.get_gid(), 1)
+        for c in ax.collections:
+            add(c.get_gid(), max(len(np.asarray(c.get_offsets())), len(c.get_paths()), 1))
+        for gid, n in counts.items():
+            if n > MAX_ELEMENTS:
+                where = f"axes {i}" if gid is None else f"axes {i} track {gid}"
+                worst.append(f"{where}: {n:,} elements")
     return (not worst, "; ".join(worst) or "ok")
 
 
