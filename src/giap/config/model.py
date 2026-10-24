@@ -95,7 +95,7 @@ class BaktaConfig(_Strict):
 
 
 class UniopConfig(_Strict):
-    pair_threshold: float = 0.5
+    pair_threshold: float = 0.529415
     fallback: Literal["distance"] = "distance"
 
 
@@ -114,7 +114,7 @@ class TerminatorsConfig(_Strict):
     tool: TerminatorTool = "terminatornet"
     cross_check_transtermhp: bool = True
     bactermfinder: bool = False
-    terminatornet_yes: float = 0.5
+    terminatornet_yes: float = 0.9999999999961204
 
 
 class OstirConfig(_Strict):

@@ -105,7 +105,11 @@ def cfg(
     terminatornet_yes: float | None = None,
     alpha: float | None = None,
 ) -> GiapConfig:
-    """Default config with the three M6-07 knobs optionally overridden."""
+    """Default config with the three M6-07 knobs optionally overridden. ``terminatornet_yes``
+    defaults to 0.5, the threshold the M6-07 examples were written for, not the calibrated default
+    (ADR-0022, M6-12 part C)."""
+    if terminatornet_yes is None:
+        terminatornet_yes = 0.5
     data: dict[str, Any] = {"seed": 1}
     ann: dict[str, Any] = {}
     if promotech_yes is not None:

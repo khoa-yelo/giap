@@ -29,7 +29,7 @@ annotation:
   translation_table: 11
   start_codons: [ATG, GTG, TTG]
   region_min_overlap_frac: 0.5                        # gene in region if ≥50 % of its CDS lies inside
-  uniop: {pair_threshold: 0.5, fallback: distance}    # threshold replaced by calibration (§15.4)
+  uniop: {pair_threshold: 0.529415, fallback: distance}    # calibrated, ADR-0022 (§15.4)
   tu_upstream_bp: [-300, 50]                          # TU upstream region around the first start codon
   promoters:
     mode: targeted                                    # targeted | genome
@@ -41,7 +41,7 @@ annotation:
     tool: terminatornet                               # terminatornet | transtermhp
     cross_check_transtermhp: true
     bactermfinder: false
-    terminatornet_yes: 0.5                            # placeholder; replaced by RegulonDB calibration (§15.4)
+    terminatornet_yes: 0.9999999999961204             # calibrated, ADR-0022 (§15.4)
   ostir: {upstream_nt: 50, downstream_nt: 50, anti_sd: auto}   # auto = 3′ end of the strain's 16S rRNA
   codon: {cai_reference: ribosomal_proteins}
   precomputed:                                        # developer/test injection (§6.4); null = run the tool
