@@ -5,8 +5,9 @@ which ``test_attack_operons.py`` records with the *oracle* P(miss); M6-index lea
 Statistician's attack. ``test_attack_operons.py::test_attack_c_through_the_step`` only probes that
 the step makes ``one_detected_pmiss`` rows; here the M6-02 model is *fitted* and P(miss) comes from
 the step's own chain: ``giap.steps.operons.detection_limit`` (``fit_detection_limit`` with the
-``operons.detection_limit`` RNG stream, ``p_miss_for_genes``) feeding
-``giap.operons.discordance.discordance`` - the call ``run_operons`` makes. Only ``pair_frame`` is
+``operons.detection_limit`` RNG stream, ``p_miss_for_genes``: the out-of-fold model of the seen
+partner v's TU) feeding ``giap.operons.discordance.discordance`` with the step's ``n_seen`` /
+``k_min`` one-detected event - the call ``run_operons`` makes. Only ``pair_frame`` is
 bypassed: the simulated pair table is used directly, as everywhere in the M6-09 gate.
 
 Data. Replicate ``i`` draws one 1,800-gene genome with ``giapsim.simulate_operons`` (TU blocks,
@@ -205,7 +206,11 @@ def step_replicate(arm: str, i: int) -> StepRep:
         pairs[f"abundance_log2_{side}"] = obs[ix]
     pairs["delta_log2"] = pairs["abundance_log2_b"] - pairs["abundance_log2_a"]
     genes = pd.DataFrame({"locus_tag": tags})
-    res = discordance(pairs, genes, cfg, p_miss)
+    seen_kw: dict[str, Any] = {}
+    if fit.model.usable:  # as operons_step: the k_min event only with a usable model
+        g_aa = gt.assign(aa=lg["aa"].to_numpy())
+        seen_kw = {"n_seen": dl.observable_peptides_seen(g_aa, c11, cfg), "k_min": fit.model.k_min}
+    res = discordance(pairs, genes, cfg, p_miss, **seen_kw)
     rows = res.rows
     tt = rows["test"].to_numpy()
     pm_rows = rows[tt == "one_detected_pmiss"]
@@ -225,7 +230,7 @@ def step_replicate(arm: str, i: int) -> StepRep:
                 kv, ku = pos[str(v)], pos[str(u)]
                 if not det[kv] or x_of[str(u)].shape[0] == 0:
                     continue
-                coef = dict(dl.model_for_tu(m, tu_of.get(str(u), "")).coef)
+                coef = dict(dl.model_for_tu(m, tu_of.get(str(v), "")).coef)  # v's TU (M6-02 d9)
                 a_v = float(obs[kv])
                 r = ratios if down else up
                 xs = x_of[str(u)]
