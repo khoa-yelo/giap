@@ -53,6 +53,6 @@
   ],
   "uniop": {
     "fallback": "distance",
-    "pair_threshold": 0.529415
+    "pair_threshold": 0.5
   }
 }

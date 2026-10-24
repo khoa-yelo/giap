@@ -95,7 +95,7 @@ class BaktaConfig(_Strict):
 
 
 class UniopConfig(_Strict):
-    pair_threshold: float = 0.529415
+    pair_threshold: float = 0.5
     fallback: Literal["distance"] = "distance"
 
 

@@ -1248,7 +1248,7 @@
           "type": "string"
         },
         "pair_threshold": {
-          "default": 0.529415,
+          "default": 0.5,
           "title": "Pair Threshold",
           "type": "number"
         }

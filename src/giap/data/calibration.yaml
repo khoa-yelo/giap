@@ -12,15 +12,15 @@ operon_distance:
   auroc: 0.9067313255841931
   n_pairs: 2739
 uniop_pair_threshold:
-  value: 0.529415
-  provenance: "RegulonDB 14.5.0 K-12, ADR-0022 (M6-12)"
+  value: 0.5
+  provenance: "RegulonDB 14.5.0 K-12, ADR-0022 (M6-12); 0.5 by Khoa's decision 2026-10-24"
   calibrated: true
   regulondb_version: "14.5.0"
   date: "2026-10-24"
-  rule: precision_0.90
+  rule: khoa_fixed_0.5
   auroc: 0.910877249265283
-  precision: 0.901659496004917
-  recall: 0.8479768786127168
+  precision: 0.8956310679611651
+  recall: 0.8531791907514451
   n_pairs: 2739
 terminatornet_yes:
   value: 0.9999999999961204

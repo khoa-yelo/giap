@@ -29,7 +29,7 @@ annotation:
   translation_table: 11
   start_codons: [ATG, GTG, TTG]
   region_min_overlap_frac: 0.5                        # gene in region if ≥50 % of its CDS lies inside
-  uniop: {pair_threshold: 0.529415, fallback: distance}    # calibrated, ADR-0022 (§15.4)
+  uniop: {pair_threshold: 0.5, fallback: distance}    # Khoa 2026-10-24, ADR-0022 (K-12 precision 0.896)
   tu_upstream_bp: [-300, 50]                          # TU upstream region around the first start codon
   promoters:
     mode: targeted                                    # targeted | genome
