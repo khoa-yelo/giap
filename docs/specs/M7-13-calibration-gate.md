@@ -386,3 +386,109 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
    - **Known consequence:** task 13 is red every night while ADR-0049 is open. The merge-side
      known-failures list (statistician N3) moves up the backlog, so that new failures stay visible.
    - Next: a confirm check of the fast suite on Slurm, then the queue.
+
+## Lead decisions, M7-13b (2026-10-23)
+1. **Test-author (6f27c93a): readings accepted.**
+   - Vacuity: a vacuous check skips as "vacuous". List size counts ORFs (finite q or `lost_pick`)
+     per `fdr_class`, and de novo counts ORFs too.
+   - G4-k3 injects only into the three six-frame classes. Rule 8's reversed stretches are
+     `k // 2` reads with a 3–6-residue internal reversal. GC attack: 40 intergenic segments from
+     the GC-poorest quartile, gated at every level, fast tier only. Attack d pools the three
+     six-frame classes; nterm keeps its locus-tag list. Attacks a, b, d and GC run in the fast
+     tier only.
+   - The new `fdr_counts` criterion in `_criteria`, which keeps rule-6 vacuity across `--merge`,
+     is accepted.
+2. **The simulator gap is fixed upstream.** In `novel_orf_power`, giapsim target rows carry
+   `NOVEL_…` and `sixframe:…` IDs, not makedb entry IDs, so picked lists held 38–60 ORFs per class
+   (Slurm 1873143). M7-11b lead decision 9 (#256) fixes giapsim. M7-13b merges #256 when it
+   lands and re-measures; no M7-13b number before then counts.
+3. **Degenerate cases: the spec stands.** A class with ORFs `unestimated` for `paired_share_low`,
+   `decoys_unscored`, `no_makedb_pair`, `decoys_not_makedb` or `denovo_inputs_missing` fails that
+   class's G4 checks. Separately, calls made through the fallback are left out of the FDP and
+   recorded per class (statistician note, #256). The two do not conflict: the first is a
+   failure condition, the second is accounting for the calls that remain.
+4. **G4-k3 (block 1: intergenic 0.021 > 0.017; cds_outframe and antisense about 0.07 > 0.011 at
+   0.01).** These stay plain tests until a full-tier run confirms them. If it does, they become
+   strict xfails naming the method ADR for decision 3 (the per-ORF minimum q, which the M7-11b
+   statistician also flags as anti-conservative). The tolerance is never widened (R3).
+5. **Next:** the implementer (`_m7_gate.py` novel helpers, `_criteria.FDR_COUNTS`, the gate
+   harness), working against #256's source. Then the full-tier run, after the giapsim fix.
+6. **Implementer (00b0cb16): accepted, with one lead test edit.**
+   - The readings are accepted: vacuous records carry `observed` = mean FDP and `bound` null;
+     `fdp_of` refuses bools, non-integers and negatives; `match_novel` counts mismatches per
+     prediction and takes the first truth row per key; boolean-like strings are case-insensitive.
+   - `test_shards_merge_to_the_unsharded_verdict` contradicted the §8.4 FDP criterion (two FDP 0.5
+     of six pass the bound 0.26). The lead makes block 1 hold five, so it fails.
+   - Measured on #256's source (Slurm 1873888, fast tier, R = 10): G3 and G4 pass; G4 nterm fails
+     only on `no_makedb_pair` (22 over 10 replicates), which goes back to #256's giapsim fix; G4-k3
+     fails as decision 4 foresaw (the full tier decides); attacks a and d have no teeth, which goes
+     to the statistician (attack-null owner) before any change.
+   - Measuring against another branch's giapsim needs `-o pythonpath=<that>/tests/sim`, because
+     `pyproject.toml` puts this branch's `tests/sim` first (backlog).
+   - Next: #256 nterm fix; the statistician on attacks a and d; then the full tier.
+7. **Statistician on attacks a and d (Slurm 1874863; probes in local/stat/m713b-attacks/):
+   accepted.**
+   - **Cause:** the scenario, not the criterion or the harness. giapsim draws wrong peptides one
+     product at a time over a large non-coding pool, so nearly every false ORF has one peptide and
+     fails the class rule. The "no filter" set is already ≥ 95 % true (intergenic 0.055 at q 0.10),
+     and pooling (d) cannot exceed it. G4's own cds_outframe/antisense picked checks are close to
+     vacuous for the same reason.
+   - **Fix (test-side, giapsim unchanged):** a clustered-null arm. Per replicate, on the gate seed
+     and its own stream, M = 400 null `antisense` makedb entries are added: non-coding stop-to-stop
+     segments with ≥ 5 products that the simulation did not hit, each sent to the target or decoy
+     side with p = 1/2, with k = 3–5 distinct products (decoys reversed, `rev_<id>`) and (q, pep,
+     score) resampled from the simulation's `rev_GIAPORF_` rows. GIAP's database arm runs once
+     more on it. Attacks a and d run on this arm; its filtered G4 is recorded (not gated) as a
+     non-trivial picked-regime FDR measurement.
+   - **Evidence at M = 400 (R = 200, two blocks):** a 0.356 / 0.364 against a bound of 0.104 and d
+     0.131 / 0.136 against 0.105 at q 0.10, both confirmed fails. Filtered G4 is at level (0.004 /
+     0.037 / 0.078 against 0.011 / 0.053 / 0.105). Fast tier R = 10: a and d fail 10 of 10. Cost
+     about +5.5 min.
+   - **Erratum to the attacks table:** for attack a, "calling every candidate gives FDP ≈ 0.7"
+     counted candidates without the class rule; it is replaced by the clustered-null-arm numbers
+     above. Attack d runs on the clustered-null arm. No tolerance changes (R3).
+   - Next: the test-author (`cluster_record(i)` and the transform in
+     `tests/helpers/m7_gate_novel_records.py`; attacks a and d in
+     `tests/calibration/attacks/test_attack_m7_gate.py` read it), then a statistician re-check, then
+     the full tier.
+8. **Test-author, clustered-null arm (4746a840; Slurm 1875074, fast tier R = 10, 47 passed,
+   5 failed): accepted.**
+   - Attacks a and d are confirmed fails: a 0.352 / 0.349 against about 0.11; d 0.139 / 0.141
+     against about 0.115 at q 0.10. The filtered G4 on the arm is at level and recorded only.
+   - G3 passes (F1 0.930); all 24 G4 checks pass; nterm shows only `lost_pick` on #256 0e058465.
+     The only failures are G4-k3's five checks (decision 4).
+   - Gaps accepted as proposed:
+     - injected segments also avoid planted-ORF keys and overlaps (the pool at 1M goes from 9,090
+       to about 4,890);
+     - the stream is `novel_orfs.cluster`;
+     - the teeth rate comes from the full tier;
+     - no G4-k3 xfail before the full tier;
+     - `gate_record`'s unused attack_a/attack_d keys stay until the smoke test is next edited.
+   - Next: the statistician re-checks the arm and runs the full tier, which decides G4-k3.
+
+### M7-13b lead decisions 9–12 (2026-10-23, after the statistician's full tier)
+9. **Clustered-null arm accepted as built.**
+   - The planted-key and overlap filter removes contaminated entries without changing the null
+     (paired differences within 1–2 SE).
+   - Teeth are measured: attacks a and d confirm a fail in 30 of 30 disjoint R = 10 windows (95 %
+     lower bound 0.90). This replaces decision 8's "teeth from the full tier", since attacks run
+     in the fast tier only.
+10. **G4-k3 confirmed fail; ADR-0050 proposed** (options 1–5, pending Khoa). Interim: G4-k3
+    (cds_outframe and antisense at 0.01 and 0.05, intergenic at 0.01) and attack GC at q 0.01
+    become strict xfails naming ADR-0050. GC's full-tier result supersedes its fast-tier pass.
+11. **Chance shared peptides.** `no_makedb_pair` is right when every peptide row of a GIAP ORF names
+    another planted ORF's makedb entry: a short Met-initial 7-mer recurring at another ATG. The G4
+    harness exempts this case from `UNESTIMATED_BUGS`, counts it as the diagnostic
+    `shared_peptide_no_pair`, and still fails on any other `no_makedb_pair`. Reversible; the
+    alternative is giapsim avoiding such recurrences.
+12. **`test_attack_oracle_picked_class_fdp_dense`** (M7-12, full tier) fails with "no calls at 0.01,
+    intergenic" on #256/#267's giapsim. It goes to #267 as a follow-up (test-author check first).
+    Shard the nightly block 2 (serial G4-k3 block 2 ≈ 3.2 h against `--time` 04:00); backlog.
+13. **Decision 10 amended (test-author 27ad304a, gap 1).**
+    - Fast-tier GC at q 0.01 is a hard check again. Its fixed seeds pass, so a strict xfail there
+      could never mean "fixed".
+    - A `calibration_full` GC test at q 0.01 carries the strict ADR-0050 xfail.
+    - Gaps 2–4 accepted as proposed:
+      - the G4-k3 xfails cover both tiers;
+      - origin-crossing entries fail closed;
+      - the fast tier is re-run after #267 merges into this branch.

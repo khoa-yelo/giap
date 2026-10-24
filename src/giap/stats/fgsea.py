@@ -37,7 +37,7 @@ from scipy.special import betaincinv, polygamma
 
 from giap.stats._fgsea_kernels import es_walk, random_es_batch
 
-__all__ = ["Prepared", "SimpleResult", "fgsea_simple", "gsea_es", "prepare"]
+__all__ = ["Prepared", "SimpleResult", "fgsea_simple", "gsea_es", "prepare", "running_es"]
 
 F64 = npt.NDArray[np.float64]
 I64 = npt.NDArray[np.int64]
@@ -107,6 +107,14 @@ def prepare(
     )
 
 
+def _check_members(S: I64, n: int) -> None:
+    m = S.shape[0]
+    if m == n:
+        raise ValueError("GSEA statistic is not defined when all genes are selected")
+    if m == 0 or S[0] < 1 or S[-1] > n or np.any(S[1:] == S[:-1]):
+        raise ValueError("members must be distinct 1-based ranks")
+
+
 def gsea_es(stats: F64, members: I64) -> tuple[float, I64]:
     """``calcGseaStat`` (std): ES and leading edge (1-based ranks, fgsea's order) of ``members``.
 
@@ -115,17 +123,29 @@ def gsea_es(stats: F64, members: I64) -> tuple[float, I64]:
     """
     r = np.asarray(stats, dtype=np.float64)
     S = np.sort(np.asarray(members, dtype=np.int64))
-    n, m = r.shape[0], S.shape[0]
-    if m == n:
-        raise ValueError("GSEA statistic is not defined when all genes are selected")
-    if m == 0 or S[0] < 1 or S[-1] > n or np.any(S[1:] == S[:-1]):
-        raise ValueError("members must be distinct 1-based ranks")
+    n = r.shape[0]
+    _check_members(S, n)
     es, side, idx = es_walk(S, np.abs(r[S - 1]), n)
     if side > 0:
         return float(es), S[: idx + 1].copy()
     if side < 0:
         return float(es), S[idx:][::-1].copy()
     return 0.0, np.empty(0, dtype=np.int64)
+
+
+def running_es(stats: F64, members: I64) -> F64:
+    """The running sum ``gsea_es`` takes its ES from (std), after each of the n ranked
+    positions: a hit at rank i adds |stat_i| / N_R (1 / m when N_R = 0), a miss subtracts
+    1 / (n - m). Its max deviation from 0 is ``gsea_es``'s ES (M9-17, V14(a))."""
+    r = np.abs(np.asarray(stats, dtype=np.float64))
+    S = np.sort(np.asarray(members, dtype=np.int64))
+    n, m = r.shape[0], S.shape[0]
+    _check_members(S, n)
+    hit = np.zeros(n, dtype=bool)
+    hit[S - 1] = True
+    nr = float(r[hit].sum())
+    up = r / nr if nr > 0 else np.full(n, 1.0 / m)
+    return np.asarray(np.cumsum(np.where(hit, up, -1.0 / (n - m))), dtype=np.float64)
 
 
 def _trigamma(x: ArrayLike) -> F64:

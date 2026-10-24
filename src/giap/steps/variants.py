@@ -10,7 +10,9 @@ change a call. ``reference_peptides`` is declared only (preflight pairs it into 
 no randomness. The VCF sample is ``cfg.sample_name``, which ``giap run`` resolves; an unresolved
 ``auto`` fails the step (``write_vcf``). M7-14: the work Parquet ``variants_qc`` holds the §7.5.1
 ``id_mixups`` count (one row: ``metric``, ``value``, ``n``), which ``context_stats`` writes into
-``detection_summary.tsv``.
+``detection_summary.tsv``. M7-18: when the pileup skipped any op on a B, J, O, U, X or Z
+peptide residue, one INFO event ``variants.nonstandard_residues`` carries
+``attrs["nonstandard"]``.
 """
 
 from __future__ import annotations
@@ -33,15 +35,16 @@ from giap.io.work_tables import load_tables
 from giap.model.genes import GeneModel
 from giap.steps.mapping import _path, read_gene_model, resolve_search_db
 from giap.steps.registry import InputPath, StepContext, step
-from giap.variants.align import align_hits
+from giap.variants.align import HitAlignment, align_hits
 from giap.variants.error_rates import alt_support, annotate_sites, class_rates, paired_observations
-from giap.variants.flags import flags_for, start_codons
+from giap.variants.flags import flags_for, left_block_site, start_codons
 from giap.variants.pileup import Support, eligible, pileup, sites
 from giap.variants.qc import id_mixups, site_support
 from giap.variants.vcf_records import FORMAT_FIELDS, INFO_FIELDS, vcf_records
 
 LAYER_MISSING_HITS_TOLERANT = "layer_missing:hits_tolerant"
 SUMMARY_EVENT = "variants.summary"
+NONSTANDARD_EVENT = "variants.nonstandard_residues"
 
 
 def _has_frameshift(v: object) -> bool:
@@ -113,10 +116,17 @@ def run_variants_qc(
     st = sites(pile, cfg)
     starts = start_codons(gm)
     alt_peps = st.attrs["alt_peptides"]
-    st["flags"] = [
-        tuple(flags_for(r, starts, cfg, {(support[p].source, support[p].search_db) for p in peps}))
-        for r, peps in zip(st.to_dict("records"), alt_peps, strict=True)
-    ]
+    by_pep: dict[str, list[HitAlignment]] = {}
+    for a in aligns:
+        by_pep.setdefault(a.peptide, []).append(a)
+    tol = cfg.variants.mass_equivalent_tol_da
+    flags = []
+    for r, peps in zip(st.to_dict("records"), alt_peps, strict=True):
+        alt_aligns = [a for p in sorted(peps) for a in by_pep.get(p, ())]
+        left = left_block_site(r, alt_aligns, genome, gm.replicons, tol)
+        alt_src = {(support[p].source, support[p].search_db) for p in peps}
+        flags.append(tuple(flags_for(r, starts, cfg, alt_src, left_block=left)))
+    st["flags"] = flags
     rates = []
     if spectra is not None:
         sup = alt_support(st, alt_peps)
@@ -207,6 +217,11 @@ def variants_step(ctx: StepContext) -> None:
     ctx.log.info("variants: %d aligned hits, %d covered codons, %d sites (by call %s)",
                  len(ph), len(pile), len(table), data["sites_by_call"],
                  extra={"event": SUMMARY_EVENT, "data": data})  # fmt: skip
+    ns = pile.attrs["nonstandard"]
+    if ns["skipped_sites"]:
+        ctx.log.info("variants: %d site(s) with an ambiguous or rare peptide residue skipped (%s)",
+                     ns["skipped_sites"], ns["by_residue"],
+                     extra={"event": NONSTANDARD_EVENT, "data": ns})  # fmt: skip
     sha = hashlib.sha256(gpath.read_bytes()).hexdigest()
     write_vcf(ctx.outputs["variants_vcf"], records, list(gm.replicons.values()),
               giap_version=giap.__version__, genome_sha256=sha, sample=ctx.cfg.sample_name,

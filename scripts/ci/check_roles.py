@@ -32,6 +32,8 @@ EXEMPT_TESTS = (
     # The calibration harness (M4-05 spec) is tooling the implementer owns, like giapsim.
     "tests/calibration/_criteria.py",
     "tests/calibration/conftest.py",
+    # The M7 gate's matching and pooling helpers: the implementer writes them (M7-13 spec §5, Next).
+    "tests/calibration/_m7_gate.py",
 )
 
 

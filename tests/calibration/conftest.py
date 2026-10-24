@@ -256,13 +256,14 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 # class-error tests) has no block 2: its verdict is its shard exit code, so rerunning it there
 # repeats block 1 and its result would be thrown away. Such tests skip before setup. Harness
 # tests are found statically (no marker to maintain): the test function, its fixtures and the
-# test-side functions they reach (tests/ only, never _criteria itself) name ``calibrate`` or
-# ``calibrate_pooled``. A harness test still runs; if it stops before its first harness call
+# test-side functions they reach (tests/ only, never _criteria itself) name a public
+# ``calibrate*`` entry point of _criteria (``HARNESS_NAMES``; test_harness_names.py pins it).
+# A harness test still runs; if it stops before its first harness call
 # (for example A6c's block-1 vacuity ``RuntimeError``, already raised in the shard), it skips.
 # A miss here fails closed: a harness test skipped by mistake leaves its block 2 unlogged, and
 # ``--merge`` reports MERGE_ERROR.
 
-HARNESS_NAMES: frozenset[str] = frozenset({"calibrate", "calibrate_pooled"})
+HARNESS_NAMES: frozenset[str] = frozenset({"calibrate", "calibrate_pooled", "calibrate_fdr_counts"})
 TESTS_ROOT = HERE.parent
 CONFIRM_SKIP = "confirm run: no harness check (its verdict is the shard exit code)"
 CONFIRM_SKIP_EARLY = "confirm run: stopped before the harness (block 1 is judged in the shards)"

@@ -64,6 +64,7 @@
     ],
     "outputs": [
       "autocorrelation",
+      "context_stats_support",
       "detection_summary",
       "gene_context",
       "genes_tsv",
@@ -99,7 +100,8 @@
     "outputs": [
       "determinants_attribution",
       "determinants_features",
-      "determinants_model"
+      "determinants_model",
+      "determinants_support"
     ]
   },
   "function": {
@@ -118,7 +120,8 @@
     "outputs": [
       "category_summary",
       "enrichment_detection",
-      "enrichment_gsea"
+      "enrichment_gsea",
+      "function_support"
     ]
   },
   "gene_table": {
@@ -548,11 +551,18 @@
       "tus"
     ],
     "optional_inputs": [
+      "cog2020_fun",
+      "determinants_features",
       "features",
       "genes",
+      "go_basic",
+      "goslim_generic",
+      "kegg_ko_pathway",
+      "kegg_pathway_names",
       "pairs_raw",
       "promoter_windows",
       "terminators",
+      "tu_folds",
       "tx_rates"
     ],
     "outputs": [
