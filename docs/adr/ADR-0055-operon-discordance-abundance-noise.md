@@ -14,25 +14,25 @@ to M6-09. In D-1, Δ − μ is scaled by exp(−0.5 z), with z the standardised 
 the pair, on `operon_null(1800)`. It is implemented in `_noise_by_abundance` in
 tests/calibration/attacks/test_attack_operons.py.
 
-**M6-09 measured it through the merged step** (Slurm 1884412, commit 90a0e709, R = 1,000 genomes).
+**M6-09 measured it through the merged step** (Slurm 1884412 at 90a0e709, rerun as Slurm 1884493 at
+24267fd3 with identical pooled numbers; R = 1,000 genomes).
 The bounds are the §8.4 level bounds; the quartile bound treats the pairs as independent.
 
 | check | α = 0.01 | 0.05 | 0.10 |
 |---|---|---|---|
 | pooled level (200 random tested pairs per genome) | 0.0076 (≤ 0.0104) | **0.0521** (≤ 0.0510) | **0.1064** (≤ 0.1013) |
-| lowest-abundance quartile (123,766 pairs) | **0.0273** (≤ 0.0106) | **0.157** (≤ 0.0512) | **0.277** (≤ 0.1017) |
+| lowest-abundance quartile, cut on the planted z (123,766 pairs) | **0.0273** (≤ 0.0106) | **0.157** (≤ 0.0512) | **0.277** (≤ 0.1017) |
 | same data, no D-1 (the gate null) | 0.0098 | 0.0500 | 0.0998 |
 
-- The pooled level fails at α = 0.05 and 0.10, and the failure is confirmed in both blocks
-  (ADR-0015).
+- The pooled level fails at α = 0.05 and 0.10, 4.2 % and 6.4 % above nominal, and the failure is
+  confirmed in both blocks (ADR-0015).
 - The lowest quartile runs at about 3× nominal, as the PR #147 oracle found (2.4–3×).
 - The fast tier fails the same way: R = 100, pooled 0.110 against 0.104 at α = 0.10.
 - **Mechanism:** one σ for all pairs is too narrow for noisy low-abundance pairs and too wide for
   precise high-abundance pairs. Null calls therefore land on low-abundance pairs. BH over the
   family does not repair the per-pair error.
 
-Both tests are now strict xfails naming this ADR (`test_attack_d1_pooled_level`,
-`test_attack_d1_lowest_quartile`). This follows the ADR-0049 pattern for the M7 gate. **The M6
+Both checks now form one strict xfail naming this ADR (`test_attack_d1_level`). This follows the ADR-0049 pattern for the M7 gate. **The M6
 discordance claim is not met** until this ADR is decided.
 
 ## Options
@@ -44,7 +44,8 @@ discordance claim is not met** until this ADR is decided.
 - The p-value is 2 · sf_t(|Δ − μ̂| / σ̂_i; ν̂).
 - γ = 0 recovers the current method. A likelihood-ratio test of γ = 0 can be reported, but it is
   not used to choose between the models (no selection step).
-- **Statistician check** (oracle fit outside the code, scratch only, R = 150 genomes):
+- **Statistician check** (a scratch oracle fit outside the code, not reproducible from the repo,
+  R = 150 genomes; the implementer PR must re-measure it through D-1 and D-1b at the gate's R):
 
   | data | pooled level, α = 0.01 / 0.05 / 0.10 | lowest quartile | γ̂ |
   |---|---|---|---|

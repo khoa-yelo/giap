@@ -117,7 +117,7 @@ Option 1 of docs/methods/operons.md "Fix space", **keep the method and label it*
    is recorded, never gated, and states that the family is near-powerless by construction.
 5. **Attacks owed by the PR #147 and #148 reviews:**
    - M-2 is gated (non-vacuous arm) and passes.
-   - **D-1 is gated and fails.** Its two tests are strict xfails naming ADR-0055 (proposed, pending
+   - **D-1 is gated and fails.** Its test (`test_attack_d1_level`, pooled level and quartile) is a strict xfail naming ADR-0055 (proposed, pending
      Khoa), which is the ADR-0049 pattern of the M7 gate. No bound was widened and the demotion to
      "recorded" was withdrawn.
    - M-1 is recorded. The ADR on excluding imputed pairs stays open.
@@ -128,14 +128,20 @@ Option 1 of docs/methods/operons.md "Fix space", **keep the method and label it*
 7. **UniOP cut-off:** pair classes are re-derived at `calibration.yaml`'s
    `uniop_pair_threshold` (0.5, ADR-0022) as it stands.
 
-## Sign-off (statistician, 2026-10-24; Slurm 1884412)
+## Sign-off (statistician, 2026-10-24; Slurm 1884493 at 24267fd3, a rerun of 1884412)
 
-- **missed_operons: MET.** §7.4.7 criterion 1 is a recorded vacuous pass with the shipped decoys.
-  The extra convergent-only arm passes non-vacuously: FDP 0.033 ± 0.002 at q 0.1.
-- Attacks A (ρ = 0.5), B and M-2 pass. A′ and C are recorded below their thresholds.
-- **discordance gate: NOT MET (attack D-1), pending Khoa (ADR-0055).** Criterion 3 passes on the
-  gate null (level and KS uniformity). D-1 is a confirmed failure of the level when Δ noise
-  depends on abundance:
-  - pooled 0.052 / 0.106 at α 0.05 / 0.10;
-  - lowest quartile about 3× nominal.
+- **missed_operons: MET (vacuous with the shipped decoys; extra arm FDP 0.033).**
+  - §7.4.7 criterion 1 with the shipped decoys is a recorded vacuous pass (Khoa, 2026-10-22).
+  - Criterion 2 (attack A) and attack B are also vacuous with the shipped decoys.
+  - FDR evidence comes only from the extra convergent-only arm (100 pairs at 10⁻³ SD): FDP 0.033
+    at q 0.1 for the gate generator, 0.044 for A, 0.019 for B and 0.063 for M-2.
+  - This is not power evidence.
+- A′ and C are recorded below their thresholds.
+- M-1 made no call in any arm, so it is untested on these layouts.
+- **discordance gate: NOT MET (attack D-1), pending Khoa (ADR-0055).**
+  - Criterion 3 passes on the gate null (level and KS uniformity).
+  - D-1 is a confirmed failure of the level when Δ noise depends on abundance: pooled 0.052 /
+    0.106 at α 0.05 / 0.10, and about 3× nominal in the lowest quartile.
+  - `test_attack_d1_level` is a strict xfail. A sharded `discordance` task followed by `--merge`
+    exits 1 until the ADR is decided, which is intended (the ADR-0049 precedent).
 - The §15.4 half of the M6 gate (M6-11/M6-12) is separate.
