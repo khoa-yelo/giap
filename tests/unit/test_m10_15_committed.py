@@ -139,7 +139,9 @@ def test_committed_report_reproduces_byte_for_byte(tmp_path: Path) -> None:
     if not REPORT.is_file():
         pytest.skip("validation/pilot/REPORT.md is committed in 15b")
     out = tmp_path / "REPORT.md"
-    res = render_final(METRICS, out, notes=NOTES if NOTES.is_file() else None)
+    res = render_final(
+        METRICS, out, notes=NOTES if NOTES.is_file() else None, runbook=RUNBOOK
+    )  # B1: the runbook is an input of render --final
     assert res.returncode == 0, res.stderr
     assert out.read_bytes() == REPORT.read_bytes(), "re-render differs from the committed report"
 
@@ -160,6 +162,17 @@ def test_committed_metrics_commit_equals_the_freeze_commit() -> None:
     head = _header(RUNBOOK.read_text(encoding="utf-8"))
     assert head.get("status") == "final"
     assert doc["giap_commit"] == head["freeze_commit"]
+
+
+def test_committed_metrics_never_records_the_runbook() -> None:
+    """B1: ``metrics.json`` does not depend on the runbook (whose Outputs hash it)."""
+    if not METRICS.is_file():
+        pytest.skip("validation/pilot/metrics/metrics.json is committed in 15b")
+    import hashlib
+
+    doc = json.loads(METRICS.read_text(encoding="utf-8"))
+    digest = hashlib.sha256(RUNBOOK.read_bytes()).hexdigest()
+    assert digest not in json.dumps(doc["inputs"]) and "runbook" not in doc["inputs"]
 
 
 def test_committed_metrics_inputs_hash_to_committed_files() -> None:

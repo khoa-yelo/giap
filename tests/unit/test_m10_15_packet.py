@@ -1,6 +1,7 @@
 """``validation/pilot/review_packet.py`` (M10-15 acceptance criterion 5; checks 1-6 of "The review
 packet"; examples 1, 4, 6, 10 (round r2 with a diff); edge case "``metrics.json`` from another
-commit").
+commit"; review rev-1015 B1, B2, S3-S6, S9(c), S9(d), N6, N7 and the mutation survivors: check 6's
+own message, the freeze-directory comparison, the ``fail (A3 exit n)`` branch).
 
 Spec: docs/specs/M10-15-pilot-gate.md, "The review packet (``local/review/m10-pilot/r<k>/``,
 D3)". Everything runs in a ``tmp_path`` sandbox built by ``helpers.pilot_gate_m10_15``: a
@@ -14,17 +15,24 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shutil
+import stat
 from pathlib import Path
 from typing import Any
 
 import pytest
 from helpers.pilot_gate_m10_15 import (
+    EVIDENCE_JOBS,
     F7,
     OTHER_COMMIT,
+    REPO,
     Sandbox,
     build_sandbox,
     packet_files,
+    run_packet,
     runbook_text,
+    status_row,
     tree,
 )
 
@@ -37,10 +45,14 @@ def _files(round_dir: Path) -> set[str]:
     return {str(p.relative_to(round_dir)) for p in round_dir.rglob("*") if p.is_file()}
 
 
-def _refused(sb: Sandbox, res: Any, code: int, round_k: int = 1) -> None:
+def _refused(sb: Sandbox, res: Any, code: int, round_k: int = 1, *names: str) -> None:
     assert res.returncode == code, f"exit {res.returncode}\n{res.stdout}\n{res.stderr}"
     assert "unrecognized arguments" not in res.stderr, res.stderr  # a usage error is not a check
+    assert "Traceback" not in res.stderr, res.stderr  # S4: only the documented exit codes
     assert not (sb.out / f"r{round_k}").exists(), "nothing is written on a failed check"
+    assert not (sb.out / f".r{round_k}.tmp").exists(), "S4: the temporary round is removed"
+    for name in names:
+        assert name in res.stderr + res.stdout, f"{name!r} not named in the message"
 
 
 @pytest.fixture
@@ -118,10 +130,12 @@ def test_example_6_no_a3_run_packet_without_a3_html(tmp_path: Path) -> None:
     sb = build_sandbox(tmp_path, a3=False)
     _ok(sb.run(1))
     assert _files(sb.out / "r1") == packet_files(sb, a3=False)
+    index = (sb.out / "r1" / "index.md").read_text(encoding="utf-8")
+    assert "fail (A3 not run: route_unavailable)" in index
 
 
 def test_example_4_failing_bullet_still_builds_the_packet(tmp_path: Path) -> None:
-    sb = build_sandbox(tmp_path, statuses=["pass (A3 = Cascadia)", "fail", "pass", "pass", "pass"])
+    sb = build_sandbox(tmp_path, statuses=["pass", "fail", "pass", "pass", "pass"])
     _ok(sb.run(1))
     assert (sb.out / "r1" / "MANIFEST.sha256").is_file()
 
@@ -161,6 +175,19 @@ def test_check_2_runbook_not_final_exit_1(sb: Sandbox) -> None:
     _refused(sb, sb.run(1), 1)
 
 
+@pytest.mark.parametrize("first", [False, True])
+def test_b2_superseded_evidence_row_from_another_commit_is_ignored(
+    tmp_path: Path, first: bool
+) -> None:
+    """B2 (probe P8): M10-14 keeps superseded attempts in the Evidence table; check 2 skips
+    them, and the report names the accepted job."""
+    rb = runbook_text(superseded=[("S8", "9000001", OTHER_COMMIT)], superseded_first=first)
+    sb = build_sandbox(tmp_path, runbook=rb)
+    _ok(sb.run(1))
+    index = (sb.out / "r1" / "index.md").read_text(encoding="utf-8")
+    assert EVIDENCE_JOBS["S8"][1] in index and "9000001" not in index
+
+
 # ------------------------------------------------------------------ checks 3 and 4
 
 
@@ -181,10 +208,43 @@ def test_check_3_pending_status_in_report_exit_1(sb: Sandbox) -> None:
 
 
 def test_check_4_empty_evidence_exit_1(sb: Sandbox) -> None:
+    """S6: check 4 lives in ``final_problems``; the committed and freeze ``metrics.json`` agree
+    here, so only the re-render can refuse, and its message says why (S5)."""
     doc = json.loads(sb.metrics.read_text(encoding="utf-8"))
     doc["checklist"][3]["evidence"] = ""
-    sb.metrics.write_text(json.dumps(doc, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    _refused(sb, sb.run(1), 1)
+    sb.write_metrics(doc)
+    _refused(sb, sb.run(1), 1, 1, "evidence")
+
+
+def test_s5_check_1_message_carries_the_refusal_reason(sb: Sandbox) -> None:
+    doc = json.loads(sb.metrics.read_text(encoding="utf-8"))
+    doc["checklist"][3]["status"] = "pending (M10-12)"
+    sb.write_metrics(doc)
+    _refused(sb, sb.run(1), 1, 1, "1:", "pending (M10-12)")
+
+
+def test_s6_freeze_metrics_differs_from_the_committed_one_exit_1(sb: Sandbox) -> None:
+    """Mutation survivor: the committed ``metrics.json`` and ``REPORT.md`` agree, but the
+    freeze directory's copy holds another value."""
+    doc = json.loads((sb.metrics_dir / "metrics.json").read_text(encoding="utf-8"))
+    doc["m4"]["spearman_rho"] = 0.5
+    (sb.metrics_dir / "metrics.json").write_text(
+        json.dumps(doc, sort_keys=True, indent=2) + "\n", encoding="utf-8"
+    )
+    _refused(sb, sb.run(1), 1, 1, "1:")
+
+
+def test_n7_freeze_metrics_compared_as_bytes(sb: Sandbox) -> None:
+    """N7: the same text with CRLF line ends is not the same file."""
+    p = sb.metrics_dir / "metrics.json"
+    p.write_bytes(p.read_bytes().replace(b"\n", b"\r\n"))
+    _refused(sb, sb.run(1), 1, 1, "1:")
+
+
+def test_n7_report_compared_as_bytes(sb: Sandbox) -> None:
+    """N7: check 1 compares bytes; ``read_text`` would hide CRLF line ends."""
+    sb.report.write_bytes(sb.report.read_bytes().replace(b"\n", b"\r\n"))
+    _refused(sb, sb.run(1), 1, 1, "1:")
 
 
 # ------------------------------------------------------------------ check 5: inputs exist
@@ -214,21 +274,112 @@ def test_missing_metrics_dir_exit_2(sb: Sandbox) -> None:
 
 
 def test_check_6_existing_round_is_never_overwritten(sb: Sandbox) -> None:
+    """S4 / mutation survivor: the round-exists check fires with its own message (not an
+    ``OSError`` from the rename), and no ``.r1.tmp`` is left."""
     _ok(sb.run(1))
     before = tree(sb.out / "r1")
     res = sb.run(1)
     assert res.returncode == 1, f"exit {res.returncode}\n{res.stderr}"
+    assert "6:" in res.stderr and "Traceback" not in res.stderr, res.stderr
     assert tree(sb.out / "r1") == before
+    assert not (sb.out / ".r1.tmp").exists()
 
 
-def test_example_10_round_2_with_the_diff_against_round_1(sb: Sandbox) -> None:
+def test_check_6_an_empty_existing_round_is_refused_too(sb: Sandbox) -> None:
+    """``rename`` onto an empty directory succeeds on POSIX: only the explicit check stops it."""
+    (sb.out / "r1").mkdir(parents=True)
+    res = sb.run(1)
+    assert res.returncode == 1, f"exit {res.returncode}\n{res.stderr}"
+    assert "6:" in res.stderr, res.stderr
+    assert list((sb.out / "r1").iterdir()) == []
+
+
+def test_s4_copy_error_exits_2_and_cleans_up(sb: Sandbox) -> None:
+    """S4: a source that cannot be read: exit 2, no traceback, no round, no ``.r1.tmp``."""
+    if os.geteuid() == 0:
+        pytest.skip("root reads unreadable files")
+    mode = sb.bench_summary.stat().st_mode
+    sb.bench_summary.chmod(0)
+    try:
+        _refused(sb, sb.run(1), 2)
+    finally:
+        sb.bench_summary.chmod(stat.S_IMODE(mode))
+
+
+# ------------------------------------------------------------------ S3: where --out may point
+
+
+def test_s3_out_inside_the_checkout_exit_2(tmp_path: Path) -> None:
+    """Probe P9: the per-gene HTML must never be one ``git add`` away from a commit."""
+    sb = build_sandbox(tmp_path, git=True)
+    sb.out = sb.repo / "validation" / "pilot" / "packet"
+    before = tree(sb.repo)
+    _refused(sb, sb.run(1), 2)
+    assert tree(sb.repo) == before
+
+
+def test_s3_out_inside_a_non_git_repo_dir_exit_2(sb: Sandbox) -> None:
+    sb.out = sb.repo / "review"
+    _refused(sb, sb.run(1), 2)
+
+
+def test_s3_out_under_a_git_ignored_path_is_allowed(tmp_path: Path) -> None:
+    sb = build_sandbox(tmp_path, git=True)
+    sb.out = sb.repo / "local" / "review" / "m10-pilot"
     _ok(sb.run(1))
-    r1 = tree(sb.out / "r1")
-    sb.notes.write_text("The H1 paragraph was reworded at Khoa's request.\n", encoding="utf-8")
-    sb.rerender()
-    _ok(sb.run(2))
-    assert tree(sb.out / "r1") == r1, "round r1 is left as it was"
-    index = (sb.out / "r2" / "index.md").read_text(encoding="utf-8")
-    assert "The H1 paragraph was reworded at Khoa's request." in index
-    assert "The pilot ran at the freeze commit." in index  # the removed line, in the diff
-    assert _files(sb.out / "r2") == packet_files(sb)
+    assert _files(sb.out / "r1") == packet_files(sb)
+
+
+# ------------------------------------------------------------------ B1 / S9(c): bullet 1 at render
+
+
+def test_s9c_a3_exit_nonzero_requires_the_a3_html(tmp_path: Path) -> None:
+    """``fail (A3 exit n)`` reports an A3 run, so its ``report.html`` is a packet input."""
+    sb = build_sandbox(tmp_path / "a", a3_exit=1)
+    assert status_row(sb.report.read_text(encoding="utf-8"), "runs")[1] == "fail (A3 exit 1)"
+    _ok(sb.run(1))
+    assert "runs/A3/report.html" in _files(sb.out / "r1")
+    sb = build_sandbox(tmp_path / "b", a3_exit=1)
+    assert sb.a3 is not None
+    (sb.a3 / "report" / "report.html").unlink()
+    _refused(sb, sb.run(1), 2)
+
+
+def test_b1_check_1_re_renders_with_the_given_runbook(sb: Sandbox) -> None:
+    """The committed report was rendered from the Cascadia runbook; a runbook whose branch is
+    now ``fallback`` re-labels bullet 1, so the re-render differs."""
+    sb.runbook.write_text(runbook_text(a3_branch="fallback"), encoding="utf-8")
+    _refused(sb, sb.run(1), 1, 1, "1:")
+
+
+# ------------------------------------------------------------------ N6: no bytecode in the repo
+
+
+def test_n6_the_packet_writes_no_pycache(sb: Sandbox, tmp_path: Path) -> None:
+    """N6: run a copy of ``validation/`` (without ``__pycache__``) with bytecode writing
+    enabled in the environment; the script must not write any."""
+    copy = tmp_path / "code"
+    shutil.copytree(
+        REPO / "validation",
+        copy / "validation",
+        ignore=shutil.ignore_patterns("__pycache__", "db_a2", "inputs"),
+    )
+    pythonpath = os.pathsep.join([str(copy), str(REPO / "src"), str(REPO / "tests" / "sim")])
+    res = run_packet(
+        *sb.args(1),
+        root=sb.root,
+        cwd=sb.base,
+        script=copy / "validation" / "pilot" / "review_packet.py",
+        pythonpath=pythonpath,
+    )
+    _ok(res)
+    caches = sorted(str(p.relative_to(copy)) for p in copy.rglob("__pycache__"))
+    assert caches == [], caches
+
+
+def test_index_status_table_comes_from_the_re_rendered_report(sb: Sandbox) -> None:
+    """``index.md`` copies section 1 of ``REPORT.md``: bullet 1 there is the render-time label,
+    not the M10-05 string in ``metrics.json``."""
+    _ok(sb.run(1))
+    index = (sb.out / "r1" / "index.md").read_text(encoding="utf-8")
+    assert "pass (A3 = Cascadia)" in index
