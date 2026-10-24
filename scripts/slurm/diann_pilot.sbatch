@@ -3,7 +3,7 @@
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=16
-#SBATCH --mem=64G
+#SBATCH --mem=64000M
 #SBATCH --time=24:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
 # DIA-NN for the pilot arms A1 and A2 (GIAP_SPEC.md §15.2 step 5; M3-24 decisions 1-6; M10-02).
@@ -21,13 +21,18 @@
 # Two calls, in order (decision 4): DIA-NN 2.x disables the FASTA digest when --fasta-search,
 # --predictor and raw files are combined in one call, so step 1 predicts the in-silico library from
 # the FASTA alone and step 2 searches the runs against it. Step 1 is skipped only when step1.done
-# records the sha256 of the current library, so a re-queued job resumes; step 2 always starts fresh.
+# records the sha256 of the current library and the sha256s of the current cfg, FASTA files and
+# image, so a re-queued job resumes; step 2 always starts fresh.
+#
+# --mem=64000M is 16 x MaxMemPerCPU (4000 MB on partition normal): any more and Slurm raises the
+# CPU count (--mem=64G gave 17 CPUs per task, 18 allocated; PR #293 review S1).
 #
 # Environment: DIANN_SIF (image), RAW_DIR (the *.d runs of PXD078459, §15.1), ACQUISITION_JSON
 # (M10-01's run list and mode), OUT_DIR (parent of the per-arm output directory), GIAP_PYTHON.
 # Everything is written under $GIAP_ROOT; provenance.json is written on every exit.
 # Exit 0 report written; 1 DIA-NN failed or wrote no report; 2 a precondition; 3 the acquisition
-# mode forbids these settings (§17, ADR-0051).
+# mode forbids these settings (§17, ADR-0051); 143/130/129 killed by TERM/INT/HUP (scancel,
+# TIMEOUT), recorded as status failed with FAILED.
 set -euo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 module load apptainer/1.4.4 >/dev/null 2>&1 || true
@@ -64,11 +69,28 @@ rm -f "${OUT:?}/diann_version.txt"
 
 # ---- provenance on every exit after the argument check (spec rule 7)
 START_EPOCH="$(date +%s)"
+# STEP<N>_RC stays empty until DIA-NN has returned: a job killed during a call never records 0
 STEP1=not_reached STEP1_RC="" STEP2=not_reached STEP2_RC=""
-INPUT_FASTAS="" APPTAINER_VERSION=""
+INPUT_FASTAS="" APPTAINER_VERSION="" UNPACK_TMP=""
+write_failed() {  # step, exit code[, reason]
+  printf 'step=%s exit_code=%s%s utc=%s\n' "$1" "$2" "${3:+ reason=$3}" \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$OUT/FAILED"
+}
 on_exit() {
   local rc=$? status=failed
+  trap - TERM INT HUP
+  [ -z "$UNPACK_TMP" ] || rm -f "$UNPACK_TMP" "$UNPACK_TMP.sha"
   case "$rc" in 0) status=ok ;; 2) status=precondition ;; 3) status=acquisition_mode ;; esac
+  # a step still running when the job ended (a signal): it takes the job's exit code, and FAILED
+  if [ "$rc" -ne 0 ]; then
+    if [ "$STEP2" = ran ] && [ -z "$STEP2_RC" ]; then
+      STEP2_RC=$rc
+      write_failed step2 "$rc" interrupted
+    elif [ "$STEP1" = ran ] && [ -z "$STEP1_RC" ]; then
+      STEP1_RC=$rc
+      write_failed step1 "$rc" interrupted
+    fi
+  fi
   "$PY" -I "$REPORT_PY" provenance --arm "$ARM" --out "$OUT" --status "$status" \
     --exit-code "$rc" --step1 "$STEP1" --step1-rc "$STEP1_RC" --step2 "$STEP2" \
     --step2-rc "$STEP2_RC" --image "$SIF" --pin-file "$PIN_FILE" --cfg "$CFG" \
@@ -78,8 +100,14 @@ on_exit() {
   exit "$rc"
 }
 trap on_exit EXIT
-fail() {  # step, exit code: record FAILED and exit 1
-  printf 'step=%s exit_code=%s utc=%s\n' "$1" "$2" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$OUT/FAILED"
+# Slurm's scancel and TIMEOUT send TERM: without these traps the EXIT trap would see $? = 0
+trap 'exit 143' TERM
+trap 'exit 130' INT
+trap 'exit 129' HUP
+fail() {  # step, exit code[, reason]: record FAILED and exit 1; FAILED never says exit code 0
+  local code="$2"
+  [ "$code" -ne 0 ] || code=1
+  write_failed "$1" "$code" "${3:-}"
   exit 1
 }
 
@@ -107,9 +135,18 @@ fi
 [ -f "$CFG" ] || { echo "missing settings file: $CFG" >&2; exit 2; }
 
 # ---- rule 2: the acquisition mode (exit 3); rule 3: the runs, in the file's order
+if [ ! -f "$PY" ] || [ ! -x "$PY" ]; then
+  echo "GIAP_PYTHON=$PY is not an executable file (default \$UV_PROJECT_ENVIRONMENT/bin/python)" >&2
+  exit 2
+fi
 RUN_LIST="" rc=0
 RUN_LIST="$("$PY" -I "$REPORT_PY" runs "$ACQ_JSON")" || rc=$?
-case "$rc" in 0) ;; 3) exit 3 ;; *) echo "cannot read the runs of $ACQ_JSON" >&2; exit 2 ;; esac
+case "$rc" in
+  0) ;;
+  3) exit 3 ;;
+  2) echo "cannot read the runs of $ACQ_JSON (GIAP_PYTHON=$PY)" >&2; exit 2 ;;
+  *) echo "GIAP_PYTHON=$PY failed with exit $rc reading the runs of $ACQ_JSON" >&2; exit 2 ;;
+esac
 RAW_FILES=()
 RAW_N=0
 while IFS= read -r run; do
@@ -171,6 +208,28 @@ load_step() {  # flags of [step1]/[step2] of $CFG, in file order, into CFG_ARGS
   [ "$CFG_N" -gt 0 ] || { echo "$CFG: section [$want] is empty" >&2; exit 2; }
 }
 
+sha() { sha256sum "$1" | cut -d' ' -f1; }
+unpack() {  # .gz, target: reuse the target only if <target>.src.sha256 is the .gz's sha256
+  local gz="$1" dst="$2" gz_sha
+  gz_sha="$(sha "$gz")"
+  if [ -f "$dst" ] && [ -f "$dst.src.sha256" ] \
+    && [ "$(cut -d' ' -f1 "$dst.src.sha256")" = "$gz_sha" ]; then
+    return 0
+  fi
+  echo "unpacking $gz to $dst"
+  rm -f "$dst" "$dst.src.sha256"
+  UNPACK_TMP="$(dirname "$dst")/.$(basename "$dst").tmp.$$"
+  if ! gunzip -c "$gz" >"$UNPACK_TMP"; then
+    rm -f "$UNPACK_TMP"
+    echo "cannot unpack $gz" >&2
+    exit 2
+  fi
+  printf '%s  %s\n' "$gz_sha" "$(basename "$gz")" >"$UNPACK_TMP.sha"
+  mv "$UNPACK_TMP" "$dst"
+  mv "$UNPACK_TMP.sha" "$dst.src.sha256"
+  UNPACK_TMP=""
+}
+
 STEP_ARGS=()
 resolve_fastas() {  # expand every --fasta of CFG_ARGS; unpack a gzipped one outside the repository
   local i=0 tok val base
@@ -194,7 +253,7 @@ resolve_fastas() {  # expand every --fasta of CFG_ARGS; unpack a gzipped one out
     if [ "${val%.gz}" != "$val" ]; then
       [ -f "$val" ] || { echo "missing FASTA: $val" >&2; exit 2; }
       base="$(basename "${val%.gz}")"
-      [ -s "$FASTA_DIR/$base" ] || gunzip -c "$val" >"$FASTA_DIR/$base"
+      unpack "$val" "$FASTA_DIR/$base"
       INPUT_FASTAS="$INPUT_FASTAS$val$NL"
       val="$FASTA_DIR/$base"
     fi
@@ -213,7 +272,17 @@ run_step() {  # N, then the DIA-NN arguments: record the argv one token per line
     >"$OUT/command_step$n.txt"
   diann "$@"
 }
-sha() { sha256sum "$1" | cut -d' ' -f1; }
+step1_inputs() {  # the inputs a step-1 library depends on, one 'key sha256 [path]' per line
+  local f
+  printf 'cfg_sha256 %s\n' "$(sha "$CFG")"
+  printf 'image_sha256 %s\n' "$SIF_SHA"
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    printf 'fasta_sha256 %s %s\n' "$(sha "$f")" "$f"
+  done <<EOF
+$INPUT_FASTAS
+EOF
+}
 
 echo "== arm $ARM; image $SIF; settings $CFG; output $OUT"
 APPTAINER_VERSION="$(apptainer --version 2>/dev/null || true)"
@@ -226,20 +295,32 @@ esac
 rm -f "${OUT:?}/FAILED" "${OUT:?}/outputs.sha256"
 
 # ---- step 1: predict the in-silico spectral library from the FASTA files (no raw files)
+# step1.done: '<sha256>  <arm>.predicted.speclib', job_id=, commit=, then the step1_inputs lines
+load_step step1
+resolve_fastas
+STEP1_INPUTS="$(step1_inputs)"
 if [ -f "$MARKER" ] && [ -f "$PREDICTED_LIB" ] \
-  && [ "$(cut -d' ' -f1 "$MARKER")" = "$(sha "$PREDICTED_LIB")" ]; then
-  echo "step 1: step1.done matches the predicted library, skipping: $PREDICTED_LIB"
+  && [ "$(head -n 1 "$MARKER" | cut -d' ' -f1)" = "$(sha "$PREDICTED_LIB")" ] \
+  && [ "$(sed -e 1d -e '/^job_id=/d' -e '/^commit=/d' "$MARKER")" = "$STEP1_INPUTS" ]; then
+  echo "step 1: step1.done matches the predicted library and its inputs, skipping: $PREDICTED_LIB"
+  sed -n -e '2,3s/^/  built by /p' "$MARKER"
   STEP1=skipped
 else
   echo "step 1: predicting the spectral library"
-  rm -f "${MARKER:?}" "${OUT:?}/${ARM:?}.parquet" "${PREDICTED_LIB:?}"
-  load_step step1
-  resolve_fastas
-  STEP1=ran STEP1_RC=0
-  run_step 1 "${STEP_ARGS[@]}" --threads "$THREADS" --out-lib "$OUT/${ARM}.parquet" || STEP1_RC=$?
+  rm -f "${MARKER:?}" "${OUT:?}/${ARM:?}.parquet" "${PREDICTED_LIB:?}" "${OUT:?}/${ARM:?}.log.txt"
+  STEP1=ran STEP1_RC=""
+  rc=0
+  run_step 1 "${STEP_ARGS[@]}" --threads "$THREADS" --out-lib "$OUT/${ARM}.parquet" || rc=$?
+  STEP1_RC=$rc
   [ "$STEP1_RC" -eq 0 ] || fail step1 "$STEP1_RC"
-  [ -s "$PREDICTED_LIB" ] || { echo "step 1 wrote no $PREDICTED_LIB" >&2; fail step1 0; }
-  printf '%s  %s\n' "$(sha "$PREDICTED_LIB")" "$(basename "$PREDICTED_LIB")" >"$MARKER"
+  [ -s "$PREDICTED_LIB" ] || { echo "step 1 wrote no $PREDICTED_LIB" >&2; fail step1 1 no_output; }
+  COMMIT="$(git -C "$GIAP_REPO" rev-parse HEAD 2>/dev/null || echo unknown)"
+  {
+    printf '%s  %s\n' "$(sha "$PREDICTED_LIB")" "$(basename "$PREDICTED_LIB")"
+    printf 'job_id=%s\ncommit=%s\n' "${SLURM_JOB_ID:-}" "$COMMIT"
+    printf '%s\n' "$STEP1_INPUTS"
+  } >"$MARKER.tmp"
+  mv "$MARKER.tmp" "$MARKER"
 fi
 
 # ---- step 2: search the runs against the predicted library, always from scratch
@@ -247,16 +328,18 @@ echo "step 2: searching $RAW_N run(s) from $RAW_DIR"
 rm -f "${OUT:?}/${ARM:?}_report"* "${OUT:?}/${ARM:?}_empirical"*
 load_step step2
 resolve_fastas
-STEP2=ran STEP2_RC=0
+STEP2=ran STEP2_RC=""
 # --temp: DIA-NN writes <run>.d.quant next to the raw runs by default, so two arms searching the
 # same runs at once read each other's (job 1879914: "library size mismatch"); each arm keeps its own
 QUANT="$OUT/quant"
 rm -rf "${QUANT:?}"
 mkdir -p "$QUANT"
+rc=0
 run_step 2 "${STEP_ARGS[@]}" "${RAW_FILES[@]}" --threads "$THREADS" --lib "$PREDICTED_LIB" \
-  --temp "$QUANT" --out "$REPORT" --out-lib "$OUT/${ARM}_empirical.parquet" || STEP2_RC=$?
+  --temp "$QUANT" --out "$REPORT" --out-lib "$OUT/${ARM}_empirical.parquet" || rc=$?
+STEP2_RC=$rc
 [ "$STEP2_RC" -eq 0 ] || fail step2 "$STEP2_RC"
-[ -s "$REPORT" ] || { echo "step 2 wrote no report $REPORT" >&2; fail step2 0; }
+[ -s "$REPORT" ] || { echo "step 2 wrote no report $REPORT" >&2; fail step2 1 no_output; }
 
 # ---- the files DIA-NN wrote, sorted by name (fasta/ and this job's own records excluded)
 (cd "$OUT" && find . -path ./fasta -prune -o -type f ! -name provenance.json \

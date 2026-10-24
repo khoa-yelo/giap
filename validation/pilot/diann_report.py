@@ -311,14 +311,33 @@ def read_pin(pin_file: Path) -> str | None:
     return m.group(1) if m and len(lines) == 1 else None
 
 
+def marker_origin(marker: Path) -> dict[str, str | None]:
+    """The job ID and commit that ``step1.done`` says built the library (``job_id=``,
+    ``commit=`` lines), so a skipped step 1 names the job whose ``command_step1.txt`` it reuses."""
+    found: dict[str, str | None] = {"job_id": None, "commit": None}
+    try:
+        lines = marker.read_text().splitlines()
+    except OSError:
+        return found
+    for line in lines[1:]:
+        key, sep, value = line.partition("=")
+        if sep and key in found:
+            found[key] = value or None
+    return found
+
+
 def iso(t: float) -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
 
 
 def provenance(a: argparse.Namespace, env: Mapping[str, str], now: float) -> dict[str, Any]:
     out = Path(a.out)
-    steps = {s: {"status": getattr(a, s), "exit_code": _int(getattr(a, f"{s}_rc"))}
-             for s in ("step1", "step2")}  # fmt: skip
+    steps: dict[str, dict[str, Any]] = {
+        s: {"status": getattr(a, s), "exit_code": _int(getattr(a, f"{s}_rc"))}
+        for s in ("step1", "step2")
+    }
+    if steps["step1"]["status"] == "skipped":
+        steps["step1"]["built_by"] = marker_origin(out / "step1.done")
     commands: dict[str, list[str] | None] = {}
     for s, n in (("step1", 1), ("step2", 2)):
         f = out / f"command_step{n}.txt"

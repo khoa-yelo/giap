@@ -3,7 +3,7 @@
 #SBATCH --partition=normal
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=16G
+#SBATCH --mem=16000M
 #SBATCH --time=01:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
 # Check one arm's DIA-NN report, then write its stratified sample (docs/specs/M10-02-diann-searches.md).
@@ -13,6 +13,7 @@
 # check.json goes next to the report; the sample (report.sample.parquet, schema.tsv, summary.json)
 # goes to $GIAP_ROOT/pilot/recorded/diann/2.3.1/<arm>/ and is never committed (Khoa, 2026-10-23).
 # Exit 0 ok; 1 the report fails a check; 2 usage or no report.
+# --mem=16000M is 4 x MaxMemPerCPU (4000 MB): 16G would make Slurm allocate a fifth CPU (R14).
 set -euo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 

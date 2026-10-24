@@ -29,15 +29,17 @@ build of §15.2 step 3 (reference invocation:
 | sha256 of the image | `1946452d56d2fb0f66e05ced473df88e53484e28040f1ecbd83c4a43405a6381` (2026-10-20); the scripts read it from `validation/pilot/diann_image.sha256` |
 | Binary inside | `/diann-2.3.1/diann-linux` |
 | Module | `apptainer/1.4.4`; binds `/home/classes`, `/scratch`, `/farmshare` |
-| Override | `DIANN_SIF=/path/to/image.sif sbatch scripts/slurm/diann_pilot.sbatch A1` |
+| Override | `DIANN_SIF=/path/to/image.sif sbatch scripts/slurm/diann_pilot.sbatch A1`; the override must be mode 0444 and hash to the pin, or the job exits 2 |
 | Smoke check | the job logs `… --version` into `$OUT_DIR/<arm>/diann_version.txt`; 2.3.1 prints the banner, warns `unrecognised option [--version]` and exits 0 |
 
 The image is **never copied into the repository** (532 MB, R11; decision 3): the repository keeps
 only the two cfg files, this README, `db_a2/` and the sbatch scripts.
 `scripts/slurm/diann_image.sbatch` verifies the image above against the pin and installs a
 read-only copy at `$GIAP_ROOT/images/diann_2.3.1.sif` (M10-02); `scripts/slurm/diann_pilot.sbatch`
-reads `DIANN_SIF`, defaults to that copy and exits 2 when it is missing, writable or off the pin. The pin above is checked by `tests/unit/test_m3_24_pilot_kit.py`; if
-the image is replaced, re-pin it there and here.
+reads `DIANN_SIF`, defaults to that copy and exits 2 when it is missing, writable or off the pin.
+The pin above is checked by `tests/unit/test_m3_24_pilot_kit.py`; the scripts read it from
+`validation/pilot/diann_image.sha256`, and the test fakes use `DIANN_SIF_SHA256`
+(`tests/helpers/pilot_kit.py`). If the image is replaced, re-pin it in all of these and here.
 
 ## Version actually used
 
@@ -162,10 +164,24 @@ PXD078459 (ProteomeXchange; hosted by iProX as IPX0017169000) is the pilot's raw
 
 ## Searches (M10-02)
 
-DIA-NN 2.3.1 Academia ran from the verified read-only copy `$GIAP_ROOT/images/diann_2.3.1.sif`
-(installed by `scripts/slurm/diann_image.sbatch`, Slurm 1879883; its sha256 is the pin in
-`validation/pilot/diann_image.sha256`). Both arms ran at commit `81272fc0` of `m10/diann-searches`
-from a clean worktree (spec Q10), on the three diaPASEF runs of PXD078459 (`acquisition.json`).
+DIA-NN 2.3.1 Academia ran from the read-only copy `$GIAP_ROOT/images/diann_2.3.1.sif`.
+- **The install:** `scripts/slurm/diann_image.sbatch`, Slurm 1879883, copied and hashed the image
+  but ended FAILED with exit 2: it ran before the banner fix (e7edc457), and its banner check read
+  the blank line the binary prints first. The copy was verified afterwards: mode 444, sha256 equal
+  to the pin in `validation/pilot/diann_image.sha256`. Its `diann_2.3.1.sif.json` keeps the
+  pre-fix banner shape. The banner itself was checked by the searches (`diann_version.txt` of
+  1879955/1879956). The install job now checks the banner on the temporary copy, before it is
+  renamed into place, so a failed banner installs nothing.
+- **Step 1 (the predicted libraries):** built by 1879913 (A1) and 1879914 (A2), submitted from
+  commit `26adc18c`. 1879955/1879956 found a matching `step1.done` and reused them (`step1:
+  skipped`), so their `command_step1.txt` is that of 1879913/1879914. Step 1 passes no raw files
+  and its code is the same at both commits. `step1.done` now records the job and commit that built
+  the library, and a skipped step 1 names them in `provenance.json`.
+- **Step 2 (the searches):** both arms ran at commit `81272fc0` of `m10/diann-searches` from a
+  clean worktree (spec Q10), on the three diaPASEF runs of PXD078459 (`acquisition.json`).
+- **CPUs:** these jobs asked for `--mem=64G` (65,536 MB), more than 16 x `MaxMemPerCPU` (4,000 MB),
+  so Slurm gave each 17 CPUs per task (18 allocated) and DIA-NN ran with `--threads 17`. The
+  script now asks for `--mem=64000M`, which gives exactly 16.
 
 | arm | Slurm job | node | state | elapsed | MaxRSS |
 |---|---|---|---|---|---|
@@ -179,6 +195,8 @@ from a clean worktree (spec Q10), on the three diaPASEF runs of PXD078459 (`acqu
   - 1879913 (A1) and 1879914 (A2) ran concurrently without `--temp`;
   - A2 failed with "library size mismatch", because the two arms shared `<run>.d.quant` files next to the raw runs;
   - both arms were rerun with a per-arm `--temp`.
+- **One submission per arm at a time:** two concurrent jobs of the *same* arm delete each other's
+  `quant/` and outputs.
 
 ## Running the pilot (§15.2 steps 4-9)
 
@@ -187,7 +205,7 @@ Every step is a batch job; nothing runs on a login node or in the session alloca
 ```bash
 # step 4 - the three wild-type runs (~5-10 GB) into $GIAP_DATA_DIR/pxd078459/, with SHA256SUMS
 sbatch scripts/slurm/fetch_pxd078459.sbatch
-# step 5 - DIA-NN 2.3.1 for A1 and A2 (normal, 16 CPU, 64 GB, two calls each)
+# step 5 - DIA-NN 2.3.1 for A1 and A2 (normal, 16 CPU, 64000 MB, two calls each)
 sbatch -J giap-diann-A1 scripts/slurm/diann_pilot.sbatch A1
 sbatch -J giap-diann-A2 scripts/slurm/diann_pilot.sbatch A2
 # step 6 - A3 de novo on one GPU (Cascadia 0.0.7; `casanovo` selects the fallback)

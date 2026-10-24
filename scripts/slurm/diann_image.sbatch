@@ -13,8 +13,9 @@
 #
 # DIANN_SIF_SHARED is the source (world-writable, so never run); DIANN_SIF is the copy. The pin is
 # read from validation/pilot/diann_image.sha256 only. The copy, not the source, is hashed; an
-# existing copy is never replaced (a tampered one is evidence). Exit 0 installed or already
-# installed, 2 any precondition or mismatch; nothing here is retried automatically.
+# existing copy is never replaced (a tampered one is evidence). The banner is checked on the
+# temporary copy, so a copy is installed only after every check passed (PR #293 review S3). Exit 0
+# installed or already installed, 2 any precondition or mismatch; nothing is retried automatically.
 set -euo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 module load apptainer/1.4.4 >/dev/null 2>&1 || true
@@ -67,18 +68,26 @@ if [ "$COPY_SHA" != "$PIN" ]; then
   die "the shared image no longer matches the pin: $SHARED copied with sha256 $COPY_SHA, the pin ($PIN_FILE) is $PIN; ask Khoa for the authentic 2.3.1 Academia image; never fetch DIA-NN elsewhere (R6)"
 fi
 
-# 6. read-only, then an atomic rename that never overwrites; re-check whatever is there now
+# 6. read-only, then the banner check on the temporary copy: a failed banner installs nothing
 chmod 0444 "$TMP"
+BANNER="$(apptainer exec "$TMP" /diann-2.3.1/diann-linux --version 2>&1 || true)"
+# the binary prints a blank line before its banner: compare the first non-empty line
+BANNER1="$(printf '%s\n' "$BANNER" | grep -m 1 . || true)"
+case "$BANNER1" in
+  *"$BANNER_WANT"*) ;;
+  *) rm -f "${TMP:?}"; die "the copy's banner is not '$BANNER_WANT': $BANNER1; nothing installed" ;;
+esac
+LABELS="$(apptainer inspect --json "$TMP" 2>/dev/null || true)"
+APPTAINER_VERSION="$(apptainer --version 2>/dev/null || true)"
+
+# 7. an atomic rename that never overwrites; re-check whatever is there now
 mv -n "$TMP" "$SIF" || true
 rm -f "${TMP:?}"
 if [ "$(sha "$SIF")" != "$PIN" ] || ! read_only "$SIF"; then
   die "the installed copy $SIF does not match the pin $PIN (or is writable); inspect it and delete it by hand"
 fi
 
-# 7. the install record and the banner check, on the copy
-BANNER="$(apptainer exec "$SIF" /diann-2.3.1/diann-linux --version 2>&1 || true)"
-LABELS="$(apptainer inspect --json "$SIF" 2>/dev/null || true)"
-APPTAINER_VERSION="$(apptainer --version 2>/dev/null || true)"
+# 8. the install record
 "$PY" -I - "$SHARED" "$SIF" "$PIN" "$PIN_FILE" "$COPY_SHA" "$(hostname)" "$LABELS" \
   "$APPTAINER_VERSION" "$BANNER" "${SLURM_JOB_ID:-}" >"$SIF.json" <<'PY'
 import grp, json, os, pwd, stat, sys, time
@@ -105,11 +114,4 @@ print(json.dumps({
     "banner": [line for line in banner.splitlines() if line.strip()][:2],
 }, indent=2))
 PY
-
-# the binary prints a blank line before its banner: compare the first non-empty line
-BANNER1="$(printf '%s\n' "$BANNER" | grep -m 1 . || true)"
-case "$BANNER1" in
-  *"$BANNER_WANT"*) ;;
-  *) die "the copy's banner is not '$BANNER_WANT': $BANNER1" ;;
-esac
 echo "installed: $SIF (sha256 $PIN, mode 0444); record $SIF.json"

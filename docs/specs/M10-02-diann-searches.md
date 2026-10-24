@@ -13,7 +13,8 @@ acquisition mode forces a settings change.
   and A2 ("same settings, against Nissle's Bakta proteins (sORFs included) + contaminants, from
   `giap makedb`"). The version is 2.3.1 Academia (index decision 2, ADR-0051).
 - §15.2 step 5: "Run DIA-NN for A1 and A2 with `scripts/slurm/diann_pilot.sbatch` (`normal`, 16
-  CPU, 64 GB), including decoy reporting, so GIAP can use the picked tier".
+  CPU, 64 GB), including decoy reporting, so GIAP can use the picked tier". The script asks for
+  `--mem=64000M`, not 64G, so that Slurm allocates exactly 16 CPUs (see "Jobs and resources").
 - §15.2 step 7, the DIA-NN half only: "a 1,000-row sample of each raw report under
   `tests/data/recorded/diann/2.7.0/` … for contract tests (DIA-NN output tables are not binaries,
   so R11 allows the sample)". The directory is `2.3.1/` (index decision 6). The conversion itself
@@ -74,14 +75,17 @@ Nothing else is committed: not the image, not any file from inside it, not a spe
 | Job (script) | `-J` | Partition / QOS | CPUs | Mem | Time limit | Node class | When |
 |---|---|---|---|---|---|---|---|
 | install the copy (`diann_image.sbatch`) | `giap-diann-image` | normal / normal | 1 | 2 GB | 00:30:00 | any | once, before the searches |
-| search A1 (`diann_pilot.sbatch A1`) | `giap-diann-A1` | normal / normal | 16 | 64 GB | 24:00:00 | any; recorded | after the install |
-| search A2 (`diann_pilot.sbatch A2`) | `giap-diann-A2` | normal / normal | 16 | 64 GB | 24:00:00 | any; recorded | concurrent with A1 |
-| check and sample (`diann_report.sbatch A1`, `… A2`) | `giap-diann-report-A1`/`-A2` | normal / normal | 4 | 16 GB | 01:00:00 | any | after each search (`--dependency=afterok:<id>`) |
+| search A1 (`diann_pilot.sbatch A1`) | `giap-diann-A1` | normal / normal | 16 | 64000M | 24:00:00 | any; recorded | after the install |
+| search A2 (`diann_pilot.sbatch A2`) | `giap-diann-A2` | normal / normal | 16 | 64000M | 24:00:00 | any; recorded | concurrent with A1 |
+| check and sample (`diann_report.sbatch A1`, `… A2`) | `giap-diann-report-A1`/`-A2` | normal / normal | 4 | 16000M | 01:00:00 | any | after each search (`--dependency=afterok:<id>`) |
 
 - The peak is 32 CPUs (both searches), or 40 if the report jobs overlap. Before each `sbatch`,
   the lead sums the CPUs of every running and pending `giap-*` job from every agent; if the sum
-  plus 32 exceeds 128, A2 waits for A1. Memory: 64 GB / 16 CPUs = 4 GB per CPU, which equals
-  `MaxMemPerCPU`, so Slurm adds no CPUs.
+  plus 32 exceeds 128, A2 waits for A1. Memory: the partition's `MaxMemPerCPU` is 4000 MB, so a
+  job asking for more than CPUs x 4000 MB gets more CPUs. `--mem=64000M` (16 x 4000) and
+  `--mem=16000M` (4 x 4000) keep the counts at 16 and 4. The first searches asked for
+  `--mem=64G` (65,536 MB) and got 17 CPUs per task, 18 allocated, with `--threads 17`
+  (PR #293 review S1).
 - The install and report jobs use the `normal` QOS, not `dev`. `dev` allows one job at a time and
   M10-01 or M10-08 may hold it.
 - The searches do not pin a node class: runtimes are first measured here, and the benchmark node
@@ -125,7 +129,10 @@ Variables: `DIANN_SIF_SHARED` (the source; default
    source: the source is world-writable and could change during the copy. If the copy's sha256
    is not `PIN`, delete the temporary file and exit 2, naming both hashes and "the shared image
    no longer matches the pin". The lead then adds a Blocked row and asks Khoa.
-6. `chmod 0444` the temporary file, then `mv -n` it onto `DIANN_SIF`, an atomic rename in the same
+6. `chmod 0444` the temporary file and run the banner check on it (below). If the banner fails,
+   delete the temporary file and exit 2: no copy is installed unless every check passed, so a
+   rerun checks the banner again (PR #293 review S3; job 1879883 had installed the copy before
+   its banner check failed). Then `mv -n` it onto `DIANN_SIF`, an atomic rename in the same
    directory. If another job won the race, `mv -n` leaves its file in place; the job re-checks
    rule 2 on the result.
 7. Write `$GIAP_ROOT/images/diann_2.3.1.sif.json`:
@@ -135,8 +142,8 @@ Variables: `DIANN_SIF_SHARED` (the source; default
    - `installed_utc`, `job_id`, `hostname`;
    - the `apptainer inspect` labels and the Apptainer version.
 
-   The banner check runs as well:
-   `apptainer exec $DIANN_SIF /diann-2.3.1/diann-linux --version`. The first line must contain
+   The banner check, run in step 6 on the temporary copy:
+   `apptainer exec <temporary copy> /diann-2.3.1/diann-linux --version`. The first non-empty line must contain
    `DIA-NN 2.3.1 Academia`, else exit 2 (the README documents that 2.3.1 prints the banner, warns
    about `--version` and exits 0). The first two lines go into the JSON as `banner`.
 
@@ -170,19 +177,36 @@ binds and the two calls stay as M3-24 wrote them. The changes, in order:
    `*.d` glob. A label with no `analysis.tdf` or no `analysis.tdf_bin` under its `.d` is exit 2,
    naming the run. A `*.d` in `RAW_DIR` that is not in the list is ignored, with a warning that
    names it. An empty list is exit 2 (as now).
-4. **Step 1 resume.** Step 1 is skipped only if `$OUT/step1.done` exists and the sha256 it
-   records equals the current `<arm>.predicted.speclib`. Otherwise any leftover
-   `<arm>.parquet`/`<arm>.predicted.speclib` is deleted and step 1 runs again. After a step 1 that
-   exits 0 and leaves a non-empty speclib, the script writes `step1.done`
-   (`<sha256>  <arm>.predicted.speclib`). This stops a library truncated by a timeout from being
-   reused.
+4. **Step 1 resume.** Step 1 is skipped only if `$OUT/step1.done` exists, the sha256 on its
+   first line equals the current `<arm>.predicted.speclib`, and the input hashes it records equal
+   the current ones. Otherwise any leftover `<arm>.parquet`/`<arm>.predicted.speclib`/
+   `<arm>.log.txt` is deleted and step 1 runs again. After a step 1 that exits 0 and leaves a
+   non-empty speclib, the script writes `step1.done` (through a temporary file and a rename):
+   - first line `<sha256>  <arm>.predicted.speclib`;
+   - `job_id=<SLURM_JOB_ID>` and `commit=<git rev-parse HEAD of GIAP_REPO>`, the job that built it;
+   - `cfg_sha256 <sha256>`, `image_sha256 <sha256>`, and one `fasta_sha256 <sha256> <path>` per
+     step-1 FASTA (for A2 both the `.gz` and the unpacked file).
+
+   This stops a library truncated by a timeout, or built from another cfg, FASTA or image, from
+   being reused (PR #293 review S2/S4). The job and commit lines are not compared, so an
+   unrelated commit does not rebuild the library; a skipped step 1 copies them into
+   `provenance.json` (`step1.built_by`).
+   The A2 FASTA is unpacked to a temporary file in `fasta/` and renamed into place, with a sidecar
+   `fasta/strain_db.faa.src.sha256` holding the sha256 of the `.gz` it came from. It is reused
+   only when the sidecar matches the committed `.gz`; a failed unpack is exit 2 and leaves no file
+   at the final path.
 5. **Step 2 is always fresh.** Before step 2 the script deletes `$OUT/<arm>_report*`,
    `$OUT/<arm>_empirical*`, the matrix files a previous attempt left (DIA-NN writes them next to
    `--out`; the names 2.3.1 uses are recorded on the first real run, see "Output layout"),
    `outputs.sha256` and `FAILED`. The logs of earlier attempts stay in `$GIAP_LOG_DIR`.
 6. **After step 2.** A non-zero DIA-NN exit is exit 1. So is a missing or zero-byte
    `<arm>_report.parquet`. In both cases the script writes `$OUT/FAILED` (step, exit code, UTC
-   time) and no `outputs.sha256`. On success it writes `outputs.sha256`: one line per regular
+   time) and no `outputs.sha256`. `FAILED` never records exit code 0: a step whose DIA-NN call
+   exits 0 but leaves no speclib or report records `exit_code=1 reason=no_output`.
+   **Signals.** TERM, INT and HUP (`scancel`, the Slurm `TIMEOUT`) are trapped and exit 143, 130
+   and 129. `STEP<N>_RC` is empty until the DIA-NN call has returned, so the `EXIT` trap gives a
+   step that was still running the job's exit code, writes `FAILED` (`reason=interrupted`), and
+   records `status failed` (PR #293 review B1). On success it writes `outputs.sha256`: one line per regular
    file under `$OUT` that DIA-NN wrote, excluding `fasta/` and the provenance files, sorted by
    name.
 7. **Provenance.** It writes `$OUT/provenance.json` with
@@ -222,7 +246,7 @@ C --fasta /home/classes/bios/270/khoa/giap/local/data/proteomes/UP000000625.fast
   --f /home/classes/bios/270/khoa/giap/local/data/pxd078459/WT_1.d \
   --f /home/classes/bios/270/khoa/giap/local/data/pxd078459/WT_2.d \
   --f /home/classes/bios/270/khoa/giap/local/data/pxd078459/WT_3.d \
-  --threads 16 --lib $OUT/A1.predicted.speclib \
+  --threads 16 --lib $OUT/A1.predicted.speclib --temp $OUT/quant \
   --out $OUT/A1_report.parquet --out-lib $OUT/A1_empirical.parquet
 ```
 
@@ -244,11 +268,13 @@ $GIAP_ROOT/images/
   diann_2.3.1.sif                 0444, the only image any DIA-NN job runs
   diann_2.3.1.sif.json            install provenance (source stat and hash, copy hash, labels, banner)
 $GIAP_ROOT/pilot/<arm>/           <arm> = A1 | A2  (OUT_DIR overrides $GIAP_ROOT/pilot)
-  fasta/strain_db.faa             A2 only: unpacked from the committed .gz
+  fasta/strain_db.faa             A2 only: unpacked from the committed .gz (temporary file, renamed)
+  fasta/strain_db.faa.src.sha256  A2 only: sha256 of the .gz it was unpacked from
   diann_version.txt               banner of the image (smoke check)
   <arm>.parquet                   step 1 --out-lib target (if DIA-NN writes it)
   <arm>.predicted.speclib         step 1 library (never committed)
-  step1.done                      sha256 of the speclib that step 1 finished
+  step1.done                      sha256 of the speclib that step 1 finished; job, commit, input sha256s
+  quant/                          step 2 --temp: the per-run .quant files (emptied before step 2)
   <arm>_report.parquet            the report (never committed)
   <arm>_empirical.parquet         step 2 empirical library (never committed)
   <the other files DIA-NN writes next to --out: matrices, stats, log>   recorded as observed
@@ -360,7 +386,8 @@ the sample"). ADR-0051 asks Khoa to confirm that this matches the Academia licen
 ### `provenance.json` (per arm; also written on failure)
 
 `arm`, `status` (`ok` | `failed` | `precondition` | `acquisition_mode`), `exit_code`, `step1`
-(`ran` | `skipped` | `not_reached`) with its exit code, `step2` likewise, and `job`:
+(`ran` | `skipped` | `not_reached`) with its exit code (and, when skipped, `built_by`: the
+`job_id` and `commit` from `step1.done`), `step2` likewise, and `job`:
 
 - `id`, `name`, `partition`, `cpus` (`SLURM_CPUS_PER_TASK`), `mem` (`SLURM_MEM_PER_NODE`);
 - `node` (hostname) and `cpu_model`;
