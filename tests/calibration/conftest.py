@@ -452,7 +452,9 @@ def pytest_runtest_makereport(
     statuses = item.stash.get(STATUSES_KEY, [])
     spec = C.shard_spec()
     shard = None if spec is None or C.CONFIRM_ENV in os.environ else (*spec, C.replicate_block())
-    if _is_xpass(report) and statuses and all(s in C.NO_VERDICT_STATUSES for s in statuses):
+    # defer (skip) while any harness check of the test still lacks a verdict: --merge's
+    # apply_xfail decides the strict XPASS over every shard (#327 review round, mutant (b))
+    if _is_xpass(report) and statuses and any(s in C.NO_VERDICT_STATUSES for s in statuses):
         report.outcome = "skipped"
         report.longrepr = (str(item.path), item.location[1] or 0, f"Skipped: {C.SHARD_SKIP}")
         if hasattr(report, "wasxfail"):
