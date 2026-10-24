@@ -1,0 +1,85 @@
+// M7-11b (docs/specs/M7-11b-class-fdr-wiring.md "Nextflow wiring", acceptance criterion 5): stub run
+// of main.nf with peptides. ci.yml runs: nf-test test workflow/tests --profile test,stub.
+//
+// Pinned here: PLACEMENT writes placement_costs.parquet; novel_orfs gets the new optional keys
+// peptides, features, hits_exact, hits_tolerant and placement_costs, each staged from its producer
+// (the C9 peptides from the run's input, features from parse_bakta, the hit tables from map_exact /
+// map_tolerant, placement_costs from placement); novel_orfs writes novel/novel_class_fdr.parquet
+// and it is published under OUT/novel/ (runner/local.py PUBLISHED_FILES gives the same name,
+// tests/unit/test_local_publish_names.py). The --in keys follow the registry fixture
+// (data/annotate/step_registry.json, kept equal to giap.steps by tests/unit/test_nf_annotate_registry.py).
+
+nextflow_pipeline {
+
+    name "main.nf wires the novel-ORF class FDR (stub)"
+    script "../main.nf"
+    options "-stub"
+    tag "novel"
+
+    test("peptides given: novel_orfs gets the class-FDR inputs and publishes novel_class_fdr") {
+
+        when {
+            params {
+                def a = "${moduleTestDir}/data/annotate"
+                def d = "${moduleTestDir}/data/mapping"
+                outdir = "$outputDir"
+                inputs = [genome: "${a}/genome.fa".toString(), replicons: "${a}/replicons.tsv".toString(),
+                          peptides: "${d}/peptides.norm.parquet".toString()]
+                modules = ['core']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${a}/annotation.json"))
+                ann.precomputed.rbs_novel = null
+                annotation = ann
+                db_dir = "${moduleTestDir}/data/genetable/db".toString()
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def REG = new File("${moduleTestDir}/data/annotate/step_registry.json")
+            def work = workDir.toString()
+            def ran = { H.names(workflow.trace) }
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def probs = H.registryProblems(work, REG)
+            assert probs.isEmpty() : "py step inputs vs giap.steps registry: ${probs}"
+            ['placement', 'novel_orfs'].each { s ->
+                assert H.stepCount(workflow.trace, s) == 1 : "${s} ran ${H.stepCount(workflow.trace, s)}x: ${ran()}"
+            }
+
+            def pdirs = H.stepDirs(work, 'placement')
+            assert pdirs.size() == 1
+            assert new File(pdirs[0], 'placement_costs.parquet').isFile() : "placement wrote no placement_costs.parquet"
+
+            def odir = H.stepDirs(work, 'novel_orfs')[0]
+            def ins = H.stepInputs(odir)
+            def keys = ins.collect { it[0] }
+            assert keys.containsAll(['peptides', 'features', 'hits_exact', 'hits_tolerant', 'placement_costs']) :
+                "novel_orfs inputs ${keys}"
+            ['peptides', 'features', 'hits_exact', 'hits_tolerant', 'placement_costs'].each { k ->
+                assert keys.count(k) == 1 : "novel_orfs got ${k} ${keys.count(k)}x"
+            }
+            // key -> the canonical source path of its staged file
+            def links = H.staged(odir).collectEntries { [(it[1]): it[0]] }
+            def src = { String key ->
+                def p = ins.find { it[0] == key }[1]
+                def s = links[p] ?: links.find { t, v -> p.endsWith(t) || t.endsWith(p) }?.value
+                assert s != null : "no staging line for ${key} (${p})"
+                new File(s).canonicalPath
+            }
+            def under = { String key, String step ->
+                def dirs = H.stepDirs(work, step).collect { it.canonicalPath }
+                dirs.any { src(key).startsWith(it) }
+            }
+            assert under('hits_exact', 'map_exact') : "hits_exact not from MAP_EXACT: ${src('hits_exact')}"
+            assert under('hits_tolerant', 'map_tolerant') : "hits_tolerant not from MAP_TOLERANT: ${src('hits_tolerant')}"
+            assert under('placement_costs', 'placement') : "placement_costs not from PLACEMENT: ${src('placement_costs')}"
+            assert under('features', 'parse_bakta') : "features not from parse_bakta: ${src('features')}"
+            assert src('peptides').endsWith('.parquet') : "peptides: ${src('peptides')}"
+
+            assert new File(odir, 'novel/novel_class_fdr.parquet').isFile() : "novel_orfs wrote no novel_class_fdr"
+            ['novel/novel_class_fdr.parquet', 'tables/novel_orfs.tsv'].each { f ->
+                assert new File("${outputDir}/${f}").isFile() : "${f} not published"
+            }
+        }
+    }
+}

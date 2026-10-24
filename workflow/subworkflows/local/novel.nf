@@ -25,11 +25,13 @@ workflow NOVEL {
     contaminants
     gene_table
     layers
+    hits
 
     main:
     // take: genome FASTA; [genes, features, replicons]; [xrefs, annotation_meta, tus, layers];
     // LOCI outputs; peptides.norm.parquet; contaminant FASTA or empty; genetable/genes.parquet
-    // or empty; ANNOTATE's [key, path] layer pairs (promoter_windows, terminators are used)
+    // or empty; ANNOTATE's [key, path] layer pairs (promoter_windows, terminators are used);
+    // [hits_exact, hits_tolerant, placement_costs] from MAPPING (M7-11b class FDR, optional)
     def pc = params.annotation.precomputed
     def db = params.db_dir ?: System.getenv('GIAP_DB_DIR') ?: "${launchDir}/db"
     def n_chunks = params.stub?.novel_windows_chunks != null ? params.stub.novel_windows_chunks as int : 1
@@ -79,11 +81,14 @@ workflow NOVEL {
     }
 
     def first = layers.filter { p -> p[0] in ['promoter_windows', 'terminators'] }
-    def no = stepIn('novel_orfs', [cand, kv('gene_table', gene_table), genes, reps, g, npw, rbn, first],
+    def no = stepIn('novel_orfs', [cand, kv('gene_table', gene_table), genes, reps, g, npw, rbn, first,
+        kv('peptides', peptides), kv('features', gene_model.map { a -> a[1] }),
+        kv('hits_exact', hits.map { h -> h[0] }), kv('hits_tolerant', hits.map { h -> h[1] }),
+        kv('placement_costs', hits.map { h -> h[2] })],
         ['novel_candidates', 'gene_table', 'genes', 'replicons', 'genome'])
     NOVEL_ORFS(no.files, no.keys, ['novel_orfs=tables/novel_orfs.tsv',
         'novel_orfs_gff3=tables/novel_orfs.gff3', 'novel_orfs_faa=tables/novel_orfs.faa',
-        'annotation_patch=tables/annotation_patch.gff3'])
+        'annotation_patch=tables/annotation_patch.gff3', 'novel_class_fdr=novel/novel_class_fdr.parquet'])
     def O = NOVEL_ORFS.out.outputs
 
     emit:
@@ -91,5 +96,6 @@ workflow NOVEL {
     novel_orfs_gff3  = pick(O, 'novel_orfs.gff3')
     novel_orfs_faa   = pick(O, 'novel_orfs.faa')
     annotation_patch = pick(O, 'annotation_patch.gff3')
+    novel_class_fdr  = pick(O, 'novel_class_fdr.parquet')
     events           = ev.inject(NOVEL_ORFS.out.events) { acc, c -> acc.mix(c) }
 }
