@@ -192,3 +192,20 @@ def title_pct(n: int, d: int) -> str:
 def plural(n: int, word: str) -> str:
     """``"1 gene"`` / ``"2 genes"``: the count and the word, ``s`` added unless ``n == 1``."""
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
+
+
+def sig(value: object, digits: int = 2) -> str:
+    """``value`` rounded to ``digits`` significant digits for titles and labels (``"0.0029"``,
+    ``"0.49"``, ``"1200"``): no exponent, trailing zeros dropped; ``None`` / NaN / ``pd.NA`` ->
+    ``"NA"`` (the ``title_pct`` convention)."""
+    if value is None or value is pd.NA:
+        return "NA"
+    x = float(value)  # type: ignore[arg-type]
+    if not np.isfinite(x):
+        return "NA"
+    if x == 0.0:
+        return "0"
+    x = float(f"{x:.{digits}g}")
+    decimals = max(0, digits - 1 - int(np.floor(np.log10(abs(x)))))
+    out = f"{x:.{decimals}f}"
+    return out.rstrip("0").rstrip(".") if "." in out else out

@@ -67,7 +67,7 @@ def _status(row: Any) -> str:
 
 
 def _fmt(v: float | None) -> str:
-    return "unestimated" if v is None else f"{v:g}"
+    return "unestimated" if v is None else base.sig(v)
 
 
 def _counts(orfs: pd.DataFrame) -> pd.DataFrame:
@@ -171,7 +171,7 @@ def _view(row: Any, view: RunView, cfg: GiapConfig, scale: tuple[float, float]) 
     q, fdr = locus._num(row.best_peptide_q), _fdr(row.class_fdr)
     n = _int(row.n_peptides)
     label = (f"{row.orf_id} ({row.cls}): {'NA' if n is None else n} "
-             f"peptides, best q {locus._g(q)}, class FDR {_fmt(fdr)}")  # fmt: skip
+             f"peptides, best q {base.sig(q)}, class FDR {_fmt(fdr)}")  # fmt: skip
     lo = Locus(str(row.orf_id), "novel_orf", str(row.contig), *span, fdr, label)
     peps = frozenset(str(row.peptides).split(";")) if isinstance(row.peptides, str) else frozenset()
     mark = OrfMark(str(row.strand), _tick(row, span, length), peps)
