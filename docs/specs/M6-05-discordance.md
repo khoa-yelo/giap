@@ -55,6 +55,7 @@ def discordance(pairs: pd.DataFrame, genes: pd.DataFrame, cfg: GiapConfig,
 7. **BH.** One family over all OP rows with a non-NA p (both kinds together), `giap.stats.bh`;
    `q_value` written back. `discordant = q_value <= stats.alpha.operon_flags` (0.1) is not a column
    — M6-07 reads the q.
+   *Superseded (M6-05H, 2026-10-24): per M6-index lead decision 1 and M6-02 lead decision 4 the family holds only the `both_detected_t` p; P(miss) rows get no q — item 7's "both kinds" and example 8's "one family of 150" stand only once M6-09 attack C and an ADR admit the mixture.*
 8. **No RNG.** Everything here is deterministic; the only stochastic part of M6 lives in M6-02.
 
 ## Degenerate cases
