@@ -24,6 +24,7 @@ reported to the statistician.
 
 from __future__ import annotations
 
+import math
 from fractions import Fraction
 from typing import Any
 
@@ -235,10 +236,12 @@ def test_ucb95_level_is_a_parameter() -> None:
 @settings(max_examples=300, derandomize=True, deadline=None)
 @given(st.integers(0, 3000), st.integers(1, 300), st.integers(1, 10**5), st.integers(1, 10**5))
 def test_s3_ucb95_is_at_least_the_capped_point_estimate(n_t: int, n_e: int, k: int, s: int) -> None:
-    if k > 9 * s:  # pi > 0.9: the corner pinned below
-        return
     c, u = E().combined(n_t, n_e, k, s), E().ucb95(n_t, n_e, k, s)
     assert u is not None and c is not None
+    n = n_t + n_e
+    assert round(u * n) >= min(math.floor(c * n), n)  # S-3 as reworded: every pi
+    if k > 9 * s:  # pi > 0.9: the corner pinned below
+        return
     assert u >= min(float(c), 1.0) - 1e-12
     assert 0.0 < u <= 1.0
 
