@@ -127,7 +127,7 @@ FORBIDDEN_WARNINGS = ("decoy_unscored", "decoy_pairing_low", "q_floor_above_alph
 REPORT_SECTIONS = ("detection", "genome-context", "operons", "variants", "novel-orfs")
 RUNTIME_KEY = "mvp04_k12_evidence"
 NOVEL_CLASSES = ("intergenic", "cds_outframe", "antisense", "nterm_extension")
-TRUTH_TABLES = ("peptides", "genes", "islands", "alt_sites", "novel_orfs")
+TRUTH_TABLES = ("peptides", "genes", "islands", "alt_sites", "novel_alt_sites", "novel_orfs")
 BUDGET = {"wall_h": 8.0, "cpu_h": 150.0, "rss_gb": 64.0}  # spec "Runtime budget"
 Range = list[float | None]
 
@@ -357,21 +357,98 @@ def _vcf_valid(path: Path) -> bool:
     return True
 
 
+_IL = str.maketrans({"I": "J", "L": "J"})
+NOVEL_STARTS = frozenset({"GTG", "TTG", "CTG"})  # non-ATG starts reading M as initiator
+
+
+def _fold(s: str | None) -> str:
+    """I, L and J as one token (GIAP's folded I/L ALT residue is ``J``, M7-02 rule 5)."""
+    return (s or "").translate(_IL)
+
+
+def _tolerant_min_len(outdir: Path) -> int | None:
+    """``mapping.tolerant.min_len`` of ``OUTDIR/resolved_config.yaml``; ``None`` when unreadable."""
+    import yaml
+
+    try:
+        cfg = yaml.safe_load((Path(outdir) / "resolved_config.yaml").read_text())
+        v = cfg["mapping"]["tolerant"]["min_len"]
+    except (OSError, yaml.YAMLError, KeyError, TypeError):
+        return None
+    return int(v) if isinstance(v, int | float) and not isinstance(v, bool) else None
+
+
+def _novel_starts(inputs: Path) -> set[tuple[str, str, int | None]]:
+    """(contig, strand, 1-based lowest base) of every truth novel ORF's start codon."""
+    out = set()
+    for o in _read(Path(inputs) / "truth" / "novel_orfs.tsv"):
+        ts = _int(o.get("true_start"))
+        low = ts if o.get("strand") == "+" or ts is None else ts - 2
+        out.add((o.get("contig") or "", o.get("strand") or "", low))
+    return out
+
+
+def _initiator_row(r: Mapping[str, str], starts: set[tuple[str, str, int | None]]) -> bool:
+    """An ALT M over an initiator: a ``start_codon`` flag, or a GTG/TTG/CTG truth novel start."""
+    if "start_codon" in _ids(r.get("flags")):
+        return True
+    return (r.get("alt_aa") == "M" and (r.get("ref_codon") or "").upper() in NOVEL_STARTS
+            and (r.get("contig") or "", r.get("strand") or "", _int(r.get("codon_start")))
+            in starts)  # fmt: skip
+
+
+def _recall_sites(
+    truth: Sequence[Mapping[str, str]], peptides: Sequence[Mapping[str, str]], min_len: int
+) -> set[tuple[str, int | None, str]]:
+    """Folded truth sites with >= 2 distinct I/L-folded correct peptides of length >= ``min_len``
+    of the site's locus (``gene`` or ``orf_id``) whose 1-based closed interval holds the codon."""
+    by: dict[tuple[str, str], list[tuple[int, int, str]]] = {}
+    for p in peptides:
+        if p.get("origin") == "decoy" or _true(p.get("is_wrong")):
+            continue
+        seq, a, b = p.get("peptide") or "", _int(p.get("start")), _int(p.get("end"))
+        if len(seq) < min_len or a is None or b is None:
+            continue
+        for locus in _ids(p.get("locus_tag")):
+            by.setdefault((locus, p.get("contig") or ""), []).append((a, b, _fold(seq)))
+    out = set()
+    for t in truth:
+        cs, contig = _int(t.get("codon_start")), t.get("contig") or ""
+        if cs is None:
+            continue
+        locus = t.get("gene") or t.get("orf_id") or ""
+        seen = {s for a, b, s in by.get((locus, contig), ()) if a <= cs and cs + 2 <= b}
+        if len(seen) >= 2:
+            out.add(_site(contig, t.get("codon_start"), _fold(t.get("alt_aa"))))
+    return out
+
+
 def gate11(outdir: Path, inputs: Path) -> dict[str, Any]:
-    """Variants: ``high`` ALT rows against ``truth/alt_sites.tsv``."""
-    outdir = Path(outdir)
+    """Variants: ``high`` ALT rows against ``truth/alt_sites.tsv`` + ``novel_alt_sites.tsv``.
+
+    Residues compare with I/L folded (ALT ``J`` = truth ``I`` or ``L``); initiator rows (ALT M
+    at a ``start_codon``-flagged or GTG/TTG/CTG novel-ORF start: giapsim leaves initiators out
+    of truth) leave the precision denominator (``n_initiator_m_excluded``); recall sites have
+    >= 2 true peptides of ``truth/peptides.tsv`` of at least ``mapping.tolerant.min_len``
+    (``resolved_config.yaml``; no config, no recall). ``value`` is every high row."""
+    outdir, inputs = Path(outdir), Path(inputs)
     rows = _read(outdir / "tables" / "variants.tsv")
-    truth = _read(Path(inputs) / "truth" / "alt_sites.tsv")
-    sites = {_site(t.get("contig"), t.get("codon_start"), t.get("alt_aa")) for t in truth}
-    high = {_site(r.get("contig"), r.get("codon_start"), r.get("alt_aa"))
-            for r in rows if r.get("confidence") == "high"}  # fmt: skip
-    high_rows = [_site(r.get("contig"), r.get("codon_start"), r.get("alt_aa"))
-                 for r in rows if r.get("confidence") == "high"]  # fmt: skip
-    n_high, n_true = len(high_rows), sum(1 for h in high_rows if h in sites)
-    precision = n_true / n_high if n_high else None
-    multi = {_site(t.get("contig"), t.get("codon_start"), t.get("alt_aa")) for t in truth
-             if (_num(t.get("n_true_peptides")) or 0) >= 2}  # fmt: skip
-    recall = len(multi & high) / len(multi) if multi else None
+    truth = [*_read(inputs / "truth" / "alt_sites.tsv"),
+             *_read(inputs / "truth" / "novel_alt_sites.tsv")]  # fmt: skip
+    sites = {_site(t.get("contig"), t.get("codon_start"), _fold(t.get("alt_aa"))) for t in truth}
+    starts = _novel_starts(inputs)
+    high_rows = [r for r in rows if r.get("confidence") == "high"]
+    init = [r for r in high_rows if _initiator_row(r, starts)]
+    called = {_site(r.get("contig"), r.get("codon_start"), _fold(r.get("alt_aa")))
+              for r in high_rows}  # fmt: skip
+    scored = [_site(r.get("contig"), r.get("codon_start"), _fold(r.get("alt_aa")))
+              for r in high_rows if not _initiator_row(r, starts)]  # fmt: skip
+    n_high, n_true = len(high_rows), sum(1 for h in scored if h in sites)
+    precision = n_true / len(scored) if scored else None
+    min_len = _tolerant_min_len(outdir)
+    multi = (_recall_sites(truth, _read(inputs / "truth" / "peptides.tsv"), min_len)
+             if min_len is not None else set())  # fmt: skip
+    recall = len(multi & called) / len(multi) if multi else None
     need = {"strain_difference", "database_derived"}
     missing = sum(1 for r in rows if not need <= set(_ids(r.get("flags"))))
     vcf = _vcf_valid(outdir / "tables" / "variants.vcf")
@@ -380,6 +457,7 @@ def gate11(outdir: Path, inputs: Path) -> dict[str, Any]:
     inside = _within(n_high, 60, 300) and precision is not None and precision >= 0.97
     return _entry(n_high, [60, 300], "n_high >= 30; precision >= 0.95; recall >= 0.90; flags; VCF",
                   ok, inside, precision=precision, recall=recall, n_recall_sites=len(multi),
+                  n_initiator_m_excluded=len(init), recall_min_len=min_len,
                   n_rows_missing_flags=missing, vcf_valid=vcf)  # fmt: skip
 
 

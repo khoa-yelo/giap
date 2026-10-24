@@ -665,7 +665,7 @@ def test_real_discordance_and_missed_rows_merge_and_flag() -> None:
     pairs["terminator_between"] = 0.1
     genes = genes_for(pairs)
     c = mcfg()
-    d = discordance(pairs, genes, c, None)
+    d = discordance(pairs, genes, c, None, sigma_model="constant")  # the M6-05 null (M6-13)
     m = missed_operons(pairs, c, genes=genes)
     merged = fl.merge_tests(pairs, d.rows, m.rows, genes)
     assert tuple(merged.columns) == PAIR_COLS

@@ -10,7 +10,9 @@ writes the simulated inputs of a GIAP evidence run plus their truth:
    output is the *sample*; GIAP gets the official genome. SNVs only, so the coordinates agree.
    ``truth/alt_sites.tsv`` has the M7-12 columns with ``ref_aa`` the genome's residue and
    ``alt_aa`` the sample's (swapped roles); SNVs in a gene's initiator codon are left out (the
-   initiator reads M on both sides in GIAP).
+   initiator reads M on both sides in GIAP). Sample SNVs inside the found novel ORFs (step 4)
+   go to ``truth/novel_alt_sites.tsv`` instead (``novel_alt_site_rows``; interior codons only,
+   ``orf_id`` in place of ``gene``), so ``alt_sites.tsv`` keeps gene rows only.
 3. **TUs and abundance** (step 3, Q3): connected components of same-strand genes sharing a
    RegulonDB TU (match: same strand and same stop, the right end on ``+``, the left end on ``-``;
    gene coordinates from ``GeneProductSet.txt`` next to ``TUSet.txt``), else the gap rule
@@ -34,17 +36,21 @@ writes the simulated inputs of a GIAP evidence run plus their truth:
    null PSM goes to its target or its entry's decoy on a 1/2 coin (``proteomics`` module doc);
    ``provenance.json`` records ``decoys``, ``decoy_collisions`` and ``null_split``.
 6. **Outputs** (step 8): ``peptides.tsv``, ``abundance.tsv``, ``config.yaml`` (``seed`` and
-   ``sample_name`` only), ``truth/{peptides,genes,islands,alt_sites,novel_orfs}.tsv`` (+
-   ``truth/novel_orfs.json``, ``truth/proteomics.json``), ``truth/sample_genome.fna`` (debugging
-   only, never a GIAP input) and ``provenance.json``. Everything is staged in a temporary
-   directory and moved into ``outdir`` only when it is complete; a ``peptides.tsv`` without
-   target rows is refused (D9).
+   ``sample_name`` only), ``truth/{peptides,genes,islands,alt_sites,novel_alt_sites,
+   novel_orfs}.tsv`` (+ ``truth/novel_orfs.json``, ``truth/proteomics.json``),
+   ``truth/sample_genome.fna`` (debugging only, never a GIAP input) and ``provenance.json``.
+   Everything is staged in a temporary directory and moved into ``outdir`` only when it is
+   complete; a ``peptides.tsv`` without target rows is refused (D9).
 
 Draws use ``numpy.random.default_rng([seed, 40, k])`` (k = 0 TU expression, 1 novel ORFs, 2 novel
 abundances) next to the existing giapsim streams. Nothing is imported from ``giap``.
 
 CLI: ``python -m giapsim.real_genome --genome G --annotation J --seed S --outdir D
-[--tu-set TUSet.txt]`` runs ``scenarios.k12_evidence()`` with the hash check on.
+[--tu-set TUSet.txt]`` runs ``scenarios.k12_evidence()`` with the hash check on. With
+``--backfill-novel-alt-sites [--scratch TMP]`` and the same arguments it adds only
+``truth/novel_alt_sites.tsv`` to an existing ``D`` written before that table existed
+(``backfill_novel_alt_sites``: the rerun must reproduce every other file of ``D`` byte for byte,
+``provenance.json`` aside).
 """
 
 from __future__ import annotations
@@ -91,10 +97,13 @@ from giapsim.strain import StrainConfig, derive_reference
 __all__ = [
     "EXPECTED_HASHES",
     "GAP_RULE_BP",
+    "NOVEL_ALT_COLUMNS",
     "NOVEL_FOUND_CLASSES",
     "RealGenomeConfig",
     "RealGenomeResult",
+    "backfill_novel_alt_sites",
     "main",
+    "novel_alt_site_rows",
     "simulate_on_genome",
     "verify_inputs",
 ]
@@ -531,6 +540,45 @@ def _write_tsv(path: Path, header: Sequence[str], rows: Sequence[Sequence[Any]])
         w.writerows(rows)
 
 
+NOVEL_ALT_COLUMNS = ["contig", "codon_start", "strand", "orf_id", "ref_aa", "alt_aa",
+                     "n_true_peptides"]  # fmt: skip
+
+
+def novel_alt_site_rows(
+    nrows: Sequence[Sequence[Any]],
+    ref: Mapping[str, str],
+    sample: Mapping[str, str],
+    peps: Mapping[str, list[tuple[str, int, int, str]]],
+) -> list[list[Any]]:
+    """``truth/novel_alt_sites.tsv`` rows: the sample SNV codons of the found novel ORFs
+    (``NOVEL_FOUND_CLASSES`` rows of ``truth/novel_orfs.tsv``; ``nterm_extension`` ORFs are
+    annotated genes, covered by ``alt_sites.tsv``). One row per interior codon (start and stop
+    codons are intact on both sides by the found-ORF rule) in the ORF's frame where the genome
+    and sample residues differ, neither a stop; ``codon_start`` is the 1-based lowest base,
+    ``ref_aa`` the genome's code-11 residue and ``alt_aa`` the sample's, and
+    ``n_true_peptides`` the distinct I/L-folded correct peptides of the ORF (``peps``, by
+    ``orf_id``) whose 1-based closed interval holds the whole codon."""
+    order = {c: k for k, c in enumerate(ref)}
+    out: list[list[Any]] = []
+    for r in nrows:
+        orf_id, cls, cid, s1, e1, strand = r[0], r[1], str(r[2]), int(r[3]), int(r[4]), r[5]
+        if cls not in NOVEL_FOUND_CLASSES:
+            continue
+        hits = [p for p in peps.get(str(orf_id), ()) if p[0] == cid]
+        for k in range(1, (e1 - s1 + 1) // 3 - 1):  # interior codons only
+            c1 = s1 + 3 * k if strand == "+" else e1 - 3 * (k + 1) + 1
+            g = _segment(ref[cid], c1 - 1, c1 + 2, strand)
+            s = _segment(sample[cid], c1 - 1, c1 + 2, strand)
+            if g == s or g not in CODE_11 or s not in CODE_11:
+                continue
+            ra, aa = CODE_11[g], CODE_11[s]
+            if ra == aa or "*" in (ra, aa):
+                continue
+            n = len({p for _c, a1, b1, p in hits if a1 <= c1 and c1 + 2 <= b1})
+            out.append([cid, c1, strand, orf_id, ra, aa, n])
+    return sorted(out, key=lambda x: (order.get(x[0], len(order)), x[1], x[2], x[3]))
+
+
 def _expressed(f: Feat) -> bool:
     """``proteomics.expressed_proteins``' choice of annotated proteins."""
     return f.kind in ("cds", "sorf") and not f.pseudo_reason and not f.extra.get("pseudo")
@@ -651,6 +699,8 @@ def simulate_on_genome(
         _write_tsv(truth / "alt_sites.tsv", ALT_COLUMNS, alt)
         nrows = novel_rows(novel, feats, sample, set(), peps)
         _write_tsv(truth / "novel_orfs.tsv", NOVEL_COLUMNS, nrows)
+        nalt = novel_alt_site_rows(nrows, ref, sample, peps)
+        _write_tsv(truth / "novel_alt_sites.tsv", NOVEL_ALT_COLUMNS, nalt)
         requested = {c: cfg.n_novel_per_class for c in (*NOVEL_FOUND_CLASSES, "nterm_extension")}
         report = novel_report(requested, nrows)
         (truth / "novel_orfs.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -691,6 +741,7 @@ def simulate_on_genome(
             "counts": {
                 "n_snv": n_snv,
                 "n_alt_sites": len(alt),
+                "n_novel_alt_sites": len(nalt),
                 "n_tus": len(sizes),
                 "n_multi_gene_tus": n_multi,
                 "n_islands": len(islands),
@@ -703,11 +754,63 @@ def simulate_on_genome(
         (stage / "provenance.json").write_text(json.dumps(prov, indent=2, sort_keys=True) + "\n")
         _publish(stage, outdir)
     rel = {k: outdir / p.relative_to(stage) for k, p in paths.items() if k != "proteins"}
-    for name in ("alt_sites", "novel_orfs", "genes", "islands"):
+    for name in ("alt_sites", "novel_alt_sites", "novel_orfs", "genes", "islands"):
         rel[name] = outdir / "truth" / f"{name}.tsv"
     rel["provenance"], rel["config"] = outdir / "provenance.json", outdir / "config.yaml"
     rel["sample_genome"] = outdir / "truth" / "sample_genome.fna"
     return RealGenomeResult(outdir, rel, prov)
+
+
+def _input_files(d: Path) -> dict[str, bytes]:
+    """Every file of an input directory by relative path, except ``provenance.json`` (it holds
+    the giapsim git SHA)."""
+    return {p.relative_to(d).as_posix(): p.read_bytes() for p in sorted(d.rglob("*"))
+            if p.is_file() and p.relative_to(d).as_posix() != "provenance.json"}  # fmt: skip
+
+
+def backfill_novel_alt_sites(
+    cfg: RealGenomeConfig,
+    seed: int,
+    outdir: Path,
+    *,
+    genome_fasta: Path,
+    bakta_json: Path,
+    tu_set: Path | None,
+    check_hashes: bool = True,
+    scratch: Path | None = None,
+) -> Path:
+    """Add ``truth/novel_alt_sites.tsv`` to an input directory written before the table existed.
+
+    Reruns ``simulate_on_genome`` with the same ``cfg``, ``seed`` and inputs into a temporary
+    directory (under ``scratch``, default the system temp directory), checks that every other
+    file of ``outdir`` (``provenance.json`` aside: it records the giapsim git SHA) is
+    byte-identical to the rerun and that the rerun has no file ``outdir`` lacks, then copies only
+    the new table in. Nothing in ``outdir`` changes on a mismatch (ValueError); an existing
+    identical table is left as is. ``provenance.json`` is not updated (no
+    ``counts.n_novel_alt_sites``)."""
+    outdir = Path(outdir)
+    rel = "truth/novel_alt_sites.tsv"
+    if not (outdir / "peptides.tsv").is_file():
+        raise ValueError(f"not a giapsim input directory: {outdir}")
+    with tempfile.TemporaryDirectory(prefix="giapsim-backfill-", dir=scratch) as tmp:
+        again = Path(tmp) / "again"
+        simulate_on_genome(cfg, seed, again, genome_fasta=genome_fasta, bakta_json=bakta_json,
+                           tu_set=tu_set, check_hashes=check_hashes)  # fmt: skip
+        have, want = _input_files(outdir), _input_files(again)
+        new = want.pop(rel)
+        old = have.pop(rel, None)
+        diff = sorted((have.keys() ^ want.keys())
+                      | {k for k in have.keys() & want.keys() if have[k] != want[k]})  # fmt: skip
+        if diff:
+            raise ValueError(f"the rerun differs from {outdir} (different seed, inputs or giapsim "
+                             f"code?): {', '.join(diff)}")  # fmt: skip
+        if old is not None and old != new:
+            raise ValueError(f"{outdir / rel} exists and differs from the rerun")
+        if old is None:
+            part = outdir / (rel + ".part")
+            part.write_bytes(new)
+            part.replace(outdir / rel)
+    return outdir / rel
 
 
 def _initiator(g: Feat, codon_start1: int) -> bool:
@@ -740,10 +843,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("--outdir", type=Path, required=True)
     ap.add_argument("--tu-set", type=Path, default=None, help="RegulonDB TUSet.txt (optional)")
+    ap.add_argument("--backfill-novel-alt-sites", action="store_true",
+                    help="add only truth/novel_alt_sites.tsv to the existing --outdir after "
+                         "checking a rerun reproduces its other files byte for byte")  # fmt: skip
+    ap.add_argument("--scratch", type=Path, default=None,
+                    help="temporary directory of the --backfill-novel-alt-sites rerun")  # fmt: skip
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     from giapsim.scenarios import k12_evidence
 
+    if args.backfill_novel_alt_sites:
+        try:
+            path = backfill_novel_alt_sites(k12_evidence(), args.seed, args.outdir,
+                                            genome_fasta=args.genome, bakta_json=args.annotation,
+                                            tu_set=args.tu_set, scratch=args.scratch)  # fmt: skip
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(path)
+        return 0
     try:
         res = simulate_on_genome(k12_evidence(), args.seed, args.outdir, genome_fasta=args.genome,
                                  bakta_json=args.annotation, tu_set=args.tu_set)  # fmt: skip
