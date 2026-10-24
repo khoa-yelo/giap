@@ -7,8 +7,10 @@ Per run: the M8-10 chain without its null on the M8-07 features table, with ``de
 TU folds from ``rng``, LightGBM / elastic-net CV (``determinants.repeats``), LightGBM SHAP and the
 attribution table. The result is a ``DeterminantsSensitivity``: the genes flagged
 ``abundance_not_explained_by_sequence`` (the set behind ``n_*`` / ``jaccard``), the dominant block
-of every top-decile gene (behind ``agreement``) and the mean LightGBM CV R² (an event of the
-step). Pure: randomness only from ``rng``; ``cfg.seed`` seeds the models as in the step.
+of every explained model row, i.e. not flagged (behind ``agreement``; M8-16c, lead decision 6),
+and the mean LightGBM CV R² (an event of the step). The dominant block is ``_dominant`` on the
+row's LightGBM SHAP block sums; ``determinants_attribution.tsv`` still reports it for the top
+decile only. Pure: randomness only from ``rng``; ``cfg.seed`` seeds the models as in the step.
 """
 
 from __future__ import annotations
@@ -20,7 +22,13 @@ import numpy as np
 import pandas as pd
 
 from giap.config.model import GiapConfig
-from giap.determinants.attribution import UNEXPLAINED, attribution_table, shap_blocks
+from giap.determinants.attribution import (
+    SHAP_COLUMNS,
+    UNEXPLAINED,
+    _dominant,
+    attribution_table,
+    shap_blocks,
+)
 from giap.determinants.features import model_matrix
 from giap.determinants.models import cross_validate, enough_data, model_rows, tu_folds
 
@@ -31,8 +39,9 @@ _CALLS = ("detected", "abundance_log2", "abundance_imputed")
 
 @dataclass(frozen=True)
 class DeterminantsSensitivity:
-    """One determinants rerun: ``flagged`` locus tags, ``dominant`` block per top-decile locus
-    tag (``None`` for a top-decile gene without a positive block) and the mean LightGBM CV R²."""
+    """One determinants rerun: ``flagged`` locus tags, ``dominant`` block per explained model
+    row's locus tag (not flagged; ``None`` without a positive SHAP block sum) and the mean
+    LightGBM CV R²."""
 
     flagged: frozenset[str]
     dominant: dict[str, str | None] = field(default_factory=dict)
@@ -80,7 +89,9 @@ def determinants_family(
         str(t) for t, fl in zip(att["locus_tag"], att["flags"], strict=True)
         if UNEXPLAINED in str(fl).split(";")
     )  # fmt: skip
-    top = att[att["top_decile"].astype(bool)]
-    dominant = {str(t): None if pd.isna(b) else str(b)
-                for t, b in zip(top["locus_tag"], top["dominant_block"], strict=True)}  # fmt: skip
+    model_tags = set(f.loc[rows, "locus_tag"].astype(str))
+    sums = shap.loc[:, list(SHAP_COLUMNS)]
+    dominant = {t: _dominant(np.asarray(sums.loc[t], dtype=float))
+                for t in att["locus_tag"].astype(str)
+                if t in model_tags and t not in flagged}  # fmt: skip
     return DeterminantsSensitivity(flagged, dominant, float(np.mean(lgbm.r2)))

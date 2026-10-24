@@ -158,12 +158,17 @@ primary is therefore an independent realisation of the fold assignment, not
   own residual SD, and flags about 4 % of model rows. A variant that changes the CV R² moves the
   threshold for every gene. This set is a reversible default (M8-16 Q2) because §8.6 does not
   define the determinants set.
-- **Agreement.** The top decile is the model rows whose observed `abundance_log2` is at or above
-  the 90th percentile. A top-decile gene's dominant block is the block with the largest positive
-  SHAP sum; it is `None` when no block is positive. `agreement` is computed over the genes in both
-  runs' top deciles, leaving out those whose block is `None` in both runs: it is the share whose
-  dominant block is the same. A gene with a block in one run and `None` in the other counts as a
-  disagreement. `agreement` is NA when no such gene remains. A run compared with itself gives 1.
+- **Agreement.** A gene is *explained* in a run when it is a model row and is not flagged
+  `abundance_not_explained_by_sequence` in that run. Its dominant block is the block with the
+  largest positive LightGBM SHAP sum; it is `None` when no block is positive. `agreement` is
+  computed over the genes explained in **both** runs: a gene flagged in either run is left out,
+  and so is a gene whose block is `None` in both runs. It is the share of the remaining genes
+  whose dominant block is the same. A gene with a block in one run and `None` in the other counts
+  as a disagreement. `agreement` is NA when no such gene remains. A run compared with itself gives
+  1 (NA if none of its explained genes has a block). This follows Khoa's decision of 2026-10-24
+  (M8-16 lead decision 6); before it, `agreement` covered the top decile only.
+  `determinants_attribution.tsv` is unchanged: its `dominant_block` is still reported for the
+  top-decile genes only.
 - **CV R².** The mean LightGBM CV R² of the primary and of every variant goes to the event
   `sensitivity.determinants_cv_r2`. §8.6 has no R² column; the manifest's sensitivity summary
   holds it.
@@ -192,11 +197,13 @@ In the statistician's probe (PR #265 review, Slurm 1876267), the design was:
 
 The results:
 - the Jaccard of the flagged sets against stream 0 was 0.67–1.0 (median about 0.77);
-- `agreement` was 0.85–0.96 at CV R² ≤ 0.15, and 1.0 at CV R² ≈ 0.7.
+- `agreement` (then over the shared top-decile genes) was 0.85–0.96 at CV R² ≤ 0.15, and 1.0 at
+  CV R² ≈ 0.7. The probe predates lead decision 6 and has not been repeated over the explained
+  genes.
 
 A determinants Jaccard of about 0.7 or more is therefore within fold-assignment noise. Read it
-together with `n_primary`, `n_variant` and `n_shared`. The denominator of `agreement` (the shared
-top-decile genes, about 10 % of model rows) is not in the table, and neither `jaccard` nor
+together with `n_primary`, `n_variant` and `n_shared`. The denominator of `agreement` (the genes explained
+in both runs, most of the model rows) is not in the table, and neither `jaccard` nor
 `agreement` has a confidence interval.
 
 ## Interpretation

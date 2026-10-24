@@ -130,3 +130,15 @@ def determinants_family(genes: pd.DataFrame, cfg: GiapConfig, rng: np.random.Gen
 - **N4:** the skip message names its cause.
 - **Backlog:** N5–N9. The size is accepted, because the PR is stacked and its split was agreed.
 - The basic-mode no-op rows are documented in the methods note (pending Khoa).
+
+## Lead decision 6 (Khoa, 2026-10-24)
+- `agreement` covers the genes the features explain, not the top decile. A gene is explained in a
+  run when it is a model row not flagged `abundance_not_explained_by_sequence` in that run.
+- `DeterminantsSensitivity.dominant` gives a block for every explained model row: `_dominant` on
+  that row's LightGBM SHAP block sums, `None` when no block is positive.
+- `agreement` is the share of the genes explained in both runs whose dominant block is the same.
+  A gene flagged in either run is excluded; a gene with `None` in both runs is excluded; `None` in
+  one run only is a disagreement; NA when no gene is left. A run against itself gives 1.
+- `determinants_attribution.tsv` (`dominant_block` still top-decile only) and the
+  `sensitivity.tsv` columns are unchanged. This supersedes the top-decile wording of item 2,
+  decision 4 and example 3 (whose three genes are now read as explained in both runs).
