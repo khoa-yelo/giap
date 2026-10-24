@@ -401,7 +401,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - skip the t fit when the scale is relative (today it fits and may warn "too_few_op_pairs" on relative rows);
   - log the 1e-6 scale floor in the non-convergence warning, not the raw MAD;
   - document that one-detected rows get no `no_detection_limit_model` on the too-few/relative paths;
-  - test gaps (surviving mutants): undetected gene with a finite imputed value; `unestimated` on the too-few and relative paths; one side partial only; pair flags (`rna_between`) kept; flags of partial rows;
+  - test gaps (surviving mutants): (undetected gene with a finite imputed value: done in M6-05H, #311); `unestimated` on the too-few and relative paths; one side partial only; pair flags (`rna_between`) kept; flags of partial rows;
   - statistician F3/D-1: abundance-dependent Δ noise breaks the lowest-quartile level (2.4–3× nominal) — method ADR or narrowed claim, Khoa decides; D-2 (TU-chained Δ) and D-3 (power record) as attacks;
   - F5: keeping P(miss) out of the BH family in M6-05H needs an ADR; F6: flag imputed-but-detected tested pairs `abundance_imputed`.
 - M6-05 pass 1 simplifications (implementer): `discordance()` accepts `cfg` and `p_miss` but uses
