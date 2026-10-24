@@ -542,7 +542,9 @@ def test_calibration_yaml_entries() -> None:
     assert {"operon_distance", "terminatornet_yes"} <= set(data)
     for key, entry in data.items():
         assert isinstance(entry["calibrated"], bool), key
-        values = {k: v for k, v in entry.items() if k not in ("calibrated", "provenance")}
+        # string metadata of a calibrated entry (ADR-0022)
+        meta = ("calibrated", "provenance", "regulondb_version", "date", "rule")
+        values = {k: v for k, v in entry.items() if k not in meta}
         assert values and all(math.isfinite(float(v)) for v in values.values()), key
         if not entry["calibrated"]:
             assert values == PLACEHOLDERS.get(key, values), key
@@ -551,6 +553,7 @@ def test_calibration_yaml_entries() -> None:
     od = data["operon_distance"]
     assert od["s"] > 0
     assert 0.0 <= data["terminatornet_yes"]["value"] <= 1.0
+    assert 0.0 <= data["uniop_pair_threshold"]["value"] <= 1.0
 
 
 def test_calibration_loader() -> None:

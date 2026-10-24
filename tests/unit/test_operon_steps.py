@@ -58,6 +58,7 @@ from giap.annotate.operons import (
 )
 from giap.annotate.uniop_adapter import PairProb
 from giap.config import GiapConfig, resolve_config
+from giap.data.calibration import load as load_calibration
 from giap.io.fasta import read_genome_fasta
 from giap.io.tsv import read_tsv
 from giap.model.genes import Gene
@@ -80,7 +81,10 @@ PAIRS_OUT = {
 }
 TITLE = "operon prediction scores"
 HEADER = "Gene A\tGene B\tPrediction"
-D0, S = 50.0, 20.0
+# the bundled distance model and pair threshold (calibrated on K-12, ADR-0022)
+_CAL = load_calibration()
+D0, S = float(_CAL["operon_distance"]["d0"]), float(_CAL["operon_distance"]["s"])
+THRESHOLD = float(_CAL["uniop_pair_threshold"]["value"])
 
 
 def logistic(d: float, d0: float = D0, s: float = S) -> float:
@@ -230,7 +234,7 @@ def _tus(path: Path) -> list[tuple[Any, ...]]:
     ]
 
 
-def _expected_tus(sim: Sim, pairs: list[PairProb], threshold: float = 0.5) -> list[Any]:
+def _expected_tus(sim: Sim, pairs: list[PairProb], threshold: float = THRESHOLD) -> list[Any]:
     return build_tus(sim.genes, pairs, threshold, sim.reps)
 
 

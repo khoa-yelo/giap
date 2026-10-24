@@ -69,8 +69,14 @@ def ev() -> Any:
     return m
 
 
+# the threshold the M7-09 examples were written for, not the calibrated default (ADR-0022)
+_TERMINATORS = {"terminators": {"terminatornet_yes": 0.5}}
+
+
 def cfg(**novel: Any) -> GiapConfig:
-    return GiapConfig(seed=1, novel_orfs=novel) if novel else GiapConfig(seed=1)
+    if novel:
+        return GiapConfig(seed=1, novel_orfs=novel, annotation=_TERMINATORS)
+    return GiapConfig(seed=1, annotation=_TERMINATORS)
 
 
 def gene_table(

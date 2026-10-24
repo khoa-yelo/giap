@@ -22,16 +22,16 @@
     {"name": "abundance_log2_b", "type": "number", "description": "log2 abundance of gene_b"},
     {"name": "delta_log2", "type": "number", "description": "abundance_log2_b minus abundance_log2_a"},
     {"name": "test", "type": "string", "description": "Test of the row", "constraints": {"required": true, "enum": ["both_detected_t", "one_detected_pmiss", "missed_operon_decoy", "none"]}},
-    {"name": "stat", "type": "number", "description": "Test statistic (both_detected_t: delta_log2; missed_operon_decoy: |delta_log2|)"},
+    {"name": "stat", "type": "number", "description": "Test statistic (both_detected_t: delta_log2; one_detected_pmiss: abundance_log2 of the detected partner; missed_operon_decoy: |delta_log2|)"},
     {"name": "effect", "type": "number", "description": "Effect estimate (delta_log2 minus the within-operon location)"},
     {"name": "ci_low", "type": "number", "description": "Lower CI bound (NA in pass 1: ci_unestimated)"},
     {"name": "ci_high", "type": "number", "description": "Upper CI bound (NA in pass 1: ci_unestimated)"},
-    {"name": "p_value", "type": "number", "description": "p-value; NA when test = none", "constraints": {"minimum": 0, "maximum": 1}},
-    {"name": "q_value", "type": "number", "description": "BH q-value (both_detected_t) or decoy FDR q (missed_operon_decoy); NA without a test", "constraints": {"minimum": 0, "maximum": 1}},
-    {"name": "method", "type": "string", "description": "Method (student_t, decoy_fdr); NA when test = none"},
-    {"name": "null_model", "type": "string", "description": "Null model (within_operon_t, decoy CV/SW pairs); NA when test = none"},
+    {"name": "p_value", "type": "number", "description": "p-value; one_detected_pmiss: P(miss) of the undetected gene (a probability, M6-05H); NA when test = none", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "q_value", "type": "number", "description": "BH q-value (both_detected_t) or decoy FDR q (missed_operon_decoy); NA without a test and for one_detected_pmiss (outside the BH family, M6-index lead decision 1)", "constraints": {"minimum": 0, "maximum": 1}},
+    {"name": "method", "type": "string", "description": "Method (student_t, detection_limit, decoy_fdr); NA when test = none"},
+    {"name": "null_model", "type": "string", "description": "Null model (within_operon_t, p_detect_model, decoy CV/SW pairs); NA when test = none"},
     {"name": "n_perm", "type": "integer", "description": "Number of permutations or decoys behind the p-value; NA when not resampled", "constraints": {"minimum": 0}},
     {"name": "lfdr", "type": "number", "description": "Local false discovery rate (missed_operon_decoy; ranks, never calls)", "constraints": {"minimum": 0, "maximum": 1}},
-    {"name": "flags", "type": "string", "description": "Semicolon-joined pair-scope flags (§9.4 Operons rna_between; M6-08 lead decision 7, extended only through this schema). abundance_imputed is the pair-scope token (a gene of the pair has an imputed abundance); it is distinct from the gene-scope imputed_abundance of genes.tsv.", "constraints": {"pattern": "(?:rna_between|abundance_imputed|layer_missing:promoters|layer_missing:terminators|layer_missing:tx_rates|ci_unestimated|unestimated|too_few_op_pairs|too_few_no_pairs|no_detection_limit_model|relative_scale)(?:;(?:rna_between|abundance_imputed|layer_missing:promoters|layer_missing:terminators|layer_missing:tx_rates|ci_unestimated|unestimated|too_few_op_pairs|too_few_no_pairs|no_detection_limit_model|relative_scale))*"}}
+    {"name": "flags", "type": "string", "description": "Semicolon-joined pair-scope flags (§9.4 Operons rna_between; M6-08 lead decision 7, extended only through this schema). abundance_imputed is the pair-scope token (a gene of the pair has an imputed abundance); it is distinct from the gene-scope imputed_abundance of genes.tsv.", "constraints": {"pattern": "(?:rna_between|abundance_imputed|layer_missing:promoters|layer_missing:terminators|layer_missing:tx_rates|ci_unestimated|unestimated|too_few_op_pairs|too_few_no_pairs|no_detection_limit_model|relative_scale|pmiss_covariates_missing)(?:;(?:rna_between|abundance_imputed|layer_missing:promoters|layer_missing:terminators|layer_missing:tx_rates|ci_unestimated|unestimated|too_few_op_pairs|too_few_no_pairs|no_detection_limit_model|relative_scale|pmiss_covariates_missing))*"}}
   ]
 }

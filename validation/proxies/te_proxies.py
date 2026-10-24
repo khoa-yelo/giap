@@ -168,6 +168,7 @@ def te1_result(
     peptide_hits: pd.DataFrame,
     genes: Mapping[str, Interval],
     circular: Mapping[str, int | None],
+    max_exceptions: int | None = MAX_EXCEPTIONS,
 ) -> ProxyResult:
     """TE1 counts from the peptide sources, the non-ATG exclusions and ``peptide_hits.tsv``.
 
@@ -175,7 +176,8 @@ def te1_result(
     sorf at one of its own genes, or a higher-priority class (``rna_overlap``, ``pseudogene``,
     §7.2.6) on a locus that lies in frame inside one of its own genes; the latter are also
     counted as ``exact_inframe_masked`` (diagnostic). ``circular``: contig -> length when
-    circular, else None.
+    circular, else None. ``max_exceptions``: the cap on the exception rows (None: no cap; the
+    counts never depend on it).
     """
     good: set[str] = set()
     masked: set[str] = set()
@@ -226,7 +228,7 @@ def te1_result(
     }
     return ProxyResult(
         "TE1", counts, {"exact_inframe": share}, bool(denom) and share >= TE1_MIN,
-        _exceptions(rows),
+        rows[:max_exceptions],
     )  # fmt: skip
 
 

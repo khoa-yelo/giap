@@ -42,9 +42,12 @@ __all__ = [
     "fit_peptide_model",
     "fit_replicate_model",
     "model_for_tu",
+    "needs_covariates",
     "observable_peptides",
+    "observable_peptides_seen",
     "p_detect",
     "p_miss",
+    "p_miss_for_genes",
 ]
 
 Array = npt.NDArray[np.float64]
@@ -163,6 +166,58 @@ def model_for_tu(model: PMissModel, tu_id: str) -> PMissModel:
     if j is None or not model.fold_coef:
         return model
     return dataclasses.replace(model, coef=model.fold_coef[j])
+
+
+def needs_covariates(model: PMissModel) -> bool:
+    """The model scores on covariates beyond abundance (a replicate model fitted with
+    ``detectability.covariates``), which :func:`p_miss_for_genes` does not join (M6-05H)."""
+    return model.kind == "replicate" and any(
+        k not in ("intercept", "abundance_log2") for k in model.coef
+    )
+
+
+def p_miss_for_genes(
+    model: PMissModel, genes: pd.DataFrame, cfg: GiapConfig
+) -> Callable[[str, float, ArrayLike, str], float]:
+    """``p_miss(u, a_v, ratios, v)`` for the genes of ``genes`` (``locus_tag``, ``tu_id``, ``aa``):
+    the out-of-fold model of the seen partner **v**'s TU (:func:`model_for_tu`; M6-02 lead
+    decision 9: v's abundance enters, so v must not have trained the model) on the unseen gene
+    u's :func:`observable_peptides` (the M6-05 ``PMissFn`` callable, M6-05H). The full model when
+    v has no TU or is unknown; NaN when u is unknown or has no protein sequence.
+    ``observable_peptides`` is computed once per gene."""
+    g = genes.drop_duplicates("locus_tag").set_index("locus_tag")
+    tu = g["tu_id"] if "tu_id" in g.columns else pd.Series(None, index=g.index, dtype=object)
+    aa = g["aa"] if "aa" in g.columns else pd.Series(None, index=g.index, dtype=object)
+    peps: dict[str, list[tuple[int, float]]] = {}
+
+    def fn(u: str, a_v: float, ratios: ArrayLike, v: str, /) -> float:
+        seq = aa.get(u)
+        if not isinstance(seq, str):
+            return math.nan
+        if u not in peps:
+            peps[u] = observable_peptides(seq, cfg)
+        t = tu.get(v)
+        m = model_for_tu(model, t) if isinstance(t, str) else model
+        return p_miss(m, a_v, ratios, peps[u])
+
+    return fn
+
+
+def observable_peptides_seen(
+    genes: pd.DataFrame, peptide_hits: pd.DataFrame | None, cfg: GiapConfig
+) -> dict[str, int]:
+    """Per gene of ``genes`` (``locus_tag``, ``aa``): how many of its distinct observable peptides
+    (:func:`observable_peptides`' set) have a C11 assignment to it (any route; I and L the same)
+    — the count the peptide model's training set and the one-detected event use (M6-02 lead
+    decisions 2, 8 and 9). 0 for a gene without a protein sequence."""
+    seen = _assigned(peptide_hits)
+    out: dict[str, int] = {}
+    g = genes.drop_duplicates("locus_tag")
+    aas = g["aa"] if "aa" in g.columns else pd.Series(None, index=g.index, dtype=object)
+    for tag, aa in zip(g["locus_tag"].astype(str), aas, strict=True):
+        seqs = _observable_seqs(aa, cfg) if isinstance(aa, str) else []
+        out[tag] = sum((tag, q.replace("I", "L")) in seen for q in seqs)
+    return out
 
 
 # ------------------------------------------------------------------------------ likelihoods

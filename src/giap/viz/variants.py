@@ -162,7 +162,7 @@ def panel_b(
         win = windows.get(str(s["variant_id"]))
         row = {"panel": "b", "rank": rank, "confidence": s["confidence"]}
         for col in ("variant_id", "gene", "aa_pos", "ref_aa", "alt_aa", "alt_type", "n_alt",
-                    "n_ref", "class_error_rate"):  # fmt: skip
+                    "n_ref", "class_error_rate", "contig", "codon_start", "strand"):  # fmt: skip
             row[col] = _py(s[col])
         row["ref_window"] = None if win is None else win[1]
         row["peptides"] = ";".join(sorted(cov)) or None
@@ -196,17 +196,20 @@ def _draw_a(ax: Axes, rows: Sequence[Mapping[str, object]]) -> None:
             ticks.append(x)
             labels.append(f"{conf}\n{call}" if j else conf)
             grp = [r for r in rows if r["call"] == call and r["confidence"] == conf]
-            bottom = 0.0
-            for r in grp:
+            bars = [r for r in grp if r["flag"] != ALL]
+            width = 0.8 / max(len(bars), 1)  # dodged: a site with k flags is in k bars
+            top = 0.0
+            for k, r in enumerate(bars):
                 f, n = str(r["flag"]), float(str(r["n"]))
-                if f == ALL:
-                    ax.text(x, bottom, str(r["n"]), ha="center", va="bottom", fontsize=6)
-                    continue
                 colour = FLAG_COLOUR.get(f, NO_FLAG_COLOUR)
-                ax.bar(x, n, 0.8, bottom=bottom, color=colour, edgecolor="white", linewidth=0.4)
-                bottom += n
+                ax.bar(x - 0.4 + (k + 0.5) * width, n, width, color=colour, edgecolor="white",
+                       linewidth=0.4)  # fmt: skip
+                top = max(top, n)
                 if f not in used:
                     used.append(f)
+            for r in grp:
+                if r["flag"] == ALL:
+                    ax.text(x, top, str(r["n"]), ha="center", va="bottom", fontsize=6)
     ax.set_xticks(ticks, labels)
     ax.set_ylim(0, max([1.0, *ax.get_ylim()[1:]]) * 1.15)
     ax.set_xlim(-0.7, 2.6 + 1.7)
@@ -239,10 +242,21 @@ class _Lines:
 
 
 def _header(r: Mapping[str, object]) -> str:
+    """The site line; a site with no gene shows its locus, ``contig:pos (strand)``, and "no gene"
+    (NA cells read "NA", never Python ``None``)."""
+
+    def cell(key: str) -> str:
+        v = r.get(key)
+        return "NA" if _na(v) else str(v)
+
     rate = class_error_value(r["class_error_rate"])
-    shown = "NA" if r["class_error_rate"] is None else str(r["class_error_rate"])
-    return (f"{r['gene']} aa {r['aa_pos']}  {r['ref_aa']}→{r['alt_aa']}  {r['alt_type']}  "
-            f"{r['confidence']}  n_alt {r['n_alt']} / n_ref {r['n_ref']}  "
+    shown = cell("class_error_rate")
+    if _na(r["gene"]) or _na(r["aa_pos"]):
+        where = f"{cell('contig')}:{cell('codon_start')} ({cell('strand')})  no gene (aa NA)"
+    else:
+        where = f"{r['gene']} aa {r['aa_pos']}"
+    return (f"{where}  {cell('ref_aa')}→{cell('alt_aa')}  {cell('alt_type')}  "
+            f"{cell('confidence')}  n_alt {cell('n_alt')} / n_ref {cell('n_ref')}  "
             f"class error {shown if rate is None else f'{rate:g}'}")  # fmt: skip
 
 

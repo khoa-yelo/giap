@@ -6,6 +6,10 @@ names it (squash merges are titled ``Mx-NN: …`` or ``feat(Mx-NN): …``), *run
 on another ``origin/*`` branch that is not yet on main names it, and *pending* otherwise. Branches
 whose tip is the head of a closed or merged PR are leftovers and do not count as running. A split
 issue's parts (``M8-06a``, ``M8-06b``) count for ``M8-06``, done once any part merged.
+A spec whose first ten lines hold ``Status: superseded by ADR-NNNN`` is *superseded*: it counts as
+done (Done column, percentages) but is drawn as its own glyph and noted in the Done cell. The ADR
+must exist in docs/adr/ with ``Status: accepted-by-khoa`` in its first ten lines; otherwise the line
+is ignored with a warning on stderr.
 Milestones without issue specs yet (M5-M11) show as not designed.
 M0 has no issue specs and is done (PR #1).
 
@@ -40,7 +44,10 @@ MILESTONES = {  # GIAP_SPEC.md §13 milestone table
     10: "Pilot validation",
     11: "Release 1.0",
 }
-DONE, RUNNING, PENDING = "🟩", "🟨", "⬜"
+DONE, RUNNING, PENDING, SUPERSEDED = "🟩", "🟨", "⬜", "⬛"
+HEAD_LINES = 10  # status lines are looked for in the first ten lines of a spec or ADR
+SUPERSEDED_BY = re.compile(r"^\W*status\W*:\W*superseded by (ADR-\d{4})\b", re.IGNORECASE)
+ACCEPTED_BY_KHOA = re.compile(r"^\W*status\W*:\W*accepted-by-khoa\b", re.IGNORECASE)
 
 
 def git(*args: str) -> str:
@@ -66,6 +73,54 @@ def closed_heads() -> set[str]:
 
 def ids(text: str) -> set[str]:
     return {f"M{m}-{n}" for m, n in ISSUE.findall(text)}
+
+
+def superseded_by(spec_text: str) -> str | None:
+    """The ``ADR-NNNN`` named by a ``Status: superseded by ADR-NNNN`` line in the spec head."""
+    for line in spec_text.splitlines()[:HEAD_LINES]:
+        if m := SUPERSEDED_BY.match(line):
+            return m.group(1).upper()
+    return None
+
+
+def accepted_by_khoa(adr_text: str) -> bool:
+    """Whether the ADR head holds a ``Status: accepted-by-khoa`` line."""
+    return any(ACCEPTED_BY_KHOA.match(line) for line in adr_text.splitlines()[:HEAD_LINES])
+
+
+def superseded(specs: list[tuple[str, str]], adrs: dict[str, str]) -> tuple[set[str], list[str]]:
+    """Issues superseded by an accepted-by-khoa ADR, and warnings for status lines ignored.
+
+    ``specs`` holds ``(issue id, spec text)`` pairs (a split issue may have several), ``adrs``
+    maps ``ADR-NNNN`` to the ADR text.
+    """
+    out: set[str] = set()
+    warnings: list[str] = []
+    for issue, text in specs:
+        adr = superseded_by(text)
+        if adr is None:
+            continue
+        if adr not in adrs:
+            warnings.append(f"{issue}: superseding {adr} not found in docs/adr; status ignored")
+        elif not accepted_by_khoa(adrs[adr]):
+            warnings.append(f"{issue}: {adr} is not accepted-by-khoa; status ignored")
+        else:
+            out.add(issue)
+    return out, warnings
+
+
+def read_superseded() -> set[str]:
+    specs: list[tuple[str, str]] = []
+    for spec in sorted((REPO / "docs/specs").glob("M*-[0-9][0-9]-*.md")):
+        if m := ISSUE.match(spec.name):
+            specs.append((f"M{m.group(1)}-{m.group(2)}", spec.read_text(encoding="utf-8")))
+    adrs: dict[str, str] = {}
+    for path in sorted((REPO / "docs/adr").glob("ADR-[0-9][0-9][0-9][0-9]-*.md")):
+        adrs[path.name[:8]] = path.read_text(encoding="utf-8")
+    out, warnings = superseded(specs, adrs)
+    for w in warnings:
+        print(f"progress_bars: warning: {w}", file=sys.stderr)
+    return out
 
 
 def collect() -> tuple[dict[int, list[str]], set[str], set[str]]:
@@ -99,6 +154,13 @@ def collect() -> tuple[dict[int, list[str]], set[str], set[str]]:
 
 def render() -> str:
     issues, done, running = collect()
+    return render_table(issues, done, running, read_superseded() - done)
+
+
+def render_table(
+    issues: dict[int, list[str]], done: set[str], running: set[str], gone: set[str]
+) -> str:
+    """The progress block; ``gone`` (superseded) issues count as done but get their own glyph."""
     rows = ["| Milestone | Progress | Done | Running | Pending |", "|---|---|---|---|---|"]
     tot = [0, 0, 0]
     for m, name in MILESTONES.items():
@@ -111,18 +173,22 @@ def render() -> str:
             rows.append(f"| M{m} {name} | _not designed yet_ | - | - | - |")
             continue
         d = [i for i in ids_m if i in done]
-        r = [i for i in ids_m if i in running]
-        p = [i for i in ids_m if i not in done and i not in running]
-        bar = DONE * len(d) + RUNNING * len(r) + PENDING * len(p)
-        pct = round(100 * len(d) / len(ids_m))
-        rows.append(f"| M{m} {name} | {bar} {pct} % | {len(d)} | {len(r)} | {len(p)} |")
-        tot = [tot[0] + len(d), tot[1] + len(r), tot[2] + len(p)]
+        s = [i for i in ids_m if i in gone and i not in done]
+        r = [i for i in ids_m if i in running and i not in done and i not in gone]
+        p = [i for i in ids_m if i not in done and i not in gone and i not in running]
+        bar = DONE * len(d) + SUPERSEDED * len(s) + RUNNING * len(r) + PENDING * len(p)
+        n_done = len(d) + len(s)
+        pct = round(100 * n_done / len(ids_m))
+        cell = f"{n_done} ({len(s)} superseded)" if s else f"{n_done}"
+        rows.append(f"| M{m} {name} | {bar} {pct} % | {cell} | {len(r)} | {len(p)} |")
+        tot = [tot[0] + n_done, tot[1] + len(r), tot[2] + len(p)]
     n = sum(tot)
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     return "\n".join(
         [
             START,
-            f"{DONE} done (merged) · {RUNNING} running (open branch) · {PENDING} pending; "
+            f"{DONE} done (merged) · {SUPERSEDED} superseded by an accepted ADR (counts as done) · "
+            f"{RUNNING} running (open branch) · {PENDING} pending; "
             "designed issues: "
             f"{tot[0]}/{n} done ({round(100 * tot[0] / n)} %), {tot[1]} running · "
             f"generated {stamp} by `scripts/dev/progress_bars.py`",
