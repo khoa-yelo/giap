@@ -47,6 +47,9 @@ TRACKS = (
     "sector", "region", "gene_plus", "gene_minus", "abundance", "peptide_density", "tu_start",
     "promoter", "terminator", "island", "gc_skew", "alt_site", "novel_orf", "oric", "ter",
 )  # fmt: skip
+#: every ``gid`` V1 tags its polar-axes artists with; the checklist counts each one as its own
+#: element group (M9-26 lead decision 4, B1)
+TRACK_GIDS: frozenset[str] = frozenset(TRACKS)
 #: track -> (inner, outer) radius (pyCirclize units, 0-100)
 RADII: dict[str, tuple[float, float]] = {
     "sector": (96.0, 98.0),

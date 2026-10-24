@@ -1,0 +1,11 @@
+{
+  "name": "determinants_shap",
+  "description": "Per-feature LightGBM SHAP values (pred_contrib, mean over the out-of-fold boosters) of the model rows for the top 20 encoded model columns by mean |SHAP|, for V15(c) (GIAP_SPEC.md §10.2, §7.8.2; docs/specs/M9-17-plot-support-analysis.md). Summed by block over every column they equal determinants_attribution.tsv's shap_<block> columns. Written by the determinants step. Not a result table.",
+  "missingValues": ["NA", ""],
+  "fields": [
+    {"name": "locus_tag", "type": "string", "description": "Model-row gene", "constraints": {"required": true}},
+    {"name": "feature", "type": "string", "description": "Encoded model column (determinants model matrix)", "constraints": {"required": true}},
+    {"name": "feature_value", "type": "number", "description": "Model-matrix value of the column for this gene (tir_ostir and length_aa on their ln scale); NA when missing"},
+    {"name": "shap", "type": "number", "description": "Mean over the out-of-fold boosters of the column's pred_contrib", "constraints": {"required": true}}
+  ]
+}
