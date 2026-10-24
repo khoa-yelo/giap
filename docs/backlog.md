@@ -1048,6 +1048,18 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (MVP-04 #258 review) boundary tests for summary gates 4, 6, 8, 11, 13 (p) and a gate-13 no-high-island case; sbatch seed from `K12_EVIDENCE_SEED` as `MVP04_SEED`, tested as passed through; gate 15 counts the `empty_state` SVG as content (N2); N3–N9 tidying in `scripts/dev/mvp04_summary.py`.
 - (M2-14b item 7) `PC_BATCH = 100` (regions per PROMOTER_CALCULATOR task) is a constant in annotate.nf; make it a config key (ADR, defaults.yaml) if a genome needs a different batch size.
 
+### M7-17 follow-ups (PR #291)
+- (Q6) The flagged share of true ORFs is fixed by construction in the two existing arms (0 picked, ≈ 1 de novo). Add a mixed database + de novo input arm (M7-13c or MVP-04) to measure it.
+- (Q8) `orf_regimes` treats an unresolved `auto` C9 source as non-`denovo`, while mapping and the flag resolve it table-wide (`resolve_sources`); a source-less de novo table gives `unestimated` ORFs instead of `denovo_subgroup`. M7-11 follow-up: resolve sources the same way (this changes regimes and q, so it needs its own issue).
+- (Decision 4) `test_denovo_support_flag_gate.py` reruns its own G4-k3 arm (one extra simulation per replicate); reuse the G4-k3 runs.
+- (#291 review nits)
+  - report card `sources` misses `novel_orfs:flags` (build.py:304);
+  - `_FLAG` is defined after its first use in steps/novel.py;
+  - `rbs is True` in evidence.py:60 should be `rbs is not None and bool(rbs)`;
+  - the Hypothesis ORF-side alphabet includes `I`;
+  - the gate test should count `side_flag != tsv_flag` as a violation.
+- (M7-17 gate, statistician 7f8e4ed0) `inject_false_orfs` should skip segments at truth keys, as `null_segments` does: about 0.5 % of G4-k3 injections land on a planted ORF's stop and add no false ORF. Makes G4-k3 slightly stricter and changes its stream (rerun); needs Khoa's batch. Do not exclude every CDS-overlapping segment (replicate 130 is correct behaviour).
+
 ### 2026-10-24 review nits (deferred)
 - (#297 review nit 2) Size: about 1,280 test lines against the ~400 guide; next time, ship the Wallenius half (`test_golden_wallenius.py` plus most of `tests/helpers/golden_r_gate.py`) as its own PR (process note, no code change).
 - (#297 review nit 3) Empty leading edges: `GoldenReplayEngine` maps an empty `leadingEdge` cell to `()`, but `_leading_edges_in_fgsea_order`, `test_es_oracle_leading_edges_match_golden` and `_g3b` (`tests/golden/test_golden_gsea_wiring.py:225`, `:299`, `:585`) call `.split(";")` and get `[""]`; add a shared `_edge(cell)` helper and exercise the oracle's `top == -bottom → ES 0` branch.
