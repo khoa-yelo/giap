@@ -92,3 +92,8 @@ pair_id.
    - Title medians use `%.2g`.
    - A header-only pairs.tsv gives "No gene pairs in this run".
    - Axis labels for (a) and (b) are the implementer's choice, stated in the report.
+
+**Amendment (lead, 2026-10-24, viz batch 2 on the M9-25 fixtures).** When `operon_flags.tsv` has
+more rows (`n`) than pass alpha (`k`), the title reads "`<k>` of `<n>` candidate flags at q ≤
+`<alpha>`" instead of "`<k>` pairs flagged …". This keeps a 0-flag title true while candidate
+rows exist. With `n = k`, the wording above is unchanged.
