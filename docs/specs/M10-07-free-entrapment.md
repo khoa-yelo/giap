@@ -489,6 +489,19 @@ replaces. The test-author writes tests against the body as amended here.
   digest, so the in-silico r is the right r. DIA-NN does not know which library entries are T and
   which are E, and its precursor q-values use no protein information. The search therefore
   treats T and E symmetrically, which is the precondition for the paper's argument.
+- **Erratum (statistician, 2026-10-24, after the implementation review).** The previous bullet is
+  wrong in two places, according to the DIA-NN README at 2fb4df29, the revision that documents
+  2.3.1.
+  - **Protein information.** Precursor q-values use protein information unless `--no-refine-q`
+    is set, and A1 does not set it. T and E are therefore not treated symmetrically. The
+    direction is low, and the methods note's bias table carries it. `consistent_with_control`
+    has less support for A1 as a result. `fdp_lower` and `evidence_of_failure` are unaffected.
+  - **Rows also pass the run-level filter.** The main report is already filtered at run-level
+    `Q.Value` ≤ `--qvalue`, so accepted rows pass both the run-level and the global filter. The
+    S1 per-run `assessment_reason` should therefore read "runs were selected by the global and
+    the run-level q-value together; no FDR claim attaches to a run's intersection". That string
+    is a code constant, and changing it is an implementer change. The precursor-level
+    assessment stands.
 
 ### S1: level — **changed**
 

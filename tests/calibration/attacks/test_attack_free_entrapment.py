@@ -24,6 +24,9 @@ land:
 - ``E`` clustered: false discoveries arrive as whole proteins; Poisson(30 / mean size) clusters,
   each with probability pi a K-12-specific protein (all its E peptides), otherwise an absent
   homolog protein (all its shared peptides). Proteins are drawn without replacement.
+- ``F`` a controlled search: as A with M ~ Poisson(9), so the true FDR is about 0.5 alpha. In
+  A-E the true FDP is about 1.6 % (> alpha), so only 20-30 replicates per scenario have
+  FDP <= alpha; F characterises the labels where the search does control.
 
 Gated (fast R = 2,000; full R = 20,000, ``calibration_full``, Slurm), k = ``se_multiplier``:
 
@@ -35,7 +38,9 @@ Gated (fast R = 2,000; full R = 20,000, ``calibration_full``, Slurm), k = ``se_m
 - A, B: P(FDP <= ``ucb95``) >= 0.95 - k sqrt(0.95 0.05 / R).
 
 Recorded, not gated (``compare_attack_free_entrapment_recorded.jsonl``): ``ucb95`` coverage in
-C, D and E (E is the reason its ``assumes`` string excludes clustered errors), and the label rates.
+C, D, E and F (E is the reason its ``assumes`` string excludes clustered errors), and the label
+rates, including F's (how often a controlled search reads ``consistent_with_control`` or
+``inconclusive``). F gates only the deterministic per-replicate checks.
 
 Teeth: in A, ``fdp_lower`` used as an estimate fails the mean check, and a median bound
 (``ucb95(level=0.5)``) fails the coverage check. Without them, a check that cannot fail would
@@ -83,12 +88,13 @@ N_E_SPECIFIC = 600  # E peptides on K-12-specific proteins; the other 400 are va
 N_PRESENT = 2_000
 P_TRUE = 0.9
 MEAN_FALSE = 30.0
+MEAN_FALSE_CONTROLLED = 9.0  # F: true FDR about 0.5 alpha
 GEOM_P = 0.2
 MAX_SIZE = 30
 PI = Fraction(N_K12_ONLY, N_K12_ONLY + N_SHARED)
 
 #: (scenario, lambda) pairs; lambda multiplies the E weight of A
-RUNS = {"A": 1.0, "B": None, "C1": 1.0, "C2": 2.0, "C4": 4.0, "D": 0.5, "E": None}
+RUNS = {"A": 1.0, "B": None, "C1": 1.0, "C2": 2.0, "C4": 4.0, "D": 0.5, "E": None, "F": 1.0}
 
 
 def _seed() -> int:
@@ -176,7 +182,7 @@ def _false_counts(u: Universe, scenario: str, lam: float | None,
                             replace=False)  # fmt: skip
         return (int(sum(u.e_proteins[j].size for j in e_pick)),
                 int(sum(u.absent_proteins[j].size for j in t_pick)))  # fmt: skip
-    m = int(rng.poisson(MEAN_FALSE))
+    m = int(rng.poisson(MEAN_FALSE_CONTROLLED if scenario == "F" else MEAN_FALSE))
     if scenario == "B":
         pool = u.e_ids.size + u.absent_shared.size
         hit = rng.choice(pool, m, replace=False)
@@ -334,6 +340,18 @@ def test_attraction_to_targets_biases_low(full: bool) -> None:
     _gate("D.mean_bias_low", mean + _k() * se < 0, mean, -_k() * se, R,
           f"mean(fdp_combined - FDP) = {mean:.3g}, SE {se:.3g}", r, failures)  # fmt: skip
     _per_replicate_checks("D", r, R, failures)
+    assert not failures, failures
+
+
+@pytest.mark.parametrize("full", MODES)
+def test_controlled_search_is_recorded(full: bool) -> None:
+    """F (true FDR about 0.5 alpha): label rates and ucb95 coverage recorded, not gated; the
+    deterministic per-replicate checks gate, now on a population mostly at FDP <= alpha."""
+    R = _R(full)
+    r = run("F", R)
+    failures: list[str] = []
+    _per_replicate_checks("F", r, R, failures)
+    assert r.n_at_control > R // 2, f"F: only {r.n_at_control} of {R} replicates at FDP <= alpha"
     assert not failures, failures
 
 

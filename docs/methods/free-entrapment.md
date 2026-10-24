@@ -31,8 +31,9 @@ The report therefore says "estimated upper bound", never "upper bound".
 A1 searched UniProt K-12 plus contaminants. Against Nissle spectra its peptides split into the
 original targets T, the K-12 peptides **present** in Nissle's translation (`shared`), and the
 entrapment E, the K-12-only peptides (`k12_only`). The entrapment is free: it is already in A1's
-database, and DIA-NN competed and filtered T and E together without knowing which is which. So the
-combined method's quantity is the FDP of A1's accepted set after removing contaminant-sequence and
+database, and DIA-NN competed and filtered T and E together without knowing which is which. (It
+does use protein information in its precursor q-values, which breaks the symmetry in a known
+direction; see Bias.) So the combined method's quantity is the FDP of A1's accepted set after removing contaminant-sequence and
 `not_in_universe` discoveries. r is computed in silico: r = |k12_only| / |shared|.
 
 ## The universe and "present"
@@ -69,7 +70,8 @@ DIA-NN's library.
 
 `q_value` is DIA-NN's experiment-wide precursor `Global.Q.Value`, so the set of distinct accepted
 precursors (`norm(modified_peptide)`, charge), pooled over the wild-type runs, is the only unit
-whose FDR the search claims to control at α = 0.01. 
+whose FDR the search claims to control at α = 0.01.
+
 **What DIA-NN 2.3.1 has already filtered.** The DIA-NN documentation for 2.3.1 ([README at
 2fb4df2](https://github.com/vdemichev/DiaNN/blob/2fb4df29204453e109afc58238984037d894508c/README.md),
 "GUI settings reference" and "Main output reference") says that the precursor FDR setting
@@ -81,9 +83,12 @@ because "the main report is designed to be filtered". The matrices, which the pi
 use, are filtered at 1 % with global protein-group q-values. A1 sets `--qvalue 0.01` and no flag
 that changes these defaults (`validation/pilot/diann_A1.cfg`). The accepted set is therefore
 the precursors with run-level `Q.Value` ≤ 0.01 (DIA-NN) **and** `Global.Q.Value` ≤ 0.01 (GIAP,
-`Q_ACCEPT`): a subset of what the global q-value alone controls, so the FDR it can claim is at
-most α. No protein-level filter is applied by either. A1 also runs without `--no-refine-q`, so
-the precursor q-values use protein information (see Bias).
+`Q_ACCEPT`). No FDR claim attaches to that intersection itself: a subset of an FDR-controlled
+list is not FDR-controlled in general. The run-level filter removes only rows that are
+low-scoring in their run, so in practice it lowers the false share, and the pooled set stays
+the closest unit to one with a stated FDR. This is why α is the reference there and only there.
+No protein-level filter is applied by either. A1 also runs without `--no-refine-q`, so
+the precursor q-values use protein information (see Bias and the next paragraph).
 
 The assessment is issued only at precursor level:
 
@@ -95,11 +100,28 @@ Both comparisons are exact rationals (`fractions.Fraction`, α = 1/100): `fdp_co
 computed as N_E (k + s) / (k (N_T + N_E)) with k = |k12_only| and s = |shared|, which equals
 equation (1) because 1 + 1/r = (k + s)/k. These are the paper's three readings (Fig. 1b).
 
+**What the labels do and do not say.** The labels are readings of point estimates, not tests,
+and carry no error rate:
+
+- **`consistent_with_control`.** It does not mean that the FDP is at most α at any stated
+  confidence. In the attack's equal-chance scenario A, with a mean true FDP of 1.6 % (above α),
+  about 15 % of lists read `consistent_with_control`, because `fdp_combined` is noisy. In
+  scenario F, a search whose true FDR is about 0.5 α, about 11 % of lists read `inconclusive`.
+  `ucb95` ≤ α is the stronger reading, and holds only under its model.
+- **The A1 settings.** The upper-bound property behind this label needs equal chance. DIA-NN's
+  documentation calls `--no-refine-q` "essential" for validating its precursor q-values with
+  classic entrapment, and A1 runs without it. So for A1, `consistent_with_control` has less
+  support than the paper's reading.
+- **`evidence_of_failure`.** It needs only that every entrapment discovery is false. It is
+  therefore unaffected by equal-chance violations, but not by the genome and contamination
+  caveats.
+
 The peptide level is §15.5's number but is **not assessed** (`not_assessed`): DIA-NN claims no FDR
 for the distinct peptides derived from its precursor list, and false precursors spread over
 distinct peptides while true ones cluster, so a peptide-level FDP above α is not evidence that the
 search failed. Per-run blocks are descriptive and not assessed either, because the rows were
-selected by the global q-value, not a run-level one. Estimates are reported unclipped and flagged
+selected by the global q-value together with the run-level one, and no FDR claim attaches to a
+run's intersection. Estimates are reported unclipped and flagged
 `above_one` when equation (1) exceeds 1, which small counts allow.
 
 ## Uncertainty
@@ -132,7 +154,7 @@ selected by the global q-value, not a run-level one. Estimates are reported uncl
 | E and T differ in length and charge composition, so equal chance per precursor mis-weights the peptide-level r (`sensitivity.r_prec_weighted`) | either |
 | False matches attracted to T, e.g. interference from abundant co-eluting shared proteins (equal-chance violation in the low direction) | low, unquantified |
 | A protein-level filter (`PG.Q.Value`) would remove K-12-only proteins first; neither DIA-NN's main report nor GIAP applies one (DIA-NN 2.3.1 docs, above), and adding one is a lead finding | low |
-| DIA-NN's precursor q-values use protein information unless `--no-refine-q` is set, which the docs call "essential if the goal is validation of DIA-NN's precursor-level q-values using classic entrapment"; A1 does not set it, so K-12-only precursors, from proteins with few other identifications, are penalised relative to T | low, unquantified |
+| DIA-NN's precursor q-values use protein information unless `--no-refine-q` is set, which the docs call "essential if the goal is validation of DIA-NN's precursor-level q-values using classic entrapment"; A1 does not set it. False matches are favoured on proteins with many true identifications. In A1's database those are mostly K-12 proteins with an expressed Nissle ortholog, whose peptides are mostly shared and whose few K-12-only peptides are the variant peptides. K-12-specific proteins, almost all E, and unexpressed proteins are penalised. The E share among favoured elements is below π, so false matches go to T more often than equal chance assumes (the attack's scenario D shows this direction). This is an equal-chance violation; `fdp_lower` is unaffected | low, unquantified |
 | K-12-derived constructs in engineered strains | excluded: only wild-type runs are accepted |
 
 Sensitivities, pre-registered and descriptive (no assessment): `present_broad` widens rule 2 to
@@ -151,3 +173,11 @@ attraction to T biases low; `fdp_lower` never exceeds the true FDP; no list with
 labelled `evidence_of_failure`; and `ucb95` covers at ≥ 95 % under equal chance. Two teeth checks
 show the tests can fail: `fdp_lower` used as an estimate fails the mean check, and a median bound
 fails the coverage check.
+
+Recorded, not gated (R = 2,000):
+
+- **`ucb95` coverage.** About 0.72 under whole-protein clustered errors (E) and about 0.75 under
+  attraction to T (D). This is why its `assumes` string excludes them.
+- **Labels in scenario A** (mean true FDP 1.6 %): 15 % of lists read `consistent_with_control`.
+- **Labels in scenario F** (true FDR about 0.5 α): 89 % read `consistent_with_control`, 11 %
+  `inconclusive`, and none `evidence_of_failure`.
