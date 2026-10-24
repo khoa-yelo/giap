@@ -432,3 +432,23 @@ K-12), so ≈ 6–16 h for both in sequence plus queue waits. This is not the in
 | Q7 | MVP-04's acceptance run is a soft dependency: wait for it, or run the pilot first if M10-03 finishes first? | do not wait; never run both at once (R14) |
 | Q8 | "Done" has no biological or report-content gate (those are M10-05 and the M9 PRs), and pipeline bugs are fixed in separate PRs. Agreed? | yes |
 | Q9 | Outdirs under `$GIAP_ROOT/runs/pilot/pass1/` with §15.2's names (`out_a1`, `out_a2`, `cmp_a1_a2`), `.r<n>` for fresh re-runs and job IDs in `ATTEMPTS.tsv`, rather than a job ID in the name? | yes |
+
+## Lead decisions (2026-10-24)
+
+1. **Q1–Q9: the defaults are accepted.**
+   - Q1: `--threads 14 --memory 54.GB`.
+   - Q2: sequential, A2 then A1.
+   - Q3: decompress the JSON now; the `.json.gz` CLI fix is its own small PR (backlog, test-author → implementer).
+   - Q4: resume only when the fix touches the failed step or later ones.
+   - Q5: no shared annotation layers.
+   - Q6: pin M9-22's behaviour.
+   - Q7: don't wait for MVP-04, but never run concurrently with it.
+   - Q8: no biological or report-content gate.
+   - Q9: the outdir names as written.
+2. **Q-K1 is parked for Khoa** with the default as written: M10-04 commits no aggregate number.
+3. **MVP-04 uses the same fixes:**
+   - the decompressed recorded JSON;
+   - `--memory 54.GB` alongside `--threads 14`.
+   
+   The deferred submit is local/handoff/run/mvp04_submit.sh. M10-04 must not overlap it: check `squeue` for `giap-run-mvp04-k12` before submitting.
+4. **Next:** the test-author writes the tests for `pilot_compare.sbatch`, `run_evidence.py` and the guard; then the implementer.
