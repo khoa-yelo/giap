@@ -292,3 +292,97 @@ M7-index defaults on 2026-10-21 and are rules 2–5 and 9 above.
    - M7-13a measures costs first.
 3. **Order:** M7-13a test-author, then the implementer for the harness extension (pooled, shard-
    mergeable criterion), then statistician review, because the PR is labelled stats.
+4. **Test-author M7-13a (e2415625, #255).** Their reference run (Slurm 1872235) fails G1, A6a, A6b
+   and the reference-proteome arm. Decisions:
+   - **G1, A6a, A6b, A6c → method ADR-0049 (proposed, pending Khoa).** All four are strict xfails
+     with `raises=AssertionError`, and their reasons name ADR-0049. Each still writes its record,
+     so the nightly shows the estimate. Gate M7 stays open. No threshold is widened (R3).
+   - **Reference-proteome arm:** it is a diagnostic, not a gate. The degeneracy assertion is
+     pooled over replicates (mean rate ≥ 0.95), not per replicate. The test-author's per-replicate
+     0.9494 (n 316) is sampling noise.
+   - **G2:** trivial on `same_strain_insilico` (0 ALT rows); its teeth come from the mutant. This
+     is recorded and accepted.
+   - **Readings in gap 6** (indel mask c−3…c+5, isobaric types, reference by substring, guard
+     miss = a failed block, vacuity on block 1, G2 with `genome_relation = same`, stream bases)
+     are accepted.
+   - **Cost:** the full G1 is about 2.8 h with block 2. Array task 13 runs with `--shard 2`, and
+     the implementer wires it into calibration_full.sbatch.
+   - **`_check_key`:** the implementer adds `key` for pooled checks.
+   - **Next:** the test-author makes the xfail and reference-arm edits. These are this PR's own
+     tests, so the lead routes the edits to the test-author. Then the implementer
+     (`_m7_gate.py`, the pooled `_criteria`, the array line), then the statistician.
+5. **Test-author edits (8a3c4774, Slurm 1872441: 11 passed, 4 xfailed).**
+   - Accepted: an empty A6a now raises `RuntimeError`, so a vacuous arm cannot hide as an XFAIL.
+   - Recorded estimates:
+     - G1 F1 0.838, CI [0.807, 0.869];
+     - A6a: 24 unflagged rows out of 20,925;
+     - A6b share 0.95;
+     - A6c share 1.0;
+     - reference arm pooled mean of `substitution` + `mass_equivalent`: 0.974.
+   - Next: the implementer writes `_m7_gate.py`, the pooled `_criteria` functions, `_check_key`
+     with `key`, and calibration_full.sbatch `--array=0-14` with task 13 run under `--shard 2`.
+6. **Implementer (2a591c83; Slurm 1872593 gave 11 passed and 4 xfailed; fast suite 1872659).**
+   - Accepted: task 13 shards inside its array task, running `--shard 1/2` and `2/2` side by side
+     and then `--merge`.
+   - Accepted: records carry `guard` and `vacuous`, so a merge reaches the same verdict.
+   - **Fix (test-author):** in shard and confirm runs the checks return a `shard` status, so the
+     strict xfails XPASS and pytest exits 1. Before asserting, the gate tests now
+     `pytest.skip("shard run: the verdict comes from --merge")` when the status is `shard` or
+     `pending`.
+   - The `--merge` block-2 rerun of G2 and A6a, about 15–20 min, is measured in M7-13c and
+     recorded in PROGRESS.md.
+   - Size: the counted lines are scripts only (10). The test harness, about 350 lines under
+     tests/, is outside the size gate. Accepted.
+7. **Reviews of M7-13a (1b35b679).** The statistician BLOCKS (#255 comment 6365982711) and the
+   code review requests changes (comment 6366124265). The pooled criterion and the merge logic
+   are sound; the task-13 wrapper is not. One fix round, test-author first, then the implementer:
+   - **Shard numbering** (statistician B1): `calibration_full.sbatch` loops `seq 1 n`, while
+     `shard_replicates` counts from 0. Use `seq 0 $((n-1))`, with a wrapper test. Job 1872876,
+     labelled shard 1/2, ran replicates 50:100. Decision 6's wording is corrected here.
+   - **Exit codes** (statistician B2, code review B1): the task fails if any shard's pytest, the
+     merge or the confirm run is non-zero. Tests that bypass the harness (G2, A6a, the A6a/A6c
+     vacuity `RuntimeError`, M7-10's three full tests) skip under `GIAP_CALIBRATION_CONFIRM`, so
+     the confirm run reruns only block 2 of the confirmed records. `main()` strips a leaked
+     `GIAP_CALIBRATION_CONFIRM` from the shard environment.
+   - **Time** (code review B2): the array's `--time` becomes 04:00:00. Shards take about 40 min
+     each and block 2 of G1, A6b and A6c about 80 min.
+   - **G1 guard miss** (statistician B3): G1 raises `RuntimeError` on a guard miss (rule 7), as
+     A6a does (decision 5), so a broken scenario is never shown as the ADR-0049 XFAIL. The
+     statistician's attack null (a stubbed `n_pred = 0`) is committed under `tests/calibration/attacks/`.
+   - **Merge-path tests** (code review B3): a merge with a guard miss, a merge with a vacuous block
+     1, shards that disagree on the guard or settings, and a shard with one unflagged A6a row
+     (xfailed, not skipped). The duplicate-values check in `_collect` (N2) gets a test too.
+   - Small fixes in the implementer round: an inf in `_counts_of` becomes MERGE_ERROR (N3); the
+     `--shard=K/N` and `--merge=` forms are parsed (N4); `_merge_main`'s docstring covers
+     `vacuous` (N1).
+   - ADR-0049 is amended with the statistician's B4 facts (cc814c92).
+   - Backlog: Wilson CI in `share_ci` and G2's 3/R bound (N1); a merge-side known-failures list
+     naming ADR-0049, so a new failure in task 13 is visible (N3); atomic appends on NFS (N4); the
+     indel mask across the origin (code review N5); A6c records the high tokens at the drawn sites.
+   - The statistician's methods text for `docs/methods/variants.md` goes into M7-13c.
+8. **Review-fix tests (88d007f3): gaps 1–6 accepted as proposed.**
+   - `--merge=` is not supported; the wrapper `case` recognises `--shard=*` and `--merge`.
+   - A non-zero confirm-run pytest gives `MERGE_ERROR` (2).
+   - Under `GIAP_CALIBRATION_CONFIRM` a conftest-level hook skips every calibration test that does
+     not reach the harness, at every tier (the reference arm and M7-10's fast tests included).
+   - A merged G1 guard miss is `fail` (`MERGE_FAIL`); the gate's `RuntimeError` covers unsharded runs.
+   - The sbatch keeps its `GIAP_REPO`, `uv run` and `GIAP_WORKTREE` hooks.
+   - A leaked CONFIRM variable is stripped in sharded and unsharded `main()` runs alike.
+   - Next: the implementer.
+9. **Review-fix implementer (07766776, da2839de): accepted.**
+   - **Shards and exit codes:** task-13 shards are 0..n−1, `--time` is 04:00:00, and a non-zero
+     shard or merge fails the task.
+   - **Confirm-mode skip:** a static scan in `tests/calibration/conftest.py` classifies
+     calibration tests as harness or non-harness (510 / 228). It fails closed: a missed harness
+     test gives MERGE_ERROR.
+   - **Fast task-13 check (Slurm 1873691_13):** shards 0:10 and 10:20 ran, block 2 confirmed
+     G1 (F1 0.838), A6b (0.95) and A6c (1.0) as fails, and the task exited 1, as ADR-0049 expects.
+   - **Deviation accepted:** a fail that block 2 confirms returns `MERGE_FAIL`, even when the
+     confirm pytest also exits non-zero. `MERGE_ERROR` is kept for a non-zero confirm run with no
+     confirmed fail. Otherwise every real confirmed fail would read as a merge error.
+   - **Lead test edit:** the fast-suite failures (Slurm 1873690 and 1873867, 26 failed with
+     `No module named 'helpers'`) came from the subprocess tests' child `PYTHONPATH`, which
+     lacked `tests/`. `test_branch.sbatch` sets only `src:tests/sim`. Both files now add `tests/`.
+   - **Known consequence:** task 13 is red every night while ADR-0049 is open. The merge-side
+     known-failures list (statistician N3) moves up the backlog, so that new failures stay visible.
+   - Next: a confirm check of the fast suite on Slurm, then the queue.

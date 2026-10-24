@@ -68,7 +68,8 @@ def gsea_running(
         walk = running_es(scores, hits.astype(np.int64))
         dev, tie = _max_dev(walk)
         es = es_of[(coll, term)]
-        if abs(dev - es) > ES_TOL and not (tie and es == 0.0):
+        near_tie = tie and (es == 0.0 or abs(abs(dev) - abs(es)) <= ES_TOL)
+        if abs(dev - es) > ES_TOL and not near_tie:
             raise ValueError(f"gsea_running {coll} {term}: running sum deviates {dev}, es {es}")
         in_set = np.zeros(len(ranked), dtype=bool)
         in_set[hits - 1] = True

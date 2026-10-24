@@ -25,6 +25,8 @@ import pytest
 from helpers import support_analysis_data as sa
 from helpers.function_db import FUNCTION_RESOURCES, write_function_db
 from helpers.function_step_data import world_pre, write_gene_table, write_replicons, write_tu_folds
+from hypothesis import example, given, settings
+from hypothesis import strategies as st
 
 from giap.config import GiapConfig
 
@@ -273,3 +275,181 @@ def test_function_module_off_plans_no_support() -> None:
     off = GiapConfig.model_validate({"seed": 1, "modules": ["core"]})
     assert not _enabled(off, spec)
     assert KEY in spec.outputs
+
+
+# ----------------------------------------------------------------------------- review round
+# Lead decision 8 (PR #272): at a maxP = -minP near-tie the walk and the engine may land on
+# opposite sides (|maxP + minP| ~ 1e-16); the check also accepts |dev| = |es| there (statistician
+# B1, review N3; kills mutant M17). Publishing unlinks the other-suffix sibling (review B1b).
+
+#: the brief's near-tie: centred scores already in rank order, set at ranks 2, 3, 4, 6, 7, 8, 9
+NEAR_TIE_SCORES = (1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, -1.0)
+NEAR_TIE_MEMBERS = (2, 3, 4, 6, 7, 8, 9)
+
+
+def _ranking_inputs(
+    scores: np.ndarray, members: np.ndarray, es: float | None = None
+) -> tuple[object, list[object], pd.DataFrame]:
+    """(TuRanking, collections, enrichment_gsea) for ``gsea_running`` on one set: TU_i holds gene
+    g_i and score ``scores[i - 1]``; the table's ``es`` is the engine's (``gsea_es``) unless
+    given."""
+    from types import SimpleNamespace
+
+    from giap.function.gsea import TuRanking
+    from giap.stats.fgsea import gsea_es
+
+    n = len(scores)
+    ids = tuple(f"TU_{i}" for i in range(1, n + 1))
+    rank = TuRanking(ids, np.asarray(scores, dtype=np.float64),
+                     {t: (f"g_{t[3:]}",) for t in ids})  # fmt: skip
+    sets = {"T1": frozenset(f"g_{int(m)}" for m in members)}
+    colls = [SimpleNamespace(collection="go", sets=sets)]
+    if es is None:
+        es, _ = gsea_es(np.asarray(scores, float), np.asarray(members, np.int64))
+    gsea = pd.DataFrame({"collection": ["go"], "term": ["T1"], "p_value": [0.01],
+                         "q_value": [0.02], "nes": [1.5], "es": [float(es)]})  # fmt: skip
+    gsea.attrs["rank_labels"] = list(ids)
+    return rank, colls, gsea
+
+
+def _call(
+    monkeypatch: pytest.MonkeyPatch, scores: np.ndarray, members: np.ndarray,
+    es: float | None = None,
+) -> pd.DataFrame | None:  # fmt: skip
+    import giap.function.running as R
+
+    rank, colls, gsea = _ranking_inputs(scores, members, es)
+    monkeypatch.setattr(R, "tu_ranking", lambda genes: rank)
+    return R.gsea_running(pd.DataFrame(), colls, gsea)  # type: ignore[arg-type]
+
+
+def test_near_tie_fixture_is_a_near_tie() -> None:
+    """The brief's example: the walk's max deviation sits on the maxP = -minP tie and its sign
+    is the opposite of the engine's ES (fails if the fixture loses its teeth)."""
+    from giap.function.running import _max_dev
+    from giap.stats.fgsea import gsea_es, running_es
+
+    s, S = np.array(NEAR_TIE_SCORES), np.array(NEAR_TIE_MEMBERS, dtype=np.int64)
+    es, _ = gsea_es(s, S)
+    dev, tie = _max_dev(running_es(s, S))
+    assert tie and es != 0.0 and np.sign(dev) != np.sign(es)
+    assert abs(abs(dev) - abs(es)) <= 1e-9
+
+
+def test_gsea_running_accepts_the_engine_side_of_a_near_tie(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Decision 8 tie rule: no raise; the rows are the walk and the set's ranks."""
+    from giap.stats.fgsea import running_es
+
+    s, S = np.array(NEAR_TIE_SCORES), np.array(NEAR_TIE_MEMBERS, dtype=np.int64)
+    out = _call(monkeypatch, s, S)
+    assert out is not None and list(out.columns) == list(sa.COLUMNS[NAME])
+    assert out["rank_position"].tolist() == list(range(1, 11))
+    assert out.loc[out["in_set"], "rank_position"].tolist() == list(NEAR_TIE_MEMBERS)
+    np.testing.assert_allclose(out["running_es"].to_numpy(float), running_es(s, S), atol=1e-12)
+
+
+def test_gsea_running_accepts_an_exact_tie_with_es_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """fgsea's exact tie (ES 0, side 0): accepted, as before (kills M17 with the near tie)."""
+    from giap.stats.fgsea import gsea_es
+
+    s, S = np.ones(4), np.array([1, 4], dtype=np.int64)  # walk 0.5, 0, -0.5, 0
+    assert gsea_es(s, S)[0] == 0.0
+    assert _call(monkeypatch, s, S) is not None
+
+
+@pytest.mark.parametrize("es", [0.2, -0.2, 1 / 3 + 1e-6])
+def test_gsea_running_still_raises_on_a_wrong_es_at_a_tie(
+    monkeypatch: pytest.MonkeyPatch, es: float
+) -> None:
+    """The tie clause accepts |es| = |dev| only: another value at the tie still raises."""
+    s, S = np.array(NEAR_TIE_SCORES), np.array(NEAR_TIE_MEMBERS, dtype=np.int64)
+    with pytest.raises(ValueError, match="gsea_running"):
+        _call(monkeypatch, s, S, es=es)
+
+
+def test_gsea_running_still_raises_off_a_tie(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Example 1 (ES 0.8, no tie) with the opposite sign in the table raises."""
+    s, S = np.array([2.0, 1.0, 0.5, -0.5, -1.0, -2.0]), np.array([1, 3], dtype=np.int64)
+    assert _call(monkeypatch, s, S) is not None
+    with pytest.raises(ValueError, match="gsea_running"):
+        _call(monkeypatch, s, S, es=-0.8)
+
+
+@st.composite
+def _discrete(draw: st.DrawFn) -> tuple[np.ndarray, np.ndarray]:
+    n = draw(st.integers(4, 30))
+    raw = np.array(draw(st.lists(st.sampled_from([-1.0, 0.0, 1.0, 0.1, -0.2, 0.3]),
+                                 min_size=n, max_size=n)))  # fmt: skip
+    s = np.sort(raw - np.median(raw))[::-1].copy()
+    m = draw(st.integers(1, n - 1))
+    S = np.array(sorted(draw(st.sets(st.integers(1, n), min_size=m, max_size=m))), np.int64)
+    return s, S
+
+
+@settings(max_examples=300, deadline=None)
+@given(_discrete())
+@example((np.array(NEAR_TIE_SCORES), np.array(NEAR_TIE_MEMBERS, dtype=np.int64)))
+def test_property_gsea_running_never_rejects_the_engine_es(
+    case: tuple[np.ndarray, np.ndarray],
+) -> None:
+    """Invariant: on any ranking with discrete (tied) centred scores, the step's check accepts
+    the ES the engine computed on that same ranking."""
+    s, S = case
+    with pytest.MonkeyPatch.context() as mp:
+        out = _call(mp, s, S)
+    assert out is not None and len(out) == len(s)
+
+
+def test_function_step_writes_support_at_a_near_tie(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On the step: every top set's walk is forced onto the maxP = -minP tie (an extra dip to
+    -maxP, the side the engine did not take for a positive ES); the step neither raises nor
+    drops the file."""
+    import giap.function.running as R
+
+    real = R.running_es
+    tied: list[bool] = []
+
+    def tie_walk(stats: np.ndarray, members: np.ndarray) -> np.ndarray:
+        w = np.array(real(stats, members), dtype=np.float64)
+        hi, lo = max(0.0, float(w.max())), min(0.0, float(w.min()))
+        if hi > -lo:
+            w[int(np.argmin(w))] = -hi
+            tied.append(True)
+        return w
+
+    monkeypatch.setattr(R, "running_es", tie_walk)
+    out = world.run("near_tie")
+    assert tied, "vacuous: no top set with a positive ES"
+    rows = sa.read(sa.need(out[KEY], NAME))
+    assert len(_sets(rows)) == sa.GSEA_TOP
+
+
+def _publish_twice(root: Path, first: int, second: int) -> tuple[Path, object]:
+    from giap.io.plot_support import write_support
+
+    out = root / "OUT"
+    for tag, n in (("run1", first), ("run2", second)):
+        d = root / f"work_{tag}" / KEY
+        d.mkdir(parents=True)
+        write_support(NAME, pd.DataFrame({"tag": [tag] * n, "x": range(n)}), d)
+        view = sa.publish_and_view(root / f"work_{tag}", out)
+    return out / "plots" / "support", view
+
+
+@pytest.mark.parametrize(("first", "second"), [(10, 200_000), (200_000, 10)],
+                         ids=["tsv_then_gz", "gz_then_tsv"])  # fmt: skip
+def test_publish_twice_leaves_one_file_and_run_view_reads_the_new_one(
+    tmp_path: Path, first: int, second: int
+) -> None:
+    """Review B1b: two runs into one OUT whose support file flips suffix (.tsv <-> .tsv.gz)
+    leave exactly one file, and ``RunView.support`` reads the second run's."""
+    support, view = _publish_twice(tmp_path, first, second)
+    files = sorted(p.name for p in support.iterdir() if p.name.startswith(NAME))
+    assert len(files) == 1, files
+    assert files[0] == (f"{NAME}.tsv.gz" if second > first else f"{NAME}.tsv")
+    got = view.support(NAME)  # type: ignore[attr-defined]
+    assert got is not None and set(got["tag"]) == {"run2"} and len(got) == second
