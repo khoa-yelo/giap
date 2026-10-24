@@ -560,7 +560,8 @@ _PROP_GENOME = Genome([planted_contig("rep1", _VOCAB_PLANTED, random.Random(27))
 def test_property_counts_match_an_independent_oracle(rows: list[tuple[str, float]],
                                                      perm_seed: int) -> None:  # fmt: skip
     has_subcommand("evaluate")
-    kept = [(fold(s), sc) for s, sc in rows]
+    # the .ssl holds scores to 6 decimals (write_ssl), so the oracle reads what the file says
+    kept = [(fold(s), float(f"{sc:.6f}")) for s, sc in rows]
     in_len = [(f, sc) for f, sc in kept if 7 <= len(f) <= 30]
     passing = {f for f, sc in in_len if sc > 0.8}
     oracle = _oracle(_PROP_GENOME, sorted(passing))
