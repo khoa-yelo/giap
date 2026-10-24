@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Fake giap for workflow/tests/*_support.nf.test (M9-17 follow-up: Nextflow wiring of the plot
+# support outputs). Never computes anything. `giap version --json` prints {"giap": "fake"}.
+# `giap _step STEP --config C --in k=v ... --out 'k=path' ...` records its argv in giap.argv and
+# creates every --out path as an empty file, except the M9-17 support keys (*_support): those the
+# real steps write as a directory holding support/<name>.tsv (giap.io.plot_support.write_support),
+# and only when they have something to write (determinants without a fitted model, context_stats
+# without nulls, function without a testable set write none). FAKE_GIAP_SUPPORT=1 makes the fake
+# write <path>/support/fake_<key>.tsv; otherwise the support path is not created at all.
+set -euo pipefail
+if [[ "${1:-}" == "version" ]]; then echo '{"giap": "fake"}'; exit 0; fi
+[[ "${1:-}" == "_step" ]] || { echo "fake giap: unsupported command ${1:-}" >&2; exit 2; }
+printf '%s\n' "$@" > giap.argv
+shift 2
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --out)
+      spec="${2%% *}" key="${spec%%=*}" path="${spec#*=}"
+      if [[ "$key" == *_support ]]; then
+        if [[ "${FAKE_GIAP_SUPPORT:-0}" == "1" ]]; then
+          mkdir -p "$path/support"
+          printf 'fake\n' > "$path/support/fake_${key}.tsv"
+        fi
+      else
+        mkdir -p "$(dirname "$path")"
+        : > "$path"
+      fi
+      shift ;;
+  esac
+  shift
+done
