@@ -124,7 +124,8 @@ def _panel_a(orfs: pd.DataFrame) -> base.Instance:
     ax.set_xlim(0, math.ceil(1.6 * left.max()))
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.set_xlabel("candidates")
-    ax.legend(loc="lower right", frameon=False)
+    # below the axes: inside, the key met the bar labels (sim100k: "unestimated" twice)
+    fig.legend(loc="outside lower center", ncols=len(STATUSES), frameon=False)
     fig.suptitle(title, fontsize=7)
     return base.Instance(None, fig, data, title)
 
