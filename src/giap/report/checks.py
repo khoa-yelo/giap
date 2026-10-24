@@ -1,18 +1,60 @@
-"""Link and offline checks on a rendered report page (M9-13; GIAP_SPEC.md §10.3).
+"""Checks on the rendered report (pure; standard library only).
 
-``relative_links`` lists the relative URL references of a page, ready to resolve against the
-report directory; ``external_loads`` lists the URLs a browser would fetch from outside the report
-at view time. Both are pure, use the standard library only, and return each distinct value once in
-first-occurrence document order.
+- Wording and error-estimate checks (M9-16 behaviours 7, 8; GIAP_SPEC.md §1 rule 6, §10.3
+  "Wording"; M9-index decision 25): a unit test runs them on the templates, snippets and a rendered
+  page; the ``report`` step never fails the run on them.
+- Link and offline checks (M9-13; §10.3): ``relative_links`` lists the relative URL references of
+  a page, ready to resolve against the report directory; ``external_loads`` lists the URLs a
+  browser would fetch from outside the report at view time. Both return each distinct value once
+  in first-occurrence document order.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from html.parser import HTMLParser
+from typing import Any
 from urllib.parse import unquote
 
-__all__ = ["external_loads", "relative_links"]
+__all__ = ["external_loads", "relative_links", "unlabelled_numbers", "wording"]
+
+#: "detected", never "expressed": any case, at a word start, with the word after it
+_EXPRESS = re.compile(r"\bexpress\w*(?:\W+\w+)?", re.IGNORECASE)
+#: quoted citations, whose text is skipped
+_QUOTES = frozenset({"q", "blockquote", "cite"})
+
+
+class _Text(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.depth = 0
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.depth += tag in _QUOTES
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in _QUOTES and self.depth:
+            self.depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if not self.depth:
+            self.parts.append(data)
+
+
+def wording(html: str) -> list[str]:
+    """One text fragment per "express…" hit outside quoted citations, in document order."""
+    parser = _Text()
+    parser.feed(html)
+    parser.close()
+    return [m.group(0) for part in parser.parts for m in _EXPRESS.finditer(part)]
+
+
+def unlabelled_numbers(cards: Sequence[Mapping[str, Any]]) -> list[str]:
+    """The names of the cards whose value has no error estimate (nor ``unestimated``)."""
+    return [str(c.get("name", "")) for c in cards if not str(c.get("estimate") or "").strip()]
+
 
 #: elements whose ``href``/``xlink:href`` is fetched when the page opens (``src`` always is)
 _HREF_LOADERS = frozenset({"link", "script", "img", "iframe", "image", "use"})

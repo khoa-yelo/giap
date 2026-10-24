@@ -21,7 +21,10 @@ import pandas as pd
 from giap.determinants.features import BLOCKS as BLOCK_COLUMNS
 from giap.determinants.models import CvResult
 
-__all__ = ["ATTRIBUTION_COLUMNS", "BLOCKS", "SHAP_COLUMNS", "attribution_table", "shap_blocks"]
+__all__ = [
+    "ATTRIBUTION_COLUMNS", "BLOCKS", "SHAP_COLUMNS", "attribution_table", "shap_blocks",
+    "shap_features",
+]  # fmt: skip
 
 F64 = npt.NDArray[np.float64]
 B8 = npt.NDArray[np.bool_]
@@ -65,6 +68,56 @@ def _block_index(boosters: Sequence[Any], blocks: Mapping[str, str]) -> tuple[di
     return block_of, present
 
 
+def _folds(cv: CvResult, X: pd.DataFrame) -> tuple[npt.NDArray[np.int64], list[list[int]]]:
+    """``cv.folds`` and each repeat's fold labels, checked against ``X`` and the boosters."""
+    if cv.model != "lightgbm":
+        raise ValueError(f"SHAP is a LightGBM output; got a {cv.model} result")
+    folds = np.asarray(cv.folds, dtype=np.int64)
+    R, n = folds.shape
+    if n != len(X):
+        raise ValueError(f"X has {len(X)} rows, the CV result {n}")
+    labels = [np.unique(folds[r]).tolist() for r in range(R)]
+    if not cv.boosters or len(cv.boosters) != sum(len(k) for k in labels):
+        raise ValueError("the CV result has no booster for every repeat x fold")
+    return folds, labels
+
+
+def _columns(booster: Any, X: pd.DataFrame, at: Mapping[str, int], width: int) -> F64:
+    """(rows, ``width``) ``pred_contrib`` of ``booster`` placed at its columns' positions."""
+    names = [str(c) for c in booster.feature_name_]
+    c = np.asarray(booster.predict(X[names].astype(float), pred_contrib=True), dtype=float)
+    out = np.zeros((len(X), width))
+    for j, name in enumerate(names):
+        out[:, at[name]] += c[:, j]
+    return out
+
+
+def shap_features(
+    cv: CvResult, X: pd.DataFrame, blocks: Mapping[str, str], *, extra: pd.DataFrame | None = None
+) -> pd.DataFrame:
+    """The per-column SHAP matrix ``shap_blocks`` sums by block (M9-17 V15(c)): same rows, means
+    and checks; columns the model columns some booster uses, in ``X`` order."""
+    folds, labels = _folds(cv, X)
+    block_of, _ = _block_index(cv.boosters, blocks)
+    cols = [str(c) for c in X.columns if str(c) in block_of]
+    at = {c: j for j, c in enumerate(cols)}
+    C = np.zeros((len(X), len(cols)))
+    i = 0
+    for r in range(folds.shape[0]):
+        for k in labels[r]:
+            test = folds[r] == k
+            C[test] += _columns(cv.boosters[i], X.loc[test], at, len(cols)) / folds.shape[0]
+            i += 1
+    out = pd.DataFrame(C, columns=cols, index=X.index)
+    if extra is None or len(extra) == 0:
+        return out
+    m = len(cv.boosters)
+    C2 = np.zeros((len(extra), len(cols)))
+    for bst in cv.boosters:
+        C2 += _columns(bst, extra, at, len(cols)) / m
+    return pd.concat([out, pd.DataFrame(C2, columns=cols, index=extra.index)])
+
+
 def shap_blocks(
     cv: CvResult, X: pd.DataFrame, blocks: Mapping[str, str], *, extra: pd.DataFrame | None = None
 ) -> pd.DataFrame:
@@ -81,15 +134,8 @@ def shap_blocks(
         ValueError: for an elastic-net (or unfitted) result, a booster count other than
             repeats x folds, or a model column without an attribution block.
     """
-    if cv.model != "lightgbm":
-        raise ValueError(f"SHAP is a LightGBM output; got a {cv.model} result")
-    folds = np.asarray(cv.folds, dtype=np.int64)
+    folds, labels = _folds(cv, X)
     R, n = folds.shape
-    if n != len(X):
-        raise ValueError(f"X has {len(X)} rows, the CV result {n}")
-    labels = [np.unique(folds[r]).tolist() for r in range(R)]
-    if not cv.boosters or len(cv.boosters) != sum(len(k) for k in labels):
-        raise ValueError("the CV result has no booster for every repeat x fold")
     block_of, present = _block_index(cv.boosters, blocks)
     S = np.zeros((n, len(BLOCKS)))
     E = np.zeros(n)

@@ -119,8 +119,8 @@ def test_registry_entry(step_mod: ModuleType) -> None:
     assert spec.module == "core", "Module 8 is core (§6.2): never switched off by `modules`"
     assert spec.inputs == s.REQUIRED
     assert set(spec.optional_inputs) == set(s.OPTIONAL)
-    assert set(spec.outputs) == set(s.OUTPUTS)
-    assert spec.optional_outputs == ()
+    assert set(spec.outputs) == {*s.OUTPUTS, "determinants_support"}  # M9-17 plot support
+    assert spec.optional_outputs == ("determinants_support",)
     assert spec.precomputed is None
 
 
