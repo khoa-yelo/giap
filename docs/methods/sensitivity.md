@@ -180,8 +180,9 @@ primary is therefore an independent realisation of the fold assignment, not
 - **Denominator.** The number of genes behind each variant's `agreement` (`n_agreement`) goes to
   the event `sensitivity.determinants_cv_r2`, next to the CV R². §8.6 has no column for it.
 - **CV R².** The mean LightGBM CV R² of the primary and of every variant goes to the event
-  `sensitivity.determinants_cv_r2` (`data.cv_r2`; `data.n_agreement` holds the denominators). §8.6 has no R² column; the manifest's sensitivity summary
-  holds it.
+  `sensitivity.determinants_cv_r2` (`data.cv_r2`; `data.n_agreement` holds the denominators).
+  §8.6 has no R² column, and the manifest's sensitivity block is built from `sensitivity.tsv`
+  only, so the event is the one record of both.
 - **Minimum.** A run with fewer than 100 model rows or 25 TUs is not fitted (M8-10 rule 8). If the
   primary is below the minimum, the family writes no rows and emits
   `sensitivity.determinants_skipped`. If a variant is below it, that variant has no row.
@@ -204,8 +205,8 @@ fold-assignment noise.
 (`tests/calibration/test_determinants_agreement_calibration.py`; PR #299 review) reruns planted
 worlds of 400 genes (log2 abundance = signal × CAI + noise) under fold streams 1–5 against
 stream 0 on identical data, so only the fold assignment differs:
-- with no signal (mean LightGBM CV R² 0.01–0.08), `agreement` was about 0.75–0.85;
-- with strong signal (CV R² about 0.55–0.59), it was about 0.9–0.99.
+- with negligible signal (mean LightGBM CV R² 0.01–0.08), `agreement` was 0.73–0.86;
+- with strong signal (CV R² about 0.55–0.59), it was 0.89–0.99.
 
 On every world, each strong-signal pair beat each no-signal pair; the test gates that separation,
 not the levels. An `agreement` of about 0.8 is therefore what fold noise alone gives when the
@@ -232,8 +233,8 @@ interval.
   topology (C1), the detectability covariates and B = 199 (the primary is recomputed at the same
   B). `missing=<p>` and `top3` also keep detection and `p_detect`, so every O − E p, q and flag is
   identical to the primary's when shifts are exhaustive; above 20,000 genes they can differ only
-  through sampled-shift noise. `single_peptide_detected` keeps the observed abundance values and the TU folds of the
-  detectability fit.
+  through sampled-shift noise. `single_peptide_detected` keeps the observed abundance values and
+  the TU folds of the detectability fit.
 
 - Islands (M5-10) are flagged by one two-sided genome-wide FWER (both directions), not
   by BH. Their IDs are

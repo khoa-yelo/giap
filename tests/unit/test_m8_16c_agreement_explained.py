@@ -415,3 +415,33 @@ def test_rerun_against_itself_agrees_fully(world: tuple[pd.DataFrame, pd.DataFra
     assert a is not None and b is not None
     assert len(a.dominant) > 50
     assert _agree(a, b) == pytest.approx(1.0)
+
+
+# --------------------------------------------------------------------------- n_agreement
+
+
+def _n_want(a: Any, b: Any) -> int:
+    ea = {g: v for g, v in a.dominant.items() if g not in a.flagged}
+    eb = {g: v for g, v in b.dominant.items() if g not in b.flagged}
+    return sum(not (ea[g] is None and eb[g] is None) for g in ea.keys() & eb.keys())
+
+
+_BLK = st.sampled_from(["codon", "protein", "transcription", None])
+
+
+@settings(max_examples=80, deadline=None)
+@given(
+    p=st.dictionaries(st.sampled_from([f"g{i}" for i in range(10)]), _BLK, max_size=10),
+    v=st.dictionaries(st.sampled_from([f"g{i}" for i in range(10)]), _BLK, max_size=10),
+    fp=st.sets(st.sampled_from([f"g{i}" for i in range(10)]), max_size=3),
+    fv=st.sets(st.sampled_from([f"g{i}" for i in range(10)]), max_size=3),
+)
+def test_n_agreement_counts_the_kept_genes(
+    p: dict[str, Any], v: dict[str, Any], fp: set[str], fv: set[str]
+) -> None:
+    """#299 code review 1: ``n_agreement`` is the denominator of ``agreement``; 0 exactly when
+    ``agreement`` is NA."""
+    a, b = sf.det_sens(sorted(fp), p, 0.3), sf.det_sens(sorted(fv), v, 0.3)
+    n = _S().n_agreement(a, b)
+    assert n == _n_want(a, b) == _S().n_agreement(b, a)
+    assert (n == 0) == (_want(a, b) is None)
