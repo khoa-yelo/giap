@@ -384,3 +384,4 @@ These supersede earlier text that differs. Review: rev-1015.
   - N6: no `__pycache__` in the repo (`sys.dont_write_bytecode`, or `-B`).
   - N7: check 1 compares bytes.
   - N3 (a mistyped path under a finding reason): documented in the methods/README, no code change.
+- **As built (15a, review round 1):** `compute` writes `evidence.exit_codes` (`A1`/`A2`/`A3`, null for an arm not given), `evidence.a3_feasibility` and `evidence.benchmark`, plus a null `evidence.runbook` stub with a pending reason; `render --final --runbook` fills the runbook and job IDs. Every refusal message names what is missing (the path, the `**missing:` reason, or the runbook status). In the gate record, a cited `Waiver: ADR-NNNN` counts only when the ADR is `accepted-by-khoa`; among Answered-by-Khoa entries on one sha256 the newest date wins, and on a same-day tie a non-accept wins.
