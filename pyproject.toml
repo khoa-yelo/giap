@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "giap"
-version = "0.0.1"
+dynamic = ["version"]
 description = "GIAP: genome-integrated analysis of proteomics data for bacterial genomes"
 readme = "README.md"
 license = "MIT"
@@ -61,8 +61,31 @@ docs = ["mkdocs-material"]
 [project.scripts]
 giap = "giap.cli:main"
 
+[tool.hatch.version]
+path = "src/giap/__init__.py"
+
+# The wheel carries workflow/ as giap/workflow/ (workflow_main(), spec §6.3); hatch keeps file modes.
 [tool.hatch.build.targets.wheel]
-packages = ["src/giap"]
+only-include = ["src/giap", "workflow"]
+exclude = ["workflow/tests", "workflow/work", "workflow/.nf-test*", "workflow/.nextflow*"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
+"workflow" = "giap/workflow"
+
+# sdist: Q-L1 default (M11-01 item 3); README, LICENSE and pyproject are also added by hatch.
+[tool.hatch.build.targets.sdist]
+only-include = [
+  "src",
+  "workflow",
+  "pyproject.toml",
+  "README.md",
+  "LICENSE",
+  "NOTICE.md",
+  "CHANGELOG.md",
+  "CITATION.cff",
+]
+exclude = ["workflow/tests", "workflow/work", "workflow/.nf-test*", "workflow/.nextflow*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
