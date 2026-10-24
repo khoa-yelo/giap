@@ -17,7 +17,8 @@ The ``operon_flags`` family (M6-10) flags the ``pair_id`` values of the M6-08 ch
 
 M8-16 adds ``enriched_categories`` (``giap.function.sensitivity``) and ``determinants``
 (``giap.determinants.sensitivity``). A determinants result is a ``DeterminantsSensitivity``:
-``n_*`` / ``jaccard`` use its ``flagged`` set and ``agreement`` its top-decile dominant blocks.
+``n_*`` / ``jaccard`` use its ``flagged`` set and ``agreement`` the dominant blocks of the genes
+the features explain in both runs (M8-16c, lead decision 6).
 """
 
 from __future__ import annotations
@@ -40,8 +41,8 @@ from giap.steps.operons import run_operons
 
 __all__ = ["COLUMNS", "FAMILIES", "PAIR_THRESHOLD", "SENSITIVITY_B", "UNIOP_THRESHOLDS", "Family",
            "Flagged", "Variant", "agreement", "flagged_ids", "islands_family", "jaccard",
-           "operon_flags_family", "regions_family", "sensitivity_rows", "variant_genes",
-           "variants"]  # fmt: skip
+           "n_agreement", "operon_flags_family", "regions_family", "sensitivity_rows",
+           "variant_genes", "variants"]  # fmt: skip
 
 #: §8.6 ``sensitivity.tsv`` columns (``agreement`` is NA except for the determinants family)
 COLUMNS = ("family", "variant", "n_primary", "n_variant", "n_shared", "jaccard", "agreement")
@@ -121,12 +122,26 @@ def jaccard(a: frozenset[str], b: frozenset[str]) -> float | None:
     return None if union == 0 else len(a & b) / union
 
 
+def _agreement_genes(a: DeterminantsSensitivity, b: DeterminantsSensitivity) -> list[str]:
+    """The genes behind ``agreement``: explained in both runs, a block in at least one."""
+    return sorted(g for g in a.dominant.keys() & b.dominant.keys()
+                  if g not in a.flagged and g not in b.flagged
+                  and not (a.dominant[g] is None and b.dominant[g] is None))  # fmt: skip
+
+
+def n_agreement(a: DeterminantsSensitivity, b: DeterminantsSensitivity) -> int:
+    """The denominator of ``agreement(a, b)``: 0 exactly when it is NA."""
+    return len(_agreement_genes(a, b))
+
+
 def agreement(a: DeterminantsSensitivity, b: DeterminantsSensitivity) -> float | None:
-    """Share of the genes in both top deciles whose dominant block is the same. Genes with a
-    block of ``None`` in both runs are left out; ``None`` in one run only is a disagreement.
-    ``None`` (NA) when no gene is left (M8-16 lead decision 5)."""
-    shared = [g for g in a.dominant.keys() & b.dominant.keys()
-              if not (a.dominant[g] is None and b.dominant[g] is None)]  # fmt: skip
+    """Share of the genes explained in both runs whose dominant block is the same.
+
+    A gene is explained in a run when it is in that run's ``dominant`` map and not in its
+    ``flagged`` set (``abundance_not_explained_by_sequence``); a gene flagged in either run is
+    left out. Genes with a block of ``None`` in both runs are left out; ``None`` in one run only
+    is a disagreement. ``None`` (NA) when no gene is left (M8-16 lead decisions 5-6)."""
+    shared = _agreement_genes(a, b)
     if not shared:
         return None
     same = sum(a.dominant[g] is not None and a.dominant[g] == b.dominant[g] for g in shared)
