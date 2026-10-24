@@ -1,0 +1,164 @@
+// M9-17 follow-up: the CONTEXT subworkflow passes the context_stats step's optional plot support
+// on (workflow/subworkflows/local/context.nf; docs/specs/M9-17-plot-support-analysis.md lead
+// decisions 5-6; GIAP_SPEC.md §6.4 executor equality, §9.1). ci.yml runs:
+// nf-test test workflow/tests --profile test,stub.
+//
+// Pinned here:
+//   emit: context_stats_support, the context_stats step's `context_stats_support` output; an
+//         empty channel when the step wrote none, and the task still succeeds (an optional
+//         output; the real step always creates the directory when asked, but the wiring must not
+//         rely on it);
+//   publish: the support files (null_regions, null_islands) land in OUT/plots/support/ (as
+//         giap.runner.local.publish merges work/context_stats_support/support/ there), never in
+//         OUT/context_stats_support/.
+// The stub test runs -stub; the other two run the real GIAP_STEP script with the fake giap of
+// workflow/tests/bin_giap (fake_giap.config): it writes <support path>/support/
+// fake_context_stats_support.tsv when params.fake_support is true and nothing at the support
+// path when false. sensitivity runs too (through the same fake). Inputs as context.nf.test.
+
+nextflow_workflow {
+
+    name "CONTEXT subworkflow: plot support (M9-17)"
+    script "../subworkflows/local/context.nf"
+    workflow "CONTEXT"
+    config "./fake_giap.config"
+    tag "context"
+    tag "support"
+
+    test("stub: context_stats_support is emitted and published under plots/support/") {
+
+        options "-stub"
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value(file("\${g}/genetable/detectability.parquet"))
+                input[2] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[3] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[4] = channel.value([file("\${g}/regions.parquet"), file("\${g}/region_genes.parquet")])
+                input[5] = channel.value(['loci', file("\${g}/mapping")])
+                input[6] = channel.value(file("\${g}/stratum0_classes.parquet"))
+                input[7] = channel.value(file("\${g}/peptides.norm.parquet"))
+                input[8] = channel.value(file("\${g}/abundance.norm.parquet"))
+                input[9] = channel.empty()
+                input[10] = channel.empty()
+                input[11] = channel.empty()
+                input[12] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def sup = workflow.out.context_stats_support
+            assert sup != null && sup.size() == 1 : "emit context_stats_support: ${sup} (emits ${workflow.out.keySet()})"
+            def pub = S.published("${outputDir}")
+            assert pub.any { it.startsWith('plots/support/') } : "nothing published under plots/support/: ${pub}"
+            assert S.supportDirs("${outputDir}").isEmpty() : "support published as its own directory: ${S.supportDirs("${outputDir}")}"
+            ['regions_stats', 'detection_summary'].each { k ->
+                assert new File("${outputDir}/tables/${k}.tsv").isFile() : "tables/${k}.tsv not published"
+            }
+        }
+    }
+
+    test("real GIAP_STEP, the step writes support: asked for context_stats_support, files under plots/support/") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                fake_bin = "${moduleTestDir}/bin_giap"
+                fake_support = true
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value(file("\${g}/genetable/detectability.parquet"))
+                input[2] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[3] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[4] = channel.value([file("\${g}/regions.parquet"), file("\${g}/region_genes.parquet")])
+                input[5] = channel.value(['loci', file("\${g}/mapping")])
+                input[6] = channel.value(file("\${g}/stratum0_classes.parquet"))
+                input[7] = channel.value(file("\${g}/peptides.norm.parquet"))
+                input[8] = channel.value(file("\${g}/abundance.norm.parquet"))
+                input[9] = channel.empty()
+                input[10] = channel.empty()
+                input[11] = channel.empty()
+                input[12] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'giap.argv').isFile() && new File(it, 'giap.argv').readLines()[1] == 'context_stats' }
+            assert dirs.size() == 1 : "expected one fake giap context_stats task: ${dirs}"
+            def outs = S.argvOuts(dirs[0])
+            assert outs.any { it.startsWith('context_stats_support=') } : "context_stats step not asked for context_stats_support: --out ${outs}"
+            def sup = workflow.out.context_stats_support
+            assert sup != null && sup.size() == 1 : "emit context_stats_support: ${sup}"
+            assert new File("${outputDir}/plots/support/fake_context_stats_support.tsv").isFile() :
+                "support not published to plots/support/: ${S.published("${outputDir}")}"
+            assert S.supportDirs("${outputDir}").isEmpty() : "support published as its own directory: ${S.supportDirs("${outputDir}")}"
+        }
+    }
+
+    test("real GIAP_STEP, the step writes no support: the task succeeds, context_stats_support is empty") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                fake_bin = "${moduleTestDir}/bin_giap"
+                fake_support = false
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value(file("\${g}/genetable/detectability.parquet"))
+                input[2] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[3] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[4] = channel.value([file("\${g}/regions.parquet"), file("\${g}/region_genes.parquet")])
+                input[5] = channel.value(['loci', file("\${g}/mapping")])
+                input[6] = channel.value(file("\${g}/stratum0_classes.parquet"))
+                input[7] = channel.value(file("\${g}/peptides.norm.parquet"))
+                input[8] = channel.value(file("\${g}/abundance.norm.parquet"))
+                input[9] = channel.empty()
+                input[10] = channel.empty()
+                input[11] = channel.empty()
+                input[12] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
+            assert workflow.success : "a context_stats run without support failed"
+            assert workflow.trace.failed().size() == 0
+            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'giap.argv').isFile() && new File(it, 'giap.argv').readLines()[1] == 'context_stats' }
+            assert dirs.size() == 1 : "expected one fake giap context_stats task: ${dirs}"
+            assert S.argvOuts(dirs[0]).any { it.startsWith('context_stats_support=') } : "context_stats step not asked for context_stats_support"
+            def sup = workflow.out.context_stats_support
+            assert sup != null && sup.size() == 0 : "emit context_stats_support should be empty: ${sup}"
+            ['regions_stats', 'detection_summary'].each { k ->
+                assert workflow.out[k] != null && workflow.out[k].size() == 1 : "emit ${k}: ${workflow.out[k]}"
+                assert new File("${outputDir}/tables/${k}.tsv").isFile() : "tables/${k}.tsv not published"
+            }
+            assert !new File("${outputDir}/plots/support").exists() : "plots/support/ published without support"
+        }
+    }
+}

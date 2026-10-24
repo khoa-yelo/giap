@@ -1,21 +1,22 @@
-// CONTEXT subworkflow (GIAP_SPEC.md §6.2, §8.6, §9.4; M4-18, M4-19, MVP-01, M5-09): the final
-// gene table plus the M4-06 contract tables -> tables/regions_stats.tsv,
-// tables/detection_summary.tsv, tables/autocorrelation.tsv, tables/islands.tsv and
-// tables/genes.tsv (context_stats), and the §8.6 reruns -> tables/sensitivity.tsv
-// (sensitivity, registered by M4-19 decision 16). Both py steps run through GIAP_STEP aliases.
+// CONTEXT subworkflow (GIAP_SPEC.md §6.2, §9.4; M4-18, MVP-01, M5-09): the final gene table plus
+// the M4-06 contract tables -> tables/regions_stats.tsv, tables/detection_summary.tsv,
+// tables/autocorrelation.tsv, tables/islands.tsv and tables/genes.tsv (context_stats, through a
+// GIAP_STEP alias). The §8.6 reruns (sensitivity) moved to SENSITIVITY_RERUNS (sensitivity.nf,
+// M8-16), which main.nf runs after DETERMINANTS.
 // context_stats also writes two intermediate parquet files under context/: the genes.tsv
-// context group it left-joins into genes.tsv, and the ADR-0021 Amendment 1 island diagnostics.
+// context group it left-joins into genes.tsv, and the ADR-0021 Amendment 1 island diagnostics,
+// and the optional plot support context_stats_support (M9-17: null_regions, null_islands;
+// published under plots/support/).
 // The optional C15 features table (the oriC of the ori-ter rows) is the annotation channel's
 // second file, so CONTEXT needs no further take: channel (M4-20 note).
-// C7/C8 (regions, region_genes) are required by both steps; ANNOTATE's region_layer writes them,
-// also under a precomputed regions layer (MVP-02). If the `regions` channel is empty neither step
-// runs, the way MAPPING skips its protein route. The M3 tables come out of MAPPING's loci directory.
-// sensitivity's operon_flags family (M6-10) also takes ANNOTATE's `layers_for_pairs` (pairs_raw and
-// the evidence layers) and, only beside pairs_raw, the C2 genes / C3 features: without pairs_raw the
-// step gets the M4-19 inputs alone and skips the family (lead decision 4).
+// C7/C8 (regions, region_genes) are required; ANNOTATE's region_layer writes them, also under a
+// precomputed regions layer (MVP-02). If the `regions` channel is empty context_stats does not
+// run, the way MAPPING skips its protein route. The M3 tables come out of MAPPING's loci directory.
+// `layers_for_pairs` is no longer used here (SENSITIVITY_RERUNS takes it); the take: is kept.
 // M7-14: VARIANTS' variants_qc (optional) gives the numeric id_mixups QC row, so context_stats
 // waits for VARIANTS when peptides are given.
-include { GIAP_STEP as CONTEXT_STATS; GIAP_STEP as SENSITIVITY } from '../../modules/local/giap_step/main'
+include { GIAP_STEP as CONTEXT_STATS } from '../../modules/local/giap_step/main'
+include { supportDir } from '../../modules/local/giap_step/main'
 include { stepIn; kv; pick; inDir } from './annotate'
 
 // One named file of the loci output: a file of the mapping/ directory in a real run, the
@@ -61,13 +62,8 @@ workflow CONTEXT {
         'detection_summary=tables/detection_summary.tsv',
         'autocorrelation=tables/autocorrelation.tsv', 'islands=tables/islands.tsv',
         'genes_tsv=tables/genes.tsv', 'gene_context=context/gene_context.parquet',
-        'island_diagnostics=context/island_diagnostics.parquet'])
-
-    def se = stepIn('sensitivity', [gt, reps, c7, c8, c5, layers_for_pairs,
-                                    layers_for_pairs.filter { k, f -> k == 'pairs_raw' }.combine(annotation)
-                                        .flatMap { e -> [['genes', e[2]], ['features', e[3]]] }],
-                    ['gene_table', 'replicons', 'regions', 'region_genes', 'tus'])
-    SENSITIVITY(se.files, se.keys, ['sensitivity=tables/sensitivity.tsv'])
+        'island_diagnostics=context/island_diagnostics.parquet',
+        'context_stats_support=context_stats_support'])
 
     emit:
     regions_stats    = pick(CONTEXT_STATS.out.outputs, 'regions_stats.tsv')
@@ -77,7 +73,7 @@ workflow CONTEXT {
     genes_tsv        = pick(CONTEXT_STATS.out.outputs, 'genes.tsv')
     gene_context     = pick(CONTEXT_STATS.out.outputs, 'gene_context.parquet')
     island_diagnostics = pick(CONTEXT_STATS.out.outputs, 'island_diagnostics.parquet')
-    sensitivity      = pick(SENSITIVITY.out.outputs, 'sensitivity.tsv')
-    versions         = CONTEXT_STATS.out.versions.mix(SENSITIVITY.out.versions)
-    events           = CONTEXT_STATS.out.events.mix(SENSITIVITY.out.events)
+    context_stats_support = CONTEXT_STATS.out.support.map { fs -> supportDir(fs) }
+    versions         = CONTEXT_STATS.out.versions
+    events           = CONTEXT_STATS.out.events
 }

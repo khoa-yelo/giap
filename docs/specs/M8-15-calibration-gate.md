@@ -100,3 +100,84 @@ confirmation and sharding apply.
    not fit 10 minutes.
 2. "Uniform" = the §8.4 level criterion for all three suites, KS recorded (proposed)?
 3. Teeth thresholds (unweighted attack 2 must reject > 2 × α): acceptable as a gated check?
+
+## Lead decisions (2026-10-23)
+
+1. **Q1 yes:** the determinants fast tier runs at reduced size (400 genes, B = 99, 50 trees,
+   1 repeat); the full tier runs at the §5.2 parameters on Slurm.
+2. **Q2 yes:** "uniform" is the §8.4 level criterion for all three suites; the KS statistic is
+   recorded, not gated.
+3. **Q3 yes:** the teeth check (the unweighted attack-2 arm rejects in > 2 × α) is gated.
+4. **Attack 2 arms (statistician, #251):** gate `member_shift` −1.5 as the separation arm and add
+   an overlap arm at −0.75 (unweighted teeth 0.95 at α 0.05; it must be a confirmed fail at
+   R ≥ 100). Both arms fit p_detect with GIAP's default `DetectabilityConfig()` on covariates
+   recomputed from the sequences by `covariate_table`, never on the `n_obs_true` column.
+5. **Expected conservatism:** the fitted arm is strongly conservative at −1.5 (plug-in variance,
+   M8-04 treats q̂ as known; see function.md attack 2). The gate is a level gate only; the power
+   cost is backlog (an M8-04 projection-variance ADR), not part of this gate.
+6. **Oracle arm at α 0.10:** record the oracle arm's level through the ORA engine (0.025–0.067 in
+   the statistician's probes); if it stays below the §8.4 lower bound, report it, do not gate it
+   (two-sided criterion only where §8.4 says so).
+7. **Stacking:** this branch starts from #251 (M8-14). Anything that needs M8-11 (#193, open) is a
+   strict xfail naming #193 until it merges.
+8. **Test-author (e66b3559, 6fc522c0, caabc5d7; Slurm 1874380, 1874770).** Every gate passes on
+   the current code and every teeth arm is a confirmed fail; only the three baseline.json checks
+   fail before implementation. Gaps:
+   - **1 (teeth unit):** the gene-level unweighted hypergeometric is gated; the TU-level ω = 1
+     version (rate 0.605 at −1.5, 0.02 at −0.75: any-gene TU membership dilutes random members) is
+     recorded. Pending the statistician's confirmation.
+   - **2 (ORA pool m = 6 over nested terms):** kept; the statistician may lower it to one term per
+     collection.
+   - **3 (fast budget, 12.6 min):** the lead raises the fast tier's threads cap from 4 to 8 (results
+     do not depend on threads, M8-09 rule 6) and re-times on Slurm. Stays `calibration_nightly`.
+   - **4, 5, 7, 9, 10:** accepted as proposed (synthetic go_slim; teeth at the suite's R = 50;
+     X = planted features + `tu_position`/`tu_size`; the `m8_calibration_fast.<suite>` baseline
+     schema; the 22 pseudogenes as M8-14 decision 7 left them).
+   - **6 (recovery):** recorded only. LightGBM CV R² −0.001 at true 0.2 and 0.364 at true 0.5 (elastic
+     net 0.176 / 0.478) goes to the statistician as a finding.
+   - **8 (centring arm, annotated-universe arm):** backlog follow-up.
+   - **No #193 xfails:** ADR-0038 sends GSEA level claims to RFgseaEngine, so nothing needs M8-11.
+   - Next: the re-time, the baseline.json entries, then the PR and the statistician.
+9. **Statistician review (e405dcef): BLOCK on B1 and B2, both test-side; accepted.**
+   - **B1 (teeth arm):** the gated teeth arm is GIAP's own engine with the detectability weights
+     removed: one constant p_detect for every eligible gene (the eligible detection share), run
+     through `detection_enrichment(..., folds=<the oracle's tu_folds>)`, `under` p. It must be a
+     confirmed fail above 2α in each block at −1.5 and −0.75 (probe: 0.96 / 0.97 at −0.75, 1.00 at
+     −1.5). The gene-level hypergeometric stays as a recorded "world is confounded" check; the
+     TU-level ω = 1 record is relabelled "equal q per TU (ignores TU size)", and the "dilution"
+     docstring is corrected.
+   - **B2 (ORA pool):** one distinct term per collection per replicate (m = 6), drawn in a fixed
+     collection order, with `go_slim` excluding IDs already picked; per-collection records over all
+     tested terms keep size bands if cheap.
+   - **Gap 6 (recovery):** a finding about M8-09's §5.2 defaults (LightGBM overfits at about 800 rows;
+     `_recovery` uses `DeterminantsConfig()`), not the fast settings. It stays recorded only. Backlog:
+     an M8-09 hyperparameter ADR (inner-fold early stopping, or fewer trees or a lower rate).
+   - **Oracle at −1.5 below the band at α 0.10:** the M8-04 recalibration re-learning the members'
+     rate (without it, 0.05). Recorded, not gated (decision 6); added to the projection-variance ADR
+     backlog.
+   - **Reading the determinants null:** it passes in an exchangeable world only and does not lift
+     `null_uncalibrated` (ADR-0034's AR(1) and `replichore_position` attacks still fail). The
+     PROGRESS evidence and methods text say so.
+   - Next: the test-author fixes B1 and B2, then the implementer (baseline.json; re-time 1874853).
+     No second statistician round is needed.
+10. **Test-author B1/B2 fixes (f74d2364, ae638a30; Slurm 1875022, 1875069) and the re-time
+    (1874853): accepted, with a budget ruling.**
+    - Gap 1 (23 of 200 worlds have no testable KEGG map): the empty slot is filled with a random
+      untaken term from the other collections, and `substituted_slots` is recorded. Accepted: the
+      substitute is still a null term, so the level claim is unchanged.
+    - Gap 2 (the teeth arm reuses the oracle arm's `tu_folds` stream): accepted.
+    - **Budget:** the re-time (1874853, `-n 16`) took 18 min. The determinants recovery arms take
+      1,091 s and 1,030 s, because `_recovery` runs at the §5.2 defaults; the elastic-net null takes
+      977 s. The fast-tier threads cap of 8 under `-n 16` oversubscribed the node, so decision 8's
+      raise is reverted to `max(1, min(4, cpus // workers))`.
+      - The recovery arms (recorded only) move to the full tier (`calibration_full`).
+      - The ora and gsea suites keep the < 10 min fast budget.
+      - The determinants fast tier stays `calibration_nightly` with a 20 min budget; this amends
+        the acceptance criterion for that suite only. Reversible; listed for Khoa.
+    - Next: the test-author applies the budget ruling and re-times; the lead fills
+      `benchmarks/baseline.json` (`m8_calibration_fast.<suite>`) from that job; then the PR.
+11. **Re-time (a28b7c5e; Slurm 1875111, 9 min, 12 passed): within budget.** Per-suite spans: ora
+    207 s, gsea 462 s, determinants 532 s (the elastic-net null fell from 977 s to 532 s with the
+    corrected thread cap). The full tier keeps a cap of 8 threads, `min(8, cpus // workers)`
+    (accepted). The lead fills `benchmarks/baseline.json` from this job. The PR follows, with a
+    code review; no further statistician round (decision 9).
