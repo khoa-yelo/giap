@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Fail if a diff changes tests/data/golden/r/ without updating its PROVENANCE.md (M8-12).
+"""Fail if a diff changes a golden directory without updating its PROVENANCE.md (M8-12, M8-12b).
 
-Regeneration (scripts/slurm/golden_r.sbatch or the golden-r workflow) is the only way the R
-golden data change, and it rewrites PROVENANCE.md.  Usage: check_golden_provenance.py [BASE]
-(default origin/main); compares BASE...HEAD.
+The directories are tests/data/golden/r/ and tests/data/golden/wallenius/. Regeneration
+(scripts/slurm/golden_r.sbatch, the golden-r workflow, scripts/slurm/golden_wallenius.sbatch) is
+the only way their data change, and it rewrites that directory's PROVENANCE.md.
+Usage: check_golden_provenance.py [BASE] (default origin/main); compares BASE...HEAD.
 """
 
 from __future__ import annotations
@@ -12,16 +13,19 @@ import subprocess
 import sys
 from collections.abc import Iterable
 
-GOLDEN_R = "tests/data/golden/r/"
-PROVENANCE = GOLDEN_R + "PROVENANCE.md"
+GOLDEN_R = ("tests/data/golden/r/", "tests/data/golden/wallenius/")
 
 
 def violations(changed: Iterable[str]) -> list[str]:
     paths = list(changed)
-    touched = [p for p in paths if p.startswith(GOLDEN_R) and p != PROVENANCE]
-    if not touched or PROVENANCE in paths:
-        return []
-    return [f"{p}: changed without updating {PROVENANCE}" for p in touched]
+    bad: list[str] = []
+    for root in GOLDEN_R:
+        prov = root + "PROVENANCE.md"
+        if prov in paths:
+            continue
+        touched = [p for p in paths if p.startswith(root) and p != prov]
+        bad += [f"{p}: changed without updating {prov}" for p in touched]
+    return bad
 
 
 def main() -> int:
