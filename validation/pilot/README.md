@@ -140,6 +140,12 @@ PXD078459 (ProteomeXchange; hosted by iProX as IPX0017169000) is the pilot's raw
   route; `url_record` keeps the record's link. TLS verification is never disabled.
 - **Manifest:** `validation/pilot/inputs/pxd078459_files.tsv`. The record gives no checksums, so
   `sha256` is filled by the download job (`SHA256SUMS` next to the data).
+- **Download:** Slurm job 1879859 (2026-10-24, 23 min, COMPLETED) fetched the three archives over
+  HTTPS (about 2.9 GB), unpacked them to `$GIAP_DATA_DIR/pxd078459/` as WT_1.d, WT_2.d and WT_3.d and wrote
+  `SHA256SUMS`; the archive sha256s are in the manifest.
+- **Acquisition mode:** diaPASEF for all three runs (`acquisition_mode.py`, Slurm job 1879882):
+  734 MS1 frames and 8804–8805 diaPASEF frames (MsMsType 9) per run.
+  `validation/pilot/inputs/acquisition.json` records it.
 
 ## Running the pilot (§15.2 steps 4-9)
 
