@@ -88,6 +88,8 @@ markers = [
   "calsuite(name): tolerances.yaml suite (array task) of a calibration test (also registered in tests/calibration/conftest.py)",
   "e2e: end-to-end runs on real genomes",
   "requires_r: runs R fgsea in the giap-fgsea env (Slurm only, never in CI)",
+  "gnu_userland: runs FarmShare scripts that need sha256sum, flock, GNU realpath/stat (skipped elsewhere; Sandbox.run skips too)",
+  "x87_longdouble: needs the 80-bit x87 np.longdouble (skipped on arm64)",
   "pending_sample: contract test waiting for a recorded tool output sample (§5.4)",
 ]
 

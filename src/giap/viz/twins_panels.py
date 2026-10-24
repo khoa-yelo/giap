@@ -12,7 +12,15 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from giap.viz.correlogram import COLUMNS as V10_COLUMNS
-from giap.viz.correlogram import NA_FLAGS, NULL_LABEL, NULL_STYLE, NULLS, STATISTICS, YLABEL
+from giap.viz.correlogram import (
+    NA_FLAGS,
+    NULL_LABEL,
+    NULL_STYLE,
+    NULLS,
+    STATISTICS,
+    YLABEL,
+    plotted,
+)
 from giap.viz.diagnostics import COLUMNS as V18_COLUMNS
 from giap.viz.diagnostics import FAMILIES, MAX_DRAWN, N_BINS, OUTSIDE_METRIC
 from giap.viz.interactive import interactive
@@ -60,14 +68,16 @@ def v10(data: pd.DataFrame, title: str, meta: Meta = None) -> Any:
     fig = make_subplots(rows=rows, cols=cols, subplot_titles=names, vertical_spacing=0.12)
     shown = data.copy()  # flagged rows draw nothing, whatever their value (M9-09)
     na = [not NA_FLAGS.isdisjoint(flag_list(f)) for f in shown["flags"]]
-    shown.loc[na, ["value", "null_mean", "null_lo", "null_hi", "q_value"]] = math.nan
+    shown.loc[na, ["value", "null_mean", "null_lo", "null_hi", "effect", "q_value"]] = math.nan
+    shown["y"] = plotted(list(shown["statistic"]), *(floats(shown[c]) for c in
+                                                     ("value", "effect", "null_mean")))  # fmt: skip
     first = True
     for k, contig in enumerate(order):
         for i, stat in enumerate(STATISTICS):
             at = {"row": 2 * (k // 3) + i + 1, "col": k % 3 + 1}
             d = shown[(shown["contig"].astype(str) == contig) & (shown["statistic"] == stat)]
             titles(fig, at, "lag (genes)", YLABEL[stat])
-            if not np.isfinite(floats(d["value"])).any():
+            if not np.isfinite(floats(d["y"])).any():
                 flags = ", ".join(dict.fromkeys(f for v in d["flags"] for f in flag_list(v)))
                 note(fig, f"not estimable ({flags})", _ref(at["row"], at["col"], cols))
                 continue
@@ -88,17 +98,18 @@ def v10(data: pd.DataFrame, title: str, meta: Meta = None) -> Any:
             tu, gl = (d[d["null_model"] == n].set_index("lag") for n in ("tu_block", "gene_label"))
             pts: list[tuple[float, float, str, str]] = []
             for lag in sorted({int(v) for v in d["lag"].dropna()}):
-                src = tu if lag in tu.index and not isna(tu.at[lag, "value"]) else gl
-                if lag not in src.index or isna(src.at[lag, "value"]):
+                src = tu if lag in tu.index and not isna(tu.at[lag, "y"]) else gl
+                if lag not in src.index or isna(src.at[lag, "y"]):
                     continue
                 r, q = src.loc[lag], tu.at[lag, "q_value"] if lag in tu.index else math.nan
                 own = lag in tu.index and str(tu.at[lag, "significant"]).lower() == "true"
                 sig = (not isna(q) and float(q) <= level) if known else own
-                text = DOT.join((f"lag {lag}", f"{YLABEL[stat]} {fmt(r['value'])}",
+                raw = (f"raw BB {fmt(r['value'])}",) if stat == "join_count_bb" else ()
+                text = DOT.join((f"lag {lag}", f"{YLABEL[stat]} {fmt(r['y'])}", *raw,
                                  f"TU-block envelope {fmt(r['null_lo'])} to {fmt(r['null_hi'])}",
                                  f"q {fmt(q)}"))  # fmt: skip
                 sym = "circle" if sig else "circle-open"
-                pts.append((float(lag), float(r["value"]), sym, text))
+                pts.append((float(lag), float(r["y"]), sym, text))
             fig.add_trace(go.Scatter(x=[p[0] for p in pts], y=[p[1] for p in pts],
                                      mode="lines+markers", hovertext=[p[3] for p in pts],
                                      hoverinfo="text", name="observed", showlegend=first,
