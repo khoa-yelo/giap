@@ -5,7 +5,7 @@ decision 5; GIAP_SPEC.md §3.8 "Resume", §6.3 exit 4, §6.7).
 Stub variants of tests/integration/test_m2_21_resume_failure.py (its wrapper and fault are copied:
 test modules are not importable). A ``nextflow`` wrapper first on ``PATH`` swaps the profile for
 ``test,stub``, adds ``-stub-run`` and appends ``-c $M2_21_EXTRA_CONFIG`` when set. The fault is
-``beforeScript = 'exit 137'`` on ``PROMOTECH`` (base.config retries 137 once; the retry is killed
+``beforeScript = 'exit 137'`` on ``PROMOTECH`` (base.config retries 137 twice; every retry is killed
 too). ``$GIAP_ROOT`` and ``$GIAP_DB_DIR`` are fakes from ``helpers.fake_env``.
 
 * 11: exit 4; manifest written and valid; ``status failed``, ``exit_code 4``, ``failed_step

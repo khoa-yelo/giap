@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import importlib
 import logging
+import os
 import pkgutil
+import shutil
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,7 +28,7 @@ from giap.config import GiapConfig
 from giap.io.fasta import read_genome_fasta
 from giap.io.plot_files import PlotFiles, read_plot_files, remove_plot_files, write_instance
 from giap.io.plot_support import SUPPORT_DIR, write_support
-from giap.io.run_view import PATHS, RunView
+from giap.io.run_view import ANALYSIS_SUPPORT, PATHS, RunView
 from giap.runner.local import PUBLISHED, PUBLISHED_FILES
 from giap.steps.registry import InputPath, StepContext, step
 
@@ -164,22 +166,50 @@ def write_report(
 ) -> Path:
     """Write ``report_dir/report.html`` from the plot files under ``plots_dir`` and the tables of
     ``view``; returns its path. Logs ``report.size_exceeded`` when it is over budget."""
+    html = _report_html(view, plots_dir, cfg)
+    report_dir.mkdir(parents=True, exist_ok=True)
+    page = report_dir / "report.html"
+    page.write_text(html, encoding="utf-8")
+    _check_size(page, log)
+    return page
+
+
+def rerender_report(outdir: Path, cfg: GiapConfig) -> Path:
+    """``OUT/report/report.html`` from ``OUT/`` and the existing ``OUT/plots`` (no plot is drawn);
+    atomic replace through ``report/.report.html.tmp``; returns the path. Shared by the
+    ``giap run`` tail (after ``run_manifest.json``) and ``giap report`` (M9-16b)."""
+    load_plot_modules()
+    plots_dir = outdir / "plots" if (outdir / "plots").is_dir() else None
+    html = _report_html(RunView.from_outdir(outdir), plots_dir, cfg)
+    report_dir = outdir / "report"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    page, tmp = report_dir / "report.html", report_dir / ".report.html.tmp"
+    try:
+        tmp.write_text(html, encoding="utf-8")
+        os.replace(tmp, page)  # replaces a symlinked page, never writes through it
+    finally:
+        tmp.unlink(missing_ok=True)
+    _check_size(page, _LOG)
+    _LOG.info("report.rerendered %s", page)
+    return page
+
+
+def _report_html(view: RunView, plots_dir: Path | None, cfg: GiapConfig) -> str:
     from giap.report.build import build_report
 
     files: Mapping[str, PlotFiles] = {} if plots_dir is None else read_plot_files(plots_dir)
     live = None
     if plots_dir is not None and cfg.report.interactive:
         live = twins(plots_dir, files, twin_meta(view, cfg))
-    html = build_report(view, files, skipped_plots(view), cfg, live)
-    report_dir.mkdir(parents=True, exist_ok=True)
-    page = report_dir / "report.html"
-    page.write_text(html, encoding="utf-8")
+    return build_report(view, files, skipped_plots(view), cfg, live)
+
+
+def _check_size(page: Path, log: logging.Logger) -> None:
     size = page.stat().st_size
     if size > REPORT_BUDGET:
         data = {"bytes": size}
         log.warning("report.size_exceeded %d bytes > %d", size, REPORT_BUDGET,
                     extra={"event": "report.size_exceeded", "data": data})  # fmt: skip
-    return page
 
 
 def _view(ctx: StepContext) -> RunView:
@@ -217,14 +247,37 @@ def write_plot_support(inputs: Mapping[str, InputPath], plots_dir: Path) -> list
     return written
 
 
-@step("plots", inputs=["preflight"], optional_inputs=[*ALL_PUBLISHED_KEYS, *_SUPPORT_INPUTS],
+def copy_staged_support(staged: InputPath | None, plots_dir: Path) -> list[Path]:
+    """Copy the staged ``plots_support`` files (each directory's ``support/`` if it has one,
+    else the directory itself: an analysis step's ``<key>_support`` or a ``plots/support``) into
+    ``plots_dir/support/`` (M9-17). Under Nextflow the plots step publishes ``plots/`` whole,
+    replacing ``OUT/plots/``, so the analysis steps' support must be inside it."""
+    if staged is None:
+        return []
+    copied: list[Path] = []
+    dst = plots_dir / SUPPORT_DIR
+    for d in staged if isinstance(staged, list) else [staged]:
+        src = d / SUPPORT_DIR if (d / SUPPORT_DIR).is_dir() else d
+        if not src.is_dir() or src.resolve() == dst.resolve():
+            continue
+        for f in sorted(p for p in src.iterdir() if p.is_file()):
+            dst.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(f, dst / f.name)
+            copied.append(dst / f.name)
+    return copied
+
+
+@step("plots", inputs=["preflight"],
+      optional_inputs=[*ALL_PUBLISHED_KEYS, *_SUPPORT_INPUTS, *ANALYSIS_SUPPORT],
       outputs=["plots"])  # fmt: skip
 def plots_step(ctx: StepContext) -> None:
     """Tables -> ``plots/``: ``Vnn_*.{svg,png,pdf}`` and ``data/Vnn_*.tsv`` (behaviour 1), after
-    the support tables ``support/*.tsv[.gz]`` from the run inputs (M9-03)."""
+    the support tables ``support/*.tsv[.gz]`` from the run inputs (M9-03). The M9-17 support
+    directories (``ANALYSIS_SUPPORT``) reach the plots through ``RunView.support``."""
     out = ctx.outputs["plots"]
     inputs: dict[str, InputPath] = dict(ctx.inputs)
-    if write_plot_support(inputs, out):  # before rendering: V1/V2 read them (M9-03)
+    copied = copy_staged_support(inputs.get("plots_support"), out)  # M9-17
+    if write_plot_support(inputs, out) or copied:  # before rendering: V1/V2 read them (M9-03)
         inputs["plots_support"] = out / SUPPORT_DIR
     load_plot_modules()
     view = RunView.from_inputs(inputs).with_modules(ctx.cfg.modules)

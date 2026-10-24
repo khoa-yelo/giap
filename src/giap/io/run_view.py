@@ -11,6 +11,8 @@ the same keys and read the same frames. In an input map, a file under a ``PUBLIS
 it (``preflight`` is the directory ``work/preflight/`` under the local executor).
 The ``plots`` step takes ``step_events`` (``logs/steps``) and ``plots_support``
 (``plots/support``) as optional inputs (M9-02); ``from_inputs`` reads those directories from them.
+It also takes the analysis steps' support directories ``ANALYSIS_SUPPORT`` (M9-17; M9-21 lead
+decision 3); ``support`` looks in each, directly or under ``support/``, after ``plots/support``.
 
 TSVs that have a Frictionless schema (``giap/schemas/tables/<stem>.schema.json``) are read with
 its types and its ``missingValues``; a schema column missing from the file raises ``ValueError``.
@@ -62,6 +64,8 @@ PATHS: Mapping[str, str] = {**PUBLISHED_FILES, **_EXTRA}
 _FALLBACK: dict[str, tuple[str, ...]] = {"resolved_config": ("work/resolved_config.yaml",)}
 STEP_EVENTS = "logs/steps"
 SUPPORT = "plots/support"
+#: the M9-17 step outputs (directories) holding further support files
+ANALYSIS_SUPPORT = ("context_stats_support", "determinants_support", "function_support")
 _BED_COLUMNS = ("chrom", "start", "end", "name", "score", "strand")
 #: a step input value (``giap.steps`` ``StepContext.inputs``)
 InputPath = Path | list[Path]
@@ -128,8 +132,16 @@ def read_schema_tsv(path: Path, table: str, schema: Mapping[str, Any]) -> pd.Dat
     return pd.DataFrame(cols, columns=order)
 
 
+#: identifier columns of the support files, read as str so "001" joins as "001" (M9-21 N3)
+KEY_COLUMNS = ("region_id", "contig", "direction", "model", "stat")
+
+
 def _read_plain_tsv(path: Path) -> pd.DataFrame:
-    return pd.read_csv(path, sep="\t", na_values=["NA"], keep_default_na=False, compression="infer")
+    """Floats correctly rounded, like the schema reader (``round_trip``), so a support file's
+    ``repr`` cells read back unchanged; the ``KEY_COLUMNS`` present are read as str."""
+    return pd.read_csv(path, sep="\t", na_values=["NA"], keep_default_na=False,
+                       dtype=dict.fromkeys(KEY_COLUMNS, str), compression="infer",
+                       float_precision="round_trip")  # fmt: skip
 
 
 def _read_bed(path: Path) -> pd.DataFrame:
@@ -161,7 +173,7 @@ class RunView:
 
     def __init__(self, files: Mapping[str, Path], dirs: Mapping[str, Path]) -> None:
         self._files = dict(files)
-        self._dirs = dict(dirs)  # STEP_EVENTS / SUPPORT -> directory
+        self._dirs = dict(dirs)  # STEP_EVENTS / SUPPORT[:key] -> directory
         self._tables: dict[str, pd.DataFrame | None] = {}
         self._flags: frozenset[str] | None = None
         self._modules_off: frozenset[str] | None = None
@@ -199,6 +211,7 @@ class RunView:
             if found is not None:
                 files[key] = found
         extra = {STEP_EVENTS: "step_events", SUPPORT: "plots_support"}
+        extra |= {f"{SUPPORT}:{k}": k for k in ANALYSIS_SUPPORT}
         found_dirs = {d: _as_list(inputs[k]) for d, k in extra.items() if k in inputs}
         return cls(files, {d: paths[0] for d, paths in found_dirs.items() if paths})
 
@@ -289,14 +302,16 @@ class RunView:
         return found
 
     def support(self, name: str) -> pd.DataFrame | None:
-        """``plots/support/<name>.tsv[.gz]`` (M9-03), or ``None``."""
-        base = self._dirs.get(SUPPORT)
-        if base is None:
-            return None
-        for suffix in (".tsv", ".tsv.gz"):
-            path = base / f"{name}{suffix}"
-            if path.is_file():
-                return _read_plain_tsv(path)
+        """``plots/support/<name>.tsv[.gz]`` (M9-03), else the file in an ``ANALYSIS_SUPPORT``
+        directory or its ``support/`` (M9-17), or ``None``."""
+        bases = [p for p in (self._dirs.get(SUPPORT),) if p is not None]
+        bases += [b for d, p in self._dirs.items() if d.startswith(f"{SUPPORT}:")
+                  for b in (p, p / "support")]  # fmt: skip
+        for base in bases:
+            for suffix in (".tsv", ".tsv.gz"):
+                path = base / f"{name}{suffix}"
+                if path.is_file():
+                    return _read_plain_tsv(path)
         return None
 
     def _event_files(self) -> list[Path]:

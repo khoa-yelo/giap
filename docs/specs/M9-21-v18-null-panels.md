@@ -54,3 +54,45 @@ determinants_model), `family` (region_id/stat, contig/direction, model), `bin`, 
 
 1. Regions draw the statistic the test used (studentised, ADR-0018), not the reported raw O − E.
    **Proposed default:** yes, with the x label "test statistic (studentised O − E)".
+
+## Lead decisions (2026-10-23)
+1. **Q1 yes:** regions draw the studentised test statistic (ADR-0018), x label "test statistic
+   (studentised O − E)".
+2. **Stacking:** on m9/plot-support-analysis (M9-17 null support files; `null_regions` has a
+   `contig` column, `null_islands` is per scanned contig, decision 5).
+3. **Test-author (2d7fdb4e): gaps 1–10 accepted as proposed.**
+   - **Plots-step wiring** (gap 7): `plots` declares the M9-17 step outputs `context_stats_support`,
+     `determinants_support` and `function_support` as optional inputs. Its view finds files in
+     those directories directly or under `support/`.
+   - **V14:** M9-19 uses the same `function_support` key. Whichever of M9-19 or M9-21 merges second
+     reconciles the declaration.
+   - **Nextflow:** wiring main.nf → REPORT/PLOTS for these keys follows once M9-17's outputs are
+     published (test_report_nf_input_keys.py).
+   - **`sa.COLUMNS["null_regions"]`:** the lead adds `contig` to it after the M9-17 implementer
+     reports.
+4. **Review round (code review of aa50e573).**
+   - **B1, split regions:** key regions on (region_id, contig) in the ranking, the null filter and
+     `observed`. When a region spans more than one contig, the family is `"<rid> (<contig>) / <stat>"`.
+     Tests cover a split region in both the exhaustive and the grid file; the grid step CDF stays
+     monotone per contig.
+   - **B2, island null:** draw one genome-wide multiple, family `genome / abs`:
+     - its values are the replicate-wise maximum of `max_scan_s` over the scanned replicons (NaN skipped as `scan_with_nulls` does);
+     - its observed value is the maximum `observed_max`;
+     - its caption is "FWER p <min islands p_value>".
+     
+     Per-replicon multiples are captioned "per-replicon maximum", with no FWER p.
+   - **S1, cap:** the genome-wide multiple plus at most 7 per-replicon multiples, ranked by
+     `observed_max` descending with ties broken by contig. Write a `metric = n_not_drawn` row.
+   - **Nits taken:**
+     - N1: "observed NA" in the caption;
+     - N2: x labels "max |S_w| over windows" and "mean CV R² (null: permuted response)";
+     - N3: read the key columns as str;
+     - the ADR-0034 uncalibrated note is unconditional;
+     - "p not available" replaces "p NA";
+     - tests for `function_support` reaching V14 through the plots step, and for plots/support taking precedence over an analysis directory;
+     - simplify `run_view.py:279`;
+     - docstring wording "correctly rounded, like the schema reader".
+   - **Backlogged:** p ≥ 0.995 printing as "1" (use `.3g` above 0.1).
+5. **Review round (d819cad7):**
+   - **`UNITLESS` entry:** the `"max |s_w| over windows"` entry in checklist.py is accepted. |S_w| is a standardised scan statistic with no unit, and the list is meant to grow as plots need it. The label N2 pins stays.
+   - **Backlog:** the constant-null bar (width 1/30 of the x range) is a near-invisible hairline on wide ranges; it needs a minimum drawn width.

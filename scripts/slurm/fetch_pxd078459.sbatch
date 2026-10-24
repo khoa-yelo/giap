@@ -6,36 +6,32 @@
 #SBATCH --mem=8G
 #SBATCH --time=24:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%j.out
-# Download the three wild-type runs of PXD078459 (GIAP_SPEC.md §15.1, §15.2 step 4; M3-24).
+# The three wild-type runs of PXD078459 (GIAP_SPEC.md §15.1, §15.2 step 4; M3-24, M10-01).
 #
-#   sbatch scripts/slurm/fetch_pxd078459.sbatch
+#   sbatch --qos=dev --cpus-per-task=1 --mem=2G --time=00:30:00 \
+#     scripts/slurm/fetch_pxd078459.sbatch --resolve   # 1. the record -> a draft manifest
+#   sbatch scripts/slurm/fetch_pxd078459.sbatch        # 2. download what the manifest lists
 #
-# About 5-10 GB of timsTOF (diaPASEF) data go to $GIAP_DATA_DIR/pxd078459/, never into the
-# repository (R11). Every downloaded file is checksummed into SHA256SUMS next to it.
+# 1. --resolve fetches the ProteomeXchange record into $GIAP_DATA_DIR/pxd078459/record/, records
+#    its sha256 and UTC retrieval date, selects the wild-type runs (validation/pilot/px_record.py)
+#    and writes record/pxd078459_files.draft.tsv. It downloads no raw data. The agent reviews the
+#    draft and commits it as validation/pilot/inputs/pxd078459_files.tsv.
+# 2. The download reads that committed manifest (PXD078459_FILES with PXD078459_BASE_URL, or
+#    PXD078459_BASE_URL alone, override it), checks the free space, downloads with curl (resuming
+#    partial files), verifies the record checksums (one retry), writes SHA256SUMS and the filled
+#    manifest next to the data, and unpacks every run to $GIAP_DATA_DIR/pxd078459/<run>.d/.
 #
-# URLs (M3-24 decision 11): https only, never plain ftp:// and never with TLS verification off
-# (R6). The exact file names of the deposition could not be verified when this script was written
-# (M3 has no network), so they are UNVERIFIED defaults: before the M10 run, confirm them against
-# the ProteomeXchange record and override PXD078459_BASE_URL / PXD078459_FILES if they differ.
-# The run also has to confirm the acquisition mode of the first run (§15.1: diaPASEF is expected).
-#
-# Environment: PXD078459_BASE_URL, PXD078459_FILES (space separated), GIAP_DATA_DIR.
+# R6 / M3-24 decision 11: https or ftps only, never TLS verification off, official hosts only.
+# R11: raw MS data never go into the repository.
+# Exit codes: 0 done; 1 a download, verification or unpack failed; 2 a precondition.
 set -euo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 
 ACCESSION=PXD078459
-RECORD="https://proteomecentral.proteomexchange.org/cgi/GetDataset?ID=$ACCESSION"
-BASE_URL="${PXD078459_BASE_URL:-https://download.iprox.cn/dataset/$ACCESSION}"
-FILES="${PXD078459_FILES:-WT_1.d.zip WT_2.d.zip WT_3.d.zip}"
+RECORD_URL="https://proteomecentral.proteomexchange.org/cgi/GetDataset?ID=$ACCESSION&outputMode=XML"
 DEST="$GIAP_DATA_DIR/pxd078459"
-
-echo "== $ACCESSION -> $DEST"
-echo "== record: $RECORD"
-echo "== UNVERIFIED file names (decision 11): confirm them on the record above before trusting this run"
-case "$BASE_URL" in
-  https://* | ftps://*) ;;
-  *) echo "refusing a non-TLS source: $BASE_URL (R6)" >&2; exit 2 ;;
-esac
+PILOT="$GIAP_REPO/validation/pilot"
+MANIFEST="$PILOT/inputs/pxd078459_files.tsv"
 
 sha256_of() {  # GNU sha256sum or the BSD shasum of macOS CI; both print "<hash>  <name>"
   if command -v sha256sum >/dev/null 2>&1; then
@@ -46,40 +42,45 @@ sha256_of() {  # GNU sha256sum or the BSD shasum of macOS CI; both print "<hash>
 }
 
 mkdir -p "$DEST"
-NAMES=()
-NAME_N=0
-set -f  # $FILES is split into words, never globbed against the working directory
-for name in $FILES; do
-  url="$BASE_URL/$name"
-  if [ -s "$DEST/$name" ]; then
-    echo "already there, skipping: $DEST/$name"
-  else
-    echo "downloading $url"
-    curl --fail --location --silent --show-error --remove-on-error --retry 5 --retry-delay 10 --max-time 86400 \
-      --output "$DEST/$name" "$url"
+echo "== $ACCESSION -> $DEST"
+
+if [ "${1:-}" = "--resolve" ]; then
+  REC="$DEST/record"
+  mkdir -p "$REC"
+  rm -f "$REC/$ACCESSION.xml.part" "$REC/selection.part" "$REC/pxd078459_files.draft.tsv"
+  echo "== record: $RECORD_URL"
+  if ! curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' \
+      --retry 1 --retry-delay 60 --max-time 600 --output "$REC/$ACCESSION.xml.part" "$RECORD_URL"; then
+    rm -f "$REC/$ACCESSION.xml.part"
+    echo "the ProteomeXchange record is unreachable: add a Blocked row (R6), retry once later" >&2
+    exit 1
   fi
-  NAMES+=("$name")
-  NAME_N=$((NAME_N + 1))
-done
-set +f  # the *.zip loop below needs globbing again
-[ "$NAME_N" -gt 0 ] || { echo "PXD078459_FILES is empty: nothing to download" >&2; exit 2; }
+  mv "$REC/$ACCESSION.xml.part" "$REC/$ACCESSION.xml"
+  record_sha=$(sha256_of "$REC/$ACCESSION.xml" | cut -d' ' -f1)
+  printf 'url\t%s\nretrieved_utc\t%s\nsha256\t%s\n' "$RECORD_URL" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    "$record_sha" > "$REC/$ACCESSION.xml.info"
+  cat "$REC/$ACCESSION.xml.info"
+  rc=0
+  python3 -I "$PILOT/px_record.py" "$REC/$ACCESSION.xml" --out "$REC/selection.part" || rc=$?
+  [ "$rc" -eq 0 ] || exit "$rc"
+  python3 -I "$PILOT/pxd_fetch.py" https "$REC/selection.part" \
+    --out "$REC/pxd078459_files.draft.tsv" || rc=$?
+  rm -f "$REC/selection.part"
+  echo "== draft manifest: $REC/pxd078459_files.draft.tsv (review it, then commit it as $MANIFEST)"
+  exit "$rc"
+fi
 
-(cd "$DEST" || exit 1; sha256_of "${NAMES[@]}" > SHA256SUMS)
-echo "== SHA256SUMS"
-cat "$DEST/SHA256SUMS"
-
-# The runs are needed as *.d directories by scripts/slurm/diann_pilot.sbatch; unpack the archives
-# when they really are archives, and say so plainly when they are not.
-for archive in "$DEST"/*.zip; do
-  [ -e "$archive" ] || continue
-  if unzip -tq "$archive" >/dev/null 2>&1; then
-    unzip -oq "$archive" -d "$DEST"
-  else
-    echo "warning: $archive is not a readable zip; unpack the runs by hand before the DIA-NN job" >&2
-  fi
-done
-
+rc=0
+python3 -I "$PILOT/pxd_fetch.py" download --dest "$DEST" --manifest "$MANIFEST" \
+  --files "${PXD078459_FILES:-}" --base-url "${PXD078459_BASE_URL:-}" || rc=$?
+if [ -f "$DEST/SHA256SUMS" ]; then
+  echo "== SHA256SUMS"
+  cat "$DEST/SHA256SUMS"
+fi
 echo "== $DEST"
 du -sh "$DEST" 2>/dev/null || true
 ls -1 "$DEST"
-echo "== next: confirm the acquisition mode of the first run (§15.2 step 4), then sbatch scripts/slurm/diann_pilot.sbatch A1"
+if [ "$rc" -eq 0 ]; then
+  echo "== next: python3 -I validation/pilot/acquisition_mode.py $DEST/WT_{1,2,3}.d --out validation/pilot/inputs/acquisition.json (dev QOS)"
+fi
+exit "$rc"

@@ -1,6 +1,6 @@
 """V18 ``stat_diagnostics`` pass 1: (a) detectability reliability, (b) p-value histograms per test
-family (M9-07; GIAP_SPEC.md §10.2 V18, §7.3.3, §8.1, §8.2, §9.2). Panel (c), the null
-distributions, is M9-21.
+family (M9-07; GIAP_SPEC.md §10.2 V18, §7.3.3, §8.1, §8.2, §9.2); (c) the null distributions
+against the observed statistic (M9-21, ``giap.viz.null_panels``).
 
 Pure: tables come from a ``RunView``; the figure is built without pyplot. Histogram bins are
 exact: a p-value is binned by its shortest decimal form as a rational number, so a reported
@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 
+from giap.viz import null_panels
 from giap.viz.base import Instance, plot
 from giap.viz.style import OKABE_ITO, new_figure
 
@@ -46,6 +47,7 @@ GRID_COLS = 4
 CONSTANT_TEXT = "detectability constant: no calibration curve"
 ABSENT_TEXT = "detectability not available"
 NO_P_TEXT = "no p-values in this run"
+NO_NULL_TEXT = "null draws not available"
 OUTSIDE_METRIC = "n_outside_0_1"
 _MAX_AREA = 60.0  # pt², the marker area of the largest bin
 _GREY = OKABE_ITO["grey"]
@@ -201,7 +203,7 @@ def _draw_histogram(
 @plot(
     "V18",
     "stat_diagnostics",
-    optional=("detection_summary", *(t for t, _ in FAMILIES)),
+    optional=("detection_summary", *(t for t, _ in FAMILIES), "islands", "determinants_model"),
 )
 def stat_diagnostics(view: RunView, cfg: GiapConfig) -> list[Instance]:
     det = _detectability(view)
@@ -222,10 +224,13 @@ def stat_diagnostics(view: RunView, cfg: GiapConfig) -> list[Instance]:
     keep = {(t, f) for t, f, _, _ in ranked[:MAX_DRAWN]}
     drawn = [f for f in families if (f[0], f[1]) in keep]
 
+    nulls = null_panels.multiples(view)
     n_rows = math.ceil(len(drawn) / GRID_COLS)
-    fig = new_figure("double", 2.6 + 1.5 * n_rows, layout="constrained")
+    c_rows = max(1, math.ceil(len(nulls) / GRID_COLS))
+    fig = new_figure("double", 2.6 + 1.5 * n_rows + 1.8 * c_rows, layout="constrained")
     fig.set_label("V18_stat_diagnostics")
-    gs = fig.add_gridspec(1 + n_rows, GRID_COLS, height_ratios=[1.6] + [1.0] * n_rows)
+    ratios = [1.6] + [1.0] * n_rows + [1.2] * c_rows
+    gs = fig.add_gridspec(1 + n_rows + c_rows, GRID_COLS, height_ratios=ratios)
     ax_a = fig.add_subplot(gs[0, :2], label="a")
     if state == "fit":
         _draw_reliability(ax_a, a_rows, overall)
@@ -236,6 +241,11 @@ def stat_diagnostics(view: RunView, cfg: GiapConfig) -> list[Instance]:
     for i, (table, family, counts, n_out) in enumerate(drawn):
         ax = fig.add_subplot(gs[1 + i // GRID_COLS, i % GRID_COLS], label=f"b:{table} / {family}")
         _draw_histogram(ax, table, family, counts, n_out)
+    if not nulls:
+        _message(fig.add_subplot(gs[1 + n_rows, :], label="c"), NO_NULL_TEXT)
+    for i, m in enumerate(nulls):
+        cell = gs[1 + n_rows + i // GRID_COLS, i % GRID_COLS]
+        null_panels.draw(fig.add_subplot(cell, label=f"c:{m.table} / {m.family}"), m)
 
     k = len(drawn)
     if state == "fit":
@@ -257,6 +267,7 @@ def stat_diagnostics(view: RunView, cfg: GiapConfig) -> list[Instance]:
         ]
         if n_out:
             b_rows.append(_row("b", table, family=family, metric=OUTSIDE_METRIC, value=n_out))
-    cells = [[r[c] for c in COLUMNS] for r in [*a_rows, *b_rows]]
+    null_rows = [r for m in nulls for r in null_panels.rows(m)]
+    cells = [[r.get(c) for c in COLUMNS] for r in [*a_rows, *b_rows, *null_rows]]
     data = pd.DataFrame(cells, columns=list(COLUMNS), dtype=object)
     return [Instance(suffix=None, figure=fig, data=data, title=title)]

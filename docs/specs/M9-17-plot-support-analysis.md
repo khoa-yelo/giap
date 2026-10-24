@@ -124,6 +124,21 @@ Definitions:
    - PD at the written grid value (`%.6g`) is accepted, and the statistician reviews it.
    - Follow-up (backlog): Nextflow wiring of the support keys in function.nf, determinants.nf and
      context.nf. Today only the local executor publishes them.
+7. **Nextflow wiring (follow-up, test-author 9b229c4c). Gaps 1, 2 and 4–6 accepted as proposed.**
+   - **Optional output:** GIAP_STEP gains a separate optional `*_support` output
+     (`path '*_support', optional: true, emit: support`). The steps are unchanged.
+   - **Publishing:** the out spec is `'<key>=<key>'`, and `saveAs` maps `<key>/support/<f>` to `plots/support/<f>`,
+     file by file. Never publish a whole `plots/` directory from two tasks.
+   - **Staging:**
+     - main.nf passes each emission as `plots_support` to PLOTS and on to REPORT.
+     - The local runner stages SUPPORT_OUTPUTS as `plots_support` for the plots step.
+     - The search across every `plots_support` directory in RunView is M9-21's change (m9/v18-null-panels); don't duplicate it here.
+   - **Stub file names:** each step's real support file names.
+   - **report** reads support only from the `plots` directory.
+   - **Existing tests needing updates:** function.nf.test's published-file list, test_local_publish_names, and test_determinants_step's alias count. These belong to the lead after the implementer reports.
+   - **Side issues to check:**
+     - sim100k publishes no `null_regions`;
+     - determinants.nf emits no `events`.
 8. **Review round (code review and statistician on 1268c1a9; PR #272).**
    - **Tie (statistician B1, review N3):** at a maxP = −minP tie, the check also accepts
      `abs(abs(dev) - abs(es)) <= ES_TOL`. V14 takes the ES marker and its sign from the table's `es`.
@@ -148,3 +163,7 @@ Definitions:
      (R3 is a strict xfail until the small-null change, then a hard check).
    - **Backlogged:** N4 (`attrs` rank labels → explicit return), N6 (SHAP computed twice), N7
      (redundant filter), PD grid ≤ 0 for LOG_FEATURES.
+9. **The NF wiring (ff2df639) departs from decision 7, and both changes are accepted:**
+   - **File glob:** GIAP_STEP's `support` output is the file glob `*_support/support/*`. When the output is a whole directory, Nextflow 26.10 publishes it without showing `saveAs` the files inside, so per-file publishing would be impossible. `supportDir()` re-forms the directory.
+   - **The plots step copies the staged support** into its own `plots/support/` (`copy_staged_support`). Publishing `plots/` replaces `OUT/plots/`, which would otherwise wipe the files the analysis steps already published.
+   - **Backlog:** a unit test for `copy_staged_support`, and determinants.nf emitting no `events` into the PLOTS pair.
