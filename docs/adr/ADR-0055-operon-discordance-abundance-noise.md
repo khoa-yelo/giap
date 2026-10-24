@@ -109,3 +109,16 @@ Pending Khoa.
   standardised residuals mapped back at the partner's z.
 - With (b): the flag goes into the §9.3 enum (an interface change, ADR-0036 style), the report
   text changes, and the xfails stay with the narrowed claim recorded in the spec sign-off.
+
+## Amendment 1: the claim covers smooth, monotone σ(abundance) (accepted-by-khoa, 2026-10-24)
+- Status: accepted-by-khoa (2026-10-24, in session: "Yes and yes", answering "Do you accept the
+  amendment (option 1)?")
+- **Measured (statistician, R = 1,000, M6-13 spec):** log-linear σ(abundance) passes D-1 (pooled
+  0.0505 at α 0.05; lowest quartile 0.0478), D-1b-floor and D-1c. It does not pass D-1b-step (a
+  step change in noise at the median abundance): pooled 0.0518 against a bound of 0.0510; Q2 1.8×.
+  No flexible model tried (quadratic, cubic, spline, variance floor) passed it.
+- **Decision:** the M6 discordance claim is "pooled level under smooth, monotone σ(abundance)".
+  Per-quartile rates are recorded (up to 1.7×, against about 3× under the constant scale).
+  D-1b-step stays a strict xfail naming this amendment (full tier; non-strict in the fast tier,
+  where it cannot be detected). No bound, alpha or R changes (R3). A variance-floor σ model goes to
+  the backlog (M6-13 follow-up).
