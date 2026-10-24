@@ -80,7 +80,10 @@ def write_manifest(path: Path, rows: Sequence[Row]) -> None:
 
 
 def run_label(name: str) -> str:
-    stem = PurePosixPath(name).name
+    parts = PurePosixPath(name).parts
+    if len(parts) > 1 and parts[0].endswith(".d"):  # a file inside a run folder: <run>.d/<file>
+        return parts[0].removesuffix(".d")
+    stem = parts[-1]
     for ext in (*ARCHIVES, ".d"):
         stem = stem.removesuffix(ext)
     return stem.removesuffix(".d")
