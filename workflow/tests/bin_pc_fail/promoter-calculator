@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Fake promoter-calculator for workflow/tests/promoter_calculator_batch.nf.test (M2-14b example 6):
+# a region whose FASTA header contains FAIL makes the tool print an error and exit 1; every other
+# region is handed to the M2-07 fake (../bin/promoter-calculator) unchanged.
+set -euo pipefail
+in="" args=("$@")
+while [[ $# -gt 0 ]]; do
+  case "$1" in -i) in="$2"; shift ;; esac
+  shift
+done
+if grep -q '^>.*FAIL' "$in"; then
+  echo "FAKE promoter-calculator error: cannot score region $(basename "$in")" >&2
+  exit 1
+fi
+exec "$(dirname "$0")/../bin/promoter-calculator" "${args[@]}"

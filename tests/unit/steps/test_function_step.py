@@ -218,8 +218,8 @@ def test_function_step_is_registered_with_the_spec_keys() -> None:
     assert spec.precomputed is None
     assert set(spec.inputs) == REQUIRED
     assert set(spec.optional_inputs) == set(FUNCTION_RESOURCES)
-    assert set(spec.outputs) == set(OUTPUTS)
-    assert spec.optional_outputs == ()
+    assert set(spec.outputs) == {*OUTPUTS, "function_support"}  # M9-17 plot support
+    assert spec.optional_outputs == ("function_support",)
 
 
 def test_function_resources_constant_is_the_five_setup_items() -> None:
@@ -259,7 +259,7 @@ def test_step_registry_json_pins_function_and_tu_folds() -> None:
     assert got["function"] == {
         "inputs": sorted(REQUIRED),
         "optional_inputs": sorted(FUNCTION_RESOURCES),
-        "outputs": sorted(OUTPUTS),
+        "outputs": sorted([*OUTPUTS, "function_support"]),
     }
     assert got["detectability"]["outputs"] == sorted(
         ["gene_table", "detectability_summary", "tu_folds"]

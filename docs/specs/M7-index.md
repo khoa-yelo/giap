@@ -91,6 +91,7 @@ commit (the M6 pattern) after deciding the questions below.
 | 14 | [M7-14](M7-14-te2-proxy-and-id-mixups.md) | V | 2 | **TE2 proxy** (Nissle, weekly Slurm) and the `id_mixups` QC row | 04, 05 | 170 | no |
 | 15 | [M7-15](M7-15-integration-hardening.md) | T | 2 | goldens, in-pipeline contracts, resume/failure, real-tool arm, VCF FILTER, `novel_candidate_id` | 04, 08, 09 | 200 | no |
 | 16 | [M7-16](M7-16-stop-codon-readthrough.md) | R | gated | stop-spanning peptides (Sec, read-through) — options A/B/C, ADR | decision | 220 | yes |
+| 18 | [M7-18](M7-18-variants-ambiguous-residues.md) | V | 2 | variants on B/J/O/U/X/Z peptide residues: skip ambiguous/rare, U@TGA and O@TAG as REF, one event (K-12 crash fix) | 02–05 | 75 | no |
 
 Total ≈ 3,930 code lines (+ ≈ 410 simulator lines, ≈ 5,500 test lines); pass 1 ≈ 2,730. The
 spec's 2 weeks fits if the two pass-1 tracks run in parallel (they share no code until 08/09) and

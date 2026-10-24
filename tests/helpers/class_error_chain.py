@@ -120,7 +120,7 @@ def oracle_sites(avail: Mapping[str, Path], cfg: Any) -> tuple[pd.DataFrame, lis
     from giap.steps.mapping import read_gene_model
     from giap.steps.variants import support_of
     from giap.variants.align import align_hits
-    from giap.variants.flags import flags_for, start_codons
+    from giap.variants.flags import flags_for, left_block_site, start_codons
     from giap.variants.pileup import eligible, pileup, sites
 
     mapping = Path(avail["mapping"])
@@ -137,10 +137,13 @@ def oracle_sites(avail: Mapping[str, Path], cfg: Any) -> tuple[pd.DataFrame, lis
     st = sites(pile, cfg)
     peps = list(st.attrs["alt_peptides"])
     starts = start_codons(gm)
-    st["flags"] = [
-        tuple(flags_for(r, starts, cfg, {(support[p].source, support[p].search_db) for p in ps}))
+    tol = cfg.variants.mass_equivalent_tol_da
+    st["flags"] = [  # ADR-0049: the left 2->1 block rule and swaps are flagged mass_equivalent
+        tuple(flags_for(r, starts, cfg, {(support[p].source, support[p].search_db) for p in ps},
+                        left_block=left_block_site(
+                            r, [a for a in aligns if a.peptide in ps], genome, gm.replicons, tol)))
         for r, ps in zip(st.to_dict("records"), peps, strict=True)
-    ]
+    ]  # fmt: skip
     return st, peps
 
 

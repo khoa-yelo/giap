@@ -252,6 +252,47 @@ def _gene_of(tag: object, gm: GeneModel) -> Gene | None:
         return None
 
 
+def _row_evidence(
+    r: Mapping[str, Any], o: Orf, gm: GeneModel, cfg: GiapConfig, rbs_min: float | None,
+    intervals: Sequence[Interval],
+) -> tuple[bool, list[str], Gene | None]:  # fmt: skip
+    gene = _gene_of(r["overlapping_gene"], gm)
+    rep = gm.replicons[o.contig]
+    ok, labels = class_evidence({**r, **_gene_geometry(r, gene, intervals, rep)}, cfg, rbs_min)
+    return ok, labels, gene
+
+
+def class_rules(
+    table: pd.DataFrame,
+    orfs: Sequence[Orf],
+    *,
+    gene_table: pd.DataFrame,
+    gm: GeneModel,
+    genome: Mapping[str, str],
+    cfg: GiapConfig,
+    peptide_intervals: Mapping[str, Sequence[Interval]] | None = None,
+) -> dict[str, bool]:
+    """``orf_id`` -> the M7-09 rule-4 class rule of every ``orf_table`` row (no peptide minimum
+    and no error control)."""
+    by_id = {o.orf_id: o for o in orfs}
+    rbs_min = rbs_threshold(gene_table, cfg.novel_orfs.rbs_min_quantile)
+    peps = peptide_intervals or {}
+    return {
+        str(r["orf_id"]): _row_evidence(r, by_id[str(r["orf_id"])], gm, cfg, rbs_min,
+                                        peps.get(str(r["orf_id"]), ()))[0]
+        for r in table.to_dict("records")
+    }  # fmt: skip
+
+
+def _call(cell: object, q: float | None, rule: bool, n_peptides: int, need: int,
+          alpha: float) -> bool:  # fmt: skip
+    """Rule 6 (M7-11b): a numeric class FDR q calls at q <= alpha (no peptide minimum); an
+    ``unestimated`` cell needs ``need`` peptides (§7.6.4 "Neither")."""
+    if is_na(cell) or cell == "unestimated":
+        return rule and n_peptides >= need
+    return rule and (float(cell) if q is None else q) <= alpha  # type: ignore[arg-type]
+
+
 def apply_evidence(
     table: pd.DataFrame,
     orfs: Sequence[Orf],
@@ -262,24 +303,27 @@ def apply_evidence(
     genome: Mapping[str, str],
     cfg: GiapConfig,
     peptide_intervals: Mapping[str, Sequence[Interval]] | None = None,
+    class_q: Mapping[str, float] | None = None,
 ) -> pd.DataFrame:
-    """The ``orf_table`` frame (same rows and order) with the M7-09 columns filled.
-    ``terminators`` is ``None`` when the layer is missing (its three columns NA);
-    ``peptide_intervals`` maps an ``orf_id`` to its peptides' genome intervals."""
+    """The ``orf_table`` frame (same rows and order) with the M7-09 columns filled and its
+    ``class_fdr`` cells kept. ``terminators`` is ``None`` when the layer is missing (its three
+    columns NA); ``peptide_intervals`` maps an ``orf_id`` to its peptides' genome intervals;
+    ``class_q`` gives the unformatted q of the numeric cells (the step passes it, M7-11b lead
+    decision 6; without it the cell is read back)."""
     by_id = {o.orf_id: o for o in orfs}
     rbs_min = rbs_threshold(gene_table, cfg.novel_orfs.rbs_min_quantile)
     p_yes = cfg.annotation.promoters.promotech_yes
     t_yes = cfg.annotation.terminators.terminatornet_yes
     need = cfg.novel_orfs.min_peptides_without_decoys
+    alpha = cfg.stats.alpha.novel_orfs
     peps = peptide_intervals or {}
     recs: list[dict[str, Any]] = [dict(r) for r in table.to_dict("records")]
     for r in recs:
         o = by_id[str(r["orf_id"])]
         rep = gm.replicons[o.contig]
         flags = set() if is_na(r["flags"]) else set(str(r["flags"]).split(";")) - {""}
-        gene = _gene_of(r["overlapping_gene"], gm)
         intervals = peps.get(o.orf_id, ())
-        ok, labels = class_evidence({**r, **_gene_geometry(r, gene, intervals, rep)}, cfg, rbs_min)
+        ok, labels, gene = _row_evidence(r, o, gm, cfg, rbs_min, intervals)
         flags |= set(labels)
         if o.cls == "pseudogene":
             j = None if gene is None else pseudogene_junction(gene, genome[o.contig], rep)
@@ -300,8 +344,8 @@ def apply_evidence(
             r["terminator_downstream"] = conf is not None and conf >= t_yes
             if r["terminator_downstream"]:
                 flags.add("terminator_supported")
-        r["called"] = int(r["n_peptides"]) >= need and ok
-        r["class_fdr"] = "unestimated"  # §7.6.4 "Neither" branch until M7-11
+        q = None if class_q is None else class_q.get(o.orf_id)
+        r["called"] = _call(r["class_fdr"], q, ok, int(r["n_peptides"]), need, alpha)
         r["flags"] = order_flags(flags)
         r["rank"] = None
     for k, r in enumerate(sorted((r for r in recs if r["called"]), key=rank_key), start=1):

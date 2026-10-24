@@ -15,6 +15,7 @@ from __future__ import annotations
 import importlib
 import logging
 import pkgutil
+import shutil
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,7 +27,7 @@ from giap.config import GiapConfig
 from giap.io.fasta import read_genome_fasta
 from giap.io.plot_files import PlotFiles, read_plot_files, remove_plot_files, write_instance
 from giap.io.plot_support import SUPPORT_DIR, write_support
-from giap.io.run_view import PATHS, RunView
+from giap.io.run_view import ANALYSIS_SUPPORT, PATHS, RunView
 from giap.runner.local import PUBLISHED, PUBLISHED_FILES
 from giap.steps.registry import InputPath, StepContext, step
 
@@ -35,8 +36,9 @@ REPORT_BUDGET = 25_000_000
 _LOG = logging.getLogger("giap.report")
 
 #: every key published under ``OUT/`` (and readable by ``RunView``), except the two outputs here
+#: and ``run_manifest`` (written after the run; ``giap report`` reads it from ``OUT/``, M9-16)
 ALL_PUBLISHED_KEYS = sorted(
-    {*PUBLISHED, *PUBLISHED_FILES, *PATHS} - {"plots", "report", "preflight"}
+    {*PUBLISHED, *PUBLISHED_FILES, *PATHS} - {"plots", "report", "preflight", "run_manifest"}
 )
 #: the support writers' inputs (M9-03, M9-18) and the RunView directories; ``report`` takes them
 #: too, so REPORT can hand both steps the same [key, path] channel
@@ -216,14 +218,37 @@ def write_plot_support(inputs: Mapping[str, InputPath], plots_dir: Path) -> list
     return written
 
 
-@step("plots", inputs=["preflight"], optional_inputs=[*ALL_PUBLISHED_KEYS, *_SUPPORT_INPUTS],
+def copy_staged_support(staged: InputPath | None, plots_dir: Path) -> list[Path]:
+    """Copy the staged ``plots_support`` files (each directory's ``support/`` if it has one,
+    else the directory itself: an analysis step's ``<key>_support`` or a ``plots/support``) into
+    ``plots_dir/support/`` (M9-17). Under Nextflow the plots step publishes ``plots/`` whole,
+    replacing ``OUT/plots/``, so the analysis steps' support must be inside it."""
+    if staged is None:
+        return []
+    copied: list[Path] = []
+    dst = plots_dir / SUPPORT_DIR
+    for d in staged if isinstance(staged, list) else [staged]:
+        src = d / SUPPORT_DIR if (d / SUPPORT_DIR).is_dir() else d
+        if not src.is_dir() or src.resolve() == dst.resolve():
+            continue
+        for f in sorted(p for p in src.iterdir() if p.is_file()):
+            dst.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(f, dst / f.name)
+            copied.append(dst / f.name)
+    return copied
+
+
+@step("plots", inputs=["preflight"],
+      optional_inputs=[*ALL_PUBLISHED_KEYS, *_SUPPORT_INPUTS, *ANALYSIS_SUPPORT],
       outputs=["plots"])  # fmt: skip
 def plots_step(ctx: StepContext) -> None:
     """Tables -> ``plots/``: ``Vnn_*.{svg,png,pdf}`` and ``data/Vnn_*.tsv`` (behaviour 1), after
-    the support tables ``support/*.tsv[.gz]`` from the run inputs (M9-03)."""
+    the support tables ``support/*.tsv[.gz]`` from the run inputs (M9-03). The M9-17 support
+    directories (``ANALYSIS_SUPPORT``) reach the plots through ``RunView.support``."""
     out = ctx.outputs["plots"]
     inputs: dict[str, InputPath] = dict(ctx.inputs)
-    if write_plot_support(inputs, out):  # before rendering: V1/V2 read them (M9-03)
+    copied = copy_staged_support(inputs.get("plots_support"), out)  # M9-17
+    if write_plot_support(inputs, out) or copied:  # before rendering: V1/V2 read them (M9-03)
         inputs["plots_support"] = out / SUPPORT_DIR
     load_plot_modules()
     view = RunView.from_inputs(inputs).with_modules(ctx.cfg.modules)

@@ -370,11 +370,12 @@ def _denovo(
         "peptides", "sixframe", "hits_exact", "hits_tolerant", "genes", "features", "replicons",
     ],
     optional_inputs=["reference_peptides"],
-    outputs=["placement", "mapping_fdr", "stratum0_classes"],
+    outputs=["placement", "mapping_fdr", "stratum0_classes", "placement_costs"],
 )  # fmt: skip
 def placement_step(ctx: StepContext) -> None:
-    """Best costs, de novo precision, placement q-values, ``mapping_fdr`` rows (§7.2.5) and the
-    ADR-0019 stratum-0 class table (``stratum0_classes``, an input of ``context_stats``)."""
+    """Best costs, de novo precision, placement q-values, ``mapping_fdr`` rows (§7.2.5), the
+    ADR-0019 stratum-0 class table (``stratum0_classes``, an input of ``context_stats``) and the
+    best costs with π̂ (``placement_costs``, the M7-11b de novo class lists)."""
     queries = _resolved_queries(ctx, _gene_model(ctx))
     index, decoys = load_index(_path(ctx.inputs["sixframe"]))
     exact = pd.read_parquet(_path(ctx.inputs["hits_exact"]))
@@ -399,6 +400,7 @@ def placement_step(ctx: StepContext) -> None:
     per.to_parquet(ctx.outputs["placement"], index=False)
     fdr.to_parquet(ctx.outputs["mapping_fdr"], index=False)
     out.stratum0_classes.to_parquet(ctx.outputs["stratum0_classes"], index=False)
+    costs.to_parquet(ctx.outputs["placement_costs"], index=False)
     ctx.log.info(
         "placement: %d queries (%d de novo), %d with a target hit, %d accepted",
         len(queries), int(is_dn.sum()), len(per), int(per["accepted"].sum()),
