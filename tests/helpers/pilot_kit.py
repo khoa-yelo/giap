@@ -333,8 +333,12 @@ class PilotSandbox:
         return subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip()
 
 
-def pilot_sandbox(tmp: Path, *, sif: bool = True, raws: int = 3) -> PilotSandbox:
-    """A sandbox checkout with fake container and download tools (nothing real runs)."""
+def pilot_sandbox(
+    tmp: Path, *, sif: bool = True, raws: int = 3, m10_02: bool = True
+) -> PilotSandbox:
+    """A sandbox checkout with fake container and download tools (nothing real runs). ``m10_02``
+    adds the inputs diann_pilot.sbatch checks first (``_m10_02_inputs``); helpers.pilot_kit_m10
+    builds its own and passes False."""
     sb = make_sandbox(tmp)
     shutil.copytree(REPO / "validation", sb.repo / "validation",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))  # fmt: skip
@@ -363,6 +367,9 @@ def pilot_sandbox(tmp: Path, *, sif: bool = True, raws: int = 3) -> PilotSandbox
         d = raw_dir / f"wt_rep{i + 1}.d"
         d.mkdir(exist_ok=True)
         (d / "analysis.tdf").write_text("stub timsTOF data\n")
+        (d / "analysis.tdf_bin").write_text("stub timsTOF binary\n")
+    if m10_02:
+        _m10_02_inputs(sb, image if sif else None, raws)
     out_dir = sb.root / "pilot"
     sb.env.update({
         "DIANN_SIF": str(image),
@@ -377,6 +384,31 @@ def pilot_sandbox(tmp: Path, *, sif: bool = True, raws: int = 3) -> PilotSandbox
     })  # fmt: skip
     _materialise_fastas(sb)
     return PilotSandbox(sb=sb, sif=image, raw_dir=raw_dir, out_dir=out_dir)
+
+
+def _m10_02_inputs(sb: Sandbox, image: Path | None, raws: int) -> None:
+    """What diann_pilot.sbatch checks before any container call (M10-02 lead decision 1): a
+    read-only image whose sha256 equals the pin, the M10-01 acquisition JSON naming the runs, and
+    the GIAP_PYTHON that runs the checks."""
+    import hashlib
+    import json
+    import subprocess
+    import sys
+
+    if image is not None:
+        image.chmod(0o444)
+    pilot = sb.repo / "validation" / "pilot"
+    digest = hashlib.sha256(b"stub sif\n").hexdigest()
+    (pilot / "diann_image.sha256").write_text(f"{digest}  diann_2.3.1.sif\n")
+    runs = [f"wt_rep{i + 1}" for i in range(raws or 3)]
+    acq = pilot / "inputs" / "acquisition.json"
+    acq.parent.mkdir(parents=True, exist_ok=True)
+    acq.write_text(json.dumps({"dataset_mode": "diaPASEF", "runs": [
+        {"run": r, "mode": "diaPASEF", "notes": ""} for r in runs]}))  # fmt: skip
+    for args in (["add", "-A"], ["commit", "-q", "-m", "m10-02 inputs"]):
+        subprocess.run(["git", "-C", str(sb.repo), *args], check=True, capture_output=True,
+                       env=sb.env)  # fmt: skip
+    sb.env["GIAP_PYTHON"] = sys.executable
 
 
 def _materialise_fastas(sb: Sandbox) -> None:

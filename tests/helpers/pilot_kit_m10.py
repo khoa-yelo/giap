@@ -322,7 +322,7 @@ class M10Sandbox:
 
 def m10_sandbox(tmp: Path, *, raws: int = 3, tdf_bin: bool = True) -> M10Sandbox:
     """``pilot_sandbox`` plus the M10-02 helper changes (module docstring)."""
-    pilot = pilot_sandbox(tmp, raws=raws)
+    pilot = pilot_sandbox(tmp, raws=raws, m10_02=False)
     sb = pilot.sb
     py = sys.executable
     for name in ("apptainer", "singularity"):
