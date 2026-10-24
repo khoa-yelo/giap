@@ -30,6 +30,7 @@ replicate model) and ``detection_summary`` are not read yet. Without abundance e
 from __future__ import annotations
 
 import json
+import logging
 import math
 from collections.abc import Mapping
 from pathlib import Path
@@ -52,12 +53,13 @@ from giap.io.tsv import read_tsv, write_tsv
 from giap.io.work_tables import _read_tsv_table
 from giap.model.coords import Replicon
 from giap.operons import detection_limit as dl
-from giap.operons.discordance import NO_DL_MODEL, SIGMA_MODEL, PMissFn, discordance
+from giap.operons.discordance import FALLBACK_WARN, NO_DL_MODEL, SIGMA_MODEL, PMissFn, discordance
 from giap.operons.flags import LAYER_MISSING, flag_pairs, merge_tests
 from giap.operons.missed import missed_operons
 from giap.operons.pairs import RNA_TYPES, Evidence, pair_frame
 from giap.operons.tu_table import operons_table
 from giap.rng import for_step
+from giap.stats import tdist
 from giap.stats.tdist import ScaledStudentT
 from giap.steps.common import one_path as _path
 from giap.steps.common import read_genes as _genes
@@ -176,7 +178,7 @@ def detection_limit(
     return fit, (dl.p_miss_for_genes(fit.model, g, cfg) if ok else None)
 
 
-def run_operons_fit(
+def run_operons(
     gene_table: pd.DataFrame,
     genes: pd.DataFrame,
     replicons: pd.DataFrame,
@@ -214,28 +216,6 @@ def run_operons_fit(
     return merged, operons_table(tus, merged, gene_table, flagged), flagged, m.bin_counts, d.scaled
 
 
-def run_operons(
-    gene_table: pd.DataFrame,
-    genes: pd.DataFrame,
-    replicons: pd.DataFrame,
-    tus: pd.DataFrame,
-    pairs_raw: pd.DataFrame,
-    features: pd.DataFrame,
-    layers: dict[str, pd.DataFrame],
-    cfg: GiapConfig,
-    p_miss: PMissFn | None = None,
-    *,
-    n_seen: Mapping[str, int] | None = None,
-    k_min: int = 1,
-    no_model_flag: str = NO_DL_MODEL,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """:func:`run_operons_fit` without the discordance null: the four frames. Pure."""
-    out = run_operons_fit(gene_table, genes, replicons, tus, pairs_raw, features, layers, cfg,
-                          p_miss, n_seen=n_seen, k_min=k_min,
-                          no_model_flag=no_model_flag)  # fmt: skip
-    return out[0], out[1], out[2], out[3]
-
-
 def read_layer(
     cfg: GiapConfig, key: str, path: Path, reps: dict[str, Replicon], tus: pd.DataFrame
 ) -> Any:
@@ -255,13 +235,12 @@ def _plain(v: Any) -> Any:
 
 def discordance_fit_data(s: ScaledStudentT) -> dict[str, Any]:
     """The ``operons.discordance_fit`` payload (M6-13; strict JSON)."""
-    bound = s.model == "loglinear"
     return {k: _plain(v) for k, v in {
         "sigma_model": SIGMA_MODEL, "sigma_model_used": s.model, "reason": s.reason, "n_fit": s.n,
         "loc_log2": s.loc, "scale0_log2": s.scale0, "gamma_per_sd": s.gamma,
         "gamma_per_log2": s.gamma / s.sd if s.model != "none" and s.sd > 0 else math.nan,
-        "df": s.df, "df_at_bound": bound and s.df in (2.0, 50.0),
-        "gamma_at_bound": bound and abs(s.gamma) == 2.0,
+        "df": s.df, "df_at_bound": s.model != "none" and s.df in tdist.DF_BOUNDS,
+        "gamma_at_bound": s.model == "loglinear" and s.gamma in tdist.GAMMA_BOUNDS,
         "abundance_center_log2": s.center, "abundance_sd_log2": s.sd, "z_min": s.z_min,
         "z_max": s.z_max, "lr_stat": s.lr_stat, "lr_p": s.lr_p,
     }.items()}  # fmt: skip
@@ -314,14 +293,14 @@ def operons_step(ctx: StepContext) -> None:
         ctx.log.info("%s: %s; one-detected pairs are untested", NO_DL_MODEL, why,
                      extra={"event": "operons.run_flag",
                             "data": {"flag": NO_DL_MODEL}})  # fmt: skip
-    pairs, ops, flagged, bins, scaled = run_operons_fit(
+    pairs, ops, flagged, bins, scaled = run_operons(
         gt, genes, replicons, tus, rd(ins["pairs_raw"]), rd(ins["features"]), layers, ctx.cfg,
         p_miss, **seen_kw,
     )  # fmt: skip
     dfit = discordance_fit_data(scaled)
-    ctx.log.info("operons: discordance null %s (reason=%s, n_fit=%d, gamma_per_sd=%s)",
-                 dfit["sigma_model_used"], dfit["reason"], dfit["n_fit"], dfit["gamma_per_sd"],
-                 extra={"event": "operons.discordance_fit", "data": dfit})  # fmt: skip
+    ctx.log.log(logging.WARNING if scaled.reason in FALLBACK_WARN else logging.INFO,
+                "operons: within-operon discordance null",
+                extra={"event": "operons.discordance_fit", "data": dfit})  # fmt: skip
     data = {
         "pi0": float(ctx.cfg.operons.pi0),
         "bin_counts": [{k: _plain(v) for k, v in r.items()} for r in bins.to_dict("records")],

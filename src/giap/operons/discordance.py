@@ -41,18 +41,10 @@ from giap.stats.tdist import (
     fit_student_t,
     fit_student_t_scaled,
     scaled_t_two_sided,
-    student_t_two_sided,
 )
 
-__all__ = [
-    "MIN_OP_PAIRS",
-    "SIGMA_MODEL",
-    "Discordance",
-    "PMissFn",
-    "discordance",
-    "fit_pairs",
-    "fit_rows",
-]
+__all__ = ["MIN_OP_PAIRS", "SIGMA_MODEL", "Discordance", "PMissFn", "discordance", "fit_pairs",
+           "fit_rows"]  # fmt: skip
 
 F64 = npt.NDArray[np.float64]
 log = logging.getLogger(__name__)
@@ -61,7 +53,7 @@ log = logging.getLogger(__name__)
 MIN_OP_PAIRS: int = 20
 #: the default scale model (M6-13 Q2: no config key yet)
 SIGMA_MODEL: Literal["loglinear", "constant"] = "loglinear"
-#: scaled-fit fallbacks that log a WARNING (M6-13 step 5)
+#: scaled-fit fallbacks whose step event is a WARNING (M6-13 step 5)
 FALLBACK_WARN = frozenset({"not_converged", "collapsed", "worse_than_constant"})
 ROW_COLUMNS: tuple[str, ...] = ("pair_id", "test", *TEST_COLUMNS, "flags")
 
@@ -134,18 +126,19 @@ def fit_pairs(pairs: pd.DataFrame) -> tuple[F64, F64]:
     return d[ok][order], m[ok][order]
 
 
-def _scaled(x: F64, m: F64, sigma_model: str) -> ScaledStudentT:
-    """The M6-13 null; ``constant`` never runs the four-parameter fit (``reason = disabled``)."""
+def _scaled(
+    x: F64, m: F64, sigma_model: Literal["loglinear", "constant"], relative: bool
+) -> ScaledStudentT:
+    """The M6-13 null; ``constant`` never runs the four-parameter fit (``reason = disabled``), a
+    relative-scale run computes no p and has no null (``none``, ``relative_scale``)."""
     if sigma_model not in ("loglinear", "constant"):
         raise ValueError(f"sigma_model must be 'loglinear' or 'constant', got {sigma_model!r}")
+    if relative:  # min_n above the pair count: no fit is made
+        return replace(fit_student_t_scaled(x, m, min_n=x.size + 1), reason=RELATIVE)
     if sigma_model == "constant":
         s = fit_student_t_scaled(x, m, min_sd=math.inf, min_n=MIN_OP_PAIRS)
         return s if s.model == "none" else replace(s, reason="disabled")
-    s = fit_student_t_scaled(x, m, min_n=MIN_OP_PAIRS)
-    if s.reason in FALLBACK_WARN:
-        log.warning("within-operon log-linear scale fit fell back to the constant null (%s) on "
-                    "n=%d OP pairs", s.reason, s.n)  # fmt: skip
-    return s
+    return fit_student_t_scaled(x, m, min_n=MIN_OP_PAIRS)
 
 
 def _is_relative(genes: pd.DataFrame) -> bool:
@@ -287,7 +280,8 @@ def discordance(
 
     delta = fit_rows(work.loc[eligible])
     fit = _fit(delta)
-    scaled = _scaled(*fit_pairs(work.loc[eligible]), sigma_model)
+    relative = _is_relative(genes)
+    scaled = _scaled(*fit_pairs(work.loc[eligible]), sigma_model, relative)
 
     det_a, det_b = _bool(work["detected_a"]), _bool(work["detected_b"])
     a = work["abundance_log2_a"].astype(float).to_numpy()
@@ -301,16 +295,13 @@ def discordance(
         seen_b = _seen(work["gene_b"], n_seen, k_min)
     one = eligible & (seen_a ^ seen_b) & ~both  # the t test takes precedence
 
-    if _is_relative(genes):
+    if relative:
         extra = {i: [RELATIVE, UNESTIMATED] for i in range(n) if eligible[i]}
     elif not fit.converged:
         extra = {i: [TOO_FEW, UNESTIMATED] for i in range(n) if eligible[i]}
     else:
         idx = np.flatnonzero(both)
-        if scaled.model == "loglinear":
-            p = scaled_t_two_sided(d[idx], (a[idx] + b[idx]) / 2, scaled)
-        else:
-            p = student_t_two_sided(d[idx], fit)
+        p = scaled_t_two_sided(d[idx], (a[idx] + b[idx]) / 2, scaled)  # constant: = M6-05 p
         rows.loc[idx, "test"] = "both_detected_t"
         rows.loc[idx, "stat"] = d[idx]
         rows.loc[idx, "effect"] = d[idx] - scaled.loc

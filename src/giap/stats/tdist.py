@@ -8,12 +8,7 @@ legitimate optimum and is returned exactly at the bound with ``converged = True`
 
 Conventions: NaN (and +-inf) values are dropped before the fit; ``n`` counts the finite values; a
 fit that cannot be made is returned as ``StudentT(nan, nan, nan, n, False)`` rather than raised, and
-every downstream value computed from it is NaN.
-
-M6-13 (ADR-0055 option (a)): :func:`fit_student_t_scaled` lets the scale depend on a covariate,
-sigma_i = sigma0 * exp(gamma * z_i), z the covariate standardised over the fit values; it starts
-from the constant fit and falls back to it (``model = "constant"``, with a reason) when the
-covariate is flat or the four-parameter fit fails.
+every downstream value computed from it is NaN. M6-13: :func:`fit_student_t_scaled`.
 """
 
 from __future__ import annotations
@@ -27,15 +22,9 @@ import numpy.typing as npt
 from numpy.typing import ArrayLike
 from scipy import optimize, stats
 
-__all__ = [
-    "ScaledStudentT",
-    "StudentT",
-    "fit_student_t",
-    "fit_student_t_scaled",
-    "scale_at",
-    "scaled_t_two_sided",
-    "student_t_two_sided",
-]
+__all__ = ["DF_BOUNDS", "GAMMA_BOUNDS", "ScaledStudentT", "StudentT", "fit_student_t",
+           "fit_student_t_scaled", "scale_at", "scaled_t_two_sided",
+           "student_t_two_sided"]  # fmt: skip
 
 F64 = npt.NDArray[np.float64]
 
@@ -48,6 +37,8 @@ _SCALE_FLOOR = 1e-6  # zero MAD: the spec's starting scale
 #: likelihood has no maximum there), not an estimate
 _COLLAPSE_FRAC = 1e-8
 _MAXITER = 2000
+#: bounds of the degrees of freedom nu (both fits)
+DF_BOUNDS = (2.0, 50.0)
 #: the covariate SD below which the scale is held constant (M6-13 S-5: a relevance guard)
 MIN_ABUNDANCE_SD_LOG2 = 0.1
 #: bounds of gamma, the change in log sigma per SD of the covariate (M6-13 S-4)
@@ -116,7 +107,7 @@ def _snap_to_bound(theta: F64, x: F64, lo: float, hi: float) -> float:
     return best_df
 
 
-def fit_student_t(x: ArrayLike, df_bounds: tuple[float, float] = (2.0, 50.0)) -> StudentT:
+def fit_student_t(x: ArrayLike, df_bounds: tuple[float, float] = DF_BOUNDS) -> StudentT:
     """Maximum likelihood Student-t fit of ``x`` with df confined to ``df_bounds``.
 
     Nelder-Mead on ``(loc, log scale, df)`` from ``loc = median(x)``,
@@ -194,21 +185,12 @@ def student_t_two_sided(x: ArrayLike, fit: StudentT) -> F64:
 
 @dataclass(frozen=True, slots=True)
 class ScaledStudentT:
-    """A Student-t whose scale is log-linear in a standardised covariate (M6-13).
+    """x ~ loc + scale0 exp(gamma z) t_df, z = (covariate - center) / sd (M6-13).
 
-    Attributes:
-        loc, scale0, gamma, df: mu, sigma0, gamma (per SD of the covariate) and nu; NaN when
-            unestimated, ``gamma = 0.0`` for the constant null.
-        n: number of (x, covariate) pairs with both finite.
-        converged: the null in force was fitted (False only for ``model = "none"``).
-        model: the null in force: ``loglinear``, ``constant`` (gamma = 0) or ``none``.
-        reason: why the constant null is in force (``flat_abundance``, ``not_converged``,
-            ``collapsed``, ``worse_than_constant``; the caller may set ``disabled``), else None.
-        center, sd: mean and SD (ddof = 1) of the covariate over the fit pairs; z = (m - c) / s.
-        z_min, z_max: the range of z over the fit pairs; z is clamped to it when evaluated.
-        nll, nll_constant: negative log-likelihood of the null in force and of the constant fit.
-        lr_stat, lr_p: 2 (nll_constant - nll) and its chi-square(1) p (reported, never used);
-            NaN unless ``model = "loglinear"``.
+    ``gamma`` is per SD of the covariate (0.0 for the constant null), NaN parameters when
+    unestimated (``model = "none"``). ``reason`` says why a non-loglinear null is in force.
+    z is clamped to [z_min, z_max] (its range over the fit pairs) when evaluated. ``lr_stat`` and
+    ``lr_p`` are reported, never used.
     """
 
     loc: float
@@ -258,37 +240,19 @@ def fit_student_t_scaled(
     x: ArrayLike,
     covariate: ArrayLike,
     *,
-    df_bounds: tuple[float, float] = (2.0, 50.0),
+    df_bounds: tuple[float, float] = DF_BOUNDS,
     gamma_bounds: tuple[float, float] = GAMMA_BOUNDS,
     min_sd: float = MIN_ABUNDANCE_SD_LOG2,
     min_n: int = MIN_FIT_N,
 ) -> ScaledStudentT:
-    """Maximum likelihood fit of x ~ mu + sigma0 exp(gamma z) t_nu, z the standardised covariate.
+    """Maximum likelihood fit of :class:`ScaledStudentT` (docs/specs/M6-13 step 3).
 
-    The (x, covariate) pairs are sorted lexicographically, so the fit is order-free. The constant
-    :func:`fit_student_t` is run first; unestimated or not converged (or fewer than ``min_n``
-    pairs) gives ``model = "none"``. A covariate SD below ``min_sd`` gives the constant null
-    (``flat_abundance``). Otherwise Nelder-Mead on (mu, log sigma0, gamma, nu) starts at the
-    constant optimum with an explicit simplex (steps 0.1 sigma_c, 0.1, 0.1, 0.1 nu_c, the nu step
-    inward at the upper bound), ``maxiter = 4000``, ``maxfev = 40000``; nu and gamma are snapped to
-    a bound that does not fit worse. The fit is accepted when the optimiser succeeded, every
-    parameter is finite, min sigma_i is above the collapse floor and the NLL is not worse than the
-    constant one; else the constant null with ``not_converged``, ``collapsed`` or
-    ``worse_than_constant``. No model selection: an accepted fit is used whatever gamma is.
-
-    Args:
-        x: values (Delta); pairs where x or the covariate is not finite are dropped together.
-        covariate: the raw covariate (pair-mean log2 abundance), same shape as ``x``.
-        df_bounds: bounds of nu, as in :func:`fit_student_t`.
-        gamma_bounds: bounds of gamma, ``low < high``.
-        min_sd: the flat-covariate guard.
-        min_n: fewest pairs for any fit (the caller's floor, at least ``MIN_FIT_N`` in effect).
-
-    Returns:
-        The fit; never raises on data.
-
-    Raises:
-        ValueError: on non-1-D or mismatched inputs or invalid bounds.
+    Pairs with a non-finite x or covariate are dropped together, the rest sorted on
+    (x, covariate), so the fit is order-free. The constant :func:`fit_student_t` comes first:
+    unestimated, not converged or fewer than ``min_n`` pairs is ``model = "none"``. A covariate
+    SD below ``min_sd`` is the constant null (``flat_abundance``); a failed four-parameter fit is
+    the constant null with ``not_converged``, ``collapsed`` or ``worse_than_constant``. Never
+    raises on data; ValueError on non-1-D or mismatched inputs or invalid ``gamma_bounds``.
     """
     glo, ghi = float(gamma_bounds[0]), float(gamma_bounds[1])
     if not (math.isfinite(glo) and math.isfinite(ghi) and glo < ghi):
