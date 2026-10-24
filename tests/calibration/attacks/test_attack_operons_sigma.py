@@ -42,7 +42,7 @@ MODES = [
 ]
 DI = S.DI
 ADR_0055_AMENDMENT = (
-    "ADR-0055 amendment pending: a step σ(abundance) is outside the smooth-monotone claim"  # noqa: RUF001
+    "ADR-0055 Amendment 1 (accepted): a step σ(abundance) is outside the smooth-monotone claim"  # noqa: RUF001
 )
 STEP_MODES = [
     pytest.param(False, marks=[pytest.mark.calibration,
