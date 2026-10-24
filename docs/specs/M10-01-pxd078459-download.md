@@ -249,3 +249,7 @@ and §15.5 metric 8's "only wild-type runs" are satisfied here.
    same Content-Length and the same first MiB for all three runs. The committed manifest uses it
    as `url` and keeps the record link as `url_record`. This is reversible (one column) and parked
    for Khoa (local/handoff/khoa_q.md).
+
+## Lead decisions (2026-10-24)
+
+Every lead question L1–L12 takes its default. L9: docs/user-guide/runtimes.md is created by the docs role in the evidence PR.
