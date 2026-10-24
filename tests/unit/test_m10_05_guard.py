@@ -37,8 +37,8 @@ AGGREGATES = ("metrics.json", "te1.json", "REPORT.md")
 PEPTIDE_LIKE = re.compile(r"[ACDEFGHIKLMNPQRSTVWY]{7,}")
 #: top-level keys of metrics.json (spec "Outputs"; giap_commit: review S4; te_real and te7:
 #: M10-06, m8: M10-07, both stacked on this branch)
-TOP_KEYS = {"schema", "inputs", "spec", "giap_commit", "m1", "m2", "m3", "m4", "m5", "m7", "m8",
-            "te1", "te1_a1_diagnostic", "te_real", "te7", "h1", "h3", "checklist",
+TOP_KEYS = {"schema", "inputs", "spec", "giap_commit", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8",
+            "te1", "te1_a1_diagnostic", "te_real", "te7", "h1", "h3", "h4", "checklist", "evidence",
             "warnings"}  # fmt: skip
 
 

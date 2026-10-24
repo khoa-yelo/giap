@@ -345,3 +345,16 @@ no Slurm job.
 L1–L12 take the recommended defaults above. On G1, M10-10 is being specced now (m10/spec-10): 15a uses
 the provisional `m6`/`h4` keys and renames them to M10-10's final names when that spec lands. On G5,
 the lead edits the guard allow-lists in 15b (L7). K1–K4 go to Khoa with the packet; there is no default.
+
+### Lead decisions on the 15a tests (2026-10-24)
+
+- **The M10-05 guard's `TOP_KEYS`:** gains `m6`, `h4` and `evidence` in 15a, as a lead edit. It is not deferred to 15b.
+- **Bullet 1:** without `--runbook` it keeps M10-05's plain `fail` / `pass` strings, so the existing M10-05
+  test still holds. The labelled forms (`fail (A3 exit 1)`, …) apply only with `--runbook`.
+- **`m6` naming:** follows M10-10 (`m6.overlap_a2_a3`, reason `different_strain`). Examples 5 and 7
+  are read with those names.
+- **A complete benchmark cell:** it is present in `baseline.json › standard_run` with a non-null
+  `median_s`. M10-12 writes no `status` key.
+- **A missing packet input:** exit 2 (criterion 5). A check that fails exits 1.
+- **15a's implementation:** waits for M10-06 (#306) and M10-14a to merge, because it uses `diagnosis_problems`
+  and `reproduce_check.parse`.
