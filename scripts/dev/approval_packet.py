@@ -44,7 +44,9 @@ def deuteranopia(src: Path, dest: Path) -> None:
 
 def check(results: dict[str, Any], plots: Path) -> list[Any]:
     """Write every instance of ``results`` (``pid -> instances | Skip``) into ``plots`` and run
-    the checklist on it; returns the ``CheckResult``s."""
+    the checklist on it, closing each figure once checked; returns the ``CheckResult``s."""
+    import matplotlib.pyplot as plt
+
     from giap.io.plot_files import write_instance
     from giap.viz import base, checklist
 
@@ -56,6 +58,7 @@ def check(results: dict[str, Any], plots: Path) -> list[Any]:
             files = write_instance(inst, pid, base.registered()[pid].name, plots, ["svg", "png"],
                                    DPI)  # fmt: skip
             out += checklist.check_instance(inst, pid, files)
+            plt.close(inst.figure)
     return out
 
 
@@ -120,6 +123,12 @@ def main(argv: list[str] | None = None) -> int:
     from giap.viz import checklist
 
     dest: Path = ns.dest
+    # A fresh packet every run: no PNG of an earlier run (a removed or renamed baseline, an old
+    # K-12 plot) may reach the packet Khoa approves.
+    for sub in ("baseline", "deuteranopia", "k12", "fixtures", "pages"):
+        shutil.rmtree(dest / sub, ignore_errors=True)
+    for name in ("index.html", "checklist.tsv", "score.json"):
+        (dest / name).unlink(missing_ok=True)
     for png in sorted(ns.baselines.glob("*.png")):
         (dest / "baseline").mkdir(parents=True, exist_ok=True)
         shutil.copyfile(png, dest / "baseline" / png.name)
@@ -137,7 +146,6 @@ def main(argv: list[str] | None = None) -> int:
         deuteranopia(png, dest / "k12" / "deuteranopia" / png.name)
     write_tsv(dest / "checklist.tsv", HEADER, rows)
     (dest / "score.json").write_text(json.dumps(score, indent=1) + "\n", encoding="utf-8")
-    shutil.rmtree(dest / "pages", ignore_errors=True)
     pages = [sf.build_report(sf.RICH, dest / "pages" / "run"),
              sf.build_compare(sf.RICH, dest / "pages" / "cmp")]  # fmt: skip
     write_index(dest, score, pages, ns.k12 is not None)

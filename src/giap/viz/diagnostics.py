@@ -272,8 +272,8 @@ def stat_diagnostics(view: RunView, cfg: GiapConfig) -> list[Instance]:
     null_rows = [r for m in nulls for r in null_panels.rows(m)]
     every = [*a_rows, *b_rows, *null_rows]
     if not every:  # no input at all (decision 7): say why; a header-only TSV explains nothing
-        a_text = CONSTANT_TEXT if state == "constant" else ABSENT_TEXT
-        note = "; ".join((a_text, NO_P_TEXT, NO_NULL_TEXT))
+        # empty a_rows means no overall row, so the state is "absent" (never "constant")
+        note = "; ".join((ABSENT_TEXT, NO_P_TEXT, NO_NULL_TEXT))
         every = [{c: None for c in COLUMNS} | {"metric": MESSAGE_METRIC, "value": note}]
     cells = [[r.get(c) for c in COLUMNS] for r in every]
     data = pd.DataFrame(cells, columns=list(COLUMNS), dtype=object)
