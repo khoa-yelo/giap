@@ -16,17 +16,21 @@ WARNING run flag ``layer_missing:<layer>``; a precomputed layer arrives as its M
 same key. The §6.7 event ``operons.missed_operons`` records π₀ and the decoy bin counts (M6-08
 decision 6). With ``peptide_hits`` (C11) the step fits M6-02's detection-limit model
 (``operons.detection_limit`` RNG stream) and, when it is usable, scores the one-detected OP pairs
-with ``P(miss)`` (M6-05H; no q, outside the BH family). Without peptide hits or a usable model
-those pairs stay ``none`` with the run flag ``no_detection_limit_model``. ``peptides``,
-``peptide_runs`` (the replicate model) and ``detection_summary`` are not read yet. Without
-abundance every test is ``none``.
+(exactly one gene with >= ``k_min`` observable peptides seen; M6-02 lead decision 9) with
+``P(miss)`` from the out-of-fold model of the seen partner's TU (M6-05H; no q, outside the BH
+family). Without peptide hits or a usable model those pairs stay ``none`` with the run flag
+``no_detection_limit_model`` (and the event stays ``detected_a xor detected_b``). A model in
+force that needs replicate covariates the step does not join yet leaves them ``none`` with the
+pair flag ``pmiss_covariates_missing`` and a WARNING. ``peptides``, ``peptide_runs`` (the
+replicate model) and ``detection_summary`` are not read yet. Without abundance every test is
+``none``.
 """
 
 from __future__ import annotations
 
 import json
 import math
-from collections.abc import Callable
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -47,7 +51,7 @@ from giap.io.tsv import read_tsv, write_tsv
 from giap.io.work_tables import _read_tsv_table
 from giap.model.coords import Replicon
 from giap.operons import detection_limit as dl
-from giap.operons.discordance import NO_DL_MODEL, PMissModel, discordance
+from giap.operons.discordance import NO_DL_MODEL, PMissFn, discordance
 from giap.operons.flags import LAYER_MISSING, flag_pairs, merge_tests
 from giap.operons.missed import missed_operons
 from giap.operons.pairs import RNA_TYPES, Evidence, pair_frame
@@ -148,18 +152,26 @@ def operon_pairs(ctx: StepContext) -> None:
 LAYERS = {"promoter_windows": "promoters", "terminators": "terminators", "tx_rates": "tx_rates"}
 _MISSED_EVENT = "operons.missed_operons"
 DL_STEP = "operons.detection_limit"
+#: pair flag: the model in force needs replicate covariates the step does not join (M6-05H, S2)
+COV_MISSING = "pmiss_covariates_missing"
+
+
+def _with_aa(gene_table: pd.DataFrame, genes: pd.DataFrame) -> pd.DataFrame:
+    aa = genes.drop_duplicates("locus_tag").set_index("locus_tag")["aa"]
+    return gene_table.assign(aa=gene_table["locus_tag"].map(aa))
 
 
 def detection_limit(
     gene_table: pd.DataFrame, genes: pd.DataFrame, peptide_hits: pd.DataFrame, cfg: GiapConfig
-) -> tuple[dl.DetectionLimitFit, Callable[[str, float, Any], float] | None]:
+) -> tuple[dl.DetectionLimitFit, PMissFn | None]:
     """M6-02's fit on the gene table (plus the C2 ``aa``) and C11, and the ``p_miss`` callable of
-    :func:`discordance` when the model in force is usable (else ``None``). Deterministic:
-    the RNG is ``for_step("operons.detection_limit", cfg.seed)``."""
-    aa = genes.drop_duplicates("locus_tag").set_index("locus_tag")["aa"]
-    g = gene_table.assign(aa=gene_table["locus_tag"].map(aa))
+    :func:`discordance` when the model in force is usable and needs no covariate the step does
+    not join (else ``None``). Deterministic: the RNG is
+    ``for_step("operons.detection_limit", cfg.seed)``."""
+    g = _with_aa(gene_table, genes)
     fit = dl.fit_detection_limit(g, peptide_hits, None, cfg, for_step(DL_STEP, cfg.seed))
-    return fit, (dl.p_miss_for_genes(fit.model, g, cfg) if fit.model.usable else None)
+    ok = fit.model.usable and not dl.needs_covariates(fit.model)
+    return fit, (dl.p_miss_for_genes(fit.model, g, cfg) if ok else None)
 
 
 def run_operons(
@@ -171,12 +183,17 @@ def run_operons(
     features: pd.DataFrame,
     layers: dict[str, pd.DataFrame],
     cfg: GiapConfig,
-    p_miss: PMissModel | None = None,
+    p_miss: PMissFn | None = None,
+    *,
+    n_seen: Mapping[str, int] | None = None,
+    k_min: int = 1,
+    no_model_flag: str = NO_DL_MODEL,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """The ``pairs``, ``operons`` and ``operon_flags`` frames and the decoy ``bin_counts``
     (lead decision 4's chain). ``layers`` maps each present evidence key (``promoter_windows``,
     ``terminators``, ``tx_rates``, in the producer shapes) to its frame; ``p_miss`` is the
-    detection-limit callable (:func:`detection_limit`), ``None`` without one. Pure."""
+    detection-limit callable (:func:`detection_limit`), ``None`` without one; ``n_seen``,
+    ``k_min`` and ``no_model_flag`` go to :func:`discordance`. Pure."""
     terms = layers.get("terminators")
     ev = Evidence(
         windows=layers.get("promoter_windows"),
@@ -185,7 +202,8 @@ def run_operons(
         rna=features[features["type"].isin(RNA_TYPES)].reset_index(drop=True),
     )
     pairs = pair_frame(gene_table, genes_of(genes), replicons_of(replicons), pairs_raw, ev, cfg)
-    d = discordance(pairs, gene_table, cfg, p_miss)
+    d = discordance(pairs, gene_table, cfg, p_miss, n_seen=n_seen, k_min=k_min,
+                    no_model_flag=no_model_flag)  # fmt: skip
     m = missed_operons(pairs, cfg, genes=gene_table)
     missing = [name for key, name in LAYERS.items() if key not in layers]
     merged = merge_tests(pairs, d.rows, m.rows, gene_table, missing_layers=missing)
@@ -230,24 +248,36 @@ def operons_step(ctx: StepContext) -> None:
                             LAYER_MISSING, name, extra={"event": "operons.layer_missing", "data":
                                 {"layer": name, "flag": f"{LAYER_MISSING}{name}"}})  # fmt: skip
     gt, genes = read_genes_parquet(ins["gene_table"]), rd(ins["genes"])
-    p_miss = None
+    p_miss: PMissFn | None = None
+    seen_kw: dict[str, Any] = {}
     if "peptide_hits" in ins:
-        fit, p_miss = detection_limit(gt, genes, _read_tsv_table("peptide_hits",
-                                      ins["peptide_hits"]), ctx.cfg)  # fmt: skip
+        hits = _read_tsv_table("peptide_hits", ins["peptide_hits"])
+        fit, p_miss = detection_limit(gt, genes, hits, ctx.cfg)
         m = fit.model
         dl_data = {"kind": m.kind, "usable": m.usable, "n_fit": m.n_fit,
                 "auc": m.auc if math.isfinite(m.auc) else None, "reason": m.reason}  # fmt: skip
         ctx.log.info("operons: detection-limit model %s (usable=%s, n_fit=%d, auc=%.4g%s)",
                      m.kind, m.usable, m.n_fit, m.auc, f", {m.reason}" if m.reason else "",
                      extra={"event": DL_STEP, "data": dl_data})  # fmt: skip
-    if p_miss is None:
+        if m.usable:  # lead decision: the k_min event only with a usable model
+            seen_kw = {"n_seen": dl.observable_peptides_seen(_with_aa(gt, genes), hits, ctx.cfg),
+                       "k_min": m.k_min}  # fmt: skip
+            if p_miss is None:  # needs covariates (S2)
+                seen_kw["no_model_flag"] = COV_MISSING
+                covs = sorted(k for k in m.coef if k not in ("intercept", "abundance_log2"))
+                ctx.log.warning("%s: the %s detection-limit model needs covariates (%s) that are "
+                                "not joined yet; one-detected pairs are untested", COV_MISSING,
+                                m.kind, ", ".join(covs),
+                                extra={"event": "operons.pmiss_covariates_missing", "data":
+                                       {"flag": COV_MISSING, "covariates": covs}})  # fmt: skip
+    if p_miss is None and "no_model_flag" not in seen_kw:
         why = "no peptide_hits" if "peptide_hits" not in ins else "model not usable"
         ctx.log.info("%s: %s; one-detected pairs are untested", NO_DL_MODEL, why,
                      extra={"event": "operons.run_flag",
                             "data": {"flag": NO_DL_MODEL}})  # fmt: skip
     pairs, ops, flagged, bins = run_operons(
         gt, genes, replicons, tus, rd(ins["pairs_raw"]), rd(ins["features"]), layers, ctx.cfg,
-        p_miss,
+        p_miss, **seen_kw,
     )  # fmt: skip
     data = {
         "pi0": float(ctx.cfg.operons.pi0),
