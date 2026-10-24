@@ -40,7 +40,7 @@ spec-06 (871fce56), spec-07, spec-08, spec-09, spec-12 and spec-14 (071d3947).
 | `reproduce.md` (header `freeze_commit`, `a3_branch`; Evidence table `step, label, job, state, exit, elapsed, maxrss, node, commit`), `reproduce_check.py parse`, `verify-<F7>.json`, freeze metrics at `$GIAP_ROOT/pilot/metrics/freeze-<F7>/` | m10/spec-14 | the source of every job ID and of F |
 | `tests/unit/test_m10_05_guard.py` | m10/spec-05 | allows `metrics.json`, `te1.json`, `REPORT.md` under `validation/pilot/` (no peptide-like string); forbids every other name under `validation/pilot/metrics/` |
 | M10-14's R11 audit rule 5 | m10/spec-14 | `validation/pilot/metrics/` holds only `a3_feasibility.json` "and whatever Khoa's Q-K1 answer later allows, added to the allow-list by the lead" |
-| Review packets | `local/review/m9-*` (gitignored), M9-25's `local/review/m9-approval/` | the precedent: a gitignored directory, the path and a summary posted to Khoa, the PR labelled `needs-khoa`, merge only after his decision |
+| Review packets | `local/review/m9-*` (gitignored), M9-25's `local/review/m9-approval/` | the precedent: a gitignored directory, the path and a summary posted to Khoa, the PR labelled `needs-khoa`, merge only after their decision |
 | Metric 6 and H4 | M10-10 (**not specced**) | gap G1 |
 
 ## Deliverables
@@ -319,7 +319,7 @@ no Slurm job.
 | # | Question | Default |
 |---|---|---|
 | L1 | ≈ 155 code lines against the index's 60. One PR, or 15a (tooling + tests, mergeable before the freeze) and 15b (evidence, `needs-khoa`)? | split; 15b holds no code beyond the lead's allow-list lines |
-| L2 | Bullet 4: is ADR-M10-D `accepted` by the lead enough, or must it be `accepted-by-khoa`? It supersedes the §13.2 estimates (a spec number, R13). | `accepted` suffices for the bullet; the ADR is `Needs Khoa: yes` and goes into the same review round, so his verdict covers it |
+| L2 | Bullet 4: is ADR-M10-D `accepted` by the lead enough, or must it be `accepted-by-khoa`? It supersedes the §13.2 estimates (a spec number, R13). | `accepted` suffices for the bullet; the ADR is `Needs Khoa: yes` and goes into the same review round, so their verdict covers it |
 | L3 | No A3 run at all (example 6): status `not met`, with a waiver ADR in the same round, or `awaiting review` with the gap noted? | `not met: bullet 1` plus a waiver ADR (Needs Khoa: yes); the gate can read `met` only if Khoa accepts both the ADR and the report |
 | L4 | Recording the review: only Khoa's own message (user turn or their PROGRESS edit), quoted verbatim with the report's content sha256; GitHub comments excluded? | yes |
 | L5 | Commit the notes as `validation/pilot/report_notes.md`, so CI can re-render the report byte for byte? (The guard forbids new names under `metrics/`.) | yes |
