@@ -268,6 +268,11 @@ def _nissle_genes() -> pd.DataFrame:
     return gframe(rows)
 
 
+def _str_or_none(v: object) -> str | None:
+    """A Bakta record carries None, not a pandas NaN, for a missing gene or product."""
+    return v if isinstance(v, str) else None
+
+
 def test_ribosomal_set_on_nissle_is_53_and_section_7_1_2_is_59(tr: Any) -> None:
     from types import SimpleNamespace
 
@@ -276,7 +281,7 @@ def test_ribosomal_set_on_nissle_is_53_and_section_7_1_2_is_59(tr: Any) -> None:
     genes = _nissle_genes()
     assert len(tag_set(tr.ribosomal_set(genes))) == 53
     n712 = sum(
-        is_ribosomal_protein(SimpleNamespace(gene=g, product=p))  # type: ignore[arg-type]
+        is_ribosomal_protein(SimpleNamespace(gene=_str_or_none(g), product=_str_or_none(p)))  # type: ignore[arg-type]
         for g, p in zip(genes["gene"], genes["product"], strict=True)
     )
     assert n712 == 59
