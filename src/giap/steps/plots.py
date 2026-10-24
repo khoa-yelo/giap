@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import os
 import pkgutil
 import shutil
 from collections.abc import Mapping, Sequence
@@ -165,22 +166,50 @@ def write_report(
 ) -> Path:
     """Write ``report_dir/report.html`` from the plot files under ``plots_dir`` and the tables of
     ``view``; returns its path. Logs ``report.size_exceeded`` when it is over budget."""
+    html = _report_html(view, plots_dir, cfg)
+    report_dir.mkdir(parents=True, exist_ok=True)
+    page = report_dir / "report.html"
+    page.write_text(html, encoding="utf-8")
+    _check_size(page, log)
+    return page
+
+
+def rerender_report(outdir: Path, cfg: GiapConfig) -> Path:
+    """``OUT/report/report.html`` from ``OUT/`` and the existing ``OUT/plots`` (no plot is drawn);
+    atomic replace through ``report/.report.html.tmp``; returns the path. Shared by the
+    ``giap run`` tail (after ``run_manifest.json``) and ``giap report`` (M9-16b)."""
+    load_plot_modules()
+    plots_dir = outdir / "plots" if (outdir / "plots").is_dir() else None
+    html = _report_html(RunView.from_outdir(outdir), plots_dir, cfg)
+    report_dir = outdir / "report"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    page, tmp = report_dir / "report.html", report_dir / ".report.html.tmp"
+    try:
+        tmp.write_text(html, encoding="utf-8")
+        os.replace(tmp, page)  # replaces a symlinked page, never writes through it
+    finally:
+        tmp.unlink(missing_ok=True)
+    _check_size(page, _LOG)
+    _LOG.info("report.rerendered %s", page)
+    return page
+
+
+def _report_html(view: RunView, plots_dir: Path | None, cfg: GiapConfig) -> str:
     from giap.report.build import build_report
 
     files: Mapping[str, PlotFiles] = {} if plots_dir is None else read_plot_files(plots_dir)
     live = None
     if plots_dir is not None and cfg.report.interactive:
         live = twins(plots_dir, files, twin_meta(view, cfg))
-    html = build_report(view, files, skipped_plots(view), cfg, live)
-    report_dir.mkdir(parents=True, exist_ok=True)
-    page = report_dir / "report.html"
-    page.write_text(html, encoding="utf-8")
+    return build_report(view, files, skipped_plots(view), cfg, live)
+
+
+def _check_size(page: Path, log: logging.Logger) -> None:
     size = page.stat().st_size
     if size > REPORT_BUDGET:
         data = {"bytes": size}
         log.warning("report.size_exceeded %d bytes > %d", size, REPORT_BUDGET,
                     extra={"event": "report.size_exceeded", "data": data})  # fmt: skip
-    return page
 
 
 def _view(ctx: StepContext) -> RunView:
