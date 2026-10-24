@@ -219,3 +219,38 @@ def test_records_carry_the_strict_xfail_of_their_test(tmp_path: Path) -> None:
                       log_dir=tmp_path)  # fmt: skip
     if rec["xfail"] == {"strict": True, "reason": "ADR-0057 owner record"}:
         raise AssertionError("expected: the record names the strict xfail")
+
+
+# --------------------------------------------------------------------------- suites without checks
+
+
+def _fake_pytest(rc: int) -> Any:
+    class Done:
+        returncode = rc
+
+    return lambda *_a, **_k: Done()
+
+
+def test_shard_run_records_its_completion(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``main --shard K/N`` appends ``{shard, n, block, pytest_exit}`` to ``<suite>.shards.jsonl``
+    after its pytest run, so ``--merge`` can tell a suite without harness checks from dead shards."""
+    monkeypatch.setenv(C.LOG_DIR_ENV, str(tmp_path))
+    monkeypatch.setattr(C.subprocess, "run", _fake_pytest(1))
+    assert C.main(["--suite", SUITE, "--shard", "1/3"]) == 1
+    (rec,) = C.read_results(tmp_path / f"{SUITE}.shards.jsonl")
+    assert rec == {"suite": SUITE, "shard": 1, "n": 3, "block": 1, "pytest_exit": 1}
+
+
+@pytest.mark.parametrize(
+    ("shards", "want"), [([0, 1, 2], 0), ([0, 2], C.MERGE_ERROR), ([], C.MERGE_ERROR)]
+)
+def test_merge_of_a_suite_without_harness_checks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, shards: list[int], want: int
+) -> None:
+    """denovo_precision has no ``calibrate`` check: its verdicts are the shard exit codes. Its merge
+    passes when every block-1 shard finished, and stays a merge error when a shard is missing."""
+    monkeypatch.setenv(C.LOG_DIR_ENV, str(tmp_path))
+    monkeypatch.setattr(C.subprocess, "run", _fake_pytest(0))
+    for k in shards:
+        C.main(["--suite", SUITE, "--shard", f"{k}/3"])
+    assert C._merge_main(SUITE, True) == want
