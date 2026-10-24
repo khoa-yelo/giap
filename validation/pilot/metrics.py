@@ -678,8 +678,59 @@ def checklist(metrics: Mapping[str, Any], run_states: Mapping[str, Any]) -> list
             "status": "pass" if cmp_ok else "fail",
         },
         {"bullet": "Measured runtimes replace the estimates", "status": "pending (M10-12)"},
-        {"bullet": "TE2-TE5 are reported; failures explained", "status": "pending (M10-06)"},
+        {"bullet": "TE2-TE5 are reported; failures explained", "status": _bullet5(metrics)},
     ]
+
+
+# ---------------------------------------------------------------- M10-06 hook (TE2-TE5, TE7)
+
+TE_PENDING = "pending (M10-06)"
+TE_KEYS = ("te2", "te3", "te4", "te5")
+CAUSE_CLASSES = ("pipeline_bug", "annotation", "search", "biology", "definition")
+
+
+def te_placeholders() -> dict[str, Any]:
+    """``te_real`` and ``te7`` when ``compute`` has no ``--te-real`` / ``--te7`` (the template's
+    paths resolve; bullet 5 stays pending)."""
+    p = {"status": TE_PENDING}
+    pairs = {k: {"log2_ratio": None} for k in ("rplL/rplJ", "atpA/atpD")}
+    return {
+        "te_real": {"te2": p | {"counts": {"violations": None}},
+                    "te3": p | {"detection": {"share": None},
+                                "abundance": {"percentile_rank": None}},
+                    "te4": p | {"pairs": pairs},
+                    "te5": p | {"A1": {"share_bucket": None}, "A2": {"share_bucket": None}}},
+        "te7": {"giap": p | {"n_gate": None}, "diann": dict(p), "end_to_end": None},
+    }  # fmt: skip
+
+
+def _not_passed(metrics: Mapping[str, Any]) -> list[str]:
+    """TEs (``TE3``) with a computed status other than ``pass``; pending ones are not listed."""
+    te, te7 = metrics.get("te_real") or {}, metrics.get("te7") or {}
+    out = [f"TE{k[2:]}" for k in TE_KEYS if "schema" in te and te[k].get("status") != "pass"]
+    return out + (["TE7"] if "schema" in te7 and te7["giap"].get("status") != "pass" else [])
+
+
+def _bullet5(metrics: Mapping[str, Any]) -> str:
+    if "schema" not in (metrics.get("te_real") or {}):
+        return TE_PENDING
+    k = len([t for t in _not_passed(metrics) if t != "TE7"])
+    return "pass" if k == 0 else f"reported ({k} not passed, explained)"
+
+
+def diagnosis_problems(metrics: Mapping[str, Any], notes: str | None) -> list[str]:
+    """Each not-passed TE needs a ``## Diagnosis: TE<n>`` notes section whose ``Cause class:``
+    line names exactly one cause class."""
+    out = []
+    for te in _not_passed(metrics):
+        m = re.search(rf"^## Diagnosis: {te}\b[^\n]*\n?(.*?)(?=^## |\Z)", notes or "", re.M | re.S)
+        lines = re.findall(r"^Cause class:(.*)$", m.group(1), re.M) if m else []
+        named = {c for ln in lines for c in re.findall(rf"\b({'|'.join(CAUSE_CLASSES)})\b", ln)}
+        if m is None:
+            out.append(f"{te}: no '## Diagnosis: {te}' section in the notes")
+        elif len(named) != 1:
+            out.append(f"{te}: the 'Cause class:' line names not one of {', '.join(CAUSE_CLASSES)}")
+    return out
 
 
 # ---------------------------------------------------------------- render
@@ -808,9 +859,11 @@ def render(template: str, metrics: Mapping[str, Any], notes: str | None) -> str:
 # ---------------------------------------------------------------- CLI (file I/O)
 
 #: hashed input files (argparse dests); ``cmp``, ``a1``, ``a2``, ``a3`` are directories
+#: M10-06 inputs: ``te_real.json`` and ``te7.json`` (optional; absent -> ``te_placeholders()``)
+TE_INPUTS = ("te_real", "te7")
 INPUTS = ("peptides_a1", "peptides_a2", "convert_a1", "convert_a2", "summary_a1", "summary_a2",
-          "bakta_json", "genome", "k12_fasta", "sacct")  # fmt: skip
-OPTIONAL = ("summary_a1", "summary_a2", "sacct", "a3")
+          "bakta_json", "genome", "k12_fasta", "sacct", *TE_INPUTS)  # fmt: skip
+OPTIONAL = ("summary_a1", "summary_a2", "sacct", "a3", *TE_INPUTS)
 REQUIRED = ("a1", "a2", "cmp", *(k for k in INPUTS if k not in OPTIONAL), "out")
 COMPARE = ("compare_detection", "compare_abundance", "compare_stability")
 MAP_TABLES = "peptide_hits.tsv/unmapped.tsv"
@@ -859,6 +912,16 @@ def _rows(path: Path | None) -> list[dict[str, str]]:
     text = path.read_text(encoding="utf-8")
     delim = "|" if "|" in text.split("\n", 1)[0] else "\t"
     return list(csv.DictReader(text.splitlines(), delimiter=delim))
+
+
+def _run_table(out: Path, name: str) -> Path | None:
+    """GIAP writes ``mapping/{peptide_hits,unmapped}.tsv`` and ``tables/detection_summary.tsv``."""
+    return next((f for d in ("tables", "mapping") if (f := out / d / name).is_file()), None)
+
+
+def _input_sha(manifest: Mapping[str, Any], role: str) -> str | None:
+    return next((i.get("sha256") for i in manifest.get("inputs", []) if i.get("role") == role),
+                None)  # fmt: skip
 
 
 def resolve_attempt(path: Path) -> tuple[Path, str | None]:
@@ -919,17 +982,14 @@ def _arm(label: str, out: Path, a: argparse.Namespace, genome_sha: str, job: str
         raise Precondition(f"{mp}: exit_code {man.get('exit_code')}")
     if genome_digest(out) != genome_sha:
         raise Precondition(f"{mp}: genome sha256 differs from --genome")
-    peptides = next((i.get("sha256") for i in man.get("inputs", []) if i.get("role") == "peptides"),
-                    None)  # fmt: skip
-    if peptides != sha256(_need(pep)):
+    if _input_sha(man, "peptides") != sha256(_need(pep)):
         raise Precondition(f"{pep}: sha256 differs from the run's peptides input ({out})")
     sm = None if summary is None else _json(summary)
     if sm is not None and not isinstance(sm.get("distinct_stripped_q01"), int):
         raise Precondition(f"{summary}: no integer distinct_stripped_q01")
     t: dict[str, pd.DataFrame | None] = {}
     for n in ("peptide_hits", "unmapped", "detection_summary"):
-        # GIAP writes mapping/{peptide_hits,unmapped}.tsv and tables/detection_summary.tsv
-        f = next((f for d in ("tables", "mapping") if (f := out / d / f"{n}.tsv").is_file()), None)
+        f = _run_table(out, f"{n}.tsv")
         t[n] = None if f is None else _table(f, n)
     return {
         "label": label,
@@ -1052,6 +1112,10 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
     states: dict[str, Any] = {"A1": 0, "A2": 0, "A3": None, "compare_ok": compare_ok}
     if a.a3 is not None:
         states["A3"] = _json(resolve_attempt(a.a3)[0] / "run_manifest.json").get("exit_code")
+    doc |= te_placeholders()
+    for key in TE_INPUTS:
+        if getattr(a, key) is not None:
+            doc[key] = _json(getattr(a, key))
     doc["checklist"] = checklist(doc, states)
     files = {k: getattr(a, k) for k in INPUTS} | {
         f"manifest_{x.lower()}": arms[x]["out"] / "run_manifest.json" for x in ARMS
@@ -1089,6 +1153,8 @@ def _render(a: argparse.Namespace) -> int:
     text = render(template, metrics, notes)
     if missing := missing_paths(template, metrics):
         raise Inconsistent(f"render: missing paths in {a.metrics}: {', '.join(missing)}")
+    if problems := diagnosis_problems(metrics, notes):
+        raise Inconsistent("render: " + "; ".join(problems))
     a.out.write_text(text, encoding="utf-8")
     return 0
 
