@@ -322,19 +322,17 @@ def test_no_mapping_event_gives_null_block() -> None:
 
 
 def test_calibration_lists_both_bundled_keys_and_flags_them() -> None:
-    """Acceptance 03c / backlog M2-15: both calibration.yaml keys, ``uncalibrated:<key>`` while
-    ``calibrated: false``."""
+    """Acceptance 03c / backlog M2-15: every calibration.yaml key, ``uncalibrated:<key>`` only
+    while ``calibrated: false`` (all three keys are calibrated since ADR-0022, M6-12 part C)."""
     from giap.data.calibration import load
 
     cal = load()
     m = build(calibration=cal)
-    assert set(m["calibration"]) == {"operon_distance", "terminatornet_yes"}
+    assert set(m["calibration"]) == {"operon_distance", "uniop_pair_threshold", "terminatornet_yes"}
     for key, entry in cal.items():
         assert m["calibration"][key] == {"calibrated": entry["calibrated"],
                                          "provenance": entry.get("provenance")}  # fmt: skip
-        if entry["calibrated"] is False:
-            assert f"uncalibrated:{key}" in m["flags"]
-    assert {"uncalibrated:operon_distance", "uncalibrated:terminatornet_yes"} <= set(m["flags"])
+        assert (f"uncalibrated:{key}" in m["flags"]) is (entry["calibrated"] is False)
     validate(m)
 
 
