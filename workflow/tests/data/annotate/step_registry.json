@@ -234,13 +234,19 @@
       "replicons"
     ],
     "optional_inputs": [
+      "features",
+      "hits_exact",
+      "hits_tolerant",
       "novel_promoter_windows",
+      "peptides",
+      "placement_costs",
       "promoter_windows",
       "rbs_novel",
       "terminators"
     ],
     "outputs": [
       "annotation_patch",
+      "novel_class_fdr",
       "novel_orfs",
       "novel_orfs_faa",
       "novel_orfs_gff3"
@@ -353,6 +359,7 @@
     "outputs": [
       "mapping_fdr",
       "placement",
+      "placement_costs",
       "stratum0_classes"
     ]
   },
@@ -384,6 +391,7 @@
       "islands",
       "mapping",
       "mapping_fdr",
+      "novel_class_fdr",
       "novel_orfs",
       "novel_orfs_faa",
       "novel_orfs_gff3",
@@ -503,6 +511,7 @@
       "islands",
       "mapping",
       "mapping_fdr",
+      "novel_class_fdr",
       "novel_orfs",
       "novel_orfs_faa",
       "novel_orfs_gff3",

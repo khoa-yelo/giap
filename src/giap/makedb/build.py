@@ -196,6 +196,9 @@ def _nterm_entries(gm: GeneModel, genome: Mapping[str, str]) -> Iterator[OrfReco
         yield OrfRecord("nterm_extension", gi.contig, s, e, strand, up_aa + junction, g.locus_tag)
 
 
+nterm_entries = _nterm_entries  # public: the makedb nterm_extension records (M7-11b rule 2)
+
+
 def _strand_nt(seq: str, start: int, end: int, strand: str, n: int) -> str:
     """Nucleotides of unwrapped ``[start, end)`` (modulo ``n``) read on ``strand``."""
     if start < 0:

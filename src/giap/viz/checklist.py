@@ -57,7 +57,7 @@ MACHADO_DEUTERANOPIA: np.ndarray = np.array(
 UNITLESS: tuple[str, ...] = (
     "log2 abundance", "q", "lfdr", "local fdr", "fdr", "\u03c1", "nes", "p-value", "p_detect",
     "counts", "count", "checks", "genes", "peptides", "placements", "density", "fraction",
-    "rate", "category", "score bin",
+    "rate", "category", "score bin", "tus",
 )  # fmt: skip
 MIN_PT = 6.0  # index decision 31, lead decision 2
 WIDTHS_IN = (style.SINGLE_IN, style.DOUBLE_IN)
