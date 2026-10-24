@@ -57,3 +57,20 @@ def test_guide_shows_no_sim5m_rows() -> None:
     text = GUIDE.read_text() if GUIDE.is_file() else ""
     rows = [ln for ln in text.splitlines() if ln.lstrip().startswith("|")]
     assert not [r for r in rows if "sim5m" in r.lower()], "the guide shows only k12 (L8)"
+
+
+def test_guide_peak_memory_is_the_step_max_rss() -> None:
+    """How much memory a user needs is the run's sacct MaxRSS (JVM, head and concurrent tasks),
+    not the largest single task (PR #300 review finding 10). ``guide_rows`` moved to the docs
+    evidence PR with this test; it skips until then."""
+    classes = _entries()
+    assert GUIDE.is_file(), "docs/user-guide/runtimes.md (lead decision L9)"
+    rows = [ln for ln in GUIDE.read_text().splitlines() if ln.lstrip().startswith("|")]
+    for node_class, cells in classes.items():
+        for cell, entry in cells.items():
+            if not cell.startswith("k12_") or entry.get("peak_rss_sacct_max_bytes") is None:
+                continue
+            variant, commit = cell.split("_", 1)[1], str(entry["commit"])[:7]
+            hits = [r for r in rows if variant in r and node_class in r and commit in r]
+            gib = f"{entry['peak_rss_sacct_max_bytes'] / 1024**3:.1f}"
+            assert any(gib in r for r in hits), (cell, gib, hits)

@@ -13,6 +13,7 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -41,6 +42,7 @@ from helpers.bench_m10_12 import (
     Bench,
     cell_of,
     commit_files,
+    commit_without_bench_record,
     flag,
     giap_argv,
     gz_variant,
@@ -304,7 +306,11 @@ def _assert_refused(bench: Bench, res: subprocess.CompletedProcess[str]) -> None
     assert (res.stdout + res.stderr).strip(), "a one-line reason"
 
 
-@pytest.mark.parametrize("profile", ["farmshare,apptainer", "apptainer,farmshare", "farmshare"])
+@pytest.mark.parametrize(
+    "profile",
+    ["farmshare,apptainer", "apptainer,farmshare", "farmshare", "farmshare_local, farmshare",
+     "farmshare_local,farmshare ", " farmshare,apptainer"],
+)  # fmt: skip
 def test_slurm_executor_profile_refused(bench: Bench, profile: str) -> None:
     res = bench.run(0, BENCH_PROFILE=profile)
     _assert_refused(bench, res)
@@ -607,6 +613,10 @@ INVALID = [
     ("image_created", {"giap": {"k12/core": {"image": True}}}, "image_or_env_created"),
     ("env_created", {"giap": {"k12/core": {"conda": True}}}, "image_or_env_created"),
     ("alloc_cpus", {"sacct": {"k12/core": {"alloc_cpus": 18}}}, "alloc_cpus:18"),
+    # lead, PR #300 review finding 2: exit 0 without a manifest or without its commit
+    ("manifest_missing", {"giap": {"k12/core": {"no_manifest": True}}}, "manifest_missing"),
+    ("commit_empty", {"giap": {"k12/core": {"commit": ""}}}, "commit_missing"),
+    ("commit_absent", {"giap": {"k12/core": {"commit_absent": True}}}, "commit_missing"),
 ]
 
 
@@ -654,6 +664,16 @@ def test_example7b_contended_other_nodes_is_valid(bench: Bench) -> None:
         o = r["cotenancy"]["giap_other"]
         assert len(o) == 1 and str(o[0]["job"]) == "778" and int(o[0]["cpus"]) == 16, o
         assert o[0]["node"] == "wheat-07" and o[0]["name"] == "giap-diann-a2", o
+
+
+def test_eight_cpu_giap_job_on_another_node_is_contended(bench: Bench) -> None:
+    """``>= 8`` CPUs, the boundary included (review finding 12, M4)."""
+    bench.configure(squeue=["781|giap-eight|8|wheat-07"])
+    res = _k12(bench)
+    assert res.returncode == 0, _out(res)
+    for r in _pair(bench):
+        assert r["status"] == "ok", r
+        assert "contended_other_nodes" in json.dumps(r["warnings"]), r["warnings"]
 
 
 def test_small_giap_job_on_another_node_adds_no_flag(bench: Bench) -> None:
@@ -712,6 +732,9 @@ def test_nextflow_retry_is_valid(bench: Bench) -> None:
     assert res.returncode == 0, _out(res)
     core = _pair(bench)[1]
     assert core["status"] == "ok" and core["trace"]["n_retried"] == 1, core["trace"]
+    assert core["trace"]["failed_processes"] == [] and core["trace"]["n_failed"] == 0, (
+        "the replaced FAILED attempt is not a failed process (review finding 12, M3)"
+    )
 
 
 def test_example5_failed_run_is_kept(bench: Bench) -> None:
@@ -746,6 +769,19 @@ def test_out_of_memory_is_failed_with_its_state(bench: Bench) -> None:
 
 
 @pytest.mark.parametrize("rc", [124, 137])
+def test_out_of_memory_beats_the_timeout_codes(bench: Bench, rc: int) -> None:
+    """An OOM state is failed whatever the exit code; failed > timeout (review finding 1, M1)."""
+    bench.configure(timeout={"k12/core": {"rc": rc}},
+                    sacct={"k12/core": {"state": "OUT_OF_MEMORY", "exit": "0:125"}})  # fmt: skip
+    res = _k12(bench)
+    assert res.returncode == 1, _out(res)
+    std, core = _pair(bench)
+    assert core["exit_code"] == rc, core
+    assert core["status"] == "failed" and core["sacct"]["state"] == "OUT_OF_MEMORY", core
+    assert std["status"] == "ok"
+
+
+@pytest.mark.parametrize("rc", [124, 137])
 def test_timeout(bench: Bench, rc: int) -> None:
     bench.configure(timeout={"k12/standard": {"rc": rc}})
     res = _k12(bench)
@@ -771,8 +807,10 @@ def test_sigterm_marks_the_current_run_timeout(bench: Bench) -> None:
     assert not (root / "k12_core" / "bench_run.json").exists(), "not-started runs are absent"
 
 
-def test_empty_max_rss_is_null(bench: Bench) -> None:
-    bench.configure(sacct={"default": {"max_rss": ""}})
+@pytest.mark.parametrize("rss", ["", "0"], ids=["empty", "zero"])
+def test_empty_max_rss_is_null(bench: Bench, rss: str) -> None:
+    """MaxRSS empty or 0 (no 60-s sample yet) is null, never 0 (review nit 18)."""
+    bench.configure(sacct={"default": {"max_rss": rss}})
     res = _k12(bench)
     assert res.returncode == 0, _out(res)
     for r in _pair(bench):
@@ -787,6 +825,31 @@ def test_sacct_unreachable_falls_back_to_script_wall(bench: Bench) -> None:
     assert len(bench.jsonl("sacct.jsonl")) >= 3, "retried 3 times"
     assert core["wall_s"] == core["script_wall_s"] and core["wall_s"] is not None, core
     assert "wall_from_script" in json.dumps(core["warnings"]), (core["warnings"], _out(res))
+    # lead, review finding 4: no sacct row means no OOM or AllocCPUS check, so not valid
+    assert core["status"] == "invalid" and "sacct_missing" in core["invalid_reasons"], core
+    assert res.returncode == 1, _out(res)
+
+
+def test_incomplete_sacct_row_is_retried(bench: Bench) -> None:
+    """A row whose fields are still empty (the step completing) is retried like a missing one;
+    it never crashes the record (review finding 3)."""
+    bench.configure(sacct={"k12/core": {"incomplete_calls": 1}})
+    res = _k12(bench, BENCH_ONLY="k12/core")
+    assert res.returncode == 0, _out(res)
+    core = bench.record("r1/k12_core", BENCH_ID)
+    assert core["status"] == "ok" and core["wall_s"] == 3912, core
+    assert core["sacct"]["alloc_cpus"] == 16 and core["sacct"]["state"] == "COMPLETED", core
+    assert "wall_from_script" not in json.dumps(core["warnings"]), core["warnings"]
+    assert len(bench.jsonl("sacct.jsonl")) >= 2, "queried again"
+
+
+def test_sacct_row_never_complete_is_sacct_missing(bench: Bench) -> None:
+    bench.configure(sacct={"k12/core": {"incomplete_calls": 99}})
+    res = _k12(bench, BENCH_ONLY="k12/core")
+    assert res.returncode == 1, _out(res)
+    core = bench.record("r1/k12_core", BENCH_ID)
+    assert core["status"] == "invalid" and "sacct_missing" in core["invalid_reasons"], core
+    assert core["wall_s"] == core["script_wall_s"], core
 
 
 def test_wall_cross_check_warning(bench: Bench) -> None:
@@ -812,3 +875,127 @@ def test_existing_attempt_dir_is_refused(bench: Bench) -> None:
     (bench.bench_dir / BENCH_ID / "r2.b" / "k12_core").mkdir(parents=True)
     _assert_refused(bench, bench.run(1, BENCH_ID=BENCH_ID, BENCH_ONLY="k12/core",
                                      BENCH_ATTEMPT="b"))  # fmt: skip
+
+
+# ============================================================ review of PR #300 (lead decisions)
+
+
+@pytest.mark.parametrize(
+    "env",
+    [{"BENCH_ONLY": "k12/core"}, {"BENCH_ATTEMPT": "b"},
+     {"BENCH_ONLY": "k12/core", "BENCH_ATTEMPT": "c"}],
+    ids=["only", "attempt_b", "only_and_attempt_c"],
+)  # fmt: skip
+def test_replacement_needs_an_explicit_bench_id(bench: Bench, env: dict[str, str]) -> None:
+    """A replacement on another day must not land in a new <date>_<sha7> directory (finding 5)."""
+    _assert_refused(bench, bench.run(1, unset=("BENCH_ID",), **env))
+
+
+def test_attempt_a_without_bench_id_is_allowed(bench: Bench) -> None:
+    res = bench.run(0, unset=("BENCH_ID",), BENCH_ATTEMPT="a", BENCH_DRY_RUN="1")
+    assert res.returncode == 0, _out(res)
+    assert len(planned_lines(res.stdout)) == 4
+
+
+@pytest.mark.parametrize("att", ["d", "z", "B", "bb", "1"])
+def test_attempt_is_a_b_or_c(bench: Bench, att: str) -> None:
+    """R9 caps a cell at 3 attempts (nit 16)."""
+    _assert_refused(bench, bench.run(1, BENCH_ID=BENCH_ID, BENCH_ONLY="k12/core",
+                                     BENCH_ATTEMPT=att))  # fmt: skip
+
+
+@pytest.mark.parametrize("att", ["b", "c"])
+def test_attempts_b_and_c_are_accepted(bench: Bench, att: str) -> None:
+    res = bench.run(1, BENCH_ID=BENCH_ID, BENCH_ONLY="k12/core", BENCH_ATTEMPT=att,
+                    BENCH_DRY_RUN="1")  # fmt: skip
+    assert res.returncode == 0, _out(res)
+
+
+@pytest.mark.parametrize("tmo", ["6h", "1d", "400m", "21000"])
+def test_run_timeout_whose_four_runs_overrun_time_is_refused(bench: Bench, tmo: str) -> None:
+    """4 x BENCH_RUN_TIMEOUT must fit in --time=22:00:00 (nit 17)."""
+    _assert_refused(bench, bench.run(0, BENCH_RUN_TIMEOUT=tmo))
+
+
+@pytest.mark.parametrize("tmo", ["5h", "300m", "18000", "7m"])
+def test_run_timeout_that_fits_is_accepted(bench: Bench, tmo: str) -> None:
+    res = bench.run(0, BENCH_RUN_TIMEOUT=tmo, BENCH_DRY_RUN="1")
+    assert res.returncode == 0, _out(res)
+    assert len(planned_lines(res.stdout)) == 4
+
+
+def _inputs_json(bench: Bench) -> Path:
+    return bench.bench_dir / BENCH_ID / "inputs" / "k12_mg1655.json"
+
+
+def test_k12_json_with_the_right_bytes_is_not_rewritten_in_place(bench: Bench) -> None:
+    """A concurrent replacement may be reading it (finding 6): either skipped when the bytes
+    already match (same inode, untouched mtime) or replaced by mv (a new inode)."""
+    p = _inputs_json(bench)
+    p.parent.mkdir(parents=True)
+    raw = gzip.decompress(K12_JSON.read_bytes())
+    p.write_bytes(raw)
+    os.utime(p, (1_600_000_000, 1_600_000_000))
+    before = p.stat()
+    res = _k12(bench, BENCH_ONLY="k12/core")
+    assert res.returncode == 0, _out(res)
+    after = p.stat()
+    assert p.read_bytes() == raw
+    skipped = after.st_ino == before.st_ino and after.st_mtime == before.st_mtime
+    assert skipped or after.st_ino != before.st_ino, "truncated and rewritten in place"
+
+
+def test_k12_json_with_wrong_bytes_is_replaced_atomically(bench: Bench) -> None:
+    p = _inputs_json(bench)
+    p.parent.mkdir(parents=True)
+    raw = gzip.decompress(K12_JSON.read_bytes())
+    p.write_bytes(raw[: len(raw) // 2])  # a half-written file from an interrupted job
+    ino = p.stat().st_ino
+    with p.open("rb") as reader:  # a concurrent reader keeps its bytes
+        res = _k12(bench, BENCH_ONLY="k12/core")
+        assert reader.read() == raw[: len(raw) // 2], "the reader's file was truncated"
+    assert res.returncode == 0, _out(res)
+    assert p.read_bytes() == raw
+    assert p.stat().st_ino != ino, "written to a temp file and mv'd, not in place"
+    assert not [q for q in p.parent.iterdir() if q.name != p.name and "k12_mg1655" in q.name], (
+        "no temp file left behind"
+    )
+
+
+def test_bench_record_is_called_from_giap_repo() -> None:
+    """The heredoc moved to scripts/dev/bench_record.py, run from the submitting checkout
+    (finding 13), so an older BENCH_COMMIT can still be benchmarked."""
+    code = _code()
+    assert re.search(r"\$\{?GIAP_REPO\}?/scripts/dev/bench_record\.py", code), (
+        'python "$GIAP_REPO/scripts/dev/bench_record.py"'
+    )
+    assert not re.search(r"<<-?\s*['\"]?PY\b", code), "no Python heredoc left in the sbatch"
+
+
+def test_an_older_bench_commit_without_bench_record_still_records(bench: Bench) -> None:
+    sha = commit_without_bench_record(bench.sb)
+    bench.configure(commit=sha)
+    res = _k12(bench, BENCH_COMMIT=sha)
+    assert res.returncode == 0, _out(res)
+    wt = bench.root / "ci" / f"bench-{sha[:7]}"
+    assert not (wt / "scripts" / "dev" / "bench_record.py").exists(), "the pinned tree lacks it"
+    for r in _pair(bench):
+        assert r["status"] == "ok" and r["commit"] == sha, r
+
+
+def test_a_crash_of_bench_record_still_leaves_a_failed_record(bench: Bench) -> None:
+    """If recording raises, the sbatch writes a minimal bench_run.json: status failed, reason
+    record_error (finding 3); the next cell still runs and the task exits 1."""
+    rec = bench.sb.repo / "scripts" / "dev" / "bench_record.py"
+    rec.parent.mkdir(parents=True, exist_ok=True)
+    rec.write_text('import sys\nsys.exit("bench_record: simulated crash")\n')
+    res = _k12(bench)
+    assert res.returncode == 1, _out(res)
+    for cell in ("k12_standard", "k12_core"):
+        p = bench.bench_dir / BENCH_ID / "r1" / cell / "bench_run.json"
+        assert p.is_file(), (cell, _out(res))
+        r = json.loads(p.read_text())
+        assert r["schema"] == "giap-bench-run/1", r
+        assert (r["genome"], r["variant"]) == tuple(cell.split("_")), r
+        assert r["status"] == "failed", r
+        assert any(str(x).startswith("record_error") for x in r["invalid_reasons"]), r

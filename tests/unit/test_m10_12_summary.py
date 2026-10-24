@@ -245,6 +245,115 @@ def test_latest_valid_attempt(bs: ModuleType, attempts: list[tuple[str, str, int
     assert bs.baseline_entry(cell)["runs_s"] == [1000, wall, 2000]
 
 
+# ============================================================ review of PR #300 (lead decisions)
+
+
+def test_step_order_comes_from_the_median_repeat(bs: ModuleType) -> None:
+    """When the repeats' first-start orders differ, the median repeat's order wins (finding 12,
+    M10). The median (3,912 s) is r2, not the first record."""
+
+    def steps(first: str, second: str) -> dict[str, dict[str, float]]:
+        return {first: {"realtime_s": 600.0, "peak_rss_bytes": GIB, "order": 0},
+                second: {"realtime_s": 180.0, "peak_rss_bytes": GIB, "order": 1}}  # fmt: skip
+
+    runs = [bench_run(repeat=1, wall_s=3700, steps=steps("operons", "bakta")),
+            bench_run(repeat=2, wall_s=3912, steps=steps("bakta", "operons")),
+            bench_run(repeat=3, wall_s=4106, steps=steps("operons", "bakta"))]  # fmt: skip
+    cell = _cell(bs, runs)
+    assert cell["median_s"] == 3912
+    assert list(bs.baseline_entry(cell)["steps"]) == ["bakta", "operons"]
+
+
+def test_mixed_node_class(bs: ModuleType) -> None:
+    """Repeats on two node classes are never mixed into one median (M11)."""
+    runs = _three([1000, 1010, 1020])
+    runs[1]["cpu_sku"] = "CPU_SKU:9384X"
+    cell = _cell(bs, runs)
+    assert cell["status"] == "incomplete" and cell["median_s"] is None, cell
+    assert "mixed_node_class" in cell["reasons"], cell["reasons"]
+    with pytest.raises(ValueError):
+        bs.baseline_entry(cell)
+
+
+def test_an_off_class_cell_is_never_summarised(bs: ModuleType) -> None:
+    """Off-class runs are invalid and never summarised (lead, 2026-10-24, nit 20): even three
+    records labelled ok on another SKU give no complete cell and no baseline entry."""
+    runs = _three([1000, 1010, 1020])
+    for r in runs:
+        r["cpu_sku"] = "CPU_SKU:9384X"
+    cell = _cell(bs, runs)
+    assert cell["status"] != "complete" and cell["median_s"] is None, cell
+
+
+def _set_flag(run: dict[str, Any], name: str, value: str) -> None:
+    argv = run["argv"]
+    if name in argv:
+        argv[argv.index(name) + 1] = value
+    else:
+        argv[2:2] = [name, value]
+
+
+@pytest.mark.parametrize(
+    "what", ["commit", "profile", "memory", "modules"],
+)  # fmt: skip
+def test_repeats_that_differ_in_inputs_are_inputs_differ(bs: ModuleType, what: str) -> None:
+    """Valid repeats run on another commit, profile, task memory or module set are not one
+    measurement (finding 8; lead: reason inputs_differ)."""
+    runs = _three([1500, 1520, 1540], variant="core")
+    odd = runs[2]
+    if what == "commit":
+        odd["commit"] = "2" * 40
+    elif what == "profile":
+        _set_flag(odd, "--profile", "farmshare_local,conda")
+    elif what == "memory":
+        _set_flag(odd, "--memory", "48.GB")
+    else:
+        _set_flag(odd, "--modules", "core,bgc")
+    cell = _cell(bs, runs, "core")
+    assert cell["status"] == "incomplete" and cell["median_s"] is None, cell
+    assert "inputs_differ" in cell["reasons"], cell["reasons"]
+
+
+def test_repeats_differing_only_in_run_paths_and_jobs_are_complete(bs: ModuleType) -> None:
+    runs = _three([1500, 1520, 1540], variant="core")
+    assert len({json.dumps(r["argv"]) for r in runs}) == 3, "outdirs differ per repeat"
+    assert _cell(bs, runs, "core")["status"] == "complete"
+
+
+def test_not_valid_names_the_latest_attempt(bs: ModuleType) -> None:
+    """A repeat without a valid attempt is reported by its latest attempt (finding 12, M14)."""
+    runs = [bench_run(repeat=1, wall_s=1000), bench_run(repeat=3, wall_s=1020),
+            bench_run(repeat=2, wall_s=900, status="failed", exit_code=4, n_failed=1),
+            bench_run(repeat=2, attempt="b", wall_s=950, status="invalid",
+                      invalid_reasons=["cached_tasks:3"])]  # fmt: skip
+    cell = _cell(bs, runs)
+    assert [nv["run"] for nv in cell["not_valid"]] == ["r2.b"], cell["not_valid"]
+    assert cell["not_valid"][0]["status"] == "invalid"
+    md = _md(bs, [cell])
+    assert "r2.b invalid" in md and "cached_tasks:3" in md, md
+    assert "r2 failed" not in md, md
+
+
+def test_cli_write_sets_the_adr(tmp_path: Path, baseline: Path) -> None:
+    """``--write --adr ADR-NNNN`` fills ``adr``; a same-commit rewrite without ``--adr`` keeps it
+    (finding 9)."""
+    d = _complete_bench(tmp_path)
+    res = _cli(d, "--baseline", baseline, "--write", "--adr", "ADR-0061")
+    assert res.returncode == 0, res.stderr
+    wheat = json.loads(baseline.read_text())["standard_run"]["wheat"]
+    assert {e["adr"] for e in wheat.values()} == {"ADR-0061"}, wheat
+    res = _cli(d, "--baseline", baseline, "--write")
+    assert res.returncode == 0, res.stderr
+    wheat = json.loads(baseline.read_text())["standard_run"]["wheat"]
+    assert {e["adr"] for e in wheat.values()} == {"ADR-0061"}, "kept on a same-commit rewrite"
+
+
+def test_cli_write_without_adr_leaves_it_null(tmp_path: Path, baseline: Path) -> None:
+    assert _cli(_complete_bench(tmp_path), "--baseline", baseline, "--write").returncode == 0
+    wheat = json.loads(baseline.read_text())["standard_run"]["wheat"]
+    assert {e["adr"] for e in wheat.values()} == {None}
+
+
 # ================================================================== properties
 
 

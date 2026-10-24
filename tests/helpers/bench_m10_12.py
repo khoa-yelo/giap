@@ -17,6 +17,14 @@ Conventions settled by the test author (where the spec leaves the mechanism open
   ``giap-*`` job on the same node is listed too when the call has no ``-u``/``--user``/``--me``),
   ``scontrol show node`` (node totals and features), ``hostname`` and ``sleep`` (0.05 s whatever
   the argument, so the 5-min sampler and the sacct retries do not stall the tests).
+* Stub switches per cell (``Bench.configure``): ``giap`` takes ``no_manifest`` (no
+  ``run_manifest.json``) and ``commit_absent`` (a manifest without ``git_commit``) besides the
+  older ones; ``sacct`` takes ``incomplete_calls: N`` (the first N queries of the step print a
+  row with ElapsedRaw, AllocCPUS and State still empty).
+* ``scripts/dev/bench_record.py`` (review of PR #300, finding 13) is run from ``$GIAP_REPO``,
+  the submitting checkout, never from the pinned worktree: ``commit_without_bench_record``
+  commits a ``BENCH_COMMIT`` that lacks it (and whose ``measure_runtimes.py`` cannot be
+  imported) while the sandbox checkout keeps both.
 * The **cell** of a call is read from its ``--outdir``: ``…/<genome>_<variant>/out``.
 * The **K-12 input check**: the script (or a file under ``scripts/``) pins the sha256 of the two
   committed files (``K12_GENOME_SHA256``, ``K12_JSON_SHA256`` below); a checkout whose files
@@ -280,7 +288,10 @@ manifest = {"git_commit": f.get("commit", c.get("commit")), "git_dirty": bool(f.
             "resume": bool(f.get("resume")), "profile": "farmshare_local,apptainer",
             "started_at": "2026-10-30T10:00:00", "finished_at": "2026-10-30T11:05:12",
             "exit_code": rc, "steps": steps}
-open(os.path.join(out, "run_manifest.json"), "w").write(json.dumps(manifest, indent=2) + "\n")
+if f.get("commit_absent"):
+    del manifest["git_commit"]
+if not f.get("no_manifest"):
+    open(os.path.join(out, "run_manifest.json"), "w").write(json.dumps(manifest, indent=2) + "\n")
 if f.get("image"):
     open(os.path.join(os.environ["NXF_APPTAINER_CACHEDIR"], "new-tool.img"), "w").write("x")
 if f.get("conda"):
@@ -344,6 +355,18 @@ def step_row(st):
     v = dict(s.get("default", {}))
     v.update(s.get(st["cell"] or "", {}))
     el = int(v.get("elapsed_s", 3912))
+    # incomplete_calls: N: the first N queries of this step print a row whose ElapsedRaw,
+    # AllocCPUS and State are still empty (the step is completing; spec "sacct gaps").
+    n_inc = int(v.get("incomplete_calls", 0))
+    if n_inc:
+        cpath = os.path.join(STATE, "sacct_incomplete_%s.%d" % (raw, st["step"]))
+        seen = int(open(cpath).read()) if os.path.exists(cpath) else 0
+        open(cpath, "w").write(str(seen + 1))
+        if seen < n_inc:
+            return {"JobID": "%s.%d" % (shown, st["step"]), "JobIDRaw": "%s.%d" % (raw, st["step"]),
+                    "JobName": "timeout", "Elapsed": "", "ElapsedRaw": "", "MaxRSS": "",
+                    "TotalCPU": "", "AllocCPUS": "", "NCPUS": "", "State": "", "ExitCode": "",
+                    "NodeList": node}
     return {"JobID": "%s.%d" % (shown, st["step"]), "JobIDRaw": "%s.%d" % (raw, st["step"]),
             "JobName": (st["cmd"] or ["?"])[0].split("/")[-1], "Elapsed": hms(el),
             "ElapsedRaw": str(el), "MaxRSS": v.get("max_rss", "21600000K"),
@@ -593,6 +616,24 @@ def commit_files(sb: Sandbox, files: dict[str, bytes], message: str = "inputs") 
     _git(sb.repo, sb.env, "commit", "-q", "-m", message)
     _git(sb.repo, sb.env, "push", "-q", "origin", "HEAD:main")
     return _git(sb.repo, sb.env, "rev-parse", "HEAD")
+
+
+def commit_without_bench_record(sb: Sandbox) -> str:
+    """A ``BENCH_COMMIT`` older than ``bench_record.py``: the commit has no
+    ``scripts/dev/bench_record.py`` and a ``scripts/measure_runtimes.py`` that raises on import;
+    the sandbox checkout (``$GIAP_REPO``) keeps both files as they are. Returns the SHA."""
+    rec = sb.repo / "scripts" / "dev" / "bench_record.py"
+    mr = sb.repo / "scripts" / "measure_runtimes.py"
+    good_mr = mr.read_bytes()
+    good_rec = rec.read_bytes() if rec.is_file() else None
+    if good_rec is not None:
+        rec.unlink()  # commit_files stages with `git add -A`
+    mr.write_text('raise ImportError("an older measure_runtimes.py (pinned BENCH_COMMIT)")\n')
+    sha = commit_files(sb, {}, "an older commit")
+    mr.write_bytes(good_mr)
+    if good_rec is not None:
+        rec.write_bytes(good_rec)
+    return sha
 
 
 def make_bench(tmp: Path) -> Bench:
