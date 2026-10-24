@@ -32,6 +32,7 @@ from helpers.a3_kit import (
     example11_spectra,
     require,
     sha256_hex,
+    weights_payload,
     write_mzml,
     wt1_spectra,
 )
@@ -50,6 +51,18 @@ def box(tmp_path: Path, good_template: Path) -> A3Sandbox:
 
 def _out(res) -> str:  # type: ignore[no-untyped-def]
     return res.stdout + res.stderr
+
+
+def _slurm_seconds(value: str) -> int:
+    """``[D-]HH:MM:SS``, ``MM:SS`` or ``MM`` (sbatch --time) in seconds."""
+    days, _, hms = value.rpartition("-")
+    parts = [int(x) for x in hms.split(":")]
+    if len(parts) == 1:
+        parts = [0, parts[0], 0]
+    elif len(parts) == 2:
+        parts = [0, *parts]
+    h, m, s = parts
+    return (int(days or 0) * 24 + h) * 3600 + m * 60 + s
 
 
 def _header_value(text: str, key: str) -> str | None:
@@ -71,7 +84,7 @@ def _weights_url() -> str:
 
 
 def _payload(url: str) -> bytes:
-    return ("stub payload for " + url + "\n").encode()  # what helpers.pilot_kit's fake curl writes
+    return weights_payload(url)  # what helpers.a3_kit's fake curl writes (zip magic first)
 
 
 def _assets_for_fetch(
@@ -107,7 +120,8 @@ def test_fetch_header_and_no_plain_http() -> None:
     assert _header_value(text, "partition") == "normal"
     assert _header_value(text, "cpus-per-task") == "1"
     assert _header_value(text, "mem") == "4G"
-    assert _header_value(text, "time") == "01:00:00"
+    time = _header_value(text, "time")
+    assert time is not None and _slurm_seconds(time) <= 2 * 3600, time  # S2: about 2 h at most
     assert _header_value(text, "gres") is None
     assert "set -euo pipefail" in text
     assert "scripts/farmshare_env.sh" in text
@@ -355,3 +369,154 @@ def test_mzml_pilot_preconditions_exit_2(
     res = box.run("mzml_pilot", *args, **env)
     assert res.returncode == 2, _out(res)
     assert _timsconvert_calls(box) == []
+
+
+# ================================================================== review round of PR #301
+
+
+def _code(path: Path) -> str:
+    return "\n".join(ln for ln in path.read_text().splitlines() if not ln.lstrip().startswith("#"))
+
+
+def test_fetch_curl_time_fits_the_job_time_limit() -> None:
+    # S2: every curl attempt plus the retry delay must end before Slurm kills the job, so the
+    # "retry once later, then Blocked" message can print.
+    text = require(FETCH_SBATCH, "deliverable 6").read_text()
+    code = _code(FETCH_SBATCH)
+    m = re.search(r"(?:--max-time|-m)[ =](\d+)", code)
+    assert m, "curl needs --max-time (a bound on each attempt)"
+    max_time = int(m.group(1))
+    r = re.search(r"--retry[ =](\d+)", code)
+    retries = int(r.group(1)) if r else 0
+    d = re.search(r"--retry-delay[ =](\d+)", code)
+    delay = int(d.group(1)) if d else 0
+    time = _header_value(text, "time")
+    assert time is not None
+    worst = max_time * (retries + 1) + delay * retries
+    assert worst <= _slurm_seconds(time), (worst, time)
+
+
+_HTML_BODIES = {
+    "doctype": b"<!DOCTYPE html><html><head><title>Google Drive - Virus scan warning</title>"
+    b'</head><body><form action="https://drive.usercontent.google.com/download"></form>'
+    b"</body></html>\n",
+    "html-tag": b"\n  <html><body>Quota exceeded for this file</body></html>\n",
+    "not-zip": b"\x00\x01\x02 neither html nor a zip checkpoint\n",
+}
+
+
+def _serve(box: A3Sandbox, body: bytes) -> dict[str, str]:
+    f = box.sb.tmp / "served_body"
+    f.write_bytes(body)
+    return {"FAKE_CURL_BODY_FILE": str(f), "FAKE_CURL_CONTENT_TYPE": "text/html; charset=utf-8"}
+
+
+def _dest_files(box: A3Sandbox) -> set[str]:
+    d = box.db / "cascadia"
+    return {p.name for p in d.iterdir()} if d.is_dir() else set()
+
+
+@pytest.mark.parametrize("kind", sorted(_HTML_BODIES))
+def test_fetch_resolve_rejects_a_page_instead_of_the_weights(box: A3Sandbox, kind: str) -> None:
+    # S1: --resolve must never print (and so never pin) the sha256 of a Drive HTML page.
+    body = _HTML_BODIES[kind]
+    _assets_for_fetch(box, weights_sha="", unimod_sha="")
+    box.stub_cascadia_env()
+    res = box.run("fetch_a3_assets", "--resolve", A3_WEIGHTS_HOST_OK="1", **_serve(box, body))
+    assert res.returncode == 1, _out(res)
+    assert sha256_hex(body) not in _out(res), "the page's sha256 was printed"
+    assert _dest_files(box) <= {"unimod_tables.xml"}, _dest_files(box)
+
+
+@pytest.mark.parametrize("kind", sorted(_HTML_BODIES))
+def test_fetch_rejects_a_page_even_when_its_sha256_is_committed(box: A3Sandbox, kind: str) -> None:
+    # S1, normal mode: a page pinned by mistake still never becomes the checkpoint.
+    body = _HTML_BODIES[kind]
+    _assets_for_fetch(box, weights_sha=sha256_hex(body))
+    box.stub_cascadia_env()
+    res = box.run("fetch_a3_assets", A3_WEIGHTS_HOST_OK="1", **_serve(box, body))
+    assert res.returncode == 1, _out(res)
+    assert not _weights(box).exists()
+    assert _dest_files(box) <= {"unimod_tables.xml"}, _dest_files(box)
+
+
+@pytest.mark.parametrize("value", ["0", "true", "yes", "11", " 1"])
+def test_fetch_host_ok_must_be_exactly_1(box: A3Sandbox, value: str) -> None:
+    # N1: only A3_WEIGHTS_HOST_OK=1 opens the weights download.
+    _assets_for_fetch(box)
+    box.stub_cascadia_env()
+    res = box.run("fetch_a3_assets", A3_WEIGHTS_HOST_OK=value)
+    assert res.returncode == 2, _out(res)
+    assert box.pilot.fetch_calls() == []
+    assert not _weights(box).exists()
+
+
+def test_fetch_unimod_step_runs_without_the_weights_gate(box: A3Sandbox) -> None:
+    # N2: the Unimod table is offline; only the Drive weights need ADR-M10-B.
+    _assets_for_fetch(box)
+    box.stub_cascadia_env()
+    res = box.run("fetch_a3_assets", unset=("A3_WEIGHTS_HOST_OK",))
+    assert res.returncode == 2, _out(res)  # the weights precondition still fails
+    assert box.pilot.fetch_calls() == []
+    u = _unimod(box)
+    assert u.read_bytes() == STUB_UNIMOD_XML
+    assert stat.S_IMODE(u.stat().st_mode) == 0o444
+    assert not _weights(box).exists()
+
+
+def test_fetch_resolve_prints_the_unimod_sha_without_the_gate(box: A3Sandbox) -> None:
+    _assets_for_fetch(box, weights_sha="", unimod_sha="")
+    box.stub_cascadia_env()
+    res = box.run("fetch_a3_assets", "--resolve", unset=("A3_WEIGHTS_HOST_OK",))
+    assert res.returncode == 2, _out(res)
+    assert sha256_hex(STUB_UNIMOD_XML) in res.stdout
+    assert box.pilot.fetch_calls() == []
+
+
+def test_fetch_leaves_another_jobs_part_files_alone(box: A3Sandbox) -> None:
+    # N8: .part names are unique per job; a concurrent job's partial files are not touched.
+    _assets_for_fetch(box)
+    box.stub_cascadia_env()
+    dest = box.db / "cascadia"
+    dest.mkdir(parents=True, exist_ok=True)
+    other = {n: f"another job's partial {n}\n".encode()
+             for n in (".cascadia_0.0.7.ckpt.part", ".unimod_tables.xml.part")}  # fmt: skip
+    for n, data in other.items():
+        (dest / n).write_bytes(data)
+    res = box.run("fetch_a3_assets", A3_WEIGHTS_HOST_OK="1")
+    assert res.returncode == 0, _out(res)
+    for n, data in other.items():
+        assert (dest / n).is_file() and (dest / n).read_bytes() == data, n
+    assert _weights(box).read_bytes() == _payload(_weights_url())
+    assert _unimod(box).read_bytes() == STUB_UNIMOD_XML
+
+
+def _curl_output(call: dict[str, object]) -> str:
+    argv = [str(a) for a in call["argv"]]  # type: ignore[union-attr]
+    for i, a in enumerate(argv):
+        if a in ("-o", "--output") and i + 1 < len(argv):
+            return argv[i + 1]
+        if a.startswith("--output="):
+            return a.split("=", 1)[1]
+    raise AssertionError(f"curl without --output: {argv}")
+
+
+def test_fetch_part_names_differ_between_jobs(box: A3Sandbox) -> None:
+    _assets_for_fetch(box)
+    box.stub_cascadia_env()
+    for job in ("1001", "1002"):
+        res = box.run("fetch_a3_assets", A3_WEIGHTS_HOST_OK="1", SLURM_JOB_ID=job)
+        assert res.returncode == 0, _out(res)
+    outs = [_curl_output(c) for c in box.pilot.fetch_calls()]
+    assert len(outs) == 2 and outs[0] != outs[1], outs
+    dest = (box.db / "cascadia").resolve()
+    assert all(Path(o).resolve().parent == dest for o in outs), outs  # same filesystem: mv
+
+
+def test_mzml_pilot_checks_the_run_name_before_converting(box: A3Sandbox) -> None:
+    # N3: a run folder that is not in acquisition.json is refused before an hour of conversion.
+    box.make_run_dir("WT_9")
+    res = box.run("mzml_pilot", "WT_9")
+    assert res.returncode == 2, _out(res)
+    assert _timsconvert_calls(box) == []
+    assert not _converted(box, "WT_9").exists()

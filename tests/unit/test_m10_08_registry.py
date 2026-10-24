@@ -106,9 +106,65 @@ def test_cascadia_cuda_11_8_build() -> None:
     assert any("11.8" in d or "cuda118" in d.lower() for d in cuda), conda
 
 
+CASCADIA_WHEEL = (
+    "cascadia @ https://files.pythonhosted.org/packages/1d/9c/"
+    "2b878bbe34e75bb433844fa2c023430ff6ff8a4538534075f76cf0530164/cascadia-0.0.7-py3-none-any.whl"
+    "#sha256=50b5204349ab91d6bc34f9313ad18e9d2d305814d19e53cd1cd75d8208f092a3"
+)
+# Cascadia 0.0.7's Requires-Dist that are not in the conda list (review S3 of PR #301).
+CASCADIA_PIP_DEPS = ("einops", "tqdm", "lark", "selfies", "sortedcontainers", "dill", "pillow",
+                     "spectrum-utils", "tensorboard")  # fmt: skip
+
+
+def _norm(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
 def test_cascadia_pip_pin() -> None:
+    # S3: the wheel is installed by URL with its sha256, so pip enforces the hash.
     _, pip = _deps("cascadia")
-    assert "cascadia==0.0.7" in pip, pip
+    hits = [p for p in pip if _norm(re.split(r"[\s=<>!~@\[]", p, maxsplit=1)[0]) == "cascadia"]
+    assert [h.replace(" ", "") for h in hits] == [CASCADIA_WHEEL.replace(" ", "")], pip
+    assert CASCADIA_WHEEL_SHA_HEAD in CASCADIA_WHEEL and CASCADIA_WHEEL.endswith(
+        CASCADIA_WHEEL_SHA_TAIL
+    )
+
+
+@pytest.mark.parametrize("pkg", CASCADIA_PIP_DEPS)
+def test_cascadia_pip_dependencies_are_pinned(pkg: str) -> None:
+    # S3: the nine dependencies pip would otherwise resolve unpinned from PyPI, pinned exactly
+    # (pip `name==X.Y[.Z]`, or an exact conda `name=X.Y[.Z]` without a wildcard).
+    conda, pip = _deps("cascadia")
+    pip_hits = [p.replace(" ", "") for p in pip
+                if _norm(re.split(r"[\s=<>!~@\[]", p, maxsplit=1)[0]) == _norm(pkg)]  # fmt: skip
+    conda_hits = [d for d in conda
+                  if _norm(re.split(r"[=<>!~\[]", d, maxsplit=1)[0]) == _norm(pkg)]  # fmt: skip
+    hits = pip_hits + conda_hits
+    assert len(hits) == 1, (pkg, hits)
+    (dep,) = hits
+    exact = r"\d+(\.\d+)*"
+    if pip_hits:
+        assert re.fullmatch(rf"[A-Za-z0-9_.-]+=={exact}", dep), dep
+    else:
+        assert re.fullmatch(rf"[A-Za-z0-9_.-]+(=|==){exact}(=[^*]+)?", dep), dep
+
+
+def test_cascadia_pip_section_is_fully_pinned() -> None:
+    _, pip = _deps("cascadia")
+    for p in pip:
+        q = p.replace(" ", "")
+        assert q == CASCADIA_WHEEL.replace(" ", "") or re.fullmatch(
+            r"[A-Za-z0-9_.-]+==\d+(\.\d+)*", q
+        ), f"unpinned pip requirement: {p}"
+
+
+def test_cascadia_lxml_at_least_5_4() -> None:
+    # B1 defence in depth: lxml >= 5.4 refuses network entities ("Attempt to load network
+    # entity"), the version the spec links to.
+    (dep,) = _conda("cascadia", "lxml")
+    m = re.fullmatch(r"lxml(>=|==|=)(\d+)\.(\d+)(\.[0-9*]+)*", dep)
+    assert m, dep
+    assert (int(m.group(2)), int(m.group(3))) >= (5, 4), dep
 
 
 def test_cascadia_header_records_source_licence_sha_and_date() -> None:
@@ -138,6 +194,19 @@ def test_timsconvert_env() -> None:
     assert [p.replace(" ", "") for p in pip] == [want.replace(" ", "")], pip
 
 
+@pytest.mark.parametrize("stem", PILOT)
+def test_header_does_not_claim_conda_forge_only(stem: str) -> None:
+    # S3: pip installs from PyPI in both envs; the header says so instead of "conda-forge only".
+    h = _header(stem)
+    for m in re.finditer(r"conda-forge only", h, re.I):
+        before = h[max(0, m.start() - 20) : m.start()]
+        assert re.search(r"channels?\s*:?\s*$", before, re.I), (
+            f"'conda-forge only' must qualify the conda channel, e.g. 'conda channel: conda-forge "
+            f"only; pip: ...': {h[max(0, m.start() - 20) : m.end() + 20]!r}"
+        )
+    assert re.search(r"\bpip\b", h) and "PyPI" in h, "say where the pip requirements come from"
+
+
 def test_timsconvert_header() -> None:
     h = _header("timsconvert")
     assert "B2" in h
@@ -160,7 +229,8 @@ def test_locks_when_present(stem: str) -> None:
         pytest.skip(f"{stem} locks come from the FarmShare env build (acceptance 14)")
     text = pip_lock.read_text()
     if stem == "cascadia":
-        assert re.search(r"^cascadia==0\.0\.7$", text, re.M)
+        assert re.search(r"^cascadia(==0\.0\.7| @ \S+cascadia-0\.0\.7-py3-none-any\.whl\S*)$",
+                         text, re.M)  # fmt: skip
         assert re.search(r"^pyteomics==4\.7\.5$", text, re.M)
     else:
         assert TIMSCONVERT_COMMIT in text

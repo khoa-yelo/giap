@@ -9,10 +9,20 @@ downloads ``http://www.unimod.org/xml/unimod_tables.xml`` at the end of every ru
 (b) sets ``pyteomics.mass.unimod._unimod_xml_download_url`` to its absolute path;
 (c) hands the rest of ``argv`` to ``cascadia.cascadia.main()`` unchanged.
 
-Stub ``cascadia`` and ``pyteomics`` packages (``helpers.a3_kit.write_stub_packages``) record what
-the launcher did; nothing real is imported. The production call is ``python -I`` inside the
-``giap-cascadia`` env, where ``-I`` ignores ``PYTHONPATH``: most tests use ``PYTHONPATH`` without
-``-I`` and one test runs ``-I`` against a throw-away venv (no pip) holding the stubs.
+Review B1 of PR #301 (lead decision): Cascadia 0.0.7 also reaches Unimod at the **start** of every
+run: ``PeptideTokenizer.from_massivekb()`` -> ``pyteomics.proforma.UnimodResolver.load_database()``
+-> psims ``obo_cache.resolve("http://www.unimod.org/obo/unimod.obo")`` -> ``Unimod()`` ->
+``lxml.etree.parse("http://www.unimod.org/xml/unimod_tables.xml")``. So the launcher also
+
+(d) registers a psims resolver for the Unimod OBO URL built on the local table, before Cascadia is
+    imported, so no http URL is ever parsed;
+(e) installs a Python socket guard: any connection attempt under the launcher is refused.
+
+Stub ``cascadia``, ``pyteomics``, ``psims`` and ``lxml`` packages
+(``helpers.a3_kit.write_stub_packages``) record what the launcher did; nothing real is imported.
+The production call is ``python -I`` inside the ``giap-cascadia`` env, where ``-I`` ignores
+``PYTHONPATH``: most tests use ``PYTHONPATH`` without ``-I`` and two tests run ``-I`` against a
+throw-away venv (no pip) holding the stubs.
 No statistical claim here, so no calibration test (spec §8.4).
 """
 
@@ -35,6 +45,7 @@ from helpers.a3_kit import (
     write_stub_packages,
 )
 
+PARSE_LOG = "stub_parse.jsonl"
 ARGS = ["sequence", "/data/mzml/WT_1.mzML", "/db/cascadia/cascadia_0.0.7.ckpt", "-o",
         "/root/pilot/A3_cascadia/WT_1/WT_1", "-b", "32", "-t", "0.8"]  # fmt: skip
 
@@ -60,13 +71,15 @@ def _launch(
     isolated: bool = False,
     rc: int = 0,
     cwd: Path | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], dict[str, object] | None, bool]:
     require(LAUNCHER, "deliverable 4")
     log, imported = tmp / "stub_main.json", tmp / "stub_import.log"
-    for p in (log, imported):
+    for p in (log, imported, tmp / PARSE_LOG):
         p.unlink(missing_ok=True)
     env = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "STUB_LOG": str(log),
-           "STUB_IMPORT_LOG": str(imported), "STUB_RC": str(rc)}  # fmt: skip
+           "STUB_IMPORT_LOG": str(imported), "STUB_RC": str(rc),
+           "STUB_PARSE_LOG": str(tmp / PARSE_LOG), **(extra_env or {})}  # fmt: skip
     if site is not None:
         env["PYTHONPATH"] = str(site)
     cmd = [python, *(["-I"] if isolated else []), str(LAUNCHER), *argv]
@@ -163,4 +176,108 @@ def test_launcher_imports_no_giap_and_no_network_modules() -> None:
         elif isinstance(node, ast.ImportFrom) and node.module:
             mods.add(node.module.split(".")[0])
     assert "giap" not in mods  # it runs inside giap-cascadia, where giap is not installed
-    assert not mods & {"http", "requests", "socket", "ftplib", "urllib3"}
+    # `socket` is allowed: the launcher imports it to install the connection guard (B1).
+    assert not mods & {"http", "requests", "ftplib", "urllib3"}
+
+
+# ------------------------------------------------------------- B1: the start-of-run Unimod path
+
+
+def _parsed(tmp: Path) -> list[str]:
+    log = tmp / PARSE_LOG
+    if not log.is_file():
+        return []
+    return [json.loads(ln)["source"] for ln in log.read_text().splitlines() if ln]
+
+
+@pytest.mark.parametrize("isolated", [False, True], ids=["pythonpath", "venv-I"])
+def test_psims_unimod_resolver_uses_the_local_table(
+    tmp_path: Path, unimod: Path, isolated: bool
+) -> None:
+    # The stub cascadia main() runs proforma.UnimodResolver().load_database(), as every Cascadia
+    # `sequence` run does when it builds its tokenizer. Without a local resolver, psims' default
+    # parses http://www.unimod.org/xml/unimod_tables.xml (a plain-HTTP request on a permissive
+    # lxml build).
+    if isolated:
+        env = make_stub_venv(tmp_path / "giap-cascadia")
+        res, rec, _ = _launch(tmp_path, None, str(unimod), *ARGS,
+                              python=str(env / "bin" / "python"), isolated=True)  # fmt: skip
+    else:
+        res, rec, _ = _launch(tmp_path, write_stub_packages(tmp_path / "site"), str(unimod), *ARGS)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert rec is not None, "cascadia.cascadia.main() was not called"
+    parsed = _parsed(tmp_path)
+    remote = [s for s in parsed if "://" in s]
+    assert not remote, f"a Unimod URL was parsed under the launcher: {remote}"
+    assert any(_same_path(s, unimod) for s in parsed), f"the local table was not parsed: {parsed}"
+    assert _same_path(rec["unimod_db_source"], unimod), rec
+
+
+def test_psims_resolver_is_registered_before_cascadia_is_imported(
+    tmp_path: Path, stubs: Path, unimod: Path
+) -> None:
+    res, rec, _ = _launch(tmp_path, stubs, str(unimod), *ARGS)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert rec is not None
+    assert rec["resolver_default_at_import"] is False, (
+        "psims' default Unimod resolver was still registered when cascadia was imported"
+    )
+
+
+def test_refused_table_registers_nothing_and_parses_nothing(tmp_path: Path, stubs: Path) -> None:
+    res, rec, imported = _launch(tmp_path, stubs, DEFAULT_UNIMOD_URL, *ARGS)
+    assert res.returncode == 2, res.stdout + res.stderr
+    assert rec is None and not imported
+    assert _parsed(tmp_path) == []
+
+
+# ------------------------------------------------------------------ B1: the socket guard
+
+
+@pytest.fixture
+def listener():  # type: ignore[no-untyped-def]
+    import socket
+
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(8)
+    try:
+        yield srv
+    finally:
+        srv.close()
+
+
+def test_python_sockets_are_refused_under_the_launcher(  # type: ignore[no-untyped-def]
+    tmp_path: Path, stubs: Path, unimod: Path, listener
+) -> None:
+    import select
+
+    port = listener.getsockname()[1]
+    res, rec, _ = _launch(tmp_path, stubs, str(unimod), *ARGS,
+                          extra_env={"STUB_NET_PORT": str(port)})  # fmt: skip
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert rec is not None and "net" in rec, rec
+    net = rec["net"]
+    assert set(net) == {"create_connection", "socket.connect", "socket.connect_ex"}, net
+    leaked = {k: v for k, v in net.items() if v == "connected"}
+    assert not leaked, f"a Python-level connection went through under the launcher: {net}"
+    readable, _, _ = select.select([listener], [], [], 0.2)
+    assert not readable, "the local listener received a connection"
+
+
+def test_network_attempts_succeed_without_the_launcher(  # type: ignore[no-untyped-def]
+    tmp_path: Path, stubs: Path, listener
+) -> None:
+    # Control: the stub really connects when the launcher is not in the way, so the refusal
+    # above comes from the launcher's guard, not from the sandbox.
+    log = tmp_path / "direct.json"
+    code = ("import sys; from cascadia import cascadia; sys.argv = ['cascadia', 'sequence']; "
+            "cascadia.main()")  # fmt: skip
+    env = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "PYTHONPATH": str(stubs),
+           "STUB_LOG": str(log), "STUB_NET_PORT": str(listener.getsockname()[1])}  # fmt: skip
+    res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env,
+                         timeout=60, cwd=str(tmp_path), check=False)  # fmt: skip
+    assert res.returncode == 0, res.stdout + res.stderr
+    net = json.loads(log.read_text())["net"]
+    assert net["create_connection"] == "connected", net
+    assert net["socket.connect"] == "connected", net

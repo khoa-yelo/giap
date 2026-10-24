@@ -291,5 +291,132 @@ def test_malformed_xml_is_an_error_not_a_pass(tmp_path: Path) -> None:
     mzml.write_text(mzml.read_text()[: len(mzml.read_text()) // 2])  # truncated file
     acq = write_acquisition(tmp_path / "acq.json", {"WT_1": EX11_ACQ})
     res = _check(mzml, acq, tmp_path / "J.json")
-    assert res.returncode in (1, 2), res.stdout + res.stderr
+    assert res.returncode == 1, res.stdout + res.stderr  # an unreadable mzML: exit 1 (docstring)
     assert "Traceback" not in res.stderr
+
+
+# ------------------------------------------------------- review round of PR #301 (S4, S5, N5)
+# Boundaries: M4 fails only when a width *exceeds* half the span (width == half passes); M7 is
+# "the largest scan start time >= 0.9 x gradient_length_s" (equality passes). Spec rule table.
+
+
+def _set_window_everywhere(sp: list[Spec], old: tuple[float, float, float],
+                           new: tuple[float, float, float]) -> None:  # fmt: skip
+    for i in ms2_indices(sp):
+        if sp[i].windows[0] == old:
+            with_window(sp, i, new)
+
+
+def test_m4_width_exactly_half_the_span_passes(tmp_path: Path) -> None:
+    sp = example11_spectra()
+    t = EX11_WINDOWS[3][0]
+    _set_window_everywhere(sp, EX11_WINDOWS[3], (t, 25.0, 25.0))  # width 50 = (500 - 400) / 2
+    res, j = _run_case(tmp_path, sp)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert _rules(j) == dict.fromkeys(RULES, True)
+
+
+def test_m4_width_just_above_half_the_span_fails(tmp_path: Path) -> None:
+    sp = example11_spectra()
+    t = EX11_WINDOWS[3][0]
+    _set_window_everywhere(sp, EX11_WINDOWS[3], (t, 25.0, 25.01))
+    res, j = _run_case(tmp_path, sp)
+    assert res.returncode == 1
+    assert j is not None and j["failed"] == ["M4"]
+
+
+def test_m7_last_rt_exactly_0_9_gradient_passes(tmp_path: Path) -> None:
+    sp = example11_spectra()
+    sp[-1] = replace(sp[-1], rt=9.0)  # 0.9 x 10.0 s, and the largest scan start time
+    assert max(s.rt for s in sp) == 9.0 == 0.9 * float(EX11_ACQ["gradient_length_s"])
+    res, j = _run_case(tmp_path, sp)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert _rules(j)["M7"] is True
+
+
+def test_m7_last_rt_just_below_0_9_gradient_fails(tmp_path: Path) -> None:
+    sp = example11_spectra()
+    sp = [replace(s, rt=min(s.rt, 8.99)) for s in sp]
+    res, j = _run_case(tmp_path, sp)
+    assert res.returncode == 1
+    assert j is not None and j["failed"] == ["M7"]
+
+
+@pytest.mark.parametrize("second", ["no_window", "zero_lower_offset"])
+def test_m3_one_good_and_one_incomplete_precursor_fails(tmp_path: Path, second: str) -> None:
+    sp = example11_spectra()
+    i = ms2_indices(sp)[6]
+    t, lo, up = sp[i].windows[0]  # type: ignore[misc]
+    with_window(sp, i, (t, lo, up), None if second == "no_window" else (t, 0.0, up))
+    res, j = _run_case(tmp_path, sp)
+    assert res.returncode == 1
+    assert _rules(j)["M3"] is False
+
+
+def test_m6_spectrum_flagged_both_centroid_and_profile_fails(tmp_path: Path) -> None:
+    sp = example11_spectra()
+    ms2 = ms2_indices(sp)
+    sp[ms2[2]] = replace(sp[ms2[2]], mode="both")
+    res, j = _run_case(tmp_path, sp)
+    assert res.returncode == 1
+    assert j is not None and j["failed"] == ["M6"]
+
+
+def test_m5_window_distinct_at_0_01_counts(tmp_path: Path) -> None:
+    # +0.02 m/z: distinct at 0.01 (a 5th window > dia_window_rows 4); it would merge at 0.1.
+    sp = example11_spectra()
+    t, lo, up = EX11_WINDOWS[1]
+    with_window(sp, ms2_indices(sp)[1], (t + 0.02, lo, up))
+    res, j = _run_case(tmp_path, sp)
+    assert res.returncode == 1
+    assert _rules(j)["M5"] is False
+
+
+def test_m5_window_merges_at_0_01(tmp_path: Path) -> None:
+    # +0.004 m/z: the same window at 0.01 (4 windows, pass); it would be a 5th at 0.001.
+    sp = example11_spectra()
+    t, lo, up = EX11_WINDOWS[1]
+    with_window(sp, ms2_indices(sp)[1], (t + 0.004, lo, up))
+    res, j = _run_case(tmp_path, sp)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert _rules(j)["M5"] is True
+
+
+def test_m1_spectrum_without_ms_level_is_not_an_ms1(tmp_path: Path) -> None:
+    sp = example11_spectra()
+    sp.insert(5, Spec(None, 3.0))  # no `ms level` cvParam: not counted as MS1
+    res, j = _run_case(tmp_path, sp)
+    assert _rules(j)["M1"] is True, (res.stdout, res.stderr, j)
+
+
+@pytest.mark.parametrize("unit", ["minute_name_only", "second_name_only"])
+def test_scan_start_time_unit_by_name_only(tmp_path: Path, unit: str) -> None:
+    # S5: no unitAccession; unitName="minute" means minutes, unitName="second" seconds.
+    res, j = _run_case(tmp_path, example11_spectra(), rt_unit=unit)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert _rules(j)["M7"] is True
+
+
+def test_scan_start_time_without_any_unit_fails_m7(tmp_path: Path) -> None:
+    # S5: neither unitAccession nor unitName: the unit is unknown, so M7 fails (never "seconds").
+    res, j = _run_case(tmp_path, example11_spectra(), rt_unit="none")
+    assert res.returncode == 1, res.stdout + res.stderr
+    assert j is not None and j["failed"] == ["M7"]
+    assert "unit" in (res.stdout + res.stderr).lower(), "say that the RT unit is unknown"
+
+
+@pytest.mark.parametrize("value", ["five", "2.5", ""])
+def test_non_integer_default_array_length_exits_1_without_traceback(
+    tmp_path: Path, value: str
+) -> None:
+    # N5: a non-integer defaultArrayLength on an MS2 spectrum is an unreadable mzML (exit 1).
+    mzml = write_mzml(tmp_path / "WT_1.mzML", example11_spectra())
+    text = mzml.read_text()
+    old = '<spectrum index="1" id="scan=2" defaultArrayLength="5">'
+    assert text.count(old) == 1
+    mzml.write_text(text.replace(old, old.replace('"5"', f'"{value}"')))
+    acq = write_acquisition(tmp_path / "acq.json", {"WT_1": EX11_ACQ})
+    res = _check(mzml, acq, tmp_path / "J.json")
+    assert res.returncode == 1, res.stdout + res.stderr
+    assert "Traceback" not in res.stderr, res.stderr
+    assert res.stderr.strip(), "no message"

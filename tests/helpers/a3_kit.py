@@ -16,7 +16,9 @@ ProteoWizard, or the real ``$GIAP_ROOT``:
 * :func:`write_stub_packages` writes stub ``cascadia`` / ``pyteomics`` / ``psims`` packages.
 * :func:`a3_sandbox` builds on ``helpers.pilot_kit.pilot_sandbox`` (throw-away checkout, fake
   Slurm tools, fake ``curl``/``wget``, an unreachable proxy) and adds fake ``micromamba``,
-  ``apptainer``/``singularity``, ``df``, ``sha256sum`` and ``shasum``. Every fake is either Python
+  ``apptainer``/``singularity``, ``df``, ``sha256sum``, ``shasum`` and an A3 ``curl`` (zip-magic
+  body by default, ``$FAKE_CURL_BODY_FILE`` to serve e.g. a Drive HTML page, ``--write-out``).
+  Every fake is either Python
   (shebang = this interpreter) or bash 3.2-compatible shell.
 
 Conventions settled by the test author (the spec leaves them open; see the report to the lead):
@@ -103,10 +105,11 @@ class Spec:
 
     ``windows``: the isolation windows of the MS2 spectrum's precursors, one precursor per entry,
     as (target m/z, lower offset, upper offset); ``None`` in an entry writes a precursor without an
-    ``isolationWindow``. ``mode``: ``"centroid"``, ``"profile"`` or ``None`` (no flag).
+    ``isolationWindow``. ``mode``: ``"centroid"``, ``"profile"``, ``"both"`` (flagged centroid
+    and profile) or ``None`` (no flag). ``ms_level`` ``None`` writes no ``ms level`` cvParam.
     """
 
-    ms_level: int
+    ms_level: int | None
     rt: float
     windows: tuple[tuple[float, float, float] | None, ...] = ()
     mode: str | None = "centroid"
@@ -125,22 +128,33 @@ _MZ_UNIT = ("MS:1000040", "m/z")
 
 
 def _spectrum_xml(i: int, s: Spec, rt_unit: str) -> str:
-    parts = [
-        f'<spectrum index="{i}" id="scan={i + 1}" defaultArrayLength="{s.n_peaks}">',
-        _cv("MS:1000511", "ms level", s.ms_level),
-        _cv("MS:1000579", "MS1 spectrum") if s.ms_level == 1 else _cv("MS:1000580", "MSn spectrum"),
-    ]
-    if s.mode == "centroid":
+    parts = [f'<spectrum index="{i}" id="scan={i + 1}" defaultArrayLength="{s.n_peaks}">']
+    if s.ms_level is not None:
+        parts += [
+            _cv("MS:1000511", "ms level", s.ms_level),
+            _cv("MS:1000579", "MS1 spectrum") if s.ms_level == 1
+            else _cv("MS:1000580", "MSn spectrum"),
+        ]  # fmt: skip
+    if s.mode in ("centroid", "both"):
         parts.append(_cv(CENTROID, "centroid spectrum"))
-    elif s.mode == "profile":
+    if s.mode in ("profile", "both"):
         parts.append(_cv(PROFILE, "profile spectrum"))
-    rt = s.rt if rt_unit == "second" else s.rt / 60.0
-    unit = ("UO:0000010", "second") if rt_unit == "second" else ("UO:0000031", "minute")
+    rt = s.rt / 60.0 if rt_unit.startswith("minute") else s.rt
+    if rt_unit in ("second", "minute"):
+        unit = ("UO:0000010", "second") if rt_unit == "second" else ("UO:0000031", "minute")
+        start = _cv("MS:1000016", "scan start time", repr(rt), unit)
+    elif rt_unit in ("second_name_only", "minute_name_only"):  # unitName, no unitAccession
+        name = rt_unit.split("_")[0]
+        start = (f'<cvParam cvRef="MS" accession="MS:1000016" name="scan start time" '
+                 f'value="{rt!r}" unitName="{name}"/>')  # fmt: skip
+    else:
+        assert rt_unit == "none", rt_unit
+        start = _cv("MS:1000016", "scan start time", repr(rt))  # no unit attributes at all
     parts += [
         '<scanList count="1">',
         _cv("MS:1000795", "no combination"),
         "<scan>",
-        _cv("MS:1000016", "scan start time", repr(rt), unit),
+        start,
         "</scan>",
         "</scanList>",
     ]
@@ -192,7 +206,12 @@ def _spectrum_xml(i: int, s: Spec, rt_unit: str) -> str:
 def write_mzml(
     path: Path, spectra: Sequence[Spec], *, indexed: bool = False, rt_unit: str = "second"
 ) -> Path:
-    """Write ``spectra`` as a small mzML 1.1 file (namespace ``http://psi.hupo.org/ms/mzml``)."""
+    """Write ``spectra`` as a small mzML 1.1 file (namespace ``http://psi.hupo.org/ms/mzml``).
+
+    ``rt_unit``: ``"second"`` / ``"minute"`` (``unitAccession`` UO:0000010 / UO:0000031 and
+    ``unitName``), ``"second_name_only"`` / ``"minute_name_only"`` (``unitName`` only, no
+    ``unitAccession``) or ``"none"`` (no unit attributes; values written in seconds).
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     head = (
         '<mzML xmlns="http://psi.hupo.org/ms/mzml" version="1.1.0" id="synthetic">'
@@ -305,18 +324,128 @@ if _log:
 
 _CASCADIA_MAIN = """import json, os, sys
 import pyteomics.mass.unimod as _u
+from psims.controlled_vocabulary.controlled_vocabulary import obo_cache as _cache, resolve_unimod
 URL_AT_IMPORT = _u._unimod_xml_download_url
+OBO = "http://www.unimod.org/obo/unimod.obo"
+RESOLVER_DEFAULT_AT_IMPORT = _cache.resolvers.get(OBO) is resolve_unimod
+
+
+def _try_network(port):
+    # Plain Python-level connection attempts to a listening local port (the test's server).
+    import socket
+    out = {}
+
+    def attempt(name, fn):
+        try:
+            r = fn()
+        except Exception as exc:  # the launcher's guard, or anything else that refused
+            out[name] = "refused: " + type(exc).__name__
+            return
+        if isinstance(r, socket.socket) or r is None or r == 0:
+            out[name] = "connected"
+        else:
+            out[name] = "returned %r" % (r,)
+
+    attempt("create_connection", lambda: socket.create_connection(("127.0.0.1", port), 5))
+    attempt("socket.connect", lambda: socket.socket().connect(("127.0.0.1", port)))
+    attempt("socket.connect_ex", lambda: socket.socket().connect_ex(("127.0.0.1", port)))
+    return out
 
 
 def main():
     import pyteomics.mass.unimod as u
+    from pyteomics import proforma
     rec = {"argv": list(sys.argv[1:]), "url_in_main": u._unimod_xml_download_url,
-           "url_at_import": URL_AT_IMPORT}
+           "url_at_import": URL_AT_IMPORT,
+           "resolver_default_at_import": RESOLVER_DEFAULT_AT_IMPORT}
+    # Cascadia 0.0.7: every `sequence` run first builds PeptideTokenizer.from_massivekb(), whose
+    # named modifications reach pyteomics.proforma.UnimodResolver.load_database().
+    db = proforma.UnimodResolver().load_database()
+    rec["unimod_db_source"] = getattr(db, "source", None)
+    if os.environ.get("STUB_NET_PORT"):
+        rec["net"] = _try_network(int(os.environ["STUB_NET_PORT"]))
     with open(os.environ["STUB_LOG"], "w") as fh:
         json.dump(rec, fh)
     rc = int(os.environ.get("STUB_RC", "0"))
     if rc:
         sys.exit(rc)
+"""
+
+# pyteomics 4.7.5 proforma.py:385-387: with psims installed, the Unimod database comes from
+# psims' OBO cache, keyed by the Unimod OBO URL.
+_PROFORMA = """class UnimodResolver:
+    def load_database(self):
+        from psims.controlled_vocabulary.controlled_vocabulary import obo_cache
+        return obo_cache.resolve("http://www.unimod.org/obo/unimod.obo")
+"""
+
+# psims 1.4.0: obo_cache.resolve(uri) calls the resolver registered for uri; the default one for
+# the Unimod OBO URL builds Unimod(), which parses the plain-HTTP tables URL bound as a default
+# argument (falls back to the vendored table only on OSError).
+_PSIMS_CV = """class OBOCache:
+    def __init__(self):
+        self.resolvers = {}
+
+    def set_resolver(self, uri, provider):
+        self.resolvers[uri] = provider
+
+    def resolve(self, uri):
+        if uri in self.resolvers:
+            return self.resolvers[uri](self)
+        from lxml import etree
+        return etree.parse(uri)
+
+
+def resolve_unimod(cache):
+    from psims.controlled_vocabulary.unimod import Unimod
+    return Unimod()
+
+
+obo_cache = OBOCache()
+obo_cache.set_resolver("http://www.unimod.org/obo/unimod.obo", resolve_unimod)
+"""
+
+_PSIMS_UNIMOD = """import os
+
+UNIMOD_OBO_URL = "http://www.unimod.org/obo/unimod.obo"
+_VENDOR = os.path.join(os.path.dirname(__file__), "vendor", "unimod_tables.xml.gz")
+
+
+def create(source="http://www.unimod.org/xml/unimod_tables.xml"):
+    from lxml import etree
+    return etree.parse(source)
+
+
+class Unimod:
+    def __init__(self, path=None, source=None):
+        self.path = path
+        try:
+            self.tree = create() if source is None else create(source)
+            self.source = self.tree.source
+        except OSError:
+            self.tree = create(_VENDOR)
+            self.source = _VENDOR
+"""
+
+# lxml.etree.parse as an lxml/libxml2 build that still loads network entities: it "succeeds"
+# on any URL. Every source is logged (STUB_PARSE_LOG) so a test can see what was parsed.
+_LXML_ETREE = """import json, os
+
+
+class _Tree:
+    def __init__(self, source):
+        self.source = source
+
+
+def parse(source, *args, **kwargs):
+    src = source if isinstance(source, str) else getattr(source, "name", repr(source))
+    log = os.environ.get("STUB_PARSE_LOG")
+    if log:
+        with open(log, "a") as fh:
+            fh.write(json.dumps({"source": src}) + "\\n")
+    if "://" not in src and not os.path.exists(src):
+        raise OSError("no such file: " + src)
+    return _Tree(src)
 """
 
 DEFAULT_UNIMOD_URL = "http://www.unimod.org/xml/unimod_tables.xml"
@@ -330,7 +459,14 @@ STUB_UNIMOD_XML = (
 
 
 def write_stub_packages(site: Path, *, unimod_gz: bytes | None = None) -> Path:
-    """Stub ``cascadia``, ``pyteomics`` and ``psims`` packages under ``site``."""
+    """Stub ``cascadia``, ``pyteomics``, ``psims`` and ``lxml`` packages under ``site``.
+
+    The stubs imitate both Unimod call sites of Cascadia 0.0.7 (review B1 of PR #301):
+    ``pyteomics.mass.unimod._unimod_xml_download_url`` (end of run) and
+    ``pyteomics.proforma.UnimodResolver.load_database()`` -> psims ``obo_cache.resolve(OBO URL)``
+    -> ``Unimod()`` -> ``lxml.etree.parse("http://www.unimod.org/xml/unimod_tables.xml")``
+    (start of run). The stub ``lxml.etree.parse`` logs each source to ``$STUB_PARSE_LOG``.
+    """
     pkgs = {
         "cascadia/__init__.py": _CASCADIA_INIT,
         "cascadia/cascadia.py": _CASCADIA_MAIN,
@@ -339,7 +475,12 @@ def write_stub_packages(site: Path, *, unimod_gz: bytes | None = None) -> Path:
         "pyteomics/mass/unimod.py": f'_unimod_xml_download_url = "{DEFAULT_UNIMOD_URL}"\n',
         "psims/__init__.py": '__version__ = "1.4.0"\n',
         "psims/controlled_vocabulary/__init__.py": "",
+        "psims/controlled_vocabulary/controlled_vocabulary.py": _PSIMS_CV,
+        "psims/controlled_vocabulary/unimod.py": _PSIMS_UNIMOD,
         "psims/controlled_vocabulary/vendor/__init__.py": "",
+        "pyteomics/proforma.py": _PROFORMA,
+        "lxml/__init__.py": "",
+        "lxml/etree.py": _LXML_ETREE,
     }
     for rel, text in pkgs.items():
         p = site / rel
@@ -454,6 +595,75 @@ for a in args:
 """
 
 
+ZIP_MAGIC = b"PK\x03\x04"
+
+
+def weights_payload(url: str) -> bytes:
+    """What the A3 fake ``curl`` writes by default: zip magic first, like a Lightning checkpoint."""
+    return ZIP_MAGIC + ("stub cascadia checkpoint for " + url + "\n").encode()
+
+
+_CURL = r"""#!{python}
+'''Fake curl for the A3 sandbox: logs the call like helpers.pilot_kit's fake (fetch.jsonl) and
+writes $FAKE_CURL_BODY_FILE's bytes, or else a zip-magic stand-in checkpoint, to --output.
+--write-out/-w is honoured for %{content_type} ($FAKE_CURL_CONTENT_TYPE), %{size_download}
+and %{http_code} (200). Nothing reaches the network.'''
+import json, os, sys
+
+state = os.environ["FAKE_SLURM_DIR"]
+argv = sys.argv[1:]
+urls, target, insecure, write_out = [], None, False, None
+i = 0
+while i < len(argv):
+    a = argv[i]
+    if a in ("-o", "--output") and i + 1 < len(argv):
+        target = argv[i + 1]; i += 2; continue
+    if a in ("-w", "--write-out") and i + 1 < len(argv):
+        write_out = argv[i + 1]; i += 2; continue
+    if a.startswith("--write-out="):
+        write_out = a.split("=", 1)[1]; i += 1; continue
+    if a.startswith("--output="):
+        target = a.split("=", 1)[1]; i += 1; continue
+    if a in ("-k", "--insecure"):
+        insecure = True
+    if a.startswith(("http://", "https://", "ftp://")):
+        urls.append(a)
+    i += 1
+
+created = []
+size = 0
+for n, url in enumerate(urls):
+    path = target if (target and n == 0) else os.path.join(os.getcwd(),
+                                                           os.path.basename(url) or "index")
+    body_file = os.environ.get("FAKE_CURL_BODY_FILE")
+    if body_file:
+        body = open(body_file, "rb").read()
+    else:
+        body = b"PK\x03\x04" + ("stub cascadia checkpoint for " + url + "\n").encode()
+    d = os.path.dirname(path)
+    if d:
+        os.makedirs(d, exist_ok=True)
+    with open(path, "wb") as fh:
+        fh.write(body)
+    size += len(body)
+    created.append(os.path.abspath(path))
+
+rec = {"tool": "curl", "argv": argv, "urls": urls, "created": created, "insecure": insecure,
+       "remote_name": False, "cwd": os.getcwd(), "output": target}
+with open(os.path.join(state, "fetch.jsonl"), "a") as fh:
+    fh.write(json.dumps(rec) + "\n")
+if write_out is not None:
+    ctype = os.environ.get("FAKE_CURL_CONTENT_TYPE", "application/octet-stream")
+    s = (write_out.replace("%{content_type}", ctype).replace("%{size_download}", str(size))
+         .replace("%{http_code}", "200").replace("\\n", "\n"))
+    sys.stdout.write(s)
+rc = int(os.environ.get("FAKE_FETCH_RC", "0"))
+if rc:
+    print("curl: fake failure", file=sys.stderr)
+sys.exit(rc)
+"""
+
+
 @dataclass
 class A3Sandbox:
     pilot: PilotSandbox
@@ -537,6 +747,7 @@ def a3_sandbox(tmp: Path, template: Path) -> A3Sandbox:
     for name in ("apptainer", "singularity"):
         write_exe(sb.bin / name, _APPTAINER.replace("{python}", py))
     write_exe(sb.bin / "df", _DF.replace("{python}", py))
+    write_exe(sb.bin / "curl", _CURL.replace("{python}", py))  # zip-magic body, --write-out
     for name in ("sha256sum", "shasum"):
         write_exe(sb.bin / name, _SHA256SUM.replace("{python}", py))
     (sb.root / "micromamba" / "envs").mkdir(parents=True, exist_ok=True)
