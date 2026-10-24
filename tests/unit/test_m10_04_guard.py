@@ -231,9 +231,10 @@ def test_guard_job_ids_cross_checked_against_a_committed_list() -> None:
     assert non_provenance_numbers(table, job_ids={"1873790"}) == ["1873779"]
 
 
-@given(st.integers(min_value=100_000, max_value=999_999_999))
+@given(st.integers(min_value=100_000, max_value=999_999_999).filter(lambda n: n != 20261014))
 def test_guard_job_id_needs_its_context(n: int) -> None:
-    """Property: a 6-9 digit number passes next to ``Slurm job`` and fails next to a noun."""
+    """Property: a 6-9 digit number passes next to ``Slurm job`` and fails next to a noun (the
+    calibration seed 20261014 is allow-listed everywhere, so it is left out)."""
     assert non_provenance_numbers(f"Slurm job {n} ended COMPLETED.") == []
     assert non_provenance_numbers(f"| Head job |\n|---|\n| {n} |\n") == []
     for noun in ("peptides", "precursors", "genes mapped"):
