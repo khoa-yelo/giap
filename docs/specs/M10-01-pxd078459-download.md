@@ -249,3 +249,7 @@ and §15.5 metric 8's "only wild-type runs" are satisfied here.
    same Content-Length and the same first MiB for all three runs. The committed manifest uses it
    as `url` and keeps the record link as `url_record`. This is reversible (one column) and parked
    for Khoa (local/handoff/khoa_q.md).
+
+## Lead decisions (2026-10-24)
+
+L1–L7 take their defaults; S1–S6 go to the statistician's spec review before tests. Khoa, 2026-10-24: aggregates (N_T, N_E, r, the estimate and bounds) may be committed; row-level discoveries stay under $GIAP_ROOT.
