@@ -73,6 +73,9 @@ RING_LAYERS = frozenset(
 )
 MAX_ELEMENTS = 20_000
 DENSITY_BP = 10_000
+#: peptide-density bars: a neutral grey (§10.1 furniture), not Okabe-Ito grey, which with the
+#: detection colours and the plasmid green would draw the whole COG palette in one figure
+DENSITY_COLOUR = style.NEUTRAL_GREY["envelope"]
 PARTIAL_HATCH = "////"
 WHITE = "#FFFFFF"
 BLACK = style.OKABE_ITO["black"]
@@ -348,9 +351,7 @@ def _density(plot: _Plot, canvas: _Canvas, hits: pd.DataFrame) -> None:
             a, b = i * DENSITY_BP, min((i + 1) * DENSITY_BP, n)
             plot.add("peptide_density", c, a, b, float(v), "placements")
             if v > 0:
-                arcs.append(
-                    (canvas.arc(c, a, b, r0, r0 + (r1 - r0) * v / top), style.OKABE_ITO["grey"])
-                )
+                arcs.append((canvas.arc(c, a, b, r0, r0 + (r1 - r0) * v / top), DENSITY_COLOUR))
     canvas.rects("peptide_density", arcs, edgecolors="none", linewidths=0)
 
 
