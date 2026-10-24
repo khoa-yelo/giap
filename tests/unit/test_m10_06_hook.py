@@ -209,12 +209,11 @@ def test_template_has_the_te_section() -> None:
 
 
 def test_template_pending_section_drops_te2_to_te5() -> None:
+    """M10-15 removed the draft's "Pending in pass 2" section; TE2-TE5 render in their own."""
     text = TEMPLATE.read_text(encoding="utf-8")
-    m = re.search(r"^## [^\n]*Pending in pass 2[^\n]*\n(.*?)(?=^## |\Z)", text, re.M | re.S)
-    assert m, "the 'Pending in pass 2' section is kept"
-    pending = m.group(1)
-    for te in ("TE2", "TE3", "TE4", "TE5"):
-        assert te not in pending, te
+    assert "pending in pass 2" not in text.lower()
+    for te in ("te2", "te3", "te4", "te5"):
+        assert f"{{{{te_real.{te}.status}}}}" in text, te
 
 
 # ------------------------------------------------------------------ criterion 11: guard

@@ -354,7 +354,7 @@ def test_report_wording(computed: tuple[Pilot, Path]) -> None:
     # example 10: islands 0.5; operon flags both empty; enriched categories missing in A1
     assert "none in either arm" in low
     assert "function module off in a1" in low
-    for section in ("Status", "TE1", "Hypotheses", "Pending in pass 2", "Deviations"):
+    for section in ("Status", "TE1", "Hypotheses", "Not evaluated", "Deviations"):  # M10-15
         assert section in text, section
 
 

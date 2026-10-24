@@ -116,10 +116,10 @@ def test_template_has_the_te7_row() -> None:
 
 
 def test_template_pending_section_drops_te7() -> None:
+    """M10-15 removed the draft's "Pending in pass 2" section; TE7 renders in its own."""
     text = TEMPLATE.read_text(encoding="utf-8")
-    m = re.search(r"^## [^\n]*Pending in pass 2[^\n]*\n(.*?)(?=^## |\Z)", text, re.M | re.S)
-    assert m, "the 'Pending in pass 2' section is kept"
-    assert "TE7" not in m.group(1) and "M10-06" not in m.group(1)
+    assert "pending in pass 2" not in text.lower()
+    assert "{{te7.giap.status}}" in text
 
 
 def test_committed_te7_pieces_are_tracked() -> None:
