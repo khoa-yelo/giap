@@ -411,3 +411,20 @@ Tests ≈ 380 lines. One PR. Wall time: minutes for the jobs; the wait is on M10
 | Q7 | `%.6g` can round a q just above 0.01 to `0.01`, which then passes the cut-off. Act on it in the pilot? | count it (`q_crossings`) and report it; no writer change (ADR-0006 governs every table). If the count is above 0, M10-05 states it next to TE1 |
 | Q8 | The determinism step is hard to fail in a test without a hook. Add a `GIAP_CONVERT_CMD` override to the sbatch for the test, or check the step by review only? | review only, unless the implementer adds the hook at no extra cost |
 | Q9 | The job runs the converter from the worktree through `PYTHONPATH=$GIAP_REPO/src` before the PR merges, so the evidence lands in the same PR (as M10-02 Q10). Acceptable? | yes; `convert.json` records the commit and the dirty flag, and the worktree must be clean at run time |
+
+## Lead decisions (2026-10-23)
+1. **Q1–Q9: the defaults are accepted.**
+   - **Q1:** the test-author writes `tests/contract/test_m10_03_diann_contract.py`. The lead deletes `tests/contract/test_diann_contract.py` in the same PR.
+   - **Q2:** there is no per-row `Q.Value` fallback.
+   - **Q3:** `Run` is kept verbatim.
+   - **Q4:** the MaxLFQ tables are written, and M10-04 does not pass `--abundance`.
+   - **Q5:** `--search-db` is passed explicitly: `other` for A1, `same` for A2.
+   - **Q6:** the departure from §15.2 step 7 is recorded as a paragraph in ADR-0051.
+   - **Q7:** the `%.6g` crossings are counted and reported; the writer does not change.
+   - **Q8:** determinism is checked by review, unless a test hook comes at no extra cost.
+   - **Q9:** the jobs run from a clean worktree before the merge.
+2. **Q-K1 and Q-K2 are parked for Khoa** (local/handoff/khoa_q.md), and the reversible defaults apply:
+   - the converted tables count as derived and are not committed; the README may carry their sha256s and row counts, but no rows;
+   - the CI fixtures may encode type and naming facts only, never values or column lists.
+3. **A `Cont_` prefix that DIA-NN drops** is a finding for M10-02, not a converter fix. The contract test fails with a message naming it.
+4. **Order of work:** the test-author starts now, on hand-made fixtures. The FarmShare-only contract test and the job's evidence wait for M10-02's real searches.
