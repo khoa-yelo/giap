@@ -128,11 +128,14 @@ def _shape_gate(shape: str, full: bool) -> None:
         return S.shape_run(S.d1_seed(stream, r, rng), shape, "loglinear")
 
     gate = _pooled(stream, get, r)
-    G.skip_without_verdict(gate.records)
+    if not C.owns_direct_checks():  # the quartile record runs once, in shard 0
+        G.skip_without_verdict(gate.records)
     runs = _shape_runs(shape, "loglinear", r)
     bad = _report(f"d1b_{shape}", S.quartile_rates(runs, "m", lv), lv)
     S.log(f"d1b_{shape}_gamma", S.gamma_record(runs))
-    assert not gate.failed and not bad, (gate.detail(), bad)
+    assert not bad, (gate.detail(), bad)
+    G.skip_without_verdict(gate.records)  # shard 0: the pooled verdict comes from --merge
+    assert not gate.failed, (gate.detail(), bad)
 
 
 @pytest.mark.calsuite(DI)
@@ -165,11 +168,14 @@ def test_attack_d1c_gene_noise(full: bool) -> None:
         return S.d1c_run(S.d1_seed(stream, r, rng), "loglinear")
 
     gate = _pooled(stream, get, r)
-    G.skip_without_verdict(gate.records)
+    if not C.owns_direct_checks():  # the quartile record runs once, in shard 0
+        G.skip_without_verdict(gate.records)
     runs = [S.d1c_run(C.suite_seed(S.D1_STREAM, i), "loglinear") for i in range(r)]
     bad = _report("d1c", S.quartile_rates(runs, "a_true", lv), lv)
     S.log("d1c_gamma", S.gamma_record(runs))
-    assert not gate.failed and not bad, (gate.detail(), bad)
+    assert not bad, (gate.detail(), bad)
+    G.skip_without_verdict(gate.records)  # shard 0: the pooled verdict comes from --merge
+    assert not gate.failed, (gate.detail(), bad)
 
 
 # --------------------------------------------------------------------------- the null, recorded

@@ -81,8 +81,11 @@ def test_missed_operon_fdr_nonvacuous(full: bool) -> None:
     records = G.missed_replicate_fn(stream, cfgs, G.giap_cfg(G.CV_ONLY))
     r = C.replicates(MO, full)
     recs = G.missed_fdr_gate(MO, stream, records, r)
+    if C.owns_direct_checks():  # need_calls_at = 0.1 on block 1 = some call in replicates 0..R-1
+        summary = G.fdp_summary(records, r, 0.1)
+        print(f"{stream} at q 0.1: {summary}")
+        assert summary["mean_calls"] >= 0.5 / r, f"no call at q = 0.1: {summary}"
     G.assert_fdr_ok(recs, allow_vacuous=True, need_calls_at=0.1)
-    print(f"{stream} at q 0.1: {G.fdp_summary(records, r, 0.1)}")
 
 
 @pytest.mark.calsuite(MO)

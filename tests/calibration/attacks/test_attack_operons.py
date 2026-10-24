@@ -258,7 +258,8 @@ def test_attack_d1_level(full: bool) -> None:
 
     gate = calibrate_levels(DI, "level", lv, rep, r, stream=D1_STREAM, m=M_POOLED)
     print("D-1 pooled:\n" + "\n".join(gate.detail()))
-    G.skip_without_verdict(gate.records)
+    if not C.owns_direct_checks():  # the lowest-quartile check runs once, in shard 0
+        G.skip_without_verdict(gate.records)
     hits, n = np.zeros(len(lv)), 0
     for i in range(r):
         run = _d1_cached(C.suite_seed(D1_STREAM, i))
@@ -270,8 +271,9 @@ def test_attack_d1_level(full: bool) -> None:
     print(f"D-1 lowest quartile: R = {r}, n = {n}, rate {rate.round(4).tolist()}"
           f" (bounds {np.round(bounds, 4).tolist()})")  # fmt: skip
     _log("attack_d1_lowest_quartile", {"R": r, "n": n, "rate": rate.tolist(), "bounds": bounds})
-    failed = gate.failed
-    assert not failed and np.all(rate <= bounds), (gate.detail(), rate.tolist())
+    assert np.all(rate <= bounds), (gate.detail(), rate.tolist())
+    G.skip_without_verdict(gate.records)  # shard 0: the pooled verdict comes from --merge
+    assert not gate.failed, (gate.detail(), rate.tolist())
 
 
 # --------------------------------------------------------------------------- C
