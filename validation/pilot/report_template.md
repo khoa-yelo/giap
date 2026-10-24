@@ -131,12 +131,30 @@ The numbers are shown whatever the verdict: rho {{h3.criteria.rho.rho}} [{{h3.cr
 
 **H2** and **H4**: deferred (they need A3, M10-07/M10-10 and the full validation).
 
-## 6. Pending in pass 2
+## 6. True examples (TE2–TE5) and determinism (TE7)
 
-Metric 6 (M10-10), metric 8 (M10-07), TE2–TE5 and TE7 (M10-06), A3 (M10-08–11), benchmark (M10-12),
-report-freeze re-runs (M10-14).
+From `te_real.json` and `te7.json` (docs/specs/M10-06-te-real-and-te7.md); every definition was fixed
+before the real data were read (R3). Shares carry nominal 95 % Wilson intervals, descriptive only.
+Every TE that did not pass has a `## Diagnosis: TE<n>` section in the notes below, naming its cause class.
 
-## 7. Deviations from the spec
+| TE | Status | Headline |
+|---|---|---|
+| TE2: no unexplained `high` ALT call in A2 | {{te_real.te2.status}} | violations {{te_real.te2.counts.violations}} |
+| TE3: ribosomal proteins detected (≥ 90 %) and in the top quartile | {{te_real.te3.status}} | detected {{te_real.te3.detection.share}}; median percentile rank {{te_real.te3.abundance.percentile_rank}} |
+| TE4: operon stoichiometry (iBAQ, molar scale) | {{te_real.te4.status}} | log2 RplL/RplJ {{te_real.te4.pairs.rplL/rplJ.log2_ratio}} in [1, 3]; log2 AtpA/AtpD {{te_real.te4.pairs.atpA/atpD.log2_ratio}} in [−1, 1] |
+| TE5: trypsin and keratin peptides in the contaminant bucket (A1 and A2) | {{te_real.te5.status}} | in the bucket: A1 {{te_real.te5.A1.share_bucket}}, A2 {{te_real.te5.A2.share_bucket}} |
+| TE7: a second A2 run gives byte-identical tables | {{te7.giap.status}} | gate files compared {{te7.giap.n_gate}} |
+
+TE7 is decided by GIAP's own tables only; the DIA-NN layer (a second search of the same spectra) is an
+upstream finding, never the verdict: {{te7.diann.status}}. Raw data to GIAP tables reproduce byte for byte: {{te7.end_to_end}}.
+A `known_lapack` difference is still a fail (M4-20 decision 9; writer rounding is the decision 10 backlog item).
+
+## 7. Pending in pass 2
+
+Metric 6 (M10-10), metric 8 (M10-07), A3 (M10-08–11), benchmark (M10-12), report-freeze re-runs
+(M10-14).
+
+## 8. Deviations from the spec
 
 - DIA-NN 2.3.1 Academia instead of 2.7.0 (ADR-0051).
 - Inputs and metric files are not committed (Khoa's rule of 2026-10-23).
@@ -145,6 +163,6 @@ report-freeze re-runs (M10-14).
 - Region tests are not compared in pass 1, and the Jaccards are not restricted to genes detected in
   both arms (H3; a conservative stand-in, biased against H3).
 
-## 8. Notes
+## 9. Notes
 
 <!-- notes -->
