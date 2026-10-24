@@ -1041,8 +1041,9 @@ def compute(a: argparse.Namespace) -> tuple[dict[str, Any], list[dict[str, Any]]
         doc["m7"][label] = arm["runtime"]
     cmp_tables: dict[str, pd.DataFrame | None] = {}
     for stem in ("compare_detection", "compare_abundance", "compare_stability"):
-        f = a.cmp / f"{stem}.tsv"
-        cmp_tables[stem] = _table(f, stem) if f.is_file() else None
+        # giap compare writes CMP/tables/<stem>.tsv; a flat CMP/<stem>.tsv is read too
+        f = next((x for x in (a.cmp / "tables", a.cmp) if (x / f"{stem}.tsv").is_file()), None)
+        cmp_tables[stem] = None if f is None else _table(f / f"{stem}.tsv", stem)
     ab, st = cmp_tables["compare_abundance"], cmp_tables["compare_stability"]
     labels = ("A1", "A2")
     doc["m4"] = (
