@@ -1039,3 +1039,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (M8-14 decision 7, for M8-15) giapsim pseudogenes without `aa` record n_obs=0 / GRAVY NaN while GIAP translates them from `nt`; M8-15's p_detect refit sees different covariates for them.
 - (MVP-04 #258 review) boundary tests for summary gates 4, 6, 8, 11, 13 (p) and a gate-13 no-high-island case; sbatch seed from `K12_EVIDENCE_SEED` as `MVP04_SEED`, tested as passed through; gate 15 counts the `empty_state` SVG as content (N2); N3–N9 tidying in `scripts/dev/mvp04_summary.py`.
 - (M2-14b item 7) `PC_BATCH = 100` (regions per PROMOTER_CALCULATOR task) is a constant in annotate.nf; make it a config key (ADR, defaults.yaml) if a genome needs a different batch size.
+
+### M7-17 follow-ups (PR #291)
+- (Q6) The flagged share of true ORFs is fixed by construction in the two existing arms (0 picked, ≈ 1 de novo). Add a mixed database + de novo input arm (M7-13c or MVP-04) to measure it.
+- (Q8) `orf_regimes` treats an unresolved `auto` C9 source as non-`denovo`, while mapping and the flag resolve it table-wide (`resolve_sources`); a source-less de novo table gives `unestimated` ORFs instead of `denovo_subgroup`. M7-11 follow-up: resolve sources the same way (this changes regimes and q, so it needs its own issue).
+- (Decision 4) `test_denovo_support_flag_gate.py` reruns its own G4-k3 arm (one extra simulation per replicate); reuse the G4-k3 runs.
+- (#291 review nits)
+  - report card `sources` misses `novel_orfs:flags` (build.py:304);
+  - `_FLAG` is defined after its first use in steps/novel.py;
+  - `rbs is True` in evidence.py:60 should be `rbs is not None and bool(rbs)`;
+  - the Hypothesis ORF-side alphabet includes `I`;
+  - the gate test should count `side_flag != tsv_flag` as a violation.
