@@ -1006,6 +1006,125 @@ level; at engine level the bound above also caps the damage (a false call needs 
 — power and the saturation of q; (c) a small genome (≈ 300 NO pairs, ≈ 150 decoys per set), where
 the +1 floor dominates.
 
+## The M6 gate, simulation half (M6-09)
+
+**Where.** The suites are in `tests/calibration/test_operon_calibration.py` and the attacks in
+`tests/calibration/attacks/test_attack_operons.py`, with helpers in `tests/calibration/_operon_gate.py`.
+Lead defaults are in docs/specs/M6-09-calibration-gate.md.
+
+**Setup.**
+- Each replicate simulates one 1,800-gene genome with `simulate_operons(cfgs,
+  suite_seed(stream, i))` and runs the merged `missed_operons` and `discordance` steps on its pair
+  table.
+- Pair classes use `calibration.yaml`'s UniOP threshold (0.5, ADR-0022).
+- A missed-operon call is **true** if it is a planted co-abundant pair or a UniOP false negative
+  (the two genes share a TU). Every other call is false.
+- Every gate goes through `_criteria` (ADR-0015).
+- Full tier: Slurm **1884412** (commit 90a0e709, rye-01, 511 s). Fast tier: the session
+  allocation at -n 2, 189 s.
+- Logs: `local/logs/calibration/m6_09_full/`.
+
+### Missed operons (§7.4.7 criterion 1; §8.1: one decoy-FDR family per run)
+
+Shipped configuration (CV + SW decoys, π₀ = 1), at R = 300:
+- `missed_operon_power(1800, 50, 0.1)` makes **no call at any q**: the median of the smallest q
+  is 0.95.
+- This is a **recorded vacuous pass** (Khoa, 2026-10-22). The family is near-powerless by
+  construction: a call needs near-identical abundance of the two genes, and the absence of calls
+  is not evidence against missed operons.
+- Two mechanisms cause it:
+  - the identifiability bound ("Power", above);
+  - the per-bin +1 floor: SW decoys are absent from the < 150 bp bins, so with the SW set every q
+    is at least the target share of those bins.
+
+**Non-vacuous arm (gated).** 100 planted pairs at 10⁻³ SD, `operons.decoys = [convergent]`.
+
+| tier | q 0.01 | q 0.05 | q 0.10 (bound) | calls at 0.10 | planted recall |
+|---|---|---|---|---|---|
+| fast, R = 50 | vacuous | vacuous | 0.034 ± 0.004 (0.108) | 101.6 | 0.970 |
+| full, R = 300 | vacuous | 0.0006 (0.050) | **0.0329 ± 0.0017** (0.1035) | 100.1 | 0.956 |
+
+**Teeth.** With `operons.pi0 = 0.1` the mean FDP is 0.644, a confirmed fail (fast tier).
+
+**Power grid (recorded; shipped configuration, R = 50 per cell, full tier).**
+- Streams are `missed_operons.power.k<k>.sd<e>`.
+- Every one of the 9 cells has **0 calls**, planted recall 0 and mean FDP 0.
+
+Median of the smallest q per cell:
+
+| planted \ effect | 0.25 SD | 0.5 SD | 1.0 SD |
+|---|---|---|---|
+| 20 | 0.868 | 0.940 | 0.941 |
+| 50 | 0.754 | 0.874 | 0.956 |
+| 100 | 0.634 | 0.798 | 0.925 |
+
+### Discordance (§7.4.7 criterion 3; §8.1: one BH family per run over `both_detected_t`)
+
+Scenario: `operon_null(1800)`, R = 1,000 (full).
+
+| check | α / q = 0.01 | 0.05 | 0.10 |
+|---|---|---|---|
+| pooled level (200 random tested pairs per replicate; bound) | 0.00979 (0.01044) | 0.05005 (0.05097) | 0.09984 (0.10134) |
+| BH family, any call (complete null: FDP = FWER; bound) | 0.003 (0.0135) | 0.031 (0.061) | 0.069 (0.116) |
+
+- KS uniformity (one random tested pair per replicate): p = 0.545 (fast tier: 0.707).
+- Fast tier, R = 100: level 0.00925 / 0.05085 / 0.10065; any-call share 0 / 0.02 / 0.04.
+- Teeth: a normal tail with the fitted location and scale gives a rate of 0.052 at α = 0.01,
+  against a bound of 0.0114. That is a confirmed fail.
+- The pooled bound treats the 200 p of one run as independent, but they share the fitted t. The
+  per-replicate KS test is the independent check.
+
+### Attacks (§7.4.7 criterion 2, §8.5)
+
+| attack | status | full tier (R) | mean FDP or rate at q / α = 0.10 (bound) |
+|---|---|---|---|
+| A, AR(1) ρ = 0.5, shipped | gated | 300 | vacuous (no call; median min q 0.96) |
+| A, ρ = 0.5, non-vacuous | gated, **pass** | 300 | 0.0441 ± 0.0019 (0.1037); 104.7 calls |
+| A′, ρ = 0.9, shipped | recorded | 100 | no call (median min q 0.94) |
+| A′, ρ = 0.9, non-vacuous | recorded, below the 0.15 escalation | 100 | **0.0463 ± 0.0038**; 104.0 calls |
+| B, detection × distance, shipped | gated | 300 | vacuous (median min q 0.95) |
+| B, non-vacuous | gated, **pass** | 300 | 0.0194 ± 0.0016 (0.1031); 63.8 calls, recall 0.62 |
+| M-2, Δ SD ∝ e^(−z/2), NO +1 SD | gated, **pass** | 300 | 0.0629 ± 0.0031 (0.1063) |
+| M-1, co-imputation, shipped / CV only | recorded | 300 | no call (median min q 0.95 / 0.31) |
+| M-1, 6,000 genes, shipped | recorded | 50 | no call (median min q 0.85) |
+| C, oracle P(miss), `operon_null` | recorded | 300 | 0 / 0.0127 / 0.0832 at α 0.01 / 0.05 / 0.10 (80,275 pairs) |
+| C, oracle P(miss), detection attack | recorded, below 2α | 300 | 0.0176 / 0.0649 / 0.1189 (27,660 pairs) |
+| **D-1**, Δ SD ∝ e^(−z/2), pooled | **confirmed fail** → recorded | 1,000 | 0.00760 / **0.0521** / **0.1064** (bounds 0.0104 / 0.0510 / 0.1013) |
+| **D-1**, lowest-abundance quartile | recorded | 1,000 | 0.0273 / 0.157 / 0.277 (2.7×, 3.1×, 2.8×) |
+
+What the attacks show:
+
+- **FDR control holds wherever the missed-operon family makes calls.** That includes AR(1) at
+  ρ = 0.9, detection confounded with distance, and an abundance mix that differs between NO pairs
+  and decoys. A′ at ρ = 0.9 is 0.046, well below the 0.15 escalation threshold.
+- **M-1 does not bite on giapsim layouts.** The SW-sparse bins hold every q high, so the
+  PR #148 failure (balanced classes, ~2,000 NO pairs) is not reproduced. The co-imputation risk
+  still stands for genomes whose decoy bins are full. The ADR question, whether to exclude
+  imputed pairs, stays open.
+- **C (the one-detected arm, oracle P(miss)).** With the generating detection model, the share of
+  one-detected pairs with P(miss) ≤ α is at most 1.8 α. That is below the 2 α revisit threshold,
+  so the M6-05 Q3 decision (P(miss) with no q, outside the BH family) stands.
+  - This is the oracle P(miss); the M6-02 *fitted* model is not used here.
+  - The step's arm (M6-05H) is not merged, and `test_attack_c_through_the_step` skips until it is.
+- **D-1 fails the pooled level.** Confirmed at α = 0.05 and 0.10, the rate is 4–6 % above
+  nominal; within the lowest quartile it is about 3× nominal. One t for all pairs puts null calls
+  on noisy, low-abundance pairs.
+  - The issue planned D-1 as gated. Because of this failure it is recorded and escalated.
+  - Khoa decides between a method ADR (σ as a function of mean abundance) and a claim narrowed to
+    abundance-homoscedastic Δ.
+  - Until then, the discordance level claim covers Δ noise that does not depend on abundance.
+- **D-2** (TU-chained Δ) is built into every scenario. **D-3** is the M6-05 review table above.
+
+**Verdict (simulation half).** §7.4.7 criteria 1–3 pass at full R:
+- criterion 1 passes non-vacuously in the CV-only arm, and as a recorded vacuous pass with the
+  shipped decoys;
+- criterion 2 is attack A (ρ = 0.5);
+- criterion 3 is the KS test and the pooled level.
+
+Attacks A, B and M-2 pass. A′ and C are recorded below their thresholds. D-1 is an open,
+confirmed attack failure that blocks an unqualified discordance claim. The §15.4 half of the gate
+(M6-11/M6-12, RegulonDB) is separate.
+
 ## Sign-off
 
 Statistician (PR #140 review, 2026-10-21): FDR control and the KDE evaluation **approved**; the
@@ -1030,3 +1149,8 @@ offset-preserving coincidence null and the corrected bound). Both fixes are spec
 cut-off calibration (M6-12)"; once the lead accepts them the design is approved. Directon
 resampling, the stable rule, the fixed-t CIs with the selection statement, and the degenerate rules
 are sound.
+
+Statistician (M6-09, 2026-10-24): the simulation half of the M6 gate passes §7.4.7 criteria 1–3 and
+attacks A, B and M-2 at full R (Slurm 1884412). The missed-operon gate with the shipped decoys is
+a recorded vacuous pass. Attack D-1 is a confirmed failure of the discordance level and is
+escalated: a method ADR or a narrowed claim, Khoa decides.

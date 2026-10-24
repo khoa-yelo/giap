@@ -553,5 +553,27 @@
     "issue": "perf/fast-suite-hotpaths (ADR-0053, proposed)",
     "fixture": "tests/helpers/determinants_models_data.py planted(rng), 400 genes, TUs of 1-5, seed 20261023",
     "note": "before = origin/main d29a2ea5 on the same node; enet_path check_input=False, elastic net serial, LightGBM pooled"
+  },
+  "m6_09_operon_calibration_fast": {
+    "source": "docs/specs/M6-09-calibration-gate.md (benchmarks/baseline.json gains the fast-suite runtimes)",
+    "tests": [
+      "tests/calibration/test_operon_calibration.py",
+      "tests/calibration/attacks/test_attack_operons.py"
+    ],
+    "wall_secs": 189.2,
+    "cpus": 2,
+    "slowest_secs": {
+      "attacks/test_attack_operons.py::test_recorded_attack_d1_pooled_level[fast]": 50.4,
+      "test_operon_calibration.py::test_teeth_normal_tail_fails": 46.5,
+      "test_operon_calibration.py::test_discordance_p_uniform[fast]": 26.1,
+      "test_operon_calibration.py::test_discordance_pooled_level[fast]": 24.3,
+      "test_operon_calibration.py::test_teeth_pi0_misconfigured_fails": 23.0,
+      "test_operon_calibration.py::test_missed_operon_fdr_gate[fast]": 11.6
+    },
+    "node": "session allocation (8 CPUs, -n 2)",
+    "commit": "90a0e709",
+    "date": "2026-10-24",
+    "issue": "M6-09",
+    "note": "pytest -m calibration -n 2 on the two files: 20 passed, 1 skipped. Full tier: Slurm 1884412 (rye-01, -n 16), 511 s wall."
   }
 }
