@@ -648,6 +648,16 @@ Required additions:
    - no replicate with true FDP ≤ α is labelled `evidence_of_failure`;
    - in A and B, the coverage P(FDP ≤ `ucb95`) ≥ 0.95 − k·√(0.95·0.05/R).
 
+   As written (2026-10-24): the fast tier uses R = 2,000. A `calibration_full` tier uses
+   R = 20,000 (Slurm, about 45 s). Both run under `calsuite("compare")`.
+
+   There are two teeth checks, both in A:
+   - `fdp_lower` used as an estimate fails the mean check;
+   - `ucb95(level=0.5)` fails the coverage check.
+
+   The coverage of C, D and E is recorded but not gated. Against a scratch reference, E covered
+   about 0.72 and D about 0.75.
+
 **Pure API** (in `validation/pilot/entrapment.py`, used by the attack and the unit tests):
 `combined(n_t, n_e, n_k12_only, n_shared) -> Fraction | None`, `lower(n_t, n_e) -> Fraction |
 None`, `ucb95(n_t, n_e, n_k12_only, n_shared, level=0.05) -> float | None`, `assess(combined,
@@ -696,8 +706,40 @@ above: the bias direction, the deterministic lower bound, and `ucb95` coverage.
   - **S-1:** examples 1c, the `ucb95` table, and the S4 sensitivity values hold, with
     `assessment` per S1.
   - **S-2:** `ucb95` equals a brute-force scan over M for 200 seeded (N_T, N_E, k, s).
-  - **S-3:** `ucb95` ≥ `fdp_combined` whenever both are defined and N_E ≥ 1. (With N_E = 0,
-    `ucb95` is ≥ 0 = `fdp_combined` trivially.)
+  - **S-3 (reworded 2026-10-24, statistician; the earlier "`ucb95` ≥ `fdp_combined`" was false).**
+    Write N = N_T + N_E, π = k/(k + s), and M_max = N · `ucb95`. Note that N · `fdp_combined` =
+    N_E/π = N_E (k + s)/k. Whenever both are defined:
+
+    > M_max ≥ min(⌊N_E (k + s)/k⌋, N), that is,
+    > `ucb95` ≥ min(⌊N · fdp_combined⌋ / N, 1) > min(`fdp_combined`, 1) − 1/N.
+
+    Proof: let M = min(⌊N_E/π⌋, N). Then M ≥ N_E and Mπ ≤ N_E. Every median of
+    Binomial(M, π) is at most ⌈Mπ⌉ (Kaas and Buhrman 1980), and ⌈Mπ⌉ ≤ N_E. So
+    BinomCDF(N_E; M, π) ≥ 1/2 > `level` for any `level` < 1/2, and M lies in the scan set.
+    The bound is therefore never below the point estimate by a full grid step 1/N, and equals 1
+    whenever `fdp_combined` ≥ 1.
+
+    The weaker form `ucb95` ≥ `fdp_combined` is not a property of this bound, and that is **not
+    a defect**. `ucb95` bounds the realised FDP M/N, which lies on the grid {0, 1/N, …, 1}, and it
+    has exact one-sided coverage under the model (it inverts an exact test). `fdp_combined`
+    estimates E[M]/N off that grid and is unclipped. They part in two places:
+    - **Above one.** If `fdp_combined` > 1, then `ucb95` = 1 (the spec's per-run WT_3 row: 3.0
+      against 1.0).
+    - **π near 1.** Binomial(M, π) is then almost degenerate, so the bound stops at ⌊N_E/π⌋/N.
+      An example: N_T 1, N_E 1, k 39, s 1 gives 0.5 against 0.513. On the grid N ≤ 1,000,
+      N_E ≤ 40, k, s ≤ 40, `ucb95` < min(`fdp_combined`, 1) occurs only at π ≥ 0.975. The pilot
+      (r of order 0.1–1, π ≤ 0.5) is far from that.
+
+    Rounding `ucb95` up to `fdp_combined` would add nothing to its coverage and would break
+    S-2's definition, so it is not done.
+
+    Tested as follows:
+    - the inequality above, for every π (exact, in integers);
+    - `ucb95` ≥ min(`fdp_combined`, 1) for π ≤ 0.9, as a regression property (empirical; the
+      grid above, no proof);
+    - both corners, pinned.
+
+    With N_E = 0, `ucb95` ≥ 0 = `fdp_combined` trivially.
 - **Estimate:** about +45 code lines (ucb95 10, the three sensitivities 30, assessment scoping
   5) and about +60 test lines. The attack (about 150 lines) is the statistician's and does not
   count against the PR.
