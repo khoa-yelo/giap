@@ -69,7 +69,23 @@ DIA-NN's library.
 
 `q_value` is DIA-NN's experiment-wide precursor `Global.Q.Value`, so the set of distinct accepted
 precursors (`norm(modified_peptide)`, charge), pooled over the wild-type runs, is the only unit
-whose FDR the search claims to control at α = 0.01. The assessment is issued only there:
+whose FDR the search claims to control at α = 0.01. 
+**What DIA-NN 2.3.1 has already filtered.** The DIA-NN documentation for 2.3.1 ([README at
+2fb4df2](https://github.com/vdemichev/DiaNN/blob/2fb4df29204453e109afc58238984037d894508c/README.md),
+"GUI settings reference" and "Main output reference") says that the precursor FDR setting
+(`--qvalue`) is "the precursor q-value filtering to be applied to the main output report", and,
+of the recommended main-report filters, only "**Q.Value** at 0.01" is "done by DIA-NN
+automatically"; the global, library and protein-group q-values (`Global.Q.Value`, `Lib.Q.Value`,
+`PG.Q.Value`, `Global.PG.Q.Value`, `Lib.PG.Q.Value`) are listed as filters for the user to apply,
+because "the main report is designed to be filtered". The matrices, which the pilot does not
+use, are filtered at 1 % with global protein-group q-values. A1 sets `--qvalue 0.01` and no flag
+that changes these defaults (`validation/pilot/diann_A1.cfg`). The accepted set is therefore
+the precursors with run-level `Q.Value` ≤ 0.01 (DIA-NN) **and** `Global.Q.Value` ≤ 0.01 (GIAP,
+`Q_ACCEPT`): a subset of what the global q-value alone controls, so the FDR it can claim is at
+most α. No protein-level filter is applied by either. A1 also runs without `--no-refine-q`, so
+the precursor q-values use protein information (see Bias).
+
+The assessment is issued only at precursor level:
 
 - `evidence_of_failure` if `fdp_lower` > α (checked first);
 - `consistent_with_control` if `fdp_combined` ≤ α (inclusive);
@@ -115,7 +131,8 @@ selected by the global q-value, not a run-level one. Estimates are reported uncl
 | Six-frame chance hits move short K-12-only peptides into `shared` | lower N_E (a more conservative lower bound); negligible for equation (1) |
 | E and T differ in length and charge composition, so equal chance per precursor mis-weights the peptide-level r (`sensitivity.r_prec_weighted`) | either |
 | False matches attracted to T, e.g. interference from abundant co-eluting shared proteins (equal-chance violation in the low direction) | low, unquantified |
-| A protein-level filter (`PG.Q.Value`) would remove K-12-only proteins first; the pilot applies none, and adding one is a lead finding | low |
+| A protein-level filter (`PG.Q.Value`) would remove K-12-only proteins first; neither DIA-NN's main report nor GIAP applies one (DIA-NN 2.3.1 docs, above), and adding one is a lead finding | low |
+| DIA-NN's precursor q-values use protein information unless `--no-refine-q` is set, which the docs call "essential if the goal is validation of DIA-NN's precursor-level q-values using classic entrapment"; A1 does not set it, so K-12-only precursors, from proteins with few other identifications, are penalised relative to T | low, unquantified |
 | K-12-derived constructs in engineered strains | excluded: only wild-type runs are accepted |
 
 Sensitivities, pre-registered and descriptive (no assessment): `present_broad` widens rule 2 to
