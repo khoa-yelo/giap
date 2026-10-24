@@ -358,3 +358,29 @@ the lead edits the guard allow-lists in 15b (L7). K1–K4 go to Khoa with the pa
 - **A missing packet input:** exit 2 (criterion 5). A check that fails exits 1.
 - **15a's implementation:** waits for M10-06 (#306) and M10-14a to merge, because it uses `diagnosis_problems`
   and `reproduce_check.parse`.
+
+## Lead decisions after the 15a code review (2026-10-24)
+These supersede earlier text that differs. Review: rev-1015.
+- **B1, the runbook input:** `--runbook` is an input of `render --final` and of the packet, not of `compute`. `metrics.json` therefore never records the runbook. This avoids the circularity in which the runbook is still a draft inside S14, and the final runbook's Outputs then hashes `metrics.json`. Bullet 1 and the S8–S14 evidence are computed at render time, from the final runbook.
+- **B2:** superseded Evidence rows (M10-14) are ignored by `gate_evidence` and by packet check 2.
+- **S1:** "A3 not run" is a finding. M10-10 emits `reason: "a3_not_run"` when `--a3` is absent and keeps `missing:<table>` for an absent table. `--final` renders `a3_not_run` under "Not evaluated". M10-10's "byte for byte" sentence is read as "byte for byte apart from the keys M10-15 adds".
+- **S2:** the bullet-1 label comes only from the runbook's `a3_branch`. `pending` gives `partial`, and a Cascadia branch with a `fail` feasibility verdict gives `fail (A3 feasibility fail)`.
+- **S3:** the packet's `--out` must be outside the checkout, or a path the checkout git-ignores; otherwise it exits 2.
+- **S4:** on an error the packet removes its `.r<k>.tmp`, never overwrites a round (it checks this explicitly, with its own message) and returns only the documented exit codes.
+- **S5:** check 1's message carries the refusal reason.
+- **S6:** checks 3 and 4 are folded into `final_problems` (the evidence check). The comparison of the freeze directory's `metrics.json` with the committed one stays, and gets a test.
+- **S7:** an absent `--a3-feasibility` gives the feasibility block a `pending (M10-08 verdict)` reason, which `--final` refuses.
+- **S8:** the gate-record checker:
+  - rejects "awaiting" or "met" while a checklist bullet fails, unless a Khoa-accepted waiver ADR is cited;
+  - accepts a quote containing `"` (escaped) or spanning several lines;
+  - lets a later `changes` or `reject` on the same sha256 override an earlier `accept`;
+  - checks every `### Gate M10` block.
+- **S10:** the 15a PR title does not start with `M10-15`, so the progress bar doesn't count it as done before Khoa's review.
+- **Nits:**
+  - N1: a `rejected` or `superseded` ADR gives `fail (ADR-M10-D <status>)`.
+  - N2: drop "; ADR-M10-C declined" from example 6's label.
+  - N4: in draft mode the placeholders render the pending marker.
+  - N5: the packet reuses `adr_status`.
+  - N6: no `__pycache__` in the repo (`sys.dont_write_bytecode`, or `-B`).
+  - N7: check 1 compares bytes.
+  - N3 (a mistyped path under a finding reason): documented in the methods/README, no code change.
