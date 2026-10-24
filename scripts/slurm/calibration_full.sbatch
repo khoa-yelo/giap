@@ -4,7 +4,7 @@
 #SBATCH --qos=normal
 #SBATCH --array=0-14
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=16G
+#SBATCH --mem=16000M
 #SBATCH --time=04:00:00
 #SBATCH --output=/home/classes/bios/270/khoa/giap/local/logs/%x.%A_%a.out
 # Full calibration suite (GIAP_SPEC.md §8.4, §12): one suite per array task, task i = the i-th key

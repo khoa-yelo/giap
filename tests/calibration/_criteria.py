@@ -1280,9 +1280,23 @@ def _merge_main(suite: str, full: bool) -> int:
     (2) if the records cannot be merged, block 2 could not be obtained, or the confirm run's
     pytest exited non-zero with no confirmed fail (a test outside the harness failed; M7-13 lead
     decisions 7-8). A confirmed fail keeps ``MERGE_FAIL`` whatever the confirm run's exit.
+
+    Once ``<suite>.shards.jsonl`` exists (``main --shard``), every recorded shard ``pytest_exit``
+    is folded in (review of PR #327, B1/B2): a shard's exit carries the verdicts that are not
+    harness records (shard 0's direct assertions, shard-local checks). See ``shard_exit_verdict``.
     """
     code = 0
-    if not (log_dir() / f"{suite}.jsonl").exists() and _shards_complete(suite):
+    try:
+        shard = shard_exit_verdict(suite)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        print(f"merge {suite}: shard exits: {exc}", file=sys.stderr)
+        return MERGE_ERROR
+    if shard is not None and shard[1]:
+        print(f"merge {suite}: {shard[1]}", file=sys.stderr)
+    if shard is not None and not shard[2]:
+        return MERGE_ERROR  # a shard died before logging its exit: no verdict
+    shard_rc = 0 if shard is None else shard[0]
+    if not (log_dir() / f"{suite}.jsonl").exists() and shard is not None:
         # no harness check in the suite (e.g. denovo_precision): its verdicts are the shard exits
         print(f"merge {suite}: no calibrate records; every shard finished (verdicts: shard exits)")
         direct = direct_xpasses(read_outcomes(suite), set())
@@ -1290,6 +1304,8 @@ def _merge_main(suite: str, full: bool) -> int:
             print(
                 f"merge {suite}: XPASS{'(strict)' if strict else ''} {test}: clean in every shard"
             )
+        if shard_rc != 0:
+            return shard_rc
         return MERGE_FAIL if any(strict for _t, strict in direct) else 0
     try:
         merged = merge_shards(suite)
@@ -1330,6 +1346,8 @@ def _merge_main(suite: str, full: bool) -> int:
         return MERGE_FAIL
     if xpass or direct_strict:
         return MERGE_FAIL
+    if shard_rc != 0:
+        return shard_rc
     if code != 0:
         print(f"merge {suite}: the block-2 confirm run's pytest exited {code}", file=sys.stderr)
         return MERGE_ERROR
@@ -1393,6 +1411,35 @@ def _log_shard_done(suite: str, kn: tuple[int, int], block: int, rc: int) -> Non
     rec = {"suite": suite, "shard": kn[0], "n": kn[1], "block": block, "pytest_exit": rc}
     with (d / f"{suite}.shards.jsonl").open("a") as fh:
         fh.write(json.dumps(rec) + "\n")
+
+
+def fold_shard_exits(exits: Sequence[int]) -> int:
+    """Merge exit of the shard ``pytest_exit`` values: 0 when all are 0, ``MERGE_FAIL`` when one
+    is 1 (a test failed), else ``MERGE_ERROR`` (2 interrupted / collection error, 3 internal,
+    4 usage, 5 nothing collected, negative: a signal)."""
+    if any(rc == 1 for rc in exits):
+        return MERGE_FAIL
+    if any(rc != 0 for rc in exits):
+        return MERGE_ERROR
+    return 0
+
+
+def shard_exit_verdict(suite: str) -> tuple[int, str, bool] | None:
+    """None without ``<suite>.shards.jsonl`` (in-process records: behaviour unchanged). Otherwise
+    ``(code, message, complete)``: ``complete`` is False (and ``code`` ``MERGE_ERROR``) when the
+    block-1 shards are not exactly 0..N-1 of one N; else ``code`` is ``fold_shard_exits`` of every
+    recorded exit, all blocks (``message`` empty when every exit is 0)."""
+    path = log_dir() / f"{suite}.shards.jsonl"
+    if not path.exists():
+        return None
+    recs = read_results(path)
+    if not _shards_complete(suite):
+        got = sorted((int(r["shard"]), int(r["n"])) for r in recs if int(r["block"]) == 1)
+        return MERGE_ERROR, f"incomplete shard set in {path.name} (block-1 shard, n: {got})", False
+    bad = [(int(r["shard"]), int(r["block"]), int(r["pytest_exit"])) for r in recs
+           if int(r["pytest_exit"]) != 0]  # fmt: skip
+    msg = "; ".join(f"shard {k} block {b} exited {e}" for k, b, e in bad)
+    return fold_shard_exits([e for _k, _b, e in bad]), msg and f"non-zero shard exits: {msg}", True
 
 
 def _shards_complete(suite: str) -> bool:

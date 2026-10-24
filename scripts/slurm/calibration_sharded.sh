@@ -8,16 +8,21 @@
 #   N      number of shards, 1..10 (shard k runs replicates shard_replicates(R, N, k) of every check,
 #          whatever its R; tests' direct parts run in shard 0 only)
 #   extra  passed to tests/calibration/_criteria.py in every job, e.g. --fast. --shard, --merge and
-#          --dry-run are refused here (this script sets them).
+#          --dry-run are refused here (this script sets them), and so is --block (a block-2 run never
+#          owns the direct checks; --merge runs block 2 itself).
 # Environment:
 #   GIAP_CALIBRATION_LOG_DIR  shared log directory of the shards and the merge (default
 #                             $GIAP_ROOT/logs/calibration/sharded-<suite>-<YYYYmmdd-HHMMSS>); it must
-#                             not already hold <suite>.jsonl (old records would be merged).
+#                             not already hold any <suite>.* file (old records, outcomes or shard
+#                             exits would be merged). It reaches the jobs through the environment
+#                             (--export=ALL), so a comma in the path is safe.
 #   GIAP_SBATCH_EXTRA         extra sbatch options for every job (word-split), e.g. "--time=02:00:00".
 # The shards are separate jobs giap-cal-<suite>-s<k>; the merge (giap-cal-<suite>-merge) waits for all of
 # them with afterany, so it runs and reports MERGE_ERROR when a shard died. Exit of the merge job: 0 pass,
 # unconfirmed, vacuous or expected failure (strict xfail), 1 confirmed fail or strict XPASS, 2 merge
-# error. R14: N + 1 jobs of 4 CPUs (calibration_full.sbatch); sum the running giap-* CPUs first.
+# error. R14: N + 1 jobs of 4 CPUs (calibration_full.sbatch); before any sbatch the script sums the
+# user's running + pending giap-* jobs and CPUs (squeue) and refuses (exit 2) when the new jobs would
+# pass 128 CPUs or 20 jobs; it fails closed (exit 2) when squeue fails.
 # Prints "shards=<ids> merge=<id> log=<dir>".
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -30,7 +35,7 @@ case "$n" in ''|*[!0-9]*) usage ;; esac
 if [ "$n" -lt 1 ] || [ "$n" -gt 10 ]; then usage; fi
 for a in "$@"; do
   case "$a" in
-    --shard|--shard=*|--merge|--merge=*|--dry-run|--task-id|--task-id=*|--suite|--suite=*)
+    --shard|--shard=*|--merge|--merge=*|--dry-run|--task-id|--task-id=*|--suite|--suite=*|--block|--block=*)
       echo "$0: $a is set by this script" >&2; exit 2 ;;
   esac
 done
@@ -46,8 +51,31 @@ EOF
 if [ -z "$task" ]; then echo "$0: unknown suite '$suite' (not in replicates_full)" >&2; exit 2; fi
 
 log="${GIAP_CALIBRATION_LOG_DIR:-${GIAP_ROOT:?GIAP_ROOT unset}/logs/calibration/sharded-$suite-$(date +%Y%m%d-%H%M%S)}"
-if [ -e "$log/$suite.jsonl" ]; then
-  echo "$0: $log/$suite.jsonl exists; give a fresh GIAP_CALIBRATION_LOG_DIR" >&2; exit 2
+for f in "$log/$suite".*; do
+  if [ -e "$f" ] || [ -L "$f" ]; then
+    echo "$0: $f exists; give a fresh GIAP_CALIBRATION_LOG_DIR" >&2; exit 2
+  fi
+done
+
+# R14 (GIAP_SPEC.md §0.2): running + pending giap-* jobs and CPUs of this user, plus the N + 1 new
+# jobs of 4 CPUs each, must stay within 128 CPUs and 20 jobs. No squeue answer: refuse.
+cpus_per_job=4
+new_jobs=$((n + 1))
+if ! queue="$(squeue -h -u "${USER:?USER unset}" -t RUNNING,PENDING -o '%C %j')"; then
+  echo "$0: squeue failed; cannot check the R14 budget, nothing submitted" >&2; exit 2
+fi
+used_jobs=0; used_cpus=0
+while read -r c name _; do
+  [ -n "${c:-}" ] || continue
+  case "$name" in giap-*) ;; *) continue ;; esac
+  case "$c" in ''|*[!0-9]*) echo "$0: unexpected squeue CPU count '$c'; nothing submitted" >&2; exit 2 ;; esac
+  used_jobs=$((used_jobs + 1)); used_cpus=$((used_cpus + c))
+done <<< "$queue"
+want_cpus=$((used_cpus + cpus_per_job * new_jobs)); want_jobs=$((used_jobs + new_jobs))
+if [ "$want_cpus" -gt 128 ] || [ "$want_jobs" -gt 20 ]; then
+  echo "$0: R14: $used_jobs giap-* jobs / $used_cpus CPUs queued + $new_jobs jobs / $((cpus_per_job * new_jobs)) CPUs" \
+       "= $want_jobs jobs / $want_cpus CPUs > 20 jobs / 128 CPUs; nothing submitted" >&2
+  exit 2
 fi
 mkdir -p "$log"
 
@@ -57,7 +85,9 @@ if [ -n "${GIAP_SBATCH_EXTRA:-}" ]; then
   sbatch_extra=(${GIAP_SBATCH_EXTRA})
 fi
 job="$HERE/scripts/slurm/calibration_full.sbatch"
-export_vars="ALL,GIAP_CALIBRATION_LOG_DIR=$log,GIAP_WORKTREE=$HERE"
+# the log dir travels in the environment (ALL): a comma in it would split an --export list
+export GIAP_CALIBRATION_LOG_DIR="$log"
+export_vars="ALL,GIAP_WORKTREE=$HERE"
 submit() {  # submit NAME DEPENDENCY HARNESS-ARGS... -> prints the job id
   local name="$1" dep="$2"; shift 2
   local opts=(--parsable --array="$task" --job-name="$name" --export="$export_vars")
