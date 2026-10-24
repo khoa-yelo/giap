@@ -860,6 +860,10 @@ the design check. Full table in ADR-0022.
 - `pair_threshold` t* = 0.529415 (`precision_0.90`; stable = literal): precision 0.902
   [0.884, 0.918], recall 0.848 [0.827, 0.868] at fixed t*; CV precision of the rule 0.900;
   re-selected t* quantiles 0.457 / 0.529 / 0.610.
+- **Recorded `pair_threshold`: 0.5** (Khoa, 2026-10-24). At 0.5 the K-12 curve gives precision
+  0.896, recall 0.853 and F1 0.8739, the same operating point as t*; the rule-selected 0.529415 is
+  kept above as the calibration result. TerminatorNet stays at its max-F1 value: at 0.5 it would
+  call every eligible candidate, with precision 0.120 against 0.226.
 - Refit: d₀ = 102.69 [94.59, 111.47], s = 47.16 [41.19, 53.64]; AUROC(−d) 0.907
   [0.892, 0.920]; paired difference 0.0041 [0.0009, 0.0077].
 - TerminatorNet: t* = 0.9999999999961204 (`max_f1`; Khoa, decision 10), 727 calls, precision

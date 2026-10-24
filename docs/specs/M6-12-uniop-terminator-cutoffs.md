@@ -508,6 +508,8 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
     cut-off is the threshold that maximises F1 on the K-12 truth, as §15.4 specifies. There is
     no one-SE rule, even though the F1 curve is flat. The statistician's flat-curve note and
     `precision_lower_bound_window` are reported in ADR-0022 as context only. Part C runs the real K-12
-    calibration on Slurm, fills `src/giap/data/calibration.yaml`, and writes ADR-0022 (accepted-by-khoa)
-    in the same PR. `calibration.yaml` is protected, so the commit carries
-    `Gate-Change-Approved: ADR-0022`.
+    calibration on Slurm and fills `src/giap/data/calibration.yaml`. ADR-0022 (accepted-by-khoa)
+    lands first in a docs-only PR, because `check_protected.py` reads the ADR's status on the
+    base branch; the calibration commit then carries `Gate-Change-Approved: ADR-0022`.
+    Khoa, 2026-10-24: UniOP's `pair_threshold` is 0.5 (precision 0.896 on K-12, the same
+    operating point as the rule's 0.529415); TerminatorNet keeps the max-F1 value.

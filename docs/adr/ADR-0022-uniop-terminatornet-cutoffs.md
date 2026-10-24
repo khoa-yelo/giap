@@ -1,5 +1,5 @@
 # ADR-0022: UniOP and TerminatorNet cut-offs and the distance-model refit on RegulonDB 14.5.0 K-12
-- Status: accepted-by-khoa (2026-10-23, max-F1; M6-12 lead decision 10)
+- Status: accepted-by-khoa (2026-10-23, max-F1; M6-12 lead decision 10; 2026-10-24, UniOP `pair_threshold` 0.5)
 - Date: 2026-10-23 (run 2026-10-24 01:05 UTC, Slurm 1879748)
 - Spec sections: §15.4 steps 3–5, §7.1.3, §7.1.5, §7.4.5, §7.4.6, §7.4.7; spec
   `docs/specs/M6-12-uniop-terminator-cutoffs.md` with lead decisions 1–10; methods
@@ -36,7 +36,7 @@ round-trip `repr` and must not be rounded, because the pipeline compares with `�
 
 | Key | Value | Rule that fired | Mirrors |
 |---|---|---|---|
-| `uniop_pair_threshold.value` (new) | **0.529415** | `precision_0.90` (stable = literal) | `defaults.yaml` `annotation.uniop.pair_threshold`; `config/model.py` `UniopConfig.pair_threshold` |
+| `uniop_pair_threshold.value` (new) | **0.5** | Khoa, 2026-10-24 (the `precision_0.90` rule gave 0.529415) | `defaults.yaml` `annotation.uniop.pair_threshold`; `config/model.py` `UniopConfig.pair_threshold` |
 | `operon_distance.d0` | **102.68667744326773** | IRLS refit, converged | — (read by `steps/operons.py`) |
 | `operon_distance.s` | **47.16037265004493** | IRLS refit, converged | — |
 | `terminatornet_yes.value` | **0.9999999999961204** | `max_f1` (no candidate reaches 0.90) | `defaults.yaml` `annotation.terminators.terminatornet_yes`; `config/model.py` |
@@ -46,8 +46,8 @@ All three entries become `calibrated: true` with the ADR-0022 provenance. The pr
 commits it in PR-C with `Gate-Change-Approved: ADR-0022`.
 
 **Downstream changes.**
-- TUs and pair classes use `pair_threshold` 0.529415 instead of 0.5 (`classify`, `build_tus`, the
-  flag code).
+- TUs and pair classes keep `pair_threshold` 0.5 (`classify`, `build_tus`, the flag code); the
+  value is now recorded as calibrated.
 - The distance fallback (UniOP missing or failed) uses d₀ = 102.69 bp, s = 47.16 bp instead of
   50 / 20: much more permissive at 40–150 bp (see the binned table).
 - Terminator "yes" (§7.1.5, §7.4.5) needs TerminatorNet confidence ≥ 0.9999999999961204, that is a
@@ -102,6 +102,13 @@ directon-bootstrap percentile CIs; the iid (single-pair) line is for comparison 
   AUROC is prevalence-free but not genome-free.
 - UniOP's training data: **unknown here** (not verified in M6-12). If UniOP's development used
   K-12 operons from RegulonDB, this AUROC is partly in-sample for the tool.
+- **Khoa's decision, 2026-10-24: UniOP uses 0.5.** On the K-12 curve 0.5 gives precision 0.896,
+  recall 0.853 and F1 0.8739 (TP 1,476, FP 172), against 0.902 / 0.848 / 0.8740 at the
+  `precision_0.90` threshold 0.529415: the same operating point, so the round value is kept and
+  `rule` is recorded as `khoa_fixed_0.5`. Khoa also asked whether TerminatorNet could use 0.5; it
+  cannot without a large change. At 0.5 every eligible candidate is called (recall 1.0), FP rises
+  from 563 to 2,154 and precision falls from 0.226 to 0.120, close to the 0.091 coincidence rate,
+  so TerminatorNet keeps the max-F1 value.
 - **Context for decision 10, not the recorded value.** The max-F1 threshold on the UniOP curve is
   0.25114 (F1 0.8743, precision 0.848, TP 1,562, FP 281), against F1 0.8740 at 0.529415. §15.4
   applies max-F1 only when no threshold reaches precision 0.90; UniOP reaches it, so the recorded
