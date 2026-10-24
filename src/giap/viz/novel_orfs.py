@@ -67,7 +67,7 @@ def _status(row: Any) -> str:
 
 
 def _fmt(v: float | None) -> str:
-    return "unestimated" if v is None else f"{v:g}"
+    return "unestimated" if v is None else base.sig(v)
 
 
 def _counts(orfs: pd.DataFrame) -> pd.DataFrame:
@@ -138,10 +138,15 @@ def _span(row: Any, view: RunView, length: int | None) -> tuple[int, int]:
     """The 0-based half-open span (decisions 6, 7); ``start_longest`` NA -> first peptide."""
     minus, end, first = str(row.strand) == "-", int(row.end), _int(row.start_longest)
     if first is None:
-        peps = set(str(row.peptides).split(";")) if isinstance(row.peptides, str) else set()
+        peps = (
+            {locus.fold_il(p) for p in row.peptides.split(";")}
+            if isinstance(row.peptides, str)
+            else set()
+        )
         hits = view.table("peptide_hits")
         if hits is not None and len(hits):
-            hits = hits[(hits["contig"] == row.contig) & hits["peptide"].isin(peps)]
+            keys = hits["peptide"].astype(str).map(locus.fold_il)
+            hits = hits[(hits["contig"] == row.contig) & keys.isin(peps)]
         if hits is None or hits.empty:
             return (end - 1, end + 2) if minus else (end - 3, end)
         return (end - 1, int(hits["end"].max())) if minus else (int(hits["start"].min()), end)
@@ -171,7 +176,7 @@ def _view(row: Any, view: RunView, cfg: GiapConfig, scale: tuple[float, float]) 
     q, fdr = locus._num(row.best_peptide_q), _fdr(row.class_fdr)
     n = _int(row.n_peptides)
     label = (f"{row.orf_id} ({row.cls}): {'NA' if n is None else n} "
-             f"peptides, best q {locus._g(q)}, class FDR {_fmt(fdr)}")  # fmt: skip
+             f"peptides, best q {base.sig(q)}, class FDR {_fmt(fdr)}")  # fmt: skip
     lo = Locus(str(row.orf_id), "novel_orf", str(row.contig), *span, fdr, label)
     peps = frozenset(str(row.peptides).split(";")) if isinstance(row.peptides, str) else frozenset()
     mark = OrfMark(str(row.strand), _tick(row, span, length), peps)

@@ -450,7 +450,7 @@ def test_low_island_label(tmp_path: Path, cfg: GiapConfig) -> None:
                                      mean=17.25)]
     )  # fmt: skip
     (lo,) = select_loci(RunView.from_outdir(out), cfg)
-    assert lo.label == "ISL_3 (low): mean log2 17.25, FWER p 0.002"
+    assert lo.label == "ISL_3 (low): mean log2 17.2, FWER p 0.002"  # 3 significant digits
 
 
 def test_instance_files_are_named_by_sanitised_locus_id(tmp_path: Path, cfg: GiapConfig) -> None:
