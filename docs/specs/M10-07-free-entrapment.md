@@ -767,3 +767,20 @@ above: the bias direction, the deterministic lower bound, and `ucb95` coverage.
 - Example 2's peptide-level and per-run labels → S1.
 - Criterion 10 → "Other required changes".
 - "Attack (statistician, optional; S4)" → required, as specified in S4.
+
+## Lead decisions after the code review (rev-1007, 2026-10-24; binding)
+These supersede earlier text that differs.
+- **B1:** cross-check 1 considers only discoveries in the T and E buckets. Unclassified discoveries are counted and reported, never an exit-1 failure.
+- **B2:** the sbatch default output path must be git-ignored (`git check-ignore`). The default run must not exit 2.
+- **B3:** merge main, including M10-06's `expand()`/INPUTS hooks, and re-apply the M10-07 hook on top.
+- **S1:** an unexpected exception exits 4, with a traceback; the docstring lists the exit code. Exit 1 stays reserved for cross-check 1.
+- **S2:** provenance matches each input by basename role, not by set membership.
+- **S3:** cross-check 1 requires `exact`; `strain_db` is not agreement.
+- **S4:** a missing `detection_summary.tsv` gets its own warning code, not cross-check 2's.
+- **S5:** `OUT_A1` defaults to the M10-04 A1 directory. If it is set explicitly and missing, the run exits 2. The sbatch never skips the cross-checks silently.
+- **S6:** done in the methods note (lead, 3953908d).
+- **S7:** pin the mutation survivors listed in the review.
+- **S8:** reuse the M10-05 metrics helpers and the M10-03 matching helpers instead of copies. Target ≤ about 400 counted lines in entrapment.py.
+- **Statistician (2026-10-24):**
+  - S1: m8 carries the warnings and the assumption string;
+  - the erratum: precursor q-values use protein information, so the per-run reason string changes (see "Statistician decisions").
