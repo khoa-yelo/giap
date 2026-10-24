@@ -121,13 +121,14 @@ def _region_loci(view: RunView) -> list[Locus]:
     ]
     out = []
     for r in keep.itertuples(index=False):
+        start, end = _num(r.start), _num(r.end)
+        if start is None or end is None:  # no window, so not a V3 locus
+            continue
         q = _num(r.q_value)
         obs, exp, n = _num(r.observed), _num(r.expected), _num(r.n_eligible)
         label = f"{r.region_id}: {_pct(obs, n)} detected vs {_pct(exp, n)} expected (q = {_g(q)})"
         out.append(
-            Locus(
-                str(r.region_id), r.region_type, str(r.contig), int(r.start), int(r.end), q, label
-            )
+            Locus(str(r.region_id), r.region_type, str(r.contig), int(start), int(end), q, label)
         )
     return out
 
@@ -223,14 +224,18 @@ def _in_window(
     circular: bool,
 ) -> list[tuple[Any, int, int]]:
     """``(row, start, end)`` of the rows of ``contig`` overlapping ``window``, shifted by
-    +/- ``length`` into the unwrapped window frame on circular contigs."""
+    +/- ``length`` into the unwrapped window frame on circular contigs. Rows with NA ``start``
+    or ``end`` (``regions.tsv`` AMR gene sets, §7.1.7) overlap nothing and are skipped."""
     if frame.empty:
         return []
     shifts = (0, -length, length) if circular and length else (0,)
     out = []
     for r in frame[frame[contig_col] == contig].itertuples(index=False):
+        start, end = _num(r.start), _num(r.end)
+        if start is None or end is None:
+            continue
         for k in shifts:
-            s, e = int(r.start) + k, int(r.end) + k
+            s, e = int(start) + k, int(end) + k
             if s < window[1] and e > window[0]:
                 out.append((r, s, e))
                 break
