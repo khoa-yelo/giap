@@ -551,7 +551,7 @@ def test_views_have_the_v3_layout_plus_a_novel_orf_track(
 def test_locus_title(tmp_path: Path, cfg: GiapConfig, nov: ModuleType) -> None:
     rows = [orf("NOVEL_chr1_5001_p", n_peptides=3, best_q=0.0001, class_fdr="0.004")]
     (view,) = _views(_run(_out(tmp_path, rows), cfg, nov))
-    want = "NOVEL_chr1_5001_p (intergenic): 3 peptides, best q 0.0001, class FDR 0.004"
+    want = "NOVEL_chr1_5001_p (intergenic): 3 peptides, best q 1e-04, class FDR 0.004"
     assert _collapse(view.title) == want
     assert want in _collapse(" ".join(t.get_text() for t in _texts(view.figure)))
 
