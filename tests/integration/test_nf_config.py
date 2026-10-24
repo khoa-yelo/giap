@@ -297,7 +297,8 @@ def test_exit_1_terminates_without_retry_example_7(tmp_path: Path) -> None:
     assert (mine[0]["status"], mine[0]["exit"], mine[0]["attempt"]) == ("FAILED", "1", "1")
 
 
-def test_retry_only_once(tmp_path: Path) -> None:
+def test_retry_twice_on_137(tmp_path: Path) -> None:
+    """maxRetries = 2 (M7-15, Khoa): exit 137 is retried twice, then the run fails."""
     script = """
 process ALWAYS137 {
     label 'process_single'
@@ -311,4 +312,4 @@ workflow {
     code, rows = _mini_run(tmp_path, script)
     assert code != 0
     mine = [r for r in rows if r["name"] == "ALWAYS137"]
-    assert sorted(r["attempt"] for r in mine) == ["1", "2"]
+    assert sorted(r["attempt"] for r in mine) == ["1", "2", "3"]

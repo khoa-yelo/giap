@@ -140,6 +140,6 @@ workflow {
     } else {
         def keys = inputs.keySet().sort()
         def files = keys.collect { k -> file(inputs[k], checkIfExists: true) }
-        GIAP_STEP(channel.of(['smoke', files]), keys, ['marker=smoke.done'])
+        GIAP_STEP(channel.of(['smoke', files, '']), keys, ['marker=smoke.done'])
     }
 }

@@ -33,6 +33,10 @@ DEGENERATE = "null_degenerate"
 #: pass 1 (ADR-0034): the permutation p is valid only for exchangeable TUs; on every result
 UNCALIBRATED = "null_uncalibrated"
 UNESTIMATED = "unestimated"
+#: models refitted serially, with no pool running: the elastic net's path holds the GIL, so
+#: threading it -- or overlapping it with the LightGBM pool (GIL convoy on a loaded node) -- is
+#: slower than one thread (2.5x at 4 threads)
+_SERIAL: frozenset[ModelName] = frozenset({"elastic_net"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,8 +98,9 @@ def null_p(
     ``folds_rep1[None, :]`` and ``tu=tu``); ``p = perm_p(observed, null, "greater")``.
 
     Permutation b draws from child b of ``SeedSequence([seed, crc32(NULL_STREAM)]).spawn(B)``
-    (independent of B), so results are reproducible and identical for any ``threads``: the
-    permutations run on ``threads`` workers, each fit single-threaded, collected in b order.
+    (independent of B), so results are reproducible and identical for any ``threads``: each fit
+    is single-threaded and independent; model by model, LightGBM refits run on ``threads``
+    workers and the elastic net's (GIL-bound) serially, collected in b order.
     Every TU size unique: every permutation is the identity, so no refit is made, each null R²
     is the observed value, b = B, p = 1 and the result is flagged ``null_degenerate``."""
     if B < 1:
@@ -112,15 +117,21 @@ def null_p(
     folds = np.asarray(folds_rep1, dtype=np.int64)[None, :]
     children = np.random.SeedSequence([seed, zlib.crc32(NULL_STREAM.encode())]).spawn(B)
 
-    def one(child: np.random.SeedSequence) -> list[float]:
-        yb = _permute(yv, blocks, np.random.default_rng(child))
-        return [float(refit_r2(m, X, yb, folds, cfg, seed, 1, tu=tus)[0]) for m in models]
+    ys = [_permute(yv, blocks, np.random.default_rng(c)) for c in children]
 
-    if threads > 1:
-        with ThreadPoolExecutor(max_workers=threads) as pool:
-            null = np.array(list(pool.map(one, children)), dtype=np.float64)
-    else:
-        null = np.array([one(c) for c in children], dtype=np.float64)
+    def one(m: ModelName, yb: F64) -> float:
+        return float(refit_r2(m, X, yb, folds, cfg, seed, 1, tu=tus)[0])
+
+    def column(m: ModelName) -> list[float]:
+        return [one(m, yb) for yb in ys]
+
+    null = np.empty((B, len(models)), dtype=np.float64)
+    for j, m in enumerate(models):
+        if threads > 1 and m not in _SERIAL:
+            with ThreadPoolExecutor(max_workers=threads) as pool:
+                null[:, j] = list(pool.map(lambda yb, m=m: one(m, yb), ys))
+        else:
+            null[:, j] = column(m)
     out: dict[str, NullResult] = {}
     for j, m in enumerate(models):
         obs = float(observed_mean_r2[m])

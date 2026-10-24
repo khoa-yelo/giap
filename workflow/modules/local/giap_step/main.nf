@@ -3,6 +3,9 @@
 // directory in1/, in2/, ... (stageAs 'in?/*') because two keys of one step can name the same
 // file: context_stats takes both the gene table (genetable/genes.parquet) and the M4-06 C2
 // table (genes.parquet), and one `in/` would be a Nextflow input file name collision (MVP-01).
+// config_hash is the step's config slice hash (params.config_hashes, giap.runner.nextflow
+// .write_params; stepIn adds it): a task-hash input only, so a changed key re-runs the steps that
+// read it (M7-15 decision 7).
 // out_spec items are "key=file name"
 // (a glob such as windows_*.fa names a scattered output; the stub creates the listed files; in stub
 // runs an item "key=file HEADER" makes the stub write HEADER (everything after the first space;
@@ -59,10 +62,11 @@ def publishAs(String step, String fn) {
 process GIAP_STEP {
     tag "${step}"
     label 'process_single'
+    cache 'deep'   // content, not path/mtime: a re-run step with unchanged outputs caches its dependants
     publishDir "${params.outdir}", mode: 'copy', saveAs: { fn -> publishAs(step, fn) }
 
     input:
-    tuple val(step), path(inputs, stageAs: 'in?/*')
+    tuple val(step), path(inputs, stageAs: 'in?/*'), val(config_hash)
     val(in_keys)
     val(out_spec)
 

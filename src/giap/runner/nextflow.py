@@ -28,6 +28,8 @@ import yaml
 
 from giap.config import GiapConfig
 from giap.exitcodes import ExitCode
+from giap.steps import load_step_modules
+from giap.steps import registry as reg
 
 DEFAULT_MEMORY = "64 GB"  # §5.1 `giap run --memory 64.GB`, written in a Nextflow-parseable form
 _FAILED = {"FAILED", "ABORTED"}
@@ -57,9 +59,12 @@ def write_params(
         if value is not None:
             pre[key] = str(Path(value).absolute())
     resolved.write_text(yaml.safe_dump(dumped, sort_keys=True), encoding="utf-8")
+    load_step_modules()
+    names = [spec.name for spec in reg.all_steps()]
     data = {
         "annotation": dumped["annotation"],
         "config": str(resolved),
+        "config_hashes": reg.config_hashes(dumped, names),  # task hashes (M7-15 decision 7)
         "inputs": {k: str(Path(v).absolute()) for k, v in inputs.items()},
         "mapping": dumped["mapping"],
         "memory": memory,
