@@ -12,6 +12,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 from importlib import resources
+from pathlib import PurePosixPath
 from typing import Any
 
 import pandas as pd
@@ -190,6 +191,26 @@ def _tools(doc: Mapping[str, Any]) -> list[list[str]]:
             for t in tools]  # fmt: skip
 
 
+def _local_path(arg: str, outdir: str) -> str:
+    """``arg`` without an absolute local path (M9-02 behaviour 6, §6.6): a path under the run's
+    ``outdir`` as ``OUT/<relative>``, any other absolute path as its file name."""
+    flag, eq, value = arg.partition("=") if arg.startswith("-") else ("", "", arg)
+    if not value.startswith("/"):
+        return arg
+    path, out = PurePosixPath(value), PurePosixPath(outdir) if outdir.startswith("/") else None
+    if out is not None and (path == out or out in path.parents):
+        shown = str(PurePosixPath("OUT", path.relative_to(out)))
+    else:
+        shown = path.name or value
+    return f"{flag}{eq}{shown}"
+
+
+def _command_line(doc: Mapping[str, Any]) -> str:
+    """The manifest's ``command_line`` joined by single spaces, absolute paths made local."""
+    outdir = str(doc.get("outdir") or "")
+    return " ".join(_local_path(str(a), outdir) for a in doc.get("command_line") or [])
+
+
 def provenance(view: RunView, doc: Mapping[str, Any] | None, note: str | None) -> dict[str, Any]:
     """Provenance (M9-16 behaviour 6; lead decisions 1, 7, 8): from ``run_manifest.json`` when it
     is readable, else the pass-1 subset (preflight SHA-256s) with a note."""
@@ -208,7 +229,7 @@ def provenance(view: RunView, doc: Mapping[str, Any] | None, note: str | None) -
     lines = [
         ("GIAP version", str(doc.get("giap_version", NOT_RECORDED))),
         ("commit", f"{doc.get('git_commit') or NOT_RECORDED}{dirty}"),
-        ("command line", " ".join(str(a) for a in doc.get("command_line") or []) or NOT_RECORDED),
+        ("command line", _command_line(doc) or NOT_RECORDED),
         ("seed", str(seeds.get("master")) if isinstance(seeds, Mapping) else NOT_RECORDED),
         ("KEGG retrieval date", kegg_date(doc) or "not recorded in this run"),
         ("GO release", ", ".join(go) or NOT_RECORDED),
