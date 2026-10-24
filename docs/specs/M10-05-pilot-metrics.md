@@ -498,3 +498,10 @@ Tests ≈ 450 lines. One PR.
 |---|---|---|
 | Q-K1 | (a) May `REPORT.md`, `metrics.json` and `te1.json` be committed when they hold aggregates only (counts, shares, CIs, ρ, Jaccard, p-values, runtimes), with no sequence, no ID list, no per-gene value and no hash of a DIA-NN-derived file? (b) May the final report name a few genes as examples (for example "the ribosomal proteins")? | (a) not committed until you answer; kept under `$GIAP_ROOT/pilot/metrics/`, review packet in `local/review/` (M10-15); content already restricted to aggregates. (b) no names |
 | Q-K2 | §15.7 calls the hypotheses "fixed before running", but gives no decision rule. This spec fixes H1 (`supported` iff b > c, one-sided exact binomial p ≤ 0.05, and > 50 % of A2-only genes in plasmid ∪ prophage ∪ BGC) and gives H3 no verdict. Do you want a threshold for H3 (for example every Jaccard ≥ 0.5 and ρ's CI lower end ≥ 0.7) fixed before the M10-04 numbers are seen? | H1 as stated; H3 descriptive only. A rule set after the numbers are seen would not be pre-specified, so it is reported as post hoc |
+
+## Lead decisions (2026-10-24)
+
+1. **L1:** the M10-04 spec (branch m10/spec-04, fc2758aa) puts the runs at `$GIAP_ROOT/runs/pilot/pass1/{out_a2,out_a1,cmp_a1_a2}`, with `.r<n>` suffixes for fresh re-runs and an `ATTEMPTS.tsv` index. Use those as the defaults. A run directory resolves through `ATTEMPTS.tsv` to its final attempt.
+2. **L2–L7: the defaults are accepted.**
+3. **Q-K1 and Q-K2 are parked for Khoa** with the defaults as written. Nothing under `$GIAP_ROOT/pilot/metrics/` is committed until Khoa answers. Hypothesis 3 stays descriptive.
+4. **Next:** the statistician reviews the metric definitions and the hypothesis section, then the test-author.
