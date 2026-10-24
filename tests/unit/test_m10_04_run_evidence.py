@@ -20,8 +20,6 @@ from __future__ import annotations
 import csv
 import json
 import shutil
-import subprocess
-import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -29,28 +27,28 @@ from typing import Any
 import pytest
 from helpers.manifest_data import validate
 from helpers.pilot_runs_m10_04 import (
-    COMMIT,
+    FULL_COMMIT,
     HEAD_JOB,
-    RUN_EVIDENCE,
     SHA_ANNOTATION,
     SHA_GENOME,
     SHA_PEPTIDES,
     TABLES,
     TASK_JOBS,
+    arm_cli_args,
+    arm_doc,
     arm_genes,
     bakta_task,
     default_trace,
     edit_manifest,
-    expect,
     giap_compare,
     load_run_evidence,
+    run_evidence_cli,
     sacct_rows,
     sha256,
     trace_task,
     two_arms,
     write_arm,
 )
-from helpers.slurm_sandbox import FAKE_SACCT, write_exe
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
@@ -58,41 +56,16 @@ from hypothesis import strategies as st
 
 
 def _arm(out: Path, sacct: list[dict[str, str]] | None = None, **exp: Any) -> dict[str, Any]:
-    mod = load_run_evidence()
-    doc = mod.arm_evidence(out, sacct_rows() if sacct is None else sacct, expect(**exp))
-    assert isinstance(doc, dict)
-    json.dumps(doc)  # JSON-serialisable
-    return doc
-
-
-def _fake_sacct(tmp: Path, rows: list[dict[str, str]]) -> dict[str, str]:
-    bindir, state = tmp / "fakebin", tmp / "fakestate"
-    bindir.mkdir(exist_ok=True)
-    state.mkdir(exist_ok=True)
-    write_exe(bindir / "sacct", FAKE_SACCT.replace("{python}", sys.executable))
-    (state / "sacct_rows.json").write_text(json.dumps(rows))
-    return {"PATH": f"{bindir}:/usr/bin:/bin", "HOME": str(tmp), "LANG": "C.UTF-8",
-            "FAKE_SLURM_DIR": str(state), "PYTHONPATH": str(RUN_EVIDENCE.parents[2] / "src"),
-            "GIAP_ROOT": str(tmp / "no_root"), "PYTHONDONTWRITEBYTECODE": "1"}  # fmt: skip
+    return arm_doc(out, sacct, **exp)
 
 
 def _cli(tmp: Path, *args: str, rows: list[dict[str, str]] | None = None):  # type: ignore[no-untyped-def]
-    assert RUN_EVIDENCE.is_file(), "validation/pilot/run_evidence.py does not exist (M10-04)"
-    env = _fake_sacct(tmp, sacct_rows() if rows is None else rows)
-    return subprocess.run([sys.executable, str(RUN_EVIDENCE), *args], capture_output=True,
-                          text=True, env=env, cwd=str(tmp), timeout=300,
-                          check=False)  # fmt: skip
+    return run_evidence_cli(tmp, *args, rows=rows)
 
 
 def _arm_cli(tmp: Path, out: Path, rows: list[dict[str, str]] | None = None, **kw: str):  # type: ignore[no-untyped-def]
     dest = tmp / "evidence" / "a2.json"
-    args = ["arm", str(out), "--arm", kw.get("arm", "A2"), "--job", HEAD_JOB,
-            "--expect-commit", kw.get("commit", COMMIT),
-            "--expect-input", f"genome={SHA_GENOME}",
-            "--expect-input", f"annotation={SHA_ANNOTATION}",
-            "--expect-input", f"peptides={kw.get('peptides', SHA_PEPTIDES)}",
-            "--out", str(dest)]  # fmt: skip
-    return _cli(tmp, *args, rows=rows), dest
+    return _cli(tmp, *arm_cli_args(out, dest, **kw), rows=rows), dest
 
 
 # ------------------------------------------------------------------ criterion 1: a passing arm
@@ -121,7 +94,7 @@ def test_passing_arm_lists_the_fields(tmp_path: Path) -> None:
                 "profile", "resume", "started_at", "finished_at", "seeds", "modules_off",
                 "detection_tier", "annotation", "databases", "warnings"):  # fmt: skip
         assert key in man, key
-    assert man["status"] == "completed" and man["git_commit"] == COMMIT
+    assert man["status"] == "completed" and man["git_commit"] == FULL_COMMIT
     assert man["seeds"]["master"] == 20261014
     assert man["modules_off"] == []
     assert doc["inputs"] == {"genome": SHA_GENOME, "annotation": SHA_ANNOTATION,
@@ -197,13 +170,15 @@ def _break(case: str, tmp: Path) -> tuple[Path, list[dict[str, str]], dict[str, 
         trace = [*default_trace(), trace_task("GIAP:OPERONS:OPERONS_STEP (operons)", "1900005",
                                               status="FAILED", task_id=5)]  # fmt: skip
         write_arm(out, trace=trace, exit_code=4, failed_step="operons")
-        rows = sacct_rows(state="FAILED", exit_code="4:0")
+        rows = sacct_rows(state="FAILED", exit_code="4:0",
+                          tasks={**dict.fromkeys(TASK_JOBS, 14), "1900005": 2})  # fmt: skip
     elif case == "commit_mismatch":
         write_arm(out, commit="deadbee")
     elif case == "dirty_checkout":
         write_arm(out, dirty=True)
     elif case == "live_bakta":
         write_arm(out, trace=[*default_trace(), bakta_task()])
+        rows = sacct_rows(tasks={**dict.fromkeys(TASK_JOBS, 14), "1900009": 8})
     elif case == "input_mismatch":
         write_arm(out)
         exp = {"inputs": {"genome": SHA_GENOME, "annotation": SHA_ANNOTATION,
@@ -370,15 +345,24 @@ def compare_pair(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
 
 @pytest.fixture
 def pair(compare_pair: tuple[Path, Path], tmp_path: Path) -> tuple[Path, Path]:
+    """Copies of ``CMP``, ``CMP2`` and ``out_a1/tables/genes.tsv`` (the layout of ``<R>``)."""
     cmp, cmp2 = compare_pair
     shutil.copytree(cmp, tmp_path / "cmp_a1_a2")
     shutil.copytree(cmp2, tmp_path / "cmp2")
+    (tmp_path / "out_a1" / "tables").mkdir(parents=True)
+    shutil.copy2(_genes_of(cmp), _genes_of(tmp_path / "cmp_a1_a2"))
     return tmp_path / "cmp_a1_a2", tmp_path / "cmp2"
 
 
-def _compare(cmp: Path, cmp2: Path) -> dict[str, Any]:
+def _genes_of(cmp: Path) -> Path:
+    """``<R>/out_a1/tables/genes.tsv`` next to ``<R>/cmp_a1_a2`` (the sbatch's ``--genes``)."""
+    return cmp.parent / "out_a1" / "tables" / "genes.tsv"
+
+
+def _compare(cmp: Path, cmp2: Path, genes: Path | None = None) -> dict[str, Any]:
     mod = load_run_evidence()
-    doc = mod.compare_evidence(cmp, cmp2, ("A1", "A2"))
+    doc = mod.compare_evidence(cmp, cmp2, ("A1", "A2"), genes=_genes_of(cmp) if genes is None
+                               else genes)  # fmt: skip
     assert isinstance(doc, dict)
     json.dumps(doc)
     return doc
@@ -497,7 +481,8 @@ def test_compare_on_empty_arms_passes(tmp_path: Path) -> None:
 def test_compare_cli_exit_codes(pair: tuple[Path, Path], tmp_path: Path) -> None:
     cmp, cmp2 = pair
     dest = tmp_path / "evidence" / "compare.json"
-    args = ["compare", str(cmp), "--second", str(cmp2), "--labels", "A1,A2", "--out", str(dest)]
+    args = ["compare", str(cmp), "--second", str(cmp2), "--labels", "A1,A2",
+            "--genes", str(_genes_of(cmp)), "--out", str(dest)]  # fmt: skip
     res = _cli(tmp_path, *args)
     assert res.returncode == 0, res.stdout + res.stderr
     assert json.loads(dest.read_text())["failures"] == []
@@ -505,3 +490,173 @@ def test_compare_cli_exit_codes(pair: tuple[Path, Path], tmp_path: Path) -> None
     res = _cli(tmp_path, *args)
     assert res.returncode == 1, res.stdout + res.stderr
     assert json.loads(dest.read_text())["failures"] == ["no_compare_report"]
+
+
+# ------------------------------------------------------------------ review B4: G from genes.tsv
+
+
+def _edit_both(cmp: Path, cmp2: Path, table: str, edit: Any) -> None:
+    """Apply ``edit(header, rows) -> rows`` to ``table`` in CMP and CMP2 alike (C6 still holds)."""
+    for root in (cmp, cmp2):
+        path = root / "tables" / f"{table}.tsv"
+        header, rows = _rows(path)
+        _write_rows(path, header, edit(header, rows))
+
+
+def _drop_tags_consistently(
+    header: list[str], rows: list[list[str]], drop: set[str]
+) -> list[list[str]]:
+    """Drop ``drop``'s matrix rows and take them out of the intersection counts as well."""
+    sec, tag, run, det = (header.index(c) for c in ("section", "locus_tag", "run", "detected"))
+    inter, n = header.index("intersection"), header.index("n_genes")
+    gone = [r for r in rows if r[sec] == "matrix" and r[tag] in drop]
+    detected_in = {t: {r[run] for r in gone if r[tag] == t and r[det] == "true"} for t in drop}
+    out = []
+    for r in rows:
+        if r[sec] == "matrix" and r[tag] in drop:
+            continue
+        if r[sec] == "intersection":
+            key = {"A1&A2": {"A1", "A2"}, "none": set(), "A1": {"A1"}, "A2": {"A2"}}[r[inter]]
+            r = list(r)
+            r[n] = str(int(r[n]) - sum(detected_in[t] == key for t in drop))
+        out.append(r)
+    return out
+
+
+def test_c3_compare_dropping_genes_everywhere_fails(pair: tuple[Path, Path]) -> None:
+    """B4: a compare that drops the plasmid genes (here the last three locus tags) from the
+    matrix *and* the intersections is self-consistent; G from ``out_a1/tables/genes.tsv``
+    catches it."""
+    cmp, cmp2 = pair
+    plasmid = {"TST_00009", "TST_00010", "TST_00011"}
+    _edit_both(cmp, cmp2, "compare_detection", lambda h, r: _drop_tags_consistently(h, r, plasmid))
+    header, rows = _rows(cmp / "tables" / "compare_detection.tsv")
+    sec, n = header.index("section"), header.index("n_genes")
+    matrix = [r for r in rows if r[sec] == "matrix"]
+    assert len(matrix) == 2 * sum(int(r[n]) for r in rows if r[sec] == "intersection")
+    assert _compare(cmp, cmp2)["failures"] == [f"matrix_rows:{len(matrix)}"]
+
+
+def test_c3_g_is_the_genes_table_row_count(pair: tuple[Path, Path], tmp_path: Path) -> None:
+    """B4: one more gene in ``out_a1/tables/genes.tsv`` than in the matrix fails C3."""
+    cmp, cmp2 = pair
+    genes = _genes_of(cmp)
+    header, rows = _rows(genes)
+    extra = list(rows[-1])
+    extra[header.index("locus_tag")] = "TST_09999"
+    _write_rows(genes, header, [*rows, extra])
+    failures = _compare(cmp, cmp2)["failures"]
+    assert any(f.startswith("matrix_rows:") for f in failures), failures
+
+
+def test_c3_matrix_tags_must_equal_the_genes_tags(pair: tuple[Path, Path]) -> None:
+    """B4: same row count, but one locus tag renamed in both runs: the tag sets differ."""
+    cmp, cmp2 = pair
+
+    def rename(header: list[str], rows: list[list[str]]) -> list[list[str]]:
+        tag = header.index("locus_tag")
+        return [[*r[:tag], "TST_09999", *r[tag + 1 :]] if r[tag] == "TST_00003" else r
+                for r in rows]  # fmt: skip
+
+    _edit_both(cmp, cmp2, "compare_detection", rename)
+    failures = _compare(cmp, cmp2)["failures"]
+    assert any(f.startswith("matrix_rows:") for f in failures), failures
+
+
+def test_compare_cli_requires_genes(pair: tuple[Path, Path], tmp_path: Path) -> None:
+    """B4: ``--genes`` is required (argparse, exit 2); no evidence is written."""
+    cmp, cmp2 = pair
+    dest = tmp_path / "evidence" / "compare.json"
+    res = _cli(tmp_path, "compare", str(cmp), "--second", str(cmp2), "--labels", "A1,A2",
+               "--out", str(dest))  # fmt: skip
+    assert res.returncode == 2, res.stdout + res.stderr
+    assert "--genes" in res.stderr
+    assert not dest.exists()
+
+
+def test_compare_cli_genes_drive_c3(pair: tuple[Path, Path], tmp_path: Path) -> None:
+    """B4 through the CLI: the dropped-genes compare exits 1 with ``matrix_rows``."""
+    cmp, cmp2 = pair
+    plasmid = {"TST_00010", "TST_00011"}
+    _edit_both(cmp, cmp2, "compare_detection", lambda h, r: _drop_tags_consistently(h, r, plasmid))
+    dest = tmp_path / "evidence" / "compare.json"
+    res = _cli(tmp_path, "compare", str(cmp), "--second", str(cmp2), "--labels", "A1,A2",
+               "--genes", str(_genes_of(cmp)), "--out", str(dest))  # fmt: skip
+    assert res.returncode == 1, res.stdout + res.stderr
+    assert json.loads(dest.read_text())["failures"] == ["matrix_rows:20"]
+
+
+# ------------------------------------------------------------------ review S4: rule set C mutants
+
+
+def test_c2_swapped_labels(pair: tuple[Path, Path]) -> None:
+    """Mutant 27: one abundance row, but ``run_a = A2``, ``run_b = A1``."""
+    cmp, cmp2 = pair
+
+    def swap(header: list[str], rows: list[list[str]]) -> list[list[str]]:
+        a, b = header.index("run_a"), header.index("run_b")
+        out = []
+        for r in rows:
+            r = list(r)
+            r[a], r[b] = r[b], r[a]
+            out.append(r)
+        return out
+
+    _edit_both(cmp, cmp2, "compare_abundance", swap)
+    assert _compare(cmp, cmp2)["failures"] == ["abundance_rows:1"]
+
+
+def test_c3_a_duplicated_matrix_row(pair: tuple[Path, Path]) -> None:
+    """Mutants 29/30: (TST_00003, A2) replaced by a second (TST_00002, A2): same count."""
+    cmp, cmp2 = pair
+
+    def dup(header: list[str], rows: list[list[str]]) -> list[list[str]]:
+        sec, tag, run = header.index("section"), header.index("locus_tag"), header.index("run")
+        src = next(
+            r for r in rows if r[sec] == "matrix" and (r[tag], r[run]) == ("TST_00002", "A2")
+        )
+        return [list(src) if r[sec] == "matrix" and (r[tag], r[run]) == ("TST_00003", "A2")
+                else r for r in rows]  # fmt: skip
+
+    _edit_both(cmp, cmp2, "compare_detection", dup)
+    assert _compare(cmp, cmp2)["failures"] == ["matrix_rows:24"]
+
+
+def test_c3_a_tag_missing_from_one_run(pair: tuple[Path, Path]) -> None:
+    """Mutant 31: (TST_00003, A2) relabelled to run ``B``: count and tag set kept, A2 lacks it."""
+    cmp, cmp2 = pair
+
+    def relabel(header: list[str], rows: list[list[str]]) -> list[list[str]]:
+        sec, tag, run = header.index("section"), header.index("locus_tag"), header.index("run")
+        return [[*r[:run], "B", *r[run + 1 :]]
+                if r[sec] == "matrix" and (r[tag], r[run]) == ("TST_00003", "A2") else r
+                for r in rows]  # fmt: skip
+
+    _edit_both(cmp, cmp2, "compare_detection", relabel)
+    assert _compare(cmp, cmp2)["failures"] == ["matrix_rows:24"]
+
+
+def test_c4_a_row_for_another_pair(pair: tuple[Path, Path]) -> None:
+    """Mutant 32: the ``alt_sites`` row is for the pair (A2, A1), not (A1, A2)."""
+    cmp, cmp2 = pair
+
+    def other_pair(header: list[str], rows: list[list[str]]) -> list[list[str]]:
+        fam, a, b = header.index("family"), header.index("run_a"), header.index("run_b")
+        out = []
+        for r in rows:
+            r = list(r)
+            if r[fam] == "alt_sites":
+                r[a], r[b] = "A2", "A1"
+            out.append(r)
+        return out
+
+    _edit_both(cmp, cmp2, "compare_stability", other_pair)
+    assert "stability_family:alt_sites" in _compare(cmp, cmp2)["failures"]
+
+
+@pytest.mark.parametrize("table", TABLES)
+def test_c6_a_table_missing_from_cmp2(pair: tuple[Path, Path], table: str) -> None:
+    """Mutant 35: a table present in CMP and absent from CMP2 is not deterministic."""
+    cmp, cmp2 = pair
+    (cmp2 / "tables" / f"{table}.tsv").unlink()
+    assert _compare(cmp, cmp2)["failures"] == [f"nondeterministic:{table}"]

@@ -14,6 +14,8 @@ reports is committed).
 * ``sacct_rows(...)`` is what ``sacct -P -n`` prints for the head job (``JobID``, ``State``,
   ``ExitCode``, ``Elapsed``, ``MaxRSS``, ``NodeList``; plus its ``.batch`` step) and for each
   task job (``JobID`` = the trace ``native_id``, ``AllocCPUS``, ``MaxRSS``, ``State``).
+* ``arm_doc``, ``run_evidence_cli`` and ``arm_cli_args`` call ``arm_evidence`` and the CLI (the
+  CLI with a fake ``sacct`` serving ``sacct_rows``; ``sacct_script`` replaces the fake).
 * ``compare_job_sandbox`` builds on ``helpers.slurm_sandbox.make_sandbox`` and adds ``src/`` and
   ``validation/`` to the sandbox checkout (committed), so ``PYTHONPATH=$GIAP_REPO/src`` runs this
   branch's ``giap compare`` and ``repo_is_clean`` means "the job wrote nothing into the checkout".
@@ -26,8 +28,9 @@ Interface assumed (test-author reading of the spec; deliverable 1):
     (``<job>.batch``, ignored) and the task jobs' rows (``JobID`` in the trace ``native_id``
     column). ``expect``: ``{"arm": "A1"|"A2", "job": str, "commit": str, "inputs": {role: sha}}``
     (the CLI's ``--arm``, ``--job``, ``--expect-commit`` and ``--expect-input role=sha``).
-``compare_evidence(cmp, cmp2, labels) -> dict``
-    ``cmp`` and ``cmp2``: the two ``giap compare`` output directories; ``labels``: ``("A1", "A2")``.
+``compare_evidence(cmp, cmp2, labels, genes=PATH) -> dict``
+    ``cmp`` and ``cmp2``: the two ``giap compare`` output directories; ``labels``: ``("A1", "A2")``;
+    ``genes``: ``out_a1/tables/genes.tsv`` (the CLI's required ``--genes``; lead decision on B4).
 
 Both return a JSON-serialisable dict with a ``failures`` list of the spec's exact rule strings.
 The ``sacct`` rows' head ``MaxRSS``/``Elapsed`` and the task rows' ``AllocCPUS`` are strings, as
@@ -58,7 +61,8 @@ README = REPO / "validation" / "pilot" / "README.md"
 
 HEAD_JOB = "1900001"
 TASK_JOBS = ("1900002", "1900003")
-COMMIT = "0123abc"
+COMMIT = "0123abc"  # the short sha in ATTEMPTS.tsv and --expect-commit
+FULL_COMMIT = COMMIT + "4567890abcdef0123456789abcdef0123"  # the manifest's `git rev-parse HEAD`
 SHA_GENOME = "1" * 64
 SHA_ANNOTATION = "2" * 64
 SHA_PEPTIDES = "3" * 64
@@ -120,8 +124,8 @@ def manifest_doc(
     *,
     outdir: Path,
     trace: Sequence[Mapping[str, str]],
-    commit: str = COMMIT,
-    dirty: bool = False,
+    commit: str | None = FULL_COMMIT,
+    dirty: bool | None = False,
     exit_code: int = 0,
     failed_step: str | None = None,
     modules: Sequence[str] = ("core", "mobile", "bgc", "function"),
@@ -256,6 +260,58 @@ def load_run_evidence() -> ModuleType:
     sys.modules[spec.name] = mod
     spec.loader.exec_module(mod)
     return mod
+
+
+def arm_doc(
+    out: Path, sacct: Sequence[Mapping[str, str]] | None = None, **exp: Any
+) -> dict[str, Any]:
+    """``arm_evidence`` on ``out`` (default ``sacct_rows()``, ``expect(**exp)``), JSON-checked."""
+    mod = load_run_evidence()
+    doc = mod.arm_evidence(out, list(sacct_rows() if sacct is None else sacct), expect(**exp))
+    assert isinstance(doc, dict)
+    json.dumps(doc)  # JSON-serialisable
+    return doc
+
+
+def fake_sacct_env(
+    tmp: Path, rows: Sequence[Mapping[str, str]], *, sacct_script: str | None = None
+) -> dict[str, str]:
+    """A minimal environment whose ``sacct`` is the fake (or ``sacct_script``) serving ``rows``."""
+    from helpers.slurm_sandbox import FAKE_SACCT
+
+    bindir, state = tmp / "fakebin", tmp / "fakestate"
+    bindir.mkdir(exist_ok=True)
+    state.mkdir(exist_ok=True)
+    text = FAKE_SACCT if sacct_script is None else sacct_script
+    write_exe(bindir / "sacct", text.replace("{python}", sys.executable))
+    (state / "sacct_rows.json").write_text(json.dumps(list(rows)))
+    return {"PATH": f"{bindir}:/usr/bin:/bin", "HOME": str(tmp), "LANG": "C.UTF-8",
+            "FAKE_SLURM_DIR": str(state), "PYTHONPATH": str(REPO / "src"),
+            "GIAP_ROOT": str(tmp / "no_root"), "PYTHONDONTWRITEBYTECODE": "1"}  # fmt: skip
+
+
+def run_evidence_cli(
+    tmp: Path,
+    *args: str,
+    rows: Sequence[Mapping[str, str]] | None = None,
+    sacct_script: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """``python validation/pilot/run_evidence.py ARGS`` with the fake ``sacct``."""
+    assert RUN_EVIDENCE.is_file(), "validation/pilot/run_evidence.py does not exist (M10-04)"
+    env = fake_sacct_env(tmp, sacct_rows() if rows is None else rows, sacct_script=sacct_script)
+    return subprocess.run([sys.executable, str(RUN_EVIDENCE), *args], capture_output=True,
+                          text=True, env=env, cwd=str(tmp), timeout=300,
+                          check=False)  # fmt: skip
+
+
+def arm_cli_args(out: Path, dest: Path, **kw: str) -> list[str]:
+    """``arm OUT --arm --job --expect-commit --expect-input (3) --out`` (``kw`` overrides)."""
+    return ["arm", str(out), "--arm", kw.get("arm", "A2"), "--job", kw.get("job", HEAD_JOB),
+            "--expect-commit", kw.get("commit", COMMIT),
+            "--expect-input", f"genome={kw.get('genome', SHA_GENOME)}",
+            "--expect-input", f"annotation={kw.get('annotation', SHA_ANNOTATION)}",
+            "--expect-input", f"peptides={kw.get('peptides', SHA_PEPTIDES)}",
+            "--out", str(dest)]  # fmt: skip
 
 
 # ------------------------------------------------------------------ giap compare

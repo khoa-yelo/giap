@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -25,7 +26,7 @@ from helpers.pilot_runs_m10_04 import (
     compare_job_sandbox,
     two_arms,
 )
-from helpers.slurm_sandbox import assert_honours_giap_repo
+from helpers.slurm_sandbox import assert_honours_giap_repo, write_exe
 
 
 def _text() -> str:
@@ -88,6 +89,8 @@ def test_giap_python_runs_compare_twice_and_the_evidence(job: CompareJobSandbox)
     assert e[e.index("--second") + 1] == outdirs[1]
     assert e[e.index("--labels") + 1] == "A1,A2"
     assert Path(e[e.index("--out") + 1]) == _evidence(cmp)
+    assert "--genes" in e, "review B4: G comes from OUT_A1/tables/genes.tsv"
+    assert e[e.index("--genes") + 1] == str(a1 / "tables" / "genes.tsv")
 
 
 def test_wrong_argument_count_exits_2(job: CompareJobSandbox) -> None:
@@ -128,6 +131,55 @@ def test_different_genome_digests_exit_1(job: CompareJobSandbox) -> None:
     assert "different genomes" in _out(res)
     assert not _evidence(cmp).exists()
     assert job.repo_is_clean()
+
+
+# ------------------------------------------------------------------ review S4: job exit codes
+
+# A GIAP_PYTHON that runs the real interpreter, except: ``FAULT=evidence_fails`` deletes
+# ``CMP/plots/V16_compare.svg`` before ``run_evidence.py`` (rule C5 then fails, exit 1);
+# ``FAULT=second_fails`` exits 3 for the second ``giap compare`` (its ``--outdir`` is not CMP).
+_FAULTY_PYTHON = r"""#!/bin/bash
+args=("$@")
+if [ "${FAULT:-}" = evidence_fails ]; then
+  for a in "$@"; do
+    case "$a" in *run_evidence.py) rm -f "$FAULT_CMP/plots/V16_compare.svg" ;; esac
+  done
+fi
+if [ "${FAULT:-}" = second_fails ]; then
+  for i in "${!args[@]}"; do
+    if [ "${args[$i]}" = --outdir ] && [ "${args[$((i + 1))]}" != "$FAULT_CMP" ]; then
+      echo "fake: second compare fails" >&2; exit 3
+    fi
+  done
+fi
+exec {python} "$@"
+"""
+
+
+def _faulty(job: CompareJobSandbox, fault: str, cmp: Path) -> dict[str, str]:
+    exe = write_exe(
+        job.sb.bin / "faulty_python", _FAULTY_PYTHON.replace("{python}", sys.executable)
+    )
+    return {"GIAP_PYTHON": str(exe), "FAULT": fault, "FAULT_CMP": str(cmp)}
+
+
+def test_evidence_failure_is_the_job_exit_code(job: CompareJobSandbox) -> None:
+    """run_evidence.py exits 1 (a rule of set C fails): the job exits 1, the evidence is kept."""
+    a1, a2 = two_arms(job.runs)
+    cmp = job.runs / "cmp_a1_a2"
+    res = job.run(str(a1), str(a2), str(cmp), env=_faulty(job, "evidence_fails", cmp))
+    assert res.returncode == 1, _out(res)[-3000:]
+    assert json.loads(_evidence(cmp).read_text())["failures"] == ["no_compare_report"]
+
+
+def test_second_compare_failure_fails_the_job(job: CompareJobSandbox) -> None:
+    """The second ``giap compare`` fails: the job fails and no evidence is written."""
+    a1, a2 = two_arms(job.runs)
+    cmp = job.runs / "cmp_a1_a2"
+    res = job.run(str(a1), str(a2), str(cmp), env=_faulty(job, "second_fails", cmp))
+    assert res.returncode != 0, _out(res)[-3000:]
+    assert (cmp / "tables" / "compare_detection.tsv").is_file(), "the first compare ran"
+    assert not _evidence(cmp).exists()
 
 
 # ------------------------------------------------------------------ criterion 6: house rules
