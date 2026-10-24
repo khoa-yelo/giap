@@ -1192,3 +1192,20 @@ Statistician (M6-09, 2026-10-24; Slurm 1884493, rerun of 1884412):
   non-vacuous only in the extra convergent-only arm, and M-2 likewise.
 - Criterion 3 passes on the gate null. **Discordance gate: NOT MET (D-1), pending Khoa:** attack D-1 is a
 confirmed failure of the discordance level, gated as strict xfails naming ADR-0055 (proposed).
+
+Statistician (M6-13 design review, 2026-10-24; scratch oracles at R = 1,000, Slurm 1885387,
+1885388, 1885429, 1885466 and 1885467; `local/logs/calibration/m6_13_statreview{,_a}/`):
+**approved with edits.**
+- The log-linear σ restores D-1 (pooled 0.0101 / 0.0505 / 0.1002; lowest quartile 0.0093 /
+  0.0478 / 0.0969) at no cost under the null.
+- It is at level from 20 pairs, so there is no separate 50-pair gate.
+- D-1b-step fails the pooled level (0.0518 / 0.1024), which confirms the spec-writer's
+  prediction. No smooth σ(z) fixes it, so it is a strict xfail under an ADR-0055 amendment.
+- The variance floor and per-gene measurement noise (new D-1c) pass the pooled level. Their top
+  quartile runs at up to 1.7× nominal at α = 0.01: recorded, with a 2α escalation.
+- Quartiles of the pair mean m are not a valid level check. m contains Δ/2, and the shipped
+  constant method fails them under the gate null. Quartiles of the upstream gene's abundance are
+  at level.
+- Power non-inferiority uses an absolute margin of 0.02. The measured difference is −0.006 at
+  α = 0.05.
+- Decisions S-1 to S-11 and the Q1–Q8 rulings are in docs/specs/M6-13-discordance-abundance-sigma.md.
