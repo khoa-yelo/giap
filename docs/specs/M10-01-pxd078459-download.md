@@ -249,3 +249,7 @@ and §15.5 metric 8's "only wild-type runs" are satisfied here.
    same Content-Length and the same first MiB for all three runs. The committed manifest uses it
    as `url` and keeps the record link as `url_record`. This is reversible (one column) and parked
    for Khoa (local/handoff/khoa_q.md).
+
+## Lead decisions (2026-10-24)
+
+Every lead question L1–L14 takes its default. Khoa, 2026-10-24 (M10-04/05 Q-K1): aggregate numbers (counts, shares, ρ, Jaccards, TE results) and named example genes may be committed in REPORT.md / metrics.json; no row-level DIA-NN content. The spec is stacked on M10-05 (branch m10/spec-05 is merged into m10/spec-06).
