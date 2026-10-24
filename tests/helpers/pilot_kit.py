@@ -229,6 +229,7 @@ if not os.path.exists(rec["image"]):
 inner = rec["inner"][1:]
 if not inner or set(inner) <= {"--help", "--version", "--dry-run"}:
     rec["smoke"] = True
+    print()  # the real binary prints a blank line first (job 1879883)
     print("DIA-NN 2.3.1 Academia (Data-Independent Acquisition by Neural Networks)")
     print("Compiled on Dec  5 2025")
     log(0)
@@ -259,6 +260,12 @@ out = value("--out")
 if out is not None:
     touch(out)
 log(int(os.environ.get("FAKE_DIANN_RC", "0")))
+"""
+
+_DF = """#!/bin/sh
+# Fake df -Pk: one filesystem with 1 PiB available.
+echo "Filesystem 1024-blocks Used Available Capacity Mounted on"
+echo "fake 1099511627776 0 1099511627776 0% /"
 """
 
 _FETCH = r"""#!{python}
@@ -333,8 +340,12 @@ class PilotSandbox:
         return subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip()
 
 
-def pilot_sandbox(tmp: Path, *, sif: bool = True, raws: int = 3) -> PilotSandbox:
-    """A sandbox checkout with fake container and download tools (nothing real runs)."""
+def pilot_sandbox(
+    tmp: Path, *, sif: bool = True, raws: int = 3, m10_02: bool = True
+) -> PilotSandbox:
+    """A sandbox checkout with fake container and download tools (nothing real runs). ``m10_02``
+    adds the inputs diann_pilot.sbatch checks first (``_m10_02_inputs``); helpers.pilot_kit_m10
+    builds its own and passes False."""
     sb = make_sandbox(tmp)
     shutil.copytree(REPO / "validation", sb.repo / "validation",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))  # fmt: skip
@@ -352,6 +363,9 @@ def pilot_sandbox(tmp: Path, *, sif: bool = True, raws: int = 3) -> PilotSandbox
         write_exe(sb.bin / name, _APPTAINER.replace("{python}", py))
     for name in ("wget", "curl"):
         write_exe(sb.bin / name, _FETCH.replace("{python}", py))
+    # pxd_fetch needs 3 x the recorded download free (90 GB for PXD078459); the stand-in payloads
+    # are a few KB, so report 1 PiB rather than depend on the runner's disk (CI had 89.8 GB)
+    write_exe(sb.bin / "df", _DF)
 
     image = sb.tmp / "images" / "diann_2.3.1.sif"
     image.parent.mkdir(parents=True, exist_ok=True)
@@ -363,6 +377,9 @@ def pilot_sandbox(tmp: Path, *, sif: bool = True, raws: int = 3) -> PilotSandbox
         d = raw_dir / f"wt_rep{i + 1}.d"
         d.mkdir(exist_ok=True)
         (d / "analysis.tdf").write_text("stub timsTOF data\n")
+        (d / "analysis.tdf_bin").write_text("stub timsTOF binary\n")
+    if m10_02:
+        _m10_02_inputs(sb, image if sif else None, raws)
     out_dir = sb.root / "pilot"
     sb.env.update({
         "DIANN_SIF": str(image),
@@ -377,6 +394,31 @@ def pilot_sandbox(tmp: Path, *, sif: bool = True, raws: int = 3) -> PilotSandbox
     })  # fmt: skip
     _materialise_fastas(sb)
     return PilotSandbox(sb=sb, sif=image, raw_dir=raw_dir, out_dir=out_dir)
+
+
+def _m10_02_inputs(sb: Sandbox, image: Path | None, raws: int) -> None:
+    """What diann_pilot.sbatch checks before any container call (M10-02 lead decision 1): a
+    read-only image whose sha256 equals the pin, the M10-01 acquisition JSON naming the runs, and
+    the GIAP_PYTHON that runs the checks."""
+    import hashlib
+    import json
+    import subprocess
+    import sys
+
+    if image is not None:
+        image.chmod(0o444)
+    pilot = sb.repo / "validation" / "pilot"
+    digest = hashlib.sha256(b"stub sif\n").hexdigest()
+    (pilot / "diann_image.sha256").write_text(f"{digest}  diann_2.3.1.sif\n")
+    runs = [f"wt_rep{i + 1}" for i in range(raws or 3)]
+    acq = pilot / "inputs" / "acquisition.json"
+    acq.parent.mkdir(parents=True, exist_ok=True)
+    acq.write_text(json.dumps({"dataset_mode": "diaPASEF", "runs": [
+        {"run": r, "mode": "diaPASEF", "notes": ""} for r in runs]}))  # fmt: skip
+    for args in (["add", "-A"], ["commit", "-q", "-m", "m10-02 inputs"]):
+        subprocess.run(["git", "-C", str(sb.repo), *args], check=True, capture_output=True,
+                       env=sb.env)  # fmt: skip
+    sb.env["GIAP_PYTHON"] = sys.executable
 
 
 def _materialise_fastas(sb: Sandbox) -> None:

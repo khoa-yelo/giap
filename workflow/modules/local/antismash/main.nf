@@ -14,8 +14,11 @@ process ANTISMASH {
     path 'versions.yml', emit: versions
 
     script:
+    def gz = gbff.name.toLowerCase().endsWith('.gz')
+    def input = gz ? "${meta_id}.gbff" : "${gbff}"
     """
-    antismash --genefinding-tool none --minimal --databases ${db_dir}/antismash --cpus ${task.cpus} --output-dir antismash ${gbff}
+    ${gz ? "gzip -dc ${gbff} > ${input}" : ''}
+    antismash --genefinding-tool none --minimal --databases ${db_dir}/antismash --cpus ${task.cpus} --output-dir antismash ${input}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
