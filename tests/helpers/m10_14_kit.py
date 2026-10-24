@@ -532,7 +532,14 @@ def cleanup_sandbox(tmp: Path) -> CleanupSandbox:
         _w(root / "pilot" / "metrics" / f"freeze-{F7}" / "metrics.json", "{}\n"),
         _w(
             root / "pilot" / "reproduce" / f"verify-{F7}.json",
-            json.dumps({"failures": [], "reconvert": {"a1": "identical", "a2": "identical"}}),
+            json.dumps(
+                {
+                    "freeze_commit": F,
+                    "static_ok": True,
+                    "failures": [],
+                    "reconvert": {"a1": "identical", "a2": "identical"},
+                }
+            ),
         ),
     ]
 

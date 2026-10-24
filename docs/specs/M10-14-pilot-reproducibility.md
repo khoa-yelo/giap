@@ -511,3 +511,30 @@ measured 6 h on K-12), so 12–32 h plus queue waits; S14 about 1 h; the clean-u
   `tests/data/recorded/bakta/1.12.2-full/nissle/PROVENANCE.md`, and the runbook's `genome` row
   names those two files. The "Committed input hashes" table above is wrong on the same point. The
   test fixture keeps example 4 verbatim against a synthetic manifest.
+
+## Lead decisions (2026-10-24), review round 1
+
+- B1: the clean-up compares targets and protected entries after `os.path.realpath` on both sides,
+  so a `GIAP_ROOT` (or `GIAP_DATA_DIR`) with a trailing slash, `/./`, `//`, `..` or a symlink alias
+  still protects every Inputs row and every `kept = yes` Outputs row (exit 2, nothing deleted).
+- S1: the clean-up refuses (exit 2) unless `verify-<F7>.json` has `static_ok: true` and a
+  `reconvert` result that passed (every value `identical`, `changed` or `absent`).
+- S2: `nextflow clean -f -k` gets a `DELETED.tsv` row (`action` `nextflow_clean`) before it runs;
+  a failing `nextflow clean` makes the job exit 1.
+- S3: every plan row is an absolute path with no tab or newline, or the job exits 2 before any
+  delete; `$GIAP_ROOT` itself is never a target (raw path and `realpath` must match `"$ROOT"/?*`).
+- S4: a gate-digest Outputs row names the digest file (for example `$R/out_a2/run_manifest.json`),
+  not the run directory. A `kept = yes` row naming a directory that holds a target refuses (exit 2).
+- S5: L9 (`PLAN_ONLY=1-1`, a pre-freeze preview of plan step 1) is deferred to 14b.
+- S6: the de novo outputs (`*.ssl`, `*.mztab`) are kept under the K2 default, like the DIA-NN
+  reports and libraries (`kept_pending_K2`); plan step 4 deletes only the mzML directory.
+- S7: a crash of a re-conversion in S-check is a failure (exit 1), recorded in `verify-<F7>.json`
+  (a `failures[]` entry naming the arm; its `reconvert` value is not a passing one).
+- S8: `static` fails on a `Reads:` id that is no Inputs/Outputs id (`unknown_read`), on numbered
+  steps out of ascending order (`step_order`), and on a `final` runbook with `a3_branch=pending`
+  (`a3_pending_in_final`). `tools_differ:<tool>` (a changed image digest) is deferred to 14b with
+  `run_evidence.py`.
+- N1: the clean-up's F is 40 lower-case hex characters and equals `verify-<F7>.json`'s
+  `freeze_commit`; otherwise exit 2.
+- N2: an uncaught error in the clean-up's plan step or in `reproduce_check.py` exits 2 (never 1,
+  which means "a deletion failed" or "a check failed").
