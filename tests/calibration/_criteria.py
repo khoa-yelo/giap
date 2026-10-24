@@ -1250,6 +1250,10 @@ def _merge_main(suite: str, full: bool) -> int:
     decisions 7-8). A confirmed fail keeps ``MERGE_FAIL`` whatever the confirm run's exit.
     """
     code = 0
+    if not (log_dir() / f"{suite}.jsonl").exists() and _shards_complete(suite):
+        # no harness check in the suite (e.g. denovo_precision): its verdicts are the shard exits
+        print(f"merge {suite}: no calibrate records; every shard finished (verdicts: shard exits)")
+        return 0
     try:
         merged = merge_shards(suite)
         pending = [r for r in merged if r["status"] == PENDING_STATUS]
@@ -1306,7 +1310,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     base = {k: v for k, v in os.environ.items() if k not in (SHARD_ENV, BLOCK_ENV, CONFIRM_ENV)}
     if CONFIRM_ENV in os.environ:
         print(f"main: ignoring {CONFIRM_ENV} (set only by --merge's block-2 run)", file=sys.stderr)
-    return subprocess.run(cmd, env={**base, **env}, check=False).returncode
+    rc = subprocess.run(cmd, env={**base, **env}, check=False).returncode
+    if ns.shard is not None:
+        _log_shard_done(ns.suite, ns.shard_kn, ns.block, rc)
+    return rc
+
+
+def _log_shard_done(suite: str, kn: tuple[int, int], block: int, rc: int) -> None:
+    """Append ``{suite, shard, n, block, pytest_exit}`` to ``<log_dir>/<suite>.shards.jsonl``."""
+    d = log_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    rec = {"suite": suite, "shard": kn[0], "n": kn[1], "block": block, "pytest_exit": rc}
+    with (d / f"{suite}.shards.jsonl").open("a") as fh:
+        fh.write(json.dumps(rec) + "\n")
+
+
+def _shards_complete(suite: str) -> bool:
+    """True when ``<suite>.shards.jsonl`` holds every block-1 shard 0..N-1 of one N."""
+    path = log_dir() / f"{suite}.shards.jsonl"
+    if not path.exists():
+        return False
+    done = [r for r in read_results(path) if int(r["block"]) == 1]
+    ns = {int(r["n"]) for r in done}
+    return len(ns) == 1 and {int(r["shard"]) for r in done} == set(range(ns.pop()))
 
 
 if __name__ == "__main__":
