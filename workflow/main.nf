@@ -12,7 +12,7 @@ include { GIAP_STEP } from './modules/local/giap_step/main'
 include { ANNOTATE; kv; pick } from './subworkflows/local/annotate'
 include { MAPPING } from './subworkflows/local/mapping'
 include { GENETABLE } from './subworkflows/local/genetable'
-include { CONTEXT } from './subworkflows/local/context'
+include { CONTEXT; ofMapping } from './subworkflows/local/context'
 include { SENSITIVITY_RERUNS } from './subworkflows/local/sensitivity'
 include { VARIANTS } from './subworkflows/local/variants'
 include { NOVEL } from './subworkflows/local/novel'
@@ -91,7 +91,9 @@ workflow {
             NOVEL(genome, gene_model, ANNOTATE.out.contract, MAPPING.out.mapping, opt(inputs.peptides),
                   opt(contaminantLibrary(inputs)), GENETABLE.out.gene_table, ANNOTATE.out.layer_pairs,
                   MAPPING.out.hits_exact.combine(MAPPING.out.hits_tolerant).combine(MAPPING.out.placement_costs).first())
-            OPERONS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract, ANNOTATE.out.layers_for_pairs)
+            // M6-05H: C11 peptide_hits joins the optional [key, path] inputs (M6-02 detection-limit model)
+            OPERONS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract,
+                    ANNOTATE.out.layers_for_pairs.mix(kv('peptide_hits', ofMapping(MAPPING.out.mapping, 'peptide_hits.tsv'))))
             DETERMINANTS(GENETABLE.out.gene_table, gene_model, ANNOTATE.out.contract,
                          ANNOTATE.out.regions, CONTEXT.out.gene_context)
             // M8-16: after DETERMINANTS and beside FUNCTION (its enriched categories family)

@@ -1,14 +1,17 @@
 """Discordant OP pairs: the within-operon t test and its BH family (GIAP_SPEC.md §7.4.2, §7.4.3,
-§8.1; docs/specs/M6-05-discordance.md, pass 1).
+§8.1; docs/specs/M6-05-discordance.md, passes 1 and 2 / M6-05H).
 
 The abundance difference Delta of the usable OP pairs (both genes detected with a finite,
 non-imputed ``abundance_log2``) is fitted by a Student-t (M6-01); every eligible both-detected OP
 pair is then tested two-sided against that fit and the t p-values form one BH family.
 
-Pass 1 (lead decisions 2026-10-21): fewer than ``MIN_OP_PAIRS`` usable pairs or a degenerate fit
-leaves every OP pair unestimated with ``too_few_op_pairs``; the one-detected branch is unestimated
-with ``no_detection_limit_model`` and ``P(miss)`` never enters the BH family (M6-index decision 1);
-``ci_low``/``ci_high`` stay NA with ``unestimated``. Pure and deterministic: no I/O, no RNG.
+Lead decisions (2026-10-21): fewer than ``MIN_OP_PAIRS`` usable pairs or a degenerate fit leaves
+every OP pair unestimated with ``too_few_op_pairs``; ``ci_low``/``ci_high`` stay NA. A pair with
+exactly one detected gene ``u`` undetected is scored by M6-02's ``P(miss)`` (``one_detected_pmiss``,
+M6-05H) when a ``p_miss`` callable is given, else (or when it returns NaN) it is unestimated with
+``no_detection_limit_model``. ``P(miss)`` is a probability, not a p-value: it gets no q and never
+enters the BH family (M6-index decision 1, M6-02 decision 4). Pure and deterministic: no I/O, no
+RNG.
 """
 
 from __future__ import annotations
@@ -43,13 +46,14 @@ UNESTIMATED = "unestimated"
 CI_UNESTIMATED = "ci_unestimated"
 NO_DL_MODEL = "no_detection_limit_model"
 RELATIVE = "relative_scale"
+PMISS_TEST = "one_detected_pmiss"
 
 
 class PMissModel(Protocol):
     """M6-02's detection-limit model: ``P(miss)`` of gene ``u`` given its partner's abundance
-    ``a_v`` and the oriented ratio sample (pass 2, M6-05H; unused in pass 1)."""
+    ``a_v`` and the oriented ratio sample r (§7.4.3); NaN when it cannot be scored (M6-05H)."""
 
-    def __call__(self, u: str, a_v: float, ratios: F64) -> float: ...
+    def __call__(self, u: str, a_v: float, ratios: F64, /) -> float: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,24 +138,58 @@ def _fit(delta: F64) -> StudentT:
     return fit
 
 
+def _one_detected(
+    rows: pd.DataFrame,
+    work: pd.DataFrame,
+    idx: npt.NDArray[np.intp],
+    delta: F64,
+    p_miss: PMissModel | None,
+) -> dict[int, list[str]]:
+    """Score the one-detected rows ``idx`` in place with ``P(miss)`` (spec item 4) and return the
+    flags of the rows left unestimated. The undetected gene u is ``gene_b`` (downstream, r = Δ)
+    or ``gene_a`` (upstream, r = -Δ); ``a_v`` is the detected partner's ``abundance_log2``. A row
+    whose ``a_v`` is missing is untested with no flag (item 5); no q is written (decision 1)."""
+    if p_miss is None:
+        return {int(i): [NO_DL_MODEL, UNESTIMATED] for i in idx}
+    det_a = _bool(work["detected_a"])
+    a = work["abundance_log2_a"].astype(float).to_numpy()
+    b = work["abundance_log2_b"].astype(float).to_numpy()
+    upstream = -delta[::-1]  # still ascending
+    out: dict[int, list[str]] = {}
+    for i in (int(j) for j in idx):
+        down = bool(det_a[i])  # gene_a detected: u = gene_b is downstream
+        a_v = float(a[i] if down else b[i])
+        if not math.isfinite(a_v):
+            continue
+        u = str(work.at[i, "gene_b" if down else "gene_a"])
+        p = float(p_miss(u, a_v, delta.copy() if down else upstream.copy()))
+        if not math.isfinite(p):
+            out[i] = [NO_DL_MODEL, UNESTIMATED]
+            continue
+        rows.loc[i, ["test", "stat", "p_value", "method", "null_model"]] = [
+            PMISS_TEST, a_v, p, "detection_limit", "p_detect_model"]  # fmt: skip
+    return out
+
+
 def discordance(
     pairs: pd.DataFrame, genes: pd.DataFrame, cfg: GiapConfig, p_miss: PMissModel | None
 ) -> Discordance:
-    """Test every OP pair for discordant abundance (§7.4.3, pass 1).
+    """Test every OP pair for discordant abundance (§7.4.3).
 
     Args:
         pairs: the M6-04 pair frame (``giap.operons.pairs.pair_frame``).
         genes: the gene table; reads ``locus_tag``, ``partial``, ``abundance_imputed``,
             ``abundance_type`` and ``abundance_scale``.
         cfg: run configuration (``abundance.missing``).
-        p_miss: M6-02's detection-limit model; unused in pass 1 (one-detected rows are
-            ``unestimated (no_detection_limit_model)``).
+        p_miss: M6-02's detection-limit model as ``p_miss(u, a_v, ratios)``, or ``None`` when
+            there is none (one-detected rows are then ``unestimated (no_detection_limit_model)``).
 
     Returns:
         The fit, the Delta sample it used and one row per OP pair; ``q_value`` is BH over the
-        rows with a p-value. The input frames are not modified.
+        ``both_detected_t`` rows only (``one_detected_pmiss`` rows have no q). The input frames
+        are not modified.
     """
-    del p_miss, cfg  # pass 1: no detection-limit model; NaN abundances are untested in every mode
+    del cfg  # NaN abundances are untested in every ``abundance.missing`` mode
     op = pairs.loc[pairs["class"] == "OP"].reset_index(drop=True)
     work = op.copy()
     for side in ("a", "b"):
@@ -188,11 +226,11 @@ def discordance(
         rows.loc[idx, "stat"] = d[idx]
         rows.loc[idx, "effect"] = d[idx] - fit.loc
         rows.loc[idx, "p_value"] = p
-        rows.loc[idx, "q_value"] = bh(p)
+        rows.loc[idx, "q_value"] = bh(p)  # the family: t p-values only (M6-index decision 1)
         rows.loc[idx, "method"] = "student_t"
         rows.loc[idx, "null_model"] = "within_operon_t"
         extra = {int(i): [CI_UNESTIMATED] for i in idx}  # no CI for a single pair (decision 2)
-        extra.update({int(i): [NO_DL_MODEL, UNESTIMATED] for i in np.flatnonzero(one)})
+        extra.update(_one_detected(rows, work, np.flatnonzero(one), delta, p_miss))
     for i, add in extra.items():
         flags[i] = flags[i] + [f for f in add if f not in flags[i]]
     rows["flags"] = flags

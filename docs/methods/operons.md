@@ -48,7 +48,7 @@ the fit is returned unestimated, so M6-05 tests nothing.
 carries its uncertainty. The per-pair effect M6-05 reports is described under *Discordance*
 below.
 
-## Discordance (M6-05, pass 1)
+## Discordance (M6-05, M6-05H)
 
 Module `giap.operons.discordance` (GIAP_SPEC.md §7.4.3, §8.1 row "Operon discordance"; lead
 decisions in `docs/specs/M6-05-discordance.md` and M6-index decision 1).
@@ -67,11 +67,18 @@ sampling replicate, and the t prediction interval is a statement about the null,
 effect (M6-05 lead decision 2). The claim GIAP makes is "discordant at q ≤ 0.1", and that claim
 carries its q.
 
-**Family.** One BH family per run: every OP pair with `test = both_detected_t`. In pass 1 the
-one-detected branch is `unestimated (no_detection_limit_model)`, so this is literally §7.4.3's
-"all tested OP pairs". When M6-05H turns on P(miss), M6-index decision 1 keeps P(miss) out of the
-family and without a q. That departs from §7.4.3's "both kinds together", so it needs an ADR at
-that point. P(miss) is not uniform under any null, so BH over the mixture has no justification.
+**One detected (M6-05H).** When the `operons` step has C11 peptide hits and M6-02's model in
+force is usable, an OP pair with exactly one detected gene is `one_detected_pmiss`: `stat` = the
+detected partner's log2 abundance a_v, `p_value` = P(miss) of the undetected gene u under the
+out-of-fold model of u's TU, averaged over the oriented ratios r of the fit pairs (Δ when u is
+downstream, −Δ when upstream), `method = detection_limit`, `null_model = p_detect_model`. A gene
+with no observable peptide (P(miss) NaN), no peptide hits or an unusable model leaves the pair
+`none` with `no_detection_limit_model`.
+
+**Family.** One BH family per run: every OP pair with `test = both_detected_t`. M6-index decision 1
+keeps P(miss) out of the family: a `one_detected_pmiss` row has `q_value` NA and no extra flag.
+That departs from §7.4.3's "both kinds together", which needs an ADR (pending M6-09 attack C).
+P(miss) is not uniform under any null, so BH over the mixture has no justification.
 
 **Relative scale.** With `abundance_scale = relative` (MaxLFQ, summed intensity, unknown;
 §7.3.4) Δ is not a ratio of copy numbers, because each protein's normalisation constant enters it.
