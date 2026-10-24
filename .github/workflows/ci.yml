@@ -43,7 +43,7 @@ jobs:
         run: python3 scripts/ci/check_protected.py origin/${{ github.base_ref }}
       - name: test/implementation roles (R2)
         run: python3 scripts/ci/check_roles.py origin/${{ github.base_ref }}
-      - name: R golden data carry a PROVENANCE.md update (M8-12)
+      - name: golden data carry a PROVENANCE.md update (M8-12, M8-12b)
         run: python3 scripts/ci/check_golden_provenance.py origin/${{ github.base_ref }}
       - name: unique test module names
         run: python3 scripts/ci/check_test_names.py

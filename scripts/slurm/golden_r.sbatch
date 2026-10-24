@@ -12,6 +12,9 @@
 #   2. checks packageVersion() of each package equals its pin, exports golden_r.explicit.txt;
 #   3. writes the inputs and runs make_golden_r.R twice, checking byte-identical outputs;
 #   4. writes tests/data/golden/r/{inputs,outputs,VERSIONS.txt,PROVENANCE.md} in <checkout>.
+# GOLDEN_R_REASON (required) goes into PROVENANCE.md. The job exits 1 before writing if the ORA
+# inputs or outputs/goseq.tsv.gz differ from the committed ones, unless GOLDEN_R_ALLOW_ORA_CHANGE=1
+# (M8-12b §2.1).
 set -euo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 WT="$(cd "${1:-$GIAP_REPO}" && pwd)"
@@ -26,6 +29,7 @@ prefix="$MAMBA_ROOT_PREFIX/envs/$ENV"
 marker="$prefix/.giap-built"
 want="$(sha256sum "$YML" | cut -d' ' -f1)"
 : "${SLURM_JOB_ID:?run through sbatch: PROVENANCE.md records the job}"
+: "${GOLDEN_R_REASON:?set GOLDEN_R_REASON: PROVENANCE.md records why the data were regenerated}"
 echo "checkout=$WT head=$(git rev-parse --short HEAD) node=$(hostname) job=${SLURM_JOB_ID:-none}"
 
 if [ -d "$prefix" ] && [ "$(cat "$marker" 2>/dev/null || true)" = "$want" ]; then
@@ -61,6 +65,22 @@ echo "inputs and outputs byte-identical across two runs"
 size="$(du -cb "$TMPDIR"/out1/* | tail -1 | cut -f1)"
 [ "$size" -le $((5 * 1024 * 1024)) ] || { echo "outputs exceed 5 MB (R11)" >&2; exit 1; }
 
+changed=""
+for f in inputs/ora_genes.tsv.gz inputs/ora_categories.tsv.gz outputs/goseq.tsv.gz; do
+  case "$f" in inputs/*) new="$TMPDIR/in1/${f#inputs/}" ;; *) new="$TMPDIR/out1/${f#outputs/}" ;; esac
+  if [ -e "$DEST/$f" ] && ! cmp -s "$DEST/$f" "$new"; then changed="$changed $f"; fi
+done
+if [ -n "$changed" ]; then
+  if [ "${GOLDEN_R_ALLOW_ORA_CHANGE:-0}" = 1 ]; then
+    echo "ORA guard overridden (GOLDEN_R_ALLOW_ORA_CHANGE=1):$changed"
+  else
+    echo "ORA guard: changed against the committed files:$changed (GOLDEN_R_ALLOW_ORA_CHANGE=1 overrides)" >&2
+    exit 1
+  fi
+fi
+supersedes="$(sed -n 's/^- Slurm job: \([0-9][0-9]*\).*/\1/p' "$DEST/PROVENANCE.md" 2>/dev/null | head -1 || true)"
+supersedes="${supersedes:+Slurm job $supersedes}"
+
 rm -rf "$DEST/inputs" "$DEST/outputs"
 mkdir -p "$DEST"
 cp -r "$TMPDIR/in1" "$DEST/inputs"
@@ -75,6 +95,8 @@ cat > "$DEST/PROVENANCE.md" <<MD
 - Command: \`sbatch scripts/slurm/golden_r.sbatch\` (runs \`scripts/golden/make_golden_inputs.py
   --seed $seed\` and \`Rscript --vanilla scripts/golden/make_golden_r.R\` in env \`$ENV\`).
 - Slurm job: ${SLURM_JOB_ID:?run through sbatch} on $(hostname), $(date -u +%Y-%m-%d) ($(date -u +%H:%M) UTC).
+- Reason: $GOLDEN_R_REASON
+- Supersedes: ${supersedes:-none}
 - Env lock: \`scripts/golden/golden_r.explicit.txt\`, sha256 \`$lock_sha\`
   (R $(micromamba run -n "$ENV" Rscript -e 'cat(paste(R.version$major, R.version$minor, sep="."))'),
   fgsea 1.36.2, goseq 1.62.0, BiasedUrn 2.0.12; conda-forge and bioconda only).
