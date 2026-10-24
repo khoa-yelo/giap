@@ -18,6 +18,7 @@ import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
@@ -180,6 +181,9 @@ def test_example1_mapping_and_bytes(tmp_path: Path) -> None:
     assert stripped.severity == "info"
     assert stripped.n_rows == 1
     assert stripped.examples == ("2",)
+    # Example 1: the issue list is the single info ``stripped``. A standard W1 header (RT
+    # columns included) gives no ``unknown_column`` warning.
+    assert [(i.code, i.severity) for i in res.issues] == [("stripped", "info")]
 
 
 @pytest.mark.parametrize(("sequence", "peptide"), list(EXAMPLE2.items()))
@@ -197,6 +201,24 @@ def test_example2_all_rows_in_one_file(tmp_path: Path) -> None:
     got = dict(zip(res.peptides["modified_peptide"], res.peptides["peptide"], strict=True))
     assert got == EXAMPLE2
     assert by_code(res.issues, "stripped").n_rows == len(EXAMPLE2)
+
+
+def test_sequence_that_strips_to_empty_becomes_missing(tmp_path: Path) -> None:
+    """Step 8: an empty stripped result is missing, not ``""``; the validator warns, row kept."""
+    rows = [row("0", "2", "PEPTLDEK", "0.9"), row("1", "2", "[+42.01]-", "0.9")]
+    res = convert([write_ssl(tmp_path, rows)])
+    assert not errors(res.issues), res.issues
+    assert len(res.peptides) == 2
+    df = res.peptides.set_index("spectrum_id")
+    assert pd.isna(df.loc["cascadia:1", "peptide"])
+    assert df.loc["cascadia:1", "modified_peptide"] == "[+42.01]-"
+    assert "" not in res.peptides["peptide"].dropna().tolist()
+    assert by_code(res.issues, "stripped").examples == ("2",)
+    warn = by_code(res.issues, "non_letters")
+    assert warn.severity == "warn"
+    assert warn.examples == ("2",)
+    line = [x for x in to_bytes(res, tmp_path / "p.tsv").decode().splitlines() if "cascadia:1" in x]
+    assert line[0].split("\t")[:2] == ["NA", "[+42.01]-"]
 
 
 def test_example3_i_and_l_kept_as_written(tmp_path: Path) -> None:
@@ -272,6 +294,22 @@ def test_example6_unsupported_score_type(tmp_path: Path) -> None:
     assert issue.severity == "error"
     assert issue.examples == ("1",)
     assert "PERCOLATOR QVALUE" in issue.message
+
+
+def test_unsupported_score_type_message_names_first_offending_value(tmp_path: Path) -> None:
+    """Step 5: the message quotes the first offending value, not the first row's value."""
+    rows = [
+        row("0", "2", "PEPTLDEK", "0.9"),
+        row("1", "2", "SAMPLLER", "0.9", score_type="XCORR"),
+        row("2", "2", "SAMPLLERK", "0.9", score_type="PERCOLATOR QVALUE"),
+    ]
+    res = convert([write_ssl(tmp_path, rows)])
+    assert res.peptides.empty
+    issue = by_code(res.issues, "unsupported_score_type")
+    assert issue.severity == "error"
+    assert (issue.n_rows, issue.examples) == (2, ("2", "3"))
+    assert "'XCORR'" in issue.message
+    assert "PERCOLATOR" not in issue.message
 
 
 def test_missing_score_type_is_the_same_error(tmp_path: Path) -> None:
@@ -382,6 +420,7 @@ def test_example10c_zero_byte_file(tmp_path: Path) -> None:
     issue = by_code(res.issues, "unreadable")
     assert issue.severity == "error"
     assert "empty TSV (no header)" in issue.message
+    assert str(p) in issue.message
 
 
 @pytest.mark.parametrize("missing", ["file", "scan", "charge", "sequence", "score-type", "score"])
@@ -406,12 +445,16 @@ def test_bad_encoding_is_unreadable(tmp_path: Path) -> None:
     p = tmp_path / "WT_1.ssl"
     p.write_bytes(ssl_text(EX1_ROWS).encode() + b"\xff\xfe\t\n")
     res = convert([p])
-    assert by_code(res.issues, "unreadable").severity == "error"
+    issue = by_code(res.issues, "unreadable")
+    assert issue.severity == "error"
+    assert str(p) in issue.message
 
 
 def test_missing_input_file_is_unreadable(tmp_path: Path) -> None:
     res = convert([tmp_path / "absent.ssl"])
-    assert by_code(res.issues, "unreadable").severity == "error"
+    issue = by_code(res.issues, "unreadable")
+    assert issue.severity == "error"
+    assert str(tmp_path / "absent.ssl") in issue.message
 
 
 # ------------------------------------------------------------------ example 11 (charge, length)
@@ -433,6 +476,33 @@ def test_example11_charge_two_point_zero(tmp_path: Path) -> None:
     assert not errors(res.issues), res.issues
     line = to_bytes(res, tmp_path / "p.tsv").decode().splitlines()[1]
     assert line.split("\t")[4] == "2"
+
+
+@pytest.mark.parametrize("cell", [None, "NA"])
+def test_f7_missing_charge_is_left_to_the_validator(tmp_path: Path, cell: str | None) -> None:
+    """Lead decision 2026-10-24 (D5): a missing charge converts to NA with no converter issue."""
+    rows = [row("0", "2", "PEPTLDEK", "0.9"), {**row("1", "2", "SAMPLLER", "0.9"), "charge": cell}]
+    res = convert([write_ssl(tmp_path, rows)])
+    assert list(res.issues) == [], res.issues
+    df = res.peptides.set_index("spectrum_id")
+    assert len(df) == 2
+    assert pd.isna(df.loc["cascadia:1", "charge"])
+    assert df.loc["cascadia:0", "charge"] == 2
+    assert str(res.peptides["charge"].dtype) == "Int64"
+
+
+@pytest.mark.parametrize("cell", [None, "NA"])
+def test_f7_missing_sequence_warns_and_row_is_written(tmp_path: Path, cell: str | None) -> None:
+    """Lead decision 2026-10-24 (D5): a missing sequence gives only the warn ``non_letters``."""
+    rows = [row("0", "2", "PEPTLDEK", "0.9"), {**row("1", "2", "X", "0.9"), "sequence": cell}]
+    res = convert([write_ssl(tmp_path, rows)])
+    assert [(i.code, i.severity, i.examples) for i in res.issues] == [
+        ("non_letters", "warn", ("2",))
+    ]
+    df = res.peptides.set_index("spectrum_id")
+    assert len(df) == 2
+    assert pd.isna(df.loc["cascadia:1", "peptide"])
+    assert pd.isna(df.loc["cascadia:1", "modified_peptide"])
 
 
 def test_example11_short_and_long_peptides_written_with_warnings(tmp_path: Path) -> None:
@@ -518,15 +588,37 @@ def test_d1_run_is_the_stem(tmp_path: Path, file: str, run: str) -> None:
 
 @pytest.mark.parametrize("file", [None, "/x/mzml/", "/x/mzml/.mzML", ".mzML.gz"])
 def test_d1_empty_file_or_stem_is_an_error(tmp_path: Path, file: str | None) -> None:
-    """The spec names no issue code for this error (D1); only the severity is asserted."""
+    """D1, step 3: a missing ``file`` or an empty stem is the error ``bad_value:file``."""
     res = convert([write_ssl(tmp_path, [row("0", "2", "PEPTLDEK", "0.9", file=file)])])
-    assert errors(res.issues), res.issues
+    issue = by_code(res.issues, "bad_value:file")
+    assert issue.severity == "error"
+    assert (issue.n_rows, issue.examples) == (1, ("1",))
+    assert codes(errors(res.issues)) == {"bad_value:file"}
     assert res.peptides.empty
 
 
 @pytest.mark.parametrize("scan", ["-1", "3.0", "abc", "1e3", None, "+3", " 3"])
 def test_d2_scan_not_a_nonnegative_integer(tmp_path: Path, scan: str | None) -> None:
     rows = [row("0", "2", "SAMPLLER", "0.9"), {**row("x", "2", "PEPTLDEK", "0.9"), "scan": scan}]
+    res = convert([write_ssl(tmp_path, rows)])
+    issue = by_code(res.issues, "bad_type:scan")
+    assert issue.severity == "error"
+    assert issue.examples == ("2",)
+    assert res.peptides.empty
+
+
+def test_d2_scan_leading_zeros_are_distinct_ids(tmp_path: Path) -> None:
+    """``[0-9]+``: ``0`` and ``00`` both pass and stay as written (0.0.7 writes ``str(idx)``)."""
+    rows = [row("0", "2", "PEPTLDEK", "0.9"), row("00", "2", "SAMPLLER", "0.9")]
+    res = convert([write_ssl(tmp_path, rows)])
+    assert not errors(res.issues), res.issues
+    assert sorted(res.peptides["spectrum_id"]) == ["cascadia:0", "cascadia:00"]
+
+
+@pytest.mark.parametrize("scan", ["\u0663", "\uff13", "1\u0660"])
+def test_d2_scan_non_ascii_digit_is_an_error(tmp_path: Path, scan: str) -> None:
+    """``[0-9]+`` is ASCII only: Arabic-Indic or full-width digits are not a scan (D2)."""
+    rows = [row("0", "2", "SAMPLLER", "0.9"), row(scan, "2", "PEPTLDEK", "0.9")]
     res = convert([write_ssl(tmp_path, rows)])
     issue = by_code(res.issues, "bad_type:scan")
     assert issue.severity == "error"

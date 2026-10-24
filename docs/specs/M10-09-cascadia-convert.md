@@ -102,6 +102,9 @@ code wins (M10-08).
   The validator only checks that `score` is a float, and accepts `nan` text in `score` as
   missing. A de novo row without a score cannot be binned (bin −1, so π̂ = 1). It would pass
   silently, although Cascadia 0.0.7 can never write one. (Q5)
+
+  Lead decision 2026-10-24: missing charge/sequence are left to the validator; Cascadia 0.0.7
+  never writes them.
 - **D6 RT columns ignored.** They are neither required nor parsed. A file without them converts.
   (Q11)
 - **D7 CLI.** With `--from cascadia`:
