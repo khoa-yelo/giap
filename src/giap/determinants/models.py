@@ -18,7 +18,7 @@ import numpy.typing as npt
 import pandas as pd
 from scipy import stats
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import ElasticNetCV
+from sklearn.linear_model import ElasticNetCV, enet_path
 from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -84,32 +84,50 @@ def enough_data(tu: Sequence[str]) -> bool:
 # ---------------------------------------------------------------------------- univariate
 
 
-def _rho(df: pd.DataFrame) -> float:
-    x, y = df["x"].to_numpy(float), df["y"].to_numpy(float)
+def _ranks(x: F64) -> F64:
+    """Average ranks (1-based, ties share the mean rank) of NaN-free ``x``: the values of
+    ``scipy.stats.rankdata(x)``, exactly (each is (i + j)/2 of integers), at a fraction of its
+    per-call cost -- the TU-block bootstrap ranks every feature ~1,000 times."""
+    sorter = np.argsort(x, kind="stable")
+    xs = x[sorter]
+    obs = np.empty(xs.size, dtype=bool)
+    obs[:1] = True
+    np.not_equal(xs[1:], xs[:-1], out=obs[1:])
+    dense = np.empty(xs.size, dtype=np.intp)
+    dense[sorter] = np.cumsum(obs)
+    count = np.append(np.flatnonzero(obs), xs.size)
+    return np.asarray(0.5 * (count[dense] + count[dense - 1] + 1), dtype=np.float64)
+
+
+def _rho(x: F64, y: F64) -> float:
+    """Spearman rho of finite ``x``, ``y``: ``scipy.stats.spearmanr(x, y).statistic`` computed the
+    way it does (average ranks, ``np.corrcoef`` of the stacked ranks), without its per-call
+    checks."""
     if x.size < MIN_UNIVARIATE_ROWS or np.ptp(x) == 0 or np.ptp(y) == 0:
         return math.nan
-    return float(stats.spearmanr(x, y).statistic)
+    ranked = np.vstack((_ranks(x), _ranks(y)))
+    rs = np.asarray(np.corrcoef(ranked), dtype=np.float64)
+    return float(rs[1, 0])
 
 
-def _auroc(df: pd.DataFrame) -> float:
+def _auroc(x: F64, y: B8) -> float:
     """Mann-Whitney AUROC of ``x`` for ``y`` (bool), ties ½."""
-    x, y = df["x"].to_numpy(float), df["y"].to_numpy(bool)
     n1 = int(y.sum())
     n0 = y.size - n1
     if y.size < MIN_UNIVARIATE_ROWS or n1 == 0 or n0 == 0:
         return math.nan
-    ranks = stats.rankdata(x)
+    ranks = _ranks(x)
     return float((ranks[y].sum() - n1 * (n1 + 1) / 2) / (n1 * n0))
 
 
 def _uni_row(
-    feature: str, metric: str, df: pd.DataFrame, fn: Callable[[pd.DataFrame], float], B: int,
+    feature: str, metric: str, df: pd.DataFrame, fn: Callable[..., float], B: int,
     rng: np.random.Generator,
 ) -> dict[str, Any]:  # fmt: skip
     if len(df) < MIN_UNIVARIATE_ROWS:
         est, lo, hi = math.nan, math.nan, math.nan
     else:
-        ci = bootstrap.tu_block_bootstrap(df, "tu", fn, B, rng)
+        ci = bootstrap.tu_block_bootstrap(df, "tu", fn, B, rng, columns=("x", "y"))
         est, lo, hi = ci.estimate, ci.ci_low, ci.ci_high
     # lead decision 7: the TU-block bootstrap CI of a rank statistic under-covers (SE 5-9 % low
     # under a TU-structured null), so every univariate CI is ci_unestimated; NA value: unestimated
@@ -185,6 +203,21 @@ def _varying(Xtr: F64) -> B8:
     return np.asarray(hi > lo, dtype=bool)
 
 
+def _enet_path_prechecked(X: Any, y: Any, **params: Any) -> Any:
+    """``enet_path`` with ``check_input=False``. ``ElasticNetCV`` calls it per inner fold after
+    ``_path_residuals`` has validated X, y, Xy and the Gram matrix (Fortran X, C Gram,
+    float64), so the skipped ``check_array`` calls -- one per alpha on the Gram matrix -- return
+    their inputs unchanged and the path is bit-identical; they cost about two thirds of a fit."""
+    params.setdefault("check_input", False)
+    return enet_path(X, y, **params)
+
+
+class _ElasticNetCV(ElasticNetCV):  # type: ignore[misc]
+    """``ElasticNetCV`` whose inner-fold paths skip the redundant input checks (above)."""
+
+    path = staticmethod(_enet_path_prechecked)
+
+
 def _fit_predict(
     model: ModelName, Xtr: F64, ytr: F64, Xte: F64, groups: npt.NDArray[Any], names: list[str],
     cfg: DeterminantsConfig, seed: int, threads: int,
@@ -204,7 +237,7 @@ def _fit_predict(
         return np.asarray(booster.predict(pd.DataFrame(Xte, columns=names)), dtype=float), booster
     inner = list(GroupKFold(n_splits=cfg.elastic_net.inner_folds).split(Xtr, ytr, groups))
     # random_state is unused by selection="cyclic"; fixed so no global state is ever touched
-    enet = ElasticNetCV(
+    enet = _ElasticNetCV(
         l1_ratio=list(cfg.elastic_net.l1_ratio), cv=inner, alphas=100, max_iter=10000,
         selection="cyclic", random_state=0,
     )  # fmt: skip
