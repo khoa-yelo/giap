@@ -155,6 +155,10 @@
    "plot:V18"
   ],
   [
+   "div",
+   "plotly-V18"
+  ],
+  [
    "svg",
    null
   ],

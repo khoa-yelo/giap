@@ -182,7 +182,8 @@ def title(variants: pd.DataFrame) -> str:
     alt = variants[variants["call"] == "ALT"]
     h, c = int((alt["confidence"] == "high").sum()), int((alt["confidence"] == "candidate").sum())
     rates = [r for r in (class_error_value(v) for v in alt["class_error_rate"]) if r is not None]
-    rng = f"{min(rates):g}{EN_DASH}{max(rates):g}" if rates else "unestimated"
+    lo, hi = (base.sig(min(rates)), base.sig(max(rates))) if rates else ("", "")
+    rng = "unestimated" if not rates else lo if lo == hi else f"{lo}{EN_DASH}{hi}"
     return f"{h} high-confidence and {c} candidate ALT sites (class error {rng})"
 
 
@@ -257,7 +258,7 @@ def _header(r: Mapping[str, object]) -> str:
         where = f"{r['gene']} aa {r['aa_pos']}"
     return (f"{where}  {cell('ref_aa')}→{cell('alt_aa')}  {cell('alt_type')}  "
             f"{cell('confidence')}  n_alt {cell('n_alt')} / n_ref {cell('n_ref')}  "
-            f"class error {shown if rate is None else f'{rate:g}'}")  # fmt: skip
+            f"class error {shown if rate is None else base.sig(rate)}")  # fmt: skip
 
 
 def _best(cov: Mapping[str, int]) -> str:
