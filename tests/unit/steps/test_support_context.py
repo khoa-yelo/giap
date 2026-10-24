@@ -354,3 +354,261 @@ def test_example_5_same_run_twice_byte_identical(
 ) -> None:
     again = _run(work, tmp_path / "again")
     assert sa.tree_bytes(full[KEY]) == sa.tree_bytes(again[KEY])
+
+
+# ----------------------------------------------------------------------------- review round
+# Lead decision 8 (PR #272): split-contig regions (review B2, mutant M14), small nulls in the grid
+# form (statistician N1, review N5), no HL null under hl_variance_nonpositive (N2 = N8), the
+# island observed_max is |S| (review N2, mutant M7), and the grid schema.
+
+GRID_SCHEMA = "null_regions_grid"
+N_CHR, N_PL = 160, 130  # both K > 99 shifts, so the grid form takes percentiles on each
+
+
+def _split_inputs() -> tuple[Any, ...]:
+    """Two circular replicons (chr1, plasmid p1) and ``amr_1`` with members on both (tested once
+    per contig, flagged ``split_contigs``), plus a one-contig ``bgc_1``."""
+    import region_tests_data as rd
+
+    contigs = [
+        rd.Contig("chr1", [int(i % 3 == 0) for i in range(N_CHR)], [0.4] * N_CHR),
+        rd.Contig("p1", [int(i % 2 == 0) for i in range(N_PL)], [0.6] * N_PL),
+    ]
+    genes, reps = rd.gene_table(contigs)
+    tags = rd.tags_of(genes, "chr1", [0, 3, 9, 12, 40, 41]) + rd.tags_of(genes, "p1", [2, 4, 7, 30])
+    genes, regions, rg = rd.region_frames(
+        genes, {"amr_1": ("amr", tags), "bgc_1": ("bgc", rd.tags_of(genes, "chr1", range(60, 66)))}
+    )
+    return genes, regions, rg, reps, rd.config(bootstrap=20, permutations=199)
+
+
+def _split_written(tmp: Path) -> tuple[pd.DataFrame, list[Any], Path]:
+    """(regions_stats table, the step's RegionNulls, the support dir) through the step's writer."""
+    import giap.steps.context_stats as cs
+    from giap.context.regions import region_tests
+    from giap.context.regions_table import plasmid_rows, regions_stats, subset_rows
+
+    genes, regions, rg, reps, cfg = _split_inputs()
+    tests, nulls = region_tests(genes, regions, rg, reps, cfg, np.random.default_rng(3))
+    plas = plasmid_rows(genes, reps, None, cfg, np.random.default_rng(4))
+    table = regions_stats(tests, plas, subset_rows(genes, regions, rg), regions)
+    cs._write_null_regions(tmp, table, nulls)
+    return table, nulls, tmp
+
+
+def _split_rows(table: pd.DataFrame) -> pd.DataFrame:
+    t = table[(table["region_id"] == "amr_1") & (table["subset"] == "all")]
+    assert len(t) == 4 and set(t["contig"]) == {"chr1", "p1"}, t[["contig", "stat"]]
+    assert (t["n_perm"].astype(int) > 0).all(), "vacuous: a split row was not tested"
+    return t
+
+
+def _null_of(nulls: list[Any], rid: str, contig: str, stat: str) -> Any:
+    hits = [n for n in nulls if (n.region_id, n.contig, n.stat) == (rid, contig, stat)]
+    assert len(hits) == 1, (rid, contig, stat, len(hits))
+    return hits[0]
+
+
+def test_split_region_exhaustive_one_null_per_contig(tmp_path: Path) -> None:
+    """Review B2 (kills M14): a region on two replicons gives one (region, contig, stat) group
+    per contig, each with its own shifts 1..N_c - 1, its own null and its own observed value."""
+    from giap.stats.permutation import perm_p
+
+    table, nulls, out = _split_written(tmp_path)
+    path = sa.need(out, "null_regions")
+    assert sa.header(path) == list(sa.COLUMNS["null_regions"])
+    nr = sa.read(path)
+    n_of = {"chr1": N_CHR, "p1": N_PL}
+    observed = {}
+    for _, r in _split_rows(table).iterrows():
+        key = ("amr_1", str(r["contig"]), str(r["stat"]))
+        g = nr[(nr["region_id"] == key[0]) & (nr["contig"] == key[1]) & (nr["stat"] == key[2])]
+        assert len(g), f"no null rows for {key}"
+        assert g["shift_k"].astype(int).tolist() == list(range(1, n_of[key[1]])), key
+        mine = _null_of(nulls, *key)
+        assert g["observed"].nunique() == 1
+        obs = sa.num(g["observed"].iloc[0])
+        assert sa.close(obs, mine.observed), (key, obs, mine.observed)
+        v = sa.nums(g["null_value"])
+        np.testing.assert_allclose(v, mine.null[np.argsort(mine.shifts)], rtol=sa.REL, atol=1e-9)
+        assert int(np.count_nonzero(~np.isnan(v))) == int(r["n_perm"]), key
+        p = float(perm_p(obs, v[~np.isnan(v)]))
+        assert abs(p - float(r["p_value"])) <= 2 / (1 + int(r["n_perm"])) + 1e-12, key
+        observed[key] = obs
+    for stat in ("o_minus_e", "hl_shift"):
+        assert observed[("amr_1", "chr1", stat)] != observed[("amr_1", "p1", stat)], stat
+
+
+def test_split_region_grid_one_null_per_contig(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review B2, grid form: the same two groups per stat, each the 1st-99th percentiles of its
+    own contig's finite null and its own observed value."""
+    import giap.steps.context_stats as cs
+
+    monkeypatch.setattr(cs, "NULL_REGIONS_MAX_BYTES", 0)
+    table, nulls, out = _split_written(tmp_path)
+    path = sa.need(out, "null_regions")
+    assert sa.header(path) == list(sa.GRID_COLUMNS)
+    grid = sa.read(path)
+    for _, r in _split_rows(table).iterrows():
+        key = ("amr_1", str(r["contig"]), str(r["stat"]))
+        g = grid[(grid["region_id"] == key[0]) & (grid["contig"] == key[1])
+                 & (grid["stat"] == key[2])]  # fmt: skip
+        mine = _null_of(nulls, *key)
+        fin = mine.null[np.isfinite(mine.null)]
+        assert fin.size > 99, "fixture: both contigs give more than 99 finite null values"
+        assert g["percentile"].astype(int).tolist() == list(range(1, 100)), key
+        np.testing.assert_allclose(sa.nums(g["null_value"]), np.percentile(fin, np.arange(1, 100)),
+                                   rtol=sa.REL, atol=1e-9, err_msg=str(key))  # fmt: skip
+        assert set(g["observed"]) == {g["observed"].iloc[0]}
+        assert sa.close(sa.num(g["observed"].iloc[0]), mine.observed), key
+
+
+def _exhaustive(groups: dict[tuple[str, str, str], tuple[list[float], float]]) -> pd.DataFrame:
+    """An exhaustive ``null_regions`` frame: per key, the null values at shifts 1..K."""
+    parts = [pd.DataFrame({"region_id": k[0], "contig": k[1], "stat": k[2],
+                           "shift_k": np.arange(1, len(v) + 1, dtype=np.int64),
+                           "null_value": np.asarray(v, dtype=float), "observed": obs})
+             for k, (v, obs) in groups.items()]  # fmt: skip
+    return pd.concat(parts, ignore_index=True)
+
+
+def _grid_of(ex: pd.DataFrame, key: tuple[str, str, str]) -> pd.DataFrame:
+    from giap.context.support import null_regions_grid
+
+    g = null_regions_grid(ex)
+    assert list(g.columns) == list(sa.GRID_COLUMNS)
+    return g[(g["region_id"] == key[0]) & (g["contig"] == key[1]) & (g["stat"] == key[2])]
+
+
+@pytest.mark.parametrize("k", [1, 10, 98, 99])
+def test_grid_small_null_keeps_its_exact_values(k: int) -> None:
+    """Statistician N1: a group with K <= 99 finite values keeps them, ascending, with
+    ``percentile`` the 1-based rank 1..K (not a 99-point interpolated grid)."""
+    rng = np.random.default_rng(k)
+    vals = rng.normal(size=k).round(3).tolist()
+    key = ("r1", "chr1", "o_minus_e")
+    ex = _exhaustive({key: (vals, 1.5), ("r2", "chr1", "o_minus_e"): (list(range(200)), 0.5)})
+    g = _grid_of(ex, key)
+    assert g["percentile"].astype(int).tolist() == list(range(1, k + 1))
+    assert g["null_value"].to_numpy(float).tolist() == sorted(vals)
+    assert (g["observed"].to_numpy(float) == 1.5).all()
+    big = _grid_of(ex, ("r2", "chr1", "o_minus_e"))
+    assert big["percentile"].astype(int).tolist() == list(range(1, 100))
+
+
+def test_grid_small_null_counts_finite_values_only() -> None:
+    """N1 with NaN and +-inf: K counts the finite values (7 here), and only they are kept."""
+    vals = [3.0, np.nan, -np.inf, 1.0, 2.0, np.inf, 0.5, -1.0, np.nan, 4.0, -2.0]
+    key = ("r1", "p1", "hl_shift")
+    g = _grid_of(_exhaustive({key: (vals, 0.25)}), key)
+    assert g["percentile"].astype(int).tolist() == list(range(1, 8))
+    assert g["null_value"].to_numpy(float).tolist() == [-2.0, -1.0, 0.5, 1.0, 2.0, 3.0, 4.0]
+
+
+def test_grid_drops_infinite_values_before_percentiles() -> None:
+    """Lead decision 8: +-inf null values (an HL T with V <= 0) are dropped before the
+    percentiles are taken; the grid is the percentiles of the finite values."""
+    fin = np.linspace(-3.0, 3.0, 150)
+    vals = [*fin.tolist(), np.inf, np.inf, -np.inf, np.nan]
+    key = ("r1", "chr1", "hl_shift")
+    g = _grid_of(_exhaustive({key: (vals, 0.0)}), key)
+    assert g["percentile"].astype(int).tolist() == list(range(1, 100))
+    got = g["null_value"].to_numpy(float)
+    assert np.isfinite(got).all(), got[~np.isfinite(got)]
+    np.testing.assert_allclose(got, np.percentile(fin, np.arange(1, 100)), rtol=0, atol=1e-12)
+
+
+def test_grid_all_nan_null_writes_na_rows(tmp_path: Path) -> None:
+    """Review N5: a group whose null is all NaN gives NA ``null_value`` rows (no crash); the
+    other groups are unaffected and the file is written."""
+    from giap.context.support import null_regions_grid
+    from giap.io.plot_support import write_support
+
+    nan_key = ("r1", "chr1", "hl_shift")
+    ok_key = ("r1", "chr1", "o_minus_e")
+    ex = _exhaustive({ok_key: (list(np.linspace(0, 1, 120)), 0.3), nan_key: ([np.nan] * 50, 0.7)})
+    g = null_regions_grid(ex)
+    bad = g[g["stat"] == "hl_shift"]
+    assert len(bad) >= 1
+    assert bad["null_value"].isna().all()
+    assert (g[g["stat"] == "o_minus_e"]["percentile"].astype(int) == np.arange(1, 100)).all()
+    path = write_support("null_regions", g, tmp_path)
+    rows = sa.read(path)
+    assert (rows.loc[rows["stat"] == "hl_shift", "null_value"] == "NA").all()
+
+
+def test_grid_form_validates_against_the_grid_schema(
+    work: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lead decision 8: the grid form has its own schema, ``null_regions_grid.json``."""
+    import json
+
+    frictionless = pytest.importorskip("frictionless")
+    import giap.schemas
+    from giap.steps import context_stats
+
+    monkeypatch.setattr(context_stats, "NULL_REGIONS_MAX_BYTES", 1)
+    out = _run(work, tmp_path / "grid")
+    path = sa.need(out[KEY], "null_regions")
+    assert sa.header(path) == list(sa.GRID_COLUMNS)
+    spath = Path(giap.schemas.__file__).parent / "plot_support" / f"{GRID_SCHEMA}.json"
+    assert spath.is_file(), f"missing grid schema {spath}"
+    d = json.loads(spath.read_text(encoding="utf-8"))
+    res = frictionless.Resource(path=path.name, basepath=str(path.parent), format="tsv",
+                                schema=frictionless.Schema.from_descriptor(d))  # fmt: skip
+    report = res.validate()
+    assert report.valid, report.flatten(["rowNumber", "fieldName", "type", "note"])
+
+
+def test_no_hl_null_when_hl_variance_nonpositive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Statistician N2 = review N8: an HL row flagged ``hl_variance_nonpositive`` (p NA) has no
+    null to plot, so ``region_tests`` returns none for it and ``null_regions`` writes none; the
+    O - E null of the same region stays."""
+    from giap.context import regions as R
+    from giap.context.regions_table import plasmid_rows, regions_stats, subset_rows
+    from giap.context.support import null_regions
+
+    orig = R._hl_t
+
+    def nonpos(*args: Any, **kw: Any) -> Any:
+        t, _ = orig(*args, **kw)
+        return t, True
+
+    monkeypatch.setattr(R, "_hl_t", nonpos)
+    genes, regions, rg, reps, cfg = _split_inputs()
+    tests, nulls = R.region_tests(genes, regions, rg, reps, cfg, np.random.default_rng(3))
+    hl = tests[tests["stat"] == "hl_shift"]
+    assert len(hl) and all("hl_variance_nonpositive" in str(f) for f in hl["flags"])
+    assert hl["p_value"].isna().all()
+    assert (hl["n_perm"].astype(int) > 0).any(), "vacuous: the HL null had values"
+    assert [n.stat for n in nulls if n.stat == "hl_shift"] == []
+    assert any(n.stat == "o_minus_e" for n in nulls)
+    plas = plasmid_rows(genes, reps, None, cfg, np.random.default_rng(4))
+    table = regions_stats(tests, plas, subset_rows(genes, regions, rg), regions)
+    rows = null_regions(table, nulls)
+    assert rows is not None and set(rows["stat"]) == {"o_minus_e"}
+
+
+def test_null_islands_observed_max_is_the_largest_absolute_s() -> None:
+    """Review N2 (kills M7): ``observed_max`` is max |S_w| of the replicon, also when its most
+    extreme window is negative; ``direction`` is ``abs``."""
+    from types import SimpleNamespace
+
+    from giap.context.support import null_islands
+
+    scan = SimpleNamespace(
+        series=(SimpleNamespace(contig="chr1"), SimpleNamespace(contig="p1")),
+        scanned=(True, True),
+        windows=(SimpleNamespace(s=np.array([1.0, -4.5, 2.0])),
+                 SimpleNamespace(s=np.array([np.nan, 0.5, -0.25]))),
+    )  # fmt: skip
+    per = [np.array([3.0, 1.0]), np.array([0.5, 0.75])]
+    t = null_islands(scan, per)  # type: ignore[arg-type]
+    assert t is not None and list(t.columns) == list(sa.COLUMNS["null_islands"])
+    obs = t.groupby("contig")["observed_max"].first().to_dict()
+    assert obs == {"chr1": 4.5, "p1": 0.5}
+    assert set(t["direction"]) == {"abs"}

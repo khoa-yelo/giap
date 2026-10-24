@@ -54,15 +54,17 @@ CASES = ("sim50k", m5.ISLAND.name)
 #: join_count_bb columns compared numerically (lead decision 44)
 JOIN_NUMERIC = ("value", "null_mean", "null_lo", "null_hi", "stat", "effect")
 JOIN_REL_TOL, JOIN_ABS_TOL = 1e-3, 1e-3
+#: the permutation-null summaries drift more than the observed value (lead decision 49, macOS)
+JOIN_NULL, JOIN_NULL_REL_TOL = ("null_mean", "null_lo", "null_hi"), 5e-3
 #: join_count_bb permutation p / BH q: within JOIN_PERM_COUNTS / (n_perm + 1) (lead decision 48)
 JOIN_PERM, JOIN_PERM_COUNTS = ("p_value", "q_value"), 5
 
 
-def _close(a: str, b: str) -> bool:
+def _close(a: str, b: str, rel_tol: float = JOIN_REL_TOL) -> bool:
     if a == b:
         return True
     try:
-        return math.isclose(float(a), float(b), rel_tol=JOIN_REL_TOL, abs_tol=JOIN_ABS_TOL)
+        return math.isclose(float(a), float(b), rel_tol=rel_tol, abs_tol=JOIN_ABS_TOL)
     except ValueError:
         return False
 
@@ -84,6 +86,7 @@ def autocorrelation_mismatch(want: bytes, got: bytes) -> str | None:
         return f"{len(w)} vs {len(g)} lines or a different header"
     header = w[0].split("\t")
     stat, loose = header.index("statistic"), {header.index(c) for c in JOIN_NUMERIC}
+    null = {header.index(c) for c in JOIN_NULL}
     perm, n_perm = {header.index(c) for c in JOIN_PERM}, header.index("n_perm")
     for n, (lw, lg) in enumerate(zip(w[1:], g[1:], strict=True), start=2):
         cw, cg = lw.split("\t"), lg.split("\t")
@@ -92,7 +95,7 @@ def autocorrelation_mismatch(want: bytes, got: bytes) -> str | None:
         for i, (a, b) in enumerate(zip(cw, cg, strict=True)):
             join = cw[stat] == "join_count_bb"
             if join and i in loose:
-                ok = _close(a, b)
+                ok = _close(a, b, JOIN_NULL_REL_TOL if i in null else JOIN_REL_TOL)
             elif join and i in perm:
                 ok = _perm_close(a, b, cw[n_perm])
             else:

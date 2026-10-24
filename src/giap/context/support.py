@@ -4,7 +4,8 @@ docs/specs/M9-17-plot-support-analysis.md, ADR-0043). Pure.
 ``null_regions``: per tested (region, contig, stat) in ``regions_stats`` row order, the used
 shifts ascending with the studentised statistic the test compared (``RegionNull``).
 ``null_regions_grid``: lead decision 2's fallback, the 1st-99th (numpy linear) percentiles of each
-null's finite values, third column ``percentile``. ``null_islands``: per scanned replicon,
+null's finite values (a null of K <= 99 finite values keeps them, ranked 1..K; decision 8), fourth
+column ``percentile``. ``null_islands``: per scanned replicon,
 direction ``abs``, its own max |S_w| per replicate and its largest observed |S_w|; the max over
 replicons of a replicate is the genome-wide M_b (decision 5).
 """
@@ -42,14 +43,25 @@ def null_regions(table: pd.DataFrame, nulls: Sequence[RegionNull]) -> pd.DataFra
 
 
 def null_regions_grid(exhaustive: pd.DataFrame) -> pd.DataFrame:
-    """The 1st-99th percentile grid of each (region, contig, stat) null of ``null_regions``."""
+    """The percentile grid of each (region, contig, stat) null of ``null_regions``.
+
+    ±inf and NaN values are dropped first. K > 99 finite values give the 1st-99th percentiles;
+    K <= 99 keep the exact values ascending, ``percentile`` their 1-based rank 1..K; K = 0 gives
+    the 99 rows with ``null_value`` NaN (written NA).
+    """
     pct = np.arange(1, 100)
     parts = []
     for (rid, contig, stat), grp in exhaustive.groupby(_KEY, sort=False):
         v = grp["null_value"].to_numpy(float)
+        v = v[np.isfinite(v)]
+        if v.size == 0:
+            rank, vals = pct, np.full(pct.size, np.nan)
+        elif v.size <= pct.size:
+            rank, vals = np.arange(1, v.size + 1), np.sort(v, kind="stable")
+        else:
+            rank, vals = pct, np.percentile(v, pct)
         parts.append(pd.DataFrame({"region_id": rid, "contig": contig, "stat": stat,
-                                   "percentile": pct,
-                                   "null_value": np.percentile(v[~np.isnan(v)], pct),
+                                   "percentile": rank, "null_value": vals,
                                    "observed": grp["observed"].iloc[0]}))  # fmt: skip
     return pd.concat(parts, ignore_index=True)
 
