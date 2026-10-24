@@ -1040,3 +1040,4 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (M8-14 decision 6) packed set with < 10 scoring TUs could trip the finite-p assert in `_packed_tu_rep` (~1e-5/set) at large full-tier R; consider raising PACKED_SINGLES.
 - (M8-14 decision 7, for M8-15) giapsim pseudogenes without `aa` record n_obs=0 / GRAVY NaN while GIAP translates them from `nt`; M8-15's p_detect refit sees different covariates for them.
 - (MVP-04 #258 review) boundary tests for summary gates 4, 6, 8, 11, 13 (p) and a gate-13 no-high-island case; sbatch seed from `K12_EVIDENCE_SEED` as `MVP04_SEED`, tested as passed through; gate 15 counts the `empty_state` SVG as content (N2); N3–N9 tidying in `scripts/dev/mvp04_summary.py`.
+- (M2-14b item 7) `PC_BATCH = 100` (regions per PROMOTER_CALCULATOR task) is a constant in annotate.nf; make it a config key (ADR, defaults.yaml) if a genome needs a different batch size.

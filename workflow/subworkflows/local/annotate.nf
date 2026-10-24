@@ -111,7 +111,7 @@ workflow ANNOTATE {
     }
     def op = stepIn('operon_pairs', [genes, reps, kv('genome', genome)] + pairs)
     OPERON_PAIRS(op.files, op.keys, ['pairs_raw=pairs_raw.parquet', 'tus=tus.parquet', 'operon_meta=operon_meta.json'] +
-        scatterSpec('tu_upstream', 'tu_upstream/tu*.fa', params.stub?.tu_regions ?: 1, true))
+        scatterSpec('tu_upstream', 'tu_upstream/tu*.fa', params.stub?.tu_regions != null ? params.stub.tu_regions as int : 1, true))
     def O = OPERON_PAIRS.out.outputs
     ev += [OPERON_PAIRS.out.events]
     def tus = kv('tus', pick(O, 'tus.parquet'))
@@ -142,8 +142,12 @@ workflow ANNOTATE {
         layers += [pre('tx_rates')]
         forPairs += [layers[-1]]
     } else if (ann.promoter_calculator.enabled) {
+        def PC_BATCH = 100   // regions per task (M2-14b): a constant, not a config key (docs/backlog.md)
         def regions = inDir(O, 'tu_upstream')
-        PROMOTER_CALCULATOR(regions.map { f -> [f.baseName, f] })
+        // M2-14b: consecutive batches of PC_BATCH regions in TU-id order, one task each (remainder kept)
+        PROMOTER_CALCULATOR(regions.toSortedList { a, b -> a.baseName <=> b.baseName }
+            .flatMap { l -> l.collate(PC_BATCH) }
+            .map { b -> ["pc_${b[0].baseName}_${b[-1].baseName}", b] })
         def tx = stepIn('tx_layer', [kv('pc', byName(PROMOTER_CALCULATOR.out.csv.collect(sort: true))), tus, reps])
         TX_LAYER(tx.files, tx.keys, ['tx_rates=tx_rates.parquet'])
         layers += [kv('tx_rates', pick(TX_LAYER.out.outputs, 'tx_rates.parquet'))]

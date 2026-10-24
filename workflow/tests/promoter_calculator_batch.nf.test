@@ -1,0 +1,133 @@
+// M2-14b: one PROMOTER_CALCULATOR task runs a batch of TU upstream regions
+// (docs/specs/M2-14b-promoter-calculator-batching.md items 2, 4, 5, 8; examples 1, 6).
+//
+// Interface pinned by these tests (test author, from the spec): the input stays
+// `tuple val(meta_id), path(regions)`, where meta_id is the batch id `pc_<first TU>_<last TU>`
+// (spec item 4, first form; annotate.nf builds it) and regions the batch's `<TU>.fa` files in TU-id
+// order (a one-region batch stages a single path). The tag stays "${meta_id}" (house convention,
+// tests/unit/test_nf_modules_lint.py). The script runs `promoter-calculator -i <TU>.fa -o <TU>.csv
+// -j 1` once per region in batch order with the M2-07 "no promoter -> header-only CSV" fallback,
+// and emits `csv` = every `<TU>.csv` (`path "*.csv"`).
+// Fakes: workflow/tests/bin (M2-07) and workflow/tests/bin_pc_fail (a region whose FASTA header
+// contains FAIL exits 1, example 6). ci.yml runs: nf-test test workflow/tests --profile test,stub
+nextflow_process {
+
+    name "PROMOTER_CALCULATOR batch (M2-14b)"
+    script "../modules/local/promoter_calculator/main.nf"
+    process "PROMOTER_CALCULATOR"
+    config "./annotate_tools.config"
+    tag "annotate_tools"
+
+    test("a batch of 3 regions: 3 CSVs named <TU>.csv, the tool's CSV or the real header, one call per region in order") {
+        when {
+            params { fake_bin = "${moduleTestDir}/bin" }
+            process {
+                """
+                def d = "${moduleTestDir}/data/pc_batch"
+                input[0] = ['pc_tu0001_tu0003', [file("\${d}/tu0001.fa"), file("\${d}/tu0002.fa"), file("\${d}/tu0003.fa")]]
+                """
+            }
+        }
+        then {
+            assert process.success
+            def names = process.trace.succeeded().collect { it.name.toString() }
+            assert names == ['PROMOTER_CALCULATOR (pc_tu0001_tu0003)'] : "one task tagged pc_<first>_<last>: ${names}"
+
+            def csvs = process.out.csv.flatten().collect { path(it.toString()) }
+            def byName = csvs.collectEntries { [(it.fileName.toString()): it] }
+            assert byName.keySet().toList().sort() == ['tu0001.csv', 'tu0002.csv', 'tu0003.csv'] : "CSV names: ${byName.keySet()}"
+
+            def want = new File("${moduleTestDir}/../../tests/data/recorded/headers/promoter_calculator.csv.txt").readLines()
+            def lines = { String n -> byName[n].readLines().collect { it.replace('\r', '') } }
+            assert lines('tu0002.csv') == want : "no promoter -> header-only CSV with the real header: ${lines('tu0002.csv')}"
+            ['tu0001.csv', 'tu0003.csv'].each { n ->
+                assert lines(n).size() == 2 && lines(n)[1].startsWith('FAKE,') : "${n}: tool CSV not passed through: ${lines(n)}"
+            }
+            // the fallback header ends in CRLF like the tool's own CSV (byte identity, item 3)
+            assert byName['tu0002.csv'].text.endsWith('length\r\n') : "fallback header line end"
+
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def dirs = H.procDirs(workDir.toString(), 'PROMOTER_CALCULATOR')
+            assert dirs.size() == 1 : "one task directory: ${dirs}"
+            def sh = new File(dirs[0], '.command.sh').readLines().findAll { it =~ /\bpromoter-calculator\b/ }
+            // the fake prints "Sequence length: N" once per call (.command.log)
+            def calls = new File(dirs[0], '.command.log').text.readLines().count { it.startsWith('Sequence length:') }
+            assert calls == 3 : "promoter-calculator should run once per region (3), ran ${calls}x"
+            def order = new File(dirs[0], '.command.log').text.readLines().findAll { it.startsWith('Sequence length:') }
+            assert order == ['Sequence length: 67', 'Sequence length: 12', 'Sequence length: 77'] : "regions not run in batch order: ${order}"
+            assert sh.every { it =~ /-j\s+1\b/ } : "every call keeps -j 1: ${sh}"
+
+            def v = process.out.versions
+            assert v.size() == 1 : "one versions.yml per batch: ${v}"
+        }
+    }
+
+    test("a one-region batch (a single staged path): one CSV") {
+        when {
+            params { fake_bin = "${moduleTestDir}/bin" }
+            process {
+                """
+                input[0] = ['pc_tu0001_tu0001', [file("${moduleTestDir}/data/pc_batch/tu0001.fa")]]
+                """
+            }
+        }
+        then {
+            assert process.success
+            def names = process.trace.succeeded().collect { it.name.toString() }
+            assert names == ['PROMOTER_CALCULATOR (pc_tu0001_tu0001)'] : "tag of a one-region batch: ${names}"
+            def csvs = process.out.csv.flatten().collect { path(it.toString()) }
+            assert csvs*.fileName*.toString() == ['tu0001.csv'] : "CSVs: ${csvs}"
+            def lines = csvs[0].readLines().collect { it.replace('\r', '') }
+            assert lines.size() == 2 && lines[1].startsWith('FAKE,') : "tool CSV not passed through: ${lines}"
+        }
+    }
+
+    test("example 6: a region whose tool exits 1 fails its batch; no retry, the tool's error is reported") {
+        when {
+            params { fake_bin = "${moduleTestDir}/bin_pc_fail" }
+            process {
+                """
+                def d = "${moduleTestDir}/data/pc_batch"
+                input[0] = ['pc_tu0001_tu0004', [file("\${d}/tu0001.fa"), file("\${d}/tu0003.fa"), file("\${d}/tu0004.fa")]]
+                """
+            }
+        }
+        then {
+            assert process.failed
+            def failed = process.trace.failed().collect { it.name.toString() }
+            // base.config: retry only on 137/143; exit 1 terminates after one attempt
+            assert failed == ['PROMOTER_CALCULATOR (pc_tu0001_tu0004)'] : "the batch task fails once, no retry: ${failed}"
+            assert process.trace.succeeded().isEmpty() : "nothing succeeded: ${process.trace.succeeded()*.name}"
+            assert process.exitStatus != 0
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def dirs = H.procDirs(workDir.toString(), 'PROMOTER_CALCULATOR')
+            assert dirs.size() == 1 : "one task directory: ${dirs}"
+            assert new File(dirs[0], '.exitcode').text.trim() == '1' : "task exit status: ${new File(dirs[0], '.exitcode').text}"
+            def err = new File(dirs[0], '.command.err').text
+            assert err.contains('FAKE promoter-calculator error: cannot score region tu0004.fa') : "tool error not in .command.err: ${err}"
+            def out = (process.stdout + process.stderr).join('\n')
+            assert out.contains('FAKE promoter-calculator error') : "the run's error report does not show the tool's error"
+        }
+    }
+
+    test("stub: a header-only CSV with the real header for every region of the batch") {
+        options "-stub"
+        when {
+            process {
+                """
+                def d = "${moduleTestDir}/data/pc_batch"
+                input[0] = ['pc_tu0001_tu0004', [file("\${d}/tu0001.fa"), file("\${d}/tu0002.fa"), file("\${d}/tu0003.fa"), file("\${d}/tu0004.fa")]]
+                """
+            }
+        }
+        then {
+            assert process.success
+            def names = process.trace.succeeded().collect { it.name.toString() }
+            assert names == ['PROMOTER_CALCULATOR (pc_tu0001_tu0004)'] : "stub task tag: ${names}"
+            def want = new File("${moduleTestDir}/../../tests/data/recorded/headers/promoter_calculator.csv.txt").readLines()
+            def csvs = process.out.csv.flatten().collect { path(it.toString()) }
+            assert csvs*.fileName*.toString().sort() == ['tu0001.csv', 'tu0002.csv', 'tu0003.csv', 'tu0004.csv'] : "stub CSVs: ${csvs}"
+            csvs.each { c -> assert c.readLines() == want : "${c.fileName}: stub header ${c.readLines()}" }
+        }
+    }
+}

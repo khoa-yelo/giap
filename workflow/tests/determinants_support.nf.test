@@ -1,0 +1,145 @@
+// M9-17 follow-up: the DETERMINANTS subworkflow passes the determinants step's optional plot
+// support on (workflow/subworkflows/local/determinants.nf; docs/specs/M9-17-plot-support-analysis.md
+// lead decisions 5-6; GIAP_SPEC.md §6.4 executor equality, §9.1). ci.yml runs:
+// nf-test test workflow/tests --profile test,stub.
+//
+// Pinned here:
+//   emit: determinants_support, the step's `determinants_support` output; an empty channel when
+//         the step wrote none (no model fitted: steps/determinants.py writes the support only when
+//         cross-validation ran, so sim100k's too_few_rows run has none), and the task still
+//         succeeds (an optional output);
+//   publish: the support files land in OUT/plots/support/ (as giap.runner.local.publish merges
+//         work/determinants_support/support/ there), never in OUT/determinants_support/.
+// The stub test runs -stub; the other two run the real GIAP_STEP script with the fake giap of
+// workflow/tests/bin_giap (fake_giap.config): it writes <support path>/support/
+// fake_determinants_support.tsv when params.fake_support is true and nothing at the support path
+// when false. Inputs as determinants.nf.test (empty stand-ins: no task reads its inputs).
+
+nextflow_workflow {
+
+    name "DETERMINANTS subworkflow: plot support (M9-17)"
+    script "../subworkflows/local/determinants.nf"
+    workflow "DETERMINANTS"
+    config "./fake_giap.config"
+    tag "determinants"
+    tag "support"
+
+    test("stub: determinants_support is emitted and published under plots/support/") {
+
+        options "-stub"
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def gc = java.nio.file.Files.createTempDirectory('m917_gc').resolve('gene_context.parquet')
+                gc.toFile().text = ''
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[3] = channel.value([file("\${g}/regions.parquet"), file("\${g}/region_genes.parquet")])
+                input[4] = channel.value(file(gc.toString()))
+                """
+            }
+        }
+
+        then {
+            def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def sup = workflow.out.determinants_support
+            assert sup != null && sup.size() == 1 : "emit determinants_support: ${sup} (emits ${workflow.out.keySet()})"
+            def pub = S.published("${outputDir}")
+            assert pub.any { it.startsWith('plots/support/') } : "nothing published under plots/support/: ${pub}"
+            assert S.supportDirs("${outputDir}").isEmpty() : "support published as its own directory: ${S.supportDirs("${outputDir}")}"
+            ['determinants_features', 'determinants_model', 'determinants_attribution'].each { k ->
+                assert new File("${outputDir}/tables/${k}.tsv").isFile() : "tables/${k}.tsv not published"
+            }
+        }
+    }
+
+    test("real GIAP_STEP, the step writes support: asked for determinants_support, files under plots/support/") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                fake_bin = "${moduleTestDir}/bin_giap"
+                fake_support = true
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def gc = java.nio.file.Files.createTempDirectory('m917_gc').resolve('gene_context.parquet')
+                gc.toFile().text = ''
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[3] = channel.value([file("\${g}/regions.parquet"), file("\${g}/region_genes.parquet")])
+                input[4] = channel.value(file(gc.toString()))
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'giap.argv').isFile() }
+            assert dirs.size() == 1 : "expected one fake giap task: ${dirs}"
+            def outs = S.argvOuts(dirs[0])
+            assert outs.any { it.startsWith('determinants_support=') } : "determinants step not asked for determinants_support: --out ${outs}"
+            def sup = workflow.out.determinants_support
+            assert sup != null && sup.size() == 1 : "emit determinants_support: ${sup}"
+            assert new File("${outputDir}/plots/support/fake_determinants_support.tsv").isFile() :
+                "support not published to plots/support/: ${S.published("${outputDir}")}"
+            assert S.supportDirs("${outputDir}").isEmpty() : "support published as its own directory: ${S.supportDirs("${outputDir}")}"
+        }
+    }
+
+    test("real GIAP_STEP, the step writes no support: the task succeeds, determinants_support is empty") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                fake_bin = "${moduleTestDir}/bin_giap"
+                fake_support = false
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def gc = java.nio.file.Files.createTempDirectory('m917_gc').resolve('gene_context.parquet')
+                gc.toFile().text = ''
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value([file("\${g}/xrefs.parquet"), file("\${g}/annotation_meta.json"), file("\${g}/tus.parquet"), file("\${g}/layers.parquet")])
+                input[3] = channel.value([file("\${g}/regions.parquet"), file("\${g}/region_genes.parquet")])
+                input[4] = channel.value(file(gc.toString()))
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
+            assert workflow.success : "a determinants run without support failed"
+            assert workflow.trace.failed().size() == 0
+            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'giap.argv').isFile() }
+            assert dirs.size() == 1 : "expected one fake giap task: ${dirs}"
+            assert S.argvOuts(dirs[0]).any { it.startsWith('determinants_support=') } : "determinants step not asked for determinants_support"
+            def sup = workflow.out.determinants_support
+            assert sup != null && sup.size() == 0 : "emit determinants_support should be empty: ${sup}"
+            ['determinants_features', 'determinants_model', 'determinants_attribution'].each { k ->
+                assert workflow.out[k] != null && workflow.out[k].size() == 1 : "emit ${k}: ${workflow.out[k]}"
+                assert new File("${outputDir}/tables/${k}.tsv").isFile() : "tables/${k}.tsv not published"
+            }
+            assert !new File("${outputDir}/plots/support").exists() : "plots/support/ published without support"
+        }
+    }
+}
