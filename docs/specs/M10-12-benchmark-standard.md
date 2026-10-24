@@ -148,7 +148,8 @@ busy hour does not always favour the same cell:
 
 Job header: `--job-name=giap-bench`, `--partition=normal`, `--qos=normal`, `--cpus-per-task=16`,
 `--mem=64000M`, `--constraint=CPU_SKU:6148`, `--time=22:00:00` (4 runs × the 5 h
-`BENCH_RUN_TIMEOUT` + 2 h set-up), `--output=$GIAP_ROOT/logs/%x.%A_%a.out`. R14 cost: 16 CPUs and
+`BENCH_RUN_TIMEOUT` + 2 h set-up), `--output=/home/classes/bios/270/khoa/giap/local/logs/%x.%A_%a.out`
+(an absolute path, as in the other giap sbatch scripts: `#SBATCH` lines expand no variables). R14 cost: 16 CPUs and
 at most 3 queued or running jobs (the pending tasks count toward the 20-job cap). The three repeats
 land on whichever wheat nodes are free, so node-to-node variation inside the class is part of the
 spread, which is what a user sees.
@@ -187,8 +188,10 @@ user has. Instead the isolation is guaranteed for GIAP's own work and **recorded
   `logs/`, `run_manifest.json` and `report/` stay until M10-14's clean-up.
 
 **Run validity** (first match decides `status`): `failed` (exit ≠ 0, other than the timeout's 124
-or 137) → `timeout` → `invalid` (any reason below) → `ok`. Reasons for `invalid`, all recorded:
-`cached_tasks:<n>`, `manifest_resume`, `commit_mismatch` (manifest `git_commit` ≠ `BENCH_COMMIT` or
+or 137; and any step whose `sacct` State is `OUT_OF_MEMORY`, even with exit code 137: only a
+non-OOM 124 or 137 is a timeout) → `timeout` → `invalid` (any reason below) → `ok`. Reasons for
+`invalid`, all recorded: `cached_tasks:<n>` (trace `CACHED` rows), `cached_steps:<n>` (manifest
+steps with `status = cached`), `manifest_resume`, `commit_mismatch` (manifest `git_commit` ≠ `BENCH_COMMIT` or
 `git_dirty` true), `host_mismatch` (a trace `hostname` ≠ the job's node: a task left the
 allocation), `node_class:<sku>` (the node's features lack `CPU_SKU:6148`, only possible under an
 override), `bakta_ran_in_core` (a `BAKTA` process in a core run's trace), `same_node_giap:<id>`,
@@ -233,12 +236,19 @@ Per run, `RUN_DIR/bench_run.json` (sorted keys, 2-space indent, final newline):
  job_id, array_task, step_id, node, cpu_sku, argv[], inputs: {name: {path, sha256}},
  sacct: {elapsed_s, max_rss_bytes, total_cpu_s, alloc_cpus, state},
  script_wall_s, wall_s, exit_code, status, invalid_reasons[], warnings[],
- trace: {n_tasks, n_cached, n_failed, n_retried, hosts[], task_peak_rss_max_bytes},
- steps: {<step>: {realtime_s, peak_rss_bytes}},
+ trace: {n_tasks, n_cached, n_failed, n_retried, hosts[], task_peak_rss_max_bytes, failed_processes[]},
+ steps: {<step>: {realtime_s, peak_rss_bytes, order}},
  cotenancy: {samples, node_cpualloc_median, node_cpualloc_max, giap_other: [{job, name, cpus, node}]}}
 ```
 
 plus `RUN_DIR/runtimes.md` (`measure_runtimes.py` on the trace, unchanged) and `cotenancy.tsv`.
+`trace.failed_processes` lists the step names (as `measure_runtimes.py` names them) of the trace's
+`FAILED` rows that no later attempt of the same task replaced; `n_failed` is its length and the
+summary names these steps for a repeat without a valid attempt (example 5). `steps.<step>.order`
+is the step's first-start position in the trace (the JSON keys are sorted, so the order is kept
+here). The job's inputs live outside the repeat directories, in `$BENCH_DIR/<bench_id>/inputs/`:
+the decompressed `k12_mg1655.json` (identical bytes for every task) and `sim5m_r<k>[.<attempt>]/`
+(SIM5M written by that task).
 
 **`scripts/dev/benchmark_summary.py BENCH_DIR/<bench_id> [--baseline benchmarks/baseline.json
 --write]`**: pure functions (`select_attempts(runs)`, `cell_summary(runs, estimate)`,
