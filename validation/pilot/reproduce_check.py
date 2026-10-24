@@ -1,12 +1,6 @@
-"""Check the pilot runbook ``validation/pilot/reproduce.md`` (M10-14, stdlib only).
+"""Check the pilot runbook ``validation/pilot/reproduce.md``: ``static``, ``verify``, ``protected``.
 
-``static RUNBOOK [--repo DIR]`` checks the runbook against a checkout: scripts, job classes,
-committed input hashes and their records, stray hashes, the A3 branch and, for a final runbook,
-the Evidence table (docs/specs/M10-14-pilot-reproducibility.md, criterion 1). ``verify RUNBOOK
---out J [--repo DIR]`` hashes the Inputs rows that exist on FarmShare (``$GIAP_ROOT``) and checks
-the records it can read. Exit 0 no failure, 1 failures, 2 usage. The only warning is
-``duplicate_hash:<id>,<id>``. ``protected RUNBOOK`` prints the freeze commit, then the expanded
-paths of every Inputs row and every Outputs row with ``kept = yes`` (for the clean-up job).
+Stdlib only; the checks, exit codes and outputs are in docs/specs/M10-14-pilot-reproducibility.md.
 """
 
 from __future__ import annotations
@@ -35,15 +29,14 @@ PATH_TOKEN = re.compile(
 SBATCH_LINE = re.compile(r"^\s*(\w+=\S*\s+)*sbatch\b")
 SRUN_LINE = re.compile(r"^\s*(\w+=\S*\s+)*srun\b")
 FORBIDDEN = re.compile(r"\buv\s+(run|sync)\b|\bpip3?\s|\bpython3? -m pip\b")
-JOB_FIELDS = (
-    *("script", "name", "partition", "qos", "cpus", "gpus", "mem", "time"),
-    *("constraint", "array"),
-)
-# Job field -> (#SBATCH long option, short option)
-CLASS_KEYS = {
+# Job field -> (#SBATCH long option, short option), None for a field with no #SBATCH line
+JOB_FIELDS: dict[str, tuple[str, str | None] | None] = {
+    "script": None,
+    "name": None,
     "partition": ("partition", "p"),
     "qos": ("qos", None),
     "cpus": ("cpus-per-task", "c"),
+    "gpus": None,
     "mem": ("mem", None),
     "time": ("time", "t"),
     "constraint": ("constraint", "C"),
@@ -189,7 +182,8 @@ def _check_job(step: Step, repo: Path) -> list[str]:
     hdr = sbatch_header(repo / script)
     lines = [ln for c in step.commands for ln in _logical(c)]
     cmds = " ".join(ln for ln in lines if SBATCH_LINE.match(ln) or SRUN_LINE.match(ln))
-    expected = {f: _option(cmds, *CLASS_KEYS[f]) or hdr.get(CLASS_KEYS[f][0]) for f in CLASS_KEYS}
+    opts = {f: o for f, o in JOB_FIELDS.items() if o}
+    expected = {f: _option(cmds, *o) or hdr.get(o[0]) for f, o in opts.items()}
     expected["constraint"] = expected["constraint"] or "-"
     expected["array"] = expected["array"] or "-"
     expected["gpus"] = _option(cmds, "gpus", "G") or _gpus(hdr)
@@ -209,6 +203,7 @@ def _check_blocks(rb: Runbook, repo: Path) -> list[str]:
         owners += [(s.id, c) for c in s.commands] + [(s.id, j) for j in s.job_lines]
     owned = {c for _, c in owners}
     owners += [("-", c) for c in FENCE.findall(rb.text) if c not in owned]
+    covered = {s.id for s in rb.steps if s.job and s.job.get("script", "-") != "-"}
     for sid, chunk in owners:
         for tok in PATH_TOKEN.findall(chunk):
             tok = tok.rstrip(".,:")
@@ -219,7 +214,7 @@ def _check_blocks(rb: Runbook, repo: Path) -> list[str]:
         for ln in _logical(chunk):
             if FORBIDDEN.search(ln):
                 out.append(f"forbidden_command:{sid}:{ln.strip()}")
-            if not SBATCH_LINE.match(ln):
+            if not SBATCH_LINE.match(ln) or sid in covered:  # _check_job checks a Job's step
                 continue
             scripts = re.findall(r"(scripts/slurm/[\w.-]+\.sbatch)", ln)
             if not scripts:
@@ -231,6 +226,10 @@ def _check_blocks(rb: Runbook, repo: Path) -> list[str]:
                 if not jn.startswith("giap-"):
                     out.append(f"job_name:{sid}:{jn}")
     return out
+
+
+def _records(row: Mapping[str, str]) -> list[str]:
+    return [x.strip() for x in row.get("recorded_in", "").split(";") if x.strip() not in ("", "-")]
 
 
 def _check_rows(rows: list[dict[str, str]], repo: Path, kind: str) -> list[str]:
@@ -255,9 +254,8 @@ def _check_rows(rows: list[dict[str, str]], repo: Path, kind: str) -> list[str]:
             committed = False
         elif committed and sha256_file(repo / path) != sha:
             out.append(f"hash_mismatch:{rid}")
-        recs = [x.strip() for x in r.get("recorded_in", "").split(";") if x.strip()]
+        recs = _records(r)
         if kind == "outputs":
-            recs = [x for x in recs if x != "-"]
             kept = r.get("kept", "")
             if not re.fullmatch(r"yes|superseded|deleted:\d{4}-\d{2}-\d{2}", kept):
                 out.append(f"bad_kept:{rid}:{kept}")
@@ -294,7 +292,7 @@ def _check_a3(rb: Runbook, repo: Path) -> list[str]:
 def _check_final(rb: Runbook) -> list[str]:
     if rb.status != "final":
         return []
-    out = []
+    out = ["a3_pending_in_final"] if rb.a3_branch == "pending" else []
     if not re.fullmatch(r"[0-9a-f]{40}", rb.freeze_commit):
         out.append(f"final_freeze_commit:{rb.freeze_commit}")
     for r in rb.evidence:
@@ -324,10 +322,17 @@ def static_check(runbook: Runbook, repo: Path) -> list[str]:
         out.append("no_inputs")
     ids = [s.id for s in rb.steps]
     out += [f"duplicate_step:{i}" for i in sorted({i for i in ids if ids.count(i) > 1})]
+    known_ids = {r.get("id") for r in rb.inputs + rb.outputs}
+    last = -1
     for s in rb.steps:
         if len(s.job_lines) != 1:
             out.append(f"job_lines:{s.id}:{len(s.job_lines)}")
         out += _check_job(s, repo)
+        out += [f"unknown_read:{s.id}:{x}" for x in s.reads if x not in known_ids]
+        if s.id[1:].isdigit():
+            if int(s.id[1:]) <= last:
+                out.append(f"step_order:{s.id}")
+            last = max(last, int(s.id[1:]))
     out += _check_blocks(rb, repo)
     out += _check_rows(rb.inputs, repo, "inputs")
     out += _check_rows(rb.outputs, repo, "outputs")
@@ -379,7 +384,7 @@ def verify(
             if mode != 0o444:
                 row["status"] = "mismatch"
                 failures.append(f"mode:{rid}:{mode:o}")
-        for rec in (x.strip() for x in r.get("recorded_in", "").split(";") if x.strip()):
+        for rec in _records(r):
             rp = _resolve(rec, giap_root, env, repo)
             if not rp.is_file():
                 failures.append(f"record_absent:{rid}:{rec}")
@@ -406,6 +411,14 @@ def main(argv: list[str] | None = None) -> int:
         if name == "verify":
             p.add_argument("--out", type=Path, required=True)
     a = ap.parse_args(argv)
+    try:
+        return _run(a)
+    except Exception as e:  # an uncaught error is a usage error, never "a check failed"
+        print(f"reproduce_check: {type(e).__name__}: {e}", file=sys.stderr)
+        return 2
+
+
+def _run(a: argparse.Namespace) -> int:
     rb = parse(a.runbook.read_text())
     if a.cmd == "static":
         issues = static_check(rb, a.repo)

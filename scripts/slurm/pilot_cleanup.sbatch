@@ -12,13 +12,13 @@
 #   CLEAN=1 sbatch scripts/slurm/pilot_cleanup.sbatch    # executes the plan
 #
 # Plan step 1: `nextflow clean -f -k` in every pilot/bench run directory with a .nextflow/, then
-# its work/ is deleted. Step 4: the mzML directory and the de novo raw outputs. Step 2 (the DIA-NN
-# reports and libraries) is listed as "kept pending K2" and never deleted (lead decision
-# 2026-10-24); steps 3, 5 and 6 are kept. Everything goes to $GIAP_ROOT/pilot/cleanup/: plan.tsv
+# its work/ is deleted. Step 4: the mzML directory. Step 2 (the DIA-NN reports and libraries) and
+# the de novo outputs (*.ssl, *.mztab) are listed as "kept pending K2" and never deleted (lead
+# decisions 2026-10-24); steps 3, 5 and 6 are kept. Everything goes to $GIAP_ROOT/pilot/cleanup/: plan.tsv
 # and the append-only ledger DELETED.tsv (a row before each delete, a second row after it, so a
 # re-run after a kill continues; a target already gone is `absent`). F is read from the runbook
 # header ($RUNBOOK, default $GIAP_REPO/validation/pilot/reproduce.md). Exit 0 done or dry run;
-# 1 a deletion failed; 2 a precondition (nothing deleted).
+# 1 a deletion or a `nextflow clean` failed; 2 a precondition (nothing deleted).
 set -euo pipefail
 set -f
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
@@ -28,7 +28,6 @@ trap 'rm -rf "$TMPDIR"' EXIT
 
 die2() { echo "pilot_cleanup: $*" >&2; exit 2; }
 
-: "${GIAP_ROOT:?GIAP_ROOT is not set}"
 GIAP_PYTHON="${GIAP_PYTHON:-$UV_PROJECT_ENVIRONMENT/bin/python}"
 RUNBOOK="${RUNBOOK:-$GIAP_REPO/validation/pilot/reproduce.md}"
 DRY_RUN="${DRY_RUN:-1}"
@@ -43,9 +42,9 @@ OUT="$ROOT/pilot/cleanup"
   --repo "$GIAP_REPO" > "$TMPDIR/protected" || die2 "cannot read $RUNBOOK"
 F="$(head -n 1 "$TMPDIR/protected")"
 case "$F" in
-  [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;;
-  *) die2 "the runbook names no freeze commit (freeze_commit=$F)" ;;
+  *[!0-9a-f]*|"") die2 "the runbook names no freeze commit (freeze_commit=$F)" ;;
 esac
+[ "${#F}" -eq 40 ] || die2 "the runbook names no freeze commit (freeze_commit=$F)"
 F7="$(printf '%s' "$F" | cut -c1-7)"
 
 # ---- no pilot job pending or running (this job excluded)
@@ -60,30 +59,30 @@ done < "$TMPDIR/jobs"
 
 # ---- the evidence preconditions and the plan (plan.tsv: path, kind, step, action)
 mkdir -p "$OUT"
-"$GIAP_PYTHON" -I - "$ROOT" "$F7" "${GIAP_DATA_DIR:-$ROOT/data}" "$TMPDIR/protected" \
-  "$OUT/plan.tsv" <<'PY' || exit $?
+# Any error in this step (an unreadable or malformed JSON included) is a precondition: exit 2.
+"$GIAP_PYTHON" -I - "$ROOT" "$F" "${GIAP_DATA_DIR:-$ROOT/data}" "$TMPDIR/protected" \
+  "$OUT/plan.tsv" <<'PY' || exit 2
 import glob, json, os, sys
-root, f7, data, protected_file, plan = sys.argv[1:6]
+root, F, data, protected_file, plan = sys.argv[1:6]
+f7 = F[:7]
 def die(msg):
     print(f"pilot_cleanup: {msg}", file=sys.stderr); sys.exit(2)
-def failures(p):
-    try:
-        return json.load(open(p)).get("failures")
-    except (OSError, ValueError) as e:
-        die(f"cannot read {p}: {e}")
+def canon(p):  # ancestors resolved, the last component kept (a link stays a link)
+    return os.path.join(os.path.realpath(os.path.dirname(p)), os.path.basename(p))
 R = f"{root}/runs/pilot/freeze/{f7}"
 ev = sorted(glob.glob(f"{R}/evidence/*.json"))
 if not ev:
     die(f"no freeze evidence under {R}/evidence/")
 for p in ev:
-    if failures(p) != []:
+    if json.load(open(p)).get("failures") != []:
         die(f"{p} has failures")
 if not os.path.isfile(f"{root}/pilot/metrics/freeze-{f7}/metrics.json"):
     die(f"no {root}/pilot/metrics/freeze-{f7}/metrics.json")
 vj = f"{root}/pilot/reproduce/verify-{f7}.json"
-if not os.path.isfile(vj) or failures(vj) != []:
-    die(f"{vj} is missing or has failures")
-rec = json.load(open(vj)).get("reconvert") or {}
+doc = json.load(open(vj))
+if doc.get("freeze_commit") != F or doc.get("failures") != [] or doc.get("static_ok") is not True:
+    die(f"{vj}: not a passing S-check at {F}")
+rec = doc.get("reconvert") or {}
 if not rec or any(v not in ("identical", "changed", "absent") for v in rec.values()):
     die(f"{vj}: re-conversion results are not recorded")
 rows = []
@@ -99,18 +98,25 @@ for d in (f"{root}/pilot/A1", f"{root}/pilot/A2", f"{root}/pilot/te7/A2"):
     for pat in k2:
         for p in sorted(glob.glob(f"{d}/{pat}")):
             rows.append((p, "dir" if os.path.isdir(p) else "file", "2", "kept_pending_K2"))
-step4 = [f"{data}/pxd078459/mzml"] + sorted(glob.glob(f"{root}/pilot/A3_cascadia/*/*.ssl"))
-step4 += sorted(glob.glob(f"{root}/pilot/A3_casanovo/*/*.mztab"))
-for p in step4:
-    if os.path.lexists(p):
-        kind = "dir" if os.path.isdir(p) else "file"
-        rows.append((p, kind, "4", "skipped_symlink" if os.path.islink(p) else "delete"))
-keep = [ln.rstrip("\n").rstrip("/") for ln in open(protected_file).readlines()[1:] if ln.strip()]
+for pat in ("A3_cascadia/*/*.ssl", "A3_casanovo/*/*.mztab"):
+    rows += [(p, "file", "4", "kept_pending_K2") for p in sorted(glob.glob(f"{root}/pilot/{pat}"))]
+mz = canon(f"{data}/pxd078459/mzml")
+if os.path.lexists(mz):
+    kind = "dir" if os.path.isdir(mz) else "file"
+    rows.append((mz, kind, "4", "skipped_symlink" if os.path.islink(mz) else "delete"))
+lines = open(protected_file).read().splitlines()[1:]
+keep = [os.path.realpath(k) for k in lines if k.strip()]
 for p, _k, _s, action in rows:
-    if action == "delete":
-        for k in keep:
-            if k == p or k.startswith(p + "/") or p.startswith(k + "/"):
-                die(f"target {p} is (or holds) a runbook Inputs/Outputs row: {k}")
+    if "\t" in p or "\n" in p or not os.path.isabs(p):
+        die(f"refusing a plan path that is relative or holds a tab or newline: {p!r}")
+    if action not in ("delete", "nextflow_clean"):
+        continue
+    rp = os.path.realpath(p)
+    if not (canon(p).startswith(root + "/") and rp.startswith(root + "/")):
+        die(f"target {p} (resolving to {rp}) is not inside {root}")
+    for k in keep if action == "delete" else []:
+        if k == rp or k.startswith(rp + "/") or rp.startswith(k + "/"):
+            die(f"target {p} is (or holds) a runbook Inputs/Outputs row: {k}")
 with open(plan, "w") as fh:
     fh.write("path\tkind\tstep\taction\n")
     fh.writelines("\t".join(r) + "\n" for r in rows)
@@ -119,12 +125,10 @@ PY
 # ---- every target resolves inside $GIAP_ROOT
 while IFS="$(printf '\t')" read -r path kind step action; do
   [ "$action" = delete ] || [ "$action" = nextflow_clean ] || continue
+  case "$path" in "$ROOT"/?*) ;; *) die2 "$path is not inside $ROOT" ;; esac
   [ -e "$path" ] || continue
   real="$(realpath -e -- "$path")" || die2 "cannot resolve $path"
-  case "$real/" in
-    "$ROOT"/*) ;;
-    *) die2 "$path resolves to $real, outside $ROOT" ;;
-  esac
+  case "$real" in "$ROOT"/?*) ;; *) die2 "$path resolves to $real, not inside $ROOT" ;; esac
 done < <(tail -n +2 "$OUT/plan.tsv")
 
 echo "== plan ($OUT/plan.tsv)"
@@ -144,7 +148,14 @@ rc=0
 while IFS="$(printf '\t')" read -r path kind step action; do
   case "$action" in
     nextflow_clean)
-      (cd "$path" && nextflow clean -f -k) || echo "pilot_cleanup: nextflow clean failed in $path" >&2
+      row "$path" "$kind" NA NA nextflow_clean
+      if (cd "$path" && nextflow clean -f -k); then
+        row "$path" "$kind" NA NA nextflow_clean_done
+      else
+        row "$path" "$kind" NA NA nextflow_clean_failed
+        echo "pilot_cleanup: nextflow clean failed in $path" >&2
+        rc=1
+      fi
       continue ;;
     skipped_symlink) row "$path" "$kind" NA NA skipped_symlink; continue ;;
     delete) ;;
