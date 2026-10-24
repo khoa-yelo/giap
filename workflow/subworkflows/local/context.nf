@@ -4,7 +4,9 @@
 // GIAP_STEP alias). The §8.6 reruns (sensitivity) moved to SENSITIVITY_RERUNS (sensitivity.nf,
 // M8-16), which main.nf runs after DETERMINANTS.
 // context_stats also writes two intermediate parquet files under context/: the genes.tsv
-// context group it left-joins into genes.tsv, and the ADR-0021 Amendment 1 island diagnostics.
+// context group it left-joins into genes.tsv, and the ADR-0021 Amendment 1 island diagnostics,
+// and the optional plot support context_stats_support (M9-17: null_regions, null_islands;
+// published under plots/support/).
 // The optional C15 features table (the oriC of the ori-ter rows) is the annotation channel's
 // second file, so CONTEXT needs no further take: channel (M4-20 note).
 // C7/C8 (regions, region_genes) are required; ANNOTATE's region_layer writes them, also under a
@@ -14,6 +16,7 @@
 // M7-14: VARIANTS' variants_qc (optional) gives the numeric id_mixups QC row, so context_stats
 // waits for VARIANTS when peptides are given.
 include { GIAP_STEP as CONTEXT_STATS } from '../../modules/local/giap_step/main'
+include { supportDir } from '../../modules/local/giap_step/main'
 include { stepIn; kv; pick; inDir } from './annotate'
 
 // One named file of the loci output: a file of the mapping/ directory in a real run, the
@@ -59,7 +62,8 @@ workflow CONTEXT {
         'detection_summary=tables/detection_summary.tsv',
         'autocorrelation=tables/autocorrelation.tsv', 'islands=tables/islands.tsv',
         'genes_tsv=tables/genes.tsv', 'gene_context=context/gene_context.parquet',
-        'island_diagnostics=context/island_diagnostics.parquet'])
+        'island_diagnostics=context/island_diagnostics.parquet',
+        'context_stats_support=context_stats_support'])
 
     emit:
     regions_stats    = pick(CONTEXT_STATS.out.outputs, 'regions_stats.tsv')
@@ -69,6 +73,7 @@ workflow CONTEXT {
     genes_tsv        = pick(CONTEXT_STATS.out.outputs, 'genes.tsv')
     gene_context     = pick(CONTEXT_STATS.out.outputs, 'gene_context.parquet')
     island_diagnostics = pick(CONTEXT_STATS.out.outputs, 'island_diagnostics.parquet')
+    context_stats_support = CONTEXT_STATS.out.support.map { fs -> supportDir(fs) }
     versions         = CONTEXT_STATS.out.versions
     events           = CONTEXT_STATS.out.events
 }

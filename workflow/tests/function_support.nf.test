@@ -1,0 +1,141 @@
+// M9-17 follow-up: the FUNCTION subworkflow passes the function step's optional plot support on
+// (workflow/subworkflows/local/function.nf; docs/specs/M9-17-plot-support-analysis.md lead
+// decisions 5-6; GIAP_SPEC.md §6.4 executor equality, §9.1). ci.yml runs:
+// nf-test test workflow/tests --profile test,stub.
+//
+// Pinned here:
+//   emit: function_support, the step's `function_support` output; an empty channel when the step
+//         wrote none (no testable gene set: M9-17 lead decision 5, "no gsea_running file with zero
+//         testable sets"), and the task still succeeds (an optional output);
+//   publish: the support files land in OUT/plots/support/ (as giap.runner.local.publish merges
+//         work/function_support/support/ there), never in OUT/function_support/.
+// The stub test runs -stub; the other two run the real GIAP_STEP script with the fake giap of
+// workflow/tests/bin_giap (fake_giap.config), which writes <support path>/support/
+// fake_function_support.tsv when params.fake_support is true and nothing at the support path when
+// false. Inputs as function.nf.test (empty stand-ins: no task reads its inputs).
+
+nextflow_workflow {
+
+    name "FUNCTION subworkflow: plot support (M9-17)"
+    script "../subworkflows/local/function.nf"
+    workflow "FUNCTION"
+    config "./fake_giap.config"
+    tag "function"
+    tag "support"
+
+    test("stub: function_support is emitted and published under plots/support/") {
+
+        options "-stub"
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def t = java.nio.file.Files.createTempDirectory('m917_fn').resolve('tu_folds.parquet')
+                t.toFile().text = ''
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value(file(t.toString()))
+                input[3] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def sup = workflow.out.function_support
+            assert sup != null && sup.size() == 1 : "emit function_support: ${sup} (emits ${workflow.out.keySet()})"
+            def pub = S.published("${outputDir}")
+            assert pub.any { it.startsWith('plots/support/') } : "nothing published under plots/support/: ${pub}"
+            assert S.supportDirs("${outputDir}").isEmpty() : "support published as its own directory: ${S.supportDirs("${outputDir}")}"
+            ['category_summary', 'enrichment_detection', 'enrichment_gsea'].each { k ->
+                assert new File("${outputDir}/tables/${k}.tsv").isFile() : "tables/${k}.tsv not published"
+            }
+        }
+    }
+
+    test("real GIAP_STEP, the step writes support: asked for function_support, files under plots/support/") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                fake_bin = "${moduleTestDir}/bin_giap"
+                fake_support = true
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def t = java.nio.file.Files.createTempDirectory('m917_fn').resolve('tu_folds.parquet')
+                t.toFile().text = ''
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value(file(t.toString()))
+                input[3] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
+            assert workflow.success
+            assert workflow.trace.failed().size() == 0
+            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'giap.argv').isFile() }
+            assert dirs.size() == 1 : "expected one fake giap task: ${dirs}"
+            def outs = S.argvOuts(dirs[0])
+            assert outs.any { it.startsWith('function_support=') } : "function step not asked for function_support: --out ${outs}"
+            def sup = workflow.out.function_support
+            assert sup != null && sup.size() == 1 : "emit function_support: ${sup}"
+            assert new File("${outputDir}/plots/support/fake_function_support.tsv").isFile() :
+                "support not published to plots/support/: ${S.published("${outputDir}")}"
+            assert S.supportDirs("${outputDir}").isEmpty() : "support published as its own directory: ${S.supportDirs("${outputDir}")}"
+        }
+    }
+
+    test("real GIAP_STEP, the step writes no support: the task succeeds, function_support is empty") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                fake_bin = "${moduleTestDir}/bin_giap"
+                fake_support = false
+            }
+            workflow {
+                """
+                def g = "${moduleTestDir}/data/genetable"
+                def m = "${moduleTestDir}/data/mapping"
+                def t = java.nio.file.Files.createTempDirectory('m917_fn').resolve('tu_folds.parquet')
+                t.toFile().text = ''
+                input[0] = channel.value(file("\${g}/genetable/genes.parquet"))
+                input[1] = channel.value([file("\${m}/genes.parquet"), file("\${m}/features.parquet"), file("\${m}/replicons.parquet")])
+                input[2] = channel.value(file(t.toString()))
+                input[3] = channel.empty()
+                """
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def S = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/support_check.groovy"))
+            assert workflow.success : "a function run without support failed"
+            assert workflow.trace.failed().size() == 0
+            def dirs = H.taskDirs(workDir.toString()).findAll { new File(it, 'giap.argv').isFile() }
+            assert dirs.size() == 1 : "expected one fake giap task: ${dirs}"
+            assert S.argvOuts(dirs[0]).any { it.startsWith('function_support=') } : "function step not asked for function_support"
+            def sup = workflow.out.function_support
+            assert sup != null && sup.size() == 0 : "emit function_support should be empty: ${sup}"
+            ['category_summary', 'enrichment_detection', 'enrichment_gsea'].each { k ->
+                assert workflow.out[k] != null && workflow.out[k].size() == 1 : "emit ${k}: ${workflow.out[k]}"
+                assert new File("${outputDir}/tables/${k}.tsv").isFile() : "tables/${k}.tsv not published"
+            }
+            assert !new File("${outputDir}/plots/support").exists() : "plots/support/ published without support"
+        }
+    }
+}

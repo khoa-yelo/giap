@@ -117,12 +117,16 @@ workflow {
                     kv('novel_class_fdr', NOVEL.out.novel_class_fdr),
                     kv('determinants_features', DETERMINANTS.out.determinants_features),
                     kv('determinants_model', DETERMINANTS.out.determinants_model),
-                    kv('determinants_attribution', DETERMINANTS.out.determinants_attribution)]
+                    kv('determinants_attribution', DETERMINANTS.out.determinants_attribution),
+                    // M9-17: the analysis steps' optional plot support, staged for the plots step
+                    kv('plots_support', CONTEXT.out.context_stats_support),
+                    kv('plots_support', DETERMINANTS.out.determinants_support)]
             if ('function' in (params.modules ?: [])) {  // §6.3: the optional module switch
                 FUNCTION(GENETABLE.out.gene_table, gene_model, GENETABLE.out.tu_folds, functionResources())
                 pub += [kv('category_summary', FUNCTION.out.category_summary),
                         kv('enrichment_detection', FUNCTION.out.enrichment_detection),
-                        kv('enrichment_gsea', FUNCTION.out.enrichment_gsea)]
+                        kv('enrichment_gsea', FUNCTION.out.enrichment_gsea),
+                        kv('plots_support', FUNCTION.out.function_support)]
             }
         }
         // the step event logs, merged in a content order, under the key 'events' as the local
