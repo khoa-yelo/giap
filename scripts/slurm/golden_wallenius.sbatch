@@ -34,21 +34,21 @@ echo "two runs byte-identical"
 checks="$("$PY" - "$TMPDIR/log1.json" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
-c, env = d.get("checks", {}), d.get("environment", {})
-print(f"- Environment: Python {env.get('python')}, numpy {env.get('numpy')}, "
-      f"np.longdouble {env.get('longdouble')}, machine {env.get('machine')}.")
+c, env = d["checks"], d["environment"]
+print(f"- Environment: Python {env['python']}, numpy {env['numpy']}, "
+      f"np.longdouble {env['longdouble']}, machine {env['machine']}.")
 print("- Checks (M8-12b §3.4):")
-print(f"  - R1 80-bit vs float64, all tails: max rel {c.get('r1_longdouble_vs_float64_max_rel')} (limit 1e-13);")
-print(f"  - R1 80-bit vs R2 on the R2 tails ({', '.join(d.get('r2_tails', []))}): "
-      f"max rel {c.get('r1_vs_r2_max_rel')} (limit 1e-13);")
-spot = c.get("spot_checks", {})
+print(f"  - R1 80-bit vs float64, all tails: max rel {c['r1_longdouble_vs_float64_max_rel']} (limit 1e-13);")
+print(f"  - R1 80-bit vs R2 on the R2 tails ({', '.join(d['r2_tails'])}): "
+      f"max rel {c['r1_vs_r2_max_rel']} (limit 1e-13);")
+spot = c.get("spot_checks", {})  # skipped on a --categories subset
 print(f"  - R2 spot checks on {len(spot)} tails >= 1e-3 (limit 1e-13): "
       + "; ".join(f"{k} rel {v}" for k, v in spot.items()) + ";")
 sumf = c.get("sum_f", {})
 print(f"  - Σf = 1 by R2 on {len(sumf)} categories (limit 1e-50): "
       + "; ".join(f"{k} |Σ - 1| {v}" for k, v in sumf.items()) + ";")
-print(f"  - vacuity floor (ADR-0044 decision 4): {c.get('vacuity')};")
-print(f"  - ω max ulp difference against the numpy mean ratio: {d.get('omega_max_ulp_vs_numpy')}.")
+print(f"  - vacuity floor (ADR-0044 decision 4): {c.get('vacuity', 'skipped (subset)')};")
+print(f"  - ω max ulp difference against the numpy mean ratio: {d['omega_max_ulp_vs_numpy']}.")
 PY
 )"
 sha_genes="$(sha256sum "$INPUTS/ora_genes.tsv.gz" | cut -d' ' -f1)"

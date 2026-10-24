@@ -78,8 +78,11 @@ if [ -n "$changed" ]; then
     exit 1
   fi
 fi
-supersedes="$(sed -n 's/^- Slurm job: \([0-9][0-9]*\).*/\1/p' "$DEST/PROVENANCE.md" 2>/dev/null | head -1 || true)"
-supersedes="${supersedes:+Slurm job $supersedes}"
+# the committed data's job: a Slurm job, or a GitHub Actions run (golden-r.yml writes "- Job: <id>")
+supersedes="$(sed -n -e 's/^- Slurm job: \([0-9][0-9]*\).*/Slurm job \1/p' \
+  -e 's/^- Job: \([0-9][0-9]*\) (GitHub Actions run).*/GitHub Actions run \1/p' \
+  "$DEST/PROVENANCE.md" 2>/dev/null | head -1 || true)"
+[ -n "$supersedes" ] || [ ! -f "$DEST/PROVENANCE.md" ] || supersedes="unknown"
 
 rm -rf "$DEST/inputs" "$DEST/outputs"
 mkdir -p "$DEST"

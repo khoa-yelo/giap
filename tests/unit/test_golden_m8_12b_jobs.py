@@ -143,7 +143,9 @@ def test_golden_r_records_reason_and_supersedes(tmp_path: Path) -> None:
     assert proc.returncode == 0, proc.stdout + proc.stderr
     text = (sb.repo / DEST_R / "PROVENANCE.md").read_text()
     assert f"- Reason: {REASON}" in text.splitlines()
-    assert "- Supersedes: Slurm job 1868639" in text.splitlines(), "the M8-12 job"
+    prior = re.search(r"^- Slurm job: (\d+)", (COMMITTED / "PROVENANCE.md").read_text(), re.M)
+    assert prior, "the committed PROVENANCE names its Slurm job"
+    assert f"- Supersedes: Slurm job {prior.group(1)}" in text.splitlines(), "the committed job"
     assert re.search(rf"Slurm job: {JOB} on ", text), "the new job"
     # the M8-12 template is kept (tests/golden/test_golden_r_files.py::test_provenance_...)
     assert "GOLDEN_SEED" in text and "50000" in text
