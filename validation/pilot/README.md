@@ -198,6 +198,51 @@ DIA-NN 2.3.1 Academia ran from the read-only copy `$GIAP_ROOT/images/diann_2.3.1
 - **One submission per arm at a time:** two concurrent jobs of the *same* arm delete each other's
   `quant/` and outputs.
 
+## Conversion (M10-03)
+
+`scripts/slurm/diann_convert.sbatch <arm>` ran `giap convert --from diann` on each arm's DIA-NN
+2.3.1 report, at commit `fdf586be` of `m10/diann-convert-tests` from a clean worktree. The job
+converts twice and compares the hashes (determinism), then runs the five contract checks
+(`tests/contract/test_m10_03_diann_contract.py`, 0 skipped).
+
+```
+giap convert --from diann $GIAP_ROOT/pilot/A1/A1_report.parquet --out $GIAP_ROOT/pilot/inputs/a1.tsv.gz \
+  --abundance-out $GIAP_ROOT/pilot/inputs/a1_abundance.tsv.gz --search-db other
+giap convert --from diann $GIAP_ROOT/pilot/A2/A2_report.parquet --out $GIAP_ROOT/pilot/inputs/a2.tsv.gz \
+  --abundance-out $GIAP_ROOT/pilot/inputs/a2_abundance.tsv.gz --search-db same
+```
+
+| arm | Slurm job | node | state | elapsed | MaxRSS |
+|---|---|---|---|---|---|
+| A1 | 1880219 | wheat-01 | COMPLETED, exit 0 | 00:00:17 | 0.3 GiB |
+| A2 | 1880220 | wheat-05 | COMPLETED, exit 0 | 00:00:17 | 0.3 GiB |
+
+sha256 of each input report and of the two tables written from it:
+
+| arm | file | sha256 |
+|---|---|---|
+| A1 | `A1_report.parquet` (input) | `f217a40fc0777e99783f3d410743bc80d301290dcdb219a6c69574ee6a4926d7` |
+| A1 | `a1.tsv.gz` | `81818184f0cd222f091ae6b835ff72cc5743b6ce7e6403e7a2cb1740bbf24f3a` |
+| A1 | `a1_abundance.tsv.gz` | `20284d4234055b26cf779dc405548087e4efc9bf1007dc3bebc031c5b6c74c54` |
+| A2 | `A2_report.parquet` (input) | `733a3884a15664f13385b241e48186e538308993ff2d5a8cc3ec9ff212866d36` |
+| A2 | `a2.tsv.gz` | `1eb5e1e9a8855fc8ac62bed4d60f2715f9270f2b96f40206dd35a3a754adf14f` |
+| A2 | `a2_abundance.tsv.gz` | `c61122f3afc9aa31986de8bbfef1c542719627d3d632ec9113e7719582b41c19` |
+
+- **Where the tables live:** they are derived from the DIA-NN reports, so they stay under
+  `$GIAP_ROOT/pilot/inputs/` and are not committed (Khoa, 2026-10-23). This departs from §15.2
+  step 7; the amendment goes to ADR-0051.
+- **Row counts** (data rows, header excluded; aggregates are allowed, Khoa 2026-10-24):
+
+  | arm | peptide rows (`aN.tsv.gz`) | protein groups (`aN_abundance.tsv.gz`) |
+  |---|---|---|
+  | A1 | 81,278 | 2,878 |
+  | A2 | 93,781 | 3,257 |
+- **Reproducing:** conversion is deterministic, so rerunning the job and matching these hashes is a
+  full check (M10-14).
+- **Superseded runs:** 1880208 and 1880209 ran at `b051c2b7`, before main's
+  `acquisition.json`, so one contract check was skipped. Their outputs were overwritten by the
+  runs above.
+
 ## Running the pilot (§15.2 steps 4-9)
 
 Every step is a batch job; nothing runs on a login node or in the session allocation.
