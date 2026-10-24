@@ -129,3 +129,38 @@ def test_alt_sites_keeps_gene_rows_only(run: tuple[M.Excerpt, Path, Any]) -> Non
     assert M.header_of(out / "truth" / "alt_sites.tsv") == [
         "contig", "codon_start", "strand", "gene", "ref_aa", "alt_aa", "n_true_peptides",
         "frameshift_upstream"]  # fmt: skip
+
+
+# ------------------------------------------------ novel_alt_site_rows on hand-made rows
+
+# + strand ORF at 1..15: ATG GCC GCC GCC TAA; the sample changes codon 2 (bases 4..6) GCC -> GTC
+_REF = {"c1": "ATGGCCGCCGCCTAA" + "A" * 15}
+_SAMPLE = {"c1": "ATGGTCGCCGCCTAA" + "A" * 15}
+
+
+def _nrow(cls: str) -> list[Any]:
+    return ["NOVEL_0001", cls, "c1", 1, 15, "+", "MAAA", 13, 1, 0, "false"]
+
+
+def _nas(cls: str, peps: dict[str, list[tuple[str, int, int, str]]] | None = None) -> list[Any]:
+    rg = importlib.import_module("giapsim.real_genome")
+    rows: list[Any] = rg.novel_alt_site_rows([_nrow(cls)], _REF, _SAMPLE, peps or {})
+    return rows
+
+
+@pytest.mark.parametrize("cls", FOUND)
+def test_found_class_orf_snv_gives_one_row(cls: str) -> None:
+    assert _nas(cls) == [["c1", 4, "+", "NOVEL_0001", "A", "V", 0]]
+
+
+def test_nterm_extension_orfs_are_left_out() -> None:
+    """``nterm_extension`` ORFs are annotated genes, covered by ``alt_sites.tsv``."""
+    assert _nas("nterm_extension") == []
+
+
+def test_n_true_peptides_counts_whole_codon_cover_1_based_closed() -> None:
+    """Codon 4..6: peptides 4..6 and 1..6 hold it; 5..9 and 1..5 do not; an I/L twin and another
+    contig do not add."""
+    peps = {"NOVEL_0001": [("c1", 4, 6, "PEPA"), ("c1", 1, 6, "PEPB"), ("c1", 5, 9, "PEPC"),
+                           ("c1", 1, 5, "PEPD"), ("c2", 1, 15, "PEPE")]}  # fmt: skip
+    assert _nas("intergenic", peps)[0][6] == 2

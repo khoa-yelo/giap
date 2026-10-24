@@ -6,6 +6,8 @@
   GTG/TTG/CTG novel-ORF start) never changes precision or recall and raises
   ``n_initiator_m_excluded`` by exactly their number.
 * recall denominator: raising ``mapping.tolerant.min_len`` never adds a recall site.
+* coverage: a site seen by two true peptides at ``start = codon_start + ds`` and
+  ``end = codon_start + 2 + de`` is a recall site iff ``ds <= 0 <= de`` (1-based closed).
 """
 
 from __future__ import annotations
@@ -77,3 +79,16 @@ def test_raising_min_len_never_adds_a_recall_site(lens: list[int], lo: int, step
         b = c.gate()["n_recall_sites"]
     assert b <= a
     assert a == N_SITES * (lo <= 12) + sum(n >= lo for n in lens)
+
+
+@SETTINGS
+@given(st.integers(-4, 4), st.integers(-4, 4))
+def test_a_site_is_covered_iff_the_peptides_hold_the_whole_codon(ds: int, de: int) -> None:
+    with tempfile.TemporaryDirectory() as d:
+        c = base_case(Path(d))
+        k = N_SITES
+        cs = 1000 + 600 * k
+        c.alt.append([c.alt[0][0], cs, "+", gene(k), "A", "V", 2, "false"])
+        c.true_peps(gene(k), cs, start=cs + ds, end=cs + 2 + de)
+        res = c.gate()
+    assert res["n_recall_sites"] == N_SITES + (ds <= 0 <= de)

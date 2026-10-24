@@ -325,3 +325,87 @@ def test_evidence_summary_json_reports_the_initiator_count(case: Case) -> None:
     assert g["n_initiator_m_excluded"] == 2
     assert g["precision"] == 1.0 and g["recall"] == 1.0
     assert not any("sign_off" in k or "signoff" in k for k in g), "plain bug fix: no sign-off"
+
+
+# ------------------------------------------------ min_len fails closed (#324 item 3)
+
+_BAD_CONFIGS = {
+    "missing_file": None,
+    "invalid_yaml": "mapping: [unclosed\n  tolerant: {min_len: 10\n",
+    "null_document": "",
+    "mapping_null": "mapping: null\n",
+    "missing_tolerant": "mapping:\n  exact:\n    min_len: 7\n",
+    "missing_min_len": "mapping:\n  tolerant:\n    enabled: true\n",
+    "non_numeric": "mapping:\n  tolerant:\n    enabled: true\n    min_len: ten\n",
+    "list_value": "mapping:\n  tolerant:\n    min_len: [10]\n",
+    "bool_true": "mapping:\n  tolerant:\n    enabled: true\n    min_len: true\n",
+    "bool_false": "mapping:\n  tolerant:\n    enabled: true\n    min_len: false\n",
+}
+
+
+@pytest.mark.parametrize("kind", sorted(_BAD_CONFIGS))
+def test_unreadable_min_len_gives_no_recall_and_a_fail(case: Case, kind: str) -> None:
+    """No usable ``mapping.tolerant.min_len``: no recall sites, ``recall`` None, gate fails.
+    Never a fallback (0 or 10): the base case otherwise passes with recall 1."""
+    case.write()
+    cfg = case.out / "resolved_config.yaml"
+    text = _BAD_CONFIGS[kind]
+    if text is None:
+        cfg.unlink()
+    else:
+        cfg.write_text(text)
+    res: dict[str, Any] = mod().gate11(case.out, case.inp)
+    assert res["recall"] is None
+    assert res["recall_min_len"] is None
+    assert res["n_recall_sites"] == 0
+    assert res["gate_ok"] is False and res["status"] == "fail"
+    assert res["precision"] == 1.0  # precision does not depend on the config
+
+
+def test_unreadable_min_len_is_a_fail_in_the_summary_json(case: Case) -> None:
+    case.write()
+    (case.out / "resolved_config.yaml").unlink()
+    assert mod().main([str(case.out), str(case.inp)]) == 0
+    doc: Mapping[str, Any] = json.loads((case.out / "evidence_summary.json").read_text())
+    g = doc["gates"]["11"]
+    assert g["recall"] is None and g["recall_min_len"] is None and g["status"] == "fail"
+
+
+@pytest.mark.parametrize("min_len,want", [(7, 40 / 41), (12, 1.0)])
+def test_the_configured_min_len_moves_recall(case: Case, min_len: int, want: float) -> None:
+    """Same tables (an uncalled site seen by two 8-mers): min_len 7 counts it, 12 does not."""
+    _short_site(case, N_SITES, 8)
+    case.min_len = min_len
+    res = case.gate()
+    assert res["recall_min_len"] == min_len
+    assert res["recall"] == pytest.approx(want)
+    assert res["n_recall_sites"] == N_SITES + (min_len <= 8)
+
+
+# ---------------------------------------------------------------- coverage boundaries (#324 item 4)
+
+
+@pytest.mark.parametrize(
+    "where,counted",
+    [("start_at_codon", True), ("end_at_codon_plus_2", True),
+     ("start_at_codon_plus_1", False), ("end_at_codon_plus_1", False)],
+)  # fmt: skip
+def test_coverage_is_1_based_closed_and_holds_the_whole_codon(
+    case: Case, where: str, counted: bool
+) -> None:
+    """Two true 12-mers per extra (uncalled) site, both placed at the boundary under test: the
+    codon ``cs..cs+2`` must lie in ``start..end`` (1-based closed)."""
+    k = N_SITES
+    cs = codon(k)
+    case.alt.append([CONTIG, cs, "+", gene(k), "A", "V", 2, "false"])
+    span = 3 * 12 - 1
+    start, end = {
+        "start_at_codon": (cs, cs + span),
+        "end_at_codon_plus_2": (cs + 2 - span, cs + 2),
+        "start_at_codon_plus_1": (cs + 1, cs + 1 + span),
+        "end_at_codon_plus_1": (cs + 1 - span, cs + 1),
+    }[where]
+    case.true_peps(gene(k), cs, start=start, end=end)
+    res = case.gate()
+    assert res["n_recall_sites"] == N_SITES + counted
+    assert res["recall"] == pytest.approx(40 / 41 if counted else 1.0)
