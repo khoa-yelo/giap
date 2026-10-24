@@ -601,3 +601,31 @@ These supersede the earlier text where they differ:
 - **The weights fetch** rejects an HTML page or a body without the zip magic in both modes, and
   its `--time` is 02:00:00 so curl's worst case fits.
 - **mzml-check M7:** the time unit is read from `unitAccession`, else `unitName`; no unit fails M7.
+
+## Amendments (2026-10-24, 08b)
+
+Lead decisions for 08b; they supersede the earlier text where they differ:
+- **CLI:** `evaluate <RUN.ssl> --run <RUN> --out <J> [--genome] [--bakta-json] [--contaminants]
+  [--cutoff]`. `--genome` and `--bakta-json` default to the Nissle files of step 8,
+  `--contaminants` to `$GIAP_DB_DIR/contaminants/contaminants.fasta`. Exit codes: 0 pass, 3 fail
+  on timsTOF, 2 precondition, 1 bad input. M10-10's `cascadia_convert.sbatch` already calls this
+  interface. `early-fail` takes `--run` optionally (default `WT_1`).
+- **Stripping (step 2):** after deleting the groups, signed masses and `-`, uppercase first, then
+  delete every character outside A–Z; then fold I → L.
+- **Counting:** `n_below_cutoff` counts after the length filter. `n_nonstandard` and `length_hist`
+  are over the distinct passing set. A peptide on two replicons counts once in each
+  (`matches_by_replicon`). A contaminant peptide counts as a non-match even if it also matches
+  the genome (the conservative choice), in `n_match`, `share` and `matches_by_replicon`;
+  `decoy_share` is diagnostic and not adjusted.
+- **Provenance values** (`weights_sha256`, `route`, `route_version`, `mzml_sha256`,
+  `mzml_check`, `job_ids`, `date`) come from the job (sbatch environment and logs), passed as
+  options (`--weights-sha256`, `--route`, `--route-version`, `--mzml-sha256`, `--mzml-check J`,
+  `--job-id` repeatable, `--date`, default today UTC), and are filled in by the validation run.
+  The unit tests check only the keys. `--detail TSV` writes the per-peptide top list (under
+  `$GIAP_ROOT` only, never committed).
+- **Unimod URL:** `denovo_pilot.sbatch` tees each Cascadia call into
+  `$GIAP_ROOT/pilot/A3_cascadia/<RUN>/cascadia.log` and exits 1 when that log shows a `unimod.org`
+  URL. The Cascadia input directory is `MZML_DIR` (default `$GIAP_DATA_DIR/pxd078459/mzml`); the
+  run list is `$RUN`, else the second argument, else `WT_1 WT_2 WT_3`.
+- **Env build:** building `cascadia` on a CPU node needs `CONDA_OVERRIDE_CUDA=11.8` (the README's
+  A3 section).

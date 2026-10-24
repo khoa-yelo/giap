@@ -243,6 +243,34 @@ sha256 of each input report and of the two tables written from it:
   `acquisition.json`, so one contract check was skipped. Their outputs were overwritten by the
   runs above.
 
+## A3 de novo (M10-08)
+
+Arm A3 runs Cascadia 0.0.7 (Apache-2.0, PyPI wheel pinned by sha256 in `workflow/envs/cascadia.yml`)
+on per-window mzML converted with TIMSCONVERT 2.0.0 and pyTDFSDK (Apache-2.0; the bundled Bruker
+TDF-SDK is used under Bruker's licence, accepted by Khoa, and never redistributed: ADR-0054). The
+weights (`cascadia.ckpt`, Apache-2.0, from the authors' Drive folder) and the Unimod table (from
+psims 1.4.0) are pinned by sha256 and bytes in `a3_assets.tsv`; nothing of either is committed.
+The env locks are `workflow/envs/locks/{cascadia,timsconvert}.{explicit,pip}.txt`.
+
+```bash
+# the env: the PyTorch 2.0 CUDA 11.8 build only solves on a CPU node with the virtual package set
+CONDA_OVERRIDE_CUDA=11.8 sbatch scripts/slurm/build_envs.sbatch cascadia timsconvert
+A3_WEIGHTS_HOST_OK=1 sbatch scripts/slurm/fetch_a3_assets.sbatch     # verified copies (R6)
+sbatch scripts/slurm/mzml_pilot.sbatch WT_1                          # .d -> mzML, then mzml-check
+RUN=WT_1 sbatch --time=04:00:00 scripts/slurm/denovo_pilot.sbatch cascadia   # 1 GPU, offline Unimod
+python validation/pilot/a3_feasibility.py evaluate $GIAP_ROOT/pilot/A3_cascadia/WT_1/WT_1.ssl \
+  --run WT_1 --out validation/pilot/metrics/a3_feasibility.json \
+  --route B2 --route-version <commit> --weights-sha256 <sha> --mzml-sha256 <sha> \
+  --mzml-check $GIAP_DATA_DIR/pxd078459/mzml/WT_1.mzml_check.json --job-id <id> \
+  --detail $GIAP_ROOT/pilot/A3_cascadia/WT_1/feasibility_top1000.tsv
+```
+
+The verdict is rule L6 on WT_1 (spec M10-08): fail when fewer than 500 distinct 7-30-mers pass
+Cascadia's own cut-off (0.8), or fewer than 20 % of the top 1,000 match the Nissle six-frame
+translation exactly; exit 0 pass, 3 fail. `early-fail --reason … --evidence …` records E1-E3.
+`metrics/a3_feasibility.json` holds aggregates only; the job IDs, wall times, sizes and the
+verdict itself come from the smoke run (pending).
+
 ## Running the pilot (§15.2 steps 4-9)
 
 Every step is a batch job; nothing runs on a login node or in the session allocation.
