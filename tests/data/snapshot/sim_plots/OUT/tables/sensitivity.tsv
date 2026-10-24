@@ -1,0 +1,16 @@
+family	variant	n_primary	n_variant	n_shared	jaccard	agreement
+regions	missing=min	1	1	1	1	NA
+regions	missing=exclude	1	1	1	1	NA
+regions	single_peptide_detected	1	1	1	1	NA
+islands	missing=min	27	27	27	1	NA
+islands	missing=exclude	27	27	27	1	NA
+islands	single_peptide_detected	27	27	27	1	NA
+operon_flags	missing=min	1	1	1	1	NA
+operon_flags	missing=exclude	1	1	1	1	NA
+operon_flags	single_peptide_detected	1	1	1	1	NA
+enriched_categories	missing=min	0	0	0	NA	NA
+enriched_categories	missing=exclude	0	0	0	NA	NA
+enriched_categories	single_peptide_detected	0	0	0	NA	NA
+determinants	missing=min	10	10	10	1	1
+determinants	missing=exclude	10	10	10	1	1
+determinants	single_peptide_detected	10	12	10	0.833333	0.862069

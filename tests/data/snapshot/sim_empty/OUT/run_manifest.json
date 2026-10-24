@@ -1,0 +1,1170 @@
+{
+  "annotation": {
+    "bakta_version": "sim",
+    "db_type": "unknown",
+    "db_version": "sim",
+    "source": "user"
+  },
+  "calibration": {
+    "operon_distance": {
+      "calibrated": true,
+      "provenance": "RegulonDB 14.5.0 K-12 refit, ADR-0022 (M6-12)"
+    },
+    "terminatornet_yes": {
+      "calibrated": true,
+      "provenance": "RegulonDB 14.5.0 K-12, ADR-0022 (M6-12); precision is a lower bound"
+    },
+    "uniop_pair_threshold": {
+      "calibrated": true,
+      "provenance": "RegulonDB 14.5.0 K-12, ADR-0022 (M6-12); 0.5 by Khoa's decision 2026-10-24"
+    }
+  },
+  "command_line": [
+    "giap",
+    "run",
+    "--genome",
+    "WORK/sim/reference.fasta",
+    "--peptides",
+    "WORK/peptides_a.tsv",
+    "--reference-peptides",
+    "WORK/reference_peptides_a.tsv",
+    "--abundance",
+    "WORK/sim/abundance.tsv",
+    "--annotation",
+    "WORK/reference_xrefs.json",
+    "--config",
+    "WORK/run_config.yaml",
+    "--genome-relation",
+    "related",
+    "--modules",
+    "core,mobile,bgc,function",
+    "--outdir",
+    "WORK/run_a/OUT",
+    "--seed",
+    "7",
+    "--executor",
+    "local",
+    "--threads",
+    "2",
+    "--set",
+    "report.max_locus_plots=2",
+    "--set",
+    "context.islands.detrend_span_frac=0.5",
+    "--set",
+    "determinants.permutations=19",
+    "--set",
+    "stats.bootstrap=199"
+  ],
+  "config": {
+    "abundance": {
+      "enzyme": "trypsin_p",
+      "method": "ibaq",
+      "missing": "median",
+      "observable_len": [
+        7,
+        30
+      ],
+      "run_aggregation": "median",
+      "scale": "auto",
+      "sensitivity": [
+        "min",
+        "exclude"
+      ],
+      "type": "unknown"
+    },
+    "annotation": {
+      "bakta": {
+        "complete": "auto",
+        "db": "auto",
+        "extra_args": []
+      },
+      "codon": {
+        "cai_reference": "ribosomal_proteins"
+      },
+      "ostir": {
+        "anti_sd": "auto",
+        "downstream_nt": 50,
+        "upstream_nt": 50
+      },
+      "precomputed": {
+        "bakta_json": "WORK/reference_xrefs.json",
+        "operon_pairs": "WORK/sim/precomputed/operon_pairs.tsv",
+        "promoters": "WORK/sim/precomputed/promoters.tsv",
+        "rbs": "WORK/sim/precomputed/rbs.tsv",
+        "rbs_novel": "WORK/sim/precomputed/rbs_novel.tsv",
+        "regions": "WORK/sim/precomputed/regions.tsv",
+        "terminators": "WORK/terminators.tsv",
+        "tx_rates": "WORK/sim/precomputed/tx_rates.tsv"
+      },
+      "promoter_calculator": {
+        "enabled": true
+      },
+      "promoters": {
+        "mode": "targeted",
+        "promotech_yes": 0.5,
+        "window_3p_range": [
+          -200,
+          20
+        ],
+        "window_nt": 40
+      },
+      "region_min_overlap_frac": 0.5,
+      "start_codons": [
+        "ATG",
+        "GTG",
+        "TTG"
+      ],
+      "terminators": {
+        "bactermfinder": false,
+        "cross_check_transtermhp": true,
+        "terminatornet_yes": 0.9999999999961204,
+        "tool": "terminatornet"
+      },
+      "translation_table": 11,
+      "tu_upstream_bp": [
+        -300,
+        50
+      ],
+      "uniop": {
+        "fallback": "distance",
+        "pair_threshold": 0.5
+      }
+    },
+    "context": {
+      "exhaustive_shift_max_genes": 20000,
+      "islands": {
+        "block_len": "auto",
+        "detrend_span_frac": 0.5,
+        "max_tus": 20,
+        "min_tus": 2
+      },
+      "moran_lags": [
+        1,
+        20
+      ],
+      "region_types": [
+        "prophage",
+        "plasmid",
+        "bgc",
+        "crispr",
+        "amr"
+      ]
+    },
+    "detectability": {
+      "covariates": [
+        "n_observable_peptides",
+        "length_aa",
+        "gravy",
+        "pi",
+        "tm_segments"
+      ],
+      "folds": 5,
+      "spline_knots": 5
+    },
+    "detection": {
+      "mayu_size_bins": 10,
+      "min_peptides_sequences_only": 2
+    },
+    "determinants": {
+      "elastic_net": {
+        "inner_folds": 3,
+        "l1_ratio": [
+          0.1,
+          0.5,
+          0.9
+        ]
+      },
+      "lightgbm": {
+        "colsample_bytree": 0.8,
+        "deterministic": true,
+        "learning_rate": 0.03,
+        "min_child_samples": 20,
+        "n_estimators": 500,
+        "num_leaves": 15,
+        "subsample": 0.8,
+        "subsample_freq": 1
+      },
+      "outer_folds": 5,
+      "permutations": 19,
+      "repeats": 5
+    },
+    "function": {
+      "go_slim": "generic",
+      "gsea": {
+        "eps": 0.0,
+        "n_perm_simple": 1000,
+        "sample_size": 101
+      },
+      "gsea_size": [
+        10,
+        500
+      ],
+      "ora_size": [
+        5,
+        500
+      ]
+    },
+    "genome_relation": "related",
+    "input": {
+      "contaminant_prefixes": [
+        "Cont_",
+        "CON__",
+        "CONT_",
+        "cRAP"
+      ],
+      "decoy_prefixes": [
+        "rev_",
+        "REV_",
+        "DECOY_",
+        "decoy_",
+        "XXX_",
+        "##"
+      ],
+      "i_equals_l": true,
+      "peptide_len": [
+        7,
+        40
+      ],
+      "peptide_source": "auto",
+      "q_value_max": 0.01,
+      "search_db": "auto"
+    },
+    "mapping": {
+      "decoys": {
+        "database_input": "reverse",
+        "denovo_input": "shuffle",
+        "shuffle_window_aa": 50
+      },
+      "exact": {
+        "max_len": 40,
+        "min_len": 7
+      },
+      "length_classes": [
+        [
+          7,
+          7
+        ],
+        [
+          8,
+          8
+        ],
+        [
+          9,
+          9
+        ],
+        [
+          10,
+          11
+        ],
+        [
+          12,
+          14
+        ],
+        [
+          15,
+          19
+        ],
+        [
+          20,
+          40
+        ]
+      ],
+      "proteins": {
+        "min_coverage": 0.8,
+        "min_identity": 0.8,
+        "miniprot_args": "-S -N 5 --outs=0.95",
+        "near_identity": 0.95,
+        "tblastn_args": "-db_gencode 11 -seg no -evalue 1e-5"
+      },
+      "tolerant": {
+        "enabled": true,
+        "frameshift": {
+          "enabled": true,
+          "min_side_aa": 4
+        },
+        "mass_equivalents": true,
+        "max_diff": {
+          "10-11": 1,
+          "12-40": 2
+        },
+        "min_len": 10,
+        "swaps": true
+      }
+    },
+    "modules": [
+      "core",
+      "mobile",
+      "bgc",
+      "function"
+    ],
+    "novel_orfs": {
+      "min_codons": 10,
+      "min_peptides_without_decoys": 2,
+      "rbs_min_quantile": 0.1
+    },
+    "operons": {
+      "decoys": [
+        "convergent",
+        "sandwich"
+      ],
+      "distance_bins_bp": [
+        "-inf",
+        0.0,
+        50.0,
+        150.0,
+        300.0,
+        "inf"
+      ],
+      "pi0": 1.0
+    },
+    "output": {
+      "parquet": false,
+      "sensitivity": "basic"
+    },
+    "preflight": {
+      "abundance_missing_warn_frac": 0.2,
+      "gc_range_warn": [
+        0.25,
+        0.75
+      ],
+      "max_contigs_warn": 10,
+      "min_largest_contig_warn": 1000000,
+      "min_n50_warn": 100000,
+      "min_total_bp_warn": 100000,
+      "n_run_min_bp": 10,
+      "small_replicon_bp": 500000
+    },
+    "report": {
+      "dpi": 300,
+      "formats": [
+        "svg",
+        "png",
+        "pdf"
+      ],
+      "interactive": true,
+      "max_locus_plots": 2
+    },
+    "sample_name": "peptides_a",
+    "schema_version": "1.0",
+    "seed": 7,
+    "stats": {
+      "alpha": {
+        "context": 0.05,
+        "determinants": 0.05,
+        "enrichment": 0.05,
+        "identification": 0.01,
+        "novel_orfs": 0.01,
+        "operon_flags": 0.1,
+        "placement": 0.01,
+        "variants": 0.01
+      },
+      "besag_clifford_h": 10,
+      "bootstrap": 199,
+      "permutations": 1000
+    },
+    "threads": 2,
+    "variants": {
+      "high_min_peptides": 2,
+      "mass_equivalent_tol_da": 0.05
+    }
+  },
+  "context": {
+    "oric": [],
+    "replicons": [
+      {
+        "block_len": 3,
+        "block_rule": "auto",
+        "contig": "chr1",
+        "flags": [],
+        "l_hat": 1,
+        "morans_i_lag1": 0.12670233888168547,
+        "scanned": true
+      },
+      {
+        "block_len": null,
+        "block_rule": "not_scanned",
+        "contig": "plasmid_1",
+        "flags": [
+          "few_values"
+        ],
+        "l_hat": null,
+        "morans_i_lag1": null,
+        "scanned": false
+      }
+    ]
+  },
+  "databases": [
+    {
+      "checksum": null,
+      "name": "antismash_db",
+      "retrieved": null,
+      "size_bytes": null,
+      "version": "1.0"
+    },
+    {
+      "checksum": null,
+      "name": "bakta_db",
+      "retrieved": null,
+      "size_bytes": null,
+      "version": "6"
+    },
+    {
+      "checksum": null,
+      "name": "cog",
+      "retrieved": null,
+      "size_bytes": null,
+      "version": "1.0"
+    },
+    {
+      "checksum": null,
+      "name": "cog2020_def",
+      "retrieved": null,
+      "size_bytes": null,
+      "version": "synthetic"
+    },
+    {
+      "checksum": null,
+      "name": "cog2020_fun",
+      "retrieved": null,
+      "size_bytes": null,
+      "version": "synthetic"
+    },
+    {
+      "checksum": null,
+      "name": "genomad_db",
+      "retrieved": null,
+      "size_bytes": null,
+      "version": "1.9"
+    },
+    {
+      "checksum": null,
+      "name": "go",
+      "retrieved": null,
+      "size_bytes": null,
+      "version": "1.0"
+    },
+    {
+      "checksum": null,
+      "name": "go_basic",
+      "retrieved": null,
+      "size_bytes": null,
+      "version": "synthetic"
+    },
+    {
+      "checksum": null,
+      "name": "goslim_generic",
+      "retrieved": null,
+      "size_bytes": null,
+      "version": "synthetic"
+    },
+    {
+      "checksum": null,
+      "name": "kegg",
+      "retrieved": null,
+      "size_bytes": null,
+      "version": "1.0"
+    },
+    {
+      "checksum": null,
+      "name": "kegg_ko_pathway",
+      "retrieved": null,
+      "size_bytes": null,
+      "version": "synthetic"
+    },
+    {
+      "checksum": null,
+      "name": "kegg_pathway_names",
+      "retrieved": null,
+      "size_bytes": null,
+      "version": "synthetic"
+    },
+    {
+      "checksum": null,
+      "name": "promotech",
+      "retrieved": null,
+      "size_bytes": null,
+      "version": "1.0"
+    }
+  ],
+  "detection_tier": "two_peptide",
+  "executor": "local",
+  "exit_code": 0,
+  "failed_log": null,
+  "failed_step": null,
+  "finished_at": "2026-01-01T00:00:00+00:00",
+  "flags": [
+    "cai_reference_missing",
+    "tu_recal_skipped"
+  ],
+  "giap_version": "0.0.1",
+  "git_commit": "67a6dfa7ba4a839e40f4e835f0662536c3cb88b0",
+  "git_dirty": true,
+  "inputs": [
+    {
+      "file": "reference.fasta",
+      "path": "WORK/sim/reference.fasta",
+      "role": "genome",
+      "sha256": "8d781607290f71748bfac4898bcf7229e4653578b4b4e57bfa284d2760e19eba",
+      "size": 313191
+    },
+    {
+      "file": "peptides_a.tsv",
+      "path": "WORK/peptides_a.tsv",
+      "role": "peptides",
+      "sha256": "9d14dd3513725e5b1efac72c78b56d54870138654b08566f7d32de4e215f78f8",
+      "size": 1198409
+    },
+    {
+      "file": "abundance.tsv",
+      "path": "WORK/sim/abundance.tsv",
+      "role": "abundance",
+      "sha256": "f5a02eae4eb948e0b8d8041e50007a41b1f95867e143496b5ae1438eb5a2d6ff",
+      "size": 6008
+    },
+    {
+      "file": "reference_xrefs.json",
+      "path": "WORK/reference_xrefs.json",
+      "role": "annotation",
+      "sha256": "98e27d6fbc2c7a5bbabe15b602858f3ce251bd2b53312e45725a1dbe30c6e322",
+      "size": 711322
+    },
+    {
+      "file": "reference_peptides_a.tsv",
+      "path": "WORK/reference_peptides_a.tsv",
+      "role": "reference_peptides",
+      "sha256": "e3b2fe9d77797c4c598b9f12b2a9a97755fddec7f1d8b16aec7141d39051ce4c",
+      "size": 1779117
+    },
+    {
+      "file": "reference_xrefs.json",
+      "path": "WORK/reference_xrefs.json",
+      "role": "precomputed:bakta_json",
+      "sha256": "98e27d6fbc2c7a5bbabe15b602858f3ce251bd2b53312e45725a1dbe30c6e322",
+      "size": 711322
+    },
+    {
+      "file": "operon_pairs.tsv",
+      "path": "WORK/sim/precomputed/operon_pairs.tsv",
+      "role": "precomputed:operon_pairs",
+      "sha256": "ee055931623486dc2d71b6ba549fdaaa8acf41f8327f09b76e0db9f00f92ab2d",
+      "size": 7142
+    },
+    {
+      "file": "promoters.tsv",
+      "path": "WORK/sim/precomputed/promoters.tsv",
+      "role": "precomputed:promoters",
+      "sha256": "c0125cab05dd1079202cf92bb4f10e5b04542dbb16c6d2539c696917f7980344",
+      "size": 2141
+    },
+    {
+      "file": "rbs.tsv",
+      "path": "WORK/sim/precomputed/rbs.tsv",
+      "role": "precomputed:rbs",
+      "sha256": "589bf0dc2e1e085ce2a9d04e3b81f249e6582ddf2eefb3547f4b20f4475edd26",
+      "size": 11412
+    },
+    {
+      "file": "rbs_novel.tsv",
+      "path": "WORK/sim/precomputed/rbs_novel.tsv",
+      "role": "precomputed:rbs_novel",
+      "sha256": "37fa97e63860e018446869e18341f376dcfbe723f1a58e058d9b22b0c30cd19a",
+      "size": 1732537
+    },
+    {
+      "file": "regions.tsv",
+      "path": "WORK/sim/precomputed/regions.tsv",
+      "role": "precomputed:regions",
+      "sha256": "def9f851f0cce4b8d409bbd8ac0e278e65e6a14cd623dc62514d0750eea4be7e",
+      "size": 518
+    },
+    {
+      "file": "terminators.tsv",
+      "path": "WORK/terminators.tsv",
+      "role": "precomputed:terminators",
+      "sha256": "5d9f6b6abb5948c0f7ec91e91294f3595a73a2023bfe764bc72f181e972610b4",
+      "size": 4875
+    },
+    {
+      "file": "tx_rates.tsv",
+      "path": "WORK/sim/precomputed/tx_rates.tsv",
+      "role": "precomputed:tx_rates",
+      "sha256": "ee7d1713c5a5867f56ba37fafc776df8dbcdc8c25bacc8f70ccd78997f1e4fd8",
+      "size": 2149
+    }
+  ],
+  "inputs_absent": [
+    "proteins",
+    "replicon_depth"
+  ],
+  "layers_missing": [],
+  "mapping": {
+    "n_queries": 14221,
+    "search_db": "other"
+  },
+  "modules_off": [],
+  "novel_orfs": {
+    "classes": [
+      {
+        "alpha": 0.01,
+        "c": 0.8587845202547044,
+        "class": "antisense",
+        "estimated": true,
+        "floor_above_alpha": false,
+        "n_called": 25,
+        "n_decoys": 1,
+        "n_target_wins": null,
+        "n_targets": 226,
+        "paired_share": null,
+        "q_floor": 0.0037999315055517895,
+        "reason": null,
+        "regime": "denovo_subgroup"
+      },
+      {
+        "alpha": 0.01,
+        "c": 0.8587845202547044,
+        "class": "cds_outframe",
+        "estimated": true,
+        "floor_above_alpha": true,
+        "n_called": 0,
+        "n_decoys": 4,
+        "n_target_wins": null,
+        "n_targets": 31,
+        "paired_share": null,
+        "q_floor": 0.027702726459829175,
+        "reason": null,
+        "regime": "denovo_subgroup"
+      },
+      {
+        "alpha": 0.01,
+        "c": 0.8587845202547044,
+        "class": "intergenic",
+        "estimated": true,
+        "floor_above_alpha": true,
+        "n_called": 0,
+        "n_decoys": 1,
+        "n_target_wins": null,
+        "n_targets": 38,
+        "paired_share": null,
+        "q_floor": 0.022599592638281697,
+        "reason": null,
+        "regime": "denovo_subgroup"
+      },
+      {
+        "alpha": 0.01,
+        "c": 0.8587845202547044,
+        "class": "nterm_extension",
+        "estimated": true,
+        "floor_above_alpha": true,
+        "n_called": 0,
+        "n_decoys": 0,
+        "n_target_wins": null,
+        "n_targets": 7,
+        "paired_share": null,
+        "q_floor": 0.12268350289352921,
+        "reason": null,
+        "regime": "denovo_subgroup"
+      },
+      {
+        "alpha": 0.01,
+        "c": 0.8587845202547044,
+        "class": "pseudogene",
+        "estimated": true,
+        "floor_above_alpha": false,
+        "n_called": 13,
+        "n_decoys": 0,
+        "n_target_wins": null,
+        "n_targets": 258,
+        "paired_share": null,
+        "q_floor": 0.003328622171529862,
+        "reason": null,
+        "regime": "denovo_subgroup"
+      },
+      {
+        "alpha": 0.01,
+        "c": 0.8587845202547044,
+        "class": "sorf",
+        "estimated": true,
+        "floor_above_alpha": true,
+        "n_called": 0,
+        "n_decoys": 0,
+        "n_target_wins": null,
+        "n_targets": 7,
+        "paired_share": null,
+        "q_floor": 0.12268350289352921,
+        "reason": null,
+        "regime": "denovo_subgroup"
+      }
+    ]
+  },
+  "operons": {
+    "bin_counts": [
+      {
+        "N_NO": 0,
+        "N_cv": 0,
+        "N_sw": 0,
+        "bin": 0,
+        "lower_bp": null,
+        "upper_bp": 0.0
+      },
+      {
+        "N_NO": 0,
+        "N_cv": 0,
+        "N_sw": 0,
+        "bin": 1,
+        "lower_bp": 0.0,
+        "upper_bp": 50.0
+      },
+      {
+        "N_NO": 0,
+        "N_cv": 0,
+        "N_sw": 0,
+        "bin": 2,
+        "lower_bp": 50.0,
+        "upper_bp": 150.0
+      },
+      {
+        "N_NO": 47,
+        "N_cv": 12,
+        "N_sw": 0,
+        "bin": 3,
+        "lower_bp": 150.0,
+        "upper_bp": 300.0
+      },
+      {
+        "N_NO": 38,
+        "N_cv": 12,
+        "N_sw": 11,
+        "bin": 4,
+        "lower_bp": 300.0,
+        "upper_bp": null
+      }
+    ],
+    "pi0": 1.0
+  },
+  "outdir": "WORK/run_a/OUT",
+  "profile": null,
+  "provenance_digest": "6d6c211e83a6e3773d88401b2dfb4808dc3ef5f3656d297475f7f31aad00e2b2",
+  "publication": false,
+  "resume": false,
+  "schema_version": "1.0",
+  "seeds": {
+    "codon_usage": 3129038944,
+    "context_layers": 1365550599,
+    "context_stats": 105909204,
+    "detectability": 3987542110,
+    "determinants": 3593833509,
+    "function": 3400406589,
+    "gene_table": 393846822,
+    "loci": 1770125858,
+    "map_exact": 3911246953,
+    "map_tolerant": 1491420984,
+    "master": 7,
+    "novel_candidates": 2908536744,
+    "novel_orfs": 388090210,
+    "operon_pairs": 4034643963,
+    "operons": 179147819,
+    "parse_bakta": 642799015,
+    "placement": 1222341902,
+    "plots": 2413055744,
+    "region_layer": 1556029954,
+    "report": 3291445124,
+    "sensitivity": 4237340471,
+    "sixframe_index": 3300501706,
+    "variants": 3013104609
+  },
+  "sensitivity": {
+    "families": {
+      "determinants": {
+        "missing=exclude": {
+          "jaccard": 1.0,
+          "n_primary": 10,
+          "n_shared": 10,
+          "n_variant": 10
+        },
+        "missing=min": {
+          "jaccard": 1.0,
+          "n_primary": 10,
+          "n_shared": 10,
+          "n_variant": 10
+        },
+        "single_peptide_detected": {
+          "jaccard": 0.833333,
+          "n_primary": 10,
+          "n_shared": 10,
+          "n_variant": 12
+        }
+      },
+      "enriched_categories": {
+        "missing=exclude": {
+          "jaccard": null,
+          "n_primary": 0,
+          "n_shared": 0,
+          "n_variant": 0
+        },
+        "missing=min": {
+          "jaccard": null,
+          "n_primary": 0,
+          "n_shared": 0,
+          "n_variant": 0
+        },
+        "single_peptide_detected": {
+          "jaccard": null,
+          "n_primary": 0,
+          "n_shared": 0,
+          "n_variant": 0
+        }
+      },
+      "islands": {
+        "missing=exclude": {
+          "jaccard": 1.0,
+          "n_primary": 27,
+          "n_shared": 27,
+          "n_variant": 27
+        },
+        "missing=min": {
+          "jaccard": 1.0,
+          "n_primary": 27,
+          "n_shared": 27,
+          "n_variant": 27
+        },
+        "single_peptide_detected": {
+          "jaccard": 1.0,
+          "n_primary": 27,
+          "n_shared": 27,
+          "n_variant": 27
+        }
+      },
+      "operon_flags": {
+        "missing=exclude": {
+          "jaccard": 1.0,
+          "n_primary": 1,
+          "n_shared": 1,
+          "n_variant": 1
+        },
+        "missing=min": {
+          "jaccard": 1.0,
+          "n_primary": 1,
+          "n_shared": 1,
+          "n_variant": 1
+        },
+        "single_peptide_detected": {
+          "jaccard": 1.0,
+          "n_primary": 1,
+          "n_shared": 1,
+          "n_variant": 1
+        }
+      },
+      "regions": {
+        "missing=exclude": {
+          "jaccard": 1.0,
+          "n_primary": 1,
+          "n_shared": 1,
+          "n_variant": 1
+        },
+        "missing=min": {
+          "jaccard": 1.0,
+          "n_primary": 1,
+          "n_shared": 1,
+          "n_variant": 1
+        },
+        "single_peptide_detected": {
+          "jaccard": 1.0,
+          "n_primary": 1,
+          "n_shared": 1,
+          "n_variant": 1
+        }
+      }
+    },
+    "level": "basic",
+    "n_rows": 15
+  },
+  "skipped": [
+    {
+      "name": "bactermfinder",
+      "reason": "opt_in_off"
+    },
+    {
+      "name": "miniprot",
+      "reason": "not_run"
+    },
+    {
+      "name": "novel_promoter_layer",
+      "reason": "precomputed:promoters"
+    },
+    {
+      "name": "novel_rbs_layer",
+      "reason": "precomputed:rbs_novel"
+    },
+    {
+      "name": "ostir",
+      "reason": "precomputed:rbs"
+    },
+    {
+      "name": "ostir_input",
+      "reason": "precomputed:rbs"
+    },
+    {
+      "name": "ostir_novel",
+      "reason": "precomputed:rbs_novel"
+    },
+    {
+      "name": "promotech",
+      "reason": "precomputed:promoters"
+    },
+    {
+      "name": "promotech_novel",
+      "reason": "precomputed:promoters"
+    },
+    {
+      "name": "promoter_calculator",
+      "reason": "precomputed:tx_rates"
+    },
+    {
+      "name": "promoter_layer",
+      "reason": "precomputed:promoters"
+    },
+    {
+      "name": "promoter_windows",
+      "reason": "precomputed:promoters"
+    },
+    {
+      "name": "protein_leftovers",
+      "reason": "not_run"
+    },
+    {
+      "name": "rbs_layer",
+      "reason": "precomputed:rbs"
+    },
+    {
+      "name": "tblastn",
+      "reason": "not_run"
+    },
+    {
+      "name": "terminator_layer",
+      "reason": "precomputed:terminators"
+    },
+    {
+      "name": "terminatornet",
+      "reason": "precomputed:terminators"
+    },
+    {
+      "name": "transterm_input",
+      "reason": "precomputed:terminators"
+    },
+    {
+      "name": "transtermhp",
+      "reason": "precomputed:terminators"
+    },
+    {
+      "name": "tx_layer",
+      "reason": "precomputed:tx_rates"
+    },
+    {
+      "name": "uniop",
+      "reason": "precomputed:operon_pairs"
+    },
+    {
+      "name": "uniop_input",
+      "reason": "precomputed:operon_pairs"
+    }
+  ],
+  "started_at": "2026-01-01T00:00:00+00:00",
+  "status": "completed",
+  "steps": [
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "parse_bakta",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "codon_usage",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "operon_pairs",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "region_layer",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "context_layers",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "sixframe_index",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "map_exact",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "map_tolerant",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "placement",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "loci",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "gene_table",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "detectability",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "function",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "novel_candidates",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "novel_orfs",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "variants",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "context_stats",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "determinants",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "operons",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "sensitivity",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "plots",
+      "status": "completed",
+      "wall_time_s": 0
+    },
+    {
+      "cpu_time_s": 0,
+      "n_retries": 0,
+      "n_tasks": 1,
+      "name": "report",
+      "status": "completed",
+      "wall_time_s": 0
+    }
+  ],
+  "tools": [],
+  "volatile": [
+    "/command_line",
+    "/executor",
+    "/profile",
+    "/resume",
+    "/outdir",
+    "/started_at",
+    "/finished_at",
+    "/failed_log",
+    "/steps",
+    "/inputs/*/path",
+    "/config/annotation/precomputed/*"
+  ],
+  "warnings": [
+    "codon_usage:codon_usage.run_flag",
+    "novel_orfs:novel_orfs.class_q_floor_above_alpha",
+    "preflight:genome.contiguity"
+  ]
+}
