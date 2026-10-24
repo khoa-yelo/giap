@@ -15,8 +15,8 @@ none today, per the M5-11 decision 44 pattern: ``m7_chain.BLAS_NUMERIC``).
 **Freezing checks.** With ``GIAP_UPDATE_GOLDEN=1`` the files are written only when giapsim has the
 M7-12 knobs and the run is not vacuous (``m7_chain.golden_problems``: a ``variants.tsv`` row at a
 planted SNV and one flagged ``strain_difference``, a called novel ORF on a planted one, a CDS in the
-patch, pileup rows); otherwise the regeneration fails and writes nothing. The same checks run on
-every comparison.
+patch, a novel-ORF class whose M7-11b class q floor is <= alpha, pileup rows); otherwise the
+regeneration fails and writes nothing. The same checks run on every comparison.
 
 Regenerating (on purpose, reviewed in the PR diff as data):
 ``GIAP_UPDATE_GOLDEN=1 pytest tests/golden/test_m7_golden.py`` writes the files and skips.

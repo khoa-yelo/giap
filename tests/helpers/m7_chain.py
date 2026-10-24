@@ -16,6 +16,13 @@ fixture is a giapsim nucleotide genome of 50 kb with the M7-12 settings at that 
 * planted novel ORFs of the three classes and N-terminal extensions; with the M7-12 knobs
   (``novel_orf_len_aa = (30, 80)``, ``plant_novel_rbs``) when giapsim has them. The golden test
   requires them (``has_m7_12``); the other M7-15 tests run with or without them.
+* **class-FDR power (M7-11b).** The class q is computed per class, and its floor is c / T in the
+  de novo regime (T = target peptides of the class), so a class with fewer than about c / alpha
+  target peptides cannot be called (``novel_orfs.class_q_floor_above_alpha``). With 3 ORFs per
+  class every class stayed under that (10-43 target peptides at GOLDEN_SEED) and no planted ORF
+  was called. The fixture therefore plants 28 ``antisense`` ORFs (133 target peptides, floor
+  ~ 0.0065 at GOLDEN_SEED); the other classes keep 3 and still emit the floor warning. alpha
+  (``stats.alpha.novel_orfs``) and the call rule are unchanged.
 
 The run config is the simulator's ``config.yaml`` with ``annotation.precomputed.bakta_json``
 pointed at the reference JSON (``run_config``); locus tags are the same on both genomes.
@@ -57,7 +64,9 @@ REPO = Path(__file__).resolve().parents[2]
 GOLDEN_DIR = REPO / "tests" / "data" / "golden" / "sim50k_m7"
 SCHEMA_DIR = REPO / "src" / "giap" / "schemas" / "tables"
 GENOME_LENGTH = 50_000
-NOVEL_COUNTS = (("intergenic", 3), ("cds_outframe", 3), ("antisense", 3))
+#: 28 antisense ORFs give one class enough target peptides to pass the M7-11b class q floor
+#: (module doc, "class-FDR power"); the other classes keep 3
+NOVEL_COUNTS = (("intergenic", 3), ("cds_outframe", 3), ("antisense", 28))
 N_NTERM = 3
 #: the M7-12 SimConfig knobs the golden needs (M7-12 "novel_orf_power" settings)
 M7_12_KNOBS: Mapping[str, Any] = {"novel_orf_len_aa": (30, 80), "plant_novel_rbs": True}
@@ -321,10 +330,21 @@ def golden_problems(sim: Any, out: Path) -> list[str]:
              if ln and not ln.startswith("#") and ln.split("\t")[2] == "CDS"]  # fmt: skip
     if not patch:
         bad.append("annotation_patch.gff3 has no CDS")
+    if not any(e.get("floor_above_alpha") is False for e in class_fdr_events(out)):
+        bad.append("no novel-ORF class has a class q floor <= alpha (M7-11b rule 8)")
     pile = gzip.decompress((out / "tables" / "pileup.tsv.gz").read_bytes()).splitlines()
     if len(pile) < 2:
         bad.append("pileup.tsv.gz has no row")
     return bad
+
+
+def class_fdr_events(out: Path) -> list[dict[str, Any]]:
+    """The ``data`` of every ``novel_orfs.class_fdr`` event in ``logs/events.jsonl``."""
+    path = out / "logs" / "events.jsonl"
+    if not path.is_file():
+        return []
+    rows = [json.loads(ln) for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    return [r.get("data") or {} for r in rows if r.get("event") == "novel_orfs.class_fdr"]
 
 
 def _overlaps(call: Mapping[str, str], truth: Mapping[str, str]) -> bool:
