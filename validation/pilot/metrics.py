@@ -785,14 +785,17 @@ def _bullet5(metrics: Mapping[str, Any]) -> str:
 
 
 def diagnosis_problems(metrics: Mapping[str, Any], notes: str | None) -> list[str]:
-    """Each not-passed TE needs a ``## Diagnosis: TE<n>`` notes section naming a cause class."""
+    """Each not-passed TE needs a ``## Diagnosis: TE<n>`` notes section whose ``Cause class:``
+    line names exactly one cause class."""
     out = []
     for te in _not_passed(metrics):
         m = re.search(rf"^## Diagnosis: {te}\b[^\n]*\n?(.*?)(?=^## |\Z)", notes or "", re.M | re.S)
+        lines = re.findall(r"^Cause class:(.*)$", m.group(1), re.M) if m else []
+        named = {c for ln in lines for c in re.findall(rf"\b({'|'.join(CAUSE_CLASSES)})\b", ln)}
         if m is None:
             out.append(f"{te}: no '## Diagnosis: {te}' section in the notes")
-        elif not re.search(rf"\b({'|'.join(CAUSE_CLASSES)})\b", m.group(1)):
-            out.append(f"{te}: the diagnosis names no cause class ({', '.join(CAUSE_CLASSES)})")
+        elif len(named) != 1:
+            out.append(f"{te}: the 'Cause class:' line names not one of {', '.join(CAUSE_CLASSES)}")
     return out
 
 
