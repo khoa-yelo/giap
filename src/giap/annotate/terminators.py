@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
 
+from giap.io._open import open_text
 from giap.io.bed import BedRecord
 from giap.model.coords import Interval, Replicon, Strand, check_interval
 from giap.model.genes import Gene
@@ -72,9 +73,12 @@ def _is_tn_header(fields: Sequence[str]) -> bool:
 
 def parse_terminatornet(path: Path, replicons: Mapping[str, Replicon]) -> list[Terminator]:
     """TerminatorNet ``-s`` output (TAB, 11 columns, 1-based closed forward coordinates). Only
-    blank, ``NO TERMINATORS FOUND`` and exact header lines are skipped (M2-15 review item 4)."""
+    blank, ``NO TERMINATORS FOUND`` and exact header lines are skipped (M2-15 review item 4).
+    Plain or gzip (``open_text``; the K-12 recording is ``terms.tsv.gz``)."""
     out: list[Terminator] = []
-    for n, line in enumerate(path.read_text().splitlines(), start=1):
+    with open_text(path) as fh:
+        text = fh.read()
+    for n, line in enumerate(text.splitlines(), start=1):
         f = line.rstrip("\r\n").split("\t")
         if not line.strip() or "NO TERMINATORS FOUND" in line or _is_tn_header(f):
             continue

@@ -30,8 +30,8 @@ export TMPDIR="$(mktemp -d /tmp/giap.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
 cd "${GIAP_WORKTREE:-$GIAP_REPO}"
 export GIAP_CALIBRATION_LOG_DIR="${GIAP_CALIBRATION_LOG_DIR:-$GIAP_ROOT/logs/calibration/$SLURM_ARRAY_JOB_ID}"
 harness() { uv run --no-sync python tests/calibration/_criteria.py --task-id "$SLURM_ARRAY_TASK_ID" "$@"; }
-declare -A SHARDS=([13]=2)   # array task -> in-task shards
-n="${SHARDS[$SLURM_ARRAY_TASK_ID]:-1}"
+# array task -> in-task shards (a case, not declare -A: macOS /bin/bash is 3.2)
+case "$SLURM_ARRAY_TASK_ID" in 13) n=2 ;; *) n=1 ;; esac
 for a in "$@"; do
   case "$a" in --shard|--shard=*|--merge|--merge=*|--dry-run) n=1 ;; esac
 done

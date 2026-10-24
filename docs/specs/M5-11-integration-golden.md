@@ -97,3 +97,13 @@ grid (M5-07) run as `giap-` jobs; nothing heavy in the session allocation
 48. **Permutation p and BH q of `join_count_bb` rows** are compared within 5 permutation counts
     (5 / (n_perm + 1)). CI #229 (run 39911158467, ubuntu 3.11) shows line 60 p 0.682318 vs
     0.68331, one count apart, because the drifted observed value moves the permutation count.
+49. **The null summaries of `join_count_bb` rows get a relative tolerance of 5e-3** (`null_mean`,
+    `null_lo` and `null_hi`). The observed `value` and `stat` stay at 1e-3.
+    - Evidence: CI run 39945374676 on macOS 3.12 (#237) gave `null_mean` 0.902898 against 0.904107,
+      a relative difference of 1.3e-3.
+    - Each of the 1,000 permutation statistics inherits the BLAS drift of the detectability fit's
+      Pearson residuals. The null summaries also move with the permutation draws that cross the
+      observed residual ordering.
+    - The p and q values keep the decision-48 count bound.
+    - This is a cross-platform reproducibility tolerance for one golden file, not a statistical
+      gate.

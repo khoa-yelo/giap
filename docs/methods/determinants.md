@@ -135,3 +135,26 @@ statistician's attacks (R = 100, same jobs; bound at α 0.05: 0.094):
 - A descriptive screen, not a claim: about 4.6 % of genes are flagged under any model (statistician
   review of #173).
 - Fewer than 100 model rows: no SHAP and no null; rows have NA predictions and `too_few_rows`.
+
+## Simulator worlds for the M8-15 gate (giapsim, M8-14)
+
+`giapsim.scenarios.determinants_null` / `determinants_planted` (issue M8-14, PR #251; §7.8.3,
+§11.3). Response: `abundance_log2_true = mu + TU effect (SD 1, iid across TUs, ρ 0) + gene noise
+(noise_sd) + Σ_j β_j z_j`, with z_j the ddof-0 z-score of the planted promoter (σ70 box score, one
+value per TU), RBS (Shine-Dalgarno score per gene) and CAI features. Detection is Bernoulli(p_true)
+on the M4-09 covariates, independent of the features and of the response.
+- **True R²** = Σβ² / (Σβ² + 1 + noise_sd²): the population R² of the three features, valid
+  because the features are mutually uncorrelated and uncorrelated with the TU effect and with
+  detection. Statistician probe (10 worlds of 3,000 genes): feature cross-correlations within
+  ±0.07 and correlation of CAI and promoter with detection within ±0.04; OLS R² on the three
+  features 0.206 (all genes) and 0.198 (detected genes) for a true 0.200. The arm
+  `determinants_true_r2_is_recovered_among_detected_genes` gates this at true R² 0.2 and 0.5.
+- **Null:** the TU blocks are iid, so the M8-09 within-size-group TU permutation is exact here;
+  the generator does not exercise the ADR-0034 attacks (AR(1) between TUs, positional features,
+  detection selection), which stay in `test_attack_determinants_null.py`.
+- **Dominant block truth** (`truth/determinants_genes.tsv`) is argmax_j |β_j z_j|. M8-09's dominant
+  block is the largest *positive* SHAP block sum in the top decile, so a recovery check should
+  compare against argmax_j β_j z_j (signed) on the top-decile genes.
+- **Feature names:** the planted features are `promoter`, `rbs` and `cai`; the M8-07 feature frame
+  reads `promoter_score` / `promoter_score_tu`, `tir_ostir` and `cai` from the gene table, so the
+  M8-15 recovery run must write them into those columns.

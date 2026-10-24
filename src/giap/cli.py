@@ -221,7 +221,12 @@ _NORM_INPUTS = {
 @click.option("--promoters", type=_choice(m.PromoterMode))
 @click.option("--terminators", type=_choice(m.TerminatorTool))
 @click.option("--add-bactermfinder", is_flag=True, default=None)
-@click.option("--publication", is_flag=True, help="10,000 permutations and bootstrap draws.")
+@click.option(
+    "--publication",
+    is_flag=True,
+    help="10,000 permutations and bootstrap draws (also the determinants null); the run takes "
+    "about 10x longer.",
+)
 @click.option("--seed", type=int, help="Master seed (config: seed).")
 @click.option("--parquet", is_flag=True, default=None, help="Also write Parquet tables.")
 @click.option("--sensitivity", type=_choice(m.SensitivityLevel))

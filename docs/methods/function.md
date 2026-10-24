@@ -703,3 +703,62 @@ whole-TU and single-gene categories in every world.
     weaker evidence than its nominal level.
 
   Raising `CI_MIN_UNITS` to about 30, or a BCa or studentized bootstrap, is owed (backlog).
+
+## Simulator worlds for the M8-15 gate (giapsim, M8-14)
+
+`tests/sim/giapsim/function_sim.py` and the `giapsim.scenarios` function pairs (issue M8-14, PR
+#251; GIAP_SPEC.md §8.4, §8.5 attacks 2 and 3, §11.3). Statistician review of PR #251
+(2026-10-23); the attack arms are in `tests/calibration/attacks/test_attack_sim_function.py`.
+
+**Annotations.** A random GO-shaped DAG in the reserved range `GO:9000000`–`GO:9999998` (three
+namespaces, `is_a` and `part_of`), 35–55 % of genes annotated directly, COG letters on synthetic
+`COG<n>` IDs, 2–20 synthetic KEGG maps (`K9xxxx`, `map9xxxx`). Annotations are drawn from their
+own stream, independently of every covariate, of abundance and of detection. `world.sets` keeps
+sets of 10–500 TUs (the GSEA filter), so the 5–9-TU sets the ORA filter (`function.ora_size`
+[5, 500]) would test are absent there; an ORA gate should build its sets through M8-03 from
+`world.obo` and `world.layout.xrefs`.
+
+**ORA null (`ora_null`).** Detection is redrawn as Bernoulli(p_true), with p_true the M4-09
+covariate logistic (length, observable peptides, GRAVY). Membership is independent of detection
+given p_true, so the conditional Poisson-binomial law holds exactly with q from p_true. With the
+fitted M4-13 p_detect the null is the M8-04 claim itself (arm `ora_null.fitted`).
+
+**Attack 2 (`ora_attack_confounded`).** One random GO set covering 8–20 % of genes; the
+confounding is carried by `n_obs` (`CONFOUND_COVARIATE`, M8-14 lead decision 6). Each member with
+an `aa` and `n_obs > 0` has its K/R residues moved, with their codons, so that its recomputed
+observable-peptide count gives the logit shift nearest `member_shift`. Composition is preserved, so
+GRAVY and length are unchanged. Short sORFs that cannot lose a peptide keep shift 0. The mean shift
+over movable members is −1.44 to −1.50 at −1.5; about [−2, +0.5] is reachable, and a draw whose
+mean misses `member_shift` by more than `SHIFT_TOL` = 0.15 raises (M8-14 decision 9).
+- *Visibility:* over 200 worlds, GIAP's `covariates()` recomputed `n_observable_peptides` equal to
+  `n_obs_true` for every gene, and GRAVY was unchanged exactly. A side effect: 66 % of members
+  change `tm_segments` (+1.56 on average) and pI moves by up to 0.22. These are not in the truth
+  logit.
+- *Results at −1.5:* the oracle arm is at level and the unweighted test rejects at 1.0. The fitted
+  M4-13 arm is at level and strongly conservative: 0.00 / 0.01 / 0.01 at R = 100 (Slurm 1873380).
+  The default five-covariate fit, recomputed from `aa`, gives 0 / 0 / 0.005 at R = 200.
+- *Why it is conservative:* 99 % of members sit at or below the non-members' 5th `n_obs`
+  percentile, so the cross-fit learns the members' own rate. Their O − Σp̂ has SD 0.30 in units of
+  √Σp̂(1−p̂). This comes from the plug-in variance (q̂ treated as known) and shrinks with overlap:
+  SD 0.67 at −0.5, 0.55 at −0.75, 0.43 at −1.0.
+- *Power:* the same plug-in costs power against a real category effect beyond the covariates. For
+  an extra −0.5 logit, the fitted arm detects it in 0.19 of worlds and the oracle in 0.68 at shift
+  −0.5; at −1.5 the figures are 0.01 and 0.33 (statistician probes, Slurm 1874044 and 1874094).
+- *M8-15:* gate −1.5 as a separation check and −0.75 as an overlap arm (unweighted 0.95 at 0.05).
+
+**GSEA null (`gsea_null`).** The M4-08 model (AR(1) TU levels with ρ 0.5 and SD 2, stoichiometry
+0.7, gene noise 0.5) with `position_decay_log2 = 0`. Gene-level abundance is independent of
+membership for any decay. The TU score (mean of the scoring genes) falls with TU size under decay,
+and any-gene membership favours large TUs, so decay is a potential TU-level confounder. It is not
+one at the M4-08 default: with decay 0.2, the pooled rate over every in-range set (about 268 per
+world, R = 80, `SIMPLE_ENGINE`) was 0.0084 / 0.047 / 0.096, against 0.0087 / 0.045 / 0.094 at
+decay 0; at 0.5 it was 0.011 / 0.060 / 0.115 (pooled over dependent sets, so indicative only).
+The arm `gsea_null.decay0.2` gates one random set per world at the default decay.
+
+**Attack 3 (`gsea_attack_operon_packed`).** Each set is 1–3 packed chr1 operons of 10–30 genes
+plus `PACKED_SINGLES` = 40 single-gene TUs (at least 9 on small layouts), whole TUs only, so every
+set is inside `function.gsea_size` [10, 500]. Packed TUs draw their level like every other TU; the
+shared TU level, moving 10–30 genes together, is the attack.
+- The packed TUs are exchangeable with the other chr1 TUs: Fligner test 0 / 0.02 / 0.08.
+- The TU-collapsed GSEA is at level: 0 / 0.04 / 0.10 at R = 50.
+- Gene-level ranking with gene-label permutation is a confirmed fail (Slurm 1872913, 1873380).

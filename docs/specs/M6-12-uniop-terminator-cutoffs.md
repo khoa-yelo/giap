@@ -425,3 +425,82 @@ below), PR-C carries only the UniOP and distance entries, and the TerminatorNet 
 5. **Order:** this spec merges; then A (the statistician's methods section, then the
    test-author, then the implementer), C0 by the lead, then B. ADR-0022 then goes to Khoa as
    proposed, and C follows Khoa's acceptance.
+6. **Statistician design review (46124d74; methods section "K-12 cut-off calibration (M6-12)"):
+   B1 and B2 accepted; the methods section is now the authority wherever it is more specific than
+   this spec.**
+   - **B1, refit:** before fitting, run an exact 1-D separation check. Start from (logit ȳ, 0).
+     Halve the Newton step until the log-likelihood does not fall (at most 30 halvings). A
+     `LinAlgError` is a failure, not an exception. |β₁| > 1 is a backstop. The test that
+     separates the two methods is d ∈ {−20, …, 400}, with 100 pairs per d drawn from d₀ = 100,
+     s = 50, and must give 100.14 ± 0.05 and 50.06 ± 0.05. Preliminary K-12 fit: d₀ ≈ 102.7,
+     s ≈ 47.2.
+   - **B2, TerminatorNet precision:** add a placement null with R = 200. Each call moves to a
+     random same-strand window and keeps its offset from the window's 3′ side. Report
+     `coincidence_rate` c and `precision_lower_bound` = (obs − c)/(1 − c). The §15.4 sentence in
+     the ADR is qualified accordingly.
+   - **Example 4** under decision 1 expects 0.92. A top tie group below 0.90 sends the rule to
+     max-F1, and that case has its own test.
+   - **Accepted:**
+     - R1: `precision_cv` (10-fold directon CV) and the bootstrap quantiles of t*.
+     - R2: a window-cluster CI for TerminatorNet precision.
+     - R4: the paired UniOP − distance AUROC difference with its CI.
+     - R5: the ADR wording.
+   - **R3:** TerminatorNet's F1 curve is flat (best precision 0.229, so the rule falls back to
+     max-F1 and t* ≈ 1 − 4e-12). The rule stays as specified. Whether to use a one-SE rule instead
+     changes §15.4, so it goes to Khoa in the ADR-0022 question. Pending Khoa; default: max-F1
+     as specified.
+   - **Attack nulls,** test-author, under `tests/calibration/attacks/`:
+     - a directon-clustered null with AUROC 0.5 (CI coverage ≥ 93 % at R = 500);
+     - the chance-match null;
+     - a top-group spike that sends the rule to max-F1;
+     - the hard refit start, plus separated and quasi-separated cases, none of which raises.
+   - **For PR B:** `parse_terminatornet` reads plain text, so the driver decompresses
+     `terms.tsv.gz` first.
+7. **Part A tests (7c4ddbed, merged into `m6/cutoffs-stats`): gaps 1–10 accepted as pinned.**
+   - Example 7's window lo is 9850 (9900 − 50); the earlier value 9450 was wrong.
+   - Windows, matching and the coincidence null are pure functions in `stats/cutoffs.py`, and
+     part B's driver calls them.
+   - `threshold_boot_q` makes its own `tu_block_bootstrap` call.
+   - `precision_cv` pins only determinism, its bounds and two exact cases.
+   - Only `"separation"` is a pinned failure reason.
+   - Inside `fixed_cutoff_ci`, precision is drawn before recall.
+   - The refit percentile CI under-covers slightly (about 0.92 on synthetic data). It is
+     recorded, not gated, and the methods note states it.
+   - The 0.93 coverage criterion and the ±0.005 Wilson band stay hard-coded with citations.
+     Moving them to the protected `tolerances.yaml` is backlog.
+   - Examples 8–10 belong to parts B and C.
+   - Truth-level recall gets a helper in part B.
+   - Next: the implementer (`src/giap/stats/cutoffs.py`).
+8. **Part A implementer (1afd2b92): accepted.** The targeted tests pass (108). Slurm 1873873 gives
+   13 passed for calibration and attacks, including the nightly directon null at R = 500. The
+   fast suite (1873874) passed.
+   - **Size:** 533 counted lines against the estimate of 140. Decisions 6 and 7 grew the pinned
+     interface to 27 public names (windows, matching, the coincidence null, `precision_cv`,
+     `threshold_boot_q`, `auroc_diff_ci`, `distance_fit_ci`). That is over the 400-line warning
+     and under the 800-line limit. Accepted, not split: a split would move only the terminator
+     functions and cost a second review round.
+   - **Readings accepted:**
+     - the failure reason `"one_class"`;
+     - a 2⁻³⁰ floor step;
+     - `calibrated` as a property;
+     - `coincidence_rate` raises on a called terminator outside any window;
+     - NaN for replicates with only one class;
+     - a lone gene on a circular replicon is its own neighbour;
+     - the fold assignment for `precision_cv`;
+     - the driver derives precision, recall and F1 for the TSV.
+   - Next: the statistician and the code review, in parallel.
+9. **Reviews of part B (#264): code review CHANGES REQUESTED (6369206328), statistician BLOCK on
+   tests only (6369349361). One fix round; accepted.**
+   - **CR B1 and the statistician's item:** everything the driver writes after stream 8 is pinned by
+     an oracle continuing the same rng (`threshold_boot_q`, the coincidence null, `precision_cv`,
+     the window-gene `fixed_cutoff_ci` including its unused recall block).
+   - **Per-placement rates (lead):** part A's `coincidence_rate(..., return_rates=True)` returns the
+     R per-placement matched shares with the same draws; the driver makes one call, c =
+     mean(rates), MC SE = sd(rates, ddof=1)/√R. This replaces the 20-call batch means.
+   - **CR B2:** `terms.tsv.gz` is pinned by SHA-256 (`Pins.terms_sha256`, K12 9be61c75…a2ff).
+   - **Small fixes:** off-contig truth rows dropped with a logged count; `precision_ci_window`
+     `[null, null]` when uncalibrated; `main` returns 1 on `FileNotFoundError` without a traceback.
+   - **ADR-0022 quotes `precision_lower_bound_window`** as the 97.5 % one-sided bound (the point
+     bound exceeds true precision in about 9.5 % of the statistician's worlds).
+   - The remaining nits go to the backlog. Tests at ab9e73a1; next: the implementer. No second
+     review round (the statistician clears once the nine mutants die).
