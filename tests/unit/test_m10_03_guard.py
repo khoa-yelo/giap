@@ -17,7 +17,8 @@ from pathlib import PurePosixPath
 from helpers.slurm_sandbox import REPO
 
 INPUTS_ALLOWED = {"pxd078459_files.tsv", "acquisition.json", "README.md"}
-FORBIDDEN = ("a[1-3]*.tsv*", "*_abundance.tsv*", "*.convert.json", "*.convert.log")
+# ``.*.tmp.*``: the job's temporary names, left behind when SIGKILL/OOM skips the EXIT trap (S2)
+FORBIDDEN = ("a[1-3]*.tsv*", "*_abundance.tsv*", "*.convert.json", "*.convert.log", ".*.tmp.*")
 
 
 def _tracked(*paths: str) -> list[str]:
@@ -62,5 +63,9 @@ def test_the_patterns_catch_the_job_outputs() -> None:
         "a1_abundance.tsv.gz",
         "a2.convert.json",
         "a1.convert.log",
+        ".a1.tsv.gz.tmp.4242.gz",
+        ".a2_abundance.tsv.gz.tmp.4242.gz",
+        ".a1.convert.log.tmp.4242",
+        ".a2.convert.json.tmp.4242",
     ):
         assert any(fnmatch.fnmatchcase(name, pat) for pat in FORBIDDEN), name

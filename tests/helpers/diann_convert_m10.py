@@ -17,8 +17,16 @@ M10-02 helper ``pilot_kit_m10`` does, and adds:
   ``$FAKE_SLURM_DIR/python.jsonl`` (``argv``, ``kind``, ``pythonpath``, ``rc`` and ``present``:
   the names under ``$GIAP_ROOT/pilot/inputs`` when the call started). ``kind`` is ``convert``
   (``-c … giap.cli … convert``), ``summary`` (``diann_convert.py``), ``pytest`` (``-m pytest``,
-  faked: ``FAKE_PYTEST=fail`` exits 1) or ``other``. ``FAKE_CONVERT_NONDET=1`` appends one byte
-  to the ``--out`` file of the **second** successful convert call (the determinism stub, Q8);
+  faked: ``FAKE_PYTEST=fail`` exits 1; ``FAKE_PYTEST=skip`` exits 0 with every test skipped,
+  printing ``SKIPPED [n] …`` lines and ``10 skipped in …`` and writing a junit XML with
+  ``skipped == tests`` when ``--junitxml`` is given; the default passes, 5 tests) or ``other``.
+  A pytest record also holds ``env``: ``GIAP_M10_03_REPORT`` and ``GIAP_M10_03_ARM`` as the call
+  saw them. ``FAKE_CONVERT_NONDET=<flag>`` (``--out`` or ``--abundance-out``; ``1`` means
+  ``--out``) appends one byte to that output of the **second** successful convert call (the
+  determinism stub, Q8). ``FAKE_CONVERT_RC=<n>`` makes the **first** convert call exit ``n``
+  without converting;
+* ``$UV_PROJECT_ENVIRONMENT/bin/mv``: ``/bin/mv``, except that ``FAKE_MV_FAIL=1`` makes every
+  ``mv`` with an argument containing ``.tmp.`` (the publishing move) fail with exit 1;
 * ``$UV_PROJECT_ENVIRONMENT/bin/giap`` runs this branch's CLI (for ``giap version --json``).
 
 Nothing here touches the network, Slurm or the real ``$GIAP_ROOT``.
@@ -153,25 +161,70 @@ elif any(a.endswith("diann_convert.py") for a in argv):
 else:
     kind = "other"
 rec = {"argv": argv, "kind": kind, "pythonpath": os.environ.get("PYTHONPATH", ""),
-       "present": sorted(os.listdir(inputs)) if os.path.isdir(inputs) else None}
+       "present": sorted(os.listdir(inputs)) if os.path.isdir(inputs) else None,
+       "env": {k: os.environ.get(k) for k in ("GIAP_M10_03_REPORT", "GIAP_M10_03_ARM")}}
 def log(rc):
     rec["rc"] = rc
     with open(os.path.join(state, "python.jsonl"), "a") as fh:
         fh.write(json.dumps(rec) + "\n")
     sys.exit(rc)
+def junit(tests, skipped, failures):
+    path = None
+    for i, a in enumerate(argv):
+        if a.startswith(("--junitxml=", "--junit-xml=")):
+            path = a.split("=", 1)[1]
+        elif a in ("--junitxml", "--junit-xml") and i + 1 < len(argv):
+            path = argv[i + 1]
+    if not path:
+        return
+    cases = "".join(
+        f'<testcase classname="test_m10_03_diann_contract" name="test_full_report[A1-f{i}]">'
+        + ('<skipped message="fake skip"/>' if i < skipped else "")
+        + ('<failure message="fake failure"/>' if skipped <= i < skipped + failures else "")
+        + "</testcase>" for i in range(tests))
+    with open(path, "w") as fh:
+        fh.write('<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" '
+                 f'errors="0" failures="{failures}" skipped="{skipped}" tests="{tests}">'
+                 f'{cases}</testsuite></testsuites>')
 if kind == "pytest":
-    if os.environ.get("FAKE_PYTEST", "ok") == "fail":
-        print("1 failed in 0.01s"); log(1)
-    print("1 passed in 0.01s"); log(0)
+    mode = os.environ.get("FAKE_PYTEST", "ok")
+    if mode == "fail":
+        junit(5, 0, 1)
+        print("FAILED tests/contract/test_m10_03_diann_contract.py::test_full_report[A1-f1]")
+        print("1 failed, 4 passed in 0.01s"); log(1)
+    if mode == "skip":
+        junit(5, 5, 0)
+        print("SKIPPED [5] tests/contract/test_m10_03_diann_contract.py:88: GIAP_ROOT is not set")
+        print("5 skipped in 0.01s"); log(0)
+    junit(5, 0, 0)
+    print("5 passed in 0.01s"); log(0)
+if kind == "convert" and os.environ.get("FAKE_CONVERT_RC"):
+    c_path = os.path.join(state, "convert_calls")
+    c = int(open(c_path).read()) + 1 if os.path.exists(c_path) else 1
+    open(c_path, "w").write(str(c))
+    if c == 1:
+        print("giap convert: error: fake_failure: stub (0 rows)", file=sys.stderr)
+        log(int(os.environ["FAKE_CONVERT_RC"]))
 rc = subprocess.run([{python!r}, *argv]).returncode
-if kind == "convert" and rc == 0 and os.environ.get("FAKE_CONVERT_NONDET"):
+nondet = os.environ.get("FAKE_CONVERT_NONDET")
+if kind == "convert" and rc == 0 and nondet:
+    flag = "--out" if nondet == "1" else nondet
     n_path = os.path.join(state, "convert_ok_calls")
     n = int(open(n_path).read()) + 1 if os.path.exists(n_path) else 1
     open(n_path, "w").write(str(n))
-    if n == 2 and "--out" in rest:
-        with open(rest[rest.index("--out") + 1], "ab") as fh:
+    if n == 2 and flag in rest:
+        with open(rest[rest.index(flag) + 1], "ab") as fh:
             fh.write(b"\0")
 log(rc)
+"""
+
+_MV = """#!/bin/bash
+if [ -n "${FAKE_MV_FAIL:-}" ]; then
+  for a in "$@"; do
+    case "$a" in *.tmp.*) echo "mv: fake failure: $a" >&2; exit 1 ;; esac
+  done
+fi
+exec {mv} "$@"
 """
 
 _GIAP = """#!/bin/bash
@@ -241,7 +294,7 @@ class ConvertSandbox:
         return [r for r in recs if kind is None or r["kind"] == kind]
 
     def reset_calls(self) -> None:
-        for name in ("python.jsonl", "convert_ok_calls"):
+        for name in ("python.jsonl", "convert_ok_calls", "convert_calls"):
             p = self.sb.state / name
             if p.exists():
                 p.unlink()
@@ -273,6 +326,7 @@ def convert_sandbox(tmp: Path) -> ConvertSandbox:
     for name in ("python", "python3"):
         write_exe(sb.bin / name, _PYTHON.replace("{python!r}", repr(py)).replace("{python}", py))
     write_exe(sb.bin / "giap", _GIAP.replace("{python}", py))
+    write_exe(sb.bin / "mv", _MV.replace("{mv}", shutil.which("mv") or "/bin/mv"))
     sb.env.update({"SLURM_JOB_ID": JOB_ID, "PYTHONDONTWRITEBYTECODE": "1"})
     sb.env.pop("GIAP_PYTHON", None)
     return ConvertSandbox(sb=sb)

@@ -17,6 +17,14 @@ They **skip, never fail**, when ``GIAP_ROOT`` is unset (CI) or a file is missing
 environment at import time. No byte-golden file is read or written. Recorded values (decoy rows
 without q, contaminant rows, target/decoy sequence collisions) are printed and attached with
 ``record_property``; run with ``-s`` or ``-rA`` to see them.
+
+The conversion job (step 7) sets ``GIAP_M10_03_REPORT`` (the report it converted) and
+``GIAP_M10_03_ARM`` and runs ``-k "full_report and <arm>"``: the ``full_report`` tests then check
+that file (it must exist) as that arm, and skip the other arm (review B1). A data file may lie in
+the checkout only when it is git-ignored and untracked, e.g. under ``local/`` (the FarmShare
+default ``GIAP_ROOT=$GIAP_REPO/local``; review B2). Assertion messages print counts and row
+positions only, never a peptide, protein or issue text from a report: criterion 10 pastes the
+output into the PR (review N5).
 """
 
 from __future__ import annotations
@@ -74,9 +82,22 @@ def _need(path: Path, why: str) -> Path:
     return path
 
 
+def _git_ok(repo: Path, *args: str) -> bool:
+    res = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, check=False)
+    return res.returncode == 0
+
+
 def _outside_checkout(path: Path) -> Path:
-    resolved = path.resolve()
-    assert REPO.resolve() not in resolved.parents, f"{path} lies inside the checkout (Khoa's rule)"
+    """``path`` is outside the checkout, or git-ignored and untracked in it (Khoa's rule)."""
+    resolved, repo = path.resolve(), REPO.resolve()
+    if repo not in resolved.parents:
+        return path
+    rel = str(resolved.relative_to(repo))
+    ignored = _git_ok(repo, "check-ignore", "-q", "--", rel)
+    tracked = _git_ok(repo, "ls-files", "--error-unmatch", "--", rel)
+    assert ignored and not tracked, (
+        f"{path} lies inside the checkout and is not git-ignored and untracked (Khoa's rule)"
+    )
     return path
 
 
@@ -86,6 +107,16 @@ def sample_path(arm: str) -> Path:
 
 
 def full_report_path(arm: str) -> Path:
+    job_report, job_arm = (os.environ.get(k) for k in ("GIAP_M10_03_REPORT", "GIAP_M10_03_ARM"))
+    if job_report:
+        if job_arm not in SEARCH_DB:
+            pytest.fail("GIAP_M10_03_REPORT is set: GIAP_M10_03_ARM must be A1 or A2")
+        if arm != job_arm:
+            pytest.skip(f"the conversion job checks {job_arm} only")
+        p = Path(job_report)
+        if not p.is_file():
+            pytest.fail(f"GIAP_M10_03_REPORT={p} is not a file")
+        return _outside_checkout(p)
     p = _root() / "pilot" / arm / f"{arm}_report.parquet"
     return _outside_checkout(_need(p, "M10-02 report job not run"))
 
@@ -154,13 +185,18 @@ def check_f1_columns(path: Path) -> None:
 
 def check_f2_types(path: Path, arm: str) -> None:
     res = _converted(path, SEARCH_DB[arm])
-    bad = [
-        f"{i.severity}:{i.code}: {i.message}" for i in res.issues if i.severity in ("error", "warn")
-    ]
-    assert not bad, bad
+    bad = sorted(
+        f"{i.severity}:{i.code} ({i.n_rows} rows)"
+        for i in res.issues
+        if i.severity in ("error", "warn")
+    )
+    n_bad = len(bad)
+    assert n_bad == 0, f"{n_bad} error/warn issues: {bad}"  # codes and counts, no message text
     df = res.peptides
-    assert str(df["charge"].dtype) == "Int64" and not df["charge"].isna().any()
-    assert str(df["is_decoy"].dtype) == "boolean" and not df["is_decoy"].isna().any()
+    charge_ok = str(df["charge"].dtype) == "Int64" and not bool(df["charge"].isna().any())
+    decoy_ok = str(df["is_decoy"].dtype) == "boolean" and not bool(df["is_decoy"].isna().any())
+    assert charge_ok, f"charge dtype {df['charge'].dtype}, {int(df['charge'].isna().sum())} NA"
+    assert decoy_ok, f"is_decoy dtype {df['is_decoy'].dtype}, {int(df['is_decoy'].isna().sum())} NA"
 
 
 def check_f6_runs(path: Path, arm: str) -> None:
@@ -187,17 +223,24 @@ def check_f7_protein_ids(path: Path, arm: str) -> None:
         for v in res.abundance["protein_id"].astype(str):
             items.update(resolve_protein_id(v)[1])
     unknown = sorted(items - ids)
-    dropped = [i for i in unknown if f"{CONT}{i}" in ids]
-    assert not dropped, (
-        f"DIA-NN dropped the {CONT} prefix ({dropped[:5]}): the contaminant FASTA headers must "
-        "change and DIA-NN re-run; finding for M10-02 (M10-03 lead decision 3)"
+    n_dropped = sum(f"{CONT}{i}" in ids for i in unknown)
+    n_unknown = len(unknown)
+    assert n_dropped == 0, (
+        f"DIA-NN dropped the {CONT} prefix on {n_dropped} protein IDs: the contaminant FASTA "
+        "headers must change and DIA-NN re-run; finding for M10-02 (M10-03 lead decision 3)"
     )
-    assert not unknown, f"{len(unknown)} protein IDs not in the search FASTAs: {unknown[:10]}"
+    assert n_unknown == 0, f"{n_unknown} protein IDs not in the search FASTAs"
+
+
+def _n_differ(got: Counter[Any], want: Counter[Any]) -> int:
+    """Rows in one multiset and not the other (a count, so no row is printed)."""
+    return sum(((got - want) + (want - got)).values())
 
 
 def check_f10_rows(path: Path, arm: str) -> None:
     raw, df = _raw(path), _converted(path, SEARCH_DB[arm]).peptides
-    assert len(df) == len(raw)
+    n_df, n_raw = len(df), len(raw)
+    assert n_df == n_raw, f"{n_df} converted rows, {n_raw} report rows"
     want = Counter(
         zip(
             raw["Run"].astype(str),
@@ -218,7 +261,8 @@ def check_f10_rows(path: Path, arm: str) -> None:
             strict=True,
         )
     )
-    assert got == want
+    n_diff = _n_differ(got, want)
+    assert n_diff == 0, f"{n_diff} rows differ in (run, peptide, modified, charge, decoy)"
 
 
 # ------------------------------------------------------------------ F1-F10 on the sample
@@ -264,10 +308,13 @@ def test_f3_q_value_is_global_q(arm: str, record_property: Any) -> None:
             strict=True,
         )
     )
-    assert got == want, "q_value equals float64(Global.Q.Value) row by row"
-    assert not q[~dec].isna().any(), "Global.Q.Value is populated on every target row"
+    n_diff = _n_differ(got, want)
+    assert n_diff == 0, f"q_value equals float64(Global.Q.Value) row by row: {n_diff} rows differ"
+    n_na = int(q[~dec].isna().sum())
+    assert n_na == 0, f"Global.Q.Value is populated on every target row: {n_na} NA"
     present = q.dropna()
-    assert ((present >= 0) & (present <= 1)).all()
+    n_out = int((~((present >= 0) & (present <= 1))).sum())
+    assert n_out == 0, f"{n_out} q-values outside [0, 1]"
     _record(record_property, f"{arm}_decoy_rows_q_na", int(q[dec].isna().sum()))
 
 
@@ -276,11 +323,14 @@ def test_f4_decoys(arm: str, record_property: Any) -> None:
     path = sample_path(arm)
     raw, df = _raw(path), _converted(path, SEARCH_DB[arm]).peptides
     n = int(_decoy_mask(raw).sum())
-    assert int(df["is_decoy"].sum()) == n
+    n_conv = int(df["is_decoy"].sum())
+    assert n_conv == n, f"{n_conv} converted decoys, {n} in the report"
     assert n == 100, f"the sample holds 100 decoys (M10-02), found {n}"
     ids = df.loc[df["is_decoy"].astype(bool), "protein_ids"]
-    assert not ids.isna().any() and (ids.astype(str).str.len() > 0).all(), (
-        "every decoy row has protein_ids (ADR-0009 pairing, ADR-0047 picked tier)"
+    n_missing = int((ids.isna() | (ids.fillna("").astype(str).str.len() == 0)).sum())
+    assert n_missing == 0, (
+        f"every decoy row has protein_ids (ADR-0009 pairing, ADR-0047 picked tier): "
+        f"{n_missing} without"
     )
     tgt = set(df.loc[~df["is_decoy"].astype(bool), "peptide"].astype(str))
     collide = len(tgt & set(df.loc[df["is_decoy"].astype(bool), "peptide"].astype(str)))
@@ -294,10 +344,20 @@ def test_f5_modifications(arm: str) -> None:
     path = sample_path(arm)
     df = _converted(path, SEARCH_DB[arm]).peptides
     tokens: set[str] = set()
-    for pep, mod in zip(df["peptide"].astype(str), df["modified_peptide"].astype(str), strict=True):
-        assert strip_modifications(mod) == pep, (mod, pep)
-        assert re.fullmatch(r"[A-Z]{7,30}", pep), pep
+    bad_strip: list[int] = []
+    bad_shape: list[int] = []
+    pairs = zip(df["peptide"].astype(str), df["modified_peptide"].astype(str), strict=True)
+    for k, (pep, mod) in enumerate(pairs):
+        if strip_modifications(mod) != pep:
+            bad_strip.append(k)
+        if not re.fullmatch(r"[A-Z]{7,30}", pep):
+            bad_shape.append(k)
         tokens.update(re.findall(r"UniMod:(\d+)", mod))
+    n_strip, n_shape = len(bad_strip), len(bad_shape)
+    assert n_strip == 0, (
+        f"{n_strip} rows: stripped modified_peptide != peptide, rows {bad_strip[:10]}"
+    )
+    assert n_shape == 0, f"{n_shape} rows: peptide is not [A-Z]{{7,30}}, rows {bad_shape[:10]}"
     assert tokens <= {"4", "35"}, f"modifications outside UniMod:4/35 (cfg finding): {tokens}"
 
 
@@ -328,20 +388,26 @@ def test_f9_maxlfq_matches_an_independent_oracle(arm: str) -> None:
     raw = _raw(path)
     ab = _converted(path, SEARCH_DB[arm]).abundance
     assert ab is not None
-    assert not ab["protein_id"].duplicated().any()
+    n_dup = int(ab["protein_id"].duplicated().sum())
+    assert n_dup == 0, f"{n_dup} duplicated protein_id rows"
     t = raw.loc[~_decoy_mask(raw), ["Protein.Group", "Run", "PG.MaxLFQ"]].copy()
     t["Protein.Group"] = t["Protein.Group"].astype(str)
     t["Run"] = t["Run"].astype(str)
     t["v"] = pd.to_numeric(t["PG.MaxLFQ"]).astype("float64")
     t = t[t["v"].notna() & (t["v"] != 0)]
     per_run = t.groupby(["Protein.Group", "Run"])["v"].agg(["min", "max"])
-    assert (per_run["min"] == per_run["max"]).all(), "one PG.MaxLFQ per (group, run)"
+    n_multi = int((per_run["min"] != per_run["max"]).sum())
+    assert n_multi == 0, f"one PG.MaxLFQ per (group, run): {n_multi} (group, run) pairs have more"
     want = per_run["min"].groupby(level=0).median()
     want = want[want > 0]
     got = dict(zip(ab["protein_id"].astype(str), ab["maxlfq"].astype(float), strict=True))
-    assert set(got) == set(want.index)
-    for g, v in want.items():
-        assert got[str(g)] == pytest.approx(float(v), rel=1e-12), g
+    want_ids = {str(g) for g in want.index}
+    n_extra, n_missing = len(set(got) - want_ids), len(want_ids - set(got))
+    assert n_extra == 0 and n_missing == 0, (
+        f"abundance groups: {n_extra} not in the report, {n_missing} missing"
+    )
+    n_off = sum(got[str(g)] != pytest.approx(float(v), rel=1e-12) for g, v in want.items())
+    assert n_off == 0, f"{n_off} of {len(want)} groups differ from the median of PG.MaxLFQ"
 
 
 @pytest.mark.parametrize("arm", ARMS)
@@ -383,14 +449,19 @@ def test_cli_is_deterministic_and_round_trips(arm: str, tmp_path: Path) -> None:
         d = tmp_path / str(k)
         d.mkdir()
         res = _cli(path, d / "a.tsv.gz", d / "ab.tsv.gz", SEARCH_DB[arm])
-        assert res.returncode == 0, res.stderr
+        codes = re.findall(r"^giap convert: (\w+): (\S+?):", res.stderr, re.M)
+        assert res.returncode == 0, f"exit {res.returncode}, issues {codes}"
         outs.append(((d / "a.tsv.gz").read_bytes(), (d / "ab.tsv.gz").read_bytes()))
-    assert outs[0] == outs[1], "a second call gives byte-identical files"
+    same = outs[0] == outs[1]
+    assert same, "a second call gives byte-identical files"
     df, issues = read_peptide_table(tmp_path / "1" / "a.tsv.gz")
-    assert not [i for i in issues if i.severity == "error"], issues
-    assert len(df) == len(_raw(path))
+    errs = sorted(i.code for i in issues if i.severity == "error")
+    assert errs == [], f"error issues {errs}"
+    n_df, n_raw = len(df), len(_raw(path))
+    assert n_df == n_raw, f"{n_df} rows read back, {n_raw} report rows"
     _, ab_issues = read_abundance(tmp_path / "1" / "ab.tsv.gz")
-    assert not [i for i in ab_issues if i.severity == "error"], ab_issues
+    ab_errs = sorted(i.code for i in ab_issues if i.severity == "error")
+    assert ab_errs == [], f"abundance error issues {ab_errs}"
 
 
 # ------------------------------------------------------------------ the full report (slow)
