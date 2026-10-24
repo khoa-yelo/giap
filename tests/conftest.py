@@ -92,7 +92,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def _skip_host_only(item: pytest.Item) -> None:
-    """``gnu_userland`` / ``x87_longdouble``: FarmShare-only scripts (spec G19) skip elsewhere."""
+    """``gnu_userland`` / ``x87_longdouble``: FarmShare-only scripts (spec G19) skip elsewhere.
+
+    Imports ``helpers`` only for a marked item: pytester runs of this conftest in a subprocess
+    don't have ``tests/`` on ``sys.path``."""
+    if not (item.get_closest_marker("gnu_userland") or item.get_closest_marker("x87_longdouble")):
+        return
     from helpers.gnu_userland import (
         GNU_USERLAND_REASON,
         X87_LONGDOUBLE_REASON,
