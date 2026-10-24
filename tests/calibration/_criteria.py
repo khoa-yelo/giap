@@ -1292,9 +1292,35 @@ def _merge_main(suite: str, full: bool) -> int:
     return 0
 
 
+WORKTREE_ENV = "GIAP_WORKTREE"
+
+
+def worktree_giap_error() -> str | None:
+    """Under ``GIAP_WORKTREE``: None when ``giap`` imports from ``$GIAP_WORKTREE/src``, else the
+    reason. Without it (the main checkout) None. Prints ``giap.__file__`` to stderr (Slurm 1885838
+    ran a worktree's tests against the main checkout's src)."""
+    wt = os.environ.get(WORKTREE_ENV)
+    if not wt:
+        return None
+    import importlib.util
+
+    spec = importlib.util.find_spec("giap")
+    origin = None if spec is None or spec.origin is None else Path(spec.origin).resolve()
+    print(f"giap.__file__={origin}", file=sys.stderr)
+    src = (Path(wt) / "src").resolve()
+    if origin is None or not origin.is_relative_to(src):
+        return f"giap.__file__={origin} is not under {WORKTREE_ENV}/src = {src}"
+    return None
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run (or with ``--dry-run`` print) the pytest command of one suite; ``--merge`` merges."""
     ns = parse_args(argv)
+    bad = worktree_giap_error()
+    if bad is not None:
+        print(f"main: {bad}; set PYTHONPATH to the worktree (calibration_full.sbatch does)",
+              file=sys.stderr)  # fmt: skip
+        return MERGE_ERROR
     if ns.merge:
         return _merge_main(ns.suite, ns.full)
     cmd = [sys.executable, "-m", "pytest", *pytest_args(ns.suite, ns.full)]

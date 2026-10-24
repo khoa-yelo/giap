@@ -15,6 +15,8 @@
 #   --shard K/N [--block 2]  run replicates block K of N (of confirmation block 2, ADR-0015); give
 #                            every shard the same GIAP_CALIBRATION_LOG_DIR, e.g.
 #                            GIAP_CALIBRATION_LOG_DIR=$GIAP_ROOT/logs/calibration/<tag> sbatch ...
+#   GIAP_WORKTREE=<dir>      run that checkout (PYTHONPATH set to its src, tests/sim, tests; the harness
+#                            refuses a giap imported from elsewhere)
 #   --merge                  evaluate block 1 from the merged shard records on the full R and,
 #                            for each failing check, run its block 2 (R..2R-1) here, sequentially
 #                            (ADR-0015); same GIAP_CALIBRATION_LOG_DIR as the shards. Exit 0 pass,
@@ -28,6 +30,12 @@ set -euo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 export TMPDIR="$(mktemp -d /tmp/giap.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
 cd "${GIAP_WORKTREE:-$GIAP_REPO}"
+# A worktree job must import the worktree's giap, not the shared venv's editable install (the main
+# checkout's src; Slurm 1885838). _criteria.py prints giap.__file__ and exits 2 if it is not under
+# $GIAP_WORKTREE/src.
+if [ -n "${GIAP_WORKTREE:-}" ]; then
+  export PYTHONPATH="$GIAP_WORKTREE/src:$GIAP_WORKTREE/tests/sim:$GIAP_WORKTREE/tests"
+fi
 export GIAP_CALIBRATION_LOG_DIR="${GIAP_CALIBRATION_LOG_DIR:-$GIAP_ROOT/logs/calibration/$SLURM_ARRAY_JOB_ID}"
 harness() { uv run --no-sync python tests/calibration/_criteria.py --task-id "$SLURM_ARRAY_TASK_ID" "$@"; }
 # array task -> in-task shards (a case, not declare -A: macOS /bin/bash is 3.2)
