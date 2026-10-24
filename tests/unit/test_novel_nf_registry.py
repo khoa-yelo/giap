@@ -27,13 +27,14 @@ WF = REPO / "workflow"
 NOVEL_NF = WF / "subworkflows" / "local" / "novel.nf"
 MAIN_NF = WF / "main.nf"
 TAKE = ["genome", "gene_model", "contract", "mapping", "peptides", "contaminants", "gene_table",
-        "layers"]  # fmt: skip
+        "layers", "hits"]  # M7-11b: hits  # fmt: skip
 PY_STEPS = {"novel_candidates", "novel_promoter_layer", "novel_rbs_layer", "novel_orfs"}
 PUBLISHED = {
     "novel_orfs": "tables/novel_orfs.tsv",
     "novel_orfs_gff3": "tables/novel_orfs.gff3",
     "novel_orfs_faa": "tables/novel_orfs.faa",
     "annotation_patch": "tables/annotation_patch.gff3",
+    "novel_class_fdr": "novel/novel_class_fdr.parquet",  # M7-11b side table
 }
 
 

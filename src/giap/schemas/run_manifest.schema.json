@@ -11,7 +11,7 @@
     "failed_step", "failed_log", "publication", "config", "inputs", "inputs_absent", "tools",
     "databases", "annotation", "detection_tier", "seeds", "steps", "skipped", "modules_off",
     "flags", "layers_missing", "warnings", "volatile", "provenance_digest", "sensitivity",
-    "context", "operons", "mapping", "calibration"
+    "context", "operons", "mapping", "novel_orfs", "calibration"
   ],
   "$defs": {
     "nstr": {"type": ["string", "null"]},
@@ -219,6 +219,23 @@
         "search_db": {"$ref": "#/$defs/nstr"},
         "n_queries": {"type": ["integer", "null"], "minimum": 0}
       }
+    },
+    "novel_orfs": {
+      "description": "M7-11b: the novel_orfs.class_fdr event data (one per class list) sorted by (regime, class); null without one.",
+      "type": ["object", "null"], "additionalProperties": false, "required": ["classes"],
+      "properties": {"classes": {"type": "array", "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["regime", "class", "estimated", "reason", "n_targets", "n_target_wins", "n_decoys",
+                     "paired_share", "c", "q_floor", "floor_above_alpha", "alpha", "n_called"],
+        "properties": {
+          "regime": {"enum": ["picked_decoy", "denovo_subgroup"]}, "class": {"type": "string"},
+          "estimated": {"type": "boolean"}, "reason": {"$ref": "#/$defs/nstr"},
+          "n_targets": {"type": "integer", "minimum": 0}, "n_target_wins": {"$ref": "#/$defs/nint"},
+          "n_decoys": {"type": "integer", "minimum": 0}, "paired_share": {"$ref": "#/$defs/nnum"},
+          "c": {"$ref": "#/$defs/nnum"}, "q_floor": {"$ref": "#/$defs/nnum"},
+          "floor_above_alpha": {"type": "boolean"}, "alpha": {"type": "number"},
+          "n_called": {"type": "integer", "minimum": 0}
+        }}}}
     },
     "calibration": {
       "type": "object",

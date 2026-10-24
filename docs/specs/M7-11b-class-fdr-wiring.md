@@ -385,3 +385,84 @@ only the TSV and the work-dir side table.
    then the implementer, then the statistician and code review. The PR is labelled stats. If the
    PR goes past 400 counted lines, the manifest block and side-table publication split out as
    M7-11b-2.
+6. **Test-author (199ca703, #256): the readings of gaps 1–12 are accepted.**
+   - Gap 2: the implementer passes the float q to the call rule, and q is never re-parsed from
+     the formatted cell.
+   - Gap 12: lead decision 3 governs. There is no `class_mismatch` flag, and the interface text
+     about `FLAG_ORDER` is superseded.
+   - Lead edits to existing tests:
+     - `SPEC["novel_orfs"]` in test_novel_steps.py gains the five optional inputs and the
+       `novel_class_fdr` output.
+     - test_novel_nf_registry.py `TAKE` gains `hits`, and `PUBLISHED` gains the side table.
+   - Acceptance items 5 (local vs Nextflow parity) and 6 (slow smoke run) go to the implementer,
+     on Slurm.
+7. **Implementer (a4b10349).**
+   - The counted size is 456 lines. That is over the 400 warning and under the 800 limit, so it is
+     **accepted, not split**: the planned M7-11b-2 cut moves only about 45 lines, and splitting it
+     would cost a second review round.
+   - Accepted: `apply_evidence` takes the float `class_q` from the step, and falls back to the
+     cell only when it is called without one, by library callers. The step-level test pins the
+     float path (gap 2).
+   - Accepted: the manifest `novel_orfs` block is null without a `novel_orfs.class_fdr` event,
+     and the key is required.
+   - Accepted: the definition of `n_targets` for unestimated classes.
+   - Accepted: one `layer_missing` WARNING per missing key.
+   - Accepted: the value channel `hits`.
+   - Lead edits:
+     - the step_registry.json mirror gains `novel_class_fdr` in the `plots` and `report`
+       optional inputs;
+     - subworkflows/novel.nf.test passes `input[8] = channel.empty()`.
+   - Acceptance items 5 (local vs Nextflow parity) and 6 (slow smoke run) go to a test-author
+     round after the reviews.
+   - Next: the statistician and code review.
+8. **Reviews (#256).** The statistician APPROVEs (comment 6365221592, commit 5ac8f0e1); the code
+   review asks for test-only changes (comment 6365447873).
+   - B1 (`n_called` never checked above 0) and B2 (picked `n_targets` = won + lost_pick unchecked)
+     go to a test-author round, together with acceptance items 5 (local-vs-Nextflow parity on a
+     100k `novel_orf_power` run with makedb decoys) and 6 (the slow smoke run), on Slurm.
+   - N6 (`placement_costs` via `to_parquet`): if item 5's byte parity fails on it, an implementer
+     round switches to `write_parquet_deterministic`; otherwise backlog.
+   - N1–N4, the statistician's notes 1–2 and N5's bookkeeping: backlog, by the lead.
+9. **Review-fix tests (dbcc1ede).** B1 and B2 are covered (mutants M11 and M8 are killed) and item 5
+   passes (Slurm 1873184). Item 6's first bullet fails: 25 of 49 tagged-class ORFs are
+   `no_makedb_pair`, in intergenic, antisense and cds_outframe.
+   - Cause (giapsim, not `src`): in `novel_orf_power` database runs, target rows carry `NOVEL_…`
+     and `sixframe:…` protein IDs, and only the decoys are makedb-tagged (`rev_GIAPORF_…`). A
+     search against the `giap makedb --six-frame-orfs` FASTA reports the entry IDs for targets too.
+     `makedb_id_map` builds entries from the IDs in the peptides, so an ORF pairs only when a decoy
+     happened to hit its entry.
+   - Fix: an implementer round in `tests/sim/giapsim/proteomics.py`. When the search database is
+     the makedb FASTA, every target row's `protein_ids` names its makedb entry (`GIAPORF_…`, or the
+     gene's nterm_extension entry), the same `entry` naming its decoys use. Truth tables keep the
+     planted `NOVEL_…` IDs. Item 6 is the acceptance test; its assertions stay as written.
+   - If existing tests pin the old IDs or hashes, the implementer lists them and the lead edits
+     them (this is the sim's realism fix, not a change of intent).
+   - B2 finding, to the backlog: `no_target_score` is unreachable from the step, since
+     `orf_regimes` and `picked_class_fdr` read the same target rows. The test forces it with a
+     monkeypatch.
+10. **giapsim fix (a0526b4d): accepted.** In six-frame mode (`wrong_source = sixframe_noncoding`)
+    target rows now name their makedb entry: `GIAPORF_…` for wrong six-frame peptides and planted
+    novel ORFs, and the gene's `nterm_extension` entry for residues upstream of the annotated
+    start. Annotated CDS peptides keep the bare locus tag, which is makedb's own entry name. The
+    other modes are byte-identical.
+    - Item 6's smoke run now has 0 `no_makedb_pair` (it was 25 of 49), and item 5 still holds:
+      Slurm 1873420 gave 6 passed. The fast suite (1873419) passed with no existing test changed.
+    - Annotated peptides inside the first 30 codons do not also list the nterm entry, to keep
+      gene-level razor and uniqueness unchanged. Backlog, together with the remaining makedb
+      mismatches: 27 non-ATG-start peptides beginning with `M`, and 18 rows naming entries
+      shorter than `min_orf_aa` = 20.
+    - The M7-13 1M sim caches are regenerated before any picked-regime G4 number is read.
+    - #256 has had its review round. It merges after #237 and #253 (stacked: merge the old base
+      tip, then main).
+11. **Implementer (635fde34): nterm `no_makedb_pair` fixed; accepted.**
+   - Cause: giapsim's `OrfEntries.of` missed makedb's `NTERM_MIN_UPSTREAM_AA` = 7 rule (M3-23), so
+     5–6-codon upstream parts got IDs with no makedb entry.
+   - In six-frame mode an occurrence without a makedb entry is not in the search database, so a
+     peptide with no other occurrence is no longer reported. This replaces decision 10's
+     planted-ID fallback; it is what a real search does, so the lead accepts it. Truth rows keep
+     every occurrence.
+   - The new test `tests/unit/test_sim_m7_nterm_makedb_ids.py` (the implementer wrote it, as giapsim
+     tooling; it edits no existing test) is accepted by the lead.
+   - Evidence: Slurm 1874355 (M7-13b fast tier on this source: nterm `no_makedb_pair` 0, fallback
+     0; only G4-k3 fails, as M7-13b decision 4 foresaw), 1874356 (fast suite passed), 1874358
+     (108 slow giapsim/integration tests passed).

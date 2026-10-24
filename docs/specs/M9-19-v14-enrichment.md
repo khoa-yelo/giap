@@ -84,3 +84,44 @@ passes q ≤ `<alpha>`" — never "no enrichment" (ADR-0026 consequence).
    **Proposed default:** the 20 smallest, so the reader sees how far they are.
 2. ORA's `effect` CI is NA in pass 1 (M8-04). **Proposed default:** points without bars, labelled
    "CI unestimated", until M8 hardening adds it.
+
+## Lead decisions (2026-10-23)
+1. **Q1 yes:** with nothing significant, panel (c) shows the 20 smallest q with the alpha line.
+2. **Q2 yes:** ORA effect points without bars, labelled "CI unestimated", until M8 hardening.
+3. **Stacking:** on m9/plot-support-analysis (M9-17; `gsea_running` per its tests a3224acf and
+   decision 5). Merge M9-17 into this branch when it lands, then main.
+4. **Test-author (be22ed42): pinned choices 1–7 and gaps accepted as proposed.**
+   - Axes labels: `a`, `b` and `c*`.
+   - Panel (b) is NES against −log10 q; panel (c) uses a log2 O/E axis.
+   - O/E = 0 is drawn at the axis floor with a note, and the data keeps 0.
+   - A support set missing from the table raises `ValueError`.
+   - Both tables header-only gives an empty state with a generic message.
+   - The implementer may add "TUs" to `checklist.UNITLESS` (M9-24 decision 7), and may move V14
+     out of `LATER` in the twin helpers. That is a lead edit if an existing test must change:
+     report it.
+   - If a test's own assumption is wrong, report it; the fix goes to the test-author or lead.
+5. **Review round (code review of 7410ec5b).** The implementer's choices 1, 2 and 4–7 are accepted. Choice 3 is reworked.
+   - **B1, labels overlap:** compute panel (c)'s left edge from the measured width of (b)'s label column
+     (renderer extents), so the two can't collide. Add a checklist case with maximum-length names in
+     both panels.
+   - **Test gaps (surviving mutants):**
+     - the negative-set leading edge, which runs from peak to n;
+     - the `_REL` boundary: one %.6g step is accepted, 1e-4 relative raises;
+     - panel (c) drawn O/E-descending, top to bottom;
+     - one `layer_missing` flag gives the generic EMPTY message.
+   - **Nits taken:**
+     - N1: ORA q = 0 noted in the footnote too.
+     - N2: a q = 0 point uses marker `^`.
+     - N3: leaders start at the label column with a short elbow, and the legend is pinned to `upper left`, outside the label rows.
+     - N4: the "not calibrated" banner goes under the title.
+     - N5: panel (c) is capped at 30 rows, plus "+N more in the TSV".
+     - N6: ORA ties break on collection, term and direction.
+     - N7: "no testable sets" when no GSEA row has a finite NES or q.
+     - N8: twin parity. The TSV gains a `redundant` column; the twin keeps q = 0 at the cap and draws the alpha line, (c) in O/E order, and redundant rows small and grey.
+     - N11: O/E = NaN rows get a "O/E undefined (E = 0)" note.
+   - **Backlogged:** N9 (`x.max()`), N10 (`_draw_b` helper split), and "es" in UNITLESS.
+6. **Test-author gaps (0d191489).**
+   - **N5:** the data TSV keeps every significant ORA row; the figure draws the top 30. This exception to "panel = drawn rows" is written into the TSV's description.
+   - **N2:** the `^` marker applies in both (b) and the (c) q strip.
+   - **N3, N4:** read as the tests pin them.
+   - **N8:** the twin's alpha line is at the default 0.05.

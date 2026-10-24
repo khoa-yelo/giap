@@ -99,7 +99,8 @@ nextflow_workflow {
                 if (f.isFile()) published << new File("${outputDir}").toPath().relativize(f.toPath()).toString()
             }
             def other = published.findAll { !it.startsWith('logs/') }.sort()
-            assert other == ['tables/category_summary.tsv', 'tables/enrichment_detection.tsv',
+            assert other == ['plots/support/gsea_running.tsv.gz', 'tables/category_summary.tsv',
+                             'tables/enrichment_detection.tsv',
                              'tables/enrichment_gsea.tsv'] : "published ${other}"
         }
     }
