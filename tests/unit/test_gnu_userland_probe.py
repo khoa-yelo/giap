@@ -7,20 +7,27 @@ caller, so every test that runs a script through the shared helpers is covered.
 
 from __future__ import annotations
 
+import fcntl
 import os
 import stat
 import subprocess
 import sys
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
 from helpers import gnu_userland
 from helpers.gnu_userland import (
     GNU_USERLAND_REASON,
+    SCRIPT_PATH,
+    X87_LONGDOUBLE_REASON,
     have_gnu_userland,
+    have_x87_longdouble,
     probe_gnu_userland,
     require_gnu_userland,
 )
+from helpers.pilot_kit_m10 import m10_sandbox
 from helpers.slurm_sandbox import make_sandbox
 
 REPO = Path(__file__).resolve().parents[2]
@@ -74,8 +81,59 @@ def test_farmshare_host_has_the_gnu_userland() -> None:
     assert have_gnu_userland()
 
 
-def test_probe_is_cached() -> None:
-    assert gnu_userland.missing_gnu_userland() is gnu_userland.missing_gnu_userland()
+def test_probe_is_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def counting(path: str) -> tuple[str, ...]:
+        calls.append(path)
+        return ("flock",)
+
+    monkeypatch.setattr(gnu_userland, "probe_gnu_userland", counting)
+    gnu_userland.missing_gnu_userland.cache_clear()
+    try:
+        assert gnu_userland.missing_gnu_userland() == ("flock",)
+        assert gnu_userland.missing_gnu_userland() == ("flock",)
+        assert calls == [SCRIPT_PATH]  # probed once, on the PATH the scripts get
+    finally:
+        gnu_userland.missing_gnu_userland.cache_clear()
+
+
+def test_probe_path_is_the_sandbox_system_path(tmp_path: Path) -> None:
+    sb = make_sandbox(tmp_path)
+    assert sb.env["PATH"] == f"{sb.bin}:{SCRIPT_PATH}"
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="GNU flock expectation")
+def test_probe_ignores_other_lock_holders() -> None:
+    # PR #318 review B1: ``flock -n`` on a shared file failed when another process held it
+    with open(sys.executable, "rb") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        try:
+            assert probe_gnu_userland(SCRIPT_PATH) == ()
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="GNU flock expectation")
+def test_parallel_probes_agree() -> None:
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(lambda _: probe_gnu_userland(SCRIPT_PATH), range(48)))
+    assert set(results) == {()}
+
+
+def test_probe_removes_its_lock_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    made: list[str] = []
+    real = tempfile.mkstemp
+
+    def recording(*args: object, **kwargs: object) -> tuple[int, str]:
+        fd, name = real(*args, dir=tmp_path, **kwargs)  # type: ignore[call-overload]
+        made.append(name)
+        return fd, name
+
+    monkeypatch.setattr(tempfile, "mkstemp", recording)
+    probe_gnu_userland(_stubs(tmp_path, {}))
+    assert len(made) == 1
+    assert not Path(made[0]).exists()
 
 
 def test_require_skips_with_the_reason(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -100,25 +158,54 @@ def test_sandbox_run_skips_without_gnu_userland(
     assert sb.run(["true"]).returncode == 0
 
 
+def test_m10_popen_skips_without_gnu_userland(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    m10 = m10_sandbox(tmp_path)
+    monkeypatch.setattr(gnu_userland, "missing_gnu_userland", lambda: ("flock",))
+    with pytest.raises(pytest.skip.Exception, match=r"FarmShare/GNU userland only"):
+        m10.popen("no_such_script")
+
+
 @pytest.mark.gnu_userland
 def test_marked_canary() -> None:
-    """Runs only where the scripts can run; the next test checks it skips elsewhere."""
+    """Runs only where the scripts can run; the test below checks it skips elsewhere."""
     assert have_gnu_userland()
 
 
-def test_marker_skips_at_collection_when_tools_fail(tmp_path: Path) -> None:
-    # failing stubs ahead of the real tools on the host PATH, as on macOS
-    stubs = _stubs(tmp_path, {"sha256sum": 1, "flock": 1, "realpath": 1, "stat": 1})
-    env = {**os.environ, "PATH": f"{stubs}{os.pathsep}{os.environ.get('PATH', '')}"}
-    node = "tests/unit/test_gnu_userland_probe.py::test_marked_canary"
+@pytest.mark.x87_longdouble
+def test_x87_canary() -> None:
+    """Runs only with the 80-bit long double; the test below checks it skips elsewhere."""
+    assert have_x87_longdouble()
+
+
+_FORCE_MISSING = """
+from helpers import gnu_userland
+gnu_userland.missing_gnu_userland = lambda: ("flock",)
+gnu_userland.have_x87_longdouble = lambda: False
+"""
+
+
+def test_markers_skip_at_collection_without_the_capability(tmp_path: Path) -> None:
+    # a -p plugin makes both probes report "missing", as on macOS arm64
+    (tmp_path / "giap_force_missing.py").write_text(_FORCE_MISSING)
+    pythonpath = os.pathsep.join(
+        [str(tmp_path), str(REPO / "tests"), os.environ.get("PYTHONPATH", "")]
+    )
+    env = {**os.environ, "PYTHONPATH": pythonpath}
+    nodes = [
+        "tests/unit/test_gnu_userland_probe.py::test_marked_canary",
+        "tests/unit/test_gnu_userland_probe.py::test_x87_canary",
+    ]
     proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "-p", "no:xdist", "-q",
-         "-rs", node],
+        [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "-p", "no:xdist",
+         "-p", "giap_force_missing", "-q", "-rs", *nodes],
         cwd=REPO, env=env, capture_output=True, text=True, timeout=300, check=False,
     )  # fmt: skip
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "1 skipped" in proc.stdout, proc.stdout
+    assert "2 skipped" in proc.stdout, proc.stdout
     assert GNU_USERLAND_REASON in proc.stdout, proc.stdout
+    assert X87_LONGDOUBLE_REASON in proc.stdout, proc.stdout
 
 
 def test_x87_probe_reads_the_longdouble_mantissa(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -9,10 +9,11 @@
   ``helpers.slurm_sandbox`` and ``M10Sandbox.popen``), so every test that runs a script through
   them, including future ones, skips without needing the marker.
 
-The probe runs once per session (per xdist worker) against the host ``PATH``.
+The probe runs once per session (per xdist worker) against ``/usr/bin:/bin``, the system part
+of the PATH the sandboxed scripts get.
 
 ``x87_longdouble`` is the matching probe for ``scripts/golden/make_wallenius_exact.py``, which
-refuses to run unless ``np.longdouble`` is the 80-bit x87 format (absent on arm64).
+refuses to run unless ``np.longdouble`` is the 80-bit x87 format (absent on e.g. macOS arm64).
 """
 
 from __future__ import annotations
@@ -20,22 +21,26 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import sys
+import tempfile
 from functools import cache
 
 import pytest
 
 GNU_USERLAND_REASON = "FarmShare/GNU userland only (sha256sum, flock, GNU realpath/stat)"
-X87_LONGDOUBLE_REASON = "needs the 80-bit x87 np.longdouble (nmant >= 63; absent on arm64)"
+X87_LONGDOUBLE_REASON = "needs 80-bit x87 long double (absent on e.g. macOS arm64)"
 
 
-def _probes() -> dict[str, list[str]]:
-    exe = sys.executable  # a file that surely exists
+# the system part of the sandbox PATH (``helpers.slurm_sandbox``: ``bin:/usr/bin:/bin``); the
+# scripts see these tools, not the host PATH (a Homebrew gnubin there would not reach them)
+SCRIPT_PATH = "/usr/bin:/bin"
+
+
+def _probes(target: str) -> dict[str, list[str]]:
     return {
-        "sha256sum": ["sha256sum", exe],
-        "flock": ["flock", "-n", exe, "true"],
+        "sha256sum": ["sha256sum", target],
+        "flock": ["flock", "-n", target, "true"],
         "realpath -e": ["realpath", "-e", "/"],
-        "stat -c": ["stat", "-c", "%s", exe],
+        "stat -c": ["stat", "-c", "%s", target],
     }
 
 
@@ -53,14 +58,22 @@ def _works(argv: list[str], path: str) -> bool:
 
 
 def probe_gnu_userland(path: str) -> tuple[str, ...]:
-    """The GNU userland pieces missing (absent or not GNU) on ``path``; empty when present."""
-    return tuple(name for name, argv in _probes().items() if not _works(argv, path))
+    """The GNU userland pieces missing (absent or not GNU) on ``path``; empty when present.
+
+    The target is a private temporary file, so ``flock -n`` never meets another lock holder
+    (parallel probes on a shared file fail each other: PR #318 review B1)."""
+    fd, target = tempfile.mkstemp(prefix="giap-gnu-probe-")
+    try:
+        os.close(fd)
+        return tuple(name for name, argv in _probes(target).items() if not _works(argv, path))
+    finally:
+        os.unlink(target)
 
 
 @cache
 def missing_gnu_userland() -> tuple[str, ...]:
-    """``probe_gnu_userland`` of the host ``PATH``, probed once per session."""
-    return probe_gnu_userland(os.environ.get("PATH", os.defpath))
+    """``probe_gnu_userland`` of ``SCRIPT_PATH``, probed once per session."""
+    return probe_gnu_userland(SCRIPT_PATH)
 
 
 def have_gnu_userland() -> bool:
