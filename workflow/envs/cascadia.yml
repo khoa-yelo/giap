@@ -11,6 +11,8 @@
 # solved here so pip does not resolve them (Cascadia PR #18). pyteomics pinned to 4.7.5, the
 # release current when 0.0.7 shipped (lead decision Q10). psims 1.4.0 vendors
 # unimod_tables.xml.gz, the offline Unimod table (fetch_a3_assets.sbatch, cascadia_offline.py).
+# setuptools<81: lightning 2.0 imports pkg_resources, which setuptools 81+ dropped (job 1888820,
+# ModuleNotFoundError at import, 2026-10-24).
 # lxml>=5.4 refuses network entities (no silent Unimod fetch if a resolver is missed).
 # Locks: workflow/envs/locks/cascadia.{explicit,pip}.txt, written by build_envs.sh.
 name: giap-cascadia
@@ -30,6 +32,7 @@ dependencies:
   - numba
   - h5py
   - sqlalchemy>=2
+  - setuptools<81
   - pip
   - pip:
     - cascadia @ https://files.pythonhosted.org/packages/1d/9c/2b878bbe34e75bb433844fa2c023430ff6ff8a4538534075f76cf0530164/cascadia-0.0.7-py3-none-any.whl#sha256=50b5204349ab91d6bc34f9313ad18e9d2d305814d19e53cd1cd75d8208f092a3
