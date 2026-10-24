@@ -521,6 +521,8 @@ def test_empty_discoveries(ex1: Any) -> None:
         assert "empty_discoveries" in reasons(b), level
     assert out["precursor"]["assessment"] == "not_evaluable"
     assert out["peptide"]["assessment"] == "not_assessed"
+    # rev-1007 S7 (mutant M21): no accepted row is not "no K-12-only peptide was accepted"
+    assert "n_entrapment_zero" not in codes(out["warnings"])
 
 
 def test_no_shared_peptides(ex1: Any) -> None:
@@ -590,3 +592,82 @@ def test_discovery_classes_equal_universe_classes(ex1: Any) -> None:
     lit = rules(ex1, ["VEPTIDEK", "MSAGLLK", "AGNVLTEPWR", "AAGGWWR"])
     uni = rules(ex1, ["VEPTLDEK", "MSAGLLK", "AGNVLTEPWR", "AAGGWWR"])
     assert list(lit.values()) == list(uni.values())
+
+
+# ------------------------------------------------------------------ rev-1007 S7/N6: mutation pins
+
+
+def _tolerant_types(peptide: str, contigs: Mapping[str, str]) -> set[frozenset[str]]:
+    """The ``diff_types`` of GIAP's tolerant target rows for ``peptide`` (fixture guard)."""
+    from giap.config import resolve_config
+    from giap.mapping.sixframe import build_sixframe
+    from giap.mapping.tolerant import match_tolerant
+
+    six = build_sixframe(dict(contigs), replicons(contigs, list(contigs)))
+    cfg = resolve_config().mapping.tolerant
+    res = match_tolerant([peptide], six, {"shuffle": ()}, {peptide: "shuffle"}, {peptide}, cfg)
+    tgt = res[res["search"] == "target"]
+    return {frozenset(x for x in str(d).split(";") if x) for d in tgt["diff_types"]}
+
+
+def test_mixed_block_and_substitution_row_is_not_present() -> None:
+    """rev-1007 S7 (M06): rule 2 needs ``diff_types`` non-empty and only ``block``. SAGNVLTEPWWR
+    (12 aa, budget 2) against SAGGGVLTEPWYR is N <-> GG plus W -> Y: one ``block;substitution``
+    row, so the peptide stays ``k12_only`` (also in ``present_broad``: substitution is not in
+    {block, swap, near_block})."""
+    pep, text = "SAGNVLTEPWWR", "SAGGGVLTEPWYR"
+    contigs = {"nissle": coding_text(*NISSLE, text)}
+    assert _tolerant_types(pep, contigs) == {frozenset({"block", "substitution"})}
+    idx = index_of(contigs, ["nissle"], [])
+    assert rules(idx, [pep]) == {pep: None}
+    rows = [*EXAMPLE2_ROWS, row("WT_1", pep, 2, 0.002)]
+    p = evaluate(idx, rows, k12=(*K12, pep))["peptide"]
+    assert (p["N_T"], p["N_E"]) == (3, 2)
+    b = p["sensitivity"]["present_broad"]
+    assert (b["N_T"], b["N_E"]) == (3, 2)
+
+
+def test_above_one_is_strictly_above_one(ex1: Any) -> None:
+    """rev-1007 N6 (M15): WT_3 with N_T 2, N_E 1 and r 0.5 gives fdp_combined = 1 * 3 / 3 = 1.0
+    exactly, which is not ``above_one``."""
+    rows = [*EXAMPLE2_ROWS, row("WT_3", "MSAGLLK", 2, 0.001), row("WT_3", "VEPTIDEK", 2, 0.001)]
+    out = evaluate(ex1, rows)
+    w3 = out["per_run"]["WT_3"]
+    assert (w3["N_T"], w3["N_E"]) == (2, 1)
+    assert w3["fdp_combined"] == 1.0
+    assert w3.get("above_one") is not True
+    assert "above_one" not in (w3.get("flags") or [])
+
+
+def test_na_is_decoy_is_a_target_row_as_in_m10_05(ex1: Any) -> None:
+    """rev-1007 N6 (M16): M10-05's accepted-row rule reads a missing ``is_decoy`` as target
+    (``metrics._target``: ``fillna(False)``); the entrapment uses the same rule."""
+    rows = [r | {"is_decoy": None} if r["peptide"] == "AAGGWWR" else r for r in EXAMPLE2_ROWS]
+    p = evaluate(ex1, rows)["peptide"]
+    assert (p["N_T"], p["N_E"]) == (3, 1)
+
+
+def test_a_run_with_no_accepted_row_has_an_empty_per_run_block(ex1: Any) -> None:
+    """rev-1007 N6 (M28): every run of ``PEP_A1`` gets a block; WT_3's only row is rejected
+    (q 0.5), so its block is the empty-discoveries one."""
+    rows = [r | {"q_value": 0.5} if r["run"] == "WT_3" else r for r in EXAMPLE2_ROWS]
+    out = evaluate(ex1, rows)
+    assert set(out["per_run"]) == {"WT_1", "WT_2", "WT_3"}
+    w3 = out["per_run"]["WT_3"]
+    assert (w3["N_T"], w3["N_E"]) == (0, 0)
+    assert w3["fdp_combined"] is None and w3["fdp_lower"] is None
+    assert "empty_discoveries" in reasons(w3)
+    assert w3["assessment"] == "not_assessed"
+
+
+def test_no_shared_peptides_takes_precedence_over_empty_discoveries() -> None:
+    """rev-1007 N6 (M32): with both |shared| = 0 and no accepted row, the reason is
+    ``no_shared_peptides`` (r itself is undefined, whatever the discoveries)."""
+    idx = index_of({"c": coding_text("HHHHHHHHHH")}, ["c"], [])
+    rows = [r | {"q_value": 0.5} for r in EXAMPLE2_ROWS]
+    out = evaluate(idx, rows)
+    for level in ("peptide", "precursor"):
+        b = out[level]
+        assert b["fdp_combined"] is None and b["fdp_lower"] is None, level
+        assert "no_shared_peptides" in reasons(b), level
+        assert "empty_discoveries" not in reasons(b), level

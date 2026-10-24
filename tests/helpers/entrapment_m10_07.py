@@ -66,7 +66,11 @@ PEPTIDE_NOT_ASSESSED = (
     "peptide-level FDR is not controlled by the search (q_value is DIA-NN's precursor-level "
     "Global.Q.Value)"
 )
-PER_RUN_NOT_ASSESSED = "runs were selected by the global q-value, not a run-level q-value"
+#: the statistician's erratum (DIA-NN 2.3.1 also filters the main report at run-level Q.Value)
+PER_RUN_NOT_ASSESSED = (
+    "runs were selected by the global and the run-level q-value together; no FDR claim attaches "
+    "to a run's intersection"
+)
 CI_METHOD = "binomial_inversion_equal_chance"
 CI_ASSUMES = (
     "equal chance and independent false matches; not valid under clustered (protein-level) errors"
@@ -168,14 +172,18 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run_entrapment(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
-    """``python validation/pilot/entrapment.py ARGS`` with ``PYTHONPATH=$REPO/src:$REPO``."""
+def run_entrapment(
+    *args: str, cwd: Path | None = None, env_extra: Mapping[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    """``python validation/pilot/entrapment.py ARGS`` with ``PYTHONPATH=$REPO/src:$REPO``
+    (``env_extra`` is added to the environment)."""
     import pytest
 
     if not ENTRAPMENT_PY.is_file():
         pytest.fail(f"{ENTRAPMENT_PY.relative_to(REPO)} does not exist (M10-07 not implemented)")
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(REPO / "src"), str(REPO), str(REPO / "tests" / "sim")])
+    env |= dict(env_extra or {})
     return subprocess.run(
         [sys.executable, str(ENTRAPMENT_PY), *args],
         capture_output=True,

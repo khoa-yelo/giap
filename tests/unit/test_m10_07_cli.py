@@ -15,13 +15,36 @@ Interface fixed here (the spec names the inputs, not the flags): ``compute --pep
 METRICS_DIR. ``provenance.json`` lists the searched FASTAs as ``inputs.fasta = [{path, sha256}]``
 (M10-02 "inputs: each --fasta (path, sha256)"). ``command_step1.txt`` is one argv token per line.
 ``metrics.py compute`` takes ``--entrapment PATH`` and writes the blocks under ``m8``.
+
+Review round rev-1007 (the spec's binding "Lead decisions after the code review"):
+
+* exit codes: 0 written, 1 cross-check 1 only, 2 a precondition (including an unreadable or
+  malformed input: provenance JSON, a missing peptide-table column, an NA charge on an accepted
+  row; the message names the file), 4 any unexpected exception (traceback on stderr; listed in
+  the module docstring); nothing is written unless 0;
+* cross-check 1 looks only at the ``target`` and ``entrapment`` buckets and requires
+  ``present_rule == "exact"``; discoveries outside those buckets with an A1 ``route = exact``
+  row are counted in ``cross_checks.run.n_exact_route_unclassified``;
+* cross-check 2 without ``tables/detection_summary.tsv`` warns ``genome_inconsistent_unavailable``;
+  ``cross_checks.run`` keeps ``present_not_exact``, ``exact_rejected``,
+  ``genome_inconsistent_count`` and ``n_entrapment``;
+* ``--out-a1`` is resolved through ``ATTEMPTS.tsv`` next to it, as M10-05's ``resolve_attempt``;
+* provenance: the record whose basename is ``UP000000625.fasta`` vouches for ``--k12-fasta``, the
+  one named ``contaminants.fasta`` for ``--contaminants`` (any directory, any order);
+* ``--out`` inside the checkout is accepted when ``git check-ignore`` says it is ignored;
+* the spec SHA comes from git or the run exits 2 (no placeholder);
+* ``metrics.json`` ``m8`` also carries ``warnings``; the report renders the warning codes and the
+  ``ci.assumes`` string; ``inputs.entrapment`` is hashed like the other inputs.
 """
 
 from __future__ import annotations
 
+import gzip
 import json
 import re
 import shutil
+import subprocess
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -29,6 +52,7 @@ from typing import Any
 import pytest
 from helpers.entrapment_m10_07 import (
     CAVEATS,
+    CI_ASSUMES,
     CONTAMINANTS,
     EXAMPLE2_ROWS,
     EXAMPLE8_ROW,
@@ -72,16 +96,24 @@ class Inputs:
         return ["compute", *flat, "--out", str(out), *extra]
 
 
-def build_inputs(root: Path, rows: Any = EXAMPLE2_ROWS, *, tags: bool = True) -> Inputs:
+def build_inputs(
+    root: Path,
+    rows: Any = EXAMPLE2_ROWS,
+    *,
+    tags: bool = True,
+    k12: tuple[str, ...] = K12,
+    texts: tuple[str, ...] = NISSLE,
+    strain_db: tuple[str, ...] = ("MSAGLLKVEPTLDEKAAGGYWR",),
+) -> Inputs:
     return Inputs(
         root=root,
         pep_a1=write_a1(root / "inputs" / "a1.tsv.gz", list(rows)),
-        k12=write_faa(root / "data" / "UP000000625.fasta", K12),
+        k12=write_faa(root / "data" / "UP000000625.fasta", k12),
         cont=write_faa(root / "db" / "contaminants.fasta", CONTAMINANTS, prefix="Cont_P"),
         genome=write_genome(
-            root / "nissle.fna", {"nissle": coding_text(*NISSLE)}, ["nissle"] if tags else []
+            root / "nissle.fna", {"nissle": coding_text(*texts)}, ["nissle"] if tags else []
         ),
-        strain_db=write_faa(root / "strain_db.faa", ["MSAGLLKVEPTLDEKAAGGYWR"], prefix="NISSLE_"),
+        strain_db=write_faa(root / "strain_db.faa", list(strain_db), prefix="NISSLE_"),
         manifest=write_runs_manifest(root / "pxd078459_files.tsv"),
     )
 
@@ -399,3 +431,373 @@ def test_template_has_a_metric_8_section_and_an_h2_line_without_verdict() -> Non
     assert "deferred" in line
     assert "m8.peptide.fdp_combined" in line and "m2.A1.genome_inconsistent" in line
     assert "verdict" not in line.lower()
+
+
+# ------------------------------------------------------------------ rev-1007 review round
+# Binding: the spec's "Lead decisions after the code review (rev-1007)" and the statistician's
+# S1 (``m8`` carries the warnings and the assumption string) and erratum (the per-run reason).
+
+
+def _rewrite_a1(path: Path, edit: Any) -> Path:
+    """Apply ``edit(header, rows) -> (header, rows)`` to the gzipped TSV at ``path``."""
+    with gzip.open(path, "rt", encoding="utf-8") as fh:
+        lines = fh.read().splitlines()
+    header, rows = edit(lines[0].split("\t"), [line.split("\t") for line in lines[1:]])
+    with gzip.open(path, "wt", encoding="utf-8") as fh:
+        fh.write("\n".join("\t".join(r) for r in [header, *rows]) + "\n")
+    return path
+
+
+def _drop_column(name: str) -> Any:
+    def edit(header: list[str], rows: list[list[str]]) -> tuple[list[str], list[list[str]]]:
+        i = header.index(name)
+        return header[:i] + header[i + 1 :], [r[:i] + r[i + 1 :] for r in rows]
+
+    return edit
+
+
+def _cross_run(doc: dict[str, Any]) -> dict[str, Any]:
+    run = doc["cross_checks"].get("run")
+    assert isinstance(run, dict), doc["cross_checks"]
+    return run
+
+
+# B1: cross-check 1 sees only the target and entrapment buckets
+
+
+def test_b1_exact_route_on_unclassified_discoveries_is_not_a_disagreement(tmp_path: Path) -> None:
+    """Example 8 plus A1 ``route = exact`` rows for its Met-excised SAGLLKVEPTIDEK
+    (``not_in_universe``) and for the contaminant QQWWLLDR (``excluded_contaminant``): neither
+    was classified by ``present``, so neither can disagree. Exit 0, the digest-mismatch warning,
+    and the two are counted under ``cross_checks.run.n_exact_route_unclassified``."""
+    inp = build_inputs(tmp_path / "in", [*EXAMPLE2_ROWS, EXAMPLE8_ROW])
+    exact = ["MSAGLLK", "VEPTIDEK", "SAGLLKVEPTIDEK", "QQWWLLDR"]
+    a1 = write_out_a1(tmp_path / "A1", exact, 2, 4)
+    out = tmp_path / "metrics"
+    _ok(run_entrapment(*inp.args(out, "--out-a1", str(a1))))
+    doc = read_json(out / "entrapment.json")
+    assert "digest_mismatch" in codes(doc["warnings"])
+    assert doc["peptide"]["not_in_universe"] == 1
+    assert _cross_run(doc)["n_exact_route_unclassified"] == 2
+
+
+# S3: cross-check 1 requires the exact rule; strain_db is not agreement
+
+
+def test_s3_strain_db_present_peptide_with_an_a1_exact_row_exits_1(tmp_path: Path) -> None:
+    """Example 9's MTEKLLAGGPR is present here only by the ``strain_db`` clause (the genome reads
+    VTEK...). GIAP's exact route is six-frame only, so an A1 ``route = exact`` row for it means
+    the two six-frame matchers disagree: exit 1, nothing written."""
+    p4 = "MTEKLLAGGPR"
+    rows = [*EXAMPLE2_ROWS, row("WT_1", p4, 2, 0.003)]
+    kw: dict[str, Any] = {"k12": (*K12, p4), "texts": (*NISSLE, "VTEKLLAGGPR"),
+                          "strain_db": ("MSAGLLKVEPTLDEKAAGGYWR", "MTEKLLAGGPRAAGK")}  # fmt: skip
+    inp = build_inputs(tmp_path / "in", rows, **kw)
+    ok = write_out_a1(tmp_path / "A1ok", ["MSAGLLK", "VEPTIDEK"], 2, 5)
+    _ok(run_entrapment(*inp.args(tmp_path / "base", "--out-a1", str(ok))))
+    a1 = write_out_a1(tmp_path / "A1", ["MSAGLLK", "VEPTIDEK", p4], 2, 5)
+    out = tmp_path / "metrics"
+    res = run_entrapment(*inp.args(out, "--out-a1", str(a1)))
+    assert res.returncode == 1, f"exit {res.returncode}\n{res.stdout}\n{res.stderr}"
+    assert _nothing_written(out)
+
+
+# S4: cross-check 2's codes and breakdown
+
+
+def test_s4_missing_detection_summary_has_its_own_warning_code(inp: Inputs, tmp_path: Path) -> None:
+    a1 = write_out_a1(tmp_path / "A1", ["MSAGLLK", "VEPTIDEK"], 2, 4)
+    (a1 / "tables" / "detection_summary.tsv").unlink()
+    out = tmp_path / "metrics"
+    _ok(run_entrapment(*inp.args(out, "--out-a1", str(a1))))
+    got = codes(read_json(out / "entrapment.json")["warnings"])
+    assert "genome_inconsistent_unavailable" in got
+    assert "n_entrapment_above_genome_inconsistent" not in got
+
+
+@pytest.mark.parametrize(
+    ("exact", "want"),
+    [(["MSAGLLK", "VEPTIDEK"], (1, 0)), (["MSAGLLK"], (1, 1))],
+)
+def test_s4_cross_check_2_breakdown(
+    inp: Inputs, tmp_path: Path, exact: list[str], want: tuple[int, int]
+) -> None:
+    """Example 2's targets: MSAGLLK and VEPTLDEK (exact here), AGNVLTEPWR (mass-equivalent).
+    ``present_not_exact`` counts the targets made present by ``strain_db`` or rule 2 (1);
+    ``exact_rejected`` the targets exact here without an A1 ``route = exact`` row (0, or 1 when
+    A1 lists only MSAGLLK). Mutants M22/M23 (both 0) survived the round-1 tests."""
+    a1 = write_out_a1(tmp_path / "A1", exact, 2, 4)
+    out = tmp_path / "metrics"
+    _ok(run_entrapment(*inp.args(out, "--out-a1", str(a1))))
+    run = _cross_run(read_json(out / "entrapment.json"))
+    assert (run["present_not_exact"], run["exact_rejected"]) == want
+    assert run["genome_inconsistent_count"] == 2
+    assert run["n_entrapment"] == 1
+
+
+def test_n6_n_e_equal_to_the_genome_inconsistent_count_does_not_warn(
+    inp: Inputs, tmp_path: Path
+) -> None:
+    """rev-1007 N6 (M10): the cross-check is N_E <= count; N_E = count = 1 is no violation."""
+    a1 = write_out_a1(tmp_path / "A1", ["MSAGLLK", "VEPTIDEK"], 1, 4)
+    out = tmp_path / "metrics"
+    _ok(run_entrapment(*inp.args(out, "--out-a1", str(a1))))
+    doc = read_json(out / "entrapment.json")
+    assert _cross_run(doc)["genome_inconsistent_count"] == 1
+    assert "n_entrapment_above_genome_inconsistent" not in codes(doc["warnings"])
+
+
+def test_s4_out_a1_without_peptide_hits_exits_2_naming_both_locations(
+    inp: Inputs, tmp_path: Path
+) -> None:
+    a1 = tmp_path / "A1"
+    (a1 / "tables").mkdir(parents=True)
+    out = tmp_path / "metrics"
+    res = run_entrapment(*inp.args(out, "--out-a1", str(a1)))
+    _exit2_nothing(res, out, str(a1))
+    assert "tables" in res.stderr and "mapping" in res.stderr, res.stderr
+
+
+# S5: --out-a1 is resolved the way M10-05 resolves a run directory
+
+
+def test_s5_out_a1_resolves_through_attempts_tsv(inp: Inputs, tmp_path: Path) -> None:
+    """M10-05 (lead decision 1) resolves ``OUT_A1`` through M10-04's ``ATTEMPTS.tsv`` to the
+    final attempt. The superseded ``out_a1`` holds an exact row for the entrapment peptide
+    AAGGWWR (cross-check 1 would exit 1); the final ``out_a1.r1`` agrees: exit 0."""
+    runs = tmp_path / "runs"
+    write_out_a1(runs / "out_a1", ["MSAGLLK", "VEPTIDEK", "AAGGWWR"], 2, 4)
+    write_out_a1(runs / "out_a1.r1", ["MSAGLLK", "VEPTIDEK"], 2, 4)
+    cols = ("arm", "attempt", "outdir", "job", "resume", "git_commit", "state", "exit_code")
+    att = [
+        cols,
+        ("A1", "1", str(runs / "out_a1"), "2001", "fresh", "abc1234", "superseded", "1"),
+        ("A1", "2", str(runs / "out_a1.r1"), "2002", "resume", "abc1234", "done", "0"),
+    ]
+    (runs / "ATTEMPTS.tsv").write_text("\n".join("\t".join(r) for r in att) + "\n", "utf-8")
+    out = tmp_path / "metrics"
+    _ok(run_entrapment(*inp.args(out, "--out-a1", str(runs / "out_a1"))))
+
+
+# S1: exit 2 for unreadable inputs (naming the file), exit 4 for anything unexpected
+
+
+@pytest.mark.parametrize("content", ["{not json", "[]", '{"inputs": []}'])
+def test_s1_malformed_provenance_exits_2_naming_it(
+    inp: Inputs, tmp_path: Path, content: str
+) -> None:
+    prov = tmp_path / "provenance.json"
+    prov.write_text(content, encoding="utf-8")
+    out = tmp_path / "metrics"
+    _exit2_nothing(run_entrapment(*inp.args(out, "--provenance", str(prov))), out, str(prov))
+
+
+@pytest.mark.parametrize("column", ["charge", "modified_peptide", "run", "q_value"])
+def test_s1_pep_a1_without_a_needed_column_exits_2_naming_it(
+    inp: Inputs, tmp_path: Path, column: str
+) -> None:
+    _rewrite_a1(inp.pep_a1, _drop_column(column))
+    out = tmp_path / "metrics"
+    _exit2_nothing(run_entrapment(*inp.args(out)), out, str(inp.pep_a1))
+
+
+def test_s1_na_charge_on_an_accepted_row_exits_2_naming_pep_a1(inp: Inputs, tmp_path: Path) -> None:
+    def edit(header: list[str], rows: list[list[str]]) -> tuple[list[str], list[list[str]]]:
+        i, j = header.index("charge"), header.index("peptide")
+        return header, [[*r[:i], "NA", *r[i + 1 :]] if r[j] == "MSAGLLK" else r for r in rows]
+
+    _rewrite_a1(inp.pep_a1, edit)
+    out = tmp_path / "metrics"
+    _exit2_nothing(run_entrapment(*inp.args(out)), out, str(inp.pep_a1))
+
+
+def test_s1_runs_manifest_without_a_run_column_exits_2_naming_it(
+    inp: Inputs, tmp_path: Path
+) -> None:
+    text = inp.manifest.read_text(encoding="utf-8").replace("run\t", "sample_run\t", 1)
+    inp.manifest.write_text(text, encoding="utf-8")
+    out = tmp_path / "metrics"
+    _exit2_nothing(run_entrapment(*inp.args(out)), out, str(inp.manifest))
+
+
+def test_s1_unexpected_exception_exits_4_with_a_traceback(
+    inp: Inputs, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Exit 1 is reserved for cross-check 1 (lead decision S1): a bug exits 4 and prints the
+    traceback; nothing is written."""
+    from helpers.entrapment_m10_07 import load_entrapment
+
+    mod = load_entrapment()
+
+    def boom(*_: Any, **__: Any) -> Any:
+        raise RuntimeError("m10-07-unexpected")
+
+    monkeypatch.setattr(mod, "evaluate", boom)
+    out = tmp_path / "metrics"
+    try:
+        rc = mod.main(inp.args(out))
+    except SystemExit as err:
+        rc = err.code
+    except RuntimeError:
+        pytest.fail("the unexpected exception escaped main() (the interpreter exits 1)")
+    err_text = capsys.readouterr().err
+    assert rc == 4, rc
+    assert "Traceback" in err_text and "m10-07-unexpected" in err_text
+    assert _nothing_written(out)
+
+
+def test_s1_docstring_lists_exit_4() -> None:
+    from helpers.entrapment_m10_07 import load_entrapment
+
+    doc = load_entrapment().__doc__ or ""
+    assert re.search(r"\b4\b[^.;]*unexpected|unexpected[^.;]*\b4\b", doc, re.I | re.S), doc
+
+
+# S2: provenance matched by basename role
+
+
+def _prov(path: Path, records: list[tuple[str, str]]) -> Path:
+    """M10-02's layout: ``inputs.fasta = [{path, sha256, size, mode}]``; the paths are the
+    search's (another directory than the inputs here), so only the basename can match."""
+    recs = [{"path": f"/scratch/giap/db/{name}", "sha256": sha, "size": 1, "mode": "0644"}
+            for name, sha in records]  # fmt: skip
+    path.write_text(json.dumps({"inputs": {"fasta": recs}}), encoding="utf-8")
+    return path
+
+
+def test_s2_provenance_in_another_directory_and_order_is_accepted(
+    inp: Inputs, tmp_path: Path
+) -> None:
+    prov = _prov(
+        tmp_path / "provenance.json",
+        [("contaminants.fasta", sha256(inp.cont)), ("UP000000625.fasta", sha256(inp.k12))],
+    )
+    _ok(run_entrapment(*inp.args(tmp_path / "metrics", "--provenance", str(prov))))
+
+
+def test_s2_swapped_roles_exit_2(inp: Inputs, tmp_path: Path) -> None:
+    """--k12-fasta and --contaminants swapped: both hashes are in the record, but each under the
+    other role (rev-1007 S2, reproduced exit 0 in round 1)."""
+    prov = _prov(
+        tmp_path / "provenance.json",
+        [("UP000000625.fasta", sha256(inp.k12)), ("contaminants.fasta", sha256(inp.cont))],
+    )
+    out = tmp_path / "metrics"
+    args = inp.args(out, "--provenance", str(prov), k12_fasta=inp.cont, contaminants=inp.k12)
+    _exit2_nothing(run_entrapment(*args), out)
+
+
+@pytest.mark.parametrize("which", ["k12", "contaminants"])
+def test_s2_either_recorded_hash_differing_exits_2(inp: Inputs, tmp_path: Path, which: str) -> None:
+    """Mutant M17 (the contaminants hash never checked) survived round 1."""
+    k, c = sha256(inp.k12), sha256(inp.cont)
+    recs = [("UP000000625.fasta", "0" * 64 if which == "k12" else k),
+            ("contaminants.fasta", "0" * 64 if which == "contaminants" else c)]  # fmt: skip
+    prov = _prov(tmp_path / "provenance.json", recs)
+    out = tmp_path / "metrics"
+    _exit2_nothing(run_entrapment(*inp.args(out, "--provenance", str(prov))), out, str(prov))
+
+
+def test_s2_two_copies_of_the_k12_hash_do_not_vouch_for_the_contaminants(
+    inp: Inputs, tmp_path: Path
+) -> None:
+    prov = _prov(
+        tmp_path / "provenance.json",
+        [("UP000000625.fasta", sha256(inp.k12)), ("contaminants.fasta", sha256(inp.k12))],
+    )
+    out = tmp_path / "metrics"
+    _exit2_nothing(run_entrapment(*inp.args(out, "--provenance", str(prov))), out)
+
+
+def test_s2_a_role_missing_from_provenance_exits_2(inp: Inputs, tmp_path: Path) -> None:
+    prov = _prov(tmp_path / "provenance.json", [("UP000000625.fasta", sha256(inp.k12))])
+    out = tmp_path / "metrics"
+    _exit2_nothing(run_entrapment(*inp.args(out, "--provenance", str(prov))), out)
+
+
+# S7: the --met-excision and --unimod4 settings checks (mutants M18/M19)
+
+
+def _edit_tokens(tokens: list[str], edit: str) -> list[str]:
+    if edit == "add --met-excision":
+        return [*tokens, "--met-excision"]
+    assert edit == "drop --unimod4"
+    assert "--unimod4" in tokens
+    return [t for t in tokens if t != "--unimod4"]
+
+
+@pytest.mark.parametrize("edit", ["add --met-excision", "drop --unimod4"])
+def test_s7_diann_cmd_met_excision_or_no_unimod4_exits_2(
+    inp: Inputs, tmp_path: Path, edit: str
+) -> None:
+    cmd = tmp_path / "command_step1.txt"
+    toks = _edit_tokens(diann_step1_tokens(CFG_A1, inp.k12, inp.cont), edit)
+    cmd.write_text("\n".join(toks) + "\n", encoding="utf-8")
+    out = tmp_path / "metrics"
+    _exit2_nothing(run_entrapment(*inp.args(out, "--diann-cmd", str(cmd))), out, str(cmd))
+
+
+# B2: --out inside the checkout is accepted when git-ignored
+
+
+def test_b2_out_under_an_ignored_directory_of_the_checkout_is_accepted(inp: Inputs) -> None:
+    """``farmshare_env.sh`` puts ``GIAP_ROOT`` at ``$GIAP_REPO/local`` (git-ignored), so the
+    sbatch default ``$GIAP_ROOT/pilot/metrics`` lies inside the checkout; it must not exit 2
+    (precedent: ``diann_convert.sbatch``'s ``git check-ignore``)."""
+    base = REPO / "local"
+    made_base = not base.exists()
+    out = base / f"_m10_07_ignored_{uuid.uuid4().hex[:8]}" / "pilot" / "metrics"
+    chk = subprocess.run(["git", "-C", str(REPO), "check-ignore", "-q", str(out)], check=False)
+    assert chk.returncode == 0, f"{out} is not git-ignored in this checkout"
+    try:
+        _ok(run_entrapment(*inp.args(out)))
+        assert (out / "entrapment.json").is_file()
+    finally:
+        shutil.rmtree(out.parents[1], ignore_errors=True)
+        if made_base:
+            shutil.rmtree(base, ignore_errors=True)
+
+
+# N4: the spec SHA is never a placeholder
+
+
+def test_n4_spec_sha_unavailable_exits_2_not_zeros(inp: Inputs, tmp_path: Path) -> None:
+    """When git cannot give the spec's commit, M10-05's ``_spec_sha`` raises ``Precondition``;
+    round 1 wrote 40 zeros instead."""
+    out = tmp_path / "metrics"
+    res = run_entrapment(*inp.args(out), env_extra={"GIT_DIR": str(tmp_path / "no-such-git")})
+    _exit2_nothing(res, out)
+
+
+# Statistician S1 (rev-1007): m8 carries the warnings, the report the assumption string
+
+
+def test_stat_s1_m8_carries_the_warnings_and_the_report_the_assumes_string(
+    world: Any, tmp_path: Path
+) -> None:
+    inp = build_inputs(tmp_path / "in", [*EXAMPLE2_ROWS, EXAMPLE8_ROW])
+    ent_dir = tmp_path / "ent"
+    _ok(run_entrapment(*inp.args(ent_dir)))
+    ent = read_json(ent_dir / "entrapment.json")
+    assert "digest_mismatch" in codes(ent["warnings"])
+    metrics, report = _metrics_and_report(
+        world, tmp_path, "--entrapment", str(ent_dir / "entrapment.json")
+    )
+    assert metrics["m8"]["warnings"] == ent["warnings"]
+    assert "{{" not in report
+    assert "digest_mismatch" in report or "digest mismatch" in report.lower()
+    assert CI_ASSUMES in report
+
+
+def test_b3_entrapment_input_is_hashed_like_the_others(
+    world: Any, inp: Inputs, tmp_path: Path
+) -> None:
+    """B3: after the merge of main, ``entrapment`` is one of metrics.py's optional inputs and is
+    recorded in ``metrics.json`` ``inputs`` with its sha256, like every other input."""
+    ent_dir = tmp_path / "ent"
+    _ok(run_entrapment(*inp.args(ent_dir)))
+    ent = ent_dir / "entrapment.json"
+    metrics, _ = _metrics_and_report(world, tmp_path, "--entrapment", str(ent))
+    rec = metrics["inputs"]["entrapment"]
+    assert rec["sha256"] == sha256(ent)
+    assert Path(rec["path"]) == ent.resolve()
