@@ -1,7 +1,7 @@
 # ruff: noqa: F811  (pytest fixtures imported from test_cli_run_wiring)
 """``giap run --annotation bakta.json.gz`` is the precomputed Bakta layer, like ``bakta.json``
 (GIAP_SPEC.md §5.3 "Bakta JSON: used as is, and Bakta is not run"; backlog fix
-fix/annotation-json-gz, lead decisions 1-3).
+fix/annotation-json-gz, lead decisions 1 and 3).
 
 Before the fix ``cli._bakta_json`` accepted only the ``.json`` suffix, so a gzipped Bakta JSON
 left ``annotation.precomputed.bakta_json`` null and ``workflow/subworkflows/local/annotate.nf``
@@ -11,8 +11,8 @@ ran live Bakta (its ``else`` branch). Lead decisions:
    precomputed path is used and Bakta does not run. The CLI may pass the ``.gz`` itself or a
    copy decompressed once into the run's work area (under ``--outdir``); either way the file
    named by ``annotation.precomputed.bakta_json`` must parse to the same annotation.
-2. Any other suffix (``.gbk``, ``.gff3`` or anything else) is a usage error, exit 2, naming the
-   accepted suffixes; it never falls back silently to live Bakta.
+2. Withdrawn by the lead: GFF3 and GenBank annotations stay accepted as GIAP_SPEC.md §5.1 says
+   (their ``--regions`` wiring is a separate backlog item); only ``.json.gz`` changes here.
 3. ``run_manifest.json`` records the sha256 of the file as given (the compressed bytes).
 
 A fake ``nextflow`` records its argv; nothing real is launched and no network or real database
@@ -50,7 +50,6 @@ FIXTURE = (
     / "makedb"
     / "sim100k_plasmid_1.bakta.json"
 )
-USAGE = 2  # click usage error (lead decision 2)
 
 
 def _gzip_fixture(dest: Path) -> Path:
@@ -193,75 +192,6 @@ def test_property_bakta_json_suffix_any_case_is_precomputed(
         )
         assert code == ExitCode.SUCCESS, text
         _assert_precomputed_from(ann, out, _precomputed_bakta(out))
-
-
-# ---------------------------------------------------------------- other suffixes: usage error
-
-
-def _assert_usage_error(code: int, text: str, out: Path, fake_nf: Path) -> None:
-    assert code == USAGE, f"exit {code}, want 2 (usage error):\n{text}"
-    assert ".json.gz" in text and ".json" in text.replace(".json.gz", ""), (
-        f"the usage error does not name the accepted suffixes .json and .json.gz:\n{text}"
-    )
-    assert not fake_nf.exists(), "nextflow was launched (silent fallback to live Bakta)"
-    assert not (out / "work" / "params.json").exists(), "params.json written for a bad suffix"
-
-
-@pytest.mark.parametrize(
-    "name",
-    ["ann.gbk", "ann.gff3", "ann.gbff", "ann.gff", "ann.gff3.gz", "ann.txt", "bakta.json.bz2",
-     "bakta.json.zip", "bakta.gz", "bakta.jsonl", "bakta"],
-)  # fmt: skip
-def test_annotation_other_suffix_is_usage_error(
-    name: str, proteins: Path, genome: Path, db: Path, fake_nf: Path, tmp_path: Path
-) -> None:
-    ann = tmp_path / "in" / name
-    ann.write_bytes(b"{}")
-    out = tmp_path / "OUT"
-    code, text = _run(
-        ["--genome", str(genome), "--annotation", str(ann), "--outdir", str(out)], proteins
-    )
-    _assert_usage_error(code, text, out, fake_nf)
-
-
-@pytest.mark.parametrize("name", ["ann.gbk", "ann.gff3", "ann.txt"])
-def test_annotation_other_suffix_is_usage_error_under_local_executor(
-    name: str, proteins: Path, genome: Path, db: Path, fake_nf: Path, tmp_path: Path
-) -> None:
-    ann = tmp_path / "in" / name
-    ann.write_bytes(b"{}")
-    out = tmp_path / "OUT"
-    argv = ["--genome", str(genome), "--annotation", str(ann), "--outdir", str(out),
-            "--executor", "local"]  # fmt: skip
-    code, text = _run(argv, proteins)
-    _assert_usage_error(code, text, out, fake_nf)
-
-
-@settings(
-    max_examples=15,
-    deadline=None,
-    suppress_health_check=[HealthCheck.function_scoped_fixture],
-)
-@given(suffix=st.from_regex(r"(\.[A-Za-z0-9]{1,5}){1,2}", fullmatch=True))
-def test_property_unaccepted_suffix_is_usage_error(
-    suffix: str, proteins: Path, genome: Path, db: Path, fake_nf: Path
-) -> None:
-    """Every suffix other than ``.json`` / ``.json.gz`` (any case) exits 2 before launch."""
-    if suffix.lower().endswith((".json", ".json.gz")):
-        return
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        ann = root / "in" / f"ann{suffix}"
-        ann.parent.mkdir(parents=True)
-        ann.write_bytes(b"{}")
-        out = root / "OUT"
-        code, text = _run(
-            ["--genome", str(genome), "--annotation", str(ann), "--outdir", str(out)], proteins
-        )
-        _assert_usage_error(code, text, out, fake_nf)
-
-
-# ---------------------------------------------------------------- local executor roots
 
 
 def test_local_roots_stage_a_json_gz_annotation_as_bakta_json(
