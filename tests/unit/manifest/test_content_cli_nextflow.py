@@ -186,6 +186,17 @@ def ok(nf: dict[str, Path], tmp_path: Path) -> Path:
 # ----------------------------------------------------------------------------- tests
 
 
+def _calibration() -> dict[str, Any]:
+    from giap.data.calibration import load
+
+    return load()
+
+
+def _uncalibrated_flags() -> set[str]:
+    """The ``uncalibrated:<key>`` run flags calibration.yaml implies (M6-12 C0)."""
+    return {f"uncalibrated:{k}" for k, e in _calibration().items() if not e["calibrated"]}
+
+
 def test_the_step_events_file_holds_the_oriter_event(nf: dict[str, Path]) -> None:
     """The Nextflow half of "the oriter event reaches events.jsonl": the task-local handler that
     ``giap _step`` installs records it."""
@@ -237,8 +248,8 @@ def test_mapping_and_sensitivity_blocks(ok: Path) -> None:
 
 def test_calibration_block_and_flags(ok: Path) -> None:
     m = _manifest(ok)
-    assert set(m["calibration"]) == {"operon_distance", "terminatornet_yes"}
-    assert {"uncalibrated:operon_distance", "uncalibrated:terminatornet_yes"} <= set(m["flags"])
+    assert set(m["calibration"]) == set(_calibration())
+    assert _uncalibrated_flags() == {f for f in m["flags"] if f.startswith("uncalibrated:")}
 
 
 def test_databases_with_kegg_dates(ok: Path) -> None:
@@ -267,7 +278,7 @@ def test_failed_run_still_has_the_content_known_so_far(
     validate(m)
     assert m["status"] == "failed"
     assert m["mapping"] == {"search_db": "other", "n_queries": 31}
-    assert set(m["calibration"]) == {"operon_distance", "terminatornet_yes"}
+    assert set(m["calibration"]) == set(_calibration())
 
 
 def test_without_published_content_the_blocks_are_empty(

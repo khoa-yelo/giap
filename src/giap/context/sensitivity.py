@@ -14,6 +14,10 @@ island, rerunning the scan at ``stats.bootstrap = stats.permutations = 199``.
 The ``operon_flags`` family (M6-10) flags the ``pair_id`` values of the M6-08 chain's
 ``operon_flags`` frame. Its ``full`` variants ``pair_threshold=<t>`` carry a ``config_patch``
 (lead decision 1): they change the UniOP threshold, hence the pair classes, not the abundances.
+
+M8-16 adds ``enriched_categories`` (``giap.function.sensitivity``) and ``determinants``
+(``giap.determinants.sensitivity``). A determinants result is a ``DeterminantsSensitivity``:
+``n_*`` / ``jaccard`` use its ``flagged`` set and ``agreement`` its top-decile dominant blocks.
 """
 
 from __future__ import annotations
@@ -28,13 +32,16 @@ import pandas as pd
 from giap.config.model import AbundanceMissing, GiapConfig
 from giap.context import islands as _islands
 from giap.context.regions import replicon_index, test_all_regions
+from giap.determinants.sensitivity import DeterminantsSensitivity, determinants_family
+from giap.function.sensitivity import enriched_categories_family
 from giap.genetable.abundance import impute
 from giap.genetable.assemble import GENE_FLAGS
 from giap.steps.operons import run_operons
 
 __all__ = ["COLUMNS", "FAMILIES", "PAIR_THRESHOLD", "SENSITIVITY_B", "UNIOP_THRESHOLDS", "Family",
-           "Variant", "flagged_ids", "islands_family", "jaccard", "operon_flags_family",
-           "regions_family", "sensitivity_rows", "variant_genes", "variants"]  # fmt: skip
+           "Flagged", "Variant", "agreement", "flagged_ids", "islands_family", "jaccard",
+           "operon_flags_family", "regions_family", "sensitivity_rows", "variant_genes",
+           "variants"]  # fmt: skip
 
 #: §8.6 ``sensitivity.tsv`` columns (``agreement`` is NA except for the determinants family)
 COLUMNS = ("family", "variant", "n_primary", "n_variant", "n_shared", "jaccard", "agreement")
@@ -70,8 +77,11 @@ class Variant:
         return self.families is None or family in self.families
 
 
-#: ``(genes, cfg, rng, **tables) -> flagged IDs``; ``...`` because families add keyword-only tables
-Family = Callable[..., frozenset[str]]
+#: a family's result: flagged IDs, or the determinants rerun (flagged genes and dominant blocks)
+Flagged = frozenset[str] | DeterminantsSensitivity
+#: ``(genes, cfg, rng, **tables) -> Flagged`` (``None``: too little data, no row); ``...`` because
+#: families add keyword-only tables
+Family = Callable[..., Flagged | None]
 
 
 def variants(cfg: GiapConfig, tier: str) -> list[Variant]:
@@ -111,14 +121,31 @@ def jaccard(a: frozenset[str], b: frozenset[str]) -> float | None:
     return None if union == 0 else len(a & b) / union
 
 
+def agreement(a: DeterminantsSensitivity, b: DeterminantsSensitivity) -> float | None:
+    """Share of the genes in both top deciles whose dominant block is the same. Genes with a
+    block of ``None`` in both runs are left out; ``None`` in one run only is a disagreement.
+    ``None`` (NA) when no gene is left (M8-16 lead decision 5)."""
+    shared = [g for g in a.dominant.keys() & b.dominant.keys()
+              if not (a.dominant[g] is None and b.dominant[g] is None)]  # fmt: skip
+    if not shared:
+        return None
+    same = sum(a.dominant[g] is not None and a.dominant[g] == b.dominant[g] for g in shared)
+    return same / len(shared)
+
+
 def sensitivity_rows(
-    primary: Mapping[str, frozenset[str]], reruns: Mapping[tuple[str, str], frozenset[str]]
+    primary: Mapping[str, Flagged], reruns: Mapping[tuple[str, str], Flagged]
 ) -> pd.DataFrame:
-    """One row per (family, variant) rerun, in ``reruns`` order (columns ``COLUMNS``)."""
+    """One row per (family, variant) rerun, in ``reruns`` order (columns ``COLUMNS``);
+    ``agreement`` only for ``DeterminantsSensitivity`` results."""
     rows = []
     for (fam, var), v in reruns.items():
-        p = primary[fam]
-        rows.append((fam, var, len(p), len(v), len(p & v), jaccard(p, v), None))
+        p, agree = primary[fam], None
+        if isinstance(p, DeterminantsSensitivity) and isinstance(v, DeterminantsSensitivity):
+            agree = agreement(p, v)
+        ps = p.flagged if isinstance(p, DeterminantsSensitivity) else p
+        vs = v.flagged if isinstance(v, DeterminantsSensitivity) else v
+        rows.append((fam, var, len(ps), len(vs), len(ps & vs), jaccard(ps, vs), agree))
     df = pd.DataFrame(rows, columns=list(COLUMNS))
     return df.astype({"n_primary": "int64", "n_variant": "int64", "n_shared": "int64",
                       "jaccard": "Float64", "agreement": "Float64"})  # fmt: skip
@@ -264,7 +291,9 @@ def operon_flags_family(
     return frozenset(str(p) for p in flagged["pair_id"])
 
 
-#: registered families (M4: ``regions``; M5: ``islands``; M6: ``operon_flags``; M7-M8 add theirs)
+#: registered families (M4: ``regions``; M5: ``islands``; M6: ``operon_flags``; M8-16:
+#: ``enriched_categories``, ``determinants``)
 FAMILIES: dict[str, Family] = {
     "regions": regions_family, "islands": islands_family, "operon_flags": operon_flags_family,
+    "enriched_categories": enriched_categories_family, "determinants": determinants_family,
 }  # fmt: skip
