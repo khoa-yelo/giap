@@ -70,6 +70,10 @@ COG_SUPER: Mapping[str, str] = MappingProxyType(
 COG_SUPER_COLOUR: Mapping[str, str] = MappingProxyType(
     {"information": "#0072B2", "cellular": "#009E73", "metabolism": "#E69F00", "poorly": "#999999"}
 )
+#: neutral greys drawn as chart furniture (gene-arrow edges, label envelopes, ring backgrounds)
+NEUTRAL_GREY: Mapping[str, str] = MappingProxyType(
+    {"edge": "#333333", "envelope": "#CCCCCC", "sector": "#DDDDDD", "ring": "#F4F4F4"}
+)
 CONTINUOUS: str = "viridis"
 LOCUS_ABUNDANCE: str = "cividis"
 

@@ -188,7 +188,7 @@ step logs a WARNING.
 
 **Family.** One BH family per run: every OP pair with `test = both_detected_t`. M6-index decision 1
 keeps P(miss) out of the family: a `one_detected_pmiss` row has `q_value` NA and no extra flag.
-That departs from §7.4.3's "both kinds together", which is ADR-0056 (proposed, Khoa).
+That departs from §7.4.3's "both kinds together", which is ADR-0056 (accepted by Khoa, 2026-10-24).
 P(miss) is not uniform under any null, so BH over the mixture has no justification.
 
 **Relative scale.** With `abundance_scale = relative` (MaxLFQ, summed intensity, unknown;

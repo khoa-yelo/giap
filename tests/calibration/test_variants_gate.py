@@ -214,9 +214,8 @@ def _a6a(full: bool) -> None:
     assert not bad, f"A6a: isobaric-only ALT rows without mass_equivalent: {bad}"
 
 
-@NIGHTLY
-@A6A_XFAIL
-def test_a6a_isobaric_rows_flagged() -> None:
+@NIGHTLY  # ADR-0049 accepted and implemented (#269): the fast tier passes; the full-tier mark
+def test_a6a_isobaric_rows_flagged() -> None:  # stays until a full run confirms
     _a6a(False)
 
 

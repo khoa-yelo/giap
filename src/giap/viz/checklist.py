@@ -57,14 +57,14 @@ MACHADO_DEUTERANOPIA: np.ndarray = np.array(
 UNITLESS: tuple[str, ...] = (
     "log2 abundance", "q", "lfdr", "local fdr", "fdr", "\u03c1", "nes", "p-value", "p_detect",
     "counts", "count", "checks", "genes", "peptides", "placements", "density", "fraction",
-    "rate", "category", "score bin", "tus",
+    "rate", "category", "score bin", "tus", "moran's i", "candidates",
     "max |s_w| over windows",  # V18 (c): the standardised scan statistic (M9-21 N2)
 )  # fmt: skip
 MIN_PT = 6.0  # index decision 31, lead decision 2
 WIDTHS_IN = (style.SINGLE_IN, style.DOUBLE_IN)
 MAX_ELEMENTS = 20_000
 CONTINUOUS_MAPS = ("viridis", "cividis")
-_NEUTRAL = ("#000000", "#FFFFFF", "#BBBBBB")
+_NEUTRAL = ("#000000", "#FFFFFF", "#BBBBBB", *style.NEUTRAL_GREY.values())
 _PALETTES = (
     style.OKABE_ITO, style.DETECTION, style.STATUS_COLOUR, style.REGION, style.COG_SUPER_COLOUR,
 )  # fmt: skip

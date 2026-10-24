@@ -60,6 +60,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from helpers.gnu_userland import require_gnu_userland
 from helpers.pilot_kit import (
     DIANN_BIN,
     DIANN_SIF,
@@ -342,6 +343,7 @@ class M10Sandbox:
     def popen(self, script: str, *args: str, **env: str) -> subprocess.Popen[str]:
         """Start ``scripts/slurm/<script>.sbatch`` in its own session (a process group, like a
         Slurm job step), so a test can signal the whole job as ``scancel``/TIMEOUT does."""
+        require_gnu_userland()  # the scripts are FarmShare-only (spec G19)
         path = self.repo / "scripts" / "slurm" / f"{script}.sbatch"
         return subprocess.Popen(
             ["bash", str(path), *args],

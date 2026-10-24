@@ -94,15 +94,46 @@ Descriptive, unestimated: counts and Jaccards carry no error estimate.
 | novel ORFs (called) | {{m6.overlap_a2_a3.novel_orfs.called.jaccard}} |
 | ALT sites (high confidence in both arms) | {{m6.overlap_a2_a3.alt_sites.high.jaccard}} |
 
-### Metric 8: free entrapment FDP on A1 (M10-07)
+<!-- if m8.universe -->
+### Metric 8: A1's free entrapment (from `entrapment.py`, M10-07)
 
-K-12-only peptides of the A1 search act as an entrapment set; the estimate has no interval (unestimated) and its lower bound is shown beside it.
+The entrapment is free: it is the K-12-only part of A1's own database, the K-12 peptides absent from
+Nissle's translation after the I/L and mass-equivalent rules. Estimator: Wen et al. (combined
+method; reference in the methods note). r = K-12-only / shared in-silico peptides = {{m8.universe.r}} ({{m8.universe.k12_only}} K-12-only, {{m8.universe.shared}} shared); at precursor level
+r_prec = {{m8.universe.r_prec}} (from the configured charge and m/z bounds, not the library).
+The assessment is made only at precursor level, the unit DIA-NN's global q-value controls; the peptide level is §15.5's number and is not assessed.
+
+| | peptide (§15.5) | precursor (assessed) |
+|---|---|---|
+| N_T (shared) | {{m8.peptide.N_T}} | {{m8.precursor.N_T}} |
+| N_E (K-12-only) | {{m8.peptide.N_E}} | {{m8.precursor.N_E}} |
+| excluded as contaminant | {{m8.peptide.excluded_contaminant}} | {{m8.precursor.excluded_contaminant}} |
+| not in the in-silico universe | {{m8.peptide.not_in_universe}} | {{m8.precursor.not_in_universe}} |
+| `fdp_combined` (estimated upper bound in expectation) | {{m8.peptide.fdp_combined}} | {{m8.precursor.fdp_combined}} |
+| `fdp_lower` (realised lower bound, conditional on the caveats) | {{m8.peptide.fdp_lower}} | {{m8.precursor.fdp_lower}} |
+| with 95 % confidence, under equal chance, the FDP is at most | {{m8.peptide.ci.ucb95}} | {{m8.precursor.ci.ucb95}} |
+| assessment | {{m8.peptide.assessment}} | {{m8.precursor.assessment}} |
+
+Caveats:
+
+- {{m8.caveats.0}}
+- {{m8.caveats.1}}
+- {{m8.caveats.2}}
+- {{m8.caveats.3}}
+
+The 95 % bound assumes {{m8.precursor.ci.assumes}}.
+Warning codes of `entrapment.py` (details in `entrapment.json`; a digest mismatch is a lead finding): {{m8.warning_codes}}.
+
+<!-- end m8.universe -->
+<!-- ifnot m8.universe -->
+### Metric 8: free entrapment FDP on A1 (M10-07)
 
 | level | combined FDP | lower bound | assessment |
 |---|---|---|---|
 | peptide (primary) | {{m8.peptide.fdp_combined}} | {{m8.peptide.fdp_lower}} | {{m8.peptide.assessment}} |
 | precursor | {{m8.precursor.fdp_combined}} | {{m8.precursor.fdp_lower}} | {{m8.precursor.assessment}} |
 
+<!-- end m8.universe -->
 ## 4. TE1 on real data (A2)
 
 Every A2 target identification, true or false, is a substring of an annotated protein, so TE1 checks
@@ -162,8 +193,7 @@ The numbers are shown whatever the verdict: rho {{h3.criteria.rho.rho}} [{{h3.cr
 | operon flags | {{h3.criteria.operon_flags.n_a}} | {{h3.criteria.operon_flags.n_b}} | {{h3.criteria.operon_flags.n_shared}} | {{h3.criteria.operon_flags.union}} | {{h3.criteria.operon_flags.jaccard}} | {{h3.criteria.operon_flags.status}} |
 | enriched categories | {{h3.criteria.enriched_categories.n_a}} | {{h3.criteria.enriched_categories.n_b}} | {{h3.criteria.enriched_categories.n_shared}} | {{h3.criteria.enriched_categories.union}} | {{h3.criteria.enriched_categories.jaccard}} | {{h3.criteria.enriched_categories.status}} |
 
-**H2** (the strain-specific database lowers genome-inconsistent identifications): deferred (full validation, FDRBench); no verdict.
-Shown side by side: A1 genome-inconsistent share {{m2.A1.genome_inconsistent.value}} and the free entrapment estimate (peptide level) {{m8.peptide.fdp_combined}}.
+**H2** (the strain-specific database lowers genome-inconsistent identifications): deferred (full validation, FDRBench); shown side by side only: A1 genome-inconsistent share {{m2.A1.genome_inconsistent.value}} and the free entrapment estimate (peptide level) {{m8.peptide.fdp_combined}}.
 
 **H4** (genome-anchored de novo precision against the precision measured on A2): verdict {{h4.verdict}}.
 Only a lower bound on precision exists (sequence-level confirmation by A2), so the data can count against H4 but never confirm it; it is `unestimated` unless A3 is the Cascadia branch.
