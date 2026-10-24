@@ -591,7 +591,7 @@ def test_report_job_house_rules() -> None:
     assert (directive("job-name") or "").startswith("giap-diann-report")
     assert directive("partition") == "normal" and directive("qos") == "normal"
     assert directive("cpus-per-task") == "4"
-    assert (directive("mem") or "").upper().rstrip("B") in {"16G", "16384M"}
+    assert (directive("mem") or "").upper().rstrip("B") == "16000M"  # 4 x 4000 MB (S1)
     assert directive("time") == "01:00:00"
     out = directive("output") or ""
     assert "/local/logs/" in out or "$GIAP_ROOT" in out
