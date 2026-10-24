@@ -132,22 +132,45 @@ def _file(path: Path, rows: int) -> dict[str, Any]:
     }
 
 
+_CODE_DIRS = ("src", "validation", "tests", "scripts")
+_NOT_CODE = (":(exclude,glob)**/__pycache__/**", ":(exclude,glob)**/*.pyc")
+
+
+def _git(repo: Path, *args: str) -> str | None:
+    """``git -C repo args`` stdout, or None when git fails (not a checkout, no git)."""
+    try:
+        r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
+    except OSError:
+        return None
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
 def _giap() -> dict[str, Any]:
+    """Version, commit and dirty flag of the checkout this module runs from (``_REPO``).
+
+    ``dirty`` counts tracked edits and untracked files under the code directories, bytecode
+    excepted; a git failure records ``commit: null, dirty: null``.
+    """
     import platform
 
     import giap
 
-    repo = Path(os.environ.get("GIAP_REPO") or _REPO)
-
-    def git(*a: str) -> str:
-        r = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True)
-        return r.stdout.strip() if r.returncode == 0 else ""
-
-    status = git("status", "--porcelain", "--untracked-files=no")
+    commit = _git(_REPO, "rev-parse", "--verify", "HEAD")
+    status = _git(
+        _REPO, "status", "--porcelain", "--untracked-files=normal", "--", *_CODE_DIRS, *_NOT_CODE
+    )
+    dirty: bool | None = None
+    if commit and status is not None:
+        lines = [
+            ln
+            for ln in status.splitlines()
+            if ln.strip() and "__pycache__/" not in ln and not ln.endswith(".pyc")
+        ]
+        dirty = bool(lines)
     return {
         "version": {"giap": giap.__version__, "python": platform.python_version()},
-        "commit": git("rev-parse", "HEAD"),
-        "dirty": bool(status),
+        "commit": commit or None,
+        "dirty": dirty,
     }
 
 
