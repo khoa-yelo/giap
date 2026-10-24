@@ -279,6 +279,8 @@ def _content(src: ManifestSources) -> dict[str, Any]:
     search = [{"search_db": d.get("search_db"), "n_queries": d.get("n_queries")}
               for d in _event_data(src, "mapping.search_db_resolved")]  # fmt: skip
     search = [d for d in search if any(v is not None for v in d.values())]
+    novel = sorted((finite(d) for d in _event_data(src, "novel_orfs.class_fdr")),
+                   key=lambda d: (str(d.get("regime")), str(d.get("class"))))  # fmt: skip
     return {
         "sensitivity": {"level": src.cfg.output.sensitivity, "n_rows": len(src.sensitivity or []),
                         "families": fams},
@@ -287,6 +289,7 @@ def _content(src: ManifestSources) -> dict[str, Any]:
         "operons": finite({"pi0": missed[-1].get("pi0"),
                            "bin_counts": missed[-1].get("bin_counts")}) if missed else None,
         "mapping": search[-1] if search else None,
+        "novel_orfs": {"classes": novel} if novel else None,
         "calibration": {k: {"calibrated": bool(v.get("calibrated")),
                             "provenance": v.get("provenance")}
                         for k, v in (src.calibration or {}).items() if isinstance(v, Mapping)},

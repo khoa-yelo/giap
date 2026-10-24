@@ -1,8 +1,10 @@
 # Novel ORFs (M7)
 
 Status: §"Class FDR" written for the statistician's round-2 review of PR #237 (M7-11). Code:
-`src/giap/novel/fdr.py` (pure; the `novel_orfs` step wiring is M7-11b). Spec: GIAP_SPEC.md §7.6.4,
-§7.9.2, §8.1, §8.2; ADR-0009, ADR-0010; docs/specs/M7-11-novel-class-fdr.md, lead decisions 1–14.
+`src/giap/novel/fdr.py` (pure); the `novel_orfs` step wiring (M7-11b, PR #256) is
+`src/giap/novel/class_call.py` and §"Wiring in the `novel_orfs` step". Spec: GIAP_SPEC.md §7.6.4,
+§7.9.2, §8.1, §8.2; ADR-0009, ADR-0010; docs/specs/M7-11-novel-class-fdr.md, lead decisions 1–14;
+docs/specs/M7-11b-class-fdr-wiring.md, lead decisions 1–7.
 
 ## Class FDR
 
@@ -124,6 +126,127 @@ attack 5. If it fails, an ADR chooses between a picked ORF-level competition on 
 and a per-ORF Bonferroni over peptides (decision 3). A strict xfail in
 `tests/calibration/attacks/test_attack_novel_class_fdr.py` flags any change to decision 3.
 
+### Wiring in the `novel_orfs` step (M7-11b)
+Code: `src/giap/novel/class_call.py`, `giap.novel.evidence.class_rules` and `_call`,
+`src/giap/steps/novel.py`. Spec: docs/specs/M7-11b-class-fdr-wiring.md, lead decisions 1–7.
+
+**Inputs.** The step reads the C9 `peptides` (picked regime), and for the de novo regime it reads
+`placement_costs`, `hits_exact` and `hits_tolerant`. All are optional. Without `peptides`, every
+ORF is `unestimated` (`no_decoys`), which is the pass-1 output byte for byte. One regime is
+assigned per ORF, with no cascade: a picked-regime ORF whose picked result is unestimated never
+falls back to its de novo peptides (Q6). Each (regime, class) list is one §8.1 "Novel ORF" family,
+and α is `stats.alpha.novel_orfs` everywhere.
+
+**Call rule (rule 6).**
+- Numeric `class_fdr` = q: `called = class rule ∧ q ≤ α`. q is compared as the unformatted float.
+  The TSV shows `%.6g`, and q is never parsed back from the cell. There is no peptide minimum
+  (§7.6.4), but the `cds_outframe` and `antisense` class rules still require 2 peptides.
+- `class_fdr = unestimated`: `called = class rule ∧ n_peptides ≥ min_peptides_without_decoys`
+  (§7.6.4 "Neither"), with the flag `class_fdr_unestimated`.
+- `lost_pick` (Q1): the class is estimated, but the ORF's own decoy beat it or tied it. The cell is
+  **1** and the ORF is never called.
+  - Why it must not fall back to the ≥ 2-peptide rule: losing the pick is the competition's
+    evidence that the target looks like chance. Falling back would call exactly the ORFs that the
+    competition rejected.
+  - In the statistician's attack (cds_outframe ORFs of 2–3 peptides, 25 % true, exchangeable
+    false targets and decoys; `tests/calibration/attacks/test_attack_class_call_wiring.py`), the
+    fallback reading gives FDP **0.98 / 0.31 / 0.35** of `called` at α = 0.01 / 0.05 / 0.10. The
+    wired rule gives 0.0015 / 0.043 / 0.096, against bounds of 0.012 / 0.058 / 0.112 (R = 50).
+  - Why 1 and not "the q at the decoy's rank": the target never enters the picked list, so it has
+    no q. 1 is the conservative bound, and it keeps the cell numeric.
+- The FDR claim covers the set {q ≤ α}. The class rule then keeps a subset of it. This preserves
+  control as long as the rule does not prefer false ORFs. The rules (start codon, length, RBS
+  support, ≥ 2 peptides) favour real ORFs. M7-13 G4 measures the called set itself,
+  `class_rule_met ∧ q ≤ a`, from the side table.
+- Fallback calls in a makedb run carry no error control. These are the `no_makedb_pair`,
+  `no_target_score` and untagged-class ORFs. They are labelled `unestimated` (§8: never silently
+  trusted), and G4's prediction set ("class q ≤ q") excludes them. M7-13 should therefore also
+  report how many calls in each class came through the fallback.
+
+**Class q floor (rule 8).**
+- No picked q can fall below 1/T_wins, where T_wins is the class's entries won by their target.
+  At any threshold, FDR = (D/f + 1)/T ≥ 1/T ≥ 1/T_wins, and the monotone q is a minimum of these
+  values.
+- No de novo q can fall below c/T, where T is the class's target peptides, because W ≥ 0.
+- When the floor is **strictly** above α, nothing in the class can be called. The run then logs
+  the WARNING `novel_orfs.class_q_floor_above_alpha`: **a class with fewer than about 1/α
+  candidates cannot be called at α**. q and α are unchanged (Khoa, 2026-10-22).
+  - T_wins = 100 at α = 0.01 gives a floor equal to α. That raises no warning, because the best
+    ORF can still be called.
+  - A class with no target win (picked) or no target (de novo), and an unestimated class, has no
+    floor and raises no warning.
+- The warning goes to the manifest `warnings` list (`--strict` exits 3), not to a run-flag token
+  (Q4). It mirrors the gene-level `q_floor_above_alpha`.
+- The picked floor counts entries won. The warning text quotes `n_targets`, the ORFs entering the
+  list. When several ORFs share one entry, or many targets lose the pick, the two differ: read
+  `q_floor` in the event data, not the target count.
+
+**Paired share in v1 (rule 2, Q5).**
+- No run input carries makedb's `db_id_map.tsv`. `makedb_id_map` therefore builds the map from
+  every class-tagged ID in `protein_ids` (targets, and decoys with their prefix stripped). The
+  `nterm_extension` locus tags come from `nterm_entries` on the run's own gene model.
+- So every tagged decoy is an entry, the paired share is f = 1, and the 80 % guard cannot fire
+  from the pipeline (backlog).
+- This is **not anti-conservative**. The guard and the 1/f rescaling exist because an unpaired
+  decoy is dropped from the list while targets stay, so D is undercounted. In v1 no tagged decoy is
+  dropped: a decoy whose entry has no target ORF competes alone, and so counts as a decoy win.
+  - In the re-pointed-decoys attack (20 % and 50 % of decoy rows moved to tagged IDs with no
+    target, through `makedb_id_map`), FDP is 0.0081 / 0.044 / 0.089 at 20 % and
+    0.0062 / 0.034 / 0.071 at 50 %, against bounds of about 0.012 / 0.053 / 0.104. FDP falls as
+    the loss grows.
+- Pairing can still be lost on the **target** side.
+  - A `nterm_extension` ORF pairs through the locus tag of the run's own `nterm_entries`, and the
+    other classes pair through the `(contig, strand, stop)` key. If the run's annotation or genome
+    differs from the one makedb used, the ORF is `no_makedb_pair`.
+  - Its decoy stays in the list, so the rest of the class becomes more conservative. The ORF
+    itself, however, drops to the uncontrolled fallback above.
+  - A real `db_id_map.tsv` would not change this, because f counts observed decoys.
+- No share detects decoy rows that are missing from the input altogether, for example an engine
+  that exports only some of its decoys. On the calibration generator, halving the tagged decoy
+  rows gives FDP 0.017 / 0.096 / 0.20. Input decoys are assumed complete, as for the gene-level
+  picked tier.
+
+**De novo inputs (rule 3, Q11).**
+- `denovo_inputs` keeps only `source = denovo` rows of `placement_costs`:
+  - targets: ORF peptides with a finite `e_target`;
+  - decoys: those peptides' decoy hit rows at their best decoy cost, carrying `e_decoy`;
+  - weights: π̂ from `pi_denovo`;
+  - c: the largest π̂ over the de novo peptides with a target or decoy hit.
+- Database peptides' decoy hits and their π̂ (NaN, which would count as 1) never enter a de novo
+  list. This is valid, because the list estimates the chance hits of wrong de novo peptides.
+- The target E is the peptide's best target E over the genome, as M7-11 assumed. The step does not
+  restrict it to the ORF's interval. `candidate_rows` keeps only peptides with a single novel locus
+  and no hit in an excluding class, so the two usually coincide. They are not guaranteed to.
+- Decoys of de novo peptides that are not in a de novo ORF still count (for example, banned,
+  multi-locus or picked-regime ORF peptides). That is conservative.
+
+**Calibration of the wired path.** `tests/calibration/test_class_call_calibration.py` runs
+`class_fdr`, with its own `makedb_id_map` and `denovo_inputs`, plus `class_fdr_cell`.
+- In the statistician's mutation probe (PR #256), these mutations fail the criterion:
+  - de novo decoys restricted to ORF peptides (0.0175 / 0.084 / 0.116 against
+    0.012 / 0.053 / 0.103);
+  - decoy weights halved;
+  - c = 0 (at α = 0.01);
+  - half of the picked decoy rows dropped.
+- Two mutations pass:
+  - dropping the picked +1, whose effect is too small with T in the hundreds;
+  - pooling the classes, because the generator gives every class the same prior. The M7-11
+    `low_prior_class` attack covers that case.
+- The suite measures numeric cells only. `test_attack_class_call_wiring.py` adds the `called`
+  column.
+
+**Diagnostics.** `novel/novel_class_fdr.parquet` has one row per `novel_orfs.tsv` row, in the same
+order.
+- Columns: `orf_id`, `class`, `fdr_class`, `regime`, `q` (float, NaN unless estimated and won),
+  `class_fdr` (the TSV cell), `reason`, `class_mismatch`, `class_rule_met` and `called`.
+- G4 calls at level a with `class_rule_met ∧ q ≤ a`. A `lost_pick` row has `q` NaN, so it is never
+  in the set.
+- One `novel_orfs.class_fdr` INFO event per (regime, class) list carries the counts, f, c, the
+  floor and `n_called`. The manifest `novel_orfs.classes` block holds the same data.
+
+Statistician (PR #256, M7-11b review, 2026-10-23): wiring, call rule and floor rule reviewed.
+Verdict recorded on the PR.
+
 ### Limitations
 - **c over hit peptides only.** ADR-0010 reads "the peptides … searched"; c here is the largest π̂
   over peptides with a target or decoy hit (decision 5). This is anti-conservative only when the
@@ -134,7 +257,7 @@ and a per-ORF Bonferroni over peptides (decision 3). A strict xfail in
   another class moves T toward that class, and no D moves with it. The effect is small; M7-13 G4
   reports FDP per class, not only per regime.
 - **Target E.** A target peptide's E is its best E over all its target hits, not its hit inside the
-  ORF. The two coincide only if `target_hits` is restricted to the ORF's interval, which the step
-  (M7-11b, from M7-06) must guarantee or document.
-- `regime()` of a mixed set of ORFs returns the first of picked / de novo / unestimated held. M7-11b
-  logs the per-ORF regime counts and the share of decoys that were scored.
+  ORF. The M7-11b step does not restrict it, and documents this under "De novo inputs" above.
+- `regime()` of a mixed set of ORFs returns the first of picked / de novo / unestimated held. The
+  M7-11b step uses `orf_regimes` per ORF. The regime of each ORF is in the side table, and the
+  per-class events hold the list counts. No separate regime-count event is logged.
