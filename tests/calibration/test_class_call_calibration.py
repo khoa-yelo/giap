@@ -17,6 +17,7 @@ exchangeable best-of-k nulls; de novo: single-peptide ORFs, π̂ = the bin's wro
 from __future__ import annotations
 
 import math
+import os
 from collections.abc import Callable
 
 import _criteria as C
@@ -145,7 +146,15 @@ def _check(name: str, make: Callable[[np.random.Generator], Replicate], full: bo
         return out
 
     r = C.replicates(SUITE, full=full)
-    calibrate_levels(SUITE, "fdr", levels, fdp, r, stream=f"{SUITE}.class_call.{name}").assert_ok()
+    stream = f"{SUITE}.class_call.{name}"
+    gate = calibrate_levels(SUITE, "fdr", levels, fdp, r, stream=stream)
+    gate.assert_ok()
+    if not C.owns_direct_checks():  # non-triviality is judged once, in shard 0, on block 1
+        C.skip_without_verdict(gate.records)
+    if C.SHARD_ENV in os.environ:  # shard 0: the loosest-level calls of every block-1 replicate
+        n_acc.clear()
+        for i in range(r):
+            fdp(C.replicate_rng(stream, i))
     assert n_acc and np.mean(n_acc) > 0  # non-trivial: ORFs are called at the loosest level
 
 
