@@ -12,10 +12,11 @@ Interface the tests assume (test author; each point is reported to the lead):
   ``function.gsea`` says; the ORA is ``detection_enrichment`` (deterministic).
 * ``giap.determinants.sensitivity.determinants_family(genes, cfg, rng, *, features)`` returns a
   ``DeterminantsSensitivity`` with ``flagged`` (frozenset of the locus tags flagged
-  ``abundance_not_explained_by_sequence``), ``dominant`` (top-decile locus tag -> dominant block,
-  ``None`` for a top-decile gene without one) and ``cv_r2`` (mean LightGBM CV R² over
-  ``determinants.repeats``); below the 100-row minimum, or without abundance, it returns ``None``
-  or a result with ``cv_r2`` NaN and empty ``flagged`` / ``dominant``.
+  ``abundance_not_explained_by_sequence``), ``dominant`` (locus tag of every explained model
+  row, i.e. not flagged, -> dominant block, ``None`` without one; M8-16c, Khoa 2026-10-24) and
+  ``cv_r2`` (mean LightGBM CV R² over ``determinants.repeats``); below the 100-row minimum, or
+  without abundance, it returns ``None`` or a result with ``cv_r2`` NaN and empty ``flagged`` /
+  ``dominant``.
 * ``giap.context.sensitivity.sensitivity_rows`` accepts ``DeterminantsSensitivity`` values for a
   family and fills ``agreement`` for it; ``n_*`` / ``jaccard`` use ``flagged`` (lead decision 2).
 
@@ -346,8 +347,9 @@ def merged_features(genes: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame
 @dataclass(frozen=True)
 class DetOracle:
     flagged: frozenset[str]
-    dominant: dict[str, str]  # top-decile genes with a dominant block
+    dominant: dict[str, str]  # explained model rows with a dominant block (M8-16c)
     top: frozenset[str]
+    explained: frozenset[str]  # model rows not flagged abundance_not_explained_by_sequence
     cv_r2: float
 
 
@@ -355,7 +357,13 @@ def det_oracle(genes: pd.DataFrame, features: pd.DataFrame, cfg: Any,
                rng: np.random.Generator) -> DetOracle:  # fmt: skip
     """The M8-10 chain without its null: model rows, ``model_matrix``, folds from ``rng``
     (``tu_folds``), ``cross_validate`` (seed ``cfg.seed``), SHAP and ``attribution_table``."""
-    from giap.determinants.attribution import UNEXPLAINED, attribution_table, shap_blocks
+    from giap.determinants.attribution import (
+        SHAP_COLUMNS,
+        UNEXPLAINED,
+        _dominant,
+        attribution_table,
+        shap_blocks,
+    )
     from giap.determinants.features import model_matrix
     from giap.determinants.models import cross_validate, model_rows, tu_folds
 
@@ -374,9 +382,13 @@ def det_oracle(genes: pd.DataFrame, features: pd.DataFrame, cfg: Any,
     flagged = frozenset(t for t, fl in zip(att["locus_tag"], att["flags"], strict=True)
                         if UNEXPLAINED in str(fl).split(";"))  # fmt: skip
     top = att[att["top_decile"].astype(bool)]
-    dom = {str(t): str(b) for t, b in zip(top["locus_tag"], top["dominant_block"], strict=True)
-           if not pd.isna(b)}  # fmt: skip
-    return DetOracle(flagged, dom, frozenset(top["locus_tag"].astype(str)),
+    model_tags = set(f.loc[rows, "locus_tag"].astype(str))
+    explained = frozenset(t for t in att["locus_tag"].astype(str)
+                          if t in model_tags and t not in flagged)  # fmt: skip
+    blocks_of = {t: _dominant(np.asarray(shap.loc[t, list(SHAP_COLUMNS)], dtype=float))
+                 for t in explained}  # fmt: skip
+    dom = {t: b for t, b in blocks_of.items() if b is not None}
+    return DetOracle(flagged, dom, frozenset(top["locus_tag"].astype(str)), explained,
                      float(np.mean(cv["lightgbm"].r2)))  # fmt: skip
 
 
