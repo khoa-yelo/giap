@@ -226,7 +226,10 @@ def gate2(outdir: Path, inputs: Path) -> dict[str, Any]:
     texts = [str(x) for k in ("flags", "warnings") for x in m.get(k, []) or []]
     with contextlib.suppress(OSError):
         texts += (outdir / "logs" / "events.jsonl").read_text().splitlines()
-    found = {t for t in FORBIDDEN_WARNINGS if any(t in x for x in texts)}
+    # exact tokens only: novel_orfs.class_q_floor_above_alpha is a different (per-class) warning
+    pats = {t: re.compile(r"(?<![A-Za-z0-9_])" + re.escape(t) + r"(?![A-Za-z0-9_])")
+            for t in FORBIDDEN_WARNINGS}  # fmt: skip
+    found = {t for t, pat in pats.items() if any(pat.search(x) for x in texts)}
     q_floor = _tier_metric(outdir, "q_floor")
     if q_floor is not None and q_floor > ALPHA:
         found.add("q_floor_above_alpha")

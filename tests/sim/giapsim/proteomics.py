@@ -947,7 +947,8 @@ def simulate_proteomics(
         if la.shape != (len(prots),):
             raise ValueError(f"log_abundance has shape {la.shape}, expected ({len(prots)},)")
     detected, occ, first = _detect(cfg, rng, prots, la)
-    six = cfg.wrong_source == "sixframe_noncoding"
+    # makedb target IDs (decision 9): six-frame wrong peptides, or the scored_null search
+    six = cfg.wrong_source == "sixframe_noncoding" or cfg.decoys == "scored_null"
     orfs = OrfEntries(feats, seqs, topology) if six else None
     novel_ids = {str(r[0]) for r in novel}
     # codons of a true protein upstream of its annotated start (N-terminal extensions)
@@ -977,7 +978,7 @@ def simulate_proteomics(
     n_wrong = round(len(detected) * pi / (1 - pi))
     xrng = np.random.default_rng([seed, _SIXFRAME_STREAM])  # six-frame draws (M7-12)
     scored = cfg.decoys == "scored_null"
-    six = six and not scored  # orfs (makedb target IDs) follows wrong_source alone
+    six = six and not scored  # the six-frame wrong-peptide draw follows wrong_source alone
     pool: SixframePool | None = None
     loci: dict[str, Locus] = {}
     entry: dict[str, str] = {}  # six-frame wrong peptide -> makedb entry db_id (target + decoy)
