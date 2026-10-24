@@ -10,6 +10,7 @@ data out. Every sentence below that an ADR or the spec mandates is quoted from i
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Mapping
 from importlib import resources
 from pathlib import PurePosixPath
@@ -191,18 +192,33 @@ def _tools(doc: Mapping[str, Any]) -> list[list[str]]:
             for t in tools]  # fmt: skip
 
 
+#: a path attached to a short option (``-o/x``)
+_SHORT_PATH = re.compile(r"-[A-Za-z]/")
+
+
 def _local_path(arg: str, outdir: str) -> str:
-    """``arg`` without an absolute local path (M9-02 behaviour 6, §6.6): a path under the run's
-    ``outdir`` as ``OUT/<relative>``, any other absolute path as its file name."""
-    flag, eq, value = arg.partition("=") if arg.startswith("-") else ("", "", arg)
+    """``arg`` without an absolute local path (M9-02 behaviour 6, §6.6; #323 B1): a path under
+    the run's ``outdir`` as ``OUT/<relative>``, any other absolute path as its file name. The
+    path may be the whole token, follow its last ``=``, be an item of a comma list, or be
+    attached to a short option (``-o/x``); relative parts are unchanged."""
+    if arg.startswith("/"):
+        head, value = "", arg
+    elif _SHORT_PATH.match(arg):
+        head, value = arg[:2], arg[2:]
+    else:
+        cut = arg.rfind("=") + 1
+        head, value = arg[:cut], arg[cut:]
+    return head + ",".join(_shown_path(item, outdir) for item in value.split(","))
+
+
+def _shown_path(value: str, outdir: str) -> str:
+    """One path item: ``OUT/<relative>`` under ``outdir``, else the file name if absolute."""
     if not value.startswith("/"):
-        return arg
+        return value
     path, out = PurePosixPath(value), PurePosixPath(outdir) if outdir.startswith("/") else None
     if out is not None and (path == out or out in path.parents):
-        shown = str(PurePosixPath("OUT", path.relative_to(out)))
-    else:
-        shown = path.name or value
-    return f"{flag}{eq}{shown}"
+        return str(PurePosixPath("OUT", path.relative_to(out)))
+    return path.name or value
 
 
 def _command_line(doc: Mapping[str, Any]) -> str:
