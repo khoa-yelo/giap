@@ -13,7 +13,7 @@ The spec names DIA-NN **2.7.0** in four places:
 - the recorded-sample path `tests/data/recorded/diann/2.7.0/` (§15.2 step 7).
 
 What exists is different. Khoa supplied an Apptainer image of **2.3.1 Academia** and pointed at
-his reference script `/farmshare/home/classes/bios/270/jordan/run_2step.sh` (M3-24 lead decision
+their reference script `/farmshare/home/classes/bios/270/jordan/run_2step.sh` (M3-24 lead decision
 1). The M3-24 pilot kit is written against it.
 
 Every fact below was read from disk. Nothing was inferred about DIA-NN versions that are not on
@@ -130,3 +130,15 @@ M10-02 job IDs and `check.json` results.
 - The pilot report states "DIA-NN 2.3.1 Academia" for A1 and A2, and cites this ADR.
 - Risk: 2.3.1 might differ from 2.7.0 in report columns. The converter's contract test on the
   real sample (M10-03) catches any column difference that matters to GIAP.
+
+## Amendment (2026-10-24, M10-03, PR #288)
+Khoa ruled on 2026-10-23 that no row-level DIA-NN content is committed, and on 2026-10-24 that
+aggregates (counts, hashes, named example genes) may be. This replaces §15.2 step 7's committed
+recorded sample for DIA-NN:
+- The converted tables (`a1.tsv.gz`, `a2.tsv.gz` and their abundance tables) and any sample drawn
+  from the reports stay under `$GIAP_ROOT/pilot/`, never in the repository.
+- What is committed is the conversion record in `validation/pilot/README.md` › "Conversion
+  (M10-03)": the job IDs, the sha256 of every input report and output table, and the row counts.
+- The contract test (`tests/contract/test_m10_03_diann_contract.py`) runs on FarmShare against the
+  `$GIAP_ROOT` copies; CI runs the converter's unit tests on synthetic fixtures. The
+  `tests/data/recorded/diann/2.3.1/` path named above therefore holds no data rows.
