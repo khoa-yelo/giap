@@ -143,7 +143,8 @@ def test_map_tolerant_passes_the_cells(tmp_path: Path) -> None:
     assert (r["n_diff"], r["diff_types"], r["route"]) == (1, "substitution", "tolerant")
 
 
-def test_map_tolerant_rejects_a_format_1_index(tmp_path: Path) -> None:
+def test_the_mapping_chain_rejects_a_format_1_index(tmp_path: Path) -> None:
+    """A format-1 index stops the chain at its first reader, ``map_exact``."""
     ins = inputs(tmp_path)
     ins["peptides"], _pep, _ = _rt_peptides(tmp_path)
     with pytest.raises(reg.StepError, match="rebuild the six-frame index"):
