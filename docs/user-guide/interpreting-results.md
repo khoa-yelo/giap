@@ -292,12 +292,27 @@ BED12 blocks.
 - `readthrough`: the tolerant alignment substituted a residue for the annotated stop codon at the
   end of a CDS or sORF (cost 1, recorded as a `substitution`). This is evidence of stop-codon
   read-through, or a C-terminal extension (locus class `cterm_extension`). `mappings.gff3` gives
-  the codon's 1-based position as `readthrough_codon`. Only annotated terminal stops can be read
-  this way; every other stop codon stays unmatchable. Read-through rows are part of the ordinary
-  placement FDR of their stratum. That FDR does not control the read-through subset on its own.
-- `sec_site` and `pyl_site` mark peptides that consume a recoded TGA (selenocysteine, U) or TAG
-  (pyrrolysine, O) codon. They are specified in M7-16 (part 16c) but are not in the 1.0
-  `peptide_hits` schema. A 1.0 run does not write them.
+  the codon's 1-based position as `readthrough_codon`. Only annotated terminal stops and the
+  annotated recoded codons below can be read this way; every other stop codon stays unmatchable.
+  Read-through rows are part of the ordinary placement FDR of their stratum. That FDR does not
+  control the read-through subset on its own.
+- `sec_site` and `pyl_site`: the peptide consumed an annotated recoded codon inside a gene,
+  selenocysteine (`sec_site`) or pyrrolysine (`pyl_site`). Only codons the annotation itself
+  recodes count: a `U` in the annotated protein over a TGA codon, or an `O` over a TAG codon, in
+  a CDS or sORF (not the start codon, and never in a pseudogene). A `U` or `O` over any other
+  codon is skipped. Every other internal TGA or TAG stays unmatchable.
+  - The peptide consumes the codon when its alignment holds the whole codon, in frame, with one
+    residue standing for it (cost 1, recorded as a `substitution`). Frameshift placements never
+    consume one.
+  - The flag follows the codon, not the residue the search engine reported: TGA gives `sec_site`
+    and TAG gives `pyl_site`, so a peptide that reads `W` over a selenocysteine TGA still gets
+    `sec_site`. Such a row gets `sec_site` or `pyl_site` instead of `readthrough`. A peptide that
+    consumes both a terminal stop and a recoded codon gets both flags.
+  - `mappings.gff3` gives the codon's 1-based position as `recoded_codon` (comma-separated if
+    there are several), in the same way as `readthrough_codon`.
+  - Like read-through rows, these rows are part of the ordinary placement FDR of their stratum,
+    and that FDR does not control the `sec_site` or `pyl_site` subset on its own. The recoded
+    codons are mirrored in every decoy, so they do not bias the list FDR.
 - `same_db`: an exact hit from same-strain input, accepted without the decoy step.
 - `low_complexity`: the peptide has at most 3 distinct residues, with I and L counted as one.
   For such peptides, the chance-hit score E can underestimate chance hits by 1.9× to 15×. The
