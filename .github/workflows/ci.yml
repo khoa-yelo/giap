@@ -142,7 +142,8 @@ jobs:
           if ! ls workflow/tests/*.nf.test >/dev/null 2>&1; then echo "no nf-test suites yet"; exit 0; fi
           curl -fsSL https://get.nextflow.io | bash && sudo mv nextflow /usr/local/bin/
           curl -fsSL https://get.nf-test.com | bash -s 0.9.5 && sudo mv nf-test /usr/local/bin/
-          nf-test test workflow/tests --profile test,stub
+          # docker_smoke.nf.test runs real tools in containers (docker-smoke.yml): not a stub suite
+          nf-test test $(find workflow/tests -name '*.nf.test' ! -name docker_smoke.nf.test | sort) --profile test,stub
 
   # M11-01: build the wheel and sdist, check them, install the wheel in a clean venv and smoke it
   # from /tmp, so nothing resolves through the checkout (an installed `giap run` finds its workflow).
