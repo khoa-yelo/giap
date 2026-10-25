@@ -47,8 +47,8 @@ def _guard_sockets() -> None:
         _refuse()
 
     socket.create_connection = _refuse
-    socket.socket.connect = _connect  # type: ignore[method-assign]
-    socket.socket.connect_ex = _connect_ex  # type: ignore[method-assign]
+    socket.socket.connect = _connect  # type: ignore[method-assign,assignment]
+    socket.socket.connect_ex = _connect_ex  # type: ignore[method-assign,assignment]
 
 
 def main(argv: Sequence[str] | None = None) -> int:
