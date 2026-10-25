@@ -159,6 +159,9 @@ jobs:
   digest-pr:
     name: open the digest PR
     needs: [plan, build]
+    # A failed build leg must not hold back the other tools' pins (spec edge case: the failed tool
+    # stays conda-only until it builds; the PR says so).
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.tools != '[]' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -173,11 +176,18 @@ jobs:
       - name: Pin the digests and open ci/digests-<sha7>
         env:
           GH_TOKEN: ${{ github.token }}
+          PLANNED: ${{ needs.plan.outputs.tools }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
           sha7="${GITHUB_SHA::7}"
           branch="ci/digests-$sha7"
+          mkdir -p digests
+          missing="$(python3 -c 'import json,os,pathlib; got={f.name for f in pathlib.Path("digests").iterdir()}; print(" ".join(t for t in json.loads(os.environ["PLANNED"]) if t not in got))')"
+          if [ -z "$(ls digests)" ]; then
+            echo "::error::no image built (planned: $PLANNED); nothing to pin"
+            exit 1
+          fi
           # image tool -> processes (the _NOVEL runs reuse the image; workflow/subworkflows/local/novel.nf)
           python3 - <<'PY'
           import json, os, pathlib
@@ -219,7 +229,16 @@ jobs:
             echo
             echo '```json'; cat digests.json; echo '```'
             echo
+            if [ -n "$missing" ]; then
+              echo
+              echo "Not built in this run, so still conda-only: $missing."
+            fi
+            echo
             echo "Draft until the FarmShare Apptainer smoke passes (spec item 5): add the Slurm job IDs here."
           } > pr-body.md
           gh pr create --draft --base main --head "$branch" \
             --title "ci: pin GHCR digests ($sha7)" --body-file pr-body.md
+          if [ -n "$missing" ]; then
+            echo "::error::build failed for: $missing (the PR pins the others)"
+            exit 1
+          fi
