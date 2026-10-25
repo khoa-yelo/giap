@@ -61,8 +61,8 @@ ESTIMATE = {
 }
 HEADERS = ("significant at each family's own level", "not significant", "no estimate")
 CAPTION = (
-    "Order alternates between test families; values in different kinds are on different "
-    "scales and are not compared."
+    "Order alternates between test families; values from different test families are on "
+    "different scales and are not compared."
 )
 
 #: one pool entry: (family, locus_id, error); error None = NA
@@ -328,6 +328,11 @@ EXAMPLES: dict[str, tuple[list[Entry], list[str]]] = {
         [("prophage", "prophage_1", 0.01), ("operon_discordance", "PAIR_1", 0.08),
          ("missed_operon", "PAIR_2", 0.01), ("operon_discordance", "PAIR_3", 0.02)],
         ["prophage_1", "PAIR_3", "PAIR_2", "PAIR_1"],
+    ),
+    "no estimate: family first, then ID": (
+        [("island", "ISL_2", None), ("prophage", "prophage_3", None),
+         ("prophage", "prophage_1", None), ("prophage", "prophage_2", None)],
+        ["prophage_1", "prophage_2", "prophage_3", "ISL_2"],
     ),
     "only flags, both families": (
         [("operon_discordance", "PAIR_1", 0.01), ("operon_discordance", "PAIR_2", 0.02),

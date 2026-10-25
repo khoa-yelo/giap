@@ -39,7 +39,9 @@ Notes on particular plots:
   first, then the non-significant ones, then those with no estimate. Within each group the
   families take turns: the best locus of each family, then the second best, and so on. Within a
   family the order is by its own estimate, then by ID. The index `rank` is therefore a display
-  order, not a ranking of evidence across families, and the cap cannot hide a whole family.
+  order, not a ranking of evidence across families. Under the cap, every family with a significant
+  locus gets a plot as long as the cap is at least the number of such families; non-significant
+  loci and loci with no estimate come after all significant ones.
   Novel ORFs are drawn by V13.
 - **V18** shows the detectability reliability curve, p-value histograms per test family and null
   distributions against the observed statistic. These are diagnostics, not a calibration test. The

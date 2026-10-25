@@ -44,8 +44,8 @@ FLAG_FAMILIES: tuple[str, ...] = ("operon_discordance", "missed_operon")
 #: the name of each family's own estimate, printed in the index figure
 ESTIMATE = {"island": "FWER p", "missed_operon": "decoy-FDR q"}
 TIER_HEADERS = ("significant at each family's own level", "not significant", "no estimate")
-INDEX_CAPTION = ("Order alternates between test families; values in different kinds are on "
-                 "different scales and are not compared.")  # fmt: skip
+INDEX_CAPTION = ("Order alternates between test families; values from different test families "
+                 "are on different scales and are not compared.")  # fmt: skip
 FLANK = 2_000  # bp each side of the span (index decision 20)
 SINGLE_MAX_BP = 20_000
 MAX_TICKS = 5  # labelled position ticks at most (K-12 survey: 7-digit bp labels collided)

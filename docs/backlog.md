@@ -1288,3 +1288,10 @@ Merged from the lead's local list on 2026-10-25. Skipped as already done or alre
 - **M11-04 / M11-02:** an M11 milestone fragment will break test_m11_02's "exactly 12 milestone fragments"; update the count when M11's fragment lands.
 - **Earlier parked:** datapackage.json lacks `genes` and others; config.schema.json fields have no descriptions (gen_reference warns).
 - **Rebrand (Khoa, 2026-10-25):** after development, restructure and rename GIAP → GIPPA (repo, package, code, simplification). Do it before the first real publish (M11-13). Sequence: an ADR (overrides the spec name), one scripted rename PR verified byte-identical apart from names (PR-size exception), then simplification PRs gated by goldens and calibration. `gippa` was free on PyPI, TestPyPI, bioconda, conda-forge and GitHub on 2026-10-25.
+- **V03 order review nits (#360, one round; statistician BLOCK fixed in the PR, code review APPROVE):**
+  - `V03_locus.tsv`'s `kind` column cannot tell the two operon-flag families apart; append an `estimate` column later.
+  - The spec's Edge cases table lacks the row on re-rendering at a higher `alpha.context` (the lead decisions call for it).
+  - Q4: show the V03 and V13 locus plots in the report in index-rank order.
+  - `FAMILY_ORDER.index` raises `ValueError` for an `operon_flag` Locus built without a family (only `_flag_loci` builds them today).
+  - `_order` looks up the family position per locus and `_index` recomputes the tier per row (negligible).
+  - The user guide could say "BH q-value within each region type".
