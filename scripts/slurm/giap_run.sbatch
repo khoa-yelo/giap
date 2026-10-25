@@ -12,4 +12,6 @@ set -euo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 export TMPDIR="$(mktemp -d /tmp/giap.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
 cd "$GIAP_REPO"
+# pin the code to this checkout too: the shared venv's editable giap is the main checkout
+export PYTHONPATH="$GIAP_REPO/src${PYTHONPATH:+:$PYTHONPATH}"
 uv run --no-sync giap run --profile farmshare,apptainer "$@"
