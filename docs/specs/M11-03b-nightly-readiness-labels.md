@@ -282,3 +282,10 @@ lines.
 - Also for the docs role: `docs/release.md` (M11-05) Known gaps should say "nothing writes
   `calibration_full` or `calibration_attacks`" until this lands, then point step 7 at
   `calibration_full_launch.sh` instead of `sbatch calibration_full.sbatch`.
+
+## Lead decisions (2026-10-25)
+
+- **Q1, Q3, Q4:** the defaults stand.
+- **Q2:** the 14 `slow`-but-not-`calibration_full` calibration tests go to the backlog. They are a coverage gap to close before M11-13.
+- **Q5, in scope (stricter):** nightly task 2's trap rows (killed or failed) are labelled `calibration_nightly` with their non-zero exit, so a killed run can no longer let an older pass decide R3. The MODE=record skip row stays `task 2` (exit 0, not a calibration result). This amends the acceptance criterion "nightly.sbatch byte-unchanged" to "unchanged apart from the task-2 trap label".
+- **Q6, in scope (stricter):** `tests/sim` and `tests/helpers` join readiness.py's `CALIB_PATHS`. They also join the runbook's freeze list, through the M11-05 docs follow-up. This amends "readiness.py byte-unchanged" to "unchanged apart from CALIB_PATHS".
