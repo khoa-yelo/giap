@@ -1295,3 +1295,9 @@ Merged from the lead's local list on 2026-10-25. Skipped as already done or alre
   - Option: have the generator emit scored decoys so the demo shows the `decoy_picked` tier.
   - Nits: the `cp ../tests/...` step assumes the repo root; download URLs point at unpinned `main`; the gz checksum can vary with the zlib build (`--check` compares uncompressed bytes); README keeps `--profile docker` while the quickstart says FarmShare/apptainer; `MAX_BYTES = 100_000` vs "100 KB".
   - Demo run warning: one work dir had an unreadable `versions.yml` (ScannerError), skipped by `giap.io.manifest_sources`.
+- **M10-04 (#296) pass-1 findings (validation, 2026-10-25):**
+  - antiSMASH did not run in either arm: the precomputed Bakta JSON has no GBFF next to it, so the step is skipped while the bgc module is on (A9 passes because `modules_off` is empty). Write or locate the GBFF for pass 2, or make the skip a `layers_missing` warning in the report.
+  - A2 lacks `rbs_novel`; its novel-ORF promoter and RBS layers are `not_run`.
+  - `pilot_compare.sbatch` does not record the commit it ran at; record `git -C $GIAP_REPO rev-parse HEAD` in compare.json.
+  - Superseded outdirs renamed after the run keep `out_a2` in their manifests' `command_line`.
+- **Review follow-ups (lead, 2026-10-25):** preflight `_has_ranking` reports `decoy_picked` when the decoy ranking columns are all NA; giapsim `scored_null` yields 0 protein-entry nulls; M11-08 spec line 85 is stale; the 14 slow calibration tests need a Slurm home.
