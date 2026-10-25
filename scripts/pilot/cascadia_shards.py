@@ -2,6 +2,7 @@
 
     python -I cascadia_shards.py UNIMOD_XML prep    MZML MODEL WORKDIR [-b 32] [-w 2] [-c 4]
     python -I cascadia_shards.py UNIMOD_XML predict MODEL WORKDIR SHARD N_SHARDS [--limit B]
+    python -I cascadia_shards.py UNIMOD_XML work    MODEL GEN DEADLINE_S CHUNK WORKDIR [WORKDIR ...]
     python -I cascadia_shards.py UNIMOD_XML merge   WORKDIR OUTPREFIX [-t 0.8]
 
 ``prep`` runs Cascadia's own augmentation and builds the spectrum index once (WORKDIR/index.hdf5,
@@ -9,7 +10,12 @@ meta.json). ``predict`` runs one contiguous block of whole batches: the same bat
 order, as the unsplit run (greedy decoding, one spectrum per row, so a batch's predictions do not
 depend on any other batch). ``merge`` concatenates the blocks in shard order and calls Cascadia's
 ``write_results`` once, so OUTPREFIX.ssl has the same rows and row numbers as
-``cascadia sequence``. The model hyper-parameters and preprocessing are copied from
+``cascadia sequence``. ``work`` is the load-balanced form: batch cost grows several-fold along the
+gradient, so equal blocks were up to 6x apart. Each worker claims CHUNK-batch chunks (an atomic
+mkdir under claims/g<GEN>/) of the work dirs in order, saves each chunk as it finishes, and claims
+no new chunk after DEADLINE_S. A later generation picks up whatever is left. Batches listed in a
+reserved_<start>_<stop> file (a block an earlier ``predict`` task is still writing) are skipped.
+The model hyper-parameters and preprocessing are copied from
 ``cascadia.cascadia.sequence`` (0.0.7). Every step installs ``cascadia_offline``'s socket guard and
 offline Unimod table first (R6).
 """
@@ -114,22 +120,89 @@ def predict(model_ckpt: str, workdir: Path, shard: int, n_shards: int, limit: in
     return 0
 
 
+def _reserved(workdir: Path) -> list[tuple[int, int]]:
+    out = []
+    for p in workdir.glob("reserved_*_*"):
+        _, a, b = p.name.split("_")
+        out.append((int(a), int(b)))
+    return sorted(out)
+
+
+def chunk_plan(n_batches: int, reserved: list[tuple[int, int]], size: int) -> list[range]:
+    """The batches outside ``reserved``, cut into consecutive chunks of at most ``size``."""
+    plan: list[range] = []
+    pos = 0
+    for a, b in [*sorted(reserved), (n_batches, n_batches)]:
+        for s in range(pos, a, size):
+            plan.append(range(s, min(s + size, a)))
+        pos = max(pos, b)
+    return plan
+
+
+def work(model_ckpt: str, gen: int, deadline_s: float, size: int, workdirs: list[Path]) -> int:
+    import time
+
+    import pytorch_lightning as pl  # type: ignore[import-not-found]
+    import torch  # type: ignore[import-not-found]
+    from cascadia.model import AugmentedSpec2Pep  # type: ignore[import-not-found]
+    from torch.utils.data import DataLoader, Subset  # type: ignore[import-not-found]
+
+    t0 = time.monotonic()
+    threads = int(os.environ.get("SLURM_CPUS_PER_TASK", "0")) or None
+    if threads:
+        torch.set_num_threads(threads)
+    tokenizer = _tokenizer()
+    model = AugmentedSpec2Pep.load_from_checkpoint(
+        model_ckpt, d_model=512, n_layers=9, n_head=8, dim_feedforward=1024, dropout=0,
+        rt_width=2, tokenizer=tokenizer, max_charge=10,
+    )  # fmt: skip
+    done = 0
+    for workdir in workdirs:
+        meta = json.loads((workdir / META).read_text())
+        bs, n = meta["batch_size"], meta["n_spectra"]
+        ds = _dataset(tokenizer, None, workdir / INDEX)
+        claims = workdir / "claims" / f"g{gen}"
+        claims.mkdir(parents=True, exist_ok=True)
+        for block in chunk_plan(meta["n_batches"], _reserved(workdir), size):
+            out = workdir / f"chunk_{block.start:05d}_{block.stop:05d}.pt"
+            if out.exists():
+                continue
+            if time.monotonic() - t0 > deadline_s:
+                print(f"deadline: stopped after {done} chunks")
+                return 0
+            try:
+                (claims / out.stem).mkdir()
+            except FileExistsError:
+                continue
+            rows = list(range(block.start * bs, min(block.stop * bs, n)))
+            loader = DataLoader(Subset(ds, rows), batch_size=bs, collate_fn=ds.collate_fn,
+                                num_workers=2, pin_memory=False)  # fmt: skip
+            trainer = pl.Trainer(accelerator="cpu", devices=1, logger=False,
+                                 enable_checkpointing=False, enable_progress_bar=False)  # fmt: skip
+            t = time.monotonic()
+            preds = trainer.predict(model, dataloaders=loader)
+            torch.save({"block": [block.start, block.stop], "rows": len(rows), "preds": preds},
+                       str(out) + ".tmp")  # fmt: skip
+            os.replace(str(out) + ".tmp", out)
+            done += 1
+            print(f"{workdir.parent.name} {out.name} {time.monotonic() - t:.0f}s", flush=True)
+    print(f"no chunks left: {done} done")
+    return 0
+
+
 def merge(workdir: Path, outprefix: str, threshold: float) -> int:
     import torch  # type: ignore[import-not-found]
     from cascadia.utils import write_results  # type: ignore[import-not-found]
 
     meta = json.loads((workdir / META).read_text())
-    shards = sorted(workdir.glob("shard_*_of_*.pt"))
-    counts = {p.name.rsplit("_of_", 1)[1] for p in shards}
-    if len(counts) != 1:
-        print(f"cascadia_shards: mixed shard counts {sorted(counts)}", file=sys.stderr)
-        return 2
+    recs = [torch.load(p, weights_only=False)
+            for p in [*workdir.glob("shard_*_of_*.pt"), *workdir.glob("chunk_*_*.pt")]]  # fmt: skip
+    recs.sort(key=lambda r: r["block"][0])
     preds: list[Any] = []
     stop = 0
-    for p in shards:
-        rec = torch.load(p, weights_only=False)
+    for rec in recs:
         if rec["block"][0] != stop:
-            print(f"cascadia_shards: gap or overlap at {p.name} ({rec['block']}, want {stop})",
+            print(f"cascadia_shards: gap or overlap at block {rec['block']} (want start {stop})",
                   file=sys.stderr)  # fmt: skip
             return 2
         stop = rec["block"][1]
@@ -139,7 +212,7 @@ def merge(workdir: Path, outprefix: str, threshold: float) -> int:
         return 2
     write_results(preds, outprefix, meta["mzml"], meta["isolation_window_size"], threshold,
                   meta["width"] * meta["cycle_time"])  # fmt: skip
-    print(f"wrote {outprefix}.ssl from {len(shards)} shards")
+    print(f"wrote {outprefix}.ssl from {len(recs)} blocks")
     return 0
 
 
@@ -163,6 +236,10 @@ def main(argv: list[str] | None = None) -> int:
     q.add_argument("model"), q.add_argument("workdir", type=Path)
     q.add_argument("shard", type=int), q.add_argument("n_shards", type=int)
     q.add_argument("--limit", type=int, default=None)
+    w = sub.add_parser("work")
+    w.add_argument("model"), w.add_argument("gen", type=int)
+    w.add_argument("deadline_s", type=float), w.add_argument("size", type=int)
+    w.add_argument("workdirs", type=Path, nargs="+")
     m = sub.add_parser("merge")
     m.add_argument("workdir", type=Path), m.add_argument("outprefix")
     m.add_argument("-t", type=float, default=0.8)
@@ -171,6 +248,8 @@ def main(argv: list[str] | None = None) -> int:
         return prep(a.mzml, a.workdir, a.b, a.w, a.c)
     if a.cmd == "predict":
         return predict(a.model, a.workdir, a.shard, a.n_shards, a.limit)
+    if a.cmd == "work":
+        return work(a.model, a.gen, a.deadline_s, a.size, a.workdirs)
     return merge(a.workdir, a.outprefix, a.t)
 
 

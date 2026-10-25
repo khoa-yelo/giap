@@ -46,3 +46,21 @@ def test_example_4471_batches_in_16_shards() -> None:
 def test_shard_out_of_range_raises(shard: int) -> None:
     with pytest.raises(ValueError):
         S.shard_batches(4471, shard, 16)
+
+
+@given(st.integers(1, 5000), st.integers(1, 64), st.data())
+def test_chunk_plan_tiles_everything_outside_the_reserved_blocks(
+    n_batches: int, size: int, data: st.DataObject
+) -> None:
+    cuts = sorted(data.draw(st.lists(st.integers(0, n_batches), max_size=4)))
+    reserved = [(cuts[i], cuts[i + 1]) for i in range(0, len(cuts) - 1, 2)]
+    plan = S.chunk_plan(n_batches, reserved, size)
+    got = [b for blk in plan for b in blk]
+    want = [b for b in range(n_batches) if not any(a <= b < c for a, c in reserved)]
+    assert got == want
+    assert all(0 < len(blk) <= size for blk in plan)
+
+
+def test_chunk_plan_example() -> None:
+    plan = S.chunk_plan(100, [(0, 46)], 20)
+    assert [(b.start, b.stop) for b in plan] == [(46, 66), (66, 86), (86, 100)]
