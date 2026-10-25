@@ -61,7 +61,11 @@ def test_no_peptide_like_strings(tmp_path: Path) -> None:
     fx.write_json("validation/pilot/metrics/metrics.json", doc)
     fx.compute()
     md = (fx.out / "READINESS.md").read_text(encoding="utf-8")
-    assert not PEPTIDE_LIKE.search(md), PEPTIDE_LIKE.findall(md)
+    assert "PEPTIDEKLMNQR" not in md.upper()
+    # file names such as CHANGELOG.md and LICENSE stay verbatim (lead decision d, #337 review 7)
+    allowed = {"CHANGELOG", "LICENSE", "READINESS"}
+    leaks = [m for m in PEPTIDE_LIKE.findall(md) if not any(w.startswith(m) for w in allowed)]
+    assert not leaks, leaks
 
 
 @given(st.lists(st.sampled_from(["pass", "fail", "pending", "deferred", "waived"]), max_size=20))

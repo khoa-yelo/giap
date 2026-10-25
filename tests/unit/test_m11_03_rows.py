@@ -108,6 +108,7 @@ def test_r1_needs_te1_passed(fx: Fixture) -> None:
 def test_missing_metrics_is_pending_not_crash(fx: Fixture) -> None:
     (fx.repo / "validation/pilot/metrics/metrics.json").unlink()
     fx.commit("drop metrics")
+    fx.set_check_runs(["lint", "tests (3.11)", "package"])  # H6 reads runs for the new HEAD
     proc, doc = fx.compute()
     assert proc.returncode == 3, proc.stdout + proc.stderr
     r1 = row(doc, "R1")
