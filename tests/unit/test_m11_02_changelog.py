@@ -269,7 +269,9 @@ def test_example2_pr_fragment_renders_a_pull_link(tmp_path: Path) -> None:
     draft = _draft(tmp_path, {"331.bugfix.md": "Fix X.\n"})
     sections = _sections(draft)
     assert "Fixes" in sections
-    assert sections["Fixes"] == [f"- Fix X. ([#331]({REPO_URL}/pull/331))"]
+    # the real changelog.d may hold other bugfix fragments; this one renders exactly once
+    mine = [ln for ln in sections["Fixes"] if "#331" in ln]
+    assert mine == [f"- Fix X. ([#331]({REPO_URL}/pull/331))"]
     names = list(sections)
     assert names.index("Features") < names.index("Fixes") < names.index("Other")
 
