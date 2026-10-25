@@ -33,7 +33,7 @@ from giapsim.features import NOVEL_CLASSES, Block, Feat, coding, make_blocks, no
 from giapsim.proteomics import ProteomicsConfig, simulate_proteomics
 from giapsim.scenario_truth import plant_novel_rbs, strong_tirs, write_m7_truth
 from giapsim.signals import TuPlan, apply_plan, plan_tu, plant_gene_rbs
-from giapsim.strain import StrainConfig, derive_reference
+from giapsim.strain import STOP_LOSS_COLUMNS, StrainConfig, derive_strain, stop_loss_rows
 
 __all__ = [
     "SIM5M",
@@ -634,6 +634,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         ],
     )
     ref_pseudo: dict[str, bool] = {}
+    planted_wrong: list[tuple[str, str]] = []  # rule-20 C-terminal peptides (wrong peptides first)
     lifted: list[Feat] | None = None
     strain_out: tuple[list[list[Any]], dict[str, str]] | None = None
     res = SimResult(
@@ -641,7 +642,11 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         truth={"genes": truth, "features": feat_truth},
     )  # fmt: skip
     if config.strain is not None:
-        ref_seqs, lifted, rows = derive_reference(config.strain, seed, text, feats)
+        dg = ((7, 30), 1) if prot is None else (prot.digest_len, prot.missed_cleavages)
+        ref_seqs, lifted, rows, stop_loss = derive_strain(config.strain, seed, text, feats, dg)
+        if config.strain.n_stop_loss:  # M7-16 rule 20
+            sl_rows = stop_loss_rows(text, feats, lifted, stop_loss, dg)
+            _tsv(out / "truth" / "stop_loss.tsv", STOP_LOSS_COLUMNS, sl_rows)
         ref_fasta, ref_json = out / "reference.fasta", out / "reference_bakta_like.json"
         strain_truth = out / "truth" / "strain_differences.tsv"
         _write_fasta(ref_fasta, contigs, ref_seqs)
@@ -658,6 +663,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         ]
         _tsv(strain_truth, header, rows)
         ref_pseudo = {g.locus: bool(g.extra.get("pseudo")) for g in lifted}
+        planted_wrong = [(pep, loc) for loc, pep in stop_loss.items()]
         strain_out = (rows, ref_seqs)
         res = replace(
             res, reference_fasta=ref_fasta, reference_json=ref_json, strain_truth=strain_truth
@@ -691,7 +697,8 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
                          config.planted_tir)  # fmt: skip
     if prot is not None:
         topo_map = {cid: topo for cid, _, topo in contigs}
-        paths = simulate_proteomics(prot, seed, out, feats, novel, text, topo_map, lifted)
+        paths = simulate_proteomics(prot, seed, out, feats, novel, text, topo_map, lifted,
+                                    first_wrong=planted_wrong)  # fmt: skip
         res = replace(
             res,
             peptides=paths["peptides"],

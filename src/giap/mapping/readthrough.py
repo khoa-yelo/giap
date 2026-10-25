@@ -9,17 +9,27 @@ keep their positions). Everything here is pure and deterministic; nothing draws 
 
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
+import pandas as pd
 
 from giap.mapping.decoys import DecoyType
 from giap.mapping.sixframe import STOP, Frame, SixFrameIndex
 from giap.model.genes import GeneModel
 
-__all__ = ["StopCells", "StopSite", "annotated_stops", "frame_cells", "mirror_cells", "site_keys"]
+__all__ = [
+    "StopCells",
+    "StopSite",
+    "annotated_stops",
+    "consumed_sites",
+    "frame_cells",
+    "mirror_cells",
+    "site_keys",
+]
 
 STOP_CODONS = frozenset({"TAA", "TAG", "TGA"})
 _COMP = str.maketrans("ACGTacgt", "TGCAtgca")
@@ -142,3 +152,48 @@ def mirror_cells(
 def site_keys(sites: Sequence[StopSite]) -> frozenset[tuple[str, str, int]]:
     """``(contig, strand, codon_start)`` of every site (the M7-01 re-alignment set)."""
     return frozenset((s.contig, s.strand, s.codon_start) for s in sites)
+
+
+def consumed_sites(
+    rows: pd.DataFrame,
+    sites: Sequence[StopSite],
+    lengths: Mapping[str, int],
+    circular: Mapping[str, bool],
+) -> list[tuple[StopSite, ...]]:
+    """Per row, the sites its window consumes, sorted by ``codon_start`` (rule 15).
+
+    Only target rows without ``blocks`` consume; a site is consumed when a copy ``x`` of its codon
+    (``codon_start``, plus ``+ n`` on a circular replicon) lies in frame inside ``[start, end)``.
+    """
+    by: dict[tuple[str, str], list[StopSite]] = {}
+    for s in sorted(sites, key=lambda s: s.codon_start):
+        by.setdefault((s.contig, s.strand), []).append(s)
+    # starts flattened once per (contig, strand), so each row bisects instead of scanning
+    starts = {k: [s.codon_start for s in v] for k, v in by.items()}
+    blocks = rows["blocks"] if "blocks" in rows.columns else [None] * len(rows)
+    out: list[tuple[StopSite, ...]] = []
+    for search, contig, strand, a, b, blk in zip(
+        rows["search"],
+        rows["contig"],
+        rows["strand"],
+        rows["start"],
+        rows["end"],
+        blocks,
+        strict=True,
+    ):
+        key = (str(contig), str(strand))
+        cand = by.get(key, [])
+        if search != "target" or (isinstance(blk, str) and blk) or not cand:
+            out.append(())
+            continue
+        xs = starts[key]
+        a, b, n = int(a), int(b), int(lengths[str(contig)])
+        shifts = (0, n) if circular.get(str(contig), False) else (0,)
+        hits: set[int] = set()
+        for d in shifts:
+            # x = codon_start + d with a <= x and x + 3 <= b
+            lo = bisect_left(xs, a - d)
+            hi = bisect_right(xs, b - 3 - d)
+            hits.update(k for k in range(lo, hi) if (xs[k] + d - a) % 3 == 0)
+        out.append(tuple(cand[k] for k in sorted(hits)))
+    return out

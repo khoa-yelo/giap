@@ -256,7 +256,7 @@ def _minus_cterm() -> tuple[Case, Orf]:
 
 @pytest.mark.parametrize(
     ("iv", "spans"),
-    [((898, 928), True), ((925, 928), True), ((898, 925), False), ((926, 940), False),
+    [((898, 928), True), ((925, 928), False), ((898, 925), False), ((926, 940), False),
      ((928, 958), False)],
 )  # fmt: skip
 def test_minus_cterm_extension_readthrough_needs_the_annotated_stop(
@@ -265,8 +265,10 @@ def test_minus_cterm_extension_readthrough_needs_the_annotated_stop(
     case, orf = _minus_cterm()
     peps = {orf.orf_id: [Interval("c1", *iv, "-")]}
     (r,) = evidence_table(case, peptide_intervals=peps).to_dict("records")
+    # M7-16 rule 12: the stop codon [925, 928) must be contained AND passed on the 3' side (below
+    # 925 on -); the codon alone no longer spans it, and a spanning ORF is now called
     assert ("readthrough_candidate" in flags_of(r)) is spans
-    assert r["called"] == False  # noqa: E712
+    assert bool(r["called"]) is spans
 
 
 # ---------------------------------------------------------------- B3: origin geometry
