@@ -22,11 +22,13 @@ from giap.model.coords import Interval, Replicon, wrap_position
 
 if TYPE_CHECKING:
     from giap.mapping.decoys import DecoyType
+    from giap.mapping.readthrough import StopCells
 
 ALPHABET: str = "ACDEFGHKLMNPQRSTVWY*X"  # codes 0..18 residues (L includes I), 19 '*', 20 'X'
 STOP: int = 19
 AMBIG: int = 20
 NOMATCH: int = 21  # query letters outside the residue alphabet (B J O U X Z *) never match
+READTHROUGH: int = 22  # search-text code of a consumable (annotated) stop; never in frames
 MAX_PEPTIDE_AA: int = 40  # longest mapped peptide (mapping.exact / tolerant max_diff classes)
 MAX_DIFF: int = 2  # largest tolerant difference budget k (the +-2 band of M3-07)
 # Circular overlap: a window of max_len + k residues crossing the origin (M3-07 review decision 2).
@@ -251,7 +253,7 @@ def dedupe_loci(ivs: Iterable[Interval], replicons: Mapping[str, Replicon]) -> l
     return list(seen)
 
 
-_INDEX_FORMAT = 1
+_INDEX_FORMAT = 2  # 2: + consumable stop cells (M7-16, ADR-0058)
 
 
 def _frame_meta(frames: tuple[Frame, ...]) -> list[list[object]]:
@@ -273,33 +275,66 @@ def _unpack(meta: list[list[object]], aa: np.ndarray, bounds: np.ndarray) -> tup
     return tuple(out)
 
 
+def _pack_cells(cells: tuple[np.ndarray, ...], n: int) -> tuple[np.ndarray, np.ndarray]:
+    if len(cells) != n:
+        raise ValueError(f"{len(cells)} cell arrays for {n} frames")
+    bounds = np.zeros(n + 1, dtype=np.int64)
+    np.cumsum([len(c) for c in cells], out=bounds[1:])
+    flat = np.concatenate([np.asarray(c, dtype=np.int64) for c in cells]) if n else bounds[:0]
+    return flat.astype(np.int64, copy=False), bounds
+
+
 def save_index(
-    path: Path, index: SixFrameIndex, decoys: Mapping[DecoyType, tuple[Frame, ...]]
+    path: Path,
+    index: SixFrameIndex,
+    decoys: Mapping[DecoyType, tuple[Frame, ...]],
+    cells: StopCells | None = None,
 ) -> None:
-    """Write the ``sixframe_index`` work file (``.npz``): target frames, decoy frames, replicons."""
+    """Write the ``sixframe_index`` work file (``.npz``, format 2): target frames, decoy frames,
+    replicons, and the consumable stop cells of the target and each decoy type (none without
+    ``cells``)."""
     frame_meta = _frame_meta(index.frames)
+    n = len(index.frames)
+    none = tuple(np.zeros(0, dtype=np.int64) for _ in range(n))
     meta = {
         "format": _INDEX_FORMAT,
         "replicons": [asdict(r) for r in index.replicons.values()],
         "frames": frame_meta,
         "decoys": list(decoys),
+        "stop_sites": [] if cells is None else [asdict(s) for s in cells.sites],
     }
     arrays: dict[str, np.ndarray] = {"meta": np.array(json.dumps(meta))}
     arrays["target_aa"], arrays["target_bounds"] = _pack(index.frames)
+    arrays["target_rt"], arrays["target_rt_bounds"] = _pack_cells(
+        none if cells is None else cells.target, n
+    )
     for kind, frames in decoys.items():
         if _frame_meta(frames) != frame_meta:
             raise ValueError(f"{kind} decoy frames do not mirror the index frames")
         arrays[f"{kind}_aa"], arrays[f"{kind}_bounds"] = _pack(frames)
+        if cells is not None and kind not in cells.decoys:
+            raise ValueError(f"stop cells have no {kind} decoy cells")
+        dc = none if cells is None else cells.decoys[kind]
+        arrays[f"{kind}_rt"], arrays[f"{kind}_rt_bounds"] = _pack_cells(dc, n)
     with Path(path).open("wb") as fh:
         np.savez_compressed(fh, **arrays)  # type: ignore[arg-type]
 
 
+def _check_format(path: Path, meta: Mapping[str, object]) -> None:
+    fmt = meta.get("format")
+    if fmt == 1:
+        raise ValueError(
+            f"{path}: six-frame index format 1 has no stop cells; rebuild the six-frame index"
+        )
+    if fmt != _INDEX_FORMAT:
+        raise ValueError(f"{path}: unsupported sixframe_index format {fmt!r}")
+
+
 def load_index(path: Path) -> tuple[SixFrameIndex, dict[DecoyType, tuple[Frame, ...]]]:
-    """Read a work file written by :func:`save_index`."""
+    """Read a work file written by :func:`save_index` (format 2; format 1 raises)."""
     with np.load(Path(path), allow_pickle=False) as npz:
         meta = json.loads(str(npz["meta"]))
-        if meta.get("format") != _INDEX_FORMAT:
-            raise ValueError(f"{path}: unsupported sixframe_index format {meta.get('format')!r}")
+        _check_format(path, meta)
         replicons = {r["id"]: Replicon(**r) for r in meta["replicons"]}
         frames = _unpack(meta["frames"], npz["target_aa"], npz["target_bounds"])
         decoys: dict[DecoyType, tuple[Frame, ...]] = {
@@ -307,3 +342,25 @@ def load_index(path: Path) -> tuple[SixFrameIndex, dict[DecoyType, tuple[Frame, 
             for kind in meta["decoys"]
         }
     return SixFrameIndex(replicons=replicons, frames=frames), decoys
+
+
+def load_stop_cells(path: Path) -> StopCells:
+    """The stop sites and cells of a format-2 work file.
+
+    Raises:
+        ValueError: on a format-1 file ("rebuild the six-frame index") or an unknown format.
+    """
+    from giap.mapping.readthrough import StopCells, StopSite
+
+    def split(flat: np.ndarray, bounds: np.ndarray) -> tuple[np.ndarray, ...]:
+        return tuple(flat[bounds[i] : bounds[i + 1]].copy() for i in range(len(bounds) - 1))
+
+    with np.load(Path(path), allow_pickle=False) as npz:
+        meta = json.loads(str(npz["meta"]))
+        _check_format(path, meta)
+        sites = tuple(
+            StopSite(**{**s, "locus_tags": tuple(s["locus_tags"])}) for s in meta["stop_sites"]
+        )
+        target = split(npz["target_rt"], npz["target_rt_bounds"])
+        decoys = {k: split(npz[f"{k}_rt"], npz[f"{k}_rt_bounds"]) for k in meta["decoys"]}
+    return StopCells(sites=sites, target=target, decoys=decoys)
