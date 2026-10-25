@@ -193,7 +193,7 @@ def _stop_case(lay: Layout, letter: str, i: int = 2) -> tuple[Any, str]:
 )
 def test_ex7_ex8_u_and_o_over_any_stop_are_rare_plus(letter: str, stop: str) -> None:
     """Lead decision 1, narrowed by M7-16 rule 11: U/O over a stop they do not recode is skipped
-    as rare (U over TGA and O over TAG are ALTs: tests/unit/variants/test_variants_readthrough.py)."""
+    as rare (U over TGA and O over TAG are ALTs: test_variants_readthrough.py)."""
     lay = linear(overrides={2: stop})
     assert lay.sequence()[6:9] == stop
     h, pep = _stop_case(lay, letter)
@@ -225,7 +225,7 @@ def test_ex7_u_over_tga_across_the_origin_wrapped_and_unwrapped_count_once() -> 
     pep = with_x(P, 3, "U")
     unwrapped, plain = hit(al, lay, pep), hit(al, lay, pep, shift=-lay.length)
     assert unwrapped.ops[3].ref == "*"
-    pile, sites = run([unwrapped, plain], lay)
+    pile, _ = run([unwrapped, plain], lay)
     assert ns(pile) == counts()
     r = row(pile, 199, "+", "c3")
     assert (r["ref_aa"], r["alt_counts"], r["call"]) == ("*", "U:1", "ALT")
