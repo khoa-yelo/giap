@@ -63,4 +63,5 @@ def test_chunk_plan_tiles_everything_outside_the_reserved_blocks(
 
 def test_chunk_plan_example() -> None:
     plan = S.chunk_plan(100, [(0, 46)], 20)
-    assert [(b.start, b.stop) for b in plan] == [(46, 66), (66, 86), (86, 100)]
+    # #334 review item 1: the global grid [k*20, (k+1)*20) with the reserved batches cut out
+    assert [(b.start, b.stop) for b in plan] == [(46, 60), (60, 80), (80, 100)]
