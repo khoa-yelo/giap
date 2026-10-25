@@ -57,8 +57,8 @@ from giap.viz.base import Instance, Skip
 
 COLUMNS = {
     "panel", "call", "confidence", "flag", "n", "rank", "variant_id", "gene", "aa_pos",
-    "ref_aa", "alt_aa", "alt_type", "n_alt", "n_ref", "class_error_rate", "ref_window",
-    "peptides",
+    "ref_aa", "alt_aa", "alt_type", "n_alt", "n_ref", "class_error_rate", "class_error_n",
+    "ref_window", "peptides",
 }  # fmt: skip
 VERMILLION = "#D55E00"
 NOTE = "length-changing: shown unaligned"
@@ -491,7 +491,10 @@ def test_without_support_panel_b_shows_peptides_only(tmp_path: Path, cfg: GiapCo
 
 def test_title_counts_and_class_error_range(tmp_path: Path, cfg: GiapConfig) -> None:
     inst = _main(tmp_path, cfg)
-    expected = "2 high-confidence and 2 candidate ALT sites (class error 0.004\u20130.02)"
+    expected = (
+        "2 high-confidence and 2 candidate ALT sites (class error 0.004\u20130.02,"
+        " pooled per class over ALT and mixed sites)"
+    )
     assert inst.title == expected
     assert expected in _all_texts(inst)
 

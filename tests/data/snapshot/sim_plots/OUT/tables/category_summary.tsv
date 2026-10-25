@@ -1,0 +1,23 @@
+collection	category	name	n_genes	n_detected	expected	o_minus_e	ci_low	ci_high	median_abundance_log2	coverage	flags
+cog	C	Energy production and conversion	26	24	24.6848	-0.684825	-3.68482	1.31518	3.87304	0.988327	NA
+cog	E	Amino acid transport and metabolism	32	31	30.3813	0.618677	-2.38132	1.61868	2.79143	0.988327	NA
+cog	G	Carbohydrate transport and metabolism	25	24	23.7354	0.264591	-1.73541	1.26459	3.51586	0.988327	NA
+cog	J	Translation, ribosomal structure and biogenesis	25	23	23.7354	-0.735409	-2.73541	1.26459	3.9354	0.988327	NA
+cog	K	Transcription	57	55	54.1167	0.883268	-2.26031	2.98696	3.83251	0.988327	NA
+cog	L	Replication, recombination and repair	32	31	30.3813	0.618677	-1.43132	1.61868	2.81744	0.988327	NA
+cog	M	Cell wall/membrane/envelope biogenesis	32	29	30.3813	-1.38132	-4.38132	1.61868	4.39569	0.988327	NA
+cog	S	Function unknown	25	24	23.7354	0.264591	-2.73541	1.26459	3.58109	0.988327	NA
+cog	T	Signal transduction mechanisms	25	25	23.7354	1.26459	1.26459	1.26459	4.28216	0.988327	NA
+kegg	map90001	Synthetic pathway 1	33	32	31.3307	0.669261	-1.33074	1.66926	3.70952	0.657588	NA
+kegg	map90002	Synthetic pathway 2	34	31	32.2802	-1.28016	-4.28016	1.71984	2.84784	0.657588	NA
+kegg	map90003	Synthetic pathway 3	34	33	32.2802	0.719844	-1.28016	1.71984	3.97285	0.657588	NA
+kegg	map90004	Synthetic pathway 4	34	33	32.2802	0.719844	-1.33074	1.82101	3.04172	0.657588	NA
+kegg	map90005	Synthetic pathway 5	34	32	32.2802	-0.280156	-3.33016	1.71984	3.90614	0.657588	NA
+go_slim	GO:0990000	synthetic biological_process parent 0	17	17	16.1401	0.859922	0.859922	0.859922	5.22753	0.657588	NA
+go_slim	GO:0990001	synthetic biological_process parent 1	17	14	16.1401	-2.14008	-5.14008	0.859922	2.76005	0.657588	NA
+go_slim	GO:0990002	synthetic biological_process parent 2	25	24	23.7354	0.264591	-1.73541	1.26459	3.56641	0.657588	NA
+go_slim	GO:0990003	synthetic biological_process parent 3	25	24	23.7354	0.264591	-1.73541	1.26459	3.18966	0.657588	NA
+go_slim	GO:0990020	synthetic cellular_component parent 0	17	17	16.1401	0.859922	0.859922	0.859922	2.83549	0.657588	NA
+go_slim	GO:0990021	synthetic cellular_component parent 1	25	24	23.7354	0.264591	-1.73541	1.26459	3.9503	0.657588	NA
+go_slim	GO:0990022	synthetic cellular_component parent 2	26	26	24.6848	1.31518	1.31518	1.31518	2.83264	0.657588	NA
+go_slim	GO:0990023	synthetic cellular_component parent 3	17	15	16.1401	-1.14008	-4.14008	0.859922	4.45588	0.657588	NA

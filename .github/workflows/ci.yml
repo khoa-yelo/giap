@@ -88,6 +88,19 @@ jobs:
           uv run --no-sync pytest -n auto -m "not slow and not calibration and not calibration_full and not e2e" \
             --junitxml=junit.xml "${files[@]}" || [ $? -eq 5 ]   # 5: no test selected in this shard
 
+  # Plot snapshots (M9-25, index decision 22): pixel comparison against tests/snapshot/baseline on
+  # this one leg only; every other leg renders the figures without comparing them.
+  snapshot:
+    runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras
+      - name: snapshot tests with pixel comparison (RMS <= 2, 100 dpi)
+        run: uv run --no-sync pytest tests/snapshot --mpl -n auto
+
   # Python 3.11 and macOS 3.12 (§12's matrix) run after the merge, on pushes to main only.
   test-compat:
     if: github.event_name == 'push'
@@ -176,7 +189,7 @@ jobs:
 
   summary:
     if: always() && github.event_name == 'pull_request'
-    needs: [lint, guards, test, nf-test-stub, package]
+    needs: [lint, guards, test, snapshot, nf-test-stub, package]
     runs-on: ubuntu-latest
     steps:
       - name: post result summary as a PR comment (§3.10)
@@ -189,6 +202,7 @@ jobs:
           | lint | ${{ needs.lint.result }} |
           | guards | ${{ needs.guards.result }} |
           | tests | ${{ needs.test.result }} |
+          | snapshot | ${{ needs.snapshot.result }} |
           | nf-test stub | ${{ needs.nf-test-stub.result }} |
           | package | ${{ needs.package.result }} |"
           gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body "$body"

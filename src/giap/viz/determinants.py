@@ -389,7 +389,7 @@ def determinants(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.S
     model = view.table("determinants_model")
     assert model is not None  # guaranteed by ``needs``
     att, features = view.table("determinants_attribution"), view.table("determinants_features")
-    if too_few(model):  # M8 then writes NA predictions only: no panel has data
+    if model.empty or too_few(model):  # no model, or NA predictions only: no panel has data
         text = title(model, counts(features, att))
         return [base.empty_state("V15", "determinants", text, COLUMNS, "double")]
     text = title(model)

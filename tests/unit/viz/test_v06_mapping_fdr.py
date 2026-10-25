@@ -386,10 +386,9 @@ def test_header_only_mapping_fdr_is_no_peptide_placements(tmp_path: Path, cfg: G
     inst = _render(mapping_out(tmp_path, fdr=[]), cfg)
     assert list(inst.data.columns) == COLUMNS
     assert len(inst.data) == 0
-    for label in ("a", "b"):
-        ax = _ax(inst, label)
-        assert "no peptide placements" in _notes(ax), label
-        assert _markers(ax) == []
+    # nothing at all to show: the whole-figure empty state (M9-01 decision 9, M9-24 decision 6)
+    assert inst.title == "No peptide placements or de novo precision in this run"
+    assert all(not ax.axison for ax in inst.figure.axes)
     assert "%" not in inst.title
 
 

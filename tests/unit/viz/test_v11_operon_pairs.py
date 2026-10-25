@@ -386,18 +386,18 @@ def test_title_counts_flags_at_or_below_alpha(tmp_path: Path, cfg: GiapConfig) -
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
     assert inst.title.startswith("Median |Δ| OP ")
-    assert inst.title.endswith("; 1 pairs flagged at q ≤ 0.1")
+    assert inst.title.endswith("; 1 of 2 candidate flags at q ≤ 0.1")
 
 
 def test_title_and_threshold_follow_the_configured_alpha(tmp_path: Path) -> None:
     cfg = resolve_config(overrides=["stats.alpha.operon_flags=0.05"])
     pairs = _full_pairs()
     inst = _render(_out(tmp_path, pairs, _full_flags(pairs)), cfg)
-    assert inst.title.endswith("; 1 pairs flagged at q ≤ 0.05")
+    assert inst.title.endswith("; 1 of 2 candidate flags at q ≤ 0.05")
     assert [y for y, _ in _hlines(_ax(inst, "b"), "--")] == [pytest.approx(0.05)]
     cfg_strict = resolve_config(overrides=["stats.alpha.operon_flags=0.01"])
     strict = _render(_out(tmp_path / "strict", pairs, _full_flags(pairs)), cfg_strict)
-    assert strict.title.endswith("; 0 pairs flagged at q ≤ 0.01")
+    assert strict.title.endswith("; 0 of 2 candidate flags at q ≤ 0.01")
     assert _outlined(_ax(strict, "c")) == []
 
 
@@ -744,7 +744,7 @@ def test_renders_on_an_m6_flag_fixture(tmp_path: Path, cfg: GiapConfig) -> None:
     write_pairs_tsv(out / "tables" / "pairs.tsv", pairs)
     write_operon_flags_tsv(out / "tables" / "operon_flags.tsv", flagged)
     inst = _render(out, cfg)
-    assert inst.title.endswith("; 3 pairs flagged at q ≤ 0.1")
+    assert inst.title.endswith("; 3 of 4 candidate flags at q ≤ 0.1")
     c = _by_pair(_rows(inst, "c"))
     for _, f in flagged.iterrows():
         assert str(c[str(f["pair_id"])]["flag"]) == f["flag"]

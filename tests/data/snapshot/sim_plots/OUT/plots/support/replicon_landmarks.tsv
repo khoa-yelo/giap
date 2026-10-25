@@ -1,0 +1,3 @@
+contig	length_bp	topology	oric_position	ter_position	status
+chr1	300000	circular	20607	170607	called
+plasmid_1	8000	circular	NA	NA	no_oric

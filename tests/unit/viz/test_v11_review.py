@@ -224,7 +224,7 @@ def test_b4_q_equal_to_alpha_is_counted_and_outlined(tmp_path: Path, alpha: floa
         _flag_row(by_id["PAIR_4"], "conflict_terminator_in_operon", 0.2),
     ]
     inst = _render(_out(tmp_path, pairs, flags), cfg)
-    assert inst.title.endswith(f"; 1 pairs flagged at q ≤ {alpha:g}")
+    assert inst.title.endswith(f"; 1 of 2 candidate flags at q ≤ {alpha:g}")
     assert [(x, y) for x, y, _ in _outlined(_ax(inst, "c"))] == [(18.0, 21.0)]
 
 

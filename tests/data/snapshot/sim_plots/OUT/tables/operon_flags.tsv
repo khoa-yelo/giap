@@ -1,0 +1,2 @@
+pair_id	gene_a	gene_b	uniop_class	promoter_between_yes	terminator_between_yes	abundance_pattern	flag	q_value	lfdr	evidence_note
+PAIR_176	GSIM_00935	GSIM_00930	OP	false	true	concordant	conflict_terminator_in_operon	0.881053	NA	no promoter call between; terminator 1.00 between; q=0.881; concordant, |delta| 3.84 log2

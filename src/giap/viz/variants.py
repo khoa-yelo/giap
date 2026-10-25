@@ -8,6 +8,11 @@ text alignments of the ``giap.viz.support.top_alt_sites`` (at most 30): a header
 reference window from ``plots/support/variant_windows.tsv`` (absent: no ``ref`` line) and one
 peptide line, the covering peptide that spans most of the ±10 aa display window, with the ALT
 residue bold vermillion, then "(N peptides)", the distinct covering count (lead decision 8).
+The class error (``class_error_rate``, pooled per class over every ALT and mixed site, the same
+value on every row of its class) is labelled as pooled, with its class n (``class_error_n``,
+paired de novo reads), in the site line and the title. A rate of exactly 1 is marked "*" and
+footnoted: from a reference-proteome search it means "not measured" (docs/methods/variants.md,
+bias 1), and the run does not record the search database (#325 V12 label fix).
 
 A ``peptide_hits`` row covers a site when it is on the site's contig and strand, the whole codon
 lies in ``[start, end)`` and the codon is in frame with the placement (lead decision 7); on a
@@ -40,8 +45,8 @@ if TYPE_CHECKING:
 
 COLUMNS = (
     "panel", "call", "confidence", "flag", "n", "rank", "variant_id", "gene", "aa_pos",
-    "ref_aa", "alt_aa", "alt_type", "n_alt", "n_ref", "class_error_rate", "ref_window",
-    "peptides",
+    "ref_aa", "alt_aa", "alt_type", "n_alt", "n_ref", "class_error_rate", "class_error_n",
+    "ref_window", "peptides",
 )  # fmt: skip
 CALLS = ("ALT", "mixed")
 CONFIDENCES = ("high", "candidate")
@@ -63,6 +68,16 @@ CHAR_PT = FONT_PT * 1233 / 2048  # DejaVu Sans Mono advance width
 LINE_PT = 7.5
 LABEL = 6  # "ref   " / "pep   "
 WIDTH = 2 * VARIANT_FLANK_AA + 1
+#: the class error rate is pooled per class (alt_type, mass_equivalent) over every ALT and mixed
+#: site (docs/methods/variants.md, Pooling); its n is the class's paired de novo reads
+POOLED = "pooled per class over ALT and mixed sites"
+#: a rate of exactly 1 can be forced by a reference-proteome search (methods note, bias 1); the
+#: run does not record which database ``--reference-peptides`` came from, so it is footnoted
+DEGENERATE_MARK = "*"
+DEGENERATE_NOTE = (
+    '* a class error of 1 is "not measured" if --reference-peptides searched the reference '
+    "proteome (docs/methods/variants.md, bias 1)"
+)
 
 
 def _na(value: object) -> bool:
@@ -164,6 +179,7 @@ def panel_b(
         for col in ("variant_id", "gene", "aa_pos", "ref_aa", "alt_aa", "alt_type", "n_alt",
                     "n_ref", "class_error_rate", "contig", "codon_start", "strand"):  # fmt: skip
             row[col] = _py(s[col])
+        row["class_error_n"] = _py(s.get("class_error_n"))
         row["ref_window"] = None if win is None else win[1]
         row["peptides"] = ";".join(sorted(cov)) or None
         rows.append(row)
@@ -177,13 +193,24 @@ def data_frame(rows: Sequence[Mapping[str, object]]) -> pd.DataFrame:
     return pd.DataFrame(cells, columns=list(COLUMNS))
 
 
+def _has_one(variants: pd.DataFrame) -> bool:
+    """Some ``call = ALT`` site has a class error of exactly 1 (footnoted: methods note bias 1)."""
+    alt = variants[variants["call"] == "ALT"]
+    return any(class_error_value(v) == 1 for v in alt["class_error_rate"])
+
+
 def title(variants: pd.DataFrame) -> str:
-    """Counts and class-error range over the ``call = ALT`` sites (lead decision 4)."""
+    """Counts and class-error range over the ``call = ALT`` sites (lead decision 4); the range
+    says the rate is pooled per class over ALT and mixed sites (#325, V12 label fix)."""
     alt = variants[variants["call"] == "ALT"]
     h, c = int((alt["confidence"] == "high").sum()), int((alt["confidence"] == "candidate").sum())
     rates = [r for r in (class_error_value(v) for v in alt["class_error_rate"]) if r is not None]
-    rng = f"{min(rates):g}{EN_DASH}{max(rates):g}" if rates else "unestimated"
-    return f"{h} high-confidence and {c} candidate ALT sites (class error {rng})"
+    lo, hi = (base.sig(min(rates)), base.sig(max(rates))) if rates else ("", "")
+    rng = "unestimated" if not rates else lo if lo == hi else f"{lo}{EN_DASH}{hi}"
+    if _has_one(variants):
+        rng += DEGENERATE_MARK
+    pooled = f", {POOLED}" if rates else ""
+    return f"{h} high-confidence and {c} candidate ALT sites (class error {rng}{pooled})"
 
 
 def _draw_a(ax: Axes, rows: Sequence[Mapping[str, object]]) -> None:
@@ -250,14 +277,20 @@ def _header(r: Mapping[str, object]) -> str:
         return "NA" if _na(v) else str(v)
 
     rate = class_error_value(r["class_error_rate"])
-    shown = cell("class_error_rate")
+    if rate is None:
+        error = f"class error {cell('class_error_rate')}"
+    else:
+        mark = DEGENERATE_MARK if rate == 1 else ""
+        n = r.get("class_error_n")
+        reads = "NA" if _na(n) else f"{n}"
+        error = f"class error {base.sig(rate)}{mark} (pooled, class of {reads} paired reads)"
     if _na(r["gene"]) or _na(r["aa_pos"]):
         where = f"{cell('contig')}:{cell('codon_start')} ({cell('strand')})  no gene (aa NA)"
     else:
         where = f"{r['gene']} aa {r['aa_pos']}"
     return (f"{where}  {cell('ref_aa')}→{cell('alt_aa')}  {cell('alt_type')}  "
             f"{cell('confidence')}  n_alt {cell('n_alt')} / n_ref {cell('n_ref')}  "
-            f"class error {shown if rate is None else f'{rate:g}'}")  # fmt: skip
+            f"{error}")  # fmt: skip
 
 
 def _best(cov: Mapping[str, int]) -> str:
@@ -271,7 +304,7 @@ def _best(cov: Mapping[str, int]) -> str:
 
 
 def _draw_b(ax: Axes, rows: Sequence[Mapping[str, object]], peps: Sequence[Mapping[str, int]],
-            windows: Mapping[str, tuple[int, str]]) -> None:  # fmt: skip
+            windows: Mapping[str, tuple[int, str]], footnote: bool = False) -> None:  # fmt: skip
     ax.set_axis_off()
     ax.set_title("(b) peptides at the top ALT sites", loc="left")
     lines = _Lines(ax)
@@ -304,6 +337,8 @@ def _draw_b(ax: Axes, rows: Sequence[Mapping[str, object]], peps: Sequence[Mappi
             lines.put(col + len(left), pep[k : k + la], color=ALT_COLOUR, fontweight="bold")
             lines.put(col + len(left) + la, right + count)
         lines.next(1.4)
+    if footnote:
+        lines.put(0, DEGENERATE_NOTE, color="#555555")
 
 
 @base.plot("V12", "variants", needs=("variants",), optional=("peptide_hits",))
@@ -317,14 +352,15 @@ def variants(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.Skip:
     rows_a = panel_a(table)
     rows_b, peps = panel_b(view, table)
     refs = [r["ref_window"] is not None and r["alt_type"] not in UNALIGNED for r in rows_b]
-    h_a, h_b = 1.9, (sum(2.4 + ref for ref in refs) + 1.5) * LINE_PT / 72 + 0.15
+    footnote = _has_one(table)
+    h_a, h_b = 1.9, (sum(2.4 + ref for ref in refs) + 1.5 + footnote) * LINE_PT / 72 + 0.15
     height = h_a + h_b + 0.35
     fig = style.new_figure("double", height)
     fig.set_label("V12_variants")
     ax_a = fig.add_axes((0.08, (h_b + 0.6) / height, 0.7, (h_a - 0.9) / height), label="a")
     ax_b = fig.add_axes((0.03, 0.1 / height, 0.94, h_b / height), label="b")
     _draw_a(ax_a, rows_a)
-    _draw_b(ax_b, rows_b, peps, _windows(view))
+    _draw_b(ax_b, rows_b, peps, _windows(view), footnote)
     if not rows_b:
         ax_b.text(0.0, 0.9, "no ALT site", transform=ax_b.transAxes, color="#555555")
     text = title(table)
