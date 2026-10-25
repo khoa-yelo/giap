@@ -363,6 +363,11 @@ def build_strain_db(opts: MakedbOptions) -> MakedbResult:
             seq = "M" + translate11_text(nt[3:])
             if _attr(f.attributes, "Note") == "cterm_extension":
                 k = _readthrough_residue(gm, tag, iv, rid)
+                if seq[k : k + 1] != "*":
+                    raise ValueError(
+                        f"{opts.patch}: patch CDS {rid}: residue {k} at the end of {tag} is "
+                        f"{seq[k : k + 1]!r}, not a stop; cterm_extension needs a stop codon"
+                    )
                 seq = seq[:k] + "X" + seq[k + 1 :]
             seq = seq.removesuffix("*")
             if "*" in seq:

@@ -9,6 +9,7 @@ keep their positions). Everything here is pure and deterministic; nothing draws 
 
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
@@ -167,6 +168,8 @@ def consumed_sites(
     by: dict[tuple[str, str], list[StopSite]] = {}
     for s in sorted(sites, key=lambda s: s.codon_start):
         by.setdefault((s.contig, s.strand), []).append(s)
+    # starts flattened once per (contig, strand), so each row bisects instead of scanning
+    starts = {k: [s.codon_start for s in v] for k, v in by.items()}
     blocks = rows["blocks"] if "blocks" in rows.columns else [None] * len(rows)
     out: list[tuple[StopSite, ...]] = []
     for search, contig, strand, a, b, blk in zip(
@@ -178,20 +181,19 @@ def consumed_sites(
         blocks,
         strict=True,
     ):
-        cand = by.get((str(contig), str(strand)), [])
+        key = (str(contig), str(strand))
+        cand = by.get(key, [])
         if search != "target" or (isinstance(blk, str) and blk) or not cand:
             out.append(())
             continue
+        xs = starts[key]
         a, b, n = int(a), int(b), int(lengths[str(contig)])
         shifts = (0, n) if circular.get(str(contig), False) else (0,)
-        out.append(
-            tuple(
-                s
-                for s in cand
-                if any(
-                    a <= x and x + 3 <= b and (x - a) % 3 == 0
-                    for x in (s.codon_start + d for d in shifts)
-                )
-            )
-        )
+        hits: set[int] = set()
+        for d in shifts:
+            # x = codon_start + d with a <= x and x + 3 <= b
+            lo = bisect_left(xs, a - d)
+            hi = bisect_right(xs, b - 3 - d)
+            hits.update(k for k in range(lo, hi) if (xs[k] + d - a) % 3 == 0)
+        out.append(tuple(cand[k] for k in sorted(hits)))
     return out
