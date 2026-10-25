@@ -1,11 +1,11 @@
 """``denovo_pilot.sbatch cascadia`` with ``A3_OUT_DIR`` (M10-10a criterion 4, deliverable 1).
 
-Spec: docs/specs/M10-10-a3-run.md, deliverable 1 and "Submission": ``RUN=WT_k
+Spec: docs/specs/M10-10-a3-run.md, deliverable 1 and "Submission": ``A3_RUN=WT_k
 A3_OUT_DIR=$GIAP_ROOT/pilot/A3 denovo_pilot.sbatch cascadia`` writes under
 ``$A3_OUT_DIR/<RUN>/<RUN>``; unset, M10-08's ``$GIAP_ROOT/pilot/A3_cascadia/<RUN>/<RUN>`` holds,
 and M10-08's WT_1 smoke output is never touched by an M10-10 run.
 
-The Cascadia branch itself (``RUN``, the asset sha256 checks, ``cascadia_offline.py … -o …``) is
+The Cascadia branch itself (``A3_RUN``, the asset sha256 checks, ``cascadia_offline.py … -o …``) is
 M10-08b's deliverable 8; these tests drive it in the M10-08 ``a3_sandbox`` with ``micromamba``,
 ``nvidia-smi`` and a stub ``giap-cascadia`` env (stub ``cascadia``, ``torch.cuda.is_available()``
 true) and read the ``-o`` argument from the fake ``micromamba``'s call log. No GPU, no Cascadia.
@@ -28,6 +28,21 @@ echo "NVIDIA L40S, 46068 MiB"
 
 _TORCH = "class cuda:\n    @staticmethod\n    def is_available():\n        return True\n"
 
+# Appended to the stub ``cascadia/cascadia.py``: write ``<-o>.ssl`` (header only), as M10-08's
+# ``_ready`` does, so a finished run has its output.
+_SSL_WRITER = """
+
+_stub_main = main
+
+
+def main():
+    import sys
+    _stub_main()
+    a = sys.argv[1:]
+    with open(a[a.index("-o") + 1] + ".ssl", "w") as fh:
+        fh.write("file\\tscan\\tcharge\\tsequence\\tscore-type\\tscore\\tretention-time\\n")
+"""
+
 _CASCADIA_BIN = """#!{python}
 import sys
 if "--help" in sys.argv[1:]:
@@ -49,6 +64,8 @@ def _sandbox(tmp: Path) -> A3Sandbox:
     ).stdout.strip()  # fmt: skip
     (Path(site) / "torch").mkdir()
     (Path(site) / "torch" / "__init__.py").write_text(_TORCH)
+    with (Path(site) / "cascadia" / "cascadia.py").open("a") as fh:
+        fh.write(_SSL_WRITER)
     write_exe(
         env / "bin" / "cascadia", _CASCADIA_BIN.replace("{python}", str(env / "bin" / "python"))
     )
@@ -73,7 +90,7 @@ def _sandbox(tmp: Path) -> A3Sandbox:
         row("cascadia_weights", ckpt, "$GIAP_DB_DIR/cascadia/cascadia_0.0.7.ckpt"),
         row("unimod_table", unimod, "$GIAP_DB_DIR/cascadia/unimod_tables.xml"),
     ])  # fmt: skip
-    box.extra_env.update({"STUB_LOG": str(tmp / "stub_cascadia.json"), "RUN": "WT_1"})
+    box.extra_env.update({"STUB_LOG": str(tmp / "stub_cascadia.json"), "A3_RUN": "WT_1"})
     return box
 
 
@@ -102,7 +119,7 @@ def test_a3_out_dir_set_writes_under_it(box: A3Sandbox) -> None:
     a3 = box.root / "pilot" / "A3"
     res = box.run("denovo_pilot", "cascadia", A3_OUT_DIR=str(a3))
     outs = _o_arguments(box)
-    assert len(outs) == 1, f"one Cascadia call for RUN=WT_1, got {outs}\n{_msg(res)}"
+    assert len(outs) == 1, f"one Cascadia call for A3_RUN=WT_1, got {outs}\n{_msg(res)}"
     assert outs[0].startswith(f"{a3}/WT_1/WT_1"), outs[0]
     assert res.returncode == 0, _msg(res)
 
@@ -110,7 +127,7 @@ def test_a3_out_dir_set_writes_under_it(box: A3Sandbox) -> None:
 def test_a3_out_dir_unset_keeps_the_m10_08_default(box: A3Sandbox) -> None:
     res = box.run("denovo_pilot", "cascadia", unset=("A3_OUT_DIR",))
     outs = _o_arguments(box)
-    assert len(outs) == 1, f"one Cascadia call for RUN=WT_1, got {outs}\n{_msg(res)}"
+    assert len(outs) == 1, f"one Cascadia call for A3_RUN=WT_1, got {outs}\n{_msg(res)}"
     assert outs[0].startswith(f"{box.root}/pilot/A3_cascadia/WT_1/WT_1"), outs[0]
     assert res.returncode == 0, _msg(res)
 
@@ -132,7 +149,7 @@ def test_a3_out_dir_names_each_run(box: A3Sandbox, run: str) -> None:
     mzml = box.data / "mzml"
     shutil.copyfile(mzml / "WT_1.mzML", mzml / f"{run}.mzML")
     a3 = box.root / "pilot" / "A3"
-    res = box.run("denovo_pilot", "cascadia", A3_OUT_DIR=str(a3), RUN=run)
+    res = box.run("denovo_pilot", "cascadia", A3_OUT_DIR=str(a3), A3_RUN=run)
     outs = _o_arguments(box)
     assert len(outs) == 1, f"{outs}\n{_msg(res)}"
     assert outs[0].startswith(f"{a3}/{run}/{run}"), outs[0]

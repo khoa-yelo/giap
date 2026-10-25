@@ -371,7 +371,9 @@ def _compare_calls(box) -> list[list[str]]:  # type: ignore[no-untyped-def]
 def test_four_arguments_run_the_three_way_compare(job) -> None:  # type: ignore[no-untyped-def]
     box, a1, a2, a3, pass2 = job
     cmp = pass2 / "cmp_a1_a2_a3"
-    res = box.run(str(a1), str(a2), str(a3), str(cmp))
+    res = box.run(
+        str(a1), str(a2), str(a3), str(cmp), env={"GIAP_PYTHON": str(box.recording_python())}
+    )
     assert res.returncode == 0, res.stdout[-3000:] + res.stderr[-3000:]
     ev = pass2 / "evidence" / "compare3.json"
     assert ev.is_file(), "the evidence goes to $(dirname CMP)/evidence/compare3.json"
@@ -388,9 +390,10 @@ def test_four_arguments_run_the_three_way_compare(job) -> None:  # type: ignore[
 def test_three_arguments_keep_m10_04_behaviour(job) -> None:  # type: ignore[no-untyped-def]
     box, a1, a2, _, _ = job
     cmp = box.runs / "pass1" / "cmp_a1_a2"
-    res = box.run(str(a1), str(a2), str(cmp))
+    res = box.run(str(a1), str(a2), str(cmp), env={"GIAP_PYTHON": str(box.recording_python())})
     assert res.returncode == 0, res.stdout[-3000:] + res.stderr[-3000:]
     assert (box.runs / "pass1" / "evidence" / "compare.json").is_file()
+    assert _compare_calls(box), "the 3-argument form runs giap compare"
     assert not (box.runs / "pass1" / "evidence" / "compare3.json").exists()
     for c in _compare_calls(box):
         assert c[c.index("--labels") + 1] == "A1,A2"
