@@ -21,7 +21,8 @@ their own stream (``[seed, 7]``). Decision 21 (stream ``[seed, 8]``): each null 
 peptide becomes, with probability 1/2, the decoy row of its makedb entry (reversed peptide,
 ``rev_GIAPORF_…``, the same null score and mixture q / PEP); gene-level decoys are reversed
 products of annotated non-pseudo proteins (``rev_<locus_tag>``, ``n_decoy_rows`` of them).
-M7-11b decision 9: in this mode the search database is the makedb FASTA, so target rows name
+M7-11b decision 9: in this mode, and in ``decoys = "scored_null"`` mode whatever
+``wrong_source`` (MVP-04 step 5), the search database is the makedb FASTA, so target rows name
 makedb entries too: a wrong peptide's row its entry, a novel ORF's peptide the entry it lies in
 (``GIAPORF_…``), a peptide of a true protein upstream of its annotated start the gene's
 ``nterm_extension`` entry and any other peptide of an annotated protein its locus tag (makedb's
@@ -57,7 +58,7 @@ from __future__ import annotations
 import json
 import logging
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -244,15 +245,33 @@ def _slice(seq: str, s0: int, e0: int, strand: str) -> str:
 
 
 def expressed_proteins(
-    feats: Sequence[Feat], novel: Sequence[Sequence[Any]], seqs: dict[str, str]
+    feats: Sequence[Feat],
+    novel: Sequence[Sequence[Any]],
+    seqs: dict[str, str],
+    readthrough: Mapping[str, tuple[str, str]] | None = None,
 ) -> list[Protein]:
-    """Non-pseudo CDS and sORFs translated from the true start, then the novel ORFs."""
+    """Non-pseudo CDS and sORFs translated from the true start, then the novel ORFs.
+
+    ``readthrough`` (M7-16 rule 14) maps a locus tag to (residue read at the stop, extension
+    residues): that protein continues through its annotated stop to the next in-frame stop, and
+    its interval grows by the stop codon and the extension codons."""
     out = []
+    rt = readthrough or {}
     for f in feats:
         if f.kind not in ("cds", "sorf") or f.pseudo_reason or f.extra.get("pseudo"):
             continue
         s0, e0 = f.span()
         aa = translate_cds(codons_of(_slice(seqs[f.contig], s0, e0, f.strand)))
+        if f.locus in rt:
+            residue, ext = rt[f.locus]
+            aa += residue + ext
+            grow = 3 * len(ext)
+            if f.strand == "+":
+                e0 += grow
+            else:
+                s0 -= grow
+                if s0 < 0:  # the extension crosses the origin of a circular replicon
+                    s0, e0 = s0 + len(seqs[f.contig]), e0 + len(seqs[f.contig])
         out.append(Protein(f.locus, f.contig, s0, e0, f.strand, aa))
     for orf_id, _cls, contig, s1, e0, strand, aa in novel:
         out.append(Protein(str(orf_id), str(contig), int(s1) - 1, int(e0), str(strand), str(aa)))
@@ -521,8 +540,10 @@ def _wrong_peptides(
     prots: list[Protein],
     reference: Sequence[Feat],
     hay: str,
+    first: Sequence[tuple[str, str]] = (),
 ) -> list[tuple[str, str]]:
-    """``n`` distinct wrong peptides (peptide, source locus) absent from ``hay`` (I = L)."""
+    """``n`` distinct wrong peptides (peptide, source locus) absent from ``hay`` (I = L); with
+    ``other_strain``, those of ``first`` (M7-16 rule 20 C-terminal peptides) come first."""
     out: dict[str, str] = {}
     if n <= 0:
         return []
@@ -531,6 +552,9 @@ def _wrong_peptides(
         return pep not in out and _il(pep) not in hay
 
     if cfg.wrong_source == "other_strain":
+        for pep, loc in first:
+            if ok(pep) and len(out) < n:
+                out[pep] = loc
         pool = sorted(
             {
                 (pep, f.locus)
@@ -540,11 +564,11 @@ def _wrong_peptides(
             }
         )
         for i in rng.permutation(len(pool)).tolist():
+            if len(out) == n:
+                break
             pep, loc = pool[i]
             if ok(pep):
                 out[pep] = loc
-                if len(out) == n:
-                    break
         return list(out.items())
     usable = [p for p in prots if len(p.aa) >= cfg.digest_len[0]]
     tries = 0
@@ -930,6 +954,8 @@ def simulate_proteomics(
     topology: dict[str, str],
     reference: Sequence[Feat] | None = None,
     log_abundance: np.ndarray | None = None,
+    first_wrong: Sequence[tuple[str, str]] = (),
+    readthrough: Mapping[str, tuple[str, str]] | None = None,
 ) -> dict[str, Path]:
     """Write ``peptides.tsv``, ``proteins.faa``, ``abundance.tsv`` and ``truth/peptides.tsv``.
 
@@ -939,7 +965,7 @@ def simulate_proteomics(
     if cfg.wrong_source == "other_strain" and reference is None:
         raise ValueError("wrong_source='other_strain' needs SimConfig.strain")
     rng = np.random.default_rng([seed, _STREAM])
-    prots = expressed_proteins(feats, novel, seqs)
+    prots = expressed_proteins(feats, novel, seqs, readthrough)
     if log_abundance is None:
         la = gene_log_abundance(rng, len(prots))
     else:
@@ -947,7 +973,8 @@ def simulate_proteomics(
         if la.shape != (len(prots),):
             raise ValueError(f"log_abundance has shape {la.shape}, expected ({len(prots)},)")
     detected, occ, first = _detect(cfg, rng, prots, la)
-    six = cfg.wrong_source == "sixframe_noncoding"
+    # makedb target IDs (decision 9): six-frame wrong peptides, or the scored_null search
+    six = cfg.wrong_source == "sixframe_noncoding" or cfg.decoys == "scored_null"
     orfs = OrfEntries(feats, seqs, topology) if six else None
     novel_ids = {str(r[0]) for r in novel}
     # codons of a true protein upstream of its annotated start (N-terminal extensions)
@@ -955,12 +982,12 @@ def simulate_proteomics(
                 // 3 for f in feats if f.kind in ("cds", "sorf")}  # fmt: skip
 
     def db_id(pep: str, k: int, a: int) -> str | None:
-        """The protein ID a search reports for occurrence ``(k, a)``. In six-frame mode
-        (decision 9) a novel ORF's peptide names its makedb entry, and an annotated protein's
-        peptide reaching upstream of the annotated start names the gene's ``nterm_extension``
-        entry (either None when makedb has no such entry: the occurrence is not in the search
-        database); any other peptide of an annotated protein names its locus tag, makedb's
-        ``db_id``."""
+        """The protein ID a search reports for occurrence ``(k, a)``. In six-frame and
+        scored_null mode (decision 9) a novel ORF's peptide names its makedb entry, and an
+        annotated protein's peptide reaching upstream of the annotated start names the
+        gene's ``nterm_extension`` entry (either None when makedb has no such entry: the
+        occurrence is not in the search database); any other peptide of an annotated protein
+        names its locus tag, makedb's ``db_id``."""
         p = prots[k]
         if orfs is None or (p.locus not in novel_ids and a >= upstream.get(p.locus, 0)):
             return p.locus
@@ -977,7 +1004,7 @@ def simulate_proteomics(
     n_wrong = round(len(detected) * pi / (1 - pi))
     xrng = np.random.default_rng([seed, _SIXFRAME_STREAM])  # six-frame draws (M7-12)
     scored = cfg.decoys == "scored_null"
-    six = six and not scored  # orfs (makedb target IDs) follows wrong_source alone
+    six = six and not scored  # the six-frame wrong-peptide draw follows wrong_source alone
     pool: SixframePool | None = None
     loci: dict[str, Locus] = {}
     entry: dict[str, str] = {}  # six-frame wrong peptide -> makedb entry db_id (target + decoy)
@@ -1002,7 +1029,9 @@ def simulate_proteomics(
         loci = {loc[0]: loc for loc in drawn}
         wrong = [(w, f"sixframe:{c}:{a}-{b}:{st}") for w, c, a, b, st in loci.values()]
     else:
-        wrong = _wrong_peptides(cfg, rng, n_wrong, prots, reference or (), hay)
+        if cfg.wrong_source == "other_strain" and n_wrong < len(first_wrong):
+            raise ValueError(f"{n_wrong} wrong-peptide slots for {len(first_wrong)} stop-losses")
+        wrong = _wrong_peptides(cfg, rng, n_wrong, prots, reference or (), hay, first_wrong)
     # PEP and q follow the wrong share actually produced (spec M3-19, review decision 1)
     n_all = len(detected) + len(wrong)
     pi_realised = len(wrong) / n_all if n_all else 0.0

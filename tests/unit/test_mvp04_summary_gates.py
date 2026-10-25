@@ -35,8 +35,9 @@ with ``is_wrong = false`` (decision 11). Per gate (extra keys in brackets):
    ``steps[*].status = failed`` [``run_status``, ``failed_steps``]. Missing manifest: fail.
 2. value = the one ``detection_tier`` of ``genes.tsv`` (``"mixed"`` if several); expected and gate
    ``decoy_picked`` and no ``FORBIDDEN_WARNINGS`` token found [``warnings_found``, sorted]. A token
-   is found when it is a substring of a manifest ``flags``/``warnings`` entry or of a line of
-   ``logs/events.jsonl``; ``q_floor_above_alpha`` is also found when the tier ``q_floor`` > ALPHA.
+   is found when it occurs as a whole token (not inside ``class_<token>``) in a manifest
+   ``flags``/``warnings`` entry or a line of ``logs/events.jsonl``; ``q_floor_above_alpha`` is also
+   found when the tier ``q_floor`` > ALPHA.
 3. value = tier row ``decoy_paired_share`` (the run's tier); gate >= 0.8; expected [0.98, 1].
 4. value = T = round(1 / tier ``q_floor``) [``q_floor``]; gate q_floor <= 1/110; expected
    [2300, 3100]. NA q_floor: fail.

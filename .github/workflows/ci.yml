@@ -30,6 +30,8 @@ jobs:
       - run: python3 scripts/ci/check_no_rscript.py src
       - run: python3 scripts/ci/check_bash32.py
       - run: uv run --no-sync python scripts/write_config_schema.py --check
+      - run: uv run --no-sync python scripts/docs/gen_reference.py --check
+      - run: uv run --no-sync mkdocs build --strict --site-dir /tmp/site
 
   guards:
     if: github.event_name == 'pull_request'
@@ -43,8 +45,10 @@ jobs:
         run: python3 scripts/ci/check_protected.py origin/${{ github.base_ref }}
       - name: test/implementation roles (R2)
         run: python3 scripts/ci/check_roles.py origin/${{ github.base_ref }}
-      - name: R golden data carry a PROVENANCE.md update (M8-12)
+      - name: golden data carry a PROVENANCE.md update (M8-12, M8-12b)
         run: python3 scripts/ci/check_golden_provenance.py origin/${{ github.base_ref }}
+      - name: changelog fragment for code changes (§14.2, M11-12)
+        run: python3 scripts/ci/check_changelog.py origin/${{ github.base_ref }}
       - name: unique test module names
         run: python3 scripts/ci/check_test_names.py
       - name: PR size (code only, ADR-0007, ADR-0016)
@@ -52,7 +56,7 @@ jobs:
           # Only code counts toward the gate; tests (incl. workflow/tests, ADR-0016), docs, specs, ADRs,
           # locks and fixtures are reported.
           lines=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- src workflow scripts \
-                  ':!workflow/tests' | awk '{s+=$1+$2} END {print s+0}')
+                  ':!workflow/tests' ':!workflow/envs/locks' | awk '{s+=$1+$2} END {print s+0}')
           other=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- . ':!src' ':!workflow' ':!scripts' \
                   | awk '{s+=$1+$2} END {print s+0}')
           nftests=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- workflow/tests \
@@ -87,6 +91,19 @@ jobs:
                                | grep -vE '^tests/(calibration|integration|e2e)/')
           uv run --no-sync pytest -n auto -m "not slow and not calibration and not calibration_full and not e2e" \
             --junitxml=junit.xml "${files[@]}" || [ $? -eq 5 ]   # 5: no test selected in this shard
+
+  # Plot snapshots (M9-25, index decision 22): pixel comparison against tests/snapshot/baseline on
+  # this one leg only; every other leg renders the figures without comparing them.
+  snapshot:
+    runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras
+      - name: snapshot tests with pixel comparison (RMS <= 2, 100 dpi)
+        run: uv run --no-sync pytest tests/snapshot --mpl -n auto
 
   # Python 3.11 and macOS 3.12 (§12's matrix) run after the merge, on pushes to main only.
   test-compat:
@@ -125,11 +142,59 @@ jobs:
           if ! ls workflow/tests/*.nf.test >/dev/null 2>&1; then echo "no nf-test suites yet"; exit 0; fi
           curl -fsSL https://get.nextflow.io | bash && sudo mv nextflow /usr/local/bin/
           curl -fsSL https://get.nf-test.com | bash -s 0.9.5 && sudo mv nf-test /usr/local/bin/
-          nf-test test workflow/tests --profile test,stub
+          # docker_smoke.nf.test runs real tools in containers (docker-smoke.yml): not a stub suite
+          nf-test test $(find workflow/tests -name '*.nf.test' ! -name docker_smoke.nf.test | sort) --profile test,stub
+
+  # M11-01: build the wheel and sdist, check them, install the wheel in a clean venv and smoke it
+  # from /tmp, so nothing resolves through the checkout (an installed `giap run` finds its workflow).
+  package:
+    needs: lint
+    runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: build and check the artefacts
+        run: |
+          uv build
+          python3 scripts/release/check_dist.py dist
+      - name: install the wheel in a clean venv outside the checkout
+        run: |
+          uv venv /tmp/pkg --python 3.12
+          VIRTUAL_ENV=/tmp/pkg uv pip install dist/*.whl
+          curl -fsSL https://get.nextflow.io | bash && sudo mv nextflow /usr/local/bin/
+      - name: smoke the installed package
+        working-directory: /tmp
+        env:
+          REPO: ${{ github.workspace }}
+          GIAP_DB_DIR: /tmp/giap-db-none
+        run: |
+          set -euo pipefail
+          export PATH=/tmp/pkg/bin:$PATH
+          giap --version
+          giap version --json
+          giap preflight --genome "$REPO/tests/data/genomes/sim100k.fna.gz" \
+            --proteins "$REPO/tests/data/recorded/makedb/sim100k_plasmid_1.bakta.faa" \
+            --outdir /tmp/pkg-preflight
+          wf=$(python -c '
+          from pathlib import Path; import site
+          from giap.runner.nextflow import workflow_main
+          m = workflow_main(); sp = Path(site.getsitepackages()[0]).resolve()
+          assert m.is_file() and m.parent == sp / "giap/workflow", (m, sp)
+          assert "site-packages/giap/workflow" in m.as_posix(), m
+          print(m.parent)')
+          test -x "$wf/bin/giap_fgsea.R" && test -x "$wf/assets/ps/ps"
+          nextflow config "$wf" -profile test,stub > /dev/null
+          nextflow config "$wf" -profile farmshare,apptainer > /dev/null
 
   summary:
     if: always() && github.event_name == 'pull_request'
-    needs: [lint, guards, test, nf-test-stub]
+    needs: [lint, guards, test, snapshot, nf-test-stub, package]
     runs-on: ubuntu-latest
     steps:
       - name: post result summary as a PR comment (§3.10)
@@ -142,5 +207,7 @@ jobs:
           | lint | ${{ needs.lint.result }} |
           | guards | ${{ needs.guards.result }} |
           | tests | ${{ needs.test.result }} |
-          | nf-test stub | ${{ needs.nf-test-stub.result }} |"
+          | snapshot | ${{ needs.snapshot.result }} |
+          | nf-test stub | ${{ needs.nf-test-stub.result }} |
+          | package | ${{ needs.package.result }} |"
           gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body "$body"

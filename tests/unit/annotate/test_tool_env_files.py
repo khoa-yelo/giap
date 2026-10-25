@@ -11,7 +11,7 @@ import yaml
 REPO = Path(__file__).resolve().parents[3]
 ENVS = REPO / "workflow" / "envs"
 CONTAINERS = REPO / "workflow" / "conf" / "containers.config"
-DIGEST = re.compile(r"^docker://[^@\s]+@sha256:[0-9a-f]{64}$")
+DIGEST = re.compile(r"^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$")
 HEX64 = "a" * 64
 
 EXPECTED_ENVS = {
@@ -165,8 +165,13 @@ def test_env_name_must_match_stem(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- the committed env files
 
 
+# M10-08: pilot-only envs (giap.annotate.tools.PILOT_TOOLS), not pipeline tools; their own
+# rules (conda-forge only, version ranges) are tested in tests/unit/test_m10_08_registry.py.
+PILOT_ENVS = {"cascadia", "timsconvert"}
+
+
 def test_all_env_files_present() -> None:
-    assert {p.stem for p in _env_files()} == EXPECTED_ENVS
+    assert {p.stem for p in _env_files()} - PILOT_ENVS == EXPECTED_ENVS
 
 
 @pytest.mark.parametrize("stem", sorted(EXPECTED_ENVS))
@@ -280,8 +285,8 @@ def test_containers_config_named_images() -> None:
     from giap.annotate.tools import read_containers_config
 
     refs = list(read_containers_config(CONTAINERS).values())
-    assert any(r.startswith("docker://oschwengers/bakta@") for r in refs)
-    assert any(r.startswith("docker://antismash/standalone@") for r in refs)
+    assert any(r.startswith("oschwengers/bakta@") for r in refs)
+    assert any(r.startswith("antismash/standalone@") for r in refs)
 
 
 def _norm(s: str) -> str:

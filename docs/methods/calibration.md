@@ -106,11 +106,34 @@ of exact U(0, 1) p at R = 1,000 gave 0 confirmed `fail` in 600 checks (expected 
 `unconfirmed` (5 / 8 / 11 at α = 0.01 / 0.05 / 0.10; expected ≈ 5–6 each, within the 99.9 %
 binomial band). Oracle BH at FDR = 1.5 q is a confirmed `fail` at every q, fast and full.
 
-**Sharded runs.** `--shard K/N` sets `GIAP_CALIBRATION_REPLICATES`; `calibrate()` then runs only
-that range of block 1 and logs a `shard` record with the per-replicate values. `--merge` puts the
-full R back together (refusing gaps or conflicting duplicates), evaluates block 1, and runs block 2
-itself for every failing check. It never reports `fail` from block 1 alone. The merged verdict
-equals the unsharded one (tested).
+**Sharded runs.** `--shard K/N` (N up to 10) sets `GIAP_CALIBRATION_REPLICATES=start:stop@K/N`.
+`calibrate()` then runs `shard_replicates(R, N, K)` of every check's own R, so a check whose R is
+not the suite's R is sharded too. It runs that range of block 1 and logs a `shard` record with the
+per-replicate values; an empty range (R < N) logs nothing. `--merge` puts the full R back together
+(refusing gaps or conflicting duplicates), evaluates block 1, and runs block 2 itself for every
+failing check. It never reports `fail` from block 1 alone. The merged verdict, the deciding block
+and the pooled rate equal the unsharded ones. This is tested with Hypothesis for N ≤ 10, and end to
+end on a fixture suite with 3 shards + `--merge` (`test_criteria_shard_equivalence.py`). A shard
+audit of all 15 fast-tier suites found the same check set and the same records sharded and
+unsharded.
+
+Tests in a shard:
+- A test logs its checks and skips (`skip_without_verdict`, `SHARD_SKIP`).
+- Its *direct* parts run where `owns_direct_checks()` holds, which is unsharded or shard 0 of
+  block 1. Direct parts are assertions or records over every replicate, fixed fits, and recorded
+  quartiles.
+- `tests/calibration/conftest.py` applies this to whole tests:
+  - a test with no harness check and no `replicate_range` runs in shard 0 only;
+  - a teeth test (`teeth_log`) runs in shard 0 only;
+  - a test marked `calibration_unshardable` runs whole and unsharded in shard 0, and its full
+    records reach `--merge`;
+  - a direct test over `replicate_range` (G2, A6a) checks its own range in every shard.
+- An xfail test cannot XPASS on no-verdict records: the XPASS becomes a skip.
+- `--merge` judges each test with an xfail mark as pytest would (ADR-0057).
+
+A suite without harness checks merges once every shard has logged its completion
+(`<suite>.shards.jsonl`). `scripts/slurm/calibration_sharded.sh SUITE N [extra]` submits the N
+shards and a dependent `--merge` job with one shared log directory.
 
 **Scope.** ADR-0015 and sharding apply only to checks that go through `calibrate()`. Suites that
 still call `run_replicates` / `check_*` directly (today all suites, including the M4-05 engine

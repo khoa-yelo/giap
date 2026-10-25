@@ -184,7 +184,7 @@ def test_two_block_confirmed_false_alarm_matches_theory(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("full", MODES)
-def test_two_block_confirms_bh_at_one_and_a_half_q(full: bool, tmp_path: Path) -> None:
+def test_two_block_confirms_bh_at_one_and_a_half_q(full: bool, teeth_log: Path) -> None:
     """Confirmation must not rescue an anti-conservative procedure: oracle BH at FDR = 1.5 q is a
     confirmed ``fail`` at every q, and BH at FDR = q is never a confirmed ``fail``."""
     levels = C.load_tolerances().levels
@@ -199,7 +199,7 @@ def test_two_block_confirms_bh_at_one_and_a_half_q(full: bool, tmp_path: Path) -
                 lambda g, rep=rep, j=j: rep(g)[j],
                 r,
                 stream=f"gene_fdr.attack_harness_adr15_{kind}",
-                log_dir=tmp_path,
+                log_dir=teeth_log,  # teeth: unsharded in shard 0 (conftest), private log
             )
             if kind == "inflated":
                 assert rec["status"] == "fail", rec

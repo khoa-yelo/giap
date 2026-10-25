@@ -36,7 +36,7 @@ workflow MAPPING {
     def prot = kv('proteins_long', proteins_long)
     def gm = [kv('genes', annotation.map { a -> a[0] }), kv('features', annotation.map { a -> a[1] }), kv('replicons', annotation.map { a -> a[2] })]
 
-    def si = stepIn('sixframe_index', [g, pep, gm[2]])
+    def si = stepIn('sixframe_index', [g, pep, gm[2], gm[0]])
     SIXFRAME_INDEX(si.files, si.keys, ['sixframe=sixframe.npz'])
     def six = kv('sixframe', pick(SIXFRAME_INDEX.out.outputs, 'sixframe.npz'))
 
@@ -63,7 +63,7 @@ workflow MAPPING {
     TBLASTN(channel.value('genome'), genome, pick(PROTEIN_LEFTOVERS.out.outputs, 'proteins.leftover.faa'))
     def tb = kv('tblastn_tsv', TBLASTN.out.hits)
 
-    def lc = stepIn('loci', [g, pep, hx, ht, prot, mp, tb, kv('contaminants', contaminants)] + gm + placed)
+    def lc = stepIn('loci', [g, pep, six, hx, ht, prot, mp, tb, kv('contaminants', contaminants)] + gm + placed)
     LOCI(lc.files, lc.keys, workflow.stubRun ? lociSpec() : ['mapping=mapping'])
 
     def ch_versions = SIXFRAME_INDEX.out.versions.mix(MAP_EXACT.out.versions, MAP_TOLERANT.out.versions,

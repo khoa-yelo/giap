@@ -35,7 +35,7 @@ from giap.context.islands import islands_frame, scan_with_nulls, tu_series
 from giap.context.oriter import oriter_rows
 from giap.context.regions import RegionNull, region_tests, replicon_index
 from giap.context.regions_table import depth_gaps, plasmid_rows, regions_stats, subset_rows
-from giap.context.summary import basic_rows, detection_summary, qc_rows
+from giap.context.summary import basic_rows, detection_summary, placement_kind_rows, qc_rows
 from giap.context.support import null_islands, null_regions, null_regions_grid
 from giap.context.tables import (
     GENE_CONTEXT_COLUMNS,
@@ -122,7 +122,8 @@ def _context_stats(
                                                                seed)),
              qc_rows(m4.peptides, m4.peptide_hits, m4.unmapped,
                      stratum0=None if s0 is None else pd.read_parquet(s0),
-                     id_mixups=None if vqc is None else _id_mixups(vqc))]  # fmt: skip
+                     id_mixups=None if vqc is None else _id_mixups(vqc)),
+             placement_kind_rows(m4.peptide_hits, m4.unmapped)]  # fmt: skip
     if "tier_summary" in inputs:  # M4-12 tier counts and q-threshold curve (decision 3)
         parts.append(pd.read_parquet(inputs["tier_summary"]))
     if "detectability_summary" in inputs:  # M4-15 detectability diagnostics rows

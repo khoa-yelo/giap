@@ -40,7 +40,21 @@ from giap.mapping.miniprot import ProteinAlignment, parse_miniprot_gff
 from giap.mapping.outputs import write_mapping_outputs
 from giap.mapping.placement_fdr import PREFILTERED_FLAG, best_costs, placement_tables
 from giap.mapping.protein_assign import PROTEIN_HITS_COLUMNS, assign_alignments
-from giap.mapping.sixframe import Frame, SixFrameIndex, build_sixframe, load_index, save_index
+from giap.mapping.readthrough import (
+    StopCells,
+    annotated_stops,
+    consumed_sites,
+    frame_cells,
+    mirror_cells,
+)
+from giap.mapping.sixframe import (
+    Frame,
+    SixFrameIndex,
+    build_sixframe,
+    load_index,
+    load_stop_cells,
+    save_index,
+)
 from giap.mapping.tblastn import merge_hsps, parse_tblastn
 from giap.mapping.tolerant import match_tolerant
 from giap.model.coords import Interval, Replicon
@@ -228,21 +242,39 @@ def _hits(ctx: StepContext, *keys: str) -> pd.DataFrame:
 # ---------------------------------------------------------------- peptide steps
 
 
-@step("sixframe_index", inputs=["genome", "replicons", "peptides"], outputs=["sixframe"])
+@step("sixframe_index", inputs=["genome", "replicons", "peptides", "genes"], outputs=["sixframe"])
 def sixframe_index(ctx: StepContext) -> None:
-    """Six-frame translation plus the decoy frames the queries' sources need (§7.2.1)."""
+    """Six-frame translation, the decoy frames the queries' sources need (§7.2.1) and the
+    consumable annotated stop cells of the target and each decoy type (ADR-0058, format 2)."""
     reps = _replicons(ctx)
-    index = build_sixframe(_genome(_path(ctx.inputs["genome"])), reps)
+    genome = _genome(_path(ctx.inputs["genome"]))
+    index = build_sixframe(genome, reps)
     queries = _queries(ctx)
     kinds = sorted(set(decoy_types(queries, ctx.cfg).values()))
     if not kinds:
         kinds = [ctx.cfg.mapping.decoys.database_input]
     window = ctx.cfg.mapping.decoys.shuffle_window_aa
     decoys = {k: build_decoys(index, k, window, ctx.rng) for k in kinds}
-    save_index(ctx.outputs["sixframe"], index, decoys)
+    gm = read_gene_model(_path(ctx.inputs["genes"]), _path(ctx.inputs["replicons"]))
+    sites, n_not = annotated_stops(gm, genome)
+    target = frame_cells(index, sites)
+    dc = {k: mirror_cells(k, fr, target) for k, fr in decoys.items()}
+    save_index(ctx.outputs["sixframe"], index, decoys, StopCells(sites, target, dc))
     ctx.log.info(
         "sixframe_index: %d frames on %d contigs; decoys %s for %d queries",
         len(index.frames), len(reps), ",".join(kinds), len(queries),
+    )  # fmt: skip
+    n_cells = sum(len(c) for c in target)
+    data = {
+        "terminal": sum(s.kind == "terminal" for s in sites),
+        "recoded": sum(s.kind == "recoded" for s in sites),
+        "not_a_stop": n_not,
+        "cells_target": n_cells,
+        "cells_decoy": {k: sum(len(c) for c in v) for k, v in dc.items()},
+    }
+    ctx.log.info(
+        "sixframe_index: %d annotated stop sites (%d not a stop), %d target cells",
+        len(sites), n_not, n_cells, extra={"event": "mapping.stop_sites", "data": data},
     )  # fmt: skip
 
 
@@ -280,11 +312,13 @@ def map_tolerant(ctx: StepContext) -> None:
     left = set(peps) - set(exact.loc[exact["search"] == "target", "peptide"])
     parts: list[pd.DataFrame] = []
     if tcfg.enabled and peps:
-        index, decoys = load_index(_path(ctx.inputs["sixframe"]))
+        six = _path(ctx.inputs["sixframe"])
+        index, decoys = load_index(six)
+        cells = load_stop_cells(six)
         decoy_of = decoy_types(queries, ctx.cfg)
-        parts.append(match_tolerant(peps, index, decoys, decoy_of, left, tcfg))
+        parts.append(match_tolerant(peps, index, decoys, decoy_of, left, tcfg, cells=cells))
         if tcfg.frameshift.enabled:
-            parts.append(match_frameshift(peps, index, decoys, decoy_of, left, tcfg))
+            parts.append(match_frameshift(peps, index, decoys, decoy_of, left, tcfg, cells=cells))
     parts = [p for p in parts if len(p)]
     hits = pd.concat(parts, ignore_index=True) if parts else hits_frame()
     hits.to_parquet(ctx.outputs["hits_tolerant"], index=False)
@@ -493,7 +527,7 @@ def _peptide_rows(
         "placement", "mapping_fdr", "hits_exact", "hits_tolerant", "peptides", "genome",
         "genes", "features", "replicons",
     ],
-    optional_inputs=["proteins_long", "miniprot_gff", "tblastn_tsv", "contaminants"],
+    optional_inputs=["proteins_long", "miniprot_gff", "tblastn_tsv", "contaminants", "sixframe"],
     outputs=["mapping"],
 )  # fmt: skip
 def loci(ctx: StepContext) -> None:
@@ -505,10 +539,23 @@ def loci(ctx: StepContext) -> None:
     gpath = _path(ctx.inputs["genome"])
     genome = _genome(gpath)
     rows = _peptide_rows(_hits(ctx, "hits_exact", "hits_tolerant"), per, queries, cfg)
+    six = _opt(ctx, "sixframe")
+    consumed = None
+    if six is None:  # M7-16 rule 16: never guess the flag from geometry
+        ctx.log.warning(
+            "loci: no six-frame index; read-through rows are not flagged",
+            extra={"event": "mapping.readthrough_unchecked"},
+        )
+    else:
+        reps = gm.replicons
+        consumed = consumed_sites(
+            rows, load_stop_cells(six).sites, {c: r.length for c, r in reps.items()},
+            {c: r.topology == "circular" for c, r in reps.items()},
+        )  # fmt: skip
     pep_hits = annotate_peptide_hits(
         rows, gm, genome, queries, cfg.genome_relation,
         decoy_prefixes=cfg.input.decoy_prefixes,
-        contaminant_prefixes=cfg.input.contaminant_prefixes,
+        contaminant_prefixes=cfg.input.contaminant_prefixes, consumed=consumed,
     )  # fmt: skip
     prot_hits, state = _proteins(ctx, gm)
     lib = _opt(ctx, "contaminants")

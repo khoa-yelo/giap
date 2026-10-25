@@ -201,9 +201,16 @@ def medians(pairs: pd.DataFrame) -> dict[str, float]:
     }
 
 
-def title(meds: Mapping[str, float], k: int, alpha: float) -> str:
-    """Median |Δ| of OP and NO (``%.2g``) and the flag count; the "too few" form without one."""
-    flagged = f"{k} pairs flagged at q ≤ {alpha:g}"
+def title(meds: Mapping[str, float], k: int, alpha: float, n: int | None = None) -> str:
+    """Median |Δ| of OP and NO (``%.2g``) and the flag count; the "too few" form without one.
+
+    ``k`` counts the ``operon_flags.tsv`` rows with ``q ≤ alpha`` and ``n`` all its rows. When
+    some rows miss ``alpha`` (``n > k``) the clause names both, "0 of 1 candidate flags at
+    q ≤ 0.1", so a shown flag row with a large q is not read as a flagged pair."""
+    if n is not None and n > k:
+        flagged = f"{k} of {n} candidate flags at q ≤ {alpha:g}"
+    else:
+        flagged = f"{k} pairs flagged at q ≤ {alpha:g}"
     if any(math.isnan(meds.get(c, math.nan)) for c in ("OP", "NO")):
         return f"{flagged}; too few measured pairs for densities"
     return f"Median |Δ| OP {meds['OP']:.2g} vs NO {meds['NO']:.2g} log2; {flagged}"
@@ -315,6 +322,7 @@ def operon_pairs(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.S
     _panel_a(axes["a"], sub["a"], bins)
     _panel_b(axes["b"], sub["b"], alpha)
     _panel_c(axes["c"], sub["c"], alpha)
-    text = title(medians(pairs), k, alpha)
+    n = 0 if flags is None else len(flags)
+    text = title(medians(pairs), k, alpha, n)
     fig.suptitle(text, y=0.97)
     return [base.Instance(None, fig, data, text)]

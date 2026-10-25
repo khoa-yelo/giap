@@ -1,0 +1,54 @@
+// PR #298 review finding 1: a gzipped precomputed Bakta JSON (stub run of ANNOTATE through ../main.nf).
+// Same setup as annotate.nf.test "decision 8" (GBFF next to the JSON), with the gzipped fixtures in
+// data/annotate/with_gbff_gz/: bakta_like.JSON.GZ (gzip -n of with_gbff/bakta_like.json; upper-case
+// suffix pins the case-insensitive stem regex) and bakta_like.gbff.gz (gzip -n of
+// with_gbff/bakta_like.gbff; no plain bakta_like.gbff next to it, so this pins the .gbff.gz fallback).
+// Stub mode cannot exercise ANTISMASH's `gzip -dc`; only the staging is checked here.
+
+nextflow_pipeline {
+
+    name "ANNOTATE subworkflow (stub): precomputed bakta_json as .json.gz"
+    script "../main.nf"
+    options "-stub"
+    tag "annotate"
+
+    test("precomputed bakta_json .JSON.GZ with a .gbff.gz next to it: no BAKTA, ANTISMASH on the .gbff.gz") {
+
+        when {
+            params {
+                def d = "${moduleTestDir}/data/annotate"
+                outdir = "$outputDir"
+                inputs = [genome: "${d}/genome.fa".toString(), replicons: "${d}/replicons.tsv".toString()]
+                modules = ['core', 'mobile', 'bgc', 'function']
+                def ann = new groovy.json.JsonSlurper().parse(new File("${d}/annotation.json"))
+                ann.precomputed.bakta_json = new File("${d}/with_gbff_gz/bakta_like.JSON.GZ").canonicalPath
+                annotation = ann
+            }
+        }
+
+        then {
+            def H = new GroovyShell().evaluate(new File("${moduleTestDir}/lib/annotate_stub.groovy"))
+            def work = workDir.toString()
+            def json = new File("${moduleTestDir}/data/annotate/with_gbff_gz/bakta_like.JSON.GZ").canonicalPath
+            def gbff = new File("${moduleTestDir}/data/annotate/with_gbff_gz/bakta_like.gbff.gz").canonicalPath
+            assert workflow.success
+            assert H.count(workflow.trace, 'BAKTA') == 0 : "BAKTA ran despite precomputed.bakta_json: ${H.names(workflow.trace)}"
+            assert H.count(workflow.trace, 'ANTISMASH') == 1 : "ANTISMASH did not run once: ${H.names(workflow.trace)}"
+
+            def ad = H.procDirs(work, 'ANTISMASH')
+            assert ad.size() == 1
+            def sources = H.staged(ad[0]).collect { new File(it[0]).canonicalPath }
+            assert gbff in sources : "ANTISMASH did not stage ${gbff}; staged ${sources}"
+            assert !sources.any { it.endsWith('genome.fa') } : "ANTISMASH got the FASTA: ${sources}"
+
+            assert H.stepCount(workflow.trace, 'parse_bakta') == 1
+            def pb = H.stepDirs(work, 'parse_bakta')
+            assert pb.size() == 1
+            def bj = H.stepInputs(pb[0]).findAll { it[0] == 'bakta_json' }
+            assert bj.size() == 1 : "parse_bakta .giap_inputs has no single bakta_json entry: ${H.stepInputs(pb[0])}"
+            def given = new File(pb[0], bj[0][1])
+            assert given.name == 'bakta_like.JSON.GZ' : "parse_bakta bakta_json is ${bj[0][1]}"
+            assert given.canonicalPath == json : "parse_bakta bakta_json resolves to ${given.canonicalPath}, not ${json}"
+        }
+    }
+}

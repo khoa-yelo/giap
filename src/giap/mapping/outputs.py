@@ -261,7 +261,9 @@ def _fdr_sort_key(row: Row) -> tuple[Any, ...]:
 
 def _peptide_extra(r: Row) -> list[tuple[str, Any]]:
     keys = ("route", "n_diff", "diff_types", "placement_q", "locus_class", "uniqueness")
-    return [(k, r.get(k)) for k in (*keys, "gene", "flags")]
+    rt = r.get("readthrough_codon")  # M7-16 rule 16 work column: "p1[,p2]", 1-based
+    codons = None if _missing(rt) else str(rt).split(",")
+    return [(k, r.get(k)) for k in (*keys, "gene", "flags")] + [("readthrough_codon", codons)]
 
 
 def _protein_extra(r: Row) -> list[tuple[str, Any]]:

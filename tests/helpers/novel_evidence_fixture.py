@@ -52,11 +52,12 @@ ID1, ID6 = "NOVEL_c1_43_p", "NOVEL_c1_250_p"
 # §9.4 "Novel ORFs" first, then the milestone additions in the order of the novel_orfs schema
 # pattern (M7-06/07: no_start_codon, partial, ostir_missing; M7-09: rbs_threshold_unestimated,
 # junction_unknown; ADR-0012: promoter_supported, terminator_supported; ADR-0013:
-# readthrough_candidate).
+# readthrough_candidate; M7-17 / ADR-0050: denovo_only_unsupported).
 FLAG_ORDER: tuple[str, ...] = (
     "junction_spanned", "homopolymer_junction", "class_fdr_unestimated", "rbs_supported",
     "no_start_codon", "partial", "ostir_missing", "rbs_threshold_unestimated", "junction_unknown",
     "promoter_supported", "terminator_supported", "readthrough_candidate",
+    "denovo_only_unsupported",
 )  # fmt: skip
 TIRS_30 = [100.0 * k for k in range(1, 31)]  # spec examples: 10 % quantile = 390
 THRESHOLD_30 = 390.0
@@ -68,8 +69,14 @@ def ev() -> Any:
     return m
 
 
+# the threshold the M7-09 examples were written for, not the calibrated default (ADR-0022)
+_TERMINATORS = {"terminators": {"terminatornet_yes": 0.5}}
+
+
 def cfg(**novel: Any) -> GiapConfig:
-    return GiapConfig(seed=1, novel_orfs=novel) if novel else GiapConfig(seed=1)
+    if novel:
+        return GiapConfig(seed=1, novel_orfs=novel, annotation=_TERMINATORS)
+    return GiapConfig(seed=1, annotation=_TERMINATORS)
 
 
 def gene_table(

@@ -5,9 +5,10 @@ edge-case table, lead decisions 1-3).
 Hand-built ``HitAlignment``s on the genomes of ``helpers.nonstandard_genome`` go through
 ``eligible`` -> ``pileup`` -> ``sites``.
 
-Lead decision 1 supersedes the spec's readthrough rule: **every U and O is skipped as ``rare``**
-(also U over TGA and O over TAG), ``attrs["nonstandard"]`` has no ``readthrough_sites`` key and
-``eligible`` gets no keep-condition for ``ref == "*"``. Examples 7 and 8 are tested in that form.
+Lead decision 1 supersedes the spec's readthrough rule: U and O are skipped as ``rare``, and
+``attrs["nonstandard"]`` has no ``readthrough_sites`` key. M7-16 rule 11 narrows it: U over TGA
+and O over TAG are ALT pileup sites (``stop_codon;vcf_unrepresentable``), every other U/O stays
+``rare``. Examples 7 and 8 are tested in that form.
 
 Not statistical (counting rules): no calibration test is owed.
 """
@@ -189,10 +190,11 @@ def _stop_case(lay: Layout, letter: str, i: int = 2) -> tuple[Any, str]:
 
 @pytest.mark.parametrize(
     ("letter", "stop"),
-    [("U", "TGA"), ("O", "TAG"), ("O", "TGA"), ("U", "TAG"), ("U", "TAA"), ("O", "TAA")],
+    [("O", "TGA"), ("U", "TAG"), ("U", "TAA"), ("O", "TAA")],
 )
 def test_ex7_ex8_u_and_o_over_any_stop_are_rare_plus(letter: str, stop: str) -> None:
-    """Lead decision 1: no readthrough REF match; every U/O is skipped as rare."""
+    """Lead decision 1, narrowed by M7-16 rule 11: U/O over a stop they do not recode is skipped
+    as rare (U over TGA and O over TAG are ALTs: test_variants_readthrough.py)."""
     lay = linear(overrides={2: stop})
     assert lay.sequence()[6:9] == stop
     h, pep = _stop_case(lay, letter)
@@ -204,27 +206,30 @@ def test_ex7_ex8_u_and_o_over_any_stop_are_rare_plus(letter: str, stop: str) -> 
 
 
 @pytest.mark.parametrize("letter", ["U", "O"])
-def test_ex7_u_over_tga_is_rare_minus(letter: str) -> None:
+def test_ex7_u_over_tga_is_a_pileup_site_minus(letter: str) -> None:
+    """M7-16 rule 11: U over TGA and O over TAG are not skipped; the codon is a pileup site."""
     stop = "TGA" if letter == "U" else "TAG"
     lay = minus(overrides={2: stop})
     assert lay.key(2) == 127
-    h, pep = _stop_case(lay, letter)
+    h, _pep = _stop_case(lay, letter)
     pile, _ = run([h], lay)
-    assert ns(pile) == counts(1, 1, 1, {letter: 1}, rare=1, examples=[pep])
-    assert not has_row(pile, 127, "-", "c2")
+    assert ns(pile) == counts()
+    assert has_row(pile, 127, "-", "c2")
     assert has_row(pile, 130, "-", "c2") and has_row(pile, 124, "-", "c2")
 
 
 def test_ex7_u_over_tga_across_the_origin_wrapped_and_unwrapped_count_once() -> None:
+    """M7-16 rule 11: the site is a pileup row (not rare-skipped), counted once for both hits."""
     lay = origin(overrides={3: "TGA"})
     seq = lay.sequence()
     assert lay.codon(3) == 199 and seq[199] + seq[:2] == "TGA"
     pep = with_x(P, 3, "U")
     unwrapped, plain = hit(al, lay, pep), hit(al, lay, pep, shift=-lay.length)
     assert unwrapped.ops[3].ref == "*"
-    pile, sites = run([unwrapped, plain], lay)
-    assert ns(pile) == counts(1, 1, 1, {"U": 1}, rare=1, examples=[pep])
-    assert not has_row(pile, 199, "+", "c3") and len(sites) == 0
+    pile, _ = run([unwrapped, plain], lay)
+    assert ns(pile) == counts()
+    r = row(pile, 199, "+", "c3")
+    assert (r["ref_aa"], r["alt_counts"], r["call"]) == ("*", "U:1", "ALT")
 
 
 def test_x_across_the_origin_wrapped_and_unwrapped_count_once() -> None:

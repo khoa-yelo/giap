@@ -60,6 +60,9 @@ lines, + baseline images) · not statistical · **Khoa checkpoint (§14.8 item 3
 | 3 | rename a report section id | structure snapshot fails |
 | 4 | `pytest tests/snapshot` (no `--mpl`) on macOS | pass (figures render) |
 
+Amendment (lead, 2026-10-24): example 2 checks V01, V02 and V16; V03 colours genes by abundance
+and does not use `DETECTION["detected"]`.
+
 ## Acceptance criteria
 
 - [ ] Baselines for all 16 plots (V03 and V13 locus instances included) on the rich fixture and the

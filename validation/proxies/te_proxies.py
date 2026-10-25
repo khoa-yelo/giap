@@ -21,7 +21,7 @@ chain (``giap preflight`` normalisation, then the registered steps under the loc
 * **TE2** (``search_db = same``, M7-14): TE1's peptides through the chain up to the ``variants``
   step (M7-04). Pass: no ``variants.tsv`` row with ``confidence = high`` flagged neither
   ``start_codon`` nor ``stop_codon`` (the non-ATG starts appear as ALT ``M`` at GTG/TTG starts;
-  the selenocysteine sites stay unmapped until M7-16).
+  the selenocysteine sites read internal TGAs, not annotated stops, and stay unmapped; ADR-0058).
 
 Usage (writes ``validation/proxies/<YYYY-MM-DD>_te1.json`` / ``_te2.json`` / ``_te8.json`` by
 default)::
@@ -63,8 +63,8 @@ from giap.steps.mapping import select_queries
 TE1_MIN, TE8_K12_MIN, TE8_FDR_MAX = 0.999, 0.995, 0.01
 TE2_EXEMPT = frozenset({"start_codon", "stop_codon"})
 TE2_NO_STOP_NOTE = (
-    "no high stop_codon site: the selenocysteine (Sec, fdnG) peptides TE1 misses stay unmapped "
-    "until M7-16, so none is expected yet"
+    "no high stop_codon site: the selenocysteine (Sec, fdnG) peptides TE1 misses read an internal "
+    "TGA, not an annotated terminal stop, so M7-16 (ADR-0058 items 1-5) leaves them unmapped"
 )
 MAX_EXCEPTIONS = 50
 INFRAME = frozenset({"cds_inframe", "sorf"})
@@ -168,6 +168,7 @@ def te1_result(
     peptide_hits: pd.DataFrame,
     genes: Mapping[str, Interval],
     circular: Mapping[str, int | None],
+    max_exceptions: int | None = MAX_EXCEPTIONS,
 ) -> ProxyResult:
     """TE1 counts from the peptide sources, the non-ATG exclusions and ``peptide_hits.tsv``.
 
@@ -175,7 +176,8 @@ def te1_result(
     sorf at one of its own genes, or a higher-priority class (``rna_overlap``, ``pseudogene``,
     §7.2.6) on a locus that lies in frame inside one of its own genes; the latter are also
     counted as ``exact_inframe_masked`` (diagnostic). ``circular``: contig -> length when
-    circular, else None.
+    circular, else None. ``max_exceptions``: the cap on the exception rows (None: no cap; the
+    counts never depend on it).
     """
     good: set[str] = set()
     masked: set[str] = set()
@@ -226,7 +228,7 @@ def te1_result(
     }
     return ProxyResult(
         "TE1", counts, {"exact_inframe": share}, bool(denom) and share >= TE1_MIN,
-        _exceptions(rows),
+        rows[:max_exceptions],
     )  # fmt: skip
 
 

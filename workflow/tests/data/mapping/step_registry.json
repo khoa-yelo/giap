@@ -15,6 +15,7 @@
       "contaminants",
       "miniprot_gff",
       "proteins_long",
+      "sixframe",
       "tblastn_tsv"
     ],
     "outputs": [
@@ -77,6 +78,7 @@
   },
   "sixframe_index": {
     "inputs": [
+      "genes",
       "genome",
       "peptides",
       "replicons"

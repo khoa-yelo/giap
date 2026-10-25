@@ -49,6 +49,8 @@ ABSENT_TEXT = "detectability not available"
 NO_P_TEXT = "no p-values in this run"
 NO_NULL_TEXT = "null draws not available"
 OUTSIDE_METRIC = "n_outside_0_1"
+#: the one explanatory row of an input-free run (``panel`` NA, ``value`` = the panel texts)
+MESSAGE_METRIC = "empty_state"
 _MAX_AREA = 60.0  # pt², the marker area of the largest bin
 _GREY = OKABE_ITO["grey"]
 _TEXT = "#555555"
@@ -268,6 +270,11 @@ def stat_diagnostics(view: RunView, cfg: GiapConfig) -> list[Instance]:
         if n_out:
             b_rows.append(_row("b", table, family=family, metric=OUTSIDE_METRIC, value=n_out))
     null_rows = [r for m in nulls for r in null_panels.rows(m)]
-    cells = [[r.get(c) for c in COLUMNS] for r in [*a_rows, *b_rows, *null_rows]]
+    every = [*a_rows, *b_rows, *null_rows]
+    if not every:  # no input at all (decision 7): say why; a header-only TSV explains nothing
+        # empty a_rows means no overall row, so the state is "absent" (never "constant")
+        note = "; ".join((ABSENT_TEXT, NO_P_TEXT, NO_NULL_TEXT))
+        every = [{c: None for c in COLUMNS} | {"metric": MESSAGE_METRIC, "value": note}]
+    cells = [[r.get(c) for c in COLUMNS] for r in every]
     data = pd.DataFrame(cells, columns=list(COLUMNS), dtype=object)
     return [Instance(suffix=None, figure=fig, data=data, title=title)]

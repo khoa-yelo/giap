@@ -158,12 +158,17 @@ def test_dense_scored_null_gene_fdr(dense: Dense, full: bool) -> None:
             return _fdp(genes, t, d, true, q)
 
         statuses[q] = C.calibrate(SUITE, "fdr", q, fn, R, stream=stream)["status"]
-    assert "fail" not in statuses.values(), statuses
+    if not C.owns_direct_checks():  # non-vacuity is judged once, in shard 0, on block 1
+        C.skip_without_verdict([{"status": s} for s in statuses.values()])
     # non-vacuous: the null is dense enough that the cut binds (false genes exist to be cut)
-    reps = list(dense.memo.values())[:R]
+    for i in range(R):  # block 1 (a no-op unsharded: memoised)
+        dense.rep(C.replicate_rng(stream, i))
+    reps = [dense.memo[C.suite_seed(stream, i) % 2**31] for i in range(R)]
     n_null = np.mean([sum(g not in tr for g in gs) for gs, _, _, tr, _ in reps])
     n_true = np.mean([sum(g in tr for g in gs) for gs, _, _, tr, _ in reps])
     assert n_null >= 0.15 * n_true, (n_null, n_true)
+    C.skip_without_verdict([{"status": s} for s in statuses.values()])
+    assert "fail" not in statuses.values(), statuses
 
 
 @pytest.mark.calibration

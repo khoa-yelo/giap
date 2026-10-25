@@ -1,0 +1,319 @@
+{
+  "checks": [
+    {
+      "exit_code": 0,
+      "input": "inputs",
+      "level": "ok",
+      "message": "",
+      "rule": "--proteins required unless --peptides is given with usable rows → else error",
+      "rule_id": "inputs.evidence_present",
+      "value": {
+        "n_usable_peptides": 10474,
+        "peptides": true,
+        "proteins": false
+      }
+    },
+    {
+      "exit_code": 0,
+      "input": "inputs",
+      "level": "ok",
+      "message": "",
+      "rule": "bakta.json, GFF3 or GenBank by extension (optionally .gz) → else error; parsed in M2",
+      "rule_id": "inputs.annotation_kind",
+      "value": "reference_xrefs.json"
+    },
+    {
+      "exit_code": 0,
+      "input": "genome",
+      "level": "ok",
+      "message": "",
+      "rule": "≥ 1 record, IUPAC nucleotides only, no empty sequences → else error",
+      "rule_id": "genome.parse",
+      "value": 2
+    },
+    {
+      "exit_code": 0,
+      "input": "genome",
+      "level": "ok",
+      "message": "",
+      "rule": "first header tokens unique after safe-ID mapping → else error",
+      "rule_id": "genome.ids_unique",
+      "value": []
+    },
+    {
+      "exit_code": 0,
+      "input": "genome",
+      "level": "ok",
+      "message": "",
+      "rule": "IDs with characters outside [A-Za-z0-9._-] mapped to '_' → warn",
+      "rule_id": "genome.ids_renamed",
+      "value": []
+    },
+    {
+      "exit_code": 0,
+      "input": "genome",
+      "level": "ok",
+      "message": "",
+      "rule": "contig count > 10 → warn",
+      "rule_id": "genome.contig_count",
+      "value": 2
+    },
+    {
+      "exit_code": 0,
+      "input": "genome",
+      "level": "ok",
+      "message": "",
+      "rule": "total length < 100000 bp → warn",
+      "rule_id": "genome.total_length",
+      "value": 308000
+    },
+    {
+      "exit_code": 0,
+      "input": "genome",
+      "level": "warn",
+      "message": "",
+      "rule": "N50 < 100000 bp or largest contig < 1000000 bp → warn; median recorded",
+      "rule_id": "genome.contiguity",
+      "value": {
+        "largest": 300000,
+        "median": 154000,
+        "n50": 300000
+      }
+    },
+    {
+      "exit_code": 0,
+      "input": "genome",
+      "level": "ok",
+      "message": "",
+      "rule": "runs of ≥ 10 N or other IUPAC ambiguity codes → warn",
+      "rule_id": "genome.gaps",
+      "value": []
+    },
+    {
+      "exit_code": 0,
+      "input": "genome",
+      "level": "ok",
+      "message": "",
+      "rule": "GC outside 0.25-0.75 → warn",
+      "rule_id": "genome.gc",
+      "value": 0.481049
+    },
+    {
+      "exit_code": 0,
+      "input": "genome",
+      "level": "info",
+      "message": "",
+      "rule": "circular=true or [topology=circular] (or annotation.bakta.complete) → circular; Bakta replicon table",
+      "rule_id": "genome.topology",
+      "value": [
+        {
+          "id": "chr1",
+          "kind": "chromosome",
+          "length": 300000,
+          "topology": "circular"
+        },
+        {
+          "id": "plasmid_1",
+          "kind": "plasmid",
+          "length": 8000,
+          "topology": "circular"
+        }
+      ]
+    },
+    {
+      "exit_code": 0,
+      "input": "genome",
+      "level": "info",
+      "message": "",
+      "rule": "contigs < 500000 bp listed as putative plasmids or fragments → info",
+      "rule_id": "genome.small_replicons",
+      "value": [
+        "plasmid_1"
+      ]
+    },
+    {
+      "exit_code": 0,
+      "input": "peptides",
+      "level": "ok",
+      "message": "",
+      "rule": "required 'peptide' column; types and ranges of optional columns (§5.3) → else error",
+      "rule_id": "peptides.schema",
+      "value": []
+    },
+    {
+      "exit_code": 0,
+      "input": "peptides",
+      "level": "ok",
+      "message": "",
+      "rule": "non-letters after stripping or length outside input.peptide_len dropped; no target row with q_value ≤ input.q_value_max → warn; decoys without a ranking column → warn; decoy share reported",
+      "rule_id": "peptides.content",
+      "value": {
+        "decoy_share": 0.0,
+        "issues": [],
+        "n_dropped": 0,
+        "n_rows": 10474,
+        "q_max": null,
+        "q_min": null
+      }
+    },
+    {
+      "exit_code": 0,
+      "input": "peptides",
+      "level": "info",
+      "message": "",
+      "rule": "which detection tier the columns allow (§7.3.2)",
+      "rule_id": "peptides.evidence_tier",
+      "value": {
+        "tier": "two_peptide"
+      }
+    },
+    {
+      "exit_code": 0,
+      "input": "abundance",
+      "level": "ok",
+      "message": "",
+      "rule": "first column = ID, one numeric column, ≥ 1 row → else error; extra columns warn",
+      "rule_id": "abundance.shape",
+      "value": {
+        "id_column": "locus_tag",
+        "ignored_columns": [],
+        "issues": [],
+        "value_column": "log_abundance"
+      }
+    },
+    {
+      "exit_code": 0,
+      "input": "abundance",
+      "level": "info",
+      "message": "",
+      "rule": "abundance IDs missing from proteins, and proteins missing from abundance → warn",
+      "rule_id": "abundance.join",
+      "value": "deferred: no proteins.faa; IDs are matched to locus tags after annotation"
+    },
+    {
+      "exit_code": 0,
+      "input": "abundance",
+      "level": "ok",
+      "message": "",
+      "rule": "non-numeric → error; negatives on a linear scale → error; > 20% missing → warn; zeros and NA counted",
+      "rule_id": "abundance.values",
+      "value": {
+        "issues": [],
+        "missing_frac": 0.0,
+        "n_bad": 0,
+        "n_na": 0,
+        "n_negative": 84,
+        "n_rows": 295,
+        "n_zero": 0
+      }
+    },
+    {
+      "exit_code": 0,
+      "input": "abundance",
+      "level": "info",
+      "message": "peptide intensities given: the abundance table is not used (§2.1 decision 3)",
+      "rule": "log2 or linear auto-detected; --abundance-scale overrides",
+      "rule_id": "abundance.scale",
+      "value": {
+        "scale": "log2",
+        "source": "auto",
+        "used": false
+      }
+    },
+    {
+      "exit_code": 0,
+      "input": "environment",
+      "level": "ok",
+      "message": "",
+      "rule": "binaries, environments and DB versions of enabled modules found → else error (exit 2)",
+      "rule_id": "environment.tools",
+      "value": {
+        "found": {
+          "antismash_db": "1.0",
+          "bakta_db": "6",
+          "cog": "1.0",
+          "genomad_db": "1.9",
+          "go": "1.0",
+          "kegg": "1.0",
+          "promotech": "1.0"
+        }
+      }
+    },
+    {
+      "exit_code": 0,
+      "input": "environment",
+      "level": "info",
+      "message": "",
+      "rule": "RAM ≥ 24 GiB for genome-wide Promotech → else warn; free disk and RAM logged (events.jsonl)",
+      "rule_id": "environment.resources",
+      "value": null
+    }
+  ],
+  "contig_map": [
+    {
+      "id": "chr1",
+      "original_id": "chr1"
+    },
+    {
+      "id": "plasmid_1",
+      "original_id": "plasmid_1"
+    }
+  ],
+  "evidence_tier": "two_peptide",
+  "giap_version": "0.0.1",
+  "inputs": [
+    {
+      "file": "reference.fasta",
+      "role": "genome",
+      "sha256": "8d781607290f71748bfac4898bcf7229e4653578b4b4e57bfa284d2760e19eba",
+      "size": 313191
+    },
+    {
+      "file": "peptides_b.tsv",
+      "role": "peptides",
+      "sha256": "9fc554c4ef7748af77cacb4905c152a8a82b69e23e1ae1a0c3012127a2e5452f",
+      "size": 799247
+    },
+    {
+      "file": "abundance.tsv",
+      "role": "abundance",
+      "sha256": "f5a02eae4eb948e0b8d8041e50007a41b1f95867e143496b5ae1438eb5a2d6ff",
+      "size": 6008
+    },
+    {
+      "file": "reference_xrefs.json",
+      "role": "annotation",
+      "sha256": "98e27d6fbc2c7a5bbabe15b602858f3ce251bd2b53312e45725a1dbe30c6e322",
+      "size": 711322
+    }
+  ],
+  "replicons": [
+    {
+      "id": "chr1",
+      "kind": "chromosome",
+      "length": 300000,
+      "topology": "circular"
+    },
+    {
+      "id": "plasmid_1",
+      "kind": "plasmid",
+      "length": 8000,
+      "topology": "circular"
+    }
+  ],
+  "routing": {
+    "abundance_scale": "log2",
+    "abundance_used": false,
+    "n_peptides": 9818,
+    "n_proteins_dropped": 0,
+    "n_proteins_long": 0,
+    "n_proteins_peptide_path": 0
+  },
+  "schema_version": "1",
+  "summary": {
+    "n_error": 0,
+    "n_info": 6,
+    "n_ok": 14,
+    "n_warn": 1
+  }
+}

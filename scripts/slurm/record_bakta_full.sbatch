@@ -24,7 +24,7 @@ PY="$UV_PROJECT_ENVIRONMENT/bin/python"
 DBTYPE="${DBTYPE:-full}"
 DB="$GIAP_DB_DIR/bakta/db"; [ "$DBTYPE" = light ] && DB="$GIAP_DB_DIR/bakta/db-light"
 OUT="${OUT:-$GIAP_ROOT/recordings/bakta_${DBTYPE}_circ}"
-DIGEST=$(grep -oP "withName: 'BAKTA' \\{ container = 'docker://oschwengers/bakta@sha256:\\K[0-9a-f]{64}" \
+DIGEST=$(grep -oP "withName: 'BAKTA' \\{ container = '(docker://)?oschwengers/bakta@sha256:\\K[0-9a-f]{64}" \
   workflow/conf/containers.config)
 IMG="$GIAP_ROOT/containers/oschwengers-bakta@sha256-$DIGEST.img"
 [ -f "$IMG" ] || { echo "missing $IMG" >&2; exit 1; }

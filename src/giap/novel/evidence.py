@@ -57,6 +57,12 @@ def rbs_supported(tir: object, rbs_min: float | None) -> bool | None:
     return float(tir) >= rbs_min  # type: ignore[arg-type]
 
 
+def denovo_only_unsupported(cls: str, has_denovo: bool, db_support: bool, rbs: bool | None) -> bool:
+    """M7-17 rule 4 (ADR-0050): de novo peptides, no database PSM and no RBS support beyond the
+    class rule (``rbs`` NA is no support; ``RBS_CLASSES`` are never exempt)."""
+    return has_denovo and not db_support and not (rbs is True and cls not in RBS_CLASSES)
+
+
 # ---------------------------------------------------------------- rule 4: class evidence
 
 
@@ -86,9 +92,9 @@ def class_evidence(
         ok = int(row["n_peptides"]) >= 2  # type: ignore[call-overload]
     elif cls in ("pseudogene", "sorf"):
         ok = True
-    elif cls == "cterm_extension":  # decision 4: never called before M7-16
-        ok = False
-        if row.get("spans_annotated_stop") is True:
+    elif cls == "cterm_extension":  # M7-16 rule 12: the ORF is the in-frame continuation
+        ok = row.get("spans_annotated_stop") is True
+        if ok:
             labels.add("readthrough_candidate")
     else:
         raise ValueError(f"unknown novel ORF class {cls!r}")
@@ -150,6 +156,16 @@ def _contains_codon(iv: Interval, lo: int, rep: Replicon) -> bool:
     if rep.topology == "circular":
         return (lo - iv.start) % rep.length + 3 <= iv.end - iv.start
     return iv.start <= lo and lo + 3 <= iv.end
+
+
+def _spans_stop(iv: Interval, lo: int, rep: Replicon) -> bool:
+    """``iv`` contains the stop codon ``[lo, lo + 3)`` and extends past it on the 3' side."""
+    d = lo - iv.start
+    if rep.topology == "circular":
+        d %= rep.length
+    if d < 0 or d + 3 > iv.end - iv.start:
+        return False
+    return d + 3 < iv.end - iv.start if iv.strand == "+" else d > 0
 
 
 def _run_length(g: str, p: int, rep: Replicon) -> int:
@@ -239,7 +255,7 @@ def _gene_geometry(
         sl = int(r["start_longest"])
         out["start_upstream_nt"] = _signed_offset(g.start - sl if plus else sl - (g.end - 1), rep)
     stop_lo = (g.end - 3) % rep.length if plus else g.start
-    out["spans_annotated_stop"] = any(_contains_codon(iv, stop_lo, rep) for iv in peptides)
+    out["spans_annotated_stop"] = any(_spans_stop(iv, stop_lo, rep) for iv in peptides)
     return out
 
 
@@ -304,12 +320,14 @@ def apply_evidence(
     cfg: GiapConfig,
     peptide_intervals: Mapping[str, Sequence[Interval]] | None = None,
     class_q: Mapping[str, float] | None = None,
+    denovo_support: Mapping[str, tuple[bool, bool]] | None = None,
 ) -> pd.DataFrame:
     """The ``orf_table`` frame (same rows and order) with the M7-09 columns filled and its
     ``class_fdr`` cells kept. ``terminators`` is ``None`` when the layer is missing (its three
     columns NA); ``peptide_intervals`` maps an ``orf_id`` to its peptides' genome intervals;
     ``class_q`` gives the unformatted q of the numeric cells (the step passes it, M7-11b lead
-    decision 6; without it the cell is read back)."""
+    decision 6; without it the cell is read back); ``denovo_support`` maps an ``orf_id`` to
+    ``db_supported``'s pair and sets ``denovo_only_unsupported`` (M7-17; no other effect)."""
     by_id = {o.orf_id: o for o in orfs}
     rbs_min = rbs_threshold(gene_table, cfg.novel_orfs.rbs_min_quantile)
     p_yes = cfg.annotation.promoters.promotech_yes
@@ -332,6 +350,9 @@ def apply_evidence(
             else:
                 flags |= junction_labels(j, intervals, genome[o.contig], rep)
         r["rbs_supported"] = rbs_supported(r["ostir_tir"], rbs_min)
+        dn, db = (denovo_support or {}).get(o.orf_id, (False, False))
+        if denovo_only_unsupported(o.cls, dn, db, r["rbs_supported"]):
+            flags.add("denovo_only_unsupported")
         ps = r["promoter_score"]
         r["promoter_supported"] = None if is_na(ps) else bool(float(ps) >= p_yes)
         if r["promoter_supported"]:

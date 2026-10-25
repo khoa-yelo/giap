@@ -1,0 +1,1 @@
+orf_id	class	contig	strand	frame	start_longest	start_best_ostir	end	length_aa_longest	length_aa_best	start_codon_best	n_peptides	peptides	best_peptide_q	ostir_tir	promoter_score	promoter_supported	terminator_downstream	terminator_conf	terminator_distance_nt	rbs_supported	class_fdr	called	rank	overlapping_gene	flags

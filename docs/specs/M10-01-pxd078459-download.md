@@ -231,3 +231,27 @@ and §15.5 metric 8's "only wild-type runs" are satisfied here.
 | Q3 | Count diaPASEF variants (synchro-, slice-, midia-PASEF) as `diaPASEF`? DIA-NN 2.3.1 supports some of them. | yes, with `notes`; M10-02 checks the window scheme against the DIA-NN documentation |
 | Q4 | Check all three runs or only the first (§15.2 says "the first run")? | all three; it costs seconds and catches a mixed dataset |
 | Q5 | Should the resolve job's draft manifest be committed before the download, then again with `sha256` filled, or once at the end? | twice, two commits in the same PR: the reviewed selection first, the hashes after the download |
+
+## Lead decisions (2026-10-23, after the tests at 0041b05e)
+1. **The M3-24 fetch tests vs the committed manifest:** at implementation, the lead amends the M3-24 tests (`test_fetch_downloads_three_runs…` and the others that run the script bare against stub payloads) and their sandbox. They then pass an explicit sandbox manifest instead of relying on the defaults. The script gets no stub-detection path.
+2. **The committed-data tests (acceptance 8–10):** the implementation PR is opened only after the real `--resolve` job has run and its manifest and README section are committed, so those tests are green on CI. The download stage's hashes are a second commit in the same PR, before it is marked ready.
+3. **The test-author's readings are accepted:**
+   - escaping symlinks are refused as an "unsafe archive member";
+   - the zip-bomb limit gives exit 1 or 2;
+   - the filled manifest is written in the data directory;
+   - the HEAD upgrade may happen at resolve or at download.
+
+   The 1/K0 range and the Q3 variant notes are backlogged.
+4. **(Lead, 2026-10-24) The HTTPS route is iProX's `.cn` host.** The record's links are
+   `http://download.iprox.org/…`. HTTPS on that host fails certificate verification (no matching
+   name), so the Q1 "https on the same host" rule cannot apply. `https://download.iprox.cn/…`
+   is iProX's own domain (www.iprox.org 301 → www.iprox.cn) and serves verified HTTPS, with the
+   same Content-Length and the same first MiB for all three runs. The committed manifest uses it
+   as `url` and keeps the record link as `url_record`. This is reversible (one column) and parked
+   for Khoa (local/handoff/khoa_q.md).
+
+## Lead decisions (2026-10-24)
+
+Every lead question L1–L14 takes its default. Khoa, 2026-10-24 (M10-04/05 Q-K1): aggregate numbers (counts, shares, ρ, Jaccards, TE results) and named example genes may be committed in REPORT.md / metrics.json; no row-level DIA-NN content. The spec is stacked on M10-05 (branch m10/spec-05 is merged into m10/spec-06).
+
+L1–L7 take their defaults; S1–S6 go to the statistician's spec review before tests. Khoa, 2026-10-24: aggregates (N_T, N_E, r, the estimate and bounds) may be committed; row-level discoveries stay under $GIAP_ROOT.

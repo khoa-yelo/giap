@@ -24,6 +24,7 @@ __all__ = [
     "SUMMARY_COLUMNS",
     "basic_rows",
     "detection_summary",
+    "placement_kind_rows",
     "qc_rows",
 ]
 
@@ -262,6 +263,53 @@ def qc_rows(
     rows: list[Row] = [("qc", "run", "all", m, v, nan, nan, n, f) for m, v, n, f in vals]
     if stratum0 is not None:
         rows += _stratum0_rows(stratum0)
+    return _frame(rows)
+
+
+KIND_GROUPS = ("exact", "tolerant", "frameshift")
+DIFF_GROUPS = ("substitution", "swap", "block", "near_block")
+FLAG_GROUPS = ("readthrough",)
+REASON_GROUPS = ("no_hit", "rejected_placement_fdr", "too_short", "contaminant_id")
+
+
+def placement_kind_rows(peptide_hits: pd.DataFrame, unmapped: pd.DataFrame | None) -> pd.DataFrame:
+    """M7-16 rule 17: distinct peptides by placement kind, tolerant diff type, placement flag and
+    unmapped reason (section ``qc``, metric ``n_peptides``). Counts with their population ``n``,
+    never rates; every group is written. Without C13 the ``unmapped_reason`` rows are NA."""
+    kind: dict[str, str] = {}
+    diffs: dict[str, set[str]] = {}
+    flagged: dict[str, set[str]] = {}
+    h = peptide_hits
+    for pep, route, dt, fl in zip(
+        h["peptide"].astype(str), h["route"].astype(str), h["diff_types"], h["flags"], strict=True
+    ):
+        fs = _has_flag(dt, "frameshift")
+        k = "exact" if route == "exact" else "frameshift" if fs else "tolerant"
+        if pep not in kind or KIND_GROUPS.index(k) < KIND_GROUPS.index(kind[pep]):
+            kind[pep] = k
+        if k == "tolerant":
+            diffs.setdefault(pep, set()).update(g for g in DIFF_GROUPS if _has_flag(dt, g))
+        flagged.setdefault(pep, set()).update(g for g in FLAG_GROUPS if _has_flag(fl, g))
+    tol = [p for p, k in kind.items() if k == "tolerant"]
+    nan = math.nan
+    rows: list[Row] = []
+
+    def add(gt: str, g: str, v: float, n: Any) -> None:
+        rows.append(("qc", gt, g, "n_peptides", v, nan, nan, n, ""))
+
+    for g in KIND_GROUPS:
+        add("placement_kind", g, float(sum(k == g for k in kind.values())), len(kind))
+    for g in DIFF_GROUPS:
+        add("tolerant_diff_type", g, float(sum(g in diffs.get(p, ()) for p in tol)), len(tol))
+    for g in FLAG_GROUPS:
+        add("placement_flag", g, float(sum(g in f for f in flagged.values())), len(kind))
+    pep_rows = None if unmapped is None else unmapped[unmapped["kind"].astype(str) == "peptide"]
+    for g in REASON_GROUPS:
+        if pep_rows is None:
+            add("unmapped_reason", g, nan, pd.NA)
+        else:
+            add("unmapped_reason", g, float((pep_rows["reason"].astype(str) == g).sum()),
+                len(pep_rows))  # fmt: skip
     return _frame(rows)
 
 

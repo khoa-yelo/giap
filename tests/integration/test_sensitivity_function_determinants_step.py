@@ -336,6 +336,11 @@ def test_determinants_cv_r2_goes_to_an_event(full: Run) -> None:
     text = " ".join(json.dumps(getattr(r, "data", None), default=str) for r in hits)
     for v in ("missing=min", "missing=exclude"):
         assert v in text, f"no CV R² of {v} in the events"
+    data = next(getattr(r, "data", None) for r in hits if getattr(r, "data", None))
+    assert set(data) == {"cv_r2", "n_agreement"}, data  # M8-16c, #299 code review 1
+    assert set(data["n_agreement"]) == {"missing=min", "missing=exclude"}
+    assert all(isinstance(n, int) and n > 0 for n in data["n_agreement"].values())
+    assert {"missing=min", "missing=exclude"} <= set(data["cv_r2"])
 
 
 def test_same_seed_byte_identical(world: World, full: Run) -> None:

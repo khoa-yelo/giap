@@ -1,0 +1,1 @@
+pair_id	class	gene_a	gene_b	strand	intergenic_bp	uniop_p	promoter_between	tx_rate_between	terminator_between	detected_a	detected_b	p_detect_a	p_detect_b	abundance_log2_a	abundance_log2_b	delta_log2	test	stat	effect	ci_low	ci_high	p_value	q_value	method	null_model	n_perm	lfdr	flags

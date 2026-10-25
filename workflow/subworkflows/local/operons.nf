@@ -15,7 +15,8 @@ workflow OPERONS {
     gene_table        // genetable/genes.parquet
     annotation        // [genes.parquet, features.parquet, replicons.parquet]
     contract          // [xrefs.parquet, annotation_meta.json, tus.parquet, layers.parquet]
-    layers_for_pairs  // [key, path]: pairs_raw, and promoter_windows / terminators / tx_rates when present
+    layers_for_pairs  // [key, path]: pairs_raw, and promoter_windows / terminators / tx_rates /
+                      // peptide_hits (C11, main.nf; M6-05H) when present
 
     main:
     def chans = [kv('gene_table', gene_table), kv('genes', annotation.map { a -> a[0] }),

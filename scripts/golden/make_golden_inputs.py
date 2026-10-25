@@ -8,7 +8,8 @@
 only on the seed): ``gsea_stats``, ``gsea_sets``, ``ora_genes``, ``ora_categories``. numpy, the
 standard library and PyYAML only, never ``giap``. The IDs and memberships are random: no KEGG,
 GO or COG content. Numbers are written as fixed 6-decimal strings so R and Python parse them
-to the same doubles.
+to the same doubles. The GSEA scores have median exactly 0.0 (M8-12b): 997 negative, 6 zero and
+997 positive.
 """
 
 from __future__ import annotations
@@ -62,6 +63,48 @@ def _make_unique(micro: np.ndarray, frozen: np.ndarray, taken: set[int]) -> np.n
     return out
 
 
+def _balance_signs(micro: np.ndarray, frozen: np.ndarray, taken: set[int]) -> np.ndarray:
+    """Negate the |d| free values closest to zero on the majority side (M8-12b §1.3).
+
+    2d = n_neg - n_pos. A flipped value that collides with a held value steps away from zero.
+    """
+    out = micro.copy()
+    n_neg, n_pos = int((out < 0).sum()), int((out > 0).sum())
+    if (n_neg - n_pos) % 2:
+        raise SystemExit(f"N - Z = {n_neg + n_pos} is odd: no sign flip gives a 0.0 median")
+    d = (n_neg - n_pos) // 2
+    if d == 0:
+        return out
+    cand = np.flatnonzero(((out < 0) if d > 0 else (out > 0)) & ~frozen)
+    if abs(d) > cand.size:
+        raise SystemExit(f"|d| = {abs(d)} exceeds the {cand.size} free majority-side values")
+    order = cand[np.lexsort((cand, np.abs(out[cand])))]
+    held = {int(v) for v in out} | set(taken)
+    for i in order[: abs(d)]:
+        new = -int(out[i])
+        while new in held:
+            new += 1 if new > 0 else -1
+        held.add(new)
+        out[i] = new
+    return out
+
+
+def _check_median_exact(micro: np.ndarray, frozen: np.ndarray, tie_values: tuple[int, int]) -> None:
+    half = (N_TU - N_ZEROS) // 2
+    n_neg, n_pos = int((micro < 0).sum()), int((micro > 0).sum())
+    if n_neg != half or n_pos != half or int((micro == 0).sum()) != N_ZEROS:
+        raise SystemExit(f"n_neg {n_neg} != {half} or n_pos {n_pos} != {half} or zeros != 6")
+    for t in tie_values:
+        if int((micro == t).sum()) != TIE_COUNT:
+            raise SystemExit(f"tie value {t} is not held by {TIE_COUNT} TUs")
+    free = micro[~frozen]
+    if len(set(free.tolist())) != free.size or bool(np.isin(free, [0, *tie_values]).any()):
+        raise SystemExit("free values are not distinct, non-zero and off the tie values")
+    median = float(np.median(micro / SCALE))
+    if median != 0.0:
+        raise SystemExit(f"median {median} != 0.0")
+
+
 def gsea_inputs(rng: np.random.Generator) -> tuple[Table, Table]:
     score = rng.standard_normal(N_TU)
     score -= np.median(score)
@@ -74,9 +117,9 @@ def gsea_inputs(rng: np.random.Generator) -> tuple[Table, Table]:
     micro[special[2 * TIE_COUNT :]] = 0
     frozen[special] = True
     micro = _make_unique(micro, frozen, {0, *tie_values})
+    micro = _balance_signs(micro, frozen, {0, *tie_values})
+    _check_median_exact(micro, frozen, tie_values)
     values = micro / SCALE
-    if abs(float(np.median(values))) > 0.05:
-        raise SystemExit("scores are not centred")
     ids = [f"TU_{i:04d}" for i in range(1, N_TU + 1)]
     stats: Table = [(tu, micro_str(m)) for tu, m in zip(ids, micro, strict=True)]
 

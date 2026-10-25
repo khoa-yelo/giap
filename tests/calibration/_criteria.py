@@ -12,6 +12,9 @@ reads it. Criteria, with k = ``se_multiplier`` and R the number of independent n
 - pooled F1 (``calibrate_pooled``, M7-13 rule 2): replicate i reports counts (tp_p, n_pred,
   tp_r, n_truth); F1 of P = sum tp_p / sum n_pred and Rc = sum tp_r / sum n_truth >= bound (point
   estimate, optional count guards and vacuity floors; jackknife SE recorded only)
+- FDR from counts (``calibrate_fdr_counts``, M7-13 rule 6): replicate i reports (n_called,
+  n_false, ...); FDP_i = n_false / max(n_called, 1), then the FDR criterion; optional vacuity
+  floors on block-1 count means
 
 Replicate ``rep`` of stream ``suite`` draws from ``default_rng(suite_seed(suite, rep))`` with
 ``suite_seed = SeedSequence([calibration_base, crc32(suite), rep])`` as one uint64, so any shard
@@ -25,9 +28,11 @@ non-finite values or values outside [0, 1], ``check_fwer`` refuses anything but 
 ``calibrate`` is the gate (ADR-0015, two-block confirmation): replicates 0..R-1 are block 1; if the
 criterion fails there, replicates R..2R-1 (same seed formula) are block 2 and the gate fails only if
 both blocks fail. Records carry ``block`` (1 | 2), ``status`` (pass | unconfirmed | fail) and the
-per-replicate ``values``. Under ``GIAP_CALIBRATION_REPLICATES=start:stop`` (set by ``--shard K/N``)
-``calibrate`` runs only that range of block ``GIAP_CALIBRATION_BLOCK`` (default 1, ``--block``) and
-logs a ``shard`` record; ``merge_shards`` evaluates the criterion on the full R. A merged check
+per-replicate ``values``. Under ``GIAP_CALIBRATION_REPLICATES=start:stop@K/N`` (set by ``--shard
+K/N``) ``calibrate`` runs only ``shard_replicates(R, N, K)`` of the check's own R (any R; an empty
+shard logs nothing) of block ``GIAP_CALIBRATION_BLOCK`` (default 1, ``--block``) and logs a
+``shard`` record (a bare ``start:stop`` is that range of the given R); ``merge_shards``
+evaluates the criterion on the full R. A merged check
 whose block 1 fails and whose block 2 was not logged is ``pending`` (no verdict; never ``fail``
 from block 1 alone). ``--merge`` (PR #54 lead decision 5) then runs block 2 itself: it reruns the
 suite's pytest command (``pytest_args``) with ``GIAP_CALIBRATION_CONFIRM`` listing the pending
@@ -35,6 +40,14 @@ checks, so ``calibrate`` runs replicates R..2R-1 of exactly those checks (same s
 ``calibrate``) and skips every other check, then merges again. Exit codes of ``--merge``: 0 every
 check pass or unconfirmed, 1 a confirmed fail (both blocks), 2 merge error (missing or malformed
 records, block 2 not obtained).
+
+Tests in a shard (``SHARD_SKIP``, ``skip_without_verdict``, ``owns_direct_checks``): a test logs its
+checks, then skips (no verdict); its direct parts (assertions or records over every replicate) run
+only where ``owns_direct_checks()`` (unsharded or shard 0 of block 1). ADR-0057: records carry the
+owning ``test`` and its ``xfail`` mark (``set_current_test``, called by conftest.py) and
+``--merge`` judges each test as pytest would: a confirmed fail of a test with an xfail mark is an
+expected failure (``outcome`` xfail, exit unchanged), a strict-xfail test whose checks all pass is
+a strict XPASS (exit 1), a non-strict mark is reported only.
 
 Run as a script, this module is the nightly job-array entry point (one suite per task, task i = the
 i-th key of ``replicates_full``): ``python tests/calibration/_criteria.py --task-id I [--fast]
@@ -74,11 +87,18 @@ CONFIRM_ENV = "GIAP_CALIBRATION_CONFIRM"  # JSON [[stream, criterion, level, R],
 CRITERIA = ("level", "uniform", "fdr", "fwer")
 POOLED_F1 = "pooled_f1"  # criterion of ``calibrate_pooled`` (count records, not scalars)
 F1_COUNTS = ("tp_p", "n_pred", "tp_r", "n_truth")
+FDR_COUNTS = "fdr_counts"  # criterion of ``calibrate_fdr_counts`` (count records, not scalars)
+COUNT_CRITERIA = (POOLED_F1, FDR_COUNTS)  # count-record checks: merged per (stream, key, level, R)
 VACUOUS_STATUS = "vacuous"  # pooled check whose block-1 mean of a count is below its floor
 STATUSES = ("pass", "unconfirmed", "fail")
 SHARD_STATUS = "shard"  # partial record of one shard; only ``merge_shards`` gives a verdict
 PENDING_STATUS = "pending"  # merged check whose block 1 fails and whose block 2 is not logged yet
 SKIPPED_STATUS = "skipped"  # check not listed in GIAP_CALIBRATION_CONFIRM (not run, not logged)
+#: records without a verdict: a shard's range, a merged check awaiting block 2, an unlisted check
+NO_VERDICT_STATUSES = frozenset({SHARD_STATUS, PENDING_STATUS, SKIPPED_STATUS})
+SHARD_SKIP = "shard or confirm run: the verdict comes from --merge"
+XFAILED = "xfailed"  # outcome record of a test that failed as expected in a shard (ADR-0057)
+DEFERRED = "deferred"  # outcome record of a direct test that skipped a clean shard (SHARD_SKIP)
 MERGE_FAIL, MERGE_ERROR = 1, 2  # --merge exit codes: confirmed calibration failure / merge error
 MAX_TIE_SHARE = 0.05  # §8.4 discrete-p rule: more repeated values than this means discrete p
 
@@ -369,11 +389,15 @@ def summary_markdown(records: Sequence[Mapping[str, Any]]) -> str:
     ]
     for r in records:
         ok = r.get("ok")
+        status = r.get("status", "-")
+        if r.get("outcome"):  # ADR-0057: the owning test's xfail outcome
+            strict = (r.get("xfail") or {}).get("strict")
+            status = f"{status} ({r['outcome']}{', strict' if strict else ''})"
         lines.append(
             f"| {r['suite']} | {r['criterion']} | {r['level']:g} | {r.get('block', '-')} | "
             f"{_fmt(r.get('observed'), '.4g')} | {_fmt(r.get('bound'), '.4g')} | {r['R']} | "
             f"{r['seed']} | {_fmt(r.get('duration'), '.2f')} | "
-            f"{'-' if ok is None else 'pass' if ok else 'FAIL'} | {r.get('status', '-')} |"
+            f"{'-' if ok is None else 'pass' if ok else 'FAIL'} | {status} |"
         )
     return "\n".join(lines) + "\n"
 
@@ -381,17 +405,46 @@ def summary_markdown(records: Sequence[Mapping[str, Any]]) -> str:
 # --------------------------------------------------------------------------- gate (ADR-0015)
 
 
-def replicate_range(R: int) -> range:
-    """``range(start, stop)`` from ``GIAP_CALIBRATION_REPLICATES=start:stop``, else ``range(R)``.
+def _split_shard(raw: str) -> tuple[str, tuple[int, int] | None]:
+    """``start:stop`` and the ``(K, N)`` of an optional ``@K/N`` suffix (ValueError if bad)."""
+    body, sep, spec = raw.partition("@")
+    if not sep:
+        return body, None
+    try:
+        k_s, n_s = spec.split("/")
+        k, n = int(k_s), int(n_s)
+    except ValueError:
+        raise ValueError(f"{SHARD_ENV}={raw!r}: suffix must be @K/N") from None
+    if n < 1 or not 0 <= k < n:
+        raise ValueError(f"{SHARD_ENV}={raw!r}: need 0 <= K < N")
+    return body, (k, n)
 
-    Requires ``0 <= start < stop <= R``; anything else raises ValueError (fail closed).
+
+def shard_spec() -> tuple[int, int] | None:
+    """``(K, N)`` of ``--shard K/N`` (the ``@K/N`` suffix of ``GIAP_CALIBRATION_REPLICATES``)."""
+    raw = os.environ.get(SHARD_ENV)
+    return None if raw is None else _split_shard(raw)[1]
+
+
+def replicate_range(R: int) -> range:
+    """Replicates of a check with ``R`` replicates that this process runs.
+
+    ``GIAP_CALIBRATION_REPLICATES=start:stop@K/N`` (set by ``--shard K/N``): ``shard_replicates(R,
+    N, K)`` for every R, so a check whose R is not the suite's R is sharded too (empty when
+    R < N for some K). ``start:stop`` without the suffix: ``range(start, stop)``, requiring
+    ``0 <= start < stop <= R``. Unset: ``range(R)``. Anything else raises ValueError (fail closed).
     """
     if R < 1:
         raise ValueError(f"R must be >= 1, got {R}")
     raw = os.environ.get(SHARD_ENV)
     if raw is None:
         return range(R)
-    parts = raw.split(":")
+    body, spec = _split_shard(raw)
+    if spec is not None:
+        if len(body.split(":")) != 2:
+            raise ValueError(f"{SHARD_ENV}={raw!r}: expected start:stop@K/N")
+        return shard_replicates(R, spec[1], spec[0])
+    parts = body.split(":")
     try:
         if len(parts) != 2:
             raise ValueError("expected start:stop")
@@ -409,6 +462,83 @@ def replicate_block() -> int:
     if raw not in ("1", "2"):
         raise ValueError(f"{BLOCK_ENV}={raw!r}: must be 1 or 2")
     return int(raw)
+
+
+def owns_direct_checks() -> bool:
+    """True where a test's direct (non-``calibrate``) parts run: unsharded, or shard 0 of block 1.
+
+    Shard 0 is ``@0/N`` (or, for a bare ``start:stop``, the range starting at 0). False in every
+    other shard, in any block-2 shard and in the ``--merge`` confirm run, so exactly one process
+    evaluates a direct assertion or writes an all-replicate record, as the unsharded run does.
+    """
+    if os.environ.get(CONFIRM_ENV) is not None:
+        return False
+    raw = os.environ.get(SHARD_ENV)
+    if raw is None:
+        return True
+    if replicate_block() != 1:
+        return False
+    body, spec = _split_shard(raw)
+    if spec is not None:
+        return spec[0] == 0
+    return body.split(":")[0].strip() == "0"
+
+
+def skip_without_verdict(records: Mapping[str, Any] | Sequence[Mapping[str, Any]]) -> None:
+    """``pytest.skip(SHARD_SKIP)`` when any record has no verdict (``NO_VERDICT_STATUSES``).
+
+    Call it after the test's last harness call (so every shard record reaches ``--merge``) and
+    before asserting on a status."""
+    recs = [records] if isinstance(records, Mapping) else list(records)
+    if any(r["status"] in NO_VERDICT_STATUSES for r in recs):
+        import pytest
+
+        pytest.skip(SHARD_SKIP)
+
+
+#: test that is running (node ID) and its evaluated xfail mark; set by conftest.py around each
+#: test call and written into every record (ADR-0057)
+_OWNER: dict[str, Any] = {"test": None, "xfail": None, "statuses": []}
+
+
+def set_current_test(test: str | None, xfail: Mapping[str, Any] | None) -> None:
+    """Name the owner of the records written from now on (conftest.py ``pytest_runtest_call``).
+
+    ``xfail`` is ``{"strict": bool, "reason": str}`` when the test carries an xfail mark that
+    applies to an assertion failure, else None."""
+    _OWNER["test"] = test
+    _OWNER["xfail"] = None if xfail is None else dict(xfail)
+    _OWNER["statuses"] = []
+
+
+def current_statuses() -> list[str]:
+    """Statuses of the records the current (or last) test got from ``calibrate*``."""
+    return list(_OWNER["statuses"])
+
+
+def log_test_outcome(
+    suite: str,
+    test: str,
+    outcome: str,
+    xfail: Mapping[str, Any] | None,
+    log_dir: Path | None = None,
+    shard: tuple[int, int, int] | None = None,
+) -> Path:
+    """Append the outcome of ``test`` in a shard to ``<log_dir>/<suite>.outcomes.jsonl``.
+
+    conftest.py writes ``xfailed`` when a test with an xfail mark failed as expected in a shard
+    (a direct assertion of shard 0), so ``--merge`` does not call the test an XPASS, and
+    ``deferred`` when a test without harness checks skipped its clean range (``SHARD_SKIP``):
+    deferred in every block-1 shard ``(K, N, block)`` 0..N-1 is a clean run, i.e. an XPASS."""
+    directory = Path(log_dir) if log_dir is not None else _default_log_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{suite}.outcomes.jsonl"
+    rec = {"suite": suite, "test": test, "outcome": outcome,
+           "xfail": None if xfail is None else dict(xfail),
+           "shard": None if shard is None else list(shard)}  # fmt: skip
+    with path.open("a") as fh:
+        fh.write(json.dumps(rec) + "\n")
+    return path
 
 
 def check(criterion: str, values: ArrayLike, level: float, m: int | None = None) -> CheckResult:
@@ -453,6 +583,8 @@ def _record(
     status: str,
     m: int | None = None,
 ) -> dict[str, Any]:
+    if _OWNER["test"] is not None:
+        _OWNER["statuses"].append(status)
     return {
         "suite": suite,
         "stream": stream,
@@ -470,6 +602,8 @@ def _record(
         "stop": int(reps.stop),
         "values": [float(v) for v in values],
         "m": m,
+        "test": _OWNER["test"],  # owning test and its xfail mark (ADR-0057)
+        "xfail": _OWNER["xfail"],
     }
 
 
@@ -573,7 +707,8 @@ def calibrate(
         rec = _record(
             suite, name, criterion, level, R, block, absolute, values, dt, None, "shard", m
         )
-        _append([rec], suite, log_dir)
+        if values:  # an empty shard (R < N) logs nothing
+            _append([rec], suite, log_dir)
         return rec
 
     reps1, v1, dt1 = run(1, reps)
@@ -634,8 +769,9 @@ def merge_shards(suite: str, log_dir: Path | None = None) -> list[dict[str, Any]
     ValueError); if it fails, block 2 (R..2R-1) decides per ADR-0015; if block 2 was not logged
     the check is ``pending`` (block-1 record, no verdict: never ``fail`` from block 1 alone).
     Records written by ``log_result`` (no ``values``) are skipped. The records of one check must
-    agree on ``m`` (pooled level, else ValueError). ``pooled_f1`` records (``calibrate_pooled``)
-    are merged per (stream, key, level, R) by ``_merge_pooled``; their verdicts come last.
+    agree on ``m`` (pooled level, else ValueError). ``pooled_f1`` and ``fdr_counts`` records
+    (``calibrate_pooled``, ``calibrate_fdr_counts``) are merged per (stream, key, level, R) by
+    ``_merge_pooled``; their verdicts come last.
     """
     directory = Path(log_dir) if log_dir is not None else _default_log_dir()
     groups: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
@@ -643,8 +779,8 @@ def merge_shards(suite: str, log_dir: Path | None = None) -> list[dict[str, Any]
     for r in read_results(directory / f"{suite}.jsonl"):
         if "values" not in r:
             continue
-        if r["criterion"] == POOLED_F1:
-            pkey = (r["stream"], str(r["key"]), float(r["level"]), int(r["R"]))
+        if r["criterion"] in COUNT_CRITERIA:
+            pkey = (r["criterion"], r["stream"], str(r["key"]), float(r["level"]), int(r["R"]))
             pooled.setdefault(pkey, []).append(r)
             continue
         key = (r.get("stream", suite), r["criterion"], float(r["level"]), int(r["R"]))
@@ -666,9 +802,85 @@ def merge_shards(suite: str, log_dir: Path | None = None) -> list[dict[str, Any]
         block, values, dt, res = (1, *b1, r1) if b2 is None or r2 is None else (2, *b2, r2)
         reps = range((block - 1) * R, block * R)
         rec = _record(suite, stream, criterion, level, R, block, reps, values, dt, res, status, m)
-        out.append(rec)
-    out.extend(_merge_pooled(suite, pkey, group) for pkey, group in pooled.items())
+        out.append(_owned(rec, group, key))
+    out.extend(_owned(_merge_pooled(suite, pkey, group), group, pkey)
+               for pkey, group in pooled.items())  # fmt: skip
     return out
+
+
+def _owned(
+    rec: dict[str, Any], group: Sequence[Mapping[str, Any]], key: tuple[Any, ...]
+) -> dict[str, Any]:
+    """``rec`` with the owning ``test`` and ``xfail`` of its records (ADR-0057). Records of one
+    check that disagree on the xfail state, or an xfail check written by two tests, are a merge
+    error (fail closed: the verdict would depend on which record is read)."""
+    xfails = {json.dumps(r.get("xfail"), sort_keys=True) for r in group}
+    tests = {r.get("test") for r in group}
+    if len(xfails) != 1:
+        raise ValueError(f"{key}: records disagree on the xfail mark ({sorted(xfails)})")
+    xfail = group[0].get("xfail")
+    if xfail is not None and len(tests) != 1:
+        raise ValueError(f"{key}: xfail check written by several tests ({sorted(map(str, tests))})")
+    rec["test"] = next(iter(tests)) if len(tests) == 1 else None
+    rec["xfail"] = xfail
+    return rec
+
+
+def read_outcomes(suite: str, log_dir: Path | None = None) -> list[dict[str, Any]]:
+    """Records of ``<log_dir>/<suite>.outcomes.jsonl`` (``log_test_outcome``), else []."""
+    directory = Path(log_dir) if log_dir is not None else _default_log_dir()
+    path = directory / f"{suite}.outcomes.jsonl"
+    return read_results(path) if path.exists() else []
+
+
+def direct_xpasses(
+    outcomes: Sequence[Mapping[str, Any]], checked: set[str]
+) -> list[tuple[str, bool]]:
+    """``(test, strict)`` of xfail tests without harness checks (not in ``checked``) that
+    deferred in every block-1 shard 0..N-1 and never xfailed: clean everywhere, an XPASS."""
+    by: dict[str, list[Mapping[str, Any]]] = {}
+    for o in outcomes:
+        if o.get("xfail") is not None and str(o["test"]) not in checked:
+            by.setdefault(str(o["test"]), []).append(o)
+    out = []
+    for test, os_ in by.items():
+        if any(o["outcome"] == XFAILED for o in os_):
+            continue
+        shards = [o["shard"] for o in os_ if o["outcome"] == DEFERRED and o.get("shard")]
+        b1 = [(int(k), int(n)) for k, n, b in shards if int(b) == 1]
+        ns = {n for _k, n in b1}
+        if len(ns) == 1 and {k for k, _n in b1} == set(range(ns.pop())):
+            out.append((test, bool(os_[0]["xfail"].get("strict"))))
+    return out
+
+
+def apply_xfail(merged: Sequence[dict[str, Any]], xfailed: frozenset[str]) -> list[str]:
+    """Set ``outcome`` on the merged records as pytest would judge their owning test (ADR-0057);
+    return the strict XPASS tests.
+
+    Per test with an xfail mark: it failed if one of its checks is a confirmed ``fail`` or it has
+    an ``xfailed`` outcome record (a direct assertion in shard 0); then every check of it is
+    ``xfail``. If every check is ``pass`` / ``unconfirmed`` and it did not fail, every check is
+    ``xpass``, and a strict mark makes the test a strict XPASS. Records of unmarked tests get
+    ``outcome`` None; a ``vacuous`` check leaves its test's outcome None."""
+    by_test: dict[str, list[dict[str, Any]]] = {}
+    for r in merged:
+        r["outcome"] = None
+        if r.get("xfail") is not None:
+            by_test.setdefault(str(r["test"]), []).append(r)
+    xpass: list[str] = []
+    for test, recs in by_test.items():
+        if test in xfailed or any(r["status"] == "fail" for r in recs):
+            outcome = "xfail"
+        elif all(r["status"] in ("pass", "unconfirmed") for r in recs):
+            outcome = "xpass"
+            if recs[0]["xfail"].get("strict"):
+                xpass.append(test)
+        else:
+            continue
+        for r in recs:
+            r["outcome"] = outcome
+    return xpass
 
 
 # --------------------------------------------------------------------------- pooled F1 (M7-13)
@@ -747,7 +959,28 @@ def _counts_of(v: Mapping[str, Any]) -> dict[str, int]:
     return out
 
 
+def _validate(criterion: str, values: Sequence[Mapping[str, Any]]) -> None:
+    """Fail closed on bad count records before anything is logged."""
+    if criterion == POOLED_F1:
+        _f1_totals(values)
+    else:
+        for v in values:
+            fdp_of(v)
+
+
+def _count_check(
+    criterion: str,
+    values: Sequence[Mapping[str, Any]],
+    level: float,
+    guard: Mapping[str, int] | None,
+) -> CheckResult:
+    if criterion == POOLED_F1:
+        return check_pooled_min(values, level, guard=guard)
+    return check_fdr_counts(values, level)
+
+
 def _pooled_record(
+    criterion: str,
     suite: str,
     stream: str,
     key: str,
@@ -762,11 +995,15 @@ def _pooled_record(
     guard: Mapping[str, int] | None,
     vacuous: Mapping[str, float] | None,
 ) -> dict[str, Any]:
-    rec = _record(suite, stream, POOLED_F1, bound, R, block, reps, [], duration, result, status)
+    rec = _record(suite, stream, criterion, bound, R, block, reps, [], duration, result, status)
     rec["values"] = [_counts_of(v) for v in values]
     rec["key"] = key
     rec["guard"] = None if guard is None else dict(guard)
     rec["vacuous"] = None if vacuous is None else dict(vacuous)
+    if criterion == FDR_COUNTS:
+        if values and result is None and status == VACUOUS_STATUS:
+            rec["observed"] = float(np.mean([fdp_of(v) for v in values]))
+        return rec
     rec["precision"] = rec["recall"] = rec["se"] = None
     if values:
         p, r, f1 = pooled_f1(values)
@@ -778,6 +1015,7 @@ def _pooled_record(
 
 
 def _pooled_verdict(
+    criterion: str,
     v1: Sequence[Mapping[str, Any]],
     v2: Sequence[Mapping[str, Any]] | None,
     bound: float,
@@ -787,9 +1025,68 @@ def _pooled_verdict(
     """(status, block-1 result, block-2 result); vacuity is judged on block 1 (rule 6)."""
     if _is_vacuous(v1, vacuous):
         return VACUOUS_STATUS, None, None
-    r1 = check_pooled_min(v1, bound, guard=guard)
-    r2 = None if r1.ok or v2 is None else check_pooled_min(v2, bound, guard=guard)
+    r1 = _count_check(criterion, v1, bound, guard)
+    r2 = None if r1.ok or v2 is None else _count_check(criterion, v2, bound, guard)
     return _verdict(r1, r2), r1, r2
+
+
+def _calibrate_counts(
+    criterion: str,
+    suite: str,
+    stream: str,
+    key: str,
+    bound: float,
+    records: Callable[[int], Mapping[str, Any]],
+    R: int,
+    guard: Mapping[str, int] | None,
+    vacuous: Mapping[str, float] | None,
+    log_dir: Path | None,
+) -> dict[str, Any]:
+    """Shared gate of the count-record criteria (``calibrate_pooled``, ``calibrate_fdr_counts``)."""
+    if suite not in array_suites():
+        raise KeyError(f"unknown calibration suite {suite!r} (not in tolerances.yaml)")
+    confirm = confirm_checks()
+    reps = range(R) if confirm is not None else replicate_range(R)
+
+    def run(block: int, local: range) -> tuple[range, list[dict[str, int]], float]:
+        offset = (block - 1) * R
+        absolute = range(offset + local.start, offset + local.stop)
+        t0 = time.perf_counter()
+        values = [_counts_of(records(i)[key]) for i in absolute]
+        if values:  # an empty shard (R < N) runs and logs nothing
+            _validate(criterion, values)  # fail closed before anything is logged
+        return absolute, values, time.perf_counter() - t0
+
+    def rec(block: int, rr: range, v: Sequence[Mapping[str, Any]], dt: float,
+            res: CheckResult | None, status: str) -> dict[str, Any]:  # fmt: skip
+        return _pooled_record(
+            criterion, suite, stream, key, bound, R, block, rr, v, dt, res, status, guard, vacuous
+        )
+
+    if confirm is not None:
+        if (stream, criterion, float(bound), int(R), key) not in confirm:
+            return rec(1, reps, [], 0.0, None, SKIPPED_STATUS)
+        out = rec(2, *run(2, reps), None, SHARD_STATUS)
+        _append([out], suite, log_dir)
+        return out
+    if reps != range(R):
+        block = replicate_block()
+        out = rec(block, *run(block, reps), None, SHARD_STATUS)
+        if out["values"]:
+            _append([out], suite, log_dir)
+        return out
+
+    reps1, v1, dt1 = run(1, reps)
+    status, r1, _ = _pooled_verdict(criterion, v1, None, bound, guard, vacuous)
+    if r1 is None or r1.ok:
+        out = rec(1, reps1, v1, dt1, r1, status)
+        _append([out], suite, log_dir)
+        return out
+    reps2, v2, dt2 = run(2, reps)
+    status, r1, r2 = _pooled_verdict(criterion, v1, v2, bound, guard, vacuous)
+    recs = [rec(1, reps1, v1, dt1, r1, status), rec(2, reps2, v2, dt2, r2, status)]
+    _append(recs, suite, log_dir)
+    return recs[1]
 
 
 def calibrate_pooled(
@@ -813,55 +1110,16 @@ def calibrate_pooled(
     ``GIAP_CALIBRATION_CONFIRM`` behave as in ``calibrate``; the confirm key is
     ``_check_key(record)`` (it includes ``key``).
     """
-    if suite not in array_suites():
-        raise KeyError(f"unknown calibration suite {suite!r} (not in tolerances.yaml)")
-    confirm = confirm_checks()
-    reps = range(R) if confirm is not None else replicate_range(R)
-
-    def run(block: int, local: range) -> tuple[range, list[dict[str, int]], float]:
-        offset = (block - 1) * R
-        absolute = range(offset + local.start, offset + local.stop)
-        t0 = time.perf_counter()
-        values = [_counts_of(records(i)[key]) for i in absolute]
-        _f1_totals(values)  # fail closed before anything is logged
-        return absolute, values, time.perf_counter() - t0
-
-    def rec(block: int, rr: range, v: Sequence[Mapping[str, Any]], dt: float,
-            res: CheckResult | None, status: str) -> dict[str, Any]:  # fmt: skip
-        return _pooled_record(
-            suite, stream, key, bound, R, block, rr, v, dt, res, status, guard, vacuous
-        )
-
-    if confirm is not None:
-        if (stream, POOLED_F1, float(bound), int(R), key) not in confirm:
-            return rec(1, reps, [], 0.0, None, SKIPPED_STATUS)
-        out = rec(2, *run(2, reps), None, SHARD_STATUS)
-        _append([out], suite, log_dir)
-        return out
-    if reps != range(R):
-        block = replicate_block()
-        out = rec(block, *run(block, reps), None, SHARD_STATUS)
-        _append([out], suite, log_dir)
-        return out
-
-    reps1, v1, dt1 = run(1, reps)
-    status, r1, _ = _pooled_verdict(v1, None, bound, guard, vacuous)
-    if r1 is None or r1.ok:
-        out = rec(1, reps1, v1, dt1, r1, status)
-        _append([out], suite, log_dir)
-        return out
-    reps2, v2, dt2 = run(2, reps)
-    status, r1, r2 = _pooled_verdict(v1, v2, bound, guard, vacuous)
-    recs = [rec(1, reps1, v1, dt1, r1, status), rec(2, reps2, v2, dt2, r2, status)]
-    _append(recs, suite, log_dir)
-    return recs[1]
+    return _calibrate_counts(
+        POOLED_F1, suite, stream, key, bound, records, R, guard, vacuous, log_dir
+    )
 
 
 def _merge_pooled(
     suite: str, pkey: tuple[Any, ...], group: Sequence[Mapping[str, Any]]
 ) -> dict[str, Any]:
-    """Verdict record of one pooled check from its (shard) records (``merge_shards``)."""
-    stream, key, bound, R = pkey
+    """Verdict record of one count-record check from its (shard) records (``merge_shards``)."""
+    criterion, stream, key, bound, R = pkey
     settings = {(json.dumps(r.get("guard"), sort_keys=True),
                  json.dumps(r.get("vacuous"), sort_keys=True)) for r in group}  # fmt: skip
     if len(settings) != 1:
@@ -870,14 +1128,56 @@ def _merge_pooled(
     b1 = _collect(group, 1, R, pkey, conv=_counts_of)
     if b1 is None:
         raise ValueError(f"{pkey}: no block-1 replicates logged")
-    status, r1, _ = _pooled_verdict(b1[0], None, bound, guard, vacuous)
+    status, r1, _ = _pooled_verdict(criterion, b1[0], None, bound, guard, vacuous)
     b2 = None if r1 is None or r1.ok else _collect(group, 2, R, pkey, conv=_counts_of)
     if b2 is not None:
-        status, r1, r2 = _pooled_verdict(b1[0], b2[0], bound, guard, vacuous)
-        return _pooled_record(suite, stream, key, bound, R, 2, range(R, 2 * R), b2[0], b2[1],
-                              r2, status, guard, vacuous)  # fmt: skip
-    return _pooled_record(suite, stream, key, bound, R, 1, range(R), b1[0], b1[1], r1, status,
-                          guard, vacuous)  # fmt: skip
+        status, r1, r2 = _pooled_verdict(criterion, b1[0], b2[0], bound, guard, vacuous)
+        return _pooled_record(criterion, suite, stream, key, bound, R, 2, range(R, 2 * R), b2[0],
+                              b2[1], r2, status, guard, vacuous)  # fmt: skip
+    return _pooled_record(criterion, suite, stream, key, bound, R, 1, range(R), b1[0], b1[1], r1,
+                          status, guard, vacuous)  # fmt: skip
+
+
+# --------------------------------------------------------------------------- FDR from counts
+
+
+def fdp_of(counts: Mapping[str, Any]) -> float:
+    """``n_false / max(n_called, 1)`` (M7-13 rule 6: 0 when nothing is called); fails closed on a
+    missing key (KeyError), a negative or non-integer count or ``n_false > n_called``."""
+    got: dict[str, int] = {}
+    for k in ("n_called", "n_false"):
+        v = counts[k]
+        if isinstance(v, bool) or not isinstance(v, int | np.integer) or v < 0:
+            raise ValueError(f"fdr_counts: {k} = {v!r} is not a count")
+        got[k] = int(v)
+    if got["n_false"] > got["n_called"]:
+        raise ValueError(f"fdr_counts: n_false > n_called ({dict(counts)})")
+    return got["n_false"] / max(got["n_called"], 1)
+
+
+def check_fdr_counts(values: Sequence[Mapping[str, Any]], q: float) -> CheckResult:
+    """``check_fdr`` on the per-replicate FDPs of the count records."""
+    return check_fdr([fdp_of(v) for v in values], q)
+
+
+def calibrate_fdr_counts(
+    suite: str,
+    stream: str,
+    key: str,
+    q: float,
+    records: Callable[[int], Mapping[str, Any]],
+    R: int,
+    *,
+    vacuous: Mapping[str, float] | None = None,
+    log_dir: Path | None = None,
+) -> dict[str, Any]:
+    """FDR gate (§8.4, M7-13 rule 6, ADR-0015) over the count records ``records(i)[key]``.
+
+    As ``calibrate_pooled`` with criterion ``fdr_counts``: mean FDP <= q + k SE(FDP) at
+    ``level = q``; ``vacuous`` (``{count: floor}``, e.g. ``{"n_targets": 1 / q}``) makes block 1
+    ``vacuous`` when a block mean is below its floor (no block 2, not a pass).
+    """
+    return _calibrate_counts(FDR_COUNTS, suite, stream, key, q, records, R, None, vacuous, log_dir)
 
 
 # --------------------------------------------------------------------------- job array
@@ -946,19 +1246,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     r = replicates(ns.suite, full=ns.full)
     if ns.shard is None:
         ns.replicates = range(r)
+        ns.shard_kn = None
     else:
         try:
             k_s, n_s = ns.shard.split("/")
             ns.replicates = shard_replicates(r, int(n_s), int(k_s))
+            ns.shard_kn = (int(k_s), int(n_s))
         except ValueError as exc:
             ap.error(f"--shard {ns.shard!r}: {exc}")
     return ns
 
 
 def _check_key(r: Mapping[str, Any]) -> list[Any]:
-    """Confirm-list entry of a check; pooled checks (one stream, many keys) add ``key``."""
+    """Confirm-list entry of a check; count-record checks (one stream, many keys) add ``key``."""
     out = [r["stream"], r["criterion"], float(r["level"]), int(r["R"])]
-    return [*out, str(r["key"])] if r["criterion"] == POOLED_F1 else out
+    return [*out, str(r["key"])] if r["criterion"] in COUNT_CRITERIA else out
 
 
 def _run_block2(suite: str, full: bool, pending: Sequence[Mapping[str, Any]]) -> int:
@@ -978,8 +1280,33 @@ def _merge_main(suite: str, full: bool) -> int:
     (2) if the records cannot be merged, block 2 could not be obtained, or the confirm run's
     pytest exited non-zero with no confirmed fail (a test outside the harness failed; M7-13 lead
     decisions 7-8). A confirmed fail keeps ``MERGE_FAIL`` whatever the confirm run's exit.
+
+    Once ``<suite>.shards.jsonl`` exists (``main --shard``), every recorded shard ``pytest_exit``
+    is folded in (review of PR #327, B1/B2): a shard's exit carries the verdicts that are not
+    harness records (shard 0's direct assertions, shard-local checks). See ``shard_exit_verdict``.
     """
     code = 0
+    try:
+        shard = shard_exit_verdict(suite)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        print(f"merge {suite}: shard exits: {exc}", file=sys.stderr)
+        return MERGE_ERROR
+    if shard is not None and shard[1]:
+        print(f"merge {suite}: {shard[1]}", file=sys.stderr)
+    if shard is not None and not shard[2]:
+        return MERGE_ERROR  # a shard died before logging its exit: no verdict
+    shard_rc = 0 if shard is None else shard[0]
+    if not (log_dir() / f"{suite}.jsonl").exists() and shard is not None:
+        # no harness check in the suite (e.g. denovo_precision): its verdicts are the shard exits
+        print(f"merge {suite}: no calibrate records; every shard finished (verdicts: shard exits)")
+        direct = direct_xpasses(read_outcomes(suite), set())
+        for test, strict in direct:
+            print(
+                f"merge {suite}: XPASS{'(strict)' if strict else ''} {test}: clean in every shard"
+            )
+        if shard_rc != 0:
+            return shard_rc
+        return MERGE_FAIL if any(strict for _t, strict in direct) else 0
     try:
         merged = merge_shards(suite)
         pending = [r for r in merged if r["status"] == PENDING_STATUS]
@@ -998,26 +1325,72 @@ def _merge_main(suite: str, full: bool) -> int:
     if not merged:
         print(f"merge {suite}: no calibrate records in {log_dir()}", file=sys.stderr)
         return MERGE_ERROR
+    try:
+        outcomes = read_outcomes(suite)
+        xfailed = frozenset(str(o["test"]) for o in outcomes if o.get("outcome") == XFAILED)
+        xpass = apply_xfail(merged, xfailed)
+        checked = {str(r["test"]) for r in merged if r.get("test") is not None}
+        direct = direct_xpasses(outcomes, checked)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        print(f"merge {suite}: outcome records: {exc}", file=sys.stderr)
+        return MERGE_ERROR
+    for test, strict in direct:
+        print(f"merge {suite}: XPASS{'(strict)' if strict else ''} {test}: clean in every shard")
+    direct_strict = [test for test, strict in direct if strict]
     path = log_dir() / f"{suite}.merged.jsonl"
     path.write_text("".join(json.dumps(r) + "\n" for r in merged))
     print(summary_markdown(merged), end="")
-    if any(r["status"] == "fail" for r in merged):
+    for test in xpass:
+        print(f"merge {suite}: XPASS(strict) {test}: every check passed under a strict xfail")
+    if any(r["status"] == "fail" and r.get("outcome") != "xfail" for r in merged):
         return MERGE_FAIL
+    if xpass or direct_strict:
+        return MERGE_FAIL
+    if shard_rc != 0:
+        return shard_rc
     if code != 0:
         print(f"merge {suite}: the block-2 confirm run's pytest exited {code}", file=sys.stderr)
         return MERGE_ERROR
     return 0
 
 
+WORKTREE_ENV = "GIAP_WORKTREE"
+
+
+def worktree_giap_error() -> str | None:
+    """Under ``GIAP_WORKTREE``: None when ``giap`` imports from ``$GIAP_WORKTREE/src``, else the
+    reason. Without it (the main checkout) None. Prints ``giap.__file__`` to stderr (Slurm 1885838
+    ran a worktree's tests against the main checkout's src)."""
+    wt = os.environ.get(WORKTREE_ENV)
+    if not wt:
+        return None
+    import importlib.util
+
+    spec = importlib.util.find_spec("giap")
+    origin = None if spec is None or spec.origin is None else Path(spec.origin).resolve()
+    print(f"giap.__file__={origin}", file=sys.stderr)
+    src = (Path(wt) / "src").resolve()
+    if origin is None or not origin.is_relative_to(src):
+        return f"giap.__file__={origin} is not under {WORKTREE_ENV}/src = {src}"
+    return None
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run (or with ``--dry-run`` print) the pytest command of one suite; ``--merge`` merges."""
     ns = parse_args(argv)
+    bad = worktree_giap_error()
+    if bad is not None:
+        print(f"main: {bad}; set PYTHONPATH to the worktree (calibration_full.sbatch does)",
+              file=sys.stderr)  # fmt: skip
+        return MERGE_ERROR
     if ns.merge:
         return _merge_main(ns.suite, ns.full)
     cmd = [sys.executable, "-m", "pytest", *pytest_args(ns.suite, ns.full)]
     env: dict[str, str] = {}
     if ns.shard is not None:  # unsharded runs leave the variables unset (behaviour unchanged)
-        env = {SHARD_ENV: f"{ns.replicates.start}:{ns.replicates.stop}", BLOCK_ENV: str(ns.block)}
+        k, n = ns.shard_kn  # @K/N: every check's R is sharded K of N (replicate_range)
+        env = {SHARD_ENV: f"{ns.replicates.start}:{ns.replicates.stop}@{k}/{n}",
+               BLOCK_ENV: str(ns.block)}  # fmt: skip
     print(" ".join([*(f"{k}={v}" for k, v in env.items()), shlex.join(cmd)]))
     if ns.dry_run:
         return 0
@@ -1025,7 +1398,58 @@ def main(argv: Sequence[str] | None = None) -> int:
     base = {k: v for k, v in os.environ.items() if k not in (SHARD_ENV, BLOCK_ENV, CONFIRM_ENV)}
     if CONFIRM_ENV in os.environ:
         print(f"main: ignoring {CONFIRM_ENV} (set only by --merge's block-2 run)", file=sys.stderr)
-    return subprocess.run(cmd, env={**base, **env}, check=False).returncode
+    rc = subprocess.run(cmd, env={**base, **env}, check=False).returncode
+    if ns.shard is not None:
+        _log_shard_done(ns.suite, ns.shard_kn, ns.block, rc)
+    return rc
+
+
+def _log_shard_done(suite: str, kn: tuple[int, int], block: int, rc: int) -> None:
+    """Append ``{suite, shard, n, block, pytest_exit}`` to ``<log_dir>/<suite>.shards.jsonl``."""
+    d = log_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    rec = {"suite": suite, "shard": kn[0], "n": kn[1], "block": block, "pytest_exit": rc}
+    with (d / f"{suite}.shards.jsonl").open("a") as fh:
+        fh.write(json.dumps(rec) + "\n")
+
+
+def fold_shard_exits(exits: Sequence[int]) -> int:
+    """Merge exit of the shard ``pytest_exit`` values: 0 when all are 0, ``MERGE_FAIL`` when one
+    is 1 (a test failed), else ``MERGE_ERROR`` (2 interrupted / collection error, 3 internal,
+    4 usage, 5 nothing collected, negative: a signal)."""
+    if any(rc == 1 for rc in exits):
+        return MERGE_FAIL
+    if any(rc != 0 for rc in exits):
+        return MERGE_ERROR
+    return 0
+
+
+def shard_exit_verdict(suite: str) -> tuple[int, str, bool] | None:
+    """None without ``<suite>.shards.jsonl`` (in-process records: behaviour unchanged). Otherwise
+    ``(code, message, complete)``: ``complete`` is False (and ``code`` ``MERGE_ERROR``) when the
+    block-1 shards are not exactly 0..N-1 of one N; else ``code`` is ``fold_shard_exits`` of every
+    recorded exit, all blocks (``message`` empty when every exit is 0)."""
+    path = log_dir() / f"{suite}.shards.jsonl"
+    if not path.exists():
+        return None
+    recs = read_results(path)
+    if not _shards_complete(suite):
+        got = sorted((int(r["shard"]), int(r["n"])) for r in recs if int(r["block"]) == 1)
+        return MERGE_ERROR, f"incomplete shard set in {path.name} (block-1 shard, n: {got})", False
+    bad = [(int(r["shard"]), int(r["block"]), int(r["pytest_exit"])) for r in recs
+           if int(r["pytest_exit"]) != 0]  # fmt: skip
+    msg = "; ".join(f"shard {k} block {b} exited {e}" for k, b, e in bad)
+    return fold_shard_exits([e for _k, _b, e in bad]), msg and f"non-zero shard exits: {msg}", True
+
+
+def _shards_complete(suite: str) -> bool:
+    """True when ``<suite>.shards.jsonl`` holds every block-1 shard 0..N-1 of one N."""
+    path = log_dir() / f"{suite}.shards.jsonl"
+    if not path.exists():
+        return False
+    done = [r for r in read_results(path) if int(r["block"]) == 1]
+    ns = {int(r["n"]) for r in done}
+    return len(ns) == 1 and {int(r["shard"]) for r in done} == set(range(ns.pop()))
 
 
 if __name__ == "__main__":

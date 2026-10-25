@@ -585,3 +585,27 @@ picks real ones from the excerpt; the rule each row shows is the one being teste
     - **N10, binding for the acceptance run:** `mvp04_inputs.sbatch` runs the code in
       `$GIAP_REPO`. The acceptance inputs are made only after #258 merges and the main checkout is
       fast-forwarded, so they carry decision 20's `K12_ISLANDS`.
+
+## Amendment (2026-10-24, Khoa: "bug fix"): how gate 11 is scored
+Statistician audit stat/m7-k12-flags 2e9ecbf4 (docs/methods/variants-mvp04-k12-audit.md). Khoa
+ruled these four scorer and truth fixes plain bug fixes, with no ADR and no sign-off caveat.
+Thresholds and gate text are unchanged.
+1. Residues compare with I/L folded on both sides (ALT `J` = truth `I` or `L`).
+2. Initiator rows leave the precision denominator and are reported as `n_initiator_m_excluded`,
+   because giapsim leaves start codons out of truth. An initiator row is an ALT M row that either
+   carries `start_codon` or sits at a GTG/TTG/CTG truth novel-ORF start.
+3. Truth is `truth/alt_sites.tsv` plus `truth/novel_alt_sites.tsv`: interior SNV codons of the
+   planted intergenic, cds_outframe and antisense ORFs.
+4. A recall site needs ≥ 2 distinct (folded) correct peptides of at least
+   `mapping.tolerant.min_len` (from `OUTDIR/resolved_config.yaml`) whose interval covers the
+   codon. With no readable config, recall is NA and the gate fails.
+
+On run 20261023_a1 the literal text gives precision 55/70 and recall 55/65; the scored values are
+55/55 and 55/58. Ten of the 15 excluded initiator rows carry no `start_codon` flag. The ADR
+candidate "flag ALT M at unannotated start-capable codons" is in the backlog.
+
+## Clarification (lead, 2026-10-24; statistician note local/stat/mvp04-gates-2-12.md): gate 2 tokens
+Gate 2's forbidden warnings are the gene-level detection tokens. They match as whole tokens, so the
+novel-ORF step's per-class `novel_orfs.class_q_floor_above_alpha` (the class FDR floor, §7.6;
+expected for small classes such as nterm_extension) does not fail gate 2. This is a clarification,
+not a gate change.
