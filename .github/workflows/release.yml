@@ -1,0 +1,233 @@
+# M11-04 (GIAP_SPEC.md §12, §3.10): verify, build and, only when Khoa dispatches it with
+# dry_run=false, publish to (Test)PyPI by trusted publishing and create the tag and GitHub release.
+# Agents dispatch dry runs only (AGENTS.md, M11-05). No secrets are read (R12).
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 1.0.0 or 1.0.0rc1"
+        type: string
+        required: true
+      dry_run:
+        description: "Verify, build, smoke and render notes only: no upload, no tag"
+        type: boolean
+        default: true
+      target:
+        description: "Index to upload to when dry_run is false"
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      TARGET: ${{ inputs.target }}
+    outputs:
+      overall: ${{ steps.readiness.outputs.overall }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: ref, version and tag
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "::error::release runs only on main (got $GITHUB_REF)"; exit 1
+          fi
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+)?$ ]]; then
+            echo "::error::version input $VERSION does not match ^\d+\.\d+\.\d+(rc\d+)?$"; exit 1
+          fi
+          got=$(PYTHONPATH=src python3 -c 'import giap; print(giap.__version__)')
+          if [ "$VERSION" != "$got" ]; then
+            echo "::error::version input $VERSION != giap $got"; exit 1
+          fi
+          if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q .; then
+            echo "::error::tag v$VERSION exists"; exit 1
+          fi
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - run: uv sync --frozen --all-extras
+      - name: readiness (fatal only for a PyPI publish)
+        id: readiness
+        run: |
+          set -euo pipefail
+          f="validation/release/${VERSION%%rc*}/readiness.json"
+          strict=false
+          if [ "$DRY_RUN" = false ] && [ "$TARGET" = pypi ]; then strict=true; fi
+          problem() {
+            if $strict; then echo "::error::$1"; exit 1; fi
+            echo "::warning::$1"
+          }
+          if [ ! -f "$f" ]; then
+            echo "overall=missing" >> "$GITHUB_OUTPUT"
+            problem "readiness missing: $f"
+            exit 0
+          fi
+          overall=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["overall"])' "$f")
+          echo "overall=$overall" >> "$GITHUB_OUTPUT"
+          uv run --no-sync python scripts/release/readiness.py verify "$f" \
+            || problem "readiness.py verify failed: $f"
+          if [ "$overall" != pass ]; then
+            rows=$(python3 -c 'import json, sys
+          rows = json.load(open(sys.argv[1]))["rows"]
+          print(", ".join(r["id"] for r in rows if r["status"] in ("fail", "pending")))' "$f")
+            problem "readiness overall $overall ($rows)"
+          fi
+
+  build:
+    needs: verify
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      TARGET: ${{ inputs.target }}
+      UV_PYTHON: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - name: build and check the artefacts
+        run: |
+          set -euo pipefail
+          uv build
+          python3 scripts/release/check_dist.py dist --version "$VERSION"
+      - name: smoke the wheel in a clean venv outside the checkout (M11-01)
+        run: |
+          set -euo pipefail
+          uv venv /tmp/pkg --python 3.12
+          VIRTUAL_ENV=/tmp/pkg uv pip install dist/*.whl
+          cd /tmp
+          /tmp/pkg/bin/giap --version
+          /tmp/pkg/bin/giap version --json
+      - name: release notes (towncrier draft on a dry run)
+        run: |
+          set -euo pipefail
+          uv sync --frozen --all-extras
+          flag=""
+          if [ "$DRY_RUN" = true ]; then flag="--draft"; fi
+          uv run --no-sync python scripts/release/notes.py "$VERSION" $flag
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: |
+            dist/
+            notes.md
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: ${{ !inputs.dry_run && github.actor == 'khoa-yelo' }}
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      TARGET: ${{ inputs.target }}
+    environment: ${{ inputs.target }}
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+      - name: compare with files already on the index (re-run after a failed release)
+        id: index
+        run: |
+          set -euo pipefail
+          if [ "$TARGET" = pypi ]; then url="https://pypi.org/pypi/giap/$VERSION/json"
+          else url="https://test.pypi.org/pypi/giap/$VERSION/json"; fi
+          code=$(curl -sS -o index.json -w '%{http_code}' "$url" || true)
+          if [ "$code" != 200 ]; then echo "skip=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          python3 - >> "$GITHUB_OUTPUT" <<'EOF'
+          import hashlib, json, pathlib, sys
+          index = {u["filename"]: u["digests"]["sha256"] for u in json.load(open("index.json"))["urls"]}
+          seen = False
+          for p in sorted(pathlib.Path("dist").iterdir()):
+              if p.name in index:
+                  seen = True
+                  if hashlib.sha256(p.read_bytes()).hexdigest() != index[p.name]:
+                      sys.exit(f"::error::{p.name} is on the index with a different sha256")
+          print(f"skip={str(seen).lower()}")
+          EOF
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: dist/
+          repository-url: ${{ inputs.target == 'testpypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
+          skip-existing: ${{ steps.index.outputs.skip }}
+
+  github-release:
+    needs: publish
+    if: ${{ !inputs.dry_run && github.actor == 'khoa-yelo' && inputs.target == 'pypi' }}
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      TARGET: ${{ inputs.target }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+      - name: tag and GitHub release (the only place a tag is created)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pre=()
+          case "$VERSION" in *rc*) pre=(--prerelease) ;; esac
+          gh release create "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" \
+            --target "${{ github.sha }}" --title "GIAP $VERSION" --notes-file notes.md "${pre[@]}"
+
+  summary:
+    needs: [verify, build, publish, github-release]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      TARGET: ${{ inputs.target }}
+    steps:
+      - uses: actions/download-artifact@v4
+        if: ${{ needs.build.result == 'success' }}
+        with:
+          name: release
+      - name: step summary
+        env:
+          ACTOR: ${{ github.actor }}
+          OVERALL: ${{ needs.verify.outputs.overall }}
+          PUBLISH: ${{ needs.publish.result }}
+          RELEASE: ${{ needs.github-release.result }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = true ]; then published="dry run: nothing published"
+          elif [ "$ACTOR" != khoa-yelo ]; then published="publish skipped: actor $ACTOR is not khoa-yelo"
+          else published="publish ($TARGET): $PUBLISH; tag and GitHub release: $RELEASE"; fi
+          {
+            echo "| field | value |"
+            echo "|---|---|"
+            echo "| version | $VERSION |"
+            echo "| sha | $GITHUB_SHA |"
+            echo "| readiness overall | ${OVERALL:-not evaluated} |"
+            echo "| published | $published |"
+            echo
+            echo "| artefact | sha256 |"
+            echo "|---|---|"
+            if [ -d dist ]; then
+              for p in dist/*; do echo "| ${p#dist/} | $(sha256sum "$p" | cut -d' ' -f1) |"; done
+            else
+              echo "| (none: build did not succeed) | |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
