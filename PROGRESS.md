@@ -8,7 +8,7 @@ _Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 184/190 done (97 %), 0 running · generated 2026-10-25 10:36 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 188/191 done (98 %), 1 running · generated 2026-10-25 14:09 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -22,8 +22,8 @@ _Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01
 | M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 18 | 0 | 0 |
 | M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬛ 100 % | 17 (1 superseded) | 0 | 0 |
 | M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 26 | 0 | 0 |
-| M10 Pilot validation | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 91 % | 10 | 0 | 1 |
-| M11 Release 1.0 | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜⬜⬜ 62 % | 8 | 0 | 5 |
+| M10 Pilot validation | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨⬜ 83 % | 10 | 1 | 1 |
+| M11 Release 1.0 | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 92 % | 12 | 0 | 1 |
 <!-- progress:end -->
 
 - M7-15 K-12 real-tool arm: **Slurm 1879271** (COMPLETED 4 m 41 s; 2,647 cached from 1873779, 4 rerun; d11f7608 + VARIANTS 8 GB; 4fcc29da is cache-key-only, outputs byte-identical). Earlier attempts 1869642, 1871633, 1873779, 1878443 (cancelled).
@@ -74,14 +74,16 @@ decoy share 0.006, against the rule ≥ 500 peptides and ≥ 0.20
   `$GIAP_ROOT/pilot/A3_cascadia_cpu/WT_{2,3}/WT_{2,3}.ssl`. They are inputs for M10-10a.
 
 **Running:**
-- **M10-04 (#296) pass-1 runs** (`R=$GIAP_ROOT/runs/pilot/pass1`):
-  - A1 is done: head job **1892719**, COMPLETED in 01:37:08 at **6f969ee7**.
-  - The first A2, **1892236** at 0667e366 (COMPLETED, 1 h 52 min), ran before #335 merged. Its
-    output is kept as `$R/out_a2_0667e366`.
-  - The A2 re-run is **1892882**, at 6f969ee7 from the pinned worktree
-    `local/worktrees/pilot-6f969ee7`, so both arms compare at one commit. Then rule set A on both
-    arms, `pilot_compare.sbatch $R/out_a1 $R/out_a2 $R/cmp_a1_a2`, the README section "Pass-1 runs
-    (M10-04)", and the PR goes ready.
+- **M10-04 (#296) pass-1 runs** (`R=$GIAP_ROOT/runs/pilot/pass1`): every gate passed; the PR is in
+  the merge queue.
+  - A1 **1892719** (01:37:08) and A2 **1893676** (01:43:45), both at **6f969ee7**; rule set A
+    `failures: []` (`$R/evidence/a1.json`, `$R/evidence/a2.json`).
+  - Compare **1894360** (17 s): rule set C `failures: []` (`$R/evidence/compare.json`), C6
+    byte-identical.
+  - Superseded A2 attempts: 1892236 (0667e366) and 1892882 (1549a930: the editable venv imported
+    the main checkout; fixed by #355). All attempts are in `$R/ATTEMPTS.tsv` and the README section
+    "Pass-1 runs (M10-04)".
+  - antiSMASH was skipped in both arms (precomputed Bakta JSON without a GBFF): backlog.
 
 **In progress:**
 - **M11 wave B:** M11-03 (release readiness), M11-06 (GHCR containers) and M11-07 (MkDocs site)
@@ -432,8 +434,7 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 7742, 1 thread). Next: review, then the statistician's methods note (§"Wallenius ORA").
 
 ## Next actions (ordered)
-1. #296 (M10-04) to merged: after the A2 re-run 1892882, rule set A on both arms, the comparison,
-   the README Pass-1 section, ready and queue. Don't queue PRs that touch `src/` or `workflow/`
+1. #296 (M10-04): in the merge queue. Don't queue PRs that touch `src/` or `workflow/`
    while a `giap_run` reads the main checkout.
 2. M7-16b-3 (rule 14), feature loop: test-author → implementer → review.
 3. M7-16c, after the statistician's quick check.
@@ -443,7 +444,8 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 6. The partly cancelled nightly: re-run it once the pilot arms end, or let the 2026-10-26 01:30
    run cover it.
 
-Slurm jobs this session (2026-10-25): 1892719, 1892882 (pilot pass-1 arms).
+Slurm jobs this session (2026-10-25): 1892719, 1892882, 1893676 (pilot pass-1 arms), 1894360
+(pilot compare), 1894327 (demo quickstart run).
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
@@ -523,4 +525,6 @@ Slurm jobs this session (2026-10-25): 1892719, 1892882 (pilot pass-1 arms).
 | A3 mzML conversion, WT_1: 1.47 GB; mzml-check M1–M8 pass (734 MS1, 47,688 MS2, 65 windows) | PXD078459 WT_1 | 4 min 56 s | 5.1 GB | barley-01, 8 CPU (1884087) |
 | A3 Cascadia 0.0.7 CPU, one work-queue job (M10-08b, route B2; no GPU) | PXD078459 WT_1 | 1 h 39 min | 1.35 GB (1413276K) | barley-04, 8 CPU (1889426_0) |
 | Pilot pass-1 arm A1 head job, at 6f969ee7 (M10-04; tool jobs run separately) | Nissle 1917 pilot | 1 h 37 min (01:37:08) | 1.3 GB (head) | wheat-02, 4 CPU (1892719) |
-| Pilot pass-1 arm A2 head job, at 0667e366, superseded by the re-run 1892882 (M10-04) | Nissle 1917 pilot | 1 h 52 min (01:52:31) | 1.1 GB (head) | barley-03, 4 CPU (1892236) |
+| Pilot pass-1 arm A2 head job, at 0667e366, superseded by the re-run 1893676 (M10-04) | Nissle 1917 pilot | 1 h 52 min (01:52:31) | 1.1 GB (head) | barley-03, 4 CPU (1892236) |
+| Pilot pass-1 arm A2 head job, at 6f969ee7 (M10-04; accepted) | Nissle 1917 pilot | 1 h 44 min (01:43:45) | 1.2 GB (head) | wheat-08, 4 CPU (1893676) |
+| Pilot pass-1 compare (`giap compare` + rule set C, M10-04) | A1 vs A2 | 17 s | 0.3 GB | wheat-08 (1894360) |
