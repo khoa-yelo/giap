@@ -843,8 +843,12 @@ reversal-symmetric (tryptic, C-terminal K/R) the per-genome read-through D_rt/T_
 (reverse) and 0.58–1.74 (shuffle) on three giapsim 1-Mb genomes, and 0.81–1.15 (reverse) and
 1.14–1.42 (shuffle) on Nissle. The net effect on the total, (D_rt − T_rt)/T_regular, was at worst
 −9.4 × 10⁻⁴ (giapsim) and −1.3 × 10⁻⁴ (Nissle): exact expected chance mass, Slurm jobs 1889319
-(Nissle) and 1889320 (giapsim), script `local/stat/m7-16/rt_mass.py`. The stressed arm's measured
-values are under item 8.
+(Nissle) and 1889320 (giapsim), script `local/stat/m7-16/rt_mass.py`. Job 1889319 used a local
+Bakta run with all four replicons linear (4,686 sites). On the committed recording
+`tests/data/recorded/bakta/1.12.2-full/nissle` (all circular; 4,689 sites, 3 `not_a_stop`) job
+1889965 reproduces them: reverse tryptic 0.81–1.14, shuffle tryptic 1.16–1.39, shuffle i.i.d.
+1.03–1.18, reverse i.i.d. exactly 1, worst net shift −1.3 × 10⁻⁴, read-through share
+0.035–0.082 %. The stressed arm's measured values are under item 8.
 
 **4. The added mass is an approximation, not a bound.** A window consumes a marked cell only if
 it contains it, with the other L − 1 residues within m − 1 differences. Relative to E(L, m) of
@@ -889,6 +893,21 @@ by design. This is a statement, not a change.
   |---|---|---|---|---|---|---|
   | reverse (database) | 121.6 | 125.4 | 1.95 | 1.98 % | 0 (fails, as required) | 0.0043 / 0.024 / 0.057 |
   | shuffle (de novo) | 123.6 | 391.0 | 2.83 | 2.02 % | 0 (fails, as required) | 0.0070 / 0.036 / 0.083 |
+
+  Shuffle D_rt ≈ 3 × T_rt comes from the build, not the cells: every stressed gene's stop is
+  followed 1–3 residues later by the next gene's start `M`, which the K/P/Y/F peptides never
+  match, so a target window past the stop spends its second difference on it, while the shuffle
+  moves the `M`. Exact chance mass gives shuffle D/T 2.6–3.6 as built and 0.97 with the start ATG
+  replaced by AAA; reverse is 1.000 either way. It is conservative, but it means the stressed
+  shuffle arm alone cannot see a partial loss of shuffle cells (up to about 2/3); the reverse arm,
+  the no-cells control and the attack's structural checks cover that.
+- *Statistician's attack* (`attacks/test_attack_readthrough_decoys.py`, Slurm 1889956, fast and
+  full pass): exact expected chance mass on the cells `sixframe_index` writes, L 10, 11, 12, 16.
+  Reverse i.i.d. D_rt = T_rt to rtol 1e-9 in every replicate. Shuffle i.i.d. mean D_rt/T_rt on
+  giapsim 100 kb is 0.97–1.07 (fast, R 50) and 1.03–1.09 (full, R 300); the tryptic worst net
+  shift is −2.2 × 10⁻⁴ against the ±0.01 margin. Cell counts and consumable windows are equal in
+  target, reverse and shuffle at every L. Each broken build fails: no decoy cells, target cells
+  reused for the reverse decoy, a reverse mirror off by one.
 
   Accepted target rows that consumed a cell, per replicate at q 0.01 / 0.05 / 0.10: 0–1 / 0–2 /
   0–3 (reverse) and 0–1 / 0–2 / 0–5 (shuffle). The shuffle arm's D_rt is about 3 × T_rt in this

@@ -26,8 +26,10 @@ M7-11b), and M7-18 lead decision 1 handed the Sec/Pyl ALT rule to this ADR.
 M7-16 listed three options (A leave it, B annotated-stop substitution, C any-stop substitution).
 Khoa chose B.
 
-**What B reaches, checked on the Nissle recording** (`local/recordings/bakta_full/nissle1917`,
-Bakta 1.12.2, full DB; all four replicons circular). There are 4,692 CDS and sORF features.
+**What B reaches, checked on the Nissle recording** (`tests/data/recorded/bakta/1.12.2-full/nissle`,
+Bakta 1.12.2, full DB; all four replicons circular; the review's mass numbers, job 1889319, came
+from a local run with linear replicons, `local/recordings/bakta_full/nissle1917`, and job 1889965
+reproduces them on this recording). There are 4,692 CDS and sORF features.
 4,689 end in a stop (TAA 2,943, TGA 1,401, TAG 345); the other 3 are partial genes at plasmid
 edges with no stop as their last codon (JMJJOG_04967, JMJJOG_04968, JMJJOG_04975), counted as
 `not_a_stop` (corrected 2026-10-24 by the 16a implementation). No two features share a stop codon, and none crosses an origin.
