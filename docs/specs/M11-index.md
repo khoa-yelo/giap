@@ -73,6 +73,7 @@ runbook, outline, fragments) is not gated but is listed.
 | 7 | [M11-07](M11-07-mkdocs-site.md) | 2 | `mkdocs.yml`, nav, `scripts/docs/gen_reference.py` (CLI, config, tables; `--check`), `docs.yml` (strict build; Pages deploy) | 01 | 260 | 180 | Q-K9 (Pages) |
 | 8 | [M11-08](M11-08-user-guide.md) | 2 | user guide and tutorials (install, setup, quickstart, inputs, outputs, interpretation, licences, runtimes) | 07 | 0 (≈ 1,200 prose) | 60 | no |
 | 9 | [M11-09](M11-09-platforms-docker-smoke.md) | 2 | platforms page; Actions `docker-smoke` job (two pinned images under `-profile docker`) | 07, 06 (soft) | 90 | 60 | Q-K10 (Actions minutes) |
+| 9b | [M11-09b](M11-09b-bare-image-refs.md) | 2 | drop `docker://` from `containers.config` pins (bare refs; Apptainer cache names unchanged); writers, readers, H4 guard; ADR-0059 | 06, 03; blocks 09 | 40 | 150 | no |
 | 10 | [M11-10](M11-10-bioconda-recipe.md) | 2 | `packaging/bioconda/meta.yaml` rendered from pyproject; dependency agreement test; Khoa's recipe PR | 01, 04 | 130 | 110 | opens the bioconda PR |
 | 11 | [M11-11](M11-11-preprint-outline.md) | 2 | `docs/preprint/outline.md`: sections, figure plan, claim → evidence map, limitations | 03, 08 (soft) | 0 (≈ 250 prose) | 50 | Q-K11 (venue, authors, AI statement) |
 | 12 | [M11-12](M11-12-changelog-check-readme.md) | 2 | `scripts/ci/check_changelog.py` + CI step; README for 1.0 | 02 | 120 | 130 | no |
