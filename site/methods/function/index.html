@@ -1,0 +1,5919 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Genome-integrated analysis of proteomics data for bacterial genomes">
+      
+      
+      
+      
+        <link rel="prev" href="../function-gsea/">
+      
+      
+        <link rel="next" href="../islands/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Function module: detection enrichment primitives - GIAP</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#function-module-detection-enrichment-primitives" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="GIAP" class="md-header__button md-logo" aria-label="GIAP" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            GIAP
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Function module: detection enrichment primitives
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="GIAP" class="md-nav__button md-logo" aria-label="GIAP" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    GIAP
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../get-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../get-started/setup-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set up the databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../get-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/inputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running GIAP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/outputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Outputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/interpreting-results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpreting results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/plots-and-report/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plots and report
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comparing runs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/makedb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building a search database
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/convert/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Converting search-engine output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/licences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Licences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/runtimes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtimes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/ecoli-k12/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: E. coli K-12
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/nissle-pilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: the Nissle pilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Output tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Flag vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methods
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Methods
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../abundance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gene-level abundance: iBAQ, Top3, protein-level route, missing values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../autocorrelation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autocorrelation of abundance along the replicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bootstrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TU-block bootstrap, circular block bootstrap and the Hodges–Lehmann shift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration harness: criteria, error rates, seeds
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    giap compare: detection, abundance agreement and result stability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../context_tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The context tables: autocorrelation.tsv, islands.tsv and the genes.tsv context group
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../denovo-flag-m717-gate-verdict/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    M7-17 G4-k3 flag gate, full tier: statistician's verdict (PR #291, ebfdd065)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../denovo-precision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    De novo precision, estimated from the genome
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../detectability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detectability model (cross-fitted p_detect)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../detection-limit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection-limit model (P(detect | abundance) and P(miss))
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../detection-summary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic detection summary (O − E) and QC rows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../detection-tiers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection tiers and gene-level FDR (M4-12)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../determinants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Determinants: what explains abundance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fgsea-port/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    fgsea port (G15; GIAP_SPEC.md §7.7.4) — superseded by ADR-0038
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../free-entrapment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Free entrapment: the FDP of A1's identifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../function-collections/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function collections (M8-03)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../function-gsea/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Abundance GSEA (M8-05, engine M8-17b)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function module: detection enrichment primitives
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function module: detection enrichment primitives
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#wallenius-ora" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wallenius ORA
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Wallenius ORA">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quantities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quantities
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tails-direct-sums-of-the-pmf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tails: direct sums of the pmf
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fail-closed-range-lead-decision-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fail-closed range (lead decision 4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#far-tail-precision-of-scipys-pmf-lead-decision-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Far-tail precision of scipy's pmf (lead decision 2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-approximation-and-the-attack-it-implies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The approximation and the attack it implies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#calibration-evidence-statistician-simulations-2026-10-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Calibration evidence (statistician simulations, 2026-10-21)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#effect-size" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effect size
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#go-elim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GO elim
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GO elim">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Algorithm
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validity-of-bh-on-elim-p-81-family-collection-direction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validity of BH on elim p (§8.1 family = (collection, direction))
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sign-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign-off
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detection-enrichment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detection enrichment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detection enrichment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-unit-tus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The unit: TUs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-statistic-and-the-null" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The statistic and the null
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tu-detection-probability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TU detection probability
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-per-term-directions-elim-and-bh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests per term: directions, elim and BH
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#effect-size_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effect size
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#degenerate-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Degenerate cases
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#calibration-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Calibration evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pass-1-limit-decision-13-adr-0035-decision-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pass-1 limit (decision 13; ADR-0035 decision 3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hardening-owed-pass-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hardening owed (pass 2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#category_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        category_summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#simulator-worlds-for-the-m8-15-gate-giapsim-m8-14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simulator worlds for the M8-15 gate (giapsim, M8-14)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../islands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Islands: expression islands along the replicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mayu-gene-fdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MAYU-style gene-level FDR (closed form)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiple-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiple testing: Benjamini–Hochberg
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../novel-orfs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Novel ORFs (M7)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operons/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operons: the within-operon distribution and the missed-operon decoy FDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oriter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Origin-to-terminus gradient
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../permutation-and-shifts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Permutation p-values, circular shifts and Besag–Clifford
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../placement-fdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Placement FDR: genome decoys, chance hits and per-stratum q-values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../region-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Region tests: O − E and Hodges–Lehmann shift under circular gene-index shifts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sensitivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sensitivity analysis: stability of flagged sets under analysis choices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../target-decoy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Target–decoy q-values and picked FDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../variants-mvp04-k12-audit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Variants on the MVP-04 K-12 run: flag audit (statistician, 2026-10-24)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../variants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Variants (Module 5)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0001-import-spec-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0001: Import the settled decisions of GIAP_SPEC.md §2.1 and §2.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0002-farmshare-env-pins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0002: FarmShare toolchain as installed in M0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0003-simulate-outdir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0003: giapsim.simulate takes an explicit output directory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0004-m0-size-exemption-and-hook-symlinks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0004: One-off PR-size exemption for M0, and symlink-safe path protection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0005-m1-input-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0005: Decisions on M1 input handling left open by the spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0006-table-value-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0006: Encoding of special values in GIAP tables, and strict BED writing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0007-pr-size-counts-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0007: The PR-size guard counts code, not tests or docs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0008-tool-pins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0008: Annotation tool pins, image digests and licences (M2-01)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0009-picked-fdr-paired-share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0009: Picked gene-level FDR rescales decoy wins by the paired share
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0010-placement-fdr-weighted-decoys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0010: Placement FDR with per-peptide π̂ weights each decoy hit by its own π̂ (M3-10)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0011-low-complexity-placement-flag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0011: low_complexity placement flag (M3-10)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0012-novel-orf-promoter-terminator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0012: Promoter and terminator evidence for novel ORFs (Module 6)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0013-cterm-extension-locus-class/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0013: cterm_extension locus class (M3-14, Module 6)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0014-db-checksum-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0014: Checksum sources for the Bakta full DB and the Promotech model (M2-08)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0015-calibration-two-block-confirmation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0015: Two-block confirmation for calibration gates (M4-05)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0016-size-gate-excludes-nf-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0016: The PR-size gate does not count workflow/tests/ (amends ADR-0007)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0017-unversioned-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0017: Unversioned sources (KEGG REST) are recorded, not pinned
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0018-region-tests-confounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0018: Region tests robust to detectability confounding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0019-stratum0-pi-hat-exact-share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0019: Stratum-0 π̂_wrong for database input from exact-match shares per length class
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0020-autocorrelation-redetrend-residual-joincount/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0020: Autocorrelation nulls recompute the detrend; residual join count; no CI for lag statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0021-island-oriter-block-length/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0021: Block length for the island scan and the ori–ter CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0022-uniop-terminatornet-cutoffs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0022: UniOP and TerminatorNet cut-offs and the distance-model refit on RegulonDB 14.5.0 K-12
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0023-kegg-overview-maps-excluded/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0023: KEGG global and overview maps are excluded from the KEGG collection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0024-precomputed-rbs-novel-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0024: annotation.precomputed.rbs_novel, a precomputed second-round OSTIR layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0025-gsea-clustered-sets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0025: GSEA on genomically clustered sets: a flag and a restricted claim in pass 1, a rotation null in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0026-gsea-conditional-on-detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0026: Abundance GSEA is conditional on detection (restricted claim and flag)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0027-gsea-nes-without-ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0027: GSEA reports NES without a confidence interval (§8.2 deviation)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0028-gsea-median-centred-tu-scores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0028 (ADR-B): GSEA ranks median-centred TU scores
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0029-ora-conditional-poisson-binomial-tus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0029: Detection ORA uses the conditional Poisson-binomial null, counted in TUs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0030-detection-limit-pass1-calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0030: Detection-limit model (M6-02): the pass-1 calibration choices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0031-determinants-delta-r2-tolerance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0031: Determinants ΔR² bias tolerance 0.05; the ΔR² interval stays ci_unestimated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0032-determinants-univariate-ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0032: Univariate determinants CIs stay ci_unestimated in pass 1; a calibrated SE in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0033-determinants-primary-attribution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0033: Elastic-net ΔR² is the primary block attribution; LightGBM early stopping in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0034-determinants-null-uncalibrated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0034: The determinants permutation null p is null_uncalibrated in pass 1; a structure-aware null in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0035-ora-tu-detection-recalibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0035: The ORA TU detection probability is a cross-fitted TU-level recalibration of q = 1 − ∏(1 − p̂)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0036-m8-table-columns-beyond-9-3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0036: M8 function tables carry four columns and five run flags beyond GIAP_SPEC.md §9.3 and §9.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0037-ora-flexible-tu-recalibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0037: The ORA TU detection recalibration becomes a flexible cross-fitted ridge logistic (pass 2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0038-gsea-runs-r-fgsea/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0038: GSEA runs R fgsea as an external tool
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0039-bioconductor-org-for-golden-r/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0039: bioconductor.org as a download source for the R golden environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0040-manifest-run-tail-finalize-split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0040: The manifest runs after the graph; finalize is split between the graph and the run tail
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0041-run-tokens-beyond-9-4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0041: Run-scope tokens beyond the §9.4 Run row
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0042-replicates-variants-and-compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0042: Calibration replicate counts for variants and compare
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0043-plot-support-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0043: Plot support files under OUT/plots/support/
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0044-wallenius-golden-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0044: The Wallenius golden reference is the exact distribution, not goseq
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0045-wallenius-far-tails-by-urn-recursion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0045: Wallenius far tails by the exact urn recursion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0046-compare-output-layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0046: giap compare output layout (ADR-M9-B)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0047-decoy-q-filter-reading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0047: Decoys above q_value_max leave the picked competition (reading of §5.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0048-replicates-novel-orfs-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0048: Replicate counts for the 1-Mb novel-ORF gate (M7-13 G3/G4)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0049-m7-variant-precision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0049: M7 variant-call precision under de novo errors (G1, A6a, A6b, A6c)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0050-denovo-orf-q-exact-errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0050: ORF-level q in the de novo subgroup regime under exact systematic errors (G4-k3, attack GC)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0051-diann-version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0051: DIA-NN 2.3.1 Academia (Apptainer image) instead of the spec's 2.7.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0052-pr-ci-under-20-minutes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0052: PR CI under 20 minutes; calibration, integration and coverage move to the nightly
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0053-determinants-bit-identical-speedups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0053: Bit-identical speed-ups of the determinants step; two new benchmark baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0054-a3-external-artefacts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0054: External artefacts of the A3 de novo arm (ADR-M10-B): conversion route, TDF-SDK licence, Cascadia weights host, Unimod table
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0055-operon-discordance-abundance-noise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0055: Operon discordance under abundance-dependent Δ noise (attack D-1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0056-pmiss-outside-the-bh-family/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0056: P(miss) is reported without a q and stays out of the discordance BH family
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0057-calibration-merge-honours-strict-xfail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0057: the calibration merge honours the xfail mark of the test that owns a check
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0058-annotated-stop-substitution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0058: The tolerant matcher may consume an annotated stop codon (option B of M7-16)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releasing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../citation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Citation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#wallenius-ora" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wallenius ORA
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Wallenius ORA">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quantities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quantities
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tails-direct-sums-of-the-pmf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tails: direct sums of the pmf
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fail-closed-range-lead-decision-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fail-closed range (lead decision 4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#far-tail-precision-of-scipys-pmf-lead-decision-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Far-tail precision of scipy's pmf (lead decision 2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-approximation-and-the-attack-it-implies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The approximation and the attack it implies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#calibration-evidence-statistician-simulations-2026-10-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Calibration evidence (statistician simulations, 2026-10-21)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#effect-size" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effect size
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#go-elim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GO elim
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GO elim">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Algorithm
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validity-of-bh-on-elim-p-81-family-collection-direction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validity of BH on elim p (§8.1 family = (collection, direction))
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sign-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign-off
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detection-enrichment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detection enrichment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detection enrichment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-unit-tus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The unit: TUs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-statistic-and-the-null" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The statistic and the null
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tu-detection-probability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TU detection probability
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-per-term-directions-elim-and-bh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests per term: directions, elim and BH
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#effect-size_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effect size
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#degenerate-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Degenerate cases
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#calibration-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Calibration evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pass-1-limit-decision-13-adr-0035-decision-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pass-1 limit (decision 13; ADR-0035 decision 3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hardening-owed-pass-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hardening owed (pass 2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#category_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        category_summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#simulator-worlds-for-the-m8-15-gate-giapsim-m8-14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simulator worlds for the M8-15 gate (giapsim, M8-14)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="function-module-detection-enrichment-primitives">Function module: detection enrichment primitives<a class="headerlink" href="#function-module-detection-enrichment-primitives" title="Permanent link">&para;</a></h1>
+<p>Implements <code>giap.stats.wallenius</code> and <code>giap.function.elim</code> (GIAP_SPEC.md §7.7.3, §7.7.5, §8.1 row
+"Category detection", §8.2, §8.3; issue M8-01, docs/specs/M8-01-stats-wallenius-elim.md, lead
+decisions 1–4; M8-index lead decision 5). The families, the effect size and <code>parent_group</code> are
+M8-04's: see "Detection enrichment" below, which replaces the Wallenius p with the TU-counted
+conditional Poisson-binomial (ADR-0029). The <code>ora</code> suite and attack 2 are M8-15's.</p>
+<p><strong>Status:</strong> statistician review of #153 (2026-10-21). The primitives are <strong>approved as
+implemented</strong>. The <strong>method is not yet approved as a calibrated test</strong>: the mean-odds Wallenius
+null fails the §8.4 ORA null and attack 2 (see "Calibration evidence"). See Sign-off.</p>
+<h2 id="wallenius-ora">Wallenius ORA<a class="headerlink" href="#wallenius-ora" title="Permanent link">&para;</a></h2>
+<h3 id="quantities">Quantities<a class="headerlink" href="#quantities" title="Permanent link">&para;</a></h3>
+<p>Per category C over the eligible universe U that the caller passes:</p>
+<ul>
+<li>M = |U|, n = |C ∩ U|, N = the number detected, k = the number detected in C;</li>
+<li>the odds ω = mean(p_detect in C) / mean(p_detect outside C). This is goseq's weighting with
+  p_detect as the PWF. Algebraically it equals <code>avg_w·(M − n)/(Σp − n·avg_w)</code>, and a unit test pins
+  the identity.</li>
+</ul>
+<p>ω is NaN when C or its complement is empty, or when the outside mean is 0. Those categories are
+not tested; M8-04 writes them <code>unestimated</code>. ω = 0 is allowed and is exact: X = lo almost surely.
+ω = 1 uses the central hypergeometric pmf.</p>
+<h3 id="tails-direct-sums-of-the-pmf">Tails: direct sums of the pmf<a class="headerlink" href="#tails-direct-sums-of-the-pmf" title="Permanent link">&para;</a></h3>
+<p>p_over = Σ_{j=k}^{hi} pmf(j) and p_under = Σ_{j=lo}^{k} pmf(j), with lo = max(0, N − (M − n)) and
+hi = min(n, N). Both are <code>math.fsum</code> sums (correctly rounded) of scipy's
+<code>nchypergeom_wallenius.pmf</code>, clipped to [0, 1].</p>
+<p>These are the same quantities as the spec's <code>.sf(k − 1)</code> / <code>.cdf(k)</code>. The sums are used because
+scipy computes <code>sf</code> as 1 − cdf, which cancels to 0.0 below about 1e-16 (M8-01 example 1: true
+3.2e-14, <code>sf</code> returns 0). p_over and p_under are each a valid one-sided p under the urn model:
+they include the observed k, so p_over + p_under − pmf(k) = 1.</p>
+<h3 id="fail-closed-range-lead-decision-4">Fail-closed range (lead decision 4)<a class="headerlink" href="#fail-closed-range-lead-decision-4" title="Permanent link">&para;</a></h3>
+<p>Outside ω ∈ [1e-6, 1e6] scipy's pmf turns NaN, and near 1e±300 it aborts the process. A pmf that
+is non-finite or does not sum to 1 ± 1e-6 also raises <code>ValueError</code>. M8-04 reports such a category
+<code>unestimated</code>, flag <code>odds_out_of_range</code>.</p>
+<p><strong>Is the range statistically acceptable for pass 1? Yes.</strong>
+- <strong>Upper bound.</strong> ω ≤ 1/mean(p outside C). With a size cap of 500, the outside mean is close to
+  the run's detection rate (about 0.3–0.7), so ω &gt; 1e6 cannot occur. With fewer than 50 detected
+  genes, <code>detectability_constant</code> sets ω = 1.
+- <strong>Lower bound.</strong> ω &lt; 1e-6 needs every member of C to have p_detect below 1e-6 × the outside mean.
+- <strong>Simulation.</strong> I used 300 giapsim genomes (M ≈ 4,450, M4-13 cross-fitted p̂). The smallest p̂
+  was 2.7e-4. The worst possible size-5 category (the five smallest p̂) had ω ≥ 1.1e-3, with a
+  median of 1.1e-2.
+- <strong>Accuracy inside the range.</strong> Against an exact forward urn DP, the tails at ω ∈ {1e-6, 1e-4,
+  1e-2, 1e2, 1e4, 1e6} are within 5e-11 relative error, for M up to 4,500 and tails ≥ 1e-8.
+- <strong>No spurious failures.</strong> Over 400 random (M ≤ 12,000, n ≤ 500, ω ∈ [1e-3, 1e3]) cases, the
+  pmf-sum check never raised.</p>
+<p>So the fail-closed path is a safety net, not an expected outcome. It is R4-honest because the
+category is labelled <code>unestimated</code>, never given a p.
+- <strong>Elim caveat.</strong> elim recomputes ω on a reduced set, which can be a single gene; a single gene
+  with p̂ &lt; 1e-6 × the outside mean would also fail closed. This is not seen in the simulations.</p>
+<h3 id="far-tail-precision-of-scipys-pmf-lead-decision-2">Far-tail precision of scipy's pmf (lead decision 2)<a class="headerlink" href="#far-tail-precision-of-scipys-pmf-lead-decision-2" title="Permanent link">&para;</a></h3>
+<p>Compared against the exact urn DP over 60 random (M ≤ 1,500) urns and every k (15,585 tails),
+the maximum relative error per tail magnitude was:</p>
+<table>
+<thead>
+<tr>
+<th>true tail</th>
+<th>max relative error</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>≥ 1e-4</td>
+<td>5e-10</td>
+</tr>
+<tr>
+<td>1e-8 – 1e-4</td>
+<td>3e-7</td>
+</tr>
+<tr>
+<td>1e-11 – 1e-8</td>
+<td>2e-4</td>
+</tr>
+<tr>
+<td>1e-13 – 1e-11</td>
+<td>0.04</td>
+</tr>
+<tr>
+<td>&lt; ~1e-14</td>
+<td>up to 1 (scipy's pmf returns exactly 0.0, so p = 0)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Decisions at BH q ≤ 0.1 and at the elim cut are unaffected.</strong>
+- <strong>BH.</strong> BH q is a continuous, coordinatewise-monotone function of the p vector. A relative
+  error ε in each p moves each q by at most ε relative. A q near 0.1 in a family of m ≤ ~3,000
+  terms needs p ≥ 0.1/m ≈ 3e-5, where ε ≤ 5e-10.
+- <strong>elim.</strong> The elim cut at 0.01 sees ε ≤ 1e-11.
+- <strong>Deep tails.</strong> Tails below 1e-11 have q below about 1e-7, far below any threshold. A deep
+  tail returned as 0 is still below every threshold, and ties at 0 do not change which terms
+  pass.</p>
+<p>What it does affect:
+- <strong>Reported precision.</strong> <code>p_value = 0</code> can appear in <code>enrichment_detection.tsv</code> for true values
+  around 1e-14 and below. That precision is not real.
+- <strong>M8-13 golden.</strong> The relative-1e-6 comparison with goseq cannot hold for p below about 1e-9
+  unless both sides are exact there.</p>
+<p>Both are pass-2 items: a log-space or exact pmf, an ADR if needed, and never a tolerance change.</p>
+<h3 id="the-approximation-and-the-attack-it-implies">The approximation and the attack it implies<a class="headerlink" href="#the-approximation-and-the-attack-it-implies" title="Permanent link">&para;</a></h3>
+<p><strong>Mean-odds Wallenius is exact only for its own model.</strong> That model is sequential weighted
+sampling of N genes without replacement, with weight ∝ p_detect and a single weight inside C and
+another outside. The fast calibration test (<code>tests/calibration/test_wallenius_calibration.py</code>)
+draws exactly that urn, so it checks the code, not the method.</p>
+<p><strong>The §8.4 ORA null is a different model.</strong> There, detection depends only on p_detect: each gene
+is detected independently with probability p_i. Given N, that law is the multivariate Fisher
+non-central hypergeometric distribution with odds p_i/(1 − p_i), not a Wallenius urn with weights
+p_i. Mean-odds Wallenius departs from it in two ways:
+1. <strong>Saturation.</strong> With N/M ≈ 0.5, as in proteomics, the urn's mean of k is pulled toward the
+   central value. Example: p = 0.9 in C and 0.5 outside, n = 60, M = 4,000, ω = 1.8. Wallenius
+   gives E[k | N] ≈ 43, but the truth is 54. So |log ω| is effectively too small. A low-p_detect
+   category then looks under-detected, and a high-p_detect one over-detected. The two
+   approximations agree only when p_detect ≪ 1, which is goseq's DE setting.
+2. <strong>Heterogeneity within C (Jensen).</strong> A category that mixes p = 0.02 and p = 0.9 genes is not
+   one urn colour. A hazard-weight variant (ω from mean −log(1 − p)) fixes 1 but not 2: it stays
+   at level for homogeneous categories, yet rejects 52 % at α = 0.01 for the mixed one.</p>
+<p><strong>The exact test under the §8.4 null</strong> is the conditional Poisson-binomial ("conditional
+Bernoulli"):</p>
+<p>P(k | N) = PB_C(k) · PB_{U∖C}(N − k) / PB_U(N),</p>
+<p>where PB_A is the Poisson-binomial pmf of the p_i in A. The DP costs O(n² + (M − n)·N) per
+category: tens of milliseconds vectorised at M = 4,500, and the <code>poisson_binomial_sf</code> primitive
+of §8.3 already exists. Multiplying every p_i/(1 − p_i) by a constant does not change it, so a
+global intercept miscalibration of p_detect cancels. This is the <strong>Poisson-binomial fallback</strong>
+the issue asks the note to name. Swapping it in is an ADR for Khoa (see Sign-off).</p>
+<p><strong>TU dependence (new ORA attack, §8.5 "new attacks").</strong>
+- <strong>What it is.</strong> Detection really depends on abundance, which TUs share. p_detect uses
+  physicochemical covariates only. So detection is positively correlated within a TU beyond
+  p_detect, and a category packed into few operons has an over-dispersed k.
+- <strong>Who fails.</strong> Every gene-independent null fails this attack, the exact conditional
+  Poisson-binomial included. It is the ORA analogue of attack 3, and §8.2 "resample TUs, not
+  genes" applies.
+- <strong>Candidate fixes.</strong> A TU-level count (TUs as units, as in the GSEA collapse), or a design-effect
+  variance from the within-TU correlation of d − p_detect. M8-15 must calibrate either.</p>
+<h3 id="calibration-evidence-statistician-simulations-2026-10-21">Calibration evidence (statistician simulations, 2026-10-21)<a class="headerlink" href="#calibration-evidence-statistician-simulations-2026-10-21" title="Permanent link">&para;</a></h3>
+<p><strong>Where to reproduce.</strong> Scripts are in <code>$GIAP_ROOT/stat/m8-01/</code> (<code>part_a.py</code>, <code>part_b.py</code>,
+<code>part_c.py</code>, <code>elim_sim.py</code>, <code>acc.py</code>). Slurm jobs were 1865116 (A and B), 1865118 (elim) and
+1865148 (C).</p>
+<p><strong>Level bounds.</strong> The §8.4 bound is α + 2√(α(1 − α)/R): 0.0145 / 0.0597 at R = 2,000, 0.0215 /
+0.0752 at R = 300, and 0.0211 / 0.0744 at R = 320 (α = 0.01 / 0.05).</p>
+<p><strong>Methods compared.</strong> Every method was evaluated on the same d and p:
+- W = mean-odds Wallenius (<code>wallenius_ora</code>);
+- CPB = the conditional Poisson-binomial;
+- H = unweighted hypergeometric.</p>
+<p><strong>A. Independent Bernoulli(p_i) detection, true p, M = 4,000, R = 2,000.</strong> Each cell is the
+rejection rate at α = 0.01, with α = 0.05 in brackets. Rates above the bound are failures.</p>
+<table>
+<thead>
+<tr>
+<th>scenario</th>
+<th>n</th>
+<th>W over</th>
+<th>W under</th>
+<th>CPB over</th>
+<th>CPB under</th>
+<th>H (the failing side)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>p = 0.5 everywhere</td>
+<td>300</td>
+<td>0.011 (0.049)</td>
+<td>0.007 (0.047)</td>
+<td>same as W</td>
+<td>same as W</td>
+<td>same as W</td>
+</tr>
+<tr>
+<td>C 0.9, outside 0.5</td>
+<td>60</td>
+<td><strong>0.871 (0.976)</strong></td>
+<td>0 (0)</td>
+<td>0.002 (0.025)</td>
+<td>0.005 (0.038)</td>
+<td>over 1.000</td>
+</tr>
+<tr>
+<td>C 0.9, outside 0.5</td>
+<td>300</td>
+<td><strong>1.000 (1.000)</strong></td>
+<td>0 (0)</td>
+<td>0.006 (0.038)</td>
+<td>0.009 (0.050)</td>
+<td>over 1.000</td>
+</tr>
+<tr>
+<td>C 0.2, outside 0.6</td>
+<td>60</td>
+<td>0.001 (0.003)</td>
+<td><strong>0.074 (0.231)</strong></td>
+<td>0.006 (0.049)</td>
+<td>0.007 (0.038)</td>
+<td>under 1.000</td>
+</tr>
+<tr>
+<td>C 0.2, outside 0.6</td>
+<td>300</td>
+<td>0 (0)</td>
+<td><strong>0.555 (0.791)</strong></td>
+<td>0.009 (0.047)</td>
+<td>0.006 (0.045)</td>
+<td>under 1.000</td>
+</tr>
+<tr>
+<td>C 0.02, outside 0.05 (rare detection)</td>
+<td>300</td>
+<td>0.004 (0.030)</td>
+<td>0.004 (0.025)</td>
+<td>0.004 (0.033)</td>
+<td>0.003 (0.021)</td>
+<td>under 0.564</td>
+</tr>
+<tr>
+<td>Beta(2, 2), C random</td>
+<td>300</td>
+<td>0.003 (0.032)</td>
+<td>0.005 (0.033)</td>
+<td>0.005 (0.049)</td>
+<td>0.009 (0.051)</td>
+<td>at level</td>
+</tr>
+<tr>
+<td>attack 2: C ~ Beta(1, 4), outside Beta(2, 2)</td>
+<td>60</td>
+<td>0 (0.003)</td>
+<td><strong>0.032 (0.132)</strong></td>
+<td>0.006 (0.036)</td>
+<td>0.009 (0.037)</td>
+<td>under 0.994</td>
+</tr>
+<tr>
+<td>attack 2: same</td>
+<td>300</td>
+<td>0 (0)</td>
+<td><strong>0.218 (0.490)</strong></td>
+<td>0.011 (0.043)</td>
+<td>0.005 (0.038)</td>
+<td>under 1.000</td>
+</tr>
+<tr>
+<td>attack 2: bimodal background, C 80 % low</td>
+<td>300</td>
+<td>0 (0)</td>
+<td><strong>0.219 (0.558)</strong></td>
+<td>0.008 (0.041)</td>
+<td>0.006 (0.042)</td>
+<td>under 1.000</td>
+</tr>
+<tr>
+<td>attack 2: C half 0.02, half 0.9</td>
+<td>300</td>
+<td>0 (0)</td>
+<td>0 (0.006)</td>
+<td>0.011 (0.044)</td>
+<td>0.006 (0.040)</td>
+<td>under 0.025 (0.237)</td>
+</tr>
+</tbody>
+</table>
+<p>n = 20 behaves like n = 60, with smaller excesses. Weighting helps compared with H, but W stays
+anti-conservative wherever ω ≠ 1 and detection is not rare.</p>
+<p><strong>B. giapsim layout with <code>short_genes_in = "prophage"</code> and <code>covariates_only</code> detection.</strong> This
+uses the M4-13 cross-fitted p̂ (W/CPB "hat") and the true p ("true"), M ≈ 4,450, N/M ≈ 0.55,
+R = 300. The table shows the under tail; the over tails are at level unless stated.</p>
+<table>
+<thead>
+<tr>
+<th>category</th>
+<th>n</th>
+<th>ω̂</th>
+<th>W hat</th>
+<th>W true</th>
+<th>CPB hat</th>
+<th>CPB true</th>
+<th>H</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>prophage (attack 2, §8.5)</td>
+<td>~40</td>
+<td>0.28</td>
+<td><strong>0.027 (0.137)</strong></td>
+<td><strong>0.030 (0.123)</strong></td>
+<td>0.003 (0.030)</td>
+<td>0.003 (0.030)</td>
+<td>1.000 (1.000)</td>
+</tr>
+<tr>
+<td>60 lowest-p genes</td>
+<td>60</td>
+<td>0.05</td>
+<td><strong>0.027 (0.157)</strong></td>
+<td>0 (0)</td>
+<td>0 (0.040)</td>
+<td>0 (0)</td>
+<td>1.000 (1.000)</td>
+</tr>
+<tr>
+<td>tm_segments ≥ 2, over tail</td>
+<td>~1,090</td>
+<td>1.21</td>
+<td><strong>0.463 (0.913)</strong></td>
+<td><strong>0.483 (0.760)</strong></td>
+<td>0 (0)</td>
+<td>0.013 (0.040)</td>
+<td>1.000</td>
+</tr>
+<tr>
+<td>random genes, 10 / 50 / 200</td>
+<td></td>
+<td>≈ 1</td>
+<td>at level</td>
+<td>at level</td>
+<td>at level</td>
+<td>at level</td>
+<td>at level</td>
+</tr>
+</tbody>
+</table>
+<p>The tm ≥ 2 category lies above the size cap of 500, but categories near the cap with ω ≈ 1.2
+behave the same way. <strong>The §7.7.5 attack ("stays at level with weights and fails without them")
+therefore fails for mean-odds Wallenius and passes for CPB.</strong></p>
+<p><strong>C. Detection driven by TU-shared abundance.</strong> giapsim <code>detection = "abundance"</code> with the
+log2-abundance logit coefficient b₄ ∈ {0.7, 1.5}; p̂ from physicochemical covariates; N/M ≈ 0.53;
+R = 320. Categories are random whole TUs, so the category-level null holds.</p>
+<table>
+<thead>
+<tr>
+<th>category</th>
+<th>b₄</th>
+<th>W over</th>
+<th>W under</th>
+<th>CPB over</th>
+<th>CPB under</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>~200 genes in whole TUs</td>
+<td>0.7</td>
+<td><strong>0.025</strong> (0.066)</td>
+<td>0.019 <strong>(0.094)</strong></td>
+<td><strong>0.031 (0.087)</strong></td>
+<td><strong>0.025 (0.100)</strong></td>
+</tr>
+<tr>
+<td>~200 genes in whole TUs</td>
+<td>1.5</td>
+<td><strong>0.037 (0.116)</strong></td>
+<td><strong>0.050 (0.091)</strong></td>
+<td><strong>0.037 (0.119)</strong></td>
+<td><strong>0.050 (0.091)</strong></td>
+</tr>
+<tr>
+<td>~50 genes in whole TUs</td>
+<td>1.5</td>
+<td><strong>0.025 (0.100)</strong></td>
+<td><strong>0.028</strong> (0.075)</td>
+<td><strong>0.025 (0.106)</strong></td>
+<td><strong>0.028</strong> (0.075)</td>
+</tr>
+<tr>
+<td>200 random genes</td>
+<td>1.5</td>
+<td>0.009 (0.037)</td>
+<td>0.016 (0.050)</td>
+<td>same</td>
+<td>same</td>
+</tr>
+</tbody>
+</table>
+<p>Both gene-level nulls are inflated by TU packing, and the inflation grows with how strongly
+abundance drives detection. Real detection depends on abundance more strongly than b₄ = 1.5, and
+bacterial GO and COG categories are operon-packed.</p>
+<h3 id="effect-size">Effect size<a class="headerlink" href="#effect-size" title="Permanent link">&para;</a></h3>
+<p><code>OraResult.odds</code> is the weighting ω, not an effect. §8.2 requires an effect with a 95 % CI on
+every p or q. M8-04 reports O − E = k − Σ_C p_detect with the CI NA in pass 1; that CI is owed.
+A test-consistent effect would be the conditional MLE of a log-odds shift δ for members of C (the
+odds p_i/(1 − p_i) multiplied by e^δ), with an exact CI by inverting the CPB test. The TU-block
+bootstrap CI of O − E (M4-16 construction) is the TU-aware alternative.</p>
+<h2 id="go-elim">GO elim<a class="headerlink" href="#go-elim" title="Permanent link">&para;</a></h2>
+<h3 id="algorithm">Algorithm<a class="headerlink" href="#algorithm" title="Permanent link">&para;</a></h3>
+<p>Terms are visited deepest first: level = the longest path to a root, ties broken by term ID. Each
+term is tested on its genes minus those removed for it. A term whose elim p is strictly below
+0.01 (topGO's <code>&lt; cutOff</code>) removes the genes it was tested on from every ancestor (the transitive
+closure). M and N stay fixed. M8-04 recomputes ω on the reduced set.</p>
+<p><code>p_classic</code> is the test on the full set. An empty remainder gives NaN, and M8-04 writes it
+<code>unestimated</code>. Cycles raise before any test runs. M8-04 runs elim for the <code>over</code> direction of
+go_bp, go_mf and go_cc only; every other family uses <code>p_value = p_classic</code>.</p>
+<h3 id="validity-of-bh-on-elim-p-81-family-collection-direction">Validity of BH on elim p (§8.1 family = (collection, direction))<a class="headerlink" href="#validity-of-bh-on-elim-p-81-family-collection-direction" title="Permanent link">&para;</a></h3>
+<p>The elim p is conditional on the removal steps, which depend on the same data. Alexa et al.
+(2006) and the topGO documentation present elim p as conditional scores and do not derive
+multiplicity control for them. <strong>BH on elim p is not covered by the BH theorem</strong>: its
+dependence is neither independent nor PRDS by any argument I know. In the direction it is run,
+the selection bias is conservative:
+- removal takes out genes of a significantly <strong>over</strong>-detected descendant;
+- this leaves the ancestor's remainder depleted, while N still counts the removed genes;
+- conditioning on non-significant descendants also biases their genes downwards.</p>
+<p>Applying the <code>over</code> removals to an <code>under</code> test would be anti-conservative. M8-04 avoids this:
+<code>under</code> is never elim'd.</p>
+<p><strong>Simulation.</strong> I built a synthetic GO-like DAG: 2,000 genes; 200 leaves of 5–30 genes; 60
+mid-level terms, each the union of 2–6 leaves plus 5 own genes; 15 top terms; the true-path rule;
+multiple parents; size filter [5, 500]. p = 0.5 everywhere, so the central hypergeometric is the
+exact conditional null. "Planted" leaves get p_plant. BH ran at 0.05 within the one family, with
+R = 1,000 per row.</p>
+<table>
+<thead>
+<tr>
+<th>setting</th>
+<th>FWER, complete-null terms (classic / elim)</th>
+<th>mean FDP, terms with no planted gene (classic / elim)</th>
+<th>FDP counting inherited ancestors as false (classic / elim)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>complete null</td>
+<td>0.016 / 0.012</td>
+<td>0.016 / 0.012</td>
+<td>same</td>
+</tr>
+<tr>
+<td>5 planted, p 0.95</td>
+<td>0.006 / 0.005</td>
+<td>0.0015 / 0.0015</td>
+<td>0.155 / 0.013</td>
+</tr>
+<tr>
+<td>5 planted, p 0.75</td>
+<td>0.004 / 0.002</td>
+<td>0.0023 / 0.0013</td>
+<td>0.056 / 0.018</td>
+</tr>
+<tr>
+<td>20 planted, p 0.95</td>
+<td>0.004 / 0.002</td>
+<td>0.0002 / 0.0001</td>
+<td>0.309 / 0.020</td>
+</tr>
+<tr>
+<td>20 planted, p 0.75</td>
+<td>0 / 0</td>
+<td>0 / 0</td>
+<td>0.173 / 0.023</td>
+</tr>
+<tr>
+<td>20 planted, p 0.65</td>
+<td>0.001 / 0.001</td>
+<td>0.001 / 0.001</td>
+<td>0.065 / 0.024</td>
+</tr>
+</tbody>
+</table>
+<p>Under a correct per-term null, BH on elim p is conservative for both readings of a false
+discovery:
+- the strict one: a term with no signal genes at all;
+- the elim one: an ancestor whose only signal is inherited from planted descendants.</p>
+<p>elim keeps 81–98 % of the classic true positives (lowest with 20 weak plants, p 0.75).</p>
+<p><strong>Residual risk.</strong> A truly enriched child that misses p &lt; 0.01 leaves its signal in its
+ancestors, which can then be called. The rate here is ≤ 0.024 FDP at q = 0.05.</p>
+<p><strong>Verdict.</strong> The elim p are acceptable for the (collection, direction) BH families under R4 as
+long as the report and this note say:
+- the q-values are BH on elim p;
+- the claim is "over-detected after removing the genes of its elim-significant descendants";
+- FDR control for that claim is empirical (simulation), not a theorem.</p>
+<p>M8-04's labels (<code>p_classic</code> kept, <code>p_value</code> = elim) meet this. The per-term null must itself be
+valid, and with mean-odds Wallenius it is not (above). elim does not repair that.</p>
+<h2 id="sign-off">Sign-off<a class="headerlink" href="#sign-off" title="Permanent link">&para;</a></h2>
+<p><strong>Statistician (#153 review, 2026-10-21).</strong></p>
+<p><strong>Approved: the M8-01 primitives</strong> (<code>category_odds</code>, <code>wallenius_tails</code>, <code>wallenius_ora</code>, <code>elim</code>).
+They compute what the spec defines:
+- the direct tail sums are exact to 5e-10 relative for every decision-relevant p;
+- the fail-closed range is never reached by realistic p̂;
+- elim matches topGO's elim with a strict cut, and BH on elim p is empirically conservative.</p>
+<p><strong>Not approved: mean-odds Wallenius as the calibrated ORA claim of §8.1.</strong>
+- It fails the §8.4 ORA null (independent detection with p_detect) and the §7.7.5/§8.5 attack 2,
+  both in synthetic urns and in giapsim with cross-fitted p̂.
+- Every gene-level null, the exact one included, fails the new TU-packing attack.</p>
+<p><strong>Forwarded:</strong>
+- M8-15:
+  - the Bernoulli generator for the <code>ora</code> gate (the urn-model test is a code check only);
+  - attack 2 on the prophage short-gene layout;
+  - the TU-packed attack with abundance-driven detection.
+- M8-04: the O − E CI, or the CPB log-odds CI.
+- M8-13: the far-tail precision and <code>p = 0</code> below ~1e-14.
+- Khoa, by ADR: replace the ORA p with the conditional Poisson-binomial; make ORA TU-aware.</p>
+<h2 id="detection-enrichment">Detection enrichment<a class="headerlink" href="#detection-enrichment" title="Permanent link">&para;</a></h2>
+<p>Implements <code>giap.function.ora</code>, <code>giap.function.summary</code> and <code>tilt_pair(comp=)</code> in
+<code>giap.stats.poisson_binomial</code> (GIAP_SPEC.md §7.7.2, §7.7.3, §8.1 row "Category detection", §8.2;
+issue M8-04, docs/specs/M8-04-category-summary-ora.md, lead decisions 1–13; ADR-0029, ADR-0035).
+Outputs: the rows of <code>enrichment_detection.tsv</code> and <code>category_summary.tsv</code> (§9.3).</p>
+<p><strong>Status:</strong> PR #179. The statistician's review blocked it (B1–B6); decision 13 answers each point,
+and the re-check lifted the block. Statistician sign-off: given (#179 re-check of 2026-10-22, after
+edits M1–M6). Every ORA row carries <code>ora_uncalibrated</code> (see "Pass-1 limit").</p>
+<h3 id="the-unit-tus">The unit: TUs<a class="headerlink" href="#the-unit-tus" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Eligible genes</strong> are the non-partial genes. Only they count, for q and for detection.</li>
+<li><strong>Universe U:</strong> the TUs with ≥ 1 eligible gene, in natural TU-ID order. Results do not depend on
+  the input row order.</li>
+<li><strong>Detection:</strong> TU t is detected (d_t = 1) when any of its eligible genes is detected.</li>
+<li><strong>Membership rule (decision 1):</strong> TU t is in category C when any of its eligible genes is in C.
+  The rule runs over all eligible genes, never over the detected ones, so membership cannot depend
+  on the response.</li>
+<li><strong>Partial membership dilutes.</strong> A TU with one member gene counts as one unit of C, and it may be
+  detected through a gene outside C. This costs power, not level. Its power (spec arm 7) is owed.</li>
+<li><strong>Size filter (decision 6):</strong> n = |C| counted in TUs must lie in <code>function.ora_size</code> ([5, 500],
+  both ends included). A term outside it writes no row and does not enter elim. Under elim the
+  filter applies to the full TU set; a term reduced below 5 TUs is still tested.</li>
+<li><strong>Count columns are in TUs:</strong> <code>n_universe</code>, <code>n_in_set</code>, <code>n_detected</code>, <code>k_detected_in_set</code>.
+  <code>n_in_set_genes</code> and <code>k_detected_in_set_genes</code> are the gene counts behind <code>p_classic</code>.</li>
+<li><strong>Fail closed (decision 13):</strong> an eligible gene with a NaN <code>p_detect</code>, a <code>p_detect</code> outside
+  [0, 1], or no <code>tu_id</code> raises <code>ValueError</code> naming the locus tags. So does a TU missing from a
+  non-empty <code>folds</code> mapping.</li>
+</ul>
+<h3 id="the-statistic-and-the-null">The statistic and the null<a class="headerlink" href="#the-statistic-and-the-null" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Statistic:</strong> k = the detected TUs in C (<code>stat</code>).</li>
+<li><strong>Null:</strong> the TUs are independent, and TU t is detected with probability q_t. The test is the
+  law of K = Σ_{t∈C} d_t given S = Σ_{t∈U} d_t = N (the conditional Bernoulli law):</li>
+</ul>
+<p>P(K = j | N) = PB_C(j) · PB_Ū(N − j) / Σ_i PB_C(i) · PB_Ū(N − i),</p>
+<p>where PB_A is the Poisson-binomial pmf of the q_t in A and Ū = U ∖ C.
+- <strong>Tails:</strong> p_over = Σ_{j ≥ k} P(K = j | N) and p_under = Σ_{j ≤ k} P(K = j | N). Both include k
+  and both are sums of non-negative terms, never 1 − cdf.</p>
+<p><strong>Computation (exact; no approximation, no Monte Carlo).</strong>
+1. <strong>Truncated DP.</strong> The convex-combination recurrence <span class="arithmatex">\(\mathrm{pmf}[j] \leftarrow \mathrm{pmf}[j](1 - q) + \mathrm{pmf}[j - 1]\, q\)</span>,
+   numba-compiled and stopped at the highest index read. PB_C runs to min(|C|, N); PB_Ū is
+   computed only on the band that the support reads.
+2. <strong>Tilt, once per run.</strong> <code>tilt_pair(q, N, comp=)</code> multiplies every TU odds q/(1 − q) by one
+   factor e^θ, with θ solving Σ_t expit(logit q_t + θ) = N. The solver is Newton with a bisection
+   guard; it targets |Σ − N| ≤ 1e-13 N, inside the spec contract of 1e-9 N.
+   - The logit is log q − log comp, and the tilted complement is expit(−(logit q + θ)). Neither
+     is ever re-derived as 1 − q, so a TU with q that rounds to 1.0 keeps its complement
+     (decision 11).
+   - q = 0 and comp = 0 stay exact. Every open entry stays ≥ the smallest normal double, so an
+     open TU is never treated as certain.
+   - <strong>The tilt is numerics only.</strong> It puts the mass of PB_Ū near the indices that are read, so no
+     weight underflows. The conditional law is invariant to a common odds factor, so the tilt does
+     not change the p.
+   - <strong>Conditioning on N cancels only a common TU-level odds factor</strong> (ADR-0035). A mis-scaling of
+     q that varies with TU size, with q itself or with the category does not cancel. That is why q
+     is recalibrated (next subsection).
+3. <strong>Support-sum normalisation.</strong> The weights PB_C(j) · PB_Ū(N − j) are normalised by their sum
+   over the support, not by a separate PB_U(N). This saves a DP and makes the tails sum to 1 by
+   construction. A zero or non-finite sum raises <code>ValueError</code>.
+4. <strong>p domain (decision 13, review B1).</strong> The numerator and the support sum can round apart by one
+   ulp, which gave p = 1 + 2⁻⁵² and aborted BH: 663 of 4,000 strongly under-detected categories,
+   and 120 of 3,000 replicates of 4b at c = 3.5. Both tails are now clamped to [0, 1], in the
+   primitive and again before BH (test: tests/unit/function/test_ora_pvalue_domain.py).</p>
+<p><strong>Precision contract</strong> (tests/unit/stats/test_conditional_poisson_binomial.py: enumeration for
+T ≤ 14 units, a <code>Fraction</code> DP for T ≤ 60):</p>
+<table>
+<thead>
+<tr>
+<th>input</th>
+<th>tails ≥ 1e-300, and the mean</th>
+<th>smaller tails</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>untilted q</td>
+<td>relative 1e-12 of the exact rational value</td>
+<td>the float underflow: ≥ 0, never NaN</td>
+</tr>
+<tr>
+<td><code>tilt_pair</code> output with its complements</td>
+<td>relative 1e-11 of the untilted exact law, including q within 1e-15 of 1 and θ &gt; 0</td>
+<td>the same</td>
+</tr>
+</tbody>
+</table>
+<p>A tail of 0.0 is reachable only below about 1e-300, far below the ~1e-14 floor of scipy's
+Wallenius pmf ("Far-tail precision" above).</p>
+<h3 id="tu-detection-probability">TU detection probability<a class="headerlink" href="#tu-detection-probability" title="Permanent link">&para;</a></h3>
+<p><strong>Clipping (decision 12).</strong> For the null only, p̂ is clipped to [1e-12, 1 − 1e-12]. Exact 0 and 1
+from M4-13 are therefore never treated as certain.
+- The run, and every row whose full TU set holds a TU with a moved gene, gets <code>p_detect_clipped</code>.
+- <code>expected</code> in <code>category_summary</code> and the Wallenius <code>odds_weight</code> / <code>p_classic</code> use the unclipped
+  p̂. The difference is ≤ 1e-12 per gene (statistician, #179 review).</p>
+<p><strong>Raw q.</strong> Per TU, log_comp = Σ log1p(−p̂) over its eligible genes and q_raw = −expm1(log_comp)
+= 1 − ∏(1 − p̂) (ADR-0029).
+- q_raw assumes that the genes of a TU are detected independently given p̂.
+- Shared abundance makes co-detection positive, so q_raw overstates q for multi-gene TUs, and more
+  so for larger TUs.
+- The ADR-0035 attack gave p̂ as the exact gene marginal over a shared TU effect of strength c.
+  Before recalibration, the rejection rates were (3,000 p per cell; bounds 0.0136 / 0.058; Slurm
+  1867453, 1867454):</p>
+<table>
+<thead>
+<tr>
+<th>scenario</th>
+<th>categories</th>
+<th>tail</th>
+<th>α 0.01</th>
+<th>α 0.05</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c 1.5</td>
+<td>large TUs</td>
+<td>under</td>
+<td>0.107</td>
+<td>0.248</td>
+</tr>
+<tr>
+<td>c 1.5</td>
+<td>single-gene TUs</td>
+<td>over</td>
+<td>0.019</td>
+<td>0.079</td>
+</tr>
+<tr>
+<td>c 2.5</td>
+<td>large TUs</td>
+<td>under</td>
+<td>0.278</td>
+<td>0.490</td>
+</tr>
+<tr>
+<td>c 2.5</td>
+<td>single-gene TUs</td>
+<td>over</td>
+<td>0.044</td>
+<td>0.143</td>
+</tr>
+<tr>
+<td>c 0, gene-level p̂ intercept +0.5</td>
+<td>large TUs</td>
+<td>under</td>
+<td>0.0137</td>
+<td>0.067</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recalibration (ADR-0035, decision 12).</strong>
+- <strong>Model:</strong> d_t ~ Bernoulli(expit(β₀ + β₁ logit q_raw,t + β₂ log n_t)), where n_t is the number
+  of eligible genes in TU t. The log n term is dropped when every training TU has the same size.
+- <strong>Cross-fitting:</strong> for each of M4-13's TU folds (<code>fold_of_tu</code>), the model is fitted on the TUs
+  of the other folds and predicts the held-out fold. A TU's own detection never enters its q.
+- <strong>Output:</strong> η = x·β̂, then q = expit(η) and comp = expit(−η), each computed directly. These
+  pairs are what the tilt and the conditional law receive.
+- <strong>Leakage left:</strong> cross-fitting does not remove own-category leakage when a category is a large
+  share of a covariate stratum. In the statistician's worlds this was only conservative (a power
+  loss).</p>
+<p><strong>Fit (decision 13, review B4).</strong>
+- An unpenalised logistic MLE by Newton, started at (0, 1, 0), the identity on logit q.
+- <strong>Damped:</strong> each step is halved until the log-likelihood does not decrease beyond rounding
+  noise (relative 1e3 · ε), up to 60 halvings.
+- <strong>Converged</strong> when the full Newton step is below 1e-10 in every coordinate, within 50
+  iterations.
+- <strong>The noise slack cannot fake convergence.</strong> Convergence is tested on the full Newton step
+  H⁻¹g at the current iterate, which is a stationarity test. A concave log-likelihood has exactly
+  one stationary point, the MLE. The slack can only let a near-optimal step through, or use up
+  iterations and end in a skipped fit; it cannot stop the fit away from the MLE.
+- <strong>Checked against scipy</strong> (statistician re-check at c1e3ca0, <code>$GIAP_ROOT/stat/m804b/recheck/</code>
+  <code>newton_check.py</code>, <code>newton_summary.txt</code>): 9 worlds × 40 seeds × 5 folds = 1,800 fits against
+  scipy <code>trust-exact</code> plus Newton polishing. 0 fits failed. Max |Δβ| was 5.3e-15, and the max
+  gradient at the returned β was 9.7e-13. The slack branch was taken in 74 folds, and every one
+  ended at the reference MLE. Complete separation, quasi-separation and a collinear design return
+  no fit, so the fit is skipped (<code>newton_adversarial.py</code>).
+- Before decision 13 the full-step Newton diverged where the MLE exists: 2,898 of 3,000 replicates
+  of the 4b + 4c world (c = 2.5, a = +0.5, b = 0.8). Each fell back to the raw q, where large-TU
+  under rejected 0.49 at α 0.01.
+- <strong>Tests:</strong> tests/unit/function/test_ora_recal_convergence.py (the divergent case) and
+  test_ora_recal_oracle.py (an independent scipy fit per fold, to 1e-8 relative, including a case
+  where the size term matters).</p>
+<p><strong>Skipped fit (<code>tu_recal_skipped</code>).</strong> The fit is skipped, and q = q_raw with comp = exp(log_comp),
+when any of these holds:
+- <code>folds</code> is None or empty. <code>folds</code> is a required keyword, so this is the caller's explicit choice
+  (it is the path of M4-13's constant model);
+- a fold's training TUs have fewer than 10 detected or fewer than 10 undetected TUs;
+- the Hessian is singular or a step is non-finite;
+- 60 halvings find no increase, or 50 iterations do not converge.</p>
+<p>The run flag and every row get <code>tu_recal_skipped</code> (review B3).
+- <strong>How often:</strong> at c1e3ca0, 0 of 2,000 replicates skip in any tested world, deep coverage
+  included (Slurm 1867941, 1867942).
+- <strong>Why the flag matters:</strong> a raw-q fallback over-rejects. At 3f82e0f the undamped Newton diverged
+  in 417 of 3,000 deep-coverage replicates (eta0 = +1.5, about 75 % of genes detected) and fell
+  back to the raw q. There, large-TU under rejected 0.45 at α 0.01, and the ~200-TU categories
+  0.98 (raw q, 3f82e0f). The statistician's first review attributed those skips to <code>MIN_CLASS</code>;
+  the re-check corrected this.
+- <strong>A skipped run keeps <code>ora_uncalibrated</code> even after the pass-1 flag is lifted.</strong></p>
+<h3 id="tests-per-term-directions-elim-and-bh">Tests per term: directions, elim and BH<a class="headerlink" href="#tests-per-term-directions-elim-and-bh" title="Permanent link">&para;</a></h3>
+<p>Every tested term gives one row per direction, <code>over</code> and <code>under</code>.</p>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>what it is</th>
+<th>unit</th>
+<th>elim</th>
+<th>enters BH</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>p_value</code></td>
+<td>CPB tail of the tested TU set (elim-reduced for GO <code>over</code>, else the full set)</td>
+<td>TUs</td>
+<td>GO <code>over</code> only</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>p_noelim</code></td>
+<td>CPB tail of the full TU set</td>
+<td>TUs</td>
+<td>no</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>p_classic</code></td>
+<td>M8-01 mean-odds Wallenius tail on the full gene set</td>
+<td>genes</td>
+<td>no</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p><strong>elim over TU sets (decision 2).</strong>
+- <strong>Scope:</strong> <code>go_bp</code>, <code>go_mf</code> and <code>go_cc</code>, direction <code>over</code> only. Everywhere else (<code>under</code>, <code>cog</code>,
+  <code>kegg</code>, <code>go_slim</code>) <code>p_value = p_noelim</code>.
+- <strong>Walk:</strong> M8-01's walker, fed TU index sets. A term is tested on its remaining TUs against
+  U ∖ remaining, with the run's N and tilt.
+- <strong>Removal:</strong> a term whose elim p_over is strictly below 0.01 removes the TUs it was tested on
+  from every ancestor that passed the size filter.
+- <strong>Why TUs, not genes:</strong> removing genes would leave a shared TU in the ancestor and count the
+  same detection event twice (spec example 7).
+- <strong>Empty remainder:</strong> <code>p_value</code> NA, flags <code>unestimated;elim_empty</code>; <code>p_noelim</code> and <code>p_classic</code>
+  are kept.
+- <strong>Evidence</strong> (statistician, <code>$GIAP_ROOT/stat/m804b/probe_elim.py</code> and <code>elim.log</code>, 12,000
+  parents, R = 600): the elim test, with N fixed, is conservative relative to the exact law that
+  also conditions on the removed child's count. Rates at α 0.01 / 0.05 / 0.10:</p>
+<table>
+<thead>
+<tr>
+<th>world</th>
+<th>elim <code>p_value</code></th>
+<th><code>p_noelim</code></th>
+<th>bound</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>global null</td>
+<td>0.0048 / 0.031 / 0.070</td>
+<td>0.0065 / 0.036 / 0.076</td>
+<td>0.0118 / 0.054 / 0.1055</td>
+</tr>
+<tr>
+<td>one planted child per parent (logit +3, child power 0.67)</td>
+<td>0.0008 / 0.0073 / 0.019</td>
+<td>0.0093 / 0.056 / 0.117</td>
+<td>same</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>R4 label:</strong> "BH on elim p; conditional on removing elim-significant descendants; FDR control is
+  empirical."</li>
+</ul>
+<p><strong>BH (decision 5).</strong> One family per (collection, direction), on <code>p_value</code>, with <code>giap.stats.bh</code>.
+- A NaN p stays out of its family and the row gets <code>unestimated</code>.
+- <code>p_classic</code> and <code>p_noelim</code> are never adjusted.</p>
+<p><strong><code>parent_group</code> (GO only).</strong> For a row with <code>q_value ≤ stats.alpha.enrichment</code> it is the most
+general significant ancestor in the same direction and namespace (by depth, ties by ID), or the
+term's own ID if it has none. Otherwise it is NA.</p>
+<p><strong>Why Wallenius stays only as <code>p_classic</code> (ADR-0029).</strong>
+- Mean-odds Wallenius fails the §8.4 ORA null and attack 2 ("The approximation and the attack it
+  implies" above).
+- It is kept, on genes, for goseq parity (M8-13).
+- If it fails closed, <code>p_classic</code> is NA with <code>odds_out_of_range</code>; the CPB columns stand.</p>
+<h3 id="effect-size_1">Effect size<a class="headerlink" href="#effect-size_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>effect</code> = k − E[K | N] for the tested TU set (the full set, or the elim-reduced one), in TUs.
+  It is the mean of the same conditional law as the p.</li>
+<li>A positive effect means more detected TUs than expected given N.</li>
+<li><code>ci_low</code> and <code>ci_high</code> are NA and every row carries <code>ci_unestimated</code> (decision 6, the accepted
+  Q6 pass-1 waiver).</li>
+<li>It is not the gene-level O − E of <code>category_summary</code>.</li>
+</ul>
+<h3 id="degenerate-cases">Degenerate cases<a class="headerlink" href="#degenerate-cases" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>situation</th>
+<th>behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C covers every TU of U</td>
+<td>not a test: <code>p_value</code>, <code>p_noelim</code> NA, <code>unestimated</code>, out of BH</td>
+</tr>
+<tr>
+<td>N = 0, or N = |U|</td>
+<td>one-point support; every p = 1</td>
+</tr>
+<tr>
+<td>all q equal</td>
+<td>the central hypergeometric on TUs</td>
+</tr>
+<tr>
+<td><code>detectability_constant</code> from M4-13</td>
+<td>ω = 1 for <code>p_classic</code>, but q still grows with TU size, so the TU null is not hypergeometric</td>
+</tr>
+<tr>
+<td>an undetected TU with comp = 0, or a detected TU with q = 0</td>
+<td>the observation has probability 0 (<code>null_degenerate</code>): every row of the run has <code>p_value</code> NA with <code>unestimated;null_degenerate</code>, plus the run flag and one <code>UserWarning</code>. Reachable when comp underflows (see "Hardening owed")</td>
+</tr>
+<tr>
+<td>a tail of 1 + ulp</td>
+<td>clamped to [0, 1]</td>
+</tr>
+<tr>
+<td><code>p_detect</code> exactly 0 or 1</td>
+<td>clipped; <code>p_detect_clipped</code></td>
+</tr>
+<tr>
+<td>NaN <code>p_detect</code>, <code>p_detect</code> outside [0, 1], no <code>tu_id</code>, a TU without a fold</td>
+<td><code>ValueError</code> naming them</td>
+</tr>
+<tr>
+<td>ω undefined or out of range</td>
+<td><code>odds_weight</code>, <code>p_classic</code> NA; <code>odds_out_of_range</code></td>
+</tr>
+<tr>
+<td>elim empties a term</td>
+<td><code>elim_empty</code> (above)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="calibration-evidence">Calibration evidence<a class="headerlink" href="#calibration-evidence" title="Permanent link">&para;</a></h3>
+<p>Bounds are the §8.4 pooled bound α + 2√(α(1 − α)/(R·m)), where m is the number of categories per
+replicate. The categories are negatively dependent given N, so pooling is conservative.</p>
+<p><strong>A. Committed arms, fast tier (R = 100), after decision 13.</strong> These are the last records of each
+stream in <code>local/logs/calibration/ora.jsonl</code> of the m8-ora worktree. The records carry no commit
+or job ID. Linking them to Slurm 1867928 at 48019fc (370 passed) is an inference: the file's mtime
+(09:52) lies inside that job's window (09:43–09:58). They are smoke tests, not level claims. The
+fast tier does not resolve 4b or 4f: 4f passes here (0.011 against 0.0163 at α 0.01) but fails at
+R = 2,000 (below). Rates are at α 0.01 / 0.05 / 0.10.</p>
+<table>
+<thead>
+<tr>
+<th>arm</th>
+<th>cell</th>
+<th>over</th>
+<th>under</th>
+<th>bound</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CPB pair, base (m = 20)</td>
+<td>q ~ Beta(1.2, 2.5), q-rank blocks</td>
+<td>0.0065 / 0.0315 / 0.0615</td>
+<td>0.0030 / 0.0155 / 0.0425</td>
+<td>0.0144 / 0.0597 / 0.1134</td>
+</tr>
+<tr>
+<td>CPB pair, tilt stress (m = 20)</td>
+<td>odds × e⁻⁸, 5 % of units at q = 1.0 in float</td>
+<td>0.0035 / 0.027 / 0.065</td>
+<td>0.0045 / 0.020 / 0.047</td>
+<td>same</td>
+</tr>
+<tr>
+<td>TU-ORA null (m = 10)</td>
+<td>15 whole TUs</td>
+<td>0.004 / 0.029 / 0.060</td>
+<td>0.003 / 0.023 / 0.056</td>
+<td>0.0163 / 0.0638 / 0.119</td>
+</tr>
+<tr>
+<td>TU-ORA null</td>
+<td>40 random genes</td>
+<td>0.003 / 0.032 / 0.062</td>
+<td>0.007 / 0.030 / 0.065</td>
+<td>same</td>
+</tr>
+<tr>
+<td>4b, c = 1.5</td>
+<td>large TUs</td>
+<td>0 / 0.017 / 0.035</td>
+<td>0.006 / 0.044 / 0.094</td>
+<td>same</td>
+</tr>
+<tr>
+<td>4b, c = 1.5</td>
+<td>single-gene TUs</td>
+<td>0.002 / 0.027 / 0.049</td>
+<td>0.005 / 0.029 / 0.071</td>
+<td>same</td>
+</tr>
+<tr>
+<td>4b, c = 2.5</td>
+<td>large TUs</td>
+<td>0 / 0.014 / 0.032</td>
+<td>0.015 / 0.057 / 0.104</td>
+<td>same</td>
+</tr>
+<tr>
+<td>4b, c = 2.5</td>
+<td>single-gene TUs</td>
+<td>0.006 / 0.023 / 0.045</td>
+<td>0.007 / 0.037 / 0.080</td>
+<td>same</td>
+</tr>
+<tr>
+<td>4c, a = ±0.5</td>
+<td>large, single, random</td>
+<td>every cell passes; the highest at α 0.01 is 0.009 (a = −0.5, single, under)</td>
+<td></td>
+<td>same</td>
+</tr>
+<tr>
+<td>4f, c = 2.5, deep coverage</td>
+<td>large TUs</td>
+<td>0 / 0 / 0</td>
+<td>0.011 / 0.060 / 0.104</td>
+<td>same</td>
+</tr>
+</tbody>
+</table>
+<p>The same run fails 4d and 4e in both blocks of 100:
+- <strong>4d</strong> (high-q ≥ 4-gene TUs, c = 1.5, m = 5), under: 0.032 and 0.028 at α 0.01 (bound 0.0189),
+  0.120 and 0.102 at α 0.05 (0.0695), 0.218 and 0.180 at α 0.10 (0.1268).
+- <strong>4e</strong> (all ≥ 4-gene TUs in two halves, c = 1.5, m = 2), under: 0.040 and 0.035 (0.0241), 0.150
+  and 0.100 (0.0808), 0.280 and 0.160 (0.1424). The ≥ 2-gene thirds (m = 3), over, at α 0.10:
+  0.153 and 0.127 against 0.1346, unconfirmed.</p>
+<p>These tests pass only because every row carries <code>ora_uncalibrated</code> (the ADR-0034 fallback).</p>
+<p>The teeth passed in the same job: the TU hypergeometric on gene categories, the raw q on 4b large
+under, and the unweighted CPB on q-rank blocks. Their rates are not logged; owed.</p>
+<p>The implementer's first log (Slurm 1867826 at dcce9e7, R = 100, 15 of 15 passed) had 4b c = 2.5
+large under at 0.015 against 0.0163. That R does not resolve the cell.</p>
+<p><strong>B. Resolving runs (statistician, #179 review).</strong> Files are in <code>$GIAP_ROOT/stat/m804b/</code>
+(<code>probe.py</code>, <code>repo_arm.py</code>, <code>summ.py</code>, <code>res_*.jsonl</code>). The PR model was at 3f82e0f, before the
+damped Newton, in Slurm 1867861, 1867862 and 1867888 (R = 3,000). Every cell also carries the
+oracle q (the exact TU marginal, same detections), which is at level in every cell below. The
+conditional law is sound; the failure is the misfit of the 3-parameter recalibration.</p>
+<p>4b, c = 2.5, large TUs, under, on the repo's own arm and seeds (<code>repo_arm.py</code>):</p>
+<table>
+<thead>
+<tr>
+<th>block</th>
+<th>R</th>
+<th>α 0.01</th>
+<th>α 0.05</th>
+<th>α 0.10</th>
+<th>bound</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 (replicates 0–999)</td>
+<td>1,000</td>
+<td>0.0140</td>
+<td>0.0555</td>
+<td>0.1082</td>
+<td>0.0120 / 0.0544 / 0.1060</td>
+</tr>
+<tr>
+<td>2 (replicates 1,000–1,999)</td>
+<td>1,000</td>
+<td>0.0130</td>
+<td>0.0587</td>
+<td>0.1098</td>
+<td>same</td>
+</tr>
+<tr>
+<td>probe</td>
+<td>3,000</td>
+<td>0.0130</td>
+<td>0.0576</td>
+<td>0.1104</td>
+<td>0.0111 / 0.0525 / 0.1035</td>
+</tr>
+<tr>
+<td>probe, c = 3.5</td>
+<td>3,000</td>
+<td>0.0113</td>
+<td>0.0552</td>
+<td>0.1086</td>
+<td>same</td>
+</tr>
+</tbody>
+</table>
+<p>This is a confirmed fail in both ADR-0015 blocks.</p>
+<p>The other recalibrated cells at R = 3,000, at α 0.01 / 0.05 / 0.10:</p>
+<table>
+<thead>
+<tr>
+<th>arm</th>
+<th>cell</th>
+<th>rate</th>
+<th>bound</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4d</td>
+<td>high-q ≥ 4-gene TUs, c = 1.5, under</td>
+<td>0.030 / 0.108 / 0.193</td>
+<td>0.0117 / 0.054 / 0.105</td>
+</tr>
+<tr>
+<td>4e</td>
+<td>all ≥ 4-gene TUs in halves (~115 TUs), c = 1.5, under</td>
+<td>0.023 / 0.114 / 0.212</td>
+<td>0.0126 / 0.056 / 0.108</td>
+</tr>
+<tr>
+<td>4e</td>
+<td>the same, c = 2.5, under</td>
+<td>0.030 / 0.143 / 0.256</td>
+<td>same</td>
+</tr>
+<tr>
+<td>4e</td>
+<td>all ≥ 2-gene TUs in thirds (~200 TUs), c = 1.5, over</td>
+<td>0.015 / 0.069 / 0.135</td>
+<td>0.0121 / 0.055 / 0.106</td>
+</tr>
+<tr>
+<td>4e</td>
+<td>the same, c = 2.5, over</td>
+<td>0.018 / 0.086 / 0.167</td>
+<td>same</td>
+</tr>
+<tr>
+<td>4f</td>
+<td>deep coverage, c = 2.5, large, under (at c1e3ca0 every replicate is fitted; R = 2,000, re-check below)</td>
+<td>0.0177 / 0.0692 / 0.1270</td>
+<td>0.0120 / 0.0544 / 0.1060 per block</td>
+</tr>
+<tr>
+<td>—</td>
+<td>co-detection by TU size (c = 3 for ≥ 4 genes, 0.5 otherwise), large, under</td>
+<td>0.075 / 0.212 / 0.321</td>
+<td>0.0111 / 0.0525 / 0.1035</td>
+</tr>
+<tr>
+<td>4c</td>
+<td>a = +0.5, large, under</td>
+<td>0.0057 / 0.0336 / 0.0656</td>
+<td>0.0111 / 0.0525 / 0.1035</td>
+</tr>
+<tr>
+<td>4c</td>
+<td>a = −0.5, large, under</td>
+<td>0.0028 / 0.0186 / 0.0439</td>
+<td>same</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>4c was at level in every recalibrated cell of both signs (<code>res_4c_a±0.5.jsonl</code>).</li>
+<li>The 4e c = 1.5 rows and the 4c rows are from <code>summ.py</code> on <code>res_4b_c1.5.jsonl</code> and
+  <code>res_4c_a±0.5.jsonl</code>; the others are quoted in the review.</li>
+<li>In these worlds the old fit never diverged (0 skipped), so the damped Newton reaches the same
+  MLE and the rates carry over. The re-check confirms this: its 4b, 4d, 4e and csize rates match.</li>
+<li>The 4b + 4c combination world skipped 2,898 of 3,000 at 3f82e0f. With the damped fit it is
+  measured in the re-check below, and it fails.</li>
+</ul>
+<p><strong>B′. Re-check at c1e3ca0 (statistician; <code>$GIAP_ROOT/stat/m804b/recheck/summ_blocks.txt</code>, Slurm
+1867941, 1867942).</strong> R = 2,000 per world, split into the ADR-0015 blocks 0–999 and 1,000–1,999.
+0 replicates skipped in any world. These are the fallback-free p, with the flag ignored. A cell
+fails when it is above the bound in both blocks. The oracle q is at level in every cell of all 13
+worlds.</p>
+<table>
+<thead>
+<tr>
+<th>world</th>
+<th>cell</th>
+<th>block 1</th>
+<th>block 2</th>
+<th>bound (per block)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4b c 2.5 (repo arm, its own seeds)</td>
+<td>large, under</td>
+<td>0.0140 / 0.0555 / 0.1082</td>
+<td>0.0130 / 0.0587 / 0.1098</td>
+<td>0.0120 / 0.0544 / 0.1060</td>
+</tr>
+<tr>
+<td>4b c 2.5 (probe)</td>
+<td>large, under</td>
+<td>0.0135 / 0.0586 / 0.1103</td>
+<td>0.0129 / 0.0595 / 0.1118</td>
+<td>same</td>
+</tr>
+<tr>
+<td>4b c 3.5</td>
+<td>large, under</td>
+<td>0.0120 / 0.0525 / 0.1060</td>
+<td>0.0108 / 0.0591 / 0.1113</td>
+<td>same (borderline)</td>
+</tr>
+<tr>
+<td>4d (4b c 1.5)</td>
+<td>large_hiq, under</td>
+<td>0.0299 / 0.1075 / 0.1956</td>
+<td>0.0301 / 0.1118 / 0.1979</td>
+<td>0.0129 / 0.0564 / 0.1089</td>
+</tr>
+<tr>
+<td>4b c 2.5</td>
+<td>large_hiq, under</td>
+<td>0.0430 / 0.1428 / 0.2271</td>
+<td>0.0409 / 0.1523 / 0.2403</td>
+<td>same</td>
+</tr>
+<tr>
+<td>4e (4b c 1.5)</td>
+<td>big_large, under</td>
+<td>0.0235 / 0.1215 / 0.2195</td>
+<td>0.0260 / 0.1175 / 0.2135</td>
+<td>0.0144 / 0.0597 / 0.1134</td>
+</tr>
+<tr>
+<td>4e (4b c 1.5)</td>
+<td>big_multi, over</td>
+<td>0.0163 / 0.0723 / 0.1340</td>
+<td>0.0107 / 0.0610 / 0.1293</td>
+<td>0.0136 / 0.0580 / 0.1110 (fails at 0.05 and 0.10)</td>
+</tr>
+<tr>
+<td>4b c 2.5</td>
+<td>big_large, under</td>
+<td>0.0280 / 0.1365 / 0.2510</td>
+<td>0.0360 / 0.1405 / 0.2550</td>
+<td>0.0144 / 0.0597 / 0.1134</td>
+</tr>
+<tr>
+<td>4f deep (eta0 +1.5)</td>
+<td>large, under</td>
+<td>0.0184 / 0.0700 / 0.1278</td>
+<td>0.0171 / 0.0684 / 0.1263</td>
+<td>0.0120 / 0.0544 / 0.1060</td>
+</tr>
+<tr>
+<td>4f deep</td>
+<td>loq_any, under</td>
+<td>0.0250 / 0.1000 / 0.1700</td>
+<td>0.0224 / 0.0974 / 0.1792</td>
+<td>0.0128 / 0.0562 / 0.1085</td>
+</tr>
+<tr>
+<td>4f deep</td>
+<td>big_multi, over</td>
+<td>0.0170 / 0.0827 / 0.1633</td>
+<td>0.0157 / 0.0877 / 0.1677</td>
+<td>0.0136 / 0.0580 / 0.1110</td>
+</tr>
+<tr>
+<td>combo (4b + 4c), damped fit</td>
+<td>large, under</td>
+<td>0.0168 / 0.0750 / 0.1336</td>
+<td>0.0206 / 0.0776 / 0.1381</td>
+<td>0.0120 / 0.0544 / 0.1060</td>
+</tr>
+<tr>
+<td>combo</td>
+<td>large_hiq, under</td>
+<td>0.0807 / 0.2202 / 0.3219</td>
+<td>0.0810 / 0.2165 / 0.3207</td>
+<td>0.0129 / 0.0564 / 0.1089</td>
+</tr>
+<tr>
+<td>csize (c 3 for ≥ 4 genes, 0.5 otherwise)</td>
+<td>large, under</td>
+<td>0.0743 / 0.2116 / 0.3181</td>
+<td>0.0788 / 0.2144 / 0.3249</td>
+<td>0.0120 / 0.0544 / 0.1060</td>
+</tr>
+<tr>
+<td>small genome (800 genes)</td>
+<td>hiq_any, under</td>
+<td>0.0140 / 0.0840 / 0.1475</td>
+<td>0.0175 / 0.0795 / 0.1530</td>
+<td>0.0144 / 0.0597 / 0.1134 (fails at 0.05 and 0.10)</td>
+</tr>
+</tbody>
+</table>
+<p>At level in both blocks: the null; 4c at a = ±0.5 (every cell); slope b = 1.4; the random
+whole-TU and single-gene categories in every world.</p>
+<p><strong>C. Flexible comparator (statistician; <code>probe_flex.py</code>, Slurm 1867892, 1867900, R = 3,000).</strong>
+- <strong>Model:</strong> a cross-fitted logistic on [1, logit q_raw, 4 quantile hinges of logit q_raw, a size
+  one-hot {2, 3, 4, 5–6, 7+}, logit q_raw × log n], with ridge 1e-4 on the non-intercept terms.
+- <strong>Result:</strong> at level in every cell of all 8 worlds: 4b at c = 1.5 and 2.5, the combination, the
+  size-dependent c, deep coverage (including the 417 replicates in which the old undamped fit diverged at 3f82e0f), low detection and
+  a small genome.
+- <strong>Examples:</strong> 4b c = 2.5 large under 0.0053 / 0.0303 / 0.0623; the high-q cells 0.003 / 0.023 /
+  0.052. The large categories are conservative.</p>
+<h3 id="pass-1-limit-decision-13-adr-0035-decision-3">Pass-1 limit (decision 13; ADR-0035 decision 3)<a class="headerlink" href="#pass-1-limit-decision-13-adr-0035-decision-3" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Every ORA row carries <code>ora_uncalibrated</code></strong> (<code>CALIBRATION_FLAGS</code>).</li>
+<li><strong>Why:</strong> arm 4b (c = 2.5, large TUs, under) fails at R = 1,000 in both blocks (0.0140 and
+  0.0130 against 0.0120 at α 0.01). Its close variants 4d–4f fail by more, and so does the
+  size-dependent co-detection world. These are routine category kinds within [5, 500]: high-q
+  operons (ribosome-like), and categories of 100–200 multi-gene TUs.</li>
+<li><strong>What holds:</strong> the conditional law is exact for the q it is given (oracle-q cells at level;
+  precision contract). 4c and the random whole-TU and random-gene categories are at level.</li>
+<li><strong>What fails:</strong> q itself, through the misfit of the 3-parameter recalibration (re-check table
+  B′). It is anti-conservative for:</li>
+<li>under-detection of large or high-q TU sets;</li>
+<li>under-detection of low-q TU sets at deep coverage (<code>loq_any</code>, 0.024 at α 0.01);</li>
+<li>over-detection of large multi-gene categories (<code>big_multi</code> over, 0.016 to 0.026 at α 0.01);</li>
+<li>high-q categories in a small genome (800 genes).</li>
+</ul>
+<p>Any category selected on TU size or on q is at risk. Only the random whole-TU and single-gene
+  categories were at level in every world. The conditional law itself is still sound: the oracle
+  q is at level in every cell.
+- <strong>Consequence:</strong> the p and q are not discovery claims. <code>ora.py</code> writes no "calibrated" claim
+  (ADR-0029). A skipped fit (<code>tu_recal_skipped</code>) is a second, independent reason for the flag.</p>
+<h3 id="hardening-owed-pass-2">Hardening owed (pass 2)<a class="headerlink" href="#hardening-owed-pass-2" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Flexible recalibration.</strong> Adopt the statistician's comparator model (C above), or another
+  that passes. It needs an ADR-0035 amendment from Khoa.</li>
+<li><strong>Lifting the flag.</strong> Only on a pass at R = 1,000 in both blocks of every cell of 4b–4f, with
+  rates logged; the fast tier is a smoke test. Skipped runs keep the flag regardless. The
+  fallback in the attack files cannot trigger on its own, because the flag is a constant (backlog
+  N10).</li>
+<li><strong>Comp underflow (backlog N1).</strong> comp = exp(log_comp) underflows to 0 once log_comp &lt; about
+  −745: about 27 genes at the clip 1 − 1e-12 in one TU, or a very large TU. On the fitted path,
+  expit(−η) underflows once η &gt; about 745. An undetected TU with comp = 0 makes the whole run
+  <code>null_degenerate</code>. Fix: carry log_comp into the tilt instead of comp.</li>
+<li><strong>Clip semantics (backlog N3).</strong> State which rows count as affected. The clip also moves p̂ in
+  (0, 1e-12) and (1 − 1e-12, 1).</li>
+<li><strong>The CI on <code>effect</code>.</strong> Candidates: a TU-block bootstrap of k − E, or the conditional MLE of a
+  log-odds shift δ for C's TUs with an exact CI by inverting the CPB test.</li>
+<li><strong>The <code>category_summary</code> CI for small categories</strong> (below).</li>
+<li><strong>Power of partial membership</strong> (spec arm 7): owed.</li>
+<li><strong>The 4b + 4c combination</strong> fails with the damped fit (large under 0.0168 / 0.0750 / 0.1336 and
+  0.0206 / 0.0776 / 0.1381 in the two blocks; large_hiq under 0.081 / 0.218 / 0.321 pooled). The
+  pass-2 model must pass it, together with every other failing cell of B′, in both blocks at
+  R ≥ 1,000.</li>
+</ul>
+<h3 id="category_summary"><code>category_summary</code><a class="headerlink" href="#category_summary" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Scope:</strong> collections <code>cog</code>, <code>kegg</code> and <code>go_slim</code>. It is descriptive: no test, and every
+  category is reported whatever its size. It is gene-level, as §9.3 names it.</li>
+<li><strong>Columns, per category:</strong></li>
+<li><code>n_genes</code> (eligible members) and <code>n_detected</code>;</li>
+<li><code>expected</code> = Σ p̂ over members (unclipped);</li>
+<li><code>o_minus_e</code> = <code>n_detected</code> − <code>expected</code>, with a 95 % CI;</li>
+<li><code>median_abundance_log2</code> over detected members with a finite abundance (imputed values
+    included);</li>
+<li>the collection's <code>coverage</code>.</li>
+<li><strong>CI:</strong> a percentile TU block bootstrap (<code>giap.stats.tu_block_bootstrap</code>, M4-16 <code>basic_rows</code>
+  construction). Per-TU sums of d − p̂ over the category's members are resampled as whole TUs and
+  summed. B is the caller's (<code>stats.bootstrap</code>), and the draws come from the step's rng in row
+  order.</li>
+<li><strong>Few units:</strong> below 10 TUs (<code>CI_MIN_UNITS</code>) the CI is NA with <code>ci_few_units</code>.</li>
+<li><strong>Coverage is low for small categories</strong> (statistician, <code>$GIAP_ROOT/stat/m804b/probe_boot.py</code>
+  and <code>boot.log</code>; B = 999, 1,200 CIs per cell, true O − E = 0):</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>category</th>
+<th>coverage, c = 0</th>
+<th>coverage, c = 2.5</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10 TUs</td>
+<td>0.886</td>
+<td>0.887</td>
+</tr>
+<tr>
+<td>15 TUs</td>
+<td>0.908</td>
+<td>0.898</td>
+</tr>
+<tr>
+<td>30 TUs</td>
+<td>0.922</td>
+<td>0.933</td>
+</tr>
+<tr>
+<td>100 TUs</td>
+<td>0.963</td>
+<td>0.932</td>
+</tr>
+<tr>
+<td>40 random genes</td>
+<td>0.933</td>
+<td>0.942</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Nominal 95 % CIs covered 0.89 to 0.93 at 10 to 30 TUs (Monte Carlo SE about 0.009).</li>
+<li>Under TU-packed detection (c = 2.5) they covered 0.93 even at 100 TUs.</li>
+<li>The misses are mostly intervals wholly below the truth (hi &lt; 0), because the sum is skewed:
+    8.5 % at 10 TUs against 2.5 % nominal (0.085 at c = 0, 0.087 at c = 2.5; lo &gt; 0: 0.029 and
+    0.025).</li>
+<li>So an apparent under-detection (a CI entirely below 0) in a category of 30 TUs or fewer is
+    weaker evidence than its nominal level.</li>
+</ul>
+<p>Raising <code>CI_MIN_UNITS</code> to about 30, or a BCa or studentized bootstrap, is owed (backlog).</p>
+<h2 id="simulator-worlds-for-the-m8-15-gate-giapsim-m8-14">Simulator worlds for the M8-15 gate (giapsim, M8-14)<a class="headerlink" href="#simulator-worlds-for-the-m8-15-gate-giapsim-m8-14" title="Permanent link">&para;</a></h2>
+<p><code>tests/sim/giapsim/function_sim.py</code> and the <code>giapsim.scenarios</code> function pairs (issue M8-14, PR</p>
+<h1 id="251-giap_specmd-84-85-attacks-2-and-3-113-statistician-review-of-pr-251">251; GIAP_SPEC.md §8.4, §8.5 attacks 2 and 3, §11.3). Statistician review of PR #251<a class="headerlink" href="#251-giap_specmd-84-85-attacks-2-and-3-113-statistician-review-of-pr-251" title="Permanent link">&para;</a></h1>
+<p>(2026-10-23); the attack arms are in <code>tests/calibration/attacks/test_attack_sim_function.py</code>.</p>
+<p><strong>Annotations.</strong> A random GO-shaped DAG in the reserved range <code>GO:9000000</code>–<code>GO:9999998</code> (three
+namespaces, <code>is_a</code> and <code>part_of</code>), 35–55 % of genes annotated directly, COG letters on synthetic
+<code>COG&lt;n&gt;</code> IDs, 2–20 synthetic KEGG maps (<code>K9xxxx</code>, <code>map9xxxx</code>). Annotations are drawn from their
+own stream, independently of every covariate, of abundance and of detection. <code>world.sets</code> keeps
+sets of 10–500 TUs (the GSEA filter), so the 5–9-TU sets the ORA filter (<code>function.ora_size</code>
+[5, 500]) would test are absent there; an ORA gate should build its sets through M8-03 from
+<code>world.obo</code> and <code>world.layout.xrefs</code>.</p>
+<p><strong>ORA null (<code>ora_null</code>).</strong> Detection is redrawn as Bernoulli(p_true), with p_true the M4-09
+covariate logistic (length, observable peptides, GRAVY). Membership is independent of detection
+given p_true, so the conditional Poisson-binomial law holds exactly with q from p_true. With the
+fitted M4-13 p_detect the null is the M8-04 claim itself (arm <code>ora_null.fitted</code>).</p>
+<p><strong>Attack 2 (<code>ora_attack_confounded</code>).</strong> One random GO set covering 8–20 % of genes; the
+confounding is carried by <code>n_obs</code> (<code>CONFOUND_COVARIATE</code>, M8-14 lead decision 6). Each member with
+an <code>aa</code> and <code>n_obs &gt; 0</code> has its K/R residues moved, with their codons, so that its recomputed
+observable-peptide count gives the logit shift nearest <code>member_shift</code>. Composition is preserved, so
+GRAVY and length are unchanged. Short sORFs that cannot lose a peptide keep shift 0. The mean shift
+over movable members is −1.44 to −1.50 at −1.5; about [−2, +0.5] is reachable, and a draw whose
+mean misses <code>member_shift</code> by more than <code>SHIFT_TOL</code> = 0.15 raises (M8-14 decision 9).
+- <em>Visibility:</em> over 200 worlds, GIAP's <code>covariates()</code> recomputed <code>n_observable_peptides</code> equal to
+  <code>n_obs_true</code> for every gene, and GRAVY was unchanged exactly. A side effect: 66 % of members
+  change <code>tm_segments</code> (+1.56 on average) and pI moves by up to 0.22. These are not in the truth
+  logit.
+- <em>Results at −1.5:</em> the oracle arm is at level and the unweighted test rejects at 1.0. The fitted
+  M4-13 arm is at level and strongly conservative: 0.00 / 0.01 / 0.01 at R = 100 (Slurm 1873380).
+  The default five-covariate fit, recomputed from <code>aa</code>, gives 0 / 0 / 0.005 at R = 200.
+- <em>Why it is conservative:</em> 99 % of members sit at or below the non-members' 5th <code>n_obs</code>
+  percentile, so the cross-fit learns the members' own rate. Their O − Σp̂ has SD 0.30 in units of
+  √Σp̂(1−p̂). This comes from the plug-in variance (q̂ treated as known) and shrinks with overlap:
+  SD 0.67 at −0.5, 0.55 at −0.75, 0.43 at −1.0.
+- <em>Power:</em> the same plug-in costs power against a real category effect beyond the covariates. For
+  an extra −0.5 logit, the fitted arm detects it in 0.19 of worlds and the oracle in 0.68 at shift
+  −0.5; at −1.5 the figures are 0.01 and 0.33 (statistician probes, Slurm 1874044 and 1874094).
+- <em>M8-15:</em> gate −1.5 as a separation check and −0.75 as an overlap arm (unweighted 0.95 at 0.05).</p>
+<p><strong>GSEA null (<code>gsea_null</code>).</strong> The M4-08 model (AR(1) TU levels with ρ 0.5 and SD 2, stoichiometry
+0.7, gene noise 0.5) with <code>position_decay_log2 = 0</code>. Gene-level abundance is independent of
+membership for any decay. The TU score (mean of the scoring genes) falls with TU size under decay,
+and any-gene membership favours large TUs, so decay is a potential TU-level confounder. It is not
+one at the M4-08 default: with decay 0.2, the pooled rate over every in-range set (about 268 per
+world, R = 80, <code>SIMPLE_ENGINE</code>) was 0.0084 / 0.047 / 0.096, against 0.0087 / 0.045 / 0.094 at
+decay 0; at 0.5 it was 0.011 / 0.060 / 0.115 (pooled over dependent sets, so indicative only).
+The arm <code>gsea_null.decay0.2</code> gates one random set per world at the default decay.</p>
+<p><strong>Attack 3 (<code>gsea_attack_operon_packed</code>).</strong> Each set is 1–3 packed chr1 operons of 10–30 genes
+plus <code>PACKED_SINGLES</code> = 40 single-gene TUs (at least 9 on small layouts), whole TUs only, so every
+set is inside <code>function.gsea_size</code> [10, 500]. Packed TUs draw their level like every other TU; the
+shared TU level, moving 10–30 genes together, is the attack.
+- The packed TUs are exchangeable with the other chr1 TUs: Fligner test 0 / 0.02 / 0.08.
+- The TU-collapsed GSEA is at level: 0 / 0.04 / 0.10 at R = 50.
+- Gene-level ranking with gene-label permutation is a confirmed fail (Slurm 1872913, 1873380).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

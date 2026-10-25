@@ -1,0 +1,4662 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Genome-integrated analysis of proteomics data for bacterial genomes">
+      
+      
+      
+      
+        <link rel="prev" href="../outputs/">
+      
+      
+        <link rel="next" href="../plots-and-report/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Interpreting results - GIAP</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#interpreting-results" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="GIAP" class="md-header__button md-logo" aria-label="GIAP" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            GIAP
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Interpreting results
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="GIAP" class="md-nav__button md-logo" aria-label="GIAP" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    GIAP
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../get-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../get-started/setup-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set up the databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../get-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running GIAP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../outputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Outputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpreting results
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpreting results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#q-values-fdr-fwer-and-unestimated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        q-values, FDR, FWER and unestimated
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#methods-shipped-flagged-uncalibrated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methods shipped flagged uncalibrated
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#islands-the-fwer-holds-in-a-stated-regime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Islands: the FWER holds in a stated regime
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operons-discordance-and-pmiss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operons: discordance and P(miss)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gsea-is-conditional-on-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GSEA is conditional on detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detection-tiers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detection tiers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#absence-of-detection-is-not-absence-of-expression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Absence of detection is not absence of expression
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#placement-fdr-is-not-search-engine-fdr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Placement FDR is not search-engine FDR
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kinds-of-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Kinds of placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#empty-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Empty results
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wording" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wording
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plots-and-report/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plots and report
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comparing runs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../makedb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building a search database
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Converting search-engine output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../licences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Licences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../runtimes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtimes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/ecoli-k12/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: E. coli K-12
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/nissle-pilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: the Nissle pilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Output tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Flag vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methods
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Methods
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/abundance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gene-level abundance: iBAQ, Top3, protein-level route, missing values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/autocorrelation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autocorrelation of abundance along the replicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/bootstrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TU-block bootstrap, circular block bootstrap and the Hodges–Lehmann shift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration harness: criteria, error rates, seeds
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    giap compare: detection, abundance agreement and result stability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/context_tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The context tables: autocorrelation.tsv, islands.tsv and the genes.tsv context group
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/denovo-flag-m717-gate-verdict/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    M7-17 G4-k3 flag gate, full tier: statistician's verdict (PR #291, ebfdd065)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/denovo-precision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    De novo precision, estimated from the genome
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/detectability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detectability model (cross-fitted p_detect)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/detection-limit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection-limit model (P(detect | abundance) and P(miss))
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/detection-summary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic detection summary (O − E) and QC rows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/detection-tiers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection tiers and gene-level FDR (M4-12)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/determinants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Determinants: what explains abundance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/fgsea-port/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    fgsea port (G15; GIAP_SPEC.md §7.7.4) — superseded by ADR-0038
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/free-entrapment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Free entrapment: the FDP of A1's identifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/function-collections/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function collections (M8-03)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/function-gsea/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Abundance GSEA (M8-05, engine M8-17b)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/function/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function module: detection enrichment primitives
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/islands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Islands: expression islands along the replicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/mayu-gene-fdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MAYU-style gene-level FDR (closed form)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/multiple-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiple testing: Benjamini–Hochberg
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/novel-orfs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Novel ORFs (M7)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/operons/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operons: the within-operon distribution and the missed-operon decoy FDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/oriter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Origin-to-terminus gradient
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/permutation-and-shifts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Permutation p-values, circular shifts and Besag–Clifford
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/placement-fdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Placement FDR: genome decoys, chance hits and per-stratum q-values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/region-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Region tests: O − E and Hodges–Lehmann shift under circular gene-index shifts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/sensitivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sensitivity analysis: stability of flagged sets under analysis choices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/target-decoy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Target–decoy q-values and picked FDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/variants-mvp04-k12-audit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Variants on the MVP-04 K-12 run: flag audit (statistician, 2026-10-24)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/variants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Variants (Module 5)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0001-import-spec-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0001: Import the settled decisions of GIAP_SPEC.md §2.1 and §2.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0002-farmshare-env-pins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0002: FarmShare toolchain as installed in M0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0003-simulate-outdir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0003: giapsim.simulate takes an explicit output directory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0004-m0-size-exemption-and-hook-symlinks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0004: One-off PR-size exemption for M0, and symlink-safe path protection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0005-m1-input-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0005: Decisions on M1 input handling left open by the spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0006-table-value-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0006: Encoding of special values in GIAP tables, and strict BED writing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0007-pr-size-counts-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0007: The PR-size guard counts code, not tests or docs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0008-tool-pins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0008: Annotation tool pins, image digests and licences (M2-01)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0009-picked-fdr-paired-share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0009: Picked gene-level FDR rescales decoy wins by the paired share
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0010-placement-fdr-weighted-decoys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0010: Placement FDR with per-peptide π̂ weights each decoy hit by its own π̂ (M3-10)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0011-low-complexity-placement-flag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0011: low_complexity placement flag (M3-10)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0012-novel-orf-promoter-terminator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0012: Promoter and terminator evidence for novel ORFs (Module 6)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0013-cterm-extension-locus-class/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0013: cterm_extension locus class (M3-14, Module 6)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0014-db-checksum-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0014: Checksum sources for the Bakta full DB and the Promotech model (M2-08)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0015-calibration-two-block-confirmation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0015: Two-block confirmation for calibration gates (M4-05)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0016-size-gate-excludes-nf-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0016: The PR-size gate does not count workflow/tests/ (amends ADR-0007)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0017-unversioned-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0017: Unversioned sources (KEGG REST) are recorded, not pinned
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0018-region-tests-confounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0018: Region tests robust to detectability confounding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0019-stratum0-pi-hat-exact-share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0019: Stratum-0 π̂_wrong for database input from exact-match shares per length class
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0020-autocorrelation-redetrend-residual-joincount/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0020: Autocorrelation nulls recompute the detrend; residual join count; no CI for lag statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0021-island-oriter-block-length/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0021: Block length for the island scan and the ori–ter CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0022-uniop-terminatornet-cutoffs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0022: UniOP and TerminatorNet cut-offs and the distance-model refit on RegulonDB 14.5.0 K-12
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0023-kegg-overview-maps-excluded/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0023: KEGG global and overview maps are excluded from the KEGG collection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0024-precomputed-rbs-novel-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0024: annotation.precomputed.rbs_novel, a precomputed second-round OSTIR layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0025-gsea-clustered-sets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0025: GSEA on genomically clustered sets: a flag and a restricted claim in pass 1, a rotation null in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0026-gsea-conditional-on-detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0026: Abundance GSEA is conditional on detection (restricted claim and flag)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0027-gsea-nes-without-ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0027: GSEA reports NES without a confidence interval (§8.2 deviation)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0028-gsea-median-centred-tu-scores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0028 (ADR-B): GSEA ranks median-centred TU scores
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0029-ora-conditional-poisson-binomial-tus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0029: Detection ORA uses the conditional Poisson-binomial null, counted in TUs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0030-detection-limit-pass1-calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0030: Detection-limit model (M6-02): the pass-1 calibration choices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0031-determinants-delta-r2-tolerance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0031: Determinants ΔR² bias tolerance 0.05; the ΔR² interval stays ci_unestimated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0032-determinants-univariate-ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0032: Univariate determinants CIs stay ci_unestimated in pass 1; a calibrated SE in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0033-determinants-primary-attribution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0033: Elastic-net ΔR² is the primary block attribution; LightGBM early stopping in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0034-determinants-null-uncalibrated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0034: The determinants permutation null p is null_uncalibrated in pass 1; a structure-aware null in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0035-ora-tu-detection-recalibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0035: The ORA TU detection probability is a cross-fitted TU-level recalibration of q = 1 − ∏(1 − p̂)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0036-m8-table-columns-beyond-9-3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0036: M8 function tables carry four columns and five run flags beyond GIAP_SPEC.md §9.3 and §9.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0037-ora-flexible-tu-recalibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0037: The ORA TU detection recalibration becomes a flexible cross-fitted ridge logistic (pass 2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0038-gsea-runs-r-fgsea/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0038: GSEA runs R fgsea as an external tool
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0039-bioconductor-org-for-golden-r/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0039: bioconductor.org as a download source for the R golden environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0040-manifest-run-tail-finalize-split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0040: The manifest runs after the graph; finalize is split between the graph and the run tail
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0041-run-tokens-beyond-9-4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0041: Run-scope tokens beyond the §9.4 Run row
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0042-replicates-variants-and-compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0042: Calibration replicate counts for variants and compare
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0043-plot-support-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0043: Plot support files under OUT/plots/support/
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0044-wallenius-golden-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0044: The Wallenius golden reference is the exact distribution, not goseq
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0045-wallenius-far-tails-by-urn-recursion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0045: Wallenius far tails by the exact urn recursion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0046-compare-output-layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0046: giap compare output layout (ADR-M9-B)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0047-decoy-q-filter-reading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0047: Decoys above q_value_max leave the picked competition (reading of §5.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0048-replicates-novel-orfs-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0048: Replicate counts for the 1-Mb novel-ORF gate (M7-13 G3/G4)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0049-m7-variant-precision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0049: M7 variant-call precision under de novo errors (G1, A6a, A6b, A6c)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0050-denovo-orf-q-exact-errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0050: ORF-level q in the de novo subgroup regime under exact systematic errors (G4-k3, attack GC)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0051-diann-version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0051: DIA-NN 2.3.1 Academia (Apptainer image) instead of the spec's 2.7.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0052-pr-ci-under-20-minutes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0052: PR CI under 20 minutes; calibration, integration and coverage move to the nightly
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0053-determinants-bit-identical-speedups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0053: Bit-identical speed-ups of the determinants step; two new benchmark baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0054-a3-external-artefacts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0054: External artefacts of the A3 de novo arm (ADR-M10-B): conversion route, TDF-SDK licence, Cascadia weights host, Unimod table
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0055-operon-discordance-abundance-noise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0055: Operon discordance under abundance-dependent Δ noise (attack D-1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0056-pmiss-outside-the-bh-family/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0056: P(miss) is reported without a q and stays out of the discordance BH family
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0057-calibration-merge-honours-strict-xfail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0057: the calibration merge honours the xfail mark of the test that owns a check
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0058-annotated-stop-substitution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0058: The tolerant matcher may consume an annotated stop codon (option B of M7-16)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releasing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../citation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Citation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#q-values-fdr-fwer-and-unestimated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        q-values, FDR, FWER and unestimated
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#methods-shipped-flagged-uncalibrated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methods shipped flagged uncalibrated
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#islands-the-fwer-holds-in-a-stated-regime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Islands: the FWER holds in a stated regime
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operons-discordance-and-pmiss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operons: discordance and P(miss)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gsea-is-conditional-on-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GSEA is conditional on detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detection-tiers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detection tiers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#absence-of-detection-is-not-absence-of-expression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Absence of detection is not absence of expression
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#placement-fdr-is-not-search-engine-fdr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Placement FDR is not search-engine FDR
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kinds-of-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Kinds of placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#empty-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Empty results
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wording" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wording
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="interpreting-results">Interpreting results<a class="headerlink" href="#interpreting-results" title="Permanent link">&para;</a></h1>
+<p>Every claim GIAP makes carries one of four labels:</p>
+<ul>
+<li>a q-value;</li>
+<li>an estimated false discovery rate (FDR);</li>
+<li>a family-wise error rate (FWER);</li>
+<li>the label <code>unestimated</code>.</li>
+</ul>
+<p>That is the reporting rule. It does not mean every method is calibrated in every situation. Some
+methods ship in 1.0 with a known calibration failure. Their rows carry a flag, and their p- and
+q-values are not discovery claims. They are listed in
+<a href="#methods-shipped-flagged-uncalibrated">Methods shipped flagged uncalibrated</a> below. Read that
+section before you report any function, determinant, island, operon or variant result.</p>
+<p>This page explains what each label means in GIAP, and what a detection does and does not tell
+you. The statistical methods behind each estimate are documented one note per method under
+<a href="../../methods/">Methods</a>.</p>
+<h2 id="q-values-fdr-fwer-and-unestimated">q-values, FDR, FWER and <code>unestimated</code><a class="headerlink" href="#q-values-fdr-fwer-and-unestimated" title="Permanent link">&para;</a></h2>
+<p><strong>FDR.</strong> The false discovery rate is the expected share of false claims among the claims accepted
+at a threshold. GIAP estimates it in two ways:</p>
+<ul>
+<li>from decoys, which are matched false hypotheses:</li>
+<li>reversed or shuffled genome translations, for placement;</li>
+<li>convergent and → ← → sandwich pairs, for missed operons;</li>
+<li>from p-values, with Benjamini–Hochberg (BH) adjustment within a pre-declared family of tests.</li>
+</ul>
+<p><strong>q-value.</strong> The q-value of a claim is the smallest FDR at which that claim would be accepted.
+Accepting every row with <code>q_value ≤ 0.05</code> gives a list with an estimated FDR of at most 5 %. A
+q-value is a property of the list, not a probability that one row is wrong.</p>
+<p>BH and decoy q-values control the FDR <strong>within one family only</strong>. Nothing is controlled across
+families. If you scan several tables, expect roughly α × (number of discoveries) false ones in
+each family (<a href="../../methods/multiple-testing/">multiple testing</a>).</p>
+<p><strong>FWER.</strong> The family-wise error rate is the probability of at least one false claim in the whole
+family. GIAP uses FWER for abundance islands. One family covers the whole run: each window is
+compared with the maximum statistic over the windows of <strong>every</strong> scanned replicon. The null comes
+from a circular TU-block bootstrap of the detrended TU scores. The FWER claim is conditional on
+a dependence regime (see <a href="#islands-the-fwer-holds-in-a-stated-regime">islands</a> below). It is not
+an unconditional guarantee.</p>
+<p><strong><code>unestimated</code>.</strong> GIAP labels a claim <code>unestimated</code> when the input cannot support an error
+estimate, for example:</p>
+<ul>
+<li>gene detection from peptide sequences alone;</li>
+<li>a test whose null has too few units.</li>
+</ul>
+<p>The claim is still reported, so you can inspect it. Do not report it as error-controlled. Flags
+such as <code>ci_unestimated</code>, <code>class_fdr_unestimated</code>, <code>not_estimable</code>, <code>ora_uncalibrated</code> and
+<code>null_uncalibrated</code> say which part is missing or uncalibrated (see the
+<a href="../../reference/flags/">flag reference</a>).</p>
+<p><strong>Families and defaults.</strong> BH applies within the families fixed in code. Here are the main claims,
+with the default threshold of each (<code>stats.alpha.*</code> in the
+<a href="../../reference/configuration/#stats">configuration reference</a>):</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Error control</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Peptide placed at a locus</td>
+<td>placement q-value from genome decoys: one list per decoy type × stratum (0, 1, 2 differences), length classes pooled</td>
+<td>0.01</td>
+</tr>
+<tr>
+<td>Gene detected</td>
+<td>gene q-value (tiers <code>decoy_picked</code>, <code>mayu</code>) or <code>unestimated</code></td>
+<td>0.01</td>
+</tr>
+<tr>
+<td>Novel ORF</td>
+<td>FDR per class</td>
+<td>0.01</td>
+</tr>
+<tr>
+<td>ALT call</td>
+<td>the 0.01 is the placement-q filter on supporting peptides (<code>stats.alpha.variants</code>); the class error rate is reported, never thresholded, else <code>unestimated</code> (see below)</td>
+<td>0.01</td>
+</tr>
+<tr>
+<td>Region effect</td>
+<td>BH within each (region type, statistic) family</td>
+<td>0.05</td>
+</tr>
+<tr>
+<td>Autocorrelation</td>
+<td>BH across lags</td>
+<td>0.05</td>
+</tr>
+<tr>
+<td>Abundance island</td>
+<td>FWER, run-wide over replicons; conditional on the dependence regime</td>
+<td>0.05</td>
+</tr>
+<tr>
+<td>Operon discordance</td>
+<td>BH over the both-detected pairs (<code>both_detected_t</code>); pooled level under smooth, monotone σ(abundance) only</td>
+<td>0.1</td>
+</tr>
+<tr>
+<td>Missed operon</td>
+<td>decoy FDR</td>
+<td>0.1</td>
+</tr>
+<tr>
+<td>Category detection (ORA)</td>
+<td>BH per ontology and direction; <strong>every row <code>ora_uncalibrated</code>: not a discovery claim</strong></td>
+<td>0.05</td>
+</tr>
+<tr>
+<td>GSEA</td>
+<td>BH per collection; conditional on detection, with no p_detect adjustment</td>
+<td>0.05</td>
+</tr>
+<tr>
+<td>Determinant model</td>
+<td>permutation p-value; <strong>every null p <code>null_uncalibrated</code>: not a discovery claim</strong></td>
+<td>0.05</td>
+</tr>
+</tbody>
+</table>
+<p>Every p-value and q-value is reported, not only the significant ones. Every test row has the
+columns <code>effect</code>, <code>ci_low</code>, <code>ci_high</code>, <code>method</code> and <code>null_model</code>. Where no CI is estimated,
+<code>ci_low</code> and <code>ci_high</code> are NA and the row carries <code>ci_unestimated</code>. This is the case for:</p>
+<ul>
+<li>every GSEA row (NES has no CI, <a href="../../adr/ADR-0027-gsea-nes-without-ci/">ADR-0027</a>);</li>
+<li>every ORA row (<code>effect</code> = k − E[K | N], with no CI);</li>
+<li>the autocorrelation lag rows;</li>
+<li>the operon discordance rows;</li>
+<li>the P(miss) rows, whose <code>effect</code> is also NA.</li>
+</ul>
+<p>The island CI is a different case. It is descriptive and conditional on selection: the window was
+chosen as the run-wide maximum. The CI therefore under-covers, essentially never contains zero,
+and its coverage has not been measured. The island's <code>p_value</code> is the only test.</p>
+<p><strong>ALT calls.</strong> The class error rate estimates the share of erroneous reads among ALT-supporting
+de novo reads whose spectrum a database search identifies confidently. It is not the false-ALT
+rate among all ALT reads. It is biased upwards, up to a degenerate value of 1, when the reference
+search could not contain the ALT peptide. It is biased downwards by spectrum-quality selection.
+Read a rate of 1 from a reference-proteome search as "not measured"
+(<a href="../../methods/variants/">variants</a>).</p>
+<h2 id="methods-shipped-flagged-uncalibrated">Methods shipped flagged uncalibrated<a class="headerlink" href="#methods-shipped-flagged-uncalibrated" title="Permanent link">&para;</a></h2>
+<p>These results are reported, but their p- and q-values are <strong>not error-controlled</strong>. Do not report
+them as discoveries.</p>
+<ul>
+<li><strong>Detection enrichment (ORA): <code>ora_uncalibrated</code> on every row.</strong> The detection-probability
+  recalibration is anti-conservative for categories selected on TU size or detection probability
+  (<a href="../../adr/ADR-0035-ora-tu-detection-recalibration/">ADR-0035</a>,
+  <a href="../../adr/ADR-0037-ora-flexible-tu-recalibration/">ADR-0037</a>;
+  <a href="../../methods/function/">function</a>). A skipped fit (<code>tu_recal_skipped</code>) is a second reason for
+  the flag.</li>
+<li><strong>Determinant model null: <code>null_uncalibrated</code> on every null p.</strong> The permutation p is valid only
+  when TUs are exchangeable. It fails under autocorrelation along the genome, positional covariates
+  and detection selection (<a href="../../adr/ADR-0034-determinants-null-uncalibrated/">ADR-0034</a>).</li>
+<li><strong>Operon discordance outside smooth noise.</strong> The discordance level holds under smooth, monotone
+  σ(abundance). With a step change in noise at some abundance (the D-1b-step attack), it is
+  exceeded, and no row is flagged
+  (<a href="../../adr/ADR-0055-operon-discordance-abundance-noise/">ADR-0055 Amendment 1</a>).</li>
+<li><strong>Islands at strong, short-resolved autocorrelation.</strong> The FWER breaches its level at TU-level
+  ρ = 0.9 when the bootstrap block is short. No row is flagged (see the next section).</li>
+<li><strong>Variant-call precision (gate M7).</strong> The simulated precision gate G1 and the de novo error
+  attacks A6 are strict expected failures. Gate M7 is not recorded as passed. Mass-equivalent and
+  swap ALTs stay <code>high</code> with the flag <code>mass_equivalent</code>
+  (<a href="../../adr/ADR-0049-m7-variant-precision/">ADR-0049</a>).</li>
+</ul>
+<h2 id="islands-the-fwer-holds-in-a-stated-regime">Islands: the FWER holds in a stated regime<a class="headerlink" href="#islands-the-fwer-holds-in-a-stated-regime" title="Permanent link">&para;</a></h2>
+<p>The island FWER is claimed for these cases
+(<a href="../../methods/islands/#validity-domain-adr-0021-amendment-1">islands › Validity domain</a>,
+<a href="../../adr/ADR-0021-island-oriter-block-length/">ADR-0021</a> Amendment 1):</p>
+<ul>
+<li>TU-level autocorrelation ρ ≤ 0.5;</li>
+<li>ρ = 0.9 on a chromosome of about 4,500 genes, where the block length is long enough.</li>
+</ul>
+<p>It is breached at ρ = 0.9 when the block length ℓ′ is 7 or less (0.095 to 0.208 at α = 0.05).
+It does not apply at all when <code>context.islands.block_len</code> is fixed. No per-row flag marks a
+breach, because no statistic reliably detects one. The report instead prints, per replicon:</p>
+<ul>
+<li>the estimated dependence length ℓ̂ (0 means "not estimated", never "no autocorrelation");</li>
+<li>the block length <code>block_len</code>;</li>
+<li>the lag-1 Moran's I of the detrended TU scores.</li>
+</ul>
+<p>Use these to judge where your data sit.</p>
+<h2 id="operons-discordance-and-pmiss">Operons: discordance and P(miss)<a class="headerlink" href="#operons-discordance-and-pmiss" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Discordance</strong> (<code>test = both_detected_t</code> in <code>pairs.tsv</code>) is one BH family over the pairs with
+  both genes detected. It holds level only under smooth, monotone σ(abundance), and it has little
+  power at realistic effect sizes (<a href="../../methods/operons/">operons</a>).</li>
+<li><strong>P(miss)</strong> (<code>test = one_detected_pmiss</code>) is the model's probability that this partner would be
+  missed if it were co-expressed. It is not a significance level. These rows have <code>q_value</code> NA,
+  sit outside the BH family, and never make a discordance call
+  (<a href="../../adr/ADR-0056-pmiss-outside-the-bh-family/">ADR-0056</a>). P(miss) is anti-conservative when
+  detectability varies between proteins in ways the model does not see. Thresholding it at 0.05
+  flagged 0.198 of one-detected rows in a simulated null with such variation, where about 0.05 was
+  expected.</li>
+</ul>
+<h2 id="gsea-is-conditional-on-detection">GSEA is conditional on detection<a class="headerlink" href="#gsea-is-conditional-on-detection" title="Permanent link">&para;</a></h2>
+<p>Abundance GSEA ranks detected genes only. Its results are <strong>conditional on detection, with no
+p_detect adjustment</strong> (<a href="../../adr/ADR-0026-gsea-conditional-on-detection/">ADR-0026</a>): when a set's
+genes are harder to detect, its detected members are selected for high abundance, and the set can
+look enriched without any true difference. Islands and operon discordance likewise carry no
+p_detect adjustment.</p>
+<ul>
+<li>"No significant set" never means "no enrichment".</li>
+<li><code>detection_confounded</code> and <code>genomic_cluster</code> are screens, not guarantees: an unflagged row is
+  not certified (<a href="../../methods/function-gsea/#limits">function GSEA › Limits</a>).</li>
+<li>In a collection that has flagged rows, no FDR claim is made for the unflagged rows. Flagged rows
+  enter the same BH family, and their effect on the other rows has not been re-measured for the
+  R engine.</li>
+</ul>
+<h2 id="detection-tiers">Detection tiers<a class="headerlink" href="#detection-tiers" title="Permanent link">&para;</a></h2>
+<p>How GIAP decides that a gene is detected depends on what the input contains. The tier is chosen
+once per run and recorded in the manifest and in <code>genes.tsv</code> (<code>detection_tier</code>). It is the first
+of the four below that the input allows:</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>When</th>
+<th>Detected means</th>
+<th>Gene error</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>decoy_picked</code></td>
+<td>decoy rows with <code>protein_ids</code> exist, at least 80 % of them pair with a gene, and the decoys share a ranking column (q-value, PEP or score) with the targets</td>
+<td>gene q ≤ 0.01 by picked target–decoy competition over genes</td>
+<td>gene q-value</td>
+</tr>
+<tr>
+<td><code>mayu</code></td>
+<td>otherwise, the accepted peptides carry q-values or PEPs; also chosen when decoys exist but pair too rarely (warning <code>decoy_pairing_low</code>)</td>
+<td>gene q ≤ 0.01 by a MAYU-style estimate of false genes</td>
+<td>gene q-value</td>
+</tr>
+<tr>
+<td><code>two_peptide</code></td>
+<td>otherwise, peptide sequences only</td>
+<td>at least 2 distinct accepted peptides</td>
+<td><code>unestimated</code></td>
+</tr>
+<tr>
+<td><code>protein_list</code></td>
+<td>proteins only, no peptides</td>
+<td>a mapped input protein</td>
+<td><code>unestimated</code> (inherited from the search engine)</td>
+</tr>
+</tbody>
+</table>
+<p>Decoys without a ranking column cannot be picked. Preflight warns about them, and the tier falls
+back.</p>
+<p>Under <code>two_peptide</code>, a gene with only one peptide gets <code>detection_status =
+single_peptide_unestimated</code>. It counts as not detected in the primary analysis and as detected in
+the sensitivity rerun. Partial genes at linear contig ends are <code>partial_excluded</code>.
+<code>detected_2pep</code> (at least 2 distinct accepted peptides) is reported in every tier.</p>
+<p>To get the strongest tier, keep the search engine's decoy rows (see
+<a href="../inputs/#peptide-table-peptidestsv">Inputs</a>). Details:
+<a href="../../methods/detection-tiers/">detection tiers</a> and
+<a href="../../methods/mayu-gene-fdr/">MAYU gene FDR</a>.</p>
+<h2 id="absence-of-detection-is-not-absence-of-expression">Absence of detection is not absence of expression<a class="headerlink" href="#absence-of-detection-is-not-absence-of-expression" title="Permanent link">&para;</a></h2>
+<p>GIAP says "detected", never "expressed". A gene can go undetected for reasons unrelated to
+whether it is made. The protein may be:</p>
+<ul>
+<li>short, with few observable peptides;</li>
+<li>membrane-bound, or hard to ionise;</li>
+<li>below the instrument's detection limit;</li>
+<li>absent from the search database.</li>
+</ul>
+<p>To account for this, GIAP fits a detectability model. It predicts each gene's probability of
+detection (<code>p_detect</code>) from protein covariates, with cross-fitting. Region O − E tests and ORA
+compare observed detections with the sum of <code>p_detect</code>, never with raw counts. A region "detected
+less than expected" is detected less than its proteins' detectability predicts. That is a
+statement about detection, not about transcription or translation. GSEA, islands and operon
+discordance work on abundances and have no p_detect adjustment (see above).</p>
+<p><strong><code>detectability_constant</code>.</strong> The model is replaced by a constant in any of these cases:</p>
+<ul>
+<li>fewer than 50 detected eligible genes;</li>
+<li>fewer than 50 undetected eligible genes;</li>
+<li>fewer TUs than cross-fitting folds.</li>
+</ul>
+<p><code>p_detect</code> is then the overall detection rate for every gene, and every gene carries
+<code>detectability_constant</code>. The detection tests still run, but <strong>without any adjustment for
+detectability</strong>, and ORA uses ω = 1. Treat their results as unadjusted comparisons. "No gene
+detected" is only an extreme case of this, where the detection-dependent tests are
+<code>not_estimable</code>.</p>
+<h2 id="placement-fdr-is-not-search-engine-fdr">Placement FDR is not search-engine FDR<a class="headerlink" href="#placement-fdr-is-not-search-engine-fdr" title="Permanent link">&para;</a></h2>
+<p>Two error rates apply to a peptide, and they answer different questions.</p>
+<ul>
+<li><strong>The search engine's FDR</strong> (the input <code>q_value</code>, <code>pep</code>) asks: is this spectrum matched to the
+  right peptide sequence? GIAP inherits it and does not re-estimate it. Engine precursor q-values
+  may themselves under-control FDR, and they do not control gene-level error (GIAP_SPEC.md §8.7).
+  This is why gene detection uses the gene-level tiers. GIAP's pilot validation measures the
+  realised false discovery proportion by entrapment.</li>
+<li><strong>GIAP's placement FDR</strong> (<code>placement_q</code> in <code>peptide_hits.tsv</code>) asks: given the peptide
+  sequence, is it placed on the right locus of this genome? A short peptide can match a genome
+  window by chance, and more so when mismatches are allowed. GIAP estimates this rate by
+  searching the same peptides against decoy translations of the genome (reversed frames, or
+  shuffled frames for de novo input). There is one list per decoy type and per stratum of 0, 1 or
+  2 differences, with length classes pooled.</li>
+</ul>
+<p>A peptide with a search q-value of 0.001 can still have a placement q-value of 1, for example when
+it matches the genome only with two substitutions. A peptide counts as evidence for a gene only
+when all of these hold:</p>
+<ul>
+<li>it passes the search threshold (<code>q_value ≤ input.q_value_max</code>, when a q-value exists);</li>
+<li>its placement is accepted (<code>placement_q ≤ stats.alpha.placement</code>, or <code>same_db</code>);</li>
+<li>its locus class assigns it to the gene;</li>
+<li>its <code>uniqueness</code> is <code>unique</code> or <code>multi_identical</code>;</li>
+<li>under <code>--genome-relation same</code>, it is an exact hit.</li>
+</ul>
+<p>Peptides rejected by placement FDR are in <code>mapping/unmapped.tsv</code> with
+<code>reason = rejected_placement_fdr</code>.</p>
+<p><code>mapping/mapping_fdr.tsv</code> lists the targets, decoys, π̂_wrong and FDR per length class and number
+of differences. Its per-length-class rows are descriptive. They are <strong>not</strong> the q-values: the
+q-values come from one pooled list per decoy type and stratum. Details:
+<a href="../../methods/placement-fdr/#strata-and-ranking-m3-10">placement FDR › Strata and ranking</a>.</p>
+<p><strong>Same-strain input.</strong> Peptides searched against this genome's own proteins (<code>search_db = same</code>)
+skip the decoy step for exact hits: <code>placement_q = 0</code> and the flag <code>same_db</code>. Tolerant hits still
+go through it.</p>
+<h2 id="kinds-of-placement">Kinds of placement<a class="headerlink" href="#kinds-of-placement" title="Permanent link">&para;</a></h2>
+<p>Each row of <code>mapping/peptide_hits.tsv</code> is one peptide at one accepted locus. The columns <code>route</code>,
+<code>n_diff</code>, <code>diff_types</code> and <code>flags</code> say how the peptide was placed.</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>How to recognise it</th>
+<th>What it means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exact</td>
+<td><code>route = exact</code>, <code>n_diff = 0</code>, empty <code>diff_types</code></td>
+<td>the peptide occurs verbatim in a six-frame translation (I and L treated as equal)</td>
+</tr>
+<tr>
+<td>Tolerant</td>
+<td><code>route = tolerant</code>, <code>n_diff</code> 1 or 2, <code>diff_types</code> from <code>substitution</code>, <code>swap</code>, <code>block</code>, <code>near_block</code></td>
+<td>the peptide matches with up to 1 difference at 10–11 aa, or up to 2 at 12–40 aa; peptides shorter than 10 aa are never placed this way</td>
+</tr>
+<tr>
+<td>Frameshift</td>
+<td><code>route = tolerant</code>, <code>diff_types</code> contains <code>frameshift</code></td>
+<td>a ±1-nt frameshift: the prefix lies in one frame and the suffix in the adjacent frame, with at least 4 aa on each side</td>
+</tr>
+</tbody>
+</table>
+<p>The difference types count one each:</p>
+<ul>
+<li><code>substitution</code>: one residue differs;</li>
+<li><code>swap</code>: two adjacent residues swapped;</li>
+<li><code>block</code>: a mass-equivalent exchange, such as N for GG or Q for AG;</li>
+<li><code>near_block</code>: a near-equal mass exchange, such as W for AD or EG;</li>
+<li><code>frameshift</code>: the frame shift itself.</li>
+</ul>
+<p>Tolerant placements are judged at π̂_wrong = 1, which is conservative. They carry the flag
+<code>strain_difference</code> when <code>--genome-relation related</code>, and genes with such evidence carry
+<code>tolerant_evidence</code>.</p>
+<p>In <code>mapping/mappings.gff3</code>, a frameshift placement has two <code>match_part</code> children, one per frame.
+It also has the attribute <code>frameshift_reread</code> (the base read twice) or <code>frameshift_skipped</code> (the
+base skipped), giving the 1-based position of that base. In <code>mappings.bed</code>, the two parts are
+BED12 blocks.</p>
+<p><strong>Flags on placements</strong> (<code>flags</code> column; full list in the
+<a href="../../reference/flags/#peptide_hits">flag reference</a>):</p>
+<ul>
+<li><code>readthrough</code>: the tolerant alignment substituted a residue for the annotated stop codon at the
+  end of a CDS or sORF (cost 1, recorded as a <code>substitution</code>). This is evidence of stop-codon
+  read-through, or a C-terminal extension (locus class <code>cterm_extension</code>). <code>mappings.gff3</code> gives
+  the codon's 1-based position as <code>readthrough_codon</code>. Only annotated terminal stops can be read
+  this way; every other stop codon stays unmatchable. Read-through rows are part of the ordinary
+  placement FDR of their stratum. That FDR does not control the read-through subset on its own.</li>
+<li><code>sec_site</code> and <code>pyl_site</code> mark peptides that consume a recoded TGA (selenocysteine, U) or TAG
+  (pyrrolysine, O) codon. They are specified in M7-16 (part 16c) but are not in the 1.0
+  <code>peptide_hits</code> schema. A 1.0 run does not write them.</li>
+<li><code>same_db</code>: an exact hit from same-strain input, accepted without the decoy step.</li>
+<li><code>low_complexity</code>: the peptide has at most 3 distinct residues, with I and L counted as one.
+  For such peptides, the chance-hit score E can underestimate chance hits by 1.9× to 15×. The
+  decoys keep the q-value valid, and the flag changes nothing in it
+  (<a href="../../adr/ADR-0011-low-complexity-placement-flag/">ADR-0011</a>).</li>
+<li><code>origin_spanning</code>: the placement crosses the origin of a circular replicon.</li>
+<li><code>multi</code>, <code>multi_identical</code>: the peptide has accepted loci in more than one locus class, or in
+  identical gene copies. <code>uniqueness</code> (<code>unique</code>, <code>multi_identical</code>, <code>shared</code>) says whether the
+  peptide supports one gene.</li>
+<li><code>engine_protein_mismatch</code>: with same-strain input, the gene GIAP chose is not among the
+  engine's protein IDs.</li>
+<li><code>nterm_extension_evidence</code>: the peptide lies upstream of the annotated start, in frame.</li>
+</ul>
+<h2 id="empty-results">Empty results<a class="headerlink" href="#empty-results" title="Permanent link">&para;</a></h2>
+<p><strong>A table with only a header</strong> means the step ran and found nothing at its threshold. For
+example, a header-only <code>tables/novel_orfs.tsv</code> means no novel ORF or start-site candidate passed
+its class FDR. It is a result, not a failure. Also check:</p>
+<ul>
+<li>that the input allowed the test;</li>
+<li>the flags on the rows and the run, such as <code>class_fdr_unestimated</code>.</li>
+</ul>
+<p>Likewise, an empty <code>islands.tsv</code> or <code>operon_flags.tsv</code> means no window or pair passed. If no gene
+is detected, the detection-dependent tests are <code>not_estimable</code>.</p>
+<p>An empty result is not evidence of absence. Several tests have little or no power by
+construction:</p>
+<ul>
+<li><strong>Low islands.</strong> At normal detection rates, the low direction is a structural zero. Even a fully
+  undetected window of 20 TUs cannot reach the critical value. No low island is therefore not
+  evidence that no silenced region exists, unless fewer than about a quarter of genes are
+  undetected (<a href="../../methods/islands/#the-low-direction-is-a-structural-zero-at-normal-detection-rates">islands</a>).</li>
+<li><strong>Missed operons.</strong> With the shipped decoys (convergent and sandwich pairs), this test made no
+  call in the simulation gate or in any attack. It is near-powerless by construction, so an empty
+  list says nothing about missed operons (<a href="../../methods/operons/#power-what-this-family-can-and-cannot-find">operons</a>).</li>
+<li><strong>Operon discordance.</strong> Power is near zero at realistic effect sizes, so few or no flagged pairs
+  is the expected outcome even when discordant pairs exist.</li>
+<li><strong>GSEA.</strong> "No significant set" never means "no enrichment" (see
+  <a href="#gsea-is-conditional-on-detection">GSEA is conditional on detection</a>).</li>
+</ul>
+<p><strong>A file that is missing</strong> usually means its module was switched off. <code>run_manifest.json</code> lists
+switched-off modules under <code>modules_off</code>, and they write no files. A missing tool layer (for
+example, geNOMAD without its database) appears as the run flag <code>layer_missing:&lt;layer&gt;</code> in
+<code>logs/events.jsonl</code>, and the tests that need it are skipped or marked. The plots of a switched-off
+module or missing layer are skipped with a reason (<code>module_off:&lt;module&gt;</code>,
+<code>layer_missing:&lt;layer&gt;</code>).</p>
+<h2 id="wording">Wording<a class="headerlink" href="#wording" title="Permanent link">&para;</a></h2>
+<p>GIAP's own text follows one rule: "detected", never "expressed". The report, the plot titles and
+the column names all use it. Every number in the report that comes from a statistic carries its
+error estimate or <code>unestimated</code>. Please keep the same wording when you write about your results.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,8992 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Genome-integrated analysis of proteomics data for bacterial genomes">
+      
+      
+      
+      
+        <link rel="prev" href="../configuration/">
+      
+      
+        <link rel="next" href="../flags/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Output tables - GIAP</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#output-tables" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="GIAP" class="md-header__button md-logo" aria-label="GIAP" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            GIAP
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Output tables
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="GIAP" class="md-nav__button md-logo" aria-label="GIAP" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    GIAP
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../get-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../get-started/setup-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set up the databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../get-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/inputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running GIAP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/outputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Outputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/interpreting-results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpreting results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/plots-and-report/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plots and report
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comparing runs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/makedb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building a search database
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/convert/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Converting search-engine output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/licences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Licences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/runtimes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtimes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/ecoli-k12/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: E. coli K-12
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/nissle-pilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: the Nissle pilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Output tables
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Output tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#pileup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pileup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        variants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#novel_orfs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        novel_orfs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#replicon_landmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        replicon_landmarks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gc_skew" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        gc_skew
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#variant_windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        variant_windows
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gsea_running" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        gsea_running
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinants_shap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        determinants_shap
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinants_pd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        determinants_pd
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#null_regions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        null_regions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#null_islands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        null_islands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#null_determinants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        null_determinants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#autocorrelation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        autocorrelation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#category_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        category_summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compare_abundance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compare_abundance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compare_detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compare_detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compare_stability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compare_stability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detection_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        detection_summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinants_attribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        determinants_attribution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinants_features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        determinants_features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinants_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        determinants_model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#enrichment_detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        enrichment_detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#enrichment_gsea" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        enrichment_gsea
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#genes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        genes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#islands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        islands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mapping_fdr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mapping_fdr
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operon_flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        operon_flags
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        operons
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pairs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pairs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#peptide_hits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        peptide_hits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#protein_hits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        protein_hits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#regions_stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        regions_stats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sensitivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        sensitivity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unmapped" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unmapped
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Flag vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methods
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Methods
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/abundance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gene-level abundance: iBAQ, Top3, protein-level route, missing values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/autocorrelation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autocorrelation of abundance along the replicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/bootstrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TU-block bootstrap, circular block bootstrap and the Hodges–Lehmann shift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration harness: criteria, error rates, seeds
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    giap compare: detection, abundance agreement and result stability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/context_tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The context tables: autocorrelation.tsv, islands.tsv and the genes.tsv context group
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/denovo-flag-m717-gate-verdict/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    M7-17 G4-k3 flag gate, full tier: statistician's verdict (PR #291, ebfdd065)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/denovo-precision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    De novo precision, estimated from the genome
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/detectability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detectability model (cross-fitted p_detect)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/detection-limit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection-limit model (P(detect | abundance) and P(miss))
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/detection-summary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic detection summary (O − E) and QC rows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/detection-tiers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection tiers and gene-level FDR (M4-12)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/determinants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Determinants: what explains abundance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/fgsea-port/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    fgsea port (G15; GIAP_SPEC.md §7.7.4) — superseded by ADR-0038
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/free-entrapment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Free entrapment: the FDP of A1's identifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/function-collections/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function collections (M8-03)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/function-gsea/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Abundance GSEA (M8-05, engine M8-17b)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/function/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function module: detection enrichment primitives
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/islands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Islands: expression islands along the replicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/mayu-gene-fdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MAYU-style gene-level FDR (closed form)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/multiple-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiple testing: Benjamini–Hochberg
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/novel-orfs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Novel ORFs (M7)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/operons/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operons: the within-operon distribution and the missed-operon decoy FDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/oriter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Origin-to-terminus gradient
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/permutation-and-shifts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Permutation p-values, circular shifts and Besag–Clifford
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/placement-fdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Placement FDR: genome decoys, chance hits and per-stratum q-values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/region-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Region tests: O − E and Hodges–Lehmann shift under circular gene-index shifts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/sensitivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sensitivity analysis: stability of flagged sets under analysis choices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/target-decoy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Target–decoy q-values and picked FDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/variants-mvp04-k12-audit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Variants on the MVP-04 K-12 run: flag audit (statistician, 2026-10-24)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methods/variants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Variants (Module 5)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0001-import-spec-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0001: Import the settled decisions of GIAP_SPEC.md §2.1 and §2.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0002-farmshare-env-pins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0002: FarmShare toolchain as installed in M0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0003-simulate-outdir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0003: giapsim.simulate takes an explicit output directory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0004-m0-size-exemption-and-hook-symlinks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0004: One-off PR-size exemption for M0, and symlink-safe path protection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0005-m1-input-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0005: Decisions on M1 input handling left open by the spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0006-table-value-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0006: Encoding of special values in GIAP tables, and strict BED writing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0007-pr-size-counts-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0007: The PR-size guard counts code, not tests or docs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0008-tool-pins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0008: Annotation tool pins, image digests and licences (M2-01)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0009-picked-fdr-paired-share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0009: Picked gene-level FDR rescales decoy wins by the paired share
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0010-placement-fdr-weighted-decoys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0010: Placement FDR with per-peptide π̂ weights each decoy hit by its own π̂ (M3-10)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0011-low-complexity-placement-flag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0011: low_complexity placement flag (M3-10)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0012-novel-orf-promoter-terminator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0012: Promoter and terminator evidence for novel ORFs (Module 6)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0013-cterm-extension-locus-class/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0013: cterm_extension locus class (M3-14, Module 6)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0014-db-checksum-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0014: Checksum sources for the Bakta full DB and the Promotech model (M2-08)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0015-calibration-two-block-confirmation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0015: Two-block confirmation for calibration gates (M4-05)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0016-size-gate-excludes-nf-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0016: The PR-size gate does not count workflow/tests/ (amends ADR-0007)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0017-unversioned-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0017: Unversioned sources (KEGG REST) are recorded, not pinned
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0018-region-tests-confounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0018: Region tests robust to detectability confounding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0019-stratum0-pi-hat-exact-share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0019: Stratum-0 π̂_wrong for database input from exact-match shares per length class
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0020-autocorrelation-redetrend-residual-joincount/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0020: Autocorrelation nulls recompute the detrend; residual join count; no CI for lag statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0021-island-oriter-block-length/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0021: Block length for the island scan and the ori–ter CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0022-uniop-terminatornet-cutoffs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0022: UniOP and TerminatorNet cut-offs and the distance-model refit on RegulonDB 14.5.0 K-12
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0023-kegg-overview-maps-excluded/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0023: KEGG global and overview maps are excluded from the KEGG collection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0024-precomputed-rbs-novel-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0024: annotation.precomputed.rbs_novel, a precomputed second-round OSTIR layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0025-gsea-clustered-sets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0025: GSEA on genomically clustered sets: a flag and a restricted claim in pass 1, a rotation null in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0026-gsea-conditional-on-detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0026: Abundance GSEA is conditional on detection (restricted claim and flag)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0027-gsea-nes-without-ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0027: GSEA reports NES without a confidence interval (§8.2 deviation)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0028-gsea-median-centred-tu-scores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0028 (ADR-B): GSEA ranks median-centred TU scores
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0029-ora-conditional-poisson-binomial-tus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0029: Detection ORA uses the conditional Poisson-binomial null, counted in TUs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0030-detection-limit-pass1-calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0030: Detection-limit model (M6-02): the pass-1 calibration choices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0031-determinants-delta-r2-tolerance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0031: Determinants ΔR² bias tolerance 0.05; the ΔR² interval stays ci_unestimated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0032-determinants-univariate-ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0032: Univariate determinants CIs stay ci_unestimated in pass 1; a calibrated SE in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0033-determinants-primary-attribution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0033: Elastic-net ΔR² is the primary block attribution; LightGBM early stopping in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0034-determinants-null-uncalibrated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0034: The determinants permutation null p is null_uncalibrated in pass 1; a structure-aware null in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0035-ora-tu-detection-recalibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0035: The ORA TU detection probability is a cross-fitted TU-level recalibration of q = 1 − ∏(1 − p̂)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0036-m8-table-columns-beyond-9-3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0036: M8 function tables carry four columns and five run flags beyond GIAP_SPEC.md §9.3 and §9.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0037-ora-flexible-tu-recalibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0037: The ORA TU detection recalibration becomes a flexible cross-fitted ridge logistic (pass 2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0038-gsea-runs-r-fgsea/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0038: GSEA runs R fgsea as an external tool
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0039-bioconductor-org-for-golden-r/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0039: bioconductor.org as a download source for the R golden environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0040-manifest-run-tail-finalize-split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0040: The manifest runs after the graph; finalize is split between the graph and the run tail
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0041-run-tokens-beyond-9-4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0041: Run-scope tokens beyond the §9.4 Run row
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0042-replicates-variants-and-compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0042: Calibration replicate counts for variants and compare
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0043-plot-support-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0043: Plot support files under OUT/plots/support/
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0044-wallenius-golden-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0044: The Wallenius golden reference is the exact distribution, not goseq
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0045-wallenius-far-tails-by-urn-recursion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0045: Wallenius far tails by the exact urn recursion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0046-compare-output-layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0046: giap compare output layout (ADR-M9-B)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0047-decoy-q-filter-reading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0047: Decoys above q_value_max leave the picked competition (reading of §5.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0048-replicates-novel-orfs-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0048: Replicate counts for the 1-Mb novel-ORF gate (M7-13 G3/G4)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0049-m7-variant-precision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0049: M7 variant-call precision under de novo errors (G1, A6a, A6b, A6c)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0050-denovo-orf-q-exact-errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0050: ORF-level q in the de novo subgroup regime under exact systematic errors (G4-k3, attack GC)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0051-diann-version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0051: DIA-NN 2.3.1 Academia (Apptainer image) instead of the spec's 2.7.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0052-pr-ci-under-20-minutes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0052: PR CI under 20 minutes; calibration, integration and coverage move to the nightly
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0053-determinants-bit-identical-speedups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0053: Bit-identical speed-ups of the determinants step; two new benchmark baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0054-a3-external-artefacts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0054: External artefacts of the A3 de novo arm (ADR-M10-B): conversion route, TDF-SDK licence, Cascadia weights host, Unimod table
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0055-operon-discordance-abundance-noise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0055: Operon discordance under abundance-dependent Δ noise (attack D-1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0056-pmiss-outside-the-bh-family/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0056: P(miss) is reported without a q and stays out of the discordance BH family
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0057-calibration-merge-honours-strict-xfail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0057: the calibration merge honours the xfail mark of the test that owns a check
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0058-annotated-stop-substitution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0058: The tolerant matcher may consume an annotated stop codon (option B of M7-16)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releasing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../citation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Citation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#pileup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pileup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        variants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#novel_orfs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        novel_orfs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#replicon_landmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        replicon_landmarks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gc_skew" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        gc_skew
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#variant_windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        variant_windows
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gsea_running" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        gsea_running
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinants_shap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        determinants_shap
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinants_pd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        determinants_pd
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#null_regions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        null_regions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#null_islands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        null_islands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#null_determinants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        null_determinants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#autocorrelation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        autocorrelation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#category_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        category_summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compare_abundance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compare_abundance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compare_detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compare_detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compare_stability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compare_stability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detection_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        detection_summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinants_attribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        determinants_attribution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinants_features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        determinants_features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinants_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        determinants_model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#enrichment_detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        enrichment_detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#enrichment_gsea" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        enrichment_gsea
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#genes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        genes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#islands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        islands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mapping_fdr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mapping_fdr
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operon_flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        operon_flags
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        operons
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pairs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pairs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#peptide_hits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        peptide_hits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#protein_hits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        protein_hits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#regions_stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        regions_stats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sensitivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        sensitivity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unmapped" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unmapped
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="output-tables">Output tables<a class="headerlink" href="#output-tables" title="Permanent link">&para;</a></h1>
+<!-- Generated by scripts/docs/gen_reference.py; do not edit. -->
+
+<h2 id="pileup"><code>pileup</code><a class="headerlink" href="#pileup" title="Permanent link">&para;</a></h2>
+<p>One row per codon covered by an eligible peptide, with REF, I/L and ALT distinct-peptide counts (GIAP_SPEC.md §7.5.2, §7.5.5, §9.3).</p>
+<ul>
+<li>Path: <code>tables/pileup.tsv.gz</code></li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/pileup.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon name (C1 order)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>codon_start</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Lowest coordinate of the codon, 1-based, within [1, length]</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>strand</code></td>
+<td>string</td>
+<td>—</td>
+<td>Strand of the peptides' reading frame</td>
+<td>required; one of <code>+</code>, <code>-</code></td>
+</tr>
+<tr>
+<td><code>gene</code></td>
+<td>string</td>
+<td>—</td>
+<td>Locus tag of the same-strand gene framing the codon (smallest tag if several)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>aa_pos</code></td>
+<td>integer</td>
+<td>—</td>
+<td>1-based residue position of the codon in the gene</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>ref_aa</code></td>
+<td>string</td>
+<td>—</td>
+<td>Table-11 reference residue of the codon on the strand</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>n_ref</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Distinct peptides (I/L folded) reading the reference residue</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>n_il</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Distinct peptides reading I or L at an I/L codon (ambiguous)</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>alt_counts</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined ALT keys with their distinct-peptide counts (X:n;Y:m), most supported first</td>
+<td>pattern <code>[^:;]+:[1-9][0-9]*(?:;[^:;]+:[1-9][0-9]*)*</code></td>
+</tr>
+<tr>
+<td><code>call</code></td>
+<td>string</td>
+<td>—</td>
+<td>Codon call</td>
+<td>required; one of <code>REF</code>, <code>ALT</code>, <code>mixed</code>, <code>no_call</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="variants"><code>variants</code><a class="headerlink" href="#variants" title="Permanent link">&para;</a></h2>
+<p>Sites with an ALT or mixed call, plus frameshift events (GIAP_SPEC.md §7.5.2, §7.5.5, §9.3).</p>
+<ul>
+<li>Path: <code>tables/variants.tsv</code></li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/variants.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>variant_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Variant identifier, numbered from 1 in table order</td>
+<td>required; pattern <code>VAR_[1-9][0-9]*</code></td>
+</tr>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon name (C1 order)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>codon_start</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Lowest coordinate of the site's first codon in peptide order, 1-based, within [1, length]</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>strand</code></td>
+<td>string</td>
+<td>—</td>
+<td>Strand of the peptides' reading frame</td>
+<td>required; one of <code>+</code>, <code>-</code></td>
+</tr>
+<tr>
+<td><code>gene</code></td>
+<td>string</td>
+<td>—</td>
+<td>Locus tag of the same-strand gene framing the codon</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>aa_pos</code></td>
+<td>integer</td>
+<td>—</td>
+<td>1-based residue position of the codon in the gene</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>ref_codon</code></td>
+<td>string</td>
+<td>—</td>
+<td>Gene-strand bases of the codon(s) the REF allele spans (6 nt for two-codon events); for a frameshift, the last prefix codon</td>
+<td>required; pattern <code>[ACGTN]+</code></td>
+</tr>
+<tr>
+<td><code>ref_aa</code></td>
+<td>string</td>
+<td>—</td>
+<td>Reference residue of the first codon</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>alt_aa</code></td>
+<td>string</td>
+<td>—</td>
+<td>ALT residue(s) (J = I or L); fs+1 or fs-1 for a frameshift</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>alt_type</code></td>
+<td>string</td>
+<td>—</td>
+<td>Kind of ALT</td>
+<td>required; one of <code>substitution</code>, <code>swap</code>, <code>block</code>, <code>frameshift</code></td>
+</tr>
+<tr>
+<td><code>call</code></td>
+<td>string</td>
+<td>—</td>
+<td>Site call</td>
+<td>required; one of <code>ALT</code>, <code>mixed</code></td>
+</tr>
+<tr>
+<td><code>confidence</code></td>
+<td>string</td>
+<td>—</td>
+<td>high: at least variants.high_min_peptides distinct ALT peptides</td>
+<td>required; one of <code>high</code>, <code>candidate</code></td>
+</tr>
+<tr>
+<td><code>n_ref</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Distinct REF peptides at the codon</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>n_alt</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Distinct peptides supporting this ALT</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>nt_changes</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Nucleotide changes of the minimal-change ALT codon(s) (G14); NA for unequal-length events</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>alt_codon_vcf</code></td>
+<td>string</td>
+<td>—</td>
+<td>Forward-strand ALT allele written to the VCF; NA when not in the VCF</td>
+<td>pattern <code>[ACGTN]+</code></td>
+</tr>
+<tr>
+<td><code>class_error_rate</code></td>
+<td>string</td>
+<td>—</td>
+<td>Class-specific error rate (%.6g) or unestimated</td>
+<td>required; pattern <code>unestimated|[0-9.eE+-]+</code></td>
+</tr>
+<tr>
+<td><code>class_error_n</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Paired de novo observations (reads) pooled into the class error rate</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined sources of the ALT peptides</td>
+<td>required; pattern <code>(?:database|denovo)(?:;(?:database|denovo))*</code></td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined flags from the Variants vocabulary (§9.4)</td>
+<td>pattern <code>(?:mass_equivalent|snv|multi_nt|strain_difference|database_derived|start_codon|stop_codon|vcf_unrepresentable)(?:;(?:mass_equivalent|snv|multi_nt|strain_difference|database_derived|start_codon|stop_codon|vcf_unrepresentable))*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="novel_orfs"><code>novel_orfs</code><a class="headerlink" href="#novel_orfs" title="Permanent link">&para;</a></h2>
+<p>One row per novel ORF candidate (GIAP_SPEC.md §7.6.6, §9.3; ADR-0012 decision 3).</p>
+<ul>
+<li>Path: <code>tables/novel_orfs.tsv</code></li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/novel_orfs.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>orf_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Novel ORF ID NOVEL_&lt;contig&gt;_&lt;lowest 1-based coordinate of the longest interval&gt;_&lt;p|m&gt;</td>
+<td>required; pattern <code>NOVEL_[A-Za-z0-9._-]+_[1-9][0-9]*_[pm]</code></td>
+</tr>
+<tr>
+<td><code>class</code></td>
+<td>string</td>
+<td>—</td>
+<td>Novel-ORF class (§7.6.1, ADR-0013)</td>
+<td>required; one of <code>nterm_extension</code>, <code>cterm_extension</code>, <code>intergenic</code>, <code>cds_outframe</code>, <code>antisense</code>, <code>pseudogene</code>, <code>sorf</code></td>
+</tr>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon ID</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>strand</code></td>
+<td>string</td>
+<td>—</td>
+<td>Strand</td>
+<td>required; one of <code>+</code>, <code>-</code></td>
+</tr>
+<tr>
+<td><code>frame</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Reading frame (+1..+3, -1..-3)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>start_longest</code></td>
+<td>integer</td>
+<td>—</td>
+<td>1-based position of the first base of the most upstream start codon, in transcription direction (on '-' the highest coordinate, so start &gt; end there; unlike other tables, not the lowest/highest pair); NA without a start codon</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>start_best_ostir</code></td>
+<td>integer</td>
+<td>—</td>
+<td>1-based position of the first base of the start codon with the best OSTIR score, in transcription direction (on '-' the highest coordinate, so start &gt; end there; unlike other tables, not the lowest/highest pair); NA without an OSTIR score</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>end</code></td>
+<td>integer</td>
+<td>—</td>
+<td>1-based position of the last base of the stop codon (of the last whole codon when open at a linear end), in transcription direction (on '-' the highest coordinate, so start &gt; end there; unlike other tables, not the lowest/highest pair)</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>length_aa_longest</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Protein length (aa, stop excluded) from start_longest, or from the first peptide without a start codon</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>length_aa_best</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Protein length (aa, stop excluded) from start_best_ostir, or from start_longest when it is NA</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>start_codon_best</code></td>
+<td>string</td>
+<td>—</td>
+<td>Start codon at start_best_ostir (or start_longest when it is NA)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n_peptides</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Distinct peptides (I/L folded) supporting the ORF</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>peptides</code></td>
+<td>string</td>
+<td>—</td>
+<td>Supporting peptides, I/L folded (';'-separated list)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>best_peptide_q</code></td>
+<td>number</td>
+<td>—</td>
+<td>Lowest q-value of the supporting peptides</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ostir_tir</code></td>
+<td>number</td>
+<td>—</td>
+<td>OSTIR translation initiation rate at start_best_ostir</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>promoter_score</code></td>
+<td>number</td>
+<td>—</td>
+<td>Best Promotech score upstream of the ORF (second round, M7-08)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>promoter_supported</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>A promoter supports the ORF (ADR-0012)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>terminator_downstream</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>A terminator lies downstream of the stop codon (ADR-0012)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>terminator_conf</code></td>
+<td>number</td>
+<td>—</td>
+<td>Confidence of that terminator (ADR-0012)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>terminator_distance_nt</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Distance from the stop codon to that terminator, nt (ADR-0012)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>rbs_supported</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>The start has RBS support (OSTIR threshold)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>class_fdr</code></td>
+<td>string</td>
+<td>—</td>
+<td>Class-level FDR as a float (%.6g), or 'unestimated'</td>
+<td>required; pattern <code>unestimated|[0-9]+(?:\.[0-9]*)?(?:[eE][-+]?[0-9]+)?</code></td>
+</tr>
+<tr>
+<td><code>called</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>The ORF is called (§7.6.4)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>rank</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Rank among novel ORFs (M7-09); not the row order</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>overlapping_gene</code></td>
+<td>string</td>
+<td>—</td>
+<td>Locus tag of the overlapped or extended gene</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined flags from the controlled vocabulary (§9.4); <code>denovo_only_unsupported</code>: every peptide is de novo, none is a database PSM, and there is no RBS support beyond the class rule (ADR-0050)</td>
+<td>pattern <code>(?:junction_spanned|homopolymer_junction|class_fdr_unestimated|rbs_supported|no_start_codon|partial|ostir_missing|rbs_threshold_unestimated|junction_unknown|promoter_supported|terminator_supported|readthrough_candidate|denovo_only_unsupported)(?:;(?:junction_spanned|homopolymer_junction|class_fdr_unestimated|rbs_supported|no_start_codon|partial|ostir_missing|rbs_threshold_unestimated|junction_unknown|promoter_supported|terminator_supported|readthrough_candidate|denovo_only_unsupported))*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="replicon_landmarks"><code>replicon_landmarks</code><a class="headerlink" href="#replicon_landmarks" title="Permanent link">&para;</a></h2>
+<p>Plot support table (ADR-0043): oriC and terminus of every replicon, for V1 and V2 (GIAP_SPEC.md §7.3.5(e), §10.2). Not a result table.</p>
+<ul>
+<li>Path: <code>plots/support/replicon_landmarks.tsv</code></li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>plot_support/replicon_landmarks.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon name (C1 = FASTA order)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>length_bp</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Replicon length in bp</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>topology</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon topology</td>
+<td>required; one of <code>circular</code>, <code>linear</code></td>
+</tr>
+<tr>
+<td><code>oric_position</code></td>
+<td>integer</td>
+<td>—</td>
+<td>1-based oriC position (giap.context.oriter.oric_position); NA on linear and no_oric replicons</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>ter_position</code></td>
+<td>integer</td>
+<td>—</td>
+<td>1-based terminus position, ((oriC0 + L // 2) mod L) + 1; NA with oric_position</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>—</td>
+<td>called, no_oric (no call or calls too far apart) or linear</td>
+<td>required; one of <code>called</code>, <code>no_oric</code>, <code>linear</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="gc_skew"><code>gc_skew</code><a class="headerlink" href="#gc_skew" title="Permanent link">&para;</a></h2>
+<p>Plot support table (ADR-0043): windowed GC skew of every replicon, for V1 (GIAP_SPEC.md §10.2). Not a result table.</p>
+<ul>
+<li>Path: <code>plots/support/gc_skew.tsv</code></li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>plot_support/gc_skew.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon name (C1 = FASTA order)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>start</code></td>
+<td>integer</td>
+<td>—</td>
+<td>1-based first position of the window</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>end</code></td>
+<td>integer</td>
+<td>—</td>
+<td>1-based last position of the window (closed); the last window of a contig is shorter</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>gc_skew</code></td>
+<td>number</td>
+<td>—</td>
+<td>(G - C) / (G + C) in the window; NA when G + C = 0</td>
+<td>minimum -1; maximum 1</td>
+</tr>
+<tr>
+<td><code>cumulative_gc_skew</code></td>
+<td>number</td>
+<td>—</td>
+<td>Running sum of gc_skew from position 1 of the contig; an NA window adds 0</td>
+<td>required</td>
+</tr>
+</tbody>
+</table>
+<h2 id="variant_windows"><code>variant_windows</code><a class="headerlink" href="#variant_windows" title="Permanent link">&para;</a></h2>
+<p>Plot support table (ADR-0043): the reference protein around each V12 top ALT site (GIAP_SPEC.md §10.2 V12; M9-18). Not a result table.</p>
+<ul>
+<li>Path: <code>plots/support/variant_windows.tsv</code></li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>plot_support/variant_windows.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>variant_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>variants.tsv variant_id of a panel (b) site</td>
+<td>required; unique</td>
+</tr>
+<tr>
+<td><code>gene</code></td>
+<td>string</td>
+<td>—</td>
+<td>Gene (locus_tag) carrying the site</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>aa_pos</code></td>
+<td>integer</td>
+<td>—</td>
+<td>1-based protein position of the site</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>window_start_aa</code></td>
+<td>integer</td>
+<td>—</td>
+<td>1-based protein position of the first residue of ref_window; NA when the protein is unknown</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>ref_window</code></td>
+<td>string</td>
+<td>—</td>
+<td>The gene's protein (transcription order) from aa_pos - 10 to aa_pos + 10, clipped to the protein; NA when the protein is unknown</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="gsea_running"><code>gsea_running</code><a class="headerlink" href="#gsea_running" title="Permanent link">&para;</a></h2>
+<p>The fgsea running sum of the top 6 GSEA sets (smallest q_value, then largest |nes|, collection, term; p_value NA excluded), one row per ranked TU, for V14(a) (GIAP_SPEC.md §10.2; docs/specs/M9-17-plot-support-analysis.md). Written by the function step. Not a result table.</p>
+<ul>
+<li>Path: <code>plots/support/gsea_running.tsv</code></li>
+<li>Coordinates: —</li>
+<li>Schema: <code>plot_support/gsea_running.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>collection</code></td>
+<td>string</td>
+<td>—</td>
+<td>Collection of the set (enrichment_gsea.tsv)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>term</code></td>
+<td>string</td>
+<td>—</td>
+<td>Term ID of the set (enrichment_gsea.tsv)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>rank_position</code></td>
+<td>integer</td>
+<td>—</td>
+<td>1-based position of the TU in fgsea's ranking</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>tu_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Ranked TU</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>score</code></td>
+<td>number</td>
+<td>—</td>
+<td>The median-centred TU score fgsea ranked (ADR-0028); non-increasing in rank_position</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>in_set</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Whether the TU is a member of the set</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>running_es</code></td>
+<td>number</td>
+<td>—</td>
+<td>fgsea's running enrichment score after this position (scoreType std, gseaParam 1); its max deviation from 0 is the set's es</td>
+<td>required</td>
+</tr>
+</tbody>
+</table>
+<h2 id="determinants_shap"><code>determinants_shap</code><a class="headerlink" href="#determinants_shap" title="Permanent link">&para;</a></h2>
+<p>Per-feature LightGBM SHAP values (pred_contrib, mean over the out-of-fold boosters) of the model rows for the top 20 encoded model columns by mean |SHAP|, for V15(c) (GIAP_SPEC.md §10.2, §7.8.2; docs/specs/M9-17-plot-support-analysis.md). Summed by block over every column they equal determinants_attribution.tsv's shap_&lt;block&gt; columns. Written by the determinants step. Not a result table.</p>
+<ul>
+<li>Path: <code>plots/support/determinants_shap.tsv</code></li>
+<li>Coordinates: —</li>
+<li>Schema: <code>plot_support/determinants_shap.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>locus_tag</code></td>
+<td>string</td>
+<td>—</td>
+<td>Model-row gene</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>feature</code></td>
+<td>string</td>
+<td>—</td>
+<td>Encoded model column (determinants model matrix)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>feature_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>Model-matrix value of the column for this gene (tir_ostir and length_aa on their ln scale); NA when missing</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>shap</code></td>
+<td>number</td>
+<td>—</td>
+<td>Mean over the out-of-fold boosters of the column's pred_contrib</td>
+<td>required</td>
+</tr>
+</tbody>
+</table>
+<h2 id="determinants_pd"><code>determinants_pd</code><a class="headerlink" href="#determinants_pd" title="Permanent link">&para;</a></h2>
+<p>LightGBM partial dependence of CAI, tAI, OSTIR TIR and promoter score, for V15(b) (GIAP_SPEC.md §10.2; docs/specs/M9-17-plot-support-analysis.md). Grid: the 5 %, 10 %, ..., 95 % quantiles plus min and max of the feature over the model rows, on the feature's own scale. Written by the determinants step. Not a result table.</p>
+<ul>
+<li>Path: <code>plots/support/determinants_pd.tsv</code></li>
+<li>Coordinates: —</li>
+<li>Schema: <code>plot_support/determinants_pd.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>feature</code></td>
+<td>string</td>
+<td>—</td>
+<td>PD feature (determinants_features.tsv column)</td>
+<td>required; one of <code>cai</code>, <code>tai</code>, <code>tir_ostir</code>, <code>promotech_max</code></td>
+</tr>
+<tr>
+<td><code>grid_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>Grid value on the feature's own scale (tir_ostir is logged before predicting)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>pd_mean</code></td>
+<td>number</td>
+<td>—</td>
+<td>Mean over boosters of each booster's mean prediction over the model rows with the feature set to grid_value</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>pd_low</code></td>
+<td>number</td>
+<td>—</td>
+<td>Minimum over boosters of the per-booster partial dependence: a spread over the boosters, not a confidence interval</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>pd_high</code></td>
+<td>number</td>
+<td>—</td>
+<td>Maximum over boosters of the per-booster partial dependence: a spread over the boosters, not a confidence interval</td>
+<td>required</td>
+</tr>
+</tbody>
+</table>
+<h2 id="null_regions"><code>null_regions</code><a class="headerlink" href="#null_regions" title="Permanent link">&para;</a></h2>
+<p>Circular-shift null of every tested region and statistic, for V18 (GIAP_SPEC.md §7.3.5(b), §10.2; docs/specs/M9-17-plot-support-analysis.md). The values are the statistic each test compares: for o_minus_e the ADR-0018 studentised sum(d - p) / sqrt(sum p (1 - p)), for hl_shift the studentised T = HL / sqrt(V) of ADR-0018's amendments, not the reported effect. Written by the context_stats step while the file stays under 5 MB (2^20 bytes per MB); otherwise the file holds the 1st-99th percentile grid of each null and its header's fourth column is percentile (1-99) instead of shift_k (schema plot_support/null_regions_grid.json). Not a result table.</p>
+<ul>
+<li>Path: <code>plots/support/null_regions.tsv</code></li>
+<li>Coordinates: —</li>
+<li>Schema: <code>plot_support/null_regions.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>region_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Region (regions_stats.tsv)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon the region was tested on (a region split across contigs has one null per contig)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>stat</code></td>
+<td>string</td>
+<td>—</td>
+<td>Test statistic of the region test</td>
+<td>required; one of <code>o_minus_e</code>, <code>hl_shift</code></td>
+</tr>
+<tr>
+<td><code>shift_k</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Circular gene-index shift k of the null draw (percentile 1-99 in the percentile-grid form of the file)</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>null_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>The studentised statistic at this shift (or the null's percentile in the grid form); NA when undefined</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>observed</code></td>
+<td>number</td>
+<td>—</td>
+<td>The observed studentised statistic the null is compared with</td>
+<td>required</td>
+</tr>
+</tbody>
+</table>
+<h2 id="null_islands"><code>null_islands</code><a class="headerlink" href="#null_islands" title="Permanent link">&para;</a></h2>
+<p>Island scan null: per scanned replicon and bootstrap replicate, the maximum |S_w| over the replicon's windows; their maximum over replicons is the genome-wide M_b of the FWER (GIAP_SPEC.md §7.3.5(d), §10.2 V18; docs/specs/M9-17-plot-support-analysis.md). Written by the context_stats step. Not a result table.</p>
+<ul>
+<li>Path: <code>plots/support/null_islands.tsv</code></li>
+<li>Coordinates: —</li>
+<li>Schema: <code>plot_support/null_islands.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Scanned replicon (C1 order)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td>string</td>
+<td>—</td>
+<td>Which tail the maximum is over: abs (|S_w|, the scan is two-sided)</td>
+<td>required; one of <code>abs</code></td>
+</tr>
+<tr>
+<td><code>replicate</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Bootstrap replicate, 1..B</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>max_scan_s</code></td>
+<td>number</td>
+<td>—</td>
+<td>Maximum |S_w| over the replicon's windows in this replicate; NA when undefined</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>observed_max</code></td>
+<td>number</td>
+<td>—</td>
+<td>Largest observed |S_w| of the replicon</td>
+<td>required</td>
+</tr>
+</tbody>
+</table>
+<h2 id="null_determinants"><code>null_determinants</code><a class="headerlink" href="#null_determinants" title="Permanent link">&para;</a></h2>
+<p>The TU-size-preserving permutation null of the determinants models' CV R², for V18 (GIAP_SPEC.md §7.8.2, §10.2; docs/specs/M9-17-plot-support-analysis.md). Written by the determinants step. Not a result table.</p>
+<ul>
+<li>Path: <code>plots/support/null_determinants.tsv</code></li>
+<li>Coordinates: —</li>
+<li>Schema: <code>plot_support/null_determinants.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model</code></td>
+<td>string</td>
+<td>—</td>
+<td>Model</td>
+<td>required; one of <code>lightgbm</code>, <code>elastic_net</code></td>
+</tr>
+<tr>
+<td><code>permutation</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Permutation b, 1..B</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>cv_r2</code></td>
+<td>number</td>
+<td>—</td>
+<td>Pooled out-of-fold R² of one CV repeat under permutation b; observed is the mean over the repeats (conservative); NA when undefined</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>observed_cv_r2_mean</code></td>
+<td>number</td>
+<td>—</td>
+<td>The model's observed cv_r2_mean (determinants_model.tsv)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="autocorrelation"><code>autocorrelation</code><a class="headerlink" href="#autocorrelation" title="Permanent link">&para;</a></h2>
+<p>Spatial autocorrelation of detection and abundance along each replicon and the origin-to-terminus gradient (GIAP_SPEC.md §9.3, §7.3.5(c) and §7.3.5(e)).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: —</li>
+<li>Schema: <code>tables/autocorrelation.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon name (C1 order)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>statistic</code></td>
+<td>string</td>
+<td>—</td>
+<td>Statistic family of the row</td>
+<td>required; one of <code>morans_i</code>, <code>join_count_bb</code>, <code>oriter_slope</code></td>
+</tr>
+<tr>
+<td><code>lag</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Lag in genes; NA for the descriptive oriter_slope rows</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>null_model</code></td>
+<td>string</td>
+<td>—</td>
+<td>Null the row is tested against; bootstrap means a descriptive row with a bootstrap CI and no p-value</td>
+<td>required; one of <code>gene_label</code>, <code>tu_block</code>, <code>bootstrap</code></td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>number</td>
+<td>—</td>
+<td>Reported statistic (Moran's I, the raw BB join count, or the OLS slope in log2 per replichore); NA when it does not exist</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>null_mean</code></td>
+<td>number</td>
+<td>—</td>
+<td>Mean of the null distribution of the test statistic</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>null_lo</code></td>
+<td>number</td>
+<td>—</td>
+<td>2.5th percentile of the null distribution</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>null_hi</code></td>
+<td>number</td>
+<td>—</td>
+<td>97.5th percentile of the null distribution</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>stat</code></td>
+<td>string</td>
+<td>—</td>
+<td>Name of the test statistic of the row</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>effect</code></td>
+<td>number</td>
+<td>—</td>
+<td>Effect estimate: observed minus null mean, or the OLS slope</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_low</code></td>
+<td>number</td>
+<td>—</td>
+<td>Lower bound of the 95% confidence interval; NA when unestimated</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_high</code></td>
+<td>number</td>
+<td>—</td>
+<td>Upper bound of the 95% confidence interval; NA when unestimated</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>p_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>Permutation p-value; NA for a descriptive or not-estimable row</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>q_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>Benjamini-Hochberg q-value within (contig, statistic, null_model); NA whenever p_value is NA</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>method</code></td>
+<td>string</td>
+<td>—</td>
+<td>Method that produced the row</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>n_perm</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Valid permutations or bootstrap replicates behind the row</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined flags from the controlled vocabulary (§9.4)</td>
+<td>pattern <code>(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated)(?:;(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated))*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="category_summary"><code>category_summary</code><a class="headerlink" href="#category_summary" title="Permanent link">&para;</a></h2>
+<p>Observed minus expected detected genes per functional category of the cog, kegg and go_slim collections, with a TU block-bootstrap CI (GIAP_SPEC.md §7.7.5, §9.3; M8-03, M8-06). The table has no coordinate fields.</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/category_summary.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>collection</code></td>
+<td>string</td>
+<td>—</td>
+<td>Collection of the category</td>
+<td>required; one of <code>cog</code>, <code>kegg</code>, <code>go_slim</code></td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td>string</td>
+<td>—</td>
+<td>Category ID (COG letter, KEGG map ID or GO slim term)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>—</td>
+<td>Human-readable category name; NA when the resource has none</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n_genes</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Eligible genes in the category</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>n_detected</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Detected eligible genes in the category</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>expected</code></td>
+<td>number</td>
+<td>—</td>
+<td>Expected detected genes: the sum of p_detect over the category's eligible genes</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>o_minus_e</code></td>
+<td>number</td>
+<td>—</td>
+<td>n_detected minus expected</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_low</code></td>
+<td>number</td>
+<td>—</td>
+<td>Lower TU block-bootstrap CI bound of o_minus_e; NA with ci_few_units</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_high</code></td>
+<td>number</td>
+<td>—</td>
+<td>Upper TU block-bootstrap CI bound of o_minus_e; NA with ci_few_units</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>median_abundance_log2</code></td>
+<td>number</td>
+<td>—</td>
+<td>Median log2 abundance of the category's detected genes; NA without abundance</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>coverage</code></td>
+<td>number</td>
+<td>—</td>
+<td>Share of eligible genes with at least one category of this collection</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined row flags (ci_few_units: fewer than 10 TUs, no CI); an ADR-A extension of §9.3 (M8-06 lead decision 2)</td>
+<td>pattern <code>(?:ci_few_units)(?:;(?:ci_few_units))*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="compare_abundance"><code>compare_abundance</code><a class="headerlink" href="#compare_abundance" title="Permanent link">&para;</a></h2>
+<p>giap compare: per unordered run pair, Spearman rho of log2 abundance on the shared detected and measured genes with a TU-block bootstrap percentile CI, and Bland-Altman bias and 95% limits of agreement (GIAP_SPEC.md §7.9.3, §8.2, §8.3; M9-22, ADR-0046). The table has no coordinate fields.</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/compare_abundance.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run_a</code></td>
+<td>string</td>
+<td>—</td>
+<td>First run of the pair (label order)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>run_b</code></td>
+<td>string</td>
+<td>—</td>
+<td>Second run of the pair</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>n_shared</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Genes detected with a measured (not imputed) abundance in both runs</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>n_units</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Resampling units (TUs; a gene without a TU is its own unit) behind the CI; NA when no CI is computed; below 10 the CI is flagged ci_few_units</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>spearman_rho</code></td>
+<td>number</td>
+<td>—</td>
+<td>Spearman rank correlation (average ranks for ties)</td>
+<td>minimum -1; maximum 1</td>
+</tr>
+<tr>
+<td><code>ci_low</code></td>
+<td>number</td>
+<td>—</td>
+<td>Lower bound of the 95% TU-block bootstrap percentile CI of rho</td>
+<td>minimum -1; maximum 1</td>
+</tr>
+<tr>
+<td><code>ci_high</code></td>
+<td>number</td>
+<td>—</td>
+<td>Upper bound of the 95% TU-block bootstrap percentile CI of rho</td>
+<td>minimum -1; maximum 1</td>
+</tr>
+<tr>
+<td><code>ba_bias_log2</code></td>
+<td>number</td>
+<td>—</td>
+<td>Bland-Altman bias: mean of log2 a - log2 b</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ba_loa_low</code></td>
+<td>number</td>
+<td>—</td>
+<td>Lower limit of agreement: bias - 1.96 SD (ddof 1)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ba_loa_high</code></td>
+<td>number</td>
+<td>—</td>
+<td>Upper limit of agreement: bias + 1.96 SD (ddof 1)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>method</code></td>
+<td>string</td>
+<td>—</td>
+<td>Method that produced the row</td>
+<td>required; one of <code>spearman_tu_bootstrap</code></td>
+</tr>
+<tr>
+<td><code>n_boot</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Bootstrap resamples requested (stats.bootstrap)</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined flags (§9.4)</td>
+<td>pattern <code>(?:too_few_shared|ci_few_units|ci_unestimated|scale_differs|missing_in:[^;]+)(?:;(?:too_few_shared|ci_few_units|ci_unestimated|scale_differs|missing_in:[^;]+))*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="compare_detection"><code>compare_detection</code><a class="headerlink" href="#compare_detection" title="Permanent link">&para;</a></h2>
+<p>giap compare: the gene x run detection matrix (section matrix) and the exact UpSet intersections of the detected sets (section intersection), long form (GIAP_SPEC.md §7.9.3; M9-22, ADR-0046). The table has no coordinate fields.</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/compare_detection.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>section</code></td>
+<td>string</td>
+<td>—</td>
+<td>Row kind</td>
+<td>required; one of <code>matrix</code>, <code>intersection</code></td>
+</tr>
+<tr>
+<td><code>locus_tag</code></td>
+<td>string</td>
+<td>—</td>
+<td>Gene (matrix rows; NA on intersection rows)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>run</code></td>
+<td>string</td>
+<td>—</td>
+<td>Run label (matrix rows; NA on intersection rows)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>detected</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Gene detected in the run (matrix rows)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>detection_status</code></td>
+<td>string</td>
+<td>—</td>
+<td>The run's detection status of the gene (matrix rows)</td>
+<td>one of <code>detected</code>, <code>not_detected</code>, <code>single_peptide_unestimated</code>, <code>partial_excluded</code></td>
+</tr>
+<tr>
+<td><code>intersection</code></td>
+<td>string</td>
+<td>—</td>
+<td>Runs whose detected sets hold exactly these genes, joined by &amp; in label order, or none (intersection rows)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n_genes</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Genes in the exact intersection (intersection rows)</td>
+<td>minimum 0</td>
+</tr>
+</tbody>
+</table>
+<h2 id="compare_stability"><code>compare_stability</code><a class="headerlink" href="#compare_stability" title="Permanent link">&para;</a></h2>
+<p>giap compare: Jaccard overlap between runs of island genes, operon-flag pairs, enriched categories, called novel ORFs and ALT sites (GIAP_SPEC.md §7.9.3; M9-22, ADR-0046). The table has no coordinate fields.</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/compare_stability.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>family</code></td>
+<td>string</td>
+<td>—</td>
+<td>Result family compared</td>
+<td>required; one of <code>islands</code>, <code>operon_flags</code>, <code>enriched_categories</code>, <code>novel_orfs</code>, <code>alt_sites</code></td>
+</tr>
+<tr>
+<td><code>run_a</code></td>
+<td>string</td>
+<td>—</td>
+<td>First run of the pair (label order)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>run_b</code></td>
+<td>string</td>
+<td>—</td>
+<td>Second run of the pair</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>n_a</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Set size in run_a (NA when its table is absent)</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>n_b</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Set size in run_b (NA when its table is absent)</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>n_shared</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Size of the intersection</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>jaccard</code></td>
+<td>number</td>
+<td>—</td>
+<td>n_shared / size of the union; NA when both sets are empty or a table is absent</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined flags (§9.4)</td>
+<td>pattern <code>(?:both_empty|missing_in:[^;]+)(?:;(?:both_empty|missing_in:[^;]+))*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="detection_summary"><code>detection_summary</code><a class="headerlink" href="#detection_summary" title="Permanent link">&para;</a></h2>
+<p>Detection summary in long format: tier, basic O - E, detectability and QC rows (GIAP_SPEC.md §9.3).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: —</li>
+<li>Schema: <code>tables/detection_summary.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>section</code></td>
+<td>string</td>
+<td>—</td>
+<td>Summary section</td>
+<td>required; one of <code>tier</code>, <code>basic</code>, <code>detectability</code>, <code>qc</code></td>
+</tr>
+<tr>
+<td><code>group_type</code></td>
+<td>string</td>
+<td>—</td>
+<td>Grouping kind (e.g. replicon, feature_class, cog_category, run)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>group</code></td>
+<td>string</td>
+<td>—</td>
+<td>Group label</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>metric</code></td>
+<td>string</td>
+<td>—</td>
+<td>Metric name (units in the name, §9.2)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>number</td>
+<td>—</td>
+<td>Metric value</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_low</code></td>
+<td>number</td>
+<td>—</td>
+<td>Lower 95 % CI bound</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_high</code></td>
+<td>number</td>
+<td>—</td>
+<td>Upper 95 % CI bound</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Number of units behind the metric</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined flags</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="determinants_attribution"><code>determinants_attribution</code><a class="headerlink" href="#determinants_attribution" title="Permanent link">&para;</a></h2>
+<p>Per-gene LightGBM SHAP attribution by feature block, dominant block, residual and flags (GIAP_SPEC.md §7.8.2, §7.8.3, §9.3, §9.4).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: —</li>
+<li>Schema: <code>tables/determinants_attribution.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>locus_tag</code></td>
+<td>string</td>
+<td>—</td>
+<td>Gene locus tag</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>abundance_log2</code></td>
+<td>number</td>
+<td>—</td>
+<td>Observed log2 abundance</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>predicted_log2</code></td>
+<td>number</td>
+<td>—</td>
+<td>LightGBM out-of-fold prediction (mean over CV repeats); NA below the 100-row minimum</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>residual</code></td>
+<td>number</td>
+<td>—</td>
+<td>abundance_log2 - predicted_log2</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>shap_transcription</code></td>
+<td>number</td>
+<td>—</td>
+<td>Sum of LightGBM SHAP values of the transcription block; NA for a block with no column</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>shap_translation</code></td>
+<td>number</td>
+<td>—</td>
+<td>Sum of LightGBM SHAP values of the translation block; NA for a block with no column</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>shap_codon</code></td>
+<td>number</td>
+<td>—</td>
+<td>Sum of LightGBM SHAP values of the codon block; NA for a block with no column</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>shap_protein</code></td>
+<td>number</td>
+<td>—</td>
+<td>Sum of LightGBM SHAP values of the protein block; NA for a block with no column</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>shap_context</code></td>
+<td>number</td>
+<td>—</td>
+<td>Sum of LightGBM SHAP values of the context block; NA for a block with no column</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>dominant_block</code></td>
+<td>string</td>
+<td>—</td>
+<td>Block with the largest positive SHAP sum (top-decile genes only)</td>
+<td>one of <code>transcription</code>, <code>translation</code>, <code>codon</code>, <code>protein</code>, <code>context</code></td>
+</tr>
+<tr>
+<td><code>top_decile</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>abundance_log2 at or above the 90th percentile of the model rows</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>';'-joined flags: too_few_rows, unestimated, abundance_not_explained_by_sequence, cai_reference</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="determinants_features"><code>determinants_features</code><a class="headerlink" href="#determinants_features" title="Permanent link">&para;</a></h2>
+<p>Per-gene raw determinant features of the eligible genes, in §6.5 order; a feature NA in every row is dropped from the models (GIAP_SPEC.md §7.8.1, §7.8.3).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: —</li>
+<li>Schema: <code>tables/determinants_features.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>locus_tag</code></td>
+<td>string</td>
+<td>—</td>
+<td>Gene locus tag (C2)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>tu_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Transcription unit of the gene (C5)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>detected</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Detected by proteomics (gene table)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>abundance_log2</code></td>
+<td>number</td>
+<td>—</td>
+<td>log2 abundance (gene table); NA when not quantified</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>abundance_imputed</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>abundance_log2 is imputed</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ribosomal_protein</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Ribosomal protein (§7.1.2) or a CAI reference gene</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>promotech_max</code></td>
+<td>number</td>
+<td>—</td>
+<td>Highest Promotech score upstream of the gene</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>promotech_tu</code></td>
+<td>number</td>
+<td>—</td>
+<td>Promotech score of the TU promoter</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tx_rate_max_tu</code></td>
+<td>number</td>
+<td>—</td>
+<td>Highest Promoter Calculator rate of the TU</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tx_rate_sum_tu</code></td>
+<td>number</td>
+<td>—</td>
+<td>Summed Promoter Calculator rates of the TU</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n_promoters_tu_to_gene</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Promoter windows between the TU start and the gene</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tu_position</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Position of the gene in its TU, from 1</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>dist_to_tu_start_bp</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Distance from the TU start to the start codon (bp)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tir_ostir</code></td>
+<td>number</td>
+<td>—</td>
+<td>OSTIR translation initiation rate</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>sd_dg</code></td>
+<td>number</td>
+<td>—</td>
+<td>Shine-Dalgarno hybridisation ΔG (kcal/mol)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>spacer_bp</code></td>
+<td>integer</td>
+<td>—</td>
+<td>SD-to-start spacer (bp)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>start_codon</code></td>
+<td>string</td>
+<td>—</td>
+<td>Start codon</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>mrna_dg</code></td>
+<td>number</td>
+<td>—</td>
+<td>mRNA folding ΔG near the RBS (kcal/mol)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>cai</code></td>
+<td>number</td>
+<td>—</td>
+<td>Codon adaptation index</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tai</code></td>
+<td>number</td>
+<td>—</td>
+<td>tRNA adaptation index</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>enc</code></td>
+<td>number</td>
+<td>—</td>
+<td>Effective number of codons</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>fop</code></td>
+<td>number</td>
+<td>—</td>
+<td>Frequency of optimal codons</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>gc3</code></td>
+<td>number</td>
+<td>—</td>
+<td>GC content at third codon positions</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>cpb</code></td>
+<td>number</td>
+<td>—</td>
+<td>Codon pair bias</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>at_2_10</code></td>
+<td>number</td>
+<td>—</td>
+<td>AT content of codons 2-10</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>rare_codons_2_10</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Rare codons among codons 2-10</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>length_aa</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Protein length (aa)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>mw</code></td>
+<td>number</td>
+<td>—</td>
+<td>Molecular weight (Da)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>pi</code></td>
+<td>number</td>
+<td>—</td>
+<td>Isoelectric point</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>gravy</code></td>
+<td>number</td>
+<td>—</td>
+<td>GRAVY hydropathy</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>nterm_residue</code></td>
+<td>string</td>
+<td>—</td>
+<td>Residue after initiator-methionine processing</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tm_segments</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Predicted transmembrane segments</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>replicon_type</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon kind</td>
+<td>one of <code>chromosome</code>, <code>plasmid</code>, <code>unknown</code></td>
+</tr>
+<tr>
+<td><code>replichore_position</code></td>
+<td>number</td>
+<td>—</td>
+<td>Position along the replichore, 0 (ori) to 1 (ter)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>in_prophage</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Gene in a prophage region (C7/C8)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>in_bgc</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Gene in a biosynthetic gene cluster (C7/C8)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>gc_local_dev</code></td>
+<td>number</td>
+<td>—</td>
+<td>Local GC deviation from the replicon</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="determinants_model"><code>determinants_model</code><a class="headerlink" href="#determinants_model" title="Permanent link">&para;</a></h2>
+<p>Determinants models per model and metric: CV R² mean and SD, permutation null p, drop-one-block ΔR² with t-interval, univariate Spearman rho and AUROC (GIAP_SPEC.md §7.8.2, §7.8.3, §9.3).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: —</li>
+<li>Schema: <code>tables/determinants_model.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model</code></td>
+<td>string</td>
+<td>—</td>
+<td>Model</td>
+<td>required; one of <code>lightgbm</code>, <code>elastic_net</code>, <code>univariate</code></td>
+</tr>
+<tr>
+<td><code>feature_or_block</code></td>
+<td>string</td>
+<td>—</td>
+<td>all (whole model), a block (delta_r2) or an encoded feature column (univariate)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>metric</code></td>
+<td>string</td>
+<td>—</td>
+<td>Metric</td>
+<td>required; one of <code>cv_r2_mean</code>, <code>cv_r2_sd</code>, <code>null_p</code>, <code>delta_r2</code>, <code>spearman_rho</code>, <code>auroc</code></td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>number</td>
+<td>—</td>
+<td>Metric value; NA when unestimated</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_low</code></td>
+<td>number</td>
+<td>—</td>
+<td>Lower 95% confidence bound; NA when there is no interval</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_high</code></td>
+<td>number</td>
+<td>—</td>
+<td>Upper 95% confidence bound; NA when there is no interval</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Rows the metric was computed on</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>n_perm</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Permutations behind null_p (non-NaN null values); 0 otherwise</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>';'-joined flags: too_few_rows, unestimated, null_degenerate, null_uncalibrated, ci_unestimated</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="enrichment_detection"><code>enrichment_detection</code><a class="headerlink" href="#enrichment_detection" title="Permanent link">&para;</a></h2>
+<p>TU-level detection enrichment (over- and under-detection) per term under the conditional Poisson-binomial null, with GO elim (GIAP_SPEC.md §7.7.3, §9.3; ADR-0029, ADR-0035; M8-04, M8-06). The table has no coordinate fields.</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/enrichment_detection.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>collection</code></td>
+<td>string</td>
+<td>—</td>
+<td>Collection of the term</td>
+<td>required; one of <code>cog</code>, <code>kegg</code>, <code>go_bp</code>, <code>go_mf</code>, <code>go_cc</code>, <code>go_slim</code></td>
+</tr>
+<tr>
+<td><code>term</code></td>
+<td>string</td>
+<td>—</td>
+<td>Term ID</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>—</td>
+<td>Human-readable term name; NA when the resource has none</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td>string</td>
+<td>—</td>
+<td>Tested direction</td>
+<td>required; one of <code>over</code>, <code>under</code></td>
+</tr>
+<tr>
+<td><code>n_universe</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Universe size, in TUs (TUs with an eligible gene)</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>n_in_set</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Term size, in TUs (universe TUs with a member gene; before elim)</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>n_detected</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Detected universe members, in TUs</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>k_detected_in_set</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Detected members of the term, in TUs (before elim)</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>n_in_set_genes</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Eligible genes in the term (M8-04 decision 3)</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>k_detected_in_set_genes</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Detected eligible genes in the term (M8-04 decision 3)</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>odds_weight</code></td>
+<td>number</td>
+<td>—</td>
+<td>Gene-level odds weight of the classic comparison test; NA when unestimated</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>p_classic</code></td>
+<td>number</td>
+<td>—</td>
+<td>Gene-level classic p-value (comparison only)</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>p_noelim</code></td>
+<td>number</td>
+<td>—</td>
+<td>TU-level p-value on the full term, before elim (M8-04 decision 3)</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>parent_group</code></td>
+<td>string</td>
+<td>—</td>
+<td>Most general significant ancestor (by depth, then ID) of a significant GO term, or the term itself; NA otherwise</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>coverage</code></td>
+<td>number</td>
+<td>—</td>
+<td>Share of eligible genes with at least one term of this collection</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>stat</code></td>
+<td>number</td>
+<td>—</td>
+<td>Test statistic: k_detected_in_set</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>effect</code></td>
+<td>number</td>
+<td>—</td>
+<td>Effect estimate: detected TUs of the tested set minus their expectation under the null</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_low</code></td>
+<td>number</td>
+<td>—</td>
+<td>Lower CI bound; NA when not estimated (ci_unestimated)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_high</code></td>
+<td>number</td>
+<td>—</td>
+<td>Upper CI bound; NA when not estimated (ci_unestimated)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>p_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>One-sided TU-level p-value (after elim for GO over-detection rows)</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>q_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>BH q-value within the collection and direction</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>method</code></td>
+<td>string</td>
+<td>—</td>
+<td>Method</td>
+<td>required; one of <code>cpb_tu_ora</code></td>
+</tr>
+<tr>
+<td><code>null_model</code></td>
+<td>string</td>
+<td>—</td>
+<td>Null model</td>
+<td>required; one of <code>conditional_poisson_binomial_tu</code></td>
+</tr>
+<tr>
+<td><code>n_perm</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Permutations behind the p-value: 0 (exact null)</td>
+<td>required; minimum 0; maximum 0</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined row flags; tu_recal_skipped marks every row of a run whose TU recalibration was skipped and ora_uncalibrated every row while ADR-0035's attack arms fail (M8-04 decision 13)</td>
+<td>pattern <code>(?:ci_unestimated|unestimated|odds_out_of_range|elim_empty|null_degenerate|p_detect_clipped|ora_uncalibrated|tu_recal_skipped)(?:;(?:ci_unestimated|unestimated|odds_out_of_range|elim_empty|null_degenerate|p_detect_clipped|ora_uncalibrated|tu_recal_skipped))*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="enrichment_gsea"><code>enrichment_gsea</code><a class="headerlink" href="#enrichment_gsea" title="Permanent link">&para;</a></h2>
+<p>TU-level abundance set enrichment (fgsea) per term with TU-set permutations (GIAP_SPEC.md §7.7.4, §9.3; M8-02, M8-05, M8-06). The table has no coordinate fields.</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/enrichment_gsea.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>collection</code></td>
+<td>string</td>
+<td>—</td>
+<td>Collection of the term</td>
+<td>required; one of <code>cog</code>, <code>kegg</code>, <code>go_bp</code>, <code>go_mf</code>, <code>go_cc</code>, <code>go_slim</code></td>
+</tr>
+<tr>
+<td><code>term</code></td>
+<td>string</td>
+<td>—</td>
+<td>Term ID</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>—</td>
+<td>Human-readable term name; NA when the resource has none</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>size_tus</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Term size, in TUs (ranked TUs with a member gene)</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>es</code></td>
+<td>number</td>
+<td>—</td>
+<td>Enrichment score</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>nes</code></td>
+<td>number</td>
+<td>—</td>
+<td>Normalised enrichment score; NA when unestimated</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>log2err</code></td>
+<td>number</td>
+<td>—</td>
+<td>Standard deviation of the log2 p-value estimate; NA when not estimated</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>leading_edge</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined leading-edge genes; NA when empty</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>redundant</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>A GO term whose signal is explained by a more significant related term; NA outside GO</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>parent_group</code></td>
+<td>string</td>
+<td>—</td>
+<td>Most general ancestor of the redundant group of a GO term; NA otherwise</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>coverage</code></td>
+<td>number</td>
+<td>—</td>
+<td>Share of eligible genes with at least one term of this collection</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>stat</code></td>
+<td>number</td>
+<td>—</td>
+<td>Test statistic: es</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>effect</code></td>
+<td>number</td>
+<td>—</td>
+<td>Effect estimate: nes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_low</code></td>
+<td>number</td>
+<td>—</td>
+<td>Lower CI bound; NA when not estimated (ci_unestimated)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_high</code></td>
+<td>number</td>
+<td>—</td>
+<td>Upper CI bound; NA when not estimated (ci_unestimated)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>p_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>Permutation p-value</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>q_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>BH q-value within the collection</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>method</code></td>
+<td>string</td>
+<td>—</td>
+<td>Method: fgsea_multilevel (R fgsea, ADR-0038) or fgsea_simple (the M8-02 port)</td>
+<td>required; one of <code>fgsea_simple</code>, <code>fgsea_multilevel</code></td>
+</tr>
+<tr>
+<td><code>null_model</code></td>
+<td>string</td>
+<td>—</td>
+<td>Null model</td>
+<td>required; one of <code>tu_set_permutation</code></td>
+</tr>
+<tr>
+<td><code>n_perm</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Permutations behind the p-value</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined row flags</td>
+<td>pattern <code>(?:ci_unestimated|unestimated|log2err_unestimated|size_filtered|genomic_cluster|detection_confounded)(?:;(?:ci_unestimated|unestimated|log2err_unestimated|size_filtered|genomic_cluster|detection_confounded))*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="genes"><code>genes</code><a class="headerlink" href="#genes" title="Permanent link">&para;</a></h2>
+<p>One row per annotated CDS, sORF or pseudogene: identity, context, regulatory and sequence features, evidence, abundance, function and flags (GIAP_SPEC.md §9.3).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/genes.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>locus_tag</code></td>
+<td>string</td>
+<td>—</td>
+<td>Locus tag (Bakta or user annotation)</td>
+<td>required; unique</td>
+</tr>
+<tr>
+<td><code>source_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Original ID of the input annotation (C14 id map; the locus tag when absent)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>gene</code></td>
+<td>string</td>
+<td>—</td>
+<td>Gene symbol</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>product</code></td>
+<td>string</td>
+<td>—</td>
+<td>Product description</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>feature_type</code></td>
+<td>string</td>
+<td>—</td>
+<td>Feature type</td>
+<td>required; one of <code>cds</code>, <code>sorf</code>, <code>pseudogene</code></td>
+</tr>
+<tr>
+<td><code>hypothetical</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Product is hypothetical</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon (contig) ID</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>start</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Start, 1-based closed (bp)</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>end</code></td>
+<td>integer</td>
+<td>—</td>
+<td>End, 1-based closed (bp; above the replicon length when the gene crosses the origin)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>strand</code></td>
+<td>string</td>
+<td>—</td>
+<td>Strand</td>
+<td>required; one of <code>+</code>, <code>-</code></td>
+</tr>
+<tr>
+<td><code>length_aa</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Protein length (aa)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>partial</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Gene is partial (not eligible for detection statistics)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>crosses_origin</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Gene crosses the origin of a circular replicon</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>replicon_type</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon kind</td>
+<td>one of <code>chromosome</code>, <code>plasmid</code>, <code>unknown</code></td>
+</tr>
+<tr>
+<td><code>tu_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Transcription unit ID</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tu_position</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Position in the TU (1 = first transcribed)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tu_size</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Number of genes in the TU</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>uniop_p_prev</code></td>
+<td>number</td>
+<td>—</td>
+<td>Operon-pair probability with the previous gene of the TU</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>uniop_p_next</code></td>
+<td>number</td>
+<td>—</td>
+<td>Operon-pair probability with the next gene of the TU</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>region_ids</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined IDs of the regions overlapping the gene</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>island_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Detection island ID (M5)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>replichore</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replichore (right or left; M5)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>replichore_position</code></td>
+<td>number</td>
+<td>—</td>
+<td>Relative position on the replichore (0 = origin, 1 = terminus; M5)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>gc_local_dev</code></td>
+<td>number</td>
+<td>—</td>
+<td>Local GC deviation from the replicon mean (fraction)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>promoter_score</code></td>
+<td>number</td>
+<td>—</td>
+<td>Best promoter score upstream of the gene</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>promoter_score_tu</code></td>
+<td>number</td>
+<td>—</td>
+<td>Best promoter score upstream of the TU</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tx_rate_max_tu</code></td>
+<td>number</td>
+<td>—</td>
+<td>Maximum predicted transcription rate of the TU promoters</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tx_rate_sum_tu</code></td>
+<td>number</td>
+<td>—</td>
+<td>Sum of predicted transcription rates of the TU promoters</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>terminator_conf_downstream</code></td>
+<td>number</td>
+<td>—</td>
+<td>Confidence of the terminator downstream of the gene</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tir_ostir</code></td>
+<td>number</td>
+<td>—</td>
+<td>Translation initiation rate (OSTIR, arbitrary units)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>sd_dg</code></td>
+<td>number</td>
+<td>—</td>
+<td>Shine-Dalgarno hybridisation free energy (kcal/mol)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>mrna_dg</code></td>
+<td>number</td>
+<td>—</td>
+<td>mRNA folding free energy around the start (kcal/mol)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>spacer_bp</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Shine-Dalgarno to start codon spacer (bp)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>start_codon</code></td>
+<td>string</td>
+<td>—</td>
+<td>Start codon</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>cai</code></td>
+<td>number</td>
+<td>—</td>
+<td>Codon adaptation index</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tai</code></td>
+<td>number</td>
+<td>—</td>
+<td>tRNA adaptation index</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>enc</code></td>
+<td>number</td>
+<td>—</td>
+<td>Effective number of codons</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>fop</code></td>
+<td>number</td>
+<td>—</td>
+<td>Frequency of optimal codons</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>gc3</code></td>
+<td>number</td>
+<td>—</td>
+<td>GC content at third codon positions (fraction)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>cpb</code></td>
+<td>number</td>
+<td>—</td>
+<td>Codon pair bias</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>at_2_10</code></td>
+<td>number</td>
+<td>—</td>
+<td>AT content of codons 2-10 (fraction)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>rare_codons_2_10</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Rare codons among codons 2-10 (count)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>mw_da</code></td>
+<td>number</td>
+<td>—</td>
+<td>Protein molecular weight (Da)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>pi</code></td>
+<td>number</td>
+<td>—</td>
+<td>Protein isoelectric point</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>gravy</code></td>
+<td>number</td>
+<td>—</td>
+<td>Grand average of hydropathy</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tm_segments</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Predicted transmembrane segments (count)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n_observable_peptides</code></td>
+<td>integer</td>
+<td>—</td>
+<td>In-silico observable peptides (count)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>detected</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Gene detected in its tier</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>detection_tier</code></td>
+<td>string</td>
+<td>—</td>
+<td>Detection tier used for the run</td>
+<td>one of <code>decoy_picked</code>, <code>mayu</code>, <code>two_peptide</code>, <code>protein_list</code></td>
+</tr>
+<tr>
+<td><code>detection_status</code></td>
+<td>string</td>
+<td>—</td>
+<td>Detection status</td>
+<td>one of <code>detected</code>, <code>not_detected</code>, <code>single_peptide_unestimated</code>, <code>partial_excluded</code></td>
+</tr>
+<tr>
+<td><code>gene_q_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>Gene-level q-value (NA in tiers without one)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>detected_2pep</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>At least two accepted distinct peptides</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n_peptides_unique</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Accepted unique peptides (count)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n_peptides_multi_identical</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Accepted peptides shared with identical copies (count)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n_peptides_shared</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Placed peptides shared with other genes (count)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n_peptides_tolerant</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Accepted peptides placed by the tolerant route (count)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>coverage_frac</code></td>
+<td>number</td>
+<td>—</td>
+<td>Fraction of the gene covered by accepted peptides</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>best_peptide_q</code></td>
+<td>number</td>
+<td>—</td>
+<td>Smallest q-value of the accepted peptides</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>p_detect</code></td>
+<td>number</td>
+<td>—</td>
+<td>Cross-fitted detection probability from protein covariates</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>abundance_raw</code></td>
+<td>number</td>
+<td>—</td>
+<td>Abundance before the log2 transform</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>abundance_log2</code></td>
+<td>number</td>
+<td>—</td>
+<td>log2 abundance</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>abundance_imputed</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Abundance filled by the missing-value policy</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>imputation_policy</code></td>
+<td>string</td>
+<td>—</td>
+<td>Missing-value policy used</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>abundance_type</code></td>
+<td>string</td>
+<td>—</td>
+<td>Abundance measure</td>
+<td>one of <code>ibaq</code>, <code>top3</code>, <code>maxlfq</code>, <code>intensity</code>, <code>unknown</code>, <code>none</code></td>
+</tr>
+<tr>
+<td><code>abundance_scale</code></td>
+<td>string</td>
+<td>—</td>
+<td>Abundance scale</td>
+<td>one of <code>molar</code>, <code>relative</code></td>
+</tr>
+<tr>
+<td><code>top3_log2</code></td>
+<td>number</td>
+<td>—</td>
+<td>log2 Top3 abundance</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>cog_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>COG ID (smallest when several)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>cog_category</code></td>
+<td>string</td>
+<td>—</td>
+<td>COG functional category letters</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>go_terms</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined GO terms</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>kegg_ko</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined KEGG orthologs</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ec</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined EC numbers</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>annotation_source</code></td>
+<td>string</td>
+<td>—</td>
+<td>Source of the annotation</td>
+<td>one of <code>bakta_full</code>, <code>bakta_light</code>, <code>user</code></td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined gene flags (GIAP_SPEC.md §9.4)</td>
+<td>pattern <code>(?:partial|crosses_origin|pseudogene|multi_identical|shared_evidence|two_proteins_one_gene|cross_strain_protein|imputed_abundance|tolerant_evidence|strain_difference|nterm_extension_evidence|cai_reference|top3_lt3|detectability_constant|abundance_not_explained_by_sequence)(?:;(?:partial|crosses_origin|pseudogene|multi_identical|shared_evidence|two_proteins_one_gene|cross_strain_protein|imputed_abundance|tolerant_evidence|strain_difference|nterm_extension_evidence|cai_reference|top3_lt3|detectability_constant|abundance_not_explained_by_sequence))*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="islands"><code>islands</code><a class="headerlink" href="#islands" title="Permanent link">&para;</a></h2>
+<p>Expression islands: contiguous runs of transcription units with unusually high or low detrended abundance scores (GIAP_SPEC.md §9.3, §7.3.5(d)).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/islands.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>island_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Island identifier, numbered from 1 in table order</td>
+<td>required; pattern <code>ISL_[1-9][0-9]*</code></td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td>string</td>
+<td>—</td>
+<td>Direction of the island</td>
+<td>required; one of <code>high</code>, <code>low</code></td>
+</tr>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon name (C1 order)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>start</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Island start, 1-based</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>end</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Island end, 1-based closed; &gt; replicon length for an origin-crossing island</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>tu_first</code></td>
+<td>string</td>
+<td>—</td>
+<td>First transcription unit of the island</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tu_last</code></td>
+<td>string</td>
+<td>—</td>
+<td>Last transcription unit of the island</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n_tus</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Number of transcription units in the island</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>n_genes</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Number of eligible genes in the island's TUs</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>genes</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined locus tags of the island's eligible genes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>mean_abundance_log2</code></td>
+<td>number</td>
+<td>—</td>
+<td>Mean log2 abundance of the detected genes of the island</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>detected_frac</code></td>
+<td>number</td>
+<td>—</td>
+<td>Share of the island's eligible genes that are detected</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>scan_s</code></td>
+<td>number</td>
+<td>—</td>
+<td>Scan statistic S of the island's best window</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>block_len</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Bootstrap block length l' used for the replicon</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>stat</code></td>
+<td>string</td>
+<td>—</td>
+<td>Name of the test statistic of the row; its value is scan_s</td>
+<td>required; one of <code>scan_max</code></td>
+</tr>
+<tr>
+<td><code>effect</code></td>
+<td>number</td>
+<td>—</td>
+<td>Mean detrended TU score over the island's best window</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_low</code></td>
+<td>number</td>
+<td>—</td>
+<td>Lower bound of the 95% bootstrap CI of the effect</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_high</code></td>
+<td>number</td>
+<td>—</td>
+<td>Upper bound of the 95% bootstrap CI of the effect</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>p_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>Genome-wide FWER p-value of the best window</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>q_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>Always NA: the scan controls the FWER, not the FDR</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>method</code></td>
+<td>string</td>
+<td>—</td>
+<td>Method that produced the row</td>
+<td>required; one of <code>scan_max_stat</code></td>
+</tr>
+<tr>
+<td><code>null_model</code></td>
+<td>string</td>
+<td>—</td>
+<td>Null the FWER p-value is drawn from</td>
+<td>required; one of <code>circular_block_bootstrap</code></td>
+</tr>
+<tr>
+<td><code>n_perm</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Valid bootstrap replicates behind the FWER p-value</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined flags from the controlled vocabulary (§9.4)</td>
+<td>pattern <code>(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated)(?:;(?:small_region|dosage_plus_regulation|descriptive|no_oric|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted|ci_few_units|not_estimable|few_values|ci_unestimated))*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="mapping_fdr"><code>mapping_fdr</code><a class="headerlink" href="#mapping_fdr" title="Permanent link">&para;</a></h2>
+<p>Placement FDR strata and de novo precision bins (GIAP_SPEC.md §9.3).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: —</li>
+<li>Schema: <code>tables/mapping_fdr.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>length_class</code></td>
+<td>string</td>
+<td>—</td>
+<td>Peptide length class; 'all' for per-n_diff totals</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n_diff</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Number of differences</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>targets</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Target placements</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>decoys</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Decoy placements</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>pi_wrong</code></td>
+<td>number</td>
+<td>—</td>
+<td>Estimated fraction of wrong placements</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>fdr_stratum</code></td>
+<td>number</td>
+<td>—</td>
+<td>Stratum FDR</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n_accepted</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Accepted placements</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>decoy_type</code></td>
+<td>string</td>
+<td>—</td>
+<td>Decoy type</td>
+<td>one of <code>reverse</code>, <code>shuffle</code></td>
+</tr>
+<tr>
+<td><code>section</code></td>
+<td>string</td>
+<td>—</td>
+<td>Row section</td>
+<td>required; one of <code>placement</code>, <code>denovo_precision</code></td>
+</tr>
+<tr>
+<td><code>score_bin</code></td>
+<td>integer</td>
+<td>—</td>
+<td>De novo score bin</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>precision</code></td>
+<td>number</td>
+<td>—</td>
+<td>De novo precision</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_low</code></td>
+<td>number</td>
+<td>—</td>
+<td>Lower confidence bound of the precision</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_high</code></td>
+<td>number</td>
+<td>—</td>
+<td>Upper confidence bound of the precision</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>c_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>Confidence level</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Flags (';'-separated list)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="operon_flags"><code>operon_flags</code><a class="headerlink" href="#operon_flags" title="Permanent link">&para;</a></h2>
+<p>Flagged pairs only, with the evidence behind each flag (GIAP_SPEC.md §9.3, §7.4.5; M6-07, M6-08).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/operon_flags.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pair_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Pair ID of pairs.tsv</td>
+<td>required; unique; pattern <code>PAIR_[1-9][0-9]*</code></td>
+</tr>
+<tr>
+<td><code>gene_a</code></td>
+<td>string</td>
+<td>—</td>
+<td>Upstream gene</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>gene_b</code></td>
+<td>string</td>
+<td>—</td>
+<td>Downstream gene</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>uniop_class</code></td>
+<td>string</td>
+<td>—</td>
+<td>Pair class (pairs.tsv class)</td>
+<td>required; one of <code>OP</code>, <code>NO</code>, <code>CV</code>, <code>DV</code>, <code>SW</code></td>
+</tr>
+<tr>
+<td><code>promoter_between_yes</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>promoter_between at or above the promoter cut-off</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>terminator_between_yes</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>terminator_between at or above the terminator cut-off</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>abundance_pattern</code></td>
+<td>string</td>
+<td>—</td>
+<td>Abundance pattern of the pair</td>
+<td>required; one of <code>downstream_higher</code>, <code>upstream_higher</code>, <code>discordant</code>, <code>concordant</code>, <code>coabundant</code>, <code>none</code></td>
+</tr>
+<tr>
+<td><code>flag</code></td>
+<td>string</td>
+<td>—</td>
+<td>Operon flag (§7.4.5)</td>
+<td>required; one of <code>internal_promoter_supported</code>, <code>internal_terminator_supported</code>, <code>unexplained_discordance</code>, <code>conflict_terminator_in_operon</code>, <code>novel_operon_candidate</code>, <code>coabundant_despite_terminator</code>, <code>other</code></td>
+</tr>
+<tr>
+<td><code>q_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>q-value of the pair's test</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>lfdr</code></td>
+<td>number</td>
+<td>—</td>
+<td>Local false discovery rate of the pair's test</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>evidence_note</code></td>
+<td>string</td>
+<td>—</td>
+<td>Evidence behind the flag; never asserts that an element is absent</td>
+<td>required</td>
+</tr>
+</tbody>
+</table>
+<h2 id="operons"><code>operons</code><a class="headerlink" href="#operons" title="Permanent link">&para;</a></h2>
+<p>Transcription units (C5 TUs) with their detection, abundance and flag summaries (GIAP_SPEC.md §9.3; M6-07, M6-08).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/operons.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tu_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>TU ID (TU_&lt;n&gt;, §6.5)</td>
+<td>required; unique</td>
+</tr>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>start</code></td>
+<td>integer</td>
+<td>—</td>
+<td>TU start, 1-based</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>end</code></td>
+<td>integer</td>
+<td>—</td>
+<td>TU end, 1-based closed; &gt; replicon length for an origin-crossing TU</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>strand</code></td>
+<td>string</td>
+<td>—</td>
+<td>Strand</td>
+<td>required; one of <code>+</code>, <code>-</code></td>
+</tr>
+<tr>
+<td><code>genes</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined member genes in transcription order</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>n_genes</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Member genes</td>
+<td>required; minimum 1</td>
+</tr>
+<tr>
+<td><code>detected_frac</code></td>
+<td>number</td>
+<td>—</td>
+<td>Detected fraction of the non-partial member genes; NA when none is eligible</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>median_abundance_log2</code></td>
+<td>number</td>
+<td>—</td>
+<td>Median log2 abundance of the detected member genes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>max_abs_delta_log2</code></td>
+<td>number</td>
+<td>—</td>
+<td>Largest |delta_log2| over internal adjacent pairs with both genes detected</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>n_flags</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Flagged OP pairs with both genes in the TU</td>
+<td>required; minimum 0</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pairs"><code>pairs</code><a class="headerlink" href="#pairs" title="Permanent link">&para;</a></h2>
+<p>Adjacent gene pairs and the SW decoy triples with their between-gene evidence, per-gene detection and abundance and the operon tests (GIAP_SPEC.md §9.3, §7.4; M6-08).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/pairs.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pair_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Pair ID PAIR_&lt;n&gt;, numbered in contig (C1) then start order</td>
+<td>required; unique; pattern <code>PAIR_[1-9][0-9]*</code></td>
+</tr>
+<tr>
+<td><code>class</code></td>
+<td>string</td>
+<td>—</td>
+<td>Pair class: OP (same-strand operon pair), NO (same-strand non-operon), CV (convergent), DV (divergent), SW (same-strand sandwich decoy)</td>
+<td>required; one of <code>OP</code>, <code>NO</code>, <code>CV</code>, <code>DV</code>, <code>SW</code></td>
+</tr>
+<tr>
+<td><code>gene_a</code></td>
+<td>string</td>
+<td>—</td>
+<td>Upstream gene in transcription order (genome order for CV/DV)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>gene_b</code></td>
+<td>string</td>
+<td>—</td>
+<td>Downstream gene in transcription order (genome order for CV/DV)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>strand</code></td>
+<td>string</td>
+<td>—</td>
+<td>Strand of an oriented pair; '.' for CV and DV</td>
+<td>required; one of <code>+</code>, <code>-</code>, <code>.</code></td>
+</tr>
+<tr>
+<td><code>intergenic_bp</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Intergenic distance in bp (negative for overlapping genes; summed over the gaps of an SW triple); not a coordinate</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>uniop_p</code></td>
+<td>number</td>
+<td>—</td>
+<td>UniOP (or distance-model) operon probability of an OP/NO pair; NA otherwise</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>promoter_between</code></td>
+<td>number</td>
+<td>—</td>
+<td>Highest promoter score between the genes; NA when the promoter layer is missing or the pair is CV/DV</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tx_rate_between</code></td>
+<td>number</td>
+<td>—</td>
+<td>Highest Promoter Calculator Tx rate between the genes; NA when the layer is missing or there is no TSS</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>terminator_between</code></td>
+<td>number</td>
+<td>—</td>
+<td>Highest terminator score between the genes; NA when the terminator layer is missing or the pair is CV/DV</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>detected_a</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>gene_a detected</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>detected_b</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>gene_b detected</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>p_detect_a</code></td>
+<td>number</td>
+<td>—</td>
+<td>Detection probability of gene_a</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>p_detect_b</code></td>
+<td>number</td>
+<td>—</td>
+<td>Detection probability of gene_b</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>abundance_log2_a</code></td>
+<td>number</td>
+<td>—</td>
+<td>log2 abundance of gene_a</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>abundance_log2_b</code></td>
+<td>number</td>
+<td>—</td>
+<td>log2 abundance of gene_b</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>delta_log2</code></td>
+<td>number</td>
+<td>—</td>
+<td>abundance_log2_b minus abundance_log2_a</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>test</code></td>
+<td>string</td>
+<td>—</td>
+<td>Test of the row</td>
+<td>required; one of <code>both_detected_t</code>, <code>one_detected_pmiss</code>, <code>missed_operon_decoy</code>, <code>none</code></td>
+</tr>
+<tr>
+<td><code>stat</code></td>
+<td>number</td>
+<td>—</td>
+<td>Test statistic (both_detected_t: delta_log2; one_detected_pmiss: abundance_log2 of the detected partner; missed_operon_decoy: |delta_log2|)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>effect</code></td>
+<td>number</td>
+<td>—</td>
+<td>Effect estimate (delta_log2 minus the within-operon location)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_low</code></td>
+<td>number</td>
+<td>—</td>
+<td>Lower CI bound (NA in pass 1: ci_unestimated)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_high</code></td>
+<td>number</td>
+<td>—</td>
+<td>Upper CI bound (NA in pass 1: ci_unestimated)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>p_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>p-value; one_detected_pmiss: P(miss) of the undetected gene (a probability, M6-05H); NA when test = none</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>q_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>BH q-value (both_detected_t) or decoy FDR q (missed_operon_decoy); NA without a test and for one_detected_pmiss (outside the BH family, M6-index lead decision 1)</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>method</code></td>
+<td>string</td>
+<td>—</td>
+<td>Method (student_t, detection_limit, decoy_fdr); NA when test = none</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>null_model</code></td>
+<td>string</td>
+<td>—</td>
+<td>Null model (within_operon_t, p_detect_model, decoy CV/SW pairs); NA when test = none</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>n_perm</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Number of permutations or decoys behind the p-value; NA when not resampled</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>lfdr</code></td>
+<td>number</td>
+<td>—</td>
+<td>Local false discovery rate (missed_operon_decoy; ranks, never calls)</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined pair-scope flags (§9.4 Operons rna_between; M6-08 lead decision 7, extended only through this schema). abundance_imputed is the pair-scope token (a gene of the pair has an imputed abundance); it is distinct from the gene-scope imputed_abundance of genes.tsv.</td>
+<td>pattern <code>(?:rna_between|abundance_imputed|layer_missing:promoters|layer_missing:terminators|layer_missing:tx_rates|ci_unestimated|unestimated|too_few_op_pairs|too_few_no_pairs|no_detection_limit_model|relative_scale|pmiss_covariates_missing)(?:;(?:rna_between|abundance_imputed|layer_missing:promoters|layer_missing:terminators|layer_missing:tx_rates|ci_unestimated|unestimated|too_few_op_pairs|too_few_no_pairs|no_detection_limit_model|relative_scale|pmiss_covariates_missing))*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="peptide_hits"><code>peptide_hits</code><a class="headerlink" href="#peptide_hits" title="Permanent link">&para;</a></h2>
+<p>One row per peptide x accepted locus (GIAP_SPEC.md §9.3); rejected placements are in unmapped.tsv.</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/peptide_hits.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>peptide</code></td>
+<td>string</td>
+<td>—</td>
+<td>Peptide sequence as written in the input (I/L kept)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>peptide_len</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Peptide length (aa)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>string</td>
+<td>—</td>
+<td>Peptide source (database or denovo)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>best_q_input</code></td>
+<td>number</td>
+<td>—</td>
+<td>Best engine q-value of the input PSMs</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>pep_input</code></td>
+<td>number</td>
+<td>—</td>
+<td>Engine posterior error probability</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>score_input</code></td>
+<td>number</td>
+<td>—</td>
+<td>Engine score</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon ID</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>start</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Start, 1-based closed</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>end</code></td>
+<td>integer</td>
+<td>—</td>
+<td>End, 1-based closed; &gt; replicon length for origin-crossing hits</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>strand</code></td>
+<td>string</td>
+<td>—</td>
+<td>Strand</td>
+<td>required; one of <code>+</code>, <code>-</code></td>
+</tr>
+<tr>
+<td><code>frame</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Reading frame (+1..+3, -1..-3)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>crosses_origin</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Hit crosses the origin of a circular replicon</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>route</code></td>
+<td>string</td>
+<td>—</td>
+<td>Mapping route</td>
+<td>required; one of <code>exact</code>, <code>tolerant</code></td>
+</tr>
+<tr>
+<td><code>n_diff</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Number of differences to the genome</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>diff_types</code></td>
+<td>string</td>
+<td>—</td>
+<td>Difference types (';'-separated list)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>placement_q</code></td>
+<td>number</td>
+<td>—</td>
+<td>Placement q-value</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>length_class</code></td>
+<td>string</td>
+<td>—</td>
+<td>Peptide length class of the placement FDR stratum</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>locus_class</code></td>
+<td>string</td>
+<td>—</td>
+<td>Locus class (§9.4, ADR-0013)</td>
+<td>one of <code>rna_overlap</code>, <code>pseudogene</code>, <code>sorf</code>, <code>cds_inframe</code>, <code>nterm_extension</code>, <code>cterm_extension</code>, <code>cds_outframe</code>, <code>antisense</code>, <code>intergenic</code></td>
+</tr>
+<tr>
+<td><code>uniqueness</code></td>
+<td>string</td>
+<td>—</td>
+<td>Uniqueness of the placement</td>
+<td>one of <code>unique</code>, <code>multi_identical</code>, <code>shared</code></td>
+</tr>
+<tr>
+<td><code>gene</code></td>
+<td>string</td>
+<td>—</td>
+<td>Assigned gene locus tag</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>novel_candidate_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Novel candidate ID</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Flags (';'-separated list; §9.4 Placement, including readthrough: the row consumed an annotated terminal stop, M7-16)</td>
+<td>pattern <code>(?:engine_protein_mismatch|low_complexity|multi|multi_identical|nterm_extension_evidence|origin_spanning|readthrough|same_db|strain_difference)(?:;(?:engine_protein_mismatch|low_complexity|multi|multi_identical|nterm_extension_evidence|origin_spanning|readthrough|same_db|strain_difference))*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="protein_hits"><code>protein_hits</code><a class="headerlink" href="#protein_hits" title="Permanent link">&para;</a></h2>
+<p>One row per protein alignment kept by M3-13 (GIAP_SPEC.md §9.3).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/protein_hits.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>protein_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Protein ID</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>protein_len_aa</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Protein length (aa)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>route</code></td>
+<td>string</td>
+<td>—</td>
+<td>Alignment route</td>
+<td>required; one of <code>miniprot</code>, <code>tblastn</code></td>
+</tr>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon ID</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>start</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Start, 1-based closed</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>end</code></td>
+<td>integer</td>
+<td>—</td>
+<td>End, 1-based closed; &gt; replicon length for origin-crossing hits</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>strand</code></td>
+<td>string</td>
+<td>—</td>
+<td>Strand</td>
+<td>required; one of <code>+</code>, <code>-</code></td>
+</tr>
+<tr>
+<td><code>rank</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Rank of the alignment for this protein</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>identity</code></td>
+<td>number</td>
+<td>—</td>
+<td>Identity (fraction)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>query_coverage</code></td>
+<td>number</td>
+<td>—</td>
+<td>Query coverage (fraction)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>reciprocal_overlap</code></td>
+<td>number</td>
+<td>—</td>
+<td>Reciprocal overlap with the annotated gene (fraction)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>class</code></td>
+<td>string</td>
+<td>—</td>
+<td>Similarity class</td>
+<td>one of <code>identical</code>, <code>near</code>, <code>divergent</code></td>
+</tr>
+<tr>
+<td><code>gene</code></td>
+<td>string</td>
+<td>—</td>
+<td>Assigned gene locus tag</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Flags (';'-separated list)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="regions_stats"><code>regions_stats</code><a class="headerlink" href="#regions_stats" title="Permanent link">&para;</a></h2>
+<p>Region statistics: M4-17 region tests, plasmid replicon-level rows, descriptive prophage subset rows (GIAP_SPEC.md §9.3, §7.3.5(b)).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: 1-based closed</li>
+<li>Schema: <code>tables/regions_stats.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>region_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Region ID (&lt;type&gt;_&lt;n&gt;, §6.5)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>region_type</code></td>
+<td>string</td>
+<td>—</td>
+<td>Region type</td>
+<td>required; one of <code>prophage</code>, <code>plasmid</code>, <code>bgc</code>, <code>crispr</code>, <code>amr</code></td>
+</tr>
+<tr>
+<td><code>subset</code></td>
+<td>string</td>
+<td>—</td>
+<td>'all' or a prophage function subset (§7.1.7)</td>
+<td>required; one of <code>all</code>, <code>integrase</code>, <code>repressor</code>, <code>structural</code>, <code>lysis</code>, <code>cargo</code></td>
+</tr>
+<tr>
+<td><code>contig</code></td>
+<td>string</td>
+<td>—</td>
+<td>Replicon of the row (the tested replicon for split regions)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>start</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Region start, 1-based (NA for AMR)</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>end</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Region end, 1-based closed; &gt; replicon length for origin-crossing regions (NA for AMR)</td>
+<td>minimum 1</td>
+</tr>
+<tr>
+<td><code>n_genes</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Member genes</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>n_eligible</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Eligible member genes (not partial, with p_detect)</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>observed</code></td>
+<td>number</td>
+<td>—</td>
+<td>Detected eligible genes</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>expected</code></td>
+<td>number</td>
+<td>—</td>
+<td>Expected detections, sum of p_detect over eligible genes</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>o_minus_e</code></td>
+<td>number</td>
+<td>—</td>
+<td>Observed minus expected detections</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>o_over_e</code></td>
+<td>number</td>
+<td>—</td>
+<td>Observed over expected detections (NA when expected = 0)</td>
+<td>minimum 0</td>
+</tr>
+<tr>
+<td><code>hl_shift_log2</code></td>
+<td>number</td>
+<td>—</td>
+<td>Hodges-Lehmann shift of log2 abundance (M4-17: residual scale; plasmids: raw log2 against the reference replicons)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>stat</code></td>
+<td>string</td>
+<td>—</td>
+<td>Statistic of the row</td>
+<td>required; one of <code>o_minus_e</code>, <code>hl_shift</code></td>
+</tr>
+<tr>
+<td><code>effect</code></td>
+<td>number</td>
+<td>—</td>
+<td>Effect estimate of the statistic</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_low</code></td>
+<td>number</td>
+<td>—</td>
+<td>Lower 95 % CI bound (TU-block bootstrap)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ci_high</code></td>
+<td>number</td>
+<td>—</td>
+<td>Upper 95 % CI bound (TU-block bootstrap)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>p_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>p-value; NA when null_model = none</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>q_value</code></td>
+<td>number</td>
+<td>—</td>
+<td>BH q-value within (region_type, stat); NA without p_value</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>method</code></td>
+<td>string</td>
+<td>—</td>
+<td>Method (circular_shift_o_minus_e, circular_shift_hodges_lehmann, replicon_contrast, descriptive)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>null_model</code></td>
+<td>string</td>
+<td>—</td>
+<td>Null model; 'none' implies p_value, q_value NA and n_perm = 0; a q_value implies a p_value</td>
+<td>required; one of <code>none</code>, <code>circular_shift</code></td>
+</tr>
+<tr>
+<td><code>n_perm</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Number of shifts behind the p-value</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td>string</td>
+<td>—</td>
+<td>Interpretation label (dosage_plus_regulation, dosage_adjusted, descriptive)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Semicolon-joined flags from the controlled vocabulary (§9.4)</td>
+<td>pattern <code>(?:small_region|dosage_plus_regulation|descriptive|no_oric|uncalibrated|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted)(?:;(?:small_region|dosage_plus_regulation|descriptive|no_oric|uncalibrated|few_shifts|split_contigs|hl_variance_nonpositive|no_reference_replicon|depth_adjusted))*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="sensitivity"><code>sensitivity</code><a class="headerlink" href="#sensitivity" title="Permanent link">&para;</a></h2>
+<p>Stability of flagged sets under sensitivity variants: Jaccard index of each variant's flagged IDs against the primary's, both at B = 199 (GIAP_SPEC.md §8.6).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: —</li>
+<li>Schema: <code>tables/sensitivity.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>family</code></td>
+<td>string</td>
+<td>—</td>
+<td>Result family (regions, islands, operon_flags, enrichment, determinants)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>variant</code></td>
+<td>string</td>
+<td>—</td>
+<td>Variant name (e.g. missing=min, single_peptide_detected, top3)</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>n_primary</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Flagged IDs under the primary choices</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>n_variant</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Flagged IDs under the variant</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>n_shared</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Flagged IDs in both sets</td>
+<td>required; minimum 0</td>
+</tr>
+<tr>
+<td><code>jaccard</code></td>
+<td>number</td>
+<td>—</td>
+<td>n_shared / |union|; NA when both sets are empty</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+<tr>
+<td><code>agreement</code></td>
+<td>number</td>
+<td>—</td>
+<td>Agreement of the dominant determinant block (determinants family only)</td>
+<td>minimum 0; maximum 1</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unmapped"><code>unmapped</code><a class="headerlink" href="#unmapped" title="Permanent link">&para;</a></h2>
+<p>Unmapped and contaminant peptides and proteins (GIAP_SPEC.md §9.3).</p>
+<ul>
+<li>Path: —</li>
+<li>Coordinates: —</li>
+<li>Schema: <code>tables/unmapped.schema.json</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Unit</th>
+<th>Description</th>
+<th>Constraints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sequence_id</code></td>
+<td>string</td>
+<td>—</td>
+<td>Input sequence ID</td>
+<td>required</td>
+</tr>
+<tr>
+<td><code>sequence</code></td>
+<td>string</td>
+<td>—</td>
+<td>Sequence</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>string</td>
+<td>—</td>
+<td>Sequence kind</td>
+<td>required; one of <code>peptide</code>, <code>protein</code></td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td>string</td>
+<td>—</td>
+<td>Label</td>
+<td>required; one of <code>contaminant</code>, <code>unmapped</code></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>—</td>
+<td>Reason</td>
+<td>one of <code>no_hit</code>, <code>rejected_placement_fdr</code>, <code>below_identity</code>, <code>too_short</code>, <code>contaminant_id</code></td>
+</tr>
+<tr>
+<td><code>contaminant_match</code></td>
+<td>string</td>
+<td>—</td>
+<td>Matching contaminant ID</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
