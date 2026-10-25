@@ -114,7 +114,9 @@ def test_example_27_merged_site_row_gets_sec_site_not_readthrough() -> None:
     got = consumed_sites(pd.DataFrame(rows), sites, {"c": 60}, {"c": False})
     assert [[(s.codon_start, s.kind) for s in t] for t in got] == [[(15, "recoded")]]
     ann = annotate(rows, got, world=(genome, dict(gm.replicons), gm))
-    assert ann["flags"].iloc[0] == "sec_site"
+    # [0, 30) starts before G1/G5 (start 3), so loci also adds nterm_extension_evidence
+    flags = set(ann["flags"].iloc[0].split(";"))
+    assert "sec_site" in flags and "readthrough" not in flags
 
 
 # ---------------------------------------------------------------- the writer
@@ -144,7 +146,9 @@ def test_both_attributes_on_a_two_site_row(tmp_path: Path) -> None:
     ka = [k for k, _ in attrs(feature_of(plain, pep)[8])]
     kb = [k for k, _ in attrs(feature_of(out, pep)[8])]
     assert kb[: len(ka)] == ka  # the existing order is unchanged
-    assert set(kb[len(ka) :]) == {"readthrough_codon", "recoded_codon"}
+    # the plain row has no consumed sites, hence no flags attribute; the new keys keep their order
+    new = [k for k in kb[len(ka) :] if k != "flags"]
+    assert new == ["readthrough_codon", "recoded_codon"]
 
 
 def test_two_recoded_cells_list_both_positions_ascending(tmp_path: Path) -> None:

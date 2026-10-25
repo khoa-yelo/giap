@@ -30,7 +30,8 @@ from test_placement_kind_rows import (
 REPO = Path(__file__).resolve().parents[3]
 SCHEMA = REPO / "src/giap/schemas/tables/peptide_hits.schema.json"
 NEW = (("placement_flag", "pyl_site"), ("placement_flag", "sec_site"))
-ORDER_16C = (*ORDER, *NEW)
+ORDER_16C = ORDER  # d17a641f already added NEW to ORDER
+assert set(NEW) <= set(ORDER_16C) and len(ORDER_16C) == 14
 GROUP_TYPES = {g for g, _ in ORDER_16C}
 
 

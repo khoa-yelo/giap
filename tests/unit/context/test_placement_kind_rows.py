@@ -201,6 +201,8 @@ def test_example_17_counts(as_str: bool) -> None:
         ("tolerant_diff_type", "block"): (1, 4),
         ("tolerant_diff_type", "near_block"): (0, 4),
         ("placement_flag", "readthrough"): (1, 8),
+        ("placement_flag", "pyl_site"): (0, 8),
+        ("placement_flag", "sec_site"): (0, 8),
         ("unmapped_reason", "no_hit"): (2, 5),
         ("unmapped_reason", "rejected_placement_fdr"): (1, 5),
         ("unmapped_reason", "too_short"): (1, 5),

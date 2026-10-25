@@ -242,11 +242,14 @@ def test_true_peptides_spanning_the_codon_carry_u(runs: dict[str, Path]) -> None
             k = (x.codon_start - s0) // 3 if x.strand == "+" else (e - x.codon_start - 3) // 3
             assert r.peptide[k] == "U", (x.locus_tag, r.peptide, k)
             spanning += 1
-        # the expressed protein is not truncated at the Sec codon
+        # the expressed protein is not truncated at the Sec codon: a peptide that ends just before
+        # it must end at a trypsin cut (K/R), never at the codon as if it were a stop
         for r in rows.itertuples(index=False):
             s0, e = int(r.start) - 1, int(r.end)
-            assert not (x.strand == "+" and e == x.codon_start), (x.locus_tag, r.peptide)
-            assert not (x.strand == "-" and s0 == x.codon_start + 3), (x.locus_tag, r.peptide)
+            ends_at = (x.strand == "+" and e == x.codon_start) or (
+                x.strand == "-" and s0 == x.codon_start + 3
+            )
+            assert not ends_at or r.peptide[-1] in "KR", (x.locus_tag, r.peptide)
     assert spanning >= 1, "no true peptide spans any of the 20 planted Sec codons"
 
 
