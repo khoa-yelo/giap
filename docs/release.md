@@ -16,7 +16,8 @@ Each numbered step names one actor in bold:
 - **Khoa**: the account owner.
 
 Each step also gives the exact command or web page, and the evidence to record in `PROGRESS.md`.
-`<v>` is the version (PEP 440, matching `^\d+\.\d+\.\d+(rc\d+)?$`, e.g. `1.0.0` or `1.0.0rc1`). No
+`<v>` is the version (PEP 440, matching `^\d+\.\d+\.\d+(rc\d+)?$`, e.g. `1.0.0` or `1.0.0rc1`).
+`<base>` is `<v>` without its `rc` suffix (`1.0.0` for both `1.0.0rc1` and `1.0.0`). No
 step needs a token in a file or a command line (R12): trusted publishing uses OIDC, and the
 workflow's `GITHUB_TOKEN` is the only credential it uses.
 
@@ -46,7 +47,8 @@ upload therefore never creates a tag.
 - PyPI: <https://pypi.org/manage/account/publishing/> → "Add a new pending publisher" → GitHub.
   Enter PyPI project name `giap`, owner `khoa-yelo`, repository `giap`, workflow name
   `release.yml`, environment name `pypi`.
-- TestPyPI: <https://test.pypi.org/manage/account/publishing/>. Enter the same values, but with
+- TestPyPI: <https://test.pypi.org/manage/account/publishing/> → the same form. Enter PyPI
+  project name `giap`, owner `khoa-yelo`, repository `giap`, workflow name `release.yml`,
   environment name `testpypi`.
 - Evidence: PROGRESS line "Q-K1 done: pending publishers on PyPI and TestPyPI (date)".
 
@@ -77,14 +79,18 @@ upload therefore never creates a tag.
   `PAGES_ENABLED` = `true`. The `deploy` job of `docs.yml` runs only on `main` and only when
   `vars.PAGES_ENABLED == 'true'`. Until then, `docs.yml` only builds the site
   (`mkdocs build --strict`) and uploads the Pages artefact.
+- Pages on a private repository needs a paid GitHub plan, so on a free plan this step also waits
+  for §14.8 item 7 (making the repository public).
 - GitHub creates the `github-pages` environment itself. Leave it as GitHub sets it up.
 - Evidence: PROGRESS line "Q-K9 done", and the URL of the first green `deploy` job.
 
 ### 5. GHCR package visibility (**Khoa**)
 
-- Do this after the first `containers.yml` run on `main`. That run pushes
-  `ghcr.io/khoa-yelo/giap-<tool>` for `promotech`, `promoter_calculator`, `terminatornet`,
-  `bactermfinder` and `ostir`. Packages are private on first push.
+- Do this after all five packages exist: `ghcr.io/khoa-yelo/giap-<tool>` for `promotech`,
+  `promoter_calculator`, `terminatornet`, `bactermfinder` and `ostir`. A `containers.yml` run
+  started by a push builds only the tools whose `workflow/containers/<tool>/` or
+  `workflow/envs/<tool>.yml` changed. To build all five, the lead dispatches
+  `gh workflow run containers.yml -f tools=all`. Packages are private on first push.
 - For each of the five: GitHub → profile → Packages → `giap-<tool>` → Package settings → Danger
   Zone → Change visibility → Public (Q-K8).
 - There is never a `giap-uniop` package. UniOP is unlicensed and `containers.yml` refuses to build
@@ -100,16 +106,33 @@ upload therefore never creates a tag.
 - Role: docs. The lead merges the PR after CI. Changes on the branch:
     - `src/giap/__init__.py`: `__version__ = "<v>"`.
     - `changelog.d/+known-limitations.misc.md`: update it before the build. It lists the open
-      non-gate issues (Q-K12).
-    - Run `towncrier build --version <v> --date <YYYY-MM-DD> --yes`. This turns the fragments into
-      `## GIAP <v> (<YYYY-MM-DD>)` in `CHANGELOG.md` and removes them. For an `rc`, the section
-      heading is the base version; `notes.py` reads it there.
+      non-gate issues (Q-K12). It must also carry the licence limit "geNOMAD is for non-commercial
+      use only", which the fragment does not have today.
+    - Run `towncrier build --version <base> --date <YYYY-MM-DD> --yes`. This turns the fragments
+      into `## GIAP <base> (<YYYY-MM-DD>)` in `CHANGELOG.md` and removes them.
     - `CITATION.cff`: set `version: <v>` and `date-released: <YYYY-MM-DD>`.
-- `scripts/ci/check_changelog.py` exempts this PR: its commits are `chore(release): <v>`, and it
-  adds no `src/` code beyond the version line. If the check still fails, add the `no-changelog`
-  label.
-- The merged commit is **R**. From R until step 13, hold back merges that touch `src/`,
-  `workflow/` or `tests/calibration/`; record the freeze in PROGRESS.
+- **The rc path**: the towncrier `--version` is always `<base>`, never `<v>` with `rc`.
+    - `notes.py 1.0.0rc1` reads the `## GIAP 1.0.0 (` section and adds "Release candidate
+      1.0.0rc1 of GIAP 1.0.0." in front of it. A `## GIAP 1.0.0rc1 (…)` heading is never read, and
+      the build job would exit 1.
+    - So one `## GIAP 1.0.0 (…)` section serves `1.0.0rc1` and the final `1.0.0`.
+    - The final `1.0.0` prep PR after an rc changes only `__version__` and `CITATION.cff`
+      (`version`, `date-released`). It builds no changelog: the fragments are already consumed,
+      and the section stays as the rc PR wrote it.
+    - That PR changes `src/`, so it is a new R. Steps 7–8 run again and overwrite
+      `validation/release/1.0.0/`.
+- `scripts/ci/check_changelog.py` exempts this PR only through its commit subjects: every
+  non-merge commit has to be of type `chore`, e.g. `chore(release): <v>`. If the check fails
+  anyway, add the `no-changelog` label and push again. Labels are read from the push event, and a
+  re-run reuses the old labels.
+- The merged commit is **R**. **Release freeze** from R until step 13, recorded in PROGRESS:
+    - Merge only PRs whose every changed path is paperwork in `readiness.py`'s sense:
+      `PROGRESS.md`, `README.md`, `CITATION.cff`, `CHANGELOG.md`, or a path under
+      `validation/release/`, `docs/` (but not `docs/methods/`) or `changelog.d/`.
+    - Any other path, such as `src/`, `workflow/`, `tests/`, `scripts/`, `.github/`, `ci/`,
+      `benchmarks/`, `pyproject.toml` or `uv.lock`, makes `readiness.py verify` fail with
+      `fail (stale: <path>)`.
+    - `release.yml` builds main's HEAD, so such a merge makes the PyPI publish fail at verify.
 - Evidence: PR URL and the SHA of R.
 
 ### 7. Evidence runs on R (**agent**)
@@ -117,9 +140,12 @@ upload therefore never creates a tag.
 - Role: validation, on FarmShare. Fast-forward the main checkout to R first. Source
   `scripts/farmshare_env.sh`. Before each `sbatch`, add up the running and pending CPUs of the
   `giap-*` jobs (R14: at most 128 CPUs, 4 GPUs and 20 jobs).
-    - `sbatch scripts/slurm/calibration_full.sbatch`: 15 array tasks × 4 CPUs.
+    - `sbatch scripts/slurm/calibration_full.sbatch`: 15 array tasks × 4 CPUs. It writes no
+      `nightly.tsv` row yet (see Open questions).
     - `sbatch --array=2 scripts/slurm/nightly.sbatch`: the fast suite with the
-      `calibration_nightly` tier, on `origin/main`. Its row goes to `$GIAP_ROOT/logs/nightly.tsv`.
+      `calibration_nightly` tier, on `origin/main`. Its row goes to `$GIAP_ROOT/logs/nightly.tsv`,
+      labelled `calibration_nightly`. A single task also posts a one-task table to the "Nightly
+      (FarmShare)" issue. Add `--export=ALL,NIGHTLY_POST=dry` to print the table instead.
     - `sbatch scripts/slurm/weekly.sbatch`: K-12 and Nissle end to end with TE6, TE8 and TE2, on
       `origin/main`. Its rows go to `$GIAP_ROOT/logs/weekly.tsv`.
     - `sbatch scripts/slurm/test_branch.sbatch "$PWD"`: the full fast suite on 16 CPUs. The last log
@@ -129,24 +155,34 @@ upload therefore never creates a tag.
 
 ### 8. Readiness on R, paperwork-only PR (**agent**)
 
-- Role: validation, on FarmShare, in the checkout at R:
+- Role: validation, on FarmShare.
+- Wait until every CI check run of R on `main` has finished. A check that is still running has a
+  `null` conclusion, and then H6 is `pending`. `verify` does not recompute H6 later, because H6's
+  source is `farmshare`.
+- Work in a worktree on a new branch at R, never by committing in the main checkout:
+
+    ```bash
+    git worktree add -b m11/readiness-<v> local/worktrees/readiness-<v> <R>
+    ```
+
+- In that worktree, run:
 
     ```bash
     python scripts/release/readiness.py compute --version <v> --logs "$GIAP_ROOT/logs" \
-        --freeze-run <A2 freeze run dir> --out validation/release/<v>/
+        --freeze-run <A2 freeze run dir> --out validation/release/<base>/
     ```
 
 - This writes `readiness.json` and `READINESS.md`. Exit codes: 0 `pass`, 1 `fail`, 3 `pending`.
 - Do not use `--offline`. Row H6 reads the commit's check runs with `gh api`. Without network,
   save that response and pass it with `--check-runs <file>`.
-- For `<v>` = `1.0.0rc1`, use `--out validation/release/1.0.0/`. `release.yml` looks for
-  `validation/release/<base version>/readiness.json`.
+- The directory is `<base>`, also for an rc. `release.yml` reads
+  `validation/release/${VERSION%%rc*}/readiness.json`.
 - Open a PR `docs(release): readiness <v>` that changes only these two files, and merge it. It is
   paperwork, so `readiness.py verify` still accepts R as the readiness commit.
 - Check on the merged `main`:
 
     ```bash
-    python scripts/release/readiness.py verify validation/release/<v>/readiness.json
+    python scripts/release/readiness.py verify validation/release/<base>/readiness.json
     ```
 
     This prints `commit rule: pass` and `overall: pass`, with exit 0.
@@ -156,10 +192,12 @@ upload therefore never creates a tag.
 
 ```bash
 gh workflow run release.yml -f version=<v> -f dry_run=true
-gh run list --workflow release.yml --limit 1 --json databaseId,url,headSha,status,conclusion
+gh run list --workflow release.yml --event workflow_dispatch --user khoa-yelo --limit 1 \
+    --json databaseId,url,headSha,status,conclusion
 gh run download <run id> -n release -D local/review/m11-release/r<k>/
 ```
 
+- Check that the listed run's `headSha` is main's HEAD, so it is the run just started.
 - A dry run renders the notes with `notes.py <v> --draft` and publishes nothing.
 - The step summary should say `dry run: nothing published`. It also lists the readiness overall
   and the sha256 of each artefact.
@@ -173,7 +211,8 @@ gh run download <run id> -n release -D local/review/m11-release/r<k>/
     - `notes.md` and `dist/`, from step 9;
     - `sha256sum dist/*`;
     - the list of open non-gate issues.
-- Add a PROGRESS › Questions for Khoa row "Approve release `<v>`", label the step-8 PR `needs-khoa`,
+- Add a PROGRESS › Questions for Khoa row "Approve release `<v>`". The step-8 PR is already
+  merged, so open an issue `Release <v>: approval` that links the packet, label it `needs-khoa`,
   and message Khoa.
 - Evidence: the packet path and the PROGRESS row.
 
@@ -224,11 +263,12 @@ gh run download <run id> -n release -D local/review/m11-release/r<k>/
   files):
 
     ```bash
-    uv venv /tmp/giap-smoke --python 3.12
-    VIRTUAL_ENV=/tmp/giap-smoke uv pip install giap==<v>
-    /tmp/giap-smoke/bin/giap --version
-    /tmp/giap-smoke/bin/giap version --json
-    /tmp/giap-smoke/bin/giap preflight --genome tests/data/genomes/sim100k.fna.gz \
+    smoke=$(mktemp -d /tmp/giap-smoke.XXXXXX)
+    uv venv "$smoke/venv" --python 3.12
+    VIRTUAL_ENV="$smoke/venv" uv pip install giap==<v>
+    "$smoke/venv/bin/giap" --version
+    "$smoke/venv/bin/giap" version --json
+    "$smoke/venv/bin/giap" preflight --genome tests/data/genomes/sim100k.fna.gz \
         --proteins tests/data/recorded/miniprot/0.18/sim100k/proteins.faa
     ```
 
@@ -252,7 +292,8 @@ gh run download <run id> -n release -D local/review/m11-release/r<k>/
 
 - Render the recipe with M11-10's `scripts/release/bioconda_recipe.py`, using the PyPI sdist sha256
   (`https://pypi.org/pypi/giap/<v>/json`) and the DOI. This script is not merged yet; take its
-  options from M11-10 once it is.
+  options from M11-10 once it is. Its spec writes `<out>/giap/meta.yaml`, so `--out recipes`
+  gives `recipes/giap/meta.yaml`.
 - Hand `recipes/giap/meta.yaml` to Khoa.
 - Khoa then forks `bioconda/bioconda-recipes`, adds the recipe and opens the PR from their own
   account. Agents never open PRs in other organisations' repositories. The bioconda CI does the
@@ -268,20 +309,26 @@ gh run download <run id> -n release -D local/review/m11-release/r<k>/
 
 ## E. If something fails
 
-- **PyPI upload done, `github-release` failed**: Khoa re-dispatches the same inputs.
-    - The tag does not exist yet, so verify passes.
-    - `publish` reads `https://pypi.org/pypi/giap/<v>/json`. It skips the upload when every file
-      already on the index has the same sha256 as the new build.
-    - It stops with `<file> is on the index with a different sha256` when the rebuild differs. In
-      that case, ask Khoa: the options are a patch release, or Khoa creating the GitHub release by
-      hand.
+- **PyPI upload done, `github-release` failed**:
+    - **First choice:** Khoa opens the original run and uses "Re-run failed jobs". This reuses the
+      same commit and the `release` artefact that run built. Only `github-release` and `summary`
+      run again, and `github.actor` stays the original dispatcher.
+    - **Only if that is impossible:** Khoa dispatches again with the same inputs.
+        - A new dispatch rebuilds from main's HEAD at that moment. If main has moved past the
+          paperwork set, readiness is stale and verify fails.
+        - The tag does not exist yet, so the tag check passes.
+        - `publish` reads `https://pypi.org/pypi/giap/<v>/json`. It skips the upload when every
+          file already on the index has the same sha256 as the new build.
+        - It stops with `<file> is on the index with a different sha256` when the rebuild is not
+          byte-identical. Then ask Khoa: the options are a patch release, or Khoa creating the
+          GitHub release by hand.
 - **Wrong artefact on PyPI**: never delete it. Khoa yanks it in the PyPI web UI, and the fix ships
   as the next patch version.
 - **Readiness `fail` or `pending`**: nothing is published. Fix it through the normal feature loop,
   or through a waiver ADR that Khoa accepts. Then repeat steps 6–8 on the new commit.
 - **Tag `v<v>` already exists** (someone made it by hand): `release.yml` refuses to run. Ask Khoa.
-- **A `fix:` PR merged to `src/` after R**: `readiness.py verify` fails with `fail (stale: src/…)`.
-  Repeat steps 6–8 on the new commit.
+- **Any non-paperwork PR merged after R** (see the release freeze in step 6): `readiness.py verify`
+  fails with `fail (stale: <path>)`. Repeat steps 6–8 on the new commit.
 
 ## Script reference
 
@@ -324,7 +371,8 @@ Other scripts:
 - `check_changelog.py BASE` (in `scripts/ci/`): a PR that changes `src/` or `workflow/` (except
   `workflow/tests/`) must add `changelog.d/<PR>.<type>.md` or `changelog.d/+<slug>.<type>.md`. The
   types are `feature`, `bugfix`, `doc`, `removal` and `misc`. A PR is exempt with the label
-  `no-changelog`, or when every commit is of type `test`, `ci`, `chore` or `refactor`.
+  `no-changelog` (read from the push event, so push again after adding it), or when every
+  non-merge commit subject is of type `test`, `ci`, `chore` or `refactor`.
 
 ## Output tables
 
@@ -358,20 +406,52 @@ The `release.yml` step summary has two tables:
 
 ## Licences of the tools GIAP runs
 
-GIAP is MIT-licensed. `NOTICE.md` is the full list, and readiness row H5 checks it against the
-registry.
+GIAP is MIT-licensed. This section follows `NOTICE.md`, which is the authoritative list, and
+readiness row H5 checks the registry against it. `scripts/ci/check_imports.py` fails CI if GIAP
+imports a GPL, AGPL or unlicensed tool.
 
-- **GPL tools run as separate programs, never imported or vendored (R5).** These are Bakta,
-  Promotech, Promoter Calculator, OSTIR, TransTermHP, BacTermFinder (GPL-3.0) and antiSMASH
-  (AGPL-3.0). R runs fgsea as a separate program. `scripts/ci/check_imports.py` enforces this.
-- **Four GHCR images contain GPL-3.0 tools**, unmodified: Promotech, Promoter Calculator, OSTIR and
-  BacTermFinder. `NOTICE.md` gives their source links at the pinned versions, and each Dockerfile
-  is in `workflow/containers/<tool>/`.
-- **geNOMAD is for non-commercial use only.** Say so in the release notes' known limitations.
-- **KEGG is for academic use.** `giap setup --kegg` downloads it on the user's machine, and it is
-  never redistributed.
-- **UniOP has no licence file.** It is fetched at a pinned commit when environments are built, and
-  is never vendored or pushed to GHCR.
+| Tool | Licence (as in `NOTICE.md`) | How GIAP uses it |
+|---|---|---|
+| Bakta | GPL-3.0 | separate process |
+| Promotech | GPL-3.0 | separate process |
+| Promoter Calculator | GPL-3.0 (or later) | separate process |
+| OSTIR | GPL-3.0 | separate process |
+| TransTermHP | GPL-3.0 (or later) | separate process |
+| BacTermFinder | GPL-3.0 | opt-in; separate process |
+| antiSMASH | AGPL-3.0 | separate process |
+| geNOMAD | non-commercial | separate process; **non-commercial use only** |
+| UniOP | unlicensed (no licence file) | fetched at a pinned commit when environments are built; never vendored |
+| TerminatorNet, miniprot | MIT | separate process |
+| BLAST+ | public-domain (NCBI) | separate process |
+| fgsea | MIT | run by `workflow/bin/giap_fgsea.R` in R 4.5 (GPL-2) as a separate process; R and fgsea are never imported |
+| codon-bias | MIT | imported in-process (PyPI) |
+| DIA-NN | proprietary (academic licence) | used only by users' own searches; binaries never redistributed |
+
+What this means for a release:
+
+- **GPL and AGPL tools run as separate programs.** GIAP never imports or vendors their code (R5).
+  The wheel and sdist carry none of their code.
+- **fgsea is also ported.** Its MIT code is ported to Python in `src/giap/stats/fgsea.py`, which
+  runs in-process. `NOTICE.md` carries the MIT licence text, and no fgsea file is vendored.
+- **Four GHCR images contain GPL-3.0 tools**, fetched from upstream unmodified:
+    - Promotech;
+    - Promoter Calculator (GPL-3.0-or-later);
+    - OSTIR;
+    - BacTermFinder.
+
+    `NOTICE.md` gives their source links at the pinned versions and commits. Each image's
+    Dockerfile is in `workflow/containers/<tool>/`. The fifth image, TerminatorNet, is MIT.
+- **UniOP is never published.** There is no GHCR image for it (R5, R11).
+- **geNOMAD: non-commercial use only.** Step 6 adds this to the known-limitations fragment, so the
+  release notes say it.
+- **Data resources:**
+    - KEGG: academic use; `giap setup --kegg` downloads it on the user's machine;
+    - RegulonDB: not redistributed;
+    - Gene Ontology: CC BY 4.0;
+    - NCBI COG 2020: NCBI FTP.
+- **The contaminant library** (Frankenfield et al. 2022) has no licence file. `giap setup
+  --contaminants` downloads it, and it is never vendored (R11).
+- **plotly.js** (MIT) is inlined once in `report.html` when interactive figures are shown.
 
 ## Open questions for Khoa
 
@@ -383,14 +463,19 @@ registry.
       works, and dry runs still dispatch;
     - or a fine-grained token without `actions:write`: agents can then not dispatch at all, and
       Khoa runs step 9.
-- **PRs opened with `GITHUB_TOKEN` do not trigger CI.** The digest PR `ci/digests-<sha7>` from
-  `containers.yml` is opened with the workflow token, so its CI never starts, and
-  `scripts/dev/waitmerge.sh` never sees the required checks. Today the workaround is a plain
-  `git commit --allow-empty` pushed to that branch from FarmShare, or Khoa closing and reopening the
-  PR. A GitHub App token or the agent account above would remove the workaround.
-- **R3 and R4 stay `pending`.** Nothing writes `nightly.tsv` rows labelled `calibration_full`,
-  `calibration_nightly` or `calibration_attacks`. `nightly.sbatch` labels its rows `task <n>`, and
-  `calibration_full.sbatch` writes none. Until such a writer exists, a PyPI publish fails at verify,
-  unless Khoa accepts a waiver ADR.
+- **PRs opened with `GITHUB_TOKEN` do not trigger CI.** `containers.yml` opens the digest PR
+  `ci/digests-<sha7>` as a draft with the workflow token, so no CI starts when it opens.
+    - The normal path: `ci.yml` also runs on `ready_for_review`. Once the FarmShare Apptainer smoke
+      passes, `gh pr ready <PR>` from the `khoa-yelo` login starts CI.
+    - Fallbacks: a plain `git commit --allow-empty` pushed to that branch from FarmShare, or Khoa
+      closing and reopening the PR.
+    - A GitHub App token, or the agent account above, would remove the gap.
+- **R3 and R4 stay `pending` (tracked as M11-03b).**
+    - R3 needs `nightly.tsv` rows labelled `calibration_full` and `calibration_nightly`. R4 needs
+      one labelled `calibration_attacks`.
+    - `nightly.sbatch` task 2 writes the `calibration_nightly` row.
+    - Nothing writes a `calibration_full` row (`calibration_full.sbatch` writes no `nightly.tsv`
+      line), and nothing writes a `calibration_attacks` row.
+    - Until both writers exist, a PyPI publish fails at verify, unless Khoa accepts a waiver ADR.
 - **Who may dispatch dry runs.** The default is that the lead may: a dry run uploads nothing and
   creates no tag (M11-04). `AGENTS.md › Releases` already states the two rules above.
