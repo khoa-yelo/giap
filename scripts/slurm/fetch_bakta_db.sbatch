@@ -26,7 +26,7 @@ md5_of() {  # bash 3.2 has no associative arrays (macOS CI: scripts/ci/check_bas
 dir_of() { case "$1" in db-light.tar.xz) echo db-light ;; db.tar.xz) echo db ;; esac; }
 OUT="$GIAP_DB_DIR/bakta"
 # The image pinned for the BAKTA process (workflow/conf/containers.config), as pulled by build_envs.
-DIGEST=$(grep -oP "withName: 'BAKTA' \\{ container = 'docker://oschwengers/bakta@sha256:\\K[0-9a-f]{64}" \
+DIGEST=$(grep -oP "withName: 'BAKTA' \\{ container = '(docker://)?oschwengers/bakta@sha256:\\K[0-9a-f]{64}" \
   workflow/conf/containers.config)
 IMG="$GIAP_ROOT/containers/oschwengers-bakta@sha256-$DIGEST.img"
 [ -f "$IMG" ] || { echo "missing $IMG: run scripts/slurm/build_envs.sbatch first" >&2; exit 1; }

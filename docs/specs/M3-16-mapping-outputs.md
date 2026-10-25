@@ -108,3 +108,8 @@ def write_mapping_outputs(outdir: Path, peptide_hits: pd.DataFrame, protein_hits
    input give identical output (full-row tie-break); `;`-joined `flags`/`diff_types` round-trip; `[]` is
    not treated as missing.
 4. `_length_class_key` documents that it expects M3-10's `lo-hi` labels (and `all`).
+
+## Amendment (M7-16b, 2026-10-24)
+`peptide_hits.flags` gains `readthrough`, with the GFF3 attribute `readthrough_codon`; 16c adds
+`sec_site` and `pyl_site`, with `recoded_codon`. The column set is unchanged. See
+`docs/specs/M7-16-stop-codon-readthrough.md` rules 15–19.

@@ -110,3 +110,9 @@ how multi-letter COG categories are counted, the QC metrics' definitions.
    ValueError naming the genes.
 8. COG values `-` and blank map to `none`; `detected` must be boolean dtype (strings raise).
 9. Tests kill the surviving mutants (group order; flag only on `o_minus_e`).
+
+## Amendment (M7-16b, 2026-10-24)
+`detection_summary.tsv` gains the `qc` placement-kind rows (`placement_kind`, `tolerant_diff_type`,
+`placement_flag`, `unmapped_reason`; metric `n_peptides`) from a separate
+`placement_kind_rows` part. `qc_rows` is unchanged. See
+`docs/specs/M7-16-stop-codon-readthrough.md` rule 17.

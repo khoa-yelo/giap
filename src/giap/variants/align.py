@@ -135,12 +135,15 @@ def _dp(
                 continue
             t1 = int(t[j - 1])
             t0 = int(t[j - 2]) if j >= 2 else nres
-            if t1 >= nres:
+            rt = t1 == 22  # a read-through stop (M7-16 rule 10): only move 0, cost 1
+            if t1 >= nres and not rt:
                 continue
             bk, bp, bm, br = big, 0, -1, -1
             for move in range(4):
                 if move == 0:
                     src, pi, r = (i - 1) * nd + dd, i - 1, -1 if q1 == t1 else 0
+                elif rt:
+                    continue
                 elif move == 1:
                     if i < 2 or j < 2 or t0 >= nres or q0 >= nres or q1 >= nres:
                         continue
@@ -178,11 +181,14 @@ _STEP = ((1, 1, 0), (2, 2, 0), (1, 2, -1), (2, 1, 1))  # (peptide, genome, Δdd)
 
 
 def _ops(pep: str, g: str, codons: list[int], off: int) -> tuple[int, list[ResidueOp]]:
-    """M3-06 key and ops of the optimal banded alignment of ``pep`` to residues ``g``."""
+    """M3-06 key and ops of the optimal banded alignment of ``pep`` to residues ``g``; every
+    ``*`` of ``g`` (an accepted stop site, :func:`_residues`) is consumable as code 22."""
     m, n = len(pep), len(g)
     if abs(n - m) > BAND:
         return _BIG, []
-    key, _, mv, rk = _dp(encode_query(pep), encode_target(g), _exchange(), _pos_weights(m))
+    t = encode_target(g)
+    t[np.frombuffer(g.encode(), dtype=np.uint8) == ord("*")] = 22
+    key, _, mv, rk = _dp(encode_query(pep), t, _exchange(), _pos_weights(m))
     if key >= _BIG:
         return key, []
     out: list[ResidueOp] = []
@@ -205,9 +211,23 @@ def _frame(s: int, e: int, strand: str, n: int) -> int:
     return 1 + (s % n) % 3 if strand == "+" else -(1 + ((n - e) % n) % 3)
 
 
-def _residues(peptide: str, seq: str, rep: Replicon, s: int, e: int, strand: str) -> str:
+def _residues(
+    peptide: str,
+    seq: str,
+    rep: Replicon,
+    s: int,
+    e: int,
+    strand: str,
+    stops: frozenset[tuple[str, str, int]] = frozenset(),
+) -> str:
+    """Genome residues of the locus; a ``*`` is allowed only at a codon in ``stops``."""
     g = translate_locus(seq, rep, s, e, strand)
-    if "X" in g or "*" in g:
+    cods = _codons(s, e, strand)
+    bad = "X" in g or any(
+        a == "*" and (rep.id, strand, c % rep.length) not in stops
+        for a, c in zip(g, cods, strict=True)
+    )
+    if bad:
         raise ValueError(f"peptide {peptide}: genome residue X or * in its locus [{s}, {e})")
     return g
 
@@ -232,14 +252,17 @@ def align_hit(
     blocks: str | None,
     seq: str,
     rep: Replicon,
+    stop_sites: frozenset[tuple[str, str, int]] = frozenset(),
 ) -> HitAlignment:
     """Residue alignment of one hit ``[start, end)``; raises ValueError if it disagrees with
-    ``n_diff`` (or, with ``n_diff = 0``, if the letters differ beyond I/L)."""
+    ``n_diff`` (or, with ``n_diff = 0``, if the letters differ beyond I/L). A genome ``*`` is
+    a substitution only at a ``(contig, strand, codon_start)`` of ``stop_sites`` and only on a
+    non-frameshift row (M7-16 rule 10)."""
     if strand not in ("+", "-"):
         raise ValueError(f"peptide {peptide}: strand {strand!r}")
     std: Literal["+", "-"] = "+" if strand == "+" else "-"
     if blocks is None:
-        g = _residues(peptide, seq, rep, start, end, strand)
+        g = _residues(peptide, seq, rep, start, end, strand, stop_sites)
         cods = _codons(start, end, strand)
         frame = _frame(start, end, strand, rep.length)
         if n_diff == 0:
@@ -288,6 +311,7 @@ def align_hits(
     hits_tolerant: pd.DataFrame | None,
     genome: Mapping[str, str],
     replicons: Mapping[str, Replicon],
+    stop_sites: frozenset[tuple[str, str, int]] = frozenset(),
 ) -> list[HitAlignment]:
     """One :class:`HitAlignment` per ``peptide_hits`` row (0-based half-open), in row order.
 
@@ -314,6 +338,7 @@ def align_hits(
             blocks = b
         n_diff = int(row["n_diff"])
         out.append(
-            align_hit(pep, contig, s, e, strand, n_diff, blocks, genome[contig], replicons[contig])
-        )
+            align_hit(pep, contig, s, e, strand, n_diff, blocks, genome[contig], replicons[contig],
+                      stop_sites)
+        )  # fmt: skip
     return out

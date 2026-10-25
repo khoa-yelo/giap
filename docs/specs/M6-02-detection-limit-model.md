@@ -107,6 +107,7 @@ Toy model, `logit p_j = −12 + 0.6 · a − 0.02 · L_j`, gene u with peptides 
   calibration slope of `p_detect` is 1 ± 0.2 — the same criterion M4-13 already meets.
 - [ ] Integration: with M6-05H, `tables/pairs.tsv` on a simulated genome with planted undetected
   partners contains `one_detected_pmiss` rows and a single BH family.
+  *Superseded (M6-05H, 2026-10-24): per lead decision 4 and M6-index lead decision 1 the BH family holds only the t p-values and `one_detected_pmiss` rows carry no q, until M6-09 attack C and an ADR say otherwise.*
 
 ## Hardening owed (its own pass, after the M10 pilot)
 

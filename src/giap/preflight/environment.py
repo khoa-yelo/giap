@@ -153,7 +153,7 @@ _NO_TOOL_PROFILES = frozenset({"test", "stub"})
 
 
 def _image_file_name(ref: str) -> str:
-    """``docker://a/b@sha256:<d>`` → ``a-b@sha256-<d>.img`` (Nextflow's apptainer cache name)."""
+    """``a/b@sha256:<d>``, with or without ``docker://`` → ``a-b@sha256-<d>.img`` (Nextflow)."""
     return ref.removeprefix("docker://").replace("/", "-").replace(":", "-") + ".img"
 
 

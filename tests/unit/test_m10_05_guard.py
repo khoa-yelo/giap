@@ -31,15 +31,16 @@ FORBIDDEN_UNDER_PILOT = (
     "genes.tsv*", "peptide_hits.tsv*", "unmapped.tsv*", "detection_summary.tsv*",
     "proteins.tsv*", "compare_*.tsv*",
 )  # fmt: skip
-#: aggregate outputs that may be committed under validation/pilot/ (Q-K1, 2026-10-24)
-AGGREGATES = ("metrics.json", "te1.json", "REPORT.md")
+#: aggregate outputs that may be committed under validation/pilot/ (Q-K1, 2026-10-24;
+#: a3_feasibility.json: M10-08 deliverable 10, aggregates only)
+AGGREGATES = ("metrics.json", "te1.json", "REPORT.md", "a3_feasibility.json")
 #: the peptide-like pattern of ``metrics.check_notes`` (spec: 7 or more amino-acid letters)
 PEPTIDE_LIKE = re.compile(r"[ACDEFGHIKLMNPQRSTVWY]{7,}")
 #: top-level keys of metrics.json (spec "Outputs"; giap_commit: review S4; te_real and te7:
 #: M10-06, m8: M10-07, both stacked on this branch)
-TOP_KEYS = {"schema", "inputs", "spec", "giap_commit", "m1", "m2", "m3", "m4", "m5", "m7", "m8",
-            "te1", "te1_a1_diagnostic", "te_real", "te7", "h1", "h3", "checklist",
-            "warnings"}  # fmt: skip
+TOP_KEYS = {"schema", "inputs", "spec", "giap_commit", "m1", "m2", "m3", "m4", "m5", "m6", "m7",
+            "m8", "te1", "te1_a1_diagnostic", "te_real", "te7", "h1", "h3", "h4", "checklist",
+            "evidence", "warnings"}  # fmt: skip
 
 
 def _tracked(*paths: str) -> list[str]:

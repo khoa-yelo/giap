@@ -203,7 +203,7 @@ def _lag1_clause(view: RunView, order: Sequence[str]) -> str:
         hit = sel[sel["contig"].astype(str) == contig]
         for v, q in zip(pd.to_numeric(hit["value"]), pd.to_numeric(hit["q_value"]), strict=True):
             if pd.notna(q) and pd.notna(v):
-                return f"; lag-1 Moran's I {float(v):g} (q = {float(q):g})"
+                return f"; lag-1 Moran's I {base.sig(v)} (q = {base.sig(q)})"
     return ""
 
 

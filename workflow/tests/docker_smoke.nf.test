@@ -1,0 +1,90 @@
+// M11-09: Docker-profile smoke (docs/specs/M11-09-platforms-docker-smoke.md, definition 2).
+// The real MINIPROT and TBLASTN processes run in their pinned images (workflow/conf/containers.config,
+// by digest) on the giapsim SIM100K genome (tests/data/genomes/sim100k.fna.gz) with the protein
+// sets and options of the recorded Apptainer runs (tests/data/recorded/{miniprot/0.18,blast/2.16.0}/sim100k).
+// The test asserts each output is in the format the giap parsers read (GFF3 header and 9 columns;
+// the 15-column outfmt 6 of giap.mapping.tblastn.OUTFMT) and has as many records as the recorded run.
+//
+// nf-test runs one suite per file (the last nextflow_process block), so TBLASTN runs as a setup
+// dependency of the MINIPROT suite; its output is read from the test's work directory.
+//
+// Run only by the docker-smoke job (.github/workflows/docker-smoke.yml):
+//   nf-test test workflow/tests/docker_smoke.nf.test --profile test,docker
+// The nf-test-stub job in ci.yml leaves this file out: there are no stub runs here, only real tools.
+nextflow_process {
+
+    name "docker smoke: MINIPROT and TBLASTN in their pinned images"
+    script "../modules/local/miniprot/main.nf"
+    process "MINIPROT"
+    config "./miniprot.config"
+    tag "docker_smoke"
+
+    test("real miniprot and tblastn on SIM100K match the recorded runs' format and record counts") {
+
+        setup {
+            // makeblastdb reads plain FASTA only: decompress the fixture genome for TBLASTN.
+            def fixtures = new File(outputDir, "fixtures")
+            fixtures.mkdirs()
+            def plain = new File(fixtures, "sim100k.fna")
+            new java.util.zip.GZIPInputStream(new FileInputStream(
+                "${moduleTestDir}/../../tests/data/genomes/sim100k.fna.gz")).withStream { inp ->
+                plain.withOutputStream { out -> out << inp }
+            }
+            run("TBLASTN") {
+                script "../modules/local/tblastn/main.nf"
+                process {
+                    """
+                    input[0] = 'sim100k'
+                    input[1] = file("${plain.absolutePath}")
+                    input[2] = file("${moduleTestDir}/../../tests/data/recorded/blast/2.16.0/sim100k/proteins.faa")
+                    """
+                }
+            }
+        }
+
+        when {
+            params {
+                // the options of the recorded runs (= the default mapping.proteins.*_args)
+                mapping = [proteins: [miniprot_args: "-S -N 5 --outs=0.95",
+                                      tblastn_args: "-db_gencode 11 -seg no -evalue 1e-5"]]
+            }
+            process {
+                """
+                input[0] = 'sim100k'
+                input[1] = file("${moduleTestDir}/../../tests/data/genomes/sim100k.fna.gz")
+                input[2] = file("${moduleTestDir}/../../tests/data/recorded/miniprot/0.18/sim100k/proteins.faa")
+                """
+            }
+        }
+
+        then {
+            def recorded = "${moduleTestDir}/../../tests/data/recorded"
+            assert process.success
+
+            // MINIPROT: GFF3, one mRNA per recorded alignment
+            def gff = path(process.out.gff[0]).readLines()
+            assert gff.size() > 0
+            assert gff[0] == "##gff-version 3"
+            def rows = gff.findAll { !it.startsWith("#") && it.trim() }
+            assert rows.every { it.split("\t", -1).size() == 9 }
+            def mrna = new File("${recorded}/miniprot/0.18/sim100k/miniprot.gff").readLines()
+                .count { !it.startsWith("#") && it.split("\t")[2] == "mRNA" }
+            assert rows.count { it.split("\t")[2] == "mRNA" } == mrna
+            assert path(process.out.versions[0]).text.contains("miniprot: 0.18")
+
+            // TBLASTN (setup dependency): 15-column outfmt 6, the recorded queries and HSP count
+            def tsvs = []
+            new File(workDir).eachFileRecurse(groovy.io.FileType.FILES) {
+                if (it.name == "tblastn.tsv") { tsvs << it }
+            }
+            assert tsvs.size() == 1 : "expected one TBLASTN task output, found ${tsvs}"
+            def hits = tsvs[0].readLines()
+            assert hits.size() > 0
+            assert hits.every { it.split("\t", -1).size() == 15 }
+            def expected = new File("${recorded}/blast/2.16.0/sim100k/tblastn.tsv").readLines()
+            assert hits.size() == expected.size()
+            assert hits.collect { it.split("\t")[0] }.toSet() == expected.collect { it.split("\t")[0] }.toSet()
+            assert new File(tsvs[0].parentFile, "versions.yml").text.contains("tblastn: 2.16.0")
+        }
+    }
+}

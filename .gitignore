@@ -12,3 +12,6 @@ htmlcov/
 /logs/
 .coverage.*
 .hypothesis/
+
+# mkdocs build output
+site/

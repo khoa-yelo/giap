@@ -21,7 +21,9 @@ chain (``giap preflight`` normalisation, then the registered steps under the loc
 * **TE2** (``search_db = same``, M7-14): TE1's peptides through the chain up to the ``variants``
   step (M7-04). Pass: no ``variants.tsv`` row with ``confidence = high`` flagged neither
   ``start_codon`` nor ``stop_codon`` (the non-ATG starts appear as ALT ``M`` at GTG/TTG starts;
-  the selenocysteine sites stay unmapped until M7-16).
+  the annotated selenocysteine codons are consumable recoded TGAs and appear as candidate ALT
+  ``U`` sites flagged ``stop_codon``, counted as ``alt_stop_codon``; M7-16, ADR-0058 item 6).
+  TE1 labels a miss whose every accepted row carries ``sec_site`` as a ``sec_site`` exception.
 
 Usage (writes ``validation/proxies/<YYYY-MM-DD>_te1.json`` / ``_te2.json`` / ``_te8.json`` by
 default)::
@@ -63,8 +65,10 @@ from giap.steps.mapping import select_queries
 TE1_MIN, TE8_K12_MIN, TE8_FDR_MAX = 0.999, 0.995, 0.01
 TE2_EXEMPT = frozenset({"start_codon", "stop_codon"})
 TE2_NO_STOP_NOTE = (
-    "no high stop_codon site: the selenocysteine (Sec, fdnG) peptides TE1 misses stay unmapped "
-    "until M7-16, so none is expected yet"
+    "no high stop_codon site: annotated stops and recoded Sec/Pyl codons are consumable "
+    "(M7-16, ADR-0058 items 1-6), but no stop_codon ALT site reached high confidence (on Nissle "
+    "the two fdnG Sec sites are candidate, one unique peptide each; fdhF has no tryptic peptide "
+    "over its Sec codon)"
 )
 MAX_EXCEPTIONS = 50
 INFRAME = frozenset({"cds_inframe", "sorf"})
@@ -169,6 +173,7 @@ def te1_result(
     genes: Mapping[str, Interval],
     circular: Mapping[str, int | None],
     max_exceptions: int | None = MAX_EXCEPTIONS,
+    per_peptide: pd.DataFrame | None = None,
 ) -> ProxyResult:
     """TE1 counts from the peptide sources, the non-ATG exclusions and ``peptide_hits.tsv``.
 
@@ -178,17 +183,27 @@ def te1_result(
     counted as ``exact_inframe_masked`` (diagnostic). ``circular``: contig -> length when
     circular, else None. ``max_exceptions``: the cap on the exception rows (None: no cap; the
     counts never depend on it).
+
+    A miss whose peptide has rows and every row carries ``sec_site`` (``flags`` column, absent:
+    unflagged) is an exception of kind ``sec_site``, counted before the cap (M7-16 rule 24).
+    With ``per_peptide`` (the placement table), each miss row whose peptide is in it also gets
+    ``placement_q``, ``m_target`` and ``accepted``.
     """
     good: set[str] = set()
     masked: set[str] = set()
     seen: dict[str, list[str]] = {}
+    sec: dict[str, bool] = {}  # peptide -> every row so far carries sec_site
     if len(peptide_hits):
         cols = ("peptide", "route", "locus_class", "gene", "contig", "start", "end", "strand")
-        for pep, route, cls, gene, contig, s1, e1, strand in zip(
-            *(peptide_hits[c] for c in cols), strict=True
+        flags = (
+            peptide_hits["flags"] if "flags" in peptide_hits.columns else [None] * len(peptide_hits)
+        )
+        for pep, route, cls, gene, contig, s1, e1, strand, fl in zip(
+            *(peptide_hits[c] for c in cols), flags, strict=True
         ):
             pep = str(pep)
             seen.setdefault(pep, []).append(f"{route}:{cls}:{gene}")
+            sec[pep] = sec.get(pep, True) and "sec_site" in _flag_names(fl)
             own = sources.get(pep, ())
             if route != "exact" or pep in good:
                 continue
@@ -209,9 +224,16 @@ def te1_result(
     misses = [p for p in peps if p not in excluded and p not in good]
     denom = len(peps) - n_ex
     share = exact / denom if denom else 0.0
+    q_of: dict[str, dict[str, Any]] = {}
+    if per_peptide is not None:
+        for pep, q, m, acc in zip(
+            per_peptide["peptide"].astype(str), per_peptide["placement_q"],
+            per_peptide["m_target"], per_peptide["accepted"], strict=True,
+        ):  # fmt: skip
+            q_of[pep] = {"placement_q": _num(q), "m_target": _cell(m), "accepted": bool(acc)}
     rows = [
-        {"kind": "miss", "locus_tag": min(sources[p]), "peptide": p,
-         "hits": ";".join(seen.get(p, [])) or "unplaced"}
+        {"kind": "sec_site" if sec.get(p, False) else "miss", "locus_tag": min(sources[p]),
+         "peptide": p, "hits": ";".join(seen.get(p, [])) or "unplaced", **q_of.get(p, {})}
         for p in misses
     ]  # fmt: skip
     rows += [
@@ -225,6 +247,7 @@ def te1_result(
         "exact_inframe": exact,
         "misses": len(misses),
         "exact_inframe_masked": sum(p in masked for p in peps if p not in excluded),
+        "sec_site": sum(sec.get(p, False) for p in misses),
     }
     return ProxyResult(
         "TE1", counts, {"exact_inframe": share}, bool(denom) and share >= TE1_MIN,
@@ -238,6 +261,11 @@ def _flag_names(v: object) -> set[str]:
     if isinstance(v, Iterable):
         return {str(x) for x in v}
     return set()
+
+
+def _num(v: object) -> float | None:
+    """A JSON-ready float: None for NA."""
+    return None if v is None or v is pd.NA or pd.isna(v) else float(v)  # type: ignore[arg-type]
 
 
 def _cell(v: object) -> Any:
@@ -254,19 +282,21 @@ def te2_result(sites: pd.DataFrame) -> ProxyResult:
 
     ``alt_sites``: rows; ``high``: ``confidence = high`` rows; ``high_start_codon`` /
     ``high_stop_codon``: high rows with that flag (a row with both counts in both);
-    ``violations``: high rows with neither. Passed iff no violation; up to 50 violations in row
-    order as examples (locus tag, aa_pos, ref, alt). Pure.
+    ``violations``: high rows with neither; ``alt_stop_codon``: rows flagged ``stop_codon`` at
+    any confidence (M7-16 rule 25). Passed iff no violation; up to 50 violations in row order as
+    examples (locus tag, aa_pos, ref, alt). Pure.
     """
-    n_start = n_stop = n_high = 0
+    n_start = n_stop = n_high = n_alt_stop = 0
     bad: list[dict[str, Any]] = []
     n_bad = 0
     if len(sites):
         cols = ("confidence", "flags", "gene", "aa_pos", "ref_aa", "alt_aa", "variant_id")
         for conf, flags, gene, aa_pos, ref, alt, vid in zip(*(sites[c] for c in cols), strict=True):
+            f = _flag_names(flags)
+            n_alt_stop += "stop_codon" in f
             if str(conf) != "high":
                 continue
             n_high += 1
-            f = _flag_names(flags)
             n_start += "start_codon" in f
             n_stop += "stop_codon" in f
             if not (TE2_EXEMPT & f):
@@ -281,6 +311,7 @@ def te2_result(sites: pd.DataFrame) -> ProxyResult:
         "high_start_codon": n_start,
         "high_stop_codon": n_stop,
         "violations": n_bad,
+        "alt_stop_codon": n_alt_stop,
     }
     notes = [TE2_NO_STOP_NOTE] if n_stop == 0 else []
     return ProxyResult("TE2", counts, {}, n_bad == 0, bad, notes)
@@ -377,7 +408,9 @@ def te1_proxy(genome: Path, bakta_json: Path) -> ProxyResult:
     with tempfile.TemporaryDirectory(prefix="giap-te1-") as tmp:
         work = run_chain(cfg, genome, bakta_json, sources, "same", Path(tmp), ["loci"])
         hits = _read_hits_tsv(work / "mapping" / "peptide_hits.tsv")
-    return te1_result(sources, excluded, hits, {g.locus_tag: g.interval for g in genes}, circular)
+        per = pd.read_parquet(work / "placement")  # the per-peptide table TE8 reads (rule 24)
+    ivs = {g.locus_tag: g.interval for g in genes}
+    return te1_result(sources, excluded, hits, ivs, circular, per_peptide=per)
 
 
 def te2_proxy(genome: Path, bakta_json: Path) -> ProxyResult:

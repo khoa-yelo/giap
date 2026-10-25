@@ -1,0 +1,1 @@
+region_id	region_type	subset	contig	start	end	n_genes	n_eligible	observed	expected	o_minus_e	o_over_e	hl_shift_log2	stat	effect	ci_low	ci_high	p_value	q_value	method	null_model	n_perm	label	flags

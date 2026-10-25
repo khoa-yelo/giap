@@ -1,0 +1,6 @@
+family	run_a	run_b	n_a	n_b	n_shared	jaccard	flags
+islands	run_a	run_b	27	27	27	1	NA
+operon_flags	run_a	run_b	0	0	0	NA	both_empty
+enriched_categories	run_a	run_b	0	0	0	NA	both_empty
+novel_orfs	run_a	run_b	38	37	37	0.973684	NA
+alt_sites	run_a	run_b	189	323	153	0.426184	NA

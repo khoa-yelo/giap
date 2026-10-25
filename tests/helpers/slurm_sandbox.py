@@ -26,6 +26,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from helpers.gnu_userland import require_gnu_userland
+
 REPO = Path(__file__).resolve().parents[2]
 REAL_REPO = "/home/classes/bios/270/khoa/giap"
 SLURM_TOOLS = ("sbatch", "squeue", "scontrol", "scancel", "srun", "sacct", "scrontab")
@@ -272,6 +274,7 @@ class Sandbox:
         timeout: float = 180,
         unset: tuple[str, ...] = (),
     ) -> subprocess.CompletedProcess[str]:
+        require_gnu_userland()  # the scripts are FarmShare-only (spec G19)
         full = {k: v for k, v in {**self.env, **(env or {})}.items() if k not in unset}
         return subprocess.run(
             cmd,

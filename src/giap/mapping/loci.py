@@ -35,6 +35,7 @@ from typing import Literal, get_args
 import pandas as pd
 
 from giap.config.model import InputConfig
+from giap.mapping.readthrough import StopSite
 from giap.model.coords import Interval, Replicon
 from giap.model.genes import Gene, GeneModel, NcFeature
 
@@ -67,6 +68,7 @@ LOCUS_CLASSES: tuple[str, ...] = get_args(LocusClass)
 _RNA_TYPES = frozenset({"rrna", "trna", "tmrna", "ncrna"})
 _PLUS_STOPS = frozenset({"TAA", "TAG", "TGA"})  # table 11
 _MINUS_STOPS = frozenset({"TTA", "CTA", "TCA"})  # reverse complements, read on the plus string
+_RECODED_FLAG = {"TGA": "sec_site", "TAG": "pyl_site"}  # M7-16 rule 19 (Bakta U / O)
 _ASSIGNING = frozenset({"cds_inframe", "sorf", "nterm_extension", "cterm_extension", "pseudogene"})
 FLAG_SEP = ";"
 _DEFAULT_DECOY_PREFIXES: tuple[str, ...] = tuple(InputConfig().decoy_prefixes)
@@ -365,11 +367,16 @@ def annotate_peptide_hits(
     *,
     decoy_prefixes: Sequence[str] = _DEFAULT_DECOY_PREFIXES,
     contaminant_prefixes: Sequence[str] = _DEFAULT_CONTAMINANT_PREFIXES,
+    consumed: Sequence[tuple[StopSite, ...]] | None = None,
 ) -> pd.DataFrame:
     """Add ``locus_class``, ``gene``, ``uniqueness``, ``flags`` and ``novel_candidate_id``.
 
     One output row per input row, sorted by (peptide, contig, start, strand); input columns are
-    kept and input flags (``same_db``, ``low_complexity``) are merged into ``flags``.
+    kept and input flags (``same_db``, ``low_complexity``) are merged into ``flags``. With
+    ``consumed`` (``consumed_sites`` per input row, M7-16 rule 16) a row consuming a ``terminal``
+    site gets ``readthrough`` and the work column ``readthrough_codon`` (1-based, ``,``-joined);
+    one consuming a ``recoded`` site gets ``sec_site`` (TGA) or ``pyl_site`` (TAG) and the work
+    column ``recoded_codon`` (M7-16 rule 19).
     """
     if genome_relation not in ("related", "same"):
         raise ValueError(f"genome_relation must be 'related' or 'same', got {genome_relation!r}")
@@ -436,9 +443,22 @@ def annotate_peptide_hits(
 
     related = genome_relation == "related"
     lengths = {c: r.length for c, r in gm.replicons.items()}
+    if consumed is not None and len(consumed) != n:
+        raise ValueError(f"consumed has {len(consumed)} entries for {n} rows")
+    rt_codon: list[str | None] = [None] * n
+    rc_codon: list[str | None] = [None] * n
     flags_out: list[str] = []
     for i in range(n):
         fl = _split_flags(in_flags[i])
+        sites_i = consumed[i] if consumed else ()
+        term = sorted({s.codon_start for s in sites_i if s.kind == "terminal"})
+        rec = sorted({s.codon_start for s in sites_i if s.kind == "recoded"})
+        if term:
+            fl.add("readthrough")
+            rt_codon[i] = ",".join(str(p + 1) for p in term)
+        if rec:  # rule 19: the consumed site's codon names the flag, never the query letter
+            fl.update(_RECODED_FLAG[s.codon] for s in sites_i if s.kind == "recoded")
+            rc_codon[i] = ",".join(str(p + 1) for p in rec)
         if multi[i]:
             fl.add("multi")
         if uniq[i] == "multi_identical":
@@ -459,6 +479,9 @@ def annotate_peptide_hits(
     df["uniqueness"] = pd.Series(uniq, index=df.index, dtype=object)
     df["flags"] = pd.Series(flags_out, index=df.index, dtype=object)
     df["novel_candidate_id"] = pd.Series([None] * n, index=df.index, dtype=object)
+    if consumed is not None:
+        df["readthrough_codon"] = pd.Series(rt_codon, index=df.index, dtype=object)
+        df["recoded_codon"] = pd.Series(rc_codon, index=df.index, dtype=object)
     sort_cols = ["peptide", "contig", "start", "strand", "end"]
     extra = [c for c in ("route", "search", "placement_q") if c in df.columns]
     if n:

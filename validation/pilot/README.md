@@ -243,6 +243,144 @@ sha256 of each input report and of the two tables written from it:
   `acquisition.json`, so one contract check was skipped. Their outputs were overwritten by the
   runs above.
 
+## A3 de novo (M10-08)
+
+Arm A3 runs Cascadia 0.0.7 (Apache-2.0, PyPI wheel pinned by sha256 in `workflow/envs/cascadia.yml`)
+on per-window mzML converted with TIMSCONVERT 2.0.0 and pyTDFSDK (Apache-2.0; the bundled Bruker
+TDF-SDK is used under Bruker's licence, accepted by Khoa, and never redistributed: ADR-0054). The
+weights (`cascadia.ckpt`, Apache-2.0, from the authors' Drive folder) and the Unimod table (from
+psims 1.4.0) are pinned by sha256 and bytes in `a3_assets.tsv`; nothing of either is committed.
+The env locks are `workflow/envs/locks/{cascadia,timsconvert}.{explicit,pip}.txt`.
+
+```bash
+# the env: the PyTorch 2.0 CUDA 11.8 build only solves on a CPU node with the virtual package set
+CONDA_OVERRIDE_CUDA=11.8 sbatch scripts/slurm/build_envs.sbatch cascadia timsconvert
+A3_WEIGHTS_HOST_OK=1 sbatch scripts/slurm/fetch_a3_assets.sbatch     # verified copies (R6)
+sbatch scripts/slurm/mzml_pilot.sbatch WT_1                          # .d -> mzML, then mzml-check
+RUN=WT_1 sbatch --time=04:00:00 scripts/slurm/denovo_pilot.sbatch cascadia   # 1 GPU, offline Unimod
+python validation/pilot/a3_feasibility.py evaluate $GIAP_ROOT/pilot/A3_cascadia/WT_1/WT_1.ssl \
+  --run WT_1 --out validation/pilot/metrics/a3_feasibility.json \
+  --route B2 --route-version <commit> --weights-sha256 <sha> --mzml-sha256 <sha> \
+  --mzml-check $GIAP_DATA_DIR/pxd078459/mzml/WT_1.mzml_check.json --job-id <id> \
+  --date <YYYY-MM-DD> \
+  --detail $GIAP_ROOT/pilot/A3_cascadia/WT_1/feasibility_top1000.tsv
+```
+
+The verdict is rule L6 on WT_1 (spec M10-08): fail when fewer than 500 distinct 7-30-mers pass
+Cascadia's own cut-off (0.8), or fewer than 20 % of the top 1,000 match the Nissle six-frame
+translation exactly; exit 0 pass, 3 fail. `early-fail --reason … --evidence …` records E1-E3.
+`metrics/a3_feasibility.json` holds aggregates only; the job IDs, wall times, sizes and the
+verdict itself come from the smoke run (pending). `--date` defaults to today (UTC); pass it so a
+rerun is byte-identical.
+
+## Pass-1 runs (M10-04)
+
+§15.2 step 8 for arms A1 and A2, then `giap compare` (the first and third §15.6 criteria; spec
+`docs/specs/M10-04-pilot-runs.md`). This section holds provenance only: job IDs, commits, states,
+exit codes, runtimes, memory, sha256s and byte sizes. No biological number is committed here (Q-K1);
+those belong to M10-05's `REPORT.md`. The run directories, the comparison, the evidence JSON and
+`ATTEMPTS.tsv` stay under `$GIAP_ROOT/runs/pilot/pass1/` and are not committed (Khoa,
+2026-10-23). Pass-1 outputs may carry `uncalibrated` flags; that is expected, because the
+M6/M7/M8 hardening is still open.
+
+```bash
+P=$GIAP_ROOT/pilot/inputs; R=$GIAP_ROOT/runs/pilot/pass1
+G=$GIAP_REPO/tests/data/genomes/nissle1917.fna.gz
+sbatch -J giap-run-pilot-a2 scripts/slurm/giap_run.sbatch \
+  --genome $G --annotation $P/nissle1917.bakta.json --peptides $P/a2.tsv.gz \
+  --db-dir $GIAP_DB_DIR --threads 14 --memory 54.GB --outdir $R/out_a2
+sbatch -J giap-run-pilot-a1 scripts/slurm/giap_run.sbatch \
+  --genome $G --annotation $P/nissle1917.bakta.json --peptides $P/a1.tsv.gz \
+  --db-dir $GIAP_DB_DIR --threads 14 --memory 54.GB --outdir $R/out_a1
+sbatch -J giap-pilot-compare scripts/slurm/pilot_compare.sbatch $R/out_a1 $R/out_a2 $R/cmp_a1_a2
+python validation/pilot/run_evidence.py arm $R/out_a1 --arm A1 --job JOBID \
+  --expect-commit SHA --expect-input genome=SHA --expect-input annotation=SHA \
+  --expect-input peptides=SHA --out $R/evidence/a1.json
+```
+
+Both arms ran with the profile `farmshare,apptainer`, the default modules (`modules_off` empty),
+the default seed 20261014, the default `--genome-relation related`, no `--abundance` and no
+`--strict`. Both used the recorded Bakta 1.12.2 annotation (DB 6.0, full), decompressed once to
+`$GIAP_ROOT/pilot/inputs/nissle1917.bakta.json` (read-only), with no live `BAKTA` task. Both
+used detection tier `decoy_picked`. The accepted attempts ran at commit
+`6f969ee79d579d4bdb429be6f156679d644b2b51` from the clean pinned worktree `pilot-6f969ee7`
+(`git_dirty` false).
+
+### Inputs (sha256 from `run_manifest.json`)
+
+| role | file | sha256 |
+|---|---|---|
+| genome | `tests/data/genomes/nissle1917.fna.gz` | `fe74801661e688a525eef7a7a6be6210659ebc9a2e61691efb1f10b65ea623ee` |
+| annotation | `nissle1917.bakta.json` (13,668,551 bytes) | `cf7de472a179ae122c085d33995e1b8399048a24d250b15e4c3d82e5e41f1ee3` |
+| peptides A1 | `a1.tsv.gz` | `81818184f0cd222f091ae6b835ff72cc5743b6ce7e6403e7a2cb1740bbf24f3a` |
+| peptides A2 | `a2.tsv.gz` | `1eb5e1e9a8855fc8ac62bed4d60f2715f9270f2b96f40206dd35a3a754adf14f` |
+
+The peptide hashes equal the M10-03 conversion table above. The assembly has a chromosome and
+three circular plasmid records, not the "pMUT1 and pMUT2" named in §15.1. The runs use the assembly
+as committed, and M10-05 reports plasmid genes per replicon, not per plasmid name.
+
+### Attempts (every submission)
+
+| arm | attempt | head job | class | commit | state | exit | elapsed | MaxRSS (head) | node | rule set | outcome |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| A2 | 1 | 1892236 | fresh | `0667e366` | COMPLETED | 0:0 | 01:52:31 | 1200512K | barley-03 | A: `commit_mismatch` | superseded; kept as `out_a2_0667e366` |
+| A1 | 1 | 1892719 | fresh | `6f969ee7` | COMPLETED | 0:0 | 01:37:08 | 1384424K | wheat-02 | A: pass | **accepted**, `out_a1` |
+| A2 | 2 | 1892882 | fresh | `1549a930` | COMPLETED | 0:0 | 03:08:09 | 1229680K | wheat-02 | A: `commit_mismatch` | superseded; kept as `out_a2_1549a930` |
+| A2 | 3 | 1893676 | fresh | `6f969ee7` | COMPLETED | 0:0 | 01:43:45 | 1233216K | wheat-08 | A: pass | **accepted**, `out_a2` |
+| compare | 1 | 1894360 | fresh | `5d1cf8d3` | COMPLETED | 0:0 | 00:00:17 | 268924K | wheat-08 | C: pass | **accepted**, `cmp_a1_a2` |
+
+- **A2 attempt 1 (job 1892236):** a main merge landed between the two arms, so this attempt ran at
+  `0667e366` while A1 ran at `6f969ee7`. Rule A3 fails, so the attempt is superseded.
+- **A2 attempt 2 (job 1892882):** `giap_run.sbatch` set `GIAP_REPO` to the pinned worktree, but it
+  imported the shared venv's editable `giap` from the main checkout, so the manifest records
+  `1549a930`. The diff `6f969ee7..1549a930` touches only the cascadia and timsconvert lock files,
+  but the gate stands (R3) and rule A3 fails. Since this run, `giap_run.sbatch` on main pins
+  `PYTHONPATH` to `GIAP_REPO`.
+- **A2 attempt 3 (job 1893676):** `PYTHONPATH` pinned to the worktree; rule set A passes.
+- A2 used all three of its R9 attempts (two commit mismatches, then a pass); A1 used one. No
+  attempt was a `--resume`.
+- Both superseded directories were renamed from `out_a2` after their runs (their manifests'
+  `command_line` says `out_a2`). Their rule set A evidence is `evidence/a2_0667e366.json` and
+  `evidence/a2_1549a930.json`.
+- The compare job was submitted from the `spec-m10-04` worktree with `GIAP_REPO` exported. Its
+  head was `5d1cf8d3` at submission; the job itself does not record a commit.
+
+### Resources (§15.5, the runtime and memory metric)
+
+| arm | head job | task max AllocCPUS | task peak MaxRSS | top steps by wall time (`measure_runtimes.py`) |
+|---|---|---|---|---|
+| A1 | 1892719 | 14 CPUs | 10,597,531,648 bytes | terminatornet 1:08:26, promoter_calculator 0:17:17, determinants_step 0:10:24, sensitivity 0:10:07, function_step 0:02:10 |
+| A2 | 1893676 | 14 CPUs | 10,301,911,040 bytes | terminatornet 1:10:54, promoter_calculator 0:18:47, determinants_step 0:15:06, sensitivity 0:09:22, promotech 0:03:39 |
+
+No task failed or was retried in either accepted arm. Both head runs took under 2 h, well below
+MVP-04's expected range of 3 h to 8 h; TerminatorNet dominates the wall time.
+
+### Reports
+
+| subject | file | sha256 | bytes |
+|---|---|---|---|
+| A1 | `out_a1/report/report.html` | `3005b2c2d2efab68eded2afb15d68c483c79461e8fcd05b86795a2e71d0f4c26` | 20,686,264 bytes |
+| A2 | `out_a2/report/report.html` | `8b2ab25820ef2c551ea9d92b55d18b4bc82a9d64db390db9e46b779951b546bd` | 20,693,932 bytes |
+| compare | `cmp_a1_a2/report/compare.html` | `b477574b65e4c6dd9b10971ce0923a57ae6908e904773dd1e10d882ff0f25f7d` | 5,199,817 bytes |
+| compare | `cmp_a1_a2/plots/V16_compare.svg` | `91583ab11241ac0e160841da65b88fa8962915055a98fff5a41ccc9e77a6f27d` | 253,809 bytes |
+| compare | `cmp_a1_a2/tables/compare_detection.tsv` | `ed2998b09c790f4053dcb6b4b6038dc3abcb82a8b69042312403ebaba2c2abb6` | 422,450 bytes |
+| compare | `cmp_a1_a2/tables/compare_abundance.tsv` | `3aa654ebe3228517b27e8988e6ec551752cc0d034923f6504031e2467992e418` | 214 bytes |
+| compare | `cmp_a1_a2/tables/compare_stability.tsv` | `ba83f391498ee8206c64b40ed0f1b3351731208090500a7a1b0d594b3a3bcc81` | 230 bytes |
+
+The second `giap compare` (into `$TMPDIR/cmp2`) was byte-identical (rule C6).
+
+### Evidence verdicts
+
+`evidence/a1.json`, `evidence/a2.json` and `evidence/compare.json` all have `failures: []`.
+Warnings are recorded, not failed:
+
+- Both arms warn `novel_orfs.decoys_not_makedb` and `region_layer.layer_missing`.
+- A2 also warns `novel_orfs.layer_missing`.
+- `layers_missing` lists `antismash` in both arms. The head log says that the precomputed
+  `bakta_json` has no GBFF next to it, so antiSMASH was skipped. The `bgc` module was on, but the
+  antiSMASH layer did not run in these runs (a backlog finding, not a rule failure).
+- A2 also lacks `rbs_novel`, and its novel-ORF promoter and RBS layers were skipped (`not_run`).
+
 ## Running the pilot (§15.2 steps 4-9)
 
 Every step is a batch job; nothing runs on a login node or in the session allocation.
@@ -274,6 +412,12 @@ sbatch scripts/slurm/benchmark_standard.sbatch
 All three runs use the default `--genome-relation related`. Step 8 ends with
 `validation/pilot/REPORT.md` (§15.5-15.7); the free-entrapment estimator of §15.5 metric 8 lives in
 `validation/pilot/entrapment.py`.
+
+The gate report is `metrics.py render --final --runbook validation/pilot/reproduce.md` (M10-15);
+`review_packet.py` builds Khoa's review packet under `local/review/m10-pilot/`. One caveat of
+`--final`: an absent path under a block that carries a finding reason (for example a mistyped
+`m8.peptide.fdp_combinedd` under `reason: empty_discoveries`) renders `not evaluable (<reason>)`
+rather than failing. Reason-only blocks need this, so check template paths by eye (review N3).
 
 ## Who does what
 

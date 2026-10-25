@@ -59,12 +59,24 @@ def test_src_and_validation_never_import_pilot_tools() -> None:
     assert not bad, bad
 
 
+#: scripts that run inside the giap-cascadia env with ``python -I`` (the launcher, and the CPU
+#: array's prep/work/merge driver, which installs the launcher's offline guard first)
+CASCADIA_SIDE = {LAUNCHER.resolve(), (REPO / "scripts" / "pilot" / "cascadia_shards.py").resolve()}
+
+
 def test_only_the_launcher_imports_cascadia() -> None:
     assert "cascadia" in _imports(require(LAUNCHER, "deliverable 4"))
     others = [p for p in _tracked("scripts") if p.endswith(".py")
-              and (REPO / p).resolve() != LAUNCHER.resolve()
+              and (REPO / p).resolve() not in CASCADIA_SIDE
               and "cascadia" in _imports(REPO / p)]  # fmt: skip
     assert not others, others
+
+
+def test_the_shard_driver_installs_the_offline_guard_before_cascadia() -> None:
+    text = (REPO / "scripts" / "pilot" / "cascadia_shards.py").read_text()
+    assert "cascadia_offline.install(" in text
+    main = text[text.index("def main(") :]
+    assert main.index("cascadia_offline.install(") < main.index("a.cmd ==")
 
 
 _NEVER = re.compile(
@@ -96,7 +108,7 @@ def test_adr_m10_b_drafted() -> None:
     assert len(adrs) == 1, "deliverable 11: docs/adr/ADR-NNNN-a3-external-artefacts.md"
     text = adrs[0].read_text()
     assert re.match(r"ADR-\d{4}-", adrs[0].name)
-    assert re.search(r"^- Status: proposed", text, re.M)
+    assert re.search(r"^- Status: (proposed|accepted-by-khoa)", text, re.M)
     assert re.search(r"^- Needs Khoa: yes", text, re.M)
     for needle in ("TDF-SDK", "drive.google.com", "psims", "B2", "B1"):
         assert needle in text, needle

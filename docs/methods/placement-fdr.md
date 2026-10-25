@@ -300,7 +300,7 @@ ever reported as an absolute expectation, use W_L instead of N and flag low-comp
 ### Numerical accuracy of the Poisson-binomial
 
 `giap.stats.poisson_binomial` (shared with M4-02) computes the pmf by the standard DP
-pmf_{i+1}[j] = pmf_i[j](1 − p_i) + pmf_i[j − 1] p_i, O(n²) time, O(n) memory. Every step is a
+\(\mathrm{pmf}_{i+1}[j] = \mathrm{pmf}_i[j](1 - p_i) + \mathrm{pmf}_i[j - 1]\, p_i\), O(n²) time, O(n) memory. Every step is a
 convex combination of non-negative numbers, so there is no cancellation: each entry has relative
 error ≤ ≈ 2n·u (u = 1.1 × 10⁻¹⁶) whatever its size, and tiny tails stay exact to relative precision
 rather than to absolute 10⁻¹⁶. The cdf and sf are summed directly from the pmf (never 1 − the
@@ -809,3 +809,190 @@ db-strain suites had 0 false peptides in every list. The de novo error-model sui
 **Attack 5.** Its FDP gate is a smoke check as well. Its content is the decoy-count documentation:
 de novo reversed stretches searched with reverse decoys inflate the m = 0 decoy count D
 (mean 9.1 reversed vs 0.5 shuffled per replicate). That is why de novo input uses shuffle decoys.
+
+## Annotated-stop read-through (M7-16a, ADR-0058)
+
+Code: `src/giap/mapping/readthrough.py` (sites, cells, mirrored cells), `tolerant_dp._verify_core`
+(the consumable-stop case), `tolerant.Search(marked)`, `frameshift._FSearch(marked)` and
+`nonfs_overlap`, `steps.mapping.sixframe_index` (index format 2, event `mapping.stop_sites`).
+Spec: `docs/specs/M7-16-stop-codon-readthrough.md`; review: statistician, 2026-10-24
+(`local/stat/m7-16-review.md`).
+
+**1. The rule.** Route 3 (tolerant) may consume a target `*` only at the annotated stop codon of a
+CDS or sORF: the last codon of the feature, on its strand, in its frame. Pseudogenes are excluded,
+and a feature whose last codon is not a table-11 stop (for example a partial gene at a contig
+edge) is skipped and counted (`not_a_stop`). The codon is marked at every copy in the
+origin-extended frames of a circular replicon. The only move over a marked cell is a substitution
+of one query residue (any letter, U and X included) at cost 1, recorded as `substitution`; no
+match, swap, block or near-block reads it, and every other `*` and every `X` stays unconsumable.
+The exact route and the frameshift sides never consume a stop; the frameshift precedence check
+does see read-through alignments. Peptides shorter than 10 aa never reach route 3
+(`mapping.tolerant.min_len`), so a stop-spanning peptide of 7–9 aa is never placed; at 10–11 aa
+(k = 1) the stop is the only allowed difference.
+
+**2. Counts are exactly symmetric.** Each decoy frame carries the target frame's number of marked
+cells: `reverse` maps cell p of an n-residue frame to n − 1 − p, `shuffle` keeps p (stops keep
+their positions). Every mirrored cell holds `*`, so the stop-free run lengths on each side are the
+same, origin copies included. `mirror_cells` raises if a mirrored cell is not a stop, draws no
+randomness, and the decoy frames are byte-identical to index format 1 for the same seed.
+
+**3. Context mirroring and the measured ratios.** Under any i.i.d. peptide law the reverse decoy
+is exact (read-through D_rt/T_rt = 1 to 1e-16). The local context is mirrored, not kept:
+gene | `*` | 3′ flank becomes reversed flank | `*` | reversed gene. Under a law that is not
+reversal-symmetric (tryptic, C-terminal K/R) the per-genome read-through D_rt/T_rt was 0.52–1.89
+(reverse) and 0.58–1.74 (shuffle) on three giapsim 1-Mb genomes, and 0.81–1.15 (reverse) and
+1.14–1.42 (shuffle) on Nissle. The net effect on the total, (D_rt − T_rt)/T_regular, was at worst
+−9.4 × 10⁻⁴ (giapsim) and −1.3 × 10⁻⁴ (Nissle): exact expected chance mass, Slurm jobs 1889319
+(Nissle) and 1889320 (giapsim), script `local/stat/m7-16/rt_mass.py`. Job 1889319 used a local
+Bakta run with all four replicons linear (4,686 sites). On the committed recording
+`tests/data/recorded/bakta/1.12.2-full/nissle` (all circular; 4,689 sites, 3 `not_a_stop`) job
+1889965 reproduces them: reverse tryptic 0.81–1.14, shuffle tryptic 1.16–1.39, shuffle i.i.d.
+1.03–1.18, reverse i.i.d. exactly 1, worst net shift −1.3 × 10⁻⁴, read-through share
+0.035–0.082 %. The stressed arm's measured values are under item 8.
+
+**4. The added mass is an approximation, not a bound.** A window consumes a marked cell only if
+it contains it, with the other L − 1 residues within m − 1 differences. Relative to E(L, m) of
+§7.2.5 the added chance mass is approximately G/(N(1 − s)) at m = 1 and 2G/(N(1 − s)) at m = 2
+(G consumable cells, N six-frame positions, s the residue-match probability), independent of L
+and scaling with the gene density G/N. Measured realised shares of the target chance mass:
+0.04–0.08 % on Nissle and 0.05–0.20 % on giapsim 1 Mb (i.i.d. and tryptic laws; the top of the
+range is tryptic at m = 2). On another genome the share is approximately, not at most, the
+formula's value for its G/N.
+
+**5. The read-through ratio is not a subset FDR.** D_rt/T_rt does not estimate the false discovery
+rate of the read-through placements. The list FDR (per decoy type and stratum) does not control
+that subset, and no output, table or report may present the ratio as one (R3).
+
+**6. Expected false read-through placements per run** are about α · T_acc(m ≥ 1) · ρ, where
+T_acc(m ≥ 1) is the number of accepted target placements in strata 1–2 and ρ ≈ 10⁻³ is the
+read-through share of the chance mass. That is ≪ 1 for any realistic run, but it is not a
+per-site guarantee.
+
+**7. Power.** A true read-through peptide with no other difference lands in stratum 1 with
+π̂ = 1 and the +1 in the decoy count. By Appendix B.6 a stratum-1 list with fewer than about 100
+targets ahead of its first decoy accepts none, so `cterm_extension` has low power on small inputs
+by design. This is a statement, not a change.
+
+**8. What the suites show.** The estimator, strata, π̂ and the ranking score E are unchanged
+(no tolerance, bound, α or R changes).
+
+- *Regression-only* (byte-identical by construction: `cells=None` or no matcher):
+  `test_tolerant_recall.py`, `test_placement_fdr_genome.py`, `test_placement_fdr_lists.py`,
+  `attacks/test_attack_placement_*`. They cannot see the rule and are regression evidence only.
+- *Exercised* (`run_chain`, reaching `sixframe_index → map_tolerant` with cells):
+  `test_placement_fdr_sim.py`, `test_denovo_precision_sim.py` and attack 5. Fast tier (R = 50,
+  100 kb): main 1890006, branch 1890007. Full tier (R = 300, 1 Mb): main 1890009, branch 1890010.
+  All 10 tests pass in each of the four runs.
+  - Every FDP per decoy type, stratum and level is unchanged to 4 significant digits; the largest
+    change is 4.4 × 10⁻¹⁰.
+  - The de novo precision diagnostics, the stratum-0 estimate checks and the attack-5 decoy
+    documentation are identical.
+  - Accepted target rows that consumed a cell, per replicate at q 0.01 / 0.05 / 0.10:
+    - 0 in every suite at 100 kb, except `related_other_strain` (0–1, 2 rows in 2 of 50
+      replicates);
+    - at 1 Mb, `related_other_strain` 0–5 (200 / 221 / 224 rows; 165 of 300 replicates);
+    - attack 5 0–1 (2 rows);
+    - 0 elsewhere.
+  - All of them are true placements: FDP and the false-peptide exercise are unchanged, and the
+    accepted counts rise by exactly those rows.
+  - Counts come from an observer of `run_chain`: best-cost target rows whose window holds a target
+    cell (`holds_cell`) among peptides with m_target ≥ 1 and placement_q ≤ q.
+- *Stressed arm* (`test_readthrough_stressed.py`; dense 30–40-codon genes, reduced-alphabet coding
+  frame, reverse arm on database input and shuffle arm on de novo input; criteria m ≥ 1 FDP ≤
+  q + `se_multiplier` · SE at every level and mean(D_rt) ≥ mean(T_rt) − `se_multiplier` · SE; a
+  negative control without decoy cells must fail the balance criterion). Fast tier (R = 50,
+  Slurm job 1889791, about 9,250 cells per replicate):
+
+  | arm | mean T_rt | mean D_rt | SE(D − T) | read-through share | control D_rt | mean FDP at q 0.01 / 0.05 / 0.10 |
+  |---|---|---|---|---|---|---|
+  | reverse (database) | 121.6 | 125.4 | 1.95 | 1.98 % | 0 (fails, as required) | 0.0043 / 0.024 / 0.057 |
+  | shuffle (de novo) | 123.6 | 391.0 | 2.83 | 2.02 % | 0 (fails, as required) | 0.0070 / 0.036 / 0.083 |
+
+  Shuffle D_rt ≈ 3 × T_rt comes from the build, not the cells: every stressed gene's stop is
+  followed 1–3 residues later by the next gene's start `M`, which the K/P/Y/F peptides never
+  match, so a target window past the stop spends its second difference on it, while the shuffle
+  moves the `M`. Exact chance mass gives shuffle D/T 2.6–3.6 as built and 0.97 with the start ATG
+  replaced by AAA; reverse is 1.000 either way. It is conservative, but it means the stressed
+  shuffle arm alone cannot see a partial loss of shuffle cells (up to about 2/3); the reverse arm,
+  the no-cells control and the attack's structural checks cover that.
+- *Statistician's attack* (`attacks/test_attack_readthrough_decoys.py`, Slurm 1889956, fast and
+  full pass): exact expected chance mass on the cells `sixframe_index` writes, L 10, 11, 12, 16.
+  Reverse i.i.d. D_rt = T_rt to rtol 1e-9 in every replicate. Shuffle i.i.d. mean D_rt/T_rt on
+  giapsim 100 kb is 0.97–1.07 (fast, R 50) and 1.03–1.09 (full, R 300); the tryptic worst net
+  shift is −2.2 × 10⁻⁴ against the one-sided margin (≥ −0.01). Cell counts and consumable windows are equal in
+  target, reverse and shuffle at every L. Each broken build fails: no decoy cells, target cells
+  reused for the reverse decoy, a reverse mirror off by one.
+- *Stressed arm*, full tier (R = 300, job 1890008):
+  - reverse: T_rt 123.0, D_rt 125.1 (SE 0.92), FDP 0.0038 / 0.024 / 0.057;
+  - shuffle: T_rt 122.9, D_rt 390.1 (SE 1.41), FDP 0.0067 / 0.036 / 0.081;
+  - read-through share 2.0 %; both controls fail, as required;
+  - accepted target rows that consumed a cell 0–5 (reverse) and 0–7 (shuffle) per replicate at
+    q 0.10.
+- *Regression-only*, fast tier: branch 1890013 and main 1890090, both 37 passed and 1 xfailed.
+  The gate records are identical apart from durations.
+
+  Accepted target rows that consumed a cell, per replicate at q 0.01 / 0.05 / 0.10: 0–1 / 0–2 /
+  0–3 (reverse) and 0–1 / 0–2 / 0–5 (shuffle). The shuffle arm's D_rt is about 3 × T_rt in this
+  dense build: conservative in the direction the check guards (cause: the next gene's start `M`, explained
+  under the table above). As item 5 says, neither ratio is a
+  subset FDR.
+- *Decoy-balance check* (`test_readthrough_decoy_balance.py`, giapsim 1 Mb null genomes, one-sided,
+  may be vacuous): fast tier (R = 50, job 1889791) **vacuous** for both decoy types, as expected:
+  T_rt = D_rt = 0, read-through share 0 (mean false target placements T 0.38 reverse, 14.7
+  shuffle; about 905 cells per genome).
+
+### 16c: annotated recoded codons (ADR-0058 item 6; pre-code check, 2026-10-25)
+
+16c adds a `recoded` site for every internal codon of a CDS/sORF whose Bakta protein has `U` over
+TGA or `O` over TAG. The cells and mirrored cells are built by the same `frame_cells` →
+`mirror_cells` path, so items 1–7 apply unchanged.
+
+- **Counts.** Nissle has 3 recoded sites (fdnG JMJJOG_02511 and JMJJOG_04733, fdhF JMJJOG_04490).
+  K-12 MG1655 also has 3 (KOIAIB_01574, KOIAIB_04147, KOIAIB_04360). All are `U` over TGA, and
+  none is near an origin, so each has one cell. giapsim has none by default, and no genome has a
+  Pyl site.
+- **Symmetry.** Each decoy type gets the same 3 cells, each holding `*`, and the consumable
+  windows are equal in all spaces (3·L).
+- **Added chance mass**, measured by the exact-mass method of the attack at L 10, 11, 12 and 16:
+  - 1.2–3.2 × 10⁻⁷ of the regular mass;
+  - reverse i.i.d. D_rt = T_rt exactly;
+  - worst net shift (D_rt − T_rt)/T_reg between −7.5 × 10⁻⁷ and +2.0 × 10⁻⁶ (shuffle and
+    tryptic laws).
+- **Context.** It is coding on both sides of the cell. The shuffle i.i.d. ratio on these 3 sites
+  (0.29–0.98) reflects the conserved `…ARVUHGP…` motif of two homologous families on one shuffle
+  draw. It is not a property of the cells, and its effect on the list is about 10⁻⁷.
+- **Consequences.** The list FDR, strata, π̂ and E are unaffected. True Sec peptides are ordinary
+  cost-1 placements (item 7). The `sec_site`/`pyl_site` rows are, like `readthrough`, a subset of
+  a list accepted at q, and that subset is not FDR-controlled (items 5–6).
+- **Evidence.** The M3-21 giapsim suites cannot see these cells (no U unless `n_selenoproteins`
+  > 0), so in 16c they are regression evidence only. The evidence is attack (d) in
+  `attacks/test_attack_readthrough_recoded.py` (next to the 16a attack, whose helpers it reuses):
+  - **d1** giapsim, `n_selenoproteins = 60` (60 recoded and ~117 terminal target cells per
+    replicate), masses split into recoded and terminal-only windows. Full tier, R = 300: reverse
+    i.i.d. exact on both parts in every replicate; shuffle i.i.d. mean D_rec/T_rec 1.036–1.080
+    per L (95% CI lower ends 0.993–1.025; bound 1 − EQUIV − 2 SE ≈ 0.93–0.95); tryptic net
+    shift of the recoded part between −8.5 × 10⁻⁵ and −2 × 10⁻⁷ of T_reg (margin −0.01).
+    Structural equality per kind in every replicate, and the index's recoded sites equal
+    `truth/selenoproteins.tsv`.
+  - **d2** each broken build fails in 300 of 300 replicates: decoys from terminal cells only
+    (fails (a) and the structural check), recoded cells mirrored to n − p (fails (a)), target
+    without recoded cells (fails the structural check).
+  - **d3** Nissle and K-12: 3 recoded cells plus 4,689 / 4,369 terminal cells in every space,
+    all on `*`, equal consumable windows per kind (30/33/36/48 recoded at L 10/11/12/16);
+    reverse i.i.d. exact; recoded-part net shifts between −6.8 × 10⁻⁷ and +2.0 × 10⁻⁶.
+  - **d4** the variants chain's `site_keys` equal the index's sites (30 giapsim worlds and both
+    recordings).
+
+  Slurm 1893261 (fast, R = 50) and 1893260 (full, R = 300), both on 8ca2739b, all pass. Session
+  check: `local/stat/m7-16c-quick-check.md`.
+
+### 16b reporting: the `readthrough` flag and the placement-kind counts
+
+A `peptide_hits.tsv` row whose accepted alignment consumes an annotated terminal stop cell carries
+the flag `readthrough` (and `mappings.gff3` the attribute `readthrough_codon`), computed from the
+sites the index was searched with. `detection_summary.tsv` counts distinct peptides by placement
+kind, tolerant diff type, placement flag and unmapped reason (section `qc`, metric `n_peptides`).
+These are counts, not rates or FDRs: `n` is the population the count comes from, never a
+denominator to report. The flagged rows are a subset of a list accepted at q, and the list FDR
+does not control that subset (items 5–6); no output describes the `readthrough` rows as accepted
+at q on their own.

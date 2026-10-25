@@ -29,6 +29,9 @@ sbatch scripts/slurm/giap_setup.sbatch        # giap setup --bakta light,full --
 - Never import GPL/AGPL/unlicensed tools (scripts/ci/check_imports.py).
 - The simulator in tests/sim/ (giapsim) is tooling: the implementer writes it, the test-author tests it.
 - Commit trailer `Agent-Role: <role>`; conventional commits; PRs ≤ ~400 lines.
+- Changelog: a PR touching src/ or workflow/ adds `changelog.d/<PR>.<type>.md` or `+<slug>.<type>.md` (or label `no-changelog`, then push again); CI guards fails otherwise (M11-12).
+- Releases (M11-05): agents never push tags and never dispatch `release.yml` with `dry_run=false`;
+  only Khoa publishes.
 - Shared cluster (R14): jobs named `giap-*`, ≤ 128 CPUs / 4 GPUs / 20 jobs, large files only under $GIAP_ROOT.
 
 ## Definition of done (module): spec §14.9

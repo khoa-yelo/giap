@@ -82,7 +82,8 @@ twin of the concordance scatter, `compare_abundance` table with BA columns), `st
      `genes.tsv`. ADR-0046 is amended (lead-level) so V16 also reads per-gene log2 from each run.
    - V16 is registered under the name `compare`. On ordinary runs its `(view, cfg)` returns a
      `Skip` with the reason "written by giap compare". Hiding that skip from the run report is a
-     backlog item.
+     backlog item. *Amended 2026-10-24 (lead, #323):* the reason is the vocabulary form
+     `input_absent:compare`, so the M9-24 checklist sweep's declared reasons cover it.
    - The "detection tier per run" in the runs section is the `detection_tier` of each run's
      `detection_summary.tsv`. No test pins it yet; that is a backlog item.
    - The `# ruff: noqa: RUF001-003` line for ρ is accepted.

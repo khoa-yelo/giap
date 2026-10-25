@@ -146,14 +146,15 @@ def test_a_verdict_still_xpasses_strictly(tmp_path: Path) -> None:
 # --------------------------------------------------------------------------- lead decision 7
 
 #: a dirty shard is a verdict for A6a: one unflagged row anywhere fails the zero-tolerance check,
-#: so the shard reports the ADR-0049 XFAIL, never a skip (code review B3, surviving mutant)
+#: so the shard reports a failure, never a skip (code review B3, surviving mutant). The fast A6a
+#: test is no longer an ADR-0049 xfail (implemented in #269), so that verdict is a plain failure.
 
 
-def test_a6a_shard_with_one_unflagged_row_is_xfailed_not_skipped(tmp_path: Path) -> None:
+def test_a6a_shard_with_one_unflagged_row_fails_not_skipped(tmp_path: Path) -> None:
     out = run_gate(tmp_path, "test_a6a_isobaric_rows_flagged", C.SHARD_STATUS,
                    {**SHARD, "STUB_A6A": "unflagged"})  # fmt: skip
-    assert out.get("xfailed") == 1 and "skipped" not in out, out
-    assert out["exit"] == 0, out
+    assert out.get("failed") == 1 and "skipped" not in out, out
+    assert out["exit"] != 0, out
 
 
 #: confirm runs rerun block 2 of the listed harness checks only; a test that bypasses the harness

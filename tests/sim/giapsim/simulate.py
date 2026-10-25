@@ -31,9 +31,16 @@ from giapsim.codons import SENSE_USAGE, STOPS, revcomp
 from giapsim.denovo import DenovoConfig, simulate_denovo
 from giapsim.features import NOVEL_CLASSES, Block, Feat, coding, make_blocks, novel_orfs
 from giapsim.proteomics import ProteomicsConfig, simulate_proteomics
+from giapsim.readthrough import (
+    READTHROUGH_COLUMNS,
+    ReadThrough,
+    pick_readthrough,
+    readthrough_rows,
+)
 from giapsim.scenario_truth import plant_novel_rbs, strong_tirs, write_m7_truth
+from giapsim.selenoproteins import SEC_COLUMNS, plant_selenoproteins
 from giapsim.signals import TuPlan, apply_plan, plan_tu, plant_gene_rbs
-from giapsim.strain import StrainConfig, derive_reference
+from giapsim.strain import STOP_LOSS_COLUMNS, StrainConfig, derive_strain, stop_loss_rows
 
 __all__ = [
     "SIM5M",
@@ -121,6 +128,11 @@ class SimConfig:
     # (mu, sigma) of the log TIR of planted novel starts in rbs_novel (M7-12 decision 14); the
     # default is the first-round TU RBS distribution; used only with plant_novel_rbs
     planted_tir: tuple[float, float] = (8.0, 0.8)
+    # M7-16c: annotated CDSs with one Sec (U over TGA) codon; 0 = off (nothing drawn)
+    n_selenoproteins: int = 0
+    # M7-16 rule 14: genes whose expressed protein reads through the annotated stop to the next
+    # in-frame stop 5-60 codons on (giapsim.readthrough); 0 = off
+    n_readthrough: int = 0
 
     @property
     def v2(self) -> bool:
@@ -144,8 +156,12 @@ class SimConfig:
             object.__setattr__(
                 self, name, tuple(v.items() if isinstance(v, Mapping) else map(tuple, v))
             )
+        if self.n_readthrough < 0:
+            raise ValueError("n_readthrough must be >= 0")
         if self.denovo is not None and self.proteomics is None:
             raise ValueError("denovo needs SimConfig.proteomics")
+        if self.n_selenoproteins < 0:
+            raise ValueError("n_selenoproteins must be >= 0")
         if set(dict(self.n_novel_orfs)) - set(NOVEL_CLASSES):
             raise ValueError(f"n_novel_orfs keys must be among {NOVEL_CLASSES}")
         bad = set(dict(self.overlap_bp)) - _FEASIBLE_OVERLAPS
@@ -548,6 +564,8 @@ def _signal_truth(st: _V2, chrom: str, feats: list[Feat], seqs: dict[str, str]) 
 def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     """Simulate a genome with ``config`` and ``seed``; write inputs and truth under ``outdir``."""
     prot = config.proteomics
+    if config.n_selenoproteins and config.strain is not None:
+        raise ValueError("n_selenoproteins > 0 with strain is not supported (M7-16c rule 23)")
     if prot is not None and prot.wrong_source == "other_strain" and config.strain is None:
         raise ValueError("ProteomicsConfig(wrong_source='other_strain') needs SimConfig.strain")
     rng = np.random.default_rng(seed)
@@ -612,7 +630,10 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
     )  # fmt: skip
     mrng = np.random.default_rng([seed, _M7_STREAM])  # M7-12 draws; unused by older configs
     planted = plant_novel_rbs(mrng, seqs, novel, feats) if config.plant_novel_rbs else set()
+    sec_rows = plant_selenoproteins(config.n_selenoproteins, seed, seqs, feats, novel)
     text = {cid: s.decode() for cid, s in seqs.items()}
+    circular = {cid: topo == "circular" for cid, _, topo in contigs}
+    rt = pick_readthrough(config.n_readthrough, seed, feats, text, circular)  # M7-16 rule 14
 
     out = Path(outdir)
     (out / "truth").mkdir(parents=True, exist_ok=True)
@@ -634,14 +655,23 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         ],
     )
     ref_pseudo: dict[str, bool] = {}
+    planted_wrong: list[tuple[str, str]] = []  # rule-20 C-terminal peptides (wrong peptides first)
     lifted: list[Feat] | None = None
     strain_out: tuple[list[list[Any]], dict[str, str]] | None = None
     res = SimResult(
         out, fasta, bakta, truth, len(genes), gff, feat_truth, novel_truth, gff3=gff,
         truth={"genes": truth, "features": feat_truth},
     )  # fmt: skip
+    if config.n_selenoproteins:
+        sec_truth = out / "truth" / "selenoproteins.tsv"
+        _tsv(sec_truth, SEC_COLUMNS, sec_rows)
+        res = replace(res, truth={**res.truth, "selenoproteins": sec_truth})
     if config.strain is not None:
-        ref_seqs, lifted, rows = derive_reference(config.strain, seed, text, feats)
+        dg = ((7, 30), 1) if prot is None else (prot.digest_len, prot.missed_cleavages)
+        ref_seqs, lifted, rows, stop_loss = derive_strain(config.strain, seed, text, feats, dg)
+        if config.strain.n_stop_loss:  # M7-16 rule 20
+            sl_rows = stop_loss_rows(text, feats, lifted, stop_loss, dg)
+            _tsv(out / "truth" / "stop_loss.tsv", STOP_LOSS_COLUMNS, sl_rows)
         ref_fasta, ref_json = out / "reference.fasta", out / "reference_bakta_like.json"
         strain_truth = out / "truth" / "strain_differences.tsv"
         _write_fasta(ref_fasta, contigs, ref_seqs)
@@ -658,6 +688,7 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
         ]
         _tsv(strain_truth, header, rows)
         ref_pseudo = {g.locus: bool(g.extra.get("pseudo")) for g in lifted}
+        planted_wrong = [(pep, loc) for loc, pep in stop_loss.items()]
         strain_out = (rows, ref_seqs)
         res = replace(
             res, reference_fasta=ref_fasta, reference_json=ref_json, strain_truth=strain_truth
@@ -691,7 +722,9 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
                          config.planted_tir)  # fmt: skip
     if prot is not None:
         topo_map = {cid: topo for cid, _, topo in contigs}
-        paths = simulate_proteomics(prot, seed, out, feats, novel, text, topo_map, lifted)
+        rt_ext = {p.locus: (p.residue, p.extension) for p in rt}  # M7-16 rule 14
+        paths = simulate_proteomics(prot, seed, out, feats, novel, text, topo_map, lifted,
+                                    first_wrong=planted_wrong, readthrough=rt_ext)  # fmt: skip
         res = replace(
             res,
             peptides=paths["peptides"],
@@ -703,11 +736,31 @@ def simulate(config: SimConfig, seed: int, outdir: Path | str) -> SimResult:
             dp = simulate_denovo(config.denovo, seed, out)
             truth = {"denovo": dp["denovo"], "denovo_precision": dp["denovo_precision"]}
             res = replace(res, truth={**res.truth, **truth})
+    if rt:
+        _write_readthrough(out, rt, res.truth.get("peptides"), text, circular)
+        res = replace(res, truth={**res.truth, "readthrough": out / "truth" / "readthrough.tsv"})
     if config.m7_truth:
         requested = {**dict(config.n_novel_orfs), "nterm_extension": config.n_nterm_extensions}
         m7 = write_m7_truth(out, novel, feats, text, planted, strain_out, requested)
         res = replace(res, truth={**res.truth, **m7})
     return res
+
+
+def _write_readthrough(
+    out: Path,
+    rt: Sequence[ReadThrough],
+    peptides: Path | None,
+    text: Mapping[str, str],
+    circular: Mapping[str, bool],
+) -> None:
+    """``truth/readthrough.tsv`` (M7-16 rule 14), counting the spanning detected peptides."""
+    records: list[dict[str, str]] = []
+    if peptides is not None:
+        with peptides.open(newline="") as fh:
+            records = list(csv.DictReader(fh, delimiter="\t"))
+    lengths = {c: len(s) for c, s in text.items()}
+    _tsv(out / "truth" / "readthrough.tsv", list(READTHROUGH_COLUMNS),
+         readthrough_rows(rt, records, lengths, circular))  # fmt: skip
 
 
 def _write_v2(

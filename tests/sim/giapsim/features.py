@@ -52,6 +52,7 @@ class Feat:
     pseudo_reason: str = ""
     locus: str = ""
     tu: str = ""  # transcription unit of a laid-out gene (truth/genes.tsv); "" for planted ones
+    sec_residues: tuple[int, ...] = ()  # annotated residues expressed as U (M7-16c rule 23)
 
     def placed(self, contig: str, offset: int) -> Feat:
         ts = None if self.true_start is None else self.true_start + offset

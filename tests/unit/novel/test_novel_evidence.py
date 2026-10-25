@@ -244,11 +244,12 @@ def test_pseudogene_and_sorf_have_no_extra_rule(cls: str) -> None:
     assert _ce(r, rbs_min=None) == (True, [])
 
 
-def test_cterm_extension_is_never_passed() -> None:
-    """Decision 4: labelled when a peptide spans the annotated stop, never called before M7-16."""
+def test_cterm_extension_passes_only_when_a_peptide_spans_the_stop() -> None:
+    """M7-16 rule 12 (replaces decision 4's ``ok = False``): a peptide spanning the annotated stop
+    passes the class rule, labelled ``readthrough_candidate``; without one it does not pass."""
     r = row(**{"class": "cterm_extension"}, n_peptides=3, ostir_tir=9000.0, overlapping_gene="G")
     ok, labels = _ce({**r, "spans_annotated_stop": True})
-    assert ok is False and "readthrough_candidate" in labels
+    assert ok is True and "readthrough_candidate" in labels
     ok, labels = _ce({**r, "spans_annotated_stop": False})
     assert ok is False and "readthrough_candidate" not in labels
 
@@ -609,14 +610,17 @@ def test_pseudogene_and_sorf_called_on_detection_only(cls: str) -> None:
     assert r["called"] == True  # noqa: E712
 
 
-def test_cterm_extension_labelled_never_called() -> None:
+def test_cterm_extension_called_when_a_peptide_spans_the_stop() -> None:
+    """M7-16 rule 12: one of the two distinct peptides spans the stop [72, 75) and extends past it,
+    so the ORF is called (M7-11 decision 2: unestimated, >= 2 distinct peptides); with no
+    spanning peptide it is not."""
     case = ex1_case("cterm_extension", gene="G2")  # gene G2 + [42, 75): stop codon [72, 75)
     (orf,) = orfs_of(case)
     spans = {orf.orf_id: [Interval("c1", 72, 102, "+"), Interval("c1", 90, 111, "+")]}
     r = ex1_table(case=case, peptide_intervals=spans, tir={orf.orf_id: 9000.0},
                   best={orf.orf_id: 60})  # fmt: skip
     assert "readthrough_candidate" in flags_of(r)
-    assert r["called"] == False and is_na(r["rank"])  # noqa: E712
+    assert r["called"] == True and not is_na(r["rank"])  # noqa: E712
     inside = {orf.orf_id: [Interval("c1", 75, 102, "+"), Interval("c1", 90, 111, "+")]}
     r = ex1_table(case=case, peptide_intervals=inside, tir={orf.orf_id: 9000.0},
                   best={orf.orf_id: 60})  # fmt: skip

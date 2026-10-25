@@ -39,6 +39,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from functools import cache
 from math import comb
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -50,9 +51,12 @@ from giap.mapping.diffops import block_tables
 from giap.mapping.hits import hits_frame
 from giap.mapping.qgram import MAX_QUERY
 from giap.mapping.sixframe import Frame, SixFrameIndex, decode, encode_query
-from giap.mapping.tolerant import Search, budget, parse_max_diff
+from giap.mapping.tolerant import Search, budget, decoy_marks, parse_max_diff
 from giap.mapping.tolerant_dp import decode_key, exchange_lookup, rank_weight
 from giap.model.coords import Interval, Replicon
+
+if TYPE_CHECKING:
+    from giap.mapping.readthrough import StopCells
 
 __all__ = ["band_row", "match_frameshift", "nonfs_overlap"]
 
@@ -265,7 +269,9 @@ def nonfs_overlap(
             j = lo + x
             best = big
             t1 = int(text[fa + j - 1])
-            if t1 < nres:
+            if t1 == 22:  # READTHROUGH: a substitution, the only move over a consumable stop
+                best = p1[x - 1] + 1
+            elif t1 < nres:
                 v = p1[x - 1] + (0 if q1 == t1 else 1)
                 best = min(best, v)
                 if x >= 2:
@@ -521,8 +527,13 @@ def _choose_q(L: int, k: int, pmin: int, n_text: int) -> tuple[int, int]:
 class _FSearch:
     """One search space: frames (read in the search direction), q-gram indexes, strand groups."""
 
-    def __init__(self, frames: tuple[Frame, ...], replicons: Mapping[str, Replicon]) -> None:
-        self.base = Search(frames)
+    def __init__(
+        self,
+        frames: tuple[Frame, ...],
+        replicons: Mapping[str, Replicon],
+        marked: Sequence[np.ndarray] | None = None,
+    ) -> None:
+        self.base = Search(frames, marked)
         self.frames = frames
         groups: dict[tuple[str, str], int] = {}
         gfr: list[list[int]] = []
@@ -667,6 +678,7 @@ def match_frameshift(
     cfg: TolerantConfig,
     *,
     prefilter_min_hits: int = 256,
+    cells: StopCells | None = None,
 ) -> pd.DataFrame:
     """Frameshift-split target and decoy hits (``HIT_COLUMNS``, ``route = "tolerant"``).
 
@@ -676,7 +688,10 @@ def match_frameshift(
     ascending, unwrapped like ``start``/``end``); ``frame`` labels the prefix block. Rows are
     sorted by peptide, search (target first), decoy type, contig order, start, end, strand.
     ``prefilter_min_hits``: the hashed seed-bin prefilter runs for a query with more than this
-    many q-gram hits (it never changes the output, only the work done).
+    many q-gram hits (it never changes the output, only the work done). ``cells``: consumable
+    annotated stops (ADR-0058 item 3): split sides never consume them, but the precedence check
+    sees read-through alignments; each search marks its own cells (target, or the mirrored cells
+    of its decoy type in the search direction).
 
     Raises:
         ValueError: as :func:`~giap.mapping.tolerant.match_tolerant` (a ``decoy_of`` type without
@@ -707,33 +722,48 @@ def match_frameshift(
         return hits_frame()
 
     ex = exchange_lookup(block_tables())
-    # search spaces: (frames read in the search direction, kind, {peptide: searched text})
-    plans: list[tuple[tuple[Frame, ...], DecoyType | None, dict[str, str]]] = []
-    plans.append((index.frames, None, {p: t for p, t in norm.items() if p in target_queries}))
+    # search spaces: (frames read in the search direction, kind, {peptide: searched text}, marks)
+    Plan = tuple[tuple[Frame, ...], DecoyType | None, dict[str, str], tuple[Arr, ...] | None]
+    plans: list[Plan] = []
+    tmarks = None if cells is None else cells.target
+    targets = {p: t for p, t in norm.items() if p in target_queries}
+    plans.append((index.frames, None, targets, tmarks))
     for kind in sorted(decoys):
         frames = decoys[kind]
+        marks = None if cells is None else decoy_marks(cells, kind)
         if kind == "reverse":
+            if marks is not None:  # into the re-reversed orientation
+                marks = tuple(
+                    np.sort(len(f.aa) - 1 - m) for f, m in zip(frames, marks, strict=True)
+                )
             frames = tuple(_like(f, f.aa[::-1]) for f in frames)
             if all(np.array_equal(a.aa, b.aa) for a, b in zip(frames, index.frames, strict=True)):
                 frames = index.frames  # reversed reverse decoys are the target frames
         rev = kind == "reverse"
         texts = {p: t[::-1] if rev else t for p, t in norm.items() if decoy_of[p] == kind}
-        plans.append((frames, kind, texts))
-    found: dict[int, dict[str, np.ndarray]] = {}
-    spaces: dict[int, _FSearch] = {}
-    for frames, _, _ in plans:
-        if id(frames) in found:
+        plans.append((frames, kind, texts, marks))
+
+    def space_key(frames: tuple[Frame, ...], marks: tuple[Arr, ...] | None) -> tuple[object, ...]:
+        return (id(frames), None if marks is None else tuple(m.tobytes() for m in marks))
+
+    found: dict[tuple[object, ...], dict[str, np.ndarray]] = {}
+    spaces: dict[tuple[object, ...], _FSearch] = {}
+    for frames, _, _, marks in plans:
+        sk = space_key(frames, marks)
+        if sk in found:
             continue
-        wanted = {t for fr, _, texts in plans if fr is frames for t in texts.values()}
+        wanted = {
+            t for fr, _, texts, mk in plans if space_key(fr, mk) == sk for t in texts.values()
+        }
         if wanted:
-            spaces[id(frames)] = _FSearch(frames, index.replicons)
+            spaces[sk] = _FSearch(frames, index.replicons, marks)
             codes = {t: encode_query(t) for t in sorted(wanted)}
-            found[id(frames)] = spaces[id(frames)].run(codes, budgets, pmin, ex, prefilter_min_hits)
+            found[sk] = spaces[sk].run(codes, budgets, pmin, ex, prefilter_min_hits)
     rows: list[dict[str, object]] = []
-    for frames, kd, texts in plans:
+    for frames, kd, texts, marks in plans:
+        sk = space_key(frames, marks)
         for pep, t in texts.items():
-            fsr, got = spaces[id(frames)], found[id(frames)][t]
-            rows.extend(_rows_of(pep, t, got, fsr, index, kd))
+            rows.extend(_rows_of(pep, t, found[sk][t], spaces[sk], index, kd))
 
     contig_order = {c: i for i, c in enumerate(index.replicons)}
     rows.sort(

@@ -86,6 +86,16 @@ measured. A site-level rate needs tens of paired spectra per site, and a pilot r
 paired ALT-supporting spectra per site at most. The class rate is also a mixture across sites:
 a class dominated by one bad site inherits that site's rate.
 
+**Stop-codon sites (M7-16 rule 11).** A read-through site has REF `*` at an annotated terminal
+stop. It and the U-over-TGA / O-over-TAG zero-change ALTs are in class
+`(substitution, mass_equivalent = false)`, and their `class_error_rate` is that class's pooled
+rate. The rate is dominated by ordinary SNV sites and does not measure read-through reads: with a
+reference search on Bakta proteins, which end at the stop, every read-through read is in the
+degenerate case of bias 1 (the reference cannot contain the peptide). A second-pass search on a
+`makedb --patch` database does not lift this, since its identification carries `X` at the stop,
+which differs from every de novo residue. The rate feeds only `class_error_rate`/`CLASS_ERR`, never
+`confidence` (`high` = `n_alt` ≥ k), so TE2 does not depend on it.
+
 ### Calibration
 
 - `tests/calibration/test_variant_class_error.py`, no-variant arm: every ALT-supporting read is

@@ -330,7 +330,7 @@ edits M1–M6). Every ORA row carries `ora_uncalibrated` (see "Pass-1 limit").
   and both are sums of non-negative terms, never 1 − cdf.
 
 **Computation (exact; no approximation, no Monte Carlo).**
-1. **Truncated DP.** The convex-combination recurrence pmf[j] ← pmf[j](1 − q) + pmf[j − 1] q,
+1. **Truncated DP.** The convex-combination recurrence \(\mathrm{pmf}[j] \leftarrow \mathrm{pmf}[j](1 - q) + \mathrm{pmf}[j - 1]\, q\),
    numba-compiled and stopped at the highest index read. PB_C runs to min(|C|, N); PB_Ū is
    computed only on the band that the support reads.
 2. **Tilt, once per run.** `tilt_pair(q, N, comp=)` multiplies every TU odds q/(1 − q) by one

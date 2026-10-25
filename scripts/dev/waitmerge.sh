@@ -16,6 +16,12 @@ while true; do
     echo "NOT MERGED: Pull Request has merge conflicts (no CI run); merge the base branch first"; exit 1
   fi
   snap=$(gh pr checks "$pr" 2>/dev/null | cut -f1,2)
+  # Same snapshot as the checks: a needs-khoa PR waits for Khoa's recorded approval (M9-25).
+  labels=$(gh pr view "$pr" --json labels -q '.labels[].name' 2>/dev/null) || {
+    echo "NOT MERGED: could not read the labels of #$pr"; exit 1; }
+  if printf '%s\n' "$labels" | grep -qx 'needs-khoa'; then
+    echo "NOT MERGED: #$pr carries the needs-khoa label (merge only after Khoa's recorded approval)"; exit 1
+  fi
   n=$(printf '%s\n' "$snap" | grep -c .)
   if [ "$n" -ge "$expected" ] && ! printf '%s\n' "$snap" | cut -f2 | grep -qE 'pending|queued|in_progress'; then
     break

@@ -110,3 +110,10 @@ or, when a stratum is NA, "… stratum 2 unestimated (no targets)".
    - the matching keys: `sequence` for peptides, `sequence_id` for proteins;
    - `contaminant_id` counts as contaminant;
    - placed is `#0072B2`, and the other outcomes take the next Okabe–Ito colours in palette order.
+
+**Amendment (lead, 2026-10-24, viz batch 2 on the M9-25 fixtures).** When `mapping_fdr` has no rows
+at all (no placements and no de novo precision), V06 is the whole-figure empty state "No peptide
+placements or de novo precision in this run", with a header-only TSV (M9-01 decision 9, M9-24
+decision 6). This replaces the degenerate-case row that showed panels (a) and (b) with "no peptide
+placements", which cannot pass the M9-24 checklist. With de novo rows but no placements, the title
+adds "; de novo precision in N score bins".

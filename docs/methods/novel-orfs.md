@@ -247,6 +247,31 @@ order.
 Statistician (PR #256, M7-11b review, 2026-10-23): wiring, call rule and floor rule reviewed.
 Verdict recorded on the PR.
 
+### Exact systematic de novo errors (ADR-0050)
+
+The class FDR treats wrong peptides as decoy hits treat them: a wrong read lands on the genome by
+chance, so a reversed or shuffled genome decoy is as likely to receive it. A de novo read that is
+wrong but **exactly equals** the translation of a non-coding six-frame segment breaks that
+assumption. It places with zero cost, like a true peptide, and no decoy can match it except by
+chance, so no decoy-based estimate counts it. When several such reads fall in one segment, the ORF
+also gets several chances at a small q (decision 3). In M7-13 G4-k3 (a stress design: 20 injected
+false ORFs per class, 3–5 wrong reads each; R = 300) the ORF-level FDP was 0.072–0.075 for
+`cds_outframe` and `antisense` at both q = 0.01 and 0.05, and 0.015–0.017 for `intergenic` at 0.01.
+The exact reads account for the excess; error-bearing reads alone leave only a small excess at q =
+0.01. The size of the excess scales with how many such errors a run contains, so it is not a
+prediction for real data. GIAP therefore does not claim class-FDR control against exact systematic
+de novo errors. q values and calls are unchanged. Calls that this limitation can affect carry
+`denovo_only_unsupported` unless chance RBS support exempts them (below): every peptide is de novo,
+none is a database PSM, and there is no RBS support beyond what the class rule already requires. RBS
+support at the 0.10 quantile is weak evidence: in M7-13 G4-k3, the chosen start of an injected false
+ORF that reached q ≤ 0.05 passed it in 12 of 199 `cds_outframe` rows (0.060) and 15 of 199
+`antisense` rows (0.075) (Slurm 1879351, fast tier, R = 10), so those calls escape the flag;
+`intergenic` and `nterm_extension` are never exempt. The flag is therefore a pointer to an evidence
+gap, not a second error estimate: flagged calls are not estimated to be false, and unflagged de
+novo-only calls are not estimated to be correct. In a run with only de novo input nearly every call
+carries it. Users who need such calls should confirm them by a database search against the `giap
+makedb` six-frame database, or by independent evidence.
+
 ### Limitations
 - **c over hit peptides only.** ADR-0010 reads "the peptides … searched"; c here is the largest π̂
   over peptides with a target or decoy hit (decision 5). This is anti-conservative only when the
@@ -261,3 +286,14 @@ Verdict recorded on the PR.
 - `regime()` of a mixed set of ORFs returns the first of picked / de novo / unestimated held. The
   M7-11b step uses `orf_regimes` per ORF. The regime of each ORF is in the side table, and the
   per-class events hold the list counts. No separate regime-count event is logged.
+
+## C-terminal extensions (M7-16 rule 12, ADR-0058)
+
+A `cterm_extension` ORF is called when some peptide interval strictly contains the gene's
+annotated terminal stop codon and extends past it on the 3′ side (`spans_annotated_stop`); its
+label is `readthrough_candidate`. The class is untagged, so its class FDR is `unestimated` and the
+call needs ≥ 2 distinct peptides (M7-11 decision 2). A window that ends on the stop codon
+classifies as `cds_inframe` and is no extension evidence; it shows up as a `stop_codon` ALT site
+instead. A called row is written to `annotation_patch.gff3` as the gene from its start to the
+ORF's stop (`Note=cterm_extension`, `partial=true` when the ORF is open at a linear 3′ end), and
+`makedb --patch` translates the old stop codon as `X`.
