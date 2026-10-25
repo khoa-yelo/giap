@@ -1132,6 +1132,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (#334 review nit 5) The offline guard (`scripts/pilot/cascadia_offline.py`) does not block DNS lookups (`socket.getaddrinfo`, `_socket`); block them too.
 - (#334 review) Claim Cascadia work-queue chunks by grid cell rather than by chunk name.
 - (#334 review) If `local/handoff/run/cascadia_gens.sh` is ever reused, its missing count must become `miss=len(S.pending_chunks(w,20))`.
+- #346 review S4/S5 (M7-16c): pin the giapsim selenoprotein exclusion rules against the surviving mutants (C11, `test_giapsim_selenoproteins.py`, incl. M33 the N-extension RBS window); make C12's vacuous acceptance at 100 kb visible (warn or non-strict xfail when `n_acc == 0`). Test-author, small PR.
 
 ### 2026-10-25 afternoon (lead)
 - **Off-FarmShare install (release blocker, Khoa question):** a `pip install giap` outside FarmShare cannot pass preflight, because the tool envs and images come from `scripts/slurm/build_envs.sbatch` in a checkout. Default for 1.0: document FarmShare from a checkout as the supported path. Proposal: a `giap setup --tools` bootstrap that builds the micromamba envs from the bundled `workflow/envs/*.yml` and pulls the pinned images from the bundled `containers.config`.

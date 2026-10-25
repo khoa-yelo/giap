@@ -1,5 +1,6 @@
 """Placement-kind counts in ``detection_summary.tsv`` (M7-16b rule 17; spec examples 17-18; lead
-decisions Q17-Q18; acceptance "exactly the 12 rule-17 rows ... Examples 17 and 18 hold.
+decisions Q17-Q18; acceptance "exactly the 14 rows (16b, plus 16c sec_site and pyl_site) ...
+Examples 17 and 18 hold.
 Consistency checks ... ``qc_rows``' output is unchanged"; statistician review of the amendment,
 item 4: counts, never rates).
 
@@ -19,7 +20,7 @@ frame or ``None``. It returns rows in ``SUMMARY_COLUMNS``: section ``qc``, metri
   (C13 ``kind = peptide`` rows by ``reason``, both labels), ``n`` = peptide rows of C13.
 
 ``detection_summary`` sorts rows by section, ``group_type``, ``group``, ``metric``, so the rule's
-order is the function's; the written table holds the same 12 rows.
+order is the function's; the written table holds the same 14 rows.
 """
 
 from __future__ import annotations
@@ -44,6 +45,8 @@ ORDER: tuple[tuple[str, str], ...] = (
     ("tolerant_diff_type", "block"),
     ("tolerant_diff_type", "near_block"),
     ("placement_flag", "readthrough"),
+    ("placement_flag", "pyl_site"),
+    ("placement_flag", "sec_site"),
     ("unmapped_reason", "no_hit"),
     ("unmapped_reason", "rejected_placement_fdr"),
     ("unmapped_reason", "too_short"),
@@ -198,6 +201,8 @@ def test_example_17_counts(as_str: bool) -> None:
         ("tolerant_diff_type", "block"): (1, 4),
         ("tolerant_diff_type", "near_block"): (0, 4),
         ("placement_flag", "readthrough"): (1, 8),
+        ("placement_flag", "pyl_site"): (0, 8),
+        ("placement_flag", "sec_site"): (0, 8),
         ("unmapped_reason", "no_hit"): (2, 5),
         ("unmapped_reason", "rejected_placement_fdr"): (1, 5),
         ("unmapped_reason", "too_short"): (1, 5),
@@ -336,7 +341,7 @@ GOLDEN_SUMMARIES = (
 
 @pytest.mark.parametrize("path", GOLDEN_SUMMARIES, ids=lambda p: str(p.relative_to(REPO)))
 def test_committed_summaries_carry_the_12_rows_and_agree_with_the_qc_rows(path: Path) -> None:
-    """After regeneration (lead): the 12 rows, metric ``n_peptides``, and within one table
+    """After regeneration (lead): the 14 rows, metric ``n_peptides``, and within one table
     sum(unmapped_reason) = unmapped_peptides + contaminant_peptides and sum(placement_kind) =
     the distinct placed peptides (the ``n`` of ``engine_protein_mismatch_rate``)."""
     df = _read_tsv(path)

@@ -159,6 +159,7 @@ def test_stop_sites_event_counts(chain) -> None:  # type: ignore[no-untyped-def]
     assert ev[0].data == {  # type: ignore[attr-defined]
         "terminal": len(chain["sites"]), "recoded": 0, "not_a_stop": chain["not_a_stop"],
         "cells_target": n_cells, "cells_decoy": {"reverse": n_cells},
+        "recoded_skipped": {"length_mismatch": 0, "codon_mismatch": 0},
     }  # fmt: skip
 
 

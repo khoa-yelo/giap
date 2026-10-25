@@ -1,8 +1,11 @@
-"""Annotated stop codons the tolerant matcher may consume (ADR-0058 items 1-2; M7-16 rules 1-3).
+"""Annotated stop codons the tolerant matcher may consume (ADR-0058 items 1-2, 6; M7-16 rules 1-3,
+21-22).
 
 A *stop site* is the last codon of a CDS or sORF (pseudogenes never) when that codon is a table-11
-stop. A *cell* is the frame position (aa index) of a site's ``*`` in the six-frame index, one per
-copy in the origin-extended frame of a circular replicon. Decoy cells mirror the target cells:
+stop (kind ``terminal``), or, with ``recoded=True``, an internal codon the annotated protein reads
+as Sec (``U`` over TGA) or Pyl (``O`` over TAG) (kind ``recoded``). A *cell* is the frame
+position (aa index) of a site's ``*`` in the six-frame index, one per copy in the origin-extended
+frame of a circular replicon. Decoy cells mirror the target cells:
 ``n - 1 - p`` in a ``reverse`` decoy frame of ``n`` residues, ``p`` in a ``shuffle`` decoy (stops
 keep their positions). Everything here is pure and deterministic; nothing draws randomness (§6.6).
 """
@@ -28,11 +31,13 @@ __all__ = [
     "consumed_sites",
     "frame_cells",
     "mirror_cells",
+    "recoded_skips",
     "site_keys",
 ]
 
 STOP_CODONS = frozenset({"TAA", "TAG", "TGA"})
 _COMP = str.maketrans("ACGTacgt", "TGCAtgca")
+_RECODED = {"U": "TGA", "O": "TAG"}  # Bakta Sec / Pyl letter -> the codon it must sit over
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,11 +68,24 @@ def _codon(seq: str, start: int, n: int) -> str:
     return "".join(seq[(start + i) % n] for i in range(3)).upper()
 
 
-def annotated_stops(gm: GeneModel, genome: Mapping[str, str]) -> tuple[tuple[StopSite, ...], int]:
-    """Terminal stop sites of every CDS/sORF and the number of features whose last codon is not a
-    stop (or runs off a linear contig). Sorted by (contig order, strand, codon_start)."""
-    tags: dict[tuple[str, str, int], tuple[str, list[str]]] = {}
+def _read(seq: str, start: int, n: int, strand: str) -> str:
+    codon = _codon(seq, start, n)
+    return codon.translate(_COMP)[::-1] if strand == "-" else codon
+
+
+def _scan(
+    gm: GeneModel, genome: Mapping[str, str], recoded: bool
+) -> tuple[dict[tuple[str, str, int], tuple[str, set[str], bool]], int, dict[str, int]]:
+    """Rule 1 (terminal) and rule 21 (recoded, when ``recoded``): merged sites keyed by
+    ``(contig, strand, codon_start)`` -> (codon, locus tags, recoded?), ``n_not`` and skips."""
+    tags: dict[tuple[str, str, int], tuple[str, set[str], bool]] = {}
+    skips = {"length_mismatch": 0, "codon_mismatch": 0}
     n_not = 0
+
+    def add(key: tuple[str, str, int], codon: str, tag: str, rec: bool) -> None:
+        old = tags.get(key)
+        tags[key] = (codon, ({tag} | old[1]) if old else {tag}, rec or (old[2] if old else False))
+
     for g in gm.genes:
         if g.feature_type not in ("cds", "sorf"):
             continue
@@ -78,22 +96,51 @@ def annotated_stops(gm: GeneModel, genome: Mapping[str, str]) -> tuple[tuple[Sto
         if not circular and (start < 0 or start + 3 > n):
             n_not += 1
             continue
-        codon = _codon(genome[iv.contig], start, n)
-        if iv.strand == "-":
-            codon = codon.translate(_COMP)[::-1]
+        seq = genome[iv.contig]
+        codon = _read(seq, start, n, iv.strand)
         if codon not in STOP_CODONS:
             n_not += 1
             continue
-        key = (iv.contig, iv.strand, start % n)
-        tags.setdefault(key, (codon, []))[1].append(g.locus_tag)
+        add((iv.contig, iv.strand, start % n), codon, g.locus_tag, False)
+        if not recoded or not g.aa:  # empty protein: not scanned, not counted (lead decision)
+            continue
+        span = iv.end - iv.start
+        if span % 3 or len(g.aa) != span // 3 - 1:
+            skips["length_mismatch"] += 1
+            continue
+        for i in range(1, len(g.aa)):
+            want = _RECODED.get(g.aa[i])
+            if want is None:
+                continue
+            cs = iv.start + 3 * i if iv.strand == "+" else iv.end - 3 * i - 3
+            if _read(seq, cs, n, iv.strand) != want:
+                skips["codon_mismatch"] += 1
+                continue
+            add((iv.contig, iv.strand, cs % n), want, g.locus_tag, True)
+    return tags, n_not, skips
+
+
+def annotated_stops(
+    gm: GeneModel, genome: Mapping[str, str], recoded: bool = False
+) -> tuple[tuple[StopSite, ...], int]:
+    """Terminal stop sites of every CDS/sORF and the number of features whose last codon is not a
+    stop (or runs off a linear contig). With ``recoded``, also every annotated Sec (``U`` over
+    TGA) and Pyl (``O`` over TAG) codon of those features (rule 21); a key shared with a terminal
+    site is one ``recoded`` site. Sorted by (contig order, strand, codon_start)."""
+    tags, n_not, _ = _scan(gm, genome, recoded)
     order = {c: i for i, c in enumerate(gm.replicons)}
     sites = tuple(
-        StopSite(c, s, p, tuple(sorted(lt)), codon, "terminal")  # type: ignore[arg-type]
-        for (c, s, p), (codon, lt) in sorted(
+        StopSite(c, s, p, tuple(sorted(lt)), codon, "recoded" if rec else "terminal")  # type: ignore[arg-type]
+        for (c, s, p), (codon, lt, rec) in sorted(
             tags.items(), key=lambda kv: (order[kv[0][0]], *kv[0][1:])
         )
     )
     return sites, n_not
+
+
+def recoded_skips(gm: GeneModel, genome: Mapping[str, str]) -> dict[str, int]:
+    """Rule 21 (b)/(e) counts: ``length_mismatch`` per feature, ``codon_mismatch`` per residue."""
+    return _scan(gm, genome, True)[2]
 
 
 def frame_cells(index: SixFrameIndex, sites: Sequence[StopSite]) -> tuple[np.ndarray, ...]:
