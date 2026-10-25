@@ -1132,6 +1132,14 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (#334 review) Claim Cascadia work-queue chunks by grid cell rather than by chunk name.
 - (#334 review) If `local/handoff/run/cascadia_gens.sh` is ever reused, its missing count must become `miss=len(S.pending_chunks(w,20))`.
 
+### 2026-10-25 afternoon (lead)
+- **Off-FarmShare install (release blocker, Khoa question):** a `pip install giap` outside FarmShare cannot pass preflight, because the tool envs and images come from `scripts/slurm/build_envs.sbatch` in a checkout. Default for 1.0: document FarmShare from a checkout as the supported path. Proposal: a `giap setup --tools` bootstrap that builds the micromamba envs from the bundled `workflow/envs/*.yml` and pulls the pinned images from the bundled `containers.config`.
+- **V03 locus order mixes scales** (`viz/locus.py::_order`): the pool is sorted by `error`, which is a region q, an island FWER p or an operon-flag q depending on the kind (decisions 3, 5, 8). Sort within kind, or rank by kind first; needs a spec decision (statistician), then test-author → implementer.
+- **Quickstart demo peptide table:** ship a small peptide table (< 100 KB) under `docs/tutorials/data/` so the quickstart can run `giap run` with `--peptides`. Prefer giapsim-generated peptides (no sourcing question) over in-silico tryptic K-12 peptides.
+- **14 `slow` calibration tests that are not `calibration_full`** run in no scheduled job (M11-03b Q2). Schedule them in the weekly job or mark them `calibration_full`.
+- **`test_m10_09_cascadia_contract::test_c4_scan[sample]`** reads `local/pilot/A3_cascadia` outside the repo and fails with "scan not strictly increasing" on the current local data. Skip it when the data is not the pinned one, or pin the data by digest.
+- **`test_sim_function::test_example7_under_one_second_for_4000_genes`** times out (about 1.12 s) on busy Slurm nodes. Make it a benchmark or loosen it only with the statistician's and lead's sign-off (R3 does not cover timing, but keep it honest).
+
 ### Deferred review items, 2026-10-21 to 2026-10-23 (lead's parked list)
 Merged from the lead's local list on 2026-10-25. Skipped as already done or already in this file: the bash-4 check (#270), Promoter Calculator batching (#282), the M9-17 Nextflow wiring (#283), the M7-18 X/U crash (#284), and M7-17 Q6, Q8 and the G4-k3 reuse (under "M7-17 follow-ups (PR #291)").
 - (M7-11b decision 10) giapsim/makedb ID mismatches left: annotated peptides in the first 30 codons do not also list the gene's nterm entry; 27 non-ATG-start peptides beginning with M are absent from makedb's literal translation; 18 rows name entries shorter than min_orf_aa=20.
