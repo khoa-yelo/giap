@@ -300,7 +300,7 @@ ever reported as an absolute expectation, use W_L instead of N and flag low-comp
 ### Numerical accuracy of the Poisson-binomial
 
 `giap.stats.poisson_binomial` (shared with M4-02) computes the pmf by the standard DP
-pmf_{i+1}[j] = pmf_i[j](1 − p_i) + pmf_i[j − 1] p_i, O(n²) time, O(n) memory. Every step is a
+\(\mathrm{pmf}_{i+1}[j] = \mathrm{pmf}_i[j](1 - p_i) + \mathrm{pmf}_i[j - 1]\, p_i\), O(n²) time, O(n) memory. Every step is a
 convex combination of non-negative numbers, so there is no cancellation: each entry has relative
 error ≤ ≈ 2n·u (u = 1.1 × 10⁻¹⁶) whatever its size, and tiny tails stay exact to relative precision
 rather than to absolute 10⁻¹⁶. The cdf and sf are summed directly from the pmf (never 1 − the
