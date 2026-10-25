@@ -102,12 +102,19 @@ Per array task, in addition to what it does today:
    `$GIAP_ROOT/ci/.git.lock`, as the nightly does); fresh log directory
    `GIAP_CALIBRATION_LOG_DIR=$GIAP_ROOT/logs/calibration/full-<sha12>-<YYYYmmdd-HHMMSS>` (refuse if
    it exists).
-3. **R14.** Sum running + pending `giap-*` jobs and CPUs of `$USER` with `squeue -h -r -u "$USER"
-   -t RUNNING,PENDING -o '%C %j'` (`-r`: one line per array task); fail closed (exit 2) when squeue
-   fails or prints a non-integer CPU count. Reserve the nightly footprint, 65 CPUs and 5 jobs, at
-   all times (Q3). Throttle `T = min(15, ⌊(128 − 65 − used_cpus − 1) / 4⌋, 20 − 5 − used_jobs −
-   1)` (the `− 1` is the aggregator job). Refuse (exit 2, message names the numbers) when `T < 4`.
-   With nothing else queued, T = 14.
+3. **R14** (amended in the #349 review round; see "Lead decisions, #349 review"). Sum running +
+   pending `giap-*` jobs and CPUs of `$USER` with `squeue -h -r -u "$USER" -t RUNNING,PENDING -o
+   '%C %j'` (`-r`: one line per array task); fail closed (exit 2) when squeue fails or prints a
+   non-integer CPU count. Slurm queues all 15 array tasks and the aggregator at once, so a launch
+   adds **16 jobs** whatever the throttle: refuse when `used_jobs + 16 > 20`. Throttle
+   `T = min(15, ⌊(128 − used_cpus − 1) / 4⌋)` (the `− 1` is the aggregator's CPU); refuse when
+   `T < 4`. **Nightly window:** the worst-case end is `now + ⌈15 / T⌉ × 4 h + 20 min` (array time
+   limit per wave, plus the aggregator). Refuse when that end is at or after the next nightly start
+   (`GIAP_NIGHTLY_AT`, default `01:30` local, the scrontab time) — the nightly launcher does not
+   check the budget and would push the user past 20 jobs. No CPUs or jobs are reserved otherwise.
+   The clock is `GIAP_NOW` (epoch seconds) when set, else `date +%s` (tests set it). Every refusal
+   is exit 2 with nothing submitted and a message naming the numbers (jobs, CPUs, T, end, nightly
+   start). With nothing else queued at 10:00, T = 15 and the run ends by 14:20.
 4. `sbatch --parsable --array=0-14%T --export=ALL,GIAP_WORKTREE=<wt>,GIAP_CALIBRATION_LOG_DIR=<dir>
    scripts/slurm/calibration_full.sbatch` (log dir via the environment, as `calibration_sharded.sh`
    does, so a comma is safe).
@@ -229,7 +236,7 @@ Fixture: log dir with records `task-0.json … task-14.json`, JUnit files, commi
    SIGTERM each leave one record with that exit (143 for TERM).
 6. Static and sandbox checks of `calibration_full_launch.sh` (`tests/helpers/slurm_sandbox.py` fake
    `sbatch`/`squeue`/`scancel`): `squeue` runs before the first `sbatch`; example 10 refuses with no
-   `sbatch` call; a squeue failure refuses; with an empty queue the array is `--array=0-14%14`, the
+   `sbatch` call; a squeue failure refuses; with an empty queue the array is `--array=0-14%15` (at 10:00; #349 review B3), the
    aggregator has `--cpus-per-task=1`, `--dependency=afterany:<array>`, job names start `giap-`;
    extra arguments are refused; a failed aggregator submission `scancel`s exactly the array ID.
 7. Example 9 (idempotent) and the `flock`ed single append are tested on a `tmp_path` TSV.
@@ -289,3 +296,22 @@ lines.
 - **Q2:** the 14 `slow`-but-not-`calibration_full` calibration tests go to the backlog. They are a coverage gap to close before M11-13.
 - **Q5, in scope (stricter):** nightly task 2's trap rows (killed or failed) are labelled `calibration_nightly` with their non-zero exit, so a killed run can no longer let an older pass decide R3. The MODE=record skip row stays `task 2` (exit 0, not a calibration result). This amends the acceptance criterion "nightly.sbatch byte-unchanged" to "unchanged apart from the task-2 trap label".
 - **Q6, in scope (stricter):** `tests/sim` and `tests/helpers` join readiness.py's `CALIB_PATHS`. They also join the runbook's freeze list, through the M11-05 docs follow-up. This amends "readiness.py byte-unchanged" to "unchanged apart from CALIB_PATHS".
+
+## Lead decisions, #349 review (2026-10-25)
+
+- **B3 (R14), replaces the Q3 default:** a launch counts all 16 jobs it queues; the nightly is
+  protected by time, not by a standing reserve (a 5-job reserve plus 16 jobs is 21 > 20, so the
+  launcher could never run). Rule 3 above. Khoa question parked: whether to give the nightly
+  launcher its own budget check instead.
+- **B1:** a suite whose exit is a crash (unsharded exit ∉ {0, 1}; sharded exit ≥ 2) fails **both**
+  rows, whatever its attack-test count. A collection error therefore never lets R4 pass.
+- **B2:** `full_rows` takes `expect`; a row fails (non-zero exit, reason named) when it has fewer
+  suites than expected, when the attack row has 0 attack suites or 0 attack tests, or when an
+  attack suite's attack tests are all skipped. The attack-free suites (today `denovo_precision`)
+  are listed in the attack row as data.
+- **S1:** testcases are de-duplicated by (classname, name) across a task's JUnit parts before
+  counting (task 13 writes shard and merge files with the same testcases).
+- **S2:** the fail-closed paths (task or suite mismatch, malformed record, `exit` not an int,
+  `task: true`, path traversal in `parts`, exit 0 with a failed testcase, count-like reason text)
+  are pinned by direct `suite_result` tests.
+

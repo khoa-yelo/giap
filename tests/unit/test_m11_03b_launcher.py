@@ -8,8 +8,10 @@ criterion 6, example 10).
 ``sbatch`` calls had happened when it ran. The sandbox commit also carries
 ``tests/calibration/tolerances.yaml`` (15 ``replicates_full`` keys).
 
-Throttle (spec, Q3): ``T = min(15, floor((128 - 65 - cpus - 1) / 4), 20 - 5 - jobs - 1)`` over the
-user's running + pending ``giap-*`` jobs; refuse (exit 2, no ``sbatch``) when ``T < 4``.
+R14 (spec rule 3 as amended in the #349 review, B3): a launch queues 16 jobs, so refuse when
+``jobs + 16 > 20``; ``T = min(15, floor((128 - cpus - 1) / 4))``, refuse when ``T < 4``; refuse when
+the worst-case end ``now + ceil(15 / T) * 4 h + 20 min`` reaches the next nightly start (01:30). The
+clock is ``GIAP_NOW``; ``_launch`` pins it to 10:00 local unless a test passes its own.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -64,7 +67,13 @@ def _queue(sb: Sandbox, lines: list[str]) -> None:
     (sb.state / "r14.out").write_text("".join(f"{ln}\n" for ln in lines))
 
 
+def at(hour: int, minute: int = 0) -> str:
+    """Epoch seconds of ``hour:minute`` local time on a fixed day (2026-10-26)."""
+    return str(int(time.mktime((2026, 10, 26, hour, minute, 0, 0, 0, -1))))
+
+
 def _launch(sb: Sandbox, *args: str, **env: str) -> subprocess.CompletedProcess[str]:
+    env.setdefault("GIAP_NOW", at(10))
     script = sb.repo / "scripts" / "slurm" / "calibration_full_launch.sh"
     return sb.run(["bash", str(script), *args], env=env)
 
@@ -108,7 +117,7 @@ def test_empty_queue_submits_array_and_aggregator(sb: Sandbox) -> None:
     assert res.returncode == 0, _out(res)
     sha = sb.head
     arr, rows = _array(sb), _rows_job(sb)
-    assert option(arr["argv"], "array", "a") == "0-14%14", arr["argv"]
+    assert option(arr["argv"], "array", "a") == "0-14%15", arr["argv"]
     assert "--parsable" in arr["argv"]
     assert (option(arr["argv"], "export") or "").split(",")[0] == "ALL", arr["argv"]
     wt = _export(arr, "GIAP_WORKTREE")
@@ -129,7 +138,7 @@ def test_empty_queue_submits_array_and_aggregator(sb: Sandbox) -> None:
                 rf"--log-dir[= ]{re.escape(log)}(\s|$|['\"])",
                 rf"--tsv[= ]{re.escape(str(sb.root))}/logs/nightly\.tsv"):  # fmt: skip
         assert re.search(pat, cmd), (pat, cmd)
-    assert re.search(rf"array={ARRAY} rows={ROWS} log={re.escape(log)} throttle=14\b",
+    assert re.search(rf"array={ARRAY} rows={ROWS} log={re.escape(log)} throttle=15\b",
                      res.stdout), res.stdout  # fmt: skip
 
 
@@ -145,15 +154,17 @@ def test_squeue_runs_before_the_first_sbatch(sb: Sandbox) -> None:
 
 
 @pytest.mark.parametrize(
-    ("lines", "throttle"),
-    [(["8 giap-a", "4 giap-b", "64 not-giap"], 12),  # cpus 12, jobs 2: min(15, 12, 12)
-     (["1 giap-j"] * 10, 4),                         # job cap: 20-5-10-1 = 4 (boundary)
-     (["36 giap-big"], 6),                           # floor(26/4) = 6
-     (["46 giap-big"], 4)],                          # floor(16/4) = 4 (boundary)
+    ("lines", "throttle", "hour"),
+    [(["8 giap-a", "4 giap-b", "64 not-giap"], 15, 10),  # cpus 12: min(15, 28); jobs 2 + 16
+     (["1 giap-j"] * 4, 15, 10),                         # jobs 4 + 16 = 20 (boundary)
+     (["68 giap-big"], 14, 10),                          # floor(59/4) = 14; ends 18:20
+     (["111 giap-big"], 4, 5)],                          # floor(16/4) = 4 (boundary); ends 21:20
 )  # fmt: skip
-def test_throttle_follows_the_r14_budget(sb: Sandbox, lines: list[str], throttle: int) -> None:
+def test_throttle_follows_the_r14_budget(
+    sb: Sandbox, lines: list[str], throttle: int, hour: int
+) -> None:
     _queue(sb, lines)
-    res = _launch(sb)
+    res = _launch(sb, GIAP_NOW=at(hour))
     assert res.returncode == 0, _out(res)
     assert option(_array(sb)["argv"], "array", "a") == f"0-14%{throttle}"
     assert f"throttle={throttle}" in res.stdout
@@ -165,8 +176,8 @@ def test_throttle_follows_the_r14_budget(sb: Sandbox, lines: list[str], throttle
 @pytest.mark.parametrize(
     "lines",
     [["16 giap-n"] * 4 + ["3 giap-x", "3 giap-y"],   # example 10: 70 CPUs / 6 jobs
-     ["47 giap-big"],                                # floor(15/4) = 3 < 4
-     ["1 giap-j"] * 11],                             # 20-5-11-1 = 3 < 4
+     ["112 giap-big"],                               # floor(15/4) = 3 < 4
+     ["1 giap-j"] * 5],                              # 5 + 16 = 21 > 20 jobs
 )  # fmt: skip
 def test_over_budget_refuses_without_sbatch(sb: Sandbox, lines: list[str]) -> None:
     _queue(sb, lines)
