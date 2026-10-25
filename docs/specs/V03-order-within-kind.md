@@ -235,3 +235,108 @@ The tests are fast unit tests with no Slurm, apart from the lead's baseline rege
    one global sort by q.
 6. **Numeric ID order** (`prophage_10` before `prophage_2`). **Default:** unchanged string order.
    A natural sort is a separate, cosmetic change.
+
+## Statistician review (2026-10-25)
+
+**Verdict: CHANGES.** The tiered round-robin is the right kind of rule: every comparison in the key
+is either an error against its own family's level (tier) or an error against errors of the same
+family (rank), so no number from one family is ever compared with a number from another. All ten
+examples reproduce under the key as written (checked with an independent script). But the
+rotation unit is the *kind*, and one kind, `operon_flag`, holds two §8.1 families. Items 1–3 must
+be in the spec before the test step. Items 4–5 are smaller. No re-review is needed if they are
+adopted as written below. This is a display rule that adds no new p, q or estimate, so §8.2
+(effect sizes with CIs) and calibration gates are unaffected, and attack nulls (§8.5) do not apply.
+
+1. **(blocking) Rotate by §8.1 family, not by kind.** `operon_flags.tsv` mixes two families:
+   `uniop_class = OP` rows carry the discordance BH q (§8.1 "Operon discordance", one BH family per
+   run, `docs/methods/operons.md` "Family"), and `uniop_class = NO` rows carry the missed-operon
+   decoy-FDR q (§8.1 "Missed operon"). `flag_for` emits flags only for OP and NO. Ranking all flags
+   by one q list is the same cross-family comparison this spec removes. It is just hidden inside
+   one kind. Required:
+   - The rotation unit is the **family**. There are five: prophage, bgc, island,
+     `operon_discordance` (OP) and `missed_operon` (NO). The key is
+     `(tier, family_rank, family_index, locus_id)`, and `family_index` follows the §8.1 row order:
+     prophage < bgc < island < operon_discordance < missed_operon. `kind` and every index
+     column stay as they are (decision 4). The family is internal, read from `uniop_class`.
+   - Operon-flag merging (decision 6) groups by `(family, contig, span)`. Today a merged locus
+     takes "its best flag's q" over both families, which is again a cross-family minimum. In
+     practice OP pairs take a TU span and NO pairs span two TUs, so cross-family merges should
+     not happen. The key makes that guaranteed instead of likely.
+   - The edge case "only one kind" becomes "only one family". A pool made only of flags from both
+     families now interleaves them; it is no longer today's order.
+   - Add example 11: prophage_1 q 0.01; PAIR_1 (OP) q 0.08; PAIR_2 (NO) q 0.01; PAIR_3 (OP)
+     q 0.02 → prophage_1, PAIR_3, PAIR_2, PAIR_1 (now: prophage_1, PAIR_2, PAIR_3, PAIR_1).
+   - The within-kind property, the metamorphic property and the rotation property all read
+     "family" where they say "kind".
+2. **(blocking) The rotation property is too weak.** "Counts of any two kinds with loci left differ
+   by at most 1" accepts A1 B1 B2 A2 B3 for A = 2 and B = 3 loci. That is not the rule
+   (A1 B1 A2 B2 B3), because the property does not fix the order within a round. Replace it with
+   the exact round structure. Split each tier block into maximal runs where `family_rank` is
+   constant. Run r must contain exactly one locus from each family with at least r loci in that
+   tier, in `family_index` order. Compute `family_rank` in the test from the within-family sorted
+   subsequence, not from the implementation. Keep the balance property as a readable second
+   check if wanted.
+3. **(blocking) Reader-facing text must not imply one ranking.** After this change the TSV `rank`
+   and the "1., 2., …" in the index figure are a *display order*. A reader who sees "3. PAIR_1 q
+   0.09" above "4. prophage_1 q 0.06" (example 3) will read it as an evidence ranking unless told
+   otherwise. Required:
+   - The index figure prints a header line for each non-empty tier ("significant at each
+     family's own level", "not significant", "no estimate"). It also prints one caption line:
+     "Order alternates between test families; values in different kinds are on different scales
+     and are not compared." The content is not pinned (decision 4), so this is free.
+   - The estimate names are per family: `q` for prophage, bgc and operon_discordance,
+     `decoy-FDR q` for missed_operon, `FWER p` for island. Item 1 makes the two flag families
+     differ, and the acceptance criterion "q for operon_flag" changes to match.
+   - The user-guide V03 bullet, the `select_loci` docstring and the `Locus.error` docstring say
+     that `rank` is a display order, not a ranking of evidence. They also say that `error` holds
+     each family's own estimate, and that §10.2's "ordered by q" applies within each family.
+     Nothing may say "ranked by significance" or "most significant first" across kinds.
+4. **The metamorphic property needs exact wording.** The map g applied to one family must be
+   strictly increasing and must keep the predicate `e ≤ alpha` for every error. So a value at
+   alpha may map to alpha or below, never above, and NA stays NA. Add two siblings, both
+   order-invariant:
+   - (a) change one family's alpha to any value that no locus of that family crosses;
+   - (b) a cross-family stress: within a tier, send every error of one family below, then above,
+     every error of all other families (for example g(e) = e·10⁻⁶ in tier 0). The test then
+     detects any surviving cross-family comparison directly.
+
+   The generators must produce flags of both OP and NO classes, ties within a family, values
+   exactly at alpha (and the float neighbours either side via `math.nextafter`) and the same
+   `locus_id` in two kinds. Examples 1–10 and the remaining properties (the tiers, input-row
+   shuffling, and the order within a family by `(error is None, error, locus_id)`) are the right
+   invariants.
+5. **(non-blocking) Tier is relative to the `cfg` passed, but the pools are censored at run time.**
+   The islands step writes only windows with p ≤ the run's `alpha.context`, and `_flag_loci`
+   filters at the `cfg`'s `alpha.operon_flags`. If `select_loci` gets a lower `alpha.context`
+   than the run used, islands move to tier 1, which is correct. With a higher one, islands
+   between the two levels are absent while regions there are tier 0. This is a known asymmetry
+   of re-rendering, not a defect of the rule. Add one edge-case row; no code change.
+
+**Answers.**
+
+- **Q1 (the rule).** Adopt it, with item 1. Kind-first blocks fail the cap (they starve the last
+  family). A rotation without tiers interleaves non-significant regions with significant
+  islands. A common scale (BH over pooled p, or any p → q conversion) would be a new statistic on
+  the plot layer. It would also be invalid: the island p is already family-wise and the flag q
+  values come from a decoy procedure. Equal turns per family are a display policy, not an
+  inference. That is acceptable as long as item 3 tells the reader so. One side effect: under the
+  cap, a family with few loci gets the same share of the first rounds as a family with many.
+  This is intended (example 4).
+- **Q2 (tier levels).** Use `stats.alpha.context` for islands, not a hard 0.05. Three reasons:
+  - §5.2 calls `stats.alpha` "the single source of every significance level", and the §8.1
+    "Default" column gives defaults, not constants.
+  - The islands step (`docs/methods/islands.md`, "a window is reported when p_w ≤
+    `stats.alpha.context`") and `compare/stability.py` use the same key. A hard 0.05 would put
+    reported islands in tier 1 whenever a user sets `alpha.context` above 0.05.
+  - The "0.05" in §7.3.5(d) step 5 (the Moran's I block-length rule) is an internal tuning
+    constant, not the claim level. It is unrelated.
+
+  Flags at `stats.alpha.operon_flags` are right for both flag families. Both §8.1 rows default to
+  0.1, and the pool filter uses that key.
+- **Q5 (bookkeeping).** No ADR. §10.2's "ordered by q" cannot be a single global sort. Islands
+  have no q, so a literal reading sends every island to the NA tail. §8.2's pre-declared families
+  also make q values from different families incomparable, so a global sort would have no
+  meaning. Reading §10.2 as "ordered by each family's own estimate, within the family" is the only
+  coherent reading, and this rule satisfies it. A lead-decisions line in
+  `docs/specs/M9-10-v03-locus-plots.md` is enough. It should say that decision 3 is replaced and
+  decision 8 refined, and name the family (item 1) as the rotation unit.
