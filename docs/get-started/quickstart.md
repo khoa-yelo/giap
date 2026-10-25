@@ -21,8 +21,8 @@ search engine. You need an installation ([Install](install.md)) and the database
     [provenance note](../tutorials/data/PROVENANCE.md).
 
     **The results describe a simulated genome.** Use the run as a smoke test of the installation
-    and to learn the output layout, not to interpret biology. No run of exactly this command has
-    been recorded yet.
+    and to learn the output layout, not to interpret biology. On FarmShare the run takes about
+    40 minutes.
 
 ## 1. Get the inputs
 
@@ -57,9 +57,10 @@ an input error (1), the table names the rule that failed.
 
 On the demo, preflight exits 0 with one warning, `genome.contiguity` (a 100 kb chromosome is far
 smaller than a bacterial genome), and info rows for the topology and the small plasmid.
-`peptides.content` counts 1,685 rows with none dropped. The evidence tier is reported as
-`decoy_picked`, provisionally: decoy pairing is checked after annotation, and the tier the run
-uses is recorded in `run_manifest.json` and in the `detection_tier` column of `genes.tsv` (see
+`peptides.content` counts 1,685 rows with none dropped. Preflight reports the evidence tier
+`decoy_picked` provisionally. The run settles on `mayu`, because the demo's decoy rows carry no
+q-value, PEP or score, so decoys and targets share no ranking column. The tier the run used is
+in the `detection_tier` column of `genes.tsv` and in `detection_summary.tsv` (see
 [Interpreting results](../user-guide/interpreting-results.md#detection-tiers)).
 
 ## 3. Run

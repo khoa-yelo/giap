@@ -8,7 +8,7 @@ spectrometry data, no DIA-NN output and no pilot data.
   circular chromosome and one 8 kb circular plasmid; see `tests/data/genomes/PROVENANCE.md`). The
   generator checks that the genome it simulates is byte-identical to that file.
 - Simulator: giapsim at repository commit `f80fb217` (last change to `tests/sim/giapsim`:
-  `e2e847bd`), Python 3.12.3, NumPy 2.5.4.
+  `8ad7f316`; the table is byte-identical at both), Python 3.12.3, NumPy 2.5.4.
 - Configuration: `SIM100K` with `proteomics=ProteomicsConfig(n_runs=1)`, all other proteomics
   settings at their defaults (tryptic peptides of 7–30 aa, 1 % wrong peptides, unscored decoys
   that name `rev_` proteins, `search_db = same`).

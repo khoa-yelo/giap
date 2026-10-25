@@ -48,6 +48,8 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     table = generate()
     if args.check:
+        if OUT.is_file() and OUT.stat().st_size > MAX_BYTES:
+            raise SystemExit(f"demo table is {OUT.stat().st_size} bytes (limit {MAX_BYTES})")
         same = OUT.is_file() and gzip.decompress(OUT.read_bytes()) == table
         print(f"{OUT.relative_to(REPO)}: {'up to date' if same else 'DIFFERS'}")
         return 0 if same else 1
