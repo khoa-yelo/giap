@@ -356,7 +356,8 @@ def smoke_text() -> str:
 
 def test_smoke_suite_runs_real_miniprot_and_blast(smoke_text: str) -> None:
     assert re.search(r'process\s+"MINIPROT"', smoke_text)
-    assert re.search(r'process\s+"(?:TBLASTN|BLAST)"', smoke_text)
+    # nf-test runs one suite per file: the second process runs as a setup dependency (lead)
+    assert re.search(r'(?:process\s+|run\()"(?:TBLASTN|BLAST)"', smoke_text)
     assert '"-stub"' not in smoke_text and "-stub-run" not in smoke_text
 
 
