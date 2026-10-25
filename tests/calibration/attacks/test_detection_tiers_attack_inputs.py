@@ -101,6 +101,9 @@ def test_gene_fdr_under_input_attack(full: bool, attack: str) -> None:
             return fdps[q]
 
         statuses[q] = C.calibrate(SUITE, "fdr", q, fn, R, stream=stream)["status"]
-    if attack == "pep_only":
-        assert tiers == {"mayu"}, tiers
+    if attack == "pep_only":  # tiers of the replicates run here (none in a confirm run)
+        assert tiers <= {"mayu"}, tiers
+        if C.owns_direct_checks():
+            assert tiers == {"mayu"}, tiers
+    C.skip_without_verdict([{"status": s} for s in statuses.values()])
     assert "fail" not in statuses.values(), (attack, sorted(tiers), statuses)

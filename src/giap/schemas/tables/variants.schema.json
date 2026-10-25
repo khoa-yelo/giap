@@ -21,7 +21,7 @@
     {"name": "nt_changes", "type": "integer", "description": "Nucleotide changes of the minimal-change ALT codon(s) (G14); NA for unequal-length events", "constraints": {"minimum": 0}},
     {"name": "alt_codon_vcf", "type": "string", "description": "Forward-strand ALT allele written to the VCF; NA when not in the VCF", "constraints": {"pattern": "[ACGTN]+"}},
     {"name": "class_error_rate", "type": "string", "description": "Class-specific error rate (%.6g) or unestimated", "constraints": {"required": true, "pattern": "unestimated|[0-9.eE+-]+"}},
-    {"name": "class_error_n", "type": "integer", "description": "Sites behind the class error rate", "constraints": {"minimum": 0}},
+    {"name": "class_error_n", "type": "integer", "description": "Paired de novo observations (reads) pooled into the class error rate", "constraints": {"minimum": 0}},
     {"name": "source", "type": "string", "description": "Semicolon-joined sources of the ALT peptides", "constraints": {"required": true, "pattern": "(?:database|denovo)(?:;(?:database|denovo))*"}},
     {"name": "flags", "type": "string", "description": "Semicolon-joined flags from the Variants vocabulary (§9.4)", "constraints": {"pattern": "(?:mass_equivalent|snv|multi_nt|strain_difference|database_derived|start_codon|stop_codon|vcf_unrepresentable)(?:;(?:mass_equivalent|snv|multi_nt|strain_difference|database_derived|start_codon|stop_codon|vcf_unrepresentable))*"}}
   ]

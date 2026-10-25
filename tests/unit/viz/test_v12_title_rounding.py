@@ -15,6 +15,8 @@ from giap.io.run_view import RunView
 from giap.viz import style
 from giap.viz.variants import EN_DASH, title, variants
 
+#: V12 title clause (M9-18 amendment: the class error is pooled per class)
+POOLED = ", pooled per class over ALT and mixed sites"
 SNAPSHOT = Path(__file__).resolve().parents[2] / "data" / "snapshot" / "sim_plots" / "OUT"
 
 
@@ -27,21 +29,23 @@ def _frame(rates: list[object], conf: list[str] | None = None) -> pd.DataFrame:
 
 def test_range_is_rounded_to_two_significant_digits() -> None:
     got = title(_frame([0.872576, 1.0, 0.933333], ["high", "candidate", "high"]))
-    assert got == f"2 high-confidence and 1 candidate ALT sites (class error 0.87{EN_DASH}1)"
+    assert got == (
+        f"2 high-confidence and 1 candidate ALT sites (class error 0.87{EN_DASH}1*{POOLED})"
+    )
 
 
 def test_small_rates_keep_their_digits() -> None:
     got = title(_frame([0.004, 0.0234567]))
-    assert got.endswith(f"(class error 0.004{EN_DASH}0.023)")
+    assert got.endswith(f"(class error 0.004{EN_DASH}0.023{POOLED})")
 
 
 def test_ends_rounding_alike_print_once() -> None:
-    assert title(_frame([0.8721, 0.8749])).endswith("(class error 0.87)")
+    assert title(_frame([0.8721, 0.8749])).endswith(f"(class error 0.87{POOLED})")
 
 
 def test_unestimated_rates_are_left_out() -> None:
     assert title(_frame(["unestimated", "unestimated"])).endswith("(class error unestimated)")
-    assert title(_frame(["unestimated", 0.123456])).endswith("(class error 0.12)")
+    assert title(_frame(["unestimated", 0.123456])).endswith(f"(class error 0.12{POOLED})")
 
 
 @pytest.mark.skipif(not SNAPSHOT.is_dir(), reason="M9-25 snapshot fixture absent")
@@ -50,5 +54,5 @@ def test_snapshot_fixture_title_has_no_unrounded_rate() -> None:
     view = RunView.from_outdir(SNAPSHOT)
     result = variants(view, resolve_config(SNAPSHOT / "resolved_config.yaml"))
     assert isinstance(result, list)
-    assert result[0].title.endswith(f"(class error 0.87{EN_DASH}1)")
+    assert result[0].title.endswith(f"(class error 0.87{EN_DASH}1*{POOLED})")
     assert "0.872576" not in result[0].title

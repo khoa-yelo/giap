@@ -39,6 +39,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import cache
+from pathlib import Path
 from typing import Any
 
 import _criteria as C
@@ -134,7 +135,9 @@ def _all_flagged(tabs: dict[str, pd.DataFrame]) -> bool:
 
 
 @pytest.mark.parametrize("scenario", sorted(SCENARIOS))
-def test_attack_recal_misfit_at_level_or_flagged(scenario: str) -> None:
+def test_attack_recal_misfit_at_level_or_flagged(scenario: str, teeth_log: Path) -> None:
+    """A confirmed fail is allowed when every row is flagged, a condition --merge cannot judge:
+    the checks log privately and run unsharded in shard 0 (``teeth_log``)."""
     r = C.replicates(SUITE, full=False)
     levels = list(C.load_tolerances().levels)
     failed: list[Any] = []
@@ -144,7 +147,7 @@ def test_attack_recal_misfit_at_level_or_flagged(scenario: str) -> None:
             stream = f"{SUITE}.attack_recal_misfit.{scenario}.{kind}.{direction}"
             gate = calibrate_levels(
                 SUITE, "level", levels, _fn(stream, r, scenario, (kind, direction), m, levels),
-                r, stream=stream, m=m,
+                r, stream=stream, m=m, log_dir=teeth_log,
             )  # fmt: skip
             failed += gate.failed
             detail += gate.detail()

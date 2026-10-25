@@ -118,3 +118,12 @@ never names modifications).
 **Amendment (lead, 2026-10-24, viz batch 2 on the M9-25 fixtures; #325 review S3).** The class-error range in the title, and panel (b)'s per-site class-error labels, are printed
 with `base.sig` (2 significant digits, e.g. "0.87–1"). When both ends round to the same text, the
 range prints once.
+
+**Amendment (lead, 2026-10-24; statistician note local/stat/v12-class-error.md).** `class_error_rate`
+is pooled per class over ALT and mixed sites (§7.5.4). The title says "pooled per class over ALT
+and mixed sites" whenever a rate is numeric. Panel (b) site lines read "class error R (pooled,
+class of N paired reads)", where N is `class_error_n`, and V12's data TSV carries `class_error_n`.
+A rate of exactly 1 on an ALT site is marked `*`, with a footnote that it means "not measured" if
+`--reference-peptides` searched the reference proteome (bias 1). The run does not record that
+database, so the plot cannot decide the case. Whether the estimand changes is Khoa's question
+(local/handoff/khoa_q.md).

@@ -25,6 +25,7 @@ statistician's sign-off.
 from __future__ import annotations
 
 import json
+import os
 import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -81,6 +82,11 @@ def run_fdr_suite(
         )
     secs = time.perf_counter() - t0
     failed = [line for g in gates.values() if g.failed for line in g.detail()]
+    if not C.owns_direct_checks():  # the direct checks below run once, in shard 0
+        return memo
+    if C.SHARD_ENV in os.environ:  # shard 0: block 1 complete (unsharded may add block 2)
+        for i in range(R):
+            rep(i)
     reps = [memo[i] for i in sorted(memo)]
     if reps:
         ex = {c: float(np.mean([r.exercise[c] for r in reps])) for c in CHECKS if c != POOLED}

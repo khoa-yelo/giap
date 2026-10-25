@@ -21,7 +21,8 @@ their own stream (``[seed, 7]``). Decision 21 (stream ``[seed, 8]``): each null 
 peptide becomes, with probability 1/2, the decoy row of its makedb entry (reversed peptide,
 ``rev_GIAPORF_…``, the same null score and mixture q / PEP); gene-level decoys are reversed
 products of annotated non-pseudo proteins (``rev_<locus_tag>``, ``n_decoy_rows`` of them).
-M7-11b decision 9: in this mode the search database is the makedb FASTA, so target rows name
+M7-11b decision 9: in this mode, and in ``decoys = "scored_null"`` mode whatever
+``wrong_source`` (MVP-04 step 5), the search database is the makedb FASTA, so target rows name
 makedb entries too: a wrong peptide's row its entry, a novel ORF's peptide the entry it lies in
 (``GIAPORF_…``), a peptide of a true protein upstream of its annotated start the gene's
 ``nterm_extension`` entry and any other peptide of an annotated protein its locus tag (makedb's
@@ -947,7 +948,8 @@ def simulate_proteomics(
         if la.shape != (len(prots),):
             raise ValueError(f"log_abundance has shape {la.shape}, expected ({len(prots)},)")
     detected, occ, first = _detect(cfg, rng, prots, la)
-    six = cfg.wrong_source == "sixframe_noncoding"
+    # makedb target IDs (decision 9): six-frame wrong peptides, or the scored_null search
+    six = cfg.wrong_source == "sixframe_noncoding" or cfg.decoys == "scored_null"
     orfs = OrfEntries(feats, seqs, topology) if six else None
     novel_ids = {str(r[0]) for r in novel}
     # codons of a true protein upstream of its annotated start (N-terminal extensions)
@@ -955,12 +957,12 @@ def simulate_proteomics(
                 // 3 for f in feats if f.kind in ("cds", "sorf")}  # fmt: skip
 
     def db_id(pep: str, k: int, a: int) -> str | None:
-        """The protein ID a search reports for occurrence ``(k, a)``. In six-frame mode
-        (decision 9) a novel ORF's peptide names its makedb entry, and an annotated protein's
-        peptide reaching upstream of the annotated start names the gene's ``nterm_extension``
-        entry (either None when makedb has no such entry: the occurrence is not in the search
-        database); any other peptide of an annotated protein names its locus tag, makedb's
-        ``db_id``."""
+        """The protein ID a search reports for occurrence ``(k, a)``. In six-frame and
+        scored_null mode (decision 9) a novel ORF's peptide names its makedb entry, and an
+        annotated protein's peptide reaching upstream of the annotated start names the
+        gene's ``nterm_extension`` entry (either None when makedb has no such entry: the
+        occurrence is not in the search database); any other peptide of an annotated protein
+        names its locus tag, makedb's ``db_id``."""
         p = prots[k]
         if orfs is None or (p.locus not in novel_ids and a >= upstream.get(p.locus, 0)):
             return p.locus
@@ -977,7 +979,7 @@ def simulate_proteomics(
     n_wrong = round(len(detected) * pi / (1 - pi))
     xrng = np.random.default_rng([seed, _SIXFRAME_STREAM])  # six-frame draws (M7-12)
     scored = cfg.decoys == "scored_null"
-    six = six and not scored  # orfs (makedb target IDs) follows wrong_source alone
+    six = six and not scored  # the six-frame wrong-peptide draw follows wrong_source alone
     pool: SixframePool | None = None
     loci: dict[str, Locus] = {}
     entry: dict[str, str] = {}  # six-frame wrong peptide -> makedb entry db_id (target + decoy)

@@ -603,3 +603,9 @@ Thresholds and gate text are unchanged.
 On run 20261023_a1 the literal text gives precision 55/70 and recall 55/65; the scored values are
 55/55 and 55/58. Ten of the 15 excluded initiator rows carry no `start_codon` flag. The ADR
 candidate "flag ALT M at unannotated start-capable codons" is in the backlog.
+
+## Clarification (lead, 2026-10-24; statistician note local/stat/mvp04-gates-2-12.md): gate 2 tokens
+Gate 2's forbidden warnings are the gene-level detection tokens. They match as whole tokens, so the
+novel-ORF step's per-class `novel_orfs.class_q_floor_above_alpha` (the class FDR floor, §7.6;
+expected for small classes such as nterm_extension) does not fail gate 2. This is a clarification,
+not a gate change.
