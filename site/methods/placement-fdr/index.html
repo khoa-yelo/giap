@@ -1,0 +1,6122 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Genome-integrated analysis of proteomics data for bacterial genomes">
+      
+      
+      
+      
+        <link rel="prev" href="../permutation-and-shifts/">
+      
+      
+        <link rel="next" href="../region-tests/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Placement FDR: genome decoys, chance hits and per-stratum q-values - GIAP</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#placement-fdr-genome-decoys-chance-hits-and-per-stratum-q-values" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="GIAP" class="md-header__button md-logo" aria-label="GIAP" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            GIAP
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Placement FDR: genome decoys, chance hits and per-stratum q-values
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="GIAP" class="md-nav__button md-logo" aria-label="GIAP" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    GIAP
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../get-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../get-started/setup-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set up the databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../get-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/inputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running GIAP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/outputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Outputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/interpreting-results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpreting results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/plots-and-report/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plots and report
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comparing runs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/makedb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building a search database
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/convert/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Converting search-engine output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/licences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Licences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/runtimes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtimes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/ecoli-k12/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: E. coli K-12
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/nissle-pilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: the Nissle pilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Output tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Flag vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methods
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Methods
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../abundance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gene-level abundance: iBAQ, Top3, protein-level route, missing values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../autocorrelation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autocorrelation of abundance along the replicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bootstrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TU-block bootstrap, circular block bootstrap and the Hodges–Lehmann shift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration harness: criteria, error rates, seeds
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    giap compare: detection, abundance agreement and result stability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../context_tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The context tables: autocorrelation.tsv, islands.tsv and the genes.tsv context group
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../denovo-flag-m717-gate-verdict/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    M7-17 G4-k3 flag gate, full tier: statistician's verdict (PR #291, ebfdd065)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../denovo-precision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    De novo precision, estimated from the genome
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../detectability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detectability model (cross-fitted p_detect)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../detection-limit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection-limit model (P(detect | abundance) and P(miss))
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../detection-summary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic detection summary (O − E) and QC rows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../detection-tiers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection tiers and gene-level FDR (M4-12)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../determinants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Determinants: what explains abundance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fgsea-port/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    fgsea port (G15; GIAP_SPEC.md §7.7.4) — superseded by ADR-0038
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../free-entrapment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Free entrapment: the FDP of A1's identifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../function-collections/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function collections (M8-03)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../function-gsea/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Abundance GSEA (M8-05, engine M8-17b)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../function/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function module: detection enrichment primitives
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../islands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Islands: expression islands along the replicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mayu-gene-fdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MAYU-style gene-level FDR (closed form)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiple-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiple testing: Benjamini–Hochberg
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../novel-orfs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Novel ORFs (M7)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operons/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operons: the within-operon distribution and the missed-operon decoy FDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oriter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Origin-to-terminus gradient
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../permutation-and-shifts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Permutation p-values, circular shifts and Besag–Clifford
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Placement FDR: genome decoys, chance hits and per-stratum q-values
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Placement FDR: genome decoys, chance hits and per-stratum q-values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#genome-decoys-m3-03" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Genome decoys (M3-03)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Genome decoys (M3-03)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-decoy-has-to-estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the decoy has to estimate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-two-constructions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The two constructions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-reverse-for-database-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why reverse for database input
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-shuffle-for-de-novo-input-85-attack-5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why shuffle for de novo input (§8.5 attack 5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-each-decoy-is-a-null-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What each decoy is a null for
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#limitations-documented-not-ci-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations (documented, not CI gates)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-decoy-hits-enter-the-q-values-m3-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How decoy hits enter the q-values (M3-10)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sign-off-genome-decoys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign-off (Genome decoys)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chance-hits-and-the-ranking-score-m3-09" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chance hits and the ranking score (M3-09)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chance hits and the ranking score (M3-09)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reproduction-of-b2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproduction of B.2
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-the-independence-assumption-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When the independence assumption fails
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#numerical-accuracy-of-the-poisson-binomial" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Numerical accuracy of the Poisson-binomial
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#review-findings-m3-09-srcgiapmappingchancepy-srcgiapstatspoisson_binomialpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review findings (M3-09, src/giap/mapping/chance.py, src/giap/stats/poisson_binomial.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sign-off-chance-hits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign-off (Chance hits)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_wrong-in-the-stratum-fdr-m3-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        π̂_wrong in the stratum FDR (M3-10)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="π̂_wrong in the stratum FDR (M3-10)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#model-and-assumptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model and assumptions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#derivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Derivation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#signed-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signed rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evidence_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#alternative-considered-separate-lists-per-value-score-bin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternative considered: separate lists per π̂ value (score bin)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#forwarded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Forwarded
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-that-must-change-test-author" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests that must change (test-author)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sign-off-_wrong-in-the-stratum-fdr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign-off (π̂_wrong in the stratum FDR)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strata-and-ranking-m3-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strata and ranking (M3-10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_wrong-sources-m3-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        π̂_wrong sources (M3-10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#same-strain-input-m3-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Same-strain input (M3-10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-strain-input-and-run-collapse-adr-0019-m3-25" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-strain input and run collapse (ADR-0019, M3-25)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#calibration-m3-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Calibration (M3-10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-review-m3-10-srcgiapmappingplacement_fdrpy-9ec53d1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation review (M3-10, src/giap/mapping/placement_fdr.py, 9ec53d1)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation review (M3-10, src/giap/mapping/placement_fdr.py, 9ec53d1)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sign-off-strata-and-ranking-_wrong-sources-same-strain-input-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign-off (Strata and ranking, π̂_wrong sources, Same-strain input, Calibration)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#genome-level-calibration-m3-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Genome-level calibration (M3-21)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#annotated-stop-read-through-m7-16a-adr-0058" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Annotated-stop read-through (M7-16a, ADR-0058)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Annotated-stop read-through (M7-16a, ADR-0058)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#16b-reporting-the-readthrough-flag-and-the-placement-kind-counts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16b reporting: the readthrough flag and the placement-kind counts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../region-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Region tests: O − E and Hodges–Lehmann shift under circular gene-index shifts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sensitivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sensitivity analysis: stability of flagged sets under analysis choices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../target-decoy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Target–decoy q-values and picked FDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../variants-mvp04-k12-audit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Variants on the MVP-04 K-12 run: flag audit (statistician, 2026-10-24)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../variants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Variants (Module 5)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0001-import-spec-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0001: Import the settled decisions of GIAP_SPEC.md §2.1 and §2.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0002-farmshare-env-pins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0002: FarmShare toolchain as installed in M0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0003-simulate-outdir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0003: giapsim.simulate takes an explicit output directory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0004-m0-size-exemption-and-hook-symlinks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0004: One-off PR-size exemption for M0, and symlink-safe path protection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0005-m1-input-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0005: Decisions on M1 input handling left open by the spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0006-table-value-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0006: Encoding of special values in GIAP tables, and strict BED writing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0007-pr-size-counts-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0007: The PR-size guard counts code, not tests or docs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0008-tool-pins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0008: Annotation tool pins, image digests and licences (M2-01)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0009-picked-fdr-paired-share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0009: Picked gene-level FDR rescales decoy wins by the paired share
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0010-placement-fdr-weighted-decoys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0010: Placement FDR with per-peptide π̂ weights each decoy hit by its own π̂ (M3-10)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0011-low-complexity-placement-flag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0011: low_complexity placement flag (M3-10)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0012-novel-orf-promoter-terminator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0012: Promoter and terminator evidence for novel ORFs (Module 6)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0013-cterm-extension-locus-class/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0013: cterm_extension locus class (M3-14, Module 6)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0014-db-checksum-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0014: Checksum sources for the Bakta full DB and the Promotech model (M2-08)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0015-calibration-two-block-confirmation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0015: Two-block confirmation for calibration gates (M4-05)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0016-size-gate-excludes-nf-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0016: The PR-size gate does not count workflow/tests/ (amends ADR-0007)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0017-unversioned-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0017: Unversioned sources (KEGG REST) are recorded, not pinned
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0018-region-tests-confounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0018: Region tests robust to detectability confounding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0019-stratum0-pi-hat-exact-share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0019: Stratum-0 π̂_wrong for database input from exact-match shares per length class
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0020-autocorrelation-redetrend-residual-joincount/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0020: Autocorrelation nulls recompute the detrend; residual join count; no CI for lag statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0021-island-oriter-block-length/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0021: Block length for the island scan and the ori–ter CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0022-uniop-terminatornet-cutoffs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0022: UniOP and TerminatorNet cut-offs and the distance-model refit on RegulonDB 14.5.0 K-12
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0023-kegg-overview-maps-excluded/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0023: KEGG global and overview maps are excluded from the KEGG collection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0024-precomputed-rbs-novel-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0024: annotation.precomputed.rbs_novel, a precomputed second-round OSTIR layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0025-gsea-clustered-sets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0025: GSEA on genomically clustered sets: a flag and a restricted claim in pass 1, a rotation null in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0026-gsea-conditional-on-detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0026: Abundance GSEA is conditional on detection (restricted claim and flag)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0027-gsea-nes-without-ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0027: GSEA reports NES without a confidence interval (§8.2 deviation)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0028-gsea-median-centred-tu-scores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0028 (ADR-B): GSEA ranks median-centred TU scores
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0029-ora-conditional-poisson-binomial-tus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0029: Detection ORA uses the conditional Poisson-binomial null, counted in TUs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0030-detection-limit-pass1-calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0030: Detection-limit model (M6-02): the pass-1 calibration choices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0031-determinants-delta-r2-tolerance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0031: Determinants ΔR² bias tolerance 0.05; the ΔR² interval stays ci_unestimated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0032-determinants-univariate-ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0032: Univariate determinants CIs stay ci_unestimated in pass 1; a calibrated SE in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0033-determinants-primary-attribution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0033: Elastic-net ΔR² is the primary block attribution; LightGBM early stopping in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0034-determinants-null-uncalibrated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0034: The determinants permutation null p is null_uncalibrated in pass 1; a structure-aware null in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0035-ora-tu-detection-recalibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0035: The ORA TU detection probability is a cross-fitted TU-level recalibration of q = 1 − ∏(1 − p̂)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0036-m8-table-columns-beyond-9-3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0036: M8 function tables carry four columns and five run flags beyond GIAP_SPEC.md §9.3 and §9.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0037-ora-flexible-tu-recalibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0037: The ORA TU detection recalibration becomes a flexible cross-fitted ridge logistic (pass 2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0038-gsea-runs-r-fgsea/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0038: GSEA runs R fgsea as an external tool
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0039-bioconductor-org-for-golden-r/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0039: bioconductor.org as a download source for the R golden environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0040-manifest-run-tail-finalize-split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0040: The manifest runs after the graph; finalize is split between the graph and the run tail
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0041-run-tokens-beyond-9-4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0041: Run-scope tokens beyond the §9.4 Run row
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0042-replicates-variants-and-compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0042: Calibration replicate counts for variants and compare
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0043-plot-support-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0043: Plot support files under OUT/plots/support/
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0044-wallenius-golden-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0044: The Wallenius golden reference is the exact distribution, not goseq
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0045-wallenius-far-tails-by-urn-recursion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0045: Wallenius far tails by the exact urn recursion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0046-compare-output-layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0046: giap compare output layout (ADR-M9-B)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0047-decoy-q-filter-reading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0047: Decoys above q_value_max leave the picked competition (reading of §5.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0048-replicates-novel-orfs-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0048: Replicate counts for the 1-Mb novel-ORF gate (M7-13 G3/G4)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0049-m7-variant-precision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0049: M7 variant-call precision under de novo errors (G1, A6a, A6b, A6c)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0050-denovo-orf-q-exact-errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0050: ORF-level q in the de novo subgroup regime under exact systematic errors (G4-k3, attack GC)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0051-diann-version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0051: DIA-NN 2.3.1 Academia (Apptainer image) instead of the spec's 2.7.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0052-pr-ci-under-20-minutes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0052: PR CI under 20 minutes; calibration, integration and coverage move to the nightly
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0053-determinants-bit-identical-speedups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0053: Bit-identical speed-ups of the determinants step; two new benchmark baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0054-a3-external-artefacts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0054: External artefacts of the A3 de novo arm (ADR-M10-B): conversion route, TDF-SDK licence, Cascadia weights host, Unimod table
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0055-operon-discordance-abundance-noise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0055: Operon discordance under abundance-dependent Δ noise (attack D-1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0056-pmiss-outside-the-bh-family/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0056: P(miss) is reported without a q and stays out of the discordance BH family
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0057-calibration-merge-honours-strict-xfail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0057: the calibration merge honours the xfail mark of the test that owns a check
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0058-annotated-stop-substitution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0058: The tolerant matcher may consume an annotated stop codon (option B of M7-16)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releasing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../citation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Citation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#genome-decoys-m3-03" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Genome decoys (M3-03)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Genome decoys (M3-03)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-decoy-has-to-estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the decoy has to estimate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-two-constructions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The two constructions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-reverse-for-database-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why reverse for database input
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-shuffle-for-de-novo-input-85-attack-5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why shuffle for de novo input (§8.5 attack 5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-each-decoy-is-a-null-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What each decoy is a null for
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#limitations-documented-not-ci-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations (documented, not CI gates)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-decoy-hits-enter-the-q-values-m3-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How decoy hits enter the q-values (M3-10)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sign-off-genome-decoys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign-off (Genome decoys)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chance-hits-and-the-ranking-score-m3-09" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chance hits and the ranking score (M3-09)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chance hits and the ranking score (M3-09)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reproduction-of-b2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproduction of B.2
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-the-independence-assumption-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When the independence assumption fails
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#numerical-accuracy-of-the-poisson-binomial" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Numerical accuracy of the Poisson-binomial
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#review-findings-m3-09-srcgiapmappingchancepy-srcgiapstatspoisson_binomialpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review findings (M3-09, src/giap/mapping/chance.py, src/giap/stats/poisson_binomial.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sign-off-chance-hits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign-off (Chance hits)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_wrong-in-the-stratum-fdr-m3-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        π̂_wrong in the stratum FDR (M3-10)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="π̂_wrong in the stratum FDR (M3-10)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#model-and-assumptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model and assumptions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#derivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Derivation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#signed-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signed rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evidence_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#alternative-considered-separate-lists-per-value-score-bin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternative considered: separate lists per π̂ value (score bin)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#forwarded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Forwarded
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-that-must-change-test-author" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests that must change (test-author)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sign-off-_wrong-in-the-stratum-fdr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign-off (π̂_wrong in the stratum FDR)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strata-and-ranking-m3-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strata and ranking (M3-10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_wrong-sources-m3-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        π̂_wrong sources (M3-10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#same-strain-input-m3-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Same-strain input (M3-10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-strain-input-and-run-collapse-adr-0019-m3-25" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-strain input and run collapse (ADR-0019, M3-25)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#calibration-m3-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Calibration (M3-10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-review-m3-10-srcgiapmappingplacement_fdrpy-9ec53d1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation review (M3-10, src/giap/mapping/placement_fdr.py, 9ec53d1)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation review (M3-10, src/giap/mapping/placement_fdr.py, 9ec53d1)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sign-off-strata-and-ranking-_wrong-sources-same-strain-input-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign-off (Strata and ranking, π̂_wrong sources, Same-strain input, Calibration)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#genome-level-calibration-m3-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Genome-level calibration (M3-21)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#annotated-stop-read-through-m7-16a-adr-0058" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Annotated-stop read-through (M7-16a, ADR-0058)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Annotated-stop read-through (M7-16a, ADR-0058)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#16b-reporting-the-readthrough-flag-and-the-placement-kind-counts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16b reporting: the readthrough flag and the placement-kind counts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="placement-fdr-genome-decoys-chance-hits-and-per-stratum-q-values">Placement FDR: genome decoys, chance hits and per-stratum q-values<a class="headerlink" href="#placement-fdr-genome-decoys-chance-hits-and-per-stratum-q-values" title="Permanent link">&para;</a></h1>
+<p>Implements the genome side of GIAP_SPEC.md §7.2.1 (decoy translations), §7.2.5 (placement FDR, G3),
+§8.1 rows "Peptide placed at a locus", §8.2 "decoys mimic targets", §8.5 attack 5 and Appendix
+B.2/B.6. Issues: M3-03 (decoys, this section), M3-09 (chance hits), M3-10 (strata and q-values),
+M3-21 (genome-level calibration). Engine for the q-values: <code>docs/methods/target-decoy.md</code>.</p>
+<p>Sections: Genome decoys (M3-03, <strong>signed off below</strong>); Chance hits and the ranking score (M3-09,
+<strong>signed off below</strong>); π̂_wrong in the stratum FDR (M3-10, <strong>rule signed off below</strong>); Strata and
+ranking, π̂_wrong sources, Same-strain input, Calibration (M3-10, <strong>signed below; implementation
+approved at 031378c after two same-strain fixes</strong>, see "Implementation review (M3-10)"). Genome-level
+calibration with tolerant hits and de novo errors, and attack 5, are M3-21.</p>
+<h2 id="genome-decoys-m3-03">Genome decoys (M3-03)<a class="headerlink" href="#genome-decoys-m3-03" title="Permanent link">&para;</a></h2>
+<h3 id="what-the-decoy-has-to-estimate">What the decoy has to estimate<a class="headerlink" href="#what-the-decoy-has-to-estimate" title="Permanent link">&para;</a></h3>
+<p>A placement is wrong when a wrong peptide (a misidentified spectrum or a de novo error) happens to
+occur in the six-frame translation. For one wrong peptide the number of such chance hits depends
+only on the search space: the set of <em>distinct</em> stop- and X-free L-mers of the six frames
+(each peptide counts once at its best cost, §7.2.5 step 1, so multiplicity of a word does not
+matter), and the peptide law. The decoy search space must give a wrong peptide the same hit
+probability as the target space, while giving a correct peptide (which is in the target by
+construction) only that same chance probability. Then D (peptides with a decoy hit at cost m)
+estimates the number of wrong peptides with a chance target hit at cost m, and π̂_wrong (D + 1)/T
+is the stratum FDR (M3-10).</p>
+<p>Formally, for a peptide law Q and a space with distinct words W, P(hit) = Σ_{w ∈ W} Q(w) (exact
+search; for ≤ m differences replace W by its m-neighbourhood). The decoy is valid for Q when
+Σ_{W_D} Q = Σ_{W_T} Q.</p>
+<h3 id="the-two-constructions">The two constructions<a class="headerlink" href="#the-two-constructions" title="Permanent link">&para;</a></h3>
+<p>Both act on the I→L-folded uint8 frames of <code>build_sixframe</code>, frame by frame, and return frames of
+the same contig, strand, offset and length (<code>build_decoys</code>).</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>reverse (database input)</th>
+<th>shuffle (de novo input)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Operation</td>
+<td>frame string reversed</td>
+<td>inside each stop-free segment, non-X residues cut into consecutive windows of 50 from the segment start (last window shorter); each window permuted uniformly (Fisher–Yates), seeded <code>for_step("sixframe_index", seed)</code></td>
+</tr>
+<tr>
+<td><code>*</code> and <code>X</code></td>
+<td>mirrored (position n−1−i)</td>
+<td>fixed in place</td>
+</tr>
+<tr>
+<td>Frame composition</td>
+<td>identical</td>
+<td>identical</td>
+</tr>
+<tr>
+<td>Per-window composition</td>
+<td>identical (mirrored windows)</td>
+<td>identical (exactly, per 50-aa window)</td>
+</tr>
+<tr>
+<td>Stop-free segment lengths and X positions</td>
+<td>same multiset, mirrored</td>
+<td>identical</td>
+</tr>
+<tr>
+<td>Number of L-mer positions without <code>*</code>/<code>X</code></td>
+<td>identical</td>
+<td>identical</td>
+</tr>
+<tr>
+<td>Local order</td>
+<td>kept, reversed (dipeptide xy → yx)</td>
+<td>destroyed below 50 aa; composition gradient above 50 aa kept</td>
+</tr>
+<tr>
+<td>Repeats / low-complexity runs</td>
+<td>kept (a repeat stays a repeat)</td>
+<td>homopolymer runs kept; periodic repeats and multi-copy elements destroyed</td>
+</tr>
+<tr>
+<td>Mirror map (§7.6.4, <code>mirror_aa</code>)</td>
+<td>[n − end, n − start)</td>
+<td>identity</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Same search-space size.</strong> The decoy frames have the same frames, the same length, the same <code>*</code>
+and X geometry (identical or mirrored) and therefore exactly the same number of candidate L-mer
+positions for every L (verified for L = 7, 8 in every replicate of the attack suite). The I→L fold
+is applied before decoying, so neither space can match I/L differently. The circular extension
+(first 120 nt appended, §7.2.1) is decoyed with its frame: for reverse the duplicated words stay
+duplicated, so distinct-word counts agree exactly; for shuffle the extension is shuffled
+independently of the origin region, which adds at most 40 distinct decoy words per frame per
+circular replicon (≈ 2 × 10⁻⁵ of a 5-Mb space, conservative, negligible).</p>
+<h3 id="why-reverse-for-database-input">Why reverse for database input<a class="headerlink" href="#why-reverse-for-database-input" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Exact under any i.i.d. peptide law.</strong> If Q(w) = Π Q₁(wⱼ) then Q(rev w) = Q(w), and W_D = rev(W_T)
+  word for word, so Σ_{W_D} Q = Σ_{W_T} Q <em>exactly</em> — for every genome, including repeat-rich and
+  low-complexity genomes, and for every difference budget (the m-neighbourhood of rev w is the
+  reverse of the m-neighbourhood of w for substitutions; adjacent swaps and the mass-equivalence
+  operations are closed under reversal because the operation tables list both orders). Positional
+  laws that are not reversal-symmetric (tryptic C-terminal K/R) still agree in expectation when the
+  genome's L-mers are reversal-exchangeable; the attack suite confirms it on giapsim genomes.</li>
+<li><strong>It keeps everything structural.</strong> Composition per window, repeats, low-complexity runs and the
+  stop geometry are kept, so the decoy reproduces the de-duplication that repeats impose on the
+  target (see the low-complexity results below: shuffle over-counts by 40–70 % there, reverse is
+  exact).</li>
+<li><strong>Deterministic and seed-free</strong>, and its own inverse (<code>mirror_aa</code> is an involution).</li>
+<li>It is also the standard choice of proteomic search engines, so database peptides are not
+  systematically "close to" reversed sequence (input decoy rows are never mapped, M3-17).</li>
+</ul>
+<h3 id="why-shuffle-for-de-novo-input-85-attack-5">Why shuffle for de novo input (§8.5 attack 5)<a class="headerlink" href="#why-shuffle-for-de-novo-input-85-attack-5" title="Permanent link">&para;</a></h3>
+<p>De novo errors frequently reverse a short stretch of a correct peptide (b/y-ion ambiguity). A
+peptide with a reversed internal stretch, or a fully reversed one, matches the <em>reversed</em> frame near
+the true locus far more often than chance, so a reversed decoy would inflate D with correct-locus
+peptides and make the de novo FDR uselessly conservative and the de novo precision estimator
+(§7.2.5, r_bℓ) biased. A window shuffle breaks all order below 50 aa, so such peptides hit the
+decoy only at chance rate, while the 50-aa windows keep local composition (codon bias, hydrophobic
+stretches, AT-rich non-coding frames), which is what per-position match probability depends on.</p>
+<p><strong>Window size.</strong> 50 aa is a compromise: windows must be much longer than the longest tolerant
+peptide window that matters for chance hits (≤ 40 aa) so that a peptide-length stretch is a
+near-random draw from its window, and short enough to keep composition gradients (genes vs.
+intergenic, GC skew, transmembrane segments). Windows restart at each stop and skip X, so a window
+never mixes two stop-free segments. With window 1 the shuffle is the identity (unit-tested);
+with an unbounded window (whole segment) the attack results were indistinguishable at 100 kb
+(mean D/T expected-hit ratio 1.003 vs. 1.000 at L = 7; exploratory, 20 genomes).</p>
+<h3 id="what-each-decoy-is-a-null-for">What each decoy is a null for<a class="headerlink" href="#what-each-decoy-is-a-null-for" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Matching</th>
+<th>reverse</th>
+<th>shuffle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exact (Route 1)</td>
+<td>exact null for any i.i.d. (and any reversal-symmetric) wrong-peptide law, any genome</td>
+<td>null for i.i.d. wrong peptides on genomes without heavy repeats; conservative with repeats</td>
+</tr>
+<tr>
+<td>Tolerant, ≤ m differences (Route 3)</td>
+<td>same, because the five cost-1 operations are closed under reversal</td>
+<td>same as exact, with the m-neighbourhood</td>
+</tr>
+<tr>
+<td>Frameshift splits (M3-08)</td>
+<td>decoy splits by mirrored adjacency (M3-08)</td>
+<td>identity map keeps frame adjacency</td>
+</tr>
+</tbody>
+</table>
+<p>Neither decoy is a null for wrong peptides that share <em>sequence order</em> with the genome's own
+proteins (see "Limitations").</p>
+<h3 id="evidence">Evidence<a class="headerlink" href="#evidence" title="Permanent link">&para;</a></h3>
+<p><strong>Implementation review (M3-03, <code>src/giap/mapping/decoys.py</code>).</strong></p>
+<ul>
+<li>The shuffle swaps slot l of a window with a uniform slot in [0, l] in increasing l (Durstenfeld's
+  forward variant of Fisher–Yates), which is uniform over the l! orders by induction; swaps never
+  leave the window (<code>j = s − local[s] + draw</code>), so per-window multisets, <code>*</code> and X positions are
+  preserved exactly (property-tested, <code>tests/property/test_decoys_props.py</code>).</li>
+<li>Windows restart at <code>*</code> but not at X (X skipped), as the issue specifies.</li>
+<li>Determinism: one generator for all frames in index order, one draw per shuffled residue
+  (<code>rng.integers(0, local + 1)</code>); reverse draws nothing. Seed-identical runs are byte-identical.
+  Note: the draws are not <code>rng.permutation</code> as the issue text says; this is statistically
+  equivalent, but the stream is fixed by this implementation and must not change silently (golden
+  tables, §6.6).</li>
+</ul>
+<p><strong>Attack suite (<code>tests/calibration/attacks/test_attack_genome_decoys.py</code>).</strong> Fast suite: R = 50
+giapsim genomes of 100 kb (seeds 20261014 + i); full suite R = 300. For each genome the <em>exact</em>
+expected hit probability of an i.i.d. peptide drawn from the genome's six-frame residue
+frequencies is computed on the distinct L-mers of the target and of each decoy (no peptide sampling
+noise), and three sampled peptide sets are searched.</p>
+<table>
+<thead>
+<tr>
+<th>Null (fast, R = 50)</th>
+<th>reverse D/T</th>
+<th>shuffle D/T</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>exact expected hits, L = 7 (mean ± SE; range)</td>
+<td>1 (exact)</td>
+<td>1.003 ± 0.002 (0.976–1.022)</td>
+</tr>
+<tr>
+<td>exact expected hits, L = 8</td>
+<td>1 (exact)</td>
+<td>1.003 ± 0.002 (0.964–1.037)</td>
+</tr>
+<tr>
+<td>sampled i.i.d. 7-mers, 10⁶ peptides: T = 1,332</td>
+<td>D = 1,306 (p = 0.63)</td>
+<td>D = 1,341 (p = 0.88)</td>
+</tr>
+<tr>
+<td>sampled tryptic 7-mers (C-term K/R): T = 1,239</td>
+<td>D = 1,261 (p = 0.67)</td>
+<td>D = 1,213 (p = 0.61)</td>
+</tr>
+<tr>
+<td>sampled 8-mers ≤ 1 substitution, 10⁵ peptides: T = 953</td>
+<td>D = 919 (p = 0.45)</td>
+<td>D = 944 (p = 0.85)</td>
+</tr>
+</tbody>
+</table>
+<p>p = two-sided binomial test of D vs T given D + T. Per-genome scatter of the shuffle ratio
+(SD ≈ 1.2–1.6 % at 100 kb; one 1-Mb genome gave 1.003 / 0.998) is the decoy's own Monte Carlo error, unbiased in the
+mean; it shrinks with genome size.</p>
+<p><strong>Low-complexity genome</strong> (same genomes plus 24 simple-sequence repeats of 360 nt — (CAG)n, (GCC)n,
+(AT)n, (GA)n, A-runs, hexamer repeats — and ten copies of one 1.5-kb element, ≈ 24 % repetitive;
+R = 10 fast):</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>reverse D/T</th>
+<th>shuffle D/T</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>exact expected hits, L = 7 / L = 8</td>
+<td>1 / 1 (exact)</td>
+<td>1.40 / 1.69</td>
+</tr>
+<tr>
+<td>sampled i.i.d. 7-mers</td>
+<td>221 / 227</td>
+<td>296 / 227</td>
+</tr>
+<tr>
+<td>sampled 8-mers ≤ 1 substitution</td>
+<td>148 / 158</td>
+<td>221 / 158</td>
+</tr>
+</tbody>
+</table>
+<p>Repeats shrink the set of distinct target words by ≈ 23 %; the shuffle restores them, so the
+shuffled decoy over-counts chance hits. This is conservative (FDR over-estimated, power lost for de
+novo input on repeat-rich genomes), never anti-conservative; the gate asserts exactly that.</p>
+<p><strong>Shuffle exactness.</strong> Joint uniformity over two 4-aa windows separated by an X (576 cells,
+23,040 draws), the window after a <code>*</code>, independence of windows, and position × residue uniformity
+in a full 50-aa window: all χ² p &gt; 0.001. The test-author's unit test (one 3-residue window, 600
+seeds) is adequate as a smoke test (it catches the classic "swap with any slot" bias already at
+n = 3) but tests neither independence between windows nor the X/<code>*</code> geometry; the attack suite
+covers those.</p>
+<h3 id="limitations-documented-not-ci-gates">Limitations (documented, not CI gates)<a class="headerlink" href="#limitations-documented-not-ci-gates" title="Permanent link">&para;</a></h3>
+<p>Exploratory runs, 1-Mb synthetic genomes, 4 × 10⁵ sampled 7-mers each:</p>
+<table>
+<thead>
+<tr>
+<th>Violation</th>
+<th>D/T reverse</th>
+<th>D/T shuffle</th>
+<th>Consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wrong peptides share the genome's order-1 (dipeptide) structure: genes and peptides from one asymmetric Markov chain, strength 0.1 / 0.2 / 0.4</td>
+<td>0.96 / 0.88 / 0.48</td>
+<td>0.99 / 0.96 / 0.62</td>
+<td>Both decoys under-count chance hits of "protein-like" wrong peptides. Real proteome dipeptide asymmetry is weak (≈ the 0.1 row); database wrong IDs from a related proteome (<code>search_db = other</code>) are the realistic case. M3-21 must measure this with real protein sequences (TE8 proxy, UniProt K-12 peptides vs. the Nissle genome).</td>
+</tr>
+<tr>
+<td>Periodic wrong peptides (dipeptide repeats XYXY…) on the low-complexity genome</td>
+<td>1.00</td>
+<td>0.88</td>
+<td>Shuffle is anti-conservative for periodic wrong peptides hitting periodic target repeats (period-3 repeats go the other way, 4.2). Recommendation for M3-10: flag <code>low_complexity</code> placements (e.g. ≤ 3 distinct residues in the peptide) and report them separately rather than relying on the shuffle decoy.</td>
+</tr>
+<tr>
+<td>De novo reversed stretches with reverse decoys (attack 5)</td>
+<td>inflated D</td>
+<td>—</td>
+<td>Why de novo uses shuffle; quantified in M3-21.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="how-decoy-hits-enter-the-q-values-m3-10">How decoy hits enter the q-values (M3-10)<a class="headerlink" href="#how-decoy-hits-enter-the-q-values-m3-10" title="Permanent link">&para;</a></h3>
+<p>Completed in "Strata and ranking" and "π̂_wrong in the stratum FDR" below.</p>
+<h3 id="sign-off-genome-decoys">Sign-off (Genome decoys)<a class="headerlink" href="#sign-off-genome-decoys" title="Permanent link">&para;</a></h3>
+<p>Statistician (M3-03 review, 2026-10-14): <strong>approved</strong> for <code>reverse_frame</code>, <code>shuffle_frame</code>,
+<code>build_decoys</code>, <code>mirror_aa</code> and the <code>sixframe_index</code> work file as implemented on <code>m3/decoys</code>.
+Forwarded: the Markov-structure caveat to M3-21 (real-protein calibration), the low-complexity
+recommendation to M3-10, and the repeat over-count of the shuffle (power, not validity).</p>
+<h2 id="chance-hits-and-the-ranking-score-m3-09">Chance hits and the ranking score (M3-09)<a class="headerlink" href="#chance-hits-and-the-ranking-score-m3-09" title="Permanent link">&para;</a></h2>
+<h3 id="the-model">The model<a class="headerlink" href="#the-model" title="Permanent link">&para;</a></h3>
+<p>A wrong peptide of length L is modelled as L residues drawn independently from the genome's
+six-frame composition f, and every searchable target window as L residues drawn independently from
+the same f, independently of the peptide. Then one position matches with probability
+s = Σ_a f_a², a window is within ≤ m substitutions with probability
+Σ_{j≤m} C(L, j)(1 − s)^j s^(L−j) (j mismatching positions out of L, each mismatching with
+probability 1 − s), and the expected number of chance windows is</p>
+<p>E(L, m) = N Σ_{j≤m} C(L, j)(1 − s)^j s^(L−j)  (§7.2.5, B.2; <code>expected_hits_uniform</code>).</p>
+<p>The per-peptide ranking score E_i (<code>expected_hits</code>) conditions on the peptide's residues: position i
+mismatches a random target residue with probability 1 − f_{a_i}, the mismatch count is
+Poisson-binomial, and E_i = N · P(≤ m mismatches). Averaged over i.i.d.-f peptides, E_i equals
+E(L, m) exactly (positions are independent and E_f[1 − f_a] = 1 − s); the calibration test
+confirms it by simulation at L = 8.</p>
+<p><strong>Composition f</strong> (<code>residue_freqs</code>): counts of the 19 residue codes over the target frames, I and L
+merged (the frames are I→L folded before anything else, so neither target nor decoy can match I/L
+differently); <code>*</code> and X are excluded from f. Query letters outside the 19 (U, O, B, Z, J, X) get
+f = 0: they never match, so they always count as a mismatch.</p>
+<p><strong>N</strong> (<code>n_positions</code>) is the number of six-frame codon positions whose first nucleotide lies in the
+replicon: for a circular replicon one per nucleotide and strand (≈ 2 × genome length), the 120-nt
+circular extension excluded, but every position near the origin still starts a full window that
+reads through the extension (origin-crossing windows are searchable and counted once); for a linear
+contig the last ≤ L − 1 positions of each frame have no full window but are counted (negligible).
+As the spec defines it, N counts <strong>all</strong> positions, including <code>*</code> and X and windows that contain
+them. Those windows can never match, so the number of searchable windows is W_L &lt; N (next section).</p>
+<p><strong>Substitutions only.</strong> E counts substitution neighbours. The tolerant matcher also accepts
+adjacent swaps and mass-equivalent blocks at cost 1, so the true cost-≤ m neighbourhood is larger
+than E assumes (lead default, M3-09 Q1). This does not matter for validity: E is a <strong>ranking
+score</strong>, not an FDR estimate. Target and decoy E are computed by the same function from the
+peptide sequence and the same genome f (decoys keep the target composition exactly, see Genome
+decoys), so E is exchangeable between a wrong peptide's target and decoy hits; the decoy count D
+(which uses all operations) calibrates the FDR. An error in E costs power (a worse ordering), never
+validity. E also counts hit <em>positions</em> with multiplicity, whereas a peptide counts once in the
+strata: P(≥ 1 hit) ≤ E, ≈ E when E ≪ 1, which is the range that is accepted.</p>
+<h3 id="reproduction-of-b2">Reproduction of B.2<a class="headerlink" href="#reproduction-of-b2" title="Permanent link">&para;</a></h3>
+<p><code>expected_hits_uniform(L, m, 0.069, 1e7)</code> against exact rational arithmetic: relative error
+≤ 1.3 × 10⁻¹⁵ in all 21 cells; every cell rounds to the B.2 table (e.g. (7, 0) 0.0744635,
+(8, 1) 0.559742, (9, 2) 2.36692, (10, 1) 0.00332505, (12, 2) 0.00141835, (14, 1) 1.05295 × 10⁻⁷;
+L = 6: 1.08, 88.4, 3.04 × 10³). Monte Carlo (<code>tests/calibration/test_chance_hits.py</code>, random
+19-letter target of 10⁶ residues with Σf² = 0.069, scaled to N = 10⁷, ≤ 1 substitution):</p>
+<table>
+<thead>
+<tr>
+<th>L</th>
+<th>simulated (± SE)</th>
+<th>E(L, 1)</th>
+<th>ratio</th>
+<th>B.2 ≤ 1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>8</td>
+<td>0.561 ± 0.006</td>
+<td>0.5597</td>
+<td>1.002</td>
+<td>0.56</td>
+</tr>
+<tr>
+<td>9</td>
+<td>0.0440 ± 0.0007</td>
+<td>0.0434</td>
+<td>1.015</td>
+<td>0.043</td>
+</tr>
+<tr>
+<td>10</td>
+<td>0.00339 ± 0.00009</td>
+<td>0.00333</td>
+<td>1.020</td>
+<td>0.0033</td>
+</tr>
+</tbody>
+</table>
+<p>All within the 20 % gate with SE ≤ 2.7 %. The counting kernel is checked against brute force. This
+reproduces the <em>formula</em>; it says nothing about real six-frame translations, which the attack below
+measures.</p>
+<h3 id="when-the-independence-assumption-fails">When the independence assumption fails<a class="headerlink" href="#when-the-independence-assumption-fails" title="Permanent link">&para;</a></h3>
+<p>Attack <code>tests/calibration/attacks/test_attack_chance_hits.py</code> (statistician). For a peptide drawn
+i.i.d. from the genome's own f, the exact expected number of hit windows is
+Σ_{searchable windows t} P(≤ m mismatches | t), mismatch probability 1 − f(t_j) at position j
+(closed form for m ≤ 2; no peptide sampling, cross-checked against sampled exact hits). It is
+compared with E(L, m) computed by <code>residue_freqs</code> + <code>expected_hits_uniform</code> on genomes built through
+<code>build_sixframe</code> (circular, 100 kb, R = 8 per family, seeds from <code>calibration_base</code>). Ratios:
+stop = W_L / N; cond = observed / (W_L × tail), the error given the stop correction;
+total = observed / E = stop × cond. Mean over replicates, m = 0 / 1 / 2:</p>
+<table>
+<thead>
+<tr>
+<th>Genome</th>
+<th>L</th>
+<th>stop</th>
+<th>cond (m = 0 / 1 / 2)</th>
+<th>total (m = 0 / 1 / 2)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>i.i.d. nucleotides, GC 50 %</td>
+<td>8</td>
+<td>0.681</td>
+<td>0.999 / 0.999 / 0.999</td>
+<td>0.681 / 0.681 / 0.681</td>
+</tr>
+<tr>
+<td></td>
+<td>12</td>
+<td>0.562</td>
+<td>0.988 / 0.991 / 0.994</td>
+<td>0.555 / 0.557 / 0.559</td>
+</tr>
+<tr>
+<td>i.i.d. nucleotides, GC 75 % (s ≈ 0.10)</td>
+<td>8</td>
+<td>0.895</td>
+<td>0.993 / 0.995 / 0.997</td>
+<td>0.889 / 0.891 / 0.893</td>
+</tr>
+<tr>
+<td></td>
+<td>12</td>
+<td>0.847</td>
+<td>0.989 / 0.992 / 0.994</td>
+<td>0.838 / 0.840 / 0.842</td>
+</tr>
+<tr>
+<td>giapsim (genes, codon structure, AT-rich intergenic)</td>
+<td>7</td>
+<td>0.748</td>
+<td>1.019 / 1.012 / 1.006</td>
+<td>0.762 / 0.757 / 0.752</td>
+</tr>
+<tr>
+<td></td>
+<td>8</td>
+<td>0.719</td>
+<td>1.027 / 1.018 / 1.011</td>
+<td>0.739 / 0.732 / 0.727</td>
+</tr>
+<tr>
+<td></td>
+<td>10</td>
+<td>0.666</td>
+<td>1.047 / 1.036 / 1.025</td>
+<td>0.697 / 0.690 / 0.683</td>
+</tr>
+<tr>
+<td></td>
+<td>12</td>
+<td>0.618</td>
+<td>1.068 / 1.055 / 1.043</td>
+<td>0.660 / 0.652 / 0.644</td>
+</tr>
+<tr>
+<td>giapsim + 24 simple-sequence repeats of 360 nt (≈ 9 %)</td>
+<td>7</td>
+<td>0.766</td>
+<td>1.82 / 1.42 / 1.21</td>
+<td>1.39 / 1.09 / 0.93</td>
+</tr>
+<tr>
+<td></td>
+<td>8</td>
+<td>0.740</td>
+<td>2.54 / 1.80 / 1.41</td>
+<td>1.88 / 1.33 / 1.04</td>
+</tr>
+<tr>
+<td></td>
+<td>10</td>
+<td>0.691</td>
+<td>6.7 / 3.9 / 2.5</td>
+<td>4.6 / 2.7 / 1.7</td>
+</tr>
+<tr>
+<td></td>
+<td>12</td>
+<td>0.647</td>
+<td>22.6 / 11.7 / 6.4</td>
+<td>14.6 / 7.6 / 4.1</td>
+</tr>
+</tbody>
+</table>
+<p>(Replicate SE of cond on the i.i.d. genomes ≈ 0.3–0.6 % at L = 8–12; the 1 % deviations at L = 12
+are within 2 SE, confirmed with R = 30 at GC 75 %: 0.998 ± 0.002 at L = 8, 0.999 ± 0.005 at L = 12.)</p>
+<p>Three effects, with their directions:</p>
+<ol>
+<li><strong>Stops and X</strong> (factor W_L / N ≈ (1 − p_stop)^L, here 0.56–0.91; p_stop ≈ 3/64 for GC 50 %): N counts positions that
+   cannot start a match. E <strong>over</strong>-states the absolute chance count — conservative — by a factor 1.1–1.8,
+   more for longer L and AT-rich genomes (more stop codons in non-coding frames). With i.i.d.
+   codons this is the only error (cond = 1 at any composition, including a strongly skewed GC 75 %
+   genome: the model handles composition skew through f).</li>
+<li><strong>Heterogeneous composition and dipeptide structure.</strong> Coding, antisense and intergenic frames
+   have different residue laws g_k; for an i.i.d.-f peptide E[Π f(t_j)] = Σ_k w_k (Σ_a f_a g_k(a))^L
+   ≥ s^L by Jensen, and codon/dipeptide structure inside genes adds to it. E <strong>under</strong>-states the
+   conditional count by 2–7 % (growing with L, shrinking with m). On realistic genomes the stop
+   factor dominates, so E stays conservative overall (total 0.64–0.76).</li>
+<li><strong>Low complexity.</strong> Simple-sequence repeats put long runs of a few abundant residues into the
+   target (poly-A, poly-P, (AR)n, …); windows there have Π f(t_j) ≫ s^L. E <strong>under</strong>-states the
+   absolute count, strongly and increasingly with L (×1.9 at L = 8, ×15 at L = 12, exact matches).
+   By construction the excess comes from peptides that are themselves rich in the repeat
+   residues (an exact or 1-substitution match to a repeat window needs a near-repeat peptide):
+   those hit far more often than their E_i says, while typical peptides are barely affected. This is the same structure that made the shuffled decoy
+   anti-conservative for periodic wrong peptides (Genome decoys › Limitations, D/T 0.88) and that
+   the reverse decoy preserves exactly.</li>
+</ol>
+<p><strong>Consequence.</strong> Since E is only a ranking score, none of these errors affects FDR validity as long
+as the decoy is a valid null (reverse: exact for any i.i.d. law on any genome; shuffle: see Genome
+decoys). They affect (a) power, through the ordering: the stop factor varies with L, so pooling
+lengths within a stratum (G3) ranks long peptides slightly too pessimistically relative to short
+ones (≈ 3–5 % per residue against a factor ≈ 1/s ≈ 14 per residue in E itself: immaterial);
+low-complexity peptides are ranked too optimistically, which is the case for the <code>low_complexity</code>
+placement flag recommended to M3-10; (b) any <em>absolute</em> reading of E (a reported "expected chance
+hits" column, or the §7.2.5 table read as a property of a real genome): E over-states real
+genomes by 1.3–1.8× and under-states low-complexity peptides by up to an order of magnitude. If E is
+ever reported as an absolute expectation, use W_L instead of N and flag low-complexity peptides.</p>
+<h3 id="numerical-accuracy-of-the-poisson-binomial">Numerical accuracy of the Poisson-binomial<a class="headerlink" href="#numerical-accuracy-of-the-poisson-binomial" title="Permanent link">&para;</a></h3>
+<p><code>giap.stats.poisson_binomial</code> (shared with M4-02) computes the pmf by the standard DP
+<span class="arithmatex">\(\mathrm{pmf}_{i+1}[j] = \mathrm{pmf}_i[j](1 - p_i) + \mathrm{pmf}_i[j - 1]\, p_i\)</span>, O(n²) time, O(n) memory. Every step is a
+convex combination of non-negative numbers, so there is no cancellation: each entry has relative
+error ≤ ≈ 2n·u (u = 1.1 × 10⁻¹⁶) whatever its size, and tiny tails stay exact to relative precision
+rather than to absolute 10⁻¹⁶. The cdf and sf are summed directly from the pmf (never 1 − the
+other), as §8.3 requires. Checks (review, 2026-10-14):</p>
+<ul>
+<li>brute-force enumeration of all 2ⁿ outcomes, n = 0–12, 260 random p vectors including
+  p^20-skewed ones: max relative pmf error 2.5 × 10⁻¹⁵; cdf and sf for every k ∈ [−1, n + 1] within
+  10⁻¹⁴ absolute;</li>
+<li>exact rational arithmetic, n = 60, p ∈ [0, 0.1]: max relative error 6.0 × 10⁻¹⁶ over the whole
+  pmf, including the extreme tail P(X = 60) = 4.75 × 10⁻⁸³;</li>
+<li>n = 5,000 (M4-02 scale): Σ pmf − 1 = 4 × 10⁻¹⁶, 36 ms;</li>
+<li>E at L = 40, m = 0 stays positive (7 × 10⁻⁴⁵ for a uniform-f poly-A query at N = 10⁷).</li>
+</ul>
+<p>Limits (outside the peptide range, documented only): entries below ≈ 10⁻³⁰⁸ underflow to 0 (n ≳ 230
+at p = 0.05 for P(X = n)); <code>expected_hits_uniform</code> uses exact integer binomial coefficients and
+raises <code>OverflowError</code> for L ≳ 1,000 with m ≈ L/2. The vectorised in-place update reads its
+right-hand side before assigning, so there is no aliasing.</p>
+<h3 id="review-findings-m3-09-srcgiapmappingchancepy-srcgiapstatspoisson_binomialpy">Review findings (M3-09, <code>src/giap/mapping/chance.py</code>, <code>src/giap/stats/poisson_binomial.py</code>)<a class="headerlink" href="#review-findings-m3-09-srcgiapmappingchancepy-srcgiapstatspoisson_binomialpy" title="Permanent link">&para;</a></h3>
+<ul>
+<li>B.2: all 21 cells exact to 1.3 × 10⁻¹⁵; examples 1–8 of the issue pass; Poisson-binomial correct
+  against brute force and exact arithmetic (above). Edge cases: m ∉ [0, L] and p ∉ [0, 1] or NaN
+  raise; empty p gives pmf [1]; k &lt; 0 gives cdf 0 and sf 1; k &gt; n gives cdf 1 and sf 0.</li>
+<li><strong>Origin off-by-two (minor, requested fix).</strong> <code>_core_residues</code> keeps a minus-strand codon when its
+  first (5′-on-minus, highest-coordinate) nucleotide is &lt; replicon length. The two minus-strand
+  codons whose 5′ nucleotide is replicon position 0 or 1 lie wholly in the extension in the frame
+  coordinates and are dropped, although they are unique origin-crossing codons, so a circular
+  replicon gets N = 2·length − 2 instead of 2·length (checked at length 9, 10, 11, 300 and 100 kb).
+  Fix: keep a minus-strand codon when its lowest coordinate, <code>first_nt − 2</code>, is &lt; length. Effect on
+  E and f: relative 10⁻⁵, none on rankings or q-values (target and decoy share N). The attack
+  accepts either value until fixed.</li>
+<li>N includes <code>*</code>/X positions as the spec defines it; documented above with its direction
+  (conservative ×0.56–0.91), not a defect.</li>
+</ul>
+<h3 id="sign-off-chance-hits">Sign-off (Chance hits)<a class="headerlink" href="#sign-off-chance-hits" title="Permanent link">&para;</a></h3>
+<p>Statistician (M3-09 review, 2026-10-14): <strong>approved</strong> for <code>expected_hits_uniform</code>,
+<code>expected_hits</code>, <code>residue_freqs</code> and <code>giap.stats.poisson_binomial</code> as implemented on
+<code>m3/chance-hits</code>, with the origin off-by-two to be fixed (non-blocking: no effect on any statistical
+output). Forwarded to M3-10: E is a ranking score only (never report it as an absolute expectation
+without the W_L correction); low-complexity peptides are ranked too optimistically by E, which
+reinforces the <code>low_complexity</code> placement flag.</p>
+<h2 id="_wrong-in-the-stratum-fdr-m3-10">π̂_wrong in the stratum FDR (M3-10)<a class="headerlink" href="#_wrong-in-the-stratum-fdr-m3-10" title="Permanent link">&para;</a></h2>
+<p>Scope: how a π̂_wrong that varies between peptides enters FDR_m(e) (§7.2.5 step 3). In practice
+this is de novo input in stratum 0, where π̂ is per score bin (step 4, M3-11). Database input in
+stratum 0 (one π̂ for all) and every stratum m ≥ 1 (π̂ = 1) have a constant π̂, and the rule
+below reduces exactly to the spec formula there. This section <strong>replaces</strong> lead decision M3-10 Q2
+("mean π̂ of the targets with E ≤ e"), which is anti-conservative.</p>
+<h3 id="model-and-assumptions">Model and assumptions<a class="headerlink" href="#model-and-assumptions" title="Permanent link">&para;</a></h3>
+<p>Fix a stratum m and a decoy type. Every mapped query peptide j of that decoy type is searched
+against target and decoy (lead decision M3-10 Q1). Let π_j = P(j wrong | its score bin) and
+π̂_j its estimate.</p>
+<ul>
+<li><strong>A1 (decoy hit ⇔ chance target hit of the same peptide).</strong> For a wrong peptide j, (target hit at
+  cost m, its E) and (decoy hit at cost m, its E) have the same law: p_j(e) = P(hit with E ≤ e)
+  for both (Genome decoys; E is computed by the same function for both, M3-09).</li>
+<li><strong>A2 (decoy hits do not depend on correctness).</strong> The decoy hit of j has the same law p_j(e)
+  whether j is correct or wrong: a correct peptide's decoy hits are chance hits too.</li>
+<li><strong>A3 (π̂ is a peptide-level label).</strong> π̂_j depends on the peptide's score bin only, not on its
+  hits; it is the same for the peptide's target and decoy hit.</li>
+</ul>
+<p>p_j(e) may vary freely between peptides (length, composition) and may be correlated with π_j.</p>
+<h3 id="derivation">Derivation<a class="headerlink" href="#derivation" title="Permanent link">&para;</a></h3>
+<p>The number of false targets with E ≤ e is V(e) = Σ_j 1{j wrong} 1{chance target hit of j, E ≤ e},
+so by A1 E[V(e)] = Σ_j π_j p_j(e). Candidate estimators of V(e) and their expectations:</p>
+<table>
+<thead>
+<tr>
+<th>Estimator of V(e)</th>
+<th>Expectation</th>
+<th>Unbiased when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Q2 as written: π̄_T(e) · D(e), π̄_T(e) = mean π̂ of targets with E ≤ e</td>
+<td>π̄_T(e) Σ_j p_j(e)</td>
+<td>π̄_T(e) = Σ π_j p_j / Σ p_j; fails in general</td>
+</tr>
+<tr>
+<td>(a) π̄_S · D(e), π̄_S = mean π̂ over all searched peptides</td>
+<td>π̄_S Σ_j p_j(e)</td>
+<td>Cov_j(π_j, p_j(e)) = 0</td>
+</tr>
+<tr>
+<td>(b) W(e) = Σ_{decoy hits j with E ≤ e} π̂_j</td>
+<td>Σ_j π_j p_j(e) (A2, A3)</td>
+<td>always (given A1–A3 and π̂ = π)</td>
+</tr>
+</tbody>
+</table>
+<p>Why Q2 fails: a correct peptide always has its target hit, a wrong one only by chance, so the
+targets with small E are mostly correct peptides from the good (low-π) bins and π̄_T(e) is far
+below the decoy-hit-weighted π̄ that D(e) needs; D counts chance hits of <em>all</em> searched peptides,
+most of which come from the bad bins. The bias is largest at the top of the list, i.e. at the
+operating point α = 0.01. Why (a) is not enough: chance-hit rates vary by a factor ≈ 14 per
+residue of length (M3-09), and low-score de novo bins plausibly hold shorter peptides, so
+Cov(π, p) &gt; 0 is the realistic case and (a) is then anti-conservative by Σπp / (π̄ Σp).</p>
+<p>The "+1" (§7.2.5, B.6) guards the top of the list against D = 0 by pre-counting one decoy. With
+weights, one more decoy hit can weigh up to max π̂, so the pre-count must be c = max π̂. Using the
+mean π̂ instead (c = π̄_S) left a small excess on B.6-sized lists with very unequal bins (mean FDP
+0.0113 ± 0.0004 at q = 0.01, N = 150, π = 0.02 / 0.9, R = 3,000).</p>
+<h3 id="signed-rule">Signed rule<a class="headerlink" href="#signed-rule" title="Permanent link">&para;</a></h3>
+<p>Within stratum m and decoy type, one list ordered by E (unchanged), at every target E = e:</p>
+<p>FDR_m(e) = (W_m(e) + c) / T_m(e),  W_m(e) = Σ over peptides j with a decoy hit at cost m and
+  E_D,j ≤ e of π̂_j,  c = max π̂ over all searched peptides of that decoy type in the stratum's
+  input,</p>
+<p>and q_i = min over e ≥ E_i of FDR_m(e), clipped to 1; ties as before (a decoy tied with a target
+counts). Definitions:</p>
+<ul>
+<li>π̂_j is the peptide's own π̂ by the step-4 route, whether it contributes a target, a decoy or
+  both: database m = 0 the one <code>pi_wrong_database</code> value; de novo m = 0 its <code>pi_denovo</code> (1 if
+  missing); m ≥ 1 always 1. A decoy-only peptide carries its own π̂.</li>
+<li>"Searched peptides of that decoy type" = every peptide of that source in the costs table that
+  enters the decoy search, i.e. all rows of the source except <code>same_db</code> exact peptides in
+  stratum 0 (they leave both stratum-0 lists). If the set is empty, c = 1. Any de novo peptide
+  without π̂ makes c = 1.</li>
+<li>Constant π̂ = π: W = π D, c = π, FDR = π (D + 1)/T, identical to the spec and to
+  <code>tda_qvalues(−E_T, −E_D, π, plus_one=True)</code>.</li>
+<li>Monotonicity: q is non-decreasing in E within the stratum; adding a decoy hit, raising any π̂_j
+  of a decoy, or raising c never lowers a q.</li>
+<li><code>mapping_fdr</code> rows (per decoy type × length class × m, no threshold): <code>decoys</code> = D (count, as
+  before), <code>fdr_stratum</code> = (W + c)/T with W summed over the class's decoy hits and the stratum's
+  c (NA when T = 0), <code>pi_wrong</code> = (W + c)/(D + 1), the effective π̂, so <code>fdr_stratum</code> =
+  <code>pi_wrong</code> (D + 1)/T still holds and <code>pi_wrong</code> equals the constant π̂ for database input and
+  m ≥ 1.</li>
+</ul>
+<p>Suggested interface (implementer's choice, the semantics above bind):
+<code>stratum_qvalues(e_target, e_decoy, pi_decoy, pi_plus)</code>, <code>pi_decoy</code> one weight per decoy,
+<code>pi_plus</code> = c (scalar in (0, 1]).</p>
+<h3 id="evidence_1">Evidence<a class="headerlink" href="#evidence_1" title="Permanent link">&para;</a></h3>
+<p>Statistics-only simulation (generator of <code>tests/calibration/test_placement_fdr_lists.py</code>: every
+peptide draws a chance decoy hit with probability p, wrong peptides a chance target hit from the
+same law, correct peptides a low-E target hit), de novo stratum 0, N = 4,000, R = 300, mean FDP ±
+SE at q = 0.01 / 0.05 / 0.10 (* = above q + 2 SE); n = mean accepted at q = 0.01.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Q2 (mean over targets)</th>
+<th>(a) mean over searched</th>
+<th><strong>(b) signed</strong></th>
+<th>n at 0.01 (b)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10 bins π 0.02–0.9, p = 0.25 (calibration test)</td>
+<td>0.0143* / 0.069* / 0.130*</td>
+<td>0.0098 / 0.050 / 0.100</td>
+<td>0.0095 / 0.050 / 0.100</td>
+<td>1,063</td>
+</tr>
+<tr>
+<td>2 bins π 0.02 / 0.9, p = 0.25</td>
+<td>0.0354* / 0.119* / 0.175*</td>
+<td>0.0097 / 0.050 / 0.100</td>
+<td>0.0095 / 0.050 / 0.100</td>
+<td>1,069</td>
+</tr>
+<tr>
+<td>constant π = 0.3</td>
+<td>0.0100 / 0.050 / 0.097</td>
+<td>identical</td>
+<td>identical</td>
+<td>1,932</td>
+</tr>
+<tr>
+<td>10 bins, p = 0.05 + 0.4 π</td>
+<td>0.0182* / 0.086* / 0.159*</td>
+<td>0.0126* / 0.065* / 0.130*</td>
+<td>0.0094 / 0.050 / 0.100</td>
+<td>949</td>
+</tr>
+<tr>
+<td>2 bins, p = 0.05 + 0.4 π</td>
+<td>0.0540* / 0.168* / 0.253*</td>
+<td>0.0163* / 0.085* / 0.172*</td>
+<td>0.0093 / 0.049 / 0.100</td>
+<td>796</td>
+</tr>
+<tr>
+<td>10 bins, π̂ = 1.5 π</td>
+<td>0.0099 / 0.049 / 0.094</td>
+<td>0.0072 / 0.037 / 0.073</td>
+<td>0.0069 / 0.036 / 0.073</td>
+<td>878</td>
+</tr>
+<tr>
+<td>2 bins, π̂ = 1.5 π (capped at 1)</td>
+<td>0.0312* / 0.108* / 0.171*</td>
+<td>0.0086 / 0.045 / 0.089</td>
+<td>0.0085 / 0.044 / 0.089</td>
+<td>1,005</td>
+</tr>
+<tr>
+<td>10 bins, π̂ = 0.5 π</td>
+<td>0.0286* / 0.130* / 0.176*</td>
+<td>0.0199* / 0.100* / 0.176*</td>
+<td>0.0196* / 0.100* / 0.176*</td>
+<td>1,497</td>
+</tr>
+<tr>
+<td>2 bins, π̂ = 0.5 π</td>
+<td>0.0615* / 0.175* / 0.175*</td>
+<td>0.0198* / 0.100* / 0.175*</td>
+<td>0.0195* / 0.100* / 0.175*</td>
+<td>1,496</td>
+</tr>
+</tbody>
+</table>
+<p>Small lists (R = 3,000), signed rule: 2 bins N = 150: 0.0000 / 0.044 / 0.095 (n = 0 at 0.01: with
+c ≈ 0.9 no list of ≤ 90 targets can reach 0.01); N = 300: 0.0054 / 0.048 / 0.097 (n = 33);
+10 bins N = 300: 0.0025 / 0.046 / 0.096 (n = 17). With c = mean π̂ instead: 0.0113* / 0.0099 /
+0.0089 at q = 0.01 for these three, n = 29 / 70 / 65.</p>
+<p><strong>Misestimation.</strong> Under-estimating π by 50 % doubles the FDP for every rule (E[W] = ½ E[V]):
+validity needs π̂ ≥ π, which is why step 4 uses 1 − the <em>lower</em> 95 % bound of the de novo
+precision. Over-estimating by 50 % is conservative for (b) (FDP ≈ q/1.5); Q2 is anti-conservative
+even then in the two-bin case.</p>
+<p><strong>Attack</strong> (<code>tests/calibration/attacks/test_attack_placement_pi.py</code>, §8.5; N = 2,000 unless noted;
+R = 50 fast / 300 full): two_bins, two_bins_corr, ten_bins_corr, two_bins_small (N = 300),
+ten_bins_over (π̂ = 1.5 π), constant must stay at level through <code>placement</code>; a power check asserts
+that Q2 and (a) exceed q + 2 SE at q = 0.01 and 0.05 on two_bins_corr (full suite: Q2 0.053 /
+0.168, (a) 0.016 / 0.085). The signed rule, run on the same generators through a reference
+implementation, gave (full suite, q = 0.01 / 0.05 / 0.10): two_bins 0.0093 / 0.050 / 0.101,
+two_bins_corr 0.0088 / 0.049 / 0.100, ten_bins_corr 0.0086 / 0.050 / 0.100, two_bins_small
+0.0055 / 0.049 / 0.100, ten_bins_over 0.0064 / 0.036 / 0.073, constant 0.0100 / 0.050 / 0.096.</p>
+<h3 id="alternative-considered-separate-lists-per-value-score-bin">Alternative considered: separate lists per π̂ value (score bin)<a class="headerlink" href="#alternative-considered-separate-lists-per-value-score-bin" title="Permanent link">&para;</a></h3>
+<p>Running stratum 0 separately per score bin (the Q2 alternative) applies the spec formula with a
+constant π̂ in each list. It is also valid in every scenario above (it needs A1–A3 only within a
+bin) and has more power at α = 0.01 on large inputs with unequal bins (N = 4,000: 1,336 vs 1,063
+accepted with 10 bins, 1,969 vs 1,069 with 2 bins), less at q ≥ 0.05 and on small inputs (10 bins
+N = 300 at 0.01: 55 vs 17 for (b), 21 vs 0 at N = 150). It splits a stratum into several lists,
+so q is no longer monotone in E within a stratum (§7.2.5 step 3 and the M3-10 acceptance
+criterion), and <code>mapping_fdr</code> would need a bin dimension. It is therefore a spec change for the
+lead (ADR), not the default; if adopted, the attack above applies unchanged.</p>
+<h3 id="forwarded">Forwarded<a class="headerlink" href="#forwarded" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Database input, mean PEP.</strong> The spec's single π̂ = mean PEP is estimator (a): unbiased only if
+  PEP is uncorrelated with the chance-hit rate. Short peptides have both higher PEP and many more
+  chance hits, so mean PEP can under-state the false-placement share (10-bin correlated scenario:
+  0.0126 at q = 0.01; database PEPs are small, so the absolute effect is bounded by the PEPs). The
+  same weighting (Σ PEP_j over decoy hits + max PEP) removes the bias but departs from the spec
+  text: lead decision / ADR; M3-21 should measure Cov(PEP, chance-hit rate) on A2.</li>
+<li><strong>π̂ from the same decoys.</strong> The de novo π̂ (M3-11) uses decoy-match rates r_bℓ of the same
+  shuffle; a bin with many chance decoy hits gets a lower precision and a higher π̂, so W and π̂
+  are positively dependent: conservative.</li>
+</ul>
+<h3 id="tests-that-must-change-test-author">Tests that must change (test-author)<a class="headerlink" href="#tests-that-must-change-test-author" title="Permanent link">&para;</a></h3>
+<ol>
+<li><code>tests/unit/test_placement_fdr.py::test_per_target_pi_uses_mean_over_targets_up_to_e</code> → weights
+   on decoys: targets E = 1, 2, 3; one decoy E = 2.5 with π̂ 0.5; c = 0.6:
+   FDR = 0.6/1, 0.6/2, (0.5 + 0.6)/3 → q = [0.3, 0.3, 0.366667].</li>
+<li><code>…::test_denovo_stratum0_uses_per_peptide_pi</code> → de novo m = 0, length 7: targets (E, π̂) =
+   (1, 0.5), (2, 0.6), (3, 0.3); decoy-only peptide E = 2.5, π̂ 0.5; c = max = 0.6:
+   q = [0.3, 0.3, 0.366667]; row (<code>7</code>, shuffle): targets 3, decoys 1, <code>fdr_stratum</code> = 1.1/3 =
+   0.366667, <code>pi_wrong</code> = 1.1/2 = 0.55. (With the old π̂ 1.0 for the second target: c = 1,
+   q = [0.5, 0.5, 0.5], <code>fdr_stratum</code> 0.5, <code>pi_wrong</code> 0.75.)</li>
+<li><code>…::test_constant_pi_equals_m4_tda_qvalues</code> and the module docstring (FDR(e) line): call with
+   decoy weights <code>np.full(ed.size, pi)</code> and c = pi; equality with <code>tda_qvalues</code> unchanged.
+   Every other unit test (examples 1–10, ties, clipping, π̂ = 1 when missing) is unchanged: their
+   π̂ is constant within the list.</li>
+<li><code>tests/property/test_placement_fdr_props.py</code>: the <code>stratum</code> strategy draws one π̂ per <em>decoy</em>
+   and a scalar c ∈ (0, 1] (≥ max decoy π̂ to mirror <code>placement</code>); <code>test_constant_pi_equals_…</code>
+   as in 3; <code>test_input_order_invariant</code> permutes decoy weights with the decoys; add: raising any
+   decoy π̂ or c never lowers a q. The other properties (q ∈ [0, 1], monotone in E, adding a decoy
+   never lowers q, scale invariance, all <code>placement</code> properties) stay.</li>
+<li><code>tests/calibration/test_placement_fdr_lists.py::test_denovo_per_bin_pi_controls_fdr</code>: generator
+   unchanged (expected to pass, 0.0095 / 0.050 / 0.100 at R = 300); docstring: drop "most
+   favourable case for … mean pi over targets with E &lt;= e" and cite this section.</li>
+<li>Spec text <code>docs/specs/M3-10-placement-fdr.md</code> (bullets "π̂ per target" and <code>mapping_fdr</code> rows,
+   Q2) and lead decision 2 in <code>docs/specs/M3-index.md</code>: lead updates them to this rule.</li>
+</ol>
+<h3 id="sign-off-_wrong-in-the-stratum-fdr">Sign-off (π̂_wrong in the stratum FDR)<a class="headerlink" href="#sign-off-_wrong-in-the-stratum-fdr" title="Permanent link">&para;</a></h3>
+<p>Statistician (M3-10 pre-implementation decision, 2026-10-14): <strong>signed</strong> for the rule above
+(decoy-weighted W_m(e) + c, c = max π̂ over the searched peptides of the decoy type). Lead
+decision M3-10 Q2 (mean π̂ over targets with E ≤ e) is <strong>rejected</strong> as anti-conservative and
+blocks merge if implemented. The remaining M3-10 sections (strata and ranking, π̂_wrong sources,
+same-strain input, calibration) are signed with the implementation review.</p>
+<h2 id="strata-and-ranking-m3-10">Strata and ranking (M3-10)<a class="headerlink" href="#strata-and-ranking-m3-10" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Search.</strong> Every mapped query peptide (non-decoy, q ≤ <code>input.q_value_max</code> or q missing) is
+  searched against the decoy of its own source (database → reverse, de novo → shuffle; both built
+  for mixed input) exactly as against the target (exact for all, tolerant for all ≥ 10 aa; lead
+  decision M3-10 Q1). Each peptide counts once at its best target cost m_T and, independently,
+  once at its best decoy cost m_D (separate search, not competition: a peptide may be a target in
+  stratum 0 and a decoy in stratum 1). Decoy hits are de-duplicated on their mirrored target
+  interval, never placed and never written to <code>peptide_hits.tsv</code>.</li>
+<li><strong>Lists.</strong> One list per decoy type × m ∈ {0, 1, 2}: T = peptides with m_T = m, D = peptides with
+  m_D = m, both ranked by E ascending (M3-09; target and decoy E from the same function and the
+  same genome f). Length classes are <strong>pooled</strong> inside a list (G3): E already carries the length
+  (≈ ×14 per residue), so pooling only orders long against short peptides by their chance rate;
+  per-class lists would have small T and a +c that dominates (B.6). The per length class × m rows
+  of <code>mapping_fdr.tsv</code> are descriptive: T and D of the class, <code>fdr_stratum</code> = (W_class + c)/T_class
+  with the stratum's c, no threshold; they are not the q-values.</li>
+<li><strong>FDR and q.</strong> FDR_m(e) = (W_m(e) + c)/T_m(e) at every target E (rule and derivation in
+  "π̂_wrong in the stratum FDR"); q_i = min over e ≥ E_i; ties: all entries with E ≤ e count, so a
+  decoy tied with a target counts against it and tied targets get one q; clipped to [0, 1] by
+  M4-01's <code>monotone_q</code>, so with constant π̂ the q-values equal <code>tda_qvalues(−E_T, −E_D, π̂)</code>
+  (unit- and property-tested). Accept at q ≤ <code>stats.alpha.placement</code> (0.01, inclusive).</li>
+<li><strong>Families (§8.1).</strong> Each list is one FDR family: "placed (exact)" = stratum 0, "placed with ≥ 1
+  difference" = strata 1 and 2 with π̂ = 1, separately per decoy type. Each accepted set has FDR
+  ≤ α; their union has marginal FDR E[V]/E[R] ≤ α exactly and FDR ≤ α up to the weighting of the
+  ratios (each list pays its own +c, which makes the union slightly conservative). A peptide accepted in stratum m is accepted at
+  all its loci of cost m: multi-locus ambiguity is uniqueness (M3-14), not FDR.</li>
+<li><strong>Effect size.</strong> The per-peptide effect measure next to <code>placement_q</code> is the ranking score E
+  (expected chance windows, conservative ×1.3–1.8 on real genomes, see M3-09) and m_T; the list
+  quantities T, D, W, c are in <code>mapping_fdr.tsv</code>. A target-decoy q-value has no CI of its own; its
+  uncertainty is the +c pre-count (B.6).</li>
+</ul>
+<p><strong>B.6.</strong> Stratum 1, π̂ = 1 (c = 1): 150 targets before the first decoy give FDR = (0 + 1)/150 =
+0.0067, all 150 accepted at 0.01; 50 targets and no decoys give 1/50 = 0.02, none accepted. With
+per-peptide de novo π̂ the floor is c/T with c = max π̂, so a de novo stratum-0 list needs
+T ≥ c/α targets before the first decoy (90 at c = 0.9): small de novo inputs are conservative by
+design (attack <code>two_bins_small</code>: FDP 0.0063 at 0.01).</p>
+<h2 id="_wrong-sources-m3-10">π̂_wrong sources (M3-10)<a class="headerlink" href="#_wrong-sources-m3-10" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Input, stratum</th>
+<th>π̂_j</th>
+<th>Population</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>database, m = 0</td>
+<td><strong>superseded by ADR-0019</strong> (see "Cross-strain input and run collapse"): the exact-match estimate of the peptide's length class. Until then: one value, mean PEP if any PEP; else max q ≤ <code>input.q_value_max</code>; else 1</td>
+<td>the database peptides <strong>of the stratum-0 lists</strong>, i.e. all database rows except <code>same_db</code> exact peptides (ADR-0019 also drops contaminants; see "Same-strain input")</td>
+</tr>
+<tr>
+<td>de novo, m = 0</td>
+<td><code>pi_denovo</code> of the peptide's score bin (1 − lower 95 % precision bound, M3-11); missing → 1</td>
+<td>per peptide</td>
+</tr>
+<tr>
+<td>any, m ≥ 1</td>
+<td>1</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>Mean PEP is estimator (a) of the derivation: unbiased when PEP is calibrated and uncorrelated with
+the chance-hit rate (forwarded to M3-21). Max q estimates the FDR of the whole input list at its
+own threshold (≤ <code>q_value_max</code>), an estimate of the wrong share of the peptides that enter mapping
+(test <code>max_q_route</code>: FDP 0.0020 for a true wrong share 0.008, conservative). π̂ = 0 (all PEPs exactly 0) is allowed by the formula and accepts
+every target; engines report PEP 0 only through underflow, so a mean over thousands of peptides
+is never 0 in practice. c = max π̂ over the same population (1 if empty or any de novo π̂
+missing).</p>
+<h2 id="same-strain-input-m3-10">Same-strain input (M3-10)<a class="headerlink" href="#same-strain-input-m3-10" title="Permanent link">&para;</a></h2>
+<p>§7.2.5 step 5: database peptides from a search against this genome's own proteins
+(<code>search_db = same</code>) with an exact target hit get <code>placement_q = 0</code> and flag <code>same_db</code>, and leave
+both stratum-0 lists. Rationale: the engine's own target-decoy already controls the identification
+error against exactly these sequences, and an exact hit of an own-protein peptide is its source
+locus; the remaining question is uniqueness (M3-14). Their decoy hits at m ≥ 1 still count in D
+(conservative: a correct peptide's decoy hit is a chance hit, A2). Tolerant hits of <code>same</code> peptides
+go through steps 1–4 like any other.</p>
+<p>Two conditions are needed for the rest of the list to stay valid (attack
+<code>tests/calibration/attacks/test_attack_placement_same_db.py</code>):</p>
+<ol>
+<li><strong>Database input only.</strong> <code>search_db</code> is filled from <code>input.search_db</code> for every row, de novo
+   rows included (<code>io/peptides.py</code>). A de novo peptide is not from a protein search; the shortcut
+   must require <code>source = database</code>, otherwise every exact de novo hit gets q = 0.</li>
+<li><strong>π̂ on the listed population.</strong> The <code>same_db</code> exact peptides have left the stratum-0 lists, so
+   they must also leave the mean PEP (and the max-q fallback). They are selected for being correct
+   (an exact hit in their own genome) and carry small PEPs, so averaging them in lowers π̂ for the
+   <code>other</code> peptides that remain in the list. This changes nothing for single-<code>search_db</code> inputs
+   (all <code>other</code>: nothing removed; all <code>same</code>: the stratum-0 database target list is empty), only
+   for mixed inputs such as A1 (K-12 search) and A2 (Nissle's own proteins) in one run, which the
+   per-row <code>search_db</code> column allows.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Attack (R = 50 fast / 300 full; FDP over list-accepted peptides)</th>
+<th><code>placement</code> at 9ec53d1 (before fix)</th>
+<th>corrected rule (reference; = <code>placement</code> at 031378c)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>denovo_labelled_same</code>: de novo, π 0.02 / 0.9, every row <code>search_db = same</code></td>
+<td>0.175 / 0.175 / 0.175 (full 0.176)</td>
+<td>0.0097 / 0.049 / 0.097 (full 0.0093 / 0.049 / 0.099)</td>
+</tr>
+<tr>
+<td><code>mixed_same_other</code>: 2,000 <code>same</code> exact (PEP 0.001) + 2,000 <code>other</code> (π = PEP = 0.3)</td>
+<td>0.0196 / 0.097 / 0.097 (full 0.0199 / 0.096 / 0.096)</td>
+<td>0.0098 / 0.050 / 0.097 (full 0.0100 / 0.050 / 0.096)</td>
+</tr>
+</tbody>
+</table>
+<p>(mean FDP at q = 0.01 / 0.05 / 0.10; SE ≤ 0.0016 fast, ≤ 0.0007 full.) Required fixes:
+<code>same_exact = is_db &amp; (search_db == "same") &amp; (m_target == 0)</code> and
+<code>pi_wrong_database(df[is_db &amp; ~same_exact], …)</code>.</p>
+<p>An unresolved <code>search_db = auto</code> reaching <code>placement</code> is treated as <code>other</code>: valid (conservative,
+the peptide is FDR-controlled), but it loses the <code>same_db</code> shortcut; <code>auto</code> must be resolved to
+<code>same</code>/<code>other</code> before mapping (M3-17).</p>
+<h2 id="cross-strain-input-and-run-collapse-adr-0019-m3-25">Cross-strain input and run collapse (ADR-0019, M3-25)<a class="headerlink" href="#cross-strain-input-and-run-collapse-adr-0019-m3-25" title="Permanent link">&para;</a></h2>
+<p><strong>Status:</strong> signed off by the statistician (M3-25 review of #124, 2026-10-20; ADR-0019 decisions
+1–5). Decision and evidence:
+<code>docs/adr/ADR-0019-stratum0-pi-hat-exact-share.md</code> (accepted by Khoa 2026-10-20; Slurm 1860123,
+1860138, 1860180). This section supersedes the mean-PEP row of "π̂_wrong sources" for database
+input in stratum 0 and resolves the item forwarded from ADR-0010 (π̂ correlated with the
+chance-hit rate).</p>
+<p><strong>Why mean PEP fails.</strong> Two defects, both measured in M3-21:</p>
+<ol>
+<li><em>Cross-strain input</em> (<code>search_db = other</code>). Some <strong>correct</strong> identifications report the
+   database strain's sequence across a strain difference. They have no exact true locus, so an
+   exact chance hit elsewhere is a false stratum-0 placement, while their PEP measures
+   identification error only and is small. Mean PEP counts only the identification errors among
+   the peptides without an exact origin and under-estimates the false placements by about
+   (π_wrong + δ)/π_wrong, δ = the spanning share of the correct identifications.</li>
+<li><em>Run collapse.</em> §5.3 collapses a peptide's runs with <code>pep = min</code>. The mean of min-collapsed
+   PEPs is not a peptide-level wrong share: with 3 runs M3-21 measured π̂ ≈ 0.0026 against a true
+   wrong share ≈ 0.024. No PSM-level aggregation (min, mean, max, product) is calibrated in
+   general, so placement stops reading PEP instead of changing §5.3's aggregation, which ranking,
+   detection and evidence still use.</li>
+</ol>
+<p><strong>The rule.</strong> Population P: all database rows except <code>same_db</code> exact peptides (unchanged from
+M3-10) and except contaminants (M3-25 decision 7 — they are not genome-derived, so they carry no
+information about the chance-hit rate). Per length class ℓ of <code>mapping.length_classes</code>:</p>
+<ul>
+<li>n_ℓ = peptides of P in ℓ; k_ℓ = those with no exact target hit (m_T ≠ 0 or no hit at all);
+  r_ℓ = <strong>share of n_ℓ</strong> with an exact decoy hit;</li>
+<li>U_ℓ = one-sided 95 % Clopper–Pearson upper bound of k_ℓ/n_ℓ (1 when k_ℓ = n_ℓ), mirroring
+  step 4's "1 − lower 95 % bound";</li>
+<li>π̂_ℓ = 1 if r_ℓ = 1, else min(1, U_ℓ/(1 − r_ℓ)).</li>
+</ul>
+<p>This is the database analogue of the de novo precision estimator with c_l = 1: a peptide with an
+exact origin always matches, one without matches at the decoy rate. Every peptide of P carries
+its class's π̂ into ADR-0010's FDR_0(e) = (W_0(e) + c)/T_0(e), with c = max π̂_ℓ over the classes
+with n_ℓ &gt; 0. A peptide outside every class weighs 1 and does <strong>not</strong> enter c; an empty class has
+no weight. Edge cases: r<strong> = 0 g</strong>es π̂ = U_ℓ, and m &lt; r (fewer exact target than exact decoy
+matches) clips to 1. m ≥ 1 is unchanged (π̂ = 1). Why per class and not pooled: the no-origin
+share correlates with the chance-hit rate, which changes by ≈ ×14 per residue of length; an
+oracle that knows the true <strong>pooled</strong> no-origin share still fails the short-peptide and padding
+scenarios (2.19×, 2.02×).</p>
+<p><strong>Evidence</strong> (failing cells of 18 list-level scenarios, δ × π × q; ADR-0019 Evidence):
+mean PEP fails 6–14 cells per scenario, a pooled exact share 0–13, the per-class rule <strong>0</strong>
+everywhere, including PEP deflated 10× (the run collapse) and the length-correlated inputs.
+Power at δ = 0 relative to mean PEP is 0.984–1.0 at N = 4,000 and 0.85–0.97 at N = 300 (π̂ = 1
+instead gives 0.43–0.84 and 0.25). At genome scale the estimated/true false count moves from
+0.03–0.46 under mean PEP to 0.96–2.4 under this rule; acceptance at q = 0.01 is unchanged, small
+or binding lists lose up to ~15 % power.</p>
+<p><strong>Limitation and the run warning.</strong> If the upstream pipeline kept only genome-matching peptides,
+k is ~0 by construction and no genome-based rule can be calibrated — mean PEP included (FDP 0.061
+at q = 0.01, δ = 0.2). <code>placement</code> therefore raises the run warning <code>input_prefiltered</code> when k
+falls below the 0.001 quantile of Binomial(n, mean PEP × (1 − r)) over P pooled; this is the one
+place the row-level mean PEP is still read, and it is read directly; the old <code>pi_wrong_database</code>
+helper (whose max-q and 1.0 fallbacks would misfire here) was deleted with M3-25 decision 11. The detector inherits
+PEP's weakness in one direction: a <strong>deflated</strong> PEP (the §5.3 min over runs, defect 2 above, or
+an engine that under-reports) lowers the expected count n × mean PEP × (1 − r) towards the
+realised k, so the test loses power and a genuinely pre-filtered input can pass unwarned. It
+never fires spuriously for that reason — too small an expectation only hides the warning — and
+the π̂ it guards does not read PEP at all. An inflated PEP is the conservative direction.</p>
+<p><strong>Reporting.</strong> <code>mapping_fdr.tsv</code> columns are unchanged, with <code>pi_wrong</code> = (W + c)/(D + 1) now
+reflecting the class π̂. Read the per-class π̂ from the class table, <strong>not</strong> from <code>mapping_fdr</code>:
+a class with no decoy hit has W = 0 and D = 0, so its <code>pi_wrong</code> row is c, the largest class
+estimate, not that class's π̂_ℓ. The class table is the <code>placement</code> step's <code>stratum0_classes</code>
+output (<code>mapping/stratum0_classes.parquet</code>, columns <code>length_class, n, k, r, upper, pi_wrong</code>),
+an optional input of <code>context_stats</code>, which turns it
+into <code>detection_summary.tsv</code> QC rows <code>stratum0_unmapped_share</code> = k/n (the §7.5.1
+genome-inconsistent rate of this population), one for the run and one per length class, each
+per-class row carrying that class's <code>upper</code> as <code>ci_high</code>. It sits
+beside <code>genome_inconsistent_rate</code>, which measures another population (C9 <code>other</code>, non-contaminant,
+over accepted exact placements) and is unchanged.</p>
+<h2 id="calibration-m3-10">Calibration (M3-10)<a class="headerlink" href="#calibration-m3-10" title="Permanent link">&para;</a></h2>
+<p>Criterion (§8.4 "FDR"): mean FDP over R replicates ≤ q + 2 SE at q ∈ {0.01, 0.05, 0.10}; R =
+<code>replicates_fast.placement</code> (50) per PR, <code>replicates_full.placement</code> (300) nightly; seeds from
+<code>tolerances.yaml</code>.</p>
+<p><strong>List level</strong> (<code>tests/calibration/test_placement_fdr_lists.py</code>, through <code>placement</code>): correct
+peptides get a low-E target hit, every peptide a chance decoy hit with probability p and wrong
+peptides an independent chance target hit from the same E law (A1–A2 hold by construction).
+Review run, 9ec53d1, R = 50, mean FDP ± SE at 0.01 / 0.05 / 0.10:</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>FDP</th>
+<th>n accepted at 0.01</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>known π = 0.3, m = 0</td>
+<td>0.0095 ± 0.0003 / 0.049 ± 0.001 / 0.097 ± 0.001</td>
+<td>1,898</td>
+</tr>
+<tr>
+<td>known π = 0.3, m = 1 (π̂ = 1, conservative)</td>
+<td>0.0026 / 0.015 / 0.030</td>
+<td>1,001</td>
+</tr>
+<tr>
+<td>calibrated PEP ~ Beta(0.6, 1.4)</td>
+<td>0.0103 ± 0.0004 / 0.050 ± 0.001 / 0.096 ± 0.001</td>
+<td>1,959</td>
+</tr>
+<tr>
+<td>max-q route (true share 0.008)</td>
+<td>0.0020 / 0.0020 / 0.0020</td>
+<td>3,977</td>
+</tr>
+<tr>
+<td>de novo, 10 bins</td>
+<td>0.0086 ± 0.0005 / 0.049 ± 0.001 / 0.099 ± 0.001</td>
+<td>1,037</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Attacks</strong> (<code>test_attack_placement_pi.py</code>, through <code>placement</code>, R = 50): two_bins 0.0080 / 0.050 /
+0.101; two_bins_corr 0.0085 / 0.049 / 0.099; ten_bins_corr 0.0089 / 0.050 / 0.099;
+two_bins_small 0.0063 / 0.045 / 0.095; ten_bins_over 0.0066 / 0.036 / 0.072; constant 0.0093 /
+0.048 / 0.095 (SE ≤ 0.0017 at 0.01). The rejected rules still fail (power check passes). Same-strain
+attack: see the table above (failed at 9ec53d1, passes at 031378c).</p>
+<p><strong>Genome level, exact route</strong> (<code>tests/calibration/test_placement_fdr_genome.py</code>): 100-kb giapsim
+genomes, tryptic peptides of annotated genes as correct, 20,000 i.i.d. 7–8-mers from the genome's
+own f as wrong, database input, reverse decoys, PEP = the known wrong share. R = 50: 0.0102 ± 0.0007
+/ 0.0236 ± 0.0009 / 0.0236 ± 0.0009, 592 accepted at 0.01; 719 chance target hits of wrong
+peptides in total (the null is exercised). At 0.05 and 0.10 every target is accepted, so the FDP
+equals the wrong share among targets (0.024 &lt; q). At 0.01 the mean is within 1 SE of q, which is
+expected: with constant π̂ and an exact reverse decoy the estimator is unbiased up to the +1.
+Tolerant strata, de novo errors with shuffle decoys, attack 5 (reversed stretches), 1-Mb genomes
+and real-protein wrong peptides (TE8 proxy) are M3-21.</p>
+<h2 id="implementation-review-m3-10-srcgiapmappingplacement_fdrpy-9ec53d1">Implementation review (M3-10, <code>src/giap/mapping/placement_fdr.py</code>, 9ec53d1)<a class="headerlink" href="#implementation-review-m3-10-srcgiapmappingplacement_fdrpy-9ec53d1" title="Permanent link">&para;</a></h2>
+<p>Checked against ADR-0010, the final section of <code>docs/specs/M3-10-placement-fdr.md</code> and this note:</p>
+<ul>
+<li><code>stratum_qvalues</code>: T(e) and W(e) by <code>searchsorted(side="right")</code> (ties counted against the
+  target, tied targets share one q), <code>monotone_q</code> from M4-01 (running minimum from the loose end,
+  clip to [0, 1]); NaN targets → NaN, NaN decoys ignored; weights and c validated in [0, 1].
+  Correct. Reduction to <code>tda_qvalues</code> with constant π̂: unit- and property-tested.</li>
+<li>W and c: per decoy type and stratum; W sums each decoy hit's own π̂ (de novo <code>pi_denovo</code>,
+  missing → 1, clipped to [0, 1]; database the one value; m ≥ 1 → 1); c = max π̂ over <strong>all</strong>
+  peptides of the source in the costs table, including peptides without any hit, minus <code>same_db</code>
+  exact peptides at m = 0; 1 for m ≥ 1 or an empty population. Correct.</li>
+<li><code>mapping_fdr</code> rows: decoy type × m × length class plus <code>all</code>, <code>fdr_stratum</code> = (W + c)/T (NaN at
+  T = 0), <code>pi_wrong</code> = (W + c)/(D + 1), <code>n_accepted</code> per class; peptides outside every length class
+  count only in <code>all</code>. Correct.</li>
+<li>Flags joined with <code>;</code>: matches §9 ("<code>;</code>-separated controlled vocabulary"). <code>low_complexity</code> (≤ 3
+  distinct residues, I = L) is the flag this note recommended (M3-03, M3-09), but it is not in the
+  §9.4 placement vocabulary, which may be extended "only through the schema": the lead must add it
+  to the schema/ADR (M3-16) before outputs are written. Not a statistical blocker.</li>
+<li><strong>Blocking at 9ec53d1, fixed in 031378c:</strong> the two same-strain conditions above. The fix is exactly
+  <code>same_exact = is_db &amp; (search_db == "same") &amp; (m_target == 0)</code> and
+  <code>pi_wrong_database(df[is_db &amp; ~same_exact], …)</code>. Re-run at 1dafac0 (R = 50 / 300, q = 0.01 / 0.05 /
+  0.10): <code>denovo_labelled_same</code> 0.0097 / 0.049 / 0.097 (full 0.0093 / 0.049 / 0.099),
+  <code>mixed_same_other</code> 0.0098 / 0.050 / 0.097 (full 0.0099 / 0.050 / 0.096). The list, <code>placement_pi</code>
+  and genome numbers above are unchanged (single-<code>search_db</code> inputs are unaffected). The
+  <code>low_complexity</code> flag was accepted by ADR-0011.</li>
+</ul>
+<h3 id="sign-off-strata-and-ranking-_wrong-sources-same-strain-input-calibration">Sign-off (Strata and ranking, π̂_wrong sources, Same-strain input, Calibration)<a class="headerlink" href="#sign-off-strata-and-ranking-_wrong-sources-same-strain-input-calibration" title="Permanent link">&para;</a></h3>
+<p>Statistician (M3-10 implementation review, 2026-10-14): the four sections above are <strong>signed</strong> as
+the method. The implementation is <strong>approved</strong> at 031378c (re-verified at 1dafac0): the <code>same_db</code> shortcut
+requires <code>source = database</code>, the database π̂ is computed over the stratum-0 population, and
+<code>test_attack_placement_same_db.py</code> passes (at 9ec53d1 the FDP at q = 0.01 was 0.175 and 0.0196).
+Forwarded to M3-21: Cov(PEP, chance-hit rate) on A2; the list-level calibration of tolerant strata
+with real decoy hits; attack 5.</p>
+<h2 id="genome-level-calibration-m3-21">Genome-level calibration (M3-21)<a class="headerlink" href="#genome-level-calibration-m3-21" title="Permanent link">&para;</a></h2>
+<p>Suites: <code>tests/calibration/test_placement_fdr_sim.py</code>, <code>test_denovo_precision_sim.py</code>,
+<code>attacks/test_attack5_reversed_stretches.py</code>; truth oracle <code>tests/helpers/placement_truth.py</code>
+(origins per row type, overlap rule of lead decision 2, unique guard, cost-≤ m_T+1 mutant).</p>
+<p><strong>What "exercised" means.</strong> A list (decoy type × m) is exercised in a replicate by the number of
+peptides in it that are false placements (no accepted locus overlaps a true origin), at any q.
+A gate on a list with no false peptides passes trivially and is a <strong>smoke check</strong>: it shows the
+chain runs and accepts, not that the FDR is controlled.</p>
+<p><strong>At 100 kb the placement lists are not exercised enough to test the bound.</strong> In the fast tier
+(R = 50, job 1860994) the database-shuffled (π 0.01, 0.05), related other-strain and related
+db-strain suites had 0 false peptides in every list. The de novo error-model suite and attack 5 had a mean of
+0.14 and 0.12 per replicate in shuffle m = 0 and ≤ 0.02 elsewhere. These gates are therefore smoke checks
+(<code>claimed = ()</code>). The genome-level evidence for stratum 0 comes from two places only:</p>
+<ul>
+<li>the <strong>stressed stratum-0 arm</strong> (<code>test_database_stressed_stratum0_placement_fdr</code>, full tier at
+  1 Mb): short wrong database peptides (7/8-mers of protein sequences that are absent from the
+  genome, as in b2sim <code>--mode short</code>) are injected test-locally with PEP set to the true wrong
+  share. This arm claims reverse m = 0. With δ = 0 (exact PEP) its FDP gate
+  is expected to pass. At 100 kb (K = 2,000, R = 50, job 1860994): 1.6 false peptides per
+  replicate, mean FDP 0.0009 at every q. At 1 Mb (K = 400, R = 300, job 1860995): 2.85 false per
+  replicate, mean FDP 0.00016 at every q, about 17,960 accepted. The fast arm also asserts the
+  estimate check mean(Ŵ0) ≥ mean(V0) − 2 SE: Ŵ0 2.44 vs V0 1.6, because the injected share
+  dominates the pooled π̂ at 100 kb. At 1 Mb the estimate check is a separate test,
+  <code>test_database_stressed_stratum0_estimate_covers_false_placements</code> (<code>calibration_full</code>,
+  R = 100, ΣV0 ≥ 100). It was a strict xfail "ADR-0019 implementation pending" until M3-25
+  implemented the ADR: mean PEP gave Ŵ0 0.57 vs V0 2.85. The cause is the length-correlated no-origin share. 75 % of the injected
+  peptides are 7-mers, and the 7-mer class has a no-origin share of 0.22 against 0.031 pooled,
+  so a pooled π̂ times all decoy hits under-counts. ADR-0019's per-class π̂ corrects it; the
+  statistician's reference rule gives Ŵ0 3.65 vs V0 3.50 over 6 replicates (review of #113,
+  round 2). <strong>Post-ADR, through <code>placement</code></strong> (M3-25, job 1861430, R = 100): Ŵ0 <strong>4.306</strong> vs
+  V0 <strong>2.75</strong>, SE 0.191, ΣV0 = 275 (floor 100) — the check passes, with a ratio of 1.57 against
+  0.20 under mean PEP. The FDP stays far below q under mean PEP only because the stratum is large;</li>
+<li>the <strong>related db-strain estimate check</strong>
+  (<code>test_related_dbstrain_stratum0_estimate_covers_false_placements</code>, full tier, 1 Mb, 5 SNV/kb,
+  R = 100). It requires ΣV0 ≥ 30 false stratum-0 placements and mean W0 ≥ mean V0 − 2 SE (SE of V0 − W0 over lists). Observed
+  (job 1860995, after the B1 origin fix): ΣV0 = 79, mean V0 0.79, mean W0 0.150, SE 0.099. It was
+  a strict xfail until ADR-0019 (exact-match π̂ per length class) was implemented in M3-25. Correct
+  identifications that span a strain difference have no exact origin but small PEP, so mean PEP
+  under-counts their exact chance hits (ADR-0019 Context, defect 1). <strong>Post-ADR, through
+  <code>placement</code></strong> (M3-25, job 1861430, R = 100): Ŵ0 <strong>1.551</strong> vs V0 <strong>0.79</strong>, SE 0.107,
+  ΣV0 = 79 (floor 30) — the check passes, with a ratio of 1.96 against 0.19 under mean PEP.
+  Both post-ADR ratios (1.57 and 1.96) sit inside ADR-0019's expected 0.96–2.4 band; the excess
+  over 1 is the Clopper–Pearson bound plus c, and c is set by the most sparsely populated class
+  (a class with k = n forces π̂_ℓ = 1), so most of the conservative margin can come from one
+  small class — read <code>stratum0_classes</code> to see which.</li>
+</ul>
+<p><strong>FDR evidence at m ≥ 1 rests on the list-level suites</strong> (<code>test_placement_fdr_lists.py</code>,
+<code>attacks/test_attack_placement_pi.py</code>), not on these genome suites.</p>
+<p><strong>Attack 5.</strong> Its FDP gate is a smoke check as well. Its content is the decoy-count documentation:
+de novo reversed stretches searched with reverse decoys inflate the m = 0 decoy count D
+(mean 9.1 reversed vs 0.5 shuffled per replicate). That is why de novo input uses shuffle decoys.</p>
+<h2 id="annotated-stop-read-through-m7-16a-adr-0058">Annotated-stop read-through (M7-16a, ADR-0058)<a class="headerlink" href="#annotated-stop-read-through-m7-16a-adr-0058" title="Permanent link">&para;</a></h2>
+<p>Code: <code>src/giap/mapping/readthrough.py</code> (sites, cells, mirrored cells), <code>tolerant_dp._verify_core</code>
+(the consumable-stop case), <code>tolerant.Search(marked)</code>, <code>frameshift._FSearch(marked)</code> and
+<code>nonfs_overlap</code>, <code>steps.mapping.sixframe_index</code> (index format 2, event <code>mapping.stop_sites</code>).
+Spec: <code>docs/specs/M7-16-stop-codon-readthrough.md</code>; review: statistician, 2026-10-24
+(<code>local/stat/m7-16-review.md</code>).</p>
+<p><strong>1. The rule.</strong> Route 3 (tolerant) may consume a target <code>*</code> only at the annotated stop codon of a
+CDS or sORF: the last codon of the feature, on its strand, in its frame. Pseudogenes are excluded,
+and a feature whose last codon is not a table-11 stop (for example a partial gene at a contig
+edge) is skipped and counted (<code>not_a_stop</code>). The codon is marked at every copy in the
+origin-extended frames of a circular replicon. The only move over a marked cell is a substitution
+of one query residue (any letter, U and X included) at cost 1, recorded as <code>substitution</code>; no
+match, swap, block or near-block reads it, and every other <code>*</code> and every <code>X</code> stays unconsumable.
+The exact route and the frameshift sides never consume a stop; the frameshift precedence check
+does see read-through alignments. Peptides shorter than 10 aa never reach route 3
+(<code>mapping.tolerant.min_len</code>), so a stop-spanning peptide of 7–9 aa is never placed; at 10–11 aa
+(k = 1) the stop is the only allowed difference.</p>
+<p><strong>2. Counts are exactly symmetric.</strong> Each decoy frame carries the target frame's number of marked
+cells: <code>reverse</code> maps cell p of an n-residue frame to n − 1 − p, <code>shuffle</code> keeps p (stops keep
+their positions). Every mirrored cell holds <code>*</code>, so the stop-free run lengths on each side are the
+same, origin copies included. <code>mirror_cells</code> raises if a mirrored cell is not a stop, draws no
+randomness, and the decoy frames are byte-identical to index format 1 for the same seed.</p>
+<p><strong>3. Context mirroring and the measured ratios.</strong> Under any i.i.d. peptide law the reverse decoy
+is exact (read-through D_rt/T_rt = 1 to 1e-16). The local context is mirrored, not kept:
+gene | <code>*</code> | 3′ flank becomes reversed flank | <code>*</code> | reversed gene. Under a law that is not
+reversal-symmetric (tryptic, C-terminal K/R) the per-genome read-through D_rt/T_rt was 0.52–1.89
+(reverse) and 0.58–1.74 (shuffle) on three giapsim 1-Mb genomes, and 0.81–1.15 (reverse) and
+1.14–1.42 (shuffle) on Nissle. The net effect on the total, (D_rt − T_rt)/T_regular, was at worst
+−9.4 × 10⁻⁴ (giapsim) and −1.3 × 10⁻⁴ (Nissle): exact expected chance mass, Slurm jobs 1889319
+(Nissle) and 1889320 (giapsim), script <code>local/stat/m7-16/rt_mass.py</code>. Job 1889319 used a local
+Bakta run with all four replicons linear (4,686 sites). On the committed recording
+<code>tests/data/recorded/bakta/1.12.2-full/nissle</code> (all circular; 4,689 sites, 3 <code>not_a_stop</code>) job
+1889965 reproduces them: reverse tryptic 0.81–1.14, shuffle tryptic 1.16–1.39, shuffle i.i.d.
+1.03–1.18, reverse i.i.d. exactly 1, worst net shift −1.3 × 10⁻⁴, read-through share
+0.035–0.082 %. The stressed arm's measured values are under item 8.</p>
+<p><strong>4. The added mass is an approximation, not a bound.</strong> A window consumes a marked cell only if
+it contains it, with the other L − 1 residues within m − 1 differences. Relative to E(L, m) of
+§7.2.5 the added chance mass is approximately G/(N(1 − s)) at m = 1 and 2G/(N(1 − s)) at m = 2
+(G consumable cells, N six-frame positions, s the residue-match probability), independent of L
+and scaling with the gene density G/N. Measured realised shares of the target chance mass:
+0.04–0.08 % on Nissle and 0.05–0.20 % on giapsim 1 Mb (i.i.d. and tryptic laws; the top of the
+range is tryptic at m = 2). On another genome the share is approximately, not at most, the
+formula's value for its G/N.</p>
+<p><strong>5. The read-through ratio is not a subset FDR.</strong> D_rt/T_rt does not estimate the false discovery
+rate of the read-through placements. The list FDR (per decoy type and stratum) does not control
+that subset, and no output, table or report may present the ratio as one (R3).</p>
+<p><strong>6. Expected false read-through placements per run</strong> are about α · T_acc(m ≥ 1) · ρ, where
+T_acc(m ≥ 1) is the number of accepted target placements in strata 1–2 and ρ ≈ 10⁻³ is the
+read-through share of the chance mass. That is ≪ 1 for any realistic run, but it is not a
+per-site guarantee.</p>
+<p><strong>7. Power.</strong> A true read-through peptide with no other difference lands in stratum 1 with
+π̂ = 1 and the +1 in the decoy count. By Appendix B.6 a stratum-1 list with fewer than about 100
+targets ahead of its first decoy accepts none, so <code>cterm_extension</code> has low power on small inputs
+by design. This is a statement, not a change.</p>
+<p><strong>8. What the suites show.</strong> The estimator, strata, π̂ and the ranking score E are unchanged
+(no tolerance, bound, α or R changes).</p>
+<ul>
+<li><em>Regression-only</em> (byte-identical by construction: <code>cells=None</code> or no matcher):
+  <code>test_tolerant_recall.py</code>, <code>test_placement_fdr_genome.py</code>, <code>test_placement_fdr_lists.py</code>,
+  <code>attacks/test_attack_placement_*</code>. They cannot see the rule and are regression evidence only.</li>
+<li><em>Exercised</em> (<code>run_chain</code>, reaching <code>sixframe_index → map_tolerant</code> with cells):
+  <code>test_placement_fdr_sim.py</code>, <code>test_denovo_precision_sim.py</code> and attack 5. Fast tier (R = 50,
+  100 kb): main 1890006, branch 1890007. Full tier (R = 300, 1 Mb): main 1890009, branch 1890010.
+  All 10 tests pass in each of the four runs.</li>
+<li>Every FDP per decoy type, stratum and level is unchanged to 4 significant digits; the largest
+    change is 4.4 × 10⁻¹⁰.</li>
+<li>The de novo precision diagnostics, the stratum-0 estimate checks and the attack-5 decoy
+    documentation are identical.</li>
+<li>Accepted target rows that consumed a cell, per replicate at q 0.01 / 0.05 / 0.10:<ul>
+<li>0 in every suite at 100 kb, except <code>related_other_strain</code> (0–1, 2 rows in 2 of 50
+  replicates);</li>
+<li>at 1 Mb, <code>related_other_strain</code> 0–5 (200 / 221 / 224 rows; 165 of 300 replicates);</li>
+<li>attack 5 0–1 (2 rows);</li>
+<li>0 elsewhere.</li>
+</ul>
+</li>
+<li>All of them are true placements: FDP and the false-peptide exercise are unchanged, and the
+    accepted counts rise by exactly those rows.</li>
+<li>Counts come from an observer of <code>run_chain</code>: best-cost target rows whose window holds a target
+    cell (<code>holds_cell</code>) among peptides with m_target ≥ 1 and placement_q ≤ q.</li>
+<li><em>Stressed arm</em> (<code>test_readthrough_stressed.py</code>; dense 30–40-codon genes, reduced-alphabet coding
+  frame, reverse arm on database input and shuffle arm on de novo input; criteria m ≥ 1 FDP ≤
+  q + <code>se_multiplier</code> · SE at every level and mean(D_rt) ≥ mean(T_rt) − <code>se_multiplier</code> · SE; a
+  negative control without decoy cells must fail the balance criterion). Fast tier (R = 50,
+  Slurm job 1889791, about 9,250 cells per replicate):</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>arm</th>
+<th>mean T_rt</th>
+<th>mean D_rt</th>
+<th>SE(D − T)</th>
+<th>read-through share</th>
+<th>control D_rt</th>
+<th>mean FDP at q 0.01 / 0.05 / 0.10</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>reverse (database)</td>
+<td>121.6</td>
+<td>125.4</td>
+<td>1.95</td>
+<td>1.98 %</td>
+<td>0 (fails, as required)</td>
+<td>0.0043 / 0.024 / 0.057</td>
+</tr>
+<tr>
+<td>shuffle (de novo)</td>
+<td>123.6</td>
+<td>391.0</td>
+<td>2.83</td>
+<td>2.02 %</td>
+<td>0 (fails, as required)</td>
+<td>0.0070 / 0.036 / 0.083</td>
+</tr>
+</tbody>
+</table>
+<p>Shuffle D_rt ≈ 3 × T_rt comes from the build, not the cells: every stressed gene's stop is
+  followed 1–3 residues later by the next gene's start <code>M</code>, which the K/P/Y/F peptides never
+  match, so a target window past the stop spends its second difference on it, while the shuffle
+  moves the <code>M</code>. Exact chance mass gives shuffle D/T 2.6–3.6 as built and 0.97 with the start ATG
+  replaced by AAA; reverse is 1.000 either way. It is conservative, but it means the stressed
+  shuffle arm alone cannot see a partial loss of shuffle cells (up to about 2/3); the reverse arm,
+  the no-cells control and the attack's structural checks cover that.
+- <em>Statistician's attack</em> (<code>attacks/test_attack_readthrough_decoys.py</code>, Slurm 1889956, fast and
+  full pass): exact expected chance mass on the cells <code>sixframe_index</code> writes, L 10, 11, 12, 16.
+  Reverse i.i.d. D_rt = T_rt to rtol 1e-9 in every replicate. Shuffle i.i.d. mean D_rt/T_rt on
+  giapsim 100 kb is 0.97–1.07 (fast, R 50) and 1.03–1.09 (full, R 300); the tryptic worst net
+  shift is −2.2 × 10⁻⁴ against the one-sided margin (≥ −0.01). Cell counts and consumable windows are equal in
+  target, reverse and shuffle at every L. Each broken build fails: no decoy cells, target cells
+  reused for the reverse decoy, a reverse mirror off by one.
+- <em>Stressed arm</em>, full tier (R = 300, job 1890008):
+  - reverse: T_rt 123.0, D_rt 125.1 (SE 0.92), FDP 0.0038 / 0.024 / 0.057;
+  - shuffle: T_rt 122.9, D_rt 390.1 (SE 1.41), FDP 0.0067 / 0.036 / 0.081;
+  - read-through share 2.0 %; both controls fail, as required;
+  - accepted target rows that consumed a cell 0–5 (reverse) and 0–7 (shuffle) per replicate at
+    q 0.10.
+- <em>Regression-only</em>, fast tier: branch 1890013 and main 1890090, both 37 passed and 1 xfailed.
+  The gate records are identical apart from durations.</p>
+<p>Accepted target rows that consumed a cell, per replicate at q 0.01 / 0.05 / 0.10: 0–1 / 0–2 /
+  0–3 (reverse) and 0–1 / 0–2 / 0–5 (shuffle). The shuffle arm's D_rt is about 3 × T_rt in this
+  dense build: conservative in the direction the check guards (cause: the next gene's start <code>M</code>, explained
+  under the table above). As item 5 says, neither ratio is a
+  subset FDR.
+- <em>Decoy-balance check</em> (<code>test_readthrough_decoy_balance.py</code>, giapsim 1 Mb null genomes, one-sided,
+  may be vacuous): fast tier (R = 50, job 1889791) <strong>vacuous</strong> for both decoy types, as expected:
+  T_rt = D_rt = 0, read-through share 0 (mean false target placements T 0.38 reverse, 14.7
+  shuffle; about 905 cells per genome).</p>
+<h3 id="16b-reporting-the-readthrough-flag-and-the-placement-kind-counts">16b reporting: the <code>readthrough</code> flag and the placement-kind counts<a class="headerlink" href="#16b-reporting-the-readthrough-flag-and-the-placement-kind-counts" title="Permanent link">&para;</a></h3>
+<p>A <code>peptide_hits.tsv</code> row whose accepted alignment consumes an annotated terminal stop cell carries
+the flag <code>readthrough</code> (and <code>mappings.gff3</code> the attribute <code>readthrough_codon</code>), computed from the
+sites the index was searched with. <code>detection_summary.tsv</code> counts distinct peptides by placement
+kind, tolerant diff type, placement flag and unmapped reason (section <code>qc</code>, metric <code>n_peptides</code>).
+These are counts, not rates or FDRs: <code>n</code> is the population the count comes from, never a
+denominator to report. The flagged rows are a subset of a list accepted at q, and the list FDR
+does not control that subset (items 5–6); no output describes the <code>readthrough</code> rows as accepted
+at q on their own.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

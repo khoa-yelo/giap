@@ -1,0 +1,5262 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Genome-integrated analysis of proteomics data for bacterial genomes">
+      
+      
+      
+      
+        <link rel="prev" href="../developer/">
+      
+      
+        <link rel="next" href="../changelog/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Releasing - GIAP</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#releasing" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="GIAP" class="md-header__button md-logo" aria-label="GIAP" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            GIAP
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Releasing
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="GIAP" class="md-nav__button md-logo" aria-label="GIAP" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    GIAP
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../get-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../get-started/setup-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set up the databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../get-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/inputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running GIAP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/outputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Outputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/interpreting-results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpreting results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/plots-and-report/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plots and report
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comparing runs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/makedb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building a search database
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/convert/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Converting search-engine output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/licences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Licences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/runtimes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtimes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/ecoli-k12/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: E. coli K-12
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/nissle-pilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: the Nissle pilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Output tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Flag vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methods
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Methods
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/abundance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gene-level abundance: iBAQ, Top3, protein-level route, missing values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/autocorrelation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autocorrelation of abundance along the replicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/bootstrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TU-block bootstrap, circular block bootstrap and the Hodges–Lehmann shift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration harness: criteria, error rates, seeds
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    giap compare: detection, abundance agreement and result stability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/context_tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The context tables: autocorrelation.tsv, islands.tsv and the genes.tsv context group
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/denovo-flag-m717-gate-verdict/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    M7-17 G4-k3 flag gate, full tier: statistician's verdict (PR #291, ebfdd065)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/denovo-precision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    De novo precision, estimated from the genome
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/detectability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detectability model (cross-fitted p_detect)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/detection-limit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection-limit model (P(detect | abundance) and P(miss))
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/detection-summary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic detection summary (O − E) and QC rows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/detection-tiers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection tiers and gene-level FDR (M4-12)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/determinants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Determinants: what explains abundance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/fgsea-port/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    fgsea port (G15; GIAP_SPEC.md §7.7.4) — superseded by ADR-0038
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/free-entrapment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Free entrapment: the FDP of A1's identifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/function-collections/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function collections (M8-03)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/function-gsea/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Abundance GSEA (M8-05, engine M8-17b)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/function/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function module: detection enrichment primitives
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/islands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Islands: expression islands along the replicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/mayu-gene-fdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MAYU-style gene-level FDR (closed form)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/multiple-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiple testing: Benjamini–Hochberg
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/novel-orfs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Novel ORFs (M7)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/operons/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operons: the within-operon distribution and the missed-operon decoy FDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/oriter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Origin-to-terminus gradient
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/permutation-and-shifts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Permutation p-values, circular shifts and Besag–Clifford
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/placement-fdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Placement FDR: genome decoys, chance hits and per-stratum q-values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/region-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Region tests: O − E and Hodges–Lehmann shift under circular gene-index shifts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/sensitivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sensitivity analysis: stability of flagged sets under analysis choices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/target-decoy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Target–decoy q-values and picked FDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/variants-mvp04-k12-audit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Variants on the MVP-04 K-12 run: flag audit (statistician, 2026-10-24)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methods/variants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Variants (Module 5)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0001-import-spec-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0001: Import the settled decisions of GIAP_SPEC.md §2.1 and §2.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0002-farmshare-env-pins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0002: FarmShare toolchain as installed in M0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0003-simulate-outdir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0003: giapsim.simulate takes an explicit output directory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0004-m0-size-exemption-and-hook-symlinks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0004: One-off PR-size exemption for M0, and symlink-safe path protection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0005-m1-input-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0005: Decisions on M1 input handling left open by the spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0006-table-value-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0006: Encoding of special values in GIAP tables, and strict BED writing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0007-pr-size-counts-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0007: The PR-size guard counts code, not tests or docs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0008-tool-pins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0008: Annotation tool pins, image digests and licences (M2-01)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0009-picked-fdr-paired-share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0009: Picked gene-level FDR rescales decoy wins by the paired share
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0010-placement-fdr-weighted-decoys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0010: Placement FDR with per-peptide π̂ weights each decoy hit by its own π̂ (M3-10)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0011-low-complexity-placement-flag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0011: low_complexity placement flag (M3-10)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0012-novel-orf-promoter-terminator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0012: Promoter and terminator evidence for novel ORFs (Module 6)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0013-cterm-extension-locus-class/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0013: cterm_extension locus class (M3-14, Module 6)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0014-db-checksum-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0014: Checksum sources for the Bakta full DB and the Promotech model (M2-08)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0015-calibration-two-block-confirmation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0015: Two-block confirmation for calibration gates (M4-05)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0016-size-gate-excludes-nf-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0016: The PR-size gate does not count workflow/tests/ (amends ADR-0007)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0017-unversioned-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0017: Unversioned sources (KEGG REST) are recorded, not pinned
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0018-region-tests-confounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0018: Region tests robust to detectability confounding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0019-stratum0-pi-hat-exact-share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0019: Stratum-0 π̂_wrong for database input from exact-match shares per length class
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0020-autocorrelation-redetrend-residual-joincount/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0020: Autocorrelation nulls recompute the detrend; residual join count; no CI for lag statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0021-island-oriter-block-length/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0021: Block length for the island scan and the ori–ter CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0022-uniop-terminatornet-cutoffs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0022: UniOP and TerminatorNet cut-offs and the distance-model refit on RegulonDB 14.5.0 K-12
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0023-kegg-overview-maps-excluded/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0023: KEGG global and overview maps are excluded from the KEGG collection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0024-precomputed-rbs-novel-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0024: annotation.precomputed.rbs_novel, a precomputed second-round OSTIR layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0025-gsea-clustered-sets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0025: GSEA on genomically clustered sets: a flag and a restricted claim in pass 1, a rotation null in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0026-gsea-conditional-on-detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0026: Abundance GSEA is conditional on detection (restricted claim and flag)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0027-gsea-nes-without-ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0027: GSEA reports NES without a confidence interval (§8.2 deviation)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0028-gsea-median-centred-tu-scores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0028 (ADR-B): GSEA ranks median-centred TU scores
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0029-ora-conditional-poisson-binomial-tus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0029: Detection ORA uses the conditional Poisson-binomial null, counted in TUs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0030-detection-limit-pass1-calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0030: Detection-limit model (M6-02): the pass-1 calibration choices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0031-determinants-delta-r2-tolerance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0031: Determinants ΔR² bias tolerance 0.05; the ΔR² interval stays ci_unestimated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0032-determinants-univariate-ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0032: Univariate determinants CIs stay ci_unestimated in pass 1; a calibrated SE in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0033-determinants-primary-attribution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0033: Elastic-net ΔR² is the primary block attribution; LightGBM early stopping in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0034-determinants-null-uncalibrated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0034: The determinants permutation null p is null_uncalibrated in pass 1; a structure-aware null in hardening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0035-ora-tu-detection-recalibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0035: The ORA TU detection probability is a cross-fitted TU-level recalibration of q = 1 − ∏(1 − p̂)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0036-m8-table-columns-beyond-9-3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0036: M8 function tables carry four columns and five run flags beyond GIAP_SPEC.md §9.3 and §9.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0037-ora-flexible-tu-recalibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0037: The ORA TU detection recalibration becomes a flexible cross-fitted ridge logistic (pass 2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0038-gsea-runs-r-fgsea/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0038: GSEA runs R fgsea as an external tool
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0039-bioconductor-org-for-golden-r/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0039: bioconductor.org as a download source for the R golden environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0040-manifest-run-tail-finalize-split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0040: The manifest runs after the graph; finalize is split between the graph and the run tail
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0041-run-tokens-beyond-9-4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0041: Run-scope tokens beyond the §9.4 Run row
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0042-replicates-variants-and-compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0042: Calibration replicate counts for variants and compare
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0043-plot-support-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0043: Plot support files under OUT/plots/support/
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0044-wallenius-golden-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0044: The Wallenius golden reference is the exact distribution, not goseq
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0045-wallenius-far-tails-by-urn-recursion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0045: Wallenius far tails by the exact urn recursion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0046-compare-output-layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0046: giap compare output layout (ADR-M9-B)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0047-decoy-q-filter-reading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0047: Decoys above q_value_max leave the picked competition (reading of §5.2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0048-replicates-novel-orfs-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0048: Replicate counts for the 1-Mb novel-ORF gate (M7-13 G3/G4)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0049-m7-variant-precision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0049: M7 variant-call precision under de novo errors (G1, A6a, A6b, A6c)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0050-denovo-orf-q-exact-errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0050: ORF-level q in the de novo subgroup regime under exact systematic errors (G4-k3, attack GC)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0051-diann-version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0051: DIA-NN 2.3.1 Academia (Apptainer image) instead of the spec's 2.7.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0052-pr-ci-under-20-minutes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0052: PR CI under 20 minutes; calibration, integration and coverage move to the nightly
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0053-determinants-bit-identical-speedups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0053: Bit-identical speed-ups of the determinants step; two new benchmark baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0054-a3-external-artefacts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0054: External artefacts of the A3 de novo arm (ADR-M10-B): conversion route, TDF-SDK licence, Cascadia weights host, Unimod table
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0055-operon-discordance-abundance-noise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0055: Operon discordance under abundance-dependent Δ noise (attack D-1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0056-pmiss-outside-the-bh-family/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0056: P(miss) is reported without a q and stays out of the discordance BH family
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0057-calibration-merge-honours-strict-xfail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0057: the calibration merge honours the xfail mark of the test that owns a check
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/ADR-0058-annotated-stop-substitution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0058: The tolerant matcher may consume an annotated stop codon (option B of M7-16)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releasing
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releasing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#a-once-before-the-first-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A. Once, before the first release
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="A. Once, before the first release">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-pypi-and-testpypi-pending-publishers-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. PyPI and TestPyPI pending publishers (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-github-environments-pypi-and-testpypi-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. GitHub environments pypi and testpypi (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-zenodo-github-integration-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Zenodo GitHub integration (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-github-pages-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. GitHub Pages (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-ghcr-package-visibility-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. GHCR package visibility (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#b-each-release-agent-and-lead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B. Each release: agent and lead
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="B. Each release: agent and lead">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#6-release-prep-pr-m11release-v-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Release-prep PR m11/release-&lt;v&gt; (agent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-evidence-runs-on-r-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Evidence runs on R (agent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-readiness-on-r-paperwork-only-pr-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Readiness on R, paperwork-only PR (agent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-dry-run-of-releaseyml-lead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Dry run of release.yml (lead)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#10-review-packet-and-hand-off-lead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Review packet and hand-off (lead)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#c-each-release-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C. Each release: Khoa
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="C. Each release: Khoa">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-written-approval-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Written approval (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-rehearsal-on-testpypi-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Rehearsal on TestPyPI (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-the-release-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. The release (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#d-after-the-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D. After the release
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="D. After the release">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#14-pypi-install-smoke-on-farmshare-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. PyPI install smoke on FarmShare (agent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#15-post-release-pr-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Post-release PR (agent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#16-bioconda-recipe-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16. Bioconda recipe (agent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#17-progress-record-lead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17. PROGRESS record (lead)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#e-if-something-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E. If something fails
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#script-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Script reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#licences-of-the-tools-giap-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Licences of the tools GIAP runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions-for-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open questions for Khoa
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../citation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Citation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#a-once-before-the-first-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A. Once, before the first release
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="A. Once, before the first release">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-pypi-and-testpypi-pending-publishers-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. PyPI and TestPyPI pending publishers (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-github-environments-pypi-and-testpypi-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. GitHub environments pypi and testpypi (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-zenodo-github-integration-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Zenodo GitHub integration (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-github-pages-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. GitHub Pages (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-ghcr-package-visibility-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. GHCR package visibility (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#b-each-release-agent-and-lead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B. Each release: agent and lead
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="B. Each release: agent and lead">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#6-release-prep-pr-m11release-v-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Release-prep PR m11/release-&lt;v&gt; (agent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-evidence-runs-on-r-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Evidence runs on R (agent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-readiness-on-r-paperwork-only-pr-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Readiness on R, paperwork-only PR (agent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-dry-run-of-releaseyml-lead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Dry run of release.yml (lead)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#10-review-packet-and-hand-off-lead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Review packet and hand-off (lead)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#c-each-release-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C. Each release: Khoa
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="C. Each release: Khoa">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-written-approval-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Written approval (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-rehearsal-on-testpypi-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Rehearsal on TestPyPI (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-the-release-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. The release (Khoa)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#d-after-the-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D. After the release
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="D. After the release">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#14-pypi-install-smoke-on-farmshare-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. PyPI install smoke on FarmShare (agent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#15-post-release-pr-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Post-release PR (agent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#16-bioconda-recipe-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16. Bioconda recipe (agent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#17-progress-record-lead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17. PROGRESS record (lead)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#e-if-something-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E. If something fails
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#script-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Script reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#licences-of-the-tools-giap-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Licences of the tools GIAP runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions-for-khoa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open questions for Khoa
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="releasing">Releasing<a class="headerlink" href="#releasing" title="Permanent link">&para;</a></h1>
+<p>How a GIAP release is prepared, approved and published. Agents prepare everything and run dry
+runs. Khoa is the only one who approves, publishes and sets up accounts.</p>
+<div class="admonition danger">
+<p class="admonition-title">Two rules for every agent</p>
+<p>Agents never push tags, and never dispatch <code>release.yml</code> with <code>dry_run=false</code>.
+Tags and GitHub releases come only from the <code>github-release</code> job of <code>release.yml</code>, run by
+Khoa's dispatch (GIAP_SPEC.md §3.10). An agent that finds a step it cannot do without breaking
+one of these rules stops and asks Khoa through PROGRESS › Questions for Khoa.</p>
+</div>
+<p>Each numbered step names one actor in bold:</p>
+<ul>
+<li><strong>agent</strong>: a subagent in its role (docs, validation, implementer).</li>
+<li><strong>lead</strong>: the main session.</li>
+<li><strong>Khoa</strong>: the account owner.</li>
+</ul>
+<p>Each step also gives the exact command or web page, and the evidence to record in <code>PROGRESS.md</code>.
+<code>&lt;v&gt;</code> is the version (PEP 440, matching <code>^\d+\.\d+\.\d+(rc\d+)?$</code>, e.g. <code>1.0.0</code> or <code>1.0.0rc1</code>).
+<code>&lt;base&gt;</code> is <code>&lt;v&gt;</code> without its <code>rc</code> suffix (<code>1.0.0</code> for both <code>1.0.0rc1</code> and <code>1.0.0</code>). No
+step needs a token in a file or a command line (R12): trusted publishing uses OIDC, and the
+workflow's <code>GITHUB_TOKEN</code> is the only credential it uses.</p>
+<p>The workflow inputs, from <code>.github/workflows/release.yml</code>:</p>
+<table>
+<thead>
+<tr>
+<th>input</th>
+<th>type</th>
+<th>default</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>version</code></td>
+<td>string, required</td>
+<td>none</td>
+<td>must equal <code>giap.__version__</code> on the dispatched commit</td>
+</tr>
+<tr>
+<td><code>dry_run</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>verify, build, smoke and notes only: no upload, no tag</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>choice <code>testpypi</code>, <code>pypi</code></td>
+<td><code>testpypi</code></td>
+<td>the index for an upload when <code>dry_run</code> is false</td>
+</tr>
+</tbody>
+</table>
+<p>The workflow refuses to run in these cases:</p>
+<ul>
+<li>it was dispatched on any ref other than <code>refs/heads/main</code>;</li>
+<li>the version does not match the pattern above;</li>
+<li>the version input differs from <code>giap.__version__</code>;</li>
+<li>tag <code>v&lt;v&gt;</code> already exists.</li>
+</ul>
+<p>The <code>publish</code> job needs three things: <code>dry_run</code> false, <code>github.actor == 'khoa-yelo'</code>, and approval
+of the <code>target</code> environment. The <code>github-release</code> job also needs <code>target == 'pypi'</code>. A TestPyPI
+upload therefore never creates a tag.</p>
+<h2 id="a-once-before-the-first-release">A. Once, before the first release<a class="headerlink" href="#a-once-before-the-first-release" title="Permanent link">&para;</a></h2>
+<h3 id="1-pypi-and-testpypi-pending-publishers-khoa">1. PyPI and TestPyPI pending publishers (<strong>Khoa</strong>)<a class="headerlink" href="#1-pypi-and-testpypi-pending-publishers-khoa" title="Permanent link">&para;</a></h3>
+<ul>
+<li>PyPI: <a href="https://pypi.org/manage/account/publishing/">https://pypi.org/manage/account/publishing/</a> → "Add a new pending publisher" → GitHub.
+  Enter PyPI project name <code>giap</code>, owner <code>khoa-yelo</code>, repository <code>giap</code>, workflow name
+  <code>release.yml</code>, environment name <code>pypi</code>.</li>
+<li>TestPyPI: <a href="https://test.pypi.org/manage/account/publishing/">https://test.pypi.org/manage/account/publishing/</a> → the same form. Enter PyPI
+  project name <code>giap</code>, owner <code>khoa-yelo</code>, repository <code>giap</code>, workflow name <code>release.yml</code>,
+  environment name <code>testpypi</code>.</li>
+<li>Evidence: PROGRESS line "Q-K1 done: pending publishers on PyPI and TestPyPI (date)".</li>
+</ul>
+<h3 id="2-github-environments-pypi-and-testpypi-khoa">2. GitHub environments <code>pypi</code> and <code>testpypi</code> (<strong>Khoa</strong>)<a class="headerlink" href="#2-github-environments-pypi-and-testpypi-khoa" title="Permanent link">&para;</a></h3>
+<ul>
+<li>GitHub → <code>khoa-yelo/giap</code> → Settings → Environments → New environment. Create <code>pypi</code>, then
+  <code>testpypi</code>. For each one:<ul>
+<li>Deployment protection rules → Required reviewers → <code>khoa-yelo</code>.</li>
+<li>Leave "Prevent self-review" off: Khoa both dispatches and approves.</li>
+<li>Deployment branches and tags → Selected branches → <code>main</code>.</li>
+</ul>
+</li>
+<li>Add no environment secrets. Trusted publishing needs none.</li>
+<li>Evidence: PROGRESS line "Q-K2 done: environments pypi/testpypi, reviewer khoa-yelo, main only".</li>
+</ul>
+<h3 id="3-zenodo-github-integration-khoa">3. Zenodo GitHub integration (<strong>Khoa</strong>)<a class="headerlink" href="#3-zenodo-github-integration-khoa" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="https://zenodo.org">https://zenodo.org</a> → log in with GitHub → account menu → GitHub → switch on <code>khoa-yelo/giap</code>.
+  Zenodo lists only public repositories, so this needs §14.8 item 7 (making the repository public)
+  done first. Zenodo reads its metadata from <code>CITATION.cff</code>. There is no <code>.zenodo.json</code>.</li>
+<li>From then on, every published GitHub release (step 13) is archived and gets a DOI.</li>
+<li>If this step is skipped, the release still works. The DOI is missing, the post-release PR (step
+  15) waits, and the lead records it under PROGRESS › Questions for Khoa.</li>
+<li>Evidence: PROGRESS line "Q-K3 done: Zenodo integration on".</li>
+</ul>
+<h3 id="4-github-pages-khoa">4. GitHub Pages (<strong>Khoa</strong>)<a class="headerlink" href="#4-github-pages-khoa" title="Permanent link">&para;</a></h3>
+<ul>
+<li>GitHub → Settings → Pages → Build and deployment → Source "GitHub Actions" (Q-K9).</li>
+<li>GitHub → Settings → Secrets and variables → Actions → Variables → New repository variable
+  <code>PAGES_ENABLED</code> = <code>true</code>. The <code>deploy</code> job of <code>docs.yml</code> runs only on <code>main</code> and only when
+  <code>vars.PAGES_ENABLED == 'true'</code>. Until then, <code>docs.yml</code> only builds the site
+  (<code>mkdocs build --strict</code>) and uploads the Pages artefact.</li>
+<li>Pages on a private repository needs a paid GitHub plan, so on a free plan this step also waits
+  for §14.8 item 7 (making the repository public).</li>
+<li>GitHub creates the <code>github-pages</code> environment itself. Leave it as GitHub sets it up.</li>
+<li>Evidence: PROGRESS line "Q-K9 done", and the URL of the first green <code>deploy</code> job.</li>
+</ul>
+<h3 id="5-ghcr-package-visibility-khoa">5. GHCR package visibility (<strong>Khoa</strong>)<a class="headerlink" href="#5-ghcr-package-visibility-khoa" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Do this after all five packages exist: <code>ghcr.io/khoa-yelo/giap-&lt;tool&gt;</code> for <code>promotech</code>,
+  <code>promoter_calculator</code>, <code>terminatornet</code>, <code>bactermfinder</code> and <code>ostir</code>. A <code>containers.yml</code> run
+  started by a push builds only the tools whose <code>workflow/containers/&lt;tool&gt;/</code> or
+  <code>workflow/envs/&lt;tool&gt;.yml</code> changed. To build all five, the lead dispatches
+  <code>gh workflow run containers.yml -f tools=all</code>. Packages are private on first push.</li>
+<li>For each of the five: GitHub → profile → Packages → <code>giap-&lt;tool&gt;</code> → Package settings → Danger
+  Zone → Change visibility → Public (Q-K8).</li>
+<li>There is never a <code>giap-uniop</code> package. UniOP is unlicensed and <code>containers.yml</code> refuses to build
+  it (R5, R11).</li>
+<li>Until a package is public, Apptainer pulls it on FarmShare with 401 or 403, the M11-06 smoke
+  reports <code>private package</code>, and the digest PR stays a draft.</li>
+<li>Evidence: PROGRESS line "Q-K8 done: five GHCR packages public".</li>
+</ul>
+<h2 id="b-each-release-agent-and-lead">B. Each release: agent and lead<a class="headerlink" href="#b-each-release-agent-and-lead" title="Permanent link">&para;</a></h2>
+<h3 id="6-release-prep-pr-m11release-v-agent">6. Release-prep PR <code>m11/release-&lt;v&gt;</code> (<strong>agent</strong>)<a class="headerlink" href="#6-release-prep-pr-m11release-v-agent" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Role: docs. The lead merges the PR after CI. Changes on the branch:<ul>
+<li><code>src/giap/__init__.py</code>: <code>__version__ = "&lt;v&gt;"</code>.</li>
+<li><code>changelog.d/+known-limitations.misc.md</code>: update it before the build. It lists the open
+  non-gate issues (Q-K12). It must also carry the licence limit "geNOMAD is for non-commercial
+  use only", which the fragment does not have today.</li>
+<li>Run <code>towncrier build --version &lt;base&gt; --date &lt;YYYY-MM-DD&gt; --yes</code>. This turns the fragments
+  into <code>## GIAP &lt;base&gt; (&lt;YYYY-MM-DD&gt;)</code> in <code>CHANGELOG.md</code> and removes them.</li>
+<li><code>CITATION.cff</code>: set <code>version: &lt;v&gt;</code> and <code>date-released: &lt;YYYY-MM-DD&gt;</code>.</li>
+</ul>
+</li>
+<li><strong>The rc path</strong>: the towncrier <code>--version</code> is always <code>&lt;base&gt;</code>, never <code>&lt;v&gt;</code> with <code>rc</code>.<ul>
+<li><code>notes.py 1.0.0rc1</code> reads the <code>## GIAP 1.0.0 (</code> section and adds "Release candidate
+  1.0.0rc1 of GIAP 1.0.0." in front of it. A <code>## GIAP 1.0.0rc1 (…)</code> heading is never read, and
+  the build job would exit 1.</li>
+<li>So one <code>## GIAP 1.0.0 (…)</code> section serves <code>1.0.0rc1</code> and the final <code>1.0.0</code>.</li>
+<li>The final <code>1.0.0</code> prep PR after an rc changes only <code>__version__</code> and <code>CITATION.cff</code>
+  (<code>version</code>, <code>date-released</code>). It builds no changelog: the fragments are already consumed,
+  and the section stays as the rc PR wrote it.</li>
+<li>That PR changes <code>src/</code>, so it is a new R. Steps 7–8 run again and overwrite
+  <code>validation/release/1.0.0/</code>.</li>
+</ul>
+</li>
+<li><code>scripts/ci/check_changelog.py</code> exempts this PR only through its commit subjects: every
+  non-merge commit has to be of type <code>chore</code>, e.g. <code>chore(release): &lt;v&gt;</code>. If the check fails
+  anyway, add the <code>no-changelog</code> label and push again. Labels are read from the push event, and a
+  re-run reuses the old labels.</li>
+<li>The merged commit is <strong>R</strong>. <strong>Release freeze</strong> from R until step 13, recorded in PROGRESS:<ul>
+<li>Merge only PRs whose every changed path is paperwork in <code>readiness.py</code>'s sense:
+  <code>PROGRESS.md</code>, <code>README.md</code>, <code>CITATION.cff</code>, <code>CHANGELOG.md</code>, or a path under
+  <code>validation/release/</code>, <code>docs/</code> (but not <code>docs/methods/</code>) or <code>changelog.d/</code>.</li>
+<li>Any other path, such as <code>src/</code>, <code>workflow/</code>, <code>tests/</code>, <code>scripts/</code>, <code>.github/</code>, <code>ci/</code>,
+  <code>benchmarks/</code>, <code>pyproject.toml</code> or <code>uv.lock</code>, makes <code>readiness.py verify</code> fail with
+  <code>fail (stale: &lt;path&gt;)</code>.</li>
+<li><code>release.yml</code> builds main's HEAD, so such a merge makes the PyPI publish fail at verify.</li>
+</ul>
+</li>
+<li>Evidence: PR URL and the SHA of R.</li>
+</ul>
+<h3 id="7-evidence-runs-on-r-agent">7. Evidence runs on R (<strong>agent</strong>)<a class="headerlink" href="#7-evidence-runs-on-r-agent" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Role: validation, on FarmShare. Fast-forward the main checkout to R first. Source
+  <code>scripts/farmshare_env.sh</code>. Before each <code>sbatch</code>, add up the running and pending CPUs of the
+  <code>giap-*</code> jobs (R14: at most 128 CPUs, 4 GPUs and 20 jobs).<ul>
+<li><code>bash scripts/slurm/calibration_full_launch.sh origin/main</code>: pins a worktree at R, checks the
+  R14 budget (a launch queues 16 jobs; it refuses when its worst-case end reaches the 01:30
+  nightly), then submits the 15-task <code>calibration_full.sbatch</code> array and an <code>afterany</code>
+  aggregator that writes the <code>calibration_full</code> and <code>calibration_attacks</code> rows to
+  <code>$GIAP_ROOT/logs/nightly.tsv</code>. It prints <code>array=&lt;id&gt; rows=&lt;id&gt; log=&lt;dir&gt; throttle=&lt;T&gt;</code>.</li>
+<li><code>sbatch --array=2 scripts/slurm/nightly.sbatch</code>: the fast suite with the
+  <code>calibration_nightly</code> tier, on <code>origin/main</code>. Its row goes to <code>$GIAP_ROOT/logs/nightly.tsv</code>,
+  labelled <code>calibration_nightly</code>. A single task also posts a one-task table to the "Nightly
+  (FarmShare)" issue. Add <code>--export=ALL,NIGHTLY_POST=dry</code> to print the table instead.</li>
+<li><code>sbatch scripts/slurm/weekly.sbatch</code>: K-12 and Nissle end to end with TE6, TE8 and TE2, on
+  <code>origin/main</code>. Its rows go to <code>$GIAP_ROOT/logs/weekly.tsv</code>.</li>
+<li><code>sbatch scripts/slurm/test_branch.sbatch "$PWD"</code>: the full fast suite on 16 CPUs. The last log
+  line is <code>PYTEST_EXIT=&lt;code&gt;</code>.</li>
+</ul>
+</li>
+<li>Poll with <code>squeue -j &lt;id&gt;</code> and <code>sacct -j &lt;id&gt;</code>.</li>
+<li>Evidence: every job ID and its exit status in PROGRESS.</li>
+</ul>
+<h3 id="8-readiness-on-r-paperwork-only-pr-agent">8. Readiness on R, paperwork-only PR (<strong>agent</strong>)<a class="headerlink" href="#8-readiness-on-r-paperwork-only-pr-agent" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Role: validation, on FarmShare.</li>
+<li>Wait until every CI check run of R on <code>main</code> has finished. A check that is still running has a
+  <code>null</code> conclusion, and then H6 is <code>pending</code>. <code>verify</code> does not recompute H6 later, because H6's
+  source is <code>farmshare</code>.</li>
+<li>
+<p>Work in a worktree on a new branch at R, never by committing in the main checkout:</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>worktree<span class="w"> </span>add<span class="w"> </span>-b<span class="w"> </span>m11/readiness-&lt;v&gt;<span class="w"> </span>local/worktrees/readiness-&lt;v&gt;<span class="w"> </span>&lt;R&gt;
+</code></pre></div>
+</li>
+<li>
+<p>In that worktree, run:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>scripts/release/readiness.py<span class="w"> </span>compute<span class="w"> </span>--version<span class="w"> </span>&lt;v&gt;<span class="w"> </span>--logs<span class="w"> </span><span class="s2">"</span><span class="nv">$GIAP_ROOT</span><span class="s2">/logs"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--freeze-run<span class="w"> </span>&lt;A2<span class="w"> </span>freeze<span class="w"> </span>run<span class="w"> </span>dir&gt;<span class="w"> </span>--out<span class="w"> </span>validation/release/&lt;base&gt;/
+</code></pre></div>
+</li>
+<li>
+<p>This writes <code>readiness.json</code> and <code>READINESS.md</code>. Exit codes: 0 <code>pass</code>, 1 <code>fail</code>, 3 <code>pending</code>.</p>
+</li>
+<li>Do not use <code>--offline</code>. Row H6 reads the commit's check runs with <code>gh api</code>. Without network,
+  save that response and pass it with <code>--check-runs &lt;file&gt;</code>.</li>
+<li>The directory is <code>&lt;base&gt;</code>, also for an rc. <code>release.yml</code> reads
+  <code>validation/release/${VERSION%%rc*}/readiness.json</code>.</li>
+<li>Open a PR <code>docs(release): readiness &lt;v&gt;</code> that changes only these two files, and merge it. It is
+  paperwork, so <code>readiness.py verify</code> still accepts R as the readiness commit.</li>
+<li>
+<p>Check on the merged <code>main</code>:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>scripts/release/readiness.py<span class="w"> </span>verify<span class="w"> </span>validation/release/&lt;base&gt;/readiness.json
+</code></pre></div>
+<p>This prints <code>commit rule: pass</code> and <code>overall: pass</code>, with exit 0.
+- Evidence: PR URL, <code>overall</code>, the rows that are not <code>pass</code>.</p>
+</li>
+</ul>
+<h3 id="9-dry-run-of-releaseyml-lead">9. Dry run of <code>release.yml</code> (<strong>lead</strong>)<a class="headerlink" href="#9-dry-run-of-releaseyml-lead" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>gh<span class="w"> </span>workflow<span class="w"> </span>run<span class="w"> </span>release.yml<span class="w"> </span>-f<span class="w"> </span><span class="nv">version</span><span class="o">=</span>&lt;v&gt;<span class="w"> </span>-f<span class="w"> </span><span class="nv">dry_run</span><span class="o">=</span><span class="nb">true</span>
+gh<span class="w"> </span>run<span class="w"> </span>list<span class="w"> </span>--workflow<span class="w"> </span>release.yml<span class="w"> </span>--event<span class="w"> </span>workflow_dispatch<span class="w"> </span>--user<span class="w"> </span>khoa-yelo<span class="w"> </span>--limit<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--json<span class="w"> </span>databaseId,url,headSha,status,conclusion
+gh<span class="w"> </span>run<span class="w"> </span>download<span class="w"> </span>&lt;run<span class="w"> </span>id&gt;<span class="w"> </span>-n<span class="w"> </span>release<span class="w"> </span>-D<span class="w"> </span>local/review/m11-release/r&lt;k&gt;/
+</code></pre></div>
+<ul>
+<li>Check that the listed run's <code>headSha</code> is main's HEAD, so it is the run just started.</li>
+<li>A dry run renders the notes with <code>notes.py &lt;v&gt; --draft</code> and publishes nothing.</li>
+<li>The step summary should say <code>dry run: nothing published</code>. It also lists the readiness overall
+  and the sha256 of each artefact.</li>
+<li>Evidence: the run URL and the head SHA in PROGRESS.</li>
+</ul>
+<h3 id="10-review-packet-and-hand-off-lead">10. Review packet and hand-off (<strong>lead</strong>)<a class="headerlink" href="#10-review-packet-and-hand-off-lead" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>local/review/m11-release/r&lt;k&gt;/</code> holds:<ul>
+<li><code>READINESS.md</code>;</li>
+<li>the dry-run step summary;</li>
+<li><code>notes.md</code> and <code>dist/</code>, from step 9;</li>
+<li><code>sha256sum dist/*</code>;</li>
+<li>the list of open non-gate issues.</li>
+</ul>
+</li>
+<li>Add a PROGRESS › Questions for Khoa row "Approve release <code>&lt;v&gt;</code>". The step-8 PR is already
+  merged, so open an issue <code>Release &lt;v&gt;: approval</code> that links the packet, label it <code>needs-khoa</code>,
+  and message Khoa.</li>
+<li>Evidence: the packet path and the PROGRESS row.</li>
+</ul>
+<h2 id="c-each-release-khoa">C. Each release: Khoa<a class="headerlink" href="#c-each-release-khoa" title="Permanent link">&para;</a></h2>
+<h3 id="11-written-approval-khoa">11. Written approval (<strong>Khoa</strong>)<a class="headerlink" href="#11-written-approval-khoa" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Khoa replies "approved" (§14.8 item 5). The lead copies Khoa's words into PROGRESS before any
+  dispatch.</li>
+<li>A row that needs a waiver gets an ADR with the header <code>Status: accepted-by-khoa</code> and the line
+  <code>Waives readiness &lt;id&gt;</code> first. Then step 8 runs again.</li>
+</ul>
+<h3 id="12-rehearsal-on-testpypi-khoa">12. Rehearsal on TestPyPI (<strong>Khoa</strong>)<a class="headerlink" href="#12-rehearsal-on-testpypi-khoa" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Required for the first release, optional later.</li>
+<li>Start the run from Actions → release → Run workflow (branch <code>main</code>) with <code>version=&lt;v&gt;</code>,
+  <code>dry_run=false</code>, <code>target=testpypi</code>. From Khoa's own shell, the same run is
+  <code>gh workflow run release.yml -f version=&lt;v&gt; -f dry_run=false -f target=testpypi</code>.</li>
+<li>On the run page: Review deployments → <code>testpypi</code> → Approve and deploy.</li>
+<li>
+<p>Check the install in a fresh venv:</p>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-i<span class="w"> </span>https://test.pypi.org/simple/<span class="w"> </span>--extra-index-url<span class="w"> </span>https://pypi.org/simple/<span class="w"> </span><span class="nv">giap</span><span class="o">==</span>&lt;v&gt;
+</code></pre></div>
+</li>
+<li>
+<p>This occupies <code>&lt;v&gt;</code> on TestPyPI only. PyPI is a separate index, so step 13 is unaffected.</p>
+</li>
+<li>No tag and no GitHub release are created.</li>
+</ul>
+<h3 id="13-the-release-khoa">13. The release (<strong>Khoa</strong>)<a class="headerlink" href="#13-the-release-khoa" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Start the run from Actions → release → Run workflow (branch <code>main</code>) with <code>version=&lt;v&gt;</code>,
+  <code>dry_run=false</code>, <code>target=pypi</code>, then approve the <code>pypi</code> environment.</li>
+<li>Verify fails if readiness is missing, does not verify, or is not <code>pass</code> (waived rows count as
+  <code>pass</code> only through accepted ADRs).</li>
+<li>The workflow then:<ul>
+<li>uploads the wheel and sdist;</li>
+<li>tags <code>v&lt;v&gt;</code> on the dispatched commit;</li>
+<li>creates the GitHub release "GIAP <code>&lt;v&gt;</code>" with <code>notes.md</code> (a pre-release for an <code>rc</code>).</li>
+</ul>
+</li>
+<li>Zenodo mints the DOI.</li>
+<li>Evidence: the run URL, which the lead records.</li>
+</ul>
+<h2 id="d-after-the-release">D. After the release<a class="headerlink" href="#d-after-the-release" title="Permanent link">&para;</a></h2>
+<h3 id="14-pypi-install-smoke-on-farmshare-agent">14. PyPI install smoke on FarmShare (<strong>agent</strong>)<a class="headerlink" href="#14-pypi-install-smoke-on-farmshare-agent" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p>Role: validation, inside the Slurm allocation, never on a login node. Use a fresh venv outside
+  the checkout, with <code>PYTHONPATH</code> unset, and run from the main checkout's root (for the two input
+  files):</p>
+<div class="highlight"><pre><span></span><code><span class="nv">smoke</span><span class="o">=</span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="w"> </span>/tmp/giap-smoke.XXXXXX<span class="k">)</span>
+uv<span class="w"> </span>venv<span class="w"> </span><span class="s2">"</span><span class="nv">$smoke</span><span class="s2">/venv"</span><span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.12
+<span class="nv">VIRTUAL_ENV</span><span class="o">=</span><span class="s2">"</span><span class="nv">$smoke</span><span class="s2">/venv"</span><span class="w"> </span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">giap</span><span class="o">==</span>&lt;v&gt;
+<span class="s2">"</span><span class="nv">$smoke</span><span class="s2">/venv/bin/giap"</span><span class="w"> </span>--version
+<span class="s2">"</span><span class="nv">$smoke</span><span class="s2">/venv/bin/giap"</span><span class="w"> </span>version<span class="w"> </span>--json
+<span class="s2">"</span><span class="nv">$smoke</span><span class="s2">/venv/bin/giap"</span><span class="w"> </span>preflight<span class="w"> </span>--genome<span class="w"> </span>tests/data/genomes/sim100k.fna.gz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--proteins<span class="w"> </span>tests/data/recorded/miniprot/0.18/sim100k/proteins.faa
+</code></pre></div>
+</li>
+<li>
+<p>The expected results:</p>
+<ul>
+<li><code>giap --version</code> prints <code>giap, version &lt;v&gt;</code>;</li>
+<li>the JSON has <code>"giap": "&lt;v&gt;"</code>;</li>
+<li>preflight exits 0.</li>
+</ul>
+</li>
+<li>Evidence: a PROGRESS line with the three outputs.</li>
+</ul>
+<h3 id="15-post-release-pr-agent">15. Post-release PR (<strong>agent</strong>)<a class="headerlink" href="#15-post-release-pr-agent" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Role: implementer and docs. Open <code>docs(release): DOI and badges for &lt;v&gt;</code>.</li>
+<li>Add <code>CITATION.cff › identifiers</code>: the Zenodo concept DOI and the version DOI, both from the
+  Zenodo record page.</li>
+<li>Add the README DOI badge.</li>
+<li><code>__version__</code> stays <code>&lt;v&gt;</code> until the next release-prep PR.</li>
+<li>If Zenodo has no record (step 3 skipped), the PR waits and the lead notes it under PROGRESS ›
+  Questions for Khoa.</li>
+</ul>
+<h3 id="16-bioconda-recipe-agent">16. Bioconda recipe (<strong>agent</strong>)<a class="headerlink" href="#16-bioconda-recipe-agent" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Render the recipe with M11-10's <code>scripts/release/bioconda_recipe.py</code>, using the PyPI sdist sha256
+  (<code>https://pypi.org/pypi/giap/&lt;v&gt;/json</code>) and the DOI. This script is not merged yet; take its
+  options from M11-10 once it is. Its spec writes <code>&lt;out&gt;/giap/meta.yaml</code>, so <code>--out recipes</code>
+  gives <code>recipes/giap/meta.yaml</code>.</li>
+<li>Hand <code>recipes/giap/meta.yaml</code> to Khoa.</li>
+<li>Khoa then forks <code>bioconda/bioconda-recipes</code>, adds the recipe and opens the PR from their own
+  account. Agents never open PRs in other organisations' repositories. The bioconda CI does the
+  lint and build checks there.</li>
+</ul>
+<h3 id="17-progress-record-lead">17. PROGRESS record (<strong>lead</strong>)<a class="headerlink" href="#17-progress-record-lead" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Add PROGRESS › Done "Release <code>&lt;v&gt;</code>" with:<ul>
+<li>the PyPI URL, the tag <code>v&lt;v&gt;</code>, the release URL and the DOI;</li>
+<li>the Bioconda PR, the readiness file and Khoa's approval.</li>
+</ul>
+</li>
+<li>End the release freeze.</li>
+<li>Run <code>git fetch</code>, then <code>python scripts/dev/progress_bars.py --write</code>, then commit and push.</li>
+</ul>
+<h2 id="e-if-something-fails">E. If something fails<a class="headerlink" href="#e-if-something-fails" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>PyPI upload done, <code>github-release</code> failed</strong>:<ul>
+<li><strong>First choice:</strong> Khoa opens the original run and uses "Re-run failed jobs". This reuses the
+  same commit and the <code>release</code> artefact that run built. Only <code>github-release</code> and <code>summary</code>
+  run again, and <code>github.actor</code> stays the original dispatcher.</li>
+<li><strong>Only if that is impossible:</strong> Khoa dispatches again with the same inputs.<ul>
+<li>A new dispatch rebuilds from main's HEAD at that moment. If main has moved past the
+  paperwork set, readiness is stale and verify fails.</li>
+<li>The tag does not exist yet, so the tag check passes.</li>
+<li><code>publish</code> reads <code>https://pypi.org/pypi/giap/&lt;v&gt;/json</code>. It skips the upload when every
+  file already on the index has the same sha256 as the new build.</li>
+<li>It stops with <code>&lt;file&gt; is on the index with a different sha256</code> when the rebuild is not
+  byte-identical. Then ask Khoa: the options are a patch release, or Khoa creating the
+  GitHub release by hand.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>Wrong artefact on PyPI</strong>: never delete it. Khoa yanks it in the PyPI web UI, and the fix ships
+  as the next patch version.</li>
+<li><strong>Readiness <code>fail</code> or <code>pending</code></strong>: nothing is published. Fix it through the normal feature loop,
+  or through a waiver ADR that Khoa accepts. Then repeat steps 6–8 on the new commit.</li>
+<li><strong>Tag <code>v&lt;v&gt;</code> already exists</strong> (someone made it by hand): <code>release.yml</code> refuses to run. Ask Khoa.</li>
+<li><strong>Any non-paperwork PR merged after R</strong> (see the release freeze in step 6): <code>readiness.py verify</code>
+  fails with <code>fail (stale: &lt;path&gt;)</code>. Repeat steps 6–8 on the new commit.</li>
+</ul>
+<h2 id="script-reference">Script reference<a class="headerlink" href="#script-reference" title="Permanent link">&para;</a></h2>
+<p>These options are read from the argparse definitions in <code>scripts/release/</code>.</p>
+<p><code>readiness.py compute</code>:</p>
+<table>
+<thead>
+<tr>
+<th>option</th>
+<th>required</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--version V</code></td>
+<td>yes</td>
+<td>version recorded in the JSON</td>
+</tr>
+<tr>
+<td><code>--repo DIR</code></td>
+<td>no, default <code>.</code></td>
+<td>checkout read at HEAD (the readiness commit)</td>
+</tr>
+<tr>
+<td><code>--logs DIR</code></td>
+<td>no</td>
+<td>directory with <code>nightly.tsv</code> and <code>weekly.tsv</code> (<code>$GIAP_ROOT/logs</code>)</td>
+</tr>
+<tr>
+<td><code>--freeze-run DIR</code></td>
+<td>no</td>
+<td>A2 freeze run; R2 falls back to <code>mapping/mapping_fdr.tsv</code> there</td>
+</tr>
+<tr>
+<td><code>--out DIR</code></td>
+<td>yes</td>
+<td>writes <code>readiness.json</code> and <code>READINESS.md</code></td>
+</tr>
+<tr>
+<td><code>--offline</code></td>
+<td>no</td>
+<td>touches no network; H6 becomes <code>pending</code></td>
+</tr>
+<tr>
+<td><code>--check-runs FILE</code></td>
+<td>no</td>
+<td>a saved <code>gh api …/commits/&lt;sha&gt;/check-runs</code> response for H6</td>
+</tr>
+</tbody>
+</table>
+<p><code>readiness.py verify READINESS_JSON [--repo DIR]</code> checks two things:</p>
+<ul>
+<li>the commit rule: the readiness commit is HEAD, or an ancestor that differs from HEAD only in
+  paperwork (<code>PROGRESS.md</code>, <code>README.md</code>, <code>CITATION.cff</code>, <code>CHANGELOG.md</code>, <code>validation/release/</code>,
+  <code>docs/</code> except <code>docs/methods/</code>, and <code>changelog.d/</code>);</li>
+<li>the <code>repo</code> rows, which it recomputes on HEAD.</li>
+</ul>
+<p>It exits 0 on <code>pass</code> and 1 otherwise.</p>
+<p>Other scripts:</p>
+<ul>
+<li><code>notes.py VERSION [--draft]</code>: run from the repository root. It reads the
+  <code>## GIAP &lt;version&gt; (...)</code> section of <code>CHANGELOG.md</code> (the base version's section for an <code>rc</code>) and
+  writes <code>notes.md</code>. <code>--draft</code> falls back to <code>towncrier build --draft</code> and heads the notes <code>DRAFT</code>.
+  It exits 1 when the section is missing (without <code>--draft</code>) or empty.</li>
+<li><code>check_dist.py DIST_DIR [--version V]</code>: checks the wheel and sdist. It prints <code>ok &lt;artefact&gt;</code> or
+  <code>FAIL &lt;artefact&gt;: &lt;rule&gt;: &lt;path&gt;</code>. Exit codes: 0 clean, 1 violations, 2 when DIST_DIR has no
+  wheel or no sdist.</li>
+<li><code>update_digests.py --digests FILE --date YYYY-MM-DD --source-commit SHA [--config FILE]
+  [--nextflow-config FILE]</code>: used by <code>containers.yml</code>. It pins <code>ghcr.io/khoa-yelo/giap-&lt;tool&gt;@sha256:…</code>
+  in <code>workflow/conf/containers.config</code>. With <code>--nextflow-config</code>, it also adds the pinned processes
+  to the apptainer <code>conda = ''</code> selector.</li>
+<li><code>check_changelog.py BASE</code> (in <code>scripts/ci/</code>): a PR that changes <code>src/</code> or <code>workflow/</code> (except
+  <code>workflow/tests/</code>) must add <code>changelog.d/&lt;PR&gt;.&lt;type&gt;.md</code> or <code>changelog.d/+&lt;slug&gt;.&lt;type&gt;.md</code>. The
+  types are <code>feature</code>, <code>bugfix</code>, <code>doc</code>, <code>removal</code> and <code>misc</code>. A PR is exempt with the label
+  <code>no-changelog</code> (read from the push event, so push again after adding it), or when every
+  non-merge commit subject is of type <code>test</code>, <code>ci</code>, <code>chore</code> or <code>refactor</code>.</li>
+</ul>
+<h2 id="output-tables">Output tables<a class="headerlink" href="#output-tables" title="Permanent link">&para;</a></h2>
+<p><code>readiness.json</code> has the top-level keys <code>version</code>, <code>commit</code>, <code>computed</code>, <code>overall</code> and <code>rows</code>. It
+also has <code>notes</code>, a list. <code>overall</code> is <code>fail</code> if any row fails, else <code>pending</code> if any row is
+pending, else <code>pass</code>.</p>
+<p>Each row has these fields:</p>
+<table>
+<thead>
+<tr>
+<th>field</th>
+<th>content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>R1–R10 (§13.2 criteria), H1–H6 (housekeeping: gates, version and tag, changelog, digests, licences, CI)</td>
+</tr>
+<tr>
+<td><code>criterion</code></td>
+<td>the spec's words</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><code>pass</code>, <code>fail</code>, <code>pending</code> or <code>waived</code></td>
+</tr>
+<tr>
+<td><code>value</code>, <code>threshold</code></td>
+<td>the reading and the rule</td>
+</tr>
+<tr>
+<td><code>evidence</code></td>
+<td>files, log rows, ADRs</td>
+</tr>
+<tr>
+<td><code>waiver</code></td>
+<td><code>ADR-NNNN</code> or null</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td><code>repo</code>, <code>farmshare</code> or <code>both</code>; <code>verify</code> recomputes the <code>repo</code> rows</td>
+</tr>
+</tbody>
+</table>
+<p><code>READINESS.md</code> renders the same rows with the columns
+<code>id | criterion | status | value | threshold | evidence | source</code>. It is headed by the commit, the
+computed time and the overall status, and ends with Notes. Runs of seven or more amino-acid letters
+are redacted (M10-05 guard).</p>
+<p>The <code>release.yml</code> step summary has two tables:</p>
+<ul>
+<li><code>field | value</code>: <code>version</code>, <code>sha</code>, <code>readiness overall</code>, and <code>published</code>. <code>published</code> reads
+  <code>dry run: nothing published</code>, or <code>publish skipped: actor &lt;x&gt; is not khoa-yelo</code>, or the publish
+  and release results.</li>
+<li><code>artefact | sha256</code>, one row per file in <code>dist/</code>.</li>
+</ul>
+<h2 id="licences-of-the-tools-giap-runs">Licences of the tools GIAP runs<a class="headerlink" href="#licences-of-the-tools-giap-runs" title="Permanent link">&para;</a></h2>
+<p>GIAP is MIT-licensed. This section follows <code>NOTICE.md</code>, which is the authoritative list, and
+readiness row H5 checks the registry against it. <code>scripts/ci/check_imports.py</code> fails CI if GIAP
+imports a GPL, AGPL or unlicensed tool.</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Licence (as in <code>NOTICE.md</code>)</th>
+<th>How GIAP uses it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bakta</td>
+<td>GPL-3.0</td>
+<td>separate process</td>
+</tr>
+<tr>
+<td>Promotech</td>
+<td>GPL-3.0</td>
+<td>separate process</td>
+</tr>
+<tr>
+<td>Promoter Calculator</td>
+<td>GPL-3.0 (or later)</td>
+<td>separate process</td>
+</tr>
+<tr>
+<td>OSTIR</td>
+<td>GPL-3.0</td>
+<td>separate process</td>
+</tr>
+<tr>
+<td>TransTermHP</td>
+<td>GPL-3.0 (or later)</td>
+<td>separate process</td>
+</tr>
+<tr>
+<td>BacTermFinder</td>
+<td>GPL-3.0</td>
+<td>opt-in; separate process</td>
+</tr>
+<tr>
+<td>antiSMASH</td>
+<td>AGPL-3.0</td>
+<td>separate process</td>
+</tr>
+<tr>
+<td>geNOMAD</td>
+<td>non-commercial</td>
+<td>separate process; <strong>non-commercial use only</strong></td>
+</tr>
+<tr>
+<td>UniOP</td>
+<td>unlicensed (no licence file)</td>
+<td>fetched at a pinned commit when environments are built; never vendored</td>
+</tr>
+<tr>
+<td>TerminatorNet, miniprot</td>
+<td>MIT</td>
+<td>separate process</td>
+</tr>
+<tr>
+<td>BLAST+</td>
+<td>public-domain (NCBI)</td>
+<td>separate process</td>
+</tr>
+<tr>
+<td>fgsea</td>
+<td>MIT</td>
+<td>run by <code>workflow/bin/giap_fgsea.R</code> in R 4.5 (GPL-2) as a separate process; R and fgsea are never imported</td>
+</tr>
+<tr>
+<td>codon-bias</td>
+<td>MIT</td>
+<td>imported in-process (PyPI)</td>
+</tr>
+<tr>
+<td>DIA-NN</td>
+<td>proprietary (academic licence)</td>
+<td>used only by users' own searches; binaries never redistributed</td>
+</tr>
+</tbody>
+</table>
+<p>What this means for a release:</p>
+<ul>
+<li><strong>GPL and AGPL tools run as separate programs.</strong> GIAP never imports or vendors their code (R5).
+  The wheel and sdist carry none of their code.</li>
+<li><strong>fgsea is also ported.</strong> Its MIT code is ported to Python in <code>src/giap/stats/fgsea.py</code>, which
+  runs in-process. <code>NOTICE.md</code> carries the MIT licence text, and no fgsea file is vendored.</li>
+<li>
+<p><strong>Four GHCR images contain GPL-3.0 tools</strong>, fetched from upstream unmodified:</p>
+<ul>
+<li>Promotech;</li>
+<li>Promoter Calculator (GPL-3.0-or-later);</li>
+<li>OSTIR;</li>
+<li>BacTermFinder.</li>
+</ul>
+<p><code>NOTICE.md</code> gives their source links at the pinned versions and commits. Each image's
+Dockerfile is in <code>workflow/containers/&lt;tool&gt;/</code>. The fifth image, TerminatorNet, is MIT.
+- <strong>UniOP is never published.</strong> There is no GHCR image for it (R5, R11).
+- <strong>geNOMAD: non-commercial use only.</strong> Step 6 adds this to the known-limitations fragment, so the
+  release notes say it.
+- <strong>Data resources:</strong>
+- KEGG: academic use; <code>giap setup --kegg</code> downloads it on the user's machine;
+- RegulonDB: not redistributed;
+- Gene Ontology: CC BY 4.0;
+- NCBI COG 2020: NCBI FTP.
+- <strong>The contaminant library</strong> (Frankenfield et al. 2022) has no licence file. <code>giap setup
+  --contaminants</code> downloads it, and it is never vendored (R11).
+- <strong>plotly.js</strong> (MIT) is inlined once in <code>report.html</code> when interactive figures are shown.</p>
+</li>
+</ul>
+<h2 id="open-questions-for-khoa">Open questions for Khoa<a class="headerlink" href="#open-questions-for-khoa" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>The actor guard cannot tell agents from Khoa.</strong> The FarmShare <code>gh</code> login is <code>khoa-yelo</code>, so a
+  dispatch from an agent session also has <code>github.actor == 'khoa-yelo'</code>. The <code>publish</code> job's only
+  remaining barrier is then the environment approval, and the same login could approve it through
+  the API. Two fixes are recommended:<ul>
+<li>a separate agent account with write access, for the FarmShare <code>gh</code> login: the actor guard then
+  works, and dry runs still dispatch;</li>
+<li>or a fine-grained token without <code>actions:write</code>: agents can then not dispatch at all, and
+  Khoa runs step 9.</li>
+</ul>
+</li>
+<li><strong>PRs opened with <code>GITHUB_TOKEN</code> do not trigger CI.</strong> <code>containers.yml</code> opens the digest PR
+  <code>ci/digests-&lt;sha7&gt;</code> as a draft with the workflow token, so no CI starts when it opens.<ul>
+<li>The normal path: <code>ci.yml</code> also runs on <code>ready_for_review</code>. Once the FarmShare Apptainer smoke
+  passes, <code>gh pr ready &lt;PR&gt;</code> from the <code>khoa-yelo</code> login starts CI.</li>
+<li>Fallbacks: a plain <code>git commit --allow-empty</code> pushed to that branch from FarmShare, or Khoa
+  closing and reopening the PR.</li>
+<li>A GitHub App token, or the agent account above, would remove the gap.</li>
+</ul>
+</li>
+<li><strong>R3 and R4 writers (M11-03b, done).</strong> <code>nightly.sbatch</code> task 2 writes <code>calibration_nightly</code>;
+  <code>calibration_full_launch.sh</code> (step 7) writes <code>calibration_full</code> and <code>calibration_attacks</code>. A
+  collection error, a missing suite or an attack row with no attack tests fails closed. The first
+  real full-tier run should confirm that task 13's attack test is never all-skipped.</li>
+<li><strong>Who may dispatch dry runs.</strong> The default is that the lead may: a dry run uploads nothing and
+  creates no tag (M11-04). <code>AGENTS.md › Releases</code> already states the two rules above.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

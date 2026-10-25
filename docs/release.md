@@ -140,8 +140,11 @@ upload therefore never creates a tag.
 - Role: validation, on FarmShare. Fast-forward the main checkout to R first. Source
   `scripts/farmshare_env.sh`. Before each `sbatch`, add up the running and pending CPUs of the
   `giap-*` jobs (R14: at most 128 CPUs, 4 GPUs and 20 jobs).
-    - `sbatch scripts/slurm/calibration_full.sbatch`: 15 array tasks × 4 CPUs. It writes no
-      `nightly.tsv` row yet (see Open questions).
+    - `bash scripts/slurm/calibration_full_launch.sh origin/main`: pins a worktree at R, checks the
+      R14 budget (a launch queues 16 jobs; it refuses when its worst-case end reaches the 01:30
+      nightly), then submits the 15-task `calibration_full.sbatch` array and an `afterany`
+      aggregator that writes the `calibration_full` and `calibration_attacks` rows to
+      `$GIAP_ROOT/logs/nightly.tsv`. It prints `array=<id> rows=<id> log=<dir> throttle=<T>`.
     - `sbatch --array=2 scripts/slurm/nightly.sbatch`: the fast suite with the
       `calibration_nightly` tier, on `origin/main`. Its row goes to `$GIAP_ROOT/logs/nightly.tsv`,
       labelled `calibration_nightly`. A single task also posts a one-task table to the "Nightly
@@ -470,12 +473,9 @@ What this means for a release:
     - Fallbacks: a plain `git commit --allow-empty` pushed to that branch from FarmShare, or Khoa
       closing and reopening the PR.
     - A GitHub App token, or the agent account above, would remove the gap.
-- **R3 and R4 stay `pending` (tracked as M11-03b).**
-    - R3 needs `nightly.tsv` rows labelled `calibration_full` and `calibration_nightly`. R4 needs
-      one labelled `calibration_attacks`.
-    - `nightly.sbatch` task 2 writes the `calibration_nightly` row.
-    - Nothing writes a `calibration_full` row (`calibration_full.sbatch` writes no `nightly.tsv`
-      line), and nothing writes a `calibration_attacks` row.
-    - Until both writers exist, a PyPI publish fails at verify, unless Khoa accepts a waiver ADR.
+- **R3 and R4 writers (M11-03b, done).** `nightly.sbatch` task 2 writes `calibration_nightly`;
+  `calibration_full_launch.sh` (step 7) writes `calibration_full` and `calibration_attacks`. A
+  collection error, a missing suite or an attack row with no attack tests fails closed. The first
+  real full-tier run should confirm that task 13's attack test is never all-skipped.
 - **Who may dispatch dry runs.** The default is that the lead may: a dry run uploads nothing and
   creates no tag (M11-04). `AGENTS.md › Releases` already states the two rules above.
