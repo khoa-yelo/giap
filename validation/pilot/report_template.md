@@ -85,15 +85,37 @@ Spearman rho {{m4.spearman_rho}} [{{m4.ci_low}}, {{m4.ci_high}}] on {{m4.n_share
 | operon flags | {{m5.operon_flags.jaccard}} | {{m5.operon_flags.note}} |
 | enriched categories | {{m5.enriched_categories.jaccard}} | {{m5.enriched_categories.note}} |
 
-### Metric 6: novel ORFs and variants, A2/A3 overlap (M10-10)
+### Metric 6: novel ORFs and variants by class and confidence, A2/A3 overlap (M10-10)
 
-Descriptive, unestimated: counts and Jaccards carry no error estimate.
+Descriptive, unestimated: counts and Jaccards carry no error estimate (R4); the two shares carry
+nominal 95 % Wilson intervals that describe the sample of calls, not an FDR. Per arm, novel ORFs
+(`novel_orfs.tsv`) are counted as called, not called with an unestimated class FDR, and not called.
 
-| family | Jaccard A2/A3 |
-|---|---|
-| novel ORFs (called) | {{m6.overlap_a2_a3.novel_orfs.called.jaccard}} |
-| ALT sites (high confidence in both arms) | {{m6.overlap_a2_a3.alt_sites.high.jaccard}} |
+<!-- m6 class rows -->
 
+ALT calls (`variants.tsv`, `call = ALT`) by type and confidence; for A3 every class error rate is
+expected unestimated (no spectrum pairing).
+
+<!-- m6 alt rows -->
+
+<!-- if m6.overlap_a2_a3.novel_orfs -->
+A2/A3 overlap. Novel ORFs key on the stop codon (contig, strand, end), which does not depend on the
+peptides; ALT sites key on (contig, codon start, strand, ALT residue) as `giap compare` does. The
+`high` set is each arm's own high-confidence ALT rows.
+
+| set | A2 | A3 | shared | union | Jaccard | A3 confirmed by A2 | A2 found by A3 |
+|---|---|---|---|---|---|---|---|
+<!-- m6 overlap rows -->
+
+Novel ORFs called in both arms with the same class: {{m6.overlap_a2_a3.novel_orfs.called.class_agree}}.
+`giap compare`'s novel-ORF Jaccard (keyed on `orf_id`, which can split one ORF): {{m6.overlap_a2_a3.novel_orfs.orf_id_jaccard}}.
+High-confidence ALT Jaccard: {{m6.overlap_a2_a3.alt_sites.high.jaccard}}; called novel-ORF Jaccard: {{m6.overlap_a2_a3.novel_orfs.called.jaccard}}.
+
+<!-- end m6.overlap_a2_a3.novel_orfs -->
+<!-- ifnot m6.overlap_a2_a3.novel_orfs -->
+A2/A3 overlap: {{m6.overlap_a2_a3.reason}}.
+
+<!-- end m6.overlap_a2_a3.novel_orfs -->
 <!-- if m8.universe -->
 ### Metric 8: A1's free entrapment (from `entrapment.py`, M10-07)
 
@@ -195,9 +217,30 @@ The numbers are shown whatever the verdict: rho {{h3.criteria.rho.rho}} [{{h3.cr
 
 **H2** (the strain-specific database lowers genome-inconsistent identifications): deferred (full validation, FDRBench); shown side by side only: A1 genome-inconsistent share {{m2.A1.genome_inconsistent.value}} and the free entrapment estimate (peptide level) {{m8.peptide.fdp_combined}}.
 
+<!-- if h4.bins -->
 **H4** (genome-anchored de novo precision against the precision measured on A2): verdict {{h4.verdict}}.
-Only a lower bound on precision exists (sequence-level confirmation by A2), so the data can count against H4 but never confirm it; it is `unestimated` unless A3 is the Cascadia branch.
+DIA gives no spectrum pairing, so the only measure against A2 is sequence-level: the share of a
+bin's de novo queries that A2 identified at 1 % FDR (I = L), a lower bound on the bin's precision.
+The data can therefore count against H4 but never confirm it. A bin is reportable when GIAP reports
+its precision and it holds at least 20 queries; the verdict uses the Bonferroni-adjusted relation
+over the {{h4.B}} reportable bins (`relation_adj`), the 95 % relation is descriptive.
 
+| bin | n | A2-confirmed | genome precision | CI low | CI high | c_value | U (adjusted) | L (adjusted) | relation 95 % | relation adjusted | nested share | A2 confirmation among searchable peptides (descriptive) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+<!-- h4 rows -->
+
+Descriptive, both over the reportable bins: n-weighted mean genome precision {{h4.mean_genome_precision}}; pooled A2-confirmed share {{h4.pooled_L}}.
+Searchable peptides: {{h4.searchable_definition}}. A2's contaminant share of its accepted target rows (counted in c_value): {{h4.a2_contaminant_rows}}.
+
+Caveats:
+
+<!-- h4 caveats -->
+
+<!-- end h4.bins -->
+<!-- ifnot h4.bins -->
+**H4** (genome-anchored de novo precision against the precision measured on A2): {{h4.reason}}.
+
+<!-- end h4.bins -->
 ## 7. Not evaluated
 
 One line per metric or hypothesis whose value is null with a reason: the pilot data do not allow it (§15.7 "reported where the pilot data allow").
