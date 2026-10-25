@@ -32,6 +32,9 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[2]
 TOLERANCES = REPO / "tests" / "calibration" / "tolerances.yaml"
 ATTACK_PREFIX = "tests.calibration.attacks."
+REPLICATES_FULL = 15  # suites of tolerances.yaml replicates_full = calibration_full.sbatch tasks
+# suites without any attack testcase (data, #349 B2); any other suite without one fails R4
+ATTACK_FREE = frozenset({"denovo_precision"})
 HEX40 = re.compile(r"[0-9a-f]{40}")
 _COUNTLIKE = re.compile(r"(\d) (failed|error)")  # keep reasons from reading as test counts
 
@@ -69,8 +72,9 @@ class SuiteResult:
     all: Counts
     attacks: Counts
     problems: list[str] = field(default_factory=list)
-    fail_closed: bool = False  # the attack outcome is unknown (record, JUnit, commit, args, …)
+    fail_closed: bool = False  # the outcome is unknown (record, JUnit, commit, args, crash, …)
     attacks_failed: bool = False
+    attack_problems: list[str] = field(default_factory=list)  # R4-only: no or only-skipped attacks
 
     @property
     def full_failed(self) -> bool:
@@ -78,8 +82,9 @@ class SuiteResult:
 
     @property
     def attack_suite(self) -> bool:
-        """Counted in the attack row: holds an attack testcase, or its outcome is unknown."""
-        return self.fail_closed or self.attacks.total > 0
+        """Counted in the attack row: holds an attack testcase, should hold one (not in
+        ``ATTACK_FREE``), or its outcome is unknown."""
+        return self.fail_closed or self.attacks.total > 0 or bool(self.attack_problems)
 
 
 def _outcome(case: ET.Element) -> str:
@@ -94,20 +99,46 @@ def _outcome(case: ET.Element) -> str:
     return "passed"
 
 
-def _count(cases: list[ET.Element]) -> Counts:
+# a failure is never hidden, a verdict beats a no-verdict skip (SHARD_SKIP); ties: the later part
+_RANK = {"skipped": 0, "passed": 1, "xfailed": 1, "xpassed": 1, "errors": 2, "failed": 3}
+
+
+def _is_attack(classname: str, name: str) -> bool:
+    """An attack testcase; a collection error has ``classname=""`` and the module as ``name``."""
+    return classname.startswith(ATTACK_PREFIX) or (not classname and name.startswith(ATTACK_PREFIX))
+
+
+def _testcases(junits: list[ET.Element]) -> dict[tuple[str, str], str]:
+    """Outcome per (classname, name) over every part (#349 S1: task 13 shards and merge write the
+    same testcases), keeping the worst-ranked one."""
+    out: dict[tuple[str, str], str] = {}
+    for root in junits:
+        for case in root.iter("testcase"):
+            key, outcome = (case.get("classname", ""), case.get("name", "")), _outcome(case)
+            if key not in out or _RANK[outcome] >= _RANK[out[key]]:
+                out[key] = outcome
+    return out
+
+
+def _count(outcomes: list[str]) -> Counts:
     n = dict.fromkeys(("passed", "failed", "errors", "skipped", "xfailed", "xpassed"), 0)
-    for case in cases:
-        n[_outcome(case)] += 1
+    for outcome in outcomes:
+        n[outcome] += 1
     return Counts(**n)
+
+
+def _safe_part(part: object) -> bool:
+    """A plain file name in the log directory (no path, no ``.``/``..``)."""
+    return isinstance(part, str) and part not in ("", ".", "..") and Path(part).name == part
 
 
 def _record_problem(record: dict[str, Any], task: int, expect_commit: str) -> list[str]:
     """Fail-closed problems of a parsed record (types first: a malformed record says nothing)."""
-    types = {"exit": int, "commit": str, "dirty": bool, "args": list, "parts": list}
+    types = {"task": int, "exit": int, "commit": str, "dirty": bool, "args": list, "parts": list}
     if any(not isinstance(record.get(k), t) or isinstance(record.get(k), bool) is not (t is bool)
-           for k, t in types.items()):  # fmt: skip
+           for k, t in types.items()) or not all(map(_safe_part, record["parts"])):  # fmt: skip
         return ["record malformed"]
-    if record.get("task") != task:
+    if record["task"] != task:
         return ["task mismatch"]
     out = []
     if record["commit"] != expect_commit:
@@ -130,7 +161,13 @@ def suite_result(
 ) -> SuiteResult:
     """One array task's outcome. ``junits`` are the parsed files of ``record["parts"]`` that could
     be read; ``suite`` names the task when the record cannot (``replicates_full`` key); ``missing``
-    is the problem of an absent record (e.g. ``"no record, OUT_OF_MEMORY"``)."""
+    is the problem of an absent record (e.g. ``"no record, OUT_OF_MEMORY"``).
+
+    Fail closed (both rows): record problems, a missing JUnit part, no testcases, and a crash
+    (exit not in {0, 1}, sharded or not: the JUnit may be partial, #349 B1). R4 only: an attack
+    testcase failed or errored; exit 1 that no testcase explains, or exit 1 of the sharded task
+    with attack testcases; a suite outside ``ATTACK_FREE`` without attack testcases (except the
+    sharded task's exit 1, example 6) or with only skipped ones (#349 B2)."""
     name = suite or (record or {}).get("suite") or f"task {task}"
     if not isinstance(name, str):
         name = f"task {task}"
@@ -143,33 +180,40 @@ def suite_result(
     sharded = record.get("sharded") is True
     raw_parts = record.get("parts")
     parts: list[Any] = raw_parts if isinstance(raw_parts, list) else []
-    cases = [c for root in junits for c in root.iter("testcase")]
-    attack = [c for c in cases if c.get("classname", "").startswith(ATTACK_PREFIX)]
-    every, att = _count(cases), _count(attack)
+    cases = _testcases(junits)
+    every = _count(list(cases.values()))
+    att = _count([o for (cls, n), o in cases.items() if _is_attack(cls, n)])
     if "record malformed" not in closed:
         if len(junits) < len(parts):
             closed.append("junit missing")
         elif not cases:
             closed.append("no testcases")
+        if rc not in (0, 1):
+            closed.append(f"exit {rc}")  # crash, interrupt, collection or merge error (B1)
     problems = list(closed)
     if not closed and rc != 0:
         problems.append(f"exit {rc}")
     elif not closed and every.bad:
         problems.append("failed testcases")
-    attacks_failed = bool(closed) or att.bad > 0
-    if not closed and att.total and rc != 0 and (sharded or rc != 1 or not every.bad):
-        attacks_failed = True  # partial JUnit, unattributable merge or exit 1
-    return SuiteResult(task, name, rc, sharded, every, att, problems, bool(closed), attacks_failed)
+    extra = []
+    if not closed and not att.total and name not in ATTACK_FREE and not (sharded and rc == 1):
+        extra.append("no attack tests")
+    elif not closed and att.total and att.skipped == att.total:
+        extra.append("attack tests all skipped")
+    attacks_failed = bool(closed) or att.bad > 0 or bool(extra)
+    if not closed and att.total and rc == 1 and (sharded or not every.bad):
+        attacks_failed = True  # unattributable exit 1 or merge exit 1
+    return SuiteResult(task, name, rc, sharded, every, att, problems, bool(closed), attacks_failed,
+                       extra)  # fmt: skip
 
 
 def _clean(text: str) -> str:
     return _COUNTLIKE.sub(r"\1_\2", " ".join(text.split()))
 
 
-def _summary(label: str, unit: str, results: list[SuiteResult], failed: list[SuiteResult],
+def _summary(label: str, unit: str, results: list[SuiteResult], failed: list[str],
              counts: Counts, job: str) -> str:  # fmt: skip
-    named = ", ".join(_clean(f"{r.suite} {', '.join(r.problems) or 'attack tests'}")
-                      for r in failed)  # fmt: skip
+    named = ", ".join(_clean(f) for f in failed)
     c = counts
     return (f"{label}: {len(results)} suites, {len(failed)} failed suites"
             + (f" ({named})" if named else "")
@@ -178,20 +222,30 @@ def _summary(label: str, unit: str, results: list[SuiteResult], failed: list[Sui
             )  # fmt: skip
 
 
-def full_rows(results: list[SuiteResult], job: str, commit: str, date: str) -> list[str]:
-    """The ``calibration_full`` and ``calibration_attacks`` rows (each ends with one newline)."""
+def full_rows(results: list[SuiteResult], job: str, commit: str, date: str, *,
+              expect: int = REPLICATES_FULL) -> list[str]:  # fmt: skip
+    """The ``calibration_full`` and ``calibration_attacks`` rows (each ends with one newline).
+
+    Both rows fail unless ``expect`` suites are present; the attack row also fails with 0 attack
+    suites or 0 attack tests (#349 B2). Such a row-level reason counts as one failed suite, so a
+    failing row always has ``failed suites`` >= 1."""
     att = [r for r in results if r.attack_suite]
+    whole = [] if len(results) == expect else [f"expected {expect} suites, got {len(results)}"]
+    full_counts = sum((r.all for r in results), Counts())
+    att_counts = sum((r.attacks for r in att), Counts())
+    vacuous = ["no attack tests in the row"] if not att or not att_counts.total else []
     tiers = [
-        ("calibration_full", "tests", results, [r for r in results if r.full_failed],
-         sum((r.all for r in results), Counts())),
-        ("calibration_attacks", "attack tests", att, [r for r in att if r.attacks_failed],
-         sum((r.attacks for r in att), Counts())),
+        ("calibration_full", "tests", results, full_counts,
+         [f"{r.suite} {', '.join(r.problems)}" for r in results if r.full_failed] + whole),
+        ("calibration_attacks", "attack tests", att, att_counts,
+         [f"{r.suite} {', '.join(r.problems + r.attack_problems) or 'attack tests'}"
+          for r in att if r.attacks_failed] + whole + vacuous),
     ]  # fmt: skip
     rows = []
-    for label, unit, members, failed, counts in tiers:
+    for label, unit, members, counts, failed in tiers:
         ok = not failed and counts.bad == 0
         if not ok and not failed:  # cannot happen (a bad count fails its suite); fail visibly
-            failed = [r for r in members if r.all.bad or r.attacks.bad]
+            failed = [f"{r.suite} failed testcases" for r in members if r.all.bad or r.attacks.bad]
         summary = _summary(label, unit, members, failed, counts, job)
         rows.append(f"{date}\t{job}_calibration\t{commit}\t{0 if ok else 1}\t{summary}\n")
     return rows
@@ -223,7 +277,7 @@ def _read_task(log: Path, task: int, commit: str, suite: str, sacct: dict[str, s
     junits = []
     parts = record.get("parts")
     for part in parts if isinstance(parts, list) else []:
-        if not isinstance(part, str) or Path(part).name != part:
+        if not _safe_part(part):
             return suite_result(None, [], task, commit, suite=suite, missing="record malformed")
         with contextlib.suppress(OSError, ET.ParseError):  # fewer roots than parts: "junit missing"
             junits.append(ET.parse(log / part).getroot())
@@ -276,7 +330,8 @@ def main(argv: list[str] | None = None) -> int:
     else:
         results = [suite_result(None, [], t, ns.commit, suite=s, missing="no log dir")
                    for t, s in enumerate(suites)]  # fmt: skip
-    rows = full_rows(results, ns.job, ns.commit, datetime.date.today().isoformat())
+    rows = full_rows(results, ns.job, ns.commit, datetime.date.today().isoformat(),
+                     expect=ns.expect)  # fmt: skip
     try:
         wrote = _append(ns.tsv, rows, ns.log_dir / "rows.done" if readable else None)
     except OSError as exc:
