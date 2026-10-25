@@ -76,7 +76,7 @@ The report has these sections:
 7. Variants (V12)
 8. Novel ORFs (V13)
 9. Function (V8, V14)
-10. Determinants of detection (V15)
+10. Determinants of abundance (V15)
 11. Sensitivity
 12. Methods
 13. Provenance (a digest of the manifest)
