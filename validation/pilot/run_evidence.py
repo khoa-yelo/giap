@@ -1,6 +1,7 @@
-"""Evidence for the pass-1 pilot runs: rule sets A (one arm) and C (the compare) of M10-04.
+"""Evidence for the pilot runs: rule sets A (one arm) and C (the compare) of M10-04 and M10-10.
 
-Spec: docs/specs/M10-04-pilot-runs.md ("run_evidence.py", lead decisions of 2026-10-24). The
+Spec: docs/specs/M10-04-pilot-runs.md ("run_evidence.py", lead decisions of 2026-10-24) and
+docs/specs/M10-10-a3-run.md (rules A10, A11 for ``--arm A3``; rule set C for N labels, C7). The
 evidence holds provenance only (paths, sha256s, byte sizes, exit codes, states, resources), never
 a value from the tables (Khoa's 2026-10-23 rule).
 
@@ -9,8 +10,10 @@ Usage (``PYTHONPATH=$GIAP_REPO/src``; exit 0 when ``failures`` is empty, else 1)
     python validation/pilot/run_evidence.py arm OUT --arm A1|A2 --job JOBID --expect-commit SHA \
         --expect-input genome=SHA --expect-input annotation=SHA --expect-input peptides=SHA \
         --out FILE
-    python validation/pilot/run_evidence.py compare CMP --second CMP2 --labels A1,A2 \
-        --genes OUT_A1/tables/genes.tsv --out FILE
+    python validation/pilot/run_evidence.py arm OUT_A3 --arm A3 ... \
+        --expect-input reference_peptides=SHA --a2 OUT_A2 --out FILE
+    python validation/pilot/run_evidence.py compare CMP --second CMP2 --labels A1,A2[,A3] \
+        --genes OUT_A1/tables/genes.tsv [--pair-cmp PASS1/cmp_a1_a2] --out FILE
 """
 
 from __future__ import annotations
@@ -24,6 +27,7 @@ import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from importlib import resources
+from itertools import combinations
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +41,10 @@ MANIFEST_KEYS = (
     "resume", "started_at", "finished_at", "seeds", "modules_off", "detection_tier",
     "annotation", "databases", "warnings", "skipped", "layers_missing",
 )  # fmt: skip
+REFERENCE_ROLE = "reference_peptides"  # rule A11: the manifest role of --reference-peptides
+#: manifest warning → expected (never failed) A3 finding (DIA-NN writes no spectrum_id)
+A3_EXPECTED_WARNINGS = {"preflight:peptides.spectrum_pairing": "no_spectrum_pairing"}
+PAIR_TABLES = ("compare_abundance", "compare_stability")  # rule C7
 HEAD_FIELDS = "JobID,State,ExitCode,Elapsed,MaxRSS,NodeList"
 TASK_FIELDS = "JobID,AllocCPUS,MaxRSS,State"
 _RSS_UNIT = {"": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}
@@ -150,7 +158,37 @@ def _arm_failures(
         fail.append("no_report")  # A7
     fail += _genes_failure(out / "tables" / "genes.tsv")  # A8
     fail += [f"module_off:{m}" for m in man.get("modules_off") or []]  # A9
+    if expect.get("arm") == "A3":
+        fail += _denovo_failures(out / "mapping" / "mapping_fdr.tsv")  # A10
+        a2 = expect.get("a2")
+        ref = seen.get(REFERENCE_ROLE)
+        if ref is None or a2 is None or ref != _peptides_sha(Path(a2)):
+            fail.append("reference_not_a2")  # A11
     return fail
+
+
+def _denovo_failures(path: Path) -> list[str]:
+    """Rule A10: >= 1 ``denovo_precision`` row, none flagged ``c_assumed``."""
+    rows = read_rows(path) if path.is_file() else []
+    dn = [r for r in rows if r.get("section") == "denovo_precision"]
+    if not dn:
+        return ["no_denovo_precision"]
+    if any("c_assumed" in (r.get("flags") or "").split(";") for r in dn):
+        return ["c_assumed"]
+    return []
+
+
+def _peptides_sha(out_a2: Path) -> str | None:
+    """The ``peptides`` input sha256 of the accepted ``out_a2`` manifest (rule A11)."""
+    try:
+        doc = json.loads((out_a2 / "run_manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    rows = doc.get("inputs") if isinstance(doc, dict) else None
+    shas = [
+        r.get("sha256") for r in rows or [] if isinstance(r, dict) and r.get("role") == "peptides"
+    ]
+    return shas[0] if len(shas) == 1 else None
 
 
 def _nonempty(path: Path) -> bool:
@@ -176,7 +214,8 @@ def arm_evidence(
 
     ``sacct_rows``: the head job's rows (``JobID == expect["job"]`` and its steps) and the task
     jobs' rows (``JobID`` in the trace ``native_id`` column). ``expect``: ``arm``, ``job``,
-    ``commit`` and ``inputs`` (role → sha256).
+    ``commit`` and ``inputs`` (role → sha256); for ``arm == "A3"`` also ``a2``, the accepted
+    ``out_a2`` (rules A10, A11; expected warnings go to ``expected_warnings``).
     """
     out = Path(outdir)
     head_id = str(expect["job"])
@@ -201,7 +240,7 @@ def arm_evidence(
     md = man if isinstance(man, dict) else {}
     report = out / "report" / "report.html"
     tables = sorted((out / "tables").glob("*.tsv")) if (out / "tables").is_dir() else []
-    return {
+    doc: dict[str, Any] = {
         "arm": expect["arm"],
         "outdir": str(out),
         "job": job,
@@ -212,6 +251,11 @@ def arm_evidence(
         "tasks": tasks,
         "failures": _arm_failures(out, man, job, trace, tasks, expect),
     }
+    if expect["arm"] == "A3":
+        warned = set(md.get("warnings") or [])
+        doc["a2"] = str(expect.get("a2"))
+        doc["expected_warnings"] = sorted(v for k, v in A3_EXPECTED_WARNINGS.items() if k in warned)
+    return doc
 
 
 # ------------------------------------------------------------------ rule set C
@@ -223,10 +267,14 @@ def _stability_families() -> list[str]:
     return list(next(f for f in fields if f["name"] == "family")["constraints"]["enum"])
 
 
+def _pair(row: Mapping[str, str]) -> tuple[str | None, str | None]:
+    return row.get("run_a"), row.get("run_b")
+
+
 def _compare_failures(cmp: Path, cmp2: Path, labels: Sequence[str], genes: Path) -> list[str]:
     from giap.io.output_checks import check_tsv
 
-    a, b = labels[0], labels[1]
+    pairs = list(combinations(labels, 2))  # P = N(N-1)/2 pairs in label order
     fail: list[str] = []
     rows: dict[str, list[dict[str, str]]] = {}
     for name in COMPARE_TABLES:  # C1
@@ -241,7 +289,7 @@ def _compare_failures(cmp: Path, cmp2: Path, labels: Sequence[str], genes: Path)
         rows[name] = read_rows(path)
     if "compare_abundance" in rows:  # C2
         ab = rows["compare_abundance"]
-        if len(ab) != 1 or (ab[0].get("run_a"), ab[0].get("run_b")) != (a, b):
+        if [_pair(r) for r in ab] != pairs:
             fail.append(f"abundance_rows:{len(ab)}")
     tags = {r.get("locus_tag") for r in read_rows(genes)} if genes.is_file() else None
     if tags is None:
@@ -249,13 +297,13 @@ def _compare_failures(cmp: Path, cmp2: Path, labels: Sequence[str], genes: Path)
     elif "compare_detection" in rows:  # C3: one row per (genes.tsv locus tag, run) (review B4)
         matrix = [(r.get("locus_tag"), r.get("run")) for r in rows["compare_detection"]
                   if r.get("section") == "matrix"]  # fmt: skip
-        want = {(t, lab) for t in tags for lab in (a, b)}
+        want = {(t, lab) for t in tags for lab in labels}
         if set(matrix) != want or len(matrix) != len(want):
             fail.append(f"matrix_rows:{len(matrix)}")
-    if "compare_stability" in rows:  # C4
-        have = {r.get("family") for r in rows["compare_stability"]
-                if (r.get("run_a"), r.get("run_b")) == (a, b)}  # fmt: skip
-        fail += [f"stability_family:{f}" for f in _stability_families() if f not in have]
+    if "compare_stability" in rows:  # C4: one row per family x pair
+        have = {(r.get("family"), _pair(r)) for r in rows["compare_stability"]}
+        fail += [f"stability_family:{f}" for f in _stability_families()
+                 if any((f, p) not in have for p in pairs)]  # fmt: skip
     if not all(_nonempty(cmp / p) for p in ("report/compare.html", "plots/V16_compare.svg")):
         fail.append("no_compare_report")  # C5
     for name in COMPARE_TABLES:  # C6
@@ -265,12 +313,43 @@ def _compare_failures(cmp: Path, cmp2: Path, labels: Sequence[str], genes: Path)
     return fail
 
 
+def _expected_warnings(cmp: Path) -> list[str]:
+    """C2: the ``missing_in:<label>`` flags of ``compare_abundance`` (recorded, never failed)."""
+    path = cmp / "tables" / "compare_abundance.tsv"
+    rows = read_rows(path) if path.is_file() else []
+    return [f"compare_abundance:{r.get('run_a')},{r.get('run_b')}:{f}" for r in rows
+            for f in (r.get("flags") or "").split(";") if f.startswith("missing_in:")]  # fmt: skip
+
+
+def _pair_warnings(cmp: Path, pair_cmp: Path | None, labels: Sequence[str]) -> list[str]:
+    """C7 (N = 3): the (A1, A2) rows of the pair tables equal ``pass1/cmp_a1_a2``'s; a warning."""
+    if len(labels) != 3:
+        return []
+    if pair_cmp is None:
+        return ["no_pair_cmp"]
+    first = (labels[0], labels[1])
+    warn: list[str] = []
+    for name in PAIR_TABLES:
+        p3, p2 = cmp / "tables" / f"{name}.tsv", pair_cmp / "tables" / f"{name}.tsv"
+        if not (p3.is_file() and p2.is_file()):
+            warn.append(f"a1_a2_rows_differ:{name}")
+            continue
+        r3 = [r for r in read_rows(p3) if _pair(r) == first]
+        r2 = [r for r in read_rows(p2) if _pair(r) == first]
+        if r3 != r2:
+            warn.append(f"a1_a2_rows_differ:{name}")
+    return warn
+
+
 def compare_evidence(
-    cmp: Path, cmp2: Path, labels: Sequence[str], *, genes: Path
+    cmp: Path, cmp2: Path, labels: Sequence[str], *, genes: Path, pair_cmp: Path | None = None
 ) -> dict[str, Any]:
     """Rule set C on a ``giap compare`` directory and its same-seed repeat ``cmp2``; ``genes`` is
-    ``out_a1/tables/genes.tsv`` (G of rule C3)."""
+    ``out_a1/tables/genes.tsv`` (G of rule C3). N labels give P = N(N-1)/2 pairs in label order
+    (N = 2 is M10-04's rule set). ``pair_cmp`` is pass 1's ``cmp_a1_a2`` (rule C7, N = 3 only:
+    differences go to ``warnings``, never to ``failures``)."""
     cmp, cmp2, genes = Path(cmp), Path(cmp2), Path(genes)
+    pair = None if pair_cmp is None else Path(pair_cmp)
     tables = {n: file_entry(cmp / "tables" / f"{n}.tsv") for n in COMPARE_TABLES
               if (cmp / "tables" / f"{n}.tsv").is_file()}  # fmt: skip
     html = cmp / "report" / "compare.html"
@@ -281,6 +360,9 @@ def compare_evidence(
         "tables": tables,
         "compare_html": file_entry(html) if html.is_file() else None,
         "genes": file_entry(genes) if genes.is_file() else None,
+        "pair_cmp": None if pair is None else str(pair),
+        "expected_warnings": _expected_warnings(cmp),
+        "warnings": _pair_warnings(cmp, pair, labels),
         "failures": _compare_failures(cmp, cmp2, labels, genes),
     }
 
@@ -328,19 +410,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     arm = sub.add_parser("arm")
     arm.add_argument("outdir", type=Path)
-    arm.add_argument("--arm", required=True, choices=("A1", "A2"))
+    arm.add_argument("--arm", required=True, choices=("A1", "A2", "A3"))
     arm.add_argument("--job", required=True)
     arm.add_argument("--expect-commit", required=True, type=_commit)
     arm.add_argument("--expect-input", action="append", default=[], metavar="ROLE=SHA",
                      type=_role_sha)  # fmt: skip
+    arm.add_argument("--a2", type=Path, help="the accepted OUT_A2 (rule A11; --arm A3 only)")
     arm.add_argument("--out", required=True, type=Path)
     cmp = sub.add_parser("compare")
     cmp.add_argument("cmp", type=Path)
     cmp.add_argument("--second", required=True, type=Path)
     cmp.add_argument("--labels", default="A1,A2")
     cmp.add_argument("--genes", required=True, type=Path, help="OUT_A1/tables/genes.tsv")
+    cmp.add_argument("--pair-cmp", type=Path, help="pass 1's cmp_a1_a2 (rule C7, three labels)")
     cmp.add_argument("--out", required=True, type=Path)
     args = ap.parse_args(argv)
+    if args.cmd == "arm" and (args.arm == "A3") != (args.a2 is not None):
+        ap.error("--a2 OUT_A2 is required with --arm A3 and only there")
     try:
         if args.cmd == "arm":
             inputs = dict(args.expect_input)
@@ -350,6 +436,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             rows = _sacct([args.job], HEAD_FIELDS) + (_sacct(ids, TASK_FIELDS) if ids else [])
             exp = {"arm": args.arm, "job": args.job, "commit": args.expect_commit,
                    "inputs": inputs}  # fmt: skip
+            if args.a2 is not None:
+                exp["a2"] = args.a2
             doc = arm_evidence(args.outdir, rows, exp)
             j, m, t = doc["job"], doc["manifest"], doc["tasks"]
             row = (
@@ -359,9 +447,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return _write(doc, args.out, row)
         labels = tuple(args.labels.split(","))
-        if len(labels) != 2:
-            ap.error("--labels takes exactly two labels")
-        doc = compare_evidence(args.cmp, args.second, labels, genes=args.genes)
+        if len(labels) < 2 or len(set(labels)) != len(labels) or not all(labels):
+            ap.error("--labels takes two or more distinct labels")
+        doc = compare_evidence(args.cmp, args.second, labels, genes=args.genes,
+                               pair_cmp=args.pair_cmp)  # fmt: skip
         html = doc["compare_html"] or {}
         row = (
             f"| compare | {args.cmp.name} | `{html.get('sha256', 'NA')}` | "

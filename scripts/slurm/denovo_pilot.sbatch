@@ -19,7 +19,8 @@
 # validation/pilot/a3_assets.tsv (exit 2 otherwise, R6). Cascadia runs through
 # scripts/pilot/cascadia_offline.py (no Unimod download) in a per-job mktemp -d
 # ${TMPDIR:-/tmp}/giap-a3.XXXXXX/<RUN> (its scratch goes to the cwd; removed on exit), with its
-# default score threshold 0.8, and writes $GIAP_ROOT/pilot/A3_cascadia/<RUN>/<RUN>.ssl. Exit 1
+# default score threshold 0.8, and writes $GIAP_ROOT/pilot/A3_cascadia/<RUN>/<RUN>.ssl
+# ($A3_OUT_DIR/<RUN>/<RUN>.ssl when A3_OUT_DIR is set, M10-10). Exit 1
 # when CUDA is not available, when its log shows a unimod.org URL (the launcher did not take
 # effect), when Cascadia fails, or when it writes no <RUN>.ssl. 64000M = 16 x MaxMemPerCPU 4000M.
 #
@@ -29,7 +30,8 @@
 # rather than against the same spectra; §15.5 metric 6 is reported with that caveat.
 #
 # Environment: DENOVO_ENV (micromamba env name), DENOVO_MODEL (model weights), A3_RUN (Cascadia
-# runs), MZML_DIR (Cascadia input), RAW_DIR (Casanovo input runs), OUT_DIR (parent of the output directory); outputs go under $GIAP_ROOT.
+# runs), MZML_DIR (Cascadia input), RAW_DIR (Casanovo input runs), OUT_DIR (parent of the output
+# directory), A3_OUT_DIR (the output directory itself; M10-10); outputs go under $GIAP_ROOT.
 set -euo pipefail
 source "${GIAP_REPO:-/home/classes/bios/270/khoa/giap}/scripts/farmshare_env.sh"
 
@@ -55,7 +57,9 @@ esac
 
 RAW_DIR="${RAW_DIR:-$DEFAULT_RAW}"
 MODEL="${DENOVO_MODEL:-$DEFAULT_MODEL}"
-OUT="${OUT_DIR:-$GIAP_ROOT/pilot}/A3_$TOOL"
+# A3_OUT_DIR (M10-10): the output root itself, e.g. $GIAP_ROOT/pilot/A3; unset, M10-08's
+# $GIAP_ROOT/pilot/A3_<tool> (the WT_1 smoke output stays as M10-08's evidence).
+OUT="${A3_OUT_DIR:-${OUT_DIR:-$GIAP_ROOT/pilot}/A3_$TOOL}"
 
 if [ ! -d "$MAMBA_ROOT_PREFIX/envs/$ENV_NAME" ]; then
   echo "the $TOOL environment is missing: $MAMBA_ROOT_PREFIX/envs/$ENV_NAME" >&2
