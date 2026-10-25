@@ -51,16 +51,9 @@ def _guard_sockets() -> None:
     socket.socket.connect_ex = _connect_ex  # type: ignore[method-assign,assignment]
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
-    if not args:
-        print("usage: cascadia_offline.py UNIMOD_XML CASCADIA_ARGS...", file=sys.stderr)
-        return 2
-    table, rest = args[0], args[1:]
-    if "://" in table or not os.path.isfile(table):
-        print(f"cascadia_offline: not an existing local file: {table!r}", file=sys.stderr)
-        return 2
-    table_abs = os.path.abspath(table)
+def install(table_abs: str) -> None:
+    """Steps (b)-(d): the socket guard and both Unimod lookups pointed at ``table_abs``. Also used
+    by cascadia_shards.py, which calls Cascadia's functions directly."""
     _guard_sockets()
     import pyteomics.mass.unimod as unimod  # type: ignore[import-not-found]
     from psims.controlled_vocabulary import unimod as psims_unimod  # type: ignore[import-not-found]
@@ -72,7 +65,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         psims_unimod.UNIMOD_OBO_URL, lambda _cache: psims_unimod.Unimod(None, table_abs)
     )
     unimod._unimod_xml_download_url = table_abs
-    # After both are set: Cascadia may read them at import.
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if not args:
+        print("usage: cascadia_offline.py UNIMOD_XML CASCADIA_ARGS...", file=sys.stderr)
+        return 2
+    table, rest = args[0], args[1:]
+    if "://" in table or not os.path.isfile(table):
+        print(f"cascadia_offline: not an existing local file: {table!r}", file=sys.stderr)
+        return 2
+    install(os.path.abspath(table))
+    # After install: Cascadia may read the resolvers at import.
     from cascadia import cascadia  # type: ignore[import-not-found]
 
     sys.argv = [cascadia.__file__ or "cascadia", *rest]
