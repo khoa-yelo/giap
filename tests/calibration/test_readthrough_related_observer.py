@@ -22,7 +22,10 @@ seeds, same ``run_chain`` arguments) and, per replicate:
   ``<log_dir>/placement_m3_21_diagnostics.jsonl`` and does not assert on them.
 
 A non-vacuity guard: over all replicates at least one row is counted (the 16a full-tier run
-counted 200 / 221 / 224 rows at q 0.01 / 0.05 / 0.10).
+counted 200 / 221 / 224 rows at q 0.01 / 0.05 / 0.10). Replicates 0-6 of the stream count
+none (the first rows are at replicate 7; local/stat/m7-16-observer-reconcile.md, job 1891223),
+so a reduced-R smoke run of this file must go past replicate 7 (0-9 counts 4 rows); R itself
+stays ``replicates_full.placement``.
 """
 
 from __future__ import annotations

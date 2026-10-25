@@ -1077,4 +1077,10 @@ and 12, pi_wrong 0.05–0.3 and SNV rates 5–20 /kb). Overriding α would break
 runs on a **1 Mb** giapsim genome (seed 11, `n_stop_loss` = 5, floor ≥ 3 planted rows). There T_1
 is about 400, D = 0 and q = 0.0025; the chain takes about 30 s, so the test is not marked slow.
 This replaces "sim100k" in rule 20 and its acceptance item. The full-tier observer count (D5) is
-being reconciled with the methods note by the statistician before 16b merges.
+reconciled by the statistician (local/stat/m7-16-observer-reconcile.md, Slurm 1891223): the
+new observer and the 16a counts agree row for row on the same seeds. Replicates 0-6 of the
+`placement.sim_related` stream count 0 rows, so the methods-note numbers stand unchanged.
+Simulator (lead, 2026-10-25): `test_planted_cterm_peptide_is_the_reference_c_terminal_product` is
+stricter than rule 20 (the whole protein must differ only at the stop). The giapsim knob plants on
+such "pure" genes first and falls back to genes that meet rule 20's peptide-level condition, so
+both that test and the natural stop-loss test hold at 5–20 SNV/kb. Accepted as tooling.
