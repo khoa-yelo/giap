@@ -64,7 +64,7 @@ TE1_MIN, TE8_K12_MIN, TE8_FDR_MAX = 0.999, 0.995, 0.01
 TE2_EXEMPT = frozenset({"start_codon", "stop_codon"})
 TE2_NO_STOP_NOTE = (
     "no high stop_codon site: the selenocysteine (Sec, fdnG) peptides TE1 misses read an internal "
-    "TGA, which is not an annotated terminal stop (ADR-0058 items 1-5), so they stay unmapped"
+    "TGA, not an annotated terminal stop, so M7-16 (ADR-0058 items 1-5) leaves them unmapped"
 )
 MAX_EXCEPTIONS = 50
 INFRAME = frozenset({"cds_inframe", "sorf"})
