@@ -231,7 +231,10 @@ def test_locks_when_present(stem: str) -> None:
     if stem == "cascadia":
         assert re.search(r"^cascadia(==0\.0\.7| @ \S+cascadia-0\.0\.7-py3-none-any\.whl\S*)$",
                          text, re.M)  # fmt: skip
-        assert re.search(r"^pyteomics==4\.7\.5$", text, re.M)
+        # pyteomics comes from conda-forge, so pip freeze lists it as `pyteomics @ file://…`
+        assert re.search(r"^pyteomics(==4\.7\.5| @ \S+)$", text, re.M)
+        explicit = (ENVS / "locks" / f"{stem}.explicit.txt").read_text()
+        assert "pyteomics-4.7.5-" in explicit
     else:
         assert TIMSCONVERT_COMMIT in text
     assert (ENVS / "locks" / f"{stem}.explicit.txt").is_file()

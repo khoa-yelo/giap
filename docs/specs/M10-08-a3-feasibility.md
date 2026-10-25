@@ -601,3 +601,72 @@ These supersede the earlier text where they differ:
 - **The weights fetch** rejects an HTML page or a body without the zip magic in both modes, and
   its `--time` is 02:00:00 so curl's worst case fits.
 - **mzml-check M7:** the time unit is read from `unitAccession`, else `unitName`; no unit fails M7.
+
+## Amendments (2026-10-24, 08b)
+
+Lead decisions for 08b; they supersede the earlier text where they differ:
+- **CLI:** `evaluate <RUN.ssl> --run <RUN> --out <J> [--genome] [--bakta-json] [--contaminants]
+  [--cutoff]`. `--genome` and `--bakta-json` default to the Nissle files of step 8,
+  `--contaminants` to `$GIAP_DB_DIR/contaminants/contaminants.fasta`. Exit codes: 0 pass, 3 fail
+  on timsTOF, 2 precondition, 1 bad input. M10-10's `cascadia_convert.sbatch` already calls this
+  interface. `early-fail` takes `--run` optionally (default `WT_1`).
+- **Stripping (step 2):** after deleting the groups, signed masses and `-`, uppercase first, then
+  delete every character outside A–Z; then fold I → L.
+- **Counting:** `n_below_cutoff` counts after the length filter. `n_nonstandard` and `length_hist`
+  are over the distinct passing set. A peptide on two replicons counts once in each
+  (`matches_by_replicon`). A contaminant peptide counts as a non-match even if it also matches
+  the genome (the conservative choice), in `n_match`, `share` and `matches_by_replicon`;
+  `decoy_share` is diagnostic and not adjusted.
+- **Provenance values** (`weights_sha256`, `route`, `route_version`, `mzml_sha256`,
+  `mzml_check`, `job_ids`, `date`) come from the job (sbatch environment and logs), passed as
+  options (`--weights-sha256`, `--route`, `--route-version`, `--mzml-sha256`, `--mzml-check J`,
+  `--job-id` repeatable, `--date`, default today UTC), and are filled in by the validation run.
+  The unit tests check only the keys. `--detail TSV` writes the per-peptide top list (under
+  `$GIAP_ROOT` only, never committed).
+- **Unimod URL:** `denovo_pilot.sbatch` tees each Cascadia call into
+  `$GIAP_ROOT/pilot/A3_cascadia/<RUN>/cascadia.log` and exits 1 when that log shows a `unimod.org`
+  URL. The Cascadia input directory is `MZML_DIR` (default `$GIAP_DATA_DIR/pxd078459/mzml`); the
+  run list is `$RUN`, else the second argument, else `WT_1 WT_2 WT_3`.
+- **Env build:** building `cascadia` on a CPU node needs `CONDA_OVERRIDE_CUDA=11.8` (the README's
+  A3 section).
+
+## Amendments after the 08b code review (lead, 2026-10-24)
+
+These supersede the earlier text where they differ:
+- **S1, resources:** `denovo_pilot.sbatch` asks for `--cpus-per-task=16 --mem=64000M`. The `gpu`
+  partition has MaxMemPerCPU 4000M, so `--mem=64G` on 8 CPUs was silently raised to 17 CPUs; the
+  CPUs asked for are now the CPUs held (R14 accounting).
+- **S2, scratch:** the job makes one per-job directory
+  `SCRATCH_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/giap-a3.XXXXXX")"` and runs each Cascadia call in
+  `$SCRATCH_ROOT/<RUN>`; an EXIT trap removes `$SCRATCH_ROOT`. It never creates or removes
+  `$TMPDIR/<RUN>` (deliverable 8, the scratch row and the command block above read accordingly).
+  The scratch is still under `$TMPDIR`. The log's `unimod.org` check runs before the exit-code
+  check, and an exit 0 without `<RUN>.ssl` is exit 1 (a header-only `.ssl` is still a result).
+- **S3, named modifications:** the edge case "modified sequences without mass shifts → exit 1" is
+  implemented: a `[...]` group whose content is not a signed number (`[+-]\d+(\.\d+)?`, e.g.
+  `[Oxidation]`, `[UNIMOD:4]`, `[]`) is an `InputError` (exit 1, R9) naming the `.ssl` line.
+  `(...)` groups are still stripped. Step 2's separate deletion of signed masses and `-` is
+  subsumed by deleting every character outside A–Z after uppercasing.
+- **N6, preconditions (exit 2):** a missing `--mzml-check` file (an unreadable one, or one without
+  `rules`, is exit 1), a whitespace-only `.ssl` (no header; it counts as an empty file), and a
+  `--detail` path inside the checkout that is not git-ignored.
+
+### Lead decision: the CPU route (2026-10-25, #334 review item 6)
+GIAP_SPEC.md §15.1 puts A3 on the `gpu` partition. At Khoa's request (2026-10-24) the three WT runs
+were predicted on CPU instead, as a Slurm array (`cascadia_array.sbatch`, ≤ 3 h per task, R14), in
+two forms:
+- **Fixed blocks** (`predict`, used for the first jobs). Task 1889429_0 finished at 2:58:39 of a 3:00
+  limit, so this mode has no time margin.
+- **The work queue** (`work`, used for the rest of the run). Chunks lie on the global grid
+  `[k·20, (k+1)·20)`; each is claimed atomically within a generation and saved atomically;
+  `pending_chunks` skips batches already held by chunk or shard files, and `merge` refuses gaps,
+  overlaps and records whose prediction or row counts do not match their block.
+
+`write_results` runs once on the concatenated predictions, so the merged table equals an unsplit
+**CPU** run of the same build (same row numbers, threshold 0.8, time width, model parameters). It
+is **not** bit-for-bit a GPU run: float reductions differ, so a row near the strict `> 0.8` cut can
+flip. The WT_1 verdict is far from its rule (863 peptides vs 500; share 0.636, CI 0.604–0.668, vs
+0.20), so a handful of flipped rows cannot change it. Open, not needed for the verdict: claims are
+keyed by chunk name, so releasing a reserved marker while a generation is planning could give two
+overlapping claims (`merge` would refuse rather than write a bad table); claiming by grid cell
+would close it.

@@ -40,7 +40,11 @@ def test_no_discoveries_table_is_tracked() -> None:
 
 
 def test_nothing_under_validation_pilot_metrics() -> None:
-    assert not _tracked("validation/pilot/metrics/")
+    # M10-08 deliverable 10 commits the A3 verdict (aggregates only) here; nothing else
+    assert _tracked("validation/pilot/metrics/") in (
+        [],
+        ["validation/pilot/metrics/a3_feasibility.json"],
+    )
 
 
 def test_the_entrapment_script_and_sbatch_are_tracked() -> None:

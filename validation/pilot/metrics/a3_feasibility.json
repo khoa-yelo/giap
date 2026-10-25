@@ -1,0 +1,79 @@
+{
+  "cascadia_version": "0.0.7",
+  "contaminant_share": 0.005793742757821553,
+  "cutoff": 0.8,
+  "cutoff_source": "cli_default",
+  "date": "2026-10-25",
+  "decoy_share": 0.005793742757821553,
+  "evidence": null,
+  "fails": {
+    "low_genome_match": false,
+    "too_few_peptides": false
+  },
+  "genome_sha256": "fe74801661e688a525eef7a7a6be6210659ebc9a2e61691efb1f10b65ea623ee",
+  "job_ids": [
+    "1883978",
+    "1884085",
+    "1884175",
+    "1884087",
+    "1884404",
+    "1889426",
+    "1890903"
+  ],
+  "length_hist": {
+    "10": 120,
+    "11": 130,
+    "12": 129,
+    "13": 71,
+    "14": 64,
+    "15": 37,
+    "16": 15,
+    "17": 14,
+    "18": 2,
+    "21": 1,
+    "7": 55,
+    "8": 87,
+    "9": 138
+  },
+  "matches_by_replicon": {
+    "CP171242.1": 548,
+    "CP171243.1": 0,
+    "CP171244.1": 0,
+    "CP171245.1": 1
+  },
+  "mzml_check": {
+    "M1": true,
+    "M2": true,
+    "M3": true,
+    "M4": true,
+    "M5": true,
+    "M6": true,
+    "M7": true,
+    "M8": true
+  },
+  "mzml_sha256": "691556c139e9ebfc31f64413541ea39eaa965f78c2b1b0bde1510fb145bcc75f",
+  "n_below_cutoff": 0,
+  "n_len_7_30": 1424,
+  "n_match": 549,
+  "n_nonstandard": 0,
+  "n_pass": 863,
+  "n_rows": 1445,
+  "n_top": 863,
+  "reason": null,
+  "route": "B2",
+  "route_version": "3cb96aef35bc0a15ce1b6cfe547386acc26a8b8b",
+  "rule": {
+    "min_peptides": 500,
+    "min_share": 0.2,
+    "top_n": 1000
+  },
+  "run": "WT_1",
+  "schema_version": 1,
+  "share": 0.6361529548088065,
+  "share_ci95": [
+    0.6035167401208683,
+    0.6675824298700421
+  ],
+  "verdict": "pass",
+  "weights_sha256": "0f5e91413c716b22019699c8cb25655216f9c96d0f2aeb6ec42084bb65652192"
+}
