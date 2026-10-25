@@ -212,7 +212,8 @@ def test_accepted_spanning_peptides_have_sec_site_rows_and_u_alt_sites(
         for r in u.itertuples(index=False):
             assert {"stop_codon", "vcf_unrepresentable"} <= _flags(r.flags)
             assert r.ref_aa == "*" and r.gene == x.locus_tag
-    print(f"accepted Sec-spanning peptides: {n_acc}")
+    if n_acc == 0:  # #346 review S5: make the vacuous pass visible (C14 is the gate)
+        pytest.xfail("no accepted Sec-spanning peptide at 100 kb: acceptance checks vacuous")
 
 
 def test_no_accepted_row_consumes_a_recoded_cell_outside_the_truth(world: dict[str, Any]) -> None:
