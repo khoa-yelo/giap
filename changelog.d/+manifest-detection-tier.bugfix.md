@@ -1,0 +1,1 @@
+`run_manifest.json` now records as `detection_tier` the tier that detection actually used, the same as `genes.tsv`. It no longer records preflight's provisional tier. Detection warnings such as `decoy_unscored` now appear in the manifest's `warnings`.

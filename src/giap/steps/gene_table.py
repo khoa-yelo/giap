@@ -94,7 +94,8 @@ def build_genes_pre(
     ev = gene_evidence(m4.genes, m4.peptide_hits, acc, m4.replicons)
     det = detect(m4.genes, ev, acc, m4.peptides, m4.peptide_hits, m4.protein_hits, cov, cfg)
     for w in det.warnings:
-        log.warning("gene_table: detection: %s", w)
+        log.warning("gene_table: detection: %s", w,
+                    extra={"event": f"gene_table.{w}", "data": {"warning": w}})  # fmt: skip
     ab = gene_abundance(m4.genes, acc, cov, det, m4.abundance, det.protein_gene_map, cfg,
                         c10_scale=m4.abundance_scale, protein_hits=m4.protein_hits)  # fmt: skip
     table = assemble_genes(m4, cov, ev, det, None, ab, cog_def=cog_def)
