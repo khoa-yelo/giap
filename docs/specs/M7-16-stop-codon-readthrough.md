@@ -177,13 +177,18 @@ fdnG needs ADR-0058 item 6.
       a patched database (example 9).
     - Blocks and swaps never carry REF `*` (rule 4).
     - **Error-rate class (§7.5.4).** A REF `*` site, and a U/O zero-change ALT, is in class
-      `(substitution, mass_equivalent)`. `mass_equivalent` is false for REF `*` (`_mass("*")` is
+      `(substitution, mass_equivalent = false)`. `mass_equivalent` is false for REF `*` (`_mass("*")` is
       None, and `left_block_read` sees the `*` in its pair). Its `class_error_rate` is therefore
-      the pooled substitution rate. That rate is dominated by ordinary SNV sites and does not
+      the rate of that class, pooled over all its sites (the non-mass-equivalent
+      substitutions). That rate is dominated by ordinary SNV sites and does not
       measure read-through reads, and with a reference search on Bakta proteins (which end at the
       stop) every read-through read is in the degenerate case of `variants.md` bias 1: the
-      reference cannot contain the peptide. 16b states this in `variants.md` (Q11 asks Khoa
-      about a separate class).
+      reference cannot contain the peptide. A second-pass search on a `makedb --patch` database
+      does not lift this: its identification carries `X` at the stop, which differs from every
+      de novo residue after I→L folding, so the pair still counts as an error. The rate feeds
+      only `class_error_rate`/`CLASS_ERR`; `confidence` (`high` = `n_alt` ≥ k, M7-02)
+      and therefore TE2 do not depend on it. 16b states this in `variants.md` (Q11: pooled,
+      answered).
 12. **Novel ORFs.**
     - M7-09 `class_rules`: `cterm_extension` is called when `spans_annotated_stop` is true and the
       in-frame continuation exists (M7-06: a next stop or `end_3p_open`). The label is
@@ -291,7 +296,7 @@ They are written in here, not re-opened:
   consume them get the flags `sec_site` and `pyl_site`. Only the label part is written here (rule
   19); the 16c matcher part is rule 1's `recoded` kind, already specified. 16c is next after 16b.
 - **D4.** Q11 stays pooled: REF `*` sites (read-through) and U/O zero-change ALTs are in class
-  `(substitution, mass_equivalent)`. Checked: rule 11, the 16b `variants.md` touch-point row, the
+  `(substitution, mass_equivalent = false)`. Checked: rule 11, the 16b `variants.md` touch-point row, the
   16b acceptance criterion and Q11 already say so. Q11 is now marked answered.
 - **D5 (statistician, #331 final review).** In `related_other_strain` at 1 Mb, 0–5 true
   read-through rows per replicate are accepted. 16b's e2e test must show that they become
@@ -378,7 +383,14 @@ one table. Acceptance checks that they agree.
     - With an empty `peptide_hits` the placement rows are 0 with `n` 0. Without `unmapped.tsv`
       (`unmapped` None) the `unmapped_reason` rows are NA, as `qc_rows`' C13 counts are.
     - These are counts, not rates or FDRs. No row divides read-through by anything, and none
-      carries D_rt/T_rt (methods note item 5, R3).
+      carries D_rt/T_rt (methods note item 5, R3). `n` is the population the count comes from,
+      not a denominator to report: no metric name ends in `_rate`, `_share` or `_fdr`, and no
+      writer or report presents `value / n` of a `placement_flag` or `tolerant_diff_type` row
+      as an error rate.
+    - The flagged rows are a subset of a list accepted at q. The list FDR does not control that
+      subset (methods note items 5–6): the 16b paragraph of `placement-fdr.md` says so, and no
+      output describes the `readthrough` rows (or, in 16c, the `sec_site`/`pyl_site` rows) as
+      "accepted at q" on their own.
 18. **Vocabulary and schema.** §9.4 *Placement* gains `readthrough` (16b), and `sec_site` and
     `pyl_site` (16c). §9.4's own heading ("extend only through the schema") allows this. The
     `flags` field of `src/giap/schemas/tables/peptide_hits.schema.json` gains a `pattern`
@@ -416,15 +428,25 @@ one table. Acceptance checks that they agree.
       giapsim model never makes the other-strain peptides extend past the stop, so the
       `cterm_extension` path is covered only by `n_readthrough` (rule 14).
     - **Simulator knob** (tooling, implementer). `StrainConfig.n_stop_loss: int = 0`. With 0,
-      every existing strain build is byte-identical. With `k > 0`, `derive_reference` additionally
-      places `k` SNVs (seeded from its own stream after the existing draws) each in the terminal
-      stop codon of a distinct non-pseudo sample CDS, turning it into a sense codon in the
-      reference, and keeping `_SPACING` from the other events. Truth: `truth/stop_loss.tsv` with
+      every existing strain build is byte-identical and no new file is written. With `k > 0`,
+      `derive_reference` additionally places `k` SNVs, drawn from a separate generator (for
+      example `default_rng([seed, 2, seed_offset, 1])`) so the existing draws are unchanged. Each
+      SNV lies in the terminal stop codon of a distinct non-pseudo sample CDS, turns it into a
+      sense codon in the reference, and keeps `_SPACING` from the other events. It is also
+      written as an ordinary `snv` row of `strain_differences.tsv`. A gene is eligible only if
+      the reference protein then has a C-terminal digest product (`digest_len`,
+      `missed_cleavages`) that contains the new residue, has **at least 10 aa** (shorter
+      peptides over a stop are never placed) and holds no other strain event in its codons
+      (so it places at `n_diff` 1). Fewer than `k` eligible genes, or fewer wrong-peptide slots
+      than `k`, raise `ValueError` (no silent shortfall). Truth: `truth/stop_loss.tsv` with
       `locus_tag`, `contig`, `strand`, `codon_start` (sample, 0-based), `sample_codon`,
       `reference_codon`, `reference_residue`, `cterm_peptide` (the reference protein's C-terminal
-      digest product that contains that residue). With `wrong_source = "other_strain"`, every
-      `cterm_peptide` that is absent from the sample (I = L) joins the wrong-peptide set first;
-      the remaining slots are filled as today.
+      digest product that contains that residue) and `planted` (true for the `k` knob SNVs). It
+      lists **every** stop-loss in the build: the `k` planted ones and any that the uniform SNV
+      draws produced (`planted` false, `cterm_peptide` empty when none qualifies). With
+      `wrong_source = "other_strain"`, every planted `cterm_peptide` that is absent from the
+      sample (I = L) joins the wrong-peptide set first; the remaining slots are filled as
+      today.
 
 ### Examples (16b, 16c labels)
 
@@ -540,11 +562,11 @@ def site_keys(sites: Sequence[StopSite]) -> frozenset[tuple[str, str, int]]
 | 16b | `src/giap/schemas/tables/peptide_hits.schema.json` | `flags` `pattern` (rule 18) |
 | 16b | `src/giap/context/summary.py`, `src/giap/steps/context_stats.py` | `placement_kind_rows` (rule 17) as one more summary part |
 | 16b | `docs/specs/M3-16-mapping-outputs.md`, `docs/specs/M4-16-detection-summary.md` | amendment notes pointing to rules 15–19 and 17 (written with this amendment) |
-| 16b | `docs/methods/placement-fdr.md` (16a section) | a short "16b reporting" paragraph: the flag and the count are counts, not a subset FDR (item 5) |
+| 16b | `docs/methods/placement-fdr.md` (16a section) | a short "16b reporting" paragraph: the flag and the count are counts, not a subset FDR (item 5); the flagged rows are a subset of a list accepted at q and that subset is not FDR-controlled (items 5–6) |
 | 16b | `tests/sim/giapsim/{config,features,proteomics,truth}.py` | `n_readthrough`, `truth/readthrough.tsv` (tooling) |
 | 16b | `tests/sim/giapsim/{strain,proteomics,truth}.py` | `StrainConfig.n_stop_loss`, `truth/stop_loss.tsv`, C-terminal wrong peptides first (rule 20; tooling) |
 | 16b | `validation/proxies/te_proxies.py` | TE2 note text (internal Sec sites are not annotated stops; ADR-0058) |
-| 16b | `docs/methods/variants.md`, `docs/methods/novel-orfs.md` | stop_codon reachability, U/O ALT, cterm calls; `variants.md` states that REF `*` and U/O zero-change ALTs pool in `(substitution, mass_equivalent)` and that their `class_error_rate` does not measure read-through reads (rule 11) |
+| 16b | `docs/methods/variants.md`, `docs/methods/novel-orfs.md` | stop_codon reachability, U/O ALT, cterm calls; `variants.md` states that REF `*` and U/O zero-change ALTs pool in `(substitution, mass_equivalent = false)` and that their `class_error_rate` does not measure read-through reads (rule 11) |
 | 16c | `src/giap/mapping/readthrough.py` | `annotated_stops(..., recoded=True)`: internal TGA with `U`, TAG with `O` in `Gene.aa` |
 | 16c | `src/giap/steps/mapping.py`, `steps/variants.py` | pass `recoded=True`; event `recoded` count |
 | 16c | `tests/sim/giapsim/…` | `n_selenoproteins` |
@@ -678,16 +700,24 @@ The statistician signs it off before 16a merges (review change 3). It must state
     the step calls) → `loci` → `variants_step`. For every `truth/stop_loss.tsv` row whose
     `cterm_peptide` is accepted: its `peptide_hits` row is flagged `readthrough` and ends on the
     site's codon, and `variants.tsv` has a `stop_codon` ALT site at `codon_start` with
-    `alt_aa = reference_residue` and the `strain_difference` flag. Any accepted row that consumed
-    a cell and is not in `truth/stop_loss.tsv` or `truth/readthrough.tsv` fails the test. The test
-    asserts that at least 3 of the 5 are accepted, so it can never pass vacuously; if the build
-    gives fewer, the test-author raises π_wrong or k and reports it, and never drops the
-    assertion.
+    `alt_aa = reference_residue` and the `strain_difference` flag. "Ends on the codon" is in
+    the gene direction: `end = codon_start + 3` on `+`, `start = codon_start` on `−` (unwrapped
+    on circular replicons). Any accepted row that consumed a cell at a site in neither
+    `truth/stop_loss.tsv` (planted or not) nor `truth/readthrough.tsv` fails the test. The seed
+    is fixed; a failure of that check is a finding (a false read-through placement) to report,
+    never a reason to change the seed. The test asserts that at least 3 of the 5 **planted**
+    rows are accepted, so it can never pass vacuously; if the build gives fewer, the
+    test-author raises π_wrong or k and reports it, and never drops the assertion.
   - **Calibration observer (D5):** in the `related_other_strain` full-tier observer that counted
-    the 0–5 rows (methods note item 8), every counted row's site must have a sample codon that
-    differs from the reference codon at its lifted position (a strain stop-loss). That confirms
-    the strain-model finding on the real suite. It is a diagnostic assertion, not a new gate,
-    and no tolerance key is added.
+    the 0–5 rows (methods note item 8), each counted row is split by the suite's own truth
+    scoring into rows placed at their peptide's origin locus and the rest. Every origin row's
+    site must have a sample codon that differs from the reference codon at its lifted position
+    (a strain stop-loss); under the giapsim strain model this is implied, not sampled (rule 20),
+    so it is asserted without a tolerance. Off-origin rows are chance read-through placements:
+    they are already false placements in the FDP, so they are counted and reported (expected
+    ≈ 0: α · T_acc(m ≥ 1) · ρ, methods note item 6) and not asserted. That confirms the
+    strain-model finding on the real suite. It is a diagnostic assertion, not a new gate, and
+    no tolerance key is added.
 - **Statistical re-run (R3: no tolerance, bound, α or R change).** Run the M3-21 placement suites
   on the 16a branch, fast (`-m calibration`, `scripts/slurm/test_branch.sbatch`) and full
   (`calibration_full.sbatch` placement tasks, `GIAP_WORKTREE` + `PYTHONPATH` exported), in two
@@ -775,8 +805,9 @@ The statistician signs it off before 16a merges (review change 3). It must state
 - [ ] **16b:** TE2 re-run passes with 0 violations. Its note says why no `stop_codon` site appears
   on Nissle under items 1–5.
 - [ ] **16b:** `variants.md` states that REF `*` sites and U/O zero-change ALTs are in class
-  `(substitution, mass_equivalent)` and that their `class_error_rate` is the pooled substitution
-  rate, which does not measure read-through reads (rule 11; Q11 default).
+  `(substitution, mass_equivalent = false)` and that their `class_error_rate` is that class's
+  pooled rate, which does not measure read-through reads, also after a patched `X` search, and
+  does not feed `confidence` (rule 11; Q11 answered: pooled).
 - [ ] **16b (amendment, rule 15):** `consumed_sites` passes examples 11–16. On the property
   strategies it agrees with `holds_cell` on every target row. Exact, decoy and frameshift rows
   are never flagged.
@@ -893,7 +924,7 @@ plumbing (rule 19 extends rules 16–18), so it merges main after 16b.
 10. **Index format.** **Default:** bump to 2; format-1 files raise (no silent fallback); Nextflow
     resume re-runs `sixframe_index` anyway because its inputs change.
 11. **(Khoa) A separate `stop_codon` error-rate class** (review change 8). REF `*` sites and U/O
-    zero-change ALTs pool into `(substitution, mass_equivalent)`, whose rate does not measure
+    zero-change ALTs pool into `(substitution, mass_equivalent = false)`, whose rate does not measure
     read-through reads. A third class dimension `stop_codon` would change §7.5.4 ("by alt_type and
     by mass_equivalent") and so needs an ADR. **Default (reversible):** pooled, and documented in
     `variants.md` (rule 11). Batch it with the other Khoa questions; it does not block 16a or 16b.
@@ -1014,3 +1045,27 @@ precedence exact > tolerant > frameshift, and overlapping diff-type groups; Q19 
 `pyl_site` replace `readthrough` and stay placement flags only; Q20 the e2e floor ≥ 3 of 5. ADR-0058
 records item 6 as accepted and Amendment 1.
 
+
+### Statistician review of the amendment (2026-10-24, at db7d92ab)
+
+**APPROVE WITH CHANGES**, all applied in this commit. Full review: `local/stat/m7-16b-spec-review.md`.
+
+1. Rule 20: `truth/stop_loss.tsv` lists every stop-loss in the build (`planted` column), so a
+   natural stop-loss does not fail the e2e's "unexplained row" check; the knob draws from a
+   separate generator, picks only genes whose C-terminal peptide is ≥ 10 aa with no other strain
+   event, and raises on a shortfall, so the ≥ 3 of 5 floor tests the path, not the digest.
+2. The e2e's "ends on the codon" is stated per strand; a failure is a finding, not a reseed.
+3. The full-tier observer asserts the stop-loss only for rows at their origin locus (implied by
+   the model); off-origin rows are reported, not asserted (they are chance placements already
+   in the FDP).
+4. Labels: rule 17 and the `placement-fdr.md` row state that the flagged rows are not an
+   FDR-controlled subset and that `value / n` is never presented as a rate.
+5. Rule 11: the class is written `(substitution, mass_equivalent = false)`; a patched `X`
+   database does not lift the degeneracy; the class rate does not feed `confidence` or TE2.
+
+16b re-runs (no tolerance, bound, α or R change): the related-strain placement suite's full tier
+with the observer (rule 20 acceptance); fast-tier regression runs of `test_variants_gate.py`,
+`test_variant_class_error.py`, `test_novel_orfs_gate.py`, `test_novel_class_fdr_calibration.py`
+and `test_detection_summary_calibration.py`, recording "unchanged" plus the count of
+`cterm_extension` calls and of REF `*` ALT sites (expected 0 with `n_readthrough = 0`). The
+M3-21 placement suites need no re-run: rules 15–19 do not touch placement.
