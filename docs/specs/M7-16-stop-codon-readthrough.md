@@ -1069,3 +1069,12 @@ with the observer (rule 20 acceptance); fast-tier regression runs of `test_varia
 and `test_detection_summary_calibration.py`, recording "unchanged" plus the count of
 `cterm_extension` calls and of REF `*` ALT sites (expected 0 with `n_readthrough = 0`). The
 M3-21 placement suites need no re-run: rules 15–19 do not touch placement.
+
+### Lead decision on the rule-20 e2e genome size (2026-10-25, test-author finding)
+The sim100k e2e cannot meet its floor: at 100 kb the cost-1 stratum holds T_1 = 27–45 targets, so
+the smallest q is (D+1)/T_1 ≥ 0.022 > α 0.01 and no cost-1 row is accepted (measured over seeds 11
+and 12, pi_wrong 0.05–0.3 and SNV rates 5–20 /kb). Overriding α would break R3. The e2e therefore
+runs on a **1 Mb** giapsim genome (seed 11, `n_stop_loss` = 5, floor ≥ 3 planted rows). There T_1
+is about 400, D = 0 and q = 0.0025; the chain takes about 30 s, so the test is not marked slow.
+This replaces "sim100k" in rule 20 and its acceptance item. The full-tier observer count (D5) is
+being reconciled with the methods note by the statistician before 16b merges.
