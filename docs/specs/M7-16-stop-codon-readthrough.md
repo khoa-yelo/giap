@@ -455,3 +455,58 @@ independent of each other except for the shared TE2 note (16c updates it after m
    code.
 10. **Index format.** **Default:** bump to 2; format-1 files raise (no silent fallback); Nextflow
     resume re-runs `sixframe_index` anyway because its inputs change.
+
+## Statistician review (2026-10-24, at e7f7f744)
+
+**APPROVE WITH CHANGES.** 16a code may start; the changes below are required before 16a merges.
+Full review: `local/stat/m7-16-review.md`. Exploratory exact-mass runs: Slurm jobs 1889319 (Nissle)
+and 1889320 (giapsim 1 Mb × 3), script `local/stat/m7-16/rt_mass.py`.
+
+Findings:
+- Decoy symmetry holds exactly in counts. The reverse decoy is exact for i.i.d. laws: the
+  read-through D/T was 1 to 1e-16.
+- The local context is mirrored, not kept: gene | `*` | flank becomes flank | `*` | gene. Under a
+  tryptic law (C-terminal K/R), the read-through D/T per genome is 0.52–1.89 (reverse) and 0.58–1.74
+  (shuffle). The net effect on the total chance mass is ≤ 10⁻³, so the list FDR is unaffected.
+- D_rt/T_rt is not an FDR for the read-through subset.
+- The ADR-0058 added-mass arithmetic is right, but it is an approximation, not a bound. It scales as
+  ≈ G/(N(1 − s)) at m = 1 and ≈ 2G/(N(1 − s)) at m = 2. The realised share is 0.04–0.08 % on Nissle
+  and 0.05–0.20 % on giapsim.
+- The strata, π̂ (m ≥ 1 → 1), E and the §8.1 families are unchanged. The ADR-0019 stratum-0 π̂ is
+  untouched, because read-through hits are never at m = 0.
+- Item 6 changes none of this: 3 cells, coding context on both sides.
+
+Required changes (numbering as in the review):
+1. Split the re-run list into two groups.
+   - **Regression-only**, byte-identical by construction: `test_tolerant_recall.py`,
+     `test_placement_fdr_genome.py`, `test_placement_fdr_lists.py`, `attacks/test_attack_placement_*`.
+   - **Exercised:** the `run_chain` suites `test_placement_fdr_sim.py`, `test_denovo_precision_sim.py`
+     and attack 5.
+   - Only the exercised group counts as evidence. Record how many accepted target rows consumed a
+     cell.
+2. Decoy-balance check: use `se_multiplier`, not a literal 2. Report T_rt, D_rt and the read-through
+   share per decoy type. Keep it one-sided. "Vacuous" is allowed only for this check.
+3. In the `placement-fdr.md` section, state:
+   - the context mirroring and the measured ratios;
+   - that D_rt/T_rt is not a subset FDR;
+   - the expected number of false read-through placements per run, ≈ α · T_acc(m ≥ 1) · ρ with
+     ρ ≈ 10⁻³;
+   - that power is low on small m ≥ 1 lists (B.6).
+4. ADR-0058: replace "≤ 0.11 %" with the scaling and the measured shares.
+5. **The stressed arm is required (Q9).** It is a sampled arm through `sixframe_index → map_tolerant
+   → best_costs → placement`.
+   - Build: dense short annotated genes and a reduced-alphabet coding frame, so there are ≥ 100
+     expected false target read-through rows per replicate. Run a reverse arm and a shuffle arm.
+   - Criteria: m ≥ 1 FDP ≤ q + `se_multiplier`·SE, and mean(D_rt) ≥ mean(T_rt) −
+     `se_multiplier`·SE.
+   - A negative control with the decoy cells removed must fail.
+6. The statistician adds `tests/calibration/attacks/test_attack_readthrough_decoys.py` (exact mass)
+   on top of 16a's `frame_cells`/`mirror_cells`. 16a's merge waits for it.
+7. `mirror_cells` draws no randomness. Decoy frames must be byte-identical across index formats 1
+   and 2 for the same seed. Add a test.
+8. 16b: REF `*` and U/O zero-change ALTs fall into class `(substitution, mass_equivalent)`, and their
+   `class_error_rate` is the pooled rate. Document this in `variants.md`. Batch a Khoa question on a
+   separate `stop_codon` class (a §7.5.4 change, so it needs an ADR). Until Khoa answers, the default
+   is pooled and documented.
+9. The frameshift route uses each decoy type's mirrored cells in `_FSearch`/`nonfs_overlap`. Cover
+   this with a property or unit test.
