@@ -1004,3 +1004,13 @@ Required changes (numbering as in the review):
 "Decoy-balance check"; 3 → "Methods note (16a)"; 4 → ADR-0058 Evidence/Consequences and Q9; 5 →
 "Stressed arm"; 6 → "Statistician's attack"; 7 → rule 3 and "Determinism of the decoy cells"; 8 →
 rule 11, the 16b `variants.md` row and Q11; 9 → rule 7 and symmetry property (e).
+
+### Lead decisions on Q13–Q20 (2026-10-24)
+All eight take the stated reversible default: Q13 `readthrough_codon`/`recoded_codon`;
+Q14 `sixframe` optional on `loci` with the WARNING event; Q15 no new ADR beyond the ADR-0058
+amendment (§9.4 extends through the schema); Q16 `multi` and `low_complexity` listed in the schema
+pattern, with a backlog line; Q17 rows in `detection_summary.tsv`, not a new file; Q18 the
+precedence exact > tolerant > frameshift, and overlapping diff-type groups; Q19 `sec_site` and
+`pyl_site` replace `readthrough` and stay placement flags only; Q20 the e2e floor ≥ 3 of 5. ADR-0058
+records item 6 as accepted and Amendment 1.
+
