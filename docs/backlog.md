@@ -401,13 +401,21 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
   - skip the t fit when the scale is relative (today it fits and may warn "too_few_op_pairs" on relative rows);
   - log the 1e-6 scale floor in the non-convergence warning, not the raw MAD;
   - document that one-detected rows get no `no_detection_limit_model` on the too-few/relative paths;
-  - test gaps (surviving mutants): undetected gene with a finite imputed value; `unestimated` on the too-few and relative paths; one side partial only; pair flags (`rna_between`) kept; flags of partial rows;
+  - test gaps (surviving mutants): (undetected gene with a finite imputed value: done in M6-05H, #311); `unestimated` on the too-few and relative paths; one side partial only; pair flags (`rna_between`) kept; flags of partial rows;
   - statistician F3/D-1: abundance-dependent Δ noise breaks the lowest-quartile level (2.4–3× nominal) — method ADR or narrowed claim, Khoa decides; D-2 (TU-chained Δ) and D-3 (power record) as attacks;
   - F5: keeping P(miss) out of the BH family in M6-05H needs an ADR; F6: flag imputed-but-detected tested pairs `abundance_imputed`.
 - M6-05 pass 1 simplifications (implementer): `discordance()` accepts `cfg` and `p_miss` but uses
   neither — a NaN abundance is untested under every `abundance.missing` mode, not only `exclude`, and
   the one-detected branch is always `unestimated (no_detection_limit_model)`; `PMissModel` is a
-  placeholder Protocol until M6-02 merges (replace with its real type in M6-05H).
+  placeholder Protocol until M6-02 merges (replace with its real type in M6-05H). **Closed by
+  M6-05H (#311):** the Protocol stays as the adaptor, renamed `PMissFn` (`p_miss(u, a_v, ratios, v)`);
+  `detection_limit.p_miss_for_genes` binds M6-02's `PMissModel` to it.
+- M6-05H (#311): F5 ADR owed: keeping P(miss) out of the BH family (M6-index lead decision 1) departs
+  from §7.4.3's "both kinds together"; write it with M6-09 attack C, which measures the mixture.
+- M6-05H (#311), deferred: the `operons` step does not read `peptide_runs` (C16) yet, so the
+  replicate model is never fitted there, and it does not join the M4-10 covariates. A replicate model
+  with covariate coefficients is guarded (`pmiss_covariates_missing` + WARNING, review S2); wire
+  `peptide_runs` and pass `cov=` from the covariate table together.
 
 ## M7-04 review nits (PR #164)
 - `OUT/schemas/datapackage.json` names `tables/...`, which Frictionless resolves under `OUT/schemas/`, not `OUT`. Lead decision 5 already owes this; the test checks only `OUT / path`.
@@ -965,7 +973,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - M4-24 decision 7: preflight `candidate_tier` should use the shared key columns, so it does not
   preview `decoy_picked` for all-unscored decoys.
 - M9-23: switch existing plot titles to `giap.viz.base.plural` as their tests are next touched.
-- M9-23: hide V16's `Skip` ("written by giap compare") from ordinary run reports; add a test for the runs-section detection tier per run.
+- M9-23: hide V16's `Skip` (`input_absent:compare`) from ordinary run reports; add a test for the runs-section detection tier per run.
 - Review #225 nits (M7-12):
   - N2: the methods-note FDP table is at 200 ORFs per class; rerun it at the gate count of 300.
   - N3: `OrfEntries` does not restate `NTERM_MIN_UPSTREAM_AA` and assumes `min_orf_aa` = 7; assert `digest_len[0]` ≥ 7 in six-frame mode.
@@ -1040,6 +1048,18 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (MVP-04 #258 review) boundary tests for summary gates 4, 6, 8, 11, 13 (p) and a gate-13 no-high-island case; sbatch seed from `K12_EVIDENCE_SEED` as `MVP04_SEED`, tested as passed through; gate 15 counts the `empty_state` SVG as content (N2); N3–N9 tidying in `scripts/dev/mvp04_summary.py`.
 - (M2-14b item 7) `PC_BATCH = 100` (regions per PROMOTER_CALCULATOR task) is a constant in annotate.nf; make it a config key (ADR, defaults.yaml) if a genome needs a different batch size.
 
+### M7-17 follow-ups (PR #291)
+- (Q6) The flagged share of true ORFs is fixed by construction in the two existing arms (0 picked, ≈ 1 de novo). Add a mixed database + de novo input arm (M7-13c or MVP-04) to measure it.
+- (Q8) `orf_regimes` treats an unresolved `auto` C9 source as non-`denovo`, while mapping and the flag resolve it table-wide (`resolve_sources`); a source-less de novo table gives `unestimated` ORFs instead of `denovo_subgroup`. M7-11 follow-up: resolve sources the same way (this changes regimes and q, so it needs its own issue).
+- (Decision 4) `test_denovo_support_flag_gate.py` reruns its own G4-k3 arm (one extra simulation per replicate); reuse the G4-k3 runs.
+- (#291 review nits)
+  - report card `sources` misses `novel_orfs:flags` (build.py:304);
+  - `_FLAG` is defined after its first use in steps/novel.py;
+  - `rbs is True` in evidence.py:60 should be `rbs is not None and bool(rbs)`;
+  - the Hypothesis ORF-side alphabet includes `I`;
+  - the gate test should count `side_flag != tsv_flag` as a violation.
+- (M7-17 gate, statistician 7f8e4ed0) `inject_false_orfs` should skip segments at truth keys, as `null_segments` does: about 0.5 % of G4-k3 injections land on a planted ORF's stop and add no false ORF. Makes G4-k3 slightly stricter and changes its stream (rerun); needs Khoa's batch. Do not exclude every CDS-overlapping segment (replicate 130 is correct behaviour).
+
 ### 2026-10-24 review nits (deferred)
 - (#297 review nit 2) Size: about 1,280 test lines against the ~400 guide; next time, ship the Wallenius half (`test_golden_wallenius.py` plus most of `tests/helpers/golden_r_gate.py`) as its own PR (process note, no code change).
 - (#297 review nit 3) Empty leading edges: `GoldenReplayEngine` maps an empty `leadingEdge` cell to `()`, but `_leading_edges_in_fgsea_order`, `test_es_oracle_leading_edges_match_golden` and `_g3b` (`tests/golden/test_golden_gsea_wiring.py:225`, `:299`, `:585`) call `.split(";")` and get `[""]`; add a shared `_edge(cell)` helper and exercise the oracle's `top == -bottom → ES 0` branch.
@@ -1064,3 +1084,33 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (M10-05) The unit fixture `tests/helpers/pilot_metrics_m10.py` writes `peptide_hits.tsv`/`unmapped.tsv` under `tables/` (lines 371-378 on m10/spec-05), but GIAP writes them under `mapping/`, and `validation/pilot/metrics.py:932` reads both; move the fixture to `mapping/` and drop the `tables/` read.
 - (Slurm-only failures, jobs 1879953, 1880533, 1881053) `tests/integration/test_nf_review.py::test_farmshare_local_user_limits_vs_allocation` (`:243`) and `::test_farmshare_user_limits_below_profile_win` (`:233`) exit 137 on giap-test nodes but pass in CI; find out why.
 - (M10-08 note) Cascadia 0.0.7 fetches Unimod over plain HTTP twice per run (pyteomics at the end, psims `GenericModification(...).mass` at the start), and the offline launcher `scripts/pilot/cascadia_offline.py` (#301) now blocks both; upstream (Noble-Lab/cascadia issues #6 and #12) may want to know. Note only: no one has been contacted.
+- (M10-09 review F8) `float()` in the cascadia score parser also accepts `9_0e-2` and padded values (` 0.9 `); tighten it to a decimal regex if it ever matters.
+- (M10-09 review F9) one `.ssl` file carrying two different `file` values becomes two runs with no note (W2 says one value per file); consider a warning.
+- (M10-09 TA) the validator's `non_letters` message says "(dropped)", but the row is written with `peptide` missing; align the wording.
+- (M10-10 spec finding 1) `mzml_pilot.sbatch` asks `--mem=32G` and `denovo_pilot.sbatch` asks `--mem=64G` with 8 CPUs; at MaxMemPerCPU=4000 Slurm raises them to 9 and 17 CPUs. Use `--mem=32000M` and size denovo from the smoke MaxRSS (M10-10 overrides both on the command line).
+- (M10-10 spec finding 3) the plus-strand `orf_id` depends on where the peptides fall, so compare's `novel_orfs` Jaccard can count one ORF as two across arms; key on the stop codon (as M10-10 metric 6 does).
+- (M10-10 statistician S6) add a per-bin n column to `mapping_fdr.tsv` (M3 owner), so the de novo bins can be cross-checked directly.
+
+### 2026-10-24 afternoon (lead)
+- (M6-13 statistician) a variance-floor σ model σ² = σ_f² + σ₁²·e^(2γz), gated on D-1b-floor, D-1c and the null quartile check cut on a. It lowers the D-1c top-quartile excess from 1.7× to about 1.4×, at a 1.03–1.10× level cost in the null a-quartiles.
+- (M6-13 Q1) P(miss) from the scaled fit's rescaled residuals (ADR-0055 Consequences). Measure with attack C under D-1 and D-1c noise.
+- (#310 review N-4) no test checks that giapsim's own pair table agrees with `build_pairs` (classes, distances, wrap-around pairs).
+- (M10-07 review) N1, the methods-note sentence; N3, the `outside_bounds` count. `metrics.py`'s `_outside_repo` stays strict, because main's M10-05 tests pin exit 2 for a git-ignored path; revisit whether it should accept git-ignored paths, as entrapment.py does.
+- (M10-08b review N10) timsconvert's lock pulls in `pyBaf2Sql`, which bundles Bruker's baf2sql library. ADR-0054 covers only the TDF-SDK. Confirm the licence note, or record that baf2sql is unused for .d/TDF input.
+- (Khoa, 2026-10-24) running GIAP on macOS is untested. The Python package passes on macOS CI; the full pipeline would need `-profile docker`, which spec §3 keeps but doesn't test. Candidate for M11: a Docker-profile test run, and documenting the platforms.
+
+### 2026-10-24 evening (lead)
+- (M9-25, Khoa's approval) Two checklist failures were left: V16 uses #555555, which is not in the §10.1 palette, and on K-12 V15 panel (c)'s title overlaps the CV R² line. Fix both and re-baseline.
+- (M7-16a statistician) Relabel or retire the linear local Nissle Bakta run `local/recordings/bakta_full/nissle1917`; the committed recording `tests/data/recorded/bakta/1.12.2-full/nissle` is circular.
+- (M7-16a statistician, #331) At 1 Mb, `related_other_strain` accepts 0–5 true read-through rows per replicate. Confirm the giapsim strain model puts those differences at the stop, and that 16b's e2e test turns them into `stop_codon` ALT sites or `cterm_extension` evidence.
+- (#331 review nits) (a) `Search(marked)` and `load_stop_cells`: bounds-check cells read from disk, because an out-of-frame index lands on the stop gap between frames; (b) test the `save_index` missing-decoy-cells error; (c) the `to_interval` round-trip check in `frame_cells` is unreachable; (d) `match_frameshift`'s reverse re-mapping could call `mirror_cells`, and `decoy_marks` repeats `save_index`'s key check.
+- (MVP-04 gate 16) The K-12 run took 14.8 CPU-hours against the expected 3–8; profile it.
+- (build_envs) `scripts/slurm/build_envs.sh` removes the old env before the new one solves (job 1888853 lost the cascadia env and its locks). Build into a temporary prefix and swap, and set `CONDA_OVERRIDE_CUDA` for CUDA pytorch envs on CPU nodes.
+- (R14 memory) Three sbatch scripts ask 16G at 4 CPUs, and their tests pin it; at MaxMemPerCPU = 4000 MB, Slurm keeps them at 4 CPUs only by luck of rounding. Ask `--mem` ≤ 4000M × CPUs.
+- (FarmShare) Khoa's `~/.bashrc` exports `RUN`, and sbatch passes it into every job. Scripts must never read `$RUN` (denovo_pilot uses `A3_RUN`); add a guard test for other scripts.
+- (A3) Record the `--reference-peptides` database used for A3 (Cascadia gives de novo sequences only).
+- (M11-01 check_dist nits) The remaining reviewer nits on `scripts/release/check_dist.py` (see #330's review).
+- (#332 snapshot cache) Parallel byte-identity across xdist workers, and when the cache is invalidated.
+- (Cascadia CPU) Batch cost varies about 6× across a run; the equal-block array (STEP=predict) is kept only for probes. The work queue (STEP=work) is the supported route.
+- (env locks) `workflow/envs/locks` has locks for 6 of 15 envs; decide whether every env gets one.
+- (M7-16 statistician, forwarded; `local/stat/m7-16-review.md`, Slurm job 1889319) on the real Nissle genome the exact expected regular chance mass gives a shuffle decoy/target ratio of 0.98–0.99 under the i.i.d. law but 0.93–0.96 under the tryptic law at L = 10–12, and 0.84–0.88 at L = 16, m = 2 (reverse is 1.03–1.07, conservative). The shuffle under-counts tryptic chance hits, which may make de novo placement anti-conservative on a real genome. giapsim does not show it (regular D/T 0.97–1.08). This is multiplicity-weighted mass, not distinct words, at one genome and three seeds: check it properly in the M3-21 / TE8 work before acting on it.

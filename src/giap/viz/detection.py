@@ -21,7 +21,7 @@ from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 
 from giap.io.cog_categories import cog_descriptions
-from giap.viz.base import Instance, Skip, empty_state, plot
+from giap.viz.base import Instance, Skip, empty_state, plot, plural
 from giap.viz.style import COG_SUPER, COG_SUPER_COLOUR, REGION, cog_colour, new_figure
 
 if TYPE_CHECKING:
@@ -43,6 +43,7 @@ BASIC_BLOCKS = ("replicon", "feature_class", "cog_category")
 BLACK = "#000000"
 NONE_GREY = "#999999"
 MAX_STRIP = 50  # a violin above this many measured values (§10.2 V8)
+MIN_HIGHEST = 5  # measured genes a category needs before the title calls its median the highest
 _WRAP = {"single": 50, "double": 105}  # characters per title line at 8 pt
 
 
@@ -325,10 +326,18 @@ def v08_title(cats: Sequence[_Cat], flags: frozenset[str]) -> str:
         return f"{NO_ABUNDANCE}; {tail}" if no_cog else NO_ABUNDANCE
     m, n = top.median, len(top.values)
     if top.letter == "none":
-        lead = f"Median abundance {m:.1f} log2 ({n} genes)"
+        lead = f"Median abundance {m:.1f} log2 ({plural(n, 'gene')})"
         return f"{lead}; {tail}" if no_cog else f"{lead} in genes without a COG letter only"
-    desc = cog_descriptions().get(top.letter, top.letter)
-    return f"{top.letter} ({desc}) has the highest median abundance ({m:.1f} log2, {n} genes)"
+    best = next((c for c in cats if c.letter != "none" and len(c.values) >= MIN_HIGHEST), None)
+    if best is None:  # K-12 survey: no "highest" claim on fewer than MIN_HIGHEST genes
+        most = max((c for c in cats if c.letter != "none"), key=lambda c: len(c.values))
+        return (f"No COG category has {MIN_HIGHEST} or more measured genes (most: "
+                f"{most.letter}, {plural(len(most.values), 'gene')})")  # fmt: skip
+    m, n = best.median, len(best.values)
+    desc = cog_descriptions().get(best.letter, best.letter)
+    return (f"{best.letter} ({desc}) has the highest median abundance among categories "
+            f"with ≥ {MIN_HIGHEST} genes ({m:.1f} log2, "
+            f"{plural(n, 'gene')})")  # fmt: skip
 
 
 def _jitter(n: int) -> list[float]:
@@ -359,10 +368,14 @@ def _abundance_figure(cats: Sequence[_Cat], title: str) -> Figure:
         elif vals:
             xs = [x + d for d in _jitter(len(vals))]
             ax.scatter(xs, vals, s=7, color=c.colour, linewidths=0)
-    for x, c in enumerate(cats):
-        ax.annotate(f"{c.n_detected}/{c.n_genes}", (x, 1.0), xycoords=("data", "axes fraction"),
-                    xytext=(0, 2), textcoords="offset points", ha="center", va="bottom",
-                    fontsize=6)  # fmt: skip
+    labels = [f"{c.n_detected}/{c.n_genes}" for c in cats]
+    # rotate the n/N labels when they would not fit side by side (6 pt digits ~ 3.6 pt wide)
+    slot_pt = 0.8 * fig.get_figwidth() * 72 / max(len(cats), 1)
+    turn = 90 if max(len(t) for t in labels) * 3.6 + 2 > slot_pt else 0
+    for x, text in enumerate(labels):
+        ax.annotate(text, (x, 1.0), xycoords=("data", "axes fraction"), xytext=(0, 2),
+                    textcoords="offset points", ha="center", va="bottom", fontsize=6,
+                    rotation=turn)  # fmt: skip
     ax.set_xticks(range(len(cats)), labels=[c.letter for c in cats])
     ax.set_xlim(-0.6, len(cats) - 0.4)
     ax.set_xlabel("COG category")

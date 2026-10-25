@@ -41,6 +41,8 @@ TARGET = style.OKABE_ITO["blue"]
 DECOY = style.OKABE_ITO["vermillion"]
 FOOTNOTE = "c assumed 0.99 (no reference peptides)"
 EMPTY = "no peptide placements"
+#: the whole-figure empty state (``base.empty_state``) when ``mapping_fdr`` has no rows at all
+EMPTY_TITLE = "No peptide placements or de novo precision in this run"
 _FLOOR_A = 0.5  # panel (a) log-axis floor: 0 counts are drawn here
 
 
@@ -139,7 +141,9 @@ def title(data: pd.DataFrame, alpha: float) -> str:
     """From the panel (b) rows: the strata with FDR ≤ alpha, the accepted count, the NA strata."""
     strata = _strata(data[data["panel"] == "b"])
     if not strata:
-        return "Placement FDR unestimated: no peptide placements"
+        bins = int((data["panel"] == "c").sum())
+        tail = f"; de novo precision in {base.plural(bins, 'score bin')}" if bins else ""
+        return f"Placement FDR unestimated: no peptide placements{tail}"
     ok = [m for m, f, _ in strata if not math.isnan(f) and f <= alpha]
     na = [m for m, f, _ in strata if math.isnan(f)]
     accepted = f"{sum(n for _, _, n in strata)} FDR-tested placements accepted"
@@ -294,6 +298,8 @@ def mapping_fdr(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.Sk
     alpha = float(cfg.stats.alpha.placement)
     classes = length_class_labels([list(c) for c in cfg.mapping.length_classes])
     data = data_frame(fdr, classes)
+    if not len(data):
+        return [base.empty_state("V06", "mapping_fdr", EMPTY_TITLE, COLUMNS, "double")]
     panels = [p for p in ("a", "b", "c") if p in set(data["panel"]) or p != "c"]
     fig = style.new_figure("double", 2.8)
     fig.set_label("V06_mapping_fdr")
@@ -314,7 +320,8 @@ def mapping_fdr(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.Sk
         _panel_b(axes["b"], sub["b"], alpha)
         if (placement_rows(fdr)["decoy_type"] == "shuffle").any():  # lead decision 3 fallback
             for p in ("a", "b"):
-                axes[p].set_title(axes[p].get_title(loc="left") + " (shuffle decoys)", loc="left")
+                # on a second line: one line runs into the next panel's title (§14.4)
+                axes[p].set_title(axes[p].get_title(loc="left") + "\n(shuffle decoys)", loc="left")
     else:
         _empty(axes["a"])
         _empty(axes["b"])

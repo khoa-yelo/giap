@@ -242,7 +242,7 @@ def _panel_d(ax: Axes, whole: pd.DataFrame) -> list[Row]:
 
 
 def _panel_e(ax: Axes, whole: pd.DataFrame) -> list[Row]:
-    ax.set_title("(e) missingness (non-partial genes)", loc="left")
+    ax.set_title("(e) missingness\n(non-partial genes)", loc="left")  # one line hits (f)
     ax.set_xlabel("missing (%)")
     n = len(whole)
     rows: list[Row] = []

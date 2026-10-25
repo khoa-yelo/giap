@@ -253,3 +253,5 @@ and §15.5 metric 8's "only wild-type runs" are satisfied here.
 ## Lead decisions (2026-10-24)
 
 Every lead question L1–L14 takes its default. Khoa, 2026-10-24 (M10-04/05 Q-K1): aggregate numbers (counts, shares, ρ, Jaccards, TE results) and named example genes may be committed in REPORT.md / metrics.json; no row-level DIA-NN content. The spec is stacked on M10-05 (branch m10/spec-05 is merged into m10/spec-06).
+
+L1–L7 take their defaults; S1–S6 go to the statistician's spec review before tests. Khoa, 2026-10-24: aggregates (N_T, N_E, r, the estimate and bounds) may be committed; row-level discoveries stay under $GIAP_ROOT.

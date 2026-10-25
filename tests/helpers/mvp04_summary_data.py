@@ -64,7 +64,9 @@ Q_FLOOR = 1 / 2600
 REPORT_SECTIONS = ("detection", "genome-context", "operons", "variants", "novel-orfs")
 ALL_SECTIONS = ("summary", "inputs-qc", "mapping", *REPORT_SECTIONS, "function",
                 "determinants", "sensitivity", "methods", "provenance")  # fmt: skip
-TRUTH_TABLES = ("peptides", "genes", "islands", "alt_sites", "novel_orfs")
+TRUTH_TABLES = ("peptides", "genes", "islands", "alt_sites", "novel_alt_sites", "novel_orfs")
+#: ``mapping.tolerant.min_len`` in ``resolved_config.yaml`` (gate 11 recall; peptides are 8 aa)
+TOLERANT_MIN_LEN = 7
 
 _AA = "ACDEFGHILMNPQSTVWY"  # no K / R: every peptide ends in its one K
 
@@ -166,7 +168,10 @@ def _write_inputs(inp: Path) -> None:
         peps.append([pep, entry, q, q * 10, round(5 - q * 100, 6), "true" if decoy else "false",
                      "NA" if decoy else 1000, "run1"])  # fmt: skip
         if not decoy:
-            truth.append([pep, "true" if wrong else "false", origin, tag])
+            # a CDS peptide covers its gene's truth ALT codon (gene start + 30; gate 11 recall)
+            a = gene_coords(int(tag[4:]) // 5)[0] + 24 if origin == "cds" else "NA"
+            b = a + 23 if origin == "cds" else "NA"
+            truth.append([pep, "true" if wrong else "false", origin, tag, CONTIG, a, b])
 
     for i in TRUE_GENES:
         add(peptide(n), locus(i), False, 0.0001, False, "cds", locus(i))
@@ -190,7 +195,9 @@ def _write_inputs(inp: Path) -> None:
     tsv(inp / "peptides.tsv",
         ["peptide", "protein_ids", "q_value", "pep", "score", "is_decoy", "intensity", "run"],
         peps)  # fmt: skip
-    tsv(inp / "truth" / "peptides.tsv", ["peptide", "is_wrong", "origin", "locus_tag"], truth)
+    tsv(inp / "truth" / "peptides.tsv",
+        ["peptide", "is_wrong", "origin", "locus_tag", "contig", "start", "end"],
+        truth)  # fmt: skip
     tsv(inp / "truth" / "genes.tsv", ["locus_tag", "tu_id", "contig", "start", "end", "strand"],
         [[locus(i), tu_id(i), CONTIG, *gene_coords(i)] for i in range(N_GENES)])  # fmt: skip
     tsv(
@@ -226,6 +233,9 @@ def _write_inputs(inp: Path) -> None:
          "frameshift_upstream"],
         [[CONTIG, alt_codon(k), "+", locus(10 + k), "A", "V", 2 if k < N_ALT_MULTI else 1,
           "false"] for k in range(N_ALT)])  # fmt: skip
+    tsv(inp / "truth" / "novel_alt_sites.tsv",
+        ["contig", "codon_start", "strand", "orf_id", "ref_aa", "alt_aa", "n_true_peptides"],
+        [])  # fmt: skip
     rows = [_novel_truth(k, c) for c in NOVEL_CLASSES for k in range(N_NOVEL_TRUTH)]
     tsv(inp / "truth" / "novel_orfs.tsv", list(rows[0]), [list(r.values()) for r in rows])
     (inp / "provenance.json").write_text(
@@ -466,6 +476,9 @@ def trace_row(
 
 
 def _manifest_and_logs(out: Path) -> None:
+    (out / "resolved_config.yaml").write_text(
+        f"mapping:\n  tolerant:\n    enabled: true\n    min_len: {TOLERANT_MIN_LEN}\n"
+    )
     manifest = {
         "exit_code": 0,
         "status": "completed",

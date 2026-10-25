@@ -553,5 +553,27 @@
     "issue": "perf/fast-suite-hotpaths (ADR-0053, proposed)",
     "fixture": "tests/helpers/determinants_models_data.py planted(rng), 400 genes, TUs of 1-5, seed 20261023",
     "note": "before = origin/main d29a2ea5 on the same node; enet_path check_input=False, elastic net serial, LightGBM pooled"
+  },
+  "m6_09_operon_calibration_fast": {
+    "source": "docs/specs/M6-09-calibration-gate.md (benchmarks/baseline.json gains the fast-suite runtimes)",
+    "tests": [
+      "tests/calibration/test_operon_calibration.py",
+      "tests/calibration/attacks/test_attack_operons.py"
+    ],
+    "wall_secs": 180.3,
+    "cpus": 2,
+    "slowest_secs": {
+      "attacks/test_attack_operons.py::test_attack_d1_level[fast]": 53.6,
+      "test_operon_calibration.py::test_discordance_p_uniform[fast]": 27.4,
+      "test_operon_calibration.py::test_discordance_pooled_level[fast]": 27.2,
+      "test_operon_calibration.py::test_teeth_normal_tail_fails": 26.7,
+      "test_operon_calibration.py::test_teeth_pi0_misconfigured_fails": 25.5,
+      "test_operon_calibration.py::test_missed_operon_fdr_gate[fast]": 13.6
+    },
+    "node": "session allocation (8 CPUs, -n 2)",
+    "commit": "24267fd3",
+    "date": "2026-10-24",
+    "issue": "M6-09",
+    "note": "pytest -m calibration -n 2 on the two files: 18 passed, 1 skipped (C through the step, until M6-05H), 1 xfailed (D-1, ADR-0055). test_attack_d1_level holds both D-1 checks (pooled level and lowest quartile). Full tier: Slurm 1884493 (rye-01, -n 16, commit 24267fd3), 514 s wall, 21 passed, 1 xfailed (includes test_operon_gate_modes.py)."
   }
 }

@@ -1,9 +1,24 @@
 cff-version: 1.2.0
 message: "If you use GIAP, please cite it as below."
 title: "GIAP: genome-integrated analysis of proteomics data"
+type: software
+abstract: >-
+  GIAP (genome-integrated analysis of proteomics data) takes one assembled bacterial genome plus
+  proteomics evidence and asks what genome context explains about which proteins are detected, and
+  how abundant they are. It places peptides and proteins on the genome with its own error control,
+  builds one gene table keyed by Bakta locus tags, tests genome context (regions, autocorrelation,
+  abundance islands, operons, function, sequence determinants), calls REF/ALT residues and novel
+  ORFs, and writes standard tables, plots and an HTML report.
 authors:
   - family-names: Hoang
     given-names: Khoa
 license: MIT
 repository-code: "https://github.com/khoa-yelo/giap"
 version: 0.0.1
+keywords:
+  - "proteogenomics"
+  - "bacteria"
+  - "genome context"
+  - "operons"
+  - "target-decoy"
+  - "Nextflow"

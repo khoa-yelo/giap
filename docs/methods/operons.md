@@ -27,6 +27,104 @@ iterations); M6-05 marks the tests `unestimated` when it is False.
 **Two-sided p.** p = 2 · min(F, 1 − F), F = F_t((Δ − μ)/σ; ν) (`student_t_two_sided`): exactly 1 at
 Δ = μ, asymmetric about 0 whenever μ ≠ 0, NaN in → NaN out, all-NaN under an unestimated fit.
 
+**Abundance-dependent scale (M6-13, ADR-0055 option (a)).** Proteomics noise grows at low
+abundance. One σ for every OP pair is therefore too narrow for low-abundance pairs and too wide
+for high-abundance ones. Attack D-1 measured the consequence through the step: the pooled level
+failed at α = 0.05 and 0.10, and the lowest-abundance quartile ran at about 3× nominal
+(Slurm 1884493). The scale is therefore modelled as σ_i = σ₀ · exp(γ z_i), where z_i is the
+pair's mean log2 abundance, standardised over the fit pairs (`fit_student_t_scaled`).
+- μ, σ₀, γ and ν are fitted jointly by maximum likelihood, by Nelder–Mead from the constant
+  fit, with ν ∈ [2, 50] and γ ∈ [−2, 2].
+- γ = 0 is the constant model above, and the p of a pair is 2 · sf_t(|Δ − μ̂| / σ̂_i; ν̂)
+  (`scaled_t_two_sided`). It applies from the same 20 usable pairs as the constant model. At
+  n = 20–50 it was measured at level, and more conservative than the constant fit
+  (statistician, M6-13 S-5).
+- The fitted σ̂_i does not depend on how z is centred or scaled. γ is reported per SD of
+  pair-mean log2 abundance, and per log2 unit.
+
+Tested pairs outside the fit's abundance range (imputed pairs) are evaluated at the nearest end
+of that range, not extrapolated.
+
+The constant model is used instead, and the run log says why, when:
+- the pair means vary by less than 0.1 log2 (SD). This is a relevance guard, not an
+  identifiability one: over so narrow a range no noise curve changes σ appreciably;
+- the four-parameter fit fails to converge, collapses, or fits worse than the constant one.
+
+There is no model-selection step: when the four-parameter fit is available it is used. The
+likelihood ratio against γ = 0 is reported, not acted on.
+
+γ̂ describes the spread of Δ **among pairs whose two genes were both detected, given their
+observed mean abundance**. It is not the instrument's noise curve, for two reasons.
+- Detection truncation can narrow the spread at low abundance (in the simulator the effect is
+  not measurable: γ̂ is 0.001 under the null).
+- m carries the same measurement noise as Δ, which attenuates γ̂.
+
+The conditional spread is the right null for the test, which is conditional on detection.
+
+**What the level claim covers.** The claim is the pooled per-pair level. m = a + Δ/2 contains
+the response, so even under homoscedastic noise the pairs in the outer quartiles of m are
+enriched for large |Δ − μ| (1.05–1.17× nominal at α = 0.01, for the constant and the
+log-linear model alike). Within quartiles of an abundance that is independent of Δ (the
+upstream gene's), the null is at level.
+
+The one-detected P(miss) still averages over the raw within-operon ratios. Under
+abundance-dependent noise that sample is too narrow for a low-abundance partner (open, M6-13
+Q1).
+
+The log-linear form is an assumption. Attack D-1b checks a step and a variance floor, and D-1c
+checks per-gene measurement noise.
+
+**The record (full tier, Slurm 1886733 task 6, commit fd701591, R = 1,000; records in
+`local/logs/calibration/m6-13-fd701591-full/`).** Rates are at α = 0.01 / 0.05 / 0.10. Pooled
+rates use 200 random tested pairs per replicate, with bounds 0.0104 / 0.0510 / 0.1013.
+
+| arm | pooled level | worst quartile (cut, × nominal) | γ̂ per SD (SD over replicates) | mean LR |
+|---|---|---|---|---|
+| gate null, `operon_null(1800)` | 0.00982 / 0.04991 / 0.09983, pass | upstream a: 1.06× (Q3, α = 0.01); pair mean m: 1.14× (Q4) | −0.0014 (0.042) | 1.11 |
+| D-1, σ ∝ e^(−z/2) | 0.00979 / 0.05016 / 0.09930, pass | planted z, Q1: 0.00929 / 0.0478 / 0.0969, pass (bounds 0.0106 / 0.0512 / 0.1017); Q4 1.06× | −0.513 (0.041); planted −0.5 | 140.2 |
+| D-1b-floor | 0.00986 / 0.05013 / 0.09934, pass | planted z, Q4: 1.22× / 1.15× / 1.11× | −0.430 (0.042) | 105.0 |
+| D-1b-step | 0.00954 / **0.05168** / **0.10212**, confirmed fail (block 2: 0.05173 / 0.10312) | planted z, Q2: 1.81× / 1.82× / 1.66×; Q3: 0.22× / 0.35× / 0.43× | −0.286 (0.042) | 45.7 |
+| D-1c, per-gene noise | 0.01012 / 0.04794 / 0.09688, pass | true upstream a, Q4: 1.68× / 1.25× / 1.14× | −0.229 (0.040) | 42.0 |
+
+- No quartile in any arm reaches the 2α escalation. The highest is D-1b-step Q2, at 1.82×.
+- The constant model under the same null gives a worst upstream-a quartile of 1.04× and a worst
+  m quartile of 1.14×. On m, the log-linear model is no worse than the constant one.
+- Every one of the 1,000 fits in every arm is `loglinear:None`. No arm fell back to the constant
+  model.
+- γ̂ per log2 unit: null −0.0005, D-1 −0.220, floor −0.185, step −0.124, D-1c −0.098.
+- Under D-1c, γ̂ is less than half of D-1's. This is the attenuation that measurement noise in m
+  causes (above).
+- The gate itself (null, R = 1,000): KS p = 0.511, and the BH any-call share is 0.004 / 0.034 /
+  0.075 (bounds 0.0140 / 0.0615 / 0.1167).
+
+Power uses `discordance_power(1800, 40, effect)`, R = 1,000. The share of planted pairs with
+p ≤ α is shown for each model, with d = log-linear − constant (SE):
+
+| effect | model | α = 0.01 | 0.05 | 0.10 |
+|---|---|---|---|---|
+| 2.0 (gated at α = 0.05) | log-linear | 0.0186 | 0.6393 | 0.8841 |
+| | constant | 0.0174 | 0.6453 | 0.8872 |
+| | d (SE) | +0.0013 (0.0004) | **−0.0059 (0.0011)** | −0.0031 (0.0006) |
+| 4.0 (recorded) | log-linear | 0.0789 | 0.9919 | 0.9979 |
+| | constant | 0.0637 | 0.9928 | 0.9979 |
+| | d (SE) | +0.0152 (0.0011) | −0.0009 (0.0002) | +0.00003 (0.00008) |
+
+- Non-inferiority passes: d − 2 SE = −0.0082 ≥ −0.02. The cost at α = 0.05 is 0.6 points.
+- BH recall at q = 0.10 is 0 for both models at both effects, consistent with D-3: no
+  per-pair discordance call at these effects.
+- The records do not hold a per-replicate CI for the quartile rates. The bounds treat the pairs
+  of a quartile as independent (as for D-1, M6-09).
+- The teeth check (D-1 with `sigma_model = "constant"` must still fail) runs in the fast tier
+  only. It passed at f9c06a4c, and its numbers go to a private log, not this record.
+
+The claim covers the **pooled** level under smooth, monotone abundance-dependent noise.
+- Under the variance floor and under per-gene measurement noise, the top-abundance quartile
+  still runs at up to about 1.7× nominal at α = 0.01. The constant model runs at about 3×,
+  in the lowest quartile.
+- A **discontinuous** σ (D-1b-step) fails even the pooled level. No smooth σ(z) removes that,
+  and it is outside the claim (ADR-0055 Amendment 1, accepted by Khoa 2026-10-24). In the full
+  tier it is a strict xfail, confirmed in both blocks at α = 0.05 and 0.10 (above).
+
 **What the p means.** M6-05 fits the t on the same OP pairs it then tests, so its p is a
 **plug-in** p: the parameters absorb part of each pair's own deviation. With a fit on 400 draws the
 plug-in rejection rate is 0.0102 / 0.0506 / 0.1007 at α = 0.01 / 0.05 / 0.10 (R = 1,000, recorded
@@ -48,18 +146,23 @@ the fit is returned unestimated, so M6-05 tests nothing.
 carries its uncertainty. The per-pair effect M6-05 reports is described under *Discordance*
 below.
 
-## Discordance (M6-05, pass 1)
+## Discordance (M6-05, M6-05H)
 
 Module `giap.operons.discordance` (GIAP_SPEC.md §7.4.3, §8.1 row "Operon discordance"; lead
 decisions in `docs/specs/M6-05-discordance.md` and M6-index decision 1).
 
-**Test.** The t of the previous section is fitted to Δ over the *usable* OP pairs: both genes
-eligible (not `partial`), both detected, both log2 abundances finite, neither imputed. Fewer than
-20 usable pairs, or a fit with `converged = False`, leaves every OP pair `test = none` with
-`too_few_op_pairs` and `unestimated`, and no family is formed. Otherwise every eligible
-both-detected OP pair with a finite Δ is tested: `p = 2 · min(F, 1 − F)` under the fit. Pairs whose
-abundance is imputed are tested but not fitted (spec §7.4.2, example 5). The fit and the test use
-the same pairs, so p is a plug-in p (below).
+**Test.** The t of the previous section, with the abundance-dependent scale (M6-13;
+`sigma_model = "loglinear"`, the default; `"constant"` is the M6-05 null), is fitted to Δ and the
+pair-mean log2 abundance m over the *usable* OP pairs: both genes eligible (not `partial`), both
+detected, both log2 abundances finite, neither imputed. Fewer than 20 usable pairs, or a constant
+fit with `converged = False`, leaves every OP pair `test = none` with `too_few_op_pairs` and
+`unestimated`, and no family is formed. A failed four-parameter fit is not that case: it falls
+back to the constant null with a WARNING. Otherwise every eligible both-detected OP pair with a
+finite Δ is tested: `p = 2 · min(F, 1 − F)`, F = F_t((Δ − μ̂) / σ̂_i; ν̂). Pairs whose abundance
+is imputed are tested but not fitted (spec §7.4.2, example 5); their z is clamped to the fit
+range. The run-log event `operons.discordance_fit` records the null in force (γ̂ per SD and per
+log2, the fallback reason, the LR). The fit and the test use the same pairs, so p is a plug-in p
+(below).
 
 **Effect and CI.** `effect = Δ − μ̂` in log2 units: how far the pair sits from the typical
 within-operon ratio. No CI is reported for it (`ci_low`, `ci_high` NA): a single pair has no
@@ -67,11 +170,26 @@ sampling replicate, and the t prediction interval is a statement about the null,
 effect (M6-05 lead decision 2). The claim GIAP makes is "discordant at q ≤ 0.1", and that claim
 carries its q.
 
-**Family.** One BH family per run: every OP pair with `test = both_detected_t`. In pass 1 the
-one-detected branch is `unestimated (no_detection_limit_model)`, so this is literally §7.4.3's
-"all tested OP pairs". When M6-05H turns on P(miss), M6-index decision 1 keeps P(miss) out of the
-family and without a q. That departs from §7.4.3's "both kinds together", so it needs an ADR at
-that point. P(miss) is not uniform under any null, so BH over the mixture has no justification.
+**One detected (M6-05H).** When the `operons` step has C11 peptide hits and M6-02's model in
+force is usable, an OP pair with exactly one *seen* gene (at least `k_min` of its observable
+peptides assigned in C11, M6-02 lead decision 9) and no both-detected t test is
+`one_detected_pmiss`. The unseen gene u may still carry a `detected` call or an imputed value;
+the event is about peptides seen, which is what the detection-limit model conditions on. `stat` =
+the seen partner v's log2 abundance a_v, `p_value` = P(miss) of u under the out-of-fold model of
+**v's** TU (v's abundance enters the score, so v must not have trained it; the full model when v
+has no TU), averaged over the oriented ratios r of the fit pairs (Δ when u is downstream, −Δ
+when upstream), `method = detection_limit`, `null_model = p_detect_model`. A gene with no
+observable peptide (P(miss) NaN), no peptide hits or an unusable model leaves the pair `none`
+with `no_detection_limit_model`; without a usable model the event falls back to
+`detected_a xor detected_b`. A row whose partner has no abundance is `none` with no flag. A
+replicate model fitted with `detectability.covariates` cannot be scored until the step joins the
+M4-10 covariates, so its one-detected rows are `none` with `pmiss_covariates_missing` and the
+step logs a WARNING.
+
+**Family.** One BH family per run: every OP pair with `test = both_detected_t`. M6-index decision 1
+keeps P(miss) out of the family: a `one_detected_pmiss` row has `q_value` NA and no extra flag.
+That departs from §7.4.3's "both kinds together", which is ADR-0056 (accepted by Khoa, 2026-10-24).
+P(miss) is not uniform under any null, so BH over the mixture has no justification.
 
 **Relative scale.** With `abundance_scale = relative` (MaxLFQ, summed intensity, unknown;
 §7.3.4) Δ is not a ratio of copy numbers, because each protein's normalisation constant enters it.
@@ -1006,6 +1124,188 @@ level; at engine level the bound above also caps the damage (a false call needs 
 — power and the saturation of q; (c) a small genome (≈ 300 NO pairs, ≈ 150 decoys per set), where
 the +1 floor dominates.
 
+## The M6 gate, simulation half (M6-09)
+
+**Where.** The suites are in `tests/calibration/test_operon_calibration.py` and the attacks in
+`tests/calibration/attacks/test_attack_operons.py`, with helpers in `tests/calibration/_operon_gate.py`.
+Lead defaults are in docs/specs/M6-09-calibration-gate.md.
+
+**Setup.**
+- Each replicate simulates one 1,800-gene genome with `simulate_operons(cfgs,
+  suite_seed(stream, i))` and runs the merged `missed_operons` and `discordance` steps on its pair
+  table.
+- Pair classes use `calibration.yaml`'s UniOP threshold (0.5, ADR-0022).
+- A missed-operon call is **true** if it is a planted co-abundant pair or a UniOP false negative
+  (the two genes share a TU). Every other call is false.
+- Every gate goes through `_criteria` (ADR-0015).
+- Full tier: Slurm **1884493** (commit 24267fd3, rye-01, 514 s; 21 passed, 1 xfailed). It is
+  the rerun of Slurm 1884412 (commit 90a0e709, before D-1 became a strict xfail) and gives
+  identical numbers. The one exception is D-1's quartile, now cut on the planted z, which moves
+  in the fourth decimal.
+- Fast tier: the session allocation at -n 2, 180 s (18 passed, 1 skipped, 1 xfailed).
+- Logs: `local/logs/calibration/m6_09_full_24267fd3/`.
+- M6-13 full tier, `discordance` suite only: Slurm **1886733** task 6, commit fd701591, barley-03,
+  8 CPUs. The wall time is 1:04:30 (pytest 3,866 s). Result: 24 passed and 1 xfailed, the strict
+  D-1b-step xfail.
+  - The tests ran from the frozen worktree `local/worktrees/cal-m613`, clean at fd701591 (the
+    pytest rootdir).
+  - The log does not print `giap.__file__`. The shared venv's editable giap points at main's
+    `src`, which has no `fit_student_t_scaled`, so the passing σ tests must have imported a
+    worktree's `src`. src/ is identical from 1abae97e to f9c06a4c.
+  - The frozen xfail reason still reads "amendment pending". f9c06a4c changes only that string.
+  - Log: `local/logs/giap-cal-m613.1886733_6.out`. Records:
+    `local/logs/calibration/m6-13-fd701591-full/`.
+- M6-13 fast tier, `-m calibration -k calsuite_discordance`, at f9c06a4c: the session allocation
+  at -n 2, 593 s, 27 passed and 1 xpassed.
+  - The xpass is D-1b-step, which is non-strict in the fast tier: pooled 0.00925 / 0.05065 /
+    0.0999 against 0.0114 / 0.0531 / 0.1042, Q2 1.82×. That matches the earlier fast run (0.0507,
+    Q2 1.8×).
+  - The earlier count of 41 passed came from a selection that was not recorded, so the two counts
+    are not comparable.
+
+### Missed operons (§7.4.7 criterion 1; §8.1: one decoy-FDR family per run)
+
+Shipped configuration (CV + SW decoys, π₀ = 1), at R = 300:
+- `missed_operon_power(1800, 50, 0.1)` makes **no call at any q**: the median of the smallest q
+  is 0.95.
+- This is a **recorded vacuous pass** (Khoa, 2026-10-22). The family is near-powerless by
+  construction: a call needs near-identical abundance of the two genes, and the absence of calls
+  is not evidence against missed operons.
+- Two mechanisms cause it:
+  - the identifiability bound ("Power", above);
+  - the per-bin +1 floor: SW decoys are absent from the < 150 bp bins, so with the SW set every q
+    is at least the target share of those bins.
+
+**Non-vacuous arm (gated).** 100 planted pairs at 10⁻³ SD, `operons.decoys = [convergent]`.
+
+| tier | q 0.01 | q 0.05 | q 0.10 (bound) | calls at 0.10 | planted recall |
+|---|---|---|---|---|---|
+| fast, R = 50 | vacuous | vacuous | 0.034 ± 0.004 (0.108) | 101.6 | 0.970 |
+| full, R = 300 | vacuous | 0.0006 (0.050) | **0.0329 ± 0.0017** (0.1035) | 100.1 | 0.956 |
+
+**Teeth.** With `operons.pi0 = 0.1` the mean FDP is 0.644, a confirmed fail (fast tier).
+
+**Power grid (recorded; shipped configuration, R = 50 per cell, full tier).**
+- Streams are `missed_operons.power.k<k>.sd<e>`.
+- Every one of the 9 cells has **0 calls**, planted recall 0 and mean FDP 0.
+
+Median of the smallest q per cell:
+
+| planted \ effect | 0.25 SD | 0.5 SD | 1.0 SD |
+|---|---|---|---|
+| 20 | 0.868 | 0.940 | 0.941 |
+| 50 | 0.754 | 0.874 | 0.956 |
+| 100 | 0.634 | 0.798 | 0.925 |
+
+### Discordance (§7.4.7 criterion 3; §8.1: one BH family per run over `both_detected_t`)
+
+Scenario: `operon_null(1800)`, R = 1,000 (full).
+
+| check | α / q = 0.01 | 0.05 | 0.10 |
+|---|---|---|---|
+| pooled level (200 random tested pairs per replicate; bound) | 0.00979 (0.01044) | 0.05005 (0.05097) | 0.09984 (0.10134) |
+| BH family, any call (complete null: FDP = FWER; bound) | 0.003 (0.0135) | 0.031 (0.061) | 0.069 (0.116) |
+
+- KS uniformity (one random tested pair per replicate): p = 0.545 (fast tier: 0.707).
+- Fast tier, R = 100: level 0.00925 / 0.05085 / 0.10065; any-call share 0 / 0.02 / 0.04.
+- Teeth: a normal tail with the fitted location and scale gives a rate of 0.052 at α = 0.01,
+  against a bound of 0.0114. That is a confirmed fail.
+- The pooled bound treats the 200 p of one run as independent, but they share the fitted t. The
+  per-replicate KS test is the independent check.
+
+### Attacks (§7.4.7 criterion 2, §8.5)
+
+| attack | status | full tier (R) | mean FDP or rate at q / α = 0.10 (bound) |
+|---|---|---|---|
+| A, AR(1) ρ = 0.5, shipped | gated, **vacuous** | 300 | no call (median min q 0.96) |
+| A, ρ = 0.5, non-vacuous | gated, **pass** | 300 | 0.0441 ± 0.0019 (0.1037); 104.7 calls |
+| A′, ρ = 0.9, shipped | recorded | 100 | no call (median min q 0.94) |
+| A′, ρ = 0.9, non-vacuous | recorded, below the 0.15 escalation | 100 | **0.0463 ± 0.0038**; 104.0 calls |
+| B, detection × distance, shipped | gated, **vacuous** | 300 | no call (median min q 0.95) |
+| B, non-vacuous | gated, **pass** | 300 | 0.0194 ± 0.0016 (0.1031); 63.8 calls, recall 0.62 |
+| M-2, Δ SD ∝ e^(−z/2), NO +1 SD | gated, **pass** | 300 | 0.0629 ± 0.0031 (0.1063) |
+| M-1, co-imputation, shipped / CV only | recorded (escalation at FDP > 0.15) | 300 | no call (median min q 0.95 / 0.31) |
+| M-1, 6,000 genes, shipped | recorded | 50 | no call (median min q 0.85) |
+| C, oracle P(miss), `operon_null` | recorded | 300 | 0 / 0.0127 / 0.0832 at α 0.01 / 0.05 / 0.10 (80,275 pairs) |
+| C, oracle P(miss), detection attack | recorded, below 2α | 300 | 0.0176 / 0.0649 / 0.1189 (27,660 pairs) |
+| **D-1**, Δ SD ∝ e^(−z/2), pooled | gated, **confirmed fail** (strict xfail `test_attack_d1_level`, ADR-0055) | 1,000 | 0.00760 / **0.0521** / **0.1064** (bounds 0.0104 / 0.0510 / 0.1013) |
+| **D-1**, lowest-abundance quartile (planted z) | gated, **fail** (same strict xfail) | 1,000 | 0.0273 / 0.157 / 0.277 (2.7×, 3.1×, 2.8×) |
+| **D-1**, log-linear σ (M6-13), pooled | gated, **pass** (`test_attack_d1_level`, xfail removed) | 1,000 | 0.00979 / 0.05016 / **0.09930** (bounds 0.0104 / 0.0510 / 0.1013) |
+| **D-1**, log-linear σ, lowest quartile (planted z) | gated, **pass** | 1,000 | 0.00929 / 0.0478 / **0.0969** (bounds 0.0106 / 0.0512 / 0.1017); worst quartile 1.06× |
+| D-1, log-linear σ, γ̂ | gated (γ̂ ∈ [−0.6, −0.4]), **pass** | 1,000 | −0.513 (SD 0.041; planted −0.5) |
+| D-1, constant σ (teeth) | gated, fast tier only, **confirmed fail** as required | 100 | private log |
+| **D-1b-floor**, log-linear σ | gated, **pass**; quartiles recorded | 1,000 | 0.00986 / 0.05013 / **0.09934**; worst quartile Q4 1.22× (below 2α) |
+| **D-1b-step**, log-linear σ | gated, **confirmed fail**: strict xfail, outside the claim (ADR-0055 Amendment 1) | 1,000 (+ block 2) | 0.00954 / **0.05168** / **0.10212** (block 2: 0.05173 / 0.10312); Q2 1.82× (below 2α) |
+| **D-1c**, per-gene noise, log-linear σ | gated, **pass**; quartiles recorded | 1,000 | 0.01012 / 0.04794 / **0.09688**; worst quartile (true a) Q4 1.68× (below 2α) |
+| null quartiles on m and on a, both models | recorded (2α escalation) | 1,000 | worst on a 1.06× (log-linear), 1.04× (constant); on m 1.14× for both |
+| null γ̂, log-linear σ | gated (\|γ̂\| ≤ 0.02 + 3 SD/√R; ≥ 95 % `loglinear:None`), **pass** | 1,000 | −0.0014 (SD 0.042); 1,000 of 1,000 `loglinear:None` |
+| power non-inferiority, effect 2.0, α = 0.05 | gated (d − 2 SE ≥ −0.02), **pass** | 1,000 | 0.6393 vs 0.6453; d = −0.0059 (SE 0.0011) |
+
+What the attacks show:
+
+- **FDR control holds in every tested arm that makes calls.** All of those arms use one
+  configuration: convergent-only decoys and 100 planted pairs at 10⁻³ SD. The arms cover AR(1)
+  at ρ = 0.5 and 0.9, detection confounded with distance, and an abundance mix that differs
+  between NO pairs and decoys. A′ at ρ = 0.9 is 0.046, well below the 0.15 escalation threshold.
+  - With the shipped decoys, A, A′ and B make no call, so they test nothing beyond "no false
+    call".
+  - Other decoy configurations, and planted spreads where calls are rarer, are not covered.
+- **M-1 made no call in any arm**: shipped decoys (median min q 0.95), convergent-only (0.31) and
+  6,000 genes (0.85). So **M-1 is untested here**. This is a no-call result, not evidence of
+  robustness.
+  - In the shipped arm, the SW-sparse bins hold every q high.
+  - The convergent-only arm has no SW decoys, and the reason it stays above q 0.1 has not been
+    analysed.
+  - The PR #148 failure (balanced classes, ~2,000 NO pairs) is not reproduced, and the risk stays
+    open. The ADR question, whether to exclude imputed pairs, is unchanged.
+- **C (the one-detected arm, oracle P(miss)).** With the generating detection model, the share of
+  one-detected pairs with P(miss) ≤ α is at most 1.8 α. That is below the 2 α revisit threshold,
+  so the M6-05 Q3 decision (P(miss) with no q, outside the BH family) stands.
+  - This is the oracle P(miss); the M6-02 *fitted* model is not used here.
+  - The step's arm (M6-05H) is not merged, and `test_attack_c_through_the_step` skips until it is.
+- **D-1 fails the pooled level.** It is confirmed at α = 0.05 and 0.10, where the rate is 4.2 %
+  and 6.4 % above nominal (0.0521 and 0.1064); within the lowest quartile it is about 3× nominal. One t for all pairs puts null calls
+  on noisy, low-abundance pairs.
+  - D-1 stays gated: `test_attack_d1_level` checks the pooled level and the quartile, as a
+    strict xfail naming ADR-0055 (proposed), in the ADR-0049 pattern.
+  - A sharded `discordance` task followed by `--merge` exits 1 on it until ADR-0055 is decided.
+    That is intended.
+  - In an oracle check (scratch only, not reproducible from the repo; the implementer PR
+    re-measures it through D-1 and D-1b, R = 150), a heteroscedastic t with σ_i = σ₀ e^(γ z_i)
+    restores the level: pooled 0.0103 / 0.0510 / 0.1004, lowest quartile 0.0085 / 0.047 / 0.095.
+    Under the gate null it changes nothing.
+  - Khoa decides ADR-0055: (a) that method, recommended, or (b) a narrowed and labelled claim.
+- **D-2** (TU-chained Δ) is built into every scenario. **D-3** is the M6-05 review table above.
+
+**Verdict (simulation half).** §7.4.7 criteria 1–3 pass at full R:
+- criterion 1, the gate with the shipped decoys, is a recorded vacuous pass (Khoa, 2026-10-22).
+  The extra convergent-only arm also passes, non-vacuously;
+- criterion 2 is attack A (ρ = 0.5). It too is **vacuous with the shipped decoys**, and passes
+  non-vacuously only in the extra convergent-only arm. Attack B behaves the same way;
+- criterion 3 is the KS test and the pooled level.
+
+Attacks A, B and M-2 pass; A and B with the shipped decoys are vacuous. A′ and C are recorded
+below their thresholds.
+
+- **missed_operons: MET (vacuous with the shipped decoys; extra arm FDP 0.033).** It is not
+  power evidence, and FDR evidence comes only from the convergent-only arm.
+- **Discordance gate: NOT MET (D-1), pending Khoa (ADR-0055).** The §15.4 half of the gate
+(M6-11/M6-12, RegulonDB) is separate.
+
+**Verdict after M6-13 (Slurm 1886733, fd701591).** ADR-0055 option (a) is in place.
+- **Discordance gate: MET** for the claim of ADR-0055 and its Amendment 1: the pooled per-pair
+  level under smooth, monotone σ(abundance).
+- D-1, D-1b-floor and D-1c pass the pooled level at R = 1,000, and D-1's lowest quartile passes
+  its bound.
+- The gate null is unchanged: level, KS and BH all pass.
+- The log-linear σ is non-inferior in power.
+- D-1b-step is a confirmed fail, as pre-registered. It is outside the claim and stays a strict
+  xfail.
+- Recorded limits:
+  - top-quartile excess up to 1.68× at α = 0.01 under D-1c, and 1.22× under the floor (below 2α);
+  - the pair-mean-m quartiles are not a level check;
+  - one-detected P(miss) under abundance-dependent noise is still open (M6-13 Q1).
+
 ## Sign-off
 
 Statistician (PR #140 review, 2026-10-21): FDR control and the KDE evaluation **approved**; the
@@ -1030,3 +1330,44 @@ offset-preserving coincidence null and the corrected bound). Both fixes are spec
 cut-off calibration (M6-12)"; once the lead accepts them the design is approved. Directon
 resampling, the stable rule, the fixed-t CIs with the selection statement, and the degenerate rules
 are sound.
+
+Statistician (M6-09, 2026-10-24; Slurm 1884493, rerun of 1884412):
+- **missed_operons: MET (vacuous with the shipped decoys; extra arm FDP 0.033).**
+- §7.4.7 criteria 1–2 and attacks A and B are vacuous with the shipped decoys. They are
+  non-vacuous only in the extra convergent-only arm, and M-2 likewise.
+- Criterion 3 passes on the gate null. **Discordance gate: NOT MET (D-1), pending Khoa:** attack D-1 is a
+confirmed failure of the discordance level, gated as strict xfails naming ADR-0055 (proposed).
+
+Statistician (M6-13 design review, 2026-10-24; scratch oracles at R = 1,000, Slurm 1885387,
+1885388, 1885429, 1885466 and 1885467; `local/logs/calibration/m6_13_statreview{,_a}/`):
+**approved with edits.**
+- The log-linear σ restores D-1 (pooled 0.0101 / 0.0505 / 0.1002; lowest quartile 0.0093 /
+  0.0478 / 0.0969) at no cost under the null.
+- It is at level from 20 pairs, so there is no separate 50-pair gate.
+- D-1b-step fails the pooled level (0.0518 / 0.1024), which confirms the spec-writer's
+  prediction. No smooth σ(z) fixes it, so it is a strict xfail under an ADR-0055 amendment.
+- The variance floor and per-gene measurement noise (new D-1c) pass the pooled level. Their top
+  quartile runs at up to 1.7× nominal at α = 0.01: recorded, with a 2α escalation.
+- Quartiles of the pair mean m are not a valid level check. m contains Δ/2, and the shipped
+  constant method fails them under the gate null. Quartiles of the upstream gene's abundance are
+  at level.
+- Power non-inferiority uses an absolute margin of 0.02. The measured difference is −0.006 at
+  α = 0.05.
+- Decisions S-1 to S-11 and the Q1–Q8 rulings are in docs/specs/M6-13-discordance-abundance-sigma.md.
+
+Statistician (M6-13 full-tier record, 2026-10-24; Slurm 1886733 task 6 at fd701591, R = 1,000;
+`local/logs/calibration/m6-13-fd701591-full/`): **signed off.**
+- D-1 under the log-linear σ is at level: pooled 0.00979 / 0.05016 / 0.09930, and the lowest
+  planted-z quartile is 0.00929 / 0.0478 / 0.0969, both within their bounds. γ̂ = −0.513
+  against a planted −0.5.
+- D-1b-floor and D-1c pass the pooled level. Their worst quartiles (1.22× and 1.68× at
+  α = 0.01) are below the 2α escalation.
+- D-1b-step is a confirmed fail in both blocks at α = 0.05 and 0.10, as pre-registered. It is a
+  strict xfail under ADR-0055 Amendment 1.
+- The null is unchanged: level, KS p = 0.511 and BH. γ̂ = −0.0014, and every fit stays
+  log-linear.
+- Power non-inferiority passes, with d = −0.0059 (SE 0.0011) at α = 0.05.
+- The fast tier at f9c06a4c (27 passed, 1 xpassed) agrees.
+- No bound, tolerance or R changed (R3).
+- Condition: the text of ADR-0055 Amendment 1 is not in `docs/adr/` on this branch. It must be
+  committed before merge so that the strict xfail's reason resolves to a document.

@@ -44,6 +44,7 @@ from helpers.pilot_metrics_m10 import (
     Pilot,
     World,
     build_pilot,
+    load_metrics,
     output_files,
     pep_row,
     run_cli,
@@ -319,10 +320,11 @@ def test_template_placeholders_resolve_and_numbers_cite_sources(
     computed: tuple[Pilot, Path],
 ) -> None:
     p, out = computed
-    template = TEMPLATE.read_text(encoding="utf-8")
+    doc = _metrics(out)
+    # M10-07: <!-- if/ifnot PATH --> blocks are applied first (metric 8 only with --entrapment)
+    template = load_metrics().sections(TEMPLATE.read_text(encoding="utf-8"), doc)
     paths = PLACEHOLDER.findall(template)
     assert paths, "the template has no placeholder"
-    doc = _metrics(out)
     for path in paths:
         _resolve(doc, path)  # every placeholder of the committed template resolves
     report = out / "REPORT.md"
@@ -354,7 +356,7 @@ def test_report_wording(computed: tuple[Pilot, Path]) -> None:
     # example 10: islands 0.5; operon flags both empty; enriched categories missing in A1
     assert "none in either arm" in low
     assert "function module off in a1" in low
-    for section in ("Status", "TE1", "Hypotheses", "Pending in pass 2", "Deviations"):
+    for section in ("Status", "TE1", "Hypotheses", "Not evaluated", "Deviations"):  # M10-15
         assert section in text, section
 
 

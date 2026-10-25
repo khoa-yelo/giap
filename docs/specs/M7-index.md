@@ -54,8 +54,9 @@ the spec owes — split into two passes:
 - **Pass 2 (hardening and the gate):** 10 class error rates, 11 class FDR, 12 simulator scenarios,
   **13 the gate** (F1 × 2, class-FDR suite, attack 6), **14 TE2 proxy** and `id_mixups`, 15
   integration hardening (goldens, in-pipeline contracts, resume/failure, real-tool arm).
-- **Decision-gated:** 16 stop-spanning peptides (Sec, read-through, `cterm_extension`). The merged
-  matcher can never place them; the lead (and Khoa, if option B or C) decides first.
+- **Decided (Khoa, 2026-10-24: option B, ADR-0058):** 16 stop-spanning peptides (read-through,
+  `cterm_extension`; Sec at internal codons only if Khoa accepts ADR-0058 item 6). Three PRs:
+  16a matcher + decoys, 16b M7 calls + `makedb` `X` + simulator, 16c recoded Sec/Pyl (gated).
 
 Nothing is dropped; it is scheduled. Each producer issue states how its output reaches
 `giap run`: 04 for the three Module 5 files, 08 for the four Module 6 files.
@@ -90,10 +91,10 @@ commit (the M6 pattern) after deciding the questions below.
 | 13 | [M7-13](M7-13-calibration-gate.md) | C | 2 | **the gate**: variant F1, same-strain check, novel F1, class-FDR suite, attack 6 (3 PRs: 13a variants, 13b novel, 13c evidence) | 05, 09–12, 11b | 60 harness (+≈ 750 tests) | yes |
 | 14 | [M7-14](M7-14-te2-proxy-and-id-mixups.md) | V | 2 | **TE2 proxy** (Nissle, weekly Slurm) and the `id_mixups` QC row | 04, 05 | 170 | no |
 | 15 | [M7-15](M7-15-integration-hardening.md) | T | 2 | goldens, in-pipeline contracts, resume/failure, real-tool arm, VCF FILTER, `novel_candidate_id` | 04, 08, 09 | 200 | no |
-| 16 | [M7-16](M7-16-stop-codon-readthrough.md) | R | gated | stop-spanning peptides (Sec, read-through) — options A/B/C, ADR | decision | 220 | yes |
+| 16 | [M7-16](M7-16-stop-codon-readthrough.md) | R | 2 | option B (ADR-0058): annotated terminal stop consumable at cost 1, mirrored in decoys; 16a matcher/decoys/index, 16b variants U/O, cterm call + patch, `makedb` `X`, simulator; 16c recoded Sec/Pyl (needs Khoa) | merged M3; 01, 05, 07, 09, 11b, 12, 18 | 370 (+130 sim) | yes |
 | 18 | [M7-18](M7-18-variants-ambiguous-residues.md) | V | 2 | variants on B/J/O/U/X/Z peptide residues: skip ambiguous/rare, U@TGA and O@TAG as REF, one event (K-12 crash fix) | 02–05 | 75 | no |
 
-Total ≈ 3,930 code lines (+ ≈ 410 simulator lines, ≈ 5,500 test lines); pass 1 ≈ 2,730. The
+Total ≈ 4,080 code lines (M7-16 re-estimated 220 → 370 after option B) (+ ≈ 540 simulator lines, ≈ 5,500 test lines); pass 1 ≈ 2,730. The
 spec's 2 weeks fits if the two pass-1 tracks run in parallel (they share no code until 08/09) and
 M7-12 is written while pass 1 finishes.
 
@@ -105,7 +106,8 @@ Pass 1  V: 01 ─► 02 ─► 03 ─► 04 (giap run: 3 Module 5 files) ─► 
 Pass 2  02,04,05 ─► 10 ┐
         06,09 ──► 11 ──┤
         08 ─────► 12 ──┴─► 13 (the gate)        04,05 ─► 14 (TE2)      04,08,09 ─► 15
-Gated   decision ─► 16 ─► (re-run 13 G2 and 14 with stop_codon sites; M7-07 cterm patch rows)
+B (ADR-0058)  16a ─► 16b ─► (re-run 13 G2 and 14 with stop_codon sites; M7-07 cterm patch rows)
+              16a ─► 16c (only after Khoa accepts ADR-0058 item 6)
 ```
 
 01 and 06 have no M7 dependency and start first; 06 is the longer chain (its wiring issue 08 is
@@ -120,7 +122,7 @@ the largest), so N is the critical path.
 | C | 03, 08 | 08 includes the OSTIR range recording (one small `sbatch`) |
 | D | 04, 09, 05 | 04 is the Module 5 integration milestone (real `giap_run.sbatch`); 08's real run ends wave C |
 | E (hardening) | 10, 11, 12 in parallel; then 13, 14, 15 | 13 submits `calibration_full.sbatch` tasks `variants`, `novel_orfs` (≤ 2 jobs, ≤ 32 CPUs); 14 adds a weekly entry |
-| F (gated) | 16 | only after the lead/Khoa decision |
+| F | 16a, then 16b (and 16c if Khoa accepts item 6) | option B accepted; statistician reviews M7-16 before 16a code; 16a re-runs the M3-21 placement suites fast + full on Slurm |
 
 ## What M7 consumes (checked against merged main, c4d8841)
 
@@ -170,7 +172,7 @@ full calibration tier (M7-13) are Slurm jobs; the per-PR fast tier fits the 8-CP
 | class FDR | no class-tagged decoys and not de novo; or a class's paired share < 80 % | `class_fdr = unestimated`, flag `class_fdr_unestimated`, ≥ 2-peptide rule (§7.6.4) |
 | terminator evidence | no terminator layer | NA, run flag `layer_missing:terminators` |
 | `id_mixups` | no peptides | the M4-16 NA + `requires_variants` stays |
-| `stop_codon` / `cterm_extension` calls | always, with the merged matcher | implemented, unit-tested, unreachable until M7-16 |
+| `stop_codon` / `cterm_extension` calls | until M7-16a/16b merge; afterwards only at annotated terminal stops (internal Sec codons need ADR-0058 item 6) | implemented, unit-tested, unreachable until M7-16 |
 
 No silent fallbacks: every NA carries a flag, and no `unestimated` value is ever turned into a
 number. No `uncalibrated` flag anywhere (ADR-0021 Amendment 1).
@@ -216,7 +218,7 @@ ADR-0012 evidence and what a missing promoter or terminator does *not* prove). U
   `promoter_supported`/`terminator_supported` and ADR-0013's `readthrough_candidate` already
   accepted): through the schema; ADR-0011/0013 took vocabulary additions to Khoa, M6 lead decision 6
   accepted them as lead — the lead decides which precedent applies.
-- **Stop-spanning peptides** (M7-16): an ADR changing Module 2's search space → Khoa.
+- **Stop-spanning peptides** (M7-16): ADR-0058, accepted by Khoa (B, `X`); item 6 pending.
 - An ADR on the call rule **only if** attack 6 or a gate check fails (R3).
 
 ## Backlog items folded in (docs/backlog.md, not duplicated)
@@ -235,9 +237,10 @@ ADR-0012 evidence and what a missing promoter or terminator does *not* prove). U
 
 - **No traceback in the mapper.** Module 5 recomputes it (M7-01). A disagreement fails the step;
   the conformance criterion on the real sim100k `peptide_hits.tsv` is the early warning.
-- **Stop codons are unmatchable.** Two G8/ADR-0013 features (`stop_codon`, `cterm_extension`) and
-  half of TE2's exception list cannot occur in v1 as built (M7-16). The gate as written still
-  passes; its `stop_codon` clause is then vacuous, and PROGRESS.md must say so.
+- **Stop codons are unmatchable** until M7-16a/16b merge (option B, ADR-0058). After them only
+  annotated terminal stops are consumable; the fdnG Sec sites (internal TGA) stay unmapped unless
+  Khoa accepts ADR-0058 item 6, so on Nissle TE2's `stop_codon` clause stays vacuous and
+  PROGRESS.md must say so.
 - **Attack 6** (above).
 - **RBS threshold from the same run.** It needs ≥ 20 detected genes with OSTIR scores; sim100k may
   sit near that floor, so pass-1 runs may call few intergenic ORFs. Pass 1 accepts that (M7-08 Q4).
@@ -283,8 +286,9 @@ real-tool arm (15). All within R14 (≤ 32 CPUs at once for M7's own jobs).
 
 1. ~~Replicate count for a variants suite~~ resolved by ADR-0042 (20 / 100). New: replicate count
    for the 1-Mb novel-ORF gate, `novel_orfs_gate: 10 / 300` (ADR-0048 proposed; M7-13 Q1).
-2. Stop-spanning peptides (M7-16): leave dormant (A), annotated-stop substitution (B, proposed), or
-   any-stop substitution (C)? B and C change Module 2's search space and need an ADR.
+2. ~~Stop-spanning peptides (M7-16)~~ answered 2026-10-24: B, patch residue `X` (ADR-0058). New:
+   ADR-0058 item 6, also consume annotated internal Sec/Pyl codons (fdnG), which B as worded does
+   not reach (M7-16 Q1).
 3. If attack 6 fails: an ADR changing the `high` rule (M7-13 risks) is a call-rule change.
 4. Possibly: the new `annotation.precomputed.rbs_novel` key (M7-08 Q1) and the new flag values, if
    the lead treats them as interface changes in the ADR-0005/0011 sense.
@@ -296,3 +300,8 @@ real-tool arm (15). All within R14 (≤ 32 CPUs at once for M7's own jobs).
 4. **Publishing tables:** the local executor already publishes `tables/` through `PUBLISHED_FILES` (M4-21, #145), and a test pins it to the Nextflow `'key=path'` names. M7-04 and M7-08 add their keys there.
 5. **Questions for Khoa** (K1 replicate counts in the protected `tolerances.yaml`, K2 the M7-16 option, K3 the attack-6 rule) stay open. They are pass-2 work, and nothing in pass 1 waits on them. PROGRESS.md records that the `stop_codon` clause is vacuous until K2 is decided.
 6. **Integration-pass discipline:** one review round per PR; nits go to the backlog; the wiring issues M7-04 and M7-08 come right after their producers, as sequenced.
+
+## Update (2026-10-24): M7-16 decided
+Khoa chose option B ("B"), with the `makedb` patch residue `X`; ADR-0058 records it. M7-16 is now a
+buildable stats issue in three PRs (16a, 16b, 16c), about 370 code lines (the row above). Lead decision 5's K2 is answered.
+One open Khoa item remains: ADR-0058 item 6 (internal Sec/Pyl codons such as fdnG). Option B as worded does not reach them.

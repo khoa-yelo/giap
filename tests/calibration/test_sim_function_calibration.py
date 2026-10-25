@@ -34,6 +34,7 @@ Cost (fast tier, 1 core): ~0.4 s per world at 4,000 genes; ~1 min for ``ora`` pe
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import _criteria as C
@@ -87,10 +88,11 @@ def _tu_frame(world: Any) -> pd.DataFrame:
 
 
 def _gate(suite: str, stream: str, full: bool, fn: Callable[[np.random.Generator], float],
-          expect: str = "pass") -> None:  # fmt: skip
+          expect: str = "pass", log_dir: Path | None = None) -> None:  # fmt: skip
     R = C.replicates(suite, full)
-    statuses = [C.calibrate(suite, "level", a, fn, R, stream=stream)["status"]
+    statuses = [C.calibrate(suite, "level", a, fn, R, stream=stream, log_dir=log_dir)["status"]
                 for a in C.load_tolerances().levels]  # fmt: skip
+    C.skip_without_verdict([{"status": s} for s in statuses])  # a shard: --merge decides
     if expect == "pass":
         assert "fail" not in statuses, (stream, statuses)
     else:
@@ -125,7 +127,7 @@ def test_example2_attack_detection_depends_only_on_p_true(full: bool) -> None:
 
 @pytest.mark.calsuite("ora")
 @pytest.mark.parametrize("full", MODES)
-def test_example2_teeth_unweighted_test_rejects(full: bool) -> None:
+def test_example2_teeth_unweighted_test_rejects(full: bool, teeth_log: Path) -> None:
     """Without p_true (ω = 1) the confounded members' detection rate differs: confirmed fail."""
 
     def fn(rng: np.random.Generator) -> float:
@@ -139,7 +141,14 @@ def test_example2_teeth_unweighted_test_rejects(full: bool) -> None:
                  [int((~inside & det).sum()), int((~inside & ~det).sum())]]  # fmt: skip
         return float(stats.chi2_contingency(table, correction=False)[1])
 
-    _gate("ora", "sim_function.ora_attack.teeth_unweighted", full, fn, expect="fail")
+    _gate(
+        "ora",
+        "sim_function.ora_attack.teeth_unweighted",
+        full,
+        fn,
+        expect="fail",
+        log_dir=teeth_log,
+    )  # teeth: unsharded in shard 0 (conftest), private log
 
 
 # ----------------------------------------------------------------------------- gsea

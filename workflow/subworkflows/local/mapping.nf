@@ -36,7 +36,7 @@ workflow MAPPING {
     def prot = kv('proteins_long', proteins_long)
     def gm = [kv('genes', annotation.map { a -> a[0] }), kv('features', annotation.map { a -> a[1] }), kv('replicons', annotation.map { a -> a[2] })]
 
-    def si = stepIn('sixframe_index', [g, pep, gm[2]])
+    def si = stepIn('sixframe_index', [g, pep, gm[2], gm[0]])
     SIXFRAME_INDEX(si.files, si.keys, ['sixframe=sixframe.npz'])
     def six = kv('sixframe', pick(SIXFRAME_INDEX.out.outputs, 'sixframe.npz'))
 

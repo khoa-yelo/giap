@@ -305,6 +305,12 @@ All three runs use the default `--genome-relation related`. Step 8 ends with
 `validation/pilot/REPORT.md` (§15.5-15.7); the free-entrapment estimator of §15.5 metric 8 lives in
 `validation/pilot/entrapment.py`.
 
+The gate report is `metrics.py render --final --runbook validation/pilot/reproduce.md` (M10-15);
+`review_packet.py` builds Khoa's review packet under `local/review/m10-pilot/`. One caveat of
+`--final`: an absent path under a block that carries a finding reason (for example a mistyped
+`m8.peptide.fdp_combinedd` under `reason: empty_discoveries`) renders `not evaluable (<reason>)`
+rather than failing. Reason-only blocks need this, so check template paths by eye (review N3).
+
 ## Who does what
 
 | Step | Who | What |

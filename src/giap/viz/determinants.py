@@ -48,6 +48,7 @@ PD_XLABEL = {"cai": "CAI (index)", "tai": "tAI (index)", "tir_ostir": "OSTIR TIR
 PD_LAYER = {"cai": "codon", "tai": "codon", "tir_ostir": "ostir", "promotech_max": "promoters"}
 SHAP_TOP = 20
 MAX_DRAWN = 20_000  # the M9-01 element rule
+_C_EXTRA = 1  # panel (c)'s zero line counts towards the rule too
 UNEXPLAINED = "abundance_not_explained_by_sequence"
 CAT_COLOUR = {"model": style.OKABE_ITO["blue"], "unexplained": style.OKABE_ITO["vermillion"],
               "ribosomal_reference": style.OKABE_ITO["orange"]}  # fmt: skip
@@ -88,8 +89,13 @@ def _row(panel: str, **cells: object) -> list[object]:
 
 
 def _f2(v: float) -> str:
-    """Two decimals with a Unicode minus (decision 5, S2); NaN reads "unestimated"."""
-    return "unestimated" if math.isnan(v) else f"{v:.2f}".replace("-", MINUS)
+    """Two decimals with a Unicode minus (decision 5, S2), but at least two significant digits
+    (``base.sig``) below 0.1 so a small non-zero value never reads 0.00; NaN reads
+    "unestimated"."""
+    if math.isnan(v):
+        return "unestimated"
+    out = f"{v:.2f}" if v == 0 or abs(v) >= 0.1 else base.sig(v)
+    return out.replace("-", MINUS)
 
 
 # ---------------------------------------------------------------- data
@@ -205,7 +211,7 @@ def rows_c(shap: pd.DataFrame) -> list[list[object]]:
     for j, f in enumerate(feats):
         g = shap[shap["feature"].astype(str) == f]
         tags, x = g["locus_tag"].astype(str).to_numpy(), _floats(g["shap"])
-        order = np.lexsort((tags, x))[_cap(len(g), MAX_DRAWN // len(feats))]
+        order = np.lexsort((tags, x))[_cap(len(g), (MAX_DRAWN - _C_EXTRA) // len(feats))]
         colour = _rank(_floats(g["feature_value"]), tags)
         for r, i in enumerate(order):  # jitter by rank: the golden-ratio sequence in ±0.35
             y = len(feats) - 1 - j + 0.7 * ((r * 0.6180339887) % 1.0 - 0.5)
@@ -383,7 +389,7 @@ def determinants(view: RunView, cfg: GiapConfig) -> list[base.Instance] | base.S
     model = view.table("determinants_model")
     assert model is not None  # guaranteed by ``needs``
     att, features = view.table("determinants_attribution"), view.table("determinants_features")
-    if too_few(model):  # M8 then writes NA predictions only: no panel has data
+    if model.empty or too_few(model):  # no model, or NA predictions only: no panel has data
         text = title(model, counts(features, att))
         return [base.empty_state("V15", "determinants", text, COLUMNS, "double")]
     text = title(model)

@@ -1,26 +1,31 @@
-# GIAP pilot report, pass 1 (arms A1 and A2)
+# GIAP pilot report (arms A1, A2 and A3)
 
-Rendered by `validation/pilot/metrics.py render` from `metrics.json` (docs/specs/M10-05-pilot-metrics.md).
+Rendered by `validation/pilot/metrics.py render --final` from `metrics.json` (docs/specs/M10-05-pilot-metrics.md, docs/specs/M10-15-pilot-gate.md).
 Every value below is followed by the file and key it comes from; none is typed by hand.
 This template holds no numbers. Only aggregates appear here: no sequence, no gene list, no per-gene value.
 
 ## 1. Status
 
-| §15.6 bullet | Status |
-|---|---|
-| GIAP runs end to end on A1, A2 and A3 | {{checklist.0.status}} |
-| ≥ 99.5 % of A2 peptides map exactly (TE1) | {{checklist.1.status}} |
-| A1 and A2 detections and abundances are compared | {{checklist.2.status}} |
-| Measured runtimes replace the estimates | {{checklist.3.status}} |
-| TE2–TE5 are reported; failures explained | {{checklist.4.status}} |
+| §15.6 bullet | Status | Evidence |
+|---|---|---|
+| GIAP runs end to end on A1, A2 and A3 | {{checklist.0.status}} | {{checklist.0.evidence}} |
+| ≥ 99.5 % of A2 peptides map exactly (TE1) | {{checklist.1.status}} | {{checklist.1.evidence}} |
+| A1 and A2 detections and abundances are compared | {{checklist.2.status}} | {{checklist.2.evidence}} |
+| Measured runtimes replace the estimates | {{checklist.3.status}} | {{checklist.3.evidence}} |
+| TE2–TE5 are reported; failures explained | {{checklist.4.status}} | {{checklist.4.evidence}} |
 
+A failing bullet is explained in the notes below; no threshold was moved to make a bullet pass (R3).
 GIAP commit: {{giap_commit}}. Spec SHA: {{spec}}.
+Submitted for Khoa's review (§14.8 item 4).
 
 ## 2. Data and arms
 
 PXD078459 wild-type runs (M10-01 manifest), DIA-NN 2.3.1 Academia (ADR-0051). A1 searched UniProt
 K-12 (UP000000625) plus contaminants; A2 searched the Nissle strain database (`strain_db.faa`) plus
-contaminants. Job IDs of M10-02/03/04 are in PROGRESS.md and the `SACCT` table.
+contaminants. A3 is de novo: Cascadia 0.0.7 on the same runs or, when M10-08's verdict rules it
+out, Casanovo 5.2.1 on PXD053727 / UTI89 (fallback, a different strain).
+A3 branch of the runbook: {{evidence.runbook.a3_branch}}; M10-08 verdict {{evidence.a3_feasibility.verdict}} (reason: {{evidence.a3_feasibility.reason}}).
+Job IDs are in `reproduce.md` (Evidence table) and in the status table above.
 
 ## 3. Metrics
 
@@ -80,15 +85,55 @@ Spearman rho {{m4.spearman_rho}} [{{m4.ci_low}}, {{m4.ci_high}}] on {{m4.n_share
 | operon flags | {{m5.operon_flags.jaccard}} | {{m5.operon_flags.note}} |
 | enriched categories | {{m5.enriched_categories.jaccard}} | {{m5.enriched_categories.note}} |
 
-### Metric 7: runtime and peak memory (pilot measurements on a shared cluster, not the benchmark)
+### Metric 6: novel ORFs and variants, A2/A3 overlap (M10-10)
 
-| | A1 | A2 |
+Descriptive, unestimated: counts and Jaccards carry no error estimate.
+
+| family | Jaccard A2/A3 |
+|---|---|
+| novel ORFs (called) | {{m6.overlap_a2_a3.novel_orfs.called.jaccard}} |
+| ALT sites (high confidence in both arms) | {{m6.overlap_a2_a3.alt_sites.high.jaccard}} |
+
+<!-- if m8.universe -->
+### Metric 8: A1's free entrapment (from `entrapment.py`, M10-07)
+
+The entrapment is free: it is the K-12-only part of A1's own database, the K-12 peptides absent from
+Nissle's translation after the I/L and mass-equivalent rules. Estimator: Wen et al. (combined
+method; reference in the methods note). r = K-12-only / shared in-silico peptides = {{m8.universe.r}} ({{m8.universe.k12_only}} K-12-only, {{m8.universe.shared}} shared); at precursor level
+r_prec = {{m8.universe.r_prec}} (from the configured charge and m/z bounds, not the library).
+The assessment is made only at precursor level, the unit DIA-NN's global q-value controls; the peptide level is §15.5's number and is not assessed.
+
+| | peptide (§15.5) | precursor (assessed) |
 |---|---|---|
-| wall time | {{m7.A1.wall_time_s}} | {{m7.A2.wall_time_s}} |
-| sum of step wall times | {{m7.A1.sum_task_wall_s}} | {{m7.A2.sum_task_wall_s}} |
-| max step peak RSS (one task, not the arm's total memory) | {{m7.A1.max_step_peak_rss_bytes}} | {{m7.A2.max_step_peak_rss_bytes}} |
-| complete (no cached step; else totals are lower bounds) | {{m7.A1.runtime_complete}} | {{m7.A2.runtime_complete}} |
+| N_T (shared) | {{m8.peptide.N_T}} | {{m8.precursor.N_T}} |
+| N_E (K-12-only) | {{m8.peptide.N_E}} | {{m8.precursor.N_E}} |
+| excluded as contaminant | {{m8.peptide.excluded_contaminant}} | {{m8.precursor.excluded_contaminant}} |
+| not in the in-silico universe | {{m8.peptide.not_in_universe}} | {{m8.precursor.not_in_universe}} |
+| `fdp_combined` (estimated upper bound in expectation) | {{m8.peptide.fdp_combined}} | {{m8.precursor.fdp_combined}} |
+| `fdp_lower` (realised lower bound, conditional on the caveats) | {{m8.peptide.fdp_lower}} | {{m8.precursor.fdp_lower}} |
+| with 95 % confidence, under equal chance, the FDP is at most | {{m8.peptide.ci.ucb95}} | {{m8.precursor.ci.ucb95}} |
+| assessment | {{m8.peptide.assessment}} | {{m8.precursor.assessment}} |
 
+Caveats:
+
+- {{m8.caveats.0}}
+- {{m8.caveats.1}}
+- {{m8.caveats.2}}
+- {{m8.caveats.3}}
+
+The 95 % bound assumes {{m8.precursor.ci.assumes}}.
+Warning codes of `entrapment.py` (details in `entrapment.json`; a digest mismatch is a lead finding): {{m8.warning_codes}}.
+
+<!-- end m8.universe -->
+<!-- ifnot m8.universe -->
+### Metric 8: free entrapment FDP on A1 (M10-07)
+
+| level | combined FDP | lower bound | assessment |
+|---|---|---|---|
+| peptide (primary) | {{m8.peptide.fdp_combined}} | {{m8.peptide.fdp_lower}} | {{m8.peptide.assessment}} |
+| precursor | {{m8.precursor.fdp_combined}} | {{m8.precursor.fdp_lower}} | {{m8.precursor.assessment}} |
+
+<!-- end m8.universe -->
 ## 4. TE1 on real data (A2)
 
 Every A2 target identification, true or false, is a substring of an annotated protein, so TE1 checks
@@ -105,7 +150,26 @@ Secondary, never the verdict: excluding non-ATG products {{te1.share_excluding_n
 Removed {{te1.share_without_q_at_cutoff.removed}} peptides (A2 q_crossings {{te1.share_without_q_at_cutoff.q_crossings}}); a pass that becomes a fail under this superset: {{te1.share_without_q_at_cutoff.pass_becomes_fail}}.
 A1 diagnostic (exact in frame at any gene, no pass flag): {{te1_a1_diagnostic.share}}.
 
-## 5. Hypotheses
+## 5. True examples (TE2–TE5) and determinism (TE7)
+
+From `te_real.json` and `te7.json` (docs/specs/M10-06-te-real-and-te7.md); every definition was fixed
+before the real data were read (R3). Shares carry nominal 95 % Wilson intervals, descriptive only.
+Every TE that did not pass has a `## Diagnosis: TE<n>` section in the notes below, naming its cause class.
+
+| TE | Status | Headline |
+|---|---|---|
+| TE2: no unexplained `high` ALT call in A2 | {{te_real.te2.status}} | violations {{te_real.te2.counts.violations}} |
+| TE3: ribosomal proteins detected (≥ 90 %) and in the top quartile | {{te_real.te3.status}} | detected {{te_real.te3.detection.share}}; median percentile rank {{te_real.te3.abundance.percentile_rank}} |
+| TE4: operon stoichiometry (iBAQ, molar scale) | {{te_real.te4.status}} | log2 RplL/RplJ {{te_real.te4.pairs.rplL/rplJ.log2_ratio}} in [1, 3]; log2 AtpA/AtpD {{te_real.te4.pairs.atpA/atpD.log2_ratio}} in [−1, 1] |
+| TE5: trypsin and keratin peptides in the contaminant bucket (A1 and A2) | {{te_real.te5.status}} | in the bucket: A1 {{te_real.te5.A1.share_bucket}}, A2 {{te_real.te5.A2.share_bucket}} |
+| TE7: a second A2 run gives byte-identical tables | {{te7.giap.status}} | gate files compared {{te7.giap.n_gate}} |
+
+TE7 is decided by GIAP's own tables only; the DIA-NN layer (a second search of the same spectra) is an
+upstream finding, never the verdict: {{te7.diann.status}}. Raw data to GIAP tables reproduce byte for byte: {{te7.end_to_end}}.
+A `known_lapack` difference is still a fail (M4-20 decision 9; writer rounding is the decision 10 backlog item).
+TE7 is not a §15.6 bullet: a TE7 fail is shown here and in section 9 with its diagnosis and listed as an open item.
+
+## 6. Hypotheses
 
 Test family for this issue: {H1}, size 1, no BH.
 
@@ -129,40 +193,61 @@ The numbers are shown whatever the verdict: rho {{h3.criteria.rho.rho}} [{{h3.cr
 | operon flags | {{h3.criteria.operon_flags.n_a}} | {{h3.criteria.operon_flags.n_b}} | {{h3.criteria.operon_flags.n_shared}} | {{h3.criteria.operon_flags.union}} | {{h3.criteria.operon_flags.jaccard}} | {{h3.criteria.operon_flags.status}} |
 | enriched categories | {{h3.criteria.enriched_categories.n_a}} | {{h3.criteria.enriched_categories.n_b}} | {{h3.criteria.enriched_categories.n_shared}} | {{h3.criteria.enriched_categories.union}} | {{h3.criteria.enriched_categories.jaccard}} | {{h3.criteria.enriched_categories.status}} |
 
-**H2** and **H4**: deferred (they need A3, M10-07/M10-10 and the full validation).
+**H2** (the strain-specific database lowers genome-inconsistent identifications): deferred (full validation, FDRBench); shown side by side only: A1 genome-inconsistent share {{m2.A1.genome_inconsistent.value}} and the free entrapment estimate (peptide level) {{m8.peptide.fdp_combined}}.
 
-## 6. True examples (TE2–TE5) and determinism (TE7)
+**H4** (genome-anchored de novo precision against the precision measured on A2): verdict {{h4.verdict}}.
+Only a lower bound on precision exists (sequence-level confirmation by A2), so the data can count against H4 but never confirm it; it is `unestimated` unless A3 is the Cascadia branch.
 
-From `te_real.json` and `te7.json` (docs/specs/M10-06-te-real-and-te7.md); every definition was fixed
-before the real data were read (R3). Shares carry nominal 95 % Wilson intervals, descriptive only.
-Every TE that did not pass has a `## Diagnosis: TE<n>` section in the notes below, naming its cause class.
+## 7. Not evaluated
 
-| TE | Status | Headline |
+One line per metric or hypothesis whose value is null with a reason: the pilot data do not allow it (§15.7 "reported where the pilot data allow").
+
+<!-- not evaluated -->
+
+## 8. Runtimes
+
+### Metric 7: runtime and peak memory (pilot measurements on a shared cluster, not the benchmark)
+
+| | A1 | A2 |
 |---|---|---|
-| TE2: no unexplained `high` ALT call in A2 | {{te_real.te2.status}} | violations {{te_real.te2.counts.violations}} |
-| TE3: ribosomal proteins detected (≥ 90 %) and in the top quartile | {{te_real.te3.status}} | detected {{te_real.te3.detection.share}}; median percentile rank {{te_real.te3.abundance.percentile_rank}} |
-| TE4: operon stoichiometry (iBAQ, molar scale) | {{te_real.te4.status}} | log2 RplL/RplJ {{te_real.te4.pairs.rplL/rplJ.log2_ratio}} in [1, 3]; log2 AtpA/AtpD {{te_real.te4.pairs.atpA/atpD.log2_ratio}} in [−1, 1] |
-| TE5: trypsin and keratin peptides in the contaminant bucket (A1 and A2) | {{te_real.te5.status}} | in the bucket: A1 {{te_real.te5.A1.share_bucket}}, A2 {{te_real.te5.A2.share_bucket}} |
-| TE7: a second A2 run gives byte-identical tables | {{te7.giap.status}} | gate files compared {{te7.giap.n_gate}} |
+| wall time | {{m7.A1.wall_time_s}} | {{m7.A2.wall_time_s}} |
+| sum of step wall times | {{m7.A1.sum_task_wall_s}} | {{m7.A2.sum_task_wall_s}} |
+| max step peak RSS (one task, not the arm's total memory) | {{m7.A1.max_step_peak_rss_bytes}} | {{m7.A2.max_step_peak_rss_bytes}} |
+| complete (no cached step; else totals are lower bounds) | {{m7.A1.runtime_complete}} | {{m7.A2.runtime_complete}} |
 
-TE7 is decided by GIAP's own tables only; the DIA-NN layer (a second search of the same spectra) is an
-upstream finding, never the verdict: {{te7.diann.status}}. Raw data to GIAP tables reproduce byte for byte: {{te7.end_to_end}}.
-A `known_lapack` difference is still a fail (M4-20 decision 9; writer rounding is the decision 10 backlog item).
+### Benchmark (M10-12, `benchmarks/baseline.json`, wheat nodes)
 
-## 7. Pending in pass 2
+Medians of the standard run against the estimates of §13.2 (35 min, range 16–55, and 25 min); a median at an estimate is reported, not judged.
 
-Metric 6 (M10-10), metric 8 (M10-07), A3 (M10-08–11), benchmark (M10-12), report-freeze re-runs
-(M10-14).
+| cell | median wall time | commit | CPU |
+|---|---|---|---|
+| K-12, standard | {{evidence.benchmark.cells.k12_standard.median_s}} | {{evidence.benchmark.cells.k12_standard.commit}} | {{evidence.benchmark.cells.k12_standard.cpu}} |
+| K-12, core | {{evidence.benchmark.cells.k12_core.median_s}} | {{evidence.benchmark.cells.k12_core.commit}} | {{evidence.benchmark.cells.k12_core.cpu}} |
+| simulated, standard | {{evidence.benchmark.cells.sim5m_standard.median_s}} | {{evidence.benchmark.cells.sim5m_standard.commit}} | {{evidence.benchmark.cells.sim5m_standard.cpu}} |
+| simulated, core | {{evidence.benchmark.cells.sim5m_core.median_s}} | {{evidence.benchmark.cells.sim5m_core.commit}} | {{evidence.benchmark.cells.sim5m_core.cpu}} |
 
-## 8. Deviations from the spec
+Benchmark definition (ADR-M10-D): {{evidence.benchmark.adr}}, status {{evidence.benchmark.adr_status}}.
+
+## 9. Reproducibility
+
+Freeze commit of the runbook: {{evidence.runbook.freeze_commit}} (runbook status {{evidence.runbook.status}}); every arm, the compare and the metrics ran at it (`validation/pilot/reproduce.md`, Evidence table).
+The runbook's check writes `verify-<commit>.json` beside the freeze runs; it is part of the review packet.
+TE7 at the freeze commit: {{te7.giap.status}}.
+The benchmark was not re-run at the freeze commit (M10-12 L12); its commit is in section 8.
+Row-level outputs stay on FarmShare and are removed only by the runbook's guarded clean-up step.
+
+## 10. Deviations from the spec
 
 - DIA-NN 2.3.1 Academia instead of 2.7.0 (ADR-0051).
-- Inputs and metric files are not committed (Khoa's rule of 2026-10-23).
+- Row-level inputs and outputs are not committed (Khoa's rule of 2026-10-23); aggregates and hashes are (2026-10-24).
 - Protein groups are groups with at least one accepted precursor, with no protein-level FDR control (metric 1).
 - Strain-specific genes are defined by peptide identity, not orthology (metric 3).
-- Region tests are not compared in pass 1, and the Jaccards are not restricted to genes detected in
+- Region tests are not compared, and the Jaccards are not restricted to genes detected in
   both arms (H3; a conservative stand-in, biased against H3).
+- H2 is deferred to the full validation; metric 8 stands beside it without a verdict.
+- The A3 branch when it is the fallback or absent, every deferral made at the freeze, and any
+  accepted ADR that changes a pilot setting are stated in the notes.
 
-## 9. Notes
+## Notes
 
 <!-- notes -->

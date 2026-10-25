@@ -105,13 +105,18 @@ def launch_command(
     return [*cmd, "-resume"] if resume else cmd
 
 
+# ``GIAP_STEP`` aliases whose name is not ``*_STEP`` nor the step (``REPORT:REPORT_HTML (report)``).
+_ALIAS_STEPS = {"report_html": "report"}
+
+
 def _step_name(name: str) -> str:
     """Step of a trace task name: the process name, or the tag for ``GIAP_STEP`` and an alias
-    named ``*_STEP`` (``OPERONS:OPERONS_STEP (operons)`` runs ``operons``)."""
+    named ``*_STEP`` (``OPERONS:OPERONS_STEP (operons)`` runs ``operons``); ``REPORT_HTML`` runs
+    ``report``."""
     m = _NAME.fullmatch(name.strip())
     proc, tag = (m["proc"], m["tag"]) if m else (name, None)
     step = proc.split(":")[-1].lower()
-    return tag if step.endswith("_step") and tag else step
+    return tag if step.endswith("_step") and tag else _ALIAS_STEPS.get(step, step)
 
 
 def _task_dir(row: Mapping[str, str | None], work: Path) -> str:

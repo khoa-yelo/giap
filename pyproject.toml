@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "giap"
-version = "0.0.1"
+dynamic = ["version"]
 description = "GIAP: genome-integrated analysis of proteomics data for bacterial genomes"
 readme = "README.md"
 license = "MIT"
@@ -61,8 +61,31 @@ docs = ["mkdocs-material"]
 [project.scripts]
 giap = "giap.cli:main"
 
+[tool.hatch.version]
+path = "src/giap/__init__.py"
+
+# The wheel carries workflow/ as giap/workflow/ (workflow_main(), spec §6.3); hatch keeps file modes.
 [tool.hatch.build.targets.wheel]
-packages = ["src/giap"]
+only-include = ["src/giap", "workflow"]
+exclude = ["workflow/tests", "workflow/work", "workflow/.nf-test*", "workflow/.nextflow*"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
+"workflow" = "giap/workflow"
+
+# sdist: Q-L1 default (M11-01 item 3); README, LICENSE and pyproject are also added by hatch.
+[tool.hatch.build.targets.sdist]
+only-include = [
+  "src",
+  "workflow",
+  "pyproject.toml",
+  "README.md",
+  "LICENSE",
+  "NOTICE.md",
+  "CHANGELOG.md",
+  "CITATION.cff",
+]
+exclude = ["workflow/tests", "workflow/work", "workflow/.nf-test*", "workflow/.nextflow*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -88,6 +111,8 @@ markers = [
   "calsuite(name): tolerances.yaml suite (array task) of a calibration test (also registered in tests/calibration/conftest.py)",
   "e2e: end-to-end runs on real genomes",
   "requires_r: runs R fgsea in the giap-fgsea env (Slurm only, never in CI)",
+  "gnu_userland: runs FarmShare scripts that need sha256sum, flock, GNU realpath/stat (skipped elsewhere; Sandbox.run skips too)",
+  "x87_longdouble: needs the 80-bit x87 np.longdouble (skipped on arm64)",
   "pending_sample: contract test waiting for a recorded tool output sample (§5.4)",
 ]
 
@@ -123,3 +148,31 @@ directory = "changelog.d"
 filename = "CHANGELOG.md"
 package = "giap"
 package_dir = "src"
+name = "GIAP"
+title_format = "## GIAP {version} ({project_date})"
+issue_format = "[#{issue}](https://github.com/khoa-yelo/giap/pull/{issue})"
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removal"
+name = "Removals and breaking changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Other"
+showcontent = true
