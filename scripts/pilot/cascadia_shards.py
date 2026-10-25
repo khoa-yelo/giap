@@ -1,6 +1,6 @@
 """Cascadia 0.0.7 ``sequence`` split into prep / predict-shard / merge, for a Slurm array on CPU.
 
-    python -I cascadia_shards.py UNIMOD_XML prep    MZML MODEL WORKDIR [-b 32] [-w 2] [-c 4]
+    python -I cascadia_shards.py UNIMOD_XML prep    MZML WORKDIR [-b 32] [-w 2] [-c 4]
     python -I cascadia_shards.py UNIMOD_XML predict MODEL WORKDIR SHARD N_SHARDS [--limit B]
     python -I cascadia_shards.py UNIMOD_XML work    MODEL GEN DEADLINE_S CHUNK WORKDIR [WORKDIR ...]
     python -I cascadia_shards.py UNIMOD_XML merge   WORKDIR OUTPREFIX [-t 0.8]
@@ -13,8 +13,12 @@ depend on any other batch). ``merge`` concatenates the blocks in shard order and
 ``cascadia sequence``. ``work`` is the load-balanced form: batch cost grows several-fold along the
 gradient, so equal blocks were up to 6x apart. Each worker claims CHUNK-batch chunks (an atomic
 mkdir under claims/g<GEN>/) of the work dirs in order, saves each chunk as it finishes, and claims
-no new chunk after DEADLINE_S. A later generation picks up whatever is left. Batches listed in a
-reserved_<start>_<stop> file (a block an earlier ``predict`` task is still writing) are skipped.
+no new chunk after DEADLINE_S. A later generation picks up whatever is left. Chunks lie on the
+global grid [k*CHUNK, (k+1)*CHUNK), so the grid never shifts with the markers. Batches listed in a
+reserved_<start>_<stop> file (a half-open block an earlier ``predict`` task is still writing) or
+already held by a shard_*_of_*.pt / chunk_*_*.pt file are skipped (``pending_chunks``, which the
+watcher calls too; it needs no torch). Files are written to a per-job temporary name next to the
+target and renamed into place.
 The model hyper-parameters and preprocessing are copied from
 ``cascadia.cascadia.sequence`` (0.0.7). Every step installs ``cascadia_offline``'s socket guard and
 offline Unimod table first (R6).
@@ -25,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -34,6 +39,9 @@ import cascadia_offline
 
 META = "meta.json"
 INDEX = "index.hdf5"
+_RESERVED = re.compile(r"reserved_(\d+)_(\d+)")
+_SHARD = re.compile(r"shard_(\d+)_of_(\d+)\.pt")
+_CHUNK = re.compile(r"chunk_(\d+)_(\d+)\.pt")
 
 
 def shard_batches(n_batches: int, shard: int, n_shards: int) -> range:
@@ -43,6 +51,20 @@ def shard_batches(n_batches: int, shard: int, n_shards: int) -> range:
     size, extra = divmod(n_batches, n_shards)
     start = shard * size + min(shard, extra)
     return range(start, start + size + (shard < extra))
+
+
+def _save_atomic(obj: Any, out: Path) -> None:
+    """``torch.save`` to a per-job temporary file next to ``out``, then rename it into place."""
+    import torch  # type: ignore[import-not-found]
+
+    job = os.environ.get("SLURM_JOB_ID", "nojob")
+    tmp = out.with_name(f"{out.name}.{job}.{os.getpid()}.tmp")
+    try:
+        torch.save(obj, str(tmp))
+        os.replace(tmp, out)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
 
 
 def _dataset(tokenizer: Any, asf: str | None, index: Path) -> Any:
@@ -113,30 +135,70 @@ def predict(model_ckpt: str, workdir: Path, shard: int, n_shards: int, limit: in
     trainer = pl.Trainer(accelerator="cpu", devices=1, logger=False, enable_checkpointing=False)
     preds = trainer.predict(model, dataloaders=loader) if len(rows) else []
     out = workdir / f"shard_{shard:03d}_of_{n_shards:03d}.pt"
-    torch.save({"block": [block.start, block.stop], "rows": len(rows), "preds": preds},
-               str(out) + ".tmp")  # fmt: skip
-    os.replace(str(out) + ".tmp", out)
+    _save_atomic({"block": [block.start, block.stop], "rows": len(rows), "preds": preds}, out)
     print(f"wrote {out}")
     return 0
 
 
 def _reserved(workdir: Path) -> list[tuple[int, int]]:
+    """Half-open blocks named by ``reserved_<a>_<b>`` markers; any other file name is ignored."""
     out = []
-    for p in workdir.glob("reserved_*_*"):
-        _, a, b = p.name.split("_")
-        out.append((int(a), int(b)))
+    for p in workdir.glob("reserved_*"):
+        m = _RESERVED.fullmatch(p.name)
+        if m:
+            out.append((int(m[1]), int(m[2])))
+    return sorted(out)
+
+
+def _covered(workdir: Path, n_batches: int) -> list[tuple[int, int]]:
+    """Blocks held by finished ``shard_*_of_*.pt`` and ``chunk_*_*.pt`` files, from their names.
+
+    A shard file's block is ``shard_batches(n_batches, shard, n_shards)``; a ``predict --limit``
+    shard holds less than that, which ``merge`` then reports as a gap.
+    """
+    out = []
+    for p in workdir.iterdir():
+        if m := _CHUNK.fullmatch(p.name):
+            out.append((int(m[1]), int(m[2])))
+        elif (m := _SHARD.fullmatch(p.name)) and int(m[1]) < int(m[2]):
+            blk = shard_batches(n_batches, int(m[1]), int(m[2]))
+            out.append((blk.start, blk.stop))
     return sorted(out)
 
 
 def chunk_plan(n_batches: int, reserved: list[tuple[int, int]], size: int) -> list[range]:
-    """The batches outside ``reserved``, cut into consecutive chunks of at most ``size``."""
-    plan: list[range] = []
+    """The batches of range(n_batches) outside ``reserved``, cut on the global grid of ``size``.
+
+    Each chunk is a maximal run of free batches inside one cell ``[k*size, (k+1)*size)``, so a
+    reserved block only trims the cells it touches. Blocks may be unsorted, overlapping or reach
+    past ``n_batches`` (they are clamped).
+    """
+    if size < 1:
+        raise ValueError(f"chunk size {size} < 1")
+    free: list[tuple[int, int]] = []
     pos = 0
-    for a, b in [*sorted(reserved), (n_batches, n_batches)]:
-        for s in range(pos, a, size):
-            plan.append(range(s, min(s + size, a)))
+    for a, b in sorted((max(0, a), min(b, n_batches)) for a, b in reserved):
+        if a >= b:
+            continue
+        if a > pos:
+            free.append((pos, a))
         pos = max(pos, b)
+    if pos < n_batches:
+        free.append((pos, n_batches))
+    plan: list[range] = []
+    for a, b in free:
+        s = a
+        while s < b:
+            e = min((s // size + 1) * size, b)
+            plan.append(range(s, e))
+            s = e
     return plan
+
+
+def pending_chunks(workdir: Path, size: int) -> list[range]:
+    """The chunks of ``workdir`` still to compute: not reserved and not held by a finished file."""
+    n_batches = int(json.loads((workdir / META).read_text())["n_batches"])
+    return chunk_plan(n_batches, _reserved(workdir) + _covered(workdir, n_batches), size)
 
 
 def work(model_ckpt: str, gen: int, deadline_s: float, size: int, workdirs: list[Path]) -> int:
@@ -163,7 +225,7 @@ def work(model_ckpt: str, gen: int, deadline_s: float, size: int, workdirs: list
         ds = _dataset(tokenizer, None, workdir / INDEX)
         claims = workdir / "claims" / f"g{gen}"
         claims.mkdir(parents=True, exist_ok=True)
-        for block in chunk_plan(meta["n_batches"], _reserved(workdir), size):
+        for block in pending_chunks(workdir, size):
             out = workdir / f"chunk_{block.start:05d}_{block.stop:05d}.pt"
             if out.exists():
                 continue
@@ -181,9 +243,8 @@ def work(model_ckpt: str, gen: int, deadline_s: float, size: int, workdirs: list
                                  enable_checkpointing=False, enable_progress_bar=False)  # fmt: skip
             t = time.monotonic()
             preds = trainer.predict(model, dataloaders=loader)
-            torch.save({"block": [block.start, block.stop], "rows": len(rows), "preds": preds},
-                       str(out) + ".tmp")  # fmt: skip
-            os.replace(str(out) + ".tmp", out)
+            _save_atomic({"block": [block.start, block.stop], "rows": len(rows), "preds": preds},
+                         out)  # fmt: skip
             done += 1
             print(f"{workdir.parent.name} {out.name} {time.monotonic() - t:.0f}s", flush=True)
     print(f"no chunks left: {done} done")
@@ -195,17 +256,26 @@ def merge(workdir: Path, outprefix: str, threshold: float) -> int:
     from cascadia.utils import write_results  # type: ignore[import-not-found]
 
     meta = json.loads((workdir / META).read_text())
-    recs = [torch.load(p, weights_only=False)
-            for p in [*workdir.glob("shard_*_of_*.pt"), *workdir.glob("chunk_*_*.pt")]]  # fmt: skip
+    bs, n = meta["batch_size"], meta["n_spectra"]
+    files = sorted(p for p in workdir.iterdir()
+                   if _SHARD.fullmatch(p.name) or _CHUNK.fullmatch(p.name))  # fmt: skip
+    recs = [torch.load(p, weights_only=False) for p in files]
     recs.sort(key=lambda r: r["block"][0])
     preds: list[Any] = []
     stop = 0
     for rec in recs:
-        if rec["block"][0] != stop:
+        a, b = rec["block"]
+        if a != stop or b <= a:
             print(f"cascadia_shards: gap or overlap at block {rec['block']} (want start {stop})",
                   file=sys.stderr)  # fmt: skip
             return 2
-        stop = rec["block"][1]
+        want_rows = max(0, min(b * bs, n) - a * bs)
+        if len(rec["preds"]) != b - a or rec["rows"] != want_rows:
+            print(f"cascadia_shards: block {rec['block']} has {len(rec['preds'])} predictions "
+                  f"and {rec['rows']} rows (want {b - a} and {want_rows})",
+                  file=sys.stderr)  # fmt: skip
+            return 2
+        stop = b
         preds += rec["preds"]
     if stop != meta["n_batches"] or len(preds) != meta["n_batches"]:
         print(f"cascadia_shards: {len(preds)} of {meta['n_batches']} batches", file=sys.stderr)
@@ -229,7 +299,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="cascadia_shards.py UNIMOD_XML")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("prep")
-    p.add_argument("mzml"), p.add_argument("model"), p.add_argument("workdir", type=Path)
+    p.add_argument("mzml"), p.add_argument("workdir", type=Path)
     p.add_argument("-b", type=int, default=32), p.add_argument("-w", type=int, default=2)
     p.add_argument("-c", type=int, default=4)
     q = sub.add_parser("predict")

@@ -28,7 +28,7 @@ export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}" MKL_NUM_THREADS="${SLURM_CPUS
 export HDF5_USE_FILE_LOCKING=FALSE
 PY=(micromamba run -n giap-cascadia python -I "$GIAP_REPO/scripts/pilot/cascadia_shards.py" "$UNIMOD")
 case "$STEP" in
-  prep) "${PY[@]}" prep "$GIAP_DATA_DIR/pxd078459/mzml/$R.mzML" "$MODEL" "$WORK" ;;
+  prep) "${PY[@]}" prep "$GIAP_DATA_DIR/pxd078459/mzml/$R.mzML" "$WORK" ;;
   predict) "${PY[@]}" predict "$MODEL" "$WORK" "$SLURM_ARRAY_TASK_ID" "$N_SHARDS" ${LIMIT:+--limit "$LIMIT"} ;;
   work)  # GEN, DEADLINE_S, CHUNK; A3_RUNS = the runs to work through, in order
     dirs=(); for r in $A3_RUNS; do dirs+=("$GIAP_ROOT/pilot/A3_cascadia_cpu/$r/shards"); done
