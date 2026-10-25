@@ -460,8 +460,8 @@ def _containers(fx: Fixture) -> Path:
 def test_example13_tag_not_digest(fx: Fixture) -> None:
     p = _containers(fx)
     text = re.sub(
-        r"container = 'docker://oschwengers/bakta@sha256:[0-9a-f]{64}'",
-        "container = 'docker://oschwengers/bakta:v1.12.2'",
+        r"container = 'oschwengers/bakta@sha256:[0-9a-f]{64}'",
+        "container = 'oschwengers/bakta:v1.12.2'",
         p.read_text(encoding="utf-8"),
     )
     assert "bakta:v1.12.2'" in text

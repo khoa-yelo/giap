@@ -156,7 +156,7 @@ def test_bakta_prefetch_job_uses_the_pinned_container() -> None:
 
     pinned = read_containers_config(REPO / "workflow" / "conf" / "containers.config")["BAKTA"]
     text = (REPO / "scripts" / "slurm" / "fetch_bakta_db.sbatch").read_text()
-    assert pinned.startswith("docker://oschwengers/bakta@sha256:")
+    assert pinned.startswith("oschwengers/bakta@sha256:")
     assert "withName: 'BAKTA'" in text
     assert "oschwengers-bakta@sha256-$DIGEST.img" in text
 

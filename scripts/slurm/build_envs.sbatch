@@ -19,11 +19,13 @@ bash scripts/build_envs.sh "$@" || status=$?
 
 module load apptainer 2>/dev/null || true
 mkdir -p "$NXF_APPTAINER_CACHEDIR"
-grep -o "docker://[^'\"]*@sha256:[0-9a-f]\{64\}" workflow/conf/containers.config | sort -u |
-while read -r ref; do
-  # Nextflow 26.10 SingularityCache.simpleName: scheme stripped, ':' and '/' become '-', '@' kept.
-  sif="$NXF_APPTAINER_CACHEDIR/$(echo "${ref#docker://}" | tr '/:' '--').img"
-  if [ -s "$sif" ]; then echo "present: $sif"; else apptainer pull "$sif" "$ref"; fi
+# Pins are bare refs (ADR-0059); a legacy docker:// prefix is accepted. `|| true`: no pins is no error.
+refs=$(sed -nE "s|.*container = '(docker://)?([^'\"]*@sha256:[0-9a-f]{64})'.*|\2|p" \
+  workflow/conf/containers.config | sort -u) || true
+for ref in $refs; do
+  # Nextflow 26.10 SingularityCache.simpleName: ':' and '/' become '-', '@' kept.
+  sif="$NXF_APPTAINER_CACHEDIR/$(echo "$ref" | tr '/:' '--').img"
+  if [ -s "$sif" ]; then echo "present: $sif"; else apptainer pull "$sif" "docker://$ref"; fi
 done
 
 echo "wall time: ${SECONDS}s"

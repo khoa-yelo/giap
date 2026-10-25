@@ -32,7 +32,9 @@ pytestmark = [pytest.mark.needs_apptainer, pytest.mark.slow]
 
 def _image() -> Path:
     conf = (REPO / "workflow" / "conf" / "containers.config").read_text()
-    m = re.search(r"docker://quay\.io/biocontainers/blast@sha256:([0-9a-f]{64})", conf)
+    m = re.search(
+        r"container = '(?:docker://)?quay\.io/biocontainers/blast@sha256:([0-9a-f]{64})'", conf
+    )
     assert m, "BLAST image digest not pinned in workflow/conf/containers.config"
     img = _ROOT / "containers" / f"quay.io-biocontainers-blast@sha256-{m.group(1)}.img"
     if not img.is_file():
