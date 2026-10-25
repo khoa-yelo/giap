@@ -340,3 +340,21 @@ adopted as written below. This is a display rule that adds no new p, q or estima
   coherent reading, and this rule satisfies it. A lead-decisions line in
   `docs/specs/M9-10-v03-locus-plots.md` is enough. It should say that decision 3 is replaced and
   decision 8 refined, and name the family (item 1) as the rotation unit.
+
+## Lead decisions (2026-10-25)
+
+- **Statistician items 1–5 are adopted as written.** The rotation unit is the §8.1 family:
+  prophage, bgc, island, operon_discordance (OP flags), missed_operon (NO flags), in that order.
+  Operon-flag merging groups by (family, contig, span). Example 11 is added. Rotation is tested by
+  exact rounds, with labels per tier and per estimate, the metamorphic property and its two siblings,
+  and the edge-case row for re-rendering at a higher alpha. Where the sections above say "kind",
+  read "family". The index columns (`kind`) are unchanged.
+- **Q1:** tiered round-robin over families. **Q2:** `stats.alpha.context` for regions and islands,
+  `stats.alpha.operon_flags` for both flag families. **Q3:** no new index columns. **Q4:** the report
+  order stays out of scope (backlog: show V03 and V13 locus plots in index-rank order). **Q5:** no
+  ADR; the M9-10 spec gets a lead-decisions line. **Q6:** plain string order of IDs.
+- **Existing tests (lead, this branch):** `test_ties_break_by_kind_then_id` expects
+  `prophage_1, bgc_1, ISL_1, PAIR_1, prophage_2`.
+  `test_property_order_is_error_na_last_then_kind_then_id` is removed: its oracle is the replaced
+  rule, and the test-author's properties supersede it. The V03 index baseline is regenerated after
+  the implementation, on Slurm; Khoa approves it with the snapshot batch.
