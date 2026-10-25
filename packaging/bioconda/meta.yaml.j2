@@ -1,0 +1,56 @@
+{#- Bioconda recipe for GIAP (M11-10), rendered by scripts/release/bioconda_recipe.py.
+    Channels: conda-forge and bioconda only (spec §3.2). Values are quoted so the rendered file
+    parses with PyYAML as strings; conda-build substitutes the PYTHON variable itself. -#}
+package:
+  name: giap
+  version: "{{ version }}"
+
+source:
+  url: https://pypi.org/packages/source/g/giap/giap-{{ version }}.tar.gz
+  sha256: "{{ sha256 }}"
+
+build:
+  noarch: python
+  number: 0
+  script: "{{ '{{' }} PYTHON {{ '}}' }} -m pip install . --no-deps --no-build-isolation -vv"
+  entry_points:
+    - giap = giap.cli:main
+
+requirements:
+  host:
+    - python >=3.11
+    - pip
+    - hatchling
+  run:
+    - python >=3.11
+    # Rendered from [project].dependencies; codon-bias is bioconda-only (no conda-forge package).
+{%- for dep in run %}
+    - {{ dep }}
+{%- endfor %}
+    # Q-L10: giap run needs Nextflow and a JVM.
+    - nextflow
+    - openjdk >=17
+
+test:
+  imports:
+    - giap
+    - giap.cli
+  commands:
+    - giap --version
+    - giap --help
+
+about:
+  home: https://github.com/khoa-yelo/giap
+  license: MIT
+  license_file: LICENSE
+  summary: "{{ summary }}"
+  doc_url: https://khoa-yelo.github.io/giap/
+  dev_url: https://github.com/khoa-yelo/giap
+
+extra:
+  recipe-maintainers:
+    - khoa-yelo
+{%- if doi %}
+  identifiers:
+    - doi:{{ doi }}
+{%- endif %}
