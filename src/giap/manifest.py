@@ -96,6 +96,7 @@ class ManifestSources:
     sensitivity: Sequence[Mapping[str, Any]] | None = None  # tables/sensitivity.tsv rows
     island_diagnostics: Sequence[Mapping[str, Any]] | None = None  # C1 order
     calibration: Mapping[str, Any] | None = None  # giap.data.calibration.load()
+    detection_tier: str | None = None  # the tier detection used (genes.tsv, §7.3.2)
 
 
 def canonical_json(obj: Any) -> str:
@@ -371,7 +372,7 @@ def build_manifest(src: ManifestSources) -> dict[str, Any]:
         "tools": _tools(src.tool_reports),
         "databases": _databases(src.db_manifest),
         "annotation": _annotation(src.annotation_meta),
-        "detection_tier": src.preflight.get("evidence_tier"),
+        "detection_tier": src.detection_tier or src.preflight.get("evidence_tier"),
         "seeds": seeds,
         "steps": steps,
         "skipped": skipped,

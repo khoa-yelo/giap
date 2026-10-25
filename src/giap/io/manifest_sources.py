@@ -124,6 +124,25 @@ def read_sensitivity(path: Path | None) -> list[dict[str, Any]] | None:
     return out
 
 
+def _column(path: Path, col: str, where: Mapping[str, str] | None = None) -> set[str]:
+    with path.open(newline="", encoding="utf-8") as fh:
+        rows = csv.DictReader(fh, delimiter="\t")
+        return {r[col] for r in rows if all(r.get(k) == v for k, v in (where or {}).items())
+                and r.get(col) not in (None, "", "NA")}  # fmt: skip
+
+
+def read_detection_tier(tables: Path) -> str | None:
+    """The tier the run's detection used (§7.3.2): ``genes.tsv`` ``detection_tier``, else the
+    ``detection_summary.tsv`` ``tier`` rows' ``group``; None when absent, empty or not one tier."""
+    genes, summary = tables / "genes.tsv", tables / "detection_summary.tsv"
+    tiers: set[str] = set()
+    if _nonempty(genes):
+        tiers = _column(genes, "detection_tier")
+    if not tiers and _nonempty(summary):
+        tiers = _column(summary, "group", {"section": "tier", "group_type": "tier"})
+    return tiers.pop() if len(tiers) == 1 else None
+
+
 def read_island_diagnostics(path: Path | None) -> list[dict[str, Any]] | None:
     """Rows of ``context/island_diagnostics.parquet`` in file (C1) order; None if absent/empty."""
     if path is None or not _nonempty(path):
