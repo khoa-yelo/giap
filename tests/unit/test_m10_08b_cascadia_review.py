@@ -99,9 +99,10 @@ def test_chunks_lie_on_the_global_grid_whatever_the_markers(
     assert _pairs(plan) == _grid_reference(n_batches, blocks, size)
     # a grid cell that no reserved block touches is the same chunk as with no markers at all
     free = set(_pairs(S.chunk_plan(n_batches, [], size)))
+    held = set(_pairs(plan))
     for s, e in free:
         if not any(a < e and s < c for a, c in blocks):
-            assert (s, e) in set(_pairs(plan))
+            assert (s, e) in held
 
 
 # --- fakes for torch / lightning / cascadia -------------------------------------------------------

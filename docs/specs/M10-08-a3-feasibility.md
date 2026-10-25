@@ -650,3 +650,23 @@ These supersede the earlier text where they differ:
 - **N6, preconditions (exit 2):** a missing `--mzml-check` file (an unreadable one, or one without
   `rules`, is exit 1), a whitespace-only `.ssl` (no header; it counts as an empty file), and a
   `--detail` path inside the checkout that is not git-ignored.
+
+### Lead decision: the CPU route (2026-10-25, #334 review item 6)
+GIAP_SPEC.md §15.1 puts A3 on the `gpu` partition. At Khoa's request (2026-10-24) the three WT runs
+were predicted on CPU instead, as a Slurm array (`cascadia_array.sbatch`, ≤ 3 h per task, R14), in
+two forms:
+- **Fixed blocks** (`predict`, used for the first jobs). Task 1889429_0 finished at 2:58:39 of a 3:00
+  limit, so this mode has no time margin.
+- **The work queue** (`work`, used for the rest of the run). Chunks lie on the global grid
+  `[k·20, (k+1)·20)`; each is claimed atomically within a generation and saved atomically;
+  `pending_chunks` skips batches already held by chunk or shard files, and `merge` refuses gaps,
+  overlaps and records whose prediction or row counts do not match their block.
+
+`write_results` runs once on the concatenated predictions, so the merged table equals an unsplit
+**CPU** run of the same build (same row numbers, threshold 0.8, time width, model parameters). It
+is **not** bit-for-bit a GPU run: float reductions differ, so a row near the strict `> 0.8` cut can
+flip. The WT_1 verdict is far from its rule (863 peptides vs 500; share 0.636, CI 0.604–0.668, vs
+0.20), so a handful of flipped rows cannot change it. Open, not needed for the verdict: claims are
+keyed by chunk name, so releasing a reserved marker while a generation is planning could give two
+overlapping claims (`merge` would refuse rather than write a bad table); claiming by grid cell
+would close it.
