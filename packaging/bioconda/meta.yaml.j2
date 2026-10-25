@@ -15,6 +15,9 @@ build:
   script: "{{ '{{' }} PYTHON {{ '}}' }} -m pip install . --no-deps --no-build-isolation -vv"
   entry_points:
     - giap = giap.cli:main
+  # bioconda-utils lint missing_run_exports: new recipes pin their own subpackage (lead, #345 B1).
+  run_exports:
+    - '{{ '{{' }} pin_subpackage("giap", max_pin="x") {{ '}}' }}'
 
 requirements:
   host:
@@ -28,16 +31,19 @@ requirements:
     - {{ dep }}
 {%- endfor %}
     # Q-L10: giap run needs Nextflow and a JVM.
-    - nextflow
+    - nextflow >=25.04
     - openjdk >=17
 
 test:
+  requires:
+    - pip
   imports:
     - giap
     - giap.cli
   commands:
     - giap --version
     - giap --help
+    - pip check
 
 about:
   home: https://github.com/khoa-yelo/giap

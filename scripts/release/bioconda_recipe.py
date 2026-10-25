@@ -21,6 +21,7 @@ from pathlib import Path
 
 import jinja2
 from packaging.requirements import InvalidRequirement, Requirement
+from packaging.version import InvalidVersion, Version
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = Path("packaging") / "bioconda" / "meta.yaml.j2"
@@ -120,6 +121,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", required=True, type=Path)
     args = ap.parse_args(argv)
     try:
+        try:
+            args.version = str(Version(args.version))  # PEP 440 form, as in the sdist name
+        except InvalidVersion:
+            raise RecipeError(f"invalid version {args.version!r} (PEP 440)") from None
         sha = pypi_sha256(args.version) if args.sha256 == "auto" else args.sha256
         sha = check_sha256(sha)
         pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())

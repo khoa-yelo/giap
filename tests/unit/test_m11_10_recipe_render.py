@@ -100,7 +100,8 @@ def test_build_section(recipe: dict[str, Any]) -> None:
     assert build["number"] == 0
     assert build["script"].strip() == PIP_SCRIPT
     assert build["entry_points"] == ["giap = giap.cli:main"]
-    assert not build.get("run_exports")
+    # lead decision (#345 review B1): bioconda-utils requires run_exports on new recipes
+    assert build["run_exports"] == ['{{ pin_subpackage("giap", max_pin="x") }}']
 
 
 def test_host_requirements(recipe: dict[str, Any]) -> None:
@@ -113,7 +114,7 @@ def test_host_requirements(recipe: dict[str, Any]) -> None:
 def test_run_has_python_nextflow_openjdk(recipe: dict[str, Any]) -> None:
     run = [str(r).strip() for r in recipe["requirements"]["run"]]
     assert "python >=3.11" in run
-    assert "nextflow" in [r.split()[0] for r in run]
+    assert "nextflow >=25.04" in run  # spec §3 Nextflow floor (#345 review S4)
     assert "openjdk >=17" in run
 
 
@@ -121,6 +122,7 @@ def test_test_section(recipe: dict[str, Any]) -> None:
     test = recipe["test"]
     assert "giap --version" in test["commands"]
     assert "giap --help" in test["commands"]
+    assert "pip check" in test["commands"] and "pip" in test["requires"]
     assert set(test["imports"]) >= {"giap", "giap.cli"}
 
 
@@ -170,10 +172,25 @@ def test_bad_sha256_exits_1(tmp_path: Path, bad: str) -> None:
     assert not (tmp_path / "giap" / "meta.yaml").exists()
 
 
+@pytest.mark.parametrize("bad", ['1.0"x', "../../evil", "", "one"])
+def test_invalid_version_exits_1(tmp_path: Path, bad: str) -> None:
+    """#345 review S1: a version that is not PEP 440 never reaches the URL or the YAML."""
+    proc = run_render(tmp_path, "--version", bad, "--sha256", SHA)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "invalid version" in proc.stdout + proc.stderr
+    assert not (tmp_path / "giap" / "meta.yaml").exists()
+
+
+def test_version_is_normalised_like_the_sdist(tmp_path: Path) -> None:
+    data = render_ok(tmp_path, "--version", "1.0.0-rc1", "--sha256", SHA)
+    assert data["package"]["version"] == "1.0.0rc1"
+    assert data["source"]["url"].endswith("/giap-1.0.0rc1.tar.gz")
+
+
 def test_uppercase_hex_sha_accepted(tmp_path: Path) -> None:
     """64 hex characters in either case is a valid digest (reading: hex is case-insensitive)."""
     data = render_ok(tmp_path, "--version", "1.0.0", "--sha256", SHA.upper())
-    assert str(data["source"]["sha256"]).lower() == SHA
+    assert data["source"]["sha256"] == SHA  # written lowercased
 
 
 # Properties: version and sha256 placeholders are substituted verbatim.

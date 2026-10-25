@@ -17,7 +17,7 @@ release) · estimate ≈ 130 code lines + ≈ 110 test lines · not `stats` · r
 1. **Template** `packaging/bioconda/meta.yaml.j2` (Jinja2, already a runtime dependency): `package:
    name: giap`, `version`; `source: url: https://pypi.org/packages/source/g/giap/giap-{{ version
    }}.tar.gz`, `sha256`; `build: noarch: python`, `number: 0`, `script: {{ PYTHON }} -m pip install
-   . --no-deps --no-build-isolation -vv`, `entry_points: giap = giap.cli:main`, `run_exports` none;
+   . --no-deps --no-build-isolation -vv`, `entry_points: giap = giap.cli:main`, `run_exports: [pin_subpackage("giap", max_pin="x")]` (lead decision, #345 review B1: bioconda-utils lint `missing_run_exports`);
    `requirements: host: python >=3.11, pip, hatchling`; `run:` python ≥ 3.11, every
    `[project].dependencies` entry mapped to its conda name, plus `nextflow` and `openjdk >=17`
    (Q-L10); `test: commands: giap --version`, `giap --help`; `imports: giap, giap.cli`;
