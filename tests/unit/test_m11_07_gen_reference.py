@@ -623,7 +623,8 @@ def test_missing_field_description_is_a_warning_not_an_error(
 
 # --- properties ---------------------------------------------------------------------------------
 
-_HELP_ALPHABET = "abcXYZ019 |≤§–.,():="
+# `<`, `>`, `&`, `_` and `*` must survive as visible text (#339 review B1); backticks stay code.
+_HELP_ALPHABET = "abcXYZ019 |≤§–.,():=<>&_*"
 _help = st.text(alphabet=_HELP_ALPHABET, max_size=30).map(lambda s: " ".join(s.split()))
 _names = st.lists(
     st.from_regex(r"[a-z][a-z0-9]{0,8}", fullmatch=True), min_size=1, max_size=6, unique=True

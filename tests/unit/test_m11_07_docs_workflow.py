@@ -79,6 +79,8 @@ def test_deploy_job_guard(wf: dict[str, Any]) -> None:
     _, deploy, build_id = _jobs(wf)
     cond = str(deploy.get("if", ""))
     assert GUARD in cond.replace('"', "'"), cond
+    # deploy only from main, whatever triggered the run (#339 review B2)
+    assert "github.ref == 'refs/heads/main'" in cond.replace('"', "'"), cond
     needs = deploy.get("needs")
     assert build_id in ([needs] if isinstance(needs, str) else list(needs or []))
 
