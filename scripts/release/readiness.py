@@ -31,7 +31,8 @@ RUNTIME_MAX_S = 3300  # 55 min
 METRICS = "validation/pilot/metrics/metrics.json"
 REPORT = "validation/pilot/REPORT.md"
 BASELINE = "benchmarks/baseline.json"
-CALIB_PATHS = ("src", "tests/calibration", "ci")  # a change here invalidates a calibration row
+# a change here invalidates a calibration row (tests/sim, tests/helpers: M11-03b Q6)
+CALIB_PATHS = ("src", "tests/calibration", "tests/sim", "tests/helpers", "ci")
 RUN_PATHS = ("src", "workflow", "ci", "validation/proxies")  # ... and a weekly TE8 row
 INTEG_PATHS = ("src", "workflow", "ci", "tests/integration", "tests/contract")  # ... integration
 # Registry processes without an image pin (containers.config header; M8-17 decision 9; in-process)

@@ -82,8 +82,22 @@ class ToolUnavailable(Exception):
     """Neither a conda environment nor the pinned container image of a tool is installed."""
 
 
-def _repo() -> Path:
-    return Path(os.environ.get("GIAP_REPO") or Path(__file__).resolve().parents[3])
+def _checkout() -> Path | None:
+    """``$GIAP_REPO``, else this source checkout; ``None`` for an installed wheel."""
+    if os.environ.get("GIAP_REPO"):
+        return Path(os.environ["GIAP_REPO"])
+    here = Path(__file__).resolve().parents[3]
+    return here if (here / "workflow" / "main.nf").is_file() else None
+
+
+def _containers_config() -> Path:
+    """The pinned images: the checkout's, else the workflow bundled in the package (M11-01)."""
+    repo = _checkout()
+    if repo is not None:
+        return repo / "workflow" / "conf" / "containers.config"
+    from giap.runner.nextflow import workflow_main
+
+    return workflow_main().parent / "conf" / "containers.config"
 
 
 class ToolRunner:
@@ -91,11 +105,17 @@ class ToolRunner:
     ``workflow/conf/containers.config`` via Apptainer (M2-08 lead decision 5)."""
 
     def command(self, tool: str, argv: Sequence[str]) -> list[str]:
-        root = Path(os.environ.get("GIAP_ROOT") or _repo() / "local")
+        repo = _checkout()
+        if not os.environ.get("GIAP_ROOT") and repo is None:
+            raise ToolUnavailable(
+                f"GIAP_ROOT is not set: it holds the giap-{tool} environment or image "
+                "(an installed package has no checkout to default to)"
+            )
+        root = Path(os.environ.get("GIAP_ROOT") or Path(str(repo)) / "local")
         mamba = Path(os.environ.get("MAMBA_ROOT_PREFIX") or root / "micromamba")
         if (mamba / "envs" / f"giap-{tool}").is_dir():
             return ["micromamba", "run", "-n", f"giap-{tool}", *argv]
-        conf = (_repo() / "workflow/conf/containers.config").read_text(encoding="utf-8")
+        conf = _containers_config().read_text(encoding="utf-8")
         m = re.search(rf"withName: '{tool.upper()}' \{{ container = '(?:docker://)?([^']+)'", conf)
         cache = Path(os.environ.get("NXF_APPTAINER_CACHEDIR") or root / "containers")
         img = cache / (re.sub(r"[/:]", "-", m.group(1)) + ".img") if m else None
