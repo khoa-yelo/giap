@@ -1092,3 +1092,19 @@ both that test and the natural stop-loss test hold at 5–20 SNV/kb. Accepted as
 - **Rule 17 row order: deviation.** `detection_summary.tsv` keeps the M4-16 contract's sort
   (section, metric, level), so the 12 rows appear alphabetically, not in rule 17's listed order.
   The set of rows and their values are as rule 17 says; readers select by key.
+
+### Lead decisions for 16b-3 (rule 14, 2026-10-25, test-author measurement)
+- **The rule-14 e2e stays at sim100k, with de novo input** (`DenovoConfig()`, `peptides_denovo.tsv`).
+  Database input at sim100k puts T_1 = 7 targets in the cost-1 stratum (q_min = 0.14 > α), the
+  16b floor problem. De novo read errors fill stratum 1 (T_1 = 1361, q_min = 7.3e-4), so an
+  error-free read over the planted stop is accepted; a read that also carries a de novo error is
+  cost 2 (T_2 = 54, q_min = 0.019) and is not. α is unchanged (R3). `giap run --modules core`
+  takes about 35 s, so the test is not marked slow.
+- **Readings pinned in `tests/helpers/readthrough_sim_oracle.py`, accepted:**
+  - eligible genes are non-pseudo CDS and sORFs (rule 1's feature set);
+  - "5–60 codons after" means the new stop is k ∈ [5, 60] codons past the annotated stop;
+  - `ext_stop` is the new stop's lowest 0-based coordinate, wrapped;
+  - the genome and annotation are not edited (genes are chosen from the existing sequence);
+  - `n_true_peptides_spanning` counts distinct detected correct peptides covering the stop.
+- **Floors:** at least 1 called `cterm_extension` gene and at least 3 `stop_codon` ALT sites. On a
+  shortfall raise `n_readthrough`; never change the seed or drop an assertion.
