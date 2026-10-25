@@ -1241,3 +1241,36 @@ Merged from the lead's local list on 2026-10-25. Skipped as already done or alre
 - Selector: WT_ROS also matches the WT token. Consider rejecting treatment tokens (ROS) explicitly rather than relying on MLA order.
 - Nits: --resolve can't exit 0 on the real record (http:// links; https_route only upgrades ftp://); the property test's _expected copies classify; a missing tdf drops the dia_window_rows/pasef_rows keys; IsolationWidth/2 on an int column; immutable=1; an unknown checksum algorithm gives a traceback, not exit 2; run_label .d is case-sensitive; the override URL should use download.iprox.cn.
 - CLI: --annotation *.json.gz silently runs Bakta live (cli._bakta_json checks only .json). Accept .json.gz (decompress, or have the step read gz); test-author → implementer, small PR (M10-04 Q3).
+
+#### M11 wave B reviews (2026-10-25), deferred
+- **#338 M11-06:**
+  - S1 (Khoa): a digest PR opened with GITHUB_TOKEN triggers no CI and needs "Allow Actions to create PRs". Use an App/PAT, or document a manual close/reopen.
+  - S2: a dispatch from a non-main ref opens a PR against main.
+  - S3: the `git-<sha8>` tag comes from the env comment, not the Dockerfile ARG.
+  - S4: the process→tool map is duplicated (containers.yml and update_digests.py).
+  - S5: pinning only PROMOTECH_NOVEL drops promotech from the conda-only comment.
+  - S6 (Khoa): the licences of conda packages bundled in public images (PyQt5 GPL-3.0, ViennaRNA).
+  - Nits: a double digest is accepted; writes happen outside the try; a re-run after the branch was pushed fails; `set -f` for the tools input; two back-to-back pushes give two conflicting PRs.
+- **#339 M11-07:**
+  - S3: tests for the hidden-option filter, the empty `multiple` default, and `_status` multi-line text.
+  - S4: the hand-written Methods/Decisions nav conflicts between parallel agents. Generate the nav, or list only the index pages.
+  - Nits: exclude adr/TEMPLATE.md; flags.md shows a raw regex; the `_unset` sentinel is detected by type name; CRLF passes `--check`; no site_url/repo_url; envvar not shown.
+- **#341 M11-12:**
+  - B1 follow-up: the no-changelog label takes effect only on the next push. Read live labels with `gh pr view --json labels`, or add labeled/unlabeled triggers.
+  - S2: a rename inside changelog.d/ passes as a new fragment; the `C` status branch is dead.
+  - S3 tests: `..` vs `...` with main moved on; renamed or edited fragments; pattern anchors; the `": "` separator and `refactor!:`; exact label match; a merge-only range.
+  - Nits: a bad BASE gives a traceback; non-ASCII paths are quoted; a module moved out of src/ needs no fragment; `open` exists only on macOS; README line length; the fragment slug wording; link regex vs parentheses.
+- **#342 M11-04:**
+  - S1 (Khoa): the actor guard can't tell agents from Khoa (the FarmShare gh login is khoa-yelo). Use a separate account or a token without actions:write; also check `github.triggering_actor`.
+  - S2: readiness fatal for pypi is untested.
+  - S3: skip-existing, packages-dir and `--draft` are untested.
+  - S4: a test against `${{ inputs.* }}` in run scripts; `$GITHUB_SHA` at :192.
+  - S5: notes.py tests for the preamble, "No significant changes." and rc with `--draft`.
+  - Nits: `::error::` echoes the unvalidated version; stderr vs stdout; `persist-credentials: false`; notes.py fences and `# ` headings; a multi-digit rc patch; example 5 needs a built section.
+- **#337 M11-03:**
+  - Item 11: no job writes `calibration_full` / `calibration_attacks` rows to nightly.tsv, so readiness R3/R4 stay pending. Add those nightly rows before M11-13.
+  - A `--check-runs` file without `head_sha`.
+  - An evidence path recorded as a basename only.
+- **M11-04 / M11-02:** an M11 milestone fragment will break test_m11_02's "exactly 12 milestone fragments"; update the count when M11's fragment lands.
+- **Earlier parked:** datapackage.json lacks `genes` and others; config.schema.json fields have no descriptions (gen_reference warns).
+- **Rebrand (Khoa, 2026-10-25):** after development, restructure and rename GIAP → GIPPA (repo, package, code, simplification). Do it before the first real publish (M11-13). Sequence: an ADR (overrides the spec name), one scripted rename PR verified byte-identical apart from names (PR-size exception), then simplification PRs gated by goldens and calibration. `gippa` was free on PyPI, TestPyPI, bioconda, conda-forge and GitHub on 2026-10-25.
