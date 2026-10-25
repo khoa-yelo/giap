@@ -395,3 +395,57 @@ def test_step_decoy_frames_are_byte_identical_to_format_1(tmp_path: Path) -> Non
                     "shuffle_bounds"):  # fmt: skip
             a, b = old[key], new[key]
             assert a.dtype == b.dtype and a.tobytes() == b.tobytes(), key
+
+
+# ---------------------------------------------------------------- review round 1 (PR #331)
+
+
+def test_linear_contig_stop_in_the_last_codon_is_a_site() -> None:
+    """Edge case (item 3): a ``+`` gene ``[96, 126)`` on the linear 126-nt ``c1`` ends in the
+    contig's last codon (TAG, p = 41): ``codon_start + 3 == n`` is in range, so it is a site."""
+    genome, reps, gm0 = toy_c1()
+    gm = model(reps, [*gm0.genes, gene("G9", "c1", 96, 126, "+")])
+    index = build_sixframe(genome, reps)
+    sites, n_not, cells = _cells_of(index, gm, genome)
+    assert sites == (_site("c1", "+", 54, ("G1",), "TGA"), _site("c1", "+", 123, ("G9",), "TAG"))
+    assert n_not == 0
+    assert _as_lists(cells) == [[18, 41], [], [], [], [], []]
+
+
+def test_linear_contig_minus_gene_at_zero_is_a_site() -> None:
+    """Edge case (item 3): a ``-`` gene ``[0, 30)`` on a linear contig: its stop is ``[0, 3)``."""
+    gene_strand = "ATG" + "GCT" * 8 + "TAA"
+    nt = rc(gene_strand) + "GCT" * 10
+    reps = {"m": Replicon("m", len(nt), "linear")}
+    gm = model(reps, [gene("M1", "m", 0, 30, "-")])
+    index = build_sixframe({"m": nt}, reps)
+    sites, n_not, cells = _cells_of(index, gm, {"m": nt})
+    assert sites == (_site("m", "-", 0, ("M1",), "TAA"),)
+    assert n_not == 0
+    assert sum(len(c) for c in cells) == 1
+    fid = next(i for i, c in enumerate(cells) if len(c))
+    p = int(cells[fid][0])
+    assert index.frames[fid].strand == "-" and index.frames[fid].aa[p] == STOP
+    iv = index.to_interval(fid, p, p + 1)
+    assert (iv.contig, iv.start, iv.end, iv.strand) == ("m", 0, 3, "-")
+
+
+def test_shared_stop_tags_are_sorted_when_the_features_arrive_unsorted() -> None:
+    """Rule 1 (item 6): ``Z9`` (start 0) comes before ``A1`` (start 30) in the gene model; the
+    site's ``locus_tags`` are still sorted."""
+    nt = "ATG" + "GCT" * 28 + "TAA" + "GCT" * 20
+    reps = {"s": Replicon("s", len(nt), "linear")}
+    gm = model(reps, [gene("A1", "s", 30, 90, "+"), gene("Z9", "s", 0, 90, "+")])
+    assert [g.locus_tag for g in gm.genes] == ["Z9", "A1"]
+    index = build_sixframe({"s": nt}, reps)
+    sites, _, cells = _cells_of(index, gm, {"s": nt})
+    assert sites == (_site("s", "+", 87, ("A1", "Z9"), "TAA"),)
+    assert _as_lists(cells)[0] == [29]
+
+
+@pytest.mark.parametrize("which", ["crafted", "fixture"])
+def test_load_index_rejects_format_1(tmp_path: Path, which: str) -> None:
+    """Item 4: ``load_index`` itself checks the format (not only ``load_stop_cells``)."""
+    path = _format1_file(tmp_path / "old.npz") if which == "crafted" else FIXTURE
+    with pytest.raises(ValueError, match="rebuild the six-frame index"):
+        load_index(path)

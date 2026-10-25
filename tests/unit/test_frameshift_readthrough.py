@@ -171,3 +171,40 @@ def test_broken_build_without_decoy_cells_shows_the_decoy_split() -> None:
         t_fs, d_fs, t_tol, d_tol = _symmetry(kind, broken=True)
         assert (t_fs, t_tol) == (0, 1), kind
         assert d_fs >= 1 and d_tol == 0, kind
+
+
+def world_h_costly():  # type: ignore[no-untyped-def]
+    """World ``H`` with one G in the flank (nt 53, the third base of a ``+0`` codon, the second
+    of a ``+1`` codon): ``+0`` still reads ``K`` there, ``+1`` reads ``R`` (``AGA``)."""
+    flank = "A" * 5 + "G" + "A" * 24
+    nt = (
+        "".join(CODON[a] for a in GENE_AA) + "TGA" + flank + "".join(CODON[a] for a in "CFHPYW" * 3)
+    )
+    reps = {"h": Replicon("h", len(nt), "linear")}
+    gm = model(reps, [gene("H1", "h", 0, 48, "+")])
+    return {"h": nt}, reps, gm
+
+
+def test_precedence_keeps_the_split_when_the_read_through_alignment_costs_more() -> None:
+    """Review round 1 item 2: ``Q2 = CFHPYWCF E K R KKKK``. The split (prefix in ``+0``,
+    ``EKRKKKK`` in ``+1``) costs 1; the overlapping read-through alignment in ``+0`` costs 2 (the
+    marked cell plus R->K). 2 > 1, so precedence does not suppress the split; a cell priced at 0
+    in ``nonfs_overlap`` would."""
+    genome, reps, gm = world_h_costly()
+    index = build_sixframe(genome, reps)
+    f0, f1 = decode(index.frames[0].aa), decode(index.frames[1].aa)
+    assert f0[:24] == GENE_AA + "*" + "K" * 8
+    assert f1[15:22] == "EKRKKKK"
+    q = GENE_AA[-8:] + "EKRKKKK"
+    rev = {"reverse": build_decoys(index, "reverse", 50, for_step("sixframe_index", 1))}
+    cells = stop_cells(index, rev, gm, genome)
+    fs = match_frameshift([q], index, rev, {q: "reverse"}, {q}, CFG, cells=cells)
+    t = _fs(fs, q, "target")
+    assert len(t) == 1
+    r = t.iloc[0]
+    assert (r["start"], r["end"], r["strand"], r["n_diff"], r["diff_types"]) == (
+        21, 67, "+", 1, "frameshift",
+    )  # fmt: skip
+    tol = _fs(match_tolerant([q], index, rev, {q: "reverse"}, {q}, CFG, cells=cells), q, "target")
+    assert len(tol) == 1
+    assert (tol.iloc[0]["n_diff"], tol.iloc[0]["diff_types"]) == (2, "substitution;substitution")

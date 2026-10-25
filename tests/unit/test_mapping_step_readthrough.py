@@ -148,3 +148,60 @@ def test_map_tolerant_rejects_a_format_1_index(tmp_path: Path) -> None:
     ins["peptides"], _pep, _ = _rt_peptides(tmp_path)
     with pytest.raises(reg.StepError, match="rebuild the six-frame index"):
         _map(tmp_path, FIXTURE, ins["peptides"])
+
+
+# ---------------------------------------------------------------- review round 1 (PR #331)
+
+
+def test_map_tolerant_itself_rejects_a_format_1_index(tmp_path: Path) -> None:
+    """Item 4: ``map_exact`` runs on a format-2 index, then ``map_tolerant`` alone is given the
+    format-1 file, so the error comes from ``map_tolerant``."""
+    ins = inputs(tmp_path)
+    ins["peptides"], _pep, _ = _rt_peptides(tmp_path)
+    six = _six(tmp_path, ins)
+    cfg = _cfg()
+    hx, ht = tmp_path / "hits_exact.parquet", tmp_path / "hits_tolerant.parquet"
+    reg.run_step("map_exact", cfg, {"peptides": ins["peptides"], "sixframe": six},
+                 {"hits_exact": hx})  # fmt: skip
+    assert hx.exists()
+    with pytest.raises(reg.StepError, match="rebuild the six-frame index"):
+        reg.run_step("map_tolerant", cfg,
+                     {"peptides": ins["peptides"], "sixframe": FIXTURE, "hits_exact": hx},
+                     {"hits_tolerant": ht})  # fmt: skip
+
+
+def test_map_tolerant_passes_the_cells_to_the_frameshift_route(tmp_path: Path) -> None:
+    """Item 5 (rule 8, "passes them to both routes"): world ``H`` of
+    ``test_frameshift_readthrough`` through the steps, ``frameshift.enabled`` (the default).
+    ``Q = CFHPYWCF E KKKKKK``'s only split is suppressed by the read-through alignment only when
+    ``match_frameshift`` receives the cells; the tolerant route reports the read-through row."""
+    from helpers.readthrough_toys import CODON, gene, write_genome
+
+    from giap.model import Replicon
+
+    gene_aa = "MCFHPYWCFHPYWCF"
+    q = gene_aa[-8:] + "E" + "K" * 6
+    nt = (
+        "".join(CODON[a] for a in gene_aa)
+        + "TGA"
+        + "A" * 30
+        + "".join(CODON[a] for a in "CFHPYW" * 3)
+    )
+    reps = {"h": Replicon("h", len(nt), "linear")}
+    ann = write_annotation(model(reps, [gene("H1", "h", 0, 48, "+")]), tmp_path / "ann")
+    peptides = tmp_path / "peptides_h.parquet"
+    pd.DataFrame({
+        "peptide": [q], "source": ["database"], "q_value": [0.001], "pep": [0.01],
+        "score": [np.nan], "is_decoy": [False], "search_db": ["other"],
+    }).to_parquet(peptides, index=False)  # fmt: skip
+    ins = {"genome": write_genome({"h": nt}, tmp_path / "h.fa"), "replicons": ann["replicons"],
+           "genes": ann["genes"], "peptides": peptides}  # fmt: skip
+    assert _cfg().mapping.tolerant.frameshift.enabled
+    hits = _map(tmp_path, _six(tmp_path, ins), peptides)
+    t = hits[(hits["peptide"] == q) & (hits["search"] == "target")]
+    assert "frameshift" not in set(t["diff_types"])
+    assert len(t) == 1
+    r = t.iloc[0]
+    assert (r["contig"], r["start"], r["end"], r["strand"], r["n_diff"], r["diff_types"]) == (
+        "h", 21, 66, "+", 1, "substitution",
+    )  # fmt: skip

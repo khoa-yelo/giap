@@ -186,3 +186,50 @@ def test_kernel_without_numba_jit_agrees_on_marked_cells() -> None:
     )  # fmt: skip
     assert proc.returncode == 0, proc.stderr[-3000:]
     assert json.loads(proc.stdout) == jitted
+
+
+# ---------------------------------------------------------------- budget guard on the last residue
+# Review round 1 item 1 (Q3, "window ending on the stop"): the (1, 1) move over a marked cell is
+# taken only while the cost stays within k. Frame ``NEFKAVPAGHTLW*`` with the ``*`` marked, k = 1:
+# ``...TLWQ`` costs 1 (the cell only); ``...TLAQ`` would cost 2 (W->A, then the cell on the last
+# query residue) and must give no alignment.
+
+BUDGET_FRAME = "NEFKAVPAGHTLW*"
+BUDGET_CASES = [
+    # (query, want with p = 13 marked, k = 1, d0 = 0)
+    ("NEFKAVPAGHTLWQ", [Alignment(1, 0, 14, ("substitution",))]),
+    ("NEFKAVPAGHTLAQ", []),
+    ("NEFKAVPAGHTAAQ", []),
+]
+
+
+@pytest.mark.parametrize(("query", "want"), BUDGET_CASES, ids=[c[0] for c in BUDGET_CASES])
+def test_a_marked_cell_on_the_last_residue_respects_the_budget(
+    query: str, want: list[Alignment]
+) -> None:
+    assert run(query, BUDGET_FRAME, (13,), 0, 1) == want
+
+
+def test_verify_batch_respects_the_budget_on_a_marked_last_cell() -> None:
+    t = np.ascontiguousarray(frame_rt(BUDGET_FRAME, (13,)), dtype=np.uint8)
+    d0s = np.array([0], dtype=np.int64)
+    ex = exchange_lookup(TABLES)
+    over = np.ascontiguousarray(encode_query("NEFKAVPAGHTLAQ"), dtype=np.uint8)
+    assert [list(map(int, r)) for r in verify_batch(over, t, d0s, 1, ex)] == [[-1, -1, -1]]
+    ok = np.ascontiguousarray(encode_query("NEFKAVPAGHTLWQ"), dtype=np.uint8)
+    row = verify_batch(ok, t, d0s, 1, ex)[0]
+    assert (int(row[1]), int(row[2])) == (0, 14)
+
+
+def test_kernel_without_numba_jit_respects_the_budget_on_a_marked_last_cell() -> None:
+    cases = [[q, BUDGET_FRAME, [13], 0, 1] for q, _ in BUDGET_CASES]
+    want = [[[a.cost, a.t_start, a.t_end, list(a.diff_types)] for a in w] for _, w in BUDGET_CASES]
+    env = dict(os.environ)
+    env["NUMBA_DISABLE_JIT"] = "1"
+    env["PYTHONPATH"] = os.pathsep.join(p for p in (str(SRC), env.get("PYTHONPATH", "")) if p)
+    proc = subprocess.run(
+        [sys.executable, "-c", _SCRIPT], input=json.dumps(cases), capture_output=True, text=True,
+        env=env, timeout=600, check=False,
+    )  # fmt: skip
+    assert proc.returncode == 0, proc.stderr[-3000:]
+    assert json.loads(proc.stdout) == want
