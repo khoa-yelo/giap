@@ -73,8 +73,10 @@ MIXED_ELIGIBLE = 26
 SIM100K_DENOVO = dataclasses.replace(
     giapsim.SIM100K, proteomics=ProteomicsConfig(), denovo=DenovoConfig(), write_precomputed=True
 )
-#: float-free files of a build (``peptides.tsv``, ``abundance.tsv`` and the de novo table carry
-#: formatted floats and are covered by the n = 0 vs default whole-tree comparison)
+#: float-free files of a build, pinned to main below. ``peptides.tsv``, ``abundance.tsv`` and the
+#: de novo table carry formatted floats and are not pinned: the n = 0 vs default comparison only
+#: checks the explicit 0 against the (also 0) default. The #350 review checked byte-identity of
+#: whole trees against main by hand (three configs, float files included).
 KEEP = (
     "genome.fasta",
     "bakta_like.json",

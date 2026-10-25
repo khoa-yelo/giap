@@ -19,11 +19,11 @@ read-through read is accepted at sim100k and the spec's genome size stands (no 1
 spanning read that carries a de novo error as well is cost 2 (T_2 = 54, q_min 0.019) and is not
 accepted, so the "true peptides" of the acceptance item are read here as the spanning true
 peptides (>= 10 aa, shorter ones are never placed) that have an error-free de novo read
-(``truth/denovo.tsv``). The run takes about 35 s, so the test is not ``slow``.
+(``truth/denovo.tsv``). The run takes about 85 s, so the test is not ``slow``.
 
-**Floors** (the test can never pass vacuously): the oracle expects a share of the 40 planted genes
-with >= 2 detected spanning peptides and about 6.5 with >= 1 (detection logit of M3-19 on the 59
-eligible genes of this build). The test requires >= 1 called gene and >= 3 stop_codon ALT
+**Floors** (the test can never pass vacuously): of the 40 planted genes (59 eligible in this
+build) the #350 review measured 32 with >= 1 detected spanning peptide and 12 with >= 2; the run
+calls 29 ``cterm_extension`` rows. The test requires >= 1 called gene and >= 3 stop_codon ALT
 sites; a shortfall is reported and answered by raising ``n_readthrough`` (59 eligible genes),
 never by dropping an assertion or changing the seed.
 
@@ -293,6 +293,8 @@ def test_genes_with_two_readable_spanning_true_peptides_are_called(world: dict[s
     clean = set(dn.loc[dn["peptide"] == dn["true_peptide"], "true_peptide"])
     want = set()
     for x in world["rt"].itertuples(index=False):
+        if world["eligible"][x.locus_tag].kind == "sorf":
+            continue  # as in the cterm test: a read-through sORF is a sorf-class ORF (lead 16b-3)
         peps = spanning_peptides(sim, x.locus_tag, x.codon_start, x.contig)
         if len({_il(p) for p in peps if len(p) >= 10 and p in clean}) >= 2:
             want.add(x.locus_tag)
