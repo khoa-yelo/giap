@@ -250,7 +250,9 @@ def test_update_digests_replaces_a_legacy_prefixed_line_in_place(tmp_path: Path)
     after = cfg.read_text(encoding="utf-8").splitlines()
     new = f"  withName: 'OSTIR' {{ container = '{OSTIR_REF}' }}"
     assert after.count(new) == 1 and old not in after
-    assert after.index(new) == end, "the legacy line is replaced in place"
+    # in place: still the last line of the process block (the tag comment above it grows by one)
+    close = max(i for i, ln in enumerate(after) if ln == "}")
+    assert after.index(new) == close - 1, "the legacy line is replaced in place"
     # every pin line other than OSTIR's is byte-identical
     pins_before = [ln for ln in before.splitlines() if "withName" in ln and "OSTIR" not in ln]
     pins_after = [ln for ln in after if "withName" in ln and "OSTIR" not in ln]
@@ -375,7 +377,8 @@ def test_example8_h4_fails_on_a_prefixed_pin(tmp_path: Path) -> None:
 def test_example9_h4_tag_still_fails_as_tag(tmp_path: Path) -> None:
     h4 = _h4(tmp_path, _bakta("oschwengers/bakta:v1.12.2"))
     assert h4["status"] == "fail" and "tag, not digest: BAKTA" in text_of(h4), h4
-    assert "docker:// prefix" not in text_of(h4), h4
+    # the threshold itself says "no docker:// prefix"; the reason must not
+    assert "docker:// prefix" not in text_of({k: v for k, v in h4.items() if k != "threshold"}), h4
 
 
 def test_h4_prefixed_tag_is_still_a_tag(tmp_path: Path) -> None:
