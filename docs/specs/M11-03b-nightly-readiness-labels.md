@@ -315,3 +315,10 @@ lines.
   `task: true`, path traversal in `parts`, exit 0 with a failed testcase, count-like reason text)
   are pinned by direct `suite_result` tests.
 
+- **B2 vs example 6 (lead, after the implementer round):** example 6 stands. A sharded task with
+  exit 1 and no attack testcase spares the attack row; the full row is already red, so R3 blocks a
+  release anyway, and a real variants run always holds its attack test
+  (`test_known_rate_mix_full`). Every other suite without an attack testcase (outside
+  `ATTACK_FREE`) fails the attack row. No real task-13 JUnit existed to check the all-skipped rule
+  against; it was inferred from the code (the attack test never skips). Check it on the first real
+  full-tier run.
