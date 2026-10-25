@@ -20,6 +20,7 @@ from typing import Any
 import pyarrow.parquet as pq  # type: ignore[import-untyped]
 import yaml
 
+from giap.io.tsv import read_tsv
 from giap.manifest import canonical_json
 from giap.runner.nextflow import _task_dir
 
@@ -125,10 +126,23 @@ def read_sensitivity(path: Path | None) -> list[dict[str, Any]] | None:
 
 
 def _column(path: Path, col: str, where: Mapping[str, str] | None = None) -> set[str]:
-    with path.open(newline="", encoding="utf-8") as fh:
-        rows = csv.DictReader(fh, delimiter="\t")
-        return {r[col] for r in rows if all(r.get(k) == v for k, v in (where or {}).items())
-                and r.get(col) not in (None, "", "NA")}  # fmt: skip
+    """Distinct non-NA values of ``col`` in the rows matching ``where``; empty when the table has
+    no such column or is malformed. GIAP's TSVs are unquoted, so cells are split on tabs only."""
+    try:
+        header, rows = read_tsv(path)
+    except ValueError:
+        return set()
+    if col not in header:
+        return set()
+    idx = {name: i for i, name in enumerate(header)}
+    conds = [(idx.get(k), v) for k, v in (where or {}).items()]
+    values: set[str] = set()
+    for row in rows:
+        if all(i is not None and row[i] == v for i, v in conds):
+            value = row[idx[col]]
+            if value is not None:
+                values.add(value)
+    return values
 
 
 def read_detection_tier(tables: Path) -> str | None:
