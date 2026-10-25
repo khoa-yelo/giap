@@ -919,7 +919,7 @@ by design. This is a statement, not a change.
   full pass): exact expected chance mass on the cells `sixframe_index` writes, L 10, 11, 12, 16.
   Reverse i.i.d. D_rt = T_rt to rtol 1e-9 in every replicate. Shuffle i.i.d. mean D_rt/T_rt on
   giapsim 100 kb is 0.97–1.07 (fast, R 50) and 1.03–1.09 (full, R 300); the tryptic worst net
-  shift is −2.2 × 10⁻⁴ against the ±0.01 margin. Cell counts and consumable windows are equal in
+  shift is −2.2 × 10⁻⁴ against the one-sided margin (≥ −0.01). Cell counts and consumable windows are equal in
   target, reverse and shuffle at every L. Each broken build fails: no decoy cells, target cells
   reused for the reverse decoy, a reverse mirror off by one.
 - *Stressed arm*, full tier (R = 300, job 1890008):
