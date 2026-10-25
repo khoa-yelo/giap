@@ -36,6 +36,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # uv comes from PyPI, not astral-sh/setup-uv, so this workflow has no third-party action to
+      # SHA-pin (Q-L5). It is pinned so the docs build is reproducible; ci.yml's setup-uv@v6 takes
+      # the latest uv instead, so the two can differ (both read the same uv.lock with --frozen).
       - run: python -m pip install "uv==0.13.1"
       - run: uv sync --frozen --extra docs
       - name: generated references are current
@@ -48,7 +51,7 @@ jobs:
 
   deploy:
     needs: build
-    if: vars.PAGES_ENABLED == 'true'
+    if: github.ref == 'refs/heads/main' && vars.PAGES_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
       pages: write

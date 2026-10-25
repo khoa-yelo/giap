@@ -9,13 +9,15 @@ differs from what the sources generate, and warns (exit 0) about table fields wi
 
 from __future__ import annotations
 
+import argparse
 import difflib
+import html
 import json
 import re
 import sys
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 import yaml
@@ -35,14 +37,23 @@ DASH = "—"
 
 def _code(text: str) -> str:
     """A code span; pipes inside it need no escape (Python-Markdown tables skip code spans)."""
-    if "`" in text:
-        return f"`` {text} ``"
     return f"`{text}`"
 
 
+def _prose(text: str) -> str:
+    """Whitespace collapsed; outside `code spans` (kept as written) ``&<>`` are HTML-escaped and
+    ``*`` and any ``_`` not inside a word (the ones Python-Markdown reads as emphasis) are
+    backslash-escaped, so they show as text."""
+    parts = re.split(r"(`[^`]*`)", " ".join(text.split()))
+    return "".join(
+        p if i % 2 else re.sub(r"\*|(?<!\w)_|_(?!\w)", r"\\\g<0>", html.escape(p, quote=False))
+        for i, p in enumerate(parts)
+    )
+
+
 def _text(text: str | None) -> str:
-    """Prose for a table cell: whitespace collapsed, pipes escaped, empty as an em dash."""
-    flat = " ".join((text or "").split())
+    """Prose for a table cell: escaped as in ``_prose``, pipes escaped, empty as an em dash."""
+    flat = _prose(text or "")
     return flat.replace("|", "\\|") if flat else DASH
 
 
@@ -62,9 +73,7 @@ def _page(title: str, body: list[str]) -> str:
 
 
 def _json(value: Any) -> str:
-    if isinstance(value, str):
-        return value
-    return json.dumps(value, ensure_ascii=False)
+    return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
 
 
 # --- CLI ----------------------------------------------------------------------------------------
@@ -100,33 +109,24 @@ def _param_default(p: click.Parameter) -> str:
         # Dynamic defaults are described, never evaluated on the build machine.
         show = getattr(p, "show_default", None)
         return _text(show) if isinstance(show, str) else DASH
-    if _unset(default):
+    if _unset(default) or (isinstance(default, (list, tuple)) and not default):
         return DASH
     if isinstance(p, click.Option) and p.is_flag:
         if not default and not p.secondary_opts:
             return DASH
         return _code(json.dumps(bool(default)))
-    if isinstance(default, (list, tuple)) and not default:
-        return DASH
     return _code(_json(default))
 
 
 def _param_choices(p: click.Parameter) -> str:
-    if isinstance(p.type, click.Choice):
-        return ", ".join(_code(str(c)) for c in p.type.choices)
-    return DASH
+    choices = p.type.choices if isinstance(p.type, click.Choice) else []
+    return ", ".join(_code(str(c)) for c in choices) or DASH
 
 
 def _help(text: str | None) -> list[str]:
-    """Paragraphs of a command help (Click's ``\\f`` truncation and ``\\b`` markers honoured)."""
-    body = (text or "").split("\f", 1)[0]
-    paras = []
-    for para in re.split(r"\n\s*\n", body.strip()):
-        lines = [ln for ln in para.splitlines() if ln.strip() != "\b"]
-        flat = " ".join(" ".join(lines).split())
-        if flat:
-            paras.append(flat)
-    return paras
+    """Paragraphs of a command help, whitespace collapsed."""
+    paras = (" ".join(para.split()) for para in re.split(r"\n\s*\n", (text or "").strip()))
+    return [para for para in paras if para]
 
 
 def render_cli(group: click.Group, prog: str) -> str:
@@ -162,13 +162,9 @@ def render_cli(group: click.Group, prog: str) -> str:
 
 
 def _resolve(node: Mapping[str, Any], defs: Mapping[str, Any]) -> Mapping[str, Any]:
-    while True:
-        if "$ref" in node:
-            node = defs[str(node["$ref"]).rsplit("/", 1)[-1]]
-        elif "allOf" in node and len(node["allOf"]) == 1:
-            node = node["allOf"][0]
-        else:
-            return node
+    while "$ref" in node:
+        node = defs[str(node["$ref"]).rsplit("/", 1)[-1]]
+    return node
 
 
 def _schema_type(node: Mapping[str, Any] | None, defs: Mapping[str, Any]) -> str:
@@ -182,21 +178,15 @@ def _schema_type(node: Mapping[str, Any] | None, defs: Mapping[str, Any]) -> str
     kind = node.get("type")
     if isinstance(kind, str):
         return kind
-    if isinstance(kind, list):
-        return " or ".join(str(k) for k in kind)
-    for key in ("anyOf", "oneOf"):
-        if key in node:
-            return " or ".join(_schema_type(n, defs) for n in node[key])
+    if "anyOf" in node:
+        return " or ".join(_schema_type(n, defs) for n in node["anyOf"])
     return DASH
 
 
 def _child(
     node: Mapping[str, Any] | None, key: str, defs: Mapping[str, Any]
 ) -> Mapping[str, Any] | None:
-    if node is None:
-        return None
-    props = _resolve(node, defs).get("properties", {})
-    child = props.get(key)
+    child = _resolve(node, defs).get("properties", {}).get(key) if node is not None else None
     return child if isinstance(child, Mapping) else None
 
 
@@ -241,8 +231,7 @@ def render_configuration(defaults: Mapping[str, Any], schema: Mapping[str, Any])
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-    return data
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 def _table_entries(schemas_dir: Path) -> list[tuple[str, str | None, str | None, dict[str, Any]]]:
@@ -286,22 +275,14 @@ def _constraints(constraints: Mapping[str, Any]) -> str:
     return "; ".join(parts) or DASH
 
 
-def _missing_descriptions(schemas_dir: Path) -> list[str]:
-    return [
-        f"{schema['name']}.{field['name']}"
-        for _, _, _, schema in _table_entries(schemas_dir)
-        for field in schema.get("fields", [])
-        if not " ".join(str(field.get("description") or "").split())
-    ]
-
-
-def render_tables(schemas_dir: Path) -> str:
-    """One section per datapackage resource and per unlisted table schema."""
+def render_tables(schemas_dir: Path, missing: list[str] | None = None) -> str:
+    """One section per datapackage resource and per unlisted table schema; ``missing`` collects
+    the ``table.field`` names that have no description."""
     body: list[str] = []
     for rel, path, coords, schema in _table_entries(schemas_dir):
         body += [f"## {_code(str(schema['name']))}", ""]
         if schema.get("description"):
-            body += [" ".join(str(schema["description"]).split()), ""]
+            body += [_prose(str(schema["description"])), ""]
         body += [
             f"- Path: {_code(path) if path else DASH}",
             f"- Coordinates: {_coordinates(coords)}",
@@ -318,28 +299,20 @@ def render_tables(schemas_dir: Path) -> str:
             ]
             for f in schema.get("fields", [])
         ]
+        if missing is not None:
+            missing += [
+                f"{schema['name']}.{f['name']}"
+                for f in schema.get("fields", [])
+                if not str(f.get("description") or "").strip()
+            ]
         body += [*_table(["Field", "Type", "Unit", "Description", "Constraints"], rows), ""]
     return _page("Output tables", body)
 
 
 def _alternatives(pattern: str) -> list[str]:
-    """The alternatives of a ``(?:a|b)(?:;(?:a|b))*`` flags pattern (top-level ``|`` only)."""
-    if not pattern.startswith("(?:"):
-        return []
-    depth, start, out = 0, 3, []
-    for i in range(3, len(pattern)):
-        ch = pattern[i]
-        if ch in "([":
-            depth += 1
-        elif ch in ")]":
-            if depth == 0:
-                out.append(pattern[start:i])
-                return out
-            depth -= 1
-        elif ch == "|" and depth == 0:
-            out.append(pattern[start:i])
-            start = i + 1
-    return []
+    """The alternatives of a flat ``(?:a|b)(?:;(?:a|b))*`` flags pattern."""
+    m = re.match(r"\(\?:([^()]*)\)", pattern)
+    return m.group(1).split("|") if m else []
 
 
 def render_flags(schemas_dir: Path) -> str:
@@ -354,24 +327,17 @@ def render_flags(schemas_dir: Path) -> str:
             if not tokens and "pattern" in cons:
                 tokens = _alternatives(str(cons["pattern"]))
             body += [f"## {_code(str(schema['name']))}", ""]
-            if tokens:
-                body += [f"- {_code(t)}" for t in tokens]
-            else:
-                body.append("No fixed vocabulary in the schema.")
+            body += [f"- {_code(t)}" for t in tokens] or ["No fixed vocabulary in the schema."]
             body.append("")
-    if not body:
-        body = ["No entries."]
-    return _page("Flag vocabulary", body)
+    return _page("Flag vocabulary", body or ["No entries."])
 
 
 # --- methods and ADR indexes --------------------------------------------------------------------
 
 
 def _title(text: str, fallback: str) -> str:
-    for line in text.splitlines():
-        if line.startswith("# "):
-            return line[2:].strip()
-    return fallback
+    titles = (line[2:].strip() for line in text.splitlines() if line.startswith("# "))
+    return next(titles, fallback)
 
 
 def _status(text: str) -> str | None:
@@ -396,10 +362,7 @@ def _status(text: str) -> str | None:
 
 def render_index(directory: Path, kind: str) -> str:
     """Title list of ``directory`` (``kind`` ``"methods"`` or ``"adr"``)."""
-    if kind == "adr":
-        title, pattern = "Decisions", "ADR-*.md"
-    else:
-        title, pattern = "Methods", "*.md"
+    title, pattern = ("Decisions", "ADR-*.md") if kind == "adr" else ("Methods", "*.md")
     items: list[str] = []
     for path in sorted(directory.glob(pattern)):
         if path.name == "index.md":
@@ -414,28 +377,27 @@ def render_index(directory: Path, kind: str) -> str:
 # --- main ---------------------------------------------------------------------------------------
 
 
-def _pages() -> dict[str, Callable[[], str]]:
+def _pages(missing: list[str]) -> dict[str, str]:
     from giap.cli import cli
 
-    def config() -> str:
-        defaults = yaml.safe_load(DEFAULTS.read_text(encoding="utf-8"))
-        return render_configuration(defaults, _read_json(CONFIG_SCHEMA))
-
+    defaults = yaml.safe_load(DEFAULTS.read_text(encoding="utf-8"))
     return {
-        "reference/cli.md": lambda: render_cli(cli, "giap"),
-        "reference/configuration.md": config,
-        "reference/tables.md": lambda: render_tables(SCHEMAS_DIR),
-        "reference/flags.md": lambda: render_flags(SCHEMAS_DIR),
-        "methods/index.md": lambda: render_index(DOCS_DIR / "methods", "methods"),
-        "adr/index.md": lambda: render_index(DOCS_DIR / "adr", "adr"),
+        "reference/cli.md": render_cli(cli, "giap"),
+        "reference/configuration.md": render_configuration(defaults, _read_json(CONFIG_SCHEMA)),
+        "reference/tables.md": render_tables(SCHEMAS_DIR, missing),
+        "reference/flags.md": render_flags(SCHEMAS_DIR),
+        "methods/index.md": render_index(DOCS_DIR / "methods", "methods"),
+        "adr/index.md": render_index(DOCS_DIR / "adr", "adr"),
     }
 
 
 def main(argv: list[str]) -> int:
-    check = "--check" in argv
+    parser = argparse.ArgumentParser(prog="gen_reference.py", description=__doc__)
+    parser.add_argument("--check", action="store_true", help="compare, write nothing")
+    check = parser.parse_args(argv).check
+    missing: list[str] = []
     stale = 0
-    for rel, render in _pages().items():
-        text = render()
+    for rel, text in _pages(missing).items():
         target = DOCS_DIR / rel
         if not check:
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -445,16 +407,11 @@ def main(argv: list[str]) -> int:
         if current != text:
             stale += 1
             print(f"docs/{rel} is stale; run scripts/docs/gen_reference.py")
-            diff = difflib.unified_diff(
-                current.splitlines(keepends=True),
-                text.splitlines(keepends=True),
-                fromfile=f"docs/{rel} (committed)",
-                tofile=f"docs/{rel} (generated)",
-            )
-            sys.stdout.writelines(diff)
+            old, new = current.splitlines(keepends=True), text.splitlines(keepends=True)
+            names = f"docs/{rel} (committed)", f"docs/{rel} (generated)"
+            sys.stdout.writelines(difflib.unified_diff(old, new, *names))
     if check:
-        for name in _missing_descriptions(SCHEMAS_DIR):
-            table, field = name.split(".", 1)
+        for table, field in (name.split(".", 1) for name in missing):
             print(f"warning: {table}: field {field} has no description", file=sys.stderr)
     return 1 if stale else 0
 

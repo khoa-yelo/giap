@@ -64,14 +64,14 @@ One row per novel ORF candidate (GIAP_SPEC.md §7.6.6, §9.3; ADR-0012 decision 
 
 | Field | Type | Unit | Description | Constraints |
 |---|---|---|---|---|
-| `orf_id` | string | — | Novel ORF ID NOVEL_<contig>_<lowest 1-based coordinate of the longest interval>_<p\|m> | required; pattern `NOVEL_[A-Za-z0-9._-]+_[1-9][0-9]*_[pm]` |
+| `orf_id` | string | — | Novel ORF ID NOVEL\_&lt;contig&gt;\_&lt;lowest 1-based coordinate of the longest interval&gt;\_&lt;p\|m&gt; | required; pattern `NOVEL_[A-Za-z0-9._-]+_[1-9][0-9]*_[pm]` |
 | `class` | string | — | Novel-ORF class (§7.6.1, ADR-0013) | required; one of `nterm_extension`, `cterm_extension`, `intergenic`, `cds_outframe`, `antisense`, `pseudogene`, `sorf` |
 | `contig` | string | — | Replicon ID | required |
 | `strand` | string | — | Strand | required; one of `+`, `-` |
 | `frame` | integer | — | Reading frame (+1..+3, -1..-3) | — |
-| `start_longest` | integer | — | 1-based position of the first base of the most upstream start codon, in transcription direction (on '-' the highest coordinate, so start > end there; unlike other tables, not the lowest/highest pair); NA without a start codon | minimum 1 |
-| `start_best_ostir` | integer | — | 1-based position of the first base of the start codon with the best OSTIR score, in transcription direction (on '-' the highest coordinate, so start > end there; unlike other tables, not the lowest/highest pair); NA without an OSTIR score | minimum 1 |
-| `end` | integer | — | 1-based position of the last base of the stop codon (of the last whole codon when open at a linear end), in transcription direction (on '-' the highest coordinate, so start > end there; unlike other tables, not the lowest/highest pair) | required; minimum 1 |
+| `start_longest` | integer | — | 1-based position of the first base of the most upstream start codon, in transcription direction (on '-' the highest coordinate, so start &gt; end there; unlike other tables, not the lowest/highest pair); NA without a start codon | minimum 1 |
+| `start_best_ostir` | integer | — | 1-based position of the first base of the start codon with the best OSTIR score, in transcription direction (on '-' the highest coordinate, so start &gt; end there; unlike other tables, not the lowest/highest pair); NA without an OSTIR score | minimum 1 |
+| `end` | integer | — | 1-based position of the last base of the stop codon (of the last whole codon when open at a linear end), in transcription direction (on '-' the highest coordinate, so start &gt; end there; unlike other tables, not the lowest/highest pair) | required; minimum 1 |
 | `length_aa_longest` | integer | — | Protein length (aa, stop excluded) from start_longest, or from the first peptide without a start codon | minimum 1 |
 | `length_aa_best` | integer | — | Protein length (aa, stop excluded) from start_best_ostir, or from start_longest when it is NA | minimum 1 |
 | `start_codon_best` | string | — | Start codon at start_best_ostir (or start_longest when it is NA) | — |
@@ -160,7 +160,7 @@ The fgsea running sum of the top 6 GSEA sets (smallest q_value, then largest |ne
 
 ## `determinants_shap`
 
-Per-feature LightGBM SHAP values (pred_contrib, mean over the out-of-fold boosters) of the model rows for the top 20 encoded model columns by mean |SHAP|, for V15(c) (GIAP_SPEC.md §10.2, §7.8.2; docs/specs/M9-17-plot-support-analysis.md). Summed by block over every column they equal determinants_attribution.tsv's shap_<block> columns. Written by the determinants step. Not a result table.
+Per-feature LightGBM SHAP values (pred_contrib, mean over the out-of-fold boosters) of the model rows for the top 20 encoded model columns by mean |SHAP|, for V15(c) (GIAP_SPEC.md §10.2, §7.8.2; docs/specs/M9-17-plot-support-analysis.md). Summed by block over every column they equal determinants_attribution.tsv's shap\_&lt;block&gt; columns. Written by the determinants step. Not a result table.
 
 - Path: `plots/support/determinants_shap.tsv`
 - Coordinates: —
@@ -327,7 +327,7 @@ giap compare: the gene x run detection matrix (section matrix) and the exact UpS
 | `run` | string | — | Run label (matrix rows; NA on intersection rows) | — |
 | `detected` | boolean | — | Gene detected in the run (matrix rows) | — |
 | `detection_status` | string | — | The run's detection status of the gene (matrix rows) | one of `detected`, `not_detected`, `single_peptide_unestimated`, `partial_excluded` |
-| `intersection` | string | — | Runs whose detected sets hold exactly these genes, joined by & in label order, or none (intersection rows) | — |
+| `intersection` | string | — | Runs whose detected sets hold exactly these genes, joined by &amp; in label order, or none (intersection rows) | — |
 | `n_genes` | integer | — | Genes in the exact intersection (intersection rows) | minimum 0 |
 
 ## `compare_stability`
@@ -626,7 +626,7 @@ Expression islands: contiguous runs of transcription units with unusually high o
 | `direction` | string | — | Direction of the island | required; one of `high`, `low` |
 | `contig` | string | — | Replicon name (C1 order) | required |
 | `start` | integer | — | Island start, 1-based | minimum 1 |
-| `end` | integer | — | Island end, 1-based closed; > replicon length for an origin-crossing island | minimum 1 |
+| `end` | integer | — | Island end, 1-based closed; &gt; replicon length for an origin-crossing island | minimum 1 |
 | `tu_first` | string | — | First transcription unit of the island | — |
 | `tu_last` | string | — | Last transcription unit of the island | — |
 | `n_tus` | integer | — | Number of transcription units in the island | minimum 1 |
@@ -705,10 +705,10 @@ Transcription units (C5 TUs) with their detection, abundance and flag summaries 
 
 | Field | Type | Unit | Description | Constraints |
 |---|---|---|---|---|
-| `tu_id` | string | — | TU ID (TU_<n>, §6.5) | required; unique |
+| `tu_id` | string | — | TU ID (TU\_&lt;n&gt;, §6.5) | required; unique |
 | `contig` | string | — | Replicon | required |
 | `start` | integer | — | TU start, 1-based | required; minimum 1 |
-| `end` | integer | — | TU end, 1-based closed; > replicon length for an origin-crossing TU | required; minimum 1 |
+| `end` | integer | — | TU end, 1-based closed; &gt; replicon length for an origin-crossing TU | required; minimum 1 |
 | `strand` | string | — | Strand | required; one of `+`, `-` |
 | `genes` | string | — | Semicolon-joined member genes in transcription order | required |
 | `n_genes` | integer | — | Member genes | required; minimum 1 |
@@ -727,7 +727,7 @@ Adjacent gene pairs and the SW decoy triples with their between-gene evidence, p
 
 | Field | Type | Unit | Description | Constraints |
 |---|---|---|---|---|
-| `pair_id` | string | — | Pair ID PAIR_<n>, numbered in contig (C1) then start order | required; unique; pattern `PAIR_[1-9][0-9]*` |
+| `pair_id` | string | — | Pair ID PAIR\_&lt;n&gt;, numbered in contig (C1) then start order | required; unique; pattern `PAIR_[1-9][0-9]*` |
 | `class` | string | — | Pair class: OP (same-strand operon pair), NO (same-strand non-operon), CV (convergent), DV (divergent), SW (same-strand sandwich decoy) | required; one of `OP`, `NO`, `CV`, `DV`, `SW` |
 | `gene_a` | string | — | Upstream gene in transcription order (genome order for CV/DV) | required |
 | `gene_b` | string | — | Downstream gene in transcription order (genome order for CV/DV) | required |
@@ -775,7 +775,7 @@ One row per peptide x accepted locus (GIAP_SPEC.md §9.3); rejected placements a
 | `score_input` | number | — | Engine score | — |
 | `contig` | string | — | Replicon ID | required |
 | `start` | integer | — | Start, 1-based closed | required |
-| `end` | integer | — | End, 1-based closed; > replicon length for origin-crossing hits | required |
+| `end` | integer | — | End, 1-based closed; &gt; replicon length for origin-crossing hits | required |
 | `strand` | string | — | Strand | required; one of `+`, `-` |
 | `frame` | integer | — | Reading frame (+1..+3, -1..-3) | — |
 | `crosses_origin` | boolean | — | Hit crosses the origin of a circular replicon | — |
@@ -805,7 +805,7 @@ One row per protein alignment kept by M3-13 (GIAP_SPEC.md §9.3).
 | `route` | string | — | Alignment route | required; one of `miniprot`, `tblastn` |
 | `contig` | string | — | Replicon ID | required |
 | `start` | integer | — | Start, 1-based closed | required |
-| `end` | integer | — | End, 1-based closed; > replicon length for origin-crossing hits | required |
+| `end` | integer | — | End, 1-based closed; &gt; replicon length for origin-crossing hits | required |
 | `strand` | string | — | Strand | required; one of `+`, `-` |
 | `rank` | integer | — | Rank of the alignment for this protein | — |
 | `identity` | number | — | Identity (fraction) | — |
@@ -825,12 +825,12 @@ Region statistics: M4-17 region tests, plasmid replicon-level rows, descriptive 
 
 | Field | Type | Unit | Description | Constraints |
 |---|---|---|---|---|
-| `region_id` | string | — | Region ID (<type>_<n>, §6.5) | required |
+| `region_id` | string | — | Region ID (&lt;type&gt;\_&lt;n&gt;, §6.5) | required |
 | `region_type` | string | — | Region type | required; one of `prophage`, `plasmid`, `bgc`, `crispr`, `amr` |
 | `subset` | string | — | 'all' or a prophage function subset (§7.1.7) | required; one of `all`, `integrase`, `repressor`, `structural`, `lysis`, `cargo` |
 | `contig` | string | — | Replicon of the row (the tested replicon for split regions) | required |
 | `start` | integer | — | Region start, 1-based (NA for AMR) | minimum 1 |
-| `end` | integer | — | Region end, 1-based closed; > replicon length for origin-crossing regions (NA for AMR) | minimum 1 |
+| `end` | integer | — | Region end, 1-based closed; &gt; replicon length for origin-crossing regions (NA for AMR) | minimum 1 |
 | `n_genes` | integer | — | Member genes | required; minimum 0 |
 | `n_eligible` | integer | — | Eligible member genes (not partial, with p_detect) | required; minimum 0 |
 | `observed` | number | — | Detected eligible genes | minimum 0 |
