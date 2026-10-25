@@ -9,7 +9,8 @@ end, pyteomics ``mass.unimod.Unimod()`` with no path. Inside ``giap-cascadia``:
         UNIMOD_XML sequence MZML MODEL -o OUTPREFIX -b 32
 
 (a) refuses a ``UNIMOD_XML`` that is not an existing local file (exit 2, Cascadia not imported);
-(b) refuses every Python-level socket connection (defence in depth; libxml2's C I/O is not covered);
+(b) refuses every Python-level IP socket connection (AF_UNIX stays open for torch's DataLoader
+    workers; defence in depth; libxml2's C I/O is not covered);
 (c) registers a psims resolver for the Unimod OBO URL that reads the local table;
 (d) sets ``pyteomics.mass.unimod._unimod_xml_download_url`` to its absolute path;
 (e) hands the rest of ``argv`` unchanged to ``cascadia.cascadia.main()``.
@@ -31,9 +32,23 @@ def _refuse(*_args: object, **_kwargs: object) -> NoReturn:
 
 
 def _guard_sockets() -> None:
+    """Refuse IP connections; keep AF_UNIX, which torch's DataLoader workers use to share tensors
+    (job 1889042 failed in ``rebuild_storage_fd`` with every connect refused)."""
+    connect, connect_ex = socket.socket.connect, socket.socket.connect_ex
+
+    def _connect(self: socket.socket, address: object) -> None:
+        if getattr(socket, "AF_UNIX", None) is not None and self.family == socket.AF_UNIX:
+            return connect(self, address)  # type: ignore[arg-type]
+        _refuse()
+
+    def _connect_ex(self: socket.socket, address: object) -> int:
+        if getattr(socket, "AF_UNIX", None) is not None and self.family == socket.AF_UNIX:
+            return connect_ex(self, address)  # type: ignore[arg-type]
+        _refuse()
+
     socket.create_connection = _refuse
-    socket.socket.connect = _refuse  # type: ignore[method-assign]
-    socket.socket.connect_ex = _refuse  # type: ignore[method-assign]
+    socket.socket.connect = _connect  # type: ignore[method-assign]
+    socket.socket.connect_ex = _connect_ex  # type: ignore[method-assign]
 
 
 def main(argv: Sequence[str] | None = None) -> int:
