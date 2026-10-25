@@ -47,6 +47,8 @@ jobs:
         run: python3 scripts/ci/check_roles.py origin/${{ github.base_ref }}
       - name: golden data carry a PROVENANCE.md update (M8-12, M8-12b)
         run: python3 scripts/ci/check_golden_provenance.py origin/${{ github.base_ref }}
+      - name: changelog fragment for code changes (§14.2, M11-12)
+        run: python3 scripts/ci/check_changelog.py origin/${{ github.base_ref }}
       - name: unique test module names
         run: python3 scripts/ci/check_test_names.py
       - name: PR size (code only, ADR-0007, ADR-0016)
