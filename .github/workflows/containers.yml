@@ -1,0 +1,228 @@
+# Build the conda-only tools' images, push them to GHCR and open a digest PR (GIAP_SPEC.md §12;
+# docs/specs/M11-06-ghcr-containers.md). Five images: promotech, promoter_calculator, terminatornet,
+# bactermfinder, ostir. UniOP is unlicensed (R5/R11) and fgsea is deferred (M8-17 decision 9): neither
+# is built here. Third-party actions are pinned by commit SHA with the tag in a comment (Q-L5).
+# Nothing here pushes to main: the digests land through a `ci/digests-<sha7>` pull request.
+name: containers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "workflow/containers/**"
+      - "workflow/envs/**"
+  workflow_dispatch:
+    inputs:
+      tools:
+        description: "Comma- or space-separated tools to build, or `all` (the five images)"
+        required: false
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: containers-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_NS: ghcr.io/khoa-yelo
+
+jobs:
+  plan:
+    name: plan (which tools to build)
+    runs-on: ubuntu-latest
+    outputs:
+      tools: ${{ steps.plan.outputs.tools }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: plan
+        name: Resolve the tool list (dispatch input or changed paths)
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_TOOLS: ${{ github.event.inputs.tools }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          ALL="promotech promoter_calculator terminatornet bactermfinder ostir"
+          want=""
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            req="$(echo "${INPUT_TOOLS:-all}" | tr ',' ' ' | tr '[:upper:]' '[:lower:]')"
+            [ -z "${req// /}" ] && req="all"
+            for t in $req; do
+              if [ "$t" = "uniop" ]; then
+                echo "::error::uniop is never built here (unlicensed; R5/R11)"
+                exit 1
+              fi
+              if [ "$t" = "all" ]; then want="$want $ALL"; continue; fi
+              case " $ALL " in
+                *" $t "*) want="$want $t" ;;
+                *) echo "::error::unknown tool '$t' (build one of: $ALL)"; exit 1 ;;
+              esac
+            done
+          else
+            if [ -z "${BEFORE:-}" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
+                || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              changed="$(git ls-files workflow/containers workflow/envs)"
+            else
+              changed="$(git diff --name-only "$BEFORE" "$AFTER" -- workflow/containers workflow/envs)"
+            fi
+            echo "changed files:"; echo "$changed"
+            for t in $ALL; do
+              if echo "$changed" | grep -qE "^(workflow/containers/$t/|workflow/envs/$t\.yml$)"; then
+                want="$want $t"
+              fi
+            done
+          fi
+          tools="$(for t in $want; do echo "$t"; done | awk '!seen[$0]++' \
+            | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')"
+          echo "tools=$tools"
+          echo "tools=$tools" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build giap-${{ matrix.tool }}
+    needs: plan
+    if: needs.plan.outputs.tools != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: ${{ fromJSON(needs.plan.outputs.tools) }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        name: Version, licence and env-file hash
+        env:
+          TOOL: ${{ matrix.tool }}
+        run: |
+          set -euo pipefail
+          env_file="workflow/envs/$TOOL.yml"
+          case "$TOOL" in
+            promoter_calculator) version="$(grep -oP 'promotercalculator==\K\S+' "$env_file")"; lic="GPL-3.0-or-later" ;;
+            ostir) version="$(grep -oP 'ostir==\K\S+' "$env_file")"; lic="GPL-3.0" ;;
+            terminatornet) version="git-$(grep -oE '[0-9a-f]{40}' "$env_file" | head -1 | cut -c1-8)"; lic="MIT" ;;
+            promotech|bactermfinder) version="git-$(grep -oE '[0-9a-f]{40}' "$env_file" | head -1 | cut -c1-8)"; lic="GPL-3.0" ;;
+            *) echo "::error::no version rule for $TOOL"; exit 1 ;;
+          esac
+          [ -n "$version" ] && [ "$version" != "git-" ] || { echo "::error::no version pin in $env_file"; exit 1; }
+          {
+            echo "version=$version"
+            echo "licenses=$lic"
+            echo "sha7=${GITHUB_SHA::7}"
+            echo "env_sha256=$(sha256sum "$env_file" | cut -d' ' -f1)"
+          } >> "$GITHUB_OUTPUT"
+      # PLACEHOLDER (lead): replace with the v3 release commit SHA, verified online (Q-L5).
+      - uses: docker/setup-buildx-action@UNVERIFIED-SHA-v3 # v3 (placeholder, not a SHA)
+      # PLACEHOLDER (lead): replace with the v3 release commit SHA, verified online (Q-L5).
+      - uses: docker/login-action@UNVERIFIED-SHA-v3 # v3 (placeholder, not a SHA)
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # PLACEHOLDER (lead): replace with the v6 release commit SHA, verified online (Q-L5).
+      - id: build
+        uses: docker/build-push-action@UNVERIFIED-SHA-v6 # v6 (placeholder, not a SHA)
+        with:
+          context: .
+          file: workflow/containers/${{ matrix.tool }}/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ghcr.io/khoa-yelo/giap-${{ matrix.tool }}:${{ steps.meta.outputs.sha7 }}
+            ghcr.io/khoa-yelo/giap-${{ matrix.tool }}:${{ steps.meta.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=${{ steps.meta.outputs.licenses }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.giap.env.sha256=${{ steps.meta.outputs.env_sha256 }}
+      - name: Record the pushed digest
+        env:
+          TOOL: ${{ matrix.tool }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          echo "$DIGEST" | grep -qE '^sha256:[0-9a-f]{64}$' || { echo "::error::no digest for $TOOL"; exit 1; }
+          mkdir -p digests
+          echo "$DIGEST" > "digests/$TOOL"
+          echo "$IMAGE_NS/giap-$TOOL@$DIGEST" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.tool }}
+          path: digests/${{ matrix.tool }}
+          retention-days: 7
+
+  digest-pr:
+    name: open the digest PR
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digest-*
+          path: digests
+          merge-multiple: true
+      - name: Pin the digests and open ci/digests-<sha7>
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          sha7="${GITHUB_SHA::7}"
+          branch="ci/digests-$sha7"
+          # image tool -> processes (the _NOVEL runs reuse the image; workflow/subworkflows/local/novel.nf)
+          python3 - <<'PY'
+          import json, os, pathlib
+          procs = {
+              "promotech": ["PROMOTECH", "PROMOTECH_NOVEL"],
+              "promoter_calculator": ["PROMOTER_CALCULATOR"],
+              "terminatornet": ["TERMINATORNET"],
+              "bactermfinder": ["BACTERMFINDER"],
+              "ostir": ["OSTIR", "OSTIR_NOVEL"],
+          }
+          ns = os.environ["IMAGE_NS"]
+          out = {}
+          for f in sorted(pathlib.Path("digests").iterdir()):
+              for p in procs[f.name]:
+                  out[p] = f"{ns}/giap-{f.name}@{f.read_text().strip()}"
+          pathlib.Path("digests.json").write_text(json.dumps(out, indent=2) + "\n")
+          PY
+          cat digests.json
+          python3 scripts/release/update_digests.py --digests digests.json \
+            --config workflow/conf/containers.config \
+            --nextflow-config workflow/nextflow.config \
+            --date "$(date -u +%F)" --source-commit "$GITHUB_SHA"
+          if git diff --quiet; then
+            echo "digests already pinned; no PR"
+            exit 0
+          fi
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "::error::$branch already exists; close or merge it, then re-run"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add workflow/conf/containers.config workflow/nextflow.config
+          git commit -m "ci: pin GHCR digests ($sha7)"
+          git push origin "$branch"
+          {
+            echo "Digests pushed by $RUN_URL from $GITHUB_SHA (M11-06)."
+            echo
+            echo '```json'; cat digests.json; echo '```'
+            echo
+            echo "Draft until the FarmShare Apptainer smoke passes (spec item 5): add the Slurm job IDs here."
+          } > pr-body.md
+          gh pr create --draft --base main --head "$branch" \
+            --title "ci: pin GHCR digests ($sha7)" --body-file pr-body.md

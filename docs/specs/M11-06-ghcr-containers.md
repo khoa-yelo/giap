@@ -31,8 +31,11 @@ lines), test-author (`tests/unit/test_m11_06_*.py`, the Apptainer smoke under
    `packages: write` on that job only. Output: the pushed manifest digest.
    A final job collects the digests and runs `update_digests.py` and opens a PR
    (`ci: pin GHCR digests (<sha7>)`, branch `ci/digests-<sha7>`) with `peter-evans/create-pull-request`
-   (SHA-pinned) or `gh pr create`; never pushes to main.
-3. **`scripts/release/update_digests.py --digests digests.json [--config workflow/conf/containers.config]`**:
+   (SHA-pinned) or `gh pr create`; never pushes to main. The job passes
+   `--nextflow-config workflow/nextflow.config`, so the newly pinned processes join the apptainer
+   profile's `withName: '…' { conda = '' }` selector in the same PR (lead decision on test-author
+   ambiguity 5: the pinned set equals the conda-off set).
+3. **`scripts/release/update_digests.py --digests digests.json [--config workflow/conf/containers.config] [--nextflow-config workflow/nextflow.config] --date YYYY-MM-DD --source-commit SHA`**:
    for each `{process: "ghcr.io/khoa-yelo/giap-<tool>@sha256:<hex>"}` adds or replaces exactly the
    `withName: '<PROCESS>' { container = 'docker://…' }` line, keeps every other line and comment
    byte-identical, updates the "Conda-only for now" comment list, and appends the build date +
