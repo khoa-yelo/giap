@@ -176,6 +176,7 @@ NIGHTLY: frozenset[str] = frozenset(
         "test_readthrough_decoy_balance.py::test_readthrough_decoy_balance",
         "test_readthrough_stressed.py::test_readthrough_stressed_arm",
         "attacks/test_attack5_reversed_stretches.py::test_attack5_reversed_stretches_shuffle_decoys",
+        "attacks/test_attack_readthrough_decoys.py::test_attack_readthrough_decoys_giapsim",
         "attacks/test_attack_autocorr.py::test_attack_oriter_gradient_gene_label_at_level",
         "attacks/test_attack_autocorr.py::test_attack_oriter_gradient_tu_block_at_level",
         "attacks/test_attack_autocorr.py::test_attack_short_prophage_join_count_at_level",
