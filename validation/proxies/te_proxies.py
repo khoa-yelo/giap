@@ -21,7 +21,7 @@ chain (``giap preflight`` normalisation, then the registered steps under the loc
 * **TE2** (``search_db = same``, M7-14): TE1's peptides through the chain up to the ``variants``
   step (M7-04). Pass: no ``variants.tsv`` row with ``confidence = high`` flagged neither
   ``start_codon`` nor ``stop_codon`` (the non-ATG starts appear as ALT ``M`` at GTG/TTG starts;
-  the selenocysteine sites stay unmapped until M7-16).
+  the selenocysteine sites read internal TGAs, not annotated stops, and stay unmapped; ADR-0058).
 
 Usage (writes ``validation/proxies/<YYYY-MM-DD>_te1.json`` / ``_te2.json`` / ``_te8.json`` by
 default)::
@@ -63,8 +63,8 @@ from giap.steps.mapping import select_queries
 TE1_MIN, TE8_K12_MIN, TE8_FDR_MAX = 0.999, 0.995, 0.01
 TE2_EXEMPT = frozenset({"start_codon", "stop_codon"})
 TE2_NO_STOP_NOTE = (
-    "no high stop_codon site: the selenocysteine (Sec, fdnG) peptides TE1 misses stay unmapped "
-    "until M7-16, so none is expected yet"
+    "no high stop_codon site: the selenocysteine (Sec, fdnG) peptides TE1 misses read an internal "
+    "TGA, which is not an annotated terminal stop (ADR-0058 items 1-5), so they stay unmapped"
 )
 MAX_EXCEPTIONS = 50
 INFRAME = frozenset({"cds_inframe", "sorf"})

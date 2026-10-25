@@ -63,7 +63,7 @@ workflow MAPPING {
     TBLASTN(channel.value('genome'), genome, pick(PROTEIN_LEFTOVERS.out.outputs, 'proteins.leftover.faa'))
     def tb = kv('tblastn_tsv', TBLASTN.out.hits)
 
-    def lc = stepIn('loci', [g, pep, hx, ht, prot, mp, tb, kv('contaminants', contaminants)] + gm + placed)
+    def lc = stepIn('loci', [g, pep, six, hx, ht, prot, mp, tb, kv('contaminants', contaminants)] + gm + placed)
     LOCI(lc.files, lc.keys, workflow.stubRun ? lociSpec() : ['mapping=mapping'])
 
     def ch_versions = SIXFRAME_INDEX.out.versions.mix(MAP_EXACT.out.versions, MAP_TOLERANT.out.versions,

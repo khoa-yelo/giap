@@ -227,7 +227,8 @@ def gff_features(table: pd.DataFrame) -> list[GffFeature]:
 
 def patch_features(table: pd.DataFrame, gm: GeneModel) -> list[GffFeature]:
     """``annotation_patch.gff3``: called new ORFs as ``CDS`` and called N-terminal extensions as
-    the gene with the new start (rule 7); no ``cterm_extension`` row until M7-16."""
+    the gene with the new start (rule 7); called C-terminal extensions as the gene to the ORF's
+    stop (M7-16 rule 12)."""
     rows = _records(table)
     _unique_ids([str(r["orf_id"]) for r in rows])
     out = []
@@ -248,6 +249,18 @@ def patch_features(table: pd.DataFrame, gm: GeneModel) -> list[GffFeature]:
             lo, hi = (start, g.end) if strand == "+" else (g.start, start + 1)
             iv = Interval(contig, lo, hi + n if hi <= lo else hi, strand)  # type: ignore[arg-type]
             attrs = {"ID": str(tag), "locus_tag": str(tag), "Note": "nterm_extension"}
+        elif cls == "cterm_extension":  # M7-16 rule 12: the gene start to the ORF's stop end
+            tag = r["overlapping_gene"]
+            if is_na(tag):
+                raise ValueError(f"{r['orf_id']}: cterm_extension without its gene")
+            g, n = gm.by_locus(str(tag)).interval, gm.replicons[contig].length
+            n_aa = int(r["length_aa_best"])
+            orf = _span(r, start, n_aa)
+            lo, hi = (g.start, orf.end) if strand == "+" else (orf.start, g.end)
+            iv = Interval(contig, lo, hi + n if hi <= lo else hi, strand)  # type: ignore[arg-type]
+            attrs = {"ID": str(tag), "locus_tag": str(tag), "Note": "cterm_extension"}
+            if orf.end - orf.start == 3 * n_aa:  # no stop codon: open at a linear 3' end
+                attrs["partial"] = "true"
         else:
             continue
         out.append(GffFeature(iv, "GIAP", "CDS", None, 0, attrs))

@@ -66,6 +66,7 @@ _IL = frozenset("IL")
 _STRAND_RANK = {"+": 0, "-": 1}
 NONSTANDARD: frozenset[str] = frozenset("BJOUXZ")  # peptide letters that are never ALT
 _AMBIGUOUS = frozenset("BJXZ")  # the rest of NONSTANDARD (O, U) is ``rare``
+RECODED_STOP = {"U": "TGA", "O": "TAG"}  # M7-16 rule 11: U over TGA, O over TAG are ALT
 _COMP = str.maketrans("ACGTNacgtn", "TGCANtgcan")
 
 _Key = tuple[str, str, int]  # (contig, strand, wrapped codon)
@@ -241,7 +242,11 @@ def pileup(
             ks = [(a.contig, a.strand, _wrap(c, rep)) for c in op.codons]
             for k in ks:
                 cover.setdefault(k, set()).add(f)
-            if _skipped(op):
+            seq = genome[a.contig]
+            if _skipped(op) and not (
+                op.ref == "*"
+                and RECODED_STOP.get(op.alt) == _codon_nt(seq, rep, ks[0][2], a.strand)
+            ):
                 skipped.setdefault((ks[0], f), op.alt)
                 examples.add(a.peptide)
                 continue

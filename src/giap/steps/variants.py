@@ -33,6 +33,7 @@ from giap.io.parquet import write_parquet_deterministic
 from giap.io.variant_tables import write_pileup, write_variants
 from giap.io.vcf import VcfRecord, write_vcf
 from giap.io.work_tables import load_tables
+from giap.mapping.readthrough import annotated_stops, site_keys
 from giap.model.genes import GeneModel
 from giap.steps.mapping import _path, read_gene_model, resolve_search_db
 from giap.steps.registry import InputPath, StepContext, step
@@ -112,7 +113,8 @@ def run_variants_qc(
     """:func:`run_variants` plus the long ``(variant_id, peptide, source, search_db)`` support
     frame of each ``variants.tsv`` row (M7-14, :func:`giap.variants.qc.id_mixups`). Pure."""
     support = support_of(peptide_hits, peptides, {g.locus_tag for g in gm.genes})
-    aligns = align_hits(peptide_hits, hits_tolerant, genome, gm.replicons)
+    stops = site_keys(annotated_stops(gm, genome)[0])  # M7-16 rule 10
+    aligns = align_hits(peptide_hits, hits_tolerant, genome, gm.replicons, stop_sites=stops)
     pile = pileup(eligible(aligns, support, cfg), gm, genome, cfg, support=support)
     st = sites(pile, cfg)
     starts = start_codons(gm)

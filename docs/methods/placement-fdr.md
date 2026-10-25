@@ -940,3 +940,14 @@ by design. This is a statement, not a change.
   may be vacuous): fast tier (R = 50, job 1889791) **vacuous** for both decoy types, as expected:
   T_rt = D_rt = 0, read-through share 0 (mean false target placements T 0.38 reverse, 14.7
   shuffle; about 905 cells per genome).
+
+### 16b reporting: the `readthrough` flag and the placement-kind counts
+
+A `peptide_hits.tsv` row whose accepted alignment consumes an annotated terminal stop cell carries
+the flag `readthrough` (and `mappings.gff3` the attribute `readthrough_codon`), computed from the
+sites the index was searched with. `detection_summary.tsv` counts distinct peptides by placement
+kind, tolerant diff type, placement flag and unmapped reason (section `qc`, metric `n_peptides`).
+These are counts, not rates or FDRs: `n` is the population the count comes from, never a
+denominator to report. The flagged rows are a subset of a list accepted at q, and the list FDR
+does not control that subset (items 5–6); no output describes the `readthrough` rows as accepted
+at q on their own.

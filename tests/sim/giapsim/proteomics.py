@@ -522,8 +522,10 @@ def _wrong_peptides(
     prots: list[Protein],
     reference: Sequence[Feat],
     hay: str,
+    first: Sequence[tuple[str, str]] = (),
 ) -> list[tuple[str, str]]:
-    """``n`` distinct wrong peptides (peptide, source locus) absent from ``hay`` (I = L)."""
+    """``n`` distinct wrong peptides (peptide, source locus) absent from ``hay`` (I = L); with
+    ``other_strain``, those of ``first`` (M7-16 rule 20 C-terminal peptides) come first."""
     out: dict[str, str] = {}
     if n <= 0:
         return []
@@ -532,6 +534,9 @@ def _wrong_peptides(
         return pep not in out and _il(pep) not in hay
 
     if cfg.wrong_source == "other_strain":
+        for pep, loc in first:
+            if ok(pep) and len(out) < n:
+                out[pep] = loc
         pool = sorted(
             {
                 (pep, f.locus)
@@ -541,11 +546,11 @@ def _wrong_peptides(
             }
         )
         for i in rng.permutation(len(pool)).tolist():
+            if len(out) == n:
+                break
             pep, loc = pool[i]
             if ok(pep):
                 out[pep] = loc
-                if len(out) == n:
-                    break
         return list(out.items())
     usable = [p for p in prots if len(p.aa) >= cfg.digest_len[0]]
     tries = 0
@@ -931,6 +936,7 @@ def simulate_proteomics(
     topology: dict[str, str],
     reference: Sequence[Feat] | None = None,
     log_abundance: np.ndarray | None = None,
+    first_wrong: Sequence[tuple[str, str]] = (),
 ) -> dict[str, Path]:
     """Write ``peptides.tsv``, ``proteins.faa``, ``abundance.tsv`` and ``truth/peptides.tsv``.
 
@@ -1004,7 +1010,9 @@ def simulate_proteomics(
         loci = {loc[0]: loc for loc in drawn}
         wrong = [(w, f"sixframe:{c}:{a}-{b}:{st}") for w, c, a, b, st in loci.values()]
     else:
-        wrong = _wrong_peptides(cfg, rng, n_wrong, prots, reference or (), hay)
+        if cfg.wrong_source == "other_strain" and n_wrong < len(first_wrong):
+            raise ValueError(f"{n_wrong} wrong-peptide slots for {len(first_wrong)} stop-losses")
+        wrong = _wrong_peptides(cfg, rng, n_wrong, prots, reference or (), hay, first_wrong)
     # PEP and q follow the wrong share actually produced (spec M3-19, review decision 1)
     n_all = len(detected) + len(wrong)
     pi_realised = len(wrong) / n_all if n_all else 0.0

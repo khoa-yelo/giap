@@ -40,7 +40,13 @@ from giap.mapping.miniprot import ProteinAlignment, parse_miniprot_gff
 from giap.mapping.outputs import write_mapping_outputs
 from giap.mapping.placement_fdr import PREFILTERED_FLAG, best_costs, placement_tables
 from giap.mapping.protein_assign import PROTEIN_HITS_COLUMNS, assign_alignments
-from giap.mapping.readthrough import StopCells, annotated_stops, frame_cells, mirror_cells
+from giap.mapping.readthrough import (
+    StopCells,
+    annotated_stops,
+    consumed_sites,
+    frame_cells,
+    mirror_cells,
+)
 from giap.mapping.sixframe import (
     Frame,
     SixFrameIndex,
@@ -521,7 +527,7 @@ def _peptide_rows(
         "placement", "mapping_fdr", "hits_exact", "hits_tolerant", "peptides", "genome",
         "genes", "features", "replicons",
     ],
-    optional_inputs=["proteins_long", "miniprot_gff", "tblastn_tsv", "contaminants"],
+    optional_inputs=["proteins_long", "miniprot_gff", "tblastn_tsv", "contaminants", "sixframe"],
     outputs=["mapping"],
 )  # fmt: skip
 def loci(ctx: StepContext) -> None:
@@ -533,10 +539,23 @@ def loci(ctx: StepContext) -> None:
     gpath = _path(ctx.inputs["genome"])
     genome = _genome(gpath)
     rows = _peptide_rows(_hits(ctx, "hits_exact", "hits_tolerant"), per, queries, cfg)
+    six = _opt(ctx, "sixframe")
+    consumed = None
+    if six is None:  # M7-16 rule 16: never guess the flag from geometry
+        ctx.log.warning(
+            "loci: no six-frame index; read-through rows are not flagged",
+            extra={"event": "mapping.readthrough_unchecked"},
+        )
+    else:
+        reps = gm.replicons
+        consumed = consumed_sites(
+            rows, load_stop_cells(six).sites, {c: r.length for c, r in reps.items()},
+            {c: r.topology == "circular" for c, r in reps.items()},
+        )  # fmt: skip
     pep_hits = annotate_peptide_hits(
         rows, gm, genome, queries, cfg.genome_relation,
         decoy_prefixes=cfg.input.decoy_prefixes,
-        contaminant_prefixes=cfg.input.contaminant_prefixes,
+        contaminant_prefixes=cfg.input.contaminant_prefixes, consumed=consumed,
     )  # fmt: skip
     prot_hits, state = _proteins(ctx, gm)
     lib = _opt(ctx, "contaminants")

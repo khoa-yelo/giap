@@ -92,9 +92,9 @@ def class_evidence(
         ok = int(row["n_peptides"]) >= 2  # type: ignore[call-overload]
     elif cls in ("pseudogene", "sorf"):
         ok = True
-    elif cls == "cterm_extension":  # decision 4: never called before M7-16
-        ok = False
-        if row.get("spans_annotated_stop") is True:
+    elif cls == "cterm_extension":  # M7-16 rule 12: the ORF is the in-frame continuation
+        ok = row.get("spans_annotated_stop") is True
+        if ok:
             labels.add("readthrough_candidate")
     else:
         raise ValueError(f"unknown novel ORF class {cls!r}")
@@ -156,6 +156,16 @@ def _contains_codon(iv: Interval, lo: int, rep: Replicon) -> bool:
     if rep.topology == "circular":
         return (lo - iv.start) % rep.length + 3 <= iv.end - iv.start
     return iv.start <= lo and lo + 3 <= iv.end
+
+
+def _spans_stop(iv: Interval, lo: int, rep: Replicon) -> bool:
+    """``iv`` contains the stop codon ``[lo, lo + 3)`` and extends past it on the 3' side."""
+    d = lo - iv.start
+    if rep.topology == "circular":
+        d %= rep.length
+    if d < 0 or d + 3 > iv.end - iv.start:
+        return False
+    return d + 3 < iv.end - iv.start if iv.strand == "+" else d > 0
 
 
 def _run_length(g: str, p: int, rep: Replicon) -> int:
@@ -245,7 +255,7 @@ def _gene_geometry(
         sl = int(r["start_longest"])
         out["start_upstream_nt"] = _signed_offset(g.start - sl if plus else sl - (g.end - 1), rep)
     stop_lo = (g.end - 3) % rep.length if plus else g.start
-    out["spans_annotated_stop"] = any(_contains_codon(iv, stop_lo, rep) for iv in peptides)
+    out["spans_annotated_stop"] = any(_spans_stop(iv, stop_lo, rep) for iv in peptides)
     return out
 
 
