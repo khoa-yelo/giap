@@ -941,6 +941,36 @@ by design. This is a statement, not a change.
   T_rt = D_rt = 0, read-through share 0 (mean false target placements T 0.38 reverse, 14.7
   shuffle; about 905 cells per genome).
 
+### 16c: annotated recoded codons (ADR-0058 item 6; pre-code check, 2026-10-25)
+
+16c adds a `recoded` site for every internal codon of a CDS/sORF whose Bakta protein has `U` over
+TGA or `O` over TAG. The cells and mirrored cells are built by the same `frame_cells` →
+`mirror_cells` path, so items 1–7 apply unchanged.
+
+- **Counts.** Nissle has 3 recoded sites (fdnG JMJJOG_02511 and JMJJOG_04733, fdhF JMJJOG_04490).
+  K-12 MG1655 also has 3 (KOIAIB_01574, KOIAIB_04147, KOIAIB_04360). All are `U` over TGA, and
+  none is near an origin, so each has one cell. giapsim has none by default, and no genome has a
+  Pyl site.
+- **Symmetry.** Each decoy type gets the same 3 cells, each holding `*`, and the consumable
+  windows are equal in all spaces (3·L).
+- **Added chance mass**, measured by the exact-mass method of the attack at L 10, 11, 12 and 16:
+  - 1.2–3.2 × 10⁻⁷ of the regular mass;
+  - reverse i.i.d. D_rt = T_rt exactly;
+  - worst net shift (D_rt − T_rt)/T_reg between −7.5 × 10⁻⁷ and +2.0 × 10⁻⁶ (shuffle and
+    tryptic laws).
+- **Context.** It is coding on both sides of the cell. The shuffle i.i.d. ratio on these 3 sites
+  (0.29–0.98) reflects the conserved `…ARVUHGP…` motif of two homologous families on one shuffle
+  draw. It is not a property of the cells, and its effect on the list is about 10⁻⁷.
+- **Consequences.** The list FDR, strata, π̂ and E are unaffected. True Sec peptides are ordinary
+  cost-1 placements (item 7). The `sec_site`/`pyl_site` rows are, like `readthrough`, a subset of
+  a list accepted at q, and that subset is not FDR-controlled (items 5–6).
+- **Evidence.** The M3-21 giapsim suites cannot see these cells (no U unless `n_selenoproteins`
+  > 0), so in 16c they are regression evidence only. The evidence is attack (d) in
+  `attacks/test_attack_readthrough_decoys.py`: a recoded-dense giapsim world with kind-split
+  masses, broken builds that drop or shift only the recoded decoy cells, and the Nissle/K-12
+  structural check. Its job IDs are added here when 16c merges. Session check:
+  `local/stat/m7-16c-quick-check.md`.
+
 ### 16b reporting: the `readthrough` flag and the placement-kind counts
 
 A `peptide_hits.tsv` row whose accepted alignment consumes an annotated terminal stop cell carries
