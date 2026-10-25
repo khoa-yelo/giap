@@ -565,12 +565,16 @@ def _index(loci: Sequence[Locus], n_rendered: int, cfg: GiapConfig) -> base.Inst
         estimate = ESTIMATE.get(lo.test_family, "q")
         lines.append((f"{i + 1}. {lo.locus_id} [{lo.kind}] {estimate} {base.sig(lo.error, 3)}"
                       f"{mark}", "normal"))  # fmt: skip
-    fig = style.new_figure("single", 0.4 + 0.13 * len(lines))
+    # the caption wraps at the figure edge (one Text item), so it takes two line slots
+    slots = [2 if weight == "italic" else 1 for _, weight in lines]
+    fig = style.new_figure("single", 0.4 + 0.13 * sum(slots))
     ax = fig.add_axes((0.02, 0.02, 0.96, 0.96))
     ax.set_axis_off()
-    for j, (text, weight) in enumerate(lines):
-        y = 1.0 - (j + 0.5) / len(lines)
-        ax.text(0.0, y, text, fontsize=6, va="center", transform=ax.transAxes,
+    top = 0
+    for (text, weight), n in zip(lines, slots, strict=True):
+        y = 1.0 - (top + n / 2) / sum(slots)
+        top += n
+        ax.text(0.0, y, text, fontsize=6, va="center", transform=ax.transAxes, wrap=True,
                 fontweight="bold" if weight == "bold" else "normal",
                 fontstyle="italic" if weight == "italic" else "normal")  # fmt: skip
     return base.Instance(None, fig, data, f"V3 loci: {n_rendered} of {len(loci)} rendered",
