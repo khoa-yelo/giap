@@ -46,6 +46,7 @@ from giap.mapping.readthrough import (
     consumed_sites,
     frame_cells,
     mirror_cells,
+    recoded_skips,
 )
 from giap.mapping.sixframe import (
     Frame,
@@ -256,7 +257,7 @@ def sixframe_index(ctx: StepContext) -> None:
     window = ctx.cfg.mapping.decoys.shuffle_window_aa
     decoys = {k: build_decoys(index, k, window, ctx.rng) for k in kinds}
     gm = read_gene_model(_path(ctx.inputs["genes"]), _path(ctx.inputs["replicons"]))
-    sites, n_not = annotated_stops(gm, genome)
+    sites, n_not = annotated_stops(gm, genome, recoded=True)  # M7-16 rules 1, 21-22
     target = frame_cells(index, sites)
     dc = {k: mirror_cells(k, fr, target) for k, fr in decoys.items()}
     save_index(ctx.outputs["sixframe"], index, decoys, StopCells(sites, target, dc))
@@ -271,6 +272,7 @@ def sixframe_index(ctx: StepContext) -> None:
         "not_a_stop": n_not,
         "cells_target": n_cells,
         "cells_decoy": {k: sum(len(c) for c in v) for k, v in dc.items()},
+        "recoded_skipped": recoded_skips(gm, genome),
     }
     ctx.log.info(
         "sixframe_index: %d annotated stop sites (%d not a stop), %d target cells",
