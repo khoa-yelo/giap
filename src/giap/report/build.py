@@ -58,7 +58,7 @@ SECTIONS: tuple[Section, ...] = (
     Section("variants", "Variants", ("V12",)),
     Section("novel-orfs", "Novel ORFs", ("V13",), ("novel_orfs",)),
     Section("function", "Function", ("V08", "V14")),
-    Section("determinants", "Determinants of detection", ("V15",)),
+    Section("determinants", "Determinants of abundance", ("V15",)),
     Section("sensitivity", "Sensitivity", (), ("sensitivity",)),
     Section("methods", "Methods"),
     Section("provenance", "Provenance"),
