@@ -106,12 +106,14 @@ def test_pages_permissions_only_on_deploy(wf: dict[str, Any]) -> None:
 
 
 def test_actions_pinned_by_sha_with_tag_comment(wf: dict[str, Any]) -> None:
-    """Q-L5: every action in docs.yml is pinned by a 40-hex commit SHA (tag in a comment)."""
+    """Q-L5: every third-party action in docs.yml is pinned by a 40-hex commit SHA (tag in a
+    comment); GitHub's own ``actions/*`` may use a tag, as in ci.yml (M11-index Q-L5)."""
     uses = [u for j in wf["jobs"].values() for u in _uses(j) if not u.startswith("./")]
     assert uses
-    assert [u for u in uses if not SHA.match(u)] == []
+    third = [u for u in uses if not u.startswith("actions/")]
+    assert [u for u in third if not SHA.match(u)] == []
     for line in DOCS_YML.read_text(encoding="utf-8").splitlines():
-        if re.search(r"\buses:\s*[^.\s]", line):
+        if re.search(r"\buses:\s*[^.\s]", line) and not re.search(r"uses:\s*actions/", line):
             assert "#" in line.split("uses:", 1)[1], line
 
 
