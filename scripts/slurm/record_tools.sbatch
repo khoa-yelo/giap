@@ -39,7 +39,7 @@ export TMPDIR="$(mktemp -d /tmp/giap.XXXXXX)"; trap 'rm -rf "$TMPDIR"' EXIT
 echo "repo=$REPO cpus=$N tools=${TOOLS[*]} samples=${SAMPLES[*]}"
 
 image() {  # pinned image path for a containers.config process name
-  local ref; ref=$(grep -oP "withName: '$1' \\{ container = 'docker://\\K[^']+" "$REPO/workflow/conf/containers.config")
+  local ref; ref=$(grep -oP "withName: '$1' \\{ container = '(docker://)?\\K[^']+" "$REPO/workflow/conf/containers.config")
   echo "$GIAP_ROOT/containers/$(echo "$ref" | tr '/:' '--').img"
 }
 digest() { grep -oP "withName: '$1' \\{ container = '[^']*@sha256:\\K[0-9a-f]{64}" "$REPO/workflow/conf/containers.config"; }
