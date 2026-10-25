@@ -14,6 +14,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[2]
 CONTAINERS = (REPO / "workflow/conf/containers.config").read_text()
 NEXTFLOW = (REPO / "workflow/nextflow.config").read_text()
@@ -76,9 +78,20 @@ def test_pinnable_processes_exist_in_the_workflow() -> None:
         assert re.search(rf"(process {name}\b|as {name}\b)", nf), name
 
 
+GHCR_PIN = re.compile(r"container = '(?:docker://)?(ghcr\.io/[^']+)'")
+
+
 def test_ghcr_pins_use_the_project_namespace() -> None:
-    for ref in re.findall(r"container = '(?:docker://)?(ghcr\.io/[^']+)'", CONTAINERS):
+    for ref in GHCR_PIN.findall(CONTAINERS):
         assert re.fullmatch(r"ghcr\.io/khoa-yelo/giap-[a-z_]+@sha256:[0-9a-f]{64}", ref), ref
+
+
+@pytest.mark.parametrize("prefix", ["", "docker://"])
+def test_ghcr_pin_pattern_finds_a_written_pin_line(prefix: str) -> None:
+    """The config holds no GHCR pin yet, so the loop above can run zero times (#354 review S3)."""
+    ref = "ghcr.io/khoa-yelo/giap-ostir@sha256:" + "a" * 64
+    line = f"  withName: 'OSTIR' {{ container = '{prefix}{ref}' }}"
+    assert GHCR_PIN.findall(line) == [ref]
 
 
 def test_notice_states_ghcr_images_contain_gpl_tools_with_source_links() -> None:
