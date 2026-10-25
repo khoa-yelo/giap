@@ -27,8 +27,10 @@ M7-16 listed three options (A leave it, B annotated-stop substitution, C any-sto
 Khoa chose B.
 
 **What B reaches, checked on the Nissle recording** (`local/recordings/bakta_full/nissle1917`,
-Bakta 1.12.2, full DB). There are 4,689 CDS and sORF features. Each one's last codon is a stop
-(TAA 2,943, TGA 1,401, TAG 345). No two features share a stop codon, and none crosses an origin.
+Bakta 1.12.2, full DB; all four replicons circular). There are 4,692 CDS and sORF features.
+4,689 end in a stop (TAA 2,943, TGA 1,401, TAG 345); the other 3 are partial genes at plasmid
+edges with no stop as their last codon (JMJJOG_04967, JMJJOG_04968, JMJJOG_04975), counted as
+`not_a_stop` (corrected 2026-10-24 by the 16a implementation). No two features share a stop codon, and none crosses an origin.
 The 4 TE1 misses (M3-22) are the selenocysteine peptides of the two fdnG copies (JMJJOG_02511 −,
 JMJJOG_04733 +): `VUHGPTVASLAPTFGR`, `VUHGPTVASLAPTFGRGAMTNHWVDIK`,
 `SLGMLAVDNQARVUHGPTVASLAPTFGR` and `ALGMLAVDNQARVUHGPTVASLAPTFGR`. Bakta annotates both copies as

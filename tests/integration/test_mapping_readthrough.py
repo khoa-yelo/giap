@@ -204,9 +204,10 @@ def test_example_10_nissle_sites_and_cells() -> None:
     genome = {r.id: r.sequence for r in read_genome_fasta(NISSLE_GENOME)}
     ann = parse_bakta_json(NISSLE_JSON, genome=genome)
     gm = ann.model
-    assert all(r.topology == "linear" for r in gm.replicons.values())
+    # all four replicons are circular; 3 partial genes at plasmid edges end without a stop
+    assert all(r.topology == "circular" for r in gm.replicons.values())
     sites, n_not = annotated_stops(gm, genome)
-    assert (len(sites), n_not) == (4689, 0)
+    assert (len(sites), n_not) == (4689, 3)
     index = build_sixframe(genome, dict(gm.replicons))
     cells = frame_cells(index, sites)
     assert sum(len(c) for c in cells) == 4689

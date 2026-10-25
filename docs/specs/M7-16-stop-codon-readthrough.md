@@ -234,7 +234,7 @@ with `genome_relation = same`.
 | 7b | Patch row `Note=cterm_extension`, G1, `[0, 126) +` (runs over p = 30) | `ValueError`: "patch CDS G1_patch has an internal stop codon" (only the annotated stop becomes `X`) |
 | 8 | **Minus strand:** contig `c2` linear, 300 nt; G2 CDS `−` `[120, 210)`, stop codon `[120, 123)` (gene-strand TAA) | site `(c2, −, 120)`; cell in frame `−0` (`ext_nt` 300, offset 0) at p = (300 − 0 − 3 − 120)/3 = 59; `to_interval(−0, 59, 60)` = `c2:[120, 123) −`. A read-through peptide's flank lies at coordinates < 120 |
 | 9 | Second-pass peptide over the patched `X`: the engine reports `…NEFKXVPAG…` | placed as example 1 (any query letter over a marked cell costs 1); variants skip the X op (`ambiguous`, M7-18), so no ALT site; the ORF evidence (example 6) is unchanged |
-| 10 | Nissle, ADR-0058 items 1–5, `sixframe_index` | event `mapping.stop_sites`: `terminal` 4,689, `not_a_stop` 0, `recoded` 0, `cells_target` 4,689 (all four replicons are linear in the recording), equal decoy counts |
+| 10 | Nissle, ADR-0058 items 1–5, `sixframe_index` | event `mapping.stop_sites`: `terminal` 4,689, `not_a_stop` 3, `recoded` 0, `cells_target` 4,689 (all four replicons are circular in the recording; the 3 are partial genes at plasmid edges, JMJJOG_04967/04968/04975), equal decoy counts |
 
 ## Edge cases
 
@@ -486,7 +486,7 @@ The statistician signs it off before 16a merges (review change 3). It must state
   is on the branch and passes. 16a does not merge before it.
 - [ ] **16a:** the `placement-fdr.md` section has every item of "Methods note (16a)", and ADR-0058
   states the added mass as an approximation (scaling formula plus measured shares), not a bound.
-- [ ] **16a:** on the Nissle recording `mapping.stop_sites` reports 4,689 terminal sites, 0
+- [ ] **16a:** on the Nissle recording `mapping.stop_sites` reports 4,689 terminal sites, 3
   `not_a_stop` and equal target/decoy cell counts. TE1 and TE8 re-run unchanged (TE1 ≥ 0.999,
   the 4 fdnG misses still unmapped; TE8 FDR ≤ 0.01).
 - [ ] **16b:** examples 6, 7, 7b, 9 and rule 11 pass. M7-01 recomputes every read-through hit's
