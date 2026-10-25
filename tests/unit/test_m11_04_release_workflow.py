@@ -167,6 +167,13 @@ def test_publishing_jobs_guarded_by_dry_run_and_actor(jobs: dict[str, Any], name
     assert "!inputs.dry_run" in c, c
     assert "github.actor == 'khoa-yelo'" in c, c
     assert "||" not in c, f"an OR can bypass the guard: {c}"
+    # exact conjuncts, so an inverted or unconditional guard cannot pass (#342 review B1)
+    want = {"!inputs.dry_run", "github.actor == 'khoa-yelo'"}
+    if name == "github-release":
+        want.add("inputs.target == 'pypi'")
+    assert {part.strip() for part in c.split("&&")} == want, c
+    for bad in ("always()", "failure()", "cancelled()", "== false", "!= true", "== 'false'"):
+        assert bad not in c, (bad, c)
 
 
 def test_github_release_only_for_pypi(jobs: dict[str, Any]) -> None:
