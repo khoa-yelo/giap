@@ -61,6 +61,7 @@ FORMAT_FIELDS: tuple[VcfHeaderField, ...] = (
 )
 
 _COMP = str.maketrans("ACGTN", "TGCAN")
+_RECODED = {"U": "TGA", "O": "TAG"}  # M7-16 rule 11: only for the zero-change check
 
 
 def _rc(nt: str) -> str:
@@ -77,7 +78,7 @@ def _codons_of(aa: str) -> tuple[str, ...]:
 def minimal_alt_codon(ref_codon: str, alt_aa: str) -> tuple[str, int]:
     """G14: the codon for ``alt_aa`` with the fewest differences from ``ref_codon`` (gene strand),
     ties to the lexicographically smallest; returns ``(codon, n_changes)``."""
-    codons = _codons_of(alt_aa)
+    codons = (_RECODED[alt_aa],) if alt_aa in _RECODED else _codons_of(alt_aa)
     if not codons:
         raise ValueError(f"no table-11 codon encodes {alt_aa!r}")
     n, codon = min((sum(a != b for a, b in zip(c, ref_codon, strict=True)), c) for c in codons)
@@ -177,7 +178,7 @@ def vcf_records(
         rep = replicons[contig]
         low = codon if strand == "+" or width == 3 else codon - 3
         low = low % rep.length if rep.topology == "circular" else low
-        if low + width > rep.length:
+        if low + width > rep.length or row["nt_changes"] == 0:  # origin, or U/O over its stop
             row["flags"] = _ordered((*row["flags"], "vcf_unrepresentable"))
             continue
         gene_alt = "".join(c for c, _ in cods)

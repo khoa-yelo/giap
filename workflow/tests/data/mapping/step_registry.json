@@ -15,6 +15,7 @@
       "contaminants",
       "miniprot_gff",
       "proteins_long",
+      "sixframe",
       "tblastn_tsv"
     ],
     "outputs": [

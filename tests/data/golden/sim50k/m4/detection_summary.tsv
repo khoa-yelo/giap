@@ -83,6 +83,10 @@ detectability	overall	all	detectability_constant	1	NA	NA	NA
 detectability	overall	all	n_detected	29	NA	NA	NA	
 detectability	overall	all	n_eligible	51	NA	NA	NA	
 detectability	overall	all	recalibration_separated	1	NA	NA	NA	
+qc	placement_flag	readthrough	n_peptides	0	NA	NA	349	
+qc	placement_kind	exact	n_peptides	349	NA	NA	349	
+qc	placement_kind	frameshift	n_peptides	0	NA	NA	349	
+qc	placement_kind	tolerant	n_peptides	0	NA	NA	349	
 qc	run	all	contaminant_peptides	0	NA	NA	NA	
 qc	run	all	contaminant_proteins	0	NA	NA	NA	
 qc	run	all	engine_protein_mismatch_rate	0	NA	NA	349	
@@ -90,3 +94,11 @@ qc	run	all	genome_inconsistent_rate	NA	NA	NA	NA
 qc	run	all	id_mixups	NA	NA	NA	NA	requires_variants
 qc	run	all	unmapped_peptides	0	NA	NA	NA	
 qc	run	all	unmapped_proteins	0	NA	NA	NA	
+qc	tolerant_diff_type	block	n_peptides	0	NA	NA	0	
+qc	tolerant_diff_type	near_block	n_peptides	0	NA	NA	0	
+qc	tolerant_diff_type	substitution	n_peptides	0	NA	NA	0	
+qc	tolerant_diff_type	swap	n_peptides	0	NA	NA	0	
+qc	unmapped_reason	contaminant_id	n_peptides	0	NA	NA	0	
+qc	unmapped_reason	no_hit	n_peptides	0	NA	NA	0	
+qc	unmapped_reason	rejected_placement_fdr	n_peptides	0	NA	NA	0	
+qc	unmapped_reason	too_short	n_peptides	0	NA	NA	0	

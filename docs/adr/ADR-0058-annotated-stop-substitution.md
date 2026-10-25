@@ -1,13 +1,14 @@
 # ADR-0058: The tolerant matcher may consume an annotated stop codon (option B of M7-16)
 - Status: accepted-by-khoa (2026-10-24, in session: "B"). Read-through residue in `makedb` patches
-  = `X` (the proposed default, taken with B). Item 6 below (annotated internal Sec/Pyl codons) is
-  **not** covered by that answer; it is a proposed amendment that needs Khoa.
+  = `X` (the proposed default, taken with B). **Item 6 accepted-by-khoa** (2026-10-24, in session:
+  "Yes to 2"; built in M7-16 PR 16c, after 16b). **Amendment 1** (Khoa, 2026-10-24: "sure"):
+  placement-kind labels, under Consequences › Interfaces.
 - Date: 2026-10-24
 - Spec sections: §7.2.1 (six-frame index, decoys), §7.2.4 (route 3, the cost table, G4 completeness),
   §7.2.5 (placement FDR, G3), §7.2.6 (locus classes), §7.5.1, §7.5.3 G8 `stop_codon`, §7.6.3,
   §7.9.2 (`makedb --patch`), §11.6 TE1/TE2; ADR-0013 (`cterm_extension`, `readthrough_candidate`)
 - Needs Khoa: yes. It changes Module 2's search space and therefore what the placement FDR controls.
-  Answered for items 1–5; open for item 6.
+  Answered for items 1–5 ("B") and item 6 ("Yes to 2"), both 2026-10-24.
 
 ## Context
 Three accepted parts of the design assume a peptide can be placed across a genome stop codon:
@@ -75,11 +76,11 @@ fdnG would take.
    annotated stop codon of its `locus_tag` gene as `X`. Search engines treat X as any residue, which
    covers Sec (U), Trp (W) and Gln/Tyr read-through. Any other internal stop in any patch CDS still
    raises, as M3-23 does.
-6. **Proposed amendment (needs Khoa; not in force).** The consumable set would also include
+6. **Accepted by Khoa (2026-10-24), built in 16c.** The consumable set also includes
    **annotated recoded codons**: an internal in-frame codon of a CDS whose Bakta protein has `U`
    over TGA or `O` over TAG at that residue. That is 3 sites in Nissle (fdnG ×2, fdhF). Decoys
-   would be mirrored as in item 2. This is what makes the fdnG TE1 misses placeable. Until Khoa
-   answers, the code builds only item 1's set (M7-16 PR 16c holds the change).
+   would be mirrored as in item 2. This is what makes the fdnG TE1 misses placeable. Until 16c
+   merges, the code builds only item 1's set.
 
 ## Evidence
 - **Search-space growth (an approximation, not a bound).** A window can consume a marked stop
@@ -148,8 +149,8 @@ fdnG would take.
   16a's merge waits for. TE8 (Nissle
   pooled FDR ≤ 0.01) re-runs weekly as usual.
 - **TE1.** Unchanged under items 1–5. The fdnG Sec site is internal, so the 4 misses stay unmapped.
-  Under item 6 they would become tolerant placements (cost 1). They would still not be exact, so
-  they would stay TE1 exceptions, now labelled as Sec.
+  Under item 6 (16c) they become tolerant placements (cost 1) flagged `sec_site`. They are still
+  not exact, so they stay TE1 exceptions, now labelled as Sec.
 - **TE2 and G8.** The `stop_codon` flag becomes reachable. TE2's second exception is exercised
   only when an annotated stop or (item 6) a recoded codon carries a placed peptide. On Nissle
   same-strain peptides, items 1–5 add no site. Item 6 would add two `candidate` U sites at the
@@ -161,9 +162,16 @@ fdnG would take.
   M7-11 decision 2 the class stays `unestimated`, so it is called only with ≥ 2 distinct
   peptides. M7-07 writes its patch row, and `makedb --patch` translates the old stop as `X`.
 - **Interfaces.** `sixframe_index` gains the `genes` input and writes index format 2, which
-  carries the consumable cells for the target and each decoy type. No config key, no new column,
-  no new diff type, no new flag value (`stop_codon`, `vcf_unrepresentable` and
-  `readthrough_candidate` already exist).
+  carries the consumable cells for the target and each decoy type. No config key, no new column
+  and no new diff type. **Amendment 1 (Khoa, 2026-10-24)** adds labels, not method:
+  - the placement flag `readthrough` (16b), and `sec_site`/`pyl_site` (16c), in the §9.4
+    vocabulary through the schema;
+  - the GFF3 attributes `readthrough_codon` and `recoded_codon`;
+  - an optional `sixframe` input to `loci`;
+  - placement-kind count rows in `detection_summary.tsv` (section `qc`).
+
+  The other flags (`stop_codon`, `vcf_unrepresentable`, `readthrough_candidate`) already exist.
+  See the M7-16 spec, "Amendment: 16b reporting and the 16c labels".
 - **Backlog.** "M7-16: decide `stop_codon` and `mass_equivalent` for blocks and swaps whose REF
   contains `*`" closes: no block or swap ever consumes a stop.
 

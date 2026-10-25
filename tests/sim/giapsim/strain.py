@@ -19,6 +19,7 @@ import numpy as np
 
 from giapsim.codons import CODE_11, STOPS, codons_of, revcomp
 from giapsim.features import STARTS, Feat, random_seq
+from giapsim.proteomics import digest_spans
 
 _SPACING = 12  # minimum distance between two differences
 _BOUNDARY_GAP = 10  # indels stay this far from feature ends (coordinates lift cleanly)
@@ -31,6 +32,14 @@ class StrainConfig:
     indel_rate_per_kb: float = 0.0
     seed_offset: int = 1
     indel_len: tuple[int, int] = (1, 6)
+    n_stop_loss: int = 0  # M7-16 rule 20: SNVs turning sample terminal stops into sense codons
+
+
+Digest = tuple[tuple[int, int], int]  # (digest_len, missed_cleavages) of the proteomics layer
+STOP_LOSS_COLUMNS = [
+    "locus_tag", "contig", "strand", "codon_start", "sample_codon", "reference_codon",
+    "reference_residue", "cterm_peptide", "planted",
+]  # fmt: skip
 
 
 class _Lift:
@@ -128,6 +137,132 @@ def derive_reference(
     Indels are left-normalized and written VCF-style: ``pos`` is the base before the event and
     both alleles start with it.
     """
+    ref_seqs, lifted, rows, _ = derive_strain(cfg, seed, seqs, feats)
+    return ref_seqs, lifted, rows
+
+
+def _terminal(f: Feat, n: int) -> int:
+    """Lowest 0-based coordinate (wrapped) of a feature's last codon."""
+    return (f.end - 3) % n if f.strand == "+" else f.start % n
+
+
+def _cterm_peptide(aa: str, dg: Digest) -> str:
+    """The shortest C-terminal Trypsin/P product of ``aa`` with >= 10 aa ("" if none)."""
+    (lo, hi), mc = dg
+    ends = [a for a, b in digest_spans(aa, (max(10, lo), hi), mc) if b == len(aa)]
+    return aa[max(ends) :] if ends else ""
+
+
+def _near(q: int, events: list[tuple[int, str, str, str]], n: int, gap: int) -> bool:
+    """Some event position (an indel's anchor and end included) lies within ``gap`` of ``q``."""
+    for p, typ, _ref, alt in events:
+        for x in (p,) if typ == "snv" else (p - 1, p, p + len(alt)):
+            d = abs(q - x) % n
+            if min(d, n - d) < gap:
+                return True
+    return False
+
+
+def _in_span(events: list[tuple[int, str, str, str]], lo: int, hi: int, n: int) -> bool:
+    return any((p - lo) % n < hi - lo for p, *_ in events)
+
+
+def _plant_stop_losses(
+    cfg: StrainConfig, seed: int, seqs: dict[str, str], feats: list[Feat],
+    ref_seqs: dict[str, str], lifts: dict[str, _Lift], all_events: dict[str, list[Any]],
+    dg: Digest,
+) -> dict[str, str]:  # fmt: skip
+    """Rule 20's knob: ``n_stop_loss`` SNVs (own generator) in the terminal stop codon of distinct
+    non-pseudo CDS whose reference C-terminal product (>= 10 aa) holds no other event. Edits
+    ``ref_seqs`` and ``all_events`` in place; returns locus -> ``cterm_peptide``.
+
+    Genes whose reference protein then differs from the sample's only by the read-through residue
+    are tried first, so the wrong peptide is a pure read-through where the build allows it.
+    """
+    rng = np.random.default_rng([seed, 2, cfg.seed_offset, 1])
+    cds = [f for f in feats if f.kind == "cds" and not f.pseudo_reason]
+    on = {c: sorted((f for f in cds if f.contig == c), key=lambda f: f.start) for c in seqs}
+    cands: list[tuple[bool, Feat, int, str, str, int]] = []
+    for k in rng.permutation(len(cds)).tolist():
+        f = cds[k]
+        n, ev = len(seqs[f.contig]), all_events[f.contig]
+        a = _terminal(f, n)
+        g = _lift(f, lifts[f.contig], n, ref_seqs[f.contig])
+        stop = g.nt[-3:]
+        opts = [(i, b) for i in range(3) for b in "ACGT" if b != stop[i]
+                and stop[:i] + b + stop[i + 1:] not in STOPS]  # fmt: skip
+        i, b = opts[int(rng.integers(len(opts)))]
+        q = (a + i if f.strand == "+" else a + 2 - i) % n
+        sense = stop[:i] + b + stop[i + 1 :]
+        aa = protein(g.nt[:-3] + sense)
+        pep = _cterm_peptide(aa, dg) if len(aa) == len(g.nt) // 3 else ""
+        if not pep or stop not in STOPS or _near(q, ev, n, _SPACING):
+            continue
+        span = 3 * len(pep)
+        lo = a + 3 - span if f.strand == "+" else a
+        if _in_span(ev, lo, lo + span, n):
+            continue
+        genes = on[f.contig]
+        hit, _ = _gene_at(
+            q, n, genes, [h.start for h in genes], max(h.end - h.start for h in genes)
+        )
+        if hit is not f:  # the strain row must name this gene
+            continue
+        base = b if f.strand == "+" else _COMP[b]
+        cands.append((aa != f.aa + CODE_11[sense], f, q, base, pep, lo))
+    cands.sort(key=lambda c: c[0])  # stable: pure read-through genes first, then the draw order
+    out: dict[str, str] = {}
+    spans: list[tuple[str, int, int]] = []
+    for _impure, f, q, base, pep, lo in cands:
+        if len(out) == cfg.n_stop_loss:
+            break
+        ev, n, hi = all_events[f.contig], len(seqs[f.contig]), lo + 3 * len(pep)
+        if (
+            _near(q, ev, n, _SPACING)
+            or _in_span(ev, lo, hi, n)
+            or any(c == f.contig and (q - a) % n < b - a for c, a, b in spans)
+        ):  # spacing from, and peptides clean of, the SNVs planted so far
+            continue
+        spans.append((f.contig, lo, hi))
+        r = lifts[f.contig](q)
+        ref_seqs[f.contig] = ref_seqs[f.contig][:r] + base + ref_seqs[f.contig][r + 1 :]
+        ev.append((q, "snv", base, seqs[f.contig][q]))
+        ev.sort()
+        out[f.locus] = pep
+    if len(out) < cfg.n_stop_loss:
+        raise ValueError(f"n_stop_loss {cfg.n_stop_loss}: only {len(out)} eligible genes")
+    return out
+
+
+def stop_loss_rows(
+    seqs: dict[str, str], feats: list[Feat], lifted: list[Feat], planted: dict[str, str],
+    dg: Digest,
+) -> list[list[Any]]:  # fmt: skip
+    """``truth/stop_loss.tsv``: every non-pseudo sample CDS whose terminal stop is a sense codon
+    in the reference (planted or from the uniform draws)."""
+    by_locus = {g.locus: g for g in lifted}
+    rows = []
+    for f in feats:
+        if f.kind != "cds" or f.pseudo_reason:
+            continue
+        g, n = by_locus[f.locus], len(seqs[f.contig])
+        sc, rc = f.nt[-3:], g.nt[-3:]
+        if sc not in STOPS or rc in STOPS or len(rc) < 3:
+            continue
+        pep = planted.get(f.locus) or (
+            _cterm_peptide(g.aa, dg) if len(g.aa) == len(g.nt) // 3 else ""
+        )
+        rows.append([f.locus, f.contig, f.strand, _terminal(f, n), sc, rc, CODE_11[rc], pep,
+                     str(f.locus in planted).lower()])  # fmt: skip
+    return rows
+
+
+def derive_strain(
+    cfg: StrainConfig, seed: int, seqs: dict[str, str], feats: list[Feat],
+    dg: Digest = ((7, 30), 1),
+) -> tuple[dict[str, str], list[Feat], list[list[Any]], dict[str, str]]:  # fmt: skip
+    """:func:`derive_reference` plus the ``n_stop_loss`` planting (locus -> ``cterm_peptide``;
+    empty when ``n_stop_loss`` is 0, which leaves every draw and output unchanged)."""
     rng = np.random.default_rng([seed, 2, cfg.seed_offset])
     ref_seqs, lifts, all_events = {}, {}, {}
     for cid, s in seqs.items():
@@ -169,6 +304,11 @@ def derive_reference(
         ref_seqs[cid] = "".join(out)
         lifts[cid] = _Lift(shifts)
         all_events[cid] = events
+    planted = (
+        _plant_stop_losses(cfg, seed, seqs, feats, ref_seqs, lifts, all_events, dg)
+        if cfg.n_stop_loss
+        else {}
+    )
     lifted = [_lift(f, lifts[f.contig], len(seqs[f.contig]), ref_seqs[f.contig]) for f in feats]
     by_locus = {g.locus: g for g in lifted}
     rows = []
@@ -195,7 +335,7 @@ def derive_reference(
                 elif (len(ref) - len(alt)) % 3 == 0:
                     change = _indel_change(f, g)
             rows.append([cid, a + 1, pr + 1, ref, alt, typ, f.locus if f else "", change])
-    return ref_seqs, lifted, rows
+    return ref_seqs, lifted, rows, planted
 
 
 def _lift(f: Feat, lift: _Lift, length: int, ref: str) -> Feat:

@@ -286,3 +286,14 @@ makedb` six-frame database, or by independent evidence.
 - `regime()` of a mixed set of ORFs returns the first of picked / de novo / unestimated held. The
   M7-11b step uses `orf_regimes` per ORF. The regime of each ORF is in the side table, and the
   per-class events hold the list counts. No separate regime-count event is logged.
+
+## C-terminal extensions (M7-16 rule 12, ADR-0058)
+
+A `cterm_extension` ORF is called when some peptide interval strictly contains the gene's
+annotated terminal stop codon and extends past it on the 3′ side (`spans_annotated_stop`); its
+label is `readthrough_candidate`. The class is untagged, so its class FDR is `unestimated` and the
+call needs ≥ 2 distinct peptides (M7-11 decision 2). A window that ends on the stop codon
+classifies as `cds_inframe` and is no extension evidence; it shows up as a `stop_codon` ALT site
+instead. A called row is written to `annotation_patch.gff3` as the gene from its start to the
+ORF's stop (`Note=cterm_extension`, `partial=true` when the ORF is open at a linear 3′ end), and
+`makedb --patch` translates the old stop codon as `X`.

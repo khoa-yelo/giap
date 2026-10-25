@@ -505,7 +505,9 @@ def test_minus_orf_without_a_start_codon(tmp_path: Path) -> None:
     assert paths["novel_orfs.faa"].read_bytes() == b""
 
 
-@pytest.mark.parametrize("cls", ["cterm_extension", "pseudogene", "sorf"])
+# cterm_extension left this list in M7-16b: called rows now get a patch row (rule 12,
+# tests/unit/novel/test_novel_cterm.py)
+@pytest.mark.parametrize("cls", ["pseudogene", "sorf"])
 def test_classes_without_patch_rows(tmp_path: Path, cls: str) -> None:
     case = ex6()
     (orf,) = orfs_of(case)

@@ -162,6 +162,10 @@ qc	length_class	20-40	stratum0_unmapped_share	NA	NA	NA	0
 qc	length_class	7	stratum0_unmapped_share	NA	NA	NA	0	
 qc	length_class	8	stratum0_unmapped_share	NA	NA	NA	0	
 qc	length_class	9	stratum0_unmapped_share	NA	NA	NA	0	
+qc	placement_flag	readthrough	n_peptides	0	NA	NA	11982	
+qc	placement_kind	exact	n_peptides	7277	NA	NA	11982	
+qc	placement_kind	frameshift	n_peptides	0	NA	NA	11982	
+qc	placement_kind	tolerant	n_peptides	4705	NA	NA	11982	
 qc	run	all	contaminant_peptides	0	NA	NA	NA	
 qc	run	all	contaminant_proteins	0	NA	NA	NA	
 qc	run	all	engine_protein_mismatch_rate	0	NA	NA	11982	
@@ -170,3 +174,11 @@ qc	run	all	id_mixups	0	NA	NA	0
 qc	run	all	stratum0_unmapped_share	NA	NA	NA	0	
 qc	run	all	unmapped_peptides	2239	NA	NA	NA	
 qc	run	all	unmapped_proteins	0	NA	NA	NA	
+qc	tolerant_diff_type	block	n_peptides	975	NA	NA	4705	
+qc	tolerant_diff_type	near_block	n_peptides	250	NA	NA	4705	
+qc	tolerant_diff_type	substitution	n_peptides	2707	NA	NA	4705	
+qc	tolerant_diff_type	swap	n_peptides	849	NA	NA	4705	
+qc	unmapped_reason	contaminant_id	n_peptides	0	NA	NA	2239	
+qc	unmapped_reason	no_hit	n_peptides	1012	NA	NA	2239	
+qc	unmapped_reason	rejected_placement_fdr	n_peptides	0	NA	NA	2239	
+qc	unmapped_reason	too_short	n_peptides	1227	NA	NA	2239	

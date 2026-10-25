@@ -175,7 +175,8 @@ def flags_for(
     if kind == "substitution":
         if left_block or mass_equivalent(ref_aa, alt, tol):
             found.add("mass_equivalent")
-        found.add(nt_class(ref_nt, alt))
+        if alt not in ("U", "O"):  # U/O over its stop: zero changes (M7-16 rule 11)
+            found.add(nt_class(ref_nt, alt))
         key = (str(site["contig"]), str(site["strand"]), int(site["codon_start"]))  # type: ignore[call-overload]
         if alt == "M" and key in starts:
             found.add("start_codon")

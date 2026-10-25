@@ -282,6 +282,28 @@ def _declared_lengths(path: Path) -> dict[str, int | None]:
 Row = tuple[str, str, str | None, str | None, str | None, int | None, int | None, str | None]
 
 
+def _readthrough_residue(gm: GeneModel, tag: str | None, iv: Interval, rid: str) -> int:
+    """Residue index, in the patch CDS ``iv``, of its gene's terminal stop codon (M7-16 rule 13).
+
+    Raises:
+        ValueError: if the gene is not a same-strand CDS/sORF or its stop is not in frame inside.
+    """
+    try:
+        g = gm.by_locus(str(tag)) if tag else None
+    except KeyError:
+        g = None
+    if g is None or g.feature_type not in _CODING or g.interval.strand != iv.strand:
+        raise ValueError(f"patch CDS {rid}: cterm_extension without a {iv.strand} CDS {tag!r}")
+    rep = gm.replicons[iv.contig]
+    lo = g.interval.end - 3 if iv.strand == "+" else g.interval.start
+    d = lo - iv.start if iv.strand == "+" else iv.end - 3 - lo
+    if rep.topology == "circular":
+        d %= rep.length
+    if d < 3 or d + 3 > iv.end - iv.start or d % 3:
+        raise ValueError(f"patch CDS {rid}: the stop of {tag} is not in frame inside the CDS")
+    return d // 3
+
+
 def build_strain_db(opts: MakedbOptions) -> MakedbResult:
     """Build ``strain_db.faa``, ``db_id_map.tsv`` and ``makedb_manifest.json`` in ``opts.outdir``.
 
@@ -338,7 +360,16 @@ def build_strain_db(opts: MakedbOptions) -> MakedbResult:
             rid = f"{pid}_patch" if pid in taken else pid
             taken.add(rid)
             nt = interval_nt(genome[iv.contig], iv)
-            seq = ("M" + translate11_text(nt[3:])).removesuffix("*")
+            seq = "M" + translate11_text(nt[3:])
+            if _attr(f.attributes, "Note") == "cterm_extension":
+                k = _readthrough_residue(gm, tag, iv, rid)
+                if seq[k : k + 1] != "*":
+                    raise ValueError(
+                        f"{opts.patch}: patch CDS {rid}: residue {k} at the end of {tag} is "
+                        f"{seq[k : k + 1]!r}, not a stop; cterm_extension needs a stop codon"
+                    )
+                seq = seq[:k] + "X" + seq[k + 1 :]
+            seq = seq.removesuffix("*")
             if "*" in seq:
                 raise ValueError(f"{opts.patch}: patch CDS {rid} has an internal stop codon")
             product = _attr(f.attributes, "product") or _gene_product(gm, tag)
