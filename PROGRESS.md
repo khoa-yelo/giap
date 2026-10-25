@@ -4,11 +4,11 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-24 05:15 PDT · session https://claude.ai/code/session_01Acv4Wxbsi67yQRZZNNJozv_
+_Last updated: 2026-10-24 22:40 PDT · session https://claude.ai/code/session_01Acv4Wxbsi67yQRZZNNJozv_
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · 🟨 running (open branch) · ⬜ pending; designed issues: 168/172 done (98 %), 0 running · generated 2026-10-24 05:08 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 177/190 done (93 %), 1 running · generated 2026-10-24 22:20 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -18,57 +18,46 @@ _Last updated: 2026-10-24 05:15 PDT · session https://claude.ai/code/session_01
 | M3 Mapping and decoy FDR | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 25 | 0 | 0 |
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 22 | 0 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 11 | 0 | 0 |
-| M6 Operons | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 92 % | 11 | 0 | 1 |
-| M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 94 % | 16 | 0 | 1 |
-| M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 94 % | 16 | 0 | 1 |
-| M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 96 % | 25 | 0 | 1 |
-| M10 Pilot validation | 🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 8 | 0 | 0 |
-| M11 Release 1.0 | _not designed yet_ | - | - | - |
+| M6 Operons | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 13 | 0 | 0 |
+| M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨 94 % | 17 | 1 | 0 |
+| M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬛ 100 % | 17 (1 superseded) | 0 | 0 |
+| M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 26 | 0 | 0 |
+| M10 Pilot validation | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 91 % | 10 | 0 | 1 |
+| M11 Release 1.0 | 🟩🟩⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 15 % | 2 | 0 | 11 |
 <!-- progress:end -->
 
 - M7-15 K-12 real-tool arm: **Slurm 1879271** (COMPLETED 4 m 41 s; 2,647 cached from 1873779, 4 rerun; d11f7608 + VARIANTS 8 GB; 4fcc29da is cache-key-only, outputs byte-identical). Earlier attempts 1869642, 1871633, 1873779, 1878443 (cancelled).
 ## Current milestone
-(2026-10-24 morning) M0–M5 are done; M6–M9 each have one pending issue (below). M10 pilot pass 2
-is in the feature loop.
+(2026-10-24 evening) M0–M6 and M8 are done. M7 has M7-16 in the loop, M9 is done once #332
+merges, M10 has M10-04 (#296) and the A3 work (M10-08b, M10-10a) left, and M11 (release 1.0) has
+M11-01 and M11-02 merged.
 
-**Merged since midnight:** #288 M10-03, #292 M6-12c, #293 M10-02, #294 (ADR-0022 cut-offs),
-#297 M8-13, #298 (gzipped Bakta JSON), #299 M8-16c, #300 M10-12, #301 M10-08a, #302 M10-12a,
-#303 M10-05, #304 (backlog nits), #305 M10-09 and #306 M10-06 (main 5d3bfdce).
+**Merged since the morning:** #307 to #330 (except #325), then #325 M9-25 (main 112f3072).
+Among them: M6-05H, M6-09, M6-13, M7-17, M10-07, M10-14a, M10-15, the K-12 viz batch 1, the MVP-04
+gate 2 and gate 11 fixes, calibration sharding (ADR-0057), M11-01 and M11-02. The K-12 MVP-04 run
+passes all 16 gates (`all_gates_ok`); gate 16's 14.8 CPU-hours is in the backlog.
 
-**Queued:** #307 (ADR-0054 accepted-by-khoa, six backlog items; requeued after the CI fix) and
-#308 M10-14a (reproducibility runbook, checker, guarded clean-up).
+**Queued:** #331 M7-16a (annotated-stop substitution, ADR-0058; statistician APPROVE after the
+acceptance re-runs, code review fixed with six new tests) and #332 (snapshot layer under 120 s).
 
 **In progress:**
-- M10-07: review round. Statistician re-check first, then the test-author (B1, S1–S5, S7), then the
-  implementer (merge main, fixes).
-- M10-08b: implementer, against the test-author's tests (bb22e55f). Then the GPU smoke on WT_1,
-  `metrics/a3_feasibility.json`, and the PR.
-- M10-10a: `cascadia_convert` is implemented (c828b338). The de novo tests wait for M10-08b and the
-  evidence tests for #296.
-- M10-15a: the test-author is done (ec44e471). The implementer waits for #308.
+- **A3 (M10-08b, branch m10/spec-08b):** Cascadia 0.0.7 on CPU as a load-balanced Slurm work
+  queue, because jobs must stay under 3 h (Khoa). A watcher (`local/handoff/run/cascadia_gens.sh`)
+  runs rounds of 8 × 8-CPU workers over WT_1–WT_3, then merges each run and evaluates WT_1. Expected
+  to finish around 09:00–10:00 on 2026-10-25. Then `metrics/a3_feasibility.json` and the 08b PR,
+  with the A3 verdict.
+- **M10-04 (#296):** "Cascadia first" (Khoa). A watcher
+  (`local/handoff/run/pilot_pass1_after_cascadia.sh`) submits the A2 arm, then A1, once the
+  Cascadia queue is done and GIAP uses ≤ 14 CPUs. Then compare, the README Pass-1 section, and the
+  PR goes ready.
+- **M7-16b, then M7-16c:** after #331. 16b adds the `readthrough` flag on `peptide_hits.tsv` and a
+  per-kind placement count (Khoa). 16c (annotated internal Sec/Pyl codons) was approved by Khoa.
+- **M10-10a (branch m10/spec-10, no PR yet):** waits for the 08b evaluation and for #296's runs.
+- **M11 wave B (M11-03 onward):** not started.
 
-**Waiting:**
-- M10-04 (#296) waits for the MVP-04 K-12 run. Its waiter submits after 07:30, once no
-  giap-nightly job runs (1881403_2 is still running).
-- M7-17 (#291) waits for gate job 1881039 (12 h limit).
-
-**Pending outside M10:**
-- M8-11 is held by ADR-0038 (the pipeline calls R fgsea).
-- M6-09 (the M6 gate, simulation half) is unblocked now that M6-12c (#292) and ADR-0022 have landed: statistician attacks, then the gate run on Slurm.
-- M7-16 waits for Khoa's K2.
-- M9-25 needs Khoa's approval.
-
-## Done (with evidence)
-- M7-14 TE2 proxy (gate M7 clause): Nissle same-strain peptides, Slurm 1871578. 233 ALT sites, 80 `high`, 80 `high_start_codon`, 0 violations. `id_mixups` is now numeric in detection_summary.tsv (#248).
-- [M0] `gh` authenticated as khoa-yelo (SSH protocol); repository is public (Actions minutes unlimited).
-- [M0] Repository connected to git@github.com:khoa-yelo/giap.git; branch `m0/scaffold` pushed.
-- [M0] Bootstrap ran (`scripts/bootstrap_farmshare.sh`): uv 0.13.1, Nextflow 26.10.0, nf-test 0.9.5,
-  gh 2.102.0, OpenJDK 21, all under `local/` (ADR-0002).
-- [M0] `uv.lock` resolved (131 packages); venv in `local/venv`.
-- [M0] Probe in the session allocation (iron-01) and as Slurm job 1845260 (`giap-probe`, wheat-08,
-  COMPLETED in 31 s): batch path proven.
-- [M0] Appendix A files, ADR-0001 (imports §2.1/§2.4), CI guards (`scripts/ci/check_*.py`), `ci.yml`,
-  capability-marker plugin with `--require-capabilities` (tests/unit/test_capabilities.py, 2 passed).
+**Paused:** M10-11a Casanovo fallback (PXD053727 has only Thermo .raw files).
+**Deferred by Khoa:** CI-01, the scheduled calibration_full tier (branch ci/full-tier-array), to the
+post-MVP hardening pass.
 
 ## In progress
 M7-01 residue aligner (branch m7/alignment, implementer step done 2026-10-21): `giap.variants.align` (247 code lines, numba banded DP with traceback; M3 kernels untouched). Unit 42 passed, property 5 passed (also over 20 Hypothesis seeds), sim100k conformance passed (Slurm 1864764), fast suite 9180 passed (1864763), benchmark 100k tolerant hits 11.35 s < 30 s (1864766, wheat-08). Next: code review.
@@ -427,6 +416,11 @@ Slurm jobs this session (2026-10-24): 1880637, 1880801, 1880802, 1881039, 188104
 | 2026-10-14 | ~~RegulonDB v12 download~~ **RESOLVED 2026-10-21** | Not an outage: RegulonDB serves a cert (GlobalSign GCC R46 OV TLS CA 2025, issued 2026-10-14) **without the intermediate**, so verification fails. The intermediate from GlobalSign's own CA endpoint verifies against `GlobalSign Root R46`, already in FarmShare's trust store; with it, the site and `/datasets` return HTTP 200. Khoa approved completing the chain (2026-10-21). | nothing — M6-11/M6-12 unblocked |
 
 ## Answered by Khoa
+- 2026-10-24 (evening): **#325 M9-25 baselines approved**; the V16 #555555 and V15 (c) overlap go
+  to the backlog. **M7-16 → B**, annotated end stops (ADR-0058). **M7-16 item 6, yes:** build 16c
+  (internal Sec/Pyl). **Q11:** stays pooled. **Placement-kind labels:** yes (16b, 16c, M11-08).
+  **Cascadia CPU:** run as an array, each job ≤ 3 h, and "Cascadia first" before the pass-1 arms.
+  **"Default the rest"** for every other open question (see local/handoff/khoa_q.md).
 - 2026-10-24: **pilot data rule**: hashes and row counts may go in the READMEs and the runbook, and aggregates (with a few example gene names) in REPORT.md and metrics.json. No row-level DIA-NN content is committed.
 - 2026-10-24: **"go with your recommendation"**: #299 takes option (a), the largest-|SHAP| block for `agreement`. The Bruker TDF-SDK (route B2) is accepted. `cascadia.ckpt` comes from the authors' Drive folder linked in the Cascadia docs, with its sha256 pinned (an R6 exception for this one file, ADR-M10-B). The ProteoWizard six-EULA route is not accepted; if B2 fails, A3 falls back to Casanovo.
 - 2026-10-23: **ADR-0044** (the exact Wallenius distribution is the criterion-1 golden reference; goseq is a second reference under `wallenius_goseq_abs_tol`) and **ADR-0045** (urn recursion for far tails): both accepted as the lead recommended (#220).
