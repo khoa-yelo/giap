@@ -473,7 +473,7 @@ def test_item9_container_outside_with_name_checked(fx: Fixture, extra: str) -> N
     "extra",
     [
         "// process.container = 'docker://ubuntu:latest'",
-        f"process.container = 'docker://ubuntu@{DIGEST}'",
+        f"process.container = 'ubuntu@{DIGEST}'",
     ],
 )
 def test_item9_commented_or_digest_container_passes(fx: Fixture, extra: str) -> None:

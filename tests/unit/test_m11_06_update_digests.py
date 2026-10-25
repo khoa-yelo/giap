@@ -54,7 +54,7 @@ def _ref(tool: str, hexd: str) -> str:
 
 
 def _pin_line(process: str, ref: str) -> str:
-    return f"  withName: '{process}' {{ container = 'docker://{ref}' }}"
+    return f"  withName: '{process}' {{ container = '{ref}' }}"
 
 
 def _run(
