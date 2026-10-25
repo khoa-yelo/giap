@@ -24,8 +24,8 @@ GIAP runs its steps through Nextflow; see the documentation for the container an
 ## Quickstart
 
 ```bash
-giap setup --db-dir db                                   # databases and models, once
-giap preflight --genome genome.fna --peptides peptides.tsv   # check the inputs in seconds
+giap setup --db-dir db --antismash --go --kegg --cog --contaminants   # once
+giap preflight --genome genome.fna --peptides peptides.tsv   # check the inputs
 giap run --genome genome.fna --peptides peptides.tsv --db-dir db --outdir out --profile docker
 open out/report/report.html
 ```

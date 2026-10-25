@@ -83,7 +83,8 @@ def main() -> int:
         return 1
     print(
         f"changelog fragment missing: changed {', '.join(code)} ; "
-        f"add changelog.d/<PR>.<type>.md or label {LABEL}"
+        f"add changelog.d/<PR>.<type>.md (or +<slug>.<type>.md), or label {LABEL} and push "
+        "again (labels are read from the push event; a re-run reuses the old labels)"
     )
     return 1
 
