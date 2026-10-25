@@ -1289,6 +1289,12 @@ Merged from the lead's local list on 2026-10-25. Skipped as already done or alre
 - **M11-04 / M11-02:** an M11 milestone fragment will break test_m11_02's "exactly 12 milestone fragments"; update the count when M11's fragment lands.
 - **Earlier parked:** datapackage.json lacks `genes` and others; config.schema.json fields have no descriptions (gen_reference warns).
 - **Rebrand (Khoa, 2026-10-25):** after development, restructure and rename GIAP → GIPPA (repo, package, code, simplification). Do it before the first real publish (M11-13). Sequence: an ADR (overrides the spec name), one scripted rename PR verified byte-identical apart from names (PR-size exception), then simplification PRs gated by goldens and calibration. `gippa` was free on PyPI, TestPyPI, bioconda, conda-forge and GitHub on 2026-10-25.
+- **#359 review (demo peptides; B1 and S1, S3, S4 fixed in the PR):**
+  - Bug (src, own PR): `run_manifest.json` `detection_tier` copies preflight's provisional tier (`src/giap/manifest.py:374`), so it says `decoy_picked` while genes.tsv and detection_summary.tsv say `mayu` (demo run 1894327: unscored decoys, rule 4(c)). The `decoy_unscored` warning is also missing from the manifest warnings.
+  - S2: no CI test runs `scripts/docs/make_demo_peptides.py --check`; a later giapsim change could silently break the committed table. Test-author.
+  - Option: have the generator emit scored decoys so the demo shows the `decoy_picked` tier.
+  - Nits: the `cp ../tests/...` step assumes the repo root; download URLs point at unpinned `main`; the gz checksum can vary with the zlib build (`--check` compares uncompressed bytes); README keeps `--profile docker` while the quickstart says FarmShare/apptainer; `MAX_BYTES = 100_000` vs "100 KB".
+  - Demo run warning: one work dir had an unreadable `versions.yml` (ScannerError), skipped by `giap.io.manifest_sources`.
 - **M10-04 (#296) pass-1 findings (validation, 2026-10-25):**
   - antiSMASH did not run in either arm: the precomputed Bakta JSON has no GBFF next to it, so the step is skipped while the bgc module is on (A9 passes because `modules_off` is empty). Write or locate the GBFF for pass 2, or make the skip a `layers_missing` warning in the report.
   - A2 lacks `rbs_novel`; its novel-ORF promoter and RBS layers are `not_run`.
