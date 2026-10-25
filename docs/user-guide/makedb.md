@@ -7,7 +7,8 @@ database: decoys and FDR are the search engine's job. Every option is listed in 
 
 ```bash
 giap makedb --annotation bakta.json --db-dir /path/to/db --outdir strain_db
-giap makedb --annotation bakta.json --six-frame-orfs --min-orf-aa 20 --outdir strain_db_orfs
+giap makedb --annotation bakta.json --six-frame-orfs --min-orf-aa 20 --no-contaminants \
+  --outdir strain_db_orfs
 ```
 
 | Option | Meaning |

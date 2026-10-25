@@ -6,9 +6,14 @@ the [CLI reference](../reference/cli.md#giap-convert).
 
 ```bash
 giap convert --from diann report.parquet --out peptides.tsv --abundance-out abundance.tsv
-giap run --genome genome.fna --peptides peptides.tsv --abundance abundance.tsv \
-  --abundance-type maxlfq --outdir out
+giap run --genome genome.fna --peptides peptides.tsv --outdir out
 ```
+
+DIA-NN peptides carry `intensity`, so `giap run` computes gene abundance from the peptides. The
+abundance table written by `--abundance-out` is then not used, even when you pass it with
+`--abundance`. It is used only for peptides without intensities (see
+[Inputs › Abundance table](inputs.md#abundance-table-abundance)). Passing it with
+`--abundance-type maxlfq` makes sense only in that case.
 
 ## Options
 
@@ -53,7 +58,8 @@ Any other value exits with code 1.
 
 `--abundance-out` writes one row per `Protein.Group`, with a column `maxlfq`. The value is the
 median over runs of `PG.MaxLFQ`. Missing values, zeros and decoy rows are excluded, and groups with
-no value are dropped. The command then reminds you to run with `--abundance-type maxlfq`. With any
+no value are dropped. The command then prints a reminder to use `--abundance-type maxlfq` with
+the table. That reminder applies only when the table is used (see above). With any
 other engine, `--abundance-out` is an error (`no_abundance`, exit code 1).
 
 DIA-NN is proprietary software under its own licence. GIAP never redistributes it, and you run it

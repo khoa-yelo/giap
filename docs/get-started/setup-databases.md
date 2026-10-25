@@ -17,8 +17,12 @@ Without the extra flags, `giap setup` installs the Bakta light database, the geN
 the Promotech models. antiSMASH, GO, KEGG, COG and the contaminant library are opt-in.
 
 To use the Bakta full database, add `--bakta full`. Runs annotated with the light database carry the
-run flag `bakta_db_light`. Bakta is skipped when you give `giap run --annotation bakta.json`, so
-`--bakta skip` is enough in that case.
+run flag `bakta_db_light`. With `giap run --annotation bakta.json`, Bakta is not run. Preflight
+still checks that a Bakta database is installed, though, so do not use `--bakta skip` for a run.
+
+Before the first `giap setup`, read [Install › What `giap setup` needs](install.md#what-giap-setup-needs):
+the Bakta and antiSMASH downloaders run in a tool environment or image that `giap setup` does not
+install.
 
 On a shared cluster, run `giap setup` as a batch job: `--bakta full` alone downloads about 84 GB.
 
@@ -51,7 +55,7 @@ case, measure the size after your first download.
 |---|---|---|
 | Bakta light DB v6.0 | `bakta/db-light` | 3.9 GB unpacked (the 1.3 GB archive can be deleted) |
 | Bakta full DB v6.0 | `bakta/db` | about 84 GB unpacked |
-| geNOMAD DB v1.9 | `genomad_db` | about 0.8 GB |
+| geNOMAD DB v1.9 | `genomad_db` | about 0.8 GB; `giap setup` asks for 4 GiB of free space before downloading |
 | antiSMASH databases | `antismash` | not recorded |
 | Promotech RF-HOT | `promotech` | not recorded |
 | GO | `go/go-basic.obo`, `go/goslim_generic.obo` | not recorded |
@@ -69,9 +73,9 @@ name, version, URL, checksum, size and retrieval date. The schema is
 into the run's `run_manifest.json`. Preflight reads the manifest to check that the database each
 module needs is installed.
 
-KEGG and the contaminant library have no release version. For these, the manifest records the
-retrieval date and the SHA-256 of the downloaded bytes
-([ADR-0017](../adr/ADR-0017-unversioned-sources.md)).
+KEGG has no release version. For KEGG, the manifest records the retrieval date and the SHA-256 of
+the downloaded bytes ([ADR-0017](../adr/ADR-0017-unversioned-sources.md)). The contaminant
+library is pinned: commit `bddf6da9`, with a fixed SHA-256 in `db_sources.yaml`.
 
 ## Failures
 

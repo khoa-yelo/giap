@@ -4,6 +4,12 @@ This page runs GIAP once, from start to finish, on public inputs: the E. coli K-
 from NCBI and the K-12 reference proteome from UniProt. You need an installation
 ([Install](install.md)) and the databases ([Set up the databases](setup-databases.md)).
 
+!!! warning "Where this runs"
+    `giap run` passes preflight only when the tool environments and images are in place under
+    `$GIAP_ROOT` (see [Install › What `giap run` needs](install.md#what-giap-run-needs-before-preflight-passes)).
+    In 1.0 this is supported on FarmShare from a repository checkout. Steps 1 and 2 work anywhere
+    the Python package is installed.
+
 !!! note "Why a protein list"
     `giap run` needs evidence: `--peptides`, `--proteins` or both. A genome alone fails preflight
     with exit code 1 (`inputs.evidence_present`). GIAP ships no demo peptide table. This quickstart
@@ -12,6 +18,12 @@ from NCBI and the K-12 reference proteome from UniProt. You need an installation
     [Interpreting results](../user-guide/interpreting-results.md#detection-tiers)). To use your own
     search results, convert them with [`giap convert`](../user-guide/convert.md) and pass
     `--peptides`.
+
+    **This run carries no biological signal.** The whole reference proteome is given as the list
+    of detected proteins, so every mapped gene comes out `detected`. There is no undetected class
+    for the region, island or enrichment contrasts to compare against. Use it as a smoke test of
+    the installation and to learn the output layout, not to interpret results. No run of exactly
+    this command has been recorded yet.
 
 ## 1. Download the inputs
 
@@ -42,7 +54,8 @@ giap preflight --genome GCA_000005845.2_ASM584v2_genomic.fna.gz \
 
 Preflight takes seconds. It prints a table of checks (`ok`, `info`, `warn`, `error`) and writes
 `preflight_check/preflight/preflight.json` and `preflight.md`. Exit code 0 means you can go on.
-Exit code 1 means an input error: the table names the rule that failed.
+Any other code is explained in [Running GIAP › Exit codes](../user-guide/run.md#exit-codes); for
+an input error (1), the table names the rule that failed.
 
 ## 3. Run
 
@@ -65,6 +78,7 @@ Measured runtimes: see [Runtimes](../user-guide/runtimes.md).
 ```text
 out/
 ├── run_manifest.json      tool and database versions, parameters, input SHA-256, seeds, timings
+├── resolved_config.yaml   the configuration the run used
 ├── preflight/             preflight.json, preflight.md
 ├── annotation/            genes.gff3, regions.tsv, regions.bed, promoters.bed, terminators.bed,
 │                          operon_pairs.tsv, tus.tsv, tools/ (native tool outputs)

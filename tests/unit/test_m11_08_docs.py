@@ -16,6 +16,8 @@ GUIDE = [f"get-started/{p}.md" for p in ("install", "setup-databases", "quicksta
     for p in ("inputs", "run", "outputs", "interpreting-results", "plots-and-report", "compare",
               "makedb", "convert", "licences", "runtimes")
 ]  # fmt: skip
+TUTORIALS = ["tutorials/ecoli-k12.md", "tutorials/nissle-pilot.md"]  # guarded from the stubs on
+CHECKED = GUIDE + TUTORIALS
 PLOTS = {"V01": "circos", "V02": "abundance_landscape", "V03": "locus", "V05": "mapping_sankey",
          "V06": "mapping_fdr", "V07": "obs_vs_exp", "V08": "cog_abundance", "V10": "correlogram",
          "V11": "operon_pairs", "V12": "variants", "V13": "novel_orfs", "V14": "enrichment",
@@ -61,16 +63,17 @@ def test_pages_exist_and_are_in_nav() -> None:
         assert rel in nav, rel
 
 
-@pytest.mark.parametrize("rel", GUIDE)
+@pytest.mark.parametrize("rel", CHECKED)
 def test_options_exist_in_cli_reference(rel: str) -> None:
     """Option drift: every `--option` and every `giap <cmd> ...` line names options of cli.md."""
     cli, text = _cli_options(), _text(rel)
     every = set().union(*cli.values())
-    for span in re.findall(r"`([^`\n]+)`", FENCE.sub("", text)):
+    for raw in re.findall(r"`([^`]+)`", FENCE.sub("", text)):  # a span may wrap a line
+        span = " ".join(raw.split())
         if span.startswith("--"):
             assert re.match(r"--[a-z0-9-]+", span)[0] in every, (rel, span)  # type: ignore[index]
     lines = [m for b in FENCE.findall(text) for m in b.replace("\\\n", " ").splitlines()]
-    spans = re.findall(r"`(giap [^`\n]+)`", text)
+    spans = [" ".join(s.split()) for s in re.findall(r"`(giap\s[^`]+)`", FENCE.sub("", text))]
     for cmdline in [ln.split(" #")[0].strip() for ln in lines] + spans:
         words = cmdline.split()
         if len(words) > 1 and words[0] == "giap" and words[1] in cli:
@@ -78,7 +81,7 @@ def test_options_exist_in_cli_reference(rel: str) -> None:
                 assert opt in cli[words[1]], (rel, words[1], opt)
 
 
-@pytest.mark.parametrize("rel", GUIDE)
+@pytest.mark.parametrize("rel", CHECKED)
 def test_no_local_executor_or_unmeasured_runtime(rel: str) -> None:
     text = _text(rel)
     assert "--executor local" not in text, rel  # §6.4: developer guide only (example 3)
@@ -95,8 +98,9 @@ def test_tutorials_hold_no_row_level_data() -> None:
 
 def test_licences_name_the_restrictions() -> None:
     lines = _text("user-guide/licences.md").splitlines()
-    assert any("geNOMAD" in ln and "non-commercial" in ln for ln in lines)  # example 1
-    assert any("KEGG" in ln and "academic" in ln for ln in lines)
+    # example 1, anchored to the "What you need to know" bullets (not only the tables)
+    assert any(ln.startswith("- **geNOMAD") and "non-commercial" in ln for ln in lines)
+    assert any(ln.startswith("- **KEGG") and "academic" in ln for ln in lines)
     text = "\n".join(lines)
     for needle in ("UniOP has no licence", "never redistributes", "DIA-NN is proprietary",
                    "separate programs", "AGPL", '--8<-- "NOTICE.md"'):  # fmt: skip
@@ -104,7 +108,9 @@ def test_licences_name_the_restrictions() -> None:
 
 
 def test_install_setup_run_outputs_contents() -> None:
-    assert "Python ≥ 3.11" in _text("get-started/install.md")
+    install = _text("get-started/install.md")
+    assert 'requires-python = ">=3.11"' in (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    assert "| Python | Python ≥ 3.11 |" in install
     setup, cli = _text("get-started/setup-databases.md"), _cli_options()
     for flag in ("--bakta", "--genomad", "--promotech-models", "--go", "--kegg", "--cog",
                  "--contaminants", "--antismash"):  # fmt: skip
@@ -132,3 +138,43 @@ def test_plot_catalogue_matches_registry() -> None:
     for pid, name in PLOTS.items():
         row = rf"^\| {pid} \| `{name}` \|.*plots/data/{pid}_{name}\.tsv"
         assert re.search(row, text, re.M), pid
+
+
+def test_install_pins_and_profiles_match_the_code() -> None:
+    from giap.cli import _PROFILES
+
+    install = _text("get-started/install.md")
+    boot = (REPO / "scripts" / "bootstrap_farmshare.sh").read_text(encoding="utf-8")
+    nf = re.search(r"NEXTFLOW_VERSION:-([0-9.]+)", boot)[1]  # type: ignore[index]
+    jdk = re.search(r"openjdk=(\d+)", boot)[1]  # type: ignore[index]
+    assert f"nextflow={nf} openjdk={jdk}" in install and f"| Nextflow | {nf}" in install
+    assert "--override-channels" in install
+    section = install.split("## Execution profiles")[1].split("\n## ")[0]
+    assert set(re.findall(r"^\| `([a-z_]+)` \|", section, re.M)) == set(_PROFILES)
+
+
+def test_exit_code_meanings_match_exitcodes() -> None:
+    from giap.exitcodes import ExitCode
+
+    words = {"SUCCESS": "success", "INVALID_INPUT": "invalid input",
+             "ENVIRONMENT": "environment error", "WARNINGS_STRICT": "`--strict`",
+             "STEP_FAILED": "step failed", "INTERNAL": "internal error"}  # fmt: skip
+    run = _text("user-guide/run.md")
+    for code in ExitCode:
+        row = re.search(rf"^\| {int(code)} \| (.*)$", run, re.M)
+        assert row and words[code.name] in row[1], code.name
+
+
+def test_coordinate_example_is_consistent() -> None:
+    """The BED rows of outputs.md follow from its genes.tsv rows (§6.5: 0-based half-open, split
+    at the origin into _part1/_part2)."""
+    out = _text("user-guide/outputs.md")
+    length = int(re.search(r"##sequence-region chr1 1 (\d+)", out)[1])  # type: ignore[index]
+    rows = re.findall(r"^(G_\d+)\s+chr1\s+(\d+)\s+(\d+)\s+([+-])\s+(true|false)$", out, re.M)
+    assert {r[3] for r in rows} == {"+", "-"} and "true" in {r[4] for r in rows}
+    for tag, start, end, strand, crosses in rows:
+        s0, e = int(start) - 1, int(end)
+        assert (e > length) == (crosses == "true")
+        parts = [(s0, length, f"{tag}_part1"), (0, e - length, f"{tag}_part2")]
+        for a, b, name in parts if e > length else [(s0, e, tag)]:
+            assert re.search(rf"^chr1\s+{a}\s+{b}\s+{name}\s+\d+\s+\{strand}$", out, re.M), name

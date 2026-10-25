@@ -73,7 +73,7 @@ Optional modules that are switched off write no files. `run_manifest.json` lists
 | IDs | Bakta locus tags for genes; `NOVEL_<contig>_<start>_<p\|m>` novel ORFs; `<type>_<n>` regions; `TU_<n>`; `ISL_<n>` islands |
 | Booleans | `true` / `false` |
 | Flags | a `flags` column of `;`-separated values from the controlled [vocabulary](../reference/flags.md) |
-| Test results | every test row has `stat`, `effect`, `ci_low`, `ci_high`, `p_value`, `q_value`, `method`, `null_model`, `n_perm` |
+| Test results | every test row has the columns `stat`, `effect`, `ci_low`, `ci_high`, `p_value`, `q_value`, `method`, `null_model`, `n_perm`; values can be NA, with a flag such as `ci_unestimated` saying why (see [Interpreting results](interpreting-results.md)) |
 | Parquet | with `--parquet`, an optional Parquet twin of large tables |
 | Versions | `schema_version` in the manifest; breaking column changes only in major versions |
 

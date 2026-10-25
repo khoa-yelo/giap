@@ -24,14 +24,21 @@ The palettes are colourblind-safe, and a category keeps one colour across all pl
 | V15 | `determinants` | What explains abundance (promoter, RBS, codon usage)? | `plots/data/V15_determinants.tsv` |
 | V16 | `compare` | How do runs or search strategies differ? | `CMP/plots/data/V16_compare.tsv` |
 | V17 | `qc` | Are the inputs sane? | `plots/data/V17_qc.tsv` |
-| V18 | `stat_diagnostics` | Are the tests calibrated on this dataset? | `plots/data/V18_stat_diagnostics.tsv` |
+| V18 | `stat_diagnostics` | Are the tests calibrated on this dataset? (diagnostics only, see below) | `plots/data/V18_stat_diagnostics.tsv` |
 
 Notes on particular plots:
 
 - **V04 and V09 are deferred.** V04 was a locus browser and V09 a mass-fraction treemap. Neither
   is built in 1.0.
-- **V03** draws at most `report.max_locus_plots` loci (50 by default), ordered by q-value. Novel
-  ORFs are drawn by V13.
+- **V03** draws at most `report.max_locus_plots` loci (50 by default). The loci are prophages
+  and BGCs with a region test, islands and flagged operon pairs (q ≤ `stats.alpha.operon_flags`). They are ordered by their error
+  value, NA last, then by kind and ID. The error value is the region or operon q-value, or the
+  island's FWER p-value, so one ordering mixes two scales. Novel ORFs are drawn by V13.
+- **V18** shows the detectability reliability curve, p-value histograms per test family and null
+  distributions against the observed statistic. These are diagnostics, not a calibration test. The
+  calibration evidence is the simulation suites in the [methods notes](../methods/index.md). A flat
+  histogram does not certify a method that ships flagged uncalibrated (see
+  [Interpreting results](interpreting-results.md#methods-shipped-flagged-uncalibrated)).
 - **V14** belongs to the `function` module, so it is skipped when that module is off.
 - **V16** is written only by `giap compare` (see [Comparing runs](compare.md)). Every other plot
   is written by `giap run` and `giap report`.
@@ -42,8 +49,10 @@ empty state.
 
 Some plots need more data than the plot TSV holds. These extra tables are in `plots/support/`:
 `replicon_landmarks.tsv`, `gc_skew.tsv`, `variant_windows.tsv`, `gsea_running.tsv`,
-`determinants_shap.tsv`, `determinants_pd.tsv`, `null_regions.tsv`, `null_islands.tsv` and
-`null_determinants.tsv`. They are described in the [table reference](../reference/tables.md).
+`determinants_shap.tsv`, `determinants_pd.tsv`, `null_regions.tsv`, `null_regions_grid.tsv`,
+`null_islands.tsv` and `null_determinants.tsv`. Their schemas are in
+`src/giap/schemas/plot_support/`, and all but `null_regions_grid.tsv` are described in the
+[table reference](../reference/tables.md).
 
 Formats and resolution come from `report.formats` (default `svg`, `png`, `pdf`) and `report.dpi`
 (default 300).

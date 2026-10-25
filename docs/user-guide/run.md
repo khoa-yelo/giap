@@ -42,7 +42,7 @@ four run by default.
 
 | Module | What it adds | Needs from `giap setup` |
 |---|---|---|
-| `core` | annotation and context layers, mapping, the gene table, detection, context statistics, operons, variants, novel ORFs and determinants; always on, even when it is not listed | Bakta DB (unless `--annotation bakta.json`), Promotech models, contaminants |
+| `core` | annotation and context layers, mapping, the gene table, detection, context statistics, operons, variants, novel ORFs and determinants; always on, even when it is not listed | Bakta DB (checked even with `--annotation bakta.json`) and Promotech models; contaminants recommended (they label contaminant peptides) |
 | `mobile` | prophage and plasmid regions from geNOMAD | `--genomad` |
 | `bgc` | biosynthetic gene clusters from antiSMASH | `--antismash` |
 | `function` | COG, GO and KEGG categories, detection enrichment, abundance GSEA | `--go --kegg --cog` |
@@ -68,8 +68,8 @@ Later steps run without it. For example, the region tests then have no prophage 
 | `--sensitivity` | `basic` (default), `full`, `off` | `output.sensitivity` |
 | `--parquet` | also write Parquet twins of large tables | `output.parquet` |
 
-Every option above is a shortcut for a configuration key. Any key can be set with `--config
-FILE` or `--set key=value` (repeatable; the value is YAML). The order of precedence is: defaults,
+Every option above is a shortcut for a configuration key. Any key can be set with
+`--config FILE` or `--set key=value` (repeatable; the value is YAML). The order of precedence is: defaults,
 then the config file, then the command-line flags, then `--set`. An unknown key exits with code 1.
 The resolved values are written to `OUT/resolved_config.yaml` and to the manifest. All keys are listed
 in the [configuration reference](../reference/configuration.md).
