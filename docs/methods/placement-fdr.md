@@ -941,6 +941,51 @@ by design. This is a statement, not a change.
   T_rt = D_rt = 0, read-through share 0 (mean false target placements T 0.38 reverse, 14.7
   shuffle; about 905 cells per genome).
 
+### 16c: annotated recoded codons (ADR-0058 item 6; pre-code check, 2026-10-25)
+
+16c adds a `recoded` site for every internal codon of a CDS/sORF whose Bakta protein has `U` over
+TGA or `O` over TAG. The cells and mirrored cells are built by the same `frame_cells` →
+`mirror_cells` path, so items 1–7 apply unchanged.
+
+- **Counts.** Nissle has 3 recoded sites (fdnG JMJJOG_02511 and JMJJOG_04733, fdhF JMJJOG_04490).
+  K-12 MG1655 also has 3 (KOIAIB_01574, KOIAIB_04147, KOIAIB_04360). All are `U` over TGA, and
+  none is near an origin, so each has one cell. giapsim has none by default, and no genome has a
+  Pyl site.
+- **Symmetry.** Each decoy type gets the same 3 cells, each holding `*`, and the consumable
+  windows are equal in all spaces (3·L).
+- **Added chance mass**, measured by the exact-mass method of the attack at L 10, 11, 12 and 16:
+  - 1.2–3.2 × 10⁻⁷ of the regular mass;
+  - reverse i.i.d. D_rt = T_rt exactly;
+  - worst net shift (D_rt − T_rt)/T_reg between −7.5 × 10⁻⁷ and +2.0 × 10⁻⁶ (shuffle and
+    tryptic laws).
+- **Context.** It is coding on both sides of the cell. The shuffle i.i.d. ratio on these 3 sites
+  (0.29–0.98) reflects the conserved `…ARVUHGP…` motif of two homologous families on one shuffle
+  draw. It is not a property of the cells, and its effect on the list is about 10⁻⁷.
+- **Consequences.** The list FDR, strata, π̂ and E are unaffected. True Sec peptides are ordinary
+  cost-1 placements (item 7). The `sec_site`/`pyl_site` rows are, like `readthrough`, a subset of
+  a list accepted at q, and that subset is not FDR-controlled (items 5–6).
+- **Evidence.** The M3-21 giapsim suites cannot see these cells (no U unless `n_selenoproteins`
+  > 0), so in 16c they are regression evidence only. The evidence is attack (d) in
+  `attacks/test_attack_readthrough_recoded.py` (next to the 16a attack, whose helpers it reuses):
+  - **d1** giapsim, `n_selenoproteins = 60` (60 recoded and ~117 terminal target cells per
+    replicate), masses split into recoded and terminal-only windows. Full tier, R = 300: reverse
+    i.i.d. exact on both parts in every replicate; shuffle i.i.d. mean D_rec/T_rec 1.036–1.080
+    per L (95% CI lower ends 0.993–1.025; bound 1 − EQUIV − 2 SE ≈ 0.93–0.95); tryptic net
+    shift of the recoded part between −8.5 × 10⁻⁵ and −2 × 10⁻⁷ of T_reg (margin −0.01).
+    Structural equality per kind in every replicate, and the index's recoded sites equal
+    `truth/selenoproteins.tsv`.
+  - **d2** each broken build fails in 300 of 300 replicates: decoys from terminal cells only
+    (fails (a) and the structural check), recoded cells mirrored to n − p (fails (a)), target
+    without recoded cells (fails the structural check).
+  - **d3** Nissle and K-12: 3 recoded cells plus 4,689 / 4,369 terminal cells in every space,
+    all on `*`, equal consumable windows per kind (30/33/36/48 recoded at L 10/11/12/16);
+    reverse i.i.d. exact; recoded-part net shifts between −6.8 × 10⁻⁷ and +2.0 × 10⁻⁶.
+  - **d4** the variants chain's `site_keys` equal the index's sites (30 giapsim worlds and both
+    recordings).
+
+  Slurm 1893261 (fast, R = 50) and 1893260 (full, R = 300), both on 8ca2739b, all pass. Session
+  check: `local/stat/m7-16c-quick-check.md`.
+
 ### 16b reporting: the `readthrough` flag and the placement-kind counts
 
 A `peptide_hits.tsv` row whose accepted alignment consumes an annotated terminal stop cell carries

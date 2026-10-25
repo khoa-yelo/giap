@@ -83,7 +83,9 @@ detectability	overall	all	detectability_constant	1	NA	NA	NA
 detectability	overall	all	n_detected	29	NA	NA	NA	
 detectability	overall	all	n_eligible	51	NA	NA	NA	
 detectability	overall	all	recalibration_separated	1	NA	NA	NA	
+qc	placement_flag	pyl_site	n_peptides	0	NA	NA	349	
 qc	placement_flag	readthrough	n_peptides	0	NA	NA	349	
+qc	placement_flag	sec_site	n_peptides	0	NA	NA	349	
 qc	placement_kind	exact	n_peptides	349	NA	NA	349	
 qc	placement_kind	frameshift	n_peptides	0	NA	NA	349	
 qc	placement_kind	tolerant	n_peptides	0	NA	NA	349	

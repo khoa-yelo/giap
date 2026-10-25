@@ -268,7 +268,7 @@ def qc_rows(
 
 KIND_GROUPS = ("exact", "tolerant", "frameshift")
 DIFF_GROUPS = ("substitution", "swap", "block", "near_block")
-FLAG_GROUPS = ("readthrough",)
+FLAG_GROUPS = ("readthrough", "pyl_site", "sec_site")  # rule 17; 16c adds pyl_site, sec_site
 REASON_GROUPS = ("no_hit", "rejected_placement_fdr", "too_short", "contaminant_id")
 
 

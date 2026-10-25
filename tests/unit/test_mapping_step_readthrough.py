@@ -76,6 +76,7 @@ def test_sixframe_index_writes_format_2_cells_and_the_event(
     assert ev[0].data == {  # type: ignore[attr-defined]
         "terminal": 6, "recoded": 0, "not_a_stop": 1, "cells_target": 7,
         "cells_decoy": {"reverse": 7, "shuffle": 7},
+        "recoded_skipped": {"length_mismatch": 0, "codon_mismatch": 0},
     }  # fmt: skip
 
 
@@ -95,6 +96,7 @@ def test_empty_gene_model_gives_zero_sites_and_the_same_frames(
     assert _events(caplog)[0].data == {  # type: ignore[attr-defined]
         "terminal": 0, "recoded": 0, "not_a_stop": 0, "cells_target": 0,
         "cells_decoy": {"reverse": 0, "shuffle": 0},
+        "recoded_skipped": {"length_mismatch": 0, "codon_mismatch": 0},
     }  # fmt: skip
     with np.load(out) as new, np.load(FIXTURE) as old:
         for key in ("target_aa", "reverse_aa", "shuffle_aa"):

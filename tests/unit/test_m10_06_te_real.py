@@ -106,6 +106,7 @@ def test_te2_example_1_pass(tr: Any) -> None:
     r = tr.te2(vframe(ex1_variants()), gframe(EX1_GENES), ds_frame(1))
     assert r["counts"] == {
         "alt_sites": 3,
+        "alt_stop_codon": 1,
         "high": 2,
         "high_start_codon": 1,
         "high_stop_codon": 1,

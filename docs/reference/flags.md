@@ -155,8 +155,10 @@ No fixed vocabulary in the schema.
 - `multi_identical`
 - `nterm_extension_evidence`
 - `origin_spanning`
+- `pyl_site`
 - `readthrough`
 - `same_db`
+- `sec_site`
 - `strain_difference`
 
 ## `protein_hits`

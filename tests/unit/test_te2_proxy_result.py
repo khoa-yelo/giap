@@ -18,8 +18,8 @@ Interface pinned here (test-author reading)::
 * ``passed`` is ``violations == 0`` (a zero-count assertion: no ALT site at all passes).
 * ``exceptions``: the violations in ``sites`` row order, at most 50, each with ``locus_tag``
   (``gene``), ``aa_pos``, ``ref`` (``ref_aa``) and ``alt`` (``alt_aa``).
-* Rule 2: with ``high_stop_codon == 0`` the result JSON says why (the Sec sites stay unmapped
-  until M7-16): ``to_json()`` mentions ``M7-16``.
+* Rule 2: with ``high_stop_codon == 0`` the result JSON says why (Sec sites are recoded cells,
+  never readthrough; M7-16 rule 25): ``to_json()`` mentions ``M7-16``.
 * The CLI writes ``to_json()`` (sorted keys) to ``--out`` (default
   ``validation/proxies/<YYYY-MM-DD>_te2.json``) and exits 0 iff ``passed``, as ``te1``/``te8``.
 """
@@ -42,7 +42,9 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 te: Any = importlib.import_module("validation.proxies.te_proxies")
 
-COUNT_KEYS = {"alt_sites", "high", "high_start_codon", "high_stop_codon", "violations"}
+COUNT_KEYS = {
+    "alt_sites", "alt_stop_codon", "high", "high_start_codon", "high_stop_codon", "violations"
+}  # fmt: skip
 FLAGS = ("mass_equivalent", "snv", "multi_nt", "strain_difference", "database_derived",
          "start_codon", "stop_codon")  # fmt: skip
 
@@ -90,8 +92,8 @@ def test_only_start_codon_high_sites_pass() -> None:
             _row(3, "candidate", ("snv",))]  # fmt: skip
     r = te.te2_result(_sites(rows))
     _check_shape(r)
-    assert r.counts == {"alt_sites": 3, "high": 2, "high_start_codon": 2, "high_stop_codon": 0,
-                        "violations": 0}  # fmt: skip
+    assert r.counts == {"alt_sites": 3, "alt_stop_codon": 0, "high": 2, "high_start_codon": 2,
+                        "high_stop_codon": 0, "violations": 0}  # fmt: skip
     assert r.passed is True
     assert r.exceptions == []
 
