@@ -880,9 +880,23 @@ by design. This is a statement, not a change.
   `test_tolerant_recall.py`, `test_placement_fdr_genome.py`, `test_placement_fdr_lists.py`,
   `attacks/test_attack_placement_*`. They cannot see the rule and are regression evidence only.
 - *Exercised* (`run_chain`, reaching `sixframe_index → map_tolerant` with cells):
-  `test_placement_fdr_sim.py`, `test_denovo_precision_sim.py` and attack 5. Job IDs, before →
-  after FDP tables and the per-replicate count of accepted target rows that consumed a cell are
-  recorded here when the re-runs finish (expected near 0 at 100 kb).
+  `test_placement_fdr_sim.py`, `test_denovo_precision_sim.py` and attack 5. Fast tier (R = 50,
+  100 kb): main 1890006, branch 1890007. Full tier (R = 300, 1 Mb): main 1890009, branch 1890010.
+  All 10 tests pass in each of the four runs.
+  - Every FDP per decoy type, stratum and level is unchanged to 4 significant digits; the largest
+    change is 4.4 × 10⁻¹⁰.
+  - The de novo precision diagnostics, the stratum-0 estimate checks and the attack-5 decoy
+    documentation are identical.
+  - Accepted target rows that consumed a cell, per replicate at q 0.01 / 0.05 / 0.10:
+    - 0 in every suite at 100 kb, except `related_other_strain` (0–1, 2 rows in 2 of 50
+      replicates);
+    - at 1 Mb, `related_other_strain` 0–5 (200 / 221 / 224 rows; 165 of 300 replicates);
+    - attack 5 0–1 (2 rows);
+    - 0 elsewhere.
+  - All of them are true placements: FDP and the false-peptide exercise are unchanged, and the
+    accepted counts rise by exactly those rows.
+  - Counts come from an observer of `run_chain`: best-cost target rows whose window holds a target
+    cell (`holds_cell`) among peptides with m_target ≥ 1 and placement_q ≤ q.
 - *Stressed arm* (`test_readthrough_stressed.py`; dense 30–40-codon genes, reduced-alphabet coding
   frame, reverse arm on database input and shuffle arm on de novo input; criteria m ≥ 1 FDP ≤
   q + `se_multiplier` · SE at every level and mean(D_rt) ≥ mean(T_rt) − `se_multiplier` · SE; a
@@ -908,14 +922,21 @@ by design. This is a statement, not a change.
   shift is −2.2 × 10⁻⁴ against the ±0.01 margin. Cell counts and consumable windows are equal in
   target, reverse and shuffle at every L. Each broken build fails: no decoy cells, target cells
   reused for the reverse decoy, a reverse mirror off by one.
+- *Stressed arm*, full tier (R = 300, job 1890008):
+  - reverse: T_rt 123.0, D_rt 125.1 (SE 0.92), FDP 0.0038 / 0.024 / 0.057;
+  - shuffle: T_rt 122.9, D_rt 390.1 (SE 1.41), FDP 0.0067 / 0.036 / 0.081;
+  - read-through share 2.0 %; both controls fail, as required;
+  - accepted target rows that consumed a cell 0–5 (reverse) and 0–7 (shuffle) per replicate at
+    q 0.10.
+- *Regression-only*, fast tier: branch 1890013 and main 1890090, both 37 passed and 1 xfailed.
+  The gate records are identical apart from durations.
 
   Accepted target rows that consumed a cell, per replicate at q 0.01 / 0.05 / 0.10: 0–1 / 0–2 /
   0–3 (reverse) and 0–1 / 0–2 / 0–5 (shuffle). The shuffle arm's D_rt is about 3 × T_rt in this
-  dense build: conservative in the direction the check guards, with the cause not analysed here
-  (the statistician's exact-mass attack covers shuffle). As item 5 says, neither ratio is a
+  dense build: conservative in the direction the check guards (cause: the next gene's start `M`, explained
+  under the table above). As item 5 says, neither ratio is a
   subset FDR.
 - *Decoy-balance check* (`test_readthrough_decoy_balance.py`, giapsim 1 Mb null genomes, one-sided,
   may be vacuous): fast tier (R = 50, job 1889791) **vacuous** for both decoy types, as expected:
   T_rt = D_rt = 0, read-through share 0 (mean false target placements T 0.38 reverse, 14.7
   shuffle; about 905 cells per genome).
-- *Statistician's attack* (`attacks/test_attack_readthrough_decoys.py`, exact mass): pending.
