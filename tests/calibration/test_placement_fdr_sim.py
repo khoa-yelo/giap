@@ -62,6 +62,11 @@ from helpers.placement_sims import null_share_stratum0, run_chain, score_chain
 
 pytestmark = pytest.mark.calibration
 
+#: run_fdr_suite's direct checks (exercise, decoy-type V0 floor) average every replicate run.
+#: Shard 0 has block 1 only, while an unsharded run may add block 2, so a block-1 mean could pass
+#: where the both-block mean fails (#327 review). These tests run whole in shard 0.
+UNSHARDABLE = pytest.mark.calibration_unshardable
+
 LEVELS = C.load_tolerances().levels
 
 
@@ -92,11 +97,13 @@ def _suite(full: bool, pi_wrong: float, tmp: Path) -> None:
     run_fdr_suite(f"placement.sim_db_pi{pi_wrong}", replicate, tmp, (), full=full, mutant=True)
 
 
+@UNSHARDABLE
 @pytest.mark.parametrize("pi_wrong", [0.01, 0.05])
 def test_database_shuffled_placement_fdr(tmp_path: Path, pi_wrong: float) -> None:
     _suite(False, pi_wrong, tmp_path)
 
 
+@UNSHARDABLE
 @pytest.mark.calibration_full
 @pytest.mark.parametrize("pi_wrong", [0.01, 0.05])
 def test_database_shuffled_placement_fdr_full(tmp_path: Path, pi_wrong: float) -> None:
@@ -123,11 +130,13 @@ def _stressed(full: bool, tmp: Path) -> None:
     )  # fmt: skip
 
 
+@UNSHARDABLE
 def test_database_stressed_stratum0_placement_fdr(tmp_path: Path) -> None:
     """Review B4: the stratum-0 database list exercised at genome level (see module docstring)."""
     _stressed(False, tmp_path)
 
 
+@UNSHARDABLE
 @pytest.mark.calibration_full
 def test_database_stressed_stratum0_placement_fdr_full(tmp_path: Path) -> None:
     _stressed(True, tmp_path)
@@ -206,10 +215,12 @@ def _related(full: bool, tmp: Path) -> None:
     run_fdr_suite("placement.sim_related", replicate, tmp, (), full=full)
 
 
+@UNSHARDABLE
 def test_related_other_strain_placement_fdr(tmp_path: Path) -> None:
     _related(False, tmp_path)
 
 
+@UNSHARDABLE
 @pytest.mark.calibration_full
 def test_related_other_strain_placement_fdr_full(tmp_path: Path) -> None:
     _related(True, tmp_path)
@@ -228,10 +239,12 @@ def _denovo(full: bool, tmp: Path) -> None:
     run_fdr_suite("placement.sim_denovo", replicate, tmp, (), full=full)
 
 
+@UNSHARDABLE
 def test_denovo_error_model_placement_fdr(tmp_path: Path) -> None:
     _denovo(False, tmp_path)
 
 
+@UNSHARDABLE
 @pytest.mark.calibration_full
 def test_denovo_error_model_placement_fdr_full(tmp_path: Path) -> None:
     _denovo(True, tmp_path)
@@ -325,6 +338,7 @@ def _related_dbstrain(full: bool, tmp: Path) -> None:
     run_fdr_suite("placement.sim_related_dbstrain", replicate, tmp, (), full=full)
 
 
+@UNSHARDABLE
 def test_related_dbstrain_placement_fdr(tmp_path: Path) -> None:
     """Decision 8 (replaces the decision-7 xfail): related genome, ``search_db = other``, correct
     peptides reported as the database (M3-18 reference) strain's sequence at the same protein
@@ -335,6 +349,7 @@ def test_related_dbstrain_placement_fdr(tmp_path: Path) -> None:
     _related_dbstrain(False, tmp_path)
 
 
+@UNSHARDABLE
 @pytest.mark.calibration_full
 def test_related_dbstrain_placement_fdr_full(tmp_path: Path) -> None:
     _related_dbstrain(True, tmp_path)

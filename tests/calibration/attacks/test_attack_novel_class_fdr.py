@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
+from pathlib import Path
 
 import _criteria as C
 import numpy as np
@@ -244,11 +245,16 @@ def _fdp_fn(make: Callable[[np.random.Generator], Replicate]):  # type: ignore[n
     return levels, fdp
 
 
-def _gate(name: str, make: Callable[[np.random.Generator], Replicate], full: bool):  # type: ignore[no-untyped-def]
+def _gate(
+    name: str,
+    make: Callable[[np.random.Generator], Replicate],
+    full: bool,  # type: ignore[no-untyped-def]
+    log_dir: Path | None = None,
+):
     levels, fdp = _fdp_fn(make)
     stream = f"{SUITE}.attack.{name}" + (".full" if full else "")
     return calibrate_levels(SUITE, "fdr", levels, fdp, C.replicates(SUITE, full=full),
-                            stream=stream)  # fmt: skip
+                            stream=stream, log_dir=log_dir)  # fmt: skip
 
 
 @pytest.mark.parametrize("full", MODES)
@@ -257,10 +263,11 @@ def test_picked_fdr_holds_within_a_low_prior_class(full: bool) -> None:
 
 
 @pytest.mark.parametrize("full", MODES)
-def test_low_prior_attack_has_power_against_pooled_classes(full: bool) -> None:
+def test_low_prior_attack_has_power_against_pooled_classes(full: bool, teeth_log: Path) -> None:
     """Teeth: one list over all classes is a confirmed ``fail`` at q = 0.05 and 0.10 (review:
     FDP 0.29 / 0.46 within intergenic)."""
-    gate = _gate("picked.low_prior_class.rejected.pooled", _low_prior_picked(pooled=True), full)
+    gate = _gate("picked.low_prior_class.rejected.pooled", _low_prior_picked(pooled=True), full,
+                 log_dir=teeth_log)  # fmt: skip
     by_level = {r["level"]: r["status"] for r in gate.records}
     assert by_level.get(0.05) == "fail" and by_level.get(0.1) == "fail", gate.detail()
 
