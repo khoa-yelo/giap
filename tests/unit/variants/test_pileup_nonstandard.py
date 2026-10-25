@@ -5,9 +5,10 @@ edge-case table, lead decisions 1-3).
 Hand-built ``HitAlignment``s on the genomes of ``helpers.nonstandard_genome`` go through
 ``eligible`` -> ``pileup`` -> ``sites``.
 
-Lead decision 1 supersedes the spec's readthrough rule: **every U and O is skipped as ``rare``**
-(also U over TGA and O over TAG), ``attrs["nonstandard"]`` has no ``readthrough_sites`` key and
-``eligible`` gets no keep-condition for ``ref == "*"``. Examples 7 and 8 are tested in that form.
+Lead decision 1 supersedes the spec's readthrough rule: U and O are skipped as ``rare``, and
+``attrs["nonstandard"]`` has no ``readthrough_sites`` key. M7-16 rule 11 narrows it: U over TGA
+and O over TAG are ALT pileup sites (``stop_codon;vcf_unrepresentable``), every other U/O stays
+``rare``. Examples 7 and 8 are tested in that form.
 
 Not statistical (counting rules): no calibration test is owed.
 """

@@ -114,7 +114,7 @@ def ends_on(row: Any, codon_start: int, n: int) -> bool:
 
 def consumed(row: Any, sites: list[Any], n: int) -> list[Any]:
     """Rule 15 geometry on a 1-based TSV row (circular ends unwrapped)."""
-    if row["route"] == "frameshift":
+    if "frameshift" in str(row["diff_types"]).split(";"):  # route is exact|tolerant only
         return []
     s, e = int(row["start"]) - 1, int(row["end"])
     if e <= s:

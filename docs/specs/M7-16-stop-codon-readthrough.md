@@ -67,8 +67,7 @@ exception.
 
 ADR-0058 is the decision record. Its items 1–5 are in force. Item 6 (annotated internal Sec/Pyl
 codons) was **approved by Khoa on 2026-10-24 (evening)** (Q1 below). PR 16c holds it, and it is
-next after 16b. ADR-0058's status line and item 6 still say "needs Khoa"; the lead updates them
-(see "Amendment: 16b reporting and the 16c labels" › ADR and spec deviations).
+next after 16b. ADR-0058's status line and item 6 were updated in 16b (lead, db7d92ab, 933f0486).
 
 **One finding changes the motivation.** The 4 TE1 misses are **not** at an annotated stop. Bakta
 annotates both fdnG copies as full-length selenoproteins with `U` over an *internal* TGA (residue
@@ -1084,3 +1083,12 @@ Simulator (lead, 2026-10-25): `test_planted_cterm_peptide_is_the_reference_c_ter
 stricter than rule 20 (the whole protein must differ only at the stop). The giapsim knob plants on
 such "pure" genes first and falls back to genes that meet rule 20's peptide-level condition, so
 both that test and the natural stop-loss test hold at 5–20 SNV/kb. Accepted as tooling.
+
+### Lead decisions in the #335 review round (2026-10-25)
+- **Rule 14 (`SimConfig.n_readthrough`, `truth/readthrough.tsv`, its sim100k e2e) is deferred to a
+  follow-up PR, 16b-3, before 16c.** 16b ships the strain stop-loss knob (rule 20), which already
+  drives the e2e; the strain e2e reads `truth/readthrough.tsv` only if it exists. Until 16b-3,
+  `cterm_extension` calls are covered by unit tests only (statistician item). Backlog line added.
+- **Rule 17 row order: deviation.** `detection_summary.tsv` keeps the M4-16 contract's sort
+  (section, metric, level), so the 12 rows appear alphabetically, not in rule 17's listed order.
+  The set of rows and their values are as rule 17 says; readers select by key.
