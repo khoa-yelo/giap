@@ -106,7 +106,7 @@ def metrics_doc(share: float = 0.9971, passed: bool | None = None) -> dict[str, 
         "mapping_fdr": {"value": 0.0083, "threshold": 0.01},
         "te_real": {"schema": "giap-pilot-te-real/1",
                     "te2": dict(p), "te3": dict(p), "te4": dict(p), "te5": dict(p)},
-        "te7": {"schema": "giap-pilot-te7/1", "passed": True, "giap": dict(p),
+        "te7": {"schema": "giap-pilot-te7/1", "giap": dict(p),
                 "diann": {"status": "identical_report"}, "end_to_end": True},
     }  # fmt: skip
 
@@ -232,10 +232,18 @@ class Fixture:
     def set_weekly(self, text: str) -> None:
         (self.logs / "weekly.tsv").write_text(text, encoding="utf-8")
 
-    def set_check_runs(self, names: list[str], conclusion: dict[str, str] | None = None) -> None:
+    def set_check_runs(
+        self, names: list[str], conclusion: dict[str, str] | None = None, sha: str | None = None
+    ) -> None:
         conclusion = conclusion or {}
+        head = sha or git(self.repo, "rev-parse", "HEAD").strip()
         runs = [
-            {"name": n, "status": "completed", "conclusion": conclusion.get(n, "success")}
+            {
+                "name": n,
+                "status": "completed",
+                "conclusion": conclusion.get(n, "success"),
+                "head_sha": head,
+            }
             for n in names
         ]
         self.check_runs.write_text(

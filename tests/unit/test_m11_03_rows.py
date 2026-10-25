@@ -303,9 +303,8 @@ def test_r5_no_weekly_te8_row_pending(fx: Fixture) -> None:
     assert proc.returncode == 3
 
 
-def test_r6_te7_not_passed_fails(fx: Fixture) -> None:
+def test_r6_te7_giap_fail_fails(fx: Fixture) -> None:
     doc = metrics_doc()
-    doc["te7"]["passed"] = False
     doc["te7"]["giap"]["status"] = "fail"
     fx.write_json("validation/pilot/metrics/metrics.json", doc)
     _, out = fx.compute()
