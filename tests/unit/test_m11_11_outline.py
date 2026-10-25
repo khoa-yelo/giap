@@ -9,7 +9,11 @@ ROOT = Path(__file__).resolve().parents[2]
 OUTLINE = ROOT / "docs" / "preprint" / "outline.md"
 PEPTIDE_LIKE = re.compile(r"[ACDEFGHIKLMNPQRSTVWY]{7,}")  # M10-05 guard
 ESTIMATE = re.compile(r"\b(q|FDR|FWER|CI|FDP|F1|KS)\b|rejection rate|^unestimated|^n/a")
-REQUIRED_SOURCES = [f"§13.2 b{i}" for i in range(1, 8)] + [f"§15.6 b{i}" for i in range(1, 6)]
+REQUIRED_SOURCES = (
+    [f"§13.2 b{i}" for i in range(1, 8)]
+    + [f"§15.6 b{i}" for i in range(1, 6)]
+    + [f"§15.7 b{i}" for i in range(1, 5)]  # pre-registered hypotheses (review S8)
+)
 
 
 def _rows() -> list[dict[str, str]]:
@@ -72,3 +76,9 @@ def test_no_invented_numbers() -> None:  # M10-15 notes rule
 def test_no_row_level_sequences() -> None:
     m = PEPTIDE_LIKE.search(OUTLINE.read_text(encoding="utf-8"))
     assert m is None, m.group(0) if m else None
+
+
+def test_uncalibrated_flags_are_named() -> None:  # review B4, B5: never imply calibration
+    text = OUTLINE.read_text(encoding="utf-8")
+    for flag in ("ora_uncalibrated", "null_uncalibrated", "ADR-0049", "ADR-0055"):
+        assert flag in text.split("## 6. Limitations", 1)[1], flag
