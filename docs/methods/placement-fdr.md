@@ -966,10 +966,25 @@ TGA or `O` over TAG. The cells and mirrored cells are built by the same `frame_c
   a list accepted at q, and that subset is not FDR-controlled (items 5–6).
 - **Evidence.** The M3-21 giapsim suites cannot see these cells (no U unless `n_selenoproteins`
   > 0), so in 16c they are regression evidence only. The evidence is attack (d) in
-  `attacks/test_attack_readthrough_decoys.py`: a recoded-dense giapsim world with kind-split
-  masses, broken builds that drop or shift only the recoded decoy cells, and the Nissle/K-12
-  structural check. Its job IDs are added here when 16c merges. Session check:
-  `local/stat/m7-16c-quick-check.md`.
+  `attacks/test_attack_readthrough_recoded.py` (next to the 16a attack, whose helpers it reuses):
+  - **d1** giapsim, `n_selenoproteins = 60` (60 recoded and ~117 terminal target cells per
+    replicate), masses split into recoded and terminal-only windows. Full tier, R = 300: reverse
+    i.i.d. exact on both parts in every replicate; shuffle i.i.d. mean D_rec/T_rec 1.036–1.080
+    per L (95% CI lower ends 0.993–1.025; bound 1 − EQUIV − 2 SE ≈ 0.93–0.95); tryptic net
+    shift of the recoded part between −8.5 × 10⁻⁵ and −2 × 10⁻⁷ of T_reg (margin −0.01).
+    Structural equality per kind in every replicate, and the index's recoded sites equal
+    `truth/selenoproteins.tsv`.
+  - **d2** each broken build fails in 300 of 300 replicates: decoys from terminal cells only
+    (fails (a) and the structural check), recoded cells mirrored to n − p (fails (a)), target
+    without recoded cells (fails the structural check).
+  - **d3** Nissle and K-12: 3 recoded cells plus 4,689 / 4,369 terminal cells in every space,
+    all on `*`, equal consumable windows per kind (30/33/36/48 recoded at L 10/11/12/16);
+    reverse i.i.d. exact; recoded-part net shifts between −6.8 × 10⁻⁷ and +2.0 × 10⁻⁶.
+  - **d4** the variants chain's `site_keys` equal the index's sites (30 giapsim worlds and both
+    recordings).
+
+  Slurm 1893261 (fast, R = 50) and 1893260 (full, R = 300), both on 8ca2739b, all pass. Session
+  check: `local/stat/m7-16c-quick-check.md`.
 
 ### 16b reporting: the `readthrough` flag and the placement-kind counts
 
