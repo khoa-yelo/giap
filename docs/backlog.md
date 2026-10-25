@@ -1115,3 +1115,171 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (env locks) `workflow/envs/locks` has locks for 6 of 15 envs; decide whether every env gets one.
 - (M7-16 statistician, forwarded; `local/stat/m7-16-review.md`, Slurm job 1889319) on the real Nissle genome the exact expected regular chance mass gives a shuffle decoy/target ratio of 0.98–0.99 under the i.i.d. law but 0.93–0.96 under the tryptic law at L = 10–12, and 0.84–0.88 at L = 16, m = 2 (reverse is 1.03–1.07, conservative). The shuffle under-counts tryptic chance hits, which may make de novo placement anti-conservative on a real genome. giapsim does not show it (regular D/T 0.97–1.08). This is multiplicity-weighted mass, not distinct words, at one genome and three seeds: check it properly in the M3-21 / TE8 work before acting on it.
 - 16b-3 (M7-16 rule 12): a read-through sORF merges into a `sorf`-class novel ORF (CLASS_PRIORITY), so it never gets a `cterm_extension` row or `readthrough_candidate`. Decide whether rule 12 should keep a read-through flag on the merged sORF. Spec, then test-author → implementer.
+
+### 2026-10-25 (lead)
+- (M7-16b-3, rule 14; deferred from #335 by a lead decision) `SimConfig.n_readthrough` with `truth/readthrough.tsv`, and its sim100k e2e test. The feature loop started on 2026-10-25; drop this line when it merges.
+- (R14, 2026-10-25 01:52) `scripts/slurm/nightly_launch.sh` submits its 65 CPUs without looking at the other `giap-*` jobs; that night the nightly, Cascadia (112) and a 16b test job (8) came to 170 CPUs and the lead cancelled nightly tasks 0 and 2, the benchmark resubmit 1891690 and the summary 1891598. Sum the running and pending `giap-*` CPUs first and defer (or shrink) when the total would pass 128.
+- (Pilot commit mismatch, 2026-10-25) `pilot_pass1`-style watchers ran A2 at 0667e366 and A1 at 6f969ee7, because `giap_run.sbatch` reads the code live from the main checkout and #335 merged between the arms. Watchers should run every arm from a worktree pinned at one commit (as `pilot_a2_rerun.sh` does) instead of the main checkout.
+- (Merge queue, 2026-10-25) `queue.T.sh` fast-forwards the main checkout on every merge, so a live `giap_run` can pick up new code mid-run (harmless for #334, which touched no `src/` or workflow modules). Have it skip the fast-forward while a `giap-run-*` job reads the main checkout, or run pipeline jobs from pinned worktrees only.
+- (#309 follow-up) `scripts/dev/progress_bars.py` misses running M10 branches (it showed 0 running for M10 while branches were open).
+- (#335 review) In the e2e test's `consumed()`, add the `+n` shift only on circular contigs.
+- (#335 review) `docs/methods/variants.md`: say that a strain stop-loss under `search_db = other` gives ordinary pairs, and that paired read-through raises the pooled class rate.
+- (#335 review) A `makedb` patch that ends on the old stop leaves a trailing `X`; handle or document it.
+- (#335 review) Add a step-level test of the `loci` circular map.
+- (#335 review) The digest pin skips missing files; make a missing file fail, or say why it is skipped.
+- (#335 review) Report the per-arm count of REF `*` sites and `cterm_extension` calls as a gate diagnostic (statistician: about 0–0.3 per replicate expected in the G1 arm from natural stop-loss, 0 in the same-strain and novel arms).
+- (#335 review) The observer's `drop_duplicates` runs across decoy types; filter to one decoy type first.
+- (#334 review nit 5) The offline guard (`scripts/pilot/cascadia_offline.py`) does not block DNS lookups (`socket.getaddrinfo`, `_socket`); block them too.
+- (#334 review) Claim Cascadia work-queue chunks by grid cell rather than by chunk name.
+- (#334 review) If `local/handoff/run/cascadia_gens.sh` is ever reused, its missing count must become `miss=len(S.pending_chunks(w,20))`.
+
+### 2026-10-25 afternoon (lead)
+- **Off-FarmShare install (release blocker, Khoa question):** a `pip install giap` outside FarmShare cannot pass preflight, because the tool envs and images come from `scripts/slurm/build_envs.sbatch` in a checkout. Default for 1.0: document FarmShare from a checkout as the supported path. Proposal: a `giap setup --tools` bootstrap that builds the micromamba envs from the bundled `workflow/envs/*.yml` and pulls the pinned images from the bundled `containers.config`.
+- **V03 locus order mixes scales** (`viz/locus.py::_order`): the pool is sorted by `error`, which is a region q, an island FWER p or an operon-flag q depending on the kind (decisions 3, 5, 8). Sort within kind, or rank by kind first; needs a spec decision (statistician), then test-author → implementer.
+- **Quickstart demo peptide table:** ship a small peptide table (< 100 KB) under `docs/tutorials/data/` so the quickstart can run `giap run` with `--peptides`. Prefer giapsim-generated peptides (no sourcing question) over in-silico tryptic K-12 peptides.
+- **14 `slow` calibration tests that are not `calibration_full`** run in no scheduled job (M11-03b Q2). Schedule them in the weekly job or mark them `calibration_full`.
+- **`test_m10_09_cascadia_contract::test_c4_scan[sample]`** reads `local/pilot/A3_cascadia` outside the repo and fails with "scan not strictly increasing" on the current local data. Skip it when the data is not the pinned one, or pin the data by digest.
+- **`test_sim_function::test_example7_under_one_second_for_4000_genes`** times out (about 1.12 s) on busy Slurm nodes. Make it a benchmark or loosen it only with the statistician's and lead's sign-off (R3 does not cover timing, but keep it honest).
+
+### Deferred review items, 2026-10-21 to 2026-10-23 (lead's parked list)
+Merged from the lead's local list on 2026-10-25. Skipped as already done or already in this file: the bash-4 check (#270), Promoter Calculator batching (#282), the M9-17 Nextflow wiring (#283), the M7-18 X/U crash (#284), and M7-17 Q6, Q8 and the G4-k3 reuse (under "M7-17 follow-ups (PR #291)").
+- (M7-11b decision 10) giapsim/makedb ID mismatches left: annotated peptides in the first 30 codons do not also list the gene's nterm entry; 27 non-ATG-start peptides beginning with M are absent from makedb's literal translation; 18 rows name entries shorter than min_orf_aa=20.
+- M8-15 attack 2: keep `member_shift` −1.5 as the separation arm, add an overlap arm at −0.75 (unweighted 0.95 at 0.05, R=150; confirmed fail at R≥100); run both with the default `DetectabilityConfig()` on covariates recomputed by `covariate_table`, not `n_obs_true` (statistician #251).
+- ADR (M8-04): the fitted ORA treats q̂ as known, so it is conservative and loses power when membership is predictable from covariates; proposal: score test of the category indicator in the M4-13 GLM (residual-projection variance) (statistician #251).
+- giapsim `_confound`: K/R moves change `tm_segments` in 66 % of members (+1.56) and pI by ≤0.22; document or constrain the moves to keep `tm_segments` (statistician #251).
+- M8-15: the oracle arm through the ORA engine is slightly conservative at α 0.10 (0.025–0.067); check M8-04's TU recalibration/TU unit on this world (statistician #251).
+- M8-14 code-review nits (comment 6367524340 on #251).
+- M6-12 `precision_cv`: add a reference test rebuilding the folds (`permutation(n_clusters) % k`) and comparing pooled held-out precision exactly (row-fold and in-sample mutants survive) (statistician #263).
+- M6-12 `fit_distance_model`: after 30 failed halvings the 2⁻³⁰ step is judged on |h·δ|; judge convergence on |δ|/gradient or fail with `line_search` (statistician #263, unreachable in practice).
+- M6-12 attacks: strengthen the directon-clustered null so the iid CI under-covers; add the mixed-length/both-strand/circular coincidence-null case (statistician #263).
+- Nightly task 13 (M7 variants gate) is red while ADR-0049 is open: add a merge-side known-failures list naming ADR-0049 so the nightly summary separates expected from new failures (lead, #255).
+- M6-12 code-review nits (#263 comment 6367759779): public alias for `_window` (+ docstring "same-strand"), contig checks in `window_of`/`_containing`/`coincidence_rate`, step-halving floor comment, `threshold_boot_q` comments, document the coincidence stream order, nested-gene windows, input validation (`wilson_ci` k>n, `distance_log_loss` s=0, `precision_cv` k=1, empty `choose_cutoff`, all-equal d reported as separation).
+- pyproject `pythonpath = ["tests/sim"]` shadows an explicit PYTHONPATH giapsim; cross-branch measuring needs `-o pythonpath=…`; document in AGENTS.md or test_branch.sbatch (M7-13b implementer).
+- M6-12 B code-review nits (#264 comment 6369206328): atomic outputs; guarded `sys.path` (or `python -m`); `main` catches only ValueError; hash the truth TSVs and refuse unknown labels; `y` from `matched_source_id`; `--R` flag and R ≥ 1 check; separate streams so a TerminatorNet re-record doesn't move the UniOP `precision_cv`; driver size cuts (move `_hits`/`_called`/`truth_recall` to giap.stats.cutoffs, `coordinate_id_map` to uniop_adapter, `directon_ids` to operons, `open_text` for gz, `to_csv` writers, split `run()`).
+- M8-15 follow-ups: centring arm (ADR-B) and annotated-universe arm (spec, not yet written).
+- M6-12 B (#264 stat comment 6369349361): ADR-0022 quotes `precision_lower_bound_window` as the 97.5 % one-sided bound; the point bound exceeds true precision in ~9.5 % of worlds, so it is never quoted as a bound.
+- ADR (M8-09): LightGBM at the §5.2 defaults overfits at ~800 model rows (CV R² −0.002 at true 0.2, 1,500 genes; OLS 0.183); options: inner-fold early stopping, 100 trees, rate 0.01 + min child 50 + 7 leaves (statistician M8-15 P2, local/stat/m815-review/).
+- M8-04 projection-variance ADR: also covers the oracle arm's shortfall at −1.5 from the TU recalibration (0.02 vs 0.05 without it, α 0.10).
+- M8-15 recovery arm: route the planted features through the M8-07 columns (`promoter_score`, `tir_ostir`, `cai`) as determinants.md says, or amend the note.
+- Re-file the item "M8-15 should adopt the statistician's GO-family FDR arm" (M8 section above) under hardening; §8.4 is level-only.
+- GSEA null pooled band too narrow for 100 dependent sets per replicate (0.0396 vs 0.0438 at α 0.05); recorded only.
+- M8-15 code-review nits (#266 comment 6370059803): forking after LightGBM's OpenMP can hang (use spawn or prefetch before any model fit); duplicated helpers; per-collection records take their collection list from replicate 0 only; document that the fast tiers reuse the full tier's first worlds; the baseline was timed at 16 CPUs, not the spec's 4.
+- M8 gate: run the M8-15 full tier (calibration_full: ora/gsea/determinants) on Slurm and record it in PROGRESS before marking gate M8 met.
+- Calibration teeth (house `teeth_log`) rerun both full blocks in every shard (~250 s per tag in M8-15); consider skipping teeth under --shard and running them once in --merge (#266 test-author).
+- M8-16: no nf-test for SENSITIVITY_RERUNS (sensitivity.nf) after it left CONTEXT; add one. Also `docs/methods/sensitivity.md` "Enriched categories"/"Determinants" sections (spec acceptance) and a `requires_r` test of the real fgsea engine in the family (#265 implementer).
+- Calibration records carry no commit field; add one so gate evidence can prove the commit (M7-13c ledger gap 6). Remove the `@GATE` switch from test_m7_gate.py::ledger once #255 and M7-13b merge (gap 4).
+- test_m7_gate.py: re-derive merged records with C.merge_shards to catch a stale merge (#268 nit 4); docstring pointer that strand/circular-origin claims live in O3 (nit 7).
+- M7 nightly: shard the novel_orfs block 2 (serial G4-k3 block 2 ≈ 3.2 h vs --time 04:00; M7-13b decision 12). #267 follow-up: `test_attack_oracle_picked_class_fdp_dense` fails "no calls at 0.01, intergenic" on its giapsim.
+- giapsim scored_null mode: M7-11b makedb-ID mapping is off under the default wrong_source (correct novel-ORF peptides name planted IDs; protein nulls upstream of the start name the locus tag). Kept #247 behaviour so K-12 scored-null outputs stay unchanged; decide whether the guarantee should hold in scored mode (#267 merge, lead default: keep).
+- ADR-0049 #269 nits: `site_flags` never applies the left-block rule (document or pass through); `op.alt` never compared with the site alt_aa; mention `identifiable` in the M7-05 spec; the `lo >= 0` guard in left_block_read is provably dead (remove or keep as a guard).
+- M9-17/M9-19 (V14 implementer 7410ec5b): `giap.steps.plots.plots_step` swaps `inputs["plots_support"]` for its own `out/support` whenever `write_plot_support` writes (replicons or variants present), so `gsea_running` published by the function step may be invisible to V14 in a real run. Check when M9-17 publishing lands; add a step test with replicons + function support.
+- M7-13b #271 review nits: shard merge is xfail-unaware (a sharded task 11 is red nightly on the six ADR-0050 cells; note beside ADR-0049 "known consequence"); injection helpers lack unit tests and `_reverse_stretch` leaves palindromic stretches unchanged (~5% at length 3), blurring ADR-0050's exact vs reversed split; `fdp_of` negative-count and bool branches untested.
+- M9-26 gap 4: V2 rug is unbinned; a genome with >20,000 undetected genes breaks §10.1. Default: bin by status share as V1.
+- M9-20 nits: N2 "spread over 25 CV models" comes from plotting cfg not the run (use recorded fit count); N5 "jitter by rank" comment wording; M8 elastic-net out-of-fold predictions so V15 (d) can plot the primary model.
+- M9-19 nits: N9 `_draw_set` xlim from x.max(); N10 split `_draw_b` label layout; add "es" to checklist UNITLESS ("running ES (enrichment score)" passes only via parentheses).
+- M9-21 nit: V18 captions print p 0.996 as "1" (.2g); use .3g above 0.1.
+- M9-17 nits: N4 gsea_table rank labels via DataFrame.attrs (return explicitly); N6 pred_contrib computed twice (derive shap_blocks from shap_features); N7 redundant method!=descriptive filter; drop PD grid points <= 0 for LOG_FEATURES.
+- ADR-0050 option 1 (accepted for later): picked ORF-level target-vs-mirrored-decoy competition to remove the reversed-stretch k-chances excess at q 0.01 (FDP 0.0135–0.0140 vs ~0.011–0.0125).
+- M9-26 nits: byte_identity.py:91 puts repo src ahead of PYTHONPATH; V1 binning decided on total gene count, not per track (§10.1); needs_nextflow requires nf-test unnecessarily for the resume test.
+- M9-19 V14 after the review round: the pinned upper-left legend covers the cog J point and its leader in the main case (needs more y headroom or a 2-column legend; check at M9-25); q = 0 and a q > alpha row can share the cap height (only the ^ marker separates them); the twin alpha line is fixed at 0.05 (could read the alpha from the title).
+- M7-18 follow-ups: B/Z/J as ambiguous matches (Module 2 first); preflight count of B/J/O/U/X/Z in peptide tables; Sec/Pyl readthrough calls (U over TGA, O over TAG) belong to the M7-16 ADR (§7.5.1 vs M7-15 decision 9).
+- M9-20 V15 after the review round: in the big-genome case 1,025 flagged points cover the hexbin and the "best" legend sits over bins (smaller or translucent flagged markers in binned mode; check at M9-25); the twin can't show the null-p and univariate footnotes (not in its data TSV); the colourbar test only searches figure.axes.
+- M9-17 follow-ups: write_datapackage copies only the schemas resources name, so null_regions_grid.json is missing from OUT/schemas although datapackage.json mentions it; only the local publish drops the stale .tsv/.tsv.gz sibling (the Nextflow side belongs to m9/support-nf-wiring).
+- chore: farmshare.config queueSize 8 × 16 CPUs plus the head job can reach 130 CPUs (over R14's 128); cap it (M10 L1).
+- M9-21 V18: the constant-null bar (width 1/30) is a near-invisible hairline on wide x ranges; give it a minimum drawn width (check at M9-25).
+- M7-13b #271 follow-ups: giapsim names origin-crossing entries b > n (the exemption checks a > b; fails closed); G4-k3 reach pooled over classes (split per class); review nits 4–7, incl. merge_shards reporting MERGE_FAIL for the six ADR-0050 cells once task 11 is sharded.
+- chore: needs_diann marker and probe_env don't know the verified DIA-NN copy (M10-02 Q8).
+- M10-01: test the 1/K0 range (needs TDF mobility calibration) and the diaPASEF-variant notes (Q3).
+- M7-15 follow-ups: static guard for the step→config-section map (registry.py:184); GIAP code version in the GIAP_STEP task hash; preflight keep-unchanged hunk + all-cached assertion; record cache 'deep' hashing cost.
+- M10-02: test the free-space check (rule 4) and the mv -n race between two install jobs (need fake df/mv hooks).
+- M9-17nf: unit test for plots.copy_staged_support; determinants.nf emits no events into the PLOTS events pair.
+
+#### M7-18 review nits (#284, 2026-10-23)
+- Test the folded-peptide dedupe (`AKXREFGHILWD` + `AKXREFGHLLWD` → 1 site, 1 peptide, both originals in examples), pileup.py:245.
+- First skipped letter wins via setdefault (pileup.py:245): order-dependent by_residue/by_rule for overlapping hits; use min() or pin first-wins.
+- Pin rare/ambiguous for mixed ops (`KU` rare, `UX` ambiguous), pileup.py:150.
+- Assert the event message wording (decision 4) in test_step_emits_one_info_event_when_a_site_is_skipped.
+- Acceptance criteria: say output byte equality rests on the goldens, not the property.
+
+#### M2-14b review nits (#282, 2026-10-23)
+- test_pc_batch_resume_stub.py docstring (and spec lines 21, 39): the guarantee is "unchanged inputs fully cached, batch membership stable"; a real region change reruns every batch (OPERON_PAIRS new work paths; TU add/remove shifts boundaries).
+- promoter_calculator_batch.nf.test example 6: put the failing region in the middle ([tu0001, tu0004 FAIL, tu0003]) and assert 2 `Sequence length:` lines (tu0003 never ran).
+- PC_BATCH copied in annotate.nf, workflow/tests/real/promoter_calculator.nf and test_pc_batching_real.py DRIVER: make the static test assert they match.
+- Record the K-12 PROMOTER_CALCULATOR wall time in PROGRESS.md after the first real run (MVP-04 / M6-12C); expected ~4–5 min per 100-region batch.
+
+#### Fast-suite test-side speedups (perf agent, 2026-10-23; after #286)
+1. giapsim `function_sim.draw` ~1,000 CPU-s/run (test_sim_function_calibration examples 1-3, attacks): cache worlds per replicate where arms share a stream (check streams align), or vectorise layout/_confound (giapsim goldens as identity check).
+2. test_gene_fdr_one_replicate_through_real_mapping (265 s after #286): reads only gene_table output; restrict modules / lower determinants.permutations via --set → ~20-40 s.
+3. test_mapping_steps_review: module-scoped shared sim50 run for read-only items (11, d13, d14), ~90 CPU-s.
+4. Local-run integration tests (m4_real_path, gene_table_local, mapping_local, novel steps, id_mixups): session-scoped shared sim100k run dir, ~150 CPU-s.
+5. test_nf_review: share one nextflow config render between the two farmshare tests, ~45 s.
+
+#### Flaky property test (Slurm 1879780, 2026-10-23)
+- tests/property/test_m5_fixture_props.py::test_oric_is_one_chr1_feature_near_its_fraction: Hypothesis seed=759 puts the oriC midpoint 0.0236 from the target fraction (tolerance 0.02). Simulator fixture issue (giapsim), not an M7-17 change: tighten the fixture's placement or derive the tolerance from the gene spacing; pin the failing example with @example.
+
+#### #286 review nits (perf, 2026-10-23)
+- N1: models.py:207-219 relies on sklearn private _path_residuals/_pre_fit; pin sklearn in pyproject or assert Gram contiguity/dtype; comment the verified version (1.9.1).
+- N2: _rho uses np.corrcoef(vstack) where scipy uses corrcoef(column_stack, rowvar=False): use scipy's exact call (BLAS layout on macOS).
+- N3: _ranks/_auroc assume clean inputs: convert y to bool, assert no NaN.
+- N4: bootstrap.py:56 stat_fn type for columns= path (Callable[..., float] or overloads).
+- N5: _fit_predict threads param always 1; null.column() used once.
+- N6: ADR-0053: bit identity with main shown empirically only; old 16-thread LightGBM CV was not guaranteed thread-count-invariant on large inputs.
+- N7: benchmark null budget 45 s > 33.74 s before: set ~20 s.
+- N8: null_p holds all B permuted y copies: docstring line.
+
+#### M9-16b review (#287, 2026-10-23), non-blocking
+- Test temp-file cleanup: monkeypatch os.replace to raise OSError; old page bytes kept, no .report.html.tmp left (plots.py:190-191).
+- `giap report` size warning untested now that it goes through rerender_report (plots.py:192): caplog test for one report.size_exceeded WARNING with data {"bytes": size}.
+- Behaviour 2/7 negatives: spy tests that exit 3 and exit 5 never call rerender_report; Nextflow test globs work/*/*/report/report.html for the in-graph "not written" sentence.
+- cli.py:380 reads the manifest outside the try (a read failure is exit 5, not the tail's exit 4); comment the mid-function `plots as P` import; giap report builds RunView twice; docstring: an oversized page logs report.size_exceeded twice (graph + tail).
+- backlog: _orf_span no-start fallback can give start < 1 near the replicon start (+ strand); handle wrap (pending)
+
+#### M8-12b statistician (#289), non-blocking
+- PROVENANCE prints Σf |Σ−1| as 0.000e+00 (float underflow; the true value is about 2^-1228): print log2 of the bound.
+- Optional: the exact integer fixed-point urn (scratchpad fixrec.py, 640-bit, about 15 s) as a CI cross-check on all 300 tails.
+- Spec §1.3 nit: SET_026/027 keep their structure, but their members changed.
+
+#### M8-12b code review (#289), deferred
+- S1: the §3.4 checks never fail in a test (run(full=True) with a perturbed R1; _check; CLI exits for unknown category or gene); 9 mutants survived.
+- S2: pin 2-3 R1-regime tail strings (or the dtype), since a float64 reference survived.
+- S4: golden_wallenius.sbatch should require GOLDEN_WALLENIUS_REASON (with :?) plus a Supersedes line, like golden_r.
+- Nits: the precision loop overshoots P (one-shot estimate); duplicate R1 work in exact_tails; _read_tsv has no header check and no duplicate (category, gene) check; _numpy_odds rereads the files; dead k-outside-support exit; untested r2_pmf d_num == 0 and k == lo branches; make_golden_inputs held.add collision untested; golden_r -e check is per file; golden-r.yml has no ORA guard or Supersedes line; vacuity printed as a dict repr; split run() (about 95 lines).
+
+#### M10-01 code review (#290), deferred
+- Tests for: --proto-redir on GET/HEAD; exactly one analysis.tdf (2 .d folders in one archive); files outside <run>.d dropped; the unpacked skip needs tdf_bin; an oversized partial discarded; a genotype annotation modification ("wild type ΔfliC"); WT token left boundary (SWT_1.d.zip); acquisition_mode source_folder sidecar.
+- Selector: WT_ROS also matches the WT token. Consider rejecting treatment tokens (ROS) explicitly rather than relying on MLA order.
+- Nits: --resolve can't exit 0 on the real record (http:// links; https_route only upgrades ftp://); the property test's _expected copies classify; a missing tdf drops the dia_window_rows/pasef_rows keys; IsolationWidth/2 on an int column; immutable=1; an unknown checksum algorithm gives a traceback, not exit 2; run_label .d is case-sensitive; the override URL should use download.iprox.cn.
+- CLI: --annotation *.json.gz silently runs Bakta live (cli._bakta_json checks only .json). Accept .json.gz (decompress, or have the step read gz); test-author → implementer, small PR (M10-04 Q3).
+
+#### M11 wave B reviews (2026-10-25), deferred
+- **#338 M11-06:**
+  - S1 (Khoa): a digest PR opened with GITHUB_TOKEN triggers no CI and needs "Allow Actions to create PRs". Use an App/PAT, or document a manual close/reopen.
+  - S2: a dispatch from a non-main ref opens a PR against main.
+  - S3: the `git-<sha8>` tag comes from the env comment, not the Dockerfile ARG.
+  - S4: the process→tool map is duplicated (containers.yml and update_digests.py).
+  - S5: pinning only PROMOTECH_NOVEL drops promotech from the conda-only comment.
+  - S6 (Khoa): the licences of conda packages bundled in public images (PyQt5 GPL-3.0, ViennaRNA).
+  - Nits: a double digest is accepted; writes happen outside the try; a re-run after the branch was pushed fails; `set -f` for the tools input; two back-to-back pushes give two conflicting PRs.
+- **#339 M11-07:**
+  - S3: tests for the hidden-option filter, the empty `multiple` default, and `_status` multi-line text.
+  - S4: the hand-written Methods/Decisions nav conflicts between parallel agents. Generate the nav, or list only the index pages.
+  - Nits: exclude adr/TEMPLATE.md; flags.md shows a raw regex; the `_unset` sentinel is detected by type name; CRLF passes `--check`; no site_url/repo_url; envvar not shown.
+- **#341 M11-12:**
+  - B1 follow-up: the no-changelog label takes effect only on the next push. Read live labels with `gh pr view --json labels`, or add labeled/unlabeled triggers.
+  - S2: a rename inside changelog.d/ passes as a new fragment; the `C` status branch is dead.
+  - S3 tests: `..` vs `...` with main moved on; renamed or edited fragments; pattern anchors; the `": "` separator and `refactor!:`; exact label match; a merge-only range.
+  - Nits: a bad BASE gives a traceback; non-ASCII paths are quoted; a module moved out of src/ needs no fragment; `open` exists only on macOS; README line length; the fragment slug wording; link regex vs parentheses.
+- **#342 M11-04:**
+  - S1 (Khoa): the actor guard can't tell agents from Khoa (the FarmShare gh login is khoa-yelo). Use a separate account or a token without actions:write; also check `github.triggering_actor`.
+  - S2: readiness fatal for pypi is untested.
+  - S3: skip-existing, packages-dir and `--draft` are untested.
+  - S4: a test against `${{ inputs.* }}` in run scripts; `$GITHUB_SHA` at :192.
+  - S5: notes.py tests for the preamble, "No significant changes." and rc with `--draft`.
+  - Nits: `::error::` echoes the unvalidated version; stderr vs stdout; `persist-credentials: false`; notes.py fences and `# ` headings; a multi-digit rc patch; example 5 needs a built section.
+- **#337 M11-03:**
+  - Item 11: no job writes `calibration_full` / `calibration_attacks` rows to nightly.tsv, so readiness R3/R4 stay pending. Add those nightly rows before M11-13.
+  - A `--check-runs` file without `head_sha`.
+  - An evidence path recorded as a basename only.
+- **M11-04 / M11-02:** an M11 milestone fragment will break test_m11_02's "exactly 12 milestone fragments"; update the count when M11's fragment lands.
+- **Earlier parked:** datapackage.json lacks `genes` and others; config.schema.json fields have no descriptions (gen_reference warns).
+- **Rebrand (Khoa, 2026-10-25):** after development, restructure and rename GIAP → GIPPA (repo, package, code, simplification). Do it before the first real publish (M11-13). Sequence: an ADR (overrides the spec name), one scripted rename PR verified byte-identical apart from names (PR-size exception), then simplification PRs gated by goldens and calibration. `gippa` was free on PyPI, TestPyPI, bioconda, conda-forge and GitHub on 2026-10-25.

@@ -4,11 +4,11 @@
 > resume prompt (GIAP_SPEC.md §0.3). Every worktree's next feature-loop step is printed; uncommitted
 > files mean an agent stopped mid-step — inspect them, then re-dispatch that step (test-author →
 > implementer → code-reviewer). Slurm jobs survive the session; their logs are in `local/logs/`.
-_Last updated: 2026-10-24 22:40 PDT · session https://claude.ai/code/session_01Acv4Wxbsi67yQRZZNNJozv_
+_Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01PrvuX9xr7fWwMTpHJxPSjm_
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 177/190 done (93 %), 1 running · generated 2026-10-24 22:20 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 184/190 done (97 %), 0 running · generated 2026-10-25 10:36 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -19,41 +19,82 @@ _Last updated: 2026-10-24 22:40 PDT · session https://claude.ai/code/session_01
 | M4 Gene table and region tests | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 22 | 0 | 0 |
 | M5 Autocorrelation and islands | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 11 | 0 | 0 |
 | M6 Operons | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 13 | 0 | 0 |
-| M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟨 94 % | 17 | 1 | 0 |
+| M7 Variants and novel ORFs | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 18 | 0 | 0 |
 | M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬛ 100 % | 17 (1 superseded) | 0 | 0 |
 | M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 26 | 0 | 0 |
 | M10 Pilot validation | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 91 % | 10 | 0 | 1 |
-| M11 Release 1.0 | 🟩🟩⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 15 % | 2 | 0 | 11 |
+| M11 Release 1.0 | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜⬜⬜ 62 % | 8 | 0 | 5 |
 <!-- progress:end -->
 
 - M7-15 K-12 real-tool arm: **Slurm 1879271** (COMPLETED 4 m 41 s; 2,647 cached from 1873779, 4 rerun; d11f7608 + VARIANTS 8 GB; 4fcc29da is cache-key-only, outputs byte-identical). Earlier attempts 1869642, 1871633, 1873779, 1878443 (cancelled).
 ## Current milestone
-(2026-10-24 evening) M0–M6 and M8 are done. M7 has M7-16 in the loop, M9 is done once #332
-merges, M10 has M10-04 (#296) and the A3 work (M10-08b, M10-10a) left, and M11 (release 1.0) has
-M11-01 and M11-02 merged.
+(2026-10-25 morning) M0–M9 are done. M10 has M10-04 (#296, pass-1 run evidence) left, with M10-10a
+after it; M11 (release 1.0) has M11-01 and M11-02 merged and wave B in the loop. M7-16b-3 and
+M7-16c are follow-ups inside M7-16.
 
-**Merged since the morning:** #307 to #330 (except #325), then #325 M9-25 (main 112f3072).
-Among them: M6-05H, M6-09, M6-13, M7-17, M10-07, M10-14a, M10-15, the K-12 viz batch 1, the MVP-04
-gate 2 and gate 11 fixes, calibration sharding (ADR-0057), M11-01 and M11-02. The K-12 MVP-04 run
-passes all 16 gates (`all_gates_ok`); gate 16's 14.8 CPU-hours is in the backlog.
+**Merged 2026-10-25 (new lead account):** M11 wave B, all one review round each:
+- #338 M11-06 GHCR containers (56f71b2d);
+- #339 M11-07 MkDocs site (a9120c2b);
+- #340 M11-11 preprint outline (6f8da0d9);
+- #342 M11-04 release.yml (87ae1615);
+- #337 M11-03 readiness (ec911a57; R3/R4 pending until a calibration_full/attacks nightly writer exists);
+- #341 M11-12 changelog check and the 1.0 README (3dfb311b). PRs touching src/ or workflow/ now need a changelog.d fragment.
 
-**Queued:** #331 M7-16a (annotated-stop substitution, ADR-0058; statistician APPROVE after the
-acceptance re-runs, code review fixed with six new tests) and #332 (snapshot layer under 120 s).
+**In the loop:** M11-05, M11-08, M11-09, M11-10; M7-16b-3 and M7-16c implementing; #296 waits on the A2 re-run 1892882.
+**Planned (Khoa):** rebrand to GIPPA before the first real publish (docs/backlog.md).
+
+**Merged since the evening:** #331 M7-16a (c523c1c0), #332 (snapshot layer under 120 s, 91a091fb),
+#333 (docs, 0667e366), #335 M7-16b (read-through reporting, simulator stop-loss, labels; 6f969ee7)
+and #334 M10-08b (A3 de novo feasibility; 1549a930, 2026-10-25 08:30).
+
+**Cascadia A3 is done.** All three runs (WT_1, WT_2, WT_3) finished on CPU through the Slurm work
+queue. The WT_1 verdict is **pass**: n_pass 863, n_match 549, share 0.636 (95 % CI 0.604–0.668),
+decoy share 0.006, against the rule ≥ 500 peptides and ≥ 0.20
+(`validation/pilot/metrics/a3_feasibility.json`).
+
+**Evidence (2026-10-25):**
+- **M10-08 acceptance 16 (WT_1, route B2):**
+  - mzml_check M1–M8 pass (job 1884087);
+  - Cascadia CPU run 1889426_0 (1 h 39 min on barley-04, 8 CPUs, no GPU, MaxRSS 1413276K), plus
+    the work-queue arrays 1890599, 1890876, 1890952, 1891287 and 1891944;
+  - merge 1890902, evaluate 1890903;
+  - verdict pass (`validation/pilot/metrics/a3_feasibility.json`, c9d01876);
+  - `PROVENANCE.md` f6689615;
+  - the sample at `$GIAP_ROOT/pilot/recorded/cascadia/0.0.7/WT_1.ssl.gz` (863 rows = n_top,
+    sha256 38873d14…cc36, not committed).
+- **M7-16b (#335):**
+  - full fast suite 1892218 green;
+  - observer full tier 1891877: R 300, 224 origin rows, 0 off-origin, 165 replicates (matches
+    the 16a methods-note counts);
+  - nightly-tier gates 1891878: 48 passed, 8 xfailed (pre-existing ADR-0049/0050);
+  - TE2 at 0f86902d: pass, 0 violations;
+  - snapshot regeneration 1891435;
+  - observer reconciliation 1891223 (`local/stat/m7-16-observer-reconcile.md`).
+- **WT_2 and WT_3** were merged (1891845, 1892227) into
+  `$GIAP_ROOT/pilot/A3_cascadia_cpu/WT_{2,3}/WT_{2,3}.ssl`. They are inputs for M10-10a.
+
+**Running:**
+- **M10-04 (#296) pass-1 runs** (`R=$GIAP_ROOT/runs/pilot/pass1`):
+  - A1 is done: head job **1892719**, COMPLETED in 01:37:08 at **6f969ee7**.
+  - The first A2, **1892236** at 0667e366 (COMPLETED, 1 h 52 min), ran before #335 merged. Its
+    output is kept as `$R/out_a2_0667e366`.
+  - The A2 re-run is **1892882**, at 6f969ee7 from the pinned worktree
+    `local/worktrees/pilot-6f969ee7`, so both arms compare at one commit. Then rule set A on both
+    arms, `pilot_compare.sbatch $R/out_a1 $R/out_a2 $R/cmp_a1_a2`, the README section "Pass-1 runs
+    (M10-04)", and the PR goes ready.
 
 **In progress:**
-- **A3 (M10-08b, branch m10/spec-08b):** Cascadia 0.0.7 on CPU as a load-balanced Slurm work
-  queue, because jobs must stay under 3 h (Khoa). A watcher (`local/handoff/run/cascadia_gens.sh`)
-  runs rounds of 8 × 8-CPU workers over WT_1–WT_3, then merges each run and evaluates WT_1. Expected
-  to finish around 09:00–10:00 on 2026-10-25. Then `metrics/a3_feasibility.json` and the 08b PR,
-  with the A3 verdict.
-- **M10-04 (#296):** "Cascadia first" (Khoa). A watcher
-  (`local/handoff/run/pilot_pass1_after_cascadia.sh`) submits the A2 arm, then A1, once the
-  Cascadia queue is done and GIAP uses ≤ 14 CPUs. Then compare, the README Pass-1 section, and the
-  PR goes ready.
-- **M7-16b, then M7-16c:** after #331. 16b adds the `readthrough` flag on `peptide_hits.tsv` and a
-  per-kind placement count (Khoa). 16c (annotated internal Sec/Pyl codons) was approved by Khoa.
-- **M10-10a (branch m10/spec-10, no PR yet):** waits for the 08b evaluation and for #296's runs.
-- **M11 wave B (M11-03 onward):** not started.
+- **M11 wave B:** M11-03 (release readiness), M11-06 (GHCR containers) and M11-07 (MkDocs site)
+  have started (test-authors).
+- **M7-16b-3** (rule 14: `SimConfig.n_readthrough` with `truth/readthrough.tsv` and its sim100k
+  e2e) has started (test-author).
+- **M7-16c** (annotated internal Sec/Pyl codons, ADR-0058 item 6) has started with the
+  statistician's quick check of the recoded cells.
+- **M10-10a (branch m10/spec-10, no PR yet):** waits for #296.
+
+**Nightly:** the 2026-10-25 run (array 1891597, 0667e366) was partly cancelled for R14 (tasks 0
+and 2, benchmark resubmit 1891690, summary 1891598; tasks 1 and 3 completed). Re-run it once the
+pilot arms end and CPUs are free, or let the 2026-10-26 01:30 run cover the current main.
 
 **Paused:** M10-11a Casanovo fallback (PXD053727 has only Thermo .raw files).
 **Deferred by Khoa:** CI-01, the scheduled calibration_full tier (branch ci/full-tier-array), to the
@@ -391,24 +432,18 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 7742, 1 thread). Next: review, then the statistician's methods note (§"Wallenius ORA").
 
 ## Next actions (ordered)
-1. Merge train: #307, then #308.
-2. M10-08b: implementer → validation GPU smoke on WT_1 → commit `metrics/a3_feasibility.json` →
-   PR. The implementer commits both sha256 values to `a3_assets.tsv`, the lock files, and a README
-   note on `CONDA_OVERRIDE_CUDA=11.8`. It then runs the fetch without `--resolve` and checks the
-   pip warning (statsmodels needs scipy).
-3. M10-07 review round: statistician re-check → test-author → implementer (merge main; expect the
-   metrics hook conflict).
-4. M10-15a implementer, after #308 merges.
-5. M10-10a: the de novo parts after M10-08b; the evidence parts after #296.
-6. MVP-04 K-12 run (waiter, after the nightly), then the M10-04 real runs and its README Pass-1
-   section (#296).
-7. M7-17 (#291): read gate job 1881039 when it ends.
-8. Backlog: M10-09 F8 and F9, and the validator's "(dropped)" wording. Also the M10-08 sbatch
-   `--mem` vs MaxMemPerCPU 4000, `select_queries` keeping the first row, and the position-dependent
-   plus-strand `orf_id`.
+1. #296 (M10-04) to merged: after the A2 re-run 1892882, rule set A on both arms, the comparison,
+   the README Pass-1 section, ready and queue. Don't queue PRs that touch `src/` or `workflow/`
+   while a `giap_run` reads the main checkout.
+2. M7-16b-3 (rule 14), feature loop: test-author → implementer → review.
+3. M7-16c, after the statistician's quick check.
+4. M10-10a once #296 has merged.
+5. M11 wave B (M11-03, M11-06, M11-07), then the rest of M11, including the user-guide section
+   "kinds of placement" (M11-08).
+6. The partly cancelled nightly: re-run it once the pilot arms end, or let the 2026-10-26 01:30
+   run cover it.
 
-Slurm jobs this session (2026-10-24): 1880637, 1880801, 1880802, 1881039, 1881042, 1881052,
-1881053, 1881098, 1881171, 1883575, 1883667, 1883790, 1883978, 1884085, 1884087, 1884175.
+Slurm jobs this session (2026-10-25): 1892719, 1892882 (pilot pass-1 arms).
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |
@@ -486,3 +521,6 @@ Slurm jobs this session (2026-10-24): 1880637, 1880801, 1880802, 1881039, 188104
 | A3 env build, cascadia (M10-08, rerun) | — | 6 min 28 s | 8.1 GB | rye-01, 4 CPU (1884085) |
 | A3 assets fetch --resolve: `cascadia.ckpt` 584,332,141 B (sha256 0f5e9141…), Unimod 3,010,566 B (sha256 7b303537…) | — | 18 s | 0.7 GB | barley-01, 2 CPU (1884175) |
 | A3 mzML conversion, WT_1: 1.47 GB; mzml-check M1–M8 pass (734 MS1, 47,688 MS2, 65 windows) | PXD078459 WT_1 | 4 min 56 s | 5.1 GB | barley-01, 8 CPU (1884087) |
+| A3 Cascadia 0.0.7 CPU, one work-queue job (M10-08b, route B2; no GPU) | PXD078459 WT_1 | 1 h 39 min | 1.35 GB (1413276K) | barley-04, 8 CPU (1889426_0) |
+| Pilot pass-1 arm A1 head job, at 6f969ee7 (M10-04; tool jobs run separately) | Nissle 1917 pilot | 1 h 37 min (01:37:08) | 1.3 GB (head) | wheat-02, 4 CPU (1892719) |
+| Pilot pass-1 arm A2 head job, at 0667e366, superseded by the re-run 1892882 (M10-04) | Nissle 1917 pilot | 1 h 52 min (01:52:31) | 1.1 GB (head) | barley-03, 4 CPU (1892236) |
