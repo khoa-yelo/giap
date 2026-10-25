@@ -1098,4 +1098,19 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (M10-07 review) N1, the methods-note sentence; N3, the `outside_bounds` count. `metrics.py`'s `_outside_repo` stays strict, because main's M10-05 tests pin exit 2 for a git-ignored path; revisit whether it should accept git-ignored paths, as entrapment.py does.
 - (M10-08b review N10) timsconvert's lock pulls in `pyBaf2Sql`, which bundles Bruker's baf2sql library. ADR-0054 covers only the TDF-SDK. Confirm the licence note, or record that baf2sql is unused for .d/TDF input.
 - (Khoa, 2026-10-24) running GIAP on macOS is untested. The Python package passes on macOS CI; the full pipeline would need `-profile docker`, which spec §3 keeps but doesn't test. Candidate for M11: a Docker-profile test run, and documenting the platforms.
+
+### 2026-10-24 evening (lead)
+- (M9-25, Khoa's approval) Two checklist failures were left: V16 uses #555555, which is not in the §10.1 palette, and on K-12 V15 panel (c)'s title overlaps the CV R² line. Fix both and re-baseline.
+- (M7-16a statistician) Relabel or retire the linear local Nissle Bakta run `local/recordings/bakta_full/nissle1917`; the committed recording `tests/data/recorded/bakta/1.12.2-full/nissle` is circular.
+- (M7-16a statistician, #331) At 1 Mb, `related_other_strain` accepts 0–5 true read-through rows per replicate. Confirm the giapsim strain model puts those differences at the stop, and that 16b's e2e test turns them into `stop_codon` ALT sites or `cterm_extension` evidence.
+- (#331 review nits) (a) `Search(marked)` and `load_stop_cells`: bounds-check cells read from disk, because an out-of-frame index lands on the stop gap between frames; (b) test the `save_index` missing-decoy-cells error; (c) the `to_interval` round-trip check in `frame_cells` is unreachable; (d) `match_frameshift`'s reverse re-mapping could call `mirror_cells`, and `decoy_marks` repeats `save_index`'s key check.
+- (MVP-04 gate 16) The K-12 run took 14.8 CPU-hours against the expected 3–8; profile it.
+- (build_envs) `scripts/slurm/build_envs.sh` removes the old env before the new one solves (job 1888853 lost the cascadia env and its locks). Build into a temporary prefix and swap, and set `CONDA_OVERRIDE_CUDA` for CUDA pytorch envs on CPU nodes.
+- (R14 memory) Three sbatch scripts ask 16G at 4 CPUs, and their tests pin it; at MaxMemPerCPU = 4000 MB, Slurm keeps them at 4 CPUs only by luck of rounding. Ask `--mem` ≤ 4000M × CPUs.
+- (FarmShare) Khoa's `~/.bashrc` exports `RUN`, and sbatch passes it into every job. Scripts must never read `$RUN` (denovo_pilot uses `A3_RUN`); add a guard test for other scripts.
+- (A3) Record the `--reference-peptides` database used for A3 (Cascadia gives de novo sequences only).
+- (M11-01 check_dist nits) The remaining reviewer nits on `scripts/release/check_dist.py` (see #330's review).
+- (#332 snapshot cache) Parallel byte-identity across xdist workers, and when the cache is invalidated.
+- (Cascadia CPU) Batch cost varies about 6× across a run; the equal-block array (STEP=predict) is kept only for probes. The work queue (STEP=work) is the supported route.
+- (env locks) `workflow/envs/locks` has locks for 6 of 15 envs; decide whether every env gets one.
 - (M7-16 statistician, forwarded; `local/stat/m7-16-review.md`, Slurm job 1889319) on the real Nissle genome the exact expected regular chance mass gives a shuffle decoy/target ratio of 0.98–0.99 under the i.i.d. law but 0.93–0.96 under the tryptic law at L = 10–12, and 0.84–0.88 at L = 16, m = 2 (reverse is 1.03–1.07, conservative). The shuffle under-counts tryptic chance hits, which may make de novo placement anti-conservative on a real genome. giapsim does not show it (regular D/T 0.97–1.08). This is multiplicity-weighted mass, not distinct words, at one genome and three seeds: check it properly in the M3-21 / TE8 work before acting on it.
