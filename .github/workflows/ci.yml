@@ -52,7 +52,7 @@ jobs:
           # Only code counts toward the gate; tests (incl. workflow/tests, ADR-0016), docs, specs, ADRs,
           # locks and fixtures are reported.
           lines=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- src workflow scripts \
-                  ':!workflow/tests' | awk '{s+=$1+$2} END {print s+0}')
+                  ':!workflow/tests' ':!workflow/envs/locks' | awk '{s+=$1+$2} END {print s+0}')
           other=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- . ':!src' ':!workflow' ':!scripts' \
                   | awk '{s+=$1+$2} END {print s+0}')
           nftests=$(git diff --numstat origin/${{ github.base_ref }}...HEAD -- workflow/tests \
