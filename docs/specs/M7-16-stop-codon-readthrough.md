@@ -4,7 +4,9 @@ Milestone M7 · track R (mapping) · **pass 2 · option B accepted by Khoa (2026
 · depends on: merged M3-06/M3-07/M3-08 tolerant routes, M3-10 placement FDR, M3-14 loci, M3-21
 placement suites, M3-23 makedb; M7-01, M7-05, M7-07, M7-09, M7-11b, M7-12, M7-18 · estimate
 ≈ 370 code lines in three PRs (+ ≈ 130 simulator lines, + ≈ 900 test lines) · **stats**: the
-statistician reviews this spec and the `placement-fdr.md` addition **before any code** (§14.1)
+statistician reviews this spec and the `placement-fdr.md` addition **before any code** (§14.1);
+reviewed 2026-10-24 at e7f7f744 (APPROVE WITH CHANGES), and the required changes 1–9 are applied
+in the rules, test plan and acceptance criteria below
 
 The decision-gated text (the gap, the options, the original questions) is kept unchanged below as
 history. The buildable spec starts at "Accepted: option B".
@@ -115,7 +117,9 @@ fdnG needs ADR-0058 item 6.
      data. Linear replicons have one cell per site, and circular ones one or two.
 3. **Decoy cells** (`mirror_cells`). For every decoy type built, the cells of each frame are mirrored
    (Definitions). Cell counts per frame equal the target's. Every mirrored cell must hold `STOP`, or
-   the function raises.
+   the function raises. `mirror_cells` is deterministic and draws nothing from any RNG (§6.6): the
+   shuffle decoy keeps its positions, and the decoy frames themselves are built exactly as in
+   format 1, so for the same seed they are byte-identical across index formats 1 and 2.
 4. **The DP** (`tolerant_dp._verify_core`, `verify`, `verify_batch`). Only the (1, 1)
    move gains one case. When `t1 == READTHROUGH` it is a substitution, cost `w_sub`, rank 0, for
    any query code, `NOMATCH` included. Every other move keeps `t0 < 19` and `t1 < 19`. So a
@@ -133,6 +137,9 @@ fdnG needs ADR-0058 item 6.
    `Search` with the marks, so the side DP `_verify_anchor` sees code 22 and never consumes it
    (22 ≥ 19). The precedence check `nonfs_overlap` gains rule 4's (1, 1) case. Effect: a split is
    suppressed by an overlapping non-frameshift read-through alignment at a cost ≤ the split's cost.
+   A decoy frameshift search builds its `_FSearch` with **that decoy type's mirrored cells**, never
+   the target cells, so `nonfs_overlap` suppresses a decoy split exactly as it suppresses the
+   corresponding target split.
 8. **Mapping steps.** `sixframe_index` gains input `genes` (the M2-04 `genes.parquet`; mapping.nf
    passes `gm[0]`). It builds the stop sites and cells, and writes them into the index (format 2):
    arrays `target_rt`/`target_rt_bounds` and `{kind}_rt`/`{kind}_rt_bounds` per decoy type, plus a
@@ -164,6 +171,14 @@ fdnG needs ADR-0058 item 6.
       other U/O stays `rare`-skipped. B/J/X/Z stay `ambiguous`-skipped, including an `X` read from
       a patched database (example 9).
     - Blocks and swaps never carry REF `*` (rule 4).
+    - **Error-rate class (§7.5.4).** A REF `*` site, and a U/O zero-change ALT, is in class
+      `(substitution, mass_equivalent)`. `mass_equivalent` is false for REF `*` (`_mass("*")` is
+      None, and `left_block_read` sees the `*` in its pair). Its `class_error_rate` is therefore
+      the pooled substitution rate. That rate is dominated by ordinary SNV sites and does not
+      measure read-through reads, and with a reference search on Bakta proteins (which end at the
+      stop) every read-through read is in the degenerate case of `variants.md` bias 1: the
+      reference cannot contain the peptide. 16b states this in `variants.md` (Q11 asks Khoa
+      about a separate class).
 12. **Novel ORFs.**
     - M7-09 `class_rules`: `cterm_extension` is called when `spans_annotated_stop` is true and the
       in-frame continuation exists (M7-06: a next stop or `end_3p_open`). The label is
@@ -292,7 +307,7 @@ def site_keys(sites: Sequence[StopSite]) -> frozenset[tuple[str, str, int]]
 | 16a | `src/giap/mapping/frameshift.py` | `_FSearch(..., marked)`; `nonfs_overlap` (1, 1) case; `match_frameshift(..., cells=None)` |
 | 16a | `src/giap/steps/mapping.py` | `sixframe_index` input `genes`, event; `map_tolerant` passes cells |
 | 16a | `workflow/subworkflows/local/mapping.nf` | `stepIn('sixframe_index', [g, pep, gm[2], gm[0]])` |
-| 16a | `docs/methods/placement-fdr.md` | ADR-0058 section: rule, symmetry, the added-mass table, what the suites show |
+| 16a | `docs/methods/placement-fdr.md` | ADR-0058 section; required content in "Methods note (16a)" below |
 | 16b | `src/giap/variants/align.py` | `_residues`, `_dp`, `align_hit`, `align_hits` (`stop_sites`) |
 | 16b | `src/giap/variants/pileup.py` | rule 4c narrowed (U/TGA, O/TAG → ALT) |
 | 16b | `src/giap/variants/vcf_records.py`, `flags.py` | `U → TGA`, `O → TAG` zero-change; no `nt_class`, `vcf_unrepresentable` |
@@ -302,7 +317,7 @@ def site_keys(sites: Sequence[StopSite]) -> frozenset[tuple[str, str, int]]
 | 16b | `src/giap/makedb/build.py` | patch `X` at the annotated stop (rule 13) |
 | 16b | `tests/sim/giapsim/{config,features,proteomics,truth}.py` | `n_readthrough`, `truth/readthrough.tsv` (tooling) |
 | 16b | `validation/proxies/te_proxies.py` | TE2 note text (internal Sec sites are not annotated stops; ADR-0058) |
-| 16b | `docs/methods/variants.md`, `docs/methods/novel-orfs.md` | stop_codon reachability, U/O ALT, cterm calls |
+| 16b | `docs/methods/variants.md`, `docs/methods/novel-orfs.md` | stop_codon reachability, U/O ALT, cterm calls; `variants.md` states that REF `*` and U/O zero-change ALTs pool in `(substitution, mass_equivalent)` and that their `class_error_rate` does not measure read-through reads (rule 11) |
 | 16c | `src/giap/mapping/readthrough.py` | `annotated_stops(..., recoded=True)`: internal TGA with `U`, TAG with `O` in `Gene.aa` |
 | 16c | `src/giap/steps/mapping.py`, `steps/variants.py` | pass `recoded=True`; event `recoded` count |
 | 16c | `tests/sim/giapsim/…` | `n_selenoproteins` |
@@ -314,6 +329,39 @@ pin "`*` raises" (it now raises only off the site set); M7-18 tests pinning U-ov
 (examples 7–8 of M7-18 change meaning); M7-09/M7-11b tests pinning "`cterm_extension` never
 called"; M7-07 "no cterm patch row"; M3-23 "internal stop raises" for cterm rows; the TE2
 note-text test.
+
+## Methods note (16a): the ADR-0058 section of `docs/methods/placement-fdr.md`
+
+The statistician signs it off before 16a merges (review change 3). It must state all of the following:
+
+1. **The rule:** which stops are consumable (ADR-0058 item 1), at what cost, and that peptides
+   shorter than 10 aa over a stop are never placed.
+2. **Counts are exactly symmetric.** Each decoy frame has the target's number of marked cells, each
+   holding `*`, with the same stop-free run lengths on each side. Origin copies are included.
+3. **Context mirroring and the measured ratios.** The reverse decoy is exact under any i.i.d.
+   peptide law (D_rt/T_rt = 1 to 1e-16). But the local context is mirrored, not kept: gene | `*` |
+   3′ flank becomes reversed flank | `*` | reversed gene. Under a law that is not
+   reversal-symmetric (tryptic, C-terminal K/R), the per-genome read-through D_rt/T_rt was
+   0.52–1.89 (reverse) and 0.58–1.74 (shuffle) on giapsim 1 Mb, and 0.81–1.15 (reverse) and
+   1.14–1.42 (shuffle) on Nissle. The net effect on the total, (D_rt − T_rt)/T_regular, was at
+   worst −9.4 × 10⁻⁴ (giapsim) and −1.3 × 10⁻⁴ (Nissle). Cite Slurm jobs 1889319 (Nissle) and
+   1889320 (giapsim), and the stressed arm's measured values once it has run.
+4. **The added mass is an approximation, not a bound:** ≈ G/(N(1 − s)) at m = 1 and
+   ≈ 2G/(N(1 − s)) at m = 2, independent of L, scaling with gene density G/N. The measured realised
+   shares were 0.04–0.08 % on Nissle and 0.05–0.20 % on giapsim (i.i.d. and tryptic laws).
+5. **The read-through ratio is not a subset FDR.** D_rt/T_rt does not estimate the false discovery
+   rate of the read-through placements. The list FDR does not control that subset, and no output,
+   table or report may present the ratio as one (R3).
+6. **Expected false read-through count per run:** about α · T_acc(m ≥ 1) · ρ, where T_acc(m ≥ 1) is
+   the number of accepted target placements in strata 1–2 and ρ ≈ 10⁻³ is the read-through share of
+   the chance mass. That count is ≪ 1 for any realistic run, but it is not a per-site guarantee.
+7. **Power note.** A true read-through peptide with no other difference lands in stratum 1 with
+   π̂ = 1 and the +1. By Appendix B.6, a stratum-1 list with fewer than about 100 targets ahead of
+   its first decoy accepts none. So `cterm_extension` has low power on small inputs by design. This
+   is a statement, not a change.
+8. **What the suites show:** the exercised re-runs and the stressed arm (test plan), with job IDs,
+   and the per-replicate count of accepted target rows that consumed a cell. The regression-only
+   suites are mentioned only as regression evidence (they cannot see the rule).
 
 ## Test plan (test-author; new files unless noted)
 
@@ -341,7 +389,17 @@ note-text test.
   `reverse` and the identity for `shuffle`. (c) Target search of `reversed(Q)` on the target
   frames, with target cells, equals the decoy search of `Q` on `reverse` decoys with mirrored
   cells, after interval mapping (the analogue of `test_target_search_on_decoy_frames_equals_decoy_search`).
-  (d) Example 5's broken build fails (c).
+  (d) Example 5's broken build fails (c). (e) **Frameshift route (review change 9):** a unit case
+  where the decoy frameshift search builds `_FSearch` with that decoy type's mirrored cells, so
+  `nonfs_overlap` suppresses a decoy split exactly as it suppresses the target split of the
+  reversed query. Extend (c) to `match_frameshift` output; if the reverse adjacency map makes that
+  equality not apply, the test file's docstring says why, and a count-level property (equal
+  numbers of suppressed splits per target/decoy pair) is the minimum.
+- **Determinism of the decoy cells (review change 7)** (`tests/unit/test_readthrough_sites.py`):
+  `mirror_cells` draws no randomness (a spy on `giap.rng.for_step` and on `numpy.random` sees no
+  call, and the shuffle stream of the step yields the same next draw with and without the call).
+  For the same seed, the decoy frames saved in index format 2 are byte-identical to those of
+  format 1. The existing golden decoy tables do not move.
 - **Property: no-op.** With empty cells, `match_tolerant`/`match_frameshift` return frames equal to
   the call without the keyword, over the existing property strategies.
 - `tests/unit/test_frameshift_readthrough.py`: rule 7 (a split side never consumes a marked cell;
@@ -354,28 +412,80 @@ note-text test.
   trip through `makedb --patch`, `stop_codon` ALT sites matching `truth/readthrough.tsv`).
 - **Statistical re-run (R3: no tolerance, bound, α or R change).** Run the M3-21 placement suites
   on the 16a branch, fast (`-m calibration`, `scripts/slurm/test_branch.sbatch`) and full
-  (`calibration_full.sbatch` placement tasks, `GIAP_WORKTREE` + `PYTHONPATH` exported). That is
-  `test_placement_fdr_sim.py`, `test_placement_fdr_genome.py`, `test_placement_fdr_lists.py`,
-  `test_tolerant_recall.py`, `test_denovo_precision_sim.py` and `attacks/test_attack_placement_*`
-  (attack 5 included). The PR records the job IDs and the before → after FDP tables in ADR-0058
-  Evidence.
-- **New calibration check** (`tests/calibration/test_readthrough_decoy_balance.py`, statistician
-  signs off; reuses `replicates_*.placement`, no new tolerance key). On giapsim 1 Mb null genomes
-  (no read-through planted) with the M3-19/M3-20 wrong-peptide arms, it counts per replicate the
-  false target placements whose window holds a marked cell (T_rt) and the decoy rows holding a
-  mirrored cell (D_rt). Criterion: mean(D_rt) ≥ mean(T_rt) − 2 SE(D_rt − T_rt), the ADR-0019
-  estimate-check form. It is reported as exercised or vacuous like the M3-21 lists (expected
-  vacuous at 1 Mb by the ADR-0058 table; Q9).
+  (`calibration_full.sbatch` placement tasks, `GIAP_WORKTREE` + `PYTHONPATH` exported), in two
+  groups (review change 1):
+  - **Regression-only** (byte-identical by construction: they pass `cells=None` or use no
+    matcher): `test_tolerant_recall.py` (calls `match_tolerant` without `cells`),
+    `test_placement_fdr_genome.py` (`build_sixframe → match_exact`, exact route only),
+    `test_placement_fdr_lists.py` (statistics only) and `attacks/test_attack_placement_*` (`pi`,
+    `same_db`, `contaminants`, `strain_span`: `placement()` on synthetic cost tables). They must
+    pass unchanged. They are **not** evidence for the rule, and ADR-0058 Evidence must not cite
+    them as such.
+  - **Exercised** (the `run_chain` suites, which reach `sixframe_index → map_tolerant` with cells):
+    `test_placement_fdr_sim.py`, `test_denovo_precision_sim.py` and attack 5
+    (`attack5_reversed_stretches`). Only this group is evidence. For each, the PR records the job
+    IDs, the before → after FDP tables, and the **per-replicate number of accepted target rows
+    that consumed a cell** (expected near 0 at 100 kb, where cells are about 5 × 10⁻⁴ of the
+    chance mass).
+- **Decoy-balance check** (`tests/calibration/test_readthrough_decoy_balance.py`, statistician
+  signs off; reuses `replicates_*.placement` and `se_multiplier`, no new tolerance key; review
+  change 2). On giapsim 1 Mb null genomes (no read-through planted) with the M3-19/M3-20
+  wrong-peptide arms, it counts per replicate and **per decoy type** (`reverse`, `shuffle`) the
+  false target placements whose window holds a marked cell (T_rt), the decoy rows holding a
+  mirrored cell (D_rt), and the read-through share T_rt / T (all false target placements). It
+  reports all three per decoy type. Criterion, one-sided (it fails only in the anti-conservative
+  direction): mean(D_rt) ≥ mean(T_rt) − `se_multiplier` · SE(D_rt − T_rt), the ADR-0019
+  estimate-check form. It is reported as exercised or vacuous like the M3-21 lists; it is expected
+  vacuous at 1 Mb (T_rt ≈ 0). **"Vacuous" is an allowed outcome for this check only.** It is no
+  longer the evidence for symmetry; the stressed arm and the statistician's attack are.
+- **Stressed arm (required; review change 5; test-author writes it, the statistician signs off)**
+  (`tests/calibration/test_readthrough_stressed.py`; tiers `replicates_fast.placement` /
+  `replicates_full.placement`; existing keys `levels`, `se_multiplier` only). A sampled arm in
+  which T_rt is not vacuous:
+  - **Path:** the real chain `sixframe_index → map_tolerant → best_costs → placement` (through
+    `run_chain` or the same calls), never a synthetic cost table.
+  - **Build:** a synthetic genome with dense short annotated genes (for example 30–40 codons each,
+    each ending in a stop, so G/N ≥ 50× the biological density) and a reduced-alphabet coding
+    frame (s about 0.2–0.3). Wrong 10–12-mers drawn from the coding-frame law. The build must give
+    **≥ 100 expected false target read-through rows per replicate**; the test asserts the realised
+    replicate mean of T_rt is ≥ 100 before it evaluates any criterion (otherwise it fails as
+    mis-built, never as vacuous).
+  - **Arms:** a `reverse` arm (database input) and a `shuffle` arm (de novo input).
+  - **Criteria, per arm:** (i) FDP in the m ≥ 1 strata ≤ q + `se_multiplier` · SE at every q in
+    `levels`; (ii) mean(D_rt) ≥ mean(T_rt) − `se_multiplier` · SE(D_rt − T_rt).
+  - **Negative control:** the same arm with the decoy cells removed (decoy searches without marks)
+    must **fail** criterion (ii). The test asserts that failure; a passing control fails the test.
+- **Statistician's attack (review change 6)**
+  (`tests/calibration/attacks/test_attack_readthrough_decoys.py`). The statistician writes it once
+  16a's `frame_cells`/`mirror_cells` exist; it is the exact-mass version of the review table:
+  (a) reverse, i.i.d. law: D_rt = T_rt to rtol 1e-9 per replicate; (b) shuffle, i.i.d. law:
+  replicate mean D_rt/T_rt ≥ 1 − 0.01 − `se_multiplier` · SE; (c) tryptic law, both decoys: net
+  shift (D_rt − T_rt)/T_regular of the replicate mean ≥ −0.01; (d) `recoded` cells if ADR-0058
+  item 6 is accepted. The test-author does not write it. **16a's merge waits for it.**
 
 ## Acceptance criteria
 
 - [ ] **16a:** examples 1, 3, 4, 4b, 4c, 5, 8, 10 and the edge cases pass as unit tests. The
-  zero-false-negative property, the decoy-symmetry property and the no-op property pass. The M3-06
-  benchmark (10⁶ `verify` calls ≤ 5 s) still passes.
+  zero-false-negative property, the decoy-symmetry property (including (e), the frameshift route)
+  and the no-op property pass. `mirror_cells` draws no randomness, and decoy frames are
+  byte-identical between index formats 1 and 2 for the same seed. The M3-06 benchmark (10⁶
+  `verify` calls ≤ 5 s) still passes.
 - [ ] **16a:** the M3-21 placement suites pass fast **and** full on the branch with no edit to
-  `tests/calibration/tolerances.yaml`, `ci/gates.yaml` or any criterion. The Slurm job IDs and
-  FDP tables are in ADR-0058 Evidence and PROGRESS.md. The decoy-balance check passes or is
-  recorded vacuous.
+  `tests/calibration/tolerances.yaml`, `ci/gates.yaml` or any criterion. ADR-0058 Evidence and
+  PROGRESS.md list the regression-only and exercised groups separately. Only the exercised group
+  (`test_placement_fdr_sim.py`, `test_denovo_precision_sim.py`, attack 5) is cited as evidence,
+  with Slurm job IDs, before → after FDP tables and the per-replicate count of accepted target
+  rows that consumed a cell.
+- [ ] **16a:** the decoy-balance check passes or is recorded vacuous, with T_rt, D_rt and the
+  read-through share reported per decoy type.
+- [ ] **16a:** the stressed arm passes fast **and** full in both the reverse and the shuffle arm:
+  realised mean T_rt ≥ 100 per replicate; m ≥ 1 FDP ≤ q + `se_multiplier` · SE at every level;
+  mean(D_rt) ≥ mean(T_rt) − `se_multiplier` · SE. Its negative control (decoy cells removed)
+  fails the balance criterion.
+- [ ] **16a:** the statistician's `tests/calibration/attacks/test_attack_readthrough_decoys.py`
+  is on the branch and passes. 16a does not merge before it.
+- [ ] **16a:** the `placement-fdr.md` section has every item of "Methods note (16a)", and ADR-0058
+  states the added mass as an approximation (scaling formula plus measured shares), not a bound.
 - [ ] **16a:** on the Nissle recording `mapping.stop_sites` reports 4,689 terminal sites, 0
   `not_a_stop` and equal target/decoy cell counts. TE1 and TE8 re-run unchanged (TE1 ≥ 0.999,
   the 4 fdnG misses still unmapped; TE8 FDR ≤ 0.01).
@@ -386,6 +496,9 @@ note-text test.
   spanning peptide is a `stop_codon` ALT site with the planted residue.
 - [ ] **16b:** TE2 re-run passes with 0 violations. Its note says why no `stop_codon` site appears
   on Nissle under items 1–5.
+- [ ] **16b:** `variants.md` states that REF `*` sites and U/O zero-change ALTs are in class
+  `(substitution, mass_equivalent)` and that their `class_error_rate` is the pooled substitution
+  rate, which does not measure read-through reads (rule 11; Q11 default).
 - [ ] **16c (only after Khoa accepts ADR-0058 item 6):** example 2's 16c column holds. On the
   Nissle TE2 proxy there are two `stop_codon` ALT `U` sites (JMJJOG_02511 `[2578627, 2578630) −`,
   JMJJOG_04733 `[4825395, 4825398) +`), each `candidate`, and `high_stop_codon` is 0 (the 16-mer
@@ -404,7 +517,7 @@ note-text test.
 | 16a | `tolerant_dp.py` (one case + docstring) | 12 |
 | 16a | `tolerant.py`, `frameshift.py` (keyword, marking, precedence case) | 35 |
 | 16a | `steps/mapping.py` + `mapping.nf` | 30 |
-| | **16a total** | **≈ 210** (+ ≈ 450 test lines) |
+| | **16a total** | **≈ 210** (+ ≈ 650 test lines, including the stressed arm and the balance check) |
 | 16b | `variants/align.py`, `pileup.py`, `vcf_records.py`, `flags.py`, `steps/variants.py` | 55 |
 | 16b | `novel/evidence.py`, `novel/outputs.py` | 30 |
 | 16b | `makedb/build.py` | 25 |
@@ -447,14 +560,25 @@ independent of each other except for the shared TE2 note (16c updates it after m
    it in the methods note, and check it on the first real second-pass search.
 8. **Partial and pseudogene features.** **Default:** pseudogenes excluded; a partial CDS is
    included iff its last codon is a stop (rule 1).
-9. **Statistical evidence.** Are the analytic bound (ADR-0058: ≤ 0.11 % added chance-hit mass),
-   the structural symmetry property, the M3-21 re-runs and the decoy-balance check (likely
-   vacuous at 1 Mb) enough? Or does the statistician want an exercised stressed arm, for example
-   injected 10–12-aa wrong peptides built from C-terminal/3′-flank composition of an independent
-   genome? **Default:** the four listed; the statistician decides on the stressed arm before 16a
-   code.
+9. **Statistical evidence.** **Answered by the statistician (2026-10-24): a stressed arm is
+   required.** The added chance-hit mass is an approximation, ≈ G/(N(1 − s)) at m = 1 and
+   ≈ 2G/(N(1 − s)) at m = 2 (measured 0.04–0.08 % on Nissle, up to 0.20 % on giapsim under the
+   tryptic law), not a bound. The evidence is the exercised M3-21 re-runs, the stressed arm and
+   the statistician's attack; the decoy-balance check may be vacuous (test plan).
 10. **Index format.** **Default:** bump to 2; format-1 files raise (no silent fallback); Nextflow
     resume re-runs `sixframe_index` anyway because its inputs change.
+11. **(Khoa) A separate `stop_codon` error-rate class** (review change 8). REF `*` sites and U/O
+    zero-change ALTs pool into `(substitution, mass_equivalent)`, whose rate does not measure
+    read-through reads. A third class dimension `stop_codon` would change §7.5.4 ("by alt_type and
+    by mass_equivalent") and so needs an ADR. **Default (reversible):** pooled, and documented in
+    `variants.md` (rule 11). Batch it with the other Khoa questions; it does not block 16a or 16b.
+12. **Stressed-arm sizing.** The review sets the target (≥ 100 expected false target read-through
+    rows per replicate) and suggests a build. Whether that build runs within the fast-tier time
+    budget at `replicates_fast.placement` = 50 is not yet measured. **Default:** the test-author
+    sizes the genome for the target and measures one replicate on Slurm. The arm runs in both
+    tiers as the acceptance criteria say; if the fast tier is too slow, the test-author reports
+    the timing to the lead and the statistician instead of shrinking the arm. No replicate count
+    changes (R3).
 
 ## Statistician review (2026-10-24, at e7f7f744)
 
@@ -510,3 +634,8 @@ Required changes (numbering as in the review):
    is pooled and documented.
 9. The frameshift route uses each decoy type's mirrored cells in `_FSearch`/`nonfs_overlap`. Cover
    this with a property or unit test.
+
+**Applied (spec-writer, 2026-10-24):** 1 → test plan "Statistical re-run" and acceptance; 2 →
+"Decoy-balance check"; 3 → "Methods note (16a)"; 4 → ADR-0058 Evidence/Consequences and Q9; 5 →
+"Stressed arm"; 6 → "Statistician's attack"; 7 → rule 3 and "Determinism of the decoy cells"; 8 →
+rule 11, the 16b `variants.md` row and Q11; 9 → rule 7 and symmetry property (e).

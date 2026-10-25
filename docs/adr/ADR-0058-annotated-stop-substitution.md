@@ -78,30 +78,54 @@ fdnG would take.
    answers, the code builds only item 1's set (M7-16 PR 16c holds the change).
 
 ## Evidence
-- **Search-space growth (analytic, Appendix B setting: N = 10⁷ six-frame positions, s = 0.069,
-  G = 5,000 consumable stops).** A window can consume a marked stop only if it contains it: L
-  windows per stop, with the other L − 1 residues within m − 1 differences. The added chance-hit
-  mass is G·L·Σ_{j<m} C(L−1, j)(1−s)^j s^(L−1−j), against E(L, m) of §7.2.5:
+- **Search-space growth (an approximation, not a bound).** A window can consume a marked stop
+  only if it contains it: L windows per stop, with the other L − 1 residues within m − 1
+  differences. The added chance-hit mass is approximately G·L·Σ_{j<m} C(L−1, j)(1−s)^j s^(L−1−j),
+  against E(L, m) of §7.2.5. In closed form the ratio is approximately **G/(N(1 − s)) at m = 1**
+  and **2G/(N(1 − s)) at m = 2**, independent of L. It scales with the gene density G/N. In the
+  Appendix B setting (N = 10⁷ six-frame positions, s = 0.069, G = 5,000 consumable stops, so
+  G/N = 5 × 10⁻⁴) that is about 0.054 % and 0.107 %:
 
-  | L, m | E(L, m) | added by B | ratio |
+  | L, m | E(L, m) | added by B (approx.) | ratio (approx.) |
   |---|---|---|---|
   | 10, 1 | 3.3 × 10⁻³ | 1.8 × 10⁻⁶ | 0.05 % |
   | 11, 1 | 2.5 × 10⁻⁴ | 1.4 × 10⁻⁷ | 0.05 % |
   | 12, 2 | 1.4 × 10⁻³ | 1.5 × 10⁻⁶ | 0.11 % |
   | 16, 2 | 5.8 × 10⁻⁸ | 6.2 × 10⁻¹¹ | 0.11 % |
 
+  The formula counts all N positions, stops included, and spreads chance hits evenly; against the
+  realised searchable mass both sides lose stop-containing windows. **Measured realised shares**
+  (exact expected chance mass, statistician, Slurm jobs 1889319 and 1889320,
+  `local/stat/m7-16-review.md`): 0.04–0.08 % of the target chance mass on Nissle (i.i.d. and
+  tryptic laws, m = 1 and 2), and 0.05–0.20 % on three giapsim 1-Mb genomes (the top of the range
+  under the tryptic law at m = 2). On another genome the share is approximately, not at most,
+  the formula's value for its G/N.
+
   Option C, with about 5 × 10⁵ stops in 10⁷ positions, would add about 100× this, and that mass
   would sit at every stop of every frame.
 - **Symmetry.** By construction (item 2), each decoy frame has exactly the target's number of
   consumable cells. Each such cell holds `*` and is mirrored one to one. The tests in M7-16 make
-  this a property test.
-- **Calibration.** Before/after numbers come from the re-runs that M7-16 requires (M3-21 placement
-  suites fast + full, TE1/TE2/TE8). This section is filled in with the Slurm job IDs when 16a
-  merges.
+  this a property test. The reverse decoy is exact under any i.i.d. peptide law (measured D_rt/T_rt
+  = 1 to 1e-16). The local context is mirrored, not kept (gene | `*` | flank becomes flank | `*` |
+  gene), so under the tryptic law the per-genome read-through D_rt/T_rt was 0.52–1.89 (giapsim)
+  and 0.81–1.15 (Nissle) for reverse, and 0.58–1.74 and 1.14–1.42 for shuffle. The measured net
+  effect on the total, (D_rt − T_rt)/T_regular, was −9.4 × 10⁻⁴ in the worst giapsim replicate.
+  D_rt/T_rt is not an FDR for the read-through subset and is never reported as one.
+- **Calibration.** Before/after numbers come from the re-runs that M7-16 requires (fast + full,
+  TE1/TE2/TE8). Only the **exercised** suites are evidence for this rule: the `run_chain` suites
+  `test_placement_fdr_sim.py`, `test_denovo_precision_sim.py` and attack 5, plus the M7-16 stressed
+  arm (`test_readthrough_stressed.py`) and the statistician's attack
+  (`attacks/test_attack_readthrough_decoys.py`). For each exercised suite this section records the
+  per-replicate number of accepted target rows that consumed a cell. The regression-only suites
+  (`test_tolerant_recall.py`, `test_placement_fdr_genome.py`, `test_placement_fdr_lists.py`,
+  `attacks/test_attack_placement_*`) are byte-identical by construction (`cells=None` or no
+  matcher) and are not cited as evidence. This section is filled in with the Slurm job IDs when
+  16a merges.
 
 ## Consequences
 - **Module 2 search space.** Route 3 grows by at most one consumable cell per annotated gene and
-  search (≈ 4,700 on Nissle), at ≤ 0.11 % of the chance-hit mass (above). Peptides of 7–9 aa
+  search (≈ 4,700 on Nissle), adding approximately G/(N(1 − s)) (m = 1) to 2G/(N(1 − s)) (m = 2)
+  of the chance-hit mass; measured 0.04–0.08 % on Nissle and up to 0.20 % on giapsim (above). Peptides of 7–9 aa
   never reach route 3 (`min_len` 10), so a stop-spanning peptide shorter than 10 aa is never
   placed. At 10–11 aa (k = 1) the stop is the only allowed difference. With no annotated genes the
   matcher is byte-identical to main.
@@ -110,10 +134,14 @@ fdnG would take.
   applies to them. Validity rests on item 2. No tolerance, bound, α or R changes (R3).
 - **Re-calibration required.** The M3-21 placement suites must re-run, fast and full, with no
   tolerance change. A failure stops the merge and goes to a new ADR, never to a tolerance change.
-  This covers `test_placement_fdr_sim.py`, `test_placement_fdr_genome.py`,
-  `test_tolerant_recall.py`, `test_denovo_precision_sim.py`, `attacks/test_attack_placement_*`
-  and attack 5. The genome-level M3-21 suites exercise few m ≥ 1 lists at 100 kb to 1 Mb, so
-  M7-16 adds a decoy-balance check over the consumable cells for the statistician. TE8 (Nissle
+  Regression-only (byte-identical by construction): `test_tolerant_recall.py`,
+  `test_placement_fdr_genome.py`, `test_placement_fdr_lists.py`, `attacks/test_attack_placement_*`.
+  Exercised: `test_placement_fdr_sim.py`, `test_denovo_precision_sim.py` and attack 5. Even the
+  exercised suites see few cells at 100 kb to 1 Mb, so M7-16 adds a required stressed arm (dense
+  short annotated genes, ≥ 100 expected false target read-through rows per replicate, reverse and
+  shuffle arms, a negative control without decoy cells that must fail), a decoy-balance check
+  (`se_multiplier`, one-sided, may be vacuous) and the statistician's exact-mass attack, which
+  16a's merge waits for. TE8 (Nissle
   pooled FDR ≤ 0.01) re-runs weekly as usual.
 - **TE1.** Unchanged under items 1–5. The fdnG Sec site is internal, so the 4 misses stay unmapped.
   Under item 6 they would become tolerant placements (cost 1). They would still not be exact, so
