@@ -2,7 +2,8 @@
 """Resolve an image tag to its manifest digest (registry v2 API; GIAP_SPEC.md §3.1, §12).
 
 Usage: python scripts/resolve_digest.py <image:tag> [...]
-Prints one `docker://<image>@sha256:<64 hex>` per argument. Only the registries listed in §3.2
+Prints one `<image>@sha256:<64 hex>` per argument (bare, no scheme; ADR-0059); a `docker://`
+prefix on the input is accepted. Only the registries listed in §3.2
 (Docker Hub, ghcr.io, quay.io) are used; tokens are anonymous pull tokens.
 """
 
@@ -73,7 +74,7 @@ def resolve(ref: str) -> str:
     if not DIGEST.match(digest):
         raise RuntimeError(f"{ref}: no digest in registry response")
     image = repo.removeprefix("library/") if registry == "docker.io" else f"{registry}/{repo}"
-    return f"docker://{image}@{digest}"
+    return f"{image}@{digest}"
 
 
 def main(argv: list[str]) -> int:

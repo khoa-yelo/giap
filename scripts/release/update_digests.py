@@ -7,10 +7,11 @@ Usage:
         --date YYYY-MM-DD --source-commit <git sha>
 
 ``digests.json`` maps process names to ``ghcr.io/khoa-yelo/giap-<tool>@sha256:<64 hex>``. For each
-entry the ``withName: '<PROCESS>' { container = 'docker://…' }`` line inside ``process { }`` is
-replaced in place, or added before the block's closing brace; the tool leaves the "Conda-only for
-now" comment list; one ``//   ghcr.io/khoa-yelo/giap-<tool>:<sha7> (built <date> from <commit>)``
-line per image is added to (or replaced in) the "Tags the digests were resolved from" comment.
+entry the ``withName: '<PROCESS>' { container = '<ref>' }`` line inside ``process { }`` (a bare
+``<ref>``, no ``docker://`` prefix; ADR-0059) is replaced in place, or added before the block's
+closing brace; the tool leaves the "Conda-only for now" comment list; one
+``//   ghcr.io/khoa-yelo/giap-<tool>:<sha7> (built <date> from <commit>)`` line per image is added
+to (or replaced in) the "Tags the digests were resolved from" comment.
 Every other line stays byte-identical, and a second run with the same input changes nothing.
 
 With ``--nextflow-config`` the newly pinned processes are also appended to the apptainer profile's
@@ -81,7 +82,7 @@ def validate(digests: Mapping[str, object]) -> dict[str, str]:
 
 
 def pin_line(process: str, ref: str) -> str:
-    return f"  withName: '{process}' {{ container = 'docker://{ref}' }}"
+    return f"  withName: '{process}' {{ container = '{ref}' }}"
 
 
 def _process_block(lines: list[str]) -> tuple[int, int]:

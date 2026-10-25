@@ -94,10 +94,10 @@ environment error: `giap run` exits with code 2 before Nextflow starts. The chec
 3. **The pinned images, under the `apptainer` profile.** Each container-pinned tool (Bakta,
    TransTermHP, geNOMAD, antiSMASH, miniprot, BLAST+) needs its image file in
    `$GIAP_ROOT/containers/`. The file is named after the reference in
-   `workflow/conf/containers.config`: the `docker://` prefix is dropped, and `/` and `:` become
-   `-`, followed by `.img`. Preflight reads only this directory. `scripts/slurm/build_envs.sbatch`
-   pulls every pinned image into `$NXF_APPTAINER_CACHEDIR`, which `scripts/farmshare_env.sh` sets
-   to `$GIAP_ROOT/containers`. Under the `docker` and `conda` profiles, preflight does not check
+   `workflow/conf/containers.config`, with `/` and `:` replaced by `-` and `.img` appended (a
+   `docker://` prefix, if present, is dropped first). Preflight reads only this directory.
+   `scripts/slurm/build_envs.sbatch` pulls every pinned image into `$NXF_APPTAINER_CACHEDIR`,
+   which `scripts/farmshare_env.sh` sets to `$GIAP_ROOT/containers`. Under the `docker` and `conda` profiles, preflight does not check
    the pinned images: Nextflow resolves them itself.
 4. **The databases**, from `giap setup` (next section).
 
