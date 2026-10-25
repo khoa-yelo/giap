@@ -42,8 +42,8 @@ Two worlds:
 dense build), the target cells reused for the reverse decoy (fails (a) and the structural check),
 and an off-by-one reverse mirror n - p (fails (a)).
 
-(d) ``recoded`` cells (ADR-0058 item 6) are not built in 16a; when 16c lands they enter through
-the same ``load_stop_cells`` and every check here covers them unchanged.
+(d) ``recoded`` cells (ADR-0058 item 6, M7-16c) have their own attack, d1-d4, in
+``test_attack_readthrough_recoded.py``.
 
 R = ``replicates_fast.placement`` (marker ``calibration``) or ``replicates_full.placement``
 (``calibration_full``); the stressed world uses R // 5 (each replicate carries ~1,800 cells).

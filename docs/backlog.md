@@ -1131,6 +1131,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (#334 review nit 5) The offline guard (`scripts/pilot/cascadia_offline.py`) does not block DNS lookups (`socket.getaddrinfo`, `_socket`); block them too.
 - (#334 review) Claim Cascadia work-queue chunks by grid cell rather than by chunk name.
 - (#334 review) If `local/handoff/run/cascadia_gens.sh` is ever reused, its missing count must become `miss=len(S.pending_chunks(w,20))`.
+- #346 review S4/S5 (M7-16c): pin the giapsim selenoprotein exclusion rules against the surviving mutants (C11, `test_giapsim_selenoproteins.py`, incl. M33 the N-extension RBS window); make C12's vacuous acceptance at 100 kb visible (warn or non-strict xfail when `n_acc == 0`). Test-author, small PR.
 
 ### Deferred review items, 2026-10-21 to 2026-10-23 (lead's parked list)
 Merged from the lead's local list on 2026-10-25. Skipped as already done or already in this file: the bash-4 check (#270), Promoter Calculator batching (#282), the M9-17 Nextflow wiring (#283), the M7-18 X/U crash (#284), and M7-17 Q6, Q8 and the G4-k3 reuse (under "M7-17 follow-ups (PR #291)").

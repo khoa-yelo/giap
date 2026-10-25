@@ -280,6 +280,25 @@ def test_example_26_length_mismatch_keeps_the_terminal_site() -> None:
     assert skips(gm, genome) == {"length_mismatch": 1, "codon_mismatch": 0}
 
 
+def test_span_not_a_multiple_of_three_is_a_length_mismatch() -> None:
+    """Rule 21 (b): span 31 with ``len(aa) == 31 // 3 - 1`` still fails (#346 review S3)."""
+    genome, gm = ex21()
+    gm = model(dict(gm.replicons), [g("G1", "c", 2, 33, "+", "MAAAUAAAA")])
+    sites, _ = stops(gm, genome, True)
+    assert [s.kind for s in sites] == ["terminal"]
+    assert skips(gm, genome) == {"length_mismatch": 1, "codon_mismatch": 0}
+
+
+def test_empty_protein_is_not_scanned_and_not_counted() -> None:
+    """Rule 21 (b), lead decision (#346 review S1): an empty ``aa`` keeps the terminal site and
+    adds to neither skip count."""
+    genome, gm = ex21(aa="")
+    sites, n_not = stops(gm, genome, True)
+    assert sites == (site("c", "+", 30, ("G1",), "TAA", "terminal"),)
+    assert n_not == 0
+    assert skips(gm, genome) == ZERO
+
+
 def test_length_mismatch_counted_once_per_feature() -> None:
     """Rule 21 (b): a too-short protein with two ``U`` letters counts once."""
     genome, gm = ex21(aa="MAUAU")
@@ -324,6 +343,19 @@ def test_example_27_nested_merge_is_one_recoded_site_with_one_cell() -> None:
         ),
         0,
     )
+
+
+def test_nested_terminal_scanned_after_the_recoding_gene_stays_recoded() -> None:
+    """Q22, scan order reversed from example 27: ``G5`` starts after ``G1``, so its terminal-only
+    write comes last and must not demote the merged site to ``terminal`` (#346 review S2)."""
+    genome, gm = ex21()
+    gm = model(dict(gm.replicons), [*gm.genes, g("G5", "c", 6, 18, "+", "AAA")])
+    sites, _ = stops(gm, genome, True)
+    assert sites == (
+        site("c", "+", 15, ("G1", "G5"), "TGA", "recoded"),
+        site("c", "+", 30, ("G1",), "TAA", "terminal"),
+    )
+    assert skips(gm, genome) == ZERO
 
 
 def test_two_features_recoding_one_codon_merge_their_tags() -> None:

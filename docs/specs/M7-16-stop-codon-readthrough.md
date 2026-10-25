@@ -537,6 +537,8 @@ older 16c sentence disagree, this section wins.
       `len(gene.aa) == (e − s) / 3 − 1`, and `(e − s)` must be divisible by 3. Bakta's `aa` has no
       trailing `*`. A feature that fails is not scanned. It still gets its terminal site, and the
       failure is counted once per feature under `length_mismatch`.
+      A feature with an empty `aa` (no protein in the annotation) is not scanned and not
+      counted under either skip (lead decision, #346 review).
     - **(c) Residue → codon.** For a 0-based residue index `i` with `1 ≤ i ≤ len(aa) − 1`:
       - on `+` the codon is `[s + 3i, s + 3i + 3)`;
       - on `−` the codon is `[e − 3i − 3, e − 3i)`;
@@ -781,7 +783,7 @@ in PROGRESS.md, `placement-fdr.md` (16c paragraph) and ADR-0058 Evidence:
 1. **Regression, fast tier** (Slurm `test_branch.sbatch`): `test_placement_fdr_sim.py`,
    `test_denovo_precision_sim.py`, attack 5, the stressed arm and the decoy-balance check. The
    FDP tables are identical to main's and the cell counts are unchanged. No full tier.
-2. **Attack (d)** in `tests/calibration/attacks/test_attack_readthrough_decoys.py`, written by the
+2. **Attack (d)** in `tests/calibration/attacks/test_attack_readthrough_recoded.py` (a new file), written by the
    statistician once the 16c API exists, with no new tolerance key:
    - **d1:** a recoded-dense giapsim world with ≥ 50 recoded cells per replicate, kind-split
      masses, and criteria (a)–(c) plus the structural check on the recoded part;
