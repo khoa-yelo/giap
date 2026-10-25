@@ -30,6 +30,8 @@ jobs:
       - run: python3 scripts/ci/check_no_rscript.py src
       - run: python3 scripts/ci/check_bash32.py
       - run: uv run --no-sync python scripts/write_config_schema.py --check
+      - run: uv run --no-sync python scripts/docs/gen_reference.py --check
+      - run: uv run --no-sync mkdocs build --strict --site-dir /tmp/site
 
   guards:
     if: github.event_name == 'pull_request'
