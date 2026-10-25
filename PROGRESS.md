@@ -8,7 +8,7 @@ _Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 178/190 done (94 %), 0 running · generated 2026-10-25 09:13 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 184/190 done (97 %), 0 running · generated 2026-10-25 10:36 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -23,7 +23,7 @@ _Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01
 | M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬛ 100 % | 17 (1 superseded) | 0 | 0 |
 | M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 26 | 0 | 0 |
 | M10 Pilot validation | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 91 % | 10 | 0 | 1 |
-| M11 Release 1.0 | 🟩🟩⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 15 % | 2 | 0 | 11 |
+| M11 Release 1.0 | 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜⬜⬜ 62 % | 8 | 0 | 5 |
 <!-- progress:end -->
 
 - M7-15 K-12 real-tool arm: **Slurm 1879271** (COMPLETED 4 m 41 s; 2,647 cached from 1873779, 4 rerun; d11f7608 + VARIANTS 8 GB; 4fcc29da is cache-key-only, outputs byte-identical). Earlier attempts 1869642, 1871633, 1873779, 1878443 (cancelled).
@@ -31,6 +31,17 @@ _Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01
 (2026-10-25 morning) M0–M9 are done. M10 has M10-04 (#296, pass-1 run evidence) left, with M10-10a
 after it; M11 (release 1.0) has M11-01 and M11-02 merged and wave B in the loop. M7-16b-3 and
 M7-16c are follow-ups inside M7-16.
+
+**Merged 2026-10-25 (new lead account):** M11 wave B, all one review round each:
+- #338 M11-06 GHCR containers (56f71b2d);
+- #339 M11-07 MkDocs site (a9120c2b);
+- #340 M11-11 preprint outline (6f8da0d9);
+- #342 M11-04 release.yml (87ae1615);
+- #337 M11-03 readiness (ec911a57; R3/R4 pending until a calibration_full/attacks nightly writer exists);
+- #341 M11-12 changelog check and the 1.0 README (3dfb311b). PRs touching src/ or workflow/ now need a changelog.d fragment.
+
+**In the loop:** M11-05, M11-08, M11-09, M11-10; M7-16b-3 and M7-16c implementing; #296 waits on the A2 re-run 1892882.
+**Planned (Khoa):** rebrand to GIPPA before the first real publish (docs/backlog.md).
 
 **Merged since the evening:** #331 M7-16a (c523c1c0), #332 (snapshot layer under 120 s, 91a091fb),
 #333 (docs, 0667e366), #335 M7-16b (read-through reporting, simulator stop-loss, labels; 6f969ee7)
