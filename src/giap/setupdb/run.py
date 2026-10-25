@@ -96,7 +96,7 @@ class ToolRunner:
         if (mamba / "envs" / f"giap-{tool}").is_dir():
             return ["micromamba", "run", "-n", f"giap-{tool}", *argv]
         conf = (_repo() / "workflow/conf/containers.config").read_text(encoding="utf-8")
-        m = re.search(rf"withName: '{tool.upper()}' \{{ container = 'docker://([^']+)'", conf)
+        m = re.search(rf"withName: '{tool.upper()}' \{{ container = '(?:docker://)?([^']+)'", conf)
         cache = Path(os.environ.get("NXF_APPTAINER_CACHEDIR") or root / "containers")
         img = cache / (re.sub(r"[/:]", "-", m.group(1)) + ".img") if m else None
         if img is None or not img.is_file():
