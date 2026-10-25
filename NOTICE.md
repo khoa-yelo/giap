@@ -22,6 +22,16 @@ codon-bias (MIT), which runs in-process. Pins, digests and licence checks: docs/
 | codon-bias | MIT | 0.5.0; imported in-process (PyPI) |
 | DIA-NN | proprietary (academic licence) | used only by users' own searches; binaries never redistributed |
 
+Container images: `.github/workflows/containers.yml` publishes five images to GHCR
+(`ghcr.io/khoa-yelo/giap-<tool>`: promotech, promoter_calculator, terminatornet, bactermfinder, ostir),
+referenced by digest in `workflow/conf/containers.config`. Four of them contain GPL-3.0 tools fetched from
+upstream at build time, unmodified: Promotech (https://github.com/BioinformaticsLabAtMUN/PromoTech),
+Promoter Calculator (GPL-3.0-or-later, https://pypi.org/project/promotercalculator/1.2.4/), OSTIR
+(https://pypi.org/project/ostir/1.1.3/) and BacTermFinder (https://github.com/BioinformaticsLabAtMUN/BacTermFinder);
+the corresponding source is available at those links at the pinned versions and commits above, and each image's
+Dockerfile is in `workflow/containers/<tool>/`. TerminatorNet (MIT, https://github.com/btjaden/TerminatorNet) is
+the fifth. UniOP (unlicensed) is never published.
+
 Data resources: KEGG (academic use), RegulonDB (not redistributed), Gene Ontology (CC BY 4.0), NCBI COG 2020
 (NCBI FTP).
 
