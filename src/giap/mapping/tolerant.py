@@ -19,6 +19,7 @@ the q values needed.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -36,11 +37,14 @@ from giap.mapping.qgram import (
     choose_q,
     concat_frames,
 )
-from giap.mapping.sixframe import Frame, SixFrameIndex, decode, encode_query
+from giap.mapping.sixframe import READTHROUGH, STOP, Frame, SixFrameIndex, decode, encode_query
 from giap.mapping.tolerant_dp import BAND, decode_key, exchange_lookup, verify_batch
 from giap.model.coords import Interval
 
-__all__ = ["Search", "budget", "match_tolerant", "parse_max_diff"]
+if TYPE_CHECKING:
+    from giap.mapping.readthrough import StopCells
+
+__all__ = ["Search", "budget", "decoy_marks", "match_tolerant", "parse_max_diff"]
 
 _SEARCH_ORDER = {"target": 0, "decoy": 1}
 _CAP = 16  # rows per query kept by the parallel pass; larger results are recomputed serially
@@ -149,9 +153,20 @@ def budget(L: int, cfg: TolerantConfig, ranges: list[tuple[int, int, int]]) -> i
 class Search:
     """One search space (target frames or the decoy frames of one type) with lazy indexes."""
 
-    def __init__(self, frames: tuple[Frame, ...]) -> None:
+    def __init__(
+        self, frames: tuple[Frame, ...], marked: Sequence[np.ndarray] | None = None
+    ) -> None:
+        """``marked``: per frame, the cells written as ``READTHROUGH`` into the search text."""
         self.frames = frames
         self.text, self.starts = concat_frames(frames)
+        if marked is not None:
+            if len(marked) != len(frames):
+                raise ValueError(f"{len(marked)} cell arrays for {len(frames)} frames")
+            for fid, cells in enumerate(marked):
+                pos = int(self.starts[fid]) + np.asarray(cells, dtype=np.int64)
+                if np.any(self.text[pos] != STOP):
+                    raise ValueError(f"a marked cell of frame {fid} does not hold '*'")
+                self.text[pos] = READTHROUGH
         self._indexes: dict[int, QGramIndex] = {}
 
     def index(self, q: int) -> QGramIndex:
@@ -205,6 +220,17 @@ class Search:
         return key, fid, s - a, e - a
 
 
+def decoy_marks(cells: StopCells, kind: DecoyType) -> tuple[np.ndarray, ...]:
+    """The mirrored cells of decoy type ``kind`` (never the target cells).
+
+    Raises:
+        ValueError: if ``cells`` carry no cells for ``kind``.
+    """
+    if kind not in cells.decoys:
+        raise ValueError(f"stop cells have no {kind} decoy cells")
+    return cells.decoys[kind]
+
+
 def match_tolerant(
     queries: Sequence[str],
     index: SixFrameIndex,
@@ -212,8 +238,13 @@ def match_tolerant(
     decoy_of: Mapping[str, DecoyType],
     target_queries: set[str],
     cfg: TolerantConfig,
+    *,
+    cells: StopCells | None = None,
 ) -> pd.DataFrame:
     """Tolerant target and decoy hits (``HIT_COLUMNS``, ``route = "tolerant"``).
+
+    ``cells``: consumable annotated stops (ADR-0058); the target search marks ``cells.target``,
+    each decoy search the mirrored cells of its type. ``None`` or empty cells change nothing.
 
     Peptides shorter than ``cfg.min_len``, of at most ``2 * BAND`` (4) residues or outside every
     ``max_diff`` length class are not searched. Rows are sorted by peptide, search (target
@@ -289,12 +320,14 @@ def match_tolerant(
 
     targets = sorted({norm[p] for p in norm if p in target_queries})
     if targets:
-        emit(Search(index.frames).run(targets, budgets, ex), index.frames, None)
+        marks = None if cells is None else cells.target
+        emit(Search(index.frames, marks).run(targets, budgets, ex), index.frames, None)
     for kind in sorted(decoys):
         wanted = sorted({text for p, text in norm.items() if decoy_of[p] == kind})
         if wanted:
             frames = decoys[kind]
-            emit(Search(frames).run(wanted, budgets, ex), frames, kind)
+            marks = None if cells is None else decoy_marks(cells, kind)
+            emit(Search(frames, marks).run(wanted, budgets, ex), frames, kind)
 
     rows.sort(
         key=lambda r: (

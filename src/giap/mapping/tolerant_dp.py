@@ -6,7 +6,9 @@ satisfies ``|(j - i) - d0| <= 2``. The only operations are a match (cost 0; code
 I into L), a substitution, an adjacent swap ``XY <-> YX`` (``X != Y``), a mass-equivalent block
 (1↔2, 2↔1, 2↔2 from ``BLOCKS``) and a near-equal block (1↔2, 2↔1 from ``NEAR_BLOCKS``), each
 costing one difference. A target ``*`` (``STOP``) or ``X`` (``AMBIG``) is never consumed, and a
-query ``NOMATCH`` residue can only be consumed by a substitution.
+query ``NOMATCH`` residue can only be consumed by a substitution. A consumable annotated stop
+(``READTHROUGH``, ADR-0058) is consumed only by the (1, 1) move, as a substitution for any query
+code; no swap, block or near-block reads it.
 
 Tie-breaks (docs/specs/M3-06-tolerant-verifier.md): lowest cost, then the lexicographically
 smallest diff-type multiset under the ``DIFF_TYPES`` precedence (substitution < swap < block <
@@ -166,7 +168,12 @@ def _verify_core(
             if 1 <= j <= n:
                 t1 = int(frame[j - 1])
                 t0 = int(frame[j - 2]) if j >= 2 else nres
-                if t1 < nres:
+                if t1 == 22:  # READTHROUGH: substitution only (ADR-0058 item 1)
+                    pk = key[prow + dd]
+                    if pk < big and pk + w_sub < limit:
+                        best = pk + w_sub
+                        bs = st[prow + dd]
+                elif t1 < nres:
                     # match / substitution from (i-1, j-1)
                     pk = key[prow + dd]
                     if pk < big:
