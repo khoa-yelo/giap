@@ -109,7 +109,9 @@ def test_conda_only_tool_uses_the_prebuilt_env_under_giap_root(profile: str, too
 @pytest.mark.parametrize("tool", CONTAINER_TOOLS)
 def test_container_tool_has_conda_off(flat: list[str], tool: str) -> None:
     container = _setting(flat, f"ANNOTATE:{tool}", "container")
-    assert container and container.strip("'\"").startswith("docker://"), f"{tool}: no container pin"
+    assert container and re.fullmatch(
+        r"[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}", container.strip("'\"")
+    ), f"{tool}: no container pin"
     value = _setting(flat, f"ANNOTATE:{tool}", "conda")
     assert value in _OFF, f"{tool}: conda {value!r} with conda.enabled (must be off for this tool)"
 

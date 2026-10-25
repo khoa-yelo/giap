@@ -77,7 +77,7 @@ def test_pinnable_processes_exist_in_the_workflow() -> None:
 
 
 def test_ghcr_pins_use_the_project_namespace() -> None:
-    for ref in re.findall(r"docker://(ghcr\.io/[^'\s]+)", CONTAINERS):
+    for ref in re.findall(r"container = '(?:docker://)?(ghcr\.io/[^']+)'", CONTAINERS):
         assert re.fullmatch(r"ghcr\.io/khoa-yelo/giap-[a-z_]+@sha256:[0-9a-f]{64}", ref), ref
 
 

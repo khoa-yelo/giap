@@ -11,7 +11,7 @@ import yaml
 REPO = Path(__file__).resolve().parents[3]
 ENVS = REPO / "workflow" / "envs"
 CONTAINERS = REPO / "workflow" / "conf" / "containers.config"
-DIGEST = re.compile(r"^docker://[^@\s]+@sha256:[0-9a-f]{64}$")
+DIGEST = re.compile(r"^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$")
 HEX64 = "a" * 64
 
 EXPECTED_ENVS = {
@@ -285,8 +285,8 @@ def test_containers_config_named_images() -> None:
     from giap.annotate.tools import read_containers_config
 
     refs = list(read_containers_config(CONTAINERS).values())
-    assert any(r.startswith("docker://oschwengers/bakta@") for r in refs)
-    assert any(r.startswith("docker://antismash/standalone@") for r in refs)
+    assert any(r.startswith("oschwengers/bakta@") for r in refs)
+    assert any(r.startswith("antismash/standalone@") for r in refs)
 
 
 def _norm(s: str) -> str:
