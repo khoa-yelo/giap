@@ -8,7 +8,7 @@
   §7.2.5 (placement FDR, G3), §7.2.6 (locus classes), §7.5.1, §7.5.3 G8 `stop_codon`, §7.6.3,
   §7.9.2 (`makedb --patch`), §11.6 TE1/TE2; ADR-0013 (`cterm_extension`, `readthrough_candidate`)
 - Needs Khoa: yes. It changes Module 2's search space and therefore what the placement FDR controls.
-  Answered for items 1–5; open for item 6.
+  Answered for items 1–5 ("B") and item 6 ("Yes to 2"), both 2026-10-24.
 
 ## Context
 Three accepted parts of the design assume a peptide can be placed across a genome stop codon:
