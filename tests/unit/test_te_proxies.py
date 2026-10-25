@@ -229,6 +229,7 @@ def test_te1_result_counts(te1: Any) -> None:
         "exact_inframe": 6,  # pA pD pE pH pI pJ
         "misses": 7,  # pB pC pF pG pK pM pN
         "exact_inframe_masked": 4,  # pD pE pH pI (pJ has a good row)
+        "sec_site": 0,
     }
     assert te1.shares["exact_inframe"] == pytest.approx(6 / 13)
     assert te1.passed is False
