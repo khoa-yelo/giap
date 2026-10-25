@@ -6,9 +6,9 @@ peptide is a ``stop_codon`` ALT site with the planted residue"; test plan 16b "a
 sim100k"; PR 16b-3 per the lead decision in the #335 review round).
 
 Build: giapsim ``SIM100K`` with M3-19 proteomics, M3-20 de novo reads and every precomputed layer
-(as ``test_m7_04_variants_run.py``), ``n_readthrough = 10``; ``giap run --executor local
---modules core`` on the **de novo** table (``genome_relation`` default), then ``giap makedb
---patch`` on the run's ``annotation_patch.gff3``.
+(as ``test_m7_04_variants_run.py``), ``n_readthrough = 40`` (lead decision in 16b-3: at 10 no
+cterm row can be called); ``giap run --executor local --modules core`` on the **de novo** table
+(``genome_relation`` default), then ``giap makedb --patch`` on the run's ``annotation_patch.gff3``.
 
 **Why de novo input (test-author measurement, reported to the lead; main 1549a930, seed
 20261014).** Read-through rows are cost-1 tolerant rows (pi = 1 at m >= 1), so the smallest
@@ -21,7 +21,7 @@ accepted, so the "true peptides" of the acceptance item are read here as the spa
 peptides (>= 10 aa, shorter ones are never placed) that have an error-free de novo read
 (``truth/denovo.tsv``). The run takes about 35 s, so the test is not ``slow``.
 
-**Floors** (the test can never pass vacuously): the oracle expects about 3 of 10 planted genes
+**Floors** (the test can never pass vacuously): the oracle expects a share of the 40 planted genes
 with >= 2 detected spanning peptides and about 6.5 with >= 1 (detection logit of M3-19 on the 59
 eligible genes of this build). The test requires >= 1 called gene and >= 3 stop_codon ALT
 sites; a shortfall is reported and answered by raising ``n_readthrough`` (59 eligible genes),
@@ -44,13 +44,14 @@ from helpers.readthrough_sim_oracle import (
     annotated_proteins,
     eligible,
     extension,
+    rc,
     read_genome,
     readthrough_table,
     spanning_peptides,
     tsv,
 )
 
-N_READTHROUGH = 10
+N_READTHROUGH = 40  # 10 leaves the cterm_extension class q floor above alpha (lead, 16b-3)
 RUN_SEED = 7
 FLOOR_CALLED = 1
 FLOOR_ALT_SITES = 3
@@ -187,7 +188,7 @@ def _called_genes(w: dict[str, Any]) -> set[str]:
 # ---------------------------------------------------------------- the build
 
 
-def test_the_build_plants_ten_eligible_genes(world: dict[str, Any]) -> None:
+def test_the_build_plants_n_eligible_genes(world: dict[str, Any]) -> None:
     rt = world["rt"]
     assert len(rt) == N_READTHROUGH
     assert set(rt["locus_tag"]) <= set(world["eligible"])
@@ -250,7 +251,8 @@ def test_placed_spanning_peptides_are_stop_codon_alt_sites(world: dict[str, Any]
         assert r["gene"] == x.locus_tag and r["ref_codon"] == x.codon, r
         assert {"snv", "stop_codon"} <= _flags(r["flags"]), r
         assert "multi_nt" not in _flags(r["flags"]), r
-        assert r["alt_codon_vcf"] == VCF_ALT[(x.codon, x.residue)], r
+        alt = VCF_ALT[(x.codon, x.residue)]  # gene strand; the VCF allele is forward-strand
+        assert r["alt_codon_vcf"] == (alt if x.strand == "+" else rc(alt)), r
         sites += 1
     assert sites >= FLOOR_ALT_SITES, (
         f"{sites} planted stops with a placed spanning read; raise n_readthrough and report it"
@@ -267,6 +269,8 @@ def test_genes_with_two_cterm_peptides_are_called(world: dict[str, Any]) -> None
         mine = hits[(hits["locus_class"] == "cterm_extension") & (hits["gene"] == x.locus_tag)]
         if mine["peptide"].map(_il).nunique() < 2:
             continue
+        if world["eligible"][x.locus_tag].kind == "sorf":
+            continue  # rule 12: the merged ORF takes class sorf (CLASS_PRIORITY), lead 16b-3
         rows = nv[(nv["class"] == "cterm_extension") & (nv["overlapping_gene"] == x.locus_tag)]
         assert len(rows) == 1, (x.locus_tag, sorted(mine["peptide"]))
         (r,) = rows.to_dict("records")

@@ -1084,6 +1084,18 @@ stricter than rule 20 (the whole protein must differ only at the stop). The giap
 such "pure" genes first and falls back to genes that meet rule 20's peptide-level condition, so
 both that test and the natural stop-loss test hold at 5–20 SNV/kb. Accepted as tooling.
 
+### Lead decisions in 16b-3 (2026-10-25, implementer findings)
+- **The sim100k read-through e2e uses `n_readthrough = 40`, not 10.** At 10 the `cterm_extension`
+  class holds T = 12 targets, so its q floor c/T = 0.073 is above α 0.01 and nothing can be called
+  (`novel_orfs.class_q_floor_above_alpha`). At 40, T = 96 and the floor is 0.0091. The floors
+  (≥ 1 called, ≥ 3 ALT sites) and α are unchanged (R3); only the world grows.
+- **`alt_codon_vcf` is the forward-strand allele**, so on `−` the expected codon is the reverse
+  complement of the gene-strand codon (a test error, not a pipeline one).
+- **A planted sORF is not a `cterm_extension` row.** Rule 12 merges its tolerant C-terminal hits
+  with the sORF's own peptides into one ORF, and `CLASS_PRIORITY` ranks `sorf` above
+  `cterm_extension`. The called-gene check skips sORF genes; whether a read-through sORF should
+  get its own class is a backlog question.
+
 ### Lead decisions in the #335 review round (2026-10-25)
 - **Rule 14 (`SimConfig.n_readthrough`, `truth/readthrough.tsv`, its sim100k e2e) is deferred to a
   follow-up PR, 16b-3, before 16c.** 16b ships the strain stop-loss knob (rule 20), which already
