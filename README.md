@@ -25,13 +25,16 @@ GIAP runs its steps through Nextflow; see the documentation for the container an
 
 ```bash
 giap setup --db-dir db --antismash --go --kegg --cog --contaminants   # once
-giap preflight --genome genome.fna --peptides peptides.tsv   # check the inputs
-giap run --genome genome.fna --peptides peptides.tsv --db-dir db --outdir out --profile docker
+giap preflight --genome tests/data/genomes/sim100k.fna.gz --peptides docs/tutorials/data/sim100k_peptides.tsv.gz
+giap run --genome tests/data/genomes/sim100k.fna.gz --peptides docs/tutorials/data/sim100k_peptides.tsv.gz --db-dir db --outdir out --profile docker
 open out/report/report.html
 ```
 
-Inputs, options and outputs are described in the
-[documentation](https://khoa-yelo.github.io/giap/).
+Run it from a repository checkout: the genome and the peptide table are a small synthetic demo made
+by giapsim, GIAP's test simulator (see [the provenance note](docs/tutorials/data/PROVENANCE.md)).
+For your own data, pass your genome and a peptide table from
+[`giap convert`](https://khoa-yelo.github.io/giap/user-guide/convert/). Inputs, options and
+outputs are described in the [documentation](https://khoa-yelo.github.io/giap/).
 
 ## Citing GIAP
 
