@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import functools
 import json
+import math
 import re
 import subprocess
 import sys
@@ -31,6 +33,7 @@ REPORT = "validation/pilot/REPORT.md"
 BASELINE = "benchmarks/baseline.json"
 CALIB_PATHS = ("src", "tests/calibration", "ci")  # a change here invalidates a calibration row
 RUN_PATHS = ("src", "workflow", "ci", "validation/proxies")  # ... and a weekly TE8 row
+INTEG_PATHS = ("src", "workflow", "ci", "tests/integration", "tests/contract")  # ... integration
 # Registry processes without an image pin (containers.config header; M8-17 decision 9; in-process)
 NOT_CONTAINERISED = frozenset(
     {"uniop", "promotech", "promoter_calculator", "terminatornet", "bactermfinder", "ostir"}
@@ -42,7 +45,13 @@ _DIGEST = re.compile(r"docker://[^@\s]+@sha256:[0-9a-f]{64}")
 _WITH_NAME = re.compile(
     r"withName\s*:\s*['\"]([^'\"]+)['\"]\s*\{[^}]*?\bcontainer\s*=\s*['\"]([^'\"]+)['\"]"
 )
+_CONTAINER = re.compile(r"\bcontainer\s*=\s*['\"]([^'\"]+)['\"]")
 _PEPTIDE_LIKE = re.compile(r"[ACDEFGHIKLMNPQRSTVWY]{7,}")  # the M10-05 guard rule
+# Words with a peptide-like run that are names, not peptides: file names anywhere, the process
+# names of containers.config in the H4 row only; any other such run is redacted (R11).
+ALLOWED_WORDS = frozenset({"CHANGELOG", "LICENSE", "READINESS"})
+H4_WORDS = ALLOWED_WORDS | {"TRANSTERMHP", "ANTISMASH"}
+REDACTED = "[redacted]"
 
 CRITERIA = {
     "R1": "≥ 99.5 % of A2 peptides map exactly",
@@ -99,12 +108,13 @@ def _git(repo: Path, *args: str, check: bool = True) -> str | None:
     return p.stdout.strip()
 
 
-def eligible(repo: Path, paths: tuple[str, ...]) -> list[str]:
-    """HEAD and its ancestors with no change under ``paths`` since them (newest first)."""
-    last = _git(repo, "rev-list", "-n1", "HEAD", "--", *paths)
-    if not last:
-        return (_git(repo, "rev-list", "HEAD") or "").split()
-    return [*(_git(repo, "rev-list", f"{last}..HEAD") or "").split(), last]
+@functools.cache
+def code_equal(repo: Path, commit: str, paths: tuple[str, ...]) -> bool:
+    """``commit`` is HEAD or an ancestor with ``git diff --quiet commit HEAD -- paths`` (X..R)."""
+    c = _git(repo, "rev-parse", "--verify", "--quiet", f"{commit}^{{commit}}", check=False) or ""
+    diff = ("diff", "--quiet", "--no-renames", c, "HEAD", "--", *paths)
+    tests = (("merge-base", "--is-ancestor", c, "HEAD"), diff)
+    return bool(c) and all(_git(repo, *a, check=False) is not None for a in tests)
 
 
 @dataclass(frozen=True)
@@ -141,11 +151,12 @@ def parse_log(text: str) -> tuple[list[LogRow], int]:
     return rows, bad
 
 
-def newest(rows: list[LogRow], commits: list[str], pred: Callable[[LogRow], bool]) -> LogRow | None:
-    """Newest row (date, then job ID, then file order) for one of ``commits`` matching ``pred``."""
+def newest(
+    rows: list[LogRow], commit_ok: Callable[[str], bool], pred: Callable[[LogRow], bool]
+) -> LogRow | None:
+    """Newest row (date, then job ID, then file order) matching ``pred`` with ``commit_ok``."""
     hits = [(r.date, [int(n) for n in re.findall(r"\d+", r.job)], i, r)
-            for i, r in enumerate(rows)
-            if pred(r) and any(c.startswith(r.commit) for c in commits)]  # fmt: skip
+            for i, r in enumerate(rows) if pred(r) and commit_ok(r.commit)]  # fmt: skip
     return max(hits, key=lambda h: h[:3])[3] if hits else None
 
 
@@ -183,8 +194,8 @@ class Ctx:
                 self.notes.append(f"{name}: {bad} malformed lines skipped (never read as a pass)")
         return self._cache[name]  # type: ignore[no-any-return]
 
-    def commits(self, paths: tuple[str, ...]) -> list[str]:
-        return self._cache.setdefault(str(paths), eligible(self.repo, paths))  # type: ignore[no-any-return]
+    def commits(self, paths: tuple[str, ...]) -> Callable[[str], bool]:
+        return lambda commit: code_equal(self.repo, commit, paths)
 
 
 def _missing(rid: str, what: str, thr: str = "") -> Row:
@@ -199,7 +210,10 @@ def r1(c: Ctx) -> Row:
     te1 = (m or {}).get("te1") or {}
     if "share_exact_inframe" not in te1:
         return _missing("R1", METRICS, thr)
-    share = float(te1["share_exact_inframe"])
+    share = te1["share_exact_inframe"]
+    if not isinstance(share, int | float) or isinstance(share, bool) or not math.isfinite(share):
+        why = te1.get("reason") or "not a finite number"
+        return _row("R1", "fail", f"share_exact_inframe {share} ({why})", thr, [METRICS])
     val = f"{share * 100:.2f} %"
     if share < TE1_MIN:
         return _row("R1", "fail", f"{val} < 99.5 %", thr, [METRICS])
@@ -215,28 +229,28 @@ def r2(c: Ctx) -> Row:
     thr, m = "≤ 1 %", c.json(METRICS) or {}
     v = m.get("mapping_fdr")
     v = v.get("value") if isinstance(v, dict) else v
-    if isinstance(v, int | float):
+    if isinstance(v, int | float) and not isinstance(v, bool):
         st = "pass" if v <= MAPPING_FDR_MAX else "fail"
         return _row("R2", st, f"{v * 100:.2f} %", thr, [f"{METRICS} > mapping_fdr"])
     if c.freeze is None:
         return _row("R2", "pending", f"no mapping_fdr in {METRICS} and no --freeze-run", thr)
-    tsv = c.freeze / "mapping" / "mapping_fdr.tsv"
+    tsv, rel = c.freeze / "mapping" / "mapping_fdr.tsv", "<freeze-run>/mapping/mapping_fdr.tsv"
     if not tsv.is_file():
-        return _missing("R2", str(tsv), thr)
-    return _row(
-        "R2", "pending", "mapping_fdr.tsv has per-stratum rows only (gap G1)", thr, [str(tsv)]
-    )
+        return _missing("R2", rel, thr)
+    return _row("R2", "pending", "mapping_fdr.tsv has per-stratum rows only (gap G1)", thr, [rel])
 
 
 def _labelled(label: str) -> Callable[[LogRow], bool]:
     return lambda r: r.label == label
 
 
-def _calib(c: Ctx, rid: str, labels: tuple[str, ...], none: str) -> Row:
+def _calib(
+    c: Ctx, rid: str, labels: tuple[str, ...], none: str, paths: tuple[str, ...] = CALIB_PATHS
+) -> Row:
     thr, rows = "exit 0 and 0 failed for R or a code-equal ancestor", c.log("nightly.tsv")
     if rows is None:
         return _missing(rid, "logs/nightly.tsv", thr)
-    commits = c.commits(CALIB_PATHS)
+    commits = c.commits(paths)
     hits = [newest(rows, commits, _labelled(lb)) for lb in labels]
     if any(h is None for h in hits):
         miss = [lb for lb, h in zip(labels, hits, strict=True) if h is None]
@@ -255,25 +269,39 @@ def r4(c: Ctx) -> Row:
     return _calib(c, "R4", ("calibration_attacks",), "no attack row")
 
 
+def _te(te: Any, status: Callable[[dict[str, Any]], Any], doc: dict[str, Any]) -> str:
+    """One TE verdict: pass, pending (``doc`` without schema, or ``pending …``), deferred, fail."""
+    if not isinstance(te, dict) or "schema" not in doc:
+        return "pending (placeholder, no schema)"  # metrics.te_placeholders() before M10-06 data
+    s = str(status(te) if te else "missing")
+    reason = ", ".join(map(str, te.get("reason") or [])) or "no data"
+    if s == "pass" or s.startswith("pending"):
+        return s
+    return {"missing": "pending", "not_evaluable": f"deferred ({reason})"}.get(s, f"fail ({s})")
+
+
+def _te7(m: dict[str, Any]) -> str:
+    te7 = m.get("te7") or {}
+    return _te(te7, lambda t: (t.get("giap") or {}).get("status", "missing"), te7)
+
+
 def r5(c: Ctx) -> Row:
     m, parts, ev = c.json(METRICS), {}, [METRICS]
     if m is None:
         return _missing("R5", METRICS)
     parts["TE1"] = r1(c)["status"]
+    real = m.get("te_real") or {}
     for k in ("te2", "te3", "te4", "te5"):
-        te = (m.get("te_real") or {}).get(k) or {}
-        s = str(te.get("status", "missing"))
-        reason = ", ".join(map(str, te.get("reason") or [])) or "no data"
-        known = {"pass": "pass", "missing": "pending", "not_evaluable": f"deferred ({reason})"}
-        parts[k.upper()] = known.get(s, f"fail ({s})")  # reported (not passed) is fail (Q-K5)
-    parts["TE7"] = "pass" if (m.get("te7") or {}).get("passed") is True else "fail"
+        parts[k.upper()] = _te(real.get(k) or {}, lambda t: t.get("status", "missing"), real)
+    parts["TE7"] = _te7(m)
     wk = c.log("weekly.tsv")
-    hit = None if wk is None else newest(wk, c.commits(RUN_PATHS), lambda r: "TE8" in r.summary)
+    hit = None if wk is None else newest(wk, c.commits(RUN_PATHS), _labelled("k12_mg1655"))
     if hit is None:
-        parts["TE8"] = "pending (no weekly TE8 row for R)"
-    else:
-        parts["TE8"] = "pass" if hit.exit == 0 else f"fail (weekly exit {hit.exit})"
+        parts["TE8"] = "pending (no weekly k12_mg1655 row for R)"
+    else:  # the newest k12 row decides, even when it died before the TE8 step
         ev.append(hit.cite("weekly.tsv"))
+        ok = hit.ok() and "TE8" in hit.summary
+        parts["TE8"] = "pass" if ok else f"fail (exit {hit.exit}; {hit.summary})"
     st = overall(s.split(" ", 1)[0] for s in parts.values())
     return _row("R5", st, "; ".join(f"{k} {s}" for k, s in parts.items()),
                 "each TE pass; no data → deferred; reported → fail (Q-K5)", ev)  # fmt: skip
@@ -283,11 +311,12 @@ def r6(c: Ctx) -> Row:
     m = c.json(METRICS)
     if m is None:
         return _missing("R6", METRICS)
-    calib = _calib(c, "R6", ("integration",), "no integration run for R")
-    te7 = (m.get("te7") or {}).get("passed") is True
-    st = overall([calib["status"], "pass" if te7 else "fail"])
-    val = f"te7.passed {str(te7).lower()}; integration: {calib['value']}"
-    return _row("R6", st, val, "te7.passed and the integration run", [METRICS, *calib["evidence"]])
+    calib = _calib(c, "R6", ("integration",), "no integration run for R", INTEG_PATHS)
+    te7 = _te7(m)
+    st = overall([calib["status"], te7.split(" ", 1)[0]])
+    val = f"TE7 {te7}; integration: {calib['value']}"
+    return _row("R6", st, val, "te7.giap.status pass and the integration run",
+                [METRICS, *calib["evidence"]])  # fmt: skip
 
 
 def _hmm(s: float) -> str:
@@ -296,7 +325,8 @@ def _hmm(s: float) -> str:
 
 
 def _baseline_cell(c: Ctx, cell: str) -> tuple[str, dict[str, Any]] | None:
-    for cls, cells in ((c.json(BASELINE) or {}).get("standard_run") or {}).items():
+    run = (c.json(BASELINE) or {}).get("standard_run") or {}  # the spec's class (wheat) first
+    for cls, cells in sorted(run.items(), key=lambda kv: kv[0] != "wheat"):
         if isinstance(cells, dict) and "median_s" in (cells.get(cell) or {}):
             return cls, cells[cell]
     return None
@@ -312,15 +342,9 @@ def r7(c: Ctx) -> Row:
     cls, cell = hit
     s, ev = float(cell["median_s"]), [f"{BASELINE} > standard_run.{cls}.k12_standard"]
     where = f"node class {cls} ({cell.get('threads', '?')} threads)"
-    if s > RUNTIME_MAX_S:
-        return _row(
-            "R7", "fail", f"{_hmm(s)} > {_hmm(RUNTIME_MAX_S)} ({s:.0f} s); {where}", thr, ev
-        )
-    if s < RUNTIME_MIN_S:
-        return _row(
-            "R7", "fail", f"{_hmm(s)} < {_hmm(RUNTIME_MIN_S)} ({s:.0f} s); {where}", thr, ev
-        )
-    return _row("R7", "pass", f"{_hmm(s)} ({s:.0f} s); {where}", thr, ev)
+    out = (f" > {_hmm(RUNTIME_MAX_S)}" if s > RUNTIME_MAX_S
+           else f" < {_hmm(RUNTIME_MIN_S)}" if s < RUNTIME_MIN_S else "")  # fmt: skip
+    return _row("R7", "fail" if out else "pass", f"{_hmm(s)}{out} ({s:.0f} s); {where}", thr, ev)
 
 
 def r8(c: Ctx) -> Row:
@@ -333,7 +357,7 @@ def r8(c: Ctx) -> Row:
 
 
 def _gate(progress: str, k: int) -> str | None:
-    m = re.search(rf"(?ms)^### Gate M{k}\b(.*?)(?=^#{{1,3}} |\Z)", progress)
+    m = re.search(rf"(?ms)^### Gate M{k}(?![\w-])(.*?)(?=^#{{1,3}} |\Z)", progress)
     return None if m is None else m.group(1)
 
 
@@ -348,13 +372,21 @@ def r9(c: Ctx) -> Row:
     block = _gate(prog or "", 10)
     if block is None or not re.search(r"(?im)^\s*[-*]?\s*Khoa review\b", block):
         return _row("R9", "pending", "no Khoa review line under ### Gate M10", thr, ["PROGRESS.md"])
-    lines = [ln for ln in rep.splitlines() if ln.lstrip().startswith("|")]
-    head = next((i for i, ln in enumerate(lines) if "status" in ln.lower()), None)
-    if head is None:
-        return _row("R9", "pending", f"no status table in {REPORT}", thr, [REPORT])
-    col = [x.strip().lower() for x in lines[head].strip("| ").split("|")].index("status")
-    cells = [ln.strip("| ").split("|") for ln in lines[head + 2 :]]
-    sts = [x[col].strip().lower() for x in cells if len(x) > col]
+    lines, sts, col = rep.splitlines(), [], None
+    tab = [[x.strip().lower() for x in ln.strip().strip("|").split("|")]
+           if ln.lstrip().startswith("|") else None for ln in lines]  # fmt: skip
+    for i, cells in enumerate(tab):  # the first table with a "Status…" header cell, and only it
+        if (
+            col := next((j for j, x in enumerate(cells or []) if x.startswith("status")), None)
+        ) is not None:
+            for body in tab[i + 2 :]:
+                if body is None:
+                    break
+                sts += body[col : col + 1]
+            break
+    if col is None or not sts:
+        why = "no status table" if col is None else "empty status table"
+        return _row("R9", "pending", f"{why} in {REPORT}", thr, [REPORT])
     bad = [s for s in sts if s.startswith(("fail", "pending"))]
     st = overall("fail" if s.startswith("fail") else "pending" for s in bad)
     return _row(
@@ -423,7 +455,13 @@ def h4(c: Ctx) -> Row:
         return _missing("H4", cfg_rel if cfg is None else f"{tools_rel} registry")
     text = "\n".join(ln for ln in cfg.splitlines() if not ln.lstrip().startswith("//"))
     pins = dict(_WITH_NAME.findall(text))
-    bad = [f"tag, not digest: {p}" for p, img in pins.items() if not _DIGEST.fullmatch(img)]
+    tagged = {img for img in pins.values() if not _DIGEST.fullmatch(img)}
+    bad = [f"tag, not digest: {p}" for p, img in pins.items() if img in tagged]
+    bad += [
+        f"tag, not digest: {img}"
+        for img in dict.fromkeys(_CONTAINER.findall(text))
+        if img not in tagged and not _DIGEST.fullmatch(img)
+    ]  # every `container =` (§12)
     bad += [f"not pinned, not conda-only: {n}" for n, inproc in reg.items()
             if not inproc and n not in NOT_CONTAINERISED and n.upper() not in pins]  # fmt: skip
     val = "; ".join(bad) or f"{len(pins)} digests; {len(reg) - len(pins)} conda-only/in-process"
@@ -447,29 +485,43 @@ def h5(c: Ctx) -> Row:
                 "registry ⊆ NOTICE.md table; MIT", ["NOTICE.md", "LICENSE"])  # fmt: skip
 
 
+H6_PASS = frozenset({"success", "skipped"})  # skipped: PR-only jobs (guards, summary) on main
+
+
 def h6(c: Ctx) -> Row:
-    thr, sha = "every check run success", _git(c.repo, "rev-parse", "HEAD") or ""
+    # "all success" read as success or skipped (PR-only jobs never run on a main commit); any other
+    # conclusion fails; a null conclusion (still running) is pending; at least one success.
+    thr, sha = "every check run success or skipped", _git(c.repo, "rev-parse", "HEAD") or ""
     if c.check_runs is not None:
         doc = json.loads(c.check_runs.read_text(encoding="utf-8"))
-        runs = [(r["name"], r.get("conclusion")) for r in doc.get("check_runs", [])]
-        ev = [str(c.check_runs)]
+        got = doc.get("check_runs", [])
+        runs = [(str(r.get("name")), r.get("conclusion") or "none") for r in got]
+        ev = [c.check_runs.name]
+        if other := sorted({str(r.get("head_sha")) for r in got} - {sha}):
+            return _row("H6", "fail", f"check runs for {', '.join(other)}, not {sha}", thr, ev)
     elif c.offline:
         return _row("H6", "pending", "offline: GitHub check runs not read", thr)
     else:
         q = '.check_runs[] | [.name, .conclusion // "none"] | @tsv'
         out = _git(c.repo, "rev-parse", "--show-toplevel")  # gh resolves {owner}/{repo} here
         api = f"repos/{{owner}}/{{repo}}/commits/{sha}/check-runs"
-        p = subprocess.run(["gh", "api", "--paginate", api, "--jq", q],
-                           capture_output=True, text=True, cwd=out)  # fmt: skip
+        try:
+            p = subprocess.run(["gh", "api", "--paginate", api, "--jq", q],
+                               capture_output=True, text=True, cwd=out)  # fmt: skip
+        except FileNotFoundError:
+            return _row("H6", "pending", "gh not on PATH", thr)
         if p.returncode != 0:
             return _row("H6", "pending", f"gh api failed: {p.stderr.strip()[:200]}", thr)
-        runs = [tuple(ln.split("\t", 1)) for ln in p.stdout.splitlines() if "\t" in ln]  # type: ignore[misc]
+        runs = [(n, s) for n, _, s in (ln.partition("\t") for ln in p.stdout.splitlines()) if s]
         ev = [f"gh api …/commits/{sha}/check-runs"]
-    if not runs:
-        return _row("H6", "pending", "no check runs", thr, ev)
-    bad = [f"{n}: {s}" for n, s in runs if s != "success"]
-    val = "; ".join(bad) or f"{len(runs)} check runs success"
-    return _row("H6", "fail" if bad else "pass", val, thr, ev)
+    bad = [f"{n}: {s}" for n, s in runs if s not in H6_PASS and s != "none"]
+    running = [f"{n}: running" for n, s in runs if s == "none"]
+    if bad or running or not any(s == "success" for _, s in runs):
+        st = "fail" if bad else "pending"
+        return _row("H6", st, "; ".join(bad + running) or "no successful check run", thr, ev)
+    skip = [n for n, s in runs if s == "skipped"]
+    val = f"{len(runs) - len(skip)} check runs success"
+    return _row("H6", "pass", val + (f"; skipped: {', '.join(skip)}" if skip else ""), thr, ev)
 
 
 ROWS: tuple[Callable[[Ctx], Row], ...] = (
@@ -488,9 +540,12 @@ def apply_waivers(repo: Path, rows: list[Row]) -> list[Row]:
             ):
                 continue
             num = re.match(r"ADR-\d{4}", p.name)
-            if re.search(r"(?im)^\W*Status:\s*accepted-by-khoa\b", text) and num:
+            status = re.search(r"(?im)^\W*Status:\s*(\S+)", text)  # the header line only
+            if status and status.group(1).lower() == "accepted-by-khoa" and num:
+                r["evidence"].append(
+                    f"docs/adr/{p.name} (accepted-by-khoa; waived from {r['status']})"
+                )
                 r.update(status="waived", waiver=num.group())
-                r["evidence"].append(f"docs/adr/{p.name} (accepted-by-khoa)")
             else:
                 r["evidence"].append(f"docs/adr/{p.name}: not accepted")
     return rows
@@ -499,33 +554,61 @@ def apply_waivers(repo: Path, rows: list[Row]) -> list[Row]:
 # ------------------------------------------------------------------ render, compute, verify
 
 
+def redact(text: str, allow: frozenset[str] = ALLOWED_WORDS) -> str:
+    """Replace every peptide-like run (M10-05 rule) outside an ``allow`` word, verbatim
+    otherwise: no case change, so the guard still sees a leak that slipped through (R11)."""
+
+    def word(m: re.Match[str]) -> str:
+        return m.group() if m.group() in allow else _PEPTIDE_LIKE.sub(REDACTED, m.group())
+
+    return re.sub(r"[A-Za-z]{7,}", word, text)
+
+
+def _redact_doc(doc: Any, allow: frozenset[str] = ALLOWED_WORDS) -> Any:
+    if isinstance(doc, str):
+        return redact(doc, allow)
+    if isinstance(doc, list):
+        return [_redact_doc(x, allow) for x in doc]
+    if isinstance(doc, dict):
+        allow = H4_WORDS if doc.get("id") == "H4" else allow
+        return {k: _redact_doc(v, allow) for k, v in doc.items()}
+    return doc
+
+
 def _cell(s: object) -> str:
     return str(s).replace("|", "\\|").replace("\n", " ")
 
 
 def render(doc: dict[str, Any]) -> str:
-    """``READINESS.md``: a pure function of ``readiness.json``."""
+    """``READINESS.md``: a pure function of ``readiness.json``; text verbatim but ``redact``-ed,
+    line by line (process names only in the H4 row); no row-level data is ever read (R11)."""
     out = [f"# GIAP {doc['version']} release check", "", f"- Commit: `{doc['commit']}`",
            f"- Computed: {doc['computed']}", f"- Overall: **{doc['overall']}**", "",
            "| id | criterion | status | value | threshold | evidence | source |",
            "|---|---|---|---|---|---|---|"]  # fmt: skip
+    out = [redact(ln) for ln in out]
     for r in doc["rows"]:
         ev = [*r["evidence"], *([f"waiver {r['waiver']}"] if r.get("waiver") else [])]
         cells = (r["id"], r["criterion"], r["status"], r["value"], r["threshold"],
                  "<br>".join(ev) or "none", r["source"])  # fmt: skip
-        out.append("| " + " | ".join(_cell(x) for x in cells) + " |")
-    out += ["", "## Notes", "", *[f"- {n}" for n in doc.get("notes") or ["none"]], ""]
-    # File and tool names such as the changelog or licence file are lowercased here so that no
-    # uppercase run can pass for a peptide; no row-level data is ever read (R11).
-    return _PEPTIDE_LIKE.sub(lambda m: m.group().lower(), "\n".join(out))
+        line = "| " + " | ".join(_cell(x) for x in cells) + " |"
+        out.append(redact(line, H4_WORDS if r["id"] == "H4" else ALLOWED_WORDS))
+    out += ["", "## Notes", "", *[redact(f"- {n}") for n in doc.get("notes") or []],
+            f"- Peptide guard (M10-05): runs of 7+ amino-acid letters are shown as {REDACTED}, "
+            "except names on the fixed allow-list.", ""]  # fmt: skip
+    return "\n".join(out)
 
 
 def compute(ctx: Ctx) -> dict[str, Any]:
     rows = apply_waivers(ctx.repo, [f(ctx) for f in ROWS])
-    return {"version": ctx.version, "commit": _git(ctx.repo, "rev-parse", "HEAD"),
-            "computed": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
-            "overall": overall(r["status"] for r in rows), "rows": rows,
-            "notes": ctx.notes}  # fmt: skip
+    doc = {"version": ctx.version, "commit": _git(ctx.repo, "rev-parse", "HEAD"),
+           "computed": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+           "overall": overall(r["status"] for r in rows), "rows": rows,
+           "notes": ctx.notes}  # fmt: skip
+    clean = _redact_doc(doc)
+    if clean != doc:
+        clean["notes"].append(f"peptide-like text {REDACTED} in readiness.json (M10-05 guard)")
+    return clean  # type: ignore[no-any-return]
 
 
 def commit_rule(repo: Path, commit: str) -> str:
@@ -540,16 +623,21 @@ def commit_rule(repo: Path, commit: str) -> str:
         return f"fail (commit {commit} is not an ancestor of HEAD)"
     stale = [
         p
-        for p in (_git(repo, "diff", "--name-only", commit, "HEAD") or "").splitlines()
+        for p in (
+            _git(repo, "diff", "--name-only", "--no-renames", commit, "HEAD") or ""
+        ).splitlines()
         if not paperwork_path(p)
     ]
     return f"fail (stale: {stale[0]})" if stale else "pass"
 
 
 def verify(path: Path, repo: Path) -> int:
-    doc = json.loads(path.read_text(encoding="utf-8"))
-    rule = commit_rule(repo, str(doc.get("commit", "")))
-    ctx = Ctx(repo, str(doc["version"]))
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        rule, ctx = commit_rule(repo, str(doc.get("commit", ""))), Ctx(repo, str(doc["version"]))
+    except (OSError, ValueError, KeyError, AttributeError) as e:
+        print(f"overall: fail (unreadable {path.name}: {e!r})")
+        return 1
     fresh = {
         r["id"]: r
         for r in apply_waivers(
@@ -559,7 +647,7 @@ def verify(path: Path, repo: Path) -> int:
     rows = [fresh.get(r["id"], r) for r in doc["rows"]]
     print(f"commit rule: {rule}")
     for r in rows:
-        print(f"{r['id']}\t{r['status']}\t{r['value']}")
+        print(redact(f"{r['id']}\t{r['status']}\t{r['value']}"))
     ids_ok = [r["id"] for r in rows] == [f.__name__.upper() for f in ROWS]
     statuses = [r["status"] for r in rows] + ["pass" if rule == "pass" and ids_ok else "fail"]
     print(f"overall: {overall(statuses)}")
