@@ -377,7 +377,7 @@ ARGV_TAIL = ["--type", "light"]
 
 def _image(cache: Path, tool: str) -> Path:
     conf = (REPO / "workflow/conf/containers.config").read_text(encoding="utf-8")
-    m = re.search(rf"withName: '{tool.upper()}' \{{ container = 'docker://([^']+)'", conf)
+    m = re.search(rf"withName: '{tool.upper()}' \{{ container = '(?:docker://)?([^']+)'", conf)
     assert m is not None
     img = cache / (re.sub(r"[/:]", "-", m.group(1)) + ".img")
     img.parent.mkdir(parents=True, exist_ok=True)

@@ -31,7 +31,8 @@ RUNTIME_MAX_S = 3300  # 55 min
 METRICS = "validation/pilot/metrics/metrics.json"
 REPORT = "validation/pilot/REPORT.md"
 BASELINE = "benchmarks/baseline.json"
-CALIB_PATHS = ("src", "tests/calibration", "ci")  # a change here invalidates a calibration row
+# a change here invalidates a calibration row (tests/sim, tests/helpers: M11-03b Q6)
+CALIB_PATHS = ("src", "tests/calibration", "tests/sim", "tests/helpers", "ci")
 RUN_PATHS = ("src", "workflow", "ci", "validation/proxies")  # ... and a weekly TE8 row
 INTEG_PATHS = ("src", "workflow", "ci", "tests/integration", "tests/contract")  # ... integration
 # Registry processes without an image pin (containers.config header; M8-17 decision 9; in-process)
@@ -41,7 +42,8 @@ NOT_CONTAINERISED = frozenset(
 )
 PAPERWORK_FILES = frozenset({"PROGRESS.md", "README.md", "CITATION.cff", "CHANGELOG.md"})
 PAPERWORK_TREES = ("validation/release/", "docs/", "changelog.d/")
-_DIGEST = re.compile(r"docker://[^@\s]+@sha256:[0-9a-f]{64}")
+# A bare digest reference (ADR-0059); group 1 catches the docker:// prefix `docker run` rejects.
+_DIGEST = re.compile(r"(docker://)?[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}")
 _WITH_NAME = re.compile(
     r"withName\s*:\s*['\"]([^'\"]+)['\"]\s*\{[^}]*?\bcontainer\s*=\s*['\"]([^'\"]+)['\"]"
 )
@@ -448,6 +450,17 @@ def registry(text: str) -> dict[str, bool]:
     return names
 
 
+_H4_EXPECTED = "<image>@sha256:<64 hex>, no docker:// prefix"
+
+
+def _h4_reason(name: str, img: str) -> str | None:
+    """Why a ``container =`` value fails H4 (None if it is a bare digest reference)."""
+    m = _DIGEST.fullmatch(img)
+    if m is None:
+        return f"tag, not digest: {name}"
+    return f"docker:// prefix: {name}" if m.group(1) else None
+
+
 def h4(c: Ctx) -> Row:
     cfg_rel, tools_rel = "workflow/conf/containers.config", "src/giap/annotate/tools.py"
     cfg, reg = c.text(cfg_rel), registry(c.text(tools_rel) or "")
@@ -455,19 +468,16 @@ def h4(c: Ctx) -> Row:
         return _missing("H4", cfg_rel if cfg is None else f"{tools_rel} registry")
     text = "\n".join(ln for ln in cfg.splitlines() if not ln.lstrip().startswith("//"))
     pins = dict(_WITH_NAME.findall(text))
-    tagged = {img for img in pins.values() if not _DIGEST.fullmatch(img)}
-    bad = [f"tag, not digest: {p}" for p, img in pins.items() if img in tagged]
+    bad = [r for p, img in pins.items() if (r := _h4_reason(p, img))]
     bad += [
-        f"tag, not digest: {img}"
+        r
         for img in dict.fromkeys(_CONTAINER.findall(text))
-        if img not in tagged and not _DIGEST.fullmatch(img)
+        if img not in pins.values() and (r := _h4_reason(img, img))
     ]  # every `container =` (§12)
     bad += [f"not pinned, not conda-only: {n}" for n, inproc in reg.items()
             if not inproc and n not in NOT_CONTAINERISED and n.upper() not in pins]  # fmt: skip
     val = "; ".join(bad) or f"{len(pins)} digests; {len(reg) - len(pins)} conda-only/in-process"
-    return _row(
-        "H4", "fail" if bad else "pass", val, "docker://…@sha256:<64 hex>", [cfg_rel, tools_rel]
-    )
+    return _row("H4", "fail" if bad else "pass", val, _H4_EXPECTED, [cfg_rel, tools_rel])
 
 
 def _norm(s: str) -> str:

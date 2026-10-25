@@ -231,7 +231,7 @@ def test_every_tool_process_has_a_container_pin_or_is_conda_only(tool: str) -> N
         assert re.search(rf"(?m)^//.*\b{tool}\b", header), f"{tool}: not listed as conda-only"
     else:
         assert tool.upper() in pins, f"{tool}: no withName pin in containers.config"
-        assert re.fullmatch(r"docker://\S+@sha256:[0-9a-f]{64}", pins[tool.upper()])
+        assert re.fullmatch(r"[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}", pins[tool.upper()])
 
 
 # ---------------------------------------------------------------- resources (§6.3, R14)

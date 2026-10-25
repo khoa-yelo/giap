@@ -58,7 +58,7 @@ from __future__ import annotations
 import json
 import logging
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -245,10 +245,18 @@ def _slice(seq: str, s0: int, e0: int, strand: str) -> str:
 
 
 def expressed_proteins(
-    feats: Sequence[Feat], novel: Sequence[Sequence[Any]], seqs: dict[str, str]
+    feats: Sequence[Feat],
+    novel: Sequence[Sequence[Any]],
+    seqs: dict[str, str],
+    readthrough: Mapping[str, tuple[str, str]] | None = None,
 ) -> list[Protein]:
-    """Non-pseudo CDS and sORFs translated from the true start, then the novel ORFs."""
+    """Non-pseudo CDS and sORFs translated from the true start, then the novel ORFs.
+
+    ``readthrough`` (M7-16 rule 14) maps a locus tag to (residue read at the stop, extension
+    residues): that protein continues through its annotated stop to the next in-frame stop, and
+    its interval grows by the stop codon and the extension codons."""
     out = []
+    rt = readthrough or {}
     for f in feats:
         if f.kind not in ("cds", "sorf") or f.pseudo_reason or f.extra.get("pseudo"):
             continue
@@ -258,6 +266,16 @@ def expressed_proteins(
             up = ((f.start - s0) if f.strand == "+" else (e0 - f.end)) // 3
             for i in f.sec_residues:
                 aa = aa[: up + i] + "U" + aa[up + i + 1 :]
+        if f.locus in rt:
+            residue, ext = rt[f.locus]
+            aa += residue + ext
+            grow = 3 * len(ext)
+            if f.strand == "+":
+                e0 += grow
+            else:
+                s0 -= grow
+                if s0 < 0:  # the extension crosses the origin of a circular replicon
+                    s0, e0 = s0 + len(seqs[f.contig]), e0 + len(seqs[f.contig])
         out.append(Protein(f.locus, f.contig, s0, e0, f.strand, aa))
     for orf_id, _cls, contig, s1, e0, strand, aa in novel:
         out.append(Protein(str(orf_id), str(contig), int(s1) - 1, int(e0), str(strand), str(aa)))
@@ -941,6 +959,7 @@ def simulate_proteomics(
     reference: Sequence[Feat] | None = None,
     log_abundance: np.ndarray | None = None,
     first_wrong: Sequence[tuple[str, str]] = (),
+    readthrough: Mapping[str, tuple[str, str]] | None = None,
 ) -> dict[str, Path]:
     """Write ``peptides.tsv``, ``proteins.faa``, ``abundance.tsv`` and ``truth/peptides.tsv``.
 
@@ -950,7 +969,7 @@ def simulate_proteomics(
     if cfg.wrong_source == "other_strain" and reference is None:
         raise ValueError("wrong_source='other_strain' needs SimConfig.strain")
     rng = np.random.default_rng([seed, _STREAM])
-    prots = expressed_proteins(feats, novel, seqs)
+    prots = expressed_proteins(feats, novel, seqs, readthrough)
     if log_abundance is None:
         la = gene_log_abundance(rng, len(prots))
     else:

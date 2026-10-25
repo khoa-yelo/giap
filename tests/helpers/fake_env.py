@@ -30,7 +30,7 @@ MARKER = ".giap-built"
 
 
 def image_file_name(ref: str) -> str:
-    """``docker://a/b@sha256:<d>`` → ``a-b@sha256-<d>.img`` (build_envs.sbatch / Nextflow cache)."""
+    """``a/b@sha256:<d>``, ``docker://`` optional → ``a-b@sha256-<d>.img`` (Nextflow cache)."""
     return ref.removeprefix("docker://").replace("/", "-").replace(":", "-") + ".img"
 
 

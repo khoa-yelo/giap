@@ -1,0 +1,59 @@
+# M11-09: Docker-profile smoke (docs/specs/M11-09-platforms-docker-smoke.md). The real MINIPROT and
+# TBLASTN processes run in their pinned images (workflow/conf/containers.config, by digest) under
+# `-profile test,docker` on GitHub's ubuntu runner. Advisory: not in ci.yml's `summary` needs, so a
+# registry outage never blocks a merge. Q-K10 default: path-filtered PRs plus a weekly run on main.
+name: docker-smoke
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "workflow/**"
+      - ".github/workflows/docker-smoke.yml"
+  schedule:
+    - cron: "17 5 * * 1" # Mondays 05:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: install Nextflow and nf-test (as in ci.yml nf-test-stub)
+        run: |
+          curl -fsSL https://get.nextflow.io | bash && sudo mv nextflow /usr/local/bin/
+          curl -fsSL https://get.nf-test.com | bash -s 0.9.5 && sudo mv nf-test /usr/local/bin/
+      - name: pull the pinned images (one retry)
+        run: |
+          set -euo pipefail
+          images=$(grep -E "withName: '(MINIPROT|TBLASTN)'" workflow/conf/containers.config \
+            | sed -E "s|.*container = '(docker://)?([^']+)'.*|\2|" | sort -u)
+          test -n "$images"
+          for img in $images; do
+            if docker pull "$img" 2> pull.err || { sleep 20; docker pull "$img" 2> pull.err; }; then
+              continue
+            fi
+            cat pull.err >&2
+            if grep -qiE 'toomanyrequests|rate limit' pull.err; then
+              echo "docker-smoke: rate-limited pulling \`$img\` (registry limit, not a code failure: rerun)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "docker-smoke: pull failed for \`$img\`" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 1
+          done
+      - name: nf-test smoke under -profile test,docker
+        run: nf-test test workflow/tests/docker_smoke.nf.test --profile test,docker

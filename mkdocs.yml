@@ -159,6 +159,7 @@ nav:
       - adr/ADR-0056-pmiss-outside-the-bh-family.md
       - adr/ADR-0057-calibration-merge-honours-strict-xfail.md
       - adr/ADR-0058-annotated-stop-substitution.md
+      - adr/ADR-0059-bare-image-refs.md
   - Developer guide:
       - developer.md
       - release.md

@@ -1114,6 +1114,7 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (Cascadia CPU) Batch cost varies about 6× across a run; the equal-block array (STEP=predict) is kept only for probes. The work queue (STEP=work) is the supported route.
 - (env locks) `workflow/envs/locks` has locks for 6 of 15 envs; decide whether every env gets one.
 - (M7-16 statistician, forwarded; `local/stat/m7-16-review.md`, Slurm job 1889319) on the real Nissle genome the exact expected regular chance mass gives a shuffle decoy/target ratio of 0.98–0.99 under the i.i.d. law but 0.93–0.96 under the tryptic law at L = 10–12, and 0.84–0.88 at L = 16, m = 2 (reverse is 1.03–1.07, conservative). The shuffle under-counts tryptic chance hits, which may make de novo placement anti-conservative on a real genome. giapsim does not show it (regular D/T 0.97–1.08). This is multiplicity-weighted mass, not distinct words, at one genome and three seeds: check it properly in the M3-21 / TE8 work before acting on it.
+- 16b-3 (M7-16 rule 12): a read-through sORF merges into a `sorf`-class novel ORF (CLASS_PRIORITY), so it never gets a `cterm_extension` row or `readthrough_candidate`. Decide whether rule 12 should keep a read-through flag on the merged sORF. Spec, then test-author → implementer.
 
 ### 2026-10-25 (lead)
 - (M7-16b-3, rule 14; deferred from #335 by a lead decision) `SimConfig.n_readthrough` with `truth/readthrough.tsv`, and its sim100k e2e test. The feature loop started on 2026-10-25; drop this line when it merges.
@@ -1132,6 +1133,19 @@ Issues may live on GitHub; this file mirrors the milestone plan (GIAP_SPEC.md §
 - (#334 review) Claim Cascadia work-queue chunks by grid cell rather than by chunk name.
 - (#334 review) If `local/handoff/run/cascadia_gens.sh` is ever reused, its missing count must become `miss=len(S.pending_chunks(w,20))`.
 - #346 review S4/S5 (M7-16c): pin the giapsim selenoprotein exclusion rules against the surviving mutants (C11, `test_giapsim_selenoproteins.py`, incl. M33 the N-extension RBS window); make C12's vacuous acceptance at 100 kb visible (warn or non-strict xfail when `n_acc == 0`). Test-author, small PR.
+
+### 2026-10-25 afternoon (lead)
+- **Off-FarmShare install (release blocker, Khoa question):** a `pip install giap` outside FarmShare cannot pass preflight, because the tool envs and images come from `scripts/slurm/build_envs.sbatch` in a checkout. Default for 1.0: document FarmShare from a checkout as the supported path. Proposal: a `giap setup --tools` bootstrap that builds the micromamba envs from the bundled `workflow/envs/*.yml` and pulls the pinned images from the bundled `containers.config`.
+- **V03 locus order mixes scales** (`viz/locus.py::_order`): the pool is sorted by `error`, which is a region q, an island FWER p or an operon-flag q depending on the kind (decisions 3, 5, 8). Sort within kind, or rank by kind first; needs a spec decision (statistician), then test-author → implementer.
+- **Quickstart demo peptide table:** ship a small peptide table (< 100 KB) under `docs/tutorials/data/` so the quickstart can run `giap run` with `--peptides`. Prefer giapsim-generated peptides (no sourcing question) over in-silico tryptic K-12 peptides.
+- **14 `slow` calibration tests that are not `calibration_full`** run in no scheduled job (M11-03b Q2). Schedule them in the weekly job or mark them `calibration_full`.
+- **`test_m10_09_cascadia_contract::test_c4_scan[sample]`** reads `local/pilot/A3_cascadia` outside the repo and fails with "scan not strictly increasing" on the current local data. Skip it when the data is not the pinned one, or pin the data by digest.
+- **`test_sim_function::test_example7_under_one_second_for_4000_genes`** times out (about 1.12 s) on busy Slurm nodes. Make it a benchmark or loosen it only with the statistician's and lead's sign-off (R3 does not cover timing, but keep it honest).
+
+### 2026-10-25 evening (lead)
+- #350 review backlog (M7-16b-3): spec lines on `n_readthrough = 10` (around the 16b e2e items) and `tests/unit/test_sim_readthrough.py` still cite 10, not 40; de novo errors give two `multi_nt` candidate ALT rows at planted stops (assert every REF `*` site is a planted stop?); add floors (`assert called` in the patch round trip; planted stops ⊆ index terminal sites); give the consuming-rows test its own floor constant; fix the `expressed_proteins` docstring on how the interval grows; pin `pick_readthrough`'s feature order; drop stale `# type: ignore` on `n_readthrough`.
+- #349 review backlog (M11-03b): record part names are not tied to their task; squeue states and two launchers racing; a space in the log path breaks the JUnit option; a small temp-dir leak; `pyproject.toml`, `uv.lock` and `tests/conftest.py` are missing from `CALIB_PATHS` and the sbatch `dirty` check; the launcher does not pass `--sacct-json`, so OOM/TIMEOUT states only show when the aggregator is run by hand.
+- Nightly launcher has no R14 budget check (Khoa question in `khoa_q.md`; the full-tier launcher avoids the nightly window instead).
 
 ### Deferred review items, 2026-10-21 to 2026-10-23 (lead's parked list)
 Merged from the lead's local list on 2026-10-25. Skipped as already done or already in this file: the bash-4 check (#270), Promoter Calculator batching (#282), the M9-17 Nextflow wiring (#283), the M7-18 X/U crash (#284), and M7-17 Q6, Q8 and the G4-k3 reuse (under "M7-17 follow-ups (PR #291)").
@@ -1242,3 +1256,36 @@ Merged from the lead's local list on 2026-10-25. Skipped as already done or alre
 - Selector: WT_ROS also matches the WT token. Consider rejecting treatment tokens (ROS) explicitly rather than relying on MLA order.
 - Nits: --resolve can't exit 0 on the real record (http:// links; https_route only upgrades ftp://); the property test's _expected copies classify; a missing tdf drops the dia_window_rows/pasef_rows keys; IsolationWidth/2 on an int column; immutable=1; an unknown checksum algorithm gives a traceback, not exit 2; run_label .d is case-sensitive; the override URL should use download.iprox.cn.
 - CLI: --annotation *.json.gz silently runs Bakta live (cli._bakta_json checks only .json). Accept .json.gz (decompress, or have the step read gz); test-author → implementer, small PR (M10-04 Q3).
+
+#### M11 wave B reviews (2026-10-25), deferred
+- **#338 M11-06:**
+  - S1 (Khoa): a digest PR opened with GITHUB_TOKEN triggers no CI and needs "Allow Actions to create PRs". Use an App/PAT, or document a manual close/reopen.
+  - S2: a dispatch from a non-main ref opens a PR against main.
+  - S3: the `git-<sha8>` tag comes from the env comment, not the Dockerfile ARG.
+  - S4: the process→tool map is duplicated (containers.yml and update_digests.py).
+  - S5: pinning only PROMOTECH_NOVEL drops promotech from the conda-only comment.
+  - S6 (Khoa): the licences of conda packages bundled in public images (PyQt5 GPL-3.0, ViennaRNA).
+  - Nits: a double digest is accepted; writes happen outside the try; a re-run after the branch was pushed fails; `set -f` for the tools input; two back-to-back pushes give two conflicting PRs.
+- **#339 M11-07:**
+  - S3: tests for the hidden-option filter, the empty `multiple` default, and `_status` multi-line text.
+  - S4: the hand-written Methods/Decisions nav conflicts between parallel agents. Generate the nav, or list only the index pages.
+  - Nits: exclude adr/TEMPLATE.md; flags.md shows a raw regex; the `_unset` sentinel is detected by type name; CRLF passes `--check`; no site_url/repo_url; envvar not shown.
+- **#341 M11-12:**
+  - B1 follow-up: the no-changelog label takes effect only on the next push. Read live labels with `gh pr view --json labels`, or add labeled/unlabeled triggers.
+  - S2: a rename inside changelog.d/ passes as a new fragment; the `C` status branch is dead.
+  - S3 tests: `..` vs `...` with main moved on; renamed or edited fragments; pattern anchors; the `": "` separator and `refactor!:`; exact label match; a merge-only range.
+  - Nits: a bad BASE gives a traceback; non-ASCII paths are quoted; a module moved out of src/ needs no fragment; `open` exists only on macOS; README line length; the fragment slug wording; link regex vs parentheses.
+- **#342 M11-04:**
+  - S1 (Khoa): the actor guard can't tell agents from Khoa (the FarmShare gh login is khoa-yelo). Use a separate account or a token without actions:write; also check `github.triggering_actor`.
+  - S2: readiness fatal for pypi is untested.
+  - S3: skip-existing, packages-dir and `--draft` are untested.
+  - S4: a test against `${{ inputs.* }}` in run scripts; `$GITHUB_SHA` at :192.
+  - S5: notes.py tests for the preamble, "No significant changes." and rc with `--draft`.
+  - Nits: `::error::` echoes the unvalidated version; stderr vs stdout; `persist-credentials: false`; notes.py fences and `# ` headings; a multi-digit rc patch; example 5 needs a built section.
+- **#337 M11-03:**
+  - Item 11: no job writes `calibration_full` / `calibration_attacks` rows to nightly.tsv, so readiness R3/R4 stay pending. Add those nightly rows before M11-13.
+  - A `--check-runs` file without `head_sha`.
+  - An evidence path recorded as a basename only.
+- **M11-04 / M11-02:** an M11 milestone fragment will break test_m11_02's "exactly 12 milestone fragments"; update the count when M11's fragment lands.
+- **Earlier parked:** datapackage.json lacks `genes` and others; config.schema.json fields have no descriptions (gen_reference warns).
+- **Rebrand (Khoa, 2026-10-25):** after development, restructure and rename GIAP → GIPPA (repo, package, code, simplification). Do it before the first real publish (M11-13). Sequence: an ADR (overrides the spec name), one scripted rename PR verified byte-identical apart from names (PR-size exception), then simplification PRs gated by goldens and calibration. `gippa` was free on PyPI, TestPyPI, bioconda, conda-forge and GitHub on 2026-10-25.
