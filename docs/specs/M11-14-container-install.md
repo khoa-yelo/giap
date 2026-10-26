@@ -528,9 +528,18 @@ reusable at R iff `reusable(C, R)` holds:
 `NON_STATS_PATHS` (a constant in `readiness.py`, 14g):
 
 ```text
-docs/  changelog.d/  README.md  CHANGELOG.md  mkdocs.yml  PROGRESS.md  AGENTS.md  CLAUDE.md
-.claude/  .github/  scripts/dev/  scripts/docs/  src/giap/report/  src/giap/viz/
+docs/  changelog.d/  README.md  CHANGELOG.md  CITATION.cff  mkdocs.yml  PROGRESS.md  AGENTS.md
+CLAUDE.md  .claude/  .github/  scripts/dev/approval_packet.py  scripts/dev/progress_bars.py
+scripts/dev/replant.sh  scripts/dev/waitmerge.sh  scripts/docs/  src/giap/report/  src/giap/viz/
+validation/release/
 ```
+
+Amended at the 14g review (statistician, #385): `scripts/dev/` as a whole is not reusable because
+`tests/calibration/test_island_power.py` loads `scripts/dev/island_power.py` (now on the never
+list); `CITATION.cff` and `validation/release/` are added so release-prep PRs can reuse evidence
+(Q-L15). Never widen `validation/release/` to `validation/`: `validation/pilot/` feeds an attack.
+14g applies reuse to the calibration rows (R3/R4) only; pilot and benchmark rows (R1/R2/R7) keep
+today's rule until their evidence files record a commit (follow-up).
 
 The **never list** is also a constant. A test asserts it is disjoint from `NON_STATS_PATHS`, so a
 later edit cannot slip these in:
@@ -538,7 +547,7 @@ later edit cannot slip these in:
 ```text
 src/giap/preflight/  src/giap/runner/  src/giap/setupdb/  src/giap/cli.py  src/giap/data/
 src/giap/config/  src/giap/rng.py  src/giap/io/  workflow/  pyproject.toml  uv.lock
-tests/sim/  tests/calibration/  ci/  scripts/release/readiness.py
+tests/sim/  tests/calibration/  ci/  scripts/release/readiness.py  scripts/dev/island_power.py
 ```
 
 Why the first four are excluded:

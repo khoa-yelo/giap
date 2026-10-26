@@ -183,7 +183,11 @@ def test_crosscheck_share_is_nan_for_a_contig_without_primary_calls() -> None:
 # FASTA order is deliberately not alphabetical.
 REPS = [("zeta_chr", 50_000, "circular", "chromosome"), ("alpha_pl", 8_000, "circular", "plasmid")]
 XC_HEADER = ["contig", "n_terminatornet", "n_transtermhp", "n_matched", "share_matched"]
-BTF_HEADER = "contig,start,end,strand,probability\n"
+BTF_HEADER = (  # the real table (fix-bactermfinder-parser); SampleName coordinates are 0-based
+    "SampleName,probability_binary,probability_ENAC,probability_PS2,probability_NCP,"
+    "probability_mean\n"
+)
+BTF_ZETA = "1_zeta_chr_4000_4040_+,0.9,0.9,0.9,0.9,0.95\n"
 
 
 def _fresh_steps(mp: pytest.MonkeyPatch) -> ModuleType:
@@ -327,7 +331,7 @@ def _btf_dir(tmp_path: Path, tables: dict[str, str]) -> Path:
 def test_bactermfinder_gate_off_ignores_its_output(
     steps: ModuleType, files: dict[str, Path], tmp_path: Path
 ) -> None:
-    d = _btf_dir(tmp_path, {"calls.csv": BTF_HEADER + "zeta_chr,4001,4040,+,0.95\n"})
+    d = _btf_dir(tmp_path, {"calls.csv": BTF_HEADER + BTF_ZETA})
     layer, _ = _run(steps, {**files, "bactermfinder": d}, tmp_path / "o", _cfg())
     assert "BacTermFinder" not in {r["source"] for r in layer}
 
@@ -335,7 +339,7 @@ def test_bactermfinder_gate_off_ignores_its_output(
 def test_bactermfinder_single_csv_is_parsed(
     steps: ModuleType, files: dict[str, Path], tmp_path: Path
 ) -> None:
-    d = _btf_dir(tmp_path, {"calls.csv": BTF_HEADER + "zeta_chr,4001,4040,+,0.95\n"})
+    d = _btf_dir(tmp_path, {"calls.csv": BTF_HEADER + BTF_ZETA})
     cfg = _cfg("annotation.terminators.bactermfinder=true")
     layer, _ = _run(steps, {**files, "bactermfinder": d}, tmp_path / "o", cfg)
     btf = [(r["contig"], r["start"], r["end"], r["strand"], r["confidence"])
@@ -362,8 +366,8 @@ def test_bactermfinder_several_csvs_raise_naming_them(
     d = _btf_dir(
         tmp_path,
         {
-            "a_calls.csv": BTF_HEADER + "zeta_chr,4001,4040,+,0.95\n",
-            "b_calls.csv": BTF_HEADER + "alpha_pl,201,240,-,0.65\n",
+            "a_calls.csv": BTF_HEADER + BTF_ZETA,
+            "b_calls.csv": BTF_HEADER + "1_alpha_pl_200_240_-,0.6,0.6,0.6,0.6,0.65\n",
         },
     )
     cfg = _cfg("annotation.terminators.bactermfinder=true")

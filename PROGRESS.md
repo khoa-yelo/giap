@@ -8,7 +8,7 @@ _Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01
 
 ## Milestone progress
 <!-- progress:start -->
-🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 190/192 done (99 %), 0 running · generated 2026-10-25 18:42 by `scripts/dev/progress_bars.py`
+🟩 done (merged) · ⬛ superseded by an accepted ADR (counts as done) · 🟨 running (open branch) · ⬜ pending; designed issues: 191/193 done (99 %), 0 running · generated 2026-10-26 04:55 by `scripts/dev/progress_bars.py`
 
 | Milestone | Progress | Done | Running | Pending |
 |---|---|---|---|---|
@@ -23,7 +23,7 @@ _Last updated: 2026-10-25 09:30 PDT · session https://claude.ai/code/session_01
 | M8 Function and determinants | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬛ 100 % | 17 (1 superseded) | 0 | 0 |
 | M9 Visualisation and report | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100 % | 26 | 0 | 0 |
 | M10 Pilot validation | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 92 % | 12 | 0 | 1 |
-| M11 Release 1.0 | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 92 % | 12 | 0 | 1 |
+| M11 Release 1.0 | 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜ 93 % | 13 | 0 | 1 |
 <!-- progress:end -->
 
 - M7-15 K-12 real-tool arm: **Slurm 1879271** (COMPLETED 4 m 41 s; 2,647 cached from 1873779, 4 rerun; d11f7608 + VARIANTS 8 GB; 4fcc29da is cache-key-only, outputs byte-identical). Earlier attempts 1869642, 1871633, 1873779, 1878443 (cancelled).
@@ -441,16 +441,18 @@ and ω = 0 exact, `wallenius_ora` fail-closed on non-finite p_detect) and `giap.
 7742, 1 thread). Next: review, then the statistician's methods note (§"Wallenius ORA").
 
 ## Next actions (ordered)
-1. Merge queue: #366 (M10-10b), #367 (M11-14 spec), #368 (A3 README).
-2. After #366: M10-10 step 6, `metrics.py compute` with `--peptides-a3/--convert-a3/--cmp3`, render.
-3. M11-14 wave 1 after #367: 14a, 14p, 14f1, 14s1, 14s2 (14p, 14b, 14g, 14h change CI: Khoa approves).
-4. When 1894441 ends: the M11-13 readiness check.
-5. #360 (V03 baseline) waits for Khoa; Q-K13–Q-K19 parked in local/handoff/khoa_q.md.
-6. The GIPPA rename after M11-14, before the first publish.
+1. Khoa approvals (local/handoff/khoa_q.md): Q-K24 (#383 build evidence), Q-K25 (#387 protected
+   defaults.yaml trailer), Q-K26 (#383 before #386), and the CI changes in #383, #385, #386, #395.
+2. After Q-K25: #387 (14d) merges; then retarget #395 (14h) and #396 (14u1) to main and queue.
+3. #396 (14u1): implementer running; then review. 14u2, 14d2, 14e, 14i follow; then the GIPPA rename.
+4. Rerun the OSTIR-dependent pilot and mvp04 runs (pre-#390 user-site ViennaRNA; #397 report).
+5. M11-03c PR 4 (launcher CPU check), then the full calibration launch and the M11-13 readiness check.
+6. Backlog: BacTermFinder probability cut-off (statistician + Khoa); TU-error-robust TU-block null.
 
-Slurm jobs this session (2026-10-25): 1892719, 1892882, 1893676 (pilot pass-1 arms), 1894360
-(pilot compare), 1894327 (demo quickstart run), 1894441 (full calibration), 1894680 (A3 convert),
-1894682 (A3 run), 1894858 and 1895284 (H4 attack fast/full), 1895328 (three-way compare).
+Slurm jobs this session (2026-10-26): 1895369, 1895398, 1895399, 1895506, 1895507 (14s1 attacks),
+1895712, 1895849, 1895856, 1895857, 1896088 (branch fast suites), 1895723, 1895730, 1895738,
+1895829, 1895830, 1895897, 1895961 (14b envs, BacTermFinder smoke, podman, lock install),
+1895673 (pilot pass3 A2), 1896018/1896019 (nightly re-run), 1896079 (OSTIR re-record).
 
 ## Blocked
 | Since | What | Host or tool | Needed from Khoa |

@@ -1,8 +1,16 @@
 # Build the conda-only tools' images, push them to GHCR and open a digest PR (GIAP_SPEC.md §12;
-# docs/specs/M11-06-ghcr-containers.md). Six images: promotech, promoter_calculator, terminatornet,
-# bactermfinder, ostir and fgsea (M11-14 14c: R fgsea with workflow/bin/giap_fgsea.R baked in; its ref
-# goes to workflow/conf/images.json only). UniOP is unlicensed (R5/R11) and never built here.
+# docs/specs/M11-06-ghcr-containers.md; docs/specs/M11-14-container-install.md items 2, 5, 6;
+# ADR-0060). Six images: promotech, promoter_calculator, terminatornet, bactermfinder, ostir and
+# fgsea (M11-14 14c: R fgsea with workflow/bin/giap_fgsea.R baked in, a key input; its ref goes to
+# workflow/conf/images.json only). UniOP is unlicensed (R5/R11) and never built here.
 # Third-party actions are pinned by commit SHA with the tag in a comment (Q-L5).
+#
+# Each image has one immutable tag, `<version>-<key>` (scripts/release/image_key.py), under
+# `ghcr.io/<owner>/<project name>-<tool>`; the project name is read from pyproject.toml. The plan
+# job checks every key tag with an authenticated `imagetools inspect`
+# (scripts/release/ghcr_tag_state.sh): an existing tag is never rebuilt, a registry 404 is built,
+# any other error fails the run. The build re-checks right before the push. Builds run only when
+# the repository variable GHCR_PUBLISH is 'true', in the `ghcr` environment (Khoa approves each).
 # Nothing here pushes to main: the digests land through a `ci/digests-<sha7>` pull request.
 name: containers
 
@@ -23,8 +31,9 @@ on:
 permissions:
   contents: read
 
+# One run at a time, across refs: two runs can never both see a tag absent and push it.
 concurrency:
-  group: containers-${{ github.ref }}
+  group: containers
   cancel-in-progress: false
 
 env:
@@ -32,10 +41,15 @@ env:
 
 jobs:
   plan:
-    name: plan (which tools to build)
+    name: plan (key tags, existence check)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     outputs:
-      tools: ${{ steps.plan.outputs.tools }}
+      build: ${{ steps.check.outputs.build }}
+      existing: ${{ steps.check.outputs.existing }}
+      prefix: ${{ steps.prefix.outputs.prefix }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -74,61 +88,142 @@ jobs:
             fi
             echo "changed files:"; echo "$changed"
             for t in $ALL; do
-              pat="^(workflow/containers/$t/|workflow/envs/$t\.yml$|workflow/envs/locks/$t\.explicit\.txt$)"
+              pat="^(workflow/containers/$t/|workflow/envs/$t\.yml$|workflow/envs/locks/$t\.(explicit|pip)\.txt$)"
               # fgsea bakes in its script, a key input (M11-14 item 2)
               if [ "$t" = "fgsea" ]; then pat="$pat|^workflow/bin/giap_fgsea\.R$"; fi
               if echo "$changed" | grep -qE "$pat"; then
-                want="$want $t"
+                echo "changed by this push: $t"
               fi
             done
+            # Every GHCR tool is checked, not only the ones this push changed: a pending run
+            # cancelled by the concurrency group must not lose its tools. The existence check
+            # below keeps every published key tag from being rebuilt.
+            want="$ALL"
           fi
-          tools="$(for t in $want; do echo "$t"; done | awk '!seen[$0]++' \
-            | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')"
+          tools="$(for t in $want; do echo "$t"; done | awk '!seen[$0]++' | tr '\n' ' ')"
           echo "tools=$tools"
           echo "tools=$tools" >> "$GITHUB_OUTPUT"
+      - id: prefix
+        name: Image prefix from pyproject.toml ([project] name)
+        run: |
+          set -euo pipefail
+          prefix="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["name"])')"
+          echo "$prefix" | grep -qE '^[a-z0-9][a-z0-9_.-]*$' || { echo "::error::bad project name '$prefix'"; exit 1; }
+          echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - run: uv sync --frozen --no-dev
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      # Authenticated: a still-private package answers 401/403 to an anonymous inspect, which must
+      # never read as "absent".
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: check
+        name: Key tags and the existence check
+        env:
+          TOOLS: ${{ steps.plan.outputs.tools }}
+          PREFIX: ${{ steps.prefix.outputs.prefix }}
+          GHCR_PUBLISH: ${{ vars.GHCR_PUBLISH }}
+        run: |
+          set -euo pipefail
+          : > build.tsv
+          : > existing.tsv
+          if [ -n "${TOOLS// /}" ]; then
+            # shellcheck disable=SC2086  # tool names are plain words
+            uv run --no-sync python scripts/release/image_key.py $TOOLS > keys.tsv
+          else
+            : > keys.tsv
+          fi
+          while IFS=$'\t' read -r tool key tag; do
+            ref="$IMAGE_NS/$PREFIX-$tool:$tag"
+            # exits non-zero (and fails the job) on anything but exists / a registry 404
+            state="$(bash scripts/release/ghcr_tag_state.sh "$ref")"
+            echo "$tool: $ref $state"
+            if [ "$state" = exists ]; then
+              digest="sha256:$(docker buildx imagetools inspect --raw "$ref" | sha256sum | cut -d' ' -f1)"
+              # provenance of the earlier build: its org.opencontainers.image.revision label and
+              # its created date (images.json built_from and the containers.config record line)
+              prov="$(docker buildx imagetools inspect "$ref" --format '{{json .Image}}' | python3 -c '
+          import json, sys
+          img = json.load(sys.stdin)
+          if "config" not in img:  # an index: one config per platform
+              img = img.get("linux/amd64") or next(iter(img.values()))
+          rev = ((img.get("config") or {}).get("Labels") or {}).get("org.opencontainers.image.revision", "")
+          print(rev + "\t" + str(img.get("created", ""))[:10])
+          ')"
+              revision="${prov%%$'\t'*}"
+              created="${prov#*$'\t'}"
+              if ! [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$created" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+                echo "::error::$ref has no org.opencontainers.image.revision label or created date"
+                exit 1
+              fi
+              printf '%s\t%s\t%s\t%s\n' "$tool" "$IMAGE_NS/$PREFIX-$tool@$digest" "$revision" "$created" >> existing.tsv
+            else
+              licence="$(uv run --no-sync python -c 'import sys; from giap.annotate.tools import TOOLS; print(TOOLS[sys.argv[1]].licence)' "$tool")"
+              printf '%s\t%s\t%s\t%s\t%s\n' "$tool" "$ref" "${tag%-"$key"}" "$key" "$licence" >> build.tsv
+            fi
+          done < keys.tsv
+          # existing tools already pinned to that digest in images.json need no digest PR
+          python3 - <<'PY'
+          import json, os, pathlib
+          images = pathlib.Path("workflow/conf/images.json")
+          pinned = json.loads(images.read_text()) if images.is_file() else {}
+          build = []
+          for line in pathlib.Path("build.tsv").read_text().splitlines():
+              tool, ref, version, key, licence = line.split("\t")
+              build.append({"tool": tool, "ref": ref, "version": version, "key": key, "licence": licence})
+          existing = {}
+          for line in pathlib.Path("existing.tsv").read_text().splitlines():
+              tool, ref, revision, created = line.split("\t")
+              if pinned.get(tool, {}).get("ref") != ref:
+                  existing[tool] = {"ref": ref, "revision": revision, "created": created}
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"build={json.dumps(build)}\n")
+              out.write(f"existing={json.dumps(existing)}\n")
+          print("build:", json.dumps(build, indent=2))
+          print("existing, not yet pinned:", json.dumps(existing, indent=2))
+          PY
+          if [ "${GHCR_PUBLISH:-}" != "true" ]; then
+            echo "publishing off: vars.GHCR_PUBLISH is not 'true'; nothing is built or pushed"
+            echo "publishing off (vars.GHCR_PUBLISH is not 'true')" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   build:
-    name: build giap-${{ matrix.tool }}
+    name: build ${{ matrix.tool }}
     needs: plan
-    if: needs.plan.outputs.tools != '[]'
+    if: >-
+      vars.GHCR_PUBLISH == 'true' && github.ref == 'refs/heads/main'
+      && needs.plan.outputs.build != '[]'
     runs-on: ubuntu-latest
+    environment: ghcr
     permissions:
       contents: read
       packages: write
     strategy:
       fail-fast: false
       matrix:
-        tool: ${{ fromJSON(needs.plan.outputs.tools) }}
+        include: ${{ fromJSON(needs.plan.outputs.build) }}
     steps:
       - uses: actions/checkout@v4
-      - id: meta
-        name: Version, licence and env-file hash
-        env:
-          TOOL: ${{ matrix.tool }}
-        run: |
-          set -euo pipefail
-          env_file="workflow/envs/$TOOL.yml"
-          case "$TOOL" in
-            promoter_calculator) version="$(grep -oP 'promotercalculator==\K\S+' "$env_file")"; lic="GPL-3.0-or-later" ;;
-            ostir) version="$(grep -oP 'ostir==\K\S+' "$env_file")"; lic="GPL-3.0" ;;
-            fgsea) version="$(grep -oP 'bioconductor-fgsea=\K\S+' "$env_file")"; lic="MIT AND GPL-2.0-or-later" ;;
-            terminatornet) version="git-$(grep -oE '[0-9a-f]{40}' "$env_file" | head -1 | cut -c1-8)"; lic="MIT" ;;
-            promotech|bactermfinder) version="git-$(grep -oE '[0-9a-f]{40}' "$env_file" | head -1 | cut -c1-8)"; lic="GPL-3.0" ;;
-            *) echo "::error::no version rule for $TOOL"; exit 1 ;;
-          esac
-          [ -n "$version" ] && [ "$version" != "git-" ] || { echo "::error::no version pin in $env_file"; exit 1; }
-          {
-            echo "version=$version"
-            echo "licenses=$lic"
-            echo "sha7=${GITHUB_SHA::7}"
-            echo "env_sha256=$(sha256sum "$env_file" | cut -d' ' -f1)"
-          } >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Re-check that the key tag is still absent
+        env:
+          REF: ${{ matrix.ref }}
+        run: |
+          set -euo pipefail
+          state="$(bash scripts/release/ghcr_tag_state.sh "$REF")"
+          if [ "$state" != absent ]; then
+            echo "::error::tag exists: $REF"
+            exit 1
+          fi
+          echo "absent: $REF"
       - id: build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
@@ -137,25 +232,24 @@ jobs:
           platforms: linux/amd64
           push: true
           provenance: false
-          tags: |
-            ghcr.io/khoa-yelo/giap-${{ matrix.tool }}:${{ steps.meta.outputs.sha7 }}
-            ghcr.io/khoa-yelo/giap-${{ matrix.tool }}:${{ steps.meta.outputs.version }}
+          tags: ${{ matrix.ref }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.licenses=${{ steps.meta.outputs.licenses }}
-            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
-            org.giap.env.sha256=${{ steps.meta.outputs.env_sha256 }}
+            org.opencontainers.image.licenses=${{ matrix.licence }}
+            org.opencontainers.image.version=${{ matrix.version }}
+            org.giap.image.key=${{ matrix.key }}
       - name: Record the pushed digest
         env:
           TOOL: ${{ matrix.tool }}
+          REF: ${{ matrix.ref }}
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           set -euo pipefail
           echo "$DIGEST" | grep -qE '^sha256:[0-9a-f]{64}$' || { echo "::error::no digest for $TOOL"; exit 1; }
           mkdir -p digests
-          echo "$DIGEST" > "digests/$TOOL"
-          echo "$IMAGE_NS/giap-$TOOL@$DIGEST" >> "$GITHUB_STEP_SUMMARY"
+          echo "${REF%:*}@$DIGEST" > "digests/$TOOL"
+          echo "$REF -> ${REF%:*}@$DIGEST" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: digest-${{ matrix.tool }}
@@ -166,14 +260,19 @@ jobs:
     name: open the digest PR
     needs: [plan, build]
     # A failed build leg must not hold back the other tools' pins (spec edge case: the failed tool
-    # stays conda-only until it builds; the PR says so).
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.tools != '[]' }}
+    # stays conda-only until it builds; the PR says so). Publishing off: nothing to pin.
+    if: >-
+      ${{ !cancelled() && vars.GHCR_PUBLISH == 'true' && github.ref == 'refs/heads/main'
+      && needs.plan.result == 'success'
+      && (needs.plan.outputs.build != '[]' || needs.plan.outputs.existing != '{}') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - run: uv sync --frozen --no-dev
       - uses: actions/download-artifact@v4
         with:
           pattern: digest-*
@@ -182,18 +281,15 @@ jobs:
       - name: Pin the digests and open ci/digests-<sha7>
         env:
           GH_TOKEN: ${{ github.token }}
-          PLANNED: ${{ needs.plan.outputs.tools }}
+          PLANNED: ${{ needs.plan.outputs.build }}
+          EXISTING: ${{ needs.plan.outputs.existing }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
           sha7="${GITHUB_SHA::7}"
           branch="ci/digests-$sha7"
           mkdir -p digests
-          missing="$(python3 -c 'import json,os,pathlib; got={f.name for f in pathlib.Path("digests").iterdir()}; print(" ".join(t for t in json.loads(os.environ["PLANNED"]) if t not in got))')"
-          if [ -z "$(ls digests)" ]; then
-            echo "::error::no image built (planned: $PLANNED); nothing to pin"
-            exit 1
-          fi
+          missing="$(python3 -c 'import json,os,pathlib; got={f.name for f in pathlib.Path("digests").iterdir()}; print(" ".join(e["tool"] for e in json.loads(os.environ["PLANNED"]) if e["tool"] not in got))')"
           # image tool -> processes (the _NOVEL runs reuse the image; workflow/subworkflows/local/novel.nf)
           python3 - <<'PY'
           import json, os, pathlib
@@ -205,18 +301,25 @@ jobs:
               "ostir": ["OSTIR", "OSTIR_NOVEL"],
               "fgsea": ["FGSEA"],  # no Nextflow process: images.json only (update_digests IMAGE_ONLY)
           }
-          ns = os.environ["IMAGE_NS"]
-          out = {}
+          existing = json.loads(os.environ["EXISTING"])  # tags that existed: digest, provenance
+          refs = {tool: e["ref"] for tool, e in existing.items()}
+          prov = {t: {"commit": e["revision"], "date": e["created"]} for t, e in existing.items()}
+          pathlib.Path("provenance.json").write_text(json.dumps(prov, indent=2) + "\n")
           for f in sorted(pathlib.Path("digests").iterdir()):
-              for p in procs[f.name]:
-                  out[p] = f"{ns}/giap-{f.name}@{f.read_text().strip()}"
+              refs[f.name] = f.read_text().strip()
+          out = {p: ref for tool, ref in sorted(refs.items()) for p in procs[tool]}
           pathlib.Path("digests.json").write_text(json.dumps(out, indent=2) + "\n")
           PY
+          if [ "$(cat digests.json)" = "{}" ]; then
+            echo "::error::no image built or found (planned: $PLANNED); nothing to pin"
+            exit 1
+          fi
           cat digests.json
-          python3 scripts/release/update_digests.py --digests digests.json \
+          uv run --no-sync python scripts/release/update_digests.py --digests digests.json \
             --config workflow/conf/containers.config \
             --nextflow-config workflow/nextflow.config \
-            --date "$(date -u +%F)" --source-commit "$GITHUB_SHA"
+            --date "$(date -u +%F)" --source-commit "$GITHUB_SHA" \
+            --provenance provenance.json
           if git diff --quiet; then
             echo "digests already pinned; no PR"
             exit 0
@@ -228,14 +331,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add workflow/conf/containers.config workflow/conf/images.json workflow/nextflow.config
+          git add workflow/conf/containers.config workflow/conf/images.json \
+            workflow/conf/container_common.config workflow/nextflow.config
           git commit -m "ci: pin GHCR digests ($sha7)"
           git push origin "$branch"
           {
-            echo "Digests pushed by $RUN_URL from $GITHUB_SHA (M11-06)."
+            echo "Digests pinned by $RUN_URL from $GITHUB_SHA (M11-06, M11-14)."
             echo
             echo '```json'; cat digests.json; echo '```'
-            echo
             if [ -n "$missing" ]; then
               echo
               echo "Not built in this run, so still conda-only: $missing."
