@@ -580,6 +580,7 @@ def _probe(monkeypatch: pytest.MonkeyPatch, code: int, err: str) -> list[Any]:
     return calls
 
 
+@pytest.mark.real_uniop_probe
 def test_probe_is_a_module_function() -> None:
     import inspect
 
