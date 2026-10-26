@@ -68,7 +68,7 @@ campaign/
   `ValueError` before any fetch. Builds a `urllib.request.Request` (Accept: application/json; the
   NCBI key header per §1) and calls `opener(request, timeout=timeout)` (default
   `urllib.request.urlopen`). With `cache_dir`, the body is stored as `<sha256(url)>.json` and reused;
-  errors are never cached. Retries once on `URLError`, `TimeoutError` or HTTP ≥ 500; HTTP 404 raises
+  errors are never cached. A body that is not valid JSON raises `HttpError` (so the catalogue records the dataset and goes on). Retries once on `URLError`, `TimeoutError` or HTTP ≥ 500; HTTP 404 raises
   `NotFound(LookupError)` at once; other 4xx raise `HttpError` at once; after the retries the last
   error is raised as `HttpError` (subclass of `OSError`).
 - `download(url, dest, *, expected_bytes=None, checksum=None, run=subprocess.run) -> str`.
@@ -284,7 +284,7 @@ the CLI prints `sbatch --array=0-<N-1>%<throttle> …`.
 
 **run_job** `run_job(job, *, db_dir, profile, threads, keep_inputs, run, download, env) -> int`.
 Steps run in `workdir`, each recorded in `workdir/status.json`
-(`{"steps": {name: {"state": "done"|"failed", "message": str}}, "acquisition": …}`); a `done` step
+(`{"steps": {name: {"state": "done"|"failed", "message": str}}, "acquisition": "DIA"|"DDA"|"mixed"|"unknown", "acquisition_note": str}`); a `done` step
 is skipped; the first failure records `failed` with its message and returns 1; all done → 0.
 
 1. `fetch_genome` → `genome/genome.fna` (download zip, `safe_extract`, `find_genome_files`,
