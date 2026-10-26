@@ -644,9 +644,9 @@ Both ran at commit `4ccce8a532c365c9e657c981a3f61b3d0d5c3aa6` from the clean pin
 | A2 | 1 | 1895673 | fresh | `4ccce8a5` | COMPLETED | 0:0 | 04:00:04 | 1285072K | barley-03 | A: pass | **accepted**; OSTIR pre-#390 (below); kept as `out_a2_pre390` |
 | A1 | 1 | 1896178 | fresh | `4ccce8a5` | COMPLETED | 0:0 | 04:29:54 | 1300748K | rye-02 | A: pass | **accepted**, `out_a1` |
 | compare | 1 | 1896978 | fresh | `4ccce8a5` | COMPLETED | 0:0 | 00:00:28 | 270028K | wheat-08 | C: pass | **accepted**, `cmp_a1_a2` |
-| A2 | 2 | 1897025 | resume (#390) | `8b6e93d4` | running | | | | barley-01 | A: pending (job 1897034) | in place in `out_a2`; supersedes attempt 1 when it passes |
-| A1 | 2 | 1897026 | resume (#390) | `8b6e93d4` | pending | | | | | A: pending (job 1897034) | in place in `out_a1` (commit parity) |
-| compare | 2 | 1897034 | fresh | `8b6e93d4` | pending | | | | | C: pending | `o390/cmp_a1_a2` |
+| A2 | 2 | 1897025 | resume (#390) | `8b6e93d4` | COMPLETED | 0:0 | 00:55:08 | 1243668K | barley-01 | A: pass | **accepted**, `out_a2`; supersedes attempt 1 |
+| A1 | 2 | 1897026 | resume (#390) | `8b6e93d4` | COMPLETED | 0:0 | 00:23:48 | 1367036K | wheat-06 | A: pass | **accepted**, `out_a1` (commit parity) |
+| compare | 2 | 1897034 | fresh | `8b6e93d4` | COMPLETED | 0:0 | 00:00:45 | 452932K | wheat-04 | C: pass | **accepted**, `o390/cmp_a1_a2` |
 
 Attempt 1 of each arm passed rule set A, and attempt 2 is the #390 resume below. Neither attempt is a failed iteration, which is what R9 counts. While A2 1895673 was pending, its head time limit was
 lowered from 2 days to 12 h so that it could backfill. R14 sums of the running and pending `giap-*`
@@ -745,6 +745,31 @@ gene-level TIR changes by up to about 65x.
   from the cache. See "OSTIR
   reruns" below.
 
+### Rerun results (pass 3)
+
+The post-processing job 1897034 recorded the following.
+
+- **OSTIR provenance:** both reruns' OSTIR `versions.yml` records `viennarna: 2.6.4`, and the
+  three affected genes hold the #397 re-record values.
+- **A1 (job 1897026):** 75 tasks were cached and 2 re-ran (`OSTIR`, `OSTIR_NOVEL`). Every
+  published table and `rbs.parquet` is byte-identical to `out_a1_pre390`, which confirms that
+  attempt 1 was already post-fix.
+- **A2 (job 1897025):** 60 tasks were cached and 13 re-ran: OSTIR, the RBS and context layers, the
+  gene table and every step after it. The changed outputs are `rbs.parquet`, `genes.tsv`,
+  `sensitivity.tsv` and the three `determinants_*` tables. The A2 attempt-1 values of those outputs
+  are pre-fix.
+- **Rule sets:** A passes on both arms at `8b6e93d4` (`evidence/a1_o390.json`, `a2_o390.json`).
+  The re-compare passes rule set C (`o390/evidence/compare.json`). Its detection, abundance and
+  stability tables are byte-identical to the pre-fix compare.
+- **Interim metrics:** `$GIAP_ROOT/pilot/metrics/pass3/` was regenerated, and the pre-fix render
+  moved to `pass3_pre390/`. No metric key changed apart from paths, hashes and runtimes.
+
+| subject | file | sha256 |
+|---|---|---|
+| A1 (attempt 2) | `out_a1/report/report.html` | `e173bdecd32a9dfa2e38dd53c499bec5c690aa4a017b102218d6f395f80f322e` |
+| A2 (attempt 2) | `out_a2/report/report.html` | `38bc0161c22d0d7bf6e056fb58ed8f135cb7ee5cc494064dbcb380d1b20b9f96` |
+| compare (attempt 2) | `o390/cmp_a1_a2/report/compare.html` | `bcb9179b1bf13a972b45b5635d2b3fc8f7c7160936521e61fb97e5a6671cbd02` |
+
 ## OSTIR reruns after #390
 
 Every pipeline run whose OSTIR task predates #390 is re-run for `rbs` and the `tir_ostir`
@@ -764,15 +789,29 @@ determinant (#397). This is the minimal rerun:
   `PYTHONNOUSERSITE=1`, and keeps the recorded arguments (`--resume`, `--time=12:00:00`).
 - At most two chains run at a time, to stay within this agent's R14 share.
 
-| run | out directory | head job | after | original commit |
-|---|---|---|---|---|
-| pilot pass 3 A2 | `pass3/out_a2` | 1897025 | - | `4ccce8a5` |
-| pilot pass 3 A1 (commit parity) | `pass3/out_a1` | 1897026 | job 1897025 | `4ccce8a5` |
-| pilot pass 1 A1 | `pass1/out_a1` | 1897027 | job 1897026 | `6f969ee7` |
-| pilot pass 1 A2 | `pass1/out_a2` | 1897028 | job 1897027 | `6f969ee7` |
-| pilot pass 2 A3 | `pass2/out_a3` | 1897029 | - | `242ce506` |
-| MVP-04 A1 | `mvp04/20261023_a1` | 1897030 | job 1897029 | `76591515` |
-| MVP-04 A2 | `mvp04/20261023_a2` | 1897031 | job 1897030 | `a6bf2e96` |
+| run | out directory | head job | after | original commit | result (rule set A at `8b6e93d4`) |
+|---|---|---|---|---|---|
+| pilot pass 3 A2 | `pass3/out_a2` | 1897025 | - | `4ccce8a5` | COMPLETED 00:55:08; pass |
+| pilot pass 3 A1 (commit parity) | `pass3/out_a1` | 1897026 | job 1897025 | `4ccce8a5` | COMPLETED 00:23:48; pass; outputs unchanged |
+| pilot pass 1 A1 | `pass1/out_a1` | 1897027 | job 1897026 | `6f969ee7` | running (OSTIR task queued) |
+| pilot pass 1 A2 | `pass1/out_a2` | 1897028 | job 1897027 | `6f969ee7` | pending |
+| pilot pass 2 A3 | `pass2/out_a3` | 1897029 | - | `242ce506` | COMPLETED 00:27:31; pass (A1-A11, `no_spectrum_pairing` expected); 63 cached, 14 re-ran |
+| MVP-04 A1 | `mvp04/20261023_a1` | 1897030 | job 1897029 | `76591515` | **cancelled** (wrong input, below) |
+| MVP-04 A2 | `mvp04/20261023_a2` | 1897031 | job 1897030 | `a6bf2e96` | pending |
+
+**Pass 2 A3 (job 1897029):** `evidence/a3_o390.json` has `failures: []`. Rule A11 was checked
+against `pass1/out_a2_pre390`, which has the same `peptides` input as `out_a2`. OSTIR's
+`versions.yml` records `viennarna: 2.6.4`. The changed outputs are `rbs.parquet`, `genes.tsv`,
+`determinants_features.tsv` and `determinants_model.tsv`.
+
+**MVP-04 A1 (job 1897030) was cancelled, and its orphaned tasks (jobs 1897137 and 1897139) too.**
+The file `$GIAP_ROOT/mvp04/20261023/peptides.tsv` was regenerated by #326 (sha256 `3a65981d…`,
+the MVP-04 A2 input). The original A1 input is `20261023.pre326/peptides.tsv` (sha256
+`0b6b2fd4…`). The resume therefore re-mapped A1 on A2's peptides, and its rule A5 input check would
+fail. The partial directory was kept as `20261023_a1_o390_wronginput`, and `20261023_a1` was
+restored from `20261023_a1_pre390`. It was not resubmitted: no new jobs while the cluster is
+full (lead, 2026-10-26). MVP-04 A1 was superseded by A2 when #326 regenerated the inputs. If it is
+re-run, pass `--peptides …/20261023.pre326/peptides.tsv` (and the matching abundance and config).
 
 The first submission of these runs (jobs 1896986, 1897005, 1897008, 1897010, 1897011 and 1897014)
 failed in 4 s with `uv: command not found`, before any run directory was touched. `GIAP_ROOT` was
