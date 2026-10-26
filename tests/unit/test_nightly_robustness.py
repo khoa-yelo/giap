@@ -150,6 +150,8 @@ def test_slow_node_resubmits_with_exclude_and_writes_no_row(sb: Sandbox, task: i
     subs = _self_resubmissions(sb)
     assert len(subs) == 1, f"expected one resubmission of nightly.sbatch, got {subs}" + diag
     argv = subs[0]
+    subs_env = [c["env"] for c in sb.sbatch_calls()
+                if c["argv"] and c["argv"][-1].endswith("nightly.sbatch")]  # fmt: skip
     excl = (option(argv, "exclude", "x") or "").split(",")
     assert HOST in excl, f"the slow node {HOST} is not excluded: {argv}"
     assert "oat-07" in excl, f"the earlier exclusion (NIGHTLY_EXCLUDE) is dropped: {argv}"
@@ -162,7 +164,10 @@ def test_slow_node_resubmits_with_exclude_and_writes_no_row(sb: Sandbox, task: i
     assert ex.get("NIGHTLY_ARRAY_JOB") == JOB, ex
     assert ex.get("NIGHTLY_EXPECT") == "4", ex
     assert ex.get("NIGHTLY_SLOW_HOPS") == "1", ex
-    assert set(ex.get("NIGHTLY_EXCLUDE", "").split(",")) >= {HOST, "oat-07"}, ex
+    # a comma list cannot travel inside --export (sbatch splits it at commas): it rides in the
+    # environment, which --export=ALL forwards (lead fix after the implementer's report, #403)
+    env_excl = subs_env[0].get("NIGHTLY_EXCLUDE", "")
+    assert set(env_excl.split(",")) >= {HOST, "oat-07"}, (env_excl, ex)
     ref = ex.get("NIGHTLY_REF", "")
     assert ref and sb.head.startswith(ref), f"the resubmission does not pin the commit: {ex}"
     assert res.returncode == 0, diag
