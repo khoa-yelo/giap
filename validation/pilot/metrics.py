@@ -878,19 +878,32 @@ def _fold(p: str) -> str:
     return p.replace("I", "L")
 
 
-def denovo_queries(P: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
-    """Definition 1: the de novo queries as the mapping step bins them (``validate_peptides``,
-    ``aggregate_peptides`` (score = max over a peptide's rows), ``select_queries``), keeping
-    ``source = denovo`` rows whose length falls in a ``mapping.length_classes`` class."""
+def _selected_denovo(P: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
+    """The placement step's de novo queries (``validate_peptides``, ``aggregate_peptides``
+    (score = max over a peptide's rows), ``select_queries``), before the length-class filter."""
     from giap.io.peptides import aggregate_peptides
-    from giap.steps.mapping import length_label
 
     V, _ = validate_peptides(P, cfg.input)
     Q = select_queries(aggregate_peptides(V)[0], cfg)
+    keep = (Q["source"].astype(str) == "denovo").to_numpy(dtype=bool)
+    return Q.loc[keep, ["peptide", "score", "source"]].reset_index(drop=True)
+
+
+def denovo_count(P: pd.DataFrame, cfg: GiapConfig) -> int:
+    """The placement log's "(M de novo)": de novo queries before the length-class filter,
+    unscored ones included (B1)."""
+    return len(_selected_denovo(P, cfg))
+
+
+def denovo_queries(P: pd.DataFrame, cfg: GiapConfig) -> pd.DataFrame:
+    """Definition 1: the de novo queries as the mapping step bins them (``_selected_denovo``),
+    keeping rows whose length falls in a ``mapping.length_classes`` class."""
+    from giap.steps.mapping import length_label
+
+    Q = _selected_denovo(P, cfg)
     classes = cfg.mapping.length_classes
     in_cls = [length_label(len(p), classes) is not None for p in Q["peptide"].astype(str)]
-    keep = (Q["source"].astype(str) == "denovo").to_numpy(dtype=bool) & np.asarray(in_cls, bool)
-    return Q.loc[keep, ["peptide", "score", "source"]].reset_index(drop=True)
+    return Q.loc[np.asarray(in_cls, dtype=bool)].reset_index(drop=True)
 
 
 def placement_denovo_count(log_text: str) -> int | None:
@@ -940,6 +953,7 @@ def hypothesis4(
     *,
     searchable: Collection[str] | None = None,
     n_denovo_logged: int | None = None,
+    n_denovo: int | None = None,
     a2_contaminant_rows: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """H4 (§15.7, definitions 2-10): per score bin of ``queries`` (``score_bins``, the step's
@@ -947,7 +961,9 @@ def hypothesis4(
     ``mapping_fdr.tsv``; the relations of reportable bins (precision reported, n_b >= 20), the
     verdict, the descriptive extras (both over reportable bins), ``nested_share``,
     ``L_b_searchable`` and the caveats. Raises ``Inconsistent`` when the bin labels differ from
-    ``mapping_fdr``'s or ``n_denovo_logged`` differs from |S|."""
+    ``mapping_fdr``'s or ``n_denovo_logged`` differs from ``n_denovo`` (the de novo queries
+    before the length-class filter; default ``len(queries)``). Unscored (NaN) queries form no
+    bin, as in the mapping step, but count in ``n_denovo``."""
     from giap.mapping.denovo_precision import score_bins
 
     peps = [_fold(p) for p in queries["peptide"].astype(str)]
@@ -955,7 +971,7 @@ def hypothesis4(
     dn = mapping_fdr[mapping_fdr["section"].astype(str) == "denovo_precision"]
     recs = [r for r in dn.to_dict("records") if clean(r["score_bin"]) is not None]
     rows = {int(r["score_bin"]): r for r in recs}
-    labels = sorted({int(b) for b in bins})
+    labels = sorted({int(b) for b in bins if b >= 0})
     if set(labels) != set(rows) or len(rows) != len(dn):
         raise Inconsistent(
             f"H4: score bins {labels} != mapping_fdr.tsv denovo_precision bins {sorted(rows)}"
@@ -963,8 +979,8 @@ def hypothesis4(
     warnings: list[Any] = []
     if n_denovo_logged is None:
         warnings.append({"code": "denovo_count_unchecked"})
-    elif n_denovo_logged != len(peps):
-        raise Inconsistent(f"H4: {len(peps)} de novo queries != placement log {n_denovo_logged}")
+    elif n_denovo_logged != (n_dn := len(peps) if n_denovo is None else n_denovo):
+        raise Inconsistent(f"H4: {n_dn} de novo queries != placement log {n_denovo_logged}")
     D = {_fold(str(p)) for p in d2}
     if not D:
         warnings.append({"code": "a2_empty"})
@@ -1285,6 +1301,7 @@ NOTES_MARK = "<!-- notes -->"
 M3_MARK = "<!-- m3 rows -->"
 NOT_EVALUATED_MARK = "<!-- not evaluated -->"
 DEFECT_REASONS = ("missing:", "pending")  # a defect in the final report, never a finding
+M6_FINAL_ARMS = ("A2", "A3", "overlap_a2_a3")  # a ``missing:`` table here refuses --final (S3)
 PEPTIDE_LIKE = re.compile(r"[ACDEFGHIKLMNPQRSTVWY]{7,}")
 _MISSING = object()
 
@@ -1479,12 +1496,16 @@ def missing_paths(template: str, metrics: Mapping[str, Any]) -> list[str]:
 
 
 def not_evaluated(metrics: Mapping[str, Any]) -> list[str]:
-    """One line per metric or hypothesis (and its direct sub-blocks) carrying a ``reason``."""
+    """One line per metric or hypothesis (and its sub-blocks, to depth three) carrying a
+    ``reason``."""
     out = []
     for key in sorted(k for k in metrics if re.fullmatch(r"m\d|h\d|te1", k)):
         blocks = [(key, metrics[key])]
         if isinstance(metrics[key], Mapping):
-            blocks += [(f"{key}.{k}", v) for k, v in sorted(metrics[key].items())]
+            for k, v in sorted(metrics[key].items()):
+                blocks.append((f"{key}.{k}", v))
+                if isinstance(v, Mapping):
+                    blocks += [(f"{key}.{k}.{k2}", v2) for k2, v2 in sorted(v.items())]
         for path, v in blocks:
             if isinstance(v, Mapping) and isinstance(r := v.get("reason"), str):
                 finding = not r.startswith(DEFECT_REASONS)
@@ -1494,7 +1515,8 @@ def not_evaluated(metrics: Mapping[str, Any]) -> list[str]:
 
 def final_problems(metrics: Mapping[str, Any]) -> list[str]:
     """What the final report refuses: a ``pending``/``partial`` checklist row or an empty
-    evidence string, a ``pending`` or absent TE2-TE5 or TE7 status (each message names it)."""
+    evidence string, a ``pending`` or absent TE2-TE5 or TE7 status, a ``missing:`` table of
+    metric 6 under A2, A3 or their overlap (S3; A1's stays a value) (each message names it)."""
     out = []
     for i, row in enumerate(metrics["checklist"]):
         if str(row.get("status")).startswith(("pending", "partial")):
@@ -1505,6 +1527,12 @@ def final_problems(metrics: Mapping[str, Any]) -> list[str]:
     statuses = {f"te_real.{k}.status": (te.get(k) or {}).get("status") for k in TE_KEYS}
     statuses["te7.giap.status"] = (te7.get("giap") or {}).get("status")
     out += [f"{p} is {s!r}" for p, s in statuses.items() if s is None or s.startswith("pending")]
+    m6 = metrics.get("m6")
+    for arm in M6_FINAL_ARMS if isinstance(m6, Mapping) else ():
+        block = m6.get(arm)
+        for table, v in sorted(block.items()) if isinstance(block, Mapping) else ():
+            if isinstance(v, Mapping) and str(v.get("reason", "")).startswith("missing:"):
+                out.append(f"m6.{arm}.{table} is {v['reason']!r}")
     return out
 
 
@@ -1768,12 +1796,27 @@ def _arm_tables(out: Path) -> dict[str, pd.DataFrame | None]:
 
 
 def _placement_logged(out: Path) -> int | None:
-    """The placement log line's de novo count from the run's text logs (S6); None if absent."""
-    found = None
-    for f in sorted((out / "logs").rglob("*.log")) if (out / "logs").is_dir() else []:
-        n = placement_denovo_count(f.read_text(encoding="utf-8", errors="replace"))
-        found = n if n is not None else found
-    return found
+    """The placement line's de novo count from the ``.command.log`` of the last COMPLETED
+    placement task of ``OUT/logs/trace.tsv`` (B1); None without a trace, task dir or line."""
+    from giap.runner.nextflow import _step_name, _task_dir
+
+    trace = out / "logs" / "trace.tsv"
+    if not trace.is_file():
+        return None
+    with trace.open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh, delimiter="\t"))
+    done = [
+        r
+        for r in rows
+        if (r.get("status") or "").strip() == "COMPLETED"
+        and _step_name(r.get("name") or "") == "placement"
+    ]
+    if not done:
+        return None
+    log = Path(_task_dir(done[-1], out / "work")) / ".command.log"
+    if not log.is_file():
+        return None
+    return placement_denovo_count(log.read_text(encoding="utf-8", errors="replace"))
 
 
 def _read_a3(a: argparse.Namespace, genome_sha: str) -> dict[str, Any]:
@@ -1840,6 +1883,7 @@ def _m6_h4(
     _, D2, _ = split_contaminants(a2["P"], a2["cfg"])
     h4 = hypothesis4(denovo_queries(a3["P"], a3["cfg"]), D2, a3["mapping_fdr"],
                      searchable=_searchable(a.strain_db), n_denovo_logged=a3["logged"],
+                     n_denovo=denovo_count(a3["P"], a3["cfg"]),
                      a2_contaminant_rows=contaminant_rows(a2["P"], a2["cfg"]))  # fmt: skip
     if a3["manifest"].get("git_commit") != arms["A2"]["manifest"].get("git_commit"):
         warnings.append({"code": "giap_commit_differs", "A3": a3["manifest"].get("git_commit")})
