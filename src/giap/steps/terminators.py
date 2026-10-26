@@ -85,7 +85,7 @@ external(
 
 
 def _bactermfinder(p: Path, reps: dict[str, Replicon]) -> list[Terminator]:
-    """Provisional (M2-15 review item 5): a directory without a CSV → no calls; exactly one CSV →
+    """A directory without a CSV → no calls; exactly one CSV (the ``*_mean.csv`` table) →
     parse it; several CSVs → ValueError naming them (no arbitrary pick)."""
     if p.is_dir():
         files = sorted(f for f in p.iterdir() if f.is_file() and f.suffix == ".csv")
