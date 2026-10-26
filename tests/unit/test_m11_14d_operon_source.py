@@ -497,3 +497,90 @@ def test_example_9b_report_caveat_under_publication(tmp_path: Path, calib: Any) 
                    layers_missing=["uniop"])  # fmt: skip
     write_manifest(out, doc)
     assert _sentence(REASON_DISABLED, OP_14S2) in section_text(page(out), "methods")
+
+
+# -------------------------------------------------- run tail warning (Khoa 2026-10-26)
+# A run-time UniOP failure cannot be seen by preflight: ``giap run`` flags it at the end of the
+# run, with one line on stderr naming the reason and the distance model, e.g.
+# ``giap run: warning: operons used the distance model: UniOP failed (no uniop.pred)``.
+
+FAKE_NF = """#!/bin/sh
+prev=""
+for a in "$@"; do
+  if [ "$prev" = "-with-trace" ]; then mkdir -p "$(dirname "$a")"; cp "$FAKE_NF_TRACE" "$a"; fi
+  prev="$a"
+done
+exit 0
+"""
+
+
+def _cli_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, meta: Mapping[str, str]) -> str:
+    import os
+    import random
+    import stat
+
+    from click.testing import CliRunner
+    from helpers.fake_env import fake_giap_root, write_setup_manifest
+    from helpers.manifest_data import trace_row
+
+    from giap.cli import cli
+    from giap.preflight import environment
+
+    monkeypatch.setattr(environment, "probe_uniop", lambda *a, **k: (0, ""), raising=False)
+    monkeypatch.setenv("GIAP_ROOT", str(fake_giap_root(tmp_path / "root")))
+    monkeypatch.delenv("NXF_APPTAINER_CACHEDIR", raising=False)
+    monkeypatch.setenv("GIAP_DB_DIR", str(write_setup_manifest(tmp_path / "db")))
+    task = tmp_path / "task" / "ab" / "cdef12"
+    task.mkdir(parents=True)
+    (task / "operon_meta.json").write_text(json.dumps(dict(meta)), encoding="utf-8")
+    row = trace_row("ANNOTATE:OPERON_PAIRS (operon_pairs)", workdir=str(task))
+    trace = tmp_path / "trace.tsv"
+    with trace.open("w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(row), delimiter="\t")
+        w.writeheader()
+        w.writerow(row)
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    exe = bindir / "nextflow"
+    exe.write_text(FAKE_NF)
+    exe.chmod(exe.stat().st_mode | stat.S_IXUSR)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
+    monkeypatch.setenv("FAKE_NF_TRACE", str(trace))
+    rng = random.Random(3)
+    genome = tmp_path / "in" / "genome.fa"
+    genome.parent.mkdir(parents=True)
+    genome.write_text(
+        f">chr1 [topology=circular]\n{''.join(rng.choice('ACGT') for _ in range(6000))}\n"
+    )
+    prot = tmp_path / "in" / "p.faa"
+    prot.write_text(
+        ">P1\nM" + "".join(rng.choice("ACDEFGHIKLMNPQRSTVWY") for _ in range(150)) + "\n"
+    )
+    argv = ["run", "--genome", str(genome), "--proteins", str(prot), "--outdir",
+            str(tmp_path / "OUT"), "--profile", "farmshare,apptainer",
+            "--set", "preflight.min_n50_warn=1",
+            "--set", "preflight.min_largest_contig_warn=1"]  # fmt: skip
+    res = CliRunner().invoke(cli, argv)
+    if res.exception is not None and not isinstance(res.exception, SystemExit):
+        raise res.exception
+    doc = json.loads((tmp_path / "OUT" / "run_manifest.json").read_text(encoding="utf-8"))
+    assert doc["operon_source"] == meta["operon_source"], doc.get("operon_source")
+    return res.output + (res.stderr if res.stderr_bytes is not None else "")
+
+
+def test_run_tail_warns_on_a_run_time_uniop_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    reason = "UniOP failed (no uniop.pred)"
+    text = _cli_run(tmp_path, monkeypatch, {"operon_source": "distance_model", "reason": reason})
+    lines = [ln for ln in text.splitlines() if reason in ln]
+    assert lines, text
+    assert any("warning" in ln.lower() and "distance model" in ln for ln in lines), lines
+
+
+def test_run_tail_no_operon_warning_when_uniop_ran(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    meta = {"operon_source": "uniop", "reason": "UniOP probabilities (pin 3ed14dfc)"}
+    text = _cli_run(tmp_path, monkeypatch, meta)
+    assert "distance model" not in text, text

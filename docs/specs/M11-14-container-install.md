@@ -124,7 +124,25 @@ build fails (offline, no build rights), and it becomes the default only after 14
   | `auto` | yes | any | resolves to `true` |
   | `auto` | no | no | resolves to `false`; warning `environment.tools: uniop not installed (unlicensed, not distributed); operons use the distance model; run: <pkg> setup --uniop …` (item 3) |
   | `auto` | no | yes | exit 2, `environment.tools: uniop not installed; set annotation.uniop.enabled: false to publish with the distance-model operons (see Methods)` |
-  | `false` | any | any | distance model, flag and caveat below (accepted under `--publication`) |
+  | `false` | any | any | distance model, flag and caveat below (accepted under `--publication`); warning `environment.tools: annotation.uniop.enabled is false; operons use the distance model (see Methods)` (exit 0; `--strict` exit 3) |
+
+  **The fallback is never silent** (Khoa 2026-10-26: "when uniop failed, need to flag the user
+  in preflight"; ADR-0061 decision 5). Whenever the run will use the distance model, preflight
+  says so and names the reason:
+  - **Recorded setup failure.** When `db_manifest.json` has an `image:uniop` item whose `status`
+    is not `ok` (`absent`, `mismatch`, `failed`), its `message` is appended to the uniop error
+    (`enabled: true`, exit 2) or warning (`auto`) as `(last setup: <message>)`, for example
+    `(last setup: apptainer build failed (fakeroot unavailable or build error): <msg>)`.
+  - **Probe.** Preflight checks no tool by running it today, only files and `docker image
+    inspect`. 14d adds one probe for UniOP: `probe_uniop(profile, image_cache, env_root,
+    local_tools)` runs UniOP's entry point with `--help` in the runtime the profile resolves
+    to. It runs once, only when UniOP is otherwise present and needed (`enabled` not `false`, no
+    precomputed layer, not `test`/`stub`). A nonzero exit counts as "not installed" for the table
+    above, with the last non-empty stderr line appended to the message.
+  - **Run-time failure.** A UniOP failure during the run (`UniOP failed (…)`) cannot be seen by
+    preflight. `giap run` prints one warning line at the end of the run naming the reason and
+    the distance model, for example `giap run: warning: operons used the distance model: UniOP
+    failed (no uniop.pred)`, besides the manifest and report record.
 
 - **Run.** `giap run` passes `params.run_uniop` (from the resolved value), and `UNIOP` is skipped
   when it is false.
@@ -173,6 +191,14 @@ moves).*
     fails, the default may still ship only if the affected rows carry a flag
     (`tu_source_distance_model`) with an R4 caveat and an ADR scoping them as uncalibrated under
     the fallback. The bound never moves.
+  - **Outcome (ADR-0061, accepted 2026-10-26; implemented in 14d).** Under
+    `operon_source = distance_model`, every TU-block `morans_i` row of `autocorrelation.tsv` and
+    every `both_detected_t` row of `pairs.tsv` carries `tu_source_distance_model`, with the ADR's
+    two caveats. On every run (Q-K21), every TU-block `morans_i` row also carries
+    `tu_block_tu_error`, with the caveat "Moran's I under the TU-block null assumes exact TU
+    boundaries and is anti-conservative at short lags when TUs are split; rejection at α = 0.05
+    was 0.67 in simulation with UniOP's K-12 error rates". `context_stats` and `operons` read the
+    source from `operon_meta.json` (a new optional input).
 - **14s2: operating point.**
   - Evaluate precision and recall of `p_dist ≥ pair_threshold` (0.5, Khoa's decision, unchanged)
     on RegulonDB 14.5.0 K-12, with the directon-bootstrap CIs (the M6-12 driver's
@@ -663,7 +689,10 @@ release-prep PR (version, changelog, CITATION) → evidence by the table above �
 | 8 | preflight, `enabled: auto`, profile `docker`, no UniOP, no `--publication` | exit 0; warning `uniop not installed …`; `params.run_uniop = false`; after the run `layers_missing` contains `uniop`, the flag `operon_source_distance_model` is set, manifest `operon_source: distance_model`, `operon_source_reason: UniOP not installed` |
 | 8b | the same with `--publication` | exit 2, `uniop not installed; set annotation.uniop.enabled: false to publish …` |
 | 9 | `enabled: true`, no UniOP | exit 2, `environment.tools: uniop` missing |
-| 9b | `enabled: false` with `--publication` | exit 0; reason `UniOP disabled (annotation.uniop.enabled=false)`; flag and report caveat present |
+| 9b | `enabled: false` with `--publication` | exit 0 with the warning `annotation.uniop.enabled is false; operons use the distance model (see Methods)`; reason `UniOP disabled (annotation.uniop.enabled=false)`; flag and report caveat present |
+| 9c | `enabled: true`, no UniOP, `db_manifest.json` item `image:uniop` `absent` with `message: apptainer build failed (…)` | exit 2; the message ends `(last setup: apptainer build failed (…))`; under `auto` the same text is in the warning |
+| 9d | UniOP present, its `--help` probe exits 1 with `ModuleNotFoundError: …` last on stderr | `enabled: true`: exit 2, uniop missing, that line in the message; `auto`: warning with that line, `params.run_uniop = false` |
+| 9e | UniOP ran and wrote no pair | reason `UniOP failed (no uniop.pred)` (or `has no pair`); `giap run` ends with a warning line naming it and the distance model |
 | 10 | `compare` of a 1.0.0 run and a 1.1.0 run whose OSTIR digests differ | exit 0; warnings `compare.cross_version` and `compare.tool_versions: ostir 1.1.3 sha256:<12> vs …` |
 | 11 | `compare` of `output_schema_version` 1.3 and 2.0 runs | exit 1 unless `--allow-cross-major` |
 | 12 | readiness for 1.0.1 where `D` = {`src/giap/viz/locus.py`, `docs/x.md`, `src/giap/__init__.py` (version line only)} | calibration, pilot and benchmark rows `pass (reused from <C7> …)` |
@@ -796,6 +825,8 @@ injected callables. Preflight tests use temporary fake `GIAP_ROOT`/cache/DB dire
      `operon_source_distance_model` flag, manifest `operon_source`/`operon_source_reason`, and a
      distance-model `operon_pairs.tsv`;
    - each of the three reasons appears in its case;
+   - examples 9b-9e (preflight warnings, the recorded setup reason, the probe, the run-tail line);
+   - the ADR-0061 row flags and caveats (`tu_source_distance_model`, `tu_block_tu_error`);
    - the report fixture shows the operon-source text with the numbers from `calibration.yaml`.
 9. UniOP local build (14u1, 14u2), with an injected fake fetcher and fake
    `docker`/`apptainer`/`micromamba` on `PATH`. The fixture archive is a few-byte tarball made by

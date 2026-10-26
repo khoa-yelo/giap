@@ -1,8 +1,9 @@
 """M11-14d: ``annotation.uniop.enabled``, its preflight resolution and ``params.run_uniop``.
 
 docs/specs/M11-14-container-install.md item 1 option (c) "in detail (14d)": Config, Preflight
-resolution (the six-row table, ``--publication`` included), Run; examples 8, 8b, 9 and 9b; AC 5
-(the item 1 resolution table) and AC 8; edge case "Precomputed operon pairs"; Q-K13 (Khoa
+resolution (the six-row table, ``--publication`` included, amended 2026-10-26), Run;
+examples 8, 8b, 9 and 9b; AC 5 (the item 1 resolution table) and AC 8; edge case "Precomputed operon
+pairs"; Q-K13 (Khoa
 2026-10-25: under ``--publication`` ``auto`` must resolve to ``true`` or exit 2, an explicit
 ``false`` is accepted). The step reasons, the manifest and the report text are in
 ``test_m11_14d_operon_source.py``.
@@ -22,9 +23,22 @@ Interface pinned here (implementer; the spec leaves these names open):
     ``annotation.uniop.enabled`` a bool (never ``"auto"``). How it records that ``auto``
     resolved to false (so ``operon_pairs`` can say "UniOP not installed") is the
     implementer's choice; the step tests round-trip it through ``write_params``.
+- ``resolve_uniop(..., detail="")``: ``detail`` (why uniop is missing) is appended to the error
+  (``true``) or the warning (``auto``) when uniop is not installed, and ignored otherwise.
+- Khoa 2026-10-26 ("when uniop failed, need to flag the user in preflight"):
+  - an explicit ``false`` is a warning (exit 0; ``--strict`` exit 3): ``FALSE_WARNING`` below;
+  - a ``db_manifest.json`` item ``image:uniop`` whose ``status`` is not ``ok`` (``absent``,
+    ``mismatch``, ``failed``) gives ``detail = "(last setup: <its message>)"``;
+  - ``giap.preflight.environment.probe_uniop(profile, *, image_cache, env_root, local_tools)
+    -> (returncode, stderr)`` runs UniOP's entry point with ``--help`` in the runtime the
+    profile resolves to (no such probe exists for any tool today; preflight only checks files
+    and ``docker image inspect``). ``run_preflight`` calls it, looked up as a module attribute,
+    once, and only when uniop is otherwise present, needed (``enabled`` not false, no
+    precomputed layer) and the profile is not ``test``/``stub``. A nonzero return counts as
+    not installed, with the last non-empty stderr line as the ``detail``.
 - ``run_preflight(..., profile=..., publication=False)``: a new keyword; ``uniop`` installed
-  means not in ``missing_tools`` (14f1). The ``auto`` warning and both errors live on the
-  ``environment.tools`` check.
+  means not in ``missing_tools`` (14f1) and a passing probe. The warnings and both errors live
+  on the ``environment.tools`` check.
 - ``giap run``: ``OUT/work/params.json`` gains ``run_uniop`` (bool), and
   ``resolved_config.yaml`` carries the resolved ``enabled``.
   ``write_params(outdir, cfg, inputs)`` sets ``run_uniop`` from ``cfg.annotation.uniop.enabled``
@@ -71,6 +85,10 @@ AUTO_PUBLICATION_ERROR = (
     "uniop not installed; set annotation.uniop.enabled: false to publish with the "
     "distance-model operons (see Methods)"
 )
+#: Khoa 2026-10-26 ("when uniop failed, need to flag the user in preflight"): explicit false
+FALSE_WARNING = "annotation.uniop.enabled is false; operons use the distance model (see Methods)"
+#: the recorded reason of a failed or absent setup, appended to the uniop message
+LAST_SETUP = "(last setup: {})"
 ENABLED = [True, False, "auto"]
 QUIET = ["preflight.min_n50_warn=1", "preflight.min_largest_contig_warn=1"]
 
@@ -217,8 +235,8 @@ for _pub in (False, True):
     TABLE[(True, True, _pub)] = ("ok", True)
     TABLE[(True, False, _pub)] = ("error", None)
     TABLE[("auto", True, _pub)] = ("ok", True)
-    TABLE[(False, True, _pub)] = ("ok", False)
-    TABLE[(False, False, _pub)] = ("ok", False)
+    TABLE[(False, True, _pub)] = ("warn", False)  # Khoa 2026-10-26: always flag the fallback
+    TABLE[(False, False, _pub)] = ("warn", False)
 TABLE[("auto", False, False)] = ("warn", False)
 TABLE[("auto", False, True)] = ("error", False)
 CELLS = sorted(TABLE, key=str)
@@ -268,6 +286,38 @@ def test_auto_not_installed_warning_text() -> None:
 def test_auto_not_installed_publication_error_text() -> None:
     res = _resolve(_cfg("auto"), installed=False, publication=True)
     assert AUTO_PUBLICATION_ERROR in res.message, res.message
+
+
+@pytest.mark.parametrize("installed", [False, True])
+@pytest.mark.parametrize("publication", [False, True])
+def test_false_warning_text(installed: bool, publication: bool) -> None:
+    res = _resolve(_cfg(False), installed=installed, publication=publication)
+    assert res.level == "warn", res
+    assert FALSE_WARNING in res.message, res.message
+
+
+SETUP_MSG = (
+    "apptainer build failed (fakeroot unavailable or build error): FATAL: no fakeroot; "
+    "use --profile docker or conda, or set annotation.uniop.enabled=auto"
+)
+
+
+@pytest.mark.parametrize(("enabled", "level"), [(True, "error"), ("auto", "warn")])
+def test_detail_is_appended_when_not_installed(enabled: bool | str, level: str) -> None:
+    """``resolve_uniop(..., detail=...)``: why uniop is missing (recorded setup failure or a
+    failed probe) goes into the error (``true``) or the warning (``auto``)."""
+    fn = getattr(_env_mod(), "resolve_uniop", None)
+    assert fn is not None, "giap.preflight.environment.resolve_uniop is not implemented"
+    res = fn(_cfg(enabled), installed=False, publication=False, detail=LAST_SETUP.format(SETUP_MSG))
+    assert res.level == level, res
+    assert LAST_SETUP.format(SETUP_MSG) in res.message, res.message
+
+
+def test_detail_is_ignored_when_installed() -> None:
+    fn = getattr(_env_mod(), "resolve_uniop", None)
+    assert fn is not None, "giap.preflight.environment.resolve_uniop is not implemented"
+    res = fn(_cfg(True), installed=True, publication=False, detail="stale text")
+    assert res.level == "ok" and res.message == "", res
 
 
 def test_true_not_installed_error_names_uniop() -> None:
@@ -333,6 +383,20 @@ def inputs(tmp_path: Path) -> Any:
 @pytest.fixture
 def db(tmp_path: Path) -> Path:
     return write_setup_manifest(tmp_path / "db")
+
+
+@pytest.fixture(autouse=True)
+def _probe_ok(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, ...]]:
+    """The UniOP probe (``giap.preflight.environment.probe_uniop``, looked up as a module
+    attribute) succeeds unless a test says otherwise; the fake roots hold no real UniOP."""
+    calls: list[tuple[Any, ...]] = []
+
+    def ok(*args: Any, **kw: Any) -> tuple[int, str]:
+        calls.append((args, kw))
+        return 0, ""
+
+    monkeypatch.setattr(_env_mod(), "probe_uniop", ok, raising=False)
+    return calls
 
 
 def _root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, uniop: bool) -> Path:
@@ -420,7 +484,8 @@ def test_example_9b_false_passes_with_or_without_publication(
 ) -> None:  # fmt: skip
     _root(tmp_path, monkeypatch, uniop=installed)
     report, check = _preflight(inputs, db, tmp_path, False, publication)
-    assert check.level == "ok", check
+    assert check.level == "warn", check
+    assert FALSE_WARNING in check.message, check.message
     assert "uniop" not in _missing(check)
     assert _code(report) == ExitCode.SUCCESS
 
@@ -447,6 +512,143 @@ def test_publication_keyword_defaults_to_false(
     report, _ = run_preflight(inputs, _cfg("auto"), None, "run", tmp_path / "OUT", db,
                               profile=PROFILE)  # fmt: skip
     assert _code(report) == ExitCode.SUCCESS
+
+
+# ---------------------------------------------------------------- recorded setup failure (1b)
+
+
+def _record_uniop(db: Path, status: str, message: str) -> Path:
+    """Add the ``image:uniop`` item a failed ``setup --uniop``/``--images`` leaves behind."""
+    path = db / "db_manifest.json"
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    doc["items"].append({"name": "image:uniop", "version": "git:3ed14dfc", "checksum": None,
+                         "status": status, "message": message})  # fmt: skip
+    path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    return db
+
+
+@pytest.mark.parametrize("status", ["absent", "mismatch", "failed"])
+def test_true_not_installed_error_names_the_recorded_setup_failure(
+    inputs: Any, db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, status: str
+) -> None:
+    _root(tmp_path, monkeypatch, uniop=False)
+    _record_uniop(db, status, SETUP_MSG)
+    report, check = _preflight(inputs, db, tmp_path, True, False)
+    assert check.level == "error" and "uniop" in _missing(check), check
+    assert LAST_SETUP.format(SETUP_MSG) in check.message, check.message
+    assert _code(report) == ExitCode.ENVIRONMENT
+
+
+def test_auto_warning_names_the_recorded_setup_failure(
+    inputs: Any, db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _root(tmp_path, monkeypatch, uniop=False)
+    _record_uniop(db, "absent", "terms not accepted; rerun with --accept-uniop-terms")
+    report, check = _preflight(inputs, db, tmp_path, "auto", False)
+    assert check.level == "warn", check
+    assert AUTO_WARNING in check.message
+    want = LAST_SETUP.format("terms not accepted; rerun with --accept-uniop-terms")
+    assert want in check.message, check.message
+    assert _code(report) == ExitCode.SUCCESS
+
+
+def test_no_last_setup_text_without_a_recorded_failure(
+    inputs: Any, db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _root(tmp_path, monkeypatch, uniop=False)
+    _, check = _preflight(inputs, db, tmp_path, "auto", False)
+    assert "last setup" not in check.message, check.message
+
+
+# ---------------------------------------------------------------- the UniOP probe
+
+PROBE_STDERR = "\n".join(
+    [f'  File "UniOP", line {i}, in <module>' for i in range(40)]
+    + ["ModuleNotFoundError: No module named 'sklearn'", ""]
+)
+PROBE_TAIL = "ModuleNotFoundError: No module named 'sklearn'"
+
+
+def _probe(monkeypatch: pytest.MonkeyPatch, code: int, err: str) -> list[Any]:
+    calls: list[Any] = []
+
+    def fake(*args: Any, **kw: Any) -> tuple[int, str]:
+        calls.append((args, kw))
+        return code, err
+
+    monkeypatch.setattr(_env_mod(), "probe_uniop", fake, raising=False)
+    return calls
+
+
+def test_probe_is_a_module_function() -> None:
+    import inspect
+
+    from giap.preflight import environment
+
+    fn = getattr(environment, "probe_uniop", None)
+    assert fn is not None and inspect.isfunction(fn), "probe_uniop is not implemented"
+    assert fn.__module__ == "giap.preflight.environment"
+    params = inspect.signature(fn).parameters
+    assert {"image_cache", "env_root", "local_tools"} <= set(params), list(params)
+
+
+@pytest.mark.parametrize("enabled", [True, "auto"])
+def test_probe_runs_once_when_uniop_is_present(
+    inputs: Any, db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, enabled: bool | str
+) -> None:
+    _root(tmp_path, monkeypatch, uniop=True)
+    calls = _probe(monkeypatch, 0, "")
+    report, check = _preflight(inputs, db, tmp_path, enabled, False)
+    assert len(calls) == 1, calls
+    assert PROFILE in [*calls[0][0], *calls[0][1].values()], calls
+    assert check.level == "ok" and _code(report) == ExitCode.SUCCESS
+
+
+def test_probe_not_run_when_disabled_or_precomputed(
+    inputs: Any, db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _root(tmp_path, monkeypatch, uniop=True)
+    calls = _probe(monkeypatch, 1, PROBE_STDERR)
+    _preflight(inputs, db, tmp_path, False, False)
+    layer = tmp_path / "operon_pairs.tsv"
+    layer.write_text("gene_a\tgene_b\tuniop_p\tsource\n", encoding="utf-8")
+    _preflight(inputs, db, tmp_path, True, False, f"annotation.precomputed.operon_pairs={layer}")
+    assert calls == [], calls
+
+
+def test_failed_probe_under_true_is_missing_with_the_stderr_tail(
+    inputs: Any, db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _root(tmp_path, monkeypatch, uniop=True)
+    _probe(monkeypatch, 1, PROBE_STDERR)
+    report, check = _preflight(inputs, db, tmp_path, True, False)
+    assert check.level == "error" and "uniop" in _missing(check), check
+    assert PROBE_TAIL in check.message, check.message
+    assert "line 0, in" not in check.message, "the whole stderr, not its tail"
+    assert _code(report) == ExitCode.ENVIRONMENT
+
+
+def test_failed_probe_under_auto_warns_and_falls_back(
+    inputs: Any, db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _root(tmp_path, monkeypatch, uniop=True)
+    _probe(monkeypatch, 2, PROBE_STDERR)
+    report, check = _preflight(inputs, db, tmp_path, "auto", False)
+    assert check.level == "warn", check
+    assert AUTO_WARNING in check.message and PROBE_TAIL in check.message, check.message
+    assert "uniop" not in _missing(check)
+    assert _code(report) == ExitCode.SUCCESS
+
+
+def test_failed_probe_under_auto_with_publication_exits_2(
+    inputs: Any, db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _root(tmp_path, monkeypatch, uniop=True)
+    _probe(monkeypatch, 1, PROBE_STDERR)
+    report, check = _preflight(inputs, db, tmp_path, "auto", True)
+    assert check.level == "error", check
+    assert AUTO_PUBLICATION_ERROR in check.message and PROBE_TAIL in check.message
+    assert _code(report) == ExitCode.ENVIRONMENT
 
 
 # ---------------------------------------------------------------- write_params
@@ -637,3 +839,26 @@ def test_run_example_9b_false_with_publication(
     assert code == ExitCode.SUCCESS, text
     assert _params(out)["run_uniop"] is False
     assert _resolved_enabled(out) is False
+
+
+@pytest.mark.usefixtures("fake_nf")
+def test_run_example_9b_warns_in_preflight_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
+) -> None:
+    code, text, out = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=True,
+                                sets=(_set(False),))  # fmt: skip
+    assert code == ExitCode.SUCCESS, text
+    assert FALSE_WARNING in _preflight_messages(out)
+
+
+@pytest.mark.usefixtures("fake_nf")
+def test_run_auto_with_a_failed_probe_falls_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genome: Path, proteins: Path
+) -> None:
+    _probe(monkeypatch, 1, PROBE_STDERR)
+    code, text, out = _giap_run(tmp_path, monkeypatch, genome, proteins, uniop=True,
+                                sets=(_set("auto"),))  # fmt: skip
+    assert code == ExitCode.SUCCESS, text
+    assert _params(out)["run_uniop"] is False
+    assert _resolved_enabled(out) is False
+    assert PROBE_TAIL in _preflight_messages(out)

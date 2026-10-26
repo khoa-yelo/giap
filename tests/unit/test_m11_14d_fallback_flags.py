@@ -1,7 +1,7 @@
 # ruff: noqa: RUF001, RUF002  (the report's wording is Unicode)
-"""M11-14d, ADR-0061 decision 1 (proposed): ``tu_source_distance_model`` on the TU-blocked rows.
+"""M11-14d, ADR-0061 decisions 1 and 4 (accepted by Khoa 2026-10-26): the TU-blocked row flags.
 
-Kept in its own file so that it can be dropped if Khoa rejects ADR-0061
+Kept in its own file (written while ADR-0061 was proposed)
 (docs/adr/ADR-0061-distance-model-fallback-scope.md on branch m11/14s1-operon-fallback-attack;
 14s1 outcome rule in docs/specs/M11-14-container-install.md: "the affected rows carry a flag
 (``tu_source_distance_model``) with an R4 caveat"). When ``operon_source = distance_model``:
@@ -14,21 +14,34 @@ Kept in its own file so that it can be dropped if Khoa rejects ADR-0061
   states "conservative under the distance-model fallback (merged TU boundaries widen the
   within-operon fit); fewer discordant pairs are found".
 
-No other row changes, and nothing changes under ``uniop`` or ``precomputed``.
+Decision 4 (Q-K21, every run): every TU-block ``morans_i`` row also carries
+``tu_block_tu_error`` whatever the operon source (``uniop``, ``precomputed``, the fallback, or no
+``operon_meta`` at all), and the report states "Moran's I under the TU-block null assumes exact
+TU boundaries and is anti-conservative at short lags when TUs are split; rejection at α = 0.05
+was 0.67 in simulation with UniOP's K-12 error rates". Under the fallback such a row carries both
+flags.
+
+No other row changes; ``tu_source_distance_model`` never appears under ``uniop`` or
+``precomputed``.
 
 Interface pinned here (the ADR leaves it to the 14d implementer):
 
-- ``giap.operons.flags.TU_SOURCE_FLAG == "tu_source_distance_model"``.
+- ``giap.operons.flags.TU_SOURCE_FLAG == "tu_source_distance_model"`` and
+  ``giap.operons.flags.TU_ERROR_FLAG == "tu_block_tu_error"``.
 - ``giap.operons.flags.add_tu_source_flag(frame, table, operon_source) -> pandas.DataFrame``, pure:
   ``table`` is ``"autocorrelation"`` or ``"pairs"``; the frame's ``flags`` cells are token
   sequences (as ``autocorrelation_rows`` and ``merge_tests`` build them). It returns a new frame,
-  appends the flag to the target rows only (existing tokens kept, no duplicate) and leaves the
-  input frame untouched.
+  appends the flags to the target rows only (existing tokens kept, no duplicate) and leaves the
+  input frame untouched. For ``autocorrelation`` it adds ``TU_ERROR_FLAG`` to the TU-block
+  ``morans_i`` rows for every ``operon_source`` (``None`` included).
 - The steps ``context_stats`` and ``operons`` take ``operon_meta`` (``operon_meta.json`` of
   ``operon_pairs``) as an optional input and apply the rule from its ``operon_source``.
-- The table schemas' ``flags`` patterns accept the token.
-- The report prints each caveat (Genome context and Operons sections) when the manifest's
-  ``operon_source`` is ``distance_model`` and the table is present.
+- The table schemas' ``flags`` patterns accept the tokens (``tu_block_tu_error``:
+  autocorrelation only).
+- The report prints each fallback caveat (Genome context and Operons sections) when the
+  manifest's ``operon_source`` is ``distance_model`` and the table is present, and the
+  decision 4 caveat in Genome context whenever ``autocorrelation.tsv`` has a TU-block
+  ``morans_i`` row.
 """
 
 from __future__ import annotations
@@ -49,6 +62,12 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 FLAG = "tu_source_distance_model"
+TU_ERROR = "tu_block_tu_error"
+TU_ERROR_CAVEAT = (
+    "Moran's I under the TU-block null assumes exact TU boundaries and is anti-conservative at "
+    "short lags when TUs are split; rejection at α = 0.05 was 0.67 in simulation with UniOP's "
+    "K-12 error rates"
+)
 REPO = Path(__file__).resolve().parents[2]
 TABLE_SCHEMAS = REPO / "src" / "giap" / "schemas" / "tables"
 MORAN_CAVEAT = (
@@ -82,6 +101,7 @@ def test_flag_constant() -> None:
     from giap.operons import flags
 
     assert getattr(flags, "TU_SOURCE_FLAG", None) == FLAG
+    assert getattr(flags, "TU_ERROR_FLAG", None) == TU_ERROR
 
 
 # ---------------------------------------------------------------- pure rule (examples)
@@ -115,10 +135,18 @@ def test_autocorrelation_example_distance_model() -> None:
     got = _add()(df, "autocorrelation", "distance_model")
     want = [True, True, True, False, False, False]
     assert [FLAG in _tokens(c) for c in got["flags"]] == want
-    assert _tokens(got["flags"].iloc[1]) == ["ci_unestimated", FLAG] or set(
-        _tokens(got["flags"].iloc[1])
-    ) == {"ci_unestimated", FLAG}
+    assert [TU_ERROR in _tokens(c) for c in got["flags"]] == want
+    assert set(_tokens(got["flags"].iloc[1])) == {"ci_unestimated", TU_ERROR, FLAG}
     assert _tokens(got["flags"].iloc[5]) == ["descriptive"]
+
+
+@pytest.mark.parametrize("source", ["uniop", "precomputed", None])
+def test_autocorrelation_tu_error_on_every_run(source: str | None) -> None:
+    """ADR-0061 decision 4: the TU-block Moran's I caveat flag whatever the operon source."""
+    got = _add()(_autocorr(AUTOCORR_ROWS), "autocorrelation", source)
+    assert [TU_ERROR in _tokens(c) for c in got["flags"]] == [True, True, True, False, False, False]
+    assert not any(FLAG in _tokens(c) for c in got["flags"])
+    assert set(_tokens(got["flags"].iloc[1])) == {"ci_unestimated", TU_ERROR}
 
 
 def _pairs(tests: Sequence[str], flags: Sequence[Sequence[str]] | None = None) -> pd.DataFrame:
@@ -148,7 +176,13 @@ def test_no_flag_unless_distance_model(source: str | None, table: str) -> None:
     df = _autocorr(AUTOCORR_ROWS) if table == "autocorrelation" else _pairs(["both_detected_t"])
     got = _add()(df, table, source)
     assert not any(FLAG in _tokens(c) for c in got["flags"])
-    assert [_tokens(c) for c in got["flags"]] == [_tokens(c) for c in df["flags"]]
+    strip = [[t for t in _tokens(c) if t != TU_ERROR] for c in got["flags"]]
+    assert strip == [_tokens(c) for c in df["flags"]]
+
+
+def test_pairs_never_get_tu_error() -> None:
+    got = _add()(_pairs(["both_detected_t", "none"]), "pairs", "distance_model")
+    assert not any(TU_ERROR in _tokens(c) for c in got["flags"])
 
 
 def test_empty_frames() -> None:
@@ -178,7 +212,7 @@ def _target(table: str, df: pd.DataFrame) -> list[bool]:
     return list(df["test"] == "both_detected_t")
 
 
-def _check(table: str, df: pd.DataFrame, source: str) -> None:
+def _check(table: str, df: pd.DataFrame, source: str | None) -> None:
     before = df.copy(deep=True)
     got = _add()(df, table, source)
     pd.testing.assert_frame_equal(df, before)  # input untouched
@@ -188,16 +222,21 @@ def _check(table: str, df: pd.DataFrame, source: str) -> None:
     for old, new, t in zip(df["flags"], got["flags"], hit, strict=True):
         o, n = _tokens(old), _tokens(new)
         assert len(n) == len(set(n)), n  # no duplicate token
-        if source == "distance_model" and t:
-            assert set(n) == set(o) | {FLAG}, (o, n)
-        else:
+        want = set(o)
+        if t and table == "autocorrelation":
+            want |= {TU_ERROR}
+        if t and source == "distance_model":
+            want |= {FLAG}
+        if want == set(o):
             assert n == o, (o, n)
+        else:
+            assert set(n) == want, (o, n)
     again = _add()(got, table, source)  # idempotent
     assert [_tokens(c) for c in again["flags"]] == [_tokens(c) for c in got["flags"]]
 
 
 @settings(max_examples=60, deadline=None, suppress_health_check=[HealthCheck.too_slow])
-@given(rows=st.lists(_AC_ROW, max_size=25), source=st.sampled_from(SOURCES))
+@given(rows=st.lists(_AC_ROW, max_size=25), source=st.sampled_from([*SOURCES, None]))
 def test_property_autocorrelation(rows: list[Any], source: str) -> None:
     _check("autocorrelation", _autocorr(rows), source)
 
@@ -223,6 +262,9 @@ def test_schema_flags_pattern_accepts_the_token(stem: str, other: str) -> None:
     for value in (FLAG, f"{other};{FLAG}", f"{FLAG};{other}"):
         assert re.fullmatch(pattern, value), (stem, value)
     assert not re.fullmatch(pattern, "tu_source_uniop")
+    if stem == "autocorrelation":
+        for value in (TU_ERROR, f"{other};{TU_ERROR}", f"{TU_ERROR};{FLAG}"):
+            assert re.fullmatch(pattern, value), (stem, value)
 
 
 # ---------------------------------------------------------------- steps declare operon_meta
@@ -393,14 +435,18 @@ def test_context_stats_flags_every_tu_block_morans_i_row(
     df = autocorr_by_source["distance_model"]
     t = (df["statistic"] == "morans_i") & (df["null_model"] == "tu_block")
     assert t.sum() >= 2, "fixture has fewer than two TU-block Moran's I lags"
-    has = df["flags"].map(lambda v: FLAG in _tokens(v))
-    assert has[t].all(), df.loc[t & ~has, ["lag", "flags"]]
-    assert not has[~t].any(), df.loc[~t & has, ["statistic", "null_model", "lag"]]
+    for token in (FLAG, TU_ERROR):
+        has = df["flags"].map(lambda v, tok=token: tok in _tokens(v))
+        assert has[t].all(), (token, df.loc[t & ~has, ["lag", "flags"]])
+        assert not has[~t].any(), (token, df.loc[~t & has, ["statistic", "null_model", "lag"]])
 
 
 def test_context_stats_no_flag_under_uniop(autocorr_by_source: dict[Any, Any]) -> None:
     df = autocorr_by_source["uniop"]
     assert not df["flags"].map(lambda v: FLAG in _tokens(v)).any()
+    t = (df["statistic"] == "morans_i") & (df["null_model"] == "tu_block")
+    has = df["flags"].map(lambda v: TU_ERROR in _tokens(v))
+    assert has[t].all() and not has[~t].any(), df.loc[t ^ has, ["statistic", "null_model", "lag"]]
     a = autocorr_by_source["distance_model"]
     pd.testing.assert_frame_equal(a.drop(columns="flags"), df.drop(columns="flags"))
 
@@ -415,9 +461,10 @@ def _report(tmp_path: Path, source: str) -> Any:
 
     out = run_out(tmp_path)
     flags = FLAG if source == "distance_model" else None
+    ac_flags = TU_ERROR if flags is None else f"{TU_ERROR};{FLAG}"
     ac = [{"contig": "chr1", "statistic": "morans_i", "lag": lag, "null_model": "tu_block",
            "value": 0.1, "stat": "morans_i", "p_value": 0.01, "q_value": 0.02,
-           "method": "tu_block_permutation", "n_perm": 999, "flags": flags}
+           "method": "tu_block_permutation", "n_perm": 999, "flags": ac_flags}
           for lag in (1, 2)]  # fmt: skip
     write_schema_table(out / "tables" / "autocorrelation.tsv", "autocorrelation", ac)
     pairs = [{"pair_id": "PAIR_1", "class": "OP", "gene_a": "g1", "gene_b": "g2",
@@ -433,6 +480,7 @@ def test_report_caveats_under_distance_model(tmp_path: Path) -> None:
 
     p = _report(tmp_path, "distance_model")
     assert MORAN_CAVEAT in section_text(p, "genome-context")
+    assert TU_ERROR_CAVEAT in section_text(p, "genome-context")
     assert DISCORDANCE_CAVEAT in section_text(p, "operons")
 
 
@@ -441,3 +489,10 @@ def test_report_no_caveats_under_uniop(tmp_path: Path) -> None:
 
     text = words(_report(tmp_path, "uniop").root.text())
     assert MORAN_CAVEAT not in text and DISCORDANCE_CAVEAT not in text
+
+
+@pytest.mark.parametrize("source", ["uniop", "precomputed"])
+def test_report_tu_error_caveat_on_every_run(tmp_path: Path, source: str) -> None:
+    from helpers.report_content import section_text
+
+    assert TU_ERROR_CAVEAT in section_text(_report(tmp_path, source), "genome-context")
