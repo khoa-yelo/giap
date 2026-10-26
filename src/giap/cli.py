@@ -161,7 +161,7 @@ def setup(
     from giap.preflight.environment import container_runtime
     from giap.setupdb import HttpsFetcher, SetupOptions, ToolRunner, run_setup
     from giap.setupdb.images import image_set, install_images
-    from giap.setupdb.uniop import setup_uniop
+    from giap.setupdb.uniop_build import setup_uniop
 
     if uniop and no_uniop:
         raise click.UsageError("--uniop and --no-uniop exclude each other")

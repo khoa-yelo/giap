@@ -456,7 +456,7 @@ def run_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
     exe.chmod(exe.stat().st_mode | stat.S_IXUSR)
     monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
     monkeypatch.setenv("FAKE_NF_ARGS", str(tmp_path / "nf_args.txt"))
-    monkeypatch.setattr(giap.cli, "_run_preflight", lambda *a, **k: {})
+    monkeypatch.setattr(giap.cli, "_run_preflight", lambda cfg, *a, **k: ({}, cfg))
     return {"genome": genome, "proteins": proteins, "db": db, "args": tmp_path / "nf_args.txt"}
 
 
