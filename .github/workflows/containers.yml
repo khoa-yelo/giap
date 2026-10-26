@@ -87,9 +87,13 @@ jobs:
             echo "changed files:"; echo "$changed"
             for t in $ALL; do
               if echo "$changed" | grep -qE "^(workflow/containers/$t/|workflow/envs/$t\.yml$|workflow/envs/locks/$t\.(explicit|pip)\.txt$)"; then
-                want="$want $t"
+                echo "changed by this push: $t"
               fi
             done
+            # Every GHCR tool is checked, not only the ones this push changed: a pending run
+            # cancelled by the concurrency group must not lose its tools. The existence check
+            # below keeps every published key tag from being rebuilt.
+            want="$ALL"
           fi
           tools="$(for t in $want; do echo "$t"; done | awk '!seen[$0]++' | tr '\n' ' ')"
           echo "tools=$tools"
@@ -134,7 +138,23 @@ jobs:
             echo "$tool: $ref $state"
             if [ "$state" = exists ]; then
               digest="sha256:$(docker buildx imagetools inspect --raw "$ref" | sha256sum | cut -d' ' -f1)"
-              printf '%s\t%s\n' "$tool" "$IMAGE_NS/$PREFIX-$tool@$digest" >> existing.tsv
+              # provenance of the earlier build: its org.opencontainers.image.revision label and
+              # its created date (images.json built_from and the containers.config record line)
+              prov="$(docker buildx imagetools inspect "$ref" --format '{{json .Image}}' | python3 -c '
+          import json, sys
+          img = json.load(sys.stdin)
+          if "config" not in img:  # an index: one config per platform
+              img = img.get("linux/amd64") or next(iter(img.values()))
+          rev = ((img.get("config") or {}).get("Labels") or {}).get("org.opencontainers.image.revision", "")
+          print(rev + "\t" + str(img.get("created", ""))[:10])
+          ')"
+              revision="${prov%%$'\t'*}"
+              created="${prov#*$'\t'}"
+              if ! [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$created" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+                echo "::error::$ref has no org.opencontainers.image.revision label or created date"
+                exit 1
+              fi
+              printf '%s\t%s\t%s\t%s\n' "$tool" "$IMAGE_NS/$PREFIX-$tool@$digest" "$revision" "$created" >> existing.tsv
             else
               licence="$(uv run --no-sync python -c 'import sys; from giap.annotate.tools import TOOLS; print(TOOLS[sys.argv[1]].licence)' "$tool")"
               printf '%s\t%s\t%s\t%s\t%s\n' "$tool" "$ref" "${tag%-"$key"}" "$key" "$licence" >> build.tsv
@@ -151,9 +171,9 @@ jobs:
               build.append({"tool": tool, "ref": ref, "version": version, "key": key, "licence": licence})
           existing = {}
           for line in pathlib.Path("existing.tsv").read_text().splitlines():
-              tool, ref = line.split("\t")
+              tool, ref, revision, created = line.split("\t")
               if pinned.get(tool, {}).get("ref") != ref:
-                  existing[tool] = ref
+                  existing[tool] = {"ref": ref, "revision": revision, "created": created}
           with open(os.environ["GITHUB_OUTPUT"], "a") as out:
               out.write(f"build={json.dumps(build)}\n")
               out.write(f"existing={json.dumps(existing)}\n")
@@ -168,7 +188,9 @@ jobs:
   build:
     name: build ${{ matrix.tool }}
     needs: plan
-    if: vars.GHCR_PUBLISH == 'true' && needs.plan.outputs.build != '[]'
+    if: >-
+      vars.GHCR_PUBLISH == 'true' && github.ref == 'refs/heads/main'
+      && needs.plan.outputs.build != '[]'
     runs-on: ubuntu-latest
     environment: ghcr
     permissions:
@@ -235,7 +257,8 @@ jobs:
     # A failed build leg must not hold back the other tools' pins (spec edge case: the failed tool
     # stays conda-only until it builds; the PR says so). Publishing off: nothing to pin.
     if: >-
-      ${{ !cancelled() && vars.GHCR_PUBLISH == 'true' && needs.plan.result == 'success'
+      ${{ !cancelled() && vars.GHCR_PUBLISH == 'true' && github.ref == 'refs/heads/main'
+      && needs.plan.result == 'success'
       && (needs.plan.outputs.build != '[]' || needs.plan.outputs.existing != '{}') }}
     runs-on: ubuntu-latest
     permissions:
@@ -272,7 +295,10 @@ jobs:
               "bactermfinder": ["BACTERMFINDER"],
               "ostir": ["OSTIR", "OSTIR_NOVEL"],
           }
-          refs = dict(json.loads(os.environ["EXISTING"]))  # tags that existed: their digests
+          existing = json.loads(os.environ["EXISTING"])  # tags that existed: digest, provenance
+          refs = {tool: e["ref"] for tool, e in existing.items()}
+          prov = {t: {"commit": e["revision"], "date": e["created"]} for t, e in existing.items()}
+          pathlib.Path("provenance.json").write_text(json.dumps(prov, indent=2) + "\n")
           for f in sorted(pathlib.Path("digests").iterdir()):
               refs[f.name] = f.read_text().strip()
           out = {p: ref for tool, ref in sorted(refs.items()) for p in procs[tool]}
@@ -286,7 +312,8 @@ jobs:
           uv run --no-sync python scripts/release/update_digests.py --digests digests.json \
             --config workflow/conf/containers.config \
             --nextflow-config workflow/nextflow.config \
-            --date "$(date -u +%F)" --source-commit "$GITHUB_SHA"
+            --date "$(date -u +%F)" --source-commit "$GITHUB_SHA" \
+            --provenance provenance.json
           if git diff --quiet; then
             echo "digests already pinned; no PR"
             exit 0

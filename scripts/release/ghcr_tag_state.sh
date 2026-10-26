@@ -5,6 +5,8 @@
 #   - inspect exits 0                                            -> prints `exists`, exit 0
 #   - error matching `manifest unknown|not found|NAME_UNKNOWN`  -> prints `absent`, exit 0
 #   - any other error (401/403, network, rate limit, no output)  -> the error on stderr, exit 1
+#   - docker missing, or docker/buildx unable to run (exit 126/127) -> exit 1, whatever the text
+#     (bash's `docker: command not found` must never match `not found`)
 # containers.yml calls it in the plan job and again right before the push, so both checks
 # classify alike. An authentication failure is never read as "absent".
 set -uo pipefail
@@ -14,11 +16,22 @@ if [ "$#" -ne 1 ] || [ -z "$1" ]; then
   exit 2
 fi
 ref="$1"
+if ! command -v docker >/dev/null 2>&1; then
+  echo "ghcr_tag_state: docker not found on PATH; cannot check $ref" >&2
+  exit 1
+fi
 out="$(docker buildx imagetools inspect "$ref" 2>&1)"
 rc=$?
 if [ "$rc" -eq 0 ]; then
   echo "exists"
   exit 0
+fi
+if [ "$rc" -eq 126 ] || [ "$rc" -eq 127 ]; then
+  {
+    echo "ghcr_tag_state: docker could not run (exit $rc); cannot check $ref:"
+    printf '%s\n' "$out"
+  } >&2
+  exit 1
 fi
 if printf '%s\n' "$out" | grep -qE 'manifest unknown|not found|NAME_UNKNOWN'; then
   echo "absent"
