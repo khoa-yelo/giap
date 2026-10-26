@@ -2,7 +2,9 @@
 
 Spec docs/specs/M11-06-ghcr-containers.md item 2 (lead decision on ambiguity 5): the pinned set
 equals the apptainer profile's conda-off set, so every newly pinned process joins the single
-``withName: '…' { conda = '' }`` selector in ``workflow/nextflow.config`` in the same run.
+``withName: '…' { conda = '' }`` selector in the same run. Since M11-14p the selector lives in
+``workflow/conf/container_common.config``, which the apptainer and docker profiles include; the
+script follows ``includeConfig`` from ``workflow/nextflow.config``.
 No network: every run edits copies in a temporary directory.
 """
 
@@ -20,6 +22,7 @@ REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "release" / "update_digests.py"
 CONFIG = REPO / "workflow" / "conf" / "containers.config"
 NEXTFLOW = REPO / "workflow" / "nextflow.config"
+COMMON = REPO / "workflow" / "conf" / "container_common.config"
 
 DATE = "2026-10-25"
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
@@ -34,7 +37,7 @@ def _run(
     tmp: Path,
     digests: dict[str, str],
     *,
-    nf_text: str | None = None,
+    common_text: str | None = None,
     date: str = DATE,
     commit: str = COMMIT,
     config_text: str | None = None,
@@ -42,7 +45,13 @@ def _run(
     cfg = tmp / "containers.config"
     cfg.write_text(CONFIG.read_text() if config_text is None else config_text)
     nf = tmp / "nextflow.config"
-    nf.write_text(NEXTFLOW.read_text() if nf_text is None else nf_text)
+    nf.write_text(NEXTFLOW.read_text())
+    conf = tmp / "conf"
+    conf.mkdir(exist_ok=True)
+    for src in (REPO / "workflow" / "conf").glob("*.config"):
+        (conf / src.name).write_text(src.read_text())
+    common = conf / "container_common.config"
+    common.write_text(COMMON.read_text() if common_text is None else common_text)
     dj = tmp / "digests.json"
     dj.write_text(json.dumps(digests))
     proc = subprocess.run(
@@ -64,7 +73,7 @@ def _run(
         text=True,
         timeout=60,
     )
-    return proc, cfg, nf
+    return proc, cfg, common
 
 
 def _selector_names(text: str) -> list[str]:
@@ -73,12 +82,13 @@ def _selector_names(text: str) -> list[str]:
     return hits[0].split("|")
 
 
-def test_real_nextflow_config_has_one_selector() -> None:
-    _selector_names(NEXTFLOW.read_text())
+def test_real_config_has_one_selector_in_the_shared_file() -> None:
+    assert not SELECTOR.findall(NEXTFLOW.read_text())
+    _selector_names(COMMON.read_text())
 
 
 def test_pinned_processes_join_the_conda_off_selector(tmp_path: Path) -> None:
-    before = _selector_names(NEXTFLOW.read_text())
+    before = _selector_names(COMMON.read_text())
     proc, _, nf = _run(
         tmp_path, {"OSTIR": _ref("ostir", "a" * 64), "OSTIR_NOVEL": _ref("ostir", "a" * 64)}
     )
@@ -88,7 +98,7 @@ def test_pinned_processes_join_the_conda_off_selector(tmp_path: Path) -> None:
 
 
 def test_only_the_selector_line_changes(tmp_path: Path) -> None:
-    original = NEXTFLOW.read_text()
+    original = COMMON.read_text()
     proc, _, nf = _run(tmp_path, {"TERMINATORNET": _ref("terminatornet", "b" * 64)})
     assert proc.returncode == 0, proc.stderr
     old, new = original.splitlines(), nf.read_text().splitlines()
@@ -103,7 +113,7 @@ def test_second_run_does_not_duplicate_names(tmp_path: Path) -> None:
     proc, _, nf = _run(tmp_path, digests)
     assert proc.returncode == 0, proc.stderr
     once = nf.read_text()
-    proc2, _, nf2 = _run(tmp_path, digests, nf_text=once)
+    proc2, _, nf2 = _run(tmp_path, digests, common_text=once)
     assert proc2.returncode == 0, proc2.stderr
     assert nf2.read_text() == once
     assert _selector_names(once).count("BACTERMFINDER") == 1
@@ -111,7 +121,7 @@ def test_second_run_does_not_duplicate_names(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("copies", [0, 2])
 def test_zero_or_two_selectors_exit_1_and_leave_both_files(tmp_path: Path, copies: int) -> None:
-    lines = NEXTFLOW.read_text().splitlines(keepends=True)
+    lines = COMMON.read_text().splitlines(keepends=True)
     idx = next(i for i, ln in enumerate(lines) if SELECTOR.match(ln.rstrip("\n")))
     if copies == 0:
         lines[idx] = "// selector removed\n"
@@ -119,7 +129,7 @@ def test_zero_or_two_selectors_exit_1_and_leave_both_files(tmp_path: Path, copie
         lines.insert(idx, lines[idx])
     nf_text = "".join(lines)
     cfg_text = CONFIG.read_text()
-    proc, cfg, nf = _run(tmp_path, {"OSTIR": _ref("ostir", "d" * 64)}, nf_text=nf_text)
+    proc, cfg, nf = _run(tmp_path, {"OSTIR": _ref("ostir", "d" * 64)}, common_text=nf_text)
     assert proc.returncode == 1
     assert "selector" in proc.stderr
     assert nf.read_text() == nf_text

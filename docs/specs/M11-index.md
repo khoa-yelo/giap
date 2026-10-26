@@ -67,6 +67,8 @@ runbook, outline, fragments) is not gated but is listed.
 | 1 | [M11-01](M11-01-package-build.md) | 1 | single-source version; `workflow/` bundled as `giap/workflow`; sdist/wheel content rules; `scripts/release/check_dist.py`; CI `package` job (build, check, clean-venv install smoke) | none | 190 | 230 | no |
 | 2 | [M11-02](M11-02-changelog-citation.md) | 1 | towncrier rendering rules; retroactive milestone fragments M0–M10; `CITATION.cff` complete and schema-checked; version agreement test | none | 30 | 160 | Q-K7 (authors) |
 | 3 | [M11-03](M11-03-release-readiness.md) | 1 | `scripts/release/readiness.py`: §13.2 bullets + release hygiene → `validation/release/<v>/readiness.json` + `READINESS.md` | 01, 02 (soft) | 340 | 320 | Q-K5, Q-K6 (criteria readings) |
+| 3b | [M11-03b](M11-03b-nightly-readiness-labels.md) | 1 | `calibration_full` / `calibration_attacks` rows: task records + JUnit in `calibration_full.sbatch`, `calibration_full_launch.sh`, `scripts/ci/calibration_rows.py` | 03 | 300 | 300 | no |
+| 3c | [M11-03c](M11-03c-calibration-full-sharding.md) | 2 | full tier fits its time limit: one job per suite with per-core lanes (replicate shards + unsharded test groups), shard-0-only tests auto-routed to group lanes, committed plan, block 2 on lanes (stats), launcher CPU fit; 5 PRs | 03b; blocks 13 | 640 | 900 | no |
 | 4 | [M11-04](M11-04-release-workflow.md) | 1 | `.github/workflows/release.yml` (workflow_dispatch, `dry_run` default true, actor and environment guards, trusted publishing, tag + GitHub release by the workflow) | 01, 03 | 190 | 170 | Q-K1–Q-K4 (account set-up) |
 | 5 | [M11-05](M11-05-release-runbook.md) | 1 | `docs/release.md`: the agent's prep steps and Khoa's account and dispatch steps, in order; post-release follow-ups | 04 | 0 (≈ 200 prose) | 40 | runs it |
 | 6 | [M11-06](M11-06-ghcr-containers.md) | 2 | `containers.yml`: build and push 5 GHCR images (not UniOP), digest PR; `scripts/release/update_digests.py`; Apptainer smoke on Slurm | 01 | 210 | 160 | Q-K8 (package visibility) |
@@ -78,8 +80,11 @@ runbook, outline, fragments) is not gated but is listed.
 | 11 | [M11-11](M11-11-preprint-outline.md) | 2 | `docs/preprint/outline.md`: sections, figure plan, claim → evidence map, limitations | 03, 08 (soft) | 0 (≈ 250 prose) | 50 | Q-K11 (venue, authors, AI statement) |
 | 12 | [M11-12](M11-12-changelog-check-readme.md) | 2 | `scripts/ci/check_changelog.py` + CI step; README for 1.0 | 02 | 120 | 130 | no |
 | 13 | [M11-13](M11-13-release-gate.md) | 2, gate | release-prep PR (1.0.0, built changelog, CITATION date), evidence jobs on the RC commit, committed readiness, review packet; Khoa approves and dispatches; post-release PRs (DOI, Bioconda, PyPI smoke) | all | 30 | 60 | **yes** (§14.8 item 5) |
+| 14 | [M11-14](M11-14-container-install.md) | 2, after the rebrand | container-complete pip install: content-addressed immutable GHCR tags (`<version>-<key>`, `images.json`, authenticated existence check), fgsea image, UniOP built locally from the authors' archive by `setup` (sha256-checked, terms accepted by the user; 14u1/14u2), `enabled: true|false|auto` for failed builds (`auto` default only after the statistician's attack and operating point, 14s1/14s2/14d2), `setup --images`, preflight rule for pinned images, docker/apptainer profile parity, version bump policy, rc and `reusable(C, R)` evidence reuse, compare version warnings, install + upgrade pages (14a–14j; 14b/14g/14h/14p are CI changes); ADR-0060 | 01, 04, 06, 09, 09b, 03; rename PR before 14j | 1,590 | 2,220 | **yes** (first GHCR publish, repo settings, CI changes, Q-K13–Q-K19) |
 
-Total ≈ 1,590 code lines (≈ 750 in pass 1), ≈ 1,730 test lines, ≈ 1,950 prose lines.
+Total ≈ 1,590 code lines (≈ 750 in pass 1), ≈ 1,730 test lines, ≈ 1,950 prose lines, before M11-14
+(added 2026-10-25: ≈ 1,590 code, ≈ 2,220 test, ≈ 380 prose; its questions Q-K13–Q-K19 and Q-L11–Q-L15
+are in the table below and in the issue file).
 
 ## Dependency DAG
 
@@ -134,6 +139,13 @@ has a reversible default the specs already use. Details are in the issue files.
 | Q-K10 | Spend ≈ 5 Actions minutes per PR on a Docker-profile smoke (Khoa's backlog item)? | yes, only on PRs touching `workflow/` and nightly on main | 09 |
 | Q-K11 | Preprint: venue, author list, AI-use statement, which pilot figures may appear | bioRxiv (Bioinformatics); Khoa sole author pending; an AI-use statement section left for Khoa; aggregates only (Khoa's data rule) | 11 |
 | Q-K12 | Release 1.0 with M6–M9 issues still open (M6-09 D-1, M7-16, M8-11, M9-25)? | readiness requires every milestone gate recorded in PROGRESS; non-gate open issues are listed under "Known limitations" in the 1.0 notes for Khoa to accept | 03, 13 |
+| Q-K13 | UniOP for pip users: licence request, local build, distance-model fallback; behaviour under `--publication` | **answered by Khoa 2026-10-25 (install mechanism):** `setup` fetches UniOP from the authors (sha256-checked) and builds it locally after the user accepts the terms, so preflight passes with UniOP (14u1/14u2); `enabled: auto` only for failed builds, the default only after 14s1/14s2 (14d2); `--publication` unchanged; optional: Khoa asks the authors for a licence (then published, local build a fallback) | 14 |
+| Q-K14 | GHCR owner after the rename | `ghcr.io/khoa-yelo/gippa-<tool>` | 14 |
+| Q-K15 | Release candidates on TestPyPI only, or also PyPI pre-releases? | TestPyPI only | 14 |
+| Q-K16 | GHCR retention | never prune; if Khoa prunes: unreleased digests only, ≥ 180 days, never the latest per tool | 14 |
+| Q-K17 | Nextflow + Java as prerequisites, or a `setup --nextflow` download? | prerequisites | 14 |
+| Q-K18 | Approve every `ghcr` build, or only the first? | every build until Khoa removes the reviewer | 14 |
+| Q-K19 | fgsea image vs. M8-17 decision 9 (conda-only) | image | 14 |
 | Q-L1 | sdist contents | `src/`, `workflow/` (without `workflow/tests`), README, LICENSE, NOTICE, CHANGELOG, CITATION, pyproject; **no** tests, docs, validation, scripts, benchmarks | 01 |
 | Q-L2 | Installed-package smoke cannot use `giap run --profile test,stub` (`_PROFILES` rejects `test`/`stub`) | the smoke parses the installed workflow with `nextflow config -profile test,stub` and `-profile farmshare,apptainer`, and asserts `workflow_main()` resolves inside site-packages; no CLI change | 01 |
 | Q-L3 | Retroactive changelog granularity | one fragment per milestone M0–M10 (plus the two existing), written by the docs role from PROGRESS and the indexes | 02 |
@@ -144,3 +156,8 @@ has a reversible default the specs already use. Details are in the issue files.
 | Q-L8 | A `giap` core image on GHCR? | no: the spec asks for per-tool images only (R1) | 06 |
 | Q-L9 | Changelog-fragment check severity | fail for PRs that change `src/` or `workflow/` without a fragment; label `no-changelog` exempts | 12 |
 | Q-L10 | Bioconda `run:` dependencies beyond pyproject | add `nextflow` (bioconda) and `openjdk >=17`; Apptainer/conda left to the user | 10 |
+| Q-L11 | Image cache without `$GIAP_ROOT` | `NXF_APPTAINER_CACHEDIR` → `$GIAP_ROOT/containers` → `<db_dir>/containers` | 14 |
+| Q-L12 | BacTermFinder lock files | resolve on FarmShare in 14b | 14 |
+| Q-L13 | Separate `output_schema_version` from the config's `schema_version` | yes, `1.0` from 1.0.0 | 14 |
+| Q-L14 | Keep the M11-06 `:<sha7>` tags | no (`images.json` `built_from` + OCI label) | 14 |
+| Q-L15 | `NON_STATS_PATHS` and the never list | as in M11-14 item 4 (statistician-reviewed on #367); changes need `stats` review | 14 |

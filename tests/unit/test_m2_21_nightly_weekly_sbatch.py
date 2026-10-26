@@ -156,7 +156,8 @@ def test_nightly_record_mode_runs_record_tools_logic() -> None:
 
 def test_nightly_runs_nf_test_and_reports() -> None:
     code = _code(NIGHTLY)
-    assert re.search(r"nf-test\s+test\s+workflow/tests", code)
+    # the suites of workflow/tests, all of them or found there minus the docker-only ones (M11-14p)
+    assert re.search(r"nf-test\s+test\s+(workflow/tests|\$\(find workflow/tests)", code)
     assert "nightly.tsv" in code, "decision 4: one line per sub-task in local/logs/nightly.tsv"
     assert "post_summary.py" in code
     assert (REPO / "scripts" / "ci" / "post_summary.py").is_file()
