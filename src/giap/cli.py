@@ -853,6 +853,11 @@ def convert(
 @click.argument("runs", nargs=-1, required=True, type=_existing_dir)
 @click.option("--outdir", type=_out_path, required=True, help="Comparison output directory.")
 @click.option("--labels", help="Comma-separated run labels.")
+@click.option(
+    "--allow-cross-major",
+    is_flag=True,
+    help="Compare runs whose output_schema_version majors differ (kept as a warning).",
+)
 @shared_options
 def compare(
     config_file: Path | None,
@@ -861,6 +866,7 @@ def compare(
     runs: tuple[Path, ...],
     outdir: Path,
     labels: str | None,
+    allow_cross_major: bool,
     **_: Any,
 ) -> None:
     """Compare runs on the same genome (CMP/tables/compare_*.tsv, V16, report/compare.html)."""
@@ -869,7 +875,14 @@ def compare(
     from giap.compare.abundance import abundance_pairs
     from giap.compare.detection import detection_matrix, intersections
     from giap.compare.stability import stability
-    from giap.io.compare_io import CompareInputError, load_runs, write_tables
+    from giap.compare.versions import compare_versions, cross_major
+    from giap.io.compare_io import (
+        CompareInputError,
+        load_runs,
+        read_manifests,
+        write_tables,
+        write_version_events,
+    )
     from giap.rng import for_step
 
     cfg = _resolve(config_file, sets, log_level)
@@ -879,6 +892,15 @@ def compare(
         click.echo(f"giap compare: {exc}", err=True)
         sys.exit(ExitCode.INVALID_INPUT)
     labs, genes = loaded.labels, loaded.genes
+    manifests = read_manifests(list(runs), labs)
+    major_error = cross_major(manifests)
+    if major_error is not None and not allow_cross_major:
+        click.echo(major_error, err=True)
+        sys.exit(ExitCode.INVALID_INPUT)
+    versions = compare_versions(manifests)
+    for line in versions:
+        click.echo(line, err=True)
+    write_version_events(outdir, versions)
     matrix = detection_matrix(genes)
     rng = for_step("compare", cfg.seed)
     pairs = []
@@ -892,13 +914,18 @@ def compare(
         "compare_abundance": pd.concat(pairs, ignore_index=True),
         "compare_stability": stability(loaded.views, labs, cfg),
     }
-    for path in [*write_tables(outdir, tables), *_compare_report(outdir, list(runs), loaded,
-                                                                  tables, cfg)]:  # fmt: skip
+    written = write_tables(outdir, tables)
+    for path in [*written, *_compare_report(outdir, list(runs), loaded, tables, cfg, versions)]:
         click.echo(str(path))
 
 
 def _compare_report(
-    cmp: Path, paths: list[Path], loaded: Any, tables: dict[str, Any], cfg: Any
+    cmp: Path,
+    paths: list[Path],
+    loaded: Any,
+    tables: dict[str, Any],
+    cfg: Any,
+    versions: Sequence[str] = (),
 ) -> list[Path]:
     """V16 (``CMP/plots``) and ``CMP/report/compare.html`` (M9-23); returns the paths written."""
     import os
@@ -929,7 +956,7 @@ def _compare_report(
                             genome_digest(path) or "NA", ", ".join(tiers) or "NA"))  # fmt: skip
     page = cmp / "report" / "compare.html"
     page.parent.mkdir(parents=True, exist_ok=True)
-    html = build_compare(runs, read_plot_files(plots).get("V16"), tables, twin)
+    html = build_compare(runs, read_plot_files(plots).get("V16"), tables, twin, versions)
     page.write_text(html, encoding="utf-8")
     return [*written, page]
 

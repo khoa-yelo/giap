@@ -13,6 +13,7 @@ Compare runs on the same genome (CMP/tables/compare_*.tsv, V16, report/compare.h
 | `RUNS` | `DIRECTORY` | required | — | — |
 | `--outdir` | `PATH` | required | — | Comparison output directory. |
 | `--labels` | `TEXT` | — | — | Comma-separated run labels. |
+| `--allow-cross-major` | flag | — | — | Compare runs whose output_schema_version majors differ (kept as a warning). |
 | `--version` | flag | — | — | Show the version and exit. |
 | `--config` | `FILE` | — | — | YAML config file. |
 | `--set` | `KEY=VALUE` | — | — | Override any config key (dotted, repeatable; VALUE is YAML). |

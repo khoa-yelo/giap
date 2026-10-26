@@ -10,6 +10,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -17,7 +18,7 @@ from giap.io.run_view import NotAGiapRun, RunView
 from giap.io.tsv import write_tsv
 
 __all__ = ["CompareInputError", "LoadedRuns", "default_labels", "genome_digest", "load_runs",
-           "write_tables"]  # fmt: skip
+           "read_manifests", "write_tables", "write_version_events"]  # fmt: skip
 
 
 class CompareInputError(ValueError):
@@ -126,3 +127,33 @@ def write_tables(cmp: Path, tables: Mapping[str, pd.DataFrame]) -> list[Path]:
         )
         done.append(path)
     return done
+
+
+def read_manifests(paths: Sequence[Path], labels: Sequence[str]) -> dict[str, dict[str, Any]]:
+    """Run label → its parsed ``run_manifest.json`` (``{}`` when absent or not a JSON object)."""
+    out: dict[str, dict[str, Any]] = {}
+    for lab, path in zip(labels, paths, strict=True):
+        file = path / "run_manifest.json"
+        try:
+            doc = json.loads(file.read_text(encoding="utf-8")) if file.is_file() else {}
+        except (OSError, ValueError):
+            doc = {}
+        out[lab] = doc if isinstance(doc, dict) else {}
+    return out
+
+
+def write_version_events(cmp: Path, lines: Sequence[str]) -> Path:
+    """``CMP/logs/events.jsonl``: one ``WARNING`` record (step ``compare``) per
+    ``compare_versions`` line; the previous file is kept as ``events.previous.jsonl``."""
+    from giap.compare.versions import event_name
+    from giap.io.events import append_event, event_record
+    from giap.io.manifest_sources import rotate_events
+
+    logs = cmp / "logs"
+    rotate_events(logs)
+    logs.mkdir(parents=True, exist_ok=True)
+    (logs / "events.jsonl").touch()
+    for line in lines:
+        data = {"check": "compare_versions", "message": line}
+        append_event(logs, event_record("compare", event_name(line), data, "WARNING"))
+    return logs / "events.jsonl"

@@ -2,10 +2,11 @@
 
 Pure: the run labels, directories (relative to ``CMP/``), genome SHA-256 and detection tiers,
 the V16 plot files, the three ``compare_*`` frames and the optional V16 Plotly twin in, one HTML
-string out. Sections ``runs``, ``detection`` (V16 inlined, the intersection rows), ``abundance``
-(the concordance twin, ``compare_abundance`` with its Bland-Altman columns), ``stability`` and
-``provenance``; the run report's CSS, table script and Plotly embedding (M9-02, M9-14). Every
-link is relative and names a file under ``CMP/``.
+string out. Sections ``compare_versions`` (only when the runs' versions differ, M11-14h),
+``runs``, ``detection`` (V16 inlined, the intersection rows), ``abundance`` (the concordance
+twin, ``compare_abundance`` with its Bland-Altman columns), ``stability`` and ``provenance``;
+the run report's CSS, table script and Plotly embedding (M9-02, M9-14). Every link is relative
+and names a file under ``CMP/``.
 """
 
 from __future__ import annotations
@@ -45,8 +46,10 @@ def build_compare(
     v16: PlotFiles | None,
     tables: Mapping[str, pd.DataFrame],
     twin: Twin | None = None,
+    versions: Sequence[str] = (),
 ) -> str:
-    """The comparison page; deterministic, offline, no absolute path."""
+    """The comparison page; deterministic, offline, no absolute path. ``versions`` are the
+    ``compare_versions`` warning lines (M11-14h), shown in their own section when any."""
     det = tables["compare_detection"]
     inter = det[det["section"] == "intersection"][["intersection", "n_genes"]]
     twins = {} if twin is None or v16 is None else {i.stem: twin for i in v16.instances}
@@ -59,5 +62,5 @@ def build_compare(
         detection=_table("compare_detection", inter, TOP_INTERSECTIONS),
         abundance=_table("compare_abundance", tables["compare_abundance"]),
         stability=_table("compare_stability", tables["compare_stability"]),
-        plotlyjs=plotlyjs, plotly_version=version and version.group(1),
+        plotlyjs=plotlyjs, plotly_version=version and version.group(1), versions=list(versions),
     )  # fmt: skip
