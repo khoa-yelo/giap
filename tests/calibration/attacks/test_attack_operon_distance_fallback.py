@@ -15,8 +15,8 @@ distance_model``) and the classes re-derived by the step's rule (``_operon_gate.
 
 - the M6-09 missed-operon decoy-FDR gate (shipped decoys and the non-vacuous convergent-only arm
   with 100 planted pairs at 10^-3 SD; on ``operon_null``, which plants nothing, the non-vacuous
-  arm is M6-09's ``missed_operon_power``), at every q, R = ``missed_operons``. A planted pair that the
-  distance model links leaves the NO family and the truth list (it is then an OP pair);
+  arm is M6-09's ``missed_operon_power``), at every q, R = ``missed_operons``. A planted pair
+  that the distance model links leaves the NO family and the truth list (it is then an OP pair);
 - the M6-09 discordance checks (pooled level, KS uniformity of one p per replicate, BH family
   FDR), R = ``discordance``. The null is now *pair-level*: a re-derived OP pair that is not a true
   operon pair spans a TU boundary, so a promoter and a terminator lie between its genes
