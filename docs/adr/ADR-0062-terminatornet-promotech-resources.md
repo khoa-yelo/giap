@@ -35,8 +35,11 @@ In `workflow/conf/base.config`:
   8 CPUs 118.5 min (job 1896290) and 107.2 min (job 1895826, pass-3 A2) → 16 CPUs 50.3 min
   (job 1896997, 1,508 % CPU, 0.44 GB RSS). `terminatornet.tsv` is byte-identical (`cmp`) to the
   8-CPU pass-3 A1 output (sha256 3018fa92…).
-- Promotech chunk `windows_005.fa` (100,000 windows): see the PR table (3 CPUs vs the pilot's
-  8; `sequences_predictions.csv` compared with `cmp`).
+- Promotech chunk `windows_005.fa` (100,000 windows), rye-01: 3 CPUs / 10 GB 2.3 min wall,
+  84 % CPU, 7.5 GiB peak RSS (job 1897274) vs 8 CPUs 2.9–3.7 min for the pass-3 A1 chunks on the
+  same node (jobs 1896300, 1896301); `sequences_predictions.csv` byte-identical (`cmp`) to the
+  pass-3 A1 chunk (job 1896305; only Promotech's own `sequences.log.txt` timing lines differ,
+  which GIAP does not read).
 - Effective requests checked with a local-executor Nextflow run of base.config + farmshare.config
   (`--threads 14`): TERMINATORNET 14 CPUs/16 GB/12 h, PROMOTECH 3 CPUs/10 GB/12 h, OSTIR (control)
   8 CPUs/16 GB.
