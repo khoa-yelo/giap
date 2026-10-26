@@ -170,6 +170,19 @@ def test_removed_column_with_a_major_bump_passes(tmp_path: Path) -> None:
     assert out == []
 
 
+@pytest.mark.parametrize(("version", "output"), [("2.0.0", "1.1"), ("1.1.0", "2.0")])
+def test_removed_column_needs_both_majors_bumped(tmp_path: Path, version: str, output: str) -> None:
+    """Bumping only the package major, or only the output-schema major, is not enough."""
+    root = released(tmp_path)
+    out = head(
+        root,
+        version=version,
+        output=output,
+        tables={"genes": GENES[:-1], "islands": ["island_id", "p_value"]},
+    )
+    assert any("genes" in p and "end" in p for p in out), out
+
+
 def test_renamed_column_with_unchanged_major_fails(tmp_path: Path) -> None:
     root = released(tmp_path)
     cols = [*GENES[:-1], "stop"]
